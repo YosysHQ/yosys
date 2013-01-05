@@ -33,6 +33,31 @@ static bool match_ids(RTLIL::IdString id, std::string pattern)
 	return false;
 }
 
+static bool match_attr_val(const RTLIL::Const &value, std::string pattern)
+{
+	if (!fnmatch(pattern.c_str(), value.str.c_str(), FNM_NOESCAPE))
+		return true;
+	return false;
+}
+
+static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes, std::string name_pat, std::string value_pat, bool use_value_pat)
+{
+	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
+		for (auto &it : attributes) {
+			if (!fnmatch(name_pat.c_str(), it.first.c_str(), FNM_NOESCAPE) && (!use_value_pat || match_attr_val(it.second, value_pat)))
+				return true;
+			if (it.first.size() > 0 && it.first[0] == '\\' && !fnmatch(name_pat.c_str(), it.first.substr(1).c_str(), FNM_NOESCAPE) && (!use_value_pat || match_attr_val(it.second, value_pat)))
+				return true;
+		}
+	} else {
+		if (name_pat.size() > 0 && (name_pat[0] == '\\' || name_pat[0] == '$') && attributes.count(name_pat) && (!use_value_pat || match_attr_val(attributes.at(name_pat), value_pat)))
+			return true;
+		if (attributes.count("\\" + name_pat) && (!use_value_pat || match_attr_val(attributes.at("\\" + name_pat), value_pat)))
+			return true;
+	}
+	return false;
+}
+
 static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	if (lhs.full_selection) {
@@ -315,6 +340,28 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		if (arg_memb.substr(0, 2) == "p:") {
 			for (auto &it : mod->processes)
 				if (match_ids(it.first, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(it.first);
+		} else
+		if (arg_memb.substr(0, 2) == "a:") {
+			bool use_value_pat = false;
+			std::string name_pat = arg_memb.substr(2);
+			std::string value_pat;
+			if (name_pat.find('=') != std::string::npos) {
+				value_pat = name_pat.substr(name_pat.find('=')+1);
+				name_pat = name_pat.substr(0, name_pat.find('='));
+				use_value_pat = true;
+			}
+			for (auto &it : mod->wires)
+				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
+					sel.selected_members[mod->name].insert(it.first);
+			for (auto &it : mod->memories)
+				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
+					sel.selected_members[mod->name].insert(it.first);
+			for (auto &it : mod->cells)
+				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
+					sel.selected_members[mod->name].insert(it.first);
+			for (auto &it : mod->processes)
+				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
 					sel.selected_members[mod->name].insert(it.first);
 		} else {
 			if (arg_memb.substr(0, 2) == "n:")
