@@ -283,6 +283,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	fsm_cell->connections["\\CTRL_IN"] = ctrl_in;
 	fsm_cell->connections["\\CTRL_OUT"] = ctrl_out;
 	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name);
+    fsm_cell->attributes = wire->attributes;
 	fsm_data.copy_to_cell(fsm_cell);
 	module->cells[fsm_cell->name] = fsm_cell;
 
