@@ -1,0 +1,11 @@
+hierarchy -check -top openMSP430
+proc
+opt
+memory
+opt
+fsm -fm_set_fsm_file fsm_info.txt
+opt
+techmap
+opt
+abc
+opt

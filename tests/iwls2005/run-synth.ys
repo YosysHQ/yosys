@@ -1,0 +1,11 @@
+hierarchy
+proc
+opt
+memory
+opt
+# fsm -norecode
+# opt
+techmap
+opt
+abc
+opt

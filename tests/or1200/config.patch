@@ -1,0 +1,46 @@
+Index: or1200_defines.v
+===================================================================
+--- or1200_defines.v	(revision 812)
++++ or1200_defines.v	(working copy)
+@@ -56,7 +56,7 @@
+ //
+ //`define OR1200_VERBOSE
+ 
+-//  `define OR1200_ASIC
++`define OR1200_ASIC
+ ////////////////////////////////////////////////////////
+ //
+ // Typical configuration for an ASIC
+@@ -69,7 +69,7 @@
+ //`define OR1200_ARTISAN_SSP
+ //`define OR1200_ARTISAN_SDP
+ //`define OR1200_ARTISAN_STP
+-`define OR1200_VIRTUALSILICON_SSP
++//`define OR1200_VIRTUALSILICON_SSP
+ //`define OR1200_VIRTUALSILICON_STP_T1
+ //`define OR1200_VIRTUALSILICON_STP_T2
+ 
+@@ -96,17 +96,17 @@
+ //
+ // Select between ASIC optimized and generic multiplier
+ //
+-//`define OR1200_ASIC_MULTP2_32X32
+-`define OR1200_GENERIC_MULTP2_32X32
++`define OR1200_ASIC_MULTP2_32X32
++//`define OR1200_GENERIC_MULTP2_32X32
+ 
+ //
+ // Size/type of insn/data cache if implemented
+ //
+-// `define OR1200_IC_1W_512B
++`define OR1200_IC_1W_512B
+ // `define OR1200_IC_1W_4KB
+-`define OR1200_IC_1W_8KB
+-// `define OR1200_DC_1W_4KB
+-`define OR1200_DC_1W_8KB
++// `define OR1200_IC_1W_8KB
++`define OR1200_DC_1W_4KB
++// `define OR1200_DC_1W_8KB
+ 
+ `else
+ 

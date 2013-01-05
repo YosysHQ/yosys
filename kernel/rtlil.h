@@ -1,0 +1,341 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *  
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#ifndef RTLIL_H
+#define RTLIL_H
+
+#include <map>
+#include <set>
+#include <vector>
+#include <string>
+#include <assert.h>
+
+std::string stringf(const char *fmt, ...);
+
+namespace RTLIL
+{
+	enum State {
+		S0 = 0,
+		S1 = 1,
+		Sx = 2, // undefined value or conflict
+		Sz = 3, // high-impedance / not-connected
+		Sa = 4, // don't care (used only in cases)
+		Sm = 5  // marker (used internally by some passes)
+	};
+	enum SyncType {
+		ST0 = 0, // level sensitive: 0
+		ST1 = 1, // level sensitive: 1
+		STp = 2, // edge sensitive: posedge
+		STn = 3, // edge sensitive: negedge
+		STe = 4, // edge sensitive: both edges
+		STa = 5  // always active
+	};
+
+	extern int autoidx;
+
+	struct Const;
+	struct Selection;
+	struct Design;
+	struct Module;
+	struct Wire;
+	struct Memory;
+	struct Cell;
+	struct SigChunk;
+	struct SigSpec;
+	struct CaseRule;
+	struct SwitchRule;
+	struct SyncRule;
+	struct Process;
+
+	typedef std::pair<SigSpec, SigSpec> SigSig;
+
+#ifdef NDEBUG
+	typedef std::string IdString;
+#else
+	struct IdString : public std::string {
+		IdString() { }
+		IdString(std::string str) : std::string(str) {
+			check();
+		}
+		IdString(const char *s) : std::string(s) {
+			check();
+		}
+		IdString &operator=(const std::string &str) {
+			std::string::operator=(str);
+			check();
+			return *this;
+		}
+		IdString &operator=(const char *s) {
+			std::string::operator=(s);
+			check();
+			return *this;
+		}
+		bool operator<(const IdString &rhs) {
+			check(), rhs.check();
+			return std::string(*this) < std::string(rhs);
+		}
+		void check() const {
+			assert(empty() || (size() >= 2 && (at(0) == '$' || at(0) == '\\')));
+		}
+	};
+#endif
+
+	static IdString escape_id(std::string str) __attribute__((unused));
+	static IdString escape_id(std::string str) {
+		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')
+			return "\\" + str;
+		return str;
+	}
+
+	static std::string unescape_id(std::string str) __attribute__((unused));
+	static std::string unescape_id(std::string str) {
+		if (str.size() > 0 && str[0] == '\\')
+			return str.substr(1);
+		return str;
+	}
+
+	static IdString new_id(std::string file, int line, std::string func) __attribute__((unused));
+	static IdString new_id(std::string file, int line, std::string func) {
+		std::string str = "$auto$";
+		size_t pos = file.find_last_of('/');
+		str += pos != std::string::npos ? file.substr(pos+1) : file;
+		str += stringf(":%d:%s$%d", line, func.c_str(), autoidx++);
+		return str;
+	}
+
+#define NEW_ID \
+	RTLIL::new_id(__FILE__, __LINE__, __FUNCTION__)
+
+	// see calc.cc for the implementation of this functions
+	RTLIL::Const const_not         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_and         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_or          (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_xor         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_xnor        (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+
+	RTLIL::Const const_reduce_and  (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_reduce_or   (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_reduce_xor  (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_reduce_xnor (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_reduce_bool (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+
+	RTLIL::Const const_logic_not   (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_logic_and   (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_logic_or    (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+
+	RTLIL::Const const_shl         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_shr         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_sshl        (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_sshr        (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+
+	RTLIL::Const const_lt          (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_le          (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_eq          (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_ne          (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_ge          (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_gt          (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+
+	RTLIL::Const const_add         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_sub         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_mul         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_div         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_mod         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_pow         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+
+	RTLIL::Const const_pos         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_neg         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+};
+
+struct RTLIL::Const {
+	std::string str;
+	std::vector<RTLIL::State> bits;
+	Const(std::string str = std::string());
+	Const(int val, int width = 32);
+	Const(RTLIL::State bit, int width = 1);
+	Const(std::vector<RTLIL::State> bits) : bits(bits) { };
+	bool operator <(const RTLIL::Const &other) const;
+	bool operator ==(const RTLIL::Const &other) const;
+	bool operator !=(const RTLIL::Const &other) const;
+	bool as_bool() const;
+	int as_int() const;
+	std::string as_string() const;
+};
+
+struct RTLIL::Selection {
+	bool full_selection;
+	std::set<RTLIL::IdString> selected_modules;
+	std::map<RTLIL::IdString, std::set<RTLIL::IdString>> selected_members;
+	Selection(bool full = true) : full_selection(full) { }
+	bool selected_module(RTLIL::IdString mod_name);
+	bool selected_whole_module(RTLIL::IdString mod_name);
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name);
+	void optimize(RTLIL::Design *design);
+};
+
+struct RTLIL::Design {
+	std::map<RTLIL::IdString, RTLIL::Module*> modules;
+	std::vector<RTLIL::Selection> selection_stack;
+	std::map<RTLIL::IdString, RTLIL::Selection> selection_vars;
+	std::string selected_active_module;
+	~Design();
+	void check();
+	void optimize();
+	bool selected_module(RTLIL::IdString mod_name);
+	bool selected_whole_module(RTLIL::IdString mod_name);
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name);
+	template<typename T1> bool selected(T1 *module) {
+		return selected_module(module->name);
+	}
+	template<typename T1, typename T2> bool selected(T1 *module, T2 *member) {
+		return selected_member(module->name, member->name);
+	}
+};
+
+struct RTLIL::Module {
+	RTLIL::IdString name;
+	std::map<RTLIL::IdString, RTLIL::Wire*> wires;
+	std::map<RTLIL::IdString, RTLIL::Memory*> memories;
+	std::map<RTLIL::IdString, RTLIL::Cell*> cells;
+	std::map<RTLIL::IdString, RTLIL::Process*> processes;
+	std::vector<RTLIL::SigSig> connections;
+	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	virtual ~Module();
+	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
+	virtual void update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes);
+	virtual size_t count_id(RTLIL::IdString id);
+	virtual void check();
+	virtual void optimize();
+	void add(RTLIL::Wire *wire);
+	void add(RTLIL::Cell *cell);
+};
+
+struct RTLIL::Wire {
+	RTLIL::IdString name;
+	int width, start_offset, port_id;
+	bool port_input, port_output, auto_width;
+	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	Wire();
+};
+
+struct RTLIL::Memory {
+	RTLIL::IdString name;
+	int width, start_offset, size;
+	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	Memory();
+};
+
+struct RTLIL::Cell {
+	RTLIL::IdString name;
+	RTLIL::IdString type;
+	std::map<RTLIL::IdString, RTLIL::SigSpec> connections;
+	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	std::map<RTLIL::IdString, RTLIL::Const> parameters;
+	void optimize();
+};
+
+struct RTLIL::SigChunk {
+	RTLIL::Wire *wire;
+	RTLIL::Const data; // only used if wire == NULL, LSB at index 0
+	int width, offset;
+	SigChunk();
+	SigChunk(const RTLIL::Const &data);
+	SigChunk(RTLIL::Wire *wire, int width, int offset);
+	SigChunk(const std::string &str);
+	SigChunk(int val, int width = 32);
+	SigChunk(RTLIL::State bit, int width = 1);
+	RTLIL::SigChunk extract(int offset, int length) const;
+	bool operator <(const RTLIL::SigChunk &other) const;
+	bool operator ==(const RTLIL::SigChunk &other) const;
+	bool operator !=(const RTLIL::SigChunk &other) const;
+};
+
+struct RTLIL::SigSpec {
+	std::vector<RTLIL::SigChunk> chunks; // LSB at index 0
+	int width;
+	SigSpec();
+	SigSpec(const RTLIL::Const &data);
+	SigSpec(const RTLIL::SigChunk &chunk);
+	SigSpec(RTLIL::Wire *wire, int width = -1, int offset = 0);
+	SigSpec(const std::string &str);
+	SigSpec(int val, int width = 32);
+	SigSpec(RTLIL::State bit, int width = 1);
+	void expand();
+	void optimize();
+	void sort_and_unify();
+	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
+	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const;
+	void remove(const RTLIL::SigSpec &pattern);
+	void remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other) const;
+	void remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other);
+	RTLIL::SigSpec extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *other = NULL) const;
+	void replace(int offset, const RTLIL::SigSpec &with);
+	void remove_const();
+	void remove(int offset, int length);
+	RTLIL::SigSpec extract(int offset, int length) const;
+	void append(const RTLIL::SigSpec &signal);
+	bool combine(RTLIL::SigSpec signal, RTLIL::State freeState = RTLIL::State::Sz, bool override = false);
+	void extend(int width, bool is_signed = false);
+	void check() const;
+	bool operator <(const RTLIL::SigSpec &other) const;
+	bool operator ==(const RTLIL::SigSpec &other) const;
+	bool operator !=(const RTLIL::SigSpec &other) const;
+	bool is_fully_const() const;
+	bool is_fully_def() const;
+	bool is_fully_undef() const;
+	bool has_marked_bits() const;
+	bool as_bool() const;
+	int as_int() const;
+	std::string as_string() const;
+	RTLIL::Const as_const() const;
+	bool match(std::string pattern) const;
+};
+
+struct RTLIL::CaseRule {
+	std::vector<RTLIL::SigSpec> compare;
+	std::vector<RTLIL::SigSig> actions;
+	std::vector<RTLIL::SwitchRule*> switches;
+	~CaseRule();
+	void optimize();
+};
+
+struct RTLIL::SwitchRule {
+	RTLIL::SigSpec signal;
+	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	std::vector<RTLIL::CaseRule*> cases;
+	~SwitchRule();
+	void optimize();
+};
+
+struct RTLIL::SyncRule {
+	RTLIL::SyncType type;
+	RTLIL::SigSpec signal;
+	std::vector<RTLIL::SigSig> actions;
+	void optimize();
+};
+
+struct RTLIL::Process {
+	RTLIL::IdString name;
+	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	RTLIL::CaseRule root_case;
+	std::vector<RTLIL::SyncRule*> syncs;
+	~Process();
+	void optimize();
+};
+
+#endif

@@ -1,0 +1,97 @@
+
+yosys -- Yosys Open SYnthesis Suite
+===================================
+
+This is a framework for RTL synthesis tools. It is highly
+experimental and under construction. The goal for now is
+to implement an extensible Verilog-2005 synthesis tool.
+
+The aim of this tool is to generate valid logic netlists
+from HDL designs in a manner that allows for easy addition
+of extra synthesis passes. This tool does not aim at generating
+efficient logic netlists. This can be done by passing the
+output of Yosys to a low-level synthesis tool such as ABC.
+
+Yosys is free software licensed under the ISC license (a GPL
+compatible licence that is similar in terms to the MIT license
+or the 2-clause BSD license).
+
+
+Unsupported Verilog-2005 Features
+=================================
+
+The following Verilog-2005 features are not supported by
+yosys and there are currently no plans to add support
+for them:
+
+- Non-sythesizable language features as defined in
+	IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002
+
+- The "tri", "triand", "trior", "wand" and "wor" net types
+
+- The "library" and "configuration" source file formats 
+
+- The "disable" and "primitive" statements
+
+- Latched logic (is synthesized as logic with feedback loops)
+
+
+Verilog Attributes and non-standard features
+============================================
+
+- The 'full_case' attribute on case statements is supported
+  (also the non-standard "// synopsys full_case" directive)
+
+- The "// synopsys translate_off" and "// synopsys translate_on"
+  directives are also supported (but the use of `ifdef .. `endif
+  is strongly recommended instead).
+
+- The "nomem2reg" attribute on modules or arrays prohibits the
+  automatic early conversion of arrays to seperate registers.
+
+- The "nolatches" attribute on modules or always-blocks
+  prohibits the generation of logic-loops for latches. Instead
+  all not explicitly assigned values default to x-bits.
+
+- In addition to the (* ... *) attribute syntax, yosys supports
+  the non-standard {* ... *} attribute syntax to set default attributes
+  for everything that comes after the {* ... *} statement. (Reset
+  by adding an empty {* *} statement.) The preprocessor define
+  __YOSYS_ENABLE_DEFATTR__ must be set in order for this featre to be active.
+
+
+TODOs / Open Bugs
+=================
+
+- Write "design and implementation of.." document
+
+- Add brief sourcecode documentation to:
+
+   - Most passes and kernel functionalities
+
+- Implement missing Verilog 2005 features:
+
+  - Signed constants
+  - ROM modelling using "initial" blocks
+  - Builtin primitive gates (and, nand, cmos, nmos, pmos, etc..)
+  - Ignore what needs to be ignored (e.g. drive and charge strenghts)
+  - Check standard vs. implementation to identify missing features
+
+- Actually use range information on parameters
+
+- Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
+
+- TCL and Python interfaces to frontends, passes, backends and RTLIL
+
+- Additional internal cell types: $bitcount, $pla, $lut and $pmux
+
+- Subsystem for selecting stuff (and limiting scope of passes)
+
+- Support for registering designs (as collection of modules) to CellTypes
+
+- Kernel support for collections of cells (from input/output cones, etc)
+
+- Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
+
+- FSM state encoding and technology mapping
+

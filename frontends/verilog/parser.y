@@ -1,0 +1,1074 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *  
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ *  ---
+ *
+ *  The Verilog frontend.
+ *
+ *  This frontend is using the AST frontend library (see frontends/ast/).
+ *  Thus this frontend does not generate RTLIL code directly but creates an
+ *  AST directly from the Verilog parse tree and then passes this AST to
+ *  the AST frontend library.
+ *
+ *  ---
+ *
+ *  This is the actual bison parser for Verilog code. The AST ist created directly
+ *  from the bison reduce functions here. Note that this code uses a few global
+ *  variables to hold the state of the AST generator and therefore this parser is
+ *  not reentrant.
+ *
+ */
+
+%{
+#include <list>
+#include <assert.h>
+#include "verilog_frontend.h"
+#include "kernel/log.h"
+
+using namespace AST;
+using namespace VERILOG_FRONTEND;
+
+namespace VERILOG_FRONTEND {
+	int port_counter;
+	std::map<std::string, int> port_stubs;
+	std::map<std::string, AstNode*> attr_list, default_attr_list;
+	std::map<std::string, AstNode*> *albuf;
+	std::vector<AstNode*> ast_stack;
+	struct AstNode *astbuf1, *astbuf2, *astbuf3;
+	struct AstNode *current_function_or_task;
+	struct AstNode *current_ast, *current_ast_mod;
+	int current_function_or_task_port_id;
+	std::vector<char> case_type_stack;
+}
+
+static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
+{
+	for (auto &it : *al) {
+		if (ast->attributes.count(it.first) > 0)
+			delete ast->attributes[it.first];
+		ast->attributes[it.first] = it.second;
+	}
+	delete al;
+}
+
+static void append_attr_clone(AstNode *ast, std::map<std::string, AstNode*> *al)
+{
+	for (auto &it : *al) {
+		if (ast->attributes.count(it.first) > 0)
+			delete ast->attributes[it.first];
+		ast->attributes[it.first] = it.second->clone();
+	}
+}
+
+static void free_attr(std::map<std::string, AstNode*> *al)
+{
+	for (auto &it : *al)
+		delete it.second;
+	delete al;
+}
+
+%}
+
+%name-prefix="frontend_verilog_yy"
+
+%union {
+	std::string *string;
+	struct AstNode *ast;
+	std::map<std::string, AstNode*> *al;
+	bool boolean;
+}
+
+%token <string> TOK_STRING TOK_ID TOK_CONST TOK_PRIMITIVE
+%token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
+%token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM
+%token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
+%token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
+%token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR
+%token TOK_POSEDGE TOK_NEGEDGE TOK_OR
+%token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
+%token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK
+%token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR
+%token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
+%token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
+
+%type <ast> wire_type range expr basic_expr concat_list lvalue lvalue_concat_list
+%type <string> opt_label tok_prim_wrapper
+%type <boolean> opt_signed
+%type <al> attr
+
+// operator precedence from low to high
+%left OP_LOR
+%left OP_LAND
+%left '|'
+%left '^' OP_XNOR
+%left '&'
+%left OP_EQ OP_NE
+%left '<' OP_LE OP_GE '>'
+%left OP_SHL OP_SHR OP_SSHL OP_SSHR
+%left '+' '-'
+%left '*' '/' '%'
+%left OP_POW
+%right UNARY_OPS
+
+%expect 2
+%debug
+
+%%
+
+input:
+	module input |
+	defattr input |
+	/* empty */ {
+		for (auto &it : default_attr_list)
+			delete it.second;
+		default_attr_list.clear();
+	};
+
+attr:
+	{
+		for (auto &it : attr_list)
+			delete it.second;
+		attr_list.clear();
+		for (auto &it : default_attr_list)
+			attr_list[it.first] = it.second->clone();
+	} attr_opt {
+		std::map<std::string, AstNode*> *al = new std::map<std::string, AstNode*>;
+		al->swap(attr_list);
+		$$ = al;
+	};
+
+attr_opt:
+	attr_opt ATTR_BEGIN opt_attr_list ATTR_END |
+	/* empty */;
+
+defattr:
+	DEFATTR_BEGIN {
+		for (auto &it : default_attr_list)
+			delete it.second;
+		default_attr_list.clear();
+		for (auto &it : attr_list)
+			delete it.second;
+		attr_list.clear();
+	} opt_attr_list {
+		default_attr_list = attr_list;
+		attr_list.clear();
+	} DEFATTR_END;
+
+opt_attr_list:
+	attr_list | /* empty */;
+
+attr_list:
+	attr_assign |
+	attr_list ',' attr_assign;
+
+attr_assign:
+	TOK_ID {
+		if (attr_list.count(*$1) != 0)
+			delete attr_list[*$1];
+		attr_list[*$1] = AstNode::mkconst_int(0, false, 0);
+		delete $1;
+	} |
+	TOK_ID '=' expr {
+		if (attr_list.count(*$1) != 0)
+			delete attr_list[*$1];
+		attr_list[*$1] = $3;
+		delete $1;
+	};
+
+module:
+	attr TOK_MODULE TOK_ID {
+		AstNode *mod = new AstNode(AST_MODULE);
+		current_ast->children.push_back(mod);
+		current_ast_mod = mod;
+		ast_stack.push_back(mod);
+		port_stubs.clear();
+		port_counter = 0;
+		mod->str = *$3;
+		append_attr(mod, $1);
+		delete $3;
+	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE {
+		if (port_stubs.size() != 0)
+			frontend_verilog_yyerror("Missing details for module port `%s'.",
+					port_stubs.begin()->first.c_str());
+		ast_stack.pop_back();
+		assert(ast_stack.size() == 0);
+	};
+
+module_para_opt:
+	'#' '(' TOK_PARAMETER param_decl_list optional_comma ')' | /* empty */;
+
+module_args_opt:
+	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
+
+module_args:
+	module_arg | module_args ',' module_arg;
+
+optional_comma:
+	',' | /* empty */;
+
+module_arg:
+	TOK_ID range {
+		if (port_stubs.count(*$1) != 0)
+			frontend_verilog_yyerror("Duplicate module port `%s'.", $1->c_str());
+		port_stubs[*$1] = ++port_counter;
+		if ($2 != NULL)
+			delete $2;
+		delete $1;
+	} |
+	attr wire_type range TOK_ID {
+		AstNode *node = $2;
+		node->str = *$4;
+		node->port_id = ++port_counter;
+		if ($3 != NULL)
+			node->children.push_back($3);
+		if (!node->is_input && !node->is_output)
+			frontend_verilog_yyerror("Module port `%s' is neither input nor output.", $4->c_str());
+		if (node->is_reg && node->is_input && !node->is_output)
+			frontend_verilog_yyerror("Input port `%s' is declared as register.", $4->c_str());
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+		delete $4;
+	};
+
+wire_type:
+	{
+		astbuf3 = new AstNode(AST_WIRE);
+	} wire_type_token_list {
+		$$ = astbuf3;
+	};
+
+wire_type_token_list:
+	wire_type_token | wire_type_token_list wire_type_token;
+
+wire_type_token:
+	TOK_INPUT {
+		astbuf3->is_input = true;
+	} |
+	TOK_OUTPUT {
+		astbuf3->is_output = true;
+	} |
+	TOK_INOUT {
+		astbuf3->is_input = true;
+		astbuf3->is_output = true;
+	} |
+	TOK_WIRE {
+	} |
+	TOK_REG {
+		astbuf3->is_reg = true;
+	} |
+	TOK_INTEGER {
+		astbuf3->is_reg = true;
+		astbuf3->range_left = 31;
+		astbuf3->range_right = 0;
+	} |
+	TOK_GENVAR {
+		astbuf3->type = AST_GENVAR;
+		astbuf3->is_reg = true;
+		astbuf3->range_left = 31;
+		astbuf3->range_right = 0;
+	} |
+	TOK_SIGNED {
+		astbuf3->is_signed = true;
+	};
+
+range:
+	'[' expr ':' expr ']' {
+		$$ = new AstNode(AST_RANGE);
+		$$->children.push_back($2);
+		$$->children.push_back($4);
+	} |
+	'[' expr ']' {
+		$$ = new AstNode(AST_RANGE);
+		$$->children.push_back($2);
+	} |
+	/* empty */ {
+		$$ = NULL;
+	};
+
+module_body:
+	module_body module_body_stmt |
+	/* empty */;
+
+module_body_stmt:
+	task_func_decl | param_decl | localparam_decl | wire_decl | assign_stmt | cell_stmt |
+	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr;
+
+task_func_decl:
+	TOK_TASK TOK_ID ';' {
+		current_function_or_task = new AstNode(AST_TASK);
+		current_function_or_task->str = *$2;
+		ast_stack.back()->children.push_back(current_function_or_task);
+		ast_stack.push_back(current_function_or_task);
+		current_function_or_task_port_id = 1;
+		delete $2;
+	} task_func_body TOK_ENDTASK {
+		current_function_or_task = NULL;
+		ast_stack.pop_back();
+	} |
+	TOK_FUNCTION opt_signed range TOK_ID ';' {
+		current_function_or_task = new AstNode(AST_FUNCTION);
+		current_function_or_task->str = *$4;
+		ast_stack.back()->children.push_back(current_function_or_task);
+		ast_stack.push_back(current_function_or_task);
+		AstNode *outreg = new AstNode(AST_WIRE);
+		if ($3 != NULL)
+			outreg->children.push_back($3);
+		outreg->str = *$4;
+		outreg->is_signed = $2;
+		current_function_or_task->children.push_back(outreg);
+		current_function_or_task_port_id = 1;
+		delete $4;
+	} task_func_body TOK_ENDFUNCTION {
+		current_function_or_task = NULL;
+		ast_stack.pop_back();
+	};
+
+opt_signed:
+	TOK_SIGNED {
+		$$ = true;
+	} |
+	/* empty */ {
+		$$ = false;
+	};
+
+task_func_body:
+	task_func_body wire_decl |
+	task_func_body behavioral_stmt |
+	/* empty */;
+
+param_decl:
+	TOK_PARAMETER param_decl_list ';';
+
+param_decl_list:
+	single_param_decl | param_decl_list ',' single_param_decl;
+
+single_param_decl:
+	range TOK_ID '=' expr {
+		AstNode *node = new AstNode(AST_PARAMETER);
+		node->str = *$2;
+		node->children.push_back($4);
+		if ($1 != NULL)
+			node->children.push_back($1);
+		ast_stack.back()->children.push_back(node);
+		delete $2;
+	};
+
+localparam_decl:
+	TOK_LOCALPARAM localparam_decl_list ';';
+
+localparam_decl_list:
+	single_localparam_decl | localparam_decl_list ',' single_localparam_decl;
+
+single_localparam_decl:
+	range TOK_ID '=' expr {
+		AstNode *node = new AstNode(AST_LOCALPARAM);
+		node->str = *$2;
+		node->children.push_back($4);
+		if ($1 != NULL)
+			node->children.push_back($1);
+		ast_stack.back()->children.push_back(node);
+		delete $2;
+	};
+
+wire_decl:
+	attr wire_type range {
+		albuf = $1;
+		astbuf1 = $2;
+		astbuf2 = $3;
+		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
+			if (astbuf2) {
+				frontend_verilog_yyerror("Syntax error.");
+			} else {
+				astbuf2 = new AstNode(AST_RANGE);
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
+			}
+		}
+		if (astbuf2 && astbuf2->children.size() != 2)
+			frontend_verilog_yyerror("Syntax error.");
+	} wire_name_list ';' {
+		delete astbuf1;
+		if (astbuf2 != NULL)
+			delete astbuf2;
+		free_attr(albuf);
+	} |
+	attr TOK_SUPPLY0 TOK_ID ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_WIRE));
+		ast_stack.back()->children.back()->str = *$3;
+		append_attr(ast_stack.back()->children.back(), $1);
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)));
+		ast_stack.back()->children.back()->children[0]->str = *$3;
+		delete $3;
+	} |
+	attr TOK_SUPPLY1 TOK_ID ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_WIRE));
+		ast_stack.back()->children.back()->str = *$3;
+		append_attr(ast_stack.back()->children.back(), $1);
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(1, false, 1)));
+		ast_stack.back()->children.back()->children[0]->str = *$3;
+		delete $3;
+	};
+
+wire_name_list:
+	wire_name_and_opt_assign | wire_name_list ',' wire_name_and_opt_assign;
+
+wire_name_and_opt_assign:
+	wire_name |
+	wire_name '=' expr {
+		if (!astbuf1->is_reg) {
+			AstNode *wire = new AstNode(AST_IDENTIFIER);
+			wire->str = ast_stack.back()->children.back()->str;
+			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $3));
+		}
+	};
+
+wire_name:
+	TOK_ID range {
+		AstNode *node = astbuf1->clone();
+		node->str = *$1;
+		append_attr_clone(node, albuf);
+		if (astbuf2 != NULL)
+			node->children.push_back(astbuf2->clone());
+		if ($2 != NULL) {
+			if (node->is_input || node->is_output)
+				frontend_verilog_yyerror("Syntax error.");
+			if (!astbuf2) {
+				AstNode *rng = new AstNode(AST_RANGE);
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				rng->children.push_back(AstNode::mkconst_int(0, true));
+				node->children.push_back(rng);
+			}
+			node->type = AST_MEMORY;
+			node->children.push_back($2);
+		}
+		if (current_function_or_task == NULL) {
+			if (port_stubs.count(*$1) != 0) {
+				if (!node->is_input && !node->is_output)
+					frontend_verilog_yyerror("Module port `%s' is neither input nor output.", $1->c_str());
+				if (node->is_reg && node->is_input && !node->is_output)
+					frontend_verilog_yyerror("Input port `%s' is declared as register.", $1->c_str());
+				node->port_id = port_stubs[*$1];
+				port_stubs.erase(*$1);
+			} else {
+				if (node->is_input || node->is_output)
+					frontend_verilog_yyerror("Module port `%s' is not declared in module header.", $1->c_str());
+			}
+			ast_stack.back()->children.push_back(node);
+		} else {
+			if (node->is_input || node->is_output)
+				node->port_id = current_function_or_task_port_id++;
+			current_function_or_task->children.push_back(node);
+		}
+		delete $1;
+	};
+
+assign_stmt:
+	TOK_ASSIGN assign_expr_list ';';
+
+assign_expr_list:
+	assign_expr | assign_expr_list ',' assign_expr;
+
+assign_expr:
+	expr '=' expr {
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, $1, $3));
+	};
+
+cell_stmt:
+	attr TOK_ID {
+		astbuf1 = new AstNode(AST_CELL);
+		append_attr(astbuf1, $1);
+		astbuf1->children.push_back(new AstNode(AST_CELLTYPE));
+		astbuf1->children[0]->str = *$2;
+		delete $2;
+	} cell_parameter_list_opt cell_list ';' {
+		delete astbuf1;
+	} |
+	attr tok_prim_wrapper {
+		astbuf1 = new AstNode(AST_PRIMITIVE);
+		astbuf1->str = *$2;
+		append_attr(astbuf1, $1);
+		delete $2;
+	} prim_list ';' {
+		delete astbuf1;
+	};
+
+tok_prim_wrapper:
+	TOK_PRIMITIVE {
+		$$ = $1;
+	} |
+	TOK_OR {
+		$$ = new std::string("or");
+	};
+
+cell_list:
+	single_cell |
+	cell_list ',' single_cell;
+
+single_cell:
+	TOK_ID {
+		astbuf2 = astbuf1->clone();
+		if (astbuf2->type != AST_PRIMITIVE)
+			astbuf2->str = *$1;
+		delete $1;
+		ast_stack.back()->children.push_back(astbuf2);
+	} '(' cell_port_list ')';
+
+prim_list:
+	single_prim |
+	prim_list ',' single_prim;
+
+single_prim:
+	single_cell |
+	/* no name */ {
+		astbuf2 = astbuf1->clone();
+		ast_stack.back()->children.push_back(astbuf2);
+	} '(' cell_port_list ')';
+
+cell_parameter_list_opt:
+	'#' '(' cell_parameter_list ')' | /* empty */;
+
+cell_parameter_list:
+	/* empty */ | cell_parameter |
+	cell_parameter ',' cell_parameter_list;
+
+cell_parameter:
+	expr {
+		AstNode *node = new AstNode(AST_PARASET);
+		astbuf1->children.push_back(node);
+		node->children.push_back($1);
+	} |
+	'.' TOK_ID '(' expr ')' {
+		AstNode *node = new AstNode(AST_PARASET);
+		node->str = *$2;
+		astbuf1->children.push_back(node);
+		node->children.push_back($4);
+		delete $2;
+	};
+
+cell_port_list:
+	/* empty */ | cell_port |
+	cell_port ',' cell_port_list |
+	/* empty */ ',' {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		astbuf2->children.push_back(node);
+	} cell_port_list;
+
+cell_port:
+	expr {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		astbuf2->children.push_back(node);
+		node->children.push_back($1);
+	} |
+	'.' TOK_ID '(' expr ')' {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		node->str = *$2;
+		astbuf2->children.push_back(node);
+		node->children.push_back($4);
+		delete $2;
+	} |
+	'.' TOK_ID '(' ')' {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		node->str = *$2;
+		astbuf2->children.push_back(node);
+		delete $2;
+	};
+
+always_stmt:
+	attr TOK_ALWAYS {
+		AstNode *node = new AstNode(AST_ALWAYS);
+		append_attr(node, $1);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} always_cond {
+		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} behavioral_stmt {
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	} |
+	attr TOK_INITIAL {
+		AstNode *node = new AstNode(AST_ALWAYS);
+		append_attr(node, $1);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} behavioral_stmt {
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	};
+
+always_cond:
+	'@' '(' always_events ')' |
+	'@' '*' |
+	/* empty */;
+
+always_events:
+	always_event |
+	always_events TOK_OR always_event |
+	always_events ',' always_event;
+
+always_event:
+	TOK_POSEDGE expr {
+		AstNode *node = new AstNode(AST_POSEDGE);
+		ast_stack.back()->children.push_back(node);
+		node->children.push_back($2);
+	} |
+	TOK_NEGEDGE expr {
+		AstNode *node = new AstNode(AST_NEGEDGE);
+		ast_stack.back()->children.push_back(node);
+		node->children.push_back($2);
+	} |
+	expr {
+		AstNode *node = new AstNode(AST_EDGE);
+		ast_stack.back()->children.push_back(node);
+		node->children.push_back($1);
+	};
+
+opt_label:
+	':' TOK_ID {
+		$$ = $2;
+	} |
+	/* empty */ {
+		$$ = NULL;
+	};
+
+simple_behavioral_stmt:
+	lvalue '=' expr {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $3);
+		ast_stack.back()->children.push_back(node);
+	} |
+	lvalue OP_LE expr {
+		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $3);
+		ast_stack.back()->children.push_back(node);
+	};
+
+// this production creates the obligatory if-else shift/reduce conflict
+behavioral_stmt:
+	defattr |
+	simple_behavioral_stmt ';' |
+	TOK_ID attr {
+		AstNode *node = new AstNode(AST_TCALL);
+		node->str = *$1;
+		delete $1;
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		append_attr(node, $2);
+	} opt_arg_list ';'{
+		ast_stack.pop_back();
+	} |
+	attr TOK_BEGIN opt_label {
+		AstNode *node = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		append_attr(node, $1);
+	} behavioral_stmt_list TOK_END opt_label {
+		if ($3 != NULL)
+			delete $3;
+		if ($7 != NULL)
+			delete $7;
+		ast_stack.pop_back();
+	} |
+	attr TOK_FOR '(' {
+		AstNode *node = new AstNode(AST_FOR);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		append_attr(node, $1);
+	} simple_behavioral_stmt ';' expr {
+		ast_stack.back()->children.push_back($7);
+	} ';' simple_behavioral_stmt ')' {
+		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} behavioral_stmt {
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	} |
+	attr TOK_IF '(' expr ')' {
+		AstNode *node = new AstNode(AST_CASE);
+		AstNode *block = new AstNode(AST_BLOCK);
+		AstNode *cond = new AstNode(AST_COND, AstNode::mkconst_int(1, false, 1), block);
+		ast_stack.back()->children.push_back(node);
+		node->children.push_back(new AstNode(AST_REDUCE_BOOL, $4));
+		node->children.push_back(cond);
+		ast_stack.push_back(node);
+		ast_stack.push_back(block);
+		append_attr(node, $1);
+	} behavioral_stmt optional_else {
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	} |
+	attr case_type '(' expr ')' {
+		AstNode *node = new AstNode(AST_CASE, $4);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		append_attr(node, $1);
+	} opt_synopsys_attr case_body TOK_ENDCASE {
+		case_type_stack.pop_back();
+		ast_stack.pop_back();
+	};
+
+case_type:
+	TOK_CASE { 
+		case_type_stack.push_back(0);
+	} |
+	TOK_CASEX { 
+		case_type_stack.push_back('x');
+	} |
+	TOK_CASEZ { 
+		case_type_stack.push_back('z');
+	};
+
+opt_synopsys_attr:
+	opt_synopsys_attr TOK_SYNOPSYS_FULL_CASE {
+		if (ast_stack.back()->attributes.count("\\full_case") == 0)
+			ast_stack.back()->attributes["\\full_case"] = AstNode::mkconst_int(0, false, 0);
+	} |
+	opt_synopsys_attr TOK_SYNOPSYS_PARALLEL_CASE {
+		if (ast_stack.back()->attributes.count("\\parallel_case") == 0)
+			ast_stack.back()->attributes["\\parallel_case"] = AstNode::mkconst_int(0, false, 0);
+	} |
+	/* empty */;
+
+behavioral_stmt_opt:
+	behavioral_stmt |
+	';' ;
+
+behavioral_stmt_list:
+	behavioral_stmt_list behavioral_stmt |
+	/* empty */;
+
+optional_else:
+	TOK_ELSE {
+		AstNode *block = new AstNode(AST_BLOCK);
+		AstNode *cond = new AstNode(AST_COND, new AstNode(AST_DEFAULT), block);
+		ast_stack.pop_back();
+		ast_stack.back()->children.push_back(cond);
+		ast_stack.push_back(block);
+	} behavioral_stmt |
+	/* empty */;
+
+case_body:
+	case_body case_item |
+	/* empty */;
+
+case_item:
+	{
+		AstNode *node = new AstNode(AST_COND);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} case_select {
+		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+		case_type_stack.push_back(0);
+	} behavioral_stmt_opt {
+		case_type_stack.pop_back();
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	};
+
+case_select:
+	case_expr_list ':' |
+	TOK_DEFAULT;
+
+case_expr_list:
+	TOK_DEFAULT {
+		ast_stack.back()->children.push_back(new AstNode(AST_DEFAULT));
+	} |
+	expr {
+		ast_stack.back()->children.push_back($1);
+	} |
+	case_expr_list ',' expr {
+		ast_stack.back()->children.push_back($3);
+	};
+
+lvalue:
+	TOK_ID range {
+		$$ = new AstNode(AST_IDENTIFIER);
+		$$->str = *$1;
+		if ($2)
+			$$->children.push_back($2);
+		delete $1;
+	} |
+	'{' lvalue_concat_list '}' {
+		$$ = $2;
+	};
+
+lvalue_concat_list:
+	expr {
+		$$ = new AstNode(AST_CONCAT);
+		$$->children.push_back($1);
+	} |
+	expr ',' lvalue_concat_list {
+		$$ = $3;
+		$$->children.push_back($1);
+	};
+
+opt_arg_list:
+	'(' arg_list optional_comma ')' |
+	/* empty */;
+
+arg_list:
+	arg_list2 |
+	/* empty */;
+
+arg_list2:
+	single_arg |
+	arg_list ',' single_arg;
+
+single_arg:
+	expr {
+		ast_stack.back()->children.push_back($1);
+	};
+
+module_gen_body:
+	module_gen_body gen_stmt |
+	module_gen_body module_body_stmt |
+	/* empty */;
+
+// this production creates the obligatory if-else shift/reduce conflict
+gen_stmt:
+	TOK_FOR '(' {
+		AstNode *node = new AstNode(AST_GENFOR);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} simple_behavioral_stmt ';' expr {
+		ast_stack.back()->children.push_back($6);
+	} ';' simple_behavioral_stmt ')' gen_stmt {
+		ast_stack.pop_back();
+	} |
+	TOK_IF '(' expr ')' {
+		AstNode *node = new AstNode(AST_GENIF);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		ast_stack.back()->children.push_back($3);
+	} gen_stmt opt_gen_else {
+		ast_stack.pop_back();
+	} |
+	TOK_BEGIN opt_label {
+		AstNode *node = new AstNode(AST_GENBLOCK);
+		node->str = $2 ? *$2 : std::string();
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} module_gen_body TOK_END opt_label {
+		if ($2 != NULL)
+			delete $2;
+		if ($6 != NULL)
+			delete $6;
+		ast_stack.pop_back();
+	};
+
+opt_gen_else:
+	TOK_ELSE gen_stmt | /* empty */;
+
+expr:
+	basic_expr {
+		$$ = $1;
+	} |
+	basic_expr '?' attr expr ':' expr {
+		$$ = new AstNode(AST_TERNARY);
+		$$->children.push_back($1);
+		$$->children.push_back($4);
+		$$->children.push_back($6);
+		append_attr($$, $3);
+	};
+
+basic_expr:
+	TOK_CONST {
+		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
+		delete $1;
+	} |
+	TOK_STRING {
+		std::string str = *$1;
+		std::vector<RTLIL::State> data;
+		data.reserve(str.size() * 8);
+		for (size_t i = 0; i < str.size(); i++) {
+			unsigned char ch = str[str.size() - i - 1];
+			for (int j = 0; j < 8; j++) {
+				data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
+				ch = ch >> 1;
+			}
+		}
+		$$ = AstNode::mkconst_bits(data, false);
+		$$->str = str;
+		delete $1;
+	} |
+	TOK_ID range {
+		$$ = new AstNode(AST_IDENTIFIER, $2);
+		$$->str = *$1;
+		delete $1;
+	} |
+	TOK_ID attr {
+		AstNode *node = new AstNode(AST_FCALL);
+		node->str = *$1;
+		delete $1;
+		ast_stack.push_back(node);
+		append_attr(node, $2);
+	} '(' arg_list optional_comma ')' {
+		$$ = ast_stack.back();
+		ast_stack.pop_back();
+	} |
+	TOK_TO_SIGNED attr '(' expr ')' {
+		$$ = new AstNode(AST_TO_SIGNED, $4);
+		append_attr($$, $2);
+	} |
+	TOK_TO_UNSIGNED attr '(' expr ')' {
+		$$ = new AstNode(AST_TO_UNSIGNED, $4);
+		append_attr($$, $2);
+	} |
+	'(' expr ')' {
+		$$ = $2;
+	} |
+	'{' concat_list '}' {
+		$$ = $2;
+	} |
+	'{' expr '{' expr '}' '}' {
+		$$ = new AstNode(AST_REPLICATE, $2, $4);
+	} |
+	'~' attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_BIT_NOT, $3);
+		append_attr($$, $2);
+	} |
+	basic_expr '&' attr basic_expr {
+		$$ = new AstNode(AST_BIT_AND, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '|' attr basic_expr {
+		$$ = new AstNode(AST_BIT_OR, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '^' attr basic_expr {
+		$$ = new AstNode(AST_BIT_XOR, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_XNOR attr basic_expr {
+		$$ = new AstNode(AST_BIT_XNOR, $1, $4);
+		append_attr($$, $3);
+	} |
+	'&' attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_REDUCE_AND, $3);
+		append_attr($$, $2);
+	} |
+	'|' attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_REDUCE_OR, $3);
+		append_attr($$, $2);
+	} |
+	'^' attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_REDUCE_XOR, $3);
+		append_attr($$, $2);
+	} |
+	OP_XNOR attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_REDUCE_XNOR, $3);
+		append_attr($$, $2);
+	} |
+	basic_expr OP_SHL attr basic_expr {
+		$$ = new AstNode(AST_SHIFT_LEFT, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_SHR attr basic_expr {
+		$$ = new AstNode(AST_SHIFT_RIGHT, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_SSHL attr basic_expr {
+		$$ = new AstNode(AST_SHIFT_SLEFT, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_SSHR attr basic_expr {
+		$$ = new AstNode(AST_SHIFT_SRIGHT, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '<' attr basic_expr {
+		$$ = new AstNode(AST_LT, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_LE attr basic_expr {
+		$$ = new AstNode(AST_LE, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_EQ attr basic_expr {
+		$$ = new AstNode(AST_EQ, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_NE attr basic_expr {
+		$$ = new AstNode(AST_NE, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_GE attr basic_expr {
+		$$ = new AstNode(AST_GE, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '>' attr basic_expr {
+		$$ = new AstNode(AST_GT, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '+' attr basic_expr {
+		$$ = new AstNode(AST_ADD, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '-' attr basic_expr {
+		$$ = new AstNode(AST_SUB, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '*' attr basic_expr {
+		$$ = new AstNode(AST_MUL, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '/' attr basic_expr {
+		$$ = new AstNode(AST_DIV, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr '%' attr basic_expr {
+		$$ = new AstNode(AST_MOD, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_POW attr basic_expr {
+		$$ = new AstNode(AST_POW, $1, $4);
+		append_attr($$, $3);
+	} |
+	'+' attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_POS, $3);
+		append_attr($$, $2);
+	} |
+	'-' attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_NEG, $3);
+		append_attr($$, $2);
+	} |
+	basic_expr OP_LAND attr basic_expr {
+		$$ = new AstNode(AST_LOGIC_AND, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_LOR attr basic_expr {
+		$$ = new AstNode(AST_LOGIC_OR, $1, $4);
+		append_attr($$, $3);
+	} |
+	'!' attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_LOGIC_NOT, $3);
+		append_attr($$, $2);
+	};
+
+concat_list:
+	expr {
+		$$ = new AstNode(AST_CONCAT, $1);
+	} |
+	expr ',' concat_list {
+		$$ = $3;
+		$$->children.push_back($1);
+	};
+

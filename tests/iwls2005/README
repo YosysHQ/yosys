@@ -1,0 +1,7 @@
+
+A collection of smaller rtl examples from the IWLS 2005 benchmark [1].
+We have no testbenches for these but we can check if we can
+parse and synthesize them.
+
+[1] http://iwls.org/iwls2005/benchmarks.html
+

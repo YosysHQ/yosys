@@ -1,0 +1,11 @@
+
+GENFILES += passes/techmap/stdcells.inc
+OBJS += passes/techmap/techmap.o
+
+passes/techmap/stdcells.inc: techlibs/stdcells.v
+	od -v -td1 -w1 $< | awk 'BEGIN { print "static char stdcells_code[] = {"; } $$2 != "" { print $$2 ","; } \
+			END { print 0 "};"; }' | fmt > $@.new
+	mv $@.new $@
+
+passes/techmap/techmap.o: passes/techmap/stdcells.inc
+
