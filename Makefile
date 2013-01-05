@@ -59,7 +59,7 @@ clean:
 	rm -f bigint/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
 
 mrproper: clean
-	svn st --no-ignore | grep '^[?I]' | cut -c8- | sed 's,^ *,,; /^Makefile.conf$$/ d;' | xargs -r -d '\n' rm -vrf
+	git clean -xdf
 
 qtcreator:
 	{ for file in $(basename $(OBJS)); do \
