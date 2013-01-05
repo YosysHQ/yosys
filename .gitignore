@@ -1,8 +1,9 @@
 *.o
 *.d
-qtcreator.config
-qtcreator.creator
 qtcreator.files
 qtcreator.includes
+qtcreator.config
+qtcreator.creator
+qtcreator.creator.user
 filterlib
 yosys
