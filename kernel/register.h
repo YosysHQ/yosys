@@ -30,6 +30,7 @@ struct Pass
 {
 	std::string pass_name;
 	Pass(std::string name);
+	virtual void run_register();
 	virtual ~Pass();
 	virtual void help();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) = 0;
@@ -40,12 +41,16 @@ struct Pass
 
 	static void call(RTLIL::Design *design, std::string command);
 	static void call(RTLIL::Design *design, std::vector<std::string> args);
+
+	static void init_register();
+	static void done_register();
 };
 
 struct Frontend : Pass
 {
 	std::string frontend_name;
 	Frontend(std::string name);
+	virtual void run_register();
 	virtual ~Frontend();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design);
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
@@ -61,6 +66,7 @@ struct Backend : Pass
 {
 	std::string backend_name;
 	Backend(std::string name);
+	virtual void run_register();
 	virtual ~Backend();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design);
 	virtual void execute(FILE *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
@@ -72,6 +78,9 @@ struct Backend : Pass
 };
 
 namespace REGISTER_INTERN {
+	extern int raw_register_count;
+	extern bool raw_register_done;
+	extern Pass *raw_register_array[];
 	extern std::map<std::string, Pass*> pass_register;
 	extern std::map<std::string, Frontend*> frontend_register;
 	extern std::map<std::string, Backend*> backend_register;

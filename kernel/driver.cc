@@ -140,6 +140,40 @@ static const char *create_prompt(RTLIL::Design *design)
 	return buffer;
 }
 
+static void shell(RTLIL::Design *design)
+{
+	log_cmd_error_throw = true;
+
+	rl_readline_name = "yosys";
+	rl_attempted_completion_function = readline_completion;
+
+	char *command = NULL;
+	while ((command = readline(create_prompt(design))) != NULL)
+	{
+		if (command[strspn(command, " \t\r\n")] == 0)
+			continue;
+		add_history(command);
+
+		try {
+			assert(design->selection_stack.size() == 1);
+			Pass::call(design, command);
+		} catch (int) {
+			while (design->selection_stack.size() > 1)
+				design->selection_stack.pop_back();
+			log_reset_stack();
+		}
+	}
+
+	log_cmd_error_throw = false;
+}
+
+struct ShellPass : public Pass {
+	ShellPass() : Pass("shell") { }
+	virtual void execute(std::vector<std::string>, RTLIL::Design *design) {
+		shell(design);
+	}
+} ShellPass;
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
@@ -148,6 +182,8 @@ int main(int argc, char **argv)
 	std::string output_filename = "-";
 	std::string scriptfile = "";
 	bool got_output_filename = false;
+
+	Pass::init_register();
 
 	RTLIL::Design *design = new RTLIL::Design;
 	design->selection_stack.push_back(RTLIL::Selection());
@@ -196,33 +232,10 @@ int main(int argc, char **argv)
 	if (log_errfile == NULL)
 		log_files.push_back(stderr);
 
-	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty())
-	{
-		log_cmd_error_throw = true;
-
-		rl_readline_name = "yosys";
-		rl_attempted_completion_function = readline_completion;
-
-		char *command = NULL;
-		while ((command = readline(create_prompt(design))) != NULL)
-		{
-			if (command[strspn(command, " \t\r\n")] == 0)
-				continue;
-			add_history(command);
-
-			try {
-				assert(design->selection_stack.size() == 1);
-				Pass::call(design, command);
-			} catch (int) {
-				while (design->selection_stack.size() > 1)
-					design->selection_stack.pop_back();
-				log_reset_stack();
-			}
-		}
-
+	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty()) {
 		if (!got_output_filename)
 			backend_command = "";
-		log_cmd_error_throw = false;
+		shell(design);
 	}
 
 	while (optind < argc)
@@ -247,6 +260,8 @@ int main(int argc, char **argv)
 			fclose(f);
 	log_errfile = NULL;
 	log_files.clear();
+
+	Pass::done_register();
 
 	return 0;
 }

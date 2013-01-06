@@ -23,8 +23,14 @@
 #include <string.h>
 
 using namespace REGISTER_INTERN;
+#define MAX_REG_COUNT 1000
 
-namespace REGISTER_INTERN {
+namespace REGISTER_INTERN
+{
+	int raw_register_count = 0;
+	bool raw_register_done = false;
+	Pass *raw_register_array[MAX_REG_COUNT];
+
 	std::map<std::string, Frontend*> frontend_register;
 	std::map<std::string, Pass*> pass_register;
 	std::map<std::string, Backend*> backend_register;
@@ -34,13 +40,36 @@ std::vector<std::string> Frontend::next_args;
 
 Pass::Pass(std::string name) : pass_name(name)
 {
-	assert(pass_register.count(name) == 0);
-	pass_register[name] = this;
+	assert(!raw_register_done);
+	assert(raw_register_count < MAX_REG_COUNT);
+	raw_register_array[raw_register_count++] = this;
+}
+
+void Pass::run_register()
+{
+	assert(pass_register.count(pass_name) == 0);
+	pass_register[pass_name] = this;
+}
+
+void Pass::init_register()
+{
+	if (raw_register_done)
+		done_register();
+	while (raw_register_count > 0)
+		raw_register_array[--raw_register_count]->run_register();
+	raw_register_done = true;
+}
+
+void Pass::done_register()
+{
+	frontend_register.clear();
+	pass_register.clear();
+	backend_register.clear();
+	raw_register_done = false;
 }
 
 Pass::~Pass()
 {
-	pass_register.erase(pass_name);
 }
 
 void Pass::help()
@@ -92,9 +121,20 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 void Pass::call(RTLIL::Design *design, std::string command)
 {
 	std::vector<std::string> args;
-	char *s = strdup(command.c_str());
-	for (char *p = strtok(s, " \t\r\n"); p; p = strtok(NULL, " \t\r\n"))
-		args.push_back(p);
+	char *s = strdup(command.c_str()), *saveptr;
+	for (char *p = strtok_r(s, " \t\r\n", &saveptr); p; p = strtok_r(NULL, " \t\r\n", &saveptr)) {
+		std::string str = p;
+		int strsz = str.size();
+		if (strsz > 0 && str[strsz-1] == ';') {
+			while (strsz > 0 && str[strsz-1] == ';')
+				strsz--;
+			if (strsz > 0)
+				args.push_back(str.substr(0, strsz));
+			call(design, args);
+			args.clear();
+		} else
+			args.push_back(str);
+	}
 	free(s);
 	call(design, args);
 }
@@ -114,13 +154,19 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 Frontend::Frontend(std::string name) : Pass("read_"+name), frontend_name(name)
 {
-	assert(frontend_register.count(name) == 0);
-	frontend_register[name] = this;
+}
+
+void Frontend::run_register()
+{
+	assert(pass_register.count(pass_name) == 0);
+	pass_register[pass_name] = this;
+
+	assert(frontend_register.count(frontend_name) == 0);
+	frontend_register[frontend_name] = this;
 }
 
 Frontend::~Frontend()
 {
-	frontend_register.erase(frontend_name);
 }
 
 void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -200,13 +246,19 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 
 Backend::Backend(std::string name) : Pass("write_"+name), backend_name(name)
 {
-	assert(backend_register.count(name) == 0);
-	backend_register[name] = this;
+}
+
+void Backend::run_register()
+{
+	assert(pass_register.count(pass_name) == 0);
+	pass_register[pass_name] = this;
+
+	assert(backend_register.count(backend_name) == 0);
+	backend_register[backend_name] = this;
 }
 
 Backend::~Backend()
 {
-	backend_register.erase(backend_name);
 }
 
 void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
