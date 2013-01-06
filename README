@@ -17,6 +17,109 @@ compatible licence that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
 
+Getting Started
+===============
+
+To build Yosys simply typoe 'make' in this directory. You need
+a C++ compiler with C++11 support (up-to-date CLANG or GCC is
+recommended) and some standard tools such as GNU Flex, GNU Bison,
+and GNU Make. It might be neccessary to make some changes to
+the config section of the Makefile.
+
+	$ vi Makefile
+	$ make
+	$ make test
+	$ sudo make install
+
+Yosys can be used using the interactive command shell, using
+synthesis scripts or using command line arguments. Let's perform
+a simple synthesis job using the interactive command shell:
+
+	$ ./yosys
+	yosys>
+
+reading the design using the verilog frontend:
+
+	yosys> read_verilog tests/simple/fiedler-cooley.v
+
+writing the design to the console in yosys's internal format:
+
+	yosys> write_ilang
+
+convert processes (always blocks) to netlist elements and perform
+some simple optimizations:
+
+	yosys> proc; opt
+
+display design netlist using 'gv' as postscript viewer:
+
+	yosys> show -viewer gv
+
+translating netlist to gate logic and perform some simple optimizations:
+
+	yosys> techmap; opt
+
+write design netlist to a new verilog file:
+
+	yosys> write_verilog synth.v
+
+a simmilar synthesis can be performed using yosys command line options only:
+
+	$ ./yosys -o synth.v -p proc -p opt -p techmap -p opt tests/simple/fiedler-cooley.v
+
+or using a simple synthesis script:
+
+	$ cat synth.ys
+	read_verilog tests/simple/fiedler-cooley.v
+	proc; opt; techmap; opt
+	write_verilog synth.v
+
+	$ ././yosys synth.ys
+
+It is also possible to only have the synthesis commands but not the read/write
+commands in the synthesis script:
+
+	$ cat synth.ys
+	proc; opt; techmap; opt
+
+	$ ./yosys -o synth.v tests/simple/fiedler-cooley.v synth.ys
+
+The following synthesis script works reasonable for all designs:
+
+	# check design hierarchy
+	hierarchy
+
+	# translate processes (always blocks) and memories (arrays)
+	proc; memory; opt
+
+	# detect and optimize FSM encodings
+	fsm; opt
+
+	# convert to gate logic
+	techmap; opt
+
+If ABC (http://www.eecs.berkeley.edu/~alanmi/abc/) is installed and
+a cell library is given in the file liberty mycells.lib, the following
+synthesis script will synthesize for the given cell library:
+
+	# the high-level stuff
+	hierarchy; proc; memory; opt; fsm; opt
+
+	# mapping to internal cell library
+	techmap
+
+	# mapping flip-flops to mycells.lib
+	dfflibmap -liberty mycells.lib
+
+	# mapping logic to mycells.lib
+	abc -liberty mycells.lib
+
+	# cleanup
+	opt
+
+Yosys is under construction. A more detailed documentation will follow.
+
+
 Unsupported Verilog-2005 Features
 =================================
 
@@ -83,7 +186,7 @@ TODOs / Open Bugs
 
 - TCL and Python interfaces to frontends, passes, backends and RTLIL
 
-- Additional internal cell types: $bitcount, $pla, $lut and $pmux
+- Additional internal cell types: $pla and $lut
 
 - Subsystem for selecting stuff (and limiting scope of passes)
 
@@ -93,5 +196,5 @@ TODOs / Open Bugs
 
 - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
 
-- FSM state encoding and technology mapping
+- Better FSM state encoding and technology mapping
 
