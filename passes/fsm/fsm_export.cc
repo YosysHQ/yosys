@@ -29,7 +29,7 @@
 #include <fstream>
 
 /**
- * Convert signal into a KISS-compatible textual representation.
+ * Convert a signal into a KISS-compatible textual representation.
  */
 std::string kiss_convert_signal(const RTLIL::SigSpec &sig) {
 	if (!sig.is_fully_const()) {
@@ -40,7 +40,73 @@ std::string kiss_convert_signal(const RTLIL::SigSpec &sig) {
 }
 
 /**
- * Exports each Finite State Machine (FSM) in the design to a file in KISS2 format.
+ * Create a KISS2 file from a cell.
+ *
+ * The destination file name is taken from the fsm_export attribute if present,
+ * e.g. (* fsm_export="filename.kiss2" *). If this attribute is not present,
+ * the file name will be assembled from the module and cell names.
+ *
+ * @param module pointer to module which contains the FSM cell.
+ * @param cell pointer to the FSM cell which should be exported.
+ */
+void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell) {
+	std::map<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
+	FsmData fsm_data;
+	FsmData::transition_t tr;
+	std::ofstream kiss_file;
+	std::string kiss_name;
+	size_t i;
+
+	attr_it = cell->attributes.find("\\fsm_export");
+	if (attr_it != cell->attributes.end() && attr_it->second.str != "") {
+		kiss_name.assign(attr_it->second.str);
+	}
+	else {
+		kiss_name.assign(module->name);
+		kiss_name.append('-' + cell->name + ".kiss2");
+	}
+
+	log("\n");
+	log("Exporting FSM `%s' from module `%s' to file `%s'.\n",
+			cell->name.c_str(),
+			module->name.c_str(),
+			kiss_name.c_str());
+
+	kiss_file.open(kiss_name, std::ios::out | std::ios::trunc);
+
+	if (!kiss_file.is_open()) {
+		log_error("Could not open file \"%s\" with write access.\n", kiss_name.c_str());
+	}
+
+	fsm_data.copy_from_cell(cell);
+
+	kiss_file << ".start_kiss" << std::endl;
+	kiss_file << ".i " << std::dec << fsm_data.num_inputs << std::endl;
+	kiss_file << ".o " << std::dec << fsm_data.num_outputs << std::endl;
+	kiss_file << ".r s" << std::dec << fsm_data.reset_state << std::endl;
+
+	for (i = 0; i < fsm_data.transition_table.size(); i++) {
+		tr = fsm_data.transition_table[i];
+
+		try {
+			kiss_file << kiss_convert_signal(tr.ctrl_in) << ' ';
+			kiss_file << 's' << tr.state_in << ' ';
+			kiss_file << 's' << tr.state_out << ' ';
+			kiss_file << kiss_convert_signal(tr.ctrl_out) << std::endl;
+		}
+		catch (int) {
+			kiss_file.close();
+			log_error("exporting an FSM input or output signal failed.\n");
+		}
+	}
+
+	kiss_file << ".end_kiss" << std::endl << ".end" << std::endl;
+	kiss_file.close();
+}
+
+/**
+ * Exports Finite State Machines in the design to one file per FSM. Currently,
+ * only the KISS2 file format is supported.
  */
 struct FsmExportPass : public Pass {
 	FsmExportPass() : Pass("fsm_export") {
@@ -48,56 +114,30 @@ struct FsmExportPass : public Pass {
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		FsmData       fsm_data;
-		std::string   kiss_name;
-		std::ofstream kiss_file;
-		size_t        i;
-		FsmData::transition_t tr;
+		std::map<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
+		std::string arg;
+		bool flag_noauto = false;
+		size_t argidx;
 
 		log_header("Executing FSM_EXPORT pass (exporting FSMs in KISS2 file format).\n");
-		extra_args(args, 1, design);
+
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			arg = args[argidx];
+			if (arg == "-noauto") {
+				flag_noauto = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		for (auto &mod_it : design->modules)
 			for (auto &cell_it : mod_it.second->cells)
 				if (cell_it.second->type == "$fsm") {
-					kiss_name.assign(mod_it.first.c_str());
-					kiss_name.append("-" + cell_it.second->name + ".kiss2");
-					fsm_data.copy_from_cell(cell_it.second);
-
-					log("\n");
-					log("Exporting FSM `%s' from module `%s' to file `%s'.\n",
-							cell_it.second->name.c_str(),
-							mod_it.first.c_str(),
-							kiss_name.c_str());
-
-					kiss_file.open(kiss_name, std::ios::out | std::ios::trunc);
-
-					if (!kiss_file.is_open()) {
-						log_error("Could not open file \"%s\" with write access.\n", kiss_name.c_str());
-						return;
-					}
-
-					kiss_file << ".start_kiss" << std::endl;
-					kiss_file << ".i " << std::dec << fsm_data.num_inputs << std::endl;
-					kiss_file << ".o " << std::dec << fsm_data.num_outputs << std::endl;
-					kiss_file << ".r s" << std::dec << fsm_data.reset_state << std::endl;
-
-					for (i = 0; i < fsm_data.transition_table.size(); i++) {
-						tr = fsm_data.transition_table[i];
-
-						try {
-							kiss_file << kiss_convert_signal(tr.ctrl_in) << ' ';
-							kiss_file << 's' << tr.state_in << ' ';
-							kiss_file << 's' << tr.state_out << ' ';
-							kiss_file << kiss_convert_signal(tr.ctrl_out) << std::endl;
-						}
-						catch (int) {
-							log_error("exporting an FSM input or output signal failed.\n");
-						}
-					}
-
-					kiss_file << ".end_kiss" << std::endl << ".end" << std::endl;
-					kiss_file.close();
+				  attr_it = cell_it.second->attributes.find("\\fsm_export");
+				  if (!flag_noauto || (attr_it != cell_it.second->attributes.end())) {
+				    write_kiss2(mod_it.second, cell_it.second);
+				  }
 				}
 	}
 } FsmExportPass;
