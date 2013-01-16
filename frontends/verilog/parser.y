@@ -616,6 +616,9 @@ always_stmt:
 
 always_cond:
 	'@' '(' always_events ')' |
+	'@' '(' '*' ')' |
+	'@' ATTR_BEGIN ')' |
+	'@' '(' ATTR_END |
 	'@' '*' |
 	/* empty */;
 

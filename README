@@ -74,7 +74,7 @@ or using a simple synthesis script:
 	proc; opt; techmap; opt
 	write_verilog synth.v
 
-	$ ././yosys synth.ys
+	$ ./yosys synth.ys
 
 It is also possible to only have the synthesis commands but not the read/write
 commands in the synthesis script:
