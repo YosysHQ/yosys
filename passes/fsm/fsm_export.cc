@@ -80,9 +80,10 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell) {
 
 	fsm_data.copy_from_cell(cell);
 
-	kiss_file << ".start_kiss" << std::endl;
-	kiss_file << ".i " << std::dec << fsm_data.num_inputs << std::endl;
-	kiss_file << ".o " << std::dec << fsm_data.num_outputs << std::endl;
+	kiss_file << ".i "  << std::dec << fsm_data.num_inputs << std::endl;
+	kiss_file << ".o "  << std::dec << fsm_data.num_outputs << std::endl;
+	kiss_file << ".p "  << std::dec << fsm_data.transition_table.size() << std::endl;
+	kiss_file << ".s "  << std::dec << fsm_data.state_table.size() << std::endl;
 	kiss_file << ".r s" << std::dec << fsm_data.reset_state << std::endl;
 
 	for (i = 0; i < fsm_data.transition_table.size(); i++) {
@@ -100,7 +101,6 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell) {
 		}
 	}
 
-	kiss_file << ".end_kiss" << std::endl << ".end" << std::endl;
 	kiss_file.close();
 }
 
