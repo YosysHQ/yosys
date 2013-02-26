@@ -103,7 +103,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 	}
 
 	// activate const folding if this is anything that must be evaluated statically (ranges, parameters, attributes, etc.)
-	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_PARASET || type == AST_RANGE)
+	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX)
 		const_fold = true;
 	if (type == AST_IDENTIFIER && current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM))
 		const_fold = true;
@@ -179,6 +179,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 			break;
 		if (type == AST_GENIF && i >= 1)
 			break;
+		if (type == AST_PREFIX && i >= 1)
+			break;
 		while (did_something_here && i < children.size()) {
 			bool const_fold_here = const_fold, in_lvalue_here = in_lvalue;
 			if (i == 0 && type == AST_REPLICATE)
@@ -216,6 +218,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 
 	if (type == AST_MODULE)
 		current_scope.clear();
+
+	// resolve constant prefixes
+	if (type == AST_PREFIX) {
+		if (children[0]->type != AST_CONSTANT) {
+			dumpAst(NULL, ">   ", NULL);
+			log_error("Index in generate block prefix syntax at %s:%d is not constant!\n", filename.c_str(), linenum);
+		}
+		assert(children[1]->type == AST_IDENTIFIER);
+		newNode = children[1]->clone();
+		newNode->str = stringf("%s[%d].%s", str.c_str(), children[0]->integer, children[1]->str.c_str());
+		goto apply_newNode;
+	}
 
 	// annotate constant ranges
 	if (type == AST_RANGE) {

@@ -105,7 +105,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 
-%type <ast> wire_type range expr basic_expr concat_list lvalue lvalue_concat_list
+%type <ast> wire_type range expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper
 %type <boolean> opt_signed
 %type <al> attr
@@ -802,13 +802,21 @@ case_expr_list:
 		ast_stack.back()->children.push_back($3);
 	};
 
-lvalue:
-	TOK_ID range {
-		$$ = new AstNode(AST_IDENTIFIER);
+rvalue:
+	TOK_ID '[' expr ']' '.' rvalue {
+		$$ = new AstNode(AST_PREFIX, $3, $6);
 		$$->str = *$1;
-		if ($2)
-			$$->children.push_back($2);
 		delete $1;
+	} |
+	TOK_ID range {
+		$$ = new AstNode(AST_IDENTIFIER, $2);
+		$$->str = *$1;
+		delete $1;
+	};
+
+lvalue:
+	rvalue {
+		$$ = $1;
 	} |
 	'{' lvalue_concat_list '}' {
 		$$ = $2;
@@ -894,6 +902,9 @@ expr:
 	};
 
 basic_expr:
+	rvalue {
+		$$ = $1;
+	} |
 	TOK_CONST {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
 		delete $1;
@@ -911,11 +922,6 @@ basic_expr:
 		}
 		$$ = AstNode::mkconst_bits(data, false);
 		$$->str = str;
-		delete $1;
-	} |
-	TOK_ID range {
-		$$ = new AstNode(AST_IDENTIFIER, $2);
-		$$->str = *$1;
 		delete $1;
 	} |
 	TOK_ID attr {
