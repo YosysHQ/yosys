@@ -1,0 +1,440 @@
+
+  **************************************************************************
+  *                                                                        *
+  *                    The SubCircuit C++11 library                        *
+  *                                                                        *
+  * An implementation of a modified Ullmann Subgraph Isomorphism Algorithm *
+  * for coarse grain logic networks.                      by Clifford Wolf *
+  *                                                                        *
+  **************************************************************************
+
+============
+Introduction
+============
+
+This is a library that implements a modified Ullmann Subgraph Isomorphism
+Algorithm with additional features aimed at working with coarse grain logic
+networks.
+
+A simple command line tool that exposes the features of the library is also
+included.
+
+
+Under-Construction Warning
+--------------------------
+
+This work is under constructions. It is likely that they are bugs in the
+library that need fixing. Feel free to contact me at clifford@clifford.at
+if you have found a bug.
+
+
+C++11 Warning
+-------------
+
+This project is written in C++11. Use appropriate compiler switches to compile
+it. Tested with clang version 3.0 and option -std=c++11. Also tested with gcc
+version 4.6.3 and option -std=c++0x.
+
+
+========
+Features
+========
+
+The input is two graphs (needle and haystack) that represent coarse grain
+logic networks. The algorithm identifies all subgraphs of haystack that are
+isomorphic to needle.
+
+The following additional features over the regular Ullmann Subgraph Isomorphism
+Algorithm are provided by the library.
+
+ * The graphs are attributed hypergraphs capable of representing netlists:
+
+	- Nodes represent the logic cells:
+		- Nodes have types and only match compatible types
+		- Nodes have ports with variable bit-width
+
+	- Hyperedges represent the signals:
+		- Each hyperedge connects one to many bits on ports on nodes
+
+	- Callback functions for advanced attributes and compatibility rules:
+		Any set of node-node compatibility rules and edge-edge
+		compatibility rules can be implemented by providing
+		the necessary callback functions.
+
+ * The algorithm is very efficient when all or many bits of one port are
+   connected to bits of the same other port. This is usually the case
+   in coarse grain logic networks. But the algorithm does not add any
+   restrictions in this area; it is just optimized for this scenario.
+
+ * The algorithm can be configured to allow larger ports in needle cells to
+   match smaller ports in haystack cells in certain situations. This way it
+   is possible to e.g. have a 32-bit adder cell in the needle match a
+   16-bit adder cell in the haystack.
+
+ * The algorithm can be configured to perform port-swapping on certain
+   ports on certain cell types to match commutative operations properly.
+
+   This is, however, not implemented very efficiently when a larger number
+   of permutations is possible on a cell type. Therefore it is recommended
+   to only use swap groups with only a few members and a few such groups
+   on one cell type type.
+
+   Also note, that the algorithm can not resolve complex dependencies
+   between the port swappings of different cells. Therefore it is
+   recommended to only use port swapping on input pins of commutative
+   operations, where such complex dependencies can not emerge.
+
+ * The algorithm can be configured to distinguish between internal signals
+   of the needle and externally visible signals. The needle will only
+   match a subgraph of the haystack if that subgraph does not expose the
+   internal signal to nodes in the haystack outside the matching subgraph.
+
+ * The algorithm can recognize a subcircuit even if some or all of its
+   inputs and/or outputs are shorted together.
+
+ * Explicit fast support for constant signals without extra nodes for
+   constant drivers.
+
+ * Support for finding only non-overlapping matches.
+
+ * The public API of the library is using std::string identifiers for
+   nodes, node types and ports. Internally the costly part of the
+   algorithm is only using integer values, thus speeding up the
+   algorithm without exposing complex internal encodings to the caller.
+
+
+=================
+API Documentation
+=================
+
+This section gives a brief overview of the API. For a working example, have a
+look at the demo.cc example program in this directory.
+
+
+Setting up graphs
+-----------------
+
+Instanciate the SubCircuit::Graph class and use the methods of this class to
+set up the circuit.
+
+	SubCircuit::Graph myGraph;
+
+For each node in the circuit call the createNode() method. Specify the
+identifier for the node and also the type of function implemented by the node.
+Then call createPort() for each port of this node.
+
+E.g. the following code adds a node "myAdder" of type "add" with three 32 bit
+wide ports "A", "B" and "Y". Note that SubCircuit does not care which port is
+an input and which port is an output. The last (and optional) argument to
+createPort() specifies the minimum number of bits required for this port in the
+haystack (this field is only used in the needle graph). So in this example the
+node would e.g. also match any adder with a bit width smaller 32.
+
+	myGraph.createNode("myAdder", "add");
+	myGraph.createPort("myAdder", "A", 32, 1);
+	myGraph.createPort("myAdder", "B", 32, 1);
+	myGraph.createPort("myAdder", "Y", 32, 1);
+
+The createConnection() method can be used to connect the nodes. It internally
+creates a hypergraph. So the following code does not only connect cell1.Y with
+cell2.A and cell3.A but also implicitly cell2.A with cell3.A.
+
+	myGraph.createConnection("cell1", "Y", "cell2", "A");
+	myGraph.createConnection("cell1", "Y", "cell3", "A");
+
+Redundent calls to createConnection() are ignored. As long as the method is
+called after the relevant nodes and ports are created, the order in which the
+createConnection() calls are performed is irrelevant.
+
+The createConnection() method can also be used to connect single bit signals.
+In this case the start bit for both ports must be provided as well as an
+optional width (which defaults to 1). E.g.  the following calls can be used to
+connect the 32 bit port cell4.Y to the 32 bit port cell5.A with a one bit left
+rotate shift,
+
+	myGraph.createConnection("cell4", "Y", 0, "cell5", "A", 1, 31);
+	myGraph.createConnection("cell4", "Y", 31, "cell5", "A", 0);
+
+The method createConstant() can be used to add a constant driver to a signal.
+The signal value is encoded as one char by bit, allowing for multi-valued
+logic matching. The follwoing command sets the lowest bit of cell6.A to a
+logic 1:
+
+	myGraph.createConnection("cell6", "A", 0, '1');
+
+It is also possible to set an entire port to a integer value, using the
+encodings '0' and '1' for the binary digits:
+
+	myGraph.createConnection("cell6", "A", 42);
+
+The method markExtern() can be used to mark a signal as externally visible. In
+a needle graph this means, this signal may match a signal in the haystack that
+is used outside the matching subgraph. In a haystack graph this means, this
+signal is used outside the haystack graph. I.e. an internal signal of the
+needle won't match an external signal of the haystack regardless where the
+signal is used in the haystack.
+
+In some application one may disable this extern/intern checks. This can easily
+be achieved by marking all signals in the needle as extern. This can be done
+using the Graph::markAllExtern() method.
+
+
+Setting up and running solvers
+------------------------------
+
+To actually run the subgraph isomorphism algorithm, an instance of
+SubCircuit::Solver must be created.
+
+	SubCircuit::Solver mySolver;
+
+The addGraph() method can be used to register graphs with the solver:
+
+	mySolver.addGraph("graph1", myGraph);
+	mySolver.addGraph("graph2", myOtherGraph);
+
+Usually nodes in the needle and the haystack must have the same type identifier
+to match each other. Additionally pairs of compatible needle and haystack node
+pairs can be registered using the addCompatibleTypes() method:
+
+	mySolver.addCompatibleTypes("alu", "add");
+	mySolver.addCompatibleTypes("alu", "sub");
+	mySolver.addCompatibleTypes("alu", "and");
+	mySolver.addCompatibleTypes("alu", "or");
+	mySolver.addCompatibleTypes("alu", "xor");
+
+Note that nodes in needle and haystack must also use the same naming convention
+for their ports in order to be considered compatible by the algorithm.
+
+Similarly the method addCompatibleConstants() can be used the specify which
+constant values in the needle should match which constant value in the haystack.
+Equal values always do match.
+
+	mySolver.addCompatibleConstants('x', '0');
+	mySolver.addCompatibleConstants('x', '1');
+
+Some cells implement commutative operations that don't care if their input
+operands are swapped. For this cell types it is possible to register groups
+of swappable ports. Let's consider a cell "macc23" that implements the
+function Y = (A * B) + (C * D * E):
+
+	mySolver.addSwappablePorts("macc23", "A", "B");
+	mySolver.addSwappablePorts("macc23", "C", "D", "E");
+
+Sometimes the rules for port swapping are a more complicated and the swapping
+of one port is related to the swapping of another port. Let's consider a cell
+"macc22" that implements the function Y = (A * B) + (C * D):
+
+	mySolver.addSwappablePorts("macc22", "A", "B");
+	mySolver.addSwappablePorts("macc22", "C", "D");
+
+	std::map<std::string, std::string> portMapping;
+	portMapping["A"] = "C";
+	portMapping["B"] = "D";
+	portMapping["C"] = "A";
+	portMapping["D"] = "B";
+	mySolver.addSwappablePortsPermutation("macc22", portMapping);
+
+I.e. the method mySolver.addSwappablePortsPermutation() can be used to register
+additional permutations for a node type of which one or none is applied on top
+of the permutations yielded by the permutations generated by the swap groups.
+
+Note that two solutions that differ only in the applied port swapping are not
+reported as separate solutions. Instead only one of them is selected (in most
+cases the one with less port swapping as it is usually identified first).
+
+Once everything has been set up, the solve() method can be used to actually
+search for isomorphic subgraphs. The first argument to solve() is an
+std::vector<SubCircuit::Solver::Result> objects to which all found solutions
+are appended. The second argument is the identifier under which the needle
+graph has been registered and the third argument is the identifier under which
+the haystack graph has been registered:
+
+	std::vector<SubCircuit::Solver::Result> results;
+	mySolver.solve(results, "graph1", "graph2");
+
+The SubCircuit::Solver::Result object is a simple data structure that contains
+the mappings between needle and haystack nodes, port mappings after the port
+swapping and some additional metadata. See "subcircuit.h" and "demo.cc" for
+details.
+
+The solve() method has a third optional boolean argument. If it is set to
+false, solve will not return any solutions that contain haystack nodes that
+have been part of a previously found solution. This way it is e.g. easy
+to implement a greedy macro cell matching algorithm:
+
+	std::vector<SubCircuit::Solver::Result> results;
+	mySolver.solve(results, "macroCell1", "circuit", false);
+	mySolver.solve(results, "macroCell2", "circuit", false);
+	mySolver.solve(results, "macroCell3", "circuit", false);
+
+After this code has been executed, the results vector contains all
+non-overlapping matches of the three macrocells. The method
+clearOverlapHistory() can be used to reset the internal state used
+for this feature. The default value for the third argument to solve()
+is true (allow overlapping).
+
+The solve() method also has a fourth optional integer argument. If it is set to
+a positive integer, this integer specifies the maximum number of solutions to
+be appended to the results vector, i.e. to terminate the algorithm early when
+the set number of matches is found. When this fourth argument is negative or
+omitted all matches are found and appended.
+
+An alternative version of the solve() method supports an additional argument
+after they haystack graph identifier that specifies initial mappings for
+the algorithm. In the following example only the haystack nodes cell_1 and
+cell_2 are considered as mappings for the needle node cell_A:
+
+	std::map<std::string, std::set<std::string>> initialMappings;
+	initialMappings["cell_A"].insert("cell_1");
+	initialMappings["cell_A"].insert("cell_2");
+
+	std::vector<SubCircuit::Solver::Result> results;
+	mySolver.solve(results, "graph1", "graph2", initialMappings);
+
+The clearConfig() method can be used to clear all data registered using
+addCompatibleTypes(), addCompatibleConstants(), addSwappablePorts() and
+addSwappablePortsPermutation() but retaining the graphs and the overlap state.
+
+
+Using user callback function
+----------------------------
+
+For more complex tasks it is possible to derive a class from SubCircuit::Solver
+that overloads one or more of the following virtual methods. The userData
+arguments to the following methods are void pointers that can be passed as
+third argument to Graph::createNode() and are simly passed thru to the user
+callback functions together with the node id whenever a node is referenced.
+
+bool userCompareNodes(needleGraphId, needleNodeId, needleUserData, haystackGraphId, haystackNodeId, haystackUserData):
+
+	Perform additional checks on a pair of nodes (one from the needle, one
+	from the haystack) to determine if the nodes are compatible. The default
+	implementation always returns true.
+
+
+bool userCompareEdge(needleGraphId, needleFromNodeId, needleFromUserData, needleToNodeId, needleToUserData,
+		haystackGraphId, haystackFromNodeId, haystackFromUserData, haystackToNodeId, haystackToUserData):
+
+	Perform additional checks on a pair of a pair of adjacent nodes (one
+	adjacent pair from the needle and one adjacent pair from the haystack)
+	to determine wheter this edge from the needle is compatible with
+	that edge from the haystack. The default implementation always
+	returns true.
+
+bool userCheckSolution(result):
+
+	Perform additional checks on a solution before appending it to the
+	results vector. When this function returns false, the solution is
+	ignored. The default implementation always returns true.
+
+
+Debugging
+---------
+
+For debugging purposes the SubCircuit::Solver class implements a setVerbose()
+method. When called once, all further calls to the solve() method cause the
+algorithm to dump out a lot of debug information to stdout.
+
+In conjunction with setVerbose() one can also overload the userAnnotateEdge()
+method in order to add additional information about the edges to the debug
+output.
+
+
+===================
+Shell Documentation
+===================
+
+This package also contains a small command-line tool called "scshell" that can
+be used for experimentation with the algorithm. This program reads a series of
+commands from stdin and reports its findings to stdout on exit.
+
+	$ ./scshell < test_macc22.txt 
+
+	...
+
+	Match #3: (macc22 in macc4x2)
+	  add_1 -> add_2 A:B B:A Y:Y
+	  mul_1 -> mul_4 A:A B:B Y:Y
+	  mul_2 -> mul_3 A:A B:B Y:Y
+
+The following commands can be used in scshell to specify graphs:
+
+	graph <graph_name>
+	...
+	endgraph
+
+		Used to specify a graph with the given name. Only the commands
+		"node", "connect" and "extern" may be used within the graph ...
+		endgraph block.
+
+	node <node_name> [<port_name> [<bits> [<min_bits>]]]+
+
+		Used to create a node and ports. This command is a direct frontend
+		to the Graph::createNode() and Graph::createPort() methods.
+
+	connect <from_node> <from_port> <to_node> <to_port>
+	connect <from_node> <from_port> <from_bit> <to_node> <to_port> <to_bit>
+	connect <from_node> <from_port> <from_bit> <to_node> <to_port> <to_bit> <width>
+
+		Used to connect the nodes in the graph via Graph::createConnection().
+
+	constant <node> <port> [<bit>] <value>
+
+		Call Graph::createConstant().
+
+	extern <node> [<port> [<bit>]]+
+
+		Mark signals as extern via Graph::markExtern().
+
+	allextern
+
+		Mark all signals as extern via Graph::markAllExtern().
+
+The following commands can be used in scshell outside a graph ... endgraph block:
+
+	compatible <needle_type> <haystack_type>
+
+		Call Solver::addCompatibleTypes().
+
+	constcompat <needle_value> <haystack_value>
+
+		Call Solver::addCompatibleConstants().
+
+	swapgroup <needle_type> <port>+
+
+		Call Solver::addSwappablePorts().
+
+	swapperm <needle_type> <ports>+ : <ports>+
+
+		Call Solver::addSwappablePortsPermutation(). Both port lists must
+		have the same length and the second one must be a permutation of the
+		first one.
+
+	initmap <needle_node> <haystack_node>+
+
+		Add an entry to the initial mappings for the next solve command.
+		This mappings are automatically reset after the solve command.
+
+	solve <needle_graph> <haystack_graph> [<allow_overlap> [<max_solutions>]]
+
+		Call Solver::solve(). The <allow_overlap> must be "1" or "true"
+		for true and "0" or "false" for false.
+
+	expect <number>
+
+		Print all results so far since the last call to expect. Expect
+		<number> results and exit with error code 1 if a different number
+		of results have been found.
+
+	clearoverlap
+
+		Call Solver::clearOverlapHistory().
+
+	clearconfig
+
+		Call Solver::clearConfig().
+
+	verbose
+
+		Call Solver::setVerbose().
+

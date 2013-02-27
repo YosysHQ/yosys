@@ -1,0 +1,1264 @@
+/*
+ *  SubCircuit -- An implementation of the Ullmann Subgraph Isomorphism
+ *                algorithm for coarse grain logic networks
+ *
+ *  Copyright (C) 2013  Clifford Wolf <clifford@clifford.at>
+ *  
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *  
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#include "subcircuit.h"
+
+#include <algorithm>
+#include <assert.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+using namespace SubCircuit;
+
+static std::string stringf(const char *fmt, ...)
+{
+	std::string string;
+	char *str = NULL;
+	va_list ap;
+
+	va_start(ap, fmt);
+	if (vasprintf(&str, fmt, ap) < 0)
+		str = NULL;
+	va_end(ap);
+
+	if (str != NULL) {
+		string = str;
+		free(str);
+	}
+
+	return string;
+}
+
+bool SubCircuit::Graph::BitRef::operator < (const BitRef &other) const
+{
+	if (nodeIdx != other.nodeIdx)
+		return nodeIdx < other.nodeIdx;
+	if (portIdx != other.portIdx)
+		return portIdx < other.portIdx;
+	return bitIdx < other.bitIdx;
+}
+
+void  SubCircuit::Graph::createNode(std::string nodeId, std::string typeId, void *userData)
+{
+	assert(nodeMap.count(nodeId) == 0);
+	nodeMap[nodeId] = nodes.size();
+	nodes.push_back(Node());
+
+	Node &newNode = nodes.back();
+	newNode.nodeId = nodeId;
+	newNode.typeId = typeId;
+	newNode.userData = userData;
+}
+
+void SubCircuit::Graph::createPort(std::string nodeId, std::string portId, int width, int minWidth)
+{
+	assert(nodeMap.count(nodeId) != 0);
+	int nodeIdx = nodeMap[nodeId];
+	Node &node = nodes[nodeIdx];
+
+	assert(node.portMap.count(portId) == 0);
+
+	int portIdx = node.ports.size();
+	node.portMap[portId] = portIdx;
+	node.ports.push_back(Port());
+	Port &port = node.ports.back();
+
+	port.portId = portId;
+	port.minWidth = minWidth < 0 ? width : minWidth;
+	port.bits.insert(port.bits.end(), width, PortBit());
+
+	for (int i = 0; i < width; i++) {
+		port.bits[i].edgeIdx = edges.size();
+		edges.push_back(Edge());
+		edges.back().portBits.insert(BitRef(nodeIdx, portIdx, i));
+	}
+}
+
+void SubCircuit::Graph::createConnection(std::string fromNodeId, std::string fromPortId, int fromBit, std::string toNodeId, std::string toPortId, int toBit, int width)
+{
+	assert(nodeMap.count(fromNodeId) != 0);
+	assert(nodeMap.count(toNodeId) != 0);
+
+	int fromNodeIdx = nodeMap[fromNodeId];
+	Node &fromNode = nodes[fromNodeIdx];
+
+	int toNodeIdx = nodeMap[toNodeId];
+	Node &toNode = nodes[toNodeIdx];
+
+	assert(fromNode.portMap.count(fromPortId) != 0);
+	assert(toNode.portMap.count(toPortId) != 0);
+
+	int fromPortIdx = fromNode.portMap[fromPortId];
+	Port &fromPort = fromNode.ports[fromPortIdx];
+
+	int toPortIdx = toNode.portMap[toPortId];
+	Port &toPort = toNode.ports[toPortIdx];
+
+	if (width < 0) {
+		assert(fromBit == 0 && toBit == 0);
+		assert(fromPort.bits.size() == toPort.bits.size());
+		width = fromPort.bits.size();
+	}
+
+	assert(fromBit >= 0 && toBit >= 0);
+	for (int i = 0; i < width; i++)
+	{
+		assert(fromBit + i < int(fromPort.bits.size()));
+		assert(toBit + i < int(toPort.bits.size()));
+
+		int fromEdgeIdx = fromPort.bits[fromBit + i].edgeIdx;
+		int toEdgeIdx = toPort.bits[toBit + i].edgeIdx;
+
+		if (fromEdgeIdx == toEdgeIdx)
+			continue;
+
+		// merge toEdge into fromEdge
+		if (edges[toEdgeIdx].isExtern)
+			edges[fromEdgeIdx].isExtern = true;
+		if (edges[toEdgeIdx].constValue) {
+			assert(edges[fromEdgeIdx].constValue == 0);
+			edges[fromEdgeIdx].constValue = edges[toEdgeIdx].constValue;
+		}
+		for (const auto &ref : edges[toEdgeIdx].portBits) {
+			edges[fromEdgeIdx].portBits.insert(ref);
+			nodes[ref.nodeIdx].ports[ref.portIdx].bits[ref.bitIdx].edgeIdx = fromEdgeIdx;
+		}
+
+		// remove toEdge (move last edge over toEdge if needed)
+		if (toEdgeIdx+1 != int(edges.size())) {
+			edges[toEdgeIdx] = edges.back();
+			for (const auto &ref : edges[toEdgeIdx].portBits)
+				nodes[ref.nodeIdx].ports[ref.portIdx].bits[ref.bitIdx].edgeIdx = toEdgeIdx;
+		}
+		edges.pop_back();
+	}
+}
+
+void SubCircuit::Graph::createConnection(std::string fromNodeId, std::string fromPortId, std::string toNodeId, std::string toPortId)
+{
+	createConnection(fromNodeId, fromPortId, 0, toNodeId, toPortId, 0, -1);
+}
+
+void SubCircuit::Graph::createConstant(std::string toNodeId, std::string toPortId, int toBit, int constValue)
+{
+	assert(nodeMap.count(toNodeId) != 0);
+	int toNodeIdx = nodeMap[toNodeId];
+	Node &toNode = nodes[toNodeIdx];
+
+	assert(toNode.portMap.count(toPortId) != 0);
+	int toPortIdx = toNode.portMap[toPortId];
+	Port &toPort = toNode.ports[toPortIdx];
+
+	assert(toBit >= 0 && toBit < int(toPort.bits.size()));
+	int toEdgeIdx = toPort.bits[toBit].edgeIdx;
+
+	assert(edges[toEdgeIdx].constValue == 0);
+	edges[toEdgeIdx].constValue = constValue;
+}
+
+void SubCircuit::Graph::createConstant(std::string toNodeId, std::string toPortId, int constValue)
+{
+	assert(nodeMap.count(toNodeId) != 0);
+	int toNodeIdx = nodeMap[toNodeId];
+	Node &toNode = nodes[toNodeIdx];
+
+	assert(toNode.portMap.count(toPortId) != 0);
+	int toPortIdx = toNode.portMap[toPortId];
+	Port &toPort = toNode.ports[toPortIdx];
+
+	for (int i = 0; i < int(toPort.bits.size()); i++) {
+		int toEdgeIdx = toPort.bits[i].edgeIdx;
+		assert(edges[toEdgeIdx].constValue == 0);
+		edges[toEdgeIdx].constValue = constValue % 2 ? '1' : '0';
+		constValue = constValue >> 1;
+	}
+}
+
+void SubCircuit::Graph::markExtern(std::string nodeId, std::string portId, int bit)
+{
+	assert(nodeMap.count(nodeId) != 0);
+	Node &node = nodes[nodeMap[nodeId]];
+
+	assert(node.portMap.count(portId) != 0);
+	Port &port = node.ports[node.portMap[portId]];
+
+	if (bit < 0) {
+		for (const auto portBit : port.bits)
+			edges[portBit.edgeIdx].isExtern = true;
+	} else {
+		assert(bit < int(port.bits.size()));
+		edges[port.bits[bit].edgeIdx].isExtern = true;
+	}
+}
+
+void SubCircuit::Graph::markAllExtern()
+{
+	allExtern = true;
+}
+
+void SubCircuit::Graph::print()
+{
+	for (int i = 0; i < int(nodes.size()); i++) {
+		const Node &node = nodes[i];
+		printf("NODE %d: %s (%s)\n", i, node.nodeId.c_str(), node.typeId.c_str());
+		for (int j = 0; j < int(node.ports.size()); j++) {
+			const Port &port = node.ports[j];
+			printf("  PORT %d: %s (%d/%d)\n", j, port.portId.c_str(), port.minWidth, int(port.bits.size()));
+			for (int k = 0; k < int(port.bits.size()); k++) {
+				int edgeIdx = port.bits[k].edgeIdx;
+				printf("    BIT %d (%d):", k, edgeIdx);
+				for (const auto &ref : edges[edgeIdx].portBits)
+					printf(" %d.%d.%d", ref.nodeIdx, ref.portIdx, ref.bitIdx);
+				if (edges[edgeIdx].isExtern)
+					printf(" [extern]");
+				printf("\n");
+			}
+		}
+	}
+}
+
+class SubCircuit::SolverWorker
+{
+	// basic internal data structures
+
+	typedef std::vector<std::map<int, int>> adjMatrix_t;
+
+	struct GraphData {
+		std::string graphId;
+		Graph graph;
+		adjMatrix_t adjMatrix;
+		std::vector<bool> usedNodes;
+	};
+
+	static void printAdjMatrix(const adjMatrix_t &matrix)
+	{
+		printf("%7s", "");
+		for (int i = 0; i < int(matrix.size()); i++)
+			printf("%4d:", i);
+		printf("\n");
+		for (int i = 0; i < int(matrix.size()); i++) {
+			printf("%5d:", i);
+			for (int j = 0; j < int(matrix.size()); j++)
+				if (matrix.at(i).count(j) == 0)
+					printf("%5s", "-");
+				else
+					printf("%5d", matrix.at(i).at(j));
+			printf("\n");
+		}
+	}
+
+	// helper functions for handling permutations
+
+	static const int maxPermutationsLimit = 1000000;
+
+	static int numberOfPermutations(const std::vector<std::string> &list)
+	{
+		int numPermutations = 1;
+		for (int i = 0; i < int(list.size()); i++) {
+			assert(numPermutations < maxPermutationsLimit);
+			numPermutations *= i+1;
+		}
+		return numPermutations;
+	}
+
+	static void permutateVectorToMap(std::map<std::string, std::string> &map, const std::vector<std::string> &list, int idx)
+	{
+		// convert idx to a list.size() digits factoradic number
+
+		std::vector<int> factoradicDigits;
+		for (int i = 0; i < int(list.size()); i++) {
+			factoradicDigits.push_back(idx % (i+1));
+			idx = idx / (i+1);
+		}
+
+		// construct permutation
+
+		std::vector<std::string> pool = list;
+		std::vector<std::string> permutation;
+
+		while (!factoradicDigits.empty()) {
+			int i = factoradicDigits.back();
+			factoradicDigits.pop_back();
+			permutation.push_back(pool[i]);
+			pool.erase(pool.begin() + i);
+		}
+
+		// update map
+
+		for (int i = 0; i < int(list.size()); i++)
+			map[list[i]] = permutation[i];
+	}
+
+	static int numberOfPermutationsArray(const std::vector<std::vector<std::string>> &list)
+	{
+		int numPermutations = 1;
+		for (const auto &it : list) {
+			int thisPermutations = numberOfPermutations(it);
+			assert(float(numPermutations) * float(thisPermutations) < maxPermutationsLimit);
+			numPermutations *= thisPermutations;
+		}
+		return numPermutations;
+	}
+
+	static void permutateVectorToMapArray(std::map<std::string, std::string> &map, const std::vector<std::vector<std::string>> &list, int idx)
+	{
+		for (const auto &it : list) {
+			int thisPermutations = numberOfPermutations(it);
+			int thisIdx = idx % thisPermutations;
+			permutateVectorToMap(map, it, thisIdx);
+			idx /= thisPermutations;
+		}
+	}
+
+	static void applyPermutation(std::map<std::string, std::string> &map, const std::map<std::string, std::string> &permutation)
+	{
+		std::vector<std::pair<std::string, std::string>> changeLog;
+		for (const auto &it : permutation)
+			if (map.count(it.second))
+				changeLog.push_back(std::pair<std::string, std::string>(it.first, map.at(it.second)));
+			else
+				changeLog.push_back(std::pair<std::string, std::string>(it.first, it.second));
+		for (const auto &it : changeLog)
+			map[it.first] = it.second;
+	}
+
+	// classes for internal digraph representation
+
+	struct DiBit
+	{
+		std::string fromPort, toPort;
+		int fromBit, toBit;
+
+		DiBit() : fromPort(), toPort(), fromBit(-1), toBit(-1) { }
+		DiBit(std::string fromPort, int fromBit, std::string toPort, int toBit) : fromPort(fromPort), toPort(toPort), fromBit(fromBit), toBit(toBit) { }
+
+		bool operator < (const DiBit &other) const
+		{
+			if (fromPort != other.fromPort)
+				return fromPort < other.fromPort;
+			if (toPort != other.toPort)
+				return toPort < other.toPort;
+			if (fromBit != other.fromBit)
+				return fromBit < other.fromBit;
+			return toBit < other.toBit;
+		}
+
+		std::string toString() const
+		{
+			return stringf("%s[%d]:%s[%d]", fromPort.c_str(), fromBit, toPort.c_str(), toBit);
+		}
+	};
+
+	struct DiNode
+	{
+		std::string typeId;
+		std::map<std::string, int> portSizes;
+
+		DiNode()
+		{
+		}
+
+		DiNode(const Graph &graph, int nodeIdx)
+		{
+			const Graph::Node &node = graph.nodes.at(nodeIdx);
+			typeId = node.typeId;
+			for (const auto &port : node.ports)
+				portSizes[port.portId] = port.bits.size();
+		}
+
+		bool operator < (const DiNode &other) const
+		{
+			if (typeId != other.typeId)
+				return typeId < other.typeId;
+			return portSizes < other.portSizes;
+		}
+
+		std::string toString() const
+		{
+			std::string str;
+			bool firstPort = true;
+			for (const auto &it : portSizes) {
+				str += stringf("%s%s[%d]", firstPort ? "" : ",", it.first.c_str(), it.second);
+				firstPort = false;
+			}
+			return typeId + "(" + str + ")";
+		}
+	};
+
+	struct DiEdge
+	{
+		DiNode fromNode, toNode;
+		std::set<DiBit> bits;
+		std::string userAnnotation;
+
+		bool operator < (const DiEdge &other) const
+		{
+			if (fromNode < other.fromNode || other.fromNode < fromNode)
+				return fromNode < other.fromNode;
+			if (toNode < other.toNode || other.toNode < toNode)
+				return toNode < other.toNode;
+			if (bits < other.bits || other.bits < bits)
+				return bits < other.bits;
+			return userAnnotation < other.userAnnotation;
+		}
+
+		bool compare(const DiEdge &other, const std::map<std::string, std::string> &mapFromPorts, const std::map<std::string, std::string> &mapToPorts) const
+		{
+			// Rules for matching edges:
+			//
+			// For all bits in the needle edge:
+			//   - ignore if needle ports don't exist in haystack edge
+			//   - otherwise: matching bit in haystack edge must exist
+			//
+			// There is no need to check in the other direction, as checking
+			// of the isExtern properties is already performed in node matching.
+			//
+			// Note: "this" is needle, "other" is haystack
+
+			for (auto bit : bits)
+			{
+				if (mapFromPorts.count(bit.fromPort) > 0)
+					bit.fromPort = mapFromPorts.at(bit.fromPort);
+				if (mapToPorts.count(bit.toPort) > 0)
+					bit.toPort = mapToPorts.at(bit.toPort);
+
+				if (other.fromNode.portSizes.count(bit.fromPort) == 0)
+					continue;
+				if (other.toNode.portSizes.count(bit.toPort) == 0)
+					continue;
+
+				if (bit.fromBit >= other.fromNode.portSizes.at(bit.fromPort))
+					continue;
+				if (bit.toBit >= other.toNode.portSizes.at(bit.toPort))
+					continue;
+
+				if (other.bits.count(bit) == 0)
+					return false;
+			}
+
+			return true;
+		}
+
+		bool compareWithFromAndToPermutations(const DiEdge &other, const std::map<std::string, std::string> &mapFromPorts, const std::map<std::string, std::string> &mapToPorts,
+				const std::map<std::string, std::set<std::map<std::string, std::string>>> &swapPermutations) const
+		{
+			if (swapPermutations.count(fromNode.typeId) > 0)
+				for (const auto &permutation : swapPermutations.at(fromNode.typeId)) {
+					std::map<std::string, std::string> thisMapFromPorts = mapFromPorts;
+					applyPermutation(thisMapFromPorts, permutation);
+					if (compareWithToPermutations(other, thisMapFromPorts, mapToPorts, swapPermutations))
+						return true;
+				}
+			return compareWithToPermutations(other, mapFromPorts, mapToPorts, swapPermutations);
+		}
+
+		bool compareWithToPermutations(const DiEdge &other, const std::map<std::string, std::string> &mapFromPorts, const std::map<std::string, std::string> &mapToPorts,
+				const std::map<std::string, std::set<std::map<std::string, std::string>>> &swapPermutations) const
+		{
+			if (swapPermutations.count(toNode.typeId) > 0)
+				for (const auto &permutation : swapPermutations.at(toNode.typeId)) {
+					std::map<std::string, std::string> thisMapToPorts = mapToPorts;
+					applyPermutation(thisMapToPorts, permutation);
+					if (compare(other, mapFromPorts, thisMapToPorts))
+						return true;
+				}
+			return compare(other, mapFromPorts, mapToPorts);
+		}
+
+		bool compare(const DiEdge &other, const std::map<std::string, std::set<std::set<std::string>>> &swapPorts,
+				const std::map<std::string, std::set<std::map<std::string, std::string>>> &swapPermutations) const
+		{
+			// brute force method for port swapping: try all variations
+
+			std::vector<std::vector<std::string>> swapFromPorts;
+			std::vector<std::vector<std::string>> swapToPorts;
+
+			// only use groups that are relevant for this edge
+
+			if (swapPorts.count(fromNode.typeId) > 0)
+				for (const auto &ports : swapPorts.at(fromNode.typeId)) {
+					for (const auto &bit : bits)
+						if (ports.count(bit.fromPort))
+							goto foundFromPortMatch;
+					if (0) {
+				foundFromPortMatch:
+						std::vector<std::string> portsVector;
+						for (const auto &port : ports)
+							portsVector.push_back(port);
+						swapFromPorts.push_back(portsVector);
+					}
+				}
+
+			if (swapPorts.count(toNode.typeId) > 0)
+				for (const auto &ports : swapPorts.at(toNode.typeId)) {
+					for (const auto &bit : bits)
+						if (ports.count(bit.toPort))
+							goto foundToPortMatch;
+					if (0) {
+				foundToPortMatch:
+						std::vector<std::string> portsVector;
+						for (const auto &port : ports)
+							portsVector.push_back(port);
+						swapToPorts.push_back(portsVector);
+					}
+				}
+
+			// try all permutations
+
+			std::map<std::string, std::string> mapFromPorts, mapToPorts;
+			int fromPortsPermutations = numberOfPermutationsArray(swapFromPorts);
+			int toPortsPermutations = numberOfPermutationsArray(swapToPorts);
+
+			for (int i = 0; i < fromPortsPermutations; i++)
+			{
+				permutateVectorToMapArray(mapFromPorts, swapFromPorts, i);
+
+				for (int j = 0; j < toPortsPermutations; j++) {
+					permutateVectorToMapArray(mapToPorts, swapToPorts, j);
+					if (compareWithFromAndToPermutations(other, mapFromPorts, mapToPorts, swapPermutations))
+						return true;
+				}
+			}
+
+			return false;
+		}
+
+		bool compare(const DiEdge &other, const std::map<std::string, std::string> &mapFromPorts, const std::map<std::string, std::set<std::set<std::string>>> &swapPorts,
+				const std::map<std::string, std::set<std::map<std::string, std::string>>> &swapPermutations) const
+		{
+			// strip-down version of the last function: only try permutations for mapToPorts, mapFromPorts is already provided by the caller
+
+			std::vector<std::vector<std::string>> swapToPorts;
+
+			if (swapPorts.count(toNode.typeId) > 0)
+				for (const auto &ports : swapPorts.at(toNode.typeId)) {
+					for (const auto &bit : bits)
+						if (ports.count(bit.toPort))
+							goto foundToPortMatch;
+					if (0) {
+				foundToPortMatch:
+						std::vector<std::string> portsVector;
+						for (const auto &port : ports)
+							portsVector.push_back(port);
+						swapToPorts.push_back(portsVector);
+					}
+				}
+
+			std::map<std::string, std::string> mapToPorts;
+			int toPortsPermutations = numberOfPermutationsArray(swapToPorts);
+
+			for (int j = 0; j < toPortsPermutations; j++) {
+				permutateVectorToMapArray(mapToPorts, swapToPorts, j);
+				if (compareWithToPermutations(other, mapFromPorts, mapToPorts, swapPermutations))
+					return true;
+			}
+
+			return false;
+		}
+
+		std::string toString() const
+		{
+			std::string buffer = fromNode.toString() + " " + toNode.toString();
+			for (const auto &bit : bits)
+				buffer += " " + bit.toString();
+			if (!userAnnotation.empty())
+				buffer += " " + userAnnotation;
+			return buffer;
+		}
+
+		static void findEdgesInGraph(const Graph &graph, std::map<std::pair<int, int>, DiEdge> &edges)
+		{
+			edges.clear();
+			for (const auto &edge : graph.edges) {
+				if (edge.constValue != 0)
+					continue;
+				for (const auto &fromBit : edge.portBits)
+				for (const auto &toBit : edge.portBits)
+					if (&fromBit != &toBit) {
+						DiEdge &de = edges[std::pair<int, int>(fromBit.nodeIdx, toBit.nodeIdx)];
+						de.fromNode = DiNode(graph, fromBit.nodeIdx);
+						de.toNode = DiNode(graph, toBit.nodeIdx);
+						std::string fromPortId = graph.nodes[fromBit.nodeIdx].ports[fromBit.portIdx].portId;
+						std::string toPortId = graph.nodes[toBit.nodeIdx].ports[toBit.portIdx].portId;
+						de.bits.insert(DiBit(fromPortId, fromBit.bitIdx, toPortId, toBit.bitIdx));
+					}
+			}
+		}
+	};
+
+	struct DiCache
+	{
+		std::map<DiEdge, int> edgeTypesMap;
+		std::vector<DiEdge> edgeTypes;
+		std::map<std::pair<int, int>, bool> compareCache;
+
+		void add(const Graph &graph, adjMatrix_t &adjMatrix, const std::string &graphId, Solver *userSolver)
+		{
+			std::map<std::pair<int, int>, DiEdge> edges;
+			DiEdge::findEdgesInGraph(graph, edges);
+
+			adjMatrix.clear();
+			adjMatrix.resize(graph.nodes.size());
+
+			for (auto &it : edges) {
+				const Graph::Node &fromNode = graph.nodes[it.first.first];
+				const Graph::Node &toNode = graph.nodes[it.first.second];
+				it.second.userAnnotation = userSolver->userAnnotateEdge(graphId, fromNode.nodeId, fromNode.userData, toNode.nodeId, toNode.userData);
+			}
+
+			for (const auto &it : edges) {
+				if (edgeTypesMap.count(it.second) == 0) {
+					edgeTypesMap[it.second] = edgeTypes.size();
+					edgeTypes.push_back(it.second);
+				}
+				adjMatrix[it.first.first][it.first.second] = edgeTypesMap[it.second];
+			}
+		}
+
+		bool compare(int needleEdge, int haystackEdge, const std::map<std::string, std::set<std::set<std::string>>> &swapPorts,
+				const std::map<std::string, std::set<std::map<std::string, std::string>>> &swapPermutations)
+		{
+			std::pair<int, int> key(needleEdge, haystackEdge);
+			if (!compareCache.count(key))
+				compareCache[key] = edgeTypes.at(needleEdge).compare(edgeTypes.at(haystackEdge), swapPorts, swapPermutations);
+			return compareCache[key];
+		}
+
+		bool compare(int needleEdge, int haystackEdge, const std::map<std::string, std::string> &mapFromPorts, const std::map<std::string, std::set<std::set<std::string>>> &swapPorts,
+				const std::map<std::string, std::set<std::map<std::string, std::string>>> &swapPermutations) const
+		{
+			return edgeTypes.at(needleEdge).compare(edgeTypes.at(haystackEdge), mapFromPorts, swapPorts, swapPermutations);
+		}
+
+		bool compare(int needleEdge, int haystackEdge, const std::map<std::string, std::string> &mapFromPorts, const std::map<std::string, std::string> &mapToPorts) const
+		{
+			return edgeTypes.at(needleEdge).compare(edgeTypes.at(haystackEdge), mapFromPorts, mapToPorts);
+		}
+
+		void printEdgeTypes() const
+		{
+			for (int i = 0; i < int(edgeTypes.size()); i++)
+				printf("%5d: %s\n", i, edgeTypes[i].toString().c_str());
+		}
+	};
+
+	// solver state variables
+
+	Solver *userSolver;
+	std::map<std::string, GraphData> graphData;
+	std::map<std::string, std::set<std::string>> compatibleTypes;
+	std::map<int, std::set<int>> compatibleConstants;
+	std::map<std::string, std::set<std::set<std::string>>> swapPorts;
+	std::map<std::string, std::set<std::map<std::string, std::string>>> swapPermutations;
+	DiCache diCache;
+	bool verbose;
+
+	// main solver functions
+
+	bool matchNodes(const Graph &needle, int needleNodeIdx, const Graph &haystack, int haystackNodeIdx) const
+	{
+		// Rules for matching nodes:
+		//
+		// 1. their typeId must be identical or compatible
+		//    (this is checked before calling this function)
+		//
+		// 2. they must have the same ports and the haystack port
+		//    widths must match the needle port width range
+		//
+		// 3. All edges from the needle must match the haystack:
+		//    a) if the needle edge is extern:
+		//         - the haystack edge must have at least as many components as the needle edge
+		//    b) if the needle edge is not extern:
+		//         - the haystack edge must have the same number of components as the needle edge
+		//         - the haystack edge must not be extern
+
+		const Graph::Node &nn = needle.nodes[needleNodeIdx];
+		const Graph::Node &hn = haystack.nodes[haystackNodeIdx];
+
+		assert(nn.typeId == hn.typeId || (compatibleTypes.count(nn.typeId) > 0 && compatibleTypes.at(nn.typeId).count(hn.typeId) > 0));
+
+		if (nn.ports.size() != hn.ports.size())
+			return false;
+
+		for (int i = 0; i < int(nn.ports.size()); i++)
+		{
+			if (hn.portMap.count(nn.ports[i].portId) == 0)
+				return false;
+
+			const Graph::Port &np = nn.ports[i];
+			const Graph::Port &hp = hn.ports[hn.portMap.at(nn.ports[i].portId)];
+
+			if (int(hp.bits.size()) < np.minWidth || hp.bits.size() > np.bits.size())
+				return false;
+
+			for (int j = 0; j < int(hp.bits.size()); j++)
+			{
+				const Graph::Edge &ne = needle.edges[np.bits[j].edgeIdx];
+				const Graph::Edge &he = haystack.edges[hp.bits[j].edgeIdx];
+
+				if (ne.constValue || he.constValue) {
+					if (ne.constValue != he.constValue)
+						if (compatibleConstants.count(ne.constValue) == 0 || compatibleConstants.at(ne.constValue).count(he.constValue) == 0)
+							return false;
+					continue;
+				}
+
+				if (ne.isExtern || needle.allExtern) {
+					if (he.portBits.size() < ne.portBits.size())
+						return false;
+				} else {
+					if (he.portBits.size() != ne.portBits.size())
+						return false;
+					if (he.isExtern || haystack.allExtern)
+						return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	void generateEnumerationMatrix(std::vector<std::set<int>> &enumerationMatrix, const GraphData &needle, const GraphData &haystack, const std::map<std::string, std::set<std::string>> &initialMappings) const
+	{
+		std::map<std::string, std::set<int>> haystackNodesByTypeId;
+		for (int i = 0; i < int(haystack.graph.nodes.size()); i++)
+			haystackNodesByTypeId[haystack.graph.nodes[i].typeId].insert(i);
+
+		enumerationMatrix.clear();
+		enumerationMatrix.resize(needle.graph.nodes.size());
+		for (int i = 0; i < int(needle.graph.nodes.size()); i++)
+		{
+			const Graph::Node &nn = needle.graph.nodes[i];
+
+			for (int j : haystackNodesByTypeId[nn.typeId]) {
+				const Graph::Node &hn = haystack.graph.nodes[j];
+				if (initialMappings.count(nn.nodeId) > 0 && initialMappings.at(nn.nodeId).count(hn.nodeId) == 0)
+					continue;
+				if (!matchNodes(needle.graph, i, haystack.graph, j))
+					continue;
+				if (userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData))
+					enumerationMatrix[i].insert(j);
+			}
+
+			if (compatibleTypes.count(nn.typeId) > 0)
+				for (const std::string &compatibleTypeId : compatibleTypes.at(nn.typeId))
+					for (int j : haystackNodesByTypeId[compatibleTypeId]) {
+						const Graph::Node &hn = haystack.graph.nodes[j];
+						if (initialMappings.count(nn.nodeId) > 0 && initialMappings.at(nn.nodeId).count(hn.nodeId) == 0)
+							continue;
+						if (!matchNodes(needle.graph, i, haystack.graph, j))
+							continue;
+						if (userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData))
+							enumerationMatrix[i].insert(j);
+					}
+		}
+	}
+
+	bool checkEnumerationMatrix(std::vector<std::set<int>> &enumerationMatrix, int i, int j, const GraphData &needle, const GraphData &haystack)
+	{
+		for (const auto &it_needle : needle.adjMatrix.at(i))
+		{
+			int needleNeighbour = it_needle.first;
+			int needleEdgeType = it_needle.second;
+
+			for (int haystackNeighbour : enumerationMatrix[needleNeighbour])
+				if (haystack.adjMatrix.at(j).count(haystackNeighbour) > 0) {
+					int haystackEdgeType = haystack.adjMatrix.at(j).at(haystackNeighbour);
+					if (diCache.compare(needleEdgeType, haystackEdgeType, swapPorts, swapPermutations)) {
+						const Graph::Node &needleFromNode = needle.graph.nodes[i];
+						const Graph::Node &needleToNode = needle.graph.nodes[needleNeighbour];
+						const Graph::Node &haystackFromNode = haystack.graph.nodes[j];
+						const Graph::Node &haystackToNode = haystack.graph.nodes[haystackNeighbour];
+						if (userSolver->userCompareEdge(needle.graphId, needleFromNode.nodeId,  needleFromNode.userData, needleToNode.nodeId,  needleToNode.userData,
+								haystack.graphId, haystackFromNode.nodeId, haystackFromNode.userData, haystackToNode.nodeId, haystackToNode.userData))
+							goto found_match;
+					}
+				}
+
+			return false;
+		found_match:;
+		}
+
+		return true;
+	}
+
+	bool pruneEnumerationMatrix(std::vector<std::set<int>> &enumerationMatrix, const GraphData &needle, const GraphData &haystack, int &nextRow)
+	{
+		bool didSomething = true;
+		while (didSomething)
+		{
+			nextRow = -1;
+			didSomething = false;
+			for (int i = 0; i < int(enumerationMatrix.size()); i++) {
+				std::set<int> newRow;
+				for (int j : enumerationMatrix[i]) {
+					if (checkEnumerationMatrix(enumerationMatrix, i, j, needle, haystack))
+						newRow.insert(j);
+					else
+						didSomething = true;
+				}
+				if (newRow.size() == 0)
+					return false;
+				if (newRow.size() >= 2 && (nextRow < 0 || needle.adjMatrix.at(nextRow).size() < needle.adjMatrix.at(i).size()))
+					nextRow = i;
+				enumerationMatrix[i].swap(newRow);
+			}
+		}
+		return true;
+	}
+
+	void printEnumerationMatrix(const std::vector<std::set<int>> &enumerationMatrix, int maxHaystackNodeIdx = -1) const
+	{
+		if (maxHaystackNodeIdx < 0) {
+			for (const auto &it : enumerationMatrix)
+				for (int idx : it)
+					maxHaystackNodeIdx = std::max(maxHaystackNodeIdx, idx);
+		}
+
+		printf("       ");
+		for (int j = 0; j < maxHaystackNodeIdx; j += 5)
+			printf("%-6d", j);
+		printf("\n");
+
+		for (int i = 0; i < int(enumerationMatrix.size()); i++)
+		{
+			printf("%5d:", i);
+			for (int j = 0; j < maxHaystackNodeIdx; j++) {
+				if (j % 5 == 0)
+					printf(" ");
+				printf("%c", enumerationMatrix[i].count(j) > 0 ? '*' : '.');
+			}
+			printf("\n");
+		}
+	}
+
+	bool checkPortmapCandidate(const std::vector<std::set<int>> &enumerationMatrix, const GraphData &needle,  const GraphData &haystack, int idx, const std::map<std::string, std::string> &currentCandidate)
+	{
+		assert(enumerationMatrix[idx].size() == 1);
+		int idxHaystack = *enumerationMatrix[idx].begin();
+
+		for (const auto &it_needle : needle.adjMatrix.at(idx))
+		{
+			int needleNeighbour = it_needle.first;
+			int needleEdgeType = it_needle.second;
+
+			assert(enumerationMatrix[needleNeighbour].size() == 1);
+			int haystackNeighbour = *enumerationMatrix[needleNeighbour].begin();
+
+			assert(haystack.adjMatrix.at(idxHaystack).count(haystackNeighbour) > 0);
+			int haystackEdgeType = haystack.adjMatrix.at(idxHaystack).at(haystackNeighbour);
+			if (!diCache.compare(needleEdgeType, haystackEdgeType, currentCandidate, swapPorts, swapPermutations))
+				return false;
+		}
+		return true;
+	}
+
+	void generatePortmapCandidates(std::set<std::map<std::string, std::string>> &portmapCandidates, const std::vector<std::set<int>> &enumerationMatrix,
+			const GraphData &needle, const GraphData &haystack, int idx)
+	{
+		std::map<std::string, std::string> currentCandidate;
+
+		for (const auto &port : needle.graph.nodes[idx].ports)
+			currentCandidate[port.portId] = port.portId;
+
+		if (swapPorts.count(needle.graph.nodes[idx].typeId) == 0)
+		{
+			if (checkPortmapCandidate(enumerationMatrix, needle, haystack, idx, currentCandidate))
+				portmapCandidates.insert(currentCandidate);
+
+			if (swapPermutations.count(needle.graph.nodes[idx].typeId) > 0)
+				for (const auto &permutation : swapPermutations.at(needle.graph.nodes[idx].typeId)) {
+					std::map<std::string, std::string> currentSubCandidate = currentCandidate;
+					applyPermutation(currentSubCandidate, permutation);
+					if (checkPortmapCandidate(enumerationMatrix, needle, haystack, idx, currentSubCandidate))
+						portmapCandidates.insert(currentSubCandidate);
+				}
+		}
+		else
+		{
+			std::vector<std::vector<std::string>> thisSwapPorts;
+			for (const auto &ports : swapPorts.at(needle.graph.nodes[idx].typeId)) {
+				std::vector<std::string> portsVector;
+				for (const auto &port : ports)
+					portsVector.push_back(port);
+				thisSwapPorts.push_back(portsVector);
+			}
+
+			int thisPermutations = numberOfPermutationsArray(thisSwapPorts);
+			for (int i = 0; i < thisPermutations; i++)
+			{
+				permutateVectorToMapArray(currentCandidate, thisSwapPorts, i);
+
+				if (checkPortmapCandidate(enumerationMatrix, needle, haystack, idx, currentCandidate))
+					portmapCandidates.insert(currentCandidate);
+
+				if (swapPermutations.count(needle.graph.nodes[idx].typeId) > 0)
+					for (const auto &permutation : swapPermutations.at(needle.graph.nodes[idx].typeId)) {
+						std::map<std::string, std::string> currentSubCandidate = currentCandidate;
+						applyPermutation(currentSubCandidate, permutation);
+						if (checkPortmapCandidate(enumerationMatrix, needle, haystack, idx, currentSubCandidate))
+							portmapCandidates.insert(currentSubCandidate);
+					}
+			}
+		}
+	}
+
+	bool prunePortmapCandidates(std::vector<std::set<std::map<std::string, std::string>>> &portmapCandidates, std::vector<std::set<int>> enumerationMatrix, const GraphData &needle, const GraphData &haystack)
+	{
+		bool didSomething = false;
+
+		// strategy #1: prune impossible port mappings
+
+		for (int i = 0; i < int(needle.graph.nodes.size()); i++)
+		{
+			assert(enumerationMatrix[i].size() == 1);
+			int j = *enumerationMatrix[i].begin();
+
+			std::set<std::map<std::string, std::string>> thisCandidates;
+			portmapCandidates[i].swap(thisCandidates);
+
+			for (const auto &testCandidate : thisCandidates)
+			{
+				for (const auto &it_needle : needle.adjMatrix.at(i))
+				{
+					int needleNeighbour = it_needle.first;
+					int needleEdgeType = it_needle.second;
+
+					assert(enumerationMatrix[needleNeighbour].size() == 1);
+					int haystackNeighbour = *enumerationMatrix[needleNeighbour].begin();
+
+					assert(haystack.adjMatrix.at(j).count(haystackNeighbour) > 0);
+					int haystackEdgeType = haystack.adjMatrix.at(j).at(haystackNeighbour);
+
+					for (const auto &otherCandidate : portmapCandidates[needleNeighbour]) {
+						if (diCache.compare(needleEdgeType, haystackEdgeType, testCandidate, otherCandidate))
+							goto found_match;
+					}
+
+					didSomething = true;
+					goto purgeCandidate;
+				found_match:;
+				}
+
+				portmapCandidates[i].insert(testCandidate);
+			purgeCandidate:;
+			}
+
+			if (portmapCandidates[i].size() == 0)
+				return false;
+		}
+
+		if (didSomething)
+			return true;
+
+		// strategy #2: prune a single random port mapping
+
+		for (int i = 0; i < int(needle.graph.nodes.size()); i++)
+			if (portmapCandidates[i].size() > 1) {
+				// remove last mapping. this keeps ports unswapped in don't-care situations
+				portmapCandidates[i].erase(--portmapCandidates[i].end());
+				return true;
+			}
+
+		return false;
+	}
+
+	void ullmannRecursion(std::vector<Solver::Result> &results, std::vector<std::set<int>> &enumerationMatrix, int iter, const GraphData &needle, GraphData &haystack, bool allowOverlap, int limitResults)
+	{
+		int i = -1;
+		if (!pruneEnumerationMatrix(enumerationMatrix, needle, haystack, i))
+			return;
+
+		if (i < 0)
+		{
+			Solver::Result result;
+			result.needleGraphId = needle.graphId;
+			result.haystackGraphId = haystack.graphId;
+
+			std::vector<std::set<std::map<std::string, std::string>>> portmapCandidates;
+			portmapCandidates.resize(enumerationMatrix.size());
+
+			for (int j = 0; j < int(enumerationMatrix.size()); j++) {
+				Solver::ResultNodeMapping mapping;
+				mapping.needleNodeId = needle.graph.nodes[j].nodeId;
+				mapping.needleUserData = needle.graph.nodes[j].userData;
+				mapping.haystackNodeId = haystack.graph.nodes[*enumerationMatrix[j].begin()].nodeId;
+				mapping.haystackUserData = haystack.graph.nodes[*enumerationMatrix[j].begin()].userData;
+				generatePortmapCandidates(portmapCandidates[j], enumerationMatrix, needle, haystack, j);
+				result.mappings[needle.graph.nodes[j].nodeId] = mapping;
+			}
+
+			while (prunePortmapCandidates(portmapCandidates, enumerationMatrix, needle, haystack)) { }
+
+			for (int j = 0; j < int(enumerationMatrix.size()); j++) {
+				if (portmapCandidates[j].size() == 0) {
+					if (verbose) {
+						printf("\nSolution (rejected by portmapper):\n");
+						printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
+					}
+					return;
+				}
+				result.mappings[needle.graph.nodes[j].nodeId].portMapping = *portmapCandidates[j].begin();
+			}
+
+			if (!userSolver->userCheckSolution(result)) {
+				if (verbose) {
+					printf("\nSolution (rejected by userCheckSolution):\n");
+					printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
+				}
+				return;
+			}
+
+			for (int j = 0; j < int(enumerationMatrix.size()); j++)
+				haystack.usedNodes[*enumerationMatrix[j].begin()] = true;
+
+			if (verbose) {
+				printf("\nSolution:\n");
+				printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
+			}
+
+			results.push_back(result);
+			return;
+		}
+
+		if (verbose) {
+			printf("\n");
+			printf("Enumeration Matrix at recursion level %d (%d):\n", iter, i);
+			printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
+		}
+
+		std::set<int> activeRow;
+		enumerationMatrix[i].swap(activeRow);
+
+		for (int j : activeRow)
+		{
+			// found enough?
+			if (limitResults >= 0 && int(results.size()) >= limitResults)
+				return;
+
+			// already used by other solution -> try next
+			if (!allowOverlap && haystack.usedNodes[j])
+				continue;
+
+			// create enumeration matrix for child in recursion tree
+			std::vector<std::set<int>> nextEnumerationMatrix = enumerationMatrix;
+			for (int k = 0; k < int(nextEnumerationMatrix.size()); k++)
+				nextEnumerationMatrix[k].erase(j);
+			nextEnumerationMatrix[i].insert(j);
+
+			// recursion
+			ullmannRecursion(results, nextEnumerationMatrix, iter+1, needle, haystack, allowOverlap, limitResults);
+
+			// we just have found something -> unroll to top recursion level
+			if (!allowOverlap && haystack.usedNodes[j] && iter > 0)
+				return;
+		}
+	}
+
+	// interface to the public Solver class
+
+protected:
+	SolverWorker(Solver *userSolver) : userSolver(userSolver), verbose(false)
+	{
+	}
+
+	void setVerbose()
+	{
+		verbose = true;
+	}
+
+	void addGraph(std::string graphId, const Graph &graph)
+	{
+		assert(graphData.count(graphId) == 0);
+
+		GraphData &gd = graphData[graphId];
+		gd.graphId = graphId;
+		gd.graph = graph;
+		diCache.add(gd.graph, gd.adjMatrix, graphId, userSolver);
+	}
+
+	void addCompatibleTypes(std::string needleTypeId, std::string haystackTypeId)
+	{
+		compatibleTypes[needleTypeId].insert(haystackTypeId);
+	}
+
+	void addCompatibleConstants(int needleConstant, int haystackConstant)
+	{
+		compatibleConstants[needleConstant].insert(haystackConstant);
+	}
+
+	void addSwappablePorts(std::string needleTypeId, const std::set<std::string> &ports)
+	{
+		swapPorts[needleTypeId].insert(ports);
+		diCache.compareCache.clear();
+	}
+
+	void addSwappablePortsPermutation(std::string needleTypeId, const std::map<std::string, std::string> &portMapping)
+	{
+		swapPermutations[needleTypeId].insert(portMapping);
+		diCache.compareCache.clear();
+	}
+
+	void solve(std::vector<Solver::Result> &results, std::string needleGraphId, std::string haystackGraphId,
+			const std::map<std::string, std::set<std::string>> &initialMappings, bool allowOverlap, int maxSolutions)
+	{
+		assert(graphData.count(needleGraphId) > 0);
+		assert(graphData.count(haystackGraphId) > 0);
+
+		const GraphData &needle = graphData[needleGraphId];
+		GraphData &haystack = graphData[haystackGraphId];
+
+		std::vector<std::set<int>> enumerationMatrix;
+		generateEnumerationMatrix(enumerationMatrix, needle, haystack, initialMappings);
+
+		if (verbose)
+		{
+			printf("\n");
+			printf("Needle Adjecency Matrix:\n");
+			printAdjMatrix(needle.adjMatrix);
+
+			printf("\n");
+			printf("Haystack Adjecency Matrix:\n");
+			printAdjMatrix(haystack.adjMatrix);
+
+			printf("\n");
+			printf("Edge Types:\n");
+			diCache.printEdgeTypes();
+
+			printf("\n");
+			printf("Enumeration Matrix:\n");
+			printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
+		}
+
+		haystack.usedNodes.resize(haystack.graph.nodes.size());
+		ullmannRecursion(results, enumerationMatrix, 0, needle, haystack, allowOverlap, maxSolutions > 0 ? results.size() + maxSolutions : -1);
+	}
+
+	void clearOverlapHistory()
+	{
+		for (auto &it : graphData)
+			it.second.usedNodes.clear();
+	}
+
+	void clearConfig()
+	{
+		compatibleTypes.clear();
+		compatibleConstants.clear();
+		swapPorts.clear();
+		swapPermutations.clear();
+		diCache.compareCache.clear();
+	}
+
+	friend class Solver;
+};
+
+bool Solver::userCompareNodes(const std::string&, const std::string&, void*, const std::string&, const std::string&, void*)
+{
+	return true;
+}
+
+std::string Solver::userAnnotateEdge(const std::string&, const std::string&, void*, const std::string&, void*)
+{
+	return std::string();
+}
+
+bool Solver::userCompareEdge(const std::string&, const std::string&, void*, const std::string&, void*, const std::string&, const std::string&, void*, const std::string&, void*)
+{
+	return true;
+}
+
+bool Solver::userCheckSolution(const Result&)
+{
+	return true;
+}
+
+SubCircuit::Solver::Solver()
+{
+	worker = new SolverWorker(this);
+}
+
+SubCircuit::Solver::~Solver()
+{
+	delete worker;
+}
+
+void SubCircuit::Solver::setVerbose()
+{
+	worker->setVerbose();
+}
+
+void SubCircuit::Solver::addGraph(std::string graphId, const Graph &graph)
+{
+	worker->addGraph(graphId, graph);
+}
+
+void SubCircuit::Solver::addCompatibleTypes(std::string needleTypeId, std::string haystackTypeId)
+{
+	worker->addCompatibleTypes(needleTypeId, haystackTypeId);
+}
+
+void SubCircuit::Solver::addCompatibleConstants(int needleConstant, int haystackConstant)
+{
+	worker->addCompatibleConstants(needleConstant, haystackConstant);
+}
+
+void SubCircuit::Solver::addSwappablePorts(std::string needleTypeId, std::string portId1, std::string portId2, std::string portId3, std::string portId4)
+{
+	std::set<std::string> ports;
+	ports.insert(portId1);
+	ports.insert(portId2);
+	ports.insert(portId3);
+	ports.insert(portId4);
+	ports.erase(std::string());
+	addSwappablePorts(needleTypeId, ports);
+}
+
+void SubCircuit::Solver::addSwappablePorts(std::string needleTypeId, std::set<std::string> ports)
+{
+	worker->addSwappablePorts(needleTypeId, ports);
+}
+
+void SubCircuit::Solver::addSwappablePortsPermutation(std::string needleTypeId, std::map<std::string, std::string> portMapping)
+{
+	worker->addSwappablePortsPermutation(needleTypeId, portMapping);
+}
+
+void SubCircuit::Solver::solve(std::vector<Result> &results, std::string needleGraphId, std::string haystackGraphId, bool allowOverlap, int maxSolutions)
+{
+	std::map<std::string, std::set<std::string>> emptyInitialMapping;
+	worker->solve(results, needleGraphId, haystackGraphId, emptyInitialMapping, allowOverlap, maxSolutions);
+}
+
+void SubCircuit::Solver::solve(std::vector<Result> &results, std::string needleGraphId, std::string haystackGraphId,
+		const std::map<std::string, std::set<std::string>> &initialMappings, bool allowOverlap, int maxSolutions)
+{
+	worker->solve(results, needleGraphId, haystackGraphId, initialMappings, allowOverlap, maxSolutions);
+}
+
+void SubCircuit::Solver::clearOverlapHistory()
+{
+	worker->clearOverlapHistory();
+}
+
+void SubCircuit::Solver::clearConfig()
+{
+	worker->clearConfig();
+}
+

@@ -1,0 +1,221 @@
+#!/usr/bin/env splrun
+
+var idx = 0;
+var count_nand = 0;
+var count_nor = 0;
+
+function makeNAND(net, id)
+{
+	count_nand++;
+
+	net["${id}_VDD"] = "${id}_pa S";
+	net["${id}_VSS"] = "${id}_nb S";
+
+	net["${id}_A"] = "${id}_pa G";
+	net["${id}_B"] = "${id}_pb G";
+	net["${id}_Y"] = "${id}_pb D";
+
+	return <:>
+		:   node ${id}_pa pmos S 1 D 1 G 1
+		:   node ${id}_pb pmos S 1 D 1 G 1
+		:   node ${id}_na nmos S 1 D 1 G 1
+		:   node ${id}_nb nmos S 1 D 1 G 1
+		:   connect ${id}_pa S ${id}_pb S
+		:   connect ${id}_pa D ${id}_pb D
+		:   connect ${id}_pa D ${id}_na D
+		:   connect ${id}_na S ${id}_nb D
+		:   connect ${id}_pa G ${id}_na G
+		:   connect ${id}_pb G ${id}_nb G
+	</>;
+}
+
+function makeNOR(net, id)
+{
+	count_nor++;
+
+	net["${id}_VDD"] = "${id}_pa S";
+	net["${id}_VSS"] = "${id}_nb S";
+
+	net["${id}_A"] = "${id}_pa G";
+	net["${id}_B"] = "${id}_pb G";
+	net["${id}_Y"] = "${id}_pb D";
+
+	return <:>
+		:   node ${id}_pa pmos S 1 D 1 G 1
+		:   node ${id}_pb pmos S 1 D 1 G 1
+		:   node ${id}_na nmos S 1 D 1 G 1
+		:   node ${id}_nb nmos S 1 D 1 G 1
+		:   connect ${id}_pa D ${id}_pb S
+		:   connect ${id}_pb D ${id}_na D
+		:   connect ${id}_pb D ${id}_nb D
+		:   connect ${id}_na S ${id}_nb S
+		:   connect ${id}_pa G ${id}_na G
+		:   connect ${id}_pb G ${id}_nb G
+	</>;
+}
+
+function makeGraph(seed, gates, primaryInputs, primaryOutputs)
+{
+	srand(seed);
+
+	var code = "";
+	var net, vdd, vss, outputs;
+	var unusedOutpus;
+	for (var i = 0; i < gates; i++)
+	{
+		var id = fmt("G%d", idx++);
+		if (rand(2) == 0)
+			code ~= makeNAND(net, id);
+		else
+			code ~= makeNOR(net, id);
+
+		if (i == 0) {
+			vdd = net["${id}_VDD"];
+			vss = net["${id}_VSS"];
+		} else {
+			code ~= <:>
+				:   connect $vdd ${net["${id}_VDD"]}
+				:   connect $vss ${net["${id}_VSS"]}
+			</>;
+		}
+
+		var inIdx1 = rand((elementsof outputs) + 1);
+		if (inIdx1 < elementsof outputs) {
+			code ~= "  connect ${outputs[inIdx1]} ${net["${id}_A"]}\n";
+			delete unusedOutpus[outputs[inIdx1]];
+		} else
+			push primaryInputs, net["${id}_A"];
+
+		var inIdx2 = rand((elementsof outputs) + 1);
+		if (inIdx2 < elementsof outputs) {
+			code ~= "  connect ${outputs[inIdx2]} ${net["${id}_B"]}\n";
+			delete unusedOutpus[outputs[inIdx2]];
+		} else
+			push primaryInputs, net["${id}_B"];
+
+		unusedOutpus[net["${id}_Y"]] = 1;
+		push outputs, net["${id}_Y"];
+	}
+
+	foreach netDecl (unusedOutpus)
+		push primaryOutputs, netDecl;
+	
+	return code;
+}
+
+function makeConnections(fromNets, toNets)
+{
+	var code = "";
+	foreach[] toNet (toNets) {
+		var fromNet = fromNets[rand(elementsof fromNets)];
+		code != "  connect $fromNet $toNet\n";
+	}
+	return code;
+}
+
+var numNodes;
+
+write(<:>
+	: graph nand
+	<?spl var net = []; ?>
+	  ${makeNAND(net, "nand")}
+	:   extern ${net["nand_VDD"]}
+	:   extern ${net["nand_VSS"]}
+	:   extern ${net["nand_A"]}
+	:   extern ${net["nand_B"]}
+	:   extern ${net["nand_Y"]}
+	: endgraph
+	:
+	: graph nor
+	  ${makeNOR(net, "nor")}
+	:   extern ${net["nor_VDD"]}
+	:   extern ${net["nor_VSS"]}
+	:   extern ${net["nor_A"]}
+	:   extern ${net["nor_B"]}
+	:   extern ${net["nor_Y"]}
+	: endgraph
+	:
+	: graph needle_1
+	<?spl var ports; ?>
+	  ${makeGraph(1, 100, ports, ports)}
+	<?spl numNodes["needle_1"] = idx*4; ?>
+	<spl:foreach var="[]net" list="ports">
+	:   extern $net
+	</spl:foreach>
+	: endgraph
+	:
+	: graph needle_2
+	<?spl var ports; ?>
+	  ${makeGraph(2, 200, ports, ports)}
+	<?spl numNodes["needle_2"] = idx*4; ?>
+	<spl:foreach var="[]net" list="ports">
+	:   extern $net
+	</spl:foreach>
+	: endgraph
+	:
+	: graph needle_3
+	<?spl var ports; ?>
+	  ${makeGraph(3, 300, ports, ports)}
+	<?spl numNodes["needle_3"] = idx*4; ?>
+	<spl:foreach var="[]net" list="ports">
+	:   extern $net
+	</spl:foreach>
+	: endgraph
+	:
+	: graph haystack
+
+	<?spl count_nand=0; count_nor=0; ?>
+
+	<?spl var inPorts1, outPorts1; ?>
+	  ${makeGraph(1, 100, inPorts1, outPorts1)}
+
+	<?spl var inPorts2, outPorts2; ?>
+	  ${makeGraph(2, 200, inPorts2, outPorts2)}
+
+	<?spl var inPorts3, outPorts3; ?>
+	  ${makeGraph(3, 300, inPorts3, outPorts3)}
+
+	<?spl var inPorts4, outPorts4; ?>
+	  ${makeGraph(2, 200, inPorts4, outPorts4)}
+
+	<?spl var inPorts5, outPorts5; ?>
+	  ${makeGraph(1, 100, inPorts5, outPorts5)}
+	<?spl numNodes["haystack"] = idx*4; ?>
+
+	  ${makeConnections(outPorts1, inPorts2)}
+	  ${makeConnections(outPorts2, inPorts3)}
+	  ${makeConnections(outPorts3, inPorts4)}
+	  ${makeConnections(outPorts4, inPorts5)}
+
+	: endgraph
+	:
+	: solve nand haystack false
+	: expect $count_nand
+	: clearoverlap
+	:
+	: solve nor haystack false
+	: expect $count_nor
+	: clearoverlap
+	:
+	: solve needle_1 haystack false
+	: expect 2
+	:
+	: solve needle_2 haystack false
+	: expect 2
+	:
+	: solve needle_3 haystack false
+	: expect 1
+</>);
+
+numNodes["haystack"] -= numNodes["needle_3"];
+numNodes["needle_3"] -= numNodes["needle_2"];
+numNodes["needle_2"] -= numNodes["needle_1"];
+
+write(<:>
+	:
+	: # Needle_1: ${numNodes["needle_1"]} transistors
+	: # Needle_2: ${numNodes["needle_2"]} transistors
+	: # Needle_3: ${numNodes["needle_3"]} transistors
+	: # Haystack: ${numNodes["haystack"]} transistors
+</>);
+

@@ -21,8 +21,8 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
-#include "kernel/sha1.h"
 #include "kernel/celltypes.h"
+#include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>

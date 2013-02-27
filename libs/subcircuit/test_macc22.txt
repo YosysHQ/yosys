@@ -1,0 +1,48 @@
+
+# verbose
+
+graph macc22
+	node mul_1 mul A 32 B 32 Y 32
+	node mul_2 mul A 32 B 32 Y 32
+	node add_1 add A 32 B 32 Y 32
+	connect mul_1 Y add_1 A
+	connect mul_2 Y add_1 B
+	extern mul_1 A B
+	extern mul_2 A B
+	extern add_1 Y
+endgraph
+
+graph macc4x2
+	node mul_1 mul A 32 B 32 Y 32
+	node mul_2 mul A 32 B 32 Y 32
+	node mul_3 mul A 32 B 32 Y 32
+	node mul_4 mul A 32 B 32 Y 32
+	node add_1 add A 32 B 32 Y 32
+	node add_2 add A 32 B 32 Y 32
+	node add_3 add A 32 B 32 Y 32
+	connect mul_1 Y add_1 A
+	connect mul_2 Y add_1 B
+	connect mul_3 Y add_2 A
+	connect mul_4 Y add_2 B
+	connect add_1 Y add_3 A
+	connect add_2 Y add_3 B
+	extern mul_1 A B
+	extern mul_2 A B
+	extern mul_3 A B
+	extern mul_4 A B
+	extern add_3 Y
+endgraph
+
+solve macc22 macc4x2
+expect 2
+
+swapgroup mul A B
+
+solve macc22 macc4x2
+expect 2
+
+swapperm add A B : B A
+
+solve macc22 macc4x2
+expect 4
+

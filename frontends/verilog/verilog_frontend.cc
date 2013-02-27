@@ -29,7 +29,7 @@
 #include "verilog_frontend.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
-#include "kernel/sha1.h"
+#include "libs/sha1/sha1.h"
 #include <sstream>
 #include <stdarg.h>
 #include <assert.h>

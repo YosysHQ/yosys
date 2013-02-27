@@ -18,7 +18,7 @@
  */
 
 #include "kernel/rtlil.h"
-#include "bigint/BigIntegerLibrary.hh"
+#include "libs/bigint/BigIntegerLibrary.hh"
 #include <assert.h>
 
 static BigInteger const2big(const RTLIL::Const &val, bool as_signed, int &undef_bit_pos)

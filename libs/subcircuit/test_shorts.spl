@@ -1,0 +1,121 @@
+#!/usr/bin/env splrun
+//
+// Test procedure for matching Gates with shorted inputs, as suggested in
+// "SubCircuit Extraction with SubGraph Isomorphism. Zong Ling, Ph. D. IBM
+// Almaden Research Center -- EDA Shape Processing zling@us.ibm.com.":
+//
+// Four NAND gates and a NOR gate. One NAND gate (G1) has no shorted inputs,
+// one (G2) has an input shorted to VSS, one (G3) has an input shorted to VDD,
+// and one (G4) has both inputs shorted together. Th last gate (G5) is a NOR
+// gate.
+
+var net;
+
+function makeNAND(id)
+{
+	net["${id}_VDD"] = "${id}_pa S";
+	net["${id}_VSS"] = "${id}_nb S";
+
+	net["${id}_A"] = "${id}_pa G";
+	net["${id}_B"] = "${id}_pb G";
+	net["${id}_Y"] = "${id}_pb D";
+
+	return <:>
+		:   node ${id}_pa pmos S 1 D 1 G 1
+		:   node ${id}_pb pmos S 1 D 1 G 1
+		:   node ${id}_na nmos S 1 D 1 G 1
+		:   node ${id}_nb nmos S 1 D 1 G 1
+		:   connect ${id}_pa S ${id}_pb S
+		:   connect ${id}_pa D ${id}_pb D
+		:   connect ${id}_pa D ${id}_na D
+		:   connect ${id}_na S ${id}_nb D
+		:   connect ${id}_pa G ${id}_na G
+		:   connect ${id}_pb G ${id}_nb G
+	</>;
+}
+
+function makeNOR(id)
+{
+	net["${id}_VDD"] = "${id}_pa S";
+	net["${id}_VSS"] = "${id}_nb S";
+
+	net["${id}_A"] = "${id}_pa G";
+	net["${id}_B"] = "${id}_pb G";
+	net["${id}_Y"] = "${id}_pb D";
+
+	return <:>
+		:   node ${id}_pa pmos S 1 D 1 G 1
+		:   node ${id}_pb pmos S 1 D 1 G 1
+		:   node ${id}_na nmos S 1 D 1 G 1
+		:   node ${id}_nb nmos S 1 D 1 G 1
+		:   connect ${id}_pa D ${id}_pb S
+		:   connect ${id}_pb D ${id}_na D
+		:   connect ${id}_pb D ${id}_nb D
+		:   connect ${id}_na S ${id}_nb S
+		:   connect ${id}_pa G ${id}_na G
+		:   connect ${id}_pb G ${id}_nb G
+	</>;
+}
+
+write(<:>
+	: graph nand
+	: ${ makeNAND("G0") }
+	:   extern ${net["G0_VDD"]}
+	:   extern ${net["G0_VSS"]}
+	:   extern ${net["G0_A"]}
+	:   extern ${net["G0_B"]}
+	:   extern ${net["G0_Y"]}
+	: endgraph
+	:
+	: graph nor
+	: ${ makeNOR("G0") }
+	:   extern ${net["G0_VDD"]}
+	:   extern ${net["G0_VSS"]}
+	:   extern ${net["G0_A"]}
+	:   extern ${net["G0_B"]}
+	:   extern ${net["G0_Y"]}
+	: endgraph
+	:
+	: graph haystack
+	: ${ makeNAND("G1") }
+	: ${ makeNAND("G2") }
+	: ${ makeNAND("G3") }
+	: ${ makeNAND("G4") }
+	  ${ makeNOR("G5") }
+	:
+	:   node vdd vsupply V 1
+	:   connect vdd V ${net["G1_VDD"]}
+	:   connect vdd V ${net["G2_VDD"]}
+	:   connect vdd V ${net["G3_VDD"]}
+	:   connect vdd V ${net["G4_VDD"]}
+	:   connect vdd V ${net["G5_VDD"]}
+	:
+	:   node vss vsupply V 1
+	:   connect vss V ${net["G1_VSS"]}
+	:   connect vss V ${net["G2_VSS"]}
+	:   connect vss V ${net["G3_VSS"]}
+	:   connect vss V ${net["G4_VSS"]}
+	:   connect vss V ${net["G5_VSS"]}
+	:
+	:   connect ${net["G2_A"]} ${net["G1_A"]}
+	:   connect ${net["G2_B"]} ${net["G2_VSS"]}
+	:
+	:   connect ${net["G3_A"]} ${net["G1_VDD"]}
+	:   connect ${net["G3_B"]} ${net["G2_Y"]}
+	:
+	:   connect ${net["G4_A"]} ${net["G1_Y"]}
+	:   connect ${net["G4_B"]} ${net["G1_Y"]}
+	:
+	:   connect ${net["G5_A"]} ${net["G3_Y"]}
+	:   connect ${net["G5_B"]} ${net["G4_Y"]}
+	: endgraph
+	:
+	: solve nand haystack false
+	: clearoverlap
+	: expect 4
+	:
+	: solve nor haystack false
+	: clearoverlap
+	: expect 1
+</>);
+

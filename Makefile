@@ -3,8 +3,13 @@ CONFIG := clang-debug
 # CONFIG := gcc-debug
 # CONFIG := release
 
-OBJS  = kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/sha1.o kernel/calc.o kernel/select.o kernel/show.o
-OBJS += bigint/BigIntegerAlgorithms.o bigint/BigInteger.o bigint/BigIntegerUtils.o bigint/BigUnsigned.o bigint/BigUnsignedInABase.o
+OBJS  = kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/select.o kernel/show.o
+
+OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
+OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
+
+OBJS += libs/sha1/sha1.o
+OBJS += libs/subcircuit/subcircuit.o
 
 GENFILES =
 TARGETS = yosys
