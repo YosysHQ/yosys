@@ -120,7 +120,7 @@ The following synthesis script works reasonable for all designs:
 	techmap; opt
 
 If ABC (http://www.eecs.berkeley.edu/~alanmi/abc/) is installed and
-a cell library is given in the file liberty mycells.lib, the following
+a cell library is given in the liberty file mycells.lib, the following
 synthesis script will synthesize for the given cell library:
 
 	# the high-level stuff
