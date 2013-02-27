@@ -71,6 +71,11 @@ namespace
 					auto &chunk = conn_sig.chunks[i];
 					assert(chunk.width == 1);
 
+					if (chunk.wire == NULL) {
+						graph.createConstant(cell->name, conn.first, i, int(chunk.data.bits[0]));
+						continue;
+					}
+
 					if (sig_bit_ref.count(chunk) == 0) {
 						bit_ref_t &bit_ref = sig_bit_ref[chunk];
 						bit_ref.cell = cell->name;
@@ -187,14 +192,20 @@ struct ExtractPass : public Pass {
 			log("Solving for %s in %s.\n", needle_it.first.c_str(), haystack_it.first.c_str());
 			solver.solve(results, needle_it.first, haystack_it.first, false);
 		}
+		log("Found %zd matches.\n", results.size());
 
-		for (int i = 0; i < int(results.size()); i++) {
-			log("\nMatch #%d: (%s in %s)\n", i, results[i].needleGraphId.c_str(), results[i].haystackGraphId.c_str());
-			for (const auto & it : results[i].mappings) {
-				log("  %s -> %s", it.first.c_str(), it.second.haystackNodeId.c_str());
-				for (const auto & it2 : it.second.portMapping)
-					log(" %s:%s", it2.first.c_str(), it2.second.c_str());
-				log("\n");
+		if (results.size() > 0)
+		{
+			log_header("Substitute SubCircuits with cells.\n");
+
+			for (int i = 0; i < int(results.size()); i++) {
+				log("\nMatch #%d: (%s in %s)\n", i, results[i].needleGraphId.c_str(), results[i].haystackGraphId.c_str());
+				for (const auto & it : results[i].mappings) {
+					log("  %s -> %s", it.first.c_str(), it.second.haystackNodeId.c_str());
+					for (const auto & it2 : it.second.portMapping)
+						log(" %s:%s", it2.first.c_str(), it2.second.c_str());
+					log("\n");
+				}
 			}
 		}
 
