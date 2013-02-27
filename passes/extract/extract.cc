@@ -33,7 +33,7 @@ namespace
 		int bit;
 	};
 
-	bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, RTLIL::Design *sel = NULL)
+	bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = NULL)
 	{
 		SigMap sigmap(mod);
 		std::map<RTLIL::SigChunk, bit_ref_t> sig_bit_ref;
@@ -46,6 +46,21 @@ namespace
 		if (mod->memories.size() > 0 || mod->processes.size() > 0) {
 			log("  Skipping module %s as it contains unprocessed memories or processes.\n", mod->name.c_str());
 			return false;
+		}
+
+		if (constports) {
+			graph.createNode("$const$0", "$const$0");
+			graph.createNode("$const$1", "$const$1");
+			graph.createNode("$const$x", "$const$x");
+			graph.createNode("$const$z", "$const$z");
+			graph.createPort("$const$0", "Y", 1);
+			graph.createPort("$const$1", "Y", 1);
+			graph.createPort("$const$x", "Y", 1);
+			graph.createPort("$const$z", "Y", 1);
+			graph.markExtern("$const$0", "Y", 0);
+			graph.markExtern("$const$1", "Y", 0);
+			graph.markExtern("$const$x", "Y", 0);
+			graph.markExtern("$const$z", "Y", 0);
 		}
 
 		// create graph nodes from cells
@@ -73,7 +88,14 @@ namespace
 					assert(chunk.width == 1);
 
 					if (chunk.wire == NULL) {
-						graph.createConstant(cell->name, conn.first, i, int(chunk.data.bits[0]));
+						if (constports) {
+							std::string node = "$const$x";
+							if (chunk.data.bits[0] == RTLIL::State::S0) node = "$const$0";
+							if (chunk.data.bits[0] == RTLIL::State::S1) node = "$const$1";
+							if (chunk.data.bits[0] == RTLIL::State::Sz) node = "$const$z";
+							graph.createConnection(cell->name, conn.first, i, node, "Y", 0);
+						} else
+							graph.createConstant(cell->name, conn.first, i, int(chunk.data.bits[0]));
 						continue;
 					}
 
@@ -158,6 +180,9 @@ namespace
 			RTLIL::Cell *needle_cell = (RTLIL::Cell*)mapping.needleUserData;
 			RTLIL::Cell *haystack_cell = (RTLIL::Cell*)mapping.haystackUserData;
 
+			if (needle_cell == NULL)
+				continue;
+
 			for (auto &conn : needle_cell->connections) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				if (mapping.portMapping.count(conn.first) > 0 && sig2port.has(sigmap(sig))) {
@@ -184,7 +209,8 @@ struct ExtractPass : public Pass {
 		log_push();
 
 		std::string filename;
-		bool verbose;
+		bool verbose = false;
+		bool constports = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -194,6 +220,10 @@ struct ExtractPass : public Pass {
 			}
 			if (args[argidx] == "-verbose") {
 				verbose = true;
+				continue;
+			}
+			if (args[argidx] == "-constports") {
+				constports = true;
 				continue;
 			}
 			break;
@@ -227,7 +257,7 @@ struct ExtractPass : public Pass {
 			SubCircuit::Graph mod_graph;
 			std::string graph_name = "needle_" + mod_it.first.substr(mod_it.first[0] == '\\' ? 1 : 0);
 			log("Creating needle graph %s.\n", graph_name.c_str());
-			if (module2graph(mod_graph, mod_it.second)) {
+			if (module2graph(mod_graph, mod_it.second, constports)) {
 				solver.addGraph(graph_name, mod_graph);
 				needle_map[graph_name] = mod_it.second;
 			}
@@ -237,7 +267,7 @@ struct ExtractPass : public Pass {
 			SubCircuit::Graph mod_graph;
 			std::string graph_name = "haystack_" + mod_it.first.substr(mod_it.first[0] == '\\' ? 1 : 0);
 			log("Creating haystack graph %s.\n", graph_name.c_str());
-			if (module2graph(mod_graph, mod_it.second, design)) {
+			if (module2graph(mod_graph, mod_it.second, constports, design)) {
 				solver.addGraph(graph_name, mod_graph);
 				haystack_map[graph_name] = mod_it.second;
 			}
