@@ -37,22 +37,25 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".ys")
 			command = "script";
 		else if (filename == "-")
-			command = "ilang";
+			command = "script";
 		else
 			log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
 	}
 
 	if (command == "script") {
 		log("\n-- Executing script file `%s' --\n", filename.c_str());
-		FILE *f = fopen(filename.c_str(), "r");
+		FILE *f = stdin;
+		if (filename != "-")
+			f = fopen(filename.c_str(), "r");
 		if (f == NULL)
-			log_error("Can;t open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
+			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 		char buffer[4096];
 		while (fgets(buffer, 4096, f) != NULL) {
 			Pass::call(design, buffer);
 			design->check();
 		}
-		fclose(f);
+		if (filename != "-")
+			fclose(f);
 		if (backend_command != NULL && *backend_command == "auto")
 			*backend_command = "";
 		return;
