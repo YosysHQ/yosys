@@ -158,18 +158,17 @@ namespace
 			RTLIL::Cell *needle_cell = (RTLIL::Cell*)mapping.needleUserData;
 			RTLIL::Cell *haystack_cell = (RTLIL::Cell*)mapping.haystackUserData;
 
-			for (auto &conn : needle_cell->connections)
-				if (mapping.portMapping.count(conn.first) > 0 && sig2port.has(conn.second))
-				{
-					RTLIL::SigSpec sig = sigmap(conn.second);
+			for (auto &conn : needle_cell->connections) {
+				RTLIL::SigSpec sig = sigmap(conn.second);
+				if (mapping.portMapping.count(conn.first) > 0 && sig2port.has(sigmap(sig))) {
 					sig.expand();
-
 					for (int i = 0; i < sig.width; i++)
 					for (auto &port : sig2port.find(sig.chunks[i])) {
 						RTLIL::SigSpec bitsig = haystack_cell->connections.at(mapping.portMapping[conn.first]).extract(i, 1);
 						cell->connections.at(port.first).replace(port.second, bitsig);
 					}
 				}
+			}
 
 			haystack->cells.erase(haystack_cell->name);
 			delete haystack_cell;
