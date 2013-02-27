@@ -141,6 +141,16 @@ static void rmunused_module_signals(RTLIL::Module *module)
 				used_signals_nodrivers.add(it2.second);
 		}
 	}
+	for (auto &it : module->wires) {
+		RTLIL::Wire *wire = it.second;
+		if (wire->port_id > 0) {
+			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+			assign_map.apply(sig);
+			used_signals.add(sig);
+			if (!wire->port_input)
+				used_signals_nodrivers.add(sig);
+		}
+	}
 
 	std::vector<RTLIL::Wire*> del_wires;
 	for (auto &it : module->wires) {

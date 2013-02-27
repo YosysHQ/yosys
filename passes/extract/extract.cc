@@ -48,6 +48,7 @@ namespace
 			return false;
 		}
 
+		// create graph nodes from cells
 		for (auto &cell_it : mod->cells)
 		{
 			RTLIL::Cell *cell = cell_it.second;
@@ -89,6 +90,7 @@ namespace
 			}
 		}
 
+		// mark external signals (used in non-selected cells)
 		for (auto &cell_it : mod->cells)
 		{
 			RTLIL::Cell *cell = cell_it.second;
@@ -107,24 +109,71 @@ namespace
 				}
 		}
 
+		// mark external signals (used in module ports)
 		for (auto &wire_it : mod->wires)
 		{
 			RTLIL::Wire *wire = wire_it.second;
 			if (wire->port_id > 0)
-				{
-					RTLIL::SigSpec conn_sig(wire);
-					sigmap.apply(conn_sig);
-					conn_sig.expand();
+			{
+				RTLIL::SigSpec conn_sig(wire);
+				sigmap.apply(conn_sig);
+				conn_sig.expand();
 
-					for (auto &chunk : conn_sig.chunks)
-						if (sig_bit_ref.count(chunk) != 0) {
-							bit_ref_t &bit_ref = sig_bit_ref[chunk];
-							graph.markExtern(bit_ref.cell, bit_ref.port, bit_ref.bit);
-						}
-				}
+				for (auto &chunk : conn_sig.chunks)
+					if (sig_bit_ref.count(chunk) != 0) {
+						bit_ref_t &bit_ref = sig_bit_ref[chunk];
+						graph.markExtern(bit_ref.cell, bit_ref.port, bit_ref.bit);
+					}
+			}
 		}
 
 		return true;
+	}
+
+	void replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit::Solver::Result &match)
+	{
+		SigMap sigmap(needle);
+		SigSet<std::pair<std::string, int>> sig2port;
+
+		// create new cell
+		RTLIL::Cell *cell = new RTLIL::Cell;
+		cell->name = stringf("$extract$%s$%d", needle->name.c_str(), RTLIL::autoidx++);
+		cell->type = needle->name;
+		haystack->add(cell);
+
+		// create cell ports
+		for (auto &it : needle->wires) {
+			RTLIL::Wire *wire = it.second;
+			if (wire->port_id > 0) {
+				for (int i = 0; i < wire->width; i++)
+					sig2port.insert(sigmap(RTLIL::SigSpec(wire, 1, i)), std::pair<std::string, int>(wire->name, i));
+				cell->connections[wire->name] = RTLIL::SigSpec(RTLIL::State::Sz, wire->width);
+			}
+		}
+
+		// delete replaced cells and connect new ports
+		for (auto &it : match.mappings)
+		{
+			auto &mapping = it.second;
+			RTLIL::Cell *needle_cell = (RTLIL::Cell*)mapping.needleUserData;
+			RTLIL::Cell *haystack_cell = (RTLIL::Cell*)mapping.haystackUserData;
+
+			for (auto &conn : needle_cell->connections)
+				if (mapping.portMapping.count(conn.first) > 0 && sig2port.has(conn.second))
+				{
+					RTLIL::SigSpec sig = sigmap(conn.second);
+					sig.expand();
+
+					for (int i = 0; i < sig.width; i++)
+					for (auto &port : sig2port.find(sig.chunks[i])) {
+						RTLIL::SigSpec bitsig = haystack_cell->connections.at(mapping.portMapping[conn.first]).extract(i, 1);
+						cell->connections.at(port.first).replace(port.second, bitsig);
+					}
+				}
+
+			haystack->cells.erase(haystack_cell->name);
+			delete haystack_cell;
+		}
 	}
 }
 
@@ -199,21 +248,20 @@ struct ExtractPass : public Pass {
 			log_header("Substitute SubCircuits with cells.\n");
 
 			for (int i = 0; i < int(results.size()); i++) {
-				log("\nMatch #%d: (%s in %s)\n", i, results[i].needleGraphId.c_str(), results[i].haystackGraphId.c_str());
-				for (const auto & it : results[i].mappings) {
+				auto &result = results[i];
+				log("\nMatch #%d: (%s in %s)\n", i, result.needleGraphId.c_str(), result.haystackGraphId.c_str());
+				for (const auto &it : result.mappings) {
 					log("  %s -> %s", it.first.c_str(), it.second.haystackNodeId.c_str());
 					for (const auto & it2 : it.second.portMapping)
 						log(" %s:%s", it2.first.c_str(), it2.second.c_str());
 					log("\n");
 				}
+				replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 			}
 		}
 
 		delete map;
 		log_pop();
-
-		log("\n** UNFINISHED IMPLEMENTATION **\n");
-		log_cmd_error("TBD: Replace found subcircuits with cells.\n");
 	}
 } ExtractPass;
  

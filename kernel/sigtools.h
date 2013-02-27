@@ -207,6 +207,20 @@ struct SigSet
 		find(sig, result);
 		return result;
 	}
+
+	bool has(RTLIL::SigSpec sig)
+	{
+		sig.expand();
+		for (auto &c : sig.chunks) {
+			if (c.wire == NULL)
+				continue;
+			assert(c.width == 1);
+			bitDef_t bit(c.wire, c.offset);
+			if (bits.count(bit))
+				return true;
+		}
+		return false;
+	}
 };
 
 struct SigMap
