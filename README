@@ -153,9 +153,9 @@ for them:
 
 - The "tri", "triand", "trior", "wand" and "wor" net types
 
-- The "library" and "configuration" source file formats 
+- The "config" keyword and library map files
 
-- The "disable" and "primitive" statements
+- The "disable", "primitive" and "specify" statements
 
 - Latched logic (is synthesized as logic with feedback loops)
 
@@ -196,7 +196,11 @@ TODOs / Open Bugs
 - Implement missing Verilog 2005 features:
 
   - Signed constants
+  - Constant functions
+  - Indexed part selects
+  - Multi-dimensional arrays
   - ROM modelling using "initial" blocks
+  - The "defparam <cell_name>.<parameter_name> = <value>;" syntax
   - Builtin primitive gates (and, nand, cmos, nmos, pmos, etc..)
   - Ignore what needs to be ignored (e.g. drive and charge strenghts)
   - Check standard vs. implementation to identify missing features
