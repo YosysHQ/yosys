@@ -185,6 +185,7 @@ struct ExtractPass : public Pass {
 		log_push();
 
 		std::string filename;
+		bool verbose;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -192,21 +193,33 @@ struct ExtractPass : public Pass {
 				filename = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-verbose") {
+				verbose = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (filename.empty())
-			log_cmd_error("Missing option -map <verilog_file>.\n");
+			log_cmd_error("Missing option -map <verilog_or_ilang_file>.\n");
 
 		RTLIL::Design *map = new RTLIL::Design;
 		FILE *f = fopen(filename.c_str(), "rt");
 		if (f == NULL)
 			log_error("Can't open map file `%s'\n", filename.c_str());
-		Frontend::frontend_call(map, f, filename, "verilog");
+		if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
+			Frontend::frontend_call(map, f, filename, "ilang");
+		else
+			Frontend::frontend_call(map, f, filename, "verilog");
 		fclose(f);
 
 		SubCircuit::Solver solver;
+		std::vector<SubCircuit::Solver::Result> results;
+
+		if (verbose)
+			solver.setVerbose();
+
 		std::map<std::string, RTLIL::Module*> needle_map, haystack_map;
 
 		log_header("Creating graphs for SubCircuit library.\n");
@@ -232,9 +245,6 @@ struct ExtractPass : public Pass {
 		}
 		
 		log_header("Running solver from SubCircuit library.\n");
-
-		solver.setVerbose();
-		std::vector<SubCircuit::Solver::Result> results;
 
 		for (auto &needle_it : needle_map)
 		for (auto &haystack_it : haystack_map) {
