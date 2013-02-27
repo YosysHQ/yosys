@@ -76,6 +76,8 @@ void replace_const_cells(RTLIL::Module *module)
 			if (input.match("11")) ACTION_DO_Y(1);
 			if (input.match(" *")) ACTION_DO_Y(x);
 			if (input.match("* ")) ACTION_DO_Y(x);
+			if (input.match(" 1")) ACTION_DO("\\Y", input.extract(1, 1));
+			if (input.match("1 ")) ACTION_DO("\\Y", input.extract(0, 1));
 		}
 
 		if (cell->type == "$_OR_") {
@@ -88,6 +90,8 @@ void replace_const_cells(RTLIL::Module *module)
 			if (input.match("00")) ACTION_DO_Y(0);
 			if (input.match(" *")) ACTION_DO_Y(x);
 			if (input.match("* ")) ACTION_DO_Y(x);
+			if (input.match(" 0")) ACTION_DO("\\Y", input.extract(1, 1));
+			if (input.match("0 ")) ACTION_DO("\\Y", input.extract(0, 1));
 		}
 
 		if (cell->type == "$_XOR_") {
@@ -101,6 +105,8 @@ void replace_const_cells(RTLIL::Module *module)
 			if (input.match("11")) ACTION_DO_Y(0);
 			if (input.match(" *")) ACTION_DO_Y(x);
 			if (input.match("* ")) ACTION_DO_Y(x);
+			if (input.match(" 0")) ACTION_DO("\\Y", input.extract(1, 1));
+			if (input.match("0 ")) ACTION_DO("\\Y", input.extract(0, 1));
 		}
 
 		if (cell->type == "$_MUX_") {
