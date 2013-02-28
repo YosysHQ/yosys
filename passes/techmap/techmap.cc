@@ -48,8 +48,11 @@ static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module 
 
 std::map<std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 
-static bool techmap_module(RTLIL::Module *module, RTLIL::Design *map)
+static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map)
 {
+	if (!design->selected(module))
+		return false;
+
 	bool did_something = false;
 
 	std::vector<std::string> cell_names;
@@ -63,6 +66,9 @@ static bool techmap_module(RTLIL::Module *module, RTLIL::Design *map)
 			continue;
 
 		RTLIL::Cell *cell = module->cells[cell_name];
+
+		if (!design->selected(module, cell))
+			continue;
 
 		if (map->modules.count(cell->type) == 0)
 			continue;
@@ -157,7 +163,26 @@ static bool techmap_module(RTLIL::Module *module, RTLIL::Design *map)
 }
 
 struct TechmapPass : public Pass {
-	TechmapPass() : Pass("techmap") { }
+	TechmapPass() : Pass("techmap", "simple technology mapper") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    techmap [-map filename] [selection]\n");
+		log("\n");
+		log("This pass implements a very simple technology mapper than replaces cells in\n");
+		log("the design with implementations given in form of a verilog or ilang source\n");
+		log("file.\n");
+		log("\n");
+		log("    -map filename\n");
+		log("        the library of cell implementations to be used.\n");
+		log("        without this parameter a builtin library is used that\n");
+		log("        transform the internal RTL cells to the internal gate\n");
+		log("        library.\n");
+		log("\n");
+		log("See 'help extract' for a pass that does the opposite thing.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing TECHMAP pass (map to technology primitives).\n");
@@ -175,11 +200,14 @@ struct TechmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		RTLIL::Design *map = new RTLIL::Design;
 		FILE *f = filename.empty() ? fmemopen(stdcells_code, strlen(stdcells_code), "rt") : fopen(filename.c_str(), "rt");
 		if (f == NULL)
-			log_error("Can't open map file `%s'\n", filename.c_str());
-		Frontend::frontend_call(map, f, filename.empty() ? "<stdcells.v>" : filename, "verilog");
+			log_cmd_error("Can't open map file `%s'\n", filename.c_str());
+
+		RTLIL::Design *map = new RTLIL::Design;
+		Frontend::frontend_call(map, f, filename.empty() ? "<stdcells.v>" : filename,
+				(filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+
 		fclose(f);
 
 		std::map<RTLIL::IdString, RTLIL::Module*> modules_new;
@@ -194,7 +222,7 @@ struct TechmapPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			for (auto &mod_it : design->modules)
-				if (techmap_module(mod_it.second, map))
+				if (techmap_module(design, mod_it.second, map))
 					did_something = true;
 		}
 

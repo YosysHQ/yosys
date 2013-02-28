@@ -248,6 +248,8 @@ struct ExtractPass : public Pass {
 		log("This pass operates on whole modules or selected cells from modules. Other\n");
 		log("selected entities (wires, etc.) are ignored.\n");
 		log("\n");
+		log("See 'help techmap' for a pass that does the opposite thing.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{

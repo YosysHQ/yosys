@@ -854,7 +854,31 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 } /* namespace */
 
 struct VerilogBackend : public Backend {
-	VerilogBackend() : Backend("verilog") { }
+	VerilogBackend() : Backend("verilog", "write design to verilog file") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    write_verilog [options] [filename]\n");
+		log("\n");
+		log("Write the current design to a verilog file.\n");
+		log("\n");
+		log("    -norename\n");
+		log("        without this option all internal object names (the ones with a dollar\n");
+		log("        instead of a backslash prefix) are changed to short names in the\n");
+		log("        format '_<number>_'.\n");
+		log("\n");
+		log("    -noattr\n");
+		log("        with this option no attributes are included in the output\n");
+		log("\n");
+		log("    -attr2comment\n");
+		log("        with this option attributes are included as comments in the output\n");
+		log("\n");
+		log("    -noexpr\n");
+		log("        without this option all internal cells are converted to verilog\n");
+		log("        expressions.\n");
+		log("\n");
+	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing Verilog backend.\n");

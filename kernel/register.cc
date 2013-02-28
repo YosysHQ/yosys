@@ -146,7 +146,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	if (args.size() == 0 || args[0][0] == '#')
 		return;
 	if (pass_register.count(args[0]) == 0)
-		log_cmd_error("No such command: %s\n", args[0].c_str());
+		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 	pass_register[args[0]]->execute(args, design);
@@ -356,6 +356,9 @@ struct HelpPass : public Pass {
 			log("\n");
 			for (auto &it : REGISTER_INTERN::pass_register)
 				log("    %-20s %s\n", it.first.c_str(), it.second->short_help.c_str());
+			log("\n");
+			log("Type 'help <command>' for more information on a command.\n");
+			log("\n");
 			return;
 		}
 

@@ -213,6 +213,8 @@ TODOs / Open Bugs
 
 - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
 
+- Add commands 'delete' (remove objects) and 'attr' (get, set and remove attributes)
+
 - TCL and Python interfaces to frontends, passes, backends and RTLIL
 
 - Additional internal cell types: $pla and $lut

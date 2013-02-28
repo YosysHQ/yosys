@@ -239,7 +239,24 @@ struct SubmodWorker
 };
 
 struct SubmodPass : public Pass {
-	SubmodPass() : Pass("submod") { }
+	SubmodPass() : Pass("submod", "moving part of a module to a new submodle") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    submod [selection]\n");
+		log("\n");
+		log("This pass identifies all cells with the 'submod' attribute and moves them to\n");
+		log("a newly created module. The value of the attribute is used as name for the\n");
+		log("cell that replaces the group of cells with the same attribute value.\n");
+		log("\n");
+		log("This pass can be used to create a design hierarchy in flat design. This can\n");
+		log("be useful for analyzing or reverse-engineering a design.\n");
+		log("\n");
+		log("This pass only operates on completely selected modules with no processes\n");
+		log("or memories.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing SUBMOD pass (moving cells to submodes as requested).\n");

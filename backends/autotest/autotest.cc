@@ -298,7 +298,29 @@ static void autotest(FILE *f, RTLIL::Design *design)
 }
 
 struct AutotestBackend : public Backend {
-	AutotestBackend() : Backend("autotest") { }
+	AutotestBackend() : Backend("autotest", "generate simple test benches") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    write_autotest [filename]\n");
+		log("\n");
+		log("Automatically create primitive verilog test benches for all modules in the\n");
+		log("design. The generated testbenches toggle the input pins of the module in\n");
+		log("a semi-random manner and dumps the resulting output signals.\n");
+		log("\n");
+		log("This can be used to check the synthesis results for simple circuits by\n");
+		log("comparing the testbench output for the input files and the synthesis results.\n");
+		log("\n");
+		log("The backend automatically detects clock signals. Additionally a signal can\n");
+		log("be forced to be interpreted as clock signal by setting the attribute\n");
+		log("'gentb_clock' on the signal.\n");
+		log("\n");
+		log("The attribute 'gentb_constant' can be used to force a signal to a constant\n");
+		log("value after initialization. This can e.g. be used to force a reset signal\n");
+		log("low in order to explore more inner states in a state machine.\n");
+		log("\n");
+	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing AUTOTEST backend (auto-generate pseudo-random test benches).\n");

@@ -295,7 +295,17 @@ void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design)
 }
 
 struct IlangBackend : public Backend {
-	IlangBackend() : Backend("ilang") { }
+	IlangBackend() : Backend("ilang", "write design to ilang file") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    write_ilang [filename]\n");
+		log("\n");
+		log("Write the current design to an 'ilang' file. (ilang is a text representation\n");
+		log("of a design in yosys's internal format.)\n");
+		log("\n");
+	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) {
 		log_header("Executing ILANG backend.\n");
 		extra_args(f, filename, args, 1);

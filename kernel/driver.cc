@@ -210,6 +210,8 @@ struct ShellPass : public Pass {
 		log("This command is the default action if nothing else has been specified\n");
 		log("on the command line.\n");
 		log("\n");
+		log("Press Ctrl-D to leave the interactive shell.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string>, RTLIL::Design *design) {
 		shell(design);
