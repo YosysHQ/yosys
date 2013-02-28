@@ -284,6 +284,16 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		return;
 	}
 
+	if (arg[0] == '@') {
+		std::string set_name = RTLIL::escape_id(arg.substr(1));
+		if (design->selection_vars.count(set_name) > 0)
+			work_stack.push_back(design->selection_vars[set_name]);
+		else
+			work_stack.push_back(RTLIL::Selection(false));
+		select_filter_active_mod(design, work_stack.back());
+		return;
+	}
+
 	if (!design->selected_active_module.empty()) {
 		arg_mod = design->selected_active_module;
 		arg_memb = arg;
@@ -385,7 +395,119 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 }
 
 struct SelectPass : public Pass {
-	SelectPass() : Pass("select") { }
+	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    select [ -add | -del | -set <name> ] <selection>\n");
+		log("    select [ -list | -clear ]\n");
+		log("    select -module <modname>\n");
+		log("\n");
+		log("Most commands use the list of currently selected objects to determine which part\n");
+		log("of the design to operate on. This command can be used to modify and view this\n");
+		log("list of selected objects.\n");
+		log("\n");
+		log("Note that many commands support an optional [selection] argument that can be\n");
+		log("used to override the global selection for the command. The syntax of this\n");
+		log("optional argument is identical to the syntax of the <selection> argument\n");
+		log("described here.\n");
+		log("\n");
+		log("    -add, -del\n");
+		log("        add or remove the given objects to the current selection.\n");
+		log("        without this options the current selection is replaced.\n");
+		log("\n");
+		log("    -set <name>\n");
+		log("        do not modify the current selection. instead save the new selection\n");
+		log("        under the given name (see @<name> below).\n");
+		log("\n");
+		log("    -list\n");
+		log("        list all objects in the current selection\n");
+		log("\n");
+		log("    -clear\n");
+		log("        clear the current selection. this effectively selects the\n");
+		log("        whole design.\n");
+		log("\n");
+		log("    -module <modname>\n");
+		log("        limit the current scope to the specified module\n");
+		log("        the difference between this and simply selecting the module\n");
+		log("        is that all object names are interpreted relative to this\n");
+		log("        module after this command until the selection is cleared again.\n");
+		log("\n");
+		log("When this command is called without an argument, the current selection\n");
+		log("is displayed in a compact form (i.e.. only the module name when a whole module\n");
+		log("is selected).\n");
+		log("\n");
+		log("The <selection> argument itself is a series of commands for a simple stack\n");
+		log("machine. Each element on the stack represents a set of selected objects.\n");
+		log("After this commands have been executed, the union of all remaining sets\n");
+		log("on the stack is computed and used as selection for the command.\n");
+		log("\n");
+		log("Pushing (selecting) object when not in -module mode:\n");
+		log("\n");
+		log("    <mod_pattern>\n");
+		log("        select the specified module(s)\n");
+		log("\n");
+		log("    <mod_pattern>/<obj_pattern>\n");
+		log("        select the specified object(s) from the module(s)\n");
+		log("\n");
+		log("Pushing (selecting) object when in -module mode:\n");
+		log("\n");
+		log("    <obj_pattern>\n");
+		log("        select the specified object(s) from the current module\n");
+		log("\n");
+		log("A <mod_pattern> can be a module name or wildcard expression (*, ?, [..])\n");
+		log("matching module names.\n");
+		log("\n");
+		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
+		log("the following:\n");
+		log("\n");
+		log("    w:<pattern>\n");
+		log("        all wires with a name matching the given wildcard pattern\n");
+		log("\n");
+		log("    m:<pattern>\n");
+		log("        all memories with a name matching the given pattern\n");
+		log("\n");
+		log("    c:<pattern>\n");
+		log("        all cells with a name matching the given pattern\n");
+		log("\n");
+		log("    t:<pattern>\n");
+		log("        all cells with a type matching the given pattern\n");
+		log("\n");
+		log("    p:<pattern>\n");
+		log("        all processes with a name matching the given pattern\n");
+		log("\n");
+		log("    a:<pattern>\n");
+		log("        all objects with an attribute name matching the given pattern\n");
+		log("\n");
+		log("    a:<pattern>=<pattern>\n");
+		log("        all objects with a matching attribute name-value-pair\n");
+		log("\n");
+		log("    n:<pattern>\n");
+		log("        all object with a name matching the given pattern\n");
+		log("        (i.e. the n: is optional as it is the default matching rule)\n");
+		log("\n");
+		log("    @<name>\n");
+		log("        push the selection saved prior with 'select -set <name> ...'\n");
+		log("\n");
+		log("The following actions can be performed on the top sets on the stack:\n");
+		log("\n");
+		log("    #\n");
+		log("        push a copy of the current selection to the stack\n");
+		log("\n");
+		log("    #n\n");
+		log("        replace top set with its invert\n");
+		log("\n");
+		log("    #u\n");
+		log("        replace the two top sets on the stack with their union\n");
+		log("\n");
+		log("    #i\n");
+		log("        replace the two top sets on the stack with their intersection\n");
+		log("\n");
+		log("    #d\n");
+		log("        pop the top set from the stack and subtract it from the new top\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool add_mode = false;
@@ -393,6 +515,7 @@ struct SelectPass : public Pass {
 		bool clear_mode = false;
 		bool list_mode = false;
 		bool got_module = false;
+		std::string set_name;
 
 		work_stack.clear();
 
@@ -424,6 +547,10 @@ struct SelectPass : public Pass {
 				got_module = true;
 				continue;
 			}
+			if (arg == "-set" && argidx+1 < args.size()) {
+				set_name = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
 			if (arg.size() > 0 && arg[0] == '-')
 				log_cmd_error("Unkown option %s.\n", arg.c_str());
 			select_stmt(design, arg);
@@ -437,6 +564,9 @@ struct SelectPass : public Pass {
 
 		if (list_mode && (add_mode || del_mode))
 			log_cmd_error("Option -list can not be combined with -add or -del.\n");
+
+		if (!set_name.empty() && (list_mode || add_mode || del_mode))
+			log_cmd_error("Option -set can not be combined with -list, -add or -del.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -466,20 +596,20 @@ struct SelectPass : public Pass {
 			sel->optimize(design);
 			for (auto mod_it : design->modules)
 			{
-				if (design->selected_whole_module(mod_it.first))
+				if (sel->selected_whole_module(mod_it.first))
 					log("%s\n", mod_it.first.c_str());
-				if (design->selected_module(mod_it.first)) {
+				if (sel->selected_module(mod_it.first)) {
 					for (auto &it : mod_it.second->wires)
-						if (design->selected_member(mod_it.first, it.first))
+						if (sel->selected_member(mod_it.first, it.first))
 							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
 					for (auto &it : mod_it.second->memories)
-						if (design->selected_member(mod_it.first, it.first))
+						if (sel->selected_member(mod_it.first, it.first))
 							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
 					for (auto &it : mod_it.second->cells)
-						if (design->selected_member(mod_it.first, it.first))
+						if (sel->selected_member(mod_it.first, it.first))
 							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
 					for (auto &it : mod_it.second->processes)
-						if (design->selected_member(mod_it.first, it.first))
+						if (sel->selected_member(mod_it.first, it.first))
 							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
 				}
 			}
@@ -501,6 +631,15 @@ struct SelectPass : public Pass {
 				log_cmd_error("Nothing to delete from selection.\n");
 			select_op_diff(design, design->selection_stack.back(), work_stack.back());
 			design->selection_stack.back().optimize(design);
+			return;
+		}
+
+		if (!set_name.empty())
+		{
+			if (work_stack.size() == 0)
+				design->selection_vars.erase(set_name);
+			else
+				design->selection_vars[set_name] = work_stack.back();
 			return;
 		}
 
