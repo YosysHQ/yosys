@@ -145,6 +145,14 @@ static const char *create_prompt(RTLIL::Design *design)
 
 static void shell(RTLIL::Design *design)
 {
+	static bool recursion_detect = false;
+
+	if (recursion_detect) {
+		log("Already in interactive shell.\n");
+		return;
+	}
+
+	recursion_detect = true;
 	log_cmd_error_throw = true;
 
 	rl_readline_name = "yosys";
@@ -167,6 +175,7 @@ static void shell(RTLIL::Design *design)
 		}
 	}
 
+	recursion_detect = false;
 	log_cmd_error_throw = false;
 }
 
@@ -179,6 +188,27 @@ struct ShellPass : public Pass {
 		log("This command enters the interactive command mode. This can be useful\n");
 		log("in a script to interrupt the script at a certain point and allow for\n");
 		log("interactive inspection or manual synthesis of the design at this point.\n");
+		log("\n");
+		log("The command prompt of the interactive shell indicates the current\n");
+		log("selection (see 'help select'):\n");
+		log("\n");
+		log("    yosys>\n");
+		log("        the entire design is selected\n");
+		log("\n");
+		log("    yosys*>\n");
+		log("        only part of the design is selected\n");
+		log("\n");
+		log("    yosys [modname]>\n");
+		log("        the entire module 'modname' is selected using 'select -module modname'\n");
+		log("\n");
+		log("    yosys [modname]*>\n");
+		log("        only part of current module 'modname' is selected\n");
+		log("\n");
+		log("When in interavtive shell, some errors (e.g. invalid command arguments)\n");
+		log("do not terminate yosys but return to the command prompt.\n");
+		log("\n");
+		log("This command is the default action if nothing else has been specified\n");
+		log("on the command line.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string>, RTLIL::Design *design) {
