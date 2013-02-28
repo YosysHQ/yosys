@@ -353,6 +353,7 @@ struct HelpPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
 		if (args.size() == 1) {
+			log("\n");
 			for (auto &it : REGISTER_INTERN::pass_register)
 				log("    %-20s %s\n", it.first.c_str(), it.second->short_help.c_str());
 			return;

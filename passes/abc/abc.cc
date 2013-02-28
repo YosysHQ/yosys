@@ -309,7 +309,7 @@ static void handle_loops()
 		fclose(dot_f);
 }
 
-static void abc_module(RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string liberty_file, bool cleanup)
+static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string liberty_file, bool cleanup)
 {
 	module = current_module;
 	map_autoidx = RTLIL::autoidx++;
@@ -328,7 +328,8 @@ static void abc_module(RTLIL::Module *current_module, std::string script_file, s
 	std::vector<RTLIL::Cell*> cells;
 	cells.reserve(module->cells.size());
 	for (auto &it : module->cells)
-		cells.push_back(it.second);
+		if (design->selected(current_module, it.second))
+			cells.push_back(it.second);
 	for (auto c : cells)
 		extract_cell(c);
 
@@ -589,7 +590,38 @@ static void abc_module(RTLIL::Module *current_module, std::string script_file, s
 }
 
 struct AbcPass : public Pass {
-	AbcPass() : Pass("abc") { }
+	AbcPass() : Pass("abc", "use ABC for technology mapping") { }
+	virtual void help()
+	{
+		log("\n");
+		log("    abc [options] [selection]\n");
+		log("\n");
+		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
+		log("library to a target architecture.\n");
+		log("\n");
+		log("    -exe <command>\n");
+		log("        use the specified command name instead of \"abc\" to execute ABC. This\n");
+		log("        can e.g. be used to call a specific version of ABC or a wrapper script.\n");
+		log("\n");
+		log("    -script <file>\n");
+		log("        use the specified ABC script file instead of the default script.\n");
+		log("\n");
+		log("    -liberty <file>\n");
+		log("        generate netlists for the specified cell library (using the liberty\n");
+		log("        file format). This option is ignored if also -script option is also\n");
+		log("        used. Without this option, ABC is used to optimize the netlist but\n");
+		log("        keeps using yosys's internal gate library.\n");
+		log("\n");
+		log("    -nocleanup\n");
+		log("        when this option is used, the tempprary files created be this pass\n");
+		log("        are not removed. this is usefull for debugging.\n");
+		log("\n");
+		log("This pass does not operate on modules with uprocessed processes in it.\n");
+		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
+		log("\n");
+		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing ABC pass (technology mapping using ABC).\n");
@@ -628,12 +660,13 @@ struct AbcPass : public Pass {
 		free(pwd);
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules) {
-			if (mod_it.second->processes.size() > 0)
-				log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
-			else
-				abc_module(mod_it.second, script_file, exe_file, liberty_file, cleanup);
-		}
+		for (auto &mod_it : design->modules)
+			if (design->selected(mod_it.second)) {
+				if (mod_it.second->processes.size() > 0)
+					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
+				else
+					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, cleanup);
+			}
 
 		assign_map.clear();
 		signal_list.clear();

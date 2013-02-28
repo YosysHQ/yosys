@@ -44,8 +44,8 @@ namespace
 			return false;
 		}
 
-		if (mod->memories.size() > 0 || mod->processes.size() > 0) {
-			log("  Skipping module %s as it contains unprocessed memories or processes.\n", mod->name.c_str());
+		if (mod->processes.size() > 0) {
+			log("  Skipping module %s as it contains unprocessed processes.\n", mod->name.c_str());
 			return false;
 		}
 
@@ -203,7 +203,52 @@ namespace
 }
 
 struct ExtractPass : public Pass {
-	ExtractPass() : Pass("extract") { }
+	ExtractPass() : Pass("extract", "find subcircuits and replace them with cells") { }
+	virtual void help()
+	{
+		log("\n");
+		log("    extract -map <map_file> [options] [selection]\n");
+		log("\n");
+		log("This pass looks for subcircuits that are isomorphic to any of the modules\n");
+		log("in the given map file and replaces them with instances of this modules. The\n");
+		log("map file can be a verilog source file (*.v) or an ilang file (*.il).\n");
+		log("\n");
+		log("    -map <map_file>\n");
+		log("        use the modules in this file as reference\n");
+		log("\n");
+		log("    -verbose\n");
+		log("        print debug output while analyzing\n");
+		log("\n");
+		log("    -constports\n");
+		log("        also find instances with constant drivers. this may be much\n");
+		log("        slower than the normal operation.\n");
+		log("\n");
+		log("    -nodefaultswaps\n");
+		log("        normally builtin port swapping rules for internal cells are used per\n");
+		log("        default. This turns that off, so e.g. 'a^b' does not match 'b^a'\n");
+		log("        when this option is used.\n");
+		log("\n");
+		log("    -compat <needle_type> <haystack_type>\n");
+		log("        Per default, the cells in the map file (needle) must have the\n");
+		log("        type as the cells in the active design (haystack). This option\n");
+		log("        can be used to register additional pairs of types that should\n");
+		log("        match. This option can be used multiple times.\n");
+		log("\n");
+		log("    -swap <needle_type> <port1>,<port2>[,...]\n");
+		log("        Register a set of swapable ports for a needle cell type.\n");
+		log("        This option can be used multiple times.\n");
+		log("\n");
+		log("    -perm <needle_type> <port1>,<port2>[,...] <portA>,<portB>[,...]\n");
+		log("        Register a valid permutation of swapable ports for a needle\n");
+		log("        cell type. This option can be used multiple times.\n");
+		log("\n");
+		log("This pass does not operate on modules with uprocessed processes in it.\n");
+		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
+		log("\n");
+		log("This pass operates on whole modules or selected cells from modules. Other\n");
+		log("selected entities (wires, etc.) are ignored.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing EXTRACT pass (map subcircuits to cells).\n");

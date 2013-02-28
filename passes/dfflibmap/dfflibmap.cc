@@ -220,13 +220,13 @@ static bool expand_cellmap(std::string pattern, std::string inv)
 	return return_status;
 }
 
-static void dfflibmap(RTLIL::Module *module)
+static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 {
 	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
 
 	std::vector<RTLIL::Cell*> cell_list;
 	for (auto &it : module->cells) {
-		if (cell_mappings.count(it.second->type) > 0)
+		if (design->selected(module, it.second) && cell_mappings.count(it.second->type) > 0)
 			cell_list.push_back(it.second);
 	}
 
@@ -266,7 +266,19 @@ static void dfflibmap(RTLIL::Module *module)
 }
 
 struct DfflibmapPass : public Pass {
-	DfflibmapPass() : Pass("dfflibmap") { }
+	DfflibmapPass() : Pass("dfflibmap", "technology mapping of flip-flops") { }
+	virtual void help()
+	{
+		log("\n");
+		log("    dfflibmap -liberty <file> [selection]\n");
+		log("\n");
+		log("Map internal flip-flop cells to the flip-flop cells in the technology\n");
+		log("library specified in the given liberty file.\n");
+		log("\n");
+		log("This pass may add inverters as needed. Therefore it is recommended to\n");
+		log("first run this pass and then map the logic paths to the target technology.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).\n");
@@ -318,7 +330,8 @@ struct DfflibmapPass : public Pass {
  		logmap_all();
 
 		for (auto &it : design->modules)
-			dfflibmap(it.second);
+			if (design->selected(it.second))
+				dfflibmap(design, it.second);
 
 		cell_mappings.clear();
 	}
