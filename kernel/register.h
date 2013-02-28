@@ -28,8 +28,8 @@
 
 struct Pass
 {
-	std::string pass_name;
-	Pass(std::string name);
+	std::string pass_name, short_help;
+	Pass(std::string name, std::string short_help = "** document me **");
 	virtual void run_register();
 	virtual ~Pass();
 	virtual void help();
@@ -49,7 +49,7 @@ struct Pass
 struct Frontend : Pass
 {
 	std::string frontend_name;
-	Frontend(std::string name);
+	Frontend(std::string name, std::string short_help = "** document me **");
 	virtual void run_register();
 	virtual ~Frontend();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design);
@@ -65,7 +65,7 @@ struct Frontend : Pass
 struct Backend : Pass
 {
 	std::string backend_name;
-	Backend(std::string name);
+	Backend(std::string name, std::string short_help = "** document me **");
 	virtual void run_register();
 	virtual ~Backend();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design);

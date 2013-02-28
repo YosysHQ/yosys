@@ -38,7 +38,7 @@ namespace REGISTER_INTERN
 
 std::vector<std::string> Frontend::next_args;
 
-Pass::Pass(std::string name) : pass_name(name)
+Pass::Pass(std::string name, std::string short_help) : pass_name(name), short_help(short_help)
 {
 	assert(!raw_register_done);
 	assert(raw_register_count < MAX_REG_COUNT);
@@ -74,7 +74,9 @@ Pass::~Pass()
 
 void Pass::help()
 {
-	log("No help message for this command.\n");
+	log("\n");
+	log("No help message for command `%s'.\n", pass_name.c_str());
+	log("\n");
 }
 
 void Pass::cmd_log_args(const std::vector<std::string> &args)
@@ -152,7 +154,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		design->selection_stack.pop_back();
 }
 
-Frontend::Frontend(std::string name) : Pass("read_"+name), frontend_name(name)
+Frontend::Frontend(std::string name, std::string short_help) : Pass("read_"+name, short_help), frontend_name(name)
 {
 }
 
@@ -244,7 +246,7 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 	}
 }
 
-Backend::Backend(std::string name) : Pass("write_"+name), backend_name(name)
+Backend::Backend(std::string name, std::string short_help) : Pass("write_"+name, short_help), backend_name(name)
 {
 }
 
@@ -338,3 +340,43 @@ void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename,
 		design->selection_stack.pop_back();
 }
 
+struct HelpPass : public Pass {
+	HelpPass() : Pass("help", "display help messages") { }
+	virtual void help()
+	{
+		log("\n");
+		log("    help  .............  list all commands\n");
+		log("    help <command>  ...  print help message for given command\n");
+		log("    help -all  ........  print complete command reference\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	{
+		if (args.size() == 1) {
+			for (auto &it : REGISTER_INTERN::pass_register)
+				log("    %-20s %s\n", it.first.c_str(), it.second->short_help.c_str());
+			return;
+		}
+
+		if (args.size() == 2) {
+			if (args[1] == "-all") {
+				for (auto &it : REGISTER_INTERN::pass_register) {
+					log("\n\n");
+					log("%s  --  %s\n", it.first.c_str(), it.second->short_help.c_str());
+					for (size_t i = 0; i < it.first.size() + it.second->short_help.size() + 6; i++)
+						log("=");
+					log("\n");
+					it.second->help();
+				}
+			}
+			else if (REGISTER_INTERN::pass_register.count(args[1]) == 0)
+				log("No such command: %s\n", args[1].c_str());
+			else
+				REGISTER_INTERN::pass_register.at(args[1])->help();
+			return;
+		}
+
+		help();
+	}
+} HelpPass;
+ 
