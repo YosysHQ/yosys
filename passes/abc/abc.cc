@@ -614,7 +614,7 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the tempprary files created be this pass\n");
-		log("        are not removed. this is usefull for debugging.\n");
+		log("        are not removed. this is useful for debugging.\n");
 		log("\n");
 		log("This pass does not operate on modules with uprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");

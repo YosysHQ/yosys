@@ -171,7 +171,16 @@ static void shell(RTLIL::Design *design)
 }
 
 struct ShellPass : public Pass {
-	ShellPass() : Pass("shell") { }
+	ShellPass() : Pass("shell", "enter interactive command mode") { }
+	virtual void help() {
+		log("\n");
+		log("    shell\n");
+		log("\n");
+		log("This command enters the interactive command mode. This can be useful\n");
+		log("in a script to interrupt the script at a certain point and allow for\n");
+		log("interactive inspection or manual synthesis of the design at this point.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string>, RTLIL::Design *design) {
 		shell(design);
 	}
@@ -227,13 +236,70 @@ int main(int argc, char **argv)
 			scriptfile = optarg;
 			break;
 		default:
-			fprintf(stderr, "Usage: %s [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [-s <scriptfile>] [-p <pass> [-p ..]] [-b <backend>] [<infile> [..]]\n", argv[0]);
+			fprintf(stderr, "\n");
+			fprintf(stderr, "Usage: %s [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [-s <scriptfile>]\n", argv[0]);
+			fprintf(stderr, "       %*s[-p <pass> [-p ..]] [-b <backend>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -q\n");
+			fprintf(stderr, "        quiet operation. only write error messages to console\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -t\n");
+			fprintf(stderr, "        annotate all log messages with a time stamp\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -l logfile\n");
+			fprintf(stderr, "        write log messages to the specified file\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -o outfile\n");
+			fprintf(stderr, "        write the design to the specified file on exit\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -b backend\n");
+			fprintf(stderr, "        use this backend for the output file specified on the command line\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -f backend\n");
+			fprintf(stderr, "        use the specified front for the input files on the command line\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -s scriptfile\n");
+			fprintf(stderr, "        execute the commands in the script file\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -p command\n");
+			fprintf(stderr, "        execute the commands\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "For more complex synthesis jobs it is recommended to use the read_* and write_*\n");
+			fprintf(stderr, "commands in a script file instead of specifying input and output files on the\n");
+			fprintf(stderr, "command line.\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "When no commands, script files and input files are specified on the command\n");
+			fprintf(stderr, "line, yosys automatically enters the interactive command mode. Use the 'help'\n");
+			fprintf(stderr, "command to get information on the individual commands.\n");
+			fprintf(stderr, "\n");
 			exit(1);
 		}
 	}
 
 	if (log_errfile == NULL)
 		log_files.push_back(stderr);
+
+	log("\n");
+	log(" /-----------------------------------------------------------------------------\\\n");
+	log(" |                                                                             |\n");
+	log(" |  yosys -- Yosys Open SYnthesis Suite                                        |\n");
+	log(" |                                                                             |\n");
+	log(" |  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>                   |\n");
+	log(" |                                                                             |\n");
+	log(" |  Permission to use, copy, modify, and/or distribute this software for any   |\n");
+	log(" |  purpose with or without fee is hereby granted, provided that the above     |\n");
+	log(" |  copyright notice and this permission notice appear in all copies.          |\n");
+	log(" |                                                                             |\n");
+	log(" |  THE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES   |\n");
+	log(" |  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF           |\n");
+	log(" |  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR    |\n");
+	log(" |  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES     |\n");
+	log(" |  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN      |\n");
+	log(" |  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF    |\n");
+	log(" |  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.             |\n");
+	log(" |                                                                             |\n");
+	log(" \\-----------------------------------------------------------------------------/\n");
+	log("\n");
 
 	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty()) {
 		if (!got_output_filename)

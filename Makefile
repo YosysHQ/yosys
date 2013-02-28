@@ -52,10 +52,6 @@ test: yosys
 	cd tests/hana && bash run-test.sh
 	cd tests/asicworld && bash run-test.sh
 
-help:
-	@find -name '*.cc' | xargs egrep -h '(Pass|Frontend|Backend)\(".*"\)' | \
-		sed 's,.*: ,,; s, .*,,;' | sort | tr '\n' '\t' | expand -t25 | fmt
-
 install: yosys
 	install yosys /usr/local/bin/yosys
 
