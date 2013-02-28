@@ -23,15 +23,14 @@
 yosys -- Yosys Open SYnthesis Suite
 ===================================
 
-This is a framework for RTL synthesis tools. It is highly
-experimental and under construction. The goal for now is
-to implement an extensible Verilog-2005 synthesis tool.
+This is a framework for RTL synthesis tools. It currently has
+extensive Verilog-2005 support and provides a basic set of
+synthesis algorithms for various application domains.
 
-The aim of this tool is to generate valid logic netlists
-from HDL designs in a manner that allows for easy addition
-of extra synthesis passes. This tool does not aim at generating
-efficient logic netlists. This can be done by passing the
-output of Yosys to a low-level synthesis tool such as ABC.
+Yosys can be adapted to perform any synthesis job by combining
+the existing passes (algorithms) using synthesis scripts and
+adding additional passes as needed by extending the yosys c++
+codebase.
 
 Yosys is free software licensed under the ISC license (a GPL
 compatible licence that is similar in terms to the MIT license
@@ -58,6 +57,11 @@ a simple synthesis job using the interactive command shell:
 
 	$ ./yosys
 	yosys>
+
+the command "help" can be used to pritn a list of all available
+commands and "help <command>" to print details on the specified command:
+
+	yosys> help help
 
 reading the design using the verilog frontend:
 
@@ -127,7 +131,7 @@ synthesis script will synthesize for the given cell library:
 	hierarchy; proc; memory; opt; fsm; opt
 
 	# mapping to internal cell library
-	techmap
+	techmap; opt
 
 	# mapping flip-flops to mycells.lib
 	dfflibmap -liberty mycells.lib
@@ -213,13 +217,11 @@ TODOs / Open Bugs
 
 - Additional internal cell types: $pla and $lut
 
-- Subsystem for selecting stuff (and limiting scope of passes)
-
 - Support for registering designs (as collection of modules) to CellTypes
 
 - Kernel support for collections of cells (from input/output cones, etc)
 
 - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
 
-- Better FSM state encoding and technology mapping
+- Better FSM state encoding
 
