@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "libs/subcircuit/subcircuit.h"
+#include <algorithm>
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
@@ -53,14 +54,14 @@ namespace
 			graph.createNode("$const$1", "$const$1");
 			graph.createNode("$const$x", "$const$x");
 			graph.createNode("$const$z", "$const$z");
-			graph.createPort("$const$0", "Y", 1);
-			graph.createPort("$const$1", "Y", 1);
-			graph.createPort("$const$x", "Y", 1);
-			graph.createPort("$const$z", "Y", 1);
-			graph.markExtern("$const$0", "Y", 0);
-			graph.markExtern("$const$1", "Y", 0);
-			graph.markExtern("$const$x", "Y", 0);
-			graph.markExtern("$const$z", "Y", 0);
+			graph.createPort("$const$0", "\\Y", 1);
+			graph.createPort("$const$1", "\\Y", 1);
+			graph.createPort("$const$x", "\\Y", 1);
+			graph.createPort("$const$z", "\\Y", 1);
+			graph.markExtern("$const$0", "\\Y", 0);
+			graph.markExtern("$const$1", "\\Y", 0);
+			graph.markExtern("$const$x", "\\Y", 0);
+			graph.markExtern("$const$z", "\\Y", 0);
 		}
 
 		// create graph nodes from cells
@@ -93,7 +94,7 @@ namespace
 							if (chunk.data.bits[0] == RTLIL::State::S0) node = "$const$0";
 							if (chunk.data.bits[0] == RTLIL::State::S1) node = "$const$1";
 							if (chunk.data.bits[0] == RTLIL::State::Sz) node = "$const$z";
-							graph.createConnection(cell->name, conn.first, i, node, "Y", 0);
+							graph.createConnection(cell->name, conn.first, i, node, "\\Y", 0);
 						} else
 							graph.createConstant(cell->name, conn.first, i, int(chunk.data.bits[0]));
 						continue;
@@ -208,9 +209,12 @@ struct ExtractPass : public Pass {
 		log_header("Executing EXTRACT pass (map subcircuits to cells).\n");
 		log_push();
 
+		SubCircuit::Solver solver;
+		std::vector<SubCircuit::Solver::Result> results;
+
 		std::string filename;
-		bool verbose = false;
 		bool constports = false;
+		bool nodefaultswaps = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -219,35 +223,87 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-verbose") {
-				verbose = true;
+				solver.setVerbose();
 				continue;
 			}
 			if (args[argidx] == "-constports") {
 				constports = true;
 				continue;
 			}
+			if (args[argidx] == "-nodefaultswaps") {
+				nodefaultswaps = true;
+				continue;
+			}
+			if (args[argidx] == "-compat" && argidx+2 < args.size()) {
+				std::string needle_type = RTLIL::escape_id(args[++argidx]);
+				std::string haystack_type = RTLIL::escape_id(args[++argidx]);
+				solver.addCompatibleTypes(needle_type, haystack_type);
+				continue;
+			}
+			if (args[argidx] == "-swap" && argidx+2 < args.size()) {
+				std::string type = RTLIL::escape_id(args[++argidx]);
+				std::set<std::string> ports;
+				char *ports_str = strdup(args[++argidx].c_str());
+				for (char *sptr, *p = strtok_r(ports_str, ",\t\r\n ", &sptr); p != NULL; p = strtok_r(NULL, ",\t\r\n ", &sptr))
+					ports.insert(RTLIL::escape_id(p));
+				free(ports_str);
+				solver.addSwappablePorts(type, ports);
+				continue;
+			}
+			if (args[argidx] == "-perm" && argidx+3 < args.size()) {
+				std::string type = RTLIL::escape_id(args[++argidx]);
+				std::vector<std::string> map_left, map_right;
+				char *left_str = strdup(args[++argidx].c_str());
+				char *right_str = strdup(args[++argidx].c_str());
+				for (char *sptr, *p = strtok_r(left_str, ",\t\r\n ", &sptr); p != NULL; p = strtok_r(NULL, ",\t\r\n ", &sptr))
+					map_left.push_back(RTLIL::escape_id(p));
+				for (char *sptr, *p = strtok_r(right_str, ",\t\r\n ", &sptr); p != NULL; p = strtok_r(NULL, ",\t\r\n ", &sptr))
+					map_right.push_back(RTLIL::escape_id(p));
+				free(left_str);
+				free(right_str);
+				if (map_left.size() != map_right.size())
+					log_cmd_error("Arguments to -perm are not a valid permutation!\n");
+				std::map<std::string, std::string> map;
+				for (size_t i = 0; i < map_left.size(); i++)
+					map[map_left[i]] = map_right[i];
+				std::sort(map_left.begin(), map_left.end());
+				std::sort(map_right.begin(), map_right.end());
+				if (map_left != map_right)
+					log_cmd_error("Arguments to -perm are not a valid permutation!\n");
+				solver.addSwappablePortsPermutation(type, map);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
+		if (!nodefaultswaps) {
+			solver.addSwappablePorts("$and",       "\\A", "\\B");
+			solver.addSwappablePorts("$or",        "\\A", "\\B");
+			solver.addSwappablePorts("$xor",       "\\A", "\\B");
+			solver.addSwappablePorts("$xnor",      "\\A", "\\B");
+			solver.addSwappablePorts("$eq",        "\\A", "\\B");
+			solver.addSwappablePorts("$ne",        "\\A", "\\B");
+			solver.addSwappablePorts("$add",       "\\A", "\\B");
+			solver.addSwappablePorts("$mul",       "\\A", "\\B");
+			solver.addSwappablePorts("$logic_and", "\\A", "\\B");
+			solver.addSwappablePorts("$logic_or",  "\\A", "\\B");
+			solver.addSwappablePorts("$_AND_",     "\\A", "\\B");
+			solver.addSwappablePorts("$_OR_",      "\\A", "\\B");
+			solver.addSwappablePorts("$_XOR_",     "\\A", "\\B");
+		}
+
 		if (filename.empty())
 			log_cmd_error("Missing option -map <verilog_or_ilang_file>.\n");
 
-		RTLIL::Design *map = new RTLIL::Design;
 		FILE *f = fopen(filename.c_str(), "rt");
 		if (f == NULL)
-			log_error("Can't open map file `%s'\n", filename.c_str());
-		if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
-			Frontend::frontend_call(map, f, filename, "ilang");
-		else
-			Frontend::frontend_call(map, f, filename, "verilog");
+			log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
+
+		RTLIL::Design *map = new RTLIL::Design;
+		Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+
 		fclose(f);
-
-		SubCircuit::Solver solver;
-		std::vector<SubCircuit::Solver::Result> results;
-
-		if (verbose)
-			solver.setVerbose();
 
 		std::map<std::string, RTLIL::Module*> needle_map, haystack_map;
 
@@ -255,7 +311,7 @@ struct ExtractPass : public Pass {
 
 		for (auto &mod_it : map->modules) {
 			SubCircuit::Graph mod_graph;
-			std::string graph_name = "needle_" + mod_it.first.substr(mod_it.first[0] == '\\' ? 1 : 0);
+			std::string graph_name = "needle_" + RTLIL::unescape_id(mod_it.first);
 			log("Creating needle graph %s.\n", graph_name.c_str());
 			if (module2graph(mod_graph, mod_it.second, constports)) {
 				solver.addGraph(graph_name, mod_graph);
@@ -265,7 +321,7 @@ struct ExtractPass : public Pass {
 
 		for (auto &mod_it : design->modules) {
 			SubCircuit::Graph mod_graph;
-			std::string graph_name = "haystack_" + mod_it.first.substr(mod_it.first[0] == '\\' ? 1 : 0);
+			std::string graph_name = "haystack_" + RTLIL::unescape_id(mod_it.first);
 			log("Creating haystack graph %s.\n", graph_name.c_str());
 			if (module2graph(mod_graph, mod_it.second, constports, design)) {
 				solver.addGraph(graph_name, mod_graph);
