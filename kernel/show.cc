@@ -298,7 +298,22 @@ struct ShowWorker
 };
 
 struct ShowPass : public Pass {
-	ShowPass() : Pass("show") { }
+	ShowPass() : Pass("show", "generate schematics using graphviz") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    show [-viewer <command>] [selection]\n");
+		log("\n");
+		log("Create a graphviz DOT file for the selected part of the design and compile it\n");
+		log("to a postscript file.\n");
+		log("\n");
+		log("    -viewer <command>\n");
+		log("         Also run the specified command with the postscript file as parameter.\n");
+		log("\n");
+		log("The generated output files are `yosys-show.dot' and `yosys-show.ps'.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Generating Graphviz representation of design.\n");

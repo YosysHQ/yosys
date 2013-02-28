@@ -139,7 +139,30 @@ static void hierarchy(RTLIL::Design *design, RTLIL::Module *top)
 }
 
 struct HierarchyPass : public Pass {
-	HierarchyPass() : Pass("hierarchy") { }
+	HierarchyPass() : Pass("hierarchy", "check, expand and clean up design hierarchy") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    hierarchy [-check] [-top <module>]\n");
+		log("\n");
+		log("In parametric designs, a module might exists in serveral variations with\n");
+		log("different parameter values. This pass looks at all modules in the current\n");
+		log("design an re-runs the language frontends for the parametric modules as\n");
+		log("needed.\n");
+		log("\n");
+		log("    -check\n");
+		log("        also check the design hierarchy. this generates an error when\n");
+		log("        an unknown module is used as cell type.\n");
+		log("\n");
+		log("    -top <module>\n");
+		log("        use the specified top module to built a design hierarchy. modules\n");
+		log("        outside this tree (unused modules) are removed.\n");
+		log("\n");
+		log("This pass ignores the current selection and always operates on all modules\n");
+		log("in the current design.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing HIERARCHY pass (removing modules outside design hierarchy).\n");
@@ -165,9 +188,8 @@ struct HierarchyPass : public Pass {
 					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
 				continue;
 			}
-			break;
+			log_cmd_error("Unkown option %s.\n", args[argidx].c_str());
 		}
-		extra_args(args, argidx, design);
 
 		if (top_mod != NULL)
 			hierarchy(design, top_mod);
