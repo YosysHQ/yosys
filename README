@@ -170,6 +170,9 @@ Verilog Attributes and non-standard features
 - The 'full_case' attribute on case statements is supported
   (also the non-standard "// synopsys full_case" directive)
 
+- The 'parallel_case' attribute on case statements is supported
+  (also the non-standard "// synopsys parallel_case" directive)
+
 - The "// synopsys translate_off" and "// synopsys translate_on"
   directives are also supported (but the use of `ifdef .. `endif
   is strongly recommended instead).

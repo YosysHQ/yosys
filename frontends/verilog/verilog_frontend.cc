@@ -39,7 +39,52 @@ using namespace VERILOG_FRONTEND;
 // use the Verilog bison/flex parser to generate an AST and use AST::process() to convert it to RTLIL
 
 struct VerilogFrontend : public Frontend {
-	VerilogFrontend() : Frontend("verilog") { }
+	VerilogFrontend() : Frontend("verilog", "read modules from verilog file") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    read_verilog [filename]\n");
+		log("\n");
+		log("Load modules from a verilog file to the current design. A large subset of\n");
+		log("Verilog-2005 is supported.\n");
+		log("\n");
+		log("    -dump_ast\n");
+		log("        dump abstract syntax tree (after simplification)\n");
+		log("\n");
+		log("    -dump_ast_diff\n");
+		log("        dump ast differences before and after simplification\n");
+		log("\n");
+		log("    -dump_vlog\n");
+		log("        dump ast as verilog code (after simplification)\n");
+		log("\n");
+		log("    -yydebug\n");
+		log("        enable parser debug output\n");
+		log("\n");
+		log("    -nolatches\n");
+		log("        usually latches are synthesized into logic loops\n");
+		log("        this option prohibits this and sets the output to 'x'\n");
+		log("        in what would be the latches hold condition\n");
+		log("\n");
+		log("        this behavior can also be achieved by setting the\n");
+		log("        'nolatches' attribute on the respective module or\n");
+		log("        always block.\n");
+		log("\n");
+		log("    -nomem2reg\n");
+		log("        under certain conditions memories are converted to registers\n");
+		log("        early during simplification to ensure correct handling of\n");
+		log("        complex corner cases. this option disables this behavior.\n");
+		log("\n");
+		log("        this can also be achieved by setting the 'nomem2reg'\n");
+		log("        attribute on the respective module or register.\n");
+		log("\n");
+		log("    -ppdump\n");
+		log("        dump verilog code after pre-processor\n");
+		log("\n");
+		log("    -nopp\n");
+		log("        do not run the pre-processor\n");
+		log("\n");
+	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_dump_ast = false;

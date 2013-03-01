@@ -32,7 +32,17 @@ void rtlil_frontend_ilang_yyerror(char const *s)
 }
 
 struct IlangFrontend : public Frontend {
-	IlangFrontend() : Frontend("ilang") { }
+	IlangFrontend() : Frontend("ilang", "read modules from ilang file") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    read_ilang [filename]\n");
+		log("\n");
+		log("Load modules from an ilang file to the current design. (ilang is a text\n");
+		log("representation of a design in yosys's internal format.)\n");
+		log("\n");
+	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing ILANG frontend.\n");
