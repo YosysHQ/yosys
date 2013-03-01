@@ -542,7 +542,7 @@ struct SelectPass : public Pass {
 			if (arg == "-module" && argidx+1 < args.size()) {
 				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
 				if (design->modules.count(mod_name) == 0)
-					log_cmd_error("No such module: %s\n", mod_name.c_str());
+					log_cmd_error("No such module: %s\n", id2cstr(mod_name));
 				design->selected_active_module = mod_name;
 				got_module = true;
 				continue;
@@ -597,20 +597,20 @@ struct SelectPass : public Pass {
 			for (auto mod_it : design->modules)
 			{
 				if (sel->selected_whole_module(mod_it.first))
-					log("%s\n", mod_it.first.c_str());
+					log("%s\n", id2cstr(mod_it.first));
 				if (sel->selected_module(mod_it.first)) {
 					for (auto &it : mod_it.second->wires)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
+							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->memories)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
+							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->cells)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
+							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->processes)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", mod_it.first.c_str(), it.first.c_str());
+							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 				}
 			}
 			return;
@@ -648,10 +648,10 @@ struct SelectPass : public Pass {
 			if (sel.full_selection)
 				log("*\n");
 			for (auto &it : sel.selected_modules)
-				log("%s\n", it.c_str());
+				log("%s\n", id2cstr(it));
 			for (auto &it : sel.selected_members)
 				for (auto &it2 : it.second)
-					log("%s/%s\n", it.first.c_str(), it2.c_str());
+					log("%s/%s\n", id2cstr(it.first), id2cstr(it2));
 			return;
 		}
 

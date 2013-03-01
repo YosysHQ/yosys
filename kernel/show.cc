@@ -289,9 +289,9 @@ struct ShowWorker
 			if (!design->selected_module(module->name))
 				continue;
 			if (design->selected_whole_module(module->name))
-				log("Dumping module %s to page %d.\n", module->name.c_str(), ++page_counter);
+				log("Dumping module %s to page %d.\n", id2cstr(module->name), ++page_counter);
 			else
-				log("Dumping selected parts of module %s to page %d.\n", module->name.c_str(), ++page_counter);
+				log("Dumping selected parts of module %s to page %d.\n", id2cstr(module->name), ++page_counter);
 			handle_module();
 		}
 	}

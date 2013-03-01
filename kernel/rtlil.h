@@ -110,6 +110,13 @@ namespace RTLIL
 		return str;
 	}
 
+	static const char *id2cstr(std::string str) __attribute__((unused));
+	static const char *id2cstr(std::string str) {
+		if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
+			return str.c_str() + 1;
+		return str.c_str();
+	}
+
 	static IdString new_id(std::string file, int line, std::string func) __attribute__((unused));
 	static IdString new_id(std::string file, int line, std::string func) {
 		std::string str = "$auto$";
