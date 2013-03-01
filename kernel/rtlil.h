@@ -105,7 +105,7 @@ namespace RTLIL
 
 	static std::string unescape_id(std::string str) __attribute__((unused));
 	static std::string unescape_id(std::string str) {
-		if (str.size() > 0 && str[0] == '\\')
+		if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
 			return str.substr(1);
 		return str;
 	}
