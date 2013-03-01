@@ -279,7 +279,17 @@ static void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc)
 }
 
 struct ProcMuxPass : public Pass {
-	ProcMuxPass() : Pass("proc_mux") { }
+	ProcMuxPass() : Pass("proc_mux", "convert decision trees to multiplexers") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    proc_mux [selection]\n");
+		log("\n");
+		log("This pass converts the decision trees in processes (originating from if-else\n");
+		log("and case statements) to trees of multiplexer cells.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing PROC_MUX pass (convert decision trees to multiplexers).\n");
@@ -287,8 +297,10 @@ struct ProcMuxPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto &mod_it : design->modules)
-		for (auto &proc_it : mod_it.second->processes)
-			proc_mux(mod_it.second, proc_it.second);
+			if (design->selected(mod_it.second))
+				for (auto &proc_it : mod_it.second->processes)
+					if (design->selected(mod_it.second, proc_it.second))
+						proc_mux(mod_it.second, proc_it.second);
 	}
 } ProcMuxPass;
  

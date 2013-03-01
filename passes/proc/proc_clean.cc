@@ -130,7 +130,17 @@ static void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_coun
 }
 
 struct ProcCleanPass : public Pass {
-	ProcCleanPass() : Pass("proc_clean") { }
+	ProcCleanPass() : Pass("proc_clean", "remove empty parts of processes") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    proc_clean [selection]\n");
+		log("\n");
+		log("This pass removes empty parts of processes and ultimately removes a process\n");
+		log("if it contains only empty structures.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		int total_count = 0;
@@ -140,7 +150,11 @@ struct ProcCleanPass : public Pass {
 
 		for (auto &mod_it : design->modules) {
 			std::vector<std::string> delme;
+			if (!design->selected(mod_it.second))
+				continue;
 			for (auto &proc_it : mod_it.second->processes) {
+				if (!design->selected(mod_it.second, proc_it.second))
+					continue;
 				proc_clean(mod_it.second, proc_it.second, total_count);
 				if (proc_it.second->syncs.size() == 0 && proc_it.second->root_case.switches.size() == 0 &&
 						proc_it.second->root_case.actions.size() == 0) {

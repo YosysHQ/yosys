@@ -161,18 +161,30 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 }
 
 struct ProcDffPass : public Pass {
-	ProcDffPass() : Pass("proc_dff") { }
+	ProcDffPass() : Pass("proc_dff", "extract flip-flops from processes") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    proc_dff [selection]\n");
+		log("\n");
+		log("This pass identifies flip-flops in the processes and converts then to\n");
+		log("flip-flop cells.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing PROC_DFF pass (convert process syncs to FFs).\n");
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules) {
-			ConstEval ce(mod_it.second);
-			for (auto &proc_it : mod_it.second->processes)
-				proc_dff(mod_it.second, proc_it.second, ce);
-		}
+		for (auto &mod_it : design->modules)
+			if (design->selected(mod_it.second)) {
+				ConstEval ce(mod_it.second);
+				for (auto &proc_it : mod_it.second->processes)
+					if (design->selected(mod_it.second, proc_it.second))
+						proc_dff(mod_it.second, proc_it.second, ce);
+			}
 	}
 } ProcDffPass;
  

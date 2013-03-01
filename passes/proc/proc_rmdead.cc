@@ -62,7 +62,16 @@ static void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)
 }
 
 struct ProcRmdeadPass : public Pass {
-	ProcRmdeadPass() : Pass("proc_rmdead") { }
+	ProcRmdeadPass() : Pass("proc_rmdead", "eliminate dead trees in decision trees") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    proc_rmdead [selection]\n");
+		log("\n");
+		log("This pass identifies unreachable branches in decision trees and removes them.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing PROC_RMDEAD pass (remove dead branches from decision trees).\n");
@@ -70,15 +79,20 @@ struct ProcRmdeadPass : public Pass {
 		extra_args(args, 1, design);
 
 		int total_counter = 0;
-		for (auto &mod_it : design->modules)
-		for (auto &proc_it : mod_it.second->processes) {
-			int counter = 0;
-			for (auto switch_it : proc_it.second->root_case.switches)
-				proc_rmdead(switch_it, counter);
-			if (counter > 0)
-				log("Removed %d dead cases from process %s in module %s.\n", counter,
-						proc_it.first.c_str(), mod_it.first.c_str());
-			total_counter += counter;
+		for (auto &mod_it : design->modules) {
+			if (!design->selected(mod_it.second))
+				continue;
+			for (auto &proc_it : mod_it.second->processes) {
+				if (!design->selected(mod_it.second, proc_it.second))
+					continue;
+				int counter = 0;
+				for (auto switch_it : proc_it.second->root_case.switches)
+					proc_rmdead(switch_it, counter);
+				if (counter > 0)
+					log("Removed %d dead cases from process %s in module %s.\n", counter,
+							proc_it.first.c_str(), mod_it.first.c_str());
+				total_counter += counter;
+			}
 		}
 
 		log("Removed a total of %d dead cases.\n", total_counter);

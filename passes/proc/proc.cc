@@ -23,7 +23,25 @@
 #include <stdio.h>
 
 struct ProcPass : public Pass {
-	ProcPass() : Pass("proc") { }
+	ProcPass() : Pass("proc", "translate processes to netlists") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    proc [selection]\n");
+		log("\n");
+		log("This pass calls all the other proc_* passes in the most common order.\n");
+		log("\n");
+		log("    proc_clean\n");
+		log("    proc_rmdead\n");
+		log("    proc_arst\n");
+		log("    proc_mux\n");
+		log("    proc_dff\n");
+		log("    proc_clean\n");
+		log("\n");
+		log("This replaces the processes in the design with multiplexers and flip-flops.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing PROC pass (convert processes to netlists).\n");

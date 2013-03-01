@@ -174,18 +174,31 @@ static void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_m
 }
 
 struct ProcArstPass : public Pass {
-	ProcArstPass() : Pass("proc_arst") { }
+	ProcArstPass() : Pass("proc_arst", "detect asynchronous resets") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    proc_arst [selection]\n");
+		log("\n");
+		log("This pass identifies asynchronous resets in the processes and converts them\n");
+		log("to a different internal representation that is suitable for generating\n");
+		log("flip-flop cells with asynchronous resets.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing PROC_ARST pass (detect async resets in processes).\n");
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules) {
-			SigMap assign_map(mod_it.second);
-			for (auto &proc_it : mod_it.second->processes)
-				proc_arst(mod_it.second, proc_it.second, assign_map);
-		}
+		for (auto &mod_it : design->modules)
+			if (design->selected(mod_it.second)) {
+				SigMap assign_map(mod_it.second);
+				for (auto &proc_it : mod_it.second->processes)
+					if (design->selected(mod_it.second, proc_it.second))
+						proc_arst(mod_it.second, proc_it.second, assign_map);
+			}
 	}
 } ProcArstPass;
  
