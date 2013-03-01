@@ -161,22 +161,38 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	module->cells[mem->name] = mem;
 }
 
-static void handle_module(RTLIL::Module *module)
+static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 {
-	for (auto &mem_it : module->memories) {
-		handle_memory(module, mem_it.second);
-		delete mem_it.second;
+	std::vector<RTLIL::IdString> delme;
+	for (auto &mem_it : module->memories)
+		if (design->selected(module, mem_it.second)) {
+			handle_memory(module, mem_it.second);
+			delme.push_back(mem_it.first);
+		}
+	for (auto &it : delme) {
+		delete module->memories.at(it);
+		module->memories.erase(it);
 	}
-	module->memories.clear();
 }
 
 struct MemoryCollectPass : public Pass {
-	MemoryCollectPass() : Pass("memory_collect") { }
+	MemoryCollectPass() : Pass("memory_collect", "creating multi-port memory cells") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    memory_collect [selection]\n");
+		log("\n");
+		log("This pass collects memories and memory ports and creates generic multiport\n");
+		log("memory cells.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		log_header("Executing MEMORY_COLLECT pass (generating $mem cells).\n");
 		extra_args(args, 1, design);
 		for (auto &mod_it : design->modules)
-			handle_module(mod_it.second);
+			if (design->selected(mod_it.second))
+				handle_module(design, mod_it.second);
 	}
 } MemoryCollectPass;
  

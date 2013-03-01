@@ -23,7 +23,22 @@
 #include <stdio.h>
 
 struct MemoryPass : public Pass {
-	MemoryPass() : Pass("memory") { }
+	MemoryPass() : Pass("memory", "translate memories to basic cells") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    memory [selection]\n");
+		log("\n");
+		log("This pass calls all the other memory_* passes in a useful order:\n");
+		log("\n");
+		log("    memory_dff\n");
+		log("    memory_collect\n");
+		log("    memory_map\n");
+		log("\n");
+		log("This converts memories to word-wide DFFs and address decoders.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing MEMORY pass.\n");

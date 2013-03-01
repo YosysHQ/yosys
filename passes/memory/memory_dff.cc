@@ -178,9 +178,11 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 }
 #endif
 
-static void handle_module(RTLIL::Module *module)
+static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 {
 	for (auto &cell_it : module->cells) {
+		if (!design->selected(module, cell_it.second))
+			continue;
 		if (cell_it.second->type == "$memwr" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())
 				handle_wr_cell(module, cell_it.second);
 		if (cell_it.second->type == "$memrd" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())
@@ -189,12 +191,24 @@ static void handle_module(RTLIL::Module *module)
 }
 
 struct MemoryDffPass : public Pass {
-	MemoryDffPass() : Pass("memory_dff") { }
+	MemoryDffPass() : Pass("memory_dff", "merge input/output DFFs into memories") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    memory_dff [selection]\n");
+		log("\n");
+		log("This pass detects DFFs at memory ports and merges them into the memory port.\n");
+		log("I.e. it consumes an asynchronous memory port and the flip-flops at its\n");
+		log("interface and yields a synchronous memory port.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		log_header("Executing MEMORY_DFF pass (merging $dff cells to $memrd and $memwr).\n");
 		extra_args(args, 1, design);
 		for (auto &mod_it : design->modules)
-			handle_module(mod_it.second);
+			if (design->selected(mod_it.second))
+				handle_module(design, mod_it.second);
 	}
 } MemoryDffPass;
  
