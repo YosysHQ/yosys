@@ -65,8 +65,8 @@ mrproper: clean
 qtcreator:
 	{ for file in $(basename $(OBJS)); do \
 		for prefix in cc y l; do if [ -f $${file}.$${prefix} ]; then echo $$file.$${prefix}; fi; done \
-	done; find backends bigint frontends kernel passes -type f \( -name '*.h' -o -name '*.hh' \); } > qtcreator.files
-	{ echo .; find backends bigint frontends kernel passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
+	done; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \); } > qtcreator.files
+	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
 	touch qtcreator.config qtcreator.creator
 
 -include bigint/*.d
