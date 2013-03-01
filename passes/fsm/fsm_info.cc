@@ -26,21 +26,33 @@
 #include <string.h>
 
 struct FsmInfoPass : public Pass {
-	FsmInfoPass() : Pass("fsm_info") { }
+	FsmInfoPass() : Pass("fsm_info", "print information on finite state machines") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_info [selection]\n");
+		log("\n");
+		log("This pass dumps all internal information on FSM cells. It can be useful for\n");
+		log("analyzing the synthesis process and is called automatically by the 'fsm'\n");
+		log("pass so that this information is included in the synthesis log file.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing FSM_INFO pass (dumping all available information on FSM cells).\n");
 		extra_args(args, 1, design);
 
 		for (auto &mod_it : design->modules)
-		for (auto &cell_it : mod_it.second->cells)
-			if (cell_it.second->type == "$fsm") {
-				log("\n");
-				log("FSM `%s' from module `%s':\n", cell_it.second->name.c_str(), mod_it.first.c_str());
-				FsmData fsm_data;
-				fsm_data.copy_from_cell(cell_it.second);
-				fsm_data.log_info(cell_it.second);
-			}
+			if (design->selected(mod_it.second))
+				for (auto &cell_it : mod_it.second->cells)
+					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second)) {
+						log("\n");
+						log("FSM `%s' from module `%s':\n", cell_it.second->name.c_str(), mod_it.first.c_str());
+						FsmData fsm_data;
+						fsm_data.copy_from_cell(cell_it.second);
+						fsm_data.log_info(cell_it.second);
+					}
 	}
 } FsmInfoPass;
  

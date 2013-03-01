@@ -337,16 +337,27 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 }
 
 struct FsmMapPass : public Pass {
-	FsmMapPass() : Pass("fsm_map") { }
+	FsmMapPass() : Pass("fsm_map", "mapping FSMs to basic logic") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_map [selection]\n");
+		log("\n");
+		log("This pass translates FSM cells to flip-flops and logic.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing FSM_MAP pass (simple optimizations of FSMs).\n");
+		log_header("Executing FSM_MAP pass (mapping FSMs to basic logic).\n");
 		extra_args(args, 1, design);
 
 		for (auto &mod_it : design->modules) {
+			if (!design->selected(mod_it.second))
+				continue;
 			std::vector<RTLIL::Cell*> fsm_cells;
 			for (auto &cell_it : mod_it.second->cells)
-				if (cell_it.second->type == "$fsm")
+				if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
 					fsm_cells.push_back(cell_it.second);
 			for (auto cell : fsm_cells)
 					map_fsm(cell, mod_it.second);

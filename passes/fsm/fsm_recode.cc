@@ -83,7 +83,21 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 }
 
 struct FsmRecodePass : public Pass {
-	FsmRecodePass() : Pass("fsm_recode") { }
+	FsmRecodePass() : Pass("fsm_recode", "recoding finite state machines") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_recode [-fm_set_fsm_file file] [selection]\n");
+		log("\n");
+		log("This pass reassign the state encodings for FSM cells. At the moment only\n");
+		log("one-hot encoding is supported.\n");
+		log("\n");
+		log("The option -fm_set_fsm_file can be used to generate a file containing the\n");
+		log("mapping from old to new FSM encoding in form of Synopsys Formality set_fsm_*\n");
+		log("commands.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		FILE *fm_set_fsm_file = NULL;
@@ -103,9 +117,10 @@ struct FsmRecodePass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto &mod_it : design->modules)
-		for (auto &cell_it : mod_it.second->cells)
-			if (cell_it.second->type == "$fsm")
-				fsm_recode(cell_it.second, mod_it.second, fm_set_fsm_file);
+			if (design->selected(mod_it.second))
+				for (auto &cell_it : mod_it.second->cells)
+					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
+						fsm_recode(cell_it.second, mod_it.second, fm_set_fsm_file);
 
 		if (fm_set_fsm_file != NULL)
 			fclose(fm_set_fsm_file);

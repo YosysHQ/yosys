@@ -33,7 +33,7 @@ struct OptPass : public Pass {
 		log("\n");
 		log("    opt [selection]\n");
 		log("\n");
-		log("This pass calls all the other opt_* passes in a useful manner. This performs\n");
+		log("This pass calls all the other opt_* passes in a useful order. This performs\n");
 		log("a series of trivial optimizations and cleanups. This pass executes the other\n");
 		log("passes in the following order:\n");
 		log("\n");

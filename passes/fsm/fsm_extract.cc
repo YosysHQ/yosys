@@ -310,7 +310,23 @@ static void extract_fsm(RTLIL::Wire *wire)
 }
 
 struct FsmExtractPass : public Pass {
-	FsmExtractPass() : Pass("fsm_extract") { }
+	FsmExtractPass() : Pass("fsm_extract", "extracting FSMs in design") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_extract [selection]\n");
+		log("\n");
+		log("This pass operates on all signals marked as FSM state signals using the\n");
+		log("'fsm_encoding' attribute. It consumes the logic that creates the state signal\n");
+		log("and uses the state signal to generate control signal and replaces it with an\n");
+		log("FSM cell.\n");
+		log("\n");
+		log("The generated FSM cell still generates the original state signal with its\n");
+		log("original encoding. The 'fsm_opt' pass can be used in combination with the\n");
+		log("'opt_rmunused' pass to eliminate this signal.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing FSM_EXTRACT pass (extracting FSM from design).\n");
@@ -324,6 +340,9 @@ struct FsmExtractPass : public Pass {
 
 		for (auto &mod_it : design->modules)
 		{
+			if (!design->selected(mod_it.second))
+				continue;
+
 			module = mod_it.second;
 			assign_map.set(module);
 
@@ -347,7 +366,8 @@ struct FsmExtractPass : public Pass {
 			std::vector<RTLIL::Wire*> wire_list;
 			for (auto &wire_it : module->wires)
 				if (wire_it.second->attributes.count("\\fsm_encoding") > 0 && wire_it.second->attributes["\\fsm_encoding"].str != "none")
-					wire_list.push_back(wire_it.second);
+					if (design->selected(module, wire_it.second))
+						wire_list.push_back(wire_it.second);
 			for (auto wire : wire_list)
 				extract_fsm(wire);
 		}

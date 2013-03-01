@@ -109,7 +109,23 @@ static void detect_fsm(RTLIL::Wire *wire)
 }
 
 struct FsmDetectPass : public Pass {
-	FsmDetectPass() : Pass("fsm_detect") { }
+	FsmDetectPass() : Pass("fsm_detect", "finding FSMs in design") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_detect [selection]\n");
+		log("\n");
+		log("This pass detects finite state machine by identifying the state signal.\n");
+		log("The state signal is then marked by setting the attribute 'fsm_encoding'\n");
+		log("on the state signal to \"auto\".\n");
+		log("\n");
+		log("Existing 'fsm_encoding' attributes are not changed by this pass.\n");
+		log("\n");
+		log("Signals can be protected from beeing detected by this pass by setting the\n");
+		log("'fsm_encoding' atrribute to \"none\".\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing FSM_DETECT pass (finding FSMs in design).\n");
@@ -123,6 +139,9 @@ struct FsmDetectPass : public Pass {
 
 		for (auto &mod_it : design->modules)
 		{
+			if (!design->selected(mod_it.second))
+				continue;
+
 			module = mod_it.second;
 			assign_map.set(module);
 
@@ -148,7 +167,8 @@ struct FsmDetectPass : public Pass {
 					sig_at_port.add(assign_map(RTLIL::SigSpec(wire_it.second)));
 
 			for (auto &wire_it : module->wires)
-				detect_fsm(wire_it.second);
+				if (design->selected(module, wire_it.second))
+					detect_fsm(wire_it.second);
 		}
 
 		assign_map.clear();

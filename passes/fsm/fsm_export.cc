@@ -109,9 +109,21 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell) {
  * only the KISS2 file format is supported.
  */
 struct FsmExportPass : public Pass {
-	FsmExportPass() : Pass("fsm_export") {
+	FsmExportPass() : Pass("fsm_export", "exporting FSMs to KISS2 files") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_export [-noauto] [selection]\n");
+		log("\n");
+		log("This pass creates a KISS2 file for every selected FSM. For FSMs with the\n");
+		log("'fsm_export' attribute set, the attribute value is used as filename, otherwise\n");
+		log("the module and cell name is used as filename.\n");
+		log("\n");
+		log("    -noauto\n");
+		log("        only export FSMs that have the 'fsm_export' attribute set\n");
+		log("\n");
 	}
-
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::map<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
@@ -132,12 +144,13 @@ struct FsmExportPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto &mod_it : design->modules)
-			for (auto &cell_it : mod_it.second->cells)
-				if (cell_it.second->type == "$fsm") {
-				  attr_it = cell_it.second->attributes.find("\\fsm_export");
-				  if (!flag_noauto || (attr_it != cell_it.second->attributes.end())) {
-				    write_kiss2(mod_it.second, cell_it.second);
-				  }
-				}
+			if (design->selected(mod_it.second))
+				for (auto &cell_it : mod_it.second->cells)
+					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second)) {
+						attr_it = cell_it.second->attributes.find("\\fsm_export");
+						if (!flag_noauto || (attr_it != cell_it.second->attributes.end())) {
+							write_kiss2(mod_it.second, cell_it.second);
+						}
+					}
 	}
 } FsmExportPass;

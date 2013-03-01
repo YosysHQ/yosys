@@ -188,7 +188,7 @@ struct FsmExpand
 		fsm_data.copy_to_cell(fsm_cell);
 	}
 
-	FsmExpand(RTLIL::Cell *cell, RTLIL::Module *mod)
+	FsmExpand(RTLIL::Cell *cell, RTLIL::Design *design, RTLIL::Module *mod)
 	{
 		module = mod;
 		fsm_cell = cell;
@@ -198,7 +198,7 @@ struct FsmExpand
 
 		for (auto &cell_it : module->cells) {
 			RTLIL::Cell *c = cell_it.second;
-			if (ct.cell_known(c->type))
+			if (ct.cell_known(c->type) && design->selected(mod, c))
 				for (auto &p : c->connections) {
 					if (ct.cell_output(c->type, p.first))
 						sig2driver.insert(assign_map(p.second), c);
@@ -234,19 +234,32 @@ struct FsmExpand
 };
 
 struct FsmExpandPass : public Pass {
-	FsmExpandPass() : Pass("fsm_expand") { }
+	FsmExpandPass() : Pass("fsm_expand", "expand FSM cells by merging logic into it") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_expand [selection]\n");
+		log("\n");
+		log("The fsm_extract pass is conservative about the cells that belong the a finate\n");
+		log("state machine. This pass can be used to merge additional auxiliary gates into\n");
+		log("the finate state machine.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing FSM_EXPAND pass (re-assigning FSM state encoding).\n");
+		log_header("Executing FSM_EXPAND pass (merging auxiliary logic into FSMs).\n");
 		extra_args(args, 1, design);
 
 		for (auto &mod_it : design->modules) {
+			if (!design->selected(mod_it.second))
+				continue;
 			std::vector<RTLIL::Cell*> fsm_cells;
 			for (auto &cell_it : mod_it.second->cells)
-				if (cell_it.second->type == "$fsm")
+				if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
 					fsm_cells.push_back(cell_it.second);
 			for (auto c : fsm_cells) {
-				FsmExpand fsm_expand(c, mod_it.second);
+				FsmExpand fsm_expand(c, design, mod_it.second);
 				fsm_expand.execute();
 			}
 		}

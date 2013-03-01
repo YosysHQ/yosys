@@ -23,7 +23,43 @@
 #include <stdio.h>
 
 struct FsmPass : public Pass {
-	FsmPass() : Pass("fsm") { }
+	FsmPass() : Pass("fsm", "extract and optimize finite state machines") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm [options] [selection]\n");
+		log("\n");
+		log("This pass calls all the other fsm_* passes in a useful order. This performs\n");
+		log("FSM extraction and optimiziation. It also calls opt_rmunused as needed:\n");
+		log("\n");
+		log("    fsm_detect\n");
+		log("    fsm_extract\n");
+		log("\n");
+		log("    fsm_opt\n");
+		log("    opt_rmunused\n");
+		log("    fsm_opt\n");
+		log("\n");
+		log("    fsm_expand          if got option -expand\n");
+		log("    opt_rmunused        if got option -expand\n");
+		log("    fsm_opt             if got option -expand\n");
+		log("\n");
+		log("    fsm_recode          unless got option -norecode\n");
+		log("\n");
+		log("    fsm_info\n");
+		log("\n");
+		log("    fsm_export          if got option -export\n");
+		log("    fsm_map             unless got option -nomap\n");
+		log("\n");
+		log("Options:\n");
+		log("\n");
+		log("    -expand, -norecode, -export, -nomap\n");
+		log("        enable or disable passes as indicated above\n");
+		log("\n");
+		log("    -fm_set_fsm_file file\n");
+		log("        passed through to fsm_recode pass\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_nomap = false;

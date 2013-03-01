@@ -269,16 +269,28 @@ void FsmData::optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module)
 }
 
 struct FsmOptPass : public Pass {
-	FsmOptPass() : Pass("fsm_opt") { }
+	FsmOptPass() : Pass("fsm_opt", "optimize finite state machines") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fsm_opt [selection]\n");
+		log("\n");
+		log("This pass optimizes FSM cells. It detects which output signals are actually\n");
+		log("not used and removes them from the FSM. This pass is usually used in\n");
+		log("combination with the 'opt_rmunused' pass (see also 'help fsm').\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing FSM_OPT pass (simple optimizations of FSMs).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules)
-		for (auto &cell_it : mod_it.second->cells) {
-			if (cell_it.second->type == "$fsm")
-				FsmData::optimize_fsm(cell_it.second, mod_it.second);
+		for (auto &mod_it : design->modules) {
+			if (design->selected(mod_it.second))
+				for (auto &cell_it : mod_it.second->cells)
+					if (cell_it.second->type == "$fsm" and design->selected(mod_it.second, cell_it.second))
+						FsmData::optimize_fsm(cell_it.second, mod_it.second);
 		}
 	}
 } FsmOptPass;
