@@ -93,7 +93,17 @@ delete_dff:
 }
 
 struct OptRmdffPass : public Pass {
-	OptRmdffPass() : Pass("opt_rmdff") { }
+	OptRmdffPass() : Pass("opt_rmdff", "remove DFFs with constant inputs") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    opt_rmdff [selection]\n");
+		log("\n");
+		log("This pass identifies flip-flops with constant inputs and replaces them with\n");
+		log("a constant driver.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		int total_count = 0;
@@ -103,10 +113,15 @@ struct OptRmdffPass : public Pass {
 
 		for (auto &mod_it : design->modules)
 		{
+			if (!design->selected(mod_it.second))
+				continue;
+
 			assign_map.set(mod_it.second);
 
 			std::vector<std::string> dff_list;
 			for (auto &it : mod_it.second->cells) {
+				if (!design->selected(mod_it.second, it.second))
+					continue;
 				if (it.second->type == "$_DFF_N_") dff_list.push_back(it.first);
 				if (it.second->type == "$_DFF_P_") dff_list.push_back(it.first);
 				if (it.second->type == "$_DFF_NN0_") dff_list.push_back(it.first);

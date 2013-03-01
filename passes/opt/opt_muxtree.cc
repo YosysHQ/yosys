@@ -396,7 +396,20 @@ struct OptMuxtreeWorker
 };
 
 struct OptMuxtreePass : public Pass {
-	OptMuxtreePass() : Pass("opt_muxtree") { }
+	OptMuxtreePass() : Pass("opt_muxtree", "eliminate dead trees in multiplexer trees") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    opt_muxtree [selection]\n");
+		log("\n");
+		log("This pass analyzes the control signals for the multiplexer trees in the design\n");
+		log("and identifies inputs that can never be active. In then removes this dead\n");
+		log("branches from the multiplexer trees.\n");
+		log("\n");
+		log("This pass only operates on completely selected modules without processes.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing OPT_MUXTREE pass (detect dead branches in mux trees).\n");
@@ -404,8 +417,13 @@ struct OptMuxtreePass : public Pass {
 
 		int total_count = 0;
 		for (auto &mod_it : design->modules) {
+			if (!design->selected_whole_module(mod_it.first)) {
+				if (design->selected(mod_it.second))
+					log("Skipping module %s as it is only partially selected.\n", id2cstr(mod_it.second->name));
+				continue;
+			}
 			if (mod_it.second->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
+				log("Skipping module %s as it contains processes.\n", id2cstr(mod_it.second->name));
 			} else {
 				OptMuxtreeWorker worker(design, mod_it.second);
 				total_count += worker.removed_count;

@@ -216,7 +216,22 @@ struct OptReduceWorker
 };
 
 struct OptReducePass : public Pass {
-	OptReducePass() : Pass("opt_reduce") { }
+	OptReducePass() : Pass("opt_reduce", "simplify large MUXes and AND/OR gates") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    opt_reduce [selection]\n");
+		log("\n");
+		log("This pass performs two interlinked optimizations:\n");
+		log("\n");
+		log("1. it consolidates trees of large AND gates or OR gates and eliminates\n");
+		log("duplicated inputs.\n");
+		log("\n");
+		log("2. it identifies duplicated inputs to MUXes and replaces them with a single\n");
+		log("input with the original control signals OR'ed together.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).\n");

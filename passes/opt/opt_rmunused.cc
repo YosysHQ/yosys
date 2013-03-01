@@ -221,7 +221,21 @@ static void rmunused_module(RTLIL::Module *module)
 }
 
 struct OptRmUnusedPass : public Pass {
-	OptRmUnusedPass() : Pass("opt_rmunused") { }
+	OptRmUnusedPass() : Pass("opt_rmunused", "remove unused cells and wires") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    opt_rmunused [selection]\n");
+		log("\n");
+		log("This pass identifies wires and cells that are unused and removes them. Other\n");
+		log("often remove cells but leave the wires in the design or reconnect the wires\n");
+		log("but leave the old cells in the design. This pass can be used to clean up after\n");
+		log("the passes that do the actual work.\n");
+		log("\n");
+		log("This pass only operates on completely selected modules without processes.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing OPT_RMUNUSED pass (remove unused cells and wires).\n");
@@ -235,6 +249,11 @@ struct OptRmUnusedPass : public Pass {
 		ct.setup_stdcells_mem();
 
 		for (auto &mod_it : design->modules) {
+			if (!design->selected_whole_module(mod_it.first)) {
+				if (design->selected(mod_it.second))
+					log("Skipping module %s as it is only partially selected.\n", id2cstr(mod_it.second->name));
+				continue;
+			}
 			if (mod_it.second->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 			} else {

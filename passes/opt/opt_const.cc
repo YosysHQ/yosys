@@ -44,14 +44,18 @@ void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, st
 	did_something = true;
 }
 
-void replace_const_cells(RTLIL::Module *module)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 {
+	if (!design->selected(module))
+		return;
+
 	SigMap assign_map(module);
 
 	std::vector<RTLIL::Cell*> cells;
 	cells.reserve(module->cells.size());
 	for (auto &cell_it : module->cells)
-		cells.push_back(cell_it.second);
+		if (design->selected(module, cell_it.second))
+			cells.push_back(cell_it.second);
 
 	for (auto cell : cells)
 	{
@@ -249,7 +253,16 @@ void replace_const_cells(RTLIL::Module *module)
 }
 
 struct OptConstPass : public Pass {
-	OptConstPass() : Pass("opt_const") { }
+	OptConstPass() : Pass("opt_const", "perform const folding") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    opt_const [selection]\n");
+		log("\n");
+		log("This pass performs const folding on internal cell types with constant inputs.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing OPT_CONST pass (perform const folding).\n");
@@ -260,7 +273,7 @@ struct OptConstPass : public Pass {
 		for (auto &mod_it : design->modules)
 			do {
 				did_something = false;
-				replace_const_cells(mod_it.second);
+				replace_const_cells(design, mod_it.second);
 			} while (did_something);
 
 		log_pop();

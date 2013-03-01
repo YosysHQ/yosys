@@ -26,7 +26,30 @@
 bool OPT_DID_SOMETHING;
 
 struct OptPass : public Pass {
-	OptPass() : Pass("opt") { }
+	OptPass() : Pass("opt", "perform simple optimizations") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    opt [selection]\n");
+		log("\n");
+		log("This pass calls all the other opt_* passes in a useful manner. This performs\n");
+		log("a series of trivial optimizations and cleanups. This pass executes the other\n");
+		log("passes in the following order:\n");
+		log("\n");
+		log("    opt_const\n");
+		log("    opt_share -nomux\n");
+		log("\n");
+		log("    do\n");
+		log("        opt_muxtree\n");
+		log("        opt_reduce\n");
+		log("        opt_share\n");
+		log("        opt_rmdff\n");
+		log("        opt_rmunused\n");
+		log("        opt_const\n");
+		log("    while [changed design]\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing OPT pass (performing simple optimizations).\n");

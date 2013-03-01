@@ -218,7 +218,20 @@ struct OptShareWorker
 };
 
 struct OptSharePass : public Pass {
-	OptSharePass() : Pass("opt_share") { }
+	OptSharePass() : Pass("opt_share", "consolidate identical cells") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    opt_share [-nomux] [selection]\n");
+		log("\n");
+		log("This pass identifies cells with identical type and input signals. Such cells\n");
+		log("are then merged to one cell.\n");
+		log("\n");
+		log("    -nomux\n");
+		log("        Do not merge MUX cells.\n");
+		log("\n");
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing OPT_SHARE pass (detect identical cells).\n");
