@@ -150,6 +150,7 @@ namespace
 			}
 		}
 
+		// graph.print();
 		return true;
 	}
 
@@ -206,8 +207,10 @@ struct ExtractPass : public Pass {
 	ExtractPass() : Pass("extract", "find subcircuits and replace them with cells") { }
 	virtual void help()
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    extract -map <map_file> [options] [selection]\n");
+		log("    extract -mine <out_file> [options] [selection]\n");
 		log("\n");
 		log("This pass looks for subcircuits that are isomorphic to any of the modules\n");
 		log("in the given map file and replaces them with instances of this modules. The\n");
@@ -245,6 +248,24 @@ struct ExtractPass : public Pass {
 		log("This pass does not operate on modules with uprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
 		log("\n");
+		log("This pass can also be used for mining for frequent subcircuits. In this mode\n");
+		log("the following options are to be used instead of the -map option.\n");
+		log("\n");
+		log("    -mine <out_file>\n");
+		log("        mine for frequent subcircuits and write them to the given ilang file\n");
+		log("\n");
+		log("    -mine_cells_span <min> <max>\n");
+		log("        only mine for subcircuits with the specified number of cells\n");
+		log("        default value: 3 10\n");
+		log("\n");
+		log("    -mine_min_freq <num>\n");
+		log("        only mine for subcircuits with at least the specified number of matches\n");
+		log("        default value: 10\n");
+		log("\n");
+		log("    -mine_limit_matches_per_module <num>\n");
+		log("        when calculating the number of matches for a subcircuit, don't count\n");
+		log("        more than the specified number of matches per module\n");
+		log("\n");
 		log("This pass operates on whole modules or selected cells from modules. Other\n");
 		log("selected entities (wires, etc.) are ignored.\n");
 		log("\n");
@@ -257,16 +278,39 @@ struct ExtractPass : public Pass {
 		log_push();
 
 		SubCircuit::Solver solver;
-		std::vector<SubCircuit::Solver::Result> results;
 
 		std::string filename;
 		bool constports = false;
 		bool nodefaultswaps = false;
 
+		bool mine_mode = false;
+		int mine_cells_min = 3;
+		int mine_cells_max = 10;
+		int mine_min_freq = 10;
+		int mine_limit_mod = -1;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
 				filename = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-mine" && argidx+1 < args.size()) {
+				filename = args[++argidx];
+				mine_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-mine_cells_span" && argidx+2 < args.size()) {
+				mine_cells_min = atoi(args[++argidx].c_str());
+				mine_cells_max = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-mine_min_freq" && argidx+1 < args.size()) {
+				mine_min_freq = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-mine_limit_matches_per_module" && argidx+1 < args.size()) {
+				mine_limit_mod = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-verbose") {
@@ -343,28 +387,32 @@ struct ExtractPass : public Pass {
 		if (filename.empty())
 			log_cmd_error("Missing option -map <verilog_or_ilang_file>.\n");
 
-		FILE *f = fopen(filename.c_str(), "rt");
-		if (f == NULL)
-			log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
+		RTLIL::Design *map = NULL;
 
-		RTLIL::Design *map = new RTLIL::Design;
-		Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
-
-		fclose(f);
+		if (!mine_mode)
+		{
+			FILE *f = fopen(filename.c_str(), "rt");
+			if (f == NULL)
+				log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
+			map = new RTLIL::Design;
+			Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			fclose(f);
+		}
 
 		std::map<std::string, RTLIL::Module*> needle_map, haystack_map;
 
 		log_header("Creating graphs for SubCircuit library.\n");
 
-		for (auto &mod_it : map->modules) {
-			SubCircuit::Graph mod_graph;
-			std::string graph_name = "needle_" + RTLIL::unescape_id(mod_it.first);
-			log("Creating needle graph %s.\n", graph_name.c_str());
-			if (module2graph(mod_graph, mod_it.second, constports)) {
-				solver.addGraph(graph_name, mod_graph);
-				needle_map[graph_name] = mod_it.second;
+		if (!mine_mode)
+			for (auto &mod_it : map->modules) {
+				SubCircuit::Graph mod_graph;
+				std::string graph_name = "needle_" + RTLIL::unescape_id(mod_it.first);
+				log("Creating needle graph %s.\n", graph_name.c_str());
+				if (module2graph(mod_graph, mod_it.second, constports)) {
+					solver.addGraph(graph_name, mod_graph);
+					needle_map[graph_name] = mod_it.second;
+				}
 			}
-		}
 
 		for (auto &mod_it : design->modules) {
 			SubCircuit::Graph mod_graph;
@@ -376,33 +424,57 @@ struct ExtractPass : public Pass {
 			}
 		}
 		
-		log_header("Running solver from SubCircuit library.\n");
-
-		for (auto &needle_it : needle_map)
-		for (auto &haystack_it : haystack_map) {
-			log("Solving for %s in %s.\n", needle_it.first.c_str(), haystack_it.first.c_str());
-			solver.solve(results, needle_it.first, haystack_it.first, false);
-		}
-		log("Found %zd matches.\n", results.size());
-
-		if (results.size() > 0)
+		if (!mine_mode)
 		{
-			log_header("Substitute SubCircuits with cells.\n");
+			std::vector<SubCircuit::Solver::Result> results;
+			log_header("Running solver from SubCircuit library.\n");
 
-			for (int i = 0; i < int(results.size()); i++) {
-				auto &result = results[i];
-				log("\nMatch #%d: (%s in %s)\n", i, result.needleGraphId.c_str(), result.haystackGraphId.c_str());
-				for (const auto &it : result.mappings) {
-					log("  %s -> %s", it.first.c_str(), it.second.haystackNodeId.c_str());
-					for (const auto & it2 : it.second.portMapping)
-						log(" %s:%s", it2.first.c_str(), it2.second.c_str());
-					log("\n");
+			for (auto &needle_it : needle_map)
+			for (auto &haystack_it : haystack_map) {
+				log("Solving for %s in %s.\n", needle_it.first.c_str(), haystack_it.first.c_str());
+				solver.solve(results, needle_it.first, haystack_it.first, false);
+			}
+			log("Found %zd matches.\n", results.size());
+
+			if (results.size() > 0)
+			{
+				log_header("Substitute SubCircuits with cells.\n");
+
+				for (int i = 0; i < int(results.size()); i++) {
+					auto &result = results[i];
+					log("\nMatch #%d: (%s in %s)\n", i, result.needleGraphId.c_str(), result.haystackGraphId.c_str());
+					for (const auto &it : result.mappings) {
+						log("  %s -> %s", it.first.c_str(), it.second.haystackNodeId.c_str());
+						for (const auto & it2 : it.second.portMapping)
+							log(" %s:%s", it2.first.c_str(), it2.second.c_str());
+						log("\n");
+					}
+					replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 				}
-				replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
+			}
+
+			delete map;
+		}
+		else
+		{
+			std::vector<SubCircuit::Solver::MineResult> results;
+
+			log_header("Running miner from SubCircuit library.\n");
+			solver.mine(results, mine_cells_min, mine_cells_max, mine_min_freq, mine_limit_mod);
+
+			// FIXME: Create output file
+
+			for (auto &result: results) {
+				printf("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
+				printf("  primary match in %s:", result.graphId.c_str());
+				for (auto & node : result.nodes)
+					printf(" %s", node.nodeId.c_str());
+				printf("\n");
+				for (auto & it : result.matchesPerGraph)
+					printf("  matches in %s: %d\n", it.first.c_str(), it.second);
 			}
 		}
 
-		delete map;
 		log_pop();
 	}
 } ExtractPass;

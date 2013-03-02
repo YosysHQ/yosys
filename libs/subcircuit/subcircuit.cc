@@ -1145,6 +1145,15 @@ class SubCircuit::SolverWorker
 				return graphId < other.graphId;
 			return nodes < other.nodes;
 		}
+		std::string to_string() const {
+			std::string str = graphId + "(";
+			bool first = true;
+			for (int node : nodes) {
+				str += stringf("%s%d", first ? "" : " ", node);
+				first = false;
+			}
+			return str + ")";
+		}
 	};
 
 	void solveForMining(std::vector<Solver::Result> &results, const GraphData &needle)
@@ -1170,6 +1179,8 @@ class SubCircuit::SolverWorker
 	int testForMining(std::vector<Solver::MineResult> &results, std::set<NodeSet> &usedSets, std::vector<std::set<NodeSet>> &nextPool, NodeSet &testSet,
 			const std::string &graphId, const Graph &graph, int minNodes, int minMatches, int limitMatchesPerGraph)
 	{
+		// printf("test: %s\n", testSet.to_string().c_str());
+
 		GraphData needle;
 		std::vector<std::string> needle_nodes;
 		for (int nodeIdx : testSet.nodes)
@@ -1192,10 +1203,13 @@ class SubCircuit::SolverWorker
 				resultNodes.push_back(graphData[it.haystackGraphId].graph.nodeMap[i2.second.haystackNodeId]);
 			NodeSet resultSet(it.haystackGraphId, resultNodes);
 
+			// printf("match: %s%s\n", resultSet.to_string().c_str(), usedSets.count(resultSet) > 0 ? " (dup)" : "");
+
 			if (usedSets.count(resultSet) > 0) {
-				assert(thisNodeSetSet.count(resultSet) > 0);
+				// FIXME: assert(thisNodeSetSet.count(resultSet) > 0);
 				continue;
 			}
+
 			usedSets.insert(resultSet);
 			thisNodeSetSet.insert(resultSet);
 
@@ -1205,7 +1219,7 @@ class SubCircuit::SolverWorker
 		}
 
 		if (matches < minMatches)
-			return 0;
+			return matches;
 
 		if (minNodes <= int(testSet.nodes.size()))
 		{
@@ -1247,10 +1261,13 @@ class SubCircuit::SolverWorker
 
 			int matches = testForMining(results, usedPairs, nodePairs, pair, graphId, graph, minNodes, minMatches, limitMatchesPerGraph);
 
-			if (verbose && matches > 0)
-				printf("Pair %s[%s,%s] -> %d\n", graphId.c_str(), graph.nodes[node1].nodeId.c_str(),
-						graph.nodes[node2].nodeId.c_str(), matches);
+			if (verbose)
+				printf("Pair %s[%s,%s] -> %d%s\n", graphId.c_str(), graph.nodes[node1].nodeId.c_str(),
+						graph.nodes[node2].nodeId.c_str(), matches, matches < minMatches ? "  *min*" : "");
 		}
+
+		if (verbose)
+			printf("found %d.\n", int(nodePairs.size()));
 	}
 
 	void findNextPool(std::vector<Solver::MineResult> &results, std::vector<std::set<NodeSet>> &pool,
@@ -1292,10 +1309,12 @@ class SubCircuit::SolverWorker
 					printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
 					first = false;
 				}
-				printf("] -> %d\n", matches);
+				printf("] -> %d%s\n", matches, matches < minMatches ? "  *min*" : "");
 			}
 		}
 
+		if (verbose)
+			printf("found %d.\n", int(nextPool.size()));
 		pool.swap(nextPool);
 	}
 
@@ -1384,7 +1403,7 @@ protected:
 		std::vector<std::set<NodeSet>> pool;
 		findNodePairs(results, pool, minNodes, minMatches, limitMatchesPerGraph);
 
-		while (nodeSetSize < maxNodes)
+		while ((maxNodes < 0 || nodeSetSize < maxNodes) && pool.size() > 0)
 		{
 			int increment = nodeSetSize - 1;
 			if (nodeSetSize + increment >= minNodes)
