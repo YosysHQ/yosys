@@ -16,7 +16,7 @@ TARGETS = yosys
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I$(shell pwd) -MD
+CXXFLAGS = -Wall -Wextra -ggdb -I$(shell pwd) -MD -D_YOSYS_
 LDFLAGS =
 LDLIBS = -lstdc++ -lreadline -lm
 

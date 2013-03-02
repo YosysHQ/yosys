@@ -25,9 +25,16 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#ifdef _YOSYS_
+#  include "kernel/log.h"
+#  define my_printf log
+#else
+#  define my_printf printf
+#endif
+
 using namespace SubCircuit;
 
-static std::string stringf(const char *fmt, ...)
+static std::string my_stringf(const char *fmt, ...)
 {
 	std::string string;
 	char *str = NULL;
@@ -253,18 +260,18 @@ void SubCircuit::Graph::print()
 {
 	for (int i = 0; i < int(nodes.size()); i++) {
 		const Node &node = nodes[i];
-		printf("NODE %d: %s (%s)\n", i, node.nodeId.c_str(), node.typeId.c_str());
+		my_printf("NODE %d: %s (%s)\n", i, node.nodeId.c_str(), node.typeId.c_str());
 		for (int j = 0; j < int(node.ports.size()); j++) {
 			const Port &port = node.ports[j];
-			printf("  PORT %d: %s (%d/%d)\n", j, port.portId.c_str(), port.minWidth, int(port.bits.size()));
+			my_printf("  PORT %d: %s (%d/%d)\n", j, port.portId.c_str(), port.minWidth, int(port.bits.size()));
 			for (int k = 0; k < int(port.bits.size()); k++) {
 				int edgeIdx = port.bits[k].edgeIdx;
-				printf("    BIT %d (%d):", k, edgeIdx);
+				my_printf("    BIT %d (%d):", k, edgeIdx);
 				for (const auto &ref : edges[edgeIdx].portBits)
-					printf(" %d.%d.%d", ref.nodeIdx, ref.portIdx, ref.bitIdx);
+					my_printf(" %d.%d.%d", ref.nodeIdx, ref.portIdx, ref.bitIdx);
 				if (edges[edgeIdx].isExtern)
-					printf(" [extern]");
-				printf("\n");
+					my_printf(" [extern]");
+				my_printf("\n");
 			}
 		}
 	}
@@ -285,18 +292,18 @@ class SubCircuit::SolverWorker
 
 	static void printAdjMatrix(const adjMatrix_t &matrix)
 	{
-		printf("%7s", "");
+		my_printf("%7s", "");
 		for (int i = 0; i < int(matrix.size()); i++)
-			printf("%4d:", i);
-		printf("\n");
+			my_printf("%4d:", i);
+		my_printf("\n");
 		for (int i = 0; i < int(matrix.size()); i++) {
-			printf("%5d:", i);
+			my_printf("%5d:", i);
 			for (int j = 0; j < int(matrix.size()); j++)
 				if (matrix.at(i).count(j) == 0)
-					printf("%5s", "-");
+					my_printf("%5s", "-");
 				else
-					printf("%5d", matrix.at(i).at(j));
-			printf("\n");
+					my_printf("%5d", matrix.at(i).at(j));
+			my_printf("\n");
 		}
 	}
 
@@ -398,7 +405,7 @@ class SubCircuit::SolverWorker
 
 		std::string toString() const
 		{
-			return stringf("%s[%d]:%s[%d]", fromPort.c_str(), fromBit, toPort.c_str(), toBit);
+			return my_stringf("%s[%d]:%s[%d]", fromPort.c_str(), fromBit, toPort.c_str(), toBit);
 		}
 	};
 
@@ -431,7 +438,7 @@ class SubCircuit::SolverWorker
 			std::string str;
 			bool firstPort = true;
 			for (const auto &it : portSizes) {
-				str += stringf("%s%s[%d]", firstPort ? "" : ",", it.first.c_str(), it.second);
+				str += my_stringf("%s%s[%d]", firstPort ? "" : ",", it.first.c_str(), it.second);
 				firstPort = false;
 			}
 			return typeId + "(" + str + ")";
@@ -691,7 +698,7 @@ class SubCircuit::SolverWorker
 		void printEdgeTypes() const
 		{
 			for (int i = 0; i < int(edgeTypes.size()); i++)
-				printf("%5d: %s\n", i, edgeTypes[i].toString().c_str());
+				my_printf("%5d: %s\n", i, edgeTypes[i].toString().c_str());
 		}
 	};
 
@@ -868,20 +875,20 @@ class SubCircuit::SolverWorker
 					maxHaystackNodeIdx = std::max(maxHaystackNodeIdx, idx);
 		}
 
-		printf("       ");
+		my_printf("       ");
 		for (int j = 0; j < maxHaystackNodeIdx; j += 5)
-			printf("%-6d", j);
-		printf("\n");
+			my_printf("%-6d", j);
+		my_printf("\n");
 
 		for (int i = 0; i < int(enumerationMatrix.size()); i++)
 		{
-			printf("%5d:", i);
+			my_printf("%5d:", i);
 			for (int j = 0; j < maxHaystackNodeIdx; j++) {
 				if (j % 5 == 0)
-					printf(" ");
-				printf("%c", enumerationMatrix[i].count(j) > 0 ? '*' : '.');
+					my_printf(" ");
+				my_printf("%c", enumerationMatrix[i].count(j) > 0 ? '*' : '.');
 			}
-			printf("\n");
+			my_printf("\n");
 		}
 	}
 
@@ -1046,7 +1053,7 @@ class SubCircuit::SolverWorker
 			for (int j = 0; j < int(enumerationMatrix.size()); j++) {
 				if (portmapCandidates[j].size() == 0) {
 					if (verbose) {
-						printf("\nSolution (rejected by portmapper):\n");
+						my_printf("\nSolution (rejected by portmapper):\n");
 						printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
 					}
 					return;
@@ -1056,7 +1063,7 @@ class SubCircuit::SolverWorker
 
 			if (!userSolver->userCheckSolution(result)) {
 				if (verbose) {
-					printf("\nSolution (rejected by userCheckSolution):\n");
+					my_printf("\nSolution (rejected by userCheckSolution):\n");
 					printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
 				}
 				return;
@@ -1066,7 +1073,7 @@ class SubCircuit::SolverWorker
 				haystack.usedNodes[*enumerationMatrix[j].begin()] = true;
 
 			if (verbose) {
-				printf("\nSolution:\n");
+				my_printf("\nSolution:\n");
 				printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
 			}
 
@@ -1075,8 +1082,8 @@ class SubCircuit::SolverWorker
 		}
 
 		if (verbose) {
-			printf("\n");
-			printf("Enumeration Matrix at recursion level %d (%d):\n", iter, i);
+			my_printf("\n");
+			my_printf("Enumeration Matrix at recursion level %d (%d):\n", iter, i);
 			printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
 		}
 
@@ -1149,7 +1156,7 @@ class SubCircuit::SolverWorker
 			std::string str = graphId + "(";
 			bool first = true;
 			for (int node : nodes) {
-				str += stringf("%s%d", first ? "" : " ", node);
+				str += my_stringf("%s%d", first ? "" : " ", node);
 				first = false;
 			}
 			return str + ")";
@@ -1179,7 +1186,7 @@ class SubCircuit::SolverWorker
 	int testForMining(std::vector<Solver::MineResult> &results, std::set<NodeSet> &usedSets, std::set<NodeSet> &nextPool, NodeSet &testSet,
 			const std::string &graphId, const Graph &graph, int minNodes, int minMatches, int limitMatchesPerGraph)
 	{
-		// printf("test: %s\n", testSet.to_string().c_str());
+		// my_printf("test: %s\n", testSet.to_string().c_str());
 
 		GraphData needle;
 		std::vector<std::string> needle_nodes;
@@ -1203,7 +1210,7 @@ class SubCircuit::SolverWorker
 				resultNodes.push_back(graphData[it.haystackGraphId].graph.nodeMap[i2.second.haystackNodeId]);
 			NodeSet resultSet(it.haystackGraphId, resultNodes);
 
-			// printf("match: %s%s\n", resultSet.to_string().c_str(), usedSets.count(resultSet) > 0 ? " (dup)" : "");
+			// my_printf("match: %s%s\n", resultSet.to_string().c_str(), usedSets.count(resultSet) > 0 ? " (dup)" : "");
 
 #if 0
 			if (usedSets.count(resultSet) > 0) {
@@ -1258,7 +1265,7 @@ class SubCircuit::SolverWorker
 		nodePairs.clear();
 
 		if (verbose)
-			printf("\nMining for frequent node pairs:\n");
+			my_printf("\nMining for frequent node pairs:\n");
 
 		for (auto &graph_it : graphData)
 		for (int node1 = 0; node1 < int(graph_it.second.graph.nodes.size()); node1++)
@@ -1275,7 +1282,7 @@ class SubCircuit::SolverWorker
 			int matches = testForMining(results, usedPairs, nodePairs, pair, graphId, graph, minNodes, minMatches, limitMatchesPerGraph);
 
 			if (verbose)
-				printf("Pair %s[%s,%s] -> %d%s\n", graphId.c_str(), graph.nodes[node1].nodeId.c_str(),
+				my_printf("Pair %s[%s,%s] -> %d%s\n", graphId.c_str(), graph.nodes[node1].nodeId.c_str(),
 						graph.nodes[node2].nodeId.c_str(), matches, matches < minMatches ? "  *purge*" : "");
 
 			if (minMatches <= matches)
@@ -1283,7 +1290,7 @@ class SubCircuit::SolverWorker
 		}
 
 		if (verbose)
-			printf("Found a total of %d subgraphs in %d groups.\n", int(nodePairs.size()), groupCounter);
+			my_printf("Found a total of %d subgraphs in %d groups.\n", int(nodePairs.size()), groupCounter);
 	}
 
 	void findNextPool(std::vector<Solver::MineResult> &results, std::set<NodeSet> &pool,
@@ -1297,7 +1304,7 @@ class SubCircuit::SolverWorker
 			poolPerGraph[it.graphId].push_back(&it);
 
 		if (verbose)
-			printf("\nMining for frequent subcircuits of size %d using increment %d:\n", oldSetSize+increment, increment);
+			my_printf("\nMining for frequent subcircuits of size %d using increment %d:\n", oldSetSize+increment, increment);
 
 		std::set<NodeSet> usedSets;
 		for (auto &it : poolPerGraph)
@@ -1319,13 +1326,13 @@ class SubCircuit::SolverWorker
 			int matches = testForMining(results, usedSets, nextPool, mergedSet, graphId, graph, minNodes, minMatches, limitMatchesPerGraph);
 
 			if (verbose) {
-				printf("Set %s[", graphId.c_str());
+				my_printf("Set %s[", graphId.c_str());
 				bool first = true;
 				for (int nodeIdx : mergedSet.nodes) {
-					printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
+					my_printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
 					first = false;
 				}
-				printf("] -> %d%s\n", matches, matches < minMatches ? "  *purge*" : "");
+				my_printf("] -> %d%s\n", matches, matches < minMatches ? "  *purge*" : "");
 			}
 
 			if (minMatches <= matches)
@@ -1335,7 +1342,7 @@ class SubCircuit::SolverWorker
 		pool.swap(nextPool);
 
 		if (verbose)
-			printf("Found a total of %d subgraphs in %d groups.\n", int(pool.size()), groupCounter);
+			my_printf("Found a total of %d subgraphs in %d groups.\n", int(pool.size()), groupCounter);
 	}
 
 	// interface to the public solver class
@@ -1396,20 +1403,20 @@ protected:
 
 		if (verbose)
 		{
-			printf("\n");
-			printf("Needle Adjecency Matrix:\n");
+			my_printf("\n");
+			my_printf("Needle Adjecency Matrix:\n");
 			printAdjMatrix(needle.adjMatrix);
 
-			printf("\n");
-			printf("Haystack Adjecency Matrix:\n");
+			my_printf("\n");
+			my_printf("Haystack Adjecency Matrix:\n");
 			printAdjMatrix(haystack.adjMatrix);
 
-			printf("\n");
-			printf("Edge Types:\n");
+			my_printf("\n");
+			my_printf("Edge Types:\n");
 			diCache.printEdgeTypes();
 
-			printf("\n");
-			printf("Enumeration Matrix:\n");
+			my_printf("\n");
+			my_printf("Enumeration Matrix:\n");
 			printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
 		}
 

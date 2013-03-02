@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <string.h>
 
+using RTLIL::id2cstr;
+
 namespace
 {
 	struct bit_ref_t {
@@ -40,12 +42,12 @@ namespace
 		std::map<RTLIL::SigChunk, bit_ref_t> sig_bit_ref;
 
 		if (sel && !sel->selected(mod)) {
-			log("  Skipping module %s as it is not selected.\n", mod->name.c_str());
+			log("  Skipping module %s as it is not selected.\n", id2cstr(mod->name));
 			return false;
 		}
 
 		if (mod->processes.size() > 0) {
-			log("  Skipping module %s as it contains unprocessed processes.\n", mod->name.c_str());
+			log("  Skipping module %s as it contains unprocessed processes.\n", id2cstr(mod->name));
 			return false;
 		}
 
@@ -385,7 +387,7 @@ struct ExtractPass : public Pass {
 		}
 
 		if (filename.empty())
-			log_cmd_error("Missing option -map <verilog_or_ilang_file>.\n");
+			log_cmd_error("Missing option -map <verilog_or_ilang_file> or -mine <output_ilang_file>.\n");
 
 		RTLIL::Design *map = NULL;
 
@@ -452,8 +454,6 @@ struct ExtractPass : public Pass {
 					replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 				}
 			}
-
-			delete map;
 		}
 		else
 		{
@@ -462,19 +462,75 @@ struct ExtractPass : public Pass {
 			log_header("Running miner from SubCircuit library.\n");
 			solver.mine(results, mine_cells_min, mine_cells_max, mine_min_freq, mine_limit_mod);
 
-			// FIXME: Create output file
+			map = new RTLIL::Design;
 
-			for (auto &result: results) {
-				printf("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
-				printf("  primary match in %s:", result.graphId.c_str());
-				for (auto & node : result.nodes)
-					printf(" %s", node.nodeId.c_str());
-				printf("\n");
-				for (auto & it : result.matchesPerGraph)
-					printf("  matches in %s: %d\n", it.first.c_str(), it.second);
+			int needleCounter = 0;
+			for (auto &result: results)
+			{
+				log("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
+				log("  primary match in %s:", id2cstr(haystack_map.at(result.graphId)->name));
+				for (auto &node : result.nodes)
+					log(" %s", id2cstr(node.nodeId));
+				log("\n");
+				for (auto &it : result.matchesPerGraph)
+					log("  matches in %s: %d\n", id2cstr(haystack_map.at(it.first)->name), it.second);
+
+				RTLIL::Module *mod = haystack_map.at(result.graphId);
+				std::set<RTLIL::Cell*> cells;
+				std::set<RTLIL::Wire*> wires;
+
+				SigMap sigmap(mod);
+
+				for (auto &node : result.nodes)
+					cells.insert((RTLIL::Cell*)node.userData);
+
+				for (auto cell : cells)
+				for (auto &conn : cell->connections) {
+					RTLIL::SigSpec sig = sigmap(conn.second);
+					for (auto &chunk : sig.chunks)
+						if (chunk.wire != NULL)
+							wires.insert(chunk.wire);
+				}
+
+				RTLIL::Module *newMod = new RTLIL::Module;
+				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, id2cstr(haystack_map.at(result.graphId)->name), result.totalMatchesAfterLimits);
+				map->modules[newMod->name] = newMod;
+
+				int portCounter = 1;
+				for (auto wire : wires) {
+					RTLIL::Wire *newWire = new RTLIL::Wire;
+					newWire->name = wire->name;
+					newWire->width = wire->width;
+					newWire->port_id = portCounter++;
+					newWire->port_input = true;
+					newWire->port_output = true;
+					newMod->add(newWire);
+				}
+
+				for (auto cell : cells) {
+					RTLIL::Cell *newCell = new RTLIL::Cell;
+					newCell->name = cell->name;
+					newCell->type = cell->type;
+					newCell->parameters = cell->parameters;
+					for (auto &conn : cell->connections) {
+						RTLIL::SigSpec sig = sigmap(conn.second);
+						for (auto &chunk : sig.chunks)
+							if (chunk.wire != NULL)
+								chunk.wire = newMod->wires.at(chunk.wire->name);
+						newCell->connections[conn.first] = sig;
+					}
+					newMod->add(newCell);
+				}
 			}
+
+			FILE *f = fopen(filename.c_str(), "wt");
+			if (f == NULL)
+				log_cmd_error("Can't open output file `%s'.\n", filename.c_str());
+			Backend::backend_call(map, f, filename, "ilang");
+			fclose(f);
 		}
 
+		delete map;
 		log_pop();
 	}
 } ExtractPass;
