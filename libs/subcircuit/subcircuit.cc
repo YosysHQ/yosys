@@ -1176,7 +1176,7 @@ class SubCircuit::SolverWorker
 		verbose = backupVerbose;
 	}
 
-	int testForMining(std::vector<Solver::MineResult> &results, std::set<NodeSet> &usedSets, std::vector<std::set<NodeSet>> &nextPool, NodeSet &testSet,
+	int testForMining(std::vector<Solver::MineResult> &results, std::set<NodeSet> &usedSets, std::set<NodeSet> &nextPool, NodeSet &testSet,
 			const std::string &graphId, const Graph &graph, int minNodes, int minMatches, int limitMatchesPerGraph)
 	{
 		// printf("test: %s\n", testSet.to_string().c_str());
@@ -1205,10 +1205,21 @@ class SubCircuit::SolverWorker
 
 			// printf("match: %s%s\n", resultSet.to_string().c_str(), usedSets.count(resultSet) > 0 ? " (dup)" : "");
 
+#if 0
 			if (usedSets.count(resultSet) > 0) {
-				// FIXME: assert(thisNodeSetSet.count(resultSet) > 0);
+				// Because of shorted pins isomorphisim is not always bidirectional!
+				//
+				// This means that the following assert is not true in all cases and subgraph A might
+				// show up in the matches for subgraph B but not vice versa... This also means that the
+				// order in which subgraphs are processed has an impact on the results set.
+				//
+				assert(thisNodeSetSet.count(resultSet) > 0);
 				continue;
 			}
+#else
+			if (thisNodeSetSet.count(resultSet) > 0)
+				continue;
+#endif
 
 			usedSets.insert(resultSet);
 			thisNodeSetSet.insert(resultSet);
@@ -1236,16 +1247,18 @@ class SubCircuit::SolverWorker
 			results.push_back(result);
 		}
 
-		nextPool.push_back(thisNodeSetSet);
+		nextPool.insert(thisNodeSetSet.begin(), thisNodeSetSet.end());
 		return matches;
 	}
 
-	void findNodePairs(std::vector<Solver::MineResult> &results, std::vector<std::set<NodeSet>> &nodePairs, int minNodes, int minMatches, int limitMatchesPerGraph)
+	void findNodePairs(std::vector<Solver::MineResult> &results, std::set<NodeSet> &nodePairs, int minNodes, int minMatches, int limitMatchesPerGraph)
 	{
+		int groupCounter = 0;
 		std::set<NodeSet> usedPairs;
+		nodePairs.clear();
 
 		if (verbose)
-			printf("\nFind frequent node pairs:\n");
+			printf("\nMining for frequent node pairs:\n");
 
 		for (auto &graph_it : graphData)
 		for (int node1 = 0; node1 < int(graph_it.second.graph.nodes.size()); node1++)
@@ -1263,25 +1276,28 @@ class SubCircuit::SolverWorker
 
 			if (verbose)
 				printf("Pair %s[%s,%s] -> %d%s\n", graphId.c_str(), graph.nodes[node1].nodeId.c_str(),
-						graph.nodes[node2].nodeId.c_str(), matches, matches < minMatches ? "  *min*" : "");
+						graph.nodes[node2].nodeId.c_str(), matches, matches < minMatches ? "  *purge*" : "");
+
+			if (minMatches <= matches)
+				groupCounter++;
 		}
 
 		if (verbose)
-			printf("found %d.\n", int(nodePairs.size()));
+			printf("Found a total of %d subgraphs in %d groups.\n", int(nodePairs.size()), groupCounter);
 	}
 
-	void findNextPool(std::vector<Solver::MineResult> &results, std::vector<std::set<NodeSet>> &pool,
+	void findNextPool(std::vector<Solver::MineResult> &results, std::set<NodeSet> &pool,
 			int oldSetSize, int increment, int minNodes, int minMatches, int limitMatchesPerGraph)
 	{
-		std::vector<std::set<NodeSet>> nextPool;
+		int groupCounter = 0;
 		std::map<std::string, std::vector<const NodeSet*>> poolPerGraph;
+		std::set<NodeSet> nextPool;
 
-		for (auto &i1 : pool)
-		for (auto &i2 : i1)
-			poolPerGraph[i2.graphId].push_back(&i2);
+		for (auto &it : pool)
+			poolPerGraph[it.graphId].push_back(&it);
 
 		if (verbose)
-			printf("\nFind frequent subcircuits of size %d using increment %d:\n", oldSetSize+increment, increment);
+			printf("\nMining for frequent subcircuits of size %d using increment %d:\n", oldSetSize+increment, increment);
 
 		std::set<NodeSet> usedSets;
 		for (auto &it : poolPerGraph)
@@ -1309,16 +1325,20 @@ class SubCircuit::SolverWorker
 					printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
 					first = false;
 				}
-				printf("] -> %d%s\n", matches, matches < minMatches ? "  *min*" : "");
+				printf("] -> %d%s\n", matches, matches < minMatches ? "  *purge*" : "");
 			}
+
+			if (minMatches <= matches)
+				groupCounter++;
 		}
 
-		if (verbose)
-			printf("found %d.\n", int(nextPool.size()));
 		pool.swap(nextPool);
+
+		if (verbose)
+			printf("Found a total of %d subgraphs in %d groups.\n", int(pool.size()), groupCounter);
 	}
 
-	// interface to the public Solver class
+	// interface to the public solver class
 
 protected:
 	SolverWorker(Solver *userSolver) : userSolver(userSolver), verbose(false)
@@ -1400,7 +1420,7 @@ protected:
 	void mine(std::vector<Solver::MineResult> &results, int minNodes, int maxNodes, int minMatches, int limitMatchesPerGraph)
 	{
 		int nodeSetSize = 2;
-		std::vector<std::set<NodeSet>> pool;
+		std::set<NodeSet> pool;
 		findNodePairs(results, pool, minNodes, minMatches, limitMatchesPerGraph);
 
 		while ((maxNodes < 0 || nodeSetSize < maxNodes) && pool.size() > 0)

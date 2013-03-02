@@ -333,16 +333,19 @@ at most maxNodes nodes that occurs at least minMatches times:
 	std::vector<SubCircuit::Solver::MineResult> results;
 	mySolver.mine(results, minNodes, maxNodes, minMatches);
 
-The mine() method has an optional fifth parameter that limits the number
-of matches counted in one graph. This can be useful when mining for circuits
-that are found in at least a number of graphs. E.g. the following call
-would find all subcircuits with 5 nodes that are found in at least 7 of
-the registered graphs:
+The mine() method has an optional fifth parameter that limits the number of
+matches counted in one graph. This can be useful when mining for circuits that
+are found in at least a number of graphs. E.g. the following call would find
+all subcircuits with 5 nodes that are found in at least 7 of the registered
+graphs:
 
 	mySolver.mine(results, 5, 5, 7, 1);
 
 Note that this miner is not very efficient and therefore its use is not
-recommended for large circuits.
+recommended for large circuits. Also note that the miner is working under the
+assumption that subgraph isomorphism is bidirectional. This is not the case in
+circuits with gates with shorted pins. This can result in undetected frequent
+subcircuits in some corner cases.
 
 
 Debugging
