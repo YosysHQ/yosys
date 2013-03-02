@@ -39,6 +39,7 @@ scshell: scshell.o subcircuit.o
 
 test: scshell
 	./scshell < test_macc22.txt
+	./scshell < test_mine.txt
 	perl test_perm.pl | ./scshell
 	splrun test_shorts.spl | ./scshell
 	splrun test_large.spl | ./scshell

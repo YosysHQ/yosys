@@ -14,18 +14,10 @@ Introduction
 
 This is a library that implements a modified Ullmann Subgraph Isomorphism
 Algorithm with additional features aimed at working with coarse grain logic
-networks.
+networks. It also contains a simple frequent subcircuit mining algorithm.
 
 A simple command line tool that exposes the features of the library is also
 included.
-
-
-Under-Construction Warning
---------------------------
-
-This work is under constructions. It is likely that they are bugs in the
-library that need fixing. Feel free to contact me at clifford@clifford.at
-if you have found a bug.
 
 
 C++11 Warning
@@ -96,6 +88,9 @@ Algorithm are provided by the library.
    constant drivers.
 
  * Support for finding only non-overlapping matches.
+
+ * A simple miner for frequent subcircuts that operates on the same circuit
+   description format.
 
  * The public API of the library is using std::string identifiers for
    nodes, node types and ports. Internally the costly part of the
@@ -328,6 +323,32 @@ bool userCheckSolution(result):
 	ignored. The default implementation always returns true.
 
 
+Mining for frequent SubCircuits
+-------------------------------
+
+The solver also contains a miner for frequent subcircuits. The following code
+fragment will find all frequent subcircuits with at least minNodes nodes and
+at most maxNodes nodes that occurs at least minMatches times: 
+
+	std::vector<SubCircuit::Solver::MineResult> results;
+	mySolver.mine(results, minNodes, maxNodes, minMatches);
+
+The miner works by finding frequent pairs of nodes and then combining them
+to larger subcircuits. Because of this incremental strategy the miner only
+works as expected on graphs with markAllExtern() set.
+
+The mine() method has an optional fifth parameter that limits the number
+of matches counted in one graph. This can be useful when mining for circuits
+that are found in at least a number of graphs. E.g. the following call
+would find all subcircuits with 5 nodes that are found in at least 7 of
+the registered graphs:
+
+	mySolver.mine(results, 5, 5, 7, 1);
+
+Note that this miner is not very efficient and therefore its use is not
+recommended for large circuits.
+
+
 Debugging
 ---------
 
@@ -419,6 +440,10 @@ The following commands can be used in scshell outside a graph ... endgraph block
 
 		Call Solver::solve(). The <allow_overlap> must be "1" or "true"
 		for true and "0" or "false" for false.
+
+	mine <min_nodes> <max_nodes> <min_matches> [<limit_matches_per_graph>]
+
+		Call Solver::mine().
 
 	expect <number>
 

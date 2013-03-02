@@ -73,6 +73,7 @@ namespace SubCircuit
 
 	public:
 		Graph() : allExtern(false) { };
+		Graph(const Graph &other, const std::vector<std::string> &otherNodes);
 
 		void createNode(std::string nodeId, std::string typeId, void *userData = NULL);
 		void createPort(std::string nodeId, std::string portId, int width = 1, int minWidth = -1);
@@ -98,6 +99,17 @@ namespace SubCircuit
 		struct Result {
 			std::string needleGraphId, haystackGraphId;
 			std::map<std::string, ResultNodeMapping> mappings;
+		};
+
+		struct MineResultNode {
+			std::string nodeId;
+			void *userData;
+		};
+		struct MineResult {
+			std::string graphId;
+			int totalMatchesAfterLimits;
+			std::map<std::string, int> matchesPerGraph;
+			std::vector<MineResultNode> nodes;
 		};
 
 	private:
@@ -131,6 +143,9 @@ namespace SubCircuit
 		void solve(std::vector<Result> &results, std::string needleGraphId, std::string haystackGraphId, bool allowOverlap = true, int maxSolutions = -1);
 		void solve(std::vector<Result> &results, std::string needleGraphId, std::string haystackGraphId,
 				const std::map<std::string, std::set<std::string>> &initialMapping, bool allowOverlap = true, int maxSolutions = -1);
+
+		void mine(std::vector<MineResult> &results, int minNodes, int maxNodes, int minMatches, int limitMatchesPerGraph = -1);
+
 		void clearOverlapHistory();
 		void clearConfig();
 	};

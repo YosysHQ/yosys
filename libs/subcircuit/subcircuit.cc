@@ -46,6 +46,42 @@ static std::string stringf(const char *fmt, ...)
 	return string;
 }
 
+SubCircuit::Graph::Graph(const Graph &other, const std::vector<std::string> &otherNodes)
+{
+	allExtern = other.allExtern;
+
+	std::map<int, int> other2this;
+	for (int i = 0; i < int(otherNodes.size()); i++) {
+		assert(other.nodeMap.count(otherNodes[i]) > 0);
+		other2this[other.nodeMap.at(otherNodes[i])] = i;
+		nodeMap[otherNodes[i]] = i;
+	}
+
+	std::map<int, int> edges2this;
+	for (auto &i1 : other2this)
+	for (auto &i2 : other.nodes[i1.first].ports)
+	for (auto &i3 : i2.bits)
+		if (edges2this.count(i3.edgeIdx) == 0)
+			edges2this[i3.edgeIdx] = edges2this.size();
+
+	edges.resize(edges2this.size());
+	for (auto &it : edges2this) {
+		for (auto &bit : other.edges[it.first].portBits)
+			if (other2this.count(bit.nodeIdx) > 0)
+				edges[it.second].portBits.insert(BitRef(other2this[bit.nodeIdx], bit.portIdx, bit.bitIdx));
+		edges[it.second].constValue = other.edges[it.first].constValue;
+		edges[it.second].isExtern = other.edges[it.first].isExtern;
+	}
+
+	nodes.resize(other2this.size());
+	for (auto &it : other2this) {
+		nodes[it.second] = other.nodes[it.first];
+		for (auto &i2 : nodes[it.second].ports)
+		for (auto &i3 : i2.bits)
+			i3.edgeIdx = edges2this.at(i3.edgeIdx);
+	}
+}
+
 bool SubCircuit::Graph::BitRef::operator < (const BitRef &other) const
 {
 	if (nodeIdx != other.nodeIdx)
@@ -1072,6 +1108,197 @@ class SubCircuit::SolverWorker
 		}
 	}
 
+	// additional data structes and functions for mining
+
+	struct NodeSet {
+		std::string graphId;
+		std::set<int> nodes;
+		NodeSet(std::string graphId, int node1, int node2) {
+			this->graphId = graphId;
+			nodes.insert(node1);
+			nodes.insert(node2);
+		}
+		NodeSet(std::string graphId, const std::vector<int> &nodes) {
+			this->graphId = graphId;
+			for (int node : nodes)
+				this->nodes.insert(node);
+		}
+		void extend(const NodeSet &other) {
+			assert(this->graphId == other.graphId);
+			for (int node : other.nodes)
+				nodes.insert(node);
+		}
+		int extendCandidate(const NodeSet &other) const {
+			if (graphId != other.graphId)
+				return 0;
+			int newNodes = 0;
+			bool intersect = false;
+			for (int node : other.nodes)
+				if (nodes.count(node) > 0)
+					intersect = true;
+				else
+					newNodes++;
+			return intersect ? newNodes : 0;
+		}
+		bool operator <(const NodeSet &other) const {
+			if (graphId != other.graphId)
+				return graphId < other.graphId;
+			return nodes < other.nodes;
+		}
+	};
+
+	void solveForMining(std::vector<Solver::Result> &results, const GraphData &needle)
+	{
+		bool backupVerbose = verbose;
+		verbose = false;
+
+		for (auto &it : graphData)
+		{
+			GraphData &haystack = it.second;
+			assert(haystack.graph.allExtern);
+
+			std::vector<std::set<int>> enumerationMatrix;
+			std::map<std::string, std::set<std::string>> initialMappings;
+			generateEnumerationMatrix(enumerationMatrix, needle, haystack, initialMappings);
+
+			haystack.usedNodes.resize(haystack.graph.nodes.size());
+			ullmannRecursion(results, enumerationMatrix, 0, needle, haystack, true, -1);
+		}
+
+		verbose = backupVerbose;
+	}
+
+	int testForMining(std::vector<Solver::MineResult> &results, std::set<NodeSet> &usedSets, std::vector<std::set<NodeSet>> &nextPool, NodeSet &testSet,
+			const std::string &graphId, const Graph &graph, int minNodes, int minMatches, int limitMatchesPerGraph)
+	{
+		GraphData needle;
+		std::vector<std::string> needle_nodes;
+		for (int nodeIdx : testSet.nodes)
+			needle_nodes.push_back(graph.nodes[nodeIdx].nodeId);
+		needle.graph = Graph(graph, needle_nodes);
+		diCache.add(needle.graph, needle.adjMatrix, graphId, userSolver);
+
+		std::vector<Solver::Result> ullmannResults;
+		solveForMining(ullmannResults, needle);
+
+		int matches = 0;
+		std::map<std::string, int> matchesPerGraph;
+		std::set<NodeSet> thisNodeSetSet;
+
+		for (auto &it : ullmannResults)
+		{
+			std::vector<int> resultNodes;
+			for (auto &i2 : it.mappings)
+				resultNodes.push_back(graphData[it.haystackGraphId].graph.nodeMap[i2.second.haystackNodeId]);
+			NodeSet resultSet(it.haystackGraphId, resultNodes);
+
+			if (usedSets.count(resultSet) > 0) {
+				assert(thisNodeSetSet.count(resultSet) > 0);
+				continue;
+			}
+			usedSets.insert(resultSet);
+			thisNodeSetSet.insert(resultSet);
+
+			matchesPerGraph[it.haystackGraphId]++;
+			if (limitMatchesPerGraph < 0 || matchesPerGraph[it.haystackGraphId] < limitMatchesPerGraph)
+				matches++;
+		}
+
+		if (matches < minMatches)
+			return 0;
+
+		if (minNodes <= int(testSet.nodes.size()))
+		{
+			Solver::MineResult result;
+			result.graphId = graphId;
+			result.totalMatchesAfterLimits = matches;
+			result.matchesPerGraph = matchesPerGraph;
+			for (int nodeIdx : testSet.nodes) {
+				Solver::MineResultNode resultNode;
+				resultNode.nodeId = graph.nodes[nodeIdx].nodeId;
+				resultNode.userData = graph.nodes[nodeIdx].userData;
+				result.nodes.push_back(resultNode);
+			}
+			results.push_back(result);
+		}
+
+		nextPool.push_back(thisNodeSetSet);
+		return matches;
+	}
+
+	void findNodePairs(std::vector<Solver::MineResult> &results, std::vector<std::set<NodeSet>> &nodePairs, int minNodes, int minMatches, int limitMatchesPerGraph)
+	{
+		std::set<NodeSet> usedPairs;
+
+		if (verbose)
+			printf("\nFind frequent node pairs:\n");
+
+		for (auto &graph_it : graphData)
+		for (int node1 = 0; node1 < int(graph_it.second.graph.nodes.size()); node1++)
+		for (auto &adj_it : graph_it.second.adjMatrix.at(node1))
+		{
+			const std::string &graphId = graph_it.first;
+			const auto &graph = graph_it.second.graph;
+			int node2 = adj_it.first;
+			NodeSet pair(graphId, node1, node2);
+
+			if (usedPairs.count(pair) > 0)
+				continue;
+
+			int matches = testForMining(results, usedPairs, nodePairs, pair, graphId, graph, minNodes, minMatches, limitMatchesPerGraph);
+
+			if (verbose && matches > 0)
+				printf("Pair %s[%s,%s] -> %d\n", graphId.c_str(), graph.nodes[node1].nodeId.c_str(),
+						graph.nodes[node2].nodeId.c_str(), matches);
+		}
+	}
+
+	void findNextPool(std::vector<Solver::MineResult> &results, std::vector<std::set<NodeSet>> &pool,
+			int oldSetSize, int increment, int minNodes, int minMatches, int limitMatchesPerGraph)
+	{
+		std::vector<std::set<NodeSet>> nextPool;
+		std::map<std::string, std::vector<const NodeSet*>> poolPerGraph;
+
+		for (auto &i1 : pool)
+		for (auto &i2 : i1)
+			poolPerGraph[i2.graphId].push_back(&i2);
+
+		if (verbose)
+			printf("\nFind frequent subcircuits of size %d using increment %d:\n", oldSetSize+increment, increment);
+
+		std::set<NodeSet> usedSets;
+		for (auto &it : poolPerGraph)
+		for (int idx1 = 0; idx1 < int(it.second.size()); idx1++)
+		for (int idx2 = idx1; idx2 < int(it.second.size()); idx2++)
+		{
+			if (it.second[idx1]->extendCandidate(*it.second[idx2]) != increment)
+				continue;
+
+			NodeSet mergedSet = *it.second[idx1];
+			mergedSet.extend(*it.second[idx2]);
+
+			if (usedSets.count(mergedSet) > 0)
+				continue;
+
+			const std::string &graphId = it.first;
+			const auto &graph = graphData[it.first].graph;
+
+			int matches = testForMining(results, usedSets, nextPool, mergedSet, graphId, graph, minNodes, minMatches, limitMatchesPerGraph);
+
+			if (verbose) {
+				printf("Set %s[", graphId.c_str());
+				bool first = true;
+				for (int nodeIdx : mergedSet.nodes) {
+					printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
+					first = false;
+				}
+				printf("] -> %d\n", matches);
+			}
+		}
+
+		pool.swap(nextPool);
+	}
+
 	// interface to the public Solver class
 
 protected:
@@ -1149,6 +1376,25 @@ protected:
 
 		haystack.usedNodes.resize(haystack.graph.nodes.size());
 		ullmannRecursion(results, enumerationMatrix, 0, needle, haystack, allowOverlap, maxSolutions > 0 ? results.size() + maxSolutions : -1);
+	}
+
+	void mine(std::vector<Solver::MineResult> &results, int minNodes, int maxNodes, int minMatches, int limitMatchesPerGraph)
+	{
+		int nodeSetSize = 2;
+		std::vector<std::set<NodeSet>> pool;
+		findNodePairs(results, pool, minNodes, minMatches, limitMatchesPerGraph);
+
+		while (nodeSetSize < maxNodes)
+		{
+			int increment = nodeSetSize - 1;
+			if (nodeSetSize + increment >= minNodes)
+				increment = minNodes - nodeSetSize;
+			if (nodeSetSize >= minNodes)
+				increment = 1;
+
+			findNextPool(results, pool, nodeSetSize, increment, minNodes, minMatches, limitMatchesPerGraph);
+			nodeSetSize += increment;
+		}
 	}
 
 	void clearOverlapHistory()
@@ -1250,6 +1496,11 @@ void SubCircuit::Solver::solve(std::vector<Result> &results, std::string needleG
 		const std::map<std::string, std::set<std::string>> &initialMappings, bool allowOverlap, int maxSolutions)
 {
 	worker->solve(results, needleGraphId, haystackGraphId, initialMappings, allowOverlap, maxSolutions);
+}
+
+void SubCircuit::Solver::mine(std::vector<MineResult> &results, int minNodes, int maxNodes, int minMatches, int limitMatchesPerGraph)
+{
+	worker->mine(results, minNodes, maxNodes, minMatches, limitMatchesPerGraph);
 }
 
 void SubCircuit::Solver::clearOverlapHistory()

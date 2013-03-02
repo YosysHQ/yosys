@@ -26,6 +26,7 @@ int main()
 	SubCircuit::Solver solver;
 	std::map<std::string, std::set<std::string>> initialMappings;
 	std::vector<SubCircuit::Solver::Result> results;
+	std::vector<SubCircuit::Solver::MineResult> mineResults;
 	std::vector<std::string> cmdBuffer;
 	bool lastCommandExpect = false;
 
@@ -162,6 +163,12 @@ int main()
 				continue;
 			}
 
+			if (cmdBuffer[0] == "mine" && 4 <= cmdBuffer.size() && cmdBuffer.size() <= 5) {
+				solver.mine(mineResults, atoi(cmdBuffer[1].c_str()), atoi(cmdBuffer[2].c_str()),
+						atoi(cmdBuffer[3].c_str()), cmdBuffer.size() == 5 ? atoi(cmdBuffer[4].c_str()) : -1);
+				continue;
+			}
+
 			if (cmdBuffer[0] == "clearoverlap" && cmdBuffer.size() == 1) {
 				solver.clearOverlapHistory();
 				continue;
@@ -179,7 +186,7 @@ int main()
 
 			if (cmdBuffer[0] == "expect" && cmdBuffer.size() == 2) {
 				int expected = atoi(cmdBuffer[1].c_str());
-				printf("\n-- Expected %d, Got %d --\n", expected, int(results.size()));
+				printf("\n-- Expected %d, Got %d --\n", expected, int(results.size()) + int(mineResults.size()));
 				for (int i = 0; i < int(results.size()); i++) {
 					printf("\nMatch #%d: (%s in %s)\n", i, results[i].needleGraphId.c_str(), results[i].haystackGraphId.c_str());
 					for (const auto &it : results[i].mappings) {
@@ -189,9 +196,18 @@ int main()
 						printf("\n");
 					}
 				}
+				for (auto &result : mineResults) {
+					printf("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
+					printf("  primary match in %s:", result.graphId.c_str());
+					for (auto &node : result.nodes)
+						printf(" %s", node.nodeId.c_str());
+					printf("\n");
+					for (auto &it : result.matchesPerGraph)
+						printf("  matches in %s: %d\n", it.first.c_str(), it.second);
+				}
 				printf("\n");
-				if (expected != int(results.size())) {
-					printf("^^ expected %d, Got %d ^^\n\n", expected, int(results.size()));
+				if (expected != int(results.size()) + int(mineResults.size())) {
+					printf("^^ expected %d, Got %d ^^\n\n", expected, int(results.size()) + int(mineResults.size()));
 					printf("   +----------------+\n");
 					printf("   |  \\|/ ____ \\|/  |\n");
 					printf("   |  \"@'/ ,. \\`@\"  |\n");
@@ -202,6 +218,7 @@ int main()
 					return 1;
 				}
 				results.clear();
+				mineResults.clear();
 				lastCommandExpect = true;
 				continue;
 			}
@@ -215,7 +232,7 @@ int main()
 		delete graph;
 
 	if (!lastCommandExpect) {
-		printf("\n-- Got %d --\n", int(results.size()));
+		printf("\n-- Got %d --\n", int(results.size()) + int(mineResults.size()));
 		for (int i = 0; i < int(results.size()); i++) {
 			printf("\nMatch #%d: (%s in %s)\n", i, results[i].needleGraphId.c_str(), results[i].haystackGraphId.c_str());
 			for (const auto &it : results[i].mappings) {
@@ -224,6 +241,15 @@ int main()
 					printf(" %s:%s", it2.first.c_str(), it2.second.c_str());
 				printf("\n");
 			}
+		}
+		for (auto &result : mineResults) {
+			printf("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
+			printf("  primary match in %s:", result.graphId.c_str());
+			for (auto &node : result.nodes)
+				printf(" %s", node.nodeId.c_str());
+			printf("\n");
+			for (auto &it : result.matchesPerGraph)
+				printf("  matches in %s: %d\n", it.first.c_str(), it.second);
 		}
 	} else
 		printf("PASSED.\n");
