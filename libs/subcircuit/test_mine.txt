@@ -7,7 +7,9 @@ graph macc22
 	node add_1 add A 32 B 32 Y 32
 	connect mul_1 Y add_1 A
 	connect mul_2 Y add_1 B
-	allextern
+	extern mul_1 A B
+	extern mul_2 A B
+	extern add_1 Y
 endgraph
 
 graph macc4x2
@@ -24,7 +26,11 @@ graph macc4x2
 	connect mul_4 Y add_2 B
 	connect add_1 Y add_3 A
 	connect add_2 Y add_3 B
-	allextern
+	extern mul_1 A B
+	extern mul_2 A B
+	extern mul_3 A B
+	extern mul_4 A B
+	extern add_3 Y
 endgraph
 
 swapgroup mul A B

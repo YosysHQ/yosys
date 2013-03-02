@@ -1155,7 +1155,6 @@ class SubCircuit::SolverWorker
 		for (auto &it : graphData)
 		{
 			GraphData &haystack = it.second;
-			assert(haystack.graph.allExtern);
 
 			std::vector<std::set<int>> enumerationMatrix;
 			std::map<std::string, std::set<std::string>> initialMappings;
@@ -1176,6 +1175,7 @@ class SubCircuit::SolverWorker
 		for (int nodeIdx : testSet.nodes)
 			needle_nodes.push_back(graph.nodes[nodeIdx].nodeId);
 		needle.graph = Graph(graph, needle_nodes);
+		needle.graph.markAllExtern();
 		diCache.add(needle.graph, needle.adjMatrix, graphId, userSolver);
 
 		std::vector<Solver::Result> ullmannResults;
