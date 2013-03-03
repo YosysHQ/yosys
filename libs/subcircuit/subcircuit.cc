@@ -844,7 +844,7 @@ class SubCircuit::SolverWorker
 		return true;
 	}
 
-	bool pruneEnumerationMatrix(std::vector<std::set<int>> &enumerationMatrix, const GraphData &needle, const GraphData &haystack, int &nextRow)
+	bool pruneEnumerationMatrix(std::vector<std::set<int>> &enumerationMatrix, const GraphData &needle, const GraphData &haystack, int &nextRow, bool allowOverlap)
 	{
 		bool didSomething = true;
 		while (didSomething)
@@ -854,10 +854,12 @@ class SubCircuit::SolverWorker
 			for (int i = 0; i < int(enumerationMatrix.size()); i++) {
 				std::set<int> newRow;
 				for (int j : enumerationMatrix[i]) {
-					if (checkEnumerationMatrix(enumerationMatrix, i, j, needle, haystack))
-						newRow.insert(j);
-					else
+					if (!checkEnumerationMatrix(enumerationMatrix, i, j, needle, haystack))
 						didSomething = true;
+					else if (!allowOverlap && haystack.usedNodes[j])
+						didSomething = true;
+					else
+						newRow.insert(j);
 				}
 				if (newRow.size() == 0)
 					return false;
@@ -1028,7 +1030,7 @@ class SubCircuit::SolverWorker
 	void ullmannRecursion(std::vector<Solver::Result> &results, std::vector<std::set<int>> &enumerationMatrix, int iter, const GraphData &needle, GraphData &haystack, bool allowOverlap, int limitResults)
 	{
 		int i = -1;
-		if (!pruneEnumerationMatrix(enumerationMatrix, needle, haystack, i))
+		if (!pruneEnumerationMatrix(enumerationMatrix, needle, haystack, i, allowOverlap))
 			return;
 
 		if (i < 0)
