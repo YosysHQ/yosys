@@ -22,6 +22,8 @@
 #include <string.h>
 #include <fnmatch.h>
 
+using RTLIL::id2cstr;
+
 static std::vector<RTLIL::Selection> work_stack;
 
 static bool match_ids(RTLIL::IdString id, std::string pattern)

@@ -1274,6 +1274,10 @@ class SubCircuit::SolverWorker
 			const std::string &graphId = graph_it.first;
 			const auto &graph = graph_it.second.graph;
 			int node2 = adj_it.first;
+
+			if (node1 == node2)
+				continue;
+
 			NodeSet pair(graphId, node1, node2);
 
 			if (usedPairs.count(pair) > 0)

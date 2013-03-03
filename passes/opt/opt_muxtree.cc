@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <set>
 
+using RTLIL::id2cstr;
+
 struct OptMuxtreeWorker
 {
 	RTLIL::Design *design;

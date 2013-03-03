@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <set>
 
+using RTLIL::id2cstr;
+
 static CellTypes ct;
 
 static void rmunused_module_cells(RTLIL::Module *module)

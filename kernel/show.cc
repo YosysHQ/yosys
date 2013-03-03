@@ -23,6 +23,8 @@
 #include <string.h>
 #include <dirent.h>
 
+using RTLIL::id2cstr;
+
 #undef CLUSTER_CELLS_AND_PORTBOXES
 
 struct ShowWorker
