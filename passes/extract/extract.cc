@@ -36,7 +36,7 @@ namespace
 		int bit;
 	};
 
-	bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = NULL)
+	bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = NULL, int max_fanout = -1)
 	{
 		SigMap sigmap(mod);
 		std::map<RTLIL::SigChunk, bit_ref_t> sig_bit_ref;
@@ -65,6 +65,22 @@ namespace
 			graph.markExtern("$const$x", "\\Y", 0);
 			graph.markExtern("$const$z", "\\Y", 0);
 		}
+
+		std::map<std::pair<RTLIL::Wire*, int>, int> sig_use_count;
+		if (max_fanout > 0)
+			for (auto &cell_it : mod->cells)
+			{
+				RTLIL::Cell *cell = cell_it.second;
+				if (!sel || sel->selected(mod, cell))
+					for (auto &conn : cell->connections) {
+						RTLIL::SigSpec conn_sig = conn.second;
+						sigmap.apply(conn_sig);
+						conn_sig.expand();
+						for (auto &chunk : conn_sig.chunks)
+							if (chunk.wire != NULL)
+								sig_use_count[std::pair<RTLIL::Wire*, int>(chunk.wire, chunk.offset)]++;
+					}
+			}
 
 		// create graph nodes from cells
 		for (auto &cell_it : mod->cells)
@@ -101,6 +117,9 @@ namespace
 							graph.createConstant(cell->name, conn.first, i, int(chunk.data.bits[0]));
 						continue;
 					}
+
+					if (max_fanout > 0 && sig_use_count[std::pair<RTLIL::Wire*, int>(chunk.wire, chunk.offset)] > max_fanout)
+						continue;
 
 					if (sig_bit_ref.count(chunk) == 0) {
 						bit_ref_t &bit_ref = sig_bit_ref[chunk];
@@ -282,6 +301,9 @@ struct ExtractPass : public Pass {
 		log("        when calculating the number of matches for a subcircuit, don't count\n");
 		log("        more than the specified number of matches per module\n");
 		log("\n");
+		log("    -mine_max_fanout <num>\n");
+		log("        don't consider internal signals with more than <num> connections\n");
+		log("\n");
 		log("The modules in the map file may have the attribute 'extract_order' set to an\n");
 		log("integer value. Then this value is used to determine the order in which the pass\n");
 		log("tries to map the modules to the design (ascending, default value is 0).\n");
@@ -308,6 +330,7 @@ struct ExtractPass : public Pass {
 		int mine_cells_max = 10;
 		int mine_min_freq = 10;
 		int mine_limit_mod = -1;
+		int mine_max_fanout = -1;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -331,6 +354,10 @@ struct ExtractPass : public Pass {
 			}
 			if (args[argidx] == "-mine_limit_matches_per_module" && argidx+1 < args.size()) {
 				mine_limit_mod = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-mine_max_fanout" && argidx+1 < args.size()) {
+				mine_max_fanout = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-verbose") {
@@ -440,7 +467,7 @@ struct ExtractPass : public Pass {
 			SubCircuit::Graph mod_graph;
 			std::string graph_name = "haystack_" + RTLIL::unescape_id(mod_it.first);
 			log("Creating haystack graph %s.\n", graph_name.c_str());
-			if (module2graph(mod_graph, mod_it.second, constports, design)) {
+			if (module2graph(mod_graph, mod_it.second, constports, design, mine_mode ? mine_max_fanout : -1)) {
 				solver.addGraph(graph_name, mod_graph);
 				haystack_map[graph_name] = mod_it.second;
 			}
