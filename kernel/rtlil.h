@@ -212,6 +212,13 @@ struct RTLIL::Design {
 	template<typename T1, typename T2> bool selected(T1 *module, T2 *member) {
 		return selected_member(module->name, member->name);
 	}
+	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
+		if (selection_stack.size() > 0) {
+			RTLIL::Selection &sel = selection_stack.back();
+			if (!sel.full_selection && sel.selected_modules.count(module->name) == 0)
+				sel.selected_members[module->name].insert(member->name);
+		}
+	}
 };
 
 struct RTLIL::Module {

@@ -156,7 +156,7 @@ namespace
 		return true;
 	}
 
-	void replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit::Solver::Result &match)
+	RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit::Solver::Result &match)
 	{
 		SigMap sigmap(needle);
 		SigSet<std::pair<std::string, int>> sig2port;
@@ -202,6 +202,8 @@ namespace
 			haystack->cells.erase(haystack_cell->name);
 			delete haystack_cell;
 		}
+
+		return cell;
 	}
 }
 
@@ -451,7 +453,9 @@ struct ExtractPass : public Pass {
 							log(" %s:%s", it2.first.c_str(), it2.second.c_str());
 						log("\n");
 					}
-					replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
+					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
+					design->select(haystack_map.at(result.haystackGraphId), new_cell);
+					log("  new cell: %s\n", id2cstr(new_cell->name));
 				}
 			}
 		}
