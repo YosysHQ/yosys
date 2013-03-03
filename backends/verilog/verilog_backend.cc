@@ -139,12 +139,13 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 	if (reg_wires.count(sig.chunks[0].wire->name) == 0)
 		return false;
 	reg_name = id(sig.chunks[0].wire->name);
-	if (sig.width != sig.chunks[0].wire->width)
+	if (sig.width != sig.chunks[0].wire->width) {
 		if (sig.width == 1)
 			reg_name += stringf("[%d]", sig.chunks[0].wire->start_offset +  sig.chunks[0].offset);
 		else
 			reg_name += stringf("[%d]", sig.chunks[0].wire->start_offset +  sig.chunks[0].offset + sig.chunks[0].width - 1,
 					sig.chunks[0].wire->start_offset +  sig.chunks[0].offset);
+	}
 	return true;
 }
 
