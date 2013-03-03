@@ -205,6 +205,18 @@ namespace
 
 		return cell;
 	}
+
+	bool compareSortNeedleList(RTLIL::Module *left, RTLIL::Module *right)
+	{
+		int left_idx = 0, right_idx = 0;
+		if (left->attributes.count("\\extract_order") > 0)
+			left_idx = left->attributes.at("\\extract_order").as_int();
+		if (right->attributes.count("\\extract_order") > 0)
+			right_idx = right->attributes.at("\\extract_order").as_int();
+		if (left_idx != right_idx)
+			return left_idx < right_idx;
+		return left->name < right->name;
+	}
 }
 
 struct ExtractPass : public Pass {
@@ -269,6 +281,10 @@ struct ExtractPass : public Pass {
 		log("    -mine_limit_matches_per_module <num>\n");
 		log("        when calculating the number of matches for a subcircuit, don't count\n");
 		log("        more than the specified number of matches per module\n");
+		log("\n");
+		log("The modules in the map file may have the attribute 'extract_order' set to an\n");
+		log("integer value. Then this value is used to determine the order in which the pass\n");
+		log("tries to map the modules to the design (ascending, default value is 0).\n");
 		log("\n");
 		log("This pass operates on whole modules or selected cells from modules. Other\n");
 		log("selected entities (wires, etc.) are ignored.\n");
@@ -404,6 +420,7 @@ struct ExtractPass : public Pass {
 		}
 
 		std::map<std::string, RTLIL::Module*> needle_map, haystack_map;
+		std::vector<RTLIL::Module*> needle_list;
 
 		log_header("Creating graphs for SubCircuit library.\n");
 
@@ -415,6 +432,7 @@ struct ExtractPass : public Pass {
 				if (module2graph(mod_graph, mod_it.second, constports)) {
 					solver.addGraph(graph_name, mod_graph);
 					needle_map[graph_name] = mod_it.second;
+					needle_list.push_back(mod_it.second);
 				}
 			}
 
@@ -433,10 +451,12 @@ struct ExtractPass : public Pass {
 			std::vector<SubCircuit::Solver::Result> results;
 			log_header("Running solver from SubCircuit library.\n");
 
-			for (auto &needle_it : needle_map)
+			std::sort(needle_list.begin(), needle_list.end(), compareSortNeedleList);
+
+			for (auto needle : needle_list)
 			for (auto &haystack_it : haystack_map) {
-				log("Solving for %s in %s.\n", needle_it.first.c_str(), haystack_it.first.c_str());
-				solver.solve(results, needle_it.first, haystack_it.first, false);
+				log("Solving for %s in %s.\n", ("needle_" + RTLIL::unescape_id(needle->name)).c_str(), haystack_it.first.c_str());
+				solver.solve(results, "needle_" + RTLIL::unescape_id(needle->name), haystack_it.first, false);
 			}
 			log("Found %zd matches.\n", results.size());
 
