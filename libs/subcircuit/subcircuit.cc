@@ -68,8 +68,10 @@ SubCircuit::Graph::Graph(const Graph &other, const std::vector<std::string> &oth
 	for (auto &i1 : other2this)
 	for (auto &i2 : other.nodes[i1.first].ports)
 	for (auto &i3 : i2.bits)
-		if (edges2this.count(i3.edgeIdx) == 0)
-			edges2this[i3.edgeIdx] = edges2this.size();
+		if (edges2this.count(i3.edgeIdx) == 0) {
+			int next_idx = edges2this.size();
+			edges2this[i3.edgeIdx] = next_idx;
+		}
 
 	edges.resize(edges2this.size());
 	for (auto &it : edges2this) {
