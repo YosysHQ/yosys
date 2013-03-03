@@ -394,6 +394,22 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	select_filter_active_mod(design, work_stack.back());
 }
 
+// used in kernel/register.cc
+void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, RTLIL::Design *design)
+{
+	work_stack.clear();
+	for (; argidx < args.size(); argidx++) {
+		if (args[argidx].substr(0, 1) == "-")
+			pass->cmd_error(args, argidx, "Unexpected option in selection arguments.");
+		select_stmt(design, args[argidx]);
+	}
+	while (work_stack.size() > 1) {
+		select_op_union(design, work_stack.front(), work_stack.back());
+		work_stack.pop_back();
+	}
+	design->selection_stack.push_back(work_stack.back());
+}
+
 struct SelectPass : public Pass {
 	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
 	virtual void help()

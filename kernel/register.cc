@@ -107,7 +107,10 @@ void Pass::cmd_error(const std::vector<std::string> &args, size_t argidx, std::s
 			msg.c_str(), command_text.c_str(), error_pos, "");
 }
 
-void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *)
+// implemented in kernel/select.cc
+extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, RTLIL::Design *design);
+
+void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool select)
 {
 	for (; argidx < args.size(); argidx++)
 	{
@@ -115,7 +118,12 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 
 		if (arg.substr(0, 1) == "-")
 			cmd_error(args, argidx, "Unkown option or option in arguments.");
-		cmd_error(args, argidx, "Extra argument.");
+
+		if (!select)
+			cmd_error(args, argidx, "Extra argument.");
+
+		handle_extra_select_args(this, args, argidx, design);
+		break;
 	}
 	cmd_log_args(args);
 }

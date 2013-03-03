@@ -213,7 +213,8 @@ struct ShellPass : public Pass {
 		log("Press Ctrl-D to leave the interactive shell.\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string>, RTLIL::Design *design) {
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+		extra_args(args, 1, design, false);
 		shell(design);
 	}
 } ShellPass;

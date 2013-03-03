@@ -37,7 +37,7 @@ struct Pass
 
 	void cmd_log_args(const std::vector<std::string> &args);
 	void cmd_error(const std::vector<std::string> &args, size_t argidx, std::string msg);
-	void extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design);
+	void extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool select = true);
 
 	static void call(RTLIL::Design *design, std::string command);
 	static void call(RTLIL::Design *design, std::vector<std::string> args);

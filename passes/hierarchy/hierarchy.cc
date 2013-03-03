@@ -188,8 +188,9 @@ struct HierarchyPass : public Pass {
 					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
 				continue;
 			}
-			log_cmd_error("Unkown option %s.\n", args[argidx].c_str());
+			break;
 		}
+		extra_args(args, argidx, design, false);
 
 		if (top_mod != NULL)
 			hierarchy(design, top_mod);
