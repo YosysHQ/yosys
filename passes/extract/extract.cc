@@ -525,7 +525,7 @@ struct ExtractPass : public Pass {
 
 			FILE *f = fopen(filename.c_str(), "wt");
 			if (f == NULL)
-				log_cmd_error("Can't open output file `%s'.\n", filename.c_str());
+				log_error("Can't open output file `%s'.\n", filename.c_str());
 			Backend::backend_call(map, f, filename, "ilang");
 			fclose(f);
 		}

@@ -156,6 +156,7 @@ struct ShowWorker
 		net_conn_map.clear();
 
 		fprintf(f, "digraph \"%s\" {\n", escape(module->name));
+		fprintf(f, "label=\"%s\";\n", escape(module->name));
 		fprintf(f, "rankdir=\"LR\";\n");
 		fprintf(f, "remincross=true;\n");
 
@@ -274,12 +275,16 @@ struct ShowWorker
 		fprintf(f, "};\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design) : f(f), design(design)
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs) : f(f), design(design)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
+		ct.setup_design(design);
+
+		for (auto lib : libs)
+			ct.setup_design(lib);
 
 		design->optimize();
 		page_counter = 0;
@@ -303,7 +308,7 @@ struct ShowPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    show [-viewer <command>] [selection]\n");
+		log("    show [options] [selection]\n");
 		log("\n");
 		log("Create a graphviz DOT file for the selected part of the design and compile it\n");
 		log("to a postscript file.\n");
@@ -311,14 +316,22 @@ struct ShowPass : public Pass {
 		log("    -viewer <command>\n");
 		log("         Also run the specified command with the postscript file as parameter.\n");
 		log("\n");
+		log("    -lib <verilog_or_ilang_file>\n");
+		log("         Use the specified library file for determining whether cell ports are.\n");
+		log("         inputs or outputs. This option can be used multiple times to specify\n");
+		log("         more than one library.\n");
+		log("\n");
 		log("The generated output files are `yosys-show.dot' and `yosys-show.ps'.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Generating Graphviz representation of design.\n");
+		log_push();
 
 		std::string viewer_exe;
+		std::vector<std::string> libfiles;
+		std::vector<RTLIL::Design*> libs;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -328,15 +341,32 @@ struct ShowPass : public Pass {
 				viewer_exe = args[++argidx];
 				continue;
 			}
+			if (arg == "-lib" && argidx+1 < args.size()) {
+				libfiles.push_back(args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		for (auto filename : libfiles) {
+			FILE *f = fopen(filename.c_str(), "rt");
+			if (f == NULL)
+				log_error("Can't open lib file `%s'.\n", filename.c_str());
+			RTLIL::Design *lib = new RTLIL::Design;
+			Frontend::frontend_call(lib, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			libs.push_back(lib);
+			fclose(f);
+		}
+
+		if (libs.size() > 0)
+			log_header("Continuing show pass.\n");
 
 		log("Writing dot description to `yosys-show.dot'.\n");
 		FILE *f = fopen("yosys-show.dot", "w");
 		if (f == NULL)
 			log_cmd_error("Can't open dot file `yosys-show.dot' for writing.\n");
-		ShowWorker worker(f, design);
+		ShowWorker worker(f, design, libs);
 		fclose(f);
 
 		if (worker.page_counter == 0)
@@ -353,6 +383,11 @@ struct ShowPass : public Pass {
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
+
+		for (auto lib : libs)
+			delete lib;
+
+		log_pop();
 	}
 } ShowPass;
  

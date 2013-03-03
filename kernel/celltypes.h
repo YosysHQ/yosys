@@ -27,6 +27,7 @@
 struct CellTypes
 {
 	std::set<std::string> cell_types;
+	std::vector<const RTLIL::Design*> designs;
 
 	void setup_internals()
 	{
@@ -99,20 +100,39 @@ struct CellTypes
 		cell_types.insert("$_DFF_PP1_");
 	}
 
+	void setup_design(const RTLIL::Design *design)
+	{
+		designs.push_back(design);
+	}
+
 	void clear()
 	{
 		cell_types.clear();
+		designs.clear();
 	}
 
 	bool cell_known(std::string type)
 	{
-		return cell_types.count(type) > 0;
+		if (cell_types.count(type) > 0)
+			return true;
+		for (auto design : designs)
+			if (design->modules.count(type) > 0)
+				return true;
+		return false;
 	}
 
 	bool cell_output(std::string type, std::string port)
 	{
-		if (!cell_known(type))
+		if (cell_types.count(type) == 0) {
+			for (auto design : designs)
+				if (design->modules.count(type) > 0) {
+					if (design->modules.at(type)->wires.count(port))
+						return design->modules.at(type)->wires.at(port)->port_output;
+					return false;
+				}
 			return false;
+		}
+
 		if (port == "\\Y" || port == "\\Q" || port == "\\RD_DATA")
 			return true;
 		if (type == "$memrd" && port == "\\DATA")
@@ -124,9 +144,20 @@ struct CellTypes
 
 	bool cell_input(std::string type, std::string port)
 	{
-		if (!cell_known(type))
+		if (cell_types.count(type) == 0) {
+			for (auto design : designs)
+				if (design->modules.count(type) > 0) {
+					if (design->modules.at(type)->wires.count(port))
+						return design->modules.at(type)->wires.at(port)->port_input;
+					return false;
+				}
 			return false;
-		return !cell_output(type, port);
+		}
+
+		if (cell_types.count(type) > 0)
+			return !cell_output(type, port);
+
+		return false;
 	}
 
 	static RTLIL::Const eval(std::string type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
