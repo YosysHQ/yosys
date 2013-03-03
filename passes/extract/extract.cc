@@ -52,10 +52,10 @@ namespace
 		}
 
 		if (constports) {
-			graph.createNode("$const$0", "$const$0");
-			graph.createNode("$const$1", "$const$1");
-			graph.createNode("$const$x", "$const$x");
-			graph.createNode("$const$z", "$const$z");
+			graph.createNode("$const$0", "$const$0", NULL, true);
+			graph.createNode("$const$1", "$const$1", NULL, true);
+			graph.createNode("$const$x", "$const$x", NULL, true);
+			graph.createNode("$const$z", "$const$z", NULL, true);
 			graph.createPort("$const$0", "\\Y", 1);
 			graph.createPort("$const$1", "\\Y", 1);
 			graph.createPort("$const$x", "\\Y", 1);

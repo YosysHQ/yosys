@@ -63,7 +63,8 @@ namespace SubCircuit
 			std::map<std::string, int> portMap;
 			std::vector<Port> ports;
 			void *userData;
-			Node() : userData(NULL) { };
+			bool shared;
+			Node() : userData(NULL), shared(false) { };
 		};
 
 		bool allExtern;
@@ -75,7 +76,7 @@ namespace SubCircuit
 		Graph() : allExtern(false) { };
 		Graph(const Graph &other, const std::vector<std::string> &otherNodes);
 
-		void createNode(std::string nodeId, std::string typeId, void *userData = NULL);
+		void createNode(std::string nodeId, std::string typeId, void *userData = NULL, bool shared = false);
 		void createPort(std::string nodeId, std::string portId, int width = 1, int minWidth = -1);
 		void createConnection(std::string fromNodeId, std::string fromPortId, int fromBit, std::string toNodeId, std::string toPortId, int toBit, int width = 1);
 		void createConnection(std::string fromNodeId, std::string fromPortId, std::string toNodeId, std::string toPortId);

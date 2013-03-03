@@ -100,7 +100,7 @@ bool SubCircuit::Graph::BitRef::operator < (const BitRef &other) const
 	return bitIdx < other.bitIdx;
 }
 
-void  SubCircuit::Graph::createNode(std::string nodeId, std::string typeId, void *userData)
+void  SubCircuit::Graph::createNode(std::string nodeId, std::string typeId, void *userData, bool shared)
 {
 	assert(nodeMap.count(nodeId) == 0);
 	nodeMap[nodeId] = nodes.size();
@@ -110,6 +110,7 @@ void  SubCircuit::Graph::createNode(std::string nodeId, std::string typeId, void
 	newNode.nodeId = nodeId;
 	newNode.typeId = typeId;
 	newNode.userData = userData;
+	newNode.shared = shared;
 }
 
 void SubCircuit::Graph::createPort(std::string nodeId, std::string portId, int width, int minWidth)
@@ -1074,7 +1075,8 @@ class SubCircuit::SolverWorker
 			}
 
 			for (int j = 0; j < int(enumerationMatrix.size()); j++)
-				haystack.usedNodes[*enumerationMatrix[j].begin()] = true;
+				if (!haystack.graph.nodes[*enumerationMatrix[j].begin()].shared)
+					haystack.usedNodes[*enumerationMatrix[j].begin()] = true;
 
 			if (verbose) {
 				my_printf("\nSolution:\n");

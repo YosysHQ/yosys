@@ -266,7 +266,9 @@ After this code has been executed, the results vector contains all
 non-overlapping matches of the three macrocells. The method
 clearOverlapHistory() can be used to reset the internal state used
 for this feature. The default value for the third argument to solve()
-is true (allow overlapping).
+is true (allow overlapping). The optional boolean fourth argument to the
+Graph::createNode() method can be used to mark a node as shareable even
+in non-overlapping solver mode.
 
 The solve() method also has a fourth optional integer argument. If it is set to
 a positive integer, this integer specifies the maximum number of solutions to
