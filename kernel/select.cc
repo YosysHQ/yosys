@@ -220,6 +220,32 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 		lhs.selected_members.erase(it);
 }
 
+static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs)
+{
+	for (auto &mod_it : design->modules)
+	{
+		if (lhs.selected_whole_module(mod_it.first) || !lhs.selected_module(mod_it.first))
+			continue;
+
+		RTLIL::Module *mod = mod_it.second;
+		std::set<RTLIL::Wire*> selected_wires;
+
+		for (auto &it : mod->wires)
+			if (lhs.selected_member(mod_it.first, it.first))
+				selected_wires.insert(it.second);
+
+		for (auto &cell : mod->cells)
+		for (auto &conn : cell.second->connections)
+		for (auto &chunk : conn.second.chunks)
+			if (chunk.wire != NULL) {
+				if (selected_wires.count(chunk.wire) > 0)
+					lhs.selected_members[mod->name].insert(cell.first);
+				if (lhs.selected_members[mod->name].count(cell.first) > 0)
+					lhs.selected_members[mod->name].insert(chunk.wire->name);
+			}
+	}
+}
+
 static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &sel)
 {
 	if (design->selected_active_module.empty())
@@ -280,6 +306,15 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least two elements on stack for operator #i.\n");
 			select_op_intersect(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
+		} else
+		if (arg == "#x" || arg.substr(0, 3) == "#x:") {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on stack for operator #x.\n");
+			int levels = 1;
+			if (arg.size() > 3)
+				levels = std::max(atoi(arg.substr(3).c_str()), 1);
+			while (levels-- > 0)
+				select_op_expand(design, work_stack.back());
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg.c_str());
 		select_filter_active_mod(design, work_stack.back());
@@ -524,6 +559,10 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    #d\n");
 		log("        pop the top set from the stack and subtract it from the new top\n");
+		log("\n");
+		log("    #x:<num>\n");
+		log("        expand top set by <num> levels (i.e. select all cells connected\n");
+		log("        to selected wires and select all wires connected to selected cells)\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
