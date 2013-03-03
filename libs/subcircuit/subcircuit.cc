@@ -1316,37 +1316,58 @@ class SubCircuit::SolverWorker
 		if (verbose)
 			my_printf("\nMining for frequent subcircuits of size %d using increment %d:\n", oldSetSize+increment, increment);
 
-		std::set<NodeSet> usedSets;
 		for (auto &it : poolPerGraph)
-		for (int idx1 = 0; idx1 < int(it.second.size()); idx1++)
-		for (int idx2 = idx1; idx2 < int(it.second.size()); idx2++)
 		{
-			if (it.second[idx1]->extendCandidate(*it.second[idx2]) != increment)
-				continue;
+			std::map<int, std::set<int>> node2sets;
+			std::set<NodeSet> usedSets;
 
-			NodeSet mergedSet = *it.second[idx1];
-			mergedSet.extend(*it.second[idx2]);
-
-			if (usedSets.count(mergedSet) > 0)
-				continue;
-
-			const std::string &graphId = it.first;
-			const auto &graph = graphData[it.first].graph;
-
-			int matches = testForMining(results, usedSets, nextPool, mergedSet, graphId, graph, minNodes, minMatches, limitMatchesPerGraph);
-
-			if (verbose) {
-				my_printf("Set %s[", graphId.c_str());
-				bool first = true;
-				for (int nodeIdx : mergedSet.nodes) {
-					my_printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
-					first = false;
-				}
-				my_printf("] -> %d%s\n", matches, matches < minMatches ? "  *purge*" : "");
+			for (int idx = 0; idx < int(it.second.size()); idx++) {
+				for (int node : it.second[idx]->nodes)
+					node2sets[node].insert(idx);
 			}
 
-			if (minMatches <= matches)
-				groupCounter++;
+			for (int idx1 = 0; idx1 < int(it.second.size()); idx1++)
+			{
+				std::set<int> idx2set;
+
+				for (int node : it.second[idx1]->nodes)
+					for (int idx2 : node2sets[node])
+						if (idx2 > idx1)
+							idx2set.insert(idx2);
+
+				for (int idx2 : idx2set)
+				{
+					if (it.second[idx1]->extendCandidate(*it.second[idx2]) != increment)
+						continue;
+
+					NodeSet mergedSet = *it.second[idx1];
+					mergedSet.extend(*it.second[idx2]);
+
+					if (usedSets.count(mergedSet) > 0)
+						continue;
+
+					const std::string &graphId = it.first;
+					const auto &graph = graphData[it.first].graph;
+
+					if (verbose) {
+						my_printf("Set %s[", graphId.c_str());
+						bool first = true;
+						for (int nodeIdx : mergedSet.nodes) {
+							my_printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
+							first = false;
+						}
+						my_printf("] ->");
+					}
+
+					int matches = testForMining(results, usedSets, nextPool, mergedSet, graphId, graph, minNodes, minMatches, limitMatchesPerGraph);
+
+					if (verbose)
+						my_printf(" %d%s\n", matches, matches < minMatches ? "  *purge*" : "");
+
+					if (minMatches <= matches)
+						groupCounter++;
+				}
+			}
 		}
 
 		pool.swap(nextPool);
