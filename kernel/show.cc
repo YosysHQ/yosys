@@ -185,7 +185,7 @@ struct ShowWorker
 			std::vector<RTLIL::IdString> in_ports, out_ports;
 
 			for (auto &conn : it.second->connections) {
-				if (ct.cell_input(it.second->type, conn.first))
+				if (!ct.cell_output(it.second->type, conn.first))
 					in_ports.push_back(conn.first);
 				else
 					out_ports.push_back(conn.first);
@@ -210,7 +210,7 @@ struct ShowWorker
 			std::string code;
 			for (auto &conn : it.second->connections) {
 				code += gen_portbox(stringf("c%d:p%d", id2num(it.first), id2num(conn.first)),
-						conn.second, !ct.cell_input(it.second->type, conn.first));
+						conn.second, ct.cell_output(it.second->type, conn.first));
 			}
 
 #ifdef CLUSTER_CELLS_AND_PORTBOXES
