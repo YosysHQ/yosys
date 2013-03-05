@@ -299,7 +299,7 @@ struct ExtractPass : public Pass {
 		log("\n");
 		log("    -mine_cells_span <min> <max>\n");
 		log("        only mine for subcircuits with the specified number of cells\n");
-		log("        default value: 3 10\n");
+		log("        default value: 3 5\n");
 		log("\n");
 		log("    -mine_min_freq <num>\n");
 		log("        only mine for subcircuits with at least the specified number of matches\n");
@@ -332,7 +332,7 @@ struct ExtractPass : public Pass {
 
 		bool mine_mode = false;
 		int mine_cells_min = 3;
-		int mine_cells_max = 10;
+		int mine_cells_max = 5;
 		int mine_min_freq = 10;
 		int mine_limit_mod = -1;
 		int mine_max_fanout = -1;
