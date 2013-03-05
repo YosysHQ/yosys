@@ -121,6 +121,9 @@ namespace
 					if (max_fanout > 0 && sig_use_count[std::pair<RTLIL::Wire*, int>(chunk.wire, chunk.offset)] > max_fanout)
 						continue;
 
+					if (sel && !sel->selected(mod, chunk.wire))
+						continue;
+
 					if (sig_bit_ref.count(chunk) == 0) {
 						bit_ref_t &bit_ref = sig_bit_ref[chunk];
 						bit_ref.cell = cell->name;
@@ -307,9 +310,6 @@ struct ExtractPass : public Pass {
 		log("The modules in the map file may have the attribute 'extract_order' set to an\n");
 		log("integer value. Then this value is used to determine the order in which the pass\n");
 		log("tries to map the modules to the design (ascending, default value is 0).\n");
-		log("\n");
-		log("This pass operates on whole modules or selected cells from modules. Other\n");
-		log("selected entities (wires, etc.) are ignored.\n");
 		log("\n");
 		log("See 'help techmap' for a pass that does the opposite thing.\n");
 		log("\n");
