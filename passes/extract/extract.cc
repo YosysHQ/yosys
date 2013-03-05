@@ -36,7 +36,8 @@ namespace
 		int bit;
 	};
 
-	bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = NULL, int max_fanout = -1)
+	bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = NULL,
+			int max_fanout = -1, std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> *split = NULL)
 	{
 		SigMap sigmap(mod);
 		std::map<RTLIL::SigChunk, bit_ref_t> sig_bit_ref;
@@ -96,11 +97,15 @@ namespace
 
 			for (auto &conn : cell->connections)
 			{
+				graph.createPort(cell->name, conn.first, conn.second.width);
+
+				if (split && split->count(std::pair<RTLIL::IdString, RTLIL::IdString>(cell->type, conn.first)) > 0)
+					continue;
+
 				RTLIL::SigSpec conn_sig = conn.second;
 				sigmap.apply(conn_sig);
 				conn_sig.expand();
 
-				graph.createPort(cell->name, conn.first, conn.second.width);
 				for (size_t i = 0; i < conn_sig.chunks.size(); i++)
 				{
 					auto &chunk = conn_sig.chunks[i];
@@ -331,6 +336,7 @@ struct ExtractPass : public Pass {
 		int mine_min_freq = 10;
 		int mine_limit_mod = -1;
 		int mine_max_fanout = -1;
+		std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> mine_split;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -354,6 +360,11 @@ struct ExtractPass : public Pass {
 			}
 			if (args[argidx] == "-mine_limit_matches_per_module" && argidx+1 < args.size()) {
 				mine_limit_mod = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-mine_split" && argidx+2 < args.size()) {
+				mine_split.insert(std::pair<RTLIL::IdString, RTLIL::IdString>(RTLIL::escape_id(args[argidx+1]), RTLIL::escape_id(args[argidx+2])));
+				argidx += 2;
 				continue;
 			}
 			if (args[argidx] == "-mine_max_fanout" && argidx+1 < args.size()) {
@@ -467,7 +478,7 @@ struct ExtractPass : public Pass {
 			SubCircuit::Graph mod_graph;
 			std::string graph_name = "haystack_" + RTLIL::unescape_id(mod_it.first);
 			log("Creating haystack graph %s.\n", graph_name.c_str());
-			if (module2graph(mod_graph, mod_it.second, constports, design, mine_mode ? mine_max_fanout : -1)) {
+			if (module2graph(mod_graph, mod_it.second, constports, design, mine_mode ? mine_max_fanout : -1, mine_mode ? &mine_split : NULL)) {
 				solver.addGraph(graph_name, mod_graph);
 				haystack_map[graph_name] = mod_it.second;
 			}
