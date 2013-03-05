@@ -1316,6 +1316,7 @@ class SubCircuit::SolverWorker
 		if (verbose)
 			my_printf("\nMining for frequent subcircuits of size %d using increment %d:\n", oldSetSize+increment, increment);
 
+		int count = 0;
 		for (auto &it : poolPerGraph)
 		{
 			std::map<int, std::set<int>> node2sets;
@@ -1326,7 +1327,7 @@ class SubCircuit::SolverWorker
 					node2sets[node].insert(idx);
 			}
 
-			for (int idx1 = 0; idx1 < int(it.second.size()); idx1++)
+			for (int idx1 = 0; idx1 < int(it.second.size()); idx1++, count++)
 			{
 				std::set<int> idx2set;
 
@@ -1350,7 +1351,7 @@ class SubCircuit::SolverWorker
 					const auto &graph = graphData[it.first].graph;
 
 					if (verbose) {
-						my_printf("Set %s[", graphId.c_str());
+						my_printf("<%d%%/%d> Found %s[", int(100*count/pool.size()), oldSetSize+increment, graphId.c_str());
 						bool first = true;
 						for (int nodeIdx : mergedSet.nodes) {
 							my_printf("%s%s", first ? "" : ",", graph.nodes[nodeIdx].nodeId.c_str());
