@@ -12,13 +12,13 @@ OBJS += libs/sha1/sha1.o
 OBJS += libs/subcircuit/subcircuit.o
 
 GENFILES =
-TARGETS = yosys
+TARGETS = yosys yosys-config
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I$(shell pwd) -MD -D_YOSYS_
-LDFLAGS =
-LDLIBS = -lstdc++ -lreadline -lm
+CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC
+LDFLAGS = -rdynamic
+LDLIBS = -lstdc++ -lreadline -lm -ldl
 
 -include Makefile.conf
 
@@ -47,6 +47,10 @@ top-all: $(TARGETS)
 yosys: $(OBJS)
 	$(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
 
+yosys-config: yosys-config.in
+	sed 's,@CXX@,$(CXX),; s,@CXXFLAGS@,$(CXXFLAGS),; s,@LDFLAGS@,$(LDFLAGS),; s,@LDLIBS@,$(LDLIBS),;' < yosys-config.in > yosys-config
+	chmod +x yosys-config
+
 test: yosys
 	cd tests/simple && bash run-test.sh
 	cd tests/hana && bash run-test.sh
@@ -54,6 +58,7 @@ test: yosys
 
 install: yosys
 	install yosys /usr/local/bin/yosys
+	install yosys-config /usr/local/bin/yosys-config
 
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)

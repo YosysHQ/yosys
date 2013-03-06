@@ -5,5 +5,7 @@ qtcreator.includes
 qtcreator.config
 qtcreator.creator
 qtcreator.creator.user
+Makefile.conf
 filterlib
 yosys
+yosys-config

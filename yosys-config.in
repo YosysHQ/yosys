@@ -1,0 +1,30 @@
+#!/bin/sh
+
+help() {
+	{ echo; echo "Usage: $0 { --cxx | --cxxflags | --ldflags | --ldlibs }"; } >&2
+	exit 1
+}
+
+if [ $# -eq 0 ]; then
+	help
+fi
+
+for opt; do
+	case "$opt" in
+		--cxx)
+			echo -n '@CXX@ ' ;;
+		--cxxflags)
+			echo -n '@CXXFLAGS@ ' ;;
+		--ldflags)
+			echo -n '@LDFLAGS@ ' ;;
+		--ldlibs)
+			echo -n '@LDLIBS@ ' ;;
+		--help|-\?)
+			help ;;
+		*)
+			echo -n "$opt "
+	esac
+done
+echo
+
+exit 0

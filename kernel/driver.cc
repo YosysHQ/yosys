@@ -26,6 +26,7 @@
 #include "kernel/log.h"
 #include <string.h>
 #include <unistd.h>
+#include <dlfcn.h>
 
 static void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command)
 {
@@ -224,21 +225,23 @@ int main(int argc, char **argv)
 	std::string frontend_command = "auto";
 	std::string backend_command = "auto";
 	std::vector<std::string> passes_commands;
+	std::vector<void*> loaded_modules;
 	std::string output_filename = "-";
 	std::string scriptfile = "";
 	bool got_output_filename = false;
 
-	Pass::init_register();
-
-	RTLIL::Design *design = new RTLIL::Design;
-	design->selection_stack.push_back(RTLIL::Selection());
-	log_push();
-
 	int opt;
-	while ((opt = getopt(argc, argv, "f:b:o:p:l:qts:")) != -1)
+	while ((opt = getopt(argc, argv, "m:f:b:o:p:l:qts:")) != -1)
 	{
 		switch (opt)
 		{
+		case 'm':
+			loaded_modules.push_back(dlopen(optarg, RTLD_LAZY|RTLD_GLOBAL));
+			if (loaded_modules.back() == NULL) {
+				fprintf(stderr, "Can't load module `%s'!\n", optarg);
+				exit(1);
+			}
+			break;
 		case 'f':
 			frontend_command = optarg;
 			break;
@@ -271,7 +274,7 @@ int main(int argc, char **argv)
 		default:
 			fprintf(stderr, "\n");
 			fprintf(stderr, "Usage: %s [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [-s <scriptfile>]\n", argv[0]);
-			fprintf(stderr, "       %*s[-p <pass> [-p ..]] [-b <backend>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
+			fprintf(stderr, "       %*s[-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
 			fprintf(stderr, "        quiet operation. only write error messages to console\n");
@@ -296,6 +299,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -p command\n");
 			fprintf(stderr, "        execute the commands\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -m module_file\n");
+			fprintf(stderr, "        load the specified module (aka plugin)\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "For more complex synthesis jobs it is recommended to use the read_* and write_*\n");
 			fprintf(stderr, "commands in a script file instead of specifying input and output files on the\n");
@@ -334,6 +340,12 @@ int main(int argc, char **argv)
 	log(" \\-----------------------------------------------------------------------------/\n");
 	log("\n");
 
+	Pass::init_register();
+
+	RTLIL::Design *design = new RTLIL::Design;
+	design->selection_stack.push_back(RTLIL::Selection());
+	log_push();
+
 	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty()) {
 		if (!got_output_filename)
 			backend_command = "";
@@ -364,6 +376,9 @@ int main(int argc, char **argv)
 	log_files.clear();
 
 	Pass::done_register();
+
+	for (auto mod : loaded_modules)
+		dlclose(mod);
 
 	return 0;
 }
