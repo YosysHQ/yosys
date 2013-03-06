@@ -37,5 +37,5 @@ swapgroup mul A B
 swapgroup add A B
 
 mine 2 10 2
-expect 5
+expect 6
 
