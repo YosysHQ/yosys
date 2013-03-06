@@ -1,7 +1,7 @@
 
-# CONFIG := clang-debug
+CONFIG := clang-debug
 # CONFIG := gcc-debug
-CONFIG := release
+# CONFIG := release
 
 OBJS  = kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/select.o kernel/show.o
 
