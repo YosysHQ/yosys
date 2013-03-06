@@ -718,38 +718,23 @@ class SubCircuit::SolverWorker
 
 	// main solver functions
 
-	bool matchNodes(const Graph &needle, int needleNodeIdx, const Graph &haystack, int haystackNodeIdx) const
+	bool matchNodePorts(const Graph &needle, int needleNodeIdx, const Graph &haystack, int haystackNodeIdx, const std::map<std::string, std::string> &swaps) const
 	{
-		// Rules for matching nodes:
-		//
-		// 1. their typeId must be identical or compatible
-		//    (this is checked before calling this function)
-		//
-		// 2. they must have the same ports and the haystack port
-		//    widths must match the needle port width range
-		//
-		// 3. All edges from the needle must match the haystack:
-		//    a) if the needle edge is extern:
-		//         - the haystack edge must have at least as many components as the needle edge
-		//    b) if the needle edge is not extern:
-		//         - the haystack edge must have the same number of components as the needle edge
-		//         - the haystack edge must not be extern
-
 		const Graph::Node &nn = needle.nodes[needleNodeIdx];
 		const Graph::Node &hn = haystack.nodes[haystackNodeIdx];
-
-		assert(nn.typeId == hn.typeId || (compatibleTypes.count(nn.typeId) > 0 && compatibleTypes.at(nn.typeId).count(hn.typeId) > 0));
-
-		if (nn.ports.size() != hn.ports.size())
-			return false;
+		assert(nn.ports.size() == hn.ports.size());
 
 		for (int i = 0; i < int(nn.ports.size()); i++)
 		{
-			if (hn.portMap.count(nn.ports[i].portId) == 0)
+			std::string hnPortId = nn.ports[i].portId;
+			if (swaps.count(hnPortId) > 0)
+				hnPortId = swaps.at(hnPortId);
+
+			if (hn.portMap.count(hnPortId) == 0)
 				return false;
 
 			const Graph::Port &np = nn.ports[i];
-			const Graph::Port &hp = hn.ports[hn.portMap.at(nn.ports[i].portId)];
+			const Graph::Port &hp = hn.ports[hn.portMap.at(hnPortId)];
 
 			if (int(hp.bits.size()) < np.minWidth || hp.bits.size() > np.bits.size())
 				return false;
@@ -779,6 +764,80 @@ class SubCircuit::SolverWorker
 		}
 
 		return true;
+	}
+
+	bool matchNodes(const Graph &needle, int needleNodeIdx, const Graph &haystack, int haystackNodeIdx) const
+	{
+		// Rules for matching nodes:
+		//
+		// 1. their typeId must be identical or compatible
+		//    (this is checked before calling this function)
+		//
+		// 2. they must have the same ports and the haystack port
+		//    widths must match the needle port width range
+		//
+		// 3. All edges from the needle must match the haystack:
+		//    a) if the needle edge is extern:
+		//         - the haystack edge must have at least as many components as the needle edge
+		//    b) if the needle edge is not extern:
+		//         - the haystack edge must have the same number of components as the needle edge
+		//         - the haystack edge must not be extern
+
+		const Graph::Node &nn = needle.nodes[needleNodeIdx];
+		const Graph::Node &hn = haystack.nodes[haystackNodeIdx];
+
+		assert(nn.typeId == hn.typeId || (compatibleTypes.count(nn.typeId) > 0 && compatibleTypes.at(nn.typeId).count(hn.typeId) > 0));
+
+		if (nn.ports.size() != hn.ports.size())
+			return false;
+
+		std::map<std::string, std::string> currentCandidate;
+
+		for (const auto &port : needle.nodes[needleNodeIdx].ports)
+			currentCandidate[port.portId] = port.portId;
+
+		if (swapPorts.count(needle.nodes[needleNodeIdx].typeId) == 0)
+		{
+			if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+				return true;
+
+			if (swapPermutations.count(needle.nodes[needleNodeIdx].typeId) > 0)
+				for (const auto &permutation : swapPermutations.at(needle.nodes[needleNodeIdx].typeId)) {
+					std::map<std::string, std::string> currentSubCandidate = currentCandidate;
+					applyPermutation(currentSubCandidate, permutation);
+					if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+						return true;
+				}
+		}
+		else
+		{
+			std::vector<std::vector<std::string>> thisSwapPorts;
+			for (const auto &ports : swapPorts.at(needle.nodes[needleNodeIdx].typeId)) {
+				std::vector<std::string> portsVector;
+				for (const auto &port : ports)
+					portsVector.push_back(port);
+				thisSwapPorts.push_back(portsVector);
+			}
+
+			int thisPermutations = numberOfPermutationsArray(thisSwapPorts);
+			for (int i = 0; i < thisPermutations; i++)
+			{
+				permutateVectorToMapArray(currentCandidate, thisSwapPorts, i);
+
+				if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+					return true;
+
+				if (swapPermutations.count(needle.nodes[needleNodeIdx].typeId) > 0)
+					for (const auto &permutation : swapPermutations.at(needle.nodes[needleNodeIdx].typeId)) {
+						std::map<std::string, std::string> currentSubCandidate = currentCandidate;
+						applyPermutation(currentSubCandidate, permutation);
+						if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+							return true;
+					}
+			}
+		}
+
+		return false;
 	}
 
 	void generateEnumerationMatrix(std::vector<std::set<int>> &enumerationMatrix, const GraphData &needle, const GraphData &haystack, const std::map<std::string, std::set<std::string>> &initialMappings) const
@@ -902,6 +961,9 @@ class SubCircuit::SolverWorker
 		assert(enumerationMatrix[idx].size() == 1);
 		int idxHaystack = *enumerationMatrix[idx].begin();
 
+		if (!matchNodePorts(needle.graph, idx, haystack.graph, idxHaystack, currentCandidate))
+			return false;
+
 		for (const auto &it_needle : needle.adjMatrix.at(idx))
 		{
 			int needleNeighbour = it_needle.first;
@@ -915,6 +977,7 @@ class SubCircuit::SolverWorker
 			if (!diCache.compare(needleEdgeType, haystackEdgeType, currentCandidate, swapPorts, swapPermutations))
 				return false;
 		}
+
 		return true;
 	}
 
