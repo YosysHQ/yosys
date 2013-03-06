@@ -238,7 +238,7 @@ int main(int argc, char **argv)
 		case 'm':
 			loaded_modules.push_back(dlopen(optarg, RTLD_LAZY|RTLD_GLOBAL));
 			if (loaded_modules.back() == NULL) {
-				fprintf(stderr, "Can't load module `%s'!\n", optarg);
+				fprintf(stderr, "Can't load module `%s': %s\n", optarg, dlerror());
 				exit(1);
 			}
 			break;
