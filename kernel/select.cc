@@ -358,6 +358,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				if (endpos == std::string::npos)
 					endpos = arg.size();
 				levels = atoi(arg.substr(pos, endpos-pos).c_str());
+				pos = endpos;
 			}
 			while (pos < arg.size()) {
 				if (arg[pos] != ':' || pos+1 == arg.size())
