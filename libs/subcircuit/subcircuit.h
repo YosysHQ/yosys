@@ -118,7 +118,7 @@ namespace SubCircuit
 	
 	protected:
 		virtual bool userCompareNodes(const std::string &needleGraphId, const std::string &needleNodeId, void *needleUserData,
-				const std::string &haystackGraphId, const std::string &haystackNodeId, void *haystackUserData);
+				const std::string &haystackGraphId, const std::string &haystackNodeId, void *haystackUserData, const std::map<std::string, std::string> &portMapping);
 
 		virtual std::string userAnnotateEdge(const std::string &graphId, const std::string &fromNodeId, void *fromUserData, const std::string &toNodeId, void *toUserData);
 

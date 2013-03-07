@@ -766,7 +766,7 @@ class SubCircuit::SolverWorker
 		return true;
 	}
 
-	bool matchNodes(const Graph &needle, int needleNodeIdx, const Graph &haystack, int haystackNodeIdx) const
+	bool matchNodes(const GraphData &needle, int needleNodeIdx, const GraphData &haystack, int haystackNodeIdx) const
 	{
 		// Rules for matching nodes:
 		//
@@ -783,8 +783,8 @@ class SubCircuit::SolverWorker
 		//         - the haystack edge must have the same number of components as the needle edge
 		//         - the haystack edge must not be extern
 
-		const Graph::Node &nn = needle.nodes[needleNodeIdx];
-		const Graph::Node &hn = haystack.nodes[haystackNodeIdx];
+		const Graph::Node &nn = needle.graph.nodes[needleNodeIdx];
+		const Graph::Node &hn = haystack.graph.nodes[haystackNodeIdx];
 
 		assert(nn.typeId == hn.typeId || (compatibleTypes.count(nn.typeId) > 0 && compatibleTypes.at(nn.typeId).count(hn.typeId) > 0));
 
@@ -793,26 +793,28 @@ class SubCircuit::SolverWorker
 
 		std::map<std::string, std::string> currentCandidate;
 
-		for (const auto &port : needle.nodes[needleNodeIdx].ports)
+		for (const auto &port : needle.graph.nodes[needleNodeIdx].ports)
 			currentCandidate[port.portId] = port.portId;
 
-		if (swapPorts.count(needle.nodes[needleNodeIdx].typeId) == 0)
+		if (swapPorts.count(needle.graph.nodes[needleNodeIdx].typeId) == 0)
 		{
-			if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+			if (matchNodePorts(needle.graph, needleNodeIdx, haystack.graph, haystackNodeIdx, currentCandidate) &&
+					userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData, currentCandidate))
 				return true;
 
-			if (swapPermutations.count(needle.nodes[needleNodeIdx].typeId) > 0)
-				for (const auto &permutation : swapPermutations.at(needle.nodes[needleNodeIdx].typeId)) {
+			if (swapPermutations.count(needle.graph.nodes[needleNodeIdx].typeId) > 0)
+				for (const auto &permutation : swapPermutations.at(needle.graph.nodes[needleNodeIdx].typeId)) {
 					std::map<std::string, std::string> currentSubCandidate = currentCandidate;
 					applyPermutation(currentSubCandidate, permutation);
-					if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+					if (matchNodePorts(needle.graph, needleNodeIdx, haystack.graph, haystackNodeIdx, currentCandidate) &&
+							userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData, currentCandidate))
 						return true;
 				}
 		}
 		else
 		{
 			std::vector<std::vector<std::string>> thisSwapPorts;
-			for (const auto &ports : swapPorts.at(needle.nodes[needleNodeIdx].typeId)) {
+			for (const auto &ports : swapPorts.at(needle.graph.nodes[needleNodeIdx].typeId)) {
 				std::vector<std::string> portsVector;
 				for (const auto &port : ports)
 					portsVector.push_back(port);
@@ -824,14 +826,16 @@ class SubCircuit::SolverWorker
 			{
 				permutateVectorToMapArray(currentCandidate, thisSwapPorts, i);
 
-				if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+				if (matchNodePorts(needle.graph, needleNodeIdx, haystack.graph, haystackNodeIdx, currentCandidate) &&
+						userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData, currentCandidate))
 					return true;
 
-				if (swapPermutations.count(needle.nodes[needleNodeIdx].typeId) > 0)
-					for (const auto &permutation : swapPermutations.at(needle.nodes[needleNodeIdx].typeId)) {
+				if (swapPermutations.count(needle.graph.nodes[needleNodeIdx].typeId) > 0)
+					for (const auto &permutation : swapPermutations.at(needle.graph.nodes[needleNodeIdx].typeId)) {
 						std::map<std::string, std::string> currentSubCandidate = currentCandidate;
 						applyPermutation(currentSubCandidate, permutation);
-						if (matchNodePorts(needle, needleNodeIdx, haystack, haystackNodeIdx, currentCandidate))
+						if (matchNodePorts(needle.graph, needleNodeIdx, haystack.graph, haystackNodeIdx, currentCandidate) &&
+								userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData, currentCandidate))
 							return true;
 					}
 			}
@@ -856,10 +860,9 @@ class SubCircuit::SolverWorker
 				const Graph::Node &hn = haystack.graph.nodes[j];
 				if (initialMappings.count(nn.nodeId) > 0 && initialMappings.at(nn.nodeId).count(hn.nodeId) == 0)
 					continue;
-				if (!matchNodes(needle.graph, i, haystack.graph, j))
+				if (!matchNodes(needle, i, haystack, j))
 					continue;
-				if (userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData))
-					enumerationMatrix[i].insert(j);
+				enumerationMatrix[i].insert(j);
 			}
 
 			if (compatibleTypes.count(nn.typeId) > 0)
@@ -868,10 +871,9 @@ class SubCircuit::SolverWorker
 						const Graph::Node &hn = haystack.graph.nodes[j];
 						if (initialMappings.count(nn.nodeId) > 0 && initialMappings.at(nn.nodeId).count(hn.nodeId) == 0)
 							continue;
-						if (!matchNodes(needle.graph, i, haystack.graph, j))
+						if (!matchNodes(needle, i, haystack, j))
 							continue;
-						if (userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData))
-							enumerationMatrix[i].insert(j);
+						enumerationMatrix[i].insert(j);
 					}
 		}
 	}
@@ -961,7 +963,11 @@ class SubCircuit::SolverWorker
 		assert(enumerationMatrix[idx].size() == 1);
 		int idxHaystack = *enumerationMatrix[idx].begin();
 
-		if (!matchNodePorts(needle.graph, idx, haystack.graph, idxHaystack, currentCandidate))
+		const Graph::Node &nn = needle.graph.nodes[idx];
+		const Graph::Node &hn = haystack.graph.nodes[idxHaystack];
+
+		if (!matchNodePorts(needle.graph, idx, haystack.graph, idxHaystack, currentCandidate) ||
+				!userSolver->userCompareNodes(needle.graphId, nn.nodeId, nn.userData, haystack.graphId, hn.nodeId, hn.userData, currentCandidate))
 			return false;
 
 		for (const auto &it_needle : needle.adjMatrix.at(idx))
@@ -1556,7 +1562,7 @@ protected:
 	friend class Solver;
 };
 
-bool Solver::userCompareNodes(const std::string&, const std::string&, void*, const std::string&, const std::string&, void*)
+bool Solver::userCompareNodes(const std::string&, const std::string&, void*, const std::string&, const std::string&, void*, const std::map<std::string, std::string>&)
 {
 	return true;
 }
