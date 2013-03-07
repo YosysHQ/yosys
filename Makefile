@@ -62,7 +62,7 @@ install: yosys
 
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
-	rm -f bigint/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
+	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
 
 mrproper: clean
 	git clean -xdf
@@ -74,9 +74,24 @@ qtcreator:
 	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
 	touch qtcreator.config qtcreator.creator
 
--include bigint/*.d
+config-clean: clean
+	rm -f Makefile.conf
+
+config-clang-debug: clean
+	echo 'CONFIG := clang-debug' > Makefile.conf
+
+config-gcc-debug: clean
+	echo 'CONFIG := gcc-debug' > Makefile.conf
+
+config-release: clean
+	echo 'CONFIG := release' > Makefile.conf
+
+-include libs/*/*.d
 -include frontends/*/*.d
 -include passes/*/*.d
 -include backends/*/*.d
 -include kernel/*.d
+
+.PHONY: all top-all test clean mrproper qtcreator
+.PHONY: config-clean config-clang-debug config-gcc-debug config-release
 
