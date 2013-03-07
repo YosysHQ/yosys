@@ -31,6 +31,58 @@ using RTLIL::id2cstr;
 
 namespace
 {
+	class SubCircuitSolver : public SubCircuit::Solver
+	{
+	public:
+		std::set<RTLIL::IdString> attr_compare;
+
+		bool compareAttributes(const std::map<RTLIL::IdString, RTLIL::Const> &needleAttr, const std::map<RTLIL::IdString, RTLIL::Const> &haystackAttr)
+		{
+			for (auto &it : attr_compare) {
+				size_t nc = needleAttr.count(it), hc = haystackAttr.count(it);
+				if (nc != hc || (nc > 0 && needleAttr.at(it) != haystackAttr.at(it)))
+					return false;
+			}
+			return true;
+		}
+
+		virtual bool userCompareNodes(const std::string &, const std::string &, void *needleUserData,
+				const std::string &, const std::string &, void *haystackUserData, const std::map<std::string, std::string> &portMapping)
+		{
+			if (attr_compare.size() == 0)
+				return true;
+
+			RTLIL::Cell *needleCell = (RTLIL::Cell*) needleUserData;
+			RTLIL::Cell *haystackCell = (RTLIL::Cell*) haystackUserData;
+
+			if (!compareAttributes(needleCell->attributes, haystackCell->attributes))
+				return false;
+
+			RTLIL::Wire *lastNeedleWire = NULL;
+			RTLIL::Wire *lastHaystackWire = NULL;
+			std::map<RTLIL::IdString, RTLIL::Const> emptyAttr;
+
+			for (auto &conn : needleCell->connections)
+			{
+				RTLIL::SigSpec needleSig = conn.second;
+				RTLIL::SigSpec haystackSig = haystackCell->connections.at(portMapping.at(conn.first));
+
+				needleSig.expand();
+				haystackSig.expand();
+
+				for (int i = 0; i < std::min(needleSig.width, haystackSig.width); i++) {
+					RTLIL::Wire *needleWire = needleSig.chunks.at(i).wire, *haystackWire = haystackSig.chunks.at(i).wire;
+					if (needleWire != lastNeedleWire || haystackWire != lastHaystackWire)
+						if (!compareAttributes(needleWire ? needleWire->attributes : emptyAttr, haystackWire ? haystackWire->attributes : emptyAttr))
+							return false;
+					lastNeedleWire = needleWire, lastHaystackWire = haystackWire;
+				}
+			}
+
+			return true;
+		}
+	};
+
 	struct bit_ref_t {
 		std::string cell, port;
 		int bit;
@@ -288,6 +340,9 @@ struct ExtractPass : public Pass {
 		log("        Register a valid permutation of swapable ports for a needle\n");
 		log("        cell type. This option can be used multiple times.\n");
 		log("\n");
+		log("    -attr <attribute_name>\n");
+		log("        Attributes with the given name must match (cells and wires).\n");
+		log("\n");
 		log("This pass does not operate on modules with uprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
 		log("\n");
@@ -324,7 +379,7 @@ struct ExtractPass : public Pass {
 		log_header("Executing EXTRACT pass (map subcircuits to cells).\n");
 		log_push();
 
-		SubCircuit::Solver solver;
+		SubCircuitSolver solver;
 
 		std::string filename;
 		bool constports = false;
@@ -420,6 +475,10 @@ struct ExtractPass : public Pass {
 				if (map_left != map_right)
 					log_cmd_error("Arguments to -perm are not a valid permutation!\n");
 				solver.addSwappablePortsPermutation(type, map);
+				continue;
+			}
+			if (args[argidx] == "-attr" && argidx+1 < args.size()) {
+				solver.attr_compare.insert(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;
