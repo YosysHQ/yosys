@@ -325,6 +325,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			if (design->selection_stack.size() > 0)
 				work_stack.push_back(design->selection_stack.back());
 		} else
+		if (arg == "##") {
+			while (work_stack.size() > 1) {
+				select_op_union(design, work_stack.front(), work_stack.back());
+				work_stack.pop_back();
+			}
+		} else
 		if (arg == "#n") {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on stack for operator #n.\n");
@@ -616,6 +622,9 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    #\n");
 		log("        push a copy of the current selection to the stack\n");
+		log("\n");
+		log("    ##\n");
+		log("        replace the stack with a union of all elements on it\n");
 		log("\n");
 		log("    #n\n");
 		log("        replace top set with its invert\n");
