@@ -243,7 +243,7 @@ static int parse_comma_list(std::set<RTLIL::IdString> &tokens, std::string str, 
 	}
 }
 
-static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules)
+static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits)
 {
 	for (auto &mod_it : design->modules)
 	{
@@ -254,7 +254,7 @@ static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::
 		std::set<RTLIL::Wire*> selected_wires;
 
 		for (auto &it : mod->wires)
-			if (lhs.selected_member(mod_it.first, it.first))
+			if (lhs.selected_member(mod_it.first, it.first) && limits.count(it.first) == 0)
 				selected_wires.insert(it.second);
 
 		for (auto &cell : mod->cells)
@@ -263,9 +263,9 @@ static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::
 			char last_mode = '-';
 			for (auto &rule : rules) {
 				last_mode = rule.mode;
-				if (rule.cell_types.size() > 0 && rule.cell_types.count(cell.second->type))
+				if (rule.cell_types.size() > 0 && rule.cell_types.count(cell.second->type) == 0)
 					continue;
-				if (rule.port_names.size() > 0 && rule.port_names.count(cell.first))
+				if (rule.port_names.size() > 0 && rule.port_names.count(conn.first) == 0)
 					continue;
 				if (rule.mode == '+')
 					goto include_match;
@@ -279,7 +279,7 @@ static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::
 				if (chunk.wire != NULL) {
 					if (selected_wires.count(chunk.wire) > 0)
 						lhs.selected_members[mod->name].insert(cell.first);
-					if (lhs.selected_members[mod->name].count(cell.first) > 0)
+					if (lhs.selected_members[mod->name].count(cell.first) > 0 && limits.count(cell.first) == 0)
 						lhs.selected_members[mod->name].insert(chunk.wire->name);
 				}
 		exclude_match:;
@@ -359,6 +359,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least one element on stack for operator #x.\n");
 			size_t pos = 2, levels = 1;
 			std::vector<expand_rule_t> rules;
+			std::set<RTLIL::IdString> limits;
 			if (pos < arg.size() && '0' <= arg[pos] && arg[pos] <= '9') {
 				size_t endpos = arg.find_first_not_of("0123456789", pos);
 				if (endpos == std::string::npos)
@@ -368,25 +369,53 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			}
 			while (pos < arg.size()) {
 				if (arg[pos] != ':' || pos+1 == arg.size())
-					goto syntax_error_x;
+					log_cmd_error("Syntax error in expand operator '%s'.\n", arg.c_str());
 				pos++;
 				if (arg[pos] == '+' || arg[pos] == '-') {
 					expand_rule_t rule;
 					rule.mode = arg[pos++];
 					pos = parse_comma_list(rule.cell_types, arg, pos, "[:");
 					if (pos < arg.size() && arg[pos] == '[') {
-						pos = parse_comma_list(rule.port_names, arg, pos, "]:");
+						pos = parse_comma_list(rule.port_names, arg, pos+1, "]:");
 						if (pos < arg.size() && arg[pos] == ']')
 							pos++;
 					}
-				} else
-			syntax_error_x:
-					log_cmd_error("Syntax error in expand operator '%s'.\n", arg.c_str());
+					rules.push_back(rule);
+				} else {
+					size_t endpos = arg.find(':', pos);
+					if (endpos == std::string::npos)
+						endpos = arg.size();
+					if (endpos > pos)
+						limits.insert(RTLIL::escape_id(arg.substr(pos, endpos-pos)));
+					pos = endpos;
+				}
 			}
-			if (arg.size() > 3)
-				levels = std::max(atoi(arg.substr(3).c_str()), 1);
+		#if 0
+			log("expand by %d levels:\n", int(levels));
+			for (auto &rule : rules) {
+				log("  rule (%c):\n", rule.mode);
+				if (rule.cell_types.size() > 0) {
+					log("    cell types:");
+					for (auto &it : rule.cell_types)
+						log(" %s", it.c_str());
+					log("\n");
+				}
+				if (rule.port_names.size() > 0) {
+					log("    port names:");
+					for (auto &it : rule.port_names)
+						log(" %s", it.c_str());
+					log("\n");
+				}
+			}
+			if (limits.size() > 0) {
+				log("  limits:");
+				for (auto &it : limits)
+					log(" %s", it.c_str());
+				log("\n");
+			}
+		#endif
 			while (levels-- > 0)
-				select_op_expand(design, work_stack.back(), rules);
+				select_op_expand(design, work_stack.back(), rules, limits);
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg.c_str());
 		select_filter_active_mod(design, work_stack.back());
@@ -645,7 +674,8 @@ struct SelectPass : public Pass {
 		log("        ports to use for this. the syntax for a rule is a '-' for exclusion\n");
 		log("        and a '+' for inclusion, followed by an optional comma seperated\n");
 		log("        list of cell types followed by an optional comma seperated list of\n");
-		log("        cell ports in square brackets.\n");
+		log("        cell ports in square brackets. a rule can also be just a cell or wire\n");
+		log("        name that limits the expansion (is included but does not go beyond).\n");
 		log("\n");
 		log("Example: the following command selects all wires that are connected to a\n");
 		log("'GATE' input of a 'SWITCH' cell:\n");
