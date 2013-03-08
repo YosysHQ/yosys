@@ -118,6 +118,17 @@ static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2)
 	return w2->name < w1->name;
 }
 
+static bool check_public_name(RTLIL::IdString id)
+{
+	if (id[0] == '$')
+		return false;
+#if 0
+	if (id.find(".$") == std::string::npos)
+		return true;
+#endif
+	return false;
+}
+
 static void rmunused_module_signals(RTLIL::Module *module)
 {
 	SigMap assign_map(module);
@@ -157,7 +168,7 @@ static void rmunused_module_signals(RTLIL::Module *module)
 	std::vector<RTLIL::Wire*> del_wires;
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
-		if (wire->name[0] == '\\') {
+		if (check_public_name(wire->name)) {
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;
 			assign_map.apply(s2);
 			if (!used_signals.check_any(s2) && wire->port_id == 0) {

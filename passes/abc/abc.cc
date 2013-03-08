@@ -459,6 +459,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			RTLIL::Wire *wire = new RTLIL::Wire;
 			wire->name = remap_name(w->name);
 			module->wires[wire->name] = wire;
+			design->select(module, wire);
 		}
 
 		std::map<std::string, int> cell_stats;
@@ -488,6 +489,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					cell->connections["\\A"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\A"].chunks[0].wire->name)]);
 					cell->connections["\\Y"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].chunks[0].wire->name)]);
 					module->cells[cell->name] = cell;
+					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR") {
@@ -498,6 +500,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					cell->connections["\\B"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\B"].chunks[0].wire->name)]);
 					cell->connections["\\Y"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].chunks[0].wire->name)]);
 					module->cells[cell->name] = cell;
+					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\MUX") {
@@ -509,6 +512,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					cell->connections["\\S"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\S"].chunks[0].wire->name)]);
 					cell->connections["\\Y"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].chunks[0].wire->name)]);
 					module->cells[cell->name] = cell;
+					design->select(module, cell);
 					continue;
 				}
 				assert(0);
@@ -532,6 +536,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				for (auto &conn : c->connections)
 					cell->connections[conn.first] = RTLIL::SigSpec(module->wires[remap_name(conn.second.chunks[0].wire->name)]);
 				module->cells[cell->name] = cell;
+				design->select(module, cell);
 			}
 		}
 

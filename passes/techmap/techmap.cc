@@ -112,6 +112,7 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 			w->port_output = false;
 			w->port_id = 0;
 			module->wires[w->name] = w;
+			design->select(module, w);
 		}
 
 		for (auto &it : tpl->cells) {
@@ -122,6 +123,7 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 			for (auto &it2 : c->connections)
 				apply_prefix(cell_name, it2.second, module);
 			module->cells[c->name] = c;
+			design->select(module, c);
 		}
 
 		for (auto &it : tpl->connections) {
