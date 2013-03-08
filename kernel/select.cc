@@ -520,7 +520,7 @@ struct SelectPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    select [ -add | -del | -set <name> ] <selection>\n");
-		log("    select [ -list | -clear ]\n");
+		log("    select [ -list | -count | -clear ]\n");
 		log("    select -module <modname>\n");
 		log("\n");
 		log("Most commands use the list of currently selected objects to determine which part\n");
@@ -542,6 +542,9 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    -list\n");
 		log("        list all objects in the current selection\n");
+		log("\n");
+		log("    -count\n");
+		log("        count all objects in the current selection\n");
 		log("\n");
 		log("    -clear\n");
 		log("        clear the current selection. this effectively selects the\n");
@@ -647,6 +650,7 @@ struct SelectPass : public Pass {
 		bool del_mode = false;
 		bool clear_mode = false;
 		bool list_mode = false;
+		bool count_mode = false;
 		bool got_module = false;
 		std::string set_name;
 
@@ -672,6 +676,10 @@ struct SelectPass : public Pass {
 				list_mode = true;
 				continue;
 			}
+			if (arg == "-count") {
+				count_mode = true;
+				continue;
+			}
 			if (arg == "-module" && argidx+1 < args.size()) {
 				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
 				if (design->modules.count(mod_name) == 0)
@@ -695,11 +703,11 @@ struct SelectPass : public Pass {
 		if (add_mode && del_mode)
 			log_cmd_error("Options -add and -del can not be combined.\n");
 
-		if (list_mode && (add_mode || del_mode))
-			log_cmd_error("Option -list can not be combined with -add or -del.\n");
+		if ((list_mode || count_mode) && (add_mode || del_mode))
+			log_cmd_error("Options -list and -count can not be combined with -add or -del.\n");
 
-		if (!set_name.empty() && (list_mode || add_mode || del_mode))
-			log_cmd_error("Option -set can not be combined with -list, -add or -del.\n");
+		if (!set_name.empty() && (list_mode || count_mode || add_mode || del_mode))
+			log_cmd_error("Option -set can not be combined with -list, -count, -add or -del.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -721,31 +729,36 @@ struct SelectPass : public Pass {
 			return;
 		}
 
-		if (list_mode)
+		if (list_mode || count_mode)
 		{
+		#define LOG_OBJECT(...) do { if (list_mode) log(__VA_ARGS__); total_count++; } while (0)
+			int total_count = 0;
 			RTLIL::Selection *sel = &design->selection_stack.back();
 			if (work_stack.size() > 0)
 				sel = &work_stack.back();
 			sel->optimize(design);
 			for (auto mod_it : design->modules)
 			{
-				if (sel->selected_whole_module(mod_it.first))
+				if (sel->selected_whole_module(mod_it.first) && list_mode)
 					log("%s\n", id2cstr(mod_it.first));
 				if (sel->selected_module(mod_it.first)) {
 					for (auto &it : mod_it.second->wires)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->memories)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->cells)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->processes)
 						if (sel->selected_member(mod_it.first, it.first))
-							log("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 				}
 			}
+			if (count_mode)
+				log("%d objects.\n", total_count);
+		#undef LOG_OBJECT
 			return;
 		}
 
