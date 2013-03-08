@@ -34,11 +34,11 @@ namespace
 	class SubCircuitSolver : public SubCircuit::Solver
 	{
 	public:
-		std::set<RTLIL::IdString> attr_compare;
+		std::set<RTLIL::IdString> cell_attr, wire_attr;
 
-		bool compareAttributes(const std::map<RTLIL::IdString, RTLIL::Const> &needleAttr, const std::map<RTLIL::IdString, RTLIL::Const> &haystackAttr)
+		bool compareAttributes(const std::set<RTLIL::IdString> &attr, const std::map<RTLIL::IdString, RTLIL::Const> &needleAttr, const std::map<RTLIL::IdString, RTLIL::Const> &haystackAttr)
 		{
-			for (auto &it : attr_compare) {
+			for (auto &it : attr) {
 				size_t nc = needleAttr.count(it), hc = haystackAttr.count(it);
 				if (nc != hc || (nc > 0 && needleAttr.at(it) != haystackAttr.at(it)))
 					return false;
@@ -49,33 +49,33 @@ namespace
 		virtual bool userCompareNodes(const std::string &, const std::string &, void *needleUserData,
 				const std::string &, const std::string &, void *haystackUserData, const std::map<std::string, std::string> &portMapping)
 		{
-			if (attr_compare.size() == 0)
-				return true;
-
 			RTLIL::Cell *needleCell = (RTLIL::Cell*) needleUserData;
 			RTLIL::Cell *haystackCell = (RTLIL::Cell*) haystackUserData;
 
-			if (!compareAttributes(needleCell->attributes, haystackCell->attributes))
+			if (cell_attr.size() > 0 && !compareAttributes(cell_attr, needleCell->attributes, haystackCell->attributes))
 				return false;
 
-			RTLIL::Wire *lastNeedleWire = NULL;
-			RTLIL::Wire *lastHaystackWire = NULL;
-			std::map<RTLIL::IdString, RTLIL::Const> emptyAttr;
-
-			for (auto &conn : needleCell->connections)
+			if (wire_attr.size() > 0)
 			{
-				RTLIL::SigSpec needleSig = conn.second;
-				RTLIL::SigSpec haystackSig = haystackCell->connections.at(portMapping.at(conn.first));
+				RTLIL::Wire *lastNeedleWire = NULL;
+				RTLIL::Wire *lastHaystackWire = NULL;
+				std::map<RTLIL::IdString, RTLIL::Const> emptyAttr;
 
-				needleSig.expand();
-				haystackSig.expand();
+				for (auto &conn : needleCell->connections)
+				{
+					RTLIL::SigSpec needleSig = conn.second;
+					RTLIL::SigSpec haystackSig = haystackCell->connections.at(portMapping.at(conn.first));
 
-				for (int i = 0; i < std::min(needleSig.width, haystackSig.width); i++) {
-					RTLIL::Wire *needleWire = needleSig.chunks.at(i).wire, *haystackWire = haystackSig.chunks.at(i).wire;
-					if (needleWire != lastNeedleWire || haystackWire != lastHaystackWire)
-						if (!compareAttributes(needleWire ? needleWire->attributes : emptyAttr, haystackWire ? haystackWire->attributes : emptyAttr))
-							return false;
-					lastNeedleWire = needleWire, lastHaystackWire = haystackWire;
+					needleSig.expand();
+					haystackSig.expand();
+
+					for (int i = 0; i < std::min(needleSig.width, haystackSig.width); i++) {
+						RTLIL::Wire *needleWire = needleSig.chunks.at(i).wire, *haystackWire = haystackSig.chunks.at(i).wire;
+						if (needleWire != lastNeedleWire || haystackWire != lastHaystackWire)
+							if (!compareAttributes(wire_attr, needleWire ? needleWire->attributes : emptyAttr, haystackWire ? haystackWire->attributes : emptyAttr))
+								return false;
+						lastNeedleWire = needleWire, lastHaystackWire = haystackWire;
+					}
 				}
 			}
 
@@ -340,8 +340,11 @@ struct ExtractPass : public Pass {
 		log("        Register a valid permutation of swapable ports for a needle\n");
 		log("        cell type. This option can be used multiple times.\n");
 		log("\n");
-		log("    -attr <attribute_name>\n");
-		log("        Attributes with the given name must match (cells and wires).\n");
+		log("    -cell_attr <attribute_name>\n");
+		log("        Attributes on cells with the given name must match.\n");
+		log("\n");
+		log("    -wire_attr <attribute_name>\n");
+		log("        Attributes on wires with the given name must match.\n");
 		log("\n");
 		log("This pass does not operate on modules with uprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
@@ -477,8 +480,12 @@ struct ExtractPass : public Pass {
 				solver.addSwappablePortsPermutation(type, map);
 				continue;
 			}
-			if (args[argidx] == "-attr" && argidx+1 < args.size()) {
-				solver.attr_compare.insert(RTLIL::escape_id(args[++argidx]));
+			if (args[argidx] == "-cell_attr" && argidx+1 < args.size()) {
+				solver.cell_attr.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-wire_attr" && argidx+1 < args.size()) {
+				solver.wire_attr.insert(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;
