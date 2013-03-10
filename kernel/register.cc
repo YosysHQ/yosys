@@ -21,6 +21,7 @@
 #include "log.h"
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 using namespace REGISTER_INTERN;
 #define MAX_REG_COUNT 1000
@@ -132,6 +133,18 @@ void Pass::call(RTLIL::Design *design, std::string command)
 {
 	std::vector<std::string> args;
 	char *s = strdup(command.c_str()), *saveptr;
+	s += strspn(s, " \t\r\n");
+	if (*s == 0 || *s == '#')
+		return;
+	if (*s == '!') {
+		for (s++; *s == ' ' || *s == '\t'; s++) { }
+		char *p = s + strlen(s) - 1;
+		while (p >= s && (*p == '\r' || *p == '\n'))
+			*(p--) = 0;
+		log_header("Shell command: %s\n", s);
+		system(s);
+		return;
+	}
 	for (char *p = strtok_r(s, " \t\r\n", &saveptr); p; p = strtok_r(NULL, " \t\r\n", &saveptr)) {
 		std::string str = p;
 		int strsz = str.size();
