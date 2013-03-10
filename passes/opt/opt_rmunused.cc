@@ -123,10 +123,10 @@ static bool check_public_name(RTLIL::IdString id)
 	if (id[0] == '$')
 		return false;
 #if 0
-	if (id.find(".$") == std::string::npos)
-		return true;
+	if (id.find(".$") != std::string::npos)
+		return false;
 #endif
-	return false;
+	return true;
 }
 
 static void rmunused_module_signals(RTLIL::Module *module)
