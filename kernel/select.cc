@@ -18,6 +18,7 @@
  */
 
 #include "kernel/register.h"
+#include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string.h>
 #include <fnmatch.h>
@@ -243,9 +244,10 @@ static int parse_comma_list(std::set<RTLIL::IdString> &tokens, std::string str, 
 	}
 }
 
-static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects)
+static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, CellTypes &ct)
 {
 	int sel_objects = 0;
+	bool is_input, is_output;
 	for (auto &mod_it : design->modules)
 	{
 		if (lhs.selected_whole_module(mod_it.first) || !lhs.selected_module(mod_it.first))
@@ -276,18 +278,114 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			if (last_mode == '+')
 				goto exclude_match;
 		include_match:
+			is_input = mode == 'x' || ct.cell_input(cell.second->type, conn.first);
+			is_output = mode == 'x' || ct.cell_output(cell.second->type, conn.first);
 			for (auto &chunk : conn.second.chunks)
 				if (chunk.wire != NULL) {
 					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && lhs.selected_members[mod->name].count(cell.first) == 0)
-						lhs.selected_members[mod->name].insert(cell.first), sel_objects++, max_objects--;
+						if (mode == 'x' || (mode == 'i' && is_output) || (mode == 'o' && is_input))
+							lhs.selected_members[mod->name].insert(cell.first), sel_objects++, max_objects--;
 					if (max_objects != 0 && lhs.selected_members[mod->name].count(cell.first) > 0 && limits.count(cell.first) == 0 && lhs.selected_members[mod->name].count(chunk.wire->name) == 0)
-						lhs.selected_members[mod->name].insert(chunk.wire->name), sel_objects++, max_objects--;
+						if (mode == 'x' || (mode == 'i' && is_input) || (mode == 'o' && is_output))
+							lhs.selected_members[mod->name].insert(chunk.wire->name), sel_objects++, max_objects--;
 				}
 		exclude_match:;
 		}
 	}
 
 	return sel_objects;
+}
+
+static void select_op_expand(RTLIL::Design *design, std::string arg, char mode)
+{
+	int pos = mode == 'x' ? 2 : 3, levels = 1, rem_objects = -1;
+	std::vector<expand_rule_t> rules;
+	std::set<RTLIL::IdString> limits;
+
+	CellTypes ct;
+
+	if (mode != 'x')
+		ct.setup(design);
+
+	if (pos < int(arg.size()) && arg[pos] == '*') {
+		levels = 1000000;
+		pos++;
+	} else
+	if (pos < int(arg.size()) && '0' <= arg[pos] && arg[pos] <= '9') {
+		size_t endpos = arg.find_first_not_of("0123456789", pos);
+		if (endpos == std::string::npos)
+			endpos = arg.size();
+		levels = atoi(arg.substr(pos, endpos-pos).c_str());
+		pos = endpos;
+	}
+
+	if (pos < int(arg.size()) && arg[pos] == '.') {
+		size_t endpos = arg.find_first_not_of("0123456789", ++pos);
+		if (endpos == std::string::npos)
+			endpos = arg.size();
+		if (int(endpos) > pos)
+			rem_objects = atoi(arg.substr(pos, endpos-pos).c_str());
+		pos = endpos;
+	}
+
+	while (pos < int(arg.size())) {
+		if (arg[pos] != ':' || pos+1 == int(arg.size()))
+			log_cmd_error("Syntax error in expand operator '%s'.\n", arg.c_str());
+		pos++;
+		if (arg[pos] == '+' || arg[pos] == '-') {
+			expand_rule_t rule;
+			rule.mode = arg[pos++];
+			pos = parse_comma_list(rule.cell_types, arg, pos, "[:");
+			if (pos < int(arg.size()) && arg[pos] == '[') {
+				pos = parse_comma_list(rule.port_names, arg, pos+1, "]:");
+				if (pos < int(arg.size()) && arg[pos] == ']')
+					pos++;
+			}
+			rules.push_back(rule);
+		} else {
+			size_t endpos = arg.find(':', pos);
+			if (endpos == std::string::npos)
+				endpos = arg.size();
+			if (int(endpos) > pos)
+				limits.insert(RTLIL::escape_id(arg.substr(pos, endpos-pos)));
+			pos = endpos;
+		}
+	}
+
+#if 0
+	log("expand by %d levels (max. %d objects):\n", levels, rem_objects);
+	for (auto &rule : rules) {
+		log("  rule (%c):\n", rule.mode);
+		if (rule.cell_types.size() > 0) {
+			log("    cell types:");
+			for (auto &it : rule.cell_types)
+				log(" %s", it.c_str());
+			log("\n");
+		}
+		if (rule.port_names.size() > 0) {
+			log("    port names:");
+			for (auto &it : rule.port_names)
+				log(" %s", it.c_str());
+			log("\n");
+		}
+	}
+	if (limits.size() > 0) {
+		log("  limits:");
+		for (auto &it : limits)
+			log(" %s", it.c_str());
+		log("\n");
+	}
+#endif
+
+	while (levels-- > 0 && rem_objects != 0) {
+		int num_objects = select_op_expand(design, work_stack.back(), rules, limits, rem_objects, mode, ct);
+		if (num_objects == 0)
+			break;
+		rem_objects -= num_objects;
+	}
+
+	if (rem_objects == 0)
+		log("Warning: reached configured limit at `%s'.\n", arg.c_str());
 }
 
 static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &sel)
@@ -336,107 +434,41 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else
 		if (arg == "#n") {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on stack for operator #n.\n");
+				log_cmd_error("Must have at least one element on the stack for operator #n.\n");
 			select_op_neg(design, work_stack[work_stack.size()-1]);
 		} else
 		if (arg == "#u") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on stack for operator #u.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator #u.\n");
 			select_op_union(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
 		if (arg == "#d") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on stack for operator #d.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator #d.\n");
 			select_op_diff(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
 		if (arg == "#i") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on stack for operator #i.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator #i.\n");
 			select_op_intersect(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
 		if (arg == "#x" || (arg.size() > 2 && arg.substr(0, 2) == "#x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on stack for operator #x.\n");
-			int pos = 2, levels = 1, rem_objects = -1;
-			std::vector<expand_rule_t> rules;
-			std::set<RTLIL::IdString> limits;
-			if (pos < int(arg.size()) && arg[pos] == '*') {
-				levels = 1000000;
-				pos++;
-			} else
-			if (pos < int(arg.size()) && '0' <= arg[pos] && arg[pos] <= '9') {
-				size_t endpos = arg.find_first_not_of("0123456789", pos);
-				if (endpos == std::string::npos)
-					endpos = arg.size();
-				levels = atoi(arg.substr(pos, endpos-pos).c_str());
-				pos = endpos;
-			}
-			if (pos < int(arg.size()) && arg[pos] == '.') {
-				size_t endpos = arg.find_first_not_of("0123456789", ++pos);
-				if (endpos == std::string::npos)
-					endpos = arg.size();
-				if (int(endpos) > pos)
-					rem_objects = atoi(arg.substr(pos, endpos-pos).c_str());
-				pos = endpos;
-			}
-			while (pos < int(arg.size())) {
-				if (arg[pos] != ':' || pos+1 == int(arg.size()))
-					log_cmd_error("Syntax error in expand operator '%s'.\n", arg.c_str());
-				pos++;
-				if (arg[pos] == '+' || arg[pos] == '-') {
-					expand_rule_t rule;
-					rule.mode = arg[pos++];
-					pos = parse_comma_list(rule.cell_types, arg, pos, "[:");
-					if (pos < int(arg.size()) && arg[pos] == '[') {
-						pos = parse_comma_list(rule.port_names, arg, pos+1, "]:");
-						if (pos < int(arg.size()) && arg[pos] == ']')
-							pos++;
-					}
-					rules.push_back(rule);
-				} else {
-					size_t endpos = arg.find(':', pos);
-					if (endpos == std::string::npos)
-						endpos = arg.size();
-					if (int(endpos) > pos)
-						limits.insert(RTLIL::escape_id(arg.substr(pos, endpos-pos)));
-					pos = endpos;
-				}
-			}
-		#if 0
-			log("expand by %d levels (max. %d objects):\n", levels, rem_objects);
-			for (auto &rule : rules) {
-				log("  rule (%c):\n", rule.mode);
-				if (rule.cell_types.size() > 0) {
-					log("    cell types:");
-					for (auto &it : rule.cell_types)
-						log(" %s", it.c_str());
-					log("\n");
-				}
-				if (rule.port_names.size() > 0) {
-					log("    port names:");
-					for (auto &it : rule.port_names)
-						log(" %s", it.c_str());
-					log("\n");
-				}
-			}
-			if (limits.size() > 0) {
-				log("  limits:");
-				for (auto &it : limits)
-					log(" %s", it.c_str());
-				log("\n");
-			}
-		#endif
-			while (levels-- > 0 && rem_objects != 0) {
-				int num_objects = select_op_expand(design, work_stack.back(), rules, limits, rem_objects);
-				if (num_objects == 0)
-					break;
-				rem_objects -= num_objects;
-			}
-			if (rem_objects == 0)
-				log("Warning: reached configured limit at `%s'.\n", arg.c_str());
+				log_cmd_error("Must have at least one element on the stack for operator #x.\n");
+			select_op_expand(design, arg, 'x');
+		} else
+		if (arg == "#ci" || (arg.size() > 3 && arg.substr(0, 3) == "#ci" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator #ci.\n");
+			select_op_expand(design, arg, 'i');
+		} else
+		if (arg == "#co" || (arg.size() > 3 && arg.substr(0, 3) == "#co" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator #co.\n");
+			select_op_expand(design, arg, 'o');
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg.c_str());
 		select_filter_active_mod(design, work_stack.back());
@@ -703,6 +735,10 @@ struct SelectPass : public Pass {
 		log("        select at most <num2> objects. a warning message is printed when this\n");
 		log("        limit is reached. When '*' is used instead of <num1> then the process\n");
 		log("        is repeated until no further object are selected.\n");
+		log("\n");
+		log("    #ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
+		log("    #co[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
+		log("        simmilar to #x, but only select input (#ci) or output cones (#co)\n");
 		log("\n");
 		log("Example: the following command selects all wires that are connected to a\n");
 		log("'GATE' input of a 'SWITCH' cell:\n");

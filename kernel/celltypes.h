@@ -29,6 +29,21 @@ struct CellTypes
 	std::set<std::string> cell_types;
 	std::vector<const RTLIL::Design*> designs;
 
+	void setup(const RTLIL::Design *design = NULL)
+	{
+		if (design)
+			setup_design(design);
+		setup_internals();
+		setup_internals_mem();
+		setup_stdcells();
+		setup_stdcells_mem();
+	}
+
+	void setup_design(const RTLIL::Design *design)
+	{
+		designs.push_back(design);
+	}
+
 	void setup_internals()
 	{
 		cell_types.insert("$not");
@@ -99,11 +114,6 @@ struct CellTypes
 		cell_types.insert("$_DFF_PN1_");
 		cell_types.insert("$_DFF_PP0_");
 		cell_types.insert("$_DFF_PP1_");
-	}
-
-	void setup_design(const RTLIL::Design *design)
-	{
-		designs.push_back(design);
 	}
 
 	void clear()
