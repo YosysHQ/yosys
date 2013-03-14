@@ -243,8 +243,9 @@ static int parse_comma_list(std::set<RTLIL::IdString> &tokens, std::string str, 
 	}
 }
 
-static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits)
+static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects)
 {
+	int sel_objects = 0;
 	for (auto &mod_it : design->modules)
 	{
 		if (lhs.selected_whole_module(mod_it.first) || !lhs.selected_module(mod_it.first))
@@ -277,14 +278,16 @@ static void select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::
 		include_match:
 			for (auto &chunk : conn.second.chunks)
 				if (chunk.wire != NULL) {
-					if (selected_wires.count(chunk.wire) > 0)
-						lhs.selected_members[mod->name].insert(cell.first);
-					if (lhs.selected_members[mod->name].count(cell.first) > 0 && limits.count(cell.first) == 0)
-						lhs.selected_members[mod->name].insert(chunk.wire->name);
+					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && lhs.selected_members[mod->name].count(cell.first) == 0)
+						lhs.selected_members[mod->name].insert(cell.first), sel_objects++, max_objects--;
+					if (max_objects != 0 && lhs.selected_members[mod->name].count(cell.first) > 0 && limits.count(cell.first) == 0 && lhs.selected_members[mod->name].count(chunk.wire->name) == 0)
+						lhs.selected_members[mod->name].insert(chunk.wire->name), sel_objects++, max_objects--;
 				}
 		exclude_match:;
 		}
 	}
+
+	return sel_objects;
 }
 
 static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &sel)
@@ -354,30 +357,42 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			select_op_intersect(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
-		if (arg == "#x" || (arg.size() > 2 && arg.substr(0, 2) == "#x" && (arg[2] == ':' || ('0' <= arg[2] && arg[2] <= '9')))) {
+		if (arg == "#x" || (arg.size() > 2 && arg.substr(0, 2) == "#x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on stack for operator #x.\n");
-			size_t pos = 2, levels = 1;
+			int pos = 2, levels = 1, rem_objects = -1;
 			std::vector<expand_rule_t> rules;
 			std::set<RTLIL::IdString> limits;
-			if (pos < arg.size() && '0' <= arg[pos] && arg[pos] <= '9') {
+			if (pos < int(arg.size()) && arg[pos] == '*') {
+				levels = 1000000;
+				pos++;
+			} else
+			if (pos < int(arg.size()) && '0' <= arg[pos] && arg[pos] <= '9') {
 				size_t endpos = arg.find_first_not_of("0123456789", pos);
 				if (endpos == std::string::npos)
 					endpos = arg.size();
 				levels = atoi(arg.substr(pos, endpos-pos).c_str());
 				pos = endpos;
 			}
-			while (pos < arg.size()) {
-				if (arg[pos] != ':' || pos+1 == arg.size())
+			if (pos < int(arg.size()) && arg[pos] == '.') {
+				size_t endpos = arg.find_first_not_of("0123456789", ++pos);
+				if (endpos == std::string::npos)
+					endpos = arg.size();
+				if (int(endpos) > pos)
+					rem_objects = atoi(arg.substr(pos, endpos-pos).c_str());
+				pos = endpos;
+			}
+			while (pos < int(arg.size())) {
+				if (arg[pos] != ':' || pos+1 == int(arg.size()))
 					log_cmd_error("Syntax error in expand operator '%s'.\n", arg.c_str());
 				pos++;
 				if (arg[pos] == '+' || arg[pos] == '-') {
 					expand_rule_t rule;
 					rule.mode = arg[pos++];
 					pos = parse_comma_list(rule.cell_types, arg, pos, "[:");
-					if (pos < arg.size() && arg[pos] == '[') {
+					if (pos < int(arg.size()) && arg[pos] == '[') {
 						pos = parse_comma_list(rule.port_names, arg, pos+1, "]:");
-						if (pos < arg.size() && arg[pos] == ']')
+						if (pos < int(arg.size()) && arg[pos] == ']')
 							pos++;
 					}
 					rules.push_back(rule);
@@ -385,13 +400,13 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 					size_t endpos = arg.find(':', pos);
 					if (endpos == std::string::npos)
 						endpos = arg.size();
-					if (endpos > pos)
+					if (int(endpos) > pos)
 						limits.insert(RTLIL::escape_id(arg.substr(pos, endpos-pos)));
 					pos = endpos;
 				}
 			}
 		#if 0
-			log("expand by %d levels:\n", int(levels));
+			log("expand by %d levels (max. %d objects):\n", levels, rem_objects);
 			for (auto &rule : rules) {
 				log("  rule (%c):\n", rule.mode);
 				if (rule.cell_types.size() > 0) {
@@ -414,8 +429,14 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log("\n");
 			}
 		#endif
-			while (levels-- > 0)
-				select_op_expand(design, work_stack.back(), rules, limits);
+			while (levels-- > 0 && rem_objects != 0) {
+				int num_objects = select_op_expand(design, work_stack.back(), rules, limits, rem_objects);
+				if (num_objects == 0)
+					break;
+				rem_objects -= num_objects;
+			}
+			if (rem_objects == 0)
+				log("Warning: reached configured limit at `%s'.\n", arg.c_str());
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg.c_str());
 		select_filter_active_mod(design, work_stack.back());
@@ -670,8 +691,8 @@ struct SelectPass : public Pass {
 		log("    #d\n");
 		log("        pop the top set from the stack and subtract it from the new top\n");
 		log("\n");
-		log("    #x[<num>][:<rule>[:<rule>..]]\n");
-		log("        expand top set <num> num times accorind to the specified rules.\n");
+		log("    #x[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
+		log("        expand top set <num1> num times accorind to the specified rules.\n");
 		log("        (i.e. select all cells connected to selected wires and select all\n");
 		log("        wires connected to selected cells) The rules specify which cell\n");
 		log("        ports to use for this. the syntax for a rule is a '-' for exclusion\n");
@@ -679,6 +700,9 @@ struct SelectPass : public Pass {
 		log("        list of cell types followed by an optional comma seperated list of\n");
 		log("        cell ports in square brackets. a rule can also be just a cell or wire\n");
 		log("        name that limits the expansion (is included but does not go beyond).\n");
+		log("        select at most <num2> objects. a warning message is printed when this\n");
+		log("        limit is reached. When '*' is used instead of <num1> then the process\n");
+		log("        is repeated until no further object are selected.\n");
 		log("\n");
 		log("Example: the following command selects all wires that are connected to a\n");
 		log("'GATE' input of a 'SWITCH' cell:\n");
