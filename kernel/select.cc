@@ -421,53 +421,53 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	if (arg.size() == 0)
 		return;
 
-	if (arg[0] == '#') {
-		if (arg == "#") {
+	if (arg[0] == '%') {
+		if (arg == "%") {
 			if (design->selection_stack.size() > 0)
 				work_stack.push_back(design->selection_stack.back());
 		} else
-		if (arg == "##") {
+		if (arg == "%%") {
 			while (work_stack.size() > 1) {
 				select_op_union(design, work_stack.front(), work_stack.back());
 				work_stack.pop_back();
 			}
 		} else
-		if (arg == "#n") {
+		if (arg == "%n") {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator #n.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%n.\n");
 			select_op_neg(design, work_stack[work_stack.size()-1]);
 		} else
-		if (arg == "#u") {
+		if (arg == "%u") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on the stack for operator #u.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator %%u.\n");
 			select_op_union(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
-		if (arg == "#d") {
+		if (arg == "%d") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on the stack for operator #d.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator %%d.\n");
 			select_op_diff(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
-		if (arg == "#i") {
+		if (arg == "%i") {
 			if (work_stack.size() < 2)
-				log_cmd_error("Must have at least two elements on the stack for operator #i.\n");
+				log_cmd_error("Must have at least two elements on the stack for operator %%i.\n");
 			select_op_intersect(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
-		if (arg == "#x" || (arg.size() > 2 && arg.substr(0, 2) == "#x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
+		if (arg == "%x" || (arg.size() > 2 && arg.substr(0, 2) == "%x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator #x.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%x.\n");
 			select_op_expand(design, arg, 'x');
 		} else
-		if (arg == "#ci" || (arg.size() > 3 && arg.substr(0, 3) == "#ci" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%ci" || (arg.size() > 3 && arg.substr(0, 3) == "%ci" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator #ci.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%ci.\n");
 			select_op_expand(design, arg, 'i');
 		} else
-		if (arg == "#co" || (arg.size() > 3 && arg.substr(0, 3) == "#co" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%co" || (arg.size() > 3 && arg.substr(0, 3) == "%co" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator #co.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%co.\n");
 			select_op_expand(design, arg, 'o');
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg.c_str());
@@ -705,25 +705,25 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("The following actions can be performed on the top sets on the stack:\n");
 		log("\n");
-		log("    #\n");
+		log("    %%\n");
 		log("        push a copy of the current selection to the stack\n");
 		log("\n");
-		log("    ##\n");
+		log("    %%%%\n");
 		log("        replace the stack with a union of all elements on it\n");
 		log("\n");
-		log("    #n\n");
+		log("    %%n\n");
 		log("        replace top set with its invert\n");
 		log("\n");
-		log("    #u\n");
+		log("    %%u\n");
 		log("        replace the two top sets on the stack with their union\n");
 		log("\n");
-		log("    #i\n");
+		log("    %%i\n");
 		log("        replace the two top sets on the stack with their intersection\n");
 		log("\n");
-		log("    #d\n");
+		log("    %%d\n");
 		log("        pop the top set from the stack and subtract it from the new top\n");
 		log("\n");
-		log("    #x[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
+		log("    %%x[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("        expand top set <num1> num times accorind to the specified rules.\n");
 		log("        (i.e. select all cells connected to selected wires and select all\n");
 		log("        wires connected to selected cells) The rules specify which cell\n");
@@ -736,14 +736,14 @@ struct SelectPass : public Pass {
 		log("        limit is reached. When '*' is used instead of <num1> then the process\n");
 		log("        is repeated until no further object are selected.\n");
 		log("\n");
-		log("    #ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
-		log("    #co[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
-		log("        simmilar to #x, but only select input (#ci) or output cones (#co)\n");
+		log("    %%ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
+		log("    %%co[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
+		log("        simmilar to %%x, but only select input (%%ci) or output cones (%%co)\n");
 		log("\n");
 		log("Example: the following command selects all wires that are connected to a\n");
 		log("'GATE' input of a 'SWITCH' cell:\n");
 		log("\n");
-		log("    select */t:SWITCH #x:+[GATE] */t:SWITCH #d\n");
+		log("    select */t:SWITCH %%x:+[GATE] */t:SWITCH %%d\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
