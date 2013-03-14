@@ -642,6 +642,27 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$sr (S, R, Q);
+
+parameter WIDTH = 0;
+
+input CLK;
+input [WIDTH-1:0] S, R;
+output reg [WIDTH-1:0] Q;
+
+integer i;
+always @(S, R)
+	for (i = 0; i < WIDTH; i = i+1) begin
+		if (R[i])
+			Q[i] <= 0;
+		else if (S[i])
+			Q[i] <= 1;
+	end
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$dff (CLK, D, Q);
 
 parameter WIDTH = 0;
