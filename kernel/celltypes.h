@@ -75,6 +75,7 @@ struct CellTypes
 		cell_types.insert("$memwr");
 		cell_types.insert("$mem");
 		cell_types.insert("$fsm");
+		cell_types.insert("$sr");
 	}
 
 	void setup_stdcells()
