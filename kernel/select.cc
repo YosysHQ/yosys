@@ -555,7 +555,7 @@ struct SelectPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    select [ -add | -del | -set <name> ] <selection>\n");
-		log("    select [ -list | -count | -clear ]\n");
+		log("    select [ -list | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
 		log("\n");
 		log("Most commands use the list of currently selected objects to determine which part\n");
@@ -577,6 +577,9 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    -list\n");
 		log("        list all objects in the current selection\n");
+		log("\n");
+		log("    -write <filename>\n");
+		log("        like -list but write the output to the specified file\n");
 		log("\n");
 		log("    -count\n");
 		log("        count all objects in the current selection\n");
@@ -691,6 +694,7 @@ struct SelectPass : public Pass {
 		bool list_mode = false;
 		bool count_mode = false;
 		bool got_module = false;
+		std::string write_file;
 		std::string set_name;
 
 		work_stack.clear();
@@ -713,6 +717,10 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-list") {
 				list_mode = true;
+				continue;
+			}
+			if (arg == "-write" && argidx+1 < args.size()) {
+				write_file = args[++argidx];
 				continue;
 			}
 			if (arg == "-count") {
@@ -742,11 +750,11 @@ struct SelectPass : public Pass {
 		if (add_mode && del_mode)
 			log_cmd_error("Options -add and -del can not be combined.\n");
 
-		if ((list_mode || count_mode) && (add_mode || del_mode))
-			log_cmd_error("Options -list and -count can not be combined with -add or -del.\n");
+		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode))
+			log_cmd_error("Options -list, -write and -count can not be combined with -add or -del.\n");
 
-		if (!set_name.empty() && (list_mode || count_mode || add_mode || del_mode))
-			log_cmd_error("Option -set can not be combined with -list, -count, -add or -del.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add or -del.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -768,10 +776,16 @@ struct SelectPass : public Pass {
 			return;
 		}
 
-		if (list_mode || count_mode)
+		if (list_mode || count_mode || !write_file.empty())
 		{
-		#define LOG_OBJECT(...) do { if (list_mode) log(__VA_ARGS__); total_count++; } while (0)
+		#define LOG_OBJECT(...) do { if (list_mode) log(__VA_ARGS__); if (f != NULL) fprintf(f, __VA_ARGS__); total_count++; } while (0)
 			int total_count = 0;
+			FILE *f = NULL;
+			if (!write_file.empty()) {
+				f = fopen(write_file.c_str(), "w");
+				if (f == NULL)
+					log_error("Can't open '%s' for writing: %s\n", write_file.c_str(), strerror(errno));
+			}
 			RTLIL::Selection *sel = &design->selection_stack.back();
 			if (work_stack.size() > 0)
 				sel = &work_stack.back();
@@ -797,6 +811,8 @@ struct SelectPass : public Pass {
 			}
 			if (count_mode)
 				log("%d objects.\n", total_count);
+			if (f != NULL)
+				fclose(f);
 		#undef LOG_OBJECT
 			return;
 		}
