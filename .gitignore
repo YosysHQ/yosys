@@ -1,5 +1,6 @@
 *.o
 *.d
+.*.swp
 qtcreator.files
 qtcreator.includes
 qtcreator.config
