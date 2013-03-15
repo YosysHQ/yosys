@@ -17,6 +17,11 @@
  *
  */
 
+// [[CITE]]
+// Yiqiong Shi; Chan Wai Ting; Bah-Hwee Gwee; Ye Ren, "A highly efficient method for extracting FSMs from flattened gate-level netlist,"
+// Circuits and Systems (ISCAS), Proceedings of 2010 IEEE International Symposium on , vol., no., pp.2610,2613, May 30 2010-June 2 2010
+// doi: 10.1109/ISCAS.2010.5537093
+
 #include "kernel/log.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -283,7 +288,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	fsm_cell->connections["\\CTRL_IN"] = ctrl_in;
 	fsm_cell->connections["\\CTRL_OUT"] = ctrl_out;
 	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name);
-    fsm_cell->attributes = wire->attributes;
+	fsm_cell->attributes = wire->attributes;
 	fsm_data.copy_to_cell(fsm_cell);
 	module->cells[fsm_cell->name] = fsm_cell;
 

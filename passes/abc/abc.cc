@@ -17,6 +17,14 @@
  *
  */
 
+// [[CITE]] ABC
+// Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
+// http://www.eecs.berkeley.edu/~alanmi/abc/
+
+// [[CITE]] Kahn's Topological sorting algorithm
+// Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
+// http://en.wikipedia.org/wiki/Topological_sorting
+
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -187,6 +195,7 @@ static void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edge
 static void handle_loops()
 {
 	// http://en.wikipedia.org/wiki/Topological_sorting
+	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
 
 	std::map<int, std::set<int>> edges;
 	std::vector<int> in_edges_count(signal_list.size());
