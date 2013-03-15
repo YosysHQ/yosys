@@ -142,7 +142,9 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		while (p >= s && (*p == '\r' || *p == '\n'))
 			*(p--) = 0;
 		log_header("Shell command: %s\n", s);
-		system(s);
+		int retCode = system(s);
+		if (retCode != 0)
+			log_cmd_error("Shell command returned error code %d.\n", retCode);
 		return;
 	}
 	for (char *p = strtok_r(s, " \t\r\n", &saveptr); p; p = strtok_r(NULL, " \t\r\n", &saveptr)) {

@@ -73,6 +73,7 @@ struct SccWorker
 			}
 
 		if (cellLabels[cell].first == cellLabels[cell].second)
+		{
 			if (cellStack.back() == cell)
 			{
 				cellStack.pop_back();
@@ -93,6 +94,7 @@ struct SccWorker
 				sccList.push_back(scc);
 				log("\n");
 			}
+		}
 	}
 
 	SccWorker(RTLIL::Design *design, RTLIL::Module *module, bool allCellTypes, int maxDepth) : design(design), module(module), sigmap(module)
