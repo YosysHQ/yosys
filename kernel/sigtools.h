@@ -164,6 +164,18 @@ struct SigSet
 		}
 	}
 
+	void insert(RTLIL::SigSpec sig, const std::set<T> &data)
+	{
+		sig.expand();
+		for (auto &c : sig.chunks) {
+			if (c.wire == NULL)
+				continue;
+			assert(c.width == 1);
+			bitDef_t bit(c.wire, c.offset);
+			bits[bit].insert(data.begin(), data.end());
+		}
+	}
+
 	void erase(RTLIL::SigSpec sig)
 	{
 		sig.expand();
@@ -185,6 +197,18 @@ struct SigSet
 			assert(c.width == 1);
 			bitDef_t bit(c.wire, c.offset);
 			bits[bit].erase(data);
+		}
+	}
+
+	void erase(RTLIL::SigSpec sig, const std::set<T> &data)
+	{
+		sig.expand();
+		for (auto &c : sig.chunks) {
+			if (c.wire == NULL)
+				continue;
+			assert(c.width == 1);
+			bitDef_t bit(c.wire, c.offset);
+			bits[bit].erase(data.begin(), data.end());
 		}
 	}
 

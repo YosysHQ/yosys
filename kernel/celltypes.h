@@ -29,6 +29,15 @@ struct CellTypes
 	std::set<std::string> cell_types;
 	std::vector<const RTLIL::Design*> designs;
 
+	CellTypes()
+	{
+	}
+
+	CellTypes(const RTLIL::Design *design)
+	{
+		setup(design);
+	}
+
 	void setup(const RTLIL::Design *design = NULL)
 	{
 		if (design)
