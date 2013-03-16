@@ -441,10 +441,28 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		else
 			snprintf(buffer, 1024, "%s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; "
 					"map; write_verilog %s/output.v' 2>&1", exe_file.c_str(), tempdir_name, tempdir_name, tempdir_name);
+		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
 		f = popen(buffer, "r");
+		if (!f) {
+			log("ABC: popen failed: %d, %s\n",errno,sys_errlist[errno]);
+			assert(0);
+		}
 		while (fgets(buffer, 1024, f) != NULL)
 			log("ABC: %s", buffer);
-		fclose(f);
+		errno = 0;
+		int ret = pclose(f);
+		if (ret < 0) {
+			log("ABC: pclose failed: %d, %s\n",errno,sys_errlist[errno]);
+			assert(0);
+		}
+		if (WEXITSTATUS(ret) != 0) {
+			switch (WEXITSTATUS(ret)) {
+				case 127: log("ABC: execution of command \"%s\" failed: Command not found\n",exe_file.c_str()); break;
+				case 126: log("ABC: execution of command \"%s\" failed: Command not executable\n",exe_file.c_str()); break;
+				default:  log("ABC: execution of command \"%s\" failed: the shell returned %d\n",exe_file.c_str(),WEXITSTATUS(ret)); break;
+			}
+			assert(0);
+		}
 
 		if (asprintf(&p, "%s/output.v", tempdir_name) < 0) abort();
 		f = fopen(p, "rt");
