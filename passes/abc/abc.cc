@@ -627,10 +627,10 @@ struct AbcPass : public Pass {
 		log("        keeps using yosys's internal gate library.\n");
 		log("\n");
 		log("    -nocleanup\n");
-		log("        when this option is used, the tempprary files created be this pass\n");
+		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
 		log("\n");
-		log("This pass does not operate on modules with uprocessed processes in it.\n");
+		log("This pass does not operate on modules with unprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
