@@ -241,7 +241,7 @@ struct FsmExpandPass : public Pass {
 		log("\n");
 		log("    fsm_expand [selection]\n");
 		log("\n");
-		log("The fsm_extract pass is conservative about the cells that belong the a finate\n");
+		log("The fsm_extract pass is conservative about the cells that belong to a finite\n");
 		log("state machine. This pass can be used to merge additional auxiliary gates into\n");
 		log("the finate state machine.\n");
 		log("\n");

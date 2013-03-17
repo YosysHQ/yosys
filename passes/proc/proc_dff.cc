@@ -168,8 +168,8 @@ struct ProcDffPass : public Pass {
 		log("\n");
 		log("    proc_dff [selection]\n");
 		log("\n");
-		log("This pass identifies flip-flops in the processes and converts then to\n");
-		log("flip-flop cells.\n");
+		log("This pass identifies flip-flops in the processes and converts them to\n");
+		log("d-type flip-flop cells.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

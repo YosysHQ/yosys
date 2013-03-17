@@ -638,9 +638,9 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");
-		log("        file format). This option is ignored if also -script option is also\n");
-		log("        used. Without this option, ABC is used to optimize the netlist but\n");
-		log("        keeps using yosys's internal gate library.\n");
+		log("        file format). Without this option, ABC is used to optimize the netlist\n");
+		log("        but keeps using yosys's internal gate library. This option is ignored if\n");
+		log("        the -script option is also used.\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");

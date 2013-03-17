@@ -172,14 +172,14 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("    techmap [-map filename] [selection]\n");
 		log("\n");
-		log("This pass implements a very simple technology mapper than replaces cells in\n");
+		log("This pass implements a very simple technology mapper that replaces cells in\n");
 		log("the design with implementations given in form of a verilog or ilang source\n");
 		log("file.\n");
 		log("\n");
 		log("    -map filename\n");
 		log("        the library of cell implementations to be used.\n");
 		log("        without this parameter a builtin library is used that\n");
-		log("        transform the internal RTL cells to the internal gate\n");
+		log("        transforms the internal RTL cells to the internal gate\n");
 		log("        library.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");

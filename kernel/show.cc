@@ -319,7 +319,7 @@ struct ShowPass : public Pass {
 		log("         Also run the specified command with the postscript file as parameter.\n");
 		log("\n");
 		log("    -lib <verilog_or_ilang_file>\n");
-		log("         Use the specified library file for determining whether cell ports are.\n");
+		log("         Use the specified library file for determining whether cell ports are\n");
 		log("         inputs or outputs. This option can be used multiple times to specify\n");
 		log("         more than one library.\n");
 		log("\n");
