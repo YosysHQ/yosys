@@ -357,7 +357,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	if (asprintf(&p, "%s/input.v", tempdir_name) < 0) abort();
 	FILE *f = fopen(p, "wt");
 	if (f == NULL);
-		log_error("Opening %s for writing failed: %s\n", p, strerrno(errno));
+		log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 	free(p);
 
 	fprintf(f, "module logic (");
@@ -421,7 +421,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		if (asprintf(&p, "%s/stdcells.genlib", tempdir_name) < 0) abort();
 		f = fopen(p, "wt");
 		if (f == NULL);
-			log_error("Opening %s for writing failed: %s\n", p, strerrno(errno));
+			log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 		fprintf(f, "GATE ZERO 1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE  1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF  1 Y=A;                  PIN * NONINV  1 999 1 0 1 0\n");
@@ -447,13 +447,13 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
 		f = popen(buffer, "r");
 		if (f == NULL)
-			log_error("Opening pipe to `%s' for reading failed: %s\n", buffer, strerrno(errno));
+			log_error("Opening pipe to `%s' for reading failed: %s\n", buffer, strerror(errno));
 		while (fgets(buffer, 1024, f) != NULL)
 			log("ABC: %s", buffer);
 		errno = 0;
 		int ret = pclose(f);
 		if (ret < 0)
-			log_error("Closing pipe to `%s' failed: %s\n", buffer, strerrno(errno));
+			log_error("Closing pipe to `%s' failed: %s\n", buffer, strerror(errno));
 		if (WEXITSTATUS(ret) != 0) {
 			switch (WEXITSTATUS(ret)) {
 				case 127: log_error("ABC: execution of command \"%s\" failed: Command not found\n", exe_file.c_str()); break;
