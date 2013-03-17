@@ -332,7 +332,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		tempdir_name[0] = tempdir_name[4] = '_';
 	char *p = mkdtemp(tempdir_name);
 	log_header("Extracting gate logic of module `%s' to `%s/input.v'..\n", module->name.c_str(), tempdir_name);
-	assert(p != NULL);
+	if (p == NULL)
+		log_error("For some reason mkdtemp() failed!\n");
 
 	std::vector<RTLIL::Cell*> cells;
 	cells.reserve(module->cells.size());
@@ -355,7 +356,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 	if (asprintf(&p, "%s/input.v", tempdir_name) < 0) abort();
 	FILE *f = fopen(p, "wt");
-	assert(f != NULL);
+	if (f == NULL);
+		log_error("Opening %s for writing failed: %s\n", p, strerrno(errno));
 	free(p);
 
 	fprintf(f, "module logic (");
@@ -418,7 +420,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		if (asprintf(&p, "%s/stdcells.genlib", tempdir_name) < 0) abort();
 		f = fopen(p, "wt");
-		assert(f != NULL);
+		if (f == NULL);
+			log_error("Opening %s for writing failed: %s\n", p, strerrno(errno));
 		fprintf(f, "GATE ZERO 1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE  1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF  1 Y=A;                  PIN * NONINV  1 999 1 0 1 0\n");
@@ -441,10 +444,23 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		else
 			snprintf(buffer, 1024, "%s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; "
 					"map; write_verilog %s/output.v' 2>&1", exe_file.c_str(), tempdir_name, tempdir_name, tempdir_name);
+		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
 		f = popen(buffer, "r");
+		if (f == NULL)
+			log_error("Opening pipe to `%s' for reading failed: %s\n", buffer, strerrno(errno));
 		while (fgets(buffer, 1024, f) != NULL)
 			log("ABC: %s", buffer);
-		fclose(f);
+		errno = 0;
+		int ret = pclose(f);
+		if (ret < 0)
+			log_error("Closing pipe to `%s' failed: %s\n", buffer, strerrno(errno));
+		if (WEXITSTATUS(ret) != 0) {
+			switch (WEXITSTATUS(ret)) {
+				case 127: log_error("ABC: execution of command \"%s\" failed: Command not found\n", exe_file.c_str()); break;
+				case 126: log_error("ABC: execution of command \"%s\" failed: Command not executable\n", exe_file.c_str()); break;
+				default:  log_error("ABC: execution of command \"%s\" failed: the shell returned %d\n", exe_file.c_str(), WEXITSTATUS(ret)); break;
+			}
+		}
 
 		if (asprintf(&p, "%s/output.v", tempdir_name) < 0) abort();
 		f = fopen(p, "rt");
@@ -627,10 +643,10 @@ struct AbcPass : public Pass {
 		log("        keeps using yosys's internal gate library.\n");
 		log("\n");
 		log("    -nocleanup\n");
-		log("        when this option is used, the tempprary files created be this pass\n");
+		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
 		log("\n");
-		log("This pass does not operate on modules with uprocessed processes in it.\n");
+		log("This pass does not operate on modules with unprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");

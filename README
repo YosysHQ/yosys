@@ -29,36 +29,37 @@ synthesis algorithms for various application domains.
 
 Yosys can be adapted to perform any synthesis job by combining
 the existing passes (algorithms) using synthesis scripts and
-adding additional passes as needed by extending the yosys c++
-codebase.
+adding additional passes as needed by extending the yosys C++
+code base.
 
 Yosys is free software licensed under the ISC license (a GPL
-compatible licence that is similar in terms to the MIT license
+compatible license that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
 
 Getting Started
 ===============
 
-To build Yosys simply typoe 'make' in this directory. You need
+To build Yosys simply type 'make' in this directory. You need
 a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison,
-and GNU Make. It might be neccessary to make some changes to
-the config section of the Makefile.
+and GNU Make. It might be necessary to make some changes to
+the config section of the Makefile. The extensive tests require
+Icarus Verilog.
 
 	$ vi Makefile
 	$ make
 	$ make test
 	$ sudo make install
 
-Yosys can be used using the interactive command shell, using
-synthesis scripts or using command line arguments. Let's perform
+Yosys can be used with the interactive command shell, with
+synthesis scripts or with command line arguments. Let's perform
 a simple synthesis job using the interactive command shell:
 
 	$ ./yosys
 	yosys>
 
-the command "help" can be used to pritn a list of all available
+the command "help" can be used to print a list of all available
 commands and "help <command>" to print details on the specified command:
 
 	yosys> help help
@@ -71,7 +72,7 @@ writing the design to the console in yosys's internal format:
 
 	yosys> write_ilang
 
-convert processes (always blocks) to netlist elements and perform
+convert processes ("always" blocks) to netlist elements and perform
 some simple optimizations:
 
 	yosys> proc; opt
@@ -178,7 +179,7 @@ Verilog Attributes and non-standard features
   is strongly recommended instead).
 
 - The "nomem2reg" attribute on modules or arrays prohibits the
-  automatic early conversion of arrays to seperate registers.
+  automatic early conversion of arrays to separate registers.
 
 - The "nolatches" attribute on modules or always-blocks
   prohibits the generation of logic-loops for latches. Instead
@@ -188,7 +189,7 @@ Verilog Attributes and non-standard features
   the non-standard {* ... *} attribute syntax to set default attributes
   for everything that comes after the {* ... *} statement. (Reset
   by adding an empty {* *} statement.) The preprocessor define
-  __YOSYS_ENABLE_DEFATTR__ must be set in order for this featre to be active.
+  __YOSYS_ENABLE_DEFATTR__ must be set in order for this feature to be active.
 
 
 TODOs / Open Bugs
@@ -196,7 +197,7 @@ TODOs / Open Bugs
 
 - Write "design and implementation of.." document
 
-- Add brief sourcecode documentation to:
+- Add brief source code documentation to:
 
    - Most passes and kernel functionalities
 
@@ -206,10 +207,10 @@ TODOs / Open Bugs
   - Constant functions
   - Indexed part selects
   - Multi-dimensional arrays
-  - ROM modelling using "initial" blocks
+  - ROM modeling using "initial" blocks
   - The "defparam <cell_name>.<parameter_name> = <value>;" syntax
-  - Builtin primitive gates (and, nand, cmos, nmos, pmos, etc..)
-  - Ignore what needs to be ignored (e.g. drive and charge strenghts)
+  - Built-in primitive gates (and, nand, cmos, nmos, pmos, etc..)
+  - Ignore what needs to be ignored (e.g. drive and charge strengths)
   - Check standard vs. implementation to identify missing features
 
 - Actually use range information on parameters
