@@ -197,9 +197,15 @@ TODOs / Open Bugs
 
 - Write "design and implementation of.." document
 
+  - Source tree layout
+  - Data formats (c++ classes, etc.)
+  - Interne misc. frameworks (log, select)
+  - Build system and pass registration
+  - Internal cell library
+
 - Add brief source code documentation to:
 
-   - Most passes and kernel functionalities
+  - Most passes and kernel functionalities
 
 - Implement missing Verilog 2005 features:
 
