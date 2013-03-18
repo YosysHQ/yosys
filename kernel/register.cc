@@ -132,7 +132,7 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 void Pass::call(RTLIL::Design *design, std::string command)
 {
 	std::vector<std::string> args;
-	char *s = strdup(command.c_str()), *saveptr;
+	char *s = strdup(command.c_str()), *sstart = s, *saveptr;
 	s += strspn(s, " \t\r\n");
 	if (*s == 0 || *s == '#')
 		return;
@@ -160,7 +160,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		} else
 			args.push_back(str);
 	}
-	free(s);
+	free(sstart);
 	call(design, args);
 }
 
