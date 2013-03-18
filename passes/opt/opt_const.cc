@@ -125,6 +125,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			if (input.match("  1")) ACTION_DO("\\Y", input.extract(1, 1));
 #ifdef MUX_UNDEF_SEL_TO_UNDEF_RESULTS
 			if (input.match("01 ")) ACTION_DO("\\Y", input.extract(0, 1));
+			// TODO: "10 " -> replace with "!S" gate
 			// TODO: "0  " -> replace with "B AND S" gate
 			// TODO: " 1 " -> replace with "A OR S" gate
 			// TODO: "1  " -> replace with "B OR !S" gate
