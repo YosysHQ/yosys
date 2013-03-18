@@ -40,14 +40,25 @@ or the 2-clause BSD license).
 Getting Started
 ===============
 
-To build Yosys simply type 'make' in this directory. You need
-a C++ compiler with C++11 support (up-to-date CLANG or GCC is
-recommended) and some standard tools such as GNU Flex, GNU Bison,
-and GNU Make. It might be necessary to make some changes to
-the config section of the Makefile. The extensive tests require
-Icarus Verilog.
+You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
+recommended) and some standard tools such as GNU Flex, GNU Bison, and
+GNU Make. The extensive tests require Icarus Verilog.
+
+To configure the build system to use a specific set of compiler and
+build configuration, use one of
+
+	$ make config-clang-debug
+	$ make config-gcc-debug
+	$ make config-release
+
+For other compilers and build configurations it might be
+necessary to make some changes to the config section of the
+Makefile.
 
 	$ vi Makefile
+
+To build Yosys simply type 'make' in this directory.
+
 	$ make
 	$ make test
 	$ sudo make install
