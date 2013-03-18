@@ -248,3 +248,5 @@ TODOs / Open Bugs
 
 - Better FSM state encoding
 
+- For pass' "fsm_detect" help: add notes what criteria lets it detect an FSM
+
