@@ -116,14 +116,14 @@ struct FsmDetectPass : public Pass {
 		log("\n");
 		log("    fsm_detect [selection]\n");
 		log("\n");
-		log("This pass detects finite state machine by identifying the state signal.\n");
+		log("This pass detects finite state machines by identifying the state signal.\n");
 		log("The state signal is then marked by setting the attribute 'fsm_encoding'\n");
 		log("on the state signal to \"auto\".\n");
 		log("\n");
 		log("Existing 'fsm_encoding' attributes are not changed by this pass.\n");
 		log("\n");
-		log("Signals can be protected from beeing detected by this pass by setting the\n");
-		log("'fsm_encoding' atrribute to \"none\".\n");
+		log("Signals can be protected from being detected by this pass by setting the\n");
+		log("'fsm_encoding' attribute to \"none\".\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

@@ -356,7 +356,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 	if (asprintf(&p, "%s/input.v", tempdir_name) < 0) abort();
 	FILE *f = fopen(p, "wt");
-	if (f == NULL);
+	if (f == NULL)
 		log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 	free(p);
 
@@ -420,7 +420,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		if (asprintf(&p, "%s/stdcells.genlib", tempdir_name) < 0) abort();
 		f = fopen(p, "wt");
-		if (f == NULL);
+		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 		fprintf(f, "GATE ZERO 1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE  1 Y=CONST1;\n");
@@ -638,9 +638,9 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");
-		log("        file format). This option is ignored if also -script option is also\n");
-		log("        used. Without this option, ABC is used to optimize the netlist but\n");
-		log("        keeps using yosys's internal gate library.\n");
+		log("        file format). Without this option, ABC is used to optimize the netlist\n");
+		log("        but keeps using yosys's internal gate library. This option is ignored if\n");
+		log("        the -script option is also used.\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");

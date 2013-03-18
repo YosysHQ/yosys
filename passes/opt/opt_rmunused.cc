@@ -242,9 +242,9 @@ struct OptRmUnusedPass : public Pass {
 		log("    opt_rmunused [selection]\n");
 		log("\n");
 		log("This pass identifies wires and cells that are unused and removes them. Other\n");
-		log("often remove cells but leave the wires in the design or reconnect the wires\n");
-		log("but leave the old cells in the design. This pass can be used to clean up after\n");
-		log("the passes that do the actual work.\n");
+		log("passes often remove cells but leave the wires in the design or reconnect the\n");
+		log("wires but leave the old cells in the design. This pass can be used to clean up\n");
+		log("after the passes that do the actual work.\n");
 		log("\n");
 		log("This pass only operates on completely selected modules without processes.\n");
 		log("\n");

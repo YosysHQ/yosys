@@ -406,7 +406,7 @@ struct OptMuxtreePass : public Pass {
 		log("    opt_muxtree [selection]\n");
 		log("\n");
 		log("This pass analyzes the control signals for the multiplexer trees in the design\n");
-		log("and identifies inputs that can never be active. In then removes this dead\n");
+		log("and identifies inputs that can never be active. It then removes this dead\n");
 		log("branches from the multiplexer trees.\n");
 		log("\n");
 		log("This pass only operates on completely selected modules without processes.\n");

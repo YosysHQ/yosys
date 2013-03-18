@@ -205,7 +205,7 @@ struct ShellPass : public Pass {
 		log("    yosys [modname]*>\n");
 		log("        only part of current module 'modname' is selected\n");
 		log("\n");
-		log("When in interavtive shell, some errors (e.g. invalid command arguments)\n");
+		log("When in interactive shell, some errors (e.g. invalid command arguments)\n");
 		log("do not terminate yosys but return to the command prompt.\n");
 		log("\n");
 		log("This command is the default action if nothing else has been specified\n");

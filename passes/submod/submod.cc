@@ -239,7 +239,7 @@ struct SubmodWorker
 };
 
 struct SubmodPass : public Pass {
-	SubmodPass() : Pass("submod", "moving part of a module to a new submodle") { }
+	SubmodPass() : Pass("submod", "moving part of a module to a new submodule") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -259,7 +259,7 @@ struct SubmodPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing SUBMOD pass (moving cells to submodes as requested).\n");
+		log_header("Executing SUBMOD pass (moving cells to submodules as requested).\n");
 		log_push();
 
 		Pass::call(design, "opt_rmunused");

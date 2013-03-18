@@ -211,7 +211,7 @@ struct SccPass : public Pass {
 		log("\n");
 		log("    -max_depth <num>\n");
 		log("        limit to loops not longer than the specified number of cells. This can\n");
-		log("        e.g. be usefull in identifying local loops in a module that turns out\n");
+		log("        e.g. be useful in identifying local loops in a module that turns out\n");
 		log("        to be one gigantic SCC.\n");
 		log("\n");
 		log("    -all_cell_types\n");
