@@ -113,7 +113,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			if (input.match("0 ")) ACTION_DO("\\Y", input.extract(0, 1));
 		}
 
-		if (cell->type == "$_MUX_") {
+		if (cell->type == "$_MUX_" ||(cell->type == "$mux" && cell->parameters["\\WIDTH"].as_int() == 1)) {
 			RTLIL::SigSpec input;
 			input.append(cell->connections["\\S"]);
 			input.append(cell->connections["\\B"]);
@@ -125,6 +125,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			if (input.match("  1")) ACTION_DO("\\Y", input.extract(1, 1));
 #ifdef MUX_UNDEF_SEL_TO_UNDEF_RESULTS
 			if (input.match("01 ")) ACTION_DO("\\Y", input.extract(0, 1));
+			// TODO: "0  " -> replace with "B AND S" gate
+			// TODO: " 1 " -> replace with "A OR S" gate
+			// TODO: "1  " -> replace with "B OR !S" gate
+			// TODO: " 0 " -> replace with "A AND !S" gate
 			if (input.match("  *")) ACTION_DO_Y(x);
 #endif
 		}
