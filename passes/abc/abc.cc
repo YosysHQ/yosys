@@ -356,7 +356,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 	if (asprintf(&p, "%s/input.v", tempdir_name) < 0) abort();
 	FILE *f = fopen(p, "wt");
-	if (f == NULL);
+	if (f == NULL)
 		log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 	free(p);
 
@@ -420,7 +420,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		if (asprintf(&p, "%s/stdcells.genlib", tempdir_name) < 0) abort();
 		f = fopen(p, "wt");
-		if (f == NULL);
+		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 		fprintf(f, "GATE ZERO 1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE  1 Y=CONST1;\n");
