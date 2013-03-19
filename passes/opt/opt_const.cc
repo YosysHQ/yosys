@@ -113,7 +113,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			if (input.match("0 ")) ACTION_DO("\\Y", input.extract(0, 1));
 		}
 
-		if (cell->type == "$_MUX_" ||(cell->type == "$mux" && cell->parameters["\\WIDTH"].as_int() == 1)) {
+		if (cell->type == "$_MUX_") {
 			RTLIL::SigSpec input;
 			input.append(cell->connections["\\S"]);
 			input.append(cell->connections["\\B"]);
@@ -128,8 +128,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			// TODO: "10 " -> replace with "!S" gate
 			// TODO: "0  " -> replace with "B AND S" gate
 			// TODO: " 1 " -> replace with "A OR S" gate
-			// TODO: "1  " -> replace with "B OR !S" gate
-			// TODO: " 0 " -> replace with "A AND !S" gate
+			// TODO: "1  " -> replace with "B OR !S" gate (?)
+			// TODO: " 0 " -> replace with "A AND !S" gate (?)
 			if (input.match("  *")) ACTION_DO_Y(x);
 #endif
 		}
