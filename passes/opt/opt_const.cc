@@ -174,6 +174,31 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			}
 		}
 
+		if ((cell->type == "$eq" || cell->type == "$ne") && cell->parameters["\\Y_WIDTH"].as_int() == 1 &&
+				cell->parameters["\\A_WIDTH"].as_int() == 1 && cell->parameters["\\B_WIDTH"].as_int() == 1)
+		{
+			RTLIL::SigSpec a = assign_map(cell->connections["\\A"]);
+			RTLIL::SigSpec b = assign_map(cell->connections["\\B"]);
+
+			if (a.is_fully_const()) {
+				RTLIL::SigSpec tmp = a;
+				a = b, b = tmp;
+			}
+
+			if (b.is_fully_const()) {
+				if (b.as_bool() == (cell->type == "$eq")) {
+					RTLIL::SigSpec input = b;
+					ACTION_DO("\\Y", cell->connections["\\A"]);
+				} else {
+					cell->type = "$not";
+					cell->parameters.erase("\\B_WIDTH");
+					cell->parameters.erase("\\B_SIGNED");
+					cell->connections.erase("\\B");
+				}
+				goto next_cell;
+			}
+		}
+
 #define FOLD_1ARG_CELL(_t) \
 		if (cell->type == "$" #_t) { \
 			RTLIL::SigSpec a = cell->connections["\\A"]; \
