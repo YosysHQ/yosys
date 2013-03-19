@@ -125,6 +125,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			if (input.match("  1")) ACTION_DO("\\Y", input.extract(1, 1));
 #ifdef MUX_UNDEF_SEL_TO_UNDEF_RESULTS
 			if (input.match("01 ")) ACTION_DO("\\Y", input.extract(0, 1));
+			// TODO: "10 " -> replace with "!S" gate
+			// TODO: "0  " -> replace with "B AND S" gate
+			// TODO: " 1 " -> replace with "A OR S" gate
+			// TODO: "1  " -> replace with "B OR !S" gate (?)
+			// TODO: " 0 " -> replace with "A AND !S" gate (?)
 			if (input.match("  *")) ACTION_DO_Y(x);
 #endif
 		}
@@ -165,6 +170,31 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 
 			if (new_a.width == 0) {
 				replace_cell(module, cell, "empty", "\\Y", RTLIL::SigSpec(cell->type == "$eq" ? RTLIL::State::S1 : RTLIL::State::S0));
+				goto next_cell;
+			}
+		}
+
+		if ((cell->type == "$eq" || cell->type == "$ne") && cell->parameters["\\Y_WIDTH"].as_int() == 1 &&
+				cell->parameters["\\A_WIDTH"].as_int() == 1 && cell->parameters["\\B_WIDTH"].as_int() == 1)
+		{
+			RTLIL::SigSpec a = assign_map(cell->connections["\\A"]);
+			RTLIL::SigSpec b = assign_map(cell->connections["\\B"]);
+
+			if (a.is_fully_const()) {
+				RTLIL::SigSpec tmp = a;
+				a = b, b = tmp;
+			}
+
+			if (b.is_fully_const()) {
+				if (b.as_bool() == (cell->type == "$eq")) {
+					RTLIL::SigSpec input = b;
+					ACTION_DO("\\Y", cell->connections["\\A"]);
+				} else {
+					cell->type = "$not";
+					cell->parameters.erase("\\B_WIDTH");
+					cell->parameters.erase("\\B_SIGNED");
+					cell->connections.erase("\\B");
+				}
 				goto next_cell;
 			}
 		}
@@ -237,11 +267,15 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 		FOLD_1ARG_CELL(pos)
 		FOLD_1ARG_CELL(neg)
 
+		// be very conservative with optimizing $mux cells as we do not want to break mux trees
 		if (cell->type == "$mux") {
-			RTLIL::SigSpec input = cell->connections["\\S"];
-			assign_map.apply(input);
+			RTLIL::SigSpec input = assign_map(cell->connections["\\S"]);
+			RTLIL::SigSpec inA = assign_map(cell->connections["\\A"]);
+			RTLIL::SigSpec inB = assign_map(cell->connections["\\B"]);
 			if (input.is_fully_const())
 				ACTION_DO("\\Y", input.as_bool() ? cell->connections["\\B"] : cell->connections["\\A"]);
+			else if (inA == inB)
+				ACTION_DO("\\Y", cell->connections["\\A"]);
 		}
 
 	next_cell:;
