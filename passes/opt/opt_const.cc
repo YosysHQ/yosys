@@ -242,11 +242,15 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 		FOLD_1ARG_CELL(pos)
 		FOLD_1ARG_CELL(neg)
 
+		// be very conservative with optimizing $mux cells as we do not want to break mux trees
 		if (cell->type == "$mux") {
-			RTLIL::SigSpec input = cell->connections["\\S"];
-			assign_map.apply(input);
+			RTLIL::SigSpec input = assign_map(cell->connections["\\S"]);
+			RTLIL::SigSpec inA = assign_map(cell->connections["\\A"]);
+			RTLIL::SigSpec inB = assign_map(cell->connections["\\B"]);
 			if (input.is_fully_const())
 				ACTION_DO("\\Y", input.as_bool() ? cell->connections["\\B"] : cell->connections["\\A"]);
+			else if (inA == inB)
+				ACTION_DO("\\Y", cell->connections["\\A"]);
 		}
 
 	next_cell:;
