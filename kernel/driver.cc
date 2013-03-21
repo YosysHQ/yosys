@@ -89,9 +89,14 @@ static void run_backend(std::string filename, std::string command, RTLIL::Design
 			command = "ilang";
 		else if (filename == "-")
 			command = "ilang";
+		else if (filename.empty())
+			return;
 		else
 			log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
 	}
+
+	if (filename.empty())
+		filename = "-";
 
 	if (filename == "-") {
 		log("\n-- Writing to stdout using backend `%s' --\n", command.c_str());
@@ -226,7 +231,7 @@ int main(int argc, char **argv)
 	std::string backend_command = "auto";
 	std::vector<std::string> passes_commands;
 	std::vector<void*> loaded_modules;
-	std::string output_filename = "-";
+	std::string output_filename = "";
 	std::string scriptfile = "";
 	bool got_output_filename = false;
 
