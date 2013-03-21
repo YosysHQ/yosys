@@ -28,26 +28,40 @@ struct MemoryPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory [selection]\n");
+		log("    memory [-nomap] [selection]\n");
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
 		log("    memory_dff\n");
 		log("    memory_collect\n");
-		log("    memory_map\n");
+		log("    memory_map          (skipped if called with -nomap)\n");
 		log("\n");
-		log("This converts memories to word-wide DFFs and address decoders.\n");
+		log("This converts memories to word-wide DFFs and address decoders\n");
+		log("or moultiport memory blocks if called with the -nomap option.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool flag_nomap = false;
+
 		log_header("Executing MEMORY pass.\n");
 		log_push();
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-nomap") {
+				flag_nomap = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
 		Pass::call(design, "memory_dff");
 		Pass::call(design, "memory_collect");
-		Pass::call(design, "memory_map");
+
+		if (!flag_nomap)
+			Pass::call(design, "memory_map");
 
 		log_pop();
 	}
