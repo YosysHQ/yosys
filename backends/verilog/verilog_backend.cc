@@ -245,6 +245,7 @@ void dump_attributes(FILE *f, std::string indent, std::map<RTLIL::IdString, RTLI
 void dump_wire(FILE *f, std::string indent, RTLIL::Wire *wire)
 {
 	dump_attributes(f, indent, wire->attributes);
+#if 0
 	if (wire->port_input && !wire->port_output)
 		fprintf(f, "%s" "input %s", indent.c_str(), reg_wires.count(wire->name) ? "reg " : "");
 	else if (!wire->port_input && wire->port_output)
@@ -256,6 +257,22 @@ void dump_wire(FILE *f, std::string indent, RTLIL::Wire *wire)
 	if (wire->width != 1)
 		fprintf(f, "[%d:%d] ", wire->width - 1 + wire->start_offset, wire->start_offset);
 	fprintf(f, "%s;\n", id(wire->name).c_str());
+#else
+	// do not use Verilog-2k "outut reg" syntax in verilog export
+	std::string range = "";
+	if (wire->width != 1)
+		range = stringf(" [%d:%d]", wire->width - 1 + wire->start_offset, wire->start_offset);
+	if (wire->port_input && !wire->port_output)
+		fprintf(f, "%s" "input%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+	if (!wire->port_input && wire->port_output)
+		fprintf(f, "%s" "output%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+	if (wire->port_input && wire->port_output)
+		fprintf(f, "%s" "inout%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+	if (reg_wires.count(wire->name))
+		fprintf(f, "%s" "reg%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+	else if (!wire->port_input && !wire->port_output)
+		fprintf(f, "%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+#endif
 }
 
 void dump_memory(FILE *f, std::string indent, RTLIL::Memory *memory)
