@@ -236,10 +236,19 @@ int main(int argc, char **argv)
 	bool got_output_filename = false;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "m:f:b:o:p:l:qts:")) != -1)
+	while ((opt = getopt(argc, argv, "Sm:f:b:o:p:l:qts:")) != -1)
 	{
 		switch (opt)
 		{
+		case 'S':
+			backend_command = "verilog -noattr";
+			passes_commands.push_back("hierarchy");
+			passes_commands.push_back("proc");
+			passes_commands.push_back("opt");
+			passes_commands.push_back("memory");
+			passes_commands.push_back("techmap");
+			passes_commands.push_back("opt");
+			break;
 		case 'm':
 			loaded_modules.push_back(dlopen(optarg, RTLD_LAZY|RTLD_GLOBAL));
 			if (loaded_modules.back() == NULL) {
@@ -278,7 +287,7 @@ int main(int argc, char **argv)
 			break;
 		default:
 			fprintf(stderr, "\n");
-			fprintf(stderr, "Usage: %s [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [-s <scriptfile>]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-S] [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [-s <scriptfile>]\n", argv[0]);
 			fprintf(stderr, "       %*s[-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
@@ -307,6 +316,12 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -m module_file\n");
 			fprintf(stderr, "        load the specified module (aka plugin)\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "The option -S is an alias for the following options that perform a simple\n");
+			fprintf(stderr, "transformation of the input to a gate-level netlist. This can be helpful when\n");
+			fprintf(stderr, "e.g. using yosys as a pre-processor for a tool that can't understand full verilog.\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -b 'verilog -noattr' -p hierarchy -p proc -p opt -p memory -p techmap -p opt\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "For more complex synthesis jobs it is recommended to use the read_* and write_*\n");
 			fprintf(stderr, "commands in a script file instead of specifying input and output files on the\n");
