@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 using namespace REGISTER_INTERN;
 #define MAX_REG_COUNT 1000
@@ -373,6 +374,26 @@ struct HelpPass : public Pass {
 		log("    help -all  ........  print complete command reference\n");
 		log("\n");
 	}
+	void escape_tex(std::string &tex)
+	{
+		size_t pos = 0;
+		while ((pos = tex.find('_', pos)) != std::string::npos) {
+			tex.replace(pos, 1, "\\_");
+			pos += 2;
+		}
+	}
+	void write_tex(FILE *f, std::string cmd, std::string title, std::string text)
+	{
+		size_t begin = text.find_first_not_of("\n"), end = text.find_last_not_of("\n");
+		if (begin != std::string::npos && end != std::string::npos && begin < end)
+			text = text.substr(begin, end-begin+1);
+		escape_tex(cmd);
+		escape_tex(title);
+		fprintf(f, "\\section{%s -- %s}\n", cmd.c_str(), title.c_str());
+		fprintf(f, "\\begin{lstlisting}[numbers=left,frame=single]\n");
+		fprintf(f, "%s\n\\end{lstlisting}\n\n", text.c_str());
+
+	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
 		if (args.size() == 1) {
@@ -395,6 +416,23 @@ struct HelpPass : public Pass {
 					log("\n");
 					it.second->help();
 				}
+			}
+			// this option is undocumented as it is for internal use only
+			else if (args[1] == "-write-tex-command-reference-manual") {
+				FILE *f = fopen("command-reference-manual.tex", "wt");
+				fprintf(f, "%% Generated using the yosys 'help -write-tex-command-reference-manual' command.\n\n");
+				for (auto &it : REGISTER_INTERN::pass_register) {
+					size_t memsize;
+					char *memptr;
+					FILE *memf = open_memstream(&memptr, &memsize);
+					log_files.push_back(memf);
+					it.second->help();
+					log_files.pop_back();
+					fclose(memf);
+					write_tex(f, it.first, it.second->short_help, memptr);
+					free(memptr);
+				}
+				fclose(f);
 			}
 			else if (REGISTER_INTERN::pass_register.count(args[1]) == 0)
 				log("No such command: %s\n", args[1].c_str());
