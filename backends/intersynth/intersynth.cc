@@ -37,10 +37,10 @@ error:
 	conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.width, sig.width, sig.width));
 
 	if (sig.chunks[0].wire == NULL) {
-		celltypes_code.insert(stringf("celltype const%d b%d *CONST cfg:%d VALUE\n", sig.width, sig.width));
-		constcells_code.insert(stringf("node const%d_0x%x const%d CONST const%d_%x VALUE 0x%x\n", sig.width, sig.chunks[0].data.as_int(),
+		celltypes_code.insert(stringf("celltype CONST_%d b%d *CONST cfg:%d VALUE\n", sig.width, sig.width, sig.width));
+		constcells_code.insert(stringf("node CONST_%d_0x%x CONST_%d CONST CONST_%d_0x%x VALUE 0x%x\n", sig.width, sig.chunks[0].data.as_int(),
 				sig.width, sig.width, sig.chunks[0].data.as_int(), sig.chunks[0].data.as_int()));
-		return stringf("const%d_0x%x", sig.width, sig.chunks[0].data.as_int());
+		return stringf("CONST_%d_0x%x", sig.width, sig.chunks[0].data.as_int());
 	}
 
 	if (sig.chunks[0].offset != 0 || sig.width != sig.chunks[0].wire->width)
@@ -55,10 +55,15 @@ struct IntersynthBackend : public Backend {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    write_intersynth [filename]\n");
+		log("    write_intersynth [options] [filename]\n");
 		log("\n");
 		log("Write the current design to an 'intersynth' netlist file. InterSynth is\n");
 		log("a tool for Coarse-Grain Example-Driven Interconnect Synthesis.\n");
+		log("\n");
+		log("    -lib <verilog_or_ilang_file>\n");
+		log("         Use the specified library file for determining whether cell ports are\n");
+		log("         inputs or outputs. This option can be used multiple times to specify\n");
+		log("         more than one library.\n");
 		log("\n");
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
@@ -66,12 +71,43 @@ struct IntersynthBackend : public Backend {
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing INTERSYNTH backend.\n");
-		extra_args(f, filename, args, 1);
+		log_push();
+
+		std::vector<std::string> libfiles;
+		std::vector<RTLIL::Design*> libs;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-lib" && argidx+1 < args.size()) {
+				libfiles.push_back(args[++argidx]);
+				continue;
+			}
+			break;
+		}
+		extra_args(f, filename, args, argidx);
+
 		log("Output filename: %s\n", filename.c_str());
+
+		for (auto filename : libfiles) {
+			FILE *f = fopen(filename.c_str(), "rt");
+			if (f == NULL)
+				log_error("Can't open lib file `%s'.\n", filename.c_str());
+			RTLIL::Design *lib = new RTLIL::Design;
+			Frontend::frontend_call(lib, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			libs.push_back(lib);
+			fclose(f);
+		}
+
+		if (libs.size() > 0)
+			log_header("Continuing INTERSYNTH backend.\n");
 
 		std::set<std::string> conntypes_code, celltypes_code;
 		std::string netlists_code;
 		CellTypes ct(design);
+
+		for (auto lib : libs)
+			ct.setup_design(lib);
 
 		for (auto module_it : design->modules)
 		{
@@ -105,6 +141,9 @@ struct IntersynthBackend : public Backend {
 				RTLIL::Cell *cell = cell_it.second;
 				std::string celltype_code, node_code;
 
+				if (!ct.cell_known(cell->type))
+					log_error("Found unknown cell type %s in module!\n", id2cstr(cell->type));
+
 				celltype_code = stringf("celltype %s", id2cstr(cell->type));
 				node_code = stringf("node %s %s", id2cstr(cell->name), id2cstr(cell->type));
 				for (auto &port : cell->connections) {
@@ -126,13 +165,21 @@ struct IntersynthBackend : public Backend {
 				celltypes_code.insert(celltype_code + "\n");
 				netlists_code += node_code + "\n";
 			}
+
+			for (auto code : constcells_code)
+				netlists_code += code;
 		}
 
-		for (auto str : conntypes_code)
-			fprintf(f, "%s", str.c_str());
-		for (auto str : celltypes_code)
-			fprintf(f, "%s", str.c_str());
+		for (auto code : conntypes_code)
+			fprintf(f, "%s", code.c_str());
+		for (auto code : celltypes_code)
+			fprintf(f, "%s", code.c_str());
 		fprintf(f, "%s", netlists_code.c_str());
+
+		for (auto lib : libs)
+			delete lib;
+
+		log_pop();
 	}
 } IntersynthBackend;
 
