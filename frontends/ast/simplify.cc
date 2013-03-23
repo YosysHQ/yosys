@@ -120,6 +120,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 			if (node->type == AST_WIRE) {
 				if (this_wire_scope.count(node->str) > 0) {
 					AstNode *first_node = this_wire_scope[node->str];
+					if (!node->is_input && !node->is_output && node->is_reg && node->children.size() == 0)
+						goto wires_are_compatible;
 					if (first_node->children.size() != node->children.size())
 						goto wires_are_incompatible;
 					for (size_t j = 0; j < node->children.size(); j++) {
@@ -138,6 +140,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 						goto wires_are_incompatible;
 					if (first_node->port_id == 0 && (node->is_input || node->is_output))
 						goto wires_are_incompatible;
+				wires_are_compatible:
 					if (node->is_input)
 						first_node->is_input = true;
 					if (node->is_output)

@@ -209,7 +209,12 @@ module:
 	};
 
 module_para_opt:
-	'#' '(' TOK_PARAMETER param_decl_list optional_comma ')' | /* empty */;
+	'#' '(' module_para_list ')' | /* empty */;
+
+module_para_list:
+	TOK_PARAMETER single_param_decl |
+	TOK_PARAMETER single_param_decl ',' module_para_list |
+	/* empty */;
 
 module_args_opt:
 	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
