@@ -60,10 +60,14 @@ struct IntersynthBackend : public Backend {
 		log("Write the current design to an 'intersynth' netlist file. InterSynth is\n");
 		log("a tool for Coarse-Grain Example-Driven Interconnect Synthesis.\n");
 		log("\n");
+		log("    -notypes\n");
+		log("        do not generate celltypes and conntypes commands. i.e. just output\n");
+		log("        the netlists. this is used for postsilicon synthesis.\n");
+		log("\n");
 		log("    -lib <verilog_or_ilang_file>\n");
-		log("         Use the specified library file for determining whether cell ports are\n");
-		log("         inputs or outputs. This option can be used multiple times to specify\n");
-		log("         more than one library.\n");
+		log("        Use the specified library file for determining whether cell ports are\n");
+		log("        inputs or outputs. This option can be used multiple times to specify\n");
+		log("        more than one library.\n");
 		log("\n");
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
@@ -75,10 +79,15 @@ struct IntersynthBackend : public Backend {
 
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
+		bool flag_notypes = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-notypes") {
+				flag_notypes = true;
+				continue;
+			}
 			if (args[argidx] == "-lib" && argidx+1 < args.size()) {
 				libfiles.push_back(args[++argidx]);
 				continue;
@@ -170,10 +179,12 @@ struct IntersynthBackend : public Backend {
 				netlists_code += code;
 		}
 
-		for (auto code : conntypes_code)
-			fprintf(f, "%s", code.c_str());
-		for (auto code : celltypes_code)
-			fprintf(f, "%s", code.c_str());
+		if (!flag_notypes) {
+			for (auto code : conntypes_code)
+				fprintf(f, "%s", code.c_str());
+			for (auto code : celltypes_code)
+				fprintf(f, "%s", code.c_str());
+		}
 		fprintf(f, "%s", netlists_code.c_str());
 
 		for (auto lib : libs)
