@@ -201,14 +201,14 @@ struct ShowWorker
 			const char *shape = "diamond";
 			if (it.second->port_input || it.second->port_output)
 				shape = "octagon";
-			if (it.first[0] == '\\')
+			if (it.first[0] == '\\') {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\" ];\n",
 						id2num(it.first), shape, escape(it.first));
 				if (it.second->port_input)
 					all_sources.insert(stringf("n%d", id2num(it.first)));
 				else if (it.second->port_output)
 					all_sinks.insert(stringf("n%d", id2num(it.first)));
-			else {
+			} else {
 				wires_on_demand[stringf("n%d", id2num(it.first))] = it.first;
 			}
 		}
