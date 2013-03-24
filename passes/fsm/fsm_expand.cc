@@ -42,6 +42,9 @@ struct FsmExpand
 
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
+		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
+			return cell->connections.at("\\A").width < 2;
+
 		RTLIL::SigSpec new_signals;
 		if (cell->connections.count("\\A") > 0)
 			new_signals.append(assign_map(cell->connections["\\A"]));
@@ -137,7 +140,7 @@ struct FsmExpand
 		input_sig.sort_and_unify();
 		input_sig.remove_const();
 
-		assert(input_sig.width <= 4);
+		assert(input_sig.width <= 4 || cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux");
 		std::vector<RTLIL::Const> truth_tab;
 
 		for (int i = 0; i < (1 << input_sig.width); i++) {
