@@ -474,7 +474,7 @@ struct ShowPass : public Pass {
 			log_cmd_error("Shell command failed!\n");
 
 		if (!viewer_exe.empty()) {
-			cmd = stringf("%s '%s' &", viewer_exe.c_str(), dot_file.c_str());
+			cmd = stringf("%s '%s' &", viewer_exe.c_str(), ps_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
