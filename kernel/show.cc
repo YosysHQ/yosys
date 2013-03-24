@@ -44,6 +44,7 @@ struct ShowWorker
 	RTLIL::Module *module;
 	uint32_t currentColor;
 	bool genWidthLabels;
+	bool stretchIO;
 	int page_counter;
 
 	uint32_t xorshift32(uint32_t x) {
@@ -192,6 +193,8 @@ struct ShowWorker
 		fprintf(f, "rankdir=\"LR\";\n");
 		fprintf(f, "remincross=true;\n");
 
+		std::set<std::string> all_sources, all_sinks;
+
 		std::map<std::string, std::string> wires_on_demand;
 		for (auto &it : module->wires) {
 			if (!design->selected_member(module->name, it.first))
@@ -202,9 +205,26 @@ struct ShowWorker
 			if (it.first[0] == '\\')
 				fprintf(f, "n%d [ shape=%s, label=\"%s\" ];\n",
 						id2num(it.first), shape, escape(it.first));
+				if (it.second->port_input)
+					all_sources.insert(stringf("n%d", id2num(it.first)));
+				else if (it.second->port_output)
+					all_sinks.insert(stringf("n%d", id2num(it.first)));
 			else {
 				wires_on_demand[stringf("n%d", id2num(it.first))] = it.first;
 			}
+		}
+
+		if (stretchIO)
+		{
+			fprintf(f, "{ rank=\"source\";");
+			for (auto n : all_sources)
+				fprintf(f, " %s;", n.c_str());
+			fprintf(f, "}\n");
+
+			fprintf(f, "{ rank=\"sink\";");
+			for (auto n : all_sinks)
+				fprintf(f, " %s;", n.c_str());
+			fprintf(f, "}\n");
 		}
 
 		for (auto &it : module->cells)
@@ -311,7 +331,8 @@ struct ShowWorker
 		fprintf(f, "};\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels) : f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels)
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels, bool stretchIO) :
+			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), stretchIO(stretchIO)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -365,8 +386,12 @@ struct ShowPass : public Pass {
 		log("        for the random number generator. Change the seed value if the colored\n");
 		log("        graph still is ambigous. A seed of zero deactivates the coloring.\n");
 		log("\n");
-		log("    -widthlabels\n");
+		log("    -width\n");
 		log("        annotate busses with a label indicating the width of the bus.\n");
+		log("\n");
+		log("    -stretch\n");
+		log("        stretch the graph so all inputs are on the left side and all outputs\n");
+		log("        (including inout ports) are on the right side.\n");
 		log("\n");
 		log("The generated output files are `yosys-show.dot' and `yosys-show.ps'.\n");
 		log("\n");
@@ -381,7 +406,8 @@ struct ShowPass : public Pass {
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
-		bool flag_widthlabels = false;
+		bool flag_width = false;
+		bool flag_stretch = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -403,8 +429,12 @@ struct ShowPass : public Pass {
 				colorSeed = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (arg == "-widthlabels") {
-				flag_widthlabels = true;
+			if (arg == "-width") {
+				flag_width= true;
+				continue;
+			}
+			if (arg == "-stretch") {
+				flag_stretch= true;
 				continue;
 			}
 			break;
@@ -431,7 +461,7 @@ struct ShowPass : public Pass {
 		FILE *f = fopen(dot_file.c_str(), "w");
 		if (f == NULL)
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
-		ShowWorker worker(f, design, libs, colorSeed, flag_widthlabels);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch);
 		fclose(f);
 
 		if (worker.page_counter == 0)
