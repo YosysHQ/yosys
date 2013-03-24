@@ -213,13 +213,9 @@ TODOs / Open Bugs
 
   - Source tree layout
   - Data formats (c++ classes, etc.)
-  - Interne misc. frameworks (log, select)
+  - Internal misc. frameworks (log, select)
   - Build system and pass registration
   - Internal cell library
-
-- Add brief source code documentation to:
-
-  - Most passes and kernel functionalities
 
 - Implement missing Verilog 2005 features:
 
@@ -233,23 +229,16 @@ TODOs / Open Bugs
   - Ignore what needs to be ignored (e.g. drive and charge strengths)
   - Check standard vs. implementation to identify missing features
 
-- Actually use range information on parameters
+- Miscellaneous TODO items: 
 
-- Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
-
-- Add commands 'delete' (remove objects) and 'attr' (get, set and remove attributes)
-
-- TCL and Python interfaces to frontends, passes, backends and RTLIL
-
-- Additional internal cell types: $pla and $lut
-
-- Support for registering designs (as collection of modules) to CellTypes
-
-- Kernel support for collections of cells (from input/output cones, etc)
-
-- Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
-
-- Better FSM state encoding
-
-- For pass' "fsm_detect" help: add notes what criteria lets it detect an FSM
+  - Actually use range information on parameters
+  - Add brief source code documentation to most passes and kernel code
+  - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
+  - Add commands 'delete' (remove objects) and 'attr' (get, set and remove attributes)
+  - TCL and Python interfaces to frontends, passes, backends and RTLIL
+  - Additional internal cell types: $pla and $lut
+  - Support for registering designs (as collection of modules) to CellTypes
+  - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
+  - For pass' "fsm_detect" help: add notes what criteria lets it detect an FSM
+  - Better FSM state encoding
 
