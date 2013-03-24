@@ -1007,7 +1007,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 			if (children[0]->children[0]->children[0]->type == AST_CONSTANT && int(children[0]->children[0]->children[0]->integer) != i)
 				continue;
 			AstNode *cond_node = new AstNode(AST_COND, AstNode::mkconst_int(i, false, addr_bits), new AstNode(AST_BLOCK));
-			AstNode *assign_reg = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), new AstNode(AST_IDENTIFIER));
+			AstNode *assign_reg = new AstNode(type, new AstNode(AST_IDENTIFIER), new AstNode(AST_IDENTIFIER));
 			assign_reg->children[0]->str = stringf("%s[%d]", children[0]->str.c_str(), i);
 			assign_reg->children[1]->str = id_data;
 			cond_node->children[1]->children.push_back(assign_reg);
@@ -1019,6 +1019,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		children[0]->range_valid = false;
 		children[0]->id2ast = NULL;
 		children[0]->str = id_data;
+		type = AST_ASSIGN_EQ;
 	}
 
 	if (type == AST_IDENTIFIER && id2ast && mem2reg_set.count(id2ast) > 0)
@@ -1057,6 +1058,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 		std::vector<RTLIL::State> x_bits;
 		x_bits.push_back(RTLIL::State::Sx);
+
 		AstNode *cond_node = new AstNode(AST_COND, new AstNode(AST_DEFAULT), new AstNode(AST_BLOCK));
 		AstNode *assign_reg = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
 		assign_reg->children[0]->str = id_data;
