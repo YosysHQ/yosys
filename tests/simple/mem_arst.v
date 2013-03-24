@@ -21,7 +21,6 @@ module MyMem #(
 
   always @(negedge Reset_n_i or posedge Clk_i)
   begin
-    //$display("Data1 = %b, Data11 = %b, Data12 = %b, Data2 = %b, Data21 = %b, Data22 = %b",Data1_i,Data11,Data12,Data2_i,Data21,Data22);
     if (!Reset_n_i)
     begin
       Data_o <= 'bx;
