@@ -78,6 +78,11 @@ struct VerilogFrontend : public Frontend {
 		log("        this can also be achieved by setting the 'nomem2reg'\n");
 		log("        attribute on the respective module or register.\n");
 		log("\n");
+		log("    -mem2reg\n");
+		log("        always convert memories to registers. this can also be\n");
+		log("        achieved by setting the 'mem2reg' attribute on the respective\n");
+		log("        module or register.\n");
+		log("\n");
 		log("    -ppdump\n");
 		log("        dump verilog code after pre-processor\n");
 		log("\n");
@@ -92,6 +97,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_dump_vlog = false;
 		bool flag_nolatches = false;
 		bool flag_nomem2reg = false;
+		bool flag_mem2reg = false;
 		bool flag_ppdump = false;
 		bool flag_nopp = false;
 		frontend_verilog_yydebug = false;
@@ -124,6 +130,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-nomem2reg") {
 				flag_nomem2reg = true;
+				continue;
+			}
+			if (arg == "-mem2reg") {
+				flag_mem2reg = true;
 				continue;
 			}
 			if (arg == "-ppdump") {
@@ -163,7 +173,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
-		AST::process(design, current_ast, flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg);
+		AST::process(design, current_ast, flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg);
 
 		if (!flag_nopp)
 			fclose(fp);

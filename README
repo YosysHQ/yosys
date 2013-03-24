@@ -192,6 +192,9 @@ Verilog Attributes and non-standard features
 - The "nomem2reg" attribute on modules or arrays prohibits the
   automatic early conversion of arrays to separate registers.
 
+- The "mem2reg" attribute on modules or arrays forces the early
+  conversion of arrays to separate registers.
+
 - The "nolatches" attribute on modules or always-blocks
   prohibits the generation of logic-loops for latches. Instead
   all not explicitly assigned values default to x-bits.

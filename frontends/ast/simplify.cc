@@ -57,7 +57,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 		if (!flag_nomem2reg && attributes.count("\\nomem2reg") == 0)
 		{
 			std::set<AstNode*> mem2reg_set, mem2reg_candidates;
-			mem2reg_as_needed_pass1(mem2reg_set, mem2reg_candidates, false, false);
+			mem2reg_as_needed_pass1(mem2reg_set, mem2reg_candidates, false, false, flag_mem2reg);
 
 			for (auto node : mem2reg_set)
 			{
@@ -924,7 +924,7 @@ void AstNode::replace_ids(std::map<std::string, std::string> &rules)
 }
 
 // find memories that should be replaced by registers
-void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc)
+void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc, bool force_mem2reg)
 {
 	if ((type == AST_ASSIGN_LE && async_proc) || (type == AST_ASSIGN_EQ && (sync_proc || async_proc)))
 		if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY &&
@@ -938,8 +938,11 @@ void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<
 			mem2reg_candidates.insert(children[0]->id2ast);
 		}
 	
-	if (type == AST_MEMORY && attributes.count("\\mem2reg") > 0)
+	if (type == AST_MEMORY && (attributes.count("\\mem2reg") > 0 || force_mem2reg))
 		mem2reg_set.insert(this);
+
+	if (type == AST_MODULE && attributes.count("\\mem2reg") > 0)
+		force_mem2reg = true;
 
 	if (type == AST_ALWAYS) {
 		for (auto child : children) {
@@ -950,7 +953,7 @@ void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<
 	}
 
 	for (auto child : children)
-		child->mem2reg_as_needed_pass1(mem2reg_set, mem2reg_candidates, sync_proc, async_proc);
+		child->mem2reg_as_needed_pass1(mem2reg_set, mem2reg_candidates, sync_proc, async_proc, force_mem2reg);
 }
 
 // actually replace memories with registers

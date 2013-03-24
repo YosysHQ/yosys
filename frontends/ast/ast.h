@@ -164,7 +164,7 @@ namespace AST
 		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
 		void replace_ids(std::map<std::string, std::string> &rules);
-		void mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc);
+		void mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc, bool force_mem2reg);
 		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block, AstNode *top_block);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 
@@ -189,13 +189,13 @@ namespace AST
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast = false, bool dump_ast_diff = false, bool dump_vlog = false, bool nolatches = false, bool nomem2reg = false);
+	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast = false, bool dump_ast_diff = false, bool dump_vlog = false, bool nolatches = false, bool nomem2reg = false, bool mem2reg = false);
 
 	// parametric modules are supported directly by the AST library
 	// therfore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
-		bool nolatches, nomem2reg;
+		bool nolatches, nomem2reg, mem2reg;
 		virtual ~AstModule();
 		virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
 		virtual void update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes);
@@ -217,7 +217,7 @@ namespace AST
 namespace AST_INTERNAL
 {
 	// internal state variables
-	extern bool flag_dump_ast, flag_dump_ast_diff, flag_nolatches, flag_nomem2reg;
+	extern bool flag_dump_ast, flag_dump_ast_diff, flag_nolatches, flag_nomem2reg, flag_mem2reg;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;
 	extern RTLIL::SigSpec *genRTLIL_subst_from, *genRTLIL_subst_to;

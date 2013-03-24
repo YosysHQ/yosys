@@ -46,7 +46,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg;
+	bool flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
@@ -704,11 +704,12 @@ static AstModule* process_module(AstNode *ast)
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
 	current_module->nomem2reg = flag_nomem2reg;
+	current_module->mem2reg = flag_mem2reg;
 	return current_module;
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_ast_diff, bool dump_vlog, bool nolatches, bool nomem2reg)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_ast_diff, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg)
 {
 	current_ast = ast;
 	flag_dump_ast = dump_ast;
@@ -716,6 +717,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_
 	flag_dump_vlog = dump_vlog;
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
+	flag_mem2reg = mem2reg;
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
@@ -744,6 +746,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_dump_vlog = false;
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
+	flag_mem2reg = mem2reg;
 	use_internal_line_num();
 
 	std::vector<unsigned char> hash_data;
@@ -817,6 +820,7 @@ void AstModule::update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes)
 	flag_dump_vlog = false;
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
+	flag_mem2reg = mem2reg;
 	use_internal_line_num();
 
 	for (auto it = auto_sizes.begin(); it != auto_sizes.end(); it++) {
