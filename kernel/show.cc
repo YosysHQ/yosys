@@ -36,13 +36,14 @@ struct ShowWorker
 	std::map<RTLIL::IdString, int> autonames;
 	int single_idx_count;
 
-	struct net_conn { std::set<std::string> in, out; };
+	struct net_conn { std::set<std::string> in, out; int bits; };
 	std::map<std::string, net_conn> net_conn_map;
 
 	FILE *f;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	uint32_t currentColor;
+	bool genWidthLabels;
 	int page_counter;
 
 	uint32_t xorshift32(uint32_t x) {
@@ -58,7 +59,16 @@ struct ShowWorker
 			return "color=\"black\"";
 
 		currentColor = xorshift32(currentColor);
-		return stringf("colorscheme=\"dark28\", color=\"%d\"", currentColor%8+1);
+		return stringf("colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", currentColor%8+1);
+	}
+
+	std::string widthLabel(int bits)
+	{
+		if (bits <= 1)
+			return "label=\"\"";
+		if (!genWidthLabels)
+			return "style=\"setlinewidth(3)\", label=\"\"";
+		return stringf("style=\"setlinewidth(3)\", label=\"<%d>\"", bits);
 	}
 
 	const char *escape(std::string id, bool is_name = false)
@@ -135,9 +145,11 @@ struct ShowWorker
 				if (driver) {
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, pos, pos-c.width+1, c.offset+c.width-1, c.offset);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));
+					net_conn_map[net].bits = c.width;
 				} else {
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, c.offset+c.width-1, c.offset, pos, pos-c.width+1);
 					net_conn_map[net].out.insert(stringf("x%d:s%d", idx, i));
+					net_conn_map[net].bits = c.width;
 				}
 				pos -= c.width;
 			}
@@ -146,9 +158,9 @@ struct ShowWorker
 			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", idx, label_string.c_str());
 			if (!port.empty()) {
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s];\n", port.c_str(), idx, nextColor().c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor().c_str(), widthLabel(sig.width).c_str());
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s];\n", idx, port.c_str(), nextColor().c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor().c_str(), widthLabel(sig.width).c_str());
 			}
 			if (node != NULL)
 				*node = stringf("x%d", idx);
@@ -160,6 +172,7 @@ struct ShowWorker
 					net_conn_map[net].in.insert(port);
 				else
 					net_conn_map[net].out.insert(port);
+				net_conn_map[net].bits = sig.width;
 			}
 			if (node != NULL)
 				*node = net;
@@ -260,16 +273,20 @@ struct ShowWorker
 			code += gen_portbox("", conn.first, true, &right_node);
 			fprintf(f, "%s", code.c_str());
 
-			if (left_node[0] == 'x' && right_node[0] == 'x')
-				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s];\n", left_node.c_str(), right_node.c_str(), nextColor().c_str());
-			else if (left_node[0] == 'x')
-				net_conn_map[right_node].in.insert(left_node);
-			else if (right_node[0] == 'x')
-				net_conn_map[left_node].out.insert(right_node);
-			else {
-				net_conn_map[right_node].in.insert(stringf("x%d:e", single_idx_count));
-				net_conn_map[left_node].out.insert(stringf("x%d:w", single_idx_count));
-				fprintf(f, "x%d [shape=box, style=rounded, label=\"BUF\"];\n", single_idx_count++);
+			if (left_node[0] == 'x' && right_node[0] == 'x') {
+				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor().c_str(), widthLabel(conn.first.width).c_str());
+			} else {
+				net_conn_map[right_node].bits = conn.first.width;
+				net_conn_map[left_node].bits = conn.first.width;
+				if (left_node[0] == 'x') {
+					net_conn_map[right_node].in.insert(left_node);
+				} else if (right_node[0] == 'x') {
+					net_conn_map[left_node].out.insert(right_node);
+				} else {
+					net_conn_map[right_node].in.insert(stringf("x%d:e", single_idx_count));
+					net_conn_map[left_node].out.insert(stringf("x%d:w", single_idx_count));
+					fprintf(f, "x%d [shape=box, style=rounded, label=\"BUF\"];\n", single_idx_count++);
+				}
 			}
 		}
 
@@ -277,7 +294,7 @@ struct ShowWorker
 		{
 			if (wires_on_demand.count(it.first) > 0) {
 				if (it.second.in.size() == 1 && it.second.out.size() == 1) {
-					fprintf(f, "%s:e -> %s:w [%s];\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str(), nextColor().c_str());
+					fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str(), nextColor().c_str(), widthLabel(it.second.bits).c_str());
 					continue;
 				}
 				if (it.second.in.size() == 0 || it.second.out.size() == 0)
@@ -286,15 +303,15 @@ struct ShowWorker
 					fprintf(f, "%s [ shape=point ];\n", it.first.c_str());
 			}
 			for (auto &it2 : it.second.in)
-				fprintf(f, "%s:e -> %s:w [%s];\n", it2.c_str(), it.first.c_str(), nextColor().c_str());
+				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it2.c_str(), it.first.c_str(), nextColor().c_str(), widthLabel(it.second.bits).c_str());
 			for (auto &it2 : it.second.out)
-				fprintf(f, "%s:e -> %s:w [%s];\n", it.first.c_str(), it2.c_str(), nextColor().c_str());
+				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.c_str(), nextColor().c_str(), widthLabel(it.second.bits).c_str());
 		}
 
 		fprintf(f, "};\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed) : f(f), design(design), currentColor(colorSeed)
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels) : f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -333,17 +350,23 @@ struct ShowPass : public Pass {
 		log("to a postscript file.\n");
 		log("\n");
 		log("    -viewer <command>\n");
-		log("         Also run the specified command with the postscript file as parameter.\n");
+		log("        Also run the specified command with the postscript file as parameter.\n");
 		log("\n");
 		log("    -lib <verilog_or_ilang_file>\n");
-		log("         Use the specified library file for determining whether cell ports are\n");
-		log("         inputs or outputs. This option can be used multiple times to specify\n");
-		log("         more than one library.\n");
+		log("        Use the specified library file for determining whether cell ports are\n");
+		log("        inputs or outputs. This option can be used multiple times to specify\n");
+		log("        more than one library.\n");
+		log("\n");
+		log("    -prefix <prefix>\n");
+		log("        generate <prefix>.dot and <prefix>.ps instead of yosys-show.{dot,ps}\n");
 		log("\n");
 		log("    -colors <seed>\n");
-		log("         Randomly assign colors to the wires. The integer argument is the seed\n");
-		log("         for the random number generator. Change the seed value if the colored\n");
-		log("         graph still is ambigous. A seed of zero deactivates the coloring.\n");
+		log("        Randomly assign colors to the wires. The integer argument is the seed\n");
+		log("        for the random number generator. Change the seed value if the colored\n");
+		log("        graph still is ambigous. A seed of zero deactivates the coloring.\n");
+		log("\n");
+		log("    -widthlabels\n");
+		log("        annotate busses with a label indicating the width of the bus.\n");
 		log("\n");
 		log("The generated output files are `yosys-show.dot' and `yosys-show.ps'.\n");
 		log("\n");
@@ -354,9 +377,11 @@ struct ShowPass : public Pass {
 		log_push();
 
 		std::string viewer_exe;
+		std::string prefix = "yosys-show";
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
+		bool flag_widthlabels = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -370,8 +395,16 @@ struct ShowPass : public Pass {
 				libfiles.push_back(args[++argidx]);
 				continue;
 			}
+			if (arg == "-prefix" && argidx+1 < args.size()) {
+				prefix = args[++argidx];
+				continue;
+			}
 			if (arg == "-colors" && argidx+1 < args.size()) {
 				colorSeed = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (arg == "-widthlabels") {
+				flag_widthlabels = true;
 				continue;
 			}
 			break;
@@ -391,23 +424,26 @@ struct ShowPass : public Pass {
 		if (libs.size() > 0)
 			log_header("Continuing show pass.\n");
 
-		log("Writing dot description to `yosys-show.dot'.\n");
-		FILE *f = fopen("yosys-show.dot", "w");
+		std::string dot_file = stringf("%s.dot", prefix.c_str());
+		std::string ps_file = stringf("%s.ps", prefix.c_str());
+
+		log("Writing dot description to `%s'.\n", dot_file.c_str());
+		FILE *f = fopen(dot_file.c_str(), "w");
 		if (f == NULL)
-			log_cmd_error("Can't open dot file `yosys-show.dot' for writing.\n");
-		ShowWorker worker(f, design, libs, colorSeed);
+			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+		ShowWorker worker(f, design, libs, colorSeed, flag_widthlabels);
 		fclose(f);
 
 		if (worker.page_counter == 0)
 			log_cmd_error("Nothing there to show.\n");
 
-		std::string cmd = stringf("dot -Tps -o yosys-show.ps yosys-show.dot");
+		std::string cmd = stringf("dot -Tps -o '%s' '%s'", ps_file.c_str(), dot_file.c_str());
 		log("Exec: %s\n", cmd.c_str());
 		if (system(cmd.c_str()) != 0)
 			log_cmd_error("Shell command failed!\n");
 
 		if (!viewer_exe.empty()) {
-			cmd = stringf("%s yosys-show.ps &", viewer_exe.c_str());
+			cmd = stringf("%s '%s' &", viewer_exe.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
