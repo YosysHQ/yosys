@@ -42,7 +42,24 @@ struct ShowWorker
 	FILE *f;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
+	uint32_t currentColor;
 	int page_counter;
+
+	uint32_t xorshift32(uint32_t x) {
+		x ^= x << 13;
+		x ^= x >> 17;
+		x ^= x << 5;
+		return x;
+	}
+
+	std::string nextColor()
+	{
+		if (currentColor == 0)
+			return "color=\"black\"";
+
+		currentColor = xorshift32(currentColor);
+		return stringf("colorscheme=\"dark28\", color=\"%d\"", currentColor%8+1);
+	}
 
 	const char *escape(std::string id, bool is_name = false)
 	{
@@ -129,9 +146,9 @@ struct ShowWorker
 			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", idx, label_string.c_str());
 			if (!port.empty()) {
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both];\n", port.c_str(), idx);
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s];\n", port.c_str(), idx, nextColor().c_str());
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both];\n", idx, port.c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s];\n", idx, port.c_str(), nextColor().c_str());
 			}
 			if (node != NULL)
 				*node = stringf("x%d", idx);
@@ -244,7 +261,7 @@ struct ShowWorker
 			fprintf(f, "%s", code.c_str());
 
 			if (left_node[0] == 'x' && right_node[0] == 'x')
-				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both];\n", left_node.c_str(), right_node.c_str());
+				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s];\n", left_node.c_str(), right_node.c_str(), nextColor().c_str());
 			else if (left_node[0] == 'x')
 				net_conn_map[right_node].in.insert(left_node);
 			else if (right_node[0] == 'x')
@@ -260,7 +277,7 @@ struct ShowWorker
 		{
 			if (wires_on_demand.count(it.first) > 0) {
 				if (it.second.in.size() == 1 && it.second.out.size() == 1) {
-					fprintf(f, "%s:e -> %s:w;\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str());
+					fprintf(f, "%s:e -> %s:w [%s];\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str(), nextColor().c_str());
 					continue;
 				}
 				if (it.second.in.size() == 0 || it.second.out.size() == 0)
@@ -269,15 +286,15 @@ struct ShowWorker
 					fprintf(f, "%s [ shape=point ];\n", it.first.c_str());
 			}
 			for (auto &it2 : it.second.in)
-				fprintf(f, "%s:e -> %s:w;\n", it2.c_str(), it.first.c_str());
+				fprintf(f, "%s:e -> %s:w [%s];\n", it2.c_str(), it.first.c_str(), nextColor().c_str());
 			for (auto &it2 : it.second.out)
-				fprintf(f, "%s:e -> %s:w;\n", it.first.c_str(), it2.c_str());
+				fprintf(f, "%s:e -> %s:w [%s];\n", it.first.c_str(), it2.c_str(), nextColor().c_str());
 		}
 
 		fprintf(f, "};\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs) : f(f), design(design)
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed) : f(f), design(design), currentColor(colorSeed)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -323,6 +340,11 @@ struct ShowPass : public Pass {
 		log("         inputs or outputs. This option can be used multiple times to specify\n");
 		log("         more than one library.\n");
 		log("\n");
+		log("    -colors <seed>\n");
+		log("         Randomly assign colors to the wires. The integer argument is the seed\n");
+		log("         for the random number generator. Change the seed value if the colored\n");
+		log("         graph still is ambigous. A seed of zero deactivates the coloring.\n");
+		log("\n");
 		log("The generated output files are `yosys-show.dot' and `yosys-show.ps'.\n");
 		log("\n");
 	}
@@ -334,6 +356,7 @@ struct ShowPass : public Pass {
 		std::string viewer_exe;
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
+		uint32_t colorSeed = 0;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -345,6 +368,10 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-lib" && argidx+1 < args.size()) {
 				libfiles.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg == "-colors" && argidx+1 < args.size()) {
+				colorSeed = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
@@ -368,7 +395,7 @@ struct ShowPass : public Pass {
 		FILE *f = fopen("yosys-show.dot", "w");
 		if (f == NULL)
 			log_cmd_error("Can't open dot file `yosys-show.dot' for writing.\n");
-		ShowWorker worker(f, design, libs);
+		ShowWorker worker(f, design, libs, colorSeed);
 		fclose(f);
 
 		if (worker.page_counter == 0)
