@@ -1305,69 +1305,74 @@ output [WIDTH-1:0] Q;
 genvar i;
 generate
 	for (i = 0; i < WIDTH; i = i + 1) begin:V
-		if (CLK_POLARITY == 0 && ARST_POLARITY == 0 && ARST_VALUE[i] == 0) begin:NN0
-			 \$_DFF_NN0_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
-		end
-		if (CLK_POLARITY == 0 && ARST_POLARITY == 0 && ARST_VALUE[i] != 0) begin:NN1
-			 \$_DFF_NN1_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
-		end
-		if (CLK_POLARITY == 0 && ARST_POLARITY != 0 && ARST_VALUE[i] == 0) begin:NP0
-			 \$_DFF_NP0_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
-		end
-		if (CLK_POLARITY == 0 && ARST_POLARITY != 0 && ARST_VALUE[i] != 0) begin:NP1
-			 \$_DFF_NP1_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
-		end
-		if (CLK_POLARITY != 0 && ARST_POLARITY == 0 && ARST_VALUE[i] == 0) begin:PN0
-			 \$_DFF_PN0_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
-		end
-		if (CLK_POLARITY != 0 && ARST_POLARITY == 0 && ARST_VALUE[i] != 0) begin:PN1
-			 \$_DFF_PN1_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
-		end
-		if (CLK_POLARITY != 0 && ARST_POLARITY != 0 && ARST_VALUE[i] == 0) begin:PP0
-			 \$_DFF_PP0_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
-		end
-		if (CLK_POLARITY != 0 && ARST_POLARITY != 0 && ARST_VALUE[i] != 0) begin:PP1
-			 \$_DFF_PP1_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK),
-				.R(ARST)
-			);
+		if (CLK_POLARITY == 0) begin:N
+			if (ARST_POLARITY == 0) begin:NN
+				if (ARST_VALUE[i] == 0) begin:NN0
+					 \$_DFF_NN0_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end else begin:NN1
+					 \$_DFF_NN1_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end
+			end else begin:NP
+				if (ARST_VALUE[i] == 0) begin:NP0
+					 \$_DFF_NP0_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end else begin:NP1
+					 \$_DFF_NP1_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end
+			end
+		end else begin:P
+			if (ARST_POLARITY == 0) begin:PN
+				if (ARST_VALUE[i] == 0) begin:PN0
+					 \$_DFF_PN0_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end else begin:PN1
+					 \$_DFF_PN1_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end
+			end else begin:PP
+				if (ARST_VALUE[i] == 0) begin:PP0
+					 \$_DFF_PP0_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end else begin:PP1
+					 \$_DFF_PP1_ ff (
+						.D(D[i]),
+						.Q(Q[i]),
+						.C(CLK),
+						.R(ARST)
+					);
+				end
+			end
 		end
 	end
 endgenerate
