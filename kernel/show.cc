@@ -58,8 +58,6 @@ struct ShowWorker
 	{
 		if (currentColor == 0)
 			return "color=\"black\"";
-
-		currentColor = xorshift32(currentColor);
 		return stringf("colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", currentColor%8+1);
 	}
 
@@ -158,6 +156,7 @@ struct ShowWorker
 				label_string = label_string.substr(0, label_string.size()-1);
 			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", idx, label_string.c_str());
 			if (!port.empty()) {
+				currentColor = xorshift32(currentColor);
 				if (driver)
 					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor().c_str(), widthLabel(sig.width).c_str());
 				else
@@ -294,6 +293,7 @@ struct ShowWorker
 			fprintf(f, "%s", code.c_str());
 
 			if (left_node[0] == 'x' && right_node[0] == 'x') {
+				currentColor = xorshift32(currentColor);
 				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor().c_str(), widthLabel(conn.first.width).c_str());
 			} else {
 				net_conn_map[right_node].bits = conn.first.width;
@@ -312,6 +312,7 @@ struct ShowWorker
 
 		for (auto &it : net_conn_map)
 		{
+			currentColor = xorshift32(currentColor);
 			if (wires_on_demand.count(it.first) > 0) {
 				if (it.second.in.size() == 1 && it.second.out.size() == 1) {
 					fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str(), nextColor().c_str(), widthLabel(it.second.bits).c_str());
