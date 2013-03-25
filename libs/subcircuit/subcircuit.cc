@@ -1505,6 +1505,16 @@ protected:
 		if (verbose)
 		{
 			my_printf("\n");
+			my_printf("Needle nodes:\n");
+			for (int i = 0; i < int(needle.graph.nodes.size()); i++)
+				my_printf("%5d: %s (%s)\n", i, needle.graph.nodes[i].nodeId.c_str(), needle.graph.nodes[i].typeId.c_str());
+
+			my_printf("\n");
+			my_printf("Haystack nodes:\n");
+			for (int i = 0; i < int(haystack.graph.nodes.size()); i++)
+				my_printf("%5d: %s (%s)\n", i, haystack.graph.nodes[i].nodeId.c_str(), haystack.graph.nodes[i].typeId.c_str());
+
+			my_printf("\n");
 			my_printf("Needle Adjecency Matrix:\n");
 			printAdjMatrix(needle.adjMatrix);
 
@@ -1517,7 +1527,7 @@ protected:
 			diCache.printEdgeTypes();
 
 			my_printf("\n");
-			my_printf("Enumeration Matrix:\n");
+			my_printf("Enumeration Matrix (haystack nodes at column indices):\n");
 			printEnumerationMatrix(enumerationMatrix, haystack.graph.nodes.size());
 		}
 
