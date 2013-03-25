@@ -245,14 +245,14 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 				syncrule->type = child->type == AST_POSEDGE ? RTLIL::STp : RTLIL::STn;
 				syncrule->signal = child->children[0]->genRTLIL();
-				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to);
+				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
 				proc->syncs.push_back(syncrule);
 			}
 		if (proc->syncs.empty()) {
 			RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 			syncrule->type = RTLIL::STa;
 			syncrule->signal = RTLIL::SigSpec();
-			addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to);
+			addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
 			proc->syncs.push_back(syncrule);
 		}
 
@@ -350,7 +350,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 	// add an assignment (aka "action") but split it up in chunks. this way huge assignments
 	// are avoided and the generated $mux cells have a more "natural" size.
-	void addChunkActions(std::vector<RTLIL::SigSig> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue)
+	void addChunkActions(std::vector<RTLIL::SigSig> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, bool noSyncToUndef = false)
 	{
 		assert(lvalue.width == rvalue.width);
 		lvalue.optimize();
@@ -360,6 +360,8 @@ struct AST_INTERNAL::ProcessGenerator
 		for (size_t i = 0; i < lvalue.chunks.size(); i++) {
 			RTLIL::SigSpec lhs = lvalue.chunks[i];
 			RTLIL::SigSpec rhs = rvalue.extract(offset, lvalue.chunks[i].width);
+			if (noSyncToUndef && lvalue.chunks[i].wire && lvalue.chunks[i].wire->attributes.count("\\nosync"))
+				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.width);
 			actions.push_back(RTLIL::SigSig(lhs, rhs));
 			offset += lhs.width;
 		}

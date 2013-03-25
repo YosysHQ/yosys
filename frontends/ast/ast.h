@@ -165,7 +165,7 @@ namespace AST
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
 		void replace_ids(std::map<std::string, std::string> &rules);
 		void mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc, bool force_mem2reg);
-		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block, AstNode *top_block);
+		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 
 		// create a human-readable text representation of the AST (for debugging)

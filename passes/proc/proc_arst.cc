@@ -150,6 +150,11 @@ static void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_m
 				for (auto &action : sync->actions) {
 					RTLIL::SigSpec rspec = action.second;
 					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.width);
+					rspec.expand(), rval.expand();
+					for (int i = 0; i < int(rspec.chunks.size()); i++)
+						if (rspec.chunks[i].wire == NULL)
+							rval.chunks[i] = rspec.chunks[i];
+					rspec.optimize(), rval.optimize();
 					RTLIL::SigSpec last_rval;
 					for (int count = 0; rval != last_rval; count++) {
 						last_rval = rval;

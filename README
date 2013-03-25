@@ -199,6 +199,12 @@ Verilog Attributes and non-standard features
   prohibits the generation of logic-loops for latches. Instead
   all not explicitly assigned values default to x-bits.
 
+- The "nosync" attribute on registers prohibits the generation of a
+  storage element. The register itself will always have all bits set
+  to 'x' (undefined). The variable may only be used as blocking assigned
+  temporary variable within an always block. This is mostly used internally
+  by yosys to synthesize verilog functions and access arrays.
+
 - In addition to the (* ... *) attribute syntax, yosys supports
   the non-standard {* ... *} attribute syntax to set default attributes
   for everything that comes after the {* ... *} statement. (Reset

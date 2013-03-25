@@ -74,7 +74,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 				}
 			}
 
-			mem2reg_as_needed_pass2(mem2reg_set, this, NULL, NULL);
+			mem2reg_as_needed_pass2(mem2reg_set, this, NULL);
 
 			for (size_t i = 0; i < children.size(); i++) {
 				if (mem2reg_set.count(children[i]) > 0) {
@@ -685,6 +685,8 @@ skip_dynamic_range_lvalue_expansion:;
 				wire->port_id = 0;
 				wire->is_input = false;
 				wire->is_output = false;
+				if (type == AST_FCALL)
+					wire->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
 				current_ast_mod->children.push_back(wire);
 
 				replace_rules[child->str] = wire->str;
@@ -957,7 +959,7 @@ void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<
 }
 
 // actually replace memories with registers
-void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block, AstNode *top_block)
+void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
 {
 	if (type == AST_BLOCK)
 		block = this;
@@ -975,24 +977,14 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
 		wire_addr->str = id_addr;
 		wire_addr->is_reg = true;
+		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
 		mod->children.push_back(wire_addr);
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
 		wire_data->is_reg = true;
+		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
 		mod->children.push_back(wire_data);
-
-		assert(top_block != NULL);
-		std::vector<RTLIL::State> x_bits;
-		x_bits.push_back(RTLIL::State::Sx);
-
-		AstNode *assign_addr_x = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
-		assign_addr_x->children[0]->str = id_addr;
-		top_block->children.insert(top_block->children.begin(), assign_addr_x);
-
-		AstNode *assign_data_x = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
-		assign_data_x->children[0]->str = id_data;
-		top_block->children.insert(top_block->children.begin(), assign_data_x);
 
 		assert(block != NULL);
 		size_t assign_idx = 0;
@@ -1036,10 +1028,12 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
 		wire_addr->str = id_addr;
+		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
 		mod->children.push_back(wire_addr);
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
+		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
 		mod->children.push_back(wire_data);
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->clone());
@@ -1067,17 +1061,6 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		assign_reg->children[0]->str = id_data;
 		cond_node->children[1]->children.push_back(assign_reg);
 		case_node->children.push_back(cond_node);
-
-		if (top_block)
-		{
-			AstNode *assign_addr_x = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
-			assign_addr_x->children[0]->str = id_addr;
-			top_block->children.insert(top_block->children.begin(), assign_addr_x);
-
-			AstNode *assign_data_x = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
-			assign_data_x->children[0]->str = id_data;
-			top_block->children.insert(top_block->children.begin(), assign_data_x);
-		}
 
 		if (block)
 		{
@@ -1107,11 +1090,8 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 	assert(id2ast == NULL || mem2reg_set.count(id2ast) == 0);
 
 	auto children_list = children;
-	for (size_t i = 0; i < children_list.size(); i++) {
-		if (type == AST_ALWAYS && children_list[i]->type == AST_BLOCK)
-			top_block = children_list[i];
-		children_list[i]->mem2reg_as_needed_pass2(mem2reg_set, mod, block, top_block);
-	}
+	for (size_t i = 0; i < children_list.size(); i++)
+		children_list[i]->mem2reg_as_needed_pass2(mem2reg_set, mod, block);
 }
 
 // calulate memory dimensions
