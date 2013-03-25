@@ -43,7 +43,8 @@ struct FsmExpand
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
-			return cell->connections.at("\\A").width < 2;
+			if (cell->connections.at("\\A").width < 2)
+				return true;
 
 		RTLIL::SigSpec new_signals;
 		if (cell->connections.count("\\A") > 0)
@@ -52,15 +53,17 @@ struct FsmExpand
 			new_signals.append(assign_map(cell->connections["\\B"]));
 		if (cell->connections.count("\\S") > 0)
 			new_signals.append(assign_map(cell->connections["\\S"]));
+		if (cell->connections.count("\\Y") > 0)
+			new_signals.append(assign_map(cell->connections["\\Y"]));
 
 		new_signals.sort_and_unify();
 		new_signals.remove_const();
 
-		if (new_signals.width > 4)
-			return false;
-
 		new_signals.remove(assign_map(fsm_cell->connections["\\CTRL_IN"]));
 		new_signals.remove(assign_map(fsm_cell->connections["\\CTRL_OUT"]));
+
+		if (new_signals.width > 3)
+			return false;
 
 		if (cell->connections.count("\\Y") > 0) {
 			new_signals.append(assign_map(cell->connections["\\Y"]));
@@ -140,7 +143,6 @@ struct FsmExpand
 		input_sig.sort_and_unify();
 		input_sig.remove_const();
 
-		assert(input_sig.width <= 4 || cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux");
 		std::vector<RTLIL::Const> truth_tab;
 
 		for (int i = 0; i < (1 << input_sig.width); i++) {
