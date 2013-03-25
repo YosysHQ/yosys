@@ -351,9 +351,13 @@ struct ShowWorker
 			module = mod_it.second;
 			if (!design->selected_module(module->name))
 				continue;
-			if (design->selected_whole_module(module->name))
-				log("Dumping module %s to page %d.\n", id2cstr(module->name), ++page_counter);
-			else
+			if (design->selected_whole_module(module->name)) {
+				if (module->cells.empty() && module->connections.empty()) {
+					log("Skipping skeletton module %s.\n", id2cstr(module->name));
+					continue;
+				} else
+					log("Dumping module %s to page %d.\n", id2cstr(module->name), ++page_counter);
+			} else
 				log("Dumping selected parts of module %s to page %d.\n", id2cstr(module->name), ++page_counter);
 			handle_module();
 		}

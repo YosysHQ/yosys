@@ -21,7 +21,109 @@
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <fnmatch.h>
 #include <set>
+
+namespace {
+	struct generate_port_decl_t {
+		bool input, output;
+		std::string portname;
+		int index;
+	};
+}
+
+static void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
+{
+	std::set<std::string> found_celltypes;
+
+	for (auto i1 : design->modules)
+	for (auto i2 : i1.second->cells)
+	{
+		RTLIL::Cell *cell = i2.second;
+		if (cell->type[0] == '$' || design->modules.count(cell->type) > 0)
+			continue;
+		for (auto &pattern : celltypes)
+			if (!fnmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str(), FNM_NOESCAPE))
+				found_celltypes.insert(cell->type);
+	}
+
+	for (auto &celltype : found_celltypes)
+	{
+		std::set<std::string> portnames;
+		std::map<std::string, int> portwidths;
+		log("Generate module for cell type %s:\n", celltype.c_str());
+
+		for (auto i1 : design->modules)
+		for (auto i2 : i1.second->cells)
+			if (i2.second->type == celltype)
+				for (auto &conn : i2.second->connections) {
+					if (conn.first[0] != '$')
+						portnames.insert(conn.first);
+					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.width);
+				}
+
+		for (auto &decl : portdecls)
+			if (decl.index > 0)
+				portnames.insert(decl.portname);
+
+		std::set<int> indices;
+		for (int i = 0; i < int(portnames.size()); i++)
+			indices.insert(i+1);
+
+		std::vector<generate_port_decl_t> ports(portnames.size());
+
+		for (auto &decl : portdecls)
+			if (decl.index > 0) {
+				portwidths[decl.portname] = std::max(portwidths[decl.portname], 1);
+				portwidths[decl.portname] = std::max(portwidths[decl.portname], portwidths[stringf("$%d", decl.index)]);
+				log("  port %d: %s [%d:0] %s\n", decl.index, decl.input ? decl.output ? "inout" : "input" : "output", portwidths[decl.portname]-1, RTLIL::id2cstr(decl.portname));
+				if (indices.count(decl.index) > ports.size())
+					log_error("Port index (%d) exceeds number of found ports (%d).\n", decl.index, int(ports.size()));
+				if (indices.count(decl.index) == 0)
+					log_error("Conflict on port index %d.\n", decl.index);
+				indices.erase(decl.index);
+				portnames.erase(decl.portname);
+				ports[decl.index-1] = decl;
+			}
+
+		while (portnames.size() > 0) {
+			std::string portname = *portnames.begin();
+			for (auto &decl : portdecls)
+				if (decl.index == 0 && !fnmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str(), FNM_NOESCAPE)) {
+					generate_port_decl_t d = decl;
+					d.portname = portname;
+					d.index = *indices.begin();
+					assert(!indices.empty());
+					indices.erase(d.index);
+					ports[d.index-1] = d;
+					portwidths[d.portname] = std::max(portwidths[d.portname], 1);
+					log("  port %d: %s [%d:0] %s\n", d.index, d.input ? d.output ? "inout" : "input" : "output", portwidths[d.portname]-1, RTLIL::id2cstr(d.portname));
+					goto found_matching_decl;
+				}
+			log_error("Can't match port %s.\n", RTLIL::id2cstr(portname));
+		found_matching_decl:;
+			portnames.erase(portname);
+		}
+
+		assert(indices.empty());
+
+		RTLIL::Module *mod = new RTLIL::Module;
+		mod->name = celltype;
+		design->modules[mod->name] = mod;
+
+		for (auto &decl : ports) {
+			RTLIL::Wire *wire = new RTLIL::Wire;
+			wire->name = decl.portname;
+			wire->width = portwidths.at(decl.portname);
+			wire->port_id = decl.index;
+			wire->port_input = decl.input;
+			wire->port_output = decl.output;
+			mod->add(wire);
+		}
+
+		log("  module %s created.\n", RTLIL::id2cstr(mod->name));
+	}
+}
 
 static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check)
 {
@@ -145,6 +247,7 @@ struct HierarchyPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    hierarchy [-check] [-top <module>]\n");
+		log("    hierarchy -generate <cell-types> <port-decls>\n");
 		log("\n");
 		log("In parametric designs, a module might exists in serveral variations with\n");
 		log("different parameter values. This pass looks at all modules in the current\n");
@@ -159,20 +262,76 @@ struct HierarchyPass : public Pass {
 		log("        use the specified top module to built a design hierarchy. modules\n");
 		log("        outside this tree (unused modules) are removed.\n");
 		log("\n");
+		log("In -generate mode this pass generates skeletton modules for the given cell\n");
+		log("types (wildcards supported). For this the design is searched for cells that\n");
+		log("match the given types and then the given port declarations are used to\n");
+		log("determine the direction of the ports. The syntax for a port declaration is:\n");
+		log("\n");
+		log("    {i|o|io}[@<num>]:<portname>\n");
+		log("\n");
+		log("Input ports are specified with the 'i' prefix, output ports with the 'o'\n");
+		log("prefix and inout ports with the 'io' prefix. The optional <num> specifies\n");
+		log("the position of the port in the parameter list (needed when instanciated\n");
+		log("using positional arguments). When <num> is not specified, the <portname> can\n");
+		log("also contain wildcard characters.\n");
+		log("\n");
 		log("This pass ignores the current selection and always operates on all modules\n");
 		log("in the current design.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing HIERARCHY pass (removing modules outside design hierarchy).\n");
+		log_header("Executing HIERARCHY pass (managing design hierarchy).\n");
 
 		bool flag_check = false;
 		RTLIL::Module *top_mod = NULL;
 
+		bool generate_mode = false;
+		std::vector<std::string> generate_cells;
+		std::vector<generate_port_decl_t> generate_ports;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-generate" && !flag_check && !top_mod) {
+				generate_mode = true;
+				log("Entering generate mode.\n");
+				while (++argidx < args.size()) {
+					const char *p = args[argidx].c_str();
+					generate_port_decl_t decl;
+					if (p[0] == 'i' && p[1] == 'o')
+						decl.input = true, decl.output = true, p += 2;
+					else if (*p == 'i')
+						decl.input = true, decl.output = false, p++;
+					else if (*p == 'o')
+						decl.input = false, decl.output = true, p++;
+					else
+						goto is_celltype;
+					if (*p == '@') {
+						char *endptr;
+						decl.index = strtol(++p, &endptr, 10);
+						if (decl.index < 1)
+							goto is_celltype;
+						p = endptr;
+					} else
+						decl.index = 0;
+					if (*(p++) != ':')
+						goto is_celltype;
+					if (*p == 0)
+						goto is_celltype;
+					decl.portname = p;
+					log("Port declaration: %s", decl.input ? decl.output ? "inout" : "input" : "output");
+					if (decl.index >= 1)
+						log(" [at position %d]", decl.index);
+					log(" %s\n", decl.portname.c_str());
+					generate_ports.push_back(decl);
+					continue;
+				is_celltype:
+					log("Celltype: %s\n", args[argidx].c_str());
+					generate_cells.push_back(RTLIL::unescape_id(args[argidx]));
+				}
+				continue;
+			}
 			if (args[argidx] == "-check") {
 				flag_check = true;
 				continue;
@@ -191,6 +350,11 @@ struct HierarchyPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design, false);
+
+		if (generate_mode) {
+			generate(design, generate_cells, generate_ports);
+			return;
+		}
 
 		if (top_mod != NULL)
 			hierarchy(design, top_mod);
