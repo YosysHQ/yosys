@@ -896,10 +896,8 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 		return;
 	}
 
-	if ((type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL) && name_map.count(str) > 0) {
+	if ((type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL) && name_map.count(str) > 0)
 		str = name_map[str];
-		return;
-	}
 
 	std::map<std::string, std::string> backup_name_map;
 

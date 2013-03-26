@@ -184,7 +184,7 @@ supply1 { return TOK_SUPPLY1; }
 "$signed"   { return TOK_TO_SIGNED; }
 "$unsigned" { return TOK_TO_UNSIGNED; }
 
-[a-zA-Z_$][a-zA-Z0-9_$]* {
+[a-zA-Z_$][a-zA-Z0-9_\.$]* {
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
 	return TOK_ID;
 }
