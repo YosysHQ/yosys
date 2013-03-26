@@ -646,7 +646,6 @@ module \$sr (S, R, Q);
 
 parameter WIDTH = 0;
 
-input CLK;
 input [WIDTH-1:0] S, R;
 output reg [WIDTH-1:0] Q;
 
