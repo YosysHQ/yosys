@@ -182,6 +182,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 			break;
 		if (type == AST_GENIF && i >= 1)
 			break;
+		if (type == AST_GENBLOCK)
+			break;
 		if (type == AST_PREFIX && i >= 1)
 			break;
 		while (did_something_here && i < children.size()) {
@@ -409,6 +411,21 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 		did_something = true;
 	}
 
+	// simplify unconditional generate block
+	if (type == AST_GENBLOCK && children.size() != 0)
+	{
+		if (!str.empty()) {
+			std::map<std::string, std::string> name_map;
+			expand_genblock(std::string(), str + ".", name_map);
+		}
+
+		for (size_t i = 0; i < children.size(); i++)
+			current_ast_mod->children.push_back(children[i]);
+
+		children.clear();
+		did_something = true;
+	}
+
 	// simplify generate-if blocks
 	if (type == AST_GENIF && children.size() != 0)
 	{
@@ -434,7 +451,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 
 			if (!buf->str.empty()) {
 				std::map<std::string, std::string> name_map;
-				buf->expand_genblock(std::string(), buf->str, name_map);
+				buf->expand_genblock(std::string(), buf->str + ".", name_map);
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++)

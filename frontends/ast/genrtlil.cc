@@ -528,6 +528,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	case AST_LOCALPARAM:
 	case AST_GENVAR:
 	case AST_GENFOR:
+	case AST_GENBLOCK:
 	case AST_GENIF:
 		break;
 
