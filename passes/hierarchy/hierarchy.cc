@@ -50,17 +50,21 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 	for (auto &celltype : found_celltypes)
 	{
 		std::set<std::string> portnames;
+		std::set<std::string> parameters;
 		std::map<std::string, int> portwidths;
 		log("Generate module for cell type %s:\n", celltype.c_str());
 
 		for (auto i1 : design->modules)
 		for (auto i2 : i1.second->cells)
-			if (i2.second->type == celltype)
+			if (i2.second->type == celltype) {
 				for (auto &conn : i2.second->connections) {
 					if (conn.first[0] != '$')
 						portnames.insert(conn.first);
 					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.width);
 				}
+				for (auto &para : i2.second->parameters)
+					parameters.insert(para.first);
+			}
 
 		for (auto &decl : portdecls)
 			if (decl.index > 0)
@@ -120,6 +124,9 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 			wire->port_output = decl.output;
 			mod->add(wire);
 		}
+
+		for (auto &para : parameters)
+			log("  ignoring parameter %s.\n", RTLIL::id2cstr(para));
 
 		log("  module %s created.\n", RTLIL::id2cstr(mod->name));
 	}
