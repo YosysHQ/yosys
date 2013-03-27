@@ -112,7 +112,7 @@ MainWindow::MainWindow()
     setWindowTitle(tr("SVG Viewer"));
 }
 
-void MainWindow::openFile(const QString &path)
+void MainWindow::openFile(const QString &path, bool reload)
 {
     QString fileName;
     if (path.isNull())
@@ -148,6 +148,7 @@ void MainWindow::openFile(const QString &path)
 	// just keep the file open so this process is found using 'fuser'
 	m_filehandle = fopen(fileName.toAscii(), "r");
 
+	QTransform oldTransform = m_view->transform();
         m_view->openFile(file);
 
         if (!fileName.startsWith(":/")) {
@@ -158,13 +159,16 @@ void MainWindow::openFile(const QString &path)
         m_outlineAction->setEnabled(true);
         m_backgroundAction->setEnabled(true);
 
-        // resize(m_view->sizeHint() + QSize(80, 80 + menuBar()->height()));
+	if (reload)
+		m_view->setTransform(oldTransform);
+	else
+		resize(m_view->sizeHint() + QSize(80, 80 + menuBar()->height()));
     }
 }
 
 void MainWindow::reloadFile()
 {
-	openFile(m_currentPath);
+	openFile(m_currentPath, true);
 }
 
 void MainWindow::setRenderer(QAction *action)

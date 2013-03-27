@@ -63,7 +63,7 @@ public:
     MainWindow();
 
 public slots:
-    void openFile(const QString &path = QString());
+    void openFile(const QString &path = QString(), bool reload = false);
     void setRenderer(QAction *action);
     void reloadFile();
 
