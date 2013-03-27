@@ -41,12 +41,15 @@
 #include "mainwindow.h"
 
 #include <QtGui>
+#include <QFileSystemWatcher>
 
 #include "svgview.h"
 
 MainWindow::MainWindow()
     : QMainWindow()
     , m_view(new SvgView)
+    , m_watcher(NULL)
+    , m_filehandle(NULL)
 {
     QMenu *fileMenu = new QMenu(tr("&File"), this);
     QAction *openAction = fileMenu->addAction(tr("&Open..."));
@@ -118,6 +121,15 @@ void MainWindow::openFile(const QString &path)
     else
         fileName = path;
 
+    if (m_watcher) {
+    	delete m_watcher;
+	m_watcher = NULL;
+    }
+    if (m_filehandle) {
+    	fclose(m_filehandle);
+	m_filehandle = NULL;
+    }
+
     if (!fileName.isEmpty()) {
         QFile file(fileName);
         if (!file.exists()) {
@@ -129,6 +141,13 @@ void MainWindow::openFile(const QString &path)
             return;
         }
 
+	m_watcher = new QFileSystemWatcher(this);
+	m_watcher->addPath(fileName);
+	connect(m_watcher, SIGNAL(fileChanged(const QString&)), this, SLOT(reloadFile()));
+
+	// just keep the file open so this process is found using 'fuser'
+	m_filehandle = fopen(fileName.toAscii(), "r");
+
         m_view->openFile(file);
 
         if (!fileName.startsWith(":/")) {
@@ -139,8 +158,13 @@ void MainWindow::openFile(const QString &path)
         m_outlineAction->setEnabled(true);
         m_backgroundAction->setEnabled(true);
 
-        resize(m_view->sizeHint() + QSize(80, 80 + menuBar()->height()));
+        // resize(m_view->sizeHint() + QSize(80, 80 + menuBar()->height()));
     }
+}
+
+void MainWindow::reloadFile()
+{
+	openFile(m_currentPath);
 }
 
 void MainWindow::setRenderer(QAction *action)

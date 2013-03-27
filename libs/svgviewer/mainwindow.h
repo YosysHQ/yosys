@@ -43,6 +43,7 @@
 
 #include <QMainWindow>
 #include <QString>
+#include <stdio.h>
 
 class SvgView;
 
@@ -51,6 +52,7 @@ class QAction;
 class QGraphicsView;
 class QGraphicsScene;
 class QGraphicsRectItem;
+class QFileSystemWatcher;
 QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
@@ -63,6 +65,7 @@ public:
 public slots:
     void openFile(const QString &path = QString());
     void setRenderer(QAction *action);
+    void reloadFile();
 
 private:
     QAction *m_nativeAction;
@@ -75,6 +78,8 @@ private:
     SvgView *m_view;
 
     QString m_currentPath;
+    QFileSystemWatcher *m_watcher;
+    FILE *m_filehandle;
 };
 
 #endif

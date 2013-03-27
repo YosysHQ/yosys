@@ -51,9 +51,9 @@ yosys-config: yosys-config.in
 	sed 's,@CXX@,$(CXX),; s,@CXXFLAGS@,$(CXXFLAGS),; s,@LDFLAGS@,$(LDFLAGS),; s,@LDLIBS@,$(LDLIBS),;' < yosys-config.in > yosys-config
 	chmod +x yosys-config
 
-yosys-svgviewer: libs/svgviewer/*
-	cd libs/svgviewer && qmake && make
-	cp libs/svgviewer/svgviewer yosys-svgviewer
+yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
+	-cd libs/svgviewer && qmake-qt4 && make
+	-cp libs/svgviewer/svgviewer yosys-svgviewer
 
 test: yosys
 	cd tests/simple && bash run-test.sh
@@ -63,7 +63,7 @@ test: yosys
 install: yosys
 	install yosys /usr/local/bin/yosys
 	install yosys-config /usr/local/bin/yosys-config
-	install yosys-svgviewer /usr/local/bin/yosys-svgviewer
+	-install yosys-svgviewer /usr/local/bin/yosys-svgviewer
 	install yosys-filterlib /usr/local/bin/yosys-filterlib
 
 clean:

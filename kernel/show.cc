@@ -373,10 +373,14 @@ struct ShowPass : public Pass {
 		log("    show [options] [selection]\n");
 		log("\n");
 		log("Create a graphviz DOT file for the selected part of the design and compile it\n");
-		log("to a postscript file.\n");
+		log("to a graphics file (usually SVG or PostScript).\n");
 		log("\n");
-		log("    -viewer <command>\n");
-		log("        Also run the specified command with the postscript file as parameter.\n");
+		log("    -viewer <viewer>\n");
+		log("        Run the specified command with the graphics file as parameter.\n");
+		log("\n");
+		log("    -format <format>\n");
+		log("        Generate a graphics file in the specified format.\n");
+		log("        Usually <format> is 'svg' or 'ps'.\n");
 		log("\n");
 		log("    -lib <verilog_or_ilang_file>\n");
 		log("        Use the specified library file for determining whether cell ports are\n");
@@ -398,7 +402,11 @@ struct ShowPass : public Pass {
 		log("        stretch the graph so all inputs are on the left side and all outputs\n");
 		log("        (including inout ports) are on the right side.\n");
 		log("\n");
-		log("The generated output files are `yosys-show.dot' and `yosys-show.ps'.\n");
+		log("When no <format> is specified, SVG is used. When no <format> and <viewer> is\n");
+		log("specified, 'yosys-svgviewer' is used to display the schematic.\n");
+		log("\n");
+		log("The generated output files are 'yosys-show.dot' and 'yosys-show.<format>',\n");
+		log("unless another prefix is specified using -prefix <prefix>.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -406,6 +414,7 @@ struct ShowPass : public Pass {
 		log_header("Generating Graphviz representation of design.\n");
 		log_push();
 
+		std::string format;
 		std::string viewer_exe;
 		std::string prefix = "yosys-show";
 		std::vector<std::string> libfiles;
@@ -434,6 +443,10 @@ struct ShowPass : public Pass {
 				colorSeed = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (arg == "-format" && argidx+1 < args.size()) {
+				format = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (arg == "-width") {
 				flag_width= true;
 				continue;
@@ -460,32 +473,41 @@ struct ShowPass : public Pass {
 			log_header("Continuing show pass.\n");
 
 		std::string dot_file = stringf("%s.dot", prefix.c_str());
-		std::string ps_file = stringf("%s.ps", prefix.c_str());
+		std::string out_file = stringf("%s.%s", prefix.c_str(), format.empty() ? "svg" : format.c_str());
 
 		log("Writing dot description to `%s'.\n", dot_file.c_str());
 		FILE *f = fopen(dot_file.c_str(), "w");
-		if (f == NULL)
+		if (f == NULL) {
+			for (auto lib : libs)
+				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+		}
 		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch);
 		fclose(f);
+
+		for (auto lib : libs)
+			delete lib;
 
 		if (worker.page_counter == 0)
 			log_cmd_error("Nothing there to show.\n");
 
-		std::string cmd = stringf("dot -Tps -o '%s' '%s'", ps_file.c_str(), dot_file.c_str());
+		std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.empty() ? "svg" : format.c_str(), out_file.c_str(), dot_file.c_str());
 		log("Exec: %s\n", cmd.c_str());
 		if (system(cmd.c_str()) != 0)
 			log_cmd_error("Shell command failed!\n");
 
 		if (!viewer_exe.empty()) {
-			cmd = stringf("%s '%s' &", viewer_exe.c_str(), ps_file.c_str());
+			cmd = stringf("%s '%s' &", viewer_exe.c_str(), out_file.c_str());
+			log("Exec: %s\n", cmd.c_str());
+			if (system(cmd.c_str()) != 0)
+				log_cmd_error("Shell command failed!\n");
+		} else
+		if (format.empty()) {
+			cmd = stringf("fuser -s '%s' || yosys-svgviewer '%s' &", out_file.c_str(), out_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
-
-		for (auto lib : libs)
-			delete lib;
 
 		log_pop();
 	}
