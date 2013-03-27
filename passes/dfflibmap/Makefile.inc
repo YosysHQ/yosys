@@ -2,9 +2,9 @@
 OBJS += passes/dfflibmap/dfflibmap.o
 OBJS += passes/dfflibmap/libparse.o
 
-TARGETS += filterlib
+TARGETS += yosys-filterlib
 GENFILES += passes/dfflibmap/filterlib.o
 
-filterlib: passes/dfflibmap/filterlib.o
-	$(CXX) -o filterlib $(LDFLAGS) $^ $(LDLIBS)
+yosys-filterlib: passes/dfflibmap/filterlib.o
+	$(CXX) -o yosys-filterlib $(LDFLAGS) $^ $(LDLIBS)
 

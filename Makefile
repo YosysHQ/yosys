@@ -12,7 +12,7 @@ OBJS += libs/sha1/sha1.o
 OBJS += libs/subcircuit/subcircuit.o
 
 GENFILES =
-TARGETS = yosys yosys-config
+TARGETS = yosys yosys-config yosys-svgviewer
 
 all: top-all
 
@@ -51,6 +51,10 @@ yosys-config: yosys-config.in
 	sed 's,@CXX@,$(CXX),; s,@CXXFLAGS@,$(CXXFLAGS),; s,@LDFLAGS@,$(LDFLAGS),; s,@LDLIBS@,$(LDLIBS),;' < yosys-config.in > yosys-config
 	chmod +x yosys-config
 
+yosys-svgviewer: libs/svgviewer/*
+	cd libs/svgviewer && qmake && make
+	cp libs/svgviewer/svgviewer yosys-svgviewer
+
 test: yosys
 	cd tests/simple && bash run-test.sh
 	cd tests/hana && bash run-test.sh
@@ -59,10 +63,13 @@ test: yosys
 install: yosys
 	install yosys /usr/local/bin/yosys
 	install yosys-config /usr/local/bin/yosys-config
+	install yosys-svgviewer /usr/local/bin/yosys-svgviewer
+	install yosys-filterlib /usr/local/bin/yosys-filterlib
 
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
+	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean
 
 mrproper: clean
 	git clean -xdf
