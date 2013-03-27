@@ -459,6 +459,15 @@ struct ShowPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (format != "ps") {
+			int modcount = 0;
+			for (auto &mod_it : design->modules)
+				if (design->selected_module(mod_it.first))
+					modcount++;
+			if (modcount > 1)
+				log_cmd_error("For formats different than 'ps' only one module must be selected.\n");
+		}
+
 		for (auto filename : libfiles) {
 			FILE *f = fopen(filename.c_str(), "rt");
 			if (f == NULL)
