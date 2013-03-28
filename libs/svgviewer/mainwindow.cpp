@@ -141,19 +141,20 @@ void MainWindow::openFile(const QString &path, bool reload)
             return;
         }
 
-	m_watcher = new QFileSystemWatcher(this);
-	m_watcher->addPath(fileName);
-	connect(m_watcher, SIGNAL(fileChanged(const QString&)), this, SLOT(reloadFile()));
-
-	// just keep the file open so this process is found using 'fuser'
-	m_filehandle = fopen(fileName.toAscii(), "r");
-
 	QTransform oldTransform = m_view->transform();
         m_view->openFile(file);
 
-        if (!fileName.startsWith(":/")) {
+        if (!fileName.startsWith(":/"))
+	{
             m_currentPath = fileName;
             setWindowTitle(tr("%1 - SVGViewer").arg(m_currentPath));
+
+	    // just keep the file open so this process is found using 'fuser'
+	    m_filehandle = fopen(fileName.toAscii(), "r");
+
+	    m_watcher = new QFileSystemWatcher(this);
+	    m_watcher->addPath(fileName);
+	    connect(m_watcher, SIGNAL(fileChanged(const QString&)), this, SLOT(reloadFile()));
         }
 
         m_outlineAction->setEnabled(true);
