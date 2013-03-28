@@ -3,6 +3,10 @@ CONFIG := clang-debug
 # CONFIG := gcc-debug
 # CONFIG := release
 
+ENABLE_TCL := 1
+ENABLE_QT4 := 1
+ENABLE_GPROF := 0
+
 OBJS  = kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/select.o kernel/show.o
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
@@ -12,7 +16,7 @@ OBJS += libs/sha1/sha1.o
 OBJS += libs/subcircuit/subcircuit.o
 
 GENFILES =
-TARGETS = yosys yosys-config yosys-svgviewer
+TARGETS = yosys yosys-config
 
 all: top-all
 
@@ -37,8 +41,19 @@ CXX = gcc
 CXXFLAGS += -std=gnu++0x -march=native -O3 -DNDEBUG
 endif
 
+ifeq ($(ENABLE_TCL),1)
 CXXFLAGS += -I/usr/include/tcl8.5 -DYOSYS_ENABLE_TCL
 LDLIBS += -ltcl8.5
+endif
+
+ifeq ($(ENABLE_GPROF),1)
+CXXFLAGS += -pg
+LDFLAGS += -pg
+endif
+
+ifeq ($(ENABLE_QT4),1)
+TARGETS += yosys-svgviewer
+endif
 
 include frontends/*/Makefile.inc
 include passes/*/Makefile.inc
@@ -55,19 +70,16 @@ yosys-config: yosys-config.in
 	chmod +x yosys-config
 
 yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
-	-cd libs/svgviewer && qmake-qt4 && make
-	-cp libs/svgviewer/svgviewer yosys-svgviewer
+	cd libs/svgviewer && qmake-qt4 && make
+	cp libs/svgviewer/svgviewer yosys-svgviewer
 
 test: yosys
 	cd tests/simple && bash run-test.sh
 	cd tests/hana && bash run-test.sh
 	cd tests/asicworld && bash run-test.sh
 
-install: yosys
-	install yosys /usr/local/bin/yosys
-	install yosys-config /usr/local/bin/yosys-config
-	-install yosys-svgviewer /usr/local/bin/yosys-svgviewer
-	install yosys-filterlib /usr/local/bin/yosys-filterlib
+install: $(TARGETS)
+	install $(TARGETS) /usr/local/bin/
 
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
@@ -95,6 +107,10 @@ config-gcc-debug: clean
 
 config-release: clean
 	echo 'CONFIG := release' > Makefile.conf
+
+config-gprof: clean
+	echo 'CONFIG := release' > Makefile.conf
+	echo 'ENABLE_GPROF := 1' >> Makefile.conf
 
 -include libs/*/*.d
 -include frontends/*/*.d
