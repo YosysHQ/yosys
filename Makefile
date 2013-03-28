@@ -16,6 +16,7 @@ OBJS += libs/sha1/sha1.o
 OBJS += libs/subcircuit/subcircuit.o
 
 GENFILES =
+EXTRA_TARGETS =
 TARGETS = yosys yosys-config
 
 all: top-all
@@ -60,7 +61,7 @@ include passes/*/Makefile.inc
 include backends/*/Makefile.inc
 include techlibs/Makefile.inc
 
-top-all: $(TARGETS)
+top-all: $(TARGETS) $(EXTRA_TARGETS)
 
 yosys: $(OBJS)
 	$(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
