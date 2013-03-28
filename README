@@ -246,8 +246,8 @@ TODOs / Open Bugs
   - Actually use range information on parameters
   - Add brief source code documentation to most passes and kernel code
   - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
-  - Add commands 'delete' (remove objects) and 'attr' (get, set and remove attributes)
-  - TCL and Python interfaces to frontends, passes, backends and RTLIL
+  - Add 'edit' command for changing the design (delete, add, modify objects)
+  - Improve TCL support and add 'list' command for inspecting the design from TCL
   - Additional internal cell types: $pla and $lut
   - Support for registering designs (as collection of modules) to CellTypes
   - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)

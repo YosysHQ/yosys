@@ -26,6 +26,12 @@
 #include <vector>
 #include <map>
 
+#ifdef YOSYS_ENABLE_TCL
+#include <tcl.h>
+extern Tcl_Interp *yosys_tcl;
+extern RTLIL::Design *yosys_tcl_design;
+#endif
+
 struct Pass
 {
 	std::string pass_name, short_help;
@@ -44,6 +50,7 @@ struct Pass
 
 	static void init_register();
 	static void done_register();
+	void register_tcl();
 };
 
 struct Frontend : Pass

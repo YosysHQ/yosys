@@ -37,6 +37,9 @@ CXX = gcc
 CXXFLAGS += -std=gnu++0x -march=native -O3 -DNDEBUG
 endif
 
+CXXFLAGS += -I/usr/include/tcl8.5 -DYOSYS_ENABLE_TCL
+LDLIBS += -ltcl8.5
+
 include frontends/*/Makefile.inc
 include passes/*/Makefile.inc
 include backends/*/Makefile.inc

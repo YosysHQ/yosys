@@ -27,6 +27,11 @@
 using namespace REGISTER_INTERN;
 #define MAX_REG_COUNT 1000
 
+#ifdef YOSYS_ENABLE_TCL
+Tcl_Interp *yosys_tcl = NULL;
+RTLIL::Design *yosys_tcl_design = NULL;
+#endif
+
 namespace REGISTER_INTERN
 {
 	int raw_register_count = 0;
@@ -51,6 +56,8 @@ void Pass::run_register()
 {
 	assert(pass_register.count(pass_name) == 0);
 	pass_register[pass_name] = this;
+
+	register_tcl();
 }
 
 void Pass::init_register()
@@ -68,6 +75,25 @@ void Pass::done_register()
 	pass_register.clear();
 	backend_register.clear();
 	raw_register_done = false;
+}
+
+#ifdef YOSYS_ENABLE_TCL
+static int tcl_pass(ClientData that_vp, Tcl_Interp*, int argc, const char *argv[])
+{
+	Pass *that = (Pass*)that_vp;
+	std::vector<std::string> args;
+	for (int i = 0; i < argc; i++)
+		args.push_back(argv[i]);
+	that->call(yosys_tcl_design, args);
+	return TCL_OK;
+}
+#endif
+
+void Pass::register_tcl()
+{
+#ifdef YOSYS_ENABLE_TCL
+	Tcl_CreateCommand(yosys_tcl, pass_name.c_str(), tcl_pass, (ClientData)this, NULL);
+#endif
 }
 
 Pass::~Pass()
@@ -189,6 +215,8 @@ void Frontend::run_register()
 
 	assert(frontend_register.count(frontend_name) == 0);
 	frontend_register[frontend_name] = this;
+
+	register_tcl();
 }
 
 Frontend::~Frontend()
@@ -281,6 +309,8 @@ void Backend::run_register()
 
 	assert(backend_register.count(backend_name) == 0);
 	backend_register[backend_name] = this;
+
+	register_tcl();
 }
 
 Backend::~Backend()

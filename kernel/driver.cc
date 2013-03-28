@@ -20,13 +20,13 @@
 #include <stdio.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <string.h>
+#include <unistd.h>
+#include <dlfcn.h>
 
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
-#include <string.h>
-#include <unistd.h>
-#include <dlfcn.h>
 
 static void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command)
 {
@@ -233,10 +233,15 @@ int main(int argc, char **argv)
 	std::vector<void*> loaded_modules;
 	std::string output_filename = "";
 	std::string scriptfile = "";
+	bool scriptfile_tcl = false;
 	bool got_output_filename = false;
 
+#ifdef YOSYS_ENABLE_TCL
+	yosys_tcl = Tcl_CreateInterp();
+#endif
+
 	int opt;
-	while ((opt = getopt(argc, argv, "Sm:f:b:o:p:l:qts:")) != -1)
+	while ((opt = getopt(argc, argv, "Sm:f:b:o:p:l:qts:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -284,10 +289,15 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			scriptfile = optarg;
+			scriptfile_tcl = false;
+			break;
+		case 'c':
+			scriptfile = optarg;
+			scriptfile_tcl = true;
 			break;
 		default:
 			fprintf(stderr, "\n");
-			fprintf(stderr, "Usage: %s [-S] [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [-s <scriptfile>]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-S] [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [{-s|-c} <scriptfile>]\n", argv[0]);
 			fprintf(stderr, "       %*s[-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
@@ -310,6 +320,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -s scriptfile\n");
 			fprintf(stderr, "        execute the commands in the script file\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -c tcl_scriptfile\n");
+			fprintf(stderr, "        execute the commands in the tcl script file\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -p command\n");
 			fprintf(stderr, "        execute the commands\n");
@@ -366,6 +379,10 @@ int main(int argc, char **argv)
 	design->selection_stack.push_back(RTLIL::Selection());
 	log_push();
 
+#ifdef YOSYS_ENABLE_TCL
+	yosys_tcl_design = design;
+#endif
+
 	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty()) {
 		if (!got_output_filename)
 			backend_command = "";
@@ -375,8 +392,17 @@ int main(int argc, char **argv)
 	while (optind < argc)
 		run_frontend(argv[optind++], frontend_command, design, output_filename == "-" ? &backend_command : NULL);
 
-	if (!scriptfile.empty())
-		run_frontend(scriptfile, "script", design, output_filename == "-" ? &backend_command : NULL);
+	if (!scriptfile.empty()) {
+		if (scriptfile_tcl) {
+#ifdef YOSYS_ENABLE_TCL
+			if (Tcl_EvalFile(yosys_tcl, scriptfile.c_str()) != TCL_OK)
+				log_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_tcl));
+#else
+			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
+#endif
+		} else
+			run_frontend(scriptfile, "script", design, output_filename == "-" ? &backend_command : NULL);
+	}
 
 	for (auto it = passes_commands.begin(); it != passes_commands.end(); it++)
 		run_pass(*it, design);
@@ -385,6 +411,10 @@ int main(int argc, char **argv)
 		run_backend(output_filename, backend_command, design);
 
 	delete design;
+
+#ifdef YOSYS_ENABLE_TCL
+	yosys_tcl_design = NULL;
+#endif
 
 	log("\nREADY.\n");
 	log_pop();
@@ -399,6 +429,10 @@ int main(int argc, char **argv)
 
 	for (auto mod : loaded_modules)
 		dlclose(mod);
+
+#ifdef YOSYS_ENABLE_TCL
+	Tcl_DeleteInterp(yosys_tcl);
+#endif
 
 	return 0;
 }
