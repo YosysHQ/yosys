@@ -47,8 +47,93 @@ static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module 
 }
 
 std::map<std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
+std::map<RTLIL::Module*, bool> techmap_fail_cache;
 
-static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map)
+static bool techmap_fail_check(RTLIL::Module *module)
+{
+	if (module == NULL)
+		return false;
+
+	if (techmap_fail_cache.count(module) > 0)
+		return techmap_fail_cache.at(module);
+
+	for (auto &it : module->wires) {
+		std::string name = it.first;
+		if (name == "\\TECHMAP_FAIL")
+			return techmap_fail_cache[module] = true;
+		if (name.size() > 13 && name[0] == '\\' && name.substr(name.size()-13) == ".TECHMAP_FAIL")
+			return techmap_fail_cache[module] = true;
+	}
+
+	return techmap_fail_cache[module] = false;
+}
+
+static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
+{
+	log("Mapping `%s.%s' using `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(tpl->name));
+
+	if (tpl->memories.size() != 0)
+		log_error("Technology map yielded memories -> this is not supported.");
+
+	if (tpl->processes.size() != 0)
+		log_error("Technology map yielded processes -> this is not supported.");
+
+	for (auto &it : tpl->wires) {
+		RTLIL::Wire *w = new RTLIL::Wire(*it.second);
+		apply_prefix(cell->name, w->name);
+		w->port_input = false;
+		w->port_output = false;
+		w->port_id = 0;
+		module->wires[w->name] = w;
+		design->select(module, w);
+	}
+
+	for (auto &it : tpl->cells) {
+		RTLIL::Cell *c = new RTLIL::Cell(*it.second);
+		if (c->type.substr(0, 2) == "\\$")
+			c->type = c->type.substr(1);
+		apply_prefix(cell->name, c->name);
+		for (auto &it2 : c->connections)
+			apply_prefix(cell->name, it2.second, module);
+		module->cells[c->name] = c;
+		design->select(module, c);
+	}
+
+	for (auto &it : tpl->connections) {
+		RTLIL::SigSig c = it;
+		apply_prefix(cell->name, c.first, module);
+		apply_prefix(cell->name, c.second, module);
+		module->connections.push_back(c);
+	}
+
+	for (auto &it : cell->connections) {
+		assert(tpl->wires.count(it.first));
+		assert(tpl->wires[it.first]->port_id > 0);
+		RTLIL::Wire *w = tpl->wires[it.first];
+		RTLIL::SigSig c;
+		if (w->port_output) {
+			c.first = it.second;
+			c.second = RTLIL::SigSpec(w);
+			apply_prefix(cell->name, c.second, module);
+		} else {
+			c.first = RTLIL::SigSpec(w);
+			c.second = it.second;
+			apply_prefix(cell->name, c.first, module);
+		}
+		if (c.second.width > c.first.width)
+			c.second.remove(c.first.width, c.second.width - c.first.width);
+		if (c.second.width < c.first.width)
+			c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.width - c.second.width));
+		assert(c.first.width == c.second.width);
+		module->connections.push_back(c);
+	}
+
+	module->cells.erase(cell->name);
+	delete cell;
+}
+
+static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
+		const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap)
 {
 	if (!design->selected(module))
 		return false;
@@ -67,98 +152,41 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 
 		RTLIL::Cell *cell = module->cells[cell_name];
 
-		if (!design->selected(module, cell))
+		if (!design->selected(module, cell) || handled_cells.count(cell) > 0)
 			continue;
 
-		if (map->modules.count(cell->type) == 0)
+		if (celltypeMap.count(cell->type) == 0)
 			continue;
 
-		RTLIL::Module *tpl = map->modules[cell->type];
-		std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(cell->type, cell->parameters);
-
-		if (techmap_cache.count(key) > 0) {
-			tpl = techmap_cache[key];
-		} else {
+		for (auto &tpl_name : celltypeMap.at(cell->type))
+		{
+			RTLIL::Module *tpl = map->modules[tpl_name];
+			std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(cell->type, cell->parameters);
 			std::string derived_name = cell->type;
-			if (cell->parameters.size() != 0) {
-				derived_name = tpl->derive(map, cell->parameters);
-				tpl = map->modules[derived_name];
-				log_header("Continuing TECHMAP pass.\n");
-			}
-			for (auto &cit : tpl->cells)
-				if (cit.second->type == "\\TECHMAP_FAILED") {
-					log("Not using module `%s' from techmap as it contains a TECHMAP_FAILED marker cell.\n", derived_name.c_str());
-					tpl = NULL;
-					break;
-				}
-			techmap_cache[key] = tpl;
-		}
 
-		if (tpl == NULL)
-			goto next_cell;
-
-		log("Mapping `%s.%s' using `%s'.\n", module->name.c_str(), cell_name.c_str(), tpl->name.c_str());
-
-		if (tpl->memories.size() != 0)
-			log_error("Technology map yielded memories -> this is not supported.");
-
-		if (tpl->processes.size() != 0)
-			log_error("Technology map yielded processes -> this is not supported.");
-
-		for (auto &it : tpl->wires) {
-			RTLIL::Wire *w = new RTLIL::Wire(*it.second);
-			apply_prefix(cell_name, w->name);
-			w->port_input = false;
-			w->port_output = false;
-			w->port_id = 0;
-			module->wires[w->name] = w;
-			design->select(module, w);
-		}
-
-		for (auto &it : tpl->cells) {
-			RTLIL::Cell *c = new RTLIL::Cell(*it.second);
-			if (c->type.substr(0, 2) == "\\$")
-				c->type = c->type.substr(1);
-			apply_prefix(cell_name, c->name);
-			for (auto &it2 : c->connections)
-				apply_prefix(cell_name, it2.second, module);
-			module->cells[c->name] = c;
-			design->select(module, c);
-		}
-
-		for (auto &it : tpl->connections) {
-			RTLIL::SigSig c = it;
-			apply_prefix(cell_name, c.first, module);
-			apply_prefix(cell_name, c.second, module);
-			module->connections.push_back(c);
-		}
-
-		for (auto &it : cell->connections) {
-			assert(tpl->wires.count(it.first));
-			assert(tpl->wires[it.first]->port_id > 0);
-			RTLIL::Wire *w = tpl->wires[it.first];
-			RTLIL::SigSig c;
-			if (w->port_output) {
-				c.first = it.second;
-				c.second = RTLIL::SigSpec(w);
-				apply_prefix(cell_name, c.second, module);
+			if (techmap_cache.count(key) > 0) {
+				tpl = techmap_cache[key];
 			} else {
-				c.first = RTLIL::SigSpec(w);
-				c.second = it.second;
-				apply_prefix(cell_name, c.first, module);
+				if (cell->parameters.size() != 0) {
+					derived_name = tpl->derive(map, cell->parameters);
+					tpl = map->modules[derived_name];
+					log_header("Continuing TECHMAP pass.\n");
+				}
+				techmap_cache[key] = tpl;
 			}
-			if (c.second.width > c.first.width)
-				c.second.remove(c.first.width, c.second.width - c.first.width);
-			if (c.second.width < c.first.width)
-				c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.width - c.second.width));
-			assert(c.first.width == c.second.width);
-			module->connections.push_back(c);
+
+			if (techmap_fail_check(tpl)) {
+				log("Not using module `%s' from techmap as it contains a TECHMAP_FAIL marker wire.\n", derived_name.c_str());
+				continue;
+			}
+
+			techmap_module_worker(design, module, cell, tpl);
+			did_something = true;
+			cell = NULL;
+			break;
 		}
 
-		delete cell;
-		module->cells.erase(cell_name);
-		did_something = true;
-	next_cell:;
+		handled_cells.insert(cell);
 	}
 
 	return did_something;
@@ -181,6 +209,13 @@ struct TechmapPass : public Pass {
 		log("        without this parameter a builtin library is used that\n");
 		log("        transforms the internal RTL cells to the internal gate\n");
 		log("        library.\n");
+		log("\n");
+		log("When a module in the map file has the 'celltype' attribute set, it will match\n");
+		log("cells with a type that match the text value of this attribute.\n");
+		log("\n");
+		log("When a module in the map file contains a wire with the name 'TECHMAP_FAIL' (or\n");
+		log("one matching '*.TECHMAP_FAIL') then no substitution will be performed. The\n");
+		log("module in the map file are tried in alphabetical order.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
@@ -220,16 +255,26 @@ struct TechmapPass : public Pass {
 		}
 		map->modules.swap(modules_new);
 
+		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
+		for (auto &it : map->modules) {
+			if (it.second->attributes.count("\\celltype") && !it.second->attributes.at("\\celltype").str.empty()) {
+				celltypeMap[RTLIL::escape_id(it.second->attributes.at("\\celltype").str)].insert(it.first);
+			} else
+				celltypeMap[it.first].insert(it.first);
+		}
+
 		bool did_something = true;
+		std::set<RTLIL::Cell*> handled_cells;
 		while (did_something) {
 			did_something = false;
 			for (auto &mod_it : design->modules)
-				if (techmap_module(design, mod_it.second, map))
+				if (techmap_module(design, mod_it.second, map, handled_cells, celltypeMap))
 					did_something = true;
 		}
 
 		log("No more expansions possible.\n");
 		techmap_cache.clear();
+		techmap_fail_cache.clear();
 		delete map;
 		log_pop();
 	}
