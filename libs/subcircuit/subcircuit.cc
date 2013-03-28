@@ -1124,6 +1124,21 @@ class SubCircuit::SolverWorker
 
 			while (prunePortmapCandidates(portmapCandidates, enumerationMatrix, needle, haystack)) { }
 
+			if (verbose) {
+				my_printf("\nPortmapper results:\n");
+				for (int j = 0; j < int(enumerationMatrix.size()); j++) {
+					my_printf("%5d: %s\n", j, needle.graph.nodes[j].nodeId.c_str());
+					int variantCounter = 0;
+					for (auto &i2 : portmapCandidates.at(j)) {
+						my_printf("%*s variant %2d:", 6, "", variantCounter++);
+						int mapCounter = 0;
+						for (auto &i3 : i2)
+							my_printf("%s %s -> %s", mapCounter++ ? "," : "", i3.first.c_str(), i3.second.c_str());
+						my_printf("\n");
+					}
+				}
+			}
+
 			for (int j = 0; j < int(enumerationMatrix.size()); j++) {
 				if (portmapCandidates[j].size() == 0) {
 					if (verbose) {
