@@ -352,8 +352,12 @@ struct ShowWorker
 			if (!design->selected_module(module->name))
 				continue;
 			if (design->selected_whole_module(module->name)) {
+				if (module->attributes.count("\\placeholder") > 0) {
+					log("Skipping placeholder module %s.\n", id2cstr(module->name));
+					continue;
+				} else
 				if (module->cells.empty() && module->connections.empty()) {
-					log("Skipping skeletton module %s.\n", id2cstr(module->name));
+					log("Skipping empty module %s.\n", id2cstr(module->name));
 					continue;
 				} else
 					log("Dumping module %s to page %d.\n", id2cstr(module->name), ++page_counter);
@@ -461,9 +465,14 @@ struct ShowPass : public Pass {
 
 		if (format != "ps") {
 			int modcount = 0;
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules) {
+				if (mod_it.second->attributes.count("\\placeholder") > 0)
+					continue;
+				if (mod_it.second->cells.empty() && mod_it.second->connections.empty())
+					continue;
 				if (design->selected_module(mod_it.first))
 					modcount++;
+			}
 			if (modcount > 1)
 				log_cmd_error("For formats different than 'ps' only one module must be selected.\n");
 		}

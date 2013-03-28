@@ -923,6 +923,11 @@ struct VerilogBackend : public Backend {
 		log("        without this option all internal cells are converted to verilog\n");
 		log("        expressions.\n");
 		log("\n");
+		log("    -placeholders\n");
+		log("        usually modules with the 'placeholder' attribute are ignored. with\n");
+		log("        this option set only the modules with the 'placeholder' attribute\n");
+		log("        are written to the output file.\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -932,6 +937,8 @@ struct VerilogBackend : public Backend {
 		noattr = false;
 		attr2comment = false;
 		noexpr = false;
+
+		bool placeholders = false;
 
 		reg_ct.clear();
 		reg_ct.setup_stdcells_mem();
@@ -958,16 +965,21 @@ struct VerilogBackend : public Backend {
 				noexpr = true;
 				continue;
 			}
+			if (arg == "-placeholders") {
+				placeholders = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
-		for (auto it = design->modules.begin(); it != design->modules.end(); it++) {
-			log("Dumping module `%s'.\n", it->first.c_str());
-			if (it != design->modules.begin())
-				fprintf(f, "\n");
-			dump_module(f, "", it->second);
-		}
+		for (auto it = design->modules.begin(); it != design->modules.end(); it++)
+			if ((it->second->attributes.count("\\placeholder") > 0) == placeholders) {
+				if (it != design->modules.begin())
+					fprintf(f, "\n");
+				log("Dumping module `%s'.\n", it->first.c_str());
+				dump_module(f, "", it->second);
+			}
 
 		reg_ct.clear();
 	}

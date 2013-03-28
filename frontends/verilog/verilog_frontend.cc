@@ -89,6 +89,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -nopp\n");
 		log("        do not run the pre-processor\n");
 		log("\n");
+		log("    -lib\n");
+		log("        only create empty placeholder modules\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -100,6 +103,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_mem2reg = false;
 		bool flag_ppdump = false;
 		bool flag_nopp = false;
+		bool flag_lib = false;
 		frontend_verilog_yydebug = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
@@ -144,6 +148,10 @@ struct VerilogFrontend : public Frontend {
 				flag_nopp = true;
 				continue;
 			}
+			if (arg == "-lib") {
+				flag_lib = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -173,7 +181,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
-		AST::process(design, current_ast, flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg);
+		AST::process(design, current_ast, flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib);
 
 		if (!flag_nopp)
 			fclose(fp);

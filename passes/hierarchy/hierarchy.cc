@@ -113,6 +113,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 
 		RTLIL::Module *mod = new RTLIL::Module;
 		mod->name = celltype;
+		mod->attributes["\\placeholder"] = RTLIL::Const(0, 0);
 		design->modules[mod->name] = mod;
 
 		for (auto &decl : ports) {
@@ -145,6 +146,8 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 			continue;
 		}
 		if (cell->parameters.size() == 0)
+			continue;
+		if (design->modules.at(cell->type)->attributes.count("\\placeholder") > 0)
 			continue;
 		RTLIL::Module *mod = design->modules[cell->type];
 		cell->type = mod->derive(design, cell->parameters);
@@ -207,7 +210,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 
 	if (auto_sizes.size() > 0) {
 		module->update_auto_wires(auto_sizes);
-		log_header("Continuing EXPAND pass.\n");
+		log_header("Continuing HIERARCHY pass.\n");
 		did_something = true;
 	}
 
@@ -269,7 +272,7 @@ struct HierarchyPass : public Pass {
 		log("        use the specified top module to built a design hierarchy. modules\n");
 		log("        outside this tree (unused modules) are removed.\n");
 		log("\n");
-		log("In -generate mode this pass generates skeletton modules for the given cell\n");
+		log("In -generate mode this pass generates placeholder modules for the given cell\n");
 		log("types (wildcards supported). For this the design is searched for cells that\n");
 		log("match the given types and then the given port declarations are used to\n");
 		log("determine the direction of the ports. The syntax for a port declaration is:\n");

@@ -46,7 +46,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg;
+	bool flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
@@ -679,6 +679,18 @@ static AstModule* process_module(AstNode *ast)
 		log("--- END OF AST DUMP ---\n");
 	}
 
+	if (flag_lib) {
+		std::vector<AstNode*> new_children;
+		for (auto child : ast->children) {
+			if (child->type == AST_WIRE && (child->is_input || child->is_output))
+				new_children.push_back(child);
+			else
+				delete child;
+		}
+		ast->children.swap(new_children);
+		ast->attributes["\\placeholder"] = AstNode::mkconst_int(0, false, 0);
+	}
+
 	current_module = new AstModule;
 	current_module->ast = NULL;
 	current_module->name = ast->str;
@@ -705,11 +717,12 @@ static AstModule* process_module(AstNode *ast)
 	current_module->nolatches = flag_nolatches;
 	current_module->nomem2reg = flag_nomem2reg;
 	current_module->mem2reg = flag_mem2reg;
+	current_module->lib = flag_lib;
 	return current_module;
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_ast_diff, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_ast_diff, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib)
 {
 	current_ast = ast;
 	flag_dump_ast = dump_ast;
@@ -718,6 +731,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_lib = lib;
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
@@ -747,6 +761,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_lib = lib;
 	use_internal_line_num();
 
 	std::vector<unsigned char> hash_data;
@@ -821,6 +836,7 @@ void AstModule::update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes)
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
+	flag_lib = lib;
 	use_internal_line_num();
 
 	for (auto it = auto_sizes.begin(); it != auto_sizes.end(); it++) {
