@@ -277,6 +277,7 @@ struct RTLIL::SigChunk {
 	bool operator <(const RTLIL::SigChunk &other) const;
 	bool operator ==(const RTLIL::SigChunk &other) const;
 	bool operator !=(const RTLIL::SigChunk &other) const;
+	static bool compare(const RTLIL::SigChunk &a, const RTLIL::SigChunk &b);
 };
 
 struct RTLIL::SigSpec {
@@ -291,6 +292,7 @@ struct RTLIL::SigSpec {
 	SigSpec(RTLIL::State bit, int width = 1);
 	void expand();
 	void optimize();
+	void sort();
 	void sort_and_unify();
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const;

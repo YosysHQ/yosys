@@ -76,6 +76,18 @@ struct OptShareWorker
 				alt_conn["\\B"] = conn->at("\\A");
 			}
 			conn = &alt_conn;
+		} else
+		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor") {
+			alt_conn = *conn;
+			assign_map.apply(alt_conn.at("\\A"));
+			alt_conn.at("\\A").sort();
+			conn = &alt_conn;
+		} else
+		if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_bool") {
+			alt_conn = *conn;
+			assign_map.apply(alt_conn.at("\\A"));
+			alt_conn.at("\\A").sort_and_unify();
+			conn = &alt_conn;
 		}
 
 		for (auto &it : *conn) {
@@ -151,6 +163,14 @@ struct OptShareWorker
 				conn2["\\A"] = conn2["\\B"];
 				conn2["\\B"] = tmp;
 			}
+		} else
+		if (cell1->type == "$reduce_xor" || cell1->type == "$reduce_xnor") {
+			conn1["\\A"].sort();
+			conn2["\\A"].sort();
+		} else
+		if (cell1->type == "$reduce_and" || cell1->type == "$reduce_or" || cell1->type == "$reduce_bool") {
+			conn1["\\A"].sort_and_unify();
+			conn2["\\A"].sort_and_unify();
 		}
 
 		if (conn1 != conn2) {
