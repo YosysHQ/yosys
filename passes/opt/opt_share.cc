@@ -65,7 +65,20 @@ struct OptShareWorker
 		for (auto &it : cell->parameters)
 			hash_string += "P " + it.first + "=" + it.second.as_string() + "\n";
 
-		for (auto &it : cell->connections) {
+		const std::map<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections;
+		std::map<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
+
+		if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" || cell->type == "$add" || cell->type == "$mul" ||
+				cell->type == "$logic_and" || cell->type == "$logic_or" || cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_") {
+			alt_conn = *conn;
+			if (assign_map(alt_conn.at("\\A")) < assign_map(alt_conn.at("\\B"))) {
+				alt_conn["\\A"] = conn->at("\\B");
+				alt_conn["\\B"] = conn->at("\\A");
+			}
+			conn = &alt_conn;
+		}
+
+		for (auto &it : *conn) {
 			if (ct.cell_output(cell->type, it.first))
 				continue;
 			RTLIL::SigSpec sig = it.second;
@@ -124,6 +137,20 @@ struct OptShareWorker
 				it.second = RTLIL::SigSpec();
 			else
 				assign_map.apply(it.second);
+		}
+
+		if (cell1->type == "$and" || cell1->type == "$or" || cell1->type == "$xor" || cell1->type == "$xnor" || cell1->type == "$add" || cell1->type == "$mul" ||
+				cell1->type == "$logic_and" || cell1->type == "$logic_or" || cell1->type == "$_AND_" || cell1->type == "$_OR_" || cell1->type == "$_XOR_") {
+			if (conn1.at("\\A") < conn1.at("\\B")) {
+				RTLIL::SigSpec tmp = conn1["\\A"];
+				conn1["\\A"] = conn1["\\B"];
+				conn1["\\B"] = tmp;
+			}
+			if (conn2.at("\\A") < conn2.at("\\B")) {
+				RTLIL::SigSpec tmp = conn2["\\A"];
+				conn2["\\A"] = conn2["\\B"];
+				conn2["\\B"] = tmp;
+			}
 		}
 
 		if (conn1 != conn2) {
