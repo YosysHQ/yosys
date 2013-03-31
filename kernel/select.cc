@@ -471,7 +471,8 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			select_op_expand(design, arg, 'o');
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg.c_str());
-		select_filter_active_mod(design, work_stack.back());
+		if (work_stack.size() >= 1)
+			select_filter_active_mod(design, work_stack.back());
 		return;
 	}
 
