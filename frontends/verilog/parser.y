@@ -607,7 +607,7 @@ always_stmt:
 		ast_stack.pop_back();
 	} |
 	attr TOK_INITIAL {
-		AstNode *node = new AstNode(AST_ALWAYS);
+		AstNode *node = new AstNode(AST_INITIAL);
 		append_attr(node, $1);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);

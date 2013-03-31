@@ -310,6 +310,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		case AST_COND:
 		case AST_ALWAYS:
+		case AST_INITIAL:
 			for (auto child : ast->children)
 				if (child->type == AST_BLOCK)
 					collect_lvalues(reg, child, type_eq, type_le, false);
@@ -1013,7 +1014,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 		break;
 
 	// use ProcessGenerator for always blocks
-	case AST_ALWAYS: {
+	case AST_ALWAYS:
+	case AST_INITIAL: {
 			AstNode *always = this->clone();
 			ProcessGenerator generator(always);
 			delete always;

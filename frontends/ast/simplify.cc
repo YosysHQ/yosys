@@ -196,7 +196,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 				current_block = this;
 				current_block_child = children[i];
 			}
-			if (type == AST_ALWAYS && children[i]->type == AST_BLOCK)
+			if ((type == AST_ALWAYS || type == AST_INITIAL) && children[i]->type == AST_BLOCK)
 				current_top_block = children[i];
 			did_something_here = children[i]->simplify(const_fold_here, at_zero, in_lvalue_here, stage);
 			if (did_something_here)

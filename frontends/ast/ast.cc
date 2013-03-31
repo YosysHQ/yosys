@@ -122,6 +122,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_CELL)
 	X(AST_PRIMITIVE)
 	X(AST_ALWAYS)
+	X(AST_INITIAL)
 	X(AST_BLOCK)
 	X(AST_ASSIGN_EQ)
 	X(AST_ASSIGN_LE)
@@ -411,6 +412,14 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 			first = false;
 		}
 		fprintf(f, ")\n");
+		for (auto child : children) {
+			if (child->type != AST_POSEDGE && child->type != AST_NEGEDGE && child->type != AST_EDGE)
+				child->dumpVlog(f, indent + "  ");
+		}
+		break;
+
+	case AST_INITIAL:
+		fprintf(f, "%s" "initial\n", indent.c_str());
 		for (auto child : children) {
 			if (child->type != AST_POSEDGE && child->type != AST_NEGEDGE && child->type != AST_EDGE)
 				child->dumpVlog(f, indent + "  ");
