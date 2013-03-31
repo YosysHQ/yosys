@@ -10,16 +10,3 @@ index 47a50c4..de27fbb 100755
      }
  
      cout<<"Final sum = "<<hex<<top->sum<<"\n";
-diff --git a/rtl/k68_clkgen.v b/rtl/k68_clkgen.v
-index c201a97..55b9cad 100755
---- a/rtl/k68_clkgen.v
-+++ b/rtl/k68_clkgen.v
-@@ -57,7 +57,7 @@ module k68_clkgen (/*AUTOARG*/
-    assign    clk4_o = cnt[1];
-    assign    clk_o = ~clk_i;
-    
--   initial cnt = 0;	// Power up state doesn't matter, but can't be X
-+   // initial cnt = 0;	// Power up state doesn't matter, but can't be X
- 
-    always @(posedge clk_i) begin
- 	cnt <= cnt + 1'b1;

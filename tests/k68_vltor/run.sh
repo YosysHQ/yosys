@@ -7,7 +7,7 @@ if (
 
 	cd rtl
 	mkdir -p ../synth
-	yosys -o ../synth/k68_soc.v -p 'hierarchy -check -top k68_soc; proc; opt; memory; opt' \
+	../../../../yosys -o ../synth/k68_soc.v -p 'hierarchy -check -top k68_soc; proc; opt; memory; opt' \
 			k68_soc.v k68_arb.v k68_cpu.v k68_load.v k68_clkgen.v k68_decode.v k68_execute.v \
 			k68_fetch.v k68_regbank.v k68_buni.v k68_b2d.v k68_ccc.v k68_d2b.v k68_rox.v \
 			k68_calc.v k68_dpmem.v k68_sasc.v sasc_brg.v sasc_top.v sasc_fifo4.v

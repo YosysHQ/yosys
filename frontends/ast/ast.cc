@@ -51,6 +51,7 @@ namespace AST_INTERNAL {
 	std::map<std::string, AstNode*> current_scope;
 	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
 	RTLIL::SigSpec *genRTLIL_subst_to = NULL;
+	RTLIL::SigSpec ignoreThisSignalsInInitial;
 	AstNode *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
 }
@@ -704,6 +705,9 @@ static AstModule* process_module(AstNode *ast)
 	current_module->ast = NULL;
 	current_module->name = ast->str;
 	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
+
+	ignoreThisSignalsInInitial = RTLIL::SigSpec();
+
 	for (auto &attr : ast->attributes) {
 		if (attr.second->type != AST_CONSTANT)
 			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
@@ -718,9 +722,19 @@ static AstModule* process_module(AstNode *ast)
 	}
 	for (size_t i = 0; i < ast->children.size(); i++) {
 		AstNode *node = ast->children[i];
-		if (node->type != AST_WIRE && node->type != AST_MEMORY)
+		if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL)
 			node->genRTLIL();
 	}
+
+	ignoreThisSignalsInInitial.sort_and_unify();
+
+	for (size_t i = 0; i < ast->children.size(); i++) {
+		AstNode *node = ast->children[i];
+		if (node->type == AST_INITIAL)
+			node->genRTLIL();
+	}
+
+	ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;

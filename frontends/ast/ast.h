@@ -221,7 +221,7 @@ namespace AST_INTERNAL
 	extern bool flag_dump_ast, flag_dump_ast_diff, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;
-	extern RTLIL::SigSpec *genRTLIL_subst_from, *genRTLIL_subst_to;
+	extern RTLIL::SigSpec *genRTLIL_subst_from, *genRTLIL_subst_to, ignoreThisSignalsInInitial;
 	extern AST::AstNode *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;
 	struct ProcessGenerator;

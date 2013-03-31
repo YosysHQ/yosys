@@ -183,7 +183,9 @@ struct AST_INTERNAL::ProcessGenerator
 {
 	// input and output structures
 	AstNode *always;
+	RTLIL::SigSpec skipSyncSignals;
 	RTLIL::Process *proc;
+	const RTLIL::SigSpec &outputSignals;
 
 	// This always points to the RTLIL::CaseRule beeing filled at the moment
 	RTLIL::CaseRule *current_case;
@@ -205,7 +207,7 @@ struct AST_INTERNAL::ProcessGenerator
 	// map helps generating nice numbered names for all this temporary signals.
 	std::map<RTLIL::Wire*, int> new_temp_count;
 
-	ProcessGenerator(AstNode *always) : always(always)
+	ProcessGenerator(AstNode *always, RTLIL::SigSpec skipSyncSignalsArg = RTLIL::SigSpec()) : always(always), skipSyncSignals(skipSyncSignalsArg), outputSignals(subst_lvalue_from)
 	{
 		// generate process and simple root case
 		proc = new RTLIL::Process;
@@ -351,8 +353,10 @@ struct AST_INTERNAL::ProcessGenerator
 
 	// add an assignment (aka "action") but split it up in chunks. this way huge assignments
 	// are avoided and the generated $mux cells have a more "natural" size.
-	void addChunkActions(std::vector<RTLIL::SigSig> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, bool noSyncToUndef = false)
+	void addChunkActions(std::vector<RTLIL::SigSig> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, bool inSyncRule = false)
 	{
+		if (inSyncRule)
+			lvalue.remove2(skipSyncSignals, &rvalue);
 		assert(lvalue.width == rvalue.width);
 		lvalue.optimize();
 		rvalue.optimize();
@@ -361,7 +365,7 @@ struct AST_INTERNAL::ProcessGenerator
 		for (size_t i = 0; i < lvalue.chunks.size(); i++) {
 			RTLIL::SigSpec lhs = lvalue.chunks[i];
 			RTLIL::SigSpec rhs = rvalue.extract(offset, lvalue.chunks[i].width);
-			if (noSyncToUndef && lvalue.chunks[i].wire && lvalue.chunks[i].wire->attributes.count("\\nosync"))
+			if (inSyncRule && lvalue.chunks[i].wire && lvalue.chunks[i].wire->attributes.count("\\nosync"))
 				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.width);
 			actions.push_back(RTLIL::SigSig(lhs, rhs));
 			offset += lhs.width;
@@ -1014,10 +1018,16 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 		break;
 
 	// use ProcessGenerator for always blocks
-	case AST_ALWAYS:
-	case AST_INITIAL: {
+	case AST_ALWAYS: {
 			AstNode *always = this->clone();
 			ProcessGenerator generator(always);
+			ignoreThisSignalsInInitial.append(generator.outputSignals);
+			delete always;
+		} break;
+
+	case AST_INITIAL: {
+			AstNode *always = this->clone();
+			ProcessGenerator generator(always, ignoreThisSignalsInInitial);
 			delete always;
 		} break;
 
