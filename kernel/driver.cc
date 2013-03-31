@@ -225,6 +225,22 @@ struct ShellPass : public Pass {
 	}
 } ShellPass;
 
+struct ScriptPass : public Pass {
+	ScriptPass() : Pass("script", "execute files from script file") { }
+	virtual void help() {
+		log("\n");
+		log("    script <filename>\n");
+		log("\n");
+		log("This command executes the yosys commands in the specified file.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+		if (args.size() != 2)
+			extra_args(args, 1, design, false);
+		run_frontend(args[1], "script", design, NULL);
+	}
+} ScriptPass;
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
