@@ -346,8 +346,18 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode)
 			size_t endpos = arg.find(':', pos);
 			if (endpos == std::string::npos)
 				endpos = arg.size();
-			if (int(endpos) > pos)
-				limits.insert(RTLIL::escape_id(arg.substr(pos, endpos-pos)));
+			if (int(endpos) > pos) {
+				std::string str = arg.substr(pos, endpos-pos);
+				if (str[0] == '@') {
+					str = RTLIL::escape_id(str.substr(1));
+					if (design->selection_vars.count(str) > 0) {
+						for (auto i1 : design->selection_vars.at(str).selected_members)
+						for (auto i2 : i1.second)
+							limits.insert(i2);
+					}
+				} else
+					limits.insert(RTLIL::escape_id(str));
+			}
 			pos = endpos;
 		}
 	}
