@@ -182,12 +182,12 @@ struct ShowWorker
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, pos, pos-c.width+1, c.offset+c.width-1, c.offset);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));
 					net_conn_map[net].bits = c.width;
-					net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
+					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else {
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, c.offset+c.width-1, c.offset, pos, pos-c.width+1);
 					net_conn_map[net].out.insert(stringf("x%d:s%d", idx, i));
 					net_conn_map[net].bits = c.width;
-					net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
+					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				}
 				pos -= c.width;
 			}
