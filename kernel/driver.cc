@@ -28,6 +28,19 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 
+bool fgetline(FILE *f, std::string &buffer)
+{
+	buffer = "";
+	char block[4096];
+	while (1) {
+		if (fgets(block, 4096, f) == NULL)
+			return false;
+		buffer += block;
+		if (buffer.size() > 0 && (buffer[buffer.size()-1] == '\n' ||  buffer[buffer.size()-1] == '\r'))
+			return true;
+	}
+}
+
 static void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command)
 {
 	if (command == "auto") {
@@ -50,9 +63,13 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 			f = fopen(filename.c_str(), "r");
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
-		char buffer[4096];
-		while (fgets(buffer, 4096, f) != NULL) {
-			Pass::call(design, buffer);
+		std::string command;
+		while (fgetline(f, command)) {
+			Pass::call(design, command);
+			design->check();
+		}
+		if (!command.empty()) {
+			Pass::call(design, command);
 			design->check();
 		}
 		if (filename != "-")
