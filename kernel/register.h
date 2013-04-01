@@ -84,6 +84,9 @@ struct Backend : Pass
 	static void backend_call(RTLIL::Design *design, FILE *f, std::string filename, std::vector<std::string> args);
 };
 
+// implemented in kernel/select.cc
+extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design);
+
 namespace REGISTER_INTERN {
 	extern int raw_register_count;
 	extern bool raw_register_done;

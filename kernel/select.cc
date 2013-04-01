@@ -586,20 +586,27 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	select_filter_active_mod(design, work_stack.back());
 }
 
-// used in kernel/register.cc
-void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, RTLIL::Design *design)
+// used in kernel/register.cc and maybe other locations, extern decl. in register.h
+void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design)
 {
 	work_stack.clear();
-	for (; argidx < args.size(); argidx++) {
-		if (args[argidx].substr(0, 1) == "-")
-			pass->cmd_error(args, argidx, "Unexpected option in selection arguments.");
+	for (; argidx < args_size; argidx++) {
+		if (args[argidx].substr(0, 1) == "-") {
+			if (pass != NULL)
+				pass->cmd_error(args, argidx, "Unexpected option in selection arguments.");
+			else
+				log_cmd_error("Unexpected option in selection arguments.");
+		}
 		select_stmt(design, args[argidx]);
 	}
 	while (work_stack.size() > 1) {
 		select_op_union(design, work_stack.front(), work_stack.back());
 		work_stack.pop_back();
 	}
-	design->selection_stack.push_back(work_stack.back());
+	if (work_stack.size() > 0)
+		design->selection_stack.push_back(work_stack.back());
+	else
+		design->selection_stack.push_back(RTLIL::Selection(false));
 }
 
 struct SelectPass : public Pass {

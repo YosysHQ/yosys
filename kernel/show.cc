@@ -36,7 +36,7 @@ struct ShowWorker
 	std::map<RTLIL::IdString, int> autonames;
 	int single_idx_count;
 
-	struct net_conn { std::set<std::string> in, out; int bits; };
+	struct net_conn { std::set<std::string> in, out; int bits; std::string color; };
 	std::map<std::string, net_conn> net_conn_map;
 
 	FILE *f;
@@ -46,6 +46,9 @@ struct ShowWorker
 	bool genWidthLabels;
 	bool stretchIO;
 	int page_counter;
+
+	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
+	const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections;
 
 	uint32_t xorshift32(uint32_t x) {
 		x ^= x << 13;
@@ -59,6 +62,40 @@ struct ShowWorker
 		if (currentColor == 0)
 			return "color=\"black\"";
 		return stringf("colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", currentColor%8+1);
+	}
+
+	std::string nextColor(std::string presetColor)
+	{
+		if (presetColor.empty())
+			return nextColor();
+		return presetColor;
+	}
+
+	std::string nextColor(RTLIL::SigSpec sig, std::string defaultColor)
+	{
+		sig.sort_and_unify();
+		for (auto &c : sig.chunks) {
+			if (c.wire != NULL)
+				for (auto &s : color_selections)
+					if (s.second.selected_members.count(module->name) > 0 && s.second.selected_members.at(module->name).count(c.wire->name) > 0)
+						return stringf("color=\"%s\", fontcolor=\"%d\"", s.first.c_str(), s.first.c_str());
+		}
+		return defaultColor;
+	}
+
+	std::string nextColor(RTLIL::SigSig &conn, std::string defaultColor)
+	{
+		return nextColor(conn.first, nextColor(conn.second, defaultColor));
+	}
+
+	std::string nextColor(RTLIL::SigSpec &sig)
+	{
+		return nextColor(sig, nextColor());
+	}
+
+	std::string nextColor(RTLIL::SigSig &conn)
+	{
+		return nextColor(conn, nextColor());
 	}
 
 	std::string widthLabel(int bits)
@@ -145,10 +182,12 @@ struct ShowWorker
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, pos, pos-c.width+1, c.offset+c.width-1, c.offset);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));
 					net_conn_map[net].bits = c.width;
+					net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
 				} else {
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, c.offset+c.width-1, c.offset, pos, pos-c.width+1);
 					net_conn_map[net].out.insert(stringf("x%d:s%d", idx, i));
 					net_conn_map[net].bits = c.width;
+					net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
 				}
 				pos -= c.width;
 			}
@@ -158,9 +197,9 @@ struct ShowWorker
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor().c_str(), widthLabel(sig.width).c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.width).c_str());
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor().c_str(), widthLabel(sig.width).c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.width).c_str());
 			}
 			if (node != NULL)
 				*node = stringf("x%d", idx);
@@ -173,6 +212,7 @@ struct ShowWorker
 				else
 					net_conn_map[net].out.insert(port);
 				net_conn_map[net].bits = sig.width;
+				net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
 			}
 			if (node != NULL)
 				*node = net;
@@ -202,8 +242,9 @@ struct ShowWorker
 			if (it.second->port_input || it.second->port_output)
 				shape = "octagon";
 			if (it.first[0] == '\\') {
-				fprintf(f, "n%d [ shape=%s, label=\"%s\" ];\n",
-						id2num(it.first), shape, escape(it.first));
+				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
+						id2num(it.first), shape, escape(it.first),
+						nextColor(RTLIL::SigSpec(it.second), "color=\"black\"").c_str());
 				if (it.second->port_input)
 					all_sources.insert(stringf("n%d", id2num(it.first)));
 				else if (it.second->port_output)
@@ -294,10 +335,12 @@ struct ShowWorker
 
 			if (left_node[0] == 'x' && right_node[0] == 'x') {
 				currentColor = xorshift32(currentColor);
-				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor().c_str(), widthLabel(conn.first.width).c_str());
+				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.width).c_str());
 			} else {
 				net_conn_map[right_node].bits = conn.first.width;
+				net_conn_map[right_node].color = nextColor(conn, net_conn_map[right_node].color);
 				net_conn_map[left_node].bits = conn.first.width;
+				net_conn_map[left_node].color = nextColor(conn, net_conn_map[left_node].color);
 				if (left_node[0] == 'x') {
 					net_conn_map[right_node].in.insert(left_node);
 				} else if (right_node[0] == 'x') {
@@ -315,7 +358,7 @@ struct ShowWorker
 			currentColor = xorshift32(currentColor);
 			if (wires_on_demand.count(it.first) > 0) {
 				if (it.second.in.size() == 1 && it.second.out.size() == 1) {
-					fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str(), nextColor().c_str(), widthLabel(it.second.bits).c_str());
+					fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
 					continue;
 				}
 				if (it.second.in.size() == 0 || it.second.out.size() == 0)
@@ -324,16 +367,19 @@ struct ShowWorker
 					fprintf(f, "%s [ shape=point ];\n", it.first.c_str());
 			}
 			for (auto &it2 : it.second.in)
-				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it2.c_str(), it.first.c_str(), nextColor().c_str(), widthLabel(it.second.bits).c_str());
+				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it2.c_str(), it.first.c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
 			for (auto &it2 : it.second.out)
-				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.c_str(), nextColor().c_str(), widthLabel(it.second.bits).c_str());
+				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
 		}
 
 		fprintf(f, "};\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels, bool stretchIO) :
-			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), stretchIO(stretchIO)
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels, bool stretchIO,
+			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
+			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections) :
+			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), stretchIO(stretchIO),
+			color_selections(color_selections), label_selections(label_selections)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -394,6 +440,11 @@ struct ShowPass : public Pass {
 		log("    -prefix <prefix>\n");
 		log("        generate <prefix>.dot and <prefix>.ps instead of yosys-show.{dot,ps}\n");
 		log("\n");
+		log("    -color <color> <wire>\n");
+		log("        assign the specified color to the specified wire. The object can be\n");
+		log("        a single selection wildcard expressions or a saved set of objects in\n");
+		log("        the @<name> syntax (see \"help select\" for details).\n");
+		log("\n");
 		log("    -colors <seed>\n");
 		log("        Randomly assign colors to the wires. The integer argument is the seed\n");
 		log("        for the random number generator. Change the seed value if the colored\n");
@@ -418,6 +469,9 @@ struct ShowPass : public Pass {
 		log_header("Generating Graphviz representation of design.\n");
 		log_push();
 
+		std::vector<std::pair<std::string, RTLIL::Selection>> color_selections;
+		std::vector<std::pair<std::string, RTLIL::Selection>> label_selections;
+
 		std::string format;
 		std::string viewer_exe;
 		std::string prefix = "yosys-show";
@@ -441,6 +495,24 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-prefix" && argidx+1 < args.size()) {
 				prefix = args[++argidx];
+				continue;
+			}
+			if (arg == "-color" && argidx+2 < args.size()) {
+				std::pair<std::string, RTLIL::Selection> data;
+				data.first = args[++argidx], argidx++;
+				handle_extra_select_args(this, args, argidx, argidx+1, design);
+				data.second = design->selection_stack.back();
+				design->selection_stack.pop_back();
+				color_selections.push_back(data);
+				continue;
+			}
+			if (arg == "-label" && argidx+2 < args.size() && false) {
+				std::pair<std::string, RTLIL::Selection> data;
+				data.first = args[++argidx], argidx++;
+				handle_extra_select_args(this, args, argidx, argidx+1, design);
+				data.second = design->selection_stack.back();
+				design->selection_stack.pop_back();
+				label_selections.push_back(data);
 				continue;
 			}
 			if (arg == "-colors" && argidx+1 < args.size()) {
@@ -500,7 +572,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch, color_selections, label_selections);
 		fclose(f);
 
 		for (auto lib : libs)
