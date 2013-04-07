@@ -799,8 +799,8 @@ parameter MEMID = "";
 parameter ABITS = 8;
 parameter WIDTH = 8;
 
-parameter RD_CLK_ENABLE = 0;
-parameter RD_CLK_POLARITY = 0;
+parameter CLK_ENABLE = 0;
+parameter CLK_POLARITY = 0;
 
 input CLK;
 input [ABITS-1:0] ADDR;
@@ -821,8 +821,8 @@ parameter MEMID = "";
 parameter ABITS = 8;
 parameter WIDTH = 8;
 
-parameter RD_CLK_ENABLE = 0;
-parameter RD_CLK_POLARITY = 0;
+parameter CLK_ENABLE = 0;
+parameter CLK_POLARITY = 0;
 
 input CLK, EN;
 input [ABITS-1:0] ADDR;
