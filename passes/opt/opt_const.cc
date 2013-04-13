@@ -181,8 +181,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			RTLIL::SigSpec b = assign_map(cell->connections["\\B"]);
 
 			if (a.is_fully_const()) {
-				RTLIL::SigSpec tmp = a;
-				a = b, b = tmp;
+				RTLIL::SigSpec tmp;
+				tmp = a, a = b, b = tmp;
+				cell->connections["\\A"] = a;
+				cell->connections["\\B"] = b;
 			}
 
 			if (b.is_fully_const()) {
