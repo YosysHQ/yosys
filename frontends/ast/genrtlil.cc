@@ -337,9 +337,9 @@ struct AST_INTERNAL::ProcessGenerator
 			reg.sort_and_unify();
 	}
 
-	// remove all assignments to the given signal pattern in a case and all its children
-	// when the last statement in the code "a = 23; if (b) a = 42; a = 0;" is processed this
-	// function is acalled to clean up the first two assignments as they are overwritten by
+	// remove all assignments to the given signal pattern in a case and all its children.
+	// e.g. when the last statement in the code "a = 23; if (b) a = 42; a = 0;" is processed this
+	// function is called to clean up the first two assignments as they are overwritten by
 	// the third assignment.
 	void removeSignalFromCaseTree(RTLIL::SigSpec pattern, RTLIL::CaseRule *cs)
 	{
@@ -461,7 +461,7 @@ struct AST_INTERNAL::ProcessGenerator
 						} else if (node->type == AST_BLOCK) {
 							processAst(node);
 						} else if (!generated_default_case)
-							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.width));
+							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.width, &subst_rvalue_from, &subst_rvalue_to));
 					}
 					sw->cases.push_back(current_case);
 					current_case = backup_case;

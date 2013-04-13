@@ -1,4 +1,23 @@
 
+module blocking_cond (in, out);
+
+input in;
+output reg out;
+reg tmp;
+
+always @* begin
+	tmp = 1;
+	out = 1'b0;
+	case (1'b1)
+		tmp: out = in;
+	endcase
+	tmp = 0;
+end
+
+endmodule
+
+// -------------------------------------------------------------
+
 module uut(clk, arst, a, b, c, d, e, f,  out1);
 
 input clk, arst, a, b, c, d, e, f;
