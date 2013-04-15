@@ -29,6 +29,7 @@ struct SubmodWorker
 	CellTypes ct;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
+	std::string opt_name;
 
 	struct SubModule
 	{
@@ -188,9 +189,9 @@ struct SubmodWorker
 		module->cells[new_cell->name] = new_cell;
 	}
 
-	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module)
+	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, std::string opt_name = std::string()) : design(design), module(module), opt_name(opt_name)
 	{
-		if (!design->selected_whole_module(module->name))
+		if (!design->selected_whole_module(module->name) && opt_name.empty())
 			return;
 
 		if (module->processes.size() > 0) {
@@ -208,29 +209,47 @@ struct SubmodWorker
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 
-		for (auto &it : module->wires)
-			it.second->attributes.erase("\\submod");
-
-		for (auto &it : module->cells)
+		if (opt_name.empty())
 		{
-			RTLIL::Cell *cell = it.second;
-			if (cell->attributes.count("\\submod") == 0 || cell->attributes["\\submod"].str.size() == 0) {
+			for (auto &it : module->wires)
+				it.second->attributes.erase("\\submod");
+
+			for (auto &it : module->cells)
+			{
+				RTLIL::Cell *cell = it.second;
+				if (cell->attributes.count("\\submod") == 0 || cell->attributes["\\submod"].str.size() == 0) {
+					cell->attributes.erase("\\submod");
+					continue;
+				}
+
+				std::string submod_str = cell->attributes["\\submod"].str;
 				cell->attributes.erase("\\submod");
-				continue;
+
+				if (submodules.count(submod_str) == 0) {
+					submodules[submod_str].name = submod_str;
+					submodules[submod_str].full_name = module->name + "_" + submod_str;
+					while (design->modules.count(submodules[submod_str].full_name) != 0 ||
+							module->count_id(submodules[submod_str].full_name) != 0)
+						submodules[submod_str].full_name += "_";
+				}
+
+				submodules[submod_str].cells.insert(cell);
+			}
+		}
+		else
+		{
+			for (auto &it : module->cells)
+			{
+				RTLIL::Cell *cell = it.second;
+				if (!design->selected(module, cell))
+					continue;
+				submodules[opt_name].name = opt_name;
+				submodules[opt_name].full_name = RTLIL::escape_id(opt_name);
+				submodules[opt_name].cells.insert(cell);
 			}
 
-			std::string submod_str = cell->attributes["\\submod"].str;
-			cell->attributes.erase("\\submod");
-
-			if (submodules.count(submod_str) == 0) {
-				submodules[submod_str].name = submod_str;
-				submodules[submod_str].full_name = module->name + "_" + submod_str;
-				while (design->modules.count(submodules[submod_str].full_name) != 0 ||
-						module->count_id(submodules[submod_str].full_name) != 0)
-					submodules[submod_str].full_name += "_";
-			}
-
-			submodules[submod_str].cells.insert(cell);
+			if (submodules.size() == 0)
+				log("Nothing selected -> do nothing.\n");
 		}
 
 		for (auto &it : submodules)
@@ -256,35 +275,72 @@ struct SubmodPass : public Pass {
 		log("This pass only operates on completely selected modules with no processes\n");
 		log("or memories.\n");
 		log("\n");
+		log("\n");
+		log("    submod -name <name> [selection]\n");
+		log("\n");
+		log("As above, but don't use the 'submod' attribute but instead use the selection.\n");
+		log("Only objects from one module might be selected. The value of the -name option\n");
+		log("is used as the value of the 'submod' attribute above.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing SUBMOD pass (moving cells to submodules as requested).\n");
 		log_push();
 
-		Pass::call(design, "opt_rmunused");
-		log_header("Continuing SUBMOD pass.\n");
+		std::string opt_name;
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-name" && argidx+1 < args.size()) {
+				opt_name = args[++argidx];
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
-		std::set<std::string> handled_modules;
+		if (opt_name.empty())
+		{
+			Pass::call(design, "opt_rmunused");
+			log_header("Continuing SUBMOD pass.\n");
 
-		bool did_something = true;
-		while (did_something) {
-			did_something = false;
-			std::vector<std::string> queued_modules;
-			for (auto &mod_it : design->modules)
-				if (handled_modules.count(mod_it.first) == 0)
-					queued_modules.push_back(mod_it.first);
-			for (auto &modname : queued_modules)
-				if (design->modules.count(modname) != 0) {
-					SubmodWorker worker(design, design->modules[modname]);
-					handled_modules.insert(modname);
-					did_something = true;
-				}
+			std::set<std::string> handled_modules;
+
+			bool did_something = true;
+			while (did_something) {
+				did_something = false;
+				std::vector<std::string> queued_modules;
+				for (auto &mod_it : design->modules)
+					if (handled_modules.count(mod_it.first) == 0 && design->selected_whole_module(mod_it.first))
+						queued_modules.push_back(mod_it.first);
+				for (auto &modname : queued_modules)
+					if (design->modules.count(modname) != 0) {
+						SubmodWorker worker(design, design->modules[modname]);
+						handled_modules.insert(modname);
+						did_something = true;
+					}
+			}
+
+			Pass::call(design, "opt_rmunused");
+		}
+		else
+		{
+			RTLIL::Module *module = NULL;
+			for (auto &mod_it : design->modules) {
+				if (!design->selected_module(mod_it.first))
+					continue;
+				if (module != NULL)
+					log_cmd_error("More than one module selected: %s %s\n", module->name.c_str(), mod_it.first.c_str());
+				module = mod_it.second;
+			}
+			if (module == NULL)
+				log("Nothing selected -> do nothing.\n");
+			else
+				SubmodWorker worker(design, module, opt_name);
 		}
 
-		Pass::call(design, "opt_rmunused");
+		log_pop();
 	}
 } SubmodPass;
  
