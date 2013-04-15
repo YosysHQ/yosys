@@ -520,7 +520,7 @@ struct ShowPass : public Pass {
 				continue;
 			}
 			if (arg == "-format" && argidx+1 < args.size()) {
-				format = atoi(args[++argidx].c_str());
+				format = args[++argidx];
 				continue;
 			}
 			if (arg == "-width") {
