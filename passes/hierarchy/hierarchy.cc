@@ -152,6 +152,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		RTLIL::Module *mod = design->modules[cell->type];
 		cell->type = mod->derive(design, cell->parameters);
 		cell->parameters.clear();
+		did_something = true;
 	}
 
 	if (did_something)
