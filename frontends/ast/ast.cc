@@ -801,10 +801,10 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 			continue;
 		para_counter++;
 		std::string para_id = child->str;
-		if (parameters.count(child->str) > 0) {
+		if (parameters.count(para_id) > 0) {
 			log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 	rewrite_parameter:
-			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
+			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			child->delete_children();
 			child->children.push_back(AstNode::mkconst_bits(parameters[para_id].bits, false));
 			hash_data.insert(hash_data.end(), child->str.begin(), child->str.end());
@@ -814,10 +814,8 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 			parameters.erase(para_id);
 			continue;
 		}
-		char buf[100];
-		snprintf(buf, 100, "$%d", para_counter);
-		if (parameters.count(buf) > 0) {
-			para_id = buf;
+		para_id = stringf("$%d", para_counter);
+		if (parameters.count(para_id) > 0) {
 			log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			goto rewrite_parameter;
 		}
