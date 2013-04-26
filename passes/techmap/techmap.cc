@@ -31,7 +31,7 @@ static void apply_prefix(std::string prefix, std::string &id)
 	if (id[0] == '\\')
 		id = prefix + "." + id.substr(1);
 	else
-		id = prefix + "." + id;
+		id = "$techmap" + prefix + "." + id;
 }
 
 static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
@@ -279,4 +279,44 @@ struct TechmapPass : public Pass {
 		log_pop();
 	}
 } TechmapPass;
+ 
+struct FlattenPass : public Pass {
+	FlattenPass() : Pass("flatten", "flatten design") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    flatten [selection]\n");
+		log("\n");
+		log("This pass flattens the design by replacing cells by their implementation. This\n");
+		log("pass is very simmilar to the 'techmap' pass. The only difference is that this\n");
+		log("pass is using the current design as mapping library.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		log_header("Executing FLATTEN pass (flatten design).\n");
+		log_push();
+
+		extra_args(args, 1, design);
+
+		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
+		for (auto &it : design->modules)
+			celltypeMap[it.first].insert(it.first);
+
+		bool did_something = true;
+		std::set<RTLIL::Cell*> handled_cells;
+		while (did_something) {
+			did_something = false;
+			for (auto &mod_it : design->modules)
+				if (techmap_module(design, mod_it.second, design, handled_cells, celltypeMap))
+					did_something = true;
+		}
+
+		log("No more expansions possible.\n");
+		techmap_cache.clear();
+		techmap_fail_cache.clear();
+		log_pop();
+	}
+} FlattenPass;
  
