@@ -787,6 +787,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_lib = lib;
 	use_internal_line_num();
 
+	std::string para_info;
 	std::vector<unsigned char> hash_data;
 	hash_data.insert(hash_data.end(), name.begin(), name.end());
 	hash_data.push_back(0);
@@ -803,6 +804,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 		if (parameters.count(child->str) > 0) {
 			log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 	rewrite_parameter:
+			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 			child->delete_children();
 			child->children.push_back(AstNode::mkconst_bits(parameters[para_id].bits, false));
 			hash_data.insert(hash_data.end(), child->str.begin(), child->str.end());
@@ -823,17 +825,26 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	if (parameters.size() > 0)
 		log_error("Requested parameter `%s' does not exist in module `%s'!\n", parameters.begin()->first.c_str(), name.c_str());
 
-	unsigned char hash[20];
-	unsigned char *hash_data2 = new unsigned char[hash_data.size()];
-	for (size_t i = 0; i < hash_data.size(); i++)
-		hash_data2[i] = hash_data[i];
-	sha1::calc(hash_data2, hash_data.size(), hash);
-	delete[] hash_data2;
+	std::string modname;
 
-	char hexstring[41];
-	sha1::toHexString(hash, hexstring);
+	if (para_info.size() > 60)
+	{
+		unsigned char hash[20];
+		unsigned char *hash_data2 = new unsigned char[hash_data.size()];
+		for (size_t i = 0; i < hash_data.size(); i++)
+			hash_data2[i] = hash_data[i];
+		sha1::calc(hash_data2, hash_data.size(), hash);
+		delete[] hash_data2;
 
-	std::string modname = "$paramod$" + std::string(hexstring) + "$" + name;
+		char hexstring[41];
+		sha1::toHexString(hash, hexstring);
+
+		modname = "$paramod$" + std::string(hexstring) + name;
+	}
+	else
+	{
+		modname = "$paramod" + name + para_info;
+	}
 
 	if (design->modules.count(modname) == 0) {
 		new_ast->str = modname;
