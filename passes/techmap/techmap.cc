@@ -107,8 +107,8 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 	}
 
 	for (auto &it : cell->connections) {
-		assert(tpl->wires.count(it.first));
-		assert(tpl->wires[it.first]->port_id > 0);
+		if (tpl->wires.count(it.first) == 0 || tpl->wires.at(it.first)->port_id == 0)
+			continue;
 		RTLIL::Wire *w = tpl->wires[it.first];
 		RTLIL::SigSig c;
 		if (w->port_output) {
@@ -160,15 +160,29 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 
 		for (auto &tpl_name : celltypeMap.at(cell->type))
 		{
+			std::string derived_name = tpl_name;
 			RTLIL::Module *tpl = map->modules[tpl_name];
-			std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(cell->type, cell->parameters);
-			std::string derived_name = cell->type;
+			std::map<RTLIL::IdString, RTLIL::Const> parameters = cell->parameters;
 
+			for (auto conn : cell->connections) {
+				if (tpl->wires.count(conn.first) > 0 && tpl->wires.at(conn.first)->port_id > 0)
+					continue;
+				if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0)
+					goto next_tpl;
+				parameters[conn.first] = conn.second.as_const();
+			}
+
+			if (0) {
+		next_tpl:
+				continue;
+			}
+
+			std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
 			if (techmap_cache.count(key) > 0) {
 				tpl = techmap_cache[key];
 			} else {
 				if (cell->parameters.size() != 0) {
-					derived_name = tpl->derive(map, cell->parameters);
+					derived_name = tpl->derive(map, parameters);
 					tpl = map->modules[derived_name];
 					log_header("Continuing TECHMAP pass.\n");
 				}
@@ -215,9 +229,17 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("When a module in the map file contains a wire with the name 'TECHMAP_FAIL' (or\n");
 		log("one matching '*.TECHMAP_FAIL') then no substitution will be performed. The\n");
-		log("module in the map file are tried in alphabetical order.\n");
+		log("modules in the map file are tried in alphabetical order.\n");
+		log("\n");
+		log("When a module in the map file has a parameter where the according cell in the\n");
+		log("design has a port, the module from the map file is only used if the port in\n");
+		log("the design is connected to a constant value. The parameter is then set to the\n");
+		log("constant value.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
+		log("\n");
+		log("See 'help flatten' for a pass that does flatten the design (which is\n");
+		log("esentially techmap but using the design itself as map library).\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
