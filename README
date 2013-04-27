@@ -88,9 +88,13 @@ some simple optimizations:
 
 	yosys> proc; opt
 
-display design netlist using 'gv' as postscript viewer:
+display design netlist using the yosys svg viewer:
 
-	yosys> show -viewer gv
+	yosys> show
+
+the same thing using 'gv' as postscript viewer:
+
+	yosys> show -format ps -viewer gv
 
 translating netlist to gate logic and perform some simple optimizations:
 
