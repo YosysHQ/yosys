@@ -50,7 +50,6 @@ struct Pass
 
 	static void init_register();
 	static void done_register();
-	void register_tcl();
 };
 
 struct Frontend : Pass

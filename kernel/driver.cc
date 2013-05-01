@@ -149,10 +149,13 @@ static char **readline_completion(const char *text, int start, int)
 	return NULL;
 }
 
-static const char *create_prompt(RTLIL::Design *design)
+static const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 {
 	static char buffer[100];
-	std::string str = "\nyosys";
+	std::string str = "\n";
+	if (recursion_counter > 1)
+		str += stringf("(%d) ", recursion_counter);
+	str += "yosys";
 	if (!design->selected_active_module.empty())
 		str += stringf(" [%s]", design->selected_active_module.c_str());
 	if (!design->selection_stack.back().full_selection) {
@@ -168,25 +171,28 @@ static const char *create_prompt(RTLIL::Design *design)
 
 static void shell(RTLIL::Design *design)
 {
-	static bool recursion_detect = false;
+	static int recursion_counter = 0;
 
-	if (recursion_detect) {
-		log("Already in interactive shell.\n");
-		return;
-	}
-
-	recursion_detect = true;
+	recursion_counter++;
 	log_cmd_error_throw = true;
 
 	rl_readline_name = "yosys";
 	rl_attempted_completion_function = readline_completion;
 
 	char *command = NULL;
-	while ((command = readline(create_prompt(design))) != NULL)
+	while ((command = readline(create_prompt(design, recursion_counter))) != NULL)
 	{
 		if (command[strspn(command, " \t\r\n")] == 0)
 			continue;
 		add_history(command);
+
+		char *p = command + strspn(command, " \t\r\n");
+		if (!strncmp(p, "exit", 4)) {
+			p += 4;
+			p += strspn(p, " \t\r\n");
+			if (*p == 0)
+				break;
+		}
 
 		try {
 			assert(design->selection_stack.size() == 1);
@@ -197,8 +203,10 @@ static void shell(RTLIL::Design *design)
 			log_reset_stack();
 		}
 	}
+	if (command == NULL)
+		printf("exit\n");
 
-	recursion_detect = false;
+	recursion_counter--;
 	log_cmd_error_throw = false;
 }
 
@@ -233,7 +241,7 @@ struct ShellPass : public Pass {
 		log("This command is the default action if nothing else has been specified\n");
 		log("on the command line.\n");
 		log("\n");
-		log("Press Ctrl-D to leave the interactive shell.\n");
+		log("Press Ctrl-D or type 'exit' to leave the interactive shell.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
@@ -243,7 +251,7 @@ struct ShellPass : public Pass {
 } ShellPass;
 
 struct ScriptPass : public Pass {
-	ScriptPass() : Pass("script", "execute files from script file") { }
+	ScriptPass() : Pass("script", "execute commands from script file") { }
 	virtual void help() {
 		log("\n");
 		log("    script <filename>\n");
@@ -252,11 +260,44 @@ struct ScriptPass : public Pass {
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
-		if (args.size() != 2)
+		if (args.size() < 2)
+			log_cmd_error("Missing script file.\n");
+		if (args.size() > 2)
 			extra_args(args, 1, design, false);
 		run_frontend(args[1], "script", design, NULL);
 	}
 } ScriptPass;
+
+#ifdef YOSYS_ENABLE_TCL
+struct TclPass : public Pass {
+	TclPass() : Pass("tcl", "execute a TCL script file") { }
+	virtual void help() {
+		log("\n");
+		log("    tcl <filename>\n");
+		log("\n");
+		log("This command executes the tcl commands in the specified file.\n");
+		log("Use 'yosys cmd' to run the yosys command 'cmd' from tcl.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+		if (args.size() < 2)
+			log_cmd_error("Missing script file.\n");
+		if (args.size() > 2)
+			extra_args(args, 1, design, false);
+		if (Tcl_EvalFile(yosys_tcl, args[1].c_str()) != TCL_OK)
+			log_cmd_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_tcl));
+	}
+} TclPass;
+
+static int tcl_yosys_cmd(ClientData, Tcl_Interp*, int argc, const char *argv[])
+{
+	std::vector<std::string> args;
+	for (int i = 1; i < argc; i++)
+		args.push_back(argv[i]);
+	Pass::call(yosys_tcl_design, args);
+	return TCL_OK;
+}
+#endif
 
 int main(int argc, char **argv)
 {
@@ -271,6 +312,7 @@ int main(int argc, char **argv)
 
 #ifdef YOSYS_ENABLE_TCL
 	yosys_tcl = Tcl_CreateInterp();
+	Tcl_CreateCommand(yosys_tcl, "yosys", tcl_yosys_cmd, NULL, NULL);
 #endif
 
 	int opt;
@@ -356,6 +398,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -c tcl_scriptfile\n");
 			fprintf(stderr, "        execute the commands in the tcl script file\n");
+			fprintf(stderr, "        (use 'yosys cmd' to run the yosys command 'cmd' from tcl)\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -p command\n");
 			fprintf(stderr, "        execute the commands\n");
