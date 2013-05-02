@@ -278,6 +278,11 @@ struct TclPass : public Pass {
 		log("This command executes the tcl commands in the specified file.\n");
 		log("Use 'yosys cmd' to run the yosys command 'cmd' from tcl.\n");
 		log("\n");
+		log("The tcl command 'yosys -import' can be used to import all yosys\n");
+		log("commands directly as tcl commands to the tcl shell. The yosys\n");
+		log("command 'proc' is wrapped using the tcl command 'procs' in order\n");
+		log("to avoid a name collision with the tcl builting command 'proc'.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		if (args.size() < 2)
@@ -289,11 +294,33 @@ struct TclPass : public Pass {
 	}
 } TclPass;
 
-static int tcl_yosys_cmd(ClientData, Tcl_Interp*, int argc, const char *argv[])
+static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
 	std::vector<std::string> args;
 	for (int i = 1; i < argc; i++)
 		args.push_back(argv[i]);
+
+	if (args.size() >= 1 && args[0] == "-import") {
+		for (auto &it : REGISTER_INTERN::pass_register) {
+			std::string tcl_command_name = it.first;
+			if (tcl_command_name == "proc")
+				tcl_command_name = "procs";
+			Tcl_CmdInfo info;
+			if (Tcl_GetCommandInfo(interp, tcl_command_name.c_str(), &info) != 0) {
+				log("[TCL: yosys -import] Command name collision: found pre-existing command `%s' -> skip.\n", it.first.c_str());
+			} else {
+				std::string tcl_script = stringf("proc %s args { yosys %s {*}$args }", tcl_command_name.c_str(), it.first.c_str());
+				Tcl_Eval(interp, tcl_script.c_str());
+			}
+		}
+		return TCL_OK;
+	}
+
+	if (args.size() == 1) {
+		Pass::call(yosys_tcl_design, args[0]);
+		return TCL_OK;
+	}
+
 	Pass::call(yosys_tcl_design, args);
 	return TCL_OK;
 }
@@ -397,8 +424,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "        execute the commands in the script file\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -c tcl_scriptfile\n");
-			fprintf(stderr, "        execute the commands in the tcl script file\n");
-			fprintf(stderr, "        (use 'yosys cmd' to run the yosys command 'cmd' from tcl)\n");
+			fprintf(stderr, "        execute the commands in the tcl script file (see 'help tcl' for details)\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -p command\n");
 			fprintf(stderr, "        execute the commands\n");
