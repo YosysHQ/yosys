@@ -233,6 +233,8 @@ supply1 { return TOK_SUPPLY1; }
 "<=" { return OP_LE; }
 ">=" { return OP_GE; }
 
+"===" { return OP_EQ; }
+
  /* "~&" { return OP_NAND; } */
  /* "~|" { return OP_NOR;  } */
 "~^" { return OP_XNOR; }
