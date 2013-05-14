@@ -8,14 +8,21 @@ use Verilog::VCD qw(parse_vcd list_sigs);
 
 $| = 1;
 
+my $opt_width = 0;
+if ($ARGV[0] eq '-w') {
+	$opt_width = +$ARGV[1];
+	shift @ARGV;
+	shift @ARGV;
+}
+
 if ($#ARGV != 1) {
 	print STDERR "\n";
 	print STDERR "VCDCD - Value Change Dump Change Dumper\n";
 	print STDERR "\n";
-	print STDERR "Usage: $0 gold.vcd gate.vcd\n";
+	print STDERR "Usage: $0 [-w N] gold.vcd gate.vcd\n";
 	print STDERR "\n";
 	print STDERR "Compare a known-good (gold) vcd file with a second (gate) vcd file.\n";
-	print STDERR "This is not very efficient -- so use with care with large vcd files.\n";
+	print STDERR "This is not very efficient -- so use with care on large vcd files.\n";
 	print STDERR "\n";
 	exit 1;
 }
@@ -112,6 +119,8 @@ for my $key (keys %$vcd_gate) {
 	}
 }
 
+$signal_maxlen = $opt_width if $opt_width > 0;
+
 my $diffcount = 0;
 my %state_gold;
 my %state_gate;
@@ -161,8 +170,11 @@ sub cmp_signal($$)
 	my @a = split //, $a;
 	my @b = split //, $b;
 
-	unshift @a, "-" while $#a < $#b;
-	unshift @b, "-" while $#b < $#a;
+	my $trail_a = $#a < 0 ? '-' : $a[0] eq '1' ? '0' : $a[0];
+	my $trail_b = $#b < 0 ? '-' : $b[0] eq '1' ? '0' : $b[0];
+
+	unshift @a, $trail_a while $#a < $#b;
+	unshift @b, $trail_b while $#b < $#a;
 
 	for (my $i = 0; $i <= $#a; $i++) {
 		return 0 if $a[$i] ne "x" && $a[$i] ne $b[$i];
