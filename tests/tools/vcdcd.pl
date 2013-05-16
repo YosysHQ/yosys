@@ -9,17 +9,36 @@ use Verilog::VCD qw(parse_vcd list_sigs);
 $| = 1;
 
 my $opt_width = 0;
-if ($ARGV[0] eq '-w') {
-	$opt_width = +$ARGV[1];
-	shift @ARGV;
-	shift @ARGV;
+my $opt_delay = 0;
+
+while (1)
+{
+	if ($ARGV[0] eq '-w') {
+		$opt_width = +$ARGV[1];
+		shift @ARGV;
+		shift @ARGV;
+		next;
+	}
+	if ($ARGV[0] eq '-d') {
+		$opt_delay = +$ARGV[1];
+		shift @ARGV;
+		shift @ARGV;
+		next;
+	}
+	last;
 }
 
 if ($#ARGV != 1) {
 	print STDERR "\n";
 	print STDERR "VCDCD - Value Change Dump Change Dumper\n";
 	print STDERR "\n";
-	print STDERR "Usage: $0 [-w N] gold.vcd gate.vcd\n";
+	print STDERR "Usage: $0 [-w N] [-d N] gold.vcd gate.vcd\n";
+	print STDERR "\n";
+	print STDERR "  -w N\n";
+	print STDERR "    reserve N characters for bitmap in text ouput (default: auto)\n";
+	print STDERR "\n";
+	print STDERR "  -d N\n";
+	print STDERR "    allow for N timesteps delay between gate and gold (default: 0)\n";
 	print STDERR "\n";
 	print STDERR "Compare a known-good (gold) vcd file with a second (gate) vcd file.\n";
 	print STDERR "This is not very efficient -- so use with care on large vcd files.\n";
@@ -177,11 +196,15 @@ sub cmp_signal($$)
 	unshift @b, $trail_b while $#b < $#a;
 
 	for (my $i = 0; $i <= $#a; $i++) {
+		next if $a[$i] eq "-" || $b[$i] eq "-";
 		return 0 if $a[$i] ne "x" && $a[$i] ne $b[$i];
 	}
 
 	return 1;
 }
+
+# Message objects: .text, .time, .signal, .sync
+my @messages;
 
 print "Comparing vcd data..\n";
 for my $time (sort { $a <=> $b } keys %times)
@@ -199,15 +222,66 @@ for my $time (sort { $a <=> $b } keys %times)
 		$stga = $state_gate{$net} if exists $state_gate{$net};
 		if (cmp_signal($stgo, $stga)) {
 			next if $signal_sync{$net};
-			printf "%-10s %-20d %-*s %-*s %s\n", "<sync>", $time, $signal_maxlen, $stgo, $signal_maxlen, $stga, $net;
+			my $message = { };
+			$message->{text} = sprintf "%-10s %-20d %-*s %-*s %s\n", "<sync>", $time, $signal_maxlen, $stgo, $signal_maxlen, $stga, $net;
+			$message->{time} = $time;
+			$message->{signal} = $net;
+			$message->{sync} = 1;
+			push @messages, $message;
 			$signal_sync{$net} = 1;
 		} else {
-			printf "\n%-10s %-20s %-*s %-*s %s\n", "count", "time", $signal_maxlen, "gold", $signal_maxlen, "gate", "net" if $diffcount++ == 0;
-			printf "%-10d %-20d %-*s %-*s %s\n", $diffcount, $time, $signal_maxlen, $stgo, $signal_maxlen, $stga, $net;
+			my $message = { };
+			$message->{text} = sprintf "%-10d %-20d %-*s %-*s %s\n", $diffcount, $time, $signal_maxlen, $stgo, $signal_maxlen, $stga, $net;
+			$message->{time} = $time;
+			$message->{signal} = $net;
+			$message->{sync} = 0;
+			push @messages, $message;
 			$signal_sync{$net} = 0;
+			$diffcount++;
 		}
 	}
 }
 
 print "Found $diffcount differences.\n";
+
+if ($opt_delay > 0) {
+	my %per_net_history;
+	my $removed_diff_count = 0;
+	for (my $i = 0; $i <= $#messages; $i++) {
+		my $message = $messages[$i];
+		$message->{deleted} = 0;
+		$per_net_history{$message->{signal}} = [ ] unless exists $per_net_history{$message->{signal}};
+		if ($message->{sync}) {
+			my $deleted_all = 1;
+			for my $j (@{$per_net_history{$message->{signal}}}) {
+				my $m = $messages[$j];
+				if ($m->{time} + $opt_delay >= $message->{time}) {
+					$m->{deleted} = 1;
+					$removed_diff_count++;
+				} else {
+					$deleted_all = 0;
+				}
+			}
+			$message->{deleted} = 1 if $deleted_all;
+			$per_net_history{$message->{signal}} = [ ];
+		} else {
+			push @{$per_net_history{$message->{signal}}}, $i;
+		}
+	}
+	my @new_messages;
+	for my $message (@messages) {
+		push @new_messages, $message unless $message->{deleted};
+	}
+	@messages = @new_messages;
+	printf "Removed %d differences using delay filtering.\n", $removed_diff_count;
+	$diffcount = $diffcount - $removed_diff_count;
+}
+
+if ($#messages >= 0) {
+	printf "\n%-10s %-20s %-*s %-*s %s\n", "count", "time", $signal_maxlen, "gold", $signal_maxlen, "gate", "net" if $diffcount++ == 0;
+	for (my $i = 0; $i <= $#messages; $i++) {
+		printf "%s", $messages[$i]->{text};
+	}
+}
+
 exit ($diffcount > 0 ? 1 : 0);
