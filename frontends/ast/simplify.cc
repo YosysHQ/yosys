@@ -702,8 +702,6 @@ skip_dynamic_range_lvalue_expansion:;
 				wire->port_id = 0;
 				wire->is_input = false;
 				wire->is_output = false;
-				if (type == AST_FCALL)
-					wire->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
 				current_ast_mod->children.push_back(wire);
 
 				replace_rules[child->str] = wire->str;
