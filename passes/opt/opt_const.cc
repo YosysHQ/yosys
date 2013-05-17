@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <set>
 
-bool did_something;
+static bool did_something;
 
 void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
@@ -44,7 +44,7 @@ void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, st
 	did_something = true;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x)
 {
 	if (!design->selected(module))
 		return;
@@ -78,8 +78,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			if (input.match(" 0")) ACTION_DO_Y(0);
 			if (input.match("0 ")) ACTION_DO_Y(0);
 			if (input.match("11")) ACTION_DO_Y(1);
-			if (input.match(" *")) ACTION_DO_Y(x);
-			if (input.match("* ")) ACTION_DO_Y(x);
+			if (input.match("**")) ACTION_DO_Y(x);
+			if (input.match("1*")) ACTION_DO_Y(x);
+			if (input.match("*1")) ACTION_DO_Y(x);
+			if (consume_x) {
+				if (input.match(" *")) ACTION_DO_Y(0);
+				if (input.match("* ")) ACTION_DO_Y(0);
+			}
 			if (input.match(" 1")) ACTION_DO("\\Y", input.extract(1, 1));
 			if (input.match("1 ")) ACTION_DO("\\Y", input.extract(0, 1));
 		}
@@ -92,8 +97,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module)
 			if (input.match(" 1")) ACTION_DO_Y(1);
 			if (input.match("1 ")) ACTION_DO_Y(1);
 			if (input.match("00")) ACTION_DO_Y(0);
-			if (input.match(" *")) ACTION_DO_Y(x);
-			if (input.match("* ")) ACTION_DO_Y(x);
+			if (input.match("**")) ACTION_DO_Y(x);
+			if (input.match("0*")) ACTION_DO_Y(x);
+			if (input.match("*0")) ACTION_DO_Y(x);
+			if (consume_x) {
+				if (input.match(" *")) ACTION_DO_Y(1);
+				if (input.match("* ")) ACTION_DO_Y(1);
+			}
 			if (input.match(" 0")) ACTION_DO("\\Y", input.extract(1, 1));
 			if (input.match("0 ")) ACTION_DO("\\Y", input.extract(0, 1));
 		}
@@ -308,8 +318,11 @@ struct OptConstPass : public Pass {
 
 		for (auto &mod_it : design->modules)
 			do {
-				did_something = false;
-				replace_const_cells(design, mod_it.second);
+				do {
+					did_something = false;
+					replace_const_cells(design, mod_it.second, false);
+				} while (did_something);
+				replace_const_cells(design, mod_it.second, true);
 			} while (did_something);
 
 		log_pop();
