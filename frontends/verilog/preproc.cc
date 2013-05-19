@@ -206,9 +206,9 @@ static std::string define_to_feature(std::string defname)
 	return std::string();
 }
 
-std::string frontend_verilog_preproc(FILE *f, std::string filename)
+std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map)
 {
-	std::map<std::string, std::string> defines_map;
+	std::map<std::string, std::string> defines_map(pre_defines_map);
 	int ifdef_fail_level = 0;
 
 	output_code.clear();
