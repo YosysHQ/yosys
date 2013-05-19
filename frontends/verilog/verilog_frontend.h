@@ -47,7 +47,7 @@ namespace VERILOG_FRONTEND
 }
 
 // the pre-processor
-std::string frontend_verilog_preproc(FILE *f, std::string filename);
+std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map);
 
 // the usual bison/flex stuff
 extern int frontend_verilog_yydebug;

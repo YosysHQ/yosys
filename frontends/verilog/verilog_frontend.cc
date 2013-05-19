@@ -92,6 +92,10 @@ struct VerilogFrontend : public Frontend {
 		log("    -lib\n");
 		log("        only create empty placeholder modules\n");
 		log("\n");
+		log("    -Dname[=definition]\n");
+		log("        define the preprocessor symbol 'name' and set its optional value\n");
+		log("        'definition'\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -104,6 +108,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_ppdump = false;
 		bool flag_nopp = false;
 		bool flag_lib = false;
+		std::map<std::string, std::string> defines_map;
 		frontend_verilog_yydebug = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
@@ -152,6 +157,16 @@ struct VerilogFrontend : public Frontend {
 				flag_lib = true;
 				continue;
 			}
+			if (arg.compare(0,2,"-D") == 0) {
+				size_t equal = arg.find('=',2);   // returns string::npos it not found
+				std::string name = arg.substr(2,equal-2);
+				std::string value;
+				if (equal != std::string::npos) {
+					value = arg.substr(equal+1,std::string::npos);
+				}
+				defines_map[name] = value;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -168,7 +183,7 @@ struct VerilogFrontend : public Frontend {
 		std::string code_after_preproc;
 
 		if (!flag_nopp) {
-			code_after_preproc = frontend_verilog_preproc(f, filename);
+			code_after_preproc = frontend_verilog_preproc(f, filename, defines_map);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
 			fp = fmemopen((void*)code_after_preproc.c_str(), code_after_preproc.size(), "r");
