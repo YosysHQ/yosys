@@ -123,12 +123,15 @@ static void extract_cell(RTLIL::Cell *cell)
 		assign_map.apply(sig_b);
 		assign_map.apply(sig_y);
 
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+
 		if (cell->type == "$_AND_")
-			map_signal(sig_y, 'a', map_signal(sig_a), map_signal(sig_b));
+			map_signal(sig_y, 'a', mapped_a, mapped_b);
 		else if (cell->type == "$_OR_")
-			map_signal(sig_y, 'o', map_signal(sig_a), map_signal(sig_b));
+			map_signal(sig_y, 'o', mapped_a, mapped_b);
 		else if (cell->type == "$_XOR_")
-			map_signal(sig_y, 'x', map_signal(sig_a), map_signal(sig_b));
+			map_signal(sig_y, 'x', mapped_a, mapped_b);
 		else
 			abort();
 
@@ -149,7 +152,11 @@ static void extract_cell(RTLIL::Cell *cell)
 		assign_map.apply(sig_s);
 		assign_map.apply(sig_y);
 
-		map_signal(sig_y, 'm', map_signal(sig_a), map_signal(sig_b), map_signal(sig_s));
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+		int mapped_s = map_signal(sig_s);
+
+		map_signal(sig_y, 'm', mapped_a, mapped_b, mapped_s);
 
 		module->cells.erase(cell->name);
 		delete cell;
