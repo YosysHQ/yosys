@@ -317,12 +317,12 @@ struct ShowWorker
 		{
 			bool found_lhs_wire = false;
 			for (auto &c : conn.first.chunks) {
-				if (c.wire != NULL && design->selected_member(module->name, c.wire->name))
+				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_lhs_wire = true;
 			}
 			bool found_rhs_wire = false;
 			for (auto &c : conn.second.chunks) {
-				if (c.wire != NULL && design->selected_member(module->name, c.wire->name))
+				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_rhs_wire = true;
 			}
 			if (!found_lhs_wire || !found_rhs_wire)
