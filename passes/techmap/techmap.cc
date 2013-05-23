@@ -73,10 +73,10 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 	log("Mapping `%s.%s' using `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(tpl->name));
 
 	if (tpl->memories.size() != 0)
-		log_error("Technology map yielded memories -> this is not supported.");
+		log_error("Technology map yielded memories -> this is not supported.\n");
 
 	if (tpl->processes.size() != 0)
-		log_error("Technology map yielded processes -> this is not supported.");
+		log_error("Technology map yielded processes -> this is not supported.\n");
 
 	for (auto &it : tpl->wires) {
 		RTLIL::Wire *w = new RTLIL::Wire(*it.second);
