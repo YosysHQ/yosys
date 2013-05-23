@@ -220,6 +220,50 @@ struct ShowWorker
 		return code;
 	}
 
+	void collect_proc_signals(std::vector<RTLIL::SigSpec> &obj, std::set<RTLIL::SigSpec> &signals)
+	{
+		for (auto &it : obj)
+			if (!it.is_fully_const())
+				signals.insert(it);
+	}
+
+	void collect_proc_signals(std::vector<RTLIL::SigSig> &obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)
+	{
+		for (auto &it : obj) {
+			output_signals.insert(it.first);
+			if (!it.second.is_fully_const())
+				input_signals.insert(it.second);
+		}
+	}
+
+	void collect_proc_signals(RTLIL::CaseRule *obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)
+	{
+		collect_proc_signals(obj->compare, input_signals);
+		collect_proc_signals(obj->actions, input_signals, output_signals);
+		for (auto it : obj->switches)
+			collect_proc_signals(it, input_signals, output_signals);
+	}
+
+	void collect_proc_signals(RTLIL::SwitchRule *obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)
+	{
+		input_signals.insert(obj->signal);
+		for (auto it : obj->cases)
+			collect_proc_signals(it, input_signals, output_signals);
+	}
+
+	void collect_proc_signals(RTLIL::SyncRule *obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)
+	{
+		input_signals.insert(obj->signal);
+		collect_proc_signals(obj->actions, input_signals, output_signals);
+	}
+
+	void collect_proc_signals(RTLIL::Process *obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)
+	{
+		collect_proc_signals(&obj->root_case, input_signals, output_signals);
+		for (auto it : obj->syncs)
+			collect_proc_signals(it, input_signals, output_signals);
+	}
+
 	void handle_module()
 	{
 		single_idx_count = 0;
@@ -313,6 +357,37 @@ struct ShowWorker
 						id2num(it.first), label_string.c_str(), code.c_str());
 		}
 
+		for (auto &it : module->processes)
+		{
+			RTLIL::Process *proc = it.second;
+
+			if (!design->selected_member(module->name, proc->name))
+				continue;
+
+			std::set<RTLIL::SigSpec> input_signals, output_signals;
+			collect_proc_signals(proc, input_signals, output_signals);
+
+			int pidx = single_idx_count++;
+			input_signals.erase(RTLIL::SigSpec());
+			output_signals.erase(RTLIL::SigSpec());
+
+			for (auto &sig : input_signals) {
+				std::string code, node;
+				code += gen_portbox("", sig, false, &node);
+				fprintf(f, "%s", code.c_str());
+				net_conn_map[node].out.insert(stringf("p%d", pidx));
+			}
+
+			for (auto &sig : output_signals) {
+				std::string code, node;
+				code += gen_portbox("", sig, true, &node);
+				fprintf(f, "%s", code.c_str());
+				net_conn_map[node].in.insert(stringf("p%d", pidx));
+			}
+
+			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC\\n%s\"];\n", pidx, RTLIL::id2cstr(proc->name));
+		}
+
 		for (auto &conn : module->connections)
 		{
 			bool found_lhs_wire = false;
@@ -357,8 +432,12 @@ struct ShowWorker
 		{
 			currentColor = xorshift32(currentColor);
 			if (wires_on_demand.count(it.first) > 0) {
+				if (it.second.in.size() == 1 && it.second.out.size() > 1 && it.second.in.begin()->substr(0, 1) == "p")
+					it.second.out.erase(*it.second.in.begin());
 				if (it.second.in.size() == 1 && it.second.out.size() == 1) {
-					fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.second.in.begin()->c_str(), it.second.out.begin()->c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
+					std::string from = *it.second.in.begin(), to = *it.second.out.begin();
+					if (from != to || from.substr(0, 1) != "p")
+						fprintf(f, "%s:e -> %s:w [%s, %s];\n", from.c_str(), to.c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
 					continue;
 				}
 				if (it.second.in.size() == 0 || it.second.out.size() == 0)
@@ -402,7 +481,7 @@ struct ShowWorker
 					log("Skipping placeholder module %s.\n", id2cstr(module->name));
 					continue;
 				} else
-				if (module->cells.empty() && module->connections.empty()) {
+				if (module->cells.empty() && module->connections.empty() && module->processes.empty()) {
 					log("Skipping empty module %s.\n", id2cstr(module->name));
 					continue;
 				} else
