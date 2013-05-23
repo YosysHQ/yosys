@@ -172,7 +172,6 @@ static void rmunused_module_signals(RTLIL::Module *module)
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;
 			assign_map.apply(s2);
 			if (!used_signals.check_any(s2) && wire->port_id == 0) {
-				log("  removing unused non-port wire %s.\n", wire->name.c_str());
 				del_wires.push_back(wire);
 			} else {
 				s1.expand();
@@ -187,6 +186,8 @@ static void rmunused_module_signals(RTLIL::Module *module)
 				if (new_conn.first.width > 0) {
 					new_conn.first.optimize();
 					new_conn.second.optimize();
+					used_signals.add(new_conn.first);
+					used_signals.add(new_conn.second);
 					module->connections.push_back(new_conn);
 				}
 			}
@@ -216,13 +217,19 @@ static void rmunused_module_signals(RTLIL::Module *module)
 		}
 	}
 
-	for (auto wire : del_wires) {
-		module->wires.erase(wire->name);
-		delete wire;
-	}
+	int del_wires_count = 0;
+	for (auto wire : del_wires)
+		if (!used_signals.check_any(RTLIL::SigSpec(wire))) {
+			if (check_public_name(wire->name)) {
+				log("  removing unused non-port wire %s.\n", wire->name.c_str());
+				del_wires_count++;
+			}
+			module->wires.erase(wire->name);
+			delete wire;
+		}
 
-	if (del_wires.size() > 0)
-		log("  removed %zd unused temporary wires.\n", del_wires.size());
+	if (del_wires_count > 0)
+		log("  removed %d unused temporary wires.\n", del_wires_count);
 }
 
 static void rmunused_module(RTLIL::Module *module)
