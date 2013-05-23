@@ -269,30 +269,8 @@ struct ScriptPass : public Pass {
 } ScriptPass;
 
 #ifdef YOSYS_ENABLE_TCL
-struct TclPass : public Pass {
-	TclPass() : Pass("tcl", "execute a TCL script file") { }
-	virtual void help() {
-		log("\n");
-		log("    tcl <filename>\n");
-		log("\n");
-		log("This command executes the tcl commands in the specified file.\n");
-		log("Use 'yosys cmd' to run the yosys command 'cmd' from tcl.\n");
-		log("\n");
-		log("The tcl command 'yosys -import' can be used to import all yosys\n");
-		log("commands directly as tcl commands to the tcl shell. The yosys\n");
-		log("command 'proc' is wrapped using the tcl command 'procs' in order\n");
-		log("to avoid a name collision with the tcl builting command 'proc'.\n");
-		log("\n");
-	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
-		if (args.size() < 2)
-			log_cmd_error("Missing script file.\n");
-		if (args.size() > 2)
-			extra_args(args, 1, design, false);
-		if (Tcl_EvalFile(yosys_tcl, args[1].c_str()) != TCL_OK)
-			log_cmd_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_tcl));
-	}
-} TclPass;
+static Tcl_Interp *yosys_tcl_interp = NULL;
+static RTLIL::Design *yosys_tcl_design = NULL;
 
 static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
@@ -324,6 +302,45 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 	Pass::call(yosys_tcl_design, args);
 	return TCL_OK;
 }
+
+extern Tcl_Interp *yosys_get_tcl_interp()
+{
+	if (yosys_tcl_interp == NULL) {
+		yosys_tcl_interp = Tcl_CreateInterp();
+		Tcl_CreateCommand(yosys_tcl_interp, "yosys", tcl_yosys_cmd, NULL, NULL);
+	}
+	return yosys_tcl_interp;
+}
+
+extern RTLIL::Design *yosys_get_tcl_design()
+{
+	return yosys_tcl_design;
+}
+
+struct TclPass : public Pass {
+	TclPass() : Pass("tcl", "execute a TCL script file") { }
+	virtual void help() {
+		log("\n");
+		log("    tcl <filename>\n");
+		log("\n");
+		log("This command executes the tcl commands in the specified file.\n");
+		log("Use 'yosys cmd' to run the yosys command 'cmd' from tcl.\n");
+		log("\n");
+		log("The tcl command 'yosys -import' can be used to import all yosys\n");
+		log("commands directly as tcl commands to the tcl shell. The yosys\n");
+		log("command 'proc' is wrapped using the tcl command 'procs' in order\n");
+		log("to avoid a name collision with the tcl builting command 'proc'.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+		if (args.size() < 2)
+			log_cmd_error("Missing script file.\n");
+		if (args.size() > 2)
+			extra_args(args, 1, design, false);
+		if (Tcl_EvalFile(yosys_get_tcl_interp(), args[1].c_str()) != TCL_OK)
+			log_cmd_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_get_tcl_interp()));
+	}
+} TclPass;
 #endif
 
 int main(int argc, char **argv)
@@ -336,11 +353,6 @@ int main(int argc, char **argv)
 	std::string scriptfile = "";
 	bool scriptfile_tcl = false;
 	bool got_output_filename = false;
-
-#ifdef YOSYS_ENABLE_TCL
-	yosys_tcl = Tcl_CreateInterp();
-	Tcl_CreateCommand(yosys_tcl, "yosys", tcl_yosys_cmd, NULL, NULL);
-#endif
 
 	int opt;
 	while ((opt = getopt(argc, argv, "Sm:f:b:o:p:l:qts:c:")) != -1)
@@ -497,8 +509,8 @@ int main(int argc, char **argv)
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
 #ifdef YOSYS_ENABLE_TCL
-			if (Tcl_EvalFile(yosys_tcl, scriptfile.c_str()) != TCL_OK)
-				log_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_tcl));
+			if (Tcl_EvalFile(yosys_get_tcl_interp(), scriptfile.c_str()) != TCL_OK)
+				log_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_get_tcl_interp()));
 #else
 			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
@@ -533,7 +545,11 @@ int main(int argc, char **argv)
 		dlclose(mod);
 
 #ifdef YOSYS_ENABLE_TCL
-	Tcl_DeleteInterp(yosys_tcl);
+	if (yosys_tcl_interp != NULL) {
+		Tcl_DeleteInterp(yosys_tcl_interp);
+		Tcl_Finalize();
+		yosys_tcl_interp = NULL;
+	}
 #endif
 
 	return 0;

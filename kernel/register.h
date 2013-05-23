@@ -28,8 +28,8 @@
 
 #ifdef YOSYS_ENABLE_TCL
 #include <tcl.h>
-extern Tcl_Interp *yosys_tcl;
-extern RTLIL::Design *yosys_tcl_design;
+extern Tcl_Interp *yosys_get_tcl_interp();
+extern RTLIL::Design *yosys_get_tcl_design();
 #endif
 
 struct Pass

@@ -27,11 +27,6 @@
 using namespace REGISTER_INTERN;
 #define MAX_REG_COUNT 1000
 
-#ifdef YOSYS_ENABLE_TCL
-Tcl_Interp *yosys_tcl = NULL;
-RTLIL::Design *yosys_tcl_design = NULL;
-#endif
-
 namespace REGISTER_INTERN
 {
 	int raw_register_count = 0;
