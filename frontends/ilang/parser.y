@@ -107,6 +107,7 @@ attr_stmt:
 	TOK_ATTRIBUTE TOK_ID constant TOK_EOL {
 		attrbuf[$2] = *$3;
 		delete $3;
+		free($2);
 	};
 
 wire_stmt:
