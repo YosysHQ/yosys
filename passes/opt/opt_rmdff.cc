@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 static SigMap assign_map;
+static SigSet<RTLIL::Cell*> mux_drivers;
 
 static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 {
@@ -66,11 +67,30 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	}
 	else
 		log_error("abort.");
-	
+
 	assign_map.apply(sig_d);
 	assign_map.apply(sig_q);
 	assign_map.apply(sig_c);
 	assign_map.apply(sig_r);
+
+	if (dff->type == "$dff" && mux_drivers.has(sig_d)) {
+		std::set<RTLIL::Cell*> muxes;
+		mux_drivers.find(sig_d, muxes);
+		for (auto mux : muxes) {
+			RTLIL::SigSpec sig_a = assign_map(mux->connections.at("\\A"));
+			RTLIL::SigSpec sig_b = assign_map(mux->connections.at("\\B"));
+			if (sig_a == sig_q && sig_b.is_fully_const()) {
+				RTLIL::SigSig conn(sig_q, sig_b);
+				mod->connections.push_back(conn);
+				goto delete_dff;
+			}
+			if (sig_b == sig_q && sig_a.is_fully_const()) {
+				RTLIL::SigSig conn(sig_q, sig_a);
+				mod->connections.push_back(conn);
+				goto delete_dff;
+			}
+		}
+	}
 
 	if (sig_d.is_fully_const() && sig_r.width == 0) {
 		RTLIL::SigSig conn(sig_q, sig_d);
@@ -78,7 +98,11 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		goto delete_dff;
 	}
 
-	if (sig_d == sig_q && sig_r.width == 0) {
+	if (sig_d == sig_q) {
+		if (sig_r.width > 0) {
+			RTLIL::SigSig conn(sig_q, val_rv);
+			mod->connections.push_back(conn);
+		}
 		goto delete_dff;
 	}
 
@@ -117,9 +141,15 @@ struct OptRmdffPass : public Pass {
 				continue;
 
 			assign_map.set(mod_it.second);
+			mux_drivers.clear();
 
 			std::vector<std::string> dff_list;
 			for (auto &it : mod_it.second->cells) {
+				if (it.second->type == "$mux" || it.second->type == "$pmux") {
+					if (it.second->connections.at("\\A").width == it.second->connections.at("\\B").width)
+						mux_drivers.insert(assign_map(it.second->connections.at("\\Y")), it.second);
+					continue;
+				}
 				if (!design->selected(mod_it.second, it.second))
 					continue;
 				if (it.second->type == "$_DFF_N_") dff_list.push_back(it.first);
@@ -144,6 +174,7 @@ struct OptRmdffPass : public Pass {
 		}
 
 		assign_map.clear();
+		mux_drivers.clear();
 		log("Replaced %d DFF cells.\n", total_count);
 	}
 } OptRmdffPass;
