@@ -389,9 +389,11 @@ struct HelpPass : public Pass {
 		size_t begin = text.find_first_not_of("\n"), end = text.find_last_not_of("\n");
 		if (begin != std::string::npos && end != std::string::npos && begin < end)
 			text = text.substr(begin, end-begin+1);
+		std::string cmd_unescaped = cmd;
 		escape_tex(cmd);
 		escape_tex(title);
 		fprintf(f, "\\section{%s -- %s}\n", cmd.c_str(), title.c_str());
+		fprintf(f, "\\label{cmd:%s}\n", cmd_unescaped.c_str());
 		fprintf(f, "\\begin{lstlisting}[numbers=left,frame=single]\n");
 		fprintf(f, "%s\n\\end{lstlisting}\n\n", text.c_str());
 
