@@ -48,4 +48,6 @@ void log_flush();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 
+#define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
+
 #endif

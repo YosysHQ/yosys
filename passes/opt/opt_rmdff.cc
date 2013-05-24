@@ -66,7 +66,7 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_rv = dff->parameters["\\ARST_VALUE"];
 	}
 	else
-		log_error("abort.");
+		log_abort();
 
 	assign_map.apply(sig_d);
 	assign_map.apply(sig_q);
