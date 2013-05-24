@@ -4,11 +4,13 @@ reg req_0 , req_1 ,  req_2 , req_3;
 wire gnt_0 , gnt_1 , gnt_2 , gnt_3 ;
 
 initial begin
+  // $dumpfile("testbench.vcd");
+  // $dumpvars(0, testbench);
   $display("Time\t    R0 R1 R2 R3 G0 G1 G2 G3");
   $monitor("%g\t    %b  %b  %b  %b  %b  %b  %b  %b", 
     $time, req_0, req_1, req_2, req_3, gnt_0, gnt_1, gnt_2, gnt_3);
   clock = 0;
-  reset = 0;
+  reset = 1;
   req_0 = 0;
   req_1 = 0;
   req_2 = 0;
