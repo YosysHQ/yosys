@@ -33,7 +33,7 @@ struct FsmPass : public Pass {
 		log("This pass calls all the other fsm_* passes in a useful order. This performs\n");
 		log("FSM extraction and optimiziation. It also calls opt_rmunused as needed:\n");
 		log("\n");
-		log("    fsm_detect\n");
+		log("    fsm_detect          unless got option -nodetect\n");
 		log("    fsm_extract\n");
 		log("\n");
 		log("    fsm_opt\n");
@@ -65,6 +65,7 @@ struct FsmPass : public Pass {
 	{
 		bool flag_nomap = false;
 		bool flag_norecode = false;
+		bool flag_nodetect = false;
 		bool flag_expand = false;
 		bool flag_export = false;
 		std::string fm_set_fsm_file_opt;
@@ -82,6 +83,10 @@ struct FsmPass : public Pass {
 			}
 			if (arg == "-encoding" && argidx+1 < args.size() && fm_set_fsm_file_opt.empty()) {
 				encoding_opt = " -encoding " + args[++argidx];
+				continue;
+			}
+			if (arg == "-nodetect") {
+				flag_nodetect = true;
 				continue;
 			}
 			if (arg == "-norecode") {
@@ -104,7 +109,8 @@ struct FsmPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		Pass::call(design, "fsm_detect");
+		if (!flag_nodetect)
+			Pass::call(design, "fsm_detect");
 		Pass::call(design, "fsm_extract");
 
 		Pass::call(design, "fsm_opt");
