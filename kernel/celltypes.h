@@ -24,6 +24,9 @@
 #include <string>
 #include <stdlib.h>
 
+#include <kernel/rtlil.h>
+#include <kernel/log.h>
+
 struct CellTypes
 {
 	std::set<std::string> cell_types;
@@ -225,8 +228,7 @@ struct CellTypes
 		if (type == "$_XOR_")
 			return const_xor(arg1, arg2, false, false, 1);
 
-		assert(!"Called CellType.eval() with unsupported cell type!");
-		abort();
+		log_abort();
 	}
 
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2)

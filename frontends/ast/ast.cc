@@ -140,8 +140,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_EDGE)
 #undef X
 	default:
-		assert(!"Missing enum to string def in AST::type2str().");
-		abort();
+		log_abort();
 	}
 }
 
