@@ -23,6 +23,7 @@
 #include "kernel/consteval.h"
 #include "kernel/celltypes.h"
 #include "fsmdata.h"
+#include "math.h"
 #include <string.h>
 
 static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &fsm_data, const char *prefix, FILE *f)
@@ -46,31 +47,50 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 			prefix, RTLIL::unescape_id(module->name).c_str());
 }
 
-static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fsm_file)
+static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fsm_file, std::string default_encoding)
 {
+	std::string encoding = cell->attributes.count("\\fsm_encoding") ? cell->attributes.at("\\fsm_encoding").str : "auto";
+
+	log("Recoding FSM `%s' from module `%s' using `%s' encoding:\n", cell->name.c_str(), module->name.c_str(), encoding.c_str());
+	if (encoding != "none" && encoding != "one-hot" && encoding != "binary") {
+		if (encoding != "auto")
+			log("  unkown encoding `%s': using auto (%s) instead.\n", encoding.c_str(), default_encoding.c_str());
+		encoding = default_encoding;
+	}
+
+	if (encoding == "none") {
+		log("  nothing to do for encoding `none'.\n");
+		return;
+	}
+
 	FsmData fsm_data;
 	fsm_data.copy_from_cell(cell);
-
-	log("Recoding FSM `%s' from module `%s':\n", cell->name.c_str(), module->name.c_str());
 
 	if (fm_set_fsm_file != NULL)
 		fm_set_fsm_print(cell, module, fsm_data, "r", fm_set_fsm_file);
 
-	fsm_data.state_bits = fsm_data.state_table.size();
-	if (fsm_data.reset_state >= 0)
-		fsm_data.state_bits--;
-
-	int bit_pos = 0;
-	for (size_t i = 0; i < fsm_data.state_table.size(); i++)
+	if (encoding == "one-hot") {
+		fsm_data.state_bits = fsm_data.state_table.size();
+	} else
+	if (encoding == "auto" || encoding == "binary") {
+		fsm_data.state_bits = ceil(log2(fsm_data.state_table.size()));
+	} else
+		log_error("FSM encoding `%s' is not supported!\n", encoding.c_str());
+	
+	int state_idx_counter = fsm_data.reset_state >= 0 ? 1 : 0;
+	for (int i = 0; i < int(fsm_data.state_table.size()); i++)
 	{
+		int state_idx = fsm_data.reset_state == i ? 0 : state_idx_counter++;
 		RTLIL::Const new_code;
-		if (int(i) == fsm_data.reset_state)
-			new_code = RTLIL::Const(RTLIL::State::S0, fsm_data.state_bits);
-		else {
-			RTLIL::Const state_code(RTLIL::State::Sa, fsm_data.state_bits);
-			state_code.bits[bit_pos++] = RTLIL::State::S1;
-			new_code = state_code;
-		}
+
+		if (encoding == "one-hot") {
+			new_code = RTLIL::Const(RTLIL::State::Sa, fsm_data.state_bits);
+			new_code.bits[state_idx] = RTLIL::State::S1;
+		} else
+		if (encoding == "auto" || encoding == "binary") {
+			new_code = RTLIL::Const(state_idx, fsm_data.state_bits);
+		} else
+			log_abort();
 
 		log("  %s -> %s\n", fsm_data.state_table[i].as_string().c_str(), new_code.as_string().c_str());
 		fsm_data.state_table[i] = new_code;
@@ -88,10 +108,12 @@ struct FsmRecodePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    fsm_recode [-fm_set_fsm_file file] [selection]\n");
+		log("    fsm_recode [-encoding type] [-fm_set_fsm_file file] [selection]\n");
 		log("\n");
 		log("This pass reassign the state encodings for FSM cells. At the moment only\n");
-		log("one-hot encoding is supported.\n");
+		log("one-hot encoding and binary encoding is supported. The option -encoding\n");
+		log("can be used to specify the encoding scheme used for FSMs without the\n");
+		log("`fsm_encoding' attribute (or with the attribute set to `auto'.\n");
 		log("\n");
 		log("The option -fm_set_fsm_file can be used to generate a file containing the\n");
 		log("mapping from old to new FSM encoding in form of Synopsys Formality set_fsm_*\n");
@@ -101,6 +123,7 @@ struct FsmRecodePass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		FILE *fm_set_fsm_file = NULL;
+		std::string default_encoding = "one-hot";
 
 		log_header("Executing FSM_RECODE pass (re-assigning FSM state encoding).\n");
 		size_t argidx;
@@ -112,6 +135,10 @@ struct FsmRecodePass : public Pass {
 					log_error("Can't open fm_set_fsm_file `%s' for writing: %s\n", args[argidx].c_str(), strerror(errno));
 				continue;
 			}
+			if (arg == "-encoding" && argidx+1 < args.size() && fm_set_fsm_file == NULL) {
+				default_encoding = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -120,7 +147,7 @@ struct FsmRecodePass : public Pass {
 			if (design->selected(mod_it.second))
 				for (auto &cell_it : mod_it.second->cells)
 					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
-						fsm_recode(cell_it.second, mod_it.second, fm_set_fsm_file);
+						fsm_recode(cell_it.second, mod_it.second, fm_set_fsm_file, default_encoding);
 
 		if (fm_set_fsm_file != NULL)
 			fclose(fm_set_fsm_file);

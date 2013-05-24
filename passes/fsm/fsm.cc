@@ -56,6 +56,7 @@ struct FsmPass : public Pass {
 		log("    -expand, -norecode, -export, -nomap\n");
 		log("        enable or disable passes as indicated above\n");
 		log("\n");
+		log("    -encoding tye\n");
 		log("    -fm_set_fsm_file file\n");
 		log("        passed through to fsm_recode pass\n");
 		log("\n");
@@ -67,6 +68,7 @@ struct FsmPass : public Pass {
 		bool flag_expand = false;
 		bool flag_export = false;
 		std::string fm_set_fsm_file_opt;
+		std::string encoding_opt;
 
 		log_header("Executing FSM pass (extract and optimize FSM).\n");
 		log_push();
@@ -76,6 +78,10 @@ struct FsmPass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-fm_set_fsm_file" && argidx+1 < args.size() && fm_set_fsm_file_opt.empty()) {
 				fm_set_fsm_file_opt = " -fm_set_fsm_file " + args[++argidx];
+				continue;
+			}
+			if (arg == "-encoding" && argidx+1 < args.size() && fm_set_fsm_file_opt.empty()) {
+				encoding_opt = " -encoding " + args[++argidx];
 				continue;
 			}
 			if (arg == "-norecode") {
@@ -112,7 +118,7 @@ struct FsmPass : public Pass {
 		}
 
 		if (!flag_norecode)
-			Pass::call(design, "fsm_recode" + fm_set_fsm_file_opt);
+			Pass::call(design, "fsm_recode" + fm_set_fsm_file_opt + encoding_opt);
 		Pass::call(design, "fsm_info");
 
 		if (!flag_nomap)
