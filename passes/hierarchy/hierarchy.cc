@@ -218,24 +218,27 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 	return did_something;
 }
 
-static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTLIL::Module *mod, bool is_top = false)
+static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTLIL::Module *mod, int indent)
 {
 	if (used.count(mod) > 0)
 		return;
 
-	log("%s module: %s\n", is_top ? "Top" : "Used", mod->name.c_str());
+	if (indent == 0)
+		log("Top module:  %s\n", mod->name.c_str());
+	else
+		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
 	used.insert(mod);
 
 	for (auto &it : mod->cells) {
 		if (design->modules.count(it.second->type) > 0)
-			hierarchy_worker(design, used, design->modules[it.second->type]);
+			hierarchy_worker(design, used, design->modules[it.second->type], indent+4);
 	}
 }
 
 static void hierarchy(RTLIL::Design *design, RTLIL::Module *top)
 {
 	std::set<RTLIL::Module*> used;
-	hierarchy_worker(design, used, top, true);
+	hierarchy_worker(design, used, top, 0);
 
 	std::vector<RTLIL::Module*> del_modules;
 	for (auto &it : design->modules)
@@ -367,10 +370,13 @@ struct HierarchyPass : public Pass {
 			return;
 		}
 
+		log_push();
+
 		if (top_mod != NULL)
 			hierarchy(design, top_mod);
 
 		bool did_something = true;
+		bool did_something_once = false;
 		while (did_something) {
 			did_something = false;
 			std::vector<std::string> modnames;
@@ -383,10 +389,16 @@ struct HierarchyPass : public Pass {
 				if (expand_module(design, design->modules[modname], flag_check))
 					did_something = true;
 			}
+			if (did_something)
+				did_something_once = true;
 		}
 
-		if (top_mod != NULL)
+		if (top_mod != NULL && did_something_once) {
+			log_header("Re-running hierarchy analysis..\n");
 			hierarchy(design, top_mod);
+		}
+
+		log_pop();
 	}
 } HierarchyPass;
  
