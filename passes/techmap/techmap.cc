@@ -68,7 +68,7 @@ static bool techmap_fail_check(RTLIL::Module *module)
 	return techmap_fail_cache[module] = false;
 }
 
-static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
+static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, bool flatten_mode)
 {
 	log("Mapping `%s.%s' using `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(tpl->name));
 
@@ -78,7 +78,11 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 	if (tpl->processes.size() != 0)
 		log_error("Technology map yielded processes -> this is not supported.\n");
 
+	std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
+
 	for (auto &it : tpl->wires) {
+		if (it.second->port_id > 0)
+			positional_ports[stringf("$%d", it.second->port_id)] = it.first;
 		RTLIL::Wire *w = new RTLIL::Wire(*it.second);
 		apply_prefix(cell->name, w->name);
 		w->port_input = false;
@@ -90,7 +94,7 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 
 	for (auto &it : tpl->cells) {
 		RTLIL::Cell *c = new RTLIL::Cell(*it.second);
-		if (c->type.substr(0, 2) == "\\$")
+		if (!flatten_mode && c->type.substr(0, 2) == "\\$")
 			c->type = c->type.substr(1);
 		apply_prefix(cell->name, c->name);
 		for (auto &it2 : c->connections)
@@ -107,9 +111,15 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 	}
 
 	for (auto &it : cell->connections) {
-		if (tpl->wires.count(it.first) == 0 || tpl->wires.at(it.first)->port_id == 0)
+		RTLIL::IdString portname = it.first;
+		if (positional_ports.count(portname) > 0)
+			portname = positional_ports.at(portname);
+		if (tpl->wires.count(portname) == 0 || tpl->wires.at(portname)->port_id == 0) {
+			if (portname.substr(0, 1) == "$")
+				log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname.c_str(), cell->name.c_str(), tpl->name.c_str());
 			continue;
-		RTLIL::Wire *w = tpl->wires[it.first];
+		}
+		RTLIL::Wire *w = tpl->wires.at(portname);
 		RTLIL::SigSig c;
 		if (w->port_output) {
 			c.first = it.second;
@@ -133,7 +143,7 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 }
 
 static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
-		const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap)
+		const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap, bool flatten_mode)
 {
 	if (!design->selected(module))
 		return false;
@@ -165,6 +175,8 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 			std::map<RTLIL::IdString, RTLIL::Const> parameters = cell->parameters;
 
 			for (auto conn : cell->connections) {
+				if (conn.first.substr(0, 1) == "$")
+					continue;
 				if (tpl->wires.count(conn.first) > 0 && tpl->wires.at(conn.first)->port_id > 0)
 					continue;
 				if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0)
@@ -194,7 +206,7 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 				continue;
 			}
 
-			techmap_module_worker(design, module, cell, tpl);
+			techmap_module_worker(design, module, cell, tpl, flatten_mode);
 			did_something = true;
 			cell = NULL;
 			break;
@@ -290,7 +302,7 @@ struct TechmapPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			for (auto &mod_it : design->modules)
-				if (techmap_module(design, mod_it.second, map, handled_cells, celltypeMap))
+				if (techmap_module(design, mod_it.second, map, handled_cells, celltypeMap, false))
 					did_something = true;
 		}
 
@@ -331,7 +343,7 @@ struct FlattenPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			for (auto &mod_it : design->modules)
-				if (techmap_module(design, mod_it.second, design, handled_cells, celltypeMap))
+				if (techmap_module(design, mod_it.second, design, handled_cells, celltypeMap, true))
 					did_something = true;
 		}
 
