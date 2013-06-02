@@ -189,9 +189,9 @@ struct RTLIL::Selection {
 	std::set<RTLIL::IdString> selected_modules;
 	std::map<RTLIL::IdString, std::set<RTLIL::IdString>> selected_members;
 	Selection(bool full = true) : full_selection(full) { }
-	bool selected_module(RTLIL::IdString mod_name);
-	bool selected_whole_module(RTLIL::IdString mod_name);
-	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name);
+	bool selected_module(RTLIL::IdString mod_name) const;
+	bool selected_whole_module(RTLIL::IdString mod_name) const;
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 	void optimize(RTLIL::Design *design);
 };
 
@@ -203,20 +203,20 @@ struct RTLIL::Design {
 	~Design();
 	void check();
 	void optimize();
-	bool selected_module(RTLIL::IdString mod_name);
-	bool selected_whole_module(RTLIL::IdString mod_name);
-	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name);
-	template<typename T1> bool selected(T1 *module) {
+	bool selected_module(RTLIL::IdString mod_name) const;
+	bool selected_whole_module(RTLIL::IdString mod_name) const;
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
+	template<typename T1> bool selected(T1 *module) const {
 		return selected_module(module->name);
 	}
-	template<typename T1, typename T2> bool selected(T1 *module, T2 *member) {
+	template<typename T1, typename T2> bool selected(T1 *module, T2 *member) const {
 		return selected_member(module->name, member->name);
 	}
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		if (selection_stack.size() > 0) {
 			RTLIL::Selection &sel = selection_stack.back();
 			if (!sel.full_selection && sel.selected_modules.count(module->name) == 0)
-				sel.selected_members[module->name].insert(member->name);
+				sel.selected_members.at(module->name).insert(member->name);
 		}
 	}
 };

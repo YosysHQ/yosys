@@ -101,7 +101,7 @@ std::string RTLIL::Const::as_string() const
 	return ret;
 }
 
-bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name)
+bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
 {
 	if (full_selection)
 		return true;
@@ -112,7 +112,7 @@ bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name)
 	return false;
 }
 
-bool RTLIL::Selection::selected_whole_module(RTLIL::IdString mod_name)
+bool RTLIL::Selection::selected_whole_module(RTLIL::IdString mod_name) const
 {
 	if (full_selection)
 		return true;
@@ -121,14 +121,14 @@ bool RTLIL::Selection::selected_whole_module(RTLIL::IdString mod_name)
 	return false;
 }
 
-bool RTLIL::Selection::selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name)
+bool RTLIL::Selection::selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const
 {
 	if (full_selection)
 		return true;
 	if (selected_modules.count(mod_name) > 0)
 		return true;
 	if (selected_members.count(mod_name) > 0)
-		if (selected_members[mod_name].count(memb_name) > 0)
+		if (selected_members.at(mod_name).count(memb_name) > 0)
 			return true;
 	return false;
 }
@@ -217,7 +217,7 @@ void RTLIL::Design::optimize()
 		it.second.optimize(this);
 }
 
-bool RTLIL::Design::selected_module(RTLIL::IdString mod_name)
+bool RTLIL::Design::selected_module(RTLIL::IdString mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
@@ -226,7 +226,7 @@ bool RTLIL::Design::selected_module(RTLIL::IdString mod_name)
 	return selection_stack.back().selected_module(mod_name);
 }
 
-bool RTLIL::Design::selected_whole_module(RTLIL::IdString mod_name)
+bool RTLIL::Design::selected_whole_module(RTLIL::IdString mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
@@ -235,7 +235,7 @@ bool RTLIL::Design::selected_whole_module(RTLIL::IdString mod_name)
 	return selection_stack.back().selected_whole_module(mod_name);
 }
 
-bool RTLIL::Design::selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name)
+bool RTLIL::Design::selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
