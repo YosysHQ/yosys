@@ -946,7 +946,26 @@ wire [Y_WIDTH-1:0] A_buf, B_buf;
 
 endmodule
 
-/****
+// --------------------------------------------------------
+
+module \$arraymul (A, B, Y);
+
+parameter WIDTH = 8;
+input [WIDTH-1:0] A, B;
+output [WIDTH-1:0] Y;
+
+wire [WIDTH*WIDTH-1:0] partials;
+
+genvar i;
+assign partials[WIDTH-1 : 0] = A[0] ? B : 0;
+generate for (i = 1; i < WIDTH; i = i+1) begin:gen
+	assign partials[WIDTH*(i+1)-1 : WIDTH*i] = (A[i] ? B << i : 0) + partials[WIDTH*i-1 : WIDTH*(i-1)];
+end endgenerate
+
+assign Y = partials[WIDTH*WIDTH-1 : WIDTH*(WIDTH-1)];
+
+endmodule
+
 // --------------------------------------------------------
 
 module \$mul (A, B, Y);
@@ -961,13 +980,20 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-wire signed [A_WIDTH:0] buffer_a = A_SIGNED ? $signed(A) : A;
-wire signed [B_WIDTH:0] buffer_b = B_SIGNED ? $signed(B) : B;
+wire signed [Y_WIDTH:0] buffer_a = A_SIGNED ? $signed(A) : A;
+wire signed [Y_WIDTH:0] buffer_b = B_SIGNED ? $signed(B) : B;
 
-assign Y = buffer_a * buffer_b;
+\$arraymul #(
+	.WIDTH(Y_WIDTH)
+) arraymul (
+	.A(buffer_a),
+	.B(buffer_b),
+	.Y(Y)
+);
 
 endmodule
 
+/****
 // --------------------------------------------------------
 
 module \$div (A, B, Y);
