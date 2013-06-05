@@ -302,7 +302,7 @@ struct SubmodPass : public Pass {
 
 		if (opt_name.empty())
 		{
-			Pass::call(design, "opt_rmunused");
+			Pass::call(design, "opt_clean");
 			log_header("Continuing SUBMOD pass.\n");
 
 			std::set<std::string> handled_modules;
@@ -322,7 +322,7 @@ struct SubmodPass : public Pass {
 					}
 			}
 
-			Pass::call(design, "opt_rmunused");
+			Pass::call(design, "opt_clean");
 		}
 		else
 		{

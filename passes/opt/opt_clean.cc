@@ -240,13 +240,13 @@ static void rmunused_module(RTLIL::Module *module)
 	rmunused_module_signals(module);
 }
 
-struct OptRmUnusedPass : public Pass {
-	OptRmUnusedPass() : Pass("opt_rmunused", "remove unused cells and wires") { }
+struct OptCleanPass : public Pass {
+	OptCleanPass() : Pass("opt_clean", "remove unused cells and wires") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_rmunused [selection]\n");
+		log("    opt_clean [selection]\n");
 		log("\n");
 		log("This pass identifies wires and cells that are unused and removes them. Other\n");
 		log("passes often remove cells but leave the wires in the design or reconnect the\n");
@@ -258,7 +258,7 @@ struct OptRmUnusedPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing OPT_RMUNUSED pass (remove unused cells and wires).\n");
+		log_header("Executing OPT_CLEAN pass (remove unused cells and wires).\n");
 		log_push();
 
 		extra_args(args, 1, design);
@@ -284,5 +284,5 @@ struct OptRmUnusedPass : public Pass {
 		ct.clear();
 		log_pop();
 	}
-} OptRmUnusedPass;
+} OptCleanPass;
  

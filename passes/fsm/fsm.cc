@@ -31,17 +31,17 @@ struct FsmPass : public Pass {
 		log("    fsm [options] [selection]\n");
 		log("\n");
 		log("This pass calls all the other fsm_* passes in a useful order. This performs\n");
-		log("FSM extraction and optimiziation. It also calls opt_rmunused as needed:\n");
+		log("FSM extraction and optimiziation. It also calls opt_clean as needed:\n");
 		log("\n");
 		log("    fsm_detect          unless got option -nodetect\n");
 		log("    fsm_extract\n");
 		log("\n");
 		log("    fsm_opt\n");
-		log("    opt_rmunused\n");
+		log("    opt_clean\n");
 		log("    fsm_opt\n");
 		log("\n");
 		log("    fsm_expand          if got option -expand\n");
-		log("    opt_rmunused        if got option -expand\n");
+		log("    opt_clean           if got option -expand\n");
 		log("    fsm_opt             if got option -expand\n");
 		log("\n");
 		log("    fsm_recode          unless got option -norecode\n");
@@ -114,12 +114,12 @@ struct FsmPass : public Pass {
 		Pass::call(design, "fsm_extract");
 
 		Pass::call(design, "fsm_opt");
-		Pass::call(design, "opt_rmunused");
+		Pass::call(design, "opt_clean");
 		Pass::call(design, "fsm_opt");
 
 		if (flag_expand) {
 			Pass::call(design, "fsm_expand");
-			Pass::call(design, "opt_rmunused");
+			Pass::call(design, "opt_clean");
 			Pass::call(design, "fsm_opt");
 		}
 

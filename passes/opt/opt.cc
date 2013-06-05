@@ -45,7 +45,7 @@ struct OptPass : public Pass {
 		log("        opt_reduce\n");
 		log("        opt_share\n");
 		log("        opt_rmdff\n");
-		log("        opt_rmunused\n");
+		log("        opt_clean\n");
 		log("        opt_const\n");
 		log("    while [changed design]\n");
 		log("\n");
@@ -68,7 +68,7 @@ struct OptPass : public Pass {
 			Pass::call(design, "opt_reduce");
 			Pass::call(design, "opt_share");
 			Pass::call(design, "opt_rmdff");
-			Pass::call(design, "opt_rmunused");
+			Pass::call(design, "opt_clean");
 			Pass::call(design, "opt_const");
 			if (OPT_DID_SOMETHING == false)
 				break;

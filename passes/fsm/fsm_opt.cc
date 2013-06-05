@@ -278,7 +278,7 @@ struct FsmOptPass : public Pass {
 		log("\n");
 		log("This pass optimizes FSM cells. It detects which output signals are actually\n");
 		log("not used and removes them from the FSM. This pass is usually used in\n");
-		log("combination with the 'opt_rmunused' pass (see also 'help fsm').\n");
+		log("combination with the 'opt_clean' pass (see also 'help fsm').\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

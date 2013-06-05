@@ -329,7 +329,7 @@ struct FsmExtractPass : public Pass {
 		log("\n");
 		log("The generated FSM cell still generates the original state signal with its\n");
 		log("original encoding. The 'fsm_opt' pass can be used in combination with the\n");
-		log("'opt_rmunused' pass to eliminate this signal.\n");
+		log("'opt_clean' pass to eliminate this signal.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
