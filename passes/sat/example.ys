@@ -1,0 +1,3 @@
+read_verilog example.v
+techmap; opt
+sat_solve -show a -set y 1'b1

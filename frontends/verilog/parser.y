@@ -912,6 +912,8 @@ basic_expr:
 	} |
 	TOK_CONST {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
+		if ($$ == NULL)
+			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;
 	} |
 	TOK_STRING {

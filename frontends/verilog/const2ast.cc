@@ -186,12 +186,11 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 			my_strtobin(data, endptr+2, len_in_bits, 16, case_type);
 			break;
 		default:
-			goto error;
+			return NULL;
 		}
 		return AstNode::mkconst_bits(data, is_signed);
 	}
 
-error:
-	log_error("Value conversion failed: `%s'\n", code.c_str());
+	return NULL;
 }
 
