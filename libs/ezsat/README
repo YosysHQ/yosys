@@ -1,0 +1,29 @@
+
+  **************************************************************************
+  *                                                                        *
+  *                       The ezSAT C++11 library                          *
+  *                                                                        *
+  * A simple frontend to SAT solvers with bindings to MiniSAT.             *
+  *                                                       by Clifford Wolf *
+  *                                                                        *
+  **************************************************************************
+
+============
+Introduction
+============
+
+This library acts as a frontend to SAT solvers and a helper for generating
+CNF for sat solvers. It comes with bindings for MiniSAT (http://minisat.se/).
+
+Have a look at demo_bit.cc and demo_vec.cc for examples of how to set up
+a SAT problem using ezSAT. Have a look at puzzle3d.cc for a more complex
+(real-world) example of using ezSAT.
+
+
+C++11 Warning
+-------------
+
+This project is written in C++11. Use appropriate compiler switches to compile
+it. Tested with clang version 3.0 and option -std=c++11. Also tested with gcc
+version 4.6.3 and option -std=c++0x.
+

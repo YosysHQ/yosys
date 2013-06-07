@@ -5,16 +5,10 @@ CONFIG := clang-debug
 
 ENABLE_TCL := 1
 ENABLE_QT4 := 1
+ENABLE_MINISAT := 1
 ENABLE_GPROF := 0
 
-OBJS  = kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/select.o kernel/show.o
-
-OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
-OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
-
-OBJS += libs/sha1/sha1.o
-OBJS += libs/subcircuit/subcircuit.o
-
+OBJS =
 GENFILES =
 EXTRA_TARGETS =
 TARGETS = yosys yosys-config
@@ -54,6 +48,21 @@ endif
 
 ifeq ($(ENABLE_QT4),1)
 TARGETS += yosys-svgviewer
+endif
+
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/select.o kernel/show.o
+
+OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
+OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
+
+OBJS += libs/sha1/sha1.o
+OBJS += libs/subcircuit/subcircuit.o
+OBJS += libs/ezsat/ezsat.o
+
+ifeq ($(ENABLE_MINISAT),1)
+CXXFLAGS += -DYOSYS_ENABLE_MINISAT
+OBJS += libs/ezsat/ezminisat.o
+LDLIBS += -lminisat
 endif
 
 include frontends/*/Makefile.inc
