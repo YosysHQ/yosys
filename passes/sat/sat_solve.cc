@@ -129,7 +129,7 @@ struct SatSolvePass : public Pass {
 		std::vector<std::pair<std::string, std::string>> sets;
 		std::vector<std::string> shows;
 
-		log_header("Executing SAT_SOLVE pass (detecting logic loops).\n");
+		log_header("Executing SAT_SOLVE pass (solving SAT problems in the circuit).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -189,7 +189,7 @@ struct SatSolvePass : public Pass {
 				satgen.importCell(c.second);
 				import_cell_counter++;
 			}
-		log("Imported %d cells.\n", import_cell_counter);
+		log("Imported %d cells to SAT database.\n", import_cell_counter);
 
 		std::vector<int> modelExpressions;
 		std::vector<bool> modelValues;
@@ -227,7 +227,7 @@ struct SatSolvePass : public Pass {
 			}
 		}
 
-		log("Solving problem with %d variables and %d clauses..\n", ez.numCnfVariables(), int(ez.cnf().size()));
+		log("Solving problem with %d variables and %d clauses..\n", ez.numCnfVariables(), ez.numCnfClauses());
 		if (ez.solve(modelExpressions, modelValues))
 		{
 			log("SAT solving finished - model found:\n");

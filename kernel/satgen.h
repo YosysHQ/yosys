@@ -86,14 +86,6 @@ struct SatGen
 	// cell_types.insert("$shr");
 	// cell_types.insert("$sshl");
 	// cell_types.insert("$sshr");
-	// cell_types.insert("$lt");
-	// cell_types.insert("$le");
-	// cell_types.insert("$eq");
-	// cell_types.insert("$ne");
-	// cell_types.insert("$ge");
-	// cell_types.insert("$gt");
-	// cell_types.insert("$add");
-	// cell_types.insert("$sub");
 	// cell_types.insert("$mul");
 	// cell_types.insert("$div");
 	// cell_types.insert("$mod");
@@ -104,19 +96,45 @@ struct SatGen
 	// cell_types.insert("$pmux");
 	// cell_types.insert("$safe_pmux");
 
+	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell)
+	{
+		bool is_signed_a = false, is_signed_b = false;
+		if (cell->parameters.count("\\A_SIGNED") > 0)
+			is_signed_a = cell->parameters["\\A_SIGNED"].as_bool();
+		if (cell->parameters.count("\\B_SIGNED") > 0)
+			is_signed_b = cell->parameters["\\B_SIGNED"].as_bool();
+		while (vec_a.size() < vec_b.size())
+			vec_a.push_back(is_signed_a && vec_a.size() > 0 ? vec_a.back() : ez->FALSE);
+		while (vec_b.size() < vec_a.size())
+			vec_b.push_back(is_signed_b && vec_b.size() > 0 ? vec_b.back() : ez->FALSE);
+	}
+
+	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, std::vector<int> &vec_y, RTLIL::Cell *cell)
+	{
+		extendSignalWidth(vec_a, vec_b, cell);
+		while (vec_y.size() < vec_a.size())
+			vec_y.push_back(ez->literal());
+	}
+
 	virtual void importCell(RTLIL::Cell *cell)
 	{
 		if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_" ||
-				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor") {
+				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" ||
+				cell->type == "$add" || cell->type == "$sub") {
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
 			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
 			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			extendSignalWidth(a, b, y, cell);
 			if (cell->type == "$and" || cell->type == "$_AND_")
 				ez->assume(ez->vec_eq(ez->vec_and(a, b), y));
 			if (cell->type == "$or" || cell->type == "$_OR_")
 				ez->assume(ez->vec_eq(ez->vec_or(a, b), y));
 			if (cell->type == "$xor" || cell->type == "$_XOR")
 				ez->assume(ez->vec_eq(ez->vec_xor(a, b), y));
+			if (cell->type == "$add")
+				ez->assume(ez->vec_eq(ez->vec_add(a, b), y));
+			if (cell->type == "$sub")
+				ez->assume(ez->vec_eq(ez->vec_sub(a, b), y));
 		} else
 		if (cell->type == "$_INV_" || cell->type == "$not") {
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
@@ -129,6 +147,25 @@ struct SatGen
 			std::vector<int> s = importSigSpec(cell->connections.at("\\S"));
 			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
 			ez->assume(ez->vec_eq(ez->vec_ite(s, b, a), y));
+		} else
+		if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt") {
+			bool is_signed = cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool();
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			extendSignalWidth(a, b, cell);
+			if (cell->type == "$lt")
+				ez->SET(is_signed ? ez->vec_lt_signed(a, b) : ez->vec_lt_unsigned(a, b), y.at(0));
+			if (cell->type == "$le")
+				ez->SET(is_signed ? ez->vec_le_signed(a, b) : ez->vec_le_unsigned(a, b), y.at(0));
+			if (cell->type == "$eq")
+				ez->SET(ez->vec_eq(a, b), y.at(0));
+			if (cell->type == "$ne")
+				ez->SET(ez->vec_ne(a, b), y.at(0));
+			if (cell->type == "$ge")
+				ez->SET(is_signed ? ez->vec_ge_signed(a, b) : ez->vec_ge_unsigned(a, b), y.at(0));
+			if (cell->type == "$gt")
+				ez->SET(is_signed ? ez->vec_gt_signed(a, b) : ez->vec_gt_unsigned(a, b), y.at(0));
 		} else
 			log_error("Can't handle cell type %s in SAT generator yet.\n", RTLIL::id2cstr(cell->type));
 	}

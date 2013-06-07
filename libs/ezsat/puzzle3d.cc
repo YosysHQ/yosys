@@ -255,7 +255,7 @@ int main()
 		ez.assume(ez.ordered(vecvec[0], vecvec[1]));
 	
 	printf("Found and eliminated %d spatial symmetries.\n", int(symmetries.size()));
-	printf("Generated %d clauses over %d variables.\n", ez.numCnfVariables(), int(ez.cnf().size()));
+	printf("Generated %d clauses over %d variables.\n", ez.numCnfClauses(), ez.numCnfVariables());
 
 	std::vector<int> modelExpressions;
 	std::vector<bool> modelValues;

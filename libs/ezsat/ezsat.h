@@ -55,7 +55,7 @@ private:
 	std::vector<std::pair<OpId, std::vector<int>>> expressions;
 
 	bool cnfConsumed;
-	int cnfVariableCount;
+	int cnfVariableCount, cnfClausesCount;
 	std::vector<int> cnfLiteralVariables, cnfExpressionVariables;
 	std::vector<std::vector<int>> cnfClauses;
 	std::set<int> cnfAssumptions;
@@ -137,6 +137,7 @@ public:
 	int bound(int id) const;
 
 	int numCnfVariables() const { return cnfVariableCount; }
+	int numCnfClauses() const { return cnfClausesCount; }
 	const std::vector<std::vector<int>> &cnf() const { return cnfClauses; }
 
 	void consumeCnf();

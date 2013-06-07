@@ -34,6 +34,7 @@ ezSAT::ezSAT()
 
 	cnfConsumed = false;
 	cnfVariableCount = 0;
+	cnfClausesCount = 0;
 }
 
 ezSAT::~ezSAT()
@@ -331,6 +332,7 @@ void ezSAT::clear()
 {
 	cnfConsumed = false;
 	cnfVariableCount = 0;
+	cnfClausesCount = 0;
 	cnfLiteralVariables.clear();
 	cnfExpressionVariables.clear();
 	cnfClauses.clear();
@@ -342,11 +344,13 @@ void ezSAT::assume(int id)
 	int idx = bind(id);
 	cnfClauses.push_back(std::vector<int>(1, idx));
 	cnfAssumptions.insert(id);
+	cnfClausesCount++;
 }
 
 void ezSAT::add_clause(const std::vector<int> &args)
 {
 	cnfClauses.push_back(args);
+	cnfClausesCount++;
 }
 
 void ezSAT::add_clause(const std::vector<int> &args, bool argsPolarity, int a, int b, int c)
