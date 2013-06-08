@@ -83,6 +83,11 @@ yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 	cd libs/svgviewer && qmake-qt4 && make
 	cp libs/svgviewer/svgviewer yosys-svgviewer
 
+abc:
+	test -d abc || hg clone https://bitbucket.org/alanmi/abc abc
+	cd abc && hg pull && make
+	cp abc/abc yosys-abc
+
 test: yosys
 	cd tests/simple && bash run-test.sh
 	cd tests/hana && bash run-test.sh
@@ -90,6 +95,9 @@ test: yosys
 
 install: $(TARGETS)
 	install $(TARGETS) /usr/local/bin/
+
+install-abc:
+	install yosys-abc /usr/local/bin/
 
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
@@ -128,6 +136,6 @@ config-gprof: clean
 -include backends/*/*.d
 -include kernel/*.d
 
-.PHONY: all top-all test clean mrproper qtcreator
+.PHONY: all top-all abc test install install-abc clean mrproper qtcreator
 .PHONY: config-clean config-clang-debug config-gcc-debug config-release
 

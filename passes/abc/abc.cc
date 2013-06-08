@@ -630,6 +630,7 @@ struct AbcPass : public Pass {
 	AbcPass() : Pass("abc", "use ABC for technology mapping") { }
 	virtual void help()
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    abc [options] [selection]\n");
 		log("\n");
@@ -637,8 +638,8 @@ struct AbcPass : public Pass {
 		log("library to a target architecture.\n");
 		log("\n");
 		log("    -exe <command>\n");
-		log("        use the specified command name instead of \"abc\" to execute ABC. This\n");
-		log("        can e.g. be used to call a specific version of ABC or a wrapper script.\n");
+		log("        use the specified command name instead of \"yosys-abc\" to execute ABC.\n");
+		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
 		log("    -script <file>\n");
 		log("        use the specified ABC script file instead of the default script.\n");
@@ -664,7 +665,7 @@ struct AbcPass : public Pass {
 		log_header("Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
 
-		std::string exe_file = "abc";
+		std::string exe_file = "yosys-abc";
 		std::string script_file, liberty_file;
 		bool cleanup = true;
 

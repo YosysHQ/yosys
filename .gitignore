@@ -9,7 +9,9 @@ qtcreator.config
 qtcreator.creator
 qtcreator.creator.user
 Makefile.conf
+abc
 yosys
+yosys-abc
 yosys-config
 yosys-filterlib
 yosys-svgviewer
