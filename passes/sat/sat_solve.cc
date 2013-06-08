@@ -120,8 +120,8 @@ struct SatSolvePass : public Pass {
 		log("        set the specified signal to the specified value.\n");
 		log("\n");
 		log("    -show <signal>n");
-		log("        show the model for the specified signal. if no -show option\n");
-		log("        is passed then all selected signals will be shown.\n");
+		log("        show the model for the specified signal. if no -show option is\n");
+		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -162,6 +162,14 @@ struct SatSolvePass : public Pass {
 		SigMap sigmap(module);
 		SatGen satgen(&ez, design, &sigmap);
 
+		// when no -show is passed, the set signals and other data is collected in
+		// this variables, which is then used to generate the list of signals
+		// on the  input cone on the set signals and used as show signals
+		SigPool show_signal_pool;
+		SigSet<RTLIL::Cell*> show_drivers;
+		std::map<RTLIL::Cell*,RTLIL::SigSpec> show_driven;
+		CellTypes ct(design);
+
 		for (auto &s : sets)
 		{
 			RTLIL::SigSpec lhs, rhs;
@@ -170,6 +178,8 @@ struct SatSolvePass : public Pass {
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
 			if (!parse_sigstr(rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+			show_signal_pool.add(sigmap(lhs));
+			show_signal_pool.add(sigmap(rhs));
 
 			if (lhs.width != rhs.width)
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
@@ -184,55 +194,88 @@ struct SatSolvePass : public Pass {
 
 		int import_cell_counter = 0;
 		for (auto &c : module->cells)
-			if (design->selected(module, c.second)) {
+			if (design->selected(module, c.second) && ct.cell_known(c.second->type)) {
+				for (auto &p : c.second->connections)
+					if (ct.cell_output(c.second->type, p.first))
+						show_drivers.insert(sigmap(p.second), c.second);
+					else
+						show_driven[c.second].append(sigmap(p.second));
 				// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
 				satgen.importCell(c.second);
 				import_cell_counter++;
 			}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
 
+		RTLIL::SigSpec modelSig;
 		std::vector<int> modelExpressions;
 		std::vector<bool> modelValues;
-		std::vector<std::string> modelNames;
-		int maxModelName = 0;
 
 		if (shows.size() == 0) {
-			for (auto &w : module->wires)
-				if (design->selected(module, w.second)) {
-					RTLIL::Wire *wire = w.second;
-					for (int i = 0; i < wire->width; i++) {
-						RTLIL::SigSpec sig = RTLIL::SigSpec(wire, 1, i);
-						std::vector<int> vec = satgen.importSigSpec(sig);
-						log_assert(vec.size() == 1);
-						modelExpressions.push_back(vec[0]);
-						modelNames.push_back(log_signal(sig));
-						maxModelName = std::max(maxModelName, int(modelNames.back().size()));
-					}
+			SigPool handled_signals, final_signals;
+			for (auto &s : show_driven)
+				s.second.sort_and_unify();
+			while (show_signal_pool.size() > 0) {
+				RTLIL::SigSpec sig = show_signal_pool.export_one();
+				show_signal_pool.del(sig);
+				handled_signals.add(sig);
+				std::set<RTLIL::Cell*> drivers = show_drivers.find(sig);
+				if (drivers.size() == 0) {
+					final_signals.add(sig);
+				} else {
+					for (auto &d : drivers)
+					for (auto &p : d->connections)
+						show_signal_pool.add(handled_signals.remove(p.second));
 				}
+			}
+			modelSig = final_signals.export_all();
 		} else {
 			for (auto &s : shows) {
 				RTLIL::SigSpec sig;
 				if (!parse_sigstr(sig, module, s))
 					log_cmd_error("Failed to parse show expression `%s'.\n", s.c_str());
-				sig.expand();
 				log("Import show expression: %s\n", log_signal(sig));
-				for (auto &c : sig.chunks) {
-					RTLIL::SigSpec chunksig = c;
-					std::vector<int> vec = satgen.importSigSpec(chunksig);
-					log_assert(vec.size() == 1);
-					modelExpressions.push_back(vec[0]);
-					modelNames.push_back(log_signal(chunksig));
-					maxModelName = std::max(maxModelName, int(modelNames.back().size()));
-				}
+				modelSig.append(sig);
 			}
 		}
+
+		modelSig.expand();
+		for (auto &c : modelSig.chunks)
+			if (c.wire != NULL) {
+				RTLIL::SigSpec chunksig = c;
+				std::vector<int> vec = satgen.importSigSpec(chunksig);
+				log_assert(vec.size() == 1);
+				modelExpressions.push_back(vec[0]);
+			}
 
 		log("Solving problem with %d variables and %d clauses..\n", ez.numCnfVariables(), ez.numCnfClauses());
 		if (ez.solve(modelExpressions, modelValues))
 		{
-			log("SAT solving finished - model found:\n");
-			for (size_t i = 0; i < modelNames.size(); i++)
-				log("  %-*s %s\n", maxModelName, modelNames.at(i).c_str(), modelValues.at(i) ? "1" : "0");
+			log("SAT solving finished - model found:\n\n");
+			int modelIdx = 0;
+			int maxModelName = 10;
+			int maxModelWidth = 10;
+			modelSig.optimize();
+			for (auto &c : modelSig.chunks)
+				if (c.wire != NULL) {
+					maxModelName = std::max(maxModelName, int(c.wire->name.size()));
+					maxModelWidth = std::max(maxModelWidth, c.width);
+				}
+			const char *hline = "--------------------------------------------------------";
+			log("  %-*s %10s %10s %*s\n", maxModelName+10, "Signal Name", "Dec", "Hex", maxModelWidth+5, "Bin");
+			log("  %*.*s %10.10s %10.10s %*.*s\n", maxModelName+10, maxModelName+10,
+					hline, hline, hline, maxModelWidth+5, maxModelWidth+5, hline);
+			for (auto &c : modelSig.chunks) {
+				if (c.wire == NULL)
+					continue;
+				RTLIL::Const value;
+				for (int i = 0; i < c.width; i++)
+					value.bits.push_back(modelValues.at(modelIdx+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				if (c.width <= 32)
+					log("  %-*s %10d %10x %*s\n", maxModelName+10, log_signal(c), value.as_int(), value.as_int(), maxModelWidth+5, value.as_string().c_str());
+				else
+					log("  %-*s %10s %10s %*s\n", maxModelName+10, log_signal(c), "--", "--", maxModelWidth+5, value.as_string().c_str());
+				modelIdx += c.width;
+			}
 		}
 		else
 			log("SAT solving finished - no model found.\n");

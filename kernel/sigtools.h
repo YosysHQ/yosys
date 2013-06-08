@@ -139,6 +139,30 @@ struct SigPool
 		}
 		return true;
 	}
+
+	RTLIL::SigSpec export_one()
+	{
+		RTLIL::SigSpec sig;
+		for (auto &bit : bits) {
+			sig.append(RTLIL::SigSpec(bit.first, 1, bit.second));
+			break;
+		}
+		return sig;
+	}
+
+	RTLIL::SigSpec export_all()
+	{
+		RTLIL::SigSpec sig;
+		for (auto &bit : bits)
+			sig.append(RTLIL::SigSpec(bit.first, 1, bit.second));
+		sig.sort_and_unify();
+		return sig;
+	}
+
+	size_t size()
+	{
+		return bits.size();
+	}
 };
 
 template <typename T>
