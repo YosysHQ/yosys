@@ -126,7 +126,7 @@ struct SatSolvePass : public Pass {
 		log("    -set <signal> <value>\n");
 		log("        set the specified signal to the specified value.\n");
 		log("\n");
-		log("    -show <signal>n");
+		log("    -show <signal>\n");
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
