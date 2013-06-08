@@ -665,7 +665,7 @@ struct AbcPass : public Pass {
 		log_header("Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
 
-		std::string exe_file = "yosys-abc";
+		std::string exe_file = rewrite_yosys_exe("yosys-abc");
 		std::string script_file, liberty_file;
 		bool cleanup = true;
 

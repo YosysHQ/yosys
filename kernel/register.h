@@ -32,6 +32,9 @@ extern Tcl_Interp *yosys_get_tcl_interp();
 extern RTLIL::Design *yosys_get_tcl_design();
 #endif
 
+// implemented in driver.cc
+std::string rewrite_yosys_exe(std::string exe);
+
 struct Pass
 {
 	std::string pass_name, short_help;
@@ -83,7 +86,7 @@ struct Backend : Pass
 	static void backend_call(RTLIL::Design *design, FILE *f, std::string filename, std::vector<std::string> args);
 };
 
-// implemented in kernel/select.cc
+// implemented in passes/cmds/select.cc
 extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design);
 
 namespace REGISTER_INTERN {

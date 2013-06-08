@@ -22,6 +22,7 @@
 #include <readline/history.h>
 #include <string.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <dlfcn.h>
 
 #include "kernel/rtlil.h"
@@ -342,6 +343,22 @@ struct TclPass : public Pass {
 	}
 } TclPass;
 #endif
+
+std::string rewrite_yosys_exe(std::string exe)
+{
+	char buffer[1024];
+	ssize_t buflen = readlink("/proc/self/exe", buffer, sizeof(buffer)-1);
+
+	if (buflen < 0)
+		return exe;
+
+	buffer[buflen] = 0;
+	std::string newexe = stringf("%s/%s", dirname(buffer), exe.c_str());
+	if (access(newexe.c_str(), X_OK) == 0)
+		return newexe;
+
+	return exe;
+}
 
 int main(int argc, char **argv)
 {
