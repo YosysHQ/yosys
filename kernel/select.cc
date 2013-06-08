@@ -939,3 +939,114 @@ struct SelectPass : public Pass {
 	}
 } SelectPass;
  
+struct CdPass : public Pass {
+	CdPass() : Pass("cd", "a shortcut for 'select -module <name>'") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    cd <modname>\n");
+		log("\n");
+		log("This is just a shortcut for 'select -module <modname>'.\n");
+		log("\n");
+		log("\n");
+		log("    cd <cellname>\n");
+		log("\n");
+		log("When no module with the specified name is found, but there is a cell\n");
+		log("with the specified name in the current module, then this is equivialent\n");
+		log("to 'cd <celltype>'.\n");
+		log("\n");
+		log("    cd ..\n");
+		log("\n");
+		log("This is just a shortcut for 'select -clear'.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		if (args.size() != 2)
+			log_cmd_error("Invalid number of arguments.\n");
+
+		if (args[1] == "..") {
+			design->selection_stack.back() = RTLIL::Selection(true);
+			design->selected_active_module = std::string();
+			return;
+		}
+
+		std::string modname = RTLIL::escape_id(args[1]);
+
+		if (design->modules.count(modname) == 0 && !design->selected_active_module.empty()) {
+			RTLIL::Module *module = NULL;
+			if (design->modules.count(design->selected_active_module) > 0)
+				module = design->modules.at(design->selected_active_module);
+			if (module != NULL && module->cells.count(modname) > 0)
+				modname = module->cells.at(modname)->type;
+		}
+
+		if (design->modules.count(modname) > 0) {
+			design->selected_active_module = modname;
+			design->selection_stack.back() = RTLIL::Selection();
+			select_filter_active_mod(design, design->selection_stack.back());
+			design->selection_stack.back().optimize(design);
+			return;
+		}
+
+		log_cmd_error("No such module `%s' found!\n", RTLIL::id2cstr(modname));
+	}
+} CdPass;
+ 
+struct LsPass : public Pass {
+	LsPass() : Pass("ls", "list modules or objects in modules") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    ls\n");
+		log("\n");
+		log("When no active module is selected, this prints a list of all module.\n");
+		log("\n");
+		log("When an active module is selected, this prints a list of objects in the module.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		if (args.size() != 1)
+			log_cmd_error("Invalid number of arguments.\n");
+
+		if (design->selected_active_module.empty())
+		{
+			log("\n%d modules:\n", int(design->modules.size()));
+			for (auto &it : design->modules)
+				log("  %s\n", RTLIL::id2cstr(it.first));
+		}
+		else
+		if (design->modules.count(design->selected_active_module) > 0)
+		{
+			RTLIL::Module *module = design->modules.at(design->selected_active_module);
+
+			if (module->wires.size()) {
+				log("\n%d wires:\n", int(module->wires.size()));
+				for (auto &it : module->wires)
+					log("  %s\n", RTLIL::id2cstr(it.first));
+			}
+
+			if (module->memories.size()) {
+				log("\n%d memories:\n", int(module->memories.size()));
+				for (auto &it : module->memories)
+					log("  %s\n", RTLIL::id2cstr(it.first));
+			}
+
+			if (module->cells.size()) {
+				log("\n%d cells:\n", int(module->cells.size()));
+				for (auto &it : module->cells)
+					log("  %s\n", RTLIL::id2cstr(it.first));
+			}
+
+			if (module->processes.size()) {
+				log("\n%d processes:\n", int(module->processes.size()));
+				for (auto &it : module->processes)
+					log("  %s\n", RTLIL::id2cstr(it.first));
+			}
+		}
+	}
+} LsPass;
+ 
