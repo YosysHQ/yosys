@@ -1,3 +1,5 @@
 read_verilog example.v
-techmap; opt; abc; opt
-sat_solve -set y 1'b1
+proc; opt_clean
+sat_solve -set y 1'b1 example001
+sat_solve -set y 1'b1 example002
+sat_solve -set y 1'b1 example003

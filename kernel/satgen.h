@@ -73,29 +73,6 @@ struct SatGen
 		return vec;
 	}
 
-	// ** cell types to be done: **
-	// cell_types.insert("$pos");
-	// cell_types.insert("$neg");
-	// cell_types.insert("$xnor");
-	// cell_types.insert("$reduce_and");
-	// cell_types.insert("$reduce_or");
-	// cell_types.insert("$reduce_xor");
-	// cell_types.insert("$reduce_xnor");
-	// cell_types.insert("$reduce_bool");
-	// cell_types.insert("$shl");
-	// cell_types.insert("$shr");
-	// cell_types.insert("$sshl");
-	// cell_types.insert("$sshr");
-	// cell_types.insert("$mul");
-	// cell_types.insert("$div");
-	// cell_types.insert("$mod");
-	// cell_types.insert("$pow");
-	// cell_types.insert("$logic_not");
-	// cell_types.insert("$logic_and");
-	// cell_types.insert("$logic_or");
-	// cell_types.insert("$pmux");
-	// cell_types.insert("$safe_pmux");
-
 	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell)
 	{
 		bool is_signed_a = false, is_signed_b = false;
@@ -116,10 +93,10 @@ struct SatGen
 			vec_y.push_back(ez->literal());
 	}
 
-	virtual void importCell(RTLIL::Cell *cell)
+	virtual bool importCell(RTLIL::Cell *cell)
 	{
 		if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_" ||
-				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" ||
+				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
 				cell->type == "$add" || cell->type == "$sub") {
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
 			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
@@ -131,23 +108,91 @@ struct SatGen
 				ez->assume(ez->vec_eq(ez->vec_or(a, b), y));
 			if (cell->type == "$xor" || cell->type == "$_XOR")
 				ez->assume(ez->vec_eq(ez->vec_xor(a, b), y));
+			if (cell->type == "$xnor")
+				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(a, b)), y));
 			if (cell->type == "$add")
 				ez->assume(ez->vec_eq(ez->vec_add(a, b), y));
 			if (cell->type == "$sub")
 				ez->assume(ez->vec_eq(ez->vec_sub(a, b), y));
-		} else
+			return true;
+		}
+
 		if (cell->type == "$_INV_" || cell->type == "$not") {
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
 			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
 			ez->assume(ez->vec_eq(ez->vec_not(a), y));
-		} else
+			return true;
+		}
+
 		if (cell->type == "$_MUX_" || cell->type == "$mux") {
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
 			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
 			std::vector<int> s = importSigSpec(cell->connections.at("\\S"));
 			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
-			ez->assume(ez->vec_eq(ez->vec_ite(s, b, a), y));
-		} else
+			ez->assume(ez->vec_eq(ez->vec_ite(s.at(0), b, a), y));
+			return true;
+		}
+
+		if (cell->type == "$pmux" || cell->type == "$safe_pmux") {
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
+			std::vector<int> s = importSigSpec(cell->connections.at("\\S"));
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> tmp = a;
+			for (size_t i = 0; i < s.size(); i++) {
+				std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
+				tmp = ez->vec_ite(s.at(i), part_of_b, tmp);
+			}
+			if (cell->type == "$safe_pmux")
+				tmp = ez->vec_ite(ez->onehot(s, true), tmp, a);
+			ez->assume(ez->vec_eq(tmp, y));
+			return true;
+		}
+
+		if (cell->type == "$pos" || cell->type == "$neg") {
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			if (cell->type == "$pos") {
+				ez->assume(ez->vec_eq(a, y));
+			} else {
+				std::vector<int> zero(a.size(), ez->FALSE);
+				ez->assume(ez->vec_eq(ez->vec_sub(zero, a), y));
+			}
+			return true;
+		}
+
+		if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_xor" ||
+				cell->type == "$reduce_xnor" || cell->type == "$reduce_bool" || cell->type == "$logic_not") {
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			if (cell->type == "$reduce_and")
+				ez->SET(ez->expression(ez->OpAnd, a), y.at(0));
+			if (cell->type == "$reduce_or" || cell->type == "$reduce_bool")
+				ez->SET(ez->expression(ez->OpOr, a), y.at(0));
+			if (cell->type == "$reduce_xor")
+				ez->SET(ez->expression(ez->OpXor, a), y.at(0));
+			if (cell->type == "$reduce_xnor")
+				ez->SET(ez->NOT(ez->expression(ez->OpXor, a)), y.at(0));
+			if (cell->type == "$logic_not")
+				ez->SET(ez->NOT(ez->expression(ez->OpOr, a)), y.at(0));
+			for (size_t i = 1; i < y.size(); i++)
+				ez->SET(0, y.at(0));
+			return true;
+		}
+
+		if (cell->type == "$logic_and" || cell->type == "$logic_or") {
+			int a = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\A")));
+			int b = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\B")));
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			if (cell->type == "$logic_and")
+				ez->SET(ez->expression(ez->OpAnd, a, b), y.at(0));
+			else
+				ez->SET(ez->expression(ez->OpOr, a, b), y.at(0));
+			for (size_t i = 1; i < y.size(); i++)
+				ez->SET(0, y.at(0));
+			return true;
+		}
+
 		if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt") {
 			bool is_signed = cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool();
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
@@ -166,8 +211,13 @@ struct SatGen
 				ez->SET(is_signed ? ez->vec_ge_signed(a, b) : ez->vec_ge_unsigned(a, b), y.at(0));
 			if (cell->type == "$gt")
 				ez->SET(is_signed ? ez->vec_gt_signed(a, b) : ez->vec_gt_unsigned(a, b), y.at(0));
-		} else
-			log_error("Can't handle cell type %s in SAT generator yet.\n", RTLIL::id2cstr(cell->type));
+			for (size_t i = 1; i < y.size(); i++)
+				ez->SET(0, y.at(0));
+			return true;
+		}
+
+		// Unsupported internal cell types: $shl $shr $sshl $sshr $mul $div $mod $pow
+		return false;
 	}
 };
 

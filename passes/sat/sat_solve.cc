@@ -211,14 +211,16 @@ struct SatSolvePass : public Pass {
 		int import_cell_counter = 0;
 		for (auto &c : module->cells)
 			if (design->selected(module, c.second) && ct.cell_known(c.second->type)) {
-				for (auto &p : c.second->connections)
-					if (ct.cell_output(c.second->type, p.first))
-						show_drivers.insert(sigmap(p.second), c.second);
-					else
-						show_driven[c.second].append(sigmap(p.second));
 				// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
-				satgen.importCell(c.second);
-				import_cell_counter++;
+				if (satgen.importCell(c.second)) {
+					for (auto &p : c.second->connections)
+						if (ct.cell_output(c.second->type, p.first))
+							show_drivers.insert(sigmap(p.second), c.second);
+						else
+							show_driven[c.second].append(sigmap(p.second));
+					import_cell_counter++;
+				} else
+					log("Warning: failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 			}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
 
