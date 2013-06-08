@@ -29,10 +29,10 @@
 #ifdef YOSYS_ENABLE_TCL
 #include <tcl.h>
 extern Tcl_Interp *yosys_get_tcl_interp();
-extern RTLIL::Design *yosys_get_tcl_design();
 #endif
 
 // implemented in driver.cc
+extern RTLIL::Design *yosys_get_design();
 std::string rewrite_yosys_exe(std::string exe);
 
 struct Pass

@@ -25,6 +25,8 @@
 #include <libgen.h>
 #include <dlfcn.h>
 
+#include <algorithm>
+
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
@@ -143,10 +145,64 @@ static char *readline_cmd_generator(const char *text, int state)
 	return NULL;
 }
 
+static char *readline_obj_generator(const char *text, int state)
+{
+	static std::vector<char*> obj_names;
+	static size_t idx;
+
+	if (!state)
+	{
+		idx = 0;
+		obj_names.clear();
+
+		RTLIL::Design *design = yosys_get_design();
+		int len = strlen(text);
+
+		if (design->selected_active_module.empty())
+		{
+			for (auto &it : design->modules)
+				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+		}
+		else
+		if (design->modules.count(design->selected_active_module) > 0)
+		{
+			RTLIL::Module *module = design->modules.at(design->selected_active_module);
+
+			for (auto &it : module->wires)
+				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+
+			for (auto &it : module->memories)
+				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+
+			for (auto &it : module->cells)
+				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+
+			for (auto &it : module->processes)
+				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+		}
+
+		std::sort(obj_names.begin(), obj_names.end());
+	}
+
+	if (idx < obj_names.size())
+		return strdup(obj_names[idx++]);
+
+	idx = 0;
+	obj_names.clear();
+	return NULL;
+}
+
 static char **readline_completion(const char *text, int start, int)
 {
 	if (start == 0)
 		return rl_completion_matches(text, readline_cmd_generator);
+	if (strncmp(rl_line_buffer, "read_", 5) && strncmp(rl_line_buffer, "write_", 6))
+		return rl_completion_matches(text, readline_obj_generator);
 	return NULL;
 }
 
@@ -271,7 +327,6 @@ struct ScriptPass : public Pass {
 
 #ifdef YOSYS_ENABLE_TCL
 static Tcl_Interp *yosys_tcl_interp = NULL;
-static RTLIL::Design *yosys_tcl_design = NULL;
 
 static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
@@ -296,11 +351,11 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 	}
 
 	if (args.size() == 1) {
-		Pass::call(yosys_tcl_design, args[0]);
+		Pass::call(yosys_get_design(), args[0]);
 		return TCL_OK;
 	}
 
-	Pass::call(yosys_tcl_design, args);
+	Pass::call(yosys_get_design(), args);
 	return TCL_OK;
 }
 
@@ -311,11 +366,6 @@ extern Tcl_Interp *yosys_get_tcl_interp()
 		Tcl_CreateCommand(yosys_tcl_interp, "yosys", tcl_yosys_cmd, NULL, NULL);
 	}
 	return yosys_tcl_interp;
-}
-
-extern RTLIL::Design *yosys_get_tcl_design()
-{
-	return yosys_tcl_design;
 }
 
 struct TclPass : public Pass {
@@ -343,6 +393,13 @@ struct TclPass : public Pass {
 	}
 } TclPass;
 #endif
+
+static RTLIL::Design *yosys_design = NULL;
+
+extern RTLIL::Design *yosys_get_design()
+{
+	return yosys_design;
+}
 
 std::string rewrite_yosys_exe(std::string exe)
 {
@@ -506,22 +563,18 @@ int main(int argc, char **argv)
 
 	Pass::init_register();
 
-	RTLIL::Design *design = new RTLIL::Design;
-	design->selection_stack.push_back(RTLIL::Selection());
+	yosys_design = new RTLIL::Design;
+	yosys_design->selection_stack.push_back(RTLIL::Selection());
 	log_push();
-
-#ifdef YOSYS_ENABLE_TCL
-	yosys_tcl_design = design;
-#endif
 
 	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty()) {
 		if (!got_output_filename)
 			backend_command = "";
-		shell(design);
+		shell(yosys_design);
 	}
 
 	while (optind < argc)
-		run_frontend(argv[optind++], frontend_command, design, output_filename == "-" ? &backend_command : NULL);
+		run_frontend(argv[optind++], frontend_command, yosys_design, output_filename == "-" ? &backend_command : NULL);
 
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
@@ -532,20 +585,17 @@ int main(int argc, char **argv)
 			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
 		} else
-			run_frontend(scriptfile, "script", design, output_filename == "-" ? &backend_command : NULL);
+			run_frontend(scriptfile, "script", yosys_design, output_filename == "-" ? &backend_command : NULL);
 	}
 
 	for (auto it = passes_commands.begin(); it != passes_commands.end(); it++)
-		run_pass(*it, design);
+		run_pass(*it, yosys_design);
 
 	if (!backend_command.empty())
-		run_backend(output_filename, backend_command, design);
+		run_backend(output_filename, backend_command, yosys_design);
 
-	delete design;
-
-#ifdef YOSYS_ENABLE_TCL
-	yosys_tcl_design = NULL;
-#endif
+	delete yosys_design;
+	yosys_design = NULL;
 
 	log("\nREADY.\n");
 	log_pop();
