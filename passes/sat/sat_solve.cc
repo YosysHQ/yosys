@@ -116,6 +116,13 @@ struct SatSolvePass : public Pass {
 		log("This command solves a SAT problem defined over the currently selected circuit\n");
 		log("and additional constraints passed as parameters.\n");
 		log("\n");
+		log("    -all\n");
+		log("        show all solutions to the problem (this can grow exponentially, use\n");
+		log("        -max <N> instead to get <N> solutions)\n");
+		log("\n");
+		log("    -max <N>\n");
+		log("        like -all, but limit number of solutions to <N>\n");
+		log("\n");
 		log("    -set <signal> <value>\n");
 		log("        set the specified signal to the specified value.\n");
 		log("\n");
@@ -128,11 +135,20 @@ struct SatSolvePass : public Pass {
 	{
 		std::vector<std::pair<std::string, std::string>> sets;
 		std::vector<std::string> shows;
+		int loopcount = 0;
 
 		log_header("Executing SAT_SOLVE pass (solving SAT problems in the circuit).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-all") {
+				loopcount = -1;
+				continue;
+			}
+			if (args[argidx] == "-max" && argidx+1 < args.size()) {
+				loopcount = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
 				std::string lhs = args[++argidx].c_str();
 				std::string rhs = args[++argidx].c_str();
@@ -247,23 +263,28 @@ struct SatSolvePass : public Pass {
 				modelExpressions.push_back(vec[0]);
 			}
 
+rerun_solver:
 		log("Solving problem with %d variables and %d clauses..\n", ez.numCnfVariables(), ez.numCnfClauses());
 		if (ez.solve(modelExpressions, modelValues))
 		{
 			log("SAT solving finished - model found:\n\n");
+
 			int modelIdx = 0;
 			int maxModelName = 10;
 			int maxModelWidth = 10;
+
 			modelSig.optimize();
 			for (auto &c : modelSig.chunks)
 				if (c.wire != NULL) {
 					maxModelName = std::max(maxModelName, int(c.wire->name.size()));
 					maxModelWidth = std::max(maxModelWidth, c.width);
 				}
+
 			const char *hline = "--------------------------------------------------------";
 			log("  %-*s %10s %10s %*s\n", maxModelName+10, "Signal Name", "Dec", "Hex", maxModelWidth+5, "Bin");
 			log("  %*.*s %10.10s %10.10s %*.*s\n", maxModelName+10, maxModelName+10,
 					hline, hline, hline, maxModelWidth+5, maxModelWidth+5, hline);
+
 			for (auto &c : modelSig.chunks) {
 				if (c.wire == NULL)
 					continue;
@@ -275,6 +296,16 @@ struct SatSolvePass : public Pass {
 				else
 					log("  %-*s %10s %10s %*s\n", maxModelName+10, log_signal(c), "--", "--", maxModelWidth+5, value.as_string().c_str());
 				modelIdx += c.width;
+			}
+
+			if (loopcount != 0) {
+				log("\n");
+				std::vector<int> clause;
+				for (size_t i = 0; i < modelExpressions.size(); i++)
+					clause.push_back(modelValues.at(i) ? ez.NOT(modelExpressions.at(i)) : modelExpressions.at(i));
+				ez.assume(ez.expression(ezSAT::OpOr, clause));
+				loopcount--;
+				goto rerun_solver;
 			}
 		}
 		else
