@@ -129,7 +129,7 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 		if (myArgs.size() == 0)
 			return xorRemovedOddTrues ? TRUE : FALSE;
 		if (myArgs.size() == 1)
-			return myArgs[0];
+			return xorRemovedOddTrues ? NOT(myArgs[0]) : myArgs[0];
 		break;
 
 	case OpIFF:
@@ -162,7 +162,7 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 		expressions.push_back(myExpr);
 	}
 
-	return xorRemovedOddTrues ? expression(OpNot, id) : id;
+	return xorRemovedOddTrues ? NOT(id) : id;
 }
 
 void ezSAT::lookup_literal(int id, std::string &name) const
@@ -341,9 +341,45 @@ void ezSAT::clear()
 
 void ezSAT::assume(int id)
 {
+	cnfAssumptions.insert(id);
+
+	if (id < 0)
+	{
+		assert(0 < -id && -id <= int(expressions.size()));
+		cnfExpressionVariables.resize(expressions.size());
+
+		if (cnfExpressionVariables[-id-1] == 0)
+		{
+			OpId op;
+			std::vector<int> args;
+			lookup_expression(id, op, args);
+
+			if (op == OpNot) {
+				int idx = bind(args[0]);
+				cnfClauses.push_back(std::vector<int>(1, -idx));
+				cnfClausesCount++;
+				return;
+			}
+			if (op == OpOr) {
+				std::vector<int> clause;
+				for (int arg : args)
+					clause.push_back(bind(arg));
+				cnfClauses.push_back(clause);
+				cnfClausesCount++;
+				return;
+			}
+			if (op == OpAnd) {
+				for (int arg : args) {
+					cnfClauses.push_back(std::vector<int>(1, bind(arg)));
+					cnfClausesCount++;
+				}
+				return;
+			}
+		}
+	}
+
 	int idx = bind(id);
 	cnfClauses.push_back(std::vector<int>(1, idx));
-	cnfAssumptions.insert(id);
 	cnfClausesCount++;
 }
 

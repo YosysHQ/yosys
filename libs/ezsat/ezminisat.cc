@@ -86,9 +86,9 @@ contradiction:
 		Minisat::vec<Minisat::Lit> ps;
 		for (auto idx : clause)
 			if (idx > 0)
-				ps.push(Minisat::mkLit(minisatVars[idx-1]));
+				ps.push(Minisat::mkLit(minisatVars.at(idx-1)));
 			else
-				ps.push(Minisat::mkLit(minisatVars[-idx-1], true));
+				ps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
 		if (!minisatSolver->addClause(ps))
 			goto contradiction;
 	}
@@ -100,9 +100,9 @@ contradiction:
 
 	for (auto idx : extraClauses)
 		if (idx > 0)
-			assumps.push(Minisat::mkLit(minisatVars[idx-1]));
+			assumps.push(Minisat::mkLit(minisatVars.at(idx-1)));
 		else
-			assumps.push(Minisat::mkLit(minisatVars[-idx-1], true));
+			assumps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
 
 	if (!minisatSolver->solve(assumps))
 		return false;
@@ -110,9 +110,12 @@ contradiction:
 	modelValues.clear();
 	modelValues.reserve(modelIdx.size());
 	for (auto idx : modelIdx) {
-		auto value = minisatSolver->modelValue(minisatVars[idx-1]);
+		bool refvalue = true;
+		if (idx < 0)
+			idx = -idx, refvalue = false;
+		auto value = minisatSolver->modelValue(minisatVars.at(idx-1));
 		// FIXME: Undef values
-		modelValues.push_back(value == Minisat::lbool(true));
+		modelValues.push_back(value == Minisat::lbool(refvalue));
 	}
 
 	return true;
