@@ -51,11 +51,7 @@ struct SatGen
 		this->prefix = prefix;
 	}
 
-	virtual ~SatGen()
-	{
-	}
-
-	virtual std::vector<int> importSigSpec(RTLIL::SigSpec &sig)
+	std::vector<int> importSigSpec(RTLIL::SigSpec &sig)
 	{
 		RTLIL::SigSpec s = sig;
 		sigmap->apply(s);
@@ -93,7 +89,7 @@ struct SatGen
 			vec_y.push_back(ez->literal());
 	}
 
-	virtual bool importCell(RTLIL::Cell *cell)
+	bool importCell(RTLIL::Cell *cell)
 	{
 		if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_" ||
 				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
@@ -216,9 +212,32 @@ struct SatGen
 			return true;
 		}
 
-		// Unsupported internal cell types: $shl $shr $sshl $sshr $mul $div $mod $pow
+		if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			char shift_left = cell->type == "$shl" || cell->type == "$sshl";
+			bool sign_extend = cell->type == "$sshr";
+			while (y.size() < a.size())
+				y.push_back(ez->literal());
+			std::vector<int> tmp = a;
+			for (size_t i = 0; i < b.size(); i++)
+			{
+				std::vector<int> tmp_shifted(tmp.size());
+				for (size_t j = 0; j < tmp.size(); j++) {
+					int idx = j + (1 << i) * (shift_left ? -1 : +1);
+					tmp_shifted.at(j) = (0 <= idx && idx < int(tmp.size())) ? tmp.at(idx) : sign_extend ? tmp.back() : ez->FALSE;
+				}
+				tmp = ez->vec_ite(b.at(i), tmp_shifted, tmp);
+			}
+			ez->assume(ez->vec_eq(tmp, y));
+			return true;
+		}
+
+		// Unsupported internal cell types: $mul $div $mod $pow
 		return false;
 	}
 };
 
 #endif
+

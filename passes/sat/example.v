@@ -51,7 +51,20 @@ endmodule
 
 // ------------------------------------
 
-module example003(clk, rst, y);
+module example003(a_shl, a_shr, a_sshl, a_sshr, sh, y_shl, y_shr, y_sshl, y_sshr);
+
+input [7:0] a_shl, a_shr;
+input signed [7:0] a_sshl, a_sshr;
+input [3:0] sh;
+
+output [7:0] y_shl = a_shl << sh, y_shr = a_shr >> sh;
+output signed [7:0] y_sshl = a_sshl <<< sh, y_sshr = a_sshr >>> sh;
+
+endmodule
+
+// ------------------------------------
+
+module example004(clk, rst, y);
 
 input clk, rst;
 output y;
@@ -59,7 +72,7 @@ output y;
 reg [3:0] counter;
 
 always @(posedge clk)
-	case (1)
+	case (1'b1)
 		rst, counter == 9:
 			counter <= 0;
 		default:

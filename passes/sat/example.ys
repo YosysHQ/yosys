@@ -2,4 +2,5 @@ read_verilog example.v
 proc; opt_clean
 sat_solve -set y 1'b1 example001
 sat_solve -set y 1'b1 example002
-sat_solve -set y 1'b1 example003
+sat_solve -set y_sshl 8'hf0 -set y_sshr 8'hf0 -set sh 4'd3 example003
+sat_solve -set y 1'b1 example004
