@@ -235,6 +235,7 @@ static void shell(RTLIL::Design *design)
 
 	rl_readline_name = "yosys";
 	rl_attempted_completion_function = readline_completion;
+	rl_basic_word_break_characters = " \t\n";
 
 	char *command = NULL;
 	while ((command = readline(create_prompt(design, recursion_counter))) != NULL)
