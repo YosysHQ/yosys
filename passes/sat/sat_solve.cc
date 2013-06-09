@@ -17,6 +17,10 @@
  *
  */
 
+// [[CITE]] Temporal Induction by Incremental SAT Solving
+// Niklas Een and Niklas Sörensson (2003)
+// http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.8161
+
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
@@ -124,7 +128,6 @@ struct SatHelper
 	std::vector<std::string> shows;
 	SigPool show_signal_pool;
 	SigSet<RTLIL::Cell*> show_drivers;
-	std::map<RTLIL::Cell*,RTLIL::SigSpec> show_driven;
 	int max_timestep;
 
 	SatHelper(RTLIL::Design *design, RTLIL::Module *module) :
@@ -213,8 +216,6 @@ struct SatHelper
 					for (auto &p : c.second->connections)
 						if (ct.cell_output(c.second->type, p.first))
 							show_drivers.insert(sigmap(p.second), c.second);
-						else
-							show_driven[c.second].append(sigmap(p.second));
 					import_cell_counter++;
 				} else
 					log("Warning: failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
@@ -222,10 +223,9 @@ struct SatHelper
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
 	}
 
-	void setup_proof(int timestep = -1)
+	int setup_proof(int timestep = -1)
 	{
-		if (prove.size() == 0)
-			return;
+		assert(prove.size() > 0);
 
 		RTLIL::SigSpec big_lhs, big_rhs;
 
@@ -254,12 +254,24 @@ struct SatHelper
 
 		std::vector<int> lhs_vec = satgen.importSigSpec(big_lhs, timestep);
 		std::vector<int> rhs_vec = satgen.importSigSpec(big_rhs, timestep);
-		ez.assume(ez.vec_ne(lhs_vec, rhs_vec));
+		return ez.vec_eq(lhs_vec, rhs_vec);
 	}
 
-	bool solve()
+	void force_unique_state(int timestep_from, int timestep_to)
 	{
-		return ez.solve(modelExpressions, modelValues);
+		RTLIL::SigSpec state_signals = satgen.initial_state.export_all();
+		for (int i = timestep_from; i < timestep_to; i++)
+			ez.assume(ez.vec_ne(satgen.importSigSpec(state_signals, i), satgen.importSigSpec(state_signals, timestep_to)));
+	}
+
+	bool solve(const std::vector<int> &assumptions)
+	{
+		return ez.solve(modelExpressions, modelValues, assumptions);
+	}
+
+	bool solve(int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
+	{
+		return ez.solve(modelExpressions, modelValues, a, b, c, d, e, f);
 	}
 
 	struct ModelBlockInfo {
@@ -285,28 +297,41 @@ struct SatHelper
 	void generate_model()
 	{
 		RTLIL::SigSpec modelSig;
+		modelExpressions.clear();
+		modelInfo.clear();
 
-		// Add "normal" show signals for every timestep
+		// Add "show" signals or alternatively the leaves on the input cone on all set and prove signals
 
-		if (shows.size() == 0) {
-			SigPool handled_signals, final_signals;
-			for (auto &s : show_driven)
-				s.second.sort_and_unify();
-			while (show_signal_pool.size() > 0) {
-				RTLIL::SigSpec sig = show_signal_pool.export_one();
-				show_signal_pool.del(sig);
+		if (shows.size() == 0)
+		{
+			SigPool queued_signals, handled_signals, final_signals;
+			queued_signals = show_signal_pool;
+			while (queued_signals.size() > 0) {
+				RTLIL::SigSpec sig = queued_signals.export_one();
+				queued_signals.del(sig);
 				handled_signals.add(sig);
 				std::set<RTLIL::Cell*> drivers = show_drivers.find(sig);
 				if (drivers.size() == 0) {
 					final_signals.add(sig);
 				} else {
 					for (auto &d : drivers)
-					for (auto &p : d->connections)
-						show_signal_pool.add(handled_signals.remove(p.second));
+					for (auto &p : d->connections) {
+						if (d->type == "$dff" && p.first == "\\CLK")
+							continue;
+						if (d->type.substr(0, 6) == "$_DFF_" && p.first == "\\C")
+							continue;
+						queued_signals.add(handled_signals.remove(p.second));
+					}
 				}
 			}
 			modelSig = final_signals.export_all();
-		} else {
+
+			// additionally add all set and prove signals directly
+			// (it improves user confidence if we write the constraints back ;-)
+			modelSig.append(show_signal_pool.export_all());
+		}
+		else
+		{
 			for (auto &s : shows) {
 				RTLIL::SigSpec sig;
 				if (!parse_sigstr(sig, module, s))
@@ -339,7 +364,7 @@ struct SatHelper
 
 		// Add zero step signals as collected by satgen
 
-		modelSig = satgen.initial_signals.export_all();
+		modelSig = satgen.initial_state.export_all();
 		for (auto &c : modelSig.chunks)
 			if (c.wire != NULL) {
 				ModelBlockInfo info;
@@ -417,6 +442,33 @@ struct SatHelper
 	}
 };
 
+static void print_proof_failed()
+{
+	log("\n");
+	log("   ______                   ___       ___       _ _            _ _ \n");
+	log("  (_____ \\                 / __)     / __)     (_) |          | | |\n");
+	log("   _____) )___ ___   ___ _| |__    _| |__ _____ _| | _____  __| | |\n");
+	log("  |  ____/ ___) _ \\ / _ (_   __)  (_   __|____ | | || ___ |/ _  |_|\n");
+	log("  | |   | |  | |_| | |_| || |       | |  / ___ | | || ____( (_| |_ \n");
+	log("  |_|   |_|   \\___/ \\___/ |_|       |_|  \\_____|_|\\_)_____)\\____|_|\n");
+	log("\n");
+}
+
+static void print_qed()
+{
+	log("\n");
+	log("                  /$$$$$$      /$$$$$$$$     /$$$$$$$    \n");
+	log("                 /$$__  $$    | $$_____/    | $$__  $$   \n");
+	log("                | $$  \\ $$    | $$          | $$  \\ $$   \n");
+	log("                | $$  | $$    | $$$$$       | $$  | $$   \n");
+	log("                | $$  | $$    | $$__/       | $$  | $$   \n");
+	log("                | $$/$$ $$    | $$          | $$  | $$   \n");
+	log("                |  $$$$$$/ /$$| $$$$$$$$ /$$| $$$$$$$//$$\n");
+	log("                 \\____ $$$|__/|________/|__/|_______/|__/\n");
+	log("                       \\__/                              \n");
+	log("\n");
+}
+
 struct SatSolvePass : public Pass {
 	SatSolvePass() : Pass("sat_solve", "solve a SAT problem in the circuit") { }
 	virtual void help()
@@ -461,6 +513,9 @@ struct SatSolvePass : public Pass {
 		log("        induction proof it is proven that the condition holds forever after\n");
 		log("        the number of time steps passed using -seq.\n");
 		log("\n");
+		log("    -maxsteps <N>\n");
+		log("        Set a maximum length for the induction.\n");
+		log("\n");
 		log("    -verify\n");
 		log("        Return an error and stop the synthesis script if the proof fails.\n");
 		log("\n");
@@ -471,7 +526,7 @@ struct SatSolvePass : public Pass {
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at;
 		std::vector<std::string> shows;
-		int loopcount = 0, seq_len = 0;
+		int loopcount = 0, seq_len = 0, maxsteps = 0;
 		bool verify = false;
 
 		log_header("Executing SAT_SOLVE pass (solving SAT problems in the circuit).\n");
@@ -488,6 +543,10 @@ struct SatSolvePass : public Pass {
 			}
 			if (args[argidx] == "-max" && argidx+1 < args.size()) {
 				loopcount = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-maxsteps" && argidx+1 < args.size()) {
+				maxsteps = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
@@ -543,10 +602,94 @@ struct SatSolvePass : public Pass {
 
 		if (prove.size() > 0 && seq_len > 0)
 		{
-			log_cmd_error("Temporal induction proofs are not implemented yet!\n");
+			if (loopcount > 0)
+				log_cmd_error("The options -max and -all are not supported for temporal induction proofs!\n");
+
+			SatHelper basecase(design, module);
+			SatHelper inductstep(design, module);
+
+			basecase.sets = sets;
+			basecase.prove = prove;
+			basecase.sets_at = sets_at;
+			basecase.unsets_at = unsets_at;
+			basecase.shows = shows;
+
+			for (int timestep = 1; timestep <= seq_len; timestep++)
+				basecase.setup(timestep);
+
+			inductstep.sets = sets;
+			inductstep.prove = prove;
+			inductstep.shows = shows;
+
+			inductstep.setup(1);
+			inductstep.ez.assume(inductstep.setup_proof(1));
+
+			for (int inductlen = 1; inductlen <= maxsteps || maxsteps == 0; inductlen++)
+			{
+				log("\n** Trying induction with length %d **\n", inductlen);
+
+				// phase 1: proving base case
+
+				basecase.setup(seq_len + inductlen);
+				int property = basecase.setup_proof(seq_len + inductlen);
+				basecase.generate_model();
+
+				if (inductlen > 1)
+					basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
+
+				log("\n[base case] Solving problem with %d variables and %d clauses..\n",
+						basecase.ez.numCnfVariables(), basecase.ez.numCnfClauses());
+
+				if (basecase.solve(basecase.ez.NOT(property))) {
+					log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
+					print_proof_failed();
+					basecase.print_model();
+					goto tip_failed;
+				}
+
+				log("Base case for induction length %d proven.\n", inductlen);
+				basecase.ez.assume(property);
+
+				// phase 2: proving induction step
+
+				inductstep.setup(inductlen + 1);
+				property = inductstep.setup_proof(inductlen + 1);
+				inductstep.generate_model();
+
+				if (inductlen > 1)
+					inductstep.force_unique_state(1, inductlen + 1);
+
+				log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
+						inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
+
+				if (!inductstep.solve(inductstep.ez.NOT(property))) {
+					log("Induction step proven: SUCCESS!\n");
+					print_qed();
+					goto tip_success;
+				}
+
+				log("Induction step failed. Incrementing induction length.\n");
+				inductstep.ez.assume(property);
+
+				inductstep.print_model();
+			}
+
+			log("\nReached maximum number of time steps -> proof failed.\n");
+			print_proof_failed();
+
+		tip_failed:
+			if (verify) {
+				log("\n");
+				log_error("Called with -verify and proof did fail!\n");
+			}
+
+		tip_success:;
 		}
 		else
 		{
+			if (loopcount > 0)
+				log_cmd_error("The options -maxsteps is only supported for temporal induction proofs!\n");
+
 			SatHelper sathelper(design, module);
 			sathelper.sets = sets;
 			sathelper.prove = prove;
@@ -556,7 +699,8 @@ struct SatSolvePass : public Pass {
 
 			if (seq_len == 0) {
 				sathelper.setup();
-				sathelper.setup_proof();
+				if (sathelper.prove.size() > 0)
+					sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof()));
 			} else {
 				for (int timestep = 1; timestep <= seq_len; timestep++)
 					sathelper.setup(timestep);
@@ -568,7 +712,7 @@ struct SatSolvePass : public Pass {
 			sathelper.ez.printDIMACS(stdout, true);
 #endif
 
-rerun_solver:
+		rerun_solver:
 			log("\nSolving problem with %d variables and %d clauses..\n",
 					sathelper.ez.numCnfVariables(), sathelper.ez.numCnfClauses());
 
@@ -578,14 +722,7 @@ rerun_solver:
 					log("SAT solving finished - model found:\n");
 				} else {
 					log("SAT proof finished - model found: FAIL!\n");
-					log("\n");
-					log("   ______                   ___       ___       _ _            _ _ \n");
-					log("  (_____ \\                 / __)     / __)     (_) |          | | |\n");
-					log("   _____) )___ ___   ___ _| |__    _| |__ _____ _| | _____  __| | |\n");
-					log("  |  ____/ ___) _ \\ / _ (_   __)  (_   __|____ | | || ___ |/ _  |_|\n");
-					log("  | |   | |  | |_| | |_| || |       | |  / ___ | | || ____( (_| |_ \n");
-					log("  |_|   |_|   \\___/ \\___/ |_|       |_|  \\_____|_|\\_)_____)\\____|_|\n");
-					log("\n");
+					print_proof_failed();
 				}
 
 				sathelper.print_model();
@@ -603,10 +740,12 @@ rerun_solver:
 			}
 			else
 			{
-				if (prove.size() == 0)
+				if (prove.size() == 0) {
 					log("SAT solving finished - no model found.\n");
-				else
+				} else {
 					log("SAT proof finished - no model found: SUCCESS!\n");
+					print_qed();
+				}
 			}
 		}
 	}

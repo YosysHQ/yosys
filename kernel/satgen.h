@@ -38,7 +38,7 @@ struct SatGen
 	RTLIL::Design *design;
 	SigMap *sigmap;
 	std::string prefix;
-	SigPool initial_signals;
+	SigPool initial_state;
 
 	SatGen(ezSAT *ez, RTLIL::Design *design, SigMap *sigmap, std::string prefix = std::string()) :
 			ez(ez), design(design), sigmap(sigmap), prefix(prefix)
@@ -241,7 +241,7 @@ struct SatGen
 
 		if (timestep > 0 && (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")) {
 			if (timestep == 1) {
-				initial_signals.add((*sigmap)(cell->connections.at("\\Q")));
+				initial_state.add((*sigmap)(cell->connections.at("\\Q")));
 			} else {
 				std::vector<int> d = importSigSpec(cell->connections.at("\\D"), timestep-1);
 				std::vector<int> q = importSigSpec(cell->connections.at("\\Q"), timestep);
