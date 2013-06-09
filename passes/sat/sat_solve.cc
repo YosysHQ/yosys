@@ -419,8 +419,11 @@ rerun_solver:
 			for (auto &info : modelInfo)
 			{
 				RTLIL::Const value;
-				for (int i = 0; i < info.width; i++)
+				for (int i = 0; i < info.width; i++) {
 					value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+					if (modelValues.size() == 2*modelExpressions.size() && modelValues.at(modelExpressions.size()+info.offset+i))
+						value.bits.back() = RTLIL::State::Sx;
+				}
 
 				if (info.timestep != last_timestep) {
 					const char *hline = "---------------------------------------------------------------------------------------------------"
