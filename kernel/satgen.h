@@ -38,6 +38,7 @@ struct SatGen
 	RTLIL::Design *design;
 	SigMap *sigmap;
 	std::string prefix;
+	SigPool initial_signals;
 
 	SatGen(ezSAT *ez, RTLIL::Design *design, SigMap *sigmap, std::string prefix = std::string()) :
 			ez(ez), design(design), sigmap(sigmap), prefix(prefix)
@@ -51,8 +52,9 @@ struct SatGen
 		this->prefix = prefix;
 	}
 
-	std::vector<int> importSigSpec(RTLIL::SigSpec &sig)
+	std::vector<int> importSigSpec(RTLIL::SigSpec &sig, int timestep = -1)
 	{
+		assert(timestep < 0 || timestep > 0);
 		RTLIL::SigSpec s = sig;
 		sigmap->apply(s);
 		s.expand();
@@ -61,11 +63,14 @@ struct SatGen
 		vec.reserve(s.chunks.size());
 
 		for (auto &c : s.chunks)
-			if (c.wire == NULL)
+			if (c.wire == NULL) {
 				vec.push_back(c.data.as_bool() ? ez->TRUE : ez->FALSE);
-			else
-				vec.push_back(ez->literal(prefix + stringf(c.wire->width == 1 ?
-						"%s" : "%s [%d]", RTLIL::id2cstr(c.wire->name), c.offset)));
+			} else {
+				std::string name = prefix;
+				name += timestep == -1 ? "" : stringf("@%d:", timestep);
+				name += stringf(c.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(c.wire->name), c.offset);
+				vec.push_back(ez->literal(name));
+			}
 		return vec;
 	}
 
@@ -89,14 +94,14 @@ struct SatGen
 			vec_y.push_back(ez->literal());
 	}
 
-	bool importCell(RTLIL::Cell *cell)
+	bool importCell(RTLIL::Cell *cell, int timestep = -1)
 	{
 		if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_" ||
 				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
 				cell->type == "$add" || cell->type == "$sub") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidth(a, b, y, cell);
 			if (cell->type == "$and" || cell->type == "$_AND_")
 				ez->assume(ez->vec_eq(ez->vec_and(a, b), y));
@@ -114,26 +119,26 @@ struct SatGen
 		}
 
 		if (cell->type == "$_INV_" || cell->type == "$not") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			ez->assume(ez->vec_eq(ez->vec_not(a), y));
 			return true;
 		}
 
 		if (cell->type == "$_MUX_" || cell->type == "$mux") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
-			std::vector<int> s = importSigSpec(cell->connections.at("\\S"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> s = importSigSpec(cell->connections.at("\\S"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			ez->assume(ez->vec_eq(ez->vec_ite(s.at(0), b, a), y));
 			return true;
 		}
 
 		if (cell->type == "$pmux" || cell->type == "$safe_pmux") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
-			std::vector<int> s = importSigSpec(cell->connections.at("\\S"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> s = importSigSpec(cell->connections.at("\\S"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			std::vector<int> tmp = a;
 			for (size_t i = 0; i < s.size(); i++) {
 				std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
@@ -146,8 +151,8 @@ struct SatGen
 		}
 
 		if (cell->type == "$pos" || cell->type == "$neg") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			if (cell->type == "$pos") {
 				ez->assume(ez->vec_eq(a, y));
 			} else {
@@ -159,8 +164,8 @@ struct SatGen
 
 		if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_xor" ||
 				cell->type == "$reduce_xnor" || cell->type == "$reduce_bool" || cell->type == "$logic_not") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			if (cell->type == "$reduce_and")
 				ez->SET(ez->expression(ez->OpAnd, a), y.at(0));
 			if (cell->type == "$reduce_or" || cell->type == "$reduce_bool")
@@ -177,9 +182,9 @@ struct SatGen
 		}
 
 		if (cell->type == "$logic_and" || cell->type == "$logic_or") {
-			int a = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\A")));
-			int b = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\B")));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			int a = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\A"), timestep));
+			int b = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\B"), timestep));
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			if (cell->type == "$logic_and")
 				ez->SET(ez->expression(ez->OpAnd, a, b), y.at(0));
 			else
@@ -191,9 +196,9 @@ struct SatGen
 
 		if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt") {
 			bool is_signed = cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool();
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidth(a, b, cell);
 			if (cell->type == "$lt")
 				ez->SET(is_signed ? ez->vec_lt_signed(a, b) : ez->vec_lt_unsigned(a, b), y.at(0));
@@ -213,9 +218,9 @@ struct SatGen
 		}
 
 		if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"));
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"));
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			char shift_left = cell->type == "$shl" || cell->type == "$sshl";
 			bool sign_extend = cell->type == "$sshr";
 			while (y.size() < a.size())
@@ -234,7 +239,19 @@ struct SatGen
 			return true;
 		}
 
+		if (timestep > 0 && (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")) {
+			if (timestep == 1) {
+				initial_signals.add((*sigmap)(cell->connections.at("\\Q")));
+			} else {
+				std::vector<int> d = importSigSpec(cell->connections.at("\\D"), timestep-1);
+				std::vector<int> q = importSigSpec(cell->connections.at("\\Q"), timestep);
+				ez->assume(ez->vec_eq(d, q));
+			}
+			return true;
+		}
+
 		// Unsupported internal cell types: $mul $div $mod $pow
+		// .. and all sequential cells except $dff and $_DFF_[NP]_
 		return false;
 	}
 };

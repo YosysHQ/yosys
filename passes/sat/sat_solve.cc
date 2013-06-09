@@ -130,12 +130,25 @@ struct SatSolvePass : public Pass {
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
+		log("The following options can be used to set up a sequential problem:\n");
+		log("\n");
+		log("    -seq <N>\n");
+		log("        set up a sequential problem with <N> time steps. The steps will\n");
+		log("        be numbered from 1 to N.\n");
+		log("\n");
+		log("    -set-at <N> <signal> <value>\n");
+		log("    -unset-at <N> <signal>\n");
+		log("        set or unset the specified signal to the specified value in the\n");
+		log("        given timestep. this has priority over a -set for the same signal.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::vector<std::pair<std::string, std::string>> sets;
+		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
+		std::map<int, std::vector<std::string>> unsets_at;
 		std::vector<std::string> shows;
-		int loopcount = 0;
+		int loopcount = 0, seq_len = 0;
 
 		log_header("Executing SAT_SOLVE pass (solving SAT problems in the circuit).\n");
 
@@ -153,6 +166,23 @@ struct SatSolvePass : public Pass {
 				std::string lhs = args[++argidx].c_str();
 				std::string rhs = args[++argidx].c_str();
 				sets.push_back(std::pair<std::string, std::string>(lhs, rhs));
+				continue;
+			}
+			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
+				seq_len = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-set-at" && argidx+3 < args.size()) {
+				int timestep = atoi(args[++argidx].c_str());
+				std::string lhs = args[++argidx].c_str();
+				std::string rhs = args[++argidx].c_str();
+				sets_at[timestep].push_back(std::pair<std::string, std::string>(lhs, rhs));
+				continue;
+			}
+			if (args[argidx] == "-unset-at" && argidx+2 < args.size()) {
+				int timestep = atoi(args[++argidx].c_str());
+				std::string lhs = args[++argidx].c_str();
+				unsets_at[timestep].push_back(lhs);
 				continue;
 			}
 			if (args[argidx] == "-show" && argidx+1 < args.size()) {
@@ -186,47 +216,119 @@ struct SatSolvePass : public Pass {
 		std::map<RTLIL::Cell*,RTLIL::SigSpec> show_driven;
 		CellTypes ct(design);
 
-		for (auto &s : sets)
+		for (int timestep = -1; timestep <= seq_len; timestep++)
 		{
-			RTLIL::SigSpec lhs, rhs;
+			// set timestep=-1 for non-seq problems and timestep=1:N for seq problems
+			if ((timestep == -1 && seq_len > 0) || timestep == 0)
+				continue;
 
-			if (!parse_sigstr(lhs, module, s.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
-			if (!parse_sigstr(rhs, module, s.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
-			show_signal_pool.add(sigmap(lhs));
-			show_signal_pool.add(sigmap(rhs));
+			if (timestep > 0)
+				log ("\nSetting up time step %d:\n", timestep);
+			else
+				log ("\nSetting up SAT problem:\n");
 
-			if (lhs.width != rhs.width)
-				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+			RTLIL::SigSpec big_lhs, big_rhs;
 
-			log("Import constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
+			for (auto &s : sets)
+			{
+				RTLIL::SigSpec lhs, rhs;
 
-			std::vector<int> lhs_vec = satgen.importSigSpec(lhs);
-			std::vector<int> rhs_vec = satgen.importSigSpec(rhs);
+				if (!parse_sigstr(lhs, module, s.first))
+					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+				if (!parse_sigstr(rhs, module, s.second))
+					log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+				show_signal_pool.add(sigmap(lhs));
+				show_signal_pool.add(sigmap(rhs));
+
+				if (lhs.width != rhs.width)
+					log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
+						s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+
+				log("Import set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
+				big_lhs.remove2(lhs, &big_rhs);
+				big_lhs.append(lhs);
+				big_rhs.append(rhs);
+			}
+
+			for (auto &s : sets_at[timestep])
+			{
+				RTLIL::SigSpec lhs, rhs;
+
+				if (!parse_sigstr(lhs, module, s.first))
+					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+				if (!parse_sigstr(rhs, module, s.second))
+					log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+				show_signal_pool.add(sigmap(lhs));
+				show_signal_pool.add(sigmap(rhs));
+
+				if (lhs.width != rhs.width)
+					log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
+						s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+
+				log("Import set-constraint for timestep: %s = %s\n", log_signal(lhs), log_signal(rhs));
+				big_lhs.remove2(lhs, &big_rhs);
+				big_lhs.append(lhs);
+				big_rhs.append(rhs);
+			}
+
+			for (auto &s : unsets_at[timestep])
+			{
+				RTLIL::SigSpec lhs;
+
+				if (!parse_sigstr(lhs, module, s))
+					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.c_str());
+				show_signal_pool.add(sigmap(lhs));
+
+				log("Import unset-constraint for timestep: %s\n", log_signal(lhs));
+				big_lhs.remove2(lhs, &big_rhs);
+			}
+
+			log("Final constraint equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
+
+			std::vector<int> lhs_vec = satgen.importSigSpec(big_lhs, timestep);
+			std::vector<int> rhs_vec = satgen.importSigSpec(big_rhs, timestep);
 			ez.assume(ez.vec_eq(lhs_vec, rhs_vec));
+
+			int import_cell_counter = 0;
+			for (auto &c : module->cells)
+				if (design->selected(module, c.second) && ct.cell_known(c.second->type)) {
+					// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
+					if (satgen.importCell(c.second, timestep)) {
+						for (auto &p : c.second->connections)
+							if (ct.cell_output(c.second->type, p.first))
+								show_drivers.insert(sigmap(p.second), c.second);
+							else
+								show_driven[c.second].append(sigmap(p.second));
+						import_cell_counter++;
+					} else
+						log("Warning: failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+			}
+			log("Imported %d cells to SAT database.\n", import_cell_counter);
 		}
 
-		int import_cell_counter = 0;
-		for (auto &c : module->cells)
-			if (design->selected(module, c.second) && ct.cell_known(c.second->type)) {
-				// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
-				if (satgen.importCell(c.second)) {
-					for (auto &p : c.second->connections)
-						if (ct.cell_output(c.second->type, p.first))
-							show_drivers.insert(sigmap(p.second), c.second);
-						else
-							show_driven[c.second].append(sigmap(p.second));
-					import_cell_counter++;
-				} else
-					log("Warning: failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+		struct ModelBlockInfo {
+			int timestep, offset, width;
+			std::string description;
+			bool operator < (const ModelBlockInfo &other) const {
+				if (timestep != other.timestep)
+					return timestep < other.timestep;
+				if (description != other.description)
+					return description < other.description;
+				if (offset != other.offset)
+					return offset < other.offset;
+				if (width != other.width)
+					return width < other.width;
+				return false;
 			}
-		log("Imported %d cells to SAT database.\n", import_cell_counter);
+		};
 
-		RTLIL::SigSpec modelSig;
 		std::vector<int> modelExpressions;
 		std::vector<bool> modelValues;
+		std::set<ModelBlockInfo> modelInfo;
+
+		// Add "normal" show signals for every timestep
+
+		RTLIL::SigSpec modelSig;
 
 		if (shows.size() == 0) {
 			SigPool handled_signals, final_signals;
@@ -256,52 +358,100 @@ struct SatSolvePass : public Pass {
 			}
 		}
 
-		modelSig.expand();
+		modelSig.sort_and_unify();
+		// log("Model signals: %s\n", log_signal(modelSig));
+
 		for (auto &c : modelSig.chunks)
 			if (c.wire != NULL) {
+				ModelBlockInfo info;
 				RTLIL::SigSpec chunksig = c;
-				std::vector<int> vec = satgen.importSigSpec(chunksig);
-				log_assert(vec.size() == 1);
-				modelExpressions.push_back(vec[0]);
+				info.width = chunksig.width;
+				info.description = log_signal(chunksig);
+
+				for (int timestep = -1; timestep <= seq_len; timestep++) {
+					if ((timestep == -1 && seq_len > 0) || timestep == 0)
+						continue;
+					std::vector<int> vec = satgen.importSigSpec(chunksig, timestep);
+					info.timestep = timestep;
+					info.offset = modelExpressions.size();
+					modelExpressions.insert(modelExpressions.end(), vec.begin(), vec.end());
+					modelInfo.insert(info);
+				}
 			}
 
+		// Add zero step signals as collected by satgen
+
+		modelSig = satgen.initial_signals.export_all();
+		for (auto &c : modelSig.chunks)
+			if (c.wire != NULL) {
+				ModelBlockInfo info;
+				RTLIL::SigSpec chunksig = c;
+				info.timestep = 0;
+				info.offset = modelExpressions.size();
+				info.width = chunksig.width;
+				info.description = log_signal(chunksig);
+				std::vector<int> vec = satgen.importSigSpec(chunksig, 1);
+				modelExpressions.insert(modelExpressions.end(), vec.begin(), vec.end());
+				modelInfo.insert(info);
+			}
+
+#if 0
+		// print CNF for debugging
+		ez.printDIMACS(stdout, true);
+#endif
+
 rerun_solver:
-		log("Solving problem with %d variables and %d clauses..\n", ez.numCnfVariables(), ez.numCnfClauses());
+		log("\nSolving problem with %d variables and %d clauses..\n", ez.numCnfVariables(), ez.numCnfClauses());
 		if (ez.solve(modelExpressions, modelValues))
 		{
-			log("SAT solving finished - model found:\n\n");
+			log("SAT solving finished - model found:\n");
+			log("\n");
 
-			int modelIdx = 0;
 			int maxModelName = 10;
 			int maxModelWidth = 10;
 
-			modelSig.optimize();
-			for (auto &c : modelSig.chunks)
-				if (c.wire != NULL) {
-					maxModelName = std::max(maxModelName, int(c.wire->name.size()));
-					maxModelWidth = std::max(maxModelWidth, c.width);
-				}
-
-			const char *hline = "--------------------------------------------------------";
-			log("  %-*s %10s %10s %*s\n", maxModelName+10, "Signal Name", "Dec", "Hex", maxModelWidth+5, "Bin");
-			log("  %*.*s %10.10s %10.10s %*.*s\n", maxModelName+10, maxModelName+10,
-					hline, hline, hline, maxModelWidth+5, maxModelWidth+5, hline);
-
-			for (auto &c : modelSig.chunks) {
-				if (c.wire == NULL)
-					continue;
-				RTLIL::Const value;
-				for (int i = 0; i < c.width; i++)
-					value.bits.push_back(modelValues.at(modelIdx+i) ? RTLIL::State::S1 : RTLIL::State::S0);
-				if (c.width <= 32)
-					log("  %-*s %10d %10x %*s\n", maxModelName+10, log_signal(c), value.as_int(), value.as_int(), maxModelWidth+5, value.as_string().c_str());
-				else
-					log("  %-*s %10s %10s %*s\n", maxModelName+10, log_signal(c), "--", "--", maxModelWidth+5, value.as_string().c_str());
-				modelIdx += c.width;
+			for (auto &info : modelInfo) {
+				maxModelName = std::max(maxModelName, int(info.description.size()));
+				maxModelWidth = std::max(maxModelWidth, info.width);
 			}
 
+			int last_timestep = -2;
+			for (auto &info : modelInfo)
+			{
+				RTLIL::Const value;
+				for (int i = 0; i < info.width; i++)
+					value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+
+				if (info.timestep != last_timestep) {
+					const char *hline = "--------------------------------------------------------";
+					if (last_timestep == -2) {
+						log(seq_len > 0 ? "  Time " : "  ");
+						log("%-*s %10s %10s %*s\n", maxModelName+10, "Signal Name", "Dec", "Hex", maxModelWidth+5, "Bin");
+					}
+					log(seq_len > 0 ? "  ---- " : "  ");
+					log("%*.*s %10.10s %10.10s %*.*s\n", maxModelName+10, maxModelName+10,
+							hline, hline, hline, maxModelWidth+5, maxModelWidth+5, hline);
+					last_timestep = info.timestep;
+				}
+
+				if (seq_len > 0) {
+					if (info.timestep > 0)
+						log("  %4d ", info.timestep);
+					else
+						log("  init ");
+				} else
+					log("  ");
+
+				if (info.width <= 32)
+					log("%-*s %10d %10x %*s\n", maxModelName+10, info.description.c_str(), value.as_int(), value.as_int(), maxModelWidth+5, value.as_string().c_str());
+				else
+					log("%-*s %10s %10s %*s\n", maxModelName+10, info.description.c_str(), "--", "--", maxModelWidth+5, value.as_string().c_str());
+			}
+
+			if (last_timestep == -2)
+				log("  no model variables selected for display.\n");
+
 			if (loopcount != 0) {
-				log("\n");
 				std::vector<int> clause;
 				for (size_t i = 0; i < modelExpressions.size(); i++)
 					clause.push_back(modelValues.at(i) ? ez.NOT(modelExpressions.at(i)) : modelExpressions.at(i));
