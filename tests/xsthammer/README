@@ -1,0 +1,23 @@
+
+	================================
+	This is work under construction!
+	================================
+
+
+This is going to be a collection of auto-generated test cases. The goal is
+to synthesize them with Yosys and Xilinx XST and perform formal equivialence
+checks using the Yosys SAT-based equivialence checker. This will hopefully
+reveal some bugs in both applications.. ;-)
+
+
+Generating the Test Cases:
+	clang -Wall -o generate generate.cc -lstdc++
+	./generate
+
+Running XST Synthesis:
+	bash run-xst.sh
+	rm -rf xst_temp
+
+Running Yosys Synthesis and Check:
+	TBD
+
