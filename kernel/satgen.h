@@ -107,7 +107,7 @@ struct SatGen
 				ez->assume(ez->vec_eq(ez->vec_and(a, b), y));
 			if (cell->type == "$or" || cell->type == "$_OR_")
 				ez->assume(ez->vec_eq(ez->vec_or(a, b), y));
-			if (cell->type == "$xor" || cell->type == "$_XOR")
+			if (cell->type == "$xor" || cell->type == "$_XOR_")
 				ez->assume(ez->vec_eq(ez->vec_xor(a, b), y));
 			if (cell->type == "$xnor")
 				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(a, b)), y));

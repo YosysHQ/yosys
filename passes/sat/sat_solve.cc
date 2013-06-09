@@ -423,7 +423,9 @@ rerun_solver:
 					value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
 
 				if (info.timestep != last_timestep) {
-					const char *hline = "--------------------------------------------------------";
+					const char *hline = "---------------------------------------------------------------------------------------------------"
+							    "---------------------------------------------------------------------------------------------------"
+							    "---------------------------------------------------------------------------------------------------";
 					if (last_timestep == -2) {
 						log(seq_len > 0 ? "  Time " : "  ");
 						log("%-*s %10s %10s %*s\n", maxModelName+10, "Signal Name", "Dec", "Hex", maxModelWidth+5, "Bin");
