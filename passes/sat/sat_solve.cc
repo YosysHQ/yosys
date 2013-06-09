@@ -116,7 +116,7 @@ struct SatHelper
 	SatGen satgen;
 
 	// additional constraints
-	std::vector<std::pair<std::string, std::string>> sets;
+	std::vector<std::pair<std::string, std::string>> sets, prove;
 	std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 	std::map<int, std::vector<std::string>> unsets_at;
 
@@ -220,6 +220,41 @@ struct SatHelper
 					log("Warning: failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 		}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
+	}
+
+	void setup_proof(int timestep = -1)
+	{
+		if (prove.size() == 0)
+			return;
+
+		RTLIL::SigSpec big_lhs, big_rhs;
+
+		for (auto &s : prove)
+		{
+			RTLIL::SigSpec lhs, rhs;
+
+			if (!parse_sigstr(lhs, module, s.first))
+				log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
+			if (!parse_sigstr(rhs, module, s.second))
+				log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
+			show_signal_pool.add(sigmap(lhs));
+			show_signal_pool.add(sigmap(rhs));
+
+			if (lhs.width != rhs.width)
+				log_cmd_error("Proof expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
+					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+
+			log("Import proof-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
+			big_lhs.remove2(lhs, &big_rhs);
+			big_lhs.append(lhs);
+			big_rhs.append(rhs);
+		}
+
+		log("Final proof equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
+
+		std::vector<int> lhs_vec = satgen.importSigSpec(big_lhs, timestep);
+		std::vector<int> rhs_vec = satgen.importSigSpec(big_rhs, timestep);
+		ez.assume(ez.vec_ne(lhs_vec, rhs_vec));
 	}
 
 	bool solve()
@@ -418,14 +453,26 @@ struct SatSolvePass : public Pass {
 		log("        set or unset the specified signal to the specified value in the\n");
 		log("        given timestep. this has priority over a -set for the same signal.\n");
 		log("\n");
+		log("The following additional options can be used to set up a proof. If also -seq\n");
+		log("is passed, a temporal induction proof is performed.\n");
+		log("\n");
+		log("    -prove <signal> <value>\n");
+		log("        Attempt to proof that <signal> is always <value>. In a temporal\n");
+		log("        induction proof it is proven that the condition holds forever after\n");
+		log("        the number of time steps passed using -seq.\n");
+		log("\n");
+		log("    -verify\n");
+		log("        Return an error and stop the synthesis script if the proof fails.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::vector<std::pair<std::string, std::string>> sets;
+		std::vector<std::pair<std::string, std::string>> sets, prove;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at;
 		std::vector<std::string> shows;
 		int loopcount = 0, seq_len = 0;
+		bool verify = false;
 
 		log_header("Executing SAT_SOLVE pass (solving SAT problems in the circuit).\n");
 
@@ -433,6 +480,10 @@ struct SatSolvePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-all") {
 				loopcount = -1;
+				continue;
+			}
+			if (args[argidx] == "-verify") {
+				verify = true;
 				continue;
 			}
 			if (args[argidx] == "-max" && argidx+1 < args.size()) {
@@ -443,6 +494,12 @@ struct SatSolvePass : public Pass {
 				std::string lhs = args[++argidx].c_str();
 				std::string rhs = args[++argidx].c_str();
 				sets.push_back(std::pair<std::string, std::string>(lhs, rhs));
+				continue;
+			}
+			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
+				std::string lhs = args[++argidx].c_str();
+				std::string rhs = args[++argidx].c_str();
+				prove.push_back(std::pair<std::string, std::string>(lhs, rhs));
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
@@ -478,40 +535,80 @@ struct SatSolvePass : public Pass {
 							RTLIL::id2cstr(module->name), RTLIL::id2cstr(mod_it.first));
 				module = mod_it.second;
 			}
-		if (module == NULL)
+		if (module == NULL) 
 			log_cmd_error("Can't perform SAT_SOLVE on an empty selection!\n");
 
-		SatHelper sathelper(design, module);
-		sathelper.sets = sets;
-		sathelper.sets_at = sets_at;
-		sathelper.unsets_at = unsets_at;
-		sathelper.shows = shows;
+		if (prove.size() == 0 && verify)
+			log_cmd_error("Got -verify but nothing to prove!\n");
 
-		if (seq_len == 0)
-			sathelper.setup();
+		if (prove.size() > 0 && seq_len > 0)
+		{
+			log_cmd_error("Temporal induction proofs are not implemented yet!\n");
+		}
 		else
-			for (int timestep = 1; timestep <= seq_len; timestep++)
-				sathelper.setup(timestep);
-		sathelper.generate_model();
+		{
+			SatHelper sathelper(design, module);
+			sathelper.sets = sets;
+			sathelper.prove = prove;
+			sathelper.sets_at = sets_at;
+			sathelper.unsets_at = unsets_at;
+			sathelper.shows = shows;
+
+			if (seq_len == 0) {
+				sathelper.setup();
+				sathelper.setup_proof();
+			} else {
+				for (int timestep = 1; timestep <= seq_len; timestep++)
+					sathelper.setup(timestep);
+			}
+			sathelper.generate_model();
 
 #if 0
-		// print CNF for debugging
-		sathelper.ez.printDIMACS(stdout, true);
+			// print CNF for debugging
+			sathelper.ez.printDIMACS(stdout, true);
 #endif
 
 rerun_solver:
-		log("\nSolving problem with %d variables and %d clauses..\n",
-				sathelper.ez.numCnfVariables(), sathelper.ez.numCnfClauses());
-		if (sathelper.solve()) {
-			log("SAT solving finished - model found:\n");
-			sathelper.print_model();
-			if (loopcount != 0) {
-				loopcount--;
-				sathelper.invalidate_model();
-				goto rerun_solver;
+			log("\nSolving problem with %d variables and %d clauses..\n",
+					sathelper.ez.numCnfVariables(), sathelper.ez.numCnfClauses());
+
+			if (sathelper.solve())
+			{
+				if (prove.size() == 0) {
+					log("SAT solving finished - model found:\n");
+				} else {
+					log("SAT proof finished - model found: FAIL!\n");
+					log("\n");
+					log("   ______                   ___       ___       _ _            _ _ \n");
+					log("  (_____ \\                 / __)     / __)     (_) |          | | |\n");
+					log("   _____) )___ ___   ___ _| |__    _| |__ _____ _| | _____  __| | |\n");
+					log("  |  ____/ ___) _ \\ / _ (_   __)  (_   __|____ | | || ___ |/ _  |_|\n");
+					log("  | |   | |  | |_| | |_| || |       | |  / ___ | | || ____( (_| |_ \n");
+					log("  |_|   |_|   \\___/ \\___/ |_|       |_|  \\_____|_|\\_)_____)\\____|_|\n");
+					log("\n");
+				}
+
+				sathelper.print_model();
+
+				if (verify) {
+					log("\n");
+					log_error("Called with -verify and proof did fail!\n");
+				}
+
+				if (loopcount != 0) {
+					loopcount--;
+					sathelper.invalidate_model();
+					goto rerun_solver;
+				}
 			}
-		} else
-			log("SAT solving finished - no model found.\n");
+			else
+			{
+				if (prove.size() == 0)
+					log("SAT solving finished - no model found.\n");
+				else
+					log("SAT proof finished - no model found: SUCCESS!\n");
+			}
+		}
 	}
 } SatSolvePass;
  
