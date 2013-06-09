@@ -1,3 +1,3 @@
 
-OBJS += passes/sat/sat_solve.o
+OBJS += passes/sat/sat.o
 

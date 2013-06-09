@@ -469,13 +469,13 @@ static void print_qed()
 	log("\n");
 }
 
-struct SatSolvePass : public Pass {
-	SatSolvePass() : Pass("sat_solve", "solve a SAT problem in the circuit") { }
+struct SatPass : public Pass {
+	SatPass() : Pass("sat", "solve a SAT problem in the circuit") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    sat_solve [options] [selection]\n");
+		log("    sat [options] [selection]\n");
 		log("\n");
 		log("This command solves a SAT problem defined over the currently selected circuit\n");
 		log("and additional constraints passed as parameters.\n");
@@ -749,5 +749,5 @@ struct SatSolvePass : public Pass {
 			}
 		}
 	}
-} SatSolvePass;
+} SatPass;
  
