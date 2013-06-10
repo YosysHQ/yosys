@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 mkdir -p xst
 . /opt/Xilinx/14.2/ISE_DS/settings64.sh
 
