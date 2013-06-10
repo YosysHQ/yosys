@@ -429,6 +429,14 @@ int main(int argc, char **argv)
 	bool scriptfile_tcl = false;
 	bool got_output_filename = false;
 
+	int history_offset = 0;
+	std::string history_file;
+	if (getenv("HOME") != NULL) {
+		history_file = stringf("%s/.yosys_history", getenv("HOME"));
+		read_history(history_file.c_str());
+		history_offset = where_history();
+	}
+
 	int opt;
 	while ((opt = getopt(argc, argv, "Sm:f:b:o:p:l:qts:c:")) != -1)
 	{
@@ -600,6 +608,14 @@ int main(int argc, char **argv)
 
 	log("\nREADY.\n");
 	log_pop();
+
+	if (!history_file.empty()) {
+		if (history_offset > 0) {
+			history_truncate_file(history_file.c_str(), 100);
+			append_history(where_history() - history_offset, history_file.c_str());
+		} else
+			write_history(history_file.c_str());
+	}
 
 	for (auto f : log_files)
 		if (f != stderr)
