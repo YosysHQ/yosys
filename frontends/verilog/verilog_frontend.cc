@@ -92,6 +92,10 @@ struct VerilogFrontend : public Frontend {
 		log("    -lib\n");
 		log("        only create empty placeholder modules\n");
 		log("\n");
+		log("    -noopt\n");
+		log("        don't perform basic optimizations (such as const folding) in the\n");
+		log("        high-level front-end.\n");
+		log("\n");
 		log("    -Dname[=definition]\n");
 		log("        define the preprocessor symbol 'name' and set its optional value\n");
 		log("        'definition'\n");
@@ -108,6 +112,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_ppdump = false;
 		bool flag_nopp = false;
 		bool flag_lib = false;
+		bool flag_noopt = false;
 		std::map<std::string, std::string> defines_map;
 		frontend_verilog_yydebug = false;
 
@@ -157,6 +162,10 @@ struct VerilogFrontend : public Frontend {
 				flag_lib = true;
 				continue;
 			}
+			if (arg == "-noopt") {
+				flag_noopt = true;
+				continue;
+			}
 			if (arg.compare(0,2,"-D") == 0) {
 				size_t equal = arg.find('=',2);   // returns string::npos it not found
 				std::string name = arg.substr(2,equal-2);
@@ -196,7 +205,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
-		AST::process(design, current_ast, flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib);
+		AST::process(design, current_ast, flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt);
 
 		if (!flag_nopp)
 			fclose(fp);

@@ -46,7 +46,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib;
+	bool flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
@@ -674,7 +674,7 @@ static AstModule* process_module(AstNode *ast)
 	current_ast_mod = ast;
 	AstNode *ast_before_simplify = ast->clone();
 
-	while (ast->simplify(false, false, false, 0)) { }
+	while (ast->simplify(!flag_noopt, false, false, 0)) { }
 
 	if (flag_dump_ast) {
 		log("Dumping verilog AST (as requested by %s option):\n", flag_dump_ast_diff ? "dump_ast_diff" : "dump_ast");
@@ -740,11 +740,12 @@ static AstModule* process_module(AstNode *ast)
 	current_module->nomem2reg = flag_nomem2reg;
 	current_module->mem2reg = flag_mem2reg;
 	current_module->lib = flag_lib;
+	current_module->noopt = flag_noopt;
 	return current_module;
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_ast_diff, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_ast_diff, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt)
 {
 	current_ast = ast;
 	flag_dump_ast = dump_ast;
@@ -754,6 +755,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
+	flag_noopt = noopt;
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
@@ -784,6 +786,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
+	flag_noopt = noopt;
 	use_internal_line_num();
 
 	std::string para_info;
@@ -868,6 +871,7 @@ void AstModule::update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes)
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
+	flag_noopt = noopt;
 	use_internal_line_num();
 
 	for (auto it = auto_sizes.begin(); it != auto_sizes.end(); it++) {

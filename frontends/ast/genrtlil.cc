@@ -628,6 +628,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	// shifter cell is created and the output signal of this cell is returned
 	case AST_IDENTIFIER:
 		{
+			RTLIL::Wire *wire = NULL;
+			RTLIL::SigChunk chunk;
+
 			if (id2ast && id2ast->type == AST_AUTOWIRE && current_module->wires.count(str) == 0) {
 				RTLIL::Wire *wire = new RTLIL::Wire;
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -643,6 +646,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 				wire->auto_width = true;
 				current_module->wires[str] = wire;
 			}
+			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) {
+				chunk = RTLIL::Const(id2ast->bits);
+				goto use_const_chunk;
+			}
 			else if (!id2ast || (id2ast->type != AST_WIRE && id2ast->type != AST_AUTOWIRE &&
 					id2ast->type != AST_MEMORY) || current_module->wires.count(str) == 0)
 				log_error("Identifier `%s' doesn't map to any signal at %s:%d!\n",
@@ -652,13 +659,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 				log_error("Identifier `%s' does map to an unexpanded memory at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
 
-			RTLIL::Wire *wire = current_module->wires[str];
-
-			RTLIL::SigChunk chunk;
+			wire = current_module->wires[str];
 			chunk.wire = wire;
 			chunk.width = wire->width;
 			chunk.offset = 0;
 
+		use_const_chunk:
 			if (children.size() != 0) {
 				assert(children[0]->type == AST_RANGE);
 				if (!children[0]->range_valid) {

@@ -797,7 +797,7 @@ skip_dynamic_range_lvalue_expansion:;
 		if (0) { case AST_REDUCE_XOR:  const_func = RTLIL::const_reduce_xor;  }
 		if (0) { case AST_REDUCE_XNOR: const_func = RTLIL::const_reduce_xnor; }
 		if (0) { case AST_REDUCE_BOOL: const_func = RTLIL::const_reduce_bool; }
-			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
+			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), dummy_arg, children[0]->is_signed, false, -1);
 				newNode = mkconst_bits(y.bits, false);
 			}
