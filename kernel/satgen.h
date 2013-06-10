@@ -76,15 +76,13 @@ struct SatGen
 
 	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell, size_t y_width = 0)
 	{
-		bool is_signed_a = false, is_signed_b = false;
-		if (cell->parameters.count("\\A_SIGNED") > 0)
-			is_signed_a = cell->parameters["\\A_SIGNED"].as_bool();
-		if (cell->parameters.count("\\B_SIGNED") > 0)
-			is_signed_b = cell->parameters["\\B_SIGNED"].as_bool();
+		bool is_signed = false;
+		if (cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters.count("\\B_SIGNED") > 0)
+			is_signed = cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool();
 		while (vec_a.size() < vec_b.size() || vec_a.size() < y_width)
-			vec_a.push_back(is_signed_a && vec_a.size() > 0 ? vec_a.back() : ez->FALSE);
+			vec_a.push_back(is_signed && vec_a.size() > 0 ? vec_a.back() : ez->FALSE);
 		while (vec_b.size() < vec_a.size() || vec_b.size() < y_width)
-			vec_b.push_back(is_signed_b && vec_b.size() > 0 ? vec_b.back() : ez->FALSE);
+			vec_b.push_back(is_signed && vec_b.size() > 0 ? vec_b.back() : ez->FALSE);
 	}
 
 	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, std::vector<int> &vec_y, RTLIL::Cell *cell)
@@ -222,9 +220,11 @@ struct SatGen
 			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
 			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
 			char shift_left = cell->type == "$shl" || cell->type == "$sshl";
-			bool sign_extend = cell->type == "$sshr";
+			bool sign_extend = cell->type == "$sshr" && cell->parameters["\\A_SIGNED"].as_bool();
 			while (y.size() < a.size())
 				y.push_back(ez->literal());
+			while (y.size() > a.size())
+				a.push_back(cell->parameters["\\A_SIGNED"].as_bool() ? a.back() : ez->FALSE);
 			std::vector<int> tmp = a;
 			for (size_t i = 0; i < b.size(); i++)
 			{

@@ -768,6 +768,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 			int width = std::max(left.width, right.width);
 			if (width > width_hint && width_hint > 0)
 				width = width_hint;
+			if (width < width_hint)
+				width = width_hint;
 			return binop2rtlil(this, type_name, width, left, right);
 		}
 
