@@ -41,6 +41,11 @@ static void split(std::vector<std::string> &tokens, const std::string &text, cha
 	tokens.push_back(text.substr(start));
 }
 
+static int get_dummy_line_num()
+{
+	return 0;
+}
+
 static bool parse_sigstr(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
 {
 	std::vector<std::string> tokens;
@@ -56,6 +61,7 @@ static bool parse_sigstr(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string
 			continue;
 
 		if ('0' <= netname[0] && netname[0] <= '9') {
+			AST::get_line_num = get_dummy_line_num;
 			AST::AstNode *ast = VERILOG_FRONTEND::const2ast(netname);
 			if (ast == NULL)
 				return false;
@@ -320,7 +326,7 @@ struct SatHelper
 							continue;
 						if (d->type.substr(0, 6) == "$_DFF_" && p.first == "\\C")
 							continue;
-						queued_signals.add(handled_signals.remove(p.second));
+						queued_signals.add(handled_signals.remove(sigmap(p.second)));
 					}
 				}
 			}
@@ -712,6 +718,8 @@ struct SatPass : public Pass {
 			sathelper.ez.printDIMACS(stdout, true);
 #endif
 
+			bool did_rerun = false;
+
 		rerun_solver:
 			log("\nSolving problem with %d variables and %d clauses..\n",
 					sathelper.ez.numCnfVariables(), sathelper.ez.numCnfClauses());
@@ -733,16 +741,18 @@ struct SatPass : public Pass {
 				}
 
 				if (loopcount != 0) {
-					loopcount--;
+					loopcount--, did_rerun = true;
 					sathelper.invalidate_model();
 					goto rerun_solver;
 				}
 			}
 			else
 			{
-				if (prove.size() == 0) {
+				if (did_rerun)
+					log("SAT solving finished - no more models found.\n");
+				else if (prove.size() == 0)
 					log("SAT solving finished - no model found.\n");
-				} else {
+				else {
 					log("SAT proof finished - no model found: SUCCESS!\n");
 					print_qed();
 				}

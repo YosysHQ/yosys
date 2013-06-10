@@ -74,22 +74,22 @@ struct SatGen
 		return vec;
 	}
 
-	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell)
+	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell, size_t y_width = 0)
 	{
 		bool is_signed_a = false, is_signed_b = false;
 		if (cell->parameters.count("\\A_SIGNED") > 0)
 			is_signed_a = cell->parameters["\\A_SIGNED"].as_bool();
 		if (cell->parameters.count("\\B_SIGNED") > 0)
 			is_signed_b = cell->parameters["\\B_SIGNED"].as_bool();
-		while (vec_a.size() < vec_b.size())
+		while (vec_a.size() < vec_b.size() || vec_a.size() < y_width)
 			vec_a.push_back(is_signed_a && vec_a.size() > 0 ? vec_a.back() : ez->FALSE);
-		while (vec_b.size() < vec_a.size())
+		while (vec_b.size() < vec_a.size() || vec_b.size() < y_width)
 			vec_b.push_back(is_signed_b && vec_b.size() > 0 ? vec_b.back() : ez->FALSE);
 	}
 
 	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, std::vector<int> &vec_y, RTLIL::Cell *cell)
 	{
-		extendSignalWidth(vec_a, vec_b, cell);
+		extendSignalWidth(vec_a, vec_b, cell, vec_y.size());
 		while (vec_y.size() < vec_a.size())
 			vec_y.push_back(ez->literal());
 	}
@@ -239,6 +239,23 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$mul") {
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			extendSignalWidth(a, b, y, cell);
+			std::vector<int> tmp(a.size(), ez->FALSE);
+			for (int i = 0; i < int(a.size()); i++)
+			{
+				std::vector<int> shifted_a(a.size(), ez->FALSE);
+				for (int j = i; j < int(a.size()); j++)
+					shifted_a.at(j) = a.at(j-i);
+				tmp = ez->vec_ite(b.at(i), ez->vec_add(tmp, shifted_a), tmp);
+			}
+			ez->assume(ez->vec_eq(tmp, y));
+			return true;
+		}
+
 		if (timestep > 0 && (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")) {
 			if (timestep == 1) {
 				initial_state.add((*sigmap)(cell->connections.at("\\Q")));
@@ -250,7 +267,7 @@ struct SatGen
 			return true;
 		}
 
-		// Unsupported internal cell types: $mul $div $mod $pow
+		// Unsupported internal cell types: $div $mod $pow
 		// .. and all sequential cells except $dff and $_DFF_[NP]_
 		return false;
 	}
