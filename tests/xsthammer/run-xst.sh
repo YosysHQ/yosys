@@ -8,7 +8,11 @@ rm -rf xst_temp
 mkdir xst_temp
 cd xst_temp
 
-for job in $( ls ../rtl | sed 's,\.v$,,' )
+if [ $# -eq 0 ]; then
+	set -- $( ls ../rtl | sed 's,\.v$,,' )
+fi
+
+for job
 do
 	cat > $job.xst <<- EOT
 		run

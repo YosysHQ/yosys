@@ -5,27 +5,27 @@
 #include <string>
 
 const char *arg_types[][2] = {
-	{ "{dir} [3:0] {name}", "{name}" },
-	{ "{dir} [4:0] {name}", "{name}" },
-	{ "{dir} [5:0] {name}", "{name}" },
-	{ "{dir} signed [3:0] {name}", "{name}" },
-	{ "{dir} signed [4:0] {name}", "{name}" },
-	{ "{dir} signed [5:0] {name}", "{name}" }
+	{ "{dir} [3:0] {name}", "{name}" },		// 00
+	{ "{dir} [4:0] {name}", "{name}" },		// 01
+	{ "{dir} [5:0] {name}", "{name}" },		// 02
+	{ "{dir} signed [3:0] {name}", "{name}" },	// 03
+	{ "{dir} signed [4:0] {name}", "{name}" },	// 04
+	{ "{dir} signed [5:0] {name}", "{name}" }	// 05
 };
 
 const char *ops[] = {
-	"+",
-	"-",
-	"*",
-	"&&",
-	"||",
-	"&",
-	"|",
-	"^",
-	"<<",
-	">>",
-	"<<<",
-	">>>",
+	"+",	// 00
+	"-",	// 01
+	"*",	// 02
+	"&&",	// 03
+	"||",	// 04
+	"&",	// 05
+	"|",	// 06
+	"^",	// 07
+	"<<",	// 08
+	">>",	// 09
+	"<<<",	// 10
+	">>>",	// 11
 };
 
 void strsubst(std::string &str, const std::string &match, const std::string &replace)
