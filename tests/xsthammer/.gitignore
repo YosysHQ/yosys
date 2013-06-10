@@ -2,3 +2,5 @@ generate
 rtl
 xst
 xst_temp
+check
+check_temp
