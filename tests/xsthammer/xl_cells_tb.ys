@@ -18,11 +18,11 @@ rename XORCY MY_XORCY
 
 read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/GND.v
 read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/INV.v
-# read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT2.v
-# read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT3.v
-# read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT4.v
-# read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT5.v
-# read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT6.v
+read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT2.v
+read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT3.v
+read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT4.v
+read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT5.v
+read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT6.v
 read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/MUXCY.v
 read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/MUXF7.v
 read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/VCC.v
@@ -30,27 +30,28 @@ read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/XORCY.v
 
 rename GND   XL_GND
 rename INV   XL_INV
-# rename LUT2  XL_LUT2
-# rename LUT3  XL_LUT3
-# rename LUT4  XL_LUT4
-# rename LUT5  XL_LUT5
-# rename LUT6  XL_LUT6
+rename LUT2  XL_LUT2
+rename LUT3  XL_LUT3
+rename LUT4  XL_LUT4
+rename LUT5  XL_LUT5
+rename LUT6  XL_LUT6
 rename MUXCY XL_MUXCY
 rename MUXF7 XL_MUXF7
 rename VCC   XL_VCC
 rename XORCY XL_XORCY
 
+hierarchy
 proc
-flatten
+flatten TB_*
 opt_clean
 
 sat -verify -prove ok 1'b1 TB_GND
 sat -verify -prove ok 1'b1 TB_INV
-# sat -verify -prove ok 1'b1 TB_LUT2
-# sat -verify -prove ok 1'b1 TB_LUT3
-# sat -verify -prove ok 1'b1 TB_LUT4
-# sat -verify -prove ok 1'b1 TB_LUT5
-# sat -verify -prove ok 1'b1 TB_LUT6
+sat -verify -prove ok 1'b1 TB_LUT2
+sat -verify -prove ok 1'b1 TB_LUT3
+sat -verify -prove ok 1'b1 TB_LUT4
+sat -verify -prove ok 1'b1 TB_LUT5
+sat -verify -prove ok 1'b1 TB_LUT6
 sat -verify -prove ok 1'b1 TB_MUXCY
 sat -verify -prove ok 1'b1 TB_MUXF7
 sat -verify -prove ok 1'b1 TB_VCC

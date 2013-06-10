@@ -16,41 +16,56 @@ endmodule
 
 module TB_LUT2(ok, I0, I1);
 input I0, I1;
-wire MY_O, XL_O;
-MY_LUT2 #(.INIT(1234567)) MY(.O(MY_O), .I0(I0), .I1(I1));
-XL_LUT2 #(.INIT(1234567)) XL(.O(XL_O), .I0(I0), .I1(I1));
+wire [3:0] MY_O, XL_O;
+genvar i;
+generate for (i=0; i<4; i=i+1) begin:V
+	MY_LUT2 #(.INIT(i)) MY(.O(MY_O[i]), .I0(I0), .I1(I1));
+	XL_LUT2 #(.INIT(i)) XL(.O(XL_O[i]), .I0(I0), .I1(I1));
+end endgenerate
 output ok = MY_O == XL_O;
 endmodule
 
 module TB_LUT3(ok, I0, I1, I2);
 input I0, I1, I2;
-wire MY_O, XL_O;
-MY_LUT3 #(.INIT(1234567)) MY(.O(MY_O), .I0(I0), .I1(I1), .I2(I2));
-XL_LUT3 #(.INIT(1234567)) XL(.O(XL_O), .I0(I0), .I1(I1), .I2(I2));
+wire [7:0] MY_O, XL_O;
+genvar i;
+generate for (i=0; i<8; i=i+1) begin:V
+	MY_LUT3 #(.INIT(i)) MY(.O(MY_O[i]), .I0(I0), .I1(I1), .I2(I2));
+	XL_LUT3 #(.INIT(i)) XL(.O(XL_O[i]), .I0(I0), .I1(I1), .I2(I2));
+end endgenerate
 output ok = MY_O == XL_O;
 endmodule
 
 module TB_LUT4(ok, I0, I1, I2, I3);
 input I0, I1, I2, I3;
-wire MY_O, XL_O;
-MY_LUT4 #(.INIT(1234567)) MY(.O(MY_O), .I0(I0), .I1(I1), .I2(I2), .I3(I3));
-XL_LUT4 #(.INIT(1234567)) XL(.O(XL_O), .I0(I0), .I1(I1), .I2(I2), .I3(I3));
+wire [15:0] MY_O, XL_O;
+genvar i;
+generate for (i=0; i<16; i=i+1) begin:V
+	MY_LUT4 #(.INIT(i)) MY(.O(MY_O[i]), .I0(I0), .I1(I1), .I2(I2), .I3(I3));
+	XL_LUT4 #(.INIT(i)) XL(.O(XL_O[i]), .I0(I0), .I1(I1), .I2(I2), .I3(I3));
+end endgenerate
 output ok = MY_O == XL_O;
 endmodule
 
 module TB_LUT5(ok, I0, I1, I2, I3, I4);
 input I0, I1, I2, I3, I4;
-wire MY_O, XL_O;
-MY_LUT5 #(.INIT(1234567)) MY(.O(MY_O), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4));
-XL_LUT5 #(.INIT(1234567)) XL(.O(XL_O), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4));
+wire [31:0] MY_O, XL_O;
+genvar i;
+generate for (i=0; i<32; i=i+1) begin:V
+	MY_LUT5 #(.INIT(i)) MY(.O(MY_O[i]), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4));
+	XL_LUT5 #(.INIT(i)) XL(.O(XL_O[i]), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4));
+end endgenerate
 output ok = MY_O == XL_O;
 endmodule
 
 module TB_LUT6(ok, I0, I1, I2, I3, I4, I5);
 input I0, I1, I2, I3, I4, I5;
-wire MY_O, XL_O;
-MY_LUT6 #(.INIT(1234567)) MY(.O(MY_O), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4), .I5(I5));
-XL_LUT6 #(.INIT(1234567)) XL(.O(XL_O), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4), .I5(I5));
+wire [63:0] MY_O, XL_O;
+genvar i;
+generate for (i=0; i<64; i=i+1) begin:V
+	MY_LUT6 #(.INIT(i)) MY(.O(MY_O[i]), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4), .I5(I5));
+	XL_LUT6 #(.INIT(i)) XL(.O(XL_O[i]), .I0(I0), .I1(I1), .I2(I2), .I3(I3), .I4(I4), .I5(I5));
+end endgenerate
 output ok = MY_O == XL_O;
 endmodule
 

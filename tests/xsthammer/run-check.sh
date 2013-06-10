@@ -13,7 +13,7 @@ do
 		echo "module top(a, b, y1, y2);"
 		sed -r '/^(input|output) / !d; /output/ { s/ y;/ y1;/; p; }; s/ y1;/ y2;/;' ../rtl/$job.v
 		echo "${job}_rtl rtl_variant (.a(a), .b(b), .y(y1));"
-		echo "${job}_xst xst_variant (.a(a), .b(b), .y(y1));"
+		echo "${job}_xst xst_variant (.a(a), .b(b), .y(y2));"
 		echo "endmodule"
 	} > ${job}_top.v
 
@@ -41,12 +41,13 @@ do
 	} > ${job}_cmp.ys
 
 	yosys ${job}_top.ys
+
 	if yosys -l ${job}.log ${job}_cmp.ys; then
 		mv ${job}.log ../check/${job}.log
+		rm -f ../check/${job}.err
 	else
 		mv ${job}.log ../check/${job}.err
+		rm -f ../check/${job}.log
 	fi
-
-	break;
 done
 
