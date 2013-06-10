@@ -647,7 +647,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 				current_module->wires[str] = wire;
 			}
 			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) {
-				chunk = RTLIL::Const(id2ast->bits);
+				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
 			else if (!id2ast || (id2ast->type != AST_WIRE && id2ast->type != AST_AUTOWIRE &&

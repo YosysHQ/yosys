@@ -749,6 +749,7 @@ skip_dynamic_range_lvalue_expansion:;
 	// perform const folding when activated
 	if (const_fold && newNode == NULL)
 	{
+		std::vector<RTLIL::State> tmp_bits;
 		RTLIL::Const (*const_func)(const RTLIL::Const&, const RTLIL::Const&, bool, bool, int);
 		RTLIL::Const dummy_arg;
 
@@ -864,7 +865,16 @@ skip_dynamic_range_lvalue_expansion:;
 					newNode = children[2]->clone();
 			}
 			break;
+		case AST_CONCAT:
+			for (auto it = children.begin(); it != children.end(); it++) {
+				if ((*it)->type != AST_CONSTANT)
+					goto not_const;
+				tmp_bits.insert(tmp_bits.end(), (*it)->bits.begin(), (*it)->bits.end());
+			}
+			newNode = mkconst_bits(tmp_bits, is_signed);
+			break;
 		default:
+		not_const:
 			break;
 		}
 	}
