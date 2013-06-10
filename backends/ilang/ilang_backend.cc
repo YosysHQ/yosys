@@ -323,10 +323,11 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_selected)
 {
 	for (auto it = design->modules.begin(); it != design->modules.end(); it++) {
-		if (it != design->modules.begin() || only_selected)
-			fprintf(f, "\n");
-		if (!only_selected || design->selected(it->second))
+		if (!only_selected || design->selected(it->second)) {
+			if (only_selected)
+				fprintf(f, "\n");
 			dump_module(f, "", it->second, design, only_selected);
+		}
 	}
 }
 
