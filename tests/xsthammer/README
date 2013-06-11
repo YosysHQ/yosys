@@ -9,15 +9,6 @@ to synthesize them with Yosys and Xilinx XST and perform formal equivialence
 checks using the Yosys SAT-based equivialence checker. This will hopefully
 reveal some bugs in both applications.. ;-)
 
-
-Generating the Test Cases:
-	clang -Wall -o generate generate.cc -lstdc++
-	./generate
-
-Running XST Synthesis:
-	bash run-xst.sh
-	rm -rf xst_temp
-
-Running Yosys Synthesis and Check:
-	TBD
+Simply run 'make' to generate all test cases and run all the tests.
+(Use 'make -j N' to use N parallel cores.)
 

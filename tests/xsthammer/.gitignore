@@ -1,4 +1,5 @@
 generate
+generate.lst
 rtl
 xst
 xst_temp
