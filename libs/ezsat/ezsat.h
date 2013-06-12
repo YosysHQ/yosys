@@ -44,8 +44,8 @@ public:
 		OpNot, OpAnd, OpOr, OpXor, OpIFF, OpITE
 	};
 
-	const int TRUE = 1;
-	const int FALSE = 2;
+	static const int TRUE;
+	static const int FALSE;
 
 private:
 	std::map<std::string, int> literalsCache;
