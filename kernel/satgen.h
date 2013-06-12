@@ -92,6 +92,15 @@ struct SatGen
 			vec_y.push_back(ez->literal());
 	}
 
+	void extendSignalWidthUnary(std::vector<int> &vec_a, std::vector<int> &vec_y, RTLIL::Cell *cell)
+	{
+		bool is_signed = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();
+		while (vec_a.size() < vec_y.size())
+			vec_a.push_back(is_signed && vec_a.size() > 0 ? vec_a.back() : ez->FALSE);
+		while (vec_y.size() < vec_a.size())
+			vec_y.push_back(ez->literal());
+	}
+
 	bool importCell(RTLIL::Cell *cell, int timestep = -1)
 	{
 		if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_" ||
@@ -151,6 +160,7 @@ struct SatGen
 		if (cell->type == "$pos" || cell->type == "$neg") {
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
 			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			extendSignalWidthUnary(a, y, cell);
 			if (cell->type == "$pos") {
 				ez->assume(ez->vec_eq(a, y));
 			} else {

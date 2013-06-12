@@ -1,4 +1,7 @@
 
+#define GENERATE_BINARY_OPS
+#define GENERATE_UNARY_OPS
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <stdio.h>
@@ -67,8 +70,7 @@ int main()
 {
 	mkdir("rtl", 0777);
 
-	// generate test cases for binary operators
-
+#ifdef GENERATE_BINARY_OPS
 	for (int ai = 0; ai < sizeof(arg_types)/sizeof(arg_types[0]); ai++)
 	for (int bi = 0; bi < sizeof(arg_types)/sizeof(arg_types[0]); bi++)
 	for (int yi = 0; yi < sizeof(arg_types)/sizeof(arg_types[0]); yi++)
@@ -111,9 +113,9 @@ int main()
 		fprintf(f, "endmodule\n");
 		fclose(f);
 	}
+#endif
 
-	// generate test cases for unary operators
-
+#ifdef GENERATE_UNARY_OPS
 	for (int ai = 0; ai < sizeof(arg_types)/sizeof(arg_types[0]); ai++)
 	for (int yi = 0; yi < sizeof(arg_types)/sizeof(arg_types[0]); yi++)
 	for (int oi = 0; oi < sizeof(unary_ops)/sizeof(unary_ops[0]); oi++)
@@ -140,12 +142,14 @@ int main()
 		FILE *f = fopen(buffer, "w");
 		fprintf(f, "module unary_ops_%02d%02d%02d(a, b, y);\n", ai, yi, oi);
 		fprintf(f, "%s;\n", a_decl.c_str());
+		fprintf(f, "input b;\n");
 		fprintf(f, "%s;\n", y_decl.c_str());
 		fprintf(f, "assign %s = %s %s;\n", y_ref.c_str(),
 				unary_ops[oi], a_ref.c_str());
 		fprintf(f, "endmodule\n");
 		fclose(f);
 	}
+#endif
 
 	return 0;
 }
