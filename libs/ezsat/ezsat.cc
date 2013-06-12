@@ -24,6 +24,9 @@
 #include <stdlib.h>
 #include <assert.h>
 
+const int ezSAT::TRUE = 1;
+const int ezSAT::FALSE = 2;
+
 ezSAT::ezSAT()
 {
 	literal("TRUE");
