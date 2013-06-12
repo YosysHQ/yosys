@@ -517,7 +517,7 @@ struct ShowPass : public Pass {
 		log("        more than one library.\n");
 		log("\n");
 		log("    -prefix <prefix>\n");
-		log("        generate <prefix>.dot and <prefix>.ps instead of yosys-show.{dot,ps}\n");
+		log("        generate <prefix>.dot and <prefix>.ps instead of ~/.yosys_show.{dot,ps}\n");
 		log("\n");
 		log("    -color <color> <wire>\n");
 		log("        assign the specified color to the specified wire. The object can be\n");
@@ -539,7 +539,7 @@ struct ShowPass : public Pass {
 		log("When no <format> is specified, SVG is used. When no <format> and <viewer> is\n");
 		log("specified, 'yosys-svgviewer' is used to display the schematic.\n");
 		log("\n");
-		log("The generated output files are 'yosys-show.dot' and 'yosys-show.<format>',\n");
+		log("The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',\n");
 		log("unless another prefix is specified using -prefix <prefix>.\n");
 		log("\n");
 	}
@@ -553,7 +553,7 @@ struct ShowPass : public Pass {
 
 		std::string format;
 		std::string viewer_exe;
-		std::string prefix = "yosys-show";
+		std::string prefix = stringf("%s/.yosys_show", getenv("HOME") ? getenv("HOME") : ".");
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
