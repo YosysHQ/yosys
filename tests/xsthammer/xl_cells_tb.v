@@ -14,6 +14,17 @@ XL_INV XL(.O(XL_O), .I(I));
 output ok = MY_O == XL_O;
 endmodule
 
+module TB_LUT1(ok, I0);
+input I0;
+wire [1:0] MY_O, XL_O;
+genvar i;
+generate for (i=0; i<2; i=i+1) begin:V
+	MY_LUT1 #(.INIT(i)) MY(.O(MY_O[i]), .I0(I0));
+	XL_LUT1 #(.INIT(i)) XL(.O(XL_O[i]), .I0(I0));
+end endgenerate
+output ok = MY_O == XL_O;
+endmodule
+
 module TB_LUT2(ok, I0, I1);
 input I0, I1;
 wire [3:0] MY_O, XL_O;

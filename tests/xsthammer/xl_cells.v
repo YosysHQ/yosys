@@ -8,6 +8,14 @@ input I;
 output O = !I;
 endmodule
 
+module LUT1(O, I0);
+parameter INIT = 0;
+input I0;
+wire [1:0] lutdata = INIT;
+wire [0:0] idx = { I0 };
+output O = lutdata[idx];
+endmodule
+
 module LUT2(O, I0, I1);
 parameter INIT = 0;
 input I0, I1;

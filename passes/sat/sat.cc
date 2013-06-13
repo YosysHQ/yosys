@@ -216,7 +216,7 @@ struct SatHelper
 
 		int import_cell_counter = 0;
 		for (auto &c : module->cells)
-			if (design->selected(module, c.second) && ct.cell_known(c.second->type)) {
+			if (design->selected(module, c.second)) {
 				// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
 				if (satgen.importCell(c.second, timestep)) {
 					for (auto &p : c.second->connections)

@@ -6,6 +6,7 @@ read_verilog xl_cells_tb.v
 
 rename GND   MY_GND
 rename INV   MY_INV
+rename LUT1  MY_LUT1
 rename LUT2  MY_LUT2
 rename LUT3  MY_LUT3
 rename LUT4  MY_LUT4
@@ -16,20 +17,22 @@ rename MUXF7 MY_MUXF7
 rename VCC   MY_VCC
 rename XORCY MY_XORCY
 
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/GND.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/INV.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT2.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT3.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT4.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT5.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/LUT6.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/MUXCY.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/MUXF7.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/VCC.v
-read_verilog /opt/Xilinx/14.2/ISE_DS/ISE/verilog/src/unisims/XORCY.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/GND.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/INV.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/LUT1.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/LUT2.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/LUT3.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/LUT4.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/LUT5.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/LUT6.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/MUXCY.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/MUXF7.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/VCC.v
+read_verilog /opt/Xilinx/14.5/ISE_DS/ISE/verilog/src/unisims/XORCY.v
 
 rename GND   XL_GND
 rename INV   XL_INV
+rename LUT1  XL_LUT1
 rename LUT2  XL_LUT2
 rename LUT3  XL_LUT3
 rename LUT4  XL_LUT4
@@ -47,6 +50,7 @@ opt_clean
 
 sat -verify -prove ok 1'b1 TB_GND
 sat -verify -prove ok 1'b1 TB_INV
+sat -verify -prove ok 1'b1 TB_LUT1
 sat -verify -prove ok 1'b1 TB_LUT2
 sat -verify -prove ok 1'b1 TB_LUT3
 sat -verify -prove ok 1'b1 TB_LUT4
