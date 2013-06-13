@@ -185,6 +185,14 @@ struct CellTypes
 
 	static RTLIL::Const eval(std::string type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 	{
+		if (type == "$sshr" && !signed1)
+			type = "$shr";
+		if (type == "$sshl" && !signed1)
+			type = "$shl";
+
+		if (!signed1 || !signed2)
+			signed1 = false, signed2 = false;
+
 #define HANDLE_CELL_TYPE(_t) if (type == "$" #_t) return const_ ## _t(arg1, arg2, signed1, signed2, result_len);
 		HANDLE_CELL_TYPE(not)
 		HANDLE_CELL_TYPE(and)

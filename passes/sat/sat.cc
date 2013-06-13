@@ -23,6 +23,7 @@
 
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
+#include "kernel/consteval.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/satgen.h"
@@ -114,6 +115,8 @@ static bool parse_sigstr(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string
 
 	return true;
 }
+
+namespace {
 
 struct SatHelper
 {
@@ -448,6 +451,85 @@ struct SatHelper
 	}
 };
 
+/* this should only be used for regression testing of ConstEval -- see tests/xsthammer */
+struct BruteForceEquivChecker
+{
+	RTLIL::Module *mod1, *mod2;
+	RTLIL::SigSpec mod1_inputs, mod1_outputs;
+	RTLIL::SigSpec mod2_inputs, mod2_outputs;
+	int counter, errors;
+
+	void run_checker(RTLIL::SigSpec &inputs)
+	{
+		if (inputs.width < mod1_inputs.width) {
+			RTLIL::SigSpec inputs0 = inputs, inputs1 = inputs;
+			inputs0.append(RTLIL::Const(0, 1));
+			inputs1.append(RTLIL::Const(1, 1));
+			run_checker(inputs0);
+			run_checker(inputs1);
+			return;
+		}
+
+		inputs.optimize();
+
+		ConstEval ce1(mod1), ce2(mod2);
+		ce1.set(mod1_inputs, inputs.as_const());
+		ce2.set(mod2_inputs, inputs.as_const());
+
+		RTLIL::SigSpec sig1 = mod1_outputs, undef1;
+		RTLIL::SigSpec sig2 = mod2_outputs, undef2;
+
+		if (!ce1.eval(sig1, undef1))
+			log("Failed ConstEval of module 1 outputs at signal %s (input: %s = %s).\n",
+					log_signal(undef1), log_signal(mod1_inputs), log_signal(inputs));
+		if (!ce2.eval(sig2, undef2))
+			log("Failed ConstEval of module 2 outputs at signal %s (input: %s = %s).\n",
+					log_signal(undef2), log_signal(mod1_inputs), log_signal(inputs));
+
+		if (sig1 != sig2) {
+			log("Found counter-example:\n");
+			log("  Module 1:  %s = %s  =>  %s = %s\n", log_signal(mod1_inputs), log_signal(inputs), log_signal(mod1_outputs), log_signal(sig1));
+			log("  Module 2:  %s = %s  =>  %s = %s\n", log_signal(mod2_inputs), log_signal(inputs), log_signal(mod2_outputs), log_signal(sig2));
+			errors++;
+		}
+
+		counter++;
+	}
+
+	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2) :
+			mod1(mod1), mod2(mod2), counter(0), errors(0)
+	{
+		log("Checking for equivialence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
+		for (auto &w : mod1->wires)
+		{
+			RTLIL::Wire *wire1 = w.second;
+			if (wire1->port_id == 0)
+				continue;
+
+			if (mod2->wires.count(wire1->name) == 0)
+				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", wire1->name.c_str());
+
+			RTLIL::Wire *wire2 = mod2->wires.at(wire1->name);
+			if (wire1->width != wire2->width || wire1->port_id != wire2->port_id ||
+					wire1->port_input != wire2->port_input || wire1->port_output != wire2->port_output)
+				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", wire1->name.c_str());
+
+			if (wire1->port_input) {
+				mod1_inputs.append(wire1);
+				mod2_inputs.append(wire2);
+			} else {
+				mod1_outputs.append(wire1);
+				mod2_outputs.append(wire2);
+			}
+		}
+
+		RTLIL::SigSpec inputs;
+		run_checker(inputs);
+	}
+};
+
+} /* namespace */
+
 static void print_proof_failed()
 {
 	log("\n");
@@ -587,6 +669,21 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-show" && argidx+1 < args.size()) {
 				shows.push_back(args[++argidx]);
 				continue;
+			}
+			if (args[argidx] == "-brute_force_equiv_checker" && argidx+2 < args.size()) {
+				/* this should only be used for regression testing of ConstEval -- see tests/xsthammer */
+				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
+				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
+				if (design->modules.count(mod1_name) == 0)
+					log_error("Can't find module `%s'!\n", mod1_name.c_str());
+				if (design->modules.count(mod2_name) == 0)
+					log_error("Can't find module `%s'!\n", mod2_name.c_str());
+				BruteForceEquivChecker checker(design->modules.at(mod1_name), design->modules.at(mod2_name));
+				if (checker.errors > 0)
+					log_cmd_error("Modules are not equivialent!\n");
+				log("Verified %s = %s (using brute-force check on %d cases).\n",
+						mod1_name.c_str(), mod2_name.c_str(), checker.counter);
+				return;
 			}
 			break;
 		}

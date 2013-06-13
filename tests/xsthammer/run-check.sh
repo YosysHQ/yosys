@@ -35,12 +35,15 @@ for mode in nomap techmap; do
 		echo "read_verilog ../../xl_cells.v"
 
 		echo "hierarchy -top ${job}_top"
+		echo "flatten ${job}_xst"
+		echo "flatten ${job}_rtl"
 		echo "flatten ${job}_top"
-		echo "hierarchy -top ${job}_top"
 		echo "opt_clean"
 
+		echo "rename ${job}_xst ${job}_xst_${mode}"
+		echo "rename ${job}_rtl ${job}_rtl_${mode}"
 		echo "rename ${job}_top ${job}_top_${mode}"
-		echo "write_ilang ${job}_top_${mode}.il"
+		echo "dump -outfile ${job}_top_${mode}.il ${job}_xst_${mode} ${job}_rtl_${mode} ${job}_top_${mode}"
 	} > ${job}_top_${mode}.ys
 	../../../../yosys -q ${job}_top_${mode}.ys
 done
@@ -50,6 +53,8 @@ done
 	echo "read_ilang ${job}_top_techmap.il"
 	echo "sat -verify -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_nomap"
 	echo "sat -verify -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_techmap"
+	echo "sat -brute_force_equiv_checker ${job}_rtl_nomap   ${job}_xst_nomap"
+	echo "sat -brute_force_equiv_checker ${job}_rtl_techmap ${job}_xst_techmap"
 } > ${job}_cmp.ys
 
 if ../../../../yosys -l ${job}.log ${job}_cmp.ys; then
