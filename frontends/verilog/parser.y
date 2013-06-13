@@ -113,9 +113,9 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 // operator precedence from low to high
 %left OP_LOR
 %left OP_LAND
-%left '|'
+%left '|' OP_NOR
 %left '^' OP_XNOR
-%left '&'
+%left '&' OP_NAND
 %left OP_EQ OP_NE
 %left '<' OP_LE OP_GE '>'
 %left OP_SHL OP_SHR OP_SSHL OP_SSHR
@@ -982,9 +982,19 @@ basic_expr:
 		$$ = new AstNode(AST_REDUCE_AND, $3);
 		append_attr($$, $2);
 	} |
+	OP_NAND attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_REDUCE_AND, $3);
+		append_attr($$, $2);
+		$$ = new AstNode(AST_LOGIC_NOT, $$);
+	} |
 	'|' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_OR, $3);
 		append_attr($$, $2);
+	} |
+	OP_NOR attr basic_expr %prec UNARY_OPS {
+		$$ = new AstNode(AST_REDUCE_OR, $3);
+		append_attr($$, $2);
+		$$ = new AstNode(AST_LOGIC_NOT, $$);
 	} |
 	'^' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_XOR, $3);

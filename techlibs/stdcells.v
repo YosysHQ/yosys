@@ -41,17 +41,16 @@ parameter Y_WIDTH = 1;
 input [A_WIDTH-1:0] A;
 output [Y_WIDTH-1:0] Y;
 
+wire [Y_WIDTH-1:0] A_buf;
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
+
 genvar i;
 generate
 	for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-		if (i < A_WIDTH) begin
-			 \$_INV_ gate (
-				.A(A[i]),
-				.Y(Y[i])
-			);
-		end else begin
-			assign Y[i] = 0;
-		end
+		 \$_INV_ gate (
+			.A(A_buf[i]),
+			.Y(Y[i])
+		);
 	end
 endgenerate
 

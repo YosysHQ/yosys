@@ -128,6 +128,7 @@ struct SatGen
 		if (cell->type == "$_INV_" || cell->type == "$not") {
 			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
 			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			extendSignalWidthUnary(a, y, cell);
 			ez->assume(ez->vec_eq(ez->vec_not(a), y));
 			return true;
 		}

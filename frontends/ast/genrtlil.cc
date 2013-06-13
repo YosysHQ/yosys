@@ -752,7 +752,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 			RTLIL::SigSpec arg = children[0]->genRTLIL(width_hint);
 			is_signed = type == AST_NEG || (type == AST_POS && children[0]->is_signed);
 			int width = type == AST_NEG && arg.width < width_hint ? arg.width+1 : arg.width;
-			if (width > width_hint && width_hint > 0)
+			if (width_hint > 0)
 				width = width_hint;
 			return uniop2rtlil(this, type_name, width, arg);
 		}
@@ -766,9 +766,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint);
 			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint);
 			int width = std::max(left.width, right.width);
-			if (width > width_hint && width_hint > 0)
-				width = width_hint;
-			if (width < width_hint)
+			if (width_hint > 0)
 				width = width_hint;
 			return binop2rtlil(this, type_name, width, left, right);
 		}

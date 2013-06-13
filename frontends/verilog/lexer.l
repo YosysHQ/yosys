@@ -236,8 +236,8 @@ supply1 { return TOK_SUPPLY1; }
 "===" { return OP_EQ; }
 "!==" { return OP_NE; }
 
- /* "~&" { return OP_NAND; } */
- /* "~|" { return OP_NOR;  } */
+"~&" { return OP_NAND; }
+"~|" { return OP_NOR;  }
 "~^" { return OP_XNOR; }
 "^~" { return OP_XNOR; }
 
