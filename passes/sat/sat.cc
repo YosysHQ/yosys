@@ -510,8 +510,7 @@ struct BruteForceEquivChecker
 				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", wire1->name.c_str());
 
 			RTLIL::Wire *wire2 = mod2->wires.at(wire1->name);
-			if (wire1->width != wire2->width || wire1->port_id != wire2->port_id ||
-					wire1->port_input != wire2->port_input || wire1->port_output != wire2->port_output)
+			if (wire1->width != wire2->width || wire1->port_input != wire2->port_input || wire1->port_output != wire2->port_output)
 				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", wire1->name.c_str());
 
 			if (wire1->port_input) {

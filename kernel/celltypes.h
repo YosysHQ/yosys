@@ -190,8 +190,11 @@ struct CellTypes
 		if (type == "$sshl" && !signed1)
 			type = "$shl";
 
-		if (!signed1 || !signed2)
-			signed1 = false, signed2 = false;
+		if (type != "$sshr" && type != "$sshl" && type != "$shr" && type != "$shl" &&
+				type != "$pos" && type != "$neg" && type != "$not") {
+			if (!signed1 || !signed2)
+				signed1 = false, signed2 = false;
+		}
 
 #define HANDLE_CELL_TYPE(_t) if (type == "$" #_t) return const_ ## _t(arg1, arg2, signed1, signed2, result_len);
 		HANDLE_CELL_TYPE(not)
