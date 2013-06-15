@@ -572,6 +572,14 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			}
 		}
 
+		for (auto conn : mapped_mod->connections) {
+			if (!conn.first.is_fully_const())
+				conn.first = RTLIL::SigSpec(module->wires[remap_name(conn.first.chunks[0].wire->name)]);
+			if (!conn.second.is_fully_const())
+				conn.second = RTLIL::SigSpec(module->wires[remap_name(conn.second.chunks[0].wire->name)]);
+			module->connections.push_back(conn);
+		}
+
 		for (auto &it : cell_stats)
 			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
 		int in_wires = 0, out_wires = 0;

@@ -53,12 +53,12 @@ static int lex(FILE *f)
 		return token(lex_tok);
 	
 	if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') ||
-			('0' <= ch && ch <= '9') || ch == '_') {
+			('0' <= ch && ch <= '9') || ch == '_' || ch == '\'') {
 		lex_str = char(ch);
 		while (1) {
 			ch = getc(f);
 			if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') ||
-					('0' <= ch && ch <= '9') || ch == '_') {
+					('0' <= ch && ch <= '9') || ch == '_' || ch == '\'') {
 				lex_str += char(ch);
 				continue;
 			}
@@ -142,6 +142,35 @@ RTLIL::Design *abc_parse_verilog(FILE *f)
 					module->wires[wire->name] = wire;
 				}
 			}
+		}
+		else if (lex_str == "assign")
+		{
+			std::string lhs, rhs;
+
+			if (lex(f) != 256)
+				goto error;
+			lhs = lex_str;
+
+			if (lex(f) != '=')
+				goto error;
+			if (lex(f) != 256)
+				goto error;
+			rhs = lex_str;
+
+			if (lex(f) != ';')
+				goto error;
+
+			if (module->wires.count(RTLIL::escape_id(lhs)) == 0)
+				goto error;
+
+			if (rhs == "1'b0")
+				module->connections.push_back(RTLIL::SigSig(module->wires.at(RTLIL::escape_id(lhs)), RTLIL::SigSpec(0, 1)));
+			else if (rhs == "1'b1")
+				module->connections.push_back(RTLIL::SigSig(module->wires.at(RTLIL::escape_id(lhs)), RTLIL::SigSpec(1, 1)));
+			else if (module->wires.count(RTLIL::escape_id(rhs)) > 0)
+				module->connections.push_back(RTLIL::SigSig(module->wires.at(RTLIL::escape_id(lhs)), module->wires.at(RTLIL::escape_id(rhs))));
+			else
+				goto error;
 		}
 		else
 		{
