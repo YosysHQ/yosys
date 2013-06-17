@@ -53,8 +53,10 @@ done
 	echo "read_ilang ${job}_top_techmap.il"
 	echo "sat -verify -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_nomap"
 	echo "sat -verify -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_techmap"
-	echo "sat -brute_force_equiv_checker ${job}_rtl_nomap   ${job}_xst_nomap"
-	echo "sat -brute_force_equiv_checker ${job}_rtl_techmap ${job}_xst_techmap"
+	if [[ $job != expression_* ]]; then
+		echo "sat -brute_force_equiv_checker ${job}_rtl_nomap   ${job}_xst_nomap"
+		echo "sat -brute_force_equiv_checker ${job}_rtl_techmap ${job}_xst_techmap"
+	fi
 } > ${job}_cmp.ys
 
 if ../../../../yosys -l ${job}.log ${job}_cmp.ys; then
