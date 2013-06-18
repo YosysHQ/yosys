@@ -340,16 +340,45 @@ void RTLIL::Module::optimize()
 	}
 }
 
-void RTLIL::Module::add(RTLIL::Wire *wire) {
+void RTLIL::Module::add(RTLIL::Wire *wire)
+{
 	assert(!wire->name.empty());
 	assert(count_id(wire->name) == 0);
 	wires[wire->name] = wire;
 }
 
-void RTLIL::Module::add(RTLIL::Cell *cell) {
+void RTLIL::Module::add(RTLIL::Cell *cell)
+{
 	assert(!cell->name.empty());
 	assert(count_id(cell->name) == 0);
 	cells[cell->name] = cell;
+}
+
+static bool fixup_ports_compare(const RTLIL::Wire *a, const RTLIL::Wire *b)
+{
+	if (a->port_id && !b->port_id)
+		return true;
+	if (!a->port_id && b->port_id)
+		return false;
+
+	if (a->port_id == b->port_id)
+		return a->name < b->name;
+	return a->port_id < b->port_id;
+}
+
+void RTLIL::Module::fixup_ports()
+{
+	std::vector<RTLIL::Wire*> all_ports;
+
+	for (auto &w : wires)
+		if (w.second->port_input || w.second->port_output)
+			all_ports.push_back(w.second);
+		else
+			w.second->port_id = 0;
+
+	std::sort(all_ports.begin(), all_ports.end(), fixup_ports_compare);
+	for (size_t i = 0; i < all_ports.size(); i++)
+		all_ports[i]->port_id = i+1;
 }
 
 RTLIL::Wire::Wire()
