@@ -27,94 +27,9 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/satgen.h"
-#include "frontends/verilog/verilog_frontend.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <algorithm>
-
-static void split(std::vector<std::string> &tokens, const std::string &text, char sep)
-{
-	size_t start = 0, end = 0;
-	while ((end = text.find(sep, start)) != std::string::npos) {
-		tokens.push_back(text.substr(start, end - start));
-		start = end + 1;
-	}
-	tokens.push_back(text.substr(start));
-}
-
-static int get_dummy_line_num()
-{
-	return 0;
-}
-
-static bool parse_sigstr(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
-{
-	std::vector<std::string> tokens;
-	split(tokens, str, ',');
-
-	sig = RTLIL::SigSpec();
-	for (auto &tok : tokens)
-	{
-		std::string netname = tok;
-		std::string indices;
-
-		if (netname.size() == 0)
-			continue;
-
-		if ('0' <= netname[0] && netname[0] <= '9') {
-			AST::get_line_num = get_dummy_line_num;
-			AST::AstNode *ast = VERILOG_FRONTEND::const2ast(netname);
-			if (ast == NULL)
-				return false;
-			sig.append(RTLIL::Const(ast->bits));
-			delete ast;
-			continue;
-		}
-
-		if (netname[0] != '$' && netname[0] != '\\')
-			netname = "\\" + netname;
-
-		if (module->wires.count(netname) == 0) {
-			size_t indices_pos = netname.size()-1;
-			if (indices_pos > 2 && netname[indices_pos] == ']')
-			{
-				indices_pos--;
-				while (indices_pos > 0 && ('0' <= netname[indices_pos] && netname[indices_pos] <= '9')) indices_pos--;
-				if (indices_pos > 0 && netname[indices_pos] == ':') {
-					indices_pos--;
-					while (indices_pos > 0 && ('0' <= netname[indices_pos] && netname[indices_pos] <= '9')) indices_pos--;
-				}
-				if (indices_pos > 0 && netname[indices_pos] == '[') {
-					indices = netname.substr(indices_pos);
-					netname = netname.substr(0, indices_pos);
-				}
-			}
-		}
-
-		if (module->wires.count(netname) == 0)
-			return false;
-
-		RTLIL::Wire *wire = module->wires.at(netname);
-		if (!indices.empty()) {
-			std::vector<std::string> index_tokens;
-			split(index_tokens, indices.substr(1, indices.size()-2), ':');
-			if (index_tokens.size() == 1)
-				sig.append(RTLIL::SigSpec(wire, 1, atoi(index_tokens.at(0).c_str())));
-			else {
-				int a = atoi(index_tokens.at(0).c_str());
-				int b = atoi(index_tokens.at(1).c_str());
-				if (a > b) {
-					int tmp = a;
-					a = b, b = tmp;
-				}
-				sig.append(RTLIL::SigSpec(wire, b-a+1, a));
-			}
-		} else
-			sig.append(wire);
-	}
-
-	return true;
-}
 
 namespace {
 
@@ -161,9 +76,9 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs, rhs;
 
-			if (!parse_sigstr(lhs, module, s.first))
+			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
-			if (!parse_sigstr(rhs, module, s.second))
+			if (!RTLIL::SigSpec::parse(rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
@@ -182,9 +97,9 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs, rhs;
 
-			if (!parse_sigstr(lhs, module, s.first))
+			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
-			if (!parse_sigstr(rhs, module, s.second))
+			if (!RTLIL::SigSpec::parse(rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
@@ -203,7 +118,7 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs;
 
-			if (!parse_sigstr(lhs, module, s))
+			if (!RTLIL::SigSpec::parse(lhs, module, s))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.c_str());
 			show_signal_pool.add(sigmap(lhs));
 
@@ -242,9 +157,9 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs, rhs;
 
-			if (!parse_sigstr(lhs, module, s.first))
+			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
 				log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
-			if (!parse_sigstr(rhs, module, s.second))
+			if (!RTLIL::SigSpec::parse(rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
@@ -343,7 +258,7 @@ struct SatHelper
 		{
 			for (auto &s : shows) {
 				RTLIL::SigSpec sig;
-				if (!parse_sigstr(sig, module, s))
+				if (!RTLIL::SigSpec::parse(sig, module, s))
 					log_cmd_error("Failed to parse show expression `%s'.\n", s.c_str());
 				log("Import show expression: %s\n", log_signal(sig));
 				modelSig.append(sig);
@@ -451,82 +366,6 @@ struct SatHelper
 	}
 };
 
-/* this should only be used for regression testing of ConstEval -- see tests/xsthammer */
-struct BruteForceEquivChecker
-{
-	RTLIL::Module *mod1, *mod2;
-	RTLIL::SigSpec mod1_inputs, mod1_outputs;
-	RTLIL::SigSpec mod2_inputs, mod2_outputs;
-	int counter, errors;
-
-	void run_checker(RTLIL::SigSpec &inputs)
-	{
-		if (inputs.width < mod1_inputs.width) {
-			RTLIL::SigSpec inputs0 = inputs, inputs1 = inputs;
-			inputs0.append(RTLIL::Const(0, 1));
-			inputs1.append(RTLIL::Const(1, 1));
-			run_checker(inputs0);
-			run_checker(inputs1);
-			return;
-		}
-
-		inputs.optimize();
-
-		ConstEval ce1(mod1), ce2(mod2);
-		ce1.set(mod1_inputs, inputs.as_const());
-		ce2.set(mod2_inputs, inputs.as_const());
-
-		RTLIL::SigSpec sig1 = mod1_outputs, undef1;
-		RTLIL::SigSpec sig2 = mod2_outputs, undef2;
-
-		if (!ce1.eval(sig1, undef1))
-			log("Failed ConstEval of module 1 outputs at signal %s (input: %s = %s).\n",
-					log_signal(undef1), log_signal(mod1_inputs), log_signal(inputs));
-		if (!ce2.eval(sig2, undef2))
-			log("Failed ConstEval of module 2 outputs at signal %s (input: %s = %s).\n",
-					log_signal(undef2), log_signal(mod1_inputs), log_signal(inputs));
-
-		if (sig1 != sig2) {
-			log("Found counter-example:\n");
-			log("  Module 1:  %s = %s  =>  %s = %s\n", log_signal(mod1_inputs), log_signal(inputs), log_signal(mod1_outputs), log_signal(sig1));
-			log("  Module 2:  %s = %s  =>  %s = %s\n", log_signal(mod2_inputs), log_signal(inputs), log_signal(mod2_outputs), log_signal(sig2));
-			errors++;
-		}
-
-		counter++;
-	}
-
-	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2) :
-			mod1(mod1), mod2(mod2), counter(0), errors(0)
-	{
-		log("Checking for equivialence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
-		for (auto &w : mod1->wires)
-		{
-			RTLIL::Wire *wire1 = w.second;
-			if (wire1->port_id == 0)
-				continue;
-
-			if (mod2->wires.count(wire1->name) == 0)
-				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", wire1->name.c_str());
-
-			RTLIL::Wire *wire2 = mod2->wires.at(wire1->name);
-			if (wire1->width != wire2->width || wire1->port_input != wire2->port_input || wire1->port_output != wire2->port_output)
-				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", wire1->name.c_str());
-
-			if (wire1->port_input) {
-				mod1_inputs.append(wire1);
-				mod2_inputs.append(wire2);
-			} else {
-				mod1_outputs.append(wire1);
-				mod2_outputs.append(wire2);
-			}
-		}
-
-		RTLIL::SigSpec inputs;
-		run_checker(inputs);
-	}
-};
-
 } /* namespace */
 
 static void print_proof_failed()
@@ -616,7 +455,7 @@ struct SatPass : public Pass {
 		int loopcount = 0, seq_len = 0, maxsteps = 0;
 		bool verify = false;
 
-		log_header("Executing SAT_SOLVE pass (solving SAT problems in the circuit).\n");
+		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -669,21 +508,6 @@ struct SatPass : public Pass {
 				shows.push_back(args[++argidx]);
 				continue;
 			}
-			if (args[argidx] == "-brute_force_equiv_checker" && argidx+2 < args.size()) {
-				/* this should only be used for regression testing of ConstEval -- see tests/xsthammer */
-				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
-				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
-				if (design->modules.count(mod1_name) == 0)
-					log_error("Can't find module `%s'!\n", mod1_name.c_str());
-				if (design->modules.count(mod2_name) == 0)
-					log_error("Can't find module `%s'!\n", mod2_name.c_str());
-				BruteForceEquivChecker checker(design->modules.at(mod1_name), design->modules.at(mod2_name));
-				if (checker.errors > 0)
-					log_cmd_error("Modules are not equivialent!\n");
-				log("Verified %s = %s (using brute-force check on %d cases).\n",
-						mod1_name.c_str(), mod2_name.c_str(), checker.counter);
-				return;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -692,12 +516,12 @@ struct SatPass : public Pass {
 		for (auto &mod_it : design->modules)
 			if (design->selected(mod_it.second)) {
 				if (module)
-					log_cmd_error("Only one module must be selected for the SAT_SOLVE pass! (selected: %s and %s)\n",
+					log_cmd_error("Only one module must be selected for the SAT pass! (selected: %s and %s)\n",
 							RTLIL::id2cstr(module->name), RTLIL::id2cstr(mod_it.first));
 				module = mod_it.second;
 			}
 		if (module == NULL) 
-			log_cmd_error("Can't perform SAT_SOLVE on an empty selection!\n");
+			log_cmd_error("Can't perform SAT on an empty selection!\n");
 
 		if (prove.size() == 0 && verify)
 			log_cmd_error("Got -verify but nothing to prove!\n");

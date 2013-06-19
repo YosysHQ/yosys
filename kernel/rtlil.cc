@@ -19,6 +19,7 @@
 
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "frontends/verilog/verilog_frontend.h"
 #include <assert.h>
 #include <algorithm>
 
@@ -1057,6 +1058,90 @@ bool RTLIL::SigSpec::match(std::string pattern) const
 		}
 		if (pattern[i] != str[i])
 			return false;
+	}
+
+	return true;
+}
+
+static void sigspec_parse_split(std::vector<std::string> &tokens, const std::string &text, char sep)
+{
+	size_t start = 0, end = 0;
+	while ((end = text.find(sep, start)) != std::string::npos) {
+		tokens.push_back(text.substr(start, end - start));
+		start = end + 1;
+	}
+	tokens.push_back(text.substr(start));
+}
+
+static int sigspec_parse_get_dummy_line_num()
+{
+	return 0;
+}
+
+bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
+{
+	std::vector<std::string> tokens;
+	sigspec_parse_split(tokens, str, ',');
+
+	sig = RTLIL::SigSpec();
+	for (auto &tok : tokens)
+	{
+		std::string netname = tok;
+		std::string indices;
+
+		if (netname.size() == 0)
+			continue;
+
+		if ('0' <= netname[0] && netname[0] <= '9') {
+			AST::get_line_num = sigspec_parse_get_dummy_line_num;
+			AST::AstNode *ast = VERILOG_FRONTEND::const2ast(netname);
+			if (ast == NULL)
+				return false;
+			sig.append(RTLIL::Const(ast->bits));
+			delete ast;
+			continue;
+		}
+
+		if (netname[0] != '$' && netname[0] != '\\')
+			netname = "\\" + netname;
+
+		if (module->wires.count(netname) == 0) {
+			size_t indices_pos = netname.size()-1;
+			if (indices_pos > 2 && netname[indices_pos] == ']')
+			{
+				indices_pos--;
+				while (indices_pos > 0 && ('0' <= netname[indices_pos] && netname[indices_pos] <= '9')) indices_pos--;
+				if (indices_pos > 0 && netname[indices_pos] == ':') {
+					indices_pos--;
+					while (indices_pos > 0 && ('0' <= netname[indices_pos] && netname[indices_pos] <= '9')) indices_pos--;
+				}
+				if (indices_pos > 0 && netname[indices_pos] == '[') {
+					indices = netname.substr(indices_pos);
+					netname = netname.substr(0, indices_pos);
+				}
+			}
+		}
+
+		if (module->wires.count(netname) == 0)
+			return false;
+
+		RTLIL::Wire *wire = module->wires.at(netname);
+		if (!indices.empty()) {
+			std::vector<std::string> index_tokens;
+			sigspec_parse_split(index_tokens, indices.substr(1, indices.size()-2), ':');
+			if (index_tokens.size() == 1)
+				sig.append(RTLIL::SigSpec(wire, 1, atoi(index_tokens.at(0).c_str())));
+			else {
+				int a = atoi(index_tokens.at(0).c_str());
+				int b = atoi(index_tokens.at(1).c_str());
+				if (a > b) {
+					int tmp = a;
+					a = b, b = tmp;
+				}
+				sig.append(RTLIL::SigSpec(wire, b-a+1, a));
+			}
+		} else
+			sig.append(wire);
 	}
 
 	return true;

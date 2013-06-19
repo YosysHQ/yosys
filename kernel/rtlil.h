@@ -327,6 +327,7 @@ struct RTLIL::SigSpec {
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
 	bool match(std::string pattern) const;
+	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 };
 
 struct RTLIL::CaseRule {
