@@ -21,9 +21,35 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static void rename_in_module(RTLIL::Module*, std::string, std::string)
+static void rename_in_module(RTLIL::Module *module, std::string from_name, std::string to_name)
 {
-	log_cmd_error("Sorry: Only renaming of modules is implemented at the moment.\n");
+	from_name = RTLIL::escape_id(from_name);
+	to_name = RTLIL::escape_id(to_name);
+
+	if (module->count_id(to_name))
+		log_cmd_error("There is already an object `%s' in module `%s'.\n", to_name.c_str(), module->name.c_str());
+
+	for (auto &it : module->wires)
+		if (it.first == from_name) {
+			RTLIL::Wire *wire = it.second;
+			log("Renaming wire %s to %s in module %s.\n", wire->name.c_str(), to_name.c_str(), module->name.c_str());
+			module->wires.erase(wire->name);
+			wire->name = to_name;
+			module->add(wire);
+			return;
+		}
+
+	for (auto &it : module->cells)
+		if (it.first == from_name) {
+			RTLIL::Cell *cell = it.second;
+			log("Renaming cell %s to %s in module %s.\n", cell->name.c_str(), to_name.c_str(), module->name.c_str());
+			module->cells.erase(cell->name);
+			cell->name = to_name;
+			module->add(cell);
+			return;
+		}
+
+	log_cmd_error("Object `%s' not found!\n", from_name.c_str());
 }
 
 struct RenamePass : public Pass {
