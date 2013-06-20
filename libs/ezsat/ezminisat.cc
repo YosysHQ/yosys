@@ -23,6 +23,7 @@
 
 #include <limits.h>
 #include <stdint.h>
+#include <signal.h>
 #include <cinttypes>
 
 #include "minisat/core/Solver.h"
@@ -50,8 +51,22 @@ void ezMiniSAT::clear()
 	ezSAT::clear();
 }
 
+ezMiniSAT *ezMiniSAT::alarmHandlerThis = NULL;
+clock_t ezMiniSAT::alarmHandlerTimeout = 0;
+
+void ezMiniSAT::alarmHandler(int)
+{
+	if (clock() > alarmHandlerTimeout) {
+		alarmHandlerThis->minisatSolver->interrupt();
+		alarmHandlerTimeout = 0;
+	} else
+		alarm(1);
+}
+
 bool ezMiniSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
 {
+	solverTimoutStatus = false;
+
 	if (0) {
 contradiction:
 		delete minisatSolver;
@@ -104,7 +119,28 @@ contradiction:
 		else
 			assumps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
 
-	if (!minisatSolver->solve(assumps))
+	sighandler_t old_alarm_sighandler;
+	int old_alarm_timeout;
+
+	if (solverTimeout > 0) {
+		alarmHandlerThis = this;
+		alarmHandlerTimeout = clock() + solverTimeout*CLOCKS_PER_SEC;
+		old_alarm_timeout = alarm(0);
+		old_alarm_sighandler = signal(SIGALRM, alarmHandler);
+		alarm(1);
+	}
+
+	bool foundSolution = minisatSolver->solve(assumps);
+
+	if (solverTimeout > 0) {
+		if (alarmHandlerTimeout == 0)
+			solverTimoutStatus = true;
+		alarm(0);
+		signal(SIGALRM, old_alarm_sighandler);
+		alarm(old_alarm_timeout);
+	}
+
+	if (!foundSolution)
 		return false;
 
 	modelValues.clear();

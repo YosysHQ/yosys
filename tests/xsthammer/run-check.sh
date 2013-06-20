@@ -51,8 +51,8 @@ done
 {
 	echo "read_ilang ${job}_top_nomap.il"
 	echo "read_ilang ${job}_top_techmap.il"
-	echo "sat -verify -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_nomap"
-	echo "sat -verify -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_techmap"
+	echo "sat -timeout 60 -verify-no-timeout -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_nomap"
+	echo "sat -timeout 60 -verify-no-timeout -show a,b,y_rtl,y_xst -prove y_rtl y_xst ${job}_top_techmap"
 	if [[ $job != expression_* ]]; then
 		echo "eval -brute_force_equiv_checker ${job}_rtl_nomap   ${job}_xst_nomap"
 		echo "eval -brute_force_equiv_checker ${job}_rtl_techmap ${job}_xst_techmap"

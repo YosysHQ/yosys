@@ -38,6 +38,9 @@ ezSAT::ezSAT()
 	cnfConsumed = false;
 	cnfVariableCount = 0;
 	cnfClausesCount = 0;
+
+	solverTimeout = 0;
+	solverTimoutStatus = false;
 }
 
 ezSAT::~ezSAT()

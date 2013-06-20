@@ -52,12 +52,15 @@ struct SatHelper
 	std::vector<std::string> shows;
 	SigPool show_signal_pool;
 	SigSet<RTLIL::Cell*> show_drivers;
-	int max_timestep;
+	int max_timestep, timeout;
+	bool gotTimeout;
 
 	SatHelper(RTLIL::Design *design, RTLIL::Module *module) :
 		design(design), module(module), sigmap(module), ct(design), satgen(&ez, design, &sigmap)
 	{
 		max_timestep = -1;
+		timeout = 0;
+		gotTimeout = false;
 	}
 
 	void setup(int timestep = -1)
@@ -190,12 +193,22 @@ struct SatHelper
 
 	bool solve(const std::vector<int> &assumptions)
 	{
-		return ez.solve(modelExpressions, modelValues, assumptions);
+		log_assert(gotTimeout == false);
+		ez.setSolverTimeout(timeout);
+		bool success = ez.solve(modelExpressions, modelValues, assumptions);
+		if (ez.getSolverTimoutStatus())
+			gotTimeout = true;
+		return success;
 	}
 
 	bool solve(int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
 	{
-		return ez.solve(modelExpressions, modelValues, a, b, c, d, e, f);
+		log_assert(gotTimeout == false);
+		ez.setSolverTimeout(timeout);
+		bool success = ez.solve(modelExpressions, modelValues, a, b, c, d, e, f);
+		if (ez.getSolverTimoutStatus())
+			gotTimeout = true;
+		return success;
 	}
 
 	struct ModelBlockInfo {
@@ -380,6 +393,17 @@ static void print_proof_failed()
 	log("\n");
 }
 
+static void print_timeout()
+{
+	log("\n");
+	log("        _____  _  _      _____ ____  _     _____\n");
+	log("       /__ __\\/ \\/ \\__/|/  __//  _ \\/ \\ /\\/__ __\\\n");
+	log("         / \\  | || |\\/|||  \\  | / \\|| | ||  / \\\n");
+	log("         | |  | || |  |||  /_ | \\_/|| \\_/|  | |\n");
+	log("         \\_/  \\_/\\_/  \\|\\____\\\\____/\\____/  \\_/\n");
+	log("\n");
+}
+
 static void print_qed()
 {
 	log("\n");
@@ -442,8 +466,14 @@ struct SatPass : public Pass {
 		log("    -maxsteps <N>\n");
 		log("        Set a maximum length for the induction.\n");
 		log("\n");
+		log("    -timeout <N>\n");
+		log("        Maximum number of seconds a single SAT instance may take.\n");
+		log("\n");
 		log("    -verify\n");
 		log("        Return an error and stop the synthesis script if the proof fails.\n");
+		log("\n");
+		log("    -verify-no-timeout\n");
+		log("        Like -verify but do not return an error for timeouts.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -452,8 +482,8 @@ struct SatPass : public Pass {
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at;
 		std::vector<std::string> shows;
-		int loopcount = 0, seq_len = 0, maxsteps = 0;
-		bool verify = false;
+		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
+		bool verify = false, fail_on_timeout = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -464,7 +494,16 @@ struct SatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-verify") {
+				fail_on_timeout = true;
 				verify = true;
+				continue;
+			}
+			if (args[argidx] == "-verify-no-timeout") {
+				verify = true;
+				continue;
+			}
+			if (args[argidx] == "-timeout" && argidx+1 < args.size()) {
+				timeout = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-max" && argidx+1 < args.size()) {
@@ -539,6 +578,7 @@ struct SatPass : public Pass {
 			basecase.sets_at = sets_at;
 			basecase.unsets_at = unsets_at;
 			basecase.shows = shows;
+			basecase.timeout = timeout;
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
 				basecase.setup(timestep);
@@ -546,6 +586,7 @@ struct SatPass : public Pass {
 			inductstep.sets = sets;
 			inductstep.prove = prove;
 			inductstep.shows = shows;
+			inductstep.timeout = timeout;
 
 			inductstep.setup(1);
 			inductstep.ez.assume(inductstep.setup_proof(1));
@@ -573,6 +614,9 @@ struct SatPass : public Pass {
 					goto tip_failed;
 				}
 
+				if (basecase.gotTimeout)
+					goto timeout;
+
 				log("Base case for induction length %d proven.\n", inductlen);
 				basecase.ez.assume(property);
 
@@ -589,6 +633,8 @@ struct SatPass : public Pass {
 						inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
 
 				if (!inductstep.solve(inductstep.ez.NOT(property))) {
+					if (inductstep.gotTimeout)
+						goto timeout;
 					log("Induction step proven: SUCCESS!\n");
 					print_qed();
 					goto tip_success;
@@ -622,6 +668,7 @@ struct SatPass : public Pass {
 			sathelper.sets_at = sets_at;
 			sathelper.unsets_at = unsets_at;
 			sathelper.shows = shows;
+			sathelper.timeout = timeout;
 
 			if (seq_len == 0) {
 				sathelper.setup();
@@ -668,6 +715,8 @@ struct SatPass : public Pass {
 			}
 			else
 			{
+				if (sathelper.gotTimeout)
+					goto timeout;
 				if (did_rerun)
 					log("SAT solving finished - no more models found.\n");
 				else if (prove.size() == 0)
@@ -677,6 +726,14 @@ struct SatPass : public Pass {
 					print_qed();
 				}
 			}
+		}
+
+		if (0) {
+	timeout:
+			log("Interrupted SAT solver: TIMEOUT!\n");
+			print_timeout();
+			if (fail_on_timeout)
+				log_error("Called with -verify and proof did time out!\n");
 		}
 	}
 } SatPass;

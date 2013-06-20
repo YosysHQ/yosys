@@ -21,6 +21,7 @@
 #define EZMINISAT_H
 
 #include "ezsat.h"
+#include <time.h>
 
 // minisat is using limit macros and format macros in their headers that
 // can be the source of some troubles when used from c++11. thefore we
@@ -35,6 +36,10 @@ private:
 	Minisat::Solver *minisatSolver;
 	std::vector<int> minisatVars;
 	bool foundContradiction;
+
+	static ezMiniSAT *alarmHandlerThis;
+	static clock_t alarmHandlerTimeout;
+	static void alarmHandler(int);
 
 public:
 	ezMiniSAT();

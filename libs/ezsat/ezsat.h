@@ -69,6 +69,9 @@ private:
 	int bind_cnf_or(const std::vector<int> &args);
 
 public:
+	int solverTimeout;
+	bool solverTimoutStatus;
+
 	ezSAT();
 	virtual ~ezSAT();
 
@@ -128,6 +131,14 @@ public:
 		if (e != 0) assumptions.push_back(e);
 		if (f != 0) assumptions.push_back(f);
 		return solver(modelExpressions, modelValues, assumptions);
+	}
+
+	void setSolverTimeout(int newTimeoutSeconds) {
+		solverTimeout = newTimeoutSeconds;
+	}
+
+	bool getSolverTimoutStatus() {
+		return solverTimoutStatus;
 	}
 
 	// manage CNF (usually only accessed by SAT solvers)
