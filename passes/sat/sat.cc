@@ -659,7 +659,7 @@ struct SatPass : public Pass {
 		}
 		else
 		{
-			if (loopcount > 0)
+			if (maxsteps > 0)
 				log_cmd_error("The options -maxsteps is only supported for temporal induction proofs!\n");
 
 			SatHelper sathelper(design, module);
@@ -702,15 +702,15 @@ struct SatPass : public Pass {
 
 				sathelper.print_model();
 
-				if (verify) {
-					log("\n");
-					log_error("Called with -verify and proof did fail!\n");
-				}
-
 				if (loopcount != 0) {
 					loopcount--, did_rerun = true;
 					sathelper.invalidate_model();
 					goto rerun_solver;
+				}
+
+				if (verify) {
+					log("\n");
+					log_error("Called with -verify and proof did fail!\n");
 				}
 			}
 			else
@@ -725,6 +725,11 @@ struct SatPass : public Pass {
 					log("SAT proof finished - no model found: SUCCESS!\n");
 					print_qed();
 				}
+			}
+
+			if (verify && did_rerun) {
+				log("\n");
+				log_error("Called with -verify and proof did fail!\n");
 			}
 		}
 
