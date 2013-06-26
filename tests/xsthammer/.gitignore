@@ -3,5 +3,8 @@ generate.lst
 rtl
 xst
 xst_temp
+vivado
+vivado_temp
 check
 check_temp
+check_vivado

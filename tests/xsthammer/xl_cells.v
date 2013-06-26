@@ -1,4 +1,16 @@
 
+module IBUF(O, I);
+output O;
+input  I;
+assign O = I;
+endmodule
+
+module OBUF(O, I);
+output O;
+input  I;
+assign O = I;
+endmodule
+
 module GND(G);
 output G = 0;
 endmodule

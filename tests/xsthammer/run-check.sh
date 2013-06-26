@@ -1,5 +1,14 @@
 #!/bin/bash
 
+use_vivado=false
+checkdir="check"
+
+if [ "$1" = "-vivado" ]; then
+	use_vivado=true
+	checkdir="check_vivado"
+	shift
+fi
+
 if [ $# -eq 0 ]; then
 	echo "Usage: $0 <job_id>" >&2
 	exit 1
@@ -9,7 +18,7 @@ job="$1"
 set --
 
 set -e
-mkdir -p check check_temp/$job
+mkdir -p $checkdir check_temp/$job
 cd check_temp/$job
 
 {
@@ -22,7 +31,11 @@ cd check_temp/$job
 
 for mode in nomap techmap; do
 	{
-		echo "read_verilog -DGLBL ../../xst/$job.v"
+		if $use_vivado; then
+			echo "read_verilog ../../vivado/$job.v"
+		else
+			echo "read_verilog -DGLBL ../../xst/$job.v"
+		fi
 		echo "rename $job ${job}_xst"
 
 		echo "read_verilog ../../rtl/$job.v"
@@ -60,11 +73,11 @@ done
 } > ${job}_cmp.ys
 
 if ../../../../yosys -l ${job}.log ${job}_cmp.ys; then
-	mv ${job}.log ../../check/${job}.log
-	rm -f ../../check/${job}.err
+	mv ${job}.log ../../$checkdir/${job}.log
+	rm -f ../../$checkdir/${job}.err
 else
-	mv ${job}.log ../../check/${job}.err
-	rm -f ../../check/${job}.log
+	mv ${job}.log ../../$checkdir/${job}.err
+	rm -f ../../$checkdir/${job}.log
 	exit 1
 fi
 
