@@ -18,9 +18,8 @@ cat > $job.tcl <<- EOT
 	write_verilog ../../vivado/$job.v
 EOT
 
-. /opt/Xilinx/14.5/ISE_DS/settings64.sh
+/opt/Xilinx/Vivado/2013.2/bin/vivado -mode batch -source $job.tcl
 
-vivado -mode batch -source $job.tcl
-
+sync
 exit 0
 

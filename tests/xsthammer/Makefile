@@ -31,6 +31,15 @@ clean:
 mrproper: clean
 	rm -rf rtl xst check
 
-.PHONY: test vivado check_xl_cells clean mrproper
-.PRECIOUS: check/%.log xst/%.v rtl/%.v generate.lst
+backup:
+	mkdir -p ~/.yosys/xhammer
+	tar cvzf ~/.yosys/xhammer/xst_files.tar.gz xst
+	tar cvzf ~/.yosys/xhammer/vivado_files.tar.gz vivado
+
+restore:
+	tar xvzf ~/.yosys/xhammer/xst_files.tar.gz
+	tar xvzf ~/.yosys/xhammer/vivado_files.tar.gz
+
+.PHONY: test vivado check_xl_cells clean mrproper backup restore
+.PRECIOUS: check/%.log xst/%.v vivado/%.v rtl/%.v generate.lst
 

@@ -4,7 +4,7 @@
 #define GENERATE_TERNARY_OPS
 #define GENERATE_CONCAT_OPS
 #undef  GENERATE_REPEAT_OPS  // disabled because of XST bug
-#undef  GENERATE_EXPRESSIONS
+#define GENERATE_EXPRESSIONS
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -109,8 +109,7 @@ void print_expression(FILE *f, int budget, uint32_t mask = 0)
 	do {
 		mode = xorshift32() % num_modes;
 	} while (((1 << mode) & mask) == 0);
-
-	fprintf(f, "/* %d */", mode);
+	// fprintf(f, "/* %d */", mode);
 
 	budget--;
 	switch (mode)
@@ -123,7 +122,13 @@ void print_expression(FILE *f, int budget, uint32_t mask = 0)
 	case 1:
 		fprintf(f, "(");
 		print_expression(f, budget/2, mask);
+	#if 1
+		// FIXME: relational operators disabled because there is an xst bug..
+		do k = xorshift32() % num_binary_ops; while ((k >= 9 && k <= 12) || (k >= 3 && k <= 6));
+		fprintf(f, "%s", binary_ops[k]);
+	#else
 		fprintf(f, "%s", binary_ops[xorshift32() % num_binary_ops]);
+	#endif
 		print_expression(f, budget/2, mask);
 		fprintf(f, ")");
 		break;

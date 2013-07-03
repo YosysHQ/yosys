@@ -75,10 +75,10 @@ done
 if ../../../../yosys -l ${job}.log ${job}_cmp.ys; then
 	mv ${job}.log ../../$checkdir/${job}.log
 	rm -f ../../$checkdir/${job}.err
+	touch ../../$checkdir/${job}.log
 else
 	mv ${job}.log ../../$checkdir/${job}.err
 	rm -f ../../$checkdir/${job}.log
-	exit 1
 fi
 
 exit 0

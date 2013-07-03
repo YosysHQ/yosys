@@ -29,5 +29,6 @@ xst -ifn $job.xst
 netgen -w -ofmt verilog $job.ngc $job
 cp $job.v ../../xst/$job.v
 
+sync
 exit 0
 
