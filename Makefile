@@ -18,6 +18,7 @@ all: top-all
 CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC
 LDFLAGS = -rdynamic
 LDLIBS = -lstdc++ -lreadline -lm -ldl
+QMAKE = qmake-qt4
 
 -include Makefile.conf
 
@@ -80,7 +81,7 @@ yosys-config: yosys-config.in
 	chmod +x yosys-config
 
 yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
-	cd libs/svgviewer && qmake-qt4 && make
+	cd libs/svgviewer && $(QMAKE) && make
 	cp libs/svgviewer/svgviewer yosys-svgviewer
 
 abc:
