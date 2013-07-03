@@ -5,17 +5,25 @@ test: $(TARGETS)
 
 vivado: $(addprefix check_vivado/,$(notdir $(TARGETS)))
 
+quartus: $(addprefix check_quartus/,$(notdir $(TARGETS)))
+
 check/%.log: rtl/%.v xst/%.v
 	bash run-check.sh $(notdir $(basename $<))
 
 check_vivado/%.log: rtl/%.v vivado/%.v
 	bash run-check.sh -vivado $(notdir $(basename $<))
 
+check_quartus/%.log: rtl/%.v quartus/%.v
+	# bash run-check.sh -quartus $(notdir $(basename $<))
+
 xst/%.v: rtl/%.v
 	bash run-xst.sh $(notdir $(basename $<))
 
 vivado/%.v: rtl/%.v
 	bash run-vivado.sh $(notdir $(basename $<))
+
+quartus/%.v: rtl/%.v
+	bash run-quartus.sh $(notdir $(basename $<))
 
 generate.lst: generate.cc
 	clang -Wall -o generate generate.cc -lstdc++
@@ -35,11 +43,13 @@ backup:
 	mkdir -p ~/.yosys/xhammer
 	tar cvzf ~/.yosys/xhammer/xst_files.tar.gz xst
 	tar cvzf ~/.yosys/xhammer/vivado_files.tar.gz vivado
+	tar cvzf ~/.yosys/xhammer/quartus_files.tar.gz quartus
 
 restore:
 	tar xvzf ~/.yosys/xhammer/xst_files.tar.gz
 	tar xvzf ~/.yosys/xhammer/vivado_files.tar.gz
+	tar xvzf ~/.yosys/xhammer/quartus_files.tar.gz
 
-.PHONY: test vivado check_xl_cells clean mrproper backup restore
-.PRECIOUS: check/%.log xst/%.v vivado/%.v rtl/%.v generate.lst
+.PHONY: test vivado quartus check_xl_cells clean mrproper backup restore
+.PRECIOUS: check/%.log xst/%.v vivado/%.v quartus/%.v rtl/%.v generate.lst
 
