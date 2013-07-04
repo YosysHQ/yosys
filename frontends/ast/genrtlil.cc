@@ -531,6 +531,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	case AST_AUTOWIRE:
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
+	case AST_DEFPARAM:
 	case AST_GENVAR:
 	case AST_GENFOR:
 	case AST_GENBLOCK:

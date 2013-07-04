@@ -23,6 +23,22 @@ endmodule
 
 // -----------------------------------
 
+module test3(a, b, x, y);
+
+input [7:0] a, b;
+output [7:0] x, y;
+
+inc inc_a (.in(a), .out(x));
+inc inc_b (b, y);
+
+defparam inc_a.step = 3;
+defparam inc_b.step = 7;
+defparam inc_b.width = 4;
+
+endmodule
+
+// -----------------------------------
+
 module inc(in, out);
 
 parameter width = 8;

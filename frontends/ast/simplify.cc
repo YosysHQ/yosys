@@ -103,7 +103,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 	}
 
 	// activate const folding if this is anything that must be evaluated statically (ranges, parameters, attributes, etc.)
-	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX)
+	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX)
 		const_fold = true;
 	if (type == AST_IDENTIFIER && current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM))
 		const_fold = true;
@@ -163,7 +163,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 			}
 		wires_are_incompatible:
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
-					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK) {
+					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_CELL) {
 				backup_scope[node->str] = current_scope[node->str];
 				current_scope[node->str] = node;
 			}
@@ -223,6 +223,22 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 
 	if (type == AST_MODULE)
 		current_scope.clear();
+
+	// convert defparam nodes to cell parameters
+	if (type == AST_DEFPARAM && !str.empty()) {
+		size_t pos = str.rfind('.');
+		if (pos == std::string::npos)
+			log_error("Defparam `%s' does not contain a dot (module/parameter seperator) at %s:%d!\n",
+					RTLIL::id2cstr(str.c_str()), filename.c_str(), linenum);
+		std::string modname = str.substr(0, pos), paraname = "\\" + str.substr(pos+1);
+		if (current_scope.count(modname) == 0 || current_scope.at(modname)->type != AST_CELL)
+			log_error("Can't find cell for defparam `%s . %s` at %s:%d!\n", RTLIL::id2cstr(modname), RTLIL::id2cstr(paraname), filename.c_str(), linenum);
+		AstNode *cell = current_scope.at(modname), *paraset = clone();
+		cell->children.insert(cell->children.begin() + 1, paraset);
+		paraset->type = AST_PARASET;
+		paraset->str = paraname;
+		str.clear();
+	}
 
 	// resolve constant prefixes
 	if (type == AST_PREFIX) {

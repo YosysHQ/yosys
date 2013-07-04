@@ -72,6 +72,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_AUTOWIRE)
 	X(AST_PARAMETER)
 	X(AST_LOCALPARAM)
+	X(AST_DEFPARAM)
 	X(AST_PARASET)
 	X(AST_ARGUMENT)
 	X(AST_RANGE)
@@ -327,7 +328,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		fprintf(f, ");\n");
 
 		for (auto child : children)
-			if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+			if (child->type == AST_PARAMETER || child->type == AST_LOCALPARAM || child->type == AST_DEFPARAM)
 				child->dumpVlog(f, indent + "  ");
 			else
 				rem_children1.push_back(child);

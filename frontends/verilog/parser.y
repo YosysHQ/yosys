@@ -94,7 +94,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 
 %token <string> TOK_STRING TOK_ID TOK_CONST TOK_PRIMITIVE
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
-%token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM
+%token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR
@@ -106,7 +106,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 
 %type <ast> wire_type range expr basic_expr concat_list rvalue lvalue lvalue_concat_list
-%type <string> opt_label tok_prim_wrapper
+%type <string> opt_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed
 %type <al> attr
 
@@ -176,17 +176,30 @@ attr_list:
 	attr_list ',' attr_assign;
 
 attr_assign:
-	TOK_ID {
+	hierarchical_id {
 		if (attr_list.count(*$1) != 0)
 			delete attr_list[*$1];
 		attr_list[*$1] = AstNode::mkconst_int(0, false, 0);
 		delete $1;
 	} |
-	TOK_ID '=' expr {
+	hierarchical_id '=' expr {
 		if (attr_list.count(*$1) != 0)
 			delete attr_list[*$1];
 		attr_list[*$1] = $3;
 		delete $1;
+	};
+
+hierarchical_id:
+	TOK_ID {
+		$$ = $1;
+	} |
+	hierarchical_id '.' TOK_ID {
+		if ($3->substr(0, 1) == "\\")
+			*$1 += "." + $3->substr(1);
+		else
+			*$1 += "." + *$3;
+		delete $3;
+		$$ = $1;
 	};
 
 module:
@@ -309,7 +322,7 @@ module_body:
 	/* empty */;
 
 module_body_stmt:
-	task_func_decl | param_decl | localparam_decl | wire_decl | assign_stmt | cell_stmt |
+	task_func_decl | param_decl | localparam_decl | defparam_decl | wire_decl | assign_stmt | cell_stmt |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr;
 
 task_func_decl:
@@ -381,6 +394,23 @@ localparam_decl_list:
 single_localparam_decl:
 	range TOK_ID '=' expr {
 		AstNode *node = new AstNode(AST_LOCALPARAM);
+		node->str = *$2;
+		node->children.push_back($4);
+		if ($1 != NULL)
+			node->children.push_back($1);
+		ast_stack.back()->children.push_back(node);
+		delete $2;
+	};
+
+defparam_decl:
+	TOK_DEFPARAM defparam_decl_list ';';
+
+defparam_decl_list:
+	single_defparam_decl | defparam_decl_list ',' single_defparam_decl;
+
+single_defparam_decl:
+	range hierarchical_id '=' expr {
+		AstNode *node = new AstNode(AST_DEFPARAM);
 		node->str = *$2;
 		node->children.push_back($4);
 		if ($1 != NULL)
@@ -671,7 +701,7 @@ simple_behavioral_stmt:
 behavioral_stmt:
 	defattr |
 	simple_behavioral_stmt ';' |
-	TOK_ID attr {
+	hierarchical_id attr {
 		AstNode *node = new AstNode(AST_TCALL);
 		node->str = *$1;
 		delete $1;
@@ -808,12 +838,12 @@ case_expr_list:
 	};
 
 rvalue:
-	TOK_ID '[' expr ']' '.' rvalue {
+	hierarchical_id '[' expr ']' '.' rvalue {
 		$$ = new AstNode(AST_PREFIX, $3, $6);
 		$$->str = *$1;
 		delete $1;
 	} |
-	TOK_ID range {
+	hierarchical_id range {
 		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
 		delete $1;
@@ -931,7 +961,7 @@ basic_expr:
 		$$->str = str;
 		delete $1;
 	} |
-	TOK_ID attr {
+	hierarchical_id attr {
 		AstNode *node = new AstNode(AST_FCALL);
 		node->str = *$1;
 		delete $1;
