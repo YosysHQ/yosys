@@ -14,7 +14,7 @@ check_vivado/%.log: rtl/%.v vivado/%.v
 	bash run-check.sh -vivado $(notdir $(basename $<))
 
 check_quartus/%.log: rtl/%.v quartus/%.v
-	# bash run-check.sh -quartus $(notdir $(basename $<))
+	bash run-check.sh -quartus $(notdir $(basename $<))
 
 xst/%.v: rtl/%.v
 	bash run-xst.sh $(notdir $(basename $<))
