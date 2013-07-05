@@ -7,6 +7,8 @@ vivado
 vivado_temp
 quartus
 quartus_temp
+report
+report_temp
 check
 check_temp
 check_vivado

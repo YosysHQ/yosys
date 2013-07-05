@@ -7,6 +7,12 @@ vivado: $(addprefix check_vivado/,$(notdir $(TARGETS)))
 
 quartus: $(addprefix check_quartus/,$(notdir $(TARGETS)))
 
+report:
+	ls check check_quartus/ check_vivado | grep '\.err$$' | sort -u | cut -f1 -d. | gawk '{ print "report/" $$0 ".html"; }' | xargs -r $(MAKE)
+
+report/%.html:
+	bash report.sh $(notdir $(basename $@))
+
 check/%.log: rtl/%.v xst/%.v
 	bash run-check.sh $(notdir $(basename $<))
 
@@ -50,6 +56,6 @@ restore:
 	tar xvzf ~/.yosys/xhammer/vivado_files.tar.gz
 	tar xvzf ~/.yosys/xhammer/quartus_files.tar.gz
 
-.PHONY: test vivado quartus check_xl_cells clean mrproper backup restore
+.PHONY: test vivado quartus report check_xl_cells clean mrproper backup restore
 .PRECIOUS: check/%.log xst/%.v vivado/%.v quartus/%.v rtl/%.v generate.lst
 
