@@ -119,8 +119,8 @@ contradiction:
 		else
 			assumps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
 
-	sighandler_t old_alarm_sighandler;
-	int old_alarm_timeout;
+	sighandler_t old_alarm_sighandler = NULL;
+	int old_alarm_timeout = 0;
 
 	if (solverTimeout > 0) {
 		alarmHandlerThis = this;
