@@ -12,10 +12,11 @@ set -e
 mkdir -p vivado vivado_temp/$job
 cd vivado_temp/$job
 
+sed 's/^module/(* use_dsp48="no" *) module/;' < ../../rtl/$job.v > rtl.v
 cat > $job.tcl <<- EOT
-	read_verilog ../../rtl/$job.v
+	read_verilog rtl.v
 	synth_design -part xc7k70t -top $job
-	write_verilog ../../vivado/$job.v
+	write_verilog -force ../../vivado/$job.v
 EOT
 
 /opt/Xilinx/Vivado/2013.2/bin/vivado -mode batch -source $job.tcl

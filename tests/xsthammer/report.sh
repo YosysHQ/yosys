@@ -32,6 +32,11 @@ cat ../../xl_cells.v ../../cy_cells.v > cells.v
 echo -n > fail_patterns.txt
 for p in syn_vivado syn_quartus syn_xst syn_yosys rtl; do
 for q in syn_vivado syn_quartus syn_xst syn_yosys rtl; do
+	if test -f result.${q}.${p}.txt; then
+		cp result.${q}.${p}.txt result.${p}.${q}.txt
+		continue
+	fi
+
 	{
 		echo "read_verilog -DGLBL $p.v"
 		echo "rename $job ${job}_1"
