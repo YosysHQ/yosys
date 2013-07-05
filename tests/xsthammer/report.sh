@@ -45,11 +45,15 @@ for q in syn_vivado syn_quartus syn_xst syn_yosys rtl; do
 		echo "hierarchy -check -top ${job}_test"
 
 		echo "! touch test.$p.$q.input_ok"
-		echo "sat -timeout 60 -verify-no-timeout -show a,b,y1,y2 -prove y1 y2 ${job}_test"
+		echo "sat -timeout 10 -verify-no-timeout -show a,b,y1,y2 -prove y1 y2 ${job}_test"
 	} > test.$p.$q.ys
 
 	if yosys -l test.$p.$q.log test.$p.$q.ys; then
-		echo PASS > result.${p}.${q}.txt
+		if grep TIMEOUT test.$p.$q.log; then
+			echo TIMEOUT > result.${p}.${q}.txt
+		else
+			echo PASS > result.${p}.${q}.txt
+		fi
 	else
 		echo $( grep '^ *\\[ab] ' test.$p.$q.log | gawk '{ print $4; }' | tr -d '\n' ) >> fail_patterns.txt
 		echo FAIL > result.${p}.${q}.txt
@@ -69,8 +73,12 @@ done; done
 	done
 
 	echo "initial begin"
+	extra_patterns=""
 	bits=$( echo $( grep '^input' rtl.v | cut -f2 -d'[' | cut -f1 -d: | tr '\n' '+' )2 | bc; )
-	for pattern in $bits\'b0 ~$bits\'b0 $( sed "s/^/$bits'b/;" < fail_patterns.txt ); do
+	for x in 1 2 3 4 5 6 7 8 9 0; do
+		extra_patterns="$extra_patterns $( echo $job$x | sha1sum | gawk "{ print \"160'h\" \$1; }" )"
+	done
+	for pattern in $bits\'b0 ~$bits\'b0 $( sed "s/^/$bits'b/;" < fail_patterns.txt ) $extra_patterns; do
 		echo "  { a, b } <= $pattern; #1;"
 		for p in syn_vivado syn_quartus syn_xst syn_yosys rtl; do
 			echo "  \$display(\"++RPT++ %b $p\", ${p}_y);"
@@ -106,6 +114,12 @@ done; done
 echo "#00ff00" > color_PASS.txt
 echo "#ff0000" > color_FAIL.txt
 
+if cmp result.rtl.isim.txt result.rtl.modelsim.txt; then
+	echo "#00ff00" > color_$( cat result.rtl.isim.txt ).txt
+else
+	echo "#00ff00" > color_NO_SIM_COMMON.txt
+fi
+
 {
 	echo "<h3>Hammer Report: $job</h3>"
 	echo "<table border>"
@@ -120,9 +134,9 @@ echo "#ff0000" > color_FAIL.txt
 			read result < result.${p}.${q}.txt
 			if ! test -f color_$result.txt; then
 				case $( ls color_*.txt | wc -l ) in
-					2) echo "#ffff00" > color_$result.txt ;;
-					3) echo "#ff00ff" > color_$result.txt ;;
-					4) echo "#00ffff" > color_$result.txt ;;
+					3) echo "#ffff00" > color_$result.txt ;;
+					4) echo "#ff00ff" > color_$result.txt ;;
+					5) echo "#00ffff" > color_$result.txt ;;
 					*) echo "#888888" > color_$result.txt ;;
 				esac
 			fi
@@ -135,4 +149,7 @@ echo "#ff0000" > color_FAIL.txt
 	#perl -pe 's,\b(module|input|wire|output|assign|signed|endmodule)\b,<span style="color: #008800;">$1</span>,g' )</pre></td></tr>"
 	echo "</table>"
 } > ../../report/$job.html
+
+sync
+echo READY.
 
