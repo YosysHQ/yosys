@@ -9,7 +9,7 @@ job="$1"
 set --
 
 set -ex
-rm -rf report_tmp/$job
+rm -rf report_temp/$job
 mkdir -p report report_temp/$job
 cd report_temp/$job
 
@@ -29,7 +29,7 @@ cat ../../xl_cells.v ../../cy_cells.v > cells.v
 	echo "endmodule"
 } > test.v
 
-rm -f fail_patterns.txt
+echo -n > fail_patterns.txt
 for p in syn_vivado syn_quartus syn_xst syn_yosys rtl; do
 for q in syn_vivado syn_quartus syn_xst syn_yosys rtl; do
 	{
@@ -69,8 +69,9 @@ done; done
 	done
 
 	echo "initial begin"
-	for pattern in $( cat fail_patterns.txt ); do
-		echo "  { a, b } <= 'b $pattern; #1;"
+	bits=$( echo $( grep '^input' rtl.v | cut -f2 -d'[' | cut -f1 -d: | tr '\n' '+' )2 | bc; )
+	for pattern in $bits\'b0 ~$bits\'b0 $( sed "s/^/$bits'b/;" < fail_patterns.txt ); do
+		echo "  { a, b } <= $pattern; #1;"
 		for p in syn_vivado syn_quartus syn_xst syn_yosys rtl; do
 			echo "  \$display(\"++RPT++ %b $p\", ${p}_y);"
 		done
