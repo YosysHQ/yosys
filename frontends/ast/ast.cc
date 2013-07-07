@@ -661,7 +661,7 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 			node->integer |= (node->bits.back() == RTLIL::S1) << i;
 	}
 	node->range_valid = true;
-	node->range_left = node->bits.size();
+	node->range_left = node->bits.size()-1;
 	node->range_right = 0;
 	return node;
 }
