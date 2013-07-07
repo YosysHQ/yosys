@@ -129,7 +129,7 @@ static bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-static void rmunused_module_signals(RTLIL::Module *module)
+static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode)
 {
 	SigMap assign_map(module);
 	for (auto &it : module->wires) {
@@ -168,7 +168,7 @@ static void rmunused_module_signals(RTLIL::Module *module)
 	std::vector<RTLIL::Wire*> del_wires;
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
-		if (check_public_name(wire->name)) {
+		if ((!purge_mode && check_public_name(wire->name)) || wire->port_id != 0) {
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;
 			assign_map.apply(s2);
 			if (!used_signals.check_any(s2) && wire->port_id == 0) {
@@ -232,12 +232,12 @@ static void rmunused_module_signals(RTLIL::Module *module)
 		log("  removed %d unused temporary wires.\n", del_wires_count);
 }
 
-static void rmunused_module(RTLIL::Module *module)
+static void rmunused_module(RTLIL::Module *module, bool purge_mode)
 {
 	log("Finding unused cells or wires in module %s..\n", module->name.c_str());
 
 	rmunused_module_cells(module);
-	rmunused_module_signals(module);
+	rmunused_module_signals(module, purge_mode);
 }
 
 struct OptCleanPass : public Pass {
@@ -246,7 +246,7 @@ struct OptCleanPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_clean [selection]\n");
+		log("    opt_clean [options] [selection]\n");
 		log("\n");
 		log("This pass identifies wires and cells that are unused and removes them. Other\n");
 		log("passes often remove cells but leave the wires in the design or reconnect the\n");
@@ -255,13 +255,25 @@ struct OptCleanPass : public Pass {
 		log("\n");
 		log("This pass only operates on completely selected modules without processes.\n");
 		log("\n");
+		log("    -purge\n");
+		log("        also remove internal nets if they have a public name\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool purge_mode = false;
+
 		log_header("Executing OPT_CLEAN pass (remove unused cells and wires).\n");
 		log_push();
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-purge") {
+				purge_mode = true;
+				continue;
+			}
+		}
+		extra_args(args, argidx, design);
 
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -277,7 +289,7 @@ struct OptCleanPass : public Pass {
 			if (mod_it.second->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 			} else {
-				rmunused_module(mod_it.second);
+				rmunused_module(mod_it.second, purge_mode);
 			}
 		}
 
