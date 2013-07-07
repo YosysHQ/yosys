@@ -798,7 +798,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	if (0) { case AST_SHIFT_SLEFT:  type_name = "$sshl"; is_signed = true; }
 	if (0) { case AST_SHIFT_SRIGHT: type_name = "$sshr"; is_signed = true; }
 		{
-			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint);
+			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint);
 			int width = width_hint > 0 ? width_hint : left.width;
 			return binop2rtlil(this, type_name, width, left, right);
