@@ -148,8 +148,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		{
 			if (cell->parameters["\\A_WIDTH"].as_int() != cell->parameters["\\B_WIDTH"].as_int()) {
 				int width = std::max(cell->parameters["\\A_WIDTH"].as_int(), cell->parameters["\\B_WIDTH"].as_int());
-				cell->connections["\\A"].extend(width, cell->parameters["\\A_SIGNED"].as_bool());
-				cell->connections["\\B"].extend(width, cell->parameters["\\B_SIGNED"].as_bool());
+				cell->connections["\\A"].extend(width, cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool());
+				cell->connections["\\B"].extend(width, cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool());
 				cell->parameters["\\A_WIDTH"] = width;
 				cell->parameters["\\B_WIDTH"] = width;
 			}
