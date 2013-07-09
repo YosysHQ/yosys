@@ -530,7 +530,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_TO_UNSIGNED:
-		children.at(0)->detectSignWidthWorker(width_hint, sign_hint);
+		children.at(0)->detectSignWidthWorker(width_hint, dummy_sign_hint);
 		sign_hint = false;
 		break;
 
@@ -593,8 +593,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 	case AST_LOGIC_AND:
 	case AST_LOGIC_OR:
 	case AST_LOGIC_NOT:
-		for (auto child : children)
-			child->detectSignWidthWorker(width_hint, sign_hint);
+		width_hint = std::max(width_hint, 1);
+		sign_hint = false;
 		break;
 
 	case AST_TERNARY:
@@ -835,7 +835,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// just pass thru the signal. the parent will evaluated the is_signed property and inperpret the SigSpec accordingly
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED: {
-			RTLIL::SigSpec sig = children[0]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec sig = children[0]->genRTLIL();
 			is_signed = type == AST_TO_SIGNED;
 			return sig;
 	}
@@ -889,6 +889,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_BIT_XOR:  type_name = "$xor"; }
 	if (0) { case AST_BIT_XNOR: type_name = "$xnor"; }
 		{
+			if (width_hint < 0)
+				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
 			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
 			int width = std::max(left.width, right.width);
@@ -965,12 +967,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (width > width_hint && width_hint > 0)
 				width = width_hint;
 			if (width < width_hint) {
-				if (type == AST_ADD || type == AST_SUB) {
+				if (type == AST_ADD || type == AST_SUB)
 					width++;
-					if (width < width_hint && children[0]->is_signed != children[1]->is_signed)
-						width++;
-				}
-				if (type == AST_SUB && !children[0]->is_signed && !children[1]->is_signed)
+				if (type == AST_SUB && (!children[0]->is_signed || !children[1]->is_signed))
 					width = width_hint;
 				if (type == AST_MUL)
 					width = std::min(left.width + right.width, width_hint);

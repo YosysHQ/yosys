@@ -27,19 +27,21 @@ module test04(a, y);
   assign y = ~(a - 1'b0);
 endmodule
 
-module test05(a, y);
-  input a;
-  output y;
-  assign y = 12345 >> {a, 32'd0};
-endmodule
+// .. this test triggers a bug in xilinx isim.
+// module test05(a, y);
+//   input a;
+//   output y;
+//   assign y = 12345 >> {a, 32'd0};
+// endmodule
 
-module test06(a, b, c, y);
-  input signed [3:0] a;
-  input signed [1:0] b;
-  input signed [1:0] c;
-  output [5:0] y;
-  assign y = (a >> b) >>> c;
-endmodule
+// .. this test triggers a bug in icarus verilog.
+// module test06(a, b, c, y);
+//   input signed [3:0] a;
+//   input signed [1:0] b;
+//   input signed [1:0] c;
+//   output [5:0] y;
+//   assign y = (a >> b) >>> c;
+// endmodule
 
 module test07(a, b, y);
   input signed [1:0] a;
