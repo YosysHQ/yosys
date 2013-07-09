@@ -241,7 +241,7 @@ struct SatGen
 			{
 				std::vector<int> tmp_shifted(tmp.size());
 				for (size_t j = 0; j < tmp.size(); j++) {
-					int idx = j + (1 << i) * (shift_left ? -1 : +1);
+					int idx = j + (1 << (i > 30 ? 30 : i)) * (shift_left ? -1 : +1);
 					tmp_shifted.at(j) = (0 <= idx && idx < int(tmp.size())) ? tmp.at(idx) : sign_extend ? tmp.back() : ez->FALSE;
 				}
 				tmp = ez->vec_ite(b.at(i), tmp_shifted, tmp);

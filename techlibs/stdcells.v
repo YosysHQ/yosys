@@ -446,7 +446,7 @@ generate
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
 		\$shift #(
 			.WIDTH(WIDTH),
-			.SHIFT(0 - (2 ** i))
+			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
 		) sh (
 			.X(0),
 			.A(unshifted),
@@ -499,7 +499,7 @@ generate
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
 		\$shift #(
 			.WIDTH(WIDTH),
-			.SHIFT(2 ** i)
+			.SHIFT(2 ** (i > 30 ? 30 : i))
 		) sh (
 			.X(0),
 			.A(unshifted),
@@ -552,7 +552,7 @@ generate
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
 		\$shift #(
 			.WIDTH(WIDTH),
-			.SHIFT(0 - (2 ** i))
+			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
 		) sh (
 			.X(0),
 			.A(unshifted),
@@ -614,7 +614,7 @@ generate
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
 		\$shift #(
 			.WIDTH(WIDTH),
-			.SHIFT(2 ** i)
+			.SHIFT(2 ** (i > 30 ? 30 : i))
 		) sh (
 			.X(A_SIGNED && A[A_WIDTH-1]),
 			.A(unshifted),
@@ -800,7 +800,7 @@ input [B_WIDTH-1:0] B;
 output Y;
 
 wire carry, carry_sign;
-wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
+wire [WIDTH-1:0] A_buf, B_buf;
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
@@ -825,7 +825,7 @@ input [B_WIDTH-1:0] B;
 output Y;
 
 wire carry, carry_sign;
-wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
+wire [WIDTH-1:0] A_buf, B_buf;
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 

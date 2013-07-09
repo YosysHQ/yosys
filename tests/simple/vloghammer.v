@@ -3,8 +3,48 @@
 // https://github.com/cliffordwolf/VlogHammer
 
 module test01(a, y);
-	input [7:0] a;
-	output [3:0] y;
-	assign y = ~a >> 4;
+  input [7:0] a;
+  output [3:0] y;
+  assign y = ~a >> 4;
+endmodule
+
+module test02(a, y);
+  input signed [3:0] a;
+  output signed [4:0] y;
+  assign y = (~a) >> 1;
+endmodule
+
+module test03(a, b, y);
+  input [2:0] a;
+  input signed [1:0] b;
+  output y;
+  assign y = ~(a >>> 1) == b;
+endmodule
+
+module test04(a, y);
+  input a;
+  output [1:0] y;
+  assign y = ~(a - 1'b0);
+endmodule
+
+module test05(a, y);
+  input a;
+  output y;
+  assign y = 12345 >> {a, 32'd0};
+endmodule
+
+module test06(a, b, c, y);
+  input signed [3:0] a;
+  input signed [1:0] b;
+  input signed [1:0] c;
+  output [5:0] y;
+  assign y = (a >> b) >>> c;
+endmodule
+
+module test07(a, b, y);
+  input signed [1:0] a;
+  input signed [2:0] b;
+  output y;
+  assign y = 2'b11 != a+b;
 endmodule
 
