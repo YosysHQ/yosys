@@ -896,6 +896,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int width = std::max(left.width, right.width);
 			if (width_hint > 0)
 				width = width_hint;
+			is_signed = children[0]->is_signed && children[1]->is_signed;
 			return binop2rtlil(this, type_name, width, left, right);
 		}
 
