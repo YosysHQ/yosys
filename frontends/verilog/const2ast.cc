@@ -161,7 +161,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 	if (str == endptr)
 		intval = -1;
 
-	// The "<bits>'[bodh]<digits>" syntax
+	// The "<bits>'s?[bodh]<digits>" syntax
 	if (*endptr == '\'')
 	{
 		int len_in_bits = intval;

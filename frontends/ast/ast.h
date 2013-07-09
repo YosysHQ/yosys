@@ -174,10 +174,14 @@ namespace AST
 		void dumpAst(FILE *f, std::string indent, AstNode *other = NULL);
 		void dumpVlog(FILE *f, std::string indent);
 
+		// used by genRTLIL() for detecting expression width and sign
+		void detectSignWidthWorker(int &width_hint, bool &sign_hint);
+		void detectSignWidth(int &width_hint, bool &sign_hint);
+
 		// create RTLIL code for this AST node
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
-		RTLIL::SigSpec genRTLIL(int width_hint = -1);
+		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
 		RTLIL::SigSpec genWidthRTLIL(int width, RTLIL::SigSpec *subst_from = NULL,  RTLIL::SigSpec *subst_to = NULL);
 
 		// compare AST nodes

@@ -51,7 +51,7 @@ create_ref() {
 		(
 			set +x
 			prefix="$2"
-			xilver=$( ls -v /opt/Xilinx/ | tail -n1; )
+			xilver=$( ls -v /opt/Xilinx/ | grep '^[0-9]' | tail -n1; )
 			case "$( uname -m )" in
 			x86_64)
 				set --; . /opt/Xilinx/$xilver/ISE_DS/settings64.sh ;;
@@ -73,7 +73,7 @@ compile_and_run() {
 		(
 			set +x
 			files=( "$@" )
-			xilver=$( ls -v /opt/Xilinx/ | tail -n1; )
+			xilver=$( ls -v /opt/Xilinx/ | grep '^[0-9]' | tail -n1; )
 			case "$( uname -m )" in
 			x86_64)
 				set --; . /opt/Xilinx/$xilver/ISE_DS/settings64.sh ;;

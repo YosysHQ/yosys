@@ -33,6 +33,7 @@
 #include <sstream>
 #include <stdarg.h>
 #include <assert.h>
+#include <algorithm>
 
 using namespace AST;
 using namespace AST_INTERNAL;
@@ -503,6 +504,126 @@ struct AST_INTERNAL::ProcessGenerator
 	}
 };
 
+// detect sign and width of an expression
+void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
+{
+	std::string type_name;
+	bool dummy_sign_hint = true;
+	// int dummy_width_hint = -1;
+
+	switch (type)
+	{
+	case AST_CONSTANT:
+		width_hint = std::max(width_hint, int(bits.size()));
+		if (!is_signed)
+			sign_hint = false;
+		break;
+
+	case AST_IDENTIFIER:
+		if ((id2ast && !id2ast->is_signed) || children.size() > 0)
+			sign_hint = false;
+		width_hint = std::max(width_hint, genRTLIL().width);
+		break;
+
+	case AST_TO_SIGNED:
+		children.at(0)->detectSignWidthWorker(width_hint, dummy_sign_hint);
+		break;
+
+	case AST_TO_UNSIGNED:
+		children.at(0)->detectSignWidthWorker(width_hint, sign_hint);
+		sign_hint = false;
+		break;
+
+	case AST_CONCAT:
+	case AST_REPLICATE:
+		width_hint = std::max(width_hint, genRTLIL().width);
+		sign_hint = false;
+		break;
+
+	case AST_NEG:
+	case AST_BIT_NOT:
+	case AST_POS:
+		children[0]->detectSignWidthWorker(width_hint, sign_hint);
+		break;
+
+	case AST_BIT_AND:
+	case AST_BIT_OR:
+	case AST_BIT_XOR:
+	case AST_BIT_XNOR:
+		for (auto child : children)
+			child->detectSignWidthWorker(width_hint, sign_hint);
+		break;
+
+	case AST_REDUCE_AND:
+	case AST_REDUCE_OR:
+	case AST_REDUCE_XOR:
+	case AST_REDUCE_XNOR:
+	case AST_REDUCE_BOOL:
+		width_hint = std::max(width_hint, 1);
+		sign_hint = false;
+		break;
+
+	case AST_SHIFT_LEFT:
+	case AST_SHIFT_RIGHT:
+	case AST_SHIFT_SLEFT:
+	case AST_SHIFT_SRIGHT:
+		children[0]->detectSignWidthWorker(width_hint, sign_hint);
+		break;
+
+	case AST_LT:
+	case AST_LE:
+	case AST_EQ:
+	case AST_NE:
+	case AST_GE:
+	case AST_GT:
+		width_hint = std::max(width_hint, 1);
+		sign_hint = false;
+		break;
+
+	case AST_ADD:
+	case AST_SUB:
+	case AST_MUL:
+	case AST_DIV:
+	case AST_MOD:
+	case AST_POW:
+		for (auto child : children)
+			child->detectSignWidthWorker(width_hint, sign_hint);
+		break;
+
+	case AST_LOGIC_AND:
+	case AST_LOGIC_OR:
+	case AST_LOGIC_NOT:
+		for (auto child : children)
+			child->detectSignWidthWorker(width_hint, sign_hint);
+		break;
+
+	case AST_TERNARY:
+		children.at(1)->detectSignWidthWorker(width_hint, sign_hint);
+		children.at(2)->detectSignWidthWorker(width_hint, sign_hint);
+		break;
+
+	case AST_MEMRD:
+		if (!is_signed)
+			sign_hint = false;
+		width_hint = std::max(width_hint, current_module->memories.at(str)->width);
+		break;
+
+	// everything should have been handled above -> print error if not.
+	default:
+		for (auto f : log_files)
+			current_ast->dumpAst(f, "verilog-ast> ");
+		log_error("Don't know how to detect sign and width for %s node at %s:%d!\n",
+				type2str(type).c_str(), filename.c_str(), linenum);
+	}
+}
+
+// detect sign and width of an expression
+void AstNode::detectSignWidth(int &width_hint, bool &sign_hint)
+{
+	width_hint = -1, sign_hint = true;
+	detectSignWidthWorker(width_hint, sign_hint);
+}
+
 // create RTLIL from an AST node
 // all generated cells, wires and processes are added to the module pointed to by 'current_module'
 // when the AST node is an expression (AST_ADD, AST_BIT_XOR, etc.), the result signal is returned.
@@ -510,7 +631,7 @@ struct AST_INTERNAL::ProcessGenerator
 // note that this function is influenced by a number of global variables that might be set when
 // called from genWidthRTLIL(). also note that this function recursively calls itself to transform
 // larger expressions into a netlist of cells.
-RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
+RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 {
 	// in the following big switch() statement there are some uses of
 	// Clifford's Device (http://www.clifford.at/cfun/cliffdev/). In this
@@ -612,6 +733,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	// simply return the corresponding RTLIL::SigSpec for an AST_CONSTANT node
 	case AST_CONSTANT:
 		{
+			if (width_hint < 0)
+				detectSignWidth(width_hint, sign_hint);
+
 			RTLIL::SigChunk chunk;
 			chunk.wire = NULL;
 			chunk.data.bits = bits;
@@ -621,6 +745,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 			RTLIL::SigSpec sig;
 			sig.chunks.push_back(chunk);
 			sig.width = chunk.width;
+
+			is_signed = sign_hint;
 			return sig;
 		}
 
@@ -702,17 +828,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 			if (genRTLIL_subst_from && genRTLIL_subst_to)
 				sig.replace(*genRTLIL_subst_from, *genRTLIL_subst_to);
 
-			is_signed = id2ast->is_signed;
-			if (children.size() != 0)
-				is_signed = false;
-
+			is_signed = children.size() > 0 ? false : id2ast->is_signed && sign_hint;
 			return sig;
 		}
 
 	// just pass thru the signal. the parent will evaluated the is_signed property and inperpret the SigSpec accordingly
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED: {
-			RTLIL::SigSpec sig = children[0]->genRTLIL(width_hint);
+			RTLIL::SigSpec sig = children[0]->genRTLIL(width_hint, sign_hint);
 			is_signed = type == AST_TO_SIGNED;
 			return sig;
 	}
@@ -750,11 +873,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	if (0) { case AST_POS:     type_name = "$pos"; }
 	if (0) { case AST_NEG:     type_name = "$neg"; }
 		{
-			RTLIL::SigSpec arg = children[0]->genRTLIL(width_hint);
-			is_signed = type == AST_NEG || (type == AST_POS && children[0]->is_signed);
-			int width = type == AST_NEG && arg.width < width_hint ? arg.width+1 : arg.width;
-			if (width_hint > 0)
+			RTLIL::SigSpec arg = children[0]->genRTLIL(width_hint, sign_hint);
+			is_signed = children[0]->is_signed;
+			int width = arg.width;
+			if (width_hint > 0) {
 				width = width_hint;
+				arg.extend(width, is_signed);
+			}
 			return uniop2rtlil(this, type_name, width, arg);
 		}
 
@@ -764,8 +889,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	if (0) { case AST_BIT_XOR:  type_name = "$xor"; }
 	if (0) { case AST_BIT_XNOR: type_name = "$xnor"; }
 		{
-			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint);
-			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint);
+			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
 			int width = std::max(left.width, right.width);
 			if (width_hint > 0)
 				width = width_hint;
@@ -795,12 +920,15 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	// generate cells for binary operations: $shl, $shr, $sshl, $sshr
 	if (0) { case AST_SHIFT_LEFT:   type_name = "$shl"; }
 	if (0) { case AST_SHIFT_RIGHT:  type_name = "$shr"; }
-	if (0) { case AST_SHIFT_SLEFT:  type_name = "$sshl"; is_signed = true; }
-	if (0) { case AST_SHIFT_SRIGHT: type_name = "$sshr"; is_signed = true; }
+	if (0) { case AST_SHIFT_SLEFT:  type_name = "$sshl"; }
+	if (0) { case AST_SHIFT_SRIGHT: type_name = "$sshr"; }
 		{
-			RTLIL::SigSpec left = children[0]->genRTLIL();
-			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint);
+			if (width_hint < 0)
+				detectSignWidth(width_hint, sign_hint);
+			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec right = children[1]->genRTLIL();
 			int width = width_hint > 0 ? width_hint : left.width;
+			is_signed = children[0]->is_signed;
 			return binop2rtlil(this, type_name, width, left, right);
 		}
 
@@ -812,8 +940,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	if (0) { case AST_GE: type_name = "$ge"; }
 	if (0) { case AST_GT: type_name = "$gt"; }
 		{
-			RTLIL::SigSpec left = children[0]->genRTLIL();
-			RTLIL::SigSpec right = children[1]->genRTLIL();
+			width_hint = -1, sign_hint = true;
+			children[0]->detectSignWidthWorker(width_hint, sign_hint);
+			children[1]->detectSignWidthWorker(width_hint, sign_hint);
+			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
 			RTLIL::SigSpec sig = binop2rtlil(this, type_name, 1, left, right);
 			return sig;
 		}
@@ -826,8 +957,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	if (0) { case AST_MOD: type_name = "$mod"; }
 	if (0) { case AST_POW: type_name = "$pow"; }
 		{
-			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint);
-			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint);
+			if (width_hint < 0)
+				detectSignWidth(width_hint, sign_hint);
+			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
 			int width = std::max(left.width, right.width);
 			if (width > width_hint && width_hint > 0)
 				width = width_hint;
@@ -842,7 +975,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 				if (type == AST_MUL)
 					width = std::min(left.width + right.width, width_hint);
 			}
-			is_signed = children[0]->is_signed || children[1]->is_signed;
+			is_signed = children[0]->is_signed && children[1]->is_signed;
 			return binop2rtlil(this, type_name, width, left, right);
 		}
 
@@ -866,22 +999,16 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint)
 	case AST_TERNARY:
 		{
 			RTLIL::SigSpec cond = children[0]->genRTLIL();
-			RTLIL::SigSpec val1 = children[1]->genRTLIL();
-			RTLIL::SigSpec val2 = children[2]->genRTLIL();
+			RTLIL::SigSpec val1 = children[1]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec val2 = children[2]->genRTLIL(width_hint, sign_hint);
 
 			if (cond.width > 1)
 				cond = uniop2rtlil(this, "$reduce_bool", 1, cond, false);
 
 			int width = std::max(val1.width, val2.width);
-			if (children[1]->is_signed && children[2]->is_signed) {
-				is_signed = true;
-				val1.extend(width, children[1]->is_signed);
-				val2.extend(width, children[2]->is_signed);
-			} else {
-				is_signed = false;
-				val1.extend(width);
-				val2.extend(width);
-			}
+			is_signed = children[1]->is_signed && children[2]->is_signed;
+			val1.extend(width);
+			val2.extend(width);
 
 			return mux2rtlil(this, cond, val1, val2);
 		}
@@ -1063,7 +1190,10 @@ RTLIL::SigSpec AstNode::genWidthRTLIL(int width, RTLIL::SigSpec *subst_from,  RT
 	if (subst_to)
 		genRTLIL_subst_to = subst_to;
 
-	RTLIL::SigSpec sig = genRTLIL(width);
+	bool sign_hint = true;
+	int width_hint = width;
+	detectSignWidthWorker(width_hint, sign_hint);
+	RTLIL::SigSpec sig = genRTLIL(width_hint, sign_hint);
 
 	genRTLIL_subst_from = backup_subst_from;
 	genRTLIL_subst_to = backup_subst_to;
