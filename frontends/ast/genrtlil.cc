@@ -1007,8 +1007,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			int width = std::max(val1.width, val2.width);
 			is_signed = children[1]->is_signed && children[2]->is_signed;
-			val1.extend(width);
-			val2.extend(width);
+			val1.extend(width, is_signed);
+			val2.extend(width, is_signed);
 
 			return mux2rtlil(this, cond, val1, val2);
 		}
