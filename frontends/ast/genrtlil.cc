@@ -836,7 +836,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED: {
 			RTLIL::SigSpec sig = children[0]->genRTLIL();
-			is_signed = type == AST_TO_SIGNED;
+			is_signed = sign_hint;
 			return sig;
 	}
 

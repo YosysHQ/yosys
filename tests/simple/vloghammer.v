@@ -50,3 +50,10 @@ module test07(a, b, y);
   assign y = 2'b11 != a+b;
 endmodule
 
+module test08(a, b, y);
+  input [1:0] a;
+  input [1:0] b;
+  output y;
+  assign y = a == ($signed(b) >>> 1);
+endmodule
+
