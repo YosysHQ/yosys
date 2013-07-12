@@ -998,6 +998,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate multiplexer for ternary operator (aka ?:-operator)
 	case AST_TERNARY:
 		{
+			if (width_hint < 0)
+				detectSignWidth(width_hint, sign_hint);
+
 			RTLIL::SigSpec cond = children[0]->genRTLIL();
 			RTLIL::SigSpec val1 = children[1]->genRTLIL(width_hint, sign_hint);
 			RTLIL::SigSpec val2 = children[2]->genRTLIL(width_hint, sign_hint);
