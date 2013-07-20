@@ -1,0 +1,20 @@
+--- ./elab_net.cc.orig	2012-10-27 22:11:05.345688820 +0200
++++ ./elab_net.cc	2012-10-27 22:12:23.398075860 +0200
+@@ -29,6 +29,7 @@
+ 
+ # include  <iostream>
+ # include  <cstring>
++# include  <memory>
+ 
+ /*
+  * This is a state flag that determines whether an elaborate_net must
+--- ./syn-rules.y.orig	2012-10-27 22:25:38.890020489 +0200
++++ ./syn-rules.y	2012-10-27 22:25:49.146071350 +0200
+@@ -25,6 +25,7 @@
+ # include "config.h"
+ 
+ # include  <iostream>
++# include  <stdio.h>
+ 
+ /*
+  * This file implements synthesis based on matching threads and

@@ -100,9 +100,13 @@ install: $(TARGETS)
 install-abc:
 	install yosys-abc /usr/local/bin/
 
+manual:
+	cd manual && bash make.sh
+
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
+	cd manual && rm *.aux *.bbl *.blg *.idx *.log *.out *.pdf *.toc
 	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean
 
 mrproper: clean
@@ -137,6 +141,6 @@ config-gprof: clean
 -include backends/*/*.d
 -include kernel/*.d
 
-.PHONY: all top-all abc test install install-abc clean mrproper qtcreator
+.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
 .PHONY: config-clean config-clang-debug config-gcc-debug config-release
 

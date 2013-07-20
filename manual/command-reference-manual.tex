@@ -1,0 +1,1135 @@
+% Generated using the yosys 'help -write-tex-command-reference-manual' command.
+
+\section{abc -- use ABC for technology mapping}
+\label{cmd:abc}
+\begin{lstlisting}[numbers=left,frame=single]
+    abc [options] [selection]
+
+This pass uses the ABC tool [1] for technology mapping of yosys's internal gate
+library to a target architecture.
+
+    -exe <command>
+        use the specified command name instead of "yosys-abc" to execute ABC.
+        This can e.g. be used to call a specific version of ABC or a wrapper.
+
+    -script <file>
+        use the specified ABC script file instead of the default script.
+
+    -liberty <file>
+        generate netlists for the specified cell library (using the liberty
+        file format). Without this option, ABC is used to optimize the netlist
+        but keeps using yosys's internal gate library. This option is ignored if
+        the -script option is also used.
+
+    -nocleanup
+        when this option is used, the temporary files created by this pass
+        are not removed. this is useful for debugging.
+
+This pass does not operate on modules with unprocessed processes in it.
+(I.e. the 'proc' pass should be used first to convert processes to netlists.)
+
+[1] http://www.eecs.berkeley.edu/~alanmi/abc/
+\end{lstlisting}
+
+\section{cd -- a shortcut for 'select -module <name>'}
+\label{cmd:cd}
+\begin{lstlisting}[numbers=left,frame=single]
+    cd <modname>
+
+This is just a shortcut for 'select -module <modname>'.
+
+
+    cd <cellname>
+
+When no module with the specified name is found, but there is a cell
+with the specified name in the current module, then this is equivialent
+to 'cd <celltype>'.
+
+    cd ..
+
+This is just a shortcut for 'select -clear'.
+\end{lstlisting}
+
+\section{dfflibmap -- technology mapping of flip-flops}
+\label{cmd:dfflibmap}
+\begin{lstlisting}[numbers=left,frame=single]
+    dfflibmap -liberty <file> [selection]
+
+Map internal flip-flop cells to the flip-flop cells in the technology
+library specified in the given liberty file.
+
+This pass may add inverters as needed. Therefore it is recommended to
+first run this pass and then map the logic paths to the target technology.
+\end{lstlisting}
+
+\section{dump -- print parts of the design in ilang format}
+\label{cmd:dump}
+\begin{lstlisting}[numbers=left,frame=single]
+    dump [options] [selection]
+
+Write the selected parts of the design to the console or specified file in
+ilang format.
+
+    -outfile <filename>
+        Write to the specified file.
+\end{lstlisting}
+
+\section{eval -- evaluate the circuit given an input}
+\label{cmd:eval}
+\begin{lstlisting}[numbers=left,frame=single]
+    eval [options] [selection]
+
+This command evaluates the value of a signal given the value of all required
+inputs.
+
+    -set <signal> <value>
+        set the specified signal to the specified value.
+
+    -show <signal>
+        show the value for the specified signal. if no -show option is passed
+        then all output ports of the current module are used.
+\end{lstlisting}
+
+\section{extract -- find subcircuits and replace them with cells}
+\label{cmd:extract}
+\begin{lstlisting}[numbers=left,frame=single]
+    extract -map <map_file> [options] [selection]
+    extract -mine <out_file> [options] [selection]
+
+This pass looks for subcircuits that are isomorphic to any of the modules
+in the given map file and replaces them with instances of this modules. The
+map file can be a verilog source file (*.v) or an ilang file (*.il).
+
+    -map <map_file>
+        use the modules in this file as reference
+
+    -verbose
+        print debug output while analyzing
+
+    -constports
+        also find instances with constant drivers. this may be much
+        slower than the normal operation.
+
+    -nodefaultswaps
+        normally builtin port swapping rules for internal cells are used per
+        default. This turns that off, so e.g. 'a^b' does not match 'b^a'
+        when this option is used.
+
+    -compat <needle_type> <haystack_type>
+        Per default, the cells in the map file (needle) must have the
+        type as the cells in the active design (haystack). This option
+        can be used to register additional pairs of types that should
+        match. This option can be used multiple times.
+
+    -swap <needle_type> <port1>,<port2>[,...]
+        Register a set of swapable ports for a needle cell type.
+        This option can be used multiple times.
+
+    -perm <needle_type> <port1>,<port2>[,...] <portA>,<portB>[,...]
+        Register a valid permutation of swapable ports for a needle
+        cell type. This option can be used multiple times.
+
+    -cell_attr <attribute_name>
+        Attributes on cells with the given name must match.
+
+    -wire_attr <attribute_name>
+        Attributes on wires with the given name must match.
+
+This pass does not operate on modules with uprocessed processes in it.
+(I.e. the 'proc' pass should be used first to convert processes to netlists.)
+
+This pass can also be used for mining for frequent subcircuits. In this mode
+the following options are to be used instead of the -map option.
+
+    -mine <out_file>
+        mine for frequent subcircuits and write them to the given ilang file
+
+    -mine_cells_span <min> <max>
+        only mine for subcircuits with the specified number of cells
+        default value: 3 5
+
+    -mine_min_freq <num>
+        only mine for subcircuits with at least the specified number of matches
+        default value: 10
+
+    -mine_limit_matches_per_module <num>
+        when calculating the number of matches for a subcircuit, don't count
+        more than the specified number of matches per module
+
+    -mine_max_fanout <num>
+        don't consider internal signals with more than <num> connections
+
+The modules in the map file may have the attribute 'extract_order' set to an
+integer value. Then this value is used to determine the order in which the pass
+tries to map the modules to the design (ascending, default value is 0).
+
+See 'help techmap' for a pass that does the opposite thing.
+\end{lstlisting}
+
+\section{flatten -- flatten design}
+\label{cmd:flatten}
+\begin{lstlisting}[numbers=left,frame=single]
+    flatten [selection]
+
+This pass flattens the design by replacing cells by their implementation. This
+pass is very simmilar to the 'techmap' pass. The only difference is that this
+pass is using the current design as mapping library.
+\end{lstlisting}
+
+\section{fsm -- extract and optimize finite state machines}
+\label{cmd:fsm}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm [options] [selection]
+
+This pass calls all the other fsm_* passes in a useful order. This performs
+FSM extraction and optimiziation. It also calls opt_clean as needed:
+
+    fsm_detect          unless got option -nodetect
+    fsm_extract
+
+    fsm_opt
+    opt_clean
+    fsm_opt
+
+    fsm_expand          if got option -expand
+    opt_clean           if got option -expand
+    fsm_opt             if got option -expand
+
+    fsm_recode          unless got option -norecode
+
+    fsm_info
+
+    fsm_export          if got option -export
+    fsm_map             unless got option -nomap
+
+Options:
+
+    -expand, -norecode, -export, -nomap
+        enable or disable passes as indicated above
+
+    -encoding tye
+    -fm_set_fsm_file file
+        passed through to fsm_recode pass
+\end{lstlisting}
+
+\section{fsm\_detect -- finding FSMs in design}
+\label{cmd:fsm_detect}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_detect [selection]
+
+This pass detects finite state machines by identifying the state signal.
+The state signal is then marked by setting the attribute 'fsm_encoding'
+on the state signal to "auto".
+
+Existing 'fsm_encoding' attributes are not changed by this pass.
+
+Signals can be protected from being detected by this pass by setting the
+'fsm_encoding' attribute to "none".
+\end{lstlisting}
+
+\section{fsm\_expand -- expand FSM cells by merging logic into it}
+\label{cmd:fsm_expand}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_expand [selection]
+
+The fsm_extract pass is conservative about the cells that belong to a finite
+state machine. This pass can be used to merge additional auxiliary gates into
+the finate state machine.
+\end{lstlisting}
+
+\section{fsm\_export -- exporting FSMs to KISS2 files}
+\label{cmd:fsm_export}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_export [-noauto] [-o filename] [-origenc] [selection]
+
+This pass creates a KISS2 file for every selected FSM. For FSMs with the
+'fsm_export' attribute set, the attribute value is used as filename, otherwise
+the module and cell name is used as filename. If the parameter '-o' is given,
+the first exported FSM is written to the specified filename. This overwrites
+the setting as specified with the 'fsm_export' attribute. All other FSMs are
+exported to the default name as mentioned above.
+
+    -noauto
+        only export FSMs that have the 'fsm_export' attribute set
+
+    -o filename
+        filename of the first exported FSM
+
+    -origenc
+        use binary state encoding as state names instead of s0, s1, ...
+\end{lstlisting}
+
+\section{fsm\_extract -- extracting FSMs in design}
+\label{cmd:fsm_extract}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_extract [selection]
+
+This pass operates on all signals marked as FSM state signals using the
+'fsm_encoding' attribute. It consumes the logic that creates the state signal
+and uses the state signal to generate control signal and replaces it with an
+FSM cell.
+
+The generated FSM cell still generates the original state signal with its
+original encoding. The 'fsm_opt' pass can be used in combination with the
+'opt_clean' pass to eliminate this signal.
+\end{lstlisting}
+
+\section{fsm\_info -- print information on finite state machines}
+\label{cmd:fsm_info}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_info [selection]
+
+This pass dumps all internal information on FSM cells. It can be useful for
+analyzing the synthesis process and is called automatically by the 'fsm'
+pass so that this information is included in the synthesis log file.
+\end{lstlisting}
+
+\section{fsm\_map -- mapping FSMs to basic logic}
+\label{cmd:fsm_map}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_map [selection]
+
+This pass translates FSM cells to flip-flops and logic.
+\end{lstlisting}
+
+\section{fsm\_opt -- optimize finite state machines}
+\label{cmd:fsm_opt}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_opt [selection]
+
+This pass optimizes FSM cells. It detects which output signals are actually
+not used and removes them from the FSM. This pass is usually used in
+combination with the 'opt_clean' pass (see also 'help fsm').
+\end{lstlisting}
+
+\section{fsm\_recode -- recoding finite state machines}
+\label{cmd:fsm_recode}
+\begin{lstlisting}[numbers=left,frame=single]
+    fsm_recode [-encoding type] [-fm_set_fsm_file file] [selection]
+
+This pass reassign the state encodings for FSM cells. At the moment only
+one-hot encoding and binary encoding is supported. The option -encoding
+can be used to specify the encoding scheme used for FSMs without the
+`fsm_encoding' attribute (or with the attribute set to `auto'.
+
+The option -fm_set_fsm_file can be used to generate a file containing the
+mapping from old to new FSM encoding in form of Synopsys Formality set_fsm_*
+commands.
+\end{lstlisting}
+
+\section{help -- display help messages}
+\label{cmd:help}
+\begin{lstlisting}[numbers=left,frame=single]
+    help  .............  list all commands
+    help <command>  ...  print help message for given command
+    help -all  ........  print complete command reference
+\end{lstlisting}
+
+\section{hierarchy -- check, expand and clean up design hierarchy}
+\label{cmd:hierarchy}
+\begin{lstlisting}[numbers=left,frame=single]
+    hierarchy [-check] [-top <module>]
+    hierarchy -generate <cell-types> <port-decls>
+
+In parametric designs, a module might exists in serveral variations with
+different parameter values. This pass looks at all modules in the current
+design an re-runs the language frontends for the parametric modules as
+needed.
+
+    -check
+        also check the design hierarchy. this generates an error when
+        an unknown module is used as cell type.
+
+    -top <module>
+        use the specified top module to built a design hierarchy. modules
+        outside this tree (unused modules) are removed.
+
+In -generate mode this pass generates placeholder modules for the given cell
+types (wildcards supported). For this the design is searched for cells that
+match the given types and then the given port declarations are used to
+determine the direction of the ports. The syntax for a port declaration is:
+
+    {i|o|io}[@<num>]:<portname>
+
+Input ports are specified with the 'i' prefix, output ports with the 'o'
+prefix and inout ports with the 'io' prefix. The optional <num> specifies
+the position of the port in the parameter list (needed when instanciated
+using positional arguments). When <num> is not specified, the <portname> can
+also contain wildcard characters.
+
+This pass ignores the current selection and always operates on all modules
+in the current design.
+\end{lstlisting}
+
+\section{ls -- list modules or objects in modules}
+\label{cmd:ls}
+\begin{lstlisting}[numbers=left,frame=single]
+    ls
+
+When no active module is selected, this prints a list of all module.
+
+When an active module is selected, this prints a list of objects in the module.
+\end{lstlisting}
+
+\section{memory -- translate memories to basic cells}
+\label{cmd:memory}
+\begin{lstlisting}[numbers=left,frame=single]
+    memory [-nomap] [selection]
+
+This pass calls all the other memory_* passes in a useful order:
+
+    memory_dff
+    memory_collect
+    memory_map          (skipped if called with -nomap)
+
+This converts memories to word-wide DFFs and address decoders
+or moultiport memory blocks if called with the -nomap option.
+\end{lstlisting}
+
+\section{memory\_collect -- creating multi-port memory cells}
+\label{cmd:memory_collect}
+\begin{lstlisting}[numbers=left,frame=single]
+    memory_collect [selection]
+
+This pass collects memories and memory ports and creates generic multiport
+memory cells.
+\end{lstlisting}
+
+\section{memory\_dff -- merge input/output DFFs into memories}
+\label{cmd:memory_dff}
+\begin{lstlisting}[numbers=left,frame=single]
+    memory_dff [selection]
+
+This pass detects DFFs at memory ports and merges them into the memory port.
+I.e. it consumes an asynchronous memory port and the flip-flops at its
+interface and yields a synchronous memory port.
+\end{lstlisting}
+
+\section{memory\_map -- translate multiport memories to basic cells}
+\label{cmd:memory_map}
+\begin{lstlisting}[numbers=left,frame=single]
+    memory_map [selection]
+
+This pass converts multiport memory cells as generated by the memory_collect
+pass to word-wide DFFs and address decoders.
+\end{lstlisting}
+
+\section{opt -- perform simple optimizations}
+\label{cmd:opt}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt [selection]
+
+This pass calls all the other opt_* passes in a useful order. This performs
+a series of trivial optimizations and cleanups. This pass executes the other
+passes in the following order:
+
+    opt_const
+    opt_share -nomux
+
+    do
+        opt_muxtree
+        opt_reduce
+        opt_share
+        opt_rmdff
+        opt_clean
+        opt_const
+    while [changed design]
+\end{lstlisting}
+
+\section{opt\_clean -- remove unused cells and wires}
+\label{cmd:opt_clean}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt_clean [options] [selection]
+
+This pass identifies wires and cells that are unused and removes them. Other
+passes often remove cells but leave the wires in the design or reconnect the
+wires but leave the old cells in the design. This pass can be used to clean up
+after the passes that do the actual work.
+
+This pass only operates on completely selected modules without processes.
+
+    -purge
+        also remove internal nets if they have a public name
+\end{lstlisting}
+
+\section{opt\_const -- perform const folding}
+\label{cmd:opt_const}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt_const [selection]
+
+This pass performs const folding on internal cell types with constant inputs.
+\end{lstlisting}
+
+\section{opt\_muxtree -- eliminate dead trees in multiplexer trees}
+\label{cmd:opt_muxtree}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt_muxtree [selection]
+
+This pass analyzes the control signals for the multiplexer trees in the design
+and identifies inputs that can never be active. It then removes this dead
+branches from the multiplexer trees.
+
+This pass only operates on completely selected modules without processes.
+\end{lstlisting}
+
+\section{opt\_reduce -- simplify large MUXes and AND/OR gates}
+\label{cmd:opt_reduce}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt_reduce [selection]
+
+This pass performs two interlinked optimizations:
+
+1. it consolidates trees of large AND gates or OR gates and eliminates
+duplicated inputs.
+
+2. it identifies duplicated inputs to MUXes and replaces them with a single
+input with the original control signals OR'ed together.
+\end{lstlisting}
+
+\section{opt\_rmdff -- remove DFFs with constant inputs}
+\label{cmd:opt_rmdff}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt_rmdff [selection]
+
+This pass identifies flip-flops with constant inputs and replaces them with
+a constant driver.
+\end{lstlisting}
+
+\section{opt\_share -- consolidate identical cells}
+\label{cmd:opt_share}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt_share [-nomux] [selection]
+
+This pass identifies cells with identical type and input signals. Such cells
+are then merged to one cell.
+
+    -nomux
+        Do not merge MUX cells.
+\end{lstlisting}
+
+\section{proc -- translate processes to netlists}
+\label{cmd:proc}
+\begin{lstlisting}[numbers=left,frame=single]
+    proc [selection]
+
+This pass calls all the other proc_* passes in the most common order.
+
+    proc_clean
+    proc_rmdead
+    proc_arst
+    proc_mux
+    proc_dff
+    proc_clean
+
+This replaces the processes in the design with multiplexers and flip-flops.
+\end{lstlisting}
+
+\section{proc\_arst -- detect asynchronous resets}
+\label{cmd:proc_arst}
+\begin{lstlisting}[numbers=left,frame=single]
+    proc_arst [selection]
+
+This pass identifies asynchronous resets in the processes and converts them
+to a different internal representation that is suitable for generating
+flip-flop cells with asynchronous resets.
+\end{lstlisting}
+
+\section{proc\_clean -- remove empty parts of processes}
+\label{cmd:proc_clean}
+\begin{lstlisting}[numbers=left,frame=single]
+    proc_clean [selection]
+
+This pass removes empty parts of processes and ultimately removes a process
+if it contains only empty structures.
+\end{lstlisting}
+
+\section{proc\_dff -- extract flip-flops from processes}
+\label{cmd:proc_dff}
+\begin{lstlisting}[numbers=left,frame=single]
+    proc_dff [selection]
+
+This pass identifies flip-flops in the processes and converts them to
+d-type flip-flop cells.
+\end{lstlisting}
+
+\section{proc\_mux -- convert decision trees to multiplexers}
+\label{cmd:proc_mux}
+\begin{lstlisting}[numbers=left,frame=single]
+    proc_mux [selection]
+
+This pass converts the decision trees in processes (originating from if-else
+and case statements) to trees of multiplexer cells.
+\end{lstlisting}
+
+\section{proc\_rmdead -- eliminate dead trees in decision trees}
+\label{cmd:proc_rmdead}
+\begin{lstlisting}[numbers=left,frame=single]
+    proc_rmdead [selection]
+
+This pass identifies unreachable branches in decision trees and removes them.
+\end{lstlisting}
+
+\section{read\_ilang -- read modules from ilang file}
+\label{cmd:read_ilang}
+\begin{lstlisting}[numbers=left,frame=single]
+    read_ilang [filename]
+
+Load modules from an ilang file to the current design. (ilang is a text
+representation of a design in yosys's internal format.)
+\end{lstlisting}
+
+\section{read\_verilog -- read modules from verilog file}
+\label{cmd:read_verilog}
+\begin{lstlisting}[numbers=left,frame=single]
+    read_verilog [filename]
+
+Load modules from a verilog file to the current design. A large subset of
+Verilog-2005 is supported.
+
+    -dump_ast
+        dump abstract syntax tree (after simplification)
+
+    -dump_ast_diff
+        dump ast differences before and after simplification
+
+    -dump_vlog
+        dump ast as verilog code (after simplification)
+
+    -yydebug
+        enable parser debug output
+
+    -nolatches
+        usually latches are synthesized into logic loops
+        this option prohibits this and sets the output to 'x'
+        in what would be the latches hold condition
+
+        this behavior can also be achieved by setting the
+        'nolatches' attribute on the respective module or
+        always block.
+
+    -nomem2reg
+        under certain conditions memories are converted to registers
+        early during simplification to ensure correct handling of
+        complex corner cases. this option disables this behavior.
+
+        this can also be achieved by setting the 'nomem2reg'
+        attribute on the respective module or register.
+
+    -mem2reg
+        always convert memories to registers. this can also be
+        achieved by setting the 'mem2reg' attribute on the respective
+        module or register.
+
+    -ppdump
+        dump verilog code after pre-processor
+
+    -nopp
+        do not run the pre-processor
+
+    -lib
+        only create empty placeholder modules
+
+    -noopt
+        don't perform basic optimizations (such as const folding) in the
+        high-level front-end.
+
+    -Dname[=definition]
+        define the preprocessor symbol 'name' and set its optional value
+        'definition'
+\end{lstlisting}
+
+\section{rename -- rename object in the design}
+\label{cmd:rename}
+\begin{lstlisting}[numbers=left,frame=single]
+    rename old_name new_name
+
+Rename the specified object. Note that selection patterns are not supported
+by this command.
+\end{lstlisting}
+
+\section{sat -- solve a SAT problem in the circuit}
+\label{cmd:sat}
+\begin{lstlisting}[numbers=left,frame=single]
+    sat [options] [selection]
+
+This command solves a SAT problem defined over the currently selected circuit
+and additional constraints passed as parameters.
+
+    -all
+        show all solutions to the problem (this can grow exponentially, use
+        -max <N> instead to get <N> solutions)
+
+    -max <N>
+        like -all, but limit number of solutions to <N>
+
+    -set <signal> <value>
+        set the specified signal to the specified value.
+
+    -show <signal>
+        show the model for the specified signal. if no -show option is
+        passed then a set of signals to be shown is automatically selected.
+
+The following options can be used to set up a sequential problem:
+
+    -seq <N>
+        set up a sequential problem with <N> time steps. The steps will
+        be numbered from 1 to N.
+
+    -set-at <N> <signal> <value>
+    -unset-at <N> <signal>
+        set or unset the specified signal to the specified value in the
+        given timestep. this has priority over a -set for the same signal.
+
+The following additional options can be used to set up a proof. If also -seq
+is passed, a temporal induction proof is performed.
+
+    -prove <signal> <value>
+        Attempt to proof that <signal> is always <value>. In a temporal
+        induction proof it is proven that the condition holds forever after
+        the number of time steps passed using -seq.
+
+    -maxsteps <N>
+        Set a maximum length for the induction.
+
+    -timeout <N>
+        Maximum number of seconds a single SAT instance may take.
+
+    -verify
+        Return an error and stop the synthesis script if the proof fails.
+
+    -verify-no-timeout
+        Like -verify but do not return an error for timeouts.
+\end{lstlisting}
+
+\section{scatter -- add additional intermediate nets}
+\label{cmd:scatter}
+\begin{lstlisting}[numbers=left,frame=single]
+    scatter [selection]
+
+This command adds additional intermediate nets on all cell ports. This is used
+for testing the correct use of the SigMap halper in passes. If you don't know
+what this means: don't worry -- you only need this pass when testing your own
+extensions to Yosys.
+
+Use the opt_clean command to get rid of the additional nets.
+\end{lstlisting}
+
+\section{scc -- detect strongly connected components (logic loops)}
+\label{cmd:scc}
+\begin{lstlisting}[numbers=left,frame=single]
+    scc [options] [selection]
+
+This command identifies strongly connected components (aka logic loops) in the
+design.
+
+    -max_depth <num>
+        limit to loops not longer than the specified number of cells. This can
+        e.g. be useful in identifying local loops in a module that turns out
+        to be one gigantic SCC.
+
+    -all_cell_types
+        Usually this command only considers internal non-memory cells. With
+        this option set, all cells are considered. For unkown cells all ports
+        are assumed to be bidirectional 'inout' ports.
+
+    -set_attr <name> <value>
+    -set_cell_attr <name> <value>
+    -set_wire_attr <name> <value>
+        set the specified attribute on all cells and/or wires that are part of
+        a logic loop. the special token {} in the value is replaced with a
+        unique identifier for the logic loop.
+
+    -select
+        replace the current selection with a selection of all cells and wires
+        that are part of a found logic loop
+\end{lstlisting}
+
+\section{script -- execute commands from script file}
+\label{cmd:script}
+\begin{lstlisting}[numbers=left,frame=single]
+    script <filename>
+
+This command executes the yosys commands in the specified file.
+\end{lstlisting}
+
+\section{select -- modify and view the list of selected objects}
+\label{cmd:select}
+\begin{lstlisting}[numbers=left,frame=single]
+    select [ -add | -del | -set <name> ] <selection>
+    select [ -list | -write <filename> | -count | -clear ]
+    select -module <modname>
+
+Most commands use the list of currently selected objects to determine which part
+of the design to operate on. This command can be used to modify and view this
+list of selected objects.
+
+Note that many commands support an optional [selection] argument that can be
+used to override the global selection for the command. The syntax of this
+optional argument is identical to the syntax of the <selection> argument
+described here.
+
+    -add, -del
+        add or remove the given objects to the current selection.
+        without this options the current selection is replaced.
+
+    -set <name>
+        do not modify the current selection. instead save the new selection
+        under the given name (see @<name> below).
+
+    -list
+        list all objects in the current selection
+
+    -write <filename>
+        like -list but write the output to the specified file
+
+    -count
+        count all objects in the current selection
+
+    -clear
+        clear the current selection. this effectively selects the
+        whole design.
+
+    -module <modname>
+        limit the current scope to the specified module.
+        the difference between this and simply selecting the module
+        is that all object names are interpreted relative to this
+        module after this command until the selection is cleared again.
+
+When this command is called without an argument, the current selection
+is displayed in a compact form (i.e. only the module name when a whole module
+is selected).
+
+The <selection> argument itself is a series of commands for a simple stack
+machine. Each element on the stack represents a set of selected objects.
+After this commands have been executed, the union of all remaining sets
+on the stack is computed and used as selection for the command.
+
+Pushing (selecting) object when not in -module mode:
+
+    <mod_pattern>
+        select the specified module(s)
+
+    <mod_pattern>/<obj_pattern>
+        select the specified object(s) from the module(s)
+
+Pushing (selecting) object when in -module mode:
+
+    <obj_pattern>
+        select the specified object(s) from the current module
+
+A <mod_pattern> can be a module name or wildcard expression (*, ?, [..])
+matching module names.
+
+An <obj_pattern> can be an object name, wildcard expression, or one of
+the following:
+
+    w:<pattern>
+        all wires with a name matching the given wildcard pattern
+
+    m:<pattern>
+        all memories with a name matching the given pattern
+
+    c:<pattern>
+        all cells with a name matching the given pattern
+
+    t:<pattern>
+        all cells with a type matching the given pattern
+
+    p:<pattern>
+        all processes with a name matching the given pattern
+
+    a:<pattern>
+        all objects with an attribute name matching the given pattern
+
+    a:<pattern>=<pattern>
+        all objects with a matching attribute name-value-pair
+
+    n:<pattern>
+        all objects with a name matching the given pattern
+        (i.e. 'n:' is optional as it is the default matching rule)
+
+    @<name>
+        push the selection saved prior with 'select -set <name> ...'
+
+The following actions can be performed on the top sets on the stack:
+
+    %
+        push a copy of the current selection to the stack
+
+    %%
+        replace the stack with a union of all elements on it
+
+    %n
+        replace top set with its invert
+
+    %u
+        replace the two top sets on the stack with their union
+
+    %i
+        replace the two top sets on the stack with their intersection
+
+    %d
+        pop the top set from the stack and subtract it from the new top
+
+    %x[<num1>|*][.<num2>][:<rule>[:<rule>..]]
+        expand top set <num1> num times according to the specified rules.
+        (i.e. select all cells connected to selected wires and select all
+        wires connected to selected cells) The rules specify which cell
+        ports to use for this. the syntax for a rule is a '-' for exclusion
+        and a '+' for inclusion, followed by an optional comma seperated
+        list of cell types followed by an optional comma separated list of
+        cell ports in square brackets. a rule can also be just a cell or wire
+        name that limits the expansion (is included but does not go beyond).
+        select at most <num2> objects. a warning message is printed when this
+        limit is reached. When '*' is used instead of <num1> then the process
+        is repeated until no further object are selected.
+
+    %ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]
+    %co[<num1>|*][.<num2>][:<rule>[:<rule>..]]
+        simmilar to %x, but only select input (%ci) or output cones (%co)
+
+Example: the following command selects all wires that are connected to a
+'GATE' input of a 'SWITCH' cell:
+
+    select */t:SWITCH %x:+[GATE] */t:SWITCH %d
+\end{lstlisting}
+
+\section{shell -- enter interactive command mode}
+\label{cmd:shell}
+\begin{lstlisting}[numbers=left,frame=single]
+    shell
+
+This command enters the interactive command mode. This can be useful
+in a script to interrupt the script at a certain point and allow for
+interactive inspection or manual synthesis of the design at this point.
+
+The command prompt of the interactive shell indicates the current
+selection (see 'help select'):
+
+    yosys>
+        the entire design is selected
+
+    yosys*>
+        only part of the design is selected
+
+    yosys [modname]>
+        the entire module 'modname' is selected using 'select -module modname'
+
+    yosys [modname]*>
+        only part of current module 'modname' is selected
+
+When in interactive shell, some errors (e.g. invalid command arguments)
+do not terminate yosys but return to the command prompt.
+
+This command is the default action if nothing else has been specified
+on the command line.
+
+Press Ctrl-D or type 'exit' to leave the interactive shell.
+\end{lstlisting}
+
+\section{show -- generate schematics using graphviz}
+\label{cmd:show}
+\begin{lstlisting}[numbers=left,frame=single]
+    show [options] [selection]
+
+Create a graphviz DOT file for the selected part of the design and compile it
+to a graphics file (usually SVG or PostScript).
+
+    -viewer <viewer>
+        Run the specified command with the graphics file as parameter.
+
+    -format <format>
+        Generate a graphics file in the specified format.
+        Usually <format> is 'svg' or 'ps'.
+
+    -lib <verilog_or_ilang_file>
+        Use the specified library file for determining whether cell ports are
+        inputs or outputs. This option can be used multiple times to specify
+        more than one library.
+
+    -prefix <prefix>
+        generate <prefix>.dot and <prefix>.ps instead of ~/.yosys_show.{dot,ps}
+
+    -color <color> <wire>
+        assign the specified color to the specified wire. The object can be
+        a single selection wildcard expressions or a saved set of objects in
+        the @<name> syntax (see "help select" for details).
+
+    -colors <seed>
+        Randomly assign colors to the wires. The integer argument is the seed
+        for the random number generator. Change the seed value if the colored
+        graph still is ambigous. A seed of zero deactivates the coloring.
+
+    -width
+        annotate busses with a label indicating the width of the bus.
+
+    -stretch
+        stretch the graph so all inputs are on the left side and all outputs
+        (including inout ports) are on the right side.
+
+When no <format> is specified, SVG is used. When no <format> and <viewer> is
+specified, 'yosys-svgviewer' is used to display the schematic.
+
+The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',
+unless another prefix is specified using -prefix <prefix>.
+\end{lstlisting}
+
+\section{splitnets -- split up multi-bit nets}
+\label{cmd:splitnets}
+\begin{lstlisting}[numbers=left,frame=single]
+    splitnets [options] [selection]
+
+This command splits multi-bit nets into single-bit nets.
+
+    -ports
+        also split module ports. per default only internal signals are split.
+\end{lstlisting}
+
+\section{submod -- moving part of a module to a new submodule}
+\label{cmd:submod}
+\begin{lstlisting}[numbers=left,frame=single]
+    submod [selection]
+
+This pass identifies all cells with the 'submod' attribute and moves them to
+a newly created module. The value of the attribute is used as name for the
+cell that replaces the group of cells with the same attribute value.
+
+This pass can be used to create a design hierarchy in flat design. This can
+be useful for analyzing or reverse-engineering a design.
+
+This pass only operates on completely selected modules with no processes
+or memories.
+
+
+    submod -name <name> [selection]
+
+As above, but don't use the 'submod' attribute but instead use the selection.
+Only objects from one module might be selected. The value of the -name option
+is used as the value of the 'submod' attribute above.
+\end{lstlisting}
+
+\section{tcl -- execute a TCL script file}
+\label{cmd:tcl}
+\begin{lstlisting}[numbers=left,frame=single]
+    tcl <filename>
+
+This command executes the tcl commands in the specified file.
+Use 'yosys cmd' to run the yosys command 'cmd' from tcl.
+
+The tcl command 'yosys -import' can be used to import all yosys
+commands directly as tcl commands to the tcl shell. The yosys
+command 'proc' is wrapped using the tcl command 'procs' in order
+to avoid a name collision with the tcl builting command 'proc'.
+\end{lstlisting}
+
+\section{techmap -- simple technology mapper}
+\label{cmd:techmap}
+\begin{lstlisting}[numbers=left,frame=single]
+    techmap [-map filename] [selection]
+
+This pass implements a very simple technology mapper that replaces cells in
+the design with implementations given in form of a verilog or ilang source
+file.
+
+    -map filename
+        the library of cell implementations to be used.
+        without this parameter a builtin library is used that
+        transforms the internal RTL cells to the internal gate
+        library.
+
+When a module in the map file has the 'celltype' attribute set, it will match
+cells with a type that match the text value of this attribute.
+
+When a module in the map file contains a wire with the name 'TECHMAP_FAIL' (or
+one matching '*.TECHMAP_FAIL') then no substitution will be performed. The
+modules in the map file are tried in alphabetical order.
+
+When a module in the map file has a parameter where the according cell in the
+design has a port, the module from the map file is only used if the port in
+the design is connected to a constant value. The parameter is then set to the
+constant value.
+
+See 'help extract' for a pass that does the opposite thing.
+
+See 'help flatten' for a pass that does flatten the design (which is
+esentially techmap but using the design itself as map library).
+\end{lstlisting}
+
+\section{write\_autotest -- generate simple test benches}
+\label{cmd:write_autotest}
+\begin{lstlisting}[numbers=left,frame=single]
+    write_autotest [filename]
+
+Automatically create primitive verilog test benches for all modules in the
+design. The generated testbenches toggle the input pins of the module in
+a semi-random manner and dumps the resulting output signals.
+
+This can be used to check the synthesis results for simple circuits by
+comparing the testbench output for the input files and the synthesis results.
+
+The backend automatically detects clock signals. Additionally a signal can
+be forced to be interpreted as clock signal by setting the attribute
+'gentb_clock' on the signal.
+
+The attribute 'gentb_constant' can be used to force a signal to a constant
+value after initialization. This can e.g. be used to force a reset signal
+low in order to explore more inner states in a state machine.
+\end{lstlisting}
+
+\section{write\_ilang -- write design to ilang file}
+\label{cmd:write_ilang}
+\begin{lstlisting}[numbers=left,frame=single]
+    write_ilang [filename]
+
+Write the current design to an 'ilang' file. (ilang is a text representation
+of a design in yosys's internal format.)
+\end{lstlisting}
+
+\section{write\_intersynth -- write design to InterSynth netlist file}
+\label{cmd:write_intersynth}
+\begin{lstlisting}[numbers=left,frame=single]
+    write_intersynth [options] [filename]
+
+Write the current design to an 'intersynth' netlist file. InterSynth is
+a tool for Coarse-Grain Example-Driven Interconnect Synthesis.
+
+    -notypes
+        do not generate celltypes and conntypes commands. i.e. just output
+        the netlists. this is used for postsilicon synthesis.
+
+    -lib <verilog_or_ilang_file>
+        Use the specified library file for determining whether cell ports are
+        inputs or outputs. This option can be used multiple times to specify
+        more than one library.
+
+http://www.clifford.at/intersynth/
+\end{lstlisting}
+
+\section{write\_verilog -- write design to verilog file}
+\label{cmd:write_verilog}
+\begin{lstlisting}[numbers=left,frame=single]
+    write_verilog [options] [filename]
+
+Write the current design to a verilog file.
+
+    -norename
+        without this option all internal object names (the ones with a dollar
+        instead of a backslash prefix) are changed to short names in the
+        format '_<number>_'.
+
+    -noattr
+        with this option no attributes are included in the output
+
+    -attr2comment
+        with this option attributes are included as comments in the output
+
+    -noexpr
+        without this option all internal cells are converted to verilog
+        expressions.
+
+    -placeholders
+        usually modules with the 'placeholder' attribute are ignored. with
+        this option set only the modules with the 'placeholder' attribute
+        are written to the output file.
+\end{lstlisting}
+

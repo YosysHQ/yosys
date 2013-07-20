@@ -1,0 +1,2 @@
+run -ifn @prj_file@ -ofn @out_file@ -ofmt NGC -top @top_module@ -p artix7
+-use_dsp48 NO -iobuf NO -ram_extract NO -rom_extract NO -fsm_extract YES -fsm_encoding Auto
