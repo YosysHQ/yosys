@@ -106,7 +106,7 @@ manual:
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
-	cd manual && rm *.aux *.bbl *.blg *.idx *.log *.out *.pdf *.toc
+	cd manual && rm -f *.aux *.bbl *.blg *.idx *.log *.out *.pdf *.toc
 	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean
 
 mrproper: clean
