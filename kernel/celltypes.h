@@ -92,6 +92,7 @@ struct CellTypes
 		cell_types.insert("$mux");
 		cell_types.insert("$pmux");
 		cell_types.insert("$safe_pmux");
+		cell_types.insert("$lut");
 	}
 
 	void setup_internals_mem()
@@ -161,6 +162,8 @@ struct CellTypes
 		if (type == "$memrd" && port == "\\DATA")
 			return true;
 		if (type == "$fsm" && port == "\\CTRL_OUT")
+			return true;
+		if (type == "$lut" && port == "\\O")
 			return true;
 		return false;
 	}

@@ -28,7 +28,6 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
-#include "vlparse.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -36,6 +35,9 @@
 #include <string.h>
 #include <dirent.h>
 #include <sstream>
+
+#include "vlparse.h"
+#include "blifparse.h"
 
 struct gate_t
 {
@@ -325,7 +327,7 @@ static void handle_loops()
 		fclose(dot_f);
 }
 
-static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string liberty_file, bool cleanup)
+static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string liberty_file, bool cleanup, int lut_mode)
 {
 	module = current_module;
 	map_autoidx = RTLIL::autoidx++;
@@ -440,17 +442,42 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		fclose(f);
 		free(p);
 
+		if (lut_mode) {
+			if (asprintf(&p, "%s/lutdefs.txt", tempdir_name) < 0) abort();
+			f = fopen(p, "wt");
+			if (f == NULL)
+				log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
+			for (int i = 0; i < lut_mode; i++)
+				fprintf(f, "%d 1.00 1.00\n", i+1);
+			fclose(f);
+			free(p);
+		}
+
 		char buffer[1024];
+		int buffer_pos = 0;
 		if (!liberty_file.empty())
-			snprintf(buffer, 1024, "%s -c 'read_verilog %s/input.v; read_liberty %s; "
-					"map; write_verilog %s/output.v' 2>&1", exe_file.c_str(), tempdir_name, liberty_file.c_str(), tempdir_name);
+			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
+					"%s -c 'read_verilog %s/input.v; read_liberty %s; map; ",
+					exe_file.c_str(), tempdir_name, liberty_file.c_str());
 		else
 		if (!script_file.empty())
-			snprintf(buffer, 1024, "%s -c 'read_verilog %s/input.v; source %s; "
-					"map; write_verilog %s/output.v' 2>&1", exe_file.c_str(), tempdir_name, script_file.c_str(), tempdir_name);
+			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
+					"%s -c 'read_verilog %s/input.v; source %s; ",
+					exe_file.c_str(), tempdir_name, script_file.c_str());
 		else
-			snprintf(buffer, 1024, "%s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; "
-					"map; write_verilog %s/output.v' 2>&1", exe_file.c_str(), tempdir_name, tempdir_name, tempdir_name);
+		if (lut_mode)
+			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
+					"%s -c 'read_verilog %s/input.v; read_lut %s/lutdefs.txt; if; ",
+					exe_file.c_str(), tempdir_name, tempdir_name);
+		else
+			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
+					"%s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; map; ",
+					exe_file.c_str(), tempdir_name, tempdir_name);
+		if (lut_mode)
+			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
+		else                                                             
+			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_verilog %s/output.v' 2>&1", tempdir_name);
+
 		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
 		f = popen(buffer, "r");
 		if (f == NULL)
@@ -469,7 +496,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			}
 		}
 
-		if (asprintf(&p, "%s/output.v", tempdir_name) < 0) abort();
+		if (asprintf(&p, "%s/%s", tempdir_name, lut_mode ? "output.blif" : "output.v") < 0) abort();
 		f = fopen(p, "rt");
 		if (f == NULL)
 			log_error("Can't open ABC output file `%s'.\n", p);
@@ -477,7 +504,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		frontend_register["verilog"]->execute(f, p, std::vector<std::string>(), mapped_design);
 #else
-		RTLIL::Design *mapped_design = abc_parse_verilog(f);
+		RTLIL::Design *mapped_design = lut_mode ? abc_parse_blif(f) : abc_parse_verilog(f);
 #endif
 		fclose(f);
 		free(p);
@@ -495,7 +522,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		}
 
 		std::map<std::string, int> cell_stats;
-		if (liberty_file.empty() && script_file.empty())
+		if (liberty_file.empty() && script_file.empty() && !lut_mode)
 		{
 			for (auto &it : mapped_mod->cells) {
 				RTLIL::Cell *c = it.second;
@@ -564,9 +591,18 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				}
 				RTLIL::Cell *cell = new RTLIL::Cell;
 				cell->type = c->type;
+				cell->parameters = c->parameters;
 				cell->name = remap_name(c->name);
-				for (auto &conn : c->connections)
-					cell->connections[conn.first] = RTLIL::SigSpec(module->wires[remap_name(conn.second.chunks[0].wire->name)]);
+				for (auto &conn : c->connections) {
+					RTLIL::SigSpec newsig;
+					for (auto &c : conn.second.chunks) {
+						if (c.width == 0)
+							continue;
+						assert(c.width == 1);
+						newsig.append(module->wires[remap_name(c.wire->name)]);
+					}
+					cell->connections[conn.first] = newsig;
+				}
 				module->cells[cell->name] = cell;
 				design->select(module, cell);
 			}
@@ -658,6 +694,9 @@ struct AbcPass : public Pass {
 		log("        but keeps using yosys's internal gate library. This option is ignored if\n");
 		log("        the -script option is also used.\n");
 		log("\n");
+		log("    -lut <width>\n");
+		log("        generate netlist using luts of (max) the specified width.\n");
+		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -676,6 +715,7 @@ struct AbcPass : public Pass {
 		std::string exe_file = rewrite_yosys_exe("yosys-abc");
 		std::string script_file, liberty_file;
 		bool cleanup = true;
+		int lut_mode = 0;
 
 		size_t argidx;
 		char *pwd = get_current_dir_name();
@@ -697,6 +737,10 @@ struct AbcPass : public Pass {
 					liberty_file = std::string(pwd) + "/" + liberty_file;
 				continue;
 			}
+			if (arg == "-lut" && argidx+1 < args.size() && lut_mode == 0) {
+				lut_mode = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (arg == "-nocleanup") {
 				cleanup = false;
 				continue;
@@ -711,7 +755,7 @@ struct AbcPass : public Pass {
 				if (mod_it.second->processes.size() > 0)
 					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 				else
-					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, cleanup);
+					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, cleanup, lut_mode);
 			}
 
 		assign_map.clear();

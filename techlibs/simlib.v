@@ -662,6 +662,38 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$lut (I, O);
+
+parameter WIDTH = 0;
+parameter LUT = 0;
+
+input [WIDTH-1:0] I;
+output reg O;
+
+wire lut0_out, lut1_out;
+
+generate
+	if (WIDTH <= 1) begin:simple
+		assign {lut1_out, lut0_out} = LUT;
+	end else begin:complex
+		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT                  ) ) lut0 ( .I(I[WIDTH-2:0]), .O(lut0_out) );
+		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT >> (2**(WIDTH-1))) ) lut1 ( .I(I[WIDTH-2:0]), .O(lut1_out) );
+	end
+endgenerate
+
+always @*
+	casez ({I[WIDTH-1], lut0_out, lut1_out})
+		3'b?11: O = 1'b1;
+		3'b?00: O = 1'b0;
+		3'b0??: O = lut0_out;
+		3'b1??: O = lut1_out;
+		default: O = 1'bx;
+	endcase
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$dff (CLK, D, Q);
 
 parameter WIDTH = 0;
