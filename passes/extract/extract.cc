@@ -521,6 +521,11 @@ struct ExtractPass : public Pass {
 			map = new RTLIL::Design;
 			Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
 			fclose(f);
+
+			if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
+				Pass::call(map, "proc");
+				Pass::call(map, "opt_clean");
+			}
 		}
 
 		std::map<std::string, RTLIL::Module*> needle_map, haystack_map;
