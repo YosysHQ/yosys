@@ -391,7 +391,43 @@ struct HelpPass : public Pass {
 		fprintf(f, "\\label{cmd:%s}\n", cmd_unescaped.c_str());
 		fprintf(f, "\\begin{lstlisting}[numbers=left,frame=single]\n");
 		fprintf(f, "%s\n\\end{lstlisting}\n\n", text.c_str());
+	}
+	void escape_html(std::string &html)
+	{
+		size_t pos = 0;
+		while ((pos = html.find_first_of("<>&", pos)) != std::string::npos)
+			switch (html[pos]) {
+			case '<':
+				html.replace(pos, 1, "&lt;");
+				pos += 4;
+				break;
+			case '>':
+				html.replace(pos, 1, "&gt;");
+				pos += 4;
+				break;
+			case '&':
+				html.replace(pos, 1, "&amp;");
+				pos += 5;
+				break;
+			}
+	}
+	void write_html(FILE *idxf, std::string cmd, std::string title, std::string text)
+	{
+		FILE *f = fopen(stringf("cmd_%s.in", cmd.c_str()).c_str(), "wt");
+		fprintf(idxf, "<li><a href=\"cmd_%s.html\"> ", cmd.c_str());
 
+		escape_html(cmd);
+		escape_html(title);
+		escape_html(text);
+
+		fprintf(idxf, "%s</a> <span>%s</span></a>\n", cmd.c_str(), title.c_str());
+
+		fprintf(f, "@cmd_header %s@\n", cmd.c_str());
+		fprintf(f, "<h1>%s - %s</h1>\n", cmd.c_str(), title.c_str());
+		fprintf(f, "<pre>%s</pre>\n", text.c_str());
+		fprintf(f, "@footer@\n");
+
+		fclose(f);
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
@@ -429,6 +465,22 @@ struct HelpPass : public Pass {
 					log_files.pop_back();
 					fclose(memf);
 					write_tex(f, it.first, it.second->short_help, memptr);
+					free(memptr);
+				}
+				fclose(f);
+			}
+			// this option is undocumented as it is for internal use only
+			else if (args[1] == "-write-web-command-reference-manual") {
+				FILE *f = fopen("templates/cmd_index.in", "wt");
+				for (auto &it : REGISTER_INTERN::pass_register) {
+					size_t memsize;
+					char *memptr;
+					FILE *memf = open_memstream(&memptr, &memsize);
+					log_files.push_back(memf);
+					it.second->help();
+					log_files.pop_back();
+					fclose(memf);
+					write_html(f, it.first, it.second->short_help, memptr);
 					free(memptr);
 				}
 				fclose(f);
