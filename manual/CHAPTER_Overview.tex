@@ -300,7 +300,7 @@ In this example there is no data path and therefore the RTLIL::Module generated 
 the frontend only contains a few RTLIL::Wire objects and an RTLIL::Process.
 The RTLIL::Process in ILANG syntax:
 
-\begin{lstlisting}[numbers=left,frame=single]
+\begin{lstlisting}[numbers=left,frame=single,language=rtlil]
 process $proc$ff_with_en_and_async_reset.v:4$1
 	assign $0\q[0:0] \q
 	switch \reset
@@ -364,7 +364,7 @@ One of the first actions performed on a design in RTLIL representation in most
 synthesis scripts is identifying asynchronous resets. This is usually done using the {\tt proc\_arst}
 pass. This pass transforms the above example to the following RTLIL::Process:
 
-\begin{lstlisting}[numbers=left,frame=single]
+\begin{lstlisting}[numbers=left,frame=single,language=rtlil]
 process $proc$ff_with_en_and_async_reset.v:4$1
 	assign $0\q[0:0] \q
 	switch \enable
@@ -383,7 +383,7 @@ This pass has transformed the outer RTLIL::SwitchRule into a modified RTLIL::Syn
 for the {\tt \textbackslash{}reset} signal. Further processing converts the RTLIL::Process
 e.g.~into a d-type flip-flop with asynchronous reset and a multiplexer for the enable signal:
 
-\begin{lstlisting}[numbers=left,frame=single]
+\begin{lstlisting}[numbers=left,frame=single,language=rtlil]
 cell $adff $procdff$6
 	parameter \ARST_POLARITY 1'1
 	parameter \ARST_VALUE 1'0

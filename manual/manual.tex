@@ -102,6 +102,21 @@ bookmarksopen=false%
 \setlength{\parskip}{1.5ex plus 1ex minus 0.5ex}
 \setlength{\parindent}{0pt}
 
+\lstdefinelanguage{liberty}{
+	morecomment=[s]{/*}{*/},
+	morekeywords={library,cell,area,pin,direction,function,clocked_on,next_state,clock,ff},
+	morestring=[b]",
+}
+
+\lstdefinelanguage{rtlil}{
+	morecomment=[l]{//},
+	morecomment=[s]{/*}{*/},
+	morekeywords={module,attribute,parameter,wire,memory,auto,width,offset,size,input,output,inout,cell,connect,switch,case,assign,sync,low,high,posedge,negedge,edge,always,update,process,end},
+	morestring=[b]",
+}
+
+
+
 \begin{document}
 
 \fancypagestyle{mypagestyle}{%
