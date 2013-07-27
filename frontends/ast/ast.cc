@@ -896,6 +896,21 @@ void AstModule::update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes)
 	delete newmod;
 }
 
+RTLIL::Module *AstModule::clone() const
+{
+	AstModule *new_mod = new AstModule;
+	cloneInto(new_mod);
+
+	new_mod->ast = ast->clone();
+	new_mod->nolatches = nolatches;
+	new_mod->nomem2reg = nomem2reg;
+	new_mod->mem2reg = mem2reg;
+	new_mod->lib = lib;
+	new_mod->noopt = noopt;
+
+	return new_mod;
+}
+
 // internal dummy line number callbacks
 namespace {
 	int internal_line_num;

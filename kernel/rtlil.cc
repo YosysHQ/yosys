@@ -341,6 +341,47 @@ void RTLIL::Module::optimize()
 	}
 }
 
+void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
+{
+	new_mod->name = name;
+	new_mod->connections = connections;
+	new_mod->attributes = attributes;
+
+	for (auto &it : wires)
+		new_mod->wires[it.first] = new RTLIL::Wire(*it.second);
+
+	for (auto &it : memories)
+		new_mod->memories[it.first] = new RTLIL::Memory(*it.second);
+
+	for (auto &it : cells)
+		new_mod->cells[it.first] = new RTLIL::Cell(*it.second);
+
+	for (auto &it : processes)
+		new_mod->processes[it.first] = it.second->clone();
+
+	struct RewriteSigSpecWorker
+	{
+		RTLIL::Module *mod;
+		void operator()(RTLIL::SigSpec &sig)
+		{
+			for (auto &c : sig.chunks)
+				if (c.wire != NULL)
+					c.wire = mod->wires.at(c.wire->name);
+		}
+	};
+
+	RewriteSigSpecWorker rewriteSigSpecWorker;
+	rewriteSigSpecWorker.mod = new_mod;
+	new_mod->rewrite_sigspecs(rewriteSigSpecWorker);
+}
+
+RTLIL::Module *RTLIL::Module::clone() const
+{
+	RTLIL::Module *new_mod = new RTLIL::Module;
+	cloneInto(new_mod);
+	return new_mod;
+}
+
 void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	assert(!wire->name.empty());
@@ -1165,6 +1206,16 @@ void RTLIL::CaseRule::optimize()
 	}
 }
 
+RTLIL::CaseRule *RTLIL::CaseRule::clone() const
+{
+	RTLIL::CaseRule *new_caserule = new RTLIL::CaseRule;
+	new_caserule->compare = compare;
+	new_caserule->actions = actions;
+	for (auto &it : switches)
+		new_caserule->switches.push_back(it->clone());
+	return new_caserule;
+}
+
 RTLIL::SwitchRule::~SwitchRule()
 {
 	for (auto it = cases.begin(); it != cases.end(); it++)
@@ -1178,6 +1229,17 @@ void RTLIL::SwitchRule::optimize()
 		it->optimize();
 }
 
+RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
+{
+	RTLIL::SwitchRule *new_switchrule = new RTLIL::SwitchRule;
+	new_switchrule->signal = signal;
+	new_switchrule->attributes = attributes;
+	for (auto &it : cases)
+		new_switchrule->cases.push_back(it->clone());
+	return new_switchrule;
+	
+}
+
 void RTLIL::SyncRule::optimize()
 {
 	signal.optimize();
@@ -1185,6 +1247,15 @@ void RTLIL::SyncRule::optimize()
 		it.first.optimize();
 		it.second.optimize();
 	}
+}
+
+RTLIL::SyncRule *RTLIL::SyncRule::clone() const
+{
+	RTLIL::SyncRule *new_syncrule = new RTLIL::SyncRule;
+	new_syncrule->type = type;
+	new_syncrule->signal = signal;
+	new_syncrule->actions = actions;
+	return new_syncrule;
 }
 
 RTLIL::Process::~Process()
@@ -1198,5 +1269,23 @@ void RTLIL::Process::optimize()
 	root_case.optimize();
 	for (auto it : syncs)
 		it->optimize();
+}
+
+RTLIL::Process *RTLIL::Process::clone() const
+{
+	RTLIL::Process *new_proc = new RTLIL::Process;
+
+	new_proc->name = name;
+	new_proc->attributes = attributes;
+
+	RTLIL::CaseRule *rc_ptr = root_case.clone();
+	new_proc->root_case = *rc_ptr;
+	rc_ptr->switches.clear();
+	delete rc_ptr;
+
+	for (auto &it : syncs)
+		new_proc->syncs.push_back(it->clone());
+	
+	return new_proc;
 }
 

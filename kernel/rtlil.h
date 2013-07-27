@@ -239,8 +239,9 @@ struct RTLIL::Module {
 	void add(RTLIL::Cell *cell);
 	void fixup_ports();
 
-	template<typename T>
-	void rewrite_sigspecs(T functor);
+	template<typename T> void rewrite_sigspecs(T functor);
+	void cloneInto(RTLIL::Module *new_mod) const;
+	virtual RTLIL::Module *clone() const;
 };
 
 struct RTLIL::Wire {
@@ -266,8 +267,7 @@ struct RTLIL::Cell {
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
 	void optimize();
 
-	template<typename T>
-	void rewrite_sigspecs(T functor);
+	template<typename T> void rewrite_sigspecs(T functor);
 };
 
 struct RTLIL::SigChunk {
@@ -337,8 +337,8 @@ struct RTLIL::CaseRule {
 	~CaseRule();
 	void optimize();
 
-	template<typename T>
-	void rewrite_sigspecs(T functor);
+	template<typename T> void rewrite_sigspecs(T functor);
+	RTLIL::CaseRule *clone() const;
 };
 
 struct RTLIL::SwitchRule {
@@ -348,8 +348,8 @@ struct RTLIL::SwitchRule {
 	~SwitchRule();
 	void optimize();
 
-	template<typename T>
-	void rewrite_sigspecs(T functor);
+	template<typename T> void rewrite_sigspecs(T functor);
+	RTLIL::SwitchRule *clone() const;
 };
 
 struct RTLIL::SyncRule {
@@ -358,8 +358,8 @@ struct RTLIL::SyncRule {
 	std::vector<RTLIL::SigSig> actions;
 	void optimize();
 
-	template<typename T>
-	void rewrite_sigspecs(T functor);
+	template<typename T> void rewrite_sigspecs(T functor);
+	RTLIL::SyncRule *clone() const;
 };
 
 struct RTLIL::Process {
@@ -370,8 +370,8 @@ struct RTLIL::Process {
 	~Process();
 	void optimize();
 
-	template<typename T>
-	void rewrite_sigspecs(T functor);
+	template<typename T> void rewrite_sigspecs(T functor);
+	RTLIL::Process *clone() const;
 };
 
 template<typename T>
