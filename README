@@ -238,14 +238,6 @@ Verilog Attributes and non-standard features
 TODOs / Open Bugs
 =================
 
-- Write "design and implementation of.." document
-
-  - Source tree layout
-  - Data formats (c++ classes, etc.)
-  - Internal misc. frameworks (log, select)
-  - Build system and pass registration
-  - Internal cell library
-
 - Implement missing Verilog 2005 features:
 
   - Signed constants
@@ -264,7 +256,7 @@ TODOs / Open Bugs
   - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
   - Add edit commands for changing the design (delete, add, modify objects)
   - Improve TCL support (add mechanism for inspecting the design from TCL)
-  - Additional internal cell types: $pla and $lut
+  - Add full support for $lut cell type (const evaluation, sat solving, etc.)
   - Support for registering designs (as collection of modules) to CellTypes
   - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
   - Refactoring of AST frontend (clean expr width/sign code, AST passes)
