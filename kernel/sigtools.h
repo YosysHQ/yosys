@@ -68,7 +68,7 @@ struct SigPool
 	void del(const SigPool &other)
 	{
 		for (auto &bit : other.bits)
-			bits.insert(bit);
+			bits.erase(bit);
 	}
 
 	void expand(RTLIL::SigSpec from, RTLIL::SigSpec to)
