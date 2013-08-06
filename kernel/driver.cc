@@ -617,6 +617,11 @@ int main(int argc, char **argv)
 			write_history(history_file.c_str());
 	}
 
+	clear_history();
+	HIST_ENTRY **hist_list = history_list();
+	if (hist_list != NULL)
+		free(hist_list);
+
 	for (auto f : log_files)
 		if (f != stderr)
 			fclose(f);
