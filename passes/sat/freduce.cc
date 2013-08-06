@@ -28,7 +28,7 @@
 #include <string.h>
 #include <algorithm>
 
-#define NUM_INITIAL_RANDOM_TEST_VECTORS 3
+#define NUM_INITIAL_RANDOM_TEST_VECTORS 10
 
 namespace {
 
@@ -141,8 +141,11 @@ struct FreduceHelper
 	restart:
 		std::map<RTLIL::Const, RTLIL::SigSpec> reverse_map;
 
-		for (auto &it : node_to_data)
+		for (auto &it : node_to_data) {
+			if (node_result.count(it.first) && node_result.at(it.first).is_fully_const())
+				continue;
 			reverse_map[it.second].append(it.first);
+		}
 
 		for (auto &it : reverse_map)
 		{
@@ -295,8 +298,10 @@ struct FreduceHelper
 				continue;
 			for (auto &conn : cell->connections)
 				if (ct.cell_output(cell->type, conn.first)) {
-					conn.second.expand();
-					for (auto &c : conn.second.chunks) {
+					RTLIL::SigSpec sig = sigmap(conn.second);
+					sig.expand();
+					bool did_something = false;
+					for (auto &c : sig.chunks) {
 						if (c.wire == NULL || !groups_unlink.check_any(c))
 							continue;
 						c.wire = new RTLIL::Wire;
@@ -304,6 +309,11 @@ struct FreduceHelper
 						module->add(c.wire);
 						assert(c.width == 1);
 						c.offset = 0;
+						did_something = true;
+					}
+					if (did_something) {
+						sig.optimize();
+						conn.second = sig;
 					}
 				}
 		}
