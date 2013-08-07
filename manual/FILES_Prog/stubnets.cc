@@ -67,7 +67,8 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 		// for each bit (unless it is a constant):
 		// check if it is used at least two times and add to stub_bits otherwise
 		for (size_t i = 0; i < sig.chunks.size(); i++)
-			if (sig.chunks[i].wire != NULL && (bit_usage_count[sig.chunks[i]] + usage_offset) < 2)
+			if (sig.chunks[i].wire != NULL && (bit_usage_count[sig.chunks[i]] +
+					usage_offset) < 2)
 				stub_bits.insert(i);
 
 		// continue if no stub bits found
