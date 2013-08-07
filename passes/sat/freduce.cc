@@ -46,13 +46,10 @@ struct FreduceHelper
 	SigPool inputs, nodes;
 	RTLIL::SigSpec input_sigs;
 
-	SigSet<RTLIL::SigSpec> driver_inputs;
+	SigSet<RTLIL::SigSpec> source_signals;
 	std::vector<RTLIL::Const> test_vectors;
 	std::map<RTLIL::SigSpec, RTLIL::Const> node_to_data;
 	std::map<RTLIL::SigSpec, RTLIL::SigSpec> node_result;
-
-	std::vector<RTLIL::SigSig> result_groups;
-	SigPool groups_unlink;
 
 	uint32_t xorshift32_state;
 
@@ -93,8 +90,9 @@ struct FreduceHelper
 		int max_node_len = 20;
 		for (auto &it : node_to_data)
 			max_node_len = std::max(max_node_len, int(strlen(log_signal(it.first))));
+		log("  full node fingerprints:\n");
 		for (auto &it : node_to_data)
-			log("  %-*s %s\n", max_node_len+5, log_signal(it.first), log_signal(it.second));
+			log("    %-*s %s\n", max_node_len+5, log_signal(it.first), log_signal(it.second));
 	}
 
 	void check(RTLIL::SigSpec sig1, RTLIL::SigSpec sig2)
@@ -165,16 +163,20 @@ struct FreduceHelper
 		}
 	}
 
-	bool topsort_helper(RTLIL::SigSpec cursor, RTLIL::SigSpec stoplist)
+	bool toproot_helper(RTLIL::SigSpec cursor, RTLIL::SigSpec stoplist, int level)
 	{
-		if (stoplist.extract(cursor).width != 0)
+		// log("    %*schecking %s: %s\n", level*2, "", log_signal(cursor), log_signal(stoplist));
+
+		if (stoplist.extract(cursor).width != 0) {
+			// log("    %*s  STOP\n", level*2, "");
 			return false;
+		}
 
 		stoplist.append(cursor);
-		std::set<RTLIL::SigSpec> next = driver_inputs.find(cursor);
+		std::set<RTLIL::SigSpec> next = source_signals.find(cursor);
 
 		for (auto &it : next)
-			if (!topsort_helper(it, stoplist))
+			if (!toproot_helper(it, stoplist, level+1))
 				return false;
 
 		return true;
@@ -182,16 +184,59 @@ struct FreduceHelper
 
 	// KISS topological sort of bits in signal. return one element of sig
 	// without dependencies to the others (or empty if input is not a DAG).
-	RTLIL::SigSpec topsort(RTLIL::SigSpec sig)
+	RTLIL::SigSpec toproot(RTLIL::SigSpec sig)
 	{
 		sig.expand();
+		// log("  finding topological root in %s:\n", log_signal(sig));
 		for (auto &c : sig.chunks) {
 			RTLIL::SigSpec stoplist = sig;
 			stoplist.remove(c);
-			if (topsort_helper(c, stoplist))
+			// log("    testing %s as root:\n", log_signal(c));
+			if (toproot_helper(c, stoplist, 0))
 				return c;
 		}
 		return RTLIL::SigSpec();
+	}
+
+	void update_design_for_group(RTLIL::SigSpec root, RTLIL::SigSpec rest)
+	{
+		SigPool unlink;
+		unlink.add(rest);
+
+		for (auto &cell_it : module->cells) {
+			RTLIL::Cell *cell = cell_it.second;
+			if (!ct.cell_known(cell->type))
+				continue;
+			for (auto &conn : cell->connections)
+				if (ct.cell_output(cell->type, conn.first)) {
+					RTLIL::SigSpec sig = sigmap(conn.second);
+					sig.expand();
+					bool did_something = false;
+					for (auto &c : sig.chunks) {
+						if (c.wire == NULL || !unlink.check_any(c))
+							continue;
+						c.wire = new RTLIL::Wire;
+						c.wire->name = NEW_ID;
+						module->add(c.wire);
+						assert(c.width == 1);
+						c.offset = 0;
+						did_something = true;
+					}
+					if (did_something) {
+						sig.optimize();
+						conn.second = sig;
+					}
+				}
+		}
+
+		rest.expand();
+		for (auto &c : rest.chunks) {
+			if (c.wire != NULL && !root.is_fully_const()) {
+				source_signals.erase(c);
+				source_signals.insert(c, root);
+			}
+			module->connections.push_back(RTLIL::SigSig(c, root));
+		}
 	}
 
 	void analyze_groups()
@@ -212,15 +257,19 @@ struct FreduceHelper
 			RTLIL::SigSig group = it;
 
 			if (!it.first.is_fully_const()) {
-				group.first = topsort(it.second);
-				if (group.first.width == 0)
-					log_error("Operating on non-DAG input: failed to find topological root for `%s'.\n", log_signal(it.second));
+				group.first = toproot(it.second);
+				if (group.first.width == 0) {
+					log("Operating on non-DAG input: failed to find topological root for `%s'.\n", log_signal(it.second));
+					return;
+				}
 				group.second.remove(group.first);
 			}
 
 			group.first.optimize();
 			group.second.sort_and_unify();
-			result_groups.push_back(group);
+
+			log("  found group: %s -> %s\n", log_signal(group.first), log_signal(group.second));
+			update_design_for_group(group.first, group.second);
 		}
 	}
 
@@ -249,7 +298,7 @@ struct FreduceHelper
 			cell_inputs.expand();
 			for (auto &c : cell_inputs.chunks)
 				if (c.wire != NULL)
-					driver_inputs.insert(cell_outputs, c);
+					source_signals.insert(cell_outputs, c);
 			if (!satgen.importCell(cell))
 				log_error("Failed to import cell to SAT solver: %s (%s)\n",
 						RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
@@ -276,7 +325,7 @@ struct FreduceHelper
 		for (auto &test_vec : test_vectors)
 			run_test(test_vec);
 
-		// run the analysis
+		// run the analysis and update design
 
 		analyze_const();
 		analyze_alias();
@@ -285,44 +334,8 @@ struct FreduceHelper
 		for (auto &test_vec : test_vectors)
 			log("  test vector: %s\n", log_signal(test_vec));
 
+		dump_node_data();
 		analyze_groups();
-
-		for (auto &it : result_groups) {
-			log("  found group: %s -> %s\n", log_signal(it.first), log_signal(it.second));
-			groups_unlink.add(it.second);
-		}
-
-		for (auto &cell_it : module->cells) {
-			RTLIL::Cell *cell = cell_it.second;
-			if (!ct.cell_known(cell->type))
-				continue;
-			for (auto &conn : cell->connections)
-				if (ct.cell_output(cell->type, conn.first)) {
-					RTLIL::SigSpec sig = sigmap(conn.second);
-					sig.expand();
-					bool did_something = false;
-					for (auto &c : sig.chunks) {
-						if (c.wire == NULL || !groups_unlink.check_any(c))
-							continue;
-						c.wire = new RTLIL::Wire;
-						c.wire->name = NEW_ID;
-						module->add(c.wire);
-						assert(c.width == 1);
-						c.offset = 0;
-						did_something = true;
-					}
-					if (did_something) {
-						sig.optimize();
-						conn.second = sig;
-					}
-				}
-		}
-
-		for (auto &it : result_groups) {
-			it.second.expand();
-			for (auto &c : it.second.chunks)
-				module->connections.push_back(RTLIL::SigSig(c, it.first));
-		}
 	}
 };
 
