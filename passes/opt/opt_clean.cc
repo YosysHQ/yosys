@@ -122,10 +122,10 @@ static bool check_public_name(RTLIL::IdString id)
 {
 	if (id[0] == '$')
 		return false;
-#if 0
+	if (id.substr(0, 2) == "\\_" && (id[id.size()-1] == '_' || id.find("_[") != std::string::npos))
+		return false;
 	if (id.find(".$") != std::string::npos)
 		return false;
-#endif
 	return true;
 }
 

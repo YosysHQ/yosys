@@ -63,6 +63,12 @@ struct RenamePass : public Pass {
 		log("Rename the specified object. Note that selection patterns are not supported\n");
 		log("by this command.\n");
 		log("\n");
+		log("\n");
+		log("    rename -enumerate [selection]\n");
+		log("\n");
+		log("Assign short auto-generated names to all selected wires and cells with private\n");
+		log("names.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -72,17 +78,43 @@ struct RenamePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			//if (arg == "-enumerate") {
-			//	flag_enumerate = true;
-			//	continue;
-			//}
+			if (arg == "-enumerate") {
+				flag_enumerate = true;
+				continue;
+			}
 			break;
 		}
 
 		if (flag_enumerate)
 		{
 			extra_args(args, argidx, design);
-			log_cmd_error("Sorry: Enumeration mode is not implemented at the moment.\n");
+
+			for (auto &mod : design->modules)
+			{
+				int counter = 0;
+
+				RTLIL::Module *module = mod.second;
+				if (!design->selected(module))
+					continue;
+
+				std::map<RTLIL::IdString, RTLIL::Wire*> new_wires;
+				for (auto &it : module->wires) {
+					if (it.first[0] == '$' && design->selected(module, it.second))
+						do it.second->name = stringf("\\_%d_", counter++);
+						while (module->count_id(it.second->name) > 0);
+					new_wires[it.second->name] = it.second;
+				}
+				module->wires.swap(new_wires);
+
+				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
+				for (auto &it : module->cells) {
+					if (it.first[0] == '$' && design->selected(module, it.second))
+						do it.second->name = stringf("\\_%d_", counter++);
+						while (module->count_id(it.second->name) > 0);
+					new_cells[it.second->name] = it.second;
+				}
+				module->cells.swap(new_cells);
+			}
 		}
 		else
 		{
