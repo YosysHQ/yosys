@@ -36,6 +36,7 @@ struct FreduceHelper
 {
 	RTLIL::Design *design;
 	RTLIL::Module *module;
+	bool try_mode;
 
 	ezDefaultSAT ez;
 	SigMap sigmap;
@@ -60,8 +61,9 @@ struct FreduceHelper
 		return xorshift32_state;
 	}
 
-	FreduceHelper(RTLIL::Design *design, RTLIL::Module *module) :
-			design(design), module(module), sigmap(module), satgen(&ez, design, &sigmap), ce(module)
+	FreduceHelper(RTLIL::Design *design, RTLIL::Module *module, bool try_mode) :
+			design(design), module(module), try_mode(try_mode),
+			sigmap(module), satgen(&ez, design, &sigmap), ce(module)
 	{
 		ct.setup_internals();
 		ct.setup_stdcells();
@@ -72,17 +74,23 @@ struct FreduceHelper
 		xorshift32();
 	}
 
-	void run_test(RTLIL::SigSpec test_vec)
+	bool run_test(RTLIL::SigSpec test_vec)
 	{
 		ce.clear();
 		ce.set(input_sigs, test_vec.as_const());
 
 		for (auto &bit : nodes.bits) {
 			RTLIL::SigSpec nodesig(bit.first, 1, bit.second), nodeval = nodesig;
-			if (!ce.eval(nodeval))
-				log_error("Evaluation of node %s failed!\n", log_signal(nodesig));
+			if (!ce.eval(nodeval)) {
+				if (!try_mode)
+					log_error("Evaluation of node %s failed!\n", log_signal(nodesig));
+				log("FAILED: Evaluation of node %s failed!\n", log_signal(nodesig));
+				return false;
+			}
 			node_to_data[nodesig].bits.push_back(nodeval.as_const().bits.at(0));
 		}
+
+		return true;
 	}
 
 	void dump_node_data()
@@ -95,7 +103,7 @@ struct FreduceHelper
 			log("    %-*s %s\n", max_node_len+5, log_signal(it.first), log_signal(it.second));
 	}
 
-	void check(RTLIL::SigSpec sig1, RTLIL::SigSpec sig2)
+	bool check(RTLIL::SigSpec sig1, RTLIL::SigSpec sig2)
 	{
 		log("  performing SAT proof:  %s == %s  ->", log_signal(sig1), log_signal(sig2));
 
@@ -111,7 +119,8 @@ struct FreduceHelper
 			testvect_sig.optimize();
 			log(" failed: %s\n", log_signal(testvect_sig));
 			test_vectors.push_back(testvect_sig.as_const());
-			run_test(testvect_sig);
+			if (!run_test(testvect_sig))
+				return false;
 		} else {
 			log(" success.\n");
 			if (!sig1.is_fully_const())
@@ -119,22 +128,26 @@ struct FreduceHelper
 			if (!sig2.is_fully_const())
 				node_result[sig2].append(sig1);
 		}
+		return true;
 	}
 
-	void analyze_const()
+	bool analyze_const()
 	{
 		for (auto &it : node_to_data)
 		{
 			if (node_result.count(it.first))
 				continue;
 			if (it.second == RTLIL::Const(RTLIL::State::S0, it.second.bits.size()))
-				check(it.first, RTLIL::SigSpec(RTLIL::State::S0));
+				if (!check(it.first, RTLIL::SigSpec(RTLIL::State::S0)))
+					return false;
 			if (it.second == RTLIL::Const(RTLIL::State::S1, it.second.bits.size()))
-				check(it.first, RTLIL::SigSpec(RTLIL::State::S1));
+				if (!check(it.first, RTLIL::SigSpec(RTLIL::State::S1)))
+					return false;
 		}
+		return true;
 	}
 
-	void analyze_alias()
+	bool analyze_alias()
 	{
 	restart:
 		std::map<RTLIL::Const, RTLIL::SigSpec> reverse_map;
@@ -158,9 +171,11 @@ struct FreduceHelper
 					continue;
 				if (node_to_data.at(sig1) != node_to_data.at(sig2))
 					goto restart;
-				check(it.second.chunks.at(i), it.second.chunks.at(j));
+				if (!check(it.second.chunks.at(i), it.second.chunks.at(j)))
+					return false;
 			}
 		}
+		return true;
 	}
 
 	bool toproot_helper(RTLIL::SigSpec cursor, RTLIL::SigSpec stoplist, int level)
@@ -323,12 +338,16 @@ struct FreduceHelper
 		}
 
 		for (auto &test_vec : test_vectors)
-			run_test(test_vec);
+			if (!run_test(test_vec))
+				return;
 
 		// run the analysis and update design
 
-		analyze_const();
-		analyze_alias();
+		if (!analyze_const())
+			return;
+
+		if (!analyze_alias())
+			return;
 
 		log("  input vector: %s\n", log_signal(input_sigs));
 		for (auto &test_vec : test_vectors)
@@ -353,6 +372,10 @@ struct FreducePass : public Pass {
 		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
 		log("removed.\n");
 		log("\n");
+		log("    -try\n");
+		log("        do not issue an error when the analysis fails.\n");
+		log("        (usually beacause of logic loops in the design)\n");
+		log("\n");
 		// log("    -enable_invert\n");
 		// log("        also detect nodes that are inverse to each other.\n");
 		// log("\n");
@@ -360,6 +383,7 @@ struct FreducePass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool enable_invert = false;
+		bool try_mode = false;
 
 		log_header("Executing FREDUCE pass (perform functional reduction).\n");
 
@@ -367,6 +391,10 @@ struct FreducePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-enable_invert") {
 				enable_invert = true;
+				continue;
+			}
+			if (args[argidx] == "-try") {
+				try_mode = true;
 				continue;
 			}
 			break;
@@ -377,7 +405,7 @@ struct FreducePass : public Pass {
 		{
 			RTLIL::Module *module = mod_it.second;
 			if (design->selected(module))
-				FreduceHelper(design, module).run();
+				FreduceHelper(design, module, try_mode).run();
 		}
 	}
 } FreducePass;
