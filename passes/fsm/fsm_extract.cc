@@ -247,6 +247,9 @@ static void extract_fsm(RTLIL::Wire *wire)
 	}
 	ctrl_in.remove(ctrl_out);
 
+	ctrl_in.sort_and_unify();
+	ctrl_out.sort_and_unify();
+
 	log("  ctrl inputs: %s\n", log_signal(ctrl_in));
 	log("  ctrl outputs: %s\n", log_signal(ctrl_out));
 
