@@ -30,8 +30,9 @@
 using RTLIL::id2cstr;
 
 static CellTypes ct;
+static int count_rm_cells, count_rm_wires;
 
-static void rmunused_module_cells(RTLIL::Module *module)
+static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 {
 	SigMap assign_map(module);
 	std::set<RTLIL::Cell*> queue, unused;
@@ -86,9 +87,11 @@ static void rmunused_module_cells(RTLIL::Module *module)
 	}
 
 	for (auto cell : unused) {
-		log("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
+		if (verbose)
+			log("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		OPT_DID_SOMETHING = true;
 		module->cells.erase(cell->name);
+		count_rm_cells++;
 		delete cell;
 	}
 }
@@ -129,7 +132,7 @@ static bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode)
+static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
 	SigMap assign_map(module);
 	for (auto &it : module->wires) {
@@ -220,11 +223,12 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode)
 	int del_wires_count = 0;
 	for (auto wire : del_wires)
 		if (!used_signals.check_any(RTLIL::SigSpec(wire))) {
-			if (check_public_name(wire->name)) {
+			if (check_public_name(wire->name) && verbose) {
 				log("  removing unused non-port wire %s.\n", wire->name.c_str());
 				del_wires_count++;
 			}
 			module->wires.erase(wire->name);
+			count_rm_wires++;
 			delete wire;
 		}
 
@@ -232,12 +236,13 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode)
 		log("  removed %d unused temporary wires.\n", del_wires_count);
 }
 
-static void rmunused_module(RTLIL::Module *module, bool purge_mode)
+static void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
-	log("Finding unused cells or wires in module %s..\n", module->name.c_str());
+	if (verbose)
+		log("Finding unused cells or wires in module %s..\n", module->name.c_str());
 
-	rmunused_module_cells(module);
-	rmunused_module_signals(module, purge_mode);
+	rmunused_module_cells(module, verbose);
+	rmunused_module_signals(module, purge_mode, verbose);
 }
 
 struct OptCleanPass : public Pass {
@@ -289,7 +294,7 @@ struct OptCleanPass : public Pass {
 			if (mod_it.second->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 			} else {
-				rmunused_module(mod_it.second, purge_mode);
+				rmunused_module(mod_it.second, purge_mode, true);
 			}
 		}
 
@@ -297,4 +302,42 @@ struct OptCleanPass : public Pass {
 		log_pop();
 	}
 } OptCleanPass;
+ 
+struct CleanPass : public Pass {
+	CleanPass() : Pass("clean", "remove unused cells and wires") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    clean [selection]\n");
+		log("\n");
+		log("This is identical to opt_clean, but less verbose.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		extra_args(args, 1, design);
+
+		ct.setup_internals();
+		ct.setup_internals_mem();
+		ct.setup_stdcells();
+		ct.setup_stdcells_mem();
+
+		count_rm_cells = 0;
+		count_rm_wires = 0;
+
+		for (auto &mod_it : design->modules) {
+			if (design->selected_whole_module(mod_it.first) && mod_it.second->processes.size() == 0)
+				do {
+					OPT_DID_SOMETHING = false;
+					rmunused_module(mod_it.second, false, false);
+				} while (OPT_DID_SOMETHING);
+		}
+
+		if (count_rm_cells > 0 || count_rm_wires > 0)
+			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
+
+		ct.clear();
+	}
+} CleanPass;
  
