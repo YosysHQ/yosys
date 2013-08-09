@@ -129,6 +129,12 @@ namespace RTLIL
 #define NEW_ID \
 	RTLIL::new_id(__FILE__, __LINE__, __FUNCTION__)
 
+	template <typename T> struct sort_by_name {
+		bool operator()(T *a, T *b) const {
+			return a->name < b->name;
+		}
+	};
+
 	// see calc.cc for the implementation of this functions
 	RTLIL::Const const_not         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 	RTLIL::Const const_and         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);

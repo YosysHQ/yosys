@@ -165,11 +165,11 @@ struct SigPool
 	}
 };
 
-template <typename T>
+template <typename T, class Compare = std::less<T>>
 struct SigSet
 {
 	typedef std::pair<RTLIL::Wire*,int> bitDef_t;
-	std::map<bitDef_t, std::set<T>> bits;
+	std::map<bitDef_t, std::set<T, Compare>> bits;
 
 	void clear()
 	{

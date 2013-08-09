@@ -30,12 +30,12 @@ struct FsmExpand
 	RTLIL::Module *module;
 	RTLIL::Cell *fsm_cell;
 	SigMap assign_map;
-	SigSet<RTLIL::Cell*> sig2driver, sig2user;
+	SigSet<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> sig2driver, sig2user;
 	CellTypes ct;
 
-	std::set<RTLIL::Cell*> merged_set;
-	std::set<RTLIL::Cell*> current_set;
-	std::set<RTLIL::Cell*> no_candidate_set;
+	std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> merged_set;
+	std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> current_set;
+	std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> no_candidate_set;
 
 	bool already_optimized;
 	int limit_transitions;
