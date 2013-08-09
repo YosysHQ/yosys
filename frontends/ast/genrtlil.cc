@@ -968,7 +968,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (width > width_hint && width_hint > 0)
 				width = width_hint;
 			if (width < width_hint) {
-				if (type == AST_ADD || type == AST_SUB)
+				if (type == AST_ADD || type == AST_SUB || type == AST_DIV)
 					width++;
 				if (type == AST_SUB && (!children[0]->is_signed || !children[1]->is_signed))
 					width = width_hint;

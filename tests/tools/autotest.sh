@@ -140,9 +140,9 @@ do
 		if [ -n "$scriptfiles" ]; then
 			test_passes
 		else
-			test_passes -p hierarchy -p proc -p memory -p opt -p fsm -p opt
-			test_passes -p hierarchy -p proc -p memory -p opt -p fsm -p opt -p techmap -p opt
-			# test_passes -p hierarchy -p proc -p memory -p opt -p techmap -p opt -p abc -p opt
+			test_passes -p "hierarchy; proc; memory; opt; fsm; opt"
+			test_passes -p "hierarchy; proc; memory; opt; fsm; opt; techmap; opt"
+			# test_passes -p "hierarchy; proc; memory; opt; fsm; opt; techmap -opt; opt; abc; opt"
 		fi
 		touch ../${bn}.log
 	}

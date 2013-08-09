@@ -993,7 +993,76 @@ wire [Y_WIDTH-1:0] A_buf, B_buf;
 
 endmodule
 
-/****
+// --------------------------------------------------------
+
+module \$div_mod_u (A, B, Y, R);
+
+parameter WIDTH = 1;
+
+input [WIDTH-1:0] A, B;
+output [WIDTH-1:0] Y, R;
+
+wire [WIDTH*WIDTH-1:0] chaindata;
+assign R = chaindata[WIDTH*WIDTH-1:WIDTH*(WIDTH-1)];
+
+genvar i;
+generate begin
+	for (i = 0; i < WIDTH; i=i+1) begin:stage
+		wire [WIDTH-1:0] stage_in;
+
+		if (i == 0) begin:cp
+			assign stage_in = A;
+		end else begin:cp
+			assign stage_in = chaindata[i*WIDTH-1:(i-1)*WIDTH];
+		end
+
+		assign Y[WIDTH-(i+1)] = stage_in >= {B, {WIDTH-(i+1){1'b0}}};
+		assign chaindata[(i+1)*WIDTH-1:i*WIDTH] = Y[WIDTH-(i+1)] ? stage_in - {B, {WIDTH-(i+1){1'b0}}} : stage_in;
+	end
+end endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$div_mod (A, B, Y, R);
+
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 1;
+parameter B_WIDTH = 1;
+parameter Y_WIDTH = 1;
+
+localparam WIDTH =
+		A_WIDTH >= B_WIDTH && A_WIDTH >= Y_WIDTH ? A_WIDTH :
+		B_WIDTH >= A_WIDTH && B_WIDTH >= Y_WIDTH ? B_WIDTH : Y_WIDTH;
+
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
+output [Y_WIDTH-1:0] Y, R;
+
+wire [WIDTH-1:0] A_buf, B_buf;
+\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+
+wire [WIDTH-1:0] A_buf_u, B_buf_u, Y_u, R_u;
+assign A_buf_u = A_SIGNED && B_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
+assign B_buf_u = A_SIGNED && B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
+
+\$div_mod_u #(
+	.WIDTH(WIDTH)
+) div_mod_u (
+	.A(A_buf_u),
+	.B(B_buf_u),
+	.Y(Y_u),
+	.R(R_u),
+);
+
+assign Y = A_SIGNED && B_SIGNED && (A_buf[WIDTH-1] != B_buf[WIDTH-1]) ? -Y_u : Y_u;
+assign R = A_SIGNED && B_SIGNED && A_buf[WIDTH-1] ? -R_u : R_u;
+
+endmodule
+
 // --------------------------------------------------------
 
 module \$div (A, B, Y);
@@ -1008,10 +1077,17 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-wire signed [A_WIDTH:0] buffer_a = A_SIGNED ? $signed(A) : A;
-wire signed [B_WIDTH:0] buffer_b = B_SIGNED ? $signed(B) : B;
-
-assign Y = buffer_a / buffer_b;
+\$div_mod #(
+	.A_SIGNED(A_SIGNED),
+	.B_SIGNED(B_SIGNED),
+	.A_WIDTH(A_WIDTH),
+	.B_WIDTH(B_WIDTH),
+	.Y_WIDTH(Y_WIDTH)
+) div_mod (
+	.A(A),
+	.B(B),
+	.Y(Y)
+);
 
 endmodule
 
@@ -1029,13 +1105,21 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-wire signed [A_WIDTH:0] buffer_a = A_SIGNED ? $signed(A) : A;
-wire signed [B_WIDTH:0] buffer_b = B_SIGNED ? $signed(B) : B;
-
-assign Y = buffer_a % buffer_b;
+\$div_mod #(
+	.A_SIGNED(A_SIGNED),
+	.B_SIGNED(B_SIGNED),
+	.A_WIDTH(A_WIDTH),
+	.B_WIDTH(B_WIDTH),
+	.Y_WIDTH(Y_WIDTH)
+) div_mod (
+	.A(A),
+	.B(B),
+	.R(Y)
+);
 
 endmodule
 
+/****
 // --------------------------------------------------------
 
 module \$pow (A, B, Y);
