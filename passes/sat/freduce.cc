@@ -178,7 +178,7 @@ struct FreduceHelper
 		return true;
 	}
 
-	bool toproot_helper(RTLIL::SigSpec cursor, RTLIL::SigSpec stoplist, int level)
+	bool toproot_helper(RTLIL::SigSpec cursor, RTLIL::SigSpec stoplist, RTLIL::SigSpec &donelist, int level)
 	{
 		// log("    %*schecking %s: %s\n", level*2, "", log_signal(cursor), log_signal(stoplist));
 
@@ -187,13 +187,17 @@ struct FreduceHelper
 			return false;
 		}
 
+		if (donelist.extract(cursor).width != 0)
+			return true;
+
 		stoplist.append(cursor);
 		std::set<RTLIL::SigSpec> next = source_signals.find(cursor);
 
 		for (auto &it : next)
-			if (!toproot_helper(it, stoplist, level+1))
+			if (!toproot_helper(it, stoplist, donelist, level+1))
 				return false;
 
+		donelist.append(cursor);
 		return true;
 	}
 
@@ -204,10 +208,10 @@ struct FreduceHelper
 		sig.expand();
 		// log("  finding topological root in %s:\n", log_signal(sig));
 		for (auto &c : sig.chunks) {
-			RTLIL::SigSpec stoplist = sig;
+			RTLIL::SigSpec stoplist = sig, donelist;
 			stoplist.remove(c);
 			// log("    testing %s as root:\n", log_signal(c));
-			if (toproot_helper(c, stoplist, 0))
+			if (toproot_helper(c, stoplist, donelist, 0))
 				return c;
 		}
 		return RTLIL::SigSpec();
