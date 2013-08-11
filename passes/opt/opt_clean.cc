@@ -313,6 +313,9 @@ struct CleanPass : public Pass {
 		log("\n");
 		log("This is identical to opt_clean, but less verbose.\n");
 		log("\n");
+		log("When commands are seperated using the ';;' token, this command will be executed\n");
+		log("between the commands.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{

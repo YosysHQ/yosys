@@ -149,12 +149,15 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		std::string str = p;
 		int strsz = str.size();
 		if (strsz > 0 && str[strsz-1] == ';') {
+			int num_semikolon = 0;
 			while (strsz > 0 && str[strsz-1] == ';')
-				strsz--;
+				strsz--, num_semikolon++;
 			if (strsz > 0)
 				args.push_back(str.substr(0, strsz));
 			call(design, args);
 			args.clear();
+			if (num_semikolon == 2)
+				call(design, "clean");
 		} else
 			args.push_back(str);
 	}
