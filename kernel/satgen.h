@@ -267,6 +267,52 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$div" || cell->type == "$mod")
+		{
+			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			extendSignalWidth(a, b, y, cell);
+
+			std::vector<int> a_u, b_u;
+			if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool()) {
+				a_u = ez->vec_ite(a.back(), ez->vec_neg(a), a);
+				b_u = ez->vec_ite(b.back(), ez->vec_neg(b), b);
+			} else {
+				a_u = a;
+				b_u = b;
+			}
+
+			std::vector<int> chain_buf = a_u;
+			std::vector<int> y_u(a_u.size(), ez->FALSE);
+			for (int i = int(a.size())-1; i >= 0; i--)
+			{
+				chain_buf.insert(chain_buf.end(), chain_buf.size(), ez->FALSE);
+
+				std::vector<int> b_shl(i, ez->FALSE);
+				b_shl.insert(b_shl.end(), b_u.begin(), b_u.end());
+				b_shl.insert(b_shl.end(), chain_buf.size()-b_shl.size(), ez->FALSE);
+
+				y_u.at(i) = ez->vec_ge_unsigned(chain_buf, b_shl);
+				chain_buf = ez->vec_ite(y_u.at(i), ez->vec_sub(chain_buf, b_shl), chain_buf);
+
+				chain_buf.erase(chain_buf.begin() + a_u.size(), chain_buf.end());
+			}
+
+			if (cell->type == "$div") {
+				if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
+					ez->assume(ez->vec_eq(y, ez->vec_ite(ez->XOR(a.back(), b.back()), ez->vec_neg(y_u), y_u)));
+				else
+					ez->assume(ez->vec_eq(y, y_u));
+			} else {
+				if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
+					ez->assume(ez->vec_eq(y, ez->vec_ite(a.back(), ez->vec_neg(chain_buf), chain_buf)));
+				else
+					ez->assume(ez->vec_eq(y, chain_buf));
+			}
+			return true;
+		}
+
 		if (timestep > 0 && (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")) {
 			if (timestep == 1) {
 				initial_state.add((*sigmap)(cell->connections.at("\\Q")));

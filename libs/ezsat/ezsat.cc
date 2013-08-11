@@ -852,6 +852,12 @@ std::vector<int> ezSAT::vec_sub(const std::vector<int> &vec1, const std::vector<
 	return vec;
 }
 
+std::vector<int> ezSAT::vec_neg(const std::vector<int> &vec)
+{
+	std::vector<int> zero(vec.size(), FALSE);
+	return vec_sub(zero, vec);
+}
+
 void ezSAT::vec_cmp(const std::vector<int> &vec1, const std::vector<int> &vec2, int &carry, int &overflow, int &sign, int &zero)
 {
 	assert(vec1.size() == vec2.size());

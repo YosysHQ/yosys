@@ -223,6 +223,7 @@ public:
 	std::vector<int> vec_count(const std::vector<int> &vec, int bits, bool clip = true);
 	std::vector<int> vec_add(const std::vector<int> &vec1, const std::vector<int> &vec2);
 	std::vector<int> vec_sub(const std::vector<int> &vec1, const std::vector<int> &vec2);
+	std::vector<int> vec_neg(const std::vector<int> &vec);
 
 	void vec_cmp(const std::vector<int> &vec1, const std::vector<int> &vec2, int &carry, int &overflow, int &sign, int &zero);
 
@@ -305,6 +306,8 @@ struct ezSATvec
 	ezSATvec(ezSAT &sat, const std::vector<int> &vec) : sat(sat), vec(vec) { }
 
 	ezSATvec operator ~() { return ezSATvec(sat, sat.vec_not(vec)); }
+	ezSATvec operator -() { return ezSATvec(sat, sat.vec_neg(vec)); }
+
 	ezSATvec operator &(const ezSATvec &other) { return ezSATvec(sat, sat.vec_and(vec, other.vec)); }
 	ezSATvec operator |(const ezSATvec &other) { return ezSATvec(sat, sat.vec_or(vec, other.vec)); }
 	ezSATvec operator ^(const ezSATvec &other) { return ezSATvec(sat, sat.vec_xor(vec, other.vec)); }
