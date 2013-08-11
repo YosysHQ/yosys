@@ -158,6 +158,8 @@ void Pass::call(RTLIL::Design *design, std::string command)
 			args.clear();
 			if (num_semikolon == 2)
 				call(design, "clean");
+			if (num_semikolon == 3)
+				call(design, "clean -purge");
 		} else
 			args.push_back(str);
 	}

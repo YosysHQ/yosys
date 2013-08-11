@@ -277,6 +277,7 @@ struct OptCleanPass : public Pass {
 				purge_mode = true;
 				continue;
 			}
+			break;
 		}
 		extra_args(args, argidx, design);
 
@@ -309,17 +310,31 @@ struct CleanPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    clean [selection]\n");
+		log("    clean [options] [selection]\n");
 		log("\n");
-		log("This is identical to opt_clean, but less verbose.\n");
+		log("This is identical to 'opt_clean', but less verbose.\n");
 		log("\n");
 		log("When commands are seperated using the ';;' token, this command will be executed\n");
 		log("between the commands.\n");
 		log("\n");
+		log("When commands are seperated using the ';;;' token, this command will be executed\n");
+		log("in -purge mode between the commands.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		extra_args(args, 1, design);
+		bool purge_mode = false;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-purge") {
+				purge_mode = true;
+				continue;
+			}
+			break;
+		}
+		if (argidx < args.size())
+			extra_args(args, argidx, design);
 
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -333,7 +348,7 @@ struct CleanPass : public Pass {
 			if (design->selected_whole_module(mod_it.first) && mod_it.second->processes.size() == 0)
 				do {
 					OPT_DID_SOMETHING = false;
-					rmunused_module(mod_it.second, false, false);
+					rmunused_module(mod_it.second, purge_mode, false);
 				} while (OPT_DID_SOMETHING);
 		}
 
