@@ -974,8 +974,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					width = width_hint;
 				if (type == AST_MUL)
 					width = std::min(left.width + right.width, width_hint);
+				if (type == AST_POW)
+					width = width_hint;
 			}
 			is_signed = children[0]->is_signed && children[1]->is_signed;
+			if (!flag_noopt && type == AST_POW && left.is_fully_const() && left.as_int() == 2)
+				return binop2rtlil(this, "$shl", width, RTLIL::SigSpec(1, left.width), right);
 			return binop2rtlil(this, type_name, width, left, right);
 		}
 
