@@ -1077,6 +1077,9 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
+wire [Y_WIDTH-1:0] Y_buf;
+wire [Y_WIDTH-1:0] Y_div_zero;
+
 \$div_mod #(
 	.A_SIGNED(A_SIGNED),
 	.B_SIGNED(B_SIGNED),
@@ -1086,8 +1089,19 @@ output [Y_WIDTH-1:0] Y;
 ) div_mod (
 	.A(A),
 	.B(B),
-	.Y(Y)
+	.Y(Y_buf)
 );
+
+// explicitly force the division-by-zero behavior found in other synthesis tools 
+generate begin
+	if (A_SIGNED && B_SIGNED) begin:make_div_zero
+		assign Y_div_zero = A[A_WIDTH-1] ? {Y_WIDTH{1'b0}} | 1'b1 : {Y_WIDTH{1'b1}};
+	end else begin:make_div_zero
+		assign Y_div_zero = {A_WIDTH{1'b1}};
+	end
+end endgenerate
+
+assign Y = B ? Y_buf : Y_div_zero;
 
 endmodule
 
@@ -1105,6 +1119,9 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
+wire [Y_WIDTH-1:0] Y_buf;
+wire [Y_WIDTH-1:0] Y_div_zero;
+
 \$div_mod #(
 	.A_SIGNED(A_SIGNED),
 	.B_SIGNED(B_SIGNED),
@@ -1114,8 +1131,20 @@ output [Y_WIDTH-1:0] Y;
 ) div_mod (
 	.A(A),
 	.B(B),
-	.R(Y)
+	.R(Y_buf)
 );
+
+// explicitly force the division-by-zero behavior found in other synthesis tools 
+localparam div_zero_copy_a_bits = A_WIDTH < B_WIDTH ? A_WIDTH : B_WIDTH;
+generate begin
+	if (A_SIGNED && B_SIGNED) begin:make_div_zero
+		assign Y_div_zero = $signed(A[div_zero_copy_a_bits-1:0]);
+	end else begin:make_div_zero
+		assign Y_div_zero = $unsigned(A[div_zero_copy_a_bits-1:0]);
+	end
+end endgenerate
+
+assign Y = B ? Y_buf : Y_div_zero;
 
 endmodule
 

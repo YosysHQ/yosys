@@ -300,20 +300,43 @@ struct SatGen
 				chain_buf.erase(chain_buf.begin() + a_u.size(), chain_buf.end());
 			}
 
+			std::vector<int> y_tmp = ignore_div_by_zero ? y : ez->vec_var(y.size());
 			if (cell->type == "$div") {
 				if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
-					ez->assume(ez->vec_eq(y, ez->vec_ite(ez->XOR(a.back(), b.back()), ez->vec_neg(y_u), y_u)));
+					ez->assume(ez->vec_eq(y_tmp, ez->vec_ite(ez->XOR(a.back(), b.back()), ez->vec_neg(y_u), y_u)));
 				else
-					ez->assume(ez->vec_eq(y, y_u));
+					ez->assume(ez->vec_eq(y_tmp, y_u));
 			} else {
 				if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
-					ez->assume(ez->vec_eq(y, ez->vec_ite(a.back(), ez->vec_neg(chain_buf), chain_buf)));
+					ez->assume(ez->vec_eq(y_tmp, ez->vec_ite(a.back(), ez->vec_neg(chain_buf), chain_buf)));
 				else
-					ez->assume(ez->vec_eq(y, chain_buf));
+					ez->assume(ez->vec_eq(y_tmp, chain_buf));
 			}
 
-			if (ignore_div_by_zero)
+			if (ignore_div_by_zero) {
 				ez->assume(ez->expression(ezSAT::OpOr, b));
+			} else {
+				std::vector<int> div_zero_result;
+				if (cell->type == "$div") {
+					if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool()) {
+						std::vector<int> all_ones(y.size(), ez->TRUE);
+						std::vector<int> only_first_one(y.size(), ez->FALSE);
+						only_first_one.at(0) = ez->TRUE;
+						div_zero_result = ez->vec_ite(a.back(), only_first_one, all_ones);
+					} else {
+						div_zero_result.insert(div_zero_result.end(), cell->connections.at("\\A").width, ez->TRUE);
+						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), ez->FALSE);
+					}
+				} else {
+					int copy_a_bits = std::min(cell->connections.at("\\A").width, cell->connections.at("\\B").width);
+					div_zero_result.insert(div_zero_result.end(), a.begin(), a.begin() + copy_a_bits);
+					if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
+						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), div_zero_result.back());
+					else
+						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), ez->FALSE);
+				}
+				ez->assume(ez->vec_eq(y, ez->vec_ite(ez->expression(ezSAT::OpOr, b), y_tmp, div_zero_result)));
+			}
 
 			return true;
 		}
