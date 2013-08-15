@@ -208,6 +208,7 @@ public:
 
 	std::vector<int> vec_const_signed(int64_t value, int bits);
 	std::vector<int> vec_const_unsigned(uint64_t value, int bits);
+	std::vector<int> vec_var(int bits);
 	std::vector<int> vec_var(std::string name, int bits);
 	std::vector<int> vec_cast(const std::vector<int> &vec1, int toBits, bool signExtend = false);
 

@@ -667,6 +667,14 @@ std::vector<int> ezSAT::vec_const_unsigned(uint64_t value, int bits)
 	return vec;
 }
 
+std::vector<int> ezSAT::vec_var(int bits)
+{
+	std::vector<int> vec;
+	for (int i = 0; i < bits; i++)
+		vec.push_back(literal());
+	return vec;
+}
+
 std::vector<int> ezSAT::vec_var(std::string name, int bits)
 {
 	std::vector<int> vec;
