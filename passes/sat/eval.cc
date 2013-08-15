@@ -35,6 +35,7 @@ struct BruteForceEquivChecker
 	RTLIL::SigSpec mod1_inputs, mod1_outputs;
 	RTLIL::SigSpec mod2_inputs, mod2_outputs;
 	int counter, errors;
+	bool ignore_x_mod1;
 
 	void run_checker(RTLIL::SigSpec &inputs)
 	{
@@ -63,8 +64,16 @@ struct BruteForceEquivChecker
 			log("Failed ConstEval of module 2 outputs at signal %s (input: %s = %s).\n",
 					log_signal(undef2), log_signal(mod1_inputs), log_signal(inputs));
 
+		if (ignore_x_mod1) {
+			sig1.expand(), sig2.expand();
+			for (size_t i = 0; i < sig1.chunks.size(); i++)
+				if (sig1.chunks.at(i) == RTLIL::SigChunk(RTLIL::State::Sx))
+					sig2.chunks.at(i) = RTLIL::SigChunk(RTLIL::State::Sx);
+			sig1.optimize(), sig2.optimize();
+		}
+
 		if (sig1 != sig2) {
-			log("Found counter-example:\n");
+			log("Found counter-example (ignore_x_mod1 = %s):\n", ignore_x_mod1 ? "active" : "inactive");
 			log("  Module 1:  %s = %s  =>  %s = %s\n", log_signal(mod1_inputs), log_signal(inputs), log_signal(mod1_outputs), log_signal(sig1));
 			log("  Module 2:  %s = %s  =>  %s = %s\n", log_signal(mod2_inputs), log_signal(inputs), log_signal(mod2_outputs), log_signal(sig2));
 			errors++;
@@ -73,8 +82,8 @@ struct BruteForceEquivChecker
 		counter++;
 	}
 
-	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2) :
-			mod1(mod1), mod2(mod2), counter(0), errors(0)
+	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2, bool ignore_x_mod1) :
+			mod1(mod1), mod2(mod2), counter(0), errors(0), ignore_x_mod1(ignore_x_mod1)
 	{
 		log("Checking for equivialence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
 		for (auto &w : mod1->wires)
@@ -144,15 +153,16 @@ struct EvalPass : public Pass {
 				shows.push_back(args[++argidx]);
 				continue;
 			}
-			if (args[argidx] == "-brute_force_equiv_checker" && argidx+2 < args.size()) {
+			if ((args[argidx] == "-brute_force_equiv_checker" || args[argidx] == "-brute_force_equiv_checker_x") && argidx+2 < args.size()) {
 				/* this should only be used for regression testing of ConstEval -- see tests/xsthammer */
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
+				extra_args(args, argidx, design);
 				if (design->modules.count(mod1_name) == 0)
 					log_error("Can't find module `%s'!\n", mod1_name.c_str());
 				if (design->modules.count(mod2_name) == 0)
 					log_error("Can't find module `%s'!\n", mod2_name.c_str());
-				BruteForceEquivChecker checker(design->modules.at(mod1_name), design->modules.at(mod2_name));
+				BruteForceEquivChecker checker(design->modules.at(mod1_name), design->modules.at(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivialent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",

@@ -362,15 +362,21 @@ RTLIL::Const RTLIL::const_mul(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 RTLIL::Const RTLIL::const_div(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
 	int undef_bit_pos = -1;
-	BigInteger y = const2big(arg1, signed1, undef_bit_pos) / const2big(arg2, signed2, undef_bit_pos);
-	return big2const(y, result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
+	BigInteger a = const2big(arg1, signed1, undef_bit_pos);
+	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
+	if (b.isZero())
+		return RTLIL::Const(RTLIL::State::Sx, result_len);
+	return big2const(a / b, result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
 }
 
 RTLIL::Const RTLIL::const_mod(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
 	int undef_bit_pos = -1;
-	BigInteger y = const2big(arg1, signed1, undef_bit_pos) % const2big(arg2, signed2, undef_bit_pos);
-	return big2const(y, result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
+	BigInteger a = const2big(arg1, signed1, undef_bit_pos);
+	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
+	if (b.isZero())
+		return RTLIL::Const(RTLIL::State::Sx, result_len);
+	return big2const(a % b, result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
 }
 
 RTLIL::Const RTLIL::const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
