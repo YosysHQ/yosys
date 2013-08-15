@@ -366,7 +366,10 @@ RTLIL::Const RTLIL::const_div(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
 	if (b.isZero())
 		return RTLIL::Const(RTLIL::State::Sx, result_len);
-	return big2const(a / b, result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
+	bool result_neg = (a.getSign() == BigInteger::negative) != (b.getSign() == BigInteger::negative);
+	a = a.getSign() == BigInteger::negative ? -a : a;
+	b = b.getSign() == BigInteger::negative ? -b : b;
+	return big2const(result_neg ? -(a / b) : (a / b), result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
 }
 
 RTLIL::Const RTLIL::const_mod(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
@@ -376,7 +379,10 @@ RTLIL::Const RTLIL::const_mod(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
 	if (b.isZero())
 		return RTLIL::Const(RTLIL::State::Sx, result_len);
-	return big2const(a % b, result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
+	bool result_neg = a.getSign() == BigInteger::negative;
+	a = a.getSign() == BigInteger::negative ? -a : a;
+	b = b.getSign() == BigInteger::negative ? -b : b;
+	return big2const(result_neg ? -(a % b) : (a % b), result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
 }
 
 RTLIL::Const RTLIL::const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
