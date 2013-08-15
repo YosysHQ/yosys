@@ -444,6 +444,9 @@ struct SatPass : public Pass {
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
+		log("    -ignore_div_by_zero\n");
+		log("        ignore all solutions that involve a division by zero\n");
+		log("\n");
 		log("The following options can be used to set up a sequential problem:\n");
 		log("\n");
 		log("    -seq <N>\n");
@@ -483,7 +486,7 @@ struct SatPass : public Pass {
 		std::map<int, std::vector<std::string>> unsets_at;
 		std::vector<std::string> shows;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
-		bool verify = false, fail_on_timeout = false;
+		bool verify = false, fail_on_timeout = false, ignore_div_by_zero = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -512,6 +515,10 @@ struct SatPass : public Pass {
 			}
 			if (args[argidx] == "-maxsteps" && argidx+1 < args.size()) {
 				maxsteps = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-ignore_div_by_zero" && argidx+1 < args.size()) {
+				ignore_div_by_zero = true;
 				continue;
 			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
@@ -579,6 +586,7 @@ struct SatPass : public Pass {
 			basecase.unsets_at = unsets_at;
 			basecase.shows = shows;
 			basecase.timeout = timeout;
+			basecase.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
 				basecase.setup(timestep);
@@ -587,6 +595,7 @@ struct SatPass : public Pass {
 			inductstep.prove = prove;
 			inductstep.shows = shows;
 			inductstep.timeout = timeout;
+			inductstep.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			inductstep.setup(1);
 			inductstep.ez.assume(inductstep.setup_proof(1));
@@ -669,6 +678,7 @@ struct SatPass : public Pass {
 			sathelper.unsets_at = unsets_at;
 			sathelper.shows = shows;
 			sathelper.timeout = timeout;
+			sathelper.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			if (seq_len == 0) {
 				sathelper.setup();

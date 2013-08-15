@@ -39,9 +39,10 @@ struct SatGen
 	SigMap *sigmap;
 	std::string prefix;
 	SigPool initial_state;
+	bool ignore_div_by_zero;
 
 	SatGen(ezSAT *ez, RTLIL::Design *design, SigMap *sigmap, std::string prefix = std::string()) :
-			ez(ez), design(design), sigmap(sigmap), prefix(prefix)
+			ez(ez), design(design), sigmap(sigmap), prefix(prefix), ignore_div_by_zero(false)
 	{
 	}
 
@@ -310,6 +311,10 @@ struct SatGen
 				else
 					ez->assume(ez->vec_eq(y, chain_buf));
 			}
+
+			if (ignore_div_by_zero)
+				ez->assume(ez->expression(ezSAT::OpOr, b));
+
 			return true;
 		}
 
