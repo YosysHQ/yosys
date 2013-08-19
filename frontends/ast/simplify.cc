@@ -498,39 +498,65 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 		}
 		children.clear();
 
-		AstNodeType op_type = AST_NONE;
-		bool invert_results = false;
+		if (str == "bufif0" || str == "bufif1")
+		{
+			if (children_list.size() != 3)
+				log_error("Invalid number of arguments for primitive `%s' at %s:%d!\n",
+						str.c_str(), filename.c_str(), linenum);
 
-		if (str == "and")
-			op_type = AST_BIT_AND;
-		if (str == "nand")
-			op_type = AST_BIT_AND, invert_results = true;
-		if (str == "or")
-			op_type = AST_BIT_OR;
-		if (str == "nor")
-			op_type = AST_BIT_OR, invert_results = true;
-		if (str == "xor")
-			op_type = AST_BIT_XOR;
-		if (str == "xnor")
-			op_type = AST_BIT_XOR, invert_results = true;
-		if (str == "buf")
-			op_type = AST_POS;
-		if (str == "not")
-			op_type = AST_POS, invert_results = true;
-		assert(op_type != AST_NONE);
+			std::vector<RTLIL::State> z_const(1, RTLIL::State::Sz);
 
-		AstNode *node = children_list[1];
-		if (op_type != AST_POS)
-			for (size_t i = 2; i < children_list.size(); i++)
-				node = new AstNode(op_type, node, children_list[i]);
-		if (invert_results)
-			node = new AstNode(AST_BIT_NOT, node);
+			AstNode *node = new AstNode(AST_TERNARY, children_list.at(2));
+			if (str == "bufif0") {
+				node->children.push_back(AstNode::mkconst_bits(z_const, false));
+				node->children.push_back(children_list.at(1));
+			} else {
+				node->children.push_back(children_list.at(1));
+				node->children.push_back(AstNode::mkconst_bits(z_const, false));
+			}
 
-		str.clear();
-		type = AST_ASSIGN;
-		children.push_back(children_list[0]);
-		children.push_back(node);
-		did_something = true;
+			str.clear();
+			type = AST_ASSIGN;
+			children.push_back(children_list.at(0));
+			children.push_back(node);
+			did_something = true;
+		}
+		else
+		{
+			AstNodeType op_type = AST_NONE;
+			bool invert_results = false;
+
+			if (str == "and")
+				op_type = AST_BIT_AND;
+			if (str == "nand")
+				op_type = AST_BIT_AND, invert_results = true;
+			if (str == "or")
+				op_type = AST_BIT_OR;
+			if (str == "nor")
+				op_type = AST_BIT_OR, invert_results = true;
+			if (str == "xor")
+				op_type = AST_BIT_XOR;
+			if (str == "xnor")
+				op_type = AST_BIT_XOR, invert_results = true;
+			if (str == "buf")
+				op_type = AST_POS;
+			if (str == "not")
+				op_type = AST_POS, invert_results = true;
+			assert(op_type != AST_NONE);
+
+			AstNode *node = children_list[1];
+			if (op_type != AST_POS)
+				for (size_t i = 2; i < children_list.size(); i++)
+					node = new AstNode(op_type, node, children_list[i]);
+			if (invert_results)
+				node = new AstNode(AST_BIT_NOT, node);
+
+			str.clear();
+			type = AST_ASSIGN;
+			children.push_back(children_list[0]);
+			children.push_back(node);
+			did_something = true;
+		}
 	}
 
 	// replace dynamic ranges in left-hand side expressions (e.g. "foo[bar] <= 1'b1;") with
