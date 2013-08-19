@@ -243,7 +243,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 	// resolve constant prefixes
 	if (type == AST_PREFIX) {
 		if (children[0]->type != AST_CONSTANT) {
-			dumpAst(NULL, ">   ", NULL);
+			dumpAst(NULL, ">   ");
 			log_error("Index in generate block prefix syntax at %s:%d is not constant!\n", filename.c_str(), linenum);
 		}
 		assert(children[1]->type == AST_IDENTIFIER);

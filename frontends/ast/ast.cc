@@ -46,7 +46,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt;
+	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
@@ -212,46 +212,12 @@ AstNode::~AstNode()
 
 // create a nice text representation of the node
 // (traverse tree by recursion, use 'other' pointer for diffing two AST trees)
-void AstNode::dumpAst(FILE *f, std::string indent, AstNode *other)
+void AstNode::dumpAst(FILE *f, std::string indent)
 {
 	if (f == NULL) {
 		for (auto f : log_files)
-			dumpAst(f, indent, other);
+			dumpAst(f, indent);
 		return;
-	}
-	if (other != NULL) {
-		if (type != other->type)
-			goto found_diff_to_other;
-		if (children.size() != other->children.size())
-			goto found_diff_to_other;
-		if (str != other->str)
-			goto found_diff_to_other;
-		if (bits != other->bits)
-			goto found_diff_to_other;
-		if (is_input != other->is_input)
-			goto found_diff_to_other;
-		if (is_output != other->is_output)
-			goto found_diff_to_other;
-		if (is_reg != other->is_reg)
-			goto found_diff_to_other;
-		if (is_signed != other->is_signed)
-			goto found_diff_to_other;
-		if (range_valid != other->range_valid)
-			goto found_diff_to_other;
-		if (port_id != other->port_id)
-			goto found_diff_to_other;
-		if (range_left != other->range_left)
-			goto found_diff_to_other;
-		if (range_right != other->range_right)
-			goto found_diff_to_other;
-		if (integer != other->integer)
-			goto found_diff_to_other;
-		if (0) {
-	found_diff_to_other:
-			other->dumpAst(f, indent + "- ");
-			this->dumpAst(f, indent + "+ ");
-			return;
-		}
 	}
 
 	std::string type_name = type2str(type);
@@ -284,7 +250,7 @@ void AstNode::dumpAst(FILE *f, std::string indent, AstNode *other)
 	fprintf(f, "\n");
 
 	for (size_t i = 0; i < children.size(); i++)
-		children[i]->dumpAst(f, indent + "  ", other ? other->children[i] : NULL);
+		children[i]->dumpAst(f, indent + "  ");
 }
 
 // helper function for AstNode::dumpVlog()
@@ -675,11 +641,17 @@ static AstModule* process_module(AstNode *ast)
 	current_ast_mod = ast;
 	AstNode *ast_before_simplify = ast->clone();
 
+	if (flag_dump_ast1) {
+		log("Dumping verilog AST before simplification:\n");
+		ast->dumpAst(NULL, "    ");
+		log("--- END OF AST DUMP ---\n");
+	}
+
 	while (ast->simplify(!flag_noopt, false, false, 0)) { }
 
-	if (flag_dump_ast) {
-		log("Dumping verilog AST (as requested by %s option):\n", flag_dump_ast_diff ? "dump_ast_diff" : "dump_ast");
-		ast->dumpAst(NULL, "    ", flag_dump_ast_diff ? ast_before_simplify : NULL);
+	if (flag_dump_ast2) {
+		log("Dumping verilog AST after simplification:\n");
+		ast->dumpAst(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
 	}
 
@@ -746,11 +718,11 @@ static AstModule* process_module(AstNode *ast)
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast, bool dump_ast_diff, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt)
 {
 	current_ast = ast;
-	flag_dump_ast = dump_ast;
-	flag_dump_ast_diff = dump_ast_diff;
+	flag_dump_ast1 = dump_ast1;
+	flag_dump_ast2 = dump_ast2;
 	flag_dump_vlog = dump_vlog;
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
@@ -780,8 +752,8 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	log_header("Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", name.c_str());
 
 	current_ast = NULL;
-	flag_dump_ast = false;
-	flag_dump_ast_diff = false;
+	flag_dump_ast1 = false;
+	flag_dump_ast2 = false;
 	flag_dump_vlog = false;
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;
@@ -865,8 +837,8 @@ void AstModule::update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes)
 	log_header("Executing AST frontend in update_auto_wires mode using pre-parsed AST for module `%s'.\n", name.c_str());
 
 	current_ast = NULL;
-	flag_dump_ast = false;
-	flag_dump_ast_diff = false;
+	flag_dump_ast1 = false;
+	flag_dump_ast2 = false;
 	flag_dump_vlog = false;
 	flag_nolatches = nolatches;
 	flag_nomem2reg = nomem2reg;

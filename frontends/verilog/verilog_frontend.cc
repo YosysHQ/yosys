@@ -49,11 +49,11 @@ struct VerilogFrontend : public Frontend {
 		log("Load modules from a verilog file to the current design. A large subset of\n");
 		log("Verilog-2005 is supported.\n");
 		log("\n");
-		log("    -dump_ast\n");
-		log("        dump abstract syntax tree (after simplification)\n");
+		log("    -dump_ast1\n");
+		log("        dump abstract syntax tree (before simplification)\n");
 		log("\n");
-		log("    -dump_ast_diff\n");
-		log("        dump ast differences before and after simplification\n");
+		log("    -dump_ast2\n");
+		log("        dump abstract syntax tree (after simplification)\n");
 		log("\n");
 		log("    -dump_vlog\n");
 		log("        dump ast as verilog code (after simplification)\n");
@@ -103,8 +103,8 @@ struct VerilogFrontend : public Frontend {
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		bool flag_dump_ast = false;
-		bool flag_dump_ast_diff = false;
+		bool flag_dump_ast1 = false;
+		bool flag_dump_ast2 = false;
 		bool flag_dump_vlog = false;
 		bool flag_nolatches = false;
 		bool flag_nomem2reg = false;
@@ -121,13 +121,12 @@ struct VerilogFrontend : public Frontend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-dump_ast") {
-				flag_dump_ast = true;
+			if (arg == "-dump_ast1") {
+				flag_dump_ast1 = true;
 				continue;
 			}
-			if (arg == "-dump_ast_diff") {
-				flag_dump_ast = true;
-				flag_dump_ast_diff = true;
+			if (arg == "-dump_ast2") {
+				flag_dump_ast2 = true;
 				continue;
 			}
 			if (arg == "-dump_vlog") {
@@ -205,7 +204,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
-		AST::process(design, current_ast, flag_dump_ast, flag_dump_ast_diff, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt);
 
 		if (!flag_nopp)
 			fclose(fp);
