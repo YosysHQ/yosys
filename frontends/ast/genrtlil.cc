@@ -567,6 +567,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 	case AST_SHIFT_RIGHT:
 	case AST_SHIFT_SLEFT:
 	case AST_SHIFT_SRIGHT:
+	case AST_POW:
 		children[0]->detectSignWidthWorker(width_hint, sign_hint);
 		break;
 
@@ -585,7 +586,6 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 	case AST_MUL:
 	case AST_DIV:
 	case AST_MOD:
-	case AST_POW:
 		for (auto child : children)
 			child->detectSignWidthWorker(width_hint, sign_hint);
 		break;
@@ -963,8 +963,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
-			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
-			int width = std::max(left.width, right.width);
+			RTLIL::SigSpec right = type == AST_POW ? children[1]->genRTLIL() : children[1]->genRTLIL(width_hint, sign_hint);
+			int width = type == AST_POW ? left.width : std::max(left.width, right.width);
 			if (width > width_hint && width_hint > 0)
 				width = width_hint;
 			if (width < width_hint) {
