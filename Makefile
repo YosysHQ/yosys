@@ -20,6 +20,10 @@ LDFLAGS = -rdynamic
 LDLIBS = -lstdc++ -lreadline -lm -ldl
 QMAKE = qmake-qt4
 
+YOSYS_VER := 0.0.x
+GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
+OBJS = kernel/version_$(GIT_REV).o
+
 -include Makefile.conf
 
 ifeq ($(CONFIG),clang-debug)
@@ -76,6 +80,9 @@ top-all: $(TARGETS) $(EXTRA_TARGETS)
 yosys: $(OBJS)
 	$(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
 
+kernel/version_$(GIT_REV).cc:
+	echo "extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV))\";" > kernel/version_$(GIT_REV).cc
+
 yosys-config: yosys-config.in
 	sed 's,@CXX@,$(CXX),; s,@CXXFLAGS@,$(CXXFLAGS),; s,@LDFLAGS@,$(LDFLAGS),; s,@LDLIBS@,$(LDLIBS),;' < yosys-config.in > yosys-config
 	chmod +x yosys-config
@@ -105,6 +112,7 @@ manual:
 
 clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
+	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
 	cd manual && rm -f *.aux *.bbl *.blg *.idx *.log *.out *.pdf *.toc
 	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean

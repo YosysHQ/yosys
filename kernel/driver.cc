@@ -31,6 +31,9 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 
+// from kernel/version_*.o (cc source generated from Makefile)
+extern const char *yosys_version_str;
+
 bool fgetline(FILE *f, std::string &buffer)
 {
 	buffer = "";
@@ -438,10 +441,13 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "Sm:f:b:o:p:l:qts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "VSm:f:b:o:p:l:qts:c:")) != -1)
 	{
 		switch (opt)
 		{
+		case 'V':
+			printf("%s\n", yosys_version_str);
+			exit(0);
 		case 'S':
 			backend_command = "verilog -noattr";
 			passes_commands.push_back("hierarchy");
@@ -494,7 +500,7 @@ int main(int argc, char **argv)
 			break;
 		default:
 			fprintf(stderr, "\n");
-			fprintf(stderr, "Usage: %s [-S] [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [{-s|-c} <scriptfile>]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-V] [-S] [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [{-s|-c} <scriptfile>]\n", argv[0]);
 			fprintf(stderr, "       %*s[-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
@@ -526,6 +532,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -m module_file\n");
 			fprintf(stderr, "        load the specified module (aka plugin)\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -V\n");
+			fprintf(stderr, "        print version information and exit\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "The option -S is an alias for the following options that perform a simple\n");
 			fprintf(stderr, "transformation of the input to a gate-level netlist. This can be helpful when\n");
@@ -568,6 +577,8 @@ int main(int argc, char **argv)
 	log(" |  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.             |\n");
 	log(" |                                                                             |\n");
 	log(" \\-----------------------------------------------------------------------------/\n");
+	log("\n");
+	log(" %s\n", yosys_version_str);
 	log("\n");
 
 	Pass::init_register();
