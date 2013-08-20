@@ -80,7 +80,8 @@ top-all: $(TARGETS) $(EXTRA_TARGETS)
 yosys: $(OBJS)
 	$(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
 
-kernel/version_$(GIT_REV).cc:
+kernel/version_$(GIT_REV).cc: Makefile
+	rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
 	echo "extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV))\";" > kernel/version_$(GIT_REV).cc
 
 yosys-config: yosys-config.in
