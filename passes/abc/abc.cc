@@ -457,21 +457,21 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		int buffer_pos = 0;
 		if (!liberty_file.empty())
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -c 'read_verilog %s/input.v; read_liberty %s; map; ",
+					"%s -s -c 'read_verilog %s/input.v; read_liberty %s; map; ",
 					exe_file.c_str(), tempdir_name, liberty_file.c_str());
 		else
 		if (!script_file.empty())
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -c 'read_verilog %s/input.v; source %s; ",
+					"%s -s -c 'read_verilog %s/input.v; source %s; ",
 					exe_file.c_str(), tempdir_name, script_file.c_str());
 		else
 		if (lut_mode)
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -c 'read_verilog %s/input.v; read_lut %s/lutdefs.txt; if; ",
+					"%s -s -c 'read_verilog %s/input.v; read_lut %s/lutdefs.txt; if; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
 		else
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; map; ",
+					"%s -s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; map; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
 		if (lut_mode)
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);

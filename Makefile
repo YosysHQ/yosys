@@ -86,7 +86,7 @@ yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 
 abc:
 	test -d abc || hg clone https://bitbucket.org/alanmi/abc abc
-	cd abc && hg pull && make
+	cd abc && hg pull && hg update && make
 	cp abc/abc yosys-abc
 
 test: yosys
