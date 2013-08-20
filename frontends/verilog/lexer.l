@@ -169,7 +169,7 @@ namespace VERILOG_FRONTEND {
 }
 <STRING>.	{ yymore(); }
 
-and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1 {
+and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1 {
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_PRIMITIVE;
 }

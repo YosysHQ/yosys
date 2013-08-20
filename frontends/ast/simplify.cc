@@ -498,7 +498,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 		}
 		children.clear();
 
-		if (str == "bufif0" || str == "bufif1")
+		if (str == "bufif0" || str == "bufif1" || str == "notif0" || str == "notif1")
 		{
 			if (children_list.size() != 3)
 				log_error("Invalid number of arguments for primitive `%s' at %s:%d!\n",
@@ -506,12 +506,16 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 
 			std::vector<RTLIL::State> z_const(1, RTLIL::State::Sz);
 
+			AstNode *mux_input = children_list.at(1);
+			if (str == "notif0" || str == "notif1") {
+				mux_input = new AstNode(AST_BIT_NOT, mux_input);
+			}
 			AstNode *node = new AstNode(AST_TERNARY, children_list.at(2));
 			if (str == "bufif0") {
 				node->children.push_back(AstNode::mkconst_bits(z_const, false));
-				node->children.push_back(children_list.at(1));
+				node->children.push_back(mux_input);
 			} else {
-				node->children.push_back(children_list.at(1));
+				node->children.push_back(mux_input);
 				node->children.push_back(AstNode::mkconst_bits(z_const, false));
 			}
 
