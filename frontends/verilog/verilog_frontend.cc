@@ -100,6 +100,10 @@ struct VerilogFrontend : public Frontend {
 		log("        define the preprocessor symbol 'name' and set its optional value\n");
 		log("        'definition'\n");
 		log("\n");
+		log("    -Idir\n");
+		log("        add 'dir' to the directories which are used when searching include\n");
+		log("        files\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -114,6 +118,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_lib = false;
 		bool flag_noopt = false;
 		std::map<std::string, std::string> defines_map;
+		std::list<std::string> include_dirs;
 		frontend_verilog_yydebug = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
@@ -175,6 +180,10 @@ struct VerilogFrontend : public Frontend {
 				defines_map[name] = value;
 				continue;
 			}
+			if (arg.compare(0,2,"-I") == 0) {
+				include_dirs.push_back(arg.substr(2,std::string::npos));
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -191,7 +200,7 @@ struct VerilogFrontend : public Frontend {
 		std::string code_after_preproc;
 
 		if (!flag_nopp) {
-			code_after_preproc = frontend_verilog_preproc(f, filename, defines_map);
+			code_after_preproc = frontend_verilog_preproc(f, filename, defines_map, include_dirs);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
 			fp = fmemopen((void*)code_after_preproc.c_str(), code_after_preproc.size(), "r");

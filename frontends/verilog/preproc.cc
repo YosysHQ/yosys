@@ -38,7 +38,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include <list>
 
 static std::list<std::string> output_code;
 static std::list<std::string> input_buffer;
@@ -206,7 +205,7 @@ static std::string define_to_feature(std::string defname)
 	return std::string();
 }
 
-std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map)
+std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
 {
 	std::map<std::string, std::string> defines_map(pre_defines_map);
 	int ifdef_fail_level = 0;
@@ -273,8 +272,19 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			}
 			FILE *fp = fopen(fn.c_str(), "r");
 			if (fp == NULL && fn.size() > 0 && fn[0] != '/' && filename.find('/') != std::string::npos) {
+				// if the include file was not found, it is not given with an absolute path, and the
+				// currently read file is given with a path, then try again relative to its directory
 				std::string fn2 = filename.substr(0, filename.rfind('/')+1) + fn;
 				fp = fopen(fn2.c_str(), "r");
+			}
+			if (fp == NULL && fn.size() > 0 && fn[0] != '/') {
+				// if the include file was not found and it is not given with an absolute path, then
+				// search it in the include path
+				for (auto incdir : include_dirs) {
+					std::string fn2 = incdir + '/' + fn;
+					fp = fopen(fn2.c_str(), "r");
+					if (fp != NULL) break;
+				}
 			}
 			if (fp != NULL) {
 				input_file(fp, fn);
