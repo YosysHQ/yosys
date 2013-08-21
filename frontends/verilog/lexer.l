@@ -71,7 +71,9 @@ namespace VERILOG_FRONTEND {
 
 "`file_pop"[^\n]*\n {
 	current_filename = fn_stack.back();
+	fn_stack.pop_back();
 	frontend_verilog_yyset_lineno(ln_stack.back());
+	ln_stack.pop_back();
 }
 
 "`file_notfound "[^\n]* {
