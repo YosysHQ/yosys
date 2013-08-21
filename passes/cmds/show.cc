@@ -517,7 +517,7 @@ struct ShowPass : public Pass {
 		log("        more than one library.\n");
 		log("\n");
 		log("    -prefix <prefix>\n");
-		log("        generate <prefix>.dot and <prefix>.ps instead of ~/.yosys_show.{dot,ps}\n");
+		log("        generate <prefix>.* instead of ~/.yosys_show.*\n");
 		log("\n");
 		log("    -color <color> <wire>\n");
 		log("        assign the specified color to the specified wire. The object can be\n");

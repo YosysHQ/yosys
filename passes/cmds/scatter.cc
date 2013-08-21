@@ -31,7 +31,7 @@ struct ScatterPass : public Pass {
 		log("    scatter [selection]\n");
 		log("\n");
 		log("This command adds additional intermediate nets on all cell ports. This is used\n");
-		log("for testing the correct use of the SigMap halper in passes. If you don't know\n");
+		log("for testing the correct use of the SigMap helper in passes. If you don't know\n");
 		log("what this means: don't worry -- you only need this pass when testing your own\n");
 		log("extensions to Yosys.\n");
 		log("\n");
