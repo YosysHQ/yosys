@@ -155,7 +155,7 @@ void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, boo
 		width = data.bits.size() - offset;
 	if (data.str.empty() || width != (int)data.bits.size()) {
 		if (width == 32 && !no_decimal) {
-			uint32_t val = 0;
+			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
 				assert(i < (int)data.bits.size());
 				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
@@ -163,7 +163,7 @@ void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, boo
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
-			fprintf(f, "%d", (int)val);
+			fprintf(f, "%s32'sd%u", val < 0 ? "-" : "", abs(val));
 		} else {
 	dump_bits:
 			fprintf(f, "%d'b", width);
