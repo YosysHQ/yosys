@@ -196,21 +196,31 @@ struct EdifBackend : public Backend {
 					dir = "INPUT";
 				else if (!wire->port_input)
 					dir = "OUTPUT";
-				for (int i = 0; i < wire->width; i++) {
-					std::string portname = wire->width > 1 ? stringf("%s[%d]", RTLIL::id2cstr(wire->name),
-							i+wire->start_offset) : RTLIL::id2cstr(wire->name);
-					fprintf(f, "          (port %s (direction %s))\n", edif_names(portname).c_str(), dir);
-					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, 1, i));
-					net_join_db[sig].insert(stringf("(portRef %s)", edif_names(portname).c_str()));
+				if (wire->width == 1) {
+					fprintf(f, "          (port %s (direction %s))\n", EDIF_NAME(wire->name), dir);
+					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
+					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_NAME(wire->name)));
+				} else {
+					fprintf(f, "          (port (array %s %d) (direction %s))\n", EDIF_NAME(wire->name), wire->width, dir);
+					for (int i = 0; i < wire->width; i++) {
+						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, 1, i));
+						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_NAME(wire->name), i));
+					}
 				}
 			}
 			fprintf(f, "        )\n");
 			fprintf(f, "        (contents\n");
 			for (auto &cell_it : module->cells) {
 				RTLIL::Cell *cell = cell_it.second;
-				fprintf(f, "          (instance %s (viewRef VIEW_NETLIST (cellRef %s%s)))\n",
-						EDIF_NAME(cell->name), EDIF_NAME(cell->type),
+				fprintf(f, "          (instance %s\n", EDIF_NAME(cell->name));
+				fprintf(f, "            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_NAME(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
+				for (auto &p : cell->parameters)
+					if (p.second.bits.size() <= 32 && RTLIL::SigSpec(p.second).is_fully_def())
+						fprintf(f, "\n            (property %s (integer %u))", EDIF_NAME(p.first), p.second.as_int());
+					else
+						fprintf(f, "\n            (property %s FIXME)", EDIF_NAME(p.first));
+				fprintf(f, ")\n");
 				for (auto &p : cell->connections) {
 					RTLIL::SigSpec sig = sigmap(p.second);
 					sig.expand();
