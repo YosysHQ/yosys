@@ -342,12 +342,29 @@ struct IlangBackend : public Backend {
 		log("Write the current design to an 'ilang' file. (ilang is a text representation\n");
 		log("of a design in yosys's internal format.)\n");
 		log("\n");
+		log("    -selected\n");
+		log("        only write selected parts of the design.\n");
+		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) {
+	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	{
+		bool selected = false;
+
 		log_header("Executing ILANG backend.\n");
-		extra_args(f, filename, args, 1);
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-selected") {
+				selected = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(f, filename, args, argidx);
+
 		log("Output filename: %s\n", filename.c_str());
-		ILANG_BACKEND::dump_design(f, design, false);
+		ILANG_BACKEND::dump_design(f, design, selected);
 	}
 } IlangBackend;
 

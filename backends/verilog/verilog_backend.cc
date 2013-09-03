@@ -928,6 +928,10 @@ struct VerilogBackend : public Backend {
 		log("        this option set only the modules with the 'placeholder' attribute\n");
 		log("        are written to the output file.\n");
 		log("\n");
+		log("    -selected\n");
+		log("        only write selected modules. modules must be selected entirely or\n");
+		log("        not at all.\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -939,6 +943,7 @@ struct VerilogBackend : public Backend {
 		noexpr = false;
 
 		bool placeholders = false;
+		bool selected = false;
 
 		reg_ct.clear();
 		reg_ct.setup_stdcells_mem();
@@ -969,17 +974,27 @@ struct VerilogBackend : public Backend {
 				placeholders = true;
 				continue;
 			}
+			if (arg == "-selected") {
+				selected = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
-		for (auto it = design->modules.begin(); it != design->modules.end(); it++)
-			if ((it->second->attributes.count("\\placeholder") > 0) == placeholders) {
-				if (it != design->modules.begin())
-					fprintf(f, "\n");
-				log("Dumping module `%s'.\n", it->first.c_str());
-				dump_module(f, "", it->second);
+		for (auto it = design->modules.begin(); it != design->modules.end(); it++) {
+			if ((it->second->attributes.count("\\placeholder") > 0) != placeholders)
+				continue;
+			if (selected && !design->selected_whole_module(it->first)) {
+				if (design->selected_module(it->first))
+					log_cmd_error("Can't handle partially selected module %s!\n", RTLIL::id2cstr(it->first));
+				continue;
 			}
+			if (it != design->modules.begin())
+				fprintf(f, "\n");
+			log("Dumping module `%s'.\n", it->first.c_str());
+			dump_module(f, "", it->second);
+		}
 
 		reg_ct.clear();
 	}

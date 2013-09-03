@@ -69,6 +69,10 @@ struct IntersynthBackend : public Backend {
 		log("        inputs or outputs. This option can be used multiple times to specify\n");
 		log("        more than one library.\n");
 		log("\n");
+		log("    -selected\n");
+		log("        only write selected modules. modules must be selected entirely or\n");
+		log("        not at all.\n");
+		log("\n");
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
 	}
@@ -80,6 +84,7 @@ struct IntersynthBackend : public Backend {
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
 		bool flag_notypes = false;
+		bool selected = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -90,6 +95,10 @@ struct IntersynthBackend : public Backend {
 			}
 			if (args[argidx] == "-lib" && argidx+1 < args.size()) {
 				libfiles.push_back(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-selected") {
+				selected = true;
 				continue;
 			}
 			break;
@@ -123,8 +132,16 @@ struct IntersynthBackend : public Backend {
 			RTLIL::Module *module = module_it.second;
 			SigMap sigmap(module);
 
+			if (module->attributes.count("\\placeholder") > 0)
+				continue;
 			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells.size() == 0)
 				continue;
+
+			if (selected && !design->selected_whole_module(module->name)) {
+				if (design->selected_module(module->name))
+					log_cmd_error("Can't handle partially selected module %s!\n", RTLIL::id2cstr(module->name));
+				continue;
+			}
 
 			log("Generating netlist %s.\n", RTLIL::id2cstr(module->name));
 
