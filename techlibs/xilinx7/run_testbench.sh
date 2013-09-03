@@ -2,7 +2,7 @@
 
 set -ex
 
-XILINX_DIR=/opt/Xilinx/14.5/ISE_DS/ISE/
+XILINX_DIR=/opt/Xilinx/14.2/ISE_DS/ISE/
 
 ../../yosys - <<- EOT
 	# read design
@@ -20,6 +20,7 @@ XILINX_DIR=/opt/Xilinx/14.5/ISE_DS/ISE/
 
 	# write netlist
 	write_verilog -noattr testbench_synth.v
+	write_edif testbench_synth.edif
 EOT
 
 iverilog -o testbench_gold counter_tb.v counter.v
@@ -35,7 +36,14 @@ else
 	exit 1
 fi
 
+if [ "$*" = "-map" ]; then
+	set -x
+	$XILINX_DIR/bin/lin64/edif2ngd testbench_synth.edif
+	$XILINX_DIR/bin/lin64/ngdbuild -p xc7k70t testbench_synth
+fi
+
 if [ "$*" = "-clean" ]; then
-	rm -f testbench_{synth.v,{gold,gate}{,.txt}}
+	rm -rf netlist.lst _xmsgs/
+	rm -f testbench_{synth,gold,gate}*
 fi
 
