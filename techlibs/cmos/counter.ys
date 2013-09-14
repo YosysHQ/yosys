@@ -1,0 +1,11 @@
+
+read_verilog counter.v
+read_verilog -lib cmos_cells.v
+
+proc;; memory;; techmap;;
+dfflibmap -liberty cmos_cells.lib
+abc -liberty cmos_cells.lib;;
+
+write_verilog synth.v
+write_spice synth.sp
+
