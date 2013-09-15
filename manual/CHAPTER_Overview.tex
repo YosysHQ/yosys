@@ -72,8 +72,9 @@ in different stages of the synthesis.
 		\node[process] (astfe) [below of=ast, node distance=5em] {AST Frontend};
 		\node[data] (rtlil) [below of=astfe, node distance=5em, xshift=7.5em] {RTLIL};
 		\node[process] (pass) [right of=rtlil, node distance=5em, xshift=7.5em] {Passes};
-		\node[process] (vlbe) [below of=rtlil, node distance=5em, xshift=-7.5em] {Verilog Backend};
-		\node[process] (ilangbe) [below of=rtlil, node distance=5em, xshift=+7.5em] {ILANG Backend};
+		\node[process] (vlbe) [below of=rtlil, node distance=7em, xshift=-13em] {Verilog Backend};
+		\node[process] (ilangbe) [below of=rtlil, node distance=7em, xshift=0em] {ILANG Backend};
+		\node[process, dashed, fill=green!5] (otherbe) [below of=rtlil, node distance=7em, xshift=+13em] {Other Backends};
 
 		\draw[-latex] (vlog) -- (ast);
 		\draw[-latex] (vhdl) -- (ast);
@@ -83,6 +84,7 @@ in different stages of the synthesis.
 		\draw[latex-latex] (rtlil) -- (pass);
 		\draw[-latex] (rtlil) -- (vlbe);
 		\draw[-latex] (rtlil) -- (ilangbe);
+		\draw[-latex] (rtlil) -- (otherbe);
 	\end{tikzpicture}
 	\caption{Yosys simplified data flow (ellipses: data structures, rectangles: program modules)}
 	\label{fig:Overview_flow}

@@ -21,6 +21,9 @@ library to a target architecture.
         but keeps using yosys's internal gate library. This option is ignored if
         the -script option is also used.
 
+    -lut <width>
+        generate netlist using luts of (max) the specified width.
+
     -nocleanup
         when this option is used, the temporary files created by this pass
         are not removed. this is useful for debugging.
@@ -48,6 +51,39 @@ to 'cd <celltype>'.
     cd ..
 
 This is just a shortcut for 'select -clear'.
+\end{lstlisting}
+
+\section{clean -- remove unused cells and wires}
+\label{cmd:clean}
+\begin{lstlisting}[numbers=left,frame=single]
+    clean [options] [selection]
+
+This is identical to 'opt_clean', but less verbose.
+
+When commands are seperated using the ';;' token, this command will be executed
+between the commands.
+
+When commands are seperated using the ';;;' token, this command will be executed
+in -purge mode between the commands.
+\end{lstlisting}
+
+\section{design -- save, restore and reset current design}
+\label{cmd:design}
+\begin{lstlisting}[numbers=left,frame=single]
+    design -reset
+
+Clear the current design.
+
+
+    design -save <name>
+
+Save the current design under the given name.
+
+
+    design -load <name>
+
+Reset the current design and load the design previously saved under the given
+name.
 \end{lstlisting}
 
 \section{dfflibmap -- technology mapping of flip-flops}
@@ -174,6 +210,20 @@ See 'help techmap' for a pass that does the opposite thing.
 This pass flattens the design by replacing cells by their implementation. This
 pass is very simmilar to the 'techmap' pass. The only difference is that this
 pass is using the current design as mapping library.
+\end{lstlisting}
+
+\section{freduce -- perform functional reduction}
+\label{cmd:freduce}
+\begin{lstlisting}[numbers=left,frame=single]
+    freduce [options] [selection]
+
+This pass performs functional reduction in the circuit. I.e. if two nodes are
+equivialent, they are merged to one node and one of the redundant drivers is
+removed.
+
+    -try
+        do not issue an error when the analysis fails.
+        (usually beacause of logic loops in the design)
 \end{lstlisting}
 
 \section{fsm -- extract and optimize finite state machines}
@@ -586,11 +636,11 @@ representation of a design in yosys's internal format.)
 Load modules from a verilog file to the current design. A large subset of
 Verilog-2005 is supported.
 
-    -dump_ast
-        dump abstract syntax tree (after simplification)
+    -dump_ast1
+        dump abstract syntax tree (before simplification)
 
-    -dump_ast_diff
-        dump ast differences before and after simplification
+    -dump_ast2
+        dump abstract syntax tree (after simplification)
 
     -dump_vlog
         dump ast as verilog code (after simplification)
@@ -636,6 +686,10 @@ Verilog-2005 is supported.
     -Dname[=definition]
         define the preprocessor symbol 'name' and set its optional value
         'definition'
+
+    -Idir
+        add 'dir' to the directories which are used when searching include
+        files
 \end{lstlisting}
 
 \section{rename -- rename object in the design}
@@ -645,6 +699,12 @@ Verilog-2005 is supported.
 
 Rename the specified object. Note that selection patterns are not supported
 by this command.
+
+
+    rename -enumerate [selection]
+
+Assign short auto-generated names to all selected wires and cells with private
+names.
 \end{lstlisting}
 
 \section{sat -- solve a SAT problem in the circuit}
@@ -668,6 +728,9 @@ and additional constraints passed as parameters.
     -show <signal>
         show the model for the specified signal. if no -show option is
         passed then a set of signals to be shown is automatically selected.
+
+    -ignore_div_by_zero
+        ignore all solutions that involve a division by zero
 
 The following options can be used to set up a sequential problem:
 
@@ -707,7 +770,7 @@ is passed, a temporal induction proof is performed.
     scatter [selection]
 
 This command adds additional intermediate nets on all cell ports. This is used
-for testing the correct use of the SigMap halper in passes. If you don't know
+for testing the correct use of the SigMap helper in passes. If you don't know
 what this means: don't worry -- you only need this pass when testing your own
 extensions to Yosys.
 
@@ -948,7 +1011,7 @@ to a graphics file (usually SVG or PostScript).
         more than one library.
 
     -prefix <prefix>
-        generate <prefix>.dot and <prefix>.ps instead of ~/.yosys_show.{dot,ps}
+        generate <prefix>.* instead of ~/.yosys_show.*
 
     -color <color> <wire>
         assign the specified color to the specified wire. The object can be
@@ -1037,6 +1100,10 @@ file.
         transforms the internal RTL cells to the internal gate
         library.
 
+    -opt
+        run 'opt' pass on all cells from map file before using them and run
+        'opt_const' on all replacement cells before mapping recursively.
+
 When a module in the map file has the 'celltype' attribute set, it will match
 cells with a type that match the text value of this attribute.
 
@@ -1076,6 +1143,17 @@ value after initialization. This can e.g. be used to force a reset signal
 low in order to explore more inner states in a state machine.
 \end{lstlisting}
 
+\section{write\_edif -- write design to EDIF netlist file}
+\label{cmd:write_edif}
+\begin{lstlisting}[numbers=left,frame=single]
+    write_edif [options] [filename]
+
+Write the current design to an EDIF netlist file.
+
+    -top top_module
+        set the specified module as design top module
+\end{lstlisting}
+
 \section{write\_ilang -- write design to ilang file}
 \label{cmd:write_ilang}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -1083,6 +1161,9 @@ low in order to explore more inner states in a state machine.
 
 Write the current design to an 'ilang' file. (ilang is a text representation
 of a design in yosys's internal format.)
+
+    -selected
+        only write selected parts of the design.
 \end{lstlisting}
 
 \section{write\_intersynth -- write design to InterSynth netlist file}
@@ -1102,7 +1183,35 @@ a tool for Coarse-Grain Example-Driven Interconnect Synthesis.
         inputs or outputs. This option can be used multiple times to specify
         more than one library.
 
+    -selected
+        only write selected modules. modules must be selected entirely or
+        not at all.
+
 http://www.clifford.at/intersynth/
+\end{lstlisting}
+
+\section{write\_spice -- write design to SPICE netlist file}
+\label{cmd:write_spice}
+\begin{lstlisting}[numbers=left,frame=single]
+    write_spice [options] [filename]
+
+Write the current design to an SPICE netlist file.
+
+    -big_endian
+        generate multi-bit ports in MSB first order 
+        (default is LSB first)
+
+    -neg net_name
+        set the net name for constant 0 (default: Vss)
+
+    -pos net_name
+        set the net name for constant 1 (default: Vdd)
+
+    -nc_prefix
+        prefix for not-connected nets (default: _NC)
+
+    -top top_module
+        set the specified module as design top module
 \end{lstlisting}
 
 \section{write\_verilog -- write design to verilog file}
@@ -1131,5 +1240,9 @@ Write the current design to a verilog file.
         usually modules with the 'placeholder' attribute are ignored. with
         this option set only the modules with the 'placeholder' attribute
         are written to the output file.
+
+    -selected
+        only write selected modules. modules must be selected entirely or
+        not at all.
 \end{lstlisting}
 
