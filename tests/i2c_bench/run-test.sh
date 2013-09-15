@@ -27,8 +27,8 @@ EOT
 ./testbench_ref -tclbatch testbench_ref.tcl
 
 vlogcomp --work syn i2c_master_syn.v
-vlogcomp --work syn ../../techlibs/simlib.v
-vlogcomp --work syn ../../techlibs/stdcells_sim.v
+vlogcomp --work syn ../../techlibs/common/simlib.v
+vlogcomp --work syn ../../techlibs/common/stdcells_sim.v
 vlogcomp --work syn i2c_slave_model.v
 vlogcomp --work syn spi_slave_model.v
 vlogcomp --work syn tst_bench_top.v

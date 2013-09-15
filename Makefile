@@ -73,7 +73,7 @@ endif
 include frontends/*/Makefile.inc
 include passes/*/Makefile.inc
 include backends/*/Makefile.inc
-include techlibs/Makefile.inc
+include techlibs/*/Makefile.inc
 
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 

@@ -11,7 +11,7 @@ prjdir="$(dirname $0)/rtlview.tmp"
 mkdir -p "$prjdir"
 
 cp "$1" "$prjdir"/schematic.v
-cp "$(dirname $0)"/../../techlibs/blackbox.v "$prjdir"/blackbox.v
+cp "$(dirname $0)"/../../techlibs/common/blackbox.v "$prjdir"/blackbox.v
 cd "$prjdir"
 
 if fuser -s ise.out; then

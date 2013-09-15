@@ -130,8 +130,8 @@ do
 			"$toolsdir"/../../yosys -b "verilog $backend_opts" "$@" -o ${bn}_syn${test_count}.v $fn $scriptfiles
 			compile_and_run ${bn}_tb_syn${test_count} ${bn}_out_syn${test_count} \
 					${bn}_tb.v ${bn}_syn${test_count}.v $libs \
-					"$toolsdir"/../../techlibs/simlib.v \
-					"$toolsdir"/../../techlibs/stdcells_sim.v
+					"$toolsdir"/../../techlibs/common/simlib.v \
+					"$toolsdir"/../../techlibs/common/stdcells_sim.v
 			if $genvcd; then mv testbench.vcd ${bn}_syn${test_count}.vcd; fi
 			$toolsdir/cmp_tbdata ${bn}_out_ref ${bn}_out_syn${test_count}
 			test_count=$(( test_count + 1 ))
