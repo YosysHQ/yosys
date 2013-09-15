@@ -148,12 +148,24 @@ struct SpiceBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-top" && argidx+1 < args.size()) {
-				top_module_name = args[++argidx];
-				continue;
-			}
 			if (args[argidx] == "-big_endian") {
 				big_endian = true;
+				continue;
+			}
+			if (args[argidx] == "-neg" && argidx+1 < args.size()) {
+				neg = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-pos" && argidx+1 < args.size()) {
+				pos = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-nc_prefix" && argidx+1 < args.size()) {
+				ncpf = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-top" && argidx+1 < args.size()) {
+				top_module_name = args[++argidx];
 				continue;
 			}
 			break;
@@ -173,9 +185,9 @@ struct SpiceBackend : public Backend {
 				continue;
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in SPICE backend!\n", RTLIL::id2cstr(module->name));
 			if (module->memories.size() != 0)
-				log_error("Found munmapped emories in module %s: unmapped memories are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
+				log_error("Found munmapped emories in module %s: unmapped memories are not supported in SPICE backend!\n", RTLIL::id2cstr(module->name));
 
 			if (module->name == RTLIL::escape_id(top_module_name)) {
 				top_module = module;
