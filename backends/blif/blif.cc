@@ -29,14 +29,25 @@
 #include <string>
 #include <assert.h>
 
+struct BlifDumperConfig
+{
+	bool subckt_mode;
+	bool conn_mode;
+	bool impltf_mode;
+
+	BlifDumperConfig() : subckt_mode(false), conn_mode(false), impltf_mode(false) { }
+};
+
 struct BlifDumper
 {
 	FILE *f;
 	RTLIL::Module *module;
 	RTLIL::Design *design;
+	BlifDumperConfig *config;
 	CellTypes ct;
 
-	BlifDumper(FILE *f, RTLIL::Module *module, RTLIL::Design *design) : f(f), module(module), design(design), ct(design)
+	BlifDumper(FILE *f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig *config) :
+			f(f), module(module), design(design), config(config), ct(design)
 	{
 	}
 
@@ -103,51 +114,53 @@ struct BlifDumper
 		}
 		fprintf(f, "\n");
 
-		fprintf(f, ".names $false\n");
-		fprintf(f, ".names $true\n1\n");
+		if (!config->impltf_mode) {
+			fprintf(f, ".names $false\n");
+			fprintf(f, ".names $true\n1\n");
+		}
 
 		for (auto &cell_it : module->cells)
 		{
 			RTLIL::Cell *cell = cell_it.second;
 
-			if (cell->type == "$_INV_") {
+			if (!config->subckt_mode && cell->type == "$_INV_") {
 				fprintf(f, ".names %s %s\n0 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (cell->type == "$_AND_") {
+			if (!config->subckt_mode && cell->type == "$_AND_") {
 				fprintf(f, ".names %s %s %s\n11 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (cell->type == "$_OR_") {
+			if (!config->subckt_mode && cell->type == "$_OR_") {
 				fprintf(f, ".names %s %s %s\n1- 1\n-1 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (cell->type == "$_XOR_") {
+			if (!config->subckt_mode && cell->type == "$_XOR_") {
 				fprintf(f, ".names %s %s %s\n10 1\n01 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (cell->type == "$_MUX_") {
+			if (!config->subckt_mode && cell->type == "$_MUX_") {
 				fprintf(f, ".names %s %s %s %s\n1-0 1\n-11 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")),
 						cstr(cell->connections.at("\\S")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (cell->type == "$_DFF_N_") {
+			if (!config->subckt_mode && cell->type == "$_DFF_N_") {
 				fprintf(f, ".latch %s %s fe %s\n",
 						cstr(cell->connections.at("\\D")), cstr(cell->connections.at("\\Q")), cstr(cell->connections.at("\\C")));
 				continue;
 			}
 
-			if (cell->type == "$_DFF_P_") {
+			if (!config->subckt_mode && cell->type == "$_DFF_P_") {
 				fprintf(f, ".latch %s %s re %s\n",
 						cstr(cell->connections.at("\\D")), cstr(cell->connections.at("\\Q")), cstr(cell->connections.at("\\C")));
 				continue;
@@ -167,14 +180,17 @@ struct BlifDumper
 
 		for (auto &conn : module->connections)
 		for (int i = 0; i < conn.first.width; i++)
-			fprintf(f, ".names %s %s\n1 1\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
+			if (config->conn_mode)
+				fprintf(f, ".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
+			else
+				fprintf(f, ".names %s %s\n1 1\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
 
 		fprintf(f, ".end\n");
 	}
 
-	static void dump(FILE *f, RTLIL::Module *module, RTLIL::Design *design)
+	static void dump(FILE *f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig &config)
 	{
-		BlifDumper dumper(f, module, design);
+		BlifDumper dumper(f, module, design, &config);
 		dumper.dump();
 	}
 };
@@ -192,10 +208,27 @@ struct BlifBackend : public Backend {
 		log("    -top top_module\n");
 		log("        set the specified module as design top module\n");
 		log("\n");
+		log("\n");
+		log("The following options can be usefull when the generated file is not going to be\n");
+		log("read by a BLIF parser but a custom tool. It is recommended to not name the output\n");
+		log("file *.blif when any of this options is used.\n");
+		log("\n");
+		log("    -subckt\n");
+		log("        do not translate Yosys's internal gates to generic BLIF logic\n");
+		log("        functions. Instead create .subckt lines for for all cells.\n");
+		log("\n");
+		log("    -conn\n");
+		log("        do not generate buffers for connected wires. instead use the\n");
+		log("        non-standard .conn statement.\n");
+		log("\n");
+		log("    -impltf\n");
+		log("        do not write definitions for the $true and $false wires.\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string top_module_name;
+		BlifDumperConfig config;
 
 		log_header("Executing BLIF backend.\n");
 
@@ -204,6 +237,18 @@ struct BlifBackend : public Backend {
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module_name = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-subckt") {
+				config.subckt_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-conn") {
+				config.conn_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-impltf") {
+				config.impltf_mode = true;
 				continue;
 			}
 			break;
@@ -224,7 +269,7 @@ struct BlifBackend : public Backend {
 				log_error("Found munmapped emories in module %s: unmapped memories are not supported in BLIF backend!\n", RTLIL::id2cstr(module->name));
 
 			if (module->name == RTLIL::escape_id(top_module_name)) {
-				BlifDumper::dump(f, module, design);
+				BlifDumper::dump(f, module, design, config);
 				top_module_name.clear();
 				continue;
 			}
@@ -236,7 +281,7 @@ struct BlifBackend : public Backend {
 			log_error("Can't find top module `%s'!\n", top_module_name.c_str());
 
 		for (auto module : mod_list)
-			BlifDumper::dump(f, module, design);
+			BlifDumper::dump(f, module, design, config);
 	}
 } BlifBackend;
 
