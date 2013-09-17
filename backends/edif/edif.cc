@@ -43,6 +43,8 @@ namespace
 				return name_map.at(id);
 			if (generated_names.count(id) > 0)
 				goto do_rename;
+			if (id == "GND" || id == "VCC")
+				goto do_rename;
 
 			for (size_t i = 0; i < id.size(); i++) {
 				if ('A' <= id[i] && id[i] <= 'Z')
@@ -86,6 +88,11 @@ struct EdifBackend : public Backend {
 		log("\n");
 		log("    -top top_module\n");
 		log("        set the specified module as design top module\n");
+		log("\n");
+		log("Unfortunately there are different \"flavors\" of the EDIF file format. This\n");
+		log("command generates EDIF files for the Xilinx place&route tools. It might be\n");
+		log("necessary to make small modifications to this command when a different tool\n");
+		log("is targeted.\n");
 		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
@@ -148,6 +155,23 @@ struct EdifBackend : public Backend {
 		fprintf(f, "  (external LIB\n");
 		fprintf(f, "    (edifLevel 0)\n");
 		fprintf(f, "    (technology (numberDefinition))\n");
+
+		fprintf(f, "    (cell GND\n");
+		fprintf(f, "      (cellType GENERIC)\n");
+		fprintf(f, "      (view VIEW_NETLIST\n");
+		fprintf(f, "        (viewType NETLIST)\n");
+		fprintf(f, "        (interface (port G (direction OUTPUT)))\n");
+		fprintf(f, "      )\n");
+		fprintf(f, "    )\n");
+
+		fprintf(f, "    (cell VCC\n");
+		fprintf(f, "      (cellType GENERIC)\n");
+		fprintf(f, "      (view VIEW_NETLIST\n");
+		fprintf(f, "        (viewType NETLIST)\n");
+		fprintf(f, "        (interface (port P (direction OUTPUT)))\n");
+		fprintf(f, "      )\n");
+		fprintf(f, "    )\n");
+
 		for (auto &cell_it : lib_cell_ports) {
 			fprintf(f, "    (cell %s\n", EDIF_NAME(cell_it.first));
 			fprintf(f, "      (cellType GENERIC)\n");
@@ -210,6 +234,8 @@ struct EdifBackend : public Backend {
 			}
 			fprintf(f, "        )\n");
 			fprintf(f, "        (contents\n");
+			fprintf(f, "          (instance GND (viewRef VIEW_NETLIST (cellRef GND (libraryRef LIB))))\n");
+			fprintf(f, "          (instance VCC (viewRef VIEW_NETLIST (cellRef VCC (libraryRef LIB))))\n");
 			for (auto &cell_it : module->cells) {
 				RTLIL::Cell *cell = cell_it.second;
 				fprintf(f, "          (instance %s\n", EDIF_NAME(cell->name));
@@ -245,13 +271,26 @@ struct EdifBackend : public Backend {
 				}
 			}
 			for (auto &it : net_join_db) {
-				std::string netname = log_signal(it.first);
+				RTLIL::SigSpec sig = it.first;
+				sig.optimize();
+				log_assert(sig.width == 1);
+				if (sig.chunks.at(0).wire == NULL) {
+					if (sig.chunks.at(0).data.bits.at(0) != RTLIL::State::S0 && sig.chunks.at(0).data.bits.at(0) != RTLIL::State::S1)
+						continue;
+				}
+				std::string netname = log_signal(sig);
 				for (size_t i = 0; i < netname.size(); i++)
 					if (netname[i] == ' ' || netname[i] == '\\')
 						netname.erase(netname.begin() + i--);
 				fprintf(f, "          (net %s (joined\n", edif_names(netname).c_str());
 				for (auto &ref : it.second)
 					fprintf(f, "            %s\n", ref.c_str());
+				if (sig.chunks.at(0).wire == NULL) {
+					if (sig.chunks.at(0).data.bits.at(0) == RTLIL::State::S0)
+						fprintf(f, "            (portRef G (instanceRef GND))\n");
+					if (sig.chunks.at(0).data.bits.at(0) == RTLIL::State::S1)
+						fprintf(f, "            (portRef P (instanceRef VCC))\n");
+				}
 				fprintf(f, "          ))\n");
 			}
 			fprintf(f, "        )\n");

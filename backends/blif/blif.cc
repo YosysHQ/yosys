@@ -215,7 +215,7 @@ struct BlifBackend : public Backend {
 		log("\n");
 		log("    -subckt\n");
 		log("        do not translate Yosys's internal gates to generic BLIF logic\n");
-		log("        functions. Instead create .subckt lines for for all cells.\n");
+		log("        functions. Instead create .subckt lines for all cells.\n");
 		log("\n");
 		log("    -conn\n");
 		log("        do not generate buffers for connected wires. instead use the\n");
