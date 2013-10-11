@@ -26,7 +26,7 @@
 #include <signal.h>
 #include <cinttypes>
 
-#include "minisat/core/Solver.h"
+#include <minisat/core/Solver.h>
 
 ezMiniSAT::ezMiniSAT() : minisatSolver(NULL)
 {
