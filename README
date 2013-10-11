@@ -49,8 +49,26 @@ Getting Started
 ===============
 
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
-recommended) and some standard tools such as GNU Flex, GNU Bison, and
-GNU Make. The extensive tests require Icarus Verilog.
+recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
+The Qt4 library is needed for the yosys SVG viewer, that is used to display
+schematics, the minisat library is required for the SAT features in yosys
+and TCL for the scripting functionality. The extensive test suite requires
+Icarus Verilog. For example on Ubuntu Linux 12.04 LTS the following commands
+will install all prerequisites for building yosys:
+
+	$ sudo apt-get install git
+	$ sudo apt-get install g++
+	$ sudo apt-get install clang
+	$ sudo apt-get install make
+	$ sudo apt-get install bison
+	$ sudo apt-get install flex
+	$ sudo apt-get install libreadline-dev
+	$ sudo apt-get install tcl8.5-dev
+	$ sudo apt-get install minisat
+	$ sudo apt-get install zlib1g-dev
+	$ sudo apt-get install libqt4-dev
+	$ sudo apt-get install mercurial
+	$ sudo apt-get install iverilog
 
 To configure the build system to use a specific set of compiler and
 build configuration, use one of
