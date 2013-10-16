@@ -69,11 +69,14 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 	
 	std::string value = attr->value;
 
-	for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
+	for (size_t pos = value.find_first_of("\" \t()"); pos != std::string::npos; pos = value.find_first_of("\" \t()"))
 		value.erase(pos, 1);
 
 	if (value[value.size()-1] == '\'') {
 		pin_name = value.substr(0, value.size()-1);
+		pin_pol = false;
+	} else if (value[0] == '!') {
+		pin_name = value.substr(1, value.size()-1);
 		pin_pol = false;
 	} else {
 		pin_name = value;
