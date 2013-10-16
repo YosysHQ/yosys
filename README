@@ -232,7 +232,8 @@ Verilog Attributes and non-standard features
 
 - The "nolatches" attribute on modules or always-blocks
   prohibits the generation of logic-loops for latches. Instead
-  all not explicitly assigned values default to x-bits.
+  all not explicitly assigned values default to x-bits. This does
+  not affect clocked storage elements such as flip-flops.
 
 - The "nosync" attribute on registers prohibits the generation of a
   storage element. The register itself will always have all bits set
@@ -245,6 +246,10 @@ Verilog Attributes and non-standard features
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The verilog backend
   also does not output placeholder modules on default.
+
+- The "keep" attribute on cells is used to mark cells that should never be
+  removed by the optimizer. This is used for example for cells that have
+  hidden connections that are not part of the netlist, such as IO pads.
 
 - In addition to the (* ... *) attribute syntax, yosys supports
   the non-standard {* ... *} attribute syntax to set default attributes
