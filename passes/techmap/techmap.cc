@@ -18,6 +18,7 @@
  */
 
 #include "kernel/register.h"
+#include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -94,24 +95,7 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 		new_members.select(module, w);
 	}
 
-	for (auto &it : tpl->cells) {
-		RTLIL::Cell *c = new RTLIL::Cell(*it.second);
-		if (!flatten_mode && c->type.substr(0, 2) == "\\$")
-			c->type = c->type.substr(1);
-		apply_prefix(cell->name, c->name);
-		for (auto &it2 : c->connections)
-			apply_prefix(cell->name, it2.second, module);
-		module->cells[c->name] = c;
-		design->select(module, c);
-		new_members.select(module, c);
-	}
-
-	for (auto &it : tpl->connections) {
-		RTLIL::SigSig c = it;
-		apply_prefix(cell->name, c.first, module);
-		apply_prefix(cell->name, c.second, module);
-		module->connections.push_back(c);
-	}
+	SigMap port_signal_map;
 
 	for (auto &it : cell->connections) {
 		RTLIL::IdString portname = it.first;
@@ -138,6 +122,40 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 		if (c.second.width < c.first.width)
 			c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.width - c.second.width));
 		assert(c.first.width == c.second.width);
+#if 0
+		// more conservative approach:
+		// connect internal and external wires
+		module->connections.push_back(c);
+#else
+		// approach that yields nicer outputs:
+		// replace internal wires that are connected to external wires
+		if (w->port_output)
+			port_signal_map.add(c.second, c.first);
+		else
+			port_signal_map.add(c.first, c.second);
+#endif
+	}
+
+	for (auto &it : tpl->cells) {
+		RTLIL::Cell *c = new RTLIL::Cell(*it.second);
+		if (!flatten_mode && c->type.substr(0, 2) == "\\$")
+			c->type = c->type.substr(1);
+		apply_prefix(cell->name, c->name);
+		for (auto &it2 : c->connections) {
+			apply_prefix(cell->name, it2.second, module);
+			port_signal_map.apply(it2.second);
+		}
+		module->cells[c->name] = c;
+		design->select(module, c);
+		new_members.select(module, c);
+	}
+
+	for (auto &it : tpl->connections) {
+		RTLIL::SigSig c = it;
+		apply_prefix(cell->name, c.first, module);
+		apply_prefix(cell->name, c.second, module);
+		port_signal_map.apply(c.first);
+		port_signal_map.apply(c.second);
 		module->connections.push_back(c);
 	}
 
