@@ -29,7 +29,7 @@
 
 using RTLIL::id2cstr;
 
-static CellTypes ct;
+static CellTypes ct, ct_reg;
 static int count_rm_cells, count_rm_wires;
 
 static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
@@ -96,7 +96,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 	}
 }
 
-static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2)
+static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &regs, SigPool &conns)
 {
 	assert(s1.width == 1);
 	assert(s2.width == 1);
@@ -111,6 +111,12 @@ static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2)
 
 	if (w1->port_input != w2->port_input)
 		return w2->port_input;
+
+	if (regs.check_any(s1) != regs.check_any(s2))
+		return regs.check_any(s2);
+
+	if (conns.check_any(s1) != conns.check_any(s2))
+		return conns.check_any(s2);
 
 	if (w1->port_output != w2->port_output)
 		return w2->port_output;
@@ -137,12 +143,26 @@ static bool check_public_name(RTLIL::IdString id)
 
 static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
+	SigPool register_signals;
+	SigPool connected_signals;
+
+	if (!purge_mode)
+		for (auto &it : module->cells) {
+			RTLIL::Cell *cell = it.second;
+			if (ct_reg.cell_known(cell->type))
+				for (auto &it2 : cell->connections)
+					if (ct_reg.cell_output(cell->type, it2.first))
+						register_signals.add(it2.second);
+			for (auto &it2 : cell->connections)
+				connected_signals.add(it2.second);
+		}
+
 	SigMap assign_map(module);
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire, 1, i), s2 = assign_map(s1);
-			if (!compare_signals(s1, s2))
+			if (!compare_signals(s1, s2, register_signals, connected_signals))
 				assign_map.add(s1);
 		}
 	}
@@ -289,6 +309,9 @@ struct OptCleanPass : public Pass {
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 
+		ct_reg.setup_internals_mem();
+		ct_reg.setup_stdcells_mem();
+
 		for (auto &mod_it : design->modules) {
 			if (!design->selected_whole_module(mod_it.first)) {
 				if (design->selected(mod_it.second))
@@ -303,6 +326,7 @@ struct OptCleanPass : public Pass {
 		}
 
 		ct.clear();
+		ct_reg.clear();
 		log_pop();
 	}
 } OptCleanPass;
@@ -344,6 +368,9 @@ struct CleanPass : public Pass {
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 
+		ct_reg.setup_internals_mem();
+		ct_reg.setup_stdcells_mem();
+
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
@@ -359,6 +386,7 @@ struct CleanPass : public Pass {
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 
 		ct.clear();
+		ct_reg.clear();
 	}
 } CleanPass;
  
