@@ -112,6 +112,9 @@ static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2)
 	if (w1->port_input != w2->port_input)
 		return w2->port_input;
 
+	if (w1->port_output != w2->port_output)
+		return w2->port_output;
+
 	if (w1->name[0] != w2->name[0])
 		return w2->name[0] == '\\';
 
