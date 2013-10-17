@@ -121,8 +121,13 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			c->name = genid(cell->name, "", i);
 			c->type = "$dff";
 			c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
-			c->parameters["\\CLK_POLARITY"] = RTLIL::Const(clocks_pol.bits[0]);
-			c->connections["\\CLK"] = clocks.extract(0, 1);
+			if (clocks_pol.bits.size() > 0) {
+				c->parameters["\\CLK_POLARITY"] = RTLIL::Const(clocks_pol.bits[0]);
+				c->connections["\\CLK"] = clocks.extract(0, 1);
+			} else {
+				c->parameters["\\CLK_POLARITY"] = RTLIL::Const(RTLIL::State::S1);
+				c->connections["\\CLK"] = RTLIL::SigSpec(RTLIL::State::S0);
+			}
 			module->cells[c->name] = c;
 
 			RTLIL::Wire *w_in = new RTLIL::Wire;
