@@ -35,6 +35,9 @@ struct BlifDumperConfig
 	bool conn_mode;
 	bool impltf_mode;
 
+	std::string buf_type, buf_in, buf_out;
+	std::string true_type, true_out, false_type, false_out;
+
 	BlifDumperConfig() : subckt_mode(false), conn_mode(false), impltf_mode(false) { }
 };
 
@@ -115,8 +118,14 @@ struct BlifDumper
 		fprintf(f, "\n");
 
 		if (!config->impltf_mode) {
-			fprintf(f, ".names $false\n");
-			fprintf(f, ".names $true\n1\n");
+			if (!config->false_type.empty())
+				fprintf(f, ".subckt %s %s=$false\n", config->false_type.c_str(), config->false_out.c_str());
+			else
+				fprintf(f, ".names $false\n");
+			if (!config->true_type.empty())
+				fprintf(f, ".subckt %s %s=$true\n", config->true_type.c_str(), config->true_out.c_str());
+			else
+				fprintf(f, ".names $true\n1\n");
 		}
 
 		for (auto &cell_it : module->cells)
@@ -182,8 +191,12 @@ struct BlifDumper
 		for (int i = 0; i < conn.first.width; i++)
 			if (config->conn_mode)
 				fprintf(f, ".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
+			else if (!config->buf_type.empty())
+				fprintf(f, ".subckt %s %s=%s %s=%s\n", config->buf_type.c_str(), config->buf_in.c_str(), cstr(conn.second.extract(i, 1)),
+						config->buf_out.c_str(), cstr(conn.first.extract(i, 1)));
 			else
 				fprintf(f, ".names %s %s\n1 1\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
+
 
 		fprintf(f, ".end\n");
 	}
@@ -208,6 +221,12 @@ struct BlifBackend : public Backend {
 		log("    -top top_module\n");
 		log("        set the specified module as design top module\n");
 		log("\n");
+		log("    -buf <cell-type> <in-port> <out-port>\n");
+		log("        use cells of type <cell-type> with the specified port names for buffers\n");
+		log("\n");
+		log("    -true <cell-type> <out-port>\n");
+		log("    -false <cell-type> <out-port>\n");
+		log("        use the specified cell types to drive nets that are constant 1 or 0\n");
 		log("\n");
 		log("The following options can be usefull when the generated file is not going to be\n");
 		log("read by a BLIF parser but a custom tool. It is recommended to not name the output\n");
@@ -228,6 +247,9 @@ struct BlifBackend : public Backend {
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string top_module_name;
+		std::string buf_type, buf_in, buf_out;
+		std::string true_type, true_out;
+		std::string false_type, false_out;
 		BlifDumperConfig config;
 
 		log_header("Executing BLIF backend.\n");
@@ -237,6 +259,22 @@ struct BlifBackend : public Backend {
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module_name = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-buf" && argidx+3 < args.size()) {
+				config.buf_type = args[++argidx];
+				config.buf_in = args[++argidx];
+				config.buf_out = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-true" && argidx+2 < args.size()) {
+				config.true_type = args[++argidx];
+				config.true_out = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-false" && argidx+2 < args.size()) {
+				config.false_type = args[++argidx];
+				config.false_out = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-subckt") {
