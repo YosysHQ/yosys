@@ -112,11 +112,12 @@ static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &reg
 	if (w1->port_input != w2->port_input)
 		return w2->port_input;
 
-	if (regs.check_any(s1) != regs.check_any(s2))
-		return regs.check_any(s2);
-
-	if (conns.check_any(s1) != conns.check_any(s2))
-		return conns.check_any(s2);
+	if (w1->name[0] == '\\' && w2->name[0] == '\\') {
+		if (regs.check_any(s1) != regs.check_any(s2))
+			return regs.check_any(s2);
+		if (conns.check_any(s1) != conns.check_any(s2))
+			return conns.check_any(s2);
+	}
 
 	if (w1->port_output != w2->port_output)
 		return w2->port_output;
