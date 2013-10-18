@@ -129,6 +129,9 @@ namespace RTLIL
 #define NEW_ID \
 	RTLIL::new_id(__FILE__, __LINE__, __FUNCTION__)
 
+#define NEW_WIRE(_mod, _width) \
+	(_mod)->new_wire(_width, NEW_ID)
+
 	template <typename T> struct sort_by_name {
 		bool operator()(T *a, T *b) const {
 			return a->name < b->name;
@@ -244,6 +247,7 @@ struct RTLIL::Module {
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void check();
 	virtual void optimize();
+	RTLIL::SigSpec new_wire(int width, RTLIL::IdString name);
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
 	void fixup_ports();
