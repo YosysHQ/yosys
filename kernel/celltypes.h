@@ -97,13 +97,15 @@ struct CellTypes
 
 	void setup_internals_mem()
 	{
+		cell_types.insert("$sr");
 		cell_types.insert("$dff");
+		cell_types.insert("$dffsr");
 		cell_types.insert("$adff");
+		cell_types.insert("$dlatch");
 		cell_types.insert("$memrd");
 		cell_types.insert("$memwr");
 		cell_types.insert("$mem");
 		cell_types.insert("$fsm");
-		cell_types.insert("$sr");
 	}
 
 	void setup_stdcells()

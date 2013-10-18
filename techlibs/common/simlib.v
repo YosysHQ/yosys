@@ -642,26 +642,6 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$sr (S, R, Q);
-
-parameter WIDTH = 0;
-
-input [WIDTH-1:0] S, R;
-output reg [WIDTH-1:0] Q;
-
-integer i;
-always @(S, R)
-	for (i = 0; i < WIDTH; i = i+1) begin
-		if (R[i])
-			Q[i] <= 0;
-		else if (S[i])
-			Q[i] <= 1;
-	end
-
-endmodule
-
-// --------------------------------------------------------
-
 module \$lut (I, O);
 
 parameter WIDTH = 0;
@@ -694,6 +674,33 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$sr (SET, CLR, Q);
+
+parameter WIDTH = 0;
+parameter SET_POLARITY = 1'b1;
+parameter CLR_POLARITY = 1'b1;
+
+input [WIDTH-1:0] SET, CLR;
+output reg [WIDTH-1:0] Q;
+
+wire [WIDTH-1:0] pos_set = SET_POLARITY ? SET : ~SET;
+wire [WIDTH-1:0] pos_clr = CLR_POLARITY ? CLR : ~CLR;
+
+genvar i;
+generate
+	for (i = 0; i < WIDTH; i = i+1) begin:bit
+		always @(posedge pos_set[i], posedge pos_clr[i])
+			if (pos_clr[i])
+				Q[i] <= 0;
+			else if (pos_set[i])
+				Q[i] <= 1;
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$dff (CLK, D, Q);
 
 parameter WIDTH = 0;
@@ -707,6 +714,38 @@ wire pos_clk = CLK == CLK_POLARITY;
 always @(posedge pos_clk) begin
 	Q <= D;
 end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$dffsr (CLK, SET, CLR, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter SET_POLARITY = 1'b1;
+parameter CLR_POLARITY = 1'b1;
+
+input CLK;
+input [WIDTH-1:0] SET, CLR, D;
+output reg [WIDTH-1:0] Q;
+
+wire pos_clk = CLK == CLK_POLARITY;
+wire [WIDTH-1:0] pos_set = SET_POLARITY ? SET : ~SET;
+wire [WIDTH-1:0] pos_clr = CLR_POLARITY ? CLR : ~CLR;
+
+genvar i;
+generate
+	for (i = 0; i < WIDTH; i = i+1) begin:bit
+		always @(posedge pos_set[i], posedge pos_clr[i], posedge pos_clk)
+			if (pos_clr[i])
+				Q[i] <= 0;
+			else if (pos_set[i])
+				Q[i] <= 1;
+			else
+				Q[i] <= D[i];
+	end
+endgenerate
 
 endmodule
 
@@ -731,6 +770,23 @@ always @(posedge pos_clk, posedge pos_arst) begin
 	else
 		Q <= D;
 end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$dlatch (EN, D, Q);
+
+parameter WIDTH = 0;
+parameter EN_POLARITY = 1'b1;
+
+input EN;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+
+always @*
+	if (EN == EN_POLARITY)
+		Q <= D;
 
 endmodule
 

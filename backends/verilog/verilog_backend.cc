@@ -573,34 +573,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$sr")
-	{
-		RTLIL::SigSpec sig_set, sig_reset;
-
-		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->connections["\\Q"], reg_name);
-
-		if (!out_is_reg_wire)
-			fprintf(f, "%s" "reg [%d:0] %s;\n", indent.c_str(), cell->parameters["\\WIDTH"].as_int()-1, reg_name.c_str());
-
-		fprintf(f, "%s" "always @*\n", indent.c_str());
-
-		fprintf(f, "%s" "    %s <= (%s | ", indent.c_str(), reg_name.c_str(), reg_name.c_str());
-		dump_cell_expr_port(f, cell, "S", false);
-		fprintf(f, ") & ~");
-		dump_cell_expr_port(f, cell, "R", false);
-		fprintf(f, ";\n");
-
-		if (!out_is_reg_wire) {
-			fprintf(f, "%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->connections["\\Q"]);
-			fprintf(f, " = %s;\n", reg_name.c_str());
-		}
-
-		return true;
-	}
-
-	// FIXME: $memrd, $memwr, $mem, $fsm
+	// FIXME: $sr, $dffsr, $dlatch, $memrd, $memwr, $mem, $fsm
 
 	return false;
 }
