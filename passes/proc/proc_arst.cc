@@ -23,6 +23,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// defined in proc_clean.cc
+extern void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth);
+
 static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref, bool &polarity)
 {
 	if (signal.width != 1)
@@ -132,10 +135,18 @@ static void eliminate_const(RTLIL::Module *mod, RTLIL::CaseRule *cs, RTLIL::SigS
 				eliminate_const(mod, cs2, const_sig, polarity);
 		}
 	}
+
+	int dummy_count = 0;
+	bool did_something = true;
+	while (did_something) {
+		did_something = false;
+		proc_clean_case(cs, did_something, dummy_count, 1);
+	}
 }
 
 static void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 {
+restart_proc_arst:
 	if (proc->root_case.switches.size() != 1)
 		return;
 
@@ -173,6 +184,7 @@ static void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_m
 					action.second = rval;
 				}
 				eliminate_const(mod, &proc->root_case, root_sig, polarity);
+				goto restart_proc_arst;
 			}
 		}
 	}

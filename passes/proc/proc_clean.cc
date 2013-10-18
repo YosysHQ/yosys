@@ -22,10 +22,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static void switch_clean(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count);
-static void case_clean(RTLIL::CaseRule *cs, bool &did_something, int &count);
+extern void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count, int max_depth);
+extern void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth);
 
-static void switch_clean(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count)
+void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count, int max_depth)
 {
 	if (sw->signal.width > 0 && sw->signal.is_fully_const())
 	{
@@ -76,7 +76,8 @@ static void switch_clean(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &d
 		for (auto cs : sw->cases) {
 			if (cs->actions.size() != 0 || cs->switches.size() != 0)
 				all_cases_are_empty = false;
-			case_clean(cs, did_something, count);
+			if (max_depth != 0)
+				proc_clean_case(cs, did_something, count, max_depth-1);
 		}
 		if (all_cases_are_empty) {
 			did_something = true;
@@ -87,7 +88,7 @@ static void switch_clean(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &d
 	}
 }
 
-static void case_clean(RTLIL::CaseRule *cs, bool &did_something, int &count)
+void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth)
 {
 	for (size_t i = 0; i < cs->actions.size(); i++) {
 		if (cs->actions[i].first.width == 0) {
@@ -102,8 +103,8 @@ static void case_clean(RTLIL::CaseRule *cs, bool &did_something, int &count)
 			did_something = true;
 			delete sw;
 			count++;
-		} else
-			switch_clean(sw, cs, did_something, count);
+		} else if (max_depth != 0)
+			proc_clean_switch(sw, cs, did_something, count, max_depth-1);
 	}
 }
 
@@ -122,7 +123,7 @@ static void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_coun
 	}
 	while (did_something) {
 		did_something = false;
-		case_clean(&proc->root_case, did_something, count);
+		proc_clean_case(&proc->root_case, did_something, count, -1);
 	}
 	if (count > 0)
 		log("Found and cleaned up %d empty switch%s in `%s.%s'.\n", count, count == 1 ? "" : "es", mod->name.c_str(), proc->name.c_str());
