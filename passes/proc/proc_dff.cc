@@ -51,6 +51,66 @@ static RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	return lvalue;
 }
 
+static void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
+		bool clk_polarity, bool set_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec set, RTLIL::Process *proc)
+{
+	std::stringstream sstr;
+	sstr << "$procdff$" << (RTLIL::autoidx++);
+
+	RTLIL::SigSpec sig_set_inv = NEW_WIRE(mod, sig_in.width);
+	RTLIL::SigSpec sig_sr_set = NEW_WIRE(mod, sig_in.width);
+	RTLIL::SigSpec sig_sr_clr = NEW_WIRE(mod, sig_in.width);
+
+	RTLIL::Cell *inv_set = new RTLIL::Cell;
+	inv_set->name = NEW_ID;
+	inv_set->type = "$not";
+	inv_set->parameters["\\A_WIDTH"] = RTLIL::Const(sig_in.width);
+	inv_set->parameters["\\Y_WIDTH"] = RTLIL::Const(sig_in.width);
+	inv_set->connections["\\A"] = sig_set;
+	inv_set->connections["\\Y"] = sig_set_inv;
+	mod->add(inv_set);
+
+	RTLIL::Cell *mux_sr_set = new RTLIL::Cell;
+	mux_sr_set->name = NEW_ID;
+	mux_sr_set->type = "$mux";
+	mux_sr_set->parameters["\\WIDTH"] = RTLIL::Const(sig_in.width);
+	mux_sr_set->connections[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.width);
+	mux_sr_set->connections[set_polarity ? "\\B" : "\\A"] = sig_set;
+	mux_sr_set->connections["\\Y"] = sig_sr_set;
+	mux_sr_set->connections["\\S"] = set;
+	mod->add(mux_sr_set);
+
+	RTLIL::Cell *mux_sr_clr = new RTLIL::Cell;
+	mux_sr_clr->name = NEW_ID;
+	mux_sr_clr->type = "$mux";
+	mux_sr_clr->parameters["\\WIDTH"] = RTLIL::Const(sig_in.width);
+	mux_sr_clr->connections[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.width);
+	mux_sr_clr->connections[set_polarity ? "\\B" : "\\A"] = sig_set_inv;
+	mux_sr_clr->connections["\\Y"] = sig_sr_clr;
+	mux_sr_clr->connections["\\S"] = set;
+	mod->add(mux_sr_clr);
+
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = sstr.str();
+	cell->type = "$dffsr";
+	cell->attributes = proc->attributes;
+	mod->add(cell);
+
+	cell->parameters["\\WIDTH"] = RTLIL::Const(sig_in.width);
+	cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity, 1);
+	cell->parameters["\\SET_POLARITY"] = RTLIL::Const(true, 1);
+	cell->parameters["\\CLR_POLARITY"] = RTLIL::Const(true, 1);
+
+	cell->connections["\\D"] = sig_in;
+	cell->connections["\\Q"] = sig_out;
+	cell->connections["\\CLK"] = clk;
+	cell->connections["\\SET"] = sig_sr_set;
+	cell->connections["\\CLR"] = sig_sr_clr;
+
+	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type.c_str(), cell->name.c_str(),
+			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
+}
+
 static void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RTLIL::SigSpec sig_out,
 		bool clk_polarity, bool arst_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec *arst, RTLIL::Process *proc)
 {
@@ -78,7 +138,7 @@ static void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_
 
 	log("  created %s cell `%s' with %s edge clock", cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
 	if (arst)
-		log("  and %s level reset", arst_polarity ? "positive" : "negative");
+		log(" and %s level reset", arst_polarity ? "positive" : "negative");
 	log(".\n");
 }
 
@@ -151,12 +211,17 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			log_error("Missing edge-sensitive event for this signal!\n");
 
 		if (!rstval.is_fully_const() && !ce.eval(rstval))
-			log_error("Async reset value `%s' is not constant!\n", log_signal(rstval));
-
-		gen_dff(mod, insig, rstval.chunks[0].data, sig,
-				sync_edge->type == RTLIL::SyncType::STp,
-				sync_level && sync_level->type == RTLIL::SyncType::ST1,
-				sync_edge->signal, sync_level ? &sync_level->signal : NULL, proc);
+		{
+			log("WARNING: Async reset value `%s' is not constant!\n", log_signal(rstval));
+			gen_dffsr(mod, insig, rstval, sig,
+					sync_edge->type == RTLIL::SyncType::STp,
+					sync_level && sync_level->type == RTLIL::SyncType::ST1,
+					sync_edge->signal, sync_level->signal, proc);
+		} else
+			gen_dff(mod, insig, rstval.chunks[0].data, sig,
+					sync_edge->type == RTLIL::SyncType::STp,
+					sync_level && sync_level->type == RTLIL::SyncType::ST1,
+					sync_edge->signal, sync_level ? &sync_level->signal : NULL, proc);
 	}
 }
 
