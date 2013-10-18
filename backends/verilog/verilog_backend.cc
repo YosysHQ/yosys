@@ -573,6 +573,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	// FIXME: $_SR_[PN][PN]_, $_DFFSR_[PN][PN][PN]_, $_DLATCH_[PN]_
 	// FIXME: $sr, $dffsr, $dlatch, $memrd, $memwr, $mem, $fsm
 
 	return false;

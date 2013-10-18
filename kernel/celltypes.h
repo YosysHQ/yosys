@@ -119,6 +119,10 @@ struct CellTypes
 
 	void setup_stdcells_mem()
 	{
+		cell_types.insert("$_SR_NN_");
+		cell_types.insert("$_SR_NP_");
+		cell_types.insert("$_SR_PN_");
+		cell_types.insert("$_SR_PP_");
 		cell_types.insert("$_DFF_N_");
 		cell_types.insert("$_DFF_P_");
 		cell_types.insert("$_DFF_NN0_");
@@ -129,6 +133,16 @@ struct CellTypes
 		cell_types.insert("$_DFF_PN1_");
 		cell_types.insert("$_DFF_PP0_");
 		cell_types.insert("$_DFF_PP1_");
+		cell_types.insert("$_DFFSR_NNN_");
+		cell_types.insert("$_DFFSR_NNP_");
+		cell_types.insert("$_DFFSR_NPN_");
+		cell_types.insert("$_DFFSR_NPP_");
+		cell_types.insert("$_DFFSR_PNN_");
+		cell_types.insert("$_DFFSR_PNP_");
+		cell_types.insert("$_DFFSR_PPN_");
+		cell_types.insert("$_DFFSR_PPP_");
+		cell_types.insert("$_DLATCH_N_");
+		cell_types.insert("$_DLATCH_P_");
 	}
 
 	void clear()

@@ -60,6 +60,50 @@ always @* begin
 end
 endmodule
 
+module  \$_SR_NN_ (S, R, Q);
+input S, R;
+output reg Q;
+always @(negedge S, negedge R) begin
+	if (R == 0)
+		Q <= 0;
+	else if (S == 0)
+		Q <= 1;
+end
+endmodule
+
+module  \$_SR_NP_ (S, R, Q);
+input S, R;
+output reg Q;
+always @(negedge S, posedge R) begin
+	if (R == 1)
+		Q <= 0;
+	else if (S == 0)
+		Q <= 1;
+end
+endmodule
+
+module  \$_SR_PN_ (S, R, Q);
+input S, R;
+output reg Q;
+always @(posedge S, negedge R) begin
+	if (R == 0)
+		Q <= 0;
+	else if (S == 1)
+		Q <= 1;
+end
+endmodule
+
+module  \$_SR_PP_ (S, R, Q);
+input S, R;
+output reg Q;
+always @(posedge S, posedge R) begin
+	if (R == 1)
+		Q <= 0;
+	else if (S == 1)
+		Q <= 1;
+end
+endmodule
+
 module  \$_DFF_N_ (D, Q, C);
 input D, C;
 output reg Q;
@@ -160,6 +204,128 @@ always @(posedge C or posedge R) begin
 	if (R == 1)
 		Q <= 1;
 	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_NNN_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(negedge C, negedge S, negedge R) begin
+	if (R == 0)
+		Q <= 0;
+	else if (S == 0)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_NNP_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(negedge C, negedge S, posedge R) begin
+	if (R == 1)
+		Q <= 0;
+	else if (S == 0)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_NPN_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(negedge C, posedge S, negedge R) begin
+	if (R == 0)
+		Q <= 0;
+	else if (S == 1)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_NPP_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(negedge C, posedge S, posedge R) begin
+	if (R == 1)
+		Q <= 0;
+	else if (S == 1)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_PNN_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(posedge C, negedge S, negedge R) begin
+	if (R == 0)
+		Q <= 0;
+	else if (S == 0)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_PNP_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(posedge C, negedge S, posedge R) begin
+	if (R == 1)
+		Q <= 0;
+	else if (S == 0)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_PPN_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(posedge C, posedge S, negedge R) begin
+	if (R == 0)
+		Q <= 0;
+	else if (S == 1)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DFFSR_PPP_ (C, S, R, D, Q);
+input C, S, R, D;
+output reg Q;
+always @(posedge C, posedge S, posedge R) begin
+	if (R == 1)
+		Q <= 0;
+	else if (S == 1)
+		Q <= 1;
+	else
+		Q <= D;
+end
+endmodule
+
+module  \$_DLATCH_N_ (E, D, Q);
+input E, D;
+output reg Q;
+always @* begin
+	if (E == 0)
+		Q <= D;
+end
+endmodule
+
+module  \$_DLATCH_P_ (E, D, Q);
+input E, D;
+output reg Q;
+always @* begin
+	if (E == 1)
 		Q <= D;
 end
 endmodule
