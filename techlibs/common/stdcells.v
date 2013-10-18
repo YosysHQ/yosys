@@ -1585,7 +1585,7 @@ generate
 	if (CLK_POLARITY == 0 && SET_POLARITY == 0 && CLR_POLARITY == 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_NNN_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
@@ -1595,7 +1595,7 @@ generate
 	if (CLK_POLARITY == 0 && SET_POLARITY == 0 && CLR_POLARITY != 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_NNP_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
@@ -1605,7 +1605,7 @@ generate
 	if (CLK_POLARITY == 0 && SET_POLARITY != 0 && CLR_POLARITY == 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_NPN_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
@@ -1615,7 +1615,7 @@ generate
 	if (CLK_POLARITY == 0 && SET_POLARITY != 0 && CLR_POLARITY != 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_NPP_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
@@ -1625,7 +1625,7 @@ generate
 	if (CLK_POLARITY != 0 && SET_POLARITY == 0 && CLR_POLARITY == 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_PNN_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
@@ -1635,7 +1635,7 @@ generate
 	if (CLK_POLARITY != 0 && SET_POLARITY == 0 && CLR_POLARITY != 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_PNP_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
@@ -1645,7 +1645,7 @@ generate
 	if (CLK_POLARITY != 0 && SET_POLARITY != 0 && CLR_POLARITY == 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_PPN_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
@@ -1655,7 +1655,7 @@ generate
 	if (CLK_POLARITY != 0 && SET_POLARITY != 0 && CLR_POLARITY != 0)
 		for (i = 0; i < WIDTH; i = i + 1) begin:V
 			 \$_DFFSR_PPP_ ff (
-				.C(CLK[i]),
+				.C(CLK),
 				.S(SET[i]),
 				.R(CLR[i]),
 				.D(D[i]),
