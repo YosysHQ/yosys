@@ -1397,6 +1397,55 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$sr (SET, CLR, Q);
+
+parameter WIDTH = 0;
+parameter SET_POLARITY = 1'b1;
+parameter CLR_POLARITY = 1'b1;
+
+input [WIDTH-1:0] SET, CLR;
+output reg [WIDTH-1:0] Q;
+
+genvar i;
+generate
+	if (SET_POLARITY == 0 && CLR_POLARITY == 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_SR_NN_ ff (
+				.S(SET[i]),
+				.R(CLR[i]),
+				.Q(Q[i])
+			);
+		end
+	if (SET_POLARITY == 0 && CLR_POLARITY != 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_SR_NP_ ff (
+				.S(SET[i]),
+				.R(CLR[i]),
+				.Q(Q[i])
+			);
+		end
+	if (SET_POLARITY != 0 && CLR_POLARITY == 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_SR_PN_ ff (
+				.S(SET[i]),
+				.R(CLR[i]),
+				.Q(Q[i])
+			);
+		end
+	if (SET_POLARITY != 0 && CLR_POLARITY != 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_SR_PP_ ff (
+				.S(SET[i]),
+				.R(CLR[i]),
+				.Q(Q[i])
+			);
+		end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$dff (CLK, D, Q);
 
 parameter WIDTH = 1;
@@ -1514,6 +1563,138 @@ generate
 			end
 		end
 	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$dffsr (CLK, SET, CLR, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter SET_POLARITY = 1'b1;
+parameter CLR_POLARITY = 1'b1;
+
+input CLK;
+input [WIDTH-1:0] SET, CLR, D;
+output reg [WIDTH-1:0] Q;
+
+genvar i;
+generate
+	if (CLK_POLARITY == 0 && SET_POLARITY == 0 && CLR_POLARITY == 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_NNN_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (CLK_POLARITY == 0 && SET_POLARITY == 0 && CLR_POLARITY != 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_NNP_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (CLK_POLARITY == 0 && SET_POLARITY != 0 && CLR_POLARITY == 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_NPN_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (CLK_POLARITY == 0 && SET_POLARITY != 0 && CLR_POLARITY != 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_NPP_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (CLK_POLARITY != 0 && SET_POLARITY == 0 && CLR_POLARITY == 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_PNN_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (CLK_POLARITY != 0 && SET_POLARITY == 0 && CLR_POLARITY != 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_PNP_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (CLK_POLARITY != 0 && SET_POLARITY != 0 && CLR_POLARITY == 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_PPN_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (CLK_POLARITY != 0 && SET_POLARITY != 0 && CLR_POLARITY != 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DFFSR_PPP_ ff (
+				.C(CLK[i]),
+				.S(SET[i]),
+				.R(CLR[i]),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$dlatch (EN, D, Q);
+
+parameter WIDTH = 0;
+parameter EN_POLARITY = 1'b1;
+
+input EN;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+
+genvar i;
+generate
+	if (EN_POLARITY == 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DLATCH_N_ ff (
+				.E(EN),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
+	if (EN_POLARITY != 0)
+		for (i = 0; i < WIDTH; i = i + 1) begin:V
+			 \$_DLATCH_P_ ff (
+				.E(EN),
+				.D(D[i]),
+				.Q(Q[i])
+			);
+		end
 endgenerate
 
 endmodule
