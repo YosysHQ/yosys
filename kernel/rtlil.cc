@@ -382,7 +382,7 @@ RTLIL::Module *RTLIL::Module::clone() const
 	return new_mod;
 }
 
-RTLIL::SigSpec RTLIL::Module::new_wire(int width, RTLIL::IdString name)
+RTLIL::Wire *RTLIL::Module::new_wire(int width, RTLIL::IdString name)
 {
 	RTLIL::Wire *wire = new RTLIL::Wire;
 	wire->width = width;

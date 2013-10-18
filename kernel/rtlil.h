@@ -247,7 +247,7 @@ struct RTLIL::Module {
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void check();
 	virtual void optimize();
-	RTLIL::SigSpec new_wire(int width, RTLIL::IdString name);
+	RTLIL::Wire *new_wire(int width, RTLIL::IdString name);
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
 	void fixup_ports();
