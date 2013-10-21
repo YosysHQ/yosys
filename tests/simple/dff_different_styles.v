@@ -50,3 +50,42 @@ always @(posedge clk or negedge arst) begin
 end
 endmodule
 
+module dffa4(clk, arst1, arst2, arst3, d, q);
+input clk, arst1, arst2, arst3, d;
+output reg q;
+always @(posedge clk, posedge arst1, posedge arst2, negedge arst3) begin
+	if (arst1)
+		q <= 0;
+	else if (arst2)
+		q <= 0;
+	else if (!arst3)
+		q <= 0;
+	else
+		q <= d;
+end
+endmodule
+
+module dffsr1(clk, arst, d, q);
+input clk, arst, d;
+output reg q;
+always @(posedge clk, posedge arst) begin
+	if (arst)
+		q <= d^d; // constant expression -- but the frontend optimizer does not know that..
+	else
+		q <= d;
+end
+endmodule
+
+// module dffsr2(clk, preset, clear, d, q);
+// input clk, preset, clear, d;
+// output reg q;
+// always @(posedge clk, posedge preset, posedge clear) begin
+// 	if (preset)
+// 		q <= 1;
+// 	else if (clear)
+// 		q <= 0;
+// 	else
+// 		q <= d;
+// end
+// endmodule
+

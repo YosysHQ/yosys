@@ -147,6 +147,7 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 	while (1)
 	{
 		RTLIL::SigSpec sig = find_any_lvalue(proc);
+		bool free_sync_level = false;
 
 		if (sig.width == 0)
 			break;
@@ -160,6 +161,8 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		RTLIL::SyncRule *sync_edge = NULL;
 		RTLIL::SyncRule *sync_always = NULL;
 
+		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> many_async_rules;
+
 		for (auto sync : proc->syncs)
 		for (auto &action : sync->actions)
 		{
@@ -167,8 +170,12 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 				continue;
 
 			if (sync->type == RTLIL::SyncType::ST0 || sync->type == RTLIL::SyncType::ST1) {
-				if (sync_level != NULL && sync_level != sync)
-					log_error("Multiple level sensitive events found for this signal!\n");
+				if (sync_level != NULL && sync_level != sync) {
+					// log_error("Multiple level sensitive events found for this signal!\n");
+					many_async_rules[rstval].insert(sync_level);
+					rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.width);
+				}
+				rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.width);
 				sig.replace(action.first, action.second, &rstval);
 				sync_level = sync;
 			}
@@ -191,6 +198,46 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			action.first.remove2(sig, &action.second);
 		}
 
+		if (many_async_rules.size() > 0)
+		{
+			many_async_rules[rstval].insert(sync_level);
+			if (many_async_rules.size() == 1)
+			{
+				sync_level = new RTLIL::SyncRule;
+				sync_level->type = RTLIL::SyncType::ST1;
+				sync_level->signal = NEW_WIRE(mod, 1);
+				sync_level->actions.push_back(RTLIL::SigSig(sig, rstval));
+				free_sync_level = true;
+
+				RTLIL::SigSpec inputs, compare;
+				for (auto &it : many_async_rules[rstval]) {
+					inputs.append(it->signal);
+					compare.append(it->type == RTLIL::SyncType::ST0 ? RTLIL::State::S1 : RTLIL::State::S0);
+				}
+				assert(inputs.width == compare.width);
+
+				RTLIL::Cell *cell = new RTLIL::Cell;
+				cell->name = NEW_ID;
+				cell->type = "$ne";
+				cell->parameters["\\A_SIGNED"] = RTLIL::Const(false, 1);
+				cell->parameters["\\B_SIGNED"] = RTLIL::Const(false, 1);
+				cell->parameters["\\A_WIDTH"] = RTLIL::Const(inputs.width);
+				cell->parameters["\\B_WIDTH"] = RTLIL::Const(inputs.width);
+				cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+				cell->connections["\\A"] = inputs;
+				cell->connections["\\B"] = compare;
+				cell->connections["\\Y"] = sync_level->signal;
+				mod->add(cell);
+
+				many_async_rules.clear();
+			}
+			else
+			{
+				rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.width);
+				sync_level = NULL;
+			}
+		}
+
 		ce.assign_map.apply(insig);
 		ce.assign_map.apply(rstval);
 		ce.assign_map.apply(sig);
@@ -200,7 +247,7 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		sig.optimize();
 
 		if (sync_always) {
-			if (sync_edge || sync_level)
+			if (sync_edge || sync_level || many_async_rules.size() > 0)
 				log_error("Mixed always event with edge and/or level sensitive events!\n");
 			log("  created direct connection (no actual register cell created).\n");
 			mod->connections.push_back(RTLIL::SigSig(sig, insig));
@@ -210,18 +257,26 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		if (!sync_edge)
 			log_error("Missing edge-sensitive event for this signal!\n");
 
-		if (!rstval.is_fully_const() && !ce.eval(rstval))
+		if (many_async_rules.size() > 0)
+		{
+			log_error("Multiple async resets for different values (feature under construction)!\n");
+		}
+		else if (!rstval.is_fully_const() && !ce.eval(rstval))
 		{
 			log("WARNING: Async reset value `%s' is not constant!\n", log_signal(rstval));
 			gen_dffsr(mod, insig, rstval, sig,
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge->signal, sync_level->signal, proc);
-		} else
+		}
+		else
 			gen_dff(mod, insig, rstval.chunks[0].data, sig,
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge->signal, sync_level ? &sync_level->signal : NULL, proc);
+
+		if (free_sync_level)
+			delete sync_level;
 	}
 }
 
