@@ -70,7 +70,7 @@
 "$"[^ \t\r\n]+		{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_ID; }
 "."[0-9]+		{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_ID; }
 
-[0-9]+'[01xzm-]+	{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_VALUE; }
+[0-9]+'[01xzm-]*	{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_VALUE; }
 [0-9]+			{ rtlil_frontend_ilang_yylval.integer = atoi(yytext); return TOK_INT; }
 
 \"		{ BEGIN(STRING); }
