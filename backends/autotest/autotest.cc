@@ -109,7 +109,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 				fprintf(f, "wire [%d:0] %s;\n", wire->width-1, idy("sig", mod->name, wire->name).c_str());
 			} else if (wire->port_input) {
 				count_ports++;
-				bool is_clksignal = wire->attributes.count("\\gentb_clock") > 0;
+				bool is_clksignal = wire->get_bool_attribute("\\gentb_clock");
 				for (auto it3 = mod->processes.begin(); it3 != mod->processes.end(); it3++)
 				for (auto it4 = it3->second->syncs.begin(); it4 != it3->second->syncs.end(); it4++) {
 					if ((*it4)->type == RTLIL::ST0 || (*it4)->type == RTLIL::ST1)
@@ -120,11 +120,11 @@ static void autotest(FILE *f, RTLIL::Design *design)
 							is_clksignal = true;
 					}
 				}
-				if (is_clksignal && wire->attributes.count("\\gentb_constant") == 0) {
+				if (is_clksignal && !wire->get_bool_attribute("\\gentb_constant")) {
 					signal_clk[idy("sig", mod->name, wire->name)] = wire->width;
 				} else {
 					signal_in[idy("sig", mod->name, wire->name)] = wire->width;
-					if (wire->attributes.count("\\gentb_constant") > 0)
+					if (wire->get_bool_attribute("\\gentb_constant"))
 						signal_const[idy("sig", mod->name, wire->name)] = wire->attributes["\\gentb_constant"].as_string();
 				}
 				fprintf(f, "reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name, wire->name).c_str());

@@ -118,7 +118,7 @@ struct EdifBackend : public Backend {
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;
-			if ((module->attributes.count("\\placeholder") > 0) > 0)
+			if (module->get_bool_attribute("\\placeholder"))
 				continue;
 
 			if (top_module_name.empty())
@@ -132,7 +132,7 @@ struct EdifBackend : public Backend {
 			for (auto cell_it : module->cells)
 			{
 				RTLIL::Cell *cell = cell_it.second;
-				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->attributes.count("\\placeholder")) {
+				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->get_bool_attribute("\\placeholder")) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections) {
 						if (p.second.width > 1)
@@ -200,7 +200,7 @@ struct EdifBackend : public Backend {
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;
-			if ((module->attributes.count("\\placeholder") > 0) > 0)
+			if (module->get_bool_attribute("\\placeholder"))
 				continue;
 
 			SigMap sigmap(module);

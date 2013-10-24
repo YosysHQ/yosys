@@ -132,7 +132,7 @@ struct IntersynthBackend : public Backend {
 			RTLIL::Module *module = module_it.second;
 			SigMap sigmap(module);
 
-			if (module->attributes.count("\\placeholder") > 0)
+			if (module->get_bool_attribute("\\placeholder"))
 				continue;
 			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells.size() == 0)
 				continue;

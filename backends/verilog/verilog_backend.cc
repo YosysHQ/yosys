@@ -957,7 +957,7 @@ struct VerilogBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		for (auto it = design->modules.begin(); it != design->modules.end(); it++) {
-			if ((it->second->attributes.count("\\placeholder") > 0) != placeholders)
+			if (it->second->get_bool_attribute("\\placeholder") != placeholders)
 				continue;
 			if (selected && !design->selected_whole_module(it->first)) {
 				if (design->selected_module(it->first))

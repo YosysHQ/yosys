@@ -181,7 +181,7 @@ struct SpiceBackend : public Backend {
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;
-			if ((module->attributes.count("\\placeholder") > 0) > 0)
+			if (module->get_bool_attribute("\\placeholder"))
 				continue;
 
 			if (module->processes.size() != 0)
