@@ -167,6 +167,8 @@ void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, boo
 		} else {
 	dump_bits:
 			fprintf(f, "%d'b", width);
+			if (width == 0)
+				fprintf(f, "0");
 			for (int i = offset+width-1; i >= offset; i--) {
 				assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
@@ -234,10 +236,8 @@ void dump_attributes(FILE *f, std::string indent, std::map<RTLIL::IdString, RTLI
 		return;
 	for (auto it = attributes.begin(); it != attributes.end(); it++) {
 		fprintf(f, "%s" "%s %s", indent.c_str(), attr2comment ? "/*" : "(*", id(it->first).c_str());
-		if (it->second.bits.size() > 0) {
-			fprintf(f, " = ");
-			dump_const(f, it->second);
-		}
+		fprintf(f, " = ");
+		dump_const(f, it->second);
 		fprintf(f, " %s%c", attr2comment ? "*/" : "*)", term);
 	}
 }

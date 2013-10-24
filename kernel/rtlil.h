@@ -233,6 +233,17 @@ struct RTLIL::Design {
 	}
 };
 
+#define RTLIL_ATTRIBUTE_MEMBERS                                \
+	std::map<RTLIL::IdString, RTLIL::Const> attributes;    \
+	void set_bool_attribute(RTLIL::IdString id) {          \
+		attributes[id] = RTLIL::Const(1);              \
+	}                                                      \
+	bool get_bool_attribute(RTLIL::IdString id) const {    \
+		if (attributes.count(id) == 0)                 \
+			return false;                          \
+		return attributes.at(id).as_bool();            \
+	}
+
 struct RTLIL::Module {
 	RTLIL::IdString name;
 	std::map<RTLIL::IdString, RTLIL::Wire*> wires;
@@ -240,7 +251,7 @@ struct RTLIL::Module {
 	std::map<RTLIL::IdString, RTLIL::Cell*> cells;
 	std::map<RTLIL::IdString, RTLIL::Process*> processes;
 	std::vector<RTLIL::SigSig> connections;
-	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	RTLIL_ATTRIBUTE_MEMBERS
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
 	virtual void update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes);
@@ -255,20 +266,21 @@ struct RTLIL::Module {
 	template<typename T> void rewrite_sigspecs(T functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
+
 };
 
 struct RTLIL::Wire {
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, auto_width;
-	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	RTLIL_ATTRIBUTE_MEMBERS
 	Wire();
 };
 
 struct RTLIL::Memory {
 	RTLIL::IdString name;
 	int width, start_offset, size;
-	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	RTLIL_ATTRIBUTE_MEMBERS
 	Memory();
 };
 
@@ -276,8 +288,8 @@ struct RTLIL::Cell {
 	RTLIL::IdString name;
 	RTLIL::IdString type;
 	std::map<RTLIL::IdString, RTLIL::SigSpec> connections;
-	std::map<RTLIL::IdString, RTLIL::Const> attributes;
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
+	RTLIL_ATTRIBUTE_MEMBERS
 	void optimize();
 
 	template<typename T> void rewrite_sigspecs(T functor);
@@ -377,7 +389,7 @@ struct RTLIL::SyncRule {
 
 struct RTLIL::Process {
 	RTLIL::IdString name;
-	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	RTLIL_ATTRIBUTE_MEMBERS
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
 	~Process();
