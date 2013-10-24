@@ -260,7 +260,7 @@ struct AST_INTERNAL::ProcessGenerator
 		}
 
 		// create initial assignments for the temporary signals
-		if ((flag_nolatches || always->attributes.count("\\nolatches") > 0 || current_module->attributes.count("\\nolatches")) && !found_clocked_sync) {
+		if ((flag_nolatches || always->get_bool_attribute("\\nolatches") || current_module->get_bool_attribute("\\nolatches")) && !found_clocked_sync) {
 			subst_rvalue_from = subst_lvalue_from;
 			subst_rvalue_to = RTLIL::SigSpec(RTLIL::State::Sx, subst_rvalue_from.width);
 		} else {
@@ -366,7 +366,7 @@ struct AST_INTERNAL::ProcessGenerator
 		for (size_t i = 0; i < lvalue.chunks.size(); i++) {
 			RTLIL::SigSpec lhs = lvalue.chunks[i];
 			RTLIL::SigSpec rhs = rvalue.extract(offset, lvalue.chunks[i].width);
-			if (inSyncRule && lvalue.chunks[i].wire && lvalue.chunks[i].wire->attributes.count("\\nosync"))
+			if (inSyncRule && lvalue.chunks[i].wire && lvalue.chunks[i].wire->get_bool_attribute("\\nosync"))
 				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.width);
 			actions.push_back(RTLIL::SigSig(lhs, rhs));
 			offset += lhs.width;
@@ -468,7 +468,7 @@ struct AST_INTERNAL::ProcessGenerator
 					current_case = backup_case;
 				}
 
-				if (last_generated_case != NULL && ast->attributes.count("\\full_case") > 0) {
+				if (last_generated_case != NULL && ast->get_bool_attribute("\\full_case")) {
 					last_generated_case->compare.clear();
 				} else if (!generated_default_case) {
 					RTLIL::CaseRule *default_case = new RTLIL::CaseRule;

@@ -145,6 +145,20 @@ std::string AST::type2str(AstNodeType type)
 	}
 }
 
+// check if attribute exists and has non-zero value
+bool AstNode::get_bool_attribute(RTLIL::IdString id)
+{
+	if (attributes.count(id) == 0)
+		return false;
+
+	AstNode *attr = attributes.at(id);
+	if (attr->type != AST_CONSTANT)
+		log_error("Attribute `%s' with non-constant value at %s:%d!\n",
+				id.c_str(), attr->filename.c_str(), attr->linenum);
+
+	return attr->integer != 0;
+}
+
 // create new node (AstNode constructor)
 // (the optional child arguments make it easier to create AST trees)
 AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
@@ -670,7 +684,7 @@ static AstModule* process_module(AstNode *ast)
 				delete child;
 		}
 		ast->children.swap(new_children);
-		ast->attributes["\\placeholder"] = AstNode::mkconst_int(0, false, 0);
+		ast->attributes["\\placeholder"] = AstNode::mkconst_int(1, false);
 	}
 
 	current_module = new AstModule;

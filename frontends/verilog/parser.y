@@ -776,11 +776,11 @@ case_type:
 opt_synopsys_attr:
 	opt_synopsys_attr TOK_SYNOPSYS_FULL_CASE {
 		if (ast_stack.back()->attributes.count("\\full_case") == 0)
-			ast_stack.back()->attributes["\\full_case"] = AstNode::mkconst_int(0, false, 0);
+			ast_stack.back()->attributes["\\full_case"] = AstNode::mkconst_int(1, false);
 	} |
 	opt_synopsys_attr TOK_SYNOPSYS_PARALLEL_CASE {
 		if (ast_stack.back()->attributes.count("\\parallel_case") == 0)
-			ast_stack.back()->attributes["\\parallel_case"] = AstNode::mkconst_int(0, false, 0);
+			ast_stack.back()->attributes["\\parallel_case"] = AstNode::mkconst_int(1, false);
 	} |
 	/* empty */;
 

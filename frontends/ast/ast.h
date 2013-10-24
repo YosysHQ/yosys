@@ -137,6 +137,7 @@ namespace AST
 
 		// the list of attributes assigned to this node
 		std::map<RTLIL::IdString, AstNode*> attributes;
+		bool get_bool_attribute(RTLIL::IdString id);
 
 		// node content - most of it is unused in most node types
 		std::string str;

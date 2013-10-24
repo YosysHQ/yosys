@@ -54,7 +54,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage)
 
 		while (simplify(const_fold, at_zero, in_lvalue, 1)) { }
 
-		if (!flag_nomem2reg && attributes.count("\\nomem2reg") == 0)
+		if (!flag_nomem2reg && !get_bool_attribute("\\nomem2reg"))
 		{
 			std::set<AstNode*> mem2reg_set, mem2reg_candidates;
 			mem2reg_as_needed_pass1(mem2reg_set, mem2reg_candidates, false, false, flag_mem2reg);
@@ -999,7 +999,7 @@ void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<
 {
 	if ((type == AST_ASSIGN_LE && async_proc) || (type == AST_ASSIGN_EQ && (sync_proc || async_proc)))
 		if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY &&
-				children[0]->id2ast->attributes.count("\\nomem2reg") == 0) {
+				!children[0]->id2ast->get_bool_attribute("\\nomem2reg")) {
 			if (async_proc || mem2reg_candidates.count(children[0]->id2ast) > 0) {
 				if (mem2reg_set.count(children[0]->id2ast) == 0)
 					log("Warning: Replacing memory %s with list of registers because of assignment in line %s:%d.\n",
@@ -1009,10 +1009,10 @@ void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<
 			mem2reg_candidates.insert(children[0]->id2ast);
 		}
 	
-	if (type == AST_MEMORY && (attributes.count("\\mem2reg") > 0 || force_mem2reg))
+	if (type == AST_MEMORY && (get_bool_attribute("\\mem2reg") || force_mem2reg))
 		mem2reg_set.insert(this);
 
-	if (type == AST_MODULE && attributes.count("\\mem2reg") > 0)
+	if (type == AST_MODULE && get_bool_attribute("\\mem2reg"))
 		force_mem2reg = true;
 
 	if (type == AST_ALWAYS) {
@@ -1046,13 +1046,13 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
 		wire_addr->str = id_addr;
 		wire_addr->is_reg = true;
-		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
+		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_addr);
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
 		wire_data->is_reg = true;
-		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
+		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_data);
 
 		assert(block != NULL);
@@ -1097,12 +1097,12 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
 		wire_addr->str = id_addr;
-		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
+		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_addr);
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
-		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(0, false, 0);
+		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_data);
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->clone());
