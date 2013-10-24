@@ -99,6 +99,10 @@ static void autotest(FILE *f, RTLIL::Design *design)
 		std::map<std::string, int> signal_out;
 
 		RTLIL::Module *mod = it->second;
+
+		if (mod->get_bool_attribute("\\gentb_skip"))
+			continue;
+
 		int count_ports = 0;
 		log("Generating test bench for module `%s'.\n", it->first.c_str());
 		for (auto it2 = mod->wires.begin(); it2 != mod->wires.end(); it2++) {
@@ -290,7 +294,8 @@ static void autotest(FILE *f, RTLIL::Design *design)
 	fprintf(f, "\t// $dumpfile(\"testbench.vcd\");\n");
 	fprintf(f, "\t// $dumpvars(0, testbench);\n");
 	for (auto it = design->modules.begin(); it != design->modules.end(); it++)
-		fprintf(f, "\t%s;\n", idy(it->first, "test").c_str());
+		if (!it->second->get_bool_attribute("\\gentb_skip"))
+			fprintf(f, "\t%s;\n", idy(it->first, "test").c_str());
 	fprintf(f, "\t$finish;\n");
 	fprintf(f, "end\n\n");
 
