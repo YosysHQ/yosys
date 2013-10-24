@@ -210,7 +210,7 @@ static RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs
 	{
 		// detect groups of parallel cases
 		std::vector<int> pgroups(sw->cases.size());
-		if (sw->attributes.count("\\parallel_case") == 0) {
+		if (!sw->get_bool_attribute("\\parallel_case")) {
 			BitPatternPool pool(sw->signal.width);
 			bool extra_group_for_next_case = false;
 			for (size_t i = 0; i < sw->cases.size(); i++) {

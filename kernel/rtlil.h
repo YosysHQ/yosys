@@ -368,7 +368,7 @@ struct RTLIL::CaseRule {
 
 struct RTLIL::SwitchRule {
 	RTLIL::SigSpec signal;
-	std::map<RTLIL::IdString, RTLIL::Const> attributes;
+	RTLIL_ATTRIBUTE_MEMBERS
 	std::vector<RTLIL::CaseRule*> cases;
 	~SwitchRule();
 	void optimize();

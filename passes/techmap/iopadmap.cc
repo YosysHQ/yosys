@@ -144,7 +144,7 @@ struct IopadmapPass : public Pass {
 					cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
 				if (!nameparam.empty())
 					cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(RTLIL::id2cstr(wire->name));
-				cell->attributes["\\keep"] = RTLIL::Const();
+				cell->attributes["\\keep"] = RTLIL::Const(1);
 				module->add(cell);
 
 				wire->port_id = 0;

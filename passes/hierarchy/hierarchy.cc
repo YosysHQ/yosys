@@ -113,7 +113,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 
 		RTLIL::Module *mod = new RTLIL::Module;
 		mod->name = celltype;
-		mod->attributes["\\placeholder"] = RTLIL::Const(0, 0);
+		mod->attributes["\\placeholder"] = RTLIL::Const(1);
 		design->modules[mod->name] = mod;
 
 		for (auto &decl : ports) {
@@ -147,7 +147,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		}
 		if (cell->parameters.size() == 0)
 			continue;
-		if (design->modules.at(cell->type)->attributes.count("\\placeholder") > 0)
+		if (design->modules.at(cell->type)->get_bool_attribute("\\placeholder"))
 			continue;
 		RTLIL::Module *mod = design->modules[cell->type];
 		cell->type = mod->derive(design, cell->parameters);
