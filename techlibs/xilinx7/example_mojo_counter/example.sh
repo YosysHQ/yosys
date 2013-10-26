@@ -19,11 +19,14 @@ abc -lut 6; opt
 # map internal cells to FPGA cells
 techmap -map ../cells.v; opt
 
+# insert i/o buffers
+iopadmap -outpad OBUF I:O -inpad BUFGP O:I
+
 # write netlist
 write_edif synth.edif
 EOT
 
-cat > synth.ut <<- EOT
+cat > bitgen.ut <<- EOT
 	-w
 	-g DebugBitstream:No
 	-g Binary:no
