@@ -21,8 +21,17 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+static void split_portname_pair(std::string &port1, std::string &port2)
+{
+	size_t pos = port1.find_first_of(':');
+	if (pos != std::string::npos) {
+		port2 = port1.substr(pos+1);
+		port1 = port1.substr(0, pos);
+	}
+}
+
 struct IopadmapPass : public Pass {
-	IopadmapPass() : Pass("iopadmap", "technology mapping of flip-flops") { }
+	IopadmapPass() : Pass("iopadmap", "technology mapping of i/o pads (or buffers)") { }
 	virtual void help()
 	{
 		log("\n");
@@ -32,12 +41,14 @@ struct IopadmapPass : public Pass {
 		log("can only map to very simple PAD cells. Use 'techmap' to further map\n");
 		log("the resulting cells to more sophisticated PAD cells.\n");
 		log("\n");
-		log("    -inpad <celltype> <portname>\n");
+		log("    -inpad <celltype> <portname>[:<portname>]\n");
 		log("        Map module input ports to the given cell type with\n");
-		log("        the given port name.\n");
+		log("        the given port name. if a 2nd portname is given, the\n");
+		log("        signal is passed through the pad call, using the 2nd\n");
+		log("        portname as output.\n");
 		log("\n");
-		log("    -outpad <celltype> <portname>\n");
-		log("    -inoutpad <celltype> <portname>\n");
+		log("    -outpad <celltype> <portname>[:<portname>]\n");
+		log("    -inoutpad <celltype> <portname>[:<portname>]\n");
 		log("        Similar to -inpad, but for output and inout ports.\n");
 		log("\n");
 		log("    -widthparam <param_name>\n");
@@ -51,9 +62,9 @@ struct IopadmapPass : public Pass {
 	{
 		log_header("Executing IOPADMAP pass (mapping inputs/outputs to IO-PAD cells).\n");
 
-		std::string inpad_celltype, inpad_portname;
-		std::string outpad_celltype, outpad_portname;
-		std::string inoutpad_celltype, inoutpad_portname;
+		std::string inpad_celltype, inpad_portname, inpad_portname2;
+		std::string outpad_celltype, outpad_portname, outpad_portname2;
+		std::string inoutpad_celltype, inoutpad_portname, inoutpad_portname2;
 		std::string widthparam, nameparam;
 
 		size_t argidx;
@@ -63,16 +74,19 @@ struct IopadmapPass : public Pass {
 			if (arg == "-inpad" && argidx+2 < args.size()) {
 				inpad_celltype = args[++argidx];
 				inpad_portname = args[++argidx];
+				split_portname_pair(inpad_portname, inpad_portname2);
 				continue;
 			}
 			if (arg == "-outpad" && argidx+2 < args.size()) {
 				outpad_celltype = args[++argidx];
 				outpad_portname = args[++argidx];
+				split_portname_pair(outpad_portname, outpad_portname2);
 				continue;
 			}
 			if (arg == "-inoutpad" && argidx+2 < args.size()) {
 				inoutpad_celltype = args[++argidx];
 				inoutpad_portname = args[++argidx];
+				split_portname_pair(inoutpad_portname, inoutpad_portname2);
 				continue;
 			}
 			if (arg == "-widthparam" && argidx+1 < args.size()) {
@@ -101,7 +115,7 @@ struct IopadmapPass : public Pass {
 				if (!wire->port_id || !design->selected(module, wire))
 					continue;
 
-				std::string celltype, portname;
+				std::string celltype, portname, portname2;
 
 				if (wire->port_input && !wire->port_output) {
 					if (inpad_celltype.empty()) {
@@ -110,6 +124,7 @@ struct IopadmapPass : public Pass {
 					}
 					celltype = inpad_celltype;
 					portname = inpad_portname;
+					portname2 = inpad_portname2;
 				} else
 				if (!wire->port_input && wire->port_output) {
 					if (outpad_celltype.empty()) {
@@ -118,6 +133,7 @@ struct IopadmapPass : public Pass {
 					}
 					celltype = outpad_celltype;
 					portname = outpad_portname;
+					portname2 = outpad_portname2;
 				} else
 				if (wire->port_input && wire->port_output) {
 					if (inoutpad_celltype.empty()) {
@@ -126,6 +142,7 @@ struct IopadmapPass : public Pass {
 					}
 					celltype = inoutpad_celltype;
 					portname = inoutpad_portname;
+					portname2 = inoutpad_portname2;
 				} else
 					log_abort();
 
@@ -134,12 +151,20 @@ struct IopadmapPass : public Pass {
 					continue;
 				}
 
-				log("Mapping port %s.%s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+				log("Mapping port %s.%s using %s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name), celltype.c_str());
 
 				RTLIL::Cell *cell = new RTLIL::Cell;
 				cell->name = NEW_ID;
 				cell->type = RTLIL::escape_id(celltype);
 				cell->connections[RTLIL::escape_id(portname)] = RTLIL::SigSpec(wire);
+				if (!portname2.empty()) {
+					RTLIL::Wire *new_wire = new RTLIL::Wire;
+					*new_wire = *wire;
+					wire->name = NEW_ID;
+					module->wires[wire->name] = wire;
+					module->wires[new_wire->name] = new_wire;
+					cell->connections[RTLIL::escape_id(portname2)] = RTLIL::SigSpec(new_wire);
+				}
 				if (!widthparam.empty())
 					cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
 				if (!nameparam.empty())
