@@ -430,12 +430,13 @@ std::string get_share_file_name(std::string file)
 		log_error("Can't find file `%s': reading of /proc/self/exe failed!\n", file.c_str());
 
 	buffer[buflen] = 0;
+	const char *dir = dirname(buffer);
 
-	std::string newfile_inplace = stringf("%s/share/%s", dirname(buffer), file.c_str());
+	std::string newfile_inplace = stringf("%s/share/%s", dir, file.c_str());
 	if (access(newfile_inplace.c_str(), F_OK) == 0)
 		return newfile_inplace;
 
-	std::string newfile_system = stringf("%s/../share/yosys/%s", dirname(buffer), file.c_str());
+	std::string newfile_system = stringf("%s/../share/yosys/%s", dir, file.c_str());
 	if (access(newfile_system.c_str(), F_OK) == 0)
 		return newfile_system;
 
