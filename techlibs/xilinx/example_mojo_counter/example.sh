@@ -19,8 +19,12 @@ abc -lut 6; opt
 # map internal cells to FPGA cells
 techmap -map ../cells.v; opt
 
+# insert clock buffers
+select -set clocks */t:FDRE %x:+FDRE[C] */t:FDRE %d
+iopadmap -inpad BUFGP O:I @clocks
+
 # insert i/o buffers
-iopadmap -outpad OBUF I:O -inpad BUFGP O:I
+iopadmap -outpad OBUF I:O -inpad IBUF O:I @clocks %n
 
 # write netlist
 write_edif synth.edif

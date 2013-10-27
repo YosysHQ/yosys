@@ -2,6 +2,7 @@ NET "clk" TNM_NET = clk;
 TIMESPEC TS_clk = PERIOD "clk" 50 MHz HIGH 50%;
 
 NET "clk" LOC = P56;
+NET "ctrl" LOC = P1;
 
 NET "led_0" LOC = P134;
 NET "led_1" LOC = P133;
