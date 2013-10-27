@@ -219,6 +219,9 @@ struct RTLIL::Design {
 	bool selected_module(RTLIL::IdString mod_name) const;
 	bool selected_whole_module(RTLIL::IdString mod_name) const;
 	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
+	bool full_selection() const {
+		return selection_stack.back().full_selection;
+	}
 	template<typename T1> bool selected(T1 *module) const {
 		return selected_module(module->name);
 	}
