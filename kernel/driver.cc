@@ -421,6 +421,27 @@ std::string rewrite_yosys_exe(std::string exe)
 	return exe;
 }
 
+std::string get_share_file_name(std::string file)
+{
+	char buffer[1024];
+	ssize_t buflen = readlink("/proc/self/exe", buffer, sizeof(buffer)-1);
+
+	if (buflen < 0)
+		log_error("Can't find file `%s': reading of /proc/self/exe failed!\n", file.c_str());
+
+	buffer[buflen] = 0;
+
+	std::string newfile_inplace = stringf("%s/share/%s", dirname(buffer), file.c_str());
+	if (access(newfile_inplace.c_str(), F_OK) == 0)
+		return newfile_inplace;
+
+	std::string newfile_system = stringf("%s/../share/yosys/%s", dirname(buffer), file.c_str());
+	if (access(newfile_system.c_str(), F_OK) == 0)
+		return newfile_system;
+
+	log_error("Can't find file `%s': no `%s' and no `%s' found!\n", file.c_str(), newfile_inplace.c_str(), newfile_system.c_str());
+}
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";

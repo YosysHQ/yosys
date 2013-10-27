@@ -16,3 +16,4 @@
 /yosys-filterlib
 /yosys-svgviewer
 /kernel/version_*.cc
+/share

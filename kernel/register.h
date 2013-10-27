@@ -34,6 +34,7 @@ extern Tcl_Interp *yosys_get_tcl_interp();
 // implemented in driver.cc
 extern RTLIL::Design *yosys_get_design();
 std::string rewrite_yosys_exe(std::string exe);
+std::string get_share_file_name(std::string file);
 
 struct Pass
 {

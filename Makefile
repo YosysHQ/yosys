@@ -106,6 +106,8 @@ test: yosys
 
 install: $(TARGETS)
 	install $(TARGETS) /usr/local/bin/
+	mkdir -p /usr/local/share/yosys
+	cp -r share/. /usr/local/share/yosys/.
 
 install-abc:
 	install yosys-abc /usr/local/bin/
@@ -114,6 +116,7 @@ manual:
 	cd manual && bash make.sh
 
 clean:
+	rm -rf share
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
 	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
