@@ -250,10 +250,10 @@ struct EdifBackend : public Backend {
 						std::string hex_string = "";
 						for (size_t i = 0; i < p.second.bits.size(); i += 4) {
 							int digit_value = 0;
-							if (i+0 < p.second.bits.size() && p.second.bits.at(i+0) == RTLIL::State::S1) digit_value += 1;
-							if (i+1 < p.second.bits.size() && p.second.bits.at(i+1) == RTLIL::State::S1) digit_value += 2;
-							if (i+2 < p.second.bits.size() && p.second.bits.at(i+2) == RTLIL::State::S1) digit_value += 3;
-							if (i+3 < p.second.bits.size() && p.second.bits.at(i+3) == RTLIL::State::S1) digit_value += 4;
+							if (i+0 < p.second.bits.size() && p.second.bits.at(i+0) == RTLIL::State::S1) digit_value |= 1;
+							if (i+1 < p.second.bits.size() && p.second.bits.at(i+1) == RTLIL::State::S1) digit_value |= 2;
+							if (i+2 < p.second.bits.size() && p.second.bits.at(i+2) == RTLIL::State::S1) digit_value |= 4;
+							if (i+3 < p.second.bits.size() && p.second.bits.at(i+3) == RTLIL::State::S1) digit_value |= 8;
 							char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
 							hex_string = std::string(digit_str) + hex_string;
 						}
