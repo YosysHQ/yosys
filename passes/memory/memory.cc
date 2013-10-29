@@ -37,7 +37,7 @@ struct MemoryPass : public Pass {
 		log("    memory_map          (skipped if called with -nomap)\n");
 		log("\n");
 		log("This converts memories to word-wide DFFs and address decoders\n");
-		log("or moultiport memory blocks if called with the -nomap option.\n");
+		log("or multiport memory blocks if called with the -nomap option.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
