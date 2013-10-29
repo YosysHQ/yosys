@@ -31,13 +31,21 @@ static SigSet<sig2driver_entry_t> sig2driver, sig2user;
 static std::set<RTLIL::Cell*> muxtree_cells;
 static SigPool sig_at_port;
 
-static bool check_state_mux_tree(RTLIL::SigSpec old_sig, RTLIL::SigSpec sig)
+static bool check_state_mux_tree(RTLIL::SigSpec old_sig, RTLIL::SigSpec sig, SigPool &recursion_monitor)
 {
 	if (sig_at_port.check_any(assign_map(sig)))
 		return false;
 
 	if (sig.is_fully_const() || old_sig == sig)
 		return true;
+
+	if (recursion_monitor.check_any(sig)) {
+		log("Warning: logic loop in mux tree at signal %s in module %s.\n",
+				log_signal(sig), RTLIL::id2cstr(module->name));
+		return false;
+	}
+
+	recursion_monitor.add(sig);
 
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(sig, cellport_list);
@@ -46,13 +54,15 @@ static bool check_state_mux_tree(RTLIL::SigSpec old_sig, RTLIL::SigSpec sig)
 			return false;
 		RTLIL::SigSpec sig_a = assign_map(cellport.first->connections["\\A"]);
 		RTLIL::SigSpec sig_b = assign_map(cellport.first->connections["\\B"]);
-		if (!check_state_mux_tree(old_sig, sig_a))
+		if (!check_state_mux_tree(old_sig, sig_a, recursion_monitor))
 			return false;
 		for (int i = 0; i < sig_b.width; i += sig_a.width)
-			if (!check_state_mux_tree(old_sig, sig_b.extract(i, sig_a.width)))
+			if (!check_state_mux_tree(old_sig, sig_b.extract(i, sig_a.width), recursion_monitor))
 				return false;
 		muxtree_cells.insert(cellport.first);
 	}
+
+	recursion_monitor.del(sig);
 
 	return true;
 }
@@ -98,9 +108,10 @@ static void detect_fsm(RTLIL::Wire *wire)
 		if ((cellport.first->type != "$dff" && cellport.first->type != "$adff") || cellport.second != "\\Q")
 			continue;
 		muxtree_cells.clear();
+		SigPool recursion_monitor;
 		RTLIL::SigSpec sig_q = assign_map(cellport.first->connections["\\Q"]);
 		RTLIL::SigSpec sig_d = assign_map(cellport.first->connections["\\D"]);
-		if (sig_q == RTLIL::SigSpec(wire) && check_state_mux_tree(sig_q, sig_d) && check_state_users(sig_q)) {
+		if (sig_q == RTLIL::SigSpec(wire) && check_state_mux_tree(sig_q, sig_d, recursion_monitor) && check_state_users(sig_q)) {
 			log("Found FSM state register %s in module %s.\n", wire->name.c_str(), module->name.c_str());
 			wire->attributes["\\fsm_encoding"] = RTLIL::Const("auto");
 			return;
