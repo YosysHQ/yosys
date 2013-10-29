@@ -48,6 +48,11 @@ struct SplitnetsPass : public Pass {
 		log("\n");
 		log("This command splits multi-bit nets into single-bit nets.\n");
 		log("\n");
+		log("    -format char1[char2]\n");
+		log("        the first char is inserted between the net name and the bit index, the\n");
+		log("        second char is appended to the netname. e.g. -format () creates net\n");
+		log("        names like 'mysignal(42)'. the default is '[]'.\n");
+		log("\n");
 		log("    -ports\n");
 		log("        also split module ports. per default only internal signals are split.\n");
 		log("\n");
@@ -55,10 +60,15 @@ struct SplitnetsPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_ports = false;
+		std::string format = "[]";
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-format" && argidx+1 < args.size()) {
+				format = args[++argidx];
+				continue;
+			}
 			if (args[argidx] == "-ports") {
 				flag_ports = true;
 				continue;
@@ -87,7 +97,12 @@ struct SplitnetsPass : public Pass {
 					wire->port_id = it.first->port_id;
 					wire->port_input = it.first->port_input;
 					wire->port_output = it.first->port_output;
-					wire->name = it.first->name + stringf("[%d]", i);
+					wire->name = it.first->name;
+					if (format.size() > 0)
+						wire->name += format.substr(0, 1);
+					wire->name += stringf("%d", i);
+					if (format.size() > 0)
+						wire->name += format.substr(1);
 					while (module->count_id(wire->name) > 0)
 						wire->name = wire->name + "_";
 					module->add(wire);
