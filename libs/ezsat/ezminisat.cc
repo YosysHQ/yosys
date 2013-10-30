@@ -17,7 +17,8 @@
  *
  */
 
-#define __STDC_LIMIT_MACROS 1
+// MiniSAT needs PRIi64
+#define __STDC_FORMAT_MACROS 1
 
 #include "ezminisat.h"
 
