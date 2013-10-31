@@ -193,6 +193,9 @@ synthesis script will synthesize for the given cell library:
 	# cleanup
 	opt
 
+If you do not have a liberty file but want to test this synthesis script,
+you can use the file techlibs/cmos/cmos_cells.lib from the yosys sources.
+
 Yosys is under construction. A more detailed documentation will follow.
 
 
