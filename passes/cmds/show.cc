@@ -477,7 +477,7 @@ struct ShowWorker
 			if (!design->selected_module(module->name))
 				continue;
 			if (design->selected_whole_module(module->name)) {
-				if (module->get_bool_attribute("\\placeholder") > 0) {
+				if (module->get_bool_attribute("\\placeholder")) {
 					log("Skipping placeholder module %s.\n", id2cstr(module->name));
 					continue;
 				} else
@@ -617,7 +617,7 @@ struct ShowPass : public Pass {
 		if (format != "ps") {
 			int modcount = 0;
 			for (auto &mod_it : design->modules) {
-				if (mod_it.second->get_bool_attribute("\\placeholder") > 0)
+				if (mod_it.second->get_bool_attribute("\\placeholder"))
 					continue;
 				if (mod_it.second->cells.empty() && mod_it.second->connections.empty())
 					continue;

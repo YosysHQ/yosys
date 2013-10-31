@@ -298,7 +298,7 @@ struct BlifBackend : public Backend {
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;
-			if ((module->get_bool_attribute("\\placeholder")) > 0)
+			if (module->get_bool_attribute("\\placeholder"))
 				continue;
 
 			if (module->processes.size() != 0)
