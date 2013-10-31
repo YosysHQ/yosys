@@ -272,7 +272,7 @@ a recent version of gcc:
 	unable to find string literal operator ‘operator"" PRIi64’
 
 This is a bug in the minisat header. It can be fixed by adding spaces before
-and after each occurance of PRIi64 in the header file:
+and after each occurrence of PRIi64 in the header file:
 
 	 sudo sed -i 's/PRIi64/ & /' /usr/include/minisat/utils/Options.h
 
