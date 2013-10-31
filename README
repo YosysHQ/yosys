@@ -69,6 +69,7 @@ will install all prerequisites for building yosys:
 	$ sudo apt-get install libqt4-dev
 	$ sudo apt-get install mercurial
 	$ sudo apt-get install iverilog
+	$ sudo apt-get install graphviz
 
 To configure the build system to use a specific set of compiler and
 build configuration, use one of
@@ -88,6 +89,9 @@ To build Yosys simply type 'make' in this directory.
 	$ make
 	$ make test
 	$ sudo make install
+
+If you encounter any problems during build, make sure to check the section
+"Workarounds for known build problems" at the end of this README file.
 
 To also build and install ABC (recommended) use the following commands:
 
@@ -256,6 +260,21 @@ Verilog Attributes and non-standard features
   for everything that comes after the {* ... *} statement. (Reset
   by adding an empty {* *} statement.) The preprocessor define
   __YOSYS_ENABLE_DEFATTR__ must be set in order for this feature to be active.
+
+
+Workarounds for known build problems
+====================================
+
+You might get an error message like this one during build when building with
+a recent version of gcc:
+
+	/usr/include/minisat/utils/Options.h:285:29: error:
+	unable to find string literal operator ‘operator"" PRIi64’
+
+This is a bug in the minisat header. It can be fixed by adding spaces before
+and after each occurance of PRIi64 in the header file:
+
+	 sudo sed -i 's/PRIi64/ & /' /usr/include/minisat/utils/Options.h
 
 
 TODOs / Open Bugs
