@@ -280,6 +280,15 @@ and after each occurrence of PRIi64 in the header file:
 	 sudo sed -i 's/PRIi64/ & /' /usr/include/minisat/utils/Options.h
 
 
+Roadmap / Large-scale TODOs
+===========================
+
+- Technology mapping for real-world applications (specific FPGAs and ASIC processes)
+- Improve standard complience of const folding and parameters (mostly expression widths)
+- Implement SAT-based formal equivialence checker based on existing SAT framework
+- Re-implement Verilog frontend (cleaner AST format, pipeline of well structured AST transformations)
+
+
 TODOs / Open Bugs
 =================
 
