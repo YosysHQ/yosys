@@ -920,8 +920,10 @@ skip_dynamic_range_lvalue_expansion:;
 		if (0) { case AST_POS: const_func = RTLIL::const_pos; }
 		if (0) { case AST_NEG: const_func = RTLIL::const_neg; }
 			if (children[0]->type == AST_CONSTANT) {
-				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint), dummy_arg, sign_hint, false, width_hint);
-				newNode = mkconst_bits(y.bits, sign_hint);
+				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), dummy_arg, children[0]->is_signed, false, -1);
+				newNode = mkconst_bits(y.bits, children[0]->is_signed);
+				// RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint), dummy_arg, sign_hint, false, width_hint);
+				// newNode = mkconst_bits(y.bits, sign_hint);
 			}
 			break;
 		case AST_TERNARY:

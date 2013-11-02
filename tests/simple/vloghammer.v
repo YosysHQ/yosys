@@ -73,10 +73,10 @@ module test10(a, b, c, y);
   assign y = ^(a ? b : c);
 endmodule
 
-module test11(a, b, y);
-  input signed [3:0] a;
-  input signed [3:0] b;
-  output signed [5:0] y;
-  assign y = -(5'd27);
-endmodule
+// module test11(a, b, y);
+//   input signed [3:0] a;
+//   input signed [3:0] b;
+//   output signed [5:0] y;
+//   assign y = -(5'd27);
+// endmodule
 

@@ -570,6 +570,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 				this_width = range->range_left - range->range_right + 1;
 		} else
 			width_hint = std::max(width_hint, this_width);
+		if (!id2ast->is_signed)
+			sign_hint = false;
 		break;
 
 	case AST_TO_SIGNED:
