@@ -508,8 +508,10 @@ struct AST_INTERNAL::ProcessGenerator
 void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 {
 	std::string type_name;
-	bool dummy_sign_hint = true;
-	// int dummy_width_hint = -1;
+	bool sub_sign_hint = true;
+	int sub_width_hint = -1;
+	int this_width = 0;
+	AstNode *range = NULL;
 
 	switch (type)
 	{
@@ -520,23 +522,81 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_IDENTIFIER:
-		if ((id2ast && !id2ast->is_signed) || children.size() > 0)
-			sign_hint = false;
-		width_hint = std::max(width_hint, genRTLIL().width);
+		if (!id2ast)
+			log_error("Failed to resolve identifier %s for width detection at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+		if ((id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) && id2ast->children[0]->type == AST_CONSTANT) {
+			this_width = id2ast->children[0]->bits.size();
+			if (children.size() != 0)
+				range = children[0];
+		} else if (id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE) {
+			if (!id2ast->range_valid) {
+				if (id2ast->type == AST_AUTOWIRE)
+					this_width = 1;
+				else {
+					current_ast_mod->dumpAst(stdout, "");
+					printf("---\n");
+					dumpAst(stdout, "");
+					fflush(stdout);
+					log_error("Failed to detect with of signal access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+				}
+			} else {
+				this_width = id2ast->range_left - id2ast->range_right + 1;
+				if (children.size() != 0)
+					range = children[0];
+			}
+		} else if (id2ast->type == AST_GENVAR) {
+			this_width = 32;
+		} else if (id2ast->type == AST_MEMORY) {
+			if (!id2ast->children[0]->range_valid)
+				log_error("Failed to detect with of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+			this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
+		} else
+			log_error("Failed to detect width for identifier %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+		if (range) {
+			if (range->children.size() == 1)
+				this_width = 1;
+			else if (!range->range_valid) {
+				AstNode *left_at_zero_ast = children[0]->children[0]->clone();
+				AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
+				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
+				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
+				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
+					log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n",
+							str.c_str(), filename.c_str(), linenum);
+				this_width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
+				delete left_at_zero_ast;
+				delete right_at_zero_ast;
+			} else
+				this_width = range->range_left - range->range_right + 1;
+		} else
+			width_hint = std::max(width_hint, this_width);
 		break;
 
 	case AST_TO_SIGNED:
-		children.at(0)->detectSignWidthWorker(width_hint, dummy_sign_hint);
+		children.at(0)->detectSignWidthWorker(width_hint, sub_sign_hint);
 		break;
 
 	case AST_TO_UNSIGNED:
-		children.at(0)->detectSignWidthWorker(width_hint, dummy_sign_hint);
+		children.at(0)->detectSignWidthWorker(width_hint, sub_sign_hint);
 		sign_hint = false;
 		break;
 
 	case AST_CONCAT:
+		for (auto child : children) {
+			sub_width_hint = 0;
+			sub_sign_hint = true;
+			child->detectSignWidthWorker(width_hint, sign_hint);
+			this_width += sub_width_hint;
+		}
+		width_hint = std::max(width_hint, this_width);
+		sign_hint = false;
+		break;
+
 	case AST_REPLICATE:
-		width_hint = std::max(width_hint, genRTLIL().width);
+		if (children[0]->type != AST_CONSTANT)
+			log_error("Left operand of replicate expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
+		width_hint = std::max(width_hint, children[0]->bitsAsConst().as_int() * sub_width_hint);
 		sign_hint = false;
 		break;
 
@@ -797,8 +857,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (!children[0]->range_valid) {
 					AstNode *left_at_zero_ast = children[0]->children[0]->clone();
 					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
-					while (left_at_zero_ast->simplify(true, true, false, 1)) { }
-					while (right_at_zero_ast->simplify(true, true, false, 1)) { }
+					while (left_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
+					while (right_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
 					if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 						log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n",
 								str.c_str(), filename.c_str(), linenum);

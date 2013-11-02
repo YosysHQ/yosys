@@ -164,7 +164,7 @@ namespace AST
 
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
-		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage);
+		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
 		void replace_ids(std::map<std::string, std::string> &rules);
 		void mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc, bool force_mem2reg);
@@ -193,6 +193,10 @@ namespace AST
 		// helper functions for creating AST nodes for constants
 		static AstNode *mkconst_int(uint32_t v, bool is_signed, int width = 32);
 		static AstNode *mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed);
+
+		// helper function for creating sign-extended const objects
+		RTLIL::Const bitsAsConst(int width, bool is_signed);
+		RTLIL::Const bitsAsConst(int width = -1);
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code

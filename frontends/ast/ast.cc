@@ -646,11 +646,36 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	return node;
 }
 
+RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
+{
+	std::vector<RTLIL::State> bits = this->bits;
+	if (width >= 0 && width < int(bits.size()))
+		bits.resize(width);
+	if (width >= 0 && width > int(bits.size())) {
+		RTLIL::State extbit = RTLIL::State::S0;
+		if (is_signed && !bits.empty())
+			extbit = bits.back();
+		while (width > int(bits.size()))
+			bits.push_back(extbit);
+	}
+	return RTLIL::Const(bits);
+}
+
+RTLIL::Const AstNode::bitsAsConst(int width)
+{
+	return bitsAsConst(width, is_signed);
+}
+
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast)
 {
 	assert(ast->type == AST_MODULE);
 	log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
+
+	current_module = new AstModule;
+	current_module->ast = NULL;
+	current_module->name = ast->str;
+	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
 
 	current_ast_mod = ast;
 	AstNode *ast_before_simplify = ast->clone();
@@ -661,7 +686,7 @@ static AstModule* process_module(AstNode *ast)
 		log("--- END OF AST DUMP ---\n");
 	}
 
-	while (ast->simplify(!flag_noopt, false, false, 0)) { }
+	while (ast->simplify(!flag_noopt, false, false, 0, -1, false)) { }
 
 	if (flag_dump_ast2) {
 		log("Dumping verilog AST after simplification:\n");
@@ -686,11 +711,6 @@ static AstModule* process_module(AstNode *ast)
 		ast->children.swap(new_children);
 		ast->attributes["\\placeholder"] = AstNode::mkconst_int(1, false);
 	}
-
-	current_module = new AstModule;
-	current_module->ast = NULL;
-	current_module->name = ast->str;
-	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
 
 	ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
