@@ -174,9 +174,11 @@ struct IntersynthBackend : public Backend {
 				node_code = stringf("node %s %s", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				for (auto &port : cell->connections) {
 					RTLIL::SigSpec sig = sigmap(port.second);
-					conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.width, sig.width, sig.width));
-					celltype_code += stringf(" b%d %s%s", sig.width, ct.cell_output(cell->type, port.first) ? "*" : "", RTLIL::id2cstr(port.first));
-					node_code += stringf(" %s %s", RTLIL::id2cstr(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
+					if (sig.width != 0) {
+						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.width, sig.width, sig.width));
+						celltype_code += stringf(" b%d %s%s", sig.width, ct.cell_output(cell->type, port.first) ? "*" : "", RTLIL::id2cstr(port.first));
+						node_code += stringf(" %s %s", RTLIL::id2cstr(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
+					}
 				}
 				for (auto &param : cell->parameters) {
 					celltype_code += stringf(" cfg:%d %s", int(param.second.bits.size()), RTLIL::id2cstr(param.first));
