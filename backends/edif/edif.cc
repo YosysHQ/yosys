@@ -198,12 +198,40 @@ struct EdifBackend : public Backend {
 		}
 		fprintf(f, "  )\n");
 
+		std::vector<RTLIL::Module*> sorted_modules;
+
+		// extract module dependencies
+		std::map<RTLIL::Module*, std::set<RTLIL::Module*>> module_deps;
+		for (auto &mod_it : design->modules) {
+			module_deps[mod_it.second] = std::set<RTLIL::Module*>();
+			for (auto &cell_it : mod_it.second->cells)
+				if (design->modules.count(cell_it.second->type) > 0)
+					module_deps[mod_it.second].insert(design->modules.at(cell_it.second->type));
+		}
+
+		// bubble-sort equivialent to topological sort..
+		while (module_deps.size() > 0) {
+			size_t sorted_modules_idx = sorted_modules.size();
+			for (auto &it : module_deps) {
+				for (auto &dep : it.second)
+					if (module_deps.count(dep) > 0)
+						goto no_ready_yet;
+				// log("Next in topological sort: %s\n", RTLIL::id2cstr(it.first->name));
+				sorted_modules.push_back(it.first);
+			no_ready_yet:;
+			}
+			if (sorted_modules_idx == sorted_modules.size())
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", RTLIL::id2cstr(module_deps.begin()->first->name));
+			while (sorted_modules_idx < sorted_modules.size())
+				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
+		}
+
+
 		fprintf(f, "  (library DESIGN\n");
 		fprintf(f, "    (edifLevel 0)\n");
 		fprintf(f, "    (technology (numberDefinition))\n");
-		for (auto module_it : design->modules)
+		for (auto module : sorted_modules)
 		{
-			RTLIL::Module *module = module_it.second;
 			if (module->get_bool_attribute("\\placeholder"))
 				continue;
 
