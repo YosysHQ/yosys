@@ -272,6 +272,10 @@ struct HierarchyPass : public Pass {
 		log("        also check the design hierarchy. this generates an error when\n");
 		log("        an unknown module is used as cell type.\n");
 		log("\n");
+		log("    -keep_positionals\n");
+		log("        per default this pass also converts positional arguments in cells\n");
+		log("        to arguments using port names. this option disables this behavior.\n");
+		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified top module to built a design hierarchy. modules\n");
 		log("        outside this tree (unused modules) are removed.\n");
@@ -301,6 +305,7 @@ struct HierarchyPass : public Pass {
 		RTLIL::Module *top_mod = NULL;
 
 		bool generate_mode = false;
+		bool keep_positionals = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
 
@@ -350,6 +355,10 @@ struct HierarchyPass : public Pass {
 				flag_check = true;
 				continue;
 			}
+			if (args[argidx] == "-keep_positionals") {
+				keep_positionals = true;
+				continue;
+			}
 			if (args[argidx] == "-top") {
 				if (++argidx >= args.size())
 					log_cmd_error("Option -top requires an additional argument!\n");
@@ -396,6 +405,54 @@ struct HierarchyPass : public Pass {
 		if (top_mod != NULL && did_something_once) {
 			log_header("Re-running hierarchy analysis..\n");
 			hierarchy(design, top_mod);
+		}
+
+		if (!keep_positionals)
+		{
+			std::set<RTLIL::Module*> pos_mods;
+			std::map<std::pair<RTLIL::Module*,int>, RTLIL::IdString> pos_map;
+			std::vector<std::pair<RTLIL::Module*,RTLIL::Cell*>> pos_work;
+
+			for (auto &mod_it : design->modules)
+			for (auto &cell_it : mod_it.second->cells) {
+				RTLIL::Cell *cell = cell_it.second;
+				if (design->modules.count(cell->type) == 0)
+					continue;
+				for (auto &conn : cell->connections)
+					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
+						pos_mods.insert(design->modules.at(cell->type));
+						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod_it.second, cell));
+						break;
+					}
+			}
+
+			for (auto module : pos_mods)
+			for (auto &wire_it : module->wires) {
+				RTLIL::Wire *wire = wire_it.second;
+				if (wire->port_id > 0)
+					pos_map[std::pair<RTLIL::Module*,int>(module, wire->port_id)] = wire->name;
+			}
+
+			for (auto &work : pos_work) {
+				RTLIL::Module *module = work.first;
+				RTLIL::Cell *cell = work.second;
+				log("Mapping positional arguments of cell %s.%s (%s).\n",
+						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+				std::map<RTLIL::IdString, RTLIL::SigSpec> new_connections;
+				for (auto &conn : cell->connections)
+					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
+						int id = atoi(conn.first.c_str()+1);
+						std::pair<RTLIL::Module*,int> key(design->modules.at(cell->type), id);
+						if (pos_map.count(key) == 0) {
+							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
+									id, RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+							new_connections[conn.first] = conn.second;
+						} else
+							new_connections[pos_map.at(key)] = conn.second;
+					} else
+						new_connections[conn.first] = conn.second;
+				cell->connections = new_connections;
+			}
 		}
 
 		log_pop();
