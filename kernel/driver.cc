@@ -31,9 +31,6 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 
-// from kernel/version_*.o (cc source generated from Makefile)
-extern const char *yosys_version_str;
-
 bool fgetline(FILE *f, std::string &buffer)
 {
 	buffer = "";

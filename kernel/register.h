@@ -31,6 +31,9 @@
 extern Tcl_Interp *yosys_get_tcl_interp();
 #endif
 
+// from kernel/version_*.o (cc source generated from Makefile)
+extern const char *yosys_version_str;
+
 // implemented in driver.cc
 extern RTLIL::Design *yosys_get_design();
 std::string rewrite_yosys_exe(std::string exe);
