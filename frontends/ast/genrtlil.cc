@@ -587,7 +587,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		for (auto child : children) {
 			sub_width_hint = 0;
 			sub_sign_hint = true;
-			child->detectSignWidthWorker(width_hint, sign_hint);
+			child->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
 			this_width += sub_width_hint;
 		}
 		width_hint = std::max(width_hint, this_width);
