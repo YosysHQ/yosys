@@ -242,7 +242,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		width_hint = -1;
 		sign_hint = true;
 		for (auto child : children) {
-			while (child->simplify(false, false, false, stage, -1, false) == true) { }
+			while (child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
 			child->detectSignWidthWorker(width_hint, sign_hint);
 		}
 		reset_width_after_children = true;
@@ -851,6 +851,7 @@ skip_dynamic_range_lvalue_expansion:;
 			wire->is_output = false;
 
 			current_ast_mod->children.push_back(wire);
+			while (wire->simplify(true, false, false, 1, -1, false)) { }
 
 			AstNode *lvalue = new AstNode(AST_IDENTIFIER);
 			lvalue->str = wire->str;
