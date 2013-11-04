@@ -8,6 +8,8 @@ ENABLE_QT4 := 1
 ENABLE_MINISAT := 1
 ENABLE_GPROF := 0
 
+DESTDIR = "/usr/local"
+
 OBJS =
 GENFILES =
 EXTRA_TARGETS =
@@ -105,12 +107,13 @@ test: yosys
 	cd tests/asicworld && bash run-test.sh
 
 install: $(TARGETS)
-	install $(TARGETS) /usr/local/bin/
-	mkdir -p /usr/local/share/yosys
-	cp -r share/. /usr/local/share/yosys/.
+	mkdir -p $(DESTDIR)/bin
+	install $(TARGETS) $(DESTDIR)/bin/
+	mkdir -p $(DESTDIR)/share/yosys
+	cp -r share/. $(DESTDIR)/share/yosys/.
 
 install-abc:
-	install yosys-abc /usr/local/bin/
+	install yosys-abc $(DESTDIR)/bin/
 
 manual:
 	cd manual && bash make.sh
