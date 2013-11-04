@@ -191,8 +191,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_ASSIGN:
 		while (children[0]->simplify(false, false, true, stage, -1, false) == true) { }
 		while (children[1]->simplify(false, false, false, stage, -1, false) == true) { }
-		children[0]->detectSignWidth(width_hint, backup_sign_hint);
-		children[1]->detectSignWidth(backup_width_hint, sign_hint);
+		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
+		children[1]->detectSignWidth(width_hint, sign_hint);
+		width_hint = std::max(width_hint, backup_width_hint);
 		child_0_is_self_determined = true;
 		break;
 
