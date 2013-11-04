@@ -209,16 +209,17 @@ struct EdifBackend : public Backend {
 					module_deps[mod_it.second].insert(design->modules.at(cell_it.second->type));
 		}
 
-		// bubble-sort equivialent to topological sort..
+		// simple good-enough topological sort
+		// (O(n*m) on n elements and depth m)
 		while (module_deps.size() > 0) {
 			size_t sorted_modules_idx = sorted_modules.size();
 			for (auto &it : module_deps) {
 				for (auto &dep : it.second)
 					if (module_deps.count(dep) > 0)
-						goto no_ready_yet;
+						goto not_ready_yet;
 				// log("Next in topological sort: %s\n", RTLIL::id2cstr(it.first->name));
 				sorted_modules.push_back(it.first);
-			no_ready_yet:;
+			not_ready_yet:;
 			}
 			if (sorted_modules_idx == sorted_modules.size())
 				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", RTLIL::id2cstr(module_deps.begin()->first->name));
