@@ -1033,10 +1033,11 @@ skip_dynamic_range_lvalue_expansion:;
 			break;
 		case AST_TERNARY:
 			if (children[0]->type == AST_CONSTANT) {
-				if (children[0]->integer)
-					newNode = children[1]->clone();
-				else
-					newNode = children[2]->clone();
+				AstNode *choice = children[children[0]->integer ? 1 : 2];
+				if (choice->type == AST_CONSTANT) {
+					RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
+					newNode = mkconst_bits(y.bits, sign_hint);
+				}
 			}
 			break;
 		case AST_CONCAT:
