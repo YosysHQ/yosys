@@ -665,9 +665,12 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_MEMRD:
-		if (!is_signed)
+		if (!id2ast->is_signed)
 			sign_hint = false;
-		width_hint = std::max(width_hint, current_module->memories.at(str)->width);
+		if (!id2ast->children[0]->range_valid)
+			log_error("Failed to detect with of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+		this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
+		width_hint = std::max(width_hint, this_width);
 		break;
 
 	// everything should have been handled above -> print error if not.

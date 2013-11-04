@@ -175,14 +175,107 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	auto backup_current_block_child = current_block_child;
 	auto backup_current_top_block = current_top_block;
 
-	// calculate width and sign hints
-	if (type == AST_RANGE) {
+	int backup_width_hint = width_hint;
+	bool backup_sign_hint = sign_hint;
+
+	bool detect_width_simple = false;
+	bool child_0_is_self_determined = false;
+	bool child_1_is_self_determined = false;
+	bool children_are_self_determined = false;
+	bool reset_width_after_children = false;
+
+	switch (type)
+	{
+	case AST_ASSIGN_EQ:
+	case AST_ASSIGN_LE:
+	case AST_ASSIGN:
+		while (children[0]->simplify(false, false, true, stage, -1, false) == true) { }
+		while (children[1]->simplify(false, false, false, stage, -1, false) == true) { }
+		children[0]->detectSignWidth(width_hint, backup_sign_hint);
+		children[1]->detectSignWidth(backup_width_hint, sign_hint);
+		child_0_is_self_determined = true;
+		break;
+
+	case AST_TO_SIGNED:
+	case AST_TO_UNSIGNED:
+	case AST_CONCAT:
+	case AST_REPLICATE:
+	case AST_REDUCE_AND:
+	case AST_REDUCE_OR:
+	case AST_REDUCE_XOR:
+	case AST_REDUCE_XNOR:
+	case AST_REDUCE_BOOL:
+		detect_width_simple = true;
+		children_are_self_determined = true;
+		break;
+
+	case AST_NEG:
+	case AST_BIT_NOT:
+	case AST_POS:
+	case AST_BIT_AND:
+	case AST_BIT_OR:
+	case AST_BIT_XOR:
+	case AST_BIT_XNOR:
+	case AST_ADD:
+	case AST_SUB:
+	case AST_MUL:
+	case AST_DIV:
+	case AST_MOD:
+		detect_width_simple = true;
+		break;
+
+	case AST_SHIFT_LEFT:
+	case AST_SHIFT_RIGHT:
+	case AST_SHIFT_SLEFT:
+	case AST_SHIFT_SRIGHT:
+	case AST_POW:
+		detect_width_simple = true;
+		child_1_is_self_determined = true;
+		break;
+
+	case AST_LT:
+	case AST_LE:
+	case AST_EQ:
+	case AST_NE:
+	case AST_GE:
+	case AST_GT:
+		width_hint = -1;
+		sign_hint = true;
+		for (auto child : children) {
+			while (child->simplify(false, false, false, stage, -1, false) == true) { }
+			child->detectSignWidthWorker(width_hint, sign_hint);
+		}
+		reset_width_after_children = true;
+		break;
+
+	case AST_LOGIC_AND:
+	case AST_LOGIC_OR:
+	case AST_LOGIC_NOT:
+		detect_width_simple = true;
+		children_are_self_determined = true;
+		break;
+
+	case AST_TERNARY:
+		detect_width_simple = true;
+		child_0_is_self_determined = true;
+		break;
+	
+	case AST_MEMRD:
+		detect_width_simple = true;
+		children_are_self_determined = true;
+		break;
+
+	default:
 		width_hint = -1;
 		sign_hint = false;
 	}
-	if (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE || type == AST_ASSIGN) {
-		while (children[0]->simplify(false, at_zero, true, stage, -1, false) == true) { }
-		children[0]->detectSignWidth(width_hint, sign_hint);
+
+	if (detect_width_simple && width_hint < 0) {
+		for (auto child : children)
+			while (child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
+		if (type == AST_REPLICATE)
+			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false) == true) { }
+		detectSignWidth(width_hint, sign_hint);
 	}
 
 	// simplify all children first
@@ -211,10 +304,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 			if ((type == AST_ALWAYS || type == AST_INITIAL) && children[i]->type == AST_BLOCK)
 				current_top_block = children[i];
-			if (i == 1 && (type == AST_SHIFT_LEFT || type == AST_SHIFT_RIGHT || type == AST_SHIFT_SLEFT || type == AST_SHIFT_SRIGHT)) {
-				while (children[i]->simplify(false, at_zero, in_lvalue_here, stage, -1, false) == true) { }
-				children[i]->detectSignWidth(width_hint_here, sign_hint_here);
-			}
+			if (i == 0 && child_0_is_self_determined)
+				width_hint_here = -1, sign_hint_here = false;
+			if (i == 1 && child_1_is_self_determined)
+				width_hint_here = -1, sign_hint_here = false;
+			if (children_are_self_determined)
+				width_hint_here = -1, sign_hint_here = false;
 			did_something_here = children[i]->simplify(const_fold_here, at_zero, in_lvalue_here, stage, width_hint_here, sign_hint_here);
 			if (did_something_here)
 				did_something = true;
@@ -222,6 +317,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 	for (auto &attr : attributes) {
 		while (attr.second->simplify(true, false, false, stage, -1, false)) { }
+	}
+
+	if (reset_width_after_children) {
+		width_hint = backup_width_hint;
+		sign_hint = backup_sign_hint;
+		if (width_hint < 0)
+			detectSignWidth(width_hint, sign_hint);
 	}
 
 	current_block = backup_current_block;
@@ -629,6 +731,7 @@ skip_dynamic_range_lvalue_expansion:;
 			children[0]->type == AST_RANGE && children[0]->children.size() == 1) {
 		newNode = new AstNode(AST_MEMRD, children[0]->children[0]->clone());
 		newNode->str = str;
+		newNode->id2ast = id2ast;
 		goto apply_newNode;
 	}
 
