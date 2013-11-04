@@ -8,7 +8,7 @@ ENABLE_QT4 := 1
 ENABLE_MINISAT := 1
 ENABLE_GPROF := 0
 
-DESTDIR = "/usr/local"
+DESTDIR = /usr/local
 
 OBJS =
 GENFILES =
