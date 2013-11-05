@@ -286,13 +286,17 @@ RTLIL::Const RTLIL::const_shr(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 	return const_shift(arg1_ext, arg2, false, +1, result_len);
 }
 
-RTLIL::Const RTLIL::const_sshl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool, bool, int result_len)
+RTLIL::Const RTLIL::const_sshl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
+	if (!signed1)
+		return const_shl(arg1, arg2, signed1, signed2, result_len);
 	return const_shift(arg1, arg2, true, -1, result_len);
 }
 
-RTLIL::Const RTLIL::const_sshr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool, bool, int result_len)
+RTLIL::Const RTLIL::const_sshr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
+	if (!signed1)
+		return const_shr(arg1, arg2, signed1, signed2, result_len);
 	return const_shift(arg1, arg2, true, +1, result_len);
 }
 
