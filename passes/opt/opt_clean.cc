@@ -190,6 +190,11 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			if (!wire->port_input)
 				used_signals_nodrivers.add(sig);
 		}
+		if (wire->get_bool_attribute("\\keep")) {
+			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+			assign_map.apply(sig);
+			used_signals.add(sig);
+		}
 	}
 
 	std::vector<RTLIL::Wire*> del_wires;
