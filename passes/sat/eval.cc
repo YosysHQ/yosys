@@ -147,11 +147,12 @@ struct VlogHammerReporter
 		{
 			log("Creating report for pattern %d: %s\n", idx, log_signal(patterns[idx]));
 			std::string input_pattern_list;
+			RTLIL::SigSpec rtl_sig;
 
 			for (int mod = 0; mod < int(modules.size()); mod++)
 			{
 				RTLIL::Module *module = modules[mod];
-				const char *module_name = module_names[mod].c_str();
+				std::string module_name = module_names[mod].c_str();
 				ConstEval ce(module);
 
 				std::vector<RTLIL::State> bits(patterns[idx].bits.begin(), patterns[idx].bits.begin() + total_input_width);
@@ -178,8 +179,21 @@ struct VlogHammerReporter
 
 				if (!ce.eval(sig, undef))
 					log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", RTLIL::id2cstr(module->name), log_signal(sig), log_signal(undef));
-				log("++RPT++ %d%s %s %s\n", idx, input_pattern_list.c_str(), sig.as_const().as_string().c_str(), module_name);
-				log("++VAL++ %d %s %s #\n", idx, module_name, sig.as_const().as_string().c_str());
+				log("++VAL++ %d %s %s #\n", idx, module_name.c_str(), sig.as_const().as_string().c_str());
+
+				if (module_name == "rtl") {
+					rtl_sig = sig;
+					rtl_sig.expand();
+				} else if (rtl_sig.width > 0) {
+					sig.expand();
+					if (rtl_sig.width != sig.width)
+						log_error("Output (y) has a different width in module %s compared to rtl!\n", RTLIL::id2cstr(module->name));
+					for (int i = 0; i < sig.width; i++)
+						if (rtl_sig.chunks.at(i).data.bits.at(0) == RTLIL::State::Sx)
+							sig.chunks.at(i).data.bits.at(0) = RTLIL::State::Sx;
+				}
+
+				log("++RPT++ %d%s %s %s\n", idx, input_pattern_list.c_str(), sig.as_const().as_string().c_str(), module_name.c_str());
 			}
 
 			log("++RPT++ ----\n");
