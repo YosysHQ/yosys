@@ -966,6 +966,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					sig.width += s.chunks[i].width;
 				}
 			}
+			if (sig.width < width_hint)
+				sig.extend(width_hint, false);
 			return sig;
 		}
 
@@ -979,6 +981,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::SigSpec sig;
 			for (int i = 0; i < count; i++)
 				sig.append(right);
+			if (sig.width < width_hint)
+				sig.extend(width_hint, false);
 			is_signed = false;
 			return sig;
 		}
