@@ -89,8 +89,6 @@ struct ConstEval
 	bool eval(RTLIL::Cell *cell, RTLIL::SigSpec &undef)
 	{
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
-		bool ignore_sig_a = false, ignore_sig_b = false;
-		int sig_b_shift = -1;
 
 		assert(cell->connections.count("\\Y") > 0);
 		sig_y = values_map(assign_map(cell->connections["\\Y"]));
@@ -103,43 +101,71 @@ struct ConstEval
 				return false;
 		}
 
-		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_") {
-			bool found_collision = false;
-			for (int i = 0; i < sig_s.width; i++)
-				if (sig_s.extract(i, 1).as_bool()) {
-					if (sig_b_shift >= 0)
-						found_collision = true;
-					sig_b_shift = i;
-					ignore_sig_a = true;
-					if (cell->type != "$safe_pmux")
-						break;
-				}
-			if (found_collision) {
-				sig_b_shift = -1;
-				ignore_sig_a = false;
-			}
-			if (sig_b_shift < 0)
-				ignore_sig_b = true;
-		}
-
-		if (!ignore_sig_a && cell->connections.count("\\A") > 0) {
+		if (cell->connections.count("\\A") > 0)
 			sig_a = cell->connections["\\A"];
-			if (!eval(sig_a, undef, cell))
-				return false;
-		}
 
-		if (!ignore_sig_b && cell->connections.count("\\B") > 0) {
+		if (cell->connections.count("\\B") > 0)
 			sig_b = cell->connections["\\B"];
-			if (sig_b_shift >= 0)
-				sig_b = sig_b.extract(sig_y.width*sig_b_shift, sig_y.width);
-			if (!eval(sig_b, undef, cell))
-				return false;
-		}
 
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_")
-			set(sig_y, sig_s.as_bool() ? sig_b.as_const() : sig_a.as_const());
+		{
+			std::vector<RTLIL::SigSpec> y_candidates;
+			int count_set_s_bits = 0;
+
+			for (int i = 0; i < sig_s.width; i++)
+			{
+				RTLIL::State s_bit = sig_s.extract(i, 1).as_const().bits.at(0);
+				RTLIL::SigSpec b_slice = sig_b.extract(sig_y.width*i, sig_y.width);
+
+				if (s_bit == RTLIL::State::Sx || s_bit == RTLIL::State::S1)
+					y_candidates.push_back(b_slice);
+
+				if (s_bit == RTLIL::State::S1)
+					count_set_s_bits++;
+			}
+
+			if (cell->type == "$safe_pmux" && count_set_s_bits > 1) {
+				y_candidates.clear();
+				count_set_s_bits = 0;
+			}
+
+			if (count_set_s_bits == 0)
+				y_candidates.push_back(sig_a);
+
+			std::vector<RTLIL::Const> y_values;
+
+			assert(y_candidates.size() > 0);
+			for (auto &yc : y_candidates) {
+				if (!eval(yc, undef, cell))
+					return false;
+				y_values.push_back(yc.as_const());
+			}
+
+			if (y_values.size() > 1)
+			{
+				std::vector<RTLIL::State> master_bits = y_values.at(0).bits;
+
+				for (size_t i = 1; i < y_values.size(); i++) {
+					std::vector<RTLIL::State> &slave_bits = y_values.at(i).bits;
+					assert(master_bits.size() == slave_bits.size());
+					for (size_t j = 0; j < master_bits.size(); j++)
+						if (master_bits[j] != slave_bits[j])
+							master_bits[j] = RTLIL::State::Sx;
+				}
+
+				set(sig_y, RTLIL::Const(master_bits));
+			}
+			else
+				set(sig_y, y_values.front());
+		}
 		else
+		{
+			if (sig_a.width > 0 && !eval(sig_a, undef, cell))
+				return false;
+			if (sig_b.width > 0 && !eval(sig_b, undef, cell))
+				return false;
 			set(sig_y, CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const()));
+		}
 
 		return true;
 	}
