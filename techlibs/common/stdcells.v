@@ -351,8 +351,14 @@ endgenerate
 assign buffer[0] = A[0];
  \$_INV_ gate_inv (
 	.A(buffer[A_WIDTH-1]),
-	.Y(Y)
+	.Y(Y[0])
 );
+
+generate
+	if (Y_WIDTH > 1) begin:V
+		assign Y[Y_WIDTH-1:1] = 0;
+	end
+endgenerate
 
 endmodule
 
