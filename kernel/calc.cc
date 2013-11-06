@@ -418,9 +418,7 @@ RTLIL::Const RTLIL::const_pos(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 	RTLIL::Const arg1_ext = arg1;
 	while (int(arg1_ext.bits.size()) < result_len)
 		arg1_ext.bits.push_back(signed1 && arg1_ext.bits.size() ? arg1_ext.bits.back() : RTLIL::State::S0);
-
-	RTLIL::Const zero(RTLIL::State::S0, 1);
-	return RTLIL::const_add(zero, arg1_ext, false, signed1, result_len);
+	return arg1_ext;
 }
 
 RTLIL::Const RTLIL::const_neg(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
