@@ -334,23 +334,37 @@ RTLIL::Const RTLIL::const_le(const RTLIL::Const &arg1, const RTLIL::Const &arg2,
 
 RTLIL::Const RTLIL::const_eq(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
-	int undef_bit_pos = -1;
-	bool y = const2big(arg1, signed1, undef_bit_pos) == const2big(arg2, signed2, undef_bit_pos);
-	RTLIL::Const result(undef_bit_pos >= 0 ? RTLIL::State::Sx : y ? RTLIL::State::S1 : RTLIL::State::S0);
+	RTLIL::Const arg1_ext = arg1;
+	RTLIL::Const arg2_ext = arg2;
+	RTLIL::Const result(RTLIL::State::S0, result_len);
 
-	while (int(result.bits.size()) < result_len)
-		result.bits.push_back(RTLIL::State::S0);
+	while (arg1_ext.bits.size() < arg2_ext.bits.size())
+		arg1_ext.bits.push_back(signed1 && signed2 && arg1_ext.bits.size() > 0 ? arg1_ext.bits.back() : RTLIL::State::S0);
+
+	while (arg2_ext.bits.size() < arg1_ext.bits.size())
+		arg2_ext.bits.push_back(signed1 && signed2 && arg2_ext.bits.size() > 0 ? arg2_ext.bits.back() : RTLIL::State::S0);
+
+	RTLIL::State matched_status = RTLIL::State::S1;
+	for (size_t i = 0; i < arg1_ext.bits.size(); i++) {
+		if (arg1_ext.bits.at(i) == RTLIL::State::S0 && arg2_ext.bits.at(i) == RTLIL::State::S1)
+			return result;
+		if (arg1_ext.bits.at(i) == RTLIL::State::S1 && arg2_ext.bits.at(i) == RTLIL::State::S0)
+			return result;
+		if (arg1_ext.bits.at(i) > RTLIL::State::S1 || arg2_ext.bits.at(i) > RTLIL::State::S1)
+			matched_status = RTLIL::State::Sx;
+	}
+
+	result.bits.front() = matched_status;
 	return result;
 }
 
 RTLIL::Const RTLIL::const_ne(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
-	int undef_bit_pos = -1;
-	bool y = const2big(arg1, signed1, undef_bit_pos) != const2big(arg2, signed2, undef_bit_pos);
-	RTLIL::Const result(undef_bit_pos >= 0 ? RTLIL::State::Sx : y ? RTLIL::State::S1 : RTLIL::State::S0);
-
-	while (int(result.bits.size()) < result_len)
-		result.bits.push_back(RTLIL::State::S0);
+	RTLIL::Const result = RTLIL::const_eq(arg1, arg2, signed1, signed2, result_len);
+	if (result.bits.front() == RTLIL::State::S0)
+		result.bits.front() = RTLIL::State::S1;
+	else if (result.bits.front() == RTLIL::State::S1)
+		result.bits.front() = RTLIL::State::S0;
 	return result;
 }
 
