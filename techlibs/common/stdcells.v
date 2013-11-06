@@ -855,8 +855,14 @@ output [Y_WIDTH-1:0] Y;
 ) ge_via_le (
 	.A(B),
 	.B(A),
-	.Y(Y)
+	.Y(Y[0])
 );
+
+generate
+	if (Y_WIDTH > 1) begin:V
+		assign Y[Y_WIDTH-1:1] = 0;
+	end
+endgenerate
 
 endmodule
 
@@ -882,8 +888,14 @@ output [Y_WIDTH-1:0] Y;
 ) gt_via_lt (
 	.A(B),
 	.B(A),
-	.Y(Y)
+	.Y(Y[0])
 );
+
+generate
+	if (Y_WIDTH > 1) begin:V
+		assign Y[Y_WIDTH-1:1] = 0;
+	end
+endgenerate
 
 endmodule
 
