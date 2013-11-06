@@ -17,6 +17,9 @@
  *
  */
 
+// [[CITE]] VlogHammer Verilog Regression Test Suite
+// http://www.clifford.at/yosys/vloghammer.html
+
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/consteval.h"
@@ -24,11 +27,12 @@
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <algorithm>
 
 namespace {
 
-/* this should only be used for regression testing of ConstEval -- see tests/xsthammer */
+/* this should only be used for regression testing of ConstEval -- see vloghammer */
 struct BruteForceEquivChecker
 {
 	RTLIL::Module *mod1, *mod2;
@@ -113,6 +117,131 @@ struct BruteForceEquivChecker
 	}
 };
 
+/* this should only be used for regression testing of ConstEval -- see vloghammer */
+struct VlogHammerReporter
+{
+	RTLIL::Design *design;
+	std::vector<RTLIL::Module*> modules;
+	std::vector<std::string> module_names;
+	std::vector<RTLIL::IdString> inputs;
+	std::vector<int> input_widths;
+	std::vector<RTLIL::Const> patterns;
+	int total_input_width;
+
+	std::vector<std::string> split(std::string text, const char *delim)
+	{
+		std::vector<std::string> list;
+		char *p = strdup(text.c_str());
+		char *t = strtok(p, delim);
+		while (t != NULL) {
+			list.push_back(t);
+			t = strtok(NULL, delim);
+		}
+		free(p);
+		return list;
+	}
+
+	void run()
+	{
+		for (int idx = 0; idx < int(patterns.size()); idx++)
+		{
+			log("Creating report for pattern %d: %s\n", idx, log_signal(patterns[idx]));
+			std::string input_pattern_list;
+
+			for (int mod = 0; mod < int(modules.size()); mod++)
+			{
+				RTLIL::Module *module = modules[mod];
+				const char *module_name = module_names[mod].c_str();
+				ConstEval ce(module);
+
+				std::vector<RTLIL::State> bits(patterns[idx].bits.begin(), patterns[idx].bits.begin() + total_input_width);
+				for (int i = 0; i < int(inputs.size()); i++) {
+					RTLIL::Wire *wire = module->wires.at(inputs[i]);
+					for (int j = input_widths[i]-1; j >= 0; j--) {
+						ce.set(RTLIL::SigSpec(wire, 1, j), bits.back());
+						bits.pop_back();
+					}
+					if (module == modules.front()) {
+						RTLIL::SigSpec sig(wire);
+						if (!ce.eval(sig))
+							log_error("Can't read back value for port %s!\n", RTLIL::id2cstr(inputs[i]));
+						input_pattern_list += stringf(" %s", sig.as_const().as_string().c_str());
+						log("++PAT++ %d %s %s #\n", idx, RTLIL::id2cstr(inputs[i]), sig.as_const().as_string().c_str());
+					}
+				}
+
+				if (module->wires.count("\\y") == 0)
+					log_error("No output wire (y) found in module %s!\n", RTLIL::id2cstr(module->name));
+
+				RTLIL::SigSpec sig(module->wires.at("\\y"));
+				RTLIL::SigSpec undef;
+
+				if (!ce.eval(sig, undef))
+					log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", RTLIL::id2cstr(module->name), log_signal(sig), log_signal(undef));
+				log("++RPT++ %d%s %s %s\n", idx, input_pattern_list.c_str(), sig.as_const().as_string().c_str(), module_name);
+				log("++VAL++ %d %s %s #\n", idx, module_name, sig.as_const().as_string().c_str());
+			}
+
+			log("++RPT++ ----\n");
+		}
+		log("++OK++\n");
+	}
+
+	VlogHammerReporter(RTLIL::Design *design, std::string module_prefix, std::string module_list, std::string input_list, std::string pattern_list) : design(design)
+	{
+		for (auto name : split(module_list, ",")) {
+			RTLIL::IdString esc_name = RTLIL::escape_id(module_prefix + name);
+			if (design->modules.count(esc_name) == 0)
+				log_error("Can't find module %s in current design!\n", name.c_str());
+			log("Using module %s (%s).\n", esc_name.c_str(), name.c_str());
+			modules.push_back(design->modules.at(esc_name));
+			module_names.push_back(name);
+		}
+
+		total_input_width = 0;
+		for (auto name : split(input_list, ",")) {
+			int width = -1;
+			RTLIL::IdString esc_name = RTLIL::escape_id(name);
+			for (auto mod : modules) {
+				if (mod->wires.count(esc_name) == 0)
+					log_error("Can't find input %s in module %s!\n", name.c_str(), RTLIL::id2cstr(mod->name));
+				RTLIL::Wire *port = mod->wires.at(esc_name);
+				if (!port->port_input || port->port_output)
+					log_error("Wire %s in module %s is not an input!\n", name.c_str(), RTLIL::id2cstr(mod->name));
+				if (width >= 0 && width != port->width)
+					log_error("Port %s has different sizes in the different modules!\n", name.c_str());
+				width = port->width;
+			}
+			log("Using input port %s with width %d.\n", esc_name.c_str(), width);
+			inputs.push_back(esc_name);
+			input_widths.push_back(width);
+			total_input_width += width;
+		}
+
+		for (auto pattern : split(pattern_list, ",")) {
+			RTLIL::SigSpec sig;
+			bool invert_pattern = false;
+			if (pattern.size() > 0 && pattern[0] == '~') {
+				invert_pattern = true;
+				pattern = pattern.substr(1);
+			}
+			if (!RTLIL::SigSpec::parse(sig, NULL, pattern) || !sig.is_fully_const())
+				log_error("Failed to parse pattern %s!\n", pattern.c_str());
+			if (sig.width < total_input_width)
+				log_error("Pattern %s is to short!\n", pattern.c_str());
+			patterns.push_back(sig.as_const());
+			if (invert_pattern) {
+				for (auto &bit : patterns.back().bits)
+					if (bit == RTLIL::State::S0)
+						bit = RTLIL::State::S1;
+					else if (bit == RTLIL::State::S1)
+						bit = RTLIL::State::S0;
+			}
+			log("Using pattern %s.\n", patterns.back().as_string().c_str());
+		}
+	}
+};
+
 } /* namespace */
 
 struct EvalPass : public Pass {
@@ -153,11 +282,10 @@ struct EvalPass : public Pass {
 				shows.push_back(args[++argidx]);
 				continue;
 			}
-			if ((args[argidx] == "-brute_force_equiv_checker" || args[argidx] == "-brute_force_equiv_checker_x") && argidx+2 < args.size()) {
-				/* this should only be used for regression testing of ConstEval -- see tests/xsthammer */
+			if ((args[argidx] == "-brute_force_equiv_checker" || args[argidx] == "-brute_force_equiv_checker_x") && argidx+3 == args.size()) {
+				/* this should only be used for regression testing of ConstEval -- see vloghammer */
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
-				extra_args(args, argidx, design);
 				if (design->modules.count(mod1_name) == 0)
 					log_error("Can't find module `%s'!\n", mod1_name.c_str());
 				if (design->modules.count(mod2_name) == 0)
@@ -167,6 +295,16 @@ struct EvalPass : public Pass {
 					log_cmd_error("Modules are not equivialent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",
 						mod1_name.c_str(), mod2_name.c_str(), checker.counter);
+				return;
+			}
+			if (args[argidx] == "-vloghammer_report" && argidx+5 == args.size()) {
+				/* this should only be used for regression testing of ConstEval -- see vloghammer */
+				std::string module_prefix = args[++argidx];
+				std::string module_list = args[++argidx];
+				std::string input_list = args[++argidx];
+				std::string pattern_list = args[++argidx];
+				VlogHammerReporter reporter(design, module_prefix, module_list, input_list, pattern_list);
+				reporter.run();
 				return;
 			}
 			break;

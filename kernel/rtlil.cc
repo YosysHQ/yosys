@@ -1152,6 +1152,9 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 			continue;
 		}
 
+		if (module == NULL)
+			return false;
+
 		if (netname[0] != '$' && netname[0] != '\\')
 			netname = "\\" + netname;
 
