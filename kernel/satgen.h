@@ -187,7 +187,7 @@ struct SatGen
 			if (cell->type == "$logic_not")
 				ez->SET(ez->NOT(ez->expression(ez->OpOr, a)), y.at(0));
 			for (size_t i = 1; i < y.size(); i++)
-				ez->SET(0, y.at(0));
+				ez->SET(ez->FALSE, y.at(i));
 			return true;
 		}
 
@@ -200,7 +200,7 @@ struct SatGen
 			else
 				ez->SET(ez->expression(ez->OpOr, a, b), y.at(0));
 			for (size_t i = 1; i < y.size(); i++)
-				ez->SET(0, y.at(0));
+				ez->SET(ez->FALSE, y.at(i));
 			return true;
 		}
 
@@ -223,7 +223,7 @@ struct SatGen
 			if (cell->type == "$gt")
 				ez->SET(is_signed ? ez->vec_gt_signed(a, b) : ez->vec_gt_unsigned(a, b), y.at(0));
 			for (size_t i = 1; i < y.size(); i++)
-				ez->SET(0, y.at(0));
+				ez->SET(ez->FALSE, y.at(i));
 			return true;
 		}
 

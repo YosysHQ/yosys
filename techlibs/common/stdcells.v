@@ -245,7 +245,7 @@ parameter A_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire [A_WIDTH-1:0] buffer;
 
@@ -274,7 +274,7 @@ parameter A_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire [A_WIDTH-1:0] buffer;
 
@@ -303,7 +303,7 @@ parameter A_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire [A_WIDTH-1:0] buffer;
 
@@ -333,7 +333,7 @@ parameter A_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire [A_WIDTH-1:0] buffer;
 
@@ -365,7 +365,7 @@ parameter A_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire [A_WIDTH-1:0] buffer;
 
@@ -699,7 +699,7 @@ parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
@@ -748,7 +748,7 @@ parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
@@ -797,7 +797,7 @@ parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf;
@@ -822,7 +822,7 @@ parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf;
@@ -845,7 +845,7 @@ parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 \$le #(
 	.A_SIGNED(B_SIGNED),
@@ -872,7 +872,7 @@ parameter Y_WIDTH = 1;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
-output Y;
+output [Y_WIDTH-1:0] Y;
 
 \$lt #(
 	.A_SIGNED(B_SIGNED),

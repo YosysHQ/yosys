@@ -83,6 +83,56 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 	return sig;
 }
 
+// helper function for extending bit width (preferred over SigSpec::extend() because of correct undef propagation in ConstEval)
+static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_signed)
+{
+	if (width <= sig.width) {
+		sig.extend(width, is_signed);
+		return;
+	}
+
+	std::stringstream sstr;
+	sstr << "$extend" << "$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
+
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
+	cell->name = sstr.str();
+	cell->type = "$pos";
+	current_module->cells[cell->name] = cell;
+
+	RTLIL::Wire *wire = new RTLIL::Wire;
+	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
+	wire->name = cell->name + "_Y";
+	wire->width = width;
+	current_module->wires[wire->name] = wire;
+
+	RTLIL::SigChunk chunk;
+	chunk.wire = wire;
+	chunk.width = wire->width;
+	chunk.offset = 0;
+
+	RTLIL::SigSpec new_sig;
+	new_sig.chunks.push_back(chunk);
+	new_sig.width = chunk.width;
+
+	if (that != NULL)
+		for (auto &attr : that->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
+						attr.first.c_str(), that->filename.c_str(), that->linenum);
+			cell->attributes[attr.first].str = attr.second->str;
+			cell->attributes[attr.first].bits = attr.second->bits;
+		}
+
+	cell->parameters["\\A_SIGNED"] = RTLIL::Const(is_signed);
+	cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig.width);
+	cell->connections["\\A"] = sig;
+
+	cell->parameters["\\Y_WIDTH"] = width;
+	cell->connections["\\Y"] = new_sig;
+	sig = new_sig;
+}
+
 // helper function for creating RTLIL code for binary operations
 static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
@@ -943,7 +993,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int width = arg.width;
 			if (width_hint > 0) {
 				width = width_hint;
-				arg.extend(width, is_signed);
+				widthExtend(this, arg, width, is_signed);
 			}
 			return uniop2rtlil(this, type_name, width, arg);
 		}
@@ -972,7 +1022,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_REDUCE_XNOR: type_name = "$reduce_xnor"; }
 		{
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
-			RTLIL::SigSpec sig = uniop2rtlil(this, type_name, 1, arg);
+			RTLIL::SigSpec sig = uniop2rtlil(this, type_name, std::max(width_hint, 1), arg);
 			return sig;
 		}
 
@@ -981,7 +1031,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_REDUCE_BOOL:  type_name = "$reduce_bool"; }
 		{
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
-			RTLIL::SigSpec sig = arg.width > 1 ? uniop2rtlil(this, type_name, 1, arg) : arg;
+			RTLIL::SigSpec sig = arg.width > 1 ? uniop2rtlil(this, type_name, std::max(width_hint, 1), arg) : arg;
 			return sig;
 		}
 
@@ -1008,12 +1058,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_GE: type_name = "$ge"; }
 	if (0) { case AST_GT: type_name = "$gt"; }
 		{
+			int width = std::max(width_hint, 1);
 			width_hint = -1, sign_hint = true;
 			children[0]->detectSignWidthWorker(width_hint, sign_hint);
 			children[1]->detectSignWidthWorker(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
 			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
-			RTLIL::SigSpec sig = binop2rtlil(this, type_name, 1, left, right);
+			RTLIL::SigSpec sig = binop2rtlil(this, type_name, width, left, right);
 			return sig;
 		}
 
@@ -1054,14 +1105,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		{
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genRTLIL();
-			return binop2rtlil(this, type_name, 1, left, right);
+			return binop2rtlil(this, type_name, std::max(width_hint, 1), left, right);
 		}
 
 	// generate cells for unary operations: $logic_not
 	case AST_LOGIC_NOT:
 		{
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
-			return uniop2rtlil(this, "$logic_not", 1, arg);
+			return uniop2rtlil(this, "$logic_not", std::max(width_hint, 1), arg);
 		}
 
 	// generate multiplexer for ternary operator (aka ?:-operator)
@@ -1079,8 +1130,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			int width = std::max(val1.width, val2.width);
 			is_signed = children[1]->is_signed && children[2]->is_signed;
-			val1.extend(width, is_signed);
-			val2.extend(width, is_signed);
+			widthExtend(this, val1, width, is_signed);
+			widthExtend(this, val2, width, is_signed);
 
 			return mux2rtlil(this, cond, val1, val2);
 		}
@@ -1271,7 +1322,7 @@ RTLIL::SigSpec AstNode::genWidthRTLIL(int width, RTLIL::SigSpec *subst_from,  RT
 	genRTLIL_subst_to = backup_subst_to;
 
 	if (width >= 0)
-		sig.extend(width, is_signed);
+		widthExtend(this, sig, width, is_signed);
 
 	return sig;
 }
