@@ -1017,9 +1017,10 @@ skip_dynamic_range_lvalue_expansion:;
 		if (0) { case AST_SHIFT_RIGHT:  const_func = RTLIL::const_shr;  }
 		if (0) { case AST_SHIFT_SLEFT:  const_func = RTLIL::const_sshl; }
 		if (0) { case AST_SHIFT_SRIGHT: const_func = RTLIL::const_sshr; }
+		if (0) { case AST_POW:          const_func = RTLIL::const_pow; }
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
-						RTLIL::Const(children[1]->bits), sign_hint, false, width_hint);
+						RTLIL::Const(children[1]->bits), sign_hint, type == AST_POW ? sign_hint : false, width_hint);
 				newNode = mkconst_bits(y.bits, sign_hint);
 			}
 			break;
@@ -1042,7 +1043,6 @@ skip_dynamic_range_lvalue_expansion:;
 		if (0) { case AST_MUL: const_func = RTLIL::const_mul; }
 		if (0) { case AST_DIV: const_func = RTLIL::const_div; }
 		if (0) { case AST_MOD: const_func = RTLIL::const_mod; }
-		if (0) { case AST_POW: const_func = RTLIL::const_pow; }
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);

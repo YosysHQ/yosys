@@ -1070,6 +1070,23 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			return binop2rtlil(this, type_name, width, left, right);
 		}
 
+	// generate cells for binary operations: $pow
+	case AST_POW:
+		{
+			int right_width;
+			bool right_signed;
+			children[1]->detectSignWidth(right_width, right_signed);
+			if (width_hint < 0)
+				detectSignWidth(width_hint, sign_hint);
+			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec right = children[1]->genRTLIL(right_width, right_signed);
+			int width = width_hint > 0 ? width_hint : left.width;
+			is_signed = children[0]->is_signed;
+			if (!flag_noopt && left.is_fully_const() && left.as_int() == 2 && !right_signed)
+				return binop2rtlil(this, "$shl", width, RTLIL::SigSpec(1, left.width), right);
+			return binop2rtlil(this, "$pow", width, left, right);
+		}
+
 	// generate cells for binary operations: $lt, $le, $eq, $ne, $ge, $gt
 	if (0) { case AST_LT: type_name = "$lt"; }
 	if (0) { case AST_LE: type_name = "$le"; }
@@ -1088,19 +1105,18 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			return sig;
 		}
 
-	// generate cells for binary operations: $add, $sub, $mul, $div, $mod, $pow
+	// generate cells for binary operations: $add, $sub, $mul, $div, $mod
 	if (0) { case AST_ADD: type_name = "$add"; }
 	if (0) { case AST_SUB: type_name = "$sub"; }
 	if (0) { case AST_MUL: type_name = "$mul"; }
 	if (0) { case AST_DIV: type_name = "$div"; }
 	if (0) { case AST_MOD: type_name = "$mod"; }
-	if (0) { case AST_POW: type_name = "$pow"; }
 		{
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
-			RTLIL::SigSpec right = type == AST_POW ? children[1]->genRTLIL() : children[1]->genRTLIL(width_hint, sign_hint);
-			int width = type == AST_POW ? left.width : std::max(left.width, right.width);
+			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
+			int width = std::max(left.width, right.width);
 			if (width > width_hint && width_hint > 0)
 				width = width_hint;
 			if (width < width_hint) {
@@ -1110,12 +1126,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					width = width_hint;
 				if (type == AST_MUL)
 					width = std::min(left.width + right.width, width_hint);
-				if (type == AST_POW)
-					width = width_hint;
 			}
 			is_signed = children[0]->is_signed && children[1]->is_signed;
-			if (!flag_noopt && type == AST_POW && left.is_fully_const() && left.as_int() == 2)
-				return binop2rtlil(this, "$shl", width, RTLIL::SigSpec(1, left.width), right);
 			return binop2rtlil(this, type_name, width, left, right);
 		}
 

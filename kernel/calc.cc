@@ -17,6 +17,10 @@
  *
  */
 
+// [[CITE]] Power-Modulus Algorithm
+// Schneier, Bruce (1996). Applied Cryptography: Protocols, Algorithms, and Source Code in C,
+// Second Edition (2nd ed.). Wiley. ISBN 978-0-471-11709-4, page 244
+
 #include "kernel/log.h"
 #include "kernel/rtlil.h"
 #include "libs/bigint/BigIntegerLibrary.hh"
@@ -450,21 +454,49 @@ RTLIL::Const RTLIL::const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 {
 	int undef_bit_pos = -1;
 
+	log("--POW--\n");
 	BigInteger a = const2big(arg1, signed1, undef_bit_pos);
 	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
 	BigInteger y = 1;
 
-	if (b < 0 || a == 0) {
-		y = 0;
-	} else { 
-		while (b > 0) {
-			y = y * a;
-			if (y.getLength() > 0x10000) {
-				undef_bit_pos = 0;
-				break;
-			}
-			b--;
+	if (a == 0 && b < 0)
+		return RTLIL::Const(RTLIL::State::Sx, result_len);
+
+	if (a == 0 && b > 0)
+		return RTLIL::Const(RTLIL::State::S0, result_len);
+
+	if (b < 0)
+	{
+		if (a < -1 || a > 1)
+			y = 0;
+		if (a == -1)
+			y = (-b % 2) == 0 ? 1 : -1;
+	}
+
+	if (b > 0)
+	{
+		// Power-modulo with 2^result_len as modulus
+		BigInteger modulus = 1;
+		int modulus_bits = (result_len >= 0 ? result_len : 1024);
+		for (int i = 0; i < modulus_bits; i++)
+			modulus *= 2;
+
+		bool flip_result_sign = false;
+		if (a < 0) {
+			a *= -1;
+			if (b % 2 == 1)
+				flip_result_sign = true;
 		}
+
+		while (b > 0) {
+			if (b % 2 == 1)
+				y = (y * a) % modulus;
+			b = b / 2;
+			a = (a * a) % modulus;
+		}
+
+		if (flip_result_sign)
+			y *= -1;
 	}
 
 	return big2const(y, result_len >= 0 ? result_len : std::max(arg1.bits.size(), arg2.bits.size()), std::min(undef_bit_pos, 0));
