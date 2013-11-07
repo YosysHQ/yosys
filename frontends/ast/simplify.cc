@@ -441,7 +441,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		int width = children[1]->range_left - children[1]->range_right + 1;
 		if (width != int(children[0]->bits.size())) {
 			RTLIL::SigSpec sig(children[0]->bits);
-			sig.extend(width, children[0]->is_signed);
+			sig.extend_u0(width, children[0]->is_signed);
 			delete children[0];
 			children[0] = mkconst_bits(sig.as_const().bits, children[0]->is_signed);
 		}

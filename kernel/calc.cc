@@ -33,6 +33,17 @@ static void extend(RTLIL::Const &arg, int width, bool is_signed)
 		arg.bits.push_back(padding);
 }
 
+static void extend_u0(RTLIL::Const &arg, int width, bool is_signed)
+{
+	RTLIL::State padding = RTLIL::State::S0;
+
+	if (arg.bits.size() > 0 && is_signed)
+		padding = arg.bits.back();
+
+	while (int(arg.bits.size()) < width)
+		arg.bits.push_back(padding);
+}
+
 static BigInteger const2big(const RTLIL::Const &val, bool as_signed, int &undef_bit_pos)
 {
 	BigInteger result = 0, this_bit = 1;
@@ -117,7 +128,7 @@ RTLIL::Const RTLIL::const_not(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 		result_len = arg1.bits.size();
 
 	RTLIL::Const arg1_ext = arg1;
-	extend(arg1_ext, result_len, signed1);
+	extend_u0(arg1_ext, result_len, signed1);
 
 	RTLIL::Const result(RTLIL::State::Sx, result_len);
 	for (size_t i = 0; i < size_t(result_len); i++) {
@@ -138,8 +149,8 @@ static RTLIL::Const logic_wrapper(RTLIL::State(*logic_func)(RTLIL::State, RTLIL:
 	if (result_len < 0)
 		result_len = std::max(arg1.bits.size(), arg2.bits.size());
 
-	extend(arg1, result_len, signed1);
-	extend(arg2, result_len, signed2);
+	extend_u0(arg1, result_len, signed1);
+	extend_u0(arg2, result_len, signed2);
 
 	RTLIL::Const result(RTLIL::State::Sx, result_len);
 	for (size_t i = 0; i < size_t(result_len); i++) {
@@ -338,11 +349,9 @@ RTLIL::Const RTLIL::const_eq(const RTLIL::Const &arg1, const RTLIL::Const &arg2,
 	RTLIL::Const arg2_ext = arg2;
 	RTLIL::Const result(RTLIL::State::S0, result_len);
 
-	while (arg1_ext.bits.size() < arg2_ext.bits.size())
-		arg1_ext.bits.push_back(signed1 && signed2 && arg1_ext.bits.size() > 0 ? arg1_ext.bits.back() : RTLIL::State::S0);
-
-	while (arg2_ext.bits.size() < arg1_ext.bits.size())
-		arg2_ext.bits.push_back(signed1 && signed2 && arg2_ext.bits.size() > 0 ? arg2_ext.bits.back() : RTLIL::State::S0);
+	int width = std::max(arg1_ext.bits.size(), arg2_ext.bits.size());
+	extend_u0(arg1_ext, width, signed1 && signed2);
+	extend_u0(arg2_ext, width, signed1 && signed2);
 
 	RTLIL::State matched_status = RTLIL::State::S1;
 	for (size_t i = 0; i < arg1_ext.bits.size(); i++) {
