@@ -146,16 +146,15 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 		if (cell->type == "$eq" || cell->type == "$ne")
 		{
-			if (cell->parameters["\\A_WIDTH"].as_int() != cell->parameters["\\B_WIDTH"].as_int()) {
-				int width = std::max(cell->parameters["\\A_WIDTH"].as_int(), cell->parameters["\\B_WIDTH"].as_int());
-				cell->connections["\\A"].extend(width, cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool());
-				cell->connections["\\B"].extend(width, cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool());
-				cell->parameters["\\A_WIDTH"] = width;
-				cell->parameters["\\B_WIDTH"] = width;
-			}
-
 			RTLIL::SigSpec a = cell->connections["\\A"];
 			RTLIL::SigSpec b = cell->connections["\\B"];
+
+			if (cell->parameters["\\A_WIDTH"].as_int() != cell->parameters["\\B_WIDTH"].as_int()) {
+				int width = std::max(cell->parameters["\\A_WIDTH"].as_int(), cell->parameters["\\B_WIDTH"].as_int());
+				a.extend(width, cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool());
+				b.extend(width, cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool());
+			}
+
 			RTLIL::SigSpec new_a, new_b;
 			a.expand(), b.expand();
 
@@ -179,7 +178,9 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 
 			if (new_a.width == 0) {
-				replace_cell(module, cell, "empty", "\\Y", RTLIL::SigSpec(cell->type == "$eq" ? RTLIL::State::S1 : RTLIL::State::S0));
+				RTLIL::SigSpec new_y = RTLIL::SigSpec(cell->type == "$eq" ?  RTLIL::State::S1 : RTLIL::State::S0);
+				new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
+				replace_cell(module, cell, "empty", "\\Y", new_y);
 				goto next_cell;
 			}
 		}
