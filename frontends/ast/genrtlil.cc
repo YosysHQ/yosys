@@ -562,6 +562,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 	int sub_width_hint = -1;
 	int this_width = 0;
 	AstNode *range = NULL;
+	AstNode *id_ast = NULL;
 
 	switch (type)
 	{
@@ -572,15 +573,24 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_IDENTIFIER:
-		if (!id2ast)
+		id_ast = id2ast;
+		if (id_ast == NULL && current_scope.count(str))
+			id_ast = current_scope.at(str);
+		if (!id_ast)
 			log_error("Failed to resolve identifier %s for width detection at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
-		if ((id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) && id2ast->children[0]->type == AST_CONSTANT) {
-			this_width = id2ast->children[0]->bits.size();
+		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM) {
+			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
+				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
+			} else
+			if (id_ast->children[0]->type == AST_CONSTANT) {
+				this_width = id_ast->children[0]->bits.size();
+			} else
+				log_error("Failed to detect width for parameter %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 			if (children.size() != 0)
 				range = children[0];
-		} else if (id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE) {
-			if (!id2ast->range_valid) {
-				if (id2ast->type == AST_AUTOWIRE)
+		} else if (id_ast->type == AST_WIRE || id_ast->type == AST_AUTOWIRE) {
+			if (!id_ast->range_valid) {
+				if (id_ast->type == AST_AUTOWIRE)
 					this_width = 1;
 				else {
 					current_ast_mod->dumpAst(stdout, "");
@@ -590,16 +600,16 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 					log_error("Failed to detect with of signal access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 				}
 			} else {
-				this_width = id2ast->range_left - id2ast->range_right + 1;
+				this_width = id_ast->range_left - id_ast->range_right + 1;
 				if (children.size() != 0)
 					range = children[0];
 			}
-		} else if (id2ast->type == AST_GENVAR) {
+		} else if (id_ast->type == AST_GENVAR) {
 			this_width = 32;
-		} else if (id2ast->type == AST_MEMORY) {
-			if (!id2ast->children[0]->range_valid)
+		} else if (id_ast->type == AST_MEMORY) {
+			if (!id_ast->children[0]->range_valid)
 				log_error("Failed to detect with of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
-			this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
+			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
 		} else
 			log_error("Failed to detect width for identifier %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 		if (range) {
@@ -620,7 +630,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 				this_width = range->range_left - range->range_right + 1;
 		} else
 			width_hint = std::max(width_hint, this_width);
-		if (!id2ast->is_signed)
+		if (!id_ast->is_signed)
 			sign_hint = false;
 		break;
 

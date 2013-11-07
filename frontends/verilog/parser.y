@@ -225,9 +225,17 @@ module_para_opt:
 	'#' '(' module_para_list ')' | /* empty */;
 
 module_para_list:
-	TOK_PARAMETER single_param_decl |
-	TOK_PARAMETER single_param_decl ',' module_para_list |
+	single_module_para |
+	single_module_para ',' module_para_list |
 	/* empty */;
+
+single_module_para:
+	TOK_PARAMETER {
+		astbuf1 = new AstNode(AST_PARAMETER);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	} param_signed param_integer param_range single_param_decl {
+		delete astbuf1;
+	};
 
 module_args_opt:
 	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
@@ -368,38 +376,56 @@ task_func_body:
 	task_func_body behavioral_stmt |
 	/* empty */;
 
+param_signed:
+	TOK_SIGNED {
+		astbuf1->is_signed = true;
+	} | /* empty */;
+
+param_integer:
+	TOK_INTEGER {
+		if (astbuf1->children.size() != 1)
+			frontend_verilog_yyerror("Syntax error.");
+		astbuf1->children.push_back(new AstNode(AST_RANGE));
+		astbuf1->children[0]->children.push_back(AstNode::mkconst_int(31, true));
+		astbuf1->children[0]->children.push_back(AstNode::mkconst_int(0, true));
+	} | /* empty */;
+
+param_range:
+	range {
+		if ($1 != NULL) {
+			if (astbuf1->children.size() != 1)
+				frontend_verilog_yyerror("Syntax error.");
+			astbuf1->children.push_back($1);
+		}
+	};
+
 param_decl:
-	TOK_PARAMETER param_decl_list ';';
+	TOK_PARAMETER {
+		astbuf1 = new AstNode(AST_PARAMETER);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	} param_signed param_integer param_range param_decl_list ';' {
+		delete astbuf1;
+	};
+
+localparam_decl:
+	TOK_LOCALPARAM {
+		astbuf1 = new AstNode(AST_LOCALPARAM);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	} param_signed param_integer param_range param_decl_list ';' {
+		delete astbuf1;
+	};
 
 param_decl_list:
 	single_param_decl | param_decl_list ',' single_param_decl;
 
 single_param_decl:
-	range TOK_ID '=' expr {
-		AstNode *node = new AstNode(AST_PARAMETER);
-		node->str = *$2;
-		node->children.push_back($4);
-		if ($1 != NULL)
-			node->children.push_back($1);
+	TOK_ID '=' expr {
+		AstNode *node = astbuf1->clone();
+		node->str = *$1;
+		delete node->children[0];
+		node->children[0] = $3;
 		ast_stack.back()->children.push_back(node);
-		delete $2;
-	};
-
-localparam_decl:
-	TOK_LOCALPARAM localparam_decl_list ';';
-
-localparam_decl_list:
-	single_localparam_decl | localparam_decl_list ',' single_localparam_decl;
-
-single_localparam_decl:
-	range TOK_ID '=' expr {
-		AstNode *node = new AstNode(AST_LOCALPARAM);
-		node->str = *$2;
-		node->children.push_back($4);
-		if ($1 != NULL)
-			node->children.push_back($1);
-		ast_stack.back()->children.push_back(node);
-		delete $2;
+		delete $1;
 	};
 
 defparam_decl:

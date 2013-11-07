@@ -197,6 +197,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		child_0_is_self_determined = true;
 		break;
 
+	case AST_PARAMETER:
+	case AST_LOCALPARAM:
+		children[0]->detectSignWidth(width_hint, sign_hint);
+		if (children.size() > 1) {
+			assert(children[1]->type == AST_RANGE);
+			while (children[1]->simplify(false, false, false, stage, -1, false) == true) { }
+			if (!children[1]->range_valid)
+				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
+			width_hint = std::max(width_hint, children[1]->range_left - children[1]->range_right + 1);
+		}
+		break;
+
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
 	case AST_CONCAT:
@@ -416,6 +428,19 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_valid = true;
 			range_left = 0;
 			range_right = 0;
+		}
+	}
+
+	// trim/extend parameters
+	if ((type == AST_PARAMETER || type == AST_LOCALPARAM) && children[0]->type == AST_CONSTANT && children.size() > 1) {
+		if (!children[1]->range_valid)
+			log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
+		int width = children[1]->range_left - children[1]->range_right + 1;
+		if (width != int(children[0]->bits.size())) {
+			RTLIL::SigSpec sig(children[0]->bits);
+			sig.extend(width, children[0]->is_signed);
+			delete children[0];
+			children[0] = mkconst_bits(sig.as_const().bits, children[0]->is_signed);
 		}
 	}
 

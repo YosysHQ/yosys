@@ -814,8 +814,8 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 			log("Parameter %s = %s\n", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[child->str])));
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
-			child->delete_children();
-			child->children.push_back(AstNode::mkconst_bits(parameters[para_id].bits, false));
+			delete child->children.at(0);
+			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, child->is_signed);
 			hash_data.insert(hash_data.end(), child->str.begin(), child->str.end());
 			hash_data.push_back(0);
 			hash_data.insert(hash_data.end(), parameters[para_id].bits.begin(), parameters[para_id].bits.end());
