@@ -965,13 +965,8 @@ skip_dynamic_range_lvalue_expansion:;
 				if (children.size() == 0)
 					newNode = current_scope[str]->children[0]->clone();
 			}
-			else if (at_zero && current_module->wires.count(str) > 0) {
-				assert(current_scope.count(str) > 0 && (current_scope[str]->type == AST_WIRE || current_scope[str]->type == AST_AUTOWIRE));
-				if (children.size() != 0 && children[0]->type == AST_RANGE && children[0]->range_valid)
-					newNode = mkconst_int(0, false,  children[0]->range_left -  children[0]->range_right + 1);
-				else
-				if (children.size() == 0)
-					newNode = mkconst_int(0, current_scope[str]->is_signed, current_module->wires[str]->width);
+			else if (at_zero && current_scope.count(str) > 0 && (current_scope[str]->type == AST_WIRE || current_scope[str]->type == AST_AUTOWIRE)) {
+				newNode = mkconst_int(0, sign_hint, width_hint);
 			}
 			break;
 		case AST_BIT_NOT:
