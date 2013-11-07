@@ -445,6 +445,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			delete children[0];
 			children[0] = mkconst_bits(sig.as_const().bits, children[0]->is_signed);
 		}
+		children[0]->is_signed = is_signed;
 	}
 
 	// annotate identifiers using scope resolution and create auto-wires as needed
