@@ -940,6 +940,22 @@ void RTLIL::SigSpec::extend(int width, bool is_signed)
 	optimize();
 }
 
+void RTLIL::SigSpec::extend_un0(int width, bool is_signed)
+{
+	if (this->width > width)
+		remove(width, this->width - width);
+	
+	if (this->width < width) {
+		RTLIL::SigSpec padding = this->width > 0 ? extract(this->width - 1, 1) : RTLIL::SigSpec(RTLIL::State::S0);
+		if (!is_signed)
+			padding = RTLIL::SigSpec(RTLIL::State::S0);
+		while (this->width < width)
+			append(padding);
+	}
+
+	optimize();
+}
+
 void RTLIL::SigSpec::check() const
 {
 	int w = 0;
