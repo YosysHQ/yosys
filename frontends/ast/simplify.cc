@@ -199,6 +199,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
+		while (children[0]->simplify(false, false, false, stage, -1, false) == true) { }
 		children[0]->detectSignWidth(width_hint, sign_hint);
 		if (children.size() > 1) {
 			assert(children[1]->type == AST_RANGE);
@@ -309,6 +310,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			bool sign_hint_here = sign_hint;
 			if (i == 0 && type == AST_REPLICATE)
 				const_fold_here = true;
+			if (type == AST_PARAMETER || type == AST_LOCALPARAM)
+				const_fold_here = true;
 			if (i == 0 && (type == AST_ASSIGN || type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE))
 				in_lvalue_here = true;
 			if (type == AST_BLOCK) {
@@ -375,7 +378,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// resolve constant prefixes
 	if (type == AST_PREFIX) {
 		if (children[0]->type != AST_CONSTANT) {
-			dumpAst(NULL, ">   ");
+			// dumpAst(NULL, ">   ");
 			log_error("Index in generate block prefix syntax at %s:%d is not constant!\n", filename.c_str(), linenum);
 		}
 		assert(children[1]->type == AST_IDENTIFIER);
@@ -593,8 +596,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		AstNode *buf = children[0]->clone();
 		while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
 		if (buf->type != AST_CONSTANT) {
-			for (auto f : log_files)
-				dumpAst(f, "verilog-ast> ");
+			// for (auto f : log_files)
+			// 	dumpAst(f, "verilog-ast> ");
 			log_error("Condition for generate if at %s:%d is not constant!\n", filename.c_str(), linenum);
 		}
 		if (buf->integer != 0) {
@@ -954,16 +957,16 @@ skip_dynamic_range_lvalue_expansion:;
 		{
 		case AST_IDENTIFIER:
 			if (current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM)) {
-				if (children.size() != 0 && children[0]->type == AST_RANGE && children[0]->range_valid) {
-					if (current_scope[str]->children[0]->type == AST_CONSTANT) {
+				if (current_scope[str]->children[0]->type == AST_CONSTANT) {
+					if (children.size() != 0 && children[0]->type == AST_RANGE && children[0]->range_valid) {
 						std::vector<RTLIL::State> data;
 						for (int i = children[0]->range_right; i <= children[0]->range_left; i++)
 							data.push_back(current_scope[str]->children[0]->bits[i]);
 						newNode = mkconst_bits(data, false);
-					}
-				} else
-				if (children.size() == 0)
-					newNode = current_scope[str]->children[0]->clone();
+					} else
+					if (children.size() == 0)
+						newNode = current_scope[str]->children[0]->clone();
+				}
 			}
 			else if (at_zero && current_scope.count(str) > 0 && (current_scope[str]->type == AST_WIRE || current_scope[str]->type == AST_AUTOWIRE)) {
 				newNode = mkconst_int(0, sign_hint, width_hint);
@@ -1067,7 +1070,14 @@ skip_dynamic_range_lvalue_expansion:;
 					goto not_const;
 				tmp_bits.insert(tmp_bits.end(), (*it)->bits.begin(), (*it)->bits.end());
 			}
-			newNode = mkconst_bits(tmp_bits, is_signed);
+			newNode = mkconst_bits(tmp_bits, false);
+			break;
+		case AST_REPLICATE:
+			if (children.at(0)->type != AST_CONSTANT || children.at(1)->type != AST_CONSTANT)
+				goto not_const;
+			for (int i = 0; i < children[0]->bitsAsConst().as_int(); i++)
+				tmp_bits.insert(tmp_bits.end(), children.at(1)->bits.begin(), children.at(1)->bits.end());
+			newNode = mkconst_bits(tmp_bits, false);
 			break;
 		default:
 		not_const:

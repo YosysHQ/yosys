@@ -593,10 +593,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 				if (id_ast->type == AST_AUTOWIRE)
 					this_width = 1;
 				else {
-					current_ast_mod->dumpAst(stdout, "");
-					printf("---\n");
-					dumpAst(stdout, "");
-					fflush(stdout);
+					// current_ast_mod->dumpAst(stdout, "");
+					// printf("---\n");
+					// dumpAst(stdout, "");
+					// fflush(stdout);
 					log_error("Failed to detect with of signal access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 				}
 			} else {
@@ -900,6 +900,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				current_module->wires[str] = wire;
 			}
 			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) {
+				if (id2ast->children[0]->type != AST_CONSTANT)
+					log_error("Parameter %s does not evaluate to constant value at %s:%d!\n",
+							str.c_str(), filename.c_str(), linenum);
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
