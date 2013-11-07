@@ -284,7 +284,6 @@ Roadmap / Large-scale TODOs
 ===========================
 
 - Technology mapping for real-world applications (specific FPGAs and ASIC processes)
-- Improve standard complience of const folding and parameters (mostly expression widths)
 - Implement SAT-based formal equivialence checker based on existing SAT framework
 - Re-implement Verilog frontend (cleaner AST format, pipeline of well structured AST transformations)
 
@@ -294,24 +293,17 @@ TODOs / Open Bugs
 
 - Implement missing Verilog 2005 features:
 
-  - Signed constants
-  - Constant functions
   - Indexed part selects
   - Multi-dimensional arrays
   - ROM modeling using "initial" blocks
-  - Built-in primitive gates (and, nand, cmos, nmos, pmos, etc..)
   - Ignore what needs to be ignored (e.g. drive and charge strengths)
   - Check standard vs. implementation to identify missing features
 
 - Miscellaneous TODO items: 
 
-  - Actually use range information on parameters
   - Add brief source code documentation to most passes and kernel code
   - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
   - Add edit commands for changing the design (delete, add, modify objects)
-  - Improve TCL support (add mechanism for inspecting the design from TCL)
   - Add full support for $lut cell type (const evaluation, sat solving, etc.)
-  - Support for registering designs (as collection of modules) to CellTypes
   - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
-  - Refactoring of AST frontend (clean expr width/sign code, AST passes)
 
