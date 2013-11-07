@@ -947,13 +947,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			return sig;
 		}
 
-	// just pass thru the signal. the parent will evaluated the is_signed property and inperpret the SigSpec accordingly
+	// just pass thru the signal. the parent will evaluate the is_signed property and inperpret the SigSpec accordingly
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED: {
-			int sub_width_hint;
-			bool sub_sign_hint;
-			children[0]->detectSignWidth(sub_width_hint, sub_sign_hint);
-			RTLIL::SigSpec sig = children[0]->genRTLIL(width_hint, sub_sign_hint);
+			RTLIL::SigSpec sig = children[0]->genRTLIL();
+			if (sig.width < width_hint)
+				sig.extend(width_hint, sign_hint);
 			is_signed = sign_hint;
 			return sig;
 	}
