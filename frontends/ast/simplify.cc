@@ -1058,8 +1058,20 @@ skip_dynamic_range_lvalue_expansion:;
 			break;
 		case AST_TERNARY:
 			if (children[0]->type == AST_CONSTANT) {
-				AstNode *choice = children[children[0]->integer ? 1 : 2];
-				if (choice->type == AST_CONSTANT) {
+				bool found_sure_true = false;
+				bool found_maybe_true = false;
+				for (auto &bit : children[0]->bits) {
+					if (bit == RTLIL::State::S1)
+						found_sure_true = true;
+					if (bit > RTLIL::State::S1)
+						found_maybe_true = true;
+				}
+				AstNode *choice = NULL;
+				if (found_sure_true)
+					choice = children[1];
+				else if (!found_maybe_true)
+					choice = children[2];
+				if (choice != NULL && choice->type == AST_CONSTANT) {
 					RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
 					newNode = mkconst_bits(y.bits, sign_hint);
 				}
