@@ -966,7 +966,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_TO_UNSIGNED: {
 			RTLIL::SigSpec sig = children[0]->genRTLIL();
 			if (sig.width < width_hint)
-				sig.extend(width_hint, sign_hint);
+				sig.extend_u0(width_hint, sign_hint);
 			is_signed = sign_hint;
 			return sig;
 	}
@@ -983,7 +983,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 			}
 			if (sig.width < width_hint)
-				sig.extend(width_hint, false);
+				sig.extend_u0(width_hint, false);
 			return sig;
 		}
 
@@ -998,7 +998,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			for (int i = 0; i < count; i++)
 				sig.append(right);
 			if (sig.width < width_hint)
-				sig.extend(width_hint, false);
+				sig.extend_u0(width_hint, false);
 			is_signed = false;
 			return sig;
 		}
@@ -1153,7 +1153,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			widthExtend(this, val1, width, is_signed);
 			widthExtend(this, val2, width, is_signed);
 
-			return mux2rtlil(this, cond, val1, val2);
+			RTLIL::SigSpec sig = mux2rtlil(this, cond, val1, val2);
+
+			if (sig.width < width_hint)
+				sig.extend_u0(width_hint, sign_hint);
+			return sig;
 		}
 
 	// generate $memrd cells for memory read ports

@@ -940,7 +940,7 @@ void RTLIL::SigSpec::extend(int width, bool is_signed)
 	optimize();
 }
 
-void RTLIL::SigSpec::extend_un0(int width, bool is_signed)
+void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 {
 	if (this->width > width)
 		remove(width, this->width - width);
