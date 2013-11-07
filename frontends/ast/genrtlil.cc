@@ -655,6 +655,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_REPLICATE:
+		while (children[0]->simplify(true, false, false, 1, -1, false) == true) { }
 		if (children[0]->type != AST_CONSTANT)
 			log_error("Left operand of replicate expression is not constant at %s:%d!\n", filename.c_str(), linenum);
 		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
