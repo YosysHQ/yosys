@@ -454,7 +454,6 @@ RTLIL::Const RTLIL::const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 {
 	int undef_bit_pos = -1;
 
-	log("--POW--\n");
 	BigInteger a = const2big(arg1, signed1, undef_bit_pos);
 	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
 	BigInteger y = 1;
