@@ -69,6 +69,9 @@ static BigInteger const2big(const RTLIL::Const &val, bool as_signed, int &undef_
 
 static RTLIL::Const big2const(const BigInteger &val, int result_len, int undef_bit_pos)
 {
+	if (undef_bit_pos >= 0)
+		return RTLIL::Const(RTLIL::State::Sx, result_len);
+
 	BigUnsigned mag = val.getMagnitude();
 	RTLIL::Const result(0, result_len);
 
@@ -87,9 +90,11 @@ static RTLIL::Const big2const(const BigInteger &val, int result_len, int undef_b
 		}
 	}
 
+#if 0
 	if (undef_bit_pos >= 0)
 		for (int i = undef_bit_pos; i < result_len; i++)
 			result.bits[i] = RTLIL::State::Sx;
+#endif
 
 	return result;
 }
