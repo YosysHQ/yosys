@@ -54,7 +54,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
-		if (wire->port_output) {
+		if (wire->port_output || wire->get_bool_attribute("\\keep")) {
 			std::set<RTLIL::Cell*> cell_list;
 			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
 			assign_map.apply(sig);
