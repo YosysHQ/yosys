@@ -1074,6 +1074,14 @@ skip_dynamic_range_lvalue_expansion:;
 				if (choice != NULL && choice->type == AST_CONSTANT) {
 					RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
 					newNode = mkconst_bits(y.bits, sign_hint);
+				} else if (children[1]->type == AST_CONSTANT && children[2]->type == AST_CONSTANT) {
+					RTLIL::Const a = children[1]->bitsAsConst(width_hint, sign_hint);
+					RTLIL::Const b = children[2]->bitsAsConst(width_hint, sign_hint);
+					assert(a.bits.size() == b.bits.size());
+					for (size_t i = 0; i < a.bits.size(); i++)
+						if (a.bits[i] != b.bits[i])
+							a.bits[i] = RTLIL::State::Sx;
+					newNode = mkconst_bits(a.bits, sign_hint);
 				}
 			}
 			break;
