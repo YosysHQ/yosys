@@ -1216,6 +1216,20 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 	return true;
 }
 
+bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
+{
+	if (lhs.chunks.size() == 1) {
+		char *p = (char*)str.c_str(), *endptr;
+		long long int val = strtoll(p, &endptr, 10);
+		if (endptr && endptr != p && *endptr == 0) {
+			sig = RTLIL::SigSpec(val, lhs.width);
+			return true;
+		}
+	}
+
+	return parse(sig, module, str);
+}
+
 RTLIL::CaseRule::~CaseRule()
 {
 	for (auto it = switches.begin(); it != switches.end(); it++)

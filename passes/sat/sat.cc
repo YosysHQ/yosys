@@ -81,7 +81,7 @@ struct SatHelper
 
 			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
-			if (!RTLIL::SigSpec::parse(rhs, module, s.second))
+			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
@@ -102,7 +102,7 @@ struct SatHelper
 
 			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
-			if (!RTLIL::SigSpec::parse(rhs, module, s.second))
+			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
@@ -162,7 +162,7 @@ struct SatHelper
 
 			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
 				log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
-			if (!RTLIL::SigSpec::parse(rhs, module, s.second))
+			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));

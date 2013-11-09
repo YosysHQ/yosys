@@ -384,13 +384,12 @@ struct EvalPass : public Pass {
 			log_cmd_error("Can't perform EVAL on an empty selection!\n");
 
 		ConstEval ce(module);
-		RTLIL::SigSpec show_signal, show_value, undef_signal;
 
 		for (auto &it : sets) {
 			RTLIL::SigSpec lhs, rhs;
 			if (!RTLIL::SigSpec::parse(lhs, module, it.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.first.c_str());
-			if (!RTLIL::SigSpec::parse(rhs, module, it.second))
+			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, it.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second.c_str());
 			if (!rhs.is_fully_const())
 				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second.c_str());
@@ -400,26 +399,23 @@ struct EvalPass : public Pass {
 			ce.set(lhs, rhs.as_const());
 		}
 
-		for (auto &it : shows) {
-			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, it))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.c_str());
-			show_signal.append(sig);
-		}
-
 		if (shows.size() == 0) {
 			for (auto &it : module->wires)
 				if (it.second->port_output)
-					show_signal.append(it.second);
+					shows.push_back(it.second->name);
 		}
 
-		show_signal.optimize();
-		show_value = show_signal;
-
-		if (!ce.eval(show_value, undef_signal))
-			log("Failed to evaluate signal %s: Missing value for %s.\n", log_signal(show_signal), log_signal(undef_signal));
-		else
-			log("Eval result: %s = %s.\n", log_signal(show_signal), log_signal(show_value));
+		for (auto &it : shows) {
+			RTLIL::SigSpec signal, value, undef;
+			if (!RTLIL::SigSpec::parse(signal, module, it))
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.c_str());
+			signal.optimize();
+			value = signal;
+			if (!ce.eval(value, undef))
+				log("Failed to evaluate signal %s: Missing value for %s.\n", log_signal(signal), log_signal(undef));
+			else
+				log("Eval result: %s = %s.\n", log_signal(signal), log_signal(value));
+		}
 	}
 } EvalPass;
  
