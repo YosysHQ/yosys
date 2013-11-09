@@ -139,7 +139,7 @@ struct SpiceBackend : public Backend {
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string top_module_name;
-		RTLIL::Module *top_module;
+		RTLIL::Module *top_module = NULL;
 		bool big_endian = false;
 		std::string neg = "Vss", pos = "Vdd", ncpf = "_NC";
 
