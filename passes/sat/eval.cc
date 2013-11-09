@@ -24,6 +24,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/consteval.h"
 #include "kernel/sigtools.h"
+#include "kernel/satgen.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -141,6 +142,43 @@ struct VlogHammerReporter
 		return list;
 	}
 
+	void sat_check(RTLIL::Module *module, RTLIL::SigSpec recorded_set_vars, RTLIL::Const recorded_set_vals, RTLIL::SigSpec expected_y)
+	{
+		log("Verifying SAT model..\n");
+
+		ezDefaultSAT ez;
+		SigMap sigmap(module);
+		SatGen satgen(&ez, design, &sigmap);
+
+		for (auto &c : module->cells)
+			if (!satgen.importCell(c.second))
+				log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+
+		std::vector<int> rec_var_vec = satgen.importSigSpec(recorded_set_vars);
+		std::vector<int> rec_val_vec = satgen.importSigSpec(recorded_set_vals);
+		ez.assume(ez.vec_eq(rec_var_vec, rec_val_vec));
+
+		std::vector<int> y_vec = satgen.importSigSpec(module->wires.at("\\y"));
+		std::vector<bool> y_values;
+
+		log("  Created SAT problem with %d variables and %d clauses.\n",
+				ez.numCnfVariables(), ez.numCnfClauses());
+
+		if (!ez.solve(y_vec, y_values))
+			log_error("Failed to find solution to SAT problem.\n");
+
+		expected_y.expand();
+		assert(expected_y.chunks.size() == y_vec.size());
+		for (size_t i = 0; i < y_vec.size(); i++) {
+			RTLIL::State bit = expected_y.chunks.at(i).data.bits.at(0);
+			if ((bit == RTLIL::State::S0 || bit == RTLIL::State::S1) && ((bit == RTLIL::State::S1) != y_values.at(i)))
+				log_error("Found error in SAT model: y[%d] = %d, should be %d.\n",
+						int(i), int(y_values.at(i)), int(bit == RTLIL::State::S1));
+		}
+
+		log("  SAT model verified.\n");
+	}
+
 	void run()
 	{
 		for (int idx = 0; idx < int(patterns.size()); idx++)
@@ -151,6 +189,8 @@ struct VlogHammerReporter
 
 			for (int mod = 0; mod < int(modules.size()); mod++)
 			{
+				RTLIL::SigSpec recorded_set_vars;
+				RTLIL::Const recorded_set_vals;
 				RTLIL::Module *module = modules[mod];
 				std::string module_name = module_names[mod].c_str();
 				ConstEval ce(module);
@@ -160,6 +200,8 @@ struct VlogHammerReporter
 					RTLIL::Wire *wire = module->wires.at(inputs[i]);
 					for (int j = input_widths[i]-1; j >= 0; j--) {
 						ce.set(RTLIL::SigSpec(wire, 1, j), bits.back());
+						recorded_set_vars.append(RTLIL::SigSpec(wire, 1, j));
+						recorded_set_vals.bits.push_back(bits.back());
 						bits.pop_back();
 					}
 					if (module == modules.front()) {
@@ -188,6 +230,7 @@ struct VlogHammerReporter
 				if (module_name == "rtl") {
 					rtl_sig = sig;
 					rtl_sig.expand();
+					sat_check(module, recorded_set_vars, recorded_set_vals, sig);
 				} else if (rtl_sig.width > 0) {
 					sig.expand();
 					if (rtl_sig.width != sig.width)

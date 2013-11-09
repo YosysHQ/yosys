@@ -53,17 +53,16 @@ struct SatGen
 		this->prefix = prefix;
 	}
 
-	std::vector<int> importSigSpec(RTLIL::SigSpec &sig, int timestep = -1)
+	std::vector<int> importSigSpec(RTLIL::SigSpec sig, int timestep = -1)
 	{
 		assert(timestep < 0 || timestep > 0);
-		RTLIL::SigSpec s = sig;
-		sigmap->apply(s);
-		s.expand();
+		sigmap->apply(sig);
+		sig.expand();
 
 		std::vector<int> vec;
-		vec.reserve(s.chunks.size());
+		vec.reserve(sig.chunks.size());
 
-		for (auto &c : s.chunks)
+		for (auto &c : sig.chunks)
 			if (c.wire == NULL) {
 				vec.push_back(c.data.as_bool() ? ez->TRUE : ez->FALSE);
 			} else {
