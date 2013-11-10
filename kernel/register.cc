@@ -178,6 +178,8 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	pass_register[args[0]]->execute(args, design);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
+
+	design->check();
 }
 
 Frontend::Frontend(std::string name, std::string short_help) : Pass("read_"+name, short_help), frontend_name(name)
@@ -270,6 +272,8 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 			args.push_back(filename);
 		frontend_register[args[0]]->execute(args, design);
 	}
+
+	design->check();
 }
 
 Backend::Backend(std::string name, std::string short_help) : Pass("write_"+name, short_help), backend_name(name)
@@ -364,6 +368,8 @@ void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename,
 
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
+
+	design->check();
 }
 
 struct HelpPass : public Pass {

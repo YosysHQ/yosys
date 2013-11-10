@@ -352,6 +352,8 @@ struct TechmapPass : public Pass {
 			for (auto &mod_it : design->modules)
 				if (techmap_module(design, mod_it.second, map, handled_cells, celltypeMap, false, opt_mode))
 					did_something = true;
+			if (did_something)
+				design->check();
 		}
 
 		log("No more expansions possible.\n");

@@ -856,6 +856,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	if (design->modules.count(modname) == 0) {
 		new_ast->str = modname;
 		design->modules[modname] = process_module(new_ast);
+		design->modules[modname]->check();
 	} else {
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
 	}

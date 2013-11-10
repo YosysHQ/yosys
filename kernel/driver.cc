@@ -67,14 +67,10 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 		std::string command;
-		while (fgetline(f, command)) {
+		while (fgetline(f, command))
 			Pass::call(design, command);
-			design->check();
-		}
-		if (!command.empty()) {
+		if (!command.empty())
 			Pass::call(design, command);
-			design->check();
-		}
 		if (filename != "-")
 			fclose(f);
 		if (backend_command != NULL && *backend_command == "auto")
@@ -89,7 +85,6 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 	}
 
 	Frontend::frontend_call(design, NULL, filename, command);
-	design->check();
 }
 
 static void run_pass(std::string command, RTLIL::Design *design)
@@ -97,7 +92,6 @@ static void run_pass(std::string command, RTLIL::Design *design)
 	log("\n-- Running pass `%s' --\n", command.c_str());
 
 	Pass::call(design, command);
-	design->check();
 }
 
 static void run_backend(std::string filename, std::string command, RTLIL::Design *design)
@@ -125,7 +119,6 @@ static void run_backend(std::string filename, std::string command, RTLIL::Design
 	}
 
 	Backend::backend_call(design, NULL, filename, command);
-	design->check();
 }
 
 static char *readline_cmd_generator(const char *text, int state)
