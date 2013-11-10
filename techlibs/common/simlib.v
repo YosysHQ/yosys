@@ -929,6 +929,7 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 parameter MEMID = "";
 parameter SIZE = 256;
+parameter OFFSET = 0;
 parameter ABITS = 8;
 parameter WIDTH = 8;
 
@@ -957,14 +958,14 @@ generate
 	for (i = 0; i < RD_PORTS; i = i+1) begin:rd
 		if (RD_CLK_ENABLE[i] == 0) begin:rd_noclk
 			always @(RD_ADDR or update_async_rd)
-				RD_DATA[ (i+1)*WIDTH-1 : i*WIDTH ] <= data[ RD_ADDR[ (i+1)*ABITS-1 : i*ABITS ] ];
+				RD_DATA[ (i+1)*WIDTH-1 : i*WIDTH ] <= data[ RD_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ];
 		end else
 		if (RD_CLK_POLARITY[i] == 1) begin:rd_posclk
 			always @(posedge RD_CLK[i])
-				RD_DATA[ (i+1)*WIDTH-1 : i*WIDTH ] <= data[ RD_ADDR[ (i+1)*ABITS-1 : i*ABITS ] ];
+				RD_DATA[ (i+1)*WIDTH-1 : i*WIDTH ] <= data[ RD_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ];
 		end else begin:rd_negclk
 			always @(negedge RD_CLK[i])
-				RD_DATA[ (i+1)*WIDTH-1 : i*WIDTH ] <= data[ RD_ADDR[ (i+1)*ABITS-1 : i*ABITS ] ];
+				RD_DATA[ (i+1)*WIDTH-1 : i*WIDTH ] <= data[ RD_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ];
 		end
 	end
 
@@ -972,7 +973,7 @@ generate
 		if (WR_CLK_ENABLE[i] == 0) begin:wr_noclk
 			always @(WR_ADDR or WR_DATA or WR_EN) begin
 				if (WR_EN[i]) begin
-					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
+					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
 					#1 -> update_async_rd;
 				end
 			end
@@ -980,13 +981,13 @@ generate
 		if (RD_CLK_POLARITY[i] == 1) begin:rd_posclk
 			always @(posedge WR_CLK[i])
 				if (WR_EN[i]) begin
-					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
+					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
 					#1 -> update_async_rd;
 				end
 		end else begin:rd_negclk
 			always @(negedge WR_CLK[i])
 				if (WR_EN[i]) begin
-					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
+					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
 					#1 -> update_async_rd;
 				end
 		end

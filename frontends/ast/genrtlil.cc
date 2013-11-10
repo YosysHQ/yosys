@@ -1199,7 +1199,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				addr_bits++;
 
 			cell->connections["\\CLK"] = RTLIL::SigSpec(RTLIL::State::Sx, 1);
-			cell->connections["\\ADDR"] = children[0]->genRTLIL();
+			cell->connections["\\ADDR"] = children[0]->genWidthRTLIL(addr_bits);
 			cell->connections["\\DATA"] = RTLIL::SigSpec(wire);
 
 			cell->parameters["\\MEMID"] = RTLIL::Const(str);
@@ -1229,9 +1229,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				addr_bits++;
 
 			cell->connections["\\CLK"] = RTLIL::SigSpec(RTLIL::State::Sx, 1);
-			cell->connections["\\ADDR"] = children[0]->genRTLIL();
-			cell->connections["\\DATA"] = children[1]->genRTLIL();
+			cell->connections["\\ADDR"] = children[0]->genWidthRTLIL(addr_bits);
+			cell->connections["\\DATA"] = children[1]->genWidthRTLIL(current_module->memories[str]->width);
 			cell->connections["\\EN"] = children[2]->genRTLIL();
+
+			if (cell->connections["\\EN"].width > 1)
+				cell->connections["\\EN"] = uniop2rtlil(this, "$reduce_bool", 1, cell->connections["\\EN"], false);
 
 			cell->parameters["\\MEMID"] = RTLIL::Const(str);
 			cell->parameters["\\ABITS"] = RTLIL::Const(addr_bits);

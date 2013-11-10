@@ -100,7 +100,7 @@ output [Y_WIDTH-1:0] Y;
 	.B_WIDTH(A_WIDTH),
 	.Y_WIDTH(Y_WIDTH)
 ) sub (
-	.A(0),
+	.A(1'b0),
 	.B(A),
 	.Y(Y)
 );
@@ -393,7 +393,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$shift (X, A, Y);
+module \$__shift (X, A, Y);
 
 parameter WIDTH = 1;
 parameter SHIFT = 0;
@@ -450,7 +450,7 @@ generate
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		\$shift #(
+		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
 		) sh (
@@ -503,7 +503,7 @@ generate
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		\$shift #(
+		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(2 ** (i > 30 ? 30 : i))
 		) sh (
@@ -556,7 +556,7 @@ generate
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		\$shift #(
+		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
 		) sh (
@@ -618,7 +618,7 @@ generate
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		\$shift #(
+		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(2 ** (i > 30 ? 30 : i))
 		) sh (
@@ -641,7 +641,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$fulladd (A, B, C, X, Y);
+module \$__fulladd (A, B, C, X, Y);
 
 // {X, Y} = A + B + C
 input A, B, C;
@@ -661,7 +661,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$alu (A, B, Cin, Y, Cout, Csign);
+module \$__alu (A, B, Cin, Y, Cout, Csign);
 
 parameter WIDTH = 1;
 
@@ -679,7 +679,7 @@ assign Csign = carry[WIDTH-1];
 genvar i;
 generate
 	for (i = 0; i < WIDTH; i = i + 1) begin:V
-		\$fulladd adder (
+		\$__fulladd adder (
 			.A(A[i]),
 			.B(B[i]),
 			.C(carry[i]),
@@ -712,7 +712,7 @@ wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-\$alu #(
+\$__alu #(
 	.WIDTH(WIDTH)
 ) alu (
 	.A(A_buf),
@@ -761,7 +761,7 @@ wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-\$alu #(
+\$__alu #(
 	.WIDTH(WIDTH)
 ) alu (
 	.A(A_buf),
@@ -857,18 +857,13 @@ output [Y_WIDTH-1:0] Y;
 	.A_SIGNED(B_SIGNED),
 	.B_SIGNED(A_SIGNED),
 	.A_WIDTH(B_WIDTH),
-	.B_WIDTH(A_WIDTH)
+	.B_WIDTH(A_WIDTH),
+	.Y_WIDTH(Y_WIDTH)
 ) ge_via_le (
 	.A(B),
 	.B(A),
-	.Y(Y[0])
+	.Y(Y)
 );
-
-generate
-	if (Y_WIDTH > 1) begin:V
-		assign Y[Y_WIDTH-1:1] = 0;
-	end
-endgenerate
 
 endmodule
 
@@ -890,18 +885,13 @@ output [Y_WIDTH-1:0] Y;
 	.A_SIGNED(B_SIGNED),
 	.B_SIGNED(A_SIGNED),
 	.A_WIDTH(B_WIDTH),
-	.B_WIDTH(A_WIDTH)
+	.B_WIDTH(A_WIDTH),
+	.Y_WIDTH(Y_WIDTH)
 ) gt_via_lt (
 	.A(B),
 	.B(A),
-	.Y(Y[0])
+	.Y(Y)
 );
-
-generate
-	if (Y_WIDTH > 1) begin:V
-		assign Y[Y_WIDTH-1:1] = 0;
-	end
-endgenerate
 
 endmodule
 
@@ -923,7 +913,7 @@ wire [Y_WIDTH-1:0] A_buf, B_buf;
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-\$alu #(
+\$__alu #(
 	.WIDTH(Y_WIDTH)
 ) alu (
 	.A(A_buf),
@@ -952,7 +942,7 @@ wire [Y_WIDTH-1:0] A_buf, B_buf;
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-\$alu #(
+\$__alu #(
 	.WIDTH(Y_WIDTH)
 ) alu (
 	.A(A_buf),
@@ -965,7 +955,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$arraymul (A, B, Y);
+module \$__arraymul (A, B, Y);
 
 parameter WIDTH = 8;
 input [WIDTH-1:0] A, B;
@@ -1001,7 +991,7 @@ wire [Y_WIDTH-1:0] A_buf, B_buf;
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-\$arraymul #(
+\$__arraymul #(
 	.WIDTH(Y_WIDTH)
 ) arraymul (
 	.A(A_buf),
@@ -1013,7 +1003,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$div_mod_u (A, B, Y, R);
+module \$__div_mod_u (A, B, Y, R);
 
 parameter WIDTH = 1;
 
@@ -1043,7 +1033,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$div_mod (A, B, Y, R);
+module \$__div_mod (A, B, Y, R);
 
 parameter A_SIGNED = 0;
 parameter B_SIGNED = 0;
@@ -1067,7 +1057,7 @@ wire [WIDTH-1:0] A_buf_u, B_buf_u, Y_u, R_u;
 assign A_buf_u = A_SIGNED && B_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
 assign B_buf_u = A_SIGNED && B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
 
-\$div_mod_u #(
+\$__div_mod_u #(
 	.WIDTH(WIDTH)
 ) div_mod_u (
 	.A(A_buf_u),
@@ -1098,7 +1088,7 @@ output [Y_WIDTH-1:0] Y;
 wire [Y_WIDTH-1:0] Y_buf;
 wire [Y_WIDTH-1:0] Y_div_zero;
 
-\$div_mod #(
+\$__div_mod #(
 	.A_SIGNED(A_SIGNED),
 	.B_SIGNED(B_SIGNED),
 	.A_WIDTH(A_WIDTH),
@@ -1140,7 +1130,7 @@ output [Y_WIDTH-1:0] Y;
 wire [Y_WIDTH-1:0] Y_buf;
 wire [Y_WIDTH-1:0] Y_div_zero;
 
-\$div_mod #(
+\$__div_mod #(
 	.A_SIGNED(A_SIGNED),
 	.B_SIGNED(B_SIGNED),
 	.A_WIDTH(A_WIDTH),
@@ -1204,7 +1194,8 @@ wire A_buf;
 
 \$reduce_bool #(
 	.A_SIGNED(A_SIGNED),
-	.A_WIDTH(A_WIDTH)
+	.A_WIDTH(A_WIDTH),
+	.Y_WIDTH(1)
 ) A_logic (
 	.A(A), 
 	.Y(A_buf)
@@ -1241,7 +1232,8 @@ wire A_buf, B_buf;
 
 \$reduce_bool #(
 	.A_SIGNED(A_SIGNED),
-	.A_WIDTH(A_WIDTH)
+	.A_WIDTH(A_WIDTH),
+	.Y_WIDTH(1)
 ) A_logic (
 	.A(A), 
 	.Y(A_buf)
@@ -1249,7 +1241,8 @@ wire A_buf, B_buf;
 
 \$reduce_bool #(
 	.A_SIGNED(B_SIGNED),
-	.A_WIDTH(B_WIDTH)
+	.A_WIDTH(B_WIDTH),
+	.Y_WIDTH(1)
 ) B_logic (
 	.A(B), 
 	.Y(B_buf)
@@ -1287,7 +1280,8 @@ wire A_buf, B_buf;
 
 \$reduce_bool #(
 	.A_SIGNED(A_SIGNED),
-	.A_WIDTH(A_WIDTH)
+	.A_WIDTH(A_WIDTH),
+	.Y_WIDTH(1)
 ) A_logic (
 	.A(A), 
 	.Y(A_buf)
@@ -1295,7 +1289,8 @@ wire A_buf, B_buf;
 
 \$reduce_bool #(
 	.A_SIGNED(B_SIGNED),
-	.A_WIDTH(B_WIDTH)
+	.A_WIDTH(B_WIDTH),
+	.Y_WIDTH(1)
 ) B_logic (
 	.A(B), 
 	.Y(B_buf)

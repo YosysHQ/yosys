@@ -225,9 +225,9 @@ struct OptMuxtreeWorker
 				mi.cell->connections["\\S"] = new_sig_s;
 				if (new_sig_s.width == 1) {
 					mi.cell->type = "$mux";
-					mi.cell->attributes.erase("\\S_WIDTH");
+					mi.cell->parameters.erase("\\S_WIDTH");
 				} else {
-					mi.cell->attributes["\\S_WIDTH"] = RTLIL::Const(new_sig_s.width);
+					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.width);
 				}
 			}
 		}

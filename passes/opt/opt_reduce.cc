@@ -127,6 +127,7 @@ struct OptReduceWorker
 				reduce_or_cell->name = NEW_ID;
 				reduce_or_cell->type = "$reduce_or";
 				reduce_or_cell->connections["\\A"] = this_s;
+				reduce_or_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 				reduce_or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(this_s.width);
 				reduce_or_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 				module->cells[reduce_or_cell->name] = reduce_or_cell;
