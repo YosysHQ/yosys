@@ -20,7 +20,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 #include "frontends/verilog/verilog_frontend.h"
+#include "backends/ilang/ilang_backend.h"
+
 #include <assert.h>
+#include <string.h>
 #include <algorithm>
 
 int RTLIL::autoidx = 1;
@@ -272,6 +275,339 @@ size_t RTLIL::Module::count_id(RTLIL::IdString id)
 	return wires.count(id) + memories.count(id) + cells.count(id) + processes.count(id);
 }
 
+#ifndef NDEBUG
+namespace {
+	struct InternalCellChecker
+	{
+		RTLIL::Module *module;
+		RTLIL::Cell *cell;
+		std::set<RTLIL::IdString> expected_params, expected_ports;
+
+		InternalCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
+
+		void error(int linenr)
+		{
+			char *ptr;
+			size_t size;
+
+			FILE *f = open_memstream(&ptr, &size);
+			ILANG_BACKEND::dump_cell(f, "  ", cell);
+			fputc(0, f);
+			fclose(f);
+
+			log_error("Found error in internal cell %s.%s (%s) at %s:%d:\n%s",
+					module->name.c_str(), cell->name.c_str(), cell->type.c_str(),
+					__FILE__, linenr, ptr);
+		}
+
+		int param(const char *name)
+		{
+			if (cell->parameters.count(name) == 0)
+				error(__LINE__);
+			expected_params.insert(name);
+			return cell->parameters.at(name).as_int();
+		}
+
+		void port(const char *name, int width)
+		{
+			if (cell->connections.count(name) == 0)
+				error(__LINE__);
+			if (cell->connections.at(name).width != width)
+				error(__LINE__);
+			expected_ports.insert(name);
+		}
+
+		void check_expected()
+		{
+			for (auto &para : cell->parameters)
+				if (expected_params.count(para.first) == 0)
+					error(__LINE__);
+			for (auto &conn : cell->connections)
+				if (expected_ports.count(conn.first) == 0)
+					error(__LINE__);
+		}
+
+		void check_gate(const char *ports)
+		{
+			if (cell->parameters.size() != 0)
+				error(__LINE__);
+
+			for (const char *p = ports; *p; p++) {
+				char portname[3] = { '\\', *p, 0 };
+				if (cell->connections.count(portname) == 0)
+					error(__LINE__);
+				if (cell->connections.at(portname).width != 1)
+					error(__LINE__);
+			}
+
+			for (auto &conn : cell->connections) {
+				if (conn.first.size() != 2 || conn.first.at(0) != '\\')
+					error(__LINE__);
+				if (strchr(ports, conn.first.at(1)) == NULL)
+					error(__LINE__);
+			}
+		}
+
+		void check()
+		{
+			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$neg") {
+				param("\\A_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor") {
+				param("\\A_SIGNED");
+				param("\\B_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_xor" ||
+					cell->type == "$reduce_xnor" || cell->type == "$reduce_bool") {
+				param("\\A_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
+				param("\\A_SIGNED");
+				param("\\B_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" ||
+					cell->type == "$ge" || cell->type == "$gt") {
+				param("\\A_SIGNED");
+				param("\\B_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" ||
+					cell->type == "$mod" || cell->type == "$pow") {
+				param("\\A_SIGNED");
+				param("\\B_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$logic_not") {
+				param("\\A_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$logic_and" || cell->type == "$logic_or") {
+				param("\\A_SIGNED");
+				param("\\B_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$mux") {
+				port("\\A", param("\\WIDTH"));
+				port("\\B", param("\\WIDTH"));
+				port("\\S", 1);
+				port("\\Y", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$pmux" || cell->type == "$safe_pmux") {
+				port("\\A", param("\\WIDTH"));
+				port("\\B", param("\\WIDTH") * param("\\S_WIDTH"));
+				port("\\S", param("\\S_WIDTH"));
+				port("\\Y", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$lut") {
+				param("\\LUT");
+				port("\\I", param("\\WIDTH"));
+				port("\\O", 1);
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$sr") {
+				param("\\SET_POLARITY");
+				param("\\CLR_POLARITY");
+				port("\\SET", param("\\WIDTH"));
+				port("\\CLR", param("\\WIDTH"));
+				port("\\Q",   param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$dff") {
+				param("\\CLK_POLARITY");
+				port("\\CLK", 1);
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$dffsr") {
+				param("\\CLK_POLARITY");
+				param("\\SET_POLARITY");
+				param("\\CLR_POLARITY");
+				port("\\CLK", 1);
+				port("\\SET", param("\\WIDTH"));
+				port("\\CLR", param("\\WIDTH"));
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$adff") {
+				param("\\CLK_POLARITY");
+				param("\\ARST_POLARITY");
+				param("\\ARST_VALUE");
+				port("\\CLK", 1);
+				port("\\ARST", 1);
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$dlatch") {
+				param("\\EN_POLARITY");
+				port("\\EN", 1);
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$fsm") {
+				param("\\NAME");
+				param("\\CLK_POLARITY");
+				param("\\ARST_POLARITY");
+				param("\\STATE_BITS");
+				param("\\STATE_NUM");
+				param("\\STATE_NUM_LOG2");
+				param("\\STATE_RST");
+				param("\\STATE_TABLE");
+				param("\\TRANS_NUM");
+				param("\\TRANS_TABLE");
+				port("\\CLK", 1);
+				port("\\ARST", 1);
+				port("\\CTRL_IN", param("\\CTRL_IN_WIDTH"));
+				port("\\CTRL_OUT", param("\\CTRL_OUT_WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$memrd") {
+				param("\\MEMID");
+				param("\\CLK_ENABLE");
+				param("\\CLK_POLARITY");
+				port("\\CLK", 1);
+				port("\\ADDR", param("\\ABITS"));
+				port("\\DATA", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$memwr") {
+				param("\\MEMID");
+				param("\\CLK_ENABLE");
+				param("\\CLK_POLARITY");
+				port("\\CLK", 1);
+				port("\\EN", 1);
+				port("\\ADDR", param("\\ABITS"));
+				port("\\DATA", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$mem") {
+				param("\\MEMID");
+				param("\\SIZE");
+				param("\\OFFSET");
+				param("\\RD_CLK_ENABLE");
+				param("\\RD_CLK_POLARITY");
+				param("\\WR_CLK_ENABLE");
+				param("\\WR_CLK_POLARITY");
+				port("\\RD_CLK", param("\\RD_PORTS"));
+				port("\\RD_ADDR", param("\\RD_PORTS") * param("\\ABITS"));
+				port("\\RD_DATA", param("\\RD_PORTS") * param("\\WIDTH"));
+				port("\\WR_CLK", param("\\WR_PORTS"));
+				port("\\WR_EN", param("\\WR_PORTS"));
+				port("\\WR_ADDR", param("\\WR_PORTS") * param("\\ABITS"));
+				port("\\WR_DATA", param("\\WR_PORTS") * param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$_INV_") { check_gate("AY"); return; }
+			if (cell->type == "$_AND_") { check_gate("ABY"); return; }
+			if (cell->type == "$_OR_")  { check_gate("ABY"); return; }
+			if (cell->type == "$_XOR_") { check_gate("ABY"); return; }
+			if (cell->type == "$_MUX_") { check_gate("ABSY"); return; }
+
+			if (cell->type == "$_SR_NN_") { check_gate("SRQ"); return; }
+			if (cell->type == "$_SR_NP_") { check_gate("SRQ"); return; }
+			if (cell->type == "$_SR_PN_") { check_gate("SRQ"); return; }
+			if (cell->type == "$_SR_PP_") { check_gate("SRQ"); return; }
+
+			if (cell->type == "$_DFF_N_") { check_gate("DQC"); return; }
+			if (cell->type == "$_DFF_P_") { check_gate("DQC"); return; }
+
+			if (cell->type == "$_DFF_NN0_") { check_gate("DQCR"); return; }
+			if (cell->type == "$_DFF_NN1_") { check_gate("DQCR"); return; }
+			if (cell->type == "$_DFF_NP0_") { check_gate("DQCR"); return; }
+			if (cell->type == "$_DFF_NP1_") { check_gate("DQCR"); return; }
+			if (cell->type == "$_DFF_PN0_") { check_gate("DQCR"); return; }
+			if (cell->type == "$_DFF_PN1_") { check_gate("DQCR"); return; }
+			if (cell->type == "$_DFF_PP0_") { check_gate("DQCR"); return; }
+			if (cell->type == "$_DFF_PP1_") { check_gate("DQCR"); return; }
+
+			if (cell->type == "$_DFFSR_NNN_") { check_gate("CSRDQ"); return; }
+			if (cell->type == "$_DFFSR_NNP_") { check_gate("CSRDQ"); return; }
+			if (cell->type == "$_DFFSR_NPN_") { check_gate("CSRDQ"); return; }
+			if (cell->type == "$_DFFSR_NPP_") { check_gate("CSRDQ"); return; }
+			if (cell->type == "$_DFFSR_PNN_") { check_gate("CSRDQ"); return; }
+			if (cell->type == "$_DFFSR_PNP_") { check_gate("CSRDQ"); return; }
+			if (cell->type == "$_DFFSR_PPN_") { check_gate("CSRDQ"); return; }
+			if (cell->type == "$_DFFSR_PPP_") { check_gate("CSRDQ"); return; }
+
+			if (cell->type == "$_DLATCH_N_") { check_gate("EDQ"); return; }
+			if (cell->type == "$_DLATCH_P_") { check_gate("EDQ"); return; }
+
+			error(__LINE__);
+		}
+	};
+}
+#endif
+
 void RTLIL::Module::check()
 {
 #ifndef NDEBUG
@@ -308,6 +644,10 @@ void RTLIL::Module::check()
 		}
 		for (auto &it2 : it.second->parameters) {
 			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+		}
+		if (it.second->type[0] == '$' && it.second->type.substr(0, 3) != "$__" && it.second->type.substr(0, 8) != "$paramod") {
+			InternalCellChecker checker(this, it.second);
+			checker.check();
 		}
 	}
 
