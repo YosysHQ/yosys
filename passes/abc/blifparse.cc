@@ -22,6 +22,28 @@
 #include <stdio.h>
 #include <string.h>
 
+static bool read_next_line(char *buffer, int &line_count, FILE *f)
+{
+	buffer[0] = 0;
+
+	while (1)
+	{
+		int buffer_len = strlen(buffer);
+		while (buffer_len > 0 && (buffer[buffer_len-1] == ' ' || buffer[buffer_len-1] == '\t' ||
+				buffer[buffer_len-1] == '\r' || buffer[buffer_len-1] == '\n'))
+			buffer[--buffer_len] = 0;
+
+		if (buffer_len == 0 || buffer[buffer_len-1] == '\\') {
+			if (buffer[buffer_len-1] == '\\')
+				buffer[--buffer_len] = 0;
+			line_count++;
+			if (fgets(buffer+buffer_len, 4096-buffer_len, f) == NULL)
+				return false;
+		} else
+			return true;
+	}
+}
+
 RTLIL::Design *abc_parse_blif(FILE *f)
 {
 	RTLIL::Design *design = new RTLIL::Design;
@@ -39,25 +61,10 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 
 	while (1)
 	{
-		buffer[0] = 0;
+		if (!read_next_line(buffer, line_count, f))
+			goto error;
 
-		while (1)
-		{
-			int buffer_len = strlen(buffer);
-			while (buffer_len > 0 && (buffer[buffer_len-1] == ' ' || buffer[buffer_len-1] == '\t' ||
-					buffer[buffer_len-1] == '\r' || buffer[buffer_len-1] == '\n'))
-				buffer[--buffer_len] = 0;
-
-			if (buffer_len == 0 || buffer[buffer_len-1] == '\\') {
-				if (buffer[buffer_len-1] == '\\')
-					buffer[--buffer_len] = 0;
-				line_count++;
-				if (fgets(buffer+buffer_len, 4096-buffer_len, f) == NULL)
-					goto error;
-			} else
-				break;
-		}
-
+	continue_without_read:
 		if (buffer[0] == '#')
 			continue;
 
@@ -111,6 +118,38 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 				}
 				output_sig = input_sig.extract(input_sig.width-1, 1);
 				input_sig = input_sig.extract(0, input_sig.width-1);
+
+				if (input_sig.width == 0) {
+					RTLIL::State state = RTLIL::State::Sa;
+					while (1) {
+						if (!read_next_line(buffer, line_count, f))
+							goto error;
+						for (int i = 0; buffer[i]; i++) {
+							if (buffer[i] == ' ' || buffer[i] == '\t')
+								continue;
+							if (i == 0 && buffer[i] == '.')
+								goto finished_parsing_constval;
+							if (buffer[i] == '0') {
+								if (state == RTLIL::State::S1)
+									goto error;
+								state = RTLIL::State::S0;
+								continue;
+							}
+							if (buffer[i] == '1') {
+								if (state == RTLIL::State::S0)
+									goto error;
+								state = RTLIL::State::S1;
+								continue;
+							}
+							goto error;
+						}
+					}
+				finished_parsing_constval:
+					if (state == RTLIL::State::Sa)
+						state = RTLIL::State::S1;
+					module->connections.push_back(RTLIL::SigSig(output_sig, state));
+					goto continue_without_read;
+				}
 
 				input_sig.optimize();
 				output_sig.optimize();
