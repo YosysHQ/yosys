@@ -27,6 +27,7 @@ GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
 ABCREV = 0f9e5488ced3
+ABCHGPULL = 1
 
 -include Makefile.conf
 
@@ -97,8 +98,11 @@ yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 	cp libs/svgviewer/svgviewer yosys-svgviewer
 
 abc:
+ifeq ($(ABCHGPULL),1)
 	test -d abc || hg clone https://bitbucket.org/alanmi/abc abc
-	cd abc && hg pull && hg update -r $(ABCREV) && make
+	cd abc && hg pull && hg update -r $(ABCREV)
+endif
+	cd abc && $(MAKE)
 	cp abc/abc yosys-abc
 
 test: yosys
