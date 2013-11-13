@@ -386,8 +386,8 @@ param_integer:
 		if (astbuf1->children.size() != 1)
 			frontend_verilog_yyerror("Syntax error.");
 		astbuf1->children.push_back(new AstNode(AST_RANGE));
-		astbuf1->children[0]->children.push_back(AstNode::mkconst_int(31, true));
-		astbuf1->children[0]->children.push_back(AstNode::mkconst_int(0, true));
+		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(31, true));
+		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(0, true));
 	} | /* empty */;
 
 param_range:
