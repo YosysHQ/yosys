@@ -453,7 +453,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "VSm:f:b:o:p:l:qts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "VSm:f:b:o:p:l:qv:ts:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -466,6 +466,7 @@ int main(int argc, char **argv)
 			passes_commands.push_back("proc");
 			passes_commands.push_back("opt");
 			passes_commands.push_back("memory");
+			passes_commands.push_back("opt");
 			passes_commands.push_back("techmap");
 			passes_commands.push_back("opt");
 			break;
@@ -499,6 +500,10 @@ int main(int argc, char **argv)
 		case 'q':
 			log_errfile = stderr;
 			break;
+		case 'v':
+			log_errfile = stderr;
+			log_verbose_level = atoi(optarg);
+			break;
 		case 't':
 			log_time = true;
 			break;
@@ -512,11 +517,14 @@ int main(int argc, char **argv)
 			break;
 		default:
 			fprintf(stderr, "\n");
-			fprintf(stderr, "Usage: %s [-V] [-S] [-q] [-t] [-l logfile] [-o <outfile>] [-f <frontend>] [{-s|-c} <scriptfile>]\n", argv[0]);
-			fprintf(stderr, "       %*s[-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
+			fprintf(stderr, "Usage: %s [-V] [-S] [-q] [-v <level>[-t] [-l <logfile>] [-o <outfile>] [-f <frontend>]\n", argv[0]);
+			fprintf(stderr, "       %*s[{-s|-c} <scriptfile>] [-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
 			fprintf(stderr, "        quiet operation. only write error messages to console\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -v <level>\n");
+			fprintf(stderr, "        print log headers up to level <level> to the console. (implies -q)\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -t\n");
 			fprintf(stderr, "        annotate all log messages with a time stamp\n");
@@ -552,13 +560,13 @@ int main(int argc, char **argv)
 			fprintf(stderr, "transformation of the input to a gate-level netlist. This can be helpful when\n");
 			fprintf(stderr, "e.g. using yosys as a pre-processor for a tool that can't understand full verilog.\n");
 			fprintf(stderr, "\n");
-			fprintf(stderr, "    -b 'verilog -noattr' -p hierarchy -p proc -p opt -p memory -p techmap -p opt\n");
+			fprintf(stderr, "    -b 'verilog -noattr' -p hierarchy -p proc -p opt -p memory -p opt -p techmap -p opt\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "For more complex synthesis jobs it is recommended to use the read_* and write_*\n");
 			fprintf(stderr, "commands in a script file instead of specifying input and output files on the\n");
 			fprintf(stderr, "command line.\n");
 			fprintf(stderr, "\n");
-			fprintf(stderr, "When no commands, script files and input files are specified on the command\n");
+			fprintf(stderr, "When no commands, script files or input files are specified on the command\n");
 			fprintf(stderr, "line, yosys automatically enters the interactive command mode. Use the 'help'\n");
 			fprintf(stderr, "command to get information on the individual commands.\n");
 			fprintf(stderr, "\n");

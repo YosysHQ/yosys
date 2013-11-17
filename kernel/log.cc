@@ -32,6 +32,7 @@ std::vector<FILE*> log_files;
 FILE *log_errfile = NULL;
 bool log_time = false;
 bool log_cmd_error_throw = false;
+int log_verbose_level;
 
 std::vector<int> header_count;
 std::list<std::string> string_buf;
@@ -101,6 +102,14 @@ void logv_header(const char *format, va_list ap)
 	log(" ");
 	logv(format, ap);
 	log_flush();
+
+	if (int(header_count.size()) <= log_verbose_level && log_errfile != NULL) {
+		for (int c : header_count)
+			fprintf(log_errfile, "%d.", c);
+		fprintf(log_errfile, " ");
+		vfprintf(log_errfile, format, ap);
+		fflush(log_errfile);
+	}
 }
 
 void logv_error(const char *format, va_list ap)

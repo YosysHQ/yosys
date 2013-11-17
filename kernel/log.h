@@ -28,6 +28,7 @@ extern std::vector<FILE*> log_files;
 extern FILE *log_errfile;
 extern bool log_time;
 extern bool log_cmd_error_throw;
+extern int log_verbose_level;
 
 std::string stringf(const char *fmt, ...);
 
