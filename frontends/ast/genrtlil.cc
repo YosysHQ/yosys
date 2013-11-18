@@ -481,11 +481,11 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec backup_subst_rvalue_from = subst_rvalue_from;
 				RTLIL::SigSpec backup_subst_rvalue_to = subst_rvalue_to;
 
-				bool generated_default_case = false;
+				RTLIL::CaseRule *default_case = NULL;
 				RTLIL::CaseRule *last_generated_case = NULL;
 				for (auto child : ast->children)
 				{
-					if (child == ast->children[0] || generated_default_case)
+					if (child == ast->children[0])
 						continue;
 					assert(child->type == AST_COND);
 
@@ -506,23 +506,27 @@ struct AST_INTERNAL::ProcessGenerator
 					last_generated_case = current_case;
 					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
 					for (auto node : child->children) {
-						if (node->type == AST_DEFAULT) {
-							generated_default_case = true;
-							current_case->compare.clear();
-						} else if (node->type == AST_BLOCK) {
+						if (node->type == AST_DEFAULT)
+							default_case = current_case;
+						else if (node->type == AST_BLOCK)
 							processAst(node);
-						} else if (!generated_default_case)
+						else
 							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.width, &subst_rvalue_from, &subst_rvalue_to));
 					}
-					sw->cases.push_back(current_case);
+					if (default_case != current_case)
+						sw->cases.push_back(current_case);
+					else
+						log_assert(current_case->compare.size() == 0);
 					current_case = backup_case;
 				}
 
-				if (last_generated_case != NULL && ast->get_bool_attribute("\\full_case")) {
+				if (last_generated_case != NULL && ast->get_bool_attribute("\\full_case") && default_case == NULL) {
 					last_generated_case->compare.clear();
-				} else if (!generated_default_case) {
-					RTLIL::CaseRule *default_case = new RTLIL::CaseRule;
-					addChunkActions(default_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
+				} else {
+					if (default_case == NULL) {
+						default_case = new RTLIL::CaseRule;
+						addChunkActions(default_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
+					}
 					sw->cases.push_back(default_case);
 				}
 
