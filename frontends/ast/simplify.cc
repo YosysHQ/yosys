@@ -1290,7 +1290,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		mod->children.push_back(wire_data);
 		while (wire_data->simplify(true, false, false, 1, -1, false)) { }
 
-		AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->clone());
+		AstNode *assign_addr = new AstNode(block ? AST_ASSIGN_EQ : AST_ASSIGN, new AstNode(AST_IDENTIFIER), children[0]->children[0]->clone());
 		assign_addr->children[0]->str = id_addr;
 
 		AstNode *case_node = new AstNode(AST_CASE, new AstNode(AST_IDENTIFIER));
