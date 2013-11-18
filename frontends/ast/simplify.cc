@@ -801,7 +801,8 @@ skip_dynamic_range_lvalue_expansion:;
 		while (wire_en->simplify(true, false, false, 1, -1, false)) { }
 
 		std::vector<RTLIL::State> x_bits;
-		x_bits.push_back(RTLIL::State::Sx);
+		for (int i = 0; i < mem_width; i++)
+			x_bits.push_back(RTLIL::State::Sx);
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits, false));
 		assign_addr->children[0]->str = id_addr;
@@ -1280,13 +1281,15 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
 		wire_addr->str = id_addr;
-		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+		if (block)
+			wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_addr);
 		while (wire_addr->simplify(true, false, false, 1, -1, false)) { }
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
-		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+		if (block)
+			wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_data);
 		while (wire_data->simplify(true, false, false, 1, -1, false)) { }
 
@@ -1308,7 +1311,8 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		}
 
 		std::vector<RTLIL::State> x_bits;
-		x_bits.push_back(RTLIL::State::Sx);
+		for (int i = 0; i < mem_width; i++)
+			x_bits.push_back(RTLIL::State::Sx);
 
 		AstNode *cond_node = new AstNode(AST_COND, new AstNode(AST_DEFAULT), new AstNode(AST_BLOCK));
 		AstNode *assign_reg = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
