@@ -263,6 +263,11 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 		fprintf(f, " int=%u", (int)integer);
 	fprintf(f, "\n");
 
+	for (auto &it : attributes) {
+		fprintf(f, "%s  ATTR %s:\n", indent.c_str(), it.first.c_str());
+		it.second->dumpAst(f, indent + "    ");
+	}
+
 	for (size_t i = 0; i < children.size(); i++)
 		children[i]->dumpAst(f, indent + "  ");
 }
@@ -294,6 +299,12 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		for (auto f : log_files)
 			dumpVlog(f, indent);
 		return;
+	}
+
+	for (auto &it : attributes) {
+		fprintf(f, "%s" "(* %s = ", indent.c_str(), id2vl(it.first).c_str());
+		it.second->dumpVlog(f, "");
+		fprintf(f, " *)%s", indent.empty() ? "" : "\n");
 	}
 
 	switch (type)
