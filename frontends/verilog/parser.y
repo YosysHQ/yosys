@@ -248,9 +248,16 @@ optional_comma:
 
 module_arg:
 	TOK_ID range {
-		if (port_stubs.count(*$1) != 0)
-			frontend_verilog_yyerror("Duplicate module port `%s'.", $1->c_str());
-		port_stubs[*$1] = ++port_counter;
+		if (ast_stack.back()->children.size() > 0 && ast_stack.back()->children.back()->type == AST_WIRE) {
+			AstNode *node = ast_stack.back()->children.back()->clone();
+			node->str = *$1;
+			node->port_id = ++port_counter;
+			ast_stack.back()->children.push_back(node);
+		} else {
+			if (port_stubs.count(*$1) != 0)
+				frontend_verilog_yyerror("Duplicate module port `%s'.", $1->c_str());
+			port_stubs[*$1] = ++port_counter;
+		}
 		if ($2 != NULL)
 			delete $2;
 		delete $1;
