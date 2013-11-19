@@ -5,3 +5,9 @@ techlibs/common/blackbox.v: techlibs/common/blackbox.sed techlibs/common/simlib.
 	cat techlibs/common/simlib.v techlibs/common/stdcells_sim.v | sed -rf techlibs/common/blackbox.sed > techlibs/common/blackbox.v.new
 	mv techlibs/common/blackbox.v.new techlibs/common/blackbox.v
 
+EXTRA_TARGETS += share/simlib.v
+
+share/simlib.v: techlibs/common/simlib.v
+	mkdir -p share
+	cp techlibs/common/simlib.v share/simlib.v
+
