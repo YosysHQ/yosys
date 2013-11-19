@@ -5,8 +5,7 @@ test: stubnets.so
 	tail test1.log test2.log test3.log
 
 stubnets.so: stubnets.cc
-	$(shell yosys-config --cxx --cxxflags --ldflags -o stubnets.so \
-	                           -shared stubnets.cc --ldlibs )
+	yosys-config --exec --cxx --cxxflags --ldflags -o $@ -shared $^ --ldlibs
 
 clean:
 	rm -f test1.log test2.log test3.log
