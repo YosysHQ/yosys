@@ -8,7 +8,8 @@ ENABLE_QT4 := 1
 ENABLE_MINISAT := 1
 ENABLE_GPROF := 0
 
-DESTDIR = /usr/local
+DESTDIR := /usr/local
+INSTALL_SUDO :=
 
 OBJS =
 GENFILES =
@@ -112,13 +113,13 @@ test: yosys
 	cd tests/asicworld && bash run-test.sh
 
 install: $(TARGETS)
-	mkdir -p $(DESTDIR)/bin
-	install $(TARGETS) $(DESTDIR)/bin/
-	mkdir -p $(DESTDIR)/share/yosys
-	cp -r share/. $(DESTDIR)/share/yosys/.
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/bin
+	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)/bin/
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/share/yosys
+	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)/share/yosys/.
 
 install-abc:
-	install yosys-abc $(DESTDIR)/bin/
+	$(INSTALL_SUDO) install yosys-abc $(DESTDIR)/bin/
 
 manual:
 	cd manual && bash make.sh
@@ -156,6 +157,9 @@ config-release: clean
 config-gprof: clean
 	echo 'CONFIG := release' > Makefile.conf
 	echo 'ENABLE_GPROF := 1' >> Makefile.conf
+
+config-sudo:
+	echo "INSTALL_SUDO := sudo" >> Makefile.conf
 
 -include libs/*/*.d
 -include frontends/*/*.d
