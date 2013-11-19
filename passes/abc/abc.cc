@@ -340,7 +340,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	char *p = mkdtemp(tempdir_name);
-	log_header("Extracting gate logic of module `%s' to `%s/input.v'..\n", module->name.c_str(), tempdir_name);
+	log_header("Extracting gate netlist of module `%s' to `%s/input.v'..\n", module->name.c_str(), tempdir_name);
 	if (p == NULL)
 		log_error("For some reason mkdtemp() failed!\n");
 
@@ -369,7 +369,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 	free(p);
 
-	fprintf(f, "module logic (");
+	fprintf(f, "module netlist (");
 	bool first = true;
 	for (auto &si : signal_list) {
 		if (!si.is_port)
@@ -419,7 +419,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	fprintf(f, "endmodule\n");
 	fclose(f);
 
-	log("Extracted %d gates and %zd wires to a logic network with %d inputs and %d outputs.\n",
+	log("Extracted %d gates and %zd wires to a netlist network with %d inputs and %d outputs.\n",
 			count_gates, signal_list.size(), count_input, count_output);
 	log_push();
 	
@@ -510,9 +510,9 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		free(p);
 
 		log_header("Re-integrating ABC results.\n");
-		RTLIL::Module *mapped_mod = mapped_design->modules["\\logic"];
+		RTLIL::Module *mapped_mod = mapped_design->modules["\\netlist"];
 		if (mapped_mod == NULL)
-			log_error("ABC output file does not contain a module `logic'.\n");
+			log_error("ABC output file does not contain a module `netlist'.\n");
 		for (auto &it : mapped_mod->wires) {
 			RTLIL::Wire *w = it.second;
 			RTLIL::Wire *wire = new RTLIL::Wire;

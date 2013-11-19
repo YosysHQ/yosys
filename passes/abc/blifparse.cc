@@ -53,7 +53,7 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
 
 	int port_count = 0;
-	module->name = "\\logic";
+	module->name = "\\netlist";
 	design->modules[module->name] = module;
 
 	char buffer[4096];
