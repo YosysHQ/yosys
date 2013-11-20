@@ -28,7 +28,7 @@ struct ProcPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    proc [selection]\n");
+		log("    proc [options] [selection]\n");
 		log("\n");
 		log("This pass calls all the other proc_* passes in the most common order.\n");
 		log("\n");
@@ -41,17 +41,36 @@ struct ProcPass : public Pass {
 		log("\n");
 		log("This replaces the processes in the design with multiplexers and flip-flops.\n");
 		log("\n");
+		log("The following options are supported:\n");
+		log("\n");
+		log("    -global_arst [!]<netname>\n");
+		log("        This option is passed through to proc_arst.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		std::string global_arst;
+
 		log_header("Executing PROC pass (convert processes to netlists).\n");
 		log_push();
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-global_arst" && argidx+1 < args.size()) {
+				global_arst = args[++argidx];
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		Pass::call(design, "proc_clean");
 		Pass::call(design, "proc_rmdead");
-		Pass::call(design, "proc_arst");
+		if (global_arst.empty())
+			Pass::call(design, "proc_arst");
+		else
+			Pass::call(design, "proc_arst -global_arst " + global_arst);
 		Pass::call(design, "proc_mux");
 		Pass::call(design, "proc_dff");
 		Pass::call(design, "proc_clean");

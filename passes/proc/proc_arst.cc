@@ -196,25 +196,79 @@ struct ProcArstPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    proc_arst [selection]\n");
+		log("    proc_arst [-global_arst [!]<netname>] [selection]\n");
 		log("\n");
 		log("This pass identifies asynchronous resets in the processes and converts them\n");
 		log("to a different internal representation that is suitable for generating\n");
 		log("flip-flop cells with asynchronous resets.\n");
 		log("\n");
+		log("    -global_arst [!]<netname>\n");
+		log("        In modules that have a net with the given name, use this net as async\n");
+		log("        reset for registers that have been assign initial values in their\n");
+		log("        declaration ('reg foobar = constant_value;'). Use the '!' modifier for\n");
+		log("        active low reset signals. Note: the frontend stores the default value\n");
+		log("        in the 'init' attribute on the net.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		std::string global_arst;
+		bool global_arst_neg = false;
+
 		log_header("Executing PROC_ARST pass (detect async resets in processes).\n");
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-global_arst" && argidx+1 < args.size()) {
+				global_arst = args[++argidx];
+				if (!global_arst.empty() && global_arst[0] == '!') {
+					global_arst_neg = true;
+					global_arst = global_arst.substr(1);
+				}
+				global_arst = RTLIL::escape_id(global_arst);
+				continue;
+			}
+			break;
+		}
+
+		extra_args(args, argidx, design);
 
 		for (auto &mod_it : design->modules)
 			if (design->selected(mod_it.second)) {
 				SigMap assign_map(mod_it.second);
-				for (auto &proc_it : mod_it.second->processes)
-					if (design->selected(mod_it.second, proc_it.second))
-						proc_arst(mod_it.second, proc_it.second, assign_map);
+				for (auto &proc_it : mod_it.second->processes) {
+					if (!design->selected(mod_it.second, proc_it.second))
+						continue;
+					proc_arst(mod_it.second, proc_it.second, assign_map);
+					if (global_arst.empty() || mod_it.second->wires.count(global_arst) == 0)
+						continue;
+					std::vector<RTLIL::SigSig> arst_actions;
+					for (auto sync : proc_it.second->syncs)
+						if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn)
+							for (auto &act : sync->actions) {
+								RTLIL::SigSpec arst_sig, arst_val;
+								for (auto &chunk : act.first.chunks)
+									if (chunk.wire && chunk.wire->attributes.count("\\init")) {
+										RTLIL::SigSpec value = chunk.wire->attributes.at("\\init");
+										value.extend(chunk.wire->width, false);
+										arst_sig.append(chunk);
+										arst_val.append(value.extract(chunk.offset, chunk.width));
+									}
+								if (arst_sig.width) {
+									log("Added global reset to process %s: %s <- %s\n",
+											proc_it.first.c_str(), log_signal(arst_sig), log_signal(arst_val));
+									arst_actions.push_back(RTLIL::SigSig(arst_sig, arst_val));
+								}
+							}
+					if (!arst_actions.empty()) {
+						RTLIL::SyncRule *sync = new RTLIL::SyncRule;
+						sync->type = global_arst_neg ? RTLIL::SyncType::ST0 : RTLIL::SyncType::ST1;
+						sync->signal = mod_it.second->wires.at(global_arst);
+						sync->actions = arst_actions;
+						proc_it.second->syncs.push_back(sync);
+					}
+				}
 			}
 	}
 } ProcArstPass;
