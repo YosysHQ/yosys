@@ -899,8 +899,10 @@ skip_dynamic_range_lvalue_expansion:;
 	if ((type == AST_FCALL || type == AST_TCALL) && !str.empty())
 	{
 		if (type == AST_FCALL) {
-			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_FUNCTION)
+			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_FUNCTION) {
+				current_ast_mod->dumpAst(stderr, "> ");
 				log_error("Can't resolve function name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+			}
 		}
 		if (type == AST_TCALL) {
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_TASK)
@@ -1173,6 +1175,14 @@ apply_newNode:
 	return did_something;
 }
 
+static void replace_result_wire_name_in_function(AstNode *node, std::string &from, std::string &to)
+{
+	for (auto &it : node->children)
+		replace_result_wire_name_in_function(it, from, to);
+	if (node->str == from)
+		node->str = to;
+}
+
 // annotate the names of all wires and other named objects in a generate block
 void AstNode::expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map)
 {
@@ -1202,7 +1212,11 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 			if (new_name[0] != '$' && new_name[0] != '\\')
 				new_name = prefix[0] + new_name;
 			name_map[child->str] = new_name;
-			child->str = new_name;
+			if (child->type == AST_FUNCTION)
+				replace_result_wire_name_in_function(child, child->str, new_name);
+			else
+				child->str = new_name;
+			current_scope[new_name] = child;
 		}
 	}
 

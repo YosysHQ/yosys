@@ -292,7 +292,6 @@ Roadmap / Large-scale TODOs
    - yosys-bigsim: https://github.com/cliffordwolf/yosys-bigsim
 
 - Missing Verilog-2005 features to be implemented soon:
-  - Fix corner cases with contextual name lookup
   - Indexed part selects
 
 - Technology mapping for real-world applications
