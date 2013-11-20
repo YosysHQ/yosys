@@ -165,7 +165,7 @@ memory_stmt:
 
 memory_options:
 	memory_options TOK_WIDTH TOK_INT {
-		current_wire->width = $3;
+		current_memory->width = $3;
 	} |
 	memory_options TOK_SIZE TOK_INT {
 		current_memory->size = $3;
