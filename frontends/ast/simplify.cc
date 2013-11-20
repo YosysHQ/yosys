@@ -383,7 +383,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		assert(children[1]->type == AST_IDENTIFIER);
 		newNode = children[1]->clone();
-		newNode->str = stringf("%s[%d].%s", str.c_str(), children[0]->integer, children[1]->str.c_str());
+		const char *second_part = children[1]->str.c_str();
+		if (second_part[0] == '\\')
+			second_part++;
+		newNode->str = stringf("%s[%d].%s", str.c_str(), children[0]->integer, second_part);
 		goto apply_newNode;
 	}
 
@@ -599,8 +602,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			buf->expand_genblock(varbuf->str, sstr.str(), name_map);
 
 			if (type == AST_GENFOR) {
-				for (size_t i = 0; i < buf->children.size(); i++)
+				for (size_t i = 0; i < buf->children.size(); i++) {
+					buf->children[i]->simplify(false, false, false, stage, -1, false);
 					current_ast_mod->children.push_back(buf->children[i]);
+				}
 			} else {
 				for (size_t i = 0; i < buf->children.size(); i++)
 					current_block->children.insert(current_block->children.begin() + current_block_idx++, buf->children[i]);
@@ -633,8 +638,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			expand_genblock(std::string(), str + ".", name_map);
 		}
 
-		for (size_t i = 0; i < children.size(); i++)
+		for (size_t i = 0; i < children.size(); i++) {
+			children[i]->simplify(false, false, false, stage, -1, false);
 			current_ast_mod->children.push_back(children[i]);
+		}
 
 		children.clear();
 		did_something = true;
@@ -668,8 +675,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				buf->expand_genblock(std::string(), buf->str + ".", name_map);
 			}
 
-			for (size_t i = 0; i < buf->children.size(); i++)
+			for (size_t i = 0; i < buf->children.size(); i++) {
+				buf->children[i]->simplify(false, false, false, stage, -1, false);
 				current_ast_mod->children.push_back(buf->children[i]);
+			}
 
 			buf->children.clear();
 			delete buf;
