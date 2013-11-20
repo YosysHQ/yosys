@@ -287,17 +287,37 @@ and after each occurrence of PRIi64 in the header file:
 Roadmap / Large-scale TODOs
 ===========================
 
-- Technology mapping for real-world applications (specific FPGAs and ASIC processes)
-- Implement SAT-based formal equivialence checker based on existing SAT framework
-- Re-implement Verilog frontend (cleaner AST format, pipeline of well structured AST transformations)
+- Verification and Regression Tests
+   - VlogHammer: http://www.clifford.at/yosys/vloghammer.html
+   - yosys-bigsim: https://github.com/cliffordwolf/yosys-bigsim
+
+- Missing Verilog-2005 features to be implemented soon:
+  - Fix corner cases with contextual name lookup
+  - Part select on memory read
+  - Indexed part selects
+
+- Technology mapping for real-world applications
+   - Add "mini synth script" feature to techmap pass
+   - Add const-folding via cell parameters to techmap pass
+   - Rewrite current stdcells.v techmap rules (modular and clean)
+   - Improve Xilinx FGPA synthesis (RAMB, CARRY4, SLR, etc.)
+
+- Implement SAT-based formal equivialence checker
+   - Add x-state support to SAT model generator
+   - Rewrite freduce pass with input-cone analysis
+   - Write equiv pass, base hypothesis on input cones
+
+- Re-implement Verilog frontend (far future)
+   - cleaner (easier to use, harder to use wrong) AST format
+   - pipeline of well structured AST transformations
+   - true contextual name lookup
 
 
-TODOs / Open Bugs
-=================
+Other Unsorted TODOs
+====================
 
 - Implement missing Verilog 2005 features:
 
-  - Indexed part selects
   - Multi-dimensional arrays
   - ROM modeling using "initial" blocks
   - Ignore what needs to be ignored (e.g. drive and charge strengths)
