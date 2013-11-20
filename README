@@ -258,6 +258,10 @@ Verilog Attributes and non-standard features
   never be removed by the optimizer. This is used for example for cells that
   have hidden connections that are not part of the netlist, such as IO pads.
 
+- The "init" attribute on wires is set by the frontend when a register is
+  initialized "FPGA-style" with 'reg foo = val'. It can be used during synthesis
+  to add the necessary reset logic.
+
 - In addition to the (* ... *) attribute syntax, yosys supports
   the non-standard {* ... *} attribute syntax to set default attributes
   for everything that comes after the {* ... *} statement. (Reset

@@ -246,8 +246,22 @@ module_args:
 optional_comma:
 	',' | /* empty */;
 
+module_arg_opt_assignment:
+	'=' expr {
+		if (ast_stack.back()->children.size() > 0 && ast_stack.back()->children.back()->type == AST_WIRE) {
+			if (!ast_stack.back()->children.back()->is_reg) {
+				AstNode *wire = new AstNode(AST_IDENTIFIER);
+				wire->str = ast_stack.back()->children.back()->str;
+				ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $2));
+			} else
+				ast_stack.back()->children.back()->attributes["\\init"] = $2;
+		} else
+			frontend_verilog_yyerror("Syntax error.");
+	} |
+	/* empty */;
+
 module_arg:
-	TOK_ID range {
+	TOK_ID {
 		if (ast_stack.back()->children.size() > 0 && ast_stack.back()->children.back()->type == AST_WIRE) {
 			AstNode *node = ast_stack.back()->children.back()->clone();
 			node->str = *$1;
@@ -258,10 +272,8 @@ module_arg:
 				frontend_verilog_yyerror("Duplicate module port `%s'.", $1->c_str());
 			port_stubs[*$1] = ++port_counter;
 		}
-		if ($2 != NULL)
-			delete $2;
 		delete $1;
-	} |
+	} module_arg_opt_assignment |
 	attr wire_type range TOK_ID {
 		AstNode *node = $2;
 		node->str = *$4;
@@ -275,7 +287,7 @@ module_arg:
 		ast_stack.back()->children.push_back(node);
 		append_attr(node, $1);
 		delete $4;
-	};
+	} module_arg_opt_assignment;
 
 wire_type:
 	{
@@ -501,7 +513,8 @@ wire_name_and_opt_assign:
 			AstNode *wire = new AstNode(AST_IDENTIFIER);
 			wire->str = ast_stack.back()->children.back()->str;
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $3));
-		}
+		} else
+			ast_stack.back()->children.back()->attributes["\\init"] = $3;
 	};
 
 wire_name:
