@@ -105,7 +105,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 
-%type <ast> wire_type range expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> wire_type range non_opt_range expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed
 %type <al> attr
@@ -330,7 +330,7 @@ wire_type_token:
 		astbuf3->is_signed = true;
 	};
 
-range:
+non_opt_range:
 	'[' expr ':' expr ']' {
 		$$ = new AstNode(AST_RANGE);
 		$$->children.push_back($2);
@@ -339,6 +339,11 @@ range:
 	'[' expr ']' {
 		$$ = new AstNode(AST_RANGE);
 		$$->children.push_back($2);
+	};
+
+range:
+	non_opt_range {
+		$$ = $1;
 	} |
 	/* empty */ {
 		$$ = NULL;
@@ -891,6 +896,11 @@ rvalue:
 	} |
 	hierarchical_id range {
 		$$ = new AstNode(AST_IDENTIFIER, $2);
+		$$->str = *$1;
+		delete $1;
+	} |
+	hierarchical_id non_opt_range non_opt_range {
+		$$ = new AstNode(AST_IDENTIFIER, $2, $3);
 		$$->str = *$1;
 		delete $1;
 	};

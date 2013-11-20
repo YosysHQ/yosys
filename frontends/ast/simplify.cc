@@ -470,6 +470,55 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		id2ast = current_scope[str];
 	}
 
+	// split memory access with bit select to individual statements
+	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE)
+	{
+		if (id2ast == NULL || id2ast->type != AST_MEMORY || children[0]->children.size() != 1)
+			log_error("Invalid bit-select on memory access at %s:%d!\n", filename.c_str(), linenum);
+
+		int mem_width, mem_size, addr_bits;
+		id2ast->meminfo(mem_width, mem_size, addr_bits);
+
+		std::stringstream sstr;
+		sstr << "$mem2bits$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+		std::string wire_id = sstr.str();
+
+		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+		wire->str = wire_id;
+		if (current_block)
+			wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+		current_ast_mod->children.push_back(wire);
+		while (wire->simplify(true, false, false, 1, -1, false)) { }
+
+		AstNode *data = clone();
+		delete data->children[1];
+		data->children.pop_back();
+
+		AstNode *assign = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), data);
+		assign->children[0]->str = wire_id;
+
+		if (current_block)
+		{
+			size_t assign_idx = 0;
+			while (assign_idx < current_block->children.size() && current_block->children[assign_idx] != current_block_child)
+				assign_idx++;
+			log_assert(assign_idx < current_block->children.size());
+			current_block->children.insert(current_block->children.begin()+assign_idx, assign);
+			wire->is_reg = true;
+		}
+		else
+		{
+			AstNode *proc = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK));
+			proc->children[0]->children.push_back(assign);
+			current_ast_mod->children.push_back(proc);
+		}
+
+		newNode = new AstNode(AST_IDENTIFIER, children[1]->clone());
+		newNode->str = wire_id;
+		newNode->id2ast = wire;
+		goto apply_newNode;
+	}
+
 	// unroll for loops and generate-for blocks
 	if ((type == AST_GENFOR || type == AST_FOR) && children.size() != 0)
 	{
@@ -1281,6 +1330,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
 		wire_addr->str = id_addr;
+		wire_addr->is_reg = true;
 		if (block)
 			wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_addr);
@@ -1288,6 +1338,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
+		wire_data->is_reg = true;
 		if (block)
 			wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_data);
@@ -1328,8 +1379,6 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 			assert(assign_idx < block->children.size());
 			block->children.insert(block->children.begin()+assign_idx, case_node);
 			block->children.insert(block->children.begin()+assign_idx, assign_addr);
-			wire_addr->is_reg = true;
-			wire_data->is_reg = true;
 		}
 		else
 		{

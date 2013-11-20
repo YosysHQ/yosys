@@ -293,7 +293,6 @@ Roadmap / Large-scale TODOs
 
 - Missing Verilog-2005 features to be implemented soon:
   - Fix corner cases with contextual name lookup
-  - Part select on memory read
   - Indexed part selects
 
 - Technology mapping for real-world applications

@@ -17,3 +17,44 @@ always @(posedge clk)
 
 endmodule
 
+// ----------------------------------------------------------
+
+module test02(clk, setA, setB, addr, bit, y1, y2, y3, y4);
+
+input clk, setA, setB;
+input [1:0] addr;
+input [2:0] bit;
+output reg y1, y2;
+output y3, y4;
+
+reg [7:0] mem1 [3:0];
+
+(* mem2reg *)
+reg [7:0] mem2 [3:0];
+
+always @(posedge clk) begin
+	if (setA) begin
+		mem1[0] <= 10;
+		mem1[1] <= 20;
+		mem1[2] <= 30;
+		mem2[0] <= 17;
+		mem2[1] <= 27;
+		mem2[2] <= 37;
+	end
+	if (setB) begin
+		mem1[0] <=  1;
+		mem1[1] <=  2;
+		mem1[2] <=  3;
+		mem2[0] <= 71;
+		mem2[1] <= 72;
+		mem2[2] <= 73;
+	end
+	y1 <= mem1[addr][bit];
+	y2 <= mem2[addr][bit];
+end
+
+assign y3 = mem1[addr][bit];
+assign y4 = mem2[addr][bit];
+
+endmodule
+
