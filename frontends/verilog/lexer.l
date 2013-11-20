@@ -249,6 +249,9 @@ supply1 { return TOK_SUPPLY1; }
 "<<<" { return OP_SSHL; }
 ">>>" { return OP_SSHR; }
 
+"+:" { return TOK_POS_INDEXED; }
+"-:" { return TOK_NEG_INDEXED; }
+
 "/*" { BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */
 <COMMENT>\n   /* ignore comment body */

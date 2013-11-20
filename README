@@ -291,9 +291,6 @@ Roadmap / Large-scale TODOs
    - VlogHammer: http://www.clifford.at/yosys/vloghammer.html
    - yosys-bigsim: https://github.com/cliffordwolf/yosys-bigsim
 
-- Missing Verilog-2005 features to be implemented soon:
-  - Indexed part selects
-
 - Technology mapping for real-world applications
    - Add "mini synth script" feature to techmap pass
    - Add const-folding via cell parameters to techmap pass

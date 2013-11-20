@@ -104,6 +104,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
+%token TOK_POS_INDEXED TOK_NEG_INDEXED
 
 %type <ast> wire_type range non_opt_range expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
@@ -335,6 +336,16 @@ non_opt_range:
 		$$ = new AstNode(AST_RANGE);
 		$$->children.push_back($2);
 		$$->children.push_back($4);
+	} |
+	'[' expr TOK_POS_INDEXED expr ']' {
+		$$ = new AstNode(AST_RANGE);
+		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, $2->clone(), $4), AstNode::mkconst_int(1, true)));
+		$$->children.push_back(new AstNode(AST_ADD, $2, AstNode::mkconst_int(0, true)));
+	} |
+	'[' expr TOK_NEG_INDEXED expr ']' {
+		$$ = new AstNode(AST_RANGE);
+		$$->children.push_back(new AstNode(AST_ADD, $2, AstNode::mkconst_int(0, true)));
+		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, $2->clone(), AstNode::mkconst_int(1, true)), $4));
 	} |
 	'[' expr ']' {
 		$$ = new AstNode(AST_RANGE);
