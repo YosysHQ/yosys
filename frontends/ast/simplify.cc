@@ -473,7 +473,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// split memory access with bit select to individual statements
 	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE)
 	{
-		if (id2ast == NULL || id2ast->type != AST_MEMORY || children[0]->children.size() != 1)
+		if (id2ast == NULL || id2ast->type != AST_MEMORY || children[0]->children.size() != 1 || in_lvalue)
 			log_error("Invalid bit-select on memory access at %s:%d!\n", filename.c_str(), linenum);
 
 		int mem_width, mem_size, addr_bits;
