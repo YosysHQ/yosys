@@ -327,7 +327,7 @@ static void handle_loops()
 		fclose(dot_f);
 }
 
-static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string liberty_file, bool cleanup, int lut_mode)
+static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode)
 {
 	module = current_module;
 	map_autoidx = RTLIL::autoidx++;
@@ -455,11 +455,19 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		char buffer[1024];
 		int buffer_pos = 0;
-		if (!liberty_file.empty())
+		if (!liberty_file.empty()) {
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_liberty %s; map; ",
+					"%s -s -c 'read_verilog %s/input.v; read_lib %s; ",
 					exe_file.c_str(), tempdir_name, liberty_file.c_str());
-		else
+			if (!constr_file.empty())
+				buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
+						"read_constr %s; ", constr_file.c_str());
+			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
+					"strash; balance; dch; map; topo; ");
+			if (!constr_file.empty())
+				buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
+						"buffer; upsize; dnsize; stime; ");
+		} else
 		if (!script_file.empty())
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
 					"%s -s -c 'read_verilog %s/input.v; source %s; ",
@@ -467,11 +475,11 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		else
 		if (lut_mode)
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_lut %s/lutdefs.txt; if; ",
+					"%s -s -c 'read_verilog %s/input.v; read_lut %s/lutdefs.txt; strash; balance; dch; if; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
 		else
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; map; ",
+					"%s -s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; strash; balance; dch; map; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
 		if (lut_mode)
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
@@ -694,6 +702,9 @@ struct AbcPass : public Pass {
 		log("        but keeps using yosys's internal gate library. This option is ignored if\n");
 		log("        the -script option is also used.\n");
 		log("\n");
+		log("    -constr <file>\n");
+		log("        pass this file with timing constraints to ABC\n");
+		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
 		log("\n");
@@ -713,7 +724,7 @@ struct AbcPass : public Pass {
 		log_push();
 
 		std::string exe_file = rewrite_yosys_exe("yosys-abc");
-		std::string script_file, liberty_file;
+		std::string script_file, liberty_file, constr_file;
 		bool cleanup = true;
 		int lut_mode = 0;
 
@@ -725,16 +736,22 @@ struct AbcPass : public Pass {
 				exe_file = args[++argidx];
 				continue;
 			}
-			if (arg == "-script" && argidx+1 < args.size() && liberty_file.empty()) {
+			if (arg == "-script" && argidx+1 < args.size() && liberty_file.empty() && constr_file.empty()) {
 				script_file = args[++argidx];
 				if (!script_file.empty() && script_file[0] != '/')
 					script_file = std::string(pwd) + "/" + script_file;
 				continue;
 			}
-			if (arg == "-liberty" && argidx+1 < args.size() && script_file.empty()) {
+			if (arg == "-liberty" && argidx+1 < args.size() && script_file.empty() && liberty_file.empty()) {
 				liberty_file = args[++argidx];
 				if (!liberty_file.empty() && liberty_file[0] != '/')
 					liberty_file = std::string(pwd) + "/" + liberty_file;
+				continue;
+			}
+			if (arg == "-constr" && argidx+1 < args.size() && script_file.empty() && constr_file.empty()) {
+				constr_file = args[++argidx];
+				if (!constr_file.empty() && constr_file[0] != '/')
+					constr_file = std::string(pwd) + "/" + constr_file;
 				continue;
 			}
 			if (arg == "-lut" && argidx+1 < args.size() && lut_mode == 0) {
@@ -755,7 +772,7 @@ struct AbcPass : public Pass {
 				if (mod_it.second->processes.size() > 0)
 					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 				else
-					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, cleanup, lut_mode);
+					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode);
 			}
 
 		assign_map.clear();

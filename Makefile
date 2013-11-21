@@ -27,7 +27,7 @@ YOSYS_VER := 0.0.x
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
-ABCREV = 0f9e5488ced3
+ABCREV = 766d323095c4
 ABCPULL = 1
 
 -include Makefile.conf

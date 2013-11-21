@@ -1,4 +1,10 @@
 library(demo) {
+  cell(BUF) {
+    area: 6;
+    pin(A) { direction: input; }
+    pin(Y) { direction: output;
+              function: "A"; }
+  }
   cell(NOT) {
     area: 3;
     pin(A) { direction: input; }

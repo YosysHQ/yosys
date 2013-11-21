@@ -1,4 +1,9 @@
 
+.SUBCKT BUF A Y
+X1 A B NOT
+X2 B Y NOT
+.ENDS NOT
+
 .SUBCKT NOT A Y
 M1 Y A Vdd Vdd cmosp L=1u W=10u
 M2 Y A Vss Vss cmosn L=1u W=10u
