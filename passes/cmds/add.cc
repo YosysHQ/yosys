@@ -23,12 +23,11 @@
 
 static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output, bool flag_global)
 {
+	RTLIL::Wire *wire = NULL;
 	name = RTLIL::escape_id(name);
 
 	if (module->count_id(name) != 0)
 	{
-		RTLIL::Wire *wire = NULL;
-
 		if (module->wires.count(name) > 0)
 			wire = module->wires.at(name);
 
@@ -43,23 +42,25 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 
 		if (wire == NULL)
 			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name.c_str());
-		log("Skipping module %s as it already has such an object.\n", module->name.c_str());
-		return;
+
+		log("Module %s already has such an object.\n", module->name.c_str());
 	}
+	else
+	{
+		wire = new RTLIL::Wire;
+		wire->name = name;
+		wire->width = width;
+		wire->port_input = flag_input;
+		wire->port_output = flag_output;
+		module->add(wire);
 
-	RTLIL::Wire *wire = new RTLIL::Wire;
-	wire->name = name;
-	wire->width = width;
-	wire->port_input = flag_input;
-	wire->port_output = flag_output;
-	module->add(wire);
+		if (flag_input || flag_output) {
+			wire->port_id = module->wires.size();
+			module->fixup_ports();
+		}
 
-	if (flag_input || flag_output) {
-		wire->port_id = module->wires.size();
-		module->fixup_ports();
+		log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
 	}
-
-	log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
 
 	if (!flag_global)
 		return;
