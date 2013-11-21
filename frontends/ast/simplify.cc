@@ -77,9 +77,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (memflags & AstNode::MEM2REG_FL_EQ2)
 					goto verbose_activate;
 
+				if (memflags & AstNode::MEM2REG_FL_SET_ASYNC)
+					goto verbose_activate;
+
 				if ((memflags & AstNode::MEM2REG_FL_SET_INIT) && (memflags & AstNode::MEM2REG_FL_SET_ELSE))
 					goto verbose_activate;
 
+				// log("Note: Not replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str.c_str(), long(memflags));
 				continue;
 
 			verbose_activate:
@@ -94,6 +98,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				}
 
 			silent_activate:
+				// log("Note: Replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str.c_str(), long(memflags));
 				mem2reg_set.insert(mem);
 			}
 
@@ -1349,12 +1354,11 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 	std::map<AstNode*, uint32_t> *proc_flags_p = NULL;
 
 	if (type == AST_ALWAYS) {
-		bool sync_proc = false;
-		for (auto child : children) {
+		int count_edge_events = 0;
+		for (auto child : children)
 			if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE)
-				sync_proc = true;
-		}
-		if (!sync_proc)
+				count_edge_events++;
+		if (count_edge_events != 1)
 			children_flags |= AstNode::MEM2REG_FL_ASYNC;
 		proc_flags_p = new std::map<AstNode*, uint32_t>;
 	}
