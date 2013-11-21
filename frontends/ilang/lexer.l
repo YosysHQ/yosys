@@ -60,6 +60,7 @@
 "negedge"	{ return TOK_NEGEDGE; }
 "edge"		{ return TOK_EDGE; }
 "always"	{ return TOK_ALWAYS; }
+"init"		{ return TOK_INIT; }
 "update"	{ return TOK_UPDATE; }
 "process"	{ return TOK_PROCESS; }
 "end"		{ return TOK_END; }

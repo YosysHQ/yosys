@@ -56,8 +56,46 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		if (!flag_nomem2reg && !get_bool_attribute("\\nomem2reg"))
 		{
-			std::set<AstNode*> mem2reg_set, mem2reg_candidates;
-			mem2reg_as_needed_pass1(mem2reg_set, mem2reg_candidates, false, false, flag_mem2reg);
+			std::map<AstNode*, std::set<std::string>> mem2reg_places;
+			std::map<AstNode*, uint32_t> mem2reg_candidates, dummy_proc_flags;
+			uint32_t flags = flag_mem2reg ? AstNode::MEM2REG_FL_ALL : 0;
+			mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, dummy_proc_flags, flags);
+
+			std::set<AstNode*> mem2reg_set;
+			for (auto &it : mem2reg_candidates)
+			{
+				AstNode *mem = it.first;
+				uint32_t memflags = it.second;
+				assert((memflags & ~0x00ffff00) == 0);
+
+				if (mem->get_bool_attribute("\\nomem2reg"))
+					continue;
+
+				if (memflags & AstNode::MEM2REG_FL_FORCED)
+					goto silent_activate;
+
+				if (memflags & AstNode::MEM2REG_FL_EQ2)
+					goto verbose_activate;
+
+				if ((memflags & AstNode::MEM2REG_FL_SET_INIT) && (memflags & AstNode::MEM2REG_FL_SET_ELSE))
+					goto verbose_activate;
+
+				continue;
+
+			verbose_activate:
+				if (mem2reg_set.count(mem) == 0) {
+					log("Warning: Replacing memory %s with list of registers.", mem->str.c_str());
+					bool first_element = true;
+					for (auto &place : mem2reg_places[it.first]) {
+						log("%s%s", first_element ? " See " : ", ", place.c_str());
+						first_element = false;
+					}
+					log("\n");
+				}
+
+			silent_activate:
+				mem2reg_set.insert(mem);
+			}
 
 			for (auto node : mem2reg_set)
 			{
@@ -1249,36 +1287,102 @@ void AstNode::replace_ids(std::map<std::string, std::string> &rules)
 }
 
 // find memories that should be replaced by registers
-void AstNode::mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc, bool force_mem2reg)
+void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
+		std::map<AstNode*, uint32_t> &mem2reg_candidates, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
 {
-	if ((type == AST_ASSIGN_LE && async_proc) || (type == AST_ASSIGN_EQ && (sync_proc || async_proc)))
-		if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY &&
-				!children[0]->id2ast->get_bool_attribute("\\nomem2reg")) {
-			if (async_proc || mem2reg_candidates.count(children[0]->id2ast) > 0) {
-				if (mem2reg_set.count(children[0]->id2ast) == 0)
-					log("Warning: Replacing memory %s with list of registers because of assignment in line %s:%d.\n",
-						children[0]->str.c_str(), filename.c_str(), linenum);
-				mem2reg_set.insert(children[0]->id2ast);
+	uint32_t children_flags = 0;
+	int ignore_children_counter = 0;
+
+	if (type == AST_ASSIGN || type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ)
+	{
+		if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY)
+		{
+			AstNode *mem = children[0]->id2ast;
+
+			// activate mem2reg if this is assigned in an async proc
+			if (flags & AstNode::MEM2REG_FL_ASYNC) {
+				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ASYNC))
+					mem2reg_places[mem].insert(stringf("%s:%d", filename.c_str(), linenum));
+				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ASYNC;
 			}
-			mem2reg_candidates.insert(children[0]->id2ast);
+
+			// remember if this is assigned blocking (=)
+			if (type == AST_ASSIGN_EQ) {
+				if (!(proc_flags[mem] & AstNode::MEM2REG_FL_EQ1))
+					mem2reg_places[mem].insert(stringf("%s:%d", filename.c_str(), linenum));
+				proc_flags[mem] |= AstNode::MEM2REG_FL_EQ1;
+			}
+
+			// remember where this is
+			if (flags & MEM2REG_FL_INIT) {
+				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_INIT))
+					mem2reg_places[mem].insert(stringf("%s:%d", filename.c_str(), linenum));
+				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_INIT;
+			} else {
+				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ELSE))
+					mem2reg_places[mem].insert(stringf("%s:%d", filename.c_str(), linenum));
+				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ELSE;
+			}
 		}
-	
-	if (type == AST_MEMORY && (get_bool_attribute("\\mem2reg") || force_mem2reg))
-		mem2reg_set.insert(this);
+
+		ignore_children_counter = 1;
+	}
+
+	if (type == AST_IDENTIFIER && id2ast && id2ast->type == AST_MEMORY)
+	{
+		AstNode *mem = id2ast;
+
+		// flag if used after blocking assignment (in same proc)
+		if ((proc_flags[mem] & AstNode::MEM2REG_FL_EQ1) && !(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_EQ2)) {
+			mem2reg_places[mem].insert(stringf("%s:%d", filename.c_str(), linenum));
+			mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_EQ2;
+		}
+	}
+
+	// also activate if requested, either by using mem2reg attribute or by declaring array as 'wire' instead of 'reg'
+	if (type == AST_MEMORY && (get_bool_attribute("\\mem2reg") || (flags & AstNode::MEM2REG_FL_ALL) || !is_reg))
+		mem2reg_candidates[this] |= AstNode::MEM2REG_FL_FORCED;
 
 	if (type == AST_MODULE && get_bool_attribute("\\mem2reg"))
-		force_mem2reg = true;
+		children_flags |= AstNode::MEM2REG_FL_ALL;
+
+	std::map<AstNode*, uint32_t> *proc_flags_p = NULL;
 
 	if (type == AST_ALWAYS) {
+		bool sync_proc = false;
 		for (auto child : children) {
 			if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE)
 				sync_proc = true;
 		}
-		async_proc = !sync_proc;
+		if (!sync_proc)
+			children_flags |= AstNode::MEM2REG_FL_ASYNC;
+		proc_flags_p = new std::map<AstNode*, uint32_t>;
 	}
 
+	if (type == AST_INITIAL) {
+		children_flags |= AstNode::MEM2REG_FL_INIT;
+		proc_flags_p = new std::map<AstNode*, uint32_t>;
+	}
+
+	uint32_t backup_flags = flags;
+	flags |= children_flags;
+	assert((flags & ~0x000000ff) == 0);
+
 	for (auto child : children)
-		child->mem2reg_as_needed_pass1(mem2reg_set, mem2reg_candidates, sync_proc, async_proc, force_mem2reg);
+		if (ignore_children_counter > 0)
+			ignore_children_counter--;
+		else if (proc_flags_p)
+			child->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, *proc_flags_p, flags);
+		else
+			child->mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, proc_flags, flags);
+
+	flags &= ~children_flags | backup_flags;
+
+	if (proc_flags_p) {
+		for (auto it : *proc_flags_p)
+			assert((it.second & ~0xff000000) == 0);
+		delete proc_flags_p;
+	}
 }
 
 // actually replace memories with registers
@@ -1287,8 +1391,8 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 	if (type == AST_BLOCK)
 		block = this;
 
-	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && block != NULL &&
-			children[0]->id2ast && mem2reg_set.count(children[0]->id2ast) > 0)
+	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && block != NULL && children[0]->id2ast &&
+			mem2reg_set.count(children[0]->id2ast) > 0 && children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
 		sstr << "$mem2reg_wr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
@@ -1344,77 +1448,89 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 	if (type == AST_IDENTIFIER && id2ast && mem2reg_set.count(id2ast) > 0)
 	{
-		std::stringstream sstr;
-		sstr << "$mem2reg_rd$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
-		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
-
-		int mem_width, mem_size, addr_bits;
-		id2ast->meminfo(mem_width, mem_size, addr_bits);
-
-		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
-		wire_addr->str = id_addr;
-		wire_addr->is_reg = true;
-		if (block)
-			wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
-		mod->children.push_back(wire_addr);
-		while (wire_addr->simplify(true, false, false, 1, -1, false)) { }
-
-		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
-		wire_data->str = id_data;
-		wire_data->is_reg = true;
-		if (block)
-			wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
-		mod->children.push_back(wire_data);
-		while (wire_data->simplify(true, false, false, 1, -1, false)) { }
-
-		AstNode *assign_addr = new AstNode(block ? AST_ASSIGN_EQ : AST_ASSIGN, new AstNode(AST_IDENTIFIER), children[0]->children[0]->clone());
-		assign_addr->children[0]->str = id_addr;
-
-		AstNode *case_node = new AstNode(AST_CASE, new AstNode(AST_IDENTIFIER));
-		case_node->children[0]->str = id_addr;
-
-		for (int i = 0; i < mem_size; i++) {
-			if (children[0]->children[0]->type == AST_CONSTANT && int(children[0]->children[0]->integer) != i)
-				continue;
-			AstNode *cond_node = new AstNode(AST_COND, AstNode::mkconst_int(i, false, addr_bits), new AstNode(AST_BLOCK));
-			AstNode *assign_reg = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), new AstNode(AST_IDENTIFIER));
-			assign_reg->children[0]->str = id_data;
-			assign_reg->children[1]->str = stringf("%s[%d]", str.c_str(), i);
-			cond_node->children[1]->children.push_back(assign_reg);
-			case_node->children.push_back(cond_node);
-		}
-
-		std::vector<RTLIL::State> x_bits;
-		for (int i = 0; i < mem_width; i++)
-			x_bits.push_back(RTLIL::State::Sx);
-
-		AstNode *cond_node = new AstNode(AST_COND, new AstNode(AST_DEFAULT), new AstNode(AST_BLOCK));
-		AstNode *assign_reg = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
-		assign_reg->children[0]->str = id_data;
-		cond_node->children[1]->children.push_back(assign_reg);
-		case_node->children.push_back(cond_node);
-
-		if (block)
+		if (children[0]->children[0]->type == AST_CONSTANT)
 		{
-			size_t assign_idx = 0;
-			while (assign_idx < block->children.size() && !block->children[assign_idx]->contains(this))
-				assign_idx++;
-			assert(assign_idx < block->children.size());
-			block->children.insert(block->children.begin()+assign_idx, case_node);
-			block->children.insert(block->children.begin()+assign_idx, assign_addr);
+			int id = children[0]->children[0]->integer;
+			str = stringf("%s[%d]", str.c_str(), id);
+
+			delete_children();
+			range_valid = false;
+			id2ast = NULL;
 		}
 		else
 		{
-			AstNode *proc = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK));
-			proc->children[0]->children.push_back(case_node);
-			mod->children.push_back(proc);
-			mod->children.push_back(assign_addr);
-		}
+			std::stringstream sstr;
+			sstr << "$mem2reg_rd$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+			std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
-		delete_children();
-		range_valid = false;
-		id2ast = NULL;
-		str = id_data;
+			int mem_width, mem_size, addr_bits;
+			id2ast->meminfo(mem_width, mem_size, addr_bits);
+
+			AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
+			wire_addr->str = id_addr;
+			wire_addr->is_reg = true;
+			if (block)
+				wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			mod->children.push_back(wire_addr);
+			while (wire_addr->simplify(true, false, false, 1, -1, false)) { }
+
+			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+			wire_data->str = id_data;
+			wire_data->is_reg = true;
+			if (block)
+				wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			mod->children.push_back(wire_data);
+			while (wire_data->simplify(true, false, false, 1, -1, false)) { }
+
+			AstNode *assign_addr = new AstNode(block ? AST_ASSIGN_EQ : AST_ASSIGN, new AstNode(AST_IDENTIFIER), children[0]->children[0]->clone());
+			assign_addr->children[0]->str = id_addr;
+
+			AstNode *case_node = new AstNode(AST_CASE, new AstNode(AST_IDENTIFIER));
+			case_node->children[0]->str = id_addr;
+
+			for (int i = 0; i < mem_size; i++) {
+				if (children[0]->children[0]->type == AST_CONSTANT && int(children[0]->children[0]->integer) != i)
+					continue;
+				AstNode *cond_node = new AstNode(AST_COND, AstNode::mkconst_int(i, false, addr_bits), new AstNode(AST_BLOCK));
+				AstNode *assign_reg = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), new AstNode(AST_IDENTIFIER));
+				assign_reg->children[0]->str = id_data;
+				assign_reg->children[1]->str = stringf("%s[%d]", str.c_str(), i);
+				cond_node->children[1]->children.push_back(assign_reg);
+				case_node->children.push_back(cond_node);
+			}
+
+			std::vector<RTLIL::State> x_bits;
+			for (int i = 0; i < mem_width; i++)
+				x_bits.push_back(RTLIL::State::Sx);
+
+			AstNode *cond_node = new AstNode(AST_COND, new AstNode(AST_DEFAULT), new AstNode(AST_BLOCK));
+			AstNode *assign_reg = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
+			assign_reg->children[0]->str = id_data;
+			cond_node->children[1]->children.push_back(assign_reg);
+			case_node->children.push_back(cond_node);
+
+			if (block)
+			{
+				size_t assign_idx = 0;
+				while (assign_idx < block->children.size() && !block->children[assign_idx]->contains(this))
+					assign_idx++;
+				assert(assign_idx < block->children.size());
+				block->children.insert(block->children.begin()+assign_idx, case_node);
+				block->children.insert(block->children.begin()+assign_idx, assign_addr);
+			}
+			else
+			{
+				AstNode *proc = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK));
+				proc->children[0]->children.push_back(case_node);
+				mod->children.push_back(proc);
+				mod->children.push_back(assign_addr);
+			}
+
+			delete_children();
+			range_valid = false;
+			id2ast = NULL;
+			str = id_data;
+		}
 	}
 
 	assert(id2ast == NULL || mem2reg_set.count(id2ast) == 0);

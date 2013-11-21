@@ -225,6 +225,7 @@ void ILANG_BACKEND::dump_proc_sync(FILE *f, std::string indent, const RTLIL::Syn
 		fprintf(f, "\n");
 		break;
 	case RTLIL::STa: fprintf(f, "always\n"); break;
+	case RTLIL::STi: fprintf(f, "init\n"); break;
 	}
 
 	for (auto it = sy->actions.begin(); it != sy->actions.end(); it++) {

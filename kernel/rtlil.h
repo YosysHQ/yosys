@@ -44,7 +44,8 @@ namespace RTLIL
 		STp = 2, // edge sensitive: posedge
 		STn = 3, // edge sensitive: negedge
 		STe = 4, // edge sensitive: both edges
-		STa = 5  // always active
+		STa = 5, // always active
+		STi = 6  // init
 	};
 
 	extern int autoidx;

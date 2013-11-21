@@ -162,12 +162,31 @@ namespace AST
 		void delete_children();
 		~AstNode();
 
+		enum mem2reg_flags
+		{
+			/* status flags */
+			MEM2REG_FL_ALL       = 0x00000001,
+			MEM2REG_FL_ASYNC     = 0x00000002,
+			MEM2REG_FL_INIT      = 0x00000004,
+
+			/* candidate flags */
+			MEM2REG_FL_FORCED    = 0x00000100,
+			MEM2REG_FL_SET_INIT  = 0x00000200,
+			MEM2REG_FL_SET_ELSE  = 0x00000400,
+			MEM2REG_FL_SET_ASYNC = 0x00000800,
+			MEM2REG_FL_EQ2       = 0x00001000,
+
+			/* proc flags */
+			MEM2REG_FL_EQ1       = 0x01000000,
+		};
+
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
 		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
 		void replace_ids(std::map<std::string, std::string> &rules);
-		void mem2reg_as_needed_pass1(std::set<AstNode*> &mem2reg_set, std::set<AstNode*> &mem2reg_candidates, bool sync_proc, bool async_proc, bool force_mem2reg);
+		void mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
+				std::map<AstNode*, uint32_t> &mem2reg_flags, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
 		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 

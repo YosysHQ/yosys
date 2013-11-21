@@ -234,7 +234,7 @@ struct AST_INTERNAL::ProcessGenerator
 {
 	// input and output structures
 	AstNode *always;
-	RTLIL::SigSpec skipSyncSignals;
+	RTLIL::SigSpec initSyncSignals;
 	RTLIL::Process *proc;
 	const RTLIL::SigSpec &outputSignals;
 
@@ -258,7 +258,10 @@ struct AST_INTERNAL::ProcessGenerator
 	// map helps generating nice numbered names for all this temporary signals.
 	std::map<RTLIL::Wire*, int> new_temp_count;
 
-	ProcessGenerator(AstNode *always, RTLIL::SigSpec skipSyncSignalsArg = RTLIL::SigSpec()) : always(always), skipSyncSignals(skipSyncSignalsArg), outputSignals(subst_lvalue_from)
+	// Buffer for generating the init action
+	RTLIL::SigSpec init_lvalue, init_rvalue;
+
+	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg), outputSignals(subst_lvalue_from)
 	{
 		// generate process and simple root case
 		proc = new RTLIL::Process;
@@ -321,6 +324,25 @@ struct AST_INTERNAL::ProcessGenerator
 		for (auto child : always->children)
 			if (child->type == AST_BLOCK)
 				processAst(child);
+
+		if (initSyncSignals.width > 0)
+		{
+			RTLIL::SyncRule *sync = new RTLIL::SyncRule;
+			sync->type = RTLIL::SyncType::STi;
+			proc->syncs.push_back(sync);
+
+			assert(init_lvalue.width == init_rvalue.width);
+			init_lvalue.optimize();
+			init_rvalue.optimize();
+
+			int offset = 0;
+			for (size_t i = 0; i < init_lvalue.chunks.size(); i++) {
+				RTLIL::SigSpec lhs = init_lvalue.chunks[i];
+				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue.chunks[i].width);
+				sync->actions.push_back(RTLIL::SigSig(lhs, rhs));
+				offset += lhs.width;
+			}
+		}
 	}
 
 	// create new temporary signals
@@ -406,8 +428,11 @@ struct AST_INTERNAL::ProcessGenerator
 	// are avoided and the generated $mux cells have a more "natural" size.
 	void addChunkActions(std::vector<RTLIL::SigSig> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, bool inSyncRule = false)
 	{
-		if (inSyncRule)
-			lvalue.remove2(skipSyncSignals, &rvalue);
+		if (inSyncRule && initSyncSignals.width > 0) {
+			init_lvalue.append(lvalue.extract(initSyncSignals));
+			init_rvalue.append(lvalue.extract(initSyncSignals, &rvalue));
+			lvalue.remove2(initSyncSignals, &rvalue);
+		}
 		assert(lvalue.width == rvalue.width);
 		lvalue.optimize();
 		rvalue.optimize();
