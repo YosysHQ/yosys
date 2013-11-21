@@ -434,6 +434,49 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type.substr(0, 8) == "$_DFFSR_")
+	{
+		char pol_c = cell->type[8], pol_s = cell->type[9], pol_r = cell->type[10];
+
+		std::string reg_name = cellname(cell);
+		bool out_is_reg_wire = is_reg_wire(cell->connections["\\Q"], reg_name);
+
+		if (!out_is_reg_wire)
+			fprintf(f, "%s" "reg %s;\n", indent.c_str(), reg_name.c_str());
+
+		dump_attributes(f, indent, cell->attributes);
+		fprintf(f, "%s" "always @(%sedge ", indent.c_str(), pol_c == 'P' ? "pos" : "neg");
+		dump_sigspec(f, cell->connections["\\C"]);
+		fprintf(f, " or %sedge ", pol_s == 'P' ? "pos" : "neg");
+		dump_sigspec(f, cell->connections["\\S"]);
+		fprintf(f, " or %sedge ", pol_r == 'P' ? "pos" : "neg");
+		dump_sigspec(f, cell->connections["\\R"]);
+		fprintf(f, ")\n");
+
+		fprintf(f, "%s" "  if (%s", indent.c_str(), pol_r == 'P' ? "" : "!");
+		dump_sigspec(f, cell->connections["\\R"]);
+		fprintf(f, ")\n");
+		fprintf(f, "%s" "    %s <= 0;\n", indent.c_str(), reg_name.c_str());
+
+		fprintf(f, "%s" "  else if (%s", indent.c_str(), pol_s == 'P' ? "" : "!");
+		dump_sigspec(f, cell->connections["\\S"]);
+		fprintf(f, ")\n");
+		fprintf(f, "%s" "    %s <= 1;\n", indent.c_str(), reg_name.c_str());
+
+		fprintf(f, "%s" "  else\n", indent.c_str());
+		fprintf(f, "%s" "    %s <= ", indent.c_str(), reg_name.c_str());
+		dump_cell_expr_port(f, cell, "D", false);
+		fprintf(f, ";\n");
+
+		if (!out_is_reg_wire) {
+			fprintf(f, "%s" "assign ", indent.c_str());
+			dump_sigspec(f, cell->connections["\\Q"]);
+			fprintf(f, " = %s;\n", reg_name.c_str());
+		}
+
+		return true;
+	}
+
 #define HANDLE_UNIOP(_type, _operator) \
 	if (cell->type ==_type) { dump_cell_expr_uniop(f, indent, cell, _operator); return true; }
 #define HANDLE_BINOP(_type, _operator) \
@@ -573,7 +616,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	// FIXME: $_SR_[PN][PN]_, $_DFFSR_[PN][PN][PN]_, $_DLATCH_[PN]_
+	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_
 	// FIXME: $sr, $dffsr, $dlatch, $memrd, $memwr, $mem, $fsm
 
 	return false;
