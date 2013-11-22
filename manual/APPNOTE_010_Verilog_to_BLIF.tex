@@ -76,7 +76,7 @@ to use an actual script file.
 With a script file we have better control over Yosys. The following script
 file replicates what the command from the last section did:
 
-\begin{lstlisting}[frame=trBL,xleftmargin=2em,numbers=left]
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left,caption={\tt softusb\_navre.ys}]
 read_verilog softusb_navre.v
 hierarchy
 proc; opt; memory; opt; techmap; opt
@@ -122,9 +122,40 @@ to provide a custom set of rules for this process in the form of a Verilog
 source file, as we will see in the next section.
 \end{itemize}
 
-{\color{red} FIXME}
+Now Yosys can be run with the file of the synthesis script as argument:
 
-\begin{lstlisting}[frame=trBL,xleftmargin=2em,numbers=left]
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+  yosys softusb_navre.ys
+\end{lstlisting}
+
+\medskip
+
+Now that we are using a synthesis script we can easily modify how Yosys
+synthesizes the design. The first thing we should customize is the
+call to the {\tt history} command:
+
+Whenever it is known that there are no implicit blackboxes in the design, i.e.
+modules that are referred to but are not defined, the {\tt hierarchy} command
+should be called with the {\tt -check} option. The 2nd thing we can improve
+regarding the {\tt hierarchy} command is that we can tell it the name of the
+top level module of the design hierarchy. It will then automatically remove
+all modules that are not referenced from this top level module.
+
+\medskip
+
+For many designs it is also desired to optimize the encodings for the finite
+state machines (FSM) in the design. The {\tt fsm command} finds FSMs, extracts
+them, performs some basic optimizations and then generate a circuit from
+the extracted and optimized description. It would also be possible to tell
+the FSM command to leave the FSMs in their extracted form, so they can be
+processed using custom commands. But in this case we don't need that.
+
+\medskip
+
+So now we have the final synthesis script for generating a BLIF file
+for the navre CPU:
+
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left,caption={\tt softusb\_navre.ys} (improved)]
 read_verilog softusb_navre.v
 hierarchy -check -top softusb_navre
 proc; opt; memory; opt;
@@ -132,9 +163,35 @@ proc; opt; memory; opt;
 write_blif softusb_navre.blif
 \end{lstlisting}
 
-{\color{red} FIXME}
-
 \section{Advanced Example: The Amber23 ARMv2a CPU}
 
-{\color{red} FIXME}
+Our 2nd example is the Amber23\footnote{\url{http://opencores.org/project,amber}}
+ARMv2a CPU. Once again we base our example on the Verilog code that is included
+in {\it yosys-bigsim}.
+
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left,caption={\tt amber23.ys}]
+read_verilog a23_alu.v
+read_verilog a23_barrel_shift_fpga.v
+read_verilog a23_barrel_shift.v
+read_verilog a23_cache.v
+read_verilog a23_coprocessor.v
+read_verilog a23_core.v
+read_verilog a23_decode.v
+read_verilog a23_execute.v
+read_verilog a23_fetch.v
+read_verilog a23_multiply.v
+read_verilog a23_ram_register_bank.v
+read_verilog a23_register_bank.v
+read_verilog a23_wishbone.v
+read_verilog generic_sram_byte_en.v
+read_verilog generic_sram_line_en.v
+hierarchy -check -top a23_core
+add -global_input globrst 1
+proc -global_arst globrst
+opt; memory; opt; fsm; opt
+techmap -map adff2dff.v
+techmap
+write_blif amber23.blif
+\end{lstlisting}
+
 
