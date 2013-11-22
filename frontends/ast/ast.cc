@@ -720,7 +720,7 @@ static AstModule* process_module(AstNode *ast)
 				delete child;
 		}
 		ast->children.swap(new_children);
-		ast->attributes["\\placeholder"] = AstNode::mkconst_int(1, false);
+		ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
 	}
 
 	ignoreThisSignalsInInitial = RTLIL::SigSpec();

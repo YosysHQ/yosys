@@ -90,7 +90,7 @@ struct VerilogFrontend : public Frontend {
 		log("        do not run the pre-processor\n");
 		log("\n");
 		log("    -lib\n");
-		log("        only create empty placeholder modules\n");
+		log("        only create empty blackbox modules\n");
 		log("\n");
 		log("    -noopt\n");
 		log("        don't perform basic optimizations (such as const folding) in the\n");

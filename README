@@ -248,11 +248,11 @@ Verilog Attributes and non-standard features
   temporary variable within an always block. This is mostly used internally
   by yosys to synthesize verilog functions and access arrays.
 
-- The "placeholder" attribute on modules is used to mark empty stub modules
+- The "blackbox" attribute on modules is used to mark empty stub modules
   that have the same ports as the real thing but do not contain information
   on the internal configuration. This modules are only used by the synthesis
   passes to identify input and output ports of cells. The verilog backend
-  also does not output placeholder modules on default.
+  also does not output blackbox modules on default.
 
 - The "keep" attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that

@@ -300,7 +300,7 @@ struct BlifBackend : public Backend {
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\placeholder"))
+			if (module->get_bool_attribute("\\blackbox"))
 				continue;
 
 			if (module->processes.size() != 0)

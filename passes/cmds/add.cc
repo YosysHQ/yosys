@@ -73,7 +73,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 		RTLIL::Module *mod = design->modules.at(it.second->type);
 		if (!design->selected_whole_module(mod->name))
 			continue;
-		if (mod->get_bool_attribute("\\placeholder"))
+		if (mod->get_bool_attribute("\\blackbox"))
 			continue;
 		if (it.second->connections.count(name) > 0)
 			continue;
@@ -144,7 +144,7 @@ struct AddPass : public Pass {
 			RTLIL::Module *module = mod.second;
 			if (!design->selected_whole_module(module->name))
 				continue;
-			if (module->get_bool_attribute("\\placeholder"))
+			if (module->get_bool_attribute("\\blackbox"))
 				continue;
 
 			if (command == "wire")

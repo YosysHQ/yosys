@@ -57,7 +57,7 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 
 		if (design->modules.count(cell->type) == 0)
 		{
-			log("Warning: no (placeholder) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
+			log("Warning: no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
 					RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name));
 			for (auto &conn : cell->connections) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
@@ -178,7 +178,7 @@ struct SpiceBackend : public Backend {
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\placeholder"))
+			if (module->get_bool_attribute("\\blackbox"))
 				continue;
 
 			if (module->processes.size() != 0)

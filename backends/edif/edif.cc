@@ -121,7 +121,7 @@ struct EdifBackend : public Backend {
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\placeholder"))
+			if (module->get_bool_attribute("\\blackbox"))
 				continue;
 
 			if (top_module_name.empty())
@@ -135,7 +135,7 @@ struct EdifBackend : public Backend {
 			for (auto cell_it : module->cells)
 			{
 				RTLIL::Cell *cell = cell_it.second;
-				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->get_bool_attribute("\\placeholder")) {
+				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->get_bool_attribute("\\blackbox")) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections) {
 						if (p.second.width > 1)
@@ -233,7 +233,7 @@ struct EdifBackend : public Backend {
 		fprintf(f, "    (technology (numberDefinition))\n");
 		for (auto module : sorted_modules)
 		{
-			if (module->get_bool_attribute("\\placeholder"))
+			if (module->get_bool_attribute("\\blackbox"))
 				continue;
 
 			SigMap sigmap(module);
