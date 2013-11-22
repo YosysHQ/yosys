@@ -981,37 +981,20 @@ void RTLIL::SigSpec::expand()
 
 void RTLIL::SigSpec::optimize()
 {
-	for (size_t i = 0; i < chunks.size(); i++) {
-		if (chunks[i].wire && chunks[i].wire->auto_width)
-			continue;
-		if (chunks[i].width == 0)
-			chunks.erase(chunks.begin()+i--);
-	}
-	for (size_t i = 1; i < chunks.size(); i++) {
-		RTLIL::SigChunk &ch1 = chunks[i-1];
-		RTLIL::SigChunk &ch2 = chunks[i];
-		if (ch1.wire && ch1.wire->auto_width)
-			continue;
-		if (ch2.wire && ch2.wire->auto_width)
-			continue;
-		if (ch1.wire == ch2.wire) {
-			if (ch1.wire != NULL && ch1.offset+ch1.width == ch2.offset) {
-				ch1.width += ch2.width;
-				goto merged_with_next_chunk;
-			}
-			if (ch1.wire == NULL && ch1.data.str.empty() == ch2.data.str.empty()) {
-				ch1.data.str = ch2.data.str + ch1.data.str;
-				ch1.data.bits.insert(ch1.data.bits.end(), ch2.data.bits.begin(), ch2.data.bits.end());
-				ch1.width += ch2.width;
-				goto merged_with_next_chunk;
-			}
+	std::vector<RTLIL::SigChunk> new_chunks;
+	for (auto &c : chunks)
+		if (new_chunks.size() == 0) {
+			new_chunks.push_back(c);
+		} else {
+			RTLIL::SigChunk &cc = new_chunks.back();
+			if (c.wire == NULL && cc.wire == NULL)
+				cc.data.bits.insert(cc.data.bits.end(), c.data.bits.begin(), c.data.bits.end());
+			if (c.wire == cc.wire && (c.wire == NULL || cc.offset + cc.width == c.offset))
+				cc.width += c.width;
+			else
+				new_chunks.push_back(c);
 		}
-		if (0) {
-	merged_with_next_chunk:
-			chunks.erase(chunks.begin()+i);
-			i--;
-		}
-	}
+	chunks.swap(new_chunks);
 	check();
 }
 
