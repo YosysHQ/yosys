@@ -22,6 +22,7 @@
 
 #include "kernel/rtlil.h"
 #include <stdio.h>
+#include <time.h>
 #include <vector>
 
 extern std::vector<FILE*> log_files;
@@ -51,5 +52,45 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
 #define log_assert(_assert_expr_) do { if (_assert_expr_) break; log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
+
+// simple timer for performance measurements
+// toggle the '#if 1' to get a baseline for the perormance penalty added by the measurement
+struct PerformanceTimer
+{
+#if 1
+	int64_t total_ns;
+
+	PerformanceTimer() {
+		total_ns = 0;
+	}
+
+	static int64_t query() {
+		struct timespec ts;
+		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+		return int64_t(ts.tv_sec)*1000000000 + ts.tv_nsec;
+	}
+
+	void reset() {
+		total_ns = 0;
+	}
+
+	void add() {
+		total_ns += query();
+	}
+
+	void sub() {
+		total_ns -= query();
+	}
+
+	float sec() const {
+		return total_ns * 1e-9;
+	}
+#else
+	void reset() { }
+	void add() { }
+	void sub() { }
+	float sec() const { return 0; }
+#endif
+};
 
 #endif

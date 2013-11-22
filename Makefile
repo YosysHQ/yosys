@@ -20,7 +20,7 @@ all: top-all
 
 CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC
 LDFLAGS = -rdynamic
-LDLIBS = -lstdc++ -lreadline -lm -ldl
+LDLIBS = -lstdc++ -lreadline -lm -ldl -lrt
 QMAKE = qmake-qt4
 
 YOSYS_VER := 0.0.x
@@ -155,7 +155,7 @@ config-release: clean
 	echo 'CONFIG := release' > Makefile.conf
 
 config-gprof: clean
-	echo 'CONFIG := release' > Makefile.conf
+	echo 'CONFIG := gcc-debug' > Makefile.conf
 	echo 'ENABLE_GPROF := 1' >> Makefile.conf
 
 config-sudo:
