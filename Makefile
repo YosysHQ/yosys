@@ -34,12 +34,12 @@ ABCPULL = 1
 
 ifeq ($(CONFIG),clang-debug)
 CXX = clang
-CXXFLAGS += -std=c++11 -O0
+CXXFLAGS += -std=c++11 -Os
 endif
 
 ifeq ($(CONFIG),gcc-debug)
 CXX = gcc
-CXXFLAGS += -std=gnu++0x -O0
+CXXFLAGS += -std=gnu++0x -Os
 endif
 
 ifeq ($(CONFIG),release)
@@ -53,7 +53,7 @@ LDLIBS += -ltcl8.5
 endif
 
 ifeq ($(ENABLE_GPROF),1)
-CXXFLAGS += -pg
+CXXFLAGS += -pg -fno-inline
 LDFLAGS += -pg
 endif
 
