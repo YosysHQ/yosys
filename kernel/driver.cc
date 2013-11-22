@@ -101,12 +101,14 @@ static void run_backend(std::string filename, std::string command, RTLIL::Design
 			command = "verilog";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
 			command = "ilang";
+		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".blif")
+			command = "blif";
 		else if (filename == "-")
 			command = "ilang";
 		else if (filename.empty())
 			return;
 		else
-			log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
+			log_error("Can't guess backend for output file `%s' (missing -b option)!\n", filename.c_str());
 	}
 
 	if (filename.empty())
@@ -461,7 +463,6 @@ int main(int argc, char **argv)
 			printf("%s\n", yosys_version_str);
 			exit(0);
 		case 'S':
-			backend_command = "verilog -noattr";
 			passes_commands.push_back("hierarchy");
 			passes_commands.push_back("proc");
 			passes_commands.push_back("opt");
@@ -557,10 +558,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "        print version information and exit\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "The option -S is an alias for the following options that perform a simple\n");
-			fprintf(stderr, "transformation of the input to a gate-level netlist. This can be helpful when\n");
-			fprintf(stderr, "e.g. using yosys as a pre-processor for a tool that can't understand full verilog.\n");
+			fprintf(stderr, "transformation of the input to a gate-level netlist.\n");
 			fprintf(stderr, "\n");
-			fprintf(stderr, "    -b 'verilog -noattr' -p hierarchy -p proc -p opt -p memory -p opt -p techmap -p opt\n");
+			fprintf(stderr, "    -p hierarchy -p proc -p opt -p memory -p opt -p techmap -p opt\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "For more complex synthesis jobs it is recommended to use the read_* and write_*\n");
 			fprintf(stderr, "commands in a script file instead of specifying input and output files on the\n");
