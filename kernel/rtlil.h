@@ -58,6 +58,7 @@ namespace RTLIL
 	struct Memory;
 	struct Cell;
 	struct SigChunk;
+	struct SigBit;
 	struct SigSpec;
 	struct CaseRule;
 	struct SwitchRule;
@@ -309,11 +310,34 @@ struct RTLIL::SigChunk {
 	SigChunk(const std::string &str);
 	SigChunk(int val, int width = 32);
 	SigChunk(RTLIL::State bit, int width = 1);
+	SigChunk(RTLIL::SigBit bit);
 	RTLIL::SigChunk extract(int offset, int length) const;
 	bool operator <(const RTLIL::SigChunk &other) const;
 	bool operator ==(const RTLIL::SigChunk &other) const;
 	bool operator !=(const RTLIL::SigChunk &other) const;
 	static bool compare(const RTLIL::SigChunk &a, const RTLIL::SigChunk &b);
+};
+
+struct RTLIL::SigBit {
+	RTLIL::Wire *wire;
+	RTLIL::State data;
+	int offset;
+	SigBit() : wire(NULL), data(RTLIL::State::S0), offset(0) { }
+	SigBit(RTLIL::State bit) : wire(NULL), data(bit), offset(0) { }
+	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0), offset(0) { assert(!wire || wire->width == 1); }
+	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), data(RTLIL::State::S0), offset(offset) { }
+	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[0]), offset(chunk.offset) { assert(chunk.width == 1); }
+	SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[index]), offset(chunk.wire ? chunk.offset + index : 0) { }
+	SigBit(const RTLIL::SigSpec &sig);
+	bool operator <(const RTLIL::SigBit &other) const {
+		return (wire != other.wire) ? (wire < other.wire) : wire ? (offset < other.offset) : (data < other.data);
+	}
+	bool operator ==(const RTLIL::SigBit &other) const {
+		return (wire == other.wire) && (wire ? (offset == other.offset) : (data == other.data));
+	}
+	bool operator !=(const RTLIL::SigBit &other) const {
+		return (wire != other.wire) || (wire ? (offset != other.offset) : (data != other.data));
+	}
 };
 
 struct RTLIL::SigSpec {
@@ -326,6 +350,8 @@ struct RTLIL::SigSpec {
 	SigSpec(const std::string &str);
 	SigSpec(int val, int width = 32);
 	SigSpec(RTLIL::State bit, int width = 1);
+	SigSpec(RTLIL::SigBit bit, int width = 1);
+	SigSpec(std::vector<RTLIL::SigBit> bits);
 	void expand();
 	void optimize();
 	void sort();
@@ -341,6 +367,7 @@ struct RTLIL::SigSpec {
 	void remove(int offset, int length);
 	RTLIL::SigSpec extract(int offset, int length) const;
 	void append(const RTLIL::SigSpec &signal);
+	void append_bit(const RTLIL::SigBit &bit);
 	bool combine(RTLIL::SigSpec signal, RTLIL::State freeState = RTLIL::State::Sz, bool override = false);
 	void extend(int width, bool is_signed = false);
 	void extend_u0(int width, bool is_signed = false);
@@ -357,9 +384,16 @@ struct RTLIL::SigSpec {
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
 	bool match(std::string pattern) const;
+	std::set<RTLIL::SigBit> to_sigbit_set() const;
+	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
 	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 };
+
+inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
+	assert(sig.width == 1 && sig.chunks.size() == 1);
+	*this = SigBit(sig.chunks[0]);
+}
 
 struct RTLIL::CaseRule {
 	std::vector<RTLIL::SigSpec> compare;

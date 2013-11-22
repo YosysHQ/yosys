@@ -840,6 +840,15 @@ RTLIL::SigChunk::SigChunk(RTLIL::State bit, int width)
 	offset = 0;
 }
 
+RTLIL::SigChunk::SigChunk(RTLIL::SigBit bit)
+{
+	wire = bit.wire;
+	if (wire == NULL)
+		data = RTLIL::Const(bit.data);
+	offset = bit.offset;
+	width = 1;
+}
+
 RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
 {
 	RTLIL::SigChunk ret;
@@ -927,14 +936,34 @@ RTLIL::SigSpec::SigSpec(const std::string &str)
 RTLIL::SigSpec::SigSpec(int val, int width)
 {
 	chunks.push_back(RTLIL::SigChunk(val, width));
-	this->width = chunks.back().width;
+	this->width = width;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(RTLIL::State bit, int width)
 {
 	chunks.push_back(RTLIL::SigChunk(bit, width));
-	this->width = chunks.back().width;
+	this->width = width;
+	check();
+}
+
+RTLIL::SigSpec::SigSpec(RTLIL::SigBit bit, int width)
+{
+	if (bit.wire == NULL)
+		chunks.push_back(RTLIL::SigChunk(bit.data, width));
+	else
+		for (int i = 0; i < width; i++)
+			chunks.push_back(bit);
+	this->width = width;
+	check();
+}
+
+RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
+{
+	chunks.reserve(bits.size());
+	for (auto &bit : bits)
+		chunks.push_back(bit);
+	this->width = bits.size();
 	check();
 }
 
@@ -1100,29 +1129,23 @@ restart:
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *other) const
 {
-	int pos = 0;
-	RTLIL::SigSpec ret;
-	pattern.sort_and_unify();
 	assert(other == NULL || width == other->width);
-	for (size_t i = 0; i < chunks.size(); i++) {
-		const RTLIL::SigChunk &ch1 = chunks[i];
-		if (chunks[i].wire != NULL)
-			for (size_t j = 0; j < pattern.chunks.size(); j++) {
-				RTLIL::SigChunk &ch2 = pattern.chunks[j];
-				assert(ch2.wire != NULL);
-				if (ch1.wire == ch2.wire) {
-					int lower = std::max(ch1.offset, ch2.offset);
-					int upper = std::min(ch1.offset + ch1.width, ch2.offset + ch2.width);
-					if (lower < upper) {
-						if (other)
-							ret.append(other->extract(pos+lower-ch1.offset, upper-lower));
-						else
-							ret.append(extract(pos+lower-ch1.offset, upper-lower));
-					}
-				}
-			}
-		pos += chunks[i].width;
+
+	std::set<RTLIL::SigBit> pat = pattern.to_sigbit_set();
+	std::vector<RTLIL::SigBit> bits_match = to_sigbit_vector();
+	RTLIL::SigSpec ret;
+
+	if (other) {
+		std::vector<RTLIL::SigBit> bits_other = other ? other->to_sigbit_vector() : bits_match;
+		for (int i = 0; i < width; i++)
+			if (bits_match[i].wire && pat.count(bits_match[i]))
+				ret.append_bit(bits_other[i]);
+	} else {
+		for (int i = 0; i < width; i++)
+			if (bits_match[i].wire && pat.count(bits_match[i]))
+				ret.append_bit(bits_match[i]);
 	}
+
 	ret.check();
 	return ret;
 }
@@ -1234,7 +1257,26 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 		chunks.push_back(signal.chunks[i]);
 		width += signal.chunks[i].width;
 	}
-	check();
+	// check();
+}
+
+void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
+{
+	if (chunks.size() == 0)
+		chunks.push_back(bit);
+	else
+		if (bit.wire == NULL)
+			if (chunks.back().wire == NULL)
+				chunks.back().data.bits.push_back(bit.data);
+			else
+				chunks.push_back(bit);
+		else
+			if (chunks.back().wire == bit.wire && chunks.back().offset + chunks.back().width == bit.offset)
+				chunks.back().width++;
+			else
+				chunks.push_back(bit);
+	width++;
+	// check();
 }
 
 bool RTLIL::SigSpec::combine(RTLIL::SigSpec signal, RTLIL::State freeState, bool override)
@@ -1467,6 +1509,25 @@ bool RTLIL::SigSpec::match(std::string pattern) const
 	}
 
 	return true;
+}
+
+std::set<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_set() const
+{
+	std::set<RTLIL::SigBit> sigbits;
+	for (auto &c : chunks)
+		for (int i = 0; i < c.width; i++)
+			sigbits.insert(RTLIL::SigBit(c, i));
+	return sigbits;
+}
+
+std::vector<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_vector() const
+{
+	std::vector<RTLIL::SigBit> sigbits;
+	sigbits.reserve(width);
+	for (auto &c : chunks)
+		for (int i = 0; i < c.width; i++)
+			sigbits.push_back(RTLIL::SigBit(c, i));
+	return sigbits;
 }
 
 static void sigspec_parse_split(std::vector<std::string> &tokens, const std::string &text, char sep)
