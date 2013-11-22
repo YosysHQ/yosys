@@ -198,13 +198,6 @@ static void input_file(FILE *f, std::string filename)
 	input_buffer.insert(it, "`file_pop\n");
 }
 
-static std::string define_to_feature(std::string defname)
-{
-	if (defname == "__YOSYS_ENABLE_DEFATTR__")
-		return "defattr";
-	return std::string();
-}
-
 std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
 {
 	std::map<std::string, std::string> defines_map(pre_defines_map);
@@ -298,8 +291,6 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			std::string name, value;
 			skip_spaces();
 			name = next_token(true);
-			if (!define_to_feature(name).empty())
-				output_code.push_back("`yosys_enable_" + define_to_feature(name));
 			skip_spaces();
 			int newline_count = 0;
 			while (!tok.empty()) {
@@ -331,8 +322,6 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			std::string name;
 			skip_spaces();
 			name = next_token(true);
-			if (!define_to_feature(name).empty())
-				output_code.push_back("`yosys_disable_" + define_to_feature(name));
 			// printf("undef: >>%s<<\n", name.c_str());
 			defines_map.erase(name);
 			continue;

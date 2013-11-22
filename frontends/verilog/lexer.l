@@ -45,7 +45,6 @@ using namespace VERILOG_FRONTEND;
 namespace VERILOG_FRONTEND {
 	std::vector<std::string> fn_stack;
 	std::vector<int> ln_stack;
-	bool lexer_feature_defattr;
 }
 
 %}
@@ -81,9 +80,6 @@ namespace VERILOG_FRONTEND {
 }
 
 "`timescale"[ \t]+[^ \t\r\n/]+[ \t]*"/"[ \t]*[^ \t\r\n]* /* ignore timescale directive */
-
-"`yosys_enable_defattr" lexer_feature_defattr = true;
-"`yosys_disable_defattr" lexer_feature_defattr = false;
 
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yyerror("Unimplemented compiler directive or undefined macro %s.", yytext);
@@ -225,8 +221,8 @@ supply1 { return TOK_SUPPLY1; }
 "(*" { return ATTR_BEGIN; }
 "*)" { return ATTR_END; }
 
-"{*"  { if (lexer_feature_defattr) return DEFATTR_BEGIN; else REJECT; }
-"*}"  { if (lexer_feature_defattr) return DEFATTR_END; else REJECT; }
+"{*"  { return DEFATTR_BEGIN; }
+"*}"  { return DEFATTR_END; }
 
 "**" { return OP_POW; }
 "||" { return OP_LOR; }

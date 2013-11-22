@@ -42,9 +42,6 @@ namespace VERILOG_FRONTEND
 
 	// this function converts a Verilog constant to an AST_CONSTANT node
 	AST::AstNode *const2ast(std::string code, char case_type = 0);
-
-	// lexer state variables
-	extern bool lexer_feature_defattr;
 }
 
 // the pre-processor

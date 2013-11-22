@@ -206,8 +206,6 @@ struct VerilogFrontend : public Frontend {
 			fp = fmemopen((void*)code_after_preproc.c_str(), code_after_preproc.size(), "r");
 		}
 
-		lexer_feature_defattr = false;
-
 		frontend_verilog_yyset_lineno(1);
 		frontend_verilog_yyrestart(fp);
 		frontend_verilog_yyparse();

@@ -265,8 +265,7 @@ Verilog Attributes and non-standard features
 - In addition to the (* ... *) attribute syntax, yosys supports
   the non-standard {* ... *} attribute syntax to set default attributes
   for everything that comes after the {* ... *} statement. (Reset
-  by adding an empty {* *} statement.) The preprocessor define
-  __YOSYS_ENABLE_DEFATTR__ must be set in order for this feature to be active.
+  by adding an empty {* *} statement.)
 
 
 Workarounds for known build problems
