@@ -1,0 +1,140 @@
+
+\appnote{010}{Converting Verilog to BLIF}{Clifford Wolf}
+
+\begin{appnote_abstract}
+Verilog-2005 is a powerful Hardware Description Language (HDL) that can be used
+to easily create complex designs from small HDL code. It is the prefered
+method of design entry for many designers\footnote{The other half prefers VHDL,
+a very different but -- of course -- equaly powerful language.}.
+
+The Berkeley Logic Interchange Format (BLIF) is a simple file format for
+exchanging sequential logic between programs. It is easy to generate and
+easy to parse and is therefore the prefered method of design entry for
+many authors of logic synthesis tools.
+
+Yosys\footnote{\url{http://www.clifford.at/yosys/}} is a feature-rich Open-Source Verilog synthesis tool that can be used to
+bridge the gap between the two file formats. It implements most of Verilog-2005
+and thus can be used to import modern behavioral Verilog designs into BLIF-based
+design flows without dependencies on proprietary synthesis tools.
+\end{appnote_abstract}
+
+\section{Installation}
+
+Yosys written in C++ (using features from C++11) and is tested on modern Linux.
+It should compile fine on most UNIX systems with a C++11 compiler. The README
+file contains useful information on building Yosys and its prerequisites.
+
+Yosys is a large and feature-rich program with a couple of dependencies. It is,
+however, possible to deactivate some of the dependencies in the Makefile,
+resulting in features in Yosys becoming unavailable. When problems with building
+Yosys are encountered, a user who is only interested in the features of Yosys
+that are presented in this Application Note may deactivate {\tt TCL}, {\tt Qt}
+and {\tt MiniSAT} support and not build {\tt yosys-abc}.
+
+\bigskip
+
+This Application Note is based on GIT Rev. {\color{red} FIXME} from
+{\color{red} DATE} of Yosys. The Verilog sources used for the examples
+is taken from the {\it yosys-bigsim test
+bench}\footnote{\url{https://github.com/cliffordwolf/yosys-bigsim}}, GIT
+Rev. {\color{red} FIXME}.
+
+\section{Getting Started}
+
+We start with the {\tt softusb\_navre} core from {\it yosys-bigsim}. The navre
+processor\footnote{\url{http://opencores.org/project,navre}} is an Open Source
+AVR clone. It is a single module ({\tt softusb\_navre}) in a single design file
+({\tt softusb\_navre.v}). It also is using only features that map nicely to
+the BLIF format, for example it only uses synchronous resets.
+
+Converting {\tt softusb\_navre.v} to {\tt softusb\_navre.blif} could not be
+easier:
+
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+  yosys -o softusb_navre.blif \
+                 -S softusb_navre.v
+\end{lstlisting}
+
+Behind the scenes Yosys is controlled by synthesis scripts that execute
+commands that operate on Yosys' internal state. For example, the {\tt -o
+softusb\_navre.blif} option just adds the command {\tt write\_blif
+softusb\_navre.blif} to the end of the script. Likewise a file on the
+command line -- {\tt softusb\_navre.v} in this case -- adds the command
+{\tt read\_verilog softusb\_navre.v} to the beginning of the
+synthesis script. In both cases the file type is detected from the
+file extension.
+
+Finally the option {\tt -S} instantiates a built-in default synthesis script.
+Instead of using {\tt -S} one could also specify the synthesis commands
+for the script on the command line using the {\tt -p} option, either using
+individual options for each command or by passing one big command string
+with semicolon-separated commands. But in most cases it is more convenient
+to use an actual script file.
+
+\section{Using a Synthesis Script}
+
+With a script file we have better control over Yosys. The following script
+file replicates what the command from the last section did:
+
+\begin{lstlisting}[frame=trBL,xleftmargin=2em,numbers=left]
+read_verilog softusb_navre.v
+hierarchy
+proc; opt; memory; opt; techmap; opt
+write_blif softusb_navre.blif
+\end{lstlisting}
+
+The first and last line obviously read the Verilog file and write the BLIF
+file. 
+
+\medskip
+
+The 2nd line checks the design hierarchy and instantiates parametrized 
+versions of the modules in the design, if necessary. In the case of this
+simple design this is a no-op. However, as a general rule a synthesis script
+should always contain this command as first command after reading the input
+files.
+
+\medskip
+
+The 3rd line does most of the actual work:
+
+\begin{itemize}
+\item The command {\tt opt} is the Yosys' built-in optimizer. It can perform
+some simple optimizations such as const-folding and removing unconnected parts
+of the design. It is common practice to call opt after each major step in the
+synthesis. In cases where too much optimization is not appreciated (for example
+when analyzing a design), it is recommended to call {\tt clean} instead of {\tt
+opt}.
+\item The command {\tt proc} converts {\it processes} (Yosys' internal
+representation of Verilog {\tt always}- and {\tt initial}-blocks) to circuits
+of multiplexers and storage elements (various types of flip-flops).
+\item The command {\tt memory} converts Yosys' internal representation of 
+arrays and array accesses to multi-port block memories, and then maps this
+block memories to address decoders and flip-flops, unless the option {\tt -nomap}
+is used, in which case the multi-port block memories stay in the design
+and can then be mapped to architecture-specific memory primitives using
+other commands.
+\item The command {\tt techmap} turns a high-level circuit with coarse grain
+cells such as wide adders and multipliers to a fine-grain circuit of simple
+logic primitives and single-bit storage elements. The command does that by
+substituting the complex cells by circuits of simpler cells. It is possible
+to provide a custom set of rules for this process in the form of a Verilog
+source file, as we will see in the next section.
+\end{itemize}
+
+{\color{red} FIXME}
+
+\begin{lstlisting}[frame=trBL,xleftmargin=2em,numbers=left]
+read_verilog softusb_navre.v
+hierarchy -check -top softusb_navre
+proc; opt; memory; opt;
+   fsm; opt; techmap; opt
+write_blif softusb_navre.blif
+\end{lstlisting}
+
+{\color{red} FIXME}
+
+\section{Advanced Example: The Amber23 ARMv2a CPU}
+
+{\color{red} FIXME}
+
