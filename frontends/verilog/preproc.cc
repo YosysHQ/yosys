@@ -62,7 +62,7 @@ static void insert_input(std::string str)
 
 static char next_char()
 {
-	if (input_buffer.size() == 0)
+	if (input_buffer.empty())
 		return 0;
 
 	assert(input_buffer_charp <= input_buffer.front().size());
