@@ -50,10 +50,14 @@ the BLIF format, for example it only uses synchronous resets.
 Converting {\tt softusb\_navre.v} to {\tt softusb\_navre.blif} could not be
 easier:
 
+\begin{figure}[H]
 \begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
-  yosys -o softusb_navre.blif \
-                 -S softusb_navre.v
+yosys -o softusb_navre.blif \
+               -S softusb_navre.v
 \end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{Calling Yosys without script file}
+\end{figure}
 
 Behind the scenes Yosys is controlled by synthesis scripts that execute
 commands that operate on Yosys' internal state. For example, the {\tt -o
@@ -76,12 +80,16 @@ to use an actual script file.
 With a script file we have better control over Yosys. The following script
 file replicates what the command from the last section did:
 
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left,caption={\tt softusb\_navre.ys}]
+\begin{figure}[H]
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
 read_verilog softusb_navre.v
 hierarchy
 proc; opt; memory; opt; techmap; opt
 write_blif softusb_navre.blif
 \end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{\tt softusb\_navre.ys}
+\end{figure}
 
 The first and last line obviously read the Verilog file and write the BLIF
 file. 
@@ -124,9 +132,13 @@ source file, as we will see in the next section.
 
 Now Yosys can be run with the file of the synthesis script as argument:
 
+\begin{figure}[H]
 \begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
-  yosys softusb_navre.ys
+yosys softusb_navre.ys
 \end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{Calling Yosys with script file}
+\end{figure}
 
 \medskip
 
@@ -155,13 +167,17 @@ processed using custom commands. But in this case we don't need that.
 So now we have the final synthesis script for generating a BLIF file
 for the navre CPU:
 
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left,caption={\tt softusb\_navre.ys} (improved)]
+\begin{figure}[H]
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
 read_verilog softusb_navre.v
 hierarchy -check -top softusb_navre
 proc; opt; memory; opt;
    fsm; opt; techmap; opt
 write_blif softusb_navre.blif
 \end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{{\tt softusb\_navre.ys} (improved)}
+\end{figure}
 
 \section{Advanced Example: The Amber23 ARMv2a CPU}
 
@@ -169,7 +185,8 @@ Our 2nd example is the Amber23\footnote{\url{http://opencores.org/project,amber}
 ARMv2a CPU. Once again we base our example on the Verilog code that is included
 in {\it yosys-bigsim}.
 
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left,caption={\tt amber23.ys}]
+\begin{figure}[b!]
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
 read_verilog a23_alu.v
 read_verilog a23_barrel_shift_fpga.v
 read_verilog a23_barrel_shift.v
@@ -188,10 +205,77 @@ read_verilog generic_sram_line_en.v
 hierarchy -check -top a23_core
 add -global_input globrst 1
 proc -global_arst globrst
-opt; memory; opt; fsm; opt
 techmap -map adff2dff.v
-techmap
+opt; memory; opt; fsm; opt; techmap
 write_blif amber23.blif
 \end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{\tt amber23.ys}
+\label{aber23.ys}
+\end{figure}
 
+The problem with this core is that it contains no dedicated reset signals.
+Instead it is using the coding techiques shown in Listing~\ref{glob_arst} to
+set reset values to be used on the global asynchronous reset in an FPGA
+implementation. This design can not be expressed in BLIF as it is. Instead we
+need to use a synthesis script that transforms this to synchonous resets that
+can be expressed in BLIF.
+
+\medskip
+
+Listing~\ref{aber23.ys} shows the synthesis script for the Amber23 core. In
+line 17 the {\tt add} command is used to add a 1-bit wide global input signal
+with the name {\tt globrst}. That means that an input with that name is added
+to each module in the design hierarchy and then all module instanciations are
+altered so that this new signal is connected throughout the whole design
+hierarchy.
+
+\begin{figure}[t!]
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+reg [7:0] a = 13, b;
+initial b = 37;
+\end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{Implicit coding of global asynchronous resets}
+\label{glob_arst}
+\end{figure}
+
+\begin{figure}[b!]
+\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+module \$adff (CLK, ARST, D, Q);
+
+parameter WIDTH = 1;
+parameter CLK_POLARITY = 1'b1;
+parameter ARST_POLARITY = 1'b1;
+parameter ARST_VALUE = 0;
+
+input CLK, ARST;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+
+wire _TECHMAP_FAIL_ =
+    !CLK_POLARITY || !ARST_POLARITY;
+
+always @(posedge CLK)
+	if (ARST)
+		Q <= ARST_VALUE;
+	else
+		Q <= D;
+
+endmodule
+\end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{\tt adff2dff.v}
+\label{adff2dff.v}
+\end{figure}
+
+In line 18 the {\tt proc} command is called. But this time the newly created
+reset signal is passed to the core as a global reset line to use for resetting
+all registers to their initial values.
+
+Finally in line 19 the {\tt techmap} command is used to replace all instances
+of flip-flops with asynchronous resets to flip-flops with synchronous resets.
+The map file used fo this is shown in Lising~\ref{adff2dff.v}.
+
+{\color{red} FIXME}
 
