@@ -1,7 +1,61 @@
 
-\appnote{010}{Converting Verilog to BLIF}{Clifford Wolf}
+% IEEEtran howto:
+% http://ftp.univie.ac.at/packages/tex/macros/latex/contrib/IEEEtran/IEEEtran_HOWTO.pdf
+\documentclass[9pt,technote,a4paper]{IEEEtran}
 
-\begin{appnote_abstract}
+\usepackage[T1]{fontenc}   % required for luximono!
+\usepackage[scaled=0.8]{luximono}  % typewriter font with bold face
+
+% To install the luximono font files:
+% getnonfreefonts-sys --all        or
+% getnonfreefonts-sys luximono
+%
+% when there are trouble you might need to:
+% - Create /etc/texmf/updmap.d/99local-luximono.cfg
+%   containing the single line: Map ul9.map
+% - Run update-updmap followed by mktexlsr and updmap-sys
+%
+% This commands must be executed as root with a root environment
+% (i.e. run "sudo su" and then execute the commands in the root
+% shell, don't just prefix the commands with "sudo").
+
+\usepackage[unicode,bookmarks=false]{hyperref}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{units}
+\usepackage{nicefrac}
+\usepackage{eurosym}
+\usepackage{graphicx}
+\usepackage{verbatim}
+\usepackage{algpseudocode}
+\usepackage{scalefnt}
+\usepackage{xspace}
+\usepackage{color}
+\usepackage{colortbl}
+\usepackage{multirow}
+\usepackage{hhline}
+\usepackage{listings}
+\usepackage{float}
+
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usetikzlibrary{arrows}
+\usetikzlibrary{scopes}
+\usetikzlibrary{through}
+\usetikzlibrary{shapes.geometric}
+
+\lstset{basicstyle=\ttfamily,frame=trBL,xleftmargin=2em,xrightmargin=1em,numbers=left}
+
+\begin{document}
+
+\title{Yosys Application Note 010: \\ Converting Verilog to BLIF}
+\author{Clifford Wolf}
+\maketitle
+
+\begin{abstract}
 Verilog-2005 is a powerful Hardware Description Language (HDL) that can be used
 to easily create complex designs from small HDL code. It is the prefered
 method of design entry for many designers\footnote{The other half prefers VHDL,
@@ -12,11 +66,16 @@ exchanging sequential logic between programs. It is easy to generate and
 easy to parse and is therefore the prefered method of design entry for
 many authors of logic synthesis tools.
 
-Yosys\footnote{\url{http://www.clifford.at/yosys/}} is a feature-rich Open-Source Verilog synthesis tool that can be used to
-bridge the gap between the two file formats. It implements most of Verilog-2005
-and thus can be used to import modern behavioral Verilog designs into BLIF-based
-design flows without dependencies on proprietary synthesis tools.
-\end{appnote_abstract}
+Yosys \cite{yosys} is a feature-rich
+Open-Source Verilog synthesis tool that can be used to bridge the gap between
+the two file formats. It implements most of Verilog-2005 and thus can be used
+to import modern behavioral Verilog designs into BLIF-based design flows
+without dependencies on proprietary synthesis tools.
+
+The scope of Yosys goes of course far beyond Verilog logic synthesis. But
+it is a useful and important feature and this Application Note will focus
+on this aspect of Yosys.
+\end{abstract}
 
 \section{Installation}
 
@@ -35,14 +94,13 @@ and {\tt MiniSAT} support and not build {\tt yosys-abc}.
 
 This Application Note is based on GIT Rev. {\color{red} FIXME} from
 {\color{red} DATE} of Yosys. The Verilog sources used for the examples
-is taken from the {\it yosys-bigsim test
-bench}\footnote{\url{https://github.com/cliffordwolf/yosys-bigsim}}, GIT
-Rev. {\color{red} FIXME}.
+is taken from yosys-bigsim \cite{bigsim},
+a collection of real-world designs used for regression testing Yosys.
 
 \section{Getting Started}
 
-We start with the {\tt softusb\_navre} core from {\it yosys-bigsim}. The navre
-processor\footnote{\url{http://opencores.org/project,navre}} is an Open Source
+We start with the {\tt softusb\_navre} core from yosys-bigsim. The Navré
+processor \cite{navre} is an Open Source
 AVR clone. It is a single module ({\tt softusb\_navre}) in a single design file
 ({\tt softusb\_navre.v}). It also is using only features that map nicely to
 the BLIF format, for example it only uses synchronous resets.
@@ -51,7 +109,7 @@ Converting {\tt softusb\_navre.v} to {\tt softusb\_navre.blif} could not be
 easier:
 
 \begin{figure}[H]
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+\begin{lstlisting}[language=sh]
 yosys -o softusb_navre.blif \
                -S softusb_navre.v
 \end{lstlisting}
@@ -81,7 +139,7 @@ With a script file we have better control over Yosys. The following script
 file replicates what the command from the last section did:
 
 \begin{figure}[H]
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+\begin{lstlisting}[language=sh]
 read_verilog softusb_navre.v
 hierarchy
 proc; opt; memory; opt; techmap; opt
@@ -133,7 +191,7 @@ source file, as we will see in the next section.
 Now Yosys can be run with the file of the synthesis script as argument:
 
 \begin{figure}[H]
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+\begin{lstlisting}[language=sh]
 yosys softusb_navre.ys
 \end{lstlisting}
  \renewcommand{\figurename}{Listing}
@@ -168,7 +226,7 @@ So now we have the final synthesis script for generating a BLIF file
 for the navre CPU:
 
 \begin{figure}[H]
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+\begin{lstlisting}[language=sh]
 read_verilog softusb_navre.v
 hierarchy -check -top softusb_navre
 proc; opt; memory; opt;
@@ -181,12 +239,12 @@ write_blif softusb_navre.blif
 
 \section{Advanced Example: The Amber23 ARMv2a CPU}
 
-Our 2nd example is the Amber23\footnote{\url{http://opencores.org/project,amber}}
+Our 2nd example is the Amber23 \cite{amber}
 ARMv2a CPU. Once again we base our example on the Verilog code that is included
-in {\it yosys-bigsim}.
+in yosys-bigsim \cite{bigsim}.
 
 \begin{figure}[b!]
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+\begin{lstlisting}[language=sh]
 read_verilog a23_alu.v
 read_verilog a23_barrel_shift_fpga.v
 read_verilog a23_barrel_shift.v
@@ -221,6 +279,10 @@ implementation. This design can not be expressed in BLIF as it is. Instead we
 need to use a synthesis script that transforms this to synchonous resets that
 can be expressed in BLIF.
 
+(Note that this is not a problem if this coding techiques are used to model
+ROM, where the register is initialized using this syntax but is never updated
+otherwise.)
+
 \medskip
 
 Listing~\ref{aber23.ys} shows the synthesis script for the Amber23 core. In
@@ -231,7 +293,7 @@ altered so that this new signal is connected throughout the whole design
 hierarchy.
 
 \begin{figure}[t!]
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
+\begin{lstlisting}[language=Verilog]
 reg [7:0] a = 13, b;
 initial b = 37;
 \end{lstlisting}
@@ -241,41 +303,155 @@ initial b = 37;
 \end{figure}
 
 \begin{figure}[b!]
-\begin{lstlisting}[frame=trBL,xleftmargin=1.5em,numbers=left]
-module \$adff (CLK, ARST, D, Q);
+\begin{lstlisting}[language=Verilog]
+(* techmap_celltype = "$adff" *)
+module adff2dff (CLK, ARST, D, Q);
 
 parameter WIDTH = 1;
-parameter CLK_POLARITY = 1'b1;
-parameter ARST_POLARITY = 1'b1;
+parameter CLK_POLARITY = 1;
+parameter ARST_POLARITY = 1;
 parameter ARST_VALUE = 0;
 
 input CLK, ARST;
 input [WIDTH-1:0] D;
 output reg [WIDTH-1:0] Q;
 
+wire [1023:0] _TECHMAP_DO_ = "proc";
+
 wire _TECHMAP_FAIL_ =
     !CLK_POLARITY || !ARST_POLARITY;
 
 always @(posedge CLK)
-	if (ARST)
-		Q <= ARST_VALUE;
-	else
-		Q <= D;
+        if (ARST)
+                Q <= ARST_VALUE;
+        else
+                Q <= D;
 
 endmodule
 \end{lstlisting}
- \renewcommand{\figurename}{Listing}
+\renewcommand{\figurename}{Listing}
 \caption{\tt adff2dff.v}
 \label{adff2dff.v}
 \end{figure}
 
-In line 18 the {\tt proc} command is called. But this time the newly created
-reset signal is passed to the core as a global reset line to use for resetting
-all registers to their initial values.
+In line 18 the {\tt proc} command is called. But in this script the signal name
+{\tt globrst} is passed to the command as a global reset line to be used for
+resetting all registers to their initial values.
 
 Finally in line 19 the {\tt techmap} command is used to replace all instances
-of flip-flops with asynchronous resets to flip-flops with synchronous resets.
-The map file used fo this is shown in Lising~\ref{adff2dff.v}.
+of flip-flops with asynchronous resets with flip-flops with synchronous resets.
+The map file used for this is shown in Listing~\ref{adff2dff.v}. Note how the
+{\tt techmap\_celltype} attribute is used in line 1 to tell the techmap command
+which cells to replace in the design, how the {\tt \_TECHMAP\_FAIL\_} wire
+(which evaluates to a constant value) determines if the parameter set is
+compatible with this replacement circuit in lines 15 and 16, and how the {\tt
+\_TECHMAP\_DO\_} wire in line 13 provides a mini synthesis-script to be used to
+process this cell.
 
-{\color{red} FIXME}
+\begin{figure*}
+\begin{lstlisting}[language=C]
+#include <stdint.h>
+#include <stdbool.h>
 
+#define BITMAP_SIZE 64
+#define OUTPORT 0x10000000
+
+static uint16_t bitmap[BITMAP_SIZE/32];
+
+static void bitmap_set(uint32_t idx) { bitmap[idx/32] |= 1 << (idx % 32); }
+static bool bitmap_get(uint32_t idx) { return (bitmap[idx/32] & (1 << (idx % 32))) != 0; }
+static void output(uint32_t val) { *((volatile uint32_t*)OUTPORT) = val; }
+
+int main() {
+	uint32_t i, j, k;
+	output(2);
+	for (i = 0; i < BITMAP_SIZE; i++) {
+		if (bitmap_get(i)) continue;
+		output(3+2*i);
+		for (j = 2*(3+2*i);; j += 3+2*i) {
+			if (j%2 == 0) continue;
+			k = (j-3)/2;
+			if (k >= BITMAP_SIZE) break;
+			bitmap_set(k);
+		}
+	}
+	output(0);
+	return 0;
+}
+\end{lstlisting}
+\renewcommand{\figurename}{Listing}
+\caption{Test program for Amber23 CPU (Sieve of Eratosthenes)}
+\label{sieve}
+\end{figure*}
+
+\section{Validation of the Amber23 CPU}
+
+The BLIF file for the Amber23 core, generated using Listings~\ref{aber23.ys}
+and \ref{adff2dff.v} and the version of the Amber23 RTL source that is bundled
+with yosys-bigsim was validated using the test-bench from yosys-bigsim
+and successfully executed the program shown in Listing~\ref{sieve}. The
+test program was compiled using GCC 4.6.3.
+
+For simulation the BLIF file was converted back to Verilog using ABC
+\cite{ABC}. So this test includes the successful transformation of the BLIF
+file into the ABC internal format as well.
+
+The only interesting thing to write about the simulation itself is that this is
+probably one of the most wasteful and time consuming ways of successfully
+calculating the first 50 primes the author has ever conducted.
+
+\section{Limitations}
+
+At the time of this writing Yosys does not support multi-dimensional memories,
+does not support writing to individual bits of array elements, does not
+support initialization of arrays with {\tt \$readmemb} and {\tt \$readmemh},
+and has only limited support for tristate logic, to name just a few
+limitations.
+
+That being said, Yosys can synthesize an overwhelming majority of real-world
+Verilog RTL code. The remaining cases can usually be modified to be compatible
+with Yosys quite easily.
+
+The various designs in yosys-bigsim are a good place to look for examples
+of what is within the capabilities of Yosys.
+
+\section{Conclusion}
+
+Yosys is a feature-rich Verilog-2005 synthesis tool. It has many uses, but
+one is to provide an easy gateway from high-level Verilog code to low-level
+logic circuits.
+
+The command line option {\tt -S} can be used to quickly synthesize Verilog
+code to BLIF files without a hassle.
+
+With custom synthesis scripts it becomes possible to easily perform high-level
+optimizations, such as re-encoding FSMs. In some extreme cases, such as the
+Amber23 ARMv2 CPU, the more advanced Yosys features can be used to change a
+design to fit a certain need without actually touching the RTL code.
+
+\begin{thebibliography}{9}
+
+\bibitem{yosys}
+Clifford Wolf. The Yosys Open SYnthesis Suite. \\
+\url{http://www.clifford.at/yosys/}
+
+\bibitem{bigsim}
+yosys-bigsim, a collection of real-world Verilog designs for regression testing purposes. \\
+\url{https://github.com/cliffordwolf/yosys-bigsim}
+
+\bibitem{navre}
+Sebastien Bourdeauducq. Navré AVR clone (8-bit RISC). \\
+\url{http://opencores.org/project,navre}
+
+\bibitem{amber}
+Conor Santifort. Amber ARM-compatible core. \\
+\url{http://opencores.org/project,amber}
+
+\bibitem{ABC}
+Berkeley Logic Synthesis and Verification Group. ABC: A System for Sequential Synthesis and Verification. \\
+\url{http://www.eecs.berkeley.edu/~alanmi/abc/}
+
+\end{thebibliography}
+
+
+\end{document}
