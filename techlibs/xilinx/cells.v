@@ -46,7 +46,7 @@ module \$lut (I, O);
         .I0(I[0]), .I1(I[1]), .I2(I[2]),
         .I3(I[3]), .I4(I[4]), .I5(I[5]));
     end else begin:error
-      wire TECHMAP_FAIL;
+      wire _TECHMAP_FAIL_ = 1;
     end
   endgenerate
 

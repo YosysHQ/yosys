@@ -204,6 +204,12 @@ struct RTLIL::Selection {
 	bool selected_whole_module(RTLIL::IdString mod_name) const;
 	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 	void optimize(RTLIL::Design *design);
+	template<typename T1> void select(T1 *module) {
+		if (!full_selection && selected_modules.count(module->name) == 0) {
+			selected_modules.insert(module->name);
+			selected_members.erase(module->name);
+		}
+	}
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		if (!full_selection && selected_modules.count(module->name) == 0)
 			selected_members[module->name].insert(member->name);

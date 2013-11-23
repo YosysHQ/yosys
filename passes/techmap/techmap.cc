@@ -48,29 +48,51 @@ static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module 
 }
 
 std::map<std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
-std::map<RTLIL::Module*, bool> techmap_fail_cache;
-std::set<RTLIL::Module*> techmap_opt_cache;
+std::map<RTLIL::Module*, bool> techmap_do_cache;
 
-static bool techmap_fail_check(RTLIL::Module *module)
+struct TechmapWireData {
+	RTLIL::Wire *wire;
+	RTLIL::SigSpec value;
+};
+
+typedef std::map<std::string, std::vector<TechmapWireData>> TechmapWires;
+
+static TechmapWires techmap_find_special_wires(RTLIL::Module *module)
 {
-	if (module == NULL)
-		return false;
+	TechmapWires result;
 
-	if (techmap_fail_cache.count(module) > 0)
-		return techmap_fail_cache.at(module);
+	if (module == NULL)
+		return result;
 
 	for (auto &it : module->wires) {
-		std::string name = it.first;
-		if (name == "\\TECHMAP_FAIL")
-			return techmap_fail_cache[module] = true;
-		if (name.size() > 13 && name[0] == '\\' && name.substr(name.size()-13) == ".TECHMAP_FAIL")
-			return techmap_fail_cache[module] = true;
+		const char *p = it.first.c_str();
+		if (*p == '$')
+			continue;
+
+		const char *q = strrchr(p+1, '.');
+		p = q ? q : p+1;
+
+		if (!strncmp(p, "_TECHMAP_", 9)) {
+			TechmapWireData record;
+			record.wire = it.second;
+			record.value = it.second;
+			result[p].push_back(record);
+			it.second->attributes["\\keep"] = RTLIL::Const(1);
+			it.second->attributes["\\_techmap_attr_"] = RTLIL::Const(1);
+		}
 	}
 
-	return techmap_fail_cache[module] = false;
+	if (!result.empty()) {
+		SigMap sigmap(module);
+		for (auto &it1 : result)
+		for (auto &it2 : it1.second)
+			sigmap.apply(it2.value);
+	}
+
+	return result;
 }
 
-static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, RTLIL::Selection &new_members, bool flatten_mode)
+static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, bool flatten_mode)
 {
 	log("Mapping `%s.%s' using `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(tpl->name));
 
@@ -92,7 +114,6 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 		w->port_id = 0;
 		module->wires[w->name] = w;
 		design->select(module, w);
-		new_members.select(module, w);
 	}
 
 	SigMap port_signal_map;
@@ -147,7 +168,6 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 		}
 		module->cells[c->name] = c;
 		design->select(module, c);
-		new_members.select(module, c);
 	}
 
 	for (auto &it : tpl->connections) {
@@ -164,14 +184,14 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 }
 
 static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
-		const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap, bool flatten_mode, bool opt_mode)
+		const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap, bool flatten_mode)
 {
 	if (!design->selected(module))
 		return false;
 
+	bool log_continue = false;
 	bool did_something = false;
 	std::vector<std::string> cell_names;
-	RTLIL::Selection new_members(false);
 
 	for (auto &cell_it : module->cells)
 		cell_names.push_back(cell_it.first);
@@ -195,22 +215,23 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 			RTLIL::Module *tpl = map->modules[tpl_name];
 			std::map<RTLIL::IdString, RTLIL::Const> parameters = cell->parameters;
 
-			for (auto conn : cell->connections) {
-				if (conn.first.substr(0, 1) == "$")
-					continue;
-				if (tpl->wires.count(conn.first) > 0 && tpl->wires.at(conn.first)->port_id > 0)
-					continue;
-				if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0)
-					goto next_tpl;
-				parameters[conn.first] = conn.second.as_const();
-			}
+			if (!flatten_mode) {
+				for (auto conn : cell->connections) {
+					if (conn.first.substr(0, 1) == "$")
+						continue;
+					if (tpl->wires.count(conn.first) > 0 && tpl->wires.at(conn.first)->port_id > 0)
+						continue;
+					if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0)
+						goto next_tpl;
+					parameters[conn.first] = conn.second.as_const();
+				}
 
-			if (0) {
+				if (0) {
 		next_tpl:
-				continue;
+					continue;
+				}
 			}
 
-			bool log_continue = false;
 			std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
 			if (techmap_cache.count(key) > 0) {
 				tpl = techmap_cache[key];
@@ -223,22 +244,98 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 				techmap_cache[key] = tpl;
 			}
 
-			if (techmap_fail_check(tpl)) {
-				if (log_continue)
-					log_header("Continuing TECHMAP pass.\n");
-				log("Not using module `%s' from techmap as it contains a TECHMAP_FAIL marker wire.\n", derived_name.c_str());
+			if (flatten_mode)
+				techmap_do_cache[tpl] = true;
+
+			if (techmap_do_cache.count(tpl) == 0)
+			{
+				bool keep_running = true;
+				techmap_do_cache[tpl] = true;
+
+				while (keep_running)
+				{
+					TechmapWires twd = techmap_find_special_wires(tpl);
+					keep_running = false;
+
+					for (auto &it : twd["_TECHMAP_FAIL_"]) {
+						RTLIL::SigSpec value = it.value;
+						if (value.is_fully_const() && value.as_bool()) {
+							log("Not using module `%s' from techmap as it contains a %s marker wire with non-zero value %s.\n",
+									derived_name.c_str(), RTLIL::id2cstr(it.wire->name), log_signal(value));
+							techmap_do_cache[tpl] = false;
+						}
+					}
+
+					if (!techmap_do_cache[tpl])
+						break;
+
+					for (auto &it : twd)
+					{
+						if (it.first.substr(0, 12) != "_TECHMAP_DO_" || it.second.empty())
+							continue;
+
+						auto &data = it.second.front();
+
+						if (!data.value.is_fully_const())
+							log_error("Techmap yielded config wire %s with non-const value %s.\n", RTLIL::id2cstr(data.wire->name), log_signal(data.value));
+
+						tpl->wires.erase(data.wire->name);
+						const char *p = data.wire->name.c_str();
+						const char *q = strrchr(p+1, '.');
+						q = q ? q : p+1;
+
+						assert(!strncmp(q, "_TECHMAP_DO_", 12));
+						std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
+						while (tpl->wires.count(new_name))
+							new_name += "_";
+						data.wire->name = new_name;
+						tpl->add(data.wire);
+
+						std::string cmd_string;
+						std::vector<char> cmd_string_chars;
+						std::vector<RTLIL::State> bits = data.value.as_const().bits;
+						for (int i = 0; i < int(bits.size()); i += 8) {
+							char ch = 0;
+							for (int j = 0; j < 8 && i+j < int(bits.size()); j++)
+								if (bits[i+j] == RTLIL::State::S1)
+									ch |= 1 << j;
+							if (ch != 0)
+								cmd_string_chars.push_back(ch);
+						}
+						for (int i = int(cmd_string_chars.size())-1; i >= 0; i--)
+							cmd_string += cmd_string_chars[i];
+
+						RTLIL::Selection tpl_mod_sel(false);
+						tpl_mod_sel.select(tpl);
+						map->selection_stack.push_back(tpl_mod_sel);
+						Pass::call(map, cmd_string);
+						map->selection_stack.pop_back();
+
+						keep_running = true;
+						break;
+					}
+				}
+
+				TechmapWires twd = techmap_find_special_wires(tpl);
+				for (auto &it : twd) {
+					if (it.first != "_TECHMAP_FAIL_" && it.first.substr(0, 12) != "_TECHMAP_DO_" && it.first.substr(0, 14) != "_TECHMAP_DONE_")
+						log_error("Techmap yielded unknown config wire %s.\n", it.first.c_str());
+					if (techmap_do_cache[tpl])
+						for (auto &it2 : it.second)
+							if (!it2.value.is_fully_const())
+								log_error("Techmap yielded config wire %s with non-const value %s.\n", RTLIL::id2cstr(it2.wire->name), log_signal(it2.value));
+				}
+			}
+
+			if (techmap_do_cache.at(tpl) == false)
 				continue;
-			}
 
-			if (opt_mode && techmap_opt_cache.count(tpl) == 0) {
-				Pass::call(map, "opt " + tpl->name);
-				techmap_opt_cache.insert(tpl);
-				log_continue = true;
-			}
-
-			if (log_continue)
+			if (log_continue) {
 				log_header("Continuing TECHMAP pass.\n");
-			techmap_module_worker(design, module, cell, tpl, new_members, flatten_mode);
+				log_continue = false;
+			}
+
+			techmap_module_worker(design, module, cell, tpl, flatten_mode);
 			did_something = true;
 			cell = NULL;
 			break;
@@ -247,11 +344,9 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 		handled_cells.insert(cell);
 	}
 
-	if (did_something && opt_mode) {
-		design->selection_stack.push_back(new_members);
-		Pass::call(design, "opt_const");
+	if (log_continue) {
 		log_header("Continuing TECHMAP pass.\n");
-		design->selection_stack.pop_back();
+		log_continue = false;
 	}
 
 	return did_something;
@@ -275,16 +370,32 @@ struct TechmapPass : public Pass {
 		log("        transforms the internal RTL cells to the internal gate\n");
 		log("        library.\n");
 		log("\n");
-		log("    -opt\n");
-		log("        run 'opt' pass on all cells from map file before using them and run\n");
-		log("        'opt_const' on all replacement cells before mapping recursively.\n");
+		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
+		log("match cells with a type that match the text value of this attribute.\n");
 		log("\n");
-		log("When a module in the map file has the 'celltype' attribute set, it will match\n");
-		log("cells with a type that match the text value of this attribute.\n");
+		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
+		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
+		log("the mapping module to the techmap command. At the moment the following spoecial\n");
+		log("wires are supported:\n");
 		log("\n");
-		log("When a module in the map file contains a wire with the name 'TECHMAP_FAIL' (or\n");
-		log("one matching '*.TECHMAP_FAIL') then no substitution will be performed. The\n");
-		log("modules in the map file are tried in alphabetical order.\n");
+		log("    _TECHMAP_FAIL_\n");
+		log("        When this wire is set to a non-zero constant value, techmap will not\n");
+		log("        use this module and instead try the next module with a matching\n");
+		log("        'techmap_celltype' attribute.\n");
+		log("\n");
+		log("        When such a wire exists but does not have a constant value after all\n");
+		log("        _TECHMAP_DO_* commands have been executed, an error is generated.\n");
+		log("\n");
+		log("    _TECHMAP_DO_*\n");
+		log("        This wires are evaluated in alphabetical order. The constant text value\n");
+		log("        of this wire is a yosys command (or sequence of commands) that is run\n");
+		log("        by techmap on the module. A common use case is to run 'proc' on modules\n");
+		log("        that are written using always-statements.\n");
+		log("\n");
+		log("        When such a wire has a non-constant value at the time it is to be\n");
+		log("        evaluated, an error is produced. That means it is possible for such a\n");
+		log("        wire to start out as non-constant and evaluate to a constant value\n");
+		log("        during processing of other _TECHMAP_DO_* commands.\n");
 		log("\n");
 		log("When a module in the map file has a parameter where the according cell in the\n");
 		log("design has a port, the module from the map file is only used if the port in\n");
@@ -302,32 +413,31 @@ struct TechmapPass : public Pass {
 		log_header("Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();
 
-		std::string filename;
-		bool opt_mode = false;
+		std::vector<std::string> map_files;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
-				filename = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-opt") {
-				opt_mode = true;
+				map_files.push_back(args[++argidx]);
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		FILE *f = filename.empty() ? fmemopen(stdcells_code, strlen(stdcells_code), "rt") : fopen(filename.c_str(), "rt");
-		if (f == NULL)
-			log_cmd_error("Can't open map file `%s'\n", filename.c_str());
-
 		RTLIL::Design *map = new RTLIL::Design;
-		Frontend::frontend_call(map, f, filename.empty() ? "<stdcells.v>" : filename,
-				(filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
-
-		fclose(f);
+		if (map_files.empty()) {
+			FILE *f = fmemopen(stdcells_code, strlen(stdcells_code), "rt");
+			Frontend::frontend_call(map, f, "<stdcells.v>", "verilog");
+			fclose(f);
+		} else
+			for (auto &fn : map_files) {
+				FILE *f = fopen(fn.c_str(), "rt");
+				if (f == NULL)
+					log_cmd_error("Can't open map file `%s'\n", fn.c_str());
+				Frontend::frontend_call(map, f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : "verilog");
+				fclose(f);
+			}
 
 		std::map<RTLIL::IdString, RTLIL::Module*> modules_new;
 		for (auto &it : map->modules) {
@@ -339,8 +449,8 @@ struct TechmapPass : public Pass {
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
 		for (auto &it : map->modules) {
-			if (it.second->attributes.count("\\celltype") && !it.second->attributes.at("\\celltype").str.empty()) {
-				celltypeMap[RTLIL::escape_id(it.second->attributes.at("\\celltype").str)].insert(it.first);
+			if (it.second->attributes.count("\\techmap_celltype") && !it.second->attributes.at("\\techmap_celltype").str.empty()) {
+				celltypeMap[RTLIL::escape_id(it.second->attributes.at("\\techmap_celltype").str)].insert(it.first);
 			} else
 				celltypeMap[it.first].insert(it.first);
 		}
@@ -350,7 +460,7 @@ struct TechmapPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			for (auto &mod_it : design->modules)
-				if (techmap_module(design, mod_it.second, map, handled_cells, celltypeMap, false, opt_mode))
+				if (techmap_module(design, mod_it.second, map, handled_cells, celltypeMap, false))
 					did_something = true;
 			if (did_something)
 				design->check();
@@ -358,8 +468,7 @@ struct TechmapPass : public Pass {
 
 		log("No more expansions possible.\n");
 		techmap_cache.clear();
-		techmap_fail_cache.clear();
-		techmap_opt_cache.clear();
+		techmap_do_cache.clear();
 		delete map;
 		log_pop();
 	}
@@ -394,14 +503,13 @@ struct FlattenPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			for (auto &mod_it : design->modules)
-				if (techmap_module(design, mod_it.second, design, handled_cells, celltypeMap, true, false))
+				if (techmap_module(design, mod_it.second, design, handled_cells, celltypeMap, true))
 					did_something = true;
 		}
 
 		log("No more expansions possible.\n");
 		techmap_cache.clear();
-		techmap_fail_cache.clear();
-		techmap_opt_cache.clear();
+		techmap_do_cache.clear();
 		log_pop();
 	}
 } FlattenPass;
