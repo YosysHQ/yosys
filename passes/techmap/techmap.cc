@@ -78,7 +78,7 @@ static TechmapWires techmap_find_special_wires(RTLIL::Module *module)
 			record.value = it.second;
 			result[p].push_back(record);
 			it.second->attributes["\\keep"] = RTLIL::Const(1);
-			it.second->attributes["\\_techmap_attr_"] = RTLIL::Const(1);
+			it.second->attributes["\\_techmap_special_"] = RTLIL::Const(1);
 		}
 	}
 
@@ -112,6 +112,8 @@ static void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, 
 		w->port_input = false;
 		w->port_output = false;
 		w->port_id = 0;
+		if (it.second->get_bool_attribute("\\_techmap_special_"))
+			w->attributes.clear();
 		module->wires[w->name] = w;
 		design->select(module, w);
 	}
