@@ -250,12 +250,12 @@ optional_comma:
 module_arg_opt_assignment:
 	'=' expr {
 		if (ast_stack.back()->children.size() > 0 && ast_stack.back()->children.back()->type == AST_WIRE) {
-			if (!ast_stack.back()->children.back()->is_reg) {
-				AstNode *wire = new AstNode(AST_IDENTIFIER);
-				wire->str = ast_stack.back()->children.back()->str;
+			AstNode *wire = new AstNode(AST_IDENTIFIER);
+			wire->str = ast_stack.back()->children.back()->str;
+			if (ast_stack.back()->children.back()->is_reg)
+				ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
+			else
 				ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $2));
-			} else
-				ast_stack.back()->children.back()->attributes["\\init"] = $2;
 		} else
 			frontend_verilog_yyerror("Syntax error.");
 	} |
@@ -525,12 +525,12 @@ wire_name_list:
 wire_name_and_opt_assign:
 	wire_name |
 	wire_name '=' expr {
-		if (!astbuf1->is_reg) {
-			AstNode *wire = new AstNode(AST_IDENTIFIER);
-			wire->str = ast_stack.back()->children.back()->str;
+		AstNode *wire = new AstNode(AST_IDENTIFIER);
+		wire->str = ast_stack.back()->children.back()->str;
+		if (astbuf1->is_reg)
+			ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $3))));
+		else
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $3));
-		} else
-			ast_stack.back()->children.back()->attributes["\\init"] = $3;
 	};
 
 wire_name:
