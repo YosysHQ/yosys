@@ -52,18 +52,18 @@
 \begin{document}
 
 \title{Yosys Application Note 010: \\ Converting Verilog to BLIF}
-\author{Clifford Wolf}
+\author{Clifford Wolf \\ November 2013}
 \maketitle
 
 \begin{abstract}
 Verilog-2005 is a powerful Hardware Description Language (HDL) that can be used
-to easily create complex designs from small HDL code. It is the prefered
+to easily create complex designs from small HDL code. It is the preferred
 method of design entry for many designers\footnote{The other half prefers VHDL,
-a very different but -- of course -- equaly powerful language.}.
+a very different but -- of course -- equally powerful language.}.
 
 The Berkeley Logic Interchange Format (BLIF) is a simple file format for
 exchanging sequential logic between programs. It is easy to generate and
-easy to parse and is therefore the prefered method of design entry for
+easy to parse and is therefore the preferred method of design entry for
 many authors of logic synthesis tools.
 
 Yosys \cite{yosys} is a feature-rich
@@ -87,31 +87,31 @@ Yosys is a large and feature-rich program with a couple of dependencies. It is,
 however, possible to deactivate some of the dependencies in the Makefile,
 resulting in features in Yosys becoming unavailable. When problems with building
 Yosys are encountered, a user who is only interested in the features of Yosys
-that are presented in this Application Note may deactivate {\tt TCL}, {\tt Qt}
-and {\tt MiniSAT} support and not build {\tt yosys-abc}.
+that are discussed in this Application Note may deactivate {\tt TCL}, {\tt Qt}
+and {\tt MiniSAT} support in the {\tt Makefile} and may opt against building
+{\tt yosys-abc}.
 
 \bigskip
 
-This Application Note is based on GIT Rev. {\color{red} FIXME} from
-{\color{red} DATE} of Yosys. The Verilog sources used for the examples
-is taken from yosys-bigsim \cite{bigsim},
-a collection of real-world designs used for regression testing Yosys.
+This Application Note is based on GIT Rev. {\tt e216e0e} from 2013-11-23 of
+Yosys \cite{yosys}. The Verilog sources used for the examples are taken from
+yosys-bigsim \cite{bigsim}, a collection of real-world designs used for
+regression testing Yosys.
 
 \section{Getting Started}
 
-We start with the {\tt softusb\_navre} core from yosys-bigsim. The Navré
-processor \cite{navre} is an Open Source
-AVR clone. It is a single module ({\tt softusb\_navre}) in a single design file
-({\tt softusb\_navre.v}). It also is using only features that map nicely to
-the BLIF format, for example it only uses synchronous resets.
+We start our tour with the Navré processor from yosys-bigsim. The Navré
+processor \cite{navre} is an Open Source AVR clone. It is a single module ({\tt
+softusb\_navre}) in a single design file ({\tt softusb\_navre.v}). It also is
+using only features that map nicely to the BLIF format, for example it only
+uses synchronous resets.
 
 Converting {\tt softusb\_navre.v} to {\tt softusb\_navre.blif} could not be
 easier:
 
 \begin{figure}[H]
 \begin{lstlisting}[language=sh]
-yosys -o softusb_navre.blif \
-               -S softusb_navre.v
+yosys -o softusb_navre.blif -S softusb_navre.v
 \end{lstlisting}
  \renewcommand{\figurename}{Listing}
 \caption{Calling Yosys without script file}
@@ -130,8 +130,8 @@ Finally the option {\tt -S} instantiates a built-in default synthesis script.
 Instead of using {\tt -S} one could also specify the synthesis commands
 for the script on the command line using the {\tt -p} option, either using
 individual options for each command or by passing one big command string
-with semicolon-separated commands. But in most cases it is more convenient
-to use an actual script file.
+with a semicolon-separated list of commands. But in most cases it is more
+convenient to use an actual script file.
 
 \section{Using a Synthesis Script}
 
@@ -168,13 +168,13 @@ The 3rd line does most of the actual work:
 \item The command {\tt opt} is the Yosys' built-in optimizer. It can perform
 some simple optimizations such as const-folding and removing unconnected parts
 of the design. It is common practice to call opt after each major step in the
-synthesis. In cases where too much optimization is not appreciated (for example
-when analyzing a design), it is recommended to call {\tt clean} instead of {\tt
-opt}.
+synthesis procedure. In cases where too much optimization is not appreciated
+(for example when analyzing a design), it is recommended to call {\tt clean}
+instead of {\tt opt}.
 \item The command {\tt proc} converts {\it processes} (Yosys' internal
 representation of Verilog {\tt always}- and {\tt initial}-blocks) to circuits
 of multiplexers and storage elements (various types of flip-flops).
-\item The command {\tt memory} converts Yosys' internal representation of 
+\item The command {\tt memory} converts Yosys' internal representations of 
 arrays and array accesses to multi-port block memories, and then maps this
 block memories to address decoders and flip-flops, unless the option {\tt -nomap}
 is used, in which case the multi-port block memories stay in the design
@@ -188,7 +188,7 @@ to provide a custom set of rules for this process in the form of a Verilog
 source file, as we will see in the next section.
 \end{itemize}
 
-Now Yosys can be run with the file of the synthesis script as argument:
+Now Yosys can be run with the filename of the synthesis script as argument:
 
 \begin{figure}[H]
 \begin{lstlisting}[language=sh]
@@ -202,35 +202,37 @@ yosys softusb_navre.ys
 
 Now that we are using a synthesis script we can easily modify how Yosys
 synthesizes the design. The first thing we should customize is the
-call to the {\tt history} command:
+call to the {\tt hierarchy} command:
 
 Whenever it is known that there are no implicit blackboxes in the design, i.e.
-modules that are referred to but are not defined, the {\tt hierarchy} command
-should be called with the {\tt -check} option. The 2nd thing we can improve
-regarding the {\tt hierarchy} command is that we can tell it the name of the
-top level module of the design hierarchy. It will then automatically remove
-all modules that are not referenced from this top level module.
+modules that are referenced but are not defined, the {\tt hierarchy} command
+should be called with the {\tt -check} option. This will then cause synthesis
+to fail when implicit blackboxes are found in the design.
+
+The 2nd thing we can improve regarding the {\tt hierarchy} command is that we
+can tell it the name of the top level module of the design hierarchy. It will
+then automatically remove all modules that are not referenced from this top
+level module.
 
 \medskip
 
 For many designs it is also desired to optimize the encodings for the finite
-state machines (FSM) in the design. The {\tt fsm command} finds FSMs, extracts
+state machines (FSMs) in the design. The {\tt fsm} command finds FSMs, extracts
 them, performs some basic optimizations and then generate a circuit from
 the extracted and optimized description. It would also be possible to tell
-the FSM command to leave the FSMs in their extracted form, so they can be
-processed using custom commands. But in this case we don't need that.
+the {\tt fsm} command to leave the FSMs in their extracted form, so they can be
+further processed using custom commands. But in this case we don't want that.
 
 \medskip
 
 So now we have the final synthesis script for generating a BLIF file
-for the navre CPU:
+for the Navré CPU:
 
 \begin{figure}[H]
 \begin{lstlisting}[language=sh]
 read_verilog softusb_navre.v
 hierarchy -check -top softusb_navre
-proc; opt; memory; opt;
-   fsm; opt; techmap; opt
+proc; opt; memory; opt; fsm; opt; techmap; opt
 write_blif softusb_navre.blif
 \end{lstlisting}
  \renewcommand{\figurename}{Listing}
@@ -272,14 +274,14 @@ write_blif amber23.blif
 \label{aber23.ys}
 \end{figure}
 
-The problem with this core is that it contains no dedicated reset signals.
-Instead it is using the coding techiques shown in Listing~\ref{glob_arst} to
-set reset values to be used on the global asynchronous reset in an FPGA
+The problem with this core is that it contains no dedicated reset logic.
+Instead the coding techniques shown in Listing~\ref{glob_arst} are used to
+define reset values for the global asynchronous reset in an FPGA
 implementation. This design can not be expressed in BLIF as it is. Instead we
-need to use a synthesis script that transforms this to synchonous resets that
+need to use a synthesis script that transforms this form to synchronous resets that
 can be expressed in BLIF.
 
-(Note that this is not a problem if this coding techiques are used to model
+(Note that there is no problem if this coding techniques are used to model
 ROM, where the register is initialized using this syntax but is never updated
 otherwise.)
 
@@ -288,7 +290,7 @@ otherwise.)
 Listing~\ref{aber23.ys} shows the synthesis script for the Amber23 core. In
 line 17 the {\tt add} command is used to add a 1-bit wide global input signal
 with the name {\tt globrst}. That means that an input with that name is added
-to each module in the design hierarchy and then all module instanciations are
+to each module in the design hierarchy and then all module instantiations are
 altered so that this new signal is connected throughout the whole design
 hierarchy.
 
@@ -335,16 +337,16 @@ endmodule
 \end{figure}
 
 In line 18 the {\tt proc} command is called. But in this script the signal name
-{\tt globrst} is passed to the command as a global reset line to be used for
-resetting all registers to their initial values.
+{\tt globrst} is passed to the command as a global reset signal for resetting
+the registers to their assigned initial values.
 
 Finally in line 19 the {\tt techmap} command is used to replace all instances
 of flip-flops with asynchronous resets with flip-flops with synchronous resets.
 The map file used for this is shown in Listing~\ref{adff2dff.v}. Note how the
 {\tt techmap\_celltype} attribute is used in line 1 to tell the techmap command
-which cells to replace in the design, how the {\tt \_TECHMAP\_FAIL\_} wire
-(which evaluates to a constant value) determines if the parameter set is
-compatible with this replacement circuit in lines 15 and 16, and how the {\tt
+which cells to replace in the design, how the {\tt \_TECHMAP\_FAIL\_} wire in
+lines 15 and 16 (which evaluates to a constant value) determines if the
+parameter set is compatible with this replacement circuit, and how the {\tt
 \_TECHMAP\_DO\_} wire in line 13 provides a mini synthesis-script to be used to
 process this cell.
 
@@ -380,24 +382,27 @@ int main() {
 }
 \end{lstlisting}
 \renewcommand{\figurename}{Listing}
-\caption{Test program for Amber23 CPU (Sieve of Eratosthenes)}
+\caption{Test program for the Amber23 CPU (Sieve of Eratosthenes). Compiled using
+GCC 4.6.3 for ARM with {\tt -Os -marm -march=armv2a -mno-thumb-interwork
+-ffreestanding}, linked with {\tt -{}-fix-v4bx} set and booted with a custom
+setup routine written in ARM assembler.}
 \label{sieve}
 \end{figure*}
 
-\section{Validation of the Amber23 CPU}
+\section{Verification of the Amber23 CPU}
 
 The BLIF file for the Amber23 core, generated using Listings~\ref{aber23.ys}
 and \ref{adff2dff.v} and the version of the Amber23 RTL source that is bundled
-with yosys-bigsim was validated using the test-bench from yosys-bigsim
-and successfully executed the program shown in Listing~\ref{sieve}. The
-test program was compiled using GCC 4.6.3.
+with yosys-bigsim, was verified using the test-bench from yosys-bigsim.
+It successfully executed the program shown in Listing~\ref{sieve} in the
+test-bench.
 
 For simulation the BLIF file was converted back to Verilog using ABC
 \cite{ABC}. So this test includes the successful transformation of the BLIF
-file into the ABC internal format as well.
+file into ABC's internal format as well.
 
-The only interesting thing to write about the simulation itself is that this is
-probably one of the most wasteful and time consuming ways of successfully
+The only thing left to write about the simulation itself is that it probably
+was one of the most energy inefficient and time consuming ways of successfully
 calculating the first 50 primes the author has ever conducted.
 
 \section{Limitations}
