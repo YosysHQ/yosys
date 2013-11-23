@@ -1246,16 +1246,32 @@ file.
         transforms the internal RTL cells to the internal gate
         library.
 
-    -opt
-        run 'opt' pass on all cells from map file before using them and run
-        'opt_const' on all replacement cells before mapping recursively.
+When a module in the map file has the 'techmap_celltype' attribute set, it will
+match cells with a type that match the text value of this attribute.
 
-When a module in the map file has the 'celltype' attribute set, it will match
-cells with a type that match the text value of this attribute.
+All wires in the modules from the map file matching the pattern _TECHMAP_*
+or *._TECHMAP_* are special wires that are used to pass instructions from
+the mapping module to the techmap command. At the moment the following spoecial
+wires are supported:
 
-When a module in the map file contains a wire with the name 'TECHMAP_FAIL' (or
-one matching '*.TECHMAP_FAIL') then no substitution will be performed. The
-modules in the map file are tried in alphabetical order.
+    _TECHMAP_FAIL_
+        When this wire is set to a non-zero constant value, techmap will not
+        use this module and instead try the next module with a matching
+        'techmap_celltype' attribute.
+
+        When such a wire exists but does not have a constant value after all
+        _TECHMAP_DO_* commands have been executed, an error is generated.
+
+    _TECHMAP_DO_*
+        This wires are evaluated in alphabetical order. The constant text value
+        of this wire is a yosys command (or sequence of commands) that is run
+        by techmap on the module. A common use case is to run 'proc' on modules
+        that are written using always-statements.
+
+        When such a wire has a non-constant value at the time it is to be
+        evaluated, an error is produced. That means it is possible for such a
+        wire to start out as non-constant and evaluate to a constant value
+        during processing of other _TECHMAP_DO_* commands.
 
 When a module in the map file has a parameter where the according cell in the
 design has a port, the module from the map file is only used if the port in
