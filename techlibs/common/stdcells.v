@@ -32,54 +32,14 @@
 
 // --------------------------------------------------------
 
-module \$not (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-wire [Y_WIDTH-1:0] A_buf;
-\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-
-genvar i;
-generate
-	for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-		 \$_INV_ gate (
-			.A(A_buf[i]),
-			.Y(Y[i])
-		);
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$not ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$pos (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-genvar i;
-generate
-	for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-		if (i < A_WIDTH) begin
-			assign Y[i] = A[i];
-		end else if (A_SIGNED) begin
-			assign Y[i] = A[A_WIDTH-1];
-		end else begin
-			assign Y[i] = 0;
-		end
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$pos ;
 endmodule
 
 // --------------------------------------------------------
@@ -109,286 +69,57 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$and (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-wire [Y_WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-genvar i;
-generate
-	for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-		 \$_AND_ gate (
-			.A(A_buf[i]),
-			.B(B_buf[i]),
-			.Y(Y[i])
-		);
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$and ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$or (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-wire [Y_WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-genvar i;
-generate
-	for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-		 \$_OR_ gate (
-			.A(A_buf[i]),
-			.B(B_buf[i]),
-			.Y(Y[i])
-		);
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$or ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$xor (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-wire [Y_WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-genvar i;
-generate
-	for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-		 \$_XOR_ gate (
-			.A(A_buf[i]),
-			.B(B_buf[i]),
-			.Y(Y[i])
-		);
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$xor ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$xnor (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-wire [Y_WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-genvar i;
-generate
-	for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-		wire tmp;
-		 \$_XOR_ gate1 (
-			.A(A_buf[i]),
-			.B(B_buf[i]),
-			.Y(tmp)
-		);
-		 \$_INV_ gate2 (
-			.A(tmp),
-			.Y(Y[i])
-		);
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$xnor ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$reduce_and (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-wire [A_WIDTH-1:0] buffer;
-
-genvar i;
-generate
-	for (i = 1; i < A_WIDTH; i = i + 1) begin:V
-		 \$_AND_ gate (
-			.A(A[i]),
-			.B(buffer[i-1]),
-			.Y(buffer[i])
-		);
-	end
-endgenerate
-
-assign buffer[0] = A[0];
-assign Y = buffer[A_WIDTH-1];
-
+(* techmap_simplemap *)
+module \$reduce_and ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$reduce_or (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-wire [A_WIDTH-1:0] buffer;
-
-genvar i;
-generate
-	for (i = 1; i < A_WIDTH; i = i + 1) begin:V
-		 \$_OR_ gate (
-			.A(A[i]),
-			.B(buffer[i-1]),
-			.Y(buffer[i])
-		);
-	end
-endgenerate
-
-assign buffer[0] = A[0];
-assign Y = buffer[A_WIDTH-1];
-
+(* techmap_simplemap *)
+module \$reduce_or ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$reduce_xor (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-wire [A_WIDTH-1:0] buffer;
-
-genvar i;
-generate
-	for (i = 1; i < A_WIDTH; i = i + 1) begin:V
-		 \$_XOR_ gate (
-			.A(A[i]),
-			.B(buffer[i-1]),
-			.Y(buffer[i])
-		);
-	end
-endgenerate
-
-assign buffer[0] = A[0];
-assign Y = buffer[A_WIDTH-1];
-
+(* techmap_simplemap *)
+module \$reduce_xor ;
 endmodule
 
 
 // --------------------------------------------------------
 
-module \$reduce_xnor (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-wire [A_WIDTH-1:0] buffer;
-
-genvar i;
-generate
-	for (i = 1; i < A_WIDTH; i = i + 1) begin:V
-		 \$_XOR_ gate (
-			.A(A[i]),
-			.B(buffer[i-1]),
-			.Y(buffer[i])
-		);
-	end
-endgenerate
-
-assign buffer[0] = A[0];
- \$_INV_ gate_inv (
-	.A(buffer[A_WIDTH-1]),
-	.Y(Y[0])
-);
-
-generate
-	if (Y_WIDTH > 1) begin:V
-		assign Y[Y_WIDTH-1:1] = 0;
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$reduce_xnor ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$reduce_bool (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-wire [A_WIDTH-1:0] buffer;
-
-genvar i;
-generate
-	for (i = 1; i < A_WIDTH; i = i + 1) begin:V
-		 \$_OR_ gate (
-			.A(A[i]),
-			.B(buffer[i-1]),
-			.Y(buffer[i])
-		);
-	end
-endgenerate
-
-assign buffer[0] = A[0];
-assign Y = buffer[A_WIDTH-1];
-
+(* techmap_simplemap *)
+module \$reduce_bool ;
 endmodule
 
 // --------------------------------------------------------
@@ -1181,157 +912,26 @@ endmodule
 // --------------------------------------------------------
 ****/
 
-module \$logic_not (A, Y);
-
-parameter A_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-output [Y_WIDTH-1:0] Y;
-
-wire A_buf;
-
-\$reduce_bool #(
-	.A_SIGNED(A_SIGNED),
-	.A_WIDTH(A_WIDTH),
-	.Y_WIDTH(1)
-) A_logic (
-	.A(A), 
-	.Y(A_buf)
-);
-
- \$_INV_ gate (
-	.A(A_buf),
-	.Y(Y[0])
-);
-
-generate
-	if (Y_WIDTH > 1) begin:V
-		assign Y[Y_WIDTH-1:1] = 0;
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$logic_not ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$logic_and (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-wire A_buf, B_buf;
-
-\$reduce_bool #(
-	.A_SIGNED(A_SIGNED),
-	.A_WIDTH(A_WIDTH),
-	.Y_WIDTH(1)
-) A_logic (
-	.A(A), 
-	.Y(A_buf)
-);
-
-\$reduce_bool #(
-	.A_SIGNED(B_SIGNED),
-	.A_WIDTH(B_WIDTH),
-	.Y_WIDTH(1)
-) B_logic (
-	.A(B), 
-	.Y(B_buf)
-);
-
- \$_AND_ gate (
-	.A(A_buf),
-	.B(B_buf),
-	.Y(Y[0])
-);
-
-generate
-	if (Y_WIDTH > 1) begin:V
-		assign Y[Y_WIDTH-1:1] = 0;
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$logic_and ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$logic_or (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-wire A_buf, B_buf;
-
-\$reduce_bool #(
-	.A_SIGNED(A_SIGNED),
-	.A_WIDTH(A_WIDTH),
-	.Y_WIDTH(1)
-) A_logic (
-	.A(A), 
-	.Y(A_buf)
-);
-
-\$reduce_bool #(
-	.A_SIGNED(B_SIGNED),
-	.A_WIDTH(B_WIDTH),
-	.Y_WIDTH(1)
-) B_logic (
-	.A(B), 
-	.Y(B_buf)
-);
-
- \$_OR_ gate (
-	.A(A_buf),
-	.B(B_buf),
-	.Y(Y[0])
-);
-
-generate
-	if (Y_WIDTH > 1) begin:V
-		assign Y[Y_WIDTH-1:1] = 0;
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$logic_or ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$mux (A, B, S, Y);
-
-parameter WIDTH = 1;
-
-input [WIDTH-1:0] A, B;
-input S;
-output [WIDTH-1:0] Y;
-
-genvar i;
-generate
-	for (i = 0; i < WIDTH; i = i + 1) begin:V
-		\$_MUX_ gate (
-			.A(A[i]),
-			.B(B[i]),
-			.S(S),
-			.Y(Y[i])
-		);
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$mux ;
 endmodule
 
 // --------------------------------------------------------
@@ -1410,306 +1010,32 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$sr (SET, CLR, Q);
-
-parameter WIDTH = 0;
-parameter SET_POLARITY = 1'b1;
-parameter CLR_POLARITY = 1'b1;
-
-input [WIDTH-1:0] SET, CLR;
-output reg [WIDTH-1:0] Q;
-
-genvar i;
-generate
-	if (SET_POLARITY == 0 && CLR_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_SR_NN_ ff (
-				.S(SET[i]),
-				.R(CLR[i]),
-				.Q(Q[i])
-			);
-		end
-	if (SET_POLARITY == 0 && CLR_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_SR_NP_ ff (
-				.S(SET[i]),
-				.R(CLR[i]),
-				.Q(Q[i])
-			);
-		end
-	if (SET_POLARITY != 0 && CLR_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_SR_PN_ ff (
-				.S(SET[i]),
-				.R(CLR[i]),
-				.Q(Q[i])
-			);
-		end
-	if (SET_POLARITY != 0 && CLR_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_SR_PP_ ff (
-				.S(SET[i]),
-				.R(CLR[i]),
-				.Q(Q[i])
-			);
-		end
-endgenerate
-
+(* techmap_simplemap *)
+module \$sr ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$dff (CLK, D, Q);
-
-parameter WIDTH = 1;
-parameter CLK_POLARITY = 1'b1;
-
-input CLK;
-input [WIDTH-1:0] D;
-output [WIDTH-1:0] Q;
-
-genvar i;
-generate
-	if (CLK_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFF_N_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK)
-			);
-		end
-	if (CLK_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFF_P_ ff (
-				.D(D[i]),
-				.Q(Q[i]),
-				.C(CLK)
-			);
-		end
-endgenerate
-
+(* techmap_simplemap *)
+module \$dff ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$adff (CLK, ARST, D, Q);
-
-parameter WIDTH = 1;
-parameter CLK_POLARITY = 1'b1;
-parameter ARST_POLARITY = 1'b1;
-parameter ARST_VALUE = 0;
-
-input CLK, ARST;
-input [WIDTH-1:0] D;
-output [WIDTH-1:0] Q;
-
-genvar i;
-generate
-	for (i = 0; i < WIDTH; i = i + 1) begin:V
-		if (CLK_POLARITY == 0) begin:N
-			if (ARST_POLARITY == 0) begin:NN
-				if (ARST_VALUE[i] == 0) begin:NN0
-					 \$_DFF_NN0_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end else begin:NN1
-					 \$_DFF_NN1_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end
-			end else begin:NP
-				if (ARST_VALUE[i] == 0) begin:NP0
-					 \$_DFF_NP0_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end else begin:NP1
-					 \$_DFF_NP1_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end
-			end
-		end else begin:P
-			if (ARST_POLARITY == 0) begin:PN
-				if (ARST_VALUE[i] == 0) begin:PN0
-					 \$_DFF_PN0_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end else begin:PN1
-					 \$_DFF_PN1_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end
-			end else begin:PP
-				if (ARST_VALUE[i] == 0) begin:PP0
-					 \$_DFF_PP0_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end else begin:PP1
-					 \$_DFF_PP1_ ff (
-						.D(D[i]),
-						.Q(Q[i]),
-						.C(CLK),
-						.R(ARST)
-					);
-				end
-			end
-		end
-	end
-endgenerate
-
+(* techmap_simplemap *)
+module \$adff ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$dffsr (CLK, SET, CLR, D, Q);
-
-parameter WIDTH = 0;
-parameter CLK_POLARITY = 1'b1;
-parameter SET_POLARITY = 1'b1;
-parameter CLR_POLARITY = 1'b1;
-
-input CLK;
-input [WIDTH-1:0] SET, CLR, D;
-output reg [WIDTH-1:0] Q;
-
-genvar i;
-generate
-	if (CLK_POLARITY == 0 && SET_POLARITY == 0 && CLR_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_NNN_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (CLK_POLARITY == 0 && SET_POLARITY == 0 && CLR_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_NNP_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (CLK_POLARITY == 0 && SET_POLARITY != 0 && CLR_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_NPN_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (CLK_POLARITY == 0 && SET_POLARITY != 0 && CLR_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_NPP_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (CLK_POLARITY != 0 && SET_POLARITY == 0 && CLR_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_PNN_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (CLK_POLARITY != 0 && SET_POLARITY == 0 && CLR_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_PNP_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (CLK_POLARITY != 0 && SET_POLARITY != 0 && CLR_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_PPN_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (CLK_POLARITY != 0 && SET_POLARITY != 0 && CLR_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DFFSR_PPP_ ff (
-				.C(CLK),
-				.S(SET[i]),
-				.R(CLR[i]),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-endgenerate
-
+(* techmap_simplemap *)
+module \$dffsr ;
 endmodule
 
 // --------------------------------------------------------
 
-module \$dlatch (EN, D, Q);
-
-parameter WIDTH = 0;
-parameter EN_POLARITY = 1'b1;
-
-input EN;
-input [WIDTH-1:0] D;
-output reg [WIDTH-1:0] Q;
-
-genvar i;
-generate
-	if (EN_POLARITY == 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DLATCH_N_ ff (
-				.E(EN),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-	if (EN_POLARITY != 0)
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
-			 \$_DLATCH_P_ ff (
-				.E(EN),
-				.D(D[i]),
-				.Q(Q[i])
-			);
-		end
-endgenerate
-
+(* techmap_simplemap *)
+module \$dlatch ;
 endmodule
 
 // --------------------------------------------------------

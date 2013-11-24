@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
+
 static void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	int width = cell->parameters.at("\\Y_WIDTH").as_int();
@@ -448,6 +450,30 @@ static void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
+{
+	mappers["$not"]         = simplemap_not;
+	mappers["$pos"]         = simplemap_pos;
+	mappers["$and"]         = simplemap_bitop;
+	mappers["$or"]          = simplemap_bitop;
+	mappers["$xor"]         = simplemap_bitop;
+	mappers["$xnor"]        = simplemap_bitop;
+	mappers["$reduce_and"]  = simplemap_reduce;
+	mappers["$reduce_or"]   = simplemap_reduce;
+	mappers["$reduce_xor"]  = simplemap_reduce;
+	mappers["$reduce_xnor"] = simplemap_reduce;
+	mappers["$reduce_bool"] = simplemap_reduce;
+	mappers["$logic_not"]   = simplemap_lognot;
+	mappers["$logic_and"]   = simplemap_logbin;
+	mappers["$logic_or"]    = simplemap_logbin;
+	mappers["$mux"]         = simplemap_mux;
+	mappers["$sr"]          = simplemap_sr;
+	mappers["$dff"]         = simplemap_dff;
+	mappers["$dffsr"]       = simplemap_dffsr;
+	mappers["$adff"]        = simplemap_adff;
+	mappers["$dlatch"]      = simplemap_dlatch;
+}
+
 struct SimplemapPass : public Pass {
 	SimplemapPass() : Pass("simplemap", "mapping simple coarse-grain cells") { }
 	virtual void help()
@@ -470,41 +496,20 @@ struct SimplemapPass : public Pass {
 		log_header("Executing SIMPLEMAP pass (map simple cells to gate primitives).\n");
 		extra_args(args, 1, design);
 
-		std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> supported_cells;
-
-		supported_cells["$not"]         = simplemap_not;
-		supported_cells["$pos"]         = simplemap_pos;
-		supported_cells["$and"]         = simplemap_bitop;
-		supported_cells["$or"]          = simplemap_bitop;
-		supported_cells["$xor"]         = simplemap_bitop;
-		supported_cells["$xnor"]        = simplemap_bitop;
-		supported_cells["$reduce_and"]  = simplemap_reduce;
-		supported_cells["$reduce_or"]   = simplemap_reduce;
-		supported_cells["$reduce_xor"]  = simplemap_reduce;
-		supported_cells["$reduce_xnor"] = simplemap_reduce;
-		supported_cells["$reduce_bool"] = simplemap_reduce;
-		supported_cells["$logic_not"]   = simplemap_lognot;
-		supported_cells["$logic_and"]   = simplemap_logbin;
-		supported_cells["$logic_or"]    = simplemap_logbin;
-		supported_cells["$mux"]         = simplemap_mux;
-		supported_cells["$sr"]          = simplemap_sr;
-		supported_cells["$dff"]         = simplemap_dff;
-		supported_cells["$dffsr"]       = simplemap_dffsr;
-		supported_cells["$adff"]        = simplemap_adff;
-		supported_cells["$dlatch"]      = simplemap_dlatch;
+		std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
+		simplemap_get_mappers(mappers);
 
 		for (auto &mod_it : design->modules) {
 			if (!design->selected(mod_it.second))
 				continue;
 			std::vector<RTLIL::Cell*> delete_cells;
 			for (auto &cell_it : mod_it.second->cells) {
-				auto mapper = supported_cells[cell_it.second->type];
-				if (mapper == NULL)
+				if (mappers.count(cell_it.second->type) == 0)
 					continue;
 				if (!design->selected(mod_it.second, cell_it.second))
 					continue;
 				log("Mapping %s.%s (%s).\n", RTLIL::id2cstr(mod_it.first), RTLIL::id2cstr(cell_it.first), RTLIL::id2cstr(cell_it.second->type));
-				mapper(mod_it.second, cell_it.second);
+				mappers.at(cell_it.second->type)(mod_it.second, cell_it.second);
 				delete_cells.push_back(cell_it.second);
 			}
 			for (auto &it : delete_cells) {

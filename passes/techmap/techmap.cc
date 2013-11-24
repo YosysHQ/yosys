@@ -27,6 +27,9 @@
 
 #include "passes/techmap/stdcells.inc"
 
+// see simplemap.cc
+extern void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
+
 static void apply_prefix(std::string prefix, std::string &id)
 {
 	if (id[0] == '\\')
@@ -47,6 +50,7 @@ static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module 
 	}
 }
 
+std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
 std::map<std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 std::map<RTLIL::Module*, bool> techmap_do_cache;
 
@@ -217,7 +221,20 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 			RTLIL::Module *tpl = map->modules[tpl_name];
 			std::map<RTLIL::IdString, RTLIL::Const> parameters = cell->parameters;
 
-			if (!flatten_mode) {
+			if (!flatten_mode)
+			{
+				if (tpl->get_bool_attribute("\\techmap_simplemap")) {
+					log("Mapping %s.%s (%s) with simplemap.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+					if (simplemap_mappers.count(cell->type) == 0)
+						log_error("No simplemap mapper for cell type %s found!\n", RTLIL::id2cstr(cell->type));
+					simplemap_mappers.at(cell->type)(module, cell);
+					module->cells.erase(cell->name);
+					delete cell;
+					cell = NULL;
+					did_something = true;
+					break;
+				}
+
 				for (auto conn : cell->connections) {
 					if (conn.first.substr(0, 1) == "$")
 						continue;
@@ -386,11 +403,15 @@ struct TechmapPass : public Pass {
 		log("        '-ignore_redef' option set.\n");
 		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
-		log("match cells with a type that match the text value of this attribute.\n");
+		log("match cells with a type that match the text value of this attribute. Otherwise\n");
+		log("the module name will be used to match the cell.\n");
+		log("\n");
+		log("When a module in the map file has the 'techmap_simplemap' attribute set, techmap\n");
+		log("will use 'simplemap' (see 'help simplemap') to map cells matching the module.\n");
 		log("\n");
 		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
 		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
-		log("the mapping module to the techmap command. At the moment the following spoecial\n");
+		log("the mapping module to the techmap command. At the moment the following special\n");
 		log("wires are supported:\n");
 		log("\n");
 		log("    _TECHMAP_FAIL_\n");
@@ -411,6 +432,13 @@ struct TechmapPass : public Pass {
 		log("        evaluated, an error is produced. That means it is possible for such a\n");
 		log("        wire to start out as non-constant and evaluate to a constant value\n");
 		log("        during processing of other _TECHMAP_DO_* commands.\n");
+		log("\n");
+		log("In addition to this special wires, techmap also supports special parameters in\n");
+		log("modules in the map file:\n");
+		log("\n");
+		log("    _TECHMAP_CELLTYPE_\n");
+		log("        When a parameter with this name exists, it will be set to the type name\n");
+		log("        of the cell that matches the module.\n");
 		log("\n");
 		log("When a module in the map file has a parameter where the according cell in the\n");
 		log("design has a port, the module from the map file is only used if the port in\n");
@@ -452,6 +480,8 @@ struct TechmapPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		simplemap_get_mappers(simplemap_mappers);
 
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
@@ -500,6 +530,7 @@ struct TechmapPass : public Pass {
 		log("No more expansions possible.\n");
 		techmap_cache.clear();
 		techmap_do_cache.clear();
+		simplemap_mappers.clear();
 		delete map;
 		log_pop();
 	}
