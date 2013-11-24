@@ -223,7 +223,7 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 						continue;
 					if (tpl->wires.count(conn.first) > 0 && tpl->wires.at(conn.first)->port_id > 0)
 						continue;
-					if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0)
+					if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0 || tpl->avail_parameters.count(conn.first) == 0)
 						goto next_tpl;
 					parameters[conn.first] = conn.second.as_const();
 				}
@@ -232,6 +232,9 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 		next_tpl:
 					continue;
 				}
+
+				if (tpl->avail_parameters.count("\\_TECHMAP_CELLTYPE_") != 0)
+					parameters["\\_TECHMAP_CELLTYPE_"] = RTLIL::unescape_id(cell->type);
 			}
 
 			std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
@@ -475,7 +478,10 @@ struct TechmapPass : public Pass {
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
 		for (auto &it : map->modules) {
 			if (it.second->attributes.count("\\techmap_celltype") && !it.second->attributes.at("\\techmap_celltype").str.empty()) {
-				celltypeMap[RTLIL::escape_id(it.second->attributes.at("\\techmap_celltype").str)].insert(it.first);
+				char *p = strdup(it.second->attributes.at("\\techmap_celltype").str.c_str());
+				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(NULL, " \t\r\n"))
+					celltypeMap[RTLIL::escape_id(q)].insert(it.first);
+				free(p);
 			} else
 				celltypeMap[it.first].insert(it.first);
 		}

@@ -805,13 +805,17 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_TASK:
 	case AST_FUNCTION:
 	case AST_AUTOWIRE:
-	case AST_PARAMETER:
 	case AST_LOCALPARAM:
 	case AST_DEFPARAM:
 	case AST_GENVAR:
 	case AST_GENFOR:
 	case AST_GENBLOCK:
 	case AST_GENIF:
+		break;
+
+	// remember the parameter, needed for example in techmap
+	case AST_PARAMETER:
+		current_module->avail_parameters.insert(str);
 		break;
 
 	// create an RTLIL::Wire for an AST_WIRE node
