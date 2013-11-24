@@ -1,2 +1,0 @@
-This directory contains test cases that can't be tested using Icarus Verilog
-because they exceed the Verilog subset that is supported by Icarus Verilog.
