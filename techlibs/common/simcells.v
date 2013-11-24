@@ -51,13 +51,8 @@ endmodule
 
 module \$_MUX_ (A, B, S, Y);
 input A, B, S;
-output reg Y;
-always @* begin
-	if (S)
-		Y = B;
-	else
-		Y = A;
-end
+output Y;
+assign Y = S ? B : A;
 endmodule
 
 module  \$_SR_NN_ (S, R, Q);

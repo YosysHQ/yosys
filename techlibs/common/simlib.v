@@ -31,13 +31,11 @@
  *
  */
 
-`define INPUT_A \
-input [A_WIDTH-1:0] A; \
-generate if (A_SIGNED) begin:A_BUF wire signed [A_WIDTH-1:0] val = A; end else begin:A_BUF wire [A_WIDTH-1:0] val = A; end endgenerate
+`define INPUT_A input [A_WIDTH-1:0] A; \
+  generate if (A_SIGNED) begin:A_BUF wire signed [A_WIDTH-1:0] val = A; end else begin:A_BUF wire [A_WIDTH-1:0] val = A; end endgenerate
 
-`define INPUT_B \
-input [B_WIDTH-1:0] B; \
-generate if (B_SIGNED) begin:B_BUF wire signed [B_WIDTH-1:0] val = B; end else begin:B_BUF wire [B_WIDTH-1:0] val = B; end endgenerate
+`define INPUT_B input [B_WIDTH-1:0] B; \
+  generate if (B_SIGNED) begin:B_BUF wire signed [B_WIDTH-1:0] val = B; end else begin:B_BUF wire [B_WIDTH-1:0] val = B; end endgenerate
 
 // --------------------------------------------------------
 
@@ -661,7 +659,7 @@ generate
 	end
 endgenerate
 
-always @*
+always @* begin
 	casez ({I[WIDTH-1], lut0_out, lut1_out})
 		3'b?11: O = 1'b1;
 		3'b?00: O = 1'b0;
@@ -669,6 +667,7 @@ always @*
 		3'b1??: O = lut1_out;
 		default: O = 1'bx;
 	endcase
+end
 
 endmodule
 
@@ -784,9 +783,10 @@ input EN;
 input [WIDTH-1:0] D;
 output reg [WIDTH-1:0] Q;
 
-always @*
+always @* begin
 	if (EN == EN_POLARITY)
 		Q <= D;
+end
 
 endmodule
 

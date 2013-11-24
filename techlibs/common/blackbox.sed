@@ -1,4 +1,4 @@
 #!/bin/sed -r
-/^(wire|assign|reg)/ d;
-/^(genvar|always|initial)/,/^end/ d;
+/^(wire|assign|reg|event)/ d;
+/^(genvar|generate|always|initial)/,/^end/ d;
 s/ reg / /;
