@@ -219,7 +219,7 @@ namespace AST
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1 = false, bool dump_ast2 = false, bool dump_vlog = false, bool nolatches = false, bool nomem2reg = false, bool mem2reg = false, bool lib = false, bool noopt = false);
+	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1 = false, bool dump_ast2 = false, bool dump_vlog = false, bool nolatches = false, bool nomem2reg = false, bool mem2reg = false, bool lib = false, bool noopt = false, bool ignore_redef = false);
 
 	// parametric modules are supported directly by the AST library
 	// therfore we need our own derivate of RTLIL::Module with overloaded virtual functions

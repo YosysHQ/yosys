@@ -763,7 +763,7 @@ static AstModule* process_module(AstNode *ast)
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool ignore_redef)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
@@ -777,9 +777,14 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
-		if (design->modules.count((*it)->str) != 0)
-			log_error("Re-definition of module `%s' at %s:%d!\n",
+		if (design->modules.count((*it)->str) != 0) {
+			if (!ignore_redef)
+				log_error("Re-definition of module `%s' at %s:%d!\n",
+						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+			log_error("Ignoring re-definition of module `%s' at %s:%d!\n",
 					(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+			continue;
+		}
 		design->modules[(*it)->str] = process_module(*it);
 	}
 }

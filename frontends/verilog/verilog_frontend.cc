@@ -96,6 +96,10 @@ struct VerilogFrontend : public Frontend {
 		log("        don't perform basic optimizations (such as const folding) in the\n");
 		log("        high-level front-end.\n");
 		log("\n");
+		log("    -ignore_redef\n");
+		log("        ignore re-definitions of modules. (the default behavior is to\n");
+		log("        create an error message.)\n");
+		log("\n");
 		log("    -Dname[=definition]\n");
 		log("        define the preprocessor symbol 'name' and set its optional value\n");
 		log("        'definition'\n");
@@ -117,6 +121,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_nopp = false;
 		bool flag_lib = false;
 		bool flag_noopt = false;
+		bool flag_ignore_redef = false;
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
 		frontend_verilog_yydebug = false;
@@ -170,6 +175,10 @@ struct VerilogFrontend : public Frontend {
 				flag_noopt = true;
 				continue;
 			}
+			if (arg == "-ignore_redef") {
+				flag_ignore_redef = true;
+				continue;
+			}
 			if (arg.compare(0,2,"-D") == 0) {
 				size_t equal = arg.find('=',2);   // returns string::npos it not found
 				std::string name = arg.substr(2,equal-2);
@@ -211,7 +220,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_ignore_redef);
 
 		if (!flag_nopp)
 			fclose(fp);
