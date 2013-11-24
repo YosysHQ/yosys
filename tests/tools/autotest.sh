@@ -3,6 +3,7 @@
 libs=""
 genvcd=false
 use_isim=false
+use_modelsim=false
 verbose=false
 keeprunning=false
 backend_opts="-noattr -noexpr"
@@ -14,10 +15,12 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts il:wkvrxs: opt; do
+while getopts iml:wkvrxs: opt; do
 	case "$opt" in
 		i)
 			use_isim=true ;;
+		m)
+			use_modelsim=true ;;
 		l)
 			libs="$libs $(cd $(dirname $OPTARG); pwd)/$(basename $OPTARG)";;
 		w)
@@ -69,7 +72,12 @@ create_ref() {
 
 compile_and_run() {
 	exe="$1"; output="$2"; shift 2
-	if $use_isim; then
+	if $use_modelsim; then
+		altver=$( ls -v /opt/altera/ | grep '^[0-9]' | tail -n1; )
+		/opt/altera/$altver/modelsim_ase/bin/vlib work
+		/opt/altera/$altver/modelsim_ase/bin/vlog "$@"
+		/opt/altera/$altver/modelsim_ase/bin/vsim -c -do 'run -all; exit;' testbench | grep '#OUT#' > "$output"
+	elif $use_isim; then
 		(
 			set +x
 			files=( "$@" )

@@ -206,7 +206,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 
 		fprintf(f, "task %s;\n", idy(mod->name, "print_status").c_str());
 		fprintf(f, "begin\n");
-		fprintf(f, "\t$display(\"%%b %%b %%b %%t %%d\", {");
+		fprintf(f, "\t$display(\"#OUT# %%b %%b %%b %%t %%d\", {");
 		if (signal_in.size())
 			for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
 				fprintf(f, "%s %s", it == signal_in.begin() ? "" : ",", it->first.c_str());
@@ -268,17 +268,17 @@ static void autotest(FILE *f, RTLIL::Design *design)
 
 		fprintf(f, "task %s;\n", idy(mod->name, "print_header").c_str());
 		fprintf(f, "begin\n");
-		fprintf(f, "\t$display();\n");
+		fprintf(f, "\t$display(\"#OUT#\");\n");
 		for (auto &hdr : header1)
-			fprintf(f, "\t$display(\"  %s\");\n", hdr.c_str());
-		fprintf(f, "\t$display();\n");
-		fprintf(f, "\t$display(\"%s\");\n", header2.c_str());
+			fprintf(f, "\t$display(\"#OUT#   %s\");\n", hdr.c_str());
+		fprintf(f, "\t$display(\"#OUT#\");\n");
+		fprintf(f, "\t$display(\"#OUT# %s\");\n", header2.c_str());
 		fprintf(f, "end\n");
 		fprintf(f, "endtask\n\n");
 
 		fprintf(f, "task %s;\n", idy(mod->name, "test").c_str());
 		fprintf(f, "begin\n");
-		fprintf(f, "\t$display(\"\\n==== %s ====\");\n", idy(mod->name).c_str());
+		fprintf(f, "\t$display(\"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name).c_str());
 		fprintf(f, "\t%s;\n", idy(mod->name, "reset").c_str());
 		fprintf(f, "\tfor (i=0; i<%d; i=i+1) begin\n", NUM_ITER);
 		fprintf(f, "\t\tif (i %% 20 == 0) %s;\n", idy(mod->name, "print_header").c_str());
