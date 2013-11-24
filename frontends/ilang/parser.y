@@ -54,7 +54,7 @@ using namespace ILANG_FRONTEND;
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
 %token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_INIT
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
-%token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE
+%token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED
 
 %type <sigspec> sigspec sigspec_list
 %type <integer> sync_type
@@ -188,6 +188,12 @@ cell_body:
 		current_cell->parameters[$3] = *$4;
 		free($3);
 		delete $4;
+	} |
+	cell_body TOK_PARAMETER TOK_SIGNED TOK_ID constant TOK_EOL {
+		current_cell->parameters[$4] = *$5;
+		current_cell->signed_parameters.insert($4);
+		free($4);
+		delete $5;
 	} |
 	cell_body TOK_CONNECT TOK_ID sigspec TOK_EOL {
 		if (current_cell->connections.count($3) != 0)

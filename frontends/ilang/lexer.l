@@ -39,6 +39,7 @@
 "module"	{ return TOK_MODULE; }
 "attribute"	{ return TOK_ATTRIBUTE; }
 "parameter"	{ return TOK_PARAMETER; }
+"signed"	{ return TOK_SIGNED; }
 "wire"		{ return TOK_WIRE; }
 "memory"	{ return TOK_MEMORY; }
 "width"		{ return TOK_WIDTH; }
