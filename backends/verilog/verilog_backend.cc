@@ -149,7 +149,7 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 	return true;
 }
 
-void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false)
+void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false)
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
@@ -163,10 +163,11 @@ void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, boo
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
-			fprintf(f, "%s32'sd%u", val < 0 ? "-" : "", abs(val));
+			// fprintf(f, "%s32'sd%u", val < 0 ? "-" : "", abs(val));
+			fprintf(f, "%d", val);
 		} else {
 	dump_bits:
-			fprintf(f, "%d'b", width);
+			fprintf(f, "%d'%sb", width, set_signed ? "s" : "");
 			if (width == 0)
 				fprintf(f, "0");
 			for (int i = offset+width-1; i >= offset; i--) {
@@ -638,7 +639,8 @@ void dump_cell(FILE *f, std::string indent, RTLIL::Cell *cell)
 			if (it != cell->parameters.begin())
 				fprintf(f, ",");
 			fprintf(f, "\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-			dump_const(f, it->second);
+			bool is_signed = cell->signed_parameters.count(it->first) > 0;
+			dump_const(f, it->second, -1, 0, !is_signed, is_signed);
 			fprintf(f, ")");
 		}
 		fprintf(f, "\n%s" ")", indent.c_str());
