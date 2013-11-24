@@ -296,8 +296,7 @@ Roadmap / Large-scale TODOs
    - yosys-bigsim: https://github.com/cliffordwolf/yosys-bigsim
 
 - Technology mapping for real-world applications
-   - Add "mini synth script" feature to techmap pass
-   - Add const-folding via cell parameters to techmap pass
+   - Add bit-wise const-folding via cell parameters to techmap pass
    - Rewrite current stdcells.v techmap rules (modular and clean)
    - Improve Xilinx FGPA synthesis (RAMB, CARRY4, SLR, etc.)
 
