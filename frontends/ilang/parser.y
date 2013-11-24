@@ -54,7 +54,7 @@ using namespace ILANG_FRONTEND;
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
 %token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_INIT
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
-%token TOK_PARAMETER TOK_ATTRIBUTE TOK_AUTO TOK_MEMORY TOK_SIZE
+%token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE
 
 %type <sigspec> sigspec sigspec_list
 %type <integer> sync_type
@@ -124,9 +124,6 @@ wire_stmt:
 	};
 
 wire_options:
-	wire_options TOK_AUTO {
-		current_wire->auto_width = true;
-	} |
 	wire_options TOK_WIDTH TOK_INT {
 		current_wire->width = $3;
 	} |

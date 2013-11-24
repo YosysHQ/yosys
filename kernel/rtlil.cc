@@ -265,11 +265,6 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, std::map<RTLIL::IdString, 
 	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
 }
 
-void RTLIL::Module::update_auto_wires(std::map<RTLIL::IdString, int>)
-{
-	log_error("Module `%s' has automatic wires bu no HDL backend to handle it!\n", id2cstr(name));
-}
-
 size_t RTLIL::Module::count_id(RTLIL::IdString id)
 {
 	return wires.count(id) + memories.count(id) + cells.count(id) + processes.count(id);
@@ -779,7 +774,6 @@ RTLIL::Wire::Wire()
 	port_id = 0;
 	port_input = false;
 	port_output = false;
-	auto_width = false;
 }
 
 RTLIL::Memory::Memory()

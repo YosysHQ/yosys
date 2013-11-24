@@ -155,66 +155,6 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		did_something = true;
 	}
 
-	if (did_something)
-		return did_something;
-
-	std::map<RTLIL::SigSpec, int> auto_wires;
-
-	for (auto &wire_it : module->wires) {
-		if (wire_it.second->auto_width)
-			auto_wires[RTLIL::SigSpec(wire_it.second)] = -1;
-	}
-
-	for (auto &cell_it : module->cells)
-	for (auto &conn : cell_it.second->connections)
-	for (auto &awit : auto_wires) {
-		if (awit.second >= 0 || conn.second != awit.first)
-			continue;
-		if (design->modules.count(cell_it.second->type) == 0) {
-			log("WARNING: Module `%s' used in auto-delaration of the wire `%s.%s' cannot be found.\n",
-					cell_it.second->type.c_str(), module->name.c_str(), log_signal(awit.first));
-			continue;
-		}
-		RTLIL::Module *mod = design->modules[cell_it.second->type];
-		RTLIL::Wire *wire = NULL;
-		if (mod->wires.count(conn.first) == 0) {
-			for (auto &wire_it : mod->wires) {
-				if (wire_it.second->port_id == 0)
-					continue;
-				char buffer[100];
-				snprintf(buffer, 100, "$%d", wire_it.second->port_id);
-				if (buffer == conn.first) {
-					wire = wire_it.second;
-					break;
-				}
-			}
-		} else
-			wire = mod->wires[conn.first];
-		if (!wire || wire->port_id == 0)
-			log_error("No port `%s' found in `%s' but used by instanciation in `%s'!\n",
-					conn.first.c_str(), mod->name.c_str(), module->name.c_str());
-		if (wire->auto_width)
-			log_error("Signal `%s' found in `%s' and used by instanciation in `%s' for an auto wire is an auto-wire itself!\n",
-					log_signal(awit.first), mod->name.c_str(), module->name.c_str());
-		awit.second = wire->width;
-	}
-
-	std::map<RTLIL::IdString, int> auto_sizes;
-	for (auto &awit : auto_wires) {
-		if (awit.second < 0)
-			log("Can't further resolve auto-wire `%s.%s' (width %d) using cell ports.\n",
-					module->name.c_str(), awit.first.chunks[0].wire->name.c_str(),
-					awit.first.chunks[0].wire->width);
-		else
-			auto_sizes[awit.first.chunks[0].wire->name] = awit.second;
-	}
-
-	if (auto_sizes.size() > 0) {
-		module->update_auto_wires(auto_sizes);
-		log_header("Continuing HIERARCHY pass.\n");
-		did_something = true;
-	}
-
 	return did_something;
 }
 

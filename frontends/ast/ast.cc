@@ -876,44 +876,6 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	return modname;
 }
 
-// recompile a module from AST with updated widths for auto-wires
-// (auto-wires are wires that are used but not declared an thus have an automatically determined width)
-void AstModule::update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes)
-{
-	log_header("Executing AST frontend in update_auto_wires mode using pre-parsed AST for module `%s'.\n", name.c_str());
-
-	current_ast = NULL;
-	flag_dump_ast1 = false;
-	flag_dump_ast2 = false;
-	flag_dump_vlog = false;
-	flag_nolatches = nolatches;
-	flag_nomem2reg = nomem2reg;
-	flag_mem2reg = mem2reg;
-	flag_lib = lib;
-	flag_noopt = noopt;
-	use_internal_line_num();
-
-	for (auto it = auto_sizes.begin(); it != auto_sizes.end(); it++) {
-		log("Adding extra wire declaration to AST: wire [%d:0] %s\n", it->second - 1, it->first.c_str());
-		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, AstNode::mkconst_int(it->second - 1, true), AstNode::mkconst_int(0, true)));
-		wire->str = it->first;
-		ast->children.insert(ast->children.begin(), wire);
-	}
-
-	AstModule *newmod =  process_module(ast);
-
-	delete ast;
-	ast = newmod->ast;
-	newmod->ast = NULL;
-
-	wires.swap(newmod->wires);
-	cells.swap(newmod->cells);
-	processes.swap(newmod->processes);
-	connections.swap(newmod->connections);
-	attributes.swap(newmod->attributes);
-	delete newmod;
-}
-
 RTLIL::Module *AstModule::clone() const
 {
 	AstModule *new_mod = new AstModule;

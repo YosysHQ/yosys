@@ -265,7 +265,6 @@ struct RTLIL::Module {
 	RTLIL_ATTRIBUTE_MEMBERS
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters, std::set<RTLIL::IdString> signed_parameters);
-	virtual void update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes);
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void check();
 	virtual void optimize();
@@ -283,7 +282,7 @@ struct RTLIL::Module {
 struct RTLIL::Wire {
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
-	bool port_input, port_output, auto_width;
+	bool port_input, port_output;
 	RTLIL_ATTRIBUTE_MEMBERS
 	Wire();
 };

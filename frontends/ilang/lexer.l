@@ -41,7 +41,6 @@
 "parameter"	{ return TOK_PARAMETER; }
 "wire"		{ return TOK_WIRE; }
 "memory"	{ return TOK_MEMORY; }
-"auto"		{ return TOK_AUTO; }
 "width"		{ return TOK_WIDTH; }
 "offset"	{ return TOK_OFFSET; }
 "size"		{ return TOK_SIZE; }

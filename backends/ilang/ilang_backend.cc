@@ -118,8 +118,6 @@ void ILANG_BACKEND::dump_wire(FILE *f, std::string indent, const RTLIL::Wire *wi
 		fprintf(f, "\n");
 	}
 	fprintf(f, "%s" "wire ", indent.c_str());
-	if (wire->auto_width)
-		fprintf(f, "auto ");
 	if (wire->width != 1)
 		fprintf(f, "width %d ", wire->width);
 	if (wire->start_offset != 0)
