@@ -372,6 +372,11 @@ struct TechmapPass : public Pass {
 		log("        transforms the internal RTL cells to the internal gate\n");
 		log("        library.\n");
 		log("\n");
+		log("    -share_map filename\n");
+		log("        like -map, but look for the file in the share directory (where the\n");
+		log("        yosys data files are). this is mainly used internally when techmap\n");
+		log("        is called from other commands.\n");
+		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute.\n");
 		log("\n");
@@ -421,6 +426,10 @@ struct TechmapPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
 				map_files.push_back(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-share_map" && argidx+1 < args.size()) {
+				map_files.push_back(get_share_file_name(args[++argidx]));
 				continue;
 			}
 			break;

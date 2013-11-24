@@ -82,7 +82,7 @@ struct SynthXilinxPass : public Pass {
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
-		log("        techmap -map <share_dir>/xilinx/cells.v\n");
+		log("        techmap -share_map xilinx/cells.v\n");
 		log("        clean\n");
 		log("\n");
 		log("    clkbuf:\n");
@@ -94,7 +94,7 @@ struct SynthXilinxPass : public Pass {
 		log("        iopadmap -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks\n");
 		log("\n");
 		log("    edif:\n");
-		log("        write_edif -top <top> synth.edif\n");
+		log("        write_edif synth.edif\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -182,7 +182,7 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
-			Pass::call(design, stringf("techmap -map %s", get_share_file_name("xilinx/cells.v").c_str()));
+			Pass::call(design, "techmap -share_map xilinx/cells.v");
 			Pass::call(design, "clean");
 		}
 
@@ -201,7 +201,7 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "edif"))
 		{
 			if (!edif_file.empty())
-				Pass::call(design, stringf("write_edif -top %s %s", top_module.c_str(), edif_file.c_str()));
+				Pass::call(design, stringf("write_edif %s", edif_file.c_str()));
 		}
 
 		log_pop();
