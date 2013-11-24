@@ -262,6 +262,11 @@ Verilog Attributes and non-standard features
   initialized "FPGA-style" with 'reg foo = val'. It can be used during synthesis
   to add the necessary reset logic.
 
+- The "top" attribute on a module marks this module as the top of the
+  design hierarchy. The "hierarchy" command sets this attribute when called
+  with "-top". Other commands, such as "flatten" and various backends
+  use this attribute to determine the top module.
+
 - In addition to the (* ... *) attribute syntax, yosys supports
   the non-standard {* ... *} attribute syntax to set default attributes
   for everything that comes after the {* ... *} statement. (Reset

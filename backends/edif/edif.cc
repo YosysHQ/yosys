@@ -118,6 +118,11 @@ struct EdifBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		if (top_module_name.empty())
+			for (auto & mod_it:design->modules)
+				if (mod_it.second->get_bool_attribute("\\top"))
+					top_module_name = mod_it.first;
+
 		for (auto module_it : design->modules)
 		{
 			RTLIL::Module *module = module_it.second;

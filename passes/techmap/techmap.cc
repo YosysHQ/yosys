@@ -500,19 +500,42 @@ struct FlattenPass : public Pass {
 		for (auto &it : design->modules)
 			celltypeMap[it.first].insert(it.first);
 
+		RTLIL::Module *top_mod = NULL;
+		for (auto &mod_it : design->modules)
+			if (mod_it.second->get_bool_attribute("\\top"))
+				top_mod = mod_it.second;
+
 		bool did_something = true;
 		std::set<RTLIL::Cell*> handled_cells;
 		while (did_something) {
 			did_something = false;
-			for (auto &mod_it : design->modules)
-				if (techmap_module(design, mod_it.second, design, handled_cells, celltypeMap, true))
+			if (top_mod != NULL) {
+				if (techmap_module(design, top_mod, design, handled_cells, celltypeMap, true))
 					did_something = true;
+			} else {
+				for (auto &mod_it : design->modules)
+					if (techmap_module(design, mod_it.second, design, handled_cells, celltypeMap, true))
+						did_something = true;
+			}
 		}
 
 		log("No more expansions possible.\n");
+
+		if (top_mod != NULL) {
+			std::map<RTLIL::IdString, RTLIL::Module*> new_modules;
+			for (auto &mod_it : design->modules)
+				if (mod_it.second == top_mod) {
+					new_modules[mod_it.first] = mod_it.second;
+				} else {
+					log("Deleting now unused module %s.\n", RTLIL::id2cstr(mod_it.first));
+					delete mod_it.second;
+				}
+			design->modules.swap(new_modules);
+		}
+
 		techmap_cache.clear();
 		techmap_do_cache.clear();
 		log_pop();
 	}
 } FlattenPass;
- 
+

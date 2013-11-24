@@ -280,6 +280,10 @@ struct HierarchyPass : public Pass {
 		log("        use the specified top module to built a design hierarchy. modules\n");
 		log("        outside this tree (unused modules) are removed.\n");
 		log("\n");
+		log("        when the -top option is used, the 'top' attribute will be set on the\n");
+		log("        specified top module. otherwise a module with the 'top' attribute set\n");
+		log("        will implicitly be used as top module, if such a module exists.\n");
+		log("\n");
 		log("In -generate mode this pass generates blackbox modules for the given cell\n");
 		log("types (wildcards supported). For this the design is searched for cells that\n");
 		log("match the given types and then the given port declarations are used to\n");
@@ -381,6 +385,11 @@ struct HierarchyPass : public Pass {
 
 		log_push();
 
+		if (top_mod == NULL)
+			for (auto &mod_it : design->modules)
+				if (mod_it.second->get_bool_attribute("\\top"))
+					top_mod = mod_it.second;
+
 		if (top_mod != NULL)
 			hierarchy(design, top_mod);
 
@@ -405,6 +414,14 @@ struct HierarchyPass : public Pass {
 		if (top_mod != NULL && did_something_once) {
 			log_header("Re-running hierarchy analysis..\n");
 			hierarchy(design, top_mod);
+		}
+
+		if (top_mod != NULL) {
+			for (auto &mod_it : design->modules)
+				if (mod_it.second == top_mod)
+					mod_it.second->attributes["\\top"] = RTLIL::Const(1);
+				else
+					mod_it.second->attributes.erase("\\top");
 		}
 
 		if (!keep_positionals)
