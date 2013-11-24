@@ -377,6 +377,11 @@ struct TechmapPass : public Pass {
 		log("        yosys data files are). this is mainly used internally when techmap\n");
 		log("        is called from other commands.\n");
 		log("\n");
+		log("    -D <define>, -I <incdir>\n");
+		log("        this options are passed as-is to the verilog frontend for loading the\n");
+		log("        map file. Note that the verilog frontend is also called with the\n");
+		log("        '-ignore_redef' option set.\n");
+		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute.\n");
 		log("\n");
@@ -421,6 +426,7 @@ struct TechmapPass : public Pass {
 		log_push();
 
 		std::vector<std::string> map_files;
+		std::string verilog_frontend = "verilog -ignore_redef";
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -432,6 +438,14 @@ struct TechmapPass : public Pass {
 				map_files.push_back(get_share_file_name(args[++argidx]));
 				continue;
 			}
+			if (args[argidx] == "-D" && argidx+1 < args.size()) {
+				verilog_frontend += " -D " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-I" && argidx+1 < args.size()) {
+				verilog_frontend += " -I " + args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -439,14 +453,14 @@ struct TechmapPass : public Pass {
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
 			FILE *f = fmemopen(stdcells_code, strlen(stdcells_code), "rt");
-			Frontend::frontend_call(map, f, "<stdcells.v>", "verilog");
+			Frontend::frontend_call(map, f, "<stdcells.v>", verilog_frontend);
 			fclose(f);
 		} else
 			for (auto &fn : map_files) {
 				FILE *f = fopen(fn.c_str(), "rt");
 				if (f == NULL)
 					log_cmd_error("Can't open map file `%s'\n", fn.c_str());
-				Frontend::frontend_call(map, f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : "verilog");
+				Frontend::frontend_call(map, f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
 				fclose(f);
 			}
 
