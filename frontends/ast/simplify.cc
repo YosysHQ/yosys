@@ -212,6 +212,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				current_scope[node->str] = node;
 			}
 		}
+		for (size_t i = 0; i < children.size(); i++) {
+			AstNode *node = children[i];
+			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE)
+				while (node->simplify(true, false, false, 1, -1, false)) { }
+		}
 	}
 
 	auto backup_current_block = current_block;
