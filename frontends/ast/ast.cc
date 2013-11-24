@@ -792,7 +792,7 @@ AstModule::~AstModule()
 }
 
 // create a new parametric module (when needed) and return the name of the generated module
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters, std::set<RTLIL::IdString> signed_parameters)
 {
 	log_header("Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", name.c_str());
 
@@ -826,7 +826,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
-			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, child->is_signed);
+			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, signed_parameters.count(para_id) > 0);
 			hash_data.insert(hash_data.end(), child->str.begin(), child->str.end());
 			hash_data.push_back(0);
 			hash_data.insert(hash_data.end(), parameters[para_id].bits.begin(), parameters[para_id].bits.end());

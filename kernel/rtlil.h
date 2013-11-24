@@ -264,7 +264,7 @@ struct RTLIL::Module {
 	std::vector<RTLIL::SigSig> connections;
 	RTLIL_ATTRIBUTE_MEMBERS
 	virtual ~Module();
-	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
+	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters, std::set<RTLIL::IdString> signed_parameters);
 	virtual void update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes);
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void check();
@@ -300,6 +300,7 @@ struct RTLIL::Cell {
 	RTLIL::IdString type;
 	std::map<RTLIL::IdString, RTLIL::SigSpec> connections;
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
+	std::set<RTLIL::IdString> signed_parameters;
 	RTLIL_ATTRIBUTE_MEMBERS
 	void optimize();
 

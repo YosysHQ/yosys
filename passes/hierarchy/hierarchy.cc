@@ -150,7 +150,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		if (design->modules.at(cell->type)->get_bool_attribute("\\blackbox"))
 			continue;
 		RTLIL::Module *mod = design->modules[cell->type];
-		cell->type = mod->derive(design, cell->parameters);
+		cell->type = mod->derive(design, cell->parameters, cell->signed_parameters);
 		cell->parameters.clear();
 		did_something = true;
 	}

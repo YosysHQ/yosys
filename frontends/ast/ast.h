@@ -227,7 +227,7 @@ namespace AST
 		AstNode *ast;
 		bool nolatches, nomem2reg, mem2reg, lib, noopt;
 		virtual ~AstModule();
-		virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
+		virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters, std::set<RTLIL::IdString> signed_parameters);
 		virtual void update_auto_wires(std::map<RTLIL::IdString, int> auto_sizes);
 		virtual RTLIL::Module *clone() const;
 	};
