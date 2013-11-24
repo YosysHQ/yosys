@@ -1,5 +1,6 @@
 
 OBJS += passes/techmap/techmap.o
+OBJS += passes/techmap/simplemap.o
 OBJS += passes/techmap/dfflibmap.o
 OBJS += passes/techmap/iopadmap.o
 OBJS += passes/techmap/libparse.o
