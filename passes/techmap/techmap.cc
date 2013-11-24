@@ -501,9 +501,10 @@ struct FlattenPass : public Pass {
 			celltypeMap[it.first].insert(it.first);
 
 		RTLIL::Module *top_mod = NULL;
-		for (auto &mod_it : design->modules)
-			if (mod_it.second->get_bool_attribute("\\top"))
-				top_mod = mod_it.second;
+		if (design->full_selection())
+			for (auto &mod_it : design->modules)
+				if (mod_it.second->get_bool_attribute("\\top"))
+					top_mod = mod_it.second;
 
 		bool did_something = true;
 		std::set<RTLIL::Cell*> handled_cells;
