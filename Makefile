@@ -112,7 +112,7 @@ test: yosys
 	cd tests/hana && bash run-test.sh
 	cd tests/asicworld && bash run-test.sh
 
-install: $(TARGETS)
+install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/bin
 	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)/bin/
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/share/yosys
