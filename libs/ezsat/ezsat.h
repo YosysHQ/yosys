@@ -203,10 +203,11 @@ public:
 
 	// simple helpers for building expressions with bit vectors
 
-	std::vector<int> vec_const_signed(int64_t value, int bits);
-	std::vector<int> vec_const_unsigned(uint64_t value, int bits);
-	std::vector<int> vec_var(int bits);
-	std::vector<int> vec_var(std::string name, int bits);
+	std::vector<int> vec_const(const std::vector<bool> &bits);
+	std::vector<int> vec_const_signed(int64_t value, int numBits);
+	std::vector<int> vec_const_unsigned(uint64_t value, int numBits);
+	std::vector<int> vec_var(int numBits);
+	std::vector<int> vec_var(std::string name, int numBits);
 	std::vector<int> vec_cast(const std::vector<int> &vec1, int toBits, bool signExtend = false);
 
 	std::vector<int> vec_not(const std::vector<int> &vec1);
@@ -218,7 +219,7 @@ public:
 	std::vector<int> vec_ite(const std::vector<int> &vec1, const std::vector<int> &vec2, const std::vector<int> &vec3);
 	std::vector<int> vec_ite(int sel, const std::vector<int> &vec2, const std::vector<int> &vec3);
 
-	std::vector<int> vec_count(const std::vector<int> &vec, int bits, bool clip = true);
+	std::vector<int> vec_count(const std::vector<int> &vec, int numBits, bool clip = true);
 	std::vector<int> vec_add(const std::vector<int> &vec1, const std::vector<int> &vec2);
 	std::vector<int> vec_sub(const std::vector<int> &vec1, const std::vector<int> &vec2);
 	std::vector<int> vec_neg(const std::vector<int> &vec);

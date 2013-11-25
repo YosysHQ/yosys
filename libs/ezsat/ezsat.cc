@@ -651,34 +651,42 @@ bool ezSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &
 	return false;
 }
 
-std::vector<int> ezSAT::vec_const_signed(int64_t value, int bits)
+std::vector<int> ezSAT::vec_const(const std::vector<bool> &bits)
 {
 	std::vector<int> vec;
-	for (int i = 0; i < bits; i++)
+	for (auto bit : bits)
+		vec.push_back(bit ? TRUE : FALSE);
+	return vec;
+}
+
+std::vector<int> ezSAT::vec_const_signed(int64_t value, int numBits)
+{
+	std::vector<int> vec;
+	for (int i = 0; i < numBits; i++)
 		vec.push_back(((value >> i) & 1) != 0 ? TRUE : FALSE);
 	return vec;
 }
 
-std::vector<int> ezSAT::vec_const_unsigned(uint64_t value, int bits)
+std::vector<int> ezSAT::vec_const_unsigned(uint64_t value, int numBits)
 {
 	std::vector<int> vec;
-	for (int i = 0; i < bits; i++)
+	for (int i = 0; i < numBits; i++)
 		vec.push_back(((value >> i) & 1) != 0 ? TRUE : FALSE);
 	return vec;
 }
 
-std::vector<int> ezSAT::vec_var(int bits)
+std::vector<int> ezSAT::vec_var(int numBits)
 {
 	std::vector<int> vec;
-	for (int i = 0; i < bits; i++)
+	for (int i = 0; i < numBits; i++)
 		vec.push_back(literal());
 	return vec;
 }
 
-std::vector<int> ezSAT::vec_var(std::string name, int bits)
+std::vector<int> ezSAT::vec_var(std::string name, int numBits)
 {
 	std::vector<int> vec;
-	for (int i = 0; i < bits; i++)
+	for (int i = 0; i < numBits; i++)
 		vec.push_back(VAR(name + "[" + std::to_string(i) + "]"));
 	return vec;
 }
@@ -782,21 +790,21 @@ static void halfadder(ezSAT *that, int a, int b, int &y, int &x)
 	x = new_x, y = new_y;
 }
 
-std::vector<int> ezSAT::vec_count(const std::vector<int> &vec, int bits, bool clip)
+std::vector<int> ezSAT::vec_count(const std::vector<int> &vec, int numBits, bool clip)
 {
-	std::vector<int> sum = vec_const_unsigned(0, bits);
+	std::vector<int> sum = vec_const_unsigned(0, numBits);
 	std::vector<int> carry_vector;
 
 	for (auto bit : vec) {
 		int carry = bit;
-		for (int i = 0; i < bits; i++)
+		for (int i = 0; i < numBits; i++)
 			halfadder(this, carry, sum[i], carry, sum[i]);
 		carry_vector.push_back(carry);
 	}
 
 	if (clip) {
 		int overflow = vec_reduce_or(carry_vector);
-		sum = vec_ite(overflow, vec_const_unsigned(~0, bits), sum);
+		sum = vec_ite(overflow, vec_const_unsigned(~0, numBits), sum);
 	}
 
 #if 0
