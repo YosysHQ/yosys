@@ -142,13 +142,14 @@ struct VlogHammerReporter
 		return list;
 	}
 
-	void sat_check(RTLIL::Module *module, RTLIL::SigSpec recorded_set_vars, RTLIL::Const recorded_set_vals, RTLIL::SigSpec expected_y)
+	void sat_check(RTLIL::Module *module, RTLIL::SigSpec recorded_set_vars, RTLIL::Const recorded_set_vals, RTLIL::SigSpec expected_y, bool model_undef)
 	{
-		log("Verifying SAT model..\n");
+		log("Verifying SAT model (%s)..\n", model_undef ? "with undef" : "without undef");
 
 		ezDefaultSAT ez;
 		SigMap sigmap(module);
 		SatGen satgen(&ez, design, &sigmap);
+		satgen.model_undef = model_undef;
 
 		for (auto &c : module->cells)
 			if (!satgen.importCell(c.second))
@@ -158,8 +159,20 @@ struct VlogHammerReporter
 		std::vector<int> rec_val_vec = satgen.importSigSpec(recorded_set_vals);
 		ez.assume(ez.vec_eq(rec_var_vec, rec_val_vec));
 
+		std::vector<int> rec_undef_var_vec, rec_undef_val_vec;
+		if (model_undef) {
+			rec_undef_var_vec = satgen.importUndefSigSpec(recorded_set_vars);
+			rec_undef_val_vec = satgen.importUndefSigSpec(recorded_set_vals);
+			ez.assume(ez.vec_eq(rec_undef_var_vec, rec_undef_val_vec));
+		}
+
 		std::vector<int> y_vec = satgen.importSigSpec(module->wires.at("\\y"));
 		std::vector<bool> y_values;
+
+		if (model_undef) {
+			std::vector<int> y_undef_vec = satgen.importUndefSigSpec(module->wires.at("\\y"));
+			y_vec.insert(y_vec.end(), y_undef_vec.begin(), y_undef_vec.end());
+		}
 
 		log("  Created SAT problem with %d variables and %d clauses.\n",
 				ez.numCnfVariables(), ez.numCnfClauses());
@@ -168,12 +181,19 @@ struct VlogHammerReporter
 			log_error("Failed to find solution to SAT problem.\n");
 
 		expected_y.expand();
-		assert(expected_y.chunks.size() == y_vec.size());
-		for (size_t i = 0; i < y_vec.size(); i++) {
-			RTLIL::State bit = expected_y.chunks.at(i).data.bits.at(0);
-			if ((bit == RTLIL::State::S0 || bit == RTLIL::State::S1) && ((bit == RTLIL::State::S1) != y_values.at(i)))
-				log_error("Found error in SAT model: y[%d] = %d, should be %d.\n",
-						int(i), int(y_values.at(i)), int(bit == RTLIL::State::S1));
+		for (int i = 0; i < expected_y.width; i++) {
+			RTLIL::State solution_bit = y_values.at(i) ? RTLIL::State::S1 : RTLIL::State::S0;
+			RTLIL::State expected_bit = expected_y.chunks.at(i).data.bits.at(0);
+			if (model_undef) {
+				if (y_values.at(expected_y.width+i))
+					solution_bit = RTLIL::State::Sx;
+			} else {
+				if (expected_bit == RTLIL::State::Sx)
+					continue;
+			}
+			if (solution_bit != expected_bit)
+				log_error("Found error in SAT model: y[%d] = %s, should be %s.\n",
+						int(i), log_signal(solution_bit), log_signal(expected_bit));
 		}
 
 		log("  SAT model verified.\n");
@@ -230,7 +250,8 @@ struct VlogHammerReporter
 				if (module_name == "rtl") {
 					rtl_sig = sig;
 					rtl_sig.expand();
-					sat_check(module, recorded_set_vars, recorded_set_vals, sig);
+					sat_check(module, recorded_set_vars, recorded_set_vals, sig, false);
+					// sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
 				} else if (rtl_sig.width > 0) {
 					sig.expand();
 					if (rtl_sig.width != sig.width)
