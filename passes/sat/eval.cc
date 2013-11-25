@@ -191,10 +191,26 @@ struct VlogHammerReporter
 				if (expected_bit == RTLIL::State::Sx)
 					continue;
 			}
-			if (solution_bit != expected_bit)
-				log_error("Found error in SAT model: y[%d] = %s, should be %s.\n",
-						int(i), log_signal(solution_bit), log_signal(expected_bit));
+			if (solution_bit != expected_bit) {
+				std::string sat_bits, rtl_bits;
+				for (int k = expected_y.width-1; k >= 0; k--) {
+					if (model_undef && y_values.at(expected_y.width+k))
+						sat_bits += "x";
+					else
+						sat_bits += y_values.at(k) ? "1" : "0";
+					rtl_bits += expected_y.chunks.at(k).data.bits.at(0) == RTLIL::State::Sx ? "x" :
+							expected_y.chunks.at(k).data.bits.at(0) == RTLIL::State::S1 ? "1" : "0";
+				}
+				log_error("Found error in SAT model: y[%d] = %s, should be %s:\n   SAT: %s\n   RTL: %s\n        %*s^\n",
+						int(i), log_signal(solution_bit), log_signal(expected_bit),
+						sat_bits.c_str(), rtl_bits.c_str(), expected_y.width-i-1, "");
+			}
 		}
+
+		ez.assume(ez.vec_ne(y_vec, ez.vec_const(y_values)));
+
+		if (ez.solve(y_vec, y_values))
+			log_error("Found two distinct solutions to SAT problem.\n");
 
 		log("  SAT model verified.\n");
 	}
@@ -251,7 +267,7 @@ struct VlogHammerReporter
 					rtl_sig = sig;
 					rtl_sig.expand();
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, false);
-					// sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
+					sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
 				} else if (rtl_sig.width > 0) {
 					sig.expand();
 					if (rtl_sig.width != sig.width)
