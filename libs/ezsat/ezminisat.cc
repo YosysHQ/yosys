@@ -146,7 +146,7 @@ contradiction:
 		return false;
 
 	modelValues.clear();
-	modelValues.resize(2 * modelIdx.size());
+	modelValues.resize(modelIdx.size());
 
 	for (size_t i = 0; i < modelIdx.size(); i++)
 	{
@@ -158,13 +158,7 @@ contradiction:
 
 		using namespace Minisat;
 		lbool value = minisatSolver->modelValue(minisatVars.at(idx-1));
-		if (value == l_Undef) {
-			modelValues[i] = false;
-			modelValues[modelIdx.size() + i] = true;
-		} else {
-			modelValues[i] = value == Minisat::lbool(refvalue);
-			modelValues[modelIdx.size() + i] = false;
-		}
+		modelValues[i] = (value == Minisat::lbool(refvalue));
 	}
 
 	return true;

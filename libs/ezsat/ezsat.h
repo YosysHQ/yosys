@@ -101,9 +101,6 @@ public:
 	// If you are planning on using the solver API (and not simply create a CNF) you must use a child class
 	// of ezSAT that actually implements a solver backend, such as ezMiniSAT (see ezminisat.h).
 
-	// Note: Solvers that can output don't-care values for model variables return a twice as big modelValues
-	// vector. The first half contains the values and the second half the don't-care flags.
-
 	virtual bool solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions);
 
 	bool solve(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions) {
