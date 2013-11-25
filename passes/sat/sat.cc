@@ -48,6 +48,11 @@ struct SatHelper
 	std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 	std::map<int, std::vector<std::string>> unsets_at;
 
+	// undef constraints
+	bool enable_undef;
+	std::vector<std::string> sets_def, sets_undef, sets_all_undef;
+	std::map<int, std::vector<std::string>> sets_def_at, sets_undef_at, sets_all_undef_at;
+
 	// model variables
 	std::vector<std::string> shows;
 	SigPool show_signal_pool;
@@ -58,6 +63,7 @@ struct SatHelper
 	SatHelper(RTLIL::Design *design, RTLIL::Module *module) :
 		design(design), module(module), sigmap(module), ct(design), satgen(&ez, design, &sigmap)
 	{
+		enable_undef = false;
 		max_timestep = -1;
 		timeout = 0;
 		gotTimeout = false;
@@ -193,6 +199,9 @@ struct SatHelper
 
 	bool solve(const std::vector<int> &assumptions)
 	{
+		// undef is work in progress
+		log_assert(enable_undef == false);
+
 		log_assert(gotTimeout == false);
 		ez.setSolverTimeout(timeout);
 		bool success = ez.solve(modelExpressions, modelValues, assumptions);
@@ -203,6 +212,9 @@ struct SatHelper
 
 	bool solve(int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
 	{
+		// undef is work in progress
+		log_assert(enable_undef == false);
+
 		log_assert(gotTimeout == false);
 		ez.setSolverTimeout(timeout);
 		bool success = ez.solve(modelExpressions, modelValues, a, b, c, d, e, f);
@@ -437,9 +449,24 @@ struct SatPass : public Pass {
 		log("    -max <N>\n");
 		log("        like -all, but limit number of solutions to <N>\n");
 		log("\n");
+		log("    -enable_undef\n");
+		log("        enable modeling of undef value (aka 'x-bits')\n");
+		log("        this option is implied by -set-def, -set-undef et. cetera\n");
+		log("\n");
 		log("    -set <signal> <value>\n");
 		log("        set the specified signal to the specified value.\n");
 		log("\n");
+	#if 0
+		log("    -set-def <signal>\n");
+		log("        add a constraint that all bits of the given signal must be defined\n");
+		log("\n");
+		log("    -set-undef <signal>\n");
+		log("        add a constraint that at least one bit of the given signal is undefined\n");
+		log("\n");
+		log("    -set-all-undef <signal>\n");
+		log("        add a constraint that all bits of the given signal are undefined\n");
+		log("\n");
+	#endif
 		log("    -show <signal>\n");
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
@@ -458,6 +485,13 @@ struct SatPass : public Pass {
 		log("        set or unset the specified signal to the specified value in the\n");
 		log("        given timestep. this has priority over a -set for the same signal.\n");
 		log("\n");
+	#if 0
+		log("    -set-def <N> <signal>\n");
+		log("    -set-undef <N> <signal>\n");
+		log("    -set-all-undef <N> <signal>\n");
+		log("        add undef contraints in the given timestep.\n");
+		log("\n");
+	#endif
 		log("The following additional options can be used to set up a proof. If also -seq\n");
 		log("is passed, a temporal induction proof is performed.\n");
 		log("\n");
@@ -483,10 +517,10 @@ struct SatPass : public Pass {
 	{
 		std::vector<std::pair<std::string, std::string>> sets, prove;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
-		std::map<int, std::vector<std::string>> unsets_at;
-		std::vector<std::string> shows;
+		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_undef_at, sets_all_undef_at;
+		std::vector<std::string> shows, sets_def, sets_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
-		bool verify = false, fail_on_timeout = false, ignore_div_by_zero = false;
+		bool verify = false, fail_on_timeout = false, enable_undef = false, ignore_div_by_zero = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -517,19 +551,38 @@ struct SatPass : public Pass {
 				maxsteps = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-ignore_div_by_zero" && argidx+1 < args.size()) {
+			if (args[argidx] == "-ignore_div_by_zero") {
 				ignore_div_by_zero = true;
 				continue;
 			}
+			if (args[argidx] == "-enable_undef") {
+				enable_undef = true;
+				continue;
+			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
-				std::string lhs = args[++argidx].c_str();
-				std::string rhs = args[++argidx].c_str();
+				std::string lhs = args[++argidx];
+				std::string rhs = args[++argidx];
 				sets.push_back(std::pair<std::string, std::string>(lhs, rhs));
 				continue;
 			}
+			if (args[argidx] == "-set-def" && argidx+2 < args.size()) {
+				sets_def.push_back(args[++argidx]);
+				enable_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-set-undef" && argidx+2 < args.size()) {
+				sets_undef.push_back(args[++argidx]);
+				enable_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-set-all-undef" && argidx+2 < args.size()) {
+				sets_all_undef.push_back(args[++argidx]);
+				enable_undef = true;
+				continue;
+			}
 			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
-				std::string lhs = args[++argidx].c_str();
-				std::string rhs = args[++argidx].c_str();
+				std::string lhs = args[++argidx];
+				std::string rhs = args[++argidx];
 				prove.push_back(std::pair<std::string, std::string>(lhs, rhs));
 				continue;
 			}
@@ -539,15 +592,32 @@ struct SatPass : public Pass {
 			}
 			if (args[argidx] == "-set-at" && argidx+3 < args.size()) {
 				int timestep = atoi(args[++argidx].c_str());
-				std::string lhs = args[++argidx].c_str();
-				std::string rhs = args[++argidx].c_str();
+				std::string lhs = args[++argidx];
+				std::string rhs = args[++argidx];
 				sets_at[timestep].push_back(std::pair<std::string, std::string>(lhs, rhs));
 				continue;
 			}
 			if (args[argidx] == "-unset-at" && argidx+2 < args.size()) {
 				int timestep = atoi(args[++argidx].c_str());
-				std::string lhs = args[++argidx].c_str();
-				unsets_at[timestep].push_back(lhs);
+				unsets_at[timestep].push_back(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-set-def-at" && argidx+2 < args.size()) {
+				int timestep = atoi(args[++argidx].c_str());
+				sets_def_at[timestep].push_back(args[++argidx]);
+				enable_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-set-undef-at" && argidx+2 < args.size()) {
+				int timestep = atoi(args[++argidx].c_str());
+				sets_undef_at[timestep].push_back(args[++argidx]);
+				enable_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-set-all-undef-at" && argidx+2 < args.size()) {
+				int timestep = atoi(args[++argidx].c_str());
+				sets_all_undef_at[timestep].push_back(args[++argidx]);
+				enable_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-show" && argidx+1 < args.size()) {
@@ -586,6 +656,13 @@ struct SatPass : public Pass {
 			basecase.unsets_at = unsets_at;
 			basecase.shows = shows;
 			basecase.timeout = timeout;
+			basecase.enable_undef = enable_undef;
+			basecase.sets_def = sets_def;
+			basecase.sets_undef = sets_undef;
+			basecase.sets_all_undef = sets_all_undef;
+			basecase.sets_def_at = sets_def_at;
+			basecase.sets_undef_at = sets_undef_at;
+			basecase.sets_all_undef_at = sets_all_undef_at;
 			basecase.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
@@ -595,6 +672,13 @@ struct SatPass : public Pass {
 			inductstep.prove = prove;
 			inductstep.shows = shows;
 			inductstep.timeout = timeout;
+			inductstep.enable_undef = enable_undef;
+			inductstep.sets_def = sets_def;
+			inductstep.sets_undef = sets_undef;
+			inductstep.sets_all_undef = sets_all_undef;
+			inductstep.sets_def_at = sets_def_at;
+			inductstep.sets_undef_at = sets_undef_at;
+			inductstep.sets_all_undef_at = sets_all_undef_at;
 			inductstep.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			inductstep.setup(1);
@@ -678,6 +762,13 @@ struct SatPass : public Pass {
 			sathelper.unsets_at = unsets_at;
 			sathelper.shows = shows;
 			sathelper.timeout = timeout;
+			sathelper.enable_undef = enable_undef;
+			sathelper.sets_def = sets_def;
+			sathelper.sets_undef = sets_undef;
+			sathelper.sets_all_undef = sets_all_undef;
+			sathelper.sets_def_at = sets_def_at;
+			sathelper.sets_undef_at = sets_undef_at;
+			sathelper.sets_all_undef_at = sets_all_undef_at;
 			sathelper.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			if (seq_len == 0) {
