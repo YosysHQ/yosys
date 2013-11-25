@@ -97,13 +97,6 @@ namespace
 				num_cells_by_type[it.second->type]++;
 			}
 
-			for (auto &it : mod->cells) {
-				if (!design->selected(mod, it.second))
-					continue;
-				num_cells++;
-				num_cells_by_type[it.second->type]++;
-			}
-
 			for (auto &it : mod->processes) {
 				if (!design->selected(mod, it.second))
 					continue;
@@ -136,6 +129,7 @@ namespace
 			if (mod_stat.count(it.first) > 0) {
 				log("     %*s%-*s %6d\n", 2*level, "", 26-2*level, RTLIL::id2cstr(it.first), it.second);
 				mod_data = mod_data + hierarchy_worker(mod_stat, it.first, level+1) * it.second;
+				mod_data.num_cells -= it.second;
 			} else {
 				mod_data.num_cells_by_type[it.first] += it.second;
 			}
