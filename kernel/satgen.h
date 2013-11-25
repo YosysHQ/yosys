@@ -54,7 +54,7 @@ struct SatGen
 		this->prefix = prefix;
 	}
 
-	std::vector<int> importSigSpecWorker(RTLIL::SigSpec &sig, std::string &pf, bool undef_mode)
+	std::vector<int> importSigSpecWorker(RTLIL::SigSpec &sig, std::string &pf, bool undef_mode, bool dup_undef)
 	{
 		log_assert(!undef_mode || model_undef);
 		sigmap->apply(sig);
@@ -65,7 +65,11 @@ struct SatGen
 
 		for (auto &c : sig.chunks)
 			if (c.wire == NULL) {
-				vec.push_back(c.data.bits.at(0) == (undef_mode ? RTLIL::State::Sx : RTLIL::State::S1) ? ez->TRUE : ez->FALSE);
+				RTLIL::State bit = c.data.bits.at(0);
+				if (model_undef && dup_undef && bit == RTLIL::State::Sx)
+					vec.push_back(ez->literal());
+				else
+					vec.push_back(bit == (undef_mode ? RTLIL::State::Sx : RTLIL::State::S1) ? ez->TRUE : ez->FALSE);
 			} else {
 				std::string name = pf + stringf(c.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(c.wire->name), c.offset);
 				vec.push_back(ez->literal(name));
@@ -77,14 +81,41 @@ struct SatGen
 	{
 		log_assert(timestep != 0);
 		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
-		return importSigSpecWorker(sig, pf, false);
+		return importSigSpecWorker(sig, pf, false, false);
+	}
+
+	std::vector<int> importDefSigSpec(RTLIL::SigSpec sig, int timestep = -1)
+	{
+		log_assert(timestep != 0);
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		return importSigSpecWorker(sig, pf, false, true);
 	}
 
 	std::vector<int> importUndefSigSpec(RTLIL::SigSpec sig, int timestep = -1)
 	{
 		log_assert(timestep != 0);
 		std::string pf = "undef:" + prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
-		return importSigSpecWorker(sig, pf, true);
+		return importSigSpecWorker(sig, pf, true, false);
+	}
+
+	int signals_eq(RTLIL::SigSpec lhs, RTLIL::SigSpec rhs, int timestep = -1)
+	{
+		assert(lhs.width == rhs.width);
+
+		std::vector<int> vec_lhs = importSigSpec(lhs, timestep);
+		std::vector<int> vec_rhs = importSigSpec(rhs, timestep);
+
+		if (!model_undef)
+			return ez->vec_eq(vec_lhs, vec_rhs);
+
+		std::vector<int> undef_lhs = importUndefSigSpec(lhs, timestep);
+		std::vector<int> undef_rhs = importUndefSigSpec(rhs, timestep);
+
+		std::vector<int> eq_bits;
+		for (int i = 0; i < lhs.width; i++)
+			eq_bits.push_back(ez->AND(ez->IFF(undef_lhs.at(i), undef_rhs.at(i)),
+					ez->IFF(ez->OR(vec_lhs.at(i), undef_lhs.at(i)), ez->OR(vec_rhs.at(i), undef_rhs.at(i)))));
+		return ez->expression(ezSAT::OpAnd, eq_bits);
 	}
 
 	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell, size_t y_width = 0, bool undef_mode = false)
@@ -117,10 +148,17 @@ struct SatGen
 			vec_y.push_back(ez->literal());
 	}
 
+	void undefGating(std::vector<int> &vec_y, std::vector<int> &vec_yy, std::vector<int> &vec_undef)
+	{
+		assert(model_undef);
+		ez->assume(ez->expression(ezSAT::OpAnd, ez->vec_or(vec_undef, ez->vec_iff(vec_y, vec_yy))));
+	}
+
 	bool importCell(RTLIL::Cell *cell, int timestep = -1)
 	{
 		bool arith_undef_handled = false;
 		bool is_arith_compare = cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt";
+		int arith_undef_result = ez->FALSE;
 
 		if (model_undef && (cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod" || is_arith_compare))
 		{
@@ -149,6 +187,8 @@ struct SatGen
 				std::vector<int> undef_y_bits(undef_y.size(), undef_y_bit);
 				ez->assume(ez->vec_eq(undef_y_bits, undef_y));
 			}
+
+			arith_undef_result = undef_y_bit;
 			arith_undef_handled = true;
 		}
 
@@ -156,22 +196,25 @@ struct SatGen
 				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
 				cell->type == "$add" || cell->type == "$sub")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidth(a, b, y, cell);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+
 			if (cell->type == "$and" || cell->type == "$_AND_")
-				ez->assume(ez->vec_eq(ez->vec_and(a, b), y));
+				ez->assume(ez->vec_eq(ez->vec_and(a, b), yy));
 			if (cell->type == "$or" || cell->type == "$_OR_")
-				ez->assume(ez->vec_eq(ez->vec_or(a, b), y));
+				ez->assume(ez->vec_eq(ez->vec_or(a, b), yy));
 			if (cell->type == "$xor" || cell->type == "$_XOR_")
-				ez->assume(ez->vec_eq(ez->vec_xor(a, b), y));
+				ez->assume(ez->vec_eq(ez->vec_xor(a, b), yy));
 			if (cell->type == "$xnor")
-				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(a, b)), y));
+				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(a, b)), yy));
 			if (cell->type == "$add")
-				ez->assume(ez->vec_eq(ez->vec_add(a, b), y));
+				ez->assume(ez->vec_eq(ez->vec_add(a, b), yy));
 			if (cell->type == "$sub")
-				ez->assume(ez->vec_eq(ez->vec_sub(a, b), y));
+				ez->assume(ez->vec_eq(ez->vec_sub(a, b), yy));
 
 			if (model_undef && !arith_undef_handled)
 			{
@@ -198,33 +241,45 @@ struct SatGen
 				}
 				else
 					log_abort();
+
+				undefGating(y, yy, undef_y);
+			}
+			else if (model_undef)
+			{
+				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
 
 		if (cell->type == "$_INV_" || cell->type == "$not")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidthUnary(a, y, cell);
-			ez->assume(ez->vec_eq(ez->vec_not(a), y));
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+			ez->assume(ez->vec_eq(ez->vec_not(a), yy));
 
 			if (model_undef) {
 				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
 				extendSignalWidthUnary(undef_a, undef_y, cell, true);
 				ez->assume(ez->vec_eq(undef_a, undef_y));
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
 
 		if (cell->type == "$_MUX_" || cell->type == "$mux")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
-			std::vector<int> s = importSigSpec(cell->connections.at("\\S"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
-			ez->assume(ez->vec_eq(ez->vec_ite(s.at(0), b, a), y));
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> s = importDefSigSpec(cell->connections.at("\\S"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+			ez->assume(ez->vec_eq(ez->vec_ite(s.at(0), b, a), yy));
 
 			if (model_undef)
 			{
@@ -237,16 +292,17 @@ struct SatGen
 				std::vector<int> undef_ab = ez->vec_or(unequal_ab, ez->vec_or(undef_a, undef_b));
 				std::vector<int> yX = ez->vec_ite(undef_s.at(0), undef_ab, ez->vec_ite(s.at(0), undef_b, undef_a));
 				ez->assume(ez->vec_eq(yX, undef_y));
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
 
 		if (cell->type == "$pmux" || cell->type == "$safe_pmux")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
-			std::vector<int> s = importSigSpec(cell->connections.at("\\S"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> s = importDefSigSpec(cell->connections.at("\\S"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 			std::vector<int> tmp = a;
 			for (size_t i = 0; i < s.size(); i++) {
 				std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
@@ -266,15 +322,17 @@ struct SatGen
 
 		if (cell->type == "$pos" || cell->type == "$neg")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidthUnary(a, y, cell);
 
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+
 			if (cell->type == "$pos") {
-				ez->assume(ez->vec_eq(a, y));
+				ez->assume(ez->vec_eq(a, yy));
 			} else {
 				std::vector<int> zero(a.size(), ez->FALSE);
-				ez->assume(ez->vec_eq(ez->vec_sub(zero, a), y));
+				ez->assume(ez->vec_eq(ez->vec_sub(zero, a), yy));
 			}
 
 			if (model_undef)
@@ -290,6 +348,8 @@ struct SatGen
 					std::vector<int> undef_y_bits(undef_y.size(), undef_any_a);
 					ez->assume(ez->vec_eq(undef_y_bits, undef_y));
 				}
+
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
@@ -297,21 +357,23 @@ struct SatGen
 		if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_xor" ||
 				cell->type == "$reduce_xnor" || cell->type == "$reduce_bool" || cell->type == "$logic_not")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
 			if (cell->type == "$reduce_and")
-				ez->SET(ez->expression(ez->OpAnd, a), y.at(0));
+				ez->SET(ez->expression(ez->OpAnd, a), yy.at(0));
 			if (cell->type == "$reduce_or" || cell->type == "$reduce_bool")
-				ez->SET(ez->expression(ez->OpOr, a), y.at(0));
+				ez->SET(ez->expression(ez->OpOr, a), yy.at(0));
 			if (cell->type == "$reduce_xor")
-				ez->SET(ez->expression(ez->OpXor, a), y.at(0));
+				ez->SET(ez->expression(ez->OpXor, a), yy.at(0));
 			if (cell->type == "$reduce_xnor")
-				ez->SET(ez->NOT(ez->expression(ez->OpXor, a)), y.at(0));
+				ez->SET(ez->NOT(ez->expression(ez->OpXor, a)), yy.at(0));
 			if (cell->type == "$logic_not")
-				ez->SET(ez->NOT(ez->expression(ez->OpOr, a)), y.at(0));
+				ez->SET(ez->NOT(ez->expression(ez->OpOr, a)), yy.at(0));
 			for (size_t i = 1; i < y.size(); i++)
-				ez->SET(ez->FALSE, y.at(i));
+				ez->SET(ez->FALSE, yy.at(i));
 
 			if (model_undef)
 			{
@@ -334,27 +396,32 @@ struct SatGen
 
 				for (size_t i = 1; i < undef_y.size(); i++)
 					ez->SET(ez->FALSE, undef_y.at(i));
+
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
 
 		if (cell->type == "$logic_and" || cell->type == "$logic_or")
 		{
-			int a = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\A"), timestep));
-			int b = ez->expression(ez->OpOr, importSigSpec(cell->connections.at("\\B"), timestep));
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> vec_a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> vec_b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+
+			int a = ez->expression(ez->OpOr, vec_a);
+			int b = ez->expression(ez->OpOr, vec_b);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
 			if (cell->type == "$logic_and")
-				ez->SET(ez->expression(ez->OpAnd, a, b), y.at(0));
+				ez->SET(ez->expression(ez->OpAnd, a, b), yy.at(0));
 			else
-				ez->SET(ez->expression(ez->OpOr, a, b), y.at(0));
+				ez->SET(ez->expression(ez->OpOr, a, b), yy.at(0));
 			for (size_t i = 1; i < y.size(); i++)
-				ez->SET(ez->FALSE, y.at(i));
+				ez->SET(ez->FALSE, yy.at(i));
 
 			if (model_undef)
 			{
-				std::vector<int> vec_a = importSigSpec(cell->connections.at("\\A"), timestep);
-				std::vector<int> vec_b = importSigSpec(cell->connections.at("\\B"), timestep);
 				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
 				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
@@ -375,6 +442,8 @@ struct SatGen
 
 				for (size_t i = 1; i < undef_y.size(); i++)
 					ez->SET(ez->FALSE, undef_y.at(i));
+
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
@@ -382,25 +451,27 @@ struct SatGen
 		if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt")
 		{
 			bool is_signed = cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool();
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidth(a, b, cell);
 
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+
 			if (cell->type == "$lt")
-				ez->SET(is_signed ? ez->vec_lt_signed(a, b) : ez->vec_lt_unsigned(a, b), y.at(0));
+				ez->SET(is_signed ? ez->vec_lt_signed(a, b) : ez->vec_lt_unsigned(a, b), yy.at(0));
 			if (cell->type == "$le")
-				ez->SET(is_signed ? ez->vec_le_signed(a, b) : ez->vec_le_unsigned(a, b), y.at(0));
+				ez->SET(is_signed ? ez->vec_le_signed(a, b) : ez->vec_le_unsigned(a, b), yy.at(0));
 			if (cell->type == "$eq")
-				ez->SET(ez->vec_eq(a, b), y.at(0));
+				ez->SET(ez->vec_eq(a, b), yy.at(0));
 			if (cell->type == "$ne")
-				ez->SET(ez->vec_ne(a, b), y.at(0));
+				ez->SET(ez->vec_ne(a, b), yy.at(0));
 			if (cell->type == "$ge")
-				ez->SET(is_signed ? ez->vec_ge_signed(a, b) : ez->vec_ge_unsigned(a, b), y.at(0));
+				ez->SET(is_signed ? ez->vec_ge_signed(a, b) : ez->vec_ge_unsigned(a, b), yy.at(0));
 			if (cell->type == "$gt")
-				ez->SET(is_signed ? ez->vec_gt_signed(a, b) : ez->vec_gt_unsigned(a, b), y.at(0));
+				ez->SET(is_signed ? ez->vec_gt_signed(a, b) : ez->vec_gt_unsigned(a, b), yy.at(0));
 			for (size_t i = 1; i < y.size(); i++)
-				ez->SET(ez->FALSE, y.at(i));
+				ez->SET(ez->FALSE, yy.at(i));
 
 			if (model_undef && (cell->type == "$eq" || cell->type == "$ne"))
 			{
@@ -422,17 +493,25 @@ struct SatGen
 				for (size_t i = 1; i < undef_y.size(); i++)
 					ez->SET(ez->FALSE, undef_y.at(i));
 				ez->SET(undef_y_bit, undef_y.at(0));
+
+				undefGating(y, yy, undef_y);
 			}
 			else
+			{
+				if (model_undef) {
+					std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
+					undefGating(y, yy, undef_y);
+				}
 				log_assert(!model_undef || arith_undef_handled);
+			}
 			return true;
 		}
 
 		if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 
 			char shift_left = cell->type == "$shl" || cell->type == "$sshl";
 			bool sign_extend = cell->type == "$sshr" && cell->parameters["\\A_SIGNED"].as_bool();
@@ -441,6 +520,8 @@ struct SatGen
 				y.push_back(ez->literal());
 			while (y.size() > a.size())
 				a.push_back(cell->parameters["\\A_SIGNED"].as_bool() ? a.back() : ez->FALSE);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
 			std::vector<int> tmp = a;
 			for (size_t i = 0; i < b.size(); i++)
@@ -452,7 +533,7 @@ struct SatGen
 				}
 				tmp = ez->vec_ite(b.at(i), tmp_shifted, tmp);
 			}
-			ez->assume(ez->vec_eq(tmp, y));
+			ez->assume(ez->vec_eq(tmp, yy));
 
 			if (model_undef)
 			{
@@ -479,15 +560,20 @@ struct SatGen
 				int undef_any_b = ez->expression(ezSAT::OpOr, undef_b);
 				std::vector<int> undef_all_y_bits(undef_y.size(), undef_any_b);
 				ez->assume(ez->vec_eq(ez->vec_or(tmp, undef_all_y_bits), undef_y));
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
 
-		if (cell->type == "$mul") {
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+		if (cell->type == "$mul")
+		{
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidth(a, b, y, cell);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+
 			std::vector<int> tmp(a.size(), ez->FALSE);
 			for (int i = 0; i < int(a.size()); i++)
 			{
@@ -496,17 +582,24 @@ struct SatGen
 					shifted_a.at(j) = a.at(j-i);
 				tmp = ez->vec_ite(b.at(i), ez->vec_add(tmp, shifted_a), tmp);
 			}
-			ez->assume(ez->vec_eq(tmp, y));
-			log_assert(!model_undef || arith_undef_handled);
+			ez->assume(ez->vec_eq(tmp, yy));
+
+			if (model_undef) {
+				log_assert(arith_undef_handled);
+				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
+				undefGating(y, yy, undef_y);
+			}
 			return true;
 		}
 
 		if (cell->type == "$div" || cell->type == "$mod")
 		{
-			std::vector<int> a = importSigSpec(cell->connections.at("\\A"), timestep);
-			std::vector<int> b = importSigSpec(cell->connections.at("\\B"), timestep);
-			std::vector<int> y = importSigSpec(cell->connections.at("\\Y"), timestep);
+			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
 			extendSignalWidth(a, b, y, cell);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
 			std::vector<int> a_u, b_u;
 			if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool()) {
@@ -533,7 +626,7 @@ struct SatGen
 				chain_buf.erase(chain_buf.begin() + a_u.size(), chain_buf.end());
 			}
 
-			std::vector<int> y_tmp = ignore_div_by_zero ? y : ez->vec_var(y.size());
+			std::vector<int> y_tmp = ignore_div_by_zero ? yy : ez->vec_var(y.size());
 			if (cell->type == "$div") {
 				if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
 					ez->assume(ez->vec_eq(y_tmp, ez->vec_ite(ez->XOR(a.back(), b.back()), ez->vec_neg(y_u), y_u)));
@@ -568,10 +661,14 @@ struct SatGen
 					else
 						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), ez->FALSE);
 				}
-				ez->assume(ez->vec_eq(y, ez->vec_ite(ez->expression(ezSAT::OpOr, b), y_tmp, div_zero_result)));
+				ez->assume(ez->vec_eq(yy, ez->vec_ite(ez->expression(ezSAT::OpOr, b), y_tmp, div_zero_result)));
 			}
 
-			log_assert(!model_undef || arith_undef_handled);
+			if (model_undef) {
+				log_assert(arith_undef_handled);
+				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
+				undefGating(y, yy, undef_y);
+			}
 			return true;
 		}
 
@@ -580,8 +677,8 @@ struct SatGen
 			if (timestep == 1) {
 				initial_state.add((*sigmap)(cell->connections.at("\\Q")));
 			} else {
-				std::vector<int> d = importSigSpec(cell->connections.at("\\D"), timestep-1);
-				std::vector<int> q = importSigSpec(cell->connections.at("\\Q"), timestep);
+				std::vector<int> d = importDefSigSpec(cell->connections.at("\\D"), timestep-1);
+				std::vector<int> q = importDefSigSpec(cell->connections.at("\\Q"), timestep);
 				ez->assume(ez->vec_eq(d, q));
 			}
 
