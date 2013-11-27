@@ -27,7 +27,7 @@ LDFLAGS = -rdynamic
 LDLIBS = -lstdc++ -lreadline -lm -ldl -lrt
 QMAKE = qmake-qt4
 
-YOSYS_VER := 0.0.x
+YOSYS_VER := 0.1.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
