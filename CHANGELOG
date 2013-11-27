@@ -1,0 +1,11 @@
+
+List of incompatible changes and major milestones between releases
+==================================================================
+
+
+Yosys 0.1.0 .. Yoys 0.1.0+
+--------------------------
+
+ - Tighter integration of ABC build with Yosys build. The make
+   targets 'make abc' and 'make install-abc' are now obsolete.
+

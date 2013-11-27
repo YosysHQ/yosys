@@ -3,9 +3,13 @@ CONFIG := clang-debug
 # CONFIG := gcc-debug
 # CONFIG := release
 
+# features (the more the better)
 ENABLE_TCL := 1
 ENABLE_QT4 := 1
 ENABLE_MINISAT := 1
+ENABLE_ABC := 1
+
+# other configuration flags
 ENABLE_GPROF := 0
 
 DESTDIR := /usr/local
@@ -61,6 +65,10 @@ ifeq ($(ENABLE_QT4),1)
 TARGETS += yosys-svgviewer
 endif
 
+ifeq ($(ENABLE_ABC),1)
+TARGETS += yosys-abc
+endif
+
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
@@ -107,6 +115,18 @@ endif
 	cd abc && $(MAKE)
 	cp abc/abc yosys-abc
 
+abc/abc-$(ABCREV):
+	if test "`cd abc && hg identify`" != "$(ABCREV)"; then \
+		test $(ABCPULL) -ne 0 || { echo; echo "!!! ABC not up to date and ABCPULL set to 0 in Makefile !!!"; echo; exit 1; }; \
+		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
+		cd abc && hg pull && hg update -r $(ABCREV); \
+	fi
+	cd abc && $(MAKE)
+	cp abc/abc abc/abc-$(ABCREV)
+
+yosys-abc: abc/abc-$(ABCREV)
+	cp abc/abc-$(ABCREV) yosys-abc
+
 test: yosys
 	cd tests/simple && bash run-test.sh
 	cd tests/hana && bash run-test.sh
@@ -117,9 +137,6 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)/bin/
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/share/yosys
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)/share/yosys/.
-
-install-abc:
-	$(INSTALL_SUDO) install yosys-abc $(DESTDIR)/bin/
 
 manual:
 	cd manual && bash make.sh

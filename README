@@ -93,10 +93,8 @@ To build Yosys simply type 'make' in this directory.
 If you encounter any problems during build, make sure to check the section
 "Workarounds for known build problems" at the end of this README file.
 
-To also build and install ABC (recommended) use the following commands:
-
-	$ make abc
-	$ sudo make install-abc
+Note that this also downloads, builds and installs ABC (using yosys-abc
+as executeable name).
 
 Yosys can be used with the interactive command shell, with
 synthesis scripts or with command line arguments. Let's perform
