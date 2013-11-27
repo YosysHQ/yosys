@@ -109,7 +109,7 @@ MainWindow::MainWindow()
             this, SLOT(setRenderer(QAction*)));
 
     setCentralWidget(m_view);
-    setWindowTitle(tr("SVG Viewer"));
+    setWindowTitle(tr("Yosys SVG Viewer"));
 }
 
 void MainWindow::openFile(const QString &path, bool reload)
@@ -147,7 +147,7 @@ void MainWindow::openFile(const QString &path, bool reload)
         if (!fileName.startsWith(":/"))
 	{
             m_currentPath = fileName;
-            setWindowTitle(tr("%1 - SVGViewer").arg(m_currentPath));
+            setWindowTitle(tr("%1 - Yosys SVG Viewer").arg(m_currentPath));
 
 	    // just keep the file open so this process is found using 'fuser'
 	    m_filehandle = fopen(fileName.toAscii(), "r");

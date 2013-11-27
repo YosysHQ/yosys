@@ -44,6 +44,7 @@
 #include <QMouseEvent>
 #include <QGraphicsRectItem>
 #include <QGraphicsSvgItem>
+#include <QGraphicsWebView>
 #include <QPaintEvent>
 #include <qmath.h>
 
@@ -96,16 +97,29 @@ void SvgView::openFile(const QFile &file)
     s->clear();
     resetTransform();
 
+#if 0
+    QGraphicsWebView *webview = new QGraphicsWebView();
+    QString fn = file.fileName();
+    if (fn[0] != '/') {
+        char cwd_buffer[4096];
+        if (getcwd(cwd_buffer, 4096) != NULL)
+            fn = cwd_buffer + ("/" + fn);
+    }
+    webview->load(QUrl::fromLocalFile(fn));
+    webview->setResizesToContents(true);
+    m_svgItem = webview;
+#else
     m_svgItem = new QGraphicsSvgItem(file.fileName());
+#endif
     m_svgItem->setFlags(QGraphicsItem::ItemClipsToShape);
     m_svgItem->setCacheMode(QGraphicsItem::NoCache);
-    m_svgItem->setZValue(0);
+    m_svgItem->setZValue(1);
 
     m_backgroundItem = new QGraphicsRectItem(m_svgItem->boundingRect());
     m_backgroundItem->setBrush(Qt::white);
     m_backgroundItem->setPen(Qt::NoPen);
     m_backgroundItem->setVisible(drawBackground);
-    m_backgroundItem->setZValue(-1);
+    m_backgroundItem->setZValue(0);
 
     m_outlineItem = new QGraphicsRectItem(m_svgItem->boundingRect());
     QPen outline(Qt::black, 2, Qt::DashLine);
@@ -113,7 +127,7 @@ void SvgView::openFile(const QFile &file)
     m_outlineItem->setPen(outline);
     m_outlineItem->setBrush(Qt::NoBrush);
     m_outlineItem->setVisible(drawOutline);
-    m_outlineItem->setZValue(1);
+    m_outlineItem->setZValue(2);
 
     s->addItem(m_backgroundItem);
     s->addItem(m_svgItem);
