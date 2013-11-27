@@ -31,7 +31,7 @@ YOSYS_VER := 0.1.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
-ABCREV = 766d323095c4
+ABCREV = 9241719523f6
 ABCPULL = 1
 
 -include Makefile.conf
@@ -116,13 +116,13 @@ endif
 	cp abc/abc yosys-abc
 
 abc/abc-$(ABCREV):
-	if test "`cd abc && hg identify`" != "$(ABCREV)"; then \
+	if test "`cd abc && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
 		test $(ABCPULL) -ne 0 || { echo; echo "!!! ABC not up to date and ABCPULL set to 0 in Makefile !!!"; echo; exit 1; }; \
 		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
 		cd abc && hg pull && hg update -r $(ABCREV); \
 	fi
-	cd abc && $(MAKE)
-	cp abc/abc abc/abc-$(ABCREV)
+	rm -f abc/abc-[0-9a-f]*
+	cd abc && $(MAKE) PROG="abc-$(ABCREV)" MSG_PREFIX="YOSYS-ABC: "
 
 yosys-abc: abc/abc-$(ABCREV)
 	cp abc/abc-$(ABCREV) yosys-abc
@@ -144,7 +144,7 @@ manual:
 clean:
 	rm -rf share
 	rm -f $(OBJS) $(GENFILES) $(TARGETS)
-	rm -f kernel/version_*.o kernel/version_*.cc
+	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
 	cd manual && rm -f *.aux *.bbl *.blg *.idx *.log *.out *.pdf *.toc
 	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean
