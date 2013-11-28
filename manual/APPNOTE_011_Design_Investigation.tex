@@ -79,7 +79,20 @@ external viewer can be used.
 
 \section{Introduction to the {\tt show} command}
 
-\FIXME
+The {\tt show} command generates a circuit diagram for the design in its
+current state. Various options can be used to change the appearance of the
+circuit diagram, set the name and format for the output file, and so forth.
+When called without any special options, it saves the circuit diagram in
+a temporary file and launches {\tt yosys-svgviewer} to display the diagram.
+Subsequent calls to {\tt show} re-use the {\tt yosys-svgviewer} instance
+(if still running).
+
+Fig.~\ref{example_src} shows a simple synthesis script and Verilog file that
+demonstrates the usage of {\tt show} in a simple setting. Note that {\tt show}
+is called with the {\tt -pause} option, that halts execution of the Yosys
+script until the user presses the Enter key. The {\tt show -pause} command
+also allows the user to enter an interactive shell to further investigate the
+circuit before continuing synthesis.
 
 \begin{figure}[b]
 \begin{lstlisting}
@@ -99,18 +112,110 @@ module example(input clk, a, b, c,
             y <= c ? a + b : 2'd0;
 endmodule
 \end{lstlisting}
-\caption{Synthesis script with added show commands and example code}
+\caption{Yosys script with {\tt show} commands and example design}
 \label{example_src}
 \end{figure}
 
-\begin{figure}[b]
+So this script, when executed, will show the design after each of the three
+synthesis commands. The generated circuit diagrams are shown in Fig.~\ref{example_out}.
+
+The first diagram (from top to bottom) shows the design directly after being
+read by the Verilog front-end. Input and output ports are visualized using
+octagonal shapes. Cells are visualized as rectangles with inputs on the left
+and outputs on the right side. The cell labels are two lines long: The first line
+contains the cell name (or a {\tt \_<number\_} placeholder for cells without
+a name from the original Verilog, such as cells created from Verilog
+expressions) and the second line contains the cell type. Internal cell types
+are prefixed with a dollar sign. The Yosys manual contains a chapter on the
+internal cell library used in Yosys.
+
+Constants are shown as ellipses with the constant value as label. The syntax
+{\tt <bit\_width>'<bits>} is used for for constants that are not 32-bit wide
+and/or contain bits that are not 0 or 1 (but {\tt x} or {\tt z}). Ordinary
+32-bit constants are written using decimal numbers.
+
+Single-bit signals are shown as thin arrows pointing from the driver to the
+load. Signals that are multiple bits wide are shown as think arrows.
+
+Finally {\it processes\/} are shown in boxes with round corners. Processes
+are Yosys' internal representation of the decision-trees and synchronization
+events modelled in a Verilog {\tt always}-block. The label reads {\tt PROC} in the
+first line and contains the source code location of the original {\tt
+always}-block in the 2nd line. Not how the multiplexer from the {\tt ?:}-expression
+is represented as a {\tt \$mux} cell but the multiplexer from the {\tt if}-statement
+is yet still hidden within the process.
+
+\medskip
+
+The {\tt proc} command transforms the process from the first diagram into a
+multiplexer and a d-type flip-flip, which brings us to the 2nd diagram.
+
+Note that the auto-generated numbers for the cells have changed since the first
+diagram, because they are just placeholders . We will cover how to avoid this
+later in this document.
+
+
+\begin{figure}[b!]
 \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_00.pdf}
 \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_01.pdf}
 \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_02.pdf}
-\caption{\tt Output of the three show commands from Fig.~\ref{example_src}}
+\caption{Output of the three {\tt show} commands from Fig.~\ref{example_src}}
 \label{example_out}
 \end{figure}
 
+Also note that the design now contains two instances of a {\tt BUF}-node. The
+Rhombus shape to the right is a dangling wire. (Wire nodes are only shown if
+they are dangling or have names assigned from the Verilog input.) This are
+artefacts left behind by the {\tt proc}-command. It is quite usual to see such
+artefacts after calling commands that perform changes in the design, as most
+commands only care about doing the transformation in a foolproof way, not about
+cleaning up after them. The next call to {\tt clean} (or {\tt opt}, which
+includes {\tt clean} as one of its operations) will clean up this artefacts.
+This operation is so common in Yosys scripts that it can simply be abbreviated
+by using the {\tt ;;} token, which doubles as separator for commands. Unless
+one wants to specifically analyze this artefacts left behind some operations,
+it is therefore recommended to call {\tt clean} before calling {\tt show}.
+
+\medskip
+
+In this script we directly call {\tt opt} as next step, which finally leads us to
+the 3rd diagram in Fig.~\ref{example_out}. Here we see that the {\tt opt} command
+not only has removed the artifacts left behind by {\tt proc}, but also determined
+correctly that it can remove the first {\tt \$mux} cell without changing the behavior
+of the circuit.
+
+\begin{figure}[b!]
+\includegraphics[width=\linewidth,trim=0 2cm 0 0]{APPNOTE_011_Design_Investigation/splice.pdf}
+\caption{Output of {\tt yosys -p 'proc; opt; show' splice.v}}
+\label{example_src}
+\end{figure}
+
+\begin{figure}[b!]
+\begin{lstlisting}
+module splice_demo(a, b, c, d, e, f, x, y);
+
+input [1:0] a, b, c, d, e, f;
+output [1:0] x = {a[0], a[1]};
+
+output [11:0] y;
+assign {y[11:4], y[1:0], y[3:2]} =
+		{a, b, -{c, d}, ~{e, f}};
+
+endmodule
+\end{lstlisting}
+\caption{\tt splice.v}
+\label{example_src}
+\end{figure}
+
+\FIXME{} --- Splicing, Cell libraries
+
+\section{Navigating the design}
+
+\FIXME{} --- cd and ls, multi-page diagrams, select, cones and boolean operations
+
+\section{Advanced investigation techniques}
+
+\FIXME{} --- dump, eval, sat
 
 \begin{thebibliography}{9}
 
