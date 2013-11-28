@@ -29,10 +29,20 @@ static std::vector<RTLIL::Selection> work_stack;
 
 static bool match_ids(RTLIL::IdString id, std::string pattern)
 {
-	if (!fnmatch(pattern.c_str(), id.c_str(), FNM_NOESCAPE))
+	if (id == pattern)
 		return true;
-	if (id.size() > 0 && id[0] == '\\' && !fnmatch(pattern.c_str(), id.substr(1).c_str(), FNM_NOESCAPE))
+	if (id.size() > 0 && id[0] == '\\' && id.substr(1) == pattern)
 		return true;
+	if (!fnmatch(pattern.c_str(), id.c_str(), 0))
+		return true;
+	if (id.size() > 0 && id[0] == '\\' && !fnmatch(pattern.c_str(), id.substr(1).c_str(), 0))
+		return true;
+	if (id.size() > 0 && id[0] == '$' && pattern.size() > 0 && pattern[0] == '$') {
+		const char *p = id.c_str();
+		const char *q = strrchr(p, '$');
+		if (pattern == q)
+			return true;
+	}
 	return false;
 }
 
