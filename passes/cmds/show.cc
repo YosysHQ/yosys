@@ -386,7 +386,10 @@ struct ShowWorker
 				net_conn_map[node].in.insert(stringf("p%d", pidx));
 			}
 
-			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC\\n%s\"];\n", pidx, RTLIL::id2cstr(proc->name));
+			std::string proc_src = RTLIL::unescape_id(proc->name);
+			if (proc->attributes.count("\\src") > 0)
+				proc_src = proc->attributes.at("\\src").str;
+			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC\\n%s\"];\n", pidx, proc_src.c_str());
 		}
 
 		for (auto &conn : module->connections)

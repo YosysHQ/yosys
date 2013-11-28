@@ -265,6 +265,7 @@ struct AST_INTERNAL::ProcessGenerator
 	{
 		// generate process and simple root case
 		proc = new RTLIL::Process;
+		proc->attributes["\\src"] = stringf("%s:%d", always->filename.c_str(), always->linenum);
 		proc->name = stringf("$proc$%s:%d$%d", always->filename.c_str(), always->linenum, RTLIL::autoidx++);
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
