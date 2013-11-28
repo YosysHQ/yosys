@@ -46,6 +46,8 @@ struct ShowWorker
 	uint32_t currentColor;
 	bool genWidthLabels;
 	bool stretchIO;
+	bool enumerateIds;
+	bool abbreviateIds;
 	int page_counter;
 
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
@@ -114,11 +116,17 @@ struct ShowWorker
 			return "";
 
 		if (id[0] == '$' && is_name) {
-			if (autonames.count(id) == 0) {
-				autonames[id] = autonames.size() + 1;
-				log("Generated short name for internal identifier: _%d_ -> %s\n", autonames[id], id.c_str());
+			if (enumerateIds) {
+				if (autonames.count(id) == 0) {
+					autonames[id] = autonames.size() + 1;
+					log("Generated short name for internal identifier: _%d_ -> %s\n", autonames[id], id.c_str());
+				}
+				id = stringf("_%d_", autonames[id]);
+			} else if (abbreviateIds) {
+				const char *p = id.c_str();
+				const char *q = strrchr(p, '$');
+				id = std::string(q);
 			}
-			id = stringf("_%d_", autonames[id]);
 		}
 
 		if (id[0] == '\\')
@@ -377,6 +385,8 @@ struct ShowWorker
 				code += gen_portbox("", sig, false, &node);
 				fprintf(f, "%s", code.c_str());
 				net_conn_map[node].out.insert(stringf("p%d", pidx));
+				net_conn_map[node].bits = sig.width;
+				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
 			for (auto &sig : output_signals) {
@@ -384,12 +394,14 @@ struct ShowWorker
 				code += gen_portbox("", sig, true, &node);
 				fprintf(f, "%s", code.c_str());
 				net_conn_map[node].in.insert(stringf("p%d", pidx));
+				net_conn_map[node].bits = sig.width;
+				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
 			std::string proc_src = RTLIL::unescape_id(proc->name);
 			if (proc->attributes.count("\\src") > 0)
 				proc_src = proc->attributes.at("\\src").str;
-			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC\\n%s\"];\n", pidx, proc_src.c_str());
+			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, escape(proc->name, true), proc_src.c_str());
 		}
 
 		for (auto &conn : module->connections)
@@ -414,8 +426,8 @@ struct ShowWorker
 
 			if (left_node[0] == 'x' && right_node[0] == 'x') {
 				currentColor = xorshift32(currentColor);
-				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.width).c_str());
-			} else {
+			fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.width).c_str());
+		} else {
 				net_conn_map[right_node].bits = conn.first.width;
 				net_conn_map[right_node].color = nextColor(conn, net_conn_map[right_node].color);
 				net_conn_map[left_node].bits = conn.first.width;
@@ -458,10 +470,12 @@ struct ShowWorker
 		fprintf(f, "};\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels, bool stretchIO,
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed,
+			bool genWidthLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections) :
-			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), stretchIO(stretchIO),
+			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels),
+			stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			color_selections(color_selections), label_selections(label_selections)
 	{
 		ct.setup_internals();
@@ -543,6 +557,12 @@ struct ShowPass : public Pass {
 		log("    -pause\n");
 		log("        wait for the use to press enter to before returning\n");
 		log("\n");
+		log("    -enum\n");
+		log("        enumerate objects with internal ($-prefixed) names\n");
+		log("\n");
+		log("    -long\n");
+		log("        do not abbeviate objects with internal ($-prefixed) names\n");
+		log("\n");
 		log("When no <format> is specified, SVG is used. When no <format> and <viewer> is\n");
 		log("specified, 'yosys-svgviewer' is used to display the schematic.\n");
 		log("\n");
@@ -567,6 +587,8 @@ struct ShowPass : public Pass {
 		bool flag_width = false;
 		bool flag_stretch = false;
 		bool flag_pause = false;
+		bool flag_enum = false;
+		bool flag_abbeviate = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -622,6 +644,16 @@ struct ShowPass : public Pass {
 				flag_pause= true;
 				continue;
 			}
+			if (arg == "-enum") {
+				flag_enum = true;
+				flag_abbeviate = false;
+				continue;
+			}
+			if (arg == "-long") {
+				flag_enum = false;
+				flag_abbeviate = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -663,7 +695,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch, color_selections, label_selections);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch, flag_enum, flag_abbeviate, color_selections, label_selections);
 		fclose(f);
 
 		for (auto lib : libs)
