@@ -361,6 +361,8 @@ struct AST_INTERNAL::ProcessGenerator
 			do {
 				wire->name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
 						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
+				if (chunk.wire->name.find('$') != std::string::npos)
+					wire->name += stringf("$%d", RTLIL::autoidx++);
 			} while (current_module->wires.count(wire->name) > 0);
 			wire->width = chunk.width;
 			current_module->wires[wire->name] = wire;
