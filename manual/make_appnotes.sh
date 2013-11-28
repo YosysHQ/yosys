@@ -1,10 +1,10 @@
 #!/bin/bash
 
 set -ex
-for job in APPNOTE_010_Verilog_to_BLIF
+for job in APPNOTE_010_Verilog_to_BLIF APPNOTE_011_Design_Investigation
 do
 	[ -f $job.ok -a $job.ok -nt $job.tex ] && continue
-	old_md5=$([ -f $job.aux ] && md5sum < $job.aux)
+	old_md5=$([ -f $job.aux ] && md5sum < $job.aux || true)
 	while
 		pdflatex -shell-escape -halt-on-error $job.tex
 		new_md5=$(md5sum < $job.aux)

@@ -1,0 +1,134 @@
+
+% IEEEtran howto:
+% http://ftp.univie.ac.at/packages/tex/macros/latex/contrib/IEEEtran/IEEEtran_HOWTO.pdf
+\documentclass[9pt,technote,a4paper]{IEEEtran}
+
+\usepackage[T1]{fontenc}   % required for luximono!
+\usepackage[scaled=0.8]{luximono}  % typewriter font with bold face
+
+% To install the luximono font files:
+% getnonfreefonts-sys --all        or
+% getnonfreefonts-sys luximono
+%
+% when there are trouble you might need to:
+% - Create /etc/texmf/updmap.d/99local-luximono.cfg
+%   containing the single line: Map ul9.map
+% - Run update-updmap followed by mktexlsr and updmap-sys
+%
+% This commands must be executed as root with a root environment
+% (i.e. run "sudo su" and then execute the commands in the root
+% shell, don't just prefix the commands with "sudo").
+
+\usepackage[unicode,bookmarks=false]{hyperref}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{units}
+\usepackage{nicefrac}
+\usepackage{eurosym}
+\usepackage{graphicx}
+\usepackage{verbatim}
+\usepackage{algpseudocode}
+\usepackage{scalefnt}
+\usepackage{xspace}
+\usepackage{color}
+\usepackage{colortbl}
+\usepackage{multirow}
+\usepackage{hhline}
+\usepackage{listings}
+\usepackage{float}
+
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usetikzlibrary{arrows}
+\usetikzlibrary{scopes}
+\usetikzlibrary{through}
+\usetikzlibrary{shapes.geometric}
+
+\def\FIXME{{\color{red}\bf FIXME}}
+
+\lstset{basicstyle=\ttfamily,frame=trBL,xleftmargin=2em,xrightmargin=1em,numbers=left}
+
+\begin{document}
+
+\title{Yosys Application Note 011: \\ Interactive Design Investigation}
+\author{Clifford Wolf \\ November 2013}
+\maketitle
+
+\begin{abstract}
+Yosys \cite{yosys} can be a great environment for building custom synthesis
+flows \cite{glaserwolf}. It can also be an excellent tool for teaching and
+learning Verilog based RTL synthesis. In both applications it is of great
+importance to be able to analyze the designs produces easily.
+
+This Yosys application note covers the generation of circuit diagrams with the
+Yosys {\tt show} command and the selection of interesting parts of the circuit
+using the {\tt select} command.
+\end{abstract}
+
+\section{Installation and Prerequisites}
+
+This Application Note is based on GIT Rev. {\tt \FIXME} from \FIXME{} of
+Yosys \cite{yosys}. The {\tt README} file covers how to install Yosys. The
+{\tt show} command requires a working installation of GraphViz \cite{graphviz}
+for generating the actual circuit diagrams. Yosys must be build with Qt
+support in order to activate the built-in SVG viewer. Alternatively an
+external viewer can be used.
+
+\section{Introduction to the {\tt show} command}
+
+\FIXME
+
+\begin{figure}[b]
+\begin{lstlisting}
+$ cat example.ys
+read_verilog example.v
+show -pause
+proc
+show -pause
+opt
+show -pause
+
+$ cat example.v
+module example(input clk, a, b, c,
+               output reg [1:0] y);
+    always @(posedge clk)
+        if (c)
+            y <= c ? a + b : 2'd0;
+endmodule
+\end{lstlisting}
+\caption{Synthesis script with added show commands and example code}
+\label{example_src}
+\end{figure}
+
+\begin{figure}[b]
+\includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_00.pdf}
+\includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_01.pdf}
+\includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_02.pdf}
+\caption{\tt Output of the three show commands from Fig.~\ref{example_src}}
+\label{example_out}
+\end{figure}
+
+
+\begin{thebibliography}{9}
+
+\bibitem{yosys}
+Clifford Wolf. The Yosys Open SYnthesis Suite.
+\url{http://www.clifford.at/yosys/}
+
+\bibitem{glaserwolf}
+Johann Glaser. Clifford Wolf. Methodology and Example-Driven Interconnect
+Synthesis for Designing Heterogeneous Coarse-Grain Reconfigurable
+Architectures. In: Jan Haase (Editor). {\it Models, Methods, and Tools for Complex Chip Design.
+Lecture Notes in Electrical Engineering. Volume 265, 2014, pp 201-221.\/}
+\href{http://dx.doi.org/10.1007/978-3-319-01418-0_12}{DOI 10.1007/978-3-319-01418-0\_12}
+
+\bibitem{graphviz}
+Graphviz - Graph Visualization Software.
+\url{http://www.graphviz.org/}
+
+\end{thebibliography}
+
+\end{document}
