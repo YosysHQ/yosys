@@ -1003,6 +1003,24 @@ struct CdPass : public Pass {
 		log_cmd_error("No such module `%s' found!\n", RTLIL::id2cstr(modname));
 	}
 } CdPass;
+
+template<typename T>
+static int log_matches(const char *title, std::string pattern, T list)
+{
+	std::vector<std::string> matches;
+
+	for (auto &it : list)
+		if (pattern.empty() || match_ids(it.first, pattern))
+			matches.push_back(it.first);
+
+	if (matches.empty())
+		return 0;
+
+	log("\n%d %s:\n", int(matches.size()), title);
+	for (auto &id : matches)
+		log("  %s\n", RTLIL::id2cstr(id));
+	return matches.size();
+}
  
 struct LsPass : public Pass {
 	LsPass() : Pass("ls", "list modules or objects in modules") { }
@@ -1010,53 +1028,40 @@ struct LsPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    ls\n");
+		log("    ls [pattern]\n");
 		log("\n");
-		log("When no active module is selected, this prints a list of all module.\n");
+		log("When no active module is selected, this prints a list of all modules.\n");
 		log("\n");
 		log("When an active module is selected, this prints a list of objects in the module.\n");
+		log("\n");
+		log("If a pattern is given, the objects matching the pattern are printed\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		if (args.size() != 1)
+		std::string pattern;
+		int counter = 0;
+
+		if (args.size() != 1 && args.size() != 2)
 			log_cmd_error("Invalid number of arguments.\n");
+		if (args.size() == 2)
+			pattern = args.at(1);
 
 		if (design->selected_active_module.empty())
 		{
-			log("\n%d modules:\n", int(design->modules.size()));
-			for (auto &it : design->modules)
-				log("  %s\n", RTLIL::id2cstr(it.first));
+			counter += log_matches("modules", pattern, design->modules);
 		}
 		else
 		if (design->modules.count(design->selected_active_module) > 0)
 		{
 			RTLIL::Module *module = design->modules.at(design->selected_active_module);
-
-			if (module->wires.size()) {
-				log("\n%d wires:\n", int(module->wires.size()));
-				for (auto &it : module->wires)
-					log("  %s\n", RTLIL::id2cstr(it.first));
-			}
-
-			if (module->memories.size()) {
-				log("\n%d memories:\n", int(module->memories.size()));
-				for (auto &it : module->memories)
-					log("  %s\n", RTLIL::id2cstr(it.first));
-			}
-
-			if (module->cells.size()) {
-				log("\n%d cells:\n", int(module->cells.size()));
-				for (auto &it : module->cells)
-					log("  %s\n", RTLIL::id2cstr(it.first));
-			}
-
-			if (module->processes.size()) {
-				log("\n%d processes:\n", int(module->processes.size()));
-				for (auto &it : module->processes)
-					log("  %s\n", RTLIL::id2cstr(it.first));
-			}
+			counter += log_matches("wires", pattern, module->wires);
+			counter += log_matches("memories", pattern, module->memories);
+			counter += log_matches("cells", pattern, module->cells);
+			counter += log_matches("processes", pattern, module->processes);
 		}
+
+		// log("\nfound %d item%s.\n", counter, counter == 1 ? "" : "s");
 	}
 } LsPass;
  
