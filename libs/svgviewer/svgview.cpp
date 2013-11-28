@@ -56,6 +56,7 @@ SvgView::SvgView(QWidget *parent)
     : QGraphicsView(parent)
     , m_renderer(Native)
     , m_svgItem(0)
+    , m_webview(0)
     , m_backgroundItem(0)
     , m_outlineItem(0)
 {
@@ -91,35 +92,44 @@ void SvgView::openFile(const QFile &file)
 
     QGraphicsScene *s = scene();
 
-    bool drawBackground = (m_backgroundItem ? m_backgroundItem->isVisible() : false);
-    bool drawOutline = (m_outlineItem ? m_outlineItem->isVisible() : true);
-
-    s->clear();
-    resetTransform();
-
-#if 0
-    QGraphicsWebView *webview = new QGraphicsWebView();
-    QString fn = file.fileName();
+    fn = file.fileName();
     if (fn[0] != '/') {
         char cwd_buffer[4096];
         if (getcwd(cwd_buffer, 4096) != NULL)
             fn = cwd_buffer + ("/" + fn);
     }
-    webview->load(QUrl::fromLocalFile(fn));
-    webview->setResizesToContents(true);
-    m_svgItem = webview;
-#else
+
+    bool drawBackground = (m_backgroundItem ? m_backgroundItem->isVisible() : false);
+    bool drawOutline = (m_outlineItem ? m_outlineItem->isVisible() : true);
+    bool useWebview = (m_webview ? m_webview->isVisible() : false);
+
+    s->clear();
+    resetTransform();
+
     m_svgItem = new QGraphicsSvgItem(file.fileName());
-#endif
     m_svgItem->setFlags(QGraphicsItem::ItemClipsToShape);
     m_svgItem->setCacheMode(QGraphicsItem::NoCache);
+    m_svgItem->setVisible(!useWebview);
     m_svgItem->setZValue(1);
+    s->addItem(m_svgItem);
+
+    if (useWebview) {
+        m_webview = new QGraphicsWebView();
+        m_webview->load(QUrl::fromLocalFile(fn));
+        m_webview->setResizesToContents(true);
+        m_webview->setZoomFactor(0.75);
+        m_webview->setVisible(useWebview);
+        m_webview->setZValue(1);
+        s->addItem(m_webview);
+    } else
+        m_webview = NULL;
 
     m_backgroundItem = new QGraphicsRectItem(m_svgItem->boundingRect());
     m_backgroundItem->setBrush(Qt::white);
     m_backgroundItem->setPen(Qt::NoPen);
     m_backgroundItem->setVisible(drawBackground);
     m_backgroundItem->setZValue(0);
+    s->addItem(m_backgroundItem);
 
     m_outlineItem = new QGraphicsRectItem(m_svgItem->boundingRect());
     QPen outline(Qt::black, 2, Qt::DashLine);
@@ -128,9 +138,6 @@ void SvgView::openFile(const QFile &file)
     m_outlineItem->setBrush(Qt::NoBrush);
     m_outlineItem->setVisible(drawOutline);
     m_outlineItem->setZValue(2);
-
-    s->addItem(m_backgroundItem);
-    s->addItem(m_svgItem);
     s->addItem(m_outlineItem);
 
     s->setSceneRect(m_outlineItem->boundingRect().adjusted(-10, -10, 10, 10));
@@ -156,6 +163,23 @@ void SvgView::setHighQualityAntialiasing(bool highQualityAntialiasing)
 #else
     Q_UNUSED(highQualityAntialiasing);
 #endif
+}
+
+void SvgView::setViewInteractive(bool enable)
+{
+    if (!m_svgItem)
+        return;
+    if (!m_webview) {
+        m_webview = new QGraphicsWebView();
+        m_webview->load(QUrl::fromLocalFile(fn));
+        m_webview->setResizesToContents(true);
+        m_webview->setZoomFactor(0.75);
+        m_webview->setVisible(false);
+        m_webview->setZValue(1);
+        m_svgItem->scene()->addItem(m_webview);
+    }
+    m_svgItem->setVisible(!enable);
+    m_webview->setVisible(enable);
 }
 
 void SvgView::setViewBackground(bool enable)

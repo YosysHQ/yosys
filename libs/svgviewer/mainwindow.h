@@ -72,6 +72,7 @@ private:
     QAction *m_glAction;
     QAction *m_imageAction;
     QAction *m_highQualityAntialiasingAction;
+    QAction *m_interactiveAction;
     QAction *m_backgroundAction;
     QAction *m_outlineAction;
 

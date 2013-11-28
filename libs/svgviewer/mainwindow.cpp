@@ -41,6 +41,7 @@
 #include "mainwindow.h"
 
 #include <QtGui>
+#include <unistd.h>
 #include <QFileSystemWatcher>
 
 #include "svgview.h"
@@ -60,10 +61,18 @@ MainWindow::MainWindow()
     menuBar()->addMenu(fileMenu);
 
     QMenu *viewMenu = new QMenu(tr("&View"), this);
+
+    m_interactiveAction = viewMenu->addAction(tr("&Interactive"));
+    m_interactiveAction->setEnabled(false);
+    m_interactiveAction->setCheckable(true);
+    m_interactiveAction->setChecked(false);
+    connect(m_interactiveAction, SIGNAL(toggled(bool)), m_view, SLOT(setViewInteractive(bool)));
+
     m_backgroundAction = viewMenu->addAction(tr("&Background"));
     m_backgroundAction->setEnabled(false);
     m_backgroundAction->setCheckable(true);
     m_backgroundAction->setChecked(false);
+    m_backgroundAction->setVisible(false);
     connect(m_backgroundAction, SIGNAL(toggled(bool)), m_view, SLOT(setViewBackground(bool)));
 
     m_outlineAction = viewMenu->addAction(tr("&Outline"));
@@ -136,6 +145,7 @@ void MainWindow::openFile(const QString &path, bool reload)
             QMessageBox::critical(this, tr("Open SVG File"),
                            QString("Could not open file '%1'.").arg(fileName));
 
+            m_interactiveAction->setEnabled(false);
             m_outlineAction->setEnabled(false);
             m_backgroundAction->setEnabled(false);
             return;
@@ -157,6 +167,7 @@ void MainWindow::openFile(const QString &path, bool reload)
 	    connect(m_watcher, SIGNAL(fileChanged(const QString&)), this, SLOT(reloadFile()));
         }
 
+        m_interactiveAction->setEnabled(true);
         m_outlineAction->setEnabled(true);
         m_backgroundAction->setEnabled(true);
 
@@ -169,6 +180,8 @@ void MainWindow::openFile(const QString &path, bool reload)
 
 void MainWindow::reloadFile()
 {
+    // give the writer ~100 ms to finish writing
+    usleep(100000);
 	openFile(m_currentPath, true);
 }
 

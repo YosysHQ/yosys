@@ -42,6 +42,7 @@
 #define SVGVIEW_H
 
 #include <QGraphicsView>
+#include <QGraphicsWebView>
 
 QT_BEGIN_NAMESPACE
 class QWheelEvent;
@@ -64,6 +65,7 @@ public:
 
 public slots:
     void setHighQualityAntialiasing(bool highQualityAntialiasing);
+    void setViewInteractive(bool enable);
     void setViewBackground(bool enable);
     void setViewOutline(bool enable);
 
@@ -74,7 +76,9 @@ protected:
 private:
     RendererType m_renderer;
 
+    QString fn;
     QGraphicsItem *m_svgItem;
+    QGraphicsWebView *m_webview;
     QGraphicsRectItem *m_backgroundItem;
     QGraphicsRectItem *m_outlineItem;
 
