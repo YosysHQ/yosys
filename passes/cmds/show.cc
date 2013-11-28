@@ -22,6 +22,7 @@
 #include "kernel/log.h"
 #include <string.h>
 #include <dirent.h>
+#include <readline/readline.h>
 
 using RTLIL::id2cstr;
 
@@ -536,6 +537,9 @@ struct ShowPass : public Pass {
 		log("        stretch the graph so all inputs are on the left side and all outputs\n");
 		log("        (including inout ports) are on the right side.\n");
 		log("\n");
+		log("    -pause\n");
+		log("        wait for the use to press enter to before returning\n");
+		log("\n");
 		log("When no <format> is specified, SVG is used. When no <format> and <viewer> is\n");
 		log("specified, 'yosys-svgviewer' is used to display the schematic.\n");
 		log("\n");
@@ -559,6 +563,7 @@ struct ShowPass : public Pass {
 		uint32_t colorSeed = 0;
 		bool flag_width = false;
 		bool flag_stretch = false;
+		bool flag_pause = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -608,6 +613,10 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-stretch") {
 				flag_stretch= true;
+				continue;
+			}
+			if (arg == "-pause") {
+				flag_pause= true;
 				continue;
 			}
 			break;
@@ -660,22 +669,37 @@ struct ShowPass : public Pass {
 		if (worker.page_counter == 0)
 			log_cmd_error("Nothing there to show.\n");
 
-		std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.empty() ? "svg" : format.c_str(), out_file.c_str(), dot_file.c_str());
-		log("Exec: %s\n", cmd.c_str());
-		if (system(cmd.c_str()) != 0)
-			log_cmd_error("Shell command failed!\n");
+		if (format != "dot") {
+			std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.empty() ? "svg" : format.c_str(), out_file.c_str(), dot_file.c_str());
+			log("Exec: %s\n", cmd.c_str());
+			if (system(cmd.c_str()) != 0)
+				log_cmd_error("Shell command failed!\n");
+		}
 
 		if (!viewer_exe.empty()) {
-			cmd = stringf("%s '%s' &", viewer_exe.c_str(), out_file.c_str());
+			std::string cmd = stringf("%s '%s' &", viewer_exe.c_str(), out_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
-			cmd = stringf("fuser -s '%s' || '%s' '%s' &", out_file.c_str(), rewrite_yosys_exe("yosys-svgviewer").c_str(), out_file.c_str());
+			std::string cmd = stringf("fuser -s '%s' || '%s' '%s' &", out_file.c_str(), rewrite_yosys_exe("yosys-svgviewer").c_str(), out_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
+		}
+
+		if (flag_pause) {
+			char *input = NULL;
+			while ((input = readline("Press ENTER to continue (or type 'shell' to open a shell)> ")) != NULL) {
+				if (input[strspn(input, " \t\r\n")] == 0)
+					break;
+				char *p = input + strspn(input, " \t\r\n");
+				if (!strcmp(p, "shell")) {
+					Pass::call(design, "shell");
+					break;
+				}
+			}
 		}
 
 		log_pop();
