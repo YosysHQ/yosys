@@ -47,6 +47,7 @@
 #include <QGraphicsWebView>
 #include <QPaintEvent>
 #include <qmath.h>
+#include <unistd.h>
 
 #ifndef QT_NO_OPENGL
 #include <QGLWidget>
