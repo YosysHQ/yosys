@@ -1036,6 +1036,10 @@ struct LsPass : public Pass {
 		log("\n");
 		log("If a pattern is given, the objects matching the pattern are printed\n");
 		log("\n");
+		log("Note that this command does not use the selection mechanism and always operates\n");
+		log("on the whole design or whole active module. Use 'select -list' to show a list\n");
+		log("of currently selected objects.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
