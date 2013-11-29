@@ -258,74 +258,93 @@ void ILANG_BACKEND::dump_conn(FILE *f, std::string indent, const RTLIL::SigSpec 
 	fprintf(f, "\n");
 }
 
-void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected)
+void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
-	for (auto it = module->attributes.begin(); it != module->attributes.end(); it++) {
-		fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
-		dump_const(f, it->second);
-		fprintf(f, "\n");
+	bool print_header = flag_m || design->selected_whole_module(module->name);
+	bool print_body = !flag_n || !design->selected_whole_module(module->name);
+
+	if (print_header)
+	{
+		for (auto it = module->attributes.begin(); it != module->attributes.end(); it++) {
+			fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
+			dump_const(f, it->second);
+			fprintf(f, "\n");
+		}
+
+		fprintf(f, "%s" "module %s\n", indent.c_str(), module->name.c_str());
 	}
 
-	fprintf(f, "%s" "module %s\n", indent.c_str(), module->name.c_str());
+	if (print_body)
+	{
+		for (auto it = module->wires.begin(); it != module->wires.end(); it++)
+			if (!only_selected || design->selected(module, it->second)) {
+				if (only_selected)
+					fprintf(f, "\n");
+				dump_wire(f, indent + "  ", it->second);
+			}
 
-	for (auto it = module->wires.begin(); it != module->wires.end(); it++)
-		if (!only_selected || design->selected(module, it->second)) {
-			if (only_selected)
-				fprintf(f, "\n");
-			dump_wire(f, indent + "  ", it->second);
-		}
+		for (auto it = module->memories.begin(); it != module->memories.end(); it++)
+			if (!only_selected || design->selected(module, it->second)) {
+				if (only_selected)
+					fprintf(f, "\n");
+				dump_memory(f, indent + "  ", it->second);
+			}
 
-	for (auto it = module->memories.begin(); it != module->memories.end(); it++)
-		if (!only_selected || design->selected(module, it->second)) {
-			if (only_selected)
-				fprintf(f, "\n");
-			dump_memory(f, indent + "  ", it->second);
-		}
+		for (auto it = module->cells.begin(); it != module->cells.end(); it++)
+			if (!only_selected || design->selected(module, it->second)) {
+				if (only_selected)
+					fprintf(f, "\n");
+				dump_cell(f, indent + "  ", it->second);
+			}
 
-	for (auto it = module->cells.begin(); it != module->cells.end(); it++)
-		if (!only_selected || design->selected(module, it->second)) {
-			if (only_selected)
-				fprintf(f, "\n");
-			dump_cell(f, indent + "  ", it->second);
-		}
+		for (auto it = module->processes.begin(); it != module->processes.end(); it++)
+			if (!only_selected || design->selected(module, it->second)) {
+				if (only_selected)
+					fprintf(f, "\n");
+				dump_proc(f, indent + "  ", it->second);
+			}
 
-	for (auto it = module->processes.begin(); it != module->processes.end(); it++)
-		if (!only_selected || design->selected(module, it->second)) {
-			if (only_selected)
-				fprintf(f, "\n");
-			dump_proc(f, indent + "  ", it->second);
-		}
-
-	bool first_conn_line = true;
-	for (auto it = module->connections.begin(); it != module->connections.end(); it++) {
-		bool show_conn = !only_selected;
-		if (only_selected) {
-			RTLIL::SigSpec sigs = it->first;
-			sigs.append(it->second);
-			for (auto &c : sigs.chunks) {
-				if (c.wire == NULL || !design->selected(module, c.wire))
-					continue;
-				show_conn = true;
+		bool first_conn_line = true;
+		for (auto it = module->connections.begin(); it != module->connections.end(); it++) {
+			bool show_conn = !only_selected;
+			if (only_selected) {
+				RTLIL::SigSpec sigs = it->first;
+				sigs.append(it->second);
+				for (auto &c : sigs.chunks) {
+					if (c.wire == NULL || !design->selected(module, c.wire))
+						continue;
+					show_conn = true;
+				}
+			}
+			if (show_conn) {
+				if (only_selected && first_conn_line)
+					fprintf(f, "\n");
+				dump_conn(f, indent + "  ", it->first, it->second);
+				first_conn_line = false;
 			}
 		}
-		if (show_conn) {
-			if (only_selected && first_conn_line)
-				fprintf(f, "\n");
-			dump_conn(f, indent + "  ", it->first, it->second);
-			first_conn_line = false;
-		}
 	}
 
-	fprintf(f, "%s" "end\n", indent.c_str());
+	if (print_header)
+		fprintf(f, "%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_selected)
+void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
+	if (!flag_m) {
+		int count_selected_mods = 0;
+		for (auto it = design->modules.begin(); it != design->modules.end(); it++)
+			if (design->selected(it->second))
+				count_selected_mods++;
+		if (count_selected_mods > 1)
+			flag_m = true;
+	}
+
 	for (auto it = design->modules.begin(); it != design->modules.end(); it++) {
 		if (!only_selected || design->selected(it->second)) {
 			if (only_selected)
 				fprintf(f, "\n");
-			dump_module(f, "", it->second, design, only_selected);
+			dump_module(f, "", it->second, design, only_selected, flag_m, flag_n);
 		}
 	}
 }
@@ -364,7 +383,7 @@ struct IlangBackend : public Backend {
 
 		log("Output filename: %s\n", filename.c_str());
 		fprintf(f, "# Generated by %s\n", yosys_version_str);
-		ILANG_BACKEND::dump_design(f, design, selected);
+		ILANG_BACKEND::dump_design(f, design, selected, true, false);
 	}
 } IlangBackend;
 
@@ -379,6 +398,13 @@ struct DumpPass : public Pass {
 		log("Write the selected parts of the design to the console or specified file in\n");
 		log("ilang format.\n");
 		log("\n");
+		log("    -m\n");
+		log("        also dump the module headers, even if only parts of a single");
+		log("        module is selected\n");
+		log("\n");
+		log("    -n\n");
+		log("        only dump the module headers if the entire module is selected\n");
+		log("\n");
 		log("    -outfile <filename>\n");
 		log("        Write to the specified file.\n");
 		log("\n");
@@ -386,6 +412,7 @@ struct DumpPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string filename;
+		bool flag_m = false, flag_n = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -393,6 +420,14 @@ struct DumpPass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-outfile" && argidx+1 < args.size()) {
 				filename = args[++argidx];
+				continue;
+			}
+			if (arg == "-m") {
+				flag_m = true;
+				continue;
+			}
+			if (arg == "-n") {
+				flag_n = true;
 				continue;
 			}
 			break;
@@ -411,7 +446,7 @@ struct DumpPass : public Pass {
 			f = open_memstream(&buf_ptr, &buf_size);
 		}
 
-		ILANG_BACKEND::dump_design(f, design, true);
+		ILANG_BACKEND::dump_design(f, design, true, flag_m, flag_n);
 
 		fclose(f);
 

@@ -40,8 +40,8 @@ namespace ILANG_BACKEND {
 	void dump_proc_sync(FILE *f, std::string indent, const RTLIL::SyncRule *sy);
 	void dump_proc(FILE *f, std::string indent, const RTLIL::Process *proc);
 	void dump_conn(FILE *f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right);
-	void dump_module(FILE *f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected);
-	void dump_design(FILE *f, const RTLIL::Design *design, bool only_selected);
+	void dump_module(FILE *f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
+	void dump_design(FILE *f, const RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
 }
 
 #endif
