@@ -135,6 +135,8 @@ a temporary file and launches {\tt yosys-svgviewer} to display the diagram.
 Subsequent calls to {\tt show} re-use the {\tt yosys-svgviewer} instance
 (if still running).
 
+\subsection{A simple circuit}
+
 Fig.~\ref{example_src} shows a simple synthesis script and Verilog file that
 demonstrates the usage of {\tt show} in a simple setting. Note that {\tt show}
 is called with the {\tt -pause} option, that halts execution of the Yosys
@@ -197,8 +199,6 @@ not only has removed the artifacts left behind by {\tt proc}, but also determine
 correctly that it can remove the first {\tt \$mux} cell without changing the behavior
 of the circuit.
 
-\medskip
-
 \begin{figure}[b!]
 \includegraphics[width=\linewidth,trim=0 2cm 0 0]{APPNOTE_011_Design_Investigation/splice.pdf}
 \caption{Output of {\tt yosys -p 'proc; opt; show' splice.v}}
@@ -230,7 +230,9 @@ circuit is a half-adder built from simple CMOS gates.)}
 \label{splitnets_libfile}
 \end{figure}
 
-As has been indicated in this example, Yosys is can manage signal vectors (aka.
+\subsection{Break-out boxes for signal vectors}
+
+As has been indicated by the last example, Yosys is can manage signal vectors (aka.
 multi-bit wires or buses) as native objects. This provides great advantages
 when analyzing circuits that operate on wide integers. But it also introduces
 some additional complexity when the individual bits of of a signal vector need
@@ -252,7 +254,7 @@ like a technicality, until one wants to debug a problem related to the way
 Yosys internally represents signal vectors, for example when writing custom
 Yosys commands.
 
-\medskip
+\subsection{Gate level netlists}
 
 Finally Fig.~\ref{splitnets_libfile} shows two common pitfalls when working
 with designs mapped to a cell library. The top figure has two problems: First
@@ -273,15 +275,183 @@ in all subsequent calls to the {\tt show} command.
 
 In addition to that the 2nd diagram was generated after {\tt splitnet -ports}
 was run on the design. This command splits all signal vectors into individual
-signals, which is often desirable when looking at gate-level circuits. The
+signal bits, which is often desirable when looking at gate-level circuits. The
 {\tt -ports} option is required to also split module ports. Per default the
 command only operates on interior signals.
 
+\subsection{Miscellaneous notes}
+
+Per default the {\tt show} command outputs a temporary SVG file and launches
+{\tt yosys-svgviewer} to display it. The options {\tt -format}, {\tt -viewer}
+and {\tt -prefix} can be used to change format, viewer and filename prefix.
+Note that the {\tt pdf} and {\tt ps} format are the only formats that support
+plotting multiple modules in one run.
+
+In {\tt yosys-svgviewer} the left mouse button is per default bound to move the
+diagram (and the mouse wheel can be used for zooming in and out). However, in
+some cases one wants to copy text from the diagram. In this cases the
+View->Interactive checkbox must be activated. This switch the rendering back-end
+to one that supports interaction with the SVG file, such as selecting text.
+
+In densely connected circuits it is sometimes hard to keep track of the
+individual signal wires. For this cases it can be useful to call {\tt show}
+with the {\tt -colors <integer>} argument, which randomly assigns colors to the
+nets.  The integer (> 0) is used as seed value for the random number
+generation. Sometimes it is necessary it try some values to find an assignment
+of colors that works.
+
+The command {\tt help show} prints a complete listing of all options supported
+by the {\tt show} command.
 
 \section{Navigating the design}
 \label{navigate}
 
-\FIXME{} --- cd and ls, dump,  multi-page diagrams, select, cones and boolean operations
+Plotting circuit diagrams for entire modules in the design brings us only so
+far. For complex modules the generated circuit diagrams are just stupidly big
+and are no help at all. In such cases one first has to select the relevant
+portions of the circuit.
+
+In addition to {\it what\/} to display one only needs to carefully decide
+{\it when\/} to display it, with respect to the synthesis flow. In general
+it is a good idea to troubleshoot a circuit in the earliest state where
+a problem can be reproduces. So if for example internal state before calling
+the {\tt techmap} command already fails to verify, it is better to troubleshoot 
+the coarse-grain version of the circuit before {\tt techmap} than the gate-level
+circuit after {\tt techmap}.
+
+\medskip
+
+Note: It is generally recommended to verify the internal state of a design by
+writing it to a Verilog file using {\tt write\_verilog -noexpr} and using the
+simulation models from {\tt simlib.v} and {\tt simcells.v} from the Yosys data
+directory (see {\tt yosys-config -{}-datdir}).
+
+\subsection{Interactive Navigation}
+
+\begin{figure}
+\begin{lstlisting}
+yosys> ls
+
+1 modules:
+  example
+
+yosys> cd example 
+
+yosys [example]> ls
+
+7 wires:
+  $0\y[1:0]
+  $add$example.v:5$2_Y
+  a
+  b
+  c
+  clk
+  y
+
+3 cells:
+  $add$example.v:5$2
+  $procdff$7
+  $procmux$5
+\end{lstlisting}
+\caption{Demonstration of {\tt ls} and {\tt cd} using {\tt example.v} from Fig.~\ref{example_src}}
+\label{lscd}
+\end{figure}
+
+\begin{figure}[b]
+\begin{lstlisting}
+  attribute \src "example.v:5"
+  cell $add $add$example.v:5$2
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 2
+    connect \A \a
+    connect \B \b
+    connect \Y $add$example.v:5$2_Y
+  end
+\end{lstlisting}
+\caption{Output of {\tt dump \$2} using the design from Fig.~\ref{example_src} and  Fig.~\ref{example_out}}
+\label{dump2}
+\end{figure}
+
+Once the right state within the synthesis flow for debugging the circuit has
+been identified, it is recommended to simply add the {\tt shell} command
+to the matching place in the synthesis script. This command will stop the
+synthesis at the specified moment and go to shell mode, where the user can
+interactively enter commands.
+
+For most cases, the shell will start with the whole design selected (i.e.  when
+the synthesis script does not already narrow the selection). The command {\tt
+ls} can now be used to create a list of all modules. The command {\tt cd} can
+be used to switch to one of the modules (type {\tt cd ..} to switch back). Now
+the {\tt ls} command lists the objects within that module. Fig.~\ref{lscd}
+demonstrates this using the design from Fig.~\ref{example_src}.
+
+There is a thing to note in Fig.~\ref{lscd}: We can see that the cell names
+from Fig.~\ref{example_out} are just abbreviations of the actual cell names,
+namely the part after the last dollar-sign. Most auto-generated names (the ones
+starting with a dollar sign) are rather long and contains some additional
+information on the origin of the named object. But in most cases those names
+can simply be abbreviated using the last part.
+
+Usually all interactive work is done with one module selected using the {\tt cd}
+command. But it is also possible to work from the design-context ({\tt cd ..}). In
+this case all object names must be prefixed with {\tt <module\_name>/}. For
+example {\tt a*/b*} would refer to all objects whose names start with {\tt b} from
+all modules whose names start with {\tt a}.
+
+The {\tt dump} command can be used to print all information about an object.
+For example {\tt dump \$2} will print Fig.~\ref{dump2}. This can for example
+be useful to determine the names of nets connected to cells, as the net-names
+are usually suppressed in the circuit diagram if they are auto-generated.
+
+For the remainder of this document we will assume that the commands are run from
+module-context and not design-context.
+
+\subsection{Working with selections}
+
+\begin{figure}[t]
+\includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_03.pdf}
+\caption{Output of {\tt show} after {\tt select \$2} or {\tt select t:\$add}
+(see also Fig.~\ref{example_out})}
+\label{seladd}
+\end{figure}
+
+When a module is selected using {\tt cd} command, all commands (with a few
+exceptions, such as the {\tt read\_*} and {\tt write\_*} commands) operate
+only on the selected module. So this can also be useful for synthesis scripts
+where different synthesis strategies should be applied to different modules
+in the design.
+
+But for most interactive work we want to further narrow the set of selected
+objects. This can be done using the {\tt select} command.
+
+For example, if the command {\tt select \$2} is executed, a subsequent {\tt show}
+command will yield the diagram shown in Fig.~\ref{seladd}. Note that the nets are
+now displayed in ellipses. This indicates that they are not selected, but only
+shown because the diagram contains a cell that is connected to the net. This
+of course makes no difference for the circuit that is shown, but it can be a useful
+information when manipulating selections.
+
+Objects can not only be selected by their name but also by other properties.
+For example {\tt select t:\$add} will select all cells of type {\tt \$add}. In
+this case this is also yields the diagram shown in Fig.~\ref{seladd}.
+
+The output of {\tt help select} contains a complete syntax reference for
+matching different properties.
+
+\subsection{Selecting logic cones}
+
+\FIXME{}
+
+\subsection{Boolean operations on selections}
+
+\FIXME{}
+
+\subsection{Storing and recalling selections}
+
+\FIXME{}
 
 \section{Advanced investigation techniques}
 \label{poke}

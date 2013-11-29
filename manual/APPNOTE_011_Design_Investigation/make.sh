@@ -7,6 +7,7 @@ sed -i '/^label=/ d;' example_*.dot splice.dot cmos_*.dot
 dot -Tpdf -o example_00.pdf example_00.dot
 dot -Tpdf -o example_01.pdf example_01.dot
 dot -Tpdf -o example_02.pdf example_02.dot
+dot -Tpdf -o example_03.pdf example_03.dot
 dot -Tpdf -o splice.pdf splice.dot
 dot -Tpdf -o cmos_00.pdf cmos_00.dot
 dot -Tpdf -o cmos_01.pdf cmos_01.dot
