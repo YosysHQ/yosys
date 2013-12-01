@@ -31,7 +31,6 @@ static void normalize_sig(RTLIL::Module *module, RTLIL::SigSpec &sig)
 
 static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false)
 {
-	bool replaced_bits = false;
 	normalize_sig(module, sig);
 	sig.expand();
 
@@ -67,7 +66,6 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 			chunk = d.chunks[0];
 			clk = cell->connections["\\CLK"];
 			clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
-			replaced_bits = true;
 			goto replaced_this_bit;
 		}
 
@@ -76,7 +74,7 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 	}
 
 	sig.optimize();
-	return replaced_bits;
+	return true;
 }
 
 static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
@@ -104,13 +102,15 @@ static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 		return;
 	}
 
-	cell->connections["\\CLK"] = clk;
-	cell->connections["\\ADDR"] = sig_addr;
-	cell->connections["\\DATA"] = sig_data;
-	cell->connections["\\EN"] = sig_en;
-	cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
-	cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
-	log("merged $dff to cell.\n");
+	if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
+		cell->connections["\\CLK"] = clk;
+		cell->connections["\\ADDR"] = sig_addr;
+		cell->connections["\\DATA"] = sig_data;
+		cell->connections["\\EN"] = sig_en;
+		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
+		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
+		log("merged $dff to cell.\n");
+	}
 }
 
 #if 1
