@@ -208,6 +208,7 @@ struct SubmodWorker
 		ct.setup_internals_mem();
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
+		ct.setup_design(design);
 
 		if (opt_name.empty())
 		{
