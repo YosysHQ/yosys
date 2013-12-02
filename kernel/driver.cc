@@ -303,6 +303,24 @@ struct ShellPass : public Pass {
 	}
 } ShellPass;
 
+struct HistoryPass : public Pass {
+	HistoryPass() : Pass("history", "show last interactive commands") { }
+	virtual void help() {
+		log("\n");
+		log("    history\n");
+		log("\n");
+		log("This command prints all commands in the shell history buffer. This are\n");
+		log("all commands executed in an interactive session, but not the commands\n");
+		log("from executed scripts.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+		extra_args(args, 1, design, false);
+		for(HIST_ENTRY **list = history_list(); *list != NULL; list++)
+			log("%s\n", (*list)->line);
+	}
+} HistoryPass;
+
 struct ScriptPass : public Pass {
 	ScriptPass() : Pass("script", "execute commands from script file") { }
 	virtual void help() {
