@@ -182,6 +182,30 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	design->check();
 }
 
+void Pass::call_newsel(RTLIL::Design *design, std::string command)
+{
+	std::string backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module.clear();
+	design->selection_stack.push_back(RTLIL::Selection());
+
+	Pass::call(design, command);
+
+	design->selection_stack.pop_back();
+	design->selected_active_module = backup_selected_active_module;
+}
+
+void Pass::call_newsel(RTLIL::Design *design, std::vector<std::string> args)
+{
+	std::string backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module.clear();
+	design->selection_stack.push_back(RTLIL::Selection());
+
+	Pass::call(design, args);
+
+	design->selection_stack.pop_back();
+	design->selected_active_module = backup_selected_active_module;
+}
+
 Frontend::Frontend(std::string name, std::string short_help) : Pass("read_"+name, short_help), frontend_name(name)
 {
 }
