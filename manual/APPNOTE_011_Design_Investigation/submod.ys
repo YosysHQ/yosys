@@ -1,0 +1,16 @@
+read_verilog memdemo.v
+proc; opt; memory; opt
+
+cd memdemo
+select -set outstage y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff
+select -set selstage y %ci2:+$dff[Q,D] %ci*:-$dff @outstage %d
+select -set scramble mem* %ci2 %ci*:-$dff mem* %d @selstage %d
+submod -name scramble @scramble
+submod -name outstage @outstage
+submod -name selstage @selstage
+
+cd ..
+show -format dot -prefix submod_00 memdemo
+show -format dot -prefix submod_01 scramble
+show -format dot -prefix submod_02 outstage
+show -format dot -prefix submod_03 selstage

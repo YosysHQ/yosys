@@ -11,7 +11,8 @@
 ../../yosys -p 'opt; cd sumprod; select prod %ci3; show -format dot -prefix sumprod_05' sumprod.v
 ../../yosys -p 'proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_00' memdemo.v
 ../../yosys -p 'proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_01 y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff' memdemo.v
-sed -i '/^label=/ d;' example_*.dot splice.dot cmos_*.dot sumprod_*.dot memdemo_*.dot
+../../yosys submod.ys
+sed -i '/^label=/ d;' example_*.dot splice.dot cmos_*.dot sumprod_*.dot memdemo_*.dot submod_*.dot
 dot -Tpdf -o example_00.pdf example_00.dot
 dot -Tpdf -o example_01.pdf example_01.dot
 dot -Tpdf -o example_02.pdf example_02.dot
@@ -27,3 +28,7 @@ dot -Tpdf -o sumprod_04.pdf sumprod_04.dot
 dot -Tpdf -o sumprod_05.pdf sumprod_05.dot
 dot -Tpdf -o memdemo_00.pdf memdemo_00.dot
 dot -Tpdf -o memdemo_01.pdf memdemo_01.dot
+dot -Tpdf -o submod_00.pdf submod_00.dot
+dot -Tpdf -o submod_01.pdf submod_01.dot
+dot -Tpdf -o submod_02.pdf submod_02.dot
+dot -Tpdf -o submod_03.pdf submod_03.dot

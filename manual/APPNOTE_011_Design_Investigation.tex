@@ -654,10 +654,59 @@ See {\tt help select} for a complete list of actions available in selections.
 
 \subsection{Storing and recalling selections}
 
-\FIXME{}
+The current selection can be stored in memory with the command {\tt select -set
+<name>}. It can later be recalled using {\tt select @<name>}. In fact, the {\tt
+@<name>} expression pushes the stored selection on the stack maintained by the
+{\tt select} command. So for example
+
+\begin{verbatim}
+select @foo @bar %i
+\end{verbatim}
+
+will select the intersection between the stored selections {\tt foo} and {\tt bar}.
+
+\medskip
+
+In larger investigation efforts it is highly recommended to maintain a script that
+sets up relevant selections, so they can easily be recalled, for example when
+Yosys needs to be re-run after a design or source code change.
+
+The {\tt history} command can be used to list all recent interactive commands.
+A feature that can be useful to create such a script from the commands used in
+an interactive session.
 
 \section{Advanced investigation techniques}
 \label{poke}
+
+When working with very large modules, it is often not enough to just select the
+interesting part of the module. Instead it can be useful to extract the
+interesting part of the circuit into a separate module. This can for example be
+useful if one wants to run a series of synthesis commands on the critical part
+of the module and wants to carefully read all the debug output created by the
+commands in order to spot a problem. This kind of troubleshooting is much easier
+if the circuit under investigation is encapsulated in a separate module.
+
+\begin{figure}[b]
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_00.pdf} \\ \centerline{\tt memdemo} \vskip1em
+
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_01.pdf} \\ \centerline{\tt scramble} \vskip1em
+
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_02.pdf} \\ \centerline{\tt outstage} \vskip1em
+
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_03.pdf} \\ \centerline{\tt selstage} \vskip1em
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+select -set outstage y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff
+select -set selstage y %ci2:+$dff[Q,D] %ci*:-$dff @outstage %d
+select -set scramble mem* %ci2 %ci*:-$dff mem* %d @selstage %d
+submod -name scramble @scramble
+submod -name outstage @outstage
+submod -name selstage @selstage
+\end{lstlisting}
+\caption{The circuit from Fig.~\ref{memdemo_src} and \ref{memdemo_00} broken up using {\tt submod}}
+\label{submod}
+\end{figure}
+
 
 \FIXME{} --- submod, eval, sat
 
