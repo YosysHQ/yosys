@@ -31,6 +31,7 @@ YOSYS_VER := 0.1.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
+# set to 'default' to use abc/ as it is
 ABCREV = 9241719523f6
 ABCPULL = 1
 
@@ -107,20 +108,14 @@ yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 	cd libs/svgviewer && $(QMAKE) && make
 	cp libs/svgviewer/svgviewer yosys-svgviewer
 
-abc:
-ifeq ($(ABCPULL),1)
-	test -d abc || hg clone https://bitbucket.org/alanmi/abc abc
-	cd abc && hg pull && hg update -r $(ABCREV)
-endif
-	cd abc && $(MAKE)
-	cp abc/abc yosys-abc
-
 abc/abc-$(ABCREV):
+ifneq ($(ABCREV),default)
 	if test "`cd abc && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
 		test $(ABCPULL) -ne 0 || { echo; echo "!!! ABC not up to date and ABCPULL set to 0 in Makefile !!!"; echo; exit 1; }; \
 		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
 		cd abc && hg pull && hg update -r $(ABCREV); \
 	fi
+endif
 	rm -f abc/abc-[0-9a-f]*
 	cd abc && $(MAKE) PROG="abc-$(ABCREV)" MSG_PREFIX="YOSYS-ABC: "
 
