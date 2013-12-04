@@ -39,7 +39,7 @@ input start;
 input clock;
 input reset;
 
-(* gentb_constant="0" *)
+(* gentb_constant = 1'b0 *)
 wire reset;
 
 always @(posedge clock, posedge reset) begin: DESIGN_PROCESSOR
