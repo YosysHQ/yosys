@@ -135,6 +135,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_GENVAR)
 	X(AST_GENFOR)
 	X(AST_GENIF)
+	X(AST_GENCASE)
 	X(AST_GENBLOCK)
 	X(AST_POSEDGE)
 	X(AST_NEGEDGE)
@@ -698,6 +699,15 @@ RTLIL::Const AstNode::asParaConst()
 	if (is_signed)
 		val.flags |= RTLIL::CONST_FLAG_SIGNED;
 	return val;
+}
+
+bool AstNode::asBool()
+{
+	log_assert(type == AST_CONSTANT);
+	for (auto &bit : bits)
+		if (bit == RTLIL::State::S1)
+			return true;
+	return false;
 }
 
 // create a new AstModule from an AST_MODULE AST node

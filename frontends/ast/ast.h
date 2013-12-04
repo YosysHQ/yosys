@@ -116,6 +116,7 @@ namespace AST
 		AST_GENVAR,
 		AST_GENFOR,
 		AST_GENIF,
+		AST_GENCASE,
 		AST_GENBLOCK,
 
 		AST_POSEDGE,
@@ -218,6 +219,7 @@ namespace AST
 		RTLIL::Const bitsAsConst(int width = -1);
 		RTLIL::Const asAttrConst();
 		RTLIL::Const asParaConst();
+		bool asBool();
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code

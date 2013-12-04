@@ -346,7 +346,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		bool did_something_here = true;
 		if ((type == AST_GENFOR || type == AST_FOR) && i >= 3)
 			break;
-		if (type == AST_GENIF && i >= 1)
+		if ((type == AST_GENIF || type == AST_GENCASE) && i >= 1)
 			break;
 		if (type == AST_GENBLOCK)
 			break;
@@ -726,7 +726,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// 	dumpAst(f, "verilog-ast> ");
 			log_error("Condition for generate if at %s:%d is not constant!\n", filename.c_str(), linenum);
 		}
-		if (buf->integer != 0) {
+		if (buf->asBool() != 0) {
 			delete buf;
 			buf = children[1]->clone();
 		} else {
@@ -738,6 +738,82 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		{
 			if (buf->type != AST_GENBLOCK)
 				buf = new AstNode(AST_GENBLOCK, buf);
+
+			if (!buf->str.empty()) {
+				std::map<std::string, std::string> name_map;
+				buf->expand_genblock(std::string(), buf->str + ".", name_map);
+			}
+
+			for (size_t i = 0; i < buf->children.size(); i++) {
+				buf->children[i]->simplify(false, false, false, stage, -1, false);
+				current_ast_mod->children.push_back(buf->children[i]);
+			}
+
+			buf->children.clear();
+			delete buf;
+		}
+
+		delete_children();
+		did_something = true;
+	}
+
+	// simplify generate-case blocks
+	if (type == AST_GENCASE && children.size() != 0)
+	{
+		AstNode *buf = children[0]->clone();
+		while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+		if (buf->type != AST_CONSTANT) {
+			// for (auto f : log_files)
+			// 	dumpAst(f, "verilog-ast> ");
+			log_error("Condition for generate case at %s:%d is not constant!\n", filename.c_str(), linenum);
+		}
+
+		bool ref_signed = buf->is_signed;
+		RTLIL::Const ref_value = buf->bitsAsConst();
+		delete buf;
+
+		AstNode *selected_case = NULL;
+		for (size_t i = 1; i < children.size(); i++)
+		{
+			log_assert(children.at(i)->type == AST_COND);
+
+			AstNode *this_genblock = NULL;
+			for (auto child : children.at(i)->children) {
+				log_assert(this_genblock == NULL);
+				if (child->type == AST_GENBLOCK)
+					this_genblock = child;
+			}
+
+			for (auto child : children.at(i)->children)
+			{
+				if (child->type == AST_DEFAULT) {
+					if (selected_case == NULL)
+						selected_case = this_genblock;
+					continue;
+				}
+				if (child->type == AST_GENBLOCK)
+					continue;
+
+				buf = child->clone();
+				while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+				if (buf->type != AST_CONSTANT) {
+					// for (auto f : log_files)
+					// 	dumpAst(f, "verilog-ast> ");
+					log_error("Expression in generate case at %s:%d is not constant!\n", filename.c_str(), linenum);
+				}
+
+				if (RTLIL::const_eq(ref_value, buf->bitsAsConst(), ref_signed && buf->is_signed, ref_signed && buf->is_signed, 1).as_bool()) {
+					selected_case = this_genblock;
+					i = children.size();
+					break;
+				}
+			}
+		}
+
+		if (selected_case != NULL)
+		{
+			log_assert(selected_case->type == AST_GENBLOCK);
+			buf = selected_case->clone();
 
 			if (!buf->str.empty()) {
 				std::map<std::string, std::string> name_map;

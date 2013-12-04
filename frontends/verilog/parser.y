@@ -887,6 +887,22 @@ case_item:
 		ast_stack.pop_back();
 	};
 
+gen_case_body:
+	gen_case_body gen_case_item |
+	/* empty */;
+
+gen_case_item:
+	{
+		AstNode *node = new AstNode(AST_COND);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} case_select {
+		case_type_stack.push_back(0);
+	} gen_stmt_or_null {
+		case_type_stack.pop_back();
+		ast_stack.pop_back();
+	};
+
 case_select:
 	case_expr_list ':' |
 	TOK_DEFAULT;
@@ -956,7 +972,6 @@ single_arg:
 
 module_gen_body:
 	module_gen_body gen_stmt |
-	module_gen_body module_body_stmt |
 	/* empty */;
 
 // this production creates the obligatory if-else shift/reduce conflict
@@ -967,7 +982,7 @@ gen_stmt:
 		ast_stack.push_back(node);
 	} simple_behavioral_stmt ';' expr {
 		ast_stack.back()->children.push_back($6);
-	} ';' simple_behavioral_stmt ')' gen_stmt {
+	} ';' simple_behavioral_stmt ')' gen_stmt_block {
 		ast_stack.pop_back();
 	} |
 	TOK_IF '(' expr ')' {
@@ -975,7 +990,15 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		ast_stack.back()->children.push_back($3);
-	} gen_stmt opt_gen_else {
+	} gen_stmt_block opt_gen_else {
+		ast_stack.pop_back();
+	} |
+	case_type '(' expr ')' {
+		AstNode *node = new AstNode(AST_GENCASE, $3);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} gen_case_body TOK_ENDCASE {
+		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	} |
 	TOK_BEGIN opt_label {
@@ -989,10 +1012,23 @@ gen_stmt:
 		if ($6 != NULL)
 			delete $6;
 		ast_stack.pop_back();
+	} |
+	module_body_stmt;
+
+gen_stmt_block:
+	{
+		AstNode *node = new AstNode(AST_GENBLOCK);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} gen_stmt {
+		ast_stack.pop_back();
 	};
 
+gen_stmt_or_null:
+	gen_stmt_block | ';';
+
 opt_gen_else:
-	TOK_ELSE gen_stmt | /* empty */;
+	TOK_ELSE gen_stmt_or_null | /* empty */;
 
 expr:
 	basic_expr {
