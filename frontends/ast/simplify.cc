@@ -513,7 +513,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 		if (current_scope.count(str) == 0) {
-			log("Warning: Creating auto-wire `%s' in module `%s'.\n", str.c_str(), current_ast_mod->str.c_str());
+			// log("Warning: Creating auto-wire `%s' in module `%s'.\n", str.c_str(), current_ast_mod->str.c_str());
 			AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
 			auto_wire->str = str;
 			current_ast_mod->children.push_back(auto_wire);
@@ -579,6 +579,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		AstNode *while_ast = children[1];
 		AstNode *next_ast = children[2];
 		AstNode *body_ast = children[3];
+
+		while (body_ast->type == AST_GENBLOCK && body_ast->str.empty() &&
+				body_ast->children.size() == 1 && body_ast->children.at(0)->type == AST_GENBLOCK)
+			body_ast = body_ast->children.at(0);
 
 		if (init_ast->type != AST_ASSIGN_EQ)
 			log_error("Unsupported 1st expression of generate for-loop at %s:%d!\n", filename.c_str(), linenum);
