@@ -52,7 +52,7 @@ namespace RTLIL
 	enum ConstFlags {
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
-		CONST_FLAG_SIGNED = 2,  // unused -- to be used for parameters
+		CONST_FLAG_SIGNED = 2,  // only used for parameters
 		CONST_FLAG_REAL   = 4   // unused -- to be used for parameters
 	};
 
@@ -275,7 +275,7 @@ struct RTLIL::Module {
 	std::vector<RTLIL::SigSig> connections;
 	RTLIL_ATTRIBUTE_MEMBERS
 	virtual ~Module();
-	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters, std::set<RTLIL::IdString> signed_parameters);
+	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void check();
 	virtual void optimize();
@@ -310,7 +310,6 @@ struct RTLIL::Cell {
 	RTLIL::IdString type;
 	std::map<RTLIL::IdString, RTLIL::SigSpec> connections;
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
-	std::set<RTLIL::IdString> signed_parameters;
 	RTLIL_ATTRIBUTE_MEMBERS
 	void optimize();
 

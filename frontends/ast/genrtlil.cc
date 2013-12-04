@@ -1304,12 +1304,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					if (child->str.size() == 0) {
 						char buf[100];
 						snprintf(buf, 100, "$%d", ++para_counter);
-						if (child->children[0]->is_signed)
-							cell->signed_parameters.insert(buf);
 						cell->parameters[buf] = child->children[0]->asParaConst();
 					} else {
-						if (child->children[0]->is_signed)
-							cell->signed_parameters.insert(child->str);
 						cell->parameters[child->str] = child->children[0]->asParaConst();
 					}
 					continue;

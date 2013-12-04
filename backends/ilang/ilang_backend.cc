@@ -158,7 +158,7 @@ void ILANG_BACKEND::dump_cell(FILE *f, std::string indent, const RTLIL::Cell *ce
 	}
 	fprintf(f, "%s" "cell %s %s\n", indent.c_str(), cell->type.c_str(), cell->name.c_str());
 	for (auto it = cell->parameters.begin(); it != cell->parameters.end(); it++) {
-		fprintf(f, "%s  parameter%s %s ", indent.c_str(), cell->signed_parameters.count(it->first) ? " signed" : "", it->first.c_str());
+		fprintf(f, "%s  parameter%s %s ", indent.c_str(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "", it->first.c_str());
 		dump_const(f, it->second);
 		fprintf(f, "\n");
 	}

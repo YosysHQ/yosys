@@ -191,7 +191,7 @@ cell_body:
 	} |
 	cell_body TOK_PARAMETER TOK_SIGNED TOK_ID constant TOK_EOL {
 		current_cell->parameters[$4] = *$5;
-		current_cell->signed_parameters.insert($4);
+		current_cell->parameters[$4].flags |= RTLIL::CONST_FLAG_SIGNED;
 		free($4);
 		delete $5;
 	} |

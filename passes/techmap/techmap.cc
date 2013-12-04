@@ -259,7 +259,7 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 				tpl = techmap_cache[key];
 			} else {
 				if (cell->parameters.size() != 0) {
-					derived_name = tpl->derive(map, parameters, cell->signed_parameters);
+					derived_name = tpl->derive(map, parameters);
 					tpl = map->modules[derived_name];
 					log_continue = true;
 				}

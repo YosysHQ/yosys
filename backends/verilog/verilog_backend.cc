@@ -642,7 +642,7 @@ void dump_cell(FILE *f, std::string indent, RTLIL::Cell *cell)
 			if (it != cell->parameters.begin())
 				fprintf(f, ",");
 			fprintf(f, "\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-			bool is_signed = cell->signed_parameters.count(it->first) > 0;
+			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 			dump_const(f, it->second, -1, 0, !is_signed, is_signed);
 			fprintf(f, ")");
 		}
