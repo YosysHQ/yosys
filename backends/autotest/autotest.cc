@@ -124,11 +124,11 @@ static void autotest(FILE *f, RTLIL::Design *design)
 							is_clksignal = true;
 					}
 				}
-				if (is_clksignal && !wire->get_bool_attribute("\\gentb_constant")) {
+				if (is_clksignal && wire->attributes.count("\\gentb_constant") == 0) {
 					signal_clk[idy("sig", mod->name, wire->name)] = wire->width;
 				} else {
 					signal_in[idy("sig", mod->name, wire->name)] = wire->width;
-					if (wire->get_bool_attribute("\\gentb_constant"))
+					if (wire->attributes.count("\\gentb_constant") != 0)
 						signal_const[idy("sig", mod->name, wire->name)] = wire->attributes["\\gentb_constant"].as_string();
 				}
 				fprintf(f, "reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name, wire->name).c_str());
