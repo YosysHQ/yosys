@@ -350,6 +350,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			break;
 		if (type == AST_GENBLOCK)
 			break;
+		if (type == AST_BLOCK && !str.empty())
+			break;
 		if (type == AST_PREFIX && i >= 1)
 			break;
 		while (did_something_here && i < children.size()) {
@@ -676,6 +678,25 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		delete varbuf;
 		delete_children();
 		did_something = true;
+	}
+
+	// transform block with name
+	if (type == AST_BLOCK && !str.empty())
+	{
+		std::map<std::string, std::string> name_map;
+		expand_genblock(std::string(), str + ".", name_map);
+
+		std::vector<AstNode*> new_children;
+		for (size_t i = 0; i < children.size(); i++)
+			if (children[i]->type == AST_WIRE) {
+				children[i]->simplify(false, false, false, stage, -1, false);
+				current_ast_mod->children.push_back(children[i]);
+			} else
+				new_children.push_back(children[i]);
+
+		children.swap(new_children);
+		did_something = true;
+		str.clear();
 	}
 
 	// simplify unconditional generate block

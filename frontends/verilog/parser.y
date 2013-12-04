@@ -407,7 +407,6 @@ opt_signed:
 	};
 
 task_func_body:
-	task_func_body wire_decl |
 	task_func_body behavioral_stmt |
 	/* empty */;
 
@@ -761,7 +760,7 @@ simple_behavioral_stmt:
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
-	defattr |
+	defattr | wire_decl |
 	simple_behavioral_stmt ';' |
 	hierarchical_id attr {
 		AstNode *node = new AstNode(AST_TCALL);
@@ -778,7 +777,11 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
+		if ($3 != NULL)
+			node->str = *$3;
 	} behavioral_stmt_list TOK_END opt_label {
+		if ($3 != NULL && $7 != NULL && *$3 != *$7)
+			frontend_verilog_yyerror("Syntax error.");
 		if ($3 != NULL)
 			delete $3;
 		if ($7 != NULL)

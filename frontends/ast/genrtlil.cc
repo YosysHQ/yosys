@@ -576,6 +576,10 @@ struct AST_INTERNAL::ProcessGenerator
 			}
 			break;
 
+		case AST_WIRE:
+			log_error("Found wire declaration in block without label at at %s:%d!\n", ast->filename.c_str(), ast->linenum);
+			break;
+
 		case AST_TCALL:
 		case AST_FOR:
 			break;
