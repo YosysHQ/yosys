@@ -53,7 +53,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	{
 		RTLIL::Cell *cell = cell_it.second;
 
-		if (cell->type == "$memwr" && cell->parameters["\\MEMID"].str == memory->name)
+		if (cell->type == "$memwr" && cell->parameters["\\MEMID"].decode_string() == memory->name)
 		{
 			wr_ports++;
 			del_cell_ids.push_back(cell->name);
@@ -80,7 +80,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			sig_wr_en.append(en);
 		}
 
-		if (cell->type == "$memrd" && cell->parameters["\\MEMID"].str == memory->name)
+		if (cell->type == "$memrd" && cell->parameters["\\MEMID"].decode_string() == memory->name)
 		{
 			rd_ports++;
 			del_cell_ids.push_back(cell->name);

@@ -400,7 +400,7 @@ struct ShowWorker
 
 			std::string proc_src = RTLIL::unescape_id(proc->name);
 			if (proc->attributes.count("\\src") > 0)
-				proc_src = proc->attributes.at("\\src").str;
+				proc_src = proc->attributes.at("\\src").decode_string();
 			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, escape(proc->name, true), proc_src.c_str());
 		}
 

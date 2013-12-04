@@ -280,8 +280,8 @@ struct EdifBackend : public Backend {
 				fprintf(f, "            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_NAME(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
 				for (auto &p : cell->parameters)
-					if (!p.second.str.empty())
-						fprintf(f, "\n            (property %s (string \"%s\"))", EDIF_NAME(p.first), p.second.str.c_str());
+					if ((p.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
+						fprintf(f, "\n            (property %s (string \"%s\"))", EDIF_NAME(p.first), p.second.decode_string().c_str());
 					else if (p.second.bits.size() <= 32 && RTLIL::SigSpec(p.second).is_fully_def())
 						fprintf(f, "\n            (property %s (integer %u))", EDIF_NAME(p.first), p.second.as_int());
 					else {

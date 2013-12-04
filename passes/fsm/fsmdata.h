@@ -133,7 +133,7 @@ struct FsmData
 	{
 		log("-------------------------------------\n");
 		log("\n");
-		log("  Information on FSM %s (%s):\n", cell->name.c_str(), cell->parameters["\\NAME"].str.c_str());
+		log("  Information on FSM %s (%s):\n", cell->name.c_str(), cell->parameters["\\NAME"].decode_string().c_str());
 		log("\n");
 		log("  Number of input signals:  %3d\n", num_inputs);
 		log("  Number of output signals: %3d\n", num_outputs);

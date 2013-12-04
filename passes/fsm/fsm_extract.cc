@@ -376,7 +376,7 @@ struct FsmExtractPass : public Pass {
 
 			std::vector<RTLIL::Wire*> wire_list;
 			for (auto &wire_it : module->wires)
-				if (wire_it.second->attributes.count("\\fsm_encoding") > 0 && wire_it.second->attributes["\\fsm_encoding"].str != "none")
+				if (wire_it.second->attributes.count("\\fsm_encoding") > 0 && wire_it.second->attributes["\\fsm_encoding"].decode_string() != "none")
 					if (design->selected(module, wire_it.second))
 						wire_list.push_back(wire_it.second);
 			for (auto wire : wire_list)

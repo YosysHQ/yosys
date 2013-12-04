@@ -48,7 +48,9 @@ static bool match_ids(RTLIL::IdString id, std::string pattern)
 
 static bool match_attr_val(const RTLIL::Const &value, std::string pattern)
 {
-	if (!fnmatch(pattern.c_str(), value.str.c_str(), FNM_NOESCAPE))
+	if ((value.flags & RTLIL::CONST_FLAG_STRING) == 0)
+		return false;
+	if (!fnmatch(pattern.c_str(), value.decode_string().c_str(), FNM_NOESCAPE))
 		return true;
 	return false;
 }

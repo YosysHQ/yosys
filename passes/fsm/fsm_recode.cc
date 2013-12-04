@@ -28,12 +28,12 @@
 
 static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &fsm_data, const char *prefix, FILE *f)
 {
+	std::string name = cell->parameters["\\NAME"].decode_string();
+
 	fprintf(f, "set_fsm_state_vector {");
 	for (int i = fsm_data.state_bits-1; i >= 0; i--)
-		fprintf(f, " %s_reg[%d]", cell->parameters["\\NAME"].str[0] == '\\' ?
-				cell->parameters["\\NAME"].str.substr(1).c_str() : cell->parameters["\\NAME"].str.c_str(), i);
-	fprintf(f, " } -name {%s_%s} {%s:/WORK/%s}\n",
-			prefix, RTLIL::unescape_id(cell->parameters["\\NAME"].str).c_str(),
+		fprintf(f, " %s_reg[%d]", name[0] == '\\' ?  name.substr(1).c_str() : name.c_str(), i);
+	fprintf(f, " } -name {%s_%s} {%s:/WORK/%s}\n", prefix, RTLIL::unescape_id(name).c_str(),
 			prefix, RTLIL::unescape_id(module->name).c_str());
 
 	fprintf(f, "set_fsm_encoding {");
@@ -43,13 +43,13 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 			fprintf(f, "%c", fsm_data.state_table[i].bits[j] == RTLIL::State::S1 ? '1' : '0');
 	}
 	fprintf(f, " } -name {%s_%s} {%s:/WORK/%s}\n",
-			prefix, RTLIL::unescape_id(cell->parameters["\\NAME"].str).c_str(),
+			prefix, RTLIL::unescape_id(name).c_str(),
 			prefix, RTLIL::unescape_id(module->name).c_str());
 }
 
 static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fsm_file, std::string default_encoding)
 {
-	std::string encoding = cell->attributes.count("\\fsm_encoding") ? cell->attributes.at("\\fsm_encoding").str : "auto";
+	std::string encoding = cell->attributes.count("\\fsm_encoding") ? cell->attributes.at("\\fsm_encoding").decode_string() : "auto";
 
 	log("Recoding FSM `%s' from module `%s' using `%s' encoding:\n", cell->name.c_str(), module->name.c_str(), encoding.c_str());
 	if (encoding != "none" && encoding != "one-hot" && encoding != "binary") {

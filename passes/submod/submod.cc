@@ -218,12 +218,12 @@ struct SubmodWorker
 			for (auto &it : module->cells)
 			{
 				RTLIL::Cell *cell = it.second;
-				if (cell->attributes.count("\\submod") == 0 || cell->attributes["\\submod"].str.size() == 0) {
+				if (cell->attributes.count("\\submod") == 0 || cell->attributes["\\submod"].bits.size() == 0) {
 					cell->attributes.erase("\\submod");
 					continue;
 				}
 
-				std::string submod_str = cell->attributes["\\submod"].str;
+				std::string submod_str = cell->attributes["\\submod"].decode_string();
 				cell->attributes.erase("\\submod");
 
 				if (submodules.count(submod_str) == 0) {

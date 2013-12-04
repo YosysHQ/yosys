@@ -313,19 +313,7 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 						data.wire->name = new_name;
 						tpl->add(data.wire);
 
-						std::string cmd_string;
-						std::vector<char> cmd_string_chars;
-						std::vector<RTLIL::State> bits = data.value.as_const().bits;
-						for (int i = 0; i < int(bits.size()); i += 8) {
-							char ch = 0;
-							for (int j = 0; j < 8 && i+j < int(bits.size()); j++)
-								if (bits[i+j] == RTLIL::State::S1)
-									ch |= 1 << j;
-							if (ch != 0)
-								cmd_string_chars.push_back(ch);
-						}
-						for (int i = int(cmd_string_chars.size())-1; i >= 0; i--)
-							cmd_string += cmd_string_chars[i];
+						std::string cmd_string = data.value.as_const().decode_string();
 
 						RTLIL::Selection tpl_mod_sel(false);
 						tpl_mod_sel.select(tpl);
@@ -507,8 +495,8 @@ struct TechmapPass : public Pass {
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
 		for (auto &it : map->modules) {
-			if (it.second->attributes.count("\\techmap_celltype") && !it.second->attributes.at("\\techmap_celltype").str.empty()) {
-				char *p = strdup(it.second->attributes.at("\\techmap_celltype").str.c_str());
+			if (it.second->attributes.count("\\techmap_celltype") && !it.second->attributes.at("\\techmap_celltype").bits.empty()) {
+				char *p = strdup(it.second->attributes.at("\\techmap_celltype").decode_string().c_str());
 				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(NULL, " \t\r\n"))
 					celltypeMap[RTLIL::escape_id(q)].insert(it.first);
 				free(p);

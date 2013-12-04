@@ -28,9 +28,15 @@
 
 int RTLIL::autoidx = 1;
 
-RTLIL::Const::Const(std::string str) : str(str)
+RTLIL::Const::Const()
 {
-	for (size_t i = 0; i < str.size(); i++) {
+	flags = RTLIL::CONST_FLAG_NONE;
+}
+
+RTLIL::Const::Const(std::string str)
+{
+	flags = RTLIL::CONST_FLAG_STRING;
+	for (int i = str.size()-1; i >= 0; i--) {
 		unsigned char ch = str[i];
 		for (int j = 0; j < 8; j++) {
 			bits.push_back((ch & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
@@ -41,6 +47,7 @@ RTLIL::Const::Const(std::string str) : str(str)
 
 RTLIL::Const::Const(int val, int width)
 {
+	flags = RTLIL::CONST_FLAG_NONE;
 	for (int i = 0; i < width; i++) {
 		bits.push_back((val & 1) != 0 ? RTLIL::S1 : RTLIL::S0);
 		val = val >> 1;
@@ -49,6 +56,7 @@ RTLIL::Const::Const(int val, int width)
 
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
+	flags = RTLIL::CONST_FLAG_NONE;
 	for (int i = 0; i < width; i++)
 		bits.push_back(bit);
 }
@@ -103,6 +111,23 @@ std::string RTLIL::Const::as_string() const
 			case Sm: ret += "m"; break;
 		}
 	return ret;
+}
+
+std::string RTLIL::Const::decode_string() const
+{
+	std::string string;
+	std::vector <char> string_chars;
+	for (int i = 0; i < int (bits.size()); i += 8) {
+		char ch = 0;
+		for (int j = 0; j < 8 && i + j < int (bits.size()); j++)
+			if (bits[i + j] == RTLIL::State::S1)
+				ch |= 1 << j;
+		if (ch != 0)
+			string_chars.push_back(ch);
+	}
+	for (int i = int (string_chars.size()) - 1; i >= 0; i--)
+		string += string_chars[i];
+	return string;
 }
 
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
@@ -965,7 +990,6 @@ void RTLIL::SigSpec::expand()
 {
 	std::vector<RTLIL::SigChunk> new_chunks;
 	for (size_t i = 0; i < chunks.size(); i++) {
-		assert(chunks[i].data.str.empty());
 		for (int j = 0; j < chunks[i].width; j++)
 			new_chunks.push_back(chunks[i].extract(j, 1));
 	}
@@ -1323,13 +1347,11 @@ void RTLIL::SigSpec::check() const
 		if (chunk.wire == NULL) {
 			assert(chunk.offset == 0);
 			assert(chunk.data.bits.size() == (size_t)chunk.width);
-			assert(chunk.data.str.size() == 0 || chunk.data.str.size()*8 == chunk.data.bits.size());
 		} else {
 			assert(chunk.offset >= 0);
 			assert(chunk.width >= 0);
 			assert(chunk.offset + chunk.width <= chunk.wire->width);
 			assert(chunk.data.bits.size() == 0);
-			assert(chunk.data.str.size() == 0);
 		}
 		w += chunk.width;
 	}

@@ -677,6 +677,29 @@ RTLIL::Const AstNode::bitsAsConst(int width)
 	return bitsAsConst(width, is_signed);
 }
 
+RTLIL::Const AstNode::asAttrConst()
+{
+	log_assert(type == AST_CONSTANT);
+
+	RTLIL::Const val;
+	val.bits = bits;
+
+	if (!str.empty()) {
+		val.flags |= RTLIL::CONST_FLAG_STRING;
+		log_assert(val.decode_string() == str);
+	}
+
+	return val;
+}
+
+RTLIL::Const AstNode::asParaConst()
+{
+	RTLIL::Const val = asAttrConst();
+	if (is_signed)
+		val.flags |= RTLIL::CONST_FLAG_SIGNED;
+	return val;
+}
+
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast)
 {
@@ -729,8 +752,7 @@ static AstModule* process_module(AstNode *ast)
 		if (attr.second->type != AST_CONSTANT)
 			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 					attr.first.c_str(), ast->filename.c_str(), ast->linenum);
-		current_module->attributes[attr.first].str = attr.second->str;
-		current_module->attributes[attr.first].bits = attr.second->bits;
+		current_module->attributes[attr.first] = attr.second->asAttrConst();
 	}
 	for (size_t i = 0; i < ast->children.size(); i++) {
 		AstNode *node = ast->children[i];

@@ -216,6 +216,8 @@ namespace AST
 		// helper function for creating sign-extended const objects
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
 		RTLIL::Const bitsAsConst(int width = -1);
+		RTLIL::Const asAttrConst();
+		RTLIL::Const asParaConst();
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code

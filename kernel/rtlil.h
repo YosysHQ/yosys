@@ -38,6 +38,7 @@ namespace RTLIL
 		Sa = 4, // don't care (used only in cases)
 		Sm = 5  // marker (used internally by some passes)
 	};
+
 	enum SyncType {
 		ST0 = 0, // level sensitive: 0
 		ST1 = 1, // level sensitive: 1
@@ -46,6 +47,13 @@ namespace RTLIL
 		STe = 4, // edge sensitive: both edges
 		STa = 5, // always active
 		STi = 6  // init
+	};
+
+	enum ConstFlags {
+		CONST_FLAG_NONE   = 0,
+		CONST_FLAG_STRING = 1,
+		CONST_FLAG_SIGNED = 2,  // unused -- to be used for parameters
+		CONST_FLAG_REAL   = 4   // unused -- to be used for parameters
 	};
 
 	extern int autoidx;
@@ -181,9 +189,10 @@ namespace RTLIL
 };
 
 struct RTLIL::Const {
-	std::string str;
+	int flags;
 	std::vector<RTLIL::State> bits;
-	Const(std::string str = std::string());
+	Const();
+	Const(std::string str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
 	Const(std::vector<RTLIL::State> bits) : bits(bits) { };
@@ -193,6 +202,7 @@ struct RTLIL::Const {
 	bool as_bool() const;
 	int as_int() const;
 	std::string as_string() const;
+	std::string decode_string() const;
 };
 
 struct RTLIL::Selection {

@@ -33,7 +33,7 @@ always @*
 		4'b1001: y = 16'h123abc;
 		4'b1010: y = 16'o1234567;
 		4'b1011: y = 16'd3456789;
-		4'b1100: y = "foobar";
+		4'b1100: y = { "foo", "bar" };
 		4'b1101: y = "foobarfoobarfoobar";
 		4'b1110: y = 16'h1;
 		4'b1111: y = a;

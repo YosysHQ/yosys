@@ -138,7 +138,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			c->connections["\\D"] = data_reg_in.back();
 
 			RTLIL::Wire *w_out = new RTLIL::Wire;
-			w_out->name = stringf("%s[%d]", cell->parameters["\\MEMID"].str.c_str(), i);
+			w_out->name = stringf("%s[%d]", cell->parameters["\\MEMID"].decode_string().c_str(), i);
 			if (module->wires.count(w_out->name) > 0)
 				w_out->name = genid(cell->name, "", i, "$q");
 			w_out->width = mem_width;

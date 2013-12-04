@@ -153,7 +153,7 @@ void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, boo
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
-	if (data.str.empty() || width != (int)data.bits.size()) {
+	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
 		if (width == 32 && !no_decimal) {
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
@@ -184,17 +184,20 @@ void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, boo
 		}
 	} else {
 		fprintf(f, "\"");
-		for (size_t i = 0; i < data.str.size(); i++) {
-			if (data.str[i] == '\n')
+		std::string str = data.decode_string();
+		for (size_t i = 0; i < str.size(); i++) {
+			if (str[i] == '\n')
 				fprintf(f, "\\n");
-			else if (data.str[i] == '\t')
+			else if (str[i] == '\t')
 				fprintf(f, "\\t");
-			else if (data.str[i] < 32)
-				fprintf(f, "\\%03o", data.str[i]);
-			else if (data.str[i] == '"')
+			else if (str[i] < 32)
+				fprintf(f, "\\%03o", str[i]);
+			else if (str[i] == '"')
 				fprintf(f, "\\\"");
+			else if (str[i] == '\\')
+				fprintf(f, "\\\\");
 			else
-				fputc(data.str[i], f);
+				fputc(str[i], f);
 		}
 		fprintf(f, "\"");
 	}

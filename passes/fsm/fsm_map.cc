@@ -168,7 +168,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 	// create state register
 
 	RTLIL::Wire *state_wire = new RTLIL::Wire;
-	state_wire->name = fsm_cell->parameters["\\NAME"].str;
+	state_wire->name = fsm_cell->parameters["\\NAME"].decode_string();
 	while (module->count_id(state_wire->name) > 0)
 		state_wire->name += "_";
 	state_wire->width = fsm_data.state_bits;

@@ -70,8 +70,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 			if (attr.second->type != AST_CONSTANT)
 				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 						attr.first.c_str(), that->filename.c_str(), that->linenum);
-			cell->attributes[attr.first].str = attr.second->str;
-			cell->attributes[attr.first].bits = attr.second->bits;
+			cell->attributes[attr.first] = attr.second->asAttrConst();
 		}
 
 	cell->parameters["\\A_SIGNED"] = RTLIL::Const(that->children[0]->is_signed);
@@ -120,8 +119,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 			if (attr.second->type != AST_CONSTANT)
 				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 						attr.first.c_str(), that->filename.c_str(), that->linenum);
-			cell->attributes[attr.first].str = attr.second->str;
-			cell->attributes[attr.first].bits = attr.second->bits;
+			cell->attributes[attr.first] = attr.second->asAttrConst();
 		}
 
 	cell->parameters["\\A_SIGNED"] = RTLIL::Const(is_signed);
@@ -164,8 +162,7 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_wi
 		if (attr.second->type != AST_CONSTANT)
 			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 					attr.first.c_str(), that->filename.c_str(), that->linenum);
-		cell->attributes[attr.first].str = attr.second->str;
-		cell->attributes[attr.first].bits = attr.second->bits;
+		cell->attributes[attr.first] = attr.second->asAttrConst();
 	}
 
 	cell->parameters["\\A_SIGNED"] = RTLIL::Const(that->children[0]->is_signed);
@@ -215,8 +212,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 		if (attr.second->type != AST_CONSTANT)
 			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 					attr.first.c_str(), that->filename.c_str(), that->linenum);
-		cell->attributes[attr.first].str = attr.second->str;
-		cell->attributes[attr.first].bits = attr.second->bits;
+		cell->attributes[attr.first] = attr.second->asAttrConst();
 	}
 
 	cell->parameters["\\WIDTH"] = RTLIL::Const(left.width);
@@ -271,8 +267,7 @@ struct AST_INTERNAL::ProcessGenerator
 			if (attr.second->type != AST_CONSTANT)
 				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 						attr.first.c_str(), always->filename.c_str(), always->linenum);
-			proc->attributes[attr.first].str = attr.second->str;
-			proc->attributes[attr.first].bits = attr.second->bits;
+			proc->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		current_module->processes[proc->name] = proc;
 		current_case = &proc->root_case;
@@ -491,8 +486,7 @@ struct AST_INTERNAL::ProcessGenerator
 					if (attr.second->type != AST_CONSTANT)
 						log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 								attr.first.c_str(), ast->filename.c_str(), ast->linenum);
-					sw->attributes[attr.first].str = attr.second->str;
-					sw->attributes[attr.first].bits = attr.second->bits;
+					sw->attributes[attr.first] = attr.second->asAttrConst();
 				}
 
 				RTLIL::SigSpec this_case_eq_lvalue;
@@ -854,8 +848,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (attr.second->type != AST_CONSTANT)
 					log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 							attr.first.c_str(), filename.c_str(), linenum);
-				wire->attributes[attr.first].str = attr.second->str;
-				wire->attributes[attr.first].bits = attr.second->bits;
+				wire->attributes[attr.first] = attr.second->asAttrConst();
 			}
 		}
 		break;
@@ -890,8 +883,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (attr.second->type != AST_CONSTANT)
 					log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 							attr.first.c_str(), filename.c_str(), linenum);
-				memory->attributes[attr.first].str = attr.second->str;
-				memory->attributes[attr.first].bits = attr.second->bits;
+				memory->attributes[attr.first] = attr.second->asAttrConst();
 			}
 		}
 		break;
@@ -1314,13 +1306,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						snprintf(buf, 100, "$%d", ++para_counter);
 						if (child->children[0]->is_signed)
 							cell->signed_parameters.insert(buf);
-						cell->parameters[buf].str = child->children[0]->str;
-						cell->parameters[buf].bits = child->children[0]->bits;
+						cell->parameters[buf] = child->children[0]->asParaConst();
 					} else {
 						if (child->children[0]->is_signed)
 							cell->signed_parameters.insert(child->str);
-						cell->parameters[child->str].str = child->children[0]->str;
-						cell->parameters[child->str].bits = child->children[0]->bits;
+						cell->parameters[child->str] = child->children[0]->asParaConst();
 					}
 					continue;
 				}
@@ -1343,8 +1333,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (attr.second->type != AST_CONSTANT)
 					log_error("Attribute `%s' with non-constant value at %s:%d!\n",
 							attr.first.c_str(), filename.c_str(), linenum);
-				cell->attributes[attr.first].str = attr.second->str;
-				cell->attributes[attr.first].bits = attr.second->bits;
+				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
 			if (current_module->cells.count(cell->name) != 0)
 				log_error("Re-definition of cell `%s' at %s:%d!\n",

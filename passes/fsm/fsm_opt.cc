@@ -42,7 +42,7 @@ struct FsmOpt
 		if (!wire || wire->attributes.count("\\unused_bits") == 0)
 			return false;
 		
-		char *str = strdup(wire->attributes["\\unused_bits"].str.c_str());
+		char *str = strdup(wire->attributes["\\unused_bits"].decode_string().c_str());
 		for (char *tok = strtok(str, " "); tok != NULL; tok = strtok(NULL, " ")) {
 			if (tok[0] && bit == atoi(tok))
 				return true;
