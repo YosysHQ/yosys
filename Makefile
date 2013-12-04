@@ -31,7 +31,12 @@ YOSYS_VER := 0.1.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
-# set to 'default' to use abc/ as it is
+# set 'ABC = default' to use abc/ as it is
+#
+# Note: If you do ABC development, make sure that 'abc' in this directory
+# is just a symlink to your actual ABC working directory, as 'make mrproper'
+# will remove the 'abc' directory and you do not want to accidentally
+# delete your work on ABC..
 ABCREV = 9241719523f6
 ABCPULL = 1
 
@@ -118,6 +123,10 @@ ifneq ($(ABCREV),default)
 endif
 	rm -f abc/abc-[0-9a-f]*
 	cd abc && $(MAKE) PROG="abc-$(ABCREV)" MSG_PREFIX="YOSYS-ABC: "
+
+ifeq ($(ABCREV),default)
+.PHONY: abc/abc-$(ABCREV)
+endif
 
 yosys-abc: abc/abc-$(ABCREV)
 	cp abc/abc-$(ABCREV) yosys-abc
