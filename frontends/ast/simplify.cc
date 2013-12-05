@@ -1205,6 +1205,13 @@ skip_dynamic_range_lvalue_expansion:;
 				newNode = mkconst_bits(y.bits, sign_hint);
 			}
 			break;
+		case AST_TO_SIGNED:
+		case AST_TO_UNSIGNED:
+			if (children[0]->type == AST_CONSTANT) {
+				RTLIL::Const y = children[0]->bitsAsConst(width_hint, sign_hint);
+				newNode = mkconst_bits(y.bits, type == AST_TO_SIGNED);
+			}
+			break;
 		if (0) { case AST_BIT_AND:  const_func = RTLIL::const_and;  }
 		if (0) { case AST_BIT_OR:   const_func = RTLIL::const_or;   }
 		if (0) { case AST_BIT_XOR:  const_func = RTLIL::const_xor;  }
