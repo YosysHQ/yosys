@@ -658,6 +658,23 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	return node;
 }
 
+// create an AST node for a constant (using a string as value)
+AstNode *AstNode::mkconst_str(const std::string &str)
+{
+	std::vector<RTLIL::State> data;
+	data.reserve(str.size() * 8);
+	for (size_t i = 0; i < str.size(); i++) {
+		unsigned char ch = str[str.size() - i - 1];
+		for (int j = 0; j < 8; j++) {
+			data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
+			ch = ch >> 1;
+		}
+	}
+	AstNode *node = AstNode::mkconst_bits(data, false);
+	node->str = str;
+	return node;
+}
+
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
 {
 	std::vector<RTLIL::State> bits = this->bits;

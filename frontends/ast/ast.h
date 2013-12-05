@@ -213,6 +213,7 @@ namespace AST
 		// helper functions for creating AST nodes for constants
 		static AstNode *mkconst_int(uint32_t v, bool is_signed, int width = 32);
 		static AstNode *mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed);
+		static AstNode *mkconst_str(const std::string &str);
 
 		// helper function for creating sign-extended const objects
 		RTLIL::Const bitsAsConst(int width, bool is_signed);

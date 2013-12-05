@@ -1053,18 +1053,7 @@ basic_expr:
 		delete $1;
 	} |
 	TOK_STRING {
-		std::string str = *$1;
-		std::vector<RTLIL::State> data;
-		data.reserve(str.size() * 8);
-		for (size_t i = 0; i < str.size(); i++) {
-			unsigned char ch = str[str.size() - i - 1];
-			for (int j = 0; j < 8; j++) {
-				data.push_back((ch & 1) ? RTLIL::S1 : RTLIL::S0);
-				ch = ch >> 1;
-			}
-		}
-		$$ = AstNode::mkconst_bits(data, false);
-		$$->str = str;
+		$$ = AstNode::mkconst_str(*$1);
 		delete $1;
 	} |
 	hierarchical_id attr {
