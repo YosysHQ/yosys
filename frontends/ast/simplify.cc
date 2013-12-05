@@ -1176,6 +1176,7 @@ skip_dynamic_range_lvalue_expansion:;
 	// perform const folding when activated
 	if (const_fold && newNode == NULL)
 	{
+		bool string_op;
 		std::vector<RTLIL::State> tmp_bits;
 		RTLIL::Const (*const_func)(const RTLIL::Const&, const RTLIL::Const&, bool, bool, int);
 		RTLIL::Const dummy_arg;
@@ -1306,7 +1307,10 @@ skip_dynamic_range_lvalue_expansion:;
 					choice = children[2];
 				if (choice != NULL && choice->type == AST_CONSTANT) {
 					RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
-					newNode = mkconst_bits(y.bits, sign_hint);
+					if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false)
+						newNode = mkconst_str(y.bits);
+					else
+						newNode = mkconst_bits(y.bits, sign_hint);
 				} else if (children[1]->type == AST_CONSTANT && children[2]->type == AST_CONSTANT) {
 					RTLIL::Const a = children[1]->bitsAsConst(width_hint, sign_hint);
 					RTLIL::Const b = children[2]->bitsAsConst(width_hint, sign_hint);
@@ -1319,19 +1323,22 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 			break;
 		case AST_CONCAT:
+			string_op = !children.empty();
 			for (auto it = children.begin(); it != children.end(); it++) {
 				if ((*it)->type != AST_CONSTANT)
 					goto not_const;
+				if (!(*it)->is_string)
+					string_op = false;
 				tmp_bits.insert(tmp_bits.end(), (*it)->bits.begin(), (*it)->bits.end());
 			}
-			newNode = mkconst_bits(tmp_bits, false);
+			newNode = string_op ? mkconst_str(tmp_bits) : mkconst_bits(tmp_bits, false);
 			break;
 		case AST_REPLICATE:
 			if (children.at(0)->type != AST_CONSTANT || children.at(1)->type != AST_CONSTANT)
 				goto not_const;
 			for (int i = 0; i < children[0]->bitsAsConst().as_int(); i++)
 				tmp_bits.insert(tmp_bits.end(), children.at(1)->bits.begin(), children.at(1)->bits.end());
-			newNode = mkconst_bits(tmp_bits, false);
+			newNode = children.at(1)->is_string ? mkconst_str(tmp_bits) : mkconst_bits(tmp_bits, false);
 			break;
 		default:
 		not_const:

@@ -171,6 +171,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 	is_output = false;
 	is_reg = false;
 	is_signed = false;
+	is_string = false;
 	range_valid = false;
 	port_id = 0;
 	range_left = -1;
@@ -591,6 +592,8 @@ bool AstNode::operator==(const AstNode &other) const
 		return false;
 	if (is_signed != other.is_signed)
 		return false;
+	if (is_string != other.is_string)
+		return false;
 	if (range_valid != other.range_valid)
 		return false;
 	if (port_id != other.port_id)
@@ -658,6 +661,14 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	return node;
 }
 
+// create an AST node for a constant (using a string in bit vector form as value)
+AstNode *AstNode::mkconst_str(const std::vector<RTLIL::State> &v)
+{
+	AstNode *node = mkconst_str(RTLIL::Const(v).decode_string());
+	log_assert(node->bits == v);
+	return node;
+}
+
 // create an AST node for a constant (using a string as value)
 AstNode *AstNode::mkconst_str(const std::string &str)
 {
@@ -671,6 +682,7 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 		}
 	}
 	AstNode *node = AstNode::mkconst_bits(data, false);
+	node->is_string = true;
 	node->str = str;
 	return node;
 }
@@ -702,7 +714,7 @@ RTLIL::Const AstNode::asAttrConst()
 	RTLIL::Const val;
 	val.bits = bits;
 
-	if (!str.empty()) {
+	if (is_string) {
 		val.flags |= RTLIL::CONST_FLAG_STRING;
 		log_assert(val.decode_string() == str);
 	}

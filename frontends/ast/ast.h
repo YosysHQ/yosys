@@ -143,7 +143,7 @@ namespace AST
 		// node content - most of it is unused in most node types
 		std::string str;
 		std::vector<RTLIL::State> bits;
-		bool is_input, is_output, is_reg, is_signed, range_valid;
+		bool is_input, is_output, is_reg, is_signed, is_string, range_valid;
 		int port_id, range_left, range_right;
 		uint32_t integer;
 
@@ -213,6 +213,7 @@ namespace AST
 		// helper functions for creating AST nodes for constants
 		static AstNode *mkconst_int(uint32_t v, bool is_signed, int width = 32);
 		static AstNode *mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed);
+		static AstNode *mkconst_str(const std::vector<RTLIL::State> &v);
 		static AstNode *mkconst_str(const std::string &str);
 
 		// helper function for creating sign-extended const objects
