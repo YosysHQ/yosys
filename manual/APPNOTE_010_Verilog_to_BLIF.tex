@@ -358,7 +358,7 @@ process this cell.
 #define BITMAP_SIZE 64
 #define OUTPORT 0x10000000
 
-static uint16_t bitmap[BITMAP_SIZE/32];
+static uint32_t bitmap[BITMAP_SIZE/32];
 
 static void bitmap_set(uint32_t idx) { bitmap[idx/32] |= 1 << (idx % 32); }
 static bool bitmap_get(uint32_t idx) { return (bitmap[idx/32] & (1 << (idx % 32))) != 0; }
@@ -403,7 +403,7 @@ file into ABC's internal format as well.
 
 The only thing left to write about the simulation itself is that it probably
 was one of the most energy inefficient and time consuming ways of successfully
-calculating the first 50 primes the author has ever conducted.
+calculating the first 31 primes the author has ever conducted.
 
 \section{Limitations}
 
