@@ -144,8 +144,8 @@ static void find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_d
 		return;
 	}
 
-	assert(undef.width > 0);
-	assert(ce.stop_signals.check_all(undef));
+	log_assert(undef.width > 0);
+	log_assert(ce.stop_signals.check_all(undef));
 
 	undef = undef.extract(0, 1);
 	constval = undef;
@@ -361,7 +361,7 @@ struct FsmExtractPass : public Pass {
 			sig2trigger.clear();
 			for (auto &cell_it : module->cells)
 				for (auto &conn_it : cell_it.second->connections) {
-					if (ct.cell_output(cell_it.second->type, conn_it.first)) {
+					if (ct.cell_output(cell_it.second->type, conn_it.first) || !ct.cell_known(cell_it.second->type)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
 						sig2driver.insert(sig, sig2driver_entry_t(cell_it.first, conn_it.first));

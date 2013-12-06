@@ -161,7 +161,7 @@ struct FsmDetectPass : public Pass {
 			sig_at_port.clear();
 			for (auto &cell_it : module->cells)
 				for (auto &conn_it : cell_it.second->connections) {
-					if (ct.cell_output(cell_it.second->type, conn_it.first)) {
+					if (ct.cell_output(cell_it.second->type, conn_it.first) || !ct.cell_known(cell_it.second->type)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
 						sig2driver.insert(sig, sig2driver_entry_t(cell_it.second, conn_it.first));
