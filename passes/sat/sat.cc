@@ -44,12 +44,12 @@ struct SatHelper
 	SatGen satgen;
 
 	// additional constraints
-	std::vector<std::pair<std::string, std::string>> sets, prove;
+	std::vector<std::pair<std::string, std::string>> sets, prove, sets_init;
 	std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 	std::map<int, std::vector<std::string>> unsets_at;
 
 	// undef constraints
-	bool enable_undef;
+	bool enable_undef, set_init_undef;
 	std::vector<std::string> sets_def, sets_undef, sets_all_undef;
 	std::map<int, std::vector<std::string>> sets_def_at, sets_undef_at, sets_all_undef_at;
 
@@ -60,13 +60,76 @@ struct SatHelper
 	int max_timestep, timeout;
 	bool gotTimeout;
 
-	SatHelper(RTLIL::Design *design, RTLIL::Module *module) :
+	SatHelper(RTLIL::Design *design, RTLIL::Module *module, bool enable_undef) :
 		design(design), module(module), sigmap(module), ct(design), satgen(&ez, design, &sigmap)
 	{
-		enable_undef = false;
+		this->enable_undef = enable_undef;
+		satgen.model_undef = enable_undef;
+		set_init_undef = false;
 		max_timestep = -1;
 		timeout = 0;
 		gotTimeout = false;
+	}
+
+	void check_undef_enabled(const RTLIL::SigSpec &sig)
+	{
+		if (enable_undef)
+			return;
+
+		std::vector<RTLIL::SigBit> sigbits = sig.to_sigbit_vector();
+		for (size_t i = 0; i < sigbits.size(); i++)
+			if (sigbits[i].wire == NULL && sigbits[i].data == RTLIL::State::Sx)
+				log_cmd_error("Bit %d of %s is undef but option -enable_undef is missing!\n", int(i), log_signal(sig));
+	}
+
+	void setup_init()
+	{
+		log ("\nSetting up initial state:\n");
+
+		RTLIL::SigSpec big_lhs, big_rhs;
+
+		for (auto &s : sets_init)
+		{
+			RTLIL::SigSpec lhs, rhs;
+
+			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
+				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+			show_signal_pool.add(sigmap(lhs));
+			show_signal_pool.add(sigmap(rhs));
+
+			if (lhs.width != rhs.width)
+				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
+					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+
+			log("Import set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
+			big_lhs.remove2(lhs, &big_rhs);
+			big_lhs.append(lhs);
+			big_rhs.append(rhs);
+		}
+
+		if (!satgen.initial_state.check_all(big_lhs)) {
+			RTLIL::SigSpec rem = satgen.initial_state.remove(big_lhs);
+			rem.optimize();
+			log_cmd_error("Found -set-init bits that are not part of the initial_state: %s\n", log_signal(rem));
+		}
+
+		if (set_init_undef) {
+			RTLIL::SigSpec rem = satgen.initial_state.export_all();
+			rem.remove(big_lhs);
+			big_lhs.append(rem);
+			big_rhs.append(RTLIL::SigSpec(RTLIL::State::Sx, rem.width));
+		}
+
+		if (big_lhs.width == 0) {
+			log("No constraints for initial state found.\n\n");
+			return;
+		}
+
+		log("Final constraint equation: %s = %s\n\n", log_signal(big_lhs), log_signal(big_rhs));
+		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
+		ez.assume(satgen.signals_eq(big_lhs, big_rhs, 1));
 	}
 
 	void setup(int timestep = -1)
@@ -136,10 +199,8 @@ struct SatHelper
 		}
 
 		log("Final constraint equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
-
-		std::vector<int> lhs_vec = satgen.importSigSpec(big_lhs, timestep);
-		std::vector<int> rhs_vec = satgen.importSigSpec(big_rhs, timestep);
-		ez.assume(ez.vec_eq(lhs_vec, rhs_vec));
+		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
+		ez.assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
 
 		int import_cell_counter = 0;
 		for (auto &c : module->cells)
@@ -184,24 +245,19 @@ struct SatHelper
 		}
 
 		log("Final proof equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
-
-		std::vector<int> lhs_vec = satgen.importSigSpec(big_lhs, timestep);
-		std::vector<int> rhs_vec = satgen.importSigSpec(big_rhs, timestep);
-		return ez.vec_eq(lhs_vec, rhs_vec);
+		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
+		return satgen.signals_eq(big_lhs, big_rhs, timestep);
 	}
 
 	void force_unique_state(int timestep_from, int timestep_to)
 	{
 		RTLIL::SigSpec state_signals = satgen.initial_state.export_all();
 		for (int i = timestep_from; i < timestep_to; i++)
-			ez.assume(ez.vec_ne(satgen.importSigSpec(state_signals, i), satgen.importSigSpec(state_signals, timestep_to)));
+			ez.assume(ez.NOT(satgen.signals_eq(state_signals, state_signals, i, timestep_to)));
 	}
 
 	bool solve(const std::vector<int> &assumptions)
 	{
-		// undef is work in progress
-		log_assert(enable_undef == false);
-
 		log_assert(gotTimeout == false);
 		ez.setSolverTimeout(timeout);
 		bool success = ez.solve(modelExpressions, modelValues, assumptions);
@@ -212,9 +268,6 @@ struct SatHelper
 
 	bool solve(int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
 	{
-		// undef is work in progress
-		log_assert(enable_undef == false);
-
 		log_assert(gotTimeout == false);
 		ez.setSolverTimeout(timeout);
 		bool success = ez.solve(modelExpressions, modelValues, a, b, c, d, e, f);
@@ -293,39 +346,60 @@ struct SatHelper
 		modelSig.sort_and_unify();
 		// log("Model signals: %s\n", log_signal(modelSig));
 
+		std::vector<int> modelUndefExpressions;
+
 		for (auto &c : modelSig.chunks)
-			if (c.wire != NULL) {
+			if (c.wire != NULL)
+			{
 				ModelBlockInfo info;
 				RTLIL::SigSpec chunksig = c;
 				info.width = chunksig.width;
 				info.description = log_signal(chunksig);
 
-				for (int timestep = -1; timestep <= max_timestep; timestep++) {
+				for (int timestep = -1; timestep <= max_timestep; timestep++)
+				{
 					if ((timestep == -1 && max_timestep > 0) || timestep == 0)
 						continue;
-					std::vector<int> vec = satgen.importSigSpec(chunksig, timestep);
+
 					info.timestep = timestep;
 					info.offset = modelExpressions.size();
-					modelExpressions.insert(modelExpressions.end(), vec.begin(), vec.end());
 					modelInfo.insert(info);
+
+					std::vector<int> vec = satgen.importSigSpec(chunksig, timestep);
+					modelExpressions.insert(modelExpressions.end(), vec.begin(), vec.end());
+
+					if (enable_undef) {
+						std::vector<int> undef_vec = satgen.importUndefSigSpec(chunksig, timestep);
+						modelUndefExpressions.insert(modelUndefExpressions.end(), undef_vec.begin(), undef_vec.end());
+					}
 				}
 			}
 
-		// Add zero step signals as collected by satgen
-
+		// Add initial state signals as collected by satgen
+		//
 		modelSig = satgen.initial_state.export_all();
 		for (auto &c : modelSig.chunks)
-			if (c.wire != NULL) {
+			if (c.wire != NULL)
+			{
 				ModelBlockInfo info;
 				RTLIL::SigSpec chunksig = c;
+
 				info.timestep = 0;
 				info.offset = modelExpressions.size();
 				info.width = chunksig.width;
 				info.description = log_signal(chunksig);
+				modelInfo.insert(info);
+
 				std::vector<int> vec = satgen.importSigSpec(chunksig, 1);
 				modelExpressions.insert(modelExpressions.end(), vec.begin(), vec.end());
-				modelInfo.insert(info);
+
+				if (enable_undef) {
+					std::vector<int> undef_vec = satgen.importUndefSigSpec(chunksig, 1);
+					modelUndefExpressions.insert(modelUndefExpressions.end(), undef_vec.begin(), undef_vec.end());
+				}
 			}
+
+		modelExpressions.insert(modelExpressions.end(), modelUndefExpressions.begin(), modelUndefExpressions.end());
 	}
 
 	void print_model()
@@ -344,10 +418,12 @@ struct SatHelper
 		for (auto &info : modelInfo)
 		{
 			RTLIL::Const value;
+			bool found_undef = false;
+
 			for (int i = 0; i < info.width; i++) {
 				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
-				if (modelValues.size() == 2*modelExpressions.size() && modelValues.at(modelExpressions.size()+info.offset+i))
-					value.bits.back() = RTLIL::State::Sx;
+				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
+					value.bits.back() = RTLIL::State::Sx, found_undef = true;
 			}
 
 			if (info.timestep != last_timestep) {
@@ -372,7 +448,7 @@ struct SatHelper
 			} else
 				log("  ");
 
-			if (info.width <= 32)
+			if (info.width <= 32 && !found_undef)
 				log("%-*s %10d %10x %*s\n", maxModelName+10, info.description.c_str(), value.as_int(), value.as_int(), maxModelWidth+5, value.as_string().c_str());
 			else
 				log("%-*s %10s %10s %*s\n", maxModelName+10, info.description.c_str(), "--", "--", maxModelWidth+5, value.as_string().c_str());
@@ -385,8 +461,15 @@ struct SatHelper
 	void invalidate_model()
 	{
 		std::vector<int> clause;
-		for (size_t i = 0; i < modelExpressions.size(); i++)
-			clause.push_back(modelValues.at(i) ? ez.NOT(modelExpressions.at(i)) : modelExpressions.at(i));
+		if (enable_undef) {
+			for (size_t i = 0; i < modelExpressions.size()/2; i++) {
+				int bit = modelExpressions.at(i), bit_undef = modelExpressions.at(modelExpressions.size()/2 + i);
+				bool val = modelValues.at(i), val_undef = modelValues.at(modelExpressions.size()/2 + i);
+				clause.push_back(val_undef ? ez.NOT(bit_undef) : val ? ez.NOT(bit) : bit);
+			}
+		} else
+			for (size_t i = 0; i < modelExpressions.size(); i++)
+				clause.push_back(modelValues.at(i) ? ez.NOT(modelExpressions.at(i)) : modelExpressions.at(i));
 		ez.assume(ez.expression(ezSAT::OpOr, clause));
 	}
 };
@@ -492,6 +575,12 @@ struct SatPass : public Pass {
 		log("        add undef contraints in the given timestep.\n");
 		log("\n");
 	#endif
+		log("    -set-init <signal> <value>\n");
+		log("        set the initial value for the register driving the signal to the value\n");
+		log("\n");
+		log("    -set-init-undef\n");
+		log("        set all initial states (not set using -set-init) to undef\n");
+		log("\n");
 		log("The following additional options can be used to set up a proof. If also -seq\n");
 		log("is passed, a temporal induction proof is performed.\n");
 		log("\n");
@@ -515,12 +604,12 @@ struct SatPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::vector<std::pair<std::string, std::string>> sets, prove;
+		std::vector<std::pair<std::string, std::string>> sets, sets_init, prove;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_undef_at, sets_all_undef_at;
 		std::vector<std::string> shows, sets_def, sets_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
-		bool verify = false, fail_on_timeout = false, enable_undef = false, ignore_div_by_zero = false;
+		bool verify = false, fail_on_timeout = false, enable_undef = false, ignore_div_by_zero = false, set_init_undef = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -620,6 +709,17 @@ struct SatPass : public Pass {
 				enable_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-set-init" && argidx+2 < args.size()) {
+				std::string lhs = args[++argidx];
+				std::string rhs = args[++argidx];
+				sets_init.push_back(std::pair<std::string, std::string>(lhs, rhs));
+				continue;
+			}
+			if (args[argidx] == "-set-init-undef") {
+				set_init_undef = true;
+				enable_undef = true;
+				continue;
+			}
 			if (args[argidx] == "-show" && argidx+1 < args.size()) {
 				shows.push_back(args[++argidx]);
 				continue;
@@ -647,8 +747,8 @@ struct SatPass : public Pass {
 			if (loopcount > 0)
 				log_cmd_error("The options -max and -all are not supported for temporal induction proofs!\n");
 
-			SatHelper basecase(design, module);
-			SatHelper inductstep(design, module);
+			SatHelper basecase(design, module, enable_undef);
+			SatHelper inductstep(design, module, enable_undef);
 
 			basecase.sets = sets;
 			basecase.prove = prove;
@@ -656,29 +756,32 @@ struct SatPass : public Pass {
 			basecase.unsets_at = unsets_at;
 			basecase.shows = shows;
 			basecase.timeout = timeout;
-			basecase.enable_undef = enable_undef;
 			basecase.sets_def = sets_def;
 			basecase.sets_undef = sets_undef;
 			basecase.sets_all_undef = sets_all_undef;
 			basecase.sets_def_at = sets_def_at;
 			basecase.sets_undef_at = sets_undef_at;
 			basecase.sets_all_undef_at = sets_all_undef_at;
+			basecase.sets_init = sets_init;
+			basecase.set_init_undef = set_init_undef;
 			basecase.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
 				basecase.setup(timestep);
+			basecase.setup_init();
 
 			inductstep.sets = sets;
 			inductstep.prove = prove;
 			inductstep.shows = shows;
 			inductstep.timeout = timeout;
-			inductstep.enable_undef = enable_undef;
 			inductstep.sets_def = sets_def;
 			inductstep.sets_undef = sets_undef;
 			inductstep.sets_all_undef = sets_all_undef;
 			inductstep.sets_def_at = sets_def_at;
 			inductstep.sets_undef_at = sets_undef_at;
 			inductstep.sets_all_undef_at = sets_all_undef_at;
+			inductstep.sets_init = sets_init;
+			inductstep.set_init_undef = set_init_undef;
 			inductstep.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			inductstep.setup(1);
@@ -755,20 +858,22 @@ struct SatPass : public Pass {
 			if (maxsteps > 0)
 				log_cmd_error("The options -maxsteps is only supported for temporal induction proofs!\n");
 
-			SatHelper sathelper(design, module);
+			SatHelper sathelper(design, module, enable_undef);
+
 			sathelper.sets = sets;
 			sathelper.prove = prove;
 			sathelper.sets_at = sets_at;
 			sathelper.unsets_at = unsets_at;
 			sathelper.shows = shows;
 			sathelper.timeout = timeout;
-			sathelper.enable_undef = enable_undef;
 			sathelper.sets_def = sets_def;
 			sathelper.sets_undef = sets_undef;
 			sathelper.sets_all_undef = sets_all_undef;
 			sathelper.sets_def_at = sets_def_at;
 			sathelper.sets_undef_at = sets_undef_at;
 			sathelper.sets_all_undef_at = sets_all_undef_at;
+			sathelper.sets_init = sets_init;
+			sathelper.set_init_undef = set_init_undef;
 			sathelper.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			if (seq_len == 0) {
@@ -778,6 +883,7 @@ struct SatPass : public Pass {
 			} else {
 				for (int timestep = 1; timestep <= seq_len; timestep++)
 					sathelper.setup(timestep);
+				sathelper.setup_init();
 			}
 			sathelper.generate_model();
 

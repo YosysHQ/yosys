@@ -98,18 +98,21 @@ struct SatGen
 		return importSigSpecWorker(sig, pf, true, false);
 	}
 
-	int signals_eq(RTLIL::SigSpec lhs, RTLIL::SigSpec rhs, int timestep = -1)
+	int signals_eq(RTLIL::SigSpec lhs, RTLIL::SigSpec rhs, int timestep_lhs = -1, int timestep_rhs = -1)
 	{
+		if (timestep_rhs < 0)
+			timestep_rhs = timestep_lhs;
+
 		assert(lhs.width == rhs.width);
 
-		std::vector<int> vec_lhs = importSigSpec(lhs, timestep);
-		std::vector<int> vec_rhs = importSigSpec(rhs, timestep);
+		std::vector<int> vec_lhs = importSigSpec(lhs, timestep_lhs);
+		std::vector<int> vec_rhs = importSigSpec(rhs, timestep_rhs);
 
 		if (!model_undef)
 			return ez->vec_eq(vec_lhs, vec_rhs);
 
-		std::vector<int> undef_lhs = importUndefSigSpec(lhs, timestep);
-		std::vector<int> undef_rhs = importUndefSigSpec(rhs, timestep);
+		std::vector<int> undef_lhs = importUndefSigSpec(lhs, timestep_lhs);
+		std::vector<int> undef_rhs = importUndefSigSpec(rhs, timestep_rhs);
 
 		std::vector<int> eq_bits;
 		for (int i = 0; i < lhs.width; i++)
@@ -674,18 +677,26 @@ struct SatGen
 
 		if (timestep > 0 && (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_"))
 		{
-			if (timestep == 1) {
+			if (timestep == 1)
+			{
 				initial_state.add((*sigmap)(cell->connections.at("\\Q")));
-			} else {
+			}
+			else
+			{
 				std::vector<int> d = importDefSigSpec(cell->connections.at("\\D"), timestep-1);
 				std::vector<int> q = importDefSigSpec(cell->connections.at("\\Q"), timestep);
-				ez->assume(ez->vec_eq(d, q));
-			}
 
-			if (model_undef) {
-				log("FIXME: No SAT undef model cell type %s!\n", RTLIL::id2cstr(cell->type));
-				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
-				ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_y)));
+				std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
+				ez->assume(ez->vec_eq(d, qq));
+
+				if (model_undef)
+				{
+					std::vector<int> undef_d = importUndefSigSpec(cell->connections.at("\\D"), timestep-1);
+					std::vector<int> undef_q = importUndefSigSpec(cell->connections.at("\\Q"), timestep);
+
+					ez->assume(ez->vec_eq(undef_d, undef_q));
+					undefGating(q, qq, undef_q);
+				}
 			}
 			return true;
 		}
