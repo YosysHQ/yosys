@@ -686,15 +686,16 @@ of the module and wants to carefully read all the debug output created by the
 commands in order to spot a problem. This kind of troubleshooting is much easier
 if the circuit under investigation is encapsulated in a separate module.
 
-\begin{figure}[b]
-\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_00.pdf} \\ \centerline{\tt memdemo} \vskip1em
+Fig.~\ref{submod} shows how the {\tt submod} command can be used to split the
+circuit from Fig.~\ref{memdemo_src} and \ref{memdemo_00} into its components.
+The {\tt -name} option can is used to specify the name of the new module and
+also the name of the new cell in the current module.
 
-\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_01.pdf} \\ \centerline{\tt scramble} \vskip1em
-
-\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_02.pdf} \\ \centerline{\tt outstage} \vskip1em
-
-\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_03.pdf} \\ \centerline{\tt selstage} \vskip1em
-
+\begin{figure}[t]
+\includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_00.pdf} \\ \centerline{\tt memdemo} \vskip1em\par
+\includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_01.pdf} \\ \centerline{\tt scramble} \vskip1em\par
+\includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_02.pdf} \\ \centerline{\tt outstage} \vskip1em\par
+\includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_03.pdf} \\ \centerline{\tt selstage} \vskip1em\par
 \begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
 select -set outstage y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff
 select -set selstage y %ci2:+$dff[Q,D] %ci*:-$dff @outstage %d
@@ -707,8 +708,61 @@ submod -name selstage @selstage
 \label{submod}
 \end{figure}
 
+\subsection{Evaluation of combinatorial circuits}
 
-\FIXME{} --- submod, eval, sat
+The {\tt eval} command can be used to evaluate combinatorial circuits.
+For example (see Fig.~\ref{submod} for the circuit diagram of {\tt selstage}):
+
+{\scriptsize
+\begin{verbatim}
+   yosys [selstage]> eval -set s2,s1 4'b1001 -set d 4'hc -show n2 -show n1
+   
+   9. Executing EVAL pass (evaluate the circuit given an input).
+   Full command line: eval -set s2,s1 4'b1001 -set d 4'hc -show n2 -show n1
+   Eval result: \n2 = 2'10.
+   Eval result: \n1 = 2'10.
+\end{verbatim}
+\par}
+
+So the {\tt -set} option is used to set input values and the {\tt -show} option
+is used to specify the nets to evaluate. If no {\tt -show} option is specified,
+all selected output ports are used per default.
+
+If a necessary input value is not given, an error is produced. The option
+{\tt -set-undef} can be used to instead set all unspecified input nets to
+undef ({\tt x}).
+
+The {\tt -table} option can be used to create a truth table. For example:
+
+{\scriptsize
+\begin{verbatim}
+   yosys [selstage]> eval -set-undef -set d[3:1] 0 -table s1,d[0]
+   
+   15. Executing EVAL pass (evaluate the circuit given an input).
+   Full command line: eval -set-undef -set d[3:1] 0 -table s1,d[0]
+   
+     \s1 \d [0] |  \n1  \n2
+    ---- ------ | ---- ----
+    2'00    1'0 | 2'00 2'00
+    2'00    1'1 | 2'xx 2'00
+    2'01    1'0 | 2'00 2'00
+    2'01    1'1 | 2'xx 2'01
+    2'10    1'0 | 2'00 2'00
+    2'10    1'1 | 2'xx 2'10
+    2'11    1'0 | 2'00 2'00
+    2'11    1'1 | 2'xx 2'11
+   
+   Assumend undef (x) value for the following singals: \s2
+\end{verbatim}
+}
+
+\subsection{Solving combinatorial SAT problems}
+
+\FIXME
+
+\subsection{Solving sequential SAT problems}
+
+\FIXME
 
 \section{Conclusion}
 \label{conclusion}
