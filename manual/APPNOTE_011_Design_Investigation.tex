@@ -904,12 +904,138 @@ to prove the correct behavior of ALU circuits.
 
 \subsection{Solving sequential SAT problems}
 
-\FIXME
+\begin{figure}[t]
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+yosys [memdemo]> sat -seq 6 -show y -show d -set-init-undef \
+			-set-at 4 y 1 -set-at 5 y 2 -set-at 6 y 3
+
+Full command line: sat -seq 6 -show y -show d -set-init-undef
+			-set-at 4 y 1 -set-at 5 y 2 -set-at 6 y 3
+
+Setting up time step 1:
+Final constraint equation: { } = { }
+Imported 29 cells to SAT database.
+
+Setting up time step 2:
+Final constraint equation: { } = { }
+Imported 29 cells to SAT database.
+
+Setting up time step 3:
+Final constraint equation: { } = { }
+Imported 29 cells to SAT database.
+
+Setting up time step 4:
+Import set-constraint for timestep: \y = 4'0001
+Final constraint equation: \y = 4'0001
+Imported 29 cells to SAT database.
+
+Setting up time step 5:
+Import set-constraint for timestep: \y = 4'0010
+Final constraint equation: \y = 4'0010
+Imported 29 cells to SAT database.
+
+Setting up time step 6:
+Import set-constraint for timestep: \y = 4'0011
+Final constraint equation: \y = 4'0011
+Imported 29 cells to SAT database.
+
+Setting up initial state:
+Final constraint equation: { \y \s2 \s1 \mem[3] \mem[2] \mem[1]
+			\mem[0] } = 24'xxxxxxxxxxxxxxxxxxxxxxxx
+
+Import show expression: \y
+Import show expression: \d
+
+Solving problem with 10322 variables and 27881 clauses..
+SAT solving finished - model found:
+
+  Time Signal Name                 Dec        Hex             Bin
+  ---- -------------------- ---------- ---------- ---------------
+  init \mem[0]                      --         --            xxxx
+  init \mem[1]                      --         --            xxxx
+  init \mem[2]                      --         --            xxxx
+  init \mem[3]                      --         --            xxxx
+  init \s1                          --         --              xx
+  init \s2                          --         --              xx
+  init \y                           --         --            xxxx
+  ---- -------------------- ---------- ---------- ---------------
+     1 \d                            0          0            0000
+     1 \y                           --         --            xxxx
+  ---- -------------------- ---------- ---------- ---------------
+     2 \d                            1          1            0001
+     2 \y                           --         --            xxxx
+  ---- -------------------- ---------- ---------- ---------------
+     3 \d                            2          2            0010
+     3 \y                            0          0            0000
+  ---- -------------------- ---------- ---------- ---------------
+     4 \d                            3          3            0011
+     4 \y                            1          1            0001
+  ---- -------------------- ---------- ---------- ---------------
+     5 \d                           --         --            001x
+     5 \y                            2          2            0010
+  ---- -------------------- ---------- ---------- ---------------
+     6 \d                            1          1            0001
+     6 \y                            3          3            0011
+\end{lstlisting}
+\caption{Solving a sequential SAT problem in the {\tt memdemo} module from Fig.~\ref{memdemo_src}.}
+\label{memdemo_sat}
+\end{figure}
+
+The SAT solver functionality in Yosys can not only be used to solve
+combinatorial problems, but can also solve sequential problems. Let's consider
+the entire {\tt memdemo} module from Fig.~\ref{memdemo_src} and suppose we
+want to know which sequence of input values for {\tt d} will cause the output
+{\tt y} to produce the sequence 1, 2, 3 from any initial state.
+Fig.~\ref{memdemo_sat} show the solution to this question, as produced by
+the following command:
+
+\begin{verbatim}
+    sat -seq 6 -show y -show d -set-init-undef \
+        -set-at 4 y 1 -set-at 5 y 2 -set-at 6 y 3
+\end{verbatim}
+
+The {\tt -seq 6} option instructs the {\tt sat} command to solve a sequential
+problem in 6 time steps. (Experiments with lower number of steps have show that
+at least 3 cycles are necessary to bring the circuit in a state from which
+the sequence 1, 2, 3 can be produced.)
+
+The {\tt -set-init-undef} option tells the {\tt sat} command to initialize
+all registers to the undef ({\tt x}) state. The way the {\tt x} state
+is treated in Verilog will ensure that the solution will work for any
+initial state.
+
+Finally the three {\tt -set-at} options add constraints for the {\tt y}
+signal to play the 1, 2, 3 sequence, starting with time step 4.
+
+It is not surprising that the solution sets {\tt d = 0} in the first step, as
+this is the only way of setting the {\tt s1} and {\tt s2} registers to a known
+value. The other options are a bit more difficult to work out manually, but
+the SAT solver finds the correct solution in an instant.
+
+\medskip
+
+There is much more to write about the {\tt sat} command. For example, there is
+a set of options that can be used to performs sequential proofs using temporal
+induction \cite{tip}. The command {\tt help sat} can be used to print a list
+of all options with short descriptions of their functions.
 
 \section{Conclusion}
 \label{conclusion}
 
-\FIXME
+Yosys provides a wide range of functions to analyze and investigate designs. For
+many cases it is sufficient to simply display circuit diagrams, maybe use some
+additional commands to narrow the scope of the circuit diagrams to the interesting
+parts of the circuit. But some cases require more than that. For this applications
+Yosys provides commands that can be used to further inspect the behavior of the
+circuit, either by evaluating which outputs are generated from certain inputs
+({\tt eval}) or by evaluation which inputs and initial conditions can result
+in a certain behavior at the outputs ({\tt sat}). The SAT command can even be used
+to prove (or disprove) theorems regarding the circuit, in more advanced cases
+with the additional help of a miter circuit.
+
+This features can be powerful tools, for the circuit designer using Yosys as a
+utility for building circuits, and the software developer using Yosys as a
+framework for new algorithms alike.
 
 \begin{thebibliography}{9}
 
@@ -933,8 +1059,13 @@ Graphviz - Graph Visualization Software.
 \url{http://en.wikipedia.org/wiki/Circuit_satisfiability}
 
 \bibitem{MiniSAT}
-MiniSat minimalistic, open-source SAT solver.
+MiniSat: a minimalistic open-source SAT solver.
 \url{http://minisat.se/}
+
+\bibitem{tip}
+Niklas Een and Niklas Sörensson (2003).
+Temporal Induction by Incremental SAT Solving.
+\url{http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.8161}
 
 \end{thebibliography}
 
