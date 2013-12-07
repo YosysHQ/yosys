@@ -195,7 +195,7 @@ struct RTLIL::Const {
 	Const(std::string str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(std::vector<RTLIL::State> bits) : bits(bits) { };
+	Const(std::vector<RTLIL::State> bits) : bits(bits) { flags = CONST_FLAG_NONE; };
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
