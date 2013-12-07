@@ -1550,9 +1550,9 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 	sigspec_parse_split(tokens, str, ',');
 
 	sig = RTLIL::SigSpec();
-	for (auto &tok : tokens)
+	for (int tokidx = int(tokens.size())-1; tokidx >= 0; tokidx--)
 	{
-		std::string netname = tok;
+		std::string netname = tokens[tokidx];
 		std::string indices;
 
 		if (netname.size() == 0)
@@ -1618,6 +1618,16 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 
 bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
 {
+	if (str == "0") {
+		sig = RTLIL::SigSpec(RTLIL::State::S0, lhs.width);
+		return true;
+	}
+
+	if (str == "~0") {
+		sig = RTLIL::SigSpec(RTLIL::State::S1, lhs.width);
+		return true;
+	}
+
 	if (lhs.chunks.size() == 1) {
 		char *p = (char*)str.c_str(), *endptr;
 		long long int val = strtoll(p, &endptr, 10);
