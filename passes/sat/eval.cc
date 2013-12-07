@@ -585,13 +585,13 @@ struct EvalPass : public Pass {
 			bool first = true;
 			for (auto &row : tab) {
 				for (size_t i = 0; i < row.size(); i++) {
-					int k = i < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
+					int k = int(i) < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
 					log(" %s%*s", k == tab_sep_colidx ? "| " : "", tab_column_width[k], row[k].c_str());
 				}
 				log("\n");
 				if (first) {
 					for (size_t i = 0; i < row.size(); i++) {
-						int k = i < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
+						int k = int(i) < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
 						log(" %s", k == tab_sep_colidx ? "| " : "");
 						for (int j = 0; j < tab_column_width[k]; j++)
 							log("-");
