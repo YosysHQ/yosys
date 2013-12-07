@@ -296,6 +296,29 @@ struct SatHelper
 	std::vector<bool> modelValues;
 	std::set<ModelBlockInfo> modelInfo;
 
+	void maximize_undefs()
+	{
+		log_assert(enable_undef);
+		std::vector<bool> backupValues;
+
+		while (1)
+		{
+			std::vector<int> must_undef, maybe_undef;
+
+			for (size_t i = 0; i < modelExpressions.size()/2; i++)
+				if (modelValues.at(modelExpressions.size()/2 + i))
+					must_undef.push_back(modelExpressions.at(modelExpressions.size()/2 + i));
+				else
+					maybe_undef.push_back(modelExpressions.at(modelExpressions.size()/2 + i));
+
+			backupValues.swap(modelValues);
+			if (!solve(ez.expression(ezSAT::OpAnd, must_undef), ez.expression(ezSAT::OpOr, maybe_undef)))
+				break;
+		}
+
+		backupValues.swap(modelValues);
+	}
+
 	void generate_model()
 	{
 		RTLIL::SigSpec modelSig;
@@ -458,14 +481,15 @@ struct SatHelper
 			log("  no model variables selected for display.\n");
 	}
 
-	void invalidate_model()
+	void invalidate_model(bool max_undef)
 	{
 		std::vector<int> clause;
 		if (enable_undef) {
 			for (size_t i = 0; i < modelExpressions.size()/2; i++) {
 				int bit = modelExpressions.at(i), bit_undef = modelExpressions.at(modelExpressions.size()/2 + i);
 				bool val = modelValues.at(i), val_undef = modelValues.at(modelExpressions.size()/2 + i);
-				clause.push_back(val_undef ? ez.NOT(bit_undef) : val ? ez.NOT(bit) : bit);
+				if (!max_undef || !val_undef)
+					clause.push_back(val_undef ? ez.NOT(bit_undef) : val ? ez.NOT(bit) : bit);
 			}
 		} else
 			for (size_t i = 0; i < modelExpressions.size(); i++)
@@ -535,6 +559,10 @@ struct SatPass : public Pass {
 		log("    -enable_undef\n");
 		log("        enable modeling of undef value (aka 'x-bits')\n");
 		log("        this option is implied by -set-def, -set-undef et. cetera\n");
+		log("\n");
+		log("    -max_undef\n");
+		log("        maximize the number of undef bits in solutions, giving a better\n");
+		log("        picture of which input bits are actually vital to the solution.\n");
 		log("\n");
 		log("    -set <signal> <value>\n");
 		log("        set the specified signal to the specified value.\n");
@@ -609,7 +637,8 @@ struct SatPass : public Pass {
 		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_undef_at, sets_all_undef_at;
 		std::vector<std::string> shows, sets_def, sets_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
-		bool verify = false, fail_on_timeout = false, enable_undef = false, ignore_div_by_zero = false, set_init_undef = false;
+		bool verify = false, fail_on_timeout = false, enable_undef = false;
+		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = true;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -646,6 +675,11 @@ struct SatPass : public Pass {
 			}
 			if (args[argidx] == "-enable_undef") {
 				enable_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-max_undef") {
+				enable_undef = true;
+				max_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
@@ -744,8 +778,8 @@ struct SatPass : public Pass {
 
 		if (prove.size() > 0 && seq_len > 0)
 		{
-			if (loopcount > 0)
-				log_cmd_error("The options -max and -all are not supported for temporal induction proofs!\n");
+			if (loopcount > 0 || max_undef)
+				log_cmd_error("The options -max, -all, and -max_undef are not supported for temporal induction proofs!\n");
 
 			SatHelper basecase(design, module, enable_undef);
 			SatHelper inductstep(design, module, enable_undef);
@@ -892,7 +926,7 @@ struct SatPass : public Pass {
 			sathelper.ez.printDIMACS(stdout, true);
 #endif
 
-			bool did_rerun = false;
+			int rerun_counter = 0;
 
 		rerun_solver:
 			log("\nSolving problem with %d variables and %d clauses..\n",
@@ -900,6 +934,11 @@ struct SatPass : public Pass {
 
 			if (sathelper.solve())
 			{
+				if (max_undef) {
+					log("SAT model found. maximizing number of undefs.\n");
+					sathelper.maximize_undefs();
+				}
+
 				if (prove.size() == 0) {
 					log("SAT solving finished - model found:\n");
 				} else {
@@ -910,8 +949,8 @@ struct SatPass : public Pass {
 				sathelper.print_model();
 
 				if (loopcount != 0) {
-					loopcount--, did_rerun = true;
-					sathelper.invalidate_model();
+					loopcount--, rerun_counter++;
+					sathelper.invalidate_model(max_undef);
 					goto rerun_solver;
 				}
 
@@ -924,8 +963,8 @@ struct SatPass : public Pass {
 			{
 				if (sathelper.gotTimeout)
 					goto timeout;
-				if (did_rerun)
-					log("SAT solving finished - no more models found.\n");
+				if (rerun_counter)
+					log("SAT solving finished - no more models found (after %d distinct solutions).\n", rerun_counter);
 				else if (prove.size() == 0)
 					log("SAT solving finished - no model found.\n");
 				else {
@@ -934,7 +973,7 @@ struct SatPass : public Pass {
 				}
 			}
 
-			if (verify && did_rerun) {
+			if (verify && rerun_counter) {
 				log("\n");
 				log_error("Called with -verify and proof did fail!\n");
 			}
