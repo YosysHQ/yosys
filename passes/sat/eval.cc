@@ -381,6 +381,12 @@ struct EvalPass : public Pass {
 		log("    -set <signal> <value>\n");
 		log("        set the specified signal to the specified value.\n");
 		log("\n");
+		log("    -set-undef\n");
+		log("        set all unspecified source signals to undef (x)\n");
+		log("\n");
+		log("    -table <signal>\n");
+		log("        create a truth table using the specified input signals\n");
+		log("\n");
 		log("    -show <signal>\n");
 		log("        show the value for the specified signal. if no -show option is passed\n");
 		log("        then all output ports of the current module are used.\n");
@@ -389,7 +395,8 @@ struct EvalPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::vector<std::pair<std::string, std::string>> sets;
-		std::vector<std::string> shows;
+		std::vector<std::string> shows, tables;
+		bool set_undef = false;
 
 		log_header("Executing EVAL pass (evaluate the circuit given an input).\n");
 
@@ -401,8 +408,16 @@ struct EvalPass : public Pass {
 				sets.push_back(std::pair<std::string, std::string>(lhs, rhs));
 				continue;
 			}
+			if (args[argidx] == "-set-undef") {
+				set_undef = true;
+				continue;
+			}
 			if (args[argidx] == "-show" && argidx+1 < args.size()) {
 				shows.push_back(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-table" && argidx+1 < args.size()) {
+				tables.push_back(args[++argidx]);
 				continue;
 			}
 			if ((args[argidx] == "-brute_force_equiv_checker" || args[argidx] == "-brute_force_equiv_checker_x") && argidx+3 == args.size()) {
@@ -467,16 +482,130 @@ struct EvalPass : public Pass {
 					shows.push_back(it.second->name);
 		}
 
-		for (auto &it : shows) {
-			RTLIL::SigSpec signal, value, undef;
-			if (!RTLIL::SigSpec::parse(signal, module, it))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.c_str());
-			signal.optimize();
-			value = signal;
-			if (!ce.eval(value, undef))
-				log("Failed to evaluate signal %s: Missing value for %s.\n", log_signal(signal), log_signal(undef));
-			else
-				log("Eval result: %s = %s.\n", log_signal(signal), log_signal(value));
+		if (tables.empty())
+		{
+			for (auto &it : shows) {
+				RTLIL::SigSpec signal, value, undef;
+				if (!RTLIL::SigSpec::parse(signal, module, it))
+					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
+				signal.optimize();
+				value = signal;
+				if (set_undef) {
+					while (!ce.eval(value, undef)) {
+						log("Failed to evaluate signal %s: Missing value for %s. -> setting to undef\n", log_signal(signal), log_signal(undef));
+						ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.width));
+						undef = RTLIL::SigSpec();
+					}
+					log("Eval result: %s = %s.\n", log_signal(signal), log_signal(value));
+				} else {
+					if (!ce.eval(value, undef))
+						log("Failed to evaluate signal %s: Missing value for %s.\n", log_signal(signal), log_signal(undef));
+					else
+						log("Eval result: %s = %s.\n", log_signal(signal), log_signal(value));
+				}
+			}
+		}
+		else
+		{
+			RTLIL::SigSpec tabsigs, signal, value, undef;
+			std::vector<std::vector<std::string>> tab;
+			int tab_sep_colidx = 0;
+
+			for (auto &it : shows) {
+				RTLIL::SigSpec sig;
+				if (!RTLIL::SigSpec::parse(sig, module, it))
+					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
+				signal.append(sig);
+			}
+
+			for (auto &it : tables) {
+				RTLIL::SigSpec sig;
+				if (!RTLIL::SigSpec::parse(sig, module, it))
+					log_cmd_error("Failed to parse table expression `%s'.\n", it.c_str());
+				tabsigs.append(sig);
+			}
+
+			std::vector<std::string> tab_line;
+			for (auto &c : tabsigs.chunks)
+				tab_line.push_back(log_signal(c));
+			tab_sep_colidx = tab_line.size();
+			for (auto &c : signal.chunks)
+				tab_line.push_back(log_signal(c));
+			tab.push_back(tab_line);
+			tab_line.clear();
+
+			RTLIL::Const tabvals(0, tabsigs.width);
+			do
+			{
+				ce.push();
+				ce.set(tabsigs, tabvals);
+				value = signal;
+
+				RTLIL::SigSpec this_undef;
+				while (!ce.eval(value, this_undef)) {
+					if (!set_undef) {
+						log("Failed to evaluate signal %s at %s = %s: Missing value for %s.\n", log_signal(signal),
+								log_signal(tabsigs), log_signal(tabvals), log_signal(this_undef));
+						return;
+					}
+					ce.set(this_undef, RTLIL::Const(RTLIL::State::Sx, this_undef.width));
+					undef.append(this_undef);
+					this_undef = RTLIL::SigSpec();
+				}
+
+				int pos = 0;
+				for (auto &c : tabsigs.chunks) {
+					tab_line.push_back(log_signal(RTLIL::SigSpec(tabvals).extract(pos, c.width)));
+					pos += c.width;
+				}
+
+				pos = 0;
+				for (auto &c : signal.chunks) {
+					tab_line.push_back(log_signal(value.extract(pos, c.width)));
+					pos += c.width;
+				}
+
+				tab.push_back(tab_line);
+				tab_line.clear();
+				ce.pop();
+
+				tabvals = RTLIL::const_add(tabvals, RTLIL::Const(1), false, false, tabvals.bits.size());
+			}
+			while (tabvals.as_bool());
+
+			std::vector<int> tab_column_width;
+			for (auto &row : tab) {
+				if (tab_column_width.size() < row.size())
+					tab_column_width.resize(row.size());
+				for (size_t i = 0; i < row.size(); i++)
+					tab_column_width[i] = std::max(tab_column_width[i], int(row[i].size()));
+			}
+
+			log("\n");
+			bool first = true;
+			for (auto &row : tab) {
+				for (size_t i = 0; i < row.size(); i++) {
+					int k = i < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
+					log(" %s%*s", k == tab_sep_colidx ? "| " : "", tab_column_width[k], row[k].c_str());
+				}
+				log("\n");
+				if (first) {
+					for (size_t i = 0; i < row.size(); i++) {
+						int k = i < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
+						log(" %s", k == tab_sep_colidx ? "| " : "");
+						for (int j = 0; j < tab_column_width[k]; j++)
+							log("-");
+					}
+					log("\n");
+					first = false;
+				}
+			}
+
+			log("\n");
+			if (undef.width > 0) {
+				undef.sort_and_unify();
+				log("Assumend undef (x) value for the following singals: %s\n\n", log_signal(undef));
+			}
 		}
 	}
 } EvalPass;
