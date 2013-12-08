@@ -137,7 +137,7 @@ write design netlist to a new verilog file:
 
 	yosys> write_verilog synth.v
 
-a simmilar synthesis can be performed using yosys command line options only:
+a similar synthesis can be performed using yosys command line options only:
 
 	$ ./yosys -o synth.v -p proc -p opt -p techmap -p opt tests/simple/fiedler-cooley.v
 
@@ -172,9 +172,9 @@ The following synthesis script works reasonable for all designs:
 	# convert to gate logic
 	techmap; opt
 
-If ABC (http://www.eecs.berkeley.edu/~alanmi/abc/) is installed and
-a cell library is given in the liberty file mycells.lib, the following
-synthesis script will synthesize for the given cell library:
+If ABC is enabled in the Yosys build configuration and a cell library is given
+in the liberty file mycells.lib, the following synthesis script will synthesize
+for the given cell library:
 
 	# the high-level stuff
 	hierarchy; proc; memory; opt; fsm; opt
@@ -299,7 +299,6 @@ Roadmap / Large-scale TODOs
    - Improve Xilinx FGPA synthesis (RAMB, CARRY4, SLR, etc.)
 
 - Implement SAT-based formal equivialence checker
-   - Add x-state support to SAT model generator
    - Rewrite freduce pass with input-cone analysis
    - Write equiv pass, base hypothesis on input cones
 
@@ -315,7 +314,7 @@ Other Unsorted TODOs
 - Implement missing Verilog 2005 features:
 
   - Multi-dimensional arrays
-  - ROM modeling using "initial" blocks
+  - ROM modeling using $readmemh/$readmemb in "initial" blocks
   - Ignore what needs to be ignored (e.g. drive and charge strengths)
   - Check standard vs. implementation to identify missing features
 
@@ -323,7 +322,7 @@ Other Unsorted TODOs
 
   - Add brief source code documentation to most passes and kernel code
   - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
-  - Add edit commands for changing the design (delete, add, modify objects)
+  - Add more commands for changing the design (delete, add, modify objects)
   - Add full support for $lut cell type (const evaluation, sat solving, etc.)
   - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
 
