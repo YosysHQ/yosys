@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
-if true; then
+if false; then
 	rm -f *.dot
 	../../yosys example.ys
 	../../yosys -p 'proc; opt; show -format dot -prefix splice' splice.v
