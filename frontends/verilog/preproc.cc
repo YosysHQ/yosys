@@ -206,6 +206,7 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 {
 	std::map<std::string, std::string> defines_map(pre_defines_map);
 	int ifdef_fail_level = 0;
+	bool in_elseif = false;
 
 	output_code.clear();
 	input_buffer.clear();
@@ -222,14 +223,26 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 		if (tok == "`endif") {
 			if (ifdef_fail_level > 0)
 				ifdef_fail_level--;
+			if (ifdef_fail_level == 0)
+				in_elseif = false;
 			continue;
 		}
 
 		if (tok == "`else") {
 			if (ifdef_fail_level == 0)
 				ifdef_fail_level = 1;
-			else if (ifdef_fail_level == 1)
+			else if (ifdef_fail_level == 1 && !in_elseif)
 				ifdef_fail_level = 0;
+			continue;
+		}
+
+		if (tok == "`elsif") {
+			skip_spaces();
+			std::string name = next_token(true);
+			if (ifdef_fail_level == 0)
+				ifdef_fail_level = 1, in_elseif = true;
+			else if (ifdef_fail_level == 1 && defines_map.count(name) != 0)
+				ifdef_fail_level = 0, in_elseif = true;
 			continue;
 		}
 
