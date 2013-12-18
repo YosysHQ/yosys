@@ -76,8 +76,9 @@ static char next_char()
 	return ch == '\r' ? next_char() : ch;
 }
 
-static void skip_spaces()
+static std::string skip_spaces()
 {
+	std::string spaces;
 	while (1) {
 		char ch = next_char();
 		if (ch == 0)
@@ -86,7 +87,9 @@ static void skip_spaces()
 			return_char(ch);
 			break;
 		}
+		spaces += ch;
 	}
+	return spaces;
 }
 
 static std::string next_token(bool pass_newline = false)
@@ -170,13 +173,14 @@ static std::string next_token(bool pass_newline = false)
 	else
 	{
 		const char *ok = "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ$0123456789";
-		while ((ch = next_char()) != 0) {
-			if (strchr(ok, ch) == NULL) {
-				return_char(ch);
-				break;
+		if (ch == '`' || strchr(ok, ch) != NULL)
+			while ((ch = next_char()) != 0) {
+				if (strchr(ok, ch) == NULL) {
+					return_char(ch);
+					break;
+				}
+				token += ch;
 			}
-			token += ch;
-		}
 	}
 
 	return token;
@@ -289,27 +293,48 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 
 		if (tok == "`define") {
 			std::string name, value;
+			std::map<std::string, int> args;
 			skip_spaces();
 			name = next_token(true);
 			skip_spaces();
 			int newline_count = 0;
+			int state = 0;
 			while (!tok.empty()) {
 				tok = next_token();
-				if (tok == "\n") {
-					return_char('\n');
-					break;
-				}
-				if (tok == "\\") {
-					char ch = next_char();
-					if (ch == '\n') {
-						value += " ";
-						newline_count++;
-					} else {
-						value += std::string("\\");
-						return_char(ch);
-					}
+				if (state == 0 && tok == "(") {
+					state = 1;
+					skip_spaces();
 				} else
-					value += tok;
+				if (state == 1) {
+					if (tok == ")")
+						state = 2;
+					else if (tok != ",") {
+						int arg_idx = args.size()+1;
+						args[tok] = arg_idx;
+					}
+					skip_spaces();
+				} else {
+					if (state != 2)
+						state = 3;
+					if (tok == "\n") {
+						return_char('\n');
+						break;
+					}
+					if (tok == "\\") {
+						char ch = next_char();
+						if (ch == '\n') {
+							value += " ";
+							newline_count++;
+						} else {
+							value += std::string("\\");
+							return_char(ch);
+						}
+					} else
+					if (args.count(tok) > 0)
+						value += stringf("`macro_%s_arg%d", name.c_str(), args.at(tok));
+					else
+						value += tok;
+				}
 			}
 			while (newline_count-- > 0)
 				return_char('\n');
@@ -338,8 +363,35 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 		}
 
 		if (tok.size() > 1 && tok[0] == '`' && defines_map.count(tok.substr(1)) > 0) {
-			// printf("expand: >>%s<< -> >>%s<<\n", tok.c_str(), defines_map[tok.substr(1)].c_str());
-			insert_input(defines_map[tok.substr(1)]);
+			std::string name = tok.substr(1);
+			// printf("expand: >>%s<< -> >>%s<<\n", name.c_str(), defines_map[name].c_str());
+			std::string skipped_spaces = skip_spaces();
+			tok = next_token(true);
+			if (tok == "(") {
+				int level = 1;
+				std::vector<std::string> args;
+				args.push_back(std::string());
+				while (1)
+				{
+					tok = next_token(true);
+					if (tok == ")" || tok == "}" || tok == "]")
+						level--;
+					if (level == 0)
+						break;
+					if (level == 1 && tok == ",")
+						args.push_back(std::string());
+					else
+						args.back() += tok;
+					if (tok == "(" || tok == "{" || tok == "[")
+						level++;
+				}
+				for (size_t i = 0; i < args.size(); i++)
+					defines_map[stringf("macro_%s_arg%d", name.c_str(), i+1)] = args[i];
+			} else {
+				insert_input(tok);
+				insert_input(skipped_spaces);
+			}
+			insert_input(defines_map[name]);
 			continue;
 		}
 
