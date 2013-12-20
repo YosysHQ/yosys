@@ -482,6 +482,7 @@ struct DfflibmapPass : public Pass {
 			keep_running |= expand_cellmap("$_DFFSR_??*_", "R");
 		} while (keep_running);
 		do {
+			keep_running = false;
 			keep_running |= expand_cellmap("$_DFF_*_", "C");
 			keep_running |= expand_cellmap("$_DFF_*??_", "C");
 			keep_running |= expand_cellmap("$_DFFSR_*??_", "C");
