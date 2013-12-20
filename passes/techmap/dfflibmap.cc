@@ -473,23 +473,26 @@ struct DfflibmapPass : public Pass {
 		find_cell_sr(libparser.ast, "$_DFFSR_PPN_", true, true, false);
 		find_cell_sr(libparser.ast, "$_DFFSR_PPP_", true, true, true);
 
-		int level = 0;
-		while (level < 3) {
-			bool did_something = false;
-			switch (level) {
-			case 2:
-				did_something |= expand_cellmap("$_DFF_*_", "C");
-				did_something |= expand_cellmap("$_DFF_*??_", "C");
-				did_something |= expand_cellmap("$_DFFSR_*??_", "C");
-			case 1:
-				did_something |= expand_cellmap("$_DFF_??*_", "DQ");
-			case 0:
-				did_something |= expand_cellmap("$_DFF_?*?_", "R");
-				did_something |= expand_cellmap("$_DFFSR_?*?_", "S");
-				did_something |= expand_cellmap("$_DFFSR_??*_", "R");
-			}
-			if (!did_something)
-				level++;
+		// try to implement as many cells as possible just by inverting
+		// the SET and RESET pins. If necessary, implement cell types
+		// by inverting both D and Q. Only invert clock pins if there
+		// is no other way of implementing the cell.
+		while (1)
+		{
+			if (expand_cellmap("$_DFF_?*?_", "R") ||
+					expand_cellmap("$_DFFSR_?*?_", "S") ||
+					expand_cellmap("$_DFFSR_??*_", "R"))
+				continue;
+
+			if (expand_cellmap("$_DFF_??*_", "DQ"))
+				continue;
+
+			if (expand_cellmap("$_DFF_*_", "C") ||
+					expand_cellmap("$_DFF_*??_", "C") ||
+					expand_cellmap("$_DFFSR_*??_", "C"))
+				continue;
+
+			break;
 		}
 
 		map_sr_to_arst("$_DFFSR_NNN_", "$_DFF_NN0_");
