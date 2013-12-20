@@ -473,20 +473,24 @@ struct DfflibmapPass : public Pass {
 		find_cell_sr(libparser.ast, "$_DFFSR_PPN_", true, true, false);
 		find_cell_sr(libparser.ast, "$_DFFSR_PPP_", true, true, true);
 
-		bool keep_running;
-		do {
-			keep_running = false;
-			keep_running |= expand_cellmap("$_DFF_?*?_", "R");
-			keep_running |= expand_cellmap("$_DFF_??*_", "DQ");
-			keep_running |= expand_cellmap("$_DFFSR_?*?_", "S");
-			keep_running |= expand_cellmap("$_DFFSR_??*_", "R");
-		} while (keep_running);
-		do {
-			keep_running = false;
-			keep_running |= expand_cellmap("$_DFF_*_", "C");
-			keep_running |= expand_cellmap("$_DFF_*??_", "C");
-			keep_running |= expand_cellmap("$_DFFSR_*??_", "C");
-		} while (keep_running);
+		int level = 0;
+		while (level < 3) {
+			bool did_something = false;
+			switch (level) {
+			case 2:
+				did_something |= expand_cellmap("$_DFF_*_", "C");
+				did_something |= expand_cellmap("$_DFF_*??_", "C");
+				did_something |= expand_cellmap("$_DFFSR_*??_", "C");
+			case 1:
+				did_something |= expand_cellmap("$_DFF_??*_", "DQ");
+			case 0:
+				did_something |= expand_cellmap("$_DFF_?*?_", "R");
+				did_something |= expand_cellmap("$_DFFSR_?*?_", "S");
+				did_something |= expand_cellmap("$_DFFSR_??*_", "R");
+			}
+			if (!did_something)
+				level++;
+		}
 
 		map_sr_to_arst("$_DFFSR_NNN_", "$_DFF_NN0_");
 		map_sr_to_arst("$_DFFSR_NNN_", "$_DFF_NN1_");
