@@ -106,6 +106,7 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 	LibertyAst *best_cell = NULL;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
+	float best_cell_area = 0;
 
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");
@@ -141,6 +142,11 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 			this_cell_ports[cell_rst_pin] = 'R';
 		this_cell_ports[cell_next_pin] = 'D';
 
+		float area = 0;
+		LibertyAst *ar = cell->find("area");
+		if (ar != NULL && !ar->value.empty())
+			area = atof(ar->value.c_str());
+
 		int num_pins = 0;
 		bool found_output = false;
 		for (auto pin : cell->children)
@@ -174,14 +180,18 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 		if (!found_output || (best_cell != NULL && num_pins > best_cell_pins))
 			continue;
 
+		if (best_cell != NULL && num_pins == best_cell_pins && area > best_cell_area)
+			continue;
+
 		best_cell = cell;
 		best_cell_pins = num_pins;
+		best_cell_area = area;
 		best_cell_ports.swap(this_cell_ports);
 	continue_cell_loop:;
 	}
 
 	if (best_cell != NULL) {
-		log("  cell %s is a direct match for cell type %s.\n", best_cell->args[0].c_str(), cell_type.substr(1).c_str());
+		log("  cell %s (pins=%d, area=%.2f) is a direct match for cell type %s.\n", best_cell->args[0].c_str(), best_cell_pins, best_cell_area, cell_type.substr(1).c_str());
 		cell_mappings[cell_type].cell_name = best_cell->args[0];
 		cell_mappings[cell_type].ports = best_cell_ports;
 	}
@@ -192,6 +202,7 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 	LibertyAst *best_cell = NULL;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
+	float best_cell_area = 0;
 
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");
@@ -223,6 +234,11 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 		this_cell_ports[cell_clr_pin] = 'R';
 		this_cell_ports[cell_next_pin] = 'D';
 
+		float area = 0;
+		LibertyAst *ar = cell->find("area");
+		if (ar != NULL && !ar->value.empty())
+			area = atof(ar->value.c_str());
+
 		int num_pins = 0;
 		bool found_output = false;
 		for (auto pin : cell->children)
@@ -256,14 +272,18 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 		if (!found_output || (best_cell != NULL && num_pins > best_cell_pins))
 			continue;
 
+		if (best_cell != NULL && num_pins == best_cell_pins && area > best_cell_area)
+			continue;
+
 		best_cell = cell;
 		best_cell_pins = num_pins;
+		best_cell_area = area;
 		best_cell_ports.swap(this_cell_ports);
 	continue_cell_loop:;
 	}
 
 	if (best_cell != NULL) {
-		log("  cell %s is a direct match for cell type %s.\n", best_cell->args[0].c_str(), cell_type.substr(1).c_str());
+		log("  cell %s (pins=%d, area=%.2f) is a direct match for cell type %s.\n", best_cell->args[0].c_str(), best_cell_pins, best_cell_area, cell_type.substr(1).c_str());
 		cell_mappings[cell_type].cell_name = best_cell->args[0];
 		cell_mappings[cell_type].ports = best_cell_ports;
 	}
