@@ -419,6 +419,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			if (port.second == '0' || port.second == '1') {
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);
 			} else
+			if (port.second != 0)
 				log_abort();
 			new_cell->connections["\\" + port.first] = sig;
 		}
