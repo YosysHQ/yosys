@@ -309,9 +309,10 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			std::map<std::string, int> args;
 			skip_spaces();
 			name = next_token(true);
-			skip_spaces();
 			int newline_count = 0;
 			int state = 0;
+			if (skip_spaces() != "")
+				state = 3;
 			while (!tok.empty()) {
 				tok = next_token();
 				if (state == 0 && tok == "(") {
