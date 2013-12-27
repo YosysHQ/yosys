@@ -160,6 +160,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 			assert(a.chunks.size() == b.chunks.size());
 			for (size_t i = 0; i < a.chunks.size(); i++) {
+				if (a.chunks[i].wire == NULL && b.chunks[i].wire == NULL &&
+						a.chunks[i].data.bits[0] != b.chunks[i].data.bits[0]) {
+					RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S0 : RTLIL::State::S1);
+					new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
+					replace_cell(module, cell, "empty", "\\Y", new_y);
+					goto next_cell;
+				}
 				if (cell->type == "$eq" || cell->type == "$ne") {
 					if (a.chunks[i].wire == NULL && a.chunks[i].data.bits[0] > RTLIL::State::S1)
 						continue;
@@ -173,7 +180,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 
 			if (new_a.width == 0) {
-				RTLIL::SigSpec new_y = RTLIL::SigSpec(cell->type == "$eq" ?  RTLIL::State::S1 : RTLIL::State::S0);
+				RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S1 : RTLIL::State::S0);
 				new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
 				replace_cell(module, cell, "empty", "\\Y", new_y);
 				goto next_cell;
