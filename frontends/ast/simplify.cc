@@ -299,6 +299,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_LE:
 	case AST_EQ:
 	case AST_NE:
+	case AST_EQX:
+	case AST_NEX:
 	case AST_GE:
 	case AST_GT:
 		width_hint = -1;
@@ -1258,12 +1260,14 @@ skip_dynamic_range_lvalue_expansion:;
 				newNode = mkconst_bits(y.bits, sign_hint);
 			}
 			break;
-		if (0) { case AST_LT: const_func = RTLIL::const_lt; }
-		if (0) { case AST_LE: const_func = RTLIL::const_le; }
-		if (0) { case AST_EQ: const_func = RTLIL::const_eq; }
-		if (0) { case AST_NE: const_func = RTLIL::const_ne; }
-		if (0) { case AST_GE: const_func = RTLIL::const_ge; }
-		if (0) { case AST_GT: const_func = RTLIL::const_gt; }
+		if (0) { case AST_LT:  const_func = RTLIL::const_lt; }
+		if (0) { case AST_LE:  const_func = RTLIL::const_le; }
+		if (0) { case AST_EQ:  const_func = RTLIL::const_eq; }
+		if (0) { case AST_NE:  const_func = RTLIL::const_ne; }
+		if (0) { case AST_EQX: const_func = RTLIL::const_eqx; }
+		if (0) { case AST_NEX: const_func = RTLIL::const_nex; }
+		if (0) { case AST_GE:  const_func = RTLIL::const_ge; }
+		if (0) { case AST_GT:  const_func = RTLIL::const_gt; }
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				int cmp_width = std::max(children[0]->bits.size(), children[1]->bits.size());
 				bool cmp_signed = children[0]->is_signed && children[1]->is_signed;

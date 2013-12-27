@@ -82,6 +82,8 @@ namespace AST
 		AST_LE,
 		AST_EQ,
 		AST_NE,
+		AST_EQX,
+		AST_NEX,
 		AST_GE,
 		AST_GT,
 		AST_ADD,

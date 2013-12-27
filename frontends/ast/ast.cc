@@ -103,6 +103,8 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_LE)
 	X(AST_EQ)
 	X(AST_NE)
+	X(AST_EQX)
+	X(AST_NEX)
 	X(AST_GE)
 	X(AST_GT)
 	X(AST_ADD)
@@ -539,6 +541,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 	if (0) { case AST_LE:           txt = "<=";  }
 	if (0) { case AST_EQ:           txt = "==";  }
 	if (0) { case AST_NE:           txt = "!=";  }
+	if (0) { case AST_EQX:          txt = "===";  }
+	if (0) { case AST_NEX:          txt = "!==";  }
 	if (0) { case AST_GE:           txt = ">=";  }
 	if (0) { case AST_GT:           txt = ">";   }
 	if (0) { case AST_ADD:          txt = "+";   }
