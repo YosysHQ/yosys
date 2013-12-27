@@ -204,6 +204,7 @@ static void input_file(FILE *f, std::string filename)
 
 std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
 {
+	std::set<std::string> defines_with_args;
 	std::map<std::string, std::string> defines_map(pre_defines_map);
 	int ifdef_fail_level = 0;
 	bool in_elseif = false;
@@ -354,6 +355,10 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 				return_char('\n');
 			// printf("define: >>%s<< -> >>%s<<\n", name.c_str(), value.c_str());
 			defines_map[name] = value;
+			if (state == 2)
+				defines_with_args.insert(name);
+			else
+				defines_with_args.erase(name);
 			continue;
 		}
 
@@ -363,6 +368,7 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			name = next_token(true);
 			// printf("undef: >>%s<<\n", name.c_str());
 			defines_map.erase(name);
+			defines_with_args.erase(name);
 			continue;
 		}
 
@@ -381,7 +387,7 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			// printf("expand: >>%s<< -> >>%s<<\n", name.c_str(), defines_map[name].c_str());
 			std::string skipped_spaces = skip_spaces();
 			tok = next_token(true);
-			if (tok == "(") {
+			if (tok == "(" && defines_with_args.count(name) > 0) {
 				int level = 1;
 				std::vector<std::string> args;
 				args.push_back(std::string());
