@@ -161,7 +161,6 @@ struct SatGen
 	{
 		bool arith_undef_handled = false;
 		bool is_arith_compare = cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt";
-		int arith_undef_result = ez->FALSE;
 
 		if (model_undef && (cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod" || is_arith_compare))
 		{
@@ -191,7 +190,6 @@ struct SatGen
 				ez->assume(ez->vec_eq(undef_y_bits, undef_y));
 			}
 
-			arith_undef_result = undef_y_bit;
 			arith_undef_handled = true;
 		}
 
