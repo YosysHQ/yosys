@@ -50,8 +50,8 @@ struct SatHelper
 
 	// undef constraints
 	bool enable_undef, set_init_undef;
-	std::vector<std::string> sets_def, sets_undef, sets_all_undef;
-	std::map<int, std::vector<std::string>> sets_def_at, sets_undef_at, sets_all_undef_at;
+	std::vector<std::string> sets_def, sets_any_undef, sets_all_undef;
+	std::map<int, std::vector<std::string>> sets_def_at, sets_any_undef_at, sets_all_undef_at;
 
 	// model variables
 	std::vector<std::string> shows;
@@ -571,7 +571,7 @@ struct SatPass : public Pass {
 		log("    -set-def <signal>\n");
 		log("        add a constraint that all bits of the given signal must be defined\n");
 		log("\n");
-		log("    -set-undef <signal>\n");
+		log("    -set-any-undef <signal>\n");
 		log("        add a constraint that at least one bit of the given signal is undefined\n");
 		log("\n");
 		log("    -set-all-undef <signal>\n");
@@ -597,9 +597,9 @@ struct SatPass : public Pass {
 		log("        given timestep. this has priority over a -set for the same signal.\n");
 		log("\n");
 	#if 0
-		log("    -set-def <N> <signal>\n");
-		log("    -set-undef <N> <signal>\n");
-		log("    -set-all-undef <N> <signal>\n");
+		log("    -set-def-at <N> <signal>\n");
+		log("    -set-any-undef-at <N> <signal>\n");
+		log("    -set-all-undef-at <N> <signal>\n");
 		log("        add undef contraints in the given timestep.\n");
 		log("\n");
 	#endif
@@ -634,8 +634,8 @@ struct SatPass : public Pass {
 	{
 		std::vector<std::pair<std::string, std::string>> sets, sets_init, prove;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
-		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_undef_at, sets_all_undef_at;
-		std::vector<std::string> shows, sets_def, sets_undef, sets_all_undef;
+		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_any_undef_at, sets_all_undef_at;
+		std::vector<std::string> shows, sets_def, sets_any_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
 		bool verify = false, fail_on_timeout = false, enable_undef = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = true;
@@ -688,17 +688,17 @@ struct SatPass : public Pass {
 				sets.push_back(std::pair<std::string, std::string>(lhs, rhs));
 				continue;
 			}
-			if (args[argidx] == "-set-def" && argidx+2 < args.size()) {
+			if (args[argidx] == "-set-def" && argidx+1 < args.size()) {
 				sets_def.push_back(args[++argidx]);
 				enable_undef = true;
 				continue;
 			}
-			if (args[argidx] == "-set-undef" && argidx+2 < args.size()) {
-				sets_undef.push_back(args[++argidx]);
+			if (args[argidx] == "-set-any-undef" && argidx+1 < args.size()) {
+				sets_any_undef.push_back(args[++argidx]);
 				enable_undef = true;
 				continue;
 			}
-			if (args[argidx] == "-set-all-undef" && argidx+2 < args.size()) {
+			if (args[argidx] == "-set-all-undef" && argidx+1 < args.size()) {
 				sets_all_undef.push_back(args[++argidx]);
 				enable_undef = true;
 				continue;
@@ -731,9 +731,9 @@ struct SatPass : public Pass {
 				enable_undef = true;
 				continue;
 			}
-			if (args[argidx] == "-set-undef-at" && argidx+2 < args.size()) {
+			if (args[argidx] == "-set-any-undef-at" && argidx+2 < args.size()) {
 				int timestep = atoi(args[++argidx].c_str());
-				sets_undef_at[timestep].push_back(args[++argidx]);
+				sets_any_undef_at[timestep].push_back(args[++argidx]);
 				enable_undef = true;
 				continue;
 			}
@@ -791,10 +791,10 @@ struct SatPass : public Pass {
 			basecase.shows = shows;
 			basecase.timeout = timeout;
 			basecase.sets_def = sets_def;
-			basecase.sets_undef = sets_undef;
+			basecase.sets_any_undef = sets_any_undef;
 			basecase.sets_all_undef = sets_all_undef;
 			basecase.sets_def_at = sets_def_at;
-			basecase.sets_undef_at = sets_undef_at;
+			basecase.sets_any_undef_at = sets_any_undef_at;
 			basecase.sets_all_undef_at = sets_all_undef_at;
 			basecase.sets_init = sets_init;
 			basecase.set_init_undef = set_init_undef;
@@ -809,10 +809,10 @@ struct SatPass : public Pass {
 			inductstep.shows = shows;
 			inductstep.timeout = timeout;
 			inductstep.sets_def = sets_def;
-			inductstep.sets_undef = sets_undef;
+			inductstep.sets_any_undef = sets_any_undef;
 			inductstep.sets_all_undef = sets_all_undef;
 			inductstep.sets_def_at = sets_def_at;
-			inductstep.sets_undef_at = sets_undef_at;
+			inductstep.sets_any_undef_at = sets_any_undef_at;
 			inductstep.sets_all_undef_at = sets_all_undef_at;
 			inductstep.sets_init = sets_init;
 			inductstep.set_init_undef = set_init_undef;
@@ -901,10 +901,10 @@ struct SatPass : public Pass {
 			sathelper.shows = shows;
 			sathelper.timeout = timeout;
 			sathelper.sets_def = sets_def;
-			sathelper.sets_undef = sets_undef;
+			sathelper.sets_any_undef = sets_any_undef;
 			sathelper.sets_all_undef = sets_all_undef;
 			sathelper.sets_def_at = sets_def_at;
-			sathelper.sets_undef_at = sets_undef_at;
+			sathelper.sets_any_undef_at = sets_any_undef_at;
 			sathelper.sets_all_undef_at = sets_all_undef_at;
 			sathelper.sets_init = sets_init;
 			sathelper.set_init_undef = set_init_undef;
