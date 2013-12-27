@@ -408,7 +408,7 @@ namespace {
 			}
 
 			if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" ||
-					cell->type == "$ge" || cell->type == "$gt") {
+					cell->type == "$eqx" || cell->type == "$nex" || cell->type == "$ge" || cell->type == "$gt") {
 				param("\\A_SIGNED");
 				param("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));

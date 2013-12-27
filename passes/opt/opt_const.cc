@@ -144,7 +144,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 #endif
 		}
 
-		if (cell->type == "$eq" || cell->type == "$ne")
+		if (cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex")
 		{
 			RTLIL::SigSpec a = cell->connections["\\A"];
 			RTLIL::SigSpec b = cell->connections["\\B"];
@@ -160,10 +160,12 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 			assert(a.chunks.size() == b.chunks.size());
 			for (size_t i = 0; i < a.chunks.size(); i++) {
-				if (a.chunks[i].wire == NULL && a.chunks[i].data.bits[0] > RTLIL::State::S1)
-					continue;
-				if (b.chunks[i].wire == NULL && b.chunks[i].data.bits[0] > RTLIL::State::S1)
-					continue;
+				if (cell->type == "$eq" || cell->type == "$ne") {
+					if (a.chunks[i].wire == NULL && a.chunks[i].data.bits[0] > RTLIL::State::S1)
+						continue;
+					if (b.chunks[i].wire == NULL && b.chunks[i].data.bits[0] > RTLIL::State::S1)
+						continue;
+				}
 				new_a.append(a.chunks[i]);
 				new_b.append(b.chunks[i]);
 			}

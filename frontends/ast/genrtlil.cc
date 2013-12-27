@@ -1119,8 +1119,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_LE:  type_name = "$le"; }
 	if (0) { case AST_EQ:  type_name = "$eq"; }
 	if (0) { case AST_NE:  type_name = "$ne"; }
-	if (0) { case AST_EQX: type_name = "$eq"; }
-	if (0) { case AST_NEX: type_name = "$ne"; }
+	if (0) { case AST_EQX: type_name = "$eqx"; }
+	if (0) { case AST_NEX: type_name = "$nex"; }
 	if (0) { case AST_GE:  type_name = "$ge"; }
 	if (0) { case AST_GT:  type_name = "$gt"; }
 		{

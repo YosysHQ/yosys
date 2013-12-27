@@ -451,7 +451,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt")
+		if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex" || cell->type == "$ge" || cell->type == "$gt")
 		{
 			bool is_signed = cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool();
 			std::vector<int> a = importDefSigSpec(cell->connections.at("\\A"), timestep);
@@ -465,9 +465,9 @@ struct SatGen
 				ez->SET(is_signed ? ez->vec_lt_signed(a, b) : ez->vec_lt_unsigned(a, b), yy.at(0));
 			if (cell->type == "$le")
 				ez->SET(is_signed ? ez->vec_le_signed(a, b) : ez->vec_le_unsigned(a, b), yy.at(0));
-			if (cell->type == "$eq")
+			if (cell->type == "$eq" || cell->type == "$eqx")
 				ez->SET(ez->vec_eq(a, b), yy.at(0));
-			if (cell->type == "$ne")
+			if (cell->type == "$ne" || cell->type == "$nex")
 				ez->SET(ez->vec_ne(a, b), yy.at(0));
 			if (cell->type == "$ge")
 				ez->SET(is_signed ? ez->vec_ge_signed(a, b) : ez->vec_ge_unsigned(a, b), yy.at(0));
@@ -476,7 +476,19 @@ struct SatGen
 			for (size_t i = 1; i < y.size(); i++)
 				ez->SET(ez->FALSE, yy.at(i));
 
-			if (model_undef && (cell->type == "$eq" || cell->type == "$ne"))
+			if (model_undef && (cell->type == "$eqx" || cell->type == "$nex"))
+			{
+				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
+				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
+				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
+				yy.at(0) = ez->AND(yy.at(0), ez->vec_eq(undef_a, undef_b));
+
+				for (size_t i = 0; i < y.size(); i++)
+					ez->SET(ez->FALSE, undef_y.at(i));
+
+				ez->assume(ez->vec_eq(y, yy));
+			}
+			else if (model_undef && (cell->type == "$eq" || cell->type == "$ne"))
 			{
 				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
 				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);

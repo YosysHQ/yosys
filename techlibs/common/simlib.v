@@ -376,6 +376,42 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$eqx (A, B, Y);
+
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 0;
+parameter B_WIDTH = 0;
+parameter Y_WIDTH = 0;
+
+`INPUT_A
+`INPUT_B
+output [Y_WIDTH-1:0] Y;
+
+assign Y = A_BUF.val === B_BUF.val;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$nex (A, B, Y);
+
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 0;
+parameter B_WIDTH = 0;
+parameter Y_WIDTH = 0;
+
+`INPUT_A
+`INPUT_B
+output [Y_WIDTH-1:0] Y;
+
+assign Y = A_BUF.val !== B_BUF.val;
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$ge (A, B, Y);
 
 parameter A_SIGNED = 0;
