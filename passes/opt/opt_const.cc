@@ -166,6 +166,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					if (b.chunks[i].wire == NULL && b.chunks[i].data.bits[0] > RTLIL::State::S1)
 						continue;
 				}
+				if (a.chunks[i] == b.chunks[i])
+					continue;
 				new_a.append(a.chunks[i]);
 				new_b.append(b.chunks[i]);
 			}
@@ -177,7 +179,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				goto next_cell;
 			}
 
-			if (new_a.width != a.width) {
+			if (new_a.width < a.width || new_b.width < b.width) {
 				new_a.optimize();
 				new_b.optimize();
 				cell->connections["\\A"] = new_a;
