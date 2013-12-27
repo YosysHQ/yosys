@@ -462,6 +462,7 @@ struct SatGen
 			if (model_undef && (cell->type == "$eqx" || cell->type == "$nex")) {
 				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
 				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
+				extendSignalWidth(undef_a, undef_b, cell, true);
 				a = ez->vec_or(a, undef_a);
 				b = ez->vec_or(b, undef_b);
 			}
@@ -486,6 +487,7 @@ struct SatGen
 				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
 				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
+				extendSignalWidth(undef_a, undef_b, cell, true);
 
 				if (cell->type == "$eqx")
 					yy.at(0) = ez->AND(yy.at(0), ez->vec_eq(undef_a, undef_b));
