@@ -461,6 +461,13 @@ struct SatGen
 
 			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
+			if (model_undef && (cell->type == "$eqx" || cell->type == "$nex")) {
+				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
+				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
+				a = ez->vec_or(a, undef_a);
+				b = ez->vec_or(b, undef_b);
+			}
+
 			if (cell->type == "$lt")
 				ez->SET(is_signed ? ez->vec_lt_signed(a, b) : ez->vec_lt_unsigned(a, b), yy.at(0));
 			if (cell->type == "$le")
@@ -481,7 +488,11 @@ struct SatGen
 				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
 				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
-				yy.at(0) = ez->AND(yy.at(0), ez->vec_eq(undef_a, undef_b));
+
+				if (cell->type == "$eqx")
+					yy.at(0) = ez->AND(yy.at(0), ez->vec_eq(undef_a, undef_b));
+				else
+					yy.at(0) = ez->OR(yy.at(0), ez->vec_ne(undef_a, undef_b));
 
 				for (size_t i = 0; i < y.size(); i++)
 					ez->SET(ez->FALSE, undef_y.at(i));
