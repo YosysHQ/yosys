@@ -202,6 +202,71 @@ struct SatHelper
 		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
 		ez.assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
 
+		// 0 = sets_def
+		// 1 = sets_any_undef
+		// 2 = sets_all_undef
+		std::set<RTLIL::SigSpec> sets_def_undef[3];
+
+		for (auto &s : sets_def) {
+			RTLIL::SigSpec sig;
+			if (!RTLIL::SigSpec::parse(sig, module, s))
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+			sets_def_undef[0].insert(sig);
+		}
+
+		for (auto &s : sets_any_undef) {
+			RTLIL::SigSpec sig;
+			if (!RTLIL::SigSpec::parse(sig, module, s))
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+			sets_def_undef[1].insert(sig);
+		}
+
+		for (auto &s : sets_all_undef) {
+			RTLIL::SigSpec sig;
+			if (!RTLIL::SigSpec::parse(sig, module, s))
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+			sets_def_undef[2].insert(sig);
+		}
+
+		for (auto &s : sets_def_at[timestep]) {
+			RTLIL::SigSpec sig;
+			if (!RTLIL::SigSpec::parse(sig, module, s))
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+			sets_def_undef[0].insert(sig);
+			sets_def_undef[1].erase(sig);
+			sets_def_undef[2].erase(sig);
+		}
+
+		for (auto &s : sets_any_undef_at[timestep]) {
+			RTLIL::SigSpec sig;
+			if (!RTLIL::SigSpec::parse(sig, module, s))
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+			sets_def_undef[0].erase(sig);
+			sets_def_undef[1].insert(sig);
+			sets_def_undef[2].erase(sig);
+		}
+
+		for (auto &s : sets_all_undef_at[timestep]) {
+			RTLIL::SigSpec sig;
+			if (!RTLIL::SigSpec::parse(sig, module, s))
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+			sets_def_undef[0].erase(sig);
+			sets_def_undef[1].erase(sig);
+			sets_def_undef[2].insert(sig);
+		}
+
+		for (int t = 0; t < 3; t++)
+		for (auto &sig : sets_def_undef[t]) {
+			log("Import %s constraint for timestep: %s\n", t == 0 ? "def" : t == 1 ? "any_undef" : "all_undef", log_signal(sig));
+			std::vector<int> undef_sig = satgen.importUndefSigSpec(sig, timestep);
+			if (t == 0)
+				ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, undef_sig)));
+			if (t == 1)
+				ez.assume(ez.expression(ezSAT::OpOr, undef_sig));
+			if (t == 2)
+				ez.assume(ez.expression(ezSAT::OpAnd, undef_sig));
+		}
+
 		int import_cell_counter = 0;
 		for (auto &c : module->cells)
 			if (design->selected(module, c.second)) {
@@ -567,7 +632,6 @@ struct SatPass : public Pass {
 		log("    -set <signal> <value>\n");
 		log("        set the specified signal to the specified value.\n");
 		log("\n");
-	#if 0
 		log("    -set-def <signal>\n");
 		log("        add a constraint that all bits of the given signal must be defined\n");
 		log("\n");
@@ -577,7 +641,6 @@ struct SatPass : public Pass {
 		log("    -set-all-undef <signal>\n");
 		log("        add a constraint that all bits of the given signal are undefined\n");
 		log("\n");
-	#endif
 		log("    -show <signal>\n");
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
@@ -596,13 +659,11 @@ struct SatPass : public Pass {
 		log("        set or unset the specified signal to the specified value in the\n");
 		log("        given timestep. this has priority over a -set for the same signal.\n");
 		log("\n");
-	#if 0
 		log("    -set-def-at <N> <signal>\n");
 		log("    -set-any-undef-at <N> <signal>\n");
 		log("    -set-all-undef-at <N> <signal>\n");
 		log("        add undef contraints in the given timestep.\n");
 		log("\n");
-	#endif
 		log("    -set-init <signal> <value>\n");
 		log("        set the initial value for the register driving the signal to the value\n");
 		log("\n");
@@ -638,7 +699,7 @@ struct SatPass : public Pass {
 		std::vector<std::string> shows, sets_def, sets_any_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
 		bool verify = false, fail_on_timeout = false, enable_undef = false;
-		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = true;
+		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
