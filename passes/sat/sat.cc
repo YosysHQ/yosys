@@ -44,7 +44,7 @@ struct SatHelper
 	SatGen satgen;
 
 	// additional constraints
-	std::vector<std::pair<std::string, std::string>> sets, prove, sets_init;
+	std::vector<std::pair<std::string, std::string>> sets, prove, prove_x, sets_init;
 	std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 	std::map<int, std::vector<std::string>> unsets_at;
 
@@ -284,34 +284,75 @@ struct SatHelper
 
 	int setup_proof(int timestep = -1)
 	{
-		assert(prove.size() > 0);
+		assert(prove.size() + prove_x.size() > 0);
 
 		RTLIL::SigSpec big_lhs, big_rhs;
+		std::vector<int> prove_bits;
 
-		for (auto &s : prove)
+		if (prove.size() > 0)
 		{
-			RTLIL::SigSpec lhs, rhs;
+			for (auto &s : prove)
+			{
+				RTLIL::SigSpec lhs, rhs;
 
-			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
-				log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
-			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-				log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
-			show_signal_pool.add(sigmap(lhs));
-			show_signal_pool.add(sigmap(rhs));
+				if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+					log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
+				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
+					log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
+				show_signal_pool.add(sigmap(lhs));
+				show_signal_pool.add(sigmap(rhs));
 
-			if (lhs.width != rhs.width)
-				log_cmd_error("Proof expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+				if (lhs.width != rhs.width)
+					log_cmd_error("Proof expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
+						s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
 
-			log("Import proof-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
-			big_lhs.remove2(lhs, &big_rhs);
-			big_lhs.append(lhs);
-			big_rhs.append(rhs);
+				log("Import proof-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
+				big_lhs.remove2(lhs, &big_rhs);
+				big_lhs.append(lhs);
+				big_rhs.append(rhs);
+			}
+
+			log("Final proof equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
+			check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
+			prove_bits.push_back(satgen.signals_eq(big_lhs, big_rhs, timestep));
 		}
 
-		log("Final proof equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
-		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
-		return satgen.signals_eq(big_lhs, big_rhs, timestep);
+		if (prove_x.size() > 0)
+		{
+			for (auto &s : prove_x)
+			{
+				RTLIL::SigSpec lhs, rhs;
+
+				if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+					log_cmd_error("Failed to parse lhs proof-x expression `%s'.\n", s.first.c_str());
+				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
+					log_cmd_error("Failed to parse rhs proof-x expression `%s'.\n", s.second.c_str());
+				show_signal_pool.add(sigmap(lhs));
+				show_signal_pool.add(sigmap(rhs));
+
+				if (lhs.width != rhs.width)
+					log_cmd_error("Proof-x expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
+						s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+
+				log("Import proof-x-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
+				big_lhs.remove2(lhs, &big_rhs);
+				big_lhs.append(lhs);
+				big_rhs.append(rhs);
+			}
+
+			log("Final proof-x equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
+
+			std::vector<int> value_lhs = satgen.importDefSigSpec(big_lhs, timestep);
+			std::vector<int> value_rhs = satgen.importDefSigSpec(big_rhs, timestep);
+
+			std::vector<int> undef_lhs = satgen.importUndefSigSpec(big_lhs, timestep);
+			std::vector<int> undef_rhs = satgen.importUndefSigSpec(big_rhs, timestep);
+
+			for (size_t i = 0; i < value_lhs.size(); i++)
+				prove_bits.push_back(ez.OR(undef_lhs.at(i), ez.AND(ez.NOT(undef_rhs.at(i)), ez.NOT(ez.XOR(value_lhs.at(i), value_rhs.at(i))))));
+		}
+
+		return ez.expression(ezSAT::OpAnd, prove_bits);
 	}
 
 	void force_unique_state(int timestep_from, int timestep_to)
@@ -641,6 +682,9 @@ struct SatPass : public Pass {
 		log("    -set-all-undef <signal>\n");
 		log("        add a constraint that all bits of the given signal are undefined\n");
 		log("\n");
+		log("    -set-def-inputs\n");
+		log("        add -set-def constraints for all module inputs\n");
+		log("\n");
 		log("    -show <signal>\n");
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
@@ -678,6 +722,10 @@ struct SatPass : public Pass {
 		log("        induction proof it is proven that the condition holds forever after\n");
 		log("        the number of time steps passed using -seq.\n");
 		log("\n");
+		log("    -prove-x <signal> <value>\n");
+		log("        Like -prove, but an undef (x) bit in the lhs matches any value on\n");
+		log("        the right hand side. Useful for equivialence checking.\n");
+		log("\n");
 		log("    -maxsteps <N>\n");
 		log("        Set a maximum length for the induction.\n");
 		log("\n");
@@ -693,12 +741,12 @@ struct SatPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::vector<std::pair<std::string, std::string>> sets, sets_init, prove;
+		std::vector<std::pair<std::string, std::string>> sets, sets_init, prove, prove_x;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_any_undef_at, sets_all_undef_at;
 		std::vector<std::string> shows, sets_def, sets_any_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
-		bool verify = false, fail_on_timeout = false, enable_undef = false;
+		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
@@ -743,6 +791,11 @@ struct SatPass : public Pass {
 				max_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-set-def-inputs") {
+				enable_undef = true;
+				set_def_inputs = true;
+				continue;
+			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
 				std::string lhs = args[++argidx];
 				std::string rhs = args[++argidx];
@@ -768,6 +821,13 @@ struct SatPass : public Pass {
 				std::string lhs = args[++argidx];
 				std::string rhs = args[++argidx];
 				prove.push_back(std::pair<std::string, std::string>(lhs, rhs));
+				continue;
+			}
+			if (args[argidx] == "-prove-x" && argidx+2 < args.size()) {
+				std::string lhs = args[++argidx];
+				std::string rhs = args[++argidx];
+				prove_x.push_back(std::pair<std::string, std::string>(lhs, rhs));
+				enable_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
@@ -834,10 +894,16 @@ struct SatPass : public Pass {
 		if (module == NULL) 
 			log_cmd_error("Can't perform SAT on an empty selection!\n");
 
-		if (prove.size() == 0 && verify)
+		if (prove.size() + prove_x.size() == 0 && verify)
 			log_cmd_error("Got -verify but nothing to prove!\n");
 
-		if (prove.size() > 0 && seq_len > 0)
+		if (set_def_inputs) {
+			for (auto &it : module->wires)
+				if (it.second->port_input)
+					sets_def.push_back(it.second->name);
+		}
+
+		if (prove.size() + prove_x.size() > 0 && seq_len > 0)
 		{
 			if (loopcount > 0 || max_undef)
 				log_cmd_error("The options -max, -all, and -max_undef are not supported for temporal induction proofs!\n");
@@ -847,6 +913,7 @@ struct SatPass : public Pass {
 
 			basecase.sets = sets;
 			basecase.prove = prove;
+			basecase.prove_x = prove_x;
 			basecase.sets_at = sets_at;
 			basecase.unsets_at = unsets_at;
 			basecase.shows = shows;
@@ -867,16 +934,12 @@ struct SatPass : public Pass {
 
 			inductstep.sets = sets;
 			inductstep.prove = prove;
+			inductstep.prove_x = prove_x;
 			inductstep.shows = shows;
 			inductstep.timeout = timeout;
 			inductstep.sets_def = sets_def;
 			inductstep.sets_any_undef = sets_any_undef;
 			inductstep.sets_all_undef = sets_all_undef;
-			inductstep.sets_def_at = sets_def_at;
-			inductstep.sets_any_undef_at = sets_any_undef_at;
-			inductstep.sets_all_undef_at = sets_all_undef_at;
-			inductstep.sets_init = sets_init;
-			inductstep.set_init_undef = set_init_undef;
 			inductstep.satgen.ignore_div_by_zero = ignore_div_by_zero;
 
 			inductstep.setup(1);
@@ -957,6 +1020,7 @@ struct SatPass : public Pass {
 
 			sathelper.sets = sets;
 			sathelper.prove = prove;
+			sathelper.prove_x = prove_x;
 			sathelper.sets_at = sets_at;
 			sathelper.unsets_at = unsets_at;
 			sathelper.shows = shows;
@@ -973,7 +1037,7 @@ struct SatPass : public Pass {
 
 			if (seq_len == 0) {
 				sathelper.setup();
-				if (sathelper.prove.size() > 0)
+				if (sathelper.prove.size() + sathelper.prove_x.size() > 0)
 					sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof()));
 			} else {
 				for (int timestep = 1; timestep <= seq_len; timestep++)
@@ -1000,7 +1064,7 @@ struct SatPass : public Pass {
 					sathelper.maximize_undefs();
 				}
 
-				if (prove.size() == 0) {
+				if (prove.size() + prove_x.size() == 0) {
 					log("SAT solving finished - model found:\n");
 				} else {
 					log("SAT proof finished - model found: FAIL!\n");
@@ -1026,7 +1090,7 @@ struct SatPass : public Pass {
 					goto timeout;
 				if (rerun_counter)
 					log("SAT solving finished - no more models found (after %d distinct solutions).\n", rerun_counter);
-				else if (prove.size() == 0)
+				else if (prove.size() + prove_x.size() == 0)
 					log("SAT solving finished - no model found.\n");
 				else {
 					log("SAT proof finished - no model found: SUCCESS!\n");
