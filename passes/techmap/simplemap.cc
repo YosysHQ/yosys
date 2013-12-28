@@ -498,7 +498,7 @@ struct SimplemapPass : public Pass {
 		log("This pass maps a small selection of simple coarse-grain cells to yosys gate\n");
 		log("primitives. The following internal cell types are mapped by this pass:\n");
 		log("\n");
-		log("  $not, $pos, $and, $or, $xor, $xnor\n");
+		log("  $not, $pos, $bu0, $and, $or, $xor, $xnor\n");
 		log("  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool\n");
 		log("  $logic_not, $logic_and, $logic_or, $mux\n");
 		log("  $sr, $dff, $dffsr, $adff, $dlatch\n");
