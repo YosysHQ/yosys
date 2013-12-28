@@ -44,6 +44,12 @@ endmodule
 
 // --------------------------------------------------------
 
+(* techmap_simplemap *)
+module \$bu0 ;
+endmodule
+
+// --------------------------------------------------------
+
 module \$neg (A, Y);
 
 parameter A_SIGNED = 0;
@@ -538,8 +544,8 @@ output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$bu0 #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$bu0 #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 assign Y = ~|(A_buf ^ B_buf);
 
@@ -563,8 +569,8 @@ output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$bu0 #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$bu0 #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 assign Y = |(A_buf ^ B_buf);
 

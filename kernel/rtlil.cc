@@ -370,7 +370,7 @@ namespace {
 
 		void check()
 		{
-			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$neg") {
+			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" || cell->type == "$neg") {
 				param("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));

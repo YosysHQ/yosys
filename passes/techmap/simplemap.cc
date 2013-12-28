@@ -60,6 +60,18 @@ static void simplemap_pos(RTLIL::Module *module, RTLIL::Cell *cell)
 	module->connections.push_back(RTLIL::SigSig(sig_y, sig_a));
 }
 
+static void simplemap_bu0(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	int width = cell->parameters.at("\\Y_WIDTH").as_int();
+
+	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
+	sig_a.extend_u0(width, cell->parameters.at("\\A_SIGNED").as_bool());
+
+	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
+
+	module->connections.push_back(RTLIL::SigSig(sig_y, sig_a));
+}
+
 static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	int width = cell->parameters.at("\\Y_WIDTH").as_int();
@@ -454,6 +466,7 @@ void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::
 {
 	mappers["$not"]         = simplemap_not;
 	mappers["$pos"]         = simplemap_pos;
+	mappers["$bu0"]         = simplemap_bu0;
 	mappers["$and"]         = simplemap_bitop;
 	mappers["$or"]          = simplemap_bitop;
 	mappers["$xor"]         = simplemap_bitop;
