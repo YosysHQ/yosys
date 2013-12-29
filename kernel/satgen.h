@@ -121,11 +121,10 @@ struct SatGen
 		return ez->expression(ezSAT::OpAnd, eq_bits);
 	}
 
-	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell, size_t y_width = 0, bool undef_mode = false)
+	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, RTLIL::Cell *cell, size_t y_width = 0, bool forced_signed = false)
 	{
-		log_assert(!undef_mode || model_undef);
-		bool is_signed = undef_mode;
-		if (!undef_mode && cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters.count("\\B_SIGNED") > 0)
+		bool is_signed = forced_signed;
+		if (!forced_signed && cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters.count("\\B_SIGNED") > 0)
 			is_signed = cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool();
 		while (vec_a.size() < vec_b.size() || vec_a.size() < y_width)
 			vec_a.push_back(is_signed && vec_a.size() > 0 ? vec_a.back() : ez->FALSE);
@@ -133,18 +132,16 @@ struct SatGen
 			vec_b.push_back(is_signed && vec_b.size() > 0 ? vec_b.back() : ez->FALSE);
 	}
 
-	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, std::vector<int> &vec_y, RTLIL::Cell *cell, bool undef_mode = false)
+	void extendSignalWidth(std::vector<int> &vec_a, std::vector<int> &vec_b, std::vector<int> &vec_y, RTLIL::Cell *cell, bool forced_signed = false)
 	{
-		log_assert(!undef_mode || model_undef);
-		extendSignalWidth(vec_a, vec_b, cell, vec_y.size(), undef_mode);
+		extendSignalWidth(vec_a, vec_b, cell, vec_y.size(), forced_signed);
 		while (vec_y.size() < vec_a.size())
 			vec_y.push_back(ez->literal());
 	}
 
-	void extendSignalWidthUnary(std::vector<int> &vec_a, std::vector<int> &vec_y, RTLIL::Cell *cell, bool undef_mode = false)
+	void extendSignalWidthUnary(std::vector<int> &vec_a, std::vector<int> &vec_y, RTLIL::Cell *cell, bool forced_signed = false)
 	{
-		log_assert(!undef_mode || model_undef);
-		bool is_signed = undef_mode || (cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool());
+		bool is_signed = forced_signed || (cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool());
 		while (vec_a.size() < vec_y.size())
 			vec_a.push_back(is_signed && vec_a.size() > 0 ? vec_a.back() : ez->FALSE);
 		while (vec_y.size() < vec_a.size())
@@ -222,7 +219,7 @@ struct SatGen
 				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
 				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
-				extendSignalWidth(undef_a, undef_b, undef_y, cell, true);
+				extendSignalWidth(undef_a, undef_b, undef_y, cell, false);
 
 				if (cell->type == "$and" || cell->type == "$_AND_") {
 					std::vector<int> a0 = ez->vec_and(ez->vec_not(a), ez->vec_not(undef_a));

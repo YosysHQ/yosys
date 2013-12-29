@@ -77,11 +77,11 @@ static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 	int width = cell->parameters.at("\\Y_WIDTH").as_int();
 
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
-	sig_a.extend(width, cell->parameters.at("\\A_SIGNED").as_bool());
+	sig_a.extend_u0(width, cell->parameters.at("\\A_SIGNED").as_bool());
 	sig_a.expand();
 
 	RTLIL::SigSpec sig_b = cell->connections.at("\\B");
-	sig_b.extend(width, cell->parameters.at("\\B_SIGNED").as_bool());
+	sig_b.extend_u0(width, cell->parameters.at("\\B_SIGNED").as_bool());
 	sig_b.expand();
 
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
