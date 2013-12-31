@@ -101,6 +101,32 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 				continue;
 			}
 
+			if (!strcmp(cmd, ".gate"))
+			{
+				RTLIL::Cell *cell = new RTLIL::Cell;
+				cell->name = NEW_ID;
+				module->add(cell);
+
+				char *p = strtok(NULL, " \t\r\n");
+				if (p == NULL)
+					goto error;
+				cell->type = RTLIL::escape_id(p);
+
+				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
+					char *q = strchr(p, '=');
+					if (q == NULL || !q[0] || !q[1])
+						goto error;
+					*(q++) = 0;
+					if (module->wires.count(RTLIL::escape_id(q)) == 0) {
+						RTLIL::Wire *wire = new RTLIL::Wire;
+						wire->name = RTLIL::escape_id(q);
+						module->add(wire);
+					}
+					cell->connections[RTLIL::escape_id(p)] = module->wires.at(RTLIL::escape_id(q));
+				}
+				continue;
+			}
+
 			if (!strcmp(cmd, ".names"))
 			{
 				char *p;

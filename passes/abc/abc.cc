@@ -36,7 +36,6 @@
 #include <dirent.h>
 #include <sstream>
 
-#include "vlparse.h"
 #include "blifparse.h"
 
 struct gate_t
@@ -481,10 +480,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
 					"%s -s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; strash; balance; dch; map; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
-		if (lut_mode)
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
-		else                                                             
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_verilog %s/output.v' 2>&1", tempdir_name);
+		buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
 
 		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
 		f = popen(buffer, "r");
@@ -504,16 +500,13 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			}
 		}
 
-		if (asprintf(&p, "%s/%s", tempdir_name, lut_mode ? "output.blif" : "output.v") < 0) abort();
+		if (asprintf(&p, "%s/%s", tempdir_name, "output.blif") < 0) log_abort();
 		f = fopen(p, "rt");
 		if (f == NULL)
 			log_error("Can't open ABC output file `%s'.\n", p);
-#if 0
-		RTLIL::Design *mapped_design = new RTLIL::Design;
-		frontend_register["verilog"]->execute(f, p, std::vector<std::string>(), mapped_design);
-#else
-		RTLIL::Design *mapped_design = lut_mode ? abc_parse_blif(f) : abc_parse_verilog(f);
-#endif
+
+		RTLIL::Design *mapped_design = abc_parse_blif(f);
+
 		fclose(f);
 		free(p);
 
