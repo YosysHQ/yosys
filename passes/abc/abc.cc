@@ -21,6 +21,10 @@
 // Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
 // http://www.eecs.berkeley.edu/~alanmi/abc/
 
+// [[CITE]] Berkeley Logic Interchange Format (BLIF)
+// University of California. Berkeley. July 28, 1992
+// http://www.ece.cmu.edu/~ee760/760docs/blif.pdf
+
 // [[CITE]] Kahn's Topological sorting algorithm
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
@@ -339,7 +343,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	char *p = mkdtemp(tempdir_name);
-	log_header("Extracting gate netlist of module `%s' to `%s/input.v'..\n", module->name.c_str(), tempdir_name);
+	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n", module->name.c_str(), tempdir_name);
 	if (p == NULL)
 		log_error("For some reason mkdtemp() failed!\n");
 
@@ -362,60 +366,73 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	
 	handle_loops();
 
-	if (asprintf(&p, "%s/input.v", tempdir_name) < 0) abort();
+	if (asprintf(&p, "%s/input.blif", tempdir_name) < 0) abort();
 	FILE *f = fopen(p, "wt");
 	if (f == NULL)
 		log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 	free(p);
 
-	fprintf(f, "module netlist (");
-	bool first = true;
-	for (auto &si : signal_list) {
-		if (!si.is_port)
-			continue;
-		if (!first)
-			fprintf(f, ", ");
-		fprintf(f, "n%d", si.id);
-		first = false;
-	}
-	fprintf(f, "); // %s\n", module->name.c_str());
+	fprintf(f, ".model netlist\n");
 
-	int count_input = 0, count_output = 0;
+	int count_input = 0;
+	fprintf(f, ".inputs");
 	for (auto &si : signal_list) {
-		if (si.is_port) {
-			if (si.type >= 0)
-				count_output++;
-			else
-				count_input++;
-		}
-		fprintf(f, "%s n%d; // %s\n", si.is_port ? si.type >= 0 ?
-				"output" : "input" : "wire", si.id, log_signal(si.sig));
+		if (!si.is_port || si.type >= 0)
+			continue;
+		fprintf(f, " n%d", si.id);
+		count_input++;
 	}
+	fprintf(f, "\n");
+
+	int count_output = 0;
+	fprintf(f, ".outputs");
+	for (auto &si : signal_list) {
+		if (!si.is_port || si.type < 0)
+			continue;
+		fprintf(f, " n%d", si.id);
+		count_output++;
+	}
+	fprintf(f, "\n");
+
+	for (auto &si : signal_list)
+		fprintf(f, "# n%-5d %s\n", si.id, log_signal(si.sig));
+
 	for (auto &si : signal_list) {
 		assert(si.sig.width == 1 && si.sig.chunks.size() == 1);
-		if (si.sig.chunks[0].wire == NULL)
-			fprintf(f, "assign n%d = %c;\n", si.id, si.sig.chunks[0].data.bits[0] == RTLIL::State::S1 ? '1' : '0');
+		if (si.sig.chunks[0].wire == NULL) {
+			fprintf(f, ".names n%d\n", si.id);
+			if (si.sig.chunks[0].data.bits[0] == RTLIL::State::S1)
+				fprintf(f, "1\n");
+		}
 	}
 
 	int count_gates = 0;
 	for (auto &si : signal_list) {
-		if (si.type == 'n')
-			fprintf(f, "not (n%d, n%d);\n", si.id, si.in1);
-		else if (si.type == 'a')
-			fprintf(f, "and (n%d, n%d, n%d);\n", si.id, si.in1, si.in2);
-		else if (si.type == 'o')
-			fprintf(f, "or (n%d, n%d, n%d);\n", si.id, si.in1, si.in2);
-		else if (si.type == 'x')
-			fprintf(f, "xor (n%d, n%d, n%d);\n", si.id, si.in1, si.in2);
-		else if (si.type == 'm')
-			fprintf(f, "assign n%d = n%d ? n%d : n%d;\n", si.id, si.in3, si.in2, si.in1);
-		else if (si.type >= 0)
+		if (si.type == 'n') {
+			fprintf(f, ".names n%d n%d\n", si.in1, si.id);
+			fprintf(f, "0 1\n");
+		} else if (si.type == 'a') {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "11 1\n");
+		} else if (si.type == 'o') {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "-1 1\n");
+			fprintf(f, "1- 1\n");
+		} else if (si.type == 'x') {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "01 1\n");
+			fprintf(f, "10 1\n");
+		} else if (si.type == 'm') {
+			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, "1-0 1\n");
+			fprintf(f, "-11 1\n");
+		} else if (si.type >= 0)
 			abort();
 		if (si.type >= 0)
 			count_gates++;
 	}
 
-	fprintf(f, "endmodule\n");
+	fprintf(f, ".end\n");
 	fclose(f);
 
 	log("Extracted %d gates and %zd wires to a netlist network with %d inputs and %d outputs.\n",
@@ -456,7 +473,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		int buffer_pos = 0;
 		if (!liberty_file.empty()) {
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_lib %s; ",
+					"%s -s -c 'read_blif %s/input.blif; read_lib %s; ",
 					exe_file.c_str(), tempdir_name, liberty_file.c_str());
 			if (!constr_file.empty())
 				buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
@@ -469,16 +486,16 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		} else
 		if (!script_file.empty())
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; source %s; ",
+					"%s -s -c 'read_blif %s/input.blif; source %s; ",
 					exe_file.c_str(), tempdir_name, script_file.c_str());
 		else
 		if (lut_mode)
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_lut %s/lutdefs.txt; strash; balance; dch; if; ",
+					"%s -s -c 'read_blif %s/input.blif; read_lut %s/lutdefs.txt; strash; balance; dch; if; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
 		else
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; strash; balance; dch; map; ",
+					"%s -s -c 'read_blif %s/input.blif; read_library %s/stdcells.genlib; strash; balance; dch; map; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
 		buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
 
