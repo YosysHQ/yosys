@@ -150,7 +150,7 @@ do
 		else
 			test_passes -p "hierarchy; proc; memory; opt; fsm; opt"
 			test_passes -p "hierarchy; proc; memory; opt; fsm; opt; techmap; opt"
-			# test_passes -p "hierarchy; proc; memory; opt; fsm; opt; techmap -opt; opt; abc; opt"
+			# test_passes -p "hierarchy; proc; memory; opt; fsm; opt; techmap; opt; abc; opt"
 		fi
 		touch ../${bn}.log
 	}
