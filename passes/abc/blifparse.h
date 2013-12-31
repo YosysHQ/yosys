@@ -22,7 +22,7 @@
 
 #include "kernel/rtlil.h"
 
-extern RTLIL::Design *abc_parse_blif(FILE *f);
+extern RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name);
 
 #endif
 

@@ -44,7 +44,7 @@ static bool read_next_line(char *buffer, int &line_count, FILE *f)
 	}
 }
 
-RTLIL::Design *abc_parse_blif(FILE *f)
+RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 {
 	RTLIL::Design *design = new RTLIL::Design;
 	RTLIL::Module *module = new RTLIL::Module;
@@ -98,6 +98,32 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 						wire->port_output = true;
 					module->add(wire);
 				}
+				continue;
+			}
+
+			if (!strcmp(cmd, ".latch"))
+			{
+				char *d = strtok(NULL, " \t\r\n");
+				char *q = strtok(NULL, " \t\r\n");
+
+				if (module->wires.count(RTLIL::escape_id(d)) == 0) {
+					RTLIL::Wire *wire = new RTLIL::Wire;
+					wire->name = RTLIL::escape_id(d);
+					module->add(wire);
+				}
+
+				if (module->wires.count(RTLIL::escape_id(q)) == 0) {
+					RTLIL::Wire *wire = new RTLIL::Wire;
+					wire->name = RTLIL::escape_id(q);
+					module->add(wire);
+				}
+
+				RTLIL::Cell *cell = new RTLIL::Cell;
+				cell->name = NEW_ID;
+				cell->type = dff_name;
+				cell->connections["\\D"] = module->wires.at(RTLIL::escape_id(d));
+				cell->connections["\\Q"] = module->wires.at(RTLIL::escape_id(q));
+				module->add(cell);
 				continue;
 			}
 
