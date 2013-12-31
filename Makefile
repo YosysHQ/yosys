@@ -31,13 +31,13 @@ YOSYS_VER := 0.1.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
-# set 'ABC = default' to use abc/ as it is
+# set 'ABCREV = default' to use abc/ as it is
 #
 # Note: If you do ABC development, make sure that 'abc' in this directory
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 9241719523f6
+ABCREV = 57517e81666b
 ABCPULL = 1
 
 -include Makefile.conf
