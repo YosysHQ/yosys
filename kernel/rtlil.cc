@@ -337,7 +337,7 @@ namespace {
 			expected_ports.insert(name);
 		}
 
-		void check_expected()
+		void check_expected(bool check_matched_sign = true)
 		{
 			for (auto &para : cell->parameters)
 				if (expected_params.count(para.first) == 0)
@@ -345,6 +345,13 @@ namespace {
 			for (auto &conn : cell->connections)
 				if (expected_ports.count(conn.first) == 0)
 					error(__LINE__);
+
+			if (expected_params.count("\\A_SIGNED") != 0 && expected_params.count("\\B_SIGNED") && check_matched_sign) {
+				bool a_is_signed = param("\\A_SIGNED") != 0;
+				bool b_is_signed = param("\\B_SIGNED") != 0;
+				if (a_is_signed != b_is_signed)
+					error(__LINE__);
+			}
 		}
 
 		void check_gate(const char *ports)
@@ -403,7 +410,7 @@ namespace {
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
-				check_expected();
+				check_expected(false);
 				return;
 			}
 
@@ -425,7 +432,7 @@ namespace {
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
-				check_expected();
+				check_expected(cell->type != "$pow");
 				return;
 			}
 
@@ -443,7 +450,7 @@ namespace {
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
-				check_expected();
+				check_expected(false);
 				return;
 			}
 
