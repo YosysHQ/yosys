@@ -38,6 +38,7 @@ struct equiv_bit_t
 {
 	int depth;
 	bool inverted;
+	RTLIL::Cell *drv;
 	RTLIL::SigBit bit;
 
 	bool operator<(const equiv_bit_t &other) const {
@@ -45,6 +46,8 @@ struct equiv_bit_t
 			return depth < other.depth;
 		if (inverted != other.inverted)
 			return inverted < other.inverted;
+		if (drv != other.drv)
+			return drv < other.drv;
 		return bit < other.bit;
 	}
 };
@@ -216,7 +219,7 @@ struct PerformReduction
 			out_inverted = std::vector<bool>(sat_out.size(), false);
 	}
 
-	void analyze(std::vector<std::vector<equiv_bit_t>> &results, std::vector<int> &bucket, int level)
+	void analyze(std::vector<std::set<int>> &results, std::map<int, int> &results_map, std::vector<int> &bucket, int level)
 	{
 		if (bucket.size() <= 1)
 			return;
@@ -233,10 +236,9 @@ struct PerformReduction
 		std::vector<int> modelVars = sat_out;
 		std::vector<bool> model;
 
-		if (verbose_level >= 2) {
-			modelVars.insert(modelVars.end(), sat_def.begin(), sat_def.end());
+		modelVars.insert(modelVars.end(), sat_def.begin(), sat_def.end());
+		if (verbose_level >= 2)
 			modelVars.insert(modelVars.end(), sat_pi.begin(), sat_pi.end());
-		}
 
 		if (ez.solve(modelVars, model, ez.expression(ezSAT::OpOr, sat_list), ez.expression(ezSAT::OpOr, sat_inv_list)))
 		{
@@ -248,11 +250,17 @@ struct PerformReduction
 							out_inverted.at(idx) ? "~" : "", log_signal(out_bits[idx]));
 			}
 
-			std::vector<int> buckets[2];
-			for (int idx : bucket)
-				buckets[model[idx] ? 1 : 0].push_back(idx);
-			analyze(results, buckets[0], level+1);
-			analyze(results, buckets[1], level+1);
+			std::vector<int> buckets_a;
+			std::vector<int> buckets_b;
+
+			for (int idx : bucket) {
+				if (!model[sat_out.size() + idx] || model[idx])
+					buckets_a.push_back(idx);
+				if (!model[sat_out.size() + idx] || !model[idx])
+					buckets_b.push_back(idx);
+			}
+			analyze(results, results_map, buckets_a, level+1);
+			analyze(results, results_map, buckets_b, level+1);
 		}
 		else
 		{
@@ -263,16 +271,58 @@ struct PerformReduction
 				log("\n");
 			}
 
-			std::vector<equiv_bit_t> result;
+			int result_idx = -1;
 			for (int idx : bucket) {
+				if (results_map.count(idx) == 0)
+					continue;
+				if (result_idx == -1) {
+					result_idx = results_map.at(idx);
+					continue;
+				}
+				int result_idx2 = results_map.at(idx);
+				results[result_idx].insert(results[result_idx2].begin(), results[result_idx2].end());
+				for (int idx2 : results[result_idx2])
+					results_map[idx2] = result_idx;
+				results[result_idx2].clear();
+			}
+
+			if (result_idx == -1) {
+				result_idx = results.size();
+				results.push_back(std::set<int>());
+			}
+
+			results[result_idx].insert(bucket.begin(), bucket.end());
+		}
+	}
+
+	void analyze(std::vector<std::vector<equiv_bit_t>> &results)
+	{
+		std::vector<int> bucket;
+		for (size_t i = 0; i < sat_out.size(); i++)
+			bucket.push_back(i);
+
+		std::vector<std::set<int>> results_buf;
+		std::map<int, int> results_map;
+		analyze(results_buf, results_map, bucket, 1);
+
+		for (auto &r : results_buf)
+		{
+			if (r.size() <= 1)
+				continue;
+
+			std::vector<equiv_bit_t> result;
+
+			for (int idx : r) {
 				equiv_bit_t bit;
 				bit.depth = out_depth[idx];
 				bit.inverted = out_inverted[idx];
+				bit.drv = drivers.count(out_bits[idx]) ? drivers.at(out_bits[idx]).first : NULL;
 				bit.bit = out_bits[idx];
 				result.push_back(bit);
 			}
 
 			std::sort(result.begin(), result.end());
+
 			if (result.front().inverted)
 				for (auto &bit : result)
 					bit.inverted = !bit.inverted;
@@ -286,14 +336,6 @@ struct PerformReduction
 			if (result.size() > 1)
 				results.push_back(result);
 		}
-	}
-
-	void analyze(std::vector<std::vector<equiv_bit_t>> &results)
-	{
-		std::vector<int> bucket;
-		for (size_t i = 0; i < sat_out.size(); i++)
-			bucket.push_back(i);
-		analyze(results, bucket, 1);
 	}
 };
 
@@ -318,6 +360,9 @@ struct FreduceHelper
 		ct.setup_stdcells();
 
 		std::vector<std::set<RTLIL::SigBit>> batches;
+		for (auto &it : module->wires)
+			if (it.second->port_input)
+				batches.push_back(sigmap(it.second).to_sigbit_set());
 		for (auto &it : module->cells) {
 			if (ct.cell_known(it.second->type)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
@@ -426,7 +471,10 @@ struct FreducePass : public Pass {
 		log("\n");
 		log("This pass performs functional reduction in the circuit. I.e. if two nodes are\n");
 		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
-		log("removed.\n");
+		log("unconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
+		log("\n");
+		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
+		log("equivialent nodes.\n");
 		log("\n");
 		log("    -v, -vv\n");
 		log("        enable verbose or very verbose output\n");
