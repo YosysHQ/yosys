@@ -529,7 +529,10 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			arg_mod = arg;
+			if (arg.find(':') == std::string::npos)
+				arg_mod = arg;
+			else
+				arg_mod = "*", arg_memb = arg;
 		} else {
 			arg_mod = arg.substr(0, pos);
 			arg_memb = arg.substr(pos+1);
