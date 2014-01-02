@@ -9,13 +9,14 @@ keeprunning=false
 backend_opts="-noattr -noexpr"
 kompare_xst=false
 scriptfiles=""
+scriptopt=""
 toolsdir="$(cd $(dirname $0); pwd)"
 
 if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
 	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts iml:wkvrxs: opt; do
+while getopts iml:wkvrxs:p: opt; do
 	case "$opt" in
 		i)
 			use_isim=true ;;
@@ -30,14 +31,16 @@ while getopts iml:wkvrxs: opt; do
 		v)
 			verbose=true ;;
 		r)
-			backend_opts="$backend_opts norename" ;;
+			backend_opts="$backend_opts -norename" ;;
 		x)
 			kompare_xst=true ;;
 		s)
 			[[ "$OPTARG" == /* ]] || OPTARG="$PWD/$OPTARG"
 			scriptfiles="$scriptfiles $OPTARG" ;;
+		p)
+			scriptopt="$OPTARG" ;;
 		*)
-			echo "Usage: $0 [-i] [-w] [-k] [-v] [-r] [-x] [-l libs] [-s script] verilog-files\n" >&2
+			echo "Usage: $0 [-i] [-w] [-k] [-v] [-r] [-x] [-l libs] [-s script] [-p cmdstring] verilog-files\n" >&2
 			exit 1
 	esac
 done
@@ -147,6 +150,8 @@ do
 
 		if [ -n "$scriptfiles" ]; then
 			test_passes
+		elif [ -n "$scriptopt" ]; then
+			test_passes -p "$scriptopt"
 		else
 			test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt"
 			test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt"
