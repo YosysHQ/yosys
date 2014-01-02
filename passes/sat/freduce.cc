@@ -30,7 +30,7 @@
 
 namespace {
 
-bool noinv_mode;
+bool inv_mode;
 int verbose_level;
 typedef std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>>> drivers_t;
 
@@ -154,6 +154,7 @@ struct PerformReduction
 {
 	SigMap &sigmap;
 	drivers_t &drivers;
+	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs;
 
 	ezDefaultSAT ez;
 	SatGen satgen;
@@ -191,8 +192,8 @@ struct PerformReduction
 		return sigdepth[out];
 	}
 
-	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::vector<RTLIL::SigBit> &bits) :
-			sigmap(sigmap), drivers(drivers), satgen(&ez, &sigmap), out_bits(bits)
+	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits) :
+			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(&ez, &sigmap), out_bits(bits)
 	{
 		satgen.model_undef = true;
 
@@ -205,15 +206,14 @@ struct PerformReduction
 			sat_def.push_back(ez.NOT(satgen.importUndefSigSpec(bit).front()));
 		}
 
-		if (noinv_mode) {
-			out_inverted = std::vector<bool>(sat_out.size(), false);
-		} else {
+		if (inv_mode) {
 			if (!ez.solve(sat_out, out_inverted, ez.expression(ezSAT::OpAnd, sat_def)))
 				log_error("Solving for initial model failed!\n");
 			for (size_t i = 0; i < sat_out.size(); i++)
 				if (out_inverted.at(i))
 					sat_out[i] = ez.NOT(sat_out[i]);
-		}
+		} else
+			out_inverted = std::vector<bool>(sat_out.size(), false);
 	}
 
 	void analyze(std::vector<std::vector<equiv_bit_t>> &results, std::vector<int> &bucket, int level)
@@ -277,7 +277,14 @@ struct PerformReduction
 				for (auto &bit : result)
 					bit.inverted = !bit.inverted;
 
-			results.push_back(result);
+			for (size_t i = 1; i < result.size(); i++) {
+				std::pair<RTLIL::SigBit, RTLIL::SigBit> p(result[0].bit, result[i].bit);
+				if (inv_pairs.count(p) != 0)
+					result.erase(result.begin() + i);
+			}
+
+			if (result.size() > 1)
+				results.push_back(result);
 		}
 	}
 
@@ -296,6 +303,7 @@ struct FreduceHelper
 
 	SigMap sigmap;
 	drivers_t drivers;
+	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> inv_pairs;
 
 	FreduceHelper(RTLIL::Module *module) : module(module), sigmap(module)
 	{
@@ -310,7 +318,7 @@ struct FreduceHelper
 		ct.setup_stdcells();
 
 		std::vector<std::set<RTLIL::SigBit>> batches;
-		for (auto &it : module->cells)
+		for (auto &it : module->cells) {
 			if (ct.cell_known(it.second->type)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
 				for (auto &port : it.second->connections) {
@@ -325,6 +333,9 @@ struct FreduceHelper
 					drivers[bit] = drv;
 				batches.push_back(outputs);
 			}
+			if (inv_mode && it.second->type == "$_INV_")
+				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(it.second->connections.at("\\A")), sigmap(it.second->connections.at("\\Y"))));
+		}
 
 		int bits_count = 0;
 		std::map<std::vector<RTLIL::SigBit>, std::vector<RTLIL::SigBit>> buckets;
@@ -355,7 +366,7 @@ struct FreduceHelper
 			bucket_sig.optimize();
 
 			log("  Trying to shatter bucket %s%c\n", log_signal(bucket_sig), verbose_level ? ':' : '.');
-			PerformReduction worker(sigmap, drivers, bucket.second);
+			PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second);
 			worker.analyze(equiv);
 		}
 
@@ -368,20 +379,12 @@ struct FreduceHelper
 			RTLIL::SigSpec inv_sig;
 			for (size_t i = 1; i < grp.size(); i++)
 			{
-				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
-
-				if (grp[i].inverted && drv->type == "$_INV_" && sigmap(drv->connections.at("\\A")) == grp[0].bit) {
-					log("      Skipping inverted slave %s: already in reduced form\n", log_signal(grp[i].bit));
-					continue;
-				}
-
 				log("      Connect slave%s: %s\n", grp[i].inverted ? " using inverter" : "", log_signal(grp[i].bit));
 
+				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
 				RTLIL::Wire *dummy_wire = module->new_wire(1, NEW_ID);
-				for (auto &port : drv->connections) {
-					RTLIL::SigSpec mapped = sigmap(port.second);
-					mapped.replace(grp[i].bit, dummy_wire, &port.second);
-				}
+				for (auto &port : drv->connections)
+					sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
 
 				if (grp[i].inverted)
 				{
@@ -428,14 +431,14 @@ struct FreducePass : public Pass {
 		log("    -v, -vv\n");
 		log("        enable verbose or very verbose output\n");
 		log("\n");
-		log("    -noinv\n");
-		log("        do not consolidate inverted signals\n");
+		log("    -inv\n");
+		log("        enable explicit handling of inverted signals\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		verbose_level = 0;
-		noinv_mode = false;
+		inv_mode = false;
 
 		log_header("Executing FREDUCE pass (perform functional reduction).\n");
 
@@ -449,8 +452,8 @@ struct FreducePass : public Pass {
 				verbose_level = 2;
 				continue;
 			}
-			if (args[argidx] == "-noinv") {
-				noinv_mode = true;
+			if (args[argidx] == "-inv") {
+				inv_mode = true;
 				continue;
 			}
 			break;
