@@ -224,8 +224,17 @@ struct PerformReduction
 		if (bucket.size() <= 1)
 			return;
 
-		if (verbose_level >= 1)
+		if (verbose_level == 1)
 			log("%*s  Trying to shatter bucket with %d signals.\n", 2*level, "", int(bucket.size()));
+
+		if (verbose_level > 1) {
+			std::vector<RTLIL::SigBit> bucket_sigbits;
+			for (int idx : bucket)
+				bucket_sigbits.push_back(out_bits[idx]);
+			RTLIL::SigSpec bucket_sig(bucket_sigbits);
+			bucket_sig.optimize();
+			log("%*s  Trying to shatter bucket with %d signals: %s\n", 2*level, "", int(bucket.size()), log_signal(bucket_sig));
+		}
 
 		std::vector<int> sat_list, sat_inv_list;
 		for (int idx : bucket) {
@@ -264,6 +273,27 @@ struct PerformReduction
 		}
 		else
 		{
+			std::vector<int> undef_slaves;
+
+			for (int idx : bucket) {
+				std::vector<int> sat_def_list;
+				for (int idx2 : bucket)
+					if (idx != idx2)
+						sat_def_list.push_back(sat_def[idx2]);
+				if (ez.solve(ez.NOT(sat_def[idx]), ez.expression(ezSAT::OpOr, sat_def_list)))
+					undef_slaves.push_back(idx);
+			}
+
+			if (undef_slaves.size() == bucket.size()) {
+				if (verbose_level >= 1)
+					log("%*s    Complex undef overlap. None of the signals covers the others.\n", 2*level, "");
+				// FIXME: We could try to further shatter a group with complex undef overlaps
+				return;
+			}
+
+			for (int idx : undef_slaves)
+				out_depth[idx] = std::numeric_limits<int>::max();
+
 			if (verbose_level >= 1) {
 				log("%*s    Found %d equivialent signals:", 2*level, "", int(bucket.size()));
 				for (int idx : bucket)
@@ -339,7 +369,7 @@ struct PerformReduction
 	}
 };
 
-struct FreduceHelper
+struct FreduceWorker
 {
 	RTLIL::Module *module;
 
@@ -347,7 +377,7 @@ struct FreduceHelper
 	drivers_t drivers;
 	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> inv_pairs;
 
-	FreduceHelper(RTLIL::Module *module) : module(module), sigmap(module)
+	FreduceWorker(RTLIL::Module *module) : module(module), sigmap(module)
 	{
 	}
 
@@ -384,6 +414,8 @@ struct FreduceHelper
 
 		int bits_count = 0;
 		std::map<std::vector<RTLIL::SigBit>, std::vector<RTLIL::SigBit>> buckets;
+		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S0));
+		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
 		for (auto &batch : batches)
 		{
 			RTLIL::SigSpec batch_sig(std::vector<RTLIL::SigBit>(batch.begin(), batch.end()));
@@ -512,7 +544,7 @@ struct FreducePass : public Pass {
 		for (auto &mod_it : design->modules) {
 			RTLIL::Module *module = mod_it.second;
 			if (design->selected(module))
-				bitcount += FreduceHelper(module).run();
+				bitcount += FreduceWorker(module).run();
 		}
 
 		log("Rewired a total of %d signal bits.\n", bitcount);
