@@ -61,7 +61,7 @@ struct SatHelper
 	bool gotTimeout;
 
 	SatHelper(RTLIL::Design *design, RTLIL::Module *module, bool enable_undef) :
-		design(design), module(module), sigmap(module), ct(design), satgen(&ez, design, &sigmap)
+		design(design), module(module), sigmap(module), ct(design), satgen(&ez, &sigmap)
 	{
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;

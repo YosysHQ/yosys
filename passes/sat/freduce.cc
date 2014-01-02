@@ -28,337 +28,386 @@
 #include <string.h>
 #include <algorithm>
 
-#define NUM_INITIAL_RANDOM_TEST_VECTORS 10
-
 namespace {
+
+bool noinv_mode;
+int verbose_level;
+typedef std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>>> drivers_t;
+
+struct equiv_bit_t
+{
+	int depth;
+	bool inverted;
+	RTLIL::SigBit bit;
+
+	bool operator<(const equiv_bit_t &other) const {
+		if (depth != other.depth)
+			return depth < other.depth;
+		if (inverted != other.inverted)
+			return inverted < other.inverted;
+		return bit < other.bit;
+	}
+};
+
+struct FindReducedInputs
+{
+	SigMap &sigmap;
+	drivers_t &drivers;
+
+	ezDefaultSAT ez;
+	std::set<RTLIL::Cell*> ez_cells;
+	SatGen satgen;
+
+	FindReducedInputs(SigMap &sigmap, drivers_t &drivers) :
+			sigmap(sigmap), drivers(drivers), satgen(&ez, &sigmap)
+	{
+		satgen.model_undef = true;
+	}
+
+	void register_cone_worker(std::set<RTLIL::SigBit> &pi, std::set<RTLIL::SigBit> &sigdone, RTLIL::SigBit out)
+	{
+		if (out.wire == NULL)
+			return;
+		if (sigdone.count(out) != 0)
+			return;
+		sigdone.insert(out);
+
+		if (drivers.count(out) != 0) {
+			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
+			if (ez_cells.count(drv.first) == 0) {
+				satgen.setContext(&sigmap, "A");
+				if (!satgen.importCell(drv.first))
+					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(drv.first->name), RTLIL::id2cstr(drv.first->type));
+				satgen.setContext(&sigmap, "B");
+				if (!satgen.importCell(drv.first))
+					log_abort();
+				ez_cells.insert(drv.first);
+			}
+			for (auto &bit : drv.second)
+				register_cone_worker(pi, sigdone, bit);
+		} else
+			pi.insert(out);
+	}
+
+	void register_cone(std::vector<RTLIL::SigBit> &pi, RTLIL::SigBit out)
+	{
+		std::set<RTLIL::SigBit> pi_set, sigdone;
+		register_cone_worker(pi_set, sigdone, out);
+		pi.clear();
+		pi.insert(pi.end(), pi_set.begin(), pi_set.end());
+	}
+
+	void analyze(std::vector<RTLIL::SigBit> &reduced_inputs, RTLIL::SigBit output)
+	{
+		if (verbose_level >= 1)
+			log("    Analyzing input cone for signal %s:\n", log_signal(output));
+
+		std::vector<RTLIL::SigBit> pi;
+		register_cone(pi, output);
+
+		if (verbose_level >= 1)
+			log("      Found %d input signals and %d cells.\n", int(pi.size()), int(ez_cells.size()));
+
+		satgen.setContext(&sigmap, "A");
+		int output_a = satgen.importSigSpec(output).front();
+		int output_undef_a = satgen.importUndefSigSpec(output).front();
+		ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, satgen.importUndefSigSpec(pi))));
+
+		satgen.setContext(&sigmap, "B");
+		int output_b = satgen.importSigSpec(output).front();
+		int output_undef_b = satgen.importUndefSigSpec(output).front();
+		ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, satgen.importUndefSigSpec(pi))));
+
+		for (size_t i = 0; i < pi.size(); i++)
+		{
+			RTLIL::SigSpec test_sig(pi[i]);
+			RTLIL::SigSpec rest_sig(pi);
+			rest_sig.remove(i, 1);
+
+			int test_sig_a, test_sig_b;
+			std::vector<int> rest_sig_a, rest_sig_b;
+
+			satgen.setContext(&sigmap, "A");
+			test_sig_a = satgen.importSigSpec(test_sig).front();
+			rest_sig_a = satgen.importSigSpec(rest_sig);
+
+			satgen.setContext(&sigmap, "B");
+			test_sig_b = satgen.importSigSpec(test_sig).front();
+			rest_sig_b = satgen.importSigSpec(rest_sig);
+
+			if (ez.solve(ez.vec_eq(rest_sig_a, rest_sig_b), ez.XOR(output_a, output_b), ez.XOR(test_sig_a, test_sig_b), ez.NOT(output_undef_a), ez.NOT(output_undef_b))) {
+				if (verbose_level >= 2)
+					log("      Result for input %s: pass\n", log_signal(test_sig));
+				reduced_inputs.push_back(pi[i]);
+			} else {
+				if (verbose_level >= 2)
+					log("      Result for input %s: strip\n", log_signal(test_sig));
+			}
+		}
+
+		if (verbose_level >= 1)
+			log("      Reduced input cone contains %d inputs.\n", int(reduced_inputs.size()));
+	}
+};
+
+struct PerformReduction
+{
+	SigMap &sigmap;
+	drivers_t &drivers;
+
+	ezDefaultSAT ez;
+	SatGen satgen;
+
+	std::vector<int> sat_pi, sat_out, sat_def;
+	std::vector<RTLIL::SigBit> out_bits, pi_bits;
+	std::vector<bool> out_inverted;
+	std::vector<int> out_depth;
+
+	int register_cone_worker(std::set<RTLIL::Cell*> &celldone, std::map<RTLIL::SigBit, int> &sigdepth, RTLIL::SigBit out)
+	{
+		if (out.wire == NULL)
+			return 0;
+		if (sigdepth.count(out) != 0)
+			return sigdepth.at(out);
+		sigdepth[out] = 0;
+
+		if (drivers.count(out) != 0) {
+			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
+			if (celldone.count(drv.first) == 0) {
+				if (!satgen.importCell(drv.first))
+					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(drv.first->name), RTLIL::id2cstr(drv.first->type));
+				celldone.insert(drv.first);
+			}
+			int max_child_dept = 0;
+			for (auto &bit : drv.second)
+				max_child_dept = std::max(register_cone_worker(celldone, sigdepth, bit), max_child_dept);
+			sigdepth[out] = max_child_dept + 1;
+		} else {
+			pi_bits.push_back(out);
+			sat_pi.push_back(satgen.importSigSpec(out).front());
+			ez.assume(ez.NOT(satgen.importUndefSigSpec(out).front()));
+		}
+
+		return sigdepth[out];
+	}
+
+	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::vector<RTLIL::SigBit> &bits) :
+			sigmap(sigmap), drivers(drivers), satgen(&ez, &sigmap), out_bits(bits)
+	{
+		satgen.model_undef = true;
+
+		std::set<RTLIL::Cell*> celldone;
+		std::map<RTLIL::SigBit, int> sigdepth;
+
+		for (auto &bit : bits) {
+			out_depth.push_back(register_cone_worker(celldone, sigdepth, bit));
+			sat_out.push_back(satgen.importSigSpec(bit).front());
+			sat_def.push_back(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+		}
+
+		if (noinv_mode) {
+			out_inverted = std::vector<bool>(sat_out.size(), false);
+		} else {
+			if (!ez.solve(sat_out, out_inverted, ez.expression(ezSAT::OpAnd, sat_def)))
+				log_error("Solving for initial model failed!\n");
+			for (size_t i = 0; i < sat_out.size(); i++)
+				if (out_inverted.at(i))
+					sat_out[i] = ez.NOT(sat_out[i]);
+		}
+	}
+
+	void analyze(std::vector<std::vector<equiv_bit_t>> &results, std::vector<int> &bucket, int level)
+	{
+		if (bucket.size() <= 1)
+			return;
+
+		if (verbose_level >= 1)
+			log("%*s  Trying to shatter bucket with %d signals.\n", 2*level, "", int(bucket.size()));
+
+		std::vector<int> sat_list, sat_inv_list;
+		for (int idx : bucket) {
+			sat_list.push_back(ez.AND(sat_out[idx], sat_def[idx]));
+			sat_inv_list.push_back(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+		}
+
+		std::vector<int> modelVars = sat_out;
+		std::vector<bool> model;
+
+		if (verbose_level >= 2) {
+			modelVars.insert(modelVars.end(), sat_def.begin(), sat_def.end());
+			modelVars.insert(modelVars.end(), sat_pi.begin(), sat_pi.end());
+		}
+
+		if (ez.solve(modelVars, model, ez.expression(ezSAT::OpOr, sat_list), ez.expression(ezSAT::OpOr, sat_inv_list)))
+		{
+			if (verbose_level >= 2) {
+				for (size_t i = 0; i < pi_bits.size(); i++)
+					log("%*s       -> PI  %c == %s\n", 2*level, "", model[2*sat_out.size() + i] ? '1' : '0', log_signal(pi_bits[i]));
+				for (int idx : bucket)
+					log("%*s       -> OUT %c == %s%s\n", 2*level, "", model[sat_out.size() + idx] ? model[idx] ? '1' : '0' : 'x',
+							out_inverted.at(idx) ? "~" : "", log_signal(out_bits[idx]));
+			}
+
+			std::vector<int> buckets[2];
+			for (int idx : bucket)
+				buckets[model[idx] ? 1 : 0].push_back(idx);
+			analyze(results, buckets[0], level+1);
+			analyze(results, buckets[1], level+1);
+		}
+		else
+		{
+			if (verbose_level >= 1) {
+				log("%*s    Found %d equivialent signals:", 2*level, "", int(bucket.size()));
+				for (int idx : bucket)
+					log("%s%s%s", idx == bucket.front() ? " " : ", ", out_inverted[idx] ? "~" : "", log_signal(out_bits[idx]));
+				log("\n");
+			}
+
+			std::vector<equiv_bit_t> result;
+			for (int idx : bucket) {
+				equiv_bit_t bit;
+				bit.depth = out_depth[idx];
+				bit.inverted = out_inverted[idx];
+				bit.bit = out_bits[idx];
+				result.push_back(bit);
+			}
+
+			std::sort(result.begin(), result.end());
+			if (result.front().inverted)
+				for (auto &bit : result)
+					bit.inverted = !bit.inverted;
+
+			results.push_back(result);
+		}
+	}
+
+	void analyze(std::vector<std::vector<equiv_bit_t>> &results)
+	{
+		std::vector<int> bucket;
+		for (size_t i = 0; i < sat_out.size(); i++)
+			bucket.push_back(i);
+		analyze(results, bucket, 1);
+	}
+};
 
 struct FreduceHelper
 {
-	RTLIL::Design *design;
 	RTLIL::Module *module;
-	bool try_mode;
 
-	ezDefaultSAT ez;
 	SigMap sigmap;
-	CellTypes ct;
-	SatGen satgen;
-	ConstEval ce;
+	drivers_t drivers;
 
-	SigPool inputs, nodes;
-	RTLIL::SigSpec input_sigs;
-
-	SigSet<RTLIL::SigSpec> source_signals;
-	std::vector<RTLIL::Const> test_vectors;
-	std::map<RTLIL::SigSpec, RTLIL::Const> node_to_data;
-	std::map<RTLIL::SigSpec, RTLIL::SigSpec> node_result;
-
-	uint32_t xorshift32_state;
-
-        uint32_t xorshift32() {
-		xorshift32_state ^= xorshift32_state << 13;
-		xorshift32_state ^= xorshift32_state >> 17;
-		xorshift32_state ^= xorshift32_state << 5;
-		return xorshift32_state;
+	FreduceHelper(RTLIL::Module *module) : module(module), sigmap(module)
+	{
 	}
 
-	FreduceHelper(RTLIL::Design *design, RTLIL::Module *module, bool try_mode) :
-			design(design), module(module), try_mode(try_mode),
-			sigmap(module), satgen(&ez, design, &sigmap), ce(module)
+	int run()
 	{
+		log("Running functional reduction on module %s:\n", RTLIL::id2cstr(module->name));
+
+		CellTypes ct;
 		ct.setup_internals();
 		ct.setup_stdcells();
 
-		xorshift32_state = 123456789;
-		xorshift32();
-		xorshift32();
-		xorshift32();
-	}
-
-	bool run_test(RTLIL::SigSpec test_vec)
-	{
-		ce.clear();
-		ce.set(input_sigs, test_vec.as_const());
-
-		for (auto &bit : nodes.bits) {
-			RTLIL::SigSpec nodesig(bit.first, 1, bit.second), nodeval = nodesig;
-			if (!ce.eval(nodeval)) {
-				if (!try_mode)
-					log_error("Evaluation of node %s failed!\n", log_signal(nodesig));
-				log("FAILED: Evaluation of node %s failed!\n", log_signal(nodesig));
-				return false;
+		std::vector<std::set<RTLIL::SigBit>> batches;
+		for (auto &it : module->cells)
+			if (ct.cell_known(it.second->type)) {
+				std::set<RTLIL::SigBit> inputs, outputs;
+				for (auto &port : it.second->connections) {
+					std::vector<RTLIL::SigBit> bits = sigmap(port.second).to_sigbit_vector();
+					if (ct.cell_output(it.second->type, port.first))
+						outputs.insert(bits.begin(), bits.end());
+					else
+						inputs.insert(bits.begin(), bits.end());
+				}
+				std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> drv(it.second, inputs);
+				for (auto &bit : outputs)
+					drivers[bit] = drv;
+				batches.push_back(outputs);
 			}
-			node_to_data[nodesig].bits.push_back(nodeval.as_const().bits.at(0));
-		}
 
-		return true;
-	}
-
-	void dump_node_data()
-	{
-		int max_node_len = 20;
-		for (auto &it : node_to_data)
-			max_node_len = std::max(max_node_len, int(strlen(log_signal(it.first))));
-		log("  full node fingerprints:\n");
-		for (auto &it : node_to_data)
-			log("    %-*s %s\n", max_node_len+5, log_signal(it.first), log_signal(it.second));
-	}
-
-	bool check(RTLIL::SigSpec sig1, RTLIL::SigSpec sig2)
-	{
-		log("  performing SAT proof:  %s == %s  ->", log_signal(sig1), log_signal(sig2));
-
-		std::vector<int> vec1 = satgen.importSigSpec(sig1);
-		std::vector<int> vec2 = satgen.importSigSpec(sig2);
-		std::vector<int> model = satgen.importSigSpec(input_sigs);
-		std::vector<bool> testvect;
-
-		if (ez.solve(model, testvect, ez.vec_ne(vec1, vec2))) {
-			RTLIL::SigSpec testvect_sig;
-			for (int i = 0; i < input_sigs.width; i++)
-				testvect_sig.append(testvect.at(i) ? RTLIL::State::S1 : RTLIL::State::S0);
-			testvect_sig.optimize();
-			log(" failed: %s\n", log_signal(testvect_sig));
-			test_vectors.push_back(testvect_sig.as_const());
-			if (!run_test(testvect_sig))
-				return false;
-		} else {
-			log(" success.\n");
-			if (!sig1.is_fully_const())
-				node_result[sig1].append(sig2);
-			if (!sig2.is_fully_const())
-				node_result[sig2].append(sig1);
-		}
-		return true;
-	}
-
-	bool analyze_const()
-	{
-		for (auto &it : node_to_data)
+		int bits_count = 0;
+		std::map<std::vector<RTLIL::SigBit>, std::vector<RTLIL::SigBit>> buckets;
+		for (auto &batch : batches)
 		{
-			if (node_result.count(it.first))
-				continue;
-			if (it.second == RTLIL::Const(RTLIL::State::S0, it.second.bits.size()))
-				if (!check(it.first, RTLIL::SigSpec(RTLIL::State::S0)))
-					return false;
-			if (it.second == RTLIL::Const(RTLIL::State::S1, it.second.bits.size()))
-				if (!check(it.first, RTLIL::SigSpec(RTLIL::State::S1)))
-					return false;
+			RTLIL::SigSpec batch_sig(std::vector<RTLIL::SigBit>(batch.begin(), batch.end()));
+			batch_sig.optimize();
+
+			log("  Finding reduced input cone for signal batch %s%c\n", log_signal(batch_sig), verbose_level ? ':' : '.');
+
+			FindReducedInputs infinder(sigmap, drivers);
+			for (auto &bit : batch) {
+				std::vector<RTLIL::SigBit> inputs;
+				infinder.analyze(inputs, bit);
+				buckets[inputs].push_back(bit);
+				bits_count++;
+			}
 		}
-		return true;
-	}
+		log("  Sorted %d signal bits into %d buckets.\n", bits_count, int(buckets.size()));
 
-	bool analyze_alias()
-	{
-	restart:
-		std::map<RTLIL::Const, RTLIL::SigSpec> reverse_map;
-
-		for (auto &it : node_to_data) {
-			if (node_result.count(it.first) && node_result.at(it.first).is_fully_const())
-				continue;
-			reverse_map[it.second].append(it.first);
-		}
-
-		for (auto &it : reverse_map)
+		std::vector<std::vector<equiv_bit_t>> equiv;
+		for (auto &bucket : buckets)
 		{
-			if (it.second.width <= 1)
+			if (bucket.second.size() == 1)
 				continue;
 
-			it.second.expand();
-			for (int i = 0; i < it.second.width; i++)
-			for (int j = i+1; j < it.second.width; j++) {
-				RTLIL::SigSpec sig1 = it.second.chunks.at(i), sig2 = it.second.chunks.at(j);
-				if (node_result.count(sig1) && node_result.count(sig2))
+			RTLIL::SigSpec bucket_sig(bucket.second);
+			bucket_sig.optimize();
+
+			log("  Trying to shatter bucket %s%c\n", log_signal(bucket_sig), verbose_level ? ':' : '.');
+			PerformReduction worker(sigmap, drivers, bucket.second);
+			worker.analyze(equiv);
+		}
+
+		log("  Rewiring %d equivialent groups:\n", int(equiv.size()));
+		int rewired_sigbits = 0;
+		for (auto &grp : equiv)
+		{
+			log("    Using as master for group: %s\n", log_signal(grp.front().bit));
+
+			RTLIL::SigSpec inv_sig;
+			for (size_t i = 1; i < grp.size(); i++)
+			{
+				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
+
+				if (grp[i].inverted && drv->type == "$_INV_" && sigmap(drv->connections.at("\\A")) == grp[0].bit) {
+					log("      Skipping inverted slave %s: already in reduced form\n", log_signal(grp[i].bit));
 					continue;
-				if (node_to_data.at(sig1) != node_to_data.at(sig2))
-					goto restart;
-				if (!check(it.second.chunks.at(i), it.second.chunks.at(j)))
-					return false;
-			}
-		}
-		return true;
-	}
+				}
 
-	bool toproot_helper(RTLIL::SigSpec cursor, RTLIL::SigSpec stoplist, RTLIL::SigSpec &donelist, int level)
-	{
-		// log("    %*schecking %s: %s\n", level*2, "", log_signal(cursor), log_signal(stoplist));
+				log("      Connect slave%s: %s\n", grp[i].inverted ? " using inverter" : "", log_signal(grp[i].bit));
 
-		if (stoplist.extract(cursor).width != 0) {
-			// log("    %*s  STOP\n", level*2, "");
-			return false;
-		}
+				RTLIL::Wire *dummy_wire = module->new_wire(1, NEW_ID);
+				for (auto &port : drv->connections) {
+					RTLIL::SigSpec mapped = sigmap(port.second);
+					mapped.replace(grp[i].bit, dummy_wire, &port.second);
+				}
 
-		if (donelist.extract(cursor).width != 0)
-			return true;
+				if (grp[i].inverted)
+				{
+					if (inv_sig.width == 0)
+					{
+						inv_sig = module->new_wire(1, NEW_ID);
 
-		stoplist.append(cursor);
-		std::set<RTLIL::SigSpec> next = source_signals.find(cursor);
-
-		for (auto &it : next)
-			if (!toproot_helper(it, stoplist, donelist, level+1))
-				return false;
-
-		donelist.append(cursor);
-		return true;
-	}
-
-	// KISS topological sort of bits in signal. return one element of sig
-	// without dependencies to the others (or empty if input is not a DAG).
-	RTLIL::SigSpec toproot(RTLIL::SigSpec sig)
-	{
-		sig.expand();
-		// log("  finding topological root in %s:\n", log_signal(sig));
-		for (auto &c : sig.chunks) {
-			RTLIL::SigSpec stoplist = sig, donelist;
-			stoplist.remove(c);
-			// log("    testing %s as root:\n", log_signal(c));
-			if (toproot_helper(c, stoplist, donelist, 0))
-				return c;
-		}
-		return RTLIL::SigSpec();
-	}
-
-	void update_design_for_group(RTLIL::SigSpec root, RTLIL::SigSpec rest)
-	{
-		SigPool unlink;
-		unlink.add(rest);
-
-		for (auto &cell_it : module->cells) {
-			RTLIL::Cell *cell = cell_it.second;
-			if (!ct.cell_known(cell->type))
-				continue;
-			for (auto &conn : cell->connections)
-				if (ct.cell_output(cell->type, conn.first)) {
-					RTLIL::SigSpec sig = sigmap(conn.second);
-					sig.expand();
-					bool did_something = false;
-					for (auto &c : sig.chunks) {
-						if (c.wire == NULL || !unlink.check_any(c))
-							continue;
-						c.wire = new RTLIL::Wire;
-						c.wire->name = NEW_ID;
-						module->add(c.wire);
-						assert(c.width == 1);
-						c.offset = 0;
-						did_something = true;
+						RTLIL::Cell *inv_cell = new RTLIL::Cell;
+						inv_cell->name = NEW_ID;
+						inv_cell->type = "$_INV_";
+						inv_cell->connections["\\A"] = grp[0].bit;
+						inv_cell->connections["\\Y"] = inv_sig;
+						module->add(inv_cell);
 					}
-					if (did_something) {
-						sig.optimize();
-						conn.second = sig;
-					}
-				}
-		}
 
-		rest.expand();
-		for (auto &c : rest.chunks) {
-			if (c.wire != NULL && !root.is_fully_const()) {
-				source_signals.erase(c);
-				source_signals.insert(c, root);
+					module->connections.push_back(RTLIL::SigSig(grp[i].bit, inv_sig));
+				}
+				else
+					module->connections.push_back(RTLIL::SigSig(grp[i].bit, grp[0].bit));
+
+				rewired_sigbits++;
 			}
-			module->connections.push_back(RTLIL::SigSig(c, root));
-		}
-	}
-
-	void analyze_groups()
-	{
-		SigMap to_group_major;
-		for (auto &it : node_result) {
-			it.second.expand();
-			for (auto &c : it.second.chunks)
-				to_group_major.add(it.first, c);
 		}
 
-		std::map<RTLIL::SigSpec, RTLIL::SigSpec> major_to_rest;
-		for (auto &it : node_result)
-			major_to_rest[to_group_major(it.first)].append(it.first);
-
-		for (auto &it : major_to_rest)
-		{
-			RTLIL::SigSig group = it;
-
-			if (!it.first.is_fully_const()) {
-				group.first = toproot(it.second);
-				if (group.first.width == 0) {
-					log("Operating on non-DAG input: failed to find topological root for `%s'.\n", log_signal(it.second));
-					return;
-				}
-				group.second.remove(group.first);
-			}
-
-			group.first.optimize();
-			group.second.sort_and_unify();
-
-			log("  found group: %s -> %s\n", log_signal(group.first), log_signal(group.second));
-			update_design_for_group(group.first, group.second);
-		}
-	}
-
-	void run()
-	{
-		log("\nFunctionally reduce module %s:\n", RTLIL::id2cstr(module->name));
-		
-		// find inputs and nodes (nets driven by internal cells)
-		// add all internal cells to sat solver
-
-		for (auto &cell_it : module->cells) {
-			RTLIL::Cell *cell = cell_it.second;
-			if (!ct.cell_known(cell->type))
-				continue;
-			RTLIL::SigSpec cell_inputs, cell_outputs;
-			for (auto &conn : cell->connections)
-				if (ct.cell_output(cell->type, conn.first)) {
-					nodes.add(sigmap(conn.second));
-					cell_outputs.append(sigmap(conn.second));
-				} else {
-					inputs.add(sigmap(conn.second));
-					cell_inputs.append(sigmap(conn.second));
-				}
-			cell_inputs.sort_and_unify();
-			cell_outputs.sort_and_unify();
-			cell_inputs.expand();
-			for (auto &c : cell_inputs.chunks)
-				if (c.wire != NULL)
-					source_signals.insert(cell_outputs, c);
-			if (!satgen.importCell(cell))
-				log_error("Failed to import cell to SAT solver: %s (%s)\n",
-						RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
-		}
-		inputs.del(nodes);
-		nodes.add(inputs);
-		log("  found %d nodes (%d inputs).\n", int(nodes.size()), int(inputs.size()));
-
-		// initialise input_sigs and add all-zero, all-one and a few random test vectors
-
-		input_sigs = inputs.export_all();
-		test_vectors.push_back(RTLIL::SigSpec(RTLIL::State::S0, input_sigs.width).as_const());
-		test_vectors.push_back(RTLIL::SigSpec(RTLIL::State::S1, input_sigs.width).as_const());
-
-		for (int i = 0; i < NUM_INITIAL_RANDOM_TEST_VECTORS; i++) {
-			RTLIL::SigSpec sig;
-			for (int j = 0; j < input_sigs.width; j++)
-				sig.append(xorshift32() % 2 ? RTLIL::State::S1 : RTLIL::State::S0);
-			sig.optimize();
-			assert(sig.width == input_sigs.width);
-			test_vectors.push_back(sig.as_const());
-		}
-
-		for (auto &test_vec : test_vectors)
-			if (!run_test(test_vec))
-				return;
-
-		// run the analysis and update design
-
-		if (!analyze_const())
-			return;
-
-		if (!analyze_alias())
-			return;
-
-		log("  input vector: %s\n", log_signal(input_sigs));
-		for (auto &test_vec : test_vectors)
-			log("  test vector: %s\n", log_signal(test_vec));
-
-		dump_node_data();
-		analyze_groups();
+		log("  Rewired a total of %d signal bits in module %s.\n", rewired_sigbits, RTLIL::id2cstr(module->name));
+		return rewired_sigbits;
 	}
 };
 
@@ -376,41 +425,46 @@ struct FreducePass : public Pass {
 		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
 		log("removed.\n");
 		log("\n");
-		log("    -try\n");
-		log("        do not issue an error when the analysis fails.\n");
-		log("        (usually beacause of logic loops in the design)\n");
+		log("    -v, -vv\n");
+		log("        enable verbose or very verbose output\n");
 		log("\n");
-		// log("    -enable_invert\n");
-		// log("        also detect nodes that are inverse to each other.\n");
-		// log("\n");
+		log("    -noinv\n");
+		log("        do not consolidate inverted signals\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		bool enable_invert = false;
-		bool try_mode = false;
+		verbose_level = 0;
+		noinv_mode = false;
 
 		log_header("Executing FREDUCE pass (perform functional reduction).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-enable_invert") {
-				enable_invert = true;
+			if (args[argidx] == "-v") {
+				verbose_level = 1;
 				continue;
 			}
-			if (args[argidx] == "-try") {
-				try_mode = true;
+			if (args[argidx] == "-vv") {
+				verbose_level = 2;
+				continue;
+			}
+			if (args[argidx] == "-noinv") {
+				noinv_mode = true;
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
-		{
+		int bitcount = 0;
+		for (auto &mod_it : design->modules) {
 			RTLIL::Module *module = mod_it.second;
 			if (design->selected(module))
-				FreduceHelper(design, module, try_mode).run();
+				bitcount += FreduceHelper(module).run();
 		}
+
+		log("Rewired a total of %d signal bits.\n", bitcount);
 	}
 } FreducePass;
  

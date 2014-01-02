@@ -35,21 +35,19 @@ typedef ezSAT ezDefaultSAT;
 struct SatGen
 {
 	ezSAT *ez;
-	RTLIL::Design *design;
 	SigMap *sigmap;
 	std::string prefix;
 	SigPool initial_state;
 	bool ignore_div_by_zero;
 	bool model_undef;
 
-	SatGen(ezSAT *ez, RTLIL::Design *design, SigMap *sigmap, std::string prefix = std::string()) :
-			ez(ez), design(design), sigmap(sigmap), prefix(prefix), ignore_div_by_zero(false), model_undef(false)
+	SatGen(ezSAT *ez, SigMap *sigmap, std::string prefix = std::string()) :
+			ez(ez), sigmap(sigmap), prefix(prefix), ignore_div_by_zero(false), model_undef(false)
 	{
 	}
 
-	void setContext(RTLIL::Design *design, SigMap *sigmap, std::string prefix = std::string())
+	void setContext(SigMap *sigmap, std::string prefix = std::string())
 	{
-		this->design = design;
 		this->sigmap = sigmap;
 		this->prefix = prefix;
 	}

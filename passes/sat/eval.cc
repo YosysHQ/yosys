@@ -148,7 +148,7 @@ struct VlogHammerReporter
 
 		ezDefaultSAT ez;
 		SigMap sigmap(module);
-		SatGen satgen(&ez, design, &sigmap);
+		SatGen satgen(&ez, &sigmap);
 		satgen.model_undef = model_undef;
 
 		for (auto &c : module->cells)
