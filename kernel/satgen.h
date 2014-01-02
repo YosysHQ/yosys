@@ -299,6 +299,9 @@ struct SatGen
 			std::vector<int> b = importDefSigSpec(cell->connections.at("\\B"), timestep);
 			std::vector<int> s = importDefSigSpec(cell->connections.at("\\S"), timestep);
 			std::vector<int> y = importDefSigSpec(cell->connections.at("\\Y"), timestep);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+
 			std::vector<int> tmp = a;
 			for (size_t i = 0; i < s.size(); i++) {
 				std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
@@ -306,12 +309,24 @@ struct SatGen
 			}
 			if (cell->type == "$safe_pmux")
 				tmp = ez->vec_ite(ez->onehot(s, true), tmp, a);
-			ez->assume(ez->vec_eq(tmp, y));
+			ez->assume(ez->vec_eq(tmp, yy));
 
-			if (model_undef) {
-				log("FIXME: No SAT undef model cell type %s!\n", RTLIL::id2cstr(cell->type));
+			if (model_undef)
+			{
+				std::vector<int> undef_a = importUndefSigSpec(cell->connections.at("\\A"), timestep);
+				std::vector<int> undef_b = importUndefSigSpec(cell->connections.at("\\B"), timestep);
+				std::vector<int> undef_s = importUndefSigSpec(cell->connections.at("\\S"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
-				ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_y)));
+
+				tmp = a;
+				for (size_t i = 0; i < s.size(); i++) {
+					std::vector<int> part_of_undef_b(undef_b.begin()+i*a.size(), undef_b.begin()+(i+1)*a.size());
+					tmp = ez->vec_ite(s.at(i), part_of_undef_b, tmp);
+				}
+				tmp = ez->vec_ite(ez->onehot(s, true), tmp, cell->type == "$safe_pmux" ? a : std::vector<int>(tmp.size(), ez->TRUE));
+				tmp = ez->vec_ite(ez->expression(ezSAT::OpOr, undef_s), std::vector<int>(tmp.size(), ez->TRUE), tmp);
+				ez->assume(ez->vec_eq(tmp, undef_y));
+				undefGating(y, yy, undef_y);
 			}
 			return true;
 		}
