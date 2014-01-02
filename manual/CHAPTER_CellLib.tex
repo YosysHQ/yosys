@@ -272,6 +272,9 @@ the \B{CLK} input is not used.
 \item \B{CLK\_POLARITY} \\
 Clock is active on positive edge if this parameter has the value {\tt 1'b1} and on the negative
 edge if this parameter is {\tt 1'b0}.
+
+\item \B{PRIORITY} \\
+The cell with the higher integer value in this parameter wins a write conflict.
 \end{itemize}
 
 The HDL frontend models a memory using RTLIL::Memory objects and asynchronous

@@ -1,4 +1,21 @@
 
+module test00(clk, setA, setB, y);
+
+input clk, setA, setB;
+output y;
+reg mem [1:0];
+
+always @(posedge clk) begin
+	if (setA) mem[0] <= 0;  // this is line 9
+	if (setB) mem[0] <= 1;  // this is line 10
+end
+
+assign y = mem[0];
+
+endmodule
+
+// ----------------------------------------------------------
+
 module test01(clk, wr_en, wr_addr, wr_value, rd_addr, rd_value);
 
 input clk, wr_en;

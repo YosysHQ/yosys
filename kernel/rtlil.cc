@@ -567,6 +567,7 @@ namespace {
 				param("\\MEMID");
 				param("\\CLK_ENABLE");
 				param("\\CLK_POLARITY");
+				param("\\PRIORITY");
 				port("\\CLK", 1);
 				port("\\EN", 1);
 				port("\\ADDR", param("\\ABITS"));
