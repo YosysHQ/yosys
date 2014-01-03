@@ -52,6 +52,22 @@ struct equiv_bit_t
 	}
 };
 
+struct CountBitUsage
+{
+	SigMap &sigmap;
+	std::map<RTLIL::SigBit, int> &cache;
+
+	CountBitUsage(SigMap &sigmap, std::map<RTLIL::SigBit, int> &cache) : sigmap(sigmap), cache(cache) { }
+
+	void operator()(RTLIL::SigSpec &sig)
+	{
+		std::vector<RTLIL::SigBit> vec = sigmap(sig).to_sigbit_vector();
+		for (auto &bit : vec) {
+			log("%s %d\n", log_signal(bit), cache[bit]++);
+		}
+	}
+};
+
 struct FindReducedInputs
 {
 	SigMap &sigmap;
@@ -478,6 +494,9 @@ struct FreduceWorker
 			worker.analyze(equiv);
 		}
 
+		std::map<RTLIL::SigBit, int> bitusage;
+		module->rewrite_sigspecs(CountBitUsage(sigmap, bitusage));
+
 		log("  Rewiring %d equivialent groups:\n", int(equiv.size()));
 		int rewired_sigbits = 0;
 		for (auto &grp : equiv)
@@ -489,6 +508,11 @@ struct FreduceWorker
 			{
 				if (!design->selected(module, grp[i].bit.wire)) {
 					log("      Skipping not-selected slave: %s\n", log_signal(grp[i].bit));
+					continue;
+				}
+
+				if (grp[i].bit.wire->port_id == 0 && bitusage[grp[i].bit] <= 1) {
+					log("      Skipping unused slave: %s\n", log_signal(grp[i].bit));
 					continue;
 				}
 
