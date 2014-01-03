@@ -231,9 +231,7 @@ struct PerformReduction
 			std::vector<RTLIL::SigBit> bucket_sigbits;
 			for (int idx : bucket)
 				bucket_sigbits.push_back(out_bits[idx]);
-			RTLIL::SigSpec bucket_sig(bucket_sigbits);
-			bucket_sig.optimize();
-			log("%*s  Trying to shatter bucket with %d signals: %s\n", 2*level, "", int(bucket.size()), log_signal(bucket_sig));
+			log("%*s  Trying to shatter bucket with %d signals: %s\n", 2*level, "", int(bucket.size()), log_signal(RTLIL::SigSpec(bucket_sigbits).optimized()));
 		}
 
 		std::vector<int> sat_list, sat_inv_list;
@@ -340,6 +338,34 @@ struct PerformReduction
 			if (r.size() <= 1)
 				continue;
 
+			if (verbose_level >= 1) {
+				std::vector<RTLIL::SigBit> r_sigbits;
+				for (int idx : r)
+					r_sigbits.push_back(out_bits[idx]);
+				log("  Found group of %d equivialent signals: %s\n", int(r.size()), log_signal(RTLIL::SigSpec(r_sigbits).optimized()));
+			}
+
+			std::vector<int> undef_slaves;
+
+			for (int idx : r) {
+				std::vector<int> sat_def_list;
+				for (int idx2 : r)
+					if (idx != idx2)
+						sat_def_list.push_back(sat_def[idx2]);
+				if (ez.solve(ez.NOT(sat_def[idx]), ez.expression(ezSAT::OpOr, sat_def_list)))
+					undef_slaves.push_back(idx);
+			}
+
+			if (undef_slaves.size() == bucket.size()) {
+				if (verbose_level >= 1)
+					log("    Complex undef overlap. None of the signals covers the others.\n");
+				// FIXME: We could try to further shatter a group with complex undef overlaps
+				return;
+			}
+
+			for (int idx : undef_slaves)
+				out_depth[idx] = std::numeric_limits<int>::max();
+
 			std::vector<equiv_bit_t> result;
 
 			for (int idx : r) {
@@ -418,10 +444,8 @@ struct FreduceWorker
 		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
 		for (auto &batch : batches)
 		{
-			RTLIL::SigSpec batch_sig(std::vector<RTLIL::SigBit>(batch.begin(), batch.end()));
-			batch_sig.optimize();
-
-			log("  Finding reduced input cone for signal batch %s%c\n", log_signal(batch_sig), verbose_level ? ':' : '.');
+			log("  Finding reduced input cone for signal batch %s%c\n",
+					log_signal(RTLIL::SigSpec(std::vector<RTLIL::SigBit>(batch.begin(), batch.end())).optimized()), verbose_level ? ':' : '.');
 
 			FindReducedInputs infinder(sigmap, drivers);
 			for (auto &bit : batch) {
@@ -439,10 +463,7 @@ struct FreduceWorker
 			if (bucket.second.size() == 1)
 				continue;
 
-			RTLIL::SigSpec bucket_sig(bucket.second);
-			bucket_sig.optimize();
-
-			log("  Trying to shatter bucket %s%c\n", log_signal(bucket_sig), verbose_level ? ':' : '.');
+			log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
 			PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second);
 			worker.analyze(equiv);
 		}
