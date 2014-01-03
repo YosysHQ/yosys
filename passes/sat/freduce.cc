@@ -180,6 +180,7 @@ struct PerformReduction
 	std::vector<RTLIL::SigBit> out_bits, pi_bits;
 	std::vector<bool> out_inverted;
 	std::vector<int> out_depth;
+	int cone_size;
 
 	int register_cone_worker(std::set<RTLIL::Cell*> &celldone, std::map<RTLIL::SigBit, int> &sigdepth, RTLIL::SigBit out)
 	{
@@ -209,8 +210,8 @@ struct PerformReduction
 		return sigdepth[out];
 	}
 
-	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits) :
-			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(&ez, &sigmap), out_bits(bits)
+	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits, int cone_size) :
+			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(&ez, &sigmap), out_bits(bits), cone_size(cone_size)
 	{
 		satgen.model_undef = true;
 
@@ -223,7 +224,7 @@ struct PerformReduction
 			sat_def.push_back(ez.NOT(satgen.importUndefSigSpec(bit).front()));
 		}
 
-		if (inv_mode) {
+		if (inv_mode && cone_size > 0) {
 			if (!ez.solve(sat_out, out_inverted, ez.expression(ezSAT::OpAnd, sat_def)))
 				log_error("Solving for initial model failed!\n");
 			for (size_t i = 0; i < sat_out.size(); i++)
@@ -231,6 +232,50 @@ struct PerformReduction
 					sat_out[i] = ez.NOT(sat_out[i]);
 		} else
 			out_inverted = std::vector<bool>(sat_out.size(), false);
+	}
+
+	void analyze_const(std::vector<std::vector<equiv_bit_t>> &results, int idx)
+	{
+		if (verbose_level == 1)
+			log("    Finding const value for %s.\n", log_signal(out_bits[idx]));
+
+		bool can_be_set = ez.solve(ez.AND(sat_out[idx], sat_def[idx]));
+		bool can_be_clr = ez.solve(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+		log_assert(!can_be_set || !can_be_clr);
+
+		RTLIL::SigBit value(RTLIL::State::Sx);
+		if (can_be_set)
+			value = RTLIL::State::S1;
+		if (can_be_clr)
+			value = RTLIL::State::S0;
+		if (verbose_level == 1)
+			log("      Constant value for this signal: %s\n", log_signal(value));
+
+		int result_idx = -1;
+		for (size_t i = 0; i < results.size(); i++) {
+			if (results[i].front().bit == value) {
+				result_idx = i;
+				break;
+			}
+		}
+
+		if (result_idx == -1) {
+			result_idx = results.size();
+			results.push_back(std::vector<equiv_bit_t>());
+			equiv_bit_t bit;
+			bit.depth = 0;
+			bit.inverted = false;
+			bit.drv = NULL;
+			bit.bit = value;
+			results.back().push_back(bit);
+		}
+
+		equiv_bit_t bit;
+		bit.depth = 1;
+		bit.inverted = false;
+		bit.drv = drivers.count(out_bits[idx]) ? drivers.at(out_bits[idx]).first : NULL;
+		bit.bit = out_bits[idx];
+		results[result_idx].push_back(bit);
 	}
 
 	void analyze(std::vector<std::set<int>> &results, std::map<int, int> &results_map, std::vector<int> &bucket, std::string indent1, std::string indent2)
@@ -374,7 +419,7 @@ struct PerformReduction
 		}
 	}
 
-	void analyze(std::vector<std::vector<equiv_bit_t>> &results)
+	void analyze(std::vector<std::vector<equiv_bit_t>> &results, int perc)
 	{
 		std::vector<int> bucket;
 		for (size_t i = 0; i < sat_out.size(); i++)
@@ -382,7 +427,7 @@ struct PerformReduction
 
 		std::vector<std::set<int>> results_buf;
 		std::map<int, int> results_map;
-		analyze(results_buf, results_map, bucket, "", "");
+		analyze(results_buf, results_map, bucket, stringf("[%2d%%] %d ", perc, cone_size), "");
 
 		for (auto &r : results_buf)
 		{
@@ -520,20 +565,25 @@ struct FreduceWorker
 		}
 		log("  Sorted %d signal bits into %d buckets.\n", bits_count, int(buckets.size()));
 
-		if (buckets.count(std::vector<RTLIL::SigBit>()) != 0) {
-			buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S0));
-			buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
-		}
-
+		int bucket_count = 0;
 		std::vector<std::vector<equiv_bit_t>> equiv;
 		for (auto &bucket : buckets)
 		{
+			bucket_count++;
+
 			if (bucket.second.size() == 1)
 				continue;
 
-			log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
-			PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second);
-			worker.analyze(equiv);
+			if (bucket.first.size() == 0) {
+				log("  Finding const values for bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
+				for (size_t idx = 0; idx < bucket.second.size(); idx++)
+					worker.analyze_const(equiv, idx);
+			} else {
+				log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
+				worker.analyze(equiv, 100 * bucket_count / (buckets.size() + 1));
+			}
 		}
 
 		std::map<RTLIL::SigBit, int> bitusage;
