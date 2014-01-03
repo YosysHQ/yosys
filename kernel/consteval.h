@@ -110,6 +110,7 @@ struct ConstEval
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_")
 		{
 			std::vector<RTLIL::SigSpec> y_candidates;
+			int count_maybe_set_s_bits = 0;
 			int count_set_s_bits = 0;
 
 			for (int i = 0; i < sig_s.width; i++)
@@ -120,16 +121,17 @@ struct ConstEval
 				if (s_bit == RTLIL::State::Sx || s_bit == RTLIL::State::S1)
 					y_candidates.push_back(b_slice);
 
+				if (s_bit == RTLIL::State::S1 || s_bit == RTLIL::State::Sx)
+					count_maybe_set_s_bits++;
+
 				if (s_bit == RTLIL::State::S1)
 					count_set_s_bits++;
 			}
 
-			if (cell->type == "$safe_pmux" && count_set_s_bits > 1) {
+			if (cell->type == "$safe_pmux" && count_set_s_bits > 1)
 				y_candidates.clear();
-				count_set_s_bits = 0;
-			}
 
-			if (count_set_s_bits == 0)
+			if ((cell->type == "$safe_pmux" && count_maybe_set_s_bits > 1) || count_set_s_bits == 0)
 				y_candidates.push_back(sig_a);
 
 			std::vector<RTLIL::Const> y_values;

@@ -318,14 +318,45 @@ struct SatGen
 				std::vector<int> undef_s = importUndefSigSpec(cell->connections.at("\\S"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->connections.at("\\Y"), timestep);
 
-				tmp = a;
-				for (size_t i = 0; i < s.size(); i++) {
+				int maybe_one_hot = ez->FALSE;
+				int maybe_many_hot = ez->FALSE;
+
+				int sure_one_hot = ez->FALSE;
+				int sure_many_hot = ez->FALSE;
+
+				std::vector<int> bits_set = std::vector<int>(undef_y.size(), ez->FALSE);
+				std::vector<int> bits_clr = std::vector<int>(undef_y.size(), ez->FALSE);
+
+				for (size_t i = 0; i < s.size(); i++)
+				{
+					std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
 					std::vector<int> part_of_undef_b(undef_b.begin()+i*a.size(), undef_b.begin()+(i+1)*a.size());
-					tmp = ez->vec_ite(s.at(i), part_of_undef_b, tmp);
+
+					int maybe_s = ez->OR(s.at(i), undef_s.at(i));
+					int sure_s = ez->AND(s.at(i), ez->NOT(undef_s.at(i)));
+
+					maybe_one_hot = ez->OR(maybe_one_hot, maybe_s);
+					maybe_many_hot = ez->OR(maybe_many_hot, ez->AND(maybe_one_hot, maybe_s));
+
+					sure_one_hot = ez->OR(sure_one_hot, sure_s);
+					sure_many_hot = ez->OR(sure_many_hot, ez->AND(sure_one_hot, sure_s));
+
+					bits_set = ez->vec_ite(maybe_s, ez->vec_or(bits_set, ez->vec_or(bits_set, ez->vec_or(part_of_b, part_of_undef_b))), bits_set);
+					bits_clr = ez->vec_ite(maybe_s, ez->vec_or(bits_clr, ez->vec_or(bits_clr, ez->vec_or(ez->vec_not(part_of_b), part_of_undef_b))), bits_clr);
 				}
-				tmp = ez->vec_ite(ez->onehot(s, true), tmp, cell->type == "$safe_pmux" ? a : std::vector<int>(tmp.size(), ez->TRUE));
-				tmp = ez->vec_ite(ez->expression(ezSAT::OpOr, undef_s), std::vector<int>(tmp.size(), ez->TRUE), tmp);
-				ez->assume(ez->vec_eq(tmp, undef_y));
+
+				int maybe_a = ez->NOT(maybe_one_hot);
+
+				if (cell->type == "$safe_pmux") {
+					maybe_a = ez->OR(maybe_a, maybe_many_hot);
+					bits_set = ez->vec_ite(sure_many_hot, ez->vec_or(a, undef_a), bits_set);
+					bits_clr = ez->vec_ite(sure_many_hot, ez->vec_or(ez->vec_not(a), undef_a), bits_clr);
+				}
+
+				bits_set = ez->vec_ite(maybe_a, ez->vec_or(bits_set, ez->vec_or(bits_set, ez->vec_or(a, undef_a))), bits_set);
+				bits_clr = ez->vec_ite(maybe_a, ez->vec_or(bits_clr, ez->vec_or(bits_clr, ez->vec_or(ez->vec_not(a), undef_a))), bits_clr);
+
+				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(bits_set, bits_clr)), undef_y));
 				undefGating(y, yy, undef_y);
 			}
 			return true;
