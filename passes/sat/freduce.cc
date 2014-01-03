@@ -397,13 +397,14 @@ struct PerformReduction
 
 struct FreduceWorker
 {
+	RTLIL::Design *design;
 	RTLIL::Module *module;
 
 	SigMap sigmap;
 	drivers_t drivers;
 	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> inv_pairs;
 
-	FreduceWorker(RTLIL::Module *module) : module(module), sigmap(module)
+	FreduceWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module), sigmap(module)
 	{
 	}
 
@@ -444,6 +445,12 @@ struct FreduceWorker
 		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
 		for (auto &batch : batches)
 		{
+			for (auto &bit : batch)
+				if (bit.wire != NULL && design->selected(module, bit.wire))
+					goto found_selected_wire;
+			continue;
+
+		found_selected_wire:
 			log("  Finding reduced input cone for signal batch %s%c\n",
 					log_signal(RTLIL::SigSpec(std::vector<RTLIL::SigBit>(batch.begin(), batch.end())).optimized()), verbose_level ? ':' : '.');
 
@@ -477,6 +484,11 @@ struct FreduceWorker
 			RTLIL::SigSpec inv_sig;
 			for (size_t i = 1; i < grp.size(); i++)
 			{
+				if (!design->selected(module, grp[i].bit.wire)) {
+					log("      Skipping not-selected slave: %s\n", log_signal(grp[i].bit));
+					continue;
+				}
+
 				log("      Connect slave%s: %s\n", grp[i].inverted ? " using inverter" : "", log_signal(grp[i].bit));
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
@@ -527,14 +539,17 @@ struct FreducePass : public Pass {
 		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
 		log("unconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
 		log("\n");
-		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
-		log("equivialent nodes.\n");
-		log("\n");
 		log("    -v, -vv\n");
 		log("        enable verbose or very verbose output\n");
 		log("\n");
 		log("    -inv\n");
 		log("        enable explicit handling of inverted signals\n");
+		log("\n");
+		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
+		log("equivialent nodes.\n");
+		log("\n");
+		log("All selected wires are considered for rewiring. The selected cells cover the\n");
+		log("circuit that is analyzed.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -566,7 +581,7 @@ struct FreducePass : public Pass {
 		for (auto &mod_it : design->modules) {
 			RTLIL::Module *module = mod_it.second;
 			if (design->selected(module))
-				bitcount += FreduceWorker(module).run();
+				bitcount += FreduceWorker(design, module).run();
 		}
 
 		log("Rewired a total of %d signal bits.\n", bitcount);
