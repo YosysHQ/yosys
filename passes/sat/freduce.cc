@@ -231,9 +231,7 @@ struct PerformReduction
 			std::vector<RTLIL::SigBit> bucket_sigbits;
 			for (int idx : bucket)
 				bucket_sigbits.push_back(out_bits[idx]);
-			RTLIL::SigSpec bucket_sig(bucket_sigbits);
-			bucket_sig.optimize();
-			log("%*s  Trying to shatter bucket with %d signals: %s\n", 2*level, "", int(bucket.size()), log_signal(bucket_sig));
+			log("%*s  Trying to shatter bucket with %d signals: %s\n", 2*level, "", int(bucket.size()), log_signal(RTLIL::SigSpec(bucket_sigbits).optimized()));
 		}
 
 		std::vector<int> sat_list, sat_inv_list;
@@ -340,6 +338,34 @@ struct PerformReduction
 			if (r.size() <= 1)
 				continue;
 
+			if (verbose_level >= 1) {
+				std::vector<RTLIL::SigBit> r_sigbits;
+				for (int idx : r)
+					r_sigbits.push_back(out_bits[idx]);
+				log("  Found group of %d equivialent signals: %s\n", int(r.size()), log_signal(RTLIL::SigSpec(r_sigbits).optimized()));
+			}
+
+			std::vector<int> undef_slaves;
+
+			for (int idx : r) {
+				std::vector<int> sat_def_list;
+				for (int idx2 : r)
+					if (idx != idx2)
+						sat_def_list.push_back(sat_def[idx2]);
+				if (ez.solve(ez.NOT(sat_def[idx]), ez.expression(ezSAT::OpOr, sat_def_list)))
+					undef_slaves.push_back(idx);
+			}
+
+			if (undef_slaves.size() == bucket.size()) {
+				if (verbose_level >= 1)
+					log("    Complex undef overlap. None of the signals covers the others.\n");
+				// FIXME: We could try to further shatter a group with complex undef overlaps
+				return;
+			}
+
+			for (int idx : undef_slaves)
+				out_depth[idx] = std::numeric_limits<int>::max();
+
 			std::vector<equiv_bit_t> result;
 
 			for (int idx : r) {
@@ -371,13 +397,14 @@ struct PerformReduction
 
 struct FreduceWorker
 {
+	RTLIL::Design *design;
 	RTLIL::Module *module;
 
 	SigMap sigmap;
 	drivers_t drivers;
 	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> inv_pairs;
 
-	FreduceWorker(RTLIL::Module *module) : module(module), sigmap(module)
+	FreduceWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module), sigmap(module)
 	{
 	}
 
@@ -418,10 +445,14 @@ struct FreduceWorker
 		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
 		for (auto &batch : batches)
 		{
-			RTLIL::SigSpec batch_sig(std::vector<RTLIL::SigBit>(batch.begin(), batch.end()));
-			batch_sig.optimize();
+			for (auto &bit : batch)
+				if (bit.wire != NULL && design->selected(module, bit.wire))
+					goto found_selected_wire;
+			continue;
 
-			log("  Finding reduced input cone for signal batch %s%c\n", log_signal(batch_sig), verbose_level ? ':' : '.');
+		found_selected_wire:
+			log("  Finding reduced input cone for signal batch %s%c\n",
+					log_signal(RTLIL::SigSpec(std::vector<RTLIL::SigBit>(batch.begin(), batch.end())).optimized()), verbose_level ? ':' : '.');
 
 			FindReducedInputs infinder(sigmap, drivers);
 			for (auto &bit : batch) {
@@ -439,10 +470,7 @@ struct FreduceWorker
 			if (bucket.second.size() == 1)
 				continue;
 
-			RTLIL::SigSpec bucket_sig(bucket.second);
-			bucket_sig.optimize();
-
-			log("  Trying to shatter bucket %s%c\n", log_signal(bucket_sig), verbose_level ? ':' : '.');
+			log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
 			PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second);
 			worker.analyze(equiv);
 		}
@@ -456,12 +484,18 @@ struct FreduceWorker
 			RTLIL::SigSpec inv_sig;
 			for (size_t i = 1; i < grp.size(); i++)
 			{
+				if (!design->selected(module, grp[i].bit.wire)) {
+					log("      Skipping not-selected slave: %s\n", log_signal(grp[i].bit));
+					continue;
+				}
+
 				log("      Connect slave%s: %s\n", grp[i].inverted ? " using inverter" : "", log_signal(grp[i].bit));
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
 				RTLIL::Wire *dummy_wire = module->new_wire(1, NEW_ID);
 				for (auto &port : drv->connections)
-					sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
+					if (ct.cell_output(drv->type, port.first))
+						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
 
 				if (grp[i].inverted)
 				{
@@ -505,14 +539,17 @@ struct FreducePass : public Pass {
 		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
 		log("unconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
 		log("\n");
-		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
-		log("equivialent nodes.\n");
-		log("\n");
 		log("    -v, -vv\n");
 		log("        enable verbose or very verbose output\n");
 		log("\n");
 		log("    -inv\n");
 		log("        enable explicit handling of inverted signals\n");
+		log("\n");
+		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
+		log("equivialent nodes.\n");
+		log("\n");
+		log("All selected wires are considered for rewiring. The selected cells cover the\n");
+		log("circuit that is analyzed.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -544,7 +581,7 @@ struct FreducePass : public Pass {
 		for (auto &mod_it : design->modules) {
 			RTLIL::Module *module = mod_it.second;
 			if (design->selected(module))
-				bitcount += FreduceWorker(module).run();
+				bitcount += FreduceWorker(design, module).run();
 		}
 
 		log("Rewired a total of %d signal bits.\n", bitcount);
