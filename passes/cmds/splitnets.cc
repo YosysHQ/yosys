@@ -24,16 +24,48 @@
 
 struct SplitnetsWorker
 {
-	std::map<RTLIL::Wire*, std::vector<RTLIL::Wire*>> splitmap;
+	std::map<RTLIL::Wire*, std::vector<RTLIL::SigBit>> splitmap;
+
+	void append_wire(RTLIL::Module *module, RTLIL::Wire *wire, int offset, int width, std::string format)
+	{
+		RTLIL::Wire *new_wire = new RTLIL::Wire;
+
+		new_wire->port_id = wire->port_id;
+		new_wire->port_input = wire->port_input;
+		new_wire->port_output = wire->port_output;
+		new_wire->name = wire->name;
+		new_wire->width = width;
+
+		if (format.size() > 0)
+			new_wire->name += format.substr(0, 1);
+
+		if (width > 1) {
+			new_wire->name += stringf("%d", offset+width-1);
+			if (format.size() > 2)
+				new_wire->name += format.substr(2, 1);
+			else
+				new_wire->name += ":";
+		}
+
+		new_wire->name += stringf("%d", offset);
+
+		if (format.size() > 1)
+			new_wire->name += format.substr(1, 1);
+
+		while (module->count_id(new_wire->name) > 0)
+			new_wire->name = new_wire->name + "_";
+		module->add(new_wire);
+
+		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
+		splitmap[wire].insert(splitmap[wire].end(), sigvec.begin(), sigvec.end());
+	}
 
 	void operator()(RTLIL::SigSpec &sig)
 	{
 		sig.expand();
 		for (auto &c : sig.chunks)
-			if (splitmap.count(c.wire) > 0) {
-				c.wire = splitmap.at(c.wire).at(c.offset);
-				c.offset = 0;
-			}
+			if (splitmap.count(c.wire) > 0)
+				c = splitmap.at(c.wire).at(c.offset);
 		sig.optimize();
 	}
 };
@@ -48,19 +80,25 @@ struct SplitnetsPass : public Pass {
 		log("\n");
 		log("This command splits multi-bit nets into single-bit nets.\n");
 		log("\n");
-		log("    -format char1[char2]\n");
+		log("    -format char1[char2[char3]]\n");
 		log("        the first char is inserted between the net name and the bit index, the\n");
 		log("        second char is appended to the netname. e.g. -format () creates net\n");
-		log("        names like 'mysignal(42)'. the default is '[]'.\n");
+		log("        names like 'mysignal(42)'. the 3rd character is the range seperation\n");
+		log("        character when creating multi-bit wires. the default is '[]:'.\n");
 		log("\n");
 		log("    -ports\n");
 		log("        also split module ports. per default only internal signals are split.\n");
+		log("\n");
+		log("    -driver\n");
+		log("        don't blindly split nets in individual bits. instead look at the driver\n");
+		log("        and split nets so that no driver drives only part of a net.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_ports = false;
-		std::string format = "[]";
+		bool flag_driver = false;
+		std::string format = "[]:";
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -71,6 +109,10 @@ struct SplitnetsPass : public Pass {
 			}
 			if (args[argidx] == "-ports") {
 				flag_ports = true;
+				continue;
+			}
+			if (args[argidx] == "-driver") {
+				flag_driver = true;
 				continue;
 			}
 			break;
@@ -85,29 +127,54 @@ struct SplitnetsPass : public Pass {
 
 			SplitnetsWorker worker;
 
-			for (auto &w : module->wires) {
-				RTLIL::Wire *wire = w.second;
-				if (wire->width > 1 && (wire->port_id == 0 || flag_ports))
-					worker.splitmap[wire] = std::vector<RTLIL::Wire*>();
-			}
+			if (flag_driver)
+			{
+				CellTypes ct(design);
 
-			for (auto &it : worker.splitmap)
-				for (int i = 0; i < it.first->width; i++) {
-					RTLIL::Wire *wire = new RTLIL::Wire;
-					wire->port_id = it.first->port_id;
-					wire->port_input = it.first->port_input;
-					wire->port_output = it.first->port_output;
-					wire->name = it.first->name;
-					if (format.size() > 0)
-						wire->name += format.substr(0, 1);
-					wire->name += stringf("%d", i);
-					if (format.size() > 0)
-						wire->name += format.substr(1);
-					while (module->count_id(wire->name) > 0)
-						wire->name = wire->name + "_";
-					module->add(wire);
-					it.second.push_back(wire);
+				std::map<RTLIL::Wire*, std::set<int>> split_wires_at;
+
+				for (auto &c : module->cells)
+				for (auto &p : c.second->connections)
+				{
+					if (!ct.cell_known(c.second->type))
+						continue;
+					if (!ct.cell_output(c.second->type, p.first))
+						continue;
+
+					RTLIL::SigSpec sig = p.second.optimized();
+					for (auto &chunk : sig.chunks) {
+						if (chunk.wire == NULL)
+							continue;
+						if (chunk.wire->port_id == 0 || flag_ports) {
+							if (chunk.offset != 0)
+								split_wires_at[chunk.wire].insert(chunk.offset);
+							if (chunk.offset + chunk.width < chunk.wire->width)
+								split_wires_at[chunk.wire].insert(chunk.offset + chunk.width);
+						}
+					}
 				}
+
+				for (auto &it : split_wires_at) {
+					int cursor = 0;
+					for (int next_cursor : it.second) {
+						worker.append_wire(module, it.first, cursor, next_cursor - cursor, format);
+						cursor = next_cursor;
+					}
+					worker.append_wire(module, it.first, cursor, it.first->width - cursor, format);
+				}
+			}
+			else
+			{
+				for (auto &w : module->wires) {
+					RTLIL::Wire *wire = w.second;
+					if (wire->width > 1 && (wire->port_id == 0 || flag_ports))
+						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
+				}
+
+				for (auto &it : worker.splitmap)
+					for (int i = 0; i < it.first->width; i++)
+						worker.append_wire(module, it.first, i, 1, format);
+			}
 
 			module->rewrite_sigspecs(worker);
 
