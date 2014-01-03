@@ -1,0 +1,20 @@
+#design should be loaded before executing 
+
+#high level synthesis
+#################
+#converting processes to cells
+proc; 
+opt;
+#converting pmux to mux
+techmap -map techlibs/common/pmux2mux.v;
+opt;
+#converting asyn memory write to syn memory
+memory_dff; 
+opt;
+#flatten design
+flatten;
+opt;
+#adding temporary wires for cell ports
+scatter;
+#writing btor
+write_btor design.btor;
