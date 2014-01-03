@@ -272,6 +272,21 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			if (lhs.selected_member(mod_it.first, it.first) && limits.count(it.first) == 0)
 				selected_wires.insert(it.second);
 
+		for (auto &conn : mod->connections)
+		{
+			std::vector<RTLIL::SigBit> conn_lhs = conn.first.to_sigbit_vector();
+			std::vector<RTLIL::SigBit> conn_rhs = conn.second.to_sigbit_vector();
+
+			for (size_t i = 0; i < conn_lhs.size(); i++) {
+				if (conn_lhs[i].wire == NULL || conn_rhs[i].wire == NULL)
+					continue;
+				if (mode != 'i' && selected_wires.count(conn_rhs[i].wire) && lhs.selected_members[mod->name].count(conn_lhs[i].wire->name) == 0)
+					lhs.selected_members[mod->name].insert(conn_lhs[i].wire->name), sel_objects++, max_objects--;
+				if (mode != 'o' && selected_wires.count(conn_lhs[i].wire) && lhs.selected_members[mod->name].count(conn_rhs[i].wire->name) == 0)
+					lhs.selected_members[mod->name].insert(conn_rhs[i].wire->name), sel_objects++, max_objects--;
+			}
+		}
+
 		for (auto &cell : mod->cells)
 		for (auto &conn : cell.second->connections)
 		{
@@ -514,7 +529,10 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			arg_mod = arg;
+			if (arg.find(':') == std::string::npos)
+				arg_mod = arg;
+			else
+				arg_mod = "*", arg_memb = arg;
 		} else {
 			arg_mod = arg.substr(0, pos);
 			arg_memb = arg.substr(pos+1);

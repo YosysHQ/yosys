@@ -728,6 +728,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 	case AST_LE:
 	case AST_EQ:
 	case AST_NE:
+	case AST_EQX:
+	case AST_NEX:
 	case AST_GE:
 	case AST_GT:
 		width_hint = std::max(width_hint, 1);
@@ -1113,12 +1115,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		}
 
 	// generate cells for binary operations: $lt, $le, $eq, $ne, $ge, $gt
-	if (0) { case AST_LT: type_name = "$lt"; }
-	if (0) { case AST_LE: type_name = "$le"; }
-	if (0) { case AST_EQ: type_name = "$eq"; }
-	if (0) { case AST_NE: type_name = "$ne"; }
-	if (0) { case AST_GE: type_name = "$ge"; }
-	if (0) { case AST_GT: type_name = "$gt"; }
+	if (0) { case AST_LT:  type_name = "$lt"; }
+	if (0) { case AST_LE:  type_name = "$le"; }
+	if (0) { case AST_EQ:  type_name = "$eq"; }
+	if (0) { case AST_NE:  type_name = "$ne"; }
+	if (0) { case AST_EQX: type_name = "$eqx"; }
+	if (0) { case AST_NEX: type_name = "$nex"; }
+	if (0) { case AST_GE:  type_name = "$ge"; }
+	if (0) { case AST_GT:  type_name = "$gt"; }
 		{
 			int width = std::max(width_hint, 1);
 			width_hint = -1, sign_hint = true;
@@ -1267,6 +1271,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(0);
 			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
+
+			cell->parameters["\\PRIORITY"] = RTLIL::Const(RTLIL::autoidx-1);
 		}
 		break;
 

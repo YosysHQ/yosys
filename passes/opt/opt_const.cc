@@ -17,8 +17,6 @@
  *
  */
 
-#undef MUX_UNDEF_SEL_TO_UNDEF_RESULTS
-
 #include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -133,18 +131,19 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				ACTION_DO("\\Y", input.extract(2, 1));
 			if (input.match("  0")) ACTION_DO("\\Y", input.extract(2, 1));
 			if (input.match("  1")) ACTION_DO("\\Y", input.extract(1, 1));
-#ifdef MUX_UNDEF_SEL_TO_UNDEF_RESULTS
 			if (input.match("01 ")) ACTION_DO("\\Y", input.extract(0, 1));
-			// TODO: "10 " -> replace with "!S" gate
-			// TODO: "0  " -> replace with "B AND S" gate
-			// TODO: " 1 " -> replace with "A OR S" gate
-			// TODO: "1  " -> replace with "B OR !S" gate (?)
-			// TODO: " 0 " -> replace with "A AND !S" gate (?)
-			if (input.match("  *")) ACTION_DO_Y(x);
-#endif
+			if (input.match("10 ")) {
+				cell->type = "$_INV_";
+				cell->connections["\\A"] = input.extract(0, 1);
+				cell->connections.erase("\\B");
+				cell->connections.erase("\\S");
+				goto next_cell;
+			}
+			if (input.match("01*")) ACTION_DO_Y(x);
+			if (input.match("10*")) ACTION_DO_Y(x);
 		}
 
-		if (cell->type == "$eq" || cell->type == "$ne")
+		if (cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex")
 		{
 			RTLIL::SigSpec a = cell->connections["\\A"];
 			RTLIL::SigSpec b = cell->connections["\\B"];
@@ -160,22 +159,27 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 			assert(a.chunks.size() == b.chunks.size());
 			for (size_t i = 0; i < a.chunks.size(); i++) {
-				if (a.chunks[i].wire == NULL && a.chunks[i].data.bits[0] > RTLIL::State::S1)
-					continue;
-				if (b.chunks[i].wire == NULL && b.chunks[i].data.bits[0] > RTLIL::State::S1)
+				if (a.chunks[i].wire == NULL && b.chunks[i].wire == NULL && a.chunks[i].data.bits[0] != b.chunks[i].data.bits[0] &&
+						a.chunks[i].data.bits[0] <= RTLIL::State::S1 && b.chunks[i].data.bits[0] <= RTLIL::State::S1) {
+					RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S0 : RTLIL::State::S1);
+					new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
+					replace_cell(module, cell, "empty", "\\Y", new_y);
+					goto next_cell;
+				}
+				if (a.chunks[i] == b.chunks[i])
 					continue;
 				new_a.append(a.chunks[i]);
 				new_b.append(b.chunks[i]);
 			}
 
 			if (new_a.width == 0) {
-				RTLIL::SigSpec new_y = RTLIL::SigSpec(cell->type == "$eq" ?  RTLIL::State::S1 : RTLIL::State::S0);
+				RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S1 : RTLIL::State::S0);
 				new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
 				replace_cell(module, cell, "empty", "\\Y", new_y);
 				goto next_cell;
 			}
 
-			if (new_a.width != a.width) {
+			if (new_a.width < a.width || new_b.width < b.width) {
 				new_a.optimize();
 				new_b.optimize();
 				cell->connections["\\A"] = new_a;

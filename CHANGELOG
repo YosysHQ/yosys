@@ -6,6 +6,40 @@ List of incompatible changes and major milestones between releases
 Yosys 0.1.0 .. Yoys 0.1.0+
 --------------------------
 
- - Tighter integration of ABC build with Yosys build. The make
-   targets 'make abc' and 'make install-abc' are now obsolete.
+ * Improvements in Verilog frontend:
+     - Added support for local registers in named blocks
+     - Added support for "case" in "generate" blocks
+     - Added support for $clog2 system function
+     - Added preprocessor support for macro arguments
+     - Added preprocessor support for `elsif statement
+
+ * Improvements in technology mapping:
+     - The "dfflibmap" command now strongly prefers solutions with
+           no inverters in clock paths
+     - The "dfflibmap" command now prefers cells with smaller area
+
+ * Integration with ABC:
+     - Updated ABC to hg rev 57517e81666b
+     - Tighter integration of ABC build with Yosys build. The make
+           targets 'make abc' and 'make install-abc' are now obsolete.
+     - Added support for passing FFs from one clock domain through ABC
+     - Now always use BLIF as exchange format with ABC
+
+ * Improvements to "eval" and "sat" framework:
+     - Added support for "0" and "~0" in right-hand side -set expressions
+     - Added "eval -set-undef" and "eval -table"
+     - Added "sat -set-init" support for sequential problems
+     - Added undef support to SAT solver, incl. various new "sat" options
+     - Added correct support for === and !== for "eval" and "sat"
+
+ * Added "abbreviated IDs":
+     - Now $<something>$foo can be abbriviated as $foo.
+     - Usually this last part is a unique id (from RTLIL::autoidx)
+     - This abbreviated IDs are now also used in "show" output
+
+ * Various other changes to commands and options:
+     - The "ls" command now supports wildcards
+     - Added "show -pause" and "show -format dot"
+     - Added "dump -m" and "dump -n"
+     - Added "history" command
 

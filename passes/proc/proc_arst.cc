@@ -47,7 +47,7 @@ static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSp
 			polarity = !polarity;
 			return check_signal(mod, cell->connections["\\A"], ref, polarity);
 		}
-		if (cell->type == "$eq" && cell->connections["\\Y"] == signal) {
+		if ((cell->type == "$eq" || cell->type == "$eqx") && cell->connections["\\Y"] == signal) {
 			if (cell->connections["\\A"].is_fully_const()) {
 				if (!cell->connections["\\A"].as_bool())
 					polarity = !polarity;
@@ -59,7 +59,7 @@ static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSp
 				return check_signal(mod, cell->connections["\\A"], ref, polarity);
 			}
 		}
-		if (cell->type == "$ne" && cell->connections["\\Y"] == signal) {
+		if ((cell->type == "$ne" || cell->type == "$nex") && cell->connections["\\Y"] == signal) {
 			if (cell->connections["\\A"].is_fully_const()) {
 				if (cell->connections["\\A"].as_bool())
 					polarity = !polarity;

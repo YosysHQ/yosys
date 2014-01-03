@@ -337,7 +337,7 @@ namespace {
 			expected_ports.insert(name);
 		}
 
-		void check_expected()
+		void check_expected(bool check_matched_sign = true)
 		{
 			for (auto &para : cell->parameters)
 				if (expected_params.count(para.first) == 0)
@@ -345,6 +345,13 @@ namespace {
 			for (auto &conn : cell->connections)
 				if (expected_ports.count(conn.first) == 0)
 					error(__LINE__);
+
+			if (expected_params.count("\\A_SIGNED") != 0 && expected_params.count("\\B_SIGNED") && check_matched_sign) {
+				bool a_is_signed = param("\\A_SIGNED") != 0;
+				bool b_is_signed = param("\\B_SIGNED") != 0;
+				if (a_is_signed != b_is_signed)
+					error(__LINE__);
+			}
 		}
 
 		void check_gate(const char *ports)
@@ -370,7 +377,7 @@ namespace {
 
 		void check()
 		{
-			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$neg") {
+			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" || cell->type == "$neg") {
 				param("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -403,12 +410,12 @@ namespace {
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
-				check_expected();
+				check_expected(false);
 				return;
 			}
 
 			if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" ||
-					cell->type == "$ge" || cell->type == "$gt") {
+					cell->type == "$eqx" || cell->type == "$nex" || cell->type == "$ge" || cell->type == "$gt") {
 				param("\\A_SIGNED");
 				param("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
@@ -425,7 +432,7 @@ namespace {
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
-				check_expected();
+				check_expected(cell->type != "$pow");
 				return;
 			}
 
@@ -443,7 +450,7 @@ namespace {
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
-				check_expected();
+				check_expected(false);
 				return;
 			}
 
@@ -560,6 +567,7 @@ namespace {
 				param("\\MEMID");
 				param("\\CLK_ENABLE");
 				param("\\CLK_POLARITY");
+				param("\\PRIORITY");
 				port("\\CLK", 1);
 				port("\\EN", 1);
 				port("\\ADDR", param("\\ABITS"));

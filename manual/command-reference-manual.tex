@@ -131,6 +131,13 @@ first run this pass and then map the logic paths to the target technology.
 Write the selected parts of the design to the console or specified file in
 ilang format.
 
+    -m
+        also dump the module headers, even if only parts of a single
+        module is selected
+
+    -n
+        only dump the module headers if the entire module is selected
+
     -outfile <filename>
         Write to the specified file.
 \end{lstlisting}
@@ -145,6 +152,12 @@ inputs.
 
     -set <signal> <value>
         set the specified signal to the specified value.
+
+    -set-undef
+        set all unspecified source signals to undef (x)
+
+    -table <signal>
+        create a truth table using the specified input signals
 
     -show <signal>
         show the value for the specified signal. if no -show option is passed
@@ -423,6 +436,10 @@ needed.
         use the specified top module to built a design hierarchy. modules
         outside this tree (unused modules) are removed.
 
+        when the -top option is used, the 'top' attribute will be set on the
+        specified top module. otherwise a module with the 'top' attribute set
+        will implicitly be used as top module, if such a module exists.
+
 In -generate mode this pass generates blackbox modules for the given cell
 types (wildcards supported). For this the design is searched for cells that
 match the given types and then the given port declarations are used to
@@ -438,6 +455,16 @@ also contain wildcard characters.
 
 This pass ignores the current selection and always operates on all modules
 in the current design.
+\end{lstlisting}
+
+\section{history -- show last interactive commands}
+\label{cmd:history}
+\begin{lstlisting}[numbers=left,frame=single]
+    history
+
+This command prints all commands in the shell history buffer. This are
+all commands executed in an interactive session, but not the commands
+from executed scripts.
 \end{lstlisting}
 
 \section{iopadmap -- technology mapping of i/o pads (or buffers)}
@@ -469,11 +496,17 @@ the resulting cells to more sophisticated PAD cells.
 \section{ls -- list modules or objects in modules}
 \label{cmd:ls}
 \begin{lstlisting}[numbers=left,frame=single]
-    ls
+    ls [pattern]
 
-When no active module is selected, this prints a list of all module.
+When no active module is selected, this prints a list of all modules.
 
 When an active module is selected, this prints a list of objects in the module.
+
+If a pattern is given, the objects matching the pattern are printed
+
+Note that this command does not use the selection mechanism and always operates
+on the whole design or whole active module. Use 'select -list' to show a list
+of currently selected objects.
 \end{lstlisting}
 
 \section{memory -- translate memories to basic cells}
@@ -761,6 +794,10 @@ Verilog-2005 is supported.
         don't perform basic optimizations (such as const folding) in the
         high-level front-end.
 
+    -ignore_redef
+        ignore re-definitions of modules. (the default behavior is to
+        create an error message.)
+
     -Dname[=definition]
         define the preprocessor symbol 'name' and set its optional value
         'definition'
@@ -800,8 +837,28 @@ and additional constraints passed as parameters.
     -max <N>
         like -all, but limit number of solutions to <N>
 
+    -enable_undef
+        enable modeling of undef value (aka 'x-bits')
+        this option is implied by -set-def, -set-undef et. cetera
+
+    -max_undef
+        maximize the number of undef bits in solutions, giving a better
+        picture of which input bits are actually vital to the solution.
+
     -set <signal> <value>
         set the specified signal to the specified value.
+
+    -set-def <signal>
+        add a constraint that all bits of the given signal must be defined
+
+    -set-any-undef <signal>
+        add a constraint that at least one bit of the given signal is undefined
+
+    -set-all-undef <signal>
+        add a constraint that all bits of the given signal are undefined
+
+    -set-def-inputs
+        add -set-def constraints for all module inputs
 
     -show <signal>
         show the model for the specified signal. if no -show option is
@@ -821,6 +878,17 @@ The following options can be used to set up a sequential problem:
         set or unset the specified signal to the specified value in the
         given timestep. this has priority over a -set for the same signal.
 
+    -set-def-at <N> <signal>
+    -set-any-undef-at <N> <signal>
+    -set-all-undef-at <N> <signal>
+        add undef contraints in the given timestep.
+
+    -set-init <signal> <value>
+        set the initial value for the register driving the signal to the value
+
+    -set-init-undef
+        set all initial states (not set using -set-init) to undef
+
 The following additional options can be used to set up a proof. If also -seq
 is passed, a temporal induction proof is performed.
 
@@ -828,6 +896,10 @@ is passed, a temporal induction proof is performed.
         Attempt to proof that <signal> is always <value>. In a temporal
         induction proof it is proven that the condition holds forever after
         the number of time steps passed using -seq.
+
+    -prove-x <signal> <value>
+        Like -prove, but an undef (x) bit in the lhs matches any value on
+        the right hand side. Useful for equivialence checking.
 
     -maxsteps <N>
         Set a maximum length for the induction.
@@ -1108,11 +1180,34 @@ to a graphics file (usually SVG or PostScript).
         stretch the graph so all inputs are on the left side and all outputs
         (including inout ports) are on the right side.
 
+    -pause
+        wait for the use to press enter to before returning
+
+    -enum
+        enumerate objects with internal ($-prefixed) names
+
+    -long
+        do not abbeviate objects with internal ($-prefixed) names
+
 When no <format> is specified, SVG is used. When no <format> and <viewer> is
 specified, 'yosys-svgviewer' is used to display the schematic.
 
 The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',
 unless another prefix is specified using -prefix <prefix>.
+\end{lstlisting}
+
+\section{simplemap -- mapping simple coarse-grain cells}
+\label{cmd:simplemap}
+\begin{lstlisting}[numbers=left,frame=single]
+    simplemap [selection]
+
+This pass maps a small selection of simple coarse-grain cells to yosys gate
+primitives. The following internal cell types are mapped by this pass:
+
+  $not, $pos, $bu0, $and, $or, $xor, $xnor
+  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool
+  $logic_not, $logic_and, $logic_or, $mux
+  $sr, $dff, $dffsr, $adff, $dlatch
 \end{lstlisting}
 
 \section{splitnets -- split up multi-bit nets}
@@ -1129,6 +1224,20 @@ This command splits multi-bit nets into single-bit nets.
 
     -ports
         also split module ports. per default only internal signals are split.
+\end{lstlisting}
+
+\section{stat -- print some statistics}
+\label{cmd:stat}
+\begin{lstlisting}[numbers=left,frame=single]
+    stat [options] [selection]
+
+Print some statistics (number of objects) on the selected portion of the
+design.
+
+    -top <module>
+        print design hierarchy with this module as top. if the design is fully
+        selected and a module has the 'top' attribute set, this module is used
+        default value for this option.
 \end{lstlisting}
 
 \section{submod -- moving part of a module to a new submodule}
@@ -1202,7 +1311,7 @@ The following commands are executed by this synthesis command:
         clean
 
     map_cells:
-        techmap -map <share_dir>/xilinx/cells.v
+        techmap -share_map xilinx/cells.v
         clean
 
     clkbuf:
@@ -1214,7 +1323,7 @@ The following commands are executed by this synthesis command:
         iopadmap -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks
 
     edif:
-        write_edif -top <top> synth.edif
+        write_edif synth.edif
 \end{lstlisting}
 
 \section{tcl -- execute a TCL script file}
@@ -1246,12 +1355,26 @@ file.
         transforms the internal RTL cells to the internal gate
         library.
 
+    -share_map filename
+        like -map, but look for the file in the share directory (where the
+        yosys data files are). this is mainly used internally when techmap
+        is called from other commands.
+
+    -D <define>, -I <incdir>
+        this options are passed as-is to the verilog frontend for loading the
+        map file. Note that the verilog frontend is also called with the
+        '-ignore_redef' option set.
+
 When a module in the map file has the 'techmap_celltype' attribute set, it will
-match cells with a type that match the text value of this attribute.
+match cells with a type that match the text value of this attribute. Otherwise
+the module name will be used to match the cell.
+
+When a module in the map file has the 'techmap_simplemap' attribute set, techmap
+will use 'simplemap' (see 'help simplemap') to map cells matching the module.
 
 All wires in the modules from the map file matching the pattern _TECHMAP_*
 or *._TECHMAP_* are special wires that are used to pass instructions from
-the mapping module to the techmap command. At the moment the following spoecial
+the mapping module to the techmap command. At the moment the following special
 wires are supported:
 
     _TECHMAP_FAIL_
@@ -1272,6 +1395,13 @@ wires are supported:
         evaluated, an error is produced. That means it is possible for such a
         wire to start out as non-constant and evaluate to a constant value
         during processing of other _TECHMAP_DO_* commands.
+
+In addition to this special wires, techmap also supports special parameters in
+modules in the map file:
+
+    _TECHMAP_CELLTYPE_
+        When a parameter with this name exists, it will be set to the type name
+        of the cell that matches the module.
 
 When a module in the map file has a parameter where the according cell in the
 design has a port, the module from the map file is only used if the port in

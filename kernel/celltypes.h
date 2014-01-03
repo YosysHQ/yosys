@@ -60,6 +60,7 @@ struct CellTypes
 	{
 		cell_types.insert("$not");
 		cell_types.insert("$pos");
+		cell_types.insert("$bu0");
 		cell_types.insert("$neg");
 		cell_types.insert("$and");
 		cell_types.insert("$or");
@@ -78,6 +79,8 @@ struct CellTypes
 		cell_types.insert("$le");
 		cell_types.insert("$eq");
 		cell_types.insert("$ne");
+		cell_types.insert("$eqx");
+		cell_types.insert("$nex");
 		cell_types.insert("$ge");
 		cell_types.insert("$gt");
 		cell_types.insert("$add");
@@ -237,6 +240,8 @@ struct CellTypes
 		HANDLE_CELL_TYPE(le)
 		HANDLE_CELL_TYPE(eq)
 		HANDLE_CELL_TYPE(ne)
+		HANDLE_CELL_TYPE(eqx)
+		HANDLE_CELL_TYPE(nex)
 		HANDLE_CELL_TYPE(ge)
 		HANDLE_CELL_TYPE(gt)
 		HANDLE_CELL_TYPE(add)
@@ -246,6 +251,7 @@ struct CellTypes
 		HANDLE_CELL_TYPE(mod)
 		HANDLE_CELL_TYPE(pow)
 		HANDLE_CELL_TYPE(pos)
+		HANDLE_CELL_TYPE(bu0)
 		HANDLE_CELL_TYPE(neg)
 #undef HANDLE_CELL_TYPE
 

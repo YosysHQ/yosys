@@ -117,7 +117,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %left '|' OP_NOR
 %left '^' OP_XNOR
 %left '&' OP_NAND
-%left OP_EQ OP_NE
+%left OP_EQ OP_NE OP_EQX OP_NEX
 %left '<' OP_LE OP_GE '>'
 %left OP_SHL OP_SHR OP_SSHL OP_SSHR
 %left '+' '-'
@@ -1159,6 +1159,14 @@ basic_expr:
 	} |
 	basic_expr OP_NE attr basic_expr {
 		$$ = new AstNode(AST_NE, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_EQX attr basic_expr {
+		$$ = new AstNode(AST_EQX, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_NEX attr basic_expr {
+		$$ = new AstNode(AST_NEX, $1, $4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_GE attr basic_expr {

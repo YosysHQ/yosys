@@ -22,29 +22,35 @@
 #include <stdio.h>
 #include <string.h>
 
-static bool read_next_line(char *buffer, int &line_count, FILE *f)
+static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, FILE *f)
 {
+	int buffer_len = 0;
 	buffer[0] = 0;
 
 	while (1)
 	{
-		int buffer_len = strlen(buffer);
+		buffer_len += strlen(buffer + buffer_len);
 		while (buffer_len > 0 && (buffer[buffer_len-1] == ' ' || buffer[buffer_len-1] == '\t' ||
 				buffer[buffer_len-1] == '\r' || buffer[buffer_len-1] == '\n'))
 			buffer[--buffer_len] = 0;
+
+		if (buffer_size-buffer_len < 4096) {
+			buffer_size *= 2;
+			buffer = (char*)realloc(buffer, buffer_size);
+		}
 
 		if (buffer_len == 0 || buffer[buffer_len-1] == '\\') {
 			if (buffer[buffer_len-1] == '\\')
 				buffer[--buffer_len] = 0;
 			line_count++;
-			if (fgets(buffer+buffer_len, 4096-buffer_len, f) == NULL)
+			if (fgets(buffer+buffer_len, buffer_size-buffer_len, f) == NULL)
 				return false;
 		} else
 			return true;
 	}
 }
 
-RTLIL::Design *abc_parse_blif(FILE *f)
+RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 {
 	RTLIL::Design *design = new RTLIL::Design;
 	RTLIL::Module *module = new RTLIL::Module;
@@ -56,12 +62,13 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 	module->name = "\\netlist";
 	design->modules[module->name] = module;
 
-	char buffer[4096];
+	size_t buffer_size = 4096;
+	char *buffer = (char*)malloc(buffer_size);
 	int line_count = 0;
 
 	while (1)
 	{
-		if (!read_next_line(buffer, line_count, f))
+		if (!read_next_line(buffer, buffer_size, line_count, f))
 			goto error;
 
 	continue_without_read:
@@ -83,8 +90,10 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 			if (!strcmp(cmd, ".model"))
 				continue;
 
-			if (!strcmp(cmd, ".end"))
+			if (!strcmp(cmd, ".end")) {
+				free(buffer);
 				return design;
+			}
 
 			if (!strcmp(cmd, ".inputs") || !strcmp(cmd, ".outputs")) {
 				char *p;
@@ -97,6 +106,58 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 					else
 						wire->port_output = true;
 					module->add(wire);
+				}
+				continue;
+			}
+
+			if (!strcmp(cmd, ".latch"))
+			{
+				char *d = strtok(NULL, " \t\r\n");
+				char *q = strtok(NULL, " \t\r\n");
+
+				if (module->wires.count(RTLIL::escape_id(d)) == 0) {
+					RTLIL::Wire *wire = new RTLIL::Wire;
+					wire->name = RTLIL::escape_id(d);
+					module->add(wire);
+				}
+
+				if (module->wires.count(RTLIL::escape_id(q)) == 0) {
+					RTLIL::Wire *wire = new RTLIL::Wire;
+					wire->name = RTLIL::escape_id(q);
+					module->add(wire);
+				}
+
+				RTLIL::Cell *cell = new RTLIL::Cell;
+				cell->name = NEW_ID;
+				cell->type = dff_name;
+				cell->connections["\\D"] = module->wires.at(RTLIL::escape_id(d));
+				cell->connections["\\Q"] = module->wires.at(RTLIL::escape_id(q));
+				module->add(cell);
+				continue;
+			}
+
+			if (!strcmp(cmd, ".gate"))
+			{
+				RTLIL::Cell *cell = new RTLIL::Cell;
+				cell->name = NEW_ID;
+				module->add(cell);
+
+				char *p = strtok(NULL, " \t\r\n");
+				if (p == NULL)
+					goto error;
+				cell->type = RTLIL::escape_id(p);
+
+				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
+					char *q = strchr(p, '=');
+					if (q == NULL || !q[0] || !q[1])
+						goto error;
+					*(q++) = 0;
+					if (module->wires.count(RTLIL::escape_id(q)) == 0) {
+						RTLIL::Wire *wire = new RTLIL::Wire;
+						wire->name = RTLIL::escape_id(q);
+						module->add(wire);
+					}
+					cell->connections[RTLIL::escape_id(p)] = module->wires.at(RTLIL::escape_id(q));
 				}
 				continue;
 			}
@@ -122,7 +183,7 @@ RTLIL::Design *abc_parse_blif(FILE *f)
 				if (input_sig.width == 0) {
 					RTLIL::State state = RTLIL::State::Sa;
 					while (1) {
-						if (!read_next_line(buffer, line_count, f))
+						if (!read_next_line(buffer, buffer_size, line_count, f))
 							goto error;
 						for (int i = 0; buffer[i]; i++) {
 							if (buffer[i] == ' ' || buffer[i] == '\t')

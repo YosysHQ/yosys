@@ -499,6 +499,8 @@ struct ExtractPass : public Pass {
 			solver.addSwappablePorts("$xnor",      "\\A", "\\B");
 			solver.addSwappablePorts("$eq",        "\\A", "\\B");
 			solver.addSwappablePorts("$ne",        "\\A", "\\B");
+			solver.addSwappablePorts("$eqx",       "\\A", "\\B");
+			solver.addSwappablePorts("$nex",       "\\A", "\\B");
 			solver.addSwappablePorts("$add",       "\\A", "\\B");
 			solver.addSwappablePorts("$mul",       "\\A", "\\B");
 			solver.addSwappablePorts("$logic_and", "\\A", "\\B");

@@ -93,4 +93,58 @@ struct PerformanceTimer
 #endif
 };
 
+// simple API for quickly dumping values when debugging
+
+static inline void log_dump_val_worker(int v) { log("%d", v); }
+static inline void log_dump_val_worker(size_t v) { log("%zd", v); }
+static inline void log_dump_val_worker(long int v) { log("%ld", v); }
+static inline void log_dump_val_worker(long long int v) { log("%lld", v); }
+static inline void log_dump_val_worker(char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
+static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false"); }
+static inline void log_dump_val_worker(double v) { log("%f", v); }
+static inline void log_dump_val_worker(const char *v) { log("%s", v); }
+static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
+static inline void log_dump_val_worker(RTLIL::SigSpec v) { log("%s", log_signal(v)); }
+static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
+
+template <typename T, typename ... Args>
+void log_dump_args_worker(const char *p, T first, Args ... args)
+{
+	int next_p_state = 0;
+	const char *next_p = p;
+	while (*next_p && (next_p_state != 0 || *next_p != ',')) {
+		if (*next_p == '"')
+			do {
+				next_p++;
+				while (*next_p == '\\' && *(next_p + 1))
+					next_p += 2;
+			} while (*next_p && *next_p != '"');
+		if (*next_p == '\'') {
+			next_p++;
+			if (*next_p == '\\')
+				next_p++;
+			if (*next_p)
+				next_p++;
+		}
+		if (*next_p == '(' || *next_p == '[' || *next_p == '{')
+			next_p_state++;
+		if ((*next_p == ')' || *next_p == ']' || *next_p == '}') && next_p_state > 0)
+			next_p_state--;
+		next_p++;
+	}
+	log("\n\t%.*s => ", int(next_p - p), p);
+	if (*next_p == ',')
+		next_p++;
+	while (*next_p == ' ' || *next_p == '\t' || *next_p == '\r' || *next_p == '\n')
+		next_p++;
+	log_dump_val_worker(first);
+	log_dump_args_worker(next_p, args ...);
+}
+
+#define log_dump(...) do { \
+	log("DEBUG DUMP IN %s AT %s:%d:", __PRETTY_FUNCTION__, __FILE__, __LINE__); \
+	log_dump_args_worker(#__VA_ARGS__, __VA_ARGS__); \
+	log("\n"); \
+} while (0)
+
 #endif

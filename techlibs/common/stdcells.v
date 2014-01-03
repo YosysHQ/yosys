@@ -44,6 +44,12 @@ endmodule
 
 // --------------------------------------------------------
 
+(* techmap_simplemap *)
+module \$bu0 ;
+endmodule
+
+// --------------------------------------------------------
+
 module \$neg (A, Y);
 
 parameter A_SIGNED = 0;
@@ -108,7 +114,6 @@ endmodule
 (* techmap_simplemap *)
 module \$reduce_xor ;
 endmodule
-
 
 // --------------------------------------------------------
 
@@ -212,7 +217,7 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
+localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -265,7 +270,7 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = Y_WIDTH;
+localparam WIDTH = Y_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -318,7 +323,7 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
+localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -381,11 +386,11 @@ output X, Y;
 // {t1, t2} = A + B
 wire t1, t2, t3;
 
- \$_AND_ gate1 ( .A(A),  .B(B),  .Y(t1) );
- \$_XOR_ gate2 ( .A(A),  .B(B),  .Y(t2) );
- \$_AND_ gate3 ( .A(t2), .B(C),  .Y(t3) ); 
- \$_XOR_ gate4 ( .A(t2), .B(C),  .Y(Y)  );
- \$_OR_  gate5 ( .A(t1), .B(t3), .Y(X)  );
+\$_AND_ gate1 ( .A(A),  .B(B),  .Y(t1) );
+\$_XOR_ gate2 ( .A(A),  .B(B),  .Y(t2) );
+\$_AND_ gate3 ( .A(t2), .B(C),  .Y(t3) ); 
+\$_XOR_ gate4 ( .A(t2), .B(C),  .Y(Y)  );
+\$_OR_  gate5 ( .A(t1), .B(t3), .Y(X)  );
 
 endmodule
 
@@ -432,7 +437,7 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
+localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -440,8 +445,8 @@ output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 \$__alu #(
 	.WIDTH(WIDTH)
@@ -481,7 +486,7 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
+localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -489,8 +494,8 @@ output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 \$__alu #(
 	.WIDTH(WIDTH)
@@ -530,7 +535,7 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
+localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -538,8 +543,8 @@ output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$bu0 #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$bu0 #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 assign Y = ~|(A_buf ^ B_buf);
 
@@ -555,7 +560,7 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
+localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -563,8 +568,58 @@ output [Y_WIDTH-1:0] Y;
 
 wire carry, carry_sign;
 wire [WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$bu0 #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$bu0 #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+
+assign Y = |(A_buf ^ B_buf);
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$eqx (A, B, Y);
+
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 1;
+parameter B_WIDTH = 1;
+parameter Y_WIDTH = 1;
+
+localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
+
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
+output [Y_WIDTH-1:0] Y;
+
+wire carry, carry_sign;
+wire [WIDTH-1:0] A_buf, B_buf;
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+
+assign Y = ~|(A_buf ^ B_buf);
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$nex (A, B, Y);
+
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 1;
+parameter B_WIDTH = 1;
+parameter Y_WIDTH = 1;
+
+localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
+
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
+output [Y_WIDTH-1:0] Y;
+
+wire carry, carry_sign;
+wire [WIDTH-1:0] A_buf, B_buf;
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 assign Y = |(A_buf ^ B_buf);
 
@@ -641,8 +696,8 @@ input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
 wire [Y_WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 \$__alu #(
 	.WIDTH(Y_WIDTH)
@@ -670,8 +725,8 @@ input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
 wire [Y_WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 \$__alu #(
 	.WIDTH(Y_WIDTH)
@@ -719,8 +774,8 @@ input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
 wire [Y_WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 \$__arraymul #(
 	.WIDTH(Y_WIDTH)
@@ -781,12 +836,12 @@ input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y, R;
 
 wire [WIDTH-1:0] A_buf, B_buf;
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-\$pos #(.A_SIGNED(A_SIGNED && B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 wire [WIDTH-1:0] A_buf_u, B_buf_u, Y_u, R_u;
-assign A_buf_u = A_SIGNED && B_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
-assign B_buf_u = A_SIGNED && B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
+assign A_buf_u = A_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
+assign B_buf_u = B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
 
 \$__div_mod_u #(
 	.WIDTH(WIDTH)
@@ -816,9 +871,6 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-wire [Y_WIDTH-1:0] Y_buf;
-wire [Y_WIDTH-1:0] Y_div_zero;
-
 \$__div_mod #(
 	.A_SIGNED(A_SIGNED),
 	.B_SIGNED(B_SIGNED),
@@ -828,19 +880,8 @@ wire [Y_WIDTH-1:0] Y_div_zero;
 ) div_mod (
 	.A(A),
 	.B(B),
-	.Y(Y_buf)
+	.Y(Y)
 );
-
-// explicitly force the division-by-zero behavior found in other synthesis tools 
-generate begin
-	if (A_SIGNED && B_SIGNED) begin:make_div_zero
-		assign Y_div_zero = A[A_WIDTH-1] ? {Y_WIDTH{1'b0}} | 1'b1 : {Y_WIDTH{1'b1}};
-	end else begin:make_div_zero
-		assign Y_div_zero = {A_WIDTH{1'b1}};
-	end
-end endgenerate
-
-assign Y = B ? Y_buf : Y_div_zero;
 
 endmodule
 
@@ -858,9 +899,6 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-wire [Y_WIDTH-1:0] Y_buf;
-wire [Y_WIDTH-1:0] Y_div_zero;
-
 \$__div_mod #(
 	.A_SIGNED(A_SIGNED),
 	.B_SIGNED(B_SIGNED),
@@ -870,20 +908,8 @@ wire [Y_WIDTH-1:0] Y_div_zero;
 ) div_mod (
 	.A(A),
 	.B(B),
-	.R(Y_buf)
+	.R(Y)
 );
-
-// explicitly force the division-by-zero behavior found in other synthesis tools 
-localparam div_zero_copy_a_bits = A_WIDTH < B_WIDTH ? A_WIDTH : B_WIDTH;
-generate begin
-	if (A_SIGNED && B_SIGNED) begin:make_div_zero
-		assign Y_div_zero = $signed(A[div_zero_copy_a_bits-1:0]);
-	end else begin:make_div_zero
-		assign Y_div_zero = $unsigned(A[div_zero_copy_a_bits-1:0]);
-	end
-end endgenerate
-
-assign Y = B ? Y_buf : Y_div_zero;
 
 endmodule
 

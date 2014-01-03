@@ -402,7 +402,7 @@ struct DumpPass : public Pass {
 		log("ilang format.\n");
 		log("\n");
 		log("    -m\n");
-		log("        also dump the module headers, even if only parts of a single");
+		log("        also dump the module headers, even if only parts of a single\n");
 		log("        module is selected\n");
 		log("\n");
 		log("    -n\n");

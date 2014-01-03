@@ -69,17 +69,30 @@ struct RenamePass : public Pass {
 		log("Assign short auto-generated names to all selected wires and cells with private\n");
 		log("names.\n");
 		log("\n");
+		log("    rename -hide [selection]\n");
+		log("\n");
+		log("Assign private names (the ones with $-prefix) to all selected wires and cells\n");
+		log("with public names. This ignores all selected ports.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_enumerate = false;
+		bool flag_hide = false;
+		bool got_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			if (arg == "-enumerate") {
+			if (arg == "-enumerate" && !got_mode) {
 				flag_enumerate = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-hide" && !got_mode) {
+				flag_hide = true;
+				got_mode = true;
 				continue;
 			}
 			break;
@@ -111,6 +124,36 @@ struct RenamePass : public Pass {
 					if (it.first[0] == '$' && design->selected(module, it.second))
 						do it.second->name = stringf("\\_%d_", counter++);
 						while (module->count_id(it.second->name) > 0);
+					new_cells[it.second->name] = it.second;
+				}
+				module->cells.swap(new_cells);
+			}
+		}
+		else
+		if (flag_hide)
+		{
+			extra_args(args, argidx, design);
+
+			for (auto &mod : design->modules)
+			{
+				RTLIL::Module *module = mod.second;
+				if (!design->selected(module))
+					continue;
+
+				std::map<RTLIL::IdString, RTLIL::Wire*> new_wires;
+				for (auto &it : module->wires) {
+					if (design->selected(module, it.second))
+						if (it.first[0] == '\\' && it.second->port_id == 0)
+							it.second->name = NEW_ID;
+					new_wires[it.second->name] = it.second;
+				}
+				module->wires.swap(new_wires);
+
+				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
+				for (auto &it : module->cells) {
+					if (design->selected(module, it.second))
+						if (it.first[0] == '\\')
+							it.second->name = NEW_ID;
 					new_cells[it.second->name] = it.second;
 				}
 				module->cells.swap(new_cells);

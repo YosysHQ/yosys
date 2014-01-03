@@ -21,6 +21,10 @@
 // Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
 // http://www.eecs.berkeley.edu/~alanmi/abc/
 
+// [[CITE]] Berkeley Logic Interchange Format (BLIF)
+// University of California. Berkeley. July 28, 1992
+// http://www.ece.cmu.edu/~ee760/760docs/blif.pdf
+
 // [[CITE]] Kahn's Topological sorting algorithm
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
@@ -36,7 +40,6 @@
 #include <dirent.h>
 #include <sstream>
 
-#include "vlparse.h"
 #include "blifparse.h"
 
 struct gate_t
@@ -53,6 +56,9 @@ static SigMap assign_map;
 static RTLIL::Module *module;
 static std::vector<gate_t> signal_list;
 static std::map<RTLIL::SigSpec, int> signal_map;
+
+static bool clk_polarity;
+static RTLIL::SigSpec clk_sig;
 
 static int map_signal(RTLIL::SigSpec sig, char gate_type = -1, int in1 = -1, int in2 = -1, int in3 = -1)
 {
@@ -100,6 +106,26 @@ static void mark_port(RTLIL::SigSpec sig)
 
 static void extract_cell(RTLIL::Cell *cell)
 {
+	if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+	{
+		if (clk_polarity != (cell->type == "$_DFF_P_"))
+			return;
+		if (clk_sig != assign_map(cell->connections["\\C"]))
+			return;
+
+		RTLIL::SigSpec sig_d = cell->connections["\\D"];
+		RTLIL::SigSpec sig_q = cell->connections["\\Q"];
+
+		assign_map.apply(sig_d);
+		assign_map.apply(sig_q);
+
+		map_signal(sig_q, 'f', map_signal(sig_d));
+
+		module->cells.erase(cell->name);
+		delete cell;
+		return;
+	}
+
 	if (cell->type == "$_INV_")
 	{
 		RTLIL::SigSpec sig_a = cell->connections["\\A"];
@@ -135,7 +161,7 @@ static void extract_cell(RTLIL::Cell *cell)
 		else if (cell->type == "$_XOR_")
 			map_signal(sig_y, 'x', mapped_a, mapped_b);
 		else
-			abort();
+			log_abort();
 
 		module->cells.erase(cell->name);
 		delete cell;
@@ -217,20 +243,21 @@ static void handle_loops()
 	// dot_f = fopen("test.dot", "w");
 
 	for (auto &g : signal_list) {
-		if (g.type == -1) {
+		if (g.type == -1 || g.type == 'f') {
 			workpool.insert(g.id);
-		}
-		if (g.in1 >= 0) {
-			edges[g.in1].insert(g.id);
-			in_edges_count[g.id]++;
-		}
-		if (g.in2 >= 0 && g.in2 != g.in1) {
-			edges[g.in2].insert(g.id);
-			in_edges_count[g.id]++;
-		}
-		if (g.in3 >= 0 && g.in3 != g.in2 && g.in3 != g.in1) {
-			edges[g.in3].insert(g.id);
-			in_edges_count[g.id]++;
+		} else {
+			if (g.in1 >= 0) {
+				edges[g.in1].insert(g.id);
+				in_edges_count[g.id]++;
+			}
+			if (g.in2 >= 0 && g.in2 != g.in1) {
+				edges[g.in2].insert(g.id);
+				in_edges_count[g.id]++;
+			}
+			if (g.in3 >= 0 && g.in3 != g.in2 && g.in3 != g.in1) {
+				edges[g.in3].insert(g.id);
+				in_edges_count[g.id]++;
+			}
 		}
 	}
 
@@ -327,7 +354,8 @@ static void handle_loops()
 		fclose(dot_f);
 }
 
-static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode)
+static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
+		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str)
 {
 	module = current_module;
 	map_autoidx = RTLIL::autoidx++;
@@ -336,13 +364,55 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	signal_list.clear();
 	assign_map.set(module);
 
+	clk_polarity = true;
+	clk_sig = RTLIL::SigSpec();
+
 	char tempdir_name[] = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	char *p = mkdtemp(tempdir_name);
-	log_header("Extracting gate netlist of module `%s' to `%s/input.v'..\n", module->name.c_str(), tempdir_name);
+	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n", module->name.c_str(), tempdir_name);
 	if (p == NULL)
 		log_error("For some reason mkdtemp() failed!\n");
+
+	if (clk_str.empty()) {
+		if (clk_str[0] == '!') {
+			clk_polarity = false;
+			clk_str = clk_str.substr(1);
+		}
+		if (module->wires.count(RTLIL::escape_id(clk_str)) != 0)
+			clk_sig = assign_map(RTLIL::SigSpec(module->wires.at(RTLIL::escape_id(clk_str)), 1));
+	}
+
+	if (dff_mode && clk_sig.width == 0)
+	{
+		int best_dff_counter = 0;
+		std::map<std::pair<bool, RTLIL::SigSpec>, int> dff_counters;
+
+		for (auto &it : module->cells)
+		{
+			RTLIL::Cell *cell = it.second;
+			if (cell->type != "$_DFF_N_" && cell->type != "$_DFF_P_")
+				continue;
+
+			std::pair<bool, RTLIL::SigSpec> key(cell->type == "$_DFF_P_", assign_map(cell->connections.at("\\C")));
+			if (++dff_counters[key] > best_dff_counter) {
+				best_dff_counter = dff_counters[key];
+				clk_polarity = key.first;
+				clk_sig = key.second;
+			}
+		}
+	}
+
+	if (dff_mode || !clk_str.empty()) {
+		if (clk_sig.width == 0)
+			log("No (matching) clock domain found. Not extracting any FF cells.\n");
+		else
+			log("Found (matching) %s clock domain: %s\n", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+	}
+
+	if (clk_sig.width != 0)
+		mark_port(clk_sig);
 
 	std::vector<RTLIL::Cell*> cells;
 	cells.reserve(module->cells.size());
@@ -363,60 +433,75 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	
 	handle_loops();
 
-	if (asprintf(&p, "%s/input.v", tempdir_name) < 0) abort();
+	if (asprintf(&p, "%s/input.blif", tempdir_name) < 0) log_abort();
 	FILE *f = fopen(p, "wt");
 	if (f == NULL)
 		log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
 	free(p);
 
-	fprintf(f, "module netlist (");
-	bool first = true;
-	for (auto &si : signal_list) {
-		if (!si.is_port)
-			continue;
-		if (!first)
-			fprintf(f, ", ");
-		fprintf(f, "n%d", si.id);
-		first = false;
-	}
-	fprintf(f, "); // %s\n", module->name.c_str());
+	fprintf(f, ".model netlist\n");
 
-	int count_input = 0, count_output = 0;
+	int count_input = 0;
+	fprintf(f, ".inputs");
 	for (auto &si : signal_list) {
-		if (si.is_port) {
-			if (si.type >= 0)
-				count_output++;
-			else
-				count_input++;
-		}
-		fprintf(f, "%s n%d; // %s\n", si.is_port ? si.type >= 0 ?
-				"output" : "input" : "wire", si.id, log_signal(si.sig));
+		if (!si.is_port || si.type >= 0)
+			continue;
+		fprintf(f, " n%d", si.id);
+		count_input++;
 	}
+	fprintf(f, "\n");
+
+	int count_output = 0;
+	fprintf(f, ".outputs");
+	for (auto &si : signal_list) {
+		if (!si.is_port || si.type < 0)
+			continue;
+		fprintf(f, " n%d", si.id);
+		count_output++;
+	}
+	fprintf(f, "\n");
+
+	for (auto &si : signal_list)
+		fprintf(f, "# n%-5d %s\n", si.id, log_signal(si.sig));
+
 	for (auto &si : signal_list) {
 		assert(si.sig.width == 1 && si.sig.chunks.size() == 1);
-		if (si.sig.chunks[0].wire == NULL)
-			fprintf(f, "assign n%d = %c;\n", si.id, si.sig.chunks[0].data.bits[0] == RTLIL::State::S1 ? '1' : '0');
+		if (si.sig.chunks[0].wire == NULL) {
+			fprintf(f, ".names n%d\n", si.id);
+			if (si.sig.chunks[0].data.bits[0] == RTLIL::State::S1)
+				fprintf(f, "1\n");
+		}
 	}
 
 	int count_gates = 0;
 	for (auto &si : signal_list) {
-		if (si.type == 'n')
-			fprintf(f, "not (n%d, n%d);\n", si.id, si.in1);
-		else if (si.type == 'a')
-			fprintf(f, "and (n%d, n%d, n%d);\n", si.id, si.in1, si.in2);
-		else if (si.type == 'o')
-			fprintf(f, "or (n%d, n%d, n%d);\n", si.id, si.in1, si.in2);
-		else if (si.type == 'x')
-			fprintf(f, "xor (n%d, n%d, n%d);\n", si.id, si.in1, si.in2);
-		else if (si.type == 'm')
-			fprintf(f, "assign n%d = n%d ? n%d : n%d;\n", si.id, si.in3, si.in2, si.in1);
-		else if (si.type >= 0)
-			abort();
+		if (si.type == 'n') {
+			fprintf(f, ".names n%d n%d\n", si.in1, si.id);
+			fprintf(f, "0 1\n");
+		} else if (si.type == 'a') {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "11 1\n");
+		} else if (si.type == 'o') {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "-1 1\n");
+			fprintf(f, "1- 1\n");
+		} else if (si.type == 'x') {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "01 1\n");
+			fprintf(f, "10 1\n");
+		} else if (si.type == 'm') {
+			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, "1-0 1\n");
+			fprintf(f, "-11 1\n");
+		} else if (si.type == 'f') {
+			fprintf(f, ".latch n%d n%d\n", si.in1, si.id);
+		} else if (si.type >= 0)
+			log_abort();
 		if (si.type >= 0)
 			count_gates++;
 	}
 
-	fprintf(f, "endmodule\n");
+	fprintf(f, ".end\n");
 	fclose(f);
 
 	log("Extracted %d gates and %zd wires to a netlist network with %d inputs and %d outputs.\n",
@@ -427,7 +512,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	{
 		log_header("Executing ABC.\n");
 
-		if (asprintf(&p, "%s/stdcells.genlib", tempdir_name) < 0) abort();
+		if (asprintf(&p, "%s/stdcells.genlib", tempdir_name) < 0) log_abort();
 		f = fopen(p, "wt");
 		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
@@ -443,7 +528,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		free(p);
 
 		if (lut_mode) {
-			if (asprintf(&p, "%s/lutdefs.txt", tempdir_name) < 0) abort();
+			if (asprintf(&p, "%s/lutdefs.txt", tempdir_name) < 0) log_abort();
 			f = fopen(p, "wt");
 			if (f == NULL)
 				log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
@@ -457,7 +542,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		int buffer_pos = 0;
 		if (!liberty_file.empty()) {
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_lib %s; ",
+					"%s -s -c 'read_blif %s/input.blif; read_lib %s; ",
 					exe_file.c_str(), tempdir_name, liberty_file.c_str());
 			if (!constr_file.empty())
 				buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
@@ -470,21 +555,18 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		} else
 		if (!script_file.empty())
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; source %s; ",
+					"%s -s -c 'read_blif %s/input.blif; source %s; ",
 					exe_file.c_str(), tempdir_name, script_file.c_str());
 		else
 		if (lut_mode)
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_lut %s/lutdefs.txt; strash; balance; dch; if; ",
+					"%s -s -c 'read_blif %s/input.blif; read_lut %s/lutdefs.txt; strash; balance; dch; if; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
 		else
 			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_verilog %s/input.v; read_library %s/stdcells.genlib; strash; balance; dch; map; ",
+					"%s -s -c 'read_blif %s/input.blif; read_library %s/stdcells.genlib; strash; balance; dch; map; ",
 					exe_file.c_str(), tempdir_name, tempdir_name);
-		if (lut_mode)
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
-		else                                                             
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_verilog %s/output.v' 2>&1", tempdir_name);
+		buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
 
 		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
 		f = popen(buffer, "r");
@@ -504,16 +586,14 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			}
 		}
 
-		if (asprintf(&p, "%s/%s", tempdir_name, lut_mode ? "output.blif" : "output.v") < 0) abort();
+		if (asprintf(&p, "%s/%s", tempdir_name, "output.blif") < 0) log_abort();
 		f = fopen(p, "rt");
 		if (f == NULL)
 			log_error("Can't open ABC output file `%s'.\n", p);
-#if 0
-		RTLIL::Design *mapped_design = new RTLIL::Design;
-		frontend_register["verilog"]->execute(f, p, std::vector<std::string>(), mapped_design);
-#else
-		RTLIL::Design *mapped_design = lut_mode ? abc_parse_blif(f) : abc_parse_verilog(f);
-#endif
+
+		bool builtin_lib = liberty_file.empty() && script_file.empty() && !lut_mode;
+		RTLIL::Design *mapped_design = abc_parse_blif(f, builtin_lib ? "\\DFF" : "\\_dff_");
+
 		fclose(f);
 		free(p);
 
@@ -530,11 +610,11 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		}
 
 		std::map<std::string, int> cell_stats;
-		if (liberty_file.empty() && script_file.empty() && !lut_mode)
+		if (builtin_lib)
 		{
 			for (auto &it : mapped_mod->cells) {
 				RTLIL::Cell *c = it.second;
-				cell_stats[c->type.substr(1)]++;
+				cell_stats[RTLIL::unescape_id(c->type)]++;
 				if (c->type == "\\ZERO" || c->type == "\\ONE") {
 					RTLIL::SigSig conn;
 					conn.first = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].chunks[0].wire->name)]);
@@ -582,19 +662,44 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					design->select(module, cell);
 					continue;
 				}
-				assert(0);
+				if (c->type == "\\DFF") {
+					log_assert(clk_sig.width == 1);
+					RTLIL::Cell *cell = new RTLIL::Cell;
+					cell->type = clk_polarity ? "$_DFF_P_" : "$_DFF_N_";
+					cell->name = remap_name(c->name);
+					cell->connections["\\D"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\D"].chunks[0].wire->name)]);
+					cell->connections["\\Q"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Q"].chunks[0].wire->name)]);
+					cell->connections["\\C"] = clk_sig;
+					module->cells[cell->name] = cell;
+					design->select(module, cell);
+					continue;
+				}
+				log_abort();
 			}
 		}
 		else
 		{
-			for (auto &it : mapped_mod->cells) {
+			for (auto &it : mapped_mod->cells)
+			{
 				RTLIL::Cell *c = it.second;
-				cell_stats[c->type.substr(1)]++;
-				if (c->type == "$_const0_" || c->type == "$_const1_") {
+				cell_stats[RTLIL::unescape_id(c->type)]++;
+				if (c->type == "\\_const0_" || c->type == "\\_const1_") {
 					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].chunks[0].wire->name)]);
-					conn.second = RTLIL::SigSpec(c->type == "$_const0_" ? 0 : 1, 1);
+					conn.first = RTLIL::SigSpec(module->wires[remap_name(c->connections.begin()->second.chunks[0].wire->name)]);
+					conn.second = RTLIL::SigSpec(c->type == "\\_const0_" ? 0 : 1, 1);
 					module->connections.push_back(conn);
+					continue;
+				}
+				if (c->type == "\\_dff_") {
+					log_assert(clk_sig.width == 1);
+					RTLIL::Cell *cell = new RTLIL::Cell;
+					cell->type = clk_polarity ? "$_DFF_P_" : "$_DFF_N_";
+					cell->name = remap_name(c->name);
+					cell->connections["\\D"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\D"].chunks[0].wire->name)]);
+					cell->connections["\\Q"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Q"].chunks[0].wire->name)]);
+					cell->connections["\\C"] = clk_sig;
+					module->cells[cell->name] = cell;
+					design->select(module, cell);
 					continue;
 				}
 				RTLIL::Cell *cell = new RTLIL::Cell;
@@ -663,7 +768,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		assert(n >= 0);
 		for (int i = 0; i < n; i++) {
 			if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
-				if (asprintf(&p, "%s/%s", tempdir_name, namelist[i]->d_name) < 0) abort();
+				if (asprintf(&p, "%s/%s", tempdir_name, namelist[i]->d_name) < 0) log_abort();
 				log("Removing `%s'.\n", p);
 				remove(p);
 				free(p);
@@ -708,6 +813,16 @@ struct AbcPass : public Pass {
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
 		log("\n");
+		log("    -dff\n");
+		log("        also pass $_DFF_?_ cells through ABC (only one clock domain, if many\n");
+		log("        clock domains are present in a module, the one with the largest number\n");
+		log("        of $dff cells in it is used)\n");
+		log("\n");
+		log("    -clk [!]<signal-name>\n");
+		log("        use the specified clock domain. (when this option is used in combination\n");
+		log("        with -dff, then it falls back to the automatic dection of clock domain\n");
+		log("        if the specified clock is not found in a module.)\n");
+		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -724,8 +839,8 @@ struct AbcPass : public Pass {
 		log_push();
 
 		std::string exe_file = rewrite_yosys_exe("yosys-abc");
-		std::string script_file, liberty_file, constr_file;
-		bool cleanup = true;
+		std::string script_file, liberty_file, constr_file, clk_str;
+		bool dff_mode = false, cleanup = true;
 		int lut_mode = 0;
 
 		size_t argidx;
@@ -758,6 +873,14 @@ struct AbcPass : public Pass {
 				lut_mode = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (arg == "-dff") {
+				dff_mode = true;
+				continue;
+			}
+			if (arg == "-clk" && argidx+1 < args.size() && lut_mode == 0) {
+				clk_str = args[++argidx];
+				continue;
+			}
 			if (arg == "-nocleanup") {
 				cleanup = false;
 				continue;
@@ -772,7 +895,7 @@ struct AbcPass : public Pass {
 				if (mod_it.second->processes.size() > 0)
 					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 				else
-					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode);
+					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str);
 			}
 
 		assign_map.clear();

@@ -20,8 +20,18 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include <sstream>
+#include <algorithm>
 #include <stdlib.h>
 #include <assert.h>
+
+static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
+{
+	if (a->type == "$memrd" && b->type == "$memrd")
+		return a->name < b->name;
+	if (a->type == "$memrd" || b->type == "$memrd")
+		return (a->type == "$memrd") < (b->type == "$memrd");
+	return a->parameters.at("\\PRIORITY").as_int() < b->parameters.at("\\PRIORITY").as_int();
+}
 
 static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 {
@@ -48,11 +58,18 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	RTLIL::SigSpec sig_rd_data;
 
 	std::vector<std::string> del_cell_ids;
+	std::vector<RTLIL::Cell*> memcells;
 
-	for (auto &cell_it : module->cells)
-	{
+	for (auto &cell_it : module->cells) {
 		RTLIL::Cell *cell = cell_it.second;
+		if ((cell->type == "$memwr" || cell->type == "$memrd") && cell->parameters["\\MEMID"].decode_string() == memory->name)
+			memcells.push_back(cell);
+	}
 
+	std::sort(memcells.begin(), memcells.end(), memcells_cmp);
+
+	for (auto cell : memcells)
+	{
 		if (cell->type == "$memwr" && cell->parameters["\\MEMID"].decode_string() == memory->name)
 		{
 			wr_ports++;
