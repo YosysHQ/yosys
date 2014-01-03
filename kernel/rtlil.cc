@@ -1024,6 +1024,13 @@ void RTLIL::SigSpec::optimize()
 	check();
 }
 
+RTLIL::SigSpec RTLIL::SigSpec::optimized() const
+{
+	RTLIL::SigSpec ret = *this;
+	ret.optimize();
+	return ret;
+}
+
 bool RTLIL::SigChunk::compare(const RTLIL::SigChunk &a, const RTLIL::SigChunk &b)
 {
 	if (a.wire != b.wire) {

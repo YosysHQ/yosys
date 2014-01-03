@@ -373,6 +373,7 @@ struct RTLIL::SigSpec {
 	SigSpec(std::vector<RTLIL::SigBit> bits);
 	void expand();
 	void optimize();
+	RTLIL::SigSpec optimized() const;
 	void sort();
 	void sort_and_unify();
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
