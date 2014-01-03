@@ -441,8 +441,6 @@ struct FreduceWorker
 
 		int bits_count = 0;
 		std::map<std::vector<RTLIL::SigBit>, std::vector<RTLIL::SigBit>> buckets;
-		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S0));
-		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
 		for (auto &batch : batches)
 		{
 			for (auto &bit : batch)
@@ -463,6 +461,11 @@ struct FreduceWorker
 			}
 		}
 		log("  Sorted %d signal bits into %d buckets.\n", bits_count, int(buckets.size()));
+
+		if (buckets.count(std::vector<RTLIL::SigBit>()) != 0) {
+			buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S0));
+			buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
+		}
 
 		std::vector<std::vector<equiv_bit_t>> equiv;
 		for (auto &bucket : buckets)
