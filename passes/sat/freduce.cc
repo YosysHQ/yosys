@@ -75,10 +75,57 @@ struct FindReducedInputs
 	std::set<RTLIL::Cell*> ez_cells;
 	SatGen satgen;
 
+	std::map<RTLIL::SigBit, int> sat_pi;
+	std::vector<int> sat_pi_uniq_bitvec;
+
 	FindReducedInputs(SigMap &sigmap, drivers_t &drivers) :
 			sigmap(sigmap), drivers(drivers), satgen(&ez, &sigmap)
 	{
 		satgen.model_undef = true;
+	}
+
+	int get_bits(int val)
+	{
+		int bits = 0;
+		for (int i = 8*sizeof(int); val; i = i >> 1)
+			if (val >> (i-1)) {
+				bits += i;
+				val = val >> i;
+			}
+		return bits;
+	}
+
+	void register_pi_bit(RTLIL::SigBit bit)
+	{
+		if (sat_pi.count(bit) != 0)
+			return;
+
+		satgen.setContext(&sigmap, "A");
+		int sat_a = satgen.importSigSpec(bit).front();
+		ez.assume(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+
+		satgen.setContext(&sigmap, "B");
+		int sat_b = satgen.importSigSpec(bit).front();
+		ez.assume(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+
+		int idx = sat_pi.size();
+		size_t idx_bits = get_bits(idx);
+
+		if (sat_pi_uniq_bitvec.size() != idx_bits) {
+			sat_pi_uniq_bitvec.push_back(ez.literal(stringf("uniq_%d", int(idx_bits)-1)));
+			for (auto &it : sat_pi)
+				ez.assume(ez.OR(ez.NOT(it.second), ez.NOT(sat_pi_uniq_bitvec.back())));
+		}
+		log_assert(sat_pi_uniq_bitvec.size() == idx_bits);
+
+		sat_pi[bit] = ez.literal(stringf("pi_%s", log_signal(bit)));
+		ez.assume(ez.IFF(ez.XOR(sat_a, sat_b), sat_pi[bit]));
+
+		for (size_t i = 0; i < idx_bits; i++)
+			if ((idx & (1 << i)) == 0)
+				ez.assume(ez.OR(ez.NOT(sat_pi[bit]), ez.NOT(sat_pi_uniq_bitvec[i])));
+			else
+				ez.assume(ez.OR(ez.NOT(sat_pi[bit]), sat_pi_uniq_bitvec[i]));
 	}
 
 	void register_cone_worker(std::set<RTLIL::SigBit> &pi, std::set<RTLIL::SigBit> &sigdone, RTLIL::SigBit out)
@@ -102,8 +149,10 @@ struct FindReducedInputs
 			}
 			for (auto &bit : drv.second)
 				register_cone_worker(pi, sigdone, bit);
-		} else
+		} else {
+			register_pi_bit(out);
 			pi.insert(out);
+		}
 	}
 
 	void register_cone(std::vector<RTLIL::SigBit> &pi, RTLIL::SigBit out)
@@ -128,39 +177,45 @@ struct FindReducedInputs
 		satgen.setContext(&sigmap, "A");
 		int output_a = satgen.importSigSpec(output).front();
 		int output_undef_a = satgen.importUndefSigSpec(output).front();
-		ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, satgen.importUndefSigSpec(pi))));
 
 		satgen.setContext(&sigmap, "B");
 		int output_b = satgen.importSigSpec(output).front();
 		int output_undef_b = satgen.importUndefSigSpec(output).front();
-		ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, satgen.importUndefSigSpec(pi))));
+
+		std::set<int> unused_pi_idx;
 
 		for (size_t i = 0; i < pi.size(); i++)
+			unused_pi_idx.insert(i);
+
+		while (1)
 		{
-			RTLIL::SigSpec test_sig(pi[i]);
-			RTLIL::SigSpec rest_sig(pi);
-			rest_sig.remove(i, 1);
+			std::vector<int> model_pi_idx;
+			std::vector<int> model_expr;
+			std::vector<bool> model;
 
-			int test_sig_a, test_sig_b;
-			std::vector<int> rest_sig_a, rest_sig_b;
+			for (size_t i = 0; i < pi.size(); i++)
+				if (unused_pi_idx.count(i) != 0) {
+					model_pi_idx.push_back(i);
+					model_expr.push_back(sat_pi.at(pi[i]));
+				}
 
-			satgen.setContext(&sigmap, "A");
-			test_sig_a = satgen.importSigSpec(test_sig).front();
-			rest_sig_a = satgen.importSigSpec(rest_sig);
+			if (!ez.solve(model_expr, model, ez.expression(ezSAT::OpOr, model_expr), ez.XOR(output_a, output_b), ez.NOT(output_undef_a), ez.NOT(output_undef_b)))
+				break;
 
-			satgen.setContext(&sigmap, "B");
-			test_sig_b = satgen.importSigSpec(test_sig).front();
-			rest_sig_b = satgen.importSigSpec(rest_sig);
-
-			if (ez.solve(ez.vec_eq(rest_sig_a, rest_sig_b), ez.XOR(output_a, output_b), ez.XOR(test_sig_a, test_sig_b), ez.NOT(output_undef_a), ez.NOT(output_undef_b))) {
-				if (verbose_level >= 2)
-					log("         Result for input %s: pass\n", log_signal(test_sig));
-				reduced_inputs.push_back(pi[i]);
-			} else {
-				if (verbose_level >= 2)
-					log("         Result for input %s: strip\n", log_signal(test_sig));
-			}
+			int found_count = 0;
+			for (size_t i = 0; i < model_pi_idx.size(); i++)
+				if (model[i]) {
+					if (verbose_level >= 2)
+						log("         Found relevant input: %s\n", log_signal(pi[model_pi_idx[i]]));
+					unused_pi_idx.erase(model_pi_idx[i]);
+					found_count++;
+				}
+			log_assert(found_count == 1);
 		}
+
+		for (size_t i = 0; i < pi.size(); i++)
+			if (unused_pi_idx.count(i) == 0)
+				reduced_inputs.push_back(pi[i]);
 
 		if (verbose_level >= 1)
 			log("         Reduced input cone contains %d inputs.\n", int(reduced_inputs.size()));
