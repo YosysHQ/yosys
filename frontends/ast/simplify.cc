@@ -1065,7 +1065,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				AstNode *buf = children[0]->clone();
 				while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
-				if (!buf->type == AST_CONSTANT)
+				if (buf->type != AST_CONSTANT)
 					log_error("Failed to evaluate system function `%s' with non-constant value at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 
 				RTLIL::Const arg_value = buf->bitsAsConst();
