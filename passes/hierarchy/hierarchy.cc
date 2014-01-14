@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <fnmatch.h>
 #include <set>
+#include <unistd.h>
 
 namespace {
 	struct generate_port_decl_t {
