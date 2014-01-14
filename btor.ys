@@ -4,7 +4,8 @@
 #################
 #converting processes to cells
 proc; 
-opt;
+opt; opt_const -mux_undef; opt;
+rename -hide;;;
 #converting pmux to mux
 techmap -map techlibs/common/pmux2mux.v;
 opt;
@@ -12,9 +13,9 @@ opt;
 memory_dff; 
 opt;
 #flatten design
-flatten;
-opt;
-#adding temporary wires for cell ports
-scatter;
+flatten;;;
+#cell output to be a single wire
+splitnets -driver;
+opt;;;
 #writing btor
 write_btor design.btor;
