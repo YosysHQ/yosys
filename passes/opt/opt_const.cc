@@ -42,7 +42,7 @@ void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, st
 	did_something = true;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef)
 {
 	if (!design->selected(module))
 		return;
@@ -139,8 +139,16 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cell->connections.erase("\\S");
 				goto next_cell;
 			}
+			if (input.match("11 ")) ACTION_DO_Y(1);
+			if (input.match("00 ")) ACTION_DO_Y(0);
+			if (input.match("** ")) ACTION_DO_Y(x);
 			if (input.match("01*")) ACTION_DO_Y(x);
 			if (input.match("10*")) ACTION_DO_Y(x);
+			if (mux_undef) {
+				if (input.match("*  ")) ACTION_DO("\\Y", input.extract(1, 1));
+				if (input.match(" * ")) ACTION_DO("\\Y", input.extract(2, 1));
+				if (input.match("  *")) ACTION_DO("\\Y", input.extract(2, 1));
+			}
 		}
 
 		if (cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex")
@@ -213,6 +221,51 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					cell->connections.erase("\\B");
 				}
 				goto next_cell;
+			}
+		}
+
+		if (mux_undef && (cell->type == "$mux" || cell->type == "$pmux")) {
+			RTLIL::SigSpec new_a, new_b, new_s;
+			int width = cell->connections.at("\\A").width;
+			if ((cell->connections.at("\\A").is_fully_undef() && cell->connections.at("\\B").is_fully_undef()) ||
+					cell->connections.at("\\S").is_fully_undef()) {
+				replace_cell(module, cell, "mux undef", "\\Y", cell->connections.at("\\A"));
+				goto next_cell;
+			}
+			for (int i = 0; i < cell->connections.at("\\S").width; i++) {
+				RTLIL::SigSpec old_b = cell->connections.at("\\B").extract(i*width, width);
+				RTLIL::SigSpec old_s = cell->connections.at("\\S").extract(i, 1);
+				if (old_b.is_fully_undef() || old_s.is_fully_undef())
+					continue;
+				new_b.append(old_b);
+				new_s.append(old_s);
+			}
+			new_a = cell->connections.at("\\A");
+			if (new_a.is_fully_undef() && new_s.width > 0) {
+				new_a = new_b.extract((new_s.width-1)*width, width);
+				new_b = new_b.extract(0, (new_s.width-1)*width);
+				new_s = new_s.extract(0, new_s.width-1);
+			}
+			if (new_s.width == 0) {
+				replace_cell(module, cell, "mux undef", "\\Y", new_a);
+				goto next_cell;
+			}
+			if (new_a == RTLIL::SigSpec(RTLIL::State::S0) && new_b == RTLIL::SigSpec(RTLIL::State::S1)) {
+				replace_cell(module, cell, "mux undef", "\\Y", new_s);
+				goto next_cell;
+			}
+			if (cell->connections.at("\\S").width != new_s.width) {
+				cell->connections.at("\\A") = new_a;
+				cell->connections.at("\\B") = new_b;
+				cell->connections.at("\\S") = new_s;
+				if (new_s.width > 1) {
+					cell->type = "$pmux";
+					cell->parameters["\\S_WIDTH"] = new_s.width;
+				} else {
+					cell->type = "$mux";
+					cell->parameters.erase("\\S_WIDTH");
+				}
+				did_something = true;
 			}
 		}
 
@@ -312,25 +365,38 @@ struct OptConstPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_const [selection]\n");
+		log("    opt_const [options] [selection]\n");
 		log("\n");
 		log("This pass performs const folding on internal cell types with constant inputs.\n");
+		log("\n");
+		log("    -mux_undef\n");
+		log("        remove 'undef' inputs from $mux, $pmux and $_MUX_ cells\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool mux_undef = false;
+
 		log_header("Executing OPT_CONST pass (perform const folding).\n");
 		log_push();
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-mux_undef") {
+				mux_undef = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		for (auto &mod_it : design->modules)
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, mod_it.second, false);
+					replace_const_cells(design, mod_it.second, false, mux_undef);
 				} while (did_something);
-				replace_const_cells(design, mod_it.second, true);
+				replace_const_cells(design, mod_it.second, true, mux_undef);
 			} while (did_something);
 
 		log_pop();

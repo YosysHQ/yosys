@@ -52,6 +52,20 @@ struct equiv_bit_t
 	}
 };
 
+struct CountBitUsage
+{
+	SigMap &sigmap;
+	std::map<RTLIL::SigBit, int> &cache;
+
+	CountBitUsage(SigMap &sigmap, std::map<RTLIL::SigBit, int> &cache) : sigmap(sigmap), cache(cache) { }
+
+	void operator()(RTLIL::SigSpec &sig) {
+		std::vector<RTLIL::SigBit> vec = sigmap(sig).to_sigbit_vector();
+		for (auto &bit : vec)
+			cache[bit]++;
+	}
+};
+
 struct FindReducedInputs
 {
 	SigMap &sigmap;
@@ -61,10 +75,57 @@ struct FindReducedInputs
 	std::set<RTLIL::Cell*> ez_cells;
 	SatGen satgen;
 
+	std::map<RTLIL::SigBit, int> sat_pi;
+	std::vector<int> sat_pi_uniq_bitvec;
+
 	FindReducedInputs(SigMap &sigmap, drivers_t &drivers) :
 			sigmap(sigmap), drivers(drivers), satgen(&ez, &sigmap)
 	{
 		satgen.model_undef = true;
+	}
+
+	int get_bits(int val)
+	{
+		int bits = 0;
+		for (int i = 8*sizeof(int); val; i = i >> 1)
+			if (val >> (i-1)) {
+				bits += i;
+				val = val >> i;
+			}
+		return bits;
+	}
+
+	void register_pi_bit(RTLIL::SigBit bit)
+	{
+		if (sat_pi.count(bit) != 0)
+			return;
+
+		satgen.setContext(&sigmap, "A");
+		int sat_a = satgen.importSigSpec(bit).front();
+		ez.assume(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+
+		satgen.setContext(&sigmap, "B");
+		int sat_b = satgen.importSigSpec(bit).front();
+		ez.assume(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+
+		int idx = sat_pi.size();
+		size_t idx_bits = get_bits(idx);
+
+		if (sat_pi_uniq_bitvec.size() != idx_bits) {
+			sat_pi_uniq_bitvec.push_back(ez.literal(stringf("uniq_%d", int(idx_bits)-1)));
+			for (auto &it : sat_pi)
+				ez.assume(ez.OR(ez.NOT(it.second), ez.NOT(sat_pi_uniq_bitvec.back())));
+		}
+		log_assert(sat_pi_uniq_bitvec.size() == idx_bits);
+
+		sat_pi[bit] = ez.literal(stringf("pi_%s", log_signal(bit)));
+		ez.assume(ez.IFF(ez.XOR(sat_a, sat_b), sat_pi[bit]));
+
+		for (size_t i = 0; i < idx_bits; i++)
+			if ((idx & (1 << i)) == 0)
+				ez.assume(ez.OR(ez.NOT(sat_pi[bit]), ez.NOT(sat_pi_uniq_bitvec[i])));
+			else
+				ez.assume(ez.OR(ez.NOT(sat_pi[bit]), sat_pi_uniq_bitvec[i]));
 	}
 
 	void register_cone_worker(std::set<RTLIL::SigBit> &pi, std::set<RTLIL::SigBit> &sigdone, RTLIL::SigBit out)
@@ -88,8 +149,10 @@ struct FindReducedInputs
 			}
 			for (auto &bit : drv.second)
 				register_cone_worker(pi, sigdone, bit);
-		} else
+		} else {
+			register_pi_bit(out);
 			pi.insert(out);
+		}
 	}
 
 	void register_cone(std::vector<RTLIL::SigBit> &pi, RTLIL::SigBit out)
@@ -100,56 +163,62 @@ struct FindReducedInputs
 		pi.insert(pi.end(), pi_set.begin(), pi_set.end());
 	}
 
-	void analyze(std::vector<RTLIL::SigBit> &reduced_inputs, RTLIL::SigBit output)
+	void analyze(std::vector<RTLIL::SigBit> &reduced_inputs, RTLIL::SigBit output, int prec)
 	{
 		if (verbose_level >= 1)
-			log("    Analyzing input cone for signal %s:\n", log_signal(output));
+			log("[%2d%%]  Analyzing input cone for signal %s:\n", prec, log_signal(output));
 
 		std::vector<RTLIL::SigBit> pi;
 		register_cone(pi, output);
 
 		if (verbose_level >= 1)
-			log("      Found %d input signals and %d cells.\n", int(pi.size()), int(ez_cells.size()));
+			log("         Found %d input signals and %d cells.\n", int(pi.size()), int(ez_cells.size()));
 
 		satgen.setContext(&sigmap, "A");
 		int output_a = satgen.importSigSpec(output).front();
 		int output_undef_a = satgen.importUndefSigSpec(output).front();
-		ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, satgen.importUndefSigSpec(pi))));
 
 		satgen.setContext(&sigmap, "B");
 		int output_b = satgen.importSigSpec(output).front();
 		int output_undef_b = satgen.importUndefSigSpec(output).front();
-		ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, satgen.importUndefSigSpec(pi))));
+
+		std::set<int> unused_pi_idx;
 
 		for (size_t i = 0; i < pi.size(); i++)
+			unused_pi_idx.insert(i);
+
+		while (1)
 		{
-			RTLIL::SigSpec test_sig(pi[i]);
-			RTLIL::SigSpec rest_sig(pi);
-			rest_sig.remove(i, 1);
+			std::vector<int> model_pi_idx;
+			std::vector<int> model_expr;
+			std::vector<bool> model;
 
-			int test_sig_a, test_sig_b;
-			std::vector<int> rest_sig_a, rest_sig_b;
+			for (size_t i = 0; i < pi.size(); i++)
+				if (unused_pi_idx.count(i) != 0) {
+					model_pi_idx.push_back(i);
+					model_expr.push_back(sat_pi.at(pi[i]));
+				}
 
-			satgen.setContext(&sigmap, "A");
-			test_sig_a = satgen.importSigSpec(test_sig).front();
-			rest_sig_a = satgen.importSigSpec(rest_sig);
+			if (!ez.solve(model_expr, model, ez.expression(ezSAT::OpOr, model_expr), ez.XOR(output_a, output_b), ez.NOT(output_undef_a), ez.NOT(output_undef_b)))
+				break;
 
-			satgen.setContext(&sigmap, "B");
-			test_sig_b = satgen.importSigSpec(test_sig).front();
-			rest_sig_b = satgen.importSigSpec(rest_sig);
-
-			if (ez.solve(ez.vec_eq(rest_sig_a, rest_sig_b), ez.XOR(output_a, output_b), ez.XOR(test_sig_a, test_sig_b), ez.NOT(output_undef_a), ez.NOT(output_undef_b))) {
-				if (verbose_level >= 2)
-					log("      Result for input %s: pass\n", log_signal(test_sig));
-				reduced_inputs.push_back(pi[i]);
-			} else {
-				if (verbose_level >= 2)
-					log("      Result for input %s: strip\n", log_signal(test_sig));
-			}
+			int found_count = 0;
+			for (size_t i = 0; i < model_pi_idx.size(); i++)
+				if (model[i]) {
+					if (verbose_level >= 2)
+						log("         Found relevant input: %s\n", log_signal(pi[model_pi_idx[i]]));
+					unused_pi_idx.erase(model_pi_idx[i]);
+					found_count++;
+				}
+			log_assert(found_count == 1);
 		}
 
+		for (size_t i = 0; i < pi.size(); i++)
+			if (unused_pi_idx.count(i) == 0)
+				reduced_inputs.push_back(pi[i]);
+
 		if (verbose_level >= 1)
-			log("      Reduced input cone contains %d inputs.\n", int(reduced_inputs.size()));
+			log("         Reduced input cone contains %d inputs.\n", int(reduced_inputs.size()));
 	}
 };
 
@@ -166,6 +235,7 @@ struct PerformReduction
 	std::vector<RTLIL::SigBit> out_bits, pi_bits;
 	std::vector<bool> out_inverted;
 	std::vector<int> out_depth;
+	int cone_size;
 
 	int register_cone_worker(std::set<RTLIL::Cell*> &celldone, std::map<RTLIL::SigBit, int> &sigdepth, RTLIL::SigBit out)
 	{
@@ -195,8 +265,8 @@ struct PerformReduction
 		return sigdepth[out];
 	}
 
-	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits) :
-			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(&ez, &sigmap), out_bits(bits)
+	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits, int cone_size) :
+			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(&ez, &sigmap), out_bits(bits), cone_size(cone_size)
 	{
 		satgen.model_undef = true;
 
@@ -209,7 +279,7 @@ struct PerformReduction
 			sat_def.push_back(ez.NOT(satgen.importUndefSigSpec(bit).front()));
 		}
 
-		if (inv_mode) {
+		if (inv_mode && cone_size > 0) {
 			if (!ez.solve(sat_out, out_inverted, ez.expression(ezSAT::OpAnd, sat_def)))
 				log_error("Solving for initial model failed!\n");
 			for (size_t i = 0; i < sat_out.size(); i++)
@@ -219,25 +289,72 @@ struct PerformReduction
 			out_inverted = std::vector<bool>(sat_out.size(), false);
 	}
 
-	void analyze(std::vector<std::set<int>> &results, std::map<int, int> &results_map, std::vector<int> &bucket, int level)
+	void analyze_const(std::vector<std::vector<equiv_bit_t>> &results, int idx)
 	{
+		if (verbose_level == 1)
+			log("    Finding const value for %s.\n", log_signal(out_bits[idx]));
+
+		bool can_be_set = ez.solve(ez.AND(sat_out[idx], sat_def[idx]));
+		bool can_be_clr = ez.solve(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+		log_assert(!can_be_set || !can_be_clr);
+
+		RTLIL::SigBit value(RTLIL::State::Sx);
+		if (can_be_set)
+			value = RTLIL::State::S1;
+		if (can_be_clr)
+			value = RTLIL::State::S0;
+		if (verbose_level == 1)
+			log("      Constant value for this signal: %s\n", log_signal(value));
+
+		int result_idx = -1;
+		for (size_t i = 0; i < results.size(); i++) {
+			if (results[i].front().bit == value) {
+				result_idx = i;
+				break;
+			}
+		}
+
+		if (result_idx == -1) {
+			result_idx = results.size();
+			results.push_back(std::vector<equiv_bit_t>());
+			equiv_bit_t bit;
+			bit.depth = 0;
+			bit.inverted = false;
+			bit.drv = NULL;
+			bit.bit = value;
+			results.back().push_back(bit);
+		}
+
+		equiv_bit_t bit;
+		bit.depth = 1;
+		bit.inverted = false;
+		bit.drv = drivers.count(out_bits[idx]) ? drivers.at(out_bits[idx]).first : NULL;
+		bit.bit = out_bits[idx];
+		results[result_idx].push_back(bit);
+	}
+
+	void analyze(std::vector<std::set<int>> &results, std::map<int, int> &results_map, std::vector<int> &bucket, std::string indent1, std::string indent2)
+	{
+		std::string indent = indent1 + indent2;
+		const char *indt = indent.c_str();
+
 		if (bucket.size() <= 1)
 			return;
 
 		if (verbose_level == 1)
-			log("%*s  Trying to shatter bucket with %d signals.\n", 2*level, "", int(bucket.size()));
+			log("%s  Trying to shatter bucket with %d signals.\n", indt, int(bucket.size()));
 
 		if (verbose_level > 1) {
 			std::vector<RTLIL::SigBit> bucket_sigbits;
 			for (int idx : bucket)
 				bucket_sigbits.push_back(out_bits[idx]);
-			log("%*s  Trying to shatter bucket with %d signals: %s\n", 2*level, "", int(bucket.size()), log_signal(RTLIL::SigSpec(bucket_sigbits).optimized()));
+			log("%s  Trying to shatter bucket with %d signals: %s\n", indt, int(bucket.size()), log_signal(RTLIL::SigSpec(bucket_sigbits).optimized()));
 		}
 
-		std::vector<int> sat_list, sat_inv_list;
+		std::vector<int> sat_set_list, sat_clr_list;
 		for (int idx : bucket) {
-			sat_list.push_back(ez.AND(sat_out[idx], sat_def[idx]));
-			sat_inv_list.push_back(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+			sat_set_list.push_back(ez.AND(sat_out[idx], sat_def[idx]));
+			sat_clr_list.push_back(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
 		}
 
 		std::vector<int> modelVars = sat_out;
@@ -247,13 +364,47 @@ struct PerformReduction
 		if (verbose_level >= 2)
 			modelVars.insert(modelVars.end(), sat_pi.begin(), sat_pi.end());
 
-		if (ez.solve(modelVars, model, ez.expression(ezSAT::OpOr, sat_list), ez.expression(ezSAT::OpOr, sat_inv_list)))
+		if (ez.solve(modelVars, model, ez.expression(ezSAT::OpOr, sat_set_list), ez.expression(ezSAT::OpOr, sat_clr_list)))
 		{
+			int iter_count = 1;
+
+			while (1)
+			{
+				sat_set_list.clear();
+				sat_clr_list.clear();
+
+				std::vector<int> sat_def_list;
+
+				for (int idx : bucket)
+					if (!model[sat_out.size() + idx]) {
+						sat_set_list.push_back(ez.AND(sat_out[idx], sat_def[idx]));
+						sat_clr_list.push_back(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+					} else {
+						sat_def_list.push_back(sat_def[idx]);
+					}
+
+				if (!ez.solve(modelVars, model, ez.expression(ezSAT::OpOr, sat_set_list), ez.expression(ezSAT::OpOr, sat_clr_list), ez.expression(ezSAT::OpAnd, sat_def_list)))
+					break;
+				iter_count++;
+			}
+
+			if (verbose_level >= 1) {
+				int count_set = 0, count_clr = 0, count_undef = 0;
+				for (int idx : bucket)
+					if (!model[sat_out.size() + idx])
+						count_undef++;
+					else if (model[idx])
+						count_set++;
+					else
+						count_clr++;
+				log("%s    After %d iterations: %d set vs. %d clr vs %d undef\n", indt, iter_count, count_set, count_clr, count_undef);
+			}
+
 			if (verbose_level >= 2) {
 				for (size_t i = 0; i < pi_bits.size(); i++)
-					log("%*s       -> PI  %c == %s\n", 2*level, "", model[2*sat_out.size() + i] ? '1' : '0', log_signal(pi_bits[i]));
+					log("%s       -> PI  %c == %s\n", indt, model[2*sat_out.size() + i] ? '1' : '0', log_signal(pi_bits[i]));
 				for (int idx : bucket)
-					log("%*s       -> OUT %c == %s%s\n", 2*level, "", model[sat_out.size() + idx] ? model[idx] ? '1' : '0' : 'x',
+					log("%s       -> OUT %c == %s%s\n", indt, model[sat_out.size() + idx] ? model[idx] ? '1' : '0' : 'x',
 							out_inverted.at(idx) ? "~" : "", log_signal(out_bits[idx]));
 			}
 
@@ -266,8 +417,8 @@ struct PerformReduction
 				if (!model[sat_out.size() + idx] || !model[idx])
 					buckets_b.push_back(idx);
 			}
-			analyze(results, results_map, buckets_a, level+1);
-			analyze(results, results_map, buckets_b, level+1);
+			analyze(results, results_map, buckets_a, indent1 + ".", indent2 + "  ");
+			analyze(results, results_map, buckets_b, indent1 + "x", indent2 + "  ");
 		}
 		else
 		{
@@ -284,7 +435,7 @@ struct PerformReduction
 
 			if (undef_slaves.size() == bucket.size()) {
 				if (verbose_level >= 1)
-					log("%*s    Complex undef overlap. None of the signals covers the others.\n", 2*level, "");
+					log("%s    Complex undef overlap. None of the signals covers the others.\n", indt);
 				// FIXME: We could try to further shatter a group with complex undef overlaps
 				return;
 			}
@@ -293,7 +444,7 @@ struct PerformReduction
 				out_depth[idx] = std::numeric_limits<int>::max();
 
 			if (verbose_level >= 1) {
-				log("%*s    Found %d equivialent signals:", 2*level, "", int(bucket.size()));
+				log("%s    Found %d equivialent signals:", indt, int(bucket.size()));
 				for (int idx : bucket)
 					log("%s%s%s", idx == bucket.front() ? " " : ", ", out_inverted[idx] ? "~" : "", log_signal(out_bits[idx]));
 				log("\n");
@@ -323,7 +474,7 @@ struct PerformReduction
 		}
 	}
 
-	void analyze(std::vector<std::vector<equiv_bit_t>> &results)
+	void analyze(std::vector<std::vector<equiv_bit_t>> &results, int perc)
 	{
 		std::vector<int> bucket;
 		for (size_t i = 0; i < sat_out.size(); i++)
@@ -331,7 +482,7 @@ struct PerformReduction
 
 		std::vector<std::set<int>> results_buf;
 		std::map<int, int> results_map;
-		analyze(results_buf, results_map, bucket, 1);
+		analyze(results_buf, results_map, bucket, stringf("[%2d%%] %d ", perc, cone_size), "");
 
 		for (auto &r : results_buf)
 		{
@@ -416,10 +567,13 @@ struct FreduceWorker
 		ct.setup_internals();
 		ct.setup_stdcells();
 
+		int bits_full_total = 0;
 		std::vector<std::set<RTLIL::SigBit>> batches;
 		for (auto &it : module->wires)
-			if (it.second->port_input)
+			if (it.second->port_input) {
 				batches.push_back(sigmap(it.second).to_sigbit_set());
+				bits_full_total += it.second->width;
+			}
 		for (auto &it : module->cells) {
 			if (ct.cell_known(it.second->type)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
@@ -434,20 +588,21 @@ struct FreduceWorker
 				for (auto &bit : outputs)
 					drivers[bit] = drv;
 				batches.push_back(outputs);
+				bits_full_total += outputs.size();
 			}
 			if (inv_mode && it.second->type == "$_INV_")
 				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(it.second->connections.at("\\A")), sigmap(it.second->connections.at("\\Y"))));
 		}
 
 		int bits_count = 0;
+		int bits_full_count = 0;
 		std::map<std::vector<RTLIL::SigBit>, std::vector<RTLIL::SigBit>> buckets;
-		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S0));
-		buckets[std::vector<RTLIL::SigBit>()].push_back(RTLIL::SigBit(RTLIL::State::S1));
 		for (auto &batch : batches)
 		{
 			for (auto &bit : batch)
 				if (bit.wire != NULL && design->selected(module, bit.wire))
 					goto found_selected_wire;
+			bits_full_count += batch.size();
 			continue;
 
 		found_selected_wire:
@@ -457,23 +612,37 @@ struct FreduceWorker
 			FindReducedInputs infinder(sigmap, drivers);
 			for (auto &bit : batch) {
 				std::vector<RTLIL::SigBit> inputs;
-				infinder.analyze(inputs, bit);
+				infinder.analyze(inputs, bit, 100 * bits_full_count / bits_full_total);
 				buckets[inputs].push_back(bit);
+				bits_full_count++;
 				bits_count++;
 			}
 		}
 		log("  Sorted %d signal bits into %d buckets.\n", bits_count, int(buckets.size()));
 
+		int bucket_count = 0;
 		std::vector<std::vector<equiv_bit_t>> equiv;
 		for (auto &bucket : buckets)
 		{
+			bucket_count++;
+
 			if (bucket.second.size() == 1)
 				continue;
 
-			log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
-			PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second);
-			worker.analyze(equiv);
+			if (bucket.first.size() == 0) {
+				log("  Finding const values for bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
+				for (size_t idx = 0; idx < bucket.second.size(); idx++)
+					worker.analyze_const(equiv, idx);
+			} else {
+				log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
+				worker.analyze(equiv, 100 * bucket_count / (buckets.size() + 1));
+			}
 		}
+
+		std::map<RTLIL::SigBit, int> bitusage;
+		module->rewrite_sigspecs(CountBitUsage(sigmap, bitusage));
 
 		log("  Rewiring %d equivialent groups:\n", int(equiv.size()));
 		int rewired_sigbits = 0;
@@ -486,6 +655,11 @@ struct FreduceWorker
 			{
 				if (!design->selected(module, grp[i].bit.wire)) {
 					log("      Skipping not-selected slave: %s\n", log_signal(grp[i].bit));
+					continue;
+				}
+
+				if (grp[i].bit.wire->port_id == 0 && bitusage[grp[i].bit] <= 1) {
+					log("      Skipping unused slave: %s\n", log_signal(grp[i].bit));
 					continue;
 				}
 

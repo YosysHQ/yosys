@@ -186,9 +186,6 @@ static void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const 
 	assert(last_mux_cell != NULL);
 	assert(when_signal.width == last_mux_cell->connections["\\A"].width);
 
-	std::stringstream sstr;
-	sstr << "$procmux$" << (RTLIL::autoidx++);
-
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
 	assert(ctrl_sig.width == 1);
 	last_mux_cell->type = "$pmux";
