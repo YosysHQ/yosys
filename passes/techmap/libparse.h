@@ -39,13 +39,13 @@ namespace PASS_DFFLIBMAP
 		static std::set<std::string> whitelist;
 	};
 
-	struct LibertyParer
+	struct LibertyParser
 	{
 		FILE *f;
 		int line;
 		LibertyAst *ast;
-		LibertyParer(FILE *f) : f(f), line(1), ast(parse()) {}
-		~LibertyParer() { if (ast) delete ast; }
+		LibertyParser(FILE *f) : f(f), line(1), ast(parse()) {}
+		~LibertyParser() { if (ast) delete ast; }
 		int lexer(std::string &str);
 		LibertyAst *parse();
 		void error();

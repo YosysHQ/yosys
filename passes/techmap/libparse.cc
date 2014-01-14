@@ -79,7 +79,7 @@ void LibertyAst::dump(FILE *f, std::string indent, std::string path, bool path_o
 		fprintf(f, " ;\n");
 }
 
-int LibertyParer::lexer(std::string &str)
+int LibertyParser::lexer(std::string &str)
 {
 	int c;
 
@@ -154,7 +154,7 @@ int LibertyParer::lexer(std::string &str)
 	return c;
 }
 
-LibertyAst *LibertyParer::parse()
+LibertyAst *LibertyParser::parse()
 {
 	std::string str;
 
@@ -219,14 +219,14 @@ LibertyAst *LibertyParer::parse()
 
 #ifndef FILTERLIB
 
-void LibertyParer::error()
+void LibertyParser::error()
 {
 	log_error("Syntax error in line %d.\n", line);
 }
 
 #else
 
-void LibertyParer::error()
+void LibertyParser::error()
 {
 	fprintf(stderr, "Syntax error in line %d.\n", line);
 	exit(1);
@@ -611,7 +611,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	LibertyParer parser(f);
+	LibertyParser parser(f);
 	if (parser.ast) {
 		if (flag_verilogsim)
 			gen_verilogsim(parser.ast);

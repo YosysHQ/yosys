@@ -470,7 +470,7 @@ struct DfflibmapPass : public Pass {
 		FILE *f = fopen(liberty_file.c_str(), "r");
 		if (f == NULL)
 			log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
-		LibertyParer libparser(f);
+		LibertyParser libparser(f);
 		fclose(f);
 
 		find_cell(libparser.ast, "$_DFF_N_", false, false, false, false);
