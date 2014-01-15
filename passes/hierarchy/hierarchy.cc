@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <fnmatch.h>
 #include <set>
+#include <unistd.h>
 
 namespace {
 	struct generate_port_decl_t {
@@ -133,22 +134,56 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 	}
 }
 
-static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check)
+static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
+	std::string filename;
 
-	for (auto &cell_it : module->cells) {
+	for (auto &cell_it : module->cells)
+	{
 		RTLIL::Cell *cell = cell_it.second;
-		if (design->modules.count(cell->type) == 0) {
+
+		if (design->modules.count(cell->type) == 0)
+		{
+			if (cell->type[0] == '$')
+				continue;
+
+			for (auto &dir : libdirs)
+			{
+				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".v";
+				if (access(filename.c_str(), F_OK) == 0) {
+					std::vector<std::string> args;
+					args.push_back(filename);
+					Frontend::frontend_call(design, NULL, filename, "verilog");
+					goto loaded_module;
+				}
+
+				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
+				if (access(filename.c_str(), F_OK) == 0) {
+					std::vector<std::string> args;
+					args.push_back(filename);
+					Frontend::frontend_call(design, NULL, filename, "ilang");
+					goto loaded_module;
+				}
+			}
+
 			if (flag_check && cell->type[0] != '$')
 				log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
 						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
+
+		loaded_module:
+			if (design->modules.count(cell->type) == 0)
+				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
+			did_something = true;
 		}
+
 		if (cell->parameters.size() == 0)
 			continue;
+
 		if (design->modules.at(cell->type)->get_bool_attribute("\\blackbox"))
 			continue;
+
 		RTLIL::Module *mod = design->modules[cell->type];
 		cell->type = mod->derive(design, cell->parameters);
 		cell->parameters.clear();
@@ -212,6 +247,11 @@ struct HierarchyPass : public Pass {
 		log("        also check the design hierarchy. this generates an error when\n");
 		log("        an unknown module is used as cell type.\n");
 		log("\n");
+		log("    -libdir <directory>\n");
+		log("        search for files named <module_name>.v in the specified directory\n");
+		log("        for unkown modules and automatically run read_verilog for each\n");
+		log("        unknown module.\n");
+		log("\n");
 		log("    -keep_positionals\n");
 		log("        per default this pass also converts positional arguments in cells\n");
 		log("        to arguments using port names. this option disables this behavior.\n");
@@ -247,6 +287,7 @@ struct HierarchyPass : public Pass {
 
 		bool flag_check = false;
 		RTLIL::Module *top_mod = NULL;
+		std::vector<std::string> libdirs;
 
 		bool generate_mode = false;
 		bool keep_positionals = false;
@@ -303,6 +344,10 @@ struct HierarchyPass : public Pass {
 				keep_positionals = true;
 				continue;
 			}
+			if (args[argidx] == "-libdir" && argidx+1 < args.size()) {
+				libdirs.push_back(args[++argidx]);
+				continue;
+			}
 			if (args[argidx] == "-top") {
 				if (++argidx >= args.size())
 					log_cmd_error("Option -top requires an additional argument!\n");
@@ -344,7 +389,7 @@ struct HierarchyPass : public Pass {
 			for (auto &modname : modnames) {
 				if (design->modules.count(modname) == 0)
 					continue;
-				if (expand_module(design, design->modules[modname], flag_check))
+				if (expand_module(design, design->modules[modname], flag_check, libdirs))
 					did_something = true;
 			}
 			if (did_something)
