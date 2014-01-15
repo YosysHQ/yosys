@@ -79,7 +79,7 @@ void LibertyAst::dump(FILE *f, std::string indent, std::string path, bool path_o
 		fprintf(f, " ;\n");
 }
 
-int LibertyParer::lexer(std::string &str)
+int LibertyParser::lexer(std::string &str)
 {
 	int c;
 
@@ -87,11 +87,11 @@ int LibertyParer::lexer(std::string &str)
 		c = fgetc(f);
 	} while (c == ' ' || c == '\t' || c == '\r');
 
-	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '.') {
+	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
 		str = c;
 		while (1) {
 			c = fgetc(f);
-			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '.')
+			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
 				str += c;
 			else
 				break;
@@ -154,7 +154,7 @@ int LibertyParer::lexer(std::string &str)
 	return c;
 }
 
-LibertyAst *LibertyParer::parse()
+LibertyAst *LibertyParser::parse()
 {
 	std::string str;
 
@@ -219,14 +219,14 @@ LibertyAst *LibertyParer::parse()
 
 #ifndef FILTERLIB
 
-void LibertyParer::error()
+void LibertyParser::error()
 {
 	log_error("Syntax error in line %d.\n", line);
 }
 
 #else
 
-void LibertyParer::error()
+void LibertyParser::error()
 {
 	fprintf(stderr, "Syntax error in line %d.\n", line);
 	exit(1);
@@ -611,7 +611,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	LibertyParer parser(f);
+	LibertyParser parser(f);
 	if (parser.ast) {
 		if (flag_verilogsim)
 			gen_verilogsim(parser.ast);
