@@ -172,9 +172,10 @@ struct BtorDumper
 					else
 					{
 						int prev_wire_line=0; //previously dumped wire line
-						int start_bit=cell_output->width;
+						int start_bit=0;
 						for(unsigned j=0; j<cell_output->chunks.size(); ++j)
 						{
+							start_bit+=cell_output->chunks[j].width;
 							if(cell_output->chunks[j].wire->name == wire->name)
 							{
 								prev_wire_line = wire_line;
@@ -186,12 +187,11 @@ struct BtorDumper
 								if(prev_wire_line!=0)
 								{
 									++line_num;
-									str = stringf("%d concat %d %d %d", line_num, wire_width, prev_wire_line, wire_line);
+									str = stringf("%d concat %d %d %d", line_num, wire_width, wire_line, prev_wire_line);
 									fprintf(f, "%s\n", str.c_str());
 									wire_line = line_num;
 								}
 							}
-							start_bit-=cell_output->chunks[j].width;	
 						}
 					}
 				}
@@ -531,7 +531,7 @@ struct BtorDumper
 				bool polarity = cell->parameters.at(RTLIL::IdString("\\CLK_POLARITY")).as_bool();
 				const RTLIL::SigSpec* cell_output = &cell->connections.at(RTLIL::IdString("\\Q"));
 				int value = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\D")), output_width);
-				unsigned start_bit = output_width;
+				unsigned start_bit = 0;
 				for(unsigned i=0; i<cell_output->chunks.size(); ++i)
 				{
 					output_width = cell_output->chunks[i].width;
@@ -540,11 +540,11 @@ struct BtorDumper
 					int slice = value;
 					if(cell_output->chunks.size()>1)
 					{
+						start_bit+=output_width;
 						slice = ++line_num;
 						str = stringf ("%d slice %d %d %d %d;", line_num, output_width, value, start_bit-1, 
 							start_bit-output_width);
 						fprintf(f, "%s\n", str.c_str());
-						start_bit-=output_width;
 					}
 					if(cell->type == "$dffsr")
 					{
