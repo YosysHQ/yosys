@@ -31,8 +31,8 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 
 	RTLIL::IdString mem_name = RTLIL::escape_id(memory->parameters.at("\\MEMID").decode_string());
 
-	if (module->memories.count(mem_name) != 0)
-		log_error("Already found a memory object with the ID %s.\n", mem_name.c_str());
+	while (module->memories.count(mem_name) != 0)
+		mem_name += stringf("_%d", RTLIL::autoidx++);
 
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = mem_name;
