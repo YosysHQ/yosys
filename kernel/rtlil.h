@@ -227,6 +227,9 @@ struct RTLIL::Selection {
 		if (!full_selection && selected_modules.count(module->name) == 0)
 			selected_members[module->name].insert(member->name);
 	}
+	bool empty() const {
+		return !full_selection && selected_modules.empty() && selected_members.empty();
+	}
 };
 
 struct RTLIL::Design {
