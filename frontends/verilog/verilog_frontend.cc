@@ -38,6 +38,9 @@ using namespace VERILOG_FRONTEND;
 
 // use the Verilog bison/flex parser to generate an AST and use AST::process() to convert it to RTLIL
 
+static std::vector<std::string> verilog_defaults;
+static std::list<std::vector<std::string>> verilog_defaults_stack;
+
 struct VerilogFrontend : public Frontend {
 	VerilogFrontend() : Frontend("verilog", "read modules from verilog file") { }
 	virtual void help()
@@ -108,6 +111,9 @@ struct VerilogFrontend : public Frontend {
 		log("        add 'dir' to the directories which are used when searching include\n");
 		log("        files\n");
 		log("\n");
+		log("The command 'verilog_defaults' can be used to register default options for\n");
+		log("subsequent calls to 'read_verilog'.\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -127,6 +133,8 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yydebug = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
+
+		args.insert(args.begin()+1, verilog_defaults.begin(), verilog_defaults.end());
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -247,4 +255,62 @@ void frontend_verilog_yyerror(char const *fmt, ...)
 	log_error("%s", buffer);
 	exit(1);
 }
+
+struct VerilogDefaults : public Pass {
+	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    verilog_defaults -add [options]\n");
+		log("\n");
+		log("Add the sepcified options to the list of default options to read_verilog.\n");
+		log("\n");
+		log("\n");
+		log("    verilog_defaults -clear");
+		log("\n");
+		log("Clear the list of verilog default options.\n");
+		log("\n");
+		log("\n");
+		log("    verilog_defaults -push");
+		log("    verilog_defaults -pop");
+		log("\n");
+		log("Push or pop the list of default options to a stack. Note that -push does\n");
+		log("not imply -clear.\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	{
+		if (args.size() == 0)
+			cmd_error(args, 1, "Missing argument.");
+
+		if (args[1] == "-add") {
+			verilog_defaults.insert(verilog_defaults.end(), args.begin()+2, args.end());
+			return;
+		}
+
+		if (args.size() != 2)
+			cmd_error(args, 2, "Extra argument.");
+
+		if (args[1] == "-clear") {
+			verilog_defaults.clear();
+			return;
+		}
+
+		if (args[1] == "-push") {
+			verilog_defaults_stack.push_back(verilog_defaults);
+			return;
+		}
+
+		if (args[1] == "-pop") {
+			if (verilog_defaults_stack.empty()) {
+				verilog_defaults.clear();
+			} else {
+				verilog_defaults.swap(verilog_defaults_stack.back());
+				verilog_defaults_stack.pop_back();
+			}
+			return;
+		}
+	}
+} VerilogDefaults;
 
