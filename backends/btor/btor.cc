@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2014  Ahmed Irfan <ahmedirfan1983@gmail.com>
+ *  Copyright (C) 2014  Ahmed Irfan <irfan@fbk.eu>
  *  
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -372,7 +372,7 @@ struct BtorDumper
 				log("writing unary cell - %s\n", cstr(cell->type));
 				int w = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
-				w = w>output_width ? w:output_width;
+				w = w>output_width ? w:output_width; //padding of w
 				int l = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), w);				
 				int cell_line = l;
 				if(cell->type != "$pos")
@@ -396,6 +396,7 @@ struct BtorDumper
 				log("writing unary cell - %s\n", cstr(cell->type));
 				int w = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
+				assert(output_width == 1);
 				int l = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), w);
 				if(cell->type == "$logic_not" && w > 1)
 				{
@@ -416,10 +417,41 @@ struct BtorDumper
 			}
 			//binary cells
 			else if(cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
-				 cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" || 
-				 cell->type == "$mod" || cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || 
-				 cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt" || 
-				 cell->type == "$shr" || cell->type == "$shl" || cell->type == "$sshr" || cell->type == "$sshl")
+				 cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || 
+				 cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt" )
+			{
+				log("writing binary cell - %s\n", cstr(cell->type));
+				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
+				assert(!(cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt") || output_width == 1);
+				bool l1_signed = cell->parameters.at(RTLIL::IdString("\\A_SIGNED")).as_bool();
+				bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
+				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
+				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
+				
+				assert(l1_signed == l2_signed);
+				l1_width = l1_width > output_width ? l1_width : output_width;					
+				l1_width = l1_width > l2_width ? l1_width : l2_width;
+				l2_width = l2_width > l1_width ? l2_width : l1_width;
+
+				int l1 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), l1_width);
+				int l2 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\B")), l2_width);
+				
+				++line_num;
+				std::string op = cell_type_translation.at(cell->type);
+				if(cell->type == "$lt" || cell->type == "$le" ||
+				 cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt")
+				{
+					if(l1_signed)
+						op = s_cell_type_translation.at(cell->type);
+				}
+				
+				str = stringf ("%d %s %d %d %d", line_num, op.c_str(), output_width, l1, l2);
+				fprintf(f, "%s\n", str.c_str());
+
+				line_ref[cell->name]=line_num;
+			}
+			else if(cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" || 
+				 cell->type == "$mod" )
 			{
 				//TODO: division by zero case
 				log("writing binary cell - %s\n", cstr(cell->type));
@@ -428,42 +460,29 @@ struct BtorDumper
 				bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
-				if(cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
-				 cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" || 
-				 cell->type == "$mod" || cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || 
-				 cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt")
-				{
-					l1_width = l1_width > output_width ? l1_width : output_width;					
-					l1_width = l1_width > l2_width ? l1_width : l2_width;
-					l2_width = l2_width > l1_width ? l2_width : l1_width;
-				}
-				else if(cell->type == "$shr" || cell->type == "$shl" || cell->type == "$sshr" || cell->type == "$sshl")
-				{
-					//TODO: second operand width greater than the log_2(width of the first operand)
-					assert(l2_width <= ceil(log(l1_width)/log(2)) );
-					l2_width = ceil(log(l1_width)/log(2));				
-				}
+				
+				assert(l1_signed == l2_signed);
+				l1_width = l1_width > output_width ? l1_width : output_width;					
+				l1_width = l1_width > l2_width ? l1_width : l2_width;
+				l2_width = l2_width > l1_width ? l2_width : l1_width;
+
 				int l1 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), l1_width);
 				int l2 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\B")), l2_width);
+				
 				++line_num;
 				std::string op = cell_type_translation.at(cell->type);
-				if(cell->type == "$div" || cell->type == "$lt" || cell->type == "$le" ||
-				 cell->type == "$eq" || cell->type == "$ne" || cell->type == "$ge" || cell->type == "$gt")
-				{
-					assert(l1_signed == l2_signed);
-					if(l1_signed)
-						op = s_cell_type_translation.at(cell->type);
-				}
-				if(cell->type == "$mod")
+				if(cell->type == "$div" && l1_signed)
+					op = s_cell_type_translation.at(cell->type);
+				else if(cell->type == "$mod")
 				{
 					if(l1_signed)
 						op = s_cell_type_translation.at("$modx");
 					else if(l2_signed)
 						op = s_cell_type_translation.at("$mody");
 				}
-				str = stringf ("%d %s %d %d %d", 
-					line_num, op.c_str(), output_width, l1, l2);
+				str = stringf ("%d %s %d %d %d", line_num, op.c_str(), l1_width, l1, l2);
 				fprintf(f, "%s\n", str.c_str());
+
 				if(output_width < l1_width)
 				{
 					++line_num;
@@ -472,10 +491,58 @@ struct BtorDumper
 				}
 				line_ref[cell->name]=line_num;
 			}
+			else if(cell->type == "$shr" || cell->type == "$shl" || cell->type == "$sshr" || cell->type == "$sshl")
+			{
+				log("writing binary cell - %s\n", cstr(cell->type));
+				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
+				bool l1_signed = cell->parameters.at(RTLIL::IdString("\\A_SIGNED")).as_bool();
+				//bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
+				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
+				l1_width = pow(2, ceil(log(l1_width)/log(2)));
+				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
+				//assert(l2_width <= ceil(log(l1_width)/log(2)) );
+				int l1 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), l1_width);
+				int l2 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\B")), ceil(log(l1_width)/log(2)));
+				int cell_output = ++line_num;
+				str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), l1_width, l1, l2);
+				fprintf(f, "%s\n", str.c_str());
+
+				if(l2_width > ceil(log(l1_width)/log(2)))
+				{
+					int extra_width = l2_width - ceil(log(l1_width)/log(2));
+					l2 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\B")), l2_width);
+					++line_num;
+					str = stringf ("%d slice %d %d %d %d;6", line_num, extra_width, l2, l2_width-1, l2_width-extra_width);
+					fprintf(f, "%s\n", str.c_str());
+					++line_num;
+					str = stringf ("%d one %d", line_num, extra_width);
+					fprintf(f, "%s\n", str.c_str());
+					int mux = ++line_num;
+					str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at("$gt").c_str(), 1, line_num-2, line_num-1);
+					fprintf(f, "%s\n", str.c_str());
+					++line_num;
+					str = stringf("%d %s %d", line_num, l1_signed && cell->type == "$sshr" ? "ones":"zero", l1_width);
+					fprintf(f, "%s\n", str.c_str());
+					++line_num;
+					str = stringf ("%d %s %d %d %d %d", line_num, cell_type_translation.at("$mux").c_str(), l1_width, mux, line_num-1, cell_output);
+					fprintf(f, "%s\n", str.c_str());
+					cell_output = line_num;
+				}
+
+				if(output_width < l1_width)
+				{
+					++line_num;
+					str = stringf ("%d slice %d %d %d %d;5", line_num, output_width, cell_output, output_width-1, 0);
+					fprintf(f, "%s\n", str.c_str());
+					cell_output = line_num;
+				}
+				line_ref[cell->name] = cell_output;	
+			}
 			else if(cell->type == "$logic_and" || cell->type == "$logic_or")//no direct translation in btor
 			{
 				log("writing binary cell - %s\n", cstr(cell->type));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
+				assert(output_width == 1);
 				int l1 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), output_width);
 				int l2 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\B")), output_width);
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
@@ -524,6 +591,7 @@ struct BtorDumper
 			//registers
 			else if(cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffsr")
 			{
+				//TODO: remodelling fo adff cells
 				log("writing cell - %s\n", cstr(cell->type));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\WIDTH")).as_int();
 				log(" - width is %d\n", output_width);
@@ -816,7 +884,8 @@ struct BtorBackend : public Backend {
 					top_module_name = mod_it.first;
 
 		fprintf(f, "; Generated by %s\n", yosys_version_str);
-		fprintf(f, "; BTOR Backend developed at FBK\n");
+		fprintf(f, "; BTOR Backend developed by Ahmed Irfan <irfan@fbk.eu>\n");
+		fprintf(f, ";  at Fondazione Bruno Kessler, Trento, Italy\n");
 
 		std::vector<RTLIL::Module*> mod_list;
 

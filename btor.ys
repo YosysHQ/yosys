@@ -1,4 +1,6 @@
 #design should be loaded before executing 
+#set the: hierarchy -top <module_top>
+#set the: hierarchy -libdir <dir>
 
 #high level synthesis
 #################
@@ -7,13 +9,12 @@ proc;
 opt; opt_const -mux_undef; opt;
 rename -hide;;;
 #converting pmux to mux
-techmap -map techlibs/common/pmux2mux.v;
-opt;
-#converting asyn memory write to syn memory
-memory_dff; 
-opt;
+techmap -map techlibs/common/pmux2mux.v;;
+memory -nomap;;
 #flatten design
-flatten;;;
+flatten;;
+#converting asyn memory write to syn memory
+memory_unpack; 
 #cell output to be a single wire
 splitnets -driver;
 opt;;;
