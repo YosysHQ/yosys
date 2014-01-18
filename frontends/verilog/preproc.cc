@@ -386,7 +386,7 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			std::string name = tok.substr(1);
 			// printf("expand: >>%s<< -> >>%s<<\n", name.c_str(), defines_map[name].c_str());
 			std::string skipped_spaces = skip_spaces();
-			tok = next_token(true);
+			tok = next_token(false);
 			if (tok == "(" && defines_with_args.count(name) > 0) {
 				int level = 1;
 				std::vector<std::string> args;
