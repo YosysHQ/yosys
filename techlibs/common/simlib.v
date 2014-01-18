@@ -715,17 +715,19 @@ generate
 		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT                  ) ) lut0 ( .I(I[WIDTH-2:0]), .O(lut0_out) );
 		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT >> (2**(WIDTH-1))) ) lut1 ( .I(I[WIDTH-2:0]), .O(lut1_out) );
 	end
-endgenerate
 
-always @* begin
-	casez ({I[WIDTH-1], lut0_out, lut1_out})
-		3'b?11: O = 1'b1;
-		3'b?00: O = 1'b0;
-		3'b0??: O = lut0_out;
-		3'b1??: O = lut1_out;
-		default: O = 1'bx;
-	endcase
-end
+	if (WIDTH > 0) begin:lutlogic
+		always @* begin
+			casez ({I[WIDTH-1], lut0_out, lut1_out})
+				3'b?11: O = 1'b1;
+				3'b?00: O = 1'b0;
+				3'b0??: O = lut0_out;
+				3'b1??: O = lut1_out;
+				default: O = 1'bx;
+			endcase
+		end
+	end
+endgenerate
 
 endmodule
 
