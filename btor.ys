@@ -1,10 +1,3 @@
-#design should be loaded before executing 
-#set the: hierarchy -top <module_top>
-#set the: hierarchy -libdir <dir>
-
-#high level synthesis
-#################
-#converting processes to cells
 proc; 
 opt; opt_const -mux_undef; opt;
 rename -hide;;;
@@ -17,6 +10,6 @@ flatten;;
 memory_unpack; 
 #cell output to be a single wire
 splitnets -driver;
+setundef -zero -undriven;
 opt;;;
-#writing btor
-write_btor design.btor;
+
