@@ -40,7 +40,7 @@ static RTLIL::State next_bit()
 	next_bit_state ^= next_bit_state << 5;
 	log_assert(next_bit_state != 0);
 
-	return ((next_bit_state >> (next_bit_state & 15)) & 1) ? RTLIL::State::S0 : RTLIL::State::S1;
+	return ((next_bit_state >> (next_bit_state & 15)) & 16) ? RTLIL::State::S0 : RTLIL::State::S1;
 }
 
 struct SetundefWorker
