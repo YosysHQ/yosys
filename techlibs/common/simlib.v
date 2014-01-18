@@ -1036,7 +1036,7 @@ generate
 				end
 			end
 		end else
-		if (RD_CLK_POLARITY[i] == 1) begin:rd_posclk
+		if (WR_CLK_POLARITY[i] == 1) begin:rd_posclk
 			always @(posedge WR_CLK[i])
 				if (WR_EN[i]) begin
 					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
