@@ -95,11 +95,16 @@ struct PerformanceTimer
 
 // simple API for quickly dumping values when debugging
 
+static inline void log_dump_val_worker(short v) { log("%d", v); }
+static inline void log_dump_val_worker(unsigned short v) { log("%u", v); }
 static inline void log_dump_val_worker(int v) { log("%d", v); }
-static inline void log_dump_val_worker(size_t v) { log("%zd", v); }
+static inline void log_dump_val_worker(unsigned int v) { log("%u", v); }
 static inline void log_dump_val_worker(long int v) { log("%ld", v); }
+static inline void log_dump_val_worker(unsigned long int v) { log("%lu", v); }
 static inline void log_dump_val_worker(long long int v) { log("%lld", v); }
+static inline void log_dump_val_worker(unsigned long long int v) { log("%lld", v); }
 static inline void log_dump_val_worker(char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
+static inline void log_dump_val_worker(unsigned char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
 static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false"); }
 static inline void log_dump_val_worker(double v) { log("%f", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }

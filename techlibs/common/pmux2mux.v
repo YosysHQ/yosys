@@ -13,10 +13,9 @@ output reg [WIDTH-1:0] Y;
 integer i;
 
 always @* begin
-        Y <= A;
-        for (i = 0; i < S_WIDTH; i=i+1)
-                if (S[i])
-                        Y <= B[WIDTH*i +: WIDTH];
+	Y <= A;
+	for (i = 0; i < S_WIDTH; i=i+1)
+		if (S[i]) Y <= B[WIDTH*i +: WIDTH];
 end
 
 endmodule
