@@ -65,10 +65,10 @@ parameter Y_WIDTH = 0;
 output [Y_WIDTH-1:0] Y;
 
 generate
-	if (!A_SIGNED && 0 < A_WIDTH && A_WIDTH < Y_WIDTH) begin:A
+	if (!A_SIGNED && 0 < A_WIDTH && A_WIDTH < Y_WIDTH) begin:BLOCK1
 		assign Y[A_WIDTH-1:0] = A_BUF.val;
 		assign Y[Y_WIDTH-1:A_WIDTH] = 0;
-	end else begin:B
+	end else begin:BLOCK2
 		assign Y = +A_BUF.val;
 	end
 endgenerate
@@ -953,8 +953,10 @@ input [ABITS-1:0] ADDR;
 output [WIDTH-1:0] DATA;
 
 initial begin
-	$display("ERROR: Found non-simulatable instance of $memrd!");
-	$finish;
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $memrd!");
+		$finish;
+	end
 end
 
 endmodule
@@ -975,8 +977,10 @@ input [ABITS-1:0] ADDR;
 input [WIDTH-1:0] DATA;
 
 initial begin
-	$display("ERROR: Found non-simulatable instance of $memwr!");
-	$finish;
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $memwr!");
+		$finish;
+	end
 end
 
 endmodule
@@ -1008,7 +1012,7 @@ input [WR_PORTS*ABITS-1:0] WR_ADDR;
 input [WR_PORTS*WIDTH-1:0] WR_DATA;
 
 reg [WIDTH-1:0] data [SIZE-1:0];
-event update_async_rd;
+reg update_async_rd;
 
 genvar i;
 generate
@@ -1032,7 +1036,7 @@ generate
 			always @(WR_ADDR or WR_DATA or WR_EN) begin
 				if (WR_EN[i]) begin
 					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
-					#1 -> update_async_rd;
+					update_async_rd <= 1; update_async_rd <= 0;
 				end
 			end
 		end else
@@ -1040,13 +1044,13 @@ generate
 			always @(posedge WR_CLK[i])
 				if (WR_EN[i]) begin
 					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
-					#1 -> update_async_rd;
+					update_async_rd <= 1; update_async_rd <= 0;
 				end
 		end else begin:rd_negclk
 			always @(negedge WR_CLK[i])
 				if (WR_EN[i]) begin
 					data[ WR_ADDR[ (i+1)*ABITS-1 : i*ABITS ] - OFFSET ] <= WR_DATA[ (i+1)*WIDTH-1 : i*WIDTH ];
-					#1 -> update_async_rd;
+					update_async_rd <= 1; update_async_rd <= 0;
 				end
 		end
 	end
