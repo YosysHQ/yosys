@@ -656,6 +656,7 @@ struct SelectPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    select [ -add | -del | -set <name> ] <selection>\n");
+		log("    select [ -assert-none | -assert-any ] <selection>\n");
 		log("    select [ -list | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
 		log("\n");
@@ -675,6 +676,14 @@ struct SelectPass : public Pass {
 		log("    -set <name>\n");
 		log("        do not modify the current selection. instead save the new selection\n");
 		log("        under the given name (see @<name> below).\n");
+		log("\n");
+		log("    -assert-none\n");
+		log("        asserts that the given selection is empty. i.e. produce an error if\n");
+		log("        any object matching the selection is found.\n");
+		log("\n");
+		log("    -assert-any\n");
+		log("        asserts that the given selection is non-empty. i.e. produce an error\n");
+		log("        if no object matching the selection is found.\n");
 		log("\n");
 		log("    -list\n");
 		log("        list all objects in the current selection\n");
@@ -802,6 +811,8 @@ struct SelectPass : public Pass {
 		bool list_mode = false;
 		bool count_mode = false;
 		bool got_module = false;
+		bool assert_none = false;
+		bool assert_any = false;
 		std::string write_file;
 		std::string set_name;
 
@@ -817,6 +828,14 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-del") {
 				del_mode = true;
+				continue;
+			}
+			if (arg == "-assert-none") {
+				assert_none = true;
+				continue;
+			}
+			if (arg == "-assert-any") {
+				assert_any = true;
 				continue;
 			}
 			if (arg == "-clear") {
@@ -853,16 +872,16 @@ struct SelectPass : public Pass {
 		}
 
 		if (clear_mode && args.size() != 2)
-			log_cmd_error("Option -clear can not be combined with other options.\n");
+			log_cmd_error("Option -clear can not be combined with any other options.\n");
 
-		if (add_mode && del_mode)
-			log_cmd_error("Options -add and -del can not be combined.\n");
+		if (add_mode + del_mode + assert_none + assert_any > 1)
+			log_cmd_error("Options -add, -del, -assert-none or -assert-any can not be combined.\n");
 
-		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode))
-			log_cmd_error("Options -list, -write and -count can not be combined with -add or -del.\n");
+		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any))
+			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none or -assert-any.\n");
 
-		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode))
-			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add or -del.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode || assert_none || assert_any))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -assert-none or -assert-any.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -940,6 +959,24 @@ struct SelectPass : public Pass {
 				log_cmd_error("Nothing to delete from selection.\n");
 			select_op_diff(design, design->selection_stack.back(), work_stack.back());
 			design->selection_stack.back().optimize(design);
+			return;
+		}
+
+		if (assert_none)
+		{
+			if (work_stack.size() == 0)
+				log_cmd_error("No selection to check.\n");
+			if (!work_stack.back().empty())
+				log_error("Assertation failed: selection is not empty.\n");
+			return;
+		}
+
+		if (assert_any)
+		{
+			if (work_stack.size() == 0)
+				log_cmd_error("No selection to check.\n");
+			if (work_stack.back().empty())
+				log_error("Assertation failed: selection is empty.\n");
 			return;
 		}
 

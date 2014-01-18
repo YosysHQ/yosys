@@ -55,6 +55,28 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$bu0 (A, Y);
+
+parameter A_SIGNED = 0;
+parameter A_WIDTH = 0;
+parameter Y_WIDTH = 0;
+
+`INPUT_A
+output [Y_WIDTH-1:0] Y;
+
+generate
+	if (!A_SIGNED && 0 < A_WIDTH && A_WIDTH < Y_WIDTH) begin:A
+		assign Y[A_WIDTH-1:0] = A_BUF.val;
+		assign Y[Y_WIDTH-1:A_WIDTH] = 0;
+	end else begin:B
+		assign Y = +A_BUF.val;
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$pos (A, Y);
 
 parameter A_SIGNED = 0;
