@@ -456,7 +456,7 @@ wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
 	.Cin(1'b1),
 	.Y(Y_buf),
 	.Cout(carry),
-	.Csign(carry_sign),
+	.Csign(carry_sign)
 );
 
 // ALU flags
@@ -505,7 +505,7 @@ wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
 	.Cin(1'b1),
 	.Y(Y_buf),
 	.Cout(carry),
-	.Csign(carry_sign),
+	.Csign(carry_sign)
 );
 
 // ALU flags
@@ -849,7 +849,7 @@ assign B_buf_u = B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
 	.A(A_buf_u),
 	.B(B_buf_u),
 	.Y(Y_u),
-	.R(R_u),
+	.R(R_u)
 );
 
 assign Y = A_SIGNED && B_SIGNED && (A_buf[WIDTH-1] != B_buf[WIDTH-1]) ? -Y_u : Y_u;
