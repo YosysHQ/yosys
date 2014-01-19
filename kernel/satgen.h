@@ -38,6 +38,7 @@ struct SatGen
 	SigMap *sigmap;
 	std::string prefix;
 	SigPool initial_state;
+	RTLIL::SigSpec asserts_a, asserts_en;
 	bool ignore_div_by_zero;
 	bool model_undef;
 
@@ -94,6 +95,19 @@ struct SatGen
 		log_assert(timestep != 0);
 		std::string pf = "undef:" + prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
 		return importSigSpecWorker(sig, pf, true, false);
+	}
+
+	int importAsserts(int timestep = -1)
+	{
+		std::vector<int> check_bits, enable_bits;
+		if (model_undef) {
+			check_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(asserts_a, timestep)), importDefSigSpec(asserts_a, timestep));
+			enable_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(asserts_en, timestep)), importDefSigSpec(asserts_en, timestep));
+		} else {
+			check_bits = importDefSigSpec(asserts_a, timestep);
+			enable_bits = importDefSigSpec(asserts_en, timestep);
+		}
+		return ez->vec_reduce_and(ez->vec_or(check_bits, ez->vec_not(enable_bits)));
 	}
 
 	int signals_eq(RTLIL::SigSpec lhs, RTLIL::SigSpec rhs, int timestep_lhs = -1, int timestep_rhs = -1)
@@ -762,6 +776,13 @@ struct SatGen
 					undefGating(q, qq, undef_q);
 				}
 			}
+			return true;
+		}
+
+		if (cell->type == "$assert")
+		{
+			asserts_a.append((*sigmap)(cell->connections.at("\\A")));
+			asserts_en.append((*sigmap)(cell->connections.at("\\EN")));
 			return true;
 		}
 
