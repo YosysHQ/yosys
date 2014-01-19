@@ -113,6 +113,8 @@ namespace VERILOG_FRONTEND {
 "generate"     { return TOK_GENERATE; }
 "endgenerate"  { return TOK_ENDGENERATE; }
 
+"assert"([ \t\r\n]+"property")? { return TOK_ASSERT; }
+
 "input"   { return TOK_INPUT; }
 "output"  { return TOK_OUTPUT; }
 "inout"   { return TOK_INOUT; }
