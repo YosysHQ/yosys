@@ -96,6 +96,7 @@ struct CellTypes
 		cell_types.insert("$pmux");
 		cell_types.insert("$safe_pmux");
 		cell_types.insert("$lut");
+		cell_types.insert("$assert");
 	}
 
 	void setup_internals_mem()

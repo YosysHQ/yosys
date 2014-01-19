@@ -733,6 +733,21 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$assert (A, EN);
+
+input A, EN;
+
+always @* begin
+	if (A !== 1'b1 && EN === 1'b1) begin
+		$display("Assertation failed!");
+		$finish;
+	end
+end
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$sr (SET, CLR, Q);
 
 parameter WIDTH = 0;
