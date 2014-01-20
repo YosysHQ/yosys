@@ -275,7 +275,7 @@ struct BtorDumper
 				assert(wire_line_num>0);
 				++line_num;
 				str = stringf("%d slice %d %d %d %d;2", line_num, chunk->width, wire_line_num, 
-					chunk->wire->width - chunk->offset - 1, chunk->wire->width - chunk->offset - chunk->width);
+					chunk->width + chunk->offset - 1, chunk->offset);
 				fprintf(f, "%s\n", str.c_str());
 				l = line_num;				 
 			}
