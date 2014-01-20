@@ -237,8 +237,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_ASSIGN_EQ:
 	case AST_ASSIGN_LE:
 	case AST_ASSIGN:
-		while (children[0]->simplify(false, false, true, stage, -1, false) == true) { }
-		while (children[1]->simplify(false, false, false, stage, -1, false) == true) { }
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, true, stage, -1, false) == true) { }
+		while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false) == true) { }
 		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
 		children[1]->detectSignWidth(width_hint, sign_hint);
 		width_hint = std::max(width_hint, backup_width_hint);
@@ -247,11 +247,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
-		while (children[0]->simplify(false, false, false, stage, -1, false) == true) { }
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false) == true) { }
 		children[0]->detectSignWidth(width_hint, sign_hint);
 		if (children.size() > 1) {
 			assert(children[1]->type == AST_RANGE);
-			while (children[1]->simplify(false, false, false, stage, -1, false) == true) { }
+			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false) == true) { }
 			if (!children[1]->range_valid)
 				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
 			width_hint = std::max(width_hint, children[1]->range_left - children[1]->range_right + 1);
@@ -306,7 +306,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		width_hint = -1;
 		sign_hint = true;
 		for (auto child : children) {
-			while (child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
+			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
 			child->detectSignWidthWorker(width_hint, sign_hint);
 		}
 		reset_width_after_children = true;
@@ -336,7 +336,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (detect_width_simple && width_hint < 0) {
 		for (auto child : children)
-			while (child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
+			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
 		if (type == AST_REPLICATE)
 			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false) == true) { }
 		detectSignWidth(width_hint, sign_hint);
@@ -1424,6 +1424,9 @@ apply_newNode:
 		delete newNode;
 		did_something = true;
 	}
+
+	if (!did_something)
+		basic_prep = true;
 
 	return did_something;
 }
