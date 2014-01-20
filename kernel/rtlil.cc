@@ -595,6 +595,13 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$assert") {
+				port("\\A", 1);
+				port("\\EN", 1);
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$_INV_") { check_gate("AY"); return; }
 			if (cell->type == "$_AND_") { check_gate("ABY"); return; }
 			if (cell->type == "$_OR_")  { check_gate("ABY"); return; }

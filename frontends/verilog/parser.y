@@ -104,7 +104,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
-%token TOK_POS_INDEXED TOK_NEG_INDEXED
+%token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT
 
 %type <ast> wire_type range non_opt_range expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
@@ -366,7 +366,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | param_decl | localparam_decl | defparam_decl | wire_decl | assign_stmt | cell_stmt |
-	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr;
+	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert;
 
 task_func_decl:
 	TOK_TASK TOK_ID ';' {
@@ -748,6 +748,11 @@ opt_label:
 		$$ = NULL;
 	};
 
+assert:
+	TOK_ASSERT '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSERT, $3));
+	};
+
 simple_behavioral_stmt:
 	lvalue '=' expr {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $3);
@@ -760,7 +765,7 @@ simple_behavioral_stmt:
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
-	defattr | wire_decl |
+	defattr | assert | wire_decl |
 	simple_behavioral_stmt ';' |
 	hierarchical_id attr {
 		AstNode *node = new AstNode(AST_TCALL);

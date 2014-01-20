@@ -1276,6 +1276,38 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		}
 		break;
 
+	// generate $assert cells
+	case AST_ASSERT:
+		{
+			log_assert(children.size() == 2);
+
+			RTLIL::SigSpec check = children[0]->genRTLIL();
+			log_assert(check.width == 1);
+
+			RTLIL::SigSpec en = children[1]->genRTLIL();
+			log_assert(en.width == 1);
+
+			std::stringstream sstr;
+			sstr << "$assert$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+
+			RTLIL::Cell *cell = new RTLIL::Cell;
+			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
+			cell->name = sstr.str();
+			cell->type = "$assert";
+			current_module->cells[cell->name] = cell;
+
+			for (auto &attr : attributes) {
+				if (attr.second->type != AST_CONSTANT)
+					log_error("Attribute `%s' with non-constant value at %s:%d!\n",
+							attr.first.c_str(), filename.c_str(), linenum);
+				cell->attributes[attr.first] = attr.second->asAttrConst();
+			}
+
+			cell->connections["\\A"] = check;
+			cell->connections["\\EN"] = en;
+		}
+		break;
+
 	// add entries to current_module->connections for assignments (outside of always blocks)
 	case AST_ASSIGN:
 		{

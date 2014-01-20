@@ -47,6 +47,7 @@ struct SatHelper
 	std::vector<std::pair<std::string, std::string>> sets, prove, prove_x, sets_init;
 	std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 	std::map<int, std::vector<std::string>> unsets_at;
+	bool prove_asserts;
 
 	// undef constraints
 	bool enable_undef, set_init_undef;
@@ -284,7 +285,7 @@ struct SatHelper
 
 	int setup_proof(int timestep = -1)
 	{
-		assert(prove.size() + prove_x.size() > 0);
+		assert(prove.size() || prove_x.size() || prove_asserts);
 
 		RTLIL::SigSpec big_lhs, big_rhs;
 		std::vector<int> prove_bits;
@@ -351,6 +352,9 @@ struct SatHelper
 			for (size_t i = 0; i < value_lhs.size(); i++)
 				prove_bits.push_back(ez.OR(undef_lhs.at(i), ez.AND(ez.NOT(undef_rhs.at(i)), ez.NOT(ez.XOR(value_lhs.at(i), value_rhs.at(i))))));
 		}
+
+		if (prove_asserts)
+			prove_bits.push_back(satgen.importAsserts(timestep));
 
 		return ez.expression(ezSAT::OpAnd, prove_bits);
 	}
@@ -717,14 +721,20 @@ struct SatPass : public Pass {
 		log("The following additional options can be used to set up a proof. If also -seq\n");
 		log("is passed, a temporal induction proof is performed.\n");
 		log("\n");
+		log("    -tempinduct\n");
+		log("        Perform a temporal induction proof. In a temporalinduction proof it is\n");
+		log("        proven that the condition holds forever after the number of time steps\n");
+		log("        specified using -seq.\n");
+		log("\n");
 		log("    -prove <signal> <value>\n");
-		log("        Attempt to proof that <signal> is always <value>. In a temporal\n");
-		log("        induction proof it is proven that the condition holds forever after\n");
-		log("        the number of time steps passed using -seq.\n");
+		log("        Attempt to proof that <signal> is always <value>.\n");
 		log("\n");
 		log("    -prove-x <signal> <value>\n");
 		log("        Like -prove, but an undef (x) bit in the lhs matches any value on\n");
 		log("        the right hand side. Useful for equivialence checking.\n");
+		log("\n");
+		log("    -prove-asserts\n");
+		log("        Prove that all asserts in the design hold.\n");
 		log("\n");
 		log("    -maxsteps <N>\n");
 		log("        Set a maximum length for the induction.\n");
@@ -748,6 +758,7 @@ struct SatPass : public Pass {
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = false;
+		bool tempinduct = false, prove_asserts = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -817,6 +828,10 @@ struct SatPass : public Pass {
 				enable_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-tempinduct") {
+				tempinduct = true;
+				continue;
+			}
 			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
 				std::string lhs = args[++argidx];
 				std::string rhs = args[++argidx];
@@ -828,6 +843,10 @@ struct SatPass : public Pass {
 				std::string rhs = args[++argidx];
 				prove_x.push_back(std::pair<std::string, std::string>(lhs, rhs));
 				enable_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-prove-asserts") {
+				prove_asserts = true;
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
@@ -894,8 +913,14 @@ struct SatPass : public Pass {
 		if (module == NULL) 
 			log_cmd_error("Can't perform SAT on an empty selection!\n");
 
-		if (prove.size() + prove_x.size() == 0 && verify)
+		if (!prove.size() && !prove_x.size() && !prove_asserts && verify)
 			log_cmd_error("Got -verify but nothing to prove!\n");
+
+		if (!prove.size() && !prove_x.size() && !prove_asserts && tempinduct)
+			log_cmd_error("Got -tempinduct but nothing to prove!\n");
+
+		if (seq_len == 0 && tempinduct)
+			log_cmd_error("Got -tempinduct but no -seq argument!\n");
 
 		if (set_def_inputs) {
 			for (auto &it : module->wires)
@@ -903,7 +928,7 @@ struct SatPass : public Pass {
 					sets_def.push_back(it.second->name);
 		}
 
-		if (prove.size() + prove_x.size() > 0 && seq_len > 0)
+		if (tempinduct)
 		{
 			if (loopcount > 0 || max_undef)
 				log_cmd_error("The options -max, -all, and -max_undef are not supported for temporal induction proofs!\n");
@@ -914,6 +939,7 @@ struct SatPass : public Pass {
 			basecase.sets = sets;
 			basecase.prove = prove;
 			basecase.prove_x = prove_x;
+			basecase.prove_asserts = prove_asserts;
 			basecase.sets_at = sets_at;
 			basecase.unsets_at = unsets_at;
 			basecase.shows = shows;
@@ -935,6 +961,7 @@ struct SatPass : public Pass {
 			inductstep.sets = sets;
 			inductstep.prove = prove;
 			inductstep.prove_x = prove_x;
+			inductstep.prove_asserts = prove_asserts;
 			inductstep.shows = shows;
 			inductstep.timeout = timeout;
 			inductstep.sets_def = sets_def;
@@ -1021,6 +1048,7 @@ struct SatPass : public Pass {
 			sathelper.sets = sets;
 			sathelper.prove = prove;
 			sathelper.prove_x = prove_x;
+			sathelper.prove_asserts = prove_asserts;
 			sathelper.sets_at = sets_at;
 			sathelper.unsets_at = unsets_at;
 			sathelper.shows = shows;
@@ -1037,11 +1065,14 @@ struct SatPass : public Pass {
 
 			if (seq_len == 0) {
 				sathelper.setup();
-				if (sathelper.prove.size() + sathelper.prove_x.size() > 0)
+				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
 					sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof()));
 			} else {
-				for (int timestep = 1; timestep <= seq_len; timestep++)
+				for (int timestep = 1; timestep <= seq_len; timestep++) {
 					sathelper.setup(timestep);
+					if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
+						sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof(timestep)));
+				}
 				sathelper.setup_init();
 			}
 			sathelper.generate_model();
@@ -1064,7 +1095,7 @@ struct SatPass : public Pass {
 					sathelper.maximize_undefs();
 				}
 
-				if (prove.size() + prove_x.size() == 0) {
+				if (!prove.size() && !prove_x.size() && !prove_asserts) {
 					log("SAT solving finished - model found:\n");
 				} else {
 					log("SAT proof finished - model found: FAIL!\n");
@@ -1090,7 +1121,7 @@ struct SatPass : public Pass {
 					goto timeout;
 				if (rerun_counter)
 					log("SAT solving finished - no more models found (after %d distinct solutions).\n", rerun_counter);
-				else if (prove.size() + prove_x.size() == 0)
+				else if (!prove.size() && !prove_x.size() && !prove_asserts)
 					log("SAT solving finished - no model found.\n");
 				else {
 					log("SAT proof finished - no model found: SUCCESS!\n");
