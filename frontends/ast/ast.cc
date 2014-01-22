@@ -181,6 +181,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 	range_right = 0;
 	integer = 0;
 	id2ast = NULL;
+	basic_prep = false;
 
 	if (child1)
 		children.push_back(child1);

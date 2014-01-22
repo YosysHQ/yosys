@@ -153,6 +153,9 @@ namespace AST
 		// this is set by simplify and used during RTLIL generation
 		AstNode *id2ast;
 
+		// this is used by simplify to detect if basic analysis has been performed already on the node
+		bool basic_prep;
+
 		// this is the original sourcecode location that resulted in this AST node
 		// it is automatically set by the constructor using AST::current_filename and
 		// the AST::get_line_num() callback function.
