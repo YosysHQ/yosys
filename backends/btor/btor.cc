@@ -95,29 +95,56 @@ struct BtorDumper
 			inter_wire_map[it->first].clear();
 		}
 		curr_cell.clear();
-		cell_type_translation = { 
-					//assert
-					{"$assert","root"},					
-					//unary
-					{"$not","not"},{"$neg","neg"},{"$reduce_and","redand"},
-					{"$reduce_or","redor"},{"$reduce_xor","redxor"},{"$reduce_bool","redor"},
-					//binary
-					{"$and","and"},{"$or","or"},{"$xor","xor"},{"$xnor","xnor"},
-					{"$shr","srl"},{"$shl","sll"},{"$sshr","sra"},{"$sshl","sll"},
-					{"$lt","ult"},{"$le","ulte"},{"$gt","ugt"},{"$ge","ugte"},
-					{"$eq","eq"},{"$eqx","eq"},{"$ne","ne"},{"$nex","ne"},
-					{"$add","add"},{"$sub","sub"},{"$mul","mul"},{"$mod","urem"},{"$div","udiv"},
-					//mux
-					{"$mux","cond"},
-					//reg
-					{"$dff","next"},{"$adff","next"},{"$dffsr","next"}
-					//memories
-					};
-		s_cell_type_translation = {
-					//binary
-					{"$modx","srem"},{"$mody","smod"},{"$div","sdiv"},
-					{"$lt","slt"},{"$le","slte"},{"$gt","sgt"},{"$ge","sgte"}
-					};
+		//assert
+		cell_type_translation["$assert"] = "root";
+		//unary
+		cell_type_translation["$not"] = "not";
+		cell_type_translation["$neg"] = "neg";
+		cell_type_translation["$reduce_and"] = "redand";
+		cell_type_translation["$reduce_or"] = "redor";
+		cell_type_translation["$reduce_xor"] = "redxor";
+		cell_type_translation["$reduce_bool"] = "redor";
+		//binary
+		cell_type_translation["$and"] = "and";
+		cell_type_translation["$or"] = "or";
+		cell_type_translation["$xor"] = "xor";
+		cell_type_translation["$xnor"] = "xnor";
+		cell_type_translation["$shr"] = "srl";
+		cell_type_translation["$shl"] = "sll";
+		cell_type_translation["$sshr"] = "sra";
+		cell_type_translation["$sshl"] = "sll";
+		cell_type_translation["$lt"] = "ult";
+		cell_type_translation["$le"] = "ulte";
+		cell_type_translation["$gt"] = "ugt";
+		cell_type_translation["$ge"] = "ugte";
+		cell_type_translation["$eq"] = "eq";
+		cell_type_translation["$eqx"] = "eq";
+		cell_type_translation["$ne"] = "ne";
+		cell_type_translation["$nex"] = "ne";
+		cell_type_translation["$add"] = "add";
+		cell_type_translation["$sub"] = "sub";
+		cell_type_translation["$mul"] = "mul";
+		cell_type_translation["$mod"] = "urem";
+		cell_type_translation["$div"] = "udiv";
+		//mux
+		cell_type_translation["$mux"] = "cond";
+		//reg
+		cell_type_translation["$dff"] = "next";
+		cell_type_translation["$adff"] = "next";
+		cell_type_translation["$dffsr"] = "next";
+		//memories
+		//nothing here
+
+		//signed cell type translation 
+		//binary
+		s_cell_type_translation["$modx"] = "srem";
+		s_cell_type_translation["$mody"] = "smod";
+		s_cell_type_translation["$div"] = "sdiv";
+		s_cell_type_translation["$lt"] = "slt";
+		s_cell_type_translation["$le"] = "slte";
+		s_cell_type_translation["$gt"] = "sgt";
+		s_cell_type_translation["$ge"] = "sgte";
+		 
 	}
 	
 	std::vector<std::string> cstr_buf;
@@ -823,15 +850,14 @@ struct BtorDumper
 		log("writing input\n");
 		std::map<int, RTLIL::Wire*> inputs, outputs;
 		std::vector<RTLIL::Wire*> safety;
-		std::regex safety_regex("(safety)(.*)");
-
+		
 		for (auto &wire_it : module->wires) {
 			RTLIL::Wire *wire = wire_it.second;
 			if (wire->port_input)
 				inputs[wire->port_id] = wire;
 			if (wire->port_output) {
 				outputs[wire->port_id] = wire;
-				if (std::regex_match(cstr(wire->name), safety_regex ) )
+				if (wire->name.find("safety") != std::string::npos )
 					safety.push_back(wire);
 			}
 		}
