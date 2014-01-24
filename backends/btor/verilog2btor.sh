@@ -24,7 +24,7 @@ hierarchy -check;
 proc; 
 opt; opt_const -mux_undef; opt;
 rename -hide;;;
-techmap -map $YOSYS_HOME/techlibs/common/pmux2mux.v;;
+techmap -share_map pmux2mux.v;;
 memory -nomap;;
 flatten;;
 memory_unpack; 
