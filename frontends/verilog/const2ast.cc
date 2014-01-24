@@ -99,7 +99,7 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 
 	int bits_per_digit = my_ilog2(base-1);
 	if (len_in_bits < 0)
-		len_in_bits = digits.size() * bits_per_digit;
+		len_in_bits = std::max<int>(digits.size() * bits_per_digit, 32);
 
 	data.clear();
 	data.resize(len_in_bits);
@@ -157,7 +157,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 	if (*endptr == 0)
 		return AstNode::mkconst_int(intval, true);
 	
-	// variable length constant
+	// unsized constant
 	if (str == endptr)
 		intval = -1;
 
