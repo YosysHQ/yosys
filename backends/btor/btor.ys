@@ -1,0 +1,15 @@
+proc; 
+opt; opt_const -mux_undef; opt;
+rename -hide;;;
+#converting pmux to mux
+techmap -share_map pmux2mux.v;;
+memory -nomap;;
+#flatten design
+flatten;;
+#converting asyn memory write to syn memory
+memory_unpack; 
+#cell output to be a single wire
+splitnets -driver;
+setundef -zero -undriven;
+opt;;;
+
