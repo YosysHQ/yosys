@@ -101,7 +101,7 @@ namespace RTLIL
 			return std::string(*this) < std::string(rhs);
 		}
 		void check() const {
-			assert(empty() || (size() >= 2 && (at(0) == '$' || at(0) == '\\')));
+			//assert(empty() || (size() >= 2 && (at(0) == '$' || at(0) == '\\')));
 		}
 	};
 #endif

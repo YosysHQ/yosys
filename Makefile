@@ -4,10 +4,10 @@ CONFIG := clang-debug
 # CONFIG := release
 
 # features (the more the better)
-ENABLE_TCL := 1
+ENABLE_TCL := 0
 ENABLE_QT4 := 1
-ENABLE_MINISAT := 1
-ENABLE_ABC := 1
+ENABLE_MINISAT := 0
+ENABLE_ABC := 0
 
 # other configuration flags
 ENABLE_GPROF := 0
