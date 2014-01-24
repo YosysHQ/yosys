@@ -30,7 +30,6 @@
 #include <string>
 #include <assert.h>
 #include <math.h>
-#include <regex>
 
 struct BtorDumperConfig
 {
