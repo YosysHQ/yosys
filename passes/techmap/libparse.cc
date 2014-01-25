@@ -126,6 +126,11 @@ int LibertyParser::lexer(std::string &str)
 					line++;
 			}
 			return lexer(str);
+		} else if (c == '/') {
+			while (c > 0 && c != '\n')
+				c = fgetc(f);
+			line++;
+			return lexer(str);
 		}
 		ungetc(c, f);
 		// fprintf(stderr, "LEX: char >>/<<\n");
