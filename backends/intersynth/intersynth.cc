@@ -149,8 +149,10 @@ struct IntersynthBackend : public Backend {
 				log_error("Can't generate a netlist for a module with unprocessed memories or processes!\n");
 
 			std::set<std::string> constcells_code;
+			netlists_code += stringf("# Netlist of module %s\n", RTLIL::id2cstr(module->name));
 			netlists_code += stringf("netlist %s\n", RTLIL::id2cstr(module->name));
 
+			// Module Ports: "std::set<string> celltypes_code" prevents duplicate top level ports
 			for (auto wire_it : module->wires) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_input || wire->port_output) {
@@ -162,6 +164,7 @@ struct IntersynthBackend : public Backend {
 				}
 			}
 
+			// Submodules: "std::set<string> celltypes_code" prevents duplicate cell types 
 			for (auto cell_it : module->cells)
 			{
 				RTLIL::Cell *cell = cell_it.second;
@@ -194,16 +197,22 @@ struct IntersynthBackend : public Backend {
 				netlists_code += node_code + "\n";
 			}
 
+			if (constcells_code.size() > 0)
+			  netlists_code += "# constant cells\n";
 			for (auto code : constcells_code)
 				netlists_code += code;
+			netlists_code += "\n";
 		}
 
 		if (!flag_notypes) {
+			fprintf(f, "### Connection Types\n");
 			for (auto code : conntypes_code)
 				fprintf(f, "%s", code.c_str());
+			fprintf(f, "\n### Cell Types\n");
 			for (auto code : celltypes_code)
 				fprintf(f, "%s", code.c_str());
 		}
+		fprintf(f, "\n### Netlists\n");
 		fprintf(f, "%s", netlists_code.c_str());
 
 		for (auto lib : libs)

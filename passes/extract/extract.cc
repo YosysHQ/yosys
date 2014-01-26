@@ -312,7 +312,8 @@ struct ExtractPass : public Pass {
 		log("map file can be a verilog source file (*.v) or an ilang file (*.il).\n");
 		log("\n");
 		log("    -map <map_file>\n");
-		log("        use the modules in this file as reference\n");
+		log("        use the modules in this file as reference. This option can be used\n");
+		log("        multiple times.\n");
 		log("\n");
 		log("    -verbose\n");
 		log("        print debug output while analyzing\n");
@@ -384,7 +385,8 @@ struct ExtractPass : public Pass {
 
 		SubCircuitSolver solver;
 
-		std::string filename;
+		std::vector<std::string> map_filenames;
+		std::string mine_outfile;
 		bool constports = false;
 		bool nodefaultswaps = false;
 
@@ -399,11 +401,15 @@ struct ExtractPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
-				filename = args[++argidx];
+				if (mine_mode)
+					log_cmd_error("You cannot mix -map and -mine.\n");
+				map_filenames.push_back(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-mine" && argidx+1 < args.size()) {
-				filename = args[++argidx];
+				if (!map_filenames.empty())
+					log_cmd_error("You cannot mix -map and -mine.\n");
+				mine_outfile = args[++argidx];
 				mine_mode = true;
 				continue;
 			}
@@ -510,23 +516,25 @@ struct ExtractPass : public Pass {
 			solver.addSwappablePorts("$_XOR_",     "\\A", "\\B");
 		}
 
-		if (filename.empty())
+		if (map_filenames.empty() && mine_outfile.empty())
 			log_cmd_error("Missing option -map <verilog_or_ilang_file> or -mine <output_ilang_file>.\n");
 
 		RTLIL::Design *map = NULL;
 
 		if (!mine_mode)
 		{
-			FILE *f = fopen(filename.c_str(), "rt");
-			if (f == NULL)
-				log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
 			map = new RTLIL::Design;
-			Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
-			fclose(f);
+			for (auto &filename : map_filenames) {
+				FILE *f = fopen(filename.c_str(), "rt");
+				if (f == NULL)
+					log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
+				Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+				fclose(f);
 
-			if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
-				Pass::call(map, "proc");
-				Pass::call(map, "opt_clean");
+				if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
+					Pass::call(map, "proc");
+					Pass::call(map, "opt_clean");
+				}
 			}
 		}
 
@@ -658,10 +666,10 @@ struct ExtractPass : public Pass {
 				}
 			}
 
-			FILE *f = fopen(filename.c_str(), "wt");
+			FILE *f = fopen(mine_outfile.c_str(), "wt");
 			if (f == NULL)
-				log_error("Can't open output file `%s'.\n", filename.c_str());
-			Backend::backend_call(map, f, filename, "ilang");
+				log_error("Can't open output file `%s'.\n", mine_outfile.c_str());
+			Backend::backend_call(map, f, mine_outfile, "ilang");
 			fclose(f);
 		}
 
