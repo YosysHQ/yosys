@@ -415,7 +415,11 @@ struct BtorDumper
 					expr_line, one_line);
 				fprintf(f, "%s\n", str.c_str());
 				int cell_line = ++line_num;
-				str = stringf("%d %s %d %d", line_num, cell_type_translation.at("$assert").c_str(), 1, line_num-1);
+				str = stringf("%d %s %d %d", line_num, cell_type_translation.at("$assert").c_str(), 1, -1*(line_num-1));
+				//multiplying the line number with -1, which means logical negation
+				//the reason for negative sign is that the properties in btor are given as "negation of the original property"
+				//bug identified by bobosoft
+				//http://www.reddit.com/r/yosys/comments/1w3xig/btor_backend_bug/
 				fprintf(f, "%s\n", str.c_str());
 				line_ref[cell->name]=cell_line;
 			}
