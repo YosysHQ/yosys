@@ -143,7 +143,7 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)/share/yosys/.
 
 manual:
-	cd manual && bash make.sh
+	cd manual && bash manual.sh
 
 clean:
 	rm -rf share
