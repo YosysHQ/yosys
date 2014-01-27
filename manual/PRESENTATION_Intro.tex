@@ -7,7 +7,7 @@
 
 \subsection{Representations of (digital) Circuits}
 
-\begin{frame}{\subsecname}
+\begin{frame}[t]{\subsecname}
 \begin{itemize}
 	\item Graphical
 		\begin{itemize}
@@ -23,10 +23,61 @@
 \end{itemize}
 \bigskip
 \begin{block}{Definition}
-	\only<1>{Schematic Diagrams are ...}
-	\only<2>{Physical Layouts are ...}
-	\only<3>{Netlists are ...}
-	\only<4>{Hardware Description Languages are ...}
+	\only<1>{Schematic Diagrams are ... TBD}
+	\only<2>{Physical Layouts are ... TBD}
+	\only<3>{Netlists are ... TBD}
+	\only<4>{Hardware Description Languages are ... TBD}
+\end{block}
+\end{frame}
+
+
+\subsection{Levels of Abstraction for Digital Circuits}
+
+\begin{frame}[t]{\subsecname}
+\begin{itemize}
+	\item \alert<1>{System Level}
+	\item \alert<2>{High Level}
+	\item \alert<3>{Behavioral Level}
+	\item \alert<4>{Register-Transfer Level (RTL)}
+	\item \alert<5>{Logical Gate Level}
+	\item \alert<6>{Physical Gate Level}
+	\item \alert<7>{Switch Level}
+\end{itemize}
+\bigskip
+\begin{block}{Definition:
+\only<1>{System Level}%
+\only<2>{High Level}%
+\only<3>{Behavioral Level}%
+\only<4>{Register-Transfer Level (RTL)}%
+\only<5>{Logical Gate Level}%
+\only<6>{Physical Gate Level}%
+\only<7>{Switch Level}}
+\only<1>{
+	Overall view of the circuit: E.g. block-diagrams or instruction-set architecture descriptions
+}%
+\only<2>{
+	Functional implementation of circuit in high-level programming language (C, C++, SystemC, Matlab, Python, etc.).
+}%
+\only<3>{
+	Cycle-accurate description of circuit in hardware description language (Verilog, VHDL, etc.).
+}%
+\only<4>{
+	List of registers (flip-flops) and logic functions that calculate the next state from the previous one. Usually
+	a netlist utilizing high-level cells such as adders, multiplieres, multiplexer, etc.
+}%
+\only<5>{
+	Netlist of single-bit registers and basic logic gates (such as AND, OR,
+	NOT, etc.). Popular form: And-Inverter-Graphs (AIGs) with pairs of primary
+	inputs and outputs for each register bit.
+}%
+\only<6>{
+	Netlist of cells that actually are available on the target architecture
+	(such as CMOS gates in an ASCI or LUTs in an FPGA). Optimized for
+	area and/or and/or speed (static timing or number of logic levels).
+}%
+\only<7>{
+	Netlist of individual transistors.
+}%
 \end{block}
 \end{frame}
 

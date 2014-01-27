@@ -2,13 +2,36 @@
 
 \title{Yosys Open SYnthesis Suite}
 \author{Clifford Wolf}
+\institute{http://www.clifford.at/}
 
+\usetheme{Madrid}
+\usecolortheme{seagull}
 \beamertemplatenavigationsymbolsempty
+
+\definecolor{YosysGreen}{RGB}{85,136,102}
+\setbeamercolor{title}{fg=black,bg=YosysGreen!70}
+\setbeamercolor{titlelike}{fg=black,bg=YosysGreen!70}
+\setbeamercolor{frametitle}{fg=black,bg=YosysGreen!70}
+\setbeamercolor{block title}{fg=black,bg=YosysGreen!70}
+\setbeamercolor{item projected}{fg=black,bg=YosysGreen}
 
 \begin{document}
 
 \begin{frame}
 \titlepage
+\end{frame}
+
+\begin{frame}{Overview}
+Yosys is an Open Source Verilog synthesis tool, and more.
+
+\bigskip
+Outline of this presentation:
+\begin{itemize}
+\item Introduction to the field and Yosys
+\item Yosys usage examples (synthesis)
+\item Yosys usage examples (beyond synthesis)
+\item Programming Yosys extensions
+\end{itemize}
 \end{frame}
 
 \include{PRESENTATION_Intro}
