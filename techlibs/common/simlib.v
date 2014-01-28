@@ -31,12 +31,6 @@
  *
  */
 
-`define INPUT_A input [A_WIDTH-1:0] A; \
-  generate if (A_SIGNED) begin:A_BUF wire signed [A_WIDTH-1:0] val = A; end else begin:A_BUF wire [A_WIDTH-1:0] val = A; end endgenerate
-
-`define INPUT_B input [B_WIDTH-1:0] B; \
-  generate if (B_SIGNED) begin:B_BUF wire signed [B_WIDTH-1:0] val = B; end else begin:B_BUF wire [B_WIDTH-1:0] val = B; end endgenerate
-
 // --------------------------------------------------------
 
 module \$not (A, Y);
@@ -45,10 +39,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
+input [A_WIDTH-1:0] A;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = ~A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = ~$signed(A);
+	end else begin:BLOCK2
+		assign Y = ~A;
+	end
+endgenerate
 
 endmodule
 
@@ -61,15 +61,17 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
+input [A_WIDTH-1:0] A;
 output [Y_WIDTH-1:0] Y;
 
 generate
 	if (!A_SIGNED && 0 < A_WIDTH && A_WIDTH < Y_WIDTH) begin:BLOCK1
-		assign Y[A_WIDTH-1:0] = A_BUF.val;
+		assign Y[A_WIDTH-1:0] = A;
 		assign Y[Y_WIDTH-1:A_WIDTH] = 0;
-	end else begin:BLOCK2
-		assign Y = +A_BUF.val;
+	end else if (A_SIGNED) begin:BLOCK2
+		assign Y = $signed(A);
+	end else begin:BLOCK3
+		assign Y = A;
 	end
 endgenerate
 
@@ -83,10 +85,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
+input [A_WIDTH-1:0] A;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = +A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = $signed(A);
+	end else begin:BLOCK2
+		assign Y = A;
+	end
+endgenerate
 
 endmodule
 
@@ -98,10 +106,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
+input [A_WIDTH-1:0] A;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = -A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = -$signed(A);
+	end else begin:BLOCK2
+		assign Y = -A;
+	end
+endgenerate
 
 endmodule
 
@@ -115,11 +129,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val & B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) & $signed(B);
+	end else begin:BLOCK2
+		assign Y = A & B;
+	end
+endgenerate
 
 endmodule
 
@@ -133,11 +153,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val | B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) | $signed(B);
+	end else begin:BLOCK2
+		assign Y = A | B;
+	end
+endgenerate
 
 endmodule
 
@@ -151,11 +177,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val ^ B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) ^ $signed(B);
+	end else begin:BLOCK2
+		assign Y = A ^ B;
+	end
+endgenerate
 
 endmodule
 
@@ -169,11 +201,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val ~^ B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) ~^ $signed(B);
+	end else begin:BLOCK2
+		assign Y = A ~^ B;
+	end
+endgenerate
 
 endmodule
 
@@ -185,10 +223,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-output Y;
+input [A_WIDTH-1:0] A;
+output [Y_WIDTH-1:0] Y;
 
-assign Y = &A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = &$signed(A);
+	end else begin:BLOCK2
+		assign Y = &A;
+	end
+endgenerate
 
 endmodule
 
@@ -200,10 +244,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-output Y;
+input [A_WIDTH-1:0] A;
+output [Y_WIDTH-1:0] Y;
 
-assign Y = |A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = |$signed(A);
+	end else begin:BLOCK2
+		assign Y = |A;
+	end
+endgenerate
 
 endmodule
 
@@ -215,10 +265,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-output Y;
+input [A_WIDTH-1:0] A;
+output [Y_WIDTH-1:0] Y;
 
-assign Y = ^A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = ^$signed(A);
+	end else begin:BLOCK2
+		assign Y = ^A;
+	end
+endgenerate
 
 endmodule
 
@@ -230,10 +286,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-output Y;
+input [A_WIDTH-1:0] A;
+output [Y_WIDTH-1:0] Y;
 
-assign Y = ~^A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = ~^$signed(A);
+	end else begin:BLOCK2
+		assign Y = ~^A;
+	end
+endgenerate
 
 endmodule
 
@@ -245,10 +307,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-output Y;
+input [A_WIDTH-1:0] A;
+output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val != 0;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = !(!$signed(A));
+	end else begin:BLOCK2
+		assign Y = !(!A);
+	end
+endgenerate
 
 endmodule
 
@@ -262,11 +330,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val << B_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) << B;
+	end else begin:BLOCK2
+		assign Y = A << B;
+	end
+endgenerate
 
 endmodule
 
@@ -280,11 +354,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val >> B_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) >> B;
+	end else begin:BLOCK2
+		assign Y = A >> B;
+	end
+endgenerate
 
 endmodule
 
@@ -298,11 +378,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val <<< B_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) <<< B;
+	end else begin:BLOCK2
+		assign Y = A <<< B;
+	end
+endgenerate
 
 endmodule
 
@@ -316,11 +402,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val >>> B_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) >>> B;
+	end else begin:BLOCK2
+		assign Y = A >>> B;
+	end
+endgenerate
 
 endmodule
 
@@ -334,11 +426,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val < B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) < $signed(B);
+	end else begin:BLOCK2
+		assign Y = A < B;
+	end
+endgenerate
 
 endmodule
 
@@ -352,11 +450,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val <= B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) <= $signed(B);
+	end else begin:BLOCK2
+		assign Y = A <= B;
+	end
+endgenerate
 
 endmodule
 
@@ -370,11 +474,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val == B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) == $signed(B);
+	end else begin:BLOCK2
+		assign Y = A == B;
+	end
+endgenerate
 
 endmodule
 
@@ -388,11 +498,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val != B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) != $signed(B);
+	end else begin:BLOCK2
+		assign Y = A != B;
+	end
+endgenerate
 
 endmodule
 
@@ -406,11 +522,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val === B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) === $signed(B);
+	end else begin:BLOCK2
+		assign Y = A === B;
+	end
+endgenerate
 
 endmodule
 
@@ -424,11 +546,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val !== B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) !== $signed(B);
+	end else begin:BLOCK2
+		assign Y = A !== B;
+	end
+endgenerate
 
 endmodule
 
@@ -442,11 +570,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val >= B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) >= $signed(B);
+	end else begin:BLOCK2
+		assign Y = A >= B;
+	end
+endgenerate
 
 endmodule
 
@@ -460,11 +594,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val > B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) > $signed(B);
+	end else begin:BLOCK2
+		assign Y = A > B;
+	end
+endgenerate
 
 endmodule
 
@@ -478,11 +618,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val + B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) + $signed(B);
+	end else begin:BLOCK2
+		assign Y = A + B;
+	end
+endgenerate
 
 endmodule
 
@@ -496,11 +642,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val - B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) - $signed(B);
+	end else begin:BLOCK2
+		assign Y = A - B;
+	end
+endgenerate
 
 endmodule
 
@@ -514,11 +666,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val * B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) * $signed(B);
+	end else begin:BLOCK2
+		assign Y = A * B;
+	end
+endgenerate
 
 endmodule
 
@@ -532,11 +690,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val / B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) / $signed(B);
+	end else begin:BLOCK2
+		assign Y = A / B;
+	end
+endgenerate
 
 endmodule
 
@@ -550,15 +714,22 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val % B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) % $signed(B);
+	end else begin:BLOCK2
+		assign Y = A % B;
+	end
+endgenerate
 
 endmodule
 
 // --------------------------------------------------------
+`ifndef SIMLIB_NOPOW
 
 module \$pow (A, B, Y);
 
@@ -568,14 +739,25 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val ** B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) ** $signed(B);
+	end else if (A_SIGNED) begin:BLOCK2
+		assign Y = $signed(A) ** B;
+	end else if (B_SIGNED) begin:BLOCK3
+		assign Y = A ** $signed(B);
+	end else begin:BLOCK4
+		assign Y = A ** B;
+	end
+endgenerate
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 
 module \$logic_not (A, Y);
@@ -584,10 +766,16 @@ parameter A_SIGNED = 0;
 parameter A_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
+input [A_WIDTH-1:0] A;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = !A_BUF.val;
+generate
+	if (A_SIGNED) begin:BLOCK1
+		assign Y = !$signed(A);
+	end else begin:BLOCK2
+		assign Y = !A;
+	end
+endgenerate
 
 endmodule
 
@@ -601,11 +789,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val && B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) && $signed(B);
+	end else begin:BLOCK2
+		assign Y = A && B;
+	end
+endgenerate
 
 endmodule
 
@@ -619,11 +813,17 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
-`INPUT_A
-`INPUT_B
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-assign Y = A_BUF.val || B_BUF.val;
+generate
+	if (A_SIGNED && B_SIGNED) begin:BLOCK1
+		assign Y = $signed(A) || $signed(B);
+	end else begin:BLOCK2
+		assign Y = A || B;
+	end
+endgenerate
 
 endmodule
 
