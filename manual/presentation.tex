@@ -50,6 +50,14 @@
 	morestring=[b]",
 }
 
+\newenvironment{boxalertenv}{\begin{altenv}%
+{\usebeamertemplate{alerted text begin}\usebeamercolor[fg]{alerted text}\usebeamerfont{alerted text}\setlength{\fboxsep}{1pt}\colorbox{bg}}
+{\usebeamertemplate{alerted text end}}{\color{.}}{}}{\end{altenv}}
+
+\newcommand<>{\boxalert}[1]{{%
+\begin{boxalertenv}#2{#1}\end{boxalertenv}%
+}}
+
 \title{Yosys Open SYnthesis Suite}
 \author{Clifford Wolf}
 \institute{http://www.clifford.at/}
@@ -59,6 +67,8 @@
 \beamertemplatenavigationsymbolsempty
 
 \definecolor{YosysGreen}{RGB}{85,136,102}
+\definecolor{MyBlue}{RGB}{85,130,180}
+
 \setbeamercolor{title}{fg=black,bg=YosysGreen!70}
 \setbeamercolor{titlelike}{fg=black,bg=YosysGreen!70}
 \setbeamercolor{frametitle}{fg=black,bg=YosysGreen!70}
