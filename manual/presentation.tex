@@ -1,5 +1,55 @@
 \documentclass{beamer}
 
+\usepackage[T1]{fontenc}   % required for luximono!
+\usepackage{lmodern}
+\usepackage[scaled=0.8]{luximono}  % typewriter font with bold face
+
+% To install the luximono font files:
+% getnonfreefonts-sys --all        or
+% getnonfreefonts-sys luximono
+%
+% when there are trouble you might need to:
+% - Create /etc/texmf/updmap.d/99local-luximono.cfg
+%   containing the single line: Map ul9.map
+% - Run update-updmap followed by mktexlsr and updmap-sys
+%
+% This commands must be executed as root with a root environment
+% (i.e. run "sudo su" and then execute the commands in the root
+% shell, don't just prefix the commands with "sudo").
+
+% formats the text accourding the set language
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{skull}
+
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usetikzlibrary{arrows}
+\usetikzlibrary{scopes}
+\usetikzlibrary{through}
+\usetikzlibrary{shapes.geometric}
+
+\lstset{basicstyle=\ttfamily}
+
+\def\B#1{{\tt\textbackslash{}#1}}
+\def\C#1{\lstinline[language=C++]{#1}}
+\def\V#1{\lstinline[language=Verilog]{#1}}
+
+\lstdefinelanguage{liberty}{
+	morecomment=[s]{/*}{*/},
+	morekeywords={library,cell,area,pin,direction,function,clocked_on,next_state,clock,ff},
+	morestring=[b]",
+}
+
+\lstdefinelanguage{rtlil}{
+	morecomment=[l]{\#},
+	morekeywords={module,attribute,parameter,wire,memory,auto,width,offset,size,input,output,inout,cell,connect,switch,case,assign,sync,low,high,posedge,negedge,edge,always,update,process,end},
+	morestring=[b]",
+}
+
 \title{Yosys Open SYnthesis Suite}
 \author{Clifford Wolf}
 \institute{http://www.clifford.at/}
@@ -21,7 +71,10 @@
 \titlepage
 \end{frame}
 
-\begin{frame}{Overview}
+\setcounter{section}{-1}
+\section{Outline}
+
+\begin{frame}{Outline}
 Yosys is an Open Source Verilog synthesis tool, and more.
 
 \bigskip
@@ -29,6 +82,7 @@ Outline of this presentation:
 \begin{itemize}
 \item Introduction to the field and Yosys
 \item Yosys usage examples (synthesis)
+\item Yosys usage examples (advanced synthesis)
 \item Yosys usage examples (beyond synthesis)
 \item Programming Yosys extensions
 \end{itemize}
