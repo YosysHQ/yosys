@@ -46,7 +46,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt;
+	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
@@ -826,11 +826,12 @@ static AstModule* process_module(AstNode *ast)
 	current_module->mem2reg = flag_mem2reg;
 	current_module->lib = flag_lib;
 	current_module->noopt = flag_noopt;
+	current_module->icells = flag_icells;
 	return current_module;
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool ignore_redef)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
@@ -841,6 +842,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
 	flag_noopt = noopt;
+	flag_icells = icells;
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
@@ -877,6 +879,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
 	flag_noopt = noopt;
+	flag_icells = icells;
 	use_internal_line_num();
 
 	std::string para_info;
@@ -959,6 +962,7 @@ RTLIL::Module *AstModule::clone() const
 	new_mod->mem2reg = mem2reg;
 	new_mod->lib = lib;
 	new_mod->noopt = noopt;
+	new_mod->icells = icells;
 
 	return new_mod;
 }

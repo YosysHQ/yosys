@@ -1334,6 +1334,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				AstNode *child = *it;
 				if (child->type == AST_CELLTYPE) {
 					cell->type = child->str;
+					if (flag_icells && cell->type.substr(0, 2) == "\\$")
+						cell->type = cell->type.substr(1);
 					continue;
 				}
 				if (child->type == AST_PARASET) {

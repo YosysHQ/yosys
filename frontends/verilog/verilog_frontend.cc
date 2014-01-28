@@ -99,6 +99,9 @@ struct VerilogFrontend : public Frontend {
 		log("        don't perform basic optimizations (such as const folding) in the\n");
 		log("        high-level front-end.\n");
 		log("\n");
+		log("    -icells\n");
+		log("        interpret cell types starting with '$' as internal cell types\n");
+		log("\n");
 		log("    -ignore_redef\n");
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
 		log("        create an error message.)\n");
@@ -127,6 +130,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_nopp = false;
 		bool flag_lib = false;
 		bool flag_noopt = false;
+		bool flag_icells = false;
 		bool flag_ignore_redef = false;
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
@@ -183,6 +187,10 @@ struct VerilogFrontend : public Frontend {
 				flag_noopt = true;
 				continue;
 			}
+			if (arg == "-icells") {
+				flag_icells = true;
+				continue;
+			}
 			if (arg == "-ignore_redef") {
 				flag_ignore_redef = true;
 				continue;
@@ -228,7 +236,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_ignore_redef);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef);
 
 		if (!flag_nopp)
 			fclose(fp);
