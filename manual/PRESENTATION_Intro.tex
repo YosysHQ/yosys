@@ -153,7 +153,7 @@ Things Yosys can do:
 \begin{itemize}
 \item Read and process (most of) modern Verilog-2005 code.
 \item Perform all kinds of operations on netlist (RTL, Logic, Gate).
-\item Perform logic optimiziations and gate mapping with ABC\footnote{\url{http://www.eecs.berkeley.edu/~alanmi/abc/}}.
+\item Perform logic optimiziations and gate mapping with ABC\footnote[frame]{\url{http://www.eecs.berkeley.edu/~alanmi/abc/}}.
 \end{itemize}
 
 \bigskip
@@ -165,7 +165,7 @@ Things Yosys can't do:
 
 \bigskip
 A typical flow combines Yosys with with a low-level implementation tool, such
-as Qflow\footnote{\url{http://opencircuitdesign.com/qflow/}} for ASIC designs.
+as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC designs.
 
 \end{frame}
 
@@ -316,5 +316,61 @@ as Qflow\footnote{\url{http://opencircuitdesign.com/qflow/}} for ASIC designs.
 }%
 \end{block}
 
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Running the Synthesis Script}
+
+\begin{frame}[fragile]{\subsecname{} -- Verilog Source: \tt counter.v}
+\lstinputlisting[xleftmargin=1cm, language=Verilog]{PRESENTATION_Intro/counter.v}
+\end{frame}
+
+\begin{frame}[fragile]{\subsecname{} -- Cell Library: \tt mycells.lib}
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, lastline=20]{PRESENTATION_Intro/mycells.lib}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, firstline=21]{PRESENTATION_Intro/mycells.lib}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Step 1/4}
+\begin{verbatim}
+read_verilog counter.v
+hierarchy -check -top counter
+\end{verbatim}
+
+\vfill
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_Intro/counter_00.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Step 2/4}
+\begin{verbatim}
+proc; opt; memory; opt; fsm; opt
+\end{verbatim}
+
+\vfill
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_Intro/counter_01.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Step 3/4}
+\begin{verbatim}
+techmap; opt
+\end{verbatim}
+
+\vfill
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_Intro/counter_02.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Step 4/4}
+\begin{verbatim}
+dfflibmap -liberty mycells.lib
+abc -liberty mycells.lib
+clean
+\end{verbatim}
+
+\vfill
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_Intro/counter_03.pdf}
 \end{frame}
 
