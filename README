@@ -189,7 +189,7 @@ for the given cell library:
 	abc -liberty mycells.lib
 
 	# cleanup
-	opt
+	clean
 
 If you do not have a liberty file but want to test this synthesis script,
 you can use the file techlibs/cmos/cmos_cells.lib from the yosys sources.
