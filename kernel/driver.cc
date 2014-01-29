@@ -473,7 +473,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "VSm:f:b:o:p:l:qv:ts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "VSm:f:h:b:o:p:l:qv:ts:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -498,6 +498,9 @@ int main(int argc, char **argv)
 			break;
 		case 'f':
 			frontend_command = optarg;
+			break;
+		case 'h':
+			passes_commands.push_back(stringf("help %s", optarg));
 			break;
 		case 'b':
 			backend_command = optarg;
@@ -536,7 +539,7 @@ int main(int argc, char **argv)
 			break;
 		default:
 			fprintf(stderr, "\n");
-			fprintf(stderr, "Usage: %s [-V] [-S] [-q] [-v <level>[-t] [-l <logfile>] [-o <outfile>] [-f <frontend>]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-V] [-S] [-q] [-v <level>[-t] [-l <logfile>] [-o <outfile>] [-f <frontend>] [-h cmd] \\\n", argv[0]);
 			fprintf(stderr, "       %*s[{-s|-c} <scriptfile>] [-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
@@ -559,6 +562,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -f backend\n");
 			fprintf(stderr, "        use the specified front for the input files on the command line\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -h command\n");
+			fprintf(stderr, "        print the help message for the specified command\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -s scriptfile\n");
 			fprintf(stderr, "        execute the commands in the script file\n");
