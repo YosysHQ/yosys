@@ -2,17 +2,17 @@
 read_verilog counter.v
 hierarchy -check -top counter
 
-show -format pdf -prefix counter_00
+show -stretch -format pdf -prefix counter_00
 
 # the high-level stuff
 proc; opt; memory; opt; fsm; opt
 
-show -format pdf -prefix counter_01
+show -stretch -format pdf -prefix counter_01
 
 # mapping to internal cell library
 techmap; splitnets -ports; opt
 
-show -format pdf -prefix counter_02
+show -stretch -format pdf -prefix counter_02
 
 # mapping flip-flops to mycells.lib
 dfflibmap -liberty mycells.lib
@@ -23,4 +23,4 @@ abc -liberty mycells.lib
 # cleanup
 clean
 
-show -lib mycells.v -format pdf -prefix counter_03
+show -stretch -lib mycells.v -format pdf -prefix counter_03
