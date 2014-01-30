@@ -473,7 +473,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "VSm:f:h:b:o:p:l:qv:ts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "VSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -498,6 +498,9 @@ int main(int argc, char **argv)
 			break;
 		case 'f':
 			frontend_command = optarg;
+			break;
+		case 'H':
+			passes_commands.push_back("help");
 			break;
 		case 'h':
 			passes_commands.push_back(stringf("help %s", optarg));
@@ -562,6 +565,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -f backend\n");
 			fprintf(stderr, "        use the specified front for the input files on the command line\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -H\n");
+			fprintf(stderr, "        print the command list\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -h command\n");
 			fprintf(stderr, "        print the help message for the specified command\n");
