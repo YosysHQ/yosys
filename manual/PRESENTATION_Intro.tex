@@ -378,14 +378,164 @@ clean
 
 \subsection{More Yosys Commands}
 
-\begin{frame}{\subsecname{} -- TBD}
-TBD
+\begin{frame}[fragile]{\subsecname{} 1/3}
+Command reference:
+\begin{itemize}
+\item Use ``{\tt help}'' for a command list and ``{\tt help \it command}'' for details.
+\item Or run ``{\tt yosys -H}'' and ``{\tt yosys -h \it command}''.
+\item Or go to \url{http://www.clifford.at/yosys/documentation.html}.
+\end{itemize}
+
+\bigskip
+Commands for design navigation and investigation:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+    cd                   a shortcut for 'select -module <name>'
+    ls                   list modules or objects in modules
+    dump                 print parts of the design in ilang format
+    show                 generate schematics using graphviz
+    select               modify and view the list of selected objects
+\end{lstlisting}
+
+\bigskip
+Commands for executing scripts or entering interactive mode:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+    shell                enter interactive command mode
+    history              show last interactive commands
+    script               execute commands from script file
+    tcl                  execute a TCL script file
+\end{lstlisting}
 \end{frame}
+
+\begin{frame}[fragile]{\subsecname{} 2/3}
+Commands for reading and elaborating the design:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+    read_ilang           read modules from ilang file
+    read_verilog         read modules from verilog file
+    hierarchy            check, expand and clean up design hierarchy
+\end{lstlisting}
+
+\bigskip
+Commands for high-level synthesis:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+    proc                 translate processes to netlists
+    fsm                  extract and optimize finite state machines
+    memory               translate memories to basic cells
+    opt                  perform simple optimizations
+\end{lstlisting}
+
+\bigskip
+Commands for technology mapping:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+    techmap              simple technology mapper
+    abc                  use ABC for technology mapping
+    dfflibmap            technology mapping of flip-flops
+    hilomap              technology mapping of constant hi- and/or lo-drivers
+    iopadmap             technology mapping of i/o pads (or buffers)
+    flatten              flatten design
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{\subsecname{} 3/3}
+Commands for writing the results:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+    write_blif           write design to BLIF file
+    write_btor           write design to BTOR file
+    write_edif           write design to EDIF netlist file
+    write_ilang          write design to ilang file
+    write_spice          write design to SPICE netlist file
+    write_verilog        write design to verilog file
+\end{lstlisting}
+
+\bigskip
+Script-Commands for standard synthesis tasks:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+    synth_xilinx         synthesis for Xilinx FPGAs
+\end{lstlisting}
+
+\bigskip
+... and many many more.
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{More Verilog Examples}
 
-\begin{frame}{\subsecname{} -- TBD}
-TBD
+\begin{frame}[fragile]{\subsecname{} 1/3}
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=Verilog]
+module detectprime(a, y);
+    input [4:0] a;
+    output y;
+
+    integer i, j;
+    reg [31:0] lut;
+
+    initial begin
+        for (i = 0; i < 32; i = i+1) begin
+            lut[i] = i > 1;
+            for (j = 2; j*j <= i; j = j+1)
+                if (i % j == 0)
+                    lut[i] = 0;
+        end
+    end
+
+    assign y = lut[a];
+endmodule
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{\subsecname{} 2/3}
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=Verilog]
+module carryadd(a, b, y);
+    parameter WIDTH = 8;
+    input [WIDTH-1:0] a, b;
+    output [WIDTH-1:0] y;
+
+    genvar i;
+    generate
+        for (i = 0; i < WIDTH; i = i+1) begin:STAGE
+            wire IN1 = a[i], IN2 = b[i];
+            wire C, Y;
+            if (i == 0)
+                assign C = IN1 & IN2, Y = IN1 ^ IN2;
+            else
+                assign C = (IN1 & IN2) | ((IN1 | IN2) & STAGE[i-1].C),
+                       Y = IN1 ^ IN2 ^ STAGE[i-1].C;
+            assign y[i] = Y;
+        end
+    endgenerate
+endmodule
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{\subsecname{} 3/3}
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{7pt}{8.5pt}\selectfont, language=Verilog]
+module cam(clk, wr_enable, wr_addr, wr_data, rd_data, rd_addr, rd_match);
+    parameter WIDTH = 8;
+    parameter DEPTH = 16;
+    localparam ADDR_BITS = $clog2(DEPTH);
+
+    input clk, wr_enable;
+    input [ADDR_BITS-1:0] wr_addr;
+    input [WIDTH-1:0] wr_data, rd_data;
+    output reg [ADDR_BITS-1:0] rd_addr;
+    output reg rd_match;
+
+    integer i;
+    reg [WIDTH-1:0] mem [0:DEPTH-1];
+
+    always @(posedge clk) begin
+        rd_addr <= 'bx;
+        rd_match <= 0;
+        for (i = 0; i < DEPTH; i = i+1)
+            if (mem[i] == rd_data) begin
+                rd_addr <= i;
+                rd_match <= 1;
+            end
+        if (wr_enable)
+            mem[wr_addr] <= wr_data;
+    end
+endmodule
+\end{lstlisting}
 \end{frame}
 
 \subsection{Verification}
