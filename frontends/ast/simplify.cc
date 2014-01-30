@@ -1478,7 +1478,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 
 	for (size_t i = 0; i < children.size(); i++) {
 		AstNode *child = children[i];
-		if (child->type != AST_FUNCTION && child->type != AST_TASK)
+		if (child->type != AST_FUNCTION && child->type != AST_TASK && child->type != AST_PREFIX)
 			child->expand_genblock(index_var, prefix, name_map);
 	}
 
