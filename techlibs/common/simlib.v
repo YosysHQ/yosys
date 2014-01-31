@@ -1124,14 +1124,19 @@ task tr_fetch;
 endtask
 
 always @(posedge pos_clk, posedge pos_arst) begin
-	if (pos_arst)
+	if (pos_arst) begin
 		state_tmp = STATE_TABLE[STATE_BITS*(STATE_RST+1)-1:STATE_BITS*STATE_RST];
-	else
+		for (i = 0; i < STATE_BITS; i = i+1)
+			if (state_tmp[i] === 1'bz)
+				state_tmp[i] = 0;
+		state <= state_tmp;
+	end else begin
 		state_tmp = next_state;
-	for (i = 0; i < STATE_BITS; i = i+1)
-		if (state_tmp[i] === 1'bz)
-			state_tmp[i] = 0;
-	state <= state_tmp;
+		for (i = 0; i < STATE_BITS; i = i+1)
+			if (state_tmp[i] === 1'bz)
+				state_tmp[i] = 0;
+		state <= state_tmp;
+	end
 end
 
 always @(state, CTRL_IN) begin
