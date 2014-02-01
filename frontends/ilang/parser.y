@@ -73,6 +73,9 @@ input:
 			rtlil_frontend_ilang_yyerror("dangling attribute");
 	};
 
+EOL:
+	optional_eol TOK_EOL;
+
 optional_eol:
 	optional_eol TOK_EOL | /* empty */;
 
@@ -82,7 +85,7 @@ design:
 	/* empty */;
 
 module:
-	TOK_MODULE TOK_ID TOK_EOL {
+	TOK_MODULE TOK_ID EOL {
 		if (current_design->modules.count($2) != 0)
 			rtlil_frontend_ilang_yyerror("scope error");
 		current_module = new RTLIL::Module;
@@ -94,7 +97,7 @@ module:
 	} module_body TOK_END {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
-	} TOK_EOL;
+	} EOL;
 
 module_body:
 	module_body module_stmt |
@@ -104,7 +107,7 @@ module_stmt:
 	attr_stmt | wire_stmt | memory_stmt | cell_stmt | proc_stmt | conn_stmt;
 
 attr_stmt:
-	TOK_ATTRIBUTE TOK_ID constant TOK_EOL {
+	TOK_ATTRIBUTE TOK_ID constant EOL {
 		attrbuf[$2] = *$3;
 		delete $3;
 		free($2);
@@ -115,7 +118,7 @@ wire_stmt:
 		current_wire = new RTLIL::Wire;
 		current_wire->attributes = attrbuf;
 		attrbuf.clear();
-	} wire_options TOK_ID TOK_EOL {
+	} wire_options TOK_ID EOL {
 		if (current_module->wires.count($4) != 0)
 			rtlil_frontend_ilang_yyerror("scope error");
 		current_wire->name = $4;
@@ -152,7 +155,7 @@ memory_stmt:
 		current_memory = new RTLIL::Memory;
 		current_memory->attributes = attrbuf;
 		attrbuf.clear();
-	} memory_options TOK_ID TOK_EOL {
+	} memory_options TOK_ID EOL {
 		if (current_module->memories.count($4) != 0)
 			rtlil_frontend_ilang_yyerror("scope error");
 		current_memory->name = $4;
@@ -170,7 +173,7 @@ memory_options:
 	/* empty */;
 
 cell_stmt:
-	TOK_CELL TOK_ID TOK_ID TOK_EOL {
+	TOK_CELL TOK_ID TOK_ID EOL {
 		if (current_module->cells.count($3) != 0)
 			rtlil_frontend_ilang_yyerror("scope error");
 		current_cell = new RTLIL::Cell;
@@ -181,21 +184,21 @@ cell_stmt:
 		attrbuf.clear();
 		free($2);
 		free($3);
-	} cell_body TOK_END TOK_EOL;
+	} cell_body TOK_END EOL;
 
 cell_body:
-	cell_body TOK_PARAMETER TOK_ID constant TOK_EOL {
+	cell_body TOK_PARAMETER TOK_ID constant EOL {
 		current_cell->parameters[$3] = *$4;
 		free($3);
 		delete $4;
 	} |
-	cell_body TOK_PARAMETER TOK_SIGNED TOK_ID constant TOK_EOL {
+	cell_body TOK_PARAMETER TOK_SIGNED TOK_ID constant EOL {
 		current_cell->parameters[$4] = *$5;
 		current_cell->parameters[$4].flags |= RTLIL::CONST_FLAG_SIGNED;
 		free($4);
 		delete $5;
 	} |
-	cell_body TOK_CONNECT TOK_ID sigspec TOK_EOL {
+	cell_body TOK_CONNECT TOK_ID sigspec EOL {
 		if (current_cell->connections.count($3) != 0)
 			rtlil_frontend_ilang_yyerror("scope error");
 		current_cell->connections[$3] = *$4;
@@ -205,7 +208,7 @@ cell_body:
 	/* empty */;
 
 proc_stmt:
-	TOK_PROCESS TOK_ID TOK_EOL {
+	TOK_PROCESS TOK_ID EOL {
 		if (current_module->processes.count($2) != 0)
 			rtlil_frontend_ilang_yyerror("scope error");
 		current_process = new RTLIL::Process;
@@ -217,17 +220,17 @@ proc_stmt:
 		case_stack.clear();
 		case_stack.push_back(&current_process->root_case);
 		free($2);
-	} case_body sync_list TOK_END TOK_EOL;
+	} case_body sync_list TOK_END EOL;
 
 switch_stmt:
-	attr_list TOK_SWITCH sigspec TOK_EOL {
+	attr_list TOK_SWITCH sigspec EOL {
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
 		rule->signal = *$3;
 		rule->attributes = attrbuf;
 		switch_stack.back()->push_back(rule);
 		attrbuf.clear();
 		delete $3;
-	} switch_body TOK_END TOK_EOL;
+	} switch_body TOK_END EOL;
 
 attr_list:
 	/* empty */ |
@@ -239,7 +242,7 @@ switch_body:
 		switch_stack.back()->back()->cases.push_back(rule);
 		switch_stack.push_back(&rule->switches);
 		case_stack.push_back(rule);
-	} compare_list TOK_EOL case_body {
+	} compare_list EOL case_body {
 		switch_stack.pop_back();
 		case_stack.pop_back();
 	} |
@@ -262,27 +265,27 @@ case_body:
 	/* empty */;
 
 assign_stmt:
-	TOK_ASSIGN sigspec sigspec TOK_EOL {
+	TOK_ASSIGN sigspec sigspec EOL {
 		case_stack.back()->actions.push_back(RTLIL::SigSig(*$2, *$3));
 		delete $2;
 		delete $3;
 	};
 
 sync_list:
-	sync_list TOK_SYNC sync_type sigspec TOK_EOL {
+	sync_list TOK_SYNC sync_type sigspec EOL {
 		RTLIL::SyncRule *rule = new RTLIL::SyncRule;
 		rule->type = RTLIL::SyncType($3);
 		rule->signal = *$4;
 		current_process->syncs.push_back(rule);
 		delete $4;
 	} update_list |
-	sync_list TOK_SYNC TOK_ALWAYS TOK_EOL {
+	sync_list TOK_SYNC TOK_ALWAYS EOL {
 		RTLIL::SyncRule *rule = new RTLIL::SyncRule;
 		rule->type = RTLIL::SyncType::STa;
 		rule->signal = RTLIL::SigSpec();
 		current_process->syncs.push_back(rule);
 	} update_list |
-	sync_list TOK_SYNC TOK_INIT TOK_EOL {
+	sync_list TOK_SYNC TOK_INIT EOL {
 		RTLIL::SyncRule *rule = new RTLIL::SyncRule;
 		rule->type = RTLIL::SyncType::STi;
 		rule->signal = RTLIL::SigSpec();
@@ -298,7 +301,7 @@ sync_type:
 	TOK_EDGE { $$ = RTLIL::STe; };
 
 update_list:
-	update_list TOK_UPDATE sigspec sigspec TOK_EOL {
+	update_list TOK_UPDATE sigspec sigspec EOL {
 		current_process->syncs.back()->actions.push_back(RTLIL::SigSig(*$3, *$4));
 		delete $3;
 		delete $4;
@@ -416,7 +419,7 @@ sigspec_list:
 	};
 
 conn_stmt:
-	TOK_CONNECT sigspec sigspec TOK_EOL {
+	TOK_CONNECT sigspec sigspec EOL {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
 		current_module->connections.push_back(RTLIL::SigSig(*$2, *$3));

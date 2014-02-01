@@ -109,7 +109,7 @@ void update_autoidx(const char *p);
 }
 <STRING>.	{ yymore(); }
 
-"#"[^\n]*\n	/* ignore comments */
+"#"[^\n]*	/* ignore comments */
 [ \t]		/* ignore non-newline whitespaces */
 [\r\n]+		{ return TOK_EOL; }
 
