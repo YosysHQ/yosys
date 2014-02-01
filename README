@@ -270,6 +270,11 @@ Verilog Attributes and non-standard features
   for everything that comes after the {* ... *} statement. (Reset
   by adding an empty {* *} statement.)
 
+- The "assert" statement from SystemVerilog is supported in its most basic
+  form. In module context: "assert property (<expression>);" and within an
+  always block: "assert(<expression>);". It is transformed to a $assert cell
+  that is supported by the "sat" and "write_btor" commands.
+
 
 Workarounds for known build problems
 ====================================
