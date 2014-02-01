@@ -693,6 +693,9 @@ struct SatPass : public Pass {
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
+		log("    -show-inputs, -show-outputs\n");
+		log("        add all module input (output) ports to the list of shown signals\n");
+		log("\n");
 		log("    -ignore_div_by_zero\n");
 		log("        ignore all solutions that involve a division by zero\n");
 		log("\n");
@@ -758,7 +761,7 @@ struct SatPass : public Pass {
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = false;
-		bool tempinduct = false, prove_asserts = false;
+		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -898,6 +901,14 @@ struct SatPass : public Pass {
 				shows.push_back(args[++argidx]);
 				continue;
 			}
+			if (args[argidx] == "-show-inputs") {
+				show_inputs = true;
+				continue;
+			}
+			if (args[argidx] == "-show-outputs") {
+				show_outputs = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -926,6 +937,18 @@ struct SatPass : public Pass {
 			for (auto &it : module->wires)
 				if (it.second->port_input)
 					sets_def.push_back(it.second->name);
+		}
+
+		if (show_inputs) {
+			for (auto &it : module->wires)
+				if (it.second->port_input)
+					shows.push_back(it.second->name);
+		}
+
+		if (show_outputs) {
+			for (auto &it : module->wires)
+				if (it.second->port_output)
+					shows.push_back(it.second->name);
 		}
 
 		if (tempinduct)
