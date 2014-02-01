@@ -81,7 +81,7 @@ struct ShowWorker
 			if (c.wire != NULL)
 				for (auto &s : color_selections)
 					if (s.second.selected_members.count(module->name) > 0 && s.second.selected_members.at(module->name).count(c.wire->name) > 0)
-						return stringf("color=\"%s\", fontcolor=\"%d\"", s.first.c_str(), s.first.c_str());
+						return stringf("color=\"%s\"", s.first.c_str());
 		}
 		return defaultColor;
 	}
@@ -108,6 +108,24 @@ struct ShowWorker
 		if (!genWidthLabels)
 			return "style=\"setlinewidth(3)\", label=\"\"";
 		return stringf("style=\"setlinewidth(3)\", label=\"<%d>\"", bits);
+	}
+
+	const char *findColor(std::string member_name)
+	{
+		for (auto &s : color_selections)
+			if (s.second.selected_member(module->name, member_name)) {
+				dot_escape_store.push_back(stringf(", color=\"%s\"", s.first.c_str()));
+				return dot_escape_store.back().c_str();
+			}
+		return "";
+	}
+
+	const char *findLabel(std::string member_name)
+	{
+		for (auto &s : label_selections)
+			if (s.second.selected_member(module->name, RTLIL::escape_id(member_name)))
+				return escape(s.first);
+		return escape(member_name, true);
 	}
 
 	const char *escape(std::string id, bool is_name = false)
@@ -165,7 +183,7 @@ struct ShowWorker
 				if (!range_check || c.wire->width == c.width)
 						return stringf("n%d", id2num(c.wire->name));
 			} else {
-				fprintf(f, "v%d [ label=\"%s\" ];\n", single_idx_count, escape(log_signal(c), true));
+				fprintf(f, "v%d [ label=\"%s\" ];\n", single_idx_count, findLabel(log_signal(c)));
 				return stringf("v%d", single_idx_count++);
 			}
 		}
@@ -296,7 +314,7 @@ struct ShowWorker
 				shape = "octagon";
 			if (it.first[0] == '\\') {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
-						id2num(it.first), shape, escape(it.first),
+						id2num(it.first), shape, findLabel(it.first),
 						nextColor(RTLIL::SigSpec(it.second), "color=\"black\"").c_str());
 				if (it.second->port_input)
 					all_sources.insert(stringf("n%d", id2num(it.first)));
@@ -341,7 +359,7 @@ struct ShowWorker
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
-			label_string += stringf("}|%s\\n%s|{", escape(it.first, true), escape(it.second->type));
+			label_string += stringf("}|%s\\n%s|{", findLabel(it.first), escape(it.second->type));
 
 			for (auto &p : out_ports)
 				label_string += stringf("<p%d> %s|", id2num(p), escape(p));
@@ -358,12 +376,12 @@ struct ShowWorker
 
 #ifdef CLUSTER_CELLS_AND_PORTBOXES
 			if (!code.empty())
-				fprintf(f, "subgraph cluster_c%d {\nc%d [ shape=record, label=\"%s\" ];\n%s}\n",
-						id2num(it.first), id2num(it.first), label_string.c_str(), code.c_str());
+				fprintf(f, "subgraph cluster_c%d {\nc%d [ shape=record, label=\"%s\"%s ];\n%s}\n",
+						id2num(it.first), id2num(it.first), label_string.c_str(), findColor(it.first), code.c_str());
 			else
 #endif
-				fprintf(f, "c%d [ shape=record, label=\"%s\" ];\n%s",
-						id2num(it.first), label_string.c_str(), code.c_str());
+				fprintf(f, "c%d [ shape=record, label=\"%s\"%s ];\n%s",
+						id2num(it.first), label_string.c_str(), findColor(it.first), code.c_str());
 		}
 
 		for (auto &it : module->processes)
@@ -401,7 +419,7 @@ struct ShowWorker
 			std::string proc_src = RTLIL::unescape_id(proc->name);
 			if (proc->attributes.count("\\src") > 0)
 				proc_src = proc->attributes.at("\\src").decode_string();
-			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, escape(proc->name, true), proc_src.c_str());
+			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name), proc_src.c_str());
 		}
 
 		for (auto &conn : module->connections)
@@ -457,7 +475,7 @@ struct ShowWorker
 					continue;
 				}
 				if (it.second.in.size() == 0 || it.second.out.size() == 0)
-					fprintf(f, "%s [ shape=diamond, label=\"%s\" ];\n", it.first.c_str(), escape(wires_on_demand[it.first], true));
+					fprintf(f, "%s [ shape=diamond, label=\"%s\" ];\n", it.first.c_str(), findLabel(wires_on_demand[it.first]));
 				else
 					fprintf(f, "%s [ shape=point ];\n", it.first.c_str());
 			}
@@ -537,9 +555,14 @@ struct ShowPass : public Pass {
 		log("    -prefix <prefix>\n");
 		log("        generate <prefix>.* instead of ~/.yosys_show.*\n");
 		log("\n");
-		log("    -color <color> <wire>\n");
-		log("        assign the specified color to the specified wire. The object can be\n");
+		log("    -color <color> <object>\n");
+		log("        assign the specified color to the specified object. The object can be\n");
 		log("        a single selection wildcard expressions or a saved set of objects in\n");
+		log("        the @<name> syntax (see \"help select\" for details).\n");
+		log("\n");
+		log("    -label <text> <object>\n");
+		log("        assign the specified label text to the specified object. The object can\n");
+		log("        be a single selection wildcard expressions or a saved set of objects in\n");
 		log("        the @<name> syntax (see \"help select\" for details).\n");
 		log("\n");
 		log("    -colors <seed>\n");
@@ -615,7 +638,7 @@ struct ShowPass : public Pass {
 				color_selections.push_back(data);
 				continue;
 			}
-			if (arg == "-label" && argidx+2 < args.size() && false) {
+			if (arg == "-label" && argidx+2 < args.size()) {
 				std::pair<std::string, RTLIL::Selection> data;
 				data.first = args[++argidx], argidx++;
 				handle_extra_select_args(this, args, argidx, argidx+1, design);
