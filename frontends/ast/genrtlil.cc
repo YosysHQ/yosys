@@ -664,6 +664,14 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 			sign_hint = false;
 		break;
 
+	case AST_TO_BITS:
+		while (children[0]->simplify(true, false, false, 1, -1, false) == true) { }
+		if (children[0]->type != AST_CONSTANT)
+			log_error("Left operand of tobits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+		children[1]->detectSignWidthWorker(sub_width_hint, sign_hint);
+		width_hint = std::max(width_hint, children[0]->bitsAsConst().as_int());
+		break;
+
 	case AST_TO_SIGNED:
 		children.at(0)->detectSignWidthWorker(width_hint, sub_sign_hint);
 		break;

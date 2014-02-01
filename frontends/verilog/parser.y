@@ -1051,6 +1051,28 @@ basic_expr:
 	rvalue {
 		$$ = $1;
 	} |
+	'(' expr ')' TOK_CONST {
+		if ($4->substr(0, 1) != "'")
+			frontend_verilog_yyerror("Syntax error.");
+		AstNode *bits = $2;
+		AstNode *val = const2ast(*$4, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
+		if (val == NULL)
+			log_error("Value conversion failed: `%s'\n", $4->c_str());
+		$$ = new AstNode(AST_TO_BITS, bits, val);
+		delete $4;
+	} |
+	hierarchical_id TOK_CONST {
+		if ($2->substr(0, 1) != "'")
+			frontend_verilog_yyerror("Syntax error.");
+		AstNode *bits = new AstNode(AST_IDENTIFIER);
+		bits->str = *$1;
+		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
+		if (val == NULL)
+			log_error("Value conversion failed: `%s'\n", $2->c_str());
+		$$ = new AstNode(AST_TO_BITS, bits, val);
+		delete $1;
+		delete $2;
+	} |
 	TOK_CONST {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
 		if ($$ == NULL)

@@ -275,6 +275,10 @@ Verilog Attributes and non-standard features
   always block: "assert(<expression>);". It is transformed to a $assert cell
   that is supported by the "sat" and "write_btor" commands.
 
+- Sized constants (the syntax <size>'s?[bodh]<value>) support constant
+  expressions as <size>. If the expresion is not a simple identifier, it
+  must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
+
 
 Workarounds for known build problems
 ====================================

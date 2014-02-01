@@ -258,6 +258,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		break;
 
+	case AST_TO_BITS:
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
 	case AST_CONCAT:
@@ -439,6 +440,17 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (second_part[0] == '\\')
 			second_part++;
 		newNode->str = stringf("%s[%d].%s", str.c_str(), children[0]->integer, second_part);
+		goto apply_newNode;
+	}
+
+	// evaluate TO_BITS nodes
+	if (type == AST_TO_BITS) {
+		if (children[0]->type != AST_CONSTANT)
+			log_error("Left operand of to_bits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+		if (children[1]->type != AST_CONSTANT)
+			log_error("Right operand of to_bits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
+		RTLIL::Const new_value = children[1]->bitsAsConst(children[0]->bitsAsConst().as_int(), children[1]->is_signed);
+		newNode = mkconst_bits(new_value.bits, children[1]->is_signed);
 		goto apply_newNode;
 	}
 
