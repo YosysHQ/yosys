@@ -195,7 +195,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 				RTLIL::Cell *eq_cell = new RTLIL::Cell;
 				eq_cell->name = NEW_ID;
-				eq_cell->type = "$eq";
+				eq_cell->type = "$eqx";
 				eq_cell->parameters["\\A_WIDTH"] = w2_gold->width;
 				eq_cell->parameters["\\B_WIDTH"] = w2_gate->width;
 				eq_cell->parameters["\\Y_WIDTH"] = 1;
@@ -211,7 +211,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 			{
 				RTLIL::Cell *eq_cell = new RTLIL::Cell;
 				eq_cell->name = NEW_ID;
-				eq_cell->type = "$eq";
+				eq_cell->type = "$eqx";
 				eq_cell->parameters["\\A_WIDTH"] = w2_gold->width;
 				eq_cell->parameters["\\B_WIDTH"] = w2_gate->width;
 				eq_cell->parameters["\\Y_WIDTH"] = 1;
