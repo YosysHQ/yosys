@@ -273,22 +273,25 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			module->wires[w->name] = w;
 			c->connections["\\Y"] = RTLIL::SigSpec(w);
 
-			c = new RTLIL::Cell;
-			c->name = genid(cell->name, "$wren", i, "", j);
-			c->type = "$and";
-			c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-			c->parameters["\\B_SIGNED"] = RTLIL::Const(0);
-			c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
-			c->parameters["\\B_WIDTH"] = RTLIL::Const(1);
-			c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-			c->connections["\\A"] = RTLIL::SigSpec(w);
-			c->connections["\\B"] = wr_en;
-			module->cells[c->name] = c;
+			if (wr_en != RTLIL::SigSpec(1, 1))
+			{
+				c = new RTLIL::Cell;
+				c->name = genid(cell->name, "$wren", i, "", j);
+				c->type = "$and";
+				c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
+				c->parameters["\\B_SIGNED"] = RTLIL::Const(0);
+				c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
+				c->parameters["\\B_WIDTH"] = RTLIL::Const(1);
+				c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+				c->connections["\\A"] = RTLIL::SigSpec(w);
+				c->connections["\\B"] = wr_en;
+				module->cells[c->name] = c;
 
-			w = new RTLIL::Wire;
-			w->name = genid(cell->name, "$wren", i, "", j, "$y");
-			module->wires[w->name] = w;
-			c->connections["\\Y"] = RTLIL::SigSpec(w);
+				w = new RTLIL::Wire;
+				w->name = genid(cell->name, "$wren", i, "", j, "$y");
+				module->wires[w->name] = w;
+				c->connections["\\Y"] = RTLIL::SigSpec(w);
+			}
 
 			c = new RTLIL::Cell;
 			c->name = genid(cell->name, "$wrmux", i, "", j);
