@@ -48,6 +48,7 @@ struct ShowWorker
 	bool stretchIO;
 	bool enumerateIds;
 	bool abbreviateIds;
+	bool notitle;
 	int page_counter;
 
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
@@ -299,7 +300,8 @@ struct ShowWorker
 		net_conn_map.clear();
 
 		fprintf(f, "digraph \"%s\" {\n", escape(module->name));
-		fprintf(f, "label=\"%s\";\n", escape(module->name));
+		if (!notitle)
+			fprintf(f, "label=\"%s\";\n", escape(module->name));
 		fprintf(f, "rankdir=\"LR\";\n");
 		fprintf(f, "remincross=true;\n");
 
@@ -489,12 +491,12 @@ struct ShowWorker
 	}
 
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed,
-			bool genWidthLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds,
+			bool genWidthLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections) :
 			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels),
 			stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
-			color_selections(color_selections), label_selections(label_selections)
+			notitle(notitle), color_selections(color_selections), label_selections(label_selections)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -586,6 +588,9 @@ struct ShowPass : public Pass {
 		log("    -long\n");
 		log("        do not abbeviate objects with internal ($-prefixed) names\n");
 		log("\n");
+		log("    -notitle\n");
+		log("        do not add the module name as graph title to the dot file\n");
+		log("\n");
 		log("When no <format> is specified, SVG is used. When no <format> and <viewer> is\n");
 		log("specified, 'yosys-svgviewer' is used to display the schematic.\n");
 		log("\n");
@@ -612,6 +617,7 @@ struct ShowPass : public Pass {
 		bool flag_pause = false;
 		bool flag_enum = false;
 		bool flag_abbeviate = true;
+		bool flag_notitle = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -677,6 +683,10 @@ struct ShowPass : public Pass {
 				flag_abbeviate = false;
 				continue;
 			}
+			if (arg == "-notitle") {
+				flag_notitle = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -718,7 +728,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch, flag_enum, flag_abbeviate, color_selections, label_selections);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch, flag_enum, flag_abbeviate, flag_notitle, color_selections, label_selections);
 		fclose(f);
 
 		for (auto lib : libs)
