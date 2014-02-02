@@ -195,18 +195,31 @@ struct VerilogFrontend : public Frontend {
 				flag_ignore_redef = true;
 				continue;
 			}
-			if (arg.compare(0,2,"-D") == 0) {
-				size_t equal = arg.find('=',2);   // returns string::npos it not found
-				std::string name = arg.substr(2,equal-2);
-				std::string value;
+			if (arg == "-D" && argidx+1 < args.size()) {
+				std::string name = args[++argidx], value;
+				size_t equal = name.find('=', 2);
 				if (equal != std::string::npos) {
-					value = arg.substr(equal+1,std::string::npos);
+					value = arg.substr(equal+1);
+					name = arg.substr(0, equal);
 				}
 				defines_map[name] = value;
 				continue;
 			}
-			if (arg.compare(0,2,"-I") == 0) {
-				include_dirs.push_back(arg.substr(2,std::string::npos));
+			if (arg.compare(0, 2, "-D") == 0) {
+				size_t equal = arg.find('=', 2);
+				std::string name = arg.substr(2, equal-2);
+				std::string value;
+				if (equal != std::string::npos)
+					value = arg.substr(equal+1);
+				defines_map[name] = value;
+				continue;
+			}
+			if (arg == "-I" && argidx+1 < args.size()) {
+				include_dirs.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg.compare(0, 2, "-I") == 0) {
+				include_dirs.push_back(arg.substr(2));
 				continue;
 			}
 			break;
