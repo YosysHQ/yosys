@@ -1,0 +1,4 @@
+read_verilog memory_02.v
+hierarchy -check -top test
+proc;; memory -nomap
+opt -mux_undef -mux_bool

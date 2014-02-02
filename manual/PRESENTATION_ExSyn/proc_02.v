@@ -1,10 +1,8 @@
-module test(input A, B, C, D, E,
-            output reg Y);
-    always @* begin
-	Y <= A;
-	if (B)
-	    Y <= C;
-	if (D)
-	    Y <= E;
-    end
+module test(input D, C, R, RV,
+            output reg Q);
+    always @(posedge C, posedge R)
+        if (R)
+	    Q <= RV;
+	else
+	    Q <= D;
 endmodule

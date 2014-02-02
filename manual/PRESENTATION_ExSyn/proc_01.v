@@ -1,8 +1,7 @@
-module test(input D, C, R, RV,
-            output reg Q);
+module test(input D, C, R, output reg Q);
     always @(posedge C, posedge R)
         if (R)
-	    Q <= RV;
+	    Q <= 0;
 	else
 	    Q <= D;
 endmodule

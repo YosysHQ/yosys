@@ -1,12 +1,18 @@
 
-all: proc_00.pdf proc_01.pdf proc_02.pdf
+TARGETS += proc_01 proc_02 proc_03
+TARGETS += opt_01 opt_02 opt_03 opt_04
+TARGETS += memory_01 memory_02
 
-proc_00.pdf: proc_00.v proc_00.ys
-	../../yosys -p 'script proc_00.ys; show -notitle -prefix proc_00 -format pdf'
+all: $(addsuffix .pdf,$(TARGETS))
 
-proc_01.pdf: proc_01.v proc_01.ys
-	../../yosys -p 'script proc_01.ys; show -notitle -prefix proc_01 -format pdf'
+define make_pdf_template
+$(1).pdf: $(1).v $(1).ys
+	../../yosys -p 'script $(1).ys; show -notitle -prefix $(1) -format pdf'
+endef
 
-proc_02.pdf: proc_02.v proc_02.ys
-	../../yosys -p 'script proc_02.ys; show -notitle -prefix proc_02 -format pdf'
+$(foreach trg,$(TARGETS),$(eval $(call make_pdf_template,$(trg))))
+
+clean:
+	rm -f $(addsuffix .pdf,$(TARGETS))
+	rm -f $(addsuffix .dot,$(TARGETS))
 

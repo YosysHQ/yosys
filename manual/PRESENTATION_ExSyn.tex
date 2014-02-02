@@ -103,36 +103,35 @@ a call to {\tt proc} is the first command in the actual synthesis procedure
 after design elaboration.
 \end{frame}
 
-\begin{frame}[fragile]{\subsecname{} -- Example 1/TBD}
-\begin{columns}
-\column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/proc_00.v}
-\column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_00.ys}
-\end{columns}
-% \includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_ExSyn/proc_00.pdf}
-\hfil\includegraphics[width=8cm,trim=0 0cm 0 0cm]{PRESENTATION_ExSyn/proc_00.pdf}
-\end{frame}
-
-\begin{frame}[t, fragile]{\subsecname{} -- Example 2/TBD}
-\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -2.5cm]{PRESENTATION_ExSyn/proc_01.pdf}}
-\vskip-1cm
+\begin{frame}[fragile]{\subsecname{} -- Example 1/3}
 \begin{columns}
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/proc_01.v}
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_01.ys}
 \end{columns}
+\hfil\includegraphics[width=8cm,trim=0 0cm 0 0cm]{PRESENTATION_ExSyn/proc_01.pdf}
 \end{frame}
 
-\begin{frame}[t, fragile]{\subsecname{} -- Example 3/TBD}
-\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -1.5cm]{PRESENTATION_ExSyn/proc_02.pdf}}
+\begin{frame}[t, fragile]{\subsecname{} -- Example 2/3}
+\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -2.5cm]{PRESENTATION_ExSyn/proc_02.pdf}\vss}
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_02.ys}
-\column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/proc_02.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_02.ys}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Example 3/3}
+\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -1.5cm]{PRESENTATION_ExSyn/proc_03.pdf}\vss}
+\vskip-1cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_03.ys}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/proc_03.v}
 \end{columns}
 \end{frame}
 
@@ -164,6 +163,50 @@ can be used as shortcut for {\tt clean}. For example:
 \begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
 proc; opt; memory; opt_const;; fsm;;
 \end{lstlisting}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Example 1/4}
+\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -0.5cm]{PRESENTATION_ExSyn/opt_01.pdf}\vss}
+\vskip-1cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_01.ys}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_01.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Example 2/4}
+\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm 0cm]{PRESENTATION_ExSyn/opt_02.pdf}\vss}
+\vskip-1cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_02.ys}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_02.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Example 3/4}
+\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -2cm]{PRESENTATION_ExSyn/opt_03.pdf}\vss}
+\vskip-1cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_03.ys}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_03.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Example 4/4}
+\vbox to 0cm{\hskip6cm\includegraphics[width=6cm,trim=0cm 0cm 0cm -3cm]{PRESENTATION_ExSyn/opt_04.pdf}\vss}
+\vskip-1cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_04.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_04.ys}
+\end{columns}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -222,7 +265,28 @@ For example:
 \begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
 memory -nomap; techmap -map my_memory_map.v; memory_map
 \end{lstlisting}
+\end{frame}
 
+\begin{frame}[t, fragile]{\subsecname{} -- Example 1/TBD}
+\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -10cm]{PRESENTATION_ExSyn/memory_01.pdf}\vss}
+\vskip-1cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/memory_01.ys}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/memory_01.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsecname{} -- Example 2/TBD}
+\vbox to 0cm{\hfill\includegraphics[width=7.5cm,trim=0cm 0cm 0cm -6cm]{PRESENTATION_ExSyn/memory_02.pdf}\vss}
+\vskip-1cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{6pt}{8pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/memory_02.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/memory_02.ys}
+\end{columns}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
