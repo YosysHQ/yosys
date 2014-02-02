@@ -48,8 +48,11 @@ static bool match_ids(RTLIL::IdString id, std::string pattern)
 
 static bool match_attr_val(const RTLIL::Const &value, std::string pattern)
 {
-	if ((value.flags & RTLIL::CONST_FLAG_STRING) == 0)
-		return false;
+	if ((value.flags & RTLIL::CONST_FLAG_STRING) == 0) {
+		char *endp = NULL;
+		long int v = strtol(pattern.c_str(), &endp, 0);
+		return *endp == 0 && value.as_int() == v;
+	}
 	if (!fnmatch(pattern.c_str(), value.decode_string().c_str(), FNM_NOESCAPE))
 		return true;
 	return false;
@@ -529,7 +532,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			if (arg.find(':') == std::string::npos)
+			if (arg.find(':') == std::string::npos || arg.substr(0, 1) == "A")
 				arg_mod = arg;
 			else
 				arg_mod = "*", arg_memb = arg;
@@ -550,6 +553,17 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	sel.full_selection = false;
 	for (auto &mod_it : design->modules)
 	{
+		if (arg_mod.substr(0, 2) == "A:") {
+			bool use_value_pat = false;
+			std::string name_pat = arg_mod.substr(2), value_pat;
+			if (name_pat.find('=') != std::string::npos) {
+				value_pat = name_pat.substr(name_pat.find('=')+1);
+				name_pat = name_pat.substr(0, name_pat.find('='));
+				use_value_pat = true;
+			}
+			if (!match_attr(mod_it.second->attributes, name_pat, value_pat, use_value_pat))
+				continue;
+		} else
 		if (!match_ids(mod_it.first, arg_mod))
 			continue;
 
@@ -726,8 +740,11 @@ struct SelectPass : public Pass {
 		log("    <obj_pattern>\n");
 		log("        select the specified object(s) from the current module\n");
 		log("\n");
-		log("A <mod_pattern> can be a module name or wildcard expression (*, ?, [..])\n");
-		log("matching module names.\n");
+		log("A <mod_pattern> can be a module name, wildcard expression (*, ?, [..])\n");
+		log("matching module names, or one of the following:\n");
+		log("\n");
+		log("    A:<pattern>, A:<pattern>=<pattern>\n");
+		log("        all modules with an attribute matching the given pattern\n");
 		log("\n");
 		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
 		log("the following:\n");
