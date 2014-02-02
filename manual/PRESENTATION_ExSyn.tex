@@ -10,39 +10,187 @@
 \subsection{Typical Phases of a Synthesis Flow}
 
 \begin{frame}{\subsecname}
-TBD
+\begin{itemize}
+\item Reading and elaborating the design
+\item High-level synthesis and optimization
+\begin{itemize}
+\item Converting {\tt always}-blocks to logic and registers
+\item Perform coarse-grain optimizations (resource sharing, const folding, ...)
+\item Handling of memories and other coarse-grain blocks
+\item Extracting and optimizing finite state machines
+\end{itemize}
+\item Convert remaining logic to bit-level logic functions
+\item Perform optimizations on bit-level logic functions
+\item Map bit-level logic and register to gates from cell library
+\item Write results to output file 
+\end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Reading the design}
+
+\begin{frame}[fragile]{\subsecname}
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+read_verilog file1.v
+read_verilog -I include_dir -D enable_foo -D WIDTH=12 file2.v
+read_verilog -lib cell_library.v
+
+verilog_defaults -add -I include_dir
+read_verilog file3.v
+read_verilog file4.v
+verilog_defaults -clear
+
+verilog_defaults -push
+verilog_defaults -add -I include_dir
+read_verilog file5.v
+read_verilog file6.v
+verilog_defaults -pop
+\end{lstlisting}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Design elaboration}
 
-\begin{frame}{\subsecname}
-TBD
-\end{frame}
+\begin{frame}[fragile]{\subsecname}
+During design elaboration Yosys figures out how the modules are hierarchically
+connected. It also re-runs the AST parts of the Verilog frontend to create
+all needed variations of parametric modules.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bigskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+# simplest form. at least this version should be used after reading all input files
+#
+hierarchy
 
-\subsection{High-Level Synthesis}
-
-\begin{frame}{\subsecname}
-TBD
+# recommended form. fail if parts of the design hierarchy are missing. remove
+# everything that is unreachable by the top module. mark the top module.
+#
+hierarchy -check -top top_module
+\end{lstlisting}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{The ``proc'' commands}
 
+\begin{frame}[fragile]{\subsecname}
+The Verilog frontend converts {\tt always}-blocks to RTL netlists for the
+expressions and ``processes'' for the control- and memory elements.
+
+\medskip
+The {\tt proc} command transforms this ``processes'' to netlists of RTL
+multiplexer and register cells.
+
+\medskip
+The {\tt proc} command is actually a macro-command that calls the following
+other commands:
+
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+proc_clean      # remove empty branches and processes
+proc_rmdead     # remove unreachable branches
+proc_init       # special handling of "initial" blocks
+proc_arst       # identify modeling of async resets
+proc_mux        # convert decision trees to multiplexer networks
+proc_dff        # extract registers from processes
+proc_clean      # if all went fine, this should remove all the processes
+\end{lstlisting}
+
+\medskip
+Many commands can not operate on modules with ``processes'' in them. Usually
+a call to {\tt proc} is the first command in the actual synthesis procedure
+after design elaboration.
+
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{The ``opt'' commands}
+
+\begin{frame}[fragile]{\subsecname}
+The {\tt opt} command implements a series of simple optimizations. It also
+is a macro command that calls other commands:
+
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+opt_const               # const folding
+opt_share -nomux        # merging identical cells
+
+do
+    opt_muxtree         # remove never-active branches from multiplexer tree
+    opt_reduce          # consolidate trees of boolean ops to reduce functions
+    opt_share           # merging identical cells
+    opt_rmdff           # remove/simplify registers with constant inputs
+    opt_clean           # remove unused objects (cells, wires) from design
+    opt_const           # const folding
+while [changed design]
+\end{lstlisting}
+
+The command {\tt clean} can be used as alias for {\tt opt\_clean}. And {\tt ;;}
+can be used as shortcut for {\tt clean}. For example:
+
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+proc; opt; memory; opt_const;; fsm;;
+\end{lstlisting}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{When to use ``opt'' or ``clean''}
+
 \begin{frame}{\subsecname}
-TBD
+Usually it does not hurt to call {\tt opt} after each regular command in the
+synthesis script. But it increases the synthesis time, so it is favourable
+to only call {\tt opt} when an improvement can be archieved.
+
+\bigskip
+The designs in {\tt yosys-bigsim} are a good playground for experimenting with
+the effects of calling {\tt opt} in various places of the flow.
+
+\bigskip
+It generally is a good idea us call {\tt opt} before inherently expensive
+commands such as {\tt sat} or {\tt freduce}, as the possible gain is much
+higher in this cases as the possible loss.
+
+\bigskip
+The {\tt clean} command on the other hand is very fast and many commands leave
+a mess (dangling signal wires, etc). For example, most commands do not remove
+any wires or cells. They just change the connections and depend on a later
+call to clean to get rid of the now unused objects. So the occasional {\tt ;;}
+is a good idea in every synthesis script.
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{The ``memory'' commands}
 
-\begin{frame}{\subsecname}
-TBD
+\begin{frame}[fragile]{\subsecname}
+In the RTL netlist, memory reads and writes are individual cells. This makes
+consolidating the number of ports for a memory easier. The {\tt memory}
+transforms memories to an implementation. Per default that is logic for address
+decoders and registers. It also is a macro command that calls other commands:
+
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+# this merges registers into the memory read- and write cells.
+memory_dff
+
+# this collects all read and write cells for a memory and transforms them
+# into one multi-port memory cell.
+memory_collect
+
+# this takes the multi-port memory cells and transforms it to address decoder
+# logic and registers. This step is skipped if "memory" is called with -nomap.
+memory_map
+\end{lstlisting}
+
+\bigskip
+Usually it is preferred to use architecture-specific RAM resources for memory.
+For example:
+
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+memory -nomap; techmap -map my_memory_map.v; memory_map
+\end{lstlisting}
+
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
