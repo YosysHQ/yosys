@@ -31,7 +31,7 @@ struct OptPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt [selection]\n");
+		log("    opt [-mux_undef] [-mux_bool] [selection]\n");
 		log("\n");
 		log("This pass calls all the other opt_* passes in a useful order. This performs\n");
 		log("a series of trivial optimizations and cleanups. This pass executes the other\n");
@@ -46,16 +46,30 @@ struct OptPass : public Pass {
 		log("        opt_share\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean\n");
-		log("        opt_const\n");
+		log("        opt_const [-mux_undef] [-mux_bool]\n");
 		log("    while [changed design]\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		std::string opt_const_args;
+
 		log_header("Executing OPT pass (performing simple optimizations).\n");
 		log_push();
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-mux_undef") {
+				opt_const_args += " -mux_undef";
+				continue;
+			}
+			if (args[argidx] == "-mux_bool") {
+				opt_const_args += " -mux_bool";
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		log_header("Optimizing in-memory representation of design.\n");
 		design->optimize();
@@ -69,7 +83,7 @@ struct OptPass : public Pass {
 			Pass::call(design, "opt_share");
 			Pass::call(design, "opt_rmdff");
 			Pass::call(design, "opt_clean");
-			Pass::call(design, "opt_const");
+			Pass::call(design, "opt_const" + opt_const_args);
 			if (OPT_DID_SOMETHING == false)
 				break;
 			log_header("Rerunning OPT passes. (Maybe there is more to do..)\n");

@@ -42,7 +42,7 @@ void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, st
 	did_something = true;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool)
 {
 	if (!design->selected(module))
 		return;
@@ -244,6 +244,24 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if (mux_bool && cell->type == "$mux" && cell->connections["\\A"] == RTLIL::SigSpec(0, 1) && cell->connections["\\B"] == RTLIL::SigSpec(1, 1)) {
+			replace_cell(module, cell, "mux_bool", "\\Y", cell->connections["\\S"]);
+			goto next_cell;
+		}
+
+		if (mux_bool && cell->type == "$mux" && cell->connections["\\A"] == RTLIL::SigSpec(1, 1) && cell->connections["\\B"] == RTLIL::SigSpec(0, 1)) {
+			cell->connections["\\A"] = cell->connections["\\S"];
+			cell->connections.erase("\\B");
+			cell->connections.erase("\\S");
+			cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
+			cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
+			cell->parameters["\\A_SIGNED"] = 0;
+			cell->parameters.erase("\\WIDTH");
+			cell->type = "$not";
+			did_something = true;
+			goto next_cell;
+		}
+
 		if (mux_undef && (cell->type == "$mux" || cell->type == "$pmux")) {
 			RTLIL::SigSpec new_a, new_b, new_s;
 			int width = cell->connections.at("\\A").width;
@@ -392,10 +410,14 @@ struct OptConstPass : public Pass {
 		log("    -mux_undef\n");
 		log("        remove 'undef' inputs from $mux, $pmux and $_MUX_ cells\n");
 		log("\n");
+		log("    -mux_bool\n");
+		log("        replace $mux cells with inverters or buffers when possible\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool mux_undef = false;
+		bool mux_bool = false;
 
 		log_header("Executing OPT_CONST pass (perform const folding).\n");
 		log_push();
@@ -406,6 +428,10 @@ struct OptConstPass : public Pass {
 				mux_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-mux_bool") {
+				mux_bool = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -414,9 +440,9 @@ struct OptConstPass : public Pass {
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, mod_it.second, false, mux_undef);
+					replace_const_cells(design, mod_it.second, false, mux_undef, mux_bool);
 				} while (did_something);
-				replace_const_cells(design, mod_it.second, true, mux_undef);
+				replace_const_cells(design, mod_it.second, true, mux_undef, mux_bool);
 			} while (did_something);
 
 		log_pop();
