@@ -1,0 +1,3 @@
+read_verilog proc_01.v
+hierarchy -check -top test
+proc;;
