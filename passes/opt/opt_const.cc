@@ -48,17 +48,37 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		return;
 
 	SigMap assign_map(module);
+	std::map<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
 	std::vector<RTLIL::Cell*> cells;
 	cells.reserve(module->cells.size());
 	for (auto &cell_it : module->cells)
-		if (design->selected(module, cell_it.second))
+		if (design->selected(module, cell_it.second)) {
+			if ((cell_it.second->type == "$_INV_" || cell_it.second->type == "$not" || cell_it.second->type == "$logic_not") &&
+					cell_it.second->connections["\\A"].width == 1 && cell_it.second->connections["\\Y"].width == 1)
+				invert_map[assign_map(cell_it.second->connections["\\Y"])] = assign_map(cell_it.second->connections["\\A"]);
 			cells.push_back(cell_it.second);
+		}
 
 	for (auto cell : cells)
 	{
 #define ACTION_DO(_p_, _s_) do { replace_cell(module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO("\\Y", RTLIL::SigSpec(RTLIL::State::S ## _v_))
+
+		if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") &&
+				invert_map.count(assign_map(cell->connections["\\A"])) != 0) {
+			replace_cell(module, cell, "double_invert", "\\Y", invert_map.at(assign_map(cell->connections["\\A"])));
+			goto next_cell;
+		}
+
+		if ((cell->type == "$_MUX_" || cell->type == "$mux") && invert_map.count(assign_map(cell->connections["\\S"])) != 0) {
+			RTLIL::SigSpec tmp = cell->connections["\\A"];
+			cell->connections["\\A"] = cell->connections["\\B"];
+			cell->connections["\\B"] = tmp;
+			cell->connections["\\S"] = invert_map.at(assign_map(cell->connections["\\S"]));
+			did_something = true;
+			goto next_cell;
+		}
 
 		if (cell->type == "$_INV_") {
 			RTLIL::SigSpec input = cell->connections["\\A"];
