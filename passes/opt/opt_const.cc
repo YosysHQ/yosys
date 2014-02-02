@@ -244,20 +244,59 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
-		if (mux_bool && cell->type == "$mux" && cell->connections["\\A"] == RTLIL::SigSpec(0, 1) && cell->connections["\\B"] == RTLIL::SigSpec(1, 1)) {
+		if (mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") &&
+				cell->connections["\\A"] == RTLIL::SigSpec(0, 1) && cell->connections["\\B"] == RTLIL::SigSpec(1, 1)) {
 			replace_cell(module, cell, "mux_bool", "\\Y", cell->connections["\\S"]);
 			goto next_cell;
 		}
 
-		if (mux_bool && cell->type == "$mux" && cell->connections["\\A"] == RTLIL::SigSpec(1, 1) && cell->connections["\\B"] == RTLIL::SigSpec(0, 1)) {
+		if (mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") &&
+				cell->connections["\\A"] == RTLIL::SigSpec(1, 1) && cell->connections["\\B"] == RTLIL::SigSpec(0, 1)) {
 			cell->connections["\\A"] = cell->connections["\\S"];
 			cell->connections.erase("\\B");
 			cell->connections.erase("\\S");
-			cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
-			cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
-			cell->parameters["\\A_SIGNED"] = 0;
-			cell->parameters.erase("\\WIDTH");
-			cell->type = "$not";
+			if (cell->type == "$mux") {
+				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\A_SIGNED"] = 0;
+				cell->parameters.erase("\\WIDTH");
+				cell->type = "$not";
+			} else
+				cell->type = "$_INV_";
+			did_something = true;
+			goto next_cell;
+		}
+
+		if (consume_x && mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") && cell->connections["\\A"] == RTLIL::SigSpec(0, 1)) {
+			cell->connections["\\A"] = cell->connections["\\S"];
+			cell->connections.erase("\\S");
+			if (cell->type == "$mux") {
+				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\B_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\A_SIGNED"] = 0;
+				cell->parameters["\\B_SIGNED"] = 0;
+				cell->parameters.erase("\\WIDTH");
+				cell->type = "$and";
+			} else
+				cell->type = "$_AND_";
+			did_something = true;
+			goto next_cell;
+		}
+
+		if (consume_x && mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") && cell->connections["\\B"] == RTLIL::SigSpec(1, 1)) {
+			cell->connections["\\B"] = cell->connections["\\S"];
+			cell->connections.erase("\\S");
+			if (cell->type == "$mux") {
+				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\B_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
+				cell->parameters["\\A_SIGNED"] = 0;
+				cell->parameters["\\B_SIGNED"] = 0;
+				cell->parameters.erase("\\WIDTH");
+				cell->type = "$or";
+			} else
+				cell->type = "$_or_";
 			did_something = true;
 			goto next_cell;
 		}
