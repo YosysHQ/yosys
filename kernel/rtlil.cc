@@ -1551,6 +1551,15 @@ std::vector<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_vector() const
 	return sigbits;
 }
 
+RTLIL::SigBit RTLIL::SigSpec::to_single_sigbit() const
+{
+	log_assert(width == 1);
+	for (auto &c : chunks)
+		if (c.width)
+			return RTLIL::SigBit(c);
+	log_abort();
+}
+
 static void sigspec_parse_split(std::vector<std::string> &tokens, const std::string &text, char sep)
 {
 	size_t start = 0, end = 0;

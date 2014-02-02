@@ -409,6 +409,7 @@ struct RTLIL::SigSpec {
 	bool match(std::string pattern) const;
 	std::set<RTLIL::SigBit> to_sigbit_set() const;
 	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
+	RTLIL::SigBit to_single_sigbit() const;
 	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 };
