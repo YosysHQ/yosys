@@ -92,6 +92,14 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		}
 	}
 
+	if (sig_c.is_fully_const()) {
+		if (val_rv.bits.size() == 0)
+			val_rv = RTLIL::Const(RTLIL::State::Sx, sig_q.width);
+		RTLIL::SigSig conn(sig_q, val_rv);
+		mod->connections.push_back(conn);
+		goto delete_dff;
+	}
+
 	if (sig_d.is_fully_undef() && sig_d.width == int(val_rv.bits.size())) {
 		RTLIL::SigSig conn(sig_q, val_rv);
 		mod->connections.push_back(conn);
