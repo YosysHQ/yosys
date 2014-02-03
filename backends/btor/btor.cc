@@ -716,6 +716,8 @@ struct BtorDumper
 			else if(cell->type == "$memrd")
 			{
 				log("writing memrd cell\n");
+				if (cell->parameters.at("\\CLK_ENABLE").as_bool() == true)
+					log_error("The btor backen does not support $memrd cells with built-in registers. Run memory_dff with -wr_only.\n");
 				str = cell->parameters.at(RTLIL::IdString("\\MEMID")).decode_string();
 				int mem = dump_memory(module->memories.at(RTLIL::IdString(str.c_str())));
 				int address_width = cell->parameters.at(RTLIL::IdString("\\ABITS")).as_int();
@@ -729,6 +731,8 @@ struct BtorDumper
 			else if(cell->type == "$memwr")
 			{
 				log("writing memwr cell\n");
+				if (cell->parameters.at("\\CLK_ENABLE").as_bool() == false)
+					log_error("The btor backen does not support $memwr cells without built-in registers. Run memory_dff (but with -wr_only).\n");
 				int clk = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\CLK")), 1);
 				bool polarity = cell->parameters.at(RTLIL::IdString("\\CLK_POLARITY")).as_bool();
 				int enable = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\EN")), 1);

@@ -25,7 +25,8 @@ proc;
 opt; opt_const -mux_undef; opt;
 rename -hide;;;
 techmap -share_map pmux2mux.v;;
-memory -nomap;;
+memory_dff -wr_only
+memory_collect;;
 flatten;;
 memory_unpack; 
 splitnets -driver;

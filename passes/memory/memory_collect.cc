@@ -54,6 +54,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	RTLIL::SigSpec sig_rd_clk;
 	RTLIL::SigSpec sig_rd_clk_enable;
 	RTLIL::SigSpec sig_rd_clk_polarity;
+	RTLIL::SigSpec sig_rd_transparent;
 	RTLIL::SigSpec sig_rd_addr;
 	RTLIL::SigSpec sig_rd_data;
 
@@ -105,18 +106,21 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			RTLIL::SigSpec clk = cell->connections["\\CLK"];
 			RTLIL::SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
 			RTLIL::SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
+			RTLIL::SigSpec transparent = RTLIL::SigSpec(cell->parameters["\\TRANSPARENT"]);
 			RTLIL::SigSpec addr = cell->connections["\\ADDR"];
 			RTLIL::SigSpec data = cell->connections["\\DATA"];
 
 			clk.extend(1, false);
 			clk_enable.extend(1, false);
 			clk_polarity.extend(1, false);
+			transparent.extend(1, false);
 			addr.extend(addr_bits, false);
 			data.extend(memory->width, false);
 
 			sig_rd_clk.append(clk);
 			sig_rd_clk_enable.append(clk_enable);
 			sig_rd_clk_polarity.append(clk_polarity);
+			sig_rd_transparent.append(transparent);
 			sig_rd_addr.append(addr);
 			sig_rd_data.append(data);
 		}
@@ -147,7 +151,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	mem->parameters["\\WR_PORTS"] = RTLIL::Const(wr_ports);
 	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_enable.chunks[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.chunks[0].data : RTLIL::Const(0, 0);
 
 	mem->connections["\\WR_CLK"] = sig_wr_clk;
 	mem->connections["\\WR_ADDR"] = sig_wr_addr;
@@ -165,7 +169,8 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	mem->parameters["\\RD_PORTS"] = RTLIL::Const(rd_ports);
 	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_enable.chunks[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.chunks[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.chunks[0].data : RTLIL::Const(0, 0);
 
 	mem->connections["\\RD_CLK"] = sig_rd_clk;
 	mem->connections["\\RD_ADDR"] = sig_rd_addr;

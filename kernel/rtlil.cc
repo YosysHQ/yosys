@@ -556,6 +556,7 @@ namespace {
 				param("\\MEMID");
 				param("\\CLK_ENABLE");
 				param("\\CLK_POLARITY");
+				param("\\TRANSPARENT");
 				port("\\CLK", 1);
 				port("\\ADDR", param("\\ABITS"));
 				port("\\DATA", param("\\WIDTH"));
@@ -582,6 +583,7 @@ namespace {
 				param("\\OFFSET");
 				param("\\RD_CLK_ENABLE");
 				param("\\RD_CLK_POLARITY");
+				param("\\RD_TRANSPARENT");
 				param("\\WR_CLK_ENABLE");
 				param("\\WR_CLK_POLARITY");
 				port("\\RD_CLK", param("\\RD_PORTS"));

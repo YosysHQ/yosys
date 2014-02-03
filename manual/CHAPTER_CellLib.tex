@@ -250,6 +250,10 @@ the \B{CLK} input is not used.
 \item \B{CLK\_POLARITY} \\
 Clock is active on the positive edge if this parameter has the value {\tt 1'b1} and on the negative
 edge if this parameter is {\tt 1'b0}.
+
+\item \B{TRANSPARENT} \\
+If this parameter is set to {\tt 1'b1}, a read and write to the same address in the same cycle will
+return the new value. Otherwise the old value is returned.
 \end{itemize}
 
 The {\tt \$memwr} cells have a clock input \B{CLK}, an enable input \B{EN}, an address input \B{ADDR}
@@ -307,6 +311,9 @@ This parameter is \B{RD\_PORTS} bits wide, containing a clock enable bit for eac
 
 \item \B{RD\_CLK\_POLARITY} \\
 This parameter is \B{RD\_PORTS} bits wide, containing a clock polarity bit for each read port.
+
+\item \B{RD\_TRANSPARENT} \\
+This parameter is \B{RD\_PORTS} bits wide, containing a transparent bit for each read port.
 
 \item \B{WR\_PORTS} \\
 The number of write ports on this memory cell.

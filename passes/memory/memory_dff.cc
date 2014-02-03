@@ -113,14 +113,6 @@ static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
-#if 1
-static void handle_rd_cell(RTLIL::Module*, RTLIL::Cell*)
-{
-	// merging dffs into read ports isn't neccessary for memory_map.
-	// we'd loose the information if the register is on the address or
-	// data port and wouldn't get any benefits.
-}
-#else
 static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 {
 	normalize_sig(module, sig);
@@ -149,43 +141,46 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	bool clk_polarity = 0;
 
-	RTLIL::SigSpec clk_addr = RTLIL::SigSpec(RTLIL::State::Sx);
-	RTLIL::SigSpec sig_addr = cell->connections["\\ADDR"];
-	if (find_sig_before_dff(module, sig_addr, clk_addr, clk_polarity))
-	{
-		cell->connections["\\CLK"] = clk_addr;
-		cell->connections["\\ADDR"] = sig_addr;
-		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
-		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
-		log("merged address $dff to cell.\n");
-		return;
-	}
-
 	RTLIL::SigSpec clk_data = RTLIL::SigSpec(RTLIL::State::Sx);
 	RTLIL::SigSpec sig_data = cell->connections["\\DATA"];
-	if (find_sig_before_dff(module, sig_data, clk_data, clk_polarity, true))
+	if (find_sig_before_dff(module, sig_data, clk_data, clk_polarity, true) &&
+			clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
 	{
 		disconnect_dff(module, sig_data);
 		cell->connections["\\CLK"] = clk_data;
 		cell->connections["\\DATA"] = sig_data;
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
+		cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
 		log("merged data $dff to cell.\n");
+		return;
+	}
+
+	RTLIL::SigSpec clk_addr = RTLIL::SigSpec(RTLIL::State::Sx);
+	RTLIL::SigSpec sig_addr = cell->connections["\\ADDR"];
+	if (find_sig_before_dff(module, sig_addr, clk_addr, clk_polarity) &&
+			clk_addr != RTLIL::SigSpec(RTLIL::State::Sx))
+	{
+		cell->connections["\\CLK"] = clk_addr;
+		cell->connections["\\ADDR"] = sig_addr;
+		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
+		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
+		cell->parameters["\\TRANSPARENT"] = RTLIL::Const(1);
+		log("merged address $dff to cell.\n");
 		return;
 	}
 
 	log("no (compatible) $dff found.\n");
 }
-#endif
 
-static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
+static void handle_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_wr_only)
 {
 	for (auto &cell_it : module->cells) {
 		if (!design->selected(module, cell_it.second))
 			continue;
 		if (cell_it.second->type == "$memwr" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())
 				handle_wr_cell(module, cell_it.second);
-		if (cell_it.second->type == "$memrd" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())
+		if (!flag_wr_only && cell_it.second->type == "$memrd" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())
 				handle_rd_cell(module, cell_it.second);
 	}
 }
@@ -196,19 +191,35 @@ struct MemoryDffPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory_dff [selection]\n");
+		log("    memory_dff [options] [selection]\n");
 		log("\n");
 		log("This pass detects DFFs at memory ports and merges them into the memory port.\n");
 		log("I.e. it consumes an asynchronous memory port and the flip-flops at its\n");
 		log("interface and yields a synchronous memory port.\n");
 		log("\n");
+		log("    -wr_only\n");
+		log("        do not merge registers on read ports\n");
+		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		bool flag_wr_only = false;
+
 		log_header("Executing MEMORY_DFF pass (merging $dff cells to $memrd and $memwr).\n");
-		extra_args(args, 1, design);
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-wr_only") {
+				flag_wr_only = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
 		for (auto &mod_it : design->modules)
 			if (design->selected(mod_it.second))
-				handle_module(design, mod_it.second);
+				handle_module(design, mod_it.second, flag_wr_only);
 	}
 } MemoryDffPass;
  
