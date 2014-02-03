@@ -126,7 +126,6 @@ other object to parse the cell library.
 		\node[entity] (sync) [fill=green!10, above of=case] {RTLIL::SyncRule} edge [-latex] (process);
 		\node[entity] (switch) [fill=green!10, below of=case] {RTLIL::SwitchRule} edge [-latex] (case);
 		\draw[latex-] (switch.east) -- ++(1em,0) |- (case.east);
-
 	\end{tikzpicture}
 	\caption{Simplified RTLIL Entity-Relationship Diagram}
 	\label{fig:Overview_RTLIL}
