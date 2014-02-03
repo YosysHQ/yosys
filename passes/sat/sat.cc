@@ -50,7 +50,7 @@ struct SatHelper
 	bool prove_asserts;
 
 	// undef constraints
-	bool enable_undef, set_init_undef;
+	bool enable_undef, set_init_undef, ignore_unknown_cells;
 	std::vector<std::string> sets_def, sets_any_undef, sets_all_undef;
 	std::map<int, std::vector<std::string>> sets_def_at, sets_any_undef_at, sets_all_undef_at;
 
@@ -67,6 +67,7 @@ struct SatHelper
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
 		set_init_undef = false;
+		ignore_unknown_cells = false;
 		max_timestep = -1;
 		timeout = 0;
 		gotTimeout = false;
@@ -277,8 +278,10 @@ struct SatHelper
 						if (ct.cell_output(c.second->type, p.first))
 							show_drivers.insert(sigmap(p.second), c.second);
 					import_cell_counter++;
-				} else
-					log("Warning: failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+				} else if (ignore_unknown_cells)
+					log("Warning: Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+				else
+					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 		}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
 	}
@@ -699,6 +702,9 @@ struct SatPass : public Pass {
 		log("    -ignore_div_by_zero\n");
 		log("        ignore all solutions that involve a division by zero\n");
 		log("\n");
+		log("    -ignore_unknown_cells\n");
+		log("        ignore all cells that can not be matched to a SAT model\n");
+		log("\n");
 		log("The following options can be used to set up a sequential problem:\n");
 		log("\n");
 		log("    -seq <N>\n");
@@ -762,6 +768,7 @@ struct SatPass : public Pass {
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
+		bool ignore_unknown_cells = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -909,6 +916,10 @@ struct SatPass : public Pass {
 				show_outputs = true;
 				continue;
 			}
+			if (args[argidx] == "-ignore_unknown_cells") {
+				ignore_unknown_cells = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -976,6 +987,7 @@ struct SatPass : public Pass {
 			basecase.sets_init = sets_init;
 			basecase.set_init_undef = set_init_undef;
 			basecase.satgen.ignore_div_by_zero = ignore_div_by_zero;
+			basecase.ignore_unknown_cells = ignore_unknown_cells;
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
 				basecase.setup(timestep);
@@ -991,6 +1003,7 @@ struct SatPass : public Pass {
 			inductstep.sets_any_undef = sets_any_undef;
 			inductstep.sets_all_undef = sets_all_undef;
 			inductstep.satgen.ignore_div_by_zero = ignore_div_by_zero;
+			inductstep.ignore_unknown_cells = ignore_unknown_cells;
 
 			inductstep.setup(1);
 			inductstep.ez.assume(inductstep.setup_proof(1));
@@ -1085,6 +1098,7 @@ struct SatPass : public Pass {
 			sathelper.sets_init = sets_init;
 			sathelper.set_init_undef = set_init_undef;
 			sathelper.satgen.ignore_div_by_zero = ignore_div_by_zero;
+			sathelper.ignore_unknown_cells = ignore_unknown_cells;
 
 			if (seq_len == 0) {
 				sathelper.setup();
