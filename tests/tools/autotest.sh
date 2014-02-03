@@ -2,12 +2,11 @@
 
 libs=""
 genvcd=false
-use_isim=false
+use_xsim=false
 use_modelsim=false
 verbose=false
 keeprunning=false
 backend_opts="-noattr -noexpr"
-kompare_xst=false
 scriptfiles=""
 scriptopt=""
 toolsdir="$(cd $(dirname $0); pwd)"
@@ -16,10 +15,10 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts iml:wkvrxs:p: opt; do
+while getopts xml:wkvrs:p: opt; do
 	case "$opt" in
-		i)
-			use_isim=true ;;
+		x)
+			use_xsim=true ;;
 		m)
 			use_modelsim=true ;;
 		l)
@@ -32,45 +31,19 @@ while getopts iml:wkvrxs:p: opt; do
 			verbose=true ;;
 		r)
 			backend_opts="$backend_opts -norename" ;;
-		x)
-			kompare_xst=true ;;
 		s)
 			[[ "$OPTARG" == /* ]] || OPTARG="$PWD/$OPTARG"
 			scriptfiles="$scriptfiles $OPTARG" ;;
 		p)
 			scriptopt="$OPTARG" ;;
 		*)
-			echo "Usage: $0 [-i] [-w] [-k] [-v] [-r] [-x] [-l libs] [-s script] [-p cmdstring] verilog-files\n" >&2
+			echo "Usage: $0 [-x|-m] [-w] [-k] [-v] [-r] [-l libs] [-s script] [-p cmdstring] verilog-files\n" >&2
 			exit 1
 	esac
 done
 
 create_ref() {
-	if $kompare_xst; then
-		echo "verilog work $1" > $2.prj
-		cat <<- EOT > $2.xst
-			run
-			-ifn $2.prj -ifmt mixed -ofn $2 -ofmt NGC -p xc6slx4-3-tqg144
-			-top $( grep ^module $1 | sed -r 's,[^0-9A-Za-z_]+, ,g' | awk '{ print $2; exit; }'; )
-			-opt_mode Speed -opt_level 1 -iobuf NO
-		EOT
-		(
-			set +x
-			prefix="$2"
-			xilver=$( ls -v /opt/Xilinx/ | grep '^[0-9]' | tail -n1; )
-			case "$( uname -m )" in
-			x86_64)
-				set --; . /opt/Xilinx/$xilver/ISE_DS/settings64.sh ;;
-			*)
-				set --; . /opt/Xilinx/$xilver/ISE_DS/settings32.sh ;;
-			esac
-			set -x
-			xst -ifn $prefix.xst
-			netgen -w -ofmt verilog $prefix.ngc $prefix
-		)
-	else
-		cp "$1" "$2.v"
-	fi
+	cp "$1" "$2.v"
 }
 
 compile_and_run() {
@@ -80,26 +53,13 @@ compile_and_run() {
 		/opt/altera/$altver/modelsim_ase/bin/vlib work
 		/opt/altera/$altver/modelsim_ase/bin/vlog "$@"
 		/opt/altera/$altver/modelsim_ase/bin/vsim -c -do 'run -all; exit;' testbench | grep '#OUT#' > "$output"
-	elif $use_isim; then
+	elif $use_xsim; then
 		(
 			set +x
 			files=( "$@" )
-			xilver=$( ls -v /opt/Xilinx/ | grep '^[0-9]' | tail -n1; )
-			case "$( uname -m )" in
-			x86_64)
-				set --; . /opt/Xilinx/$xilver/ISE_DS/settings64.sh ;;
-			*)
-				set --; . /opt/Xilinx/$xilver/ISE_DS/settings32.sh ;;
-			esac
-			set -x
-			vlogcomp "${files[@]}"
-			if $kompare_xst; then
-				fuse -o "$exe" -lib unisims_ver -top testbench -top glbl
-			else
-				fuse -o "$exe" -top testbench
-			fi
-			{ echo "run all"; echo "exit"; } > run-all.tcl
-			PATH="$PATH:" "$exe" -tclbatch run-all.tcl > "$output"
+			xilver=$( ls -v /opt/Xilinx/Vivado/ | grep '^[0-9]' | tail -n1; )
+			/opt/Xilinx/Vivado/$xilver/bin/xvlog "${files[@]}"
+			/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench | grep '#OUT#' > "$output"
 		)
 	else
 		iverilog -s testbench -o "$exe" "$@"
