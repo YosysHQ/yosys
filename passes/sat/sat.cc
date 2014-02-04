@@ -779,6 +779,12 @@ struct SatPass : public Pass {
 		log("    -verify-no-timeout\n");
 		log("        Like -verify but do not return an error for timeouts.\n");
 		log("\n");
+		log("    -falsify\n");
+		log("        Return an error and stop the synthesis script if the proof succeeds.\n");
+		log("\n");
+		log("    -falsify-no-timeout\n");
+		log("        Like -falsify but do not return an error for timeouts.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -790,7 +796,7 @@ struct SatPass : public Pass {
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
-		bool ignore_unknown_cells = false;
+		bool ignore_unknown_cells = false, falsify = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -807,6 +813,15 @@ struct SatPass : public Pass {
 			}
 			if (args[argidx] == "-verify-no-timeout") {
 				verify = true;
+				continue;
+			}
+			if (args[argidx] == "-falsify") {
+				fail_on_timeout = true;
+				falsify = true;
+				continue;
+			}
+			if (args[argidx] == "-falsify-no-timeout") {
+				falsify = true;
 				continue;
 			}
 			if (args[argidx] == "-timeout" && argidx+1 < args.size()) {
@@ -957,8 +972,8 @@ struct SatPass : public Pass {
 		if (module == NULL) 
 			log_cmd_error("Can't perform SAT on an empty selection!\n");
 
-		if (!prove.size() && !prove_x.size() && !prove_asserts && verify)
-			log_cmd_error("Got -verify but nothing to prove!\n");
+		if (!prove.size() && !prove_x.size() && !prove_asserts && (verify || falsify))
+			log_cmd_error("Got -verify or -falsify but nothing to prove!\n");
 
 		if (!prove.size() && !prove_x.size() && !prove_asserts && tempinduct)
 			log_cmd_error("Got -tempinduct but nothing to prove!\n");
@@ -1094,7 +1109,12 @@ struct SatPass : public Pass {
 				log_error("Called with -verify and proof did fail!\n");
 			}
 
-		tip_success:;
+			if (0)
+		tip_success:
+			if (falsify) {
+				log("\n");
+				log_error("Called with -falsify and proof did succeed!\n");
+			}
 		}
 		else
 		{
@@ -1188,6 +1208,10 @@ struct SatPass : public Pass {
 				else {
 					log("SAT proof finished - no model found: SUCCESS!\n");
 					print_qed();
+					if (falsify) {
+						log("\n");
+						log_error("Called with -falsify and proof did succeed!\n");
+					}
 				}
 			}
 
