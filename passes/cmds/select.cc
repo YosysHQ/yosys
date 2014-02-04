@@ -709,8 +709,12 @@ struct SelectPass : public Pass {
 		log("        count all objects in the current selection\n");
 		log("\n");
 		log("    -clear\n");
-		log("        clear the current selection. this effectively selects the\n");
-		log("        whole design.\n");
+		log("        clear the current selection. this effectively selects the whole\n");
+		log("        design. it also resets the selected module (see -module). use the\n");
+		log("        command 'select *' to select everything but stay in the current module.\n");
+		log("\n");
+		log("    -none\n");
+		log("        create an empty selection. the current module is unchanged.\n");
 		log("\n");
 		log("    -module <modname>\n");
 		log("        limit the current scope to the specified module.\n");
@@ -825,6 +829,7 @@ struct SelectPass : public Pass {
 		bool add_mode = false;
 		bool del_mode = false;
 		bool clear_mode = false;
+		bool none_mode = false;
 		bool list_mode = false;
 		bool count_mode = false;
 		bool got_module = false;
@@ -859,6 +864,10 @@ struct SelectPass : public Pass {
 				clear_mode = true;
 				continue;
 			}
+			if (arg == "-none") {
+				none_mode = true;
+				continue;
+			}
 			if (arg == "-list") {
 				list_mode = true;
 				continue;
@@ -891,6 +900,9 @@ struct SelectPass : public Pass {
 		if (clear_mode && args.size() != 2)
 			log_cmd_error("Option -clear can not be combined with any other options.\n");
 
+		if (none_mode && args.size() != 2)
+			log_cmd_error("Option -none can not be combined with any other options.\n");
+
 		if (add_mode + del_mode + assert_none + assert_any > 1)
 			log_cmd_error("Options -add, -del, -assert-none or -assert-any can not be combined.\n");
 
@@ -913,10 +925,14 @@ struct SelectPass : public Pass {
 
 		assert(design->selection_stack.size() > 0);
 
-		if (clear_mode)
-		{
+		if (clear_mode) {
 			design->selection_stack.back() = RTLIL::Selection(true);
 			design->selected_active_module = std::string();
+			return;
+		}
+
+		if (none_mode) {
+			design->selection_stack.back() = RTLIL::Selection(false);
 			return;
 		}
 
