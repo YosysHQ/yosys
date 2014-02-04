@@ -409,13 +409,16 @@ struct DumpPass : public Pass {
 		log("        only dump the module headers if the entire module is selected\n");
 		log("\n");
 		log("    -outfile <filename>\n");
-		log("        Write to the specified file.\n");
+		log("        write to the specified file.\n");
+		log("\n");
+		log("    -append <filename>\n");
+		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string filename;
-		bool flag_m = false, flag_n = false;
+		bool flag_m = false, flag_n = false, append = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -423,6 +426,12 @@ struct DumpPass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-outfile" && argidx+1 < args.size()) {
 				filename = args[++argidx];
+				append = false;
+				continue;
+			}
+			if (arg == "-append" && argidx+1 < args.size()) {
+				filename = args[++argidx];
+				append = true;
 				continue;
 			}
 			if (arg == "-m") {
@@ -442,7 +451,7 @@ struct DumpPass : public Pass {
 		size_t buf_size;
 
 		if (!filename.empty()) {
-			f = fopen(filename.c_str(), "w");
+			f = fopen(filename.c_str(), append ? "a" : "w");
 			if (f == NULL)
 				log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
 		} else {
