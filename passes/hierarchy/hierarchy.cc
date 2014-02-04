@@ -210,7 +210,7 @@ static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &us
 	}
 }
 
-static void hierarchy(RTLIL::Design *design, RTLIL::Module *top)
+static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 {
 	std::set<RTLIL::Module*> used;
 	hierarchy_worker(design, used, top, 0);
@@ -221,6 +221,8 @@ static void hierarchy(RTLIL::Design *design, RTLIL::Module *top)
 			del_modules.push_back(it.second);
 
 	for (auto mod : del_modules) {
+		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
+			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
 		design->modules.erase(mod->name);
 		delete mod;
@@ -246,6 +248,10 @@ struct HierarchyPass : public Pass {
 		log("    -check\n");
 		log("        also check the design hierarchy. this generates an error when\n");
 		log("        an unknown module is used as cell type.\n");
+		log("\n");
+		log("    -purge_lib\n");
+		log("        by default the hierarchy command will not remove library (blackbox)\n");
+		log("        module. use this options to also remove unused blackbox modules.\n");
 		log("\n");
 		log("    -libdir <directory>\n");
 		log("        search for files named <module_name>.v in the specified directory\n");
@@ -286,6 +292,7 @@ struct HierarchyPass : public Pass {
 		log_header("Executing HIERARCHY pass (managing design hierarchy).\n");
 
 		bool flag_check = false;
+		bool purge_lib = false;
 		RTLIL::Module *top_mod = NULL;
 		std::vector<std::string> libdirs;
 
@@ -340,6 +347,10 @@ struct HierarchyPass : public Pass {
 				flag_check = true;
 				continue;
 			}
+			if (args[argidx] == "-purge_lib") {
+				purge_lib = true;
+				continue;
+			}
 			if (args[argidx] == "-keep_positionals") {
 				keep_positionals = true;
 				continue;
@@ -376,7 +387,7 @@ struct HierarchyPass : public Pass {
 					top_mod = mod_it.second;
 
 		if (top_mod != NULL)
-			hierarchy(design, top_mod);
+			hierarchy(design, top_mod, purge_lib);
 
 		bool did_something = true;
 		bool did_something_once = false;
@@ -398,7 +409,7 @@ struct HierarchyPass : public Pass {
 
 		if (top_mod != NULL && did_something_once) {
 			log_header("Re-running hierarchy analysis..\n");
-			hierarchy(design, top_mod);
+			hierarchy(design, top_mod, purge_lib);
 		}
 
 		if (top_mod != NULL) {
