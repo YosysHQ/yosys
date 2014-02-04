@@ -29,6 +29,11 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
+#define ABC_COMMAND_LIB "strash; balance; dch; map; topo"
+#define ABC_COMMAND_CTR "strash; balance; dch; map; topo; buffer; upsize; dnsize; stime"
+#define ABC_COMMAND_LUT "strash; balance; dch; if"
+#define ABC_COMMAND_DFL "strash; balance; dch; map"
+
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -375,6 +380,25 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	if (p == NULL)
 		log_error("For some reason mkdtemp() failed!\n");
 
+	std::string abc_command;
+	if (!script_file.empty()) {
+		if (script_file[0] == '+') {
+			for (size_t i = 1; i < script_file.size(); i++)
+				if (script_file[i] == '\'')
+					abc_command += "'\\''";
+				else if (script_file[i] == ',')
+					abc_command += " ";
+				else
+					abc_command += script_file[i];
+		} else
+			abc_command = stringf("source %s", script_file.c_str());
+	} else if (lut_mode)
+		abc_command = ABC_COMMAND_LUT;
+	else if (!liberty_file.empty())
+		abc_command = constr_file.empty() ? ABC_COMMAND_LIB : ABC_COMMAND_CTR;
+	else
+		abc_command = ABC_COMMAND_DFL;
+
 	if (clk_str.empty()) {
 		if (clk_str[0] == '!') {
 			clk_polarity = false;
@@ -538,46 +562,33 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			free(p);
 		}
 
-		char buffer[1024];
-		int buffer_pos = 0;
+		std::string buffer;
 		if (!liberty_file.empty()) {
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_blif %s/input.blif; read_lib %s; ",
+			buffer += stringf("%s -s -c 'read_blif %s/input.blif; read_lib %s; ",
 					exe_file.c_str(), tempdir_name, liberty_file.c_str());
 			if (!constr_file.empty())
-				buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-						"read_constr %s; ", constr_file.c_str());
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"strash; balance; dch; map; topo; ");
-			if (!constr_file.empty())
-				buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-						"buffer; upsize; dnsize; stime; ");
+				buffer += stringf("read_constr %s; ", constr_file.c_str());
+			buffer += abc_command + "; ";
 		} else
-		if (!script_file.empty())
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_blif %s/input.blif; source %s; ",
-					exe_file.c_str(), tempdir_name, script_file.c_str());
-		else
 		if (lut_mode)
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_blif %s/input.blif; read_lut %s/lutdefs.txt; strash; balance; dch; if; ",
-					exe_file.c_str(), tempdir_name, tempdir_name);
+			buffer += stringf("%s -s -c 'read_blif %s/input.blif; read_lut %s/lutdefs.txt; %s; ",
+					exe_file.c_str(), tempdir_name, tempdir_name, abc_command.c_str());
 		else
-			buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos,
-					"%s -s -c 'read_blif %s/input.blif; read_library %s/stdcells.genlib; strash; balance; dch; map; ",
-					exe_file.c_str(), tempdir_name, tempdir_name);
-		buffer_pos += snprintf(buffer+buffer_pos, 1024-buffer_pos, "write_blif %s/output.blif' 2>&1", tempdir_name);
+			buffer += stringf("%s -s -c 'read_blif %s/input.blif; read_library %s/stdcells.genlib; %s; ",
+					exe_file.c_str(), tempdir_name, tempdir_name, abc_command.c_str());
+		buffer += stringf("write_blif %s/output.blif' 2>&1", tempdir_name);
 
 		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
-		f = popen(buffer, "r");
+		f = popen(buffer.c_str(), "r");
 		if (f == NULL)
-			log_error("Opening pipe to `%s' for reading failed: %s\n", buffer, strerror(errno));
-		while (fgets(buffer, 1024, f) != NULL)
-			log("ABC: %s", buffer);
+			log_error("Opening pipe to `%s' for reading failed: %s\n", buffer.c_str(), strerror(errno));
+		char logbuf[1024];
+		while (fgets(logbuf, 1024, f) != NULL)
+			log("ABC: %s", logbuf);
 		errno = 0;
 		int ret = pclose(f);
 		if (ret < 0)
-			log_error("Closing pipe to `%s' failed: %s\n", buffer, strerror(errno));
+			log_error("Closing pipe to `%s' failed: %s\n", buffer.c_str(), strerror(errno));
 		if (WEXITSTATUS(ret) != 0) {
 			switch (WEXITSTATUS(ret)) {
 				case 127: log_error("ABC: execution of command \"%s\" failed: Command not found\n", exe_file.c_str()); break;
@@ -801,14 +812,31 @@ struct AbcPass : public Pass {
 		log("    -script <file>\n");
 		log("        use the specified ABC script file instead of the default script.\n");
 		log("\n");
+		log("        if <file> starts with a plus sign (+), then the rest of the filename\n");
+		log("        string is interprated as the command string to be passed to ABC. the\n");
+		log("        leading plus sign is removed and all commas (,) in the string are\n");
+		log("        replaced with blanks before the string is passed to ABC.\n");
+		log("\n");
+		log("        if no -script parameter is given, the following scripts are used:\n");
+		log("\n");
+		log("        for -liberty without -constr:\n");
+		log("          %s\n", ABC_COMMAND_LIB);
+		log("\n");
+		log("        for -liberty with -constr:\n");
+		log("          %s\n", ABC_COMMAND_CTR);
+		log("\n");
+		log("        for -lut:\n");
+		log("          %s\n", ABC_COMMAND_LUT);
+		log("\n");
+		log("        otherwise:\n");
+		log("          %s\n", ABC_COMMAND_DFL);
+		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");
-		log("        file format). Without this option, ABC is used to optimize the netlist\n");
-		log("        but keeps using yosys's internal gate library. This option is ignored if\n");
-		log("        the -script option is also used.\n");
+		log("        file format).\n");
 		log("\n");
 		log("    -constr <file>\n");
-		log("        pass this file with timing constraints to ABC\n");
+		log("        pass this file with timing constraints to ABC. use with -liberty.\n");
 		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
@@ -816,7 +844,7 @@ struct AbcPass : public Pass {
 		log("    -dff\n");
 		log("        also pass $_DFF_?_ cells through ABC (only one clock domain, if many\n");
 		log("        clock domains are present in a module, the one with the largest number\n");
-		log("        of $dff cells in it is used)\n");
+		log("        of $_DFF_?_ cells in it is used)\n");
 		log("\n");
 		log("    -clk [!]<signal-name>\n");
 		log("        use the specified clock domain. (when this option is used in combination\n");
@@ -826,6 +854,9 @@ struct AbcPass : public Pass {
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
+		log("\n");
+		log("When neither -liberty nor -lut is used, the Yosys standard cell library is\n");
+		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
 		log("This pass does not operate on modules with unprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
@@ -851,25 +882,25 @@ struct AbcPass : public Pass {
 				exe_file = args[++argidx];
 				continue;
 			}
-			if (arg == "-script" && argidx+1 < args.size() && liberty_file.empty() && constr_file.empty()) {
+			if (arg == "-script" && argidx+1 < args.size()) {
 				script_file = args[++argidx];
-				if (!script_file.empty() && script_file[0] != '/')
+				if (!script_file.empty() && script_file[0] != '/' && script_file[0] != '+')
 					script_file = std::string(pwd) + "/" + script_file;
 				continue;
 			}
-			if (arg == "-liberty" && argidx+1 < args.size() && script_file.empty() && liberty_file.empty()) {
+			if (arg == "-liberty" && argidx+1 < args.size()) {
 				liberty_file = args[++argidx];
 				if (!liberty_file.empty() && liberty_file[0] != '/')
 					liberty_file = std::string(pwd) + "/" + liberty_file;
 				continue;
 			}
-			if (arg == "-constr" && argidx+1 < args.size() && script_file.empty() && constr_file.empty()) {
+			if (arg == "-constr" && argidx+1 < args.size()) {
 				constr_file = args[++argidx];
 				if (!constr_file.empty() && constr_file[0] != '/')
 					constr_file = std::string(pwd) + "/" + constr_file;
 				continue;
 			}
-			if (arg == "-lut" && argidx+1 < args.size() && lut_mode == 0) {
+			if (arg == "-lut" && argidx+1 < args.size()) {
 				lut_mode = atoi(args[++argidx].c_str());
 				continue;
 			}
@@ -877,7 +908,7 @@ struct AbcPass : public Pass {
 				dff_mode = true;
 				continue;
 			}
-			if (arg == "-clk" && argidx+1 < args.size() && lut_mode == 0) {
+			if (arg == "-clk" && argidx+1 < args.size()) {
 				clk_str = args[++argidx];
 				continue;
 			}
@@ -889,6 +920,11 @@ struct AbcPass : public Pass {
 		}
 		free(pwd);
 		extra_args(args, argidx, design);
+
+		if (lut_mode != 0 && !liberty_file.empty())
+			log_cmd_error("Got -lut and -liberty! This two options are exclusive.\n");
+		if (!constr_file.empty() && liberty_file.empty())
+			log_cmd_error("Got -constr but no -liberty!\n");
 
 		for (auto &mod_it : design->modules)
 			if (design->selected(mod_it.second)) {
