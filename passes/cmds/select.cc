@@ -384,7 +384,8 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode)
 						for (auto i1 : design->selection_vars.at(str).selected_members)
 						for (auto i2 : i1.second)
 							limits.insert(i2);
-					}
+					} else
+						log_cmd_error("Selection %s is not defined!\n", RTLIL::id2cstr(str));
 				} else
 					limits.insert(RTLIL::escape_id(str));
 			}
@@ -521,7 +522,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		if (design->selection_vars.count(set_name) > 0)
 			work_stack.push_back(design->selection_vars[set_name]);
 		else
-			work_stack.push_back(RTLIL::Selection(false));
+			log_cmd_error("Selection @%s is not defined!\n", RTLIL::id2cstr(set_name));
 		select_filter_active_mod(design, work_stack.back());
 		return;
 	}
@@ -1016,7 +1017,7 @@ struct SelectPass : public Pass {
 		if (!set_name.empty())
 		{
 			if (work_stack.size() == 0)
-				design->selection_vars.erase(set_name);
+				design->selection_vars[set_name] = RTLIL::Selection(false);
 			else
 				design->selection_vars[set_name] = work_stack.back();
 			return;
