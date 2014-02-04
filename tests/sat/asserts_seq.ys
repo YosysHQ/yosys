@@ -1,0 +1,15 @@
+read_verilog asserts_seq.v
+hierarchy; proc; opt
+
+sat -verify  -prove-asserts -tempinduct -seq 1 test_001
+sat -falsify -prove-asserts -tempinduct -seq 1 test_002
+sat -falsify -prove-asserts -tempinduct -seq 1 test_003
+sat -falsify -prove-asserts -tempinduct -seq 1 test_004
+sat -verify  -prove-asserts -tempinduct -seq 1 test_005
+
+sat -verify  -prove-asserts -seq 2 test_001
+sat -falsify -prove-asserts -seq 2 test_002
+sat -falsify -prove-asserts -seq 2 test_003
+sat -falsify -prove-asserts -seq 2 test_004
+sat -verify  -prove-asserts -seq 2 test_005
+

@@ -1,0 +1,3 @@
+read_verilog asserts.v
+hierarchy; proc; opt
+sat -verify -seq 1 -set-at 1 rst 1 -tempinduct -prove-asserts
