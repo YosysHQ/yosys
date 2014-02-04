@@ -247,6 +247,23 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\subsection{Example Problem}
+
+\begin{frame}[fragile]{\subsecname{} -- Verilog Source: \tt counter.v}
+\lstinputlisting[xleftmargin=1cm, language=Verilog]{PRESENTATION_Intro/counter.v}
+\end{frame}
+
+\begin{frame}[fragile]{\subsecname{} -- Cell Library: \tt mycells.lib}
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, lastline=20]{PRESENTATION_Intro/mycells.lib}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, firstline=21]{PRESENTATION_Intro/mycells.lib}
+\end{columns}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \subsection{Example Synthesis Script}
 
 \begin{frame}[t]{\subsecname}
@@ -256,8 +273,8 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 \begin{minipage}[t]{6cm}
 \tt\scriptsize
 \# read design\\
-\boxalert<1>{read\_verilog mydesign.v}\\
-\boxalert<2>{hierarchy -check -top mytop}
+\boxalert<1>{read\_verilog counter.v}\\
+\boxalert<2>{hierarchy -check -top counter}
 
 \medskip
 \# the high-level stuff\\
@@ -291,8 +308,8 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 \vskip1cm
 
 \begin{block}{Command: \tt
-\only<1>{read\_verilog mydesign.v}%
-\only<2>{hierarchy -check -top mytop}%
+\only<1>{read\_verilog counter.v}%
+\only<2>{hierarchy -check -top counter}%
 \only<3>{proc}%
 \only<4>{opt}%
 \only<5>{memory}%
@@ -306,46 +323,49 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 \only<13>{clean}%
 \only<14>{write\_verilog synth.v}}
 \only<1>{
-	TBD
+	Read Verilog source file and convert to internal representation.
 }%
 \only<2>{
-	TBD
+	Elaborate the design hierarchy. Should alsways be the first
+	command after reading the design.
 }%
 \only<3>{
-	TBD
+	Convert ``processes'' (the internal representation of behavioral
+	Verilog code) into multiplexers and registers.
 }%
 \only<4>{
-	TBD
+	Perform some basic optimizations and cleanups.
 }%
 \only<5>{
-	TBD
+	Analyze memories and create circuits to implement them.
 }%
 \only<6>{
-	TBD
+	Perform some basic optimizations and cleanups.
 }%
 \only<7>{
-	TBD
+	Analyze and optimize finite state machines.
 }%
 \only<8>{
-	TBD
+	Perform some basic optimizations and cleanups.
 }%
 \only<9>{
-	TBD
+	Map coarse-grain RTL cells (adders, etc.) to fine-grain
+	logic gates (AND, OR, NOT, etc.).
 }%
 \only<10>{
-	TBD
+	Perform some basic optimizations and cleanups.
 }%
 \only<11>{
-	TBD
+	Map registers to available hardware flip-flops.
 }%
 \only<12>{
-	TBD
+	Map logix to available hardware gates.
 }%
 \only<13>{
-	TBD
+	Clean up the design (just the last step of {\tt opt}).
 }%
 \only<14>{
-	TBD
+	Write final synthesis result to output file.
 }%
 \end{block}
 
@@ -354,19 +374,6 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Running the Synthesis Script}
-
-\begin{frame}[fragile]{\subsecname{} -- Verilog Source: \tt counter.v}
-\lstinputlisting[xleftmargin=1cm, language=Verilog]{PRESENTATION_Intro/counter.v}
-\end{frame}
-
-\begin{frame}[fragile]{\subsecname{} -- Cell Library: \tt mycells.lib}
-\begin{columns}
-\column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, lastline=20]{PRESENTATION_Intro/mycells.lib}
-\column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, firstline=21]{PRESENTATION_Intro/mycells.lib}
-\end{columns}
-\end{frame}
 
 \begin{frame}[t, fragile]{\subsecname{} -- Step 1/4}
 \begin{verbatim}
@@ -409,7 +416,7 @@ clean
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{More Yosys Commands}
+\subsection{Yosys Commands}
 
 \begin{frame}[fragile]{\subsecname{} 1/3}
 Command reference:

@@ -423,7 +423,70 @@ more advanced ABC features. It is also possible to write the design with
 \subsection{Other special-purpose mapping commands}
 
 \begin{frame}{\subsecname}
-TBD
+\begin{block}{\tt dfflibmap}
+This command maps the internal register cell types to the register types
+described in a liberty file.
+\end{block}
+
+\bigskip
+\begin{block}{\tt hilomap}
+Some architectures require special driver cells for driving a constant hi or lo
+value. This command replaces simple constants with instances of such driver cells.
+\end{block}
+
+\bigskip
+\begin{block}{\tt iopadmap}
+Top-level input/outputs must usually be implemented using special I/O-pad cells.
+This command inserts this cells to the design.
+\end{block}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Example Synthesis Script}
+
+\begin{frame}[fragile]{\subsecname}
+\begin{columns}
+\column[t]{4cm}
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont]
+# read and elaborate design
+read_verilog cpu_top.v cpu_ctrl.v cpu_regs.v
+read_verilog -D WITH_MULT cpu_alu.v
+hierarchy -check -top cpu_top
+
+# high-level synthesis
+proc; opt; memory -nomap;; fsm; opt
+
+# substitute block rams
+techmap -map map_rams.v
+
+# map remaining memories
+memory_map
+
+# low-level synthesis
+techmap; opt; flatten;; abc -lut6
+techmap -map map_xl_cells.v
+
+# add clock buffers
+select -set xl_clocks t:FDRE %x:+FDRE[C] t:FDRE %d
+iopadmap -inpad BUFGP O:I @xl_clocks
+
+# add io buffers
+select -set xl_nonclocks w:* t:BUFGP %x:+BUFGP[I] %d
+iopadmap -outpad OBUF I:O -inpad IBUF O:I @xl_nonclocks
+
+# write synthesis results
+write_edif synth.edif
+\end{lstlisting}
+\column[t]{6cm}
+\begin{block}{Teaser / Outlook}
+\small\parbox{6cm}{
+This script contains some constructs that have not been explained
+so far, such as the weird {\tt select} expressions at the end of
+the script. They are only one of the topics covered in Section 3
+``Advanced Synthesis'' of this presentation.}
+\end{block}
+\end{columns}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
