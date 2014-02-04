@@ -73,7 +73,7 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	assign_map.apply(sig_c);
 	assign_map.apply(sig_r);
 
-	bool has_init;
+	bool has_init = false;
 	RTLIL::Const val_init;
 	for (auto bit : dff_init_map(sig_q).to_sigbit_vector()) {
 		if (bit.wire == NULL)
