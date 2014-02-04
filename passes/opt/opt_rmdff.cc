@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static SigMap assign_map;
+static SigMap assign_map, dff_init_map;
 static SigSet<RTLIL::Cell*> mux_drivers;
 
 static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
@@ -73,6 +73,14 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	assign_map.apply(sig_c);
 	assign_map.apply(sig_r);
 
+	bool has_init;
+	RTLIL::Const val_init;
+	for (auto bit : dff_init_map(sig_q).to_sigbit_vector()) {
+		if (bit.wire == NULL)
+			has_init = true;
+		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
+	}
+
 	if (dff->type == "$dff" && mux_drivers.has(sig_d)) {
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
@@ -92,29 +100,39 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		}
 	}
 
-	if (sig_c.is_fully_const()) {
+	if (sig_c.is_fully_const() && (!sig_r.width || !has_init)) {
 		if (val_rv.bits.size() == 0)
-			val_rv = RTLIL::Const(RTLIL::State::Sx, sig_q.width);
+			val_rv = val_init;
 		RTLIL::SigSig conn(sig_q, val_rv);
 		mod->connections.push_back(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_undef() && sig_d.width == int(val_rv.bits.size())) {
+	if (sig_d.is_fully_undef() && sig_r.width && !has_init) {
 		RTLIL::SigSig conn(sig_q, val_rv);
 		mod->connections.push_back(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_const() && sig_r.width == 0) {
+	if (sig_d.is_fully_undef() && !sig_r.width && has_init) {
+		RTLIL::SigSig conn(sig_q, val_init);
+		mod->connections.push_back(conn);
+		goto delete_dff;
+	}
+
+	if (sig_d.is_fully_const() && !sig_r.width && !has_init) {
 		RTLIL::SigSig conn(sig_q, sig_d);
 		mod->connections.push_back(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d == sig_q) {
-		if (sig_r.width > 0) {
+	if (sig_d == sig_q && !(sig_r.width && has_init)) {
+		if (sig_r.width) {
 			RTLIL::SigSig conn(sig_q, val_rv);
+			mod->connections.push_back(conn);
+		}
+		if (has_init) {
+			RTLIL::SigSig conn(sig_q, val_init);
 			mod->connections.push_back(conn);
 		}
 		goto delete_dff;
@@ -155,6 +173,10 @@ struct OptRmdffPass : public Pass {
 				continue;
 
 			assign_map.set(mod_it.second);
+			dff_init_map.set(mod_it.second);
+			for (auto &it : mod_it.second->wires)
+				if (it.second->attributes.count("\\init") != 0)
+					dff_init_map.add(it.second, it.second->attributes.at("\\init"));
 			mux_drivers.clear();
 
 			std::vector<std::string> dff_list;

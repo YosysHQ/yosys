@@ -35,6 +35,7 @@ struct OptShareWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	SigMap assign_map;
+	SigMap dff_init_map;
 
 	CellTypes ct;
 	int total_count;
@@ -178,6 +179,16 @@ struct OptShareWorker
 			return true;
 		}
 
+		if (cell1->type.substr(0, 1) == "$" && conn1.count("\\Q") != 0) {
+			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->connections.at("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->connections.at("\\Q")).to_sigbit_vector();
+			for (size_t i = 0; i < q1.size(); i++)
+				if ((q1.at(i).wire == NULL || q2.at(i).wire == NULL) && q1.at(i) != q2.at(i)) {
+					lt = q1.at(i) < q2.at(i);
+					return true;
+				}
+		}
+
 		return false;
 	}
 
@@ -187,6 +198,9 @@ struct OptShareWorker
 			return cell1->type < cell2->type;
 
 		if (!ct.cell_known(cell1->type))
+			return cell1 < cell2;
+
+		if (cell1->get_bool_attribute("\\keep") || cell2->get_bool_attribute("\\keep"))
 			return cell1 < cell2;
 
 		bool lt;
@@ -221,6 +235,11 @@ struct OptShareWorker
 
 		log("Finding identical cells in module `%s'.\n", module->name.c_str());
 		assign_map.set(module);
+
+		dff_init_map.set(module);
+		for (auto &it : module->wires)
+			if (it.second->attributes.count("\\init") != 0)
+				dff_init_map.add(it.second, it.second->attributes.at("\\init"));
 
 		bool did_something = true;
 		while (did_something)
