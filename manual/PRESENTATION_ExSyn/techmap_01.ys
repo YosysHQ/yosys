@@ -1,0 +1,3 @@
+read_verilog techmap_01.v
+hierarchy -check -top test
+techmap -map techmap_01_map.v;;

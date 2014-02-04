@@ -345,8 +345,41 @@ Finally the {\tt fsm\_map} command can be used to convert the (optimized) {\tt
 
 \subsection{The ``techmap'' command}
 
-\begin{frame}{\subsecname}
-TBD
+\begin{frame}[t]{\subsecname}
+\vbox to 0cm{\includegraphics[width=12cm,trim=-18cm 0cm 0cm -34cm]{PRESENTATION_ExSyn/techmap_01.pdf}\vss}
+\vskip-0.8cm
+The {\tt techmap} command replaces cells with an implementations given as
+verilog source. For example implementing a 32 bit adder using 16 bit adders:
+
+\vbox to 0cm{
+\vskip-0.3cm
+\lstinputlisting[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/techmap_01_map.v}
+}\vbox to 0cm{
+\vskip-0.5cm
+\lstinputlisting[xleftmargin=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=verilog]{PRESENTATION_ExSyn/techmap_01.v}
+\lstinputlisting[xleftmargin=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/techmap_01.ys}
+}
+\end{frame}
+
+\begin{frame}[t]{\subsecname{} -- stdcell mapping}
+When {\tt techmap} is used without a map file, it uses a built-in map file
+to map all RTL cell types to a generic library of built-in logic gates and registers.
+
+\bigskip
+\begin{block}{The build-in logic gate types are:}
+{\tt \$\_INV\_ \$\_AND\_ \$\_OR\_ \$\_XOR\_ \$\_MUX\_}
+\end{block}
+
+\bigskip
+\begin{block}{The register types are:}
+{\tt \$\_SR\_NN\_ \$\_SR\_NP\_ \$\_SR\_PN\_ \$\_SR\_PP\_ \\
+\$\_DFF\_N\_ \$\_DFF\_P\_ \\
+\$\_DFF\_NN0\_ \$\_DFF\_NN1\_ \$\_DFF\_NP0\_ \$\_DFF\_NP1\_ \\
+\$\_DFF\_PN0\_ \$\_DFF\_PN1\_ \$\_DFF\_PP0\_ \$\_DFF\_PP1\_ \\
+\$\_DFFSR\_NNN\_ \$\_DFFSR\_NNP\_ \$\_DFFSR\_NPN\_ \$\_DFFSR\_NPP\_ \\
+\$\_DFFSR\_PNN\_ \$\_DFFSR\_PNP\_ \$\_DFFSR\_PPN\_ \$\_DFFSR\_PPP\_ \\
+\$\_DLATCH\_N\_ \$\_DLATCH\_P\_}
+\end{block}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -354,7 +387,35 @@ TBD
 \subsection{The ``abc'' command}
 
 \begin{frame}{\subsecname}
-TBD
+The {\tt abc} command provides an interface to ABC\footnote[frame]{\url{http://www.eecs.berkeley.edu/~alanmi/abc/}},
+an open source tool for low-level logic synthesis.
+
+\medskip
+The {\tt abc} command processes a netlist of internal gate types and can perform:
+\begin{itemize}
+\item logic minimization (optimization)
+\item mapping of logic to standard cell library (liberty format)
+\item mapping of logic to k-LUTs (for FPGA synthesis)
+\end{itemize}
+
+\medskip
+Optionally {\tt abc} can process registers from one clock domain and perform
+sequential optimization (such as register balancing).
+
+\medskip
+ABC is also controlled using scripts. An ABC script can be specified to use
+more advanced ABC features. It is also possible to write the design with
+{\tt write\_blif} and load the output file into ABC outside of Yosys.
+\end{frame}
+
+\begin{frame}[fragile]{\subsecname{} -- Example}
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/abc_01.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/abc_01.ys}
+\end{columns}
+\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_ExSyn/abc_01.pdf}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
