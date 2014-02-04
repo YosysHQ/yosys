@@ -38,7 +38,7 @@ struct SatGen
 	SigMap *sigmap;
 	std::string prefix;
 	SigPool initial_state;
-	RTLIL::SigSpec asserts_a, asserts_en;
+	std::map<std::string, RTLIL::SigSpec> asserts_a, asserts_en;
 	bool ignore_div_by_zero;
 	bool model_undef;
 
@@ -97,15 +97,23 @@ struct SatGen
 		return importSigSpecWorker(sig, pf, true, false);
 	}
 
+	void getAsserts(RTLIL::SigSpec &sig_a, RTLIL::SigSpec &sig_en, int timestep = -1)
+	{
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		sig_a = asserts_a[pf];
+		sig_en = asserts_en[pf];
+	}
+
 	int importAsserts(int timestep = -1)
 	{
 		std::vector<int> check_bits, enable_bits;
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
 		if (model_undef) {
-			check_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(asserts_a, timestep)), importDefSigSpec(asserts_a, timestep));
-			enable_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(asserts_en, timestep)), importDefSigSpec(asserts_en, timestep));
+			check_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(asserts_a[pf], timestep)), importDefSigSpec(asserts_a[pf], timestep));
+			enable_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(asserts_en[pf], timestep)), importDefSigSpec(asserts_en[pf], timestep));
 		} else {
-			check_bits = importDefSigSpec(asserts_a, timestep);
-			enable_bits = importDefSigSpec(asserts_en, timestep);
+			check_bits = importDefSigSpec(asserts_a[pf], timestep);
+			enable_bits = importDefSigSpec(asserts_en[pf], timestep);
 		}
 		return ez->vec_reduce_and(ez->vec_or(check_bits, ez->vec_not(enable_bits)));
 	}
@@ -781,8 +789,9 @@ struct SatGen
 
 		if (cell->type == "$assert")
 		{
-			asserts_a.append((*sigmap)(cell->connections.at("\\A")));
-			asserts_en.append((*sigmap)(cell->connections.at("\\EN")));
+			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+			asserts_a[pf].append((*sigmap)(cell->connections.at("\\A")));
+			asserts_en[pf].append((*sigmap)(cell->connections.at("\\EN")));
 			return true;
 		}
 

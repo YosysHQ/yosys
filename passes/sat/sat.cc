@@ -90,6 +90,21 @@ struct SatHelper
 
 		RTLIL::SigSpec big_lhs, big_rhs;
 
+		for (auto &it : module->wires)
+		{
+			if (it.second->attributes.count("\\init") == 0)
+				continue;
+
+			RTLIL::SigSpec lhs = sigmap(it.second);
+			RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
+			log_assert(lhs.width == rhs.width);
+
+			log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
+			big_lhs.remove2(lhs, &big_rhs);
+			big_lhs.append(lhs);
+			big_rhs.append(rhs);
+		}
+
 		for (auto &s : sets_init)
 		{
 			RTLIL::SigSpec lhs, rhs;
@@ -356,8 +371,15 @@ struct SatHelper
 				prove_bits.push_back(ez.OR(undef_lhs.at(i), ez.AND(ez.NOT(undef_rhs.at(i)), ez.NOT(ez.XOR(value_lhs.at(i), value_rhs.at(i))))));
 		}
 
-		if (prove_asserts)
+		if (prove_asserts) {
+			RTLIL::SigSpec asserts_a, asserts_en;
+			satgen.getAsserts(asserts_a, asserts_en, timestep);
+			asserts_a.expand();
+			asserts_en.expand();
+			for (size_t i = 0; i < asserts_a.chunks.size(); i++)
+				log("Import proof for assert: %s when %s.\n", log_signal(asserts_a.chunks[i]), log_signal(asserts_en.chunks[i]));
 			prove_bits.push_back(satgen.importAsserts(timestep));
+		}
 
 		return ez.expression(ezSAT::OpAnd, prove_bits);
 	}
@@ -1105,11 +1127,14 @@ struct SatPass : public Pass {
 				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
 					sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof()));
 			} else {
+				std::vector<int> prove_bits;
 				for (int timestep = 1; timestep <= seq_len; timestep++) {
 					sathelper.setup(timestep);
 					if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
-						sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof(timestep)));
+						prove_bits.push_back(sathelper.setup_proof(timestep));
 				}
+				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
+					sathelper.ez.assume(sathelper.ez.NOT(sathelper.ez.expression(ezSAT::OpAnd, prove_bits)));
 				sathelper.setup_init();
 			}
 			sathelper.generate_model();

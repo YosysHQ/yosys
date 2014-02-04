@@ -993,6 +993,8 @@ skip_dynamic_range_lvalue_expansion:;
 		AstNode *wire_en = new AstNode(AST_WIRE);
 		wire_en->str = id_en;
 		current_ast_mod->children.push_back(wire_en);
+		current_ast_mod->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)))));
+		current_ast_mod->children.back()->children[0]->children[0]->children[0]->str = id_en;
 		current_scope[wire_en->str] = wire_en;
 		while (wire_en->simplify(true, false, false, 1, -1, false)) { }
 
