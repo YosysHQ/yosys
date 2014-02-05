@@ -106,6 +106,9 @@ struct VerilogFrontend : public Frontend {
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
 		log("        create an error message.)\n");
 		log("\n");
+		log("    -setattr <attribute_name>\n");
+		log("        set the specified attribute (to the value 1) on all loaded modules\n");
+		log("\n");
 		log("    -Dname[=definition]\n");
 		log("        define the preprocessor symbol 'name' and set its optional value\n");
 		log("        'definition'\n");
@@ -134,6 +137,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_ignore_redef = false;
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
+		std::list<std::string> attributes;
 		frontend_verilog_yydebug = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
@@ -195,6 +199,10 @@ struct VerilogFrontend : public Frontend {
 				flag_ignore_redef = true;
 				continue;
 			}
+			if (arg == "-setattr" && argidx+1 < args.size()) {
+				attributes.push_back(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
 			if (arg == "-D" && argidx+1 < args.size()) {
 				std::string name = args[++argidx], value;
 				size_t equal = name.find('=', 2);
@@ -248,6 +256,13 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yyrestart(fp);
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
+
+		for (auto &child : current_ast->children) {
+			log_assert(child->type == AST::AST_MODULE);
+			for (auto &attr : attributes)
+				if (child->attributes.count(attr) == 0)
+					child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
+		}
 
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef);
 
