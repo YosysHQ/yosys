@@ -705,6 +705,20 @@ void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t 
 		design->selection_stack.push_back(RTLIL::Selection(false));
 }
 
+std::string list_nonopt_args(std::vector<std::string> args)
+{
+	size_t argidx;
+	std::string result = "";
+	for (argidx = 1; argidx < args.size(); argidx++)
+	{
+		std::string arg = args[argidx];
+		if (arg.size() > 0 && arg[0] == '-')
+			continue;
+		result += arg + " ";
+	}
+	return result;
+}
+
 struct SelectPass : public Pass {
 	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
 	virtual void help()
@@ -731,15 +745,18 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    -set <name>\n");
 		log("        do not modify the current selection. instead save the new selection\n");
-		log("        under the given name (see @<name> below).\n");
+		log("        under the given name (see @<name> below). to save the current selection,\n");
+		log("        use \"select -set <name> %%\"\n");
 		log("\n");
 		log("    -assert-none\n");
-		log("        asserts that the given selection is empty. i.e. produce an error if\n");
-		log("        any object matching the selection is found.\n");
+		log("        do not modify the current selection. instead assert that the given\n");
+		log("        selection is empty. i.e. produce an error if any object matching the\n");
+		log("        selection is found.\n");
 		log("\n");
 		log("    -assert-any\n");
-		log("        asserts that the given selection is non-empty. i.e. produce an error\n");
-		log("        if no object matching the selection is found.\n");
+		log("        do not modify the current selection. instead assert that the given\n");
+		log("        selection is non-empty. i.e. produce an error if no object matching\n");
+		log("        the selection is found.\n");
 		log("\n");
 		log("    -list\n");
 		log("        list all objects in the current selection\n");
@@ -1047,7 +1064,7 @@ struct SelectPass : public Pass {
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
 			if (!work_stack.back().empty())
-				log_error("Assertation failed: selection is not empty.\n");
+				log_error("Assertation failed: selection is not empty: %s\n",list_nonopt_args(args).c_str());
 			return;
 		}
 
@@ -1056,7 +1073,7 @@ struct SelectPass : public Pass {
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
 			if (work_stack.back().empty())
-				log_error("Assertation failed: selection is empty.\n");
+				log_error("Assertation failed: selection is empty: %s\n",list_nonopt_args(args).c_str());
 			return;
 		}
 
