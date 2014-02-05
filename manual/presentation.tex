@@ -1,4 +1,5 @@
 \documentclass{beamer}
+\hypersetup{bookmarksdepth=5}
 
 \usepackage[T1]{fontenc}   % required for luximono!
 \usepackage{lmodern}
@@ -50,6 +51,14 @@
 	morecomment=[l]{\#},
 	morekeywords={module,attribute,parameter,wire,memory,auto,width,offset,size,input,output,inout,cell,connect,switch,case,assign,sync,low,high,posedge,negedge,edge,always,update,process,end},
 	morestring=[b]",
+}
+
+\lstdefinelanguage{ys}{
+	morecomment=[l]{\#},
+}
+
+\lstset{
+	commentstyle=\color{YosysGreen},
 }
 
 \newenvironment{boxalertenv}{\begin{altenv}%

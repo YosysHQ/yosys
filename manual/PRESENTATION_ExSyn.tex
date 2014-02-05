@@ -31,7 +31,7 @@
 \subsection{Reading the design}
 
 \begin{frame}[fragile]{\subsecname}
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 read_verilog file1.v
 read_verilog -I include_dir -D enable_foo -D WIDTH=12 file2.v
 read_verilog -lib cell_library.v
@@ -59,7 +59,7 @@ connected. It also re-runs the AST parts of the Verilog frontend to create
 all needed variations of parametric modules.
 
 \bigskip
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 # simplest form. at least this version should be used after reading all input files
 #
 hierarchy
@@ -87,7 +87,7 @@ multiplexer and register cells.
 The {\tt proc} command is actually a macro-command that calls the following
 other commands:
 
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 proc_clean      # remove empty branches and processes
 proc_rmdead     # remove unreachable branches
 proc_init       # special handling of "initial" blocks
@@ -108,7 +108,7 @@ after design elaboration.
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/proc_01.v}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_01.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/proc_01.ys}
 \end{columns}
 \hfil\includegraphics[width=8cm,trim=0 0cm 0 0cm]{PRESENTATION_ExSyn/proc_01.pdf}
 \end{frame}
@@ -120,7 +120,7 @@ after design elaboration.
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/proc_02.v}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_02.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/proc_02.ys}
 \end{columns}
 \end{frame}
 
@@ -129,7 +129,7 @@ after design elaboration.
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/proc_03.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/proc_03.ys}
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/proc_03.v}
 \end{columns}
@@ -143,7 +143,7 @@ after design elaboration.
 The {\tt opt} command implements a series of simple optimizations. It also
 is a macro command that calls other commands:
 
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 opt_const               # const folding
 opt_share -nomux        # merging identical cells
 
@@ -160,7 +160,7 @@ while [changed design]
 The command {\tt clean} can be used as alias for {\tt opt\_clean}. And {\tt ;;}
 can be used as shortcut for {\tt clean}. For example:
 
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 proc; opt; memory; opt_const;; fsm;;
 \end{lstlisting}
 \end{frame}
@@ -170,7 +170,7 @@ proc; opt; memory; opt_const;; fsm;;
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_01.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/opt_01.ys}
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_01.v}
 \end{columns}
@@ -181,7 +181,7 @@ proc; opt; memory; opt_const;; fsm;;
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_02.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/opt_02.ys}
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_02.v}
 \end{columns}
@@ -192,7 +192,7 @@ proc; opt; memory; opt_const;; fsm;;
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_03.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/opt_03.ys}
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_03.v}
 \end{columns}
@@ -205,7 +205,7 @@ proc; opt; memory; opt_const;; fsm;;
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/opt_04.v}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/opt_04.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/opt_04.ys}
 \end{columns}
 \end{frame}
 
@@ -245,7 +245,7 @@ consolidating the number of ports for a memory easier. The {\tt memory}
 transforms memories to an implementation. Per default that is logic for address
 decoders and registers. It also is a macro command that calls other commands:
 
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 # this merges registers into the memory read- and write cells.
 memory_dff
 
@@ -262,7 +262,7 @@ memory_map
 Usually it is preferred to use architecture-specific RAM resources for memory.
 For example:
 
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 memory -nomap; techmap -map my_memory_map.v; memory_map
 \end{lstlisting}
 \end{frame}
@@ -272,7 +272,7 @@ memory -nomap; techmap -map my_memory_map.v; memory_map
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/memory_01.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/memory_01.ys}
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/memory_01.v}
 \end{columns}
@@ -285,7 +285,7 @@ memory -nomap; techmap -map my_memory_map.v; memory_map
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{6pt}{8pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/memory_02.v}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/memory_02.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/memory_02.ys}
 \end{columns}
 \end{frame}
 
@@ -298,7 +298,7 @@ The {\tt fsm} command identifies, extracts, optimizes (re-encodes), and
 re-synthesizes finite state machines. It again is a macro that calls
 a series of other commands:
 
-\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 fsm_detect          # unless got option -nodetect
 fsm_extract
 
@@ -357,7 +357,7 @@ verilog source. For example implementing a 32 bit adder using 16 bit adders:
 }\vbox to 0cm{
 \vskip-0.5cm
 \lstinputlisting[xleftmargin=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=verilog]{PRESENTATION_ExSyn/techmap_01.v}
-\lstinputlisting[xleftmargin=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/techmap_01.ys}
+\lstinputlisting[xleftmargin=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/techmap_01.ys}
 }
 \end{frame}
 
@@ -413,7 +413,7 @@ more advanced ABC features. It is also possible to write the design with
 \column[t]{5cm}
 \lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExSyn/abc_01.v}
 \column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single]{PRESENTATION_ExSyn/abc_01.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExSyn/abc_01.ys}
 \end{columns}
 \includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_ExSyn/abc_01.pdf}
 \end{frame}
@@ -448,7 +448,7 @@ This command inserts this cells to the design.
 \begin{frame}[fragile]{\subsecname}
 \begin{columns}
 \column[t]{4cm}
-\begin{lstlisting}[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont]
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont, language=ys]
 # read and elaborate design
 read_verilog cpu_top.v cpu_ctrl.v cpu_regs.v
 read_verilog -D WITH_MULT cpu_alu.v

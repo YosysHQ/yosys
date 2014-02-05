@@ -24,7 +24,155 @@ This section contains 4 subsections:
 \subsectionpagesuffix
 \end{frame}
 
-\subsubsection{TBD}
+\subsubsection{Simple selections}
+
+\begin{frame}[fragile]{\subsubsecname}
+Most Yosys commands make use of the ``selection framework'' of Yosys. It can be used
+to apply commands only to part of the design. For example:
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+delete                # will delete the whole design, but
+
+delete foobar         # will only delete the module foobar.
+\end{lstlisting}
+
+\bigskip
+The {\tt select} command can be used to create a selection for subsequent
+commands. For example:
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select foobar         # select the module foobar
+delete                # delete selected objects
+select -clear         # reset selection (select whole design)
+\end{lstlisting}
+\end{frame}
+
+\subsubsection{Selection by object name}
+
+\begin{frame}[fragile]{\subsubsecname}
+The easiest way to select objects is by object name. This is usually only done
+in synthesis scripts that are hand-tailored for a specific design.
+
+\bigskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select foobar         # select module foobar
+select foo*           # select all modules whose names start with foo
+select foo*/bar*      # select all objects matching bar* from modules matching foo*
+select */clk          # select objects named clk from all modules
+\end{lstlisting}
+\end{frame}
+
+\subsubsection{Module and design context}
+
+\begin{frame}[fragile]{\subsubsecname}
+Commands can be executed in {\it module\/} or {\it design\/} context. Until now all
+commands have been executed in design context. The {\tt cd} command can be used
+to switch to module context.
+
+\bigskip
+In module context all commands only effect the active module. Objects in the module
+are selected without the {\tt <module\_name>/} prefix. For example:
+
+\bigskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+cd foo                # switch to module foo
+delete bar            # delete object foo/bar
+
+cd mycpu              # switch to module mycpu
+dump reg_*            # print details on all objects whose names start with reg_
+
+cd ..                 # switch back to design
+\end{lstlisting}
+
+\bigskip
+Note: Most synthesis script never switch to module context. But it is a very powerful
+tool for interactive design investigation.
+\end{frame}
+
+\subsubsection{Selecting by object property or type}
+
+\begin{frame}[fragile]{\subsubsecname}
+Special pattern can be used to select by object property or type. For example:
+
+\bigskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select w:reg_*        # select all wires whose names start with reg_
+select a:foobar       # select all objects with the attribute foobar set
+select a:foobar=42    # select all objects with the attribute foobar set to 42
+select A:blabla       # select all module with the attribute blabla set
+select foo/t:$add     # select all $add cells from the module foo
+\end{lstlisting}
+
+\bigskip
+A complete list of this pattern expressions can be found in the command
+reference to the {\tt select} command.
+\end{frame}
+
+\subsubsection{Combining selection}
+
+\begin{frame}[fragile]{\subsubsecname}
+When more than one selection expression is used in one statement they are
+pushed on a stack. At the final elements on the stack are combined into a union:
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select t:$dff r:WIDTH>1     # all cells of type $dff and/or with a parameter WIDTH > 1
+\end{lstlisting}
+
+\bigskip
+Special \%-commands can be used to combine the elements on the stack:
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select t:$dff r:WIDTH>1 %i  # all cells of type $dff *AND* with a parameter WIDTH > 1
+\end{lstlisting}
+
+\medskip
+\begin{block}{Examples for {\tt \%}-codes (see {\tt help select} for full list)}
+{\tt \%u} \dotfill union of top two elements on stack -- pop 2, push 1 \\
+{\tt \%d} \dotfill difference of top two elements on stack -- pop 2, push 1 \\
+{\tt \%i} \dotfill intersection of top two elements on stack -- pop 2, push 1 \\
+{\tt \%n} \dotfill inverse of top element on stack -- pop 1, push 1 \\
+\end{block}
+\end{frame}
+
+\subsubsection{Expanding selections}
+
+\begin{frame}[fragile]{\subsubsecname}
+Selections of cells and wires can be expanded along connections using {\tt \%}-codes
+for selecting input cones ({\tt \%ci}), output cones ({\tt \%co}), or both ({\tt \%x}).
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+# select all wires that are inputs to $add cells
+select t:$add %ci w:* %i
+\end{lstlisting}
+
+\bigskip
+Additional constraints such as port names can be specified.
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+# select all wires that connect a "Q" output with a "D" input
+select c:* %co:+[Q] w:* %i c:* %ci:+[D] w:* %i %i
+
+# select the multiplexer tree that drives the signal 'state'
+select state %ci*:+$mux,$pmux[A,B,Y]
+\end{lstlisting}
+
+\bigskip
+See {\tt help select} for full documentation of this expressions.
+\end{frame}
+
+\subsubsection{Incremental selection}
+
+\begin{frame}{\subsubsecname}
+TBD
+\end{frame}
+
+\subsubsection{Creating selection variables}
 
 \begin{frame}{\subsubsecname}
 TBD

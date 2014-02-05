@@ -272,16 +272,16 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 
 \begin{minipage}[t]{6cm}
 \tt\scriptsize
-\# read design\\
+{\color{YosysGreen}\# read design}\\
 \boxalert<1>{read\_verilog counter.v}\\
 \boxalert<2>{hierarchy -check -top counter}
 
 \medskip
-\# the high-level stuff\\
+{\color{YosysGreen}\# the high-level stuff}\\
 \boxalert<3>{proc}; \boxalert<4>{opt}; \boxalert<5>{memory}; \boxalert<6>{opt}; \boxalert<7>{fsm}; \boxalert<8>{opt}
 
 \medskip
-\# mapping to internal cell library\\
+{\color{YosysGreen}\# mapping to internal cell library}\\
 \boxalert<9>{techmap}; \boxalert<10>{opt}
 
 \bigskip
@@ -289,19 +289,19 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 \end{minipage}
 \begin{minipage}[t]{5cm}
 \tt\scriptsize
-\# mapping flip-flops to mycells.lib\\
+{\color{YosysGreen}\# mapping flip-flops to mycells.lib}\\
 \boxalert<11>{dfflibmap -liberty mycells.lib}
 
 \medskip
-\# mapping logic to mycells.lib\\
+{\color{YosysGreen}\# mapping logic to mycells.lib}\\
 \boxalert<12>{abc -liberty mycells.lib}
 
 \medskip
-\# cleanup\\
+{\color{YosysGreen}\# cleanup}\\
 \boxalert<13>{clean}
 
 \medskip
-\# write synthesized design\\
+{\color{YosysGreen}\# write synthesized design}\\
 \boxalert<14>{write\_verilog synth.v}
 \end{minipage}
 
@@ -428,68 +428,68 @@ Command reference:
 
 \bigskip
 Commands for design navigation and investigation:
-\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-    cd                   a shortcut for 'select -module <name>'
-    ls                   list modules or objects in modules
-    dump                 print parts of the design in ilang format
-    show                 generate schematics using graphviz
-    select               modify and view the list of selected objects
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    cd                   # a shortcut for 'select -module <name>'
+    ls                   # list modules or objects in modules
+    dump                 # print parts of the design in ilang format
+    show                 # generate schematics using graphviz
+    select               # modify and view the list of selected objects
 \end{lstlisting}
 
 \bigskip
 Commands for executing scripts or entering interactive mode:
-\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-    shell                enter interactive command mode
-    history              show last interactive commands
-    script               execute commands from script file
-    tcl                  execute a TCL script file
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    shell                # enter interactive command mode
+    history              # show last interactive commands
+    script               # execute commands from script file
+    tcl                  # execute a TCL script file
 \end{lstlisting}
 \end{frame}
 
 \begin{frame}[fragile]{\subsecname{} 2/3 \hspace{0pt plus 1 filll} (excerpt)}
 Commands for reading and elaborating the design:
-\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-    read_ilang           read modules from ilang file
-    read_verilog         read modules from verilog file
-    hierarchy            check, expand and clean up design hierarchy
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    read_ilang           # read modules from ilang file
+    read_verilog         # read modules from verilog file
+    hierarchy            # check, expand and clean up design hierarchy
 \end{lstlisting}
 
 \bigskip
 Commands for high-level synthesis:
-\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-    proc                 translate processes to netlists
-    fsm                  extract and optimize finite state machines
-    memory               translate memories to basic cells
-    opt                  perform simple optimizations
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    proc                 # translate processes to netlists
+    fsm                  # extract and optimize finite state machines
+    memory               # translate memories to basic cells
+    opt                  # perform simple optimizations
 \end{lstlisting}
 
 \bigskip
 Commands for technology mapping:
-\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-    techmap              simple technology mapper
-    abc                  use ABC for technology mapping
-    dfflibmap            technology mapping of flip-flops
-    hilomap              technology mapping of constant hi- and/or lo-drivers
-    iopadmap             technology mapping of i/o pads (or buffers)
-    flatten              flatten design
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    techmap              # simple technology mapper
+    abc                  # use ABC for technology mapping
+    dfflibmap            # technology mapping of flip-flops
+    hilomap              # technology mapping of constant hi- and/or lo-drivers
+    iopadmap             # technology mapping of i/o pads (or buffers)
+    flatten              # flatten design
 \end{lstlisting}
 \end{frame}
 
 \begin{frame}[fragile]{\subsecname{} 3/3 \hspace{0pt plus 1 filll} (excerpt)}
 Commands for writing the results:
-\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-    write_blif           write design to BLIF file
-    write_btor           write design to BTOR file
-    write_edif           write design to EDIF netlist file
-    write_ilang          write design to ilang file
-    write_spice          write design to SPICE netlist file
-    write_verilog        write design to verilog file
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    write_blif           # write design to BLIF file
+    write_btor           # write design to BTOR file
+    write_edif           # write design to EDIF netlist file
+    write_ilang          # write design to ilang file
+    write_spice          # write design to SPICE netlist file
+    write_verilog        # write design to verilog file
 \end{lstlisting}
 
 \bigskip
 Script-Commands for standard synthesis tasks:
-\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-    synth_xilinx         synthesis for Xilinx FPGAs
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    synth_xilinx         # synthesis for Xilinx FPGAs
 \end{lstlisting}
 
 \bigskip
