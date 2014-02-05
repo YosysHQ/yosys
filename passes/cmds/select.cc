@@ -705,20 +705,6 @@ void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t 
 		design->selection_stack.push_back(RTLIL::Selection(false));
 }
 
-std::string list_nonopt_args(std::vector<std::string> args)
-{
-	size_t argidx;
-	std::string result = "";
-	for (argidx = 1; argidx < args.size(); argidx++)
-	{
-		std::string arg = args[argidx];
-		if (arg.size() > 0 && arg[0] == '-')
-			continue;
-		result += arg + " ";
-	}
-	return result;
-}
-
 struct SelectPass : public Pass {
 	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
 	virtual void help()
@@ -901,6 +887,7 @@ struct SelectPass : public Pass {
 		bool assert_any = false;
 		std::string write_file;
 		std::string set_name;
+		std::string sel_str;
 
 		work_stack.clear();
 
@@ -959,6 +946,7 @@ struct SelectPass : public Pass {
 			if (arg.size() > 0 && arg[0] == '-')
 				log_cmd_error("Unkown option %s.\n", arg.c_str());
 			select_stmt(design, arg);
+			sel_str += " " + arg;
 		}
 
 		if (clear_mode && args.size() != 2)
@@ -1064,7 +1052,7 @@ struct SelectPass : public Pass {
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
 			if (!work_stack.back().empty())
-				log_error("Assertation failed: selection is not empty: %s\n",list_nonopt_args(args).c_str());
+				log_error("Assertation failed: selection is not empty:%s\n", sel_str.c_str());
 			return;
 		}
 
@@ -1073,7 +1061,7 @@ struct SelectPass : public Pass {
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
 			if (work_stack.back().empty())
-				log_error("Assertation failed: selection is empty: %s\n",list_nonopt_args(args).c_str());
+				log_error("Assertation failed: selection is empty:%s\n", sel_str.c_str());
 			return;
 		}
 
