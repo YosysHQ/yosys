@@ -60,6 +60,16 @@
 \begin{boxalertenv}#2{#1}\end{boxalertenv}%
 }}
 
+\newcommand{\subsectionpagesuffix}{
+\vfill\begin{centering}
+{\usebeamerfont{subsection name}\usebeamercolor[fg]{subsection name}of \sectionname~\insertsectionnumber}
+\vskip1em\par
+\setbeamercolor{graybox}{bg=gray}
+\begin{beamercolorbox}[sep=8pt,center,bg=gray]{graybox}
+\usebeamerfont{subsection title}\insertsection\par
+\end{beamercolorbox}
+\end{centering}}
+
 \title{Yosys Open SYnthesis Suite}
 \author{Clifford Wolf}
 \institute{http://www.clifford.at/}
