@@ -972,14 +972,8 @@ struct SatPass : public Pass {
 		if (module == NULL) 
 			log_cmd_error("Can't perform SAT on an empty selection!\n");
 
-		if (!prove.size() && !prove_x.size() && !prove_asserts && (verify || falsify))
-			log_cmd_error("Got -verify or -falsify but nothing to prove!\n");
-
 		if (!prove.size() && !prove_x.size() && !prove_asserts && tempinduct)
 			log_cmd_error("Got -tempinduct but nothing to prove!\n");
-
-		if (seq_len == 0 && tempinduct)
-			log_cmd_error("Got -tempinduct but no -seq argument!\n");
 
 		if (set_def_inputs) {
 			for (auto &it : module->wires)
@@ -1192,9 +1186,16 @@ struct SatPass : public Pass {
 					goto rerun_solver;
 				}
 
-				if (verify) {
-					log("\n");
-					log_error("Called with -verify and proof did fail!\n");
+				if (!prove.size() && !prove_x.size() && !prove_asserts) {
+					if (falsify) {
+						log("\n");
+						log_error("Called with -falsify and found a model!\n");
+					}
+				} else {
+					if (verify) {
+						log("\n");
+						log_error("Called with -verify and proof did fail!\n");
+					}
 				}
 			}
 			else
@@ -1203,9 +1204,13 @@ struct SatPass : public Pass {
 					goto timeout;
 				if (rerun_counter)
 					log("SAT solving finished - no more models found (after %d distinct solutions).\n", rerun_counter);
-				else if (!prove.size() && !prove_x.size() && !prove_asserts)
+				else if (!prove.size() && !prove_x.size() && !prove_asserts) {
 					log("SAT solving finished - no model found.\n");
-				else {
+					if (verify) {
+						log("\n");
+						log_error("Called with -verify and found no model!\n");
+					}
+				} else {
 					log("SAT proof finished - no model found: SUCCESS!\n");
 					print_qed();
 					if (falsify) {
@@ -1215,9 +1220,16 @@ struct SatPass : public Pass {
 				}
 			}
 
-			if (verify && rerun_counter) {
-				log("\n");
-				log_error("Called with -verify and proof did fail!\n");
+			if (!prove.size() && !prove_x.size() && !prove_asserts) {
+				if (falsify && rerun_counter) {
+					log("\n");
+					log_error("Called with -falsify and found a model!\n");
+				}
+			} else {
+				if (verify && rerun_counter) {
+					log("\n");
+					log_error("Called with -verify and proof did fail!\n");
+				}
 			}
 		}
 
