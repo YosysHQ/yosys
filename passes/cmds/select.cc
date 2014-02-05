@@ -46,34 +46,85 @@ static bool match_ids(RTLIL::IdString id, std::string pattern)
 	return false;
 }
 
-static bool match_attr_val(const RTLIL::Const &value, std::string pattern)
+static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char match_op)
 {
-	if ((value.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-		char *endp = NULL;
-		long int v = strtol(pattern.c_str(), &endp, 0);
-		return *endp == 0 && value.as_int() == v;
-	}
-	if (!fnmatch(pattern.c_str(), value.decode_string().c_str(), FNM_NOESCAPE))
+	if (match_op == 0)
 		return true;
-	return false;
+
+	if ((value.flags & RTLIL::CONST_FLAG_STRING) == 0)
+	{
+		RTLIL::SigSpec sig_value;
+
+		if (!RTLIL::SigSpec::parse(sig_value, NULL, pattern))
+			return false;
+
+		RTLIL::Const pattern_value = sig_value.as_const();
+
+		if (match_op == '=')
+			return value == pattern_value;
+		if (match_op == '<')
+			return value.as_int() < pattern_value.as_int();
+		if (match_op == '>')
+			return value.as_int() > pattern_value.as_int();
+		if (match_op == '[')
+			return value.as_int() <= pattern_value.as_int();
+		if (match_op == ']')
+			return value.as_int() >= pattern_value.as_int();
+	}
+	else
+	{
+		std::string value_str = value.decode_string();
+
+		if (match_op == '=')
+			if (!fnmatch(pattern.c_str(), value.decode_string().c_str(), FNM_NOESCAPE))
+				return true;
+
+		if (match_op == '=')
+			return value_str == pattern;
+		if (match_op == '<')
+			return value_str < pattern;
+		if (match_op == '>')
+			return value_str > pattern;
+		if (match_op == '[')
+			return value_str <= pattern;
+		if (match_op == ']')
+			return value_str >= pattern;
+	}
+
+	log_abort();
 }
 
-static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes, std::string name_pat, std::string value_pat, bool use_value_pat)
+static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes, std::string name_pat, std::string value_pat, char match_op)
 {
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
-			if (!fnmatch(name_pat.c_str(), it.first.c_str(), FNM_NOESCAPE) && (!use_value_pat || match_attr_val(it.second, value_pat)))
+			if (!fnmatch(name_pat.c_str(), it.first.c_str(), FNM_NOESCAPE) && match_attr_val(it.second, value_pat, match_op))
 				return true;
-			if (it.first.size() > 0 && it.first[0] == '\\' && !fnmatch(name_pat.c_str(), it.first.substr(1).c_str(), FNM_NOESCAPE) && (!use_value_pat || match_attr_val(it.second, value_pat)))
+			if (it.first.size() > 0 && it.first[0] == '\\' && !fnmatch(name_pat.c_str(), it.first.substr(1).c_str(), FNM_NOESCAPE) && match_attr_val(it.second, value_pat, match_op))
 				return true;
 		}
 	} else {
-		if (name_pat.size() > 0 && (name_pat[0] == '\\' || name_pat[0] == '$') && attributes.count(name_pat) && (!use_value_pat || match_attr_val(attributes.at(name_pat), value_pat)))
+		if (name_pat.size() > 0 && (name_pat[0] == '\\' || name_pat[0] == '$') && attributes.count(name_pat) && match_attr_val(attributes.at(name_pat), value_pat, match_op))
 			return true;
-		if (attributes.count("\\" + name_pat) && (!use_value_pat || match_attr_val(attributes.at("\\" + name_pat), value_pat)))
+		if (attributes.count("\\" + name_pat) && match_attr_val(attributes.at("\\" + name_pat), value_pat, match_op))
 			return true;
 	}
 	return false;
+}
+
+static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes, std::string match_expr)
+{
+	size_t pos = match_expr.find_first_of("<=>");
+
+	if (pos != std::string::npos) {
+		if (match_expr.substr(pos, 2) == "<=")
+			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
+		if (match_expr.substr(pos, 2) == ">=")
+			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), ']');
+		return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+1), match_expr[pos]);
+	}
+
+	return match_attr(attributes, match_expr, std::string(), 0);
 }
 
 static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
@@ -555,14 +606,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	for (auto &mod_it : design->modules)
 	{
 		if (arg_mod.substr(0, 2) == "A:") {
-			bool use_value_pat = false;
-			std::string name_pat = arg_mod.substr(2), value_pat;
-			if (name_pat.find('=') != std::string::npos) {
-				value_pat = name_pat.substr(name_pat.find('=')+1);
-				name_pat = name_pat.substr(0, name_pat.find('='));
-				use_value_pat = true;
-			}
-			if (!match_attr(mod_it.second->attributes, name_pat, value_pat, use_value_pat))
+			if (!match_attr(mod_it.second->attributes, arg_mod.substr(2)))
 				continue;
 		} else
 		if (!match_ids(mod_it.first, arg_mod))
@@ -600,25 +644,22 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "a:") {
-			bool use_value_pat = false;
-			std::string name_pat = arg_memb.substr(2);
-			std::string value_pat;
-			if (name_pat.find('=') != std::string::npos) {
-				value_pat = name_pat.substr(name_pat.find('=')+1);
-				name_pat = name_pat.substr(0, name_pat.find('='));
-				use_value_pat = true;
-			}
 			for (auto &it : mod->wires)
-				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
+				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->memories)
-				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
+				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->cells)
-				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
+				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->processes)
-				if (match_attr(it.second->attributes, name_pat, value_pat, use_value_pat))
+				if (match_attr(it.second->attributes, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(it.first);
+		} else
+		if (arg_memb.substr(0, 2) == "r:") {
+			for (auto &it : mod->cells)
+				if (match_attr(it.second->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else {
 			if (arg_memb.substr(0, 2) == "n:")
@@ -750,6 +791,7 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    A:<pattern>, A:<pattern>=<pattern>\n");
 		log("        all modules with an attribute matching the given pattern\n");
+		log("        in addition to = also <, <=, >=, and > are supported\n");
 		log("\n");
 		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
 		log("the following:\n");
@@ -773,7 +815,11 @@ struct SelectPass : public Pass {
 		log("        all objects with an attribute name matching the given pattern\n");
 		log("\n");
 		log("    a:<pattern>=<pattern>\n");
-		log("        all objects with a matching attribute name-value-pair\n");
+		log("        all objects with a matching attribute name-value-pair.\n");
+		log("        in addition to = also <, <=, >=, and > are supported\n");
+		log("\n");
+		log("    r:<pattern>, r:<pattern>=<pattern>\n");
+		log("        cells with matching parameters. also with <, <=, >= and >.\n");
 		log("\n");
 		log("    n:<pattern>\n");
 		log("        all objects with a name matching the given pattern\n");
