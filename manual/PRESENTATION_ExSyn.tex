@@ -73,7 +73,7 @@ hierarchy -check -top top_module
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{The ``proc'' commands}
+\subsection{The {\tt proc} command}
 
 \begin{frame}[fragile]{\subsecname}
 The Verilog frontend converts {\tt always}-blocks to RTL netlists for the
@@ -137,7 +137,7 @@ after design elaboration.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{The ``opt'' commands}
+\subsection{The {\tt opt} command}
 
 \begin{frame}[fragile]{\subsecname}
 The {\tt opt} command implements a series of simple optimizations. It also
@@ -211,7 +211,7 @@ proc; opt; memory; opt_const;; fsm;;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{When to use ``opt'' or ``clean''}
+\subsection{When to use {\tt opt} or {\tt clean}}
 
 \begin{frame}{\subsecname}
 Usually it does not hurt to call {\tt opt} after each regular command in the
@@ -237,7 +237,7 @@ is a good idea in every synthesis script.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{The ``memory'' commands}
+\subsection{The {\tt memory} command}
 
 \begin{frame}[fragile]{\subsecname}
 In the RTL netlist, memory reads and writes are individual cells. This makes
@@ -291,7 +291,7 @@ memory -nomap; techmap -map my_memory_map.v; memory_map
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{The ``fsm'' commands}
+\subsection{The {\tt fsm} command}
 
 \begin{frame}[fragile]{\subsecname{}}
 The {\tt fsm} command identifies, extracts, optimizes (re-encodes), and
@@ -343,7 +343,7 @@ Finally the {\tt fsm\_map} command can be used to convert the (optimized) {\tt
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{The ``techmap'' command}
+\subsection{The {\tt techmap} command}
 
 \begin{frame}[t]{\subsecname}
 \vbox to 0cm{\includegraphics[width=12cm,trim=-18cm 0cm 0cm -34cm]{PRESENTATION_ExSyn/techmap_01.pdf}\vss}
@@ -384,7 +384,7 @@ to map all RTL cell types to a generic library of built-in logic gates and regis
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{The ``abc'' command}
+\subsection{The {\tt abc} command}
 
 \begin{frame}{\subsecname}
 The {\tt abc} command provides an interface to ABC\footnote[frame]{\url{http://www.eecs.berkeley.edu/~alanmi/abc/}},
@@ -489,4 +489,27 @@ the next part (Section 3, ``Advanced Synthesis'') of this presentation.}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Summary}
+
+\begin{frame}{\subsecname}
+\begin{itemize}
+\item Yosys provides commands for each phase of the synthesis.
+\item Each command solves a (more or less) simple problem.
+\item Complex command are often only front-ends to simple commands.
+\item {\tt proc; opt; memory; opt; fsm; opt; techmap; opt; abc;;}
+\end{itemize}
+
+\bigskip
+\bigskip
+\begin{center}
+Questions?
+\end{center}
+
+\bigskip
+\bigskip
+\begin{center}
+\url{http://www.clifford.at/yosys/}
+\end{center}
+\end{frame}
 

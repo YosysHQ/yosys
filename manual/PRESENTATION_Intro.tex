@@ -466,7 +466,7 @@ Commands for high-level synthesis:
 \bigskip
 Commands for technology mapping:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
-    techmap              # simple technology mapper
+    techmap              # generic technology mapper
     abc                  # use ABC for technology mapping
     dfflibmap            # technology mapping of flip-flops
     hilomap              # technology mapping of constant hi- and/or lo-drivers
@@ -490,6 +490,14 @@ Commands for writing the results:
 Script-Commands for standard synthesis tasks:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
     synth_xilinx         # synthesis for Xilinx FPGAs
+\end{lstlisting}
+
+\bigskip
+Commands for model checking:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    sat                  # solve a SAT problem in the circuit
+    miter                # automatically create a miter circuit
+    scc                  # detect strongly connected components (logic loops)
 \end{lstlisting}
 
 \bigskip
@@ -713,6 +721,51 @@ but also formal verification, reverse engineering, ...}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\subsection{Other Open Source Tools}
+
+\begin{frame}{\subsecname}
+\begin{itemize}
+\item Icarus Verilog \\
+\smallskip\hskip1cm{}Verilog Simulation (and also a good syntax checker) \\
+\smallskip\hskip1cm{}\url{http://iverilog.icarus.com/}
+
+\bigskip
+\item Qflow (incl. TimberWolf, qrouter and Magic) \\
+\smallskip\hskip1cm{}A complete ASIC synthesis flow, using Yosys and ABC \\
+\smallskip\hskip1cm{}\url{http://opencircuitdesign.com/qflow/}
+
+\bigskip
+\item ABC \\
+\smallskip\hskip1cm{}Logic optimization, technology mapping, and more \\
+\smallskip\hskip1cm{}\url{http://www.eecs.berkeley.edu/~alanmi/abc/}
+\end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{What the Yosys project needs from you}
+
+\begin{frame}{\subsecname}
+We need you as an active user:
+\begin{itemize}
+\item Use Yosys for on your own designs
+\item .. even if you are not using it as final synthesis tool
+\item Join the discussion on the Subreddit
+\item Report bugs and send in feature requests
+\end{itemize}
+
+\bigskip
+We need you as a developer:
+\begin{itemize}
+\item Use Yosys as environment for your research work
+\item .. you might also want to look into ABC for logic-level stuff
+\item Fork the project on github or create loadable plugins
+\item We desperately need a VHDL frontend or a VHDL-to-Verilog converter
+\end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \subsection{Documentation, Downloads, Contatcs}
 
 \begin{frame}{\subsecname}
@@ -735,4 +788,27 @@ but also formal verification, reverse engineering, ...}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Summary}
+
+\begin{frame}{\subsecname}
+\begin{itemize}
+\item Yosys is a powerful tool and framework for Verilog synthesis.
+\item Is uses a command-based interface and can be controlled by scripts.
+\item By combining existing commands and implementing new commands Yosys can
+be used in a wide range of application far beyond simple synthesis.
+\end{itemize}
+
+\bigskip
+\bigskip
+\begin{center}
+Questions?
+\end{center}
+
+\bigskip
+\bigskip
+\begin{center}
+\url{http://www.clifford.at/yosys/}
+\end{center}
+\end{frame}
 

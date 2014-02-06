@@ -168,14 +168,66 @@ See {\tt help select} for full documentation of this expressions.
 
 \subsubsection{Incremental selection}
 
-\begin{frame}{\subsubsecname}
-TBD
+\begin{frame}[fragile]{\subsubsecname}
+Sometime a selection can most easily described by a series of add/delete operations.
+For the commands {\tt select -add} and {\tt select -del} add or remove objects
+from the current selection instead of overwriting it.
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select -none            # start with an empty selection
+select -add reg_*       # select a bunch of objects
+select -del reg_42      # but not this one
+select -add state %ci   # and add mor stuff
+\end{lstlisting}
+
+\bigskip
+Within a select expression the token {\tt \%} can be used to push the previous selection
+on the stack.
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select t:$add t:$sub    # select all $add and $sub cells
+select % %ci % %d       # select only the input wires to those cells
+\end{lstlisting}
 \end{frame}
 
 \subsubsection{Creating selection variables}
 
-\begin{frame}{\subsubsecname}
-TBD
+\begin{frame}[fragile]{\subsubsecname}
+Selections can be stored under a name with the {\tt select -set <name>}
+command. The stored selections can be used in later select expressions
+using the syntax {\tt @<name>}.
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+select -set cone_a state_a %ci*:-$dff  # set @cone_a to the input cone of state_a
+select -set cone_b state_b %ci*:-$dff  # set @cone_b to the input cone of state_b
+select @cone_a @cone_b %i              # select the objects that are in both cones
+\end{lstlisting}
+
+\bigskip
+Remember that select expressions can also be used directly as arguments to most
+commands. Some commands also except a single select argument to some options.
+In those cases selection variables must be used to capture more complex selections.
+
+\medskip
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+dump @cone_a @cone_b
+
+select -set cone_ab @cone_a @cone_b %i
+show -color red @cone_ab -color magenta @cone_a -color blue @cone_b
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{\subsubsecname{} -- Example}
+\begin{columns}
+\column[t]{4cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/select_01.v}
+\column[t]{7cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExAdv/select_01.ys}
+\end{columns}
+\hfil\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/select_01.pdf}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -224,4 +276,27 @@ TBD
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Summary}
+
+\begin{frame}{\subsecname}
+\begin{itemize}
+\item TBD
+\item TBD
+\item TBD
+\item TBD
+\end{itemize}
+
+\bigskip
+\bigskip
+\begin{center}
+Questions?
+\end{center}
+
+\bigskip
+\bigskip
+\begin{center}
+\url{http://www.clifford.at/yosys/}
+\end{center}
+\end{frame}
 

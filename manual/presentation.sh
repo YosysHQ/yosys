@@ -28,6 +28,7 @@ if ! $fast_mode; then
 	md5sum *.aux *.snm *.nav *.toc > autoloop.old
 	make -C PRESENTATION_Intro
 	make -C PRESENTATION_ExSyn
+	make -C PRESENTATION_ExAdv
 fi
 
 set -ex
