@@ -733,6 +733,10 @@ struct SatPass : public Pass {
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
+		log("    -show @<sel_name>\n");
+		log("        add all wires from the specified selection (see help select) to\n");
+		log("        the list of signals to be shown.\n");
+		log("\n");
 		log("    -show-inputs, -show-outputs\n");
 		log("        add all module input (output) ports to the list of shown signals\n");
 		log("\n");
@@ -1020,6 +1024,19 @@ struct SatPass : public Pass {
 			for (auto &it : module->wires)
 				if (it.second->port_input)
 					sets_def.push_back(it.second->name);
+		}
+
+		for (auto &str : shows) {
+			if (str.empty() || str[0] != '@')
+				continue;
+			str = RTLIL::escape_id(str.substr(1));
+			if (design->selection_vars.count(str) == 0)
+				log_cmd_error("Selection %s is not defined!\n", RTLIL::id2cstr(str));
+			RTLIL::Selection &sel = design->selection_vars.at(str);
+			str.clear();
+			for (auto &it : module->wires)
+				if (sel.selected_member(module->name, it.first))
+					str += (str.empty() ? "" : ",") + it.first;
 		}
 
 		if (show_inputs) {
