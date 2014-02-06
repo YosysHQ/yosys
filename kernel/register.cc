@@ -148,6 +148,8 @@ void Pass::call(RTLIL::Design *design, std::string command)
 	for (char *p = strtok_r(s, " \t\r\n", &saveptr); p; p = strtok_r(NULL, " \t\r\n", &saveptr)) {
 		std::string str = p;
 		int strsz = str.size();
+		if (str == "#")
+			break;
 		if (strsz > 0 && str[strsz-1] == ';') {
 			int num_semikolon = 0;
 			while (strsz > 0 && str[strsz-1] == ';')
