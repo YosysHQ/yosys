@@ -39,8 +39,11 @@ bool fgetline(FILE *f, std::string &buffer)
 		if (fgets(block, 4096, f) == NULL)
 			return false;
 		buffer += block;
-		if (buffer.size() > 0 && (buffer[buffer.size()-1] == '\n' ||  buffer[buffer.size()-1] == '\r'))
+		if (buffer.size() > 0 && (buffer[buffer.size()-1] == '\n' ||  buffer[buffer.size()-1] == '\r')) {
+			while (buffer.size() > 0 && (buffer[buffer.size()-1] == '\n' ||  buffer[buffer.size()-1] == '\r'))
+				buffer.resize(buffer.size()-1);
 			return true;
+		}
 	}
 }
 
@@ -67,8 +70,16 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 		std::string command;
-		while (fgetline(f, command))
+		while (fgetline(f, command)) {
+			while (!command.empty() && command[command.size()-1] == '\\') {
+				std::string next_line;
+				if (!fgetline(f, next_line))
+					break;
+				command.resize(command.size()-1);
+				command += next_line;
+			}
 			Pass::call(design, command);
+		}
 		if (!command.empty())
 			Pass::call(design, command);
 		if (filename != "-")
