@@ -137,7 +137,7 @@ struct ConnectPass : public Pass {
 				log_cmd_error("Cant use -set together with -unset and/or -port.\n");
 
 			RTLIL::SigSpec sig_lhs, sig_rhs;
-			if (!RTLIL::SigSpec::parse(sig_lhs, module, set_lhs))
+			if (!RTLIL::SigSpec::parse_sel(sig_lhs, design, module, set_lhs))
 				log_cmd_error("Failed to parse set lhs expression `%s'.\n", set_lhs.c_str());
 			if (!RTLIL::SigSpec::parse_rhs(sig_lhs, sig_rhs, module, set_rhs))
 				log_cmd_error("Failed to parse set rhs expression `%s'.\n", set_rhs.c_str());
@@ -157,7 +157,7 @@ struct ConnectPass : public Pass {
 				log_cmd_error("Cant use -unset together with -port and/or -nounset.\n");
 
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, unset_expr))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, unset_expr))
 				log_cmd_error("Failed to parse unset expression `%s'.\n", unset_expr.c_str());
 
 			sigmap.apply(sig);
@@ -173,7 +173,7 @@ struct ConnectPass : public Pass {
 				log_cmd_error("Can't find cell %s.\n", port_cell.c_str());
 
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, port_expr))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr.c_str());
 
 			module->cells.at(RTLIL::escape_id(port_cell))->connections[RTLIL::escape_id(port_port)] = sigmap(sig);

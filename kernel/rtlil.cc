@@ -1649,6 +1649,24 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 	return true;
 }
 
+bool RTLIL::SigSpec::parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str)
+{
+	if (str.empty() || str[0] != '@')
+		return parse(sig, module, str);
+
+	str = RTLIL::escape_id(str.substr(1));
+	if (design->selection_vars.count(str) == 0)
+		return false;
+
+	sig = RTLIL::SigSpec();
+	RTLIL::Selection &sel = design->selection_vars.at(str);
+	for (auto &it : module->wires)
+		if (sel.selected_member(module->name, it.first))
+			sig.append(it.second);
+
+	return true;
+}
+
 bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
 {
 	if (str == "0") {

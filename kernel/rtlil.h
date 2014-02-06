@@ -411,6 +411,7 @@ struct RTLIL::SigSpec {
 	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
 	RTLIL::SigBit to_single_sigbit() const;
 	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
+	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 };
 

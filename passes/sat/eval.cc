@@ -464,7 +464,7 @@ struct EvalPass : public Pass {
 
 		for (auto &it : sets) {
 			RTLIL::SigSpec lhs, rhs;
-			if (!RTLIL::SigSpec::parse(lhs, module, it.first))
+			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, it.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.first.c_str());
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, it.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second.c_str());
@@ -486,7 +486,7 @@ struct EvalPass : public Pass {
 		{
 			for (auto &it : shows) {
 				RTLIL::SigSpec signal, value, undef;
-				if (!RTLIL::SigSpec::parse(signal, module, it))
+				if (!RTLIL::SigSpec::parse_sel(signal, design, module, it))
 					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
 				signal.optimize();
 				value = signal;
@@ -513,14 +513,14 @@ struct EvalPass : public Pass {
 
 			for (auto &it : shows) {
 				RTLIL::SigSpec sig;
-				if (!RTLIL::SigSpec::parse(sig, module, it))
+				if (!RTLIL::SigSpec::parse_sel(sig, design, module, it))
 					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
 				signal.append(sig);
 			}
 
 			for (auto &it : tables) {
 				RTLIL::SigSpec sig;
-				if (!RTLIL::SigSpec::parse(sig, module, it))
+				if (!RTLIL::SigSpec::parse_sel(sig, design, module, it))
 					log_cmd_error("Failed to parse table expression `%s'.\n", it.c_str());
 				tabsigs.append(sig);
 			}

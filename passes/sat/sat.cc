@@ -111,7 +111,7 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs, rhs;
 
-			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
@@ -180,7 +180,7 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs, rhs;
 
-			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
@@ -201,7 +201,7 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs, rhs;
 
-			if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
@@ -222,7 +222,7 @@ struct SatHelper
 		{
 			RTLIL::SigSpec lhs;
 
-			if (!RTLIL::SigSpec::parse(lhs, module, s))
+			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s))
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.c_str());
 			show_signal_pool.add(sigmap(lhs));
 
@@ -241,28 +241,28 @@ struct SatHelper
 
 		for (auto &s : sets_def) {
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, s))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
 				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
 			sets_def_undef[0].insert(sig);
 		}
 
 		for (auto &s : sets_any_undef) {
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, s))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
 				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
 			sets_def_undef[1].insert(sig);
 		}
 
 		for (auto &s : sets_all_undef) {
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, s))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
 				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
 			sets_def_undef[2].insert(sig);
 		}
 
 		for (auto &s : sets_def_at[timestep]) {
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, s))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
 				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
 			sets_def_undef[0].insert(sig);
 			sets_def_undef[1].erase(sig);
@@ -271,7 +271,7 @@ struct SatHelper
 
 		for (auto &s : sets_any_undef_at[timestep]) {
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, s))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
 				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
 			sets_def_undef[0].erase(sig);
 			sets_def_undef[1].insert(sig);
@@ -280,7 +280,7 @@ struct SatHelper
 
 		for (auto &s : sets_all_undef_at[timestep]) {
 			RTLIL::SigSpec sig;
-			if (!RTLIL::SigSpec::parse(sig, module, s))
+			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
 				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
 			sets_def_undef[0].erase(sig);
 			sets_def_undef[1].erase(sig);
@@ -329,7 +329,7 @@ struct SatHelper
 			{
 				RTLIL::SigSpec lhs, rhs;
 
-				if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
 					log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 					log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
@@ -357,7 +357,7 @@ struct SatHelper
 			{
 				RTLIL::SigSpec lhs, rhs;
 
-				if (!RTLIL::SigSpec::parse(lhs, module, s.first))
+				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
 					log_cmd_error("Failed to parse lhs proof-x expression `%s'.\n", s.first.c_str());
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
 					log_cmd_error("Failed to parse rhs proof-x expression `%s'.\n", s.second.c_str());
@@ -509,7 +509,7 @@ struct SatHelper
 		{
 			for (auto &s : shows) {
 				RTLIL::SigSpec sig;
-				if (!RTLIL::SigSpec::parse(sig, module, s))
+				if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
 					log_cmd_error("Failed to parse show expression `%s'.\n", s.c_str());
 				log("Import show expression: %s\n", log_signal(sig));
 				modelSig.append(sig);
@@ -732,10 +732,6 @@ struct SatPass : public Pass {
 		log("    -show <signal>\n");
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
-		log("\n");
-		log("    -show @<sel_name>\n");
-		log("        add all wires from the specified selection (see help select) to\n");
-		log("        the list of signals to be shown.\n");
 		log("\n");
 		log("    -show-inputs, -show-outputs\n");
 		log("        add all module input (output) ports to the list of shown signals\n");
@@ -1024,19 +1020,6 @@ struct SatPass : public Pass {
 			for (auto &it : module->wires)
 				if (it.second->port_input)
 					sets_def.push_back(it.second->name);
-		}
-
-		for (auto &str : shows) {
-			if (str.empty() || str[0] != '@')
-				continue;
-			str = RTLIL::escape_id(str.substr(1));
-			if (design->selection_vars.count(str) == 0)
-				log_cmd_error("Selection %s is not defined!\n", RTLIL::id2cstr(str));
-			RTLIL::Selection &sel = design->selection_vars.at(str);
-			str.clear();
-			for (auto &it : module->wires)
-				if (sel.selected_member(module->name, it.first))
-					str += (str.empty() ? "" : ",") + it.first;
 		}
 
 		if (show_inputs) {
