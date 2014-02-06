@@ -29,10 +29,17 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
+#if 0
 #define ABC_COMMAND_LIB "strash; retime; balance; dch; map; topo"
 #define ABC_COMMAND_CTR "strash; retime; balance; dch; map; topo; buffer; upsize; dnsize; stime"
 #define ABC_COMMAND_LUT "strash; retime; balance; dch; if"
 #define ABC_COMMAND_DFL "strash; retime; balance; dch; map"
+#else
+#define ABC_COMMAND_LIB "strash; balance; dch; map; topo"
+#define ABC_COMMAND_CTR "strash; balance; dch; map; topo; buffer; upsize; dnsize; stime"
+#define ABC_COMMAND_LUT "strash; balance; dch; if"
+#define ABC_COMMAND_DFL "strash; balance; dch; map"
+#endif
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
