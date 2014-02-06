@@ -50,7 +50,7 @@ struct SatHelper
 	bool prove_asserts;
 
 	// undef constraints
-	bool enable_undef, set_init_undef, set_init_zero, ignore_unknown_cells;
+	bool enable_undef, set_init_def, set_init_undef, set_init_zero, ignore_unknown_cells;
 	std::vector<std::string> sets_def, sets_any_undef, sets_all_undef;
 	std::map<int, std::vector<std::string>> sets_def_at, sets_any_undef_at, sets_all_undef_at;
 
@@ -66,6 +66,7 @@ struct SatHelper
 	{
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
+		set_init_def = false;
 		set_init_undef = false;
 		set_init_zero = false;
 		ignore_unknown_cells = false;
@@ -131,6 +132,12 @@ struct SatHelper
 			RTLIL::SigSpec rem = satgen.initial_state.remove(big_lhs);
 			rem.optimize();
 			log_cmd_error("Found -set-init bits that are not part of the initial_state: %s\n", log_signal(rem));
+		}
+
+		if (set_init_def) {
+			RTLIL::SigSpec rem = satgen.initial_state.export_all();
+			std::vector<int> undef_rem = satgen.importUndefSigSpec(rem, 1);
+			ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, undef_rem)));
 		}
 
 		if (set_init_undef) {
@@ -757,6 +764,9 @@ struct SatPass : public Pass {
 		log("    -set-init-undef\n");
 		log("        set all initial states (not set using -set-init) to undef\n");
 		log("\n");
+		log("    -set-init-def\n");
+		log("        do not force a value for the initial state but do not allow undef\n");
+		log("\n");
 		log("    -set-init-zero\n");
 		log("        set all initial states (not set using -set-init) to zero\n");
 		log("\n");
@@ -767,6 +777,10 @@ struct SatPass : public Pass {
 		log("        Perform a temporal induction proof. In a temporalinduction proof it is\n");
 		log("        proven that the condition holds forever after the number of time steps\n");
 		log("        specified using -seq.\n");
+		log("\n");
+		log("    -tempinduct-def\n");
+		log("        Perform a temporal induction proof. Assume an initial state with all\n");
+		log("        registers set to defined values for the induction step.\n");
 		log("\n");
 		log("    -prove <signal> <value>\n");
 		log("        Attempt to proof that <signal> is always <value>.\n");
@@ -807,7 +821,7 @@ struct SatPass : public Pass {
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
-		bool ignore_unknown_cells = false, falsify = false;
+		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -890,6 +904,11 @@ struct SatPass : public Pass {
 				tempinduct = true;
 				continue;
 			}
+			if (args[argidx] == "-tempinduct-def") {
+				tempinduct = true;
+				tempinduct_def = true;
+				continue;
+			}
 			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
 				std::string lhs = args[++argidx];
 				std::string rhs = args[++argidx];
@@ -952,6 +971,10 @@ struct SatPass : public Pass {
 				enable_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-set-init-def") {
+				set_init_def = true;
+				continue;
+			}
 			if (args[argidx] == "-set-init-zero") {
 				set_init_zero = true;
 				continue;
@@ -990,8 +1013,8 @@ struct SatPass : public Pass {
 		if (!prove.size() && !prove_x.size() && !prove_asserts && tempinduct)
 			log_cmd_error("Got -tempinduct but nothing to prove!\n");
 
-		if (set_init_undef && set_init_zero)
-			log_cmd_error("Got -set-init-undef and -set-init-zero!\n");
+		if (set_init_undef + set_init_zero + set_init_def > 1)
+			log_cmd_error("The options -set-init-undef, -set-init-def, and -set-init-zero are exclusive!\n");
 
 		if (set_def_inputs) {
 			for (auto &it : module->wires)
@@ -1034,6 +1057,7 @@ struct SatPass : public Pass {
 			basecase.sets_any_undef_at = sets_any_undef_at;
 			basecase.sets_all_undef_at = sets_all_undef_at;
 			basecase.sets_init = sets_init;
+			basecase.set_init_def = set_init_def;
 			basecase.set_init_undef = set_init_undef;
 			basecase.set_init_zero = set_init_zero;
 			basecase.satgen.ignore_div_by_zero = ignore_div_by_zero;
@@ -1057,6 +1081,11 @@ struct SatPass : public Pass {
 
 			inductstep.setup(1);
 			inductstep.ez.assume(inductstep.setup_proof(1));
+
+			if (tempinduct_def) {
+				std::vector<int> undef_state = inductstep.satgen.importUndefSigSpec(inductstep.satgen.initial_state.export_all(), 1);
+				inductstep.ez.assume(inductstep.ez.NOT(inductstep.ez.expression(ezSAT::OpOr, undef_state)));
+			}
 
 			for (int inductlen = 1; inductlen <= maxsteps || maxsteps == 0; inductlen++)
 			{
@@ -1151,6 +1180,7 @@ struct SatPass : public Pass {
 			sathelper.sets_any_undef_at = sets_any_undef_at;
 			sathelper.sets_all_undef_at = sets_all_undef_at;
 			sathelper.sets_init = sets_init;
+			sathelper.set_init_def = set_init_def;
 			sathelper.set_init_undef = set_init_undef;
 			sathelper.set_init_zero = set_init_zero;
 			sathelper.satgen.ignore_div_by_zero = ignore_div_by_zero;
