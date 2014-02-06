@@ -25,6 +25,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 {
 	bool flag_ignore_gold_x = false;
 	bool flag_make_outputs = false;
+	bool flag_make_outcmp = false;
 	bool flag_make_assert = false;
 
 	size_t argidx;
@@ -36,6 +37,10 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 		}
 		if (args[argidx] == "-make_outputs") {
 			flag_make_outputs = true;
+			continue;
+		}
+		if (args[argidx] == "-make_outcmp") {
+			flag_make_outcmp = true;
 			continue;
 		}
 		if (args[argidx] == "-make_assert") {
@@ -146,6 +151,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 			gold_cell->connections[w1->name] = w2_gold;
 			gate_cell->connections[w1->name] = w2_gate;
 
+			RTLIL::SigSpec this_condition;
+
 			if (flag_ignore_gold_x)
 			{
 				RTLIL::SigSpec gold_x = miter_module->new_wire(w2_gold->width, NEW_ID);
@@ -204,7 +211,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				eq_cell->connections["\\A"] = gold_masked;
 				eq_cell->connections["\\B"] = gate_masked;
 				eq_cell->connections["\\Y"] = miter_module->new_wire(1, NEW_ID);
-				all_conditions.append(eq_cell->connections["\\Y"]);
+				this_condition = eq_cell->connections["\\Y"];
 				miter_module->add(eq_cell);
 			}
 			else
@@ -220,9 +227,20 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				eq_cell->connections["\\A"] = w2_gold;
 				eq_cell->connections["\\B"] = w2_gate;
 				eq_cell->connections["\\Y"] = miter_module->new_wire(1, NEW_ID);
-				all_conditions.append(eq_cell->connections["\\Y"]);
+				this_condition = eq_cell->connections["\\Y"];
 				miter_module->add(eq_cell);
 			}
+
+			if (flag_make_outcmp)
+			{
+				RTLIL::Wire *w_cmp = new RTLIL::Wire;
+				w_cmp->name = "\\cmp_" + RTLIL::unescape_id(w1->name);
+				w_cmp->port_output = true;
+				miter_module->add(w_cmp);
+				miter_module->connections.push_back(RTLIL::SigSig(w_cmp, this_condition));
+			}
+
+			all_conditions.append(this_condition);
 		}
 	}
 
@@ -288,6 +306,9 @@ struct MiterPass : public Pass {
 		log("    -make_outputs\n");
 		log("        also route the gold- and gate-outputs to 'gold_*' and 'gate_*' outputs\n");
 		log("        on the miter circuit.\n");
+		log("\n");
+		log("    -make_outcmp\n");
+		log("        also create a cmp_* output for each gold/gate output pair.\n");
 		log("\n");
 		log("    -make_assert\n");
 		log("        also create an 'assert' cell that checks if trigger is always low.\n");
