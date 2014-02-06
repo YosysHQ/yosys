@@ -31,7 +31,7 @@ struct OptPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt [-mux_undef] [-mux_bool] [selection]\n");
+		log("    opt [-mux_undef] [-mux_bool] [-undriven] [selection]\n");
 		log("\n");
 		log("This pass calls all the other opt_* passes in a useful order. This performs\n");
 		log("a series of trivial optimizations and cleanups. This pass executes the other\n");
@@ -46,7 +46,7 @@ struct OptPass : public Pass {
 		log("        opt_share\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean\n");
-		log("        opt_const [-mux_undef] [-mux_bool]\n");
+		log("        opt_const [-mux_undef] [-mux_bool] [-undriven]\n");
 		log("    while [changed design]\n");
 		log("\n");
 	}
@@ -65,6 +65,10 @@ struct OptPass : public Pass {
 			}
 			if (args[argidx] == "-mux_bool") {
 				opt_const_args += " -mux_bool";
+				continue;
+			}
+			if (args[argidx] == "-undriven") {
+				opt_const_args += " -undriven";
 				continue;
 			}
 			break;

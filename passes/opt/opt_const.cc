@@ -20,6 +20,7 @@
 #include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
+#include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -28,17 +29,59 @@
 
 static bool did_something;
 
+void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
+{
+	CellTypes ct(design);
+	SigMap sigmap(module);
+	SigPool driven_signals;
+	SigPool used_signals;
+	SigPool all_signals;
+
+	for (auto &it : module->cells)
+	for (auto &conn : it.second->connections) {
+		if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+			driven_signals.add(sigmap(conn.second));
+		if (!ct.cell_known(it.second->type) || ct.cell_input(it.second->type, conn.first))
+			used_signals.add(sigmap(conn.second));
+	}
+
+	for (auto &it : module->wires) {
+		if (it.second->port_input)
+			driven_signals.add(sigmap(it.second));
+		if (it.second->port_output)
+			used_signals.add(sigmap(it.second));
+		all_signals.add(sigmap(it.second));
+	}
+
+	all_signals.del(driven_signals);
+	RTLIL::SigSpec undriven_signals = all_signals.export_all();
+
+	for (auto &c : undriven_signals.chunks)
+	{
+		RTLIL::SigSpec sig = c;
+
+		if (c.wire->name[0] == '$')
+			sig = used_signals.extract(sig);
+		if (sig.width == 0)
+			continue;
+
+		log("Setting undriven signal in %s to undef: %s\n", RTLIL::id2cstr(module->name), log_signal(c));
+		module->connections.push_back(RTLIL::SigSig(c, RTLIL::SigSpec(RTLIL::State::Sx, c.width)));
+		OPT_DID_SOMETHING = true;
+	}
+}
+
 void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->connections[out_port];
 	log("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
 			cell->type.c_str(), cell->name.c_str(), info.c_str(),
 			module->name.c_str(), log_signal(Y), log_signal(out_val));
-	OPT_DID_SOMETHING = true;
 	// ILANG_BACKEND::dump_cell(stderr, "--> ", cell);
 	module->connections.push_back(RTLIL::SigSig(Y, out_val));
 	module->cells.erase(cell->name);
 	delete cell;
+	OPT_DID_SOMETHING = true;
 	did_something = true;
 }
 
@@ -76,6 +119,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			cell->connections["\\A"] = cell->connections["\\B"];
 			cell->connections["\\B"] = tmp;
 			cell->connections["\\S"] = invert_map.at(assign_map(cell->connections["\\S"]));
+			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -263,6 +307,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cell->type = "$not";
 			} else
 				cell->type = "$_INV_";
+			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -280,6 +325,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cell->type = "$and";
 			} else
 				cell->type = "$_AND_";
+			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -297,6 +343,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cell->type = "$or";
 			} else
 				cell->type = "$_or_";
+			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -342,6 +389,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					cell->type = "$mux";
 					cell->parameters.erase("\\S_WIDTH");
 				}
+				OPT_DID_SOMETHING = true;
 				did_something = true;
 			}
 		}
@@ -452,11 +500,15 @@ struct OptConstPass : public Pass {
 		log("    -mux_bool\n");
 		log("        replace $mux cells with inverters or buffers when possible\n");
 		log("\n");
+		log("    -undriven\n");
+		log("        replace undriven nets with undef (x) constants\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool mux_undef = false;
 		bool mux_bool = false;
+		bool undriven = false;
 
 		log_header("Executing OPT_CONST pass (perform const folding).\n");
 		log_push();
@@ -471,11 +523,19 @@ struct OptConstPass : public Pass {
 				mux_bool = true;
 				continue;
 			}
+			if (args[argidx] == "-undriven") {
+				undriven = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		for (auto &mod_it : design->modules)
+		{
+			if (undriven)
+				replace_undriven(design, mod_it.second);
+
 			do {
 				do {
 					did_something = false;
@@ -483,6 +543,7 @@ struct OptConstPass : public Pass {
 				} while (did_something);
 				replace_const_cells(design, mod_it.second, true, mux_undef, mux_bool);
 			} while (did_something);
+		}
 
 		log_pop();
 	}
