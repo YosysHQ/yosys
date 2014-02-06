@@ -1602,7 +1602,7 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 
 	if (proc_flags_p) {
 		for (auto it : *proc_flags_p)
-			assert((it.second & ~0xff000000) == 0);
+			log_assert((it.second & ~0xff000000) == 0);
 		delete proc_flags_p;
 	}
 }

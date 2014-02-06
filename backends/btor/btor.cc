@@ -487,7 +487,7 @@ struct BtorDumper
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
 				
-				assert(l1_signed == l2_signed);
+				log_assert(l1_signed == l2_signed);
 				l1_width = l1_width > output_width ? l1_width : output_width;					
 				l1_width = l1_width > l2_width ? l1_width : l2_width;
 				l2_width = l2_width > l1_width ? l2_width : l1_width;
