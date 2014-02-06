@@ -44,56 +44,129 @@ struct DesignPass : public Pass {
 		log("Save the current design under the given name.\n");
 		log("\n");
 		log("\n");
+		log("    design -stash <name>\n");
+		log("\n");
+		log("Save the current design under the given name and then clear the current design.\n");
+		log("\n");
+		log("\n");
 		log("    design -load <name>\n");
 		log("\n");
 		log("Reset the current design and load the design previously saved under the given\n");
 		log("name.\n");
+		log("\n");
+		log("\n");
+		log("    design -copy-from <name> [-as <new_mod_name>] <selection>\n");
+		log("\n");
+		log("Copy modules from the specified design into the current one. The selection is\n");
+		log("evaluated in the other design.\n");
+		log("\n");
+		log("\n");
+		log("    design -copy-to <name> [-as <new_mod_name>] [selection]\n");
+		log("\n");
+		log("Copy modules from the current design into the soecified one.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool got_mode = false;
 		bool reset_mode = false;
-		std::string save_name, load_name;
+		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
+		std::string save_name, load_name, as_name;
+		std::vector<RTLIL::Module*> copy_src_modules;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			if (!got_mode && arg == "-reset") {
+			if (!got_mode && args[argidx] == "-reset") {
 				got_mode = true;
 				reset_mode = true;
 				continue;
 			}
-			if (arg == "-save" && argidx+1 < args.size()) {
+			if (!got_mode && args[argidx] == "-save" && argidx+1 < args.size()) {
 				got_mode = true;
 				save_name = args[++argidx];
 				continue;
 			}
-			if (arg == "-load" && argidx+1 < args.size()) {
+			if (!got_mode && args[argidx] == "-stash" && argidx+1 < args.size()) {
+				got_mode = true;
+				save_name = args[++argidx];
+				reset_mode = true;
+				continue;
+			}
+			if (!got_mode && args[argidx] == "-load" && argidx+1 < args.size()) {
 				got_mode = true;
 				load_name = args[++argidx];
 				if (saved_designs.count(load_name) == 0)
 					log_cmd_error("No saved design '%s' found!\n", load_name.c_str());
 				continue;
 			}
+			if (!got_mode && args[argidx] == "-copy-from" && argidx+1 < args.size()) {
+				got_mode = true;
+				if (saved_designs.count(args[++argidx]) == 0)
+					log_cmd_error("No saved design '%s' found!\n", args[argidx].c_str());
+				copy_from_design = saved_designs.at(args[argidx]);
+				copy_to_design = design;
+				continue;
+			}
+			if (!got_mode && args[argidx] == "-copy-to" && argidx+1 < args.size()) {
+				got_mode = true;
+				if (saved_designs.count(args[++argidx]) == 0)
+					saved_designs[args[argidx]] = new RTLIL::Design;
+				copy_to_design = saved_designs.at(args[argidx]);
+				copy_from_design = design;
+				continue;
+			}
+			if (copy_from_design != NULL && args[argidx] == "-as" && argidx+1 < args.size()) {
+				got_mode = true;
+				as_name = args[++argidx];
+				continue;
+			}
+			break;
 		}
+
+		if (copy_from_design != NULL)
+		{
+			if (copy_from_design != design && argidx == args.size())
+				cmd_error(args, argidx, "Missing selection.\n");
+
+			RTLIL::Selection sel = design->selection_stack.back();
+			if (argidx != args.size()) {
+				handle_extra_select_args(this, args, argidx, args.size(), copy_from_design);
+				sel = copy_from_design->selection_stack.back();
+				copy_from_design->selection_stack.pop_back();
+				argidx = args.size();
+			}
+
+			for (auto &it : copy_from_design->modules) {
+				if (sel.selected_whole_module(it.first)) {
+					copy_src_modules.push_back(it.second);
+					continue;
+				}
+				if (sel.selected_module(it.first))
+					log_cmd_error("Module %s is only partly selected.\n", RTLIL::id2cstr(it.first));
+			}
+		}
+
 		extra_args(args, argidx, design, false);
 
 		if (!got_mode)
-			cmd_error(args, argidx, "Missing mode argument (-reset, -save, or -load).");
+			cmd_error(args, argidx, "Missing mode argument (-reset, -save, -load, -copy-from, or -copy-to).\n");
 
-		if (reset_mode || !load_name.empty())
+		if (copy_to_design != NULL)
 		{
-			for (auto &it : design->modules)
-				delete it.second;
-			design->modules.clear();
+			if (!as_name.empty() && copy_src_modules.size() > 1)
+				log_cmd_error("Only one module can be selected in combination with -as.\n");
 
-			design->selection_stack.clear();
-			design->selection_vars.clear();
-			design->selected_active_module.clear();
+			for (auto mod : copy_src_modules)
+			{
+				std::string trg_name = as_name.empty() ? mod->name : RTLIL::escape_id(as_name);
 
-			design->selection_stack.push_back(RTLIL::Selection());
+				if (copy_to_design->modules.count(trg_name))
+					delete copy_to_design->modules.at(trg_name);
+				copy_to_design->modules[trg_name] = mod->clone();
+				copy_to_design->modules[trg_name]->name = trg_name;
+			}
 		}
 
 		if (!save_name.empty())
@@ -110,6 +183,19 @@ struct DesignPass : public Pass {
 			if (saved_designs.count(save_name))
 				delete saved_designs.at(save_name);
 			saved_designs[save_name] = design_copy;
+		}
+
+		if (reset_mode || !load_name.empty())
+		{
+			for (auto &it : design->modules)
+				delete it.second;
+			design->modules.clear();
+
+			design->selection_stack.clear();
+			design->selection_vars.clear();
+			design->selected_active_module.clear();
+
+			design->selection_stack.push_back(RTLIL::Selection());
 		}
 
 		if (!load_name.empty())
