@@ -187,6 +187,14 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 	}
 }
 
+static void select_op_fullmod(RTLIL::Design *design, RTLIL::Selection &lhs)
+{
+	lhs.optimize(design);
+	for (auto &it : lhs.selected_members)
+		lhs.selected_modules.insert(it.first);
+	lhs.selected_members.clear();
+}
+
 static void select_op_union(RTLIL::Design*, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
 	if (rhs.full_selection) {
@@ -568,6 +576,11 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
 			select_op_submod(design, work_stack[work_stack.size()-1]);
 		} else
+		if (arg == "%m") {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
+			select_op_fullmod(design, work_stack[work_stack.size()-1]);
+		} else
 		if (arg == "%x" || (arg.size() > 2 && arg.substr(0, 2) == "%x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%x.\n");
@@ -892,6 +905,9 @@ struct SelectPass : public Pass {
 		log("    %%s\n");
 		log("        expand top set by adding all modules of instantiated cells in selected\n");
 		log("        modules\n");
+		log("\n");
+		log("    %%m\n");
+		log("        expand top set by selecting all modules that contain selected objects\n");
 		log("\n");
 		log("Example: the following command selects all wires that are connected to a\n");
 		log("'GATE' input of a 'SWITCH' cell:\n");
