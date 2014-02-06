@@ -18,6 +18,8 @@
  */
 
 #include "kernel/register.h"
+#include "kernel/celltypes.h"
+#include "kernel/sigtools.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
@@ -57,6 +59,26 @@ static bool compare_cells(RTLIL::Cell *cell1, RTLIL::Cell *cell2)
 	return true;
 }
 
+static void find_dff_wires(std::set<std::string> &dff_wires, RTLIL::Module *module)
+{
+	CellTypes ct;
+	ct.setup_internals_mem();
+	ct.setup_stdcells_mem();
+
+	SigMap sigmap(module);
+	SigPool dffsignals;
+
+	for (auto &it : module->cells) {
+		if (ct.cell_known(it.second->type) && it.second->connections.count("\\Q"))
+			dffsignals.add(sigmap(it.second->connections.at("\\Q")));
+	}
+
+	for (auto &it : module->wires) {
+		if (dffsignals.check_any(it.second))
+			dff_wires.insert(it.first);
+	}
+}
+
 struct ExposePass : public Pass {
 	ExposePass() : Pass("expose", "convert internal signals to module ports") { }
 	virtual void help()
@@ -67,6 +89,9 @@ struct ExposePass : public Pass {
 		log("\n");
 		log("This command exposes all selected internal signals of a module as additional\n");
 		log("outputs.\n");
+		log("\n");
+		log("    -dff\n");
+		log("        only consider wires that are directly driven by register cell.\n");
 		log("\n");
 		log("    -shared\n");
 		log("        only expose those signals that are shared ammong the selected modules.\n");
@@ -81,6 +106,7 @@ struct ExposePass : public Pass {
 	{
 		bool flag_shared = false;
 		bool flag_evert = false;
+		bool flag_dff = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -91,6 +117,10 @@ struct ExposePass : public Pass {
 			}
 			if (args[argidx] == "-evert") {
 				flag_evert = true;
+				continue;
+			}
+			if (args[argidx] == "-dff") {
+				flag_dff = true;
 				continue;
 			}
 			break;
@@ -111,11 +141,16 @@ struct ExposePass : public Pass {
 				if (!design->selected(module))
 					continue;
 
+				std::set<std::string> dff_wires;
+				if (flag_dff)
+					find_dff_wires(dff_wires, module);
+
 				if (first_module == NULL)
 				{
 					for (auto &it : module->wires)
 						if (design->selected(module, it.second) && consider_wire(it.second))
-							shared_wires.insert(it.first);
+							if (!flag_dff || dff_wires.count(it.first))
+								shared_wires.insert(it.first);
 
 					if (flag_evert)
 						for (auto &it : module->cells)
@@ -142,6 +177,8 @@ struct ExposePass : public Pass {
 						if (!consider_wire(wire))
 							goto delete_shared_wire;
 						if (!compare_wires(first_module->wires.at(it), wire))
+							goto delete_shared_wire;
+						if (flag_dff && !dff_wires.count(it))
 							goto delete_shared_wire;
 
 						if (0)
@@ -186,6 +223,10 @@ struct ExposePass : public Pass {
 			if (!design->selected(module))
 				continue;
 
+			std::set<std::string> dff_wires;
+			if (flag_dff && !flag_shared)
+				find_dff_wires(dff_wires, module);
+
 			for (auto &it : module->wires)
 			{
 				if (flag_shared) {
@@ -193,6 +234,8 @@ struct ExposePass : public Pass {
 						continue;
 				} else {
 					if (!design->selected(module, it.second) || !consider_wire(it.second))
+						continue;
+					if (flag_dff && !dff_wires.count(it.first))
 						continue;
 				}
 
