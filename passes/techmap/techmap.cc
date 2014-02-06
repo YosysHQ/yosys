@@ -363,7 +363,7 @@ static bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::
 }
 
 struct TechmapPass : public Pass {
-	TechmapPass() : Pass("techmap", "simple technology mapper") { }
+	TechmapPass() : Pass("techmap", "generic technology mapper") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
