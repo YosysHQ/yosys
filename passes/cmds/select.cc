@@ -672,6 +672,23 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				if ((it.second->port_input || it.second->port_output) && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
+		if (arg_memb.substr(0, 2) == "s:") {
+			size_t delim = arg_memb.substr(2).find(':');
+			if (delim == std::string::npos) {
+				int width = atoi(arg_memb.substr(2).c_str());
+				for (auto &it : mod->wires)
+					if (it.second->width == width)
+						sel.selected_members[mod->name].insert(it.first);
+			} else {
+				std::string min_str = arg_memb.substr(2, delim);
+				std::string max_str = arg_memb.substr(2+delim+1);
+				int min_width = min_str.empty() ? 0 : atoi(min_str.c_str());
+				int max_width = max_str.empty() ? -1 : atoi(max_str.c_str());
+				for (auto &it : mod->wires)
+					if (min_width <= it.second->width && (it.second->width <= max_width || max_width == -1))
+						sel.selected_members[mod->name].insert(it.first);
+			}
+		} else
 		if (arg_memb.substr(0, 2) == "m:") {
 			for (auto &it : mod->memories)
 				if (match_ids(it.first, arg_memb.substr(2)))
@@ -852,7 +869,10 @@ struct SelectPass : public Pass {
 		log("        all wires with a name matching the given wildcard pattern\n");
 		log("\n");
 		log("    i:<pattern>, o:<pattern>, x:<pattern>\n");
-		log("        select input (i:), output (o:) or any ports (x:) with matching names\n");
+		log("        all inputs (i:), outputs (o:) or any ports (x:) with matching names\n");
+		log("\n");
+		log("    s:<size>, s:<min>:<max>\n");
+		log("        all wires with a matching width\n");
 		log("\n");
 		log("    m:<pattern>\n");
 		log("        all memories with a name matching the given pattern\n");
