@@ -50,7 +50,7 @@ struct SatHelper
 	bool prove_asserts;
 
 	// undef constraints
-	bool enable_undef, set_init_undef, ignore_unknown_cells;
+	bool enable_undef, set_init_undef, set_init_zero, ignore_unknown_cells;
 	std::vector<std::string> sets_def, sets_any_undef, sets_all_undef;
 	std::map<int, std::vector<std::string>> sets_def_at, sets_any_undef_at, sets_all_undef_at;
 
@@ -67,6 +67,7 @@ struct SatHelper
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
 		set_init_undef = false;
+		set_init_zero = false;
 		ignore_unknown_cells = false;
 		max_timestep = -1;
 		timeout = 0;
@@ -137,6 +138,13 @@ struct SatHelper
 			rem.remove(big_lhs);
 			big_lhs.append(rem);
 			big_rhs.append(RTLIL::SigSpec(RTLIL::State::Sx, rem.width));
+		}
+
+		if (set_init_zero) {
+			RTLIL::SigSpec rem = satgen.initial_state.export_all();
+			rem.remove(big_lhs);
+			big_lhs.append(rem);
+			big_rhs.append(RTLIL::SigSpec(RTLIL::State::S0, rem.width));
 		}
 
 		if (big_lhs.width == 0) {
@@ -749,6 +757,9 @@ struct SatPass : public Pass {
 		log("    -set-init-undef\n");
 		log("        set all initial states (not set using -set-init) to undef\n");
 		log("\n");
+		log("    -set-init-zero\n");
+		log("        set all initial states (not set using -set-init) to zero\n");
+		log("\n");
 		log("The following additional options can be used to set up a proof. If also -seq\n");
 		log("is passed, a temporal induction proof is performed.\n");
 		log("\n");
@@ -794,7 +805,7 @@ struct SatPass : public Pass {
 		std::vector<std::string> shows, sets_def, sets_any_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
-		bool ignore_div_by_zero = false, set_init_undef = false, max_undef = false;
+		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool ignore_unknown_cells = false, falsify = false;
 
@@ -941,6 +952,10 @@ struct SatPass : public Pass {
 				enable_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-set-init-zero") {
+				set_init_zero = true;
+				continue;
+			}
 			if (args[argidx] == "-show" && argidx+1 < args.size()) {
 				shows.push_back(args[++argidx]);
 				continue;
@@ -974,6 +989,9 @@ struct SatPass : public Pass {
 
 		if (!prove.size() && !prove_x.size() && !prove_asserts && tempinduct)
 			log_cmd_error("Got -tempinduct but nothing to prove!\n");
+
+		if (set_init_undef && set_init_zero)
+			log_cmd_error("Got -set-init-undef and -set-init-zero!\n");
 
 		if (set_def_inputs) {
 			for (auto &it : module->wires)
@@ -1017,6 +1035,7 @@ struct SatPass : public Pass {
 			basecase.sets_all_undef_at = sets_all_undef_at;
 			basecase.sets_init = sets_init;
 			basecase.set_init_undef = set_init_undef;
+			basecase.set_init_zero = set_init_zero;
 			basecase.satgen.ignore_div_by_zero = ignore_div_by_zero;
 			basecase.ignore_unknown_cells = ignore_unknown_cells;
 
@@ -1133,6 +1152,7 @@ struct SatPass : public Pass {
 			sathelper.sets_all_undef_at = sets_all_undef_at;
 			sathelper.sets_init = sets_init;
 			sathelper.set_init_undef = set_init_undef;
+			sathelper.set_init_zero = set_init_zero;
 			sathelper.satgen.ignore_div_by_zero = ignore_div_by_zero;
 			sathelper.ignore_unknown_cells = ignore_unknown_cells;
 
