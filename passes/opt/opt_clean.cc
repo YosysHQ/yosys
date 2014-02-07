@@ -29,7 +29,7 @@
 
 using RTLIL::id2cstr;
 
-static CellTypes ct, ct_reg;
+static CellTypes ct, ct_reg, ct_all;
 static int count_rm_cells, count_rm_wires;
 
 static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
@@ -96,7 +96,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 	}
 }
 
-static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &regs, SigPool &conns)
+static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
 {
 	assert(s1.width == 1);
 	assert(s2.width == 1);
@@ -115,6 +115,8 @@ static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &reg
 	if (w1->name[0] == '\\' && w2->name[0] == '\\') {
 		if (regs.check_any(s1) != regs.check_any(s2))
 			return regs.check_any(s2);
+		if (direct_wires.count(w1) != direct_wires.count(w2))
+			return direct_wires.count(w2);
 		if (conns.check_any(s1) != conns.check_any(s2))
 			return conns.check_any(s2);
 	}
@@ -157,13 +159,27 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			for (auto &it2 : cell->connections)
 				connected_signals.add(it2.second);
 		}
-
+	
 	SigMap assign_map(module);
+	std::set<RTLIL::SigSpec> direct_sigs;
+	std::set<RTLIL::Wire*> direct_wires;
+	for (auto &it : module->cells) {
+		RTLIL::Cell *cell = it.second;
+		if (ct_all.cell_known(cell->type))
+			for (auto &it2 : cell->connections)
+				if (ct_all.cell_output(cell->type, it2.first))
+					direct_sigs.insert(assign_map(it2.second));
+	}
+	for (auto &it : module->wires) {
+		if (direct_sigs.count(assign_map(it.second)) || it.second->port_input)
+			direct_wires.insert(it.second);
+	}
+
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire, 1, i), s2 = assign_map(s1);
-			if (!compare_signals(s1, s2, register_signals, connected_signals))
+			if (!compare_signals(s1, s2, register_signals, connected_signals, direct_wires))
 				assign_map.add(s1);
 		}
 	}
@@ -377,6 +393,8 @@ struct CleanPass : public Pass {
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
 
+		ct_all.setup(design);
+
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
@@ -393,6 +411,7 @@ struct CleanPass : public Pass {
 
 		ct.clear();
 		ct_reg.clear();
+		ct_all.clear();
 	}
 } CleanPass;
  
