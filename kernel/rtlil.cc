@@ -328,6 +328,14 @@ namespace {
 			return cell->parameters.at(name).as_int();
 		}
 
+		int param_bool(const char *name)
+		{
+			int v = param(name);
+			if (v != 0 && v != 1)
+				error(__LINE__);
+			return v;
+		}
+
 		void port(const char *name, int width)
 		{
 			if (cell->connections.count(name) == 0)
@@ -378,7 +386,7 @@ namespace {
 		void check()
 		{
 			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" || cell->type == "$neg") {
-				param("\\A_SIGNED");
+				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
 				check_expected();
@@ -386,8 +394,8 @@ namespace {
 			}
 
 			if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor") {
-				param("\\A_SIGNED");
-				param("\\B_SIGNED");
+				param_bool("\\A_SIGNED");
+				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -397,7 +405,7 @@ namespace {
 
 			if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_xor" ||
 					cell->type == "$reduce_xnor" || cell->type == "$reduce_bool") {
-				param("\\A_SIGNED");
+				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
 				check_expected();
@@ -405,8 +413,8 @@ namespace {
 			}
 
 			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
-				param("\\A_SIGNED");
-				param("\\B_SIGNED");
+				param_bool("\\A_SIGNED");
+				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -416,8 +424,8 @@ namespace {
 
 			if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" ||
 					cell->type == "$eqx" || cell->type == "$nex" || cell->type == "$ge" || cell->type == "$gt") {
-				param("\\A_SIGNED");
-				param("\\B_SIGNED");
+				param_bool("\\A_SIGNED");
+				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -427,8 +435,8 @@ namespace {
 
 			if (cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" ||
 					cell->type == "$mod" || cell->type == "$pow") {
-				param("\\A_SIGNED");
-				param("\\B_SIGNED");
+				param_bool("\\A_SIGNED");
+				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -437,7 +445,7 @@ namespace {
 			}
 
 			if (cell->type == "$logic_not") {
-				param("\\A_SIGNED");
+				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
 				check_expected();
@@ -445,8 +453,8 @@ namespace {
 			}
 
 			if (cell->type == "$logic_and" || cell->type == "$logic_or") {
-				param("\\A_SIGNED");
-				param("\\B_SIGNED");
+				param_bool("\\A_SIGNED");
+				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\B", param("\\B_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -481,8 +489,8 @@ namespace {
 			}
 
 			if (cell->type == "$sr") {
-				param("\\SET_POLARITY");
-				param("\\CLR_POLARITY");
+				param_bool("\\SET_POLARITY");
+				param_bool("\\CLR_POLARITY");
 				port("\\SET", param("\\WIDTH"));
 				port("\\CLR", param("\\WIDTH"));
 				port("\\Q",   param("\\WIDTH"));
@@ -491,7 +499,7 @@ namespace {
 			}
 
 			if (cell->type == "$dff") {
-				param("\\CLK_POLARITY");
+				param_bool("\\CLK_POLARITY");
 				port("\\CLK", 1);
 				port("\\D", param("\\WIDTH"));
 				port("\\Q", param("\\WIDTH"));
@@ -500,9 +508,9 @@ namespace {
 			}
 
 			if (cell->type == "$dffsr") {
-				param("\\CLK_POLARITY");
-				param("\\SET_POLARITY");
-				param("\\CLR_POLARITY");
+				param_bool("\\CLK_POLARITY");
+				param_bool("\\SET_POLARITY");
+				param_bool("\\CLR_POLARITY");
 				port("\\CLK", 1);
 				port("\\SET", param("\\WIDTH"));
 				port("\\CLR", param("\\WIDTH"));
@@ -513,8 +521,8 @@ namespace {
 			}
 
 			if (cell->type == "$adff") {
-				param("\\CLK_POLARITY");
-				param("\\ARST_POLARITY");
+				param_bool("\\CLK_POLARITY");
+				param_bool("\\ARST_POLARITY");
 				param("\\ARST_VALUE");
 				port("\\CLK", 1);
 				port("\\ARST", 1);
@@ -525,7 +533,7 @@ namespace {
 			}
 
 			if (cell->type == "$dlatch") {
-				param("\\EN_POLARITY");
+				param_bool("\\EN_POLARITY");
 				port("\\EN", 1);
 				port("\\D", param("\\WIDTH"));
 				port("\\Q", param("\\WIDTH"));
@@ -535,8 +543,8 @@ namespace {
 
 			if (cell->type == "$fsm") {
 				param("\\NAME");
-				param("\\CLK_POLARITY");
-				param("\\ARST_POLARITY");
+				param_bool("\\CLK_POLARITY");
+				param_bool("\\ARST_POLARITY");
 				param("\\STATE_BITS");
 				param("\\STATE_NUM");
 				param("\\STATE_NUM_LOG2");
@@ -554,9 +562,9 @@ namespace {
 
 			if (cell->type == "$memrd") {
 				param("\\MEMID");
-				param("\\CLK_ENABLE");
-				param("\\CLK_POLARITY");
-				param("\\TRANSPARENT");
+				param_bool("\\CLK_ENABLE");
+				param_bool("\\CLK_POLARITY");
+				param_bool("\\TRANSPARENT");
 				port("\\CLK", 1);
 				port("\\ADDR", param("\\ABITS"));
 				port("\\DATA", param("\\WIDTH"));
@@ -566,8 +574,8 @@ namespace {
 
 			if (cell->type == "$memwr") {
 				param("\\MEMID");
-				param("\\CLK_ENABLE");
-				param("\\CLK_POLARITY");
+				param_bool("\\CLK_ENABLE");
+				param_bool("\\CLK_POLARITY");
 				param("\\PRIORITY");
 				port("\\CLK", 1);
 				port("\\EN", 1);
