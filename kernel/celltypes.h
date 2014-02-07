@@ -270,6 +270,20 @@ struct CellTypes
 
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2)
 	{
+		if (cell->type == "$slice") {
+			RTLIL::Const ret;
+			int width = cell->parameters.at("\\Y_WIDTH").as_int();
+			int offset = cell->parameters.at("\\OFFSET").as_int();
+			ret.bits.insert(ret.bits.end(), arg1.bits.begin()+offset, arg1.bits.begin()+offset+width);
+			return ret;
+		}
+
+		if (cell->type == "$concat") {
+			RTLIL::Const ret = arg1;
+			ret.bits.insert(ret.bits.end(), arg2.bits.begin(), arg2.bits.end());
+			return ret;
+		}
+
 		bool signed_a = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();
 		bool signed_b = cell->parameters.count("\\B_SIGNED") > 0 && cell->parameters["\\B_SIGNED"].as_bool();
 		int result_len = cell->parameters.count("\\Y_WIDTH") > 0 ? cell->parameters["\\Y_WIDTH"].as_int() : -1;
@@ -289,10 +303,7 @@ struct CellTypes
 		}
 
 		assert(sel.bits.size() == 0);
-		bool signed_a = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();
-		bool signed_b = cell->parameters.count("\\B_SIGNED") > 0 && cell->parameters["\\B_SIGNED"].as_bool();
-		int result_len = cell->parameters.count("\\Y_WIDTH") > 0 ? cell->parameters["\\Y_WIDTH"].as_int() : -1;
-		return eval(cell->type, arg1, arg2, signed_a, signed_b, result_len);
+		return eval(cell, arg1, arg2);
 	}
 };
 

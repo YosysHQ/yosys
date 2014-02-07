@@ -761,6 +761,27 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$slice")
+		{
+			RTLIL::SigSpec a = cell->connections.at("\\A");
+			RTLIL::SigSpec y = cell->connections.at("\\Y");
+			ez->assume(signals_eq(a.extract(cell->parameters.at("\\OFFSET").as_int(), y.width), y, timestep));
+			return true;
+		}
+
+		if (cell->type == "$concat")
+		{
+			RTLIL::SigSpec a = cell->connections.at("\\A");
+			RTLIL::SigSpec b = cell->connections.at("\\B");
+			RTLIL::SigSpec y = cell->connections.at("\\Y");
+
+			RTLIL::SigSpec ab = a;
+			ab.append(b);
+
+			ez->assume(signals_eq(ab, y, timestep));
+			return true;
+		}
+
 		if (timestep > 0 && (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_"))
 		{
 			if (timestep == 1)

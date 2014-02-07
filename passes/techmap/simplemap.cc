@@ -312,6 +312,22 @@ static void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+static void simplemap_slice(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	int offset = cell->parameters.at("\\OFFSET").as_int();
+	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
+	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
+	module->connections.push_back(RTLIL::SigSig(sig_y, sig_a.extract(offset, sig_y.width)));
+}
+
+static void simplemap_concat(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	RTLIL::SigSpec sig_ab = cell->connections.at("\\A");
+	sig_ab.append(cell->connections.at("\\B"));
+	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
+	module->connections.push_back(RTLIL::SigSig(sig_y, sig_ab));
+}
+
 static void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	int width = cell->parameters.at("\\WIDTH").as_int();
@@ -480,6 +496,8 @@ void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::
 	mappers["$logic_and"]   = simplemap_logbin;
 	mappers["$logic_or"]    = simplemap_logbin;
 	mappers["$mux"]         = simplemap_mux;
+	mappers["$slice"]       = simplemap_slice;
+	mappers["$concat"]      = simplemap_concat;
 	mappers["$sr"]          = simplemap_sr;
 	mappers["$dff"]         = simplemap_dff;
 	mappers["$dffsr"]       = simplemap_dffsr;

@@ -957,6 +957,18 @@ endmodule
 // --------------------------------------------------------
 
 (* techmap_simplemap *)
+module \$slice ;
+endmodule
+
+// --------------------------------------------------------
+
+(* techmap_simplemap *)
+module \$concat ;
+endmodule
+
+// --------------------------------------------------------
+
+(* techmap_simplemap *)
 module \$mux ;
 endmodule
 

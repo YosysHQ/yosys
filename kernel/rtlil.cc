@@ -462,6 +462,24 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$slice") {
+				param("\\OFFSET");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				if (param("\\OFFSET") + param("\\Y_WIDTH") > param("\\A_WIDTH"))
+					error(__LINE__);
+				check_expected();
+				return;
+			}
+
+			if (cell->type == "$concat") {
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\Y", param("\\A_WIDTH") + param("\\B_WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$mux") {
 				port("\\A", param("\\WIDTH"));
 				port("\\B", param("\\WIDTH"));

@@ -571,6 +571,28 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$slice")
+	{
+		fprintf(f, "%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->connections["\\Y"]);
+		fprintf(f, " = ");
+		dump_sigspec(f, cell->connections["\\A"]);
+		fprintf(f, " >> %d;\n", cell->parameters.at("\\OFFSET").as_int());
+		return true;
+	}
+
+	if (cell->type == "$concat")
+	{
+		fprintf(f, "%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->connections["\\Y"]);
+		fprintf(f, " = { ");
+		dump_sigspec(f, cell->connections["\\B"]);
+		fprintf(f, " , ");
+		dump_sigspec(f, cell->connections["\\A"]);
+		fprintf(f, " };\n");
+		return true;
+	}
+
 	if (cell->type == "$dff" || cell->type == "$adff")
 	{
 		RTLIL::SigSpec sig_clk, sig_arst, val_arst;
