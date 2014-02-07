@@ -12,4 +12,5 @@ OBJS += passes/cmds/splitnets.o
 OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/setattr.o
 OBJS += passes/cmds/copy.o
+OBJS += passes/cmds/splice.o
 

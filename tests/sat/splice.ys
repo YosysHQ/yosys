@@ -1,0 +1,14 @@
+read_verilog splice.v
+hierarchy -check; opt
+copy test gold
+
+cd test
+splice
+# show
+
+cd ..
+rename test gate
+miter -equiv -make_assert -make_outputs gold gate miter
+
+flatten miter
+sat -verify -prove-asserts -show-inputs -show-outputs miter
