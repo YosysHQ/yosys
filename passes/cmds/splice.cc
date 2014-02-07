@@ -186,7 +186,7 @@ struct SpliceWorker
 				}
 		}
 
-		std::vector<std::pair<RTLIL::Wire*, RTLIL::SigSpec>> rework_outputs;
+		std::vector<std::pair<RTLIL::Wire*, RTLIL::SigSpec>> rework_wires;
 
 		for (auto &it : module->wires)
 			if (it.second->port_output) {
@@ -197,10 +197,17 @@ struct SpliceWorker
 					continue;
 				RTLIL::SigSpec new_sig = get_spliced_signal(sig);
 				if (new_sig != sig)
-					rework_outputs.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(it.second, new_sig));
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(it.second, new_sig));
+			} else
+			if (!it.second->port_input) {
+				RTLIL::SigSpec sig = sigmap(it.second);
+				if (spliced_signals_cache.count(sig) && spliced_signals_cache.at(sig) != sig)
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(it.second, spliced_signals_cache.at(sig)));
+				else if (sliced_signals_cache.count(sig) && sliced_signals_cache.at(sig) != sig)
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(it.second, sliced_signals_cache.at(sig)));
 			}
 
-		for (auto &it : rework_outputs)
+		for (auto &it : rework_wires)
 		{
 			module->wires.erase(it.first->name);
 			RTLIL::Wire *new_port = new RTLIL::Wire(*it.first);
