@@ -94,6 +94,8 @@ struct CellTypes
 		cell_types.insert("$logic_or");
 		cell_types.insert("$mux");
 		cell_types.insert("$pmux");
+		cell_types.insert("$slice");
+		cell_types.insert("$concat");
 		cell_types.insert("$safe_pmux");
 		cell_types.insert("$lut");
 		cell_types.insert("$assert");
