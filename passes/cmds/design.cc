@@ -128,7 +128,7 @@ struct DesignPass : public Pass {
 		if (copy_from_design != NULL)
 		{
 			if (copy_from_design != design && argidx == args.size())
-				cmd_error(args, argidx, "Missing selection.\n");
+				cmd_error(args, argidx, "Missing selection.");
 
 			RTLIL::Selection sel = design->selection_stack.back();
 			if (argidx != args.size()) {
@@ -151,7 +151,7 @@ struct DesignPass : public Pass {
 		extra_args(args, argidx, design, false);
 
 		if (!got_mode)
-			cmd_error(args, argidx, "Missing mode argument (-reset, -save, -load, -copy-from, or -copy-to).\n");
+			cmd_error(args, argidx, "Missing mode argument (-reset, -save, -load, -copy-from, or -copy-to).");
 
 		if (copy_to_design != NULL)
 		{
