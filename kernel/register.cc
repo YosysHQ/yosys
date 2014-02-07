@@ -29,6 +29,7 @@ using namespace REGISTER_INTERN;
 
 namespace REGISTER_INTERN
 {
+	bool echo_mode = false;
 	int raw_register_count = 0;
 	bool raw_register_done = false;
 	Pass *raw_register_array[MAX_REG_COUNT];
@@ -124,7 +125,7 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 		handle_extra_select_args(this, args, argidx, args.size(), design);
 		break;
 	}
-	cmd_log_args(args);
+	// cmd_log_args(args);
 }
 
 void Pass::call(RTLIL::Design *design, std::string command)
@@ -173,6 +174,14 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 {
 	if (args.size() == 0 || args[0][0] == '#')
 		return;
+
+	if (echo_mode) {
+		log("%s", create_prompt(design, 0));
+		for (size_t i = 0; i < args.size(); i++)
+			log("%s%s", i ? " " : "", args[i].c_str());
+		log("\n");
+	}
+
 	if (pass_register.count(args[0]) == 0)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
 
@@ -269,7 +278,7 @@ void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::stri
 	if (called_with_fp)
 		args.push_back(filename);
 	args[0] = pass_name;
-	cmd_log_args(args);
+	// cmd_log_args(args);
 }
 
 void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filename, std::string command)
@@ -355,7 +364,7 @@ void Backend::extra_args(FILE *&f, std::string &filename, std::vector<std::strin
 	if (called_with_fp)
 		args.push_back(filename);
 	args[0] = pass_name;
-	cmd_log_args(args);
+	// cmd_log_args(args);
 
 	if (f == NULL) {
 		filename = "<stdout>";
@@ -532,4 +541,37 @@ struct HelpPass : public Pass {
 		help();
 	}
 } HelpPass;
+ 
+struct EchoPass : public Pass {
+	EchoPass() : Pass("echo", "turning echoing back of commands on and off") { }
+	virtual void help()
+	{
+		log("\n");
+		log("    echo on\n");
+		log("\n");
+		log("Print all commands to log before executing them.\n");
+		log("\n");
+		log("\n");
+		log("    echo off\n");
+		log("\n");
+		log("Do not print all commands to log before executing them. (default)\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
+	{
+		if (args.size() > 2)
+			cmd_error(args, 2, "Unexpected argument.");
+
+		if (args.size() == 2) {
+			if (args[1] == "on")
+				echo_mode = true;
+			else if (args[1] == "off")
+				echo_mode = false;
+			else
+				cmd_error(args, 1, "Unexpected argument.");
+		}
+
+		log("echo %s\n", echo_mode ? "on" : "off");
+	}
+} EchoPass;
  

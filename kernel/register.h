@@ -38,6 +38,7 @@ extern const char *yosys_version_str;
 extern RTLIL::Design *yosys_get_design();
 std::string rewrite_yosys_exe(std::string exe);
 std::string get_share_file_name(std::string file);
+const char *create_prompt(RTLIL::Design *design, int recursion_counter);
 
 struct Pass
 {

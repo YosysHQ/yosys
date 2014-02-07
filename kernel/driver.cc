@@ -212,7 +212,7 @@ static char **readline_completion(const char *text, int start, int)
 	return NULL;
 }
 
-static const char *create_prompt(RTLIL::Design *design, int recursion_counter)
+const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 {
 	static char buffer[100];
 	std::string str = "\n";
