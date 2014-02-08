@@ -201,6 +201,7 @@ static void create_dff_dq_map(std::map<std::string, dff_map_info_t> &map, RTLIL:
 		info.sig_arst = ref_info.bit_arst;
 		info.clk_polarity = ref_info.clk_polarity;
 		info.arst_polarity = ref_info.arst_polarity;
+		info.arst_value = arst_value;
 		for (auto it : cells)
 			info.cells.push_back(it->name);
 		map[it.first] = info;
