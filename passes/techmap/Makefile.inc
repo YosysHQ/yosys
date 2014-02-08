@@ -5,6 +5,7 @@ OBJS += passes/techmap/dfflibmap.o
 OBJS += passes/techmap/iopadmap.o
 OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/libparse.o
+OBJS += passes/techmap/extract.o
 
 GENFILES += passes/techmap/stdcells.inc
 
