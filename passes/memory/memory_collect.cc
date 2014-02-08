@@ -160,6 +160,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	sig_rd_clk_enable.optimize();
 	sig_rd_clk_polarity.optimize();
+	sig_rd_transparent.optimize();
 
 	assert(sig_rd_clk.width == rd_ports);
 	assert(sig_rd_clk_enable.width == rd_ports && sig_rd_clk_enable.is_fully_const());
