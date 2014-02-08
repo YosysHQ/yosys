@@ -96,6 +96,14 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 	}
 }
 
+static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
+{
+	int count = w->attributes.size();
+	count -= w->attributes.count("\\src");
+	count -= w->attributes.count("\\unused_bits");
+	return count;
+}
+
 static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
 {
 	assert(s1.width == 1);
@@ -127,8 +135,11 @@ static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &reg
 	if (w1->name[0] != w2->name[0])
 		return w2->name[0] == '\\';
 
-	if (w1->attributes.size() != w2->attributes.size())
-		return w2->attributes.size() > w1->attributes.size();
+	int attrs1 = count_nontrivial_wire_attrs(w1);
+	int attrs2 = count_nontrivial_wire_attrs(w2);
+
+	if (attrs1 != attrs2)
+		return attrs2 > attrs1;
 
 	return w2->name < w1->name;
 }
