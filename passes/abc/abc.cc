@@ -447,7 +447,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		extract_cell(c);
 
 	for (auto &wire_it : module->wires) {
-		if (wire_it.second->port_id > 0)
+		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute("\\keep"))
 			mark_port(RTLIL::SigSpec(wire_it.second));
 	}
 
