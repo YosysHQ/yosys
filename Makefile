@@ -115,8 +115,11 @@ yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 
 abc/abc-$(ABCREV):
 ifneq ($(ABCREV),default)
+	if ( cd abc && hg identify; ) | grep -q +; then \
+		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
+	fi
 	if test "`cd abc && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
-		test $(ABCPULL) -ne 0 || { echo; echo "!!! ABC not up to date and ABCPULL set to 0 in Makefile !!!"; echo; exit 1; }; \
+		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
 		cd abc && hg pull && hg update -r $(ABCREV); \
 	fi
