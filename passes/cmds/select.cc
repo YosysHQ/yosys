@@ -19,6 +19,7 @@
 
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
+#include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include <string.h>
 #include <fnmatch.h>
@@ -193,6 +194,28 @@ static void select_op_fullmod(RTLIL::Design *design, RTLIL::Selection &lhs)
 	for (auto &it : lhs.selected_members)
 		lhs.selected_modules.insert(it.first);
 	lhs.selected_members.clear();
+}
+
+static void select_op_alias(RTLIL::Design *design, RTLIL::Selection &lhs)
+{
+	for (auto &mod_it : design->modules)
+	{
+		if (lhs.selected_whole_module(mod_it.first))
+			continue;
+		if (!lhs.selected_module(mod_it.first))
+			continue;
+
+		SigMap sigmap(mod_it.second);
+		SigPool selected_bits;
+
+		for (auto &it : mod_it.second->wires)
+			if (lhs.selected_member(mod_it.first, it.first))
+				selected_bits.add(sigmap(it.second));
+
+		for (auto &it : mod_it.second->wires)
+			if (!lhs.selected_member(mod_it.first, it.first) && selected_bits.check_any(sigmap(it.second)))
+				lhs.selected_members[mod_it.first].insert(it.first);
+	}
 }
 
 static void select_op_union(RTLIL::Design*, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
@@ -581,6 +604,11 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
 			select_op_fullmod(design, work_stack[work_stack.size()-1]);
 		} else
+		if (arg == "%a") {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
+			select_op_alias(design, work_stack[work_stack.size()-1]);
+		} else
 		if (arg == "%x" || (arg.size() > 2 && arg.substr(0, 2) == "%x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%x.\n");
@@ -939,6 +967,10 @@ struct SelectPass : public Pass {
 		log("    %%ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("    %%co[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("        simmilar to %%x, but only select input (%%ci) or output cones (%%co)\n");
+		log("\n");
+		log("    %%a\n");
+		log("        expand top set by selecting all wires that are (at least in part)\n");
+		log("        aliases for selected wires.\n");
 		log("\n");
 		log("    %%s\n");
 		log("        expand top set by adding all modules of instantiated cells in selected\n");
