@@ -331,9 +331,18 @@ namespace {
 		int param_bool(const char *name)
 		{
 			int v = param(name);
+			if (cell->parameters.at(name).bits.size() > 32)
+				error(__LINE__);
 			if (v != 0 && v != 1)
 				error(__LINE__);
 			return v;
+		}
+
+		void param_bits(const char *name, int width)
+		{
+			param(name);
+			if (int(cell->parameters.at(name).bits.size()) != width)
+				error(__LINE__);
 		}
 
 		void port(const char *name, int width)
@@ -541,7 +550,7 @@ namespace {
 			if (cell->type == "$adff") {
 				param_bool("\\CLK_POLARITY");
 				param_bool("\\ARST_POLARITY");
-				param("\\ARST_VALUE");
+				param_bits("\\ARST_VALUE", param("\\WIDTH"));
 				port("\\CLK", 1);
 				port("\\ARST", 1);
 				port("\\D", param("\\WIDTH"));
@@ -567,9 +576,9 @@ namespace {
 				param("\\STATE_NUM");
 				param("\\STATE_NUM_LOG2");
 				param("\\STATE_RST");
-				param("\\STATE_TABLE");
+				param_bits("\\STATE_TABLE", param("\\STATE_BITS") * param("\\STATE_NUM"));
 				param("\\TRANS_NUM");
-				param("\\TRANS_TABLE");
+				param_bits("\\TRANS_TABLE", param("\\TRANS_NUM") * (2*param("\\STATE_NUM_LOG2") + param("\\CTRL_IN_WIDTH") + param("\\CTRL_OUT_WIDTH")));
 				port("\\CLK", 1);
 				port("\\ARST", 1);
 				port("\\CTRL_IN", param("\\CTRL_IN_WIDTH"));
@@ -607,11 +616,11 @@ namespace {
 				param("\\MEMID");
 				param("\\SIZE");
 				param("\\OFFSET");
-				param("\\RD_CLK_ENABLE");
-				param("\\RD_CLK_POLARITY");
-				param("\\RD_TRANSPARENT");
-				param("\\WR_CLK_ENABLE");
-				param("\\WR_CLK_POLARITY");
+				param_bits("\\RD_CLK_ENABLE", param("\\RD_PORTS"));
+				param_bits("\\RD_CLK_POLARITY", param("\\RD_PORTS"));
+				param_bits("\\RD_TRANSPARENT", param("\\RD_PORTS"));
+				param_bits("\\WR_CLK_ENABLE", param("\\WR_PORTS"));
+				param_bits("\\WR_CLK_POLARITY", param("\\WR_PORTS"));
 				port("\\RD_CLK", param("\\RD_PORTS"));
 				port("\\RD_ADDR", param("\\RD_PORTS") * param("\\ABITS"));
 				port("\\RD_DATA", param("\\RD_PORTS") * param("\\WIDTH"));
