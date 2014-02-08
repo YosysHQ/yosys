@@ -1,0 +1,15 @@
+
+read_verilog expose_dff.v
+hierarchy; proc;;
+
+expose -shared -evert-dff test1 test2
+miter -equiv test1 test2 miter12
+flatten miter12; opt miter12
+
+expose -shared -evert-dff test3 test4
+miter -equiv test3 test4 miter34
+flatten miter34; opt miter34
+
+sat -verify -prove trigger 0 miter12
+sat -verify -prove trigger 0 miter34
+
