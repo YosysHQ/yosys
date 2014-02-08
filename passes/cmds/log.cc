@@ -49,7 +49,7 @@ struct LogPass : public Pass {
 		log("        do not append a newline\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
 		size_t argidx;
 		bool to_stdout = false;
@@ -68,7 +68,7 @@ struct LogPass : public Pass {
 		}
 		for (; argidx < args.size(); argidx++)
 			text += args[argidx] + ' ';
-		if (!text.empty()) text.pop_back();
+		if (!text.empty()) text.resize(text.size()-1);
 
 		if (to_stdout) fprintf(stdout, (newline ? "%s\n" : "%s"), text.c_str());
 		if (to_stderr) fprintf(stderr, (newline ? "%s\n" : "%s"), text.c_str());
