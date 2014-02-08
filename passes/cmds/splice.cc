@@ -29,6 +29,13 @@ struct SpliceWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
+	bool sel_by_cell;
+	bool sel_by_wire;
+	bool sel_any_bit;
+	bool no_outputs;
+	std::set<std::string> ports;
+	std::set<std::string> no_ports;
+
 	CellTypes ct;
 	SigMap sigmap;
 
@@ -83,7 +90,7 @@ struct SpliceWorker
 
 	RTLIL::SigSpec get_spliced_signal(RTLIL::SigSpec sig)
 	{
-		if (sig.width == 0)
+		if (sig.width == 0 || sig.is_fully_const())
 			return sig;
 
 		if (spliced_signals_cache.count(sig))
@@ -174,12 +181,28 @@ struct SpliceWorker
 		for (size_t i = 0; i < driven_bits.size(); i++)
 			driven_bits_map[driven_bits[i]] = i;
 
+		SigPool selected_bits;
+		if (!sel_by_cell)
+			for (auto &it : module->wires)
+				if (design->selected(module, it.second))
+					selected_bits.add(sigmap(it.second));
+
 		for (auto &it : module->cells) {
-			if (!design->selected(module, it.second))
+			if (!sel_by_wire && !design->selected(module, it.second))
 				continue;
 			for (auto &conn : it.second->connections)
 				if (ct.cell_input(it.second->type, conn.first)) {
+					if (ports.size() > 0 && !ports.count(conn.first))
+						continue;
+					if (no_ports.size() > 0 && no_ports.count(conn.first))
+						continue;
 					RTLIL::SigSpec sig = sigmap(conn.second);
+					if (!sel_by_cell) {
+						if (!sel_any_bit && !selected_bits.check_all(sig))
+							continue;
+						if (sel_any_bit && !selected_bits.check_any(sig))
+							continue;
+					}
 					if (driven_chunks.count(sig) > 0)
 						continue;
 					conn.second = get_spliced_signal(sig);
@@ -189,7 +212,7 @@ struct SpliceWorker
 		std::vector<std::pair<RTLIL::Wire*, RTLIL::SigSpec>> rework_wires;
 
 		for (auto &it : module->wires)
-			if (it.second->port_output) {
+			if (!no_outputs && it.second->port_output) {
 				if (!design->selected(module, it.second))
 					continue;
 				RTLIL::SigSpec sig = sigmap(it.second);
@@ -228,16 +251,87 @@ struct SplicePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    splice [selection]\n");
+		log("    splice [options] [selection]\n");
 		log("\n");
 		log("This command adds $slice and $concat cells to the design to make the splicing\n");
 		log("of multi-bit signals explicit. This for example is useful for coarse grain\n");
 		log("synthesis, where dedidacted hardware is needed to splice signals.\n");
 		log("\n");
+		log("    -sel_by_cell\n");
+		log("        only select the cell ports to rewire by the cell. if the selection\n");
+		log("        contains a cell, than all cell inputs are rewired, if neccessary.\n");
+		log("\n");
+		log("    -sel_by_wire\n");
+		log("        only select the cell ports to rewire by the wire. if the selection\n");
+		log("        contains a wire, than all cell ports driven by this wire are wired,\n");
+		log("        if neccessary.\n");
+		log("\n");
+		log("    -sel_any_bit\n");
+		log("        it is sufficient if the driver of any bit of a cell port is selected.\n");
+		log("        by default all bits must be selected.\n");
+		log("\n");
+		log("    -no_outputs\n");
+		log("        do not rewire selected module outputs.\n");
+		log("\n");
+		log("    -port <name>\n");
+		log("        only rewire cell ports with the specified name. can be used multiple\n");
+		log("        times. implies -no_output.\n");
+		log("\n");
+		log("    -no_port <name>\n");
+		log("        do not rewire cell ports with the specified name. can be used multiple\n");
+		log("        times. can not be combined with -port <name>.\n");
+		log("\n");
+		log("By default selected output wires and all cell ports of selected cells driven\n");
+		log("by selected wires are rewired.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		extra_args(args, 1, design);
+		bool sel_by_cell = false;
+		bool sel_by_wire = false;
+		bool sel_any_bit = false;
+		bool no_outputs = false;
+		std::set<std::string> ports, no_ports;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-sel_by_cell") {
+				sel_by_cell = true;
+				continue;
+			}
+			if (args[argidx] == "-sel_by_wire") {
+				sel_by_wire = true;
+				continue;
+			}
+			if (args[argidx] == "-sel_any_bit") {
+				sel_any_bit = true;
+				continue;
+			}
+			if (args[argidx] == "-no_outputs") {
+				no_outputs = true;
+				continue;
+			}
+			if (args[argidx] == "-port" && argidx+1 < args.size()) {
+				ports.insert(RTLIL::escape_id(args[++argidx]));
+				no_outputs = true;
+				continue;
+			}
+			if (args[argidx] == "-no_port" && argidx+1 < args.size()) {
+				no_ports.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		if (sel_by_cell && sel_by_wire)
+			log_cmd_error("The options -sel_by_cell and -sel_by_wire are exclusive!\n");
+
+		if (sel_by_cell && sel_any_bit)
+			log_cmd_error("The options -sel_by_cell and -sel_any_bit are exclusive!\n");
+
+		if (!ports.empty() && !no_ports.empty())
+			log_cmd_error("The options -port and -no_port are exclusive!\n");
 
 		log_header("Executing SPLICE pass (creating cells for signal splicing).\n");
 
@@ -252,6 +346,12 @@ struct SplicePass : public Pass {
 			}
 
 			SpliceWorker worker(design, mod_it.second);
+			worker.sel_by_cell = sel_by_cell;
+			worker.sel_by_wire = sel_by_wire;
+			worker.sel_any_bit = sel_any_bit;
+			worker.no_outputs = no_outputs;
+			worker.ports = ports;
+			worker.no_ports = no_ports;
 			worker.run();
 		}
 	}
