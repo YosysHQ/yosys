@@ -47,16 +47,34 @@ struct DeletePass : public Pass {
 		log("Deletes the selected objects. This will also remove entire modules, if the\n");
 		log("whole module is selected.\n");
 		log("\n");
+		log("\n");
+		log("    delete {-input|-output|-port} [selection]\n");
+		log("\n");
+		log("Does not delete any object but removes the input and/or output flag on the\n");
+		log("selected wires, thus 'deleting' module ports.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool flag_input = false;
+		bool flag_output = false;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (arg[argidx] == "-something") {
-			// 	flag_something = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-input") {
+				flag_input = true;
+				continue;
+			}
+			if (args[argidx] == "-output") {
+				flag_output = true;
+				continue;
+			}
+			if (args[argidx] == "-port") {
+				flag_input = true;
+				flag_output = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -65,7 +83,7 @@ struct DeletePass : public Pass {
 
 		for (auto &mod_it : design->modules)
 		{
-			if (design->selected_whole_module(mod_it.first)) {
+			if (design->selected_whole_module(mod_it.first) && !flag_input && !flag_output) {
 				delete_mods.push_back(mod_it.first);
 				continue;
 			}
@@ -74,6 +92,19 @@ struct DeletePass : public Pass {
 				continue;
 
 			RTLIL::Module *module = mod_it.second;
+
+			if (flag_input || flag_output) {
+				for (auto &it : module->wires)
+					if (design->selected(module, it.second)) {
+						if (flag_input)
+							it.second->port_input = false;
+						if (flag_output)
+							it.second->port_output = false;
+					}
+				module->fixup_ports();
+				continue;
+			}
+
 			std::set<std::string> delete_wires;
 			std::set<std::string> delete_cells;
 			std::set<std::string> delete_procs;
