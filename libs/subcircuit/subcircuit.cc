@@ -1064,7 +1064,10 @@ class SubCircuit::SolverWorker
 					assert(haystack.adjMatrix.at(j).count(haystackNeighbour) > 0);
 					int haystackEdgeType = haystack.adjMatrix.at(j).at(haystackNeighbour);
 
-					for (const auto &otherCandidate : portmapCandidates[needleNeighbour]) {
+					std::set<std::map<std::string, std::string>> &candidates =
+							i == needleNeighbour ? thisCandidates : portmapCandidates[needleNeighbour];
+
+					for (const auto &otherCandidate : candidates) {
 						if (diCache.compare(needleEdgeType, haystackEdgeType, testCandidate, otherCandidate))
 							goto found_match;
 					}
