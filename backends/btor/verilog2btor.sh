@@ -22,10 +22,10 @@ hierarchy -top $3;
 hierarchy -libdir $DIR; 
 hierarchy -check; 
 proc; 
-opt; opt_const -mux_undef; opt;
+opt; opt_const -mux_undef; splice; opt;
 rename -hide;;;
 techmap -share_map pmux2mux.v;;
-memory_dff -wr_only
+memory_dff -wr_only;
 memory_collect;;
 flatten;;
 memory_unpack; 
