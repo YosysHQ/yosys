@@ -18,6 +18,6 @@ if false; then
 	sed -i '/^label=/ d;' *.dot
 fi
 for dot_file in *.dot; do
-	pdf_file=${dot_file#.dot}.pdf
-	dot -Tpdf -o example_00.pdf example_00.dot
+	pdf_file=${dot_file%.dot}.pdf
+	dot -Tpdf -o $pdf_file $dot_file
 done
