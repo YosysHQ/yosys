@@ -11,7 +11,7 @@ do
 	fi
 	old_md5=$([ -f $job.aux ] && md5sum < $job.aux || true)
 	while
-		pdflatex -shell-escape -halt-on-error $job.tex
+		pdflatex -shell-escape -halt-on-error $job.tex || exit
 		new_md5=$(md5sum < $job.aux)
 		[ "$old_md5" != "$new_md5" ]
 	do

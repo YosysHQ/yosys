@@ -146,15 +146,17 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/share/yosys
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)/share/yosys/.
 
-manual:
+manual: $(TARGETS) $(EXTRA_TARGETS)
+	cd manual && bash appnotes.sh
+	cd manual && bash presentation.sh
 	cd manual && bash manual.sh
 
 clean:
-	rm -rf share
-	rm -f $(OBJS) $(GENFILES) $(TARGETS)
-	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
-	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d
-	cd manual && rm -f *.aux *.bbl *.blg *.idx *.log *.out *.pdf *.toc *.ok
+	rm -rvf share
+	cd manual && bash clean.sh
+	rm -vf $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS)
+	rm -vf kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
+	rm -vf libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean
 
 mrproper: clean
@@ -191,6 +193,7 @@ config-sudo:
 -include passes/*/*.d
 -include backends/*/*.d
 -include kernel/*.d
+-include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
 .PHONY: config-clean config-clang-debug config-gcc-debug config-release
