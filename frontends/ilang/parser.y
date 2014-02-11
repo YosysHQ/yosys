@@ -87,7 +87,7 @@ design:
 module:
 	TOK_MODULE TOK_ID EOL {
 		if (current_design->modules.count($2) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of module %s.", $2).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
 		current_module = new RTLIL::Module;
 		current_module->name = $2;
 		current_module->attributes = attrbuf;
@@ -120,7 +120,7 @@ wire_stmt:
 		attrbuf.clear();
 	} wire_options TOK_ID EOL {
 		if (current_module->wires.count($4) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of wire %s.", $4).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of wire %s.", $4).c_str());
 		current_wire->name = $4;
 		current_module->wires[$4] = current_wire;
 		free($4);
@@ -157,7 +157,7 @@ memory_stmt:
 		attrbuf.clear();
 	} memory_options TOK_ID EOL {
 		if (current_module->memories.count($4) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of memory %s.", $4).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of memory %s.", $4).c_str());
 		current_memory->name = $4;
 		current_module->memories[$4] = current_memory;
 		free($4);
@@ -175,7 +175,7 @@ memory_options:
 cell_stmt:
 	TOK_CELL TOK_ID TOK_ID EOL {
 		if (current_module->cells.count($3) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of cell %s.", $3).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell %s.", $3).c_str());
 		current_cell = new RTLIL::Cell;
 		current_cell->type = $2;
 		current_cell->name = $3;
@@ -200,7 +200,7 @@ cell_body:
 	} |
 	cell_body TOK_CONNECT TOK_ID sigspec EOL {
 		if (current_cell->connections.count($3) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of cell port %s.", $3).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell port %s.", $3).c_str());
 		current_cell->connections[$3] = *$4;
 		delete $4;
 		free($3);
@@ -210,7 +210,7 @@ cell_body:
 proc_stmt:
 	TOK_PROCESS TOK_ID EOL {
 		if (current_module->processes.count($2) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of process %s.", $2).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of process %s.", $2).c_str());
 		current_process = new RTLIL::Process;
 		current_process->name = $2;
 		current_process->attributes = attrbuf;
@@ -362,7 +362,7 @@ sigspec:
 	} |
 	TOK_ID {
 		if (current_module->wires.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: wire %s not found", $1).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
 		RTLIL::SigChunk chunk;
 		chunk.wire = current_module->wires[$1];
 		chunk.width = current_module->wires[$1]->width;
@@ -374,7 +374,7 @@ sigspec:
 	} |
 	TOK_ID '[' TOK_INT ']' {
 		if (current_module->wires.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: wire %s not found", $1).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
 		RTLIL::SigChunk chunk;
 		chunk.wire = current_module->wires[$1];
 		chunk.offset = $3;
@@ -386,7 +386,7 @@ sigspec:
 	} |
 	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
 		if (current_module->wires.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: wire %s not found", $1).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
 		RTLIL::SigChunk chunk;
 		chunk.wire = current_module->wires[$1];
 		chunk.width = $3 - $5 + 1;
