@@ -647,7 +647,7 @@ struct BtorDumper
 				log(" - width is %d\n", output_width);
 				int cond = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\CLK")), 1);
 				bool polarity = cell->parameters.at(RTLIL::IdString("\\CLK_POLARITY")).as_bool();
-				const RTLIL::SigSpec* cell_output = &cell->connections.at(RTLIL::IdString("\\D"));
+				const RTLIL::SigSpec* cell_output = &cell->connections.at(RTLIL::IdString("\\Q"));
 				int value = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\D")), output_width);
 				unsigned start_bit = 0;
 				for(unsigned i=0; i<cell_output->chunks.size(); ++i)
