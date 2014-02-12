@@ -114,7 +114,8 @@ do
 			test_passes -p "$scriptopt"
 		else
 			test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt"
-			test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt"
+			# test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt"
+			test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc; opt"
 		fi
 		touch ../${bn}.log
 	}
