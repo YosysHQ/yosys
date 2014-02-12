@@ -106,7 +106,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT
 
-%type <ast> wire_type range non_opt_range expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> wire_type range non_opt_range range_or_integer expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed
 %type <al> attr
@@ -360,6 +360,16 @@ range:
 		$$ = NULL;
 	};
 
+range_or_integer:
+	range {
+		$$ = $1;
+	} |
+	TOK_INTEGER {
+		$$ = new AstNode(AST_RANGE);
+		$$->children.push_back(AstNode::mkconst_int(31, true));
+		$$->children.push_back(AstNode::mkconst_int(0, true));
+	};
+
 module_body:
 	module_body module_body_stmt |
 	/* empty */;
@@ -380,7 +390,7 @@ task_func_decl:
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	} |
-	TOK_FUNCTION opt_signed range TOK_ID ';' {
+	TOK_FUNCTION opt_signed range_or_integer TOK_ID ';' {
 		current_function_or_task = new AstNode(AST_FUNCTION);
 		current_function_or_task->str = *$4;
 		ast_stack.back()->children.push_back(current_function_or_task);
