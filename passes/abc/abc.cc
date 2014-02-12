@@ -29,10 +29,10 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; retime; balance; dch; map; topo"
-#define ABC_COMMAND_CTR "strash; retime; balance; dch; map; topo; buffer; upsize; dnsize; stime"
-#define ABC_COMMAND_LUT "strash; retime; balance; dch; if"
-#define ABC_COMMAND_DFL "strash; retime; balance; dch; map"
+#define ABC_COMMAND_LIB "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; map -v;"
+#define ABC_COMMAND_CTR "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; map -v; buffer -v; upsize -v; dnsize -v; stime -p"
+#define ABC_COMMAND_LUT "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; if -v"
+#define ABC_COMMAND_DFL "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; map -v"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -359,6 +359,30 @@ static void handle_loops()
 		fclose(dot_f);
 }
 
+static std::string add_echos_to_abc_cmd(std::string str)
+{
+	std::string new_str, token;
+	for (size_t i = 0; i < str.size(); i++) {
+		token += str[i];
+		if (str[i] == ';') {
+			while (i+1 < str.size() && str[i+1] == ' ')
+				i++;
+			if (!new_str.empty())
+				new_str += "echo; ";
+			new_str += "echo + " + token + " " + token + " ";
+			token.clear();
+		}
+	}
+
+	if (!token.empty()) {
+		if (!new_str.empty())
+			new_str += "echo; echo + " + token + "; ";
+		new_str += token;
+	}
+
+	return new_str;
+}
+
 static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str)
 {
@@ -398,6 +422,17 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		abc_command = constr_file.empty() ? ABC_COMMAND_LIB : ABC_COMMAND_CTR;
 	else
 		abc_command = ABC_COMMAND_DFL;
+	abc_command = add_echos_to_abc_cmd(abc_command);
+
+	if (abc_command.size() > 128) {
+		for (size_t i = 0; i+1 < abc_command.size(); i++)
+			if (abc_command[i] == ';' && abc_command[i+1] == ' ')
+				abc_command[i+1] = '\n';
+		FILE *f = fopen(stringf("%s/abc.script", tempdir_name).c_str(), "wt");
+		fprintf(f, "%s\n", abc_command.c_str());
+		fclose(f);
+		abc_command = stringf("source %s/abc.script", tempdir_name);
+	}
 
 	if (clk_str.empty()) {
 		if (clk_str[0] == '!') {
@@ -577,6 +612,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			buffer += stringf("%s -s -c 'read_blif %s/input.blif; read_library %s/stdcells.genlib; %s; ",
 					exe_file.c_str(), tempdir_name, tempdir_name, abc_command.c_str());
 		buffer += stringf("write_blif %s/output.blif' 2>&1", tempdir_name);
+
+		log("%s\n", buffer.c_str());
 
 		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
 		f = popen(buffer.c_str(), "r");
@@ -837,6 +874,14 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -constr <file>\n");
 		log("        pass this file with timing constraints to ABC. use with -liberty.\n");
+		log("\n");
+		log("        a constr file contains two lines:\n");
+		log("            set_driving_cell <cell_name>\n");
+		log("            set_load <floating_point_number>\n");
+		log("\n");
+		log("        the set_driving_cell statement defines which cell type is assumed to\n");
+		log("        drive the primary inputs and the set_load statement sets the number of\n");
+		log("        flip-flops driven by each primary output.\n");
 		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
