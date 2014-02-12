@@ -133,6 +133,10 @@ struct BtorDumper
 		cell_type_translation["$dffsr"] = "next";
 		//memories
 		//nothing here
+		//slice
+		cell_type_translation["$slice"] = "slice";
+		//concat
+		cell_type_translation["$concat"] = "concat";
 
 		//signed cell type translation 
 		//binary
@@ -350,39 +354,25 @@ struct BtorDumper
 		if (expected_width != s.width)
 		{
 			log(" - changing width of sigspec\n");
-			//TODO: save the new signal in map
-			/*if(expected_width > s.width)
-				s.extend_u0(expected_width);
-			else if (expected_width < s.width)
-				s = s.extract(0, expected_width);
-			
-			it = sig_ref.find(s);
-			if(it == std::end(sig_ref))
-			{*/
-				if(expected_width > s.width)
-				{
-					//TODO: case the signal is signed
-					++line_num;
-					str = stringf ("%d zero %d", line_num, expected_width - s.width);
-					fprintf(f, "%s\n", str.c_str());
-					++line_num;
-					str = stringf ("%d concat %d %d %d", line_num, expected_width, line_num-1, l);
-					fprintf(f, "%s\n", str.c_str());
-					l = line_num;
-				}
-				else if(expected_width < s.width)
-				{
-					++line_num;
-					str = stringf ("%d slice %d %d %d %d;3", line_num, expected_width, l, expected_width-1, 0);
-					fprintf(f, "%s\n", str.c_str());
-					l = line_num;
-				}
-				/*sig_ref[s] = l;
-			}
-			else
+			//TODO: this block may not be needed anymore, due to explicit type conversion by "splice" command
+			if(expected_width > s.width)
 			{
-				l = it->second;
-			}*/
+				//TODO: case the signal is signed
+				++line_num;
+				str = stringf ("%d zero %d", line_num, expected_width - s.width);
+				fprintf(f, "%s\n", str.c_str());
+				++line_num;
+				str = stringf ("%d concat %d %d %d", line_num, expected_width, line_num-1, l);
+				fprintf(f, "%s\n", str.c_str());
+				l = line_num;
+			}
+			else if(expected_width < s.width)
+			{
+				++line_num;
+				str = stringf ("%d slice %d %d %d %d;3", line_num, expected_width, l, expected_width-1, 0);
+				fprintf(f, "%s\n", str.c_str());
+				l = line_num;
+			}
 		}
 		assert(l>0);
 		return l;
@@ -764,6 +754,39 @@ struct BtorDumper
 				str = stringf("%d anext %d %d %d %d", line_num, data_width, address_width, mem, line_num-1);	
 				fprintf(f, "%s\n", str.c_str());				
 				line_ref[cell->name]=line_num;
+			}
+			else if(cell->type == "$slice")
+			{
+				log("writing slice cell\n");
+				const RTLIL::SigSpec* input = &cell->connections.at(RTLIL::IdString("\\A"));
+				int input_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
+				assert(input->width == input_width);
+				int input_line = dump_sigspec(input, input_width);
+				const RTLIL::SigSpec* output = &cell->connections.at(RTLIL::IdString("\\Y"));
+				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
+				assert(output->width == output_width);
+				int offset = cell->parameters.at(RTLIL::IdString("\\OFFSET")).as_int();	
+				++line_num;
+				str = stringf("%d %s %d %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), output_width, input_line, output_width+offset-1, offset);	
+				fprintf(f, "%s\n", str.c_str());				
+				line_ref[cell->name]=line_num;	
+			}
+			else if(cell->type == "$concat")
+			{
+				log("writing concat cell\n");
+				const RTLIL::SigSpec* input_a = &cell->connections.at(RTLIL::IdString("\\A"));
+				int input_a_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
+				assert(input_a->width == input_a_width);
+				int input_a_line = dump_sigspec(input_a, input_a_width);
+				const RTLIL::SigSpec* input_b = &cell->connections.at(RTLIL::IdString("\\B"));
+				int input_b_width = cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
+				assert(input_b->width == input_b_width);
+				int input_b_line = dump_sigspec(input_b, input_b_width);
+				++line_num;
+				str = stringf("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), input_a_width+input_b_width, 
+					input_a_line, input_b_line);	
+				fprintf(f, "%s\n", str.c_str());				
+				line_ref[cell->name]=line_num;				
 			}
 			curr_cell.clear();
 			return line_num;

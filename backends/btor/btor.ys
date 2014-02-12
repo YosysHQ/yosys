@@ -3,7 +3,10 @@ opt; opt_const -mux_undef; opt;
 rename -hide;;;
 #converting pmux to mux
 techmap -share_map pmux2mux.v;;
-memory -nomap;;
+#explicit type conversion
+splice; opt;
+#extracting memories;
+memory_dff -wr_only; memory_collect;;
 #flatten design
 flatten;;
 #converting asyn memory write to syn memory
