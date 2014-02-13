@@ -29,10 +29,10 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; map -v;"
-#define ABC_COMMAND_CTR "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; map -v; buffer -v; upsize -v; dnsize -v; stime -p"
-#define ABC_COMMAND_LUT "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; if -v"
-#define ABC_COMMAND_DFL "strash; ifraig -v; retime -v; balance -v; dch -vf; scorr -v; map -v"
+#define ABC_COMMAND_LIB "strash; ifraig -v; retime -v; balance -v; scorr -v;  dch -vf; map -v;"
+#define ABC_COMMAND_CTR "strash; ifraig -v; retime -v; balance -v; scorr -v;  dch -vf; map -v; buffer -v; upsize -v; dnsize -v; stime -p"
+#define ABC_COMMAND_LUT "strash; ifraig -v; retime -v; balance -v; scorr -v;  dch -vf; if -v"
+#define ABC_COMMAND_DFL "strash; ifraig -v; retime -v; balance -v; scorr -v;  dch -vf; map -v"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -383,6 +383,25 @@ static std::string add_echos_to_abc_cmd(std::string str)
 	return new_str;
 }
 
+static std::string fold_abc_cmd(std::string str)
+{
+	std::string token, new_str = "          ";
+	int char_counter = 10;
+
+	for (size_t i = 0; i <= str.size(); i++) {
+		if (i < str.size())
+			token += str[i];
+		if (i == str.size() || str[i] == ';') {
+			if (char_counter + token.size() > 75)
+				new_str += "\n              ", char_counter = 14;
+			new_str += token, char_counter += token.size();
+			token.clear();
+		}
+	}
+
+	return new_str;
+}
+
 static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str)
 {
@@ -508,6 +527,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		fprintf(f, " n%d", si.id);
 		count_input++;
 	}
+	if (count_input == 0)
+		fprintf(f, " dummy_input\n");
 	fprintf(f, "\n");
 
 	int count_output = 0;
@@ -857,16 +878,16 @@ struct AbcPass : public Pass {
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
 		log("        for -liberty without -constr:\n");
-		log("          %s\n", ABC_COMMAND_LIB);
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LIB).c_str());
 		log("\n");
 		log("        for -liberty with -constr:\n");
-		log("          %s\n", ABC_COMMAND_CTR);
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR).c_str());
 		log("\n");
 		log("        for -lut:\n");
-		log("          %s\n", ABC_COMMAND_LUT);
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT).c_str());
 		log("\n");
 		log("        otherwise:\n");
-		log("          %s\n", ABC_COMMAND_DFL);
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL).c_str());
 		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");
@@ -880,8 +901,8 @@ struct AbcPass : public Pass {
 		log("            set_load <floating_point_number>\n");
 		log("\n");
 		log("        the set_driving_cell statement defines which cell type is assumed to\n");
-		log("        drive the primary inputs and the set_load statement sets the number of\n");
-		log("        flip-flops driven by each primary output.\n");
+		log("        drive the primary inputs and the set_load statement sets the load in\n");
+		log("        femtofarads for each primary output.\n");
 		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
