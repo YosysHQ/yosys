@@ -640,9 +640,32 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		f = popen(buffer.c_str(), "r");
 		if (f == NULL)
 			log_error("Opening pipe to `%s' for reading failed: %s\n", buffer.c_str(), strerror(errno));
+#if 0
 		char logbuf[1024];
 		while (fgets(logbuf, 1024, f) != NULL)
 			log("ABC: %s", logbuf);
+#else
+		bool got_cr = false;
+		std::string linebuf;
+		char logbuf[1024];
+		while (fgets(logbuf, 1024, f) != NULL)
+			for (char *p = logbuf; *p; p++) {
+				if (*p == '\r') {
+					got_cr = true;
+					continue;
+				}
+				if (*p == '\n') {
+					log("ABC: %s\n", linebuf.c_str());
+					got_cr = false, linebuf.clear();
+					continue;
+				}
+				if (got_cr)
+					got_cr = false, linebuf.clear();
+				linebuf += *p;
+			}
+		if (!linebuf.empty())
+			log("ABC: %s\n", linebuf.c_str());
+#endif
 		errno = 0;
 		int ret = pclose(f);
 		if (ret < 0)
