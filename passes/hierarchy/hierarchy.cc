@@ -145,6 +145,14 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 
 		if (design->modules.count(cell->type) == 0)
 		{
+			if (design->modules.count("$abstract" + cell->type))
+			{
+				cell->type = design->modules.at("$abstract" + cell->type)->derive(design, cell->parameters);
+				cell->parameters.clear();
+				did_something = true;
+				continue;
+			}
+
 			if (cell->type[0] == '$')
 				continue;
 
@@ -210,7 +218,7 @@ static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &us
 	}
 }
 
-static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
+static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool first_pass)
 {
 	std::set<RTLIL::Module*> used;
 	hierarchy_worker(design, used, top, 0);
@@ -221,6 +229,8 @@ static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 			del_modules.push_back(it.second);
 
 	for (auto mod : del_modules) {
+		if (first_pass && mod->name.substr(0, 9) == "$abstract")
+			continue;
 		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
@@ -362,10 +372,12 @@ struct HierarchyPass : public Pass {
 			if (args[argidx] == "-top") {
 				if (++argidx >= args.size())
 					log_cmd_error("Option -top requires an additional argument!\n");
-				if (args[argidx][0] != '$' && args[argidx][0] != '\\')
-					top_mod = design->modules.count("\\" + args[argidx]) > 0 ? design->modules["\\" + args[argidx]] : NULL;
-				else
-					top_mod = design->modules.count(args[argidx]) > 0 ? design->modules[args[argidx]] : NULL;
+				top_mod = design->modules.count(RTLIL::escape_id(args[argidx])) ? design->modules.at(RTLIL::escape_id(args[argidx])) : NULL;
+				if (top_mod == NULL && design->modules.count("$abstract" + RTLIL::escape_id(args[argidx]))) {
+					std::map<RTLIL::IdString, RTLIL::Const> empty_parameters;
+					design->modules.at("$abstract" + RTLIL::escape_id(args[argidx]))->derive(design, empty_parameters);
+					top_mod = design->modules.count(RTLIL::escape_id(args[argidx])) ? design->modules.at(RTLIL::escape_id(args[argidx])) : NULL;
+				}
 				if (top_mod == NULL)
 					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
 				continue;
@@ -387,7 +399,7 @@ struct HierarchyPass : public Pass {
 					top_mod = mod_it.second;
 
 		if (top_mod != NULL)
-			hierarchy(design, top_mod, purge_lib);
+			hierarchy(design, top_mod, purge_lib, true);
 
 		bool did_something = true;
 		bool did_something_once = false;
@@ -409,7 +421,7 @@ struct HierarchyPass : public Pass {
 
 		if (top_mod != NULL && did_something_once) {
 			log_header("Re-running hierarchy analysis..\n");
-			hierarchy(design, top_mod, purge_lib);
+			hierarchy(design, top_mod, purge_lib, false);
 		}
 
 		if (top_mod != NULL) {

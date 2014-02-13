@@ -106,6 +106,11 @@ struct VerilogFrontend : public Frontend {
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
 		log("        create an error message.)\n");
 		log("\n");
+		log("    -defer\n");
+		log("        only read the abstract syntax tree and defer actual compilation\n");
+		log("        to a later 'hierarchy' command. Useful in cases where the default\n");
+		log("        parameters of modules yield invalid or not synthesizable code.\n");
+		log("\n");
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
@@ -135,6 +140,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_noopt = false;
 		bool flag_icells = false;
 		bool flag_ignore_redef = false;
+		bool flag_defer = false;
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
@@ -197,6 +203,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-ignore_redef") {
 				flag_ignore_redef = true;
+				continue;
+			}
+			if (arg == "-defer") {
+				flag_defer = true;
 				continue;
 			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
@@ -264,7 +274,7 @@ struct VerilogFrontend : public Frontend {
 					child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
 		}
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer);
 
 		if (!flag_nopp)
 			fclose(fp);

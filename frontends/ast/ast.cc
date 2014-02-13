@@ -747,14 +747,18 @@ bool AstNode::asBool()
 }
 
 // create a new AstModule from an AST_MODULE AST node
-static AstModule* process_module(AstNode *ast)
+static AstModule* process_module(AstNode *ast, bool defer)
 {
 	assert(ast->type == AST_MODULE);
-	log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
+
+	if (defer)
+		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
+	else
+		log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
 
 	current_module = new AstModule;
 	current_module->ast = NULL;
-	current_module->name = ast->str;
+	current_module->name = defer ? "$abstract" + ast->str : ast->str;
 	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
 
 	current_ast_mod = ast;
@@ -766,60 +770,63 @@ static AstModule* process_module(AstNode *ast)
 		log("--- END OF AST DUMP ---\n");
 	}
 
-	while (ast->simplify(!flag_noopt, false, false, 0, -1, false)) { }
+	if (!defer)
+	{
+		while (ast->simplify(!flag_noopt, false, false, 0, -1, false)) { }
 
-	if (flag_dump_ast2) {
-		log("Dumping verilog AST after simplification:\n");
-		ast->dumpAst(NULL, "    ");
-		log("--- END OF AST DUMP ---\n");
-	}
-
-	if (flag_dump_vlog) {
-		log("Dumping verilog AST (as requested by dump_vlog option):\n");
-		ast->dumpVlog(NULL, "    ");
-		log("--- END OF AST DUMP ---\n");
-	}
-
-	if (flag_lib) {
-		std::vector<AstNode*> new_children;
-		for (auto child : ast->children) {
-			if (child->type == AST_WIRE && (child->is_input || child->is_output))
-				new_children.push_back(child);
-			else
-				delete child;
+		if (flag_dump_ast2) {
+			log("Dumping verilog AST after simplification:\n");
+			ast->dumpAst(NULL, "    ");
+			log("--- END OF AST DUMP ---\n");
 		}
-		ast->children.swap(new_children);
-		ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
-	}
 
-	ignoreThisSignalsInInitial = RTLIL::SigSpec();
+		if (flag_dump_vlog) {
+			log("Dumping verilog AST (as requested by dump_vlog option):\n");
+			ast->dumpVlog(NULL, "    ");
+			log("--- END OF AST DUMP ---\n");
+		}
 
-	for (auto &attr : ast->attributes) {
-		if (attr.second->type != AST_CONSTANT)
-			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
-					attr.first.c_str(), ast->filename.c_str(), ast->linenum);
-		current_module->attributes[attr.first] = attr.second->asAttrConst();
-	}
-	for (size_t i = 0; i < ast->children.size(); i++) {
-		AstNode *node = ast->children[i];
-		if (node->type == AST_WIRE || node->type == AST_MEMORY)
-			node->genRTLIL();
-	}
-	for (size_t i = 0; i < ast->children.size(); i++) {
-		AstNode *node = ast->children[i];
-		if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL)
-			node->genRTLIL();
-	}
+		if (flag_lib) {
+			std::vector<AstNode*> new_children;
+			for (auto child : ast->children) {
+				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+					new_children.push_back(child);
+				else
+					delete child;
+			}
+			ast->children.swap(new_children);
+			ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
+		}
 
-	ignoreThisSignalsInInitial.sort_and_unify();
+		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
-	for (size_t i = 0; i < ast->children.size(); i++) {
-		AstNode *node = ast->children[i];
-		if (node->type == AST_INITIAL)
-			node->genRTLIL();
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
+						attr.first.c_str(), ast->filename.c_str(), ast->linenum);
+			current_module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+		for (size_t i = 0; i < ast->children.size(); i++) {
+			AstNode *node = ast->children[i];
+			if (node->type == AST_WIRE || node->type == AST_MEMORY)
+				node->genRTLIL();
+		}
+		for (size_t i = 0; i < ast->children.size(); i++) {
+			AstNode *node = ast->children[i];
+			if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL)
+				node->genRTLIL();
+		}
+
+		ignoreThisSignalsInInitial.sort_and_unify();
+
+		for (size_t i = 0; i < ast->children.size(); i++) {
+			AstNode *node = ast->children[i];
+			if (node->type == AST_INITIAL)
+				node->genRTLIL();
+		}
+
+		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
-
-	ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
@@ -832,7 +839,7 @@ static AstModule* process_module(AstNode *ast)
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
@@ -847,7 +854,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
-		if (design->modules.count((*it)->str) != 0) {
+		if (design->modules.count((*it)->str) != 0 && design->modules.count("$abstract" + (*it)->str) != 0) {
 			if (!ignore_redef)
 				log_error("Re-definition of module `%s' at %s:%d!\n",
 						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
@@ -855,7 +862,10 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 					(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
 			continue;
 		}
-		design->modules[(*it)->str] = process_module(*it);
+		if (defer)
+			design->modules["$abstract" + (*it)->str] = process_module(*it, true);
+		else
+			design->modules[(*it)->str] = process_module(*it, false);
 	}
 }
 
@@ -869,7 +879,12 @@ AstModule::~AstModule()
 // create a new parametric module (when needed) and return the name of the generated module
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters)
 {
-	log_header("Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", name.c_str());
+	std::string stripped_name = name;
+
+	if (stripped_name.substr(0, 9) == "$abstract")
+		stripped_name = stripped_name.substr(9);
+
+	log_header("Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
 
 	current_ast = NULL;
 	flag_dump_ast1 = false;
@@ -885,12 +900,13 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 
 	std::string para_info;
 	std::vector<unsigned char> hash_data;
-	hash_data.insert(hash_data.end(), name.begin(), name.end());
+	hash_data.insert(hash_data.end(), stripped_name.begin(), stripped_name.end());
 	hash_data.push_back(0);
 
 	AstNode *new_ast = ast->clone();
 
 	int para_counter = 0;
+	int orig_parameters_n = parameters.size();
 	for (auto it = new_ast->children.begin(); it != new_ast->children.end(); it++) {
 		AstNode *child = *it;
 		if (child->type != AST_PARAMETER)
@@ -917,10 +933,15 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 		}
 	}
 	if (parameters.size() > 0)
-		log_error("Requested parameter `%s' does not exist in module `%s'!\n", parameters.begin()->first.c_str(), name.c_str());
+		log_error("Requested parameter `%s' does not exist in module `%s'!\n", parameters.begin()->first.c_str(), stripped_name.c_str());
 
 	std::string modname;
 
+	if (orig_parameters_n == 0)
+	{
+		modname = stripped_name;
+	}
+	else
 	if (para_info.size() > 60)
 	{
 		unsigned char hash[20];
@@ -933,16 +954,16 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 		char hexstring[41];
 		sha1::toHexString(hash, hexstring);
 
-		modname = "$paramod$" + std::string(hexstring) + name;
+		modname = "$paramod$" + std::string(hexstring) + stripped_name;
 	}
 	else
 	{
-		modname = "$paramod" + name + para_info;
+		modname = "$paramod" + stripped_name + para_info;
 	}
 
 	if (design->modules.count(modname) == 0) {
 		new_ast->str = modname;
-		design->modules[modname] = process_module(new_ast);
+		design->modules[modname] = process_module(new_ast, false);
 		design->modules[modname]->check();
 	} else {
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
