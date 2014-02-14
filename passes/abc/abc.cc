@@ -109,7 +109,7 @@ static void mark_port(RTLIL::SigSpec sig)
 	}
 }
 
-static void extract_cell(RTLIL::Cell *cell)
+static void extract_cell(RTLIL::Cell *cell, bool keepff)
 {
 	if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
 	{
@@ -120,6 +120,11 @@ static void extract_cell(RTLIL::Cell *cell)
 
 		RTLIL::SigSpec sig_d = cell->connections["\\D"];
 		RTLIL::SigSpec sig_q = cell->connections["\\Q"];
+
+		if (keepff)
+			for (auto &c : sig_q.chunks)
+				if (c.wire != NULL)
+					c.wire->attributes["\\keep"] = 1;
 
 		assign_map.apply(sig_d);
 		assign_map.apply(sig_q);
@@ -403,7 +408,7 @@ static std::string fold_abc_cmd(std::string str)
 }
 
 static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str)
+		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str, bool keepff)
 {
 	module = current_module;
 	map_autoidx = RTLIL::autoidx++;
@@ -498,7 +503,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		if (design->selected(current_module, it.second))
 			cells.push_back(it.second);
 	for (auto c : cells)
-		extract_cell(c);
+		extract_cell(c, keepff);
 
 	for (auto &wire_it : module->wires) {
 		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute("\\keep"))
@@ -940,6 +945,10 @@ struct AbcPass : public Pass {
 		log("        with -dff, then it falls back to the automatic dection of clock domain\n");
 		log("        if the specified clock is not found in a module.)\n");
 		log("\n");
+		log("    -keepff\n");
+		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
+		log("        them, for example for equivialence checking.)\n");
+		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -960,7 +969,7 @@ struct AbcPass : public Pass {
 
 		std::string exe_file = rewrite_yosys_exe("yosys-abc");
 		std::string script_file, liberty_file, constr_file, clk_str;
-		bool dff_mode = false, cleanup = true;
+		bool dff_mode = false, keepff = false, cleanup = true;
 		int lut_mode = 0;
 
 		size_t argidx;
@@ -1001,6 +1010,10 @@ struct AbcPass : public Pass {
 				clk_str = args[++argidx];
 				continue;
 			}
+			if (arg == "-keepff") {
+				keepff = true;
+				continue;
+			}
 			if (arg == "-nocleanup") {
 				cleanup = false;
 				continue;
@@ -1020,7 +1033,7 @@ struct AbcPass : public Pass {
 				if (mod_it.second->processes.size() > 0)
 					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 				else
-					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str);
+					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff);
 			}
 
 		assign_map.clear();
