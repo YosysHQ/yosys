@@ -1891,7 +1891,48 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 			variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.bits.size());
 
+			delete block->children.front();
 			block->children.erase(block->children.begin());
+			continue;
+		}
+
+		if (stmt->type == AST_FOR)
+		{
+			block->children.insert(block->children.begin(), stmt->children.at(0));
+			stmt->children.at(3)->children.push_back(stmt->children.at(2));
+			stmt->children.erase(stmt->children.begin() + 2);
+			stmt->children.erase(stmt->children.begin());
+			stmt->type = AST_WHILE;
+			continue;
+		}
+
+		if (stmt->type == AST_WHILE)
+		{
+			AstNode *cond = stmt->children.at(0)->clone();
+			cond->replace_variables(variables, fcall);
+			while (cond->simplify(true, false, false, 1, -1, false, true)) { }
+
+			if (cond->type != AST_CONSTANT)
+				log_error("Non-constant expression in constant function at %s:%d (called from %s:%d).\n",
+						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
+
+			if (cond->asBool()) {
+				block->children.insert(block->children.begin(), stmt->children.at(1)->clone());
+			} else {
+				delete block->children.front();
+				block->children.erase(block->children.begin());
+			}
+
+			delete cond;
+			continue;
+		}
+
+		if (stmt->type == AST_BLOCK)
+		{
+			block->children.erase(block->children.begin());
+			block->children.insert(block->children.begin(), stmt->children.begin(), stmt->children.end());
+			stmt->children.clear();
+			delete stmt;
 			continue;
 		}
 

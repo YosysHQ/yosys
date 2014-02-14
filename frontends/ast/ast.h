@@ -116,6 +116,7 @@ namespace AST
 		AST_COND,
 		AST_DEFAULT,
 		AST_FOR,
+		AST_WHILE,
 
 		AST_GENVAR,
 		AST_GENFOR,
