@@ -148,9 +148,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	// activate const folding if this is anything that must be evaluated statically (ranges, parameters, attributes, etc.)
 	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX)
-		const_fold = true, in_param = true;
+		const_fold = true;
 	if (type == AST_IDENTIFIER && current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM))
 		const_fold = true;
+
+	// in certain cases a function must be evaluated constant. this is what in_param controls.
+	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_PREFIX)
+		in_param = true;
 
 	std::map<std::string, AstNode*> backup_scope;
 
