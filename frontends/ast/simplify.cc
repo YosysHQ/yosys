@@ -43,7 +43,7 @@ using namespace AST_INTERNAL;
 //
 // this function also does all name resolving and sets the id2ast member of all
 // nodes that link to a different node using names and lexical scoping.
-bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint)
+bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param)
 {
 	AstNode *newNode = NULL;
 	bool did_something = false;
@@ -52,7 +52,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		assert(type == AST_MODULE);
 
-		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint)) { }
+		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
 
 		if (!flag_nomem2reg && !get_bool_attribute("\\nomem2reg"))
 		{
@@ -114,7 +114,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					reg->is_reg = true;
 					reg->is_signed = node->is_signed;
 					children.push_back(reg);
-					while (reg->simplify(true, false, false, 1, -1, false)) { }
+					while (reg->simplify(true, false, false, 1, -1, false, false)) { }
 				}
 			}
 
@@ -128,7 +128,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 
-		while (simplify(const_fold, at_zero, in_lvalue, 2, width_hint, sign_hint)) { }
+		while (simplify(const_fold, at_zero, in_lvalue, 2, width_hint, sign_hint, in_param)) { }
 		return false;
 	}
 
@@ -148,7 +148,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	// activate const folding if this is anything that must be evaluated statically (ranges, parameters, attributes, etc.)
 	if (type == AST_WIRE || type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_RANGE || type == AST_PREFIX)
-		const_fold = true;
+		const_fold = true, in_param = true;
 	if (type == AST_IDENTIFIER && current_scope.count(str) > 0 && (current_scope[str]->type == AST_PARAMETER || current_scope[str]->type == AST_LOCALPARAM))
 		const_fold = true;
 
@@ -215,7 +215,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE)
-				while (node->simplify(true, false, false, 1, -1, false)) { }
+				while (node->simplify(true, false, false, 1, -1, false, node->type == AST_PARAMETER || node->type == AST_LOCALPARAM)) { }
 		}
 	}
 
@@ -237,8 +237,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_ASSIGN_EQ:
 	case AST_ASSIGN_LE:
 	case AST_ASSIGN:
-		while (!children[0]->basic_prep && children[0]->simplify(false, false, true, stage, -1, false) == true) { }
-		while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false) == true) { }
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, true, stage, -1, false, false) == true) { }
+		while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, false) == true) { }
 		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
 		children[1]->detectSignWidth(width_hint, sign_hint);
 		width_hint = std::max(width_hint, backup_width_hint);
@@ -247,11 +247,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
-		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false) == true) { }
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, true) == true) { }
 		children[0]->detectSignWidth(width_hint, sign_hint);
 		if (children.size() > 1) {
 			assert(children[1]->type == AST_RANGE);
-			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false) == true) { }
+			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, true) == true) { }
 			if (!children[1]->range_valid)
 				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
 			width_hint = std::max(width_hint, children[1]->range_left - children[1]->range_right + 1);
@@ -307,7 +307,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		width_hint = -1;
 		sign_hint = true;
 		for (auto child : children) {
-			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
+			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false, in_param) == true) { }
 			child->detectSignWidthWorker(width_hint, sign_hint);
 		}
 		reset_width_after_children = true;
@@ -337,9 +337,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (detect_width_simple && width_hint < 0) {
 		for (auto child : children)
-			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false) == true) { }
+			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false, in_param) == true) { }
 		if (type == AST_REPLICATE)
-			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false) == true) { }
+			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false, in_param) == true) { }
 		detectSignWidth(width_hint, sign_hint);
 	}
 
@@ -379,13 +379,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				width_hint_here = -1, sign_hint_here = false;
 			if (children_are_self_determined)
 				width_hint_here = -1, sign_hint_here = false;
-			did_something_here = children[i]->simplify(const_fold_here, at_zero, in_lvalue_here, stage, width_hint_here, sign_hint_here);
+			did_something_here = children[i]->simplify(const_fold_here, at_zero, in_lvalue_here, stage, width_hint_here, sign_hint_here, in_param);
 			if (did_something_here)
 				did_something = true;
 		}
 	}
 	for (auto &attr : attributes) {
-		while (attr.second->simplify(true, false, false, stage, -1, false)) { }
+		while (attr.second->simplify(true, false, false, stage, -1, false, true)) { }
 	}
 
 	if (reset_width_after_children) {
@@ -556,7 +556,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (current_block)
 			wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		current_ast_mod->children.push_back(wire);
-		while (wire->simplify(true, false, false, 1, -1, false)) { }
+		while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 
 		AstNode *data = clone();
 		delete data->children[1];
@@ -621,7 +621,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		// eval 1st expression
 		AstNode *varbuf = init_ast->children[1]->clone();
-		while (varbuf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+		while (varbuf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 
 		if (varbuf->type != AST_CONSTANT)
 			log_error("Right hand side of 1st expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
@@ -643,7 +643,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		{
 			// eval 2nd expression
 			AstNode *buf = while_ast->clone();
-			while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+			while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 
 			if (buf->type != AST_CONSTANT)
 				log_error("2nd expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
@@ -672,7 +672,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			if (type == AST_GENFOR) {
 				for (size_t i = 0; i < buf->children.size(); i++) {
-					buf->children[i]->simplify(false, false, false, stage, -1, false);
+					buf->children[i]->simplify(false, false, false, stage, -1, false, false);
 					current_ast_mod->children.push_back(buf->children[i]);
 				}
 			} else {
@@ -684,7 +684,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			// eval 3rd expression
 			buf = next_ast->children[1]->clone();
-			while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+			while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 
 			if (buf->type != AST_CONSTANT)
 				log_error("Right hand side of 3rd expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
@@ -708,7 +708,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
 			if (children[i]->type == AST_WIRE) {
-				children[i]->simplify(false, false, false, stage, -1, false);
+				children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(children[i]);
 			} else
 				new_children.push_back(children[i]);
@@ -727,7 +727,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 
 		for (size_t i = 0; i < children.size(); i++) {
-			children[i]->simplify(false, false, false, stage, -1, false);
+			children[i]->simplify(false, false, false, stage, -1, false, false);
 			current_ast_mod->children.push_back(children[i]);
 		}
 
@@ -739,7 +739,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_GENIF && children.size() != 0)
 	{
 		AstNode *buf = children[0]->clone();
-		while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+		while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 		if (buf->type != AST_CONSTANT) {
 			// for (auto f : log_files)
 			// 	dumpAst(f, "verilog-ast> ");
@@ -764,7 +764,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
-				buf->children[i]->simplify(false, false, false, stage, -1, false);
+				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(buf->children[i]);
 			}
 
@@ -780,7 +780,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_GENCASE && children.size() != 0)
 	{
 		AstNode *buf = children[0]->clone();
-		while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+		while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 		if (buf->type != AST_CONSTANT) {
 			// for (auto f : log_files)
 			// 	dumpAst(f, "verilog-ast> ");
@@ -814,7 +814,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					continue;
 
 				buf = child->clone();
-				while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				if (buf->type != AST_CONSTANT) {
 					// for (auto f : log_files)
 					// 	dumpAst(f, "verilog-ast> ");
@@ -840,7 +840,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
-				buf->children[i]->simplify(false, false, false, stage, -1, false);
+				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(buf->children[i]);
 			}
 
@@ -955,8 +955,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			shift_expr = range->children[1]->clone();
 			AstNode *left_at_zero_ast = range->children[0]->clone();
 			AstNode *right_at_zero_ast = range->children[1]->clone();
-			while (left_at_zero_ast->simplify(true, true, false, stage, -1, false)) { }
-			while (right_at_zero_ast->simplify(true, true, false, stage, -1, false)) { }
+			while (left_at_zero_ast->simplify(true, true, false, stage, -1, false, false)) { }
+			while (right_at_zero_ast->simplify(true, true, false, stage, -1, false, false)) { }
 			if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 				log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
@@ -988,7 +988,7 @@ skip_dynamic_range_lvalue_expansion:;
 		wire_check->str = id_check;
 		current_ast_mod->children.push_back(wire_check);
 		current_scope[wire_check->str] = wire_check;
-		while (wire_check->simplify(true, false, false, 1, -1, false)) { }
+		while (wire_check->simplify(true, false, false, 1, -1, false, false)) { }
 
 		AstNode *wire_en = new AstNode(AST_WIRE);
 		wire_en->str = id_en;
@@ -996,7 +996,7 @@ skip_dynamic_range_lvalue_expansion:;
 		current_ast_mod->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)))));
 		current_ast_mod->children.back()->children[0]->children[0]->children[0]->str = id_en;
 		current_scope[wire_en->str] = wire_en;
-		while (wire_en->simplify(true, false, false, 1, -1, false)) { }
+		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
 		std::vector<RTLIL::State> x_bit;
 		x_bit.push_back(RTLIL::State::Sx);
@@ -1070,19 +1070,19 @@ skip_dynamic_range_lvalue_expansion:;
 		wire_addr->str = id_addr;
 		current_ast_mod->children.push_back(wire_addr);
 		current_scope[wire_addr->str] = wire_addr;
-		while (wire_addr->simplify(true, false, false, 1, -1, false)) { }
+		while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
 		current_ast_mod->children.push_back(wire_data);
 		current_scope[wire_data->str] = wire_data;
-		while (wire_data->simplify(true, false, false, 1, -1, false)) { }
+		while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
 		AstNode *wire_en = new AstNode(AST_WIRE);
 		wire_en->str = id_en;
 		current_ast_mod->children.push_back(wire_en);
 		current_scope[wire_en->str] = wire_en;
-		while (wire_en->simplify(true, false, false, 1, -1, false)) { }
+		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
 		std::vector<RTLIL::State> x_bits;
 		for (int i = 0; i < mem_width; i++)
@@ -1138,7 +1138,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "\\$clog2")
 			{
 				AstNode *buf = children[0]->clone();
-				while (buf->simplify(true, false, false, stage, width_hint, sign_hint)) { }
+				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				if (buf->type != AST_CONSTANT)
 					log_error("Failed to evaluate system function `%s' with non-constant value at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 
@@ -1158,6 +1158,23 @@ skip_dynamic_range_lvalue_expansion:;
 		if (type == AST_TCALL) {
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_TASK)
 				log_error("Can't resolve task name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+		}
+
+		if (in_param)
+		{
+			bool all_args_const = true;
+			for (auto child : children)
+				if (child->type != AST_CONSTANT)
+					all_args_const = false;
+
+			if (all_args_const) {
+				AstNode *func_workspace = current_scope[str]->clone();
+				newNode = func_workspace->eval_const_function(this);
+				delete func_workspace;
+				goto apply_newNode;
+			}
+
+			log_error("Non-constant function call in constant expression at %s:%d.\n", filename.c_str(), linenum);
 		}
 
 		AstNode *decl = current_scope[str];
@@ -1184,7 +1201,7 @@ skip_dynamic_range_lvalue_expansion:;
 			wire->is_output = false;
 
 			current_ast_mod->children.push_back(wire);
-			while (wire->simplify(true, false, false, 1, -1, false)) { }
+			while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 
 			AstNode *lvalue = new AstNode(AST_IDENTIFIER);
 			lvalue->str = wire->str;
@@ -1206,7 +1223,7 @@ skip_dynamic_range_lvalue_expansion:;
 				wire->is_input = false;
 				wire->is_output = false;
 				current_ast_mod->children.push_back(wire);
-				while (wire->simplify(true, false, false, 1, -1, false)) { }
+				while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 
 				replace_rules[child->str] = wire->str;
 
@@ -1628,14 +1645,14 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		wire_addr->is_reg = true;
 		wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_addr);
-		while (wire_addr->simplify(true, false, false, 1, -1, false)) { }
+		while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
 
 		AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_data->str = id_data;
 		wire_data->is_reg = true;
 		wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 		mod->children.push_back(wire_data);
-		while (wire_data->simplify(true, false, false, 1, -1, false)) { }
+		while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
 		assert(block != NULL);
 		size_t assign_idx = 0;
@@ -1694,7 +1711,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 			if (block)
 				wire_addr->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 			mod->children.push_back(wire_addr);
-			while (wire_addr->simplify(true, false, false, 1, -1, false)) { }
+			while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
 
 			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 			wire_data->str = id_data;
@@ -1702,7 +1719,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 			if (block)
 				wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
 			mod->children.push_back(wire_data);
-			while (wire_data->simplify(true, false, false, 1, -1, false)) { }
+			while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
 			AstNode *assign_addr = new AstNode(block ? AST_ASSIGN_EQ : AST_ASSIGN, new AstNode(AST_IDENTIFIER), children[0]->children[0]->clone());
 			assign_addr->children[0]->str = id_addr;
@@ -1777,5 +1794,118 @@ void AstNode::meminfo(int &mem_width, int &mem_size, int &addr_bits)
 	addr_bits = 1;
 	while ((1 << addr_bits) < mem_size)
 		addr_bits++;
+}
+
+// helper function for AstNode::eval_const_function()
+void AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &variables, AstNode *fcall)
+{
+	if (type == AST_IDENTIFIER && variables.count(str)) {
+		int offset = variables.at(str).offset, width = variables.at(str).val.bits.size();
+		if (!children.empty()) {
+			while (simplify(true, false, false, 1, -1, false, true)) { }
+			if (!range_valid)
+				log_error("Non-constant range in %s:%d (called from %s:%d).\n",
+						filename.c_str(), linenum, fcall->filename.c_str(), fcall->linenum);
+			offset = std::min(range_left, range_right);
+			width = std::min(std::abs(range_left - range_right) + 1, width);
+		}
+		offset -= variables.at(str).offset;
+		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits;
+		std::vector<RTLIL::State> new_bits(var_bits.begin() + offset, var_bits.begin() + offset + width);
+		AstNode *newNode = mkconst_bits(new_bits, variables.at(str).is_signed);
+		newNode->cloneInto(this);
+		delete newNode;
+		return;
+	}
+
+	for (auto &child : children)
+		child->replace_variables(variables, fcall);
+}
+
+// evaluate functions with all-const arguments
+AstNode *AstNode::eval_const_function(AstNode *fcall)
+{
+	std::map<std::string, AstNode*> backup_scope;
+	std::map<std::string, AstNode::varinfo_t> variables;
+	AstNode *block = NULL;
+
+	size_t argidx = 0;
+	for (auto child : children)
+	{
+		if (child->type == AST_BLOCK)
+		{
+			log_assert(block == NULL);
+			block = child;
+			continue;
+		}
+
+		if (child->type == AST_WIRE)
+		{
+			while (child->simplify(true, false, false, 1, -1, false, true)) { }
+			if (!child->range_valid)
+				log_error("Can't determine size of variable %s in %s:%d (called from %s:%d).\n",
+						child->str.c_str(), child->filename.c_str(), child->linenum, fcall->filename.c_str(), fcall->linenum);
+			variables[child->str].val = RTLIL::Const(RTLIL::State::Sx, abs(child->range_left - child->range_right)+1);
+			variables[child->str].offset = std::min(child->range_left, child->range_right);
+			variables[child->str].is_signed = child->is_signed;
+			if (child->is_input && argidx < fcall->children.size())
+				variables[child->str].val = fcall->children.at(argidx++)->bitsAsConst(variables[child->str].val.bits.size());
+			backup_scope[child->str] = current_scope[child->str];
+			current_scope[child->str] = child;
+			continue;
+		}
+
+		log_abort();
+	}
+
+	log_assert(block != NULL);
+	log_assert(variables.count(str));
+
+	while (!block->children.empty())
+	{
+		AstNode *stmt = block->children.front();
+
+#if 0
+		log("-----------------------------------\n");
+		for (auto &it : variables)
+			log("%20s %40s\n", it.first.c_str(), log_signal(it.second.val));
+		stmt->dumpAst(NULL, "stmt> ");
+#endif
+
+		if (stmt->type == AST_ASSIGN_EQ)
+		{
+			stmt->children.at(1)->replace_variables(variables, fcall);
+			while (stmt->simplify(true, false, false, 1, -1, false, true)) { }
+
+			if (stmt->children.at(1)->type != AST_CONSTANT)
+				log_error("Non-constant expression in constant function at %s:%d (called from %s:%d).\n",
+						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
+
+			if (stmt->children.at(0)->type != AST_IDENTIFIER || !stmt->children.at(0)->children.empty())
+				log_error("Unsupported composite left hand side in constant function at %s:%d (called from %s:%d).\n",
+						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
+
+			if (!variables.count(stmt->children.at(0)->str))
+				log_error("Assignment to non-local variable in constant function at %s:%d (called from %s:%d).\n",
+						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
+
+			variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.bits.size());
+
+			block->children.erase(block->children.begin());
+			continue;
+		}
+
+		log_error("Unsupported language construct in constant function at %s:%d (called from %s:%d).\n",
+				stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
+		log_abort();
+	}
+
+	for (auto &it : backup_scope)
+		if (it.second == NULL)
+			current_scope.erase(it.first);
+		else
+			current_scope[it.first] = it.second;
+
+	return AstNode::mkconst_bits(variables.at(str).val.bits, variables.at(str).is_signed);
 }
 

@@ -190,13 +190,18 @@ namespace AST
 
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
-		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint);
+		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
 		void replace_ids(std::map<std::string, std::string> &rules);
 		void mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
 				std::map<AstNode*, uint32_t> &mem2reg_flags, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
 		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
+
+		// additional functionality for evaluating constant functions
+		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
+		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
+		AstNode *eval_const_function(AstNode *fcall);
 
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent);

@@ -772,7 +772,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 	if (!defer)
 	{
-		while (ast->simplify(!flag_noopt, false, false, 0, -1, false)) { }
+		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
 			log("Dumping verilog AST after simplification:\n");

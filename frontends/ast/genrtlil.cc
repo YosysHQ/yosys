@@ -648,8 +648,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 			else if (!range->range_valid) {
 				AstNode *left_at_zero_ast = children[0]->children[0]->clone();
 				AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
-				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
-				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
+				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
+				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 					log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n",
 							str.c_str(), filename.c_str(), linenum);
@@ -665,7 +665,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_TO_BITS:
-		while (children[0]->simplify(true, false, false, 1, -1, false) == true) { }
+		while (children[0]->simplify(true, false, false, 1, -1, false, false) == true) { }
 		if (children[0]->type != AST_CONSTANT)
 			log_error("Left operand of tobits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
 		children[1]->detectSignWidthWorker(sub_width_hint, sign_hint);
@@ -693,7 +693,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_REPLICATE:
-		while (children[0]->simplify(true, false, false, 1, -1, false) == true) { }
+		while (children[0]->simplify(true, false, false, 1, -1, false, false) == true) { }
 		if (children[0]->type != AST_CONSTANT)
 			log_error("Left operand of replicate expression is not constant at %s:%d!\n", filename.c_str(), linenum);
 		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
@@ -961,8 +961,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (!children[0]->range_valid) {
 					AstNode *left_at_zero_ast = children[0]->children[0]->clone();
 					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
-					while (left_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
-					while (right_at_zero_ast->simplify(true, true, false, 1, -1, false)) { }
+					while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
+					while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 					if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 						log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n",
 								str.c_str(), filename.c_str(), linenum);
