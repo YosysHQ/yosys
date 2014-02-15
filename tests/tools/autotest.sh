@@ -6,6 +6,7 @@ use_xsim=false
 use_modelsim=false
 verbose=false
 keeprunning=false
+frontend="verilog"
 backend_opts="-noattr -noexpr"
 scriptfiles=""
 scriptopt=""
@@ -15,7 +16,7 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xml:wkvrs:p: opt; do
+while getopts xml:wkvrf:s:p: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -31,13 +32,15 @@ while getopts xml:wkvrs:p: opt; do
 			verbose=true ;;
 		r)
 			backend_opts="$backend_opts -norename" ;;
+		f)
+			frontend="$OPTARG" ;;
 		s)
 			[[ "$OPTARG" == /* ]] || OPTARG="$PWD/$OPTARG"
 			scriptfiles="$scriptfiles $OPTARG" ;;
 		p)
 			scriptopt="$OPTARG" ;;
 		*)
-			echo "Usage: $0 [-x|-m] [-w] [-k] [-v] [-r] [-l libs] [-s script] [-p cmdstring] verilog-files\n" >&2
+			echo "Usage: $0 [-x|-m] [-w] [-k] [-v] [-r] [-l libs] [-f frontend] [-s script] [-p cmdstring] verilog-files\n" >&2
 			exit 1
 	esac
 done
@@ -111,10 +114,10 @@ do
 		if [ -n "$scriptfiles" ]; then
 			test_passes
 		elif [ -n "$scriptopt" ]; then
-			test_passes -p "$scriptopt"
+			test_passes -f "$frontend" -p "$scriptopt"
 		else
-			test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt"
-			test_passes -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt"
+			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt"
+			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt"
 		fi
 		touch ../${bn}.log
 	}
