@@ -143,8 +143,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-1 && stack[top-1].type == 2 && stack[top].type == 2) {
-		token_t t = token_t(2, create_and_cell(module, stack[top-2].sig, stack[top].sig));
-		stack.pop_back();
+		token_t t = token_t(2, create_and_cell(module, stack[top-1].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
