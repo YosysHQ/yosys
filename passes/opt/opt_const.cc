@@ -108,7 +108,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 #define ACTION_DO(_p_, _s_) do { replace_cell(module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO("\\Y", RTLIL::SigSpec(RTLIL::State::S ## _v_))
 
-		if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") &&
+		if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") && cell->connections["\\Y"].width == 1 &&
 				invert_map.count(assign_map(cell->connections["\\A"])) != 0) {
 			replace_cell(module, cell, "double_invert", "\\Y", invert_map.at(assign_map(cell->connections["\\A"])));
 			goto next_cell;
