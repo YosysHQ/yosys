@@ -342,7 +342,7 @@ static bool expand_cellmap(std::string pattern, std::string inv)
 
 static void map_sr_to_arst(const char *from, const char *to)
 {
-	if (cell_mappings.count(to) > 0)
+	if (!cell_mappings.count(from) || cell_mappings.count(to) > 0)
 		return;
 
 	char from_clk_pol = from[8], from_set_pol = from[9], from_clr_pol = from[10];
