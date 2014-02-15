@@ -63,6 +63,8 @@ static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char 
 
 		if (match_op == '=')
 			return value == pattern_value;
+		if (match_op == '!')
+			return value != pattern_value;
 		if (match_op == '<')
 			return value.as_int() < pattern_value.as_int();
 		if (match_op == '>')
@@ -82,6 +84,8 @@ static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char 
 
 		if (match_op == '=')
 			return value_str == pattern;
+		if (match_op == '!')
+			return value_str != pattern;
 		if (match_op == '<')
 			return value_str < pattern;
 		if (match_op == '>')
@@ -115,9 +119,11 @@ static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes
 
 static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes, std::string match_expr)
 {
-	size_t pos = match_expr.find_first_of("<=>");
+	size_t pos = match_expr.find_first_of("<!=>");
 
 	if (pos != std::string::npos) {
+		if (match_expr.substr(pos, 2) == "!=")
+			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '!');
 		if (match_expr.substr(pos, 2) == "<=")
 			return match_attr(attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
 		if (match_expr.substr(pos, 2) == ">=")
