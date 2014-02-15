@@ -3,43 +3,126 @@ List of incompatible changes and major milestones between releases
 ==================================================================
 
 
-Yosys 0.1.0 .. Yoys 0.1.0+
---------------------------
+Yosys 0.1.0 .. Yoys 0.2.0
+-------------------------
+
+ * Changes to the driver program:
+     - Added "yosys -h" and "yosys -H"
+     - Added support for backslash line continuation in scripts
+     - Added support for #-comments in same line as command
+     - Added "echo" and "log" commands
 
  * Improvements in Verilog frontend:
      - Added support for local registers in named blocks
      - Added support for "case" in "generate" blocks
      - Added support for $clog2 system function
+     - Added support for basic SystemVerilog assert statements
      - Added preprocessor support for macro arguments
      - Added preprocessor support for `elsif statement
+     - Added "verilog_defaults" command
+     - Added read_verilog -icells option
+     - Added support for constant sizes from parameters
+     - Added "read_verilog -setattr"
+     - Added support for function returning 'integer'
+     - Added limited support for function calls in parameter values
+     - Added "read_verilog -defer" to suppress evaluation of modules with default parameters
+
+ * Other front- and back-ends:
+     - Added BTOR backend
+     - Added Liberty frontend
 
  * Improvements in technology mapping:
      - The "dfflibmap" command now strongly prefers solutions with
            no inverters in clock paths
      - The "dfflibmap" command now prefers cells with smaller area
+     - Added support for multiple -map options to techmap
+     - Added "dfflibmap" support for //-comments in liberty files
+     - Added "memory_unpack" command to revert "memory_collect"
+     - Added standard techmap rule "techmap -share_map pmux2mux.v"
+     - Added "iopadmap -bits"
+     - Added "setundef" command
+     - Added "hilomap" command
+
+ * Changes in the internal cell library:
+     - Major rewrite of simlib.v for better compatibility with other tools
+     - Added PRIORITY parameter to $memwr cells
+     - Added TRANSPARENT parameter to $memrd cells
+     - Added RD_TRANSPARENT parameter to $mem cells
+     - Added $bu0 cell (always 0-extend, even undef MSB)
+     - Added $assert cell type
+     - Added $slice and $concat cell types
 
  * Integration with ABC:
-     - Updated ABC to hg rev 57517e81666b
+     - Updated ABC to hg rev 2058c8ccea68
      - Tighter integration of ABC build with Yosys build. The make
            targets 'make abc' and 'make install-abc' are now obsolete.
      - Added support for passing FFs from one clock domain through ABC
      - Now always use BLIF as exchange format with ABC
+     - Added support for "abc -script +<command_sequence>"
+     - Improved standard ABC recipe
+     - Added support for "keep" attribute to abc command
+     - Added "abc -dff / -clk / -keepff" options
 
  * Improvements to "eval" and "sat" framework:
      - Added support for "0" and "~0" in right-hand side -set expressions
      - Added "eval -set-undef" and "eval -table"
-     - Added "sat -set-init" support for sequential problems
+     - Added "sat -set-init" and "sat -set-init-*" for sequential problems
      - Added undef support to SAT solver, incl. various new "sat" options
      - Added correct support for === and !== for "eval" and "sat"
+     - Added "sat -tempinduct" (default -seq is now non-induction sequential)
+     - Added "sat -prove-asserts"
+     - Complete rewrite of the 'freduce' command
+     - Added "miter" command
+     - Added "sat -show-inputs" and "sat -show-outputs"
+     - Added "sat -ignore_unknown_cells" (now produce an error by default)
+     - Added "sat -falsify"
+     - Now "sat -verify" and "sat -falsify" can also be used without "-prove"
+     - Added "expose" command
+     - Added support for @<sel_name> to sat and eval signal expressions
+
+ * Changes in the 'make test' framework and auxilary test tools:
+     - Added autotest.sh -p and -f options
+     - Replaced autotest.sh ISIM support with XSIM support
+     - Added test cases for SAT framework
 
  * Added "abbreviated IDs":
      - Now $<something>$foo can be abbriviated as $foo.
      - Usually this last part is a unique id (from RTLIL::autoidx)
      - This abbreviated IDs are now also used in "show" output
 
+ * Other changes to selection framework:
+     - Now */ is optional in */<mode>:<arg> expressions
+     - Added "select -assert-none" and "select -assert-any"
+     - Added support for matching modules by attribute (A:<expr>)
+     - Added "select -none"
+     - Added support for r:<expr> pattern for matching cell parameters
+     - Added support for !=, <, <=, >=, > for attribute and parameter matching
+     - Added support for %s for selecting sub-modules
+     - Added support for %m for expanding selections to whole modules
+     - Added support for i:*, o:* and x:* pattern for selecting module ports
+     - Added support for s:<expr> pattern for matching wire width
+     - Added support for %a operation to select wire aliases
+
  * Various other changes to commands and options:
      - The "ls" command now supports wildcards
      - Added "show -pause" and "show -format dot"
+     - Added "show -color" support for cells
+     - Added "show -label" and "show -notitle"
      - Added "dump -m" and "dump -n"
      - Added "history" command
+     - Added "rename -hide"
+     - Added "connect" command
+     - Added "splitnets -driver"
+     - Added "opt_const -mux_undef"
+     - Added "opt_const -mux_bool"
+     - Added "opt_const -undriven"
+     - Added "opt -mux_undef -mux_bool -undriven -purge"
+     - Added "hierarchy -libdir"
+     - Added "hierarchy -purge_lib" (by default now do not remove lib cells)
+     - Added "delete" command
+     - Added "dump -append"
+     - Added "setattr" and "setparam" commands
+     - Added "design -stash/-copy-from/-copy-to"
+     - Added "copy" command
+     - Added "splice" command
 
