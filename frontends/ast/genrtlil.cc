@@ -905,18 +905,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 
-			RTLIL::SigChunk chunk;
-			chunk.wire = NULL;
-			chunk.data.bits = bits;
-			chunk.width = bits.size();
-			chunk.offset = 0;
-
-			RTLIL::SigSpec sig;
-			sig.chunks.push_back(chunk);
-			sig.width = chunk.width;
-
 			is_signed = sign_hint;
-			return sig;
+			return RTLIL::SigSpec(bitsAsConst(width_hint, sign_hint));
 		}
 
 	// simply return the corresponding RTLIL::SigSpec for an AST_IDENTIFIER node
