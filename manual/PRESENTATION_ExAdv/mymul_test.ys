@@ -1,0 +1,15 @@
+read_verilog mymul_test.v
+hierarchy -check -top test
+
+techmap -map sym_mul_map.v \
+        -map mymul_map.v;;
+
+rename test test_mapped
+read_verilog mymul_test.v
+miter -equiv test test_mapped miter
+flatten miter
+
+sat -verify -prove trigger 0 miter
+
+splitnets -ports test_mapped/A
+show -prefix mymul -format pdf -notitle test_mapped

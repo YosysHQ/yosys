@@ -320,6 +320,47 @@ is non-zero then the module is disabled for this set of parameters.
 \end{columns}
 \end{frame}
 
+\subsubsection{Scripting in map modules}
+
+\begin{frame}{\subsubsecname}
+\begin{itemize}
+\item The special wires {\tt \_TECHMAP\_DO\_*} can be used to run Yosys scripts
+in the context of the replacement module.
+\medskip
+\item The wire that comes first in alphatecial oder is interprated as string (must
+be connected to constants) that is executed as script. Then the wire is removed. Repeat.
+\medskip
+\item You can even call techmap recursively!
+\medskip
+\item Example use-cases:
+\begin{itemize}
+\item Using always blocks in map module: call {\tt proc}
+\item Perform expensive optimizations (such as {\tt freduce}) on cells where
+this is known to work well.
+\item Interacting with custom commands.
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[t]{\subsubsecname{} -- Example}
+\vbox to 0cm{
+\vskip4.2cm
+\hskip0.5cm\includegraphics[width=10cm,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/mymul.pdf}
+\vss
+}
+\vskip-0.6cm
+\begin{columns}
+\column[t]{6cm}
+\vskip-0.6cm
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/mymul_map.v}
+\column[t]{4.2cm}
+\vskip-0.6cm
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=verilog]{PRESENTATION_ExAdv/mymul_test.v}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=ys, lastline=5]{PRESENTATION_ExAdv/mymul_test.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, frame=single, language=ys, firstline=7, lastline=12]{PRESENTATION_ExAdv/mymul_test.ys}
+\end{columns}
+\end{frame}
+
 \subsubsection{TBD}
 
 \begin{frame}{\subsubsecname}
