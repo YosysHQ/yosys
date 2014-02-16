@@ -259,7 +259,7 @@ Generate blocks and recursion are powerful tools for writing map files.
 \end{itemize}
 \end{frame}
 
-\begin{frame}[t]{\subsubsecname -- Example 1/2}
+\begin{frame}[t]{\subsubsecname{} -- Example 1/2}
 \vskip-0.2cm
 To map the Verilog OR-reduction operator to 3-input OR gates:
 \vskip-0.2cm
@@ -271,7 +271,7 @@ To map the Verilog OR-reduction operator to 3-input OR gates:
 \end{columns}
 \end{frame}
 
-\begin{frame}[t]{\subsubsecname -- Example 2/2}
+\begin{frame}[t]{\subsubsecname{} -- Example 2/2}
 \vbox to 0cm{
 \hfil\includegraphics[width=10cm,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/red_or3x1.pdf}
 \vss
@@ -281,6 +281,42 @@ To map the Verilog OR-reduction operator to 3-input OR gates:
 \column[t]{4cm}
 \vskip-0.6cm\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, firstline=4, lastline=4, frame=single]{PRESENTATION_ExAdv/red_or3x1_test.ys}
 \vskip-0.2cm\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/red_or3x1_test.v}
+\end{columns}
+\end{frame}
+
+\subsubsection{Conditional techmap}
+
+\begin{frame}{\subsubsecname}
+\begin{itemize}
+\item In some cases only cells with certain properties should be substituted.
+\medskip
+\item The special wire {\tt \_TECHMAP\_FAIL\_} can be used to disable a module
+in the map file for a certain set of parameters.
+\medskip
+\item The wire {\tt \_TECHMAP\_FAIL\_} must be set to a constant value. If it
+is non-zero then the module is disabled for this set of parameters.
+\medskip
+\item Example use-cases:
+\begin{itemize}
+\item coarse-grain cell types that only operate on certain bit widths
+\item memory resources for different memory geometries (width, depth, ports, etc.)
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[t]{\subsubsecname{} -- Example}
+\vbox to 0cm{
+\vskip-0.5cm
+\hfill\includegraphics[width=6cm,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/sym_mul.pdf}
+\vss
+}
+\vskip-0.5cm
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/sym_mul_map.v}
+\begin{columns}
+\column[t]{6cm}
+\vskip-0.5cm\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=verilog]{PRESENTATION_ExAdv/sym_mul_test.v}
+\column[t]{4cm}
+\vskip-0.5cm\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=ys, lastline=4]{PRESENTATION_ExAdv/sym_mul_test.ys}
 \end{columns}
 \end{frame}
 
