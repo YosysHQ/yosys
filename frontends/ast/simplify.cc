@@ -1167,9 +1167,11 @@ skip_dynamic_range_lvalue_expansion:;
 		if (in_param)
 		{
 			bool all_args_const = true;
-			for (auto child : children)
+			for (auto child : children) {
+				while (child->simplify(true, false, false, 1, -1, false, true)) { }
 				if (child->type != AST_CONSTANT)
 					all_args_const = false;
+			}
 
 			if (all_args_const) {
 				AstNode *func_workspace = current_scope[str]->clone();
@@ -1928,6 +1930,53 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			}
 
 			delete cond;
+			continue;
+		}
+
+		if (stmt->type == AST_CASE)
+		{
+			AstNode *expr = stmt->children.at(0)->clone();
+			expr->replace_variables(variables, fcall);
+			while (expr->simplify(true, false, false, 1, -1, false, true)) { }
+
+			AstNode *sel_case = NULL;
+			for (size_t i = 1; i < stmt->children.size(); i++)
+			{
+				bool found_match = false;
+				log_assert(stmt->children.at(i)->type == AST_COND);
+
+				if (stmt->children.at(i)->children.front()->type == AST_DEFAULT) {
+					sel_case = stmt->children.at(i)->children.back();
+					continue;
+				}
+
+				for (size_t j = 0; j+1 < stmt->children.at(i)->children.size() && !found_match; j++)
+				{
+					AstNode *cond = stmt->children.at(i)->children.at(j)->clone();
+					cond->replace_variables(variables, fcall);
+
+					cond = new AstNode(AST_EQ, expr->clone(), cond);
+					while (cond->simplify(true, false, false, 1, -1, false, true)) { }
+
+					if (cond->type != AST_CONSTANT)
+						log_error("Non-constant expression in constant function at %s:%d (called from %s:%d).\n",
+								stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
+
+					found_match = cond->asBool();
+					delete cond;
+				}
+
+				if (found_match) {
+					sel_case = stmt->children.at(i)->children.back();
+					break;
+				}
+			}
+
+			block->children.erase(block->children.begin());
+			if (sel_case)
+				block->children.insert(block->children.begin(), sel_case->clone());
+			delete stmt;
+			delete expr;
 			continue;
 		}
 
