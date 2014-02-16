@@ -293,10 +293,15 @@ struct TechmapWorker
 					bool keep_running = true;
 					techmap_do_cache[tpl] = true;
 
+					std::set<std::string> techmap_wire_names;
+
 					while (keep_running)
 					{
 						TechmapWires twd = techmap_find_special_wires(tpl);
 						keep_running = false;
+
+						for (auto &it : twd)
+							techmap_wire_names.insert(it.first);
 
 						for (auto &it : twd["_TECHMAP_FAIL_"]) {
 							RTLIL::SigSpec value = it.value;
@@ -320,7 +325,9 @@ struct TechmapWorker
 							if (!data.value.is_fully_const())
 								log_error("Techmap yielded config wire %s with non-const value %s.\n", RTLIL::id2cstr(data.wire->name), log_signal(data.value));
 
+							techmap_wire_names.erase(it.first);
 							tpl->wires.erase(data.wire->name);
+
 							const char *p = data.wire->name.c_str();
 							const char *q = strrchr(p+1, '.');
 							q = q ? q : p+1;
@@ -335,10 +342,13 @@ struct TechmapWorker
 							std::string cmd_string = data.value.as_const().decode_string();
 
 							RTLIL::Selection tpl_mod_sel(false);
+							std::string backup_active_module = map->selected_active_module;
+							map->selected_active_module = tpl->name;
 							tpl_mod_sel.select(tpl);
 							map->selection_stack.push_back(tpl_mod_sel);
 							Pass::call(map, cmd_string);
 							map->selection_stack.pop_back();
+							map->selected_active_module = backup_active_module;
 
 							keep_running = true;
 							break;
@@ -353,7 +363,11 @@ struct TechmapWorker
 							for (auto &it2 : it.second)
 								if (!it2.value.is_fully_const())
 									log_error("Techmap yielded config wire %s with non-const value %s.\n", RTLIL::id2cstr(it2.wire->name), log_signal(it2.value));
+						techmap_wire_names.erase(it.first);
 					}
+
+					for (auto &it : techmap_wire_names)
+						log_error("Techmap special wire %s disappeared. This is considered a fatal error.\n", RTLIL::id2cstr(it));
 				}
 
 				if (techmap_do_cache.at(tpl) == false)
