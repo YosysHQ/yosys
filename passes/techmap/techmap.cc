@@ -201,6 +201,7 @@ struct TechmapWorker
 		bool did_something = false;
 		std::vector<std::string> cell_names;
 
+		SigMap sigmap(module);
 		for (auto &cell_it : module->cells)
 			cell_names.push_back(cell_it.first);
 
@@ -254,6 +255,22 @@ struct TechmapWorker
 
 					if (tpl->avail_parameters.count("\\_TECHMAP_CELLTYPE_") != 0)
 						parameters["\\_TECHMAP_CELLTYPE_"] = RTLIL::unescape_id(cell->type);
+
+					for (auto conn : cell->connections) {
+						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", RTLIL::id2cstr(conn.first))) != 0) {
+							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
+							for (auto &bit : v)
+								bit = RTLIL::SigBit(bit.wire == NULL ? RTLIL::State::S1 : RTLIL::State::S0);
+							parameters[stringf("\\_TECHMAP_CONSTMSK_%s_", RTLIL::id2cstr(conn.first))] = RTLIL::SigSpec(v).as_const();
+						}
+						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTVAL_%s_", RTLIL::id2cstr(conn.first))) != 0) {
+							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
+							for (auto &bit : v)
+								if (bit.wire != NULL)
+									bit = RTLIL::SigBit(RTLIL::State::Sx);
+							parameters[stringf("\\_TECHMAP_CONSTVAL_%s_", RTLIL::id2cstr(conn.first))] = RTLIL::SigSpec(v).as_const();
+						}
+					}
 				}
 
 				std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
@@ -430,6 +447,12 @@ struct TechmapPass : public Pass {
 		log("    _TECHMAP_CELLTYPE_\n");
 		log("        When a parameter with this name exists, it will be set to the type name\n");
 		log("        of the cell that matches the module.\n");
+		log("\n");
+		log("    _TECHMAP_CONSTMSK_<port-name>_\n");
+		log("    _TECHMAP_CONSTVAL_<port-name>_\n");
+		log("        When this pair of parameters is available in a module for a port, then\n");
+		log("        former has a 1-bit for each constant input bit and the latter has the\n");
+		log("        value for this bit. The unused bits of the latter are set to undef (x).\n");
 		log("\n");
 		log("When a module in the map file has a parameter where the according cell in the\n");
 		log("design has a port, the module from the map file is only used if the port in\n");
