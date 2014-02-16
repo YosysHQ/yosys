@@ -125,6 +125,11 @@ struct VerilogFrontend : public Frontend {
 		log("The command 'verilog_defaults' can be used to register default options for\n");
 		log("subsequent calls to 'read_verilog'.\n");
 		log("\n");
+		log("Note that the Verilog frontend does a pretty good job of processing valid\n");
+		log("verilog input, but has not very good error reporting. It generally is\n");
+		log("recommended to use a simulator (for example icarus verilog) for checking\n");
+		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
