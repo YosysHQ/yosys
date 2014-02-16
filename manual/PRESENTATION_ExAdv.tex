@@ -239,6 +239,51 @@ show -color red @cone_ab -color magenta @cone_a -color blue @cone_b
 \subsectionpagesuffix
 \end{frame}
 
+\subsubsection{Introduction to techmap}
+
+\begin{frame}{\subsubsecname}
+\begin{itemize}
+\item
+The {\tt techmap} command replaces cells in the design with implementations given
+as verilog code (called ``map files''). It can replace Yosys' internal cell
+types (such as {\tt \$or}) as well as user-defined cell types.
+\medskip\item
+Verilog parameters are used extensively to customize the internal cell types.
+\medskip\item
+Additional special parameters are used by techmap to communicate meta-data to the
+map files.
+\medskip\item
+Special wires are used to instruct techmap how to handle a module in the map file.
+\medskip\item
+Generate blocks and recursion are powerful tools for writing map files.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[t]{\subsubsecname -- Example 1/2}
+\vskip-0.2cm
+To map the Verilog OR-reduction operator to 3-input OR gates:
+\vskip-0.2cm
+\begin{columns}
+\column[t]{0.35\linewidth}
+\lstinputlisting[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, lastline=24]{PRESENTATION_ExAdv/red_or3x1_map.v}
+\column[t]{0.65\linewidth}
+\lstinputlisting[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=25]{PRESENTATION_ExAdv/red_or3x1_map.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t]{\subsubsecname -- Example 2/2}
+\vbox to 0cm{
+\hfil\includegraphics[width=10cm,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/red_or3x1.pdf}
+\vss
+}
+\begin{columns}
+\column[t]{6cm}
+\column[t]{4cm}
+\vskip-0.6cm\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, firstline=4, lastline=4, frame=single]{PRESENTATION_ExAdv/red_or3x1_test.ys}
+\vskip-0.2cm\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/red_or3x1_test.v}
+\end{columns}
+\end{frame}
+
 \subsubsection{TBD}
 
 \begin{frame}{\subsubsecname}
