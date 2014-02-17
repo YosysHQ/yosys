@@ -875,6 +875,9 @@ struct SatPass : public Pass {
 		log("    -set-init-zero\n");
 		log("        set all initial states (not set using -set-init) to zero\n");
 		log("\n");
+		log("    -dump_vcd <vcd-file-name>\n");
+		log("        dump SAT model (counter example in proof) to VCD file\n");
+		log("\n");
 		log("The following additional options can be used to set up a proof. If also -seq\n");
 		log("is passed, a temporal induction proof is performed.\n");
 		log("\n");
@@ -927,8 +930,7 @@ struct SatPass : public Pass {
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
-		bool dump_fail_to_vcd = false;
-		std::string vcd_file_name = "";
+		std::string vcd_file_name;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -1102,8 +1104,7 @@ struct SatPass : public Pass {
 				ignore_unknown_cells = true;
 				continue;
 			}
-			if (args[argidx] == "-dump_fail_to_vcd" && argidx+1 < args.size()) {
-				dump_fail_to_vcd = true;
+			if (args[argidx] == "-dump_vcd" && argidx+1 < args.size()) {
 				vcd_file_name = args[++argidx];
 				continue;
 			}
@@ -1219,7 +1220,7 @@ struct SatPass : public Pass {
 					log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
 					print_proof_failed();
 					basecase.print_model();
-					if(dump_fail_to_vcd)
+					if(!vcd_file_name.empty())
 						basecase.dump_model_to_vcd(vcd_file_name);
 					goto tip_failed;
 				}
@@ -1343,6 +1344,9 @@ struct SatPass : public Pass {
 				}
 
 				sathelper.print_model();
+
+				if(!vcd_file_name.empty())
+					sathelper.dump_model_to_vcd(vcd_file_name);
 
 				if (loopcount != 0) {
 					loopcount--, rerun_counter++;
