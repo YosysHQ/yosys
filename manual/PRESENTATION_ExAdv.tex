@@ -87,7 +87,7 @@ cd ..                 # switch back to design
 \end{lstlisting}
 
 \bigskip
-Note: Most synthesis script never switch to module context. But it is a very powerful
+Note: Most synthesis scripts never switch to module context. But it is a very powerful
 tool for interactive design investigation.
 \end{frame}
 
@@ -101,7 +101,7 @@ Special pattern can be used to select by object property or type. For example:
 select w:reg_*        # select all wires whose names start with reg_
 select a:foobar       # select all objects with the attribute foobar set
 select a:foobar=42    # select all objects with the attribute foobar set to 42
-select A:blabla       # select all module with the attribute blabla set
+select A:blabla       # select all modules with the attribute blabla set
 select foo/t:$add     # select all $add cells from the module foo
 \end{lstlisting}
 
@@ -114,7 +114,7 @@ reference to the {\tt select} command.
 
 \begin{frame}[fragile]{\subsubsecname}
 When more than one selection expression is used in one statement they are
-pushed on a stack. At the final elements on the stack are combined into a union:
+pushed on a stack. The final elements on the stack are combined into a union:
 
 \medskip
 \begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
@@ -170,7 +170,7 @@ See {\tt help select} for full documentation of this expressions.
 
 \begin{frame}[fragile]{\subsubsecname}
 Sometime a selection can most easily described by a series of add/delete operations.
-For the commands {\tt select -add} and {\tt select -del} add or remove objects
+The commands {\tt select -add} and {\tt select -del} respectively add or remove objects
 from the current selection instead of overwriting it.
 
 \medskip
@@ -327,7 +327,7 @@ is non-zero then the module is disabled for this set of parameters.
 \item The special wires {\tt \_TECHMAP\_DO\_*} can be used to run Yosys scripts
 in the context of the replacement module.
 \medskip
-\item The wire that comes first in alphatecial oder is interprated as string (must
+\item The wire that comes first in alphabetical oder is interpreted as string (must
 be connected to constants) that is executed as script. Then the wire is removed. Repeat.
 \medskip
 \item You can even call techmap recursively!
@@ -340,6 +340,10 @@ this is known to work well.
 \item Interacting with custom commands.
 \end{itemize}
 \end{itemize}
+
+\scriptsize
+PROTIP: Commands such as {\tt shell}, {\tt show -pause}, and {\tt dump} can be use
+in the {\tt \_TECHMAP\_DO\_*} scripts for debugging map modules.
 \end{frame}
 
 \begin{frame}[t]{\subsubsecname{} -- Example}
@@ -399,10 +403,34 @@ input values to cells.
 \end{columns}
 \end{frame}
 
-\subsubsection{TBD}
+\subsubsection{Handling shorted inputs}
 
 \begin{frame}{\subsubsecname}
 TBD
+\end{frame}
+
+\subsubsection{Notes on using techmap}
+
+\begin{frame}{\subsubsecname}
+\begin{itemize}
+\item Don't use positional cell parameters in map modules.
+\medskip
+\item Don't try to implement basic logic optimization with techmap. \\
+{\small (So the OR-reduce using OR3X1 cells map was actually a bad example.)}
+\medskip
+\item You can use the {\tt \$\_\,\_}-prefix for internal cell types to avoid
+collisions with the user-namespace. But always use two underscores or the
+internal consistency checker will trigger on this cells.
+\medskip
+\item Techmap has two major use cases:
+\begin{itemize}
+\item Creating good logic-level representation of arithmetic functions. \\
+This also means using dedicated hardware resources such as half- and full-adder
+cells in ASICS or dedicated carry logic in FPGAs.
+\smallskip
+\item Mapping of coarse-grain resources such as block memory or DSP cells.
+\end{itemize}
+\end{itemize}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
