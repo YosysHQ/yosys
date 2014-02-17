@@ -42,6 +42,9 @@ namespace VERILOG_FRONTEND
 
 	// this function converts a Verilog constant to an AST_CONSTANT node
 	AST::AstNode *const2ast(std::string code, char case_type = 0);
+
+	// state of `default_nettype
+	extern bool default_nettype_wire;
 }
 
 // the pre-processor

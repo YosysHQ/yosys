@@ -53,6 +53,7 @@ namespace VERILOG_FRONTEND {
 	struct AstNode *current_ast, *current_ast_mod;
 	int current_function_or_task_port_id;
 	std::vector<char> case_type_stack;
+	bool default_nettype_wire;
 }
 
 static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)

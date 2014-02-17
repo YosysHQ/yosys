@@ -238,13 +238,13 @@ namespace AST
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1 = false, bool dump_ast2 = false, bool dump_vlog = false, bool nolatches = false, bool nomem2reg = false, bool mem2reg = false, bool lib = false, bool noopt = false, bool icells = false, bool ignore_redef = false, bool defer = true);
+	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire);
 
 	// parametric modules are supported directly by the AST library
 	// therfore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
-		bool nolatches, nomem2reg, mem2reg, lib, noopt, icells;
+		bool nolatches, nomem2reg, mem2reg, lib, noopt, icells, autowire;
 		virtual ~AstModule();
 		virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
 		virtual RTLIL::Module *clone() const;
@@ -265,7 +265,7 @@ namespace AST
 namespace AST_INTERNAL
 {
 	// internal state variables
-	extern bool flag_dump_ast1, flag_dump_ast2, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells;
+	extern bool flag_dump_ast1, flag_dump_ast2, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;
 	extern RTLIL::SigSpec *genRTLIL_subst_from, *genRTLIL_subst_to, ignoreThisSignalsInInitial;

@@ -81,6 +81,18 @@ namespace VERILOG_FRONTEND {
 
 "`timescale"[ \t]+[^ \t\r\n/]+[ \t]*"/"[ \t]*[^ \t\r\n]* /* ignore timescale directive */
 
+"`default_nettype"[ \t]+[^ \t\r\n/]+ {
+	char *p = yytext;
+	while (*p != 0 && *p != ' ' && *p != '\t') p++;
+	while (*p == ' ' || *p == '\t') p++;
+	if (!strcmp(p, "none"))
+		VERILOG_FRONTEND::default_nettype_wire = false;
+	else if (!strcmp(p, "wire"))
+		VERILOG_FRONTEND::default_nettype_wire = true;
+	else
+		frontend_verilog_yyerror("Unsupported default nettype: %s", p);
+}
+
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yyerror("Unimplemented compiler directive or undefined macro %s.", yytext);
 }

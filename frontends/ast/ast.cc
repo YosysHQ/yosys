@@ -46,7 +46,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells;
+	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
@@ -836,11 +836,12 @@ static AstModule* process_module(AstNode *ast, bool defer)
 	current_module->lib = flag_lib;
 	current_module->noopt = flag_noopt;
 	current_module->icells = flag_icells;
+	current_module->autowire = flag_autowire;
 	return current_module;
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
@@ -852,6 +853,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_lib = lib;
 	flag_noopt = noopt;
 	flag_icells = icells;
+	flag_autowire = autowire;
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
@@ -897,6 +899,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_lib = lib;
 	flag_noopt = noopt;
 	flag_icells = icells;
+	flag_autowire = autowire;
 	use_internal_line_num();
 
 	std::string para_info;
@@ -986,6 +989,7 @@ RTLIL::Module *AstModule::clone() const
 	new_mod->lib = lib;
 	new_mod->noopt = noopt;
 	new_mod->icells = icells;
+	new_mod->autowire = autowire;
 
 	return new_mod;
 }

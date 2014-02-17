@@ -373,7 +373,6 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 		}
 
 		if (tok == "`timescale") {
-			std::string name;
 			skip_spaces();
 			while (!tok.empty() && tok != "\n")
 				tok = next_token(true);

@@ -256,6 +256,7 @@ struct VerilogFrontend : public Frontend {
 		AST::get_line_num = &frontend_verilog_yyget_lineno;
 
 		current_ast = new AST::AstNode(AST::AST_DESIGN);
+		default_nettype_wire = true;
 
 		FILE *fp = f;
 		std::string code_after_preproc;
@@ -279,7 +280,7 @@ struct VerilogFrontend : public Frontend {
 					child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
 		}
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			fclose(fp);
