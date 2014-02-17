@@ -151,18 +151,18 @@ struct TechmapWorker
 			if (c.second.width < c.first.width)
 				c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.width - c.second.width));
 			assert(c.first.width == c.second.width);
-#if 0
-			// more conservative approach:
-			// connect internal and external wires
-			module->connections.push_back(c);
-#else
-			// approach that yields nicer outputs:
-			// replace internal wires that are connected to external wires
-			if (w->port_output)
-				port_signal_map.add(c.second, c.first);
-			else
-				port_signal_map.add(c.first, c.second);
-#endif
+			if (flatten_mode) {
+				// more conservative approach:
+				// connect internal and external wires
+				module->connections.push_back(c);
+			} else {
+				// approach that yields nicer outputs:
+				// replace internal wires that are connected to external wires
+				if (w->port_output)
+					port_signal_map.add(c.second, c.first);
+				else
+					port_signal_map.add(c.first, c.second);
+			}
 		}
 
 		for (auto &it : tpl->cells) {
