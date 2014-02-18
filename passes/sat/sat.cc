@@ -903,6 +903,9 @@ struct SatPass : public Pass {
 		log("    -maxsteps <N>\n");
 		log("        Set a maximum length for the induction.\n");
 		log("\n");
+		log("    -initsteps <N>\n");
+		log("        Set initial length for the induction.\n");
+		log("\n");
 		log("    -timeout <N>\n");
 		log("        Maximum number of seconds a single SAT instance may take.\n");
 		log("\n");
@@ -925,7 +928,7 @@ struct SatPass : public Pass {
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_any_undef_at, sets_all_undef_at;
 		std::vector<std::string> shows, sets_def, sets_any_undef, sets_all_undef;
-		int loopcount = 0, seq_len = 0, maxsteps = 0, timeout = 0;
+		int loopcount = 0, seq_len = 0, maxsteps = 0, initsteps = 0, timeout = 0;
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
@@ -968,6 +971,10 @@ struct SatPass : public Pass {
 			}
 			if (args[argidx] == "-maxsteps" && argidx+1 < args.size()) {
 				maxsteps = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-initsteps" && argidx+1 < args.size()) {
+				initsteps = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-ignore_div_by_zero") {
@@ -1240,21 +1247,29 @@ struct SatPass : public Pass {
 				if (inductlen > 1)
 					inductstep.force_unique_state(1, inductlen + 1);
 
-				log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
-						inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
-
-				if (!inductstep.solve(inductstep.ez.NOT(property))) {
-					if (inductstep.gotTimeout)
-						goto timeout;
-					log("Induction step proven: SUCCESS!\n");
-					print_qed();
-					goto tip_success;
+				if (inductlen < initsteps)
+				{
+					log("\n[induction step] Skipping problem with %d variables and %d clauses (below initsteps).\n",
+							inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
+					inductstep.ez.assume(property);
 				}
+				else
+				{
+					log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
+							inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
 
-				log("Induction step failed. Incrementing induction length.\n");
-				inductstep.ez.assume(property);
+					if (!inductstep.solve(inductstep.ez.NOT(property))) {
+						if (inductstep.gotTimeout)
+							goto timeout;
+						log("Induction step proven: SUCCESS!\n");
+						print_qed();
+						goto tip_success;
+					}
 
-				inductstep.print_model();
+					log("Induction step failed. Incrementing induction length.\n");
+					inductstep.ez.assume(property);
+					inductstep.print_model();
+				}
 			}
 
 			log("\nReached maximum number of time steps -> proof failed.\n");
