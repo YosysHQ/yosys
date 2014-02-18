@@ -632,27 +632,27 @@ struct SatHelper
 		if (last_timestep == -2)
 			log("  no model variables selected for display.\n");
 	}
-	
+
 	void dump_model_to_vcd(std::string vcd_file_name)
 	{
-		FILE* f = fopen(vcd_file_name.c_str(), "w");
-		if(!f)
+		FILE *f = fopen(vcd_file_name.c_str(), "w");
+		if (!f)
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name.c_str(), strerror(errno));
-		
+
 		log("Dumping SAT model to VCD file %s\n", vcd_file_name.c_str());
-		
+
 		time_t timestamp;
 		struct tm* now;
-		char stime[128] = {0};
+		char stime[128] = {};
 		time(&timestamp);
 		now = localtime(&timestamp);
 		strftime(stime, sizeof(stime), "%c", now);
-			
+
 		std::string module_fname = "unknown";
 		auto apos = module->attributes.find("\\src");
 		if(apos != module->attributes.end())
 			module_fname = module->attributes["\\src"].decode_string();
-			
+
 		fprintf(f, "$date\n");
 		fprintf(f, "    %s\n", stime);
 		fprintf(f, "$end\n");
@@ -663,21 +663,22 @@ struct SatHelper
 		fprintf(f, "    Generated from SAT problem in module %s (declared at %s)\n",
 			module->name.c_str(), module_fname.c_str());
 		fprintf(f, "$end\n");
-		
-		//VCD has some limits on internal (non-display) identifier names, so make legal ones
+
+		// VCD has some limits on internal (non-display) identifier names, so make legal ones
 		std::map<std::string, std::string> vcdnames;
-		
-		fprintf(f, "$timescale 1ns\n");		//arbitrary time scale since actual clock period is unknown/unimportant
+
+		fprintf(f, "$timescale 1ns\n"); // arbitrary time scale since actual clock period is unknown/unimportant
 		fprintf(f, "$scope module %s $end\n", module->name.c_str());
-		for (auto &info : modelInfo) {
-			if(vcdnames.find(info.description) != vcdnames.end())
+		for (auto &info : modelInfo)
+		{
+			if (vcdnames.find(info.description) != vcdnames.end())
 				continue;
-			
+
 			char namebuf[16];
 			snprintf(namebuf, sizeof(namebuf), "v%d", static_cast<int>(vcdnames.size()));
 			vcdnames[info.description] = namebuf;
-			
-			//Even display identifiers can't use some special characters
+
+			// Even display identifiers can't use some special characters
 			std::string legal_desc = info.description.c_str();
 			for (auto &c : legal_desc) {
 				if(c == '$')
@@ -685,21 +686,21 @@ struct SatHelper
 				if(c == ':')
 					c = '_';
 			}
-			
+
 			fprintf(f, "$var wire %d %s %s $end\n", info.width, namebuf, legal_desc.c_str());
-			
-			//Need to look at first *two* cycles!
-			//We need to put a name on all variables but those without an initialization clause
-			//have no value at timestep 0
+
+			// Need to look at first *two* cycles!
+			// We need to put a name on all variables but those without an initialization clause
+			// have no value at timestep 0
 			if(info.timestep > 1)
 				break;
 		}
 		fprintf(f, "$upscope $end\n");
 		fprintf(f, "$enddefinitions $end\n");
 		fprintf(f, "$dumpvars\n");
-		
+
 		static const char bitvals[] = "01xzxx";
-		
+
 		int last_timestep = -2;
 		for (auto &info : modelInfo)
 		{
@@ -710,19 +711,18 @@ struct SatHelper
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
 					value.bits.back() = RTLIL::State::Sx;
 			}
-			
-			if (info.timestep != last_timestep) {			
+
+			if (info.timestep != last_timestep) {
 				if(last_timestep == 0)
 					fprintf(f, "$end\n");
 				else
 					fprintf(f, "#%d\n", info.timestep);
-				
 				last_timestep = info.timestep;
 			}
-			
-			if(info.width == 1)
+
+			if(info.width == 1) {
 				fprintf(f, "%c%s\n", bitvals[value.bits[0]], vcdnames[info.description].c_str());
-			else {
+			} else {
 				fprintf(f, "b");
 				for(int k=info.width-1; k >= 0; k --)	//need to flip bit ordering for VCD
 					fprintf(f, "%c", bitvals[value.bits[k]]);
@@ -732,7 +732,7 @@ struct SatHelper
 
 		if (last_timestep == -2)
 			log("  no model variables selected for display.\n");
-		
+
 		fclose(f);
 	}
 
