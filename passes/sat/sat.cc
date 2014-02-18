@@ -878,6 +878,10 @@ struct SatPass : public Pass {
 		log("    -dump_vcd <vcd-file-name>\n");
 		log("        dump SAT model (counter example in proof) to VCD file\n");
 		log("\n");
+		log("    -dump_cnf <cnf-file-name>\n");
+		log("        dump CNF of SAT problem (in DIMACS format). in temporal induction\n");
+		log("        proofs this is the CNF of the first induction step.\n");
+		log("\n");
 		log("The following additional options can be used to set up a proof. If also -seq\n");
 		log("is passed, a temporal induction proof is performed.\n");
 		log("\n");
@@ -933,7 +937,7 @@ struct SatPass : public Pass {
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
-		std::string vcd_file_name;
+		std::string vcd_file_name, cnf_file_name;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -1115,6 +1119,10 @@ struct SatPass : public Pass {
 				vcd_file_name = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-dump_cnf" && argidx+1 < args.size()) {
+				cnf_file_name = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -1255,6 +1263,19 @@ struct SatPass : public Pass {
 				}
 				else
 				{
+					if (!cnf_file_name.empty())
+					{
+						FILE *f = fopen(cnf_file_name.c_str(), "w");
+						if (!f)
+							log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
+
+						log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+						cnf_file_name.clear();
+
+						inductstep.ez.printDIMACS(f, false);
+						fclose(f);
+					}
+
 					log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
 							inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
 
@@ -1333,10 +1354,18 @@ struct SatPass : public Pass {
 			}
 			sathelper.generate_model();
 
-#if 0
-			// print CNF for debugging
-			sathelper.ez.printDIMACS(stdout, true);
-#endif
+			if (!cnf_file_name.empty())
+			{
+				FILE *f = fopen(cnf_file_name.c_str(), "w");
+				if (!f)
+					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
+
+				log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+				cnf_file_name.clear();
+
+				sathelper.ez.printDIMACS(f, false);
+				fclose(f);
+			}
 
 			int rerun_counter = 0;
 
