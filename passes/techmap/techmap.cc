@@ -271,6 +271,37 @@ struct TechmapWorker
 							parameters[stringf("\\_TECHMAP_CONSTVAL_%s_", RTLIL::id2cstr(conn.first))] = RTLIL::SigSpec(v).as_const();
 						}
 					}
+
+					int unique_bit_id_counter = 0;
+					std::map<RTLIL::SigBit, int> unique_bit_id;
+					unique_bit_id[RTLIL::State::S0] = unique_bit_id_counter++;
+					unique_bit_id[RTLIL::State::S1] = unique_bit_id_counter++;
+					unique_bit_id[RTLIL::State::Sx] = unique_bit_id_counter++;
+					unique_bit_id[RTLIL::State::Sz] = unique_bit_id_counter++;
+
+					for (auto conn : cell->connections)
+						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", RTLIL::id2cstr(conn.first))) != 0) {
+							for (auto &bit : sigmap(conn.second).to_sigbit_vector())
+								if (unique_bit_id.count(bit) == 0)
+									unique_bit_id[bit] = unique_bit_id_counter++;
+						}
+
+					int bits = 0;
+					for (int i = 0; i < 32; i++)
+						if (((unique_bit_id_counter-1) & (1 << i)) != 0)
+							bits = i;
+					if (tpl->avail_parameters.count("\\_TECHMAP_BITS_CONNMAP_"))
+						parameters["\\_TECHMAP_BITS_CONNMAP_"] = bits;
+
+					for (auto conn : cell->connections)
+						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", RTLIL::id2cstr(conn.first))) != 0) {
+							RTLIL::Const value;
+							for (auto &bit : sigmap(conn.second).to_sigbit_vector()) {
+								RTLIL::Const chunk(unique_bit_id.at(bit), bits);
+								value.bits.insert(value.bits.end(), chunk.bits.begin(), chunk.bits.end());
+							}
+							parameters[stringf("\\_TECHMAP_CONNMAP_%s_", RTLIL::id2cstr(conn.first))] = value;
+						}
 				}
 
 				std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
@@ -467,6 +498,14 @@ struct TechmapPass : public Pass {
 		log("        When this pair of parameters is available in a module for a port, then\n");
 		log("        former has a 1-bit for each constant input bit and the latter has the\n");
 		log("        value for this bit. The unused bits of the latter are set to undef (x).\n");
+		log("\n");
+		log("    _TECHMAP_BITS_CONNMAP_\n");
+		log("    _TECHMAP_CONNMAP_<port-name>_\n");
+		log("        For an N-bit port, the _TECHMAP_CONNMAP_<port-name>_ parameter, if it\n");
+		log("        exists, will be set to an N*_TECHMAP_BITS_CONNMAP_ bit vector containing\n");
+		log("        N words (of _TECHMAP_BITS_CONNMAP_ bits each) that assign each single\n");
+		log("        bit driver a unique id. The values 0-3 are reserved for 0, 1, x, and z.\n");
+		log("        This can be used to detect shorted inputs.\n");
 		log("\n");
 		log("When a module in the map file has a parameter where the according cell in the\n");
 		log("design has a port, the module from the map file is only used if the port in\n");
