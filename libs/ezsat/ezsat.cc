@@ -1131,10 +1131,15 @@ void ezSAT::printDIMACS(FILE *f, bool verbose) const
 	int maxClauseLen = 0;
 	for (auto &clause : cnfClauses)
 		maxClauseLen = std::max(int(clause.size()), maxClauseLen);
+	if (!verbose)
+		maxClauseLen = std::min(maxClauseLen, 3);
 	for (auto &clause : cnfClauses) {
 		for (auto idx : clause)
 			fprintf(f, " %*d", digits, idx);
-		fprintf(f, " %*d\n", (digits + 1)*int(maxClauseLen - clause.size()) + digits, 0);
+		if (maxClauseLen >= int(clause.size()))
+			fprintf(f, " %*d\n", (digits + 1)*int(maxClauseLen - clause.size()) + digits, 0);
+		else
+			fprintf(f, " %*d\n", digits, 0);
 	}
 }
 
