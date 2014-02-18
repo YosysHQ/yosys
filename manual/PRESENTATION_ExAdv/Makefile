@@ -1,5 +1,5 @@
 
-all: select_01.pdf red_or3x1.pdf sym_mul.pdf mymul.pdf mulshift.pdf
+all: select_01.pdf red_or3x1.pdf sym_mul.pdf mymul.pdf mulshift.pdf addshift.pdf
 
 select_01.pdf: select_01.v select_01.ys
 	../../yosys select_01.ys
@@ -15,4 +15,7 @@ mymul.pdf: mymul_*
 
 mulshift.pdf: mulshift_*
 	../../yosys mulshift_test.ys
+
+addshift.pdf: addshift_*
+	../../yosys addshift_test.ys
 

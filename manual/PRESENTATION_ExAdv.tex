@@ -406,7 +406,42 @@ input values to cells.
 \subsubsection{Handling shorted inputs}
 
 \begin{frame}{\subsubsecname}
-TBD
+\begin{itemize}
+\item The special parameters {\tt \_TECHMAP\_BITS\_CONNMAP\_} and
+{\tt \_TECHMAP\_CONNMAP\_\it <port-name>\tt \_} can be used to handle shorted inputs.
+\medskip
+\item Each bit of the port correlates to an {\tt \_TECHMAP\_BITS\_CONNMAP\_} bits wide
+number in {\tt \_TECHMAP\_CONNMAP\_\it <port-name>\tt \_}.
+\medskip
+\item Each unique signal bit is assigned its own number. Identical fields in the {\tt
+\_TECHMAP\_CONNMAP\_\it <port-name>\tt \_} parameters mean shorted signal bits.
+\medskip
+\item The numbers 0-3 are reserved for {\tt 0}, {\tt 1}, {\tt x}, and {\tt z} respectively.
+\medskip
+\item Example use-cases:
+\begin{itemize}
+\item Detecting shared clock or control signals in memory interfaces.
+\item In some cases this can be used for for optimization.
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[t]{\subsubsecname{} -- Example}
+\vbox to 0cm{
+\vskip4.5cm
+\hskip6.5cm\includegraphics[width=5cm,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/addshift.pdf}
+\vss
+}
+\vskip-0.6cm
+\begin{columns}
+\column[t]{6cm}
+\vskip-0.4cm
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/addshift_map.v}
+\column[t]{4.2cm}
+\vskip-0.6cm
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=verilog]{PRESENTATION_ExAdv/addshift_test.v}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=ys, lastline=5]{PRESENTATION_ExAdv/addshift_test.ys}
+\end{columns}
 \end{frame}
 
 \subsubsection{Notes on using techmap}
