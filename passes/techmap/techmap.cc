@@ -108,6 +108,18 @@ struct TechmapWorker
 		if (tpl->processes.size() != 0)
 			log_error("Technology map yielded processes -> this is not supported.\n");
 
+		// erase from namespace first for _TECHMAP_REPLACE_ to work
+		module->cells.erase(cell->name);
+		std::string orig_cell_name;
+
+		if (!flatten_mode)
+			for (auto &it : tpl->cells)
+				if (it.first == "\\_TECHMAP_REPLACE_") {
+					orig_cell_name = cell->name;
+					cell->name = stringf("$techmap%d", RTLIL::autoidx++) + cell->name;
+					break;
+				}
+
 		std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
 
 		for (auto &it : tpl->wires) {
@@ -120,7 +132,7 @@ struct TechmapWorker
 			w->port_id = 0;
 			if (it.second->get_bool_attribute("\\_techmap_special_"))
 				w->attributes.clear();
-			module->wires[w->name] = w;
+			module->add(w);
 			design->select(module, w);
 		}
 
@@ -169,12 +181,15 @@ struct TechmapWorker
 			RTLIL::Cell *c = new RTLIL::Cell(*it.second);
 			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
 				c->type = c->type.substr(1);
-			apply_prefix(cell->name, c->name);
+			if (!flatten_mode && c->name == "\\_TECHMAP_REPLACE_")
+				c->name = orig_cell_name;
+			else
+				apply_prefix(cell->name, c->name);
 			for (auto &it2 : c->connections) {
 				apply_prefix(cell->name, it2.second, module);
 				port_signal_map.apply(it2.second);
 			}
-			module->cells[c->name] = c;
+			module->add(c);
 			design->select(module, c);
 		}
 
@@ -187,7 +202,6 @@ struct TechmapWorker
 			module->connections.push_back(c);
 		}
 
-		module->cells.erase(cell->name);
 		delete cell;
 	}
 
@@ -511,6 +525,9 @@ struct TechmapPass : public Pass {
 		log("design has a port, the module from the map file is only used if the port in\n");
 		log("the design is connected to a constant value. The parameter is then set to the\n");
 		log("constant value.\n");
+		log("\n");
+		log("A cell with the name _TECHMAP_REPLACE_ in the map file will inherit the name\n");
+		log("of the cell that is beeing replaced.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
