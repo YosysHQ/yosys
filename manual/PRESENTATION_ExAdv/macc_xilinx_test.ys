@@ -1,0 +1,17 @@
+read_verilog macc_xilinx_test.v
+read_verilog -lib -icells macc_xilinx_unwrap_map.v
+hierarchy -check -top test;;
+
+show -prefix macc_xilinx_test_a -format pdf -notitle
+
+techmap -map macc_xilinx_swap_map.v;;
+
+show -prefix macc_xilinx_test_b -format pdf -notitle
+
+techmap -map macc_xilinx_wrap_map.v
+
+connwrappers -unsigned $__mul_wrapper Y Y_WIDTH \
+             -unsigned $__add_wrapper Y Y_WIDTH;;
+
+show -prefix macc_xilinx_test_c -format pdf -notitle
+
