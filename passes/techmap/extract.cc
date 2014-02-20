@@ -315,6 +315,10 @@ struct ExtractPass : public Pass {
 		log("        use the modules in this file as reference. This option can be used\n");
 		log("        multiple times.\n");
 		log("\n");
+		log("    -map %%<design-name>\n");
+		log("        use the modules in this in-memory design as reference. This option can\n");
+		log("        be used multiple times.\n");
+		log("\n");
 		log("    -verbose\n");
 		log("        print debug output while analyzing\n");
 		log("\n");
@@ -524,16 +528,32 @@ struct ExtractPass : public Pass {
 		if (!mine_mode)
 		{
 			map = new RTLIL::Design;
-			for (auto &filename : map_filenames) {
-				FILE *f = fopen(filename.c_str(), "rt");
-				if (f == NULL)
-					log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
-				Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
-				fclose(f);
+			for (auto &filename : map_filenames)
+			{
+				if (filename.substr(0, 1) == "%")
+				{
+					if (!saved_designs.count(filename.substr(1))) {
+						delete map;
+						log_cmd_error("Can't saved design `%s'.\n", filename.c_str()+1);
+					}
+					for (auto &it : saved_designs.at(filename.substr(1))->modules)
+						if (!map->modules.count(it.first))
+							map->modules[it.first] = it.second->clone();
+				}
+				else
+				{
+					FILE *f = fopen(filename.c_str(), "rt");
+					if (f == NULL) {
+						delete map;
+						log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
+					}
+					Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+					fclose(f);
 
-				if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
-					Pass::call(map, "proc");
-					Pass::call(map, "opt_clean");
+					if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
+						Pass::call(map, "proc");
+						Pass::call(map, "opt_clean");
+					}
 				}
 			}
 		}
