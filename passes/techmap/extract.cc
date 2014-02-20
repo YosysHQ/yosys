@@ -34,7 +34,13 @@ namespace
 	class SubCircuitSolver : public SubCircuit::Solver
 	{
 	public:
+		bool ignore_parameters;
+		std::set<std::pair<std::string, std::string>> ignored_parameters;
 		std::set<RTLIL::IdString> cell_attr, wire_attr;
+
+		SubCircuitSolver() : ignore_parameters(false)
+		{
+		}
 
 		bool compareAttributes(const std::set<RTLIL::IdString> &attr, const std::map<RTLIL::IdString, RTLIL::Const> &needleAttr, const std::map<RTLIL::IdString, RTLIL::Const> &haystackAttr)
 		{
@@ -46,11 +52,69 @@ namespace
 			return true;
 		}
 
+		RTLIL::Const unified_param(RTLIL::IdString cell_type, RTLIL::IdString param, RTLIL::Const value)
+		{
+			if (cell_type.substr(0, 1) != "$" || cell_type.substr(0, 2) == "$_")
+				return value;
+
+		#define param_bool(_n) if (param == _n) return value.as_bool();
+			param_bool("\\ARST_POLARITY");
+			param_bool("\\A_SIGNED");
+			param_bool("\\B_SIGNED");
+			param_bool("\\CLK_ENABLE");
+			param_bool("\\CLK_POLARITY");
+			param_bool("\\CLR_POLARITY");
+			param_bool("\\EN_POLARITY");
+			param_bool("\\SET_POLARITY");
+			param_bool("\\TRANSPARENT");
+		#undef param_bool
+
+		#define param_int(_n) if (param == _n) return value.as_int();
+			param_int("\\ABITS")
+			param_int("\\A_WIDTH")
+			param_int("\\B_WIDTH")
+			param_int("\\CTRL_IN_WIDTH")
+			param_int("\\CTRL_OUT_WIDTH")
+			param_int("\\OFFSET")
+			param_int("\\PRIORITY")
+			param_int("\\RD_PORTS")
+			param_int("\\SIZE")
+			param_int("\\STATE_BITS")
+			param_int("\\STATE_NUM")
+			param_int("\\STATE_NUM_LOG2")
+			param_int("\\STATE_RST")
+			param_int("\\S_WIDTH")
+			param_int("\\TRANS_NUM")
+			param_int("\\WIDTH")
+			param_int("\\WR_PORTS")
+			param_int("\\Y_WIDTH")
+		#undef param_int
+
+			return value;
+		}
+
 		virtual bool userCompareNodes(const std::string &, const std::string &, void *needleUserData,
 				const std::string &, const std::string &, void *haystackUserData, const std::map<std::string, std::string> &portMapping)
 		{
 			RTLIL::Cell *needleCell = (RTLIL::Cell*) needleUserData;
 			RTLIL::Cell *haystackCell = (RTLIL::Cell*) haystackUserData;
+
+			if (!needleCell || !haystackCell) {
+				assert(!needleCell && !haystackCell);
+				return true;
+			}
+
+			if (!ignore_parameters) {
+				std::map<RTLIL::IdString, RTLIL::Const> needle_param, haystack_param;
+				for (auto &it : needleCell->parameters)
+					if (!ignored_parameters.count(std::pair<std::string, std::string>(needleCell->type, it.first)))
+						needle_param[it.first] = unified_param(needleCell->type, it.first, it.second);
+				for (auto &it : haystackCell->parameters)
+					if (!ignored_parameters.count(std::pair<std::string, std::string>(haystackCell->type, it.first)))
+						haystack_param[it.first] = unified_param(haystackCell->type, it.first, it.second);
+				if (needle_param != haystack_param)
+					return false;
+			}
 
 			if (cell_attr.size() > 0 && !compareAttributes(cell_attr, needleCell->attributes, haystackCell->attributes))
 				return false;
@@ -351,6 +415,12 @@ struct ExtractPass : public Pass {
 		log("    -wire_attr <attribute_name>\n");
 		log("        Attributes on wires with the given name must match.\n");
 		log("\n");
+		log("    -ignore_parameters\n");
+		log("        Do not use parameters when matching cells.\n");
+		log("\n");
+		log("    -ignore_param <cell_type> <parameter_name>\n");
+		log("        Do not use this parameter when matching cells.\n");
+		log("\n");
 		log("This pass does not operate on modules with uprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
 		log("\n");
@@ -496,6 +566,15 @@ struct ExtractPass : public Pass {
 			}
 			if (args[argidx] == "-wire_attr" && argidx+1 < args.size()) {
 				solver.wire_attr.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-ignore_parameters") {
+				solver.ignore_parameters = true;
+				continue;
+			}
+			if (args[argidx] == "-ignore_param" && argidx+2 < args.size()) {
+				solver.ignored_parameters.insert(std::pair<std::string, std::string>(RTLIL::escape_id(args[argidx+1]), RTLIL::escape_id(args[argidx+2])));
+				argidx += 2;
 				continue;
 			}
 			break;
