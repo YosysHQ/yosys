@@ -759,7 +759,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 	current_module = new AstModule;
 	current_module->ast = NULL;
-	current_module->name = defer ? "$abstract" + ast->str : ast->str;
+	current_module->name = ast->str;
 	current_module->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
 
 	current_ast_mod = ast;
@@ -857,7 +857,11 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 	assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
-		if (design->modules.count((*it)->str) != 0 && design->modules.count("$abstract" + (*it)->str) != 0) {
+		if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
+			(*it)->str = (*it)->str.substr(1);
+		if (defer)
+			(*it)->str = "$abstract" + (*it)->str;
+		if (design->modules.count((*it)->str)) {
 			if (!ignore_redef)
 				log_error("Re-definition of module `%s' at %s:%d!\n",
 						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
@@ -865,10 +869,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 					(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
 			continue;
 		}
-		if (defer)
-			design->modules["$abstract" + (*it)->str] = process_module(*it, true);
-		else
-			design->modules[(*it)->str] = process_module(*it, false);
+		design->modules[(*it)->str] =  process_module(*it, defer);
 	}
 }
 
