@@ -40,6 +40,10 @@ std::string rewrite_yosys_exe(std::string exe);
 std::string get_share_file_name(std::string file);
 const char *create_prompt(RTLIL::Design *design, int recursion_counter);
 
+// from passes/cmds/design.cc
+extern std::map<std::string, RTLIL::Design*> saved_designs;
+extern std::vector<RTLIL::Design*> pushed_designs;
+
 struct Pass
 {
 	std::string pass_name, short_help;
