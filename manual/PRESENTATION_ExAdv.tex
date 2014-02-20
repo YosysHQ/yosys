@@ -223,11 +223,11 @@ show -color red @cone_ab -color magenta @cone_a -color blue @cone_b
 \begin{frame}[fragile]{\subsubsecname{} -- Example}
 \begin{columns}
 \column[t]{4cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/select_01.v}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/select.v}
 \column[t]{7cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExAdv/select_01.ys}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]{PRESENTATION_ExAdv/select.ys}
 \end{columns}
-\hfil\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/select_01.pdf}
+\hfil\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_ExAdv/select.pdf}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -477,7 +477,85 @@ cells in ASICS or dedicated carry logic in FPGAs.
 \subsectionpagesuffix
 \end{frame}
 
-\subsubsection{TBD}
+\subsubsection{Intro to coarse-grain synthesis}
+
+\begin{frame}[fragile]{\subsubsecname}
+In coarse-grain synthesis the target architecure has cells of the same
+complexity or larger complexity than the internal RTL representation.
+
+For example:
+\begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]
+	wire [15:0] a, b;
+	wire [31:0] c, y;
+	assign y = a * b + c;
+\end{lstlisting}
+
+This circuit contains two cells in the RTL representation: one multiplier and
+one adder.
+
+\medskip
+Coarse grain synthesis is mapping this circuit to a single multiply-add cell
+of the target architecture, for example using an FPGA DSP core.
+
+\bigskip
+Fine-grain synthesis would be matching the circuit to smaller elements, such
+as LUTs, gates, or half- and full-adders.
+\end{frame}
+
+\subsubsection{The extract pass}
+
+\begin{frame}{\subsubsecname}
+\begin{itemize}
+\item Like the {\tt techmap} pass, the {\tt extract} pass is called with
+a map file. It compares the circuits inside the modules of the map file
+with the design and looks for sub-circuits in the design that match any
+of the modules in the map file.
+\bigskip
+\item If a match is found, the {\tt extract} pass will replace the matching
+subcircuit with an instance of the module from the map file.
+\bigskip
+\item In a way the {\tt extract} pass is the inverse of the techmap pass.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- Example 1/2}
+\vbox to 0cm{
+\vskip2cm
+\begin{tikzpicture}
+    \node at (0,0) {\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_simple_test_00a.pdf}};
+    \node at (3,-3) {\includegraphics[width=8cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_simple_test_00b.pdf}};
+    \draw[yshift=0.2cm,thick,-latex] (1,-1) -- (2,-2);
+\end{tikzpicture}
+\vss}
+\vskip-1.2cm
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/macc_simple_test.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=verilog]{PRESENTATION_ExAdv/macc_simple_xmap.v}
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, frame=single, language=ys]
+read_verilog macc_simple_test.v
+hierarchy -check -top test
+
+extract -map macc_simple_xmap.v;;
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{\subsubsecname{} -- Example 2/2}
+\hfil\begin{tabular}{cc}
+\fbox{\hbox to 5cm {\lstinputlisting[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/macc_simple_test_01.v}}} &
+\fbox{\hbox to 5cm {\lstinputlisting[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=verilog]{PRESENTATION_ExAdv/macc_simple_test_02.v}}} \\
+$\downarrow$ & $\downarrow$ \\
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_simple_test_01a.pdf}} &
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_simple_test_02a.pdf}} \\
+$\downarrow$ & $\downarrow$ \\
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_simple_test_01b.pdf}} &
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_simple_test_02b.pdf}} \\
+\end{tabular}
+\end{frame}
+
+\subsubsection{The wrap-extract-unwrap method}
 
 \begin{frame}{\subsubsecname}
 TBD
