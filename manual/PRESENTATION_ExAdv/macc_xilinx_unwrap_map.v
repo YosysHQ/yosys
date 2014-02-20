@@ -7,9 +7,9 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
+input [24:0] A;
+input [17:0] B;
+output [47:0] Y;
 
 wire [A_WIDTH-1:0] A_ORIG = A;
 wire [B_WIDTH-1:0] B_ORIG = B;
@@ -38,9 +38,9 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
+input [47:0] A;
+input [47:0] B;
+output [47:0] Y;
 
 wire [A_WIDTH-1:0] A_ORIG = A;
 wire [B_WIDTH-1:0] B_ORIG = B;

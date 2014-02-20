@@ -1,17 +1,40 @@
 read_verilog macc_xilinx_test.v
 read_verilog -lib -icells macc_xilinx_unwrap_map.v
-hierarchy -check -top test;;
+read_verilog -lib -icells macc_xilinx_xmap.v
+hierarchy -check ;;
 
-show -prefix macc_xilinx_test_a -format pdf -notitle
+show -prefix macc_xilinx_test1_a -format pdf -notitle test1
+show -prefix macc_xilinx_test2_a -format pdf -notitle test2
 
 techmap -map macc_xilinx_swap_map.v;;
 
-show -prefix macc_xilinx_test_b -format pdf -notitle
+show -prefix macc_xilinx_test1_b -format pdf -notitle test1
+show -prefix macc_xilinx_test2_b -format pdf -notitle test2
 
 techmap -map macc_xilinx_wrap_map.v
 
 connwrappers -unsigned $__mul_wrapper Y Y_WIDTH \
              -unsigned $__add_wrapper Y Y_WIDTH;;
 
-show -prefix macc_xilinx_test_c -format pdf -notitle
+show -prefix macc_xilinx_test1_c -format pdf -notitle test1
+show -prefix macc_xilinx_test2_c -format pdf -notitle test2
+
+design -push
+read_verilog macc_xilinx_xmap.v
+techmap -map macc_xilinx_swap_map.v
+techmap -map macc_xilinx_wrap_map.v;;
+design -save __macc_xilinx_xmap
+design -pop
+
+extract -constports -ignore_parameters \
+        -map %__macc_xilinx_xmap       \
+        -swap $__add_wrapper A,B ;;
+
+show -prefix macc_xilinx_test1_d -format pdf -notitle test1
+show -prefix macc_xilinx_test2_d -format pdf -notitle test2
+
+techmap -map macc_xilinx_unwrap_map.v;;
+
+show -prefix macc_xilinx_test1_e -format pdf -notitle test1
+show -prefix macc_xilinx_test2_e -format pdf -notitle test2
 
