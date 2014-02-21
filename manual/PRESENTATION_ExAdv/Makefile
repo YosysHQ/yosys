@@ -1,6 +1,6 @@
 
 all: select.pdf red_or3x1.pdf sym_mul.pdf mymul.pdf mulshift.pdf addshift.pdf \
-		macc_simple_xmap.pdf
+		macc_simple_xmap.pdf macc_xilinx_xmap.pdf
 
 select.pdf: select.v select.ys
 	../../yosys select.ys
@@ -22,4 +22,7 @@ addshift.pdf: addshift_*
 
 macc_simple_xmap.pdf: macc_simple_*.v macc_simple_test.ys
 	../../yosys macc_simple_test.ys
+
+macc_xilinx_xmap.pdf: macc_xilinx_*.v macc_xilinx_test.ys
+	../../yosys macc_xilinx_test.ys
 

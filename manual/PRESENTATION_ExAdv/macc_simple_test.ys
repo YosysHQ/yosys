@@ -8,6 +8,7 @@ show -prefix macc_simple_test_00b -format pdf -notitle -lib macc_simple_xmap.v
 
 #################################################
 
+design -reset
 read_verilog macc_simple_test_01.v
 hierarchy -check -top test;;
 

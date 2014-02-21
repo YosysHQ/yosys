@@ -561,6 +561,157 @@ $\downarrow$ & $\downarrow$ \\
 TBD
 \end{frame}
 
+\subsubsection{Example: DSP48\_MACC}
+
+\begin{frame}[fragile]{\subsubsecname{} -- ?/?}
+\hfil\begin{tabular}{cc}
+{\tt test1} & {\tt test2} \\
+\fbox{\hbox to 5cm {\lstinputlisting[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, firstline=1, lastline=6, language=verilog]{PRESENTATION_ExAdv/macc_xilinx_test.v}}} &
+\fbox{\hbox to 5cm {\lstinputlisting[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, firstline=8, lastline=13, language=verilog]{PRESENTATION_ExAdv/macc_xilinx_test.v}}} \\
+$\downarrow$ & $\downarrow$ \\
+\end{tabular}
+\vskip-0.5cm
+\begin{lstlisting}[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+                            read_verilog macc_xilinx_test.v
+                            hierarchy -check
+\end{lstlisting}
+\vskip-0.5cm
+\hfil\begin{tabular}{cc}
+$\downarrow$ & $\downarrow$ \\
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1a.pdf}} &
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2a.pdf}} \\
+\end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{\subsubsecname{} -- ?/?}
+\hfil\begin{tabular}{cc}
+{\tt test1} & {\tt test2} \\
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1a.pdf}} &
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2a.pdf}} \\
+$\downarrow$ & $\downarrow$ \\
+\end{tabular}
+\vskip-0.2cm
+\begin{lstlisting}[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+                         techmap -map macc_xilinx_swap_map.v ;;
+\end{lstlisting}
+\vskip-0.2cm
+\hfil\begin{tabular}{cc}
+$\downarrow$ & $\downarrow$ \\
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1b.pdf}} &
+\fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2b.pdf}} \\
+\end{tabular}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+Wrapping in {\tt test1}:
+\begin{columns}
+\column[t]{5cm}
+\vbox to 0cm{\fbox{\includegraphics[width=4.5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1b.pdf}}\vss}
+\column[t]{6cm}
+\begin{lstlisting}[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+techmap -map macc_xilinx_wrap_map.v
+
+connwrappers -unsigned $__mul_wrapper \
+                            Y Y_WIDTH \
+             -unsigned $__add_wrapper \
+                            Y Y_WIDTH ;;
+\end{lstlisting}
+\end{columns}
+
+\vskip1cm
+\hfil\includegraphics[width=\linewidth,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1c.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+Wrapping in {\tt test2}:
+\begin{columns}
+\column[t]{5cm}
+\vbox to 0cm{\fbox{\includegraphics[width=4.5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2b.pdf}}\vss}
+\column[t]{6cm}
+\begin{lstlisting}[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+techmap -map macc_xilinx_wrap_map.v
+
+connwrappers -unsigned $__mul_wrapper \
+                            Y Y_WIDTH \
+             -unsigned $__add_wrapper \
+                            Y Y_WIDTH ;;
+\end{lstlisting}
+\end{columns}
+
+\vskip1cm
+\hfil\includegraphics[width=\linewidth,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2c.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+Extract in {\tt test1}:
+\begin{columns}
+\column[t]{4.5cm}
+\vbox to 0cm{
+\begin{lstlisting}[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+design -push
+read_verilog macc_xilinx_xmap.v
+techmap -map macc_xilinx_swap_map.v
+techmap -map macc_xilinx_wrap_map.v;;
+design -save __macc_xilinx_xmap
+design -pop
+\end{lstlisting}
+\vss}
+\column[t]{5.5cm}
+\vskip-1cm
+\begin{lstlisting}[linewidth=5.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+extract -constports -ignore_parameters \
+        -map %__macc_xilinx_xmap       \
+        -swap $__add_wrapper A,B ;;
+\end{lstlisting}
+\vbox to 0cm{\fbox{\includegraphics[width=4.5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1c.pdf}}\vss}
+\end{columns}
+
+\vskip2cm
+\hfil\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1d.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+Extract in {\tt test2}:
+\begin{columns}
+\column[t]{4.5cm}
+\vbox to 0cm{
+\begin{lstlisting}[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+design -push
+read_verilog macc_xilinx_xmap.v
+techmap -map macc_xilinx_swap_map.v
+techmap -map macc_xilinx_wrap_map.v;;
+design -save __macc_xilinx_xmap
+design -pop
+\end{lstlisting}
+\vss}
+\column[t]{5.5cm}
+\vskip-1cm
+\begin{lstlisting}[linewidth=5.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+extract -constports -ignore_parameters \
+        -map %__macc_xilinx_xmap       \
+        -swap $__add_wrapper A,B ;;
+\end{lstlisting}
+\vbox to 0cm{\fbox{\includegraphics[width=4.5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2c.pdf}}\vss}
+\end{columns}
+
+\vskip2cm
+\hfil\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2d.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+Unwrap in {\tt test2}:
+
+\hfil\begin{tikzpicture}
+\node at (1,-1.7) {\begin{lstlisting}[linewidth=5.5cm, frame=single, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+techmap -map macc_xilinx_unwrap_map.v ;;
+\end{lstlisting}};
+\node at (0,0) {\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2d.pdf}};
+\node at (0,-4) {\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2e.pdf}};
+\draw[-latex] (4,-0.7) .. controls (5,-1.7) .. (4,-2.7);
+\end{tikzpicture}
+\end{frame}
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Automatic design changes}
