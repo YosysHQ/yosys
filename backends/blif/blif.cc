@@ -31,14 +31,16 @@
 
 struct BlifDumperConfig
 {
-	bool subckt_mode;
+	bool icells_mode;
 	bool conn_mode;
 	bool impltf_mode;
+	bool gates_mode;
+	bool param_mode;
 
 	std::string buf_type, buf_in, buf_out;
 	std::string true_type, true_out, false_type, false_out;
 
-	BlifDumperConfig() : subckt_mode(false), conn_mode(false), impltf_mode(false) { }
+	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false) { }
 };
 
 struct BlifDumper
@@ -86,6 +88,17 @@ struct BlifDumper
 		return cstr_buf.back().c_str();
 	}
 
+	const char *subckt_or_gate(std::string cell_type)
+	{
+		if (!config->gates_mode)
+			return "subckt";
+		if (!design->modules.count(RTLIL::escape_id(cell_type)))
+			return "gate";
+		if (design->modules.at(RTLIL::escape_id(cell_type))->get_bool_attribute("\\blackbox"))
+			return "gate";
+		return "subckt";
+	}
+
 	void dump()
 	{
 		fprintf(f, "\n");
@@ -119,11 +132,13 @@ struct BlifDumper
 
 		if (!config->impltf_mode) {
 			if (!config->false_type.empty())
-				fprintf(f, ".subckt %s %s=$false\n", config->false_type.c_str(), config->false_out.c_str());
+				fprintf(f, ".%s %s %s=$false\n", subckt_or_gate(config->false_type),
+						config->false_type.c_str(), config->false_out.c_str());
 			else
 				fprintf(f, ".names $false\n");
 			if (!config->true_type.empty())
-				fprintf(f, ".subckt %s %s=$true\n", config->true_type.c_str(), config->true_out.c_str());
+				fprintf(f, ".%s %s %s=$true\n", subckt_or_gate(config->true_type),
+						config->true_type.c_str(), config->true_out.c_str());
 			else
 				fprintf(f, ".names $true\n1\n");
 		}
@@ -132,50 +147,50 @@ struct BlifDumper
 		{
 			RTLIL::Cell *cell = cell_it.second;
 
-			if (!config->subckt_mode && cell->type == "$_INV_") {
+			if (!config->icells_mode && cell->type == "$_INV_") {
 				fprintf(f, ".names %s %s\n0 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (!config->subckt_mode && cell->type == "$_AND_") {
+			if (!config->icells_mode && cell->type == "$_AND_") {
 				fprintf(f, ".names %s %s %s\n11 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (!config->subckt_mode && cell->type == "$_OR_") {
+			if (!config->icells_mode && cell->type == "$_OR_") {
 				fprintf(f, ".names %s %s %s\n1- 1\n-1 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (!config->subckt_mode && cell->type == "$_XOR_") {
+			if (!config->icells_mode && cell->type == "$_XOR_") {
 				fprintf(f, ".names %s %s %s\n10 1\n01 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (!config->subckt_mode && cell->type == "$_MUX_") {
+			if (!config->icells_mode && cell->type == "$_MUX_") {
 				fprintf(f, ".names %s %s %s %s\n1-0 1\n-11 1\n",
 						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")),
 						cstr(cell->connections.at("\\S")), cstr(cell->connections.at("\\Y")));
 				continue;
 			}
 
-			if (!config->subckt_mode && cell->type == "$_DFF_N_") {
+			if (!config->icells_mode && cell->type == "$_DFF_N_") {
 				fprintf(f, ".latch %s %s fe %s\n",
 						cstr(cell->connections.at("\\D")), cstr(cell->connections.at("\\Q")), cstr(cell->connections.at("\\C")));
 				continue;
 			}
 
-			if (!config->subckt_mode && cell->type == "$_DFF_P_") {
+			if (!config->icells_mode && cell->type == "$_DFF_P_") {
 				fprintf(f, ".latch %s %s re %s\n",
 						cstr(cell->connections.at("\\D")), cstr(cell->connections.at("\\Q")), cstr(cell->connections.at("\\C")));
 				continue;
 			}
 
-			fprintf(f, ".subckt %s", cstr(cell->type));
+			fprintf(f, ".%s %s", subckt_or_gate(cell->type), cstr(cell->type));
 			for (auto &conn : cell->connections)
 			for (int i = 0; i < conn.second.width; i++) {
 				if (conn.second.width == 1)
@@ -185,6 +200,24 @@ struct BlifDumper
 				fprintf(f, "=%s", cstr(conn.second.extract(i, 1)));
 			}
 			fprintf(f, "\n");
+
+			if (config->param_mode)
+				for (auto &param : cell->parameters) {
+					fprintf(f, ".param %s ", RTLIL::id2cstr(param.first));
+					if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
+						std::string str = param.second.decode_string();
+						fprintf(f, "\"");
+						for (char ch : str)
+							if (ch == '"' || ch == '\\')
+								fprintf(f, "\\%c", ch);
+							else if (ch < 32 || ch >= 127)
+								fprintf(f, "\\%03o", ch);
+							else
+								fprintf(f, "%c", ch);
+						fprintf(f, "\"\n");
+					} else
+						fprintf(f, "%s\n", param.second.as_string().c_str());
+				}
 		}
 
 		for (auto &conn : module->connections)
@@ -192,7 +225,7 @@ struct BlifDumper
 			if (config->conn_mode)
 				fprintf(f, ".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
 			else if (!config->buf_type.empty())
-				fprintf(f, ".subckt %s %s=%s %s=%s\n", config->buf_type.c_str(), config->buf_in.c_str(), cstr(conn.second.extract(i, 1)),
+				fprintf(f, ".%s %s %s=%s %s=%s\n", subckt_or_gate(config->buf_type), config->buf_type.c_str(), config->buf_in.c_str(), cstr(conn.second.extract(i, 1)),
 						config->buf_out.c_str(), cstr(conn.first.extract(i, 1)));
 			else
 				fprintf(f, ".names %s %s\n1 1\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
@@ -232,13 +265,20 @@ struct BlifBackend : public Backend {
 		log("read by a BLIF parser but a custom tool. It is recommended to not name the output\n");
 		log("file *.blif when any of this options is used.\n");
 		log("\n");
-		log("    -subckt\n");
+		log("    -icells\n");
 		log("        do not translate Yosys's internal gates to generic BLIF logic\n");
-		log("        functions. Instead create .subckt lines for all cells.\n");
+		log("        functions. Instead create .subckt or .gate lines for all cells.\n");
+		log("\n");
+		log("    -gates\n");
+		log("        print .gate instead of .subckt lines for all cells that are not\n");
+		log("        instantiations of other modules from this design.\n");
 		log("\n");
 		log("    -conn\n");
 		log("        do not generate buffers for connected wires. instead use the\n");
 		log("        non-standard .conn statement.\n");
+		log("\n");
+		log("    -param\n");
+		log("        use the non-standard .param statement to write module parameters\n");
 		log("\n");
 		log("    -impltf\n");
 		log("        do not write definitions for the $true and $false wires.\n");
@@ -277,12 +317,20 @@ struct BlifBackend : public Backend {
 				config.false_out = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-subckt") {
-				config.subckt_mode = true;
+			if (args[argidx] == "-icells") {
+				config.icells_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-gates") {
+				config.gates_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-conn") {
 				config.conn_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-param") {
+				config.param_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-impltf") {
