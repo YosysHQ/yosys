@@ -28,7 +28,8 @@
 #include <string>
 #include <assert.h>
 
-#define EDIF_NAME(_id) edif_names(RTLIL::unescape_id(_id)).c_str()
+#define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true).c_str()
+#define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false).c_str()
 
 namespace
 {
@@ -40,8 +41,13 @@ namespace
 
 		EdifNames() : counter(1) { }
 
-		std::string operator()(std::string id)
+		std::string operator()(std::string id, bool define)
 		{
+			if (define) {
+				std::string new_id = operator()(id, false);
+				return new_id != id ? stringf("(rename %s \"%s\")", new_id.c_str(), id.c_str()) : id;
+			}
+
 			if (name_map.count(id) > 0)
 				return name_map.at(id);
 			if (generated_names.count(id) > 0)
@@ -74,7 +80,7 @@ namespace
 			}
 			generated_names.insert(gen_name);
 			name_map[id] = gen_name;
-			return stringf("(rename %s \"%s\")", gen_name.c_str(), id.c_str());
+			return gen_name;
 		}
 	};
 }
@@ -155,7 +161,7 @@ struct EdifBackend : public Backend {
 		if (top_module_name.empty())
 			log_error("No module found in design!\n");
 
-		fprintf(f, "(edif %s\n", EDIF_NAME(top_module_name));
+		fprintf(f, "(edif %s\n", EDIF_DEF(top_module_name));
 		fprintf(f, "  (edifVersion 2 0 0)\n");
 		fprintf(f, "  (edifLevel 0)\n");
 		fprintf(f, "  (keywordMap (keywordLevel 0))\n");
@@ -182,7 +188,7 @@ struct EdifBackend : public Backend {
 		fprintf(f, "    )\n");
 
 		for (auto &cell_it : lib_cell_ports) {
-			fprintf(f, "    (cell %s\n", EDIF_NAME(cell_it.first));
+			fprintf(f, "    (cell %s\n", EDIF_DEF(cell_it.first));
 			fprintf(f, "      (cellType GENERIC)\n");
 			fprintf(f, "      (view VIEW_NETLIST\n");
 			fprintf(f, "        (viewType NETLIST)\n");
@@ -195,7 +201,7 @@ struct EdifBackend : public Backend {
 					else if (!ct.cell_input(cell_it.first, port_it))
 						dir = "OUTPUT";
 				}
-				fprintf(f, "          (port %s (direction %s))\n", EDIF_NAME(port_it), dir);
+				fprintf(f, "          (port %s (direction %s))\n", EDIF_DEF(port_it), dir);
 			}
 			fprintf(f, "        )\n");
 			fprintf(f, "      )\n");
@@ -244,7 +250,7 @@ struct EdifBackend : public Backend {
 			SigMap sigmap(module);
 			std::map<RTLIL::SigSpec, std::set<std::string>> net_join_db;
 
-			fprintf(f, "    (cell %s\n", EDIF_NAME(module->name));
+			fprintf(f, "    (cell %s\n", EDIF_DEF(module->name));
 			fprintf(f, "      (cellType GENERIC)\n");
 			fprintf(f, "      (view VIEW_NETLIST\n");
 			fprintf(f, "        (viewType NETLIST)\n");
@@ -259,14 +265,14 @@ struct EdifBackend : public Backend {
 				else if (!wire->port_input)
 					dir = "OUTPUT";
 				if (wire->width == 1) {
-					fprintf(f, "          (port %s (direction %s))\n", EDIF_NAME(wire->name), dir);
+					fprintf(f, "          (port %s (direction %s))\n", EDIF_DEF(wire->name), dir);
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
-					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_NAME(wire->name)));
+					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_REF(wire->name)));
 				} else {
-					fprintf(f, "          (port (array %s %d) (direction %s))\n", EDIF_NAME(wire->name), wire->width, dir);
+					fprintf(f, "          (port (array %s %d) (direction %s))\n", EDIF_DEF(wire->name), wire->width, dir);
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, 1, i));
-						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_NAME(wire->name), i));
+						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), i));
 					}
 				}
 			}
@@ -276,14 +282,14 @@ struct EdifBackend : public Backend {
 			fprintf(f, "          (instance VCC (viewRef VIEW_NETLIST (cellRef VCC (libraryRef LIB))))\n");
 			for (auto &cell_it : module->cells) {
 				RTLIL::Cell *cell = cell_it.second;
-				fprintf(f, "          (instance %s\n", EDIF_NAME(cell->name));
-				fprintf(f, "            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_NAME(cell->type),
+				fprintf(f, "          (instance %s\n", EDIF_DEF(cell->name));
+				fprintf(f, "            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
 				for (auto &p : cell->parameters)
 					if ((p.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
-						fprintf(f, "\n            (property %s (string \"%s\"))", EDIF_NAME(p.first), p.second.decode_string().c_str());
+						fprintf(f, "\n            (property %s (string \"%s\"))", EDIF_DEF(p.first), p.second.decode_string().c_str());
 					else if (p.second.bits.size() <= 32 && RTLIL::SigSpec(p.second).is_fully_def())
-						fprintf(f, "\n            (property %s (integer %u))", EDIF_NAME(p.first), p.second.as_int());
+						fprintf(f, "\n            (property %s (integer %u))", EDIF_DEF(p.first), p.second.as_int());
 					else {
 						std::string hex_string = "";
 						for (size_t i = 0; i < p.second.bits.size(); i += 4) {
@@ -295,7 +301,7 @@ struct EdifBackend : public Backend {
 							char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
 							hex_string = std::string(digit_str) + hex_string;
 						}
-						fprintf(f, "\n            (property %s (string \"%s\"))", EDIF_NAME(p.first), hex_string.c_str());
+						fprintf(f, "\n            (property %s (string \"%s\"))", EDIF_DEF(p.first), hex_string.c_str());
 					}
 				fprintf(f, ")\n");
 				for (auto &p : cell->connections) {
@@ -304,9 +310,9 @@ struct EdifBackend : public Backend {
 					for (int i = 0; i < sig.width; i++) {
 						RTLIL::SigSpec sigbit(sig.chunks.at(i));
 						if (sig.width == 1)
-							net_join_db[sigbit].insert(stringf("(portRef %s (instanceRef %s))", edif_names(RTLIL::id2cstr(p.first)).c_str(), EDIF_NAME(cell->name)));
+							net_join_db[sigbit].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
 						else
-							net_join_db[sigbit].insert(stringf("(portRef (member %s %d) (instanceRef %s))", edif_names(RTLIL::id2cstr(p.first)).c_str(), i, EDIF_NAME(cell->name)));
+							net_join_db[sigbit].insert(stringf("(portRef (member %s %d) (instanceRef %s))", EDIF_REF(p.first), i, EDIF_REF(cell->name)));
 					}
 				}
 			}
@@ -322,7 +328,7 @@ struct EdifBackend : public Backend {
 				for (size_t i = 0; i < netname.size(); i++)
 					if (netname[i] == ' ' || netname[i] == '\\')
 						netname.erase(netname.begin() + i--);
-				fprintf(f, "          (net %s (joined\n", edif_names(netname).c_str());
+				fprintf(f, "          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
 					fprintf(f, "            %s\n", ref.c_str());
 				if (sig.chunks.at(0).wire == NULL) {
@@ -339,8 +345,8 @@ struct EdifBackend : public Backend {
 		}
 		fprintf(f, "  )\n");
 
-		fprintf(f, "  (design %s\n", EDIF_NAME(top_module_name));
-		fprintf(f, "    (cellRef %s (libraryRef DESIGN))\n", EDIF_NAME(top_module_name));
+		fprintf(f, "  (design %s\n", EDIF_DEF(top_module_name));
+		fprintf(f, "    (cellRef %s (libraryRef DESIGN))\n", EDIF_REF(top_module_name));
 		fprintf(f, "  )\n");
 
 		fprintf(f, ")\n");
