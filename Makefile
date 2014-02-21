@@ -138,6 +138,7 @@ test: yosys
 	cd tests/simple && bash run-test.sh
 	cd tests/hana && bash run-test.sh
 	cd tests/asicworld && bash run-test.sh
+	cd tests/techmap && bash run-test.sh
 	cd tests/sat && bash run-test.sh
 
 install: $(TARGETS) $(EXTRA_TARGETS)
