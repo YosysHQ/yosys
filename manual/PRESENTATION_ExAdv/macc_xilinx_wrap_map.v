@@ -1,4 +1,3 @@
-
 (* techmap_celltype = "$mul" *)
 module mul_wrap (A, B, Y);
 
@@ -12,8 +11,8 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-wire [24:0] A_25 = A;
-wire [17:0] B_18 = B;
+wire [17:0] A_18 = A;
+wire [24:0] B_25 = B;
 wire [47:0] Y_48;
 assign Y = Y_48;
 
@@ -26,7 +25,7 @@ initial begin
 		_TECHMAP_FAIL_ <= 1;
 	if (A_WIDTH < 4 || B_WIDTH < 4)
 		_TECHMAP_FAIL_ <= 1;
-	if (A_WIDTH > 25 || B_WIDTH > 18)
+	if (A_WIDTH > 18 || B_WIDTH > 25)
 		_TECHMAP_FAIL_ <= 1;
 	if (A_WIDTH*B_WIDTH < 100)
 		_TECHMAP_FAIL_ <= 1;
@@ -39,8 +38,8 @@ end
 	.B_WIDTH(B_WIDTH),
 	.Y_WIDTH(Y_WIDTH)
 ) _TECHMAP_REPLACE_ (
-	.A(A_25),
-	.B(B_18),
+	.A(A_18),
+	.B(B_25),
 	.Y(Y_48)
 );
 
@@ -88,4 +87,3 @@ end
 );
 
 endmodule
-

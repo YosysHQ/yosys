@@ -38,6 +38,6 @@ techmap -map macc_xilinx_unwrap_map.v;;
 show -prefix macc_xilinx_test1e -format pdf -notitle test1
 show -prefix macc_xilinx_test2e -format pdf -notitle test2
 
-design -load
+design -load __macc_xilinx_xmap
 show -prefix macc_xilinx_xmap -format pdf -notitle
 

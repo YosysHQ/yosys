@@ -1,4 +1,3 @@
-
 module \$__mul_wrapper (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -7,8 +6,8 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-input [24:0] A;
-input [17:0] B;
+input [17:0] A;
+input [24:0] B;
 output [47:0] Y;
 
 wire [A_WIDTH-1:0] A_ORIG = A;
@@ -60,4 +59,3 @@ assign Y = Y_ORIG;
 );
 
 endmodule
-

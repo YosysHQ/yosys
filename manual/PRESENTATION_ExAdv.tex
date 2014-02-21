@@ -491,15 +491,13 @@ For example:
 \end{lstlisting}
 
 This circuit contains two cells in the RTL representation: one multiplier and
-one adder.
-
-\medskip
-Coarse grain synthesis is mapping this circuit to a single multiply-add cell
-of the target architecture, for example using an FPGA DSP core.
+one adder. In some architectures this circuit can be implemented using
+a single circuit element, for example an FPGA DSP core. Coarse grain synthesis
+is this mapping of groups of circuit elements to larger components.
 
 \bigskip
-Fine-grain synthesis would be matching the circuit to smaller elements, such
-as LUTs, gates, or half- and full-adders.
+Fine-grain synthesis would be matching the circuit elements to smaller
+components, such as LUTs, gates, or half- and full-adders.
 \end{frame}
 
 \subsubsection{The extract pass}
@@ -558,12 +556,101 @@ $\downarrow$ & $\downarrow$ \\
 \subsubsection{The wrap-extract-unwrap method}
 
 \begin{frame}{\subsubsecname}
-TBD
+\scriptsize
+Often a coarse-grain element has a constant bit-width, but can be used to
+implement oprations with a smaller bit-width. For example, a 18x25-bit multiplier
+can also be used to implement 16x20-bit multiplication.
+
+\bigskip
+A way of mapping such elements in coarse grain synthesis is the wrap-extract-unwrap method:
+
+\begin{itemize}
+\item {\bf wrap} \\
+Identify candidate-cells in the circuit and wrap them in a cell with a constant
+wider bit-width using {\tt techmap}. The wrappers use the same parameters as the original cell, so
+the information about the original width of the ports is preserved. \\
+Then use the {\tt connwrappers} command to connect up the bit-extended in- and
+outputs of the wrapper cells.
+\item {\bf extract} \\
+Now all operations are encoded using the same bit-width as the coarse grain element. The {\tt
+extract} command can be used to replace circuits with cells of the target architecture.
+\item {\bf unwrap} \\
+The remaining wrapper cell can be unwrapped using {\tt techmap}.
+\end{itemize}
+
+\bigskip
+The following sides detail an example that shows how to map MACC operations of
+arbitrary size to MACC cells with a 18x25-bit multiplier and a 48-bit adder (such as
+the Xilinx DSP48 cells).
 \end{frame}
 
 \subsubsection{Example: DSP48\_MACC}
 
-\begin{frame}[fragile]{\subsubsecname{} -- ?/?}
+\begin{frame}[t, fragile]{\subsubsecname{} -- 1/13}
+Preconditioning: {\tt macc\_xilinx\_swap\_map.v} \\
+Make sure {\tt A} is the smaller port on all multipliers
+
+\begin{columns}
+\column{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, lastline=15]{PRESENTATION_ExAdv/macc_xilinx_swap_map.v}
+\column{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=16]{PRESENTATION_ExAdv/macc_xilinx_swap_map.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- 2/13}
+Wrapping multipliers: {\tt macc\_xilinx\_wrap\_map.v}
+
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, lastline=23]{PRESENTATION_ExAdv/macc_xilinx_wrap_map.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=24, lastline=46]{PRESENTATION_ExAdv/macc_xilinx_wrap_map.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- 3/13}
+Wrapping adders: {\tt macc\_xilinx\_wrap\_map.v}
+
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=48, lastline=67]{PRESENTATION_ExAdv/macc_xilinx_wrap_map.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=68, lastline=89]{PRESENTATION_ExAdv/macc_xilinx_wrap_map.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- 4/13}
+Extract: {\tt macc\_xilinx\_xmap.v}
+
+\lstinputlisting[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=1,  lastline=17]{PRESENTATION_ExAdv/macc_xilinx_xmap.v}
+
+.. simply use the same wrapping commands on this module as on the design to create a template for the {\tt extract} command.
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- 5/13}
+Unwrapping multipliers: {\tt macc\_xilinx\_unwrap\_map.v}
+
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=1,  lastline=17]{PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=18, lastline=30]{PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t, fragile]{\subsubsecname{} -- 6/13}
+Unwrapping adders: {\tt macc\_xilinx\_unwrap\_map.v}
+
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=32, lastline=48]{PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{7pt}{8pt}\selectfont, language=verilog, firstline=49, lastline=61]{PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{\subsubsecname{} -- 7/13}
 \hfil\begin{tabular}{cc}
 {\tt test1} & {\tt test2} \\
 \fbox{\hbox to 5cm {\lstinputlisting[linewidth=5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, firstline=1, lastline=6, language=verilog]{PRESENTATION_ExAdv/macc_xilinx_test.v}}} &
@@ -583,7 +670,7 @@ $\downarrow$ & $\downarrow$ \\
 \end{tabular}
 \end{frame}
 
-\begin{frame}[fragile]{\subsubsecname{} -- ?/?}
+\begin{frame}[fragile]{\subsubsecname{} -- 8/13}
 \hfil\begin{tabular}{cc}
 {\tt test1} & {\tt test2} \\
 \fbox{\includegraphics[width=5cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1a.pdf}} &
@@ -602,7 +689,7 @@ $\downarrow$ & $\downarrow$ \\
 \end{tabular}
 \end{frame}
 
-\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+\begin{frame}[t, fragile]{\subsubsecname{} -- 9/13}
 Wrapping in {\tt test1}:
 \begin{columns}
 \column[t]{5cm}
@@ -622,7 +709,7 @@ connwrappers -unsigned $__mul_wrapper \
 \hfil\includegraphics[width=\linewidth,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1c.pdf}
 \end{frame}
 
-\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+\begin{frame}[t, fragile]{\subsubsecname{} -- 10/13}
 Wrapping in {\tt test2}:
 \begin{columns}
 \column[t]{5cm}
@@ -642,7 +729,7 @@ connwrappers -unsigned $__mul_wrapper \
 \hfil\includegraphics[width=\linewidth,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2c.pdf}
 \end{frame}
 
-\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+\begin{frame}[t, fragile]{\subsubsecname{} -- 11/13}
 Extract in {\tt test1}:
 \begin{columns}
 \column[t]{4.5cm}
@@ -670,7 +757,7 @@ extract -constports -ignore_parameters \
 \hfil\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test1d.pdf}
 \end{frame}
 
-\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+\begin{frame}[t, fragile]{\subsubsecname{} -- 12/13}
 Extract in {\tt test2}:
 \begin{columns}
 \column[t]{4.5cm}
@@ -698,7 +785,7 @@ extract -constports -ignore_parameters \
 \hfil\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2d.pdf}
 \end{frame}
 
-\begin{frame}[t, fragile]{\subsubsecname{} -- ?/?}
+\begin{frame}[t, fragile]{\subsubsecname{} -- 13/13}
 Unwrap in {\tt test2}:
 
 \hfil\begin{tikzpicture}

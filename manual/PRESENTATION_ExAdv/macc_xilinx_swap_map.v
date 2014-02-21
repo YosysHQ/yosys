@@ -1,4 +1,3 @@
-
 (* techmap_celltype = "$mul" *)
 module mul_swap_ports (A, B, Y);
 
@@ -12,7 +11,7 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-wire _TECHMAP_FAIL_ = A_WIDTH >= B_WIDTH;
+wire _TECHMAP_FAIL_ = A_WIDTH <= B_WIDTH;
 
 \$mul #(
 	.A_SIGNED(B_SIGNED),
@@ -27,4 +26,3 @@ wire _TECHMAP_FAIL_ = A_WIDTH >= B_WIDTH;
 );
 
 endmodule
-
