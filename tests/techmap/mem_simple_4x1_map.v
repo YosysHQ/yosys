@@ -56,7 +56,7 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	genvar i;
 	generate
 	  for (i = 0; i < WIDTH; i=i+1) begin:slice
-		mem_4x1_generator #(
+		\$__mem_4x1_generator #(
 			.ABITS(ABITS),
 			.SIZE(SIZE)
 		) bit_slice (
@@ -71,7 +71,7 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	endgenerate
 endmodule
 
-module mem_4x1_generator (CLK, RD_ADDR, RD_DATA, WR_ADDR, WR_DATA, WR_EN);
+module \$__mem_4x1_generator (CLK, RD_ADDR, RD_DATA, WR_ADDR, WR_DATA, WR_EN);
 	parameter ABITS = 4;
 	parameter SIZE = 16;
 
@@ -85,7 +85,7 @@ module mem_4x1_generator (CLK, RD_ADDR, RD_DATA, WR_ADDR, WR_DATA, WR_EN);
 	  if (ABITS > 4) begin
 	  	wire high_rd_data, low_rd_data;
 	  	if (SIZE > 2**(ABITS-1)) begin
-			mem_4x1_generator #(
+			\$__mem_4x1_generator #(
 				.ABITS(ABITS-1),
 				.SIZE(SIZE - 2**(ABITS-1))
 			) part_high (
@@ -99,7 +99,7 @@ module mem_4x1_generator (CLK, RD_ADDR, RD_DATA, WR_ADDR, WR_DATA, WR_EN);
 		end else begin
 			assign high_rd_data = 1'bx;
 		end
-		mem_4x1_generator #(
+		\$__mem_4x1_generator #(
 			.ABITS(ABITS-1),
 			.SIZE(SIZE > 2**(ABITS-1) ? 2**(ABITS-1) : SIZE)
 		) part_low (
