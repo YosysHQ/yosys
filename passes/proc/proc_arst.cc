@@ -156,8 +156,12 @@ restart_proc_arst:
 		if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
 			bool polarity = sync->type == RTLIL::SyncType::STp;
 			if (check_signal(mod, root_sig, sync->signal, polarity)) {
-				log("Found async reset %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
-				sync->type = sync->type == RTLIL::SyncType::STp ? RTLIL::SyncType::ST1 : RTLIL::SyncType::ST0;
+				if (proc->syncs.size() == 1) {
+					log("Found VHDL-style edge-trigger %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
+				} else {
+					log("Found async reset %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
+					sync->type = sync->type == RTLIL::SyncType::STp ? RTLIL::SyncType::ST1 : RTLIL::SyncType::ST0;
+				}
 				for (auto &action : sync->actions) {
 					RTLIL::SigSpec rspec = action.second;
 					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.width);
