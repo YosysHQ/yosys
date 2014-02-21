@@ -303,8 +303,10 @@ struct EdifBackend : public Backend {
 					sig.expand();
 					for (int i = 0; i < sig.width; i++) {
 						RTLIL::SigSpec sigbit(sig.chunks.at(i));
-						std::string portname = sig.width > 1 ? stringf("%s[%d]", RTLIL::id2cstr(p.first), i) : RTLIL::id2cstr(p.first);
-						net_join_db[sigbit].insert(stringf("(portRef %s (instanceRef %s))", edif_names(portname).c_str(), EDIF_NAME(cell->name)));
+						if (sig.width == 1)
+							net_join_db[sigbit].insert(stringf("(portRef %s (instanceRef %s))", edif_names(RTLIL::id2cstr(p.first)).c_str(), EDIF_NAME(cell->name)));
+						else
+							net_join_db[sigbit].insert(stringf("(portRef (member %s %d) (instanceRef %s))", edif_names(RTLIL::id2cstr(p.first)).c_str(), i, EDIF_NAME(cell->name)));
 					}
 				}
 			}
