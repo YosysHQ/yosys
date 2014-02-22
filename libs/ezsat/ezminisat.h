@@ -22,6 +22,7 @@
 
 #define EZMINISAT_SOLVER Minisat::Solver
 #define EZMINISAT_VERBOSITY 0
+#define EZMINISAT_INCREMENTAL 1
 
 #include "ezsat.h"
 #include <time.h>

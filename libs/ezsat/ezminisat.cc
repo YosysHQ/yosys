@@ -96,8 +96,12 @@ contradiction:
 		minisatSolver->verbosity = EZMINISAT_VERBOSITY;
 	}
 
+#if EZMINISAT_INCREMENTAL
 	std::vector<std::vector<int>> cnf;
 	consumeCnf(cnf);
+#else
+	const std::vector<std::vector<int>> &cnf = this->cnf();
+#endif
 
 	while (int(minisatVars.size()) < numCnfVariables())
 		minisatVars.push_back(minisatSolver->newVar());
@@ -145,8 +149,14 @@ contradiction:
 		alarm(old_alarm_timeout);
 	}
 
-	if (!foundSolution)
+	if (!foundSolution) {
+#if !EZMINISAT_INCREMENTAL
+		delete minisatSolver;
+		minisatSolver = NULL;
+		minisatVars.clear();
+#endif
 		return false;
+	}
 
 	modelValues.clear();
 	modelValues.resize(modelIdx.size());
@@ -164,6 +174,11 @@ contradiction:
 		modelValues[i] = (value == Minisat::lbool(refvalue));
 	}
 
+#if !EZMINISAT_INCREMENTAL
+	delete minisatSolver;
+	minisatSolver = NULL;
+	minisatVars.clear();
+#endif
 	return true;
 }
 
