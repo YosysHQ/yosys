@@ -29,6 +29,7 @@
 #include <cinttypes>
 
 #include <minisat/core/Solver.h>
+#include <minisat/simp/SimpSolver.h>
 
 ezMiniSAT::ezMiniSAT() : minisatSolver(NULL)
 {
@@ -90,8 +91,10 @@ contradiction:
 	for (auto id : modelExpressions)
 		modelIdx.push_back(bind(id));
 
-	if (minisatSolver == NULL)
-		minisatSolver = new Minisat::Solver;
+	if (minisatSolver == NULL) {
+		minisatSolver = new EZMINISAT_SOLVER;
+		minisatSolver->verbosity = EZMINISAT_VERBOSITY;
+	}
 
 	std::vector<std::vector<int>> cnf;
 	consumeCnf(cnf);

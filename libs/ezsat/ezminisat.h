@@ -20,6 +20,9 @@
 #ifndef EZMINISAT_H
 #define EZMINISAT_H
 
+#define EZMINISAT_SOLVER Minisat::Solver
+#define EZMINISAT_VERBOSITY 0
+
 #include "ezsat.h"
 #include <time.h>
 
@@ -28,12 +31,13 @@
 // don't force ezSAT users to use minisat headers..
 namespace Minisat {
 	class Solver;
+	class SimpSolver;
 }
 
 class ezMiniSAT : public ezSAT
 {
 private:
-	Minisat::Solver *minisatSolver;
+	EZMINISAT_SOLVER *minisatSolver;
 	std::vector<int> minisatVars;
 	bool foundContradiction;
 
