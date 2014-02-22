@@ -342,7 +342,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cell->parameters.erase("\\WIDTH");
 				cell->type = "$or";
 			} else
-				cell->type = "$_or_";
+				cell->type = "$_OR_";
 			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
