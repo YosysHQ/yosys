@@ -1088,14 +1088,16 @@ skip_dynamic_range_lvalue_expansion:;
 		current_scope[wire_en->str] = wire_en;
 		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
-		std::vector<RTLIL::State> x_bits;
+		std::vector<RTLIL::State> x_bits_addr, x_bits_data;
+		for (int i = 0; i < addr_bits; i++)
+			x_bits_addr.push_back(RTLIL::State::Sx);
 		for (int i = 0; i < mem_width; i++)
-			x_bits.push_back(RTLIL::State::Sx);
+			x_bits_data.push_back(RTLIL::State::Sx);
 
-		AstNode *assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits, false));
+		AstNode *assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_addr, false));
 		assign_addr->children[0]->str = id_addr;
 
-		AstNode *assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits, false));
+		AstNode *assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
 		assign_data->children[0]->str = id_data;
 
 		AstNode *assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, 1));
