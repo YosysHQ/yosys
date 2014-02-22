@@ -190,6 +190,29 @@ struct BlifDumper
 				continue;
 			}
 
+			if (!config->icells_mode && cell->type == "$lut") {
+				fprintf(f, ".names");
+				auto &inputs = cell->connections.at("\\I");
+				auto width = cell->parameters.at("\\WIDTH").as_int();
+				log_assert(inputs.width == width);
+				for (int i = 0; i < inputs.width; i++) {
+					fprintf(f, " %s", cstr(inputs.extract(i, 1)));
+				}
+				auto &output = cell->connections.at("\\O");
+				log_assert(output.width == 1);
+				fprintf(f, " %s", cstr(output));
+				fprintf(f, "\n");
+				auto mask = cell->parameters.at("\\LUT").as_string();
+				for (int i = 0; i < (1 << width); i++) {
+					if (mask[i] == '0') continue;
+					for (int j = width-1; j >= 0; j--) {
+						fputc((i>>j)&1 ? '1' : '0', f);
+					}
+					fprintf(f, " %c\n", mask[i]);
+				}
+				continue;
+			}
+
 			fprintf(f, ".%s %s", subckt_or_gate(cell->type), cstr(cell->type));
 			for (auto &conn : cell->connections)
 			for (int i = 0; i < conn.second.width; i++) {
