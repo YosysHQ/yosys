@@ -133,8 +133,10 @@ void Pass::call(RTLIL::Design *design, std::string command)
 	std::vector<std::string> args;
 	char *s = strdup(command.c_str()), *sstart = s, *saveptr;
 	s += strspn(s, " \t\r\n");
-	if (*s == 0 || *s == '#')
+	if (*s == 0 || *s == '#') {
+		free(sstart);
 		return;
+	}
 	if (*s == '!') {
 		for (s++; *s == ' ' || *s == '\t'; s++) { }
 		char *p = s + strlen(s) - 1;
@@ -144,6 +146,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		int retCode = system(s);
 		if (retCode != 0)
 			log_cmd_error("Shell command returned error code %d.\n", retCode);
+		free(sstart);
 		return;
 	}
 	for (char *p = strtok_r(s, " \t\r\n", &saveptr); p; p = strtok_r(NULL, " \t\r\n", &saveptr)) {
