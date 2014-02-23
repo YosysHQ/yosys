@@ -29,18 +29,18 @@ const int ezSAT::FALSE = 2;
 
 ezSAT::ezSAT()
 {
-	literal("TRUE");
-	literal("FALSE");
-
-	assert(literal("TRUE") == TRUE);
-	assert(literal("FALSE") == FALSE);
-
 	cnfConsumed = false;
 	cnfVariableCount = 0;
 	cnfClausesCount = 0;
 
 	solverTimeout = 0;
 	solverTimoutStatus = false;
+
+	freeze(literal("TRUE"));
+	freeze(literal("FALSE"));
+
+	assert(literal("TRUE") == TRUE);
+	assert(literal("FALSE") == FALSE);
 }
 
 ezSAT::~ezSAT()
@@ -345,6 +345,10 @@ void ezSAT::clear()
 	cnfAssumptions.clear();
 }
 
+void ezSAT::freeze(int)
+{
+}
+
 void ezSAT::assume(int id)
 {
 	cnfAssumptions.insert(id);
@@ -460,6 +464,23 @@ int ezSAT::bound(int id) const
 	if (-id > 0 && -id <= int(cnfExpressionVariables.size()))
 		return cnfExpressionVariables[-id-1];
 	return 0;
+}
+
+std::string ezSAT::cnfLiteralInfo(int idx) const
+{
+	for (size_t i = 0; i < cnfLiteralVariables.size(); i++) {
+		if (cnfLiteralVariables[i] == idx)
+			return to_string(i+1);
+		if (cnfLiteralVariables[i] == -idx)
+			return "NOT " + to_string(i+1);
+	}
+	for (size_t i = 0; i < cnfExpressionVariables.size(); i++) {
+		if (cnfExpressionVariables[i] == idx)
+			return to_string(-i-1);
+		if (cnfExpressionVariables[i] == -idx)
+			return "NOT " + to_string(-i-1);
+	}
+	return "<unnamed>";
 }
 
 int ezSAT::bind(int id)

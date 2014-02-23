@@ -72,6 +72,7 @@ struct SatGen
 			} else {
 				std::string name = pf + stringf(c.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(c.wire->name), c.offset);
 				vec.push_back(ez->literal(name));
+				ez->freeze(vec.back());
 			}
 		return vec;
 	}

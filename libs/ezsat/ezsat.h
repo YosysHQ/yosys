@@ -141,6 +141,7 @@ public:
 	// manage CNF (usually only accessed by SAT solvers)
 
 	virtual void clear();
+	virtual void freeze(int id);
 	void assume(int id);
 	int bind(int id);
 
@@ -153,6 +154,8 @@ public:
 
 	void consumeCnf();
 	void consumeCnf(std::vector<std::vector<int>> &cnf);
+
+	std::string cnfLiteralInfo(int idx) const;
 
 	// simple helpers for build expressions easily
 

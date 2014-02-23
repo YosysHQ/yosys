@@ -51,8 +51,18 @@ void ezMiniSAT::clear()
 	}
 	foundContradiction = false;
 	minisatVars.clear();
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	cnfFrozenVars.clear();
+#endif
 	ezSAT::clear();
 }
+
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+void ezMiniSAT::freeze(int id)
+{
+	cnfFrozenVars.insert(bind(id));
+}
+#endif
 
 ezMiniSAT *ezMiniSAT::alarmHandlerThis = NULL;
 clock_t ezMiniSAT::alarmHandlerTimeout = 0;
@@ -92,7 +102,7 @@ contradiction:
 		modelIdx.push_back(bind(id));
 
 	if (minisatSolver == NULL) {
-		minisatSolver = new EZMINISAT_SOLVER;
+		minisatSolver = new Solver;
 		minisatSolver->verbosity = EZMINISAT_VERBOSITY;
 	}
 
@@ -106,13 +116,27 @@ contradiction:
 	while (int(minisatVars.size()) < numCnfVariables())
 		minisatVars.push_back(minisatSolver->newVar());
 
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	for (auto idx : cnfFrozenVars)
+		minisatSolver->setFrozen(minisatVars.at(idx > 0 ? idx-1 : -idx-1), true);
+	cnfFrozenVars.clear();
+#endif
+
 	for (auto &clause : cnf) {
 		Minisat::vec<Minisat::Lit> ps;
-		for (auto idx : clause)
+		for (auto idx : clause) {
 			if (idx > 0)
 				ps.push(Minisat::mkLit(minisatVars.at(idx-1)));
 			else
 				ps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
+#if EZMINISAT_SIMPSOLVER
+			if (minisatSolver->isEliminated(minisatVars.at(idx > 0 ? idx-1 : -idx-1))) {
+				fprintf(stderr, "Assert in %s:%d failed! Missing call to ezsat->freeze(): %s (lit=%d)\n",
+						__FILE__, __LINE__, cnfLiteralInfo(idx).c_str(), idx);
+				abort();
+			}
+#endif
+		}
 		if (!minisatSolver->addClause(ps))
 			goto contradiction;
 	}
@@ -122,11 +146,18 @@ contradiction:
 
 	Minisat::vec<Minisat::Lit> assumps;
 
-	for (auto idx : extraClauses)
+	for (auto idx : extraClauses) {
 		if (idx > 0)
 			assumps.push(Minisat::mkLit(minisatVars.at(idx-1)));
 		else
 			assumps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
+#if EZMINISAT_SIMPSOLVER
+		if (minisatSolver->isEliminated(minisatVars.at(idx > 0 ? idx-1 : -idx-1))) {
+			fprintf(stderr, "Assert in %s:%d failed! Missing call to ezsat->freeze(): %s\n", __FILE__, __LINE__, cnfLiteralInfo(idx).c_str());
+			abort();
+		}
+#endif
+	}
 
 	sighandler_t old_alarm_sighandler = NULL;
 	int old_alarm_timeout = 0;

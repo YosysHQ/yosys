@@ -20,7 +20,7 @@
 #ifndef EZMINISAT_H
 #define EZMINISAT_H
 
-#define EZMINISAT_SOLVER Minisat::Solver
+#define EZMINISAT_SIMPSOLVER 0
 #define EZMINISAT_VERBOSITY 0
 #define EZMINISAT_INCREMENTAL 1
 
@@ -38,9 +38,18 @@ namespace Minisat {
 class ezMiniSAT : public ezSAT
 {
 private:
-	EZMINISAT_SOLVER *minisatSolver;
+#if EZMINISAT_SIMPSOLVER
+	typedef Minisat::SimpSolver Solver;
+#else
+	typedef Minisat::Solver Solver;
+#endif
+	Solver *minisatSolver;
 	std::vector<int> minisatVars;
 	bool foundContradiction;
+
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	std::set<int> cnfFrozenVars;
+#endif
 
 	static ezMiniSAT *alarmHandlerThis;
 	static clock_t alarmHandlerTimeout;
@@ -50,6 +59,9 @@ public:
 	ezMiniSAT();
 	virtual ~ezMiniSAT();
 	virtual void clear();
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	virtual void freeze(int id);
+#endif
 	virtual bool solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions);
 };
 
