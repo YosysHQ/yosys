@@ -906,7 +906,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
 
 			is_signed = sign_hint;
-			return RTLIL::SigSpec(bitsAsConst(width_hint, sign_hint));
+			return RTLIL::SigSpec(bitsAsConst());
 		}
 
 	// simply return the corresponding RTLIL::SigSpec for an AST_IDENTIFIER node
