@@ -463,6 +463,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		FOLD_2ARG_CELL(pow)
 
 		FOLD_1ARG_CELL(pos)
+		FOLD_1ARG_CELL(bu0)
 		FOLD_1ARG_CELL(neg)
 
 		// be very conservative with optimizing $mux cells as we do not want to break mux trees

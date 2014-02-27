@@ -216,7 +216,7 @@ struct CellTypes
 			type = "$shl";
 
 		if (type != "$sshr" && type != "$sshl" && type != "$shr" && type != "$shl" &&
-				type != "$pos" && type != "$neg" && type != "$not") {
+				type != "$pos" && type != "$neg" && type != "$not" && type != "$bu0") {
 			if (!signed1 || !signed2)
 				signed1 = false, signed2 = false;
 		}
