@@ -567,109 +567,13 @@ void ezSAT::consumeCnf(std::vector<std::vector<int>> &cnf)
 	cnfClauses.clear();
 }
 
-static bool test_bit(uint32_t bitmask, int idx)
+bool ezSAT::solver(const std::vector<int>&, std::vector<bool>&, const std::vector<int>&)
 {
-	if (idx > 0)
-		return (bitmask & (1 << (+idx-1))) != 0;
-	else
-		return (bitmask & (1 << (-idx-1))) == 0;
-}
-
-bool ezSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
-{
-	std::vector<int> extraClauses, modelIdx;
-	std::vector<int> values(numLiterals());
-
-	for (auto id : assumptions)
-		extraClauses.push_back(bind(id));
-	for (auto id : modelExpressions)
-		modelIdx.push_back(bind(id));
-
-	if (cnfVariableCount > 20) {
-		fprintf(stderr, "*************************************************************************************\n");
-		fprintf(stderr, "ERROR: You are trying to use the builtin solver of ezSAT with more than 20 variables!\n");
-		fprintf(stderr, "The builtin solver is a  dumb  brute force solver  and only ment for testing and demo\n");
-		fprintf(stderr, "purposes. Use a real SAT solve like MiniSAT (e.g. using the ezMiniSAT class) instead.\n");
-		fprintf(stderr, "*************************************************************************************\n");
-		abort();
-	}
-
-	for (uint32_t bitmask = 0; bitmask < (1 << numCnfVariables()); bitmask++)
-	{
-		// printf("%07o:", int(bitmask));
-		// for (int i = 2; i < numLiterals(); i++)
-		// 	if (bound(i+1))
-		// 		printf(" %s=%d", to_string(i+1).c_str(), test_bit(bitmask, bound(i+1)));
-		// printf(" |");
-		// for (int idx = 1; idx <= numCnfVariables(); idx++)
-		// 	printf(" %3d", test_bit(bitmask, idx) ? idx : -idx);
-		// printf("\n");
-
-		for (auto idx : extraClauses)
-			if (!test_bit(bitmask, idx))
-				goto next;
-
-		for (auto &clause : cnfClauses) {
-			for (auto idx : clause)
-				if (test_bit(bitmask, idx))
-					goto next_clause;
-			// printf("failed clause:");
-			// for (auto idx2 : clause)
-			// 	printf(" %3d", idx2);
-			// printf("\n");
-			goto next;
-		next_clause:;
-			// printf("passed clause:");
-			// for (auto idx2 : clause)
-			// 	printf(" %3d", idx2);
-			// printf("\n");
-		}
-
-		modelValues.resize(modelIdx.size());
-		for (int i = 0; i < int(modelIdx.size()); i++)
-			modelValues[i] = test_bit(bitmask, modelIdx[i]);
-
-		// validate result using eval()
-
-		values[0] = TRUE, values[1] = FALSE;
-		for (int i = 2; i < numLiterals(); i++) {
-			int idx = bound(i+1);
-			values[i] = idx != 0 ? (test_bit(bitmask, idx) ? TRUE : FALSE) : 0;
-		}
-
-		for (auto id : cnfAssumptions) {
-			int result = eval(id, values);
-			if (result != TRUE) {
-				printInternalState(stderr);
-				fprintf(stderr, "Variables:");
-				for (int i = 0; i < numLiterals(); i++)
-					fprintf(stderr, " %s=%s", lookup_literal(i+1).c_str(), values[i] == TRUE ? "TRUE" : values[i] == FALSE ? "FALSE" : "UNDEF");
-				fprintf(stderr, "\nValidation of solver results failed: got `%d' (%s) for assumption '%d': %s\n",
-						result, result == FALSE ? "FALSE" : "UNDEF", id, to_string(id).c_str());
-				abort();
-			}
-			// printf("OK: %d -> %d\n", id, result);
-		}
-
-		for (auto id : assumptions) {
-			int result = eval(id, values);
-			if (result != TRUE) {
-				printInternalState(stderr);
-				fprintf(stderr, "Variables:");
-				for (int i = 0; i < numLiterals(); i++)
-					fprintf(stderr, " %s=%s", lookup_literal(i+1).c_str(), values[i] == TRUE ? "TRUE" : values[i] == FALSE ? "FALSE" : "UNDEF");
-				fprintf(stderr, "\nValidation of solver results failed: got `%d' (%s) for assumption '%d': %s\n",
-						result, result == FALSE ? "FALSE" : "UNDEF", id, to_string(id).c_str());
-				abort();
-			}
-			// printf("OK: %d -> %d\n", id, result);
-		}
-
-		return true;
-	next:;
-	}
-
-	return false;
+	fprintf(stderr, "************************************************************************\n");
+	fprintf(stderr, "ERROR: You are trying to use the solve() method of the ezSAT base class!\n");
+	fprintf(stderr, "Use a dervied class like ezMiniSAT instead.\n");
+	fprintf(stderr, "************************************************************************\n");
+	abort();
 }
 
 std::vector<int> ezSAT::vec_const(const std::vector<bool> &bits)
