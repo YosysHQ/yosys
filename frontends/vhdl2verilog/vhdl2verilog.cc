@@ -35,9 +35,8 @@ struct Vhdl2verilogPass : public Pass {
 		log("\n");
 		log("    vhdl2verilog [options] <vhdl-file>..\n");
 		log("\n");
-		log("This pass looks for subcircuits that are isomorphic to any of the modules\n");
-		log("in the given map file and replaces them with instances of this modules. The\n");
-		log("map file can be a verilog source file (*.v) or an ilang file (*.il).\n");
+		log("This command reads VHDL source files using the 'vhdl2verilog' tool and the\n");
+		log("Yosys Verilog frontend.\n");
 		log("\n");
 		log("    -out <out_file>\n");
 		log("        do not import the vhdl2verilog output. instead write it to the\n");
