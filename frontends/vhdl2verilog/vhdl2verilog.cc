@@ -86,7 +86,7 @@ struct Vhdl2verilogPass : public Pass {
 		if (top_entity.empty())
 			log_cmd_error("Missing -top option.\n");
 
-		char tempdir_name[] = "/tmp/yosys-abc-XXXXXX";
+		char tempdir_name[] = "/tmp/yosys-vhdl2verilog-XXXXXX";
 		char *p = mkdtemp(tempdir_name);
 		log("Using temp directory %s.\n", tempdir_name);
 		if (p == NULL)
