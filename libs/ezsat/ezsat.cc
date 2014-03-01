@@ -342,7 +342,6 @@ void ezSAT::clear()
 	cnfLiteralVariables.clear();
 	cnfExpressionVariables.clear();
 	cnfClauses.clear();
-	cnfAssumptions.clear();
 }
 
 void ezSAT::freeze(int)
@@ -351,7 +350,6 @@ void ezSAT::freeze(int)
 
 void ezSAT::assume(int id)
 {
-	cnfAssumptions.insert(id);
 
 	if (id < 0)
 	{

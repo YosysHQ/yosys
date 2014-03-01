@@ -58,7 +58,6 @@ private:
 	int cnfVariableCount, cnfClausesCount;
 	std::vector<int> cnfLiteralVariables, cnfExpressionVariables;
 	std::vector<std::vector<int>> cnfClauses;
-	std::set<int> cnfAssumptions;
 
 	void add_clause(const std::vector<int> &args);
 	void add_clause(const std::vector<int> &args, bool argsPolarity, int a = 0, int b = 0, int c = 0);
@@ -144,8 +143,6 @@ public:
 	virtual void freeze(int id);
 	void assume(int id);
 	int bind(int id);
-
-	const std::set<int> &assumed() const { return cnfAssumptions; }
 	int bound(int id) const;
 
 	int numCnfVariables() const { return cnfVariableCount; }

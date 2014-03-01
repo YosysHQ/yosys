@@ -38,11 +38,6 @@ struct xorshift128 {
 
 bool test(ezSAT &sat, int assumption = 0)
 {
-	for (auto id : sat.assumed())
-		printf("%s\n", sat.to_string(id).c_str());
-	if (assumption)
-		printf("%s\n", sat.to_string(assumption).c_str());
-
 	std::vector<int> modelExpressions;
 	std::vector<bool> modelValues;
 
