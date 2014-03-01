@@ -36,8 +36,8 @@ ezSAT::ezSAT()
 	solverTimeout = 0;
 	solverTimoutStatus = false;
 
-	freeze(literal("TRUE"));
-	freeze(literal("FALSE"));
+	literal("TRUE");
+	literal("FALSE");
 
 	assert(literal("TRUE") == TRUE);
 	assert(literal("FALSE") == FALSE);
