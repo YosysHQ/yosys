@@ -65,6 +65,14 @@ void ezMiniSAT::freeze(int id)
 {
 	cnfFrozenVars.insert(bind(id));
 }
+
+bool ezMiniSAT::eliminated(int idx)
+{
+	idx = idx < 0 ? -idx : idx;
+	if (minisatSolver != NULL && idx > 0 && idx <= int(minisatVars.size()))
+		return minisatSolver->isEliminated(minisatVars.at(idx-1));
+	return false;
+}
 #endif
 
 ezMiniSAT *ezMiniSAT::alarmHandlerThis = NULL;

@@ -141,6 +141,7 @@ public:
 
 	virtual void clear();
 	virtual void freeze(int id);
+	virtual bool eliminated(int idx);
 	void assume(int id);
 	int bind(int id);
 	int bound(int id) const;

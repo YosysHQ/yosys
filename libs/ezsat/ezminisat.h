@@ -61,6 +61,7 @@ public:
 	virtual void clear();
 #if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
 	virtual void freeze(int id);
+	virtual bool eliminated(int idx);
 #endif
 	virtual bool solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions);
 };

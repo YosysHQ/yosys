@@ -348,9 +348,13 @@ void ezSAT::freeze(int)
 {
 }
 
+bool ezSAT::eliminated(int)
+{
+	return false;
+}
+
 void ezSAT::assume(int id)
 {
-
 	if (id < 0)
 	{
 		assert(0 < -id && -id <= int(expressions.size()));
@@ -486,7 +490,7 @@ int ezSAT::bind(int id)
 	if (id >= 0) {
 		assert(0 < id && id <= int(literals.size()));
 		cnfLiteralVariables.resize(literals.size());
-		if (cnfLiteralVariables[id-1] == 0) {
+		if (cnfLiteralVariables[id-1] == 0 || eliminated(cnfLiteralVariables[id-1])) {
 			cnfLiteralVariables[id-1] = ++cnfVariableCount;
 			if (id == TRUE)
 				add_clause(+cnfLiteralVariables[id-1]);
@@ -499,7 +503,7 @@ int ezSAT::bind(int id)
 	assert(0 < -id && -id <= int(expressions.size()));
 	cnfExpressionVariables.resize(expressions.size());
 
-	if (cnfExpressionVariables[-id-1] == 0)
+	if (cnfExpressionVariables[-id-1] == 0 || eliminated(cnfExpressionVariables[-id-1]))
 	{
 		OpId op;
 		std::vector<int> args;
