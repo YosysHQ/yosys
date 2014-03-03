@@ -112,13 +112,13 @@ struct FindReducedInputs
 		size_t idx_bits = get_bits(idx);
 
 		if (sat_pi_uniq_bitvec.size() != idx_bits) {
-			sat_pi_uniq_bitvec.push_back(ez.literal(stringf("uniq_%d", int(idx_bits)-1)));
+			sat_pi_uniq_bitvec.push_back(ez.frozen_literal(stringf("uniq_%d", int(idx_bits)-1)));
 			for (auto &it : sat_pi)
 				ez.assume(ez.OR(ez.NOT(it.second), ez.NOT(sat_pi_uniq_bitvec.back())));
 		}
 		log_assert(sat_pi_uniq_bitvec.size() == idx_bits);
 
-		sat_pi[bit] = ez.literal(stringf("pi_%s", log_signal(bit)));
+		sat_pi[bit] = ez.frozen_literal(stringf("p, falsei_%s", log_signal(bit)));
 		ez.assume(ez.IFF(ez.XOR(sat_a, sat_b), sat_pi[bit]));
 
 		for (size_t i = 0; i < idx_bits; i++)
