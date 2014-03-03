@@ -485,12 +485,16 @@ std::string ezSAT::cnfLiteralInfo(int idx) const
 	return "<unnamed>";
 }
 
-int ezSAT::bind(int id)
+int ezSAT::bind(int id, bool auto_freeze)
 {
 	if (id >= 0) {
 		assert(0 < id && id <= int(literals.size()));
 		cnfLiteralVariables.resize(literals.size());
-		if (cnfLiteralVariables[id-1] == 0 || eliminated(cnfLiteralVariables[id-1])) {
+		if (eliminated(cnfLiteralVariables[id-1])) {
+			fprintf(stderr, "ezSAT: Missing freeze on literal `%s'.\n", to_string(id).c_str());
+			abort();
+		}
+		if (cnfLiteralVariables[id-1] == 0) {
 			cnfLiteralVariables[id-1] = ++cnfVariableCount;
 			if (id == TRUE)
 				add_clause(+cnfLiteralVariables[id-1]);
@@ -503,7 +507,18 @@ int ezSAT::bind(int id)
 	assert(0 < -id && -id <= int(expressions.size()));
 	cnfExpressionVariables.resize(expressions.size());
 
-	if (cnfExpressionVariables[-id-1] == 0 || eliminated(cnfExpressionVariables[-id-1]))
+	if (eliminated(cnfExpressionVariables[-id-1]))
+	{
+		cnfExpressionVariables[-id-1] = 0;
+
+		// this will recursively call bind(id). within the recursion
+		// the cnf is pre-set to 0. an idx is allocated there, then it
+		// is frozen, then it returns here with the new idx already set.
+		if (auto_freeze)
+			freeze(id);
+	}
+
+	if (cnfExpressionVariables[-id-1] == 0)
 	{
 		OpId op;
 		std::vector<int> args;
@@ -520,7 +535,7 @@ int ezSAT::bind(int id)
 						newArgs.push_back(OR(AND(args[i], NOT(args[i+1])), AND(NOT(args[i]), args[i+1])));
 				args.swap(newArgs);
 			}
-			idx = bind(args.at(0));
+			idx = bind(args.at(0), false);
 			goto assign_idx;
 		}
 
@@ -528,17 +543,17 @@ int ezSAT::bind(int id)
 			std::vector<int> invArgs;
 			for (auto arg : args)
 				invArgs.push_back(NOT(arg));
-			idx = bind(OR(expression(OpAnd, args), expression(OpAnd, invArgs)));
+			idx = bind(OR(expression(OpAnd, args), expression(OpAnd, invArgs)), false);
 			goto assign_idx;
 		}
 
 		if (op == OpITE) {
-			idx = bind(OR(AND(args[0], args[1]), AND(NOT(args[0]), args[2])));
+			idx = bind(OR(AND(args[0], args[1]), AND(NOT(args[0]), args[2])), false);
 			goto assign_idx;
 		}
 
 		for (int i = 0; i < int(args.size()); i++)
-			args[i] = bind(args[i]);
+			args[i] = bind(args[i], false);
 
 		switch (op)
 		{

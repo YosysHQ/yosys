@@ -143,7 +143,7 @@ public:
 	virtual void freeze(int id);
 	virtual bool eliminated(int idx);
 	void assume(int id);
-	int bind(int id);
+	int bind(int id, bool auto_freeze = true);
 	int bound(int id) const;
 
 	int numCnfVariables() const { return cnfVariableCount; }
