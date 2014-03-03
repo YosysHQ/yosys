@@ -79,6 +79,8 @@ public:
 	int value(bool val);
 	int literal();
 	int literal(const std::string &name);
+	int frozen_literal();
+	int frozen_literal(const std::string &name);
 	int expression(OpId op, int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0);
 	int expression(OpId op, const std::vector<int> &args);
 

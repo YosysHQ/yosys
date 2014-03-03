@@ -67,6 +67,20 @@ int ezSAT::literal(const std::string &name)
 	return literalsCache.at(name);
 }
 
+int ezSAT::frozen_literal()
+{
+	int id = literal();
+	freeze(id);
+	return id;
+}
+
+int ezSAT::frozen_literal(const std::string &name)
+{
+	int id = literal(name);
+	freeze(id);
+	return id;
+}
+
 int ezSAT::expression(OpId op, int a, int b, int c, int d, int e, int f)
 {
 	std::vector<int> args(6);
