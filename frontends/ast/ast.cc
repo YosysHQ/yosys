@@ -244,6 +244,12 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 
 	std::string type_name = type2str(type);
 	fprintf(f, "%s%s <%s:%d>", indent.c_str(), type_name.c_str(), filename.c_str(), linenum);
+
+	if (id2ast)
+		fprintf(f, " [%p -> %p]", this, id2ast);
+	else
+		fprintf(f, " [%p]", this);
+
 	if (!str.empty())
 		fprintf(f, " str='%s'", str.c_str());
 	if (!bits.empty()) {
