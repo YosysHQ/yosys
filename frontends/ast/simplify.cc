@@ -219,7 +219,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE)
-				while (node->simplify(true, false, false, 1, -1, false, node->type == AST_PARAMETER || node->type == AST_LOCALPARAM)) { }
+				while (node->simplify(true, false, false, 1, -1, false, node->type == AST_PARAMETER || node->type == AST_LOCALPARAM))
+					did_something = true;
 		}
 	}
 
@@ -241,8 +242,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_ASSIGN_EQ:
 	case AST_ASSIGN_LE:
 	case AST_ASSIGN:
-		while (!children[0]->basic_prep && children[0]->simplify(false, false, true, stage, -1, false, false) == true) { }
-		while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, false) == true) { }
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, true, stage, -1, false, false) == true)
+			did_something = true;
+		while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, false) == true)
+			did_something = true;
 		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
 		children[1]->detectSignWidth(width_hint, sign_hint);
 		width_hint = std::max(width_hint, backup_width_hint);
@@ -251,11 +254,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	case AST_PARAMETER:
 	case AST_LOCALPARAM:
-		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, true) == true) { }
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, false, stage, -1, false, true) == true)
+			did_something = true;
 		children[0]->detectSignWidth(width_hint, sign_hint);
 		if (children.size() > 1) {
 			assert(children[1]->type == AST_RANGE);
-			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, true) == true) { }
+			while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, true) == true)
+				did_something = true;
 			if (!children[1]->range_valid)
 				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
 			width_hint = std::max(width_hint, children[1]->range_left - children[1]->range_right + 1);
@@ -311,7 +316,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		width_hint = -1;
 		sign_hint = true;
 		for (auto child : children) {
-			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false, in_param) == true) { }
+			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false, in_param) == true)
+				did_something = true;
 			child->detectSignWidthWorker(width_hint, sign_hint);
 		}
 		reset_width_after_children = true;
@@ -341,9 +347,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (detect_width_simple && width_hint < 0) {
 		for (auto child : children)
-			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false, in_param) == true) { }
+			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false, in_param) == true)
+				did_something = true;
 		if (type == AST_REPLICATE)
-			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false, in_param) == true) { }
+			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false, in_param) == true)
+				did_something = true;
 		detectSignWidth(width_hint, sign_hint);
 	}
 
@@ -389,7 +397,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 	}
 	for (auto &attr : attributes) {
-		while (attr.second->simplify(true, false, false, stage, -1, false, true)) { }
+		while (attr.second->simplify(true, false, false, stage, -1, false, true))
+			did_something = true;
 	}
 
 	if (reset_width_after_children) {
@@ -539,7 +548,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			current_scope[str] = auto_wire;
 			did_something = true;
 		}
-		id2ast = current_scope[str];
+		if (id2ast != current_scope[str]) {
+			id2ast = current_scope[str];
+			did_something = true;
+		}
 	}
 
 	// split memory access with bit select to individual statements
