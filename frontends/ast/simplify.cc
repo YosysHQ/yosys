@@ -206,10 +206,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					did_something = true;
 					delete node;
 					continue;
+				wires_are_incompatible:
+					if (stage > 1)
+						log_error("Incompatible re-declaration of wire %s at %s:%d.\n", node->str.c_str(), filename.c_str(), linenum);
+					continue;
 				}
 				this_wire_scope[node->str] = node;
 			}
-		wires_are_incompatible:
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
 					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_CELL) {
 				backup_scope[node->str] = current_scope[node->str];
