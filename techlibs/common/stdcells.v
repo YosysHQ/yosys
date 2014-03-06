@@ -165,6 +165,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 parameter WIDTH = Y_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -181,11 +182,16 @@ generate
 		.A(A),
 		.Y(chain[WIDTH-1:0])
 	);
-	assign Y = chain[WIDTH*(B_WIDTH+1)-1 : WIDTH*B_WIDTH];
-	for (i = 0; i < B_WIDTH; i = i + 1) begin:V
+	assign Y = chain[WIDTH*(BB_WIDTH+1)-1 : WIDTH*BB_WIDTH];
+	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
+		wire BBIT;
+		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
+			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
+		else
+			assign BBIT = B[i];
 		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
@@ -200,7 +206,7 @@ generate
 			.A(unshifted),
 			.B(shifted),
 			.Y(result),
-			.S(B[i])
+			.S(BBIT)
 		);
 	end
 endgenerate
@@ -218,6 +224,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -225,7 +232,7 @@ output [Y_WIDTH-1:0] Y;
 
 genvar i;
 generate
-	wire [WIDTH*(B_WIDTH+1)-1:0] chain;
+	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
 	\$pos #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
@@ -234,11 +241,16 @@ generate
 		.A(A),
 		.Y(chain[WIDTH-1:0])
 	);
-	assign Y = chain[WIDTH*(B_WIDTH+1)-1 : WIDTH*B_WIDTH];
-	for (i = 0; i < B_WIDTH; i = i + 1) begin:V
+	assign Y = chain[WIDTH*(BB_WIDTH+1)-1 : WIDTH*BB_WIDTH];
+	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
+		wire BBIT;
+		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
+			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
+		else
+			assign BBIT = B[i];
 		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(2 ** (i > 30 ? 30 : i))
@@ -253,7 +265,7 @@ generate
 			.A(unshifted),
 			.B(shifted),
 			.Y(result),
-			.S(B[i])
+			.S(BBIT)
 		);
 	end
 endgenerate
@@ -271,6 +283,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 localparam WIDTH = Y_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -292,6 +305,11 @@ generate
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
+		wire BBIT;
+		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
+			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
+		else
+			assign BBIT = B[i];
 		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
@@ -306,7 +324,7 @@ generate
 			.A(unshifted),
 			.B(shifted),
 			.Y(result),
-			.S(B[i])
+			.S(BBIT)
 		);
 	end
 endgenerate
@@ -324,6 +342,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -331,7 +350,7 @@ output [Y_WIDTH-1:0] Y;
 
 genvar i;
 generate
-	wire [WIDTH*(B_WIDTH+1)-1:0] chain;
+	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
 	\$pos #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
@@ -342,18 +361,23 @@ generate
 	);
 	for (i = 0; i < Y_WIDTH; i = i + 1) begin:Y
 		if (i < WIDTH) begin
-			assign Y[i] = chain[WIDTH*B_WIDTH + i];
+			assign Y[i] = chain[WIDTH*BB_WIDTH + i];
 		end else
 		if (A_SIGNED) begin
-			assign Y[i] = chain[WIDTH*B_WIDTH + WIDTH-1];
+			assign Y[i] = chain[WIDTH*BB_WIDTH + WIDTH-1];
 		end else begin
 			assign Y[i] = 0;
 		end
 	end
-	for (i = 0; i < B_WIDTH; i = i + 1) begin:V
+	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
+		wire BBIT;
+		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
+			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
+		else
+			assign BBIT = B[i];
 		\$__shift #(
 			.WIDTH(WIDTH),
 			.SHIFT(2 ** (i > 30 ? 30 : i))
@@ -368,7 +392,7 @@ generate
 			.A(unshifted),
 			.B(shifted),
 			.Y(result),
-			.S(B[i])
+			.S(BBIT)
 		);
 	end
 endgenerate
