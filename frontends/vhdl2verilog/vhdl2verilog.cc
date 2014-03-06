@@ -145,7 +145,8 @@ struct Vhdl2verilogPass : public Pass {
 		}
 
 		log_header("Removing temp directory `%s':\n", tempdir_name);
-		system(stringf("rm -rf '%s'", tempdir_name).c_str());
+		if (system(stringf("rm -rf '%s'", tempdir_name).c_str()) != 0)
+			log_error("Execution of \"rm -rf '%s'\" failed!\n", tempdir_name);
 
 		log_pop();
 	}
