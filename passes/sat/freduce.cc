@@ -33,6 +33,7 @@ namespace {
 bool inv_mode;
 int verbose_level, reduce_counter, reduce_stop_at;
 typedef std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>>> drivers_t;
+std::string dump_prefix;
 
 struct equiv_bit_t
 {
@@ -559,6 +560,13 @@ struct FreduceWorker
 	{
 	}
 
+	void dump()
+	{
+		std::string filename = stringf("%s_%s_%05d.il", dump_prefix.c_str(), RTLIL::id2cstr(module->name), reduce_counter);
+		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename.c_str());
+		Pass::call(design, stringf("dump -outfile %s %s", filename.c_str(), design->selected_active_module.empty() ? module->name.c_str() : ""));
+	}
+
 	int run()
 	{
 		log("Running functional reduction on module %s:\n", RTLIL::id2cstr(module->name));
@@ -644,11 +652,14 @@ struct FreduceWorker
 		std::map<RTLIL::SigBit, int> bitusage;
 		module->rewrite_sigspecs(CountBitUsage(sigmap, bitusage));
 
+		if (!dump_prefix.empty())
+			dump();
+
 		log("  Rewiring %d equivialent groups:\n", int(equiv.size()));
 		int rewired_sigbits = 0;
 		for (auto &grp : equiv)
 		{
-			log("    [%d] Using as master for group: %s\n", ++reduce_counter, log_signal(grp.front().bit));
+			log("    [%05d] Using as master for group: %s\n", ++reduce_counter, log_signal(grp.front().bit));
 
 			RTLIL::SigSpec inv_sig;
 			for (size_t i = 1; i < grp.size(); i++)
@@ -693,6 +704,9 @@ struct FreduceWorker
 				rewired_sigbits++;
 			}
 
+			if (!dump_prefix.empty())
+				dump();
+
 			if (reduce_counter == reduce_stop_at) {
 				log("    Reached limit passed using -stop option. Skipping all further reductions.\n");
 				break;
@@ -728,6 +742,10 @@ struct FreducePass : public Pass {
 		log("        stop after <n> reduction operations. this is mostly used for\n");
 		log("        debugging the freduce command itself.\n");
 		log("\n");
+		log("    -dump <prefix>\n");
+		log("        dump the design to <prefix>_<module>_<num>.il after each reduction\n");
+		log("        operation. this is mostly used for debugging the freduce command.\n");
+		log("\n");
 		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
 		log("equivialent nodes.\n");
 		log("\n");
@@ -741,6 +759,7 @@ struct FreducePass : public Pass {
 		reduce_stop_at = 0;
 		verbose_level = 0;
 		inv_mode = false;
+		dump_prefix = std::string();
 
 		log_header("Executing FREDUCE pass (perform functional reduction).\n");
 
@@ -760,6 +779,10 @@ struct FreducePass : public Pass {
 			}
 			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
 				reduce_stop_at = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-dump" && argidx+1 < args.size()) {
+				dump_prefix = args[++argidx];
 				continue;
 			}
 			break;
