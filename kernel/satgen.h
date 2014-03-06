@@ -66,13 +66,12 @@ struct SatGen
 			if (c.wire == NULL) {
 				RTLIL::State bit = c.data.bits.at(0);
 				if (model_undef && dup_undef && bit == RTLIL::State::Sx)
-					vec.push_back(ez->literal());
+					vec.push_back(ez->frozen_literal());
 				else
 					vec.push_back(bit == (undef_mode ? RTLIL::State::Sx : RTLIL::State::S1) ? ez->TRUE : ez->FALSE);
 			} else {
 				std::string name = pf + stringf(c.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(c.wire->name), c.offset);
-				vec.push_back(ez->literal(name));
-				ez->freeze(vec.back());
+				vec.push_back(ez->frozen_literal(name));
 			}
 		return vec;
 	}
