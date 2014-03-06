@@ -464,6 +464,9 @@ struct TechmapPass : public Pass {
 		log("        yosys data files are). this is mainly used internally when techmap\n");
 		log("        is called from other commands.\n");
 		log("\n");
+		log("    -max_iter <number>\n");
+		log("        only run the specified number of iterations.\n");
+		log("\n");
 		log("    -D <define>, -I <incdir>\n");
 		log("        this options are passed as-is to the verilog frontend for loading the\n");
 		log("        map file. Note that the verilog frontend is also called with the\n");
@@ -542,6 +545,7 @@ struct TechmapPass : public Pass {
 
 		std::vector<std::string> map_files;
 		std::string verilog_frontend = "verilog -ignore_redef";
+		int max_iter = -1;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -551,6 +555,10 @@ struct TechmapPass : public Pass {
 			}
 			if (args[argidx] == "-share_map" && argidx+1 < args.size()) {
 				map_files.push_back(get_share_file_name(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-max_iter" && argidx+1 < args.size()) {
+				max_iter = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-D" && argidx+1 < args.size()) {
@@ -610,6 +618,8 @@ struct TechmapPass : public Pass {
 					did_something = true;
 			if (did_something)
 				design->check();
+			if (max_iter > 0 && --max_iter == 0)
+				break;
 		}
 
 		log("No more expansions possible.\n");
