@@ -31,7 +31,7 @@
 namespace {
 
 bool inv_mode;
-int verbose_level;
+int verbose_level, reduce_counter, reduce_stop_at;
 typedef std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>>> drivers_t;
 
 struct equiv_bit_t
@@ -648,7 +648,7 @@ struct FreduceWorker
 		int rewired_sigbits = 0;
 		for (auto &grp : equiv)
 		{
-			log("    Using as master for group: %s\n", log_signal(grp.front().bit));
+			log("    [%d] Using as master for group: %s\n", ++reduce_counter, log_signal(grp.front().bit));
 
 			RTLIL::SigSpec inv_sig;
 			for (size_t i = 1; i < grp.size(); i++)
@@ -692,6 +692,11 @@ struct FreduceWorker
 
 				rewired_sigbits++;
 			}
+
+			if (reduce_counter == reduce_stop_at) {
+				log("    Reached limit passed using -stop option. Skipping all further reductions.\n");
+				break;
+			}
 		}
 
 		log("  Rewired a total of %d signal bits in module %s.\n", rewired_sigbits, RTLIL::id2cstr(module->name));
@@ -711,13 +716,17 @@ struct FreducePass : public Pass {
 		log("\n");
 		log("This pass performs functional reduction in the circuit. I.e. if two nodes are\n");
 		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
-		log("unconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
+		log("disconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
 		log("\n");
 		log("    -v, -vv\n");
 		log("        enable verbose or very verbose output\n");
 		log("\n");
 		log("    -inv\n");
 		log("        enable explicit handling of inverted signals\n");
+		log("\n");
+		log("    -stop <n>\n");
+		log("        stop after <n> reduction operations. this is mostly used for\n");
+		log("        debugging the freduce command itself.\n");
 		log("\n");
 		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
 		log("equivialent nodes.\n");
@@ -728,6 +737,8 @@ struct FreducePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		reduce_counter = 0;
+		reduce_stop_at = 0;
 		verbose_level = 0;
 		inv_mode = false;
 
@@ -745,6 +756,10 @@ struct FreducePass : public Pass {
 			}
 			if (args[argidx] == "-inv") {
 				inv_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
+				reduce_stop_at = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
