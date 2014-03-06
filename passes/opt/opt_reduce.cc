@@ -65,8 +65,8 @@ struct OptReduceWorker
 				continue;
 			}
 			if (chunk.wire == NULL) {
-				new_sig_a = RTLIL::SigSpec(RTLIL::State::Sx);
-				break;
+				new_sig_a.append(chunk);
+				continue;
 			}
 
 			bool imported_children = false;
