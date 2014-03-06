@@ -174,7 +174,7 @@ output [Y_WIDTH-1:0] Y;
 genvar i;
 generate
 	wire [WIDTH*(B_WIDTH+1)-1:0] chain;
-	\$pos #(
+	\$bu0 #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
 		.Y_WIDTH(WIDTH)
@@ -233,7 +233,7 @@ output [Y_WIDTH-1:0] Y;
 genvar i;
 generate
 	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
-	\$pos #(
+	\$bu0 #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
 		.Y_WIDTH(WIDTH)
@@ -292,7 +292,7 @@ output [Y_WIDTH-1:0] Y;
 genvar i;
 generate
 	wire [WIDTH*(B_WIDTH+1)-1:0] chain;
-	\$pos #(
+	\$bu0 #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
 		.Y_WIDTH(WIDTH)
@@ -351,7 +351,7 @@ output [Y_WIDTH-1:0] Y;
 genvar i;
 generate
 	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
-	\$pos #(
+	\$bu0 #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
 		.Y_WIDTH(WIDTH)
