@@ -634,7 +634,7 @@ struct SatGen
 				while (undef_y.size() < undef_a.size())
 					undef_y.push_back(ez->literal());
 				while (undef_y.size() > undef_a.size())
-					undef_a.push_back(undef_a.back());
+					undef_a.push_back(cell->parameters["\\A_SIGNED"].as_bool() ? undef_a.back() : ez->FALSE);
 
 				tmp = undef_a;
 				for (size_t i = 0; i < b.size(); i++)

@@ -305,14 +305,14 @@ static RTLIL::Const const_shift(const RTLIL::Const &arg1, const RTLIL::Const &ar
 RTLIL::Const RTLIL::const_shl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
-	extend(arg1_ext, result_len, signed1);
+	extend_u0(arg1_ext, result_len, signed1);
 	return const_shift(arg1_ext, arg2, false, -1, result_len);
 }
 
 RTLIL::Const RTLIL::const_shr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
-	extend(arg1_ext, result_len, signed1);
+	extend_u0(arg1_ext, result_len, signed1);
 	return const_shift(arg1_ext, arg2, false, +1, result_len);
 }
 
