@@ -165,7 +165,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 parameter WIDTH = Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -173,7 +173,7 @@ output [Y_WIDTH-1:0] Y;
 
 genvar i;
 generate
-	wire [WIDTH*(B_WIDTH+1)-1:0] chain;
+	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
 	\$bu0 #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
@@ -224,7 +224,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -283,7 +283,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 localparam WIDTH = Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
@@ -291,7 +291,7 @@ output [Y_WIDTH-1:0] Y;
 
 genvar i;
 generate
-	wire [WIDTH*(B_WIDTH+1)-1:0] chain;
+	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
 	\$bu0 #(
 		.A_SIGNED(A_SIGNED),
 		.A_WIDTH(A_WIDTH),
@@ -300,8 +300,8 @@ generate
 		.A(A),
 		.Y(chain[WIDTH-1:0])
 	);
-	assign Y = chain[WIDTH*(B_WIDTH+1)-1 : WIDTH*B_WIDTH];
-	for (i = 0; i < B_WIDTH; i = i + 1) begin:V
+	assign Y = chain[WIDTH*(BB_WIDTH+1)-1 : WIDTH*BB_WIDTH];
+	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
 		wire [WIDTH-1:0] unshifted, shifted, result;
 		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
 		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
@@ -342,7 +342,7 @@ parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
 localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 1 < B_WIDTH ? $clog2(WIDTH) + 1 : B_WIDTH;
+localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
 
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
