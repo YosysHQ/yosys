@@ -131,8 +131,8 @@ void update_autoidx(const char *p)
 				q++;
 			if ((q - p) < 10) {
 				int idx = atoi(p);
-				if (idx > RTLIL::autoidx)
-					RTLIL::autoidx = idx;
+				if (idx >= RTLIL::autoidx)
+					RTLIL::autoidx = idx+1;
 			}
 		}
 	}
