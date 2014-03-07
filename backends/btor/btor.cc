@@ -28,7 +28,6 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 #include <math.h>
 
 struct BtorDumperConfig
@@ -244,7 +243,7 @@ struct BtorDumper
 				return it->second;
 			}
 		}
-		assert(false);
+		log_abort();
 		return -1;
 	}
 	
@@ -283,7 +282,7 @@ struct BtorDumper
 		}
 		else
 			log("writing const error\n");		
-		assert(false);
+		log_abort();
 		return -1;
 	}
 	
@@ -302,7 +301,7 @@ struct BtorDumper
 			else 
 			{
 				int wire_line_num = dump_wire(chunk->wire);
-				assert(wire_line_num>0);
+				log_assert(wire_line_num>0);
 				++line_num;
 				str = stringf("%d slice %d %d %d %d;2", line_num, chunk->width, wire_line_num, 
 					chunk->width + chunk->offset - 1, chunk->offset);
@@ -329,12 +328,12 @@ struct BtorDumper
 			{
 				int l1, l2, w1, w2;
 				l1 = dump_sigchunk(&s.chunks[0]);
-				assert(l1>0);
+				log_assert(l1>0);
 				w1 = s.chunks[0].width;
 				for (unsigned i=1; i < s.chunks.size(); ++i)
 				{
 					l2 = dump_sigchunk(&s.chunks[i]);
-					assert(l2>0);
+					log_assert(l2>0);
 					w2 = s.chunks[i].width;
 					++line_num;
 					str = stringf("%d concat %d %d %d", line_num, w1+w2, l2, l1);
@@ -374,7 +373,7 @@ struct BtorDumper
 				l = line_num;
 			}
 		}
-		assert(l>0);
+		log_assert(l>0);
 		return l;
 	}
 	
@@ -390,8 +389,8 @@ struct BtorDumper
 				log("writing assert cell - %s\n", cstr(cell->type));
 				const RTLIL::SigSpec* expr = &cell->connections.at(RTLIL::IdString("\\A"));
 				const RTLIL::SigSpec* en = &cell->connections.at(RTLIL::IdString("\\EN"));
-				assert(expr->width == 1);
-				assert(en->width == 1);
+				log_assert(expr->width == 1);
+				log_assert(en->width == 1);
 				int expr_line = dump_sigspec(expr, 1);
 				int en_line = dump_sigspec(en, 1);
 				int one_line = ++line_num;
@@ -444,7 +443,7 @@ struct BtorDumper
 				log("writing unary cell - %s\n", cstr(cell->type));
 				int w = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
-				assert(output_width == 1);
+				log_assert(output_width == 1);
 				int l = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), w);
 				if(cell->type == "$logic_not" && w > 1)
 				{
@@ -470,7 +469,7 @@ struct BtorDumper
 			{
 				log("writing binary cell - %s\n", cstr(cell->type));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
-				assert(!(cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex" ||
+				log_assert(!(cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex" ||
 					cell->type == "$ge" || cell->type == "$gt") || output_width == 1);
 				bool l1_signed = cell->parameters.at(RTLIL::IdString("\\A_SIGNED")).as_bool();
 				bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
@@ -511,7 +510,7 @@ struct BtorDumper
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
 				
-				assert(l1_signed == l2_signed);
+				log_assert(l1_signed == l2_signed);
 				l1_width = l1_width > output_width ? l1_width : output_width;					
 				l1_width = l1_width > l2_width ? l1_width : l2_width;
 				l2_width = l2_width > l1_width ? l2_width : l1_width;
@@ -592,7 +591,7 @@ struct BtorDumper
 			{
 				log("writing binary cell - %s\n", cstr(cell->type));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
-				assert(output_width == 1);
+				log_assert(output_width == 1);
 				int l1 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), output_width);
 				int l2 = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\B")), output_width);
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
@@ -653,7 +652,7 @@ struct BtorDumper
 				for(unsigned i=0; i<cell_output->chunks.size(); ++i)
 				{
 					output_width = cell_output->chunks[i].width;
-					assert( output_width == cell_output->chunks[i].wire->width);//full reg is given the next value
+					log_assert( output_width == cell_output->chunks[i].wire->width);//full reg is given the next value
 					int reg = dump_wire(cell_output->chunks[i].wire);//register
 					int slice = value;
 					if(cell_output->chunks.size()>1)
@@ -760,11 +759,11 @@ struct BtorDumper
 				log("writing slice cell\n");
 				const RTLIL::SigSpec* input = &cell->connections.at(RTLIL::IdString("\\A"));
 				int input_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
-				assert(input->width == input_width);
+				log_assert(input->width == input_width);
 				int input_line = dump_sigspec(input, input_width);
 				const RTLIL::SigSpec* output = &cell->connections.at(RTLIL::IdString("\\Y"));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
-				assert(output->width == output_width);
+				log_assert(output->width == output_width);
 				int offset = cell->parameters.at(RTLIL::IdString("\\OFFSET")).as_int();	
 				++line_num;
 				str = stringf("%d %s %d %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), output_width, input_line, output_width+offset-1, offset);	
@@ -776,11 +775,11 @@ struct BtorDumper
 				log("writing concat cell\n");
 				const RTLIL::SigSpec* input_a = &cell->connections.at(RTLIL::IdString("\\A"));
 				int input_a_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
-				assert(input_a->width == input_a_width);
+				log_assert(input_a->width == input_a_width);
 				int input_a_line = dump_sigspec(input_a, input_a_width);
 				const RTLIL::SigSpec* input_b = &cell->connections.at(RTLIL::IdString("\\B"));
 				int input_b_width = cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
-				assert(input_b->width == input_b_width);
+				log_assert(input_b->width == input_b_width);
 				int input_b_line = dump_sigspec(input_b, input_b_width);
 				++line_num;
 				str = stringf("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), input_a_width+input_b_width, 
