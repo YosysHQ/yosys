@@ -244,7 +244,6 @@ struct PerformReduction
 			return 0;
 		if (sigdepth.count(out) != 0)
 			return sigdepth.at(out);
-		sigdepth[out] = 0;
 
 		if (drivers.count(out) != 0) {
 			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
@@ -253,17 +252,18 @@ struct PerformReduction
 					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(drv.first->name), RTLIL::id2cstr(drv.first->type));
 				celldone.insert(drv.first);
 			}
-			int max_child_dept = 0;
+			int max_child_depth = 0;
 			for (auto &bit : drv.second)
-				max_child_dept = std::max(register_cone_worker(celldone, sigdepth, bit), max_child_dept);
-			sigdepth[out] = max_child_dept + 1;
+				max_child_depth = std::max(register_cone_worker(celldone, sigdepth, bit), max_child_depth);
+			sigdepth[out] = max_child_depth + 1;
 		} else {
 			pi_bits.push_back(out);
 			sat_pi.push_back(satgen.importSigSpec(out).front());
 			ez.assume(ez.NOT(satgen.importUndefSigSpec(out).front()));
+			sigdepth[out] = 0;
 		}
 
-		return sigdepth[out];
+		return sigdepth.at(out);
 	}
 
 	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits, int cone_size) :
