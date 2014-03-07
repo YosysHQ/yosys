@@ -560,6 +560,31 @@ struct FreduceWorker
 	{
 	}
 
+	bool find_bit_in_cone(std::set<RTLIL::Cell*> &celldone, RTLIL::SigBit needle, RTLIL::SigBit haystack)
+	{
+		if (needle == haystack)
+			return true;
+		if (haystack.wire == NULL || needle.wire == NULL || drivers.count(haystack) == 0)
+			return false;
+
+		std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(haystack);
+
+		if (celldone.count(drv.first))
+			return false;
+		celldone.insert(drv.first);
+
+		for (auto &bit : drv.second)
+			if (find_bit_in_cone(celldone, needle, bit))
+				return true;
+		return false;
+	}
+
+	bool find_bit_in_cone(RTLIL::SigBit needle, RTLIL::SigBit haystack)
+	{
+		std::set<RTLIL::Cell*> celldone;
+		return find_bit_in_cone(celldone, needle, haystack);
+	}
+
 	void dump()
 	{
 		std::string filename = stringf("%s_%s_%05d.il", dump_prefix.c_str(), RTLIL::id2cstr(module->name), reduce_counter);
@@ -671,6 +696,11 @@ struct FreduceWorker
 
 				if (grp[i].bit.wire->port_id == 0 && bitusage[grp[i].bit] <= 1) {
 					log("      Skipping unused slave: %s\n", log_signal(grp[i].bit));
+					continue;
+				}
+
+				if (find_bit_in_cone(grp[i].bit, grp.front().bit)) {
+					log("      Skipping dependency of master: %s\n", log_signal(grp[i].bit));
 					continue;
 				}
 
