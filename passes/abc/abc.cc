@@ -625,10 +625,10 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		std::string buffer;
 		if (!liberty_file.empty()) {
-			buffer += stringf("%s -s -c 'read_blif %s/input.blif; read_lib %s; ",
+			buffer += stringf("%s -s -c 'read_blif %s/input.blif; read_lib -w %s; ",
 					exe_file.c_str(), tempdir_name, liberty_file.c_str());
 			if (!constr_file.empty())
-				buffer += stringf("read_constr %s; ", constr_file.c_str());
+				buffer += stringf("read_constr -v %s; ", constr_file.c_str());
 			buffer += abc_command + "; ";
 		} else
 		if (lut_mode)
