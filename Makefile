@@ -8,6 +8,7 @@ ENABLE_TCL := 1
 ENABLE_QT4 := 1
 ENABLE_MINISAT := 1
 ENABLE_ABC := 1
+ENABLE_VERIFIC := 0
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -58,8 +59,10 @@ CXXFLAGS += -std=gnu++0x -march=native -O3 -DNDEBUG
 endif
 
 ifeq ($(ENABLE_TCL),1)
-CXXFLAGS += -I/usr/include/tcl8.5 -DYOSYS_ENABLE_TCL
-LDLIBS += -ltcl8.5
+TCL_VERSION ?= tcl8.5
+TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
+CXXFLAGS += -I$(TCL_INCLUDE) -DYOSYS_ENABLE_TCL
+LDLIBS += -l$(TCL_VERSION)
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -73,6 +76,13 @@ endif
 
 ifeq ($(ENABLE_ABC),1)
 TARGETS += yosys-abc
+endif
+
+ifeq ($(ENABLE_VERIFIC),1)
+VERIFIC_DIR ?= /usr/local/src/verific_lib_eval
+VERIFIC_COMPONENTS ?= verilog vhdl database util containers
+CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -D'VERIFIC_DIR="$(VERIFIC_DIR)"'
+LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
