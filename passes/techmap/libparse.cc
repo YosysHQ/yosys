@@ -63,9 +63,10 @@ void LibertyAst::dump(FILE *f, std::string indent, std::string path, bool path_o
 	}
 
 	fprintf(f, "%s%s", indent.c_str(), id.c_str());
-	if (!args.empty()) {
+	if (!args.empty() || !children.empty()) {
+		fprintf(f, "(");
 		for (size_t i = 0; i < args.size(); i++)
-			fprintf(f, "%s%s", i > 0 ? ", " : "(", args[i].c_str());
+			fprintf(f, "%s%s", i > 0 ? ", " : "", args[i].c_str());
 		fprintf(f, ")");
 	}
 	if (!value.empty())
