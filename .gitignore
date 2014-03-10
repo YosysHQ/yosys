@@ -9,6 +9,7 @@
 /qtcreator.creator
 /qtcreator.creator.user
 /Makefile.conf
+/minisat
 /abc
 /yosys
 /yosys-abc

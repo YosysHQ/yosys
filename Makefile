@@ -19,14 +19,24 @@ INSTALL_SUDO :=
 OBJS =
 GENFILES =
 EXTRA_TARGETS =
-TARGETS = yosys yosys-config
+TARGETS =
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC
-LDFLAGS = -rdynamic
-LDLIBS = -lstdc++ -lreadline -lm -ldl -lrt
-QMAKE = qmake-qt4
+CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -I${DESTDIR}/include -MD -D_YOSYS_ -fPIC -include kernel/posix_compatibility.h
+LDFLAGS = -I${DESTDIR}/lib
+LDLIBS = -lstdc++ -lreadline -lm -ldl
+
+ifeq (Darwin,$(findstring Darwin,$(shell uname)))
+	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
+	CXXFLAGS += -I/opt/local/include
+	LDFLAGS += -L/opt/local/lib
+	QMAKE = qmake
+else
+	LDFLAGS += -rdynamic
+	LDLIBS += -lrt
+	QMAKE = qmake-qt4
+endif
 
 YOSYS_VER := 0.2.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
@@ -41,16 +51,18 @@ OBJS = kernel/version_$(GIT_REV).o
 ABCREV = 2058c8ccea68
 ABCPULL = 1
 
+MINISATREV = HEAD
+
 -include Makefile.conf
 
 ifeq ($(CONFIG),clang-debug)
 CXX = clang
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=c++11 -g -O0 -Wall
 endif
 
 ifeq ($(CONFIG),gcc-debug)
 CXX = gcc
-CXXFLAGS += -std=gnu++0x -Os
+CXXFLAGS += -std=gnu++0x -g -O0 -Wall
 endif
 
 ifeq ($(CONFIG),release)
@@ -70,8 +82,8 @@ CXXFLAGS += -pg -fno-inline
 LDFLAGS += -pg
 endif
 
-ifeq ($(ENABLE_QT4),1)
-TARGETS += yosys-svgviewer
+ifeq ($(ENABLE_MINISAT),1)
+TARGETS += yosys-minisat
 endif
 
 ifeq ($(ENABLE_ABC),1)
@@ -85,7 +97,14 @@ CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -D'VERIFIC_DI
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
+# Build yosys after minisat and abc (we need to access the local copies of the downloaded/installed header files).
+TARGETS += yosys yosys-config
+
+ifeq ($(ENABLE_QT4),1)
+TARGETS += yosys-svgviewer
+endif
+
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/posix_compatibility.o
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
@@ -122,6 +141,13 @@ yosys-config: yosys-config.in
 yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 	cd libs/svgviewer && $(QMAKE) && make
 	cp libs/svgviewer/svgviewer yosys-svgviewer
+
+yosys-minisat: $(DESTDIR)/bin/minisat
+$(DESTDIR)/bin/minisat:
+	test -d minisat || ( git clone https://github.com/niklasso/minisat.git minisat && sed -i -e 's/PRIi64/ & /' minisat/minisat/utils/Options.h )
+	( cd minisat && git checkout $(MINISATREV) )
+	( cd minisat && $(MAKE) prefix=$(DESTDIR) DESTDIR="" config install )
+	@( cd minisat && echo "Installed minisat version `git describe --always --dirty` into $(DESTDIR)." )
 
 abc/abc-$(ABCREV):
 ifneq ($(ABCREV),default)
