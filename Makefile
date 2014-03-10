@@ -27,7 +27,7 @@ CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -I${DESTDIR}/include -MD -D_YOSY
 LDFLAGS = -L${DESTDIR}/lib
 LDLIBS = -lstdc++ -lreadline -lm -ldl
 
-export PATH := ${DESTDIR}/bin:$(PATH)
+export PATH := $(PWD):$(DESTDIR)/bin:$(PATH)
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
