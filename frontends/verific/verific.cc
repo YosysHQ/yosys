@@ -220,7 +220,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
-		log("  importing cell %s (%s).\n", inst->Name(), inst->View()->Owner()->Name());
+		// log("  importing cell %s (%s).\n", inst->Name(), inst->View()->Owner()->Name());
 
 		if (inst->Type() == PRIM_PWR) {
 			module->connections.push_back(RTLIL::SigSig(net_map.at(inst->GetOutput()), RTLIL::State::S1));
@@ -242,77 +242,57 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			continue;
 		}
 
-		if (inst->Type() == PRIM_AND || inst->Type() == PRIM_OR || inst->Type() == PRIM_XOR || inst->Type() == PRIM_XNOR) {
-			RTLIL::Cell *cell = new RTLIL::Cell;
-			cell->name = RTLIL::escape_id(inst->Name());
-			cell->type = inst->Type() == PRIM_AND ? "$and" : inst->Type() == PRIM_OR ? "$or" :
-					inst->Type() == PRIM_XOR ? "$xor" : "$xnor";
-			cell->parameters["\\A_SIGNED"] = 0;
-			cell->parameters["\\B_SIGNED"] = 0;
-			cell->parameters["\\A_WIDTH"] = 1;
-			cell->parameters["\\B_WIDTH"] = 1;
-			cell->parameters["\\Y_WIDTH"] = 1;
-			cell->connections["\\A"] = net_map.at(inst->GetInput1());
-			cell->connections["\\B"] = net_map.at(inst->GetInput2());
-			cell->connections["\\Y"] = net_map.at(inst->GetOutput());
-			module->add(cell);
+		if (inst->Type() == PRIM_AND) {
+			module->addAnd(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			continue;
+		}
+
+		if (inst->Type() == PRIM_OR) {
+			module->addOr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			continue;
+		}
+
+		if (inst->Type() == PRIM_XOR) {
+			module->addXor(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			continue;
+		}
+
+		if (inst->Type() == PRIM_XNOR) {
+			module->addXnor(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
 			continue;
 		}
 
 		if (inst->Type() == PRIM_INV) {
-			RTLIL::Cell *cell = new RTLIL::Cell;
-			cell->name = RTLIL::escape_id(inst->Name());
-			cell->type = "$not";
-			cell->parameters["\\A_SIGNED"] = 0;
-			cell->parameters["\\A_WIDTH"] = 1;
-			cell->parameters["\\Y_WIDTH"] = 1;
-			cell->connections["\\A"] = net_map.at(inst->GetInput());
-			cell->connections["\\Y"] = net_map.at(inst->GetOutput());
-			module->add(cell);
+			module->addNot(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
 			continue;
 		}
 
 		if (inst->Type() == PRIM_MUX) {
-			RTLIL::Cell *cell = new RTLIL::Cell;
-			cell->name = RTLIL::escape_id(inst->Name());
-			cell->type = "$mux";
-			cell->parameters["\\WIDTH"] = 1;
-			cell->connections["\\A"] = net_map.at(inst->GetInput1());
-			cell->connections["\\B"] = net_map.at(inst->GetInput2());
-			cell->connections["\\S"] = net_map.at(inst->GetControl());
-			cell->connections["\\Y"] = net_map.at(inst->GetOutput());
-			module->add(cell);
+			module->addMux(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
 			continue;
 		}
 
 		if (inst->Type() == PRIM_FADD)
 		{
-			RTLIL::Cell *cell1 = new RTLIL::Cell;
-			cell1->name = RTLIL::escape_id(NEW_ID);
-			cell1->type = "$add";
-			cell1->parameters["\\A_SIGNED"] = 0;
-			cell1->parameters["\\B_SIGNED"] = 0;
-			cell1->parameters["\\A_WIDTH"] = 1;
-			cell1->parameters["\\B_WIDTH"] = 1;
-			cell1->parameters["\\Y_WIDTH"] = 2;
-			cell1->connections["\\A"] = net_map.at(inst->GetInput1());
-			cell1->connections["\\B"] = net_map.at(inst->GetInput2());
-			cell1->connections["\\Y"] = module->new_wire(2, NEW_ID);
-			module->add(cell1);
+			RTLIL::SigSpec a_plus_b = module->new_wire(2, NEW_ID);
+			RTLIL::SigSpec y = net_map.at(inst->GetOutput());
+			y.append(net_map.at(inst->GetCout()));
 
-			RTLIL::Cell *cell2 = new RTLIL::Cell;
-			cell2->name = RTLIL::escape_id(inst->Name());
-			cell2->type = "$add";
-			cell2->parameters["\\A_SIGNED"] = 0;
-			cell2->parameters["\\B_SIGNED"] = 0;
-			cell2->parameters["\\A_WIDTH"] = 2;
-			cell2->parameters["\\B_WIDTH"] = 1;
-			cell2->parameters["\\Y_WIDTH"] = 2;
-			cell2->connections["\\A"] = cell1->connections["\\Y"];
-			cell2->connections["\\B"] = net_map.at(inst->GetCin());
-			cell2->connections["\\Y"] = net_map.at(inst->GetOutput());
-			cell2->connections["\\Y"].append(net_map.at(inst->GetCout()));
-			module->add(cell2);
+			module->addAdd(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), a_plus_b);
+			module->addAdd(RTLIL::escape_id(inst->Name()), a_plus_b, net_map.at(inst->GetCin()), y);
+			continue;
+		}
+
+		if (inst->Type() == PRIM_DFFRS)
+		{
+			RTLIL::SigSpec tmp1 = module->new_wire(1, NEW_ID);
+			RTLIL::SigSpec tmp2 = module->new_wire(1, NEW_ID);
+			RTLIL::SigSpec d = module->new_wire(1, NEW_ID);
+
+			module->addOr(NEW_ID, net_map.at(inst->GetInput()), net_map.at(inst->GetSet()), tmp1);
+			module->addNot(NEW_ID, net_map.at(inst->GetReset()), tmp2);
+			module->addAnd(NEW_ID, tmp1, tmp2, d);
+			module->addDff(NEW_ID, net_map.at(inst->GetClock()), d, net_map.at(inst->GetOutput()));
 			continue;
 		}
 
