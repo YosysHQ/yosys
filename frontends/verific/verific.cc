@@ -55,7 +55,7 @@ static void msg_func(msg_type_t msg_type, const char *message_id, linefile_type 
 	log("\n");
 }
 
-void import_attributes(std::map<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj)
+static void import_attributes(std::map<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj)
 {
 	MapIter mi;
 	Att *attr;
@@ -66,6 +66,61 @@ void import_attributes(std::map<RTLIL::IdString, RTLIL::Const> &attributes, Desi
 	// FIXME: Parse numeric attributes
 	FOREACH_ATTRIBUTE(obj, mi, attr)
 		attributes[RTLIL::escape_id(attr->Key())] = RTLIL::Const(std::string(attr->Value()));
+}
+
+static RTLIL::SigSpec operatorInput(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map)
+{
+	RTLIL::SigSpec sig;
+	for (unsigned i = 0; i < inst->InputSize(); i++)
+		if (inst->GetInputBit(i))
+			sig.append(net_map.at(inst->GetInputBit(i)));
+		else
+			sig.append(RTLIL::State::Sz);
+	sig.optimize();
+	return sig;
+}
+
+static RTLIL::SigSpec operatorInput1(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map)
+{
+	RTLIL::SigSpec sig;
+	for (unsigned i = 0; i < inst->Input1Size(); i++)
+		if (inst->GetInput1Bit(i))
+			sig.append(net_map.at(inst->GetInput1Bit(i)));
+		else
+			sig.append(RTLIL::State::Sz);
+	sig.optimize();
+	return sig;
+}
+
+static RTLIL::SigSpec operatorInput2(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map)
+{
+	RTLIL::SigSpec sig;
+	for (unsigned i = 0; i < inst->Input2Size(); i++)
+		if (inst->GetInput2Bit(i))
+			sig.append(net_map.at(inst->GetInput2Bit(i)));
+		else
+			sig.append(RTLIL::State::Sz);
+	sig.optimize();
+	return sig;
+}
+
+static RTLIL::SigSpec operatorOutput(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map, RTLIL::Module *module)
+{
+	RTLIL::SigSpec sig;
+	RTLIL::Wire *dummy_wire = NULL;
+	for (unsigned i = 0; i < inst->OutputSize(); i++)
+		if (inst->GetInput2Bit(i)) {
+			sig.append(net_map.at(inst->GetInput2Bit(i)));
+			dummy_wire = NULL;
+		} else {
+			if (dummy_wire == NULL)
+				dummy_wire = module->new_wire(1, NEW_ID);
+			else
+				dummy_wire->width++;
+			sig.append(RTLIL::SigSpec(dummy_wire, 1, dummy_wire->width - 1));
+		}
+	sig.optimize();
+	return sig;
 }
 
 static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
@@ -296,6 +351,109 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			continue;
 		}
 
+		#define IN  operatorInput(inst, net_map)
+		#define IN1 operatorInput1(inst, net_map)
+		#define IN2 operatorInput2(inst, net_map)
+		#define OUT operatorOutput(inst, net_map, module)
+		#define SIGNED inst->View()->IsSigned()
+
+		if (inst->Type() == OPER_ADDER) {
+			module->addAdd(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_MULTIPLIER) {
+			module->addMul(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_DIVIDER) {
+			module->addDiv(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_MODULO) {
+			module->addMod(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		// FIXME: OPER_REMAINDER -- how is this different from OPER_MODULO ?
+
+		if (inst->Type() == OPER_REMAINDER) {
+			module->addMod(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_SHIFT_LEFT) {
+			module->addShl(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_SHIFT_RIGHT) {
+			module->addShr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		// FIXME: OPER_ROTATE_LEFT OPER_ROTATE_RIGHT -- are they $sshl / $sshr cells?
+
+		if (inst->Type() == OPER_REDUCE_AND) {
+			module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_REDUCE_OR) {
+			module->addReduceOr(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_REDUCE_XOR) {
+			module->addReduceXor(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_REDUCE_NAND) {
+			RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
+			module->addReduceAnd(NEW_ID, IN, tmp, SIGNED);
+			module->addNot(RTLIL::escape_id(inst->Name()), tmp, OUT);
+			continue;
+		}
+
+		if (inst->Type() == OPER_REDUCE_NOR) {
+			RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
+			module->addReduceOr(NEW_ID, IN, tmp, SIGNED);
+			module->addNot(RTLIL::escape_id(inst->Name()), tmp, OUT);
+			continue;
+		}
+
+		if (inst->Type() == OPER_REDUCE_XNOR) {
+			module->addReduceXnor(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_LESSTHAN) {
+			module->addLt(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_EQUAL) {
+			module->addEq(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_NEQUAL) {
+			module->addNe(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		#undef IN
+		#undef IN1
+		#undef IN2
+		#undef OUT
+		#undef SIGNED
+
+		if (inst->IsOperator())
+			log("Warning: Unsupported Verific operator: %s\n", inst->View()->Owner()->Name());
+
 		if (inst->IsPrimitive())
 			log_error("Unsupported Verific primitive: %s\n", inst->View()->Owner()->Name());
 
@@ -354,7 +512,7 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_DIR
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing VERIFIC (loading Verilog and VHDL designs using the Verific library).\n");
+		log_header("Executing VERIFIC (loading Verilog and VHDL designs using Verific).\n");
 
 		Message::SetConsoleOutput(0);
 		Message::RegisterCallBackMsg(msg_func);
