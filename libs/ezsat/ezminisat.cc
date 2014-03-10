@@ -176,8 +176,8 @@ contradiction:
 
 	if (solverTimeout > 0) {
 		sig_action.sa_handler = alarmHandler;
-		sig_action.sa_mask = 0;
-		sig_action.sa_flags = 0;
+		sigemptyset(&sig_action.sa_mask);
+		sig_action.sa_flags = SA_RESTART;
 		alarmHandlerThis = this;
 		alarmHandlerTimeout = clock() + solverTimeout*CLOCKS_PER_SEC;
 		old_alarm_timeout = alarm(0);
