@@ -23,6 +23,7 @@
 #include "kernel/log.h"
 #include <string.h>
 #include <fnmatch.h>
+#include <errno.h>
 
 using RTLIL::id2cstr;
 
