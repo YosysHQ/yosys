@@ -25,7 +25,7 @@
 
 #include <limits.h>
 #include <stdint.h>
-#include <signal.h>
+#include <csignal>
 #include <cinttypes>
 
 #include <minisat/core/Solver.h>
@@ -170,14 +170,18 @@ contradiction:
 #endif
 	}
 
-	sighandler_t old_alarm_sighandler = NULL;
+	struct sigaction sig_action;
+	struct sigaction old_sig_action;
 	int old_alarm_timeout = 0;
 
 	if (solverTimeout > 0) {
+		sig_action.sa_handler = alarmHandler;
+		sig_action.sa_mask = 0;
+		sig_action.sa_flags = 0;
 		alarmHandlerThis = this;
 		alarmHandlerTimeout = clock() + solverTimeout*CLOCKS_PER_SEC;
 		old_alarm_timeout = alarm(0);
-		old_alarm_sighandler = signal(SIGALRM, alarmHandler);
+		sigaction(SIGALRM, &sig_action, &old_sig_action);
 		alarm(1);
 	}
 
@@ -187,7 +191,7 @@ contradiction:
 		if (alarmHandlerTimeout == 0)
 			solverTimoutStatus = true;
 		alarm(0);
-		signal(SIGALRM, old_alarm_sighandler);
+		sigaction(SIGALRM, &old_sig_action, NULL);
 		alarm(old_alarm_timeout);
 	}
 
