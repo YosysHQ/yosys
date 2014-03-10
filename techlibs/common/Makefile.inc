@@ -2,7 +2,7 @@
 EXTRA_TARGETS += techlibs/common/blackbox.v
 
 techlibs/common/blackbox.v: techlibs/common/blackbox.sed techlibs/common/simlib.v techlibs/common/simcells.v
-	cat techlibs/common/simlib.v techlibs/common/simcells.v | sed -rf techlibs/common/blackbox.sed > techlibs/common/blackbox.v.new
+	cat techlibs/common/simlib.v techlibs/common/simcells.v | $(SED) -rf techlibs/common/blackbox.sed > techlibs/common/blackbox.v.new
 	mv techlibs/common/blackbox.v.new techlibs/common/blackbox.v
 
 EXTRA_TARGETS += share/simlib.v share/simcells.v share/blackbox.v share/pmux2mux.v

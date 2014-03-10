@@ -32,10 +32,12 @@ ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	CXXFLAGS += -I/opt/local/include
 	LDFLAGS += -L/opt/local/lib
 	QMAKE = qmake
+	SED = gsed
 else
 	LDFLAGS += -rdynamic
 	LDLIBS += -lrt
 	QMAKE = qmake-qt4
+	SED = sed
 endif
 
 YOSYS_VER := 0.2.0+
@@ -134,7 +136,7 @@ kernel/version_$(GIT_REV).cc: Makefile
 	echo "extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV))\";" > kernel/version_$(GIT_REV).cc
 
 yosys-config: yosys-config.in
-	sed -e 's,@CXX@,$(CXX),;' -e 's,@CXXFLAGS@,$(CXXFLAGS),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
+	$(SED) -e 's,@CXX@,$(CXX),;' -e 's,@CXXFLAGS@,$(CXXFLAGS),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
 			-e 's,@BINDIR@,$(DESTDIR)/bin,;' -e 's,@DATDIR@,$(DESTDIR)/share/yosys,;' < yosys-config.in > yosys-config
 	chmod +x yosys-config
 
@@ -144,7 +146,7 @@ yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 
 yosys-minisat: $(DESTDIR)/bin/minisat
 $(DESTDIR)/bin/minisat:
-	test -d minisat || ( git clone https://github.com/niklasso/minisat.git minisat && sed -i -e 's/PRIi64/ & /' minisat/minisat/utils/Options.h )
+	test -d minisat || ( git clone https://github.com/niklasso/minisat.git minisat && $(SED) -i -e 's/PRIi64/ & /' minisat/minisat/utils/Options.h )
 	( cd minisat && git checkout $(MINISATREV) )
 	( cd minisat && $(MAKE) prefix=$(DESTDIR) DESTDIR="" config install )
 	@( cd minisat && echo "Installed minisat version `git describe --always --dirty` into $(DESTDIR)." )
