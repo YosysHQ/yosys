@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 
 using namespace REGISTER_INTERN;
 #define MAX_REG_COUNT 1000
