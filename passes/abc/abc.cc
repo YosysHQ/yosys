@@ -45,6 +45,7 @@
 #include <dirent.h>
 #include <cerrno>
 #include <sstream>
+#include <climits>
 
 #include "blifparse.h"
 

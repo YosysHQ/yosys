@@ -27,6 +27,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 
 struct Vhdl2verilogPass : public Pass {
 	Vhdl2verilogPass() : Pass("vhdl2verilog", "importing VHDL designs using vhdl2verilog") { }
