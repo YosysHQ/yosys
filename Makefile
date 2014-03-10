@@ -23,7 +23,7 @@ TARGETS = yosys yosys-config
 all: top-all
 
 CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -I${DESTDIR}/include -MD -D_YOSYS_ -fPIC -include kernel/posix_compatibility.h
-LDFLAGS = -I${DESTDIR}/lib
+LDFLAGS = -L${DESTDIR}/lib
 LDLIBS = -lstdc++ -lreadline -lm -ldl
 
 export PATH := ${DESTDIR}/bin:$(PATH)
