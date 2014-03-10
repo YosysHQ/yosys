@@ -23,6 +23,8 @@
 #include "kernel/rtlil.h"
 #include <stdio.h>
 #include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <vector>
 
 extern std::vector<FILE*> log_files;
@@ -65,9 +67,23 @@ struct PerformanceTimer
 	}
 
 	static int64_t query() {
+#if defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
 		struct timespec ts;
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
 		return int64_t(ts.tv_sec)*1000000000 + ts.tv_nsec;
+#elif defined(RUSAGE_SELF)
+		struct rusage rusage;
+		int64_t t;
+		if (getrusage(RUSAGE_SELF, &rusage) == -1) {
+			log_cmd_error("getrusage failed!\n");
+			log_abort();
+		}
+		t = 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
+		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
+		return t;
+#else
+	#error Dont know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?).
+#endif
 	}
 
 	void reset() {
