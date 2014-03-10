@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include <errno.h>
 
 struct Vhdl2verilogPass : public Pass {
 	Vhdl2verilogPass() : Pass("vhdl2verilog", "importing VHDL designs using vhdl2verilog") { }
@@ -93,9 +94,12 @@ struct Vhdl2verilogPass : public Pass {
 			log_error("For some reason mkdtemp() failed!\n");
 
 		if (!out_file.empty() && out_file[0] != '/') {
-			char *pwd = get_current_dir_name();
+			char pwd [PATH_MAX];
+			if (!getcwd(pwd, sizeof(pwd))) {
+				log_cmd_error("getcwd failed: %s", strerror(errno));
+				log_abort();
+			}
 			out_file = pwd + ("/" + out_file);
-			free(pwd);
 		}
 
 		FILE *f = fopen(stringf("%s/files.list", tempdir_name).c_str(), "wt");
@@ -104,9 +108,12 @@ struct Vhdl2verilogPass : public Pass {
 			if (file.empty())
 				continue;
 			if (file[0] != '/') {
-				char *pwd = get_current_dir_name();
+				char pwd [PATH_MAX];
+				if (!getcwd(pwd, sizeof(pwd))) {
+					log_cmd_error("getcwd failed: %s", strerror(errno));
+					log_abort();
+				}
 				file = pwd + ("/" + file);
-				free(pwd);
 			}
 			fprintf(f, "%s\n", file.c_str());
 			log("Adding '%s' to the file list.\n", file.c_str());
