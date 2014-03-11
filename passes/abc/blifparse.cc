@@ -40,7 +40,7 @@ static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, 
 		}
 
 		if (buffer_len == 0 || buffer[buffer_len-1] == '\\') {
-			if (buffer[buffer_len-1] == '\\')
+			if (buffer_len > 0 && buffer[buffer_len-1] == '\\')
 				buffer[--buffer_len] = 0;
 			line_count++;
 			if (fgets(buffer+buffer_len, buffer_size-buffer_len, f) == NULL)
