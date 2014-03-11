@@ -63,12 +63,12 @@ MINISATREV = HEAD
 
 ifeq ($(CONFIG),clang-debug)
 CXX = clang
-CXXFLAGS += -std=c++11 -g -O0 -Wall
+CXXFLAGS += -std=c++11 -O0 -Wall
 endif
 
 ifeq ($(CONFIG),gcc-debug)
 CXX = gcc
-CXXFLAGS += -std=gnu++0x -g -O0 -Wall
+CXXFLAGS += -std=gnu++0x -O0 -Wall
 endif
 
 ifeq ($(CONFIG),release)
