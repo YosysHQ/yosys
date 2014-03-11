@@ -75,6 +75,17 @@ namespace VERILOG_FRONTEND {
 	ln_stack.pop_back();
 }
 
+"`line"[ \t]+[^ \t\r\n]+[ \t]+\"[^ \r\n]+\"[^\r\n]*\n {
+	char *p = yytext + 5;
+	while (*p == ' ' || *p == '\t') p++;
+	frontend_verilog_yyset_lineno(atoi(p));
+	while (*p && *p != ' ' && *p != '\t') p++;
+	while (*p == ' ' || *p == '\t') p++;
+	char *q = *p ? p + 1 : p;
+	while (*q && *q != '"') q++;
+	current_filename = std::string(p).substr(1, q-p-1);
+}
+
 "`file_notfound "[^\n]* {
 	log_error("Can't open include file `%s'!\n", yytext + 15);
 }
