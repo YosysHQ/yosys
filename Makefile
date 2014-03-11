@@ -19,7 +19,7 @@ INSTALL_SUDO :=
 OBJS =
 GENFILES =
 EXTRA_TARGETS =
-TARGETS = yosys yosys-config
+TARGETS =
 
 all: top-all
 
@@ -57,16 +57,18 @@ OBJS = kernel/version_$(GIT_REV).o
 ABCREV = 2058c8ccea68
 ABCPULL = 1
 
+MINISATREV = HEAD
+
 -include Makefile.conf
 
 ifeq ($(CONFIG),clang-debug)
 CXX = clang
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=c++11 -g -O0 -Wall
 endif
 
 ifeq ($(CONFIG),gcc-debug)
 CXX = gcc
-CXXFLAGS += -std=gnu++0x -Os
+CXXFLAGS += -std=gnu++0x -g -O0 -Wall
 endif
 
 ifeq ($(CONFIG),release)
@@ -86,8 +88,8 @@ CXXFLAGS += -pg -fno-inline
 LDFLAGS += -pg
 endif
 
-ifeq ($(ENABLE_QT4),1)
-TARGETS += yosys-svgviewer
+ifeq ($(ENABLE_MINISAT),1)
+TARGETS += yosys-minisat
 endif
 
 ifeq ($(ENABLE_ABC),1)
@@ -101,7 +103,14 @@ CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -D'VERIFIC_DI
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
+# Build yosys after minisat and abc (we need to access the local copies of the downloaded/installed header files).
+TARGETS += yosys yosys-config
+
+ifeq ($(ENABLE_QT4),1)
+TARGETS += yosys-svgviewer
+endif
+
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/posix_compatibility.o
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
