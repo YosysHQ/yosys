@@ -21,6 +21,7 @@
 #include "kernel/log.h"
 #include "libparse.h"
 #include <string.h>
+#include <errno.h>
 
 using namespace PASS_DFFLIBMAP;
 

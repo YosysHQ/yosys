@@ -43,7 +43,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include <cerrno>
 #include <sstream>
+#include <climits>
 
 #include "blifparse.h"
 
@@ -973,7 +975,11 @@ struct AbcPass : public Pass {
 		int lut_mode = 0;
 
 		size_t argidx;
-		char *pwd = get_current_dir_name();
+		char pwd [PATH_MAX];
+		if (!getcwd(pwd, sizeof(pwd))) {
+			log_cmd_error("getcwd failed: %s\n", strerror(errno));
+			log_abort();
+		}
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-exe" && argidx+1 < args.size()) {
@@ -1020,7 +1026,6 @@ struct AbcPass : public Pass {
 			}
 			break;
 		}
-		free(pwd);
 		extra_args(args, argidx, design);
 
 		if (lut_mode != 0 && !liberty_file.empty())

@@ -19,10 +19,11 @@
 
 #include "ezsat.h"
 
+#include <cmath>
 #include <algorithm>
+#include <cassert>
 
 #include <stdlib.h>
-#include <assert.h>
 
 const int ezSAT::TRUE = 1;
 const int ezSAT::FALSE = 2;

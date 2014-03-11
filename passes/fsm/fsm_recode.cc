@@ -23,8 +23,9 @@
 #include "kernel/consteval.h"
 #include "kernel/celltypes.h"
 #include "fsmdata.h"
-#include "math.h"
+#include <math.h>
 #include <string.h>
+#include <errno.h>
 
 static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &fsm_data, const char *prefix, FILE *f)
 {
