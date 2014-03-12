@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <dlfcn.h>
+#include <limits.h>
 #include <errno.h>
 
 #include <algorithm>
@@ -427,42 +428,46 @@ extern RTLIL::Design *yosys_get_design()
 	return yosys_design;
 }
 
-std::string rewrite_yosys_exe(std::string exe)
+#if defined(__linux__)
+std::string proc_self_dirname ()
 {
-	char buffer[1024];
-	ssize_t buflen = readlink("/proc/self/exe", buffer, sizeof(buffer)-1);
-
-	if (buflen < 0)
-		return exe;
-
-	buffer[buflen] = 0;
-	std::string newexe = stringf("%s/%s", dirname(buffer), exe.c_str());
-	if (access(newexe.c_str(), X_OK) == 0)
-		return newexe;
-
-	return exe;
+	char path [PATH_MAX];
+	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
+	if (buflen < 0) {
+		log_cmd_error("readlink(\"/proc/self/exe\") failed: %s", strerror(errno));
+		log_abort();
+	}
+	while (buflen > 0 && path[buflen-1] != '/')
+		buflen--;
+	return std::string(path, buflen);
 }
-
-std::string get_share_file_name(std::string file)
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+std::string proc_self_dirname ()
 {
-	char buffer[1024];
-	ssize_t buflen = readlink("/proc/self/exe", buffer, sizeof(buffer)-1);
+	char * path = NULL;
+	uint32_t buflen = 0;
+	while (_NSGetExecutablePath(path, &buflen) != 0)
+		path = (char *) realloc((void *) path, buflen);
+	while (buflen > 0 && path[buflen-1] != '/')
+		buflen--;
+	return std::string(path, buflen);
+}
+#else
+	#error Dont know how to determine process executable base path!
+#endif
 
-	if (buflen < 0)
-		log_error("Can't find file `%s': reading of /proc/self/exe failed!\n", file.c_str());
-
-	buffer[buflen] = 0;
-	const char *dir = dirname(buffer);
-
-	std::string newfile_inplace = stringf("%s/share/%s", dir, file.c_str());
-	if (access(newfile_inplace.c_str(), F_OK) == 0)
-		return newfile_inplace;
-
-	std::string newfile_system = stringf("%s/../share/yosys/%s", dir, file.c_str());
-	if (access(newfile_system.c_str(), F_OK) == 0)
-		return newfile_system;
-
-	log_error("Can't find file `%s': no `%s' and no `%s' found!\n", file.c_str(), newfile_inplace.c_str(), newfile_system.c_str());
+std::string proc_share_dirname ()
+{
+	std::string proc_self_path = proc_self_dirname();
+	std::string proc_share_path = proc_self_path + "share/";
+	if (access(proc_share_path.c_str(), X_OK) == 0)
+		return proc_share_path;
+	proc_share_path = proc_self_path + "../share/yosys/";
+	if (access(proc_share_path.c_str(), X_OK) == 0)
+		return proc_share_path;
+	log_cmd_error("proc_share_dirname: unable to determine share/ directory!");
+	log_abort();
 }
 
 int main(int argc, char **argv)

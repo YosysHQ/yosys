@@ -548,13 +548,14 @@ struct TechmapPass : public Pass {
 		int max_iter = -1;
 
 		size_t argidx;
+		std::string proc_share_path = proc_share_dirname();
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
 				map_files.push_back(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-share_map" && argidx+1 < args.size()) {
-				map_files.push_back(get_share_file_name(args[++argidx]));
+				map_files.push_back(proc_share_path + args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-max_iter" && argidx+1 < args.size()) {

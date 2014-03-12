@@ -36,8 +36,8 @@ extern const char *yosys_version_str;
 
 // implemented in driver.cc
 extern RTLIL::Design *yosys_get_design();
-std::string rewrite_yosys_exe(std::string exe);
-std::string get_share_file_name(std::string file);
+extern std::string proc_self_dirname();
+extern std::string proc_share_dirname();
 const char *create_prompt(RTLIL::Design *design, int recursion_counter);
 
 // from passes/cmds/design.cc

@@ -969,7 +969,7 @@ struct AbcPass : public Pass {
 		log_header("Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
 
-		std::string exe_file = rewrite_yosys_exe("yosys-abc");
+		std::string exe_file = proc_self_dirname() + "yosys-abc";
 		std::string script_file, liberty_file, constr_file, clk_str;
 		bool dff_mode = false, keepff = false, cleanup = true;
 		int lut_mode = 0;
