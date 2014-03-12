@@ -56,8 +56,6 @@ OBJS = kernel/version_$(GIT_REV).o
 ABCREV = 2058c8ccea68
 ABCPULL = 1
 
-MINISATREV = HEAD
-
 -include Makefile.conf
 
 ifeq ($(CONFIG),clang-debug)
@@ -87,8 +85,8 @@ CXXFLAGS += -pg -fno-inline
 LDFLAGS += -pg
 endif
 
-ifeq ($(ENABLE_MINISAT),1)
-TARGETS += yosys-minisat
+ifeq ($(ENABLE_QT4),1)
+TARGETS += yosys-svgviewer
 endif
 
 ifeq ($(ENABLE_ABC),1)
@@ -102,12 +100,8 @@ CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -D'VERIFIC_DI
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
-# Build yosys after minisat and abc (we need to access the local copies of the downloaded/installed header files).
+# Build yosys after abc (we need to access the the downloaded/installed header files and libraries when building yosys).
 TARGETS += yosys yosys-config
-
-ifeq ($(ENABLE_QT4),1)
-TARGETS += yosys-svgviewer
-endif
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/posix_compatibility.o
 
@@ -146,13 +140,6 @@ yosys-config: yosys-config.in
 yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 	cd libs/svgviewer && $(QMAKE) && make
 	cp `find libs/svgviewer -name svgviewer -type f` yosys-svgviewer
-
-yosys-minisat: $(DESTDIR)/bin/minisat
-$(DESTDIR)/bin/minisat:
-	test -d minisat || ( git clone https://github.com/niklasso/minisat.git minisat && $(SED) -i -e 's/PRIi64/ & /' minisat/minisat/utils/Options.h )
-	( cd minisat && git checkout $(MINISATREV) )
-	( cd minisat && $(MAKE) prefix=$(DESTDIR) DESTDIR="" config install )
-	@( cd minisat && echo "Installed minisat version `git describe --always --dirty` into $(DESTDIR)." )
 
 abc/abc-$(ABCREV):
 ifneq ($(ABCREV),default)
