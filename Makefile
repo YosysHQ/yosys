@@ -30,13 +30,11 @@ export PATH := $(PWD):$(DESTDIR)/bin:$(PATH)
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
-	export DYLD_LIBRARY_PATH := ${DESTDIR}/lib:$(DYLD_LIBRARY_PATH)
 	CXXFLAGS += -I/opt/local/include
 	LDFLAGS += -L/opt/local/lib
 	QMAKE = qmake
 	SED = gsed
 else
-	export LD_LIBRARY_PATH := ${DESTDIR}/lib:$(LD_LIBRARY_PATH)
 	LDFLAGS += -rdynamic
 	LDLIBS += -lrt
 	QMAKE = qmake-qt4
