@@ -6,7 +6,6 @@ CONFIG := clang-debug
 # features (the more the better)
 ENABLE_TCL := 1
 ENABLE_QT4 := 1
-ENABLE_MINISAT := 1
 ENABLE_ABC := 1
 ENABLE_VERIFIC := 0
 
@@ -95,11 +94,11 @@ OBJS += libs/sha1/sha1.o
 OBJS += libs/subcircuit/subcircuit.o
 OBJS += libs/ezsat/ezsat.o
 
-ifeq ($(ENABLE_MINISAT),1)
-CXXFLAGS += -DYOSYS_ENABLE_MINISAT
 OBJS += libs/ezsat/ezminisat.o
-LDLIBS += -lminisat
-endif
+OBJS += libs/minisat/Options.o
+OBJS += libs/minisat/SimpSolver.o
+OBJS += libs/minisat/Solver.o
+OBJS += libs/minisat/System.o
 
 include frontends/*/Makefile.inc
 include passes/*/Makefile.inc

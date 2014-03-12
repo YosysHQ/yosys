@@ -24,13 +24,8 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 
-#ifdef YOSYS_ENABLE_MINISAT
-#  include "libs/ezsat/ezminisat.h"
+#include "libs/ezsat/ezminisat.h"
 typedef ezMiniSAT ezDefaultSAT;
-#else
-#  include "libs/ezsat/ezsat.h"
-typedef ezSAT ezDefaultSAT;
-#endif
 
 struct SatGen
 {

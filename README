@@ -280,21 +280,6 @@ Verilog Attributes and non-standard features
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
 
 
-Workarounds for known build problems
-====================================
-
-You might get an error message like this one during build when building with
-a recent version of gcc:
-
-	/usr/include/minisat/utils/Options.h:285:29: error:
-	unable to find string literal operator ‘operator"" PRIi64’
-
-This is a bug in the minisat header. It can be fixed by adding spaces before
-and after each occurrence of PRIi64 in the header file:
-
-	 sudo sed -i -e 's/PRIi64/ & /' /usr/include/minisat/utils/Options.h
-
-
 Roadmap / Large-scale TODOs
 ===========================
 

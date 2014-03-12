@@ -28,8 +28,13 @@
 #include <csignal>
 #include <cinttypes>
 
-#include <minisat/core/Solver.h>
-#include <minisat/simp/SimpSolver.h>
+#ifdef _YOSYS_
+#  include "libs/minisat/Solver.h"
+#  include "libs/minisat/SimpSolver.h"
+#else
+#  include <minisat/core/Solver.h>
+#  include <minisat/simp/SimpSolver.h>
+#endif
 
 ezMiniSAT::ezMiniSAT() : minisatSolver(NULL)
 {
