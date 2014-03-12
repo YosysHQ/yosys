@@ -751,7 +751,8 @@ struct ShowPass : public Pass {
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
-			std::string cmd = stringf("fuser -s '%s' || '%s' '%s' &", out_file.c_str(), rewrite_yosys_exe("yosys-svgviewer").c_str(), out_file.c_str());
+			std::string svgviewer = proc_self_dirname() + "yosys-svgviewer";
+			std::string cmd = stringf("fuser -s '%s' || '%s' '%s' &", out_file.c_str(), svgviewer.c_str(), out_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
