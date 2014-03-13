@@ -214,7 +214,7 @@ struct SatHelper
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
 					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
 
-			log("Import set-constraint for timestep: %s = %s\n", log_signal(lhs), log_signal(rhs));
+			log("Import set-constraint for this timestep: %s = %s\n", log_signal(lhs), log_signal(rhs));
 			big_lhs.remove2(lhs, &big_rhs);
 			big_lhs.append(lhs);
 			big_rhs.append(rhs);
@@ -228,7 +228,7 @@ struct SatHelper
 				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.c_str());
 			show_signal_pool.add(sigmap(lhs));
 
-			log("Import unset-constraint for timestep: %s\n", log_signal(lhs));
+			log("Import unset-constraint for this timestep: %s\n", log_signal(lhs));
 			big_lhs.remove2(lhs, &big_rhs);
 		}
 
@@ -291,7 +291,7 @@ struct SatHelper
 
 		for (int t = 0; t < 3; t++)
 		for (auto &sig : sets_def_undef[t]) {
-			log("Import %s constraint for timestep: %s\n", t == 0 ? "def" : t == 1 ? "any_undef" : "all_undef", log_signal(sig));
+			log("Import %s constraint for this timestep: %s\n", t == 0 ? "def" : t == 1 ? "any_undef" : "all_undef", log_signal(sig));
 			std::vector<int> undef_sig = satgen.importUndefSigSpec(sig, timestep);
 			if (t == 0)
 				ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, undef_sig)));
