@@ -8,7 +8,9 @@
 /qtcreator.config
 /qtcreator.creator
 /qtcreator.creator.user
+/libs/svgviewer/svgviewer.app
 /Makefile.conf
+/minisat
 /abc
 /yosys
 /yosys-abc
