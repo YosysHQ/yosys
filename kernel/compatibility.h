@@ -20,9 +20,10 @@
 #ifndef COMPATIBILITY_H
 #define COMPATIBILITY_H
 
-#if !(_XOPEN_SOURCE >= 700 || _POSIX_C_SOURCE >= 200809L)
 #include <stdio.h>
 #include <stdlib.h>
+
+#if !(_XOPEN_SOURCE >= 700 || _POSIX_C_SOURCE >= 200809L)
 
 #define open_memstream compat_open_memstream
 #define fmemopen compat_fmemopen
