@@ -17,6 +17,7 @@
  *
  */
 
+#include "kernel/compatibility.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"

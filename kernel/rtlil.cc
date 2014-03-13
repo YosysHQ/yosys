@@ -17,6 +17,7 @@
  *
  */
 
+#include "kernel/compatibility.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 #include "frontends/verilog/verilog_frontend.h"

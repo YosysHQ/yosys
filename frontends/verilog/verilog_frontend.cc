@@ -27,6 +27,7 @@
  */
 
 #include "verilog_frontend.h"
+#include "kernel/compatibility.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"

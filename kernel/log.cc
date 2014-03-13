@@ -18,6 +18,7 @@
  */
 
 #include "kernel/log.h"
+#include "kernel/compatibility.h"
 #include "backends/ilang/ilang_backend.h"
 
 #include <sys/time.h>

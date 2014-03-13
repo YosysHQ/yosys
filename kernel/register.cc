@@ -17,8 +17,9 @@
  *
  */
 
-#include "register.h"
-#include "log.h"
+#include "kernel/compatibility.h"
+#include "kernel/register.h"
+#include "kernel/log.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>

@@ -22,11 +22,22 @@ TARGETS = yosys yosys-config
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC
-LDFLAGS = -rdynamic
-LDLIBS = -lstdc++ -lreadline -lm -ldl -lrt
+CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC -I${DESTDIR}/include
+LDFLAGS = -L${DESTDIR}/lib
+LDLIBS = -lstdc++ -lreadline -lm -ldl
 QMAKE = qmake-qt4
 SED = sed
+
+ifeq (Darwin,$(findstring Darwin,$(shell uname)))
+	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
+	CXXFLAGS += -I/opt/local/include
+	LDFLAGS += -L/opt/local/lib
+	QMAKE = qmake
+	SED = gsed
+else
+	LDFLAGS += -rdynamic
+	LDLIBS += -lrt
+endif
 
 YOSYS_VER := 0.2.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
@@ -86,15 +97,17 @@ LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
+OBJS += kernel/compatibility.o
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
 
 OBJS += libs/sha1/sha1.o
 OBJS += libs/subcircuit/subcircuit.o
-OBJS += libs/ezsat/ezsat.o
 
+OBJS += libs/ezsat/ezsat.o
 OBJS += libs/ezsat/ezminisat.o
+
 OBJS += libs/minisat/Options.o
 OBJS += libs/minisat/SimpSolver.o
 OBJS += libs/minisat/Solver.o
@@ -121,7 +134,7 @@ yosys-config: yosys-config.in
 
 yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 	cd libs/svgviewer && $(QMAKE) && make
-	cp libs/svgviewer/svgviewer yosys-svgviewer
+	cp `find libs/svgviewer -name svgviewer -type f` yosys-svgviewer
 
 abc/abc-$(ABCREV):
 ifneq ($(ABCREV),default)

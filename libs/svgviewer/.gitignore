@@ -3,3 +3,4 @@ moc_mainwindow.cpp
 moc_svgview.cpp
 qrc_svgviewer.cpp
 svgviewer
+svgviewer.app

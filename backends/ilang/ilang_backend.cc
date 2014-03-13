@@ -23,6 +23,7 @@
  */
 
 #include "ilang_backend.h"
+#include "kernel/compatibility.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include <string>
