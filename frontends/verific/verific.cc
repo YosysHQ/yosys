@@ -71,7 +71,7 @@ static void import_attributes(std::map<RTLIL::IdString, RTLIL::Const> &attribute
 static RTLIL::SigSpec operatorInput(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map)
 {
 	RTLIL::SigSpec sig;
-	for (unsigned i = 0; i < inst->InputSize(); i++)
+	for (int i = int(inst->InputSize())-1; i >= 0; i--)
 		if (inst->GetInputBit(i))
 			sig.append(net_map.at(inst->GetInputBit(i)));
 		else
@@ -83,7 +83,7 @@ static RTLIL::SigSpec operatorInput(Instance *inst, std::map<Net*, RTLIL::SigBit
 static RTLIL::SigSpec operatorInput1(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map)
 {
 	RTLIL::SigSpec sig;
-	for (unsigned i = 0; i < inst->Input1Size(); i++)
+	for (int i = int(inst->Input1Size())-1; i >= 0; i--)
 		if (inst->GetInput1Bit(i))
 			sig.append(net_map.at(inst->GetInput1Bit(i)));
 		else
@@ -95,7 +95,7 @@ static RTLIL::SigSpec operatorInput1(Instance *inst, std::map<Net*, RTLIL::SigBi
 static RTLIL::SigSpec operatorInput2(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map)
 {
 	RTLIL::SigSpec sig;
-	for (unsigned i = 0; i < inst->Input2Size(); i++)
+	for (int i = int(inst->Input2Size())-1; i >= 0; i--)
 		if (inst->GetInput2Bit(i))
 			sig.append(net_map.at(inst->GetInput2Bit(i)));
 		else
@@ -108,9 +108,9 @@ static RTLIL::SigSpec operatorOutput(Instance *inst, std::map<Net*, RTLIL::SigBi
 {
 	RTLIL::SigSpec sig;
 	RTLIL::Wire *dummy_wire = NULL;
-	for (unsigned i = 0; i < inst->OutputSize(); i++)
-		if (inst->GetInput2Bit(i)) {
-			sig.append(net_map.at(inst->GetInput2Bit(i)));
+	for (int i = int(inst->OutputSize())-1; i >= 0; i--)
+		if (inst->GetOutputBit(i)) {
+			sig.append(net_map.at(inst->GetOutputBit(i)));
 			dummy_wire = NULL;
 		} else {
 			if (dummy_wire == NULL)
@@ -377,8 +377,6 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			continue;
 		}
 
-		// FIXME: OPER_REMAINDER -- how is this different from OPER_MODULO ?
-
 		if (inst->Type() == OPER_REMAINDER) {
 			module->addMod(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
 			continue;
@@ -393,8 +391,6 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			module->addShr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
 			continue;
 		}
-
-		// FIXME: OPER_ROTATE_LEFT OPER_ROTATE_RIGHT -- are they $sshl / $sshr cells?
 
 		if (inst->Type() == OPER_REDUCE_AND) {
 			module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
@@ -435,6 +431,60 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			continue;
 		}
 
+		if (inst->Type() == OPER_WIDE_AND) {
+			module->addAnd(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_OR) {
+			module->addOr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_XOR) {
+			module->addXor(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_NAND) {
+			RTLIL::SigSpec tmp1 = module->new_wire(inst->OutputSize(), NEW_ID);
+			module->addAnd(NEW_ID, IN1, IN2, tmp1, SIGNED);
+			module->addNot(RTLIL::escape_id(inst->Name()), tmp1, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_NOR) {
+			RTLIL::SigSpec tmp1 = module->new_wire(inst->OutputSize(), NEW_ID);
+			module->addOr(NEW_ID, IN1, IN2, tmp1, SIGNED);
+			module->addNot(RTLIL::escape_id(inst->Name()), tmp1, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_XNOR) {
+			module->addXnor(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_BUF) {
+			module->addPos(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_INV) {
+			module->addNot(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_MINUS) {
+			module->addSub(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_UMINUS) {
+			module->addNeg(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+			continue;
+		}
+
 		if (inst->Type() == OPER_EQUAL) {
 			module->addEq(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
 			continue;
@@ -442,6 +492,11 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 		if (inst->Type() == OPER_NEQUAL) {
 			module->addNe(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WIDE_MUX) {
+			module->addMux(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetControl()), OUT);
 			continue;
 		}
 
