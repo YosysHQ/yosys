@@ -27,7 +27,7 @@
 #include <string.h>
 #include <dirent.h>
 
-#ifdef VERIFIC_DIR
+#ifdef YOSYS_ENABLE_VERIFIC
 
 #include "veri_file.h"
 #include "vhdl_file.h"
@@ -482,7 +482,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 	}
 }
 
-#endif /* VERIFIC_DIR */
+#endif /* YOSYS_ENABLE_VERIFIC */
 
 struct VerificPass : public Pass {
 	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
@@ -509,7 +509,7 @@ struct VerificPass : public Pass {
 		log("Visit http://verific.com/ for more information on Verific.\n");
 		log("\n");
 	}
-#ifdef VERIFIC_DIR
+#ifdef YOSYS_ENABLE_VERIFIC
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing VERIFIC (loading Verilog and VHDL designs using Verific).\n");
@@ -553,7 +553,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (args.size() > 1 && args[1] == "-vhdl87") {
-			vhdl_file::SetDefaultLibraryPath(VERIFIC_DIR "/vhdl_packages/vdbs");
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_87))
 					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
@@ -561,7 +561,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (args.size() > 1 && args[1] == "-vhdl93") {
-			vhdl_file::SetDefaultLibraryPath(VERIFIC_DIR "/vhdl_packages/vdbs");
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_93))
 					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", args[argidx].c_str());
@@ -569,7 +569,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (args.size() > 1 && args[1] == "-vhdl2k") {
-			vhdl_file::SetDefaultLibraryPath(VERIFIC_DIR "/vhdl_packages/vdbs");
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2K))
 					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", args[argidx].c_str());
@@ -577,7 +577,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (args.size() > 1 && args[1] == "-vhdl2008") {
-			vhdl_file::SetDefaultLibraryPath(VERIFIC_DIR "/vhdl_packages/vdbs");
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2008))
 					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
@@ -617,7 +617,7 @@ struct VerificPass : public Pass {
 
 		log_cmd_error("Missing or unsupported mode parameter.\n");
 	}
-#else /* VERIFIC_DIR */
+#else /* YOSYS_ENABLE_VERIFIC */
 	virtual void execute(std::vector<std::string>, RTLIL::Design *) {
 		log_cmd_error("This version of Yosys is built without Verific support.\n");
 	}
