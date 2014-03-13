@@ -22,11 +22,22 @@ TARGETS = yosys yosys-config
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC
-LDFLAGS = -rdynamic
-LDLIBS = -lstdc++ -lreadline -lm -ldl -lrt
-QMAKE = qmake-qt4
-SED = sed
+CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC -include kernel/posix_compatibility.h -I${DESTDIR}/include
+LDFLAGS = -L${DESTDIR}/lib
+LDLIBS = -lstdc++ -lreadline -lm -ldl
+
+ifeq (Darwin,$(findstring Darwin,$(shell uname)))
+	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
+	CXXFLAGS += -I/opt/local/include
+	LDFLAGS += -L/opt/local/lib
+	QMAKE = qmake
+	SED = gsed
+else
+	LDFLAGS += -rdynamic
+	LDLIBS += -lrt
+	QMAKE = qmake-qt4
+	SED = sed
+endif
 
 YOSYS_VER := 0.2.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
@@ -45,12 +56,12 @@ ABCPULL = 1
 
 ifeq ($(CONFIG),clang-debug)
 CXX = clang
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=c++11 -O0
 endif
 
 ifeq ($(CONFIG),gcc-debug)
 CXX = gcc
-CXXFLAGS += -std=gnu++0x -Os
+CXXFLAGS += -std=gnu++0x -O0
 endif
 
 ifeq ($(CONFIG),release)
@@ -85,7 +96,7 @@ CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -D'VERIFIC_DI
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/posix_compatibility.o
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
@@ -121,7 +132,7 @@ yosys-config: yosys-config.in
 
 yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 	cd libs/svgviewer && $(QMAKE) && make
-	cp libs/svgviewer/svgviewer yosys-svgviewer
+	cp `find libs/svgviewer -name svgviewer -type f` yosys-svgviewer
 
 abc/abc-$(ABCREV):
 ifneq ($(ABCREV),default)
