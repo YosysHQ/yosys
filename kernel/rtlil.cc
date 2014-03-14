@@ -932,6 +932,48 @@ DEF_METHOD(addPmux,     "$pmux",       1)
 DEF_METHOD(addSafePmux, "$safe_pmux",  1)
 #undef DEF_METHOD
 
+#define DEF_METHOD_2(_func, _type, _P1, _P2) \
+	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2) { \
+		RTLIL::Cell *cell = new RTLIL::Cell;                \
+		cell->name = name;                                  \
+		cell->type = _type;                                 \
+		cell->connections["\\" #_P1] = sig1;               \
+		cell->connections["\\" #_P2] = sig2;               \
+		add(cell);                                          \
+		return cell;                                        \
+	}
+#define DEF_METHOD_3(_func, _type, _P1, _P2, _P3) \
+	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3) { \
+		RTLIL::Cell *cell = new RTLIL::Cell;                \
+		cell->name = name;                                  \
+		cell->type = _type;                                 \
+		cell->connections["\\" #_P1] = sig1;               \
+		cell->connections["\\" #_P2] = sig2;               \
+		cell->connections["\\" #_P3] = sig3;               \
+		add(cell);                                          \
+		return cell;                                        \
+	}
+#define DEF_METHOD_4(_func, _type, _P1, _P2, _P3, _P4) \
+	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3, RTLIL::SigSpec sig4) { \
+		RTLIL::Cell *cell = new RTLIL::Cell;                \
+		cell->name = name;                                  \
+		cell->type = _type;                                 \
+		cell->connections["\\" #_P1] = sig1;                \
+		cell->connections["\\" #_P2] = sig2;                \
+		cell->connections["\\" #_P3] = sig3;                \
+		cell->connections["\\" #_P4] = sig4;                \
+		add(cell);                                          \
+		return cell;                                        \
+	}
+DEF_METHOD_2(addInvGate, "$_INV_", A, Y)
+DEF_METHOD_3(addAndGate, "$_AND_", A, B, Y)
+DEF_METHOD_3(addOrGate,  "$_OR_",  A, B, Y)
+DEF_METHOD_3(addXorGate, "$_XOR_", A, B, Y)
+DEF_METHOD_4(addMuxGate, "$_MUX_", A, B, S, Y)
+#undef DEF_METHOD_2
+#undef DEF_METHOD_3
+#undef DEF_METHOD_4
+
 RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool a_signed, bool b_signed)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
