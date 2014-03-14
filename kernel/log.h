@@ -128,6 +128,9 @@ static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(RTLIL::SigSpec v) { log("%s", log_signal(v)); }
 static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 
+template<typename T>
+static inline void log_dump_val_worker(T *ptr) { log("%p", ptr); }
+
 template <typename T, typename ... Args>
 void log_dump_args_worker(const char *p, T first, Args ... args)
 {
