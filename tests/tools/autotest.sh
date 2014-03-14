@@ -101,7 +101,7 @@ do
 
 		test_count=0
 		test_passes() {
-			"$toolsdir"/../../yosys -b "verilog $backend_opts" "$@" -o ${bn}_syn${test_count}.v $fn $scriptfiles
+			"$toolsdir"/../../yosys -b "verilog $backend_opts" -o ${bn}_syn${test_count}.v "$@"
 			compile_and_run ${bn}_tb_syn${test_count} ${bn}_out_syn${test_count} \
 					${bn}_tb.v ${bn}_syn${test_count}.v $libs \
 					"$toolsdir"/../../techlibs/common/simlib.v \
@@ -112,12 +112,16 @@ do
 		}
 
 		if [ -n "$scriptfiles" ]; then
-			test_passes
+			test_passes $fn $scriptfiles
 		elif [ -n "$scriptopt" ]; then
-			test_passes -f "$frontend" -p "$scriptopt"
+			test_passes -f "$frontend" -p "$scriptopt" $fn
+		elif [ "$frontend" = "verific" ]; then
+			test_passes -p "verific -vlog2k $fn; verific -import -all; opt; memory;;"
+		elif [ "$frontend" = "verific_gates" ]; then
+			test_passes -p "verific -vlog2k $fn; verific -import -gates -all; opt; memory;;"
 		else
-			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt"
-			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt"
+			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt" $fn
+			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt" $fn
 		fi
 		touch ../${bn}.log
 	}
