@@ -129,7 +129,7 @@ static RTLIL::SigSpec operatorOutput(Instance *inst, std::map<Net*, RTLIL::SigBi
 	return sig;
 }
 
-static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, Instance *inst)
+static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, std::map<Net*, RTLIL::State>&, Instance *inst)
 {
 	if (inst->Type() == PRIM_AND) {
 		module->addAndGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
@@ -183,7 +183,7 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 	return false;
 }
 
-static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, Instance *inst)
+static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, std::map<Net*, RTLIL::State> &const_map, Instance *inst)
 {
 	if (inst->Type() == PRIM_AND) {
 		module->addAnd(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
@@ -245,9 +245,19 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 	#define OUT operatorOutput(inst, net_map, module)
 	#define SIGNED inst->View()->IsSigned()
 
-#if 0
 	if (inst->Type() == OPER_ADDER) {
-		module->addAdd(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+		RTLIL::SigSpec out = OUT;
+		Net *cin = inst->GetNet(inst->View()->GetPort("cin"));
+		Net *cout = inst->GetNet(inst->View()->GetPort("cout"));
+		if (cout != NULL)
+			out.append(net_map.at(cout));
+		if (const_map.count(cin) && const_map.at(cin) == RTLIL::State::S0) {
+			module->addAdd(RTLIL::escape_id(inst->Name()) + "_", IN1, IN2, out, SIGNED);
+		} else {
+			RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
+			module->addAdd(NEW_ID, IN1, IN2, tmp, SIGNED);
+			module->addAdd(RTLIL::escape_id(inst->Name()), tmp, net_map.at(cin), out, false);
+		}
 		return true;
 	}
 
@@ -282,36 +292,36 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 	}
 
 	if (inst->Type() == OPER_REDUCE_AND) {
-		module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+		module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
 		return true;
 	}
 
 	if (inst->Type() == OPER_REDUCE_OR) {
-		module->addReduceOr(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+		module->addReduceOr(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
 		return true;
 	}
 
 	if (inst->Type() == OPER_REDUCE_XOR) {
-		module->addReduceXor(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+		module->addReduceXor(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
 		return true;
 	}
 
 	if (inst->Type() == OPER_REDUCE_NAND) {
 		RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
 		module->addReduceAnd(NEW_ID, IN, tmp, SIGNED);
-		module->addNot(RTLIL::escape_id(inst->Name()), tmp, OUT);
+		module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
 		return true;
 	}
 
 	if (inst->Type() == OPER_REDUCE_NOR) {
 		RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
 		module->addReduceOr(NEW_ID, IN, tmp, SIGNED);
-		module->addNot(RTLIL::escape_id(inst->Name()), tmp, OUT);
+		module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
 		return true;
 	}
 
 	if (inst->Type() == OPER_REDUCE_XNOR) {
-		module->addReduceXnor(RTLIL::escape_id(inst->Name()), IN, OUT, SIGNED);
+		module->addReduceXnor(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
 		return true;
 	}
 
@@ -388,7 +398,6 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		module->addMux(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetControl()), OUT);
 		return true;
 	}
-#endif
 
 	#undef IN
 	#undef IN1
@@ -416,6 +425,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 	log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 
 	std::map<Net*, RTLIL::SigBit> net_map;
+	std::map<Net*, RTLIL::State> const_map;
 
 	MapIter mi, mi2;
 	Port *port;
@@ -556,6 +566,21 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
+		if (inst->Type() == PRIM_PWR)
+			const_map[inst->GetOutput()] = RTLIL::State::S1;
+
+		if (inst->Type() == PRIM_GND)
+			const_map[inst->GetOutput()] = RTLIL::State::S1;
+
+		if (inst->Type() == PRIM_X)
+			const_map[inst->GetOutput()] = RTLIL::State::S1;
+
+		if (inst->Type() == PRIM_Z)
+			const_map[inst->GetOutput()] = RTLIL::State::S1;
+	}
+
+	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
+	{
 		// log("  importing cell %s (%s).\n", inst->Name(), inst->View()->Owner()->Name());
 
 		if (inst->Type() == PRIM_PWR) {
@@ -579,13 +604,13 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		}
 
 		if (!mode_gates) {
-			if (import_netlist_instance_cells(module, net_map, inst))
+			if (import_netlist_instance_cells(module, net_map, const_map, inst))
 				continue;
 			if (inst->IsOperator())
 				log("Warning: Unsupported Verific operator: %s\n", inst->View()->Owner()->Name());
 		}
 
-		if (import_netlist_instance_gates(module, net_map, inst))
+		if (import_netlist_instance_gates(module, net_map, const_map, inst))
 			continue;
 
 		if (inst->IsPrimitive())
