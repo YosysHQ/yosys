@@ -278,19 +278,22 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
-#if 0
-	// FIXME: tests/simple/sincos.v exposes a bug in this operator
-
 	if (inst->Type() == OPER_SHIFT_LEFT) {
-		module->addShl(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+		module->addShl(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, false);
 		return true;
 	}
 
 	if (inst->Type() == OPER_SHIFT_RIGHT) {
-		module->addShr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+		Net *net_cin = inst->GetCin();
+		Net *net_a_msb = inst->GetInput1Bit(0);
+		if (const_map.count(net_cin) && const_map.at(net_cin) == RTLIL::State::S0)
+			module->addShr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, false);
+		else if (net_cin == net_a_msb)
+			module->addSshr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, true);
+		else
+			log_error("Can't import Verific OPER_SHIFT_RIGHT instance %s: carry_in is neither 0 nor msb of left input\n", inst->Name());
 		return true;
 	}
-#endif
 
 	if (inst->Type() == OPER_REDUCE_AND) {
 		module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
@@ -307,33 +310,21 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
-	if (inst->Type() == OPER_REDUCE_NAND) {
-		RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
-		module->addReduceAnd(NEW_ID, IN, tmp, SIGNED);
-		module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
-		return true;
-	}
-
-	if (inst->Type() == OPER_REDUCE_NOR) {
-		RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
-		module->addReduceOr(NEW_ID, IN, tmp, SIGNED);
-		module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
-		return true;
-	}
-
 	if (inst->Type() == OPER_REDUCE_XNOR) {
 		module->addReduceXnor(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
 		return true;
 	}
 
-#if 0
-	// FIXME: tests/simple/sincos.v exposes a bug in this operator
-
 	if (inst->Type() == OPER_LESSTHAN) {
-		module->addLt(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+		Net *net_cin = inst->GetCin();
+		if (const_map.count(net_cin) && const_map.at(net_cin) == RTLIL::State::S0)
+			module->addLt(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
+		else if (const_map.count(net_cin) && const_map.at(net_cin) == RTLIL::State::S1)
+			module->addLe(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
+		else
+			log_error("Can't import Verific OPER_LESSTHAN instance %s: carry_in is neither 0 nor 1\n", inst->Name());
 		return true;
 	}
-#endif
 
 	if (inst->Type() == OPER_WIDE_AND) {
 		module->addAnd(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
@@ -347,20 +338,6 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == OPER_WIDE_XOR) {
 		module->addXor(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
-		return true;
-	}
-
-	if (inst->Type() == OPER_WIDE_NAND) {
-		RTLIL::SigSpec tmp1 = module->new_wire(inst->OutputSize(), NEW_ID);
-		module->addAnd(NEW_ID, IN1, IN2, tmp1, SIGNED);
-		module->addNot(RTLIL::escape_id(inst->Name()), tmp1, OUT, SIGNED);
-		return true;
-	}
-
-	if (inst->Type() == OPER_WIDE_NOR) {
-		RTLIL::SigSpec tmp1 = module->new_wire(inst->OutputSize(), NEW_ID);
-		module->addOr(NEW_ID, IN1, IN2, tmp1, SIGNED);
-		module->addNot(RTLIL::escape_id(inst->Name()), tmp1, OUT, SIGNED);
 		return true;
 	}
 
