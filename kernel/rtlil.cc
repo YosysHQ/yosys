@@ -1109,7 +1109,7 @@ RTLIL::Cell* RTLIL::Module::addAdff(RTLIL::IdString name, RTLIL::SigSpec sig_clk
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDlatch (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity)
+RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	cell->name = name;
@@ -1117,6 +1117,59 @@ RTLIL::Cell* RTLIL::Module::addDlatch (RTLIL::IdString name, RTLIL::SigSpec sig_
 	cell->parameters["\\EN_POLARITY"] = en_polarity;
 	cell->parameters["\\WIDTH"] = sig_q.width;
 	cell->connections["\\EN"] = sig_en;
+	cell->connections["\\D"] = sig_d;
+	cell->connections["\\Q"] = sig_q;
+	add(cell);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addDffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity)
+{
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = name;
+	cell->type = stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N');
+	cell->connections["\\C"] = sig_clk;
+	cell->connections["\\D"] = sig_d;
+	cell->connections["\\Q"] = sig_q;
+	add(cell);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addDffsrGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
+		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity)
+{
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = name;
+	cell->type = stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N');
+	cell->connections["\\C"] = sig_clk;
+	cell->connections["\\S"] = sig_set;
+	cell->connections["\\R"] = sig_clr;
+	cell->connections["\\D"] = sig_d;
+	cell->connections["\\Q"] = sig_q;
+	add(cell);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addAdffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,
+		bool arst_value, bool clk_polarity, bool arst_polarity)
+{
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = name;
+	cell->type = stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0');
+	cell->connections["\\C"] = sig_clk;
+	cell->connections["\\R"] = sig_arst;
+	cell->connections["\\D"] = sig_d;
+	cell->connections["\\Q"] = sig_q;
+	add(cell);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity)
+{
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = name;
+	cell->type = stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N');
+	cell->connections["\\E"] = sig_en;
 	cell->connections["\\D"] = sig_d;
 	cell->connections["\\Q"] = sig_q;
 	add(cell);
