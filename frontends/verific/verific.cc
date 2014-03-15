@@ -249,9 +249,9 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		if (inst->GetCout() != NULL)
 			out.append(net_map.at(inst->GetCout()));
 		if (const_map.count(inst->GetCin()) && const_map.at(inst->GetCin()) == RTLIL::State::S0) {
-			module->addAdd(RTLIL::escape_id(inst->Name()) + "_", IN1, IN2, out, SIGNED);
+			module->addAdd(RTLIL::escape_id(inst->Name()), IN1, IN2, out, SIGNED);
 		} else {
-			RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
+			RTLIL::SigSpec tmp = module->new_wire(out.width, NEW_ID);
 			module->addAdd(NEW_ID, IN1, IN2, tmp, SIGNED);
 			module->addAdd(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetCin()), out, false);
 		}
@@ -278,6 +278,9 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+#if 0
+	// FIXME: tests/simple/sincos.v exposes a bug in this operator
+
 	if (inst->Type() == OPER_SHIFT_LEFT) {
 		module->addShl(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
 		return true;
@@ -287,6 +290,7 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		module->addShr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
 		return true;
 	}
+#endif
 
 	if (inst->Type() == OPER_REDUCE_AND) {
 		module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
@@ -322,10 +326,14 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+#if 0
+	// FIXME: tests/simple/sincos.v exposes a bug in this operator
+
 	if (inst->Type() == OPER_LESSTHAN) {
 		module->addLt(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
 		return true;
 	}
+#endif
 
 	if (inst->Type() == OPER_WIDE_AND) {
 		module->addAnd(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
@@ -382,12 +390,12 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 	}
 
 	if (inst->Type() == OPER_EQUAL) {
-		module->addEq(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+		module->addEq(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
 		return true;
 	}
 
 	if (inst->Type() == OPER_NEQUAL) {
-		module->addNe(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, SIGNED);
+		module->addNe(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
 		return true;
 	}
 
@@ -567,13 +575,13 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			const_map[inst->GetOutput()] = RTLIL::State::S1;
 
 		if (inst->Type() == PRIM_GND)
-			const_map[inst->GetOutput()] = RTLIL::State::S1;
+			const_map[inst->GetOutput()] = RTLIL::State::S0;
 
 		if (inst->Type() == PRIM_X)
-			const_map[inst->GetOutput()] = RTLIL::State::S1;
+			const_map[inst->GetOutput()] = RTLIL::State::Sx;
 
 		if (inst->Type() == PRIM_Z)
-			const_map[inst->GetOutput()] = RTLIL::State::S1;
+			const_map[inst->GetOutput()] = RTLIL::State::Sz;
 	}
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
