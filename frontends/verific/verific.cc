@@ -129,7 +129,7 @@ static RTLIL::SigSpec operatorOutput(Instance *inst, std::map<Net*, RTLIL::SigBi
 	return sig;
 }
 
-static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, std::map<Net*, RTLIL::State>&, Instance *inst)
+static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, std::map<Net*, RTLIL::State> &const_map, Instance *inst)
 {
 	if (inst->Type() == PRIM_AND) {
 		module->addAndGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
@@ -158,25 +158,32 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == PRIM_FADD)
 	{
-		RTLIL::SigSpec a_plus_b = module->new_wire(2, NEW_ID);
-		RTLIL::SigSpec y = net_map.at(inst->GetOutput());
-		y.append(net_map.at(inst->GetCout()));
-
-		module->addAdd(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), a_plus_b);
-		module->addAdd(RTLIL::escape_id(inst->Name()), a_plus_b, net_map.at(inst->GetCin()), y);
+		RTLIL::SigSpec a = net_map.at(inst->GetInput1()), b = net_map.at(inst->GetInput2()), c = net_map.at(inst->GetCin());
+		RTLIL::SigSpec x = net_map.at(inst->GetCout()), y = net_map.at(inst->GetOutput());
+		RTLIL::SigSpec tmp1 = module->new_wire(1, NEW_ID);
+		RTLIL::SigSpec tmp2 = module->new_wire(1, NEW_ID);
+		RTLIL::SigSpec tmp3 = module->new_wire(1, NEW_ID);
+		module->addXorGate(NEW_ID, a, b, tmp1);
+		module->addXorGate(RTLIL::escape_id(inst->Name()), tmp1, c, y);
+		module->addAndGate(NEW_ID, tmp1, c, tmp2);
+		module->addAndGate(NEW_ID, a, b, tmp3);
+		module->addOrGate(NEW_ID, tmp2, tmp3, x);
 		return true;
 	}
 
 	if (inst->Type() == PRIM_DFFRS)
 	{
-		RTLIL::SigSpec tmp1 = module->new_wire(1, NEW_ID);
-		RTLIL::SigSpec tmp2 = module->new_wire(1, NEW_ID);
-		RTLIL::SigSpec d = module->new_wire(1, NEW_ID);
-
-		module->addOr(NEW_ID, net_map.at(inst->GetInput()), net_map.at(inst->GetSet()), tmp1);
-		module->addNot(NEW_ID, net_map.at(inst->GetReset()), tmp2);
-		module->addAnd(NEW_ID, tmp1, tmp2, d);
-		module->addDff(NEW_ID, net_map.at(inst->GetClock()), d, net_map.at(inst->GetOutput()));
+		if (const_map.count(inst->GetSet()) && const_map.at(inst->GetSet()) == RTLIL::State::S0 && const_map.count(inst->GetReset()) && const_map.at(inst->GetReset()) == RTLIL::State::S0)
+			module->addDffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+		else if (const_map.count(inst->GetSet()) && const_map.at(inst->GetSet()) == RTLIL::State::S0)
+			module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetReset()),
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), false);
+		else if (const_map.count(inst->GetReset()) && const_map.at(inst->GetReset()) == RTLIL::State::S0)
+			module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()),
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), true);
+		else
+			module->addDffsrGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()), net_map.at(inst->GetReset()),
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
 		return true;
 	}
 
@@ -228,15 +235,7 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == PRIM_DFFRS)
 	{
-		RTLIL::SigSpec tmp1 = module->new_wire(1, NEW_ID);
-		RTLIL::SigSpec tmp2 = module->new_wire(1, NEW_ID);
-		RTLIL::SigSpec d = module->new_wire(1, NEW_ID);
-
-		module->addOr(NEW_ID, net_map.at(inst->GetInput()), net_map.at(inst->GetSet()), tmp1);
-		module->addNot(NEW_ID, net_map.at(inst->GetReset()), tmp2);
-		module->addAnd(NEW_ID, tmp1, tmp2, d);
-		module->addDff(NEW_ID, net_map.at(inst->GetClock()), d, net_map.at(inst->GetOutput()));
-		return true;
+		// FIXME
 	}
 
 	#define IN  operatorInput(inst, net_map)
@@ -247,16 +246,14 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == OPER_ADDER) {
 		RTLIL::SigSpec out = OUT;
-		Net *cin = inst->GetNet(inst->View()->GetPort("cin"));
-		Net *cout = inst->GetNet(inst->View()->GetPort("cout"));
-		if (cout != NULL)
-			out.append(net_map.at(cout));
-		if (const_map.count(cin) && const_map.at(cin) == RTLIL::State::S0) {
+		if (inst->GetCout() != NULL)
+			out.append(net_map.at(inst->GetCout()));
+		if (const_map.count(inst->GetCin()) && const_map.at(inst->GetCin()) == RTLIL::State::S0) {
 			module->addAdd(RTLIL::escape_id(inst->Name()) + "_", IN1, IN2, out, SIGNED);
 		} else {
 			RTLIL::SigSpec tmp = module->new_wire(inst->OutputSize(), NEW_ID);
 			module->addAdd(NEW_ID, IN1, IN2, tmp, SIGNED);
-			module->addAdd(RTLIL::escape_id(inst->Name()), tmp, net_map.at(cin), out, false);
+			module->addAdd(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetCin()), out, false);
 		}
 		return true;
 	}
@@ -634,8 +631,11 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 						std::min(pr->GetPort()->Bus()->LeftIndex(), pr->GetPort()->Bus()->RightIndex());
 			}
 			RTLIL::SigSpec &conn = cell->connections[RTLIL::escape_id(port_name)];
-			while (conn.width <= port_offset)
+			while (conn.width <= port_offset) {
+				if (pr->GetPort()->GetDir() != DIR_IN)
+					conn.append(module->new_wire(port_offset - conn.width, NEW_ID));
 				conn.append(RTLIL::State::Sz);
+			}
 			conn.replace(port_offset, net_map.at(pr->GetNet()));
 		}
 	}
