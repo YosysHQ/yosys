@@ -129,7 +129,7 @@ static RTLIL::SigSpec operatorOutput(Instance *inst, std::map<Net*, RTLIL::SigBi
 	return sig;
 }
 
-static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, std::map<Net*, RTLIL::State> &const_map, Instance *inst)
+static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, Instance *inst)
 {
 	if (inst->Type() == PRIM_AND) {
 		module->addAndGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
@@ -173,12 +173,12 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == PRIM_DFFRS)
 	{
-		if (const_map.count(inst->GetSet()) && const_map.at(inst->GetSet()) == RTLIL::State::S0 && const_map.count(inst->GetReset()) && const_map.at(inst->GetReset()) == RTLIL::State::S0)
+		if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
 			module->addDffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
-		else if (const_map.count(inst->GetSet()) && const_map.at(inst->GetSet()) == RTLIL::State::S0)
+		else if (inst->GetSet()->IsGnd())
 			module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetReset()),
 					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), false);
-		else if (const_map.count(inst->GetReset()) && const_map.at(inst->GetReset()) == RTLIL::State::S0)
+		else if (inst->GetReset()->IsGnd())
 			module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()),
 					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), true);
 		else
@@ -190,7 +190,7 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 	return false;
 }
 
-static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, std::map<Net*, RTLIL::State> &const_map, Instance *inst)
+static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, RTLIL::SigBit> &net_map, Instance *inst)
 {
 	if (inst->Type() == PRIM_AND) {
 		module->addAnd(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
@@ -248,7 +248,7 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		RTLIL::SigSpec out = OUT;
 		if (inst->GetCout() != NULL)
 			out.append(net_map.at(inst->GetCout()));
-		if (const_map.count(inst->GetCin()) && const_map.at(inst->GetCin()) == RTLIL::State::S0) {
+		if (inst->GetCin()->IsGnd()) {
 			module->addAdd(RTLIL::escape_id(inst->Name()), IN1, IN2, out, SIGNED);
 		} else {
 			RTLIL::SigSpec tmp = module->new_wire(out.width, NEW_ID);
@@ -286,7 +286,7 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 	if (inst->Type() == OPER_SHIFT_RIGHT) {
 		Net *net_cin = inst->GetCin();
 		Net *net_a_msb = inst->GetInput1Bit(0);
-		if (const_map.count(net_cin) && const_map.at(net_cin) == RTLIL::State::S0)
+		if (net_cin->IsGnd())
 			module->addShr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, false);
 		else if (net_cin == net_a_msb)
 			module->addSshr(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, true);
@@ -317,9 +317,9 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == OPER_LESSTHAN) {
 		Net *net_cin = inst->GetCin();
-		if (const_map.count(net_cin) && const_map.at(net_cin) == RTLIL::State::S0)
+		if (net_cin->IsGnd())
 			module->addLt(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
-		else if (const_map.count(net_cin) && const_map.at(net_cin) == RTLIL::State::S1)
+		else if (net_cin->IsPwr())
 			module->addLe(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
 		else
 			log_error("Can't import Verific OPER_LESSTHAN instance %s: carry_in is neither 0 nor 1\n", inst->Name());
@@ -407,7 +407,6 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 	log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 
 	std::map<Net*, RTLIL::SigBit> net_map;
-	std::map<Net*, RTLIL::State> const_map;
 
 	MapIter mi, mi2;
 	Port *port;
@@ -548,21 +547,6 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
-		if (inst->Type() == PRIM_PWR)
-			const_map[inst->GetOutput()] = RTLIL::State::S1;
-
-		if (inst->Type() == PRIM_GND)
-			const_map[inst->GetOutput()] = RTLIL::State::S0;
-
-		if (inst->Type() == PRIM_X)
-			const_map[inst->GetOutput()] = RTLIL::State::Sx;
-
-		if (inst->Type() == PRIM_Z)
-			const_map[inst->GetOutput()] = RTLIL::State::Sz;
-	}
-
-	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
-	{
 		// log("  importing cell %s (%s).\n", inst->Name(), inst->View()->Owner()->Name());
 
 		if (inst->Type() == PRIM_PWR) {
@@ -586,13 +570,13 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		}
 
 		if (!mode_gates) {
-			if (import_netlist_instance_cells(module, net_map, const_map, inst))
+			if (import_netlist_instance_cells(module, net_map, inst))
 				continue;
 			if (inst->IsOperator())
 				log("Warning: Unsupported Verific operator: %s\n", inst->View()->Owner()->Name());
 		}
 
-		if (import_netlist_instance_gates(module, net_map, const_map, inst))
+		if (import_netlist_instance_gates(module, net_map, inst))
 			continue;
 
 		if (inst->IsPrimitive())
