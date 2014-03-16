@@ -408,12 +408,14 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 	std::map<Net*, RTLIL::SigBit> net_map;
 
+	SetIter si;
 	MapIter mi, mi2;
 	Port *port;
 	PortBus *portbus;
 	Net *net;
 	NetBus *netbus;
 	Instance *inst;
+	PortRef *pr;
 
 	FOREACH_PORT_OF_NETLIST(nl, mi, port)
 	{
@@ -479,6 +481,33 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 	FOREACH_NET_OF_NETLIST(nl, mi, net)
 	{
+		if (net->IsRamNet())
+		{
+			RTLIL::Memory *memory = new RTLIL::Memory;
+			memory->name = RTLIL::escape_id(net->Name());
+			log_assert(module->count_id(memory->name) == 0);
+			module->memories[memory->name] = memory;
+
+			int number_of_bits = net->Size();
+			int bits_in_word = number_of_bits;
+			FOREACH_PORTREF_OF_NET(net, si, pr) {
+				if (pr->GetInst()->Type() == OPER_READ_PORT) {
+					bits_in_word = std::min<int>(bits_in_word, pr->GetInst()->OutputSize());
+					continue;
+				}
+				if (pr->GetInst()->Type() == OPER_WRITE_PORT || pr->GetInst()->Type() == OPER_CLOCKED_WRITE_PORT) {
+					bits_in_word = std::min<int>(bits_in_word, pr->GetInst()->Input2Size());
+					continue;
+				}
+				log_error("Verific RamNet %s is connected to unsupported instance type %s (%s).\n",
+						net->Name(), pr->GetInst()->View()->Owner()->Name(), pr->GetInst()->Name());
+			}
+
+			memory->width = bits_in_word;
+			memory->size = number_of_bits / bits_in_word;
+			continue;
+		}
+
 		if (net_map.count(net)) {
 			// log("  skipping net %s.\n", net->Name());
 			continue;
@@ -569,6 +598,62 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			continue;
 		}
 
+		if (inst->Type() == OPER_READ_PORT)
+		{
+			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetInput()->Name()));
+			if (memory->width != int(inst->OutputSize()))
+				log_error("Import of asymetric memories from Verific is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
+
+			RTLIL::SigSpec addr = operatorInput1(inst, net_map);
+			RTLIL::SigSpec data = operatorOutput(inst, net_map, module);
+
+			RTLIL::Cell *cell = new RTLIL::Cell;
+			cell->name = RTLIL::escape_id(inst->Name());
+			cell->type = "$memrd";
+			cell->parameters["\\MEMID"] = memory->name;
+			cell->parameters["\\CLK_ENABLE"] = false;
+			cell->parameters["\\CLK_POLARITY"] = true;
+			cell->parameters["\\TRANSPARENT"] = false;
+			cell->parameters["\\ABITS"] = addr.width;
+			cell->parameters["\\WIDTH"] = data.width;
+			cell->connections["\\CLK"] = RTLIL::State::S0;
+			cell->connections["\\ADDR"] = addr;
+			cell->connections["\\DATA"] = data;
+			module->add(cell);
+			continue;
+		}
+
+		if (inst->Type() == OPER_WRITE_PORT || inst->Type() == OPER_CLOCKED_WRITE_PORT)
+		{
+			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()));
+			if (memory->width != int(inst->Input2Size()))
+				log_error("Import of asymetric memories from Verific is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
+
+			RTLIL::SigSpec addr = operatorInput1(inst, net_map);
+			RTLIL::SigSpec data = operatorInput2(inst, net_map);
+
+			RTLIL::Cell *cell = new RTLIL::Cell;
+			cell->name = RTLIL::escape_id(inst->Name());
+			cell->type = "$memwr";
+			cell->parameters["\\MEMID"] = memory->name;
+			cell->parameters["\\CLK_ENABLE"] = false;
+			cell->parameters["\\CLK_POLARITY"] = true;
+			cell->parameters["\\PRIORITY"] = 0;
+			cell->parameters["\\ABITS"] = addr.width;
+			cell->parameters["\\WIDTH"] = data.width;
+			cell->connections["\\EN"] = net_map.at(inst->GetControl());
+			cell->connections["\\CLK"] = RTLIL::State::S0;
+			cell->connections["\\ADDR"] = addr;
+			cell->connections["\\DATA"] = data;
+			module->add(cell);
+
+			if (inst->Type() == OPER_CLOCKED_WRITE_PORT) {
+				cell->parameters["\\CLK_ENABLE"] = true;
+				cell->connections["\\CLK"] = net_map.at(inst->GetClock());
+			}
+			continue;
+		}
+
 		if (!mode_gates) {
 			if (import_netlist_instance_cells(module, net_map, inst))
 				continue;
@@ -589,7 +674,6 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		cell->type = inst->IsOperator() ? std::string("$verific$") + inst->View()->Owner()->Name() : RTLIL::escape_id(inst->View()->Owner()->Name());
 		module->add(cell);
 
-		PortRef *pr ;
 		FOREACH_PORTREF_OF_INST(inst, mi2, pr) {
 			// log("      .%s(%s)\n", pr->GetPort()->Name(), pr->GetNet()->Name());
 			const char *port_name = pr->GetPort()->Name();

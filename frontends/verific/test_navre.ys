@@ -1,6 +1,7 @@
 verific -vlog2k ../../../yosys-bigsim/softusb_navre/rtl/softusb_navre.v
 verific -import softusb_navre
 
+memory softusb_navre
 flatten softusb_navre
 rename softusb_navre gate
 
