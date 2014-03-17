@@ -429,6 +429,8 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		import_attributes(wire->attributes, port);
 		module->add(wire);
 
+		wire->port_id = nl->IndexOf(port) + 1;
+
 		if (port->GetDir() == DIR_INOUT || port->GetDir() == DIR_IN)
 			wire->port_input = true;
 		if (port->GetDir() == DIR_INOUT || port->GetDir() == DIR_OUT)

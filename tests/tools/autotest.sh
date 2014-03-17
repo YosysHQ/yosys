@@ -82,7 +82,7 @@ do
 	[[ "$bn" == *_tb ]] && continue
 	echo -n "Test: $bn "
 
-	rm -f ${bn}.{err,log}
+	rm -f ${bn}.{err,log,sikp}
 	mkdir -p ${bn}.out
 	rm -rf ${bn}.out/*
 
@@ -111,6 +111,11 @@ do
 			test_count=$(( test_count + 1 ))
 		}
 
+		if [ "$frontend" = "verific" -o "$frontend" = "verific_gates" ] && grep -q VERIFIC-SKIP $fn; then
+			touch ../${bn}.skip
+			return
+		fi
+
 		if [ -n "$scriptfiles" ]; then
 			test_passes $fn $scriptfiles
 		elif [ -n "$scriptopt" ]; then
@@ -137,6 +142,9 @@ do
 	if [ -f ${bn}.log ]; then
 		mv ${bn}.err ${bn}.log
 		echo "-> ok"
+	elif [ -f ${bn}.skip ]; then
+		mv ${bn}.err ${bn}.skip
+		echo "-> skip"
 	else echo "-> ERROR!"; $keeprunning || exit 1; fi
 done
 

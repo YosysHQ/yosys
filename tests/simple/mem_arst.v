@@ -10,7 +10,7 @@ module MyMem #(
   output [DataWidth-1:0] Data_o,
   input                  WR_i);
 
-  reg Data_o;
+  reg [DataWidth-1:0] Data_o;
 
   localparam Size = 2**AddrWidth;
 
