@@ -1096,7 +1096,7 @@ RTLIL::Cell* RTLIL::Module::addAdff(RTLIL::IdString name, RTLIL::SigSpec sig_clk
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	cell->name = name;
-	cell->type = "$dffsr";
+	cell->type = "$adff";
 	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
 	cell->parameters["\\ARST_POLARITY"] = arst_polarity;
 	cell->parameters["\\ARST_VALUE"] = arst_value;
