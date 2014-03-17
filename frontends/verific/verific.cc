@@ -110,6 +110,33 @@ static RTLIL::SigSpec operatorInput2(Instance *inst, std::map<Net*, RTLIL::SigBi
 	return sig;
 }
 
+static RTLIL::SigSpec operatorInport(Instance *inst, const char *portname, std::map<Net*, RTLIL::SigBit> &net_map)
+{
+	PortBus *portbus = inst->View()->GetPortBus(portname);
+	if (portbus) {
+		RTLIL::SigSpec sig;
+		for (unsigned i = 0; i < portbus->Size(); i++) {
+			Net *net = inst->GetNet(portbus->ElementAtIndex(i));
+			if (net) {
+				if (net->IsGnd())
+					sig.append(RTLIL::State::S0);
+				else if (net->IsPwr())
+					sig.append(RTLIL::State::S1);
+				else
+					sig.append(net_map.at(net));
+			} else
+				sig.append(RTLIL::State::Sz);
+		}
+		sig.optimize();
+		return sig;
+	} else {
+		Port *port = inst->View()->GetPort(portname);
+		log_assert(port != NULL);
+		Net *net = inst->GetNet(port);
+		return net_map.at(net);
+	}
+}
+
 static RTLIL::SigSpec operatorOutput(Instance *inst, std::map<Net*, RTLIL::SigBit> &net_map, RTLIL::Module *module)
 {
 	RTLIL::SigSpec sig;
@@ -235,7 +262,18 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == PRIM_DFFRS)
 	{
-		// FIXME
+		if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
+			module->addDff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+		else if (inst->GetSet()->IsGnd())
+			module->addAdff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetReset()),
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), false);
+		else if (inst->GetReset()->IsGnd())
+			module->addAdff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()),
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), true);
+		else
+			module->addDffsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()), net_map.at(inst->GetReset()),
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+		return true;
 	}
 
 	#define IN  operatorInput(inst, net_map)
@@ -378,6 +416,16 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == OPER_WIDE_MUX) {
 		module->addMux(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetControl()), OUT);
+		return true;
+	}
+
+	if (inst->Type() == OPER_WIDE_DFFRS) {
+		RTLIL::SigSpec sig_set = operatorInport(inst, "set", net_map);
+		RTLIL::SigSpec sig_reset = operatorInport(inst, "reset", net_map);
+		if (sig_set.is_fully_const() && !sig_set.as_bool() && sig_set.is_fully_const() && !sig_set.as_bool()) {
+			module->addDff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), IN, OUT);
+		} else
+			module->addDffsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), sig_set, sig_reset, IN, OUT);
 		return true;
 	}
 
@@ -527,10 +575,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		import_attributes(wire->attributes, port);
 		module->add(wire);
 
-		if (net_map.count(net) == 0)
-			net_map[net] = wire;
-		else
-			module->connections.push_back(RTLIL::SigSig(wire, net_map.at(net)));
+		net_map[net] = wire;
 	}
 
 	FOREACH_NETBUS_OF_NETLIST(nl, mi, netbus)
