@@ -163,8 +163,22 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+	if (inst->Type() == PRIM_NAND) {
+		RTLIL::SigSpec tmp = module->new_wire(1, NEW_ID);
+		module->addAndGate(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
+		module->addInvGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+		return true;
+	}
+
 	if (inst->Type() == PRIM_OR) {
 		module->addOrGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+		return true;
+	}
+
+	if (inst->Type() == PRIM_NOR) {
+		RTLIL::SigSpec tmp = module->new_wire(1, NEW_ID);
+		module->addOrGate(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
+		module->addInvGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
 		return true;
 	}
 
@@ -180,6 +194,11 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == PRIM_MUX) {
 		module->addMuxGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
+		return true;
+	}
+
+	if (inst->Type() == PRIM_TRI) {
+		module->addMuxGate(RTLIL::escape_id(inst->Name()), RTLIL::State::Sz, net_map.at(inst->GetInput()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
 		return true;
 	}
 
@@ -224,8 +243,22 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+	if (inst->Type() == PRIM_NAND) {
+		RTLIL::SigSpec tmp = module->new_wire(1, NEW_ID);
+		module->addAnd(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
+		module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+		return true;
+	}
+
 	if (inst->Type() == PRIM_OR) {
 		module->addOr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+		return true;
+	}
+
+	if (inst->Type() == PRIM_NOR) {
+		RTLIL::SigSpec tmp = module->new_wire(1, NEW_ID);
+		module->addOr(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
+		module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
 		return true;
 	}
 
@@ -249,6 +282,11 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+	if (inst->Type() == PRIM_TRI) {
+		module->addMux(RTLIL::escape_id(inst->Name()), RTLIL::State::Sz, net_map.at(inst->GetInput()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
+		return true;
+	}
+
 	if (inst->Type() == PRIM_FADD)
 	{
 		RTLIL::SigSpec a_plus_b = module->new_wire(2, NEW_ID);
@@ -266,10 +304,10 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 			module->addDff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
 		else if (inst->GetSet()->IsGnd())
 			module->addAdff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetReset()),
-					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), false);
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), RTLIL::State::S0);
 		else if (inst->GetReset()->IsGnd())
 			module->addAdff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()),
-					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), true);
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), RTLIL::State::S1);
 		else
 			module->addDffsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()), net_map.at(inst->GetReset()),
 					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
@@ -419,6 +457,11 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+	if (inst->Type() == OPER_WIDE_TRI) {
+		module->addMux(RTLIL::escape_id(inst->Name()), RTLIL::SigSpec(RTLIL::State::Sz, inst->OutputSize()), IN, net_map.at(inst->GetControl()), OUT);
+		return true;
+	}
+
 	if (inst->Type() == OPER_WIDE_DFFRS) {
 		RTLIL::SigSpec sig_set = operatorInport(inst, "set", net_map);
 		RTLIL::SigSpec sig_reset = operatorInport(inst, "reset", net_map);
@@ -503,7 +546,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		wire->name = RTLIL::escape_id(portbus->Name());
 		wire->width = portbus->Size();
 		wire->start_offset = std::min(portbus->LeftIndex(), portbus->RightIndex());
-		import_attributes(wire->attributes, port);
+		import_attributes(wire->attributes, portbus);
 		module->add(wire);
 
 		if (portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN)
@@ -572,7 +615,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		wire->name = RTLIL::escape_id(net->Name());
 		while (module->count_id(wire->name))
 			wire->name += "_";
-		import_attributes(wire->attributes, port);
+		import_attributes(wire->attributes, net);
 		module->add(wire);
 
 		net_map[net] = wire;
@@ -599,7 +642,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			wire->start_offset = std::min(netbus->LeftIndex(), netbus->RightIndex());
 			while (module->count_id(wire->name))
 				wire->name += "_";
-			import_attributes(wire->attributes, port);
+			import_attributes(wire->attributes, netbus);
 			module->add(wire);
 
 			for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1) {
@@ -706,10 +749,10 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 				continue;
 			if (inst->IsOperator())
 				log("Warning: Unsupported Verific operator: %s\n", inst->View()->Owner()->Name());
+		} else {
+			if (import_netlist_instance_gates(module, net_map, inst))
+				continue;
 		}
-
-		if (import_netlist_instance_gates(module, net_map, inst))
-			continue;
 
 		if (inst->IsPrimitive())
 			log_error("Unsupported Verific primitive: %s\n", inst->View()->Owner()->Name());
