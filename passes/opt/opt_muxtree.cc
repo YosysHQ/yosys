@@ -309,13 +309,17 @@ struct OptMuxtreeWorker
 		if (port_idx < int(muxinfo.ports.size())-1 && !muxinfo.ports[port_idx].const_activated)
 			knowledge.known_active.push_back(muxinfo.ports[port_idx].ctrl_sigs);
 
+		std::vector<int> parent_muxes;
 		for (int m : muxinfo.ports[port_idx].input_muxes) {
 			if (knowledge.visited_muxes.count(m) > 0)
 				continue;
 			knowledge.visited_muxes.insert(m);
-			eval_mux(knowledge, m);
-			knowledge.visited_muxes.erase(m);
+			parent_muxes.push_back(m);
 		}
+		for (int m : parent_muxes)
+			eval_mux(knowledge, m);
+		for (int m : parent_muxes)
+			knowledge.visited_muxes.erase(m);
 
 		if (port_idx < int(muxinfo.ports.size())-1 && !muxinfo.ports[port_idx].const_activated)
 			knowledge.known_active.pop_back();
@@ -393,6 +397,7 @@ struct OptMuxtreeWorker
 	void eval_root_mux(int mux_idx)
 	{
 		knowledge_t knowledge;
+		knowledge.visited_muxes.insert(mux_idx);
 		eval_mux(knowledge, mux_idx);
 	}
 };
