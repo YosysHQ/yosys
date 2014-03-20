@@ -205,7 +205,8 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 	if (inst->Type() == PRIM_FADD)
 	{
 		RTLIL::SigSpec a = net_map.at(inst->GetInput1()), b = net_map.at(inst->GetInput2()), c = net_map.at(inst->GetCin());
-		RTLIL::SigSpec x = net_map.at(inst->GetCout()), y = net_map.at(inst->GetOutput());
+		RTLIL::SigSpec x = inst->GetCout() ? net_map.at(inst->GetCout()) : module->new_wire(1, NEW_ID);
+		RTLIL::SigSpec y = inst->GetOutput() ? net_map.at(inst->GetOutput()) : module->new_wire(1, NEW_ID);
 		RTLIL::SigSpec tmp1 = module->new_wire(1, NEW_ID);
 		RTLIL::SigSpec tmp2 = module->new_wire(1, NEW_ID);
 		RTLIL::SigSpec tmp3 = module->new_wire(1, NEW_ID);
@@ -290,9 +291,9 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 	if (inst->Type() == PRIM_FADD)
 	{
 		RTLIL::SigSpec a_plus_b = module->new_wire(2, NEW_ID);
-		RTLIL::SigSpec y = net_map.at(inst->GetOutput());
-		y.append(net_map.at(inst->GetCout()));
-
+		RTLIL::SigSpec y = inst->GetOutput() ? net_map.at(inst->GetOutput()) : module->new_wire(1, NEW_ID);
+		if (inst->GetCout())
+			y.append(net_map.at(inst->GetCout()));
 		module->addAdd(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), a_plus_b);
 		module->addAdd(RTLIL::escape_id(inst->Name()), a_plus_b, net_map.at(inst->GetCin()), y);
 		return true;
