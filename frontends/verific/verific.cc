@@ -466,9 +466,9 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 	if (inst->Type() == OPER_WIDE_DFFRS) {
 		RTLIL::SigSpec sig_set = operatorInport(inst, "set", net_map);
 		RTLIL::SigSpec sig_reset = operatorInport(inst, "reset", net_map);
-		if (sig_set.is_fully_const() && !sig_set.as_bool() && sig_set.is_fully_const() && !sig_set.as_bool()) {
+		if (sig_set.is_fully_const() && !sig_set.as_bool() && sig_reset.is_fully_const() && !sig_reset.as_bool())
 			module->addDff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), IN, OUT);
-		} else
+		else
 			module->addDffsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), sig_set, sig_reset, IN, OUT);
 		return true;
 	}
