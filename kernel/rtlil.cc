@@ -569,6 +569,19 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$dlatchsr") {
+				param_bool("\\EN_POLARITY");
+				param_bool("\\SET_POLARITY");
+				param_bool("\\CLR_POLARITY");
+				port("\\EN", 1);
+				port("\\SET", param("\\WIDTH"));
+				port("\\CLR", param("\\WIDTH"));
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$fsm") {
 				param("\\NAME");
 				param_bool("\\CLK_POLARITY");
@@ -674,6 +687,15 @@ namespace {
 
 			if (cell->type == "$_DLATCH_N_") { check_gate("EDQ"); return; }
 			if (cell->type == "$_DLATCH_P_") { check_gate("EDQ"); return; }
+
+			if (cell->type == "$_DLATCHSR_NNN_") { check_gate("ESRDQ"); return; }
+			if (cell->type == "$_DLATCHSR_NNP_") { check_gate("ESRDQ"); return; }
+			if (cell->type == "$_DLATCHSR_NPN_") { check_gate("ESRDQ"); return; }
+			if (cell->type == "$_DLATCHSR_NPP_") { check_gate("ESRDQ"); return; }
+			if (cell->type == "$_DLATCHSR_PNN_") { check_gate("ESRDQ"); return; }
+			if (cell->type == "$_DLATCHSR_PNP_") { check_gate("ESRDQ"); return; }
+			if (cell->type == "$_DLATCHSR_PPN_") { check_gate("ESRDQ"); return; }
+			if (cell->type == "$_DLATCHSR_PPP_") { check_gate("ESRDQ"); return; }
 
 			error(__LINE__);
 		}
@@ -1113,10 +1135,29 @@ RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_e
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	cell->name = name;
-	cell->type = "$dffsr";
+	cell->type = "$dlatch";
 	cell->parameters["\\EN_POLARITY"] = en_polarity;
 	cell->parameters["\\WIDTH"] = sig_q.width;
 	cell->connections["\\EN"] = sig_en;
+	cell->connections["\\D"] = sig_d;
+	cell->connections["\\Q"] = sig_q;
+	add(cell);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
+		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity, bool set_polarity, bool clr_polarity)
+{
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = name;
+	cell->type = "$dlatchsr";
+	cell->parameters["\\EN_POLARITY"] = en_polarity;
+	cell->parameters["\\SET_POLARITY"] = set_polarity;
+	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
+	cell->parameters["\\WIDTH"] = sig_q.width;
+	cell->connections["\\EN"] = sig_en;
+	cell->connections["\\SET"] = sig_set;
+	cell->connections["\\CLR"] = sig_clr;
 	cell->connections["\\D"] = sig_d;
 	cell->connections["\\Q"] = sig_q;
 	add(cell);
@@ -1175,6 +1216,22 @@ RTLIL::Cell* RTLIL::Module::addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec s
 	add(cell);
 	return cell;
 }
+
+RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
+		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity, bool set_polarity, bool clr_polarity)
+{
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = name;
+	cell->type = stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N');
+	cell->connections["\\E"] = sig_en;
+	cell->connections["\\S"] = sig_set;
+	cell->connections["\\R"] = sig_clr;
+	cell->connections["\\D"] = sig_d;
+	cell->connections["\\Q"] = sig_q;
+	add(cell);
+	return cell;
+}
+
 
 RTLIL::Wire::Wire()
 {

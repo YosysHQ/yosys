@@ -108,6 +108,7 @@ struct CellTypes
 		cell_types.insert("$dffsr");
 		cell_types.insert("$adff");
 		cell_types.insert("$dlatch");
+		cell_types.insert("$dlatchsr");
 		cell_types.insert("$memrd");
 		cell_types.insert("$memwr");
 		cell_types.insert("$mem");
@@ -149,6 +150,14 @@ struct CellTypes
 		cell_types.insert("$_DFFSR_PPP_");
 		cell_types.insert("$_DLATCH_N_");
 		cell_types.insert("$_DLATCH_P_");
+		cell_types.insert("$_DLATCHSR_NNN_");
+		cell_types.insert("$_DLATCHSR_NNP_");
+		cell_types.insert("$_DLATCHSR_NPN_");
+		cell_types.insert("$_DLATCHSR_NPP_");
+		cell_types.insert("$_DLATCHSR_PNN_");
+		cell_types.insert("$_DLATCHSR_PNP_");
+		cell_types.insert("$_DLATCHSR_PPN_");
+		cell_types.insert("$_DLATCHSR_PPP_");
 	}
 
 	void clear()

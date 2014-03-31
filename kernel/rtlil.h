@@ -351,6 +351,8 @@ struct RTLIL::Module {
 	RTLIL::Cell* addAdff (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,
 			RTLIL::Const arst_value, bool clk_polarity = true, bool arst_polarity = true);
 	RTLIL::Cell* addDlatch (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true);
+	RTLIL::Cell* addDlatchsr (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
+			RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true);
 
 	RTLIL::Cell* addInvGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y);
 	RTLIL::Cell* addAndGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
@@ -364,6 +366,8 @@ struct RTLIL::Module {
 	RTLIL::Cell* addAdffGate   (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,
 			bool arst_value = false, bool clk_polarity = true, bool arst_polarity = true);
 	RTLIL::Cell* addDlatchGate (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true);
+	RTLIL::Cell* addDlatchsrGate  (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
+			RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true);
 };
 
 struct RTLIL::Wire {
