@@ -927,6 +927,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+`ifndef SIMLIB_NOLUT
 
 module \$lut (I, O);
 
@@ -961,6 +962,7 @@ endgenerate
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 
 module \$assert (A, EN);
