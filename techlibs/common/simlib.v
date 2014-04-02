@@ -977,6 +977,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+`ifndef SIMLIB_NOSR
 
 module \$sr (SET, CLR, Q);
 
@@ -1003,6 +1004,7 @@ endgenerate
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 
 module \$dff (CLK, D, Q);
@@ -1022,6 +1024,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+`ifndef SIMLIB_NOSR
 
 module \$dffsr (CLK, SET, CLR, D, Q);
 
@@ -1053,6 +1056,7 @@ endgenerate
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 
 module \$adff (CLK, ARST, D, Q);
@@ -1096,6 +1100,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+`ifndef SIMLIB_NOSR
 
 module \$dlatchsr (EN, SET, CLR, D, Q);
 
@@ -1127,6 +1132,7 @@ endgenerate
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 
 module \$fsm (CLK, ARST, CTRL_IN, CTRL_OUT);
