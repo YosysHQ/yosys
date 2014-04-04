@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -fv LICENSE *.cc *.h
+rm -f LICENSE *.cc *.h
 git clone --depth 1 https://github.com/niklasso/minisat minisat_upstream
 rm minisat_upstream/minisat/*/Main.cc
 mv minisat_upstream/LICENSE minisat_upstream/minisat/*/*.{h,cc} .
