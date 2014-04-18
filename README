@@ -56,20 +56,15 @@ and TCL for the scripting functionality. The extensive test suite requires
 Icarus Verilog. For example on Ubuntu Linux 12.04 LTS the following commands
 will install all prerequisites for building yosys:
 
-	$ sudo apt-get install git
-	$ sudo apt-get install g++
-	$ sudo apt-get install clang
-	$ sudo apt-get install make
-	$ sudo apt-get install bison
-	$ sudo apt-get install flex
-	$ sudo apt-get install libreadline-dev
-	$ sudo apt-get install tcl8.5-dev
-	$ sudo apt-get install minisat
-	$ sudo apt-get install zlib1g-dev
-	$ sudo apt-get install libqt4-dev
-	$ sudo apt-get install mercurial
-	$ sudo apt-get install iverilog
-	$ sudo apt-get install graphviz
+	$ yosys_deps="git g++ clang make bison flex libreadline-dev
+	              tcl8.5-dev zlib1g-dev libqt4-dev mercurial
+	              iverilog graphviz"
+	$ sudo apt-get install $yosys_deps
+
+There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys
+download page to learn more about this:
+
+	http://www.clifford.at/yosys/download.html 
 
 To configure the build system to use a specific set of compiler and
 build configuration, use one of
@@ -82,16 +77,14 @@ For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
 Makefile.
 
-	$ vi Makefile
+	$ vi Makefile             ..or..
+	$ vi Makefile.conf
 
 To build Yosys simply type 'make' in this directory.
 
 	$ make
 	$ make test
 	$ sudo make install
-
-If you encounter any problems during build, make sure to check the section
-"Workarounds for known build problems" at the end of this README file.
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executeable name).
