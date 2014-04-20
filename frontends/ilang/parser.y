@@ -39,7 +39,7 @@ namespace ILANG_FRONTEND {
 using namespace ILANG_FRONTEND;
 %}
 
-%name-prefix="rtlil_frontend_ilang_yy"
+%name-prefix "rtlil_frontend_ilang_yy"
 
 %union {
 	char *string;

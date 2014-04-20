@@ -84,7 +84,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 
 %}
 
-%name-prefix="frontend_verilog_yy"
+%name-prefix "frontend_verilog_yy"
 
 %union {
 	std::string *string;
