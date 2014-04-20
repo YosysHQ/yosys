@@ -11,3 +11,6 @@ sed -i -e 's/Minisat::memUsedPeak()/Minisat::memUsedPeak(bool)/' System.cc
 sed -i -e 's/PRI[iu]64/ & /' Options.h Solver.cc
 sed -i -e '1 i #define __STDC_LIMIT_MACROS' *.cc
 sed -i -e '1 i #define __STDC_FORMAT_MACROS' *.cc
+
+patch -p0 < PATCH_mkLit_default_arg.patch
+
