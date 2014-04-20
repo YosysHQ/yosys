@@ -34,6 +34,11 @@
 
 %{
 
+#ifdef __clang__
+// bison generates code using the 'register' storage class specifier
+#pragma clang diagnostic ignored "-Wdeprecated-register"
+#endif
+
 #include "kernel/log.h"
 #include "verilog_frontend.h"
 #include "frontends/ast/ast.h"

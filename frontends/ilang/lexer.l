@@ -23,9 +23,16 @@
  */
 
 %{
+
+#ifdef __clang__
+// bison generates code using the 'register' storage class specifier
+#pragma clang diagnostic ignored "-Wdeprecated-register"
+#endif
+
 #include "kernel/rtlil.h"
 #include "parser.tab.h"
 void update_autoidx(const char *p);
+
 %}
 
 %option yylineno
