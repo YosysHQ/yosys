@@ -3,8 +3,8 @@
 \label{chapter:overview}
 
 Yosys is an extensible open source hardware synthesis tool. It is aimed at
-designers who are looking for an easy accessible, universal, and vendor
-independent synthesis tool, and scientists who do research in
+designers who are looking for an easily accessible, universal, and
+vendor-independent synthesis tool, as well as scientists who do research in
 electronic design automation (EDA) and are looking for an open synthesis
 framework that can be used to test algorithms on complex real-world designs.
 
@@ -49,7 +49,7 @@ of the backends, namely the Verilog Backend for generating Verilog netlists
 and the ILANG Backend for writing the RTLIL data in the same format that is
 understood by the ILANG Frontend.
 
-With the exception of the AST Frontend, that is called by the high-level HDL
+With the exception of the AST Frontend, which is called by the high-level HDL
 frontends and can't be called directly by the user, all program modules are
 called by the user (usually using a synthesis script that contains text
 commands for Yosys).
@@ -57,7 +57,7 @@ commands for Yosys).
 By combining passes in different ways and/or adding additional passes to Yosys
 it is possible to adapt Yosys to a wide range of applications. For this to be
 possible it is key that (1) all passes operate on the same data structure
-(RTLIL) and (2) that this data structure is powerful enough represent the design
+(RTLIL) and (2) that this data structure is powerful enough to represent the design
 in different stages of the synthesis.
 
 \begin{figure}[t]
@@ -97,7 +97,7 @@ refers to the fact, that RTLIL also has a text representation, usually referred 
 The only exception are the high-level frontends that use the AST representation as an intermediate step before generating RTLIL
 data.
 
-In order to avoid re-inventing names for the RTLIL classes, they are simply referred to by their full C++ name, i.e.~including
+In order to avoid reinventing names for the RTLIL classes, they are simply referred to by their full C++ name, i.e.~including
 the {\tt RTLIL::} namespace prefix, in this document.
 
 Figure~\ref{fig:Overview_RTLIL} shows a simplified Entity-Relationship Diagram (ER Diagram) of RTLIL. In $1:N$ relationships the arrow
@@ -105,7 +105,7 @@ points from the $N$ side to the $1$. For example one RTLIL::Design contains $N$ 
 A two-pointed arrow indicates a $1:1$ relationship.
 
 The RTLIL::Design is the root object of the RTLIL data structure. There is always one ``current design'' in memory
-on which passes operate, frontends add data to it and backends convert to exportable formats. But in some cases passes
+which passes operate on, frontends add data to and backends convert to exportable formats. But in some cases passes
 internally generate additional RTLIL::Design objects. For example when a pass is reading an auxiliary Verilog file such
 as a cell library, it might create an additional RTLIL::Design object and call the Verilog frontend with this
 other object to parse the cell library.
@@ -154,12 +154,12 @@ transformed to an RTLIL-compatible representation by the HDL frontend. This incl
 Verilog-features such as generate-blocks, loops and parameters.
 
 The following sections contain a more detailed description of the different
-parts of RTLIL and rationales behind some of the design decisions.
+parts of RTLIL and rationale behind some of the design decisions.
 
 \subsection{RTLIL Identifiers}
 
 All identifiers in RTLIL (such as module names, port names, signal names, cell
-types, etc.) follow the following naming convention: They must either start with
+types, etc.) follow the following naming convention: they must either start with
 a backslash (\textbackslash) or a dollar sign (\$).
 
 Identifiers starting with a backslash are public visible identifiers. Usually
@@ -172,13 +172,13 @@ identifiers that start with a backslash.
 This has three advantages:
 
 \begin{itemize}
-\item Firstly it is impossible that an auto-generated identifier collides with
+\item First, it is impossible that an auto-generated identifier collides with
 an identifier that was provided by the user.
-\item Secondly the information about which identifiers were originally
+\item Second, the information about which identifiers were originally
 provided by the user is always available which can help guide some optimizations. For example the ``opt\_rmunused''
-is trying to preserve signals with a user-provided name but doesn't hesitate to delete signals that have
+tries to preserve signals with a user-provided name but doesn't hesitate to delete signals that have
 auto-generated names when they just duplicate other signals.
-\item Thirdly the delicate job of finding suitable auto-generated public visible
+\item Third, the delicate job of finding suitable auto-generated public visible
 names is deferred to one central location. Internally auto-generated names that
 may hold important information for Yosys developers can be used without
 disturbing external tools. For example the Verilog backend assigns names in the form {\tt \_{\it integer}\_}.
@@ -216,7 +216,7 @@ Verilog and VHDL both support parametric modules (known as ``generic entities'' 
 format does not support parametric modules itself. Instead each module contains a callback function
 into the AST frontend to generate a parametrized variation of the RTLIL::Module as needed. This
 callback then returns the auto-generated name of the parametrized variation of the module. (A hash
-over the parameters and the module name is used to prohibit the same parametrized variation to be
+over the parameters and the module name is used to prohibit the same parametrized variation from being
 generated twice. For modules with only a few parameters, a name directly containing all parameters
 is generated instead of a hash string.)
 
@@ -233,7 +233,7 @@ An RTLIL::Wire object has the following properties:
 \begin{itemize}
 \item The wire name
 \item A list of attributes
-\item A width (busses are just wires with a width > 1)
+\item A width (buses are just wires with a width > 1)
 \item If the wire is a port: port number and direction (input/output/inout)
 \end{itemize}
 
@@ -256,7 +256,7 @@ An RTLIL::Cell object has the following properties:
 \end{itemize}
 
 The connections of ports to wires are coded by assigning an RTLIL::SigSpec
-to each cell ports. The RTLIL::SigSpec data type is described in the next section.
+to each cell port. The RTLIL::SigSpec data type is described in the next section.
 
 \subsection{RTLIL::SigSpec}
 
@@ -382,7 +382,7 @@ end
 
 This pass has transformed the outer RTLIL::SwitchRule into a modified RTLIL::SyncRule object
 for the {\tt \textbackslash{}reset} signal. Further processing converts the RTLIL::Process
-e.g.~into a d-type flip-flop with asynchronous reset and a multiplexer for the enable signal:
+into e.g.~a d-type flip-flop with asynchronous reset and a multiplexer for the enable signal:
 
 \begin{lstlisting}[numbers=left,frame=single,language=rtlil]
 cell $adff $procdff$6
@@ -442,31 +442,31 @@ The {\tt memory} pass performs this conversion and can (depending on the options
 to it) transform the memories directly to d-type flip-flops and address logic or yield
 multiport memory blocks (represented using {\tt \$mem} cells).
 
-See Sec.~\ref{sec:memcells} for details on the memory cell types.
+See Sec.~\ref{sec:memcells} for details about the memory cell types.
 
 \section{Command Interface and Synthesis Scripts}
 
 Yosys reads and processes commands from synthesis scripts, command line arguments and
 an interactive command prompt. Yosys commands consist of a command name and an optional
-whitespace sparated list of arguments. Commands are terminated using the newline character
+whitespace separated list of arguments. Commands are terminated using the newline character
 or a semicolon ({\tt ;}). Empty lines and lines starting with the hash sign ({\tt \#}) are ignored. 
 See Sec.~\ref{sec:typusecase} for an example synthesis script.
 
 The command {\tt help} can be used to access the command reference manual.
 
-Most commands can operate not only on the entire design but also only on {\it selected}
+Most commands can operate not only on the entire design but also specifically on {\it selected}
 parts of the design. For example the command {\tt dump} will print all selected objects
 in the current design while {\tt dump foobar} will only print the module {\tt foobar}
 and {\tt dump *} will print the entire design regardless of the current selection.
 
 The selection mechanism is very powerful. For example the command {\tt dump */t:\$add
 \%x:+[A] */w:* \%i} will print all wires that are connected to the \B{A} port of
-a {\tt \$add} cell.  A detailed documentation of the select framework can be
+a {\tt \$add} cell.  Detailed documentation of the select framework can be
 found in the command reference for the {\tt select} command.
 
 \section{Source Tree and Build System}
 
-The Yosys source tree is organized in the following top-level directories:
+The Yosys source tree is organized into the following top-level directories:
 
 \begin{itemize}
 
@@ -512,15 +512,15 @@ and a {\tt Makefile.inc}. The Yosys kernel automatically detects all commands li
 Yosys. So it is not needed to add additional commands to a central list of commands.
 \end{sloppypar}
 
-A good starting point for reading example source code for learning how to write passes
+Good starting points for reading example source code to learn how to write passes
 are {\tt passes/opt/opt\_rmdff.cc} and {\tt passes/opt/opt\_share.cc}.
 
 See the top-level README file for a quick {\it Getting Started} guide and build
-instructions. Yosys is a pure Makefile based project.
+instructions. The Yosys build is based solely on Makefiles.
 
 Users of the Qt Creator IDE can generate a QT Creator project file using {\tt
 make qtcreator}. Users of the Eclipse IDE can use the ``Makefile Project with
 Existing Code'' project type in the Eclipse ``New Project'' dialog (only
-available after the CDT plugin has been installed) to create an Eclipse Project
-for programming extensions to Yosys or just browsing the Yosys code base.
+available after the CDT plugin has been installed) to create an Eclipse project
+in order to programming extensions to Yosys or just browse the Yosys code base.
 
