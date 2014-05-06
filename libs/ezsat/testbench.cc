@@ -63,93 +63,10 @@ void test_simple()
 {
 	printf("==== %s ====\n\n", __PRETTY_FUNCTION__);
 
-	ezSAT sat;
+	ezMiniSAT sat;
 	sat.assume(sat.OR("A", "B"));
 	sat.assume(sat.NOT(sat.AND("A", "B")));
 	test(sat);
-}
-
-// ------------------------------------------------------------------------------------------------------------
-
-void test_basic_operators(ezSAT &sat, xorshift128 &rng, int iter, bool buildTrees, bool buildClusters, std::vector<bool> &log)
-{
-	int vars[6] = {
-		sat.VAR("A"), sat.VAR("B"), sat.VAR("C"),
-		sat.NOT("A"), sat.NOT("B"), sat.NOT("C")
-	};
-	for (int i = 0; i < iter; i++) {
-		int assumption = 0, op = rng() % 6, to = rng() % 6;
-		int a = vars[rng() % 6], b = vars[rng() % 6], c = vars[rng() % 6];
-		// printf("--> %d %d:%s %d:%s %d:%s\n", op, a, sat.to_string(a).c_str(), b, sat.to_string(b).c_str(), c, sat.to_string(c).c_str());
-		switch (op)
-		{
-		case 0:
-			assumption = sat.NOT(a);
-			break;
-		case 1:
-			assumption = sat.AND(a, b);
-			break;
-		case 2:
-			assumption = sat.OR(a, b);
-			break;
-		case 3:
-			assumption = sat.XOR(a, b);
-			break;
-		case 4:
-			assumption = sat.IFF(a, b);
-			break;
-		case 5:
-			assumption = sat.ITE(a, b, c);
-			break;
-		}
-		// printf("  --> %d:%s\n", to, sat.to_string(assumption).c_str());
-		if (buildTrees)
-			vars[to] = assumption;
-		if (!buildClusters)
-			sat.clear();
-		sat.assume(assumption);
-		if (sat.numCnfVariables() < 15) {
-			printf("%d:\n", int(log.size()));
-			log.push_back(test(sat));
-		} else {
-			// printf("** skipping large problem **\n");
-		}
-	}
-}
-
-void test_basic_operators(ezSAT &sat, std::vector<bool> &log)
-{
-	printf("-- %s --\n\n", __PRETTY_FUNCTION__);
-
-	xorshift128 rng;
-	test_basic_operators(sat, rng, 1000, false, false, log);
-	for (int i = 0; i < 100; i++)
-		test_basic_operators(sat, rng, 10, true, false, log);
-	for (int i = 0; i < 100; i++)
-		test_basic_operators(sat, rng, 10, false, true, log);
-}
-
-void test_basic_operators()
-{
-	printf("==== %s ====\n\n", __PRETTY_FUNCTION__);
-
-	ezSAT sat;
-	ezMiniSAT miniSat;
-	std::vector<bool> logSat, logMiniSat;
-
-	test_basic_operators(sat, logSat);
-	test_basic_operators(miniSat, logMiniSat);
-
-	if (logSat != logMiniSat) {
-		printf("Differences between logSat and logMiniSat:");
-		for (int i = 0; i < int(std::max(logSat.size(), logMiniSat.size())); i++)
-			if (i >= int(logSat.size()) || i >= int(logMiniSat.size()) || logSat[i] != logMiniSat[i])
-				printf(" %d", i);
-		printf("\n");
-		abort();
-	} else {
-		printf("Completed %d tests with identical results with ezSAT and ezMiniSAT.\n\n", int(logSat.size()));
-	}
 }
 
 // ------------------------------------------------------------------------------------------------------------
@@ -238,7 +155,7 @@ void check(const char *expr1_str, bool expr1, const char *expr2_str, bool expr2)
 
 void test_signed(int8_t a, int8_t b, int8_t c)
 {
-	ezSAT sat;
+	ezMiniSAT sat;
 
 	std::vector<int> av = sat.vec_const_signed(a, 8);
 	std::vector<int> bv = sat.vec_const_signed(b, 8);
@@ -257,7 +174,7 @@ void test_signed(int8_t a, int8_t b, int8_t c)
 
 void test_unsigned(uint8_t a, uint8_t b, uint8_t c)
 {
-	ezSAT sat;
+	ezMiniSAT sat;
 
 	if (b < c)
 		b ^= c, c ^= b, b ^= c;
@@ -279,7 +196,7 @@ void test_unsigned(uint8_t a, uint8_t b, uint8_t c)
 
 void test_count(uint32_t x)
 {
-	ezSAT sat;
+	ezMiniSAT sat;
 
 	int count = 0;
 	for (int i = 0; i < 32; i++)
@@ -333,10 +250,10 @@ void test_onehot()
 	printf("==== %s ====\n\n", __PRETTY_FUNCTION__);
 	ezMiniSAT ez;
 
-	int a = ez.literal("a");
-	int b = ez.literal("b");
-	int c = ez.literal("c");
-	int d = ez.literal("d");
+	int a = ez.frozen_literal("a");
+	int b = ez.frozen_literal("b");
+	int c = ez.frozen_literal("c");
+	int d = ez.frozen_literal("d");
 
 	std::vector<int> abcd;
 	abcd.push_back(a);
@@ -387,10 +304,10 @@ void test_manyhot()
 	printf("==== %s ====\n\n", __PRETTY_FUNCTION__);
 	ezMiniSAT ez;
 
-	int a = ez.literal("a");
-	int b = ez.literal("b");
-	int c = ez.literal("c");
-	int d = ez.literal("d");
+	int a = ez.frozen_literal("a");
+	int b = ez.frozen_literal("b");
+	int c = ez.frozen_literal("c");
+	int d = ez.frozen_literal("d");
 
 	std::vector<int> abcd;
 	abcd.push_back(a);
@@ -441,13 +358,13 @@ void test_ordered()
 	printf("==== %s ====\n\n", __PRETTY_FUNCTION__);
 	ezMiniSAT ez;
 
-	int a = ez.literal("a");
-	int b = ez.literal("b");
-	int c = ez.literal("c");
+	int a = ez.frozen_literal("a");
+	int b = ez.frozen_literal("b");
+	int c = ez.frozen_literal("c");
 
-	int x = ez.literal("x");
-	int y = ez.literal("y");
-	int z = ez.literal("z");
+	int x = ez.frozen_literal("x");
+	int y = ez.frozen_literal("y");
+	int z = ez.frozen_literal("z");
 
 	std::vector<int> abc;
 	abc.push_back(a);
@@ -507,7 +424,6 @@ void test_ordered()
 int main()
 {
 	test_simple();
-	test_basic_operators();
 	test_xorshift32();
 	test_arith();
 	test_onehot();

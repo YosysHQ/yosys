@@ -168,7 +168,7 @@ public:
 		int get(ezSAT *that) {
 			if (name.empty())
 				return id;
-			return that->literal(name);
+			return that->frozen_literal(name);
 		}
 	};
 

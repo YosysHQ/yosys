@@ -260,8 +260,10 @@ int main()
 	std::vector<int> modelExpressions;
 	std::vector<bool> modelValues;
 
-	for (auto &it : blockinfo)
+	for (auto &it : blockinfo) {
+		ez.freeze(it.first);
 		modelExpressions.push_back(it.first);
+	}
 
 	int solution_counter = 0;
 	while (1)
