@@ -789,11 +789,11 @@ extract -constports -ignore_parameters \
 Unwrap in {\tt test2}:
 
 \hfil\begin{tikzpicture}
+\node at (0,0) {\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2d.pdf}};
+\node at (0,-4) {\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2e.pdf}};
 \node at (1,-1.7) {\begin{lstlisting}[linewidth=5.5cm, frame=single, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
 techmap -map macc_xilinx_unwrap_map.v ;;
 \end{lstlisting}};
-\node at (0,0) {\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2d.pdf}};
-\node at (0,-4) {\includegraphics[width=11cm,trim=1.5cm 1.5cm 1.5cm 1.5cm]{PRESENTATION_ExAdv/macc_xilinx_test2e.pdf}};
 \draw[-latex] (4,-0.7) .. controls (5,-1.7) .. (4,-2.7);
 \end{tikzpicture}
 \end{frame}
@@ -808,10 +808,67 @@ techmap -map macc_xilinx_unwrap_map.v ;;
 \subsectionpagesuffix
 \end{frame}
 
-\subsubsection{TBD}
+\subsubsection{Changing the design from Yosys}
 
 \begin{frame}{\subsubsecname}
-TBD
+Yosys commands can be used to change the design in memory. Examples of this are:
+
+\begin{itemize}
+\item {\bf Changes in design hierarchy} \\
+Commands such as {\tt flatten} and {\tt submod} can be used to change the design hierarchy, i.e.
+flatten the hierarchy or moving parts of a module to a submodule. This has applications in synthesis
+scripts as well as in reverse engineering and analysis.
+
+\item {\bf Behavioral changes} \\
+Commands such as {\tt techmap} can be used to make behavioral changes to the design, for example
+changing asynchonous resets to synchronous resets. This has applications in design space exploration
+(evaluation of various architectures for one circuit).
+\end{itemize}
+\end{frame}
+
+\subsubsection{Example: Async reset to sync reset}
+
+\begin{frame}[t, fragile]{\subsubsecname}
+The following techmap map file replaces all positive-edge async reset flip-flops with
+positive-edge sync reset flip-flops. The code is taken from the example Yosys script
+for ASIC synthesis of the Amber ARMv2 CPU.
+
+\begin{columns}
+\column[t]{6cm}
+\vbox to 0cm{
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=Verilog]
+(* techmap_celltype = "$adff" *)
+module adff2dff (CLK, ARST, D, Q);
+
+    parameter WIDTH = 1;
+    parameter CLK_POLARITY = 1;
+    parameter ARST_POLARITY = 1;
+    parameter ARST_VALUE = 0;
+    
+    input CLK, ARST;
+    input [WIDTH-1:0] D;
+    output reg [WIDTH-1:0] Q;
+    
+    wire [1023:0] _TECHMAP_DO_ = "proc";
+    
+    wire _TECHMAP_FAIL_ = !CLK_POLARITY || !ARST_POLARITY;
+\end{lstlisting}
+\vss}
+\column[t]{4cm}
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=Verilog]
+// ..continued..
+
+
+    always @(posedge CLK)
+        if (ARST)
+            Q <= ARST_VALUE;
+        else
+             <= D;
+
+endmodule
+\end{lstlisting}
+\end{columns}
+
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -820,10 +877,8 @@ TBD
 
 \begin{frame}{\subsecname}
 \begin{itemize}
-\item TBD
-\item TBD
-\item TBD
-\item TBD
+\item A lot can be achived in Yosys just with the standard set of commands.
+\item The commands {\tt techmap} and {\tt extract} can be used to prototype many complex synthesis tasks.
 \end{itemize}
 
 \bigskip
