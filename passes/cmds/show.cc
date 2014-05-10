@@ -487,7 +487,7 @@ struct ShowWorker
 				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
 		}
 
-		fprintf(f, "};\n");
+		fprintf(f, "}\n");
 	}
 
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed,
