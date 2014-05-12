@@ -73,7 +73,10 @@ struct OptReduceWorker
 			for (auto child_cell : drivers.find(chunk)) {
 				if (child_cell->type == cell->type) {
 					opt_reduce(cells, drivers, child_cell);
-					new_sig_a.append(child_cell->connections["\\A"]);
+					if (child_cell->connections["\\Y"].extract(0, 1) == chunk)
+						new_sig_a.append(child_cell->connections["\\A"]);
+					else
+						new_sig_a.append(RTLIL::State::S0);
 					imported_children = true;
 				}
 			}
