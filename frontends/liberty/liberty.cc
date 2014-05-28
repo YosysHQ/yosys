@@ -459,6 +459,13 @@ struct LibertyFrontend : public Frontend {
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
 		log("        create an error message.)\n");
 		log("\n");
+		log("    -ignore_miss_func\n");
+		log("        ignore cells with missing function specification of outputs\n");
+		log("\n");
+		log("    -ignore_miss_dir\n");
+		log("        ignore cells with a missing or invalid direction\n");
+		log("        specification on a pin\n");
+		log("\n");
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
@@ -467,6 +474,8 @@ struct LibertyFrontend : public Frontend {
 	{
 		bool flag_lib = false;
 		bool flag_ignore_redef = false;
+		bool flag_ignore_miss_func = false;
+		bool flag_ignore_miss_dir  = false;
 		std::vector<std::string> attributes;
 
 		log_header("Executing Liberty frontend.\n");
@@ -480,6 +489,14 @@ struct LibertyFrontend : public Frontend {
 			}
 			if (arg == "-ignore_redef") {
 				flag_ignore_redef = true;
+				continue;
+			}
+			if (arg == "-ignore_miss_func") {
+				flag_ignore_miss_func = true;
+				continue;
+			}
+			if (arg == "-ignore_miss_dir") {
+				flag_ignore_miss_dir = true;
 				continue;
 			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
@@ -507,11 +524,9 @@ struct LibertyFrontend : public Frontend {
 			}
 
 			// log("Processing cell type %s.\n", RTLIL::id2cstr(cell_name));
-			cell_count++;
 
 			RTLIL::Module *module = new RTLIL::Module;
 			module->name = cell_name;
-			design->modules[module->name] = module;
 
 			for (auto &attr : attributes)
 				module->attributes[attr] = 1;
@@ -520,7 +535,16 @@ struct LibertyFrontend : public Frontend {
 				if (node->id == "pin" && node->args.size() == 1) {
 					LibertyAst *dir = node->find("direction");
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "internal"))
-						log_error("Missing or invalid dircetion for pin %s of cell %s.\n", node->args.at(0).c_str(), RTLIL::id2cstr(module->name));
+					{
+						if (!flag_ignore_miss_dir)
+						{
+							log_error("Missing or invalid dircetion for pin %s of cell %s.\n", node->args.at(0).c_str(), RTLIL::id2cstr(module->name));
+						} else {
+							log("Ignoring cell %s with missing or invalid dircetion for pin %s.\n", RTLIL::id2cstr(module->name), node->args.at(0).c_str());
+							delete module;
+							goto skip_cell;
+						}
+					}
 					if (!flag_lib || dir->value != "internal")
 						module->new_wire(1, RTLIL::escape_id(node->args.at(0)));
 				}
@@ -556,7 +580,16 @@ struct LibertyFrontend : public Frontend {
 
 					LibertyAst *func = node->find("function");
 					if (func == NULL)
-						log_error("Missing function on output %s of cell %s.\n", RTLIL::id2cstr(wire->name), RTLIL::id2cstr(module->name));
+					{
+						if (!flag_ignore_miss_func)
+						{
+							log_error("Missing function on output %s of cell %s.\n", RTLIL::id2cstr(wire->name), RTLIL::id2cstr(module->name));
+						} else {
+							log("Ignoring cell %s with missing function on output %s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+							delete module;
+							goto skip_cell;
+						}
+					}
 
 					RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
 					module->connections.push_back(RTLIL::SigSig(wire, out_sig));
@@ -564,6 +597,9 @@ struct LibertyFrontend : public Frontend {
 			}
 
 			module->fixup_ports();
+			design->modules[module->name] = module;
+			cell_count++;
+skip_cell:;
 		}
 
 		log("Imported %d cell types from liberty file.\n", cell_count);
