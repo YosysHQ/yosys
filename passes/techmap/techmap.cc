@@ -106,8 +106,12 @@ struct TechmapWorker
 		if (tpl->memories.size() != 0)
 			log_error("Technology map yielded memories -> this is not supported.\n");
 
-		if (tpl->processes.size() != 0)
+		if (tpl->processes.size() != 0) {
+			log("Technology map yielded processes:\n");
+			for (auto &it : tpl->processes)
+				log("  %s",RTLIL::id2cstr(it.first));
 			log_error("Technology map yielded processes -> this is not supported.\n");
+		}
 
 		// erase from namespace first for _TECHMAP_REPLACE_ to work
 		module->cells.erase(cell->name);

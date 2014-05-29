@@ -259,6 +259,8 @@ struct ExposePass : public Pass {
 		bool flag_evert_dff = false;
 		std::string sep = ".";
 
+		log_header("Executing EXPOSE pass (exposing internal signals as outputs).\n");
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -629,7 +631,7 @@ struct ExposePass : public Pass {
 								w->port_input = true;
 							add_new_wire(module, w);
 
-							log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name));
+							log("New module port: %s/%s (%s)\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name), RTLIL::id2cstr(cell->type));
 
 							RTLIL::SigSpec sig;
 							if (cell->connections.count(p->name) != 0)
@@ -654,7 +656,7 @@ struct ExposePass : public Pass {
 								w->port_input = true;
 							add_new_wire(module, w);
 
-							log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name));
+							log("New module port: %s/%s (%s)\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name), RTLIL::id2cstr(cell->type));
 
 							if (w->port_input)
 								module->connections.push_back(RTLIL::SigSig(it.second, w));
@@ -667,7 +669,7 @@ struct ExposePass : public Pass {
 				}
 
 				for (auto &it : delete_cells) {
-					log("Removing cell: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(it));
+					log("Removing cell: %s/%s (%s)\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(it), RTLIL::id2cstr(module->cells.at(it)->type));
 					delete module->cells.at(it);
 					module->cells.erase(it);
 				}

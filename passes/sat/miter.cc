@@ -28,6 +28,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	bool flag_make_outcmp = false;
 	bool flag_make_assert = false;
 
+	log_header("Executing MITER pass (creating miter circuit).\n");
+
 	size_t argidx;
 	for (argidx = 2; argidx < args.size(); argidx++)
 	{
@@ -101,6 +103,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	match_gate_port_error:
 		log_cmd_error("No matching port in gold module was found for %s!\n", it.second->name.c_str());
 	}
+
+	log("Creating miter cell \"%s\" with gold cell \"%s\" and gate cell \"%s\".\n", RTLIL::id2cstr(miter_name), RTLIL::id2cstr(gold_name), RTLIL::id2cstr(gate_name));
 
 	RTLIL::Module *miter_module = new RTLIL::Module;
 	miter_module->name = miter_name;
