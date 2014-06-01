@@ -111,6 +111,8 @@ static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		log("merged $dff to cell.\n");
 	}
+
+	log("no (compatible) $dff found.\n");
 }
 
 static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
