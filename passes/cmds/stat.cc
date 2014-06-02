@@ -154,6 +154,9 @@ struct StatPass : public Pass {
 		log("        selected and a module has the 'top' attribute set, this module is used\n");
 		log("        default value for this option.\n");
 		log("\n");
+		log("    -o <filename>\n");
+		log("        additionally write output to the given file\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -161,6 +164,7 @@ struct StatPass : public Pass {
 
 		RTLIL::Module *top_mod = NULL;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
+		FILE* outfile = NULL;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -169,6 +173,16 @@ struct StatPass : public Pass {
 				if (design->modules.count(RTLIL::escape_id(args[argidx+1])) == 0)
 					log_cmd_error("Can't find module %s.\n", args[argidx+1].c_str());
 				top_mod = design->modules.at(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-o" && argidx+1 < args.size()) {
+				++argidx;
+				outfile = fopen(args[argidx].c_str(), "wt");
+				if (outfile == NULL) {
+					log_cmd_error("Can't create file %s.\n",args[argidx].c_str());
+				}
+				// append our logfile to the log_files vector
+				log_files.push_back(outfile);
 				continue;
 			}
 			break;
@@ -204,6 +218,17 @@ struct StatPass : public Pass {
 
 			log("\n");
 			data.log_data();
+		}
+
+		if (outfile != NULL)
+		{
+			// remove outfile from log_files
+			if (log_files.back() != outfile) {
+				log_cmd_error("List of log files has changed.\n");
+			}
+
+			log_files.pop_back();
+			fclose(outfile);
 		}
 
 		log("\n");
