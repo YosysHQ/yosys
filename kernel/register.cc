@@ -270,6 +270,10 @@ void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::stri
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 
+		for (size_t i = argidx+1; i < args.size(); i++)
+			if (args[i].substr(0, 1) == "-")
+				cmd_error(args, i, "Found option, expected arguments.");
+
 		if (argidx+1 < args.size()) {
 			next_args.insert(next_args.begin(), args.begin(), args.begin()+argidx);
 			next_args.insert(next_args.begin()+argidx, args.begin()+argidx+1, args.end());

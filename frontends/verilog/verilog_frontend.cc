@@ -48,7 +48,7 @@ struct VerilogFrontend : public Frontend {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    read_verilog [filename]\n");
+		log("    read_verilog [options] [filename]\n");
 		log("\n");
 		log("Load modules from a verilog file to the current design. A large subset of\n");
 		log("Verilog-2005 is supported.\n");
