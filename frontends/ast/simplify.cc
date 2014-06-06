@@ -606,6 +606,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		goto apply_newNode;
 	}
 
+	if (type == AST_WHILE)
+		log_error("While loops are only allowed in constant functions at %s:%d!\n", filename.c_str(), linenum);
+
+	if (type == AST_REPEAT)
+		log_error("Repeat loops are only allowed in constant functions at %s:%d!\n", filename.c_str(), linenum);
+
 	// unroll for loops and generate-for blocks
 	if ((type == AST_GENFOR || type == AST_FOR) && children.size() != 0)
 	{
@@ -1181,7 +1187,7 @@ skip_dynamic_range_lvalue_expansion:;
 				log_error("Can't resolve task name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
 
-		if (in_param)
+		if (in_param || current_scope[str]->has_const_only_constructs())
 		{
 			bool all_args_const = true;
 			for (auto child : children) {
@@ -1197,7 +1203,10 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			log_error("Non-constant function call in constant expression at %s:%d.\n", filename.c_str(), linenum);
+			if (in_param)
+				log_error("Non-constant function call in constant expression at %s:%d.\n", filename.c_str(), linenum);
+			else
+				log_error("Function %s can only be called with constant arguments at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
 
 		AstNode *decl = current_scope[str];
@@ -1819,6 +1828,19 @@ void AstNode::meminfo(int &mem_width, int &mem_size, int &addr_bits)
 		addr_bits++;
 }
 
+bool AstNode::has_const_only_constructs()
+{
+	if (type == AST_WHILE || type == AST_REPEAT)
+		return true;
+	if (type == AST_FCALL && current_scope.count(str))
+		if (current_scope[str]->has_const_only_constructs())
+			return true;
+	for (auto child : children)
+		if (child->AstNode::has_const_only_constructs())
+			return true;
+	return false;
+}
+
 // helper function for AstNode::eval_const_function()
 void AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &variables, AstNode *fcall)
 {
@@ -1915,7 +1937,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 				log_error("Non-constant expression in constant function at %s:%d (called from %s:%d). X\n",
 						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
 
-			if (stmt->children.at(0)->type != AST_IDENTIFIER || !stmt->children.at(0)->children.empty())
+			if (stmt->children.at(0)->type != AST_IDENTIFIER)
 				log_error("Unsupported composite left hand side in constant function at %s:%d (called from %s:%d).\n",
 						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
 
@@ -1923,7 +1945,20 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 				log_error("Assignment to non-local variable in constant function at %s:%d (called from %s:%d).\n",
 						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
 
-			variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.bits.size());
+			if (stmt->children.at(0)->children.empty()) {
+				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.bits.size());
+			} else {
+				AstNode *range = stmt->children.at(0)->children.at(0);
+				if (!range->range_valid)
+					log_error("Non-constant range in %s:%d (called from %s:%d).\n",
+							range->filename.c_str(), range->linenum, fcall->filename.c_str(), fcall->linenum);
+				int offset = std::min(range->range_left, range->range_right);
+				int width = std::min(std::abs(range->range_left - range->range_right) + 1, width);
+				varinfo_t &v = variables[stmt->children.at(0)->str];
+				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.bits.size());
+				for (int i = 0; i < width; i++)
+					v.val.bits.at(i+offset-v.offset) = r.bits.at(i);
+			}
 
 			delete block->children.front();
 			block->children.erase(block->children.begin());

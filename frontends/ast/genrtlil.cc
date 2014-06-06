@@ -579,7 +579,7 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		default:
-			assert(0);
+			log_abort();
 		}
 	}
 };
