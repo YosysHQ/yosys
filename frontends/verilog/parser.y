@@ -373,6 +373,8 @@ range_or_integer:
 
 module_body:
 	module_body module_body_stmt |
+	/* the following line makes the generate..endgenrate keywords optional */
+	module_body gen_stmt |
 	/* empty */;
 
 module_body_stmt:
@@ -1013,8 +1015,11 @@ single_arg:
 	};
 
 module_gen_body:
-	module_gen_body gen_stmt |
+	module_gen_body gen_stmt_or_module_body_stmt |
 	/* empty */;
+
+gen_stmt_or_module_body_stmt:
+	gen_stmt | module_body_stmt;
 
 // this production creates the obligatory if-else shift/reduce conflict
 gen_stmt:
@@ -1054,15 +1059,14 @@ gen_stmt:
 		if ($6 != NULL)
 			delete $6;
 		ast_stack.pop_back();
-	} |
-	module_body_stmt;
+	};
 
 gen_stmt_block:
 	{
 		AstNode *node = new AstNode(AST_GENBLOCK);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
-	} gen_stmt {
+	} gen_stmt_or_module_body_stmt {
 		ast_stack.pop_back();
 	};
 
