@@ -1883,17 +1883,10 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			continue;
 		}
 
-		if (child->type == AST_ASSIGN_EQ)
-		{
-			log_assert(block == NULL);
-			delete_temp_block = true;
-			block = new AstNode(AST_BLOCK);
-			block->children.push_back(child->clone());
-			continue;
-		}
-
-		child->dumpAst(NULL, "unexpected> ");
-		log_abort();
+		log_assert(block == NULL);
+		delete_temp_block = true;
+		block = new AstNode(AST_BLOCK);
+		block->children.push_back(child->clone());
 	}
 
 	log_assert(block != NULL);
