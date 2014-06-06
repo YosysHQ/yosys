@@ -140,6 +140,8 @@ namespace VERILOG_FRONTEND {
 "default"      { return TOK_DEFAULT; }
 "generate"     { return TOK_GENERATE; }
 "endgenerate"  { return TOK_ENDGENERATE; }
+"while"        { return TOK_WHILE; }
+"repeat"       { return TOK_REPEAT; }
 
 "assert"([ \t\r\n]+"property")? { return TOK_ASSERT; }
 

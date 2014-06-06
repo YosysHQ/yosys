@@ -98,7 +98,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
-%token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR
+%token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_POSEDGE TOK_NEGEDGE TOK_OR
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK
@@ -813,6 +813,32 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back($7);
 	} ';' simple_behavioral_stmt ')' {
 		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} behavioral_stmt {
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	} |
+	attr TOK_WHILE '(' expr ')' {
+		AstNode *node = new AstNode(AST_WHILE);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		append_attr(node, $1);
+		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back($4);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} behavioral_stmt {
+		ast_stack.pop_back();
+		ast_stack.pop_back();
+	} |
+	attr TOK_REPEAT '(' expr ')' {
+		AstNode *node = new AstNode(AST_REPEAT);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+		append_attr(node, $1);
+		AstNode *block = new AstNode(AST_BLOCK);
+		ast_stack.back()->children.push_back($4);
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
