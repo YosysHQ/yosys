@@ -140,7 +140,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_FUNCTION || type == AST_TASK)
 		return false;
 
-	// deactivate all calls non-synthesis system taks
+	// deactivate all calls to non-synthesis system taks
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$display" || str == "$stop" || str == "$finish")) {
 		delete_children();
 		str = std::string();
@@ -245,9 +245,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_ASSIGN_EQ:
 	case AST_ASSIGN_LE:
 	case AST_ASSIGN:
-		while (!children[0]->basic_prep && children[0]->simplify(false, false, true, stage, -1, false, false) == true)
+		while (!children[0]->basic_prep && children[0]->simplify(false, false, true, stage, -1, false, in_param) == true)
 			did_something = true;
-		while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, false) == true)
+		while (!children[1]->basic_prep && children[1]->simplify(false, false, false, stage, -1, false, in_param) == true)
 			did_something = true;
 		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
 		children[1]->detectSignWidth(width_hint, sign_hint);
@@ -1825,12 +1825,16 @@ void AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 	if (type == AST_IDENTIFIER && variables.count(str)) {
 		int offset = variables.at(str).offset, width = variables.at(str).val.bits.size();
 		if (!children.empty()) {
+			if (children.size() != 1 || children.at(0)->type != AST_RANGE)
+				log_error("Memory access in constant function is not supported in %s:%d (called from %s:%d).\n",
+						filename.c_str(), linenum, fcall->filename.c_str(), fcall->linenum);
+			children.at(0)->replace_variables(variables, fcall);
 			while (simplify(true, false, false, 1, -1, false, true)) { }
-			if (!range_valid)
+			if (!children.at(0)->range_valid)
 				log_error("Non-constant range in %s:%d (called from %s:%d).\n",
 						filename.c_str(), linenum, fcall->filename.c_str(), fcall->linenum);
-			offset = std::min(range_left, range_right);
-			width = std::min(std::abs(range_left - range_right) + 1, width);
+			offset = std::min(children.at(0)->range_left, children.at(0)->range_right);
+			width = std::min(std::abs(children.at(0)->range_left - children.at(0)->range_right) + 1, width);
 		}
 		offset -= variables.at(str).offset;
 		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits;
@@ -1850,6 +1854,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 {
 	std::map<std::string, AstNode*> backup_scope;
 	std::map<std::string, AstNode::varinfo_t> variables;
+	bool delete_temp_block = false;
 	AstNode *block = NULL;
 
 	size_t argidx = 0;
@@ -1878,6 +1883,16 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			continue;
 		}
 
+		if (child->type == AST_ASSIGN_EQ)
+		{
+			log_assert(block == NULL);
+			delete_temp_block = true;
+			block = new AstNode(AST_BLOCK);
+			block->children.push_back(child->clone());
+			continue;
+		}
+
+		child->dumpAst(NULL, "unexpected> ");
 		log_abort();
 	}
 
@@ -1900,8 +1915,11 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			stmt->children.at(1)->replace_variables(variables, fcall);
 			while (stmt->simplify(true, false, false, 1, -1, false, true)) { }
 
+			if (stmt->type != AST_ASSIGN_EQ)
+				continue;
+
 			if (stmt->children.at(1)->type != AST_CONSTANT)
-				log_error("Non-constant expression in constant function at %s:%d (called from %s:%d).\n",
+				log_error("Non-constant expression in constant function at %s:%d (called from %s:%d). X\n",
 						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
 
 			if (stmt->children.at(0)->type != AST_IDENTIFIER || !stmt->children.at(0)->children.empty())
@@ -2010,6 +2028,9 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 				stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
 		log_abort();
 	}
+
+	if (delete_temp_block)
+		delete block;
 
 	for (auto &it : backup_scope)
 		if (it.second == NULL)
