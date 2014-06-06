@@ -623,10 +623,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 				if (id_ast->type == AST_AUTOWIRE)
 					this_width = 1;
 				else {
-					// current_ast_mod->dumpAst(stdout, "");
-					// printf("---\n");
-					// dumpAst(stdout, "");
-					// fflush(stdout);
+					// current_ast_mod->dumpAst(NULL, "mod> ");
+					// log("---\n");
+					// id_ast->dumpAst(NULL, "decl> ");
+					// dumpAst(NULL, "ref> ");
 					log_error("Failed to detect with of signal access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 				}
 			} else {
@@ -693,7 +693,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_REPLICATE:
-		while (children[0]->simplify(true, false, false, 1, -1, false, false) == true) { }
+		while (children[0]->simplify(true, false, false, 1, -1, false, true) == true) { }
 		if (children[0]->type != AST_CONSTANT)
 			log_error("Left operand of replicate expression is not constant at %s:%d!\n", filename.c_str(), linenum);
 		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);

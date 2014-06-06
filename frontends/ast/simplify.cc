@@ -349,11 +349,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	if (detect_width_simple && width_hint < 0) {
+		if (type == AST_REPLICATE)
+			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false, true) == true)
+				did_something = true;
 		for (auto child : children)
 			while (!child->basic_prep && child->simplify(false, false, in_lvalue, stage, -1, false, in_param) == true)
-				did_something = true;
-		if (type == AST_REPLICATE)
-			while (children[0]->simplify(true, false, in_lvalue, stage, -1, false, in_param) == true)
 				did_something = true;
 		detectSignWidth(width_hint, sign_hint);
 	}
@@ -376,8 +376,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			bool const_fold_here = const_fold, in_lvalue_here = in_lvalue;
 			int width_hint_here = width_hint;
 			bool sign_hint_here = sign_hint;
-			if (i == 0 && type == AST_REPLICATE)
-				const_fold_here = true;
+			bool in_param_here = in_param;
+			if (i == 0 && (type == AST_REPLICATE || type == AST_WIRE))
+				const_fold_here = true, in_param_here = true;
 			if (type == AST_PARAMETER || type == AST_LOCALPARAM)
 				const_fold_here = true;
 			if (i == 0 && (type == AST_ASSIGN || type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE))
@@ -394,7 +395,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				width_hint_here = -1, sign_hint_here = false;
 			if (children_are_self_determined)
 				width_hint_here = -1, sign_hint_here = false;
-			did_something_here = children[i]->simplify(const_fold_here, at_zero, in_lvalue_here, stage, width_hint_here, sign_hint_here, in_param);
+			did_something_here = children[i]->simplify(const_fold_here, at_zero, in_lvalue_here, stage, width_hint_here, sign_hint_here, in_param_here);
 			if (did_something_here)
 				did_something = true;
 		}
@@ -1187,7 +1188,9 @@ skip_dynamic_range_lvalue_expansion:;
 				log_error("Can't resolve task name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
 
-		if (in_param || current_scope[str]->has_const_only_constructs())
+		bool recommend_const_eval = false;
+		bool require_const_eval = in_param ? false : has_const_only_constructs(recommend_const_eval);
+		if (in_param || recommend_const_eval || require_const_eval)
 		{
 			bool all_args_const = true;
 			for (auto child : children) {
@@ -1205,7 +1208,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (in_param)
 				log_error("Non-constant function call in constant expression at %s:%d.\n", filename.c_str(), linenum);
-			else
+			if (require_const_eval)
 				log_error("Function %s can only be called with constant arguments at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
 
@@ -1828,15 +1831,17 @@ void AstNode::meminfo(int &mem_width, int &mem_size, int &addr_bits)
 		addr_bits++;
 }
 
-bool AstNode::has_const_only_constructs()
+bool AstNode::has_const_only_constructs(bool &recommend_const_eval)
 {
+	if (type == AST_FOR)
+		recommend_const_eval = true;
 	if (type == AST_WHILE || type == AST_REPEAT)
 		return true;
 	if (type == AST_FCALL && current_scope.count(str))
-		if (current_scope[str]->has_const_only_constructs())
+		if (current_scope[str]->has_const_only_constructs(recommend_const_eval))
 			return true;
 	for (auto child : children)
-		if (child->AstNode::has_const_only_constructs())
+		if (child->AstNode::has_const_only_constructs(recommend_const_eval))
 			return true;
 	return false;
 }
