@@ -221,9 +221,18 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 
 		for (auto &conn : cell->connections) {
 			int conn_size = conn.second.width;
-			if (mod->wires.count(conn.first) == 0)
+			std::string portname = conn.first;
+			if (portname.substr(0, 1) == "$") {
+				int port_id = atoi(portname.substr(1).c_str());
+				for (auto &wire_it : mod->wires)
+					if (wire_it.second->port_id == port_id) {
+						portname = wire_it.first;
+						break;
+					}
+			}
+			if (mod->wires.count(portname) == 0)
 				log_error("Array cell `%s.%s' connects to unkown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
-			int port_size = mod->wires.at(conn.first)->width;
+			int port_size = mod->wires.at(portname)->width;
 			if (conn_size == port_size)
 				continue;
 			if (conn_size != port_size*num)
