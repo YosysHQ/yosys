@@ -2001,6 +2001,25 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			continue;
 		}
 
+		if (stmt->type == AST_REPEAT)
+		{
+			AstNode *num = stmt->children.at(0)->clone();
+			num->replace_variables(variables, fcall);
+			while (num->simplify(true, false, false, 1, -1, false, true)) { }
+
+			if (num->type != AST_CONSTANT)
+				log_error("Non-constant expression in constant function at %s:%d (called from %s:%d).\n",
+						stmt->filename.c_str(), stmt->linenum, fcall->filename.c_str(), fcall->linenum);
+
+			block->children.erase(block->children.begin());
+			for (int i = 0; i < num->bitsAsConst().as_int(); i++)
+				block->children.insert(block->children.begin(), stmt->children.at(1)->clone());
+
+			delete stmt;
+			delete num;
+			continue;
+		}
+
 		if (stmt->type == AST_CASE)
 		{
 			AstNode *expr = stmt->children.at(0)->clone();
