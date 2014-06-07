@@ -740,7 +740,8 @@ void RTLIL::Module::check()
 		for (auto &it2 : it.second->parameters) {
 			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
 		}
-		if (it.second->type[0] == '$' && it.second->type.substr(0, 3) != "$__" && it.second->type.substr(0, 8) != "$paramod" && it.second->type.substr(0, 9) != "$verific$") {
+		if (it.second->type[0] == '$' && it.second->type.substr(0, 3) != "$__" && it.second->type.substr(0, 8) != "$paramod" &&
+				it.second->type.substr(0, 9) != "$verific$" && it.second->type.substr(0, 7) != "$array:") {
 			InternalCellChecker checker(this, it.second);
 			checker.check();
 		}

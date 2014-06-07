@@ -634,6 +634,13 @@ single_cell:
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(astbuf2);
+	} '(' cell_port_list ')' |
+	TOK_ID non_opt_range {
+		astbuf2 = astbuf1->clone();
+		if (astbuf2->type != AST_PRIMITIVE)
+			astbuf2->str = *$1;
+		delete $1;
+		ast_stack.back()->children.push_back(new AstNode(AST_CELLARRAY, $2, astbuf2));
 	} '(' cell_port_list ')';
 
 prim_list:

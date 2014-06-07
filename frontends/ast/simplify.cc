@@ -878,6 +878,31 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		did_something = true;
 	}
 
+	// unroll cell arrays
+	if (type == AST_CELLARRAY)
+	{
+		if (!children.at(0)->range_valid)
+			log_error("Non-constant array range on cell array at %s:%d.\n", filename.c_str(), linenum);
+
+		newNode = new AstNode(AST_GENBLOCK);
+		int num = std::max(children.at(0)->range_left, children.at(0)->range_right) - std::min(children.at(0)->range_left, children.at(0)->range_right) + 1;
+
+		for (int i = 0; i < num; i++) {
+			int idx = children.at(0)->range_left > children.at(0)->range_right ? children.at(0)->range_right + i : children.at(0)->range_right - i;
+			AstNode *new_cell = children.at(1)->clone();
+			newNode->children.push_back(new_cell);
+			new_cell->str += stringf("[%d]", idx);
+			if (new_cell->type == AST_PRIMITIVE) {
+				log_error("Cell arrays of primitives are currently not supported at %s:%d.\n", filename.c_str(), linenum);
+			} else {
+				log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
+				new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str.c_str());
+			}
+		}
+
+		goto apply_newNode;
+	}
+
 	// replace primitives with assignmens
 	if (type == AST_PRIMITIVE)
 	{
