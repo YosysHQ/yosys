@@ -3,10 +3,54 @@ List of changes and major improvements between releases
 =======================================================
 
 
-Yosys 0.2.0 .. Yoys 0.2.0+
+Yosys 0.2.0 .. Yoys 0.3.0
 --------------------------
 
- ... TBD ...
+ * Driver program and overall behavior:
+     - Added "design -push" and "design -pop"
+     - Added "tee" command for redirecting log output
+
+ * Changes in the internal cell library:
+     - Added $dlatchsr and $_DLATCHSR_???_ cell types
+
+ * Improvements in Verilog frontend:
+     - Improved support for const functions (case, always, repeat)
+     - The generate..endgenerate keywords are now optional
+     - Added support for arrays of module instances
+     - Added support for "`default_nettype" directive
+     - Added support for "`line" directive
+
+ * Other front- and back-ends:
+     - Various changes to "write_blif" options
+     - Various improvements in EDIF backend
+     - Added "vhdl2verilog" pseudo-front-end
+     - Added "verific" pseudo-front-end
+
+ * Improvements in technology mapping:
+     - Added support for recursive techmap
+     - Added CONSTMSK and CONSTVAL features to techmap
+     - Added _TECHMAP_CONNMAP_*_ feature to techmap
+     - Added _TECHMAP_REPLACE_ feature to techmap
+     - Added "connwrappers" command for wrap-extract-unwrap method
+     - Added "extract -map %<design_name>" feature
+     - Added "extract -ignore_param ..." and "extract -ignore_parameters"
+     - Added "techmap -max_iter" option
+
+ * Improvements to "eval" and "sat" framework:
+     - Now include a copy of Minisat (with build fixes applied)
+     - Switched to Minisat::SimpSolver as SAT back-end
+     - Added "sat -dump_vcd" feature
+     - Added "sat -dump_cnf" feature
+     - Added "sat -initsteps <N>" feature
+     - Added "freduce -stop <N>" feature
+     - Added "fredure -dump <prefix>" feature
+
+ * Integration with ABC:
+     - Updated ABC rev to 7600ffb9340c
+
+ * Improvements in the internal APIs:
+     - Added RTLIL::Module::add... helper methods
+     - Various build fixes for OSX (Darwin) and OpenBSD
 
 
 Yosys 0.1.0 .. Yoys 0.2.0
