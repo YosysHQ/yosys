@@ -39,7 +39,7 @@ else
 	LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.3.0
+YOSYS_VER := 0.3.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
