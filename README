@@ -263,14 +263,24 @@ Verilog Attributes and non-standard features
   for everything that comes after the {* ... *} statement. (Reset
   by adding an empty {* *} statement.)
 
+- Sized constants (the syntax <size>'s?[bodh]<value>) support constant
+  expressions as <size>. If the expresion is not a simple identifier, it
+  must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
+
+
+Supported features from SystemVerilog
+=====================================
+
+When read_verilog is called with -sv, it accepts some language features
+from SystemVerilog:
+
 - The "assert" statement from SystemVerilog is supported in its most basic
   form. In module context: "assert property (<expression>);" and within an
   always block: "assert(<expression>);". It is transformed to a $assert cell
   that is supported by the "sat" and "write_btor" commands.
 
-- Sized constants (the syntax <size>'s?[bodh]<value>) support constant
-  expressions as <size>. If the expresion is not a simple identifier, it
-  must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
+- The keywords "always_comb", "always_ff" and "always_latch", "logic" and
+  "bit" are supported.
 
 
 Roadmap / Large-scale TODOs

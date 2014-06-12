@@ -45,6 +45,9 @@ namespace VERILOG_FRONTEND
 
 	// state of `default_nettype
 	extern bool default_nettype_wire;
+
+	// running in SystemVerilog mode
+	extern bool sv_mode;
 }
 
 // the pre-processor

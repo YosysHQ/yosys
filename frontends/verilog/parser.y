@@ -54,6 +54,7 @@ namespace VERILOG_FRONTEND {
 	int current_function_or_task_port_id;
 	std::vector<char> case_type_stack;
 	bool default_nettype_wire;
+	bool sv_mode;
 }
 
 static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
@@ -105,7 +106,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
-%token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT
+%token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_PROPERTY
 
 %type <ast> wire_type range non_opt_range range_or_integer expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
@@ -379,7 +380,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | param_decl | localparam_decl | defparam_decl | wire_decl | assign_stmt | cell_stmt |
-	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert;
+	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property;
 
 task_func_decl:
 	TOK_TASK TOK_ID ';' {
@@ -771,6 +772,11 @@ opt_label:
 assert:
 	TOK_ASSERT '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSERT, $3));
+	};
+
+assert_property:
+	TOK_ASSERT TOK_PROPERTY '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSERT, $4));
 	};
 
 simple_behavioral_stmt:

@@ -53,6 +53,10 @@ struct VerilogFrontend : public Frontend {
 		log("Load modules from a verilog file to the current design. A large subset of\n");
 		log("Verilog-2005 is supported.\n");
 		log("\n");
+		log("    -sv\n");
+		log("        enable support for SystemVerilog features. (only a small subset\n");
+		log("        of SystemVerilog is supported)\n");
+		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
 		log("\n");
@@ -150,7 +154,9 @@ struct VerilogFrontend : public Frontend {
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
+
 		frontend_verilog_yydebug = false;
+		sv_mode = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
 
@@ -159,6 +165,10 @@ struct VerilogFrontend : public Frontend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
+			if (arg == "-sv") {
+				sv_mode = true;
+				continue;
+			}
 			if (arg == "-dump_ast1") {
 				flag_dump_ast1 = true;
 				continue;

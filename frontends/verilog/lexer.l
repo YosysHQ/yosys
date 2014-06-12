@@ -52,6 +52,14 @@ namespace VERILOG_FRONTEND {
 	std::vector<int> ln_stack;
 }
 
+#define SV_KEYWORD(_tok) \
+	if (sv_mode) return _tok; \
+	log("Lexer warning: The SystemVerilog keyword `%s' (at %s:%d) is not "\
+			"recognized unless read_verilog is called with -sv!\n", yytext, \
+			AST::current_filename.c_str(), frontend_verilog_yyget_lineno()); \
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext); \
+	return TOK_ID;
+
 %}
 
 %option yylineno
@@ -143,7 +151,14 @@ namespace VERILOG_FRONTEND {
 "while"        { return TOK_WHILE; }
 "repeat"       { return TOK_REPEAT; }
 
-"assert"([ \t\r\n]+"property")? { return TOK_ASSERT; }
+"always_comb"  { SV_KEYWORD(TOK_ALWAYS); }
+"always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
+"always_latch" { SV_KEYWORD(TOK_ALWAYS); }
+
+"assert"   { SV_KEYWORD(TOK_ASSERT); }
+"property" { SV_KEYWORD(TOK_PROPERTY); }
+"logic"    { SV_KEYWORD(TOK_REG); }
+"bit"      { SV_KEYWORD(TOK_REG); }
 
 "input"   { return TOK_INPUT; }
 "output"  { return TOK_OUTPUT; }
