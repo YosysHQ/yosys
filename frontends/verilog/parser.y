@@ -35,7 +35,7 @@
 
 %{
 #include <list>
-#include <assert.h>
+#include <string.h>
 #include "verilog_frontend.h"
 #include "kernel/log.h"
 
@@ -94,7 +94,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 	bool boolean;
 }
 
-%token <string> TOK_STRING TOK_ID TOK_CONST TOK_PRIMITIVE
+%token <string> TOK_STRING TOK_ID TOK_CONST TOK_REAL TOK_PRIMITIVE
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
@@ -221,7 +221,7 @@ module:
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
 					port_stubs.begin()->first.c_str());
 		ast_stack.pop_back();
-		assert(ast_stack.size() == 0);
+		log_assert(ast_stack.size() == 0);
 	};
 
 module_para_opt:
@@ -1132,6 +1132,17 @@ basic_expr:
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;
+	} |
+	TOK_REAL {
+		$$ = new AstNode(AST_REALVALUE);
+		char *p = strdup($1->c_str()), *q;
+		for (int i = 0, j = 0; !p[j]; j++)
+			if (p[j] != '_')
+				p[i++] = p[j], p[i] = 0;
+		$$->realvalue = strtod(p, &q);
+		log_assert(*q == 0);
+		delete $1;
+		free(p);
 	} |
 	TOK_STRING {
 		$$ = AstNode::mkconst_str(*$1);

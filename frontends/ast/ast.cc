@@ -77,6 +77,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_ARGUMENT)
 	X(AST_RANGE)
 	X(AST_CONSTANT)
+	X(AST_REALVALUE)
 	X(AST_CELLTYPE)
 	X(AST_IDENTIFIER)
 	X(AST_PREFIX)
@@ -458,6 +459,10 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 			fprintf(f, "%d", RTLIL::Const(bits).as_int());
 		else
 			fprintf(f, "%zd'b %s", bits.size(), RTLIL::Const(bits).as_string().c_str());
+		break;
+
+	case AST_REALVALUE:
+		fprintf(f, "%e", realvalue);
 		break;
 
 	case AST_BLOCK:

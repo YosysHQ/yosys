@@ -179,6 +179,16 @@ namespace VERILOG_FRONTEND {
 	return TOK_CONST;
 }
 
+[0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)? {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_REAL;
+}
+
+[0-9][0-9_]*[eE][-+]?[0-9_]+ {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_REAL;
+}
+
 \"		{ BEGIN(STRING); }
 <STRING>\\.	{ yymore(); }
 <STRING>\"	{

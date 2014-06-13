@@ -55,6 +55,7 @@ namespace AST
 		AST_ARGUMENT,
 		AST_RANGE,
 		AST_CONSTANT,
+		AST_REALVALUE,
 		AST_CELLTYPE,
 		AST_IDENTIFIER,
 		AST_PREFIX,
@@ -153,6 +154,7 @@ namespace AST
 		bool is_input, is_output, is_reg, is_signed, is_string, range_valid;
 		int port_id, range_left, range_right;
 		uint32_t integer;
+		double realvalue;
 
 		// this is set by simplify and used during RTLIL generation
 		AstNode *id2ast;
