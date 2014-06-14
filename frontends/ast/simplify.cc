@@ -1215,6 +1215,10 @@ skip_dynamic_range_lvalue_expansion:;
 		{
 			if (str == "\\$clog2")
 			{
+				if (children.size() != 1)
+					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
+							RTLIL::id2cstr(str), int(children.size()), filename.c_str(), linenum);
+
 				AstNode *buf = children[0]->clone();
 				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				if (buf->type != AST_CONSTANT)
@@ -1227,6 +1231,72 @@ skip_dynamic_range_lvalue_expansion:;
 						result = i;
 
 				newNode = mkconst_int(result, false);
+				goto apply_newNode;
+			}
+
+			if (str == "\\$ln" || str == "\\$log10" || str == "\\$exp" || str == "\\$sqrt" || str == "\\$pow" ||
+					str == "\\$floor" || str == "\\$ceil" || str == "\\$sin" || str == "\\$cos" || str == "\\$tan" ||
+					str == "\\$asin" || str == "\\$acos" || str == "\\$atan" || str == "\\$atan2" || str == "\\$hypot" ||
+					str == "\\$sinh" || str == "\\$cosh" || str == "\\$tanh" || str == "\\$asinh" || str == "\\$acosh" || str == "\\$atanh")
+			{
+				bool func_with_two_arguments = str == "\\$pow" || str == "\\$atan2" || str == "\\$hypot";
+				double x = 0, y = 0;
+
+				if (func_with_two_arguments) {
+					if (children.size() != 2)
+						log_error("System function %s got %d arguments, expected 2 at %s:%d.\n",
+								RTLIL::id2cstr(str), int(children.size()), filename.c_str(), linenum);
+				} else {
+					if (children.size() != 1)
+						log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
+								RTLIL::id2cstr(str), int(children.size()), filename.c_str(), linenum);
+				}
+
+				if (children.size() >= 1) {
+					while (children[0]->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (!children[0]->isConst())
+						log_error("Failed to evaluate system function `%s' with non-constant argument at %s:%d.\n",
+								RTLIL::id2cstr(str), filename.c_str(), linenum);
+					int child_width_hint = width_hint;
+					bool child_sign_hint = sign_hint;
+					children[0]->detectSignWidth(child_width_hint, child_sign_hint);
+					x = children[0]->asReal(child_sign_hint);
+				}
+
+				if (children.size() >= 2) {
+					while (children[1]->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (!children[1]->isConst())
+						log_error("Failed to evaluate system function `%s' with non-constant argument at %s:%d.\n",
+								RTLIL::id2cstr(str), filename.c_str(), linenum);
+					int child_width_hint = width_hint;
+					bool child_sign_hint = sign_hint;
+					children[1]->detectSignWidth(child_width_hint, child_sign_hint);
+					y = children[1]->asReal(child_sign_hint);
+				}
+
+				newNode = new AstNode(AST_REALVALUE);
+				if (str == "\\$ln")         newNode->realvalue = log(x);
+				else if (str == "\\$log10") newNode->realvalue = log10(x);
+				else if (str == "\\$exp")   newNode->realvalue = exp(x);
+				else if (str == "\\$sqrt")  newNode->realvalue = sqrt(x);
+				else if (str == "\\$pow")   newNode->realvalue = pow(x, y);
+				else if (str == "\\$floor") newNode->realvalue = floor(x);
+				else if (str == "\\$ceil")  newNode->realvalue = ceil(x);
+				else if (str == "\\$sin")   newNode->realvalue = sin(x);
+				else if (str == "\\$cos")   newNode->realvalue = cos(x);
+				else if (str == "\\$tan")   newNode->realvalue = tan(x);
+				else if (str == "\\$asin")  newNode->realvalue = asin(x);
+				else if (str == "\\$acos")  newNode->realvalue = acos(x);
+				else if (str == "\\$atan")  newNode->realvalue = atan(x);
+				else if (str == "\\$atan2") newNode->realvalue = atan2(x, y);
+				else if (str == "\\$hypot") newNode->realvalue = hypot(x, y);
+				else if (str == "\\$sinh")  newNode->realvalue = sinh(x);
+				else if (str == "\\$cosh")  newNode->realvalue = cosh(x);
+				else if (str == "\\$tanh")  newNode->realvalue = tanh(x);
+				else if (str == "\\$asinh") newNode->realvalue = asinh(x);
+				else if (str == "\\$acosh") newNode->realvalue = acosh(x);
+				else if (str == "\\$atanh") newNode->realvalue = atanh(x);
+				else log_abort();
 				goto apply_newNode;
 			}
 
