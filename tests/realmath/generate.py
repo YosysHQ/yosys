@@ -39,14 +39,36 @@ def random_expression(depth = 3, maxparam = 0):
         return op + '(' + recursion() + ', ' + recursion() + ')'
     raise
 
-for i in range(3): 
-    with file('uut_%05d.v' % i, 'w') as f, redirect_stdout(f):
-        print('module uut_%05d(output [63:0] %s);\n' % (i, ', '.join(['y%02d' % i for i in range(100)])))
+for idx in range(100): 
+    with file('temp/uut_%05d.v' % idx, 'w') as f, redirect_stdout(f):
+        print('module uut_%05d(output [63:0] %s);\n' % (idx, ', '.join(['y%02d' % i for i in range(100)])))
         for i in range(30):
             print('localparam p%02d = %s;' % (i, random_expression()))
         for i in range(30, 60):
             print('localparam p%02d = %s;' % (i, random_expression(maxparam = 30)))
         for i in range(100):
-            print('assign y%02d = %s;' % (i, random_expression(maxparam = 60)))
+            print('assign y%02d = 65536 * (%s);' % (i, random_expression(maxparam = 60)))
+        print('endmodule')
+    with file('temp/uut_%05d.ys' % idx, 'w') as f, redirect_stdout(f):
+        print('read_verilog uut_%05d.v' % idx)
+        print('rename uut_%05d uut_%05d_syn' % (idx, idx))
+        print('write_verilog uut_%05d_syn.v' % idx)
+    with file('temp/uut_%05d_tb.v' % idx, 'w') as f, redirect_stdout(f):
+        print('module uut_%05d_tb;\n' % idx)
+        print('wire [63:0] %s;' % (', '.join(['r%02d' % i for i in range(100)])))
+        print('wire [63:0] %s;' % (', '.join(['s%02d' % i for i in range(100)])))
+        print('uut_%05d ref(%s);' % (idx, ', '.join(['r%02d' % i for i in range(100)])))
+        print('uut_%05d_syn syn(%s);' % (idx, ', '.join(['s%02d' % i for i in range(100)])))
+        print('task compare_ref_syn;')
+        print('  input [7:0] i;')
+        print('  input [63:0] r, s;')
+        print('  begin')
+        print('    $display("%d: %b %b", i, r, s);')
+        print('  end')
+        print('endtask')
+        print('initial begin #1;')
+        for i in range(100):
+            print('  compare_ref_syn(%2d, r%02d, s%02d);' % (i, i, i))
+        print('end')
         print('endmodule')
  
