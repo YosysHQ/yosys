@@ -168,6 +168,7 @@ namespace VERILOG_FRONTEND {
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }
 "genvar"  { return TOK_GENVAR; }
+"real"    { return TOK_REAL; }
 
 [0-9]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
@@ -181,12 +182,12 @@ namespace VERILOG_FRONTEND {
 
 [0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)? {
 	frontend_verilog_yylval.string = new std::string(yytext);
-	return TOK_REAL;
+	return TOK_REALVAL;
 }
 
 [0-9][0-9_]*[eE][-+]?[0-9_]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
-	return TOK_REAL;
+	return TOK_REALVAL;
 }
 
 \"		{ BEGIN(STRING); }

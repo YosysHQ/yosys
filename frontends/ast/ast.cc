@@ -185,6 +185,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 	range_left = -1;
 	range_right = 0;
 	integer = 0;
+	realvalue = 0;
 	id2ast = NULL;
 	basic_prep = false;
 
@@ -278,6 +279,8 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 		fprintf(f, " range=[%d:%d]%s", range_left, range_right, range_valid ? "" : "!");
 	if (integer != 0)
 		fprintf(f, " int=%u", (int)integer);
+	if (realvalue != 0)
+		fprintf(f, " real=%e", realvalue);
 	fprintf(f, "\n");
 
 	for (auto &it : attributes) {
@@ -775,18 +778,20 @@ double AstNode::asReal(bool is_signed)
 		RTLIL::Const val;
 		val.bits = bits;
 
-		double p = exp2(val.bits.size()-32);
+		double p = exp2(int(val.bits.size())-32);
 		if (val.bits.size() > 32)
-			val.bits.erase(val.bits.begin(), val.bits.begin()+(val.bits.size()-32));
-		int32_t v = val.as_int() << (32-val.bits.size());
+			val.bits.erase(val.bits.begin(), val.bits.begin()+(int(val.bits.size())-32));
+		int32_t v = val.as_int() << (32-int(val.bits.size()));
 
 		if (is_signed)
 			return v * p;
 		return uint32_t(v) * p;
 	}
+
 	if (type == AST_REALVALUE)
 		return realvalue;
-	return 0;
+
+	log_abort();
 }
 
 // create a new AstModule from an AST_MODULE AST node

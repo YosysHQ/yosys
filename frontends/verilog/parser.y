@@ -94,7 +94,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 	bool boolean;
 }
 
-%token <string> TOK_STRING TOK_ID TOK_CONST TOK_REAL TOK_PRIMITIVE
+%token <string> TOK_STRING TOK_ID TOK_CONST TOK_REALVAL TOK_PRIMITIVE
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
@@ -103,7 +103,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_POSEDGE TOK_NEGEDGE TOK_OR
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK
-%token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR
+%token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_PROPERTY
@@ -438,6 +438,13 @@ param_integer:
 		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(0, true));
 	} | /* empty */;
 
+param_real:
+	TOK_REAL {
+		if (astbuf1->children.size() != 1)
+			frontend_verilog_yyerror("Syntax error.");
+		astbuf1->children.push_back(new AstNode(AST_REALVALUE));
+	} | /* empty */;
+
 param_range:
 	range {
 		if ($1 != NULL) {
@@ -451,7 +458,7 @@ param_decl:
 	TOK_PARAMETER {
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	} param_signed param_integer param_range param_decl_list ';' {
+	} param_signed param_integer param_real param_range param_decl_list ';' {
 		delete astbuf1;
 	};
 
@@ -459,7 +466,7 @@ localparam_decl:
 	TOK_LOCALPARAM {
 		astbuf1 = new AstNode(AST_LOCALPARAM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	} param_signed param_integer param_range param_decl_list ';' {
+	} param_signed param_integer param_real param_range param_decl_list ';' {
 		delete astbuf1;
 	};
 
@@ -1133,7 +1140,7 @@ basic_expr:
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;
 	} |
-	TOK_REAL {
+	TOK_REALVAL {
 		$$ = new AstNode(AST_REALVALUE);
 		char *p = strdup($1->c_str()), *q;
 		for (int i = 0, j = 0; !p[j]; j++)
