@@ -602,6 +602,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 			sign_hint = false;
 		break;
 
+	case AST_REALVALUE:
+		width_hint = std::max(width_hint, 32);
+		break;
+
 	case AST_IDENTIFIER:
 		id_ast = id2ast;
 		if (id_ast == NULL && current_scope.count(str))
@@ -907,6 +911,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			is_signed = sign_hint;
 			return RTLIL::SigSpec(bitsAsConst());
+		}
+
+	case AST_REALVALUE:
+		{
+			int intvalue = round(realvalue);
+			log("Warning: converting real value %e to integer %d at %s:%d.\n",
+					realvalue, intvalue, filename.c_str(), linenum);
+			return RTLIL::SigSpec(intvalue);
 		}
 
 	// simply return the corresponding RTLIL::SigSpec for an AST_IDENTIFIER node
