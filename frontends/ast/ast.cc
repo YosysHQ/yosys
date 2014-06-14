@@ -32,7 +32,7 @@
 
 #include <sstream>
 #include <stdarg.h>
-#include <assert.h>
+#include <math.h>
 
 using namespace AST;
 using namespace AST_INTERNAL;
@@ -758,6 +758,35 @@ bool AstNode::asBool()
 		if (bit == RTLIL::State::S1)
 			return true;
 	return false;
+}
+
+int AstNode::isConst()
+{
+	if (type == AST_CONSTANT)
+		return 1;
+	if (type == AST_REALVALUE)
+		return 2;
+	return 0;
+}
+
+double AstNode::asReal(bool is_signed)
+{
+	if (type == AST_CONSTANT) {
+		RTLIL::Const val;
+		val.bits = bits;
+
+		double p = exp2(val.bits.size()-32);
+		if (val.bits.size() > 32)
+			val.bits.erase(val.bits.begin(), val.bits.begin()+(val.bits.size()-32));
+		int32_t v = val.as_int() << (32-val.bits.size());
+
+		if (is_signed)
+			return v * p;
+		return uint32_t(v) * p;
+	}
+	if (type == AST_REALVALUE)
+		return realvalue;
+	return 0;
 }
 
 // create a new AstModule from an AST_MODULE AST node

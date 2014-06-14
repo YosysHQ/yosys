@@ -32,7 +32,7 @@
 
 #include <sstream>
 #include <stdarg.h>
-#include <assert.h>
+#include <math.h>
 
 using namespace AST;
 using namespace AST_INTERNAL;
@@ -1433,10 +1433,22 @@ skip_dynamic_range_lvalue_expansion:;
 		if (0) { case AST_MUL: const_func = RTLIL::const_mul; }
 		if (0) { case AST_DIV: const_func = RTLIL::const_div; }
 		if (0) { case AST_MOD: const_func = RTLIL::const_mod; }
-			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
-				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
-						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
-				newNode = mkconst_bits(y.bits, sign_hint);
+			if (children[0]->isConst() && children[1]->isConst()) {
+				if (children[0]->isConst() + children[1]->isConst() > 2) {
+					newNode = new AstNode(AST_REALVALUE);
+					switch (type) {
+					case AST_ADD: newNode->realvalue = children[0]->asReal(sign_hint) + children[1]->asReal(sign_hint); break;
+					case AST_SUB: newNode->realvalue = children[0]->asReal(sign_hint) - children[1]->asReal(sign_hint); break;
+					case AST_MUL: newNode->realvalue = children[0]->asReal(sign_hint) * children[1]->asReal(sign_hint); break;
+					case AST_DIV: newNode->realvalue = children[0]->asReal(sign_hint) / children[1]->asReal(sign_hint); break;
+					case AST_MOD: newNode->realvalue = fmod(children[0]->asReal(sign_hint), children[1]->asReal(sign_hint)); break;
+					default: log_abort();
+					}
+				} else {
+					RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
+							children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
+					newNode = mkconst_bits(y.bits, sign_hint);
+				}
 			}
 			break;
 		if (0) { case AST_POS: const_func = RTLIL::const_pos; }

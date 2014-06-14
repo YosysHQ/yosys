@@ -240,6 +240,10 @@ namespace AST
 		RTLIL::Const asAttrConst();
 		RTLIL::Const asParaConst();
 		bool asBool();
+
+		// helper functions for real valued const eval
+		int isConst(); // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
+		double asReal(bool is_signed);
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
