@@ -794,6 +794,24 @@ double AstNode::asReal(bool is_signed)
 	log_abort();
 }
 
+RTLIL::Const AstNode::realAsConst(int width)
+{
+	double v = round(realvalue);
+	RTLIL::Const result;
+	if (!isfinite(v)) {
+		result.bits = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
+	} else {
+		bool is_negative = v < 0;
+		if (is_negative)
+			v *= -1;
+		for (int i = 0; i < width; i++, v /= 2)
+			result.bits.push_back((int(v) & 1) ? RTLIL::State::S1 : RTLIL::State::S0);
+		if (is_negative)
+			result = const_neg(result, result, false, false, result.bits.size());
+	}
+	return result;
+}
+
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast, bool defer)
 {

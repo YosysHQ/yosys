@@ -915,10 +915,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	case AST_REALVALUE:
 		{
-			int intvalue = round(realvalue);
-			log("Warning: converting real value %e to integer %d at %s:%d.\n",
-					realvalue, intvalue, filename.c_str(), linenum);
-			return RTLIL::SigSpec(intvalue);
+			RTLIL::SigSpec sig = realAsConst(width_hint);
+			log("Warning: converting real value %e to binary %s at %s:%d.\n",
+					realvalue, log_signal(sig), filename.c_str(), linenum);
+			return sig;
 		}
 
 	// simply return the corresponding RTLIL::SigSpec for an AST_IDENTIFIER node

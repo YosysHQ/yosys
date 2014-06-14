@@ -527,18 +527,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// trim/extend parameters
 	if (type == AST_PARAMETER || type == AST_LOCALPARAM) {
 		if (children.size() > 1 && children[1]->type == AST_RANGE) {
+			if (!children[1]->range_valid)
+				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
+			int width = children[1]->range_left - children[1]->range_right + 1;
 			if (children[0]->type == AST_REALVALUE) {
-				int intvalue = round(children[0]->realvalue);
-				log("Warning: converting real value %e to integer %d at %s:%d.\n",
-						children[0]->realvalue, intvalue, filename.c_str(), linenum);
+				RTLIL::Const constvalue = children[0]->realAsConst(width);
+				log("Warning: converting real value %e to binary %s at %s:%d.\n",
+						realvalue, log_signal(constvalue), filename.c_str(), linenum);
 				delete children[0];
-				children[0] = mkconst_int(intvalue, sign_hint);
+				children[0] = mkconst_bits(constvalue.bits, sign_hint);
 				did_something = true;
 			}
 			if (children[0]->type == AST_CONSTANT) {
-				if (!children[1]->range_valid)
-					log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
-				int width = children[1]->range_left - children[1]->range_right + 1;
 				if (width != int(children[0]->bits.size())) {
 					RTLIL::SigSpec sig(children[0]->bits);
 					sig.extend_u0(width, children[0]->is_signed);
