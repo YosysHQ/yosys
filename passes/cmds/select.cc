@@ -595,6 +595,13 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			select_op_diff(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
 		} else
+		if (arg == "%D") {
+			if (work_stack.size() < 2)
+				log_cmd_error("Must have at least two elements on the stack for operator %%d.\n");
+			select_op_diff(design, work_stack[work_stack.size()-1], work_stack[work_stack.size()-2]);
+			work_stack[work_stack.size()-2] = work_stack[work_stack.size()-1];
+			work_stack.pop_back();
+		} else
 		if (arg == "%i") {
 			if (work_stack.size() < 2)
 				log_cmd_error("Must have at least two elements on the stack for operator %%i.\n");
@@ -606,14 +613,19 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
 			select_op_submod(design, work_stack[work_stack.size()-1]);
 		} else
+		if (arg == "%c") {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%c.\n");
+			work_stack.push_back(work_stack.back());
+		} else
 		if (arg == "%m") {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%m.\n");
 			select_op_fullmod(design, work_stack[work_stack.size()-1]);
 		} else
 		if (arg == "%a") {
 			if (work_stack.size() < 1)
-				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
+				log_cmd_error("Must have at least one element on the stack for operator %%a.\n");
 			select_op_alias(design, work_stack[work_stack.size()-1]);
 		} else
 		if (arg == "%x" || (arg.size() > 2 && arg.substr(0, 2) == "%x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
@@ -957,6 +969,12 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    %%d\n");
 		log("        pop the top set from the stack and subtract it from the new top\n");
+		log("\n");
+		log("    %%D\n");
+		log("        like %%d but swap the roles of two top sets on the stack\n");
+		log("\n");
+		log("    %%c\n");
+		log("        create a copy of the top set rom the stack and push it\n");
 		log("\n");
 		log("    %%x[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("        expand top set <num1> num times according to the specified rules.\n");
