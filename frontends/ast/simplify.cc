@@ -1539,14 +1539,14 @@ skip_dynamic_range_lvalue_expansion:;
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
 				switch (type) {
-				case AST_LT:  newNode = mkconst_int(children[0]->asReal(sign_hint) <  children[1]->asReal(sign_hint), false, 1);
-				case AST_LE:  newNode = mkconst_int(children[0]->asReal(sign_hint) <= children[1]->asReal(sign_hint), false, 1);
-				case AST_EQ:  newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1);
-				case AST_NE:  newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1);
-				case AST_EQX: newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1);
-				case AST_NEX: newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1);
-				case AST_GE:  newNode = mkconst_int(children[0]->asReal(sign_hint) >= children[1]->asReal(sign_hint), false, 1);
-				case AST_GT:  newNode = mkconst_int(children[0]->asReal(sign_hint) >  children[1]->asReal(sign_hint), false, 1);
+				case AST_LT:  newNode = mkconst_int(children[0]->asReal(sign_hint) <  children[1]->asReal(sign_hint), false, 1); break;
+				case AST_LE:  newNode = mkconst_int(children[0]->asReal(sign_hint) <= children[1]->asReal(sign_hint), false, 1); break;
+				case AST_EQ:  newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1); break;
+				case AST_NE:  newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1); break;
+				case AST_EQX: newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1); break;
+				case AST_NEX: newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1); break;
+				case AST_GE:  newNode = mkconst_int(children[0]->asReal(sign_hint) >= children[1]->asReal(sign_hint), false, 1); break;
+				case AST_GT:  newNode = mkconst_int(children[0]->asReal(sign_hint) >  children[1]->asReal(sign_hint), false, 1); break;
 				default: log_abort();
 				}
 			}
