@@ -23,10 +23,70 @@ This section contains 3 subsections:
 \subsectionpagesuffix
 \end{frame}
 
-\subsubsection{TBD}
+\begin{frame}{\subsecname}
+Yosys can also be used to investigate designs (or netlists created
+from other tools).
 
-\begin{frame}{\subsubsecname}
-TBD
+\begin{itemize}
+\item
+The selection mechanism (see slides ``Using Selections''), especially pattern such
+as {\tt \%ci} and {\tt \%co}, can be used to figure out how parts of the design
+are connected.
+
+\item
+Commands such as {\tt submod}, {\tt expose}, {\tt splice}, \dots can be used 
+to transform the design into an equivialent design that is easier to analyse.
+
+\item
+Commands such as {\tt eval} and {\tt sat} can be used to investigate the
+behavior of the circuit.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[t, fragile]{Example: Reorganizing a module}
+\begin{columns}
+\column[t]{4cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{6pt}{7pt}\selectfont, language=verilog]{PRESENTATION_ExOth/scrambler.v}
+\column[t]{7cm}
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys, frame=single]
+read_verilog scrambler.v
+
+hierarchy; proc;;
+
+cd scrambler
+submod -name xorshift32 xs %c %ci %D \
+           %c %ci:+[D] %D %ci*:-$dff \
+           xs %co %ci %d
+\end{lstlisting}
+\end{columns}
+
+\hfil\includegraphics[width=11cm,trim=0 0cm 0 1.5cm]{PRESENTATION_ExOth/scrambler_p01.pdf}
+
+\hfil\includegraphics[width=11cm,trim=0 0cm 0 2cm]{PRESENTATION_ExOth/scrambler_p02.pdf}
+\end{frame}
+
+\begin{frame}[t, fragile]{Example: Analysis of circuit behavior}
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+> read_verilog scrambler.v
+> hierarchy; proc;; cd scrambler
+> submod -name xorshift32 xs %c %ci %D %c %ci:+[D] %D %ci*:-$dff xs %co %ci %d
+
+> cd xorshift32
+> rename n2 in
+> rename n1 out
+
+> eval -set in 1 -show out
+Eval result: \out = 270369.
+
+> eval -set in 270369 -show out
+Eval result: \out = 67634689.
+
+> sat -set out 632435482
+Signal Name                 Dec        Hex                                   Bin
+-------------------- ---------- ---------- -------------------------------------
+\in                   745495504   2c6f5bd0      00101100011011110101101111010000
+\out                  632435482   25b2331a      00100101101100100011001100011010
+\end{lstlisting}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
