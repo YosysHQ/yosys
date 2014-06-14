@@ -1348,7 +1348,9 @@ skip_dynamic_range_lvalue_expansion:;
 					} else
 					if (children.size() == 0)
 						newNode = current_scope[str]->children[0]->clone();
-				}
+				} else
+				if (current_scope[str]->children[0]->isConst())
+					newNode = current_scope[str]->children[0]->clone();
 			}
 			else if (at_zero && current_scope.count(str) > 0 && (current_scope[str]->type == AST_WIRE || current_scope[str]->type == AST_AUTOWIRE)) {
 				newNode = mkconst_int(0, sign_hint, width_hint);
@@ -1391,6 +1393,9 @@ skip_dynamic_range_lvalue_expansion:;
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = RTLIL::const_logic_not(RTLIL::Const(children[0]->bits), dummy_arg, children[0]->is_signed, false, -1);
 				newNode = mkconst_bits(y.bits, false);
+			} else
+			if (children[0]->isConst()) {
+				newNode = mkconst_int(children[0]->asReal(sign_hint) == 0, false, 1);
 			}
 			break;
 		if (0) { case AST_LOGIC_AND: const_func = RTLIL::const_logic_and; }
@@ -1399,6 +1404,12 @@ skip_dynamic_range_lvalue_expansion:;
 				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), RTLIL::Const(children[1]->bits),
 						children[0]->is_signed, children[1]->is_signed, -1);
 				newNode = mkconst_bits(y.bits, false);
+			} else
+			if (children[0]->isConst() && children[1]->isConst()) {
+				if (type == AST_LOGIC_AND)
+					newNode = mkconst_int((children[0]->asReal(sign_hint) != 0) && (children[1]->asReal(sign_hint) != 0), false, 1);
+				else
+					newNode = mkconst_int((children[0]->asReal(sign_hint) != 0) || (children[1]->asReal(sign_hint) != 0), false, 1);
 			}
 			break;
 		if (0) { case AST_SHIFT_LEFT:   const_func = RTLIL::const_shl;  }
@@ -1410,6 +1421,10 @@ skip_dynamic_range_lvalue_expansion:;
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						RTLIL::Const(children[1]->bits), sign_hint, type == AST_POW ? children[1]->is_signed : false, width_hint);
 				newNode = mkconst_bits(y.bits, sign_hint);
+			} else
+			if (type == AST_POW && children[0]->isConst() && children[1]->isConst()) {
+				newNode = new AstNode(AST_REALVALUE);
+				newNode->realvalue = pow(children[0]->asReal(sign_hint), children[1]->asReal(sign_hint));
 			}
 			break;
 		if (0) { case AST_LT:  const_func = RTLIL::const_lt; }
@@ -1426,6 +1441,19 @@ skip_dynamic_range_lvalue_expansion:;
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(cmp_width, cmp_signed),
 						children[1]->bitsAsConst(cmp_width, cmp_signed), cmp_signed, cmp_signed, 1);
 				newNode = mkconst_bits(y.bits, false);
+			} else
+			if (children[0]->isConst() && children[1]->isConst()) {
+				switch (type) {
+				case AST_LT:  newNode = mkconst_int(children[0]->asReal(sign_hint) <  children[1]->asReal(sign_hint), false, 1);
+				case AST_LE:  newNode = mkconst_int(children[0]->asReal(sign_hint) <= children[1]->asReal(sign_hint), false, 1);
+				case AST_EQ:  newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1);
+				case AST_NE:  newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1);
+				case AST_EQX: newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1);
+				case AST_NEX: newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1);
+				case AST_GE:  newNode = mkconst_int(children[0]->asReal(sign_hint) >= children[1]->asReal(sign_hint), false, 1);
+				case AST_GT:  newNode = mkconst_int(children[0]->asReal(sign_hint) >  children[1]->asReal(sign_hint), false, 1);
+				default: log_abort();
+				}
 			}
 			break;
 		if (0) { case AST_ADD: const_func = RTLIL::const_add; }
@@ -1433,21 +1461,20 @@ skip_dynamic_range_lvalue_expansion:;
 		if (0) { case AST_MUL: const_func = RTLIL::const_mul; }
 		if (0) { case AST_DIV: const_func = RTLIL::const_div; }
 		if (0) { case AST_MOD: const_func = RTLIL::const_mod; }
+			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
+				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
+						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
+				newNode = mkconst_bits(y.bits, sign_hint);
+			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
-				if (children[0]->isConst() + children[1]->isConst() > 2) {
-					newNode = new AstNode(AST_REALVALUE);
-					switch (type) {
-					case AST_ADD: newNode->realvalue = children[0]->asReal(sign_hint) + children[1]->asReal(sign_hint); break;
-					case AST_SUB: newNode->realvalue = children[0]->asReal(sign_hint) - children[1]->asReal(sign_hint); break;
-					case AST_MUL: newNode->realvalue = children[0]->asReal(sign_hint) * children[1]->asReal(sign_hint); break;
-					case AST_DIV: newNode->realvalue = children[0]->asReal(sign_hint) / children[1]->asReal(sign_hint); break;
-					case AST_MOD: newNode->realvalue = fmod(children[0]->asReal(sign_hint), children[1]->asReal(sign_hint)); break;
-					default: log_abort();
-					}
-				} else {
-					RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
-							children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
-					newNode = mkconst_bits(y.bits, sign_hint);
+				newNode = new AstNode(AST_REALVALUE);
+				switch (type) {
+				case AST_ADD: newNode->realvalue = children[0]->asReal(sign_hint) + children[1]->asReal(sign_hint); break;
+				case AST_SUB: newNode->realvalue = children[0]->asReal(sign_hint) - children[1]->asReal(sign_hint); break;
+				case AST_MUL: newNode->realvalue = children[0]->asReal(sign_hint) * children[1]->asReal(sign_hint); break;
+				case AST_DIV: newNode->realvalue = children[0]->asReal(sign_hint) / children[1]->asReal(sign_hint); break;
+				case AST_MOD: newNode->realvalue = fmod(children[0]->asReal(sign_hint), children[1]->asReal(sign_hint)); break;
+				default: log_abort();
 				}
 			}
 			break;
@@ -1456,29 +1483,45 @@ skip_dynamic_range_lvalue_expansion:;
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint), dummy_arg, sign_hint, false, width_hint);
 				newNode = mkconst_bits(y.bits, sign_hint);
+			} else
+			if (children[0]->isConst()) {
+				newNode = new AstNode(AST_REALVALUE);
+				if (type == AST_POS)
+					newNode->realvalue = +children[0]->asReal(sign_hint);
+				else
+					newNode->realvalue = -children[0]->asReal(sign_hint);
 			}
 			break;
 		case AST_TERNARY:
-			if (children[0]->type == AST_CONSTANT) {
+			if (children[0]->isConst()) {
 				bool found_sure_true = false;
 				bool found_maybe_true = false;
-				for (auto &bit : children[0]->bits) {
-					if (bit == RTLIL::State::S1)
-						found_sure_true = true;
-					if (bit > RTLIL::State::S1)
-						found_maybe_true = true;
+				if (children[0]->type == AST_CONSTANT) {
+					for (auto &bit : children[0]->bits) {
+						if (bit == RTLIL::State::S1)
+							found_sure_true = true;
+						if (bit > RTLIL::State::S1)
+							found_maybe_true = true;
+					}
+				} else {
+					found_sure_true = children[0]->asReal(false) != 0;
 				}
 				AstNode *choice = NULL;
 				if (found_sure_true)
 					choice = children[1];
 				else if (!found_maybe_true)
 					choice = children[2];
-				if (choice != NULL && choice->type == AST_CONSTANT) {
-					RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
-					if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false)
-						newNode = mkconst_str(y.bits);
-					else
-						newNode = mkconst_bits(y.bits, sign_hint);
+				if (choice != NULL) {
+					if (choice->type == AST_CONSTANT) {
+						RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
+						if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false)
+							newNode = mkconst_str(y.bits);
+						else
+							newNode = mkconst_bits(y.bits, sign_hint);
+					} else
+					if (choice->isConst()) {
+						newNode = choice->clone();
+					}
 				} else if (children[1]->type == AST_CONSTANT && children[2]->type == AST_CONSTANT) {
 					RTLIL::Const a = children[1]->bitsAsConst(width_hint, sign_hint);
 					RTLIL::Const b = children[2]->bitsAsConst(width_hint, sign_hint);
