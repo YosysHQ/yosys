@@ -808,7 +808,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 		if (is_negative)
 			v *= -1;
 		for (int i = 0; i < width; i++, v /= 2)
-			result.bits.push_back((int(v) & 1) ? RTLIL::State::S1 : RTLIL::State::S0);
+			result.bits.push_back((fmod(floor(v), 2) != 0) ? RTLIL::State::S1 : RTLIL::State::S0);
 		if (is_negative)
 			result = const_neg(result, result, false, false, result.bits.size());
 	}
