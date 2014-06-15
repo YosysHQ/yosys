@@ -109,6 +109,10 @@ writing the design to the console in yosys's internal format:
 
 	yosys> write_ilang
 
+elaborate design hierarchy:
+
+	yosys> hierarchy
+
 convert processes ("always" blocks) to netlist elements and perform
 some simple optimizations:
 
@@ -132,13 +136,14 @@ write design netlist to a new verilog file:
 
 a similar synthesis can be performed using yosys command line options only:
 
-	$ ./yosys -o synth.v -p proc -p opt -p techmap -p opt tests/simple/fiedler-cooley.v
+	$ ./yosys -o synth.v -p hierarchy -p proc -p opt \
+	                     -p techmap -p opt tests/simple/fiedler-cooley.v
 
 or using a simple synthesis script:
 
 	$ cat synth.ys
 	read_verilog tests/simple/fiedler-cooley.v
-	proc; opt; techmap; opt
+	hierarchy; proc; opt; techmap; opt
 	write_verilog synth.v
 
 	$ ./yosys synth.ys
@@ -147,7 +152,7 @@ It is also possible to only have the synthesis commands but not the read/write
 commands in the synthesis script:
 
 	$ cat synth.ys
-	proc; opt; techmap; opt
+	hierarchy; proc; opt; techmap; opt
 
 	$ ./yosys -o synth.v tests/simple/fiedler-cooley.v synth.ys
 
