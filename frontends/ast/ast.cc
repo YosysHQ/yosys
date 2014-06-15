@@ -775,17 +775,20 @@ int AstNode::isConst()
 double AstNode::asReal(bool is_signed)
 {
 	if (type == AST_CONSTANT) {
-		RTLIL::Const val;
-		val.bits = bits;
+		RTLIL::Const val(bits);
 
-		double p = exp2(int(val.bits.size())-32);
-		if (val.bits.size() > 32)
-			val.bits.erase(val.bits.begin(), val.bits.begin()+(int(val.bits.size())-32));
-		int32_t v = val.as_int() << (32-int(val.bits.size()));
+		bool is_negative = is_signed && val.bits.back() == RTLIL::State::S1;
+		if (is_negative)
+			val = const_neg(val, val, false, false, val.bits.size());
 
-		if (is_signed)
-			return v * p;
-		return uint32_t(v) * p;
+		double v = 0;
+		for (size_t i = 0; i < val.bits.size(); i++)
+			if (val.bits.at(i) == RTLIL::State::S1)
+				v += exp2(i);
+		if (is_negative)
+			v *= -1;
+
+		return v;
 	}
 
 	if (type == AST_REALVALUE)
