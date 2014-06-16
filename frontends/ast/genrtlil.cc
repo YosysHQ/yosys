@@ -585,7 +585,7 @@ struct AST_INTERNAL::ProcessGenerator
 };
 
 // detect sign and width of an expression
-void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
+void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real)
 {
 	std::string type_name;
 	bool sub_sign_hint = true;
@@ -603,6 +603,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 		break;
 
 	case AST_REALVALUE:
+		if (found_real)
+			*found_real = true;
 		width_hint = std::max(width_hint, 32);
 		break;
 
@@ -788,10 +790,13 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint)
 }
 
 // detect sign and width of an expression
-void AstNode::detectSignWidth(int &width_hint, bool &sign_hint)
+void AstNode::detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real)
 {
-	width_hint = -1, sign_hint = true;
-	detectSignWidthWorker(width_hint, sign_hint);
+	width_hint = -1;
+	sign_hint = true;
+	if (found_real)
+		*found_real = false;
+	detectSignWidthWorker(width_hint, sign_hint, found_real);
 }
 
 // create RTLIL from an AST node
