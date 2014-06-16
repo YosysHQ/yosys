@@ -783,6 +783,8 @@ double AstNode::asReal(bool is_signed)
 
 		double v = 0;
 		for (size_t i = 0; i < val.bits.size(); i++)
+			// IEEE Std 1800-2012 Par 6.12.2: Individual bits that are x or z in
+			// the net or the variable shall be treated as zero upon conversion.
 			if (val.bits.at(i) == RTLIL::State::S1)
 				v += exp2(i);
 		if (is_negative)

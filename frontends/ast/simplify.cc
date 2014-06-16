@@ -1625,6 +1625,15 @@ skip_dynamic_range_lvalue_expansion:;
 						if (a.bits[i] != b.bits[i])
 							a.bits[i] = RTLIL::State::Sx;
 					newNode = mkconst_bits(a.bits, sign_hint);
+				} else if (children[1]->isConst() && children[2]->isConst()) {
+					newNode = new AstNode(AST_REALVALUE);
+					if (children[1]->asReal(sign_hint) == children[2]->asReal(sign_hint))
+						newNode->realvalue = children[1]->asReal(sign_hint);
+					else
+						// IEEE Std 1800-2012 Sec. 11.4.11 states that the entry in Table 7-1 for
+						// the data type in question should be returned if the ?: is ambiguous. The
+						// value in Table 7-1 for the 'real' type is 0.0.
+						newNode->realvalue = 0.0;
 				}
 			}
 			break;
