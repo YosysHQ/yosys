@@ -1588,31 +1588,42 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 			break;
 		case AST_TERNARY:
-			if (children[0]->isConst()) {
+			if (children[0]->isConst())
+			{
 				bool found_sure_true = false;
 				bool found_maybe_true = false;
-				if (children[0]->type == AST_CONSTANT) {
+
+				if (children[0]->type == AST_CONSTANT)
 					for (auto &bit : children[0]->bits) {
 						if (bit == RTLIL::State::S1)
 							found_sure_true = true;
 						if (bit > RTLIL::State::S1)
 							found_maybe_true = true;
 					}
-				} else {
-					found_sure_true = children[0]->asReal(false) != 0;
-				}
-				AstNode *choice = NULL;
+				else
+					found_sure_true = children[0]->asReal(sign_hint) != 0;
+
+				AstNode *choice = NULL, *not_choice = NULL;
 				if (found_sure_true)
-					choice = children[1];
+					choice = children[1], not_choice = children[2];
 				else if (!found_maybe_true)
-					choice = children[2];
+					choice = children[2], not_choice = children[1];
+
 				if (choice != NULL) {
 					if (choice->type == AST_CONSTANT) {
-						RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
-						if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false)
-							newNode = mkconst_str(y.bits);
-						else
-							newNode = mkconst_bits(y.bits, sign_hint);
+						int other_width_hint = width_hint;
+						bool other_sign_hint = sign_hint, other_real = false;
+						not_choice->detectSignWidth(other_width_hint, other_sign_hint, &other_real);
+						if (other_real) {
+							newNode = new AstNode(AST_REALVALUE);
+							newNode->realvalue = choice->asReal(sign_hint);
+						} else {
+							RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
+							if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false)
+								newNode = mkconst_str(y.bits);
+							else
+								newNode = mkconst_bits(y.bits, sign_hint);
+						}
 					} else
 					if (choice->isConst()) {
 						newNode = choice->clone();
