@@ -108,7 +108,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_PROPERTY
 
-%type <ast> wire_type range non_opt_range range_or_integer expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> wire_type range non_opt_range range_or_signed_int expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed
 %type <al> attr
@@ -322,6 +322,7 @@ wire_type_token:
 		astbuf3->is_reg = true;
 		astbuf3->range_left = 31;
 		astbuf3->range_right = 0;
+		astbuf3->is_signed = true;
 	} |
 	TOK_GENVAR {
 		astbuf3->type = AST_GENVAR;
@@ -362,7 +363,7 @@ range:
 		$$ = NULL;
 	};
 
-range_or_integer:
+range_or_signed_int:
 	range {
 		$$ = $1;
 	} |
@@ -370,6 +371,7 @@ range_or_integer:
 		$$ = new AstNode(AST_RANGE);
 		$$->children.push_back(AstNode::mkconst_int(31, true));
 		$$->children.push_back(AstNode::mkconst_int(0, true));
+		$$->is_signed = true;
 	};
 
 module_body:
@@ -394,16 +396,19 @@ task_func_decl:
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	} |
-	TOK_FUNCTION opt_signed range_or_integer TOK_ID ';' {
+	TOK_FUNCTION opt_signed range_or_signed_int TOK_ID ';' {
 		current_function_or_task = new AstNode(AST_FUNCTION);
 		current_function_or_task->str = *$4;
 		ast_stack.back()->children.push_back(current_function_or_task);
 		ast_stack.push_back(current_function_or_task);
 		AstNode *outreg = new AstNode(AST_WIRE);
-		if ($3 != NULL)
-			outreg->children.push_back($3);
 		outreg->str = *$4;
 		outreg->is_signed = $2;
+		if ($3 != NULL) {
+			outreg->children.push_back($3);
+			outreg->is_signed = $2 || $3->is_signed;
+			$3->is_signed = false;
+		}
 		current_function_or_task->children.push_back(outreg);
 		current_function_or_task_port_id = 1;
 		delete $4;
@@ -436,6 +441,7 @@ param_integer:
 		astbuf1->children.push_back(new AstNode(AST_RANGE));
 		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(31, true));
 		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(0, true));
+		astbuf1->is_signed = true;
 	} | /* empty */;
 
 param_real:
