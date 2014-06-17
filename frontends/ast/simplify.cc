@@ -90,6 +90,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if ((memflags & AstNode::MEM2REG_FL_SET_INIT) && (memflags & AstNode::MEM2REG_FL_SET_ELSE))
 					goto verbose_activate;
 
+				if (memflags & AstNode::MEM2REG_FL_CMPLX_LHS)
+					goto verbose_activate;
+
 				// log("Note: Not replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str.c_str(), long(memflags));
 				continue;
 
@@ -1757,6 +1760,21 @@ void AstNode::replace_ids(std::map<std::string, std::string> &rules)
 		child->replace_ids(rules);
 }
 
+// helper function for mem2reg_as_needed_pass1
+static void mark_memories_assign_lhs_complex(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
+		std::map<AstNode*, uint32_t> &mem2reg_candidates, AstNode *that)
+{
+	for (auto &child : that->children)
+		mark_memories_assign_lhs_complex(mem2reg_places, mem2reg_candidates, child);
+
+	if (that->type == AST_IDENTIFIER && that->id2ast && that->id2ast->type == AST_MEMORY) {
+		AstNode *mem = that->id2ast;
+		if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_CMPLX_LHS))
+			mem2reg_places[mem].insert(stringf("%s:%d", that->filename.c_str(), that->linenum));
+		mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CMPLX_LHS;
+	}
+}
+
 // find memories that should be replaced by registers
 void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
 		std::map<AstNode*, uint32_t> &mem2reg_candidates, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
@@ -1766,6 +1784,10 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 
 	if (type == AST_ASSIGN || type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ)
 	{
+		// mark all memories that are used in a complex expression on the left side of an assignment
+		for (auto &lhs_child : children[0]->children)
+			mark_memories_assign_lhs_complex(mem2reg_places, mem2reg_candidates, lhs_child);
+
 		if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY)
 		{
 			AstNode *mem = children[0]->id2ast;
