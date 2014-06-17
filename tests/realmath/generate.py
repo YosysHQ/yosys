@@ -43,11 +43,15 @@ for idx in range(100):
     with file('temp/uut_%05d.v' % idx, 'w') as f, redirect_stdout(f):
         print('module uut_%05d(output [63:0] %s);\n' % (idx, ', '.join(['y%02d' % i for i in range(100)])))
         for i in range(30):
-            print('localparam p%02d = %s;' % (i, random_expression()))
-            # print('localparam%s p%02d = %s;' % (random.choice(['', ' real', ' integer']), i, random_expression()))
+            if idx < 10 or True:
+                print('localparam p%02d = %s;' % (i, random_expression()))
+            else:
+                print('localparam%s p%02d = %s;' % (random.choice(['', ' real', ' integer']), i, random_expression()))
         for i in range(30, 60):
-            print('localparam p%02d = %s;' % (i, random_expression(maxparam = 30)))
-            # print('localparam%s p%02d = %s;' % (random.choice(['', ' real', ' integer']), i, random_expression(maxparam = 30)))
+            if idx < 10 or True:
+                print('localparam p%02d = %s;' % (i, random_expression(maxparam = 30)))
+            else:
+                print('localparam%s p%02d = %s;' % (random.choice(['', ' real', ' integer']), i, random_expression(maxparam = 30)))
         for i in range(100):
             print('assign y%02d = 65536 * (%s);' % (i, random_expression(maxparam = 60)))
         print('endmodule')

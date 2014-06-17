@@ -1538,15 +1538,16 @@ skip_dynamic_range_lvalue_expansion:;
 				newNode = mkconst_bits(y.bits, false);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
+				bool cmp_signed = (children[0]->type == AST_REALVALUE || children[0]->is_signed) && (children[1]->type == AST_REALVALUE || children[1]->is_signed);
 				switch (type) {
-				case AST_LT:  newNode = mkconst_int(children[0]->asReal(sign_hint) <  children[1]->asReal(sign_hint), false, 1); break;
-				case AST_LE:  newNode = mkconst_int(children[0]->asReal(sign_hint) <= children[1]->asReal(sign_hint), false, 1); break;
-				case AST_EQ:  newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1); break;
-				case AST_NE:  newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1); break;
-				case AST_EQX: newNode = mkconst_int(children[0]->asReal(sign_hint) == children[1]->asReal(sign_hint), false, 1); break;
-				case AST_NEX: newNode = mkconst_int(children[0]->asReal(sign_hint) != children[1]->asReal(sign_hint), false, 1); break;
-				case AST_GE:  newNode = mkconst_int(children[0]->asReal(sign_hint) >= children[1]->asReal(sign_hint), false, 1); break;
-				case AST_GT:  newNode = mkconst_int(children[0]->asReal(sign_hint) >  children[1]->asReal(sign_hint), false, 1); break;
+				case AST_LT:  newNode = mkconst_int(children[0]->asReal(cmp_signed) <  children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_LE:  newNode = mkconst_int(children[0]->asReal(cmp_signed) <= children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_EQ:  newNode = mkconst_int(children[0]->asReal(cmp_signed) == children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_NE:  newNode = mkconst_int(children[0]->asReal(cmp_signed) != children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_EQX: newNode = mkconst_int(children[0]->asReal(cmp_signed) == children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_NEX: newNode = mkconst_int(children[0]->asReal(cmp_signed) != children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_GE:  newNode = mkconst_int(children[0]->asReal(cmp_signed) >= children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_GT:  newNode = mkconst_int(children[0]->asReal(cmp_signed) >  children[1]->asReal(cmp_signed), false, 1); break;
 				default: log_abort();
 				}
 			}
