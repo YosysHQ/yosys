@@ -43,3 +43,15 @@ end
 
 endmodule
 
+// ------------------------------------------------------
+
+// http://www.reddit.com/r/yosys/comments/28d9lx/problem_with_concatenation_of_two_dimensional/
+module test3( input clk, input [8:0] din_a, output reg [7:0] dout_a, output [7:0] dout_b);
+reg [7:0] dint_c [0:7]; 
+always @(posedge clk)
+  begin
+      {dout_a[0], dint_c[3]} <= din_a;
+  end
+assign dout_b = dint_c[3];
+endmodule
+
