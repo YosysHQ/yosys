@@ -356,6 +356,11 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		rstval.optimize();
 		sig.optimize();
 
+		if (rstval == sig) {
+			rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.width);
+			sync_level = NULL;
+		}
+
 		if (sync_always) {
 			if (sync_edge || sync_level || many_async_rules.size() > 0)
 				log_error("Mixed always event with edge and/or level sensitive events!\n");
