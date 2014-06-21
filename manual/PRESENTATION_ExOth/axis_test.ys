@@ -1,0 +1,5 @@
+read_verilog -sv axis_master.v axis_test.v
+hierarchy -top axis_test
+
+proc; flatten;;
+sat -falsify -seq 50 -prove-asserts

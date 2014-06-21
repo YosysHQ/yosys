@@ -13,9 +13,9 @@ output [Y_WIDTH-1:0] Y;
 generate
   if ((A_WIDTH == 32) && (B_WIDTH == 32))
     begin
-      wire [15:0] CARRY = |{A[15:0], B[15:0]} && ~|Y[15:0];
-      assign Y[15:0] = A[15:0] + B[15:0];
-      assign Y[31:16] = A[31:16] + B[31:16] + CARRY;
+      wire [16:0] S1 = A[15:0] + B[15:0];
+      wire [15:0] S2 = A[31:16] + B[31:16] + S1[16];
+      assign Y = {S2[15:0], S1[15:0]};
     end
   else
     wire _TECHMAP_FAIL_ = 1;
