@@ -13,3 +13,9 @@ module demo_001(y1, y2, y3, y4);
 	assign y4 = p4 + 0.2;
 endmodule
 
+module demo_002(y1);
+	output [3:0] y1;
+
+	assign y1 = 1'bx >= (-1 * -1.17);
+endmodule
+
