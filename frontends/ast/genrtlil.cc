@@ -594,6 +594,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	AstNode *range = NULL;
 	AstNode *id_ast = NULL;
 
+	bool local_found_real = false;
+	if (found_real == NULL)
+		found_real = &local_found_real;
+
 	switch (type)
 	{
 	case AST_CONSTANT:
@@ -603,8 +607,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_REALVALUE:
-		if (found_real)
-			*found_real = true;
+		*found_real = true;
 		width_hint = std::max(width_hint, 32);
 		break;
 
@@ -787,6 +790,9 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		log_error("Don't know how to detect sign and width for %s node at %s:%d!\n",
 				type2str(type).c_str(), filename.c_str(), linenum);
 	}
+
+	if (*found_real)
+		sign_hint = true;
 }
 
 // detect sign and width of an expression
