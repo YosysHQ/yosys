@@ -713,7 +713,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_NEG:
 	case AST_BIT_NOT:
 	case AST_POS:
-		children[0]->detectSignWidthWorker(width_hint, sign_hint);
+		children[0]->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
 
 	case AST_BIT_AND:
@@ -721,7 +721,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_BIT_XOR:
 	case AST_BIT_XNOR:
 		for (auto child : children)
-			child->detectSignWidthWorker(width_hint, sign_hint);
+			child->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
 
 	case AST_REDUCE_AND:
@@ -738,7 +738,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_SHIFT_SLEFT:
 	case AST_SHIFT_SRIGHT:
 	case AST_POW:
-		children[0]->detectSignWidthWorker(width_hint, sign_hint);
+		children[0]->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
 
 	case AST_LT:
@@ -759,7 +759,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_DIV:
 	case AST_MOD:
 		for (auto child : children)
-			child->detectSignWidthWorker(width_hint, sign_hint);
+			child->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
 
 	case AST_LOGIC_AND:
@@ -770,8 +770,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_TERNARY:
-		children.at(1)->detectSignWidthWorker(width_hint, sign_hint);
-		children.at(2)->detectSignWidthWorker(width_hint, sign_hint);
+		children.at(1)->detectSignWidthWorker(width_hint, sign_hint, found_real);
+		children.at(2)->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
 
 	case AST_MEMRD:
