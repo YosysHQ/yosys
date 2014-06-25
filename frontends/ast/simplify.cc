@@ -247,6 +247,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	bool detect_width_simple = false;
 	bool child_0_is_self_determined = false;
 	bool child_1_is_self_determined = false;
+	bool child_2_is_self_determined = false;
 	bool children_are_self_determined = false;
 	bool reset_width_after_children = false;
 
@@ -367,6 +368,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		detectSignWidth(width_hint, sign_hint);
 	}
 
+	if (type == AST_TERNARY) {
+		int width_hint_left, width_hint_right;
+		bool sign_hint_left, sign_hint_right;
+		bool found_real_left, found_real_right;
+		children[1]->detectSignWidth(width_hint_left, sign_hint_left, &found_real_left);
+		children[2]->detectSignWidth(width_hint_right, sign_hint_right, &found_real_right);
+		if (found_real_left || found_real_right) {
+			child_1_is_self_determined = true;
+			child_2_is_self_determined = true;
+		}
+	}
+
 	// simplify all children first
 	// (iterate by index as e.g. auto wires can add new children in the process)
 	for (size_t i = 0; i < children.size(); i++) {
@@ -401,6 +414,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (i == 0 && child_0_is_self_determined)
 				width_hint_here = -1, sign_hint_here = false;
 			if (i == 1 && child_1_is_self_determined)
+				width_hint_here = -1, sign_hint_here = false;
+			if (i == 2 && child_2_is_self_determined)
 				width_hint_here = -1, sign_hint_here = false;
 			if (children_are_self_determined)
 				width_hint_here = -1, sign_hint_here = false;
@@ -1620,6 +1635,7 @@ skip_dynamic_range_lvalue_expansion:;
 						not_choice->detectSignWidth(other_width_hint, other_sign_hint, &other_real);
 						if (other_real) {
 							newNode = new AstNode(AST_REALVALUE);
+							choice->detectSignWidth(width_hint, sign_hint);
 							newNode->realvalue = choice->asReal(sign_hint);
 						} else {
 							RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
