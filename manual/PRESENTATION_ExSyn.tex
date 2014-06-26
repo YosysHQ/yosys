@@ -12,7 +12,7 @@
 \begin{frame}{\subsecname}
 \begin{itemize}
 \item Reading and elaborating the design
-\item High-level synthesis and optimization
+\item Higher-level synthesis and optimization
 \begin{itemize}
 \item Converting {\tt always}-blocks to logic and registers
 \item Perform coarse-grain optimizations (resource sharing, const folding, ...)
@@ -21,7 +21,7 @@
 \end{itemize}
 \item Convert remaining logic to bit-level logic functions
 \item Perform optimizations on bit-level logic functions
-\item Map bit-level logic and register to gates from cell library
+\item Map bit-level logic gates and registers to cell library
 \item Write results to output file 
 \end{itemize}
 \end{frame}
@@ -64,8 +64,8 @@ all needed variations of parametric modules.
 #
 hierarchy
 
-# recommended form. fail if parts of the design hierarchy are missing. remove
-# everything that is unreachable by the top module. mark the top module.
+# recommended form. fails if parts of the design hierarchy are missing, removes
+# everything that is unreachable from the top module, and marks the top module.
 #
 hierarchy -check -top top_module
 \end{lstlisting}
@@ -253,7 +253,7 @@ memory_dff
 # into one multi-port memory cell.
 memory_collect
 
-# this takes the multi-port memory cells and transforms it to address decoder
+# this takes the multi-port memory cell and transforms it to address decoder
 # logic and registers. This step is skipped if "memory" is called with -nomap.
 memory_map
 \end{lstlisting}
@@ -279,7 +279,7 @@ memory -nomap; techmap -map my_memory_map.v; memory_map
 \end{frame}
 
 \begin{frame}[t, fragile]{\subsecname{} -- Example 2/2}
-\vbox to 0cm{\hfill\includegraphics[width=7.5cm,trim=0cm 0cm 0cm -6cm]{PRESENTATION_ExSyn/memory_02.pdf}\vss}
+\vbox to 0cm{\hfill\includegraphics[width=7.5cm,trim=0cm 0cm 0cm -5cm]{PRESENTATION_ExSyn/memory_02.pdf}\vss}
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
@@ -303,11 +303,11 @@ fsm_detect          # unless got option -nodetect
 fsm_extract
 
 fsm_opt
-opt_clean
+clean
 fsm_opt
 
 fsm_expand          # if got option -expand
-opt_clean           # if got option -expand
+clean               # if got option -expand
 fsm_opt             # if got option -expand
 
 fsm_recode          # unless got option -norecode
@@ -366,7 +366,7 @@ When {\tt techmap} is used without a map file, it uses a built-in map file
 to map all RTL cell types to a generic library of built-in logic gates and registers.
 
 \bigskip
-\begin{block}{The build-in logic gate types are:}
+\begin{block}{The built-in logic gate types are:}
 {\tt \$\_INV\_ \$\_AND\_ \$\_OR\_ \$\_XOR\_ \$\_MUX\_}
 \end{block}
 
@@ -496,7 +496,7 @@ the next part (Section 3, ``Advanced Synthesis'') of this presentation.}
 \begin{itemize}
 \item Yosys provides commands for each phase of the synthesis.
 \item Each command solves a (more or less) simple problem.
-\item Complex command are often only front-ends to simple commands.
+\item Complex commands are often only front-ends to simple commands.
 \item {\tt proc; opt; memory; opt; fsm; opt; techmap; opt; abc;;}
 \end{itemize}
 

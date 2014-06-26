@@ -28,7 +28,7 @@ from other tools).
 
 \begin{itemize}
 \item
-The selection mechanism (see slides ``Using Selections''), especially pattern such
+The selection mechanism (see slides ``Using Selections''), especially patterns such
 as {\tt \%ci} and {\tt \%co}, can be used to figure out how parts of the design
 are connected.
 
@@ -53,9 +53,9 @@ read_verilog scrambler.v
 hierarchy; proc;;
 
 cd scrambler
-submod -name xorshift32 xs %c %ci %D \
-           %c %ci:+[D] %D %ci*:-$dff \
-           xs %co %ci %d
+submod -name xorshift32 \
+           xs %c %ci %D %c %ci:+[D] %D \
+           %ci*:-$dff xs %co %ci %d
 \end{lstlisting}
 \end{columns}
 

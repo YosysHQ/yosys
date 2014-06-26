@@ -5,6 +5,7 @@
 \sectionpage
 \end{frame}
 
+\iffalse
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Representations of (digital) Circuits}
@@ -51,6 +52,7 @@
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\fi
 
 \subsection{Levels of Abstraction for Digital Circuits}
 
@@ -74,7 +76,7 @@
 \only<6>{Physical Gate Level}%
 \only<7>{Switch Level}}
 \only<1>{
-	Overall view of the circuit: E.g. block-diagrams or instruction-set architecture descriptions
+	Overall view of the circuit. E.g. block-diagrams or instruction-set architecture descriptions.
 }%
 \only<2>{
 	Functional implementation of circuit in high-level programming language (C, C++, SystemC, Matlab, Python, etc.).
@@ -94,7 +96,7 @@
 \only<6>{
 	Netlist of cells that actually are available on the target architecture
 	(such as CMOS gates in an ASCI or LUTs in an FPGA). Optimized for
-	area and/or and/or speed (static timing or number of logic levels).
+	area, power, and/or speed (static timing or number of logic levels).
 }%
 \only<7>{
 	Netlist of individual transistors.
@@ -179,8 +181,8 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 	This scripts contain three types of commands:
 	\begin{itemize}
 	\item {\bf Frontends}, that read input files (usually Verilog).
-	\item {\bf Passes}, that perform transformation on the design in memory.
-	\item {\bf Backends}, that write the design in memory to a file (various formats are available, e.g. Verilog, BLIF, EDIF, SPICE, BTOR, etc.).
+	\item {\bf Passes}, that perform transformations on the design in memory.
+	\item {\bf Backends}, that write the design in memory to a file (various formats are available: Verilog, BLIF, EDIF, SPICE, BTOR, \dots).
 	\end{itemize}
 
 	\bigskip
@@ -247,26 +249,23 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Example Problem}
+\subsection{Example Project}
 
-\begin{frame}[fragile]{\subsecname{} -- Verilog Source: \tt counter.v}
-\lstinputlisting[xleftmargin=1cm, language=Verilog]{PRESENTATION_Intro/counter.v}
-\end{frame}
-
-\begin{frame}[fragile]{\subsecname{} -- Cell Library: \tt mycells.lib}
-\begin{columns}
-\column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, lastline=20]{PRESENTATION_Intro/mycells.lib}
-\column[t]{5cm}
-\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, firstline=21]{PRESENTATION_Intro/mycells.lib}
-\end{columns}
+\begin{frame}[t]{\subsecname}
+The following slides cover an example project. This project contains three files:
+\begin{itemize}
+\item A simple ASIC synthesis script
+\item A digital design written in Verilog
+\item A simple CMOS cell library
+\end{itemize}
+\vfill
+Direct link to the files: \\ \footnotesize
+\url{https://github.com/cliffordwolf/yosys/tree/master/manual/PRESENTATION_Intro}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Example Synthesis Script}
-
-\begin{frame}[t]{\subsecname}
+\begin{frame}[t]{\subsecname{} -- Synthesis Script}
 
 \setbeamercolor{alerted text}{fg=white,bg=red}
 
@@ -283,9 +282,6 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 \medskip
 {\color{YosysGreen}\# mapping to internal cell library}\\
 \boxalert<9>{techmap}; \boxalert<10>{opt}
-
-\bigskip
-\it continued\dots
 \end{minipage}
 \begin{minipage}[t]{5cm}
 \tt\scriptsize
@@ -327,7 +323,7 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 }%
 \only<2>{
 	Elaborate the design hierarchy. Should always be the first
-	command after reading the design.
+	command after reading the design. Can re-run AST front-end.
 }%
 \only<3>{
 	Convert ``processes'' (the internal representation of behavioral
@@ -373,6 +369,21 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\begin{frame}[fragile]{\subsecname{} -- Verilog Source: \tt counter.v}
+\lstinputlisting[xleftmargin=1cm, language=Verilog]{PRESENTATION_Intro/counter.v}
+\end{frame}
+
+\begin{frame}[fragile]{\subsecname{} -- Cell Library: \tt mycells.lib}
+\begin{columns}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, lastline=20]{PRESENTATION_Intro/mycells.lib}
+\column[t]{5cm}
+\lstinputlisting[basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=liberty, firstline=21]{PRESENTATION_Intro/mycells.lib}
+\end{columns}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \subsection{Running the Synthesis Script}
 
 \begin{frame}[t, fragile]{\subsecname{} -- Step 1/4}
@@ -410,8 +421,8 @@ abc -liberty mycells.lib
 clean
 \end{verbatim}
 
-\vfill
-\includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{PRESENTATION_Intro/counter_03.pdf}
+\vfill\hfil
+\includegraphics[width=10cm,trim=0 0cm 0 0cm]{PRESENTATION_Intro/counter_03.pdf}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -422,7 +433,7 @@ clean
 Command reference:
 \begin{itemize}
 \item Use ``{\tt help}'' for a command list and ``{\tt help \it command}'' for details.
-\item Or run ``{\tt yosys -H}'' and ``{\tt yosys -h \it command}''.
+\item Or run ``{\tt yosys -H}'' or ``{\tt yosys -h \it command}''.
 \item Or go to \url{http://www.clifford.at/yosys/documentation.html}.
 \end{itemize}
 
@@ -560,7 +571,7 @@ endmodule
 module cam(clk, wr_enable, wr_addr, wr_data, rd_data, rd_addr, rd_match);
     parameter WIDTH = 8;
     parameter DEPTH = 16;
-    localparam ADDR_BITS = $clog2(DEPTH);
+    localparam ADDR_BITS = $clog2(DEPTH-1);
 
     input clk, wr_enable;
     input [ADDR_BITS-1:0] wr_addr;
@@ -595,7 +606,7 @@ Contiously checking the correctness of Yosys and making sure that new features
 do not break old ones is a high priority in Yosys.
 
 \bigskip
-There are two external test suites build for Yosys: VlogHammer and yosys-bigsim
+Two external test suites have been built for Yosys: VlogHammer and yosys-bigsim
 (see next slides)
 
 \bigskip
@@ -608,8 +619,8 @@ the internal state after each command.
 
 \begin{frame}[fragile]{\subsecname{} -- VlogHammer}
 VlogHammer is a Verilog regression test suite developed to test the different
-subsystems in Yosys by comparing them to each other and the implementations
-generated by some proprietary tools (Xilinx Vivado, Xilinx XST, Altera Quartus II, ...).
+subsystems in Yosys by comparing them to each other and to the output created
+by some other tools (Xilinx Vivado, Xilinx XST, Altera Quartus II, ...).
 
 \bigskip
 Yosys Subsystems tested: Verilog frontend, const folding, const eval, technology mapping,
@@ -624,8 +635,8 @@ assign y11 = (~&(-{(-3'sd3),($unsigned($signed($unsigned({p0,b4,b1}))))}));
 \end{lstlisting}
 
 \bigskip
-Some bugs in Yosys where found and fixed thanks to VlogHammer. Over 20 bugs in
-the proprietary tools used as external reference where found and reported.
+Some bugs in Yosys where found and fixed thanks to VlogHammer. Over 50 bugs in
+the other tools used as external reference where found and reported so far.
 \end{frame}
 
 \begin{frame}{\subsecname{} -- yosys-bigsim}
@@ -634,7 +645,7 @@ benches. yosys-bigsim compares the testbench outpus of simulations of the origin
 Verilog code and synthesis results.
 
 \bigskip
-The following designs are part of yosys-bigsim:
+The following designs are included in yosys-bigsim (excerpt):
 \begin{itemize}
 \item {\tt openmsp430} -- an MSP430 compatible 16 bit CPU
 \item {\tt aes\_5cycle\_2stage} -- an AES encryption core
@@ -650,6 +661,19 @@ The following designs are part of yosys-bigsim:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Benefits of Open Source HDL Synthesis}
+
+\begin{frame}{\subsecname}
+\begin{itemize}
+\item Cost (also applies to ``free as in free beer'' solutions)
+\item Availablity and Reproducability
+\item Framework- and all-in-one-aspects
+\item Educational Tool
+\end{itemize}
+
+\bigskip
+
+Yosys is open source under the ISC license.
+\end{frame}
 
 \begin{frame}{\subsecname{} -- 1/3}
 \begin{itemize}
@@ -688,14 +712,13 @@ learn a new tool for each of this applications.
 \begin{frame}{\subsecname{} -- 3/3}
 \begin{itemize}
 \item Educational Tool: \smallskip\par
-Propritaery synthesis tools are at times where secretive about their inner
-workings. They often are ``black boxes'' where a design goes in and synthesis
-results come out. Yosys is very open about its internals and it is easy to
-observe the different steps of synthesis.
+Propritaery synthesis tools are at times very secretive about their inner
+workings. They often are ``black boxes''. Yosys is very open about its
+internals and it is easy to observe the different steps of synthesis.
 \end{itemize}
 
 \bigskip
-\begin{block}{BTW: Yosys is licensed under the ISC license:}
+\begin{block}{Yosys is licensed under the ISC license:}
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
 copyright notice and this permission notice appear in all copies.
@@ -743,24 +766,24 @@ but also formal verification, reverse engineering, ...}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{What the Yosys project needs from you}
+\subsection{Yosys needs you}
 
 \begin{frame}{\subsecname}
-We need you as an active user:
+\dots as an active user:
 \begin{itemize}
-\item Use Yosys for on your own designs
+\item Use Yosys for on your own projects
 \item .. even if you are not using it as final synthesis tool
 \item Join the discussion on the Subreddit
 \item Report bugs and send in feature requests
 \end{itemize}
 
 \bigskip
-We need you as a developer:
+\dots as a developer:
 \begin{itemize}
-\item Use Yosys as environment for your research work
+\item Use Yosys as environment for your (research) work
 \item .. you might also want to look into ABC for logic-level stuff
 \item Fork the project on github or create loadable plugins
-\item We desperately need a VHDL frontend or a VHDL-to-Verilog converter
+\item We need a VHDL frontend or a good VHDL-to-Verilog converter
 \end{itemize}
 \end{frame}
 

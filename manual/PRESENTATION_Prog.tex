@@ -1,5 +1,5 @@
 
-\section{Programming Yosys Extensions}
+\section{Writing Yosys extensions in C++}
 
 \begin{frame}
 \sectionpage
@@ -43,8 +43,9 @@
 \subsection{Simplified RTLIL Entity-Relationship Diagram}
 
 \begin{frame}{\subsecname}
-Between passses and frontends/backends the design in stored in Yosys' internal RTLIL (RTL Intermediate Language) format. For
-writing Yosys extensions it is key to understand this format.
+Between passses and frontends/backends the design is stored in Yosys' internal
+RTLIL (RTL Intermediate Language) format. For writing Yosys extensions it is
+key to understand this format.
 
 \bigskip
 \begin{center}
@@ -71,7 +72,8 @@ writing Yosys extensions it is key to understand this format.
 \subsection{RTLIL without memories and processes}
 
 \begin{frame}[fragile]{\subsecname}
-After the command {\tt proc} and {\tt memory} (or {\tt memory -nomap}), we are left with a much simpler version of RTLIL:
+After the commands {\tt proc} and {\tt memory} (or {\tt memory -nomap}), we are
+left with a much simpler version of RTLIL:
 
 \begin{center}
 \begin{tikzpicture}[scale=0.6, every node/.style={transform shape}]
@@ -85,7 +87,7 @@ After the command {\tt proc} and {\tt memory} (or {\tt memory -nomap}), we are l
 \end{center}
 
 \bigskip
-Many command simply choose to only work on this simpler version:
+Many commands simply choose to only work on this simpler version:
 \begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
 if (module->processes.size() != 0 || module->memories.size() != 0)
     log_error("This command does not operate on modules with processes "
@@ -256,7 +258,7 @@ a {\tt RTLIL::SigChunk}:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
 struct RTLIL::SigChunk {
     RTLIL::Wire *wire;
-    RTLIL::Const data; // only used if wire == NULL, LSB at index 0
+    RTLIL::Const data; // only used if wire == NULL
     int width, offset;
     ...
 };
@@ -276,7 +278,7 @@ manipulate instances of {\tt RTLIL::SigSpec}.
 \subsubsection{The RTLIL::Cell Structure}
 
 \begin{frame}[t, fragile]{\subsubsecname (1/2)}
-The {\tt RTLIL::Cell} strcut represents an instance of a module or library cell.
+The {\tt RTLIL::Cell} struct represents an instance of a module or library cell.
 
 \smallskip
 The ports of the cell
@@ -310,7 +312,7 @@ $_DLATCHSR_NPN_ $_DLATCHSR_NPP_ $_DLATCHSR_PNN_ $_DLATCHSR_PNP_ $_DLATCHSR_PPN_ 
 \end{frame}
 
 \begin{frame}[t, fragile]{\subsubsecname (2/2)}
-Simulation models (i.e. {\it documentation\/}) for the internal cell library:
+Simulation models (i.e. {\it documentation\/} :-) for the internal cell library:
 
 \smallskip
 \hskip2em {\tt yosys/techlibs/common/simlib.v} and \\
@@ -318,11 +320,11 @@ Simulation models (i.e. {\it documentation\/}) for the internal cell library:
 
 \bigskip
 The lower-case cell types (such as {\tt \$and}) are parameterized cells of variable
-width. This so-called {\it RTL cells\/} are the cells described in {\tt simlib.v}. 
+width. This so-called {\it RTL Cells\/} are the cells described in {\tt simlib.v}. 
 
 \bigskip
-The upper-case cell types (such as {\tt \$\_AND\_}) single-bit cells that are not
-parameterized. This so-called {\it internal Logic Gates} are the cells described
+The upper-case cell types (such as {\tt \$\_AND\_}) are single-bit cells that are not
+parameterized. This so-called {\it Internal Logic Gates} are the cells described
 in {\tt simcells.v}.
 
 \bigskip
