@@ -192,6 +192,14 @@ for the given cell library:
 If you do not have a liberty file but want to test this synthesis script,
 you can use the file techlibs/cmos/cmos_cells.lib from the yosys sources.
 
+Various more complex liberty files (for testing) can be found here:
+
+	http://vlsiarch.ecen.okstate.edu/flows/MOSIS_SCMOS/latest/..
+		../cadence/lib/tsmc025/signalstorm/osu025_stdcells.lib
+		../cadence/lib/ami035/signalstorm/osu035_stdcells.lib
+		../cadence/lib/tsmc018/signalstorm/osu018_stdcells.lib
+		../cadence/lib/ami05/signalstorm/osu05_stdcells.lib
+
 Yosys is under construction. A more detailed documentation will follow.
 
 
