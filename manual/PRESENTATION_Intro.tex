@@ -599,6 +599,23 @@ endmodule
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\subsection{Currently unsupported Verilog-2005 language features}
+
+\begin{frame}{\subsecname}
+\begin{itemize}
+\item Multi-dimensional arrays (memories)
+\item Writing to arrays using bit- and part-selects (todo for 0.4.0)
+\item The wor/wand wire types (maybe for 0.4.0)
+\item Tri-state logic
+
+\bigskip
+\item Latched logic (is synthesized as logic with feedback loops)
+\item Some non-synthesizable features that should be ignored in synthesis are not supported by the parser and cause a parser error (file a bug report if you encounter this problem)
+\end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \subsection{Verification of Yosys}
 
 \begin{frame}{\subsecname}
@@ -739,6 +756,67 @@ copyright notice and this permission notice appear in all copies.
 \item Framework for experimenting with new algorithms
 \item Framework for building custom flows\footnote[frame]{Not limited to synthesis
 but also formal verification, reverse engineering, ...}
+\end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Projects (that I know of) using Yosys}
+
+\begin{frame}{\subsecname{} -- (1/2)}
+\begin{itemize}
+\item Ongoing PhD project on coarse grain synthesis \\
+{\setlength{\parindent}{0.5cm}\footnotesize
+Johann Glaser and Clifford Wolf. Methodology and Example-Driven Interconnect
+Synthesis for Designing Heterogeneous Coarse-Grain Reconfigurable
+Architectures. In Jan Haase, editor, \it Models, Methods, and Tools for Complex
+Chip Design. Lecture Notes in Electrical Engineering. Volume 265, 2014, pp
+201-221. Springer, 2013.}
+
+\bigskip
+\item I know several people that use Yosys simply as Verilog frontend for other
+flows (using either the BLIF and BTOR backends).
+
+\bigskip
+\item I know some analog chip designers that use Yosys for small digital
+control logic because it is simpler than setting up a commercial flow.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{\subsecname{} -- (2/2)}
+\begin{itemize}
+\item Efabless
+\begin{itemize}
+\smallskip \item Not much information on the website (\url{http://efabless.com}) yet.
+\smallskip \item Very cheap 180nm prototyping process (partnering with various fabs)
+\smallskip \item A semiconductor company, NOT an EDA company
+\smallskip \item Web-based design environment
+\smallskip \item HDL Synthesis using Yosys
+\smallskip \item Custom place\&route tool
+
+\bigskip
+\item efabless is building an Open Source IC as reference design. \\
+\hskip1cm (to be announced soon: \url{http://www.openic.io})
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Supported Platforms}
+
+\begin{frame}{\subsecname}
+\begin{itemize}
+\item Main development OS: Kubuntu 14.04
+\item There is a PPA for ubuntu (not maintained by me)
+\item Any current Debian-based system should work out of the box
+\item When building on other Linux distributions:
+\begin{itemize}
+\item Needs compiler with some C++11 support
+\item Post to the subreddit if you get stuck
+\end{itemize}
+\item Ported to OS X (Darwin) and OpenBSD
+\item No win32 support (yet)
 \end{itemize}
 \end{frame}
 
