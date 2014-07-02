@@ -1140,6 +1140,13 @@ basic_expr:
 		delete $1;
 		delete $2;
 	} |
+	TOK_CONST TOK_CONST {
+		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
+		if ($$ == NULL || (*$2)[0] != '\'')
+			log_error("Value conversion failed: `%s%s'\n", $1->c_str(), $2->c_str());
+		delete $1;
+		delete $2;
+	} |
 	TOK_CONST {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back());
 		if ($$ == NULL)
