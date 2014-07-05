@@ -103,10 +103,30 @@ struct SatHelper
 			RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
 			log_assert(lhs.width == rhs.width);
 
-			log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
-			big_lhs.remove2(lhs, &big_rhs);
-			big_lhs.append(lhs);
-			big_rhs.append(rhs);
+			RTLIL::SigSpec removed_bits;
+			for (int i = 0; i < lhs.width; i++) {
+				RTLIL::SigSpec bit = lhs.extract(i, 1);
+				if (!satgen.initial_state.check_all(bit)) {
+					removed_bits.append(bit);
+					lhs.remove(i, 1);
+					rhs.remove(i, 1);
+					i--;
+				}
+			}
+
+			lhs.optimize();
+			rhs.optimize();
+			removed_bits.optimize();
+
+			if (removed_bits.width)
+				log("Warning: ignoring initial value on non-register: %s\n", log_signal(removed_bits));
+
+			if (lhs.width) {
+				log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
+				big_lhs.remove2(lhs, &big_rhs);
+				big_lhs.append(lhs);
+				big_rhs.append(rhs);
+			}
 		}
 
 		for (auto &s : sets_init)
