@@ -54,6 +54,8 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 	if (command == "auto") {
 		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
 			command = "verilog";
+		else if (filename.size() > 2 && filename.substr(filename.size()-3) == ".sv")
+			command = "verilog -sv";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
 			command = "ilang";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".ys")
