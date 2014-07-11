@@ -423,6 +423,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (did_something_here)
 				did_something = true;
 		}
+		if (stage == 2 && children[i]->type == AST_INITIAL && current_ast_mod != this) {
+			current_ast_mod->children.push_back(children[i]);
+			children.erase(children.begin() + (i--));
+			did_something = true;
+		}
 	}
 	for (auto &attr : attributes) {
 		while (attr.second->simplify(true, false, false, stage, -1, false, true))
