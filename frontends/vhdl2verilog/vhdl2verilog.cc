@@ -45,12 +45,24 @@ struct Vhdl2verilogPass : public Pass {
 		log("        specified file.\n");
 		log("\n");
 		log("    -vhdl2verilog_dir <directory>\n");
-		log("        do use the specified vhdl2verilog installations. this is the directory\n");
+		log("        do use the specified vhdl2verilog installation. this is the directory\n");
 		log("        that contains the setup_env.sh file. when this option is not present,\n");
 		log("        it is assumed that vhdl2verilog is in the PATH environment variable.\n");
 		log("\n");
 		log("    -top <top-entity-name>\n");
 		log("        The name of the top entity. This option is mandatory.\n");
+		log("\n");
+		log("The following options are passed as-is to vhdl2verilog:\n");
+		log("\n");
+		log("    -arch <architecture_name>\n");
+		log("    -unroll_generate\n");
+		log("    -nogenericeval\n");
+		log("    -nouniquify\n");
+		log("    -oldparser\n");
+		log("    -suppress <list>\n");
+		log("    -quiet\n");
+		log("    -nobanner\n");
+		log("    -mapfile <file>\n");
 		log("\n");
 		log("vhdl2verilog can be obtained from:\n");
 		log("http://www.edautils.com/vhdl2verilog.html\n");
@@ -63,6 +75,7 @@ struct Vhdl2verilogPass : public Pass {
 
 		std::string out_file, top_entity;
 		std::string vhdl2verilog_dir;
+		std::string extra_opts;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -76,6 +89,24 @@ struct Vhdl2verilogPass : public Pass {
 			}
 			if (args[argidx] == "-vhdl2verilog_dir" && argidx+1 < args.size()) {
 				vhdl2verilog_dir = args[++argidx];
+				continue;
+			}
+			if ((args[argidx] == "-arch" || args[argidx] == "-suppress" || args[argidx] == "-mapfile") && argidx+1 < args.size()) {
+				if (args[argidx] == "-mapfile" && !args[argidx+1].empty() && args[argidx+1][0] != '/') {
+					char pwd[PATH_MAX];
+					if (!getcwd(pwd, sizeof(pwd))) {
+						log_cmd_error("getcwd failed: %s", strerror(errno));
+						log_abort();
+					}
+					args[argidx+1] = pwd + ("/" + args[argidx+1]);
+				}
+				extra_opts += std::string(" ") + args[argidx];
+				extra_opts += std::string(" '") + args[++argidx] + std::string("'");
+				continue;
+			}
+			if (args[argidx] == "-unroll_generate" || args[argidx] == "-nogenericeval" || args[argidx] == "-nouniquify" ||
+					args[argidx] == "-oldparser" || args[argidx] == "-quiet" || args[argidx] == "-nobanner") {
+				extra_opts += std::string(" ") + args[argidx];
 				continue;
 			}
 			break;
@@ -95,7 +126,7 @@ struct Vhdl2verilogPass : public Pass {
 			log_error("For some reason mkdtemp() failed!\n");
 
 		if (!out_file.empty() && out_file[0] != '/') {
-			char pwd [PATH_MAX];
+			char pwd[PATH_MAX];
 			if (!getcwd(pwd, sizeof(pwd))) {
 				log_cmd_error("getcwd failed: %s", strerror(errno));
 				log_abort();
@@ -109,7 +140,7 @@ struct Vhdl2verilogPass : public Pass {
 			if (file.empty())
 				continue;
 			if (file[0] != '/') {
-				char pwd [PATH_MAX];
+				char pwd[PATH_MAX];
 				if (!getcwd(pwd, sizeof(pwd))) {
 					log_cmd_error("getcwd failed: %s", strerror(errno));
 					log_abort();
@@ -124,8 +155,8 @@ struct Vhdl2verilogPass : public Pass {
 		std::string command = "exec 2>&1; ";
 		if (!vhdl2verilog_dir.empty())
 			command += stringf("cd '%s'; . ./setup_env.sh; ", vhdl2verilog_dir.c_str());
-		command += stringf("cd '%s'; vhdl2verilog -out '%s' -filelist files.list -top '%s'", tempdir_name,
-				out_file.empty() ? "vhdl2verilog_output.v" : out_file.c_str(), top_entity.c_str());
+		command += stringf("cd '%s'; vhdl2verilog -out '%s' -filelist files.list -top '%s'%s", tempdir_name,
+				out_file.empty() ? "vhdl2verilog_output.v" : out_file.c_str(), top_entity.c_str(), extra_opts.c_str());
 
 		log("Running '%s'..\n", command.c_str());
 
