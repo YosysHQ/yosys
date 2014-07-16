@@ -11,17 +11,20 @@ backend_opts="-noattr -noexpr"
 scriptfiles=""
 scriptopt=""
 toolsdir="$(cd $(dirname $0); pwd)"
+warn_iverilog_git=false
 
 if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
 	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xml:wkvrf:s:p: opt; do
+while getopts xmGl:wkvrf:s:p: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
 		m)
 			use_modelsim=true ;;
+		G)
+			warn_iverilog_git=true ;;
 		l)
 			libs="$libs $(cd $(dirname $OPTARG); pwd)/$(basename $OPTARG)";;
 		w)
@@ -145,7 +148,13 @@ do
 	elif [ -f ${bn}.skip ]; then
 		mv ${bn}.err ${bn}.skip
 		echo "-> skip"
-	else echo "-> ERROR!"; $keeprunning || exit 1; fi
+	else
+		echo "-> ERROR!"
+		if $warn_iverilog_git; then
+			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of icarus verilog."
+		fi
+		$keeprunning || exit 1
+	fi
 done
 
 exit 0

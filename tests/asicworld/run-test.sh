@@ -1,2 +1,2 @@
 #!/bin/bash
-exec bash ../tools/autotest.sh *.v
+exec bash ../tools/autotest.sh -G *.v
