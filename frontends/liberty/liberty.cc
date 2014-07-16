@@ -537,7 +537,7 @@ struct LibertyFrontend : public Frontend {
 			for (auto node : cell->children)
 				if (node->id == "pin" && node->args.size() == 1) {
 					LibertyAst *dir = node->find("direction");
-					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "internal"))
+					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
 					{
 						if (!flag_ignore_miss_dir)
 						{
@@ -569,6 +569,11 @@ struct LibertyFrontend : public Frontend {
 						continue;
 
 					RTLIL::Wire *wire = module->wires.at(RTLIL::escape_id(node->args.at(0)));
+
+					if (dir && dir->value == "inout") {
+						wire->port_input = true;
+						wire->port_output = true;
+					}
 
 					if (dir && dir->value == "input") {
 						wire->port_input = true;
