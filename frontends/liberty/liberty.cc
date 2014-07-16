@@ -528,6 +528,9 @@ struct LibertyFrontend : public Frontend {
 			RTLIL::Module *module = new RTLIL::Module;
 			module->name = cell_name;
 
+			if (flag_lib)
+				module->set_bool_attribute("\\blackbox");
+
 			for (auto &attr : attributes)
 				module->attributes[attr] = 1;
 
