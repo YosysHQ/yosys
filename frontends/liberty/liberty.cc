@@ -538,9 +538,9 @@ struct LibertyFrontend : public Frontend {
 					{
 						if (!flag_ignore_miss_dir)
 						{
-							log_error("Missing or invalid dircetion for pin %s of cell %s.\n", node->args.at(0).c_str(), RTLIL::id2cstr(module->name));
+							log_error("Missing or invalid direction for pin %s of cell %s.\n", node->args.at(0).c_str(), RTLIL::id2cstr(module->name));
 						} else {
-							log("Ignoring cell %s with missing or invalid dircetion for pin %s.\n", RTLIL::id2cstr(module->name), node->args.at(0).c_str());
+							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", RTLIL::id2cstr(module->name), node->args.at(0).c_str());
 							delete module;
 							goto skip_cell;
 						}
