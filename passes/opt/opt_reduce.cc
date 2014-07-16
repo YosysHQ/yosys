@@ -171,6 +171,66 @@ struct OptReduceWorker
 		}
 	}
 
+	void opt_mux_bits(RTLIL::Cell *cell)
+	{
+		std::vector<RTLIL::SigBit> sig_a = assign_map(cell->connections["\\A"]).to_sigbit_vector();
+		std::vector<RTLIL::SigBit> sig_b = assign_map(cell->connections["\\B"]).to_sigbit_vector();
+		std::vector<RTLIL::SigBit> sig_y = assign_map(cell->connections["\\Y"]).to_sigbit_vector();
+
+		std::vector<RTLIL::SigBit> new_sig_y;
+		RTLIL::SigSig old_sig_conn;
+
+		std::vector<std::vector<RTLIL::SigBit>> consolidated_in_tuples;
+		std::map<std::vector<RTLIL::SigBit>, RTLIL::SigBit> consolidated_in_tuples_map;
+
+		for (int i = 0; i < int(sig_y.size()); i++)
+		{
+			std::vector<RTLIL::SigBit> in_tuple;
+			in_tuple.push_back(sig_a.at(i));
+			for (int j = i; j < int(sig_b.size()); j += int(sig_a.size()))
+				in_tuple.push_back(sig_b.at(j));
+
+			if (consolidated_in_tuples_map.count(in_tuple))
+			{
+				old_sig_conn.first.append_bit(sig_y.at(i));
+				old_sig_conn.second.append_bit(consolidated_in_tuples_map.at(in_tuple));
+			}
+			else
+			{
+				consolidated_in_tuples_map[in_tuple] = sig_y.at(i);
+				consolidated_in_tuples.push_back(in_tuple);
+				new_sig_y.push_back(sig_y.at(i));
+			}
+		}
+
+		if (new_sig_y.size() != sig_y.size())
+		{
+			log("    Consolidated identical input bits for %s cell %s:\n", cell->type.c_str(), cell->name.c_str());
+			log("      Old inputs: A=%s, B=%s\n", log_signal(cell->connections["\\A"]), log_signal(cell->connections["\\B"]));
+
+			cell->connections["\\A"] = RTLIL::SigSpec();
+			for (auto &in_tuple : consolidated_in_tuples)
+				cell->connections["\\A"].append(in_tuple.at(0));
+
+			cell->connections["\\B"] = RTLIL::SigSpec();
+			for (int i = 1; i <= cell->connections["\\S"].width; i++)
+				for (auto &in_tuple : consolidated_in_tuples)
+					cell->connections["\\B"].append(in_tuple.at(i));
+
+			log("      New inputs: A=%s, B=%s\n", log_signal(cell->connections["\\A"]), log_signal(cell->connections["\\B"]));
+
+			cell->parameters["\\WIDTH"] = RTLIL::Const(new_sig_y.size());
+			cell->connections["\\Y"] = new_sig_y;
+
+			module->connections.push_back(old_sig_conn);
+			module->check();
+
+			did_something = true;
+			OPT_DID_SOMETHING = true;
+			total_count++;
+		}
+	}
+
 	OptReduceWorker(RTLIL::Design *design, RTLIL::Module *module) :
 			design(design), module(module), assign_map(module)
 	{
@@ -178,6 +238,20 @@ struct OptReduceWorker
 
 		total_count = 0;
 		did_something = true;
+
+		SigPool mem_wren_sigs;
+		for (auto &cell_it : module->cells) {
+			RTLIL::Cell *cell = cell_it.second;
+			if (cell->type == "$mem")
+				mem_wren_sigs.add(assign_map(cell->connections["\\WR_EN"]));
+			if (cell->type == "$memwr")
+				mem_wren_sigs.add(assign_map(cell->connections["\\EN"]));
+		}
+		for (auto &cell_it : module->cells) {
+			RTLIL::Cell *cell = cell_it.second;
+			if (cell->type == "$dff" && mem_wren_sigs.check_any(assign_map(cell->connections["\\Q"])))
+				mem_wren_sigs.add(assign_map(cell->connections["\\D"]));
+		}
 
 		while (did_something)
 		{
@@ -213,6 +287,12 @@ struct OptReduceWorker
 				RTLIL::Cell *cell = cell_it.second;
 				if ((cell->type != "$mux" && cell->type != "$pmux" && cell->type != "$safe_pmux") || !design->selected(module, cell))
 					continue;
+
+				// this optimization is to aggressive for most coarse-grain applications.
+				// but we always want it for multiplexers driving write enable ports.
+				if (mem_wren_sigs.check_any(assign_map(cell->connections.at("\\Y"))))
+					opt_mux_bits(cell);
+
 				opt_mux(cell);
 			}
 		}
