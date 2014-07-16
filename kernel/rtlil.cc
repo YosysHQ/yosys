@@ -619,7 +619,7 @@ namespace {
 				param_bool("\\CLK_POLARITY");
 				param("\\PRIORITY");
 				port("\\CLK", 1);
-				port("\\EN", 1);
+				port("\\EN", param("\\WIDTH"));
 				port("\\ADDR", param("\\ABITS"));
 				port("\\DATA", param("\\WIDTH"));
 				check_expected();
@@ -639,7 +639,7 @@ namespace {
 				port("\\RD_ADDR", param("\\RD_PORTS") * param("\\ABITS"));
 				port("\\RD_DATA", param("\\RD_PORTS") * param("\\WIDTH"));
 				port("\\WR_CLK", param("\\WR_PORTS"));
-				port("\\WR_EN", param("\\WR_PORTS"));
+				port("\\WR_EN", param("\\WR_PORTS") * param("\\WIDTH"));
 				port("\\WR_ADDR", param("\\WR_PORTS") * param("\\ABITS"));
 				port("\\WR_DATA", param("\\WR_PORTS") * param("\\WIDTH"));
 				check_expected();

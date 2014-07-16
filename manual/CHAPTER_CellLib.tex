@@ -256,8 +256,9 @@ If this parameter is set to {\tt 1'b1}, a read and write to the same address in 
 return the new value. Otherwise the old value is returned.
 \end{itemize}
 
-The {\tt \$memwr} cells have a clock input \B{CLK}, an enable input \B{EN}, an address input \B{ADDR}
-and a data input \B{DATA}. They also have the following parameters:
+The {\tt \$memwr} cells have a clock input \B{CLK}, an enable input \B{EN} (one
+enable bit for each data bit), an address input \B{ADDR} and a data input
+\B{DATA}. They also have the following parameters:
 
 \begin{itemize}
 \item \B{MEMID} \\
@@ -341,7 +342,7 @@ This input is \B{RD\_PORTS}*\B{WIDTH} bits wide, containing all data signals for
 This input is \B{WR\_PORTS} bits wide, containing all clock signals for the write ports.
 
 \item \B{WR\_EN} \\
-This input is \B{WR\_PORTS} bits wide, containing all enable signals for the write ports.
+This input is \B{WR\_PORTS}*\B{WIDTH} bits wide, containing all enable signals for the write ports.
 
 \item \B{WR\_ADDR} \\
 This input is \B{WR\_PORTS}*\B{ABITS} bits wide, containing all address signals for the write ports.
