@@ -69,8 +69,8 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec refclock;
 	RTLIL::State refclock_pol = RTLIL::State::Sx;
 	for (int i = 0; i < clocks.width; i++) {
-		RTLIL::SigSpec wr_en = cell->connections["\\WR_EN"].extract(i, 1);
-		if (wr_en.is_fully_const() && wr_en.as_int() == 0) {
+		RTLIL::SigSpec wr_en = cell->connections["\\WR_EN"].extract(i * mem_width, mem_width);
+		if (wr_en.is_fully_const() && !wr_en.as_bool()) {
 			static_ports.insert(i);
 			continue;
 		}
@@ -256,7 +256,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 		{
 			RTLIL::SigSpec wr_addr = cell->connections["\\WR_ADDR"].extract(j*mem_abits, mem_abits);
 			RTLIL::SigSpec wr_data = cell->connections["\\WR_DATA"].extract(j*mem_width, mem_width);
-			RTLIL::SigSpec wr_en = cell->connections["\\WR_EN"].extract(j, 1);
+			RTLIL::SigSpec wr_en = cell->connections["\\WR_EN"].extract(j*mem_width, mem_width);
 
 			RTLIL::Cell *c = new RTLIL::Cell;
 			c->name = genid(cell->name, "$wreq", i, "", j);
@@ -271,46 +271,64 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			module->cells[c->name] = c;
 			count_wrmux++;
 
-			RTLIL::Wire *w = new RTLIL::Wire;
-			w->name = genid(cell->name, "$wreq", i, "", j, "$y");
-			module->wires[w->name] = w;
-			c->connections["\\Y"] = RTLIL::SigSpec(w);
+			RTLIL::Wire *w_seladdr = new RTLIL::Wire;
+			w_seladdr->name = genid(cell->name, "$wreq", i, "", j, "$y");
+			module->wires[w_seladdr->name] = w_seladdr;
+			c->connections["\\Y"] = w_seladdr;
 
-			if (wr_en != RTLIL::SigSpec(1, 1))
+			int wr_offset = 0;
+			while (wr_offset < wr_en.width)
 			{
+				int wr_width = 1;
+				RTLIL::SigSpec wr_bit = wr_en.extract(wr_offset, 1);
+
+				while (wr_offset + wr_width < wr_en.width) {
+					RTLIL::SigSpec next_wr_bit = wr_en.extract(wr_offset + wr_width, 1);
+					if (next_wr_bit != wr_bit)
+						break;
+					wr_width++;
+				}
+
+				RTLIL::Wire *w = w_seladdr;
+
+				if (wr_bit != RTLIL::SigSpec(1, 1))
+				{
+					c = new RTLIL::Cell;
+					c->name = genid(cell->name, "$wren", i, "", j, "", wr_offset);
+					c->type = "$and";
+					c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
+					c->parameters["\\B_SIGNED"] = RTLIL::Const(0);
+					c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
+					c->parameters["\\B_WIDTH"] = RTLIL::Const(1);
+					c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
+					c->connections["\\A"] = w;
+					c->connections["\\B"] = wr_bit;
+					module->cells[c->name] = c;
+
+					w = new RTLIL::Wire;
+					w->name = genid(cell->name, "$wren", i, "", j, "", wr_offset, "$y");
+					module->wires[w->name] = w;
+					c->connections["\\Y"] = RTLIL::SigSpec(w);
+				}
+
 				c = new RTLIL::Cell;
-				c->name = genid(cell->name, "$wren", i, "", j);
-				c->type = "$and";
-				c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-				c->parameters["\\B_SIGNED"] = RTLIL::Const(0);
-				c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
-				c->parameters["\\B_WIDTH"] = RTLIL::Const(1);
-				c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-				c->connections["\\A"] = RTLIL::SigSpec(w);
-				c->connections["\\B"] = wr_en;
+				c->name = genid(cell->name, "$wrmux", i, "", j, "", wr_offset);
+				c->type = "$mux";
+				c->parameters["\\WIDTH"] = wr_width;
+				c->connections["\\A"] = sig.extract(wr_offset, wr_width);
+				c->connections["\\B"] = wr_data.extract(wr_offset, wr_width);
+				c->connections["\\S"] = RTLIL::SigSpec(w);
 				module->cells[c->name] = c;
 
 				w = new RTLIL::Wire;
-				w->name = genid(cell->name, "$wren", i, "", j, "$y");
+				w->name = genid(cell->name, "$wrmux", i, "", j, "", wr_offset, "$y");
+				w->width = wr_width;
 				module->wires[w->name] = w;
-				c->connections["\\Y"] = RTLIL::SigSpec(w);
+				c->connections["\\Y"] = w;
+
+				sig.replace(wr_offset, w);
+				wr_offset += wr_width;
 			}
-
-			c = new RTLIL::Cell;
-			c->name = genid(cell->name, "$wrmux", i, "", j);
-			c->type = "$mux";
-			c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
-			c->connections["\\A"] = sig;
-			c->connections["\\B"] = wr_data;
-			c->connections["\\S"] = RTLIL::SigSpec(w);
-			module->cells[c->name] = c;
-
-			w = new RTLIL::Wire;
-			w->name = genid(cell->name, "$wrmux", i, "", j, "$y");
-			w->width = mem_width;
-			module->wires[w->name] = w;
-			c->connections["\\Y"] = RTLIL::SigSpec(w);
-			sig = RTLIL::SigSpec(w);
 		}
 
 		module->connections.push_back(RTLIL::SigSig(data_reg_in[i], sig));

@@ -74,7 +74,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\PRIORITY"] = i;
 		cell->connections["\\CLK"] = memory->connections.at("\\WR_CLK").extract(i, 1);
-		cell->connections["\\EN"] = memory->connections.at("\\WR_EN").extract(i, 1);
+		cell->connections["\\EN"] = memory->connections.at("\\WR_EN").extract(i*mem->width, mem->width);
 		cell->connections["\\ADDR"] = memory->connections.at("\\WR_ADDR").extract(i*abits, abits);
 		cell->connections["\\DATA"] = memory->connections.at("\\WR_DATA").extract(i*mem->width, mem->width);
 		module->add(cell);

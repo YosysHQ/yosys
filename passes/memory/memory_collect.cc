@@ -88,7 +88,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			clk_polarity.extend(1, false);
 			addr.extend(addr_bits, false);
 			data.extend(memory->width, false);
-			en.extend(1, false);
+			en.extend(memory->width, false);
 
 			sig_wr_clk.append(clk);
 			sig_wr_clk_enable.append(clk_enable);
@@ -147,7 +147,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	assert(sig_wr_clk_polarity.width == wr_ports && sig_wr_clk_polarity.is_fully_const());
 	assert(sig_wr_addr.width == wr_ports * addr_bits);
 	assert(sig_wr_data.width == wr_ports * memory->width);
-	assert(sig_wr_en.width == wr_ports);
+	assert(sig_wr_en.width == wr_ports * memory->width);
 
 	mem->parameters["\\WR_PORTS"] = RTLIL::Const(wr_ports);
 	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.chunks[0].data : RTLIL::Const(0, 0);
