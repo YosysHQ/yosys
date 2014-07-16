@@ -1264,7 +1264,8 @@ parameter WIDTH = 8;
 parameter CLK_ENABLE = 0;
 parameter CLK_POLARITY = 0;
 
-input CLK, EN;
+input CLK;
+input [WIDTH-1:0] EN;
 input [ABITS-1:0] ADDR;
 input [WIDTH-1:0] DATA;
 
@@ -1300,7 +1301,8 @@ input [RD_PORTS-1:0] RD_CLK;
 input [RD_PORTS*ABITS-1:0] RD_ADDR;
 output reg [RD_PORTS*WIDTH-1:0] RD_DATA;
 
-input [WR_PORTS-1:0] WR_CLK, WR_EN;
+input [WR_PORTS-1:0] WR_CLK;
+input [WR_PORTS*WIDTH-1:0] WR_EN;
 input [WR_PORTS*ABITS-1:0] WR_ADDR;
 input [WR_PORTS*WIDTH-1:0] WR_DATA;
 
@@ -1338,46 +1340,69 @@ generate
 	end
 
 	for (i = 0; i < WR_PORTS; i = i+1) begin:wr
-		integer k;
-		reg found_collision;
+		integer k, n;
+		reg found_collision, run_update;
 		if (WR_CLK_ENABLE[i] == 0) begin:wr_noclk
 			always @(WR_ADDR or WR_DATA or WR_EN) begin
-				if (WR_EN[i]) begin
-					found_collision = 0;
-					for (k = i+1; k < WR_PORTS; k = k+1)
-						if (WR_EN[k] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
-							found_collision = 1;
-					if (!found_collision) begin
-						data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ] <= WR_DATA[ i*WIDTH +: WIDTH ];
-						update_async_rd <= 1; update_async_rd <= 0;
+				run_update = 0;
+				for (n = 0; n < WIDTH; n = n+1) begin
+					if (WR_EN[i][n]) begin
+						found_collision = 0;
+						for (k = i+1; k < WR_PORTS; k = k+1)
+							if (WR_EN[k][n] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
+								found_collision = 1;
+						if (!found_collision) begin
+							data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ][n] <= WR_DATA[ i*WIDTH +: WIDTH ][n];
+							run_update = 1;
+						end
 					end
+				end
+				if (run_update) begin
+					update_async_rd <= 1;
+					update_async_rd <= 0;
 				end
 			end
 		end else
 		if (WR_CLK_POLARITY[i] == 1) begin:rd_posclk
-			always @(posedge WR_CLK[i])
-				if (WR_EN[i]) begin
-					found_collision = 0;
-					for (k = i+1; k < WR_PORTS; k = k+1)
-						if (WR_EN[k] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
-							found_collision = 1;
-					if (!found_collision) begin
-						data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ] <= WR_DATA[ i*WIDTH +: WIDTH ];
-						update_async_rd <= 1; update_async_rd <= 0;
+			always @(posedge WR_CLK[i]) begin
+				run_update = 0;
+				for (n = 0; n < WIDTH; n = n+1) begin
+					if (WR_EN[i][n]) begin
+						found_collision = 0;
+						for (k = i+1; k < WR_PORTS; k = k+1)
+							if (WR_EN[k][n] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
+								found_collision = 1;
+						if (!found_collision) begin
+							data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ][n] <= WR_DATA[ i*WIDTH +: WIDTH ][n];
+							run_update = 1;
+						end
 					end
 				end
+				if (run_update) begin
+					update_async_rd <= 1;
+					update_async_rd <= 0;
+				end
+			end
 		end else begin:rd_negclk
-			always @(negedge WR_CLK[i])
-				if (WR_EN[i]) begin
-					found_collision = 0;
-					for (k = i+1; k < WR_PORTS; k = k+1)
-						if (WR_EN[k] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
-							found_collision = 1;
-					if (!found_collision) begin
-						data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ] <= WR_DATA[ i*WIDTH +: WIDTH ];
-						update_async_rd <= 1; update_async_rd <= 0;
+			always @(negedge WR_CLK[i]) begin
+				run_update = 0;
+				for (n = 0; n < WIDTH; n = n+1) begin
+					if (WR_EN[i][n]) begin
+						found_collision = 0;
+						for (k = i+1; k < WR_PORTS; k = k+1)
+							if (WR_EN[k][n] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
+								found_collision = 1;
+						if (!found_collision) begin
+							data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ][n] <= WR_DATA[ i*WIDTH +: WIDTH ][n];
+							run_update = 1;
+						end
 					end
 				end
+				if (run_update) begin
+					update_async_rd <= 1;
+					update_async_rd <= 0;
+				end
+			end
 		end
 	end
 
