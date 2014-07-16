@@ -19,7 +19,8 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	input [RD_PORTS*ABITS-1:0] RD_ADDR;
 	output reg [RD_PORTS*WIDTH-1:0] RD_DATA;
 
-	input [WR_PORTS-1:0] WR_CLK, WR_EN;
+	input [WR_PORTS-1:0] WR_CLK;
+	input [WR_PORTS*WIDTH-1:0] WR_EN;
 	input [WR_PORTS*ABITS-1:0] WR_ADDR;
 	input [WR_PORTS*WIDTH-1:0] WR_DATA;
 
@@ -28,7 +29,11 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	parameter _TECHMAP_CONNMAP_RD_CLK_ = 0;
 	parameter _TECHMAP_CONNMAP_WR_CLK_ = 0;
 
+	parameter _TECHMAP_BITS_CONNMAP_ = 0;
+	parameter _TECHMAP_CONNMAP_WR_EN_ = 0;
+
 	reg _TECHMAP_FAIL_;
+	integer k;
 	initial begin
 		_TECHMAP_FAIL_ <= 0;
 
@@ -43,6 +48,12 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 		// we expect positive write clock
 		if (!WR_CLK_ENABLE || !WR_CLK_POLARITY)
 			_TECHMAP_FAIL_ <= 1;
+
+		// only one global write enable bit is supported
+		for (k = 1; k < WR_PORTS*WIDTH; k = k+1)
+			if (_TECHMAP_CONNMAP_WR_EN_[0 +: _TECHMAP_BITS_CONNMAP_] !=
+					_TECHMAP_CONNMAP_WR_EN_[k*_TECHMAP_BITS_CONNMAP_ +: _TECHMAP_BITS_CONNMAP_])
+				_TECHMAP_FAIL_ <= 1;
 
 		// read and write must be in same clock domain
 		if (_TECHMAP_CONNMAP_RD_CLK_ != _TECHMAP_CONNMAP_WR_CLK_)
@@ -65,7 +76,7 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 			.RD_DATA(RD_DATA[i]),
 			.WR_ADDR(WR_ADDR),
 			.WR_DATA(WR_DATA[i]),
-			.WR_EN(WR_EN)
+			.WR_EN(WR_EN[0])
 		);
 	  end
 	endgenerate

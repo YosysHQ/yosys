@@ -1177,17 +1177,19 @@ skip_dynamic_range_lvalue_expansion:;
 		current_scope[wire_data->str] = wire_data;
 		while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
-		AstNode *wire_en = new AstNode(AST_WIRE);
+		AstNode *wire_en = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
 		wire_en->str = id_en;
 		current_ast_mod->children.push_back(wire_en);
 		current_scope[wire_en->str] = wire_en;
 		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
-		std::vector<RTLIL::State> x_bits_addr, x_bits_data;
+		std::vector<RTLIL::State> x_bits_addr, x_bits_data, set_bits_en;
 		for (int i = 0; i < addr_bits; i++)
 			x_bits_addr.push_back(RTLIL::State::Sx);
 		for (int i = 0; i < mem_width; i++)
 			x_bits_data.push_back(RTLIL::State::Sx);
+		for (int i = 0; i < mem_width; i++)
+			set_bits_en.push_back(RTLIL::State::S1);
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_addr, false));
 		assign_addr->children[0]->str = id_addr;
@@ -1195,7 +1197,7 @@ skip_dynamic_range_lvalue_expansion:;
 		AstNode *assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
 		assign_data->children[0]->str = id_data;
 
-		AstNode *assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, 1));
+		AstNode *assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
 		assign_en->children[0]->str = id_en;
 
 		AstNode *default_signals = new AstNode(AST_BLOCK);
@@ -1210,7 +1212,7 @@ skip_dynamic_range_lvalue_expansion:;
 		assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[1]->clone());
 		assign_data->children[0]->str = id_data;
 
-		assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(1, false, 1));
+		assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
 		assign_en->children[0]->str = id_en;
 
 		newNode = new AstNode(AST_BLOCK);
