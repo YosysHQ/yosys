@@ -1315,26 +1315,26 @@ generate
 	for (i = 0; i < RD_PORTS; i = i+1) begin:rd
 		if (RD_CLK_ENABLE[i] == 0) begin:rd_noclk
 			always @(RD_ADDR or update_async_rd)
-				RD_DATA[ i*WIDTH +: WIDTH ] <= data[ RD_ADDR[ i*ABITS +: ABITS ] - OFFSET ];
+				RD_DATA[i*WIDTH +: WIDTH] <= data[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
 		end else
 		if (RD_TRANSPARENT[i] == 1) begin:rd_transparent
 			reg [ABITS-1:0] addr_buf;
 			if (RD_CLK_POLARITY[i] == 1) begin:rd_trans_posclk
 				always @(posedge RD_CLK[i])
-					addr_buf <= RD_ADDR[ i*ABITS +: ABITS ];
+					addr_buf <= RD_ADDR[i*ABITS +: ABITS];
 			end else begin:rd_trans_negclk
 				always @(negedge RD_CLK[i])
-					addr_buf <= RD_ADDR[ i*ABITS +: ABITS ];
+					addr_buf <= RD_ADDR[i*ABITS +: ABITS];
 			end
 			always @(addr_buf or update_async_rd)
-				RD_DATA[ i*WIDTH +: WIDTH ] <= data[ addr_buf - OFFSET ];
+				RD_DATA[i*WIDTH +: WIDTH] <= data[addr_buf - OFFSET];
 		end else begin:rd_notransparent
 			if (RD_CLK_POLARITY[i] == 1) begin:rd_notrans_posclk
 				always @(posedge RD_CLK[i])
-					RD_DATA[ i*WIDTH +: WIDTH ] <= data[ RD_ADDR[ i*ABITS +: ABITS ] - OFFSET ];
+					RD_DATA[i*WIDTH +: WIDTH] <= data[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
 			end else begin:rd_notrans_negclk
 				always @(negedge RD_CLK[i])
-					RD_DATA[ i*WIDTH +: WIDTH ] <= data[ RD_ADDR[ i*ABITS +: ABITS ] - OFFSET ];
+					RD_DATA[i*WIDTH +: WIDTH] <= data[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
 			end
 		end
 	end
@@ -1346,13 +1346,13 @@ generate
 			always @(WR_ADDR or WR_DATA or WR_EN) begin
 				run_update = 0;
 				for (n = 0; n < WIDTH; n = n+1) begin
-					if (WR_EN[i][n]) begin
+					if (WR_EN[i*WIDTH + n]) begin
 						found_collision = 0;
 						for (k = i+1; k < WR_PORTS; k = k+1)
-							if (WR_EN[k][n] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
+							if (WR_EN[k*WIDTH + n] && WR_ADDR[i*ABITS +: ABITS] == WR_ADDR[k*ABITS +: ABITS])
 								found_collision = 1;
 						if (!found_collision) begin
-							data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ][n] <= WR_DATA[ i*WIDTH +: WIDTH ][n];
+							data[WR_ADDR[i*ABITS +: ABITS] - OFFSET][n] <= WR_DATA[i*WIDTH + n];
 							run_update = 1;
 						end
 					end
@@ -1367,13 +1367,13 @@ generate
 			always @(posedge WR_CLK[i]) begin
 				run_update = 0;
 				for (n = 0; n < WIDTH; n = n+1) begin
-					if (WR_EN[i][n]) begin
+					if (WR_EN[i*WIDTH + n]) begin
 						found_collision = 0;
 						for (k = i+1; k < WR_PORTS; k = k+1)
-							if (WR_EN[k][n] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
+							if (WR_EN[k*WIDTH + n] && WR_ADDR[i*ABITS +: ABITS] == WR_ADDR[k*ABITS +: ABITS])
 								found_collision = 1;
 						if (!found_collision) begin
-							data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ][n] <= WR_DATA[ i*WIDTH +: WIDTH ][n];
+							data[WR_ADDR[i*ABITS +: ABITS] - OFFSET][n] <= WR_DATA[i*WIDTH + n];
 							run_update = 1;
 						end
 					end
@@ -1387,13 +1387,13 @@ generate
 			always @(negedge WR_CLK[i]) begin
 				run_update = 0;
 				for (n = 0; n < WIDTH; n = n+1) begin
-					if (WR_EN[i][n]) begin
+					if (WR_EN[i*WIDTH + n]) begin
 						found_collision = 0;
 						for (k = i+1; k < WR_PORTS; k = k+1)
-							if (WR_EN[k][n] && WR_ADDR[ i*ABITS +: ABITS ] == WR_ADDR[ k*ABITS +: ABITS ])
+							if (WR_EN[k*WIDTH + n] && WR_ADDR[i*ABITS +: ABITS] == WR_ADDR[k*ABITS +: ABITS])
 								found_collision = 1;
 						if (!found_collision) begin
-							data[ WR_ADDR[ i*ABITS +: ABITS ] - OFFSET ][n] <= WR_DATA[ i*WIDTH +: WIDTH ][n];
+							data[WR_ADDR[i*ABITS +: ABITS] - OFFSET][n] <= WR_DATA[i*WIDTH + n];
 							run_update = 1;
 						end
 					end
