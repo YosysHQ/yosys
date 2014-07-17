@@ -607,9 +607,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// split memory access with bit select to individual statements
-	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE)
+	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE && !in_lvalue)
 	{
-		if (id2ast == NULL || id2ast->type != AST_MEMORY || children[0]->children.size() != 1 || in_lvalue)
+		if (id2ast == NULL || id2ast->type != AST_MEMORY || children[0]->children.size() != 1)
 			log_error("Invalid bit-select on memory access at %s:%d!\n", filename.c_str(), linenum);
 
 		int mem_width, mem_size, addr_bits;
@@ -1150,9 +1150,9 @@ skip_dynamic_range_lvalue_expansion:;
 
 	// assignment with memory in left-hand side expression -> replace with memory write port
 	if (stage > 1 && (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE) && children[0]->type == AST_IDENTIFIER &&
-			children[0]->children.size() == 1 && children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY &&
-			children[0]->id2ast->children.size() >= 2 && children[0]->id2ast->children[0]->range_valid &&
-			children[0]->id2ast->children[1]->range_valid)
+			children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY && children[0]->id2ast->children.size() >= 2 &&
+			children[0]->id2ast->children[0]->range_valid && children[0]->id2ast->children[1]->range_valid &&
+			(children[0]->children.size() == 1 || children[0]->children.size() == 2))
 	{
 		std::stringstream sstr;
 		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
@@ -1209,11 +1209,38 @@ skip_dynamic_range_lvalue_expansion:;
 		assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 		assign_addr->children[0]->str = id_addr;
 
-		assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[1]->clone());
-		assign_data->children[0]->str = id_data;
+		if (children[0]->children.size() == 2)
+		{
+			if (children[0]->children[1]->range_valid)
+			{
+				int offset = children[0]->children[1]->range_right;
+				int width = children[0]->children[1]->range_left - offset + 1;
 
-		assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
-		assign_en->children[0]->str = id_en;
+				std::vector<RTLIL::State> padding_x(offset, RTLIL::State::Sx);
+
+				for (int i = 0; i < mem_width; i++)
+					set_bits_en[i] = offset <= i && i < offset+width ? RTLIL::State::S1 : RTLIL::State::S0;
+
+				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
+						new AstNode(AST_CONCAT, mkconst_bits(padding_x, false), children[1]->clone()));
+				assign_data->children[0]->str = id_data;
+
+				assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+				assign_en->children[0]->str = id_en;
+			}
+			else
+			{
+				log_error("Writing to memories with dynamic bit- or part-select is not supported yet at %s:%d.\n", filename.c_str(), linenum);
+			}
+		}
+		else
+		{
+			assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[1]->clone());
+			assign_data->children[0]->str = id_data;
+
+			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+			assign_en->children[0]->str = id_en;
+		}
 
 		newNode = new AstNode(AST_BLOCK);
 		newNode->children.push_back(assign_addr);
