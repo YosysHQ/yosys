@@ -243,6 +243,9 @@ struct TechmapWorker
 				RTLIL::Module *tpl = map->modules[tpl_name];
 				std::map<RTLIL::IdString, RTLIL::Const> parameters = cell->parameters;
 
+				if (tpl->get_bool_attribute("\\blackbox"))
+					continue;
+
 				if (!flatten_mode)
 				{
 					if (tpl->get_bool_attribute("\\techmap_simplemap")) {
@@ -686,7 +689,7 @@ struct FlattenPass : public Pass {
 		if (top_mod != NULL) {
 			std::map<RTLIL::IdString, RTLIL::Module*> new_modules;
 			for (auto &mod_it : design->modules)
-				if (mod_it.second == top_mod) {
+				if (mod_it.second == top_mod || mod_it.second->get_bool_attribute("\\blackbox")) {
 					new_modules[mod_it.first] = mod_it.second;
 				} else {
 					log("Deleting now unused module %s.\n", RTLIL::id2cstr(mod_it.first));
