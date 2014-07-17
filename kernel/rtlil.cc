@@ -1716,9 +1716,10 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 		chunks.push_back(bit);
 	else
 		if (bit.wire == NULL)
-			if (chunks.back().wire == NULL)
+			if (chunks.back().wire == NULL) {
 				chunks.back().data.bits.push_back(bit.data);
-			else
+				chunks.back().width++;
+			} else
 				chunks.push_back(bit);
 		else
 			if (chunks.back().wire == bit.wire && chunks.back().offset + chunks.back().width == bit.offset)
