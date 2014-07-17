@@ -1159,7 +1159,7 @@ skip_dynamic_range_lvalue_expansion:;
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
 		if (type == AST_ASSIGN_EQ)
-			log("Warining: Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
+			log("Warning: Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
 					filename.c_str(), linenum);
 
 		int mem_width, mem_size, addr_bits;
@@ -1230,7 +1230,31 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 			else
 			{
-				log_error("Writing to memories with dynamic bit- or part-select is not supported yet at %s:%d.\n", filename.c_str(), linenum);
+				AstNode *the_range = children[0]->children[1];
+				AstNode *left_at_zero_ast = the_range->children[0]->clone();
+				AstNode *right_at_zero_ast = the_range->children.size() >= 2 ? the_range->children[1]->clone() : left_at_zero_ast->clone();
+				AstNode *offset_ast = right_at_zero_ast->clone();
+
+				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
+				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
+				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
+					log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+				int width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
+
+				for (int i = 0; i < mem_width; i++)
+					set_bits_en[i] = i < width ? RTLIL::State::S1 : RTLIL::State::S0;
+
+				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
+						new AstNode(AST_SHIFT_LEFT, children[1]->clone(), offset_ast->clone()));
+				assign_data->children[0]->str = id_data;
+
+				assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
+						new AstNode(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
+				assign_en->children[0]->str = id_en;
+
+				delete left_at_zero_ast;
+				delete right_at_zero_ast;
+				delete offset_ast;
 			}
 		}
 		else
