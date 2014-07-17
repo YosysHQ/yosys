@@ -1974,6 +1974,8 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 				continue;
 			AstNode *cond_node = new AstNode(AST_COND, AstNode::mkconst_int(i, false, addr_bits), new AstNode(AST_BLOCK));
 			AstNode *assign_reg = new AstNode(type, new AstNode(AST_IDENTIFIER), new AstNode(AST_IDENTIFIER));
+			if (children[0]->children.size() == 2)
+				assign_reg->children[0]->children.push_back(children[0]->children[1]->clone());
 			assign_reg->children[0]->str = stringf("%s[%d]", children[0]->str.c_str(), i);
 			assign_reg->children[1]->str = id_data;
 			cond_node->children[1]->children.push_back(assign_reg);
@@ -1990,6 +1992,10 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 
 	if (type == AST_IDENTIFIER && id2ast && mem2reg_set.count(id2ast) > 0)
 	{
+		AstNode *bit_part_sel = NULL;
+		if (children.size() == 2)
+			bit_part_sel = children[1]->clone();
+
 		if (children[0]->children[0]->type == AST_CONSTANT)
 		{
 			int id = children[0]->children[0]->integer;
@@ -2073,6 +2079,9 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 			id2ast = NULL;
 			str = id_data;
 		}
+
+		if (bit_part_sel)
+			children.push_back(bit_part_sel);
 	}
 
 	assert(id2ast == NULL || mem2reg_set.count(id2ast) == 0);

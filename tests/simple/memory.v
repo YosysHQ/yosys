@@ -134,3 +134,24 @@ always @(posedge clk) begin
 end
 
 endmodule
+
+// ----------------------------------------------------------
+
+module test06(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
+    (* gentb_constant=0 *) wire rst;
+    reg [7:0] test [0:7];
+    integer i;
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            for (i=0; i<8; i=i+1)
+                test[i] <= 0;
+        end else begin
+            test[0][2] <= din[1];
+            test[0][5] <= test[0][2];
+            test[idx][3] <= din[idx];
+            test[idx][6] <= test[idx][2];
+            test[idx][idx] <= !test[idx][idx];
+        end
+    end
+    assign dout = test[idx];
+endmodule
