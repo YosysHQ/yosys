@@ -186,11 +186,21 @@ struct OptReduceWorker
 		for (int i = 0; i < int(sig_y.size()); i++)
 		{
 			std::vector<RTLIL::SigBit> in_tuple;
-			in_tuple.push_back(sig_a.at(i));
-			for (int j = i; j < int(sig_b.size()); j += int(sig_a.size()))
-				in_tuple.push_back(sig_b.at(j));
+			bool all_tuple_bits_same = true;
 
-			if (consolidated_in_tuples_map.count(in_tuple))
+			in_tuple.push_back(sig_a.at(i));
+			for (int j = i; j < int(sig_b.size()); j += int(sig_a.size())) {
+				if (sig_b.at(j) != sig_a.at(i))
+					all_tuple_bits_same = false;
+				in_tuple.push_back(sig_b.at(j));
+			}
+
+			if (all_tuple_bits_same)
+			{
+				old_sig_conn.first.append_bit(sig_y.at(i));
+				old_sig_conn.second.append_bit(sig_a.at(i));
+			}
+			else if (consolidated_in_tuples_map.count(in_tuple))
 			{
 				old_sig_conn.first.append_bit(sig_y.at(i));
 				old_sig_conn.second.append_bit(consolidated_in_tuples_map.at(in_tuple));
@@ -206,7 +216,8 @@ struct OptReduceWorker
 		if (new_sig_y.size() != sig_y.size())
 		{
 			log("    Consolidated identical input bits for %s cell %s:\n", cell->type.c_str(), cell->name.c_str());
-			log("      Old inputs: A=%s, B=%s\n", log_signal(cell->connections["\\A"]), log_signal(cell->connections["\\B"]));
+			log("      Old ports: A=%s, B=%s, Y=%s\n", log_signal(cell->connections["\\A"]),
+					log_signal(cell->connections["\\B"]), log_signal(cell->connections["\\Y"]));
 
 			cell->connections["\\A"] = RTLIL::SigSpec();
 			for (auto &in_tuple : consolidated_in_tuples)
@@ -217,10 +228,12 @@ struct OptReduceWorker
 				for (auto &in_tuple : consolidated_in_tuples)
 					cell->connections["\\B"].append(in_tuple.at(i));
 
-			log("      New inputs: A=%s, B=%s\n", log_signal(cell->connections["\\A"]), log_signal(cell->connections["\\B"]));
-
 			cell->parameters["\\WIDTH"] = RTLIL::Const(new_sig_y.size());
 			cell->connections["\\Y"] = new_sig_y;
+
+			log("      New ports: A=%s, B=%s, Y=%s\n", log_signal(cell->connections["\\A"]),
+					log_signal(cell->connections["\\B"]), log_signal(cell->connections["\\Y"]));
+			log("      New connections: %s = %s\n", log_signal(old_sig_conn.first), log_signal(old_sig_conn.second));
 
 			module->connections.push_back(old_sig_conn);
 			module->check();
