@@ -134,6 +134,7 @@ struct MemoryShareWorker
 		log("Consolidating write ports of memory %s by address:\n", log_id(memid));
 
 		std::map<RTLIL::SigSpec, int> last_port_by_addr;
+		std::vector<std::vector<bool>> active_bits_on_port;
 
 		bool cache_clk_enable = false;
 		bool cache_clk_polarity = false;
@@ -161,10 +162,26 @@ struct MemoryShareWorker
 
 			log("    Port %d (%s) has addr %s.\n", i, log_id(cell), log_signal(addr));
 
+			log("      Active bits: ");
+			std::vector<RTLIL::SigBit> en_bits = sigmap(cell->connections.at("\\EN"));
+			active_bits_on_port.push_back(std::vector<bool>(en_bits.size()));
+			for (int k = int(en_bits.size())-1; k >= 0; k--) {
+				active_bits_on_port[i][k] = en_bits[k].wire != NULL || en_bits[k].data != RTLIL::State::S0;
+				log("%c", active_bits_on_port[i][k] ? '1' : '0');
+			}
+			log("\n");
+
 			if (last_port_by_addr.count(addr))
 			{
 				int last_i = last_port_by_addr.at(addr);
 				log("      Merging port %d into this one.\n", last_i);
+
+				bool found_overlapping_bits = false;
+				for (int k = 0; k < int(en_bits.size()); k++) {
+					if (active_bits_on_port[i][k] && active_bits_on_port[last_i][k])
+						found_overlapping_bits = true;
+					active_bits_on_port[i][k] = active_bits_on_port[i][k] || active_bits_on_port[last_i][k];
+				}
 
 				// Force this ports addr input to addr directly (skip don't care muxes)
 
@@ -181,16 +198,35 @@ struct MemoryShareWorker
 					if (wr_ports[j] == NULL)
 						continue;
 
-					RTLIL::SigSpec is_same_addr = module->new_wire(1, NEW_ID);
-					module->addEq(NEW_ID, addr, wr_ports[j]->connections.at("\\ADDR"), is_same_addr);
-					merged_en = mask_en_grouped(is_same_addr, merged_en, sigmap(wr_ports[j]->connections.at("\\EN")));
+					for (int k = 0; k < int(en_bits.size()); k++)
+						if (active_bits_on_port[i][k] && active_bits_on_port[j][k])
+							goto found_overlapping_bits_i_j;
+
+					if (0) {
+				found_overlapping_bits_i_j:
+						log("      Creating collosion-detect logic for port %d.\n", j);
+						RTLIL::SigSpec is_same_addr = module->new_wire(1, NEW_ID);
+						module->addEq(NEW_ID, addr, wr_ports[j]->connections.at("\\ADDR"), is_same_addr);
+						merged_en = mask_en_grouped(is_same_addr, merged_en, sigmap(wr_ports[j]->connections.at("\\EN")));
+					}
 				}
 
 				// Then we need to merge the (masked) EN and the DATA signals.
 				// Note that we intentionally do not use sigmap() on the DATA ports.
 
 				RTLIL::SigSpec merged_data = wr_ports[last_i]->connections.at("\\DATA");
-				merge_en_data(merged_en, merged_data, sigmap(cell->connections.at("\\EN")), cell->connections.at("\\DATA"));
+				if (found_overlapping_bits) {
+					log("      Creating logic for merging DATA and EN ports.\n");
+					merge_en_data(merged_en, merged_data, sigmap(cell->connections.at("\\EN")), cell->connections.at("\\DATA"));
+				} else {
+					for (int k = 0; k < int(en_bits.size()); k++)
+						if (!active_bits_on_port[last_i][k]) {
+							merged_en.replace(k, cell->connections.at("\\EN").extract(k, 1));
+							merged_data.replace(k, cell->connections.at("\\DATA").extract(k, 1));
+						}
+					merged_en.optimize();
+					merged_data.optimize();
+				}
 
 				// Connect the new EN and DATA signals and remove the old write port.
 
@@ -200,6 +236,13 @@ struct MemoryShareWorker
 				module->cells.erase(wr_ports[last_i]->name);
 				delete wr_ports[last_i];
 				wr_ports[last_i] = NULL;
+
+				log("      Active bits: ");
+				std::vector<RTLIL::SigBit> en_bits = sigmap(cell->connections.at("\\EN"));
+				active_bits_on_port.push_back(std::vector<bool>(en_bits.size()));
+				for (int k = int(en_bits.size())-1; k >= 0; k--)
+					log("%c", active_bits_on_port[i][k] ? '1' : '0');
+				log("\n");
 			}
 
 			last_port_by_addr[addr] = i;
