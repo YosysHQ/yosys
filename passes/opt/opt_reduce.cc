@@ -266,6 +266,21 @@ struct OptReduceWorker
 				mem_wren_sigs.add(assign_map(cell->connections["\\D"]));
 		}
 
+		bool keep_expanding_mem_wren_sigs = true;
+		while (keep_expanding_mem_wren_sigs) {
+			keep_expanding_mem_wren_sigs = false;
+			for (auto &cell_it : module->cells) {
+				RTLIL::Cell *cell = cell_it.second;
+				if (cell->type == "$mux" && mem_wren_sigs.check_any(assign_map(cell->connections["\\Y"]))) {
+					if (!mem_wren_sigs.check_all(assign_map(cell->connections["\\A"])) ||
+							!mem_wren_sigs.check_all(assign_map(cell->connections["\\B"])))
+						keep_expanding_mem_wren_sigs = true;
+					mem_wren_sigs.add(assign_map(cell->connections["\\A"]));
+					mem_wren_sigs.add(assign_map(cell->connections["\\B"]));
+				}
+			}
+		}
+
 		while (did_something)
 		{
 			did_something = false;
