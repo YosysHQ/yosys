@@ -294,6 +294,8 @@ struct RTLIL::Module {
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
 
+	// The add* methods create a cell and return the created cell. All signals must exist in advance.
+
 	RTLIL::Cell* addNot (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false);
 	RTLIL::Cell* addPos (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false);
 	RTLIL::Cell* addBu0 (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed = false);
@@ -368,6 +370,59 @@ struct RTLIL::Module {
 	RTLIL::Cell* addDlatchGate (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true);
 	RTLIL::Cell* addDlatchsrGate  (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
 			RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true);
+
+	// The methods without the add* prefix create a cell and an output signal. They return the newly created output signal.
+
+	RTLIL::SigSpec Not (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec Pos (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec Bu0 (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec Neg (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+
+	RTLIL::SigSpec And  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Or   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Xor  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Xnor (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+
+	RTLIL::SigSpec ReduceAnd  (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec ReduceOr   (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec ReduceXor  (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec ReduceXnor (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec ReduceBool (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+
+	RTLIL::SigSpec Shl  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Shr  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Sshl (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Sshr (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+
+	RTLIL::SigSpec Lt  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Le  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Eq  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Ne  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Eqx (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Nex (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Ge  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Gt  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+
+	RTLIL::SigSpec Add (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Sub (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Mul (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Div (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Mod (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec Pow (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool a_signed = false, bool b_signed = false);
+
+	RTLIL::SigSpec LogicNot (RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed = false);
+	RTLIL::SigSpec LogicAnd (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+	RTLIL::SigSpec LogicOr  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed = false);
+
+	RTLIL::SigSpec Mux      (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
+	RTLIL::SigSpec Pmux     (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
+	RTLIL::SigSpec SafePmux (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
+
+	RTLIL::SigSpec InvGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a);
+	RTLIL::SigSpec AndGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
+	RTLIL::SigSpec OrGate   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
+	RTLIL::SigSpec XorGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
+	RTLIL::SigSpec MuxGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 };
 
 struct RTLIL::Wire {

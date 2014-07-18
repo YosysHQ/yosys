@@ -869,8 +869,8 @@ void RTLIL::Module::fixup_ports()
 }
 
 
-#define DEF_METHOD(_func, _type) \
-	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed) { \
+#define DEF_METHOD(_func, _y_size, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed) { \
 		RTLIL::Cell *cell = new RTLIL::Cell;                \
 		cell->name = name;                                  \
 		cell->type = _type;                                 \
@@ -881,21 +881,26 @@ void RTLIL::Module::fixup_ports()
 		cell->connections["\\Y"] = sig_y;                   \
 		add(cell);                                          \
 		return cell;                                        \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed) { \
+		RTLIL::SigSpec sig_y = new_wire(_y_size, NEW_ID);   \
+		add ## _func(name, sig_a, sig_y, is_signed);        \
+		return sig_y;                                       \
 	}
-DEF_METHOD(addNot,        "$not")
-DEF_METHOD(addPos,        "$pos")
-DEF_METHOD(addBu0,        "$bu0")
-DEF_METHOD(addNeg,        "$neg")
-DEF_METHOD(addReduceAnd,  "$reduce_and")
-DEF_METHOD(addReduceOr,   "$reduce_or")
-DEF_METHOD(addReduceXor,  "$reduce_xor")
-DEF_METHOD(addReduceXnor, "$reduce_xnor")
-DEF_METHOD(addReduceBool, "$reduce_bool")
-DEF_METHOD(addLogicNot,   "$logic_not")
+DEF_METHOD(Not,        sig_a.width, "$not")
+DEF_METHOD(Pos,        sig_a.width, "$pos")
+DEF_METHOD(Bu0,        sig_a.width, "$bu0")
+DEF_METHOD(Neg,        sig_a.width, "$neg")
+DEF_METHOD(ReduceAnd,  1, "$reduce_and")
+DEF_METHOD(ReduceOr,   1, "$reduce_or")
+DEF_METHOD(ReduceXor,  1, "$reduce_xor")
+DEF_METHOD(ReduceXnor, 1, "$reduce_xnor")
+DEF_METHOD(ReduceBool, 1, "$reduce_bool")
+DEF_METHOD(LogicNot,   1, "$logic_not")
 #undef DEF_METHOD
 
-#define DEF_METHOD(_func, _type) \
-	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed) { \
+#define DEF_METHOD(_func, _y_size, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed) { \
 		RTLIL::Cell *cell = new RTLIL::Cell;                \
 		cell->name = name;                                  \
 		cell->type = _type;                                 \
@@ -909,34 +914,39 @@ DEF_METHOD(addLogicNot,   "$logic_not")
 		cell->connections["\\Y"] = sig_y;                   \
 		add(cell);                                          \
 		return cell;                                        \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed) { \
+		RTLIL::SigSpec sig_y = new_wire(_y_size, NEW_ID);   \
+		add ## _func(name, sig_a, sig_b, sig_y, is_signed); \
+		return sig_y;                                       \
 	}
-DEF_METHOD(addAnd,      "$and")
-DEF_METHOD(addOr,       "$or")
-DEF_METHOD(addXor,      "$xor")
-DEF_METHOD(addXnor,     "$xnor")
-DEF_METHOD(addShl,      "$shl")
-DEF_METHOD(addShr,      "$shr")
-DEF_METHOD(addSshl,     "$sshl")
-DEF_METHOD(addSshr,     "$sshr")
-DEF_METHOD(addLt,       "$lt")
-DEF_METHOD(addLe,       "$le")
-DEF_METHOD(addEq,       "$eq")
-DEF_METHOD(addNe,       "$ne")
-DEF_METHOD(addEqx,      "$eqx")
-DEF_METHOD(addNex,      "$nex")
-DEF_METHOD(addGe,       "$ge")
-DEF_METHOD(addGt,       "$gt")
-DEF_METHOD(addAdd,      "$add")
-DEF_METHOD(addSub,      "$sub")
-DEF_METHOD(addMul,      "$mul")
-DEF_METHOD(addDiv,      "$div")
-DEF_METHOD(addMod,      "$mod")
-DEF_METHOD(addLogicAnd, "$logic_and")
-DEF_METHOD(addLogicOr,  "$logic_or")
+DEF_METHOD(And,      std::max(sig_a.width, sig_b.width), "$and")
+DEF_METHOD(Or,       std::max(sig_a.width, sig_b.width), "$or")
+DEF_METHOD(Xor,      std::max(sig_a.width, sig_b.width), "$xor")
+DEF_METHOD(Xnor,     std::max(sig_a.width, sig_b.width), "$xnor")
+DEF_METHOD(Shl,      sig_a.width, "$shl")
+DEF_METHOD(Shr,      sig_a.width, "$shr")
+DEF_METHOD(Sshl,     sig_a.width, "$sshl")
+DEF_METHOD(Sshr,     sig_a.width, "$sshr")
+DEF_METHOD(Lt,       1, "$lt")
+DEF_METHOD(Le,       1, "$le")
+DEF_METHOD(Eq,       1, "$eq")
+DEF_METHOD(Ne,       1, "$ne")
+DEF_METHOD(Eqx,      1, "$eqx")
+DEF_METHOD(Nex,      1, "$nex")
+DEF_METHOD(Ge,       1, "$ge")
+DEF_METHOD(Gt,       1, "$gt")
+DEF_METHOD(Add,      std::max(sig_a.width, sig_b.width), "$add")
+DEF_METHOD(Sub,      std::max(sig_a.width, sig_b.width), "$sub")
+DEF_METHOD(Mul,      std::max(sig_a.width, sig_b.width), "$mul")
+DEF_METHOD(Div,      std::max(sig_a.width, sig_b.width), "$div")
+DEF_METHOD(Mod,      std::max(sig_a.width, sig_b.width), "$mod")
+DEF_METHOD(LogicAnd, 1, "$logic_and")
+DEF_METHOD(LogicOr,  1, "$logic_or")
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type, _pmux) \
-	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y) { \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y) { \
 		RTLIL::Cell *cell = new RTLIL::Cell;                     \
 		cell->name = name;                                       \
 		cell->type = _type;                                      \
@@ -949,50 +959,70 @@ DEF_METHOD(addLogicOr,  "$logic_or")
 		cell->connections["\\Y"] = sig_y;                        \
 		add(cell);                                               \
 		return cell;                                             \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s) { \
+		RTLIL::SigSpec sig_y = new_wire(sig_a.width, NEW_ID);    \
+		add ## _func(name, sig_a, sig_b, sig_s, sig_y);          \
+		return sig_y;                                            \
 	}
-DEF_METHOD(addMux,      "$mux",        0)
-DEF_METHOD(addPmux,     "$pmux",       1)
-DEF_METHOD(addSafePmux, "$safe_pmux",  1)
+DEF_METHOD(Mux,      "$mux",        0)
+DEF_METHOD(Pmux,     "$pmux",       1)
+DEF_METHOD(SafePmux, "$safe_pmux",  1)
 #undef DEF_METHOD
 
 #define DEF_METHOD_2(_func, _type, _P1, _P2) \
-	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2) { \
-		RTLIL::Cell *cell = new RTLIL::Cell;                \
-		cell->name = name;                                  \
-		cell->type = _type;                                 \
-		cell->connections["\\" #_P1] = sig1;               \
-		cell->connections["\\" #_P2] = sig2;               \
-		add(cell);                                          \
-		return cell;                                        \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2) { \
+		RTLIL::Cell *cell = new RTLIL::Cell;        \
+		cell->name = name;                          \
+		cell->type = _type;                         \
+		cell->connections["\\" #_P1] = sig1;        \
+		cell->connections["\\" #_P2] = sig2;        \
+		add(cell);                                  \
+		return cell;                                \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1) { \
+		RTLIL::SigSpec sig2 = new_wire(1, NEW_ID);  \
+		add ## _func(name, sig1, sig2);             \
+		return sig2;                                \
 	}
 #define DEF_METHOD_3(_func, _type, _P1, _P2, _P3) \
-	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3) { \
-		RTLIL::Cell *cell = new RTLIL::Cell;                \
-		cell->name = name;                                  \
-		cell->type = _type;                                 \
-		cell->connections["\\" #_P1] = sig1;               \
-		cell->connections["\\" #_P2] = sig2;               \
-		cell->connections["\\" #_P3] = sig3;               \
-		add(cell);                                          \
-		return cell;                                        \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3) { \
+		RTLIL::Cell *cell = new RTLIL::Cell;        \
+		cell->name = name;                          \
+		cell->type = _type;                         \
+		cell->connections["\\" #_P1] = sig1;        \
+		cell->connections["\\" #_P2] = sig2;        \
+		cell->connections["\\" #_P3] = sig3;        \
+		add(cell);                                  \
+		return cell;                                \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2) { \
+		RTLIL::SigSpec sig3 = new_wire(1, NEW_ID);  \
+		add ## _func(name, sig1, sig2, sig3);       \
+		return sig3;                                \
 	}
 #define DEF_METHOD_4(_func, _type, _P1, _P2, _P3, _P4) \
-	RTLIL::Cell* RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3, RTLIL::SigSpec sig4) { \
-		RTLIL::Cell *cell = new RTLIL::Cell;                \
-		cell->name = name;                                  \
-		cell->type = _type;                                 \
-		cell->connections["\\" #_P1] = sig1;                \
-		cell->connections["\\" #_P2] = sig2;                \
-		cell->connections["\\" #_P3] = sig3;                \
-		cell->connections["\\" #_P4] = sig4;                \
-		add(cell);                                          \
-		return cell;                                        \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3, RTLIL::SigSpec sig4) { \
+		RTLIL::Cell *cell = new RTLIL::Cell;        \
+		cell->name = name;                          \
+		cell->type = _type;                         \
+		cell->connections["\\" #_P1] = sig1;        \
+		cell->connections["\\" #_P2] = sig2;        \
+		cell->connections["\\" #_P3] = sig3;        \
+		cell->connections["\\" #_P4] = sig4;        \
+		add(cell);                                  \
+		return cell;                                \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3) { \
+		RTLIL::SigSpec sig4 = new_wire(1, NEW_ID);  \
+		add ## _func(name, sig1, sig2, sig3, sig4); \
+		return sig4;                                \
 	}
-DEF_METHOD_2(addInvGate, "$_INV_", A, Y)
-DEF_METHOD_3(addAndGate, "$_AND_", A, B, Y)
-DEF_METHOD_3(addOrGate,  "$_OR_",  A, B, Y)
-DEF_METHOD_3(addXorGate, "$_XOR_", A, B, Y)
-DEF_METHOD_4(addMuxGate, "$_MUX_", A, B, S, Y)
+DEF_METHOD_2(InvGate, "$_INV_", A, Y)
+DEF_METHOD_3(AndGate, "$_AND_", A, B, Y)
+DEF_METHOD_3(OrGate,  "$_OR_",  A, B, Y)
+DEF_METHOD_3(XorGate, "$_XOR_", A, B, Y)
+DEF_METHOD_4(MuxGate, "$_MUX_", A, B, S, Y)
 #undef DEF_METHOD_2
 #undef DEF_METHOD_3
 #undef DEF_METHOD_4
