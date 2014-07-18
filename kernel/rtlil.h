@@ -542,6 +542,7 @@ struct RTLIL::SigSpec {
 	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
+	operator std::vector<RTLIL::SigBit>() const { return to_sigbit_vector(); }
 };
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
