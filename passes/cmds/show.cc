@@ -54,7 +54,7 @@ struct ShowWorker
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections;
 
-	uint32_t xorshift32(uint32_t x) {
+	static uint32_t xorshift32(uint32_t x) {
 		x ^= x << 13;
 		x ^= x >> 17;
 		x ^= x << 5;
@@ -655,6 +655,8 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-colors" && argidx+1 < args.size()) {
 				colorSeed = atoi(args[++argidx].c_str());
+				for (int i = 0; i < 100; i++)
+					colorSeed = ShowWorker::xorshift32(colorSeed);
 				continue;
 			}
 			if (arg == "-format" && argidx+1 < args.size()) {
