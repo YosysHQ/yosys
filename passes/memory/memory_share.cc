@@ -120,7 +120,7 @@ struct MemoryShareWorker
 
 	void translate_rd_feedback_to_en(std::string memid, std::vector<RTLIL::Cell*> &rd_ports, std::vector<RTLIL::Cell*> &wr_ports)
 	{
-		std::vector<std::set<RTLIL::SigBit>> async_rd_bits;
+		std::map<RTLIL::SigSpec, std::vector<std::set<RTLIL::SigBit>>> async_rd_bits;
 		std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> muxtree_upstream_map;
 		std::set<RTLIL::SigBit> non_feedback_nets;
 
@@ -187,15 +187,16 @@ struct MemoryShareWorker
 			if (cell->parameters.at("\\CLK_ENABLE").as_bool())
 				continue;
 
+			RTLIL::SigSpec sig_addr = sigmap(cell->connections.at("\\ADDR"));
 			std::vector<RTLIL::SigBit> sig_data = sigmap(cell->connections.at("\\DATA"));
 
 			for (int i = 0; i < int(sig_data.size()); i++)
 				if (non_feedback_nets.count(sig_data[i]))
 					goto not_pure_feedback_port;
 
-			async_rd_bits.resize(std::max(async_rd_bits.size(), sig_data.size()));
+			async_rd_bits[sig_addr].resize(std::max(async_rd_bits.size(), sig_data.size()));
 			for (int i = 0; i < int(sig_data.size()); i++)
-				async_rd_bits[i].insert(sig_data[i]);
+				async_rd_bits[sig_addr][i].insert(sig_data[i]);
 
 		not_pure_feedback_port:;
 		}
@@ -207,6 +208,10 @@ struct MemoryShareWorker
 
 		for (auto cell : wr_ports)
 		{
+			RTLIL::SigSpec sig_addr = sigmap_xmux(cell->connections.at("\\ADDR"));
+			if (!async_rd_bits.count(sig_addr))
+				continue;
+
 			log("  Analyzing write port %s.\n", log_id(cell));
 
 			std::vector<RTLIL::SigBit> cell_data = cell->connections.at("\\DATA");
@@ -224,7 +229,7 @@ struct MemoryShareWorker
 						conditions.insert(state);
 					}
 
-					find_data_feedback(async_rd_bits.at(i), cell_data[i], state, conditions);
+					find_data_feedback(async_rd_bits.at(sig_addr).at(i), cell_data[i], state, conditions);
 					cell_en[i] = conditions_to_logic(conditions, created_conditions);
 				}
 
@@ -333,6 +338,9 @@ struct MemoryShareWorker
 
 	void consolidate_wr_by_addr(std::string memid, std::vector<RTLIL::Cell*> &wr_ports)
 	{
+		if (wr_ports.size() <= 1)
+			return;
+
 		log("Consolidating write ports of memory %s by address:\n", log_id(memid));
 
 		std::map<RTLIL::SigSpec, int> last_port_by_addr;
