@@ -708,6 +708,23 @@ struct MemorySharePass : public Pass {
 		log("\n");
 		log("This pass merges share-able memory ports into single memory ports.\n");
 		log("\n");
+		log("The following methods are used to consolidate the number of memory ports:\n");
+		log("\n");
+		log("  - When write ports are connected to async read ports accessing the same\n");
+		log("    address, then this feedback path is converted to a write port with\n");
+		log("    byte/part enable signals.\n");
+		log("\n");
+		log("  - When multiple write ports access the same adress then this is converted\n");
+		log("    to a single write port with a more complex data and/or enable logic path.\n");
+		log("\n");
+		log("  - When multiple write ports are never accessed at the same time (a SAT\n");
+		log("    solver is used to determine this), then the ports are merged into a single\n");
+		log("    write port.\n");
+		log("\n");
+		log("Note that in addition to the algorithms implemented in this pass, the $memrd\n");
+		log("and $memwr cells are also subject to generic resource sharing passes (and other\n");
+		log("optimizations) such as opt_share.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		log_header("Executing MEMORY_SHARE pass (consolidating $memrc/$memwr cells).\n");
