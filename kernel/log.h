@@ -51,13 +51,10 @@ void log_reset_stack();
 void log_flush();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
-
-static inline const char *log_id(std::string id) {
-	return RTLIL::id2cstr(id);
-}
+const char *log_id(std::string id);
 
 template<typename T> static inline const char *log_id(T *obj) {
-	return RTLIL::id2cstr(obj->name);
+	return log_id(obj->name);
 }
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
