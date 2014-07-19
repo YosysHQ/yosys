@@ -581,6 +581,22 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$bu0")
+	{
+		fprintf(f, "%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->connections["\\Y"]);
+		if (cell->parameters["\\A_SIGNED"].as_bool()) {
+			fprintf(f, " = $signed(");
+			dump_sigspec(f, cell->connections["\\A"]);
+			fprintf(f, ");\n");
+		} else {
+			fprintf(f, " = { 1'b0, ");
+			dump_sigspec(f, cell->connections["\\A"]);
+			fprintf(f, " };\n");
+		}
+		return true;
+	}
+
 	if (cell->type == "$concat")
 	{
 		fprintf(f, "%s" "assign ", indent.c_str());
