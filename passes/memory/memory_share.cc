@@ -18,7 +18,9 @@
  */
 
 #include "kernel/rtlil.h"
+#include "kernel/satgen.h"
 #include "kernel/sigtools.h"
+#include "kernel/modwalker.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include <algorithm>
@@ -37,6 +39,8 @@ struct MemoryShareWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	SigMap sigmap, sigmap_xmux;
+	ModWalker modwalker;
+	CellTypes cone_ct;
 
 	std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, int>> sig_to_mux;
 	std::map<std::set<std::map<RTLIL::SigBit, bool>>, RTLIL::SigBit> conditions_logic_cache;
@@ -470,6 +474,167 @@ struct MemoryShareWorker
 	}
 
 
+	// --------------------------------------------------------
+	// Consolidate write ports using sat-based resource sharing
+	// --------------------------------------------------------
+
+	void consolidate_wr_using_sat(std::string memid, std::vector<RTLIL::Cell*> &wr_ports)
+	{
+		if (wr_ports.size() <= 1)
+			return;
+
+		ezDefaultSAT ez;
+		SatGen satgen(&ez, &modwalker.sigmap);
+
+		// find list of considered ports and port pairs
+
+		std::set<int> considered_ports;
+		std::set<int> considered_port_pairs;
+
+		for (int i = 0; i < int(wr_ports.size()); i++) {
+			std::vector<RTLIL::SigBit> bits = modwalker.sigmap(wr_ports[i]->connections.at("\\EN"));
+			for (auto bit : bits)
+				if (bit == RTLIL::State::S1)
+					goto port_is_always_active;
+			if (modwalker.has_drivers(bits))
+				considered_ports.insert(i);
+		port_is_always_active:;
+		}
+
+		log("Consolidating write ports of memory %s using sat-based resource sharing:\n", log_id(memid));
+
+		bool cache_clk_enable = false;
+		bool cache_clk_polarity = false;
+		RTLIL::SigSpec cache_clk;
+
+		for (int i = 0; i < int(wr_ports.size()); i++)
+		{
+			RTLIL::Cell *cell = wr_ports.at(i);
+
+			if (cell->parameters.at("\\CLK_ENABLE").as_bool() != cache_clk_enable ||
+					(cache_clk_enable && (sigmap(cell->connections.at("\\CLK")) != cache_clk ||
+					cell->parameters.at("\\CLK_POLARITY").as_bool() != cache_clk_polarity)))
+			{
+				cache_clk_enable = cell->parameters.at("\\CLK_ENABLE").as_bool();
+				cache_clk_polarity = cell->parameters.at("\\CLK_POLARITY").as_bool();
+				cache_clk = sigmap(cell->connections.at("\\CLK"));
+			}
+			else if (i > 0 && considered_ports.count(i-1) && considered_ports.count(i))
+				considered_port_pairs.insert(i);
+
+			if (cache_clk_enable)
+				log("  Port %d (%s) on %s %s: %s\n", i, log_id(cell),
+						cache_clk_polarity ? "posedge" : "negedge", log_signal(cache_clk),
+						considered_ports.count(i) ? "considered" : "not considered");
+			else
+				log("  Port %d (%s) unclocked: %s\n", i, log_id(cell),
+						considered_ports.count(i) ? "considered" : "not considered");
+		}
+
+		if (considered_port_pairs.size() < 1) {
+			log("  No two subsequent ports in same clock domain considered -> nothing to consolidate.\n");
+			return;
+		}
+
+		// create SAT representation of common input cone of all considered EN signals
+
+		std::set<RTLIL::Cell*> sat_cells;
+		std::set<RTLIL::SigBit> bits_queue;
+		std::map<int, int> port_to_sat_variable;
+
+		for (int i = 0; i < int(wr_ports.size()); i++)
+			if (considered_port_pairs.count(i) || considered_port_pairs.count(i+1))
+			{
+				RTLIL::SigSpec sig = modwalker.sigmap(wr_ports[i]->connections.at("\\EN"));
+				port_to_sat_variable[i] = ez.expression(ez.OpOr, satgen.importSigSpec(sig));
+
+				std::vector<RTLIL::SigBit> bits = sig;
+				bits_queue.insert(bits.begin(), bits.end());
+			}
+
+		while (!bits_queue.empty())
+		{
+			std::set<ModWalker::PortBit> portbits;
+			modwalker.get_drivers(portbits, bits_queue);
+			bits_queue.clear();
+
+			for (auto &pbit : portbits)
+				if (sat_cells.count(pbit.cell) == 0 && cone_ct.cell_known(pbit.cell->type)) {
+					std::set<RTLIL::SigBit> &cell_inputs = modwalker.cell_inputs[pbit.cell];
+					bits_queue.insert(cell_inputs.begin(), cell_inputs.end());
+					sat_cells.insert(pbit.cell);
+				}
+		}
+
+		log("  Common input cone for all EN signals: %d cells.\n", int(sat_cells.size()));
+
+		for (auto cell : sat_cells)
+			satgen.importCell(cell);
+
+		log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", ez.numCnfVariables(), ez.numCnfClauses());
+
+		// merge subsequent ports if possible
+
+		for (int i = 0; i < int(wr_ports.size()); i++)
+		{
+			if (!considered_port_pairs.count(i))
+				continue;
+
+			if (ez.solve(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i))) {
+				log("  According to SAT solver sharing of port %d with port %d is not possible.\n", i-1, i);
+				continue;
+			}
+
+			log("  Merging port %d into port %d.\n", i-1, i);
+			port_to_sat_variable.at(i) = ez.OR(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i));
+
+			RTLIL::SigSpec last_addr = wr_ports[i-1]->connections.at("\\ADDR");
+			RTLIL::SigSpec last_data = wr_ports[i-1]->connections.at("\\DATA");
+			std::vector<RTLIL::SigBit> last_en = modwalker.sigmap(wr_ports[i-1]->connections.at("\\EN"));
+
+			RTLIL::SigSpec this_addr = wr_ports[i]->connections.at("\\ADDR");
+			RTLIL::SigSpec this_data = wr_ports[i]->connections.at("\\DATA");
+			std::vector<RTLIL::SigBit> this_en = modwalker.sigmap(wr_ports[i]->connections.at("\\EN"));
+
+			RTLIL::SigBit this_en_active = module->ReduceOr(NEW_ID, this_en);
+
+			wr_ports[i]->connections.at("\\ADDR") = module->Mux(NEW_ID, last_addr, this_addr, this_en_active);
+			wr_ports[i]->connections.at("\\DATA") = module->Mux(NEW_ID, last_data, this_data, this_en_active);
+
+			std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, int> groups_en;
+			RTLIL::SigSpec grouped_last_en, grouped_this_en, en;
+			RTLIL::Wire *grouped_en = module->new_wire(0, NEW_ID);
+
+			for (int j = 0; j < int(this_en.size()); j++) {
+				std::pair<RTLIL::SigBit, RTLIL::SigBit> key(last_en[j], this_en[j]);
+				if (!groups_en.count(key)) {
+					grouped_last_en.append_bit(last_en[j]);
+					grouped_this_en.append_bit(this_en[j]);
+					groups_en[key] = grouped_en->width;
+					grouped_en->width++;
+				}
+				en.append(RTLIL::SigSpec(grouped_en, 1, groups_en[key]));
+			}
+
+			module->addMux(NEW_ID, grouped_last_en, grouped_this_en, this_en_active, grouped_en);
+			wr_ports[i]->connections.at("\\EN") = en;
+
+			module->cells.erase(wr_ports[i-1]->name);
+			delete wr_ports[i-1];
+			wr_ports[i-1] = NULL;
+		}
+
+		// Clean up `wr_ports': remove all NULL entries
+
+		std::vector<RTLIL::Cell*> wr_ports_with_nulls;
+		wr_ports_with_nulls.swap(wr_ports);
+
+		for (auto cell : wr_ports_with_nulls)
+			if (cell != NULL)
+				wr_ports.push_back(cell);
+	}
+
+
 	// -------------
 	// Setup and run
 	// -------------
@@ -515,6 +680,21 @@ struct MemoryShareWorker
 			translate_rd_feedback_to_en(it.first, it.second.first, it.second.second);
 			consolidate_wr_by_addr(it.first, it.second.second);
 		}
+
+		cone_ct.setup_internals();
+		cone_ct.cell_types.erase("$mul");
+		cone_ct.cell_types.erase("$mod");
+		cone_ct.cell_types.erase("$div");
+		cone_ct.cell_types.erase("$pow");
+		cone_ct.cell_types.erase("$shl");
+		cone_ct.cell_types.erase("$shr");
+		cone_ct.cell_types.erase("$sshl");
+		cone_ct.cell_types.erase("$sshr");
+
+		modwalker.setup(design, module, &cone_ct);
+
+		for (auto &it : memindex)
+			consolidate_wr_using_sat(it.first, it.second.second);
 	}
 };
 
