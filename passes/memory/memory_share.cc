@@ -208,7 +208,7 @@ struct MemoryShareWorker
 		if (async_rd_bits.empty())
 			return;
 
-		log("Populating enable bits on write ports of memory %s with aync read feedback:\n", log_id(memid));
+		log("Populating enable bits on write ports of memory %s.%s with aync read feedback:\n", log_id(module), log_id(memid));
 
 		for (auto cell : wr_ports)
 		{
@@ -345,7 +345,7 @@ struct MemoryShareWorker
 		if (wr_ports.size() <= 1)
 			return;
 
-		log("Consolidating write ports of memory %s by address:\n", log_id(memid));
+		log("Consolidating write ports of memory %s.%s by address:\n", log_id(module), log_id(memid));
 
 		std::map<RTLIL::SigSpec, int> last_port_by_addr;
 		std::vector<std::vector<bool>> active_bits_on_port;
@@ -501,7 +501,7 @@ struct MemoryShareWorker
 		port_is_always_active:;
 		}
 
-		log("Consolidating write ports of memory %s using sat-based resource sharing:\n", log_id(memid));
+		log("Consolidating write ports of memory %s.%s using sat-based resource sharing:\n", log_id(module), log_id(memid));
 
 		bool cache_clk_enable = false;
 		bool cache_clk_polarity = false;
