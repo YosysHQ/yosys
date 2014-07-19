@@ -407,12 +407,12 @@ struct SigMap
 	}
 
 	// internal helper function
-	void map_bit(RTLIL::SigChunk &c)
+	void map_bit(RTLIL::SigChunk &c) const
 	{
 		assert(c.width == 1);
 		bitDef_t bit(c.wire, c.offset);
 		if (c.wire && bits.count(bit) > 0)
-			c = bits[bit]->chunk;
+			c = bits.at(bit)->chunk;
 	}
 
 	void add(RTLIL::SigSpec from, RTLIL::SigSpec to)
@@ -459,7 +459,7 @@ struct SigMap
 			unregister_bit(c);
 	}
 
-	void apply(RTLIL::SigSpec &sig)
+	void apply(RTLIL::SigSpec &sig) const
 	{
 		sig.expand();
 		for (auto &c : sig.chunks)
@@ -467,7 +467,7 @@ struct SigMap
 		sig.optimize();
 	}
 
-	RTLIL::SigSpec operator()(RTLIL::SigSpec sig)
+	RTLIL::SigSpec operator()(RTLIL::SigSpec sig) const
 	{
 		apply(sig);
 		return sig;
