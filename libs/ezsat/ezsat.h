@@ -48,6 +48,11 @@ public:
 	static const int FALSE;
 
 private:
+	bool flag_keep_cnf;
+	bool flag_non_incremental;
+
+	bool non_incremental_solve_used_up;
+
 	std::map<std::string, int> literalsCache;
 	std::vector<std::string> literals;
 
@@ -57,7 +62,7 @@ private:
 	bool cnfConsumed;
 	int cnfVariableCount, cnfClausesCount;
 	std::vector<int> cnfLiteralVariables, cnfExpressionVariables;
-	std::vector<std::vector<int>> cnfClauses;
+	std::vector<std::vector<int>> cnfClauses, cnfClausesBackup;
 
 	void add_clause(const std::vector<int> &args);
 	void add_clause(const std::vector<int> &args, bool argsPolarity, int a = 0, int b = 0, int c = 0);
@@ -67,12 +72,21 @@ private:
 	int bind_cnf_and(const std::vector<int> &args);
 	int bind_cnf_or(const std::vector<int> &args);
 
+protected:
+	void preSolverCallback();
+
 public:
 	int solverTimeout;
 	bool solverTimoutStatus;
 
 	ezSAT();
 	virtual ~ezSAT();
+
+	void keep_cnf() { flag_keep_cnf = true; }
+	void non_incremental() { flag_non_incremental = true; }
+
+	bool mode_keep_cnf() const { return flag_keep_cnf; }
+	bool mode_non_incremental() const { return flag_non_incremental; }
 
 	// manage expressions
 
@@ -154,6 +168,9 @@ public:
 
 	void consumeCnf();
 	void consumeCnf(std::vector<std::vector<int>> &cnf);
+
+	// use this function to get the full CNF in keep_cnf mode
+	void getFullCnf(std::vector<std::vector<int>> &full_cnf) const;
 
 	std::string cnfLiteralInfo(int idx) const;
 

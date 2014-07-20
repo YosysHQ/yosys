@@ -18,7 +18,8 @@ test: all
 	./testbench
 	./demo_bit
 	./demo_vec
-	./demo_cmp
+	# ./demo_cmp
+	# ./puzzle3d
 
 clean:
 	rm -f demo_bit demo_vec demo_cmp testbench puzzle3d *.o *.d

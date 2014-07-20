@@ -64,6 +64,7 @@ void test_simple()
 	printf("==== %s ====\n\n", __PRETTY_FUNCTION__);
 
 	ezMiniSAT sat;
+	sat.non_incremental();
 	sat.assume(sat.OR("A", "B"));
 	sat.assume(sat.NOT(sat.AND("A", "B")));
 	test(sat);
@@ -121,6 +122,8 @@ void test_xorshift32()
 	printf("==== %s ====\n\n", __PRETTY_FUNCTION__);
 
 	ezMiniSAT sat;
+	sat.keep_cnf();
+
 	xorshift128 rng;
 
 	std::vector<int> bits = sat.vec_var("i", 32);
@@ -137,6 +140,9 @@ void test_xorshift32()
 	test_xorshift32_try(sat, rng());
 	test_xorshift32_try(sat, rng());
 	test_xorshift32_try(sat, rng());
+
+	sat.printDIMACS(stdout, true);
+	printf("\n");
 }
 
 // ------------------------------------------------------------------------------------------------------------

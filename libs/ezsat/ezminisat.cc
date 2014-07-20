@@ -63,7 +63,8 @@ void ezMiniSAT::clear()
 #if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
 void ezMiniSAT::freeze(int id)
 {
-	cnfFrozenVars.insert(bind(id));
+	if (!mode_non_incremental())
+		cnfFrozenVars.insert(bind(id));
 }
 
 bool ezMiniSAT::eliminated(int idx)
@@ -89,6 +90,8 @@ void ezMiniSAT::alarmHandler(int)
 
 bool ezMiniSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
 {
+	preSolverCallback();
+
 	solverTimoutStatus = false;
 
 	if (0) {
