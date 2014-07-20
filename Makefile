@@ -162,6 +162,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	cd tests/hana && bash run-test.sh
 	cd tests/asicworld && bash run-test.sh
 	cd tests/realmath && bash run-test.sh
+	cd tests/share && bash run-test.sh
 	cd tests/techmap && bash run-test.sh
 	cd tests/memories && bash run-test.sh
 	cd tests/sat && bash run-test.sh
