@@ -3,7 +3,8 @@ CC = clang
 CXX = clang
 CXXFLAGS = -MD -Wall -Wextra -ggdb
 CXXFLAGS += -std=c++11 -O0
-LDLIBS = -lminisat -lm -lstdc++
+LDLIBS = ../minisat/Options.cc ../minisat/SimpSolver.cc ../minisat/Solver.cc ../minisat/System.cc -lm -lstdc++
+
 
 all: demo_vec demo_bit demo_cmp testbench puzzle3d
 
