@@ -134,6 +134,10 @@ struct ShareWorker
 		not_a_muxed_cell:
 				continue;
 
+			// FIXME: Creation of super cells is broken for this cell types
+			if (cell->type == "$shr" || cell->type == "$mod")
+				continue;
+
 			if (config.opt_force) {
 				shareable_cells.insert(cell);
 				continue;
@@ -222,6 +226,71 @@ struct ShareWorker
 		for (auto c : shareable_cells)
 			if (c != cell && is_shareable_pair(c, cell))
 				results.push_back(c);
+	}
+
+
+	// -----------------------
+	// Create replacement cell
+	// -----------------------
+
+	RTLIL::Cell *make_supercell(RTLIL::Cell *c1, RTLIL::Cell *c2, RTLIL::SigSpec act)
+	{
+		if (c1->type == "$mul" || c1->type == "$div" || c1->type == "$mod" || c1->type == "$add" || c1->type == "$sub" ||
+				c1->type == "$shl" || c1->type == "$shr" || c1->type == "$sshl" || c1->type == "$sshr")
+		{
+			log_assert(c1->type == c2->type);
+
+			bool a_signed = c1->parameters.at("\\A_SIGNED").as_bool();
+			bool b_signed = c1->parameters.at("\\B_SIGNED").as_bool();
+
+			log_assert(a_signed == c2->parameters.at("\\A_SIGNED").as_bool());
+			log_assert(b_signed == c2->parameters.at("\\B_SIGNED").as_bool());
+
+			RTLIL::SigSpec a1 = c1->connections.at("\\A");
+			RTLIL::SigSpec b1 = c1->connections.at("\\B");
+			RTLIL::SigSpec y1 = c1->connections.at("\\Y");
+
+			RTLIL::SigSpec a2 = c2->connections.at("\\A");
+			RTLIL::SigSpec b2 = c2->connections.at("\\B");
+			RTLIL::SigSpec y2 = c2->connections.at("\\Y");
+
+			int a_width = std::max(a1.width, a2.width);
+			int b_width = std::max(b1.width, b2.width);
+			int y_width = std::max(y1.width, y2.width);
+
+			if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+			if (b1.width != b_width) b1 = module->addPos(NEW_ID, b1, module->new_wire(b_width, NEW_ID), b_signed)->connections.at("\\Y");
+
+			if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+			if (b2.width != b_width) b2 = module->addPos(NEW_ID, b2, module->new_wire(b_width, NEW_ID), b_signed)->connections.at("\\Y");
+
+			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
+			RTLIL::SigSpec b = module->Mux(NEW_ID, b2, b1, act);
+			RTLIL::Wire *y = module->new_wire(y_width, NEW_ID);
+
+			RTLIL::Cell *supercell = new RTLIL::Cell;
+			supercell->name = NEW_ID;
+			supercell->type = c1->type;
+			supercell->parameters["\\A_SIGNED"] = a_signed;
+			supercell->parameters["\\B_SIGNED"] = b_signed;
+			supercell->parameters["\\A_WIDTH"] = a_width;
+			supercell->parameters["\\B_WIDTH"] = b_width;
+			supercell->parameters["\\Y_WIDTH"] = y_width;
+			supercell->connections["\\A"] = a;
+			supercell->connections["\\B"] = b;
+			supercell->connections["\\Y"] = y;
+			module->add(supercell);
+
+			RTLIL::SigSpec new_y1(y, y1.width);
+			RTLIL::SigSpec new_y2(y, y2.width);
+
+			module->connections.push_back(RTLIL::SigSig(y1, new_y1));
+			module->connections.push_back(RTLIL::SigSig(y2, new_y2));
+
+			return supercell;
+		}
+
+		log_abort();
 	}
 
 
@@ -330,6 +399,8 @@ struct ShareWorker
 		optimize_activation_patterns(activation_patterns_cache[cell]);
 		if (activation_patterns_cache[cell].empty()) {
 			log("%sFound cell that is never activated: %s\n", indent, log_id(cell));
+			RTLIL::SigSpec cell_outputs = modwalker.cell_outputs[cell];
+			module->connections.push_back(RTLIL::SigSig(cell_outputs, RTLIL::SigSpec(RTLIL::State::Sx, cell_outputs.width)));
 			cells_to_remove.insert(cell);
 		}
 
@@ -349,6 +420,18 @@ struct ShareWorker
 			signal.append_bit(bit);
 
 		return signal;
+	}
+
+	RTLIL::SigSpec make_cell_activation_logic(const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &activation_patterns)
+	{
+		RTLIL::Wire *all_cases_wire = module->new_wire(0, NEW_ID);
+		for (auto &p : activation_patterns) {
+			all_cases_wire->width++;
+			module->addEq(NEW_ID, p.first, p.second, RTLIL::SigSpec(all_cases_wire, 1, all_cases_wire->width - 1));
+		}
+		if (all_cases_wire->width == 1)
+			return all_cases_wire;
+		return module->ReduceOr(NEW_ID, all_cases_wire);
 	}
 
 
@@ -504,8 +587,39 @@ struct ShareWorker
 				}
 
 				log("      According to the SAT solver this pair of cells can be shared.\n");
-				log("      WARNING: Actually sharing the cells is not implemented yet.\n");
 				shareable_cells.erase(other_cell);
+
+				int cell_select_score = 0;
+				int other_cell_select_score = 0;
+
+				for (auto &p : cell_activation_patterns)
+					cell_select_score += p.first.width;
+
+				for (auto &p : other_cell_activation_patterns)
+					other_cell_select_score += p.first.width;
+
+				RTLIL::Cell *supercell;
+				if (cell_select_score <= other_cell_select_score) {
+					RTLIL::SigSpec act = make_cell_activation_logic(cell_activation_patterns);
+					supercell = make_supercell(cell, other_cell, act);
+					log("      Activation signal for %s: %s\n", log_id(cell), log_signal(act));
+				} else {
+					RTLIL::SigSpec act = make_cell_activation_logic(other_cell_activation_patterns);
+					supercell = make_supercell(other_cell, cell, act);
+					log("      Activation signal for %s: %s\n", log_id(other_cell), log_signal(act));
+				}
+
+				log("      New cell: %s (%s)\n", log_id(supercell), log_id(supercell->type));
+
+				std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> supercell_activation_patterns;
+				supercell_activation_patterns.insert(cell_activation_patterns.begin(), cell_activation_patterns.end());
+				supercell_activation_patterns.insert(other_cell_activation_patterns.begin(), other_cell_activation_patterns.end());
+				optimize_activation_patterns(supercell_activation_patterns);
+				activation_patterns_cache[supercell] = supercell_activation_patterns;
+				shareable_cells.insert(supercell);
+
+				cells_to_remove.insert(cell);
+				cells_to_remove.insert(other_cell);
 				break;
 			}
 		}
