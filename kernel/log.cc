@@ -213,3 +213,18 @@ const char *log_id(std::string str)
 		string_buf.push_back(str);
 	return string_buf.back().c_str();
 }
+
+void log_cell(RTLIL::Cell *cell, std::string indent)
+{
+	char *ptr;
+	size_t size;
+
+	FILE *f = open_memstream(&ptr, &size);
+	ILANG_BACKEND::dump_cell(f, indent, cell);
+	fputc(0, f);
+	fclose(f);
+
+	log("%s", ptr);
+	free(ptr);
+}
+
