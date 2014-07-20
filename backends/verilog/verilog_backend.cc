@@ -533,16 +533,18 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	{
 		int width = cell->parameters["\\WIDTH"].as_int();
 		int s_width = cell->connections["\\S"].width;
-		std::string reg_name = cellname(cell);
-		fprintf(f, "%s" "reg [%d:0] %s;\n", indent.c_str(), width-1, reg_name.c_str());
+		std::string func_name = cellname(cell);
 
-		dump_attributes(f, indent, cell->attributes);
+		fprintf(f, "%s" "function [%d:0] %s;\n", indent.c_str(), width-1, func_name.c_str());
+		fprintf(f, "%s" "  input [%d:0] a;\n", indent.c_str(), width-1);
+		fprintf(f, "%s" "  input [%d:0] b;\n", indent.c_str(), s_width*width-1);
+		fprintf(f, "%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
+
+		dump_attributes(f, indent + "  ", cell->attributes);
 		if (!noattr)
-			fprintf(f, "%s" "(* parallel_case *)\n", indent.c_str());
-		fprintf(f, "%s" "always @*\n", indent.c_str());
-		fprintf(f, "%s" "  casez (", indent.c_str());
-		dump_sigspec(f, cell->connections["\\S"]);
-		fprintf(f, noattr ? ") // synopsys parallel_case\n" : ")\n");
+			fprintf(f, "%s" "  (* parallel_case *)\n", indent.c_str());
+		fprintf(f, "%s" "  casez (s)", indent.c_str());
+		fprintf(f, noattr ? " // synopsys parallel_case\n" : "\n");
 
 		for (int i = 0; i < s_width; i++)
 		{
@@ -552,22 +554,24 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 				fprintf(f, "%c", j == i ? '1' : cell->type == "$pmux_safe" ? '0' : '?');
 
 			fprintf(f, ":\n");
-			fprintf(f, "%s" "      %s = ", indent.c_str(), reg_name.c_str());
-
-			RTLIL::SigSpec s = cell->connections["\\B"].extract(i * width, width);
-			dump_sigspec(f, s);
-			fprintf(f, ";\n");
+			fprintf(f, "%s" "      %s = b[%d:%d];\n", indent.c_str(), func_name.c_str(), (i+1)*width-1, i*width);
 		}
 
 		fprintf(f, "%s" "    default:\n", indent.c_str());
-		fprintf(f, "%s" "      %s = ", indent.c_str(), reg_name.c_str());
-		dump_sigspec(f, cell->connections["\\A"]);
-		fprintf(f, ";\n");
+		fprintf(f, "%s" "      %s = a;\n", indent.c_str(), func_name.c_str());
 
 		fprintf(f, "%s" "  endcase\n", indent.c_str());
+		fprintf(f, "%s" "endfunction\n", indent.c_str());
+
 		fprintf(f, "%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->connections["\\Y"]);
-		fprintf(f, " = %s;\n", reg_name.c_str());
+		fprintf(f, " = %s(", func_name.c_str());
+		dump_sigspec(f, cell->connections["\\A"]);
+		fprintf(f, ", ");
+		dump_sigspec(f, cell->connections["\\B"]);
+		fprintf(f, ", ");
+		dump_sigspec(f, cell->connections["\\S"]);
+		fprintf(f, ");\n");
 		return true;
 	}
 
