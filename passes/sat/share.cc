@@ -27,7 +27,9 @@
 
 struct ShareWorkerConfig
 {
-	bool opt_all;
+	bool opt_force;
+	bool opt_aggressive;
+	bool opt_fast;
 };
 
 struct ShareWorker
@@ -56,7 +58,7 @@ struct ShareWorker
 			if (!design->selected(module, cell) || !modwalker.ct.cell_known(cell->type))
 				continue;
 
-			if (config.opt_all) {
+			if (config.opt_force) {
 				candidates.push_back(cell);
 				continue;
 			}
@@ -68,13 +70,19 @@ struct ShareWorker
 			}
 
 			if (cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod") {
-				if (cell->parameters.at("\\Y_WIDTH").as_int() > 4)
+				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 4)
 					candidates.push_back(cell);
 				continue;
 			}
 
 			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
-				if (cell->parameters.at("\\Y_WIDTH").as_int() > 8)
+				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 8)
+					candidates.push_back(cell);
+				continue;
+			}
+
+			if (cell->type == "$add" || cell->type == "$sub") {
+				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 10)
 					candidates.push_back(cell);
 				continue;
 			}
@@ -109,7 +117,7 @@ struct ShareWorker
 			return true;
 		}
 
-		if (c1->type == "$mul" || c1->type == "$div" || c1->type == "$mod" ||
+		if (c1->type == "$mul" || c1->type == "$div" || c1->type == "$mod" || c1->type == "$add" || c1->type == "$sub" ||
 				c1->type == "$shl" || c1->type == "$shr" || c1->type == "$sshl" || c1->type == "$sshr")
 		{
 			if (c1->parameters.at("\\A_SIGNED").as_bool() != c2->parameters.at("\\A_SIGNED").as_bool())
@@ -118,17 +126,20 @@ struct ShareWorker
 			if (c1->parameters.at("\\B_SIGNED").as_bool() != c2->parameters.at("\\B_SIGNED").as_bool())
 				return false;
 
-			int a1_width = c1->parameters.at("\\A_WIDTH").as_int();
-			int b1_width = c1->parameters.at("\\B_WIDTH").as_int();
-			int y1_width = c1->parameters.at("\\Y_WIDTH").as_int();
+			if (!config.opt_aggressive)
+			{
+				int a1_width = c1->parameters.at("\\A_WIDTH").as_int();
+				int b1_width = c1->parameters.at("\\B_WIDTH").as_int();
+				int y1_width = c1->parameters.at("\\Y_WIDTH").as_int();
 
-			int a2_width = c2->parameters.at("\\A_WIDTH").as_int();
-			int b2_width = c2->parameters.at("\\B_WIDTH").as_int();
-			int y2_width = c2->parameters.at("\\Y_WIDTH").as_int();
+				int a2_width = c2->parameters.at("\\A_WIDTH").as_int();
+				int b2_width = c2->parameters.at("\\B_WIDTH").as_int();
+				int y2_width = c2->parameters.at("\\Y_WIDTH").as_int();
 
-			if (std::max(a1_width, a2_width) > 2 * std::min(a1_width, a2_width)) return false;
-			if (std::max(b1_width, b2_width) > 2 * std::min(b1_width, b2_width)) return false;
-			if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
+				if (std::max(a1_width, a2_width) > 2 * std::min(a1_width, a2_width)) return false;
+				if (std::max(b1_width, b2_width) > 2 * std::min(b1_width, b2_width)) return false;
+				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
+			}
 
 			return true;
 		}
@@ -365,10 +376,15 @@ struct ShareWorker
 
 					for (auto &pbit : portbits)
 						if (sat_cells.count(pbit.cell) == 0 && cone_ct.cell_known(pbit.cell->type)) {
+							if (config.opt_fast && modwalker.cell_outputs[pbit.cell].size() >= 4)
+								continue;
 							// log("      Adding cell %s (%s) to SAT problem.\n", log_id(pbit.cell), log_id(pbit.cell->type));
 							satgen.importCell(pbit.cell);
 							sat_cells.insert(pbit.cell);
 						}
+
+					if (config.opt_fast && sat_cells.size() > 100)
+						break;
 				}
 
 				all_ctrl_signals.sort_and_unify();
@@ -409,26 +425,47 @@ struct SharePass : public Pass {
 		log("This pass merges shareable resources into a single resource. A SAT solver\n");
 		log("is used to determine if two resources are share-able.\n");
 		log("\n");
-		log("  -all\n");
+		log("  -force\n");
 		log("    Per default the selection of cells that is considered for sharing is\n");
-		log("    narrowed using some built-in heuristics. With this option all selected\n");
+		log("    narrowed using a list of cell types. With this option all selected\n");
 		log("    cells are considered for resource sharing.\n");
 		log("\n");
 		log("    IMPORTANT NOTE: If the -all option is used then no cells with internal\n");
 		log("    state must be selected!\n");
 		log("\n");
+		log("  -aggressive\n");
+		log("    Per default some heuristics are used to reduce the number of cells\n");
+		log("    considered for resource sharing to only large resources. This options\n");
+		log("    turns this heuristics off, resulting in much more cells being considered\n");
+		log("    for resource sharing.\n");
+		log("\n");
+		log("  -fast\n");
+		log("    Only consider comparable primitive control logic in SAT solving, resulting\n");
+		log("    in much easier SAT problems at the cost of maybe missing some oportunities\n");
+		log("    for resource sharing.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		ShareWorkerConfig config;
-		config.opt_all = false;
+		config.opt_force = false;
+		config.opt_aggressive = false;
+		config.opt_fast = false;
 
 		log_header("Executing SHARE pass (SAT-based resource sharing).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-all") {
-				config.opt_all = true;
+			if (args[argidx] == "-force") {
+				config.opt_force = true;
+				continue;
+			}
+			if (args[argidx] == "-aggressive") {
+				config.opt_aggressive = true;
+				continue;
+			}
+			if (args[argidx] == "-fast") {
+				config.opt_fast = true;
 				continue;
 			}
 			break;
