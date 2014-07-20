@@ -6,7 +6,7 @@ rm minisat_upstream/minisat/*/Main.cc
 mv minisat_upstream/LICENSE minisat_upstream/minisat/*/*.{h,cc} .
 rm -rf minisat_upstream
 
-sed -i -e 's,^#include *"minisat/[^/]\+,#include "libs/minisat,' *.cc *.h
+sed -i -e 's,^#include *"minisat/[^/]\+/\?,#include ",' *.cc *.h
 sed -i -e 's/Minisat::memUsedPeak()/Minisat::memUsedPeak(bool)/' System.cc
 sed -i -e 's/PRI[iu]64/ & /' Options.h Solver.cc
 sed -i -e '1 i #define __STDC_LIMIT_MACROS' *.cc
