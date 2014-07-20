@@ -38,8 +38,76 @@ struct ShareWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
-	CellTypes cone_ct;
+	CellTypes fwd_ct, cone_ct;
 	ModWalker modwalker;
+
+
+	// ------------------------------------------------------------------------------
+	// Find terminal bits -- i.e. bits that do not (exclusively) feed into a mux tree
+	// ------------------------------------------------------------------------------
+
+	std::set<RTLIL::SigBit> terminal_bits;
+
+	void find_terminal_bits()
+	{
+		std::set<RTLIL::SigBit> queue_strong_bits, queue_weak_bits;
+		std::set<RTLIL::Cell*> visited_cells;
+
+		queue_weak_bits.insert(modwalker.signal_outputs.begin(), modwalker.signal_outputs.end());
+
+		for (auto &it : module->cells)
+		{
+			RTLIL::Cell *cell = it.second;
+
+			if (cell->type == "$mux" || cell->type == "$pmux")
+			{
+				std::vector<RTLIL::SigBit> bits = modwalker.sigmap(cell->connections.at("\\S"));
+				queue_strong_bits.insert(bits.begin(), bits.end());
+			}
+			else if (!fwd_ct.cell_known(cell->type))
+			{
+				std::set<RTLIL::SigBit> &bits = modwalker.cell_inputs[cell];
+				queue_weak_bits.insert(bits.begin(), bits.end());
+			}
+		}
+
+		terminal_bits.insert(queue_strong_bits.begin(), queue_strong_bits.end());
+		terminal_bits.insert(queue_weak_bits.begin(), queue_weak_bits.end());
+
+		while (!queue_strong_bits.empty())
+		{
+			std::set<ModWalker::PortBit> portbits;
+			modwalker.get_drivers(portbits, queue_strong_bits);
+			queue_strong_bits.clear();
+
+			for (auto &pbit : portbits)
+				if (fwd_ct.cell_known(pbit.cell->type) && visited_cells.count(pbit.cell) == 0) {
+					std::set<RTLIL::SigBit> &bits = modwalker.cell_inputs[pbit.cell];
+					terminal_bits.insert(bits.begin(), bits.end());
+					queue_strong_bits.insert(bits.begin(), bits.end());
+					visited_cells.insert(pbit.cell);
+				}
+		}
+
+		while (!queue_weak_bits.empty())
+		{
+			std::set<ModWalker::PortBit> portbits;
+			modwalker.get_drivers(portbits, queue_weak_bits);
+			queue_weak_bits.clear();
+
+			for (auto &pbit : portbits) {
+				if (pbit.cell->type == "$mux" || pbit.cell->type == "$pmux")
+					continue;
+				if (fwd_ct.cell_known(pbit.cell->type) && visited_cells.count(pbit.cell) == 0) {
+					std::set<RTLIL::SigBit> &bits = modwalker.cell_inputs[pbit.cell];
+					terminal_bits.insert(bits.begin(), bits.end());
+					queue_weak_bits.insert(bits.begin(), bits.end());
+					visited_cells.insert(pbit.cell);
+				}
+			}
+		}
+	}
+
 
 	// ---------------------------------------------------
 	// Find shareable cells and compatible groups of cells
@@ -49,8 +117,6 @@ struct ShareWorker
 
 	void find_shareable_cells()
 	{
-		std::vector<RTLIL::Cell*> candidates;
-
 		for (auto &it : module->cells)
 		{
 			RTLIL::Cell *cell = it.second;
@@ -58,49 +124,42 @@ struct ShareWorker
 			if (!design->selected(module, cell) || !modwalker.ct.cell_known(cell->type))
 				continue;
 
+			for (auto &bit : modwalker.cell_outputs[cell])
+				if (terminal_bits.count(bit))
+					goto not_a_muxed_cell;
+
+			if (0)
+		not_a_muxed_cell:
+				continue;
+
 			if (config.opt_force) {
-				candidates.push_back(cell);
+				shareable_cells.insert(cell);
 				continue;
 			}
 
 			if (cell->type == "$memrd") {
 				if (!cell->parameters.at("\\CLK_ENABLE").as_bool())
-					candidates.push_back(cell);
+					shareable_cells.insert(cell);
 				continue;
 			}
 
 			if (cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod") {
 				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 4)
-					candidates.push_back(cell);
+					shareable_cells.insert(cell);
 				continue;
 			}
 
 			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
 				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 8)
-					candidates.push_back(cell);
+					shareable_cells.insert(cell);
 				continue;
 			}
 
 			if (cell->type == "$add" || cell->type == "$sub") {
 				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 10)
-					candidates.push_back(cell);
+					shareable_cells.insert(cell);
 				continue;
 			}
-		}
-
-		for (auto cell : candidates)
-		{
-			std::set<ModWalker::PortBit> driven_bits;
-			modwalker.get_consumers(driven_bits, modwalker.cell_outputs[cell]);
-			for (auto bit : driven_bits) {
-				if (bit.cell->type != "$mux" && bit.cell->type != "$pmux")
-					goto skip_candidate;
-				if (bit.port != "\\A" && bit.port != "\\B")
-					goto skip_candidate;
-			}
-			if (!modwalker.has_outputs(modwalker.cell_outputs[cell]))
-				shareable_cells.insert(cell);
-		skip_candidate:;
 		}
 	}
 
@@ -170,77 +229,28 @@ struct ShareWorker
 
 	std::map<RTLIL::Cell*, std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>>> activation_patterns_cache;
 
-	void follow_mux_data_cone(std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &patterns,
-			std::set<std::pair<RTLIL::SigBit, RTLIL::State>> &state, RTLIL::SigSpec signal)
+	bool sort_check_pattern(std::pair<RTLIL::SigSpec, RTLIL::Const> &p)
 	{
-		std::set<ModWalker::PortBit> consumers;
-		std::map<RTLIL::Cell*, std::set<ModWalker::PortBit>> consumers_by_cell;
+		std::map<RTLIL::SigBit, RTLIL::State> p_bits;
 
-		if (modwalker.has_outputs(signal))
-			goto signal_outside_mux_tree;
-
-		modwalker.get_consumers(consumers, signal);
-		for (auto &bit : consumers) {
-			if ((bit.cell->type != "$mux" && bit.cell->type != "$pmux") || bit.port == "\\S")
-				goto signal_outside_mux_tree;
-			consumers_by_cell[bit.cell].insert(bit);
+		std::vector<RTLIL::SigBit> p_first_bits = p.first;
+		for (int i = 0; i < SIZE(p_first_bits); i++) {
+			RTLIL::SigBit b = p_first_bits[i];
+			RTLIL::State v = p.second.bits[i];
+			if (p_bits.count(b) && p_bits.at(b) != v)
+				return false;
+			p_bits[b] = v;
 		}
 
-		if (0) {
-	signal_outside_mux_tree:;
-			RTLIL::SigSpec pattern_first, pattern_second;
-			for (auto &bit : state) {
-				pattern_first.append_bit(bit.first);
-				pattern_second.append_bit(bit.second);
-			}
-			patterns.insert(std::pair<RTLIL::SigSpec, RTLIL::Const>(pattern_first, pattern_second.as_const()));
-			return;
+		p.first = RTLIL::SigSpec();
+		p.second.bits.clear();
+
+		for (auto &it : p_bits) {
+			p.first.append_bit(it.first);
+			p.second.bits.push_back(it.second);
 		}
 
-		for (auto &it : consumers_by_cell)
-		{
-			RTLIL::Cell *cell = it.first;
-			log_assert(cell->type == "$mux" || cell->type == "$pmux");
-
-			int width = cell->parameters.at("\\WIDTH").as_int();
-			std::set<int> used_in_b_parts;
-			bool used_in_a = false;
-
-			for (auto &bit : it.second) {
-				if (bit.port == "\\A")
-					used_in_a = true;
-				else if (bit.port == "\\B")
-					used_in_b_parts.insert(bit.offset / width);
-				else
-					log_abort();
-			}
-
-			std::vector<RTLIL::SigBit> sig_s = modwalker.sigmap(cell->connections.at("\\S")).to_sigbit_vector();
-
-			if (used_in_a) {
-				std::set<std::pair<RTLIL::SigBit, RTLIL::State>> new_state = state;
-				for (auto &bit : sig_s) {
-					std::pair<RTLIL::SigBit, RTLIL::State> this_state(bit, RTLIL::State::S0);
-					std::pair<RTLIL::SigBit, RTLIL::State> this_inv_state(bit, RTLIL::State::S1);
-					if (new_state.count(this_inv_state))
-						goto conflict_in_a_port;
-					new_state.insert(this_state);
-				}
-				follow_mux_data_cone(patterns, new_state, modwalker.sigmap(cell->connections.at("\\Y")));
-			conflict_in_a_port:;
-			}
-
-			for (int part_idx : used_in_b_parts) {
-				std::set<std::pair<RTLIL::SigBit, RTLIL::State>> new_state = state;
-				std::pair<RTLIL::SigBit, RTLIL::State> this_state(sig_s.at(part_idx), RTLIL::State::S1);
-				std::pair<RTLIL::SigBit, RTLIL::State> this_inv_state(sig_s.at(part_idx), RTLIL::State::S0);
-				if (new_state.count(this_inv_state))
-					goto conflict_in_b_port;
-				new_state.insert(this_state);
-				follow_mux_data_cone(patterns, new_state, modwalker.sigmap(cell->connections.at("\\Y")));
-			conflict_in_b_port:;
-			}
-		}
+		return true;
 	}
 
 	const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &find_cell_activation_patterns(RTLIL::Cell *cell)
@@ -248,14 +258,68 @@ struct ShareWorker
 		if (activation_patterns_cache.count(cell))
 			return activation_patterns_cache.at(cell);
 
-		std::set<std::pair<RTLIL::SigBit, RTLIL::State>> state;
-		RTLIL::SigSpec cell_output_signal;
+		const std::set<RTLIL::SigBit> &cell_out_bits = modwalker.cell_outputs[cell];
+		std::set<RTLIL::Cell*> driven_cells;
 
-		for (auto &bit : modwalker.cell_outputs[cell])
-			cell_output_signal.append_bit(bit);
+		for (auto &bit : cell_out_bits)
+		{
+			if (terminal_bits.count(bit)) {
+				// Terminal cells are always active: unconditional activation pattern
+				activation_patterns_cache[cell].insert(std::pair<RTLIL::SigSpec, RTLIL::Const>());
+				return activation_patterns_cache.at(cell);
+			}
+			for (auto &pbit : modwalker.signal_consumers[bit]) {
+				log_assert(fwd_ct.cell_known(pbit.cell->type));
+				driven_cells.insert(pbit.cell);
+			}
+		}
 
-		follow_mux_data_cone(activation_patterns_cache[cell], state, cell_output_signal);
-		return activation_patterns_cache.at(cell);
+		for (auto c : driven_cells)
+		{
+			const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &c_patterns = find_cell_activation_patterns(c);
+
+			if (c->type == "$mux" || c->type == "$pmux")
+			{
+				bool used_in_a = false;
+				std::set<int> used_in_b_parts;
+
+				int width = c->parameters.at("\\WIDTH").as_int();
+				std::vector<RTLIL::SigBit> sig_a = modwalker.sigmap(c->connections.at("\\A"));
+				std::vector<RTLIL::SigBit> sig_b = modwalker.sigmap(c->connections.at("\\B"));
+				std::vector<RTLIL::SigBit> sig_s = modwalker.sigmap(c->connections.at("\\S"));
+
+				for (auto &bit : sig_a)
+					if (cell_out_bits.count(bit))
+						used_in_a = true;
+
+				for (int i = 0; i < SIZE(sig_b); i++)
+					if (cell_out_bits.count(sig_b[i]))
+						used_in_b_parts.insert(i / width);
+
+				if (used_in_a)
+					for (auto p : c_patterns) {
+						for (int i = 0; i < SIZE(sig_s); i++)
+							p.first.append_bit(sig_s[i]), p.second.bits.push_back(RTLIL::State::S0);
+						if (sort_check_pattern(p))
+							activation_patterns_cache[cell].insert(p);
+					}
+
+				for (int idx : used_in_b_parts)
+					for (auto p : c_patterns) {
+						p.first.append_bit(sig_s[idx]), p.second.bits.push_back(RTLIL::State::S1);
+						if (sort_check_pattern(p))
+							activation_patterns_cache[cell].insert(p);
+					}
+			}
+			else
+			{
+				// Not a mux: just copy the activation patterns
+				for (auto &p : c_patterns)
+					activation_patterns_cache[cell].insert(p);
+			}
+		}
+
+		return activation_patterns_cache[cell];
 	}
 
 	RTLIL::SigSpec bits_from_activation_patterns(const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &activation_patterns)
@@ -281,6 +345,8 @@ struct ShareWorker
 	ShareWorker(ShareWorkerConfig config, RTLIL::Design *design, RTLIL::Module *module) :
 			config(config), design(design), module(module)
 	{
+		fwd_ct.setup_internals();
+
 		cone_ct.setup_internals();
 		cone_ct.cell_types.erase("$mul");
 		cone_ct.cell_types.erase("$mod");
@@ -292,13 +358,15 @@ struct ShareWorker
 		cone_ct.cell_types.erase("$sshr");
 
 		modwalker.setup(design, module);
+
+		find_terminal_bits();
 		find_shareable_cells();
 
 		if (shareable_cells.size() < 2)
 			return;
 
 		log("Found %d cells in module %s that may be considered for resource sharing.\n",
-				int(shareable_cells.size()), log_id(module));
+				SIZE(shareable_cells), log_id(module));
 
 		while (!shareable_cells.empty())
 		{
@@ -306,6 +374,16 @@ struct ShareWorker
 			shareable_cells.erase(cell);
 
 			log("  Analyzing resource sharing options for %s:\n", log_id(cell));
+
+			const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &cell_activation_patterns = find_cell_activation_patterns(cell);
+			RTLIL::SigSpec cell_activation_signals = bits_from_activation_patterns(cell_activation_patterns);
+
+			if (cell_activation_patterns.count(std::pair<RTLIL::SigSpec, RTLIL::Const>())) {
+				log ("    Cell is always active. Therefore no sharing is possible.\n");
+				continue;
+			}
+
+			log("    Found %d activation_patterns using ctrl signal %s.\n", SIZE(cell_activation_patterns), log_signal(cell_activation_signals));
 
 			std::vector<RTLIL::Cell*> candidates;
 			find_shareable_partners(candidates, cell);
@@ -315,18 +393,10 @@ struct ShareWorker
 				continue;
 			}
 
-			log("    Found %d candidates:", int(candidates.size()));
+			log("    Found %d candidates:", SIZE(candidates));
 			for (auto c : candidates)
 				log(" %s", log_id(c));
 			log("\n");
-
-			const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &cell_activation_patterns = find_cell_activation_patterns(cell);
-			RTLIL::SigSpec cell_activation_signals = bits_from_activation_patterns(cell_activation_patterns);
-
-			log("    Found %d activation_patterns using ctrl signal %s.\n", int(cell_activation_patterns.size()), log_signal(cell_activation_signals));
-
-			if (cell_activation_patterns.empty())
-				continue;
 
 			for (auto other_cell : candidates)
 			{
@@ -335,11 +405,13 @@ struct ShareWorker
 				const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &other_cell_activation_patterns = find_cell_activation_patterns(other_cell);
 				RTLIL::SigSpec other_cell_activation_signals = bits_from_activation_patterns(other_cell_activation_patterns);
 
-				log("      Found %d activation_patterns using ctrl signal %s.\n",
-						int(other_cell_activation_patterns.size()), log_signal(other_cell_activation_signals));
-
-				if (other_cell_activation_patterns.empty())
+				if (other_cell_activation_patterns.count(std::pair<RTLIL::SigSpec, RTLIL::Const>())) {
+					log ("    Cell is always active. Therefore no sharing is possible.\n");
 					continue;
+				}
+
+				log("      Found %d activation_patterns using ctrl signal %s.\n",
+						SIZE(other_cell_activation_patterns), log_signal(other_cell_activation_signals));
 
 				ezDefaultSAT ez;
 				SatGen satgen(&ez, &modwalker.sigmap);
@@ -379,6 +451,7 @@ struct ShareWorker
 							if (config.opt_fast && modwalker.cell_outputs[pbit.cell].size() >= 4)
 								continue;
 							// log("      Adding cell %s (%s) to SAT problem.\n", log_id(pbit.cell), log_id(pbit.cell->type));
+							bits_queue.insert(modwalker.cell_inputs[pbit.cell].begin(), modwalker.cell_inputs[pbit.cell].end());
 							satgen.importCell(pbit.cell);
 							sat_cells.insert(pbit.cell);
 						}
@@ -394,12 +467,12 @@ struct ShareWorker
 				ez.assume(ez.AND(ez.expression(ez.OpOr, cell_active), ez.expression(ez.OpOr, other_cell_active)));
 
 				log("      Size of SAT problem: %d cells, %d variables, %d clauses\n",
-						int(sat_cells.size()), ez.numCnfVariables(), ez.numCnfClauses());
+						SIZE(sat_cells), ez.numCnfVariables(), ez.numCnfClauses());
 
 				if (ez.solve(sat_model, sat_model_values)) {
 					log("      According to the SAT solver this pair of cells can not be shared.\n");
-					log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), int(sat_model_values.size()));
-					for (int i = int(sat_model_values.size())-1; i >= 0; i--)
+					log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), SIZE(sat_model_values));
+					for (int i = SIZE(sat_model_values)-1; i >= 0; i--)
 						log("%c", sat_model_values[i] ? '1' : '0');
 					log("\n");
 					continue;
@@ -440,7 +513,7 @@ struct SharePass : public Pass {
 		log("    for resource sharing.\n");
 		log("\n");
 		log("  -fast\n");
-		log("    Only consider comparable primitive control logic in SAT solving, resulting\n");
+		log("    Only consider the simple part of the control logic in SAT solving, resulting\n");
 		log("    in much easier SAT problems at the cost of maybe missing some oportunities\n");
 		log("    for resource sharing.\n");
 		log("\n");
