@@ -135,7 +135,7 @@ struct ShareWorker
 				continue;
 
 			// FIXME: Creation of super cells is broken for this cell types
-			if (cell->type == "$shr" || cell->type == "$mod")
+			if (cell->type == "$div" || cell->type == "$mod")
 				continue;
 
 			if (config.opt_force) {
@@ -246,6 +246,9 @@ struct ShareWorker
 			log_assert(a_signed == c2->parameters.at("\\A_SIGNED").as_bool());
 			log_assert(b_signed == c2->parameters.at("\\B_SIGNED").as_bool());
 
+			if (c1->type == "$shl" || c1->type == "$shr" || c1->type == "$sshl" || c1->type == "$sshr")
+				b_signed = false;
+
 			RTLIL::SigSpec a1 = c1->connections.at("\\A");
 			RTLIL::SigSpec b1 = c1->connections.at("\\B");
 			RTLIL::SigSpec y1 = c1->connections.at("\\Y");
@@ -258,10 +261,23 @@ struct ShareWorker
 			int b_width = std::max(b1.width, b2.width);
 			int y_width = std::max(y1.width, y2.width);
 
-			if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
-			if (b1.width != b_width) b1 = module->addPos(NEW_ID, b1, module->new_wire(b_width, NEW_ID), b_signed)->connections.at("\\Y");
+			if (c1->type == "$shr" && a_signed)
+			{
+				a_width = std::max(y_width, a_width);
 
-			if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+				if (a1.width < y1.width) a1 = module->addPos(NEW_ID, a1, module->new_wire(y1.width, NEW_ID), true)->connections.at("\\Y");
+				if (a2.width < y2.width) a2 = module->addPos(NEW_ID, a2, module->new_wire(y2.width, NEW_ID), true)->connections.at("\\Y");
+
+				if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), false)->connections.at("\\Y");
+				if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), false)->connections.at("\\Y");
+			}
+			else
+			{
+				if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+				if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+			}
+
+			if (b1.width != b_width) b1 = module->addPos(NEW_ID, b1, module->new_wire(b_width, NEW_ID), b_signed)->connections.at("\\Y");
 			if (b2.width != b_width) b2 = module->addPos(NEW_ID, b2, module->new_wire(b_width, NEW_ID), b_signed)->connections.at("\\Y");
 
 			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
