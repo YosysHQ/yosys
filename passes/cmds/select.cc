@@ -857,6 +857,10 @@ struct SelectPass : public Pass {
 		log("        selection is non-empty. i.e. produce an error if no object matching\n");
 		log("        the selection is found.\n");
 		log("\n");
+		log("    -assert-count N\n");
+		log("        do not modify the current selection. instead assert that the given\n");
+		log("        selection contains exactly N objects.\n");
+		log("\n");
 		log("    -list\n");
 		log("        list all objects in the current selection\n");
 		log("\n");
@@ -1021,6 +1025,7 @@ struct SelectPass : public Pass {
 		bool got_module = false;
 		bool assert_none = false;
 		bool assert_any = false;
+		int assert_count = -1;
 		std::string write_file;
 		std::string set_name;
 		std::string sel_str;
@@ -1045,6 +1050,10 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-assert-any") {
 				assert_any = true;
+				continue;
+			}
+			if (arg == "-assert-count" && argidx+1 < args.size()) {
+				assert_count = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (arg == "-clear") {
@@ -1091,14 +1100,14 @@ struct SelectPass : public Pass {
 		if (none_mode && args.size() != 2)
 			log_cmd_error("Option -none can not be combined with any other options.\n");
 
-		if (add_mode + del_mode + assert_none + assert_any > 1)
-			log_cmd_error("Options -add, -del, -assert-none or -assert-any can not be combined.\n");
+		if (add_mode + del_mode + assert_none + assert_any + (assert_count >= 0) > 1)
+			log_cmd_error("Options -add, -del, -assert-none, -assert-any or -assert-count can not be combined.\n");
 
-		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any))
-			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none or -assert-any.\n");
+		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any || assert_count >= 0))
+			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none, -assert-any or -assert-count.\n");
 
-		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode || assert_none || assert_any))
-			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -assert-none or -assert-any.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode || assert_none || assert_any || assert_count >= 0))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -assert-none, -assert-any or -assert-count.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -1198,6 +1207,34 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			if (work_stack.back().empty())
 				log_error("Assertation failed: selection is empty:%s\n", sel_str.c_str());
+			return;
+		}
+
+		if (assert_count >= 0)
+		{
+			int total_count = 0;
+			if (work_stack.size() == 0)
+				log_cmd_error("No selection to check.\n");
+			RTLIL::Selection *sel = &work_stack.back();
+			sel->optimize(design);
+			for (auto mod_it : design->modules)
+				if (sel->selected_module(mod_it.first)) {
+					for (auto &it : mod_it.second->wires)
+						if (sel->selected_member(mod_it.first, it.first))
+							total_count++;
+					for (auto &it : mod_it.second->memories)
+						if (sel->selected_member(mod_it.first, it.first))
+							total_count++;
+					for (auto &it : mod_it.second->cells)
+						if (sel->selected_member(mod_it.first, it.first))
+							total_count++;
+					for (auto &it : mod_it.second->processes)
+						if (sel->selected_member(mod_it.first, it.first))
+							total_count++;
+				}
+			if (assert_count != total_count)
+				log_error("Assertation failed: selection contains %d elements instead of the asserted %d:%s\n",
+						total_count, assert_count, sel_str.c_str());
 			return;
 		}
 
