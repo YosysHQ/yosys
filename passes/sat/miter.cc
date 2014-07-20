@@ -27,6 +27,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	bool flag_make_outputs = false;
 	bool flag_make_outcmp = false;
 	bool flag_make_assert = false;
+	bool flag_flatten = false;
 
 	log_header("Executing MITER pass (creating miter circuit).\n");
 
@@ -47,6 +48,10 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 		}
 		if (args[argidx] == "-make_assert") {
 			flag_make_assert = true;
+			continue;
+		}
+		if (args[argidx] == "-flatten") {
+			flag_flatten = true;
 			continue;
 		}
 		break;
@@ -287,6 +292,12 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	miter_module->add(not_cell);
 
 	miter_module->fixup_ports();
+
+	if (flag_flatten) {
+		log_push();
+		Pass::call_on_module(design, miter_module, "flatten; opt_const -undriven;;");
+		log_pop();
+	}
 }
 
 struct MiterPass : public Pass {
@@ -316,6 +327,9 @@ struct MiterPass : public Pass {
 		log("\n");
 		log("    -make_assert\n");
 		log("        also create an 'assert' cell that checks if trigger is always low.\n");
+		log("\n");
+		log("    -flatten\n");
+		log("        call 'flatten; opt_const -undriven;;' on the miter circuit.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

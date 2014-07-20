@@ -35,7 +35,6 @@ for idx in range(100):
         print('copy uut_%05d gold' % idx)
         print('rename uut_%05d gate' % idx)
         print('share -aggressive gate')
-        print('miter -equiv -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
-        print('flatten miter')
+        print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
         print('sat -verify -prove trigger 0 -show-inputs -show-outputs miter')
  
