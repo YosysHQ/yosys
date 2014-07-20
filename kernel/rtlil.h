@@ -505,6 +505,7 @@ struct RTLIL::SigSpec {
 	SigSpec(RTLIL::State bit, int width = 1);
 	SigSpec(RTLIL::SigBit bit, int width = 1);
 	SigSpec(std::vector<RTLIL::SigBit> bits);
+	SigSpec(std::set<RTLIL::SigBit> bits);
 	void expand();
 	void optimize();
 	RTLIL::SigSpec optimized() const;

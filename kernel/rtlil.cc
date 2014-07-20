@@ -1451,10 +1451,17 @@ RTLIL::SigSpec::SigSpec(RTLIL::SigBit bit, int width)
 
 RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
 {
-	chunks.reserve(bits.size());
+	this->width = 0;
 	for (auto &bit : bits)
-		chunks.push_back(bit);
-	this->width = bits.size();
+		append_bit(bit);
+	check();
+}
+
+RTLIL::SigSpec::SigSpec(std::set<RTLIL::SigBit> bits)
+{
+	this->width = 0;
+	for (auto &bit : bits)
+		append_bit(bit);
 	check();
 }
 
