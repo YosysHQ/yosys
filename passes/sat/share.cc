@@ -134,10 +134,6 @@ struct ShareWorker
 		not_a_muxed_cell:
 				continue;
 
-			// FIXME: Creation of super cells is broken for this cell types
-			if (cell->type == "$div" || cell->type == "$mod")
-				continue;
-
 			if (config.opt_force) {
 				shareable_cells.insert(cell);
 				continue;

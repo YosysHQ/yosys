@@ -21,9 +21,8 @@ if ! ../../yosys -q -l log_test_share/$n.out - 2> /dev/null <<- EOT
 	share -aggressive
 	cd ..
 
-	miter -equiv -ignore_gold_x -make_outputs -make_outcmp gold work miter
-	flatten miter
-	sat -verify -prove trigger 0 -show-inputs -show-outputs miter
+	miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold work miter
+	sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter
 EOT
 then
 	log_fail test_share $n
