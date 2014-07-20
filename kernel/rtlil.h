@@ -26,7 +26,9 @@
 #include <string>
 #include <assert.h>
 
+// various helpers (unrelated to RTLIL)
 std::string stringf(const char *fmt, ...);
+#define SIZE(__obj) int(__obj.size())
 
 namespace RTLIL
 {
