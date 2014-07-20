@@ -393,15 +393,7 @@ struct TechmapWorker
 							tpl->add(data.wire);
 
 							std::string cmd_string = data.value.as_const().decode_string();
-
-							RTLIL::Selection tpl_mod_sel(false);
-							std::string backup_active_module = map->selected_active_module;
-							map->selected_active_module = tpl->name;
-							tpl_mod_sel.select(tpl);
-							map->selection_stack.push_back(tpl_mod_sel);
-							Pass::call(map, cmd_string);
-							map->selection_stack.pop_back();
-							map->selected_active_module = backup_active_module;
+							Pass::call_on_module(map, tpl, cmd_string);
 
 							keep_running = true;
 							break;

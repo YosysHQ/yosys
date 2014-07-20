@@ -198,11 +198,11 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	design->check();
 }
 
-void Pass::call_newsel(RTLIL::Design *design, std::string command)
+void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module.clear();
-	design->selection_stack.push_back(RTLIL::Selection());
+	design->selection_stack.push_back(selection);
 
 	Pass::call(design, command);
 
@@ -210,11 +210,37 @@ void Pass::call_newsel(RTLIL::Design *design, std::string command)
 	design->selected_active_module = backup_selected_active_module;
 }
 
-void Pass::call_newsel(RTLIL::Design *design, std::vector<std::string> args)
+void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::vector<std::string> args)
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module.clear();
-	design->selection_stack.push_back(RTLIL::Selection());
+	design->selection_stack.push_back(selection);
+
+	Pass::call(design, args);
+
+	design->selection_stack.pop_back();
+	design->selected_active_module = backup_selected_active_module;
+}
+
+void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::string command)
+{
+	std::string backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = module->name;
+	design->selection_stack.push_back(RTLIL::Selection(false));
+	design->selection_stack.back().select(module);
+
+	Pass::call(design, command);
+
+	design->selection_stack.pop_back();
+	design->selected_active_module = backup_selected_active_module;
+}
+
+void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vector<std::string> args)
+{
+	std::string backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = module->name;
+	design->selection_stack.push_back(RTLIL::Selection(false));
+	design->selection_stack.back().select(module);
 
 	Pass::call(design, args);
 

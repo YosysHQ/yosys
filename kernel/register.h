@@ -60,8 +60,11 @@ struct Pass
 	static void call(RTLIL::Design *design, std::string command);
 	static void call(RTLIL::Design *design, std::vector<std::string> args);
 
-	static void call_newsel(RTLIL::Design *design, std::string command);
-	static void call_newsel(RTLIL::Design *design, std::vector<std::string> args);
+	static void call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command);
+	static void call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::vector<std::string> args);
+
+	static void call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::string command);
+	static void call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vector<std::string> args);
 
 	static void init_register();
 	static void done_register();

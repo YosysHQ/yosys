@@ -338,7 +338,7 @@ struct SubmodPass : public Pass {
 			if (module == NULL)
 				log("Nothing selected -> do nothing.\n");
 			else {
-				Pass::call_newsel(design, stringf("opt_clean %s", module->name.c_str()));
+				Pass::call_on_module(design, module, "opt_clean");
 				log_header("Continuing SUBMOD pass.\n");
 				SubmodWorker worker(design, module, opt_name);
 			}
