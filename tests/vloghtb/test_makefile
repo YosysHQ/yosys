@@ -1,0 +1,9 @@
+
+MODE := share
+TESTS := $(shell ls rtl/ | sed 's,\.v$$,,' )
+
+run: $(addprefix log_test_$(MODE)/,$(addsuffix .txt,$(TESTS)))
+
+log_test_$(MODE)/%.txt: rtl/%.v
+	@bash test_$(MODE).sh $<
+
