@@ -1,0 +1,17 @@
+read_verilog share.v
+proc;;
+
+copy test_1 gold_1
+copy test_2 gold_2
+share test_1 test_2;;
+
+select -assert-count 1 test_1/t:$mul
+select -assert-count 1 test_2/t:$mul
+select -assert-count 1 test_2/t:$div
+
+miter -equiv -flatten -make_outputs -make_outcmp gold_1 test_1 miter_1
+sat -verify -prove trigger 0 -show-inputs -show-outputs miter_1
+
+miter -equiv -flatten -make_outputs -make_outcmp gold_2 test_2 miter_2
+sat -verify -prove trigger 0 -show-inputs -show-outputs miter_2
+
