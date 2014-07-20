@@ -41,6 +41,8 @@ struct ShareWorker
 	CellTypes fwd_ct, cone_ct;
 	ModWalker modwalker;
 
+	std::set<RTLIL::Cell*> cells_to_remove;
+
 
 	// ------------------------------------------------------------------------------
 	// Find terminal bits -- i.e. bits that do not (exclusively) feed into a mux tree
@@ -229,7 +231,7 @@ struct ShareWorker
 
 	std::map<RTLIL::Cell*, std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>>> activation_patterns_cache;
 
-	bool sort_check_pattern(std::pair<RTLIL::SigSpec, RTLIL::Const> &p)
+	bool sort_check_activation_pattern(std::pair<RTLIL::SigSpec, RTLIL::Const> &p)
 	{
 		std::map<RTLIL::SigBit, RTLIL::State> p_bits;
 
@@ -253,7 +255,13 @@ struct ShareWorker
 		return true;
 	}
 
-	const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &find_cell_activation_patterns(RTLIL::Cell *cell)
+	void optimize_activation_patterns(std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> & /* patterns */)
+	{
+		// TODO: Remove patterns that are contained in other patterns
+		// TODO: Consolidate pairs of patterns that only differ in the value for one signal bit
+	}
+
+	const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &find_cell_activation_patterns(RTLIL::Cell *cell, const char *indent)
 	{
 		if (activation_patterns_cache.count(cell))
 			return activation_patterns_cache.at(cell);
@@ -276,7 +284,7 @@ struct ShareWorker
 
 		for (auto c : driven_cells)
 		{
-			const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &c_patterns = find_cell_activation_patterns(c);
+			const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &c_patterns = find_cell_activation_patterns(c, indent);
 
 			if (c->type == "$mux" || c->type == "$pmux")
 			{
@@ -300,14 +308,14 @@ struct ShareWorker
 					for (auto p : c_patterns) {
 						for (int i = 0; i < SIZE(sig_s); i++)
 							p.first.append_bit(sig_s[i]), p.second.bits.push_back(RTLIL::State::S0);
-						if (sort_check_pattern(p))
+						if (sort_check_activation_pattern(p))
 							activation_patterns_cache[cell].insert(p);
 					}
 
 				for (int idx : used_in_b_parts)
 					for (auto p : c_patterns) {
 						p.first.append_bit(sig_s[idx]), p.second.bits.push_back(RTLIL::State::S1);
-						if (sort_check_pattern(p))
+						if (sort_check_activation_pattern(p))
 							activation_patterns_cache[cell].insert(p);
 					}
 			}
@@ -317,6 +325,12 @@ struct ShareWorker
 				for (auto &p : c_patterns)
 					activation_patterns_cache[cell].insert(p);
 			}
+		}
+
+		optimize_activation_patterns(activation_patterns_cache[cell]);
+		if (activation_patterns_cache[cell].empty()) {
+			log("%sFound cell that is never activated: %s\n", indent, log_id(cell));
+			cells_to_remove.insert(cell);
 		}
 
 		return activation_patterns_cache[cell];
@@ -375,8 +389,13 @@ struct ShareWorker
 
 			log("  Analyzing resource sharing options for %s:\n", log_id(cell));
 
-			const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &cell_activation_patterns = find_cell_activation_patterns(cell);
+			const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &cell_activation_patterns = find_cell_activation_patterns(cell, "    ");
 			RTLIL::SigSpec cell_activation_signals = bits_from_activation_patterns(cell_activation_patterns);
+
+			if (cell_activation_patterns.empty()) {
+				log ("    Cell is never active. Sharing is pointless, we simply remove it.\n");
+				continue;
+			}
 
 			if (cell_activation_patterns.count(std::pair<RTLIL::SigSpec, RTLIL::Const>())) {
 				log ("    Cell is always active. Therefore no sharing is possible.\n");
@@ -402,11 +421,17 @@ struct ShareWorker
 			{
 				log("    Analyzing resource sharing with %s:\n", log_id(other_cell));
 
-				const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &other_cell_activation_patterns = find_cell_activation_patterns(other_cell);
+				const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &other_cell_activation_patterns = find_cell_activation_patterns(other_cell, "      ");
 				RTLIL::SigSpec other_cell_activation_signals = bits_from_activation_patterns(other_cell_activation_patterns);
 
+				if (other_cell_activation_patterns.empty()) {
+					log ("      Cell is never active. Sharing is pointless, we simply remove it.\n");
+					shareable_cells.erase(other_cell);
+					continue;
+				}
+
 				if (other_cell_activation_patterns.count(std::pair<RTLIL::SigSpec, RTLIL::Const>())) {
-					log ("    Cell is always active. Therefore no sharing is possible.\n");
+					log ("      Cell is always active. Therefore no sharing is possible.\n");
 					continue;
 				}
 
@@ -482,6 +507,15 @@ struct ShareWorker
 				log("      WARNING: Actually sharing the cells is not implemented yet.\n");
 				shareable_cells.erase(other_cell);
 				break;
+			}
+		}
+
+		if (!cells_to_remove.empty()) {
+			log("Removing %d cells in module %s:\n", SIZE(cells_to_remove), log_id(module));
+			for (auto c : cells_to_remove) {
+				log("  Removing cell %s (%s).\n", log_id(c), log_id(c->type));
+				module->cells.erase(c->name);
+				delete c;
 			}
 		}
 	}
