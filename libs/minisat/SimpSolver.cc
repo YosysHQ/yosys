@@ -20,9 +20,9 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#include "libs/minisat/Sort.h"
-#include "libs/minisat/SimpSolver.h"
-#include "libs/minisat/System.h"
+#include "Sort.h"
+#include "SimpSolver.h"
+#include "System.h"
 
 using namespace Minisat;
 

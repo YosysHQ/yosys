@@ -21,8 +21,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef Minisat_SimpSolver_h
 #define Minisat_SimpSolver_h
 
-#include "libs/minisat/Queue.h"
-#include "libs/minisat/Solver.h"
+#include "Queue.h"
+#include "Solver.h"
 
 
 namespace Minisat {

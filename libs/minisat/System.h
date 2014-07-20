@@ -25,7 +25,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <fpu_control.h>
 #endif
 
-#include "libs/minisat/IntTypes.h"
+#include "IntTypes.h"
 
 //-------------------------------------------------------------------------------------------------
 

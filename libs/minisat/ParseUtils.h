@@ -26,7 +26,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <zlib.h>
 
-#include "libs/minisat/XAlloc.h"
+#include "XAlloc.h"
 
 namespace Minisat {
 

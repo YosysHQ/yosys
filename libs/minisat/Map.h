@@ -20,8 +20,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef Minisat_Map_h
 #define Minisat_Map_h
 
-#include "libs/minisat/IntTypes.h"
-#include "libs/minisat/Vec.h"
+#include "IntTypes.h"
+#include "Vec.h"
 
 namespace Minisat {
 

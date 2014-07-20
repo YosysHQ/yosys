@@ -21,7 +21,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef Minisat_Sort_h
 #define Minisat_Sort_h
 
-#include "libs/minisat/Vec.h"
+#include "Vec.h"
 
 //=================================================================================================
 // Some sorting algorithms for vec's
