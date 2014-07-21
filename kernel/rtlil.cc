@@ -316,9 +316,9 @@ namespace {
 			fputc(0, f);
 			fclose(f);
 
-			log_error("Found error in internal cell %s.%s (%s) at %s:%d:\n%s",
-					module->name.c_str(), cell->name.c_str(), cell->type.c_str(),
-					__FILE__, linenr, ptr);
+			log_error("Found error in internal cell %s%s%s (%s) at %s:%d:\n%s",
+					module ? module->name.c_str() : "", module ? "." : "",
+					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, ptr);
 		}
 
 		int param(const char *name)
@@ -395,6 +395,10 @@ namespace {
 
 		void check()
 		{
+			if (cell->type[0] != '$' || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" ||
+					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:")
+				return;
+
 			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" || cell->type == "$neg") {
 				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
@@ -740,11 +744,8 @@ void RTLIL::Module::check()
 		for (auto &it2 : it.second->parameters) {
 			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
 		}
-		if (it.second->type[0] == '$' && it.second->type.substr(0, 3) != "$__" && it.second->type.substr(0, 8) != "$paramod" &&
-				it.second->type.substr(0, 9) != "$verific$" && it.second->type.substr(0, 7) != "$array:") {
-			InternalCellChecker checker(this, it.second);
-			checker.check();
-		}
+		InternalCellChecker checker(this, it.second);
+		checker.check();
 	}
 
 	for (auto &it : processes) {
@@ -841,6 +842,13 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	cells[cell->name] = cell;
 }
 
+void RTLIL::Module::remove(RTLIL::Cell *cell)
+{
+	assert(cells.count(cell->name) != 0);
+	cells.erase(cell->name);
+	delete cell;
+}
+
 static bool fixup_ports_compare(const RTLIL::Wire *a, const RTLIL::Wire *b)
 {
 	if (a->port_id && !b->port_id)
@@ -868,6 +876,23 @@ void RTLIL::Module::fixup_ports()
 		all_ports[i]->port_id = i+1;
 }
 
+RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
+{
+	RTLIL::Wire *wire = new RTLIL::Wire;
+	wire->name = name;
+	wire->width = width;
+	add(wire);
+	return wire;
+}
+
+RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
+{
+	RTLIL::Cell *cell = new RTLIL::Cell;
+	cell->name = name;
+	cell->type = type;
+	add(cell);
+	return cell;
+}
 
 #define DEF_METHOD(_func, _y_size, _type) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed) { \
@@ -1283,6 +1308,12 @@ void RTLIL::Cell::optimize()
 {
 	for (auto &it : connections)
 		it.second.optimize();
+}
+
+void RTLIL::Cell::check()
+{
+	InternalCellChecker checker(NULL, this);
+	checker.check();
 }
 
 RTLIL::SigChunk::SigChunk()

@@ -290,11 +290,15 @@ struct RTLIL::Module {
 	RTLIL::Wire *new_wire(int width, RTLIL::IdString name);
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
+	void remove(RTLIL::Cell *cell);
 	void fixup_ports();
 
 	template<typename T> void rewrite_sigspecs(T functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
+
+	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
+	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 
 	// The add* methods create a cell and return the created cell. All signals must exist in advance.
 
@@ -449,6 +453,7 @@ struct RTLIL::Cell {
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
 	RTLIL_ATTRIBUTE_MEMBERS
 	void optimize();
+	void check();
 
 	template<typename T> void rewrite_sigspecs(T functor);
 };
