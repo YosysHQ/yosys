@@ -49,7 +49,30 @@ bool fgetline(FILE *f, std::string &buffer)
 	}
 }
 
-static void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command)
+static void handle_label(std::string &command, bool &from_to_active, const std::string &run_from, const std::string &run_to)
+{
+	int pos = 0;
+	std::string label;
+
+	while (pos < SIZE(command) && (command[pos] == ' ' || command[pos] == '\t'))
+		pos++;
+
+	while (pos < SIZE(command) && command[pos] != ' ' && command[pos] != '\t' && command[pos] != '\r' && command[pos] != '\n')
+		label += command[pos++];
+
+	if (label.back() == ':' && SIZE(label) > 1)
+	{
+		label = label.substr(0, SIZE(label)-1);
+		command = command.substr(pos);
+
+		if (label == run_from)
+			from_to_active = true;
+		else if (label == run_to || (run_from == run_to && !run_from.empty()))
+			from_to_active = false;
+	}
+}
+
+static void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command, std::string *from_to_label)
 {
 	if (command == "auto") {
 		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
@@ -66,13 +89,33 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 			log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
 	}
 
-	if (command == "script") {
+	if (command == "script")
+	{
+		std::string run_from, run_to;
+		bool from_to_active = true;
+
+		if (from_to_label != NULL) {
+			size_t pos = from_to_label->find(':');
+			if (pos == std::string::npos) {
+				run_from = *from_to_label;
+				run_to = *from_to_label;
+			} else {
+				run_from = from_to_label->substr(0, pos);
+				run_to = from_to_label->substr(pos+1);
+			}
+			from_to_active = run_from.empty();
+		}
+
 		log("\n-- Executing script file `%s' --\n", filename.c_str());
+
 		FILE *f = stdin;
+
 		if (filename != "-")
 			f = fopen(filename.c_str(), "r");
+
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
+
 		std::string command;
 		while (fgetline(f, command)) {
 			while (!command.empty() && command[command.size()-1] == '\\') {
@@ -82,14 +125,23 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 				command.resize(command.size()-1);
 				command += next_line;
 			}
-			Pass::call(design, command);
+			handle_label(command, from_to_active, run_from, run_to);
+			if (from_to_active)
+				Pass::call(design, command);
 		}
-		if (!command.empty())
-			Pass::call(design, command);
+
+		if (!command.empty()) {
+			handle_label(command, from_to_active, run_from, run_to);
+			if (from_to_active)
+				Pass::call(design, command);
+		}
+
 		if (filename != "-")
 			fclose(f);
+
 		if (backend_command != NULL && *backend_command == "auto")
 			*backend_command = "";
+
 		return;
 	}
 
@@ -340,17 +392,28 @@ struct ScriptPass : public Pass {
 	ScriptPass() : Pass("script", "execute commands from script file") { }
 	virtual void help() {
 		log("\n");
-		log("    script <filename>\n");
+		log("    script <filename> [<from_label>:<to_label>]\n");
 		log("\n");
 		log("This command executes the yosys commands in the specified file.\n");
+		log("\n");
+		log("The 2nd argument can be used to only execute the section of the\n");
+		log("file between the specified labels. An empty from label is synonymous\n");
+		log("for the beginning of the file and an empty to label is synonymous\n");
+		log("for the end of the file.\n");
+		log("\n");
+		log("If only one label is specified (without ':') then only the block\n");
+		log("marked with that label (until the next label) is executed.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
-		if (args.size() > 2)
-			extra_args(args, 1, design, false);
-		run_frontend(args[1], "script", design, NULL);
+		else if (args.size() == 2)
+			run_frontend(args[1], "script", design, NULL, NULL);
+		else if (args.size() == 3)
+			run_frontend(args[1], "script", design, NULL, &args[2]);
+		else
+			extra_args(args, 2, design, false);
 	}
 } ScriptPass;
 
@@ -663,7 +726,7 @@ int main(int argc, char **argv)
 	}
 
 	while (optind < argc)
-		run_frontend(argv[optind++], frontend_command, yosys_design, output_filename == "-" ? &backend_command : NULL);
+		run_frontend(argv[optind++], frontend_command, yosys_design, output_filename == "-" ? &backend_command : NULL, NULL);
 
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
@@ -674,7 +737,7 @@ int main(int argc, char **argv)
 			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
 		} else
-			run_frontend(scriptfile, "script", yosys_design, output_filename == "-" ? &backend_command : NULL);
+			run_frontend(scriptfile, "script", yosys_design, output_filename == "-" ? &backend_command : NULL, NULL);
 	}
 
 	for (auto it = passes_commands.begin(); it != passes_commands.end(); it++)
