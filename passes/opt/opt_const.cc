@@ -288,6 +288,75 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		// checking for simple identities
+		{
+			bool identity_bu0 = false;
+			bool identity_wrt_a = false;
+			bool identity_wrt_b = false;
+
+			if (cell->type == "$add" || cell->type == "$sub" || cell->type == "$or" || cell->type == "$xor")
+			{
+				RTLIL::SigSpec a = assign_map(cell->connections["\\A"]);
+				RTLIL::SigSpec b = assign_map(cell->connections["\\B"]);
+
+				if (cell->type != "$sub" && a.is_fully_const() && a.as_bool() == false)
+					identity_wrt_b = true;
+
+				if (b.is_fully_const() && b.as_bool() == false)
+					identity_wrt_a = true;
+			}
+
+			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr")
+			{
+				RTLIL::SigSpec b = assign_map(cell->connections["\\B"]);
+
+				if (b.is_fully_const() && b.as_bool() == false)
+					identity_wrt_a = true, identity_bu0 = true;
+			}
+
+			if (cell->type == "$mul")
+			{
+				RTLIL::SigSpec a = assign_map(cell->connections["\\A"]);
+				RTLIL::SigSpec b = assign_map(cell->connections["\\B"]);
+
+				if (a.is_fully_const() && a.width <= 32 && a.as_int() == 1)
+					identity_wrt_b = true;
+
+				if (b.is_fully_const() && b.width <= 32 && b.as_int() == 1)
+					identity_wrt_a = true;
+			}
+
+			if (cell->type == "$div")
+			{
+				RTLIL::SigSpec b = assign_map(cell->connections["\\B"]);
+
+				if (b.is_fully_const() && b.width <= 32 && b.as_int() == 1)
+					identity_wrt_a = true;
+			}
+
+			if (identity_wrt_a || identity_wrt_b)
+			{
+				log("Replacing %s cell `%s' in module `%s' with identity for port %c.\n",
+					cell->type.c_str(), cell->name.c_str(), module->name.c_str(), identity_wrt_a ? 'A' : 'B');
+
+				if (!identity_wrt_a) {
+					cell->connections.at("\\A") = cell->connections.at("\\B");
+					cell->parameters.at("\\A_WIDTH") = cell->parameters.at("\\B_WIDTH");
+					cell->parameters.at("\\A_SIGNED") = cell->parameters.at("\\B_SIGNED");
+				}
+
+				cell->type = identity_bu0 ? "$bu0" : "$pos";
+				cell->connections.erase("\\B");
+				cell->parameters.erase("\\B_WIDTH");
+				cell->parameters.erase("\\B_SIGNED");
+				cell->check();
+
+				OPT_DID_SOMETHING = true;
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		if (mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") &&
 				cell->connections["\\A"] == RTLIL::SigSpec(0, 1) && cell->connections["\\B"] == RTLIL::SigSpec(1, 1)) {
 			replace_cell(module, cell, "mux_bool", "\\Y", cell->connections["\\S"]);
