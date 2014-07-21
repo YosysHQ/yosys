@@ -647,6 +647,61 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				ACTION_DO("\\Y", cell->connections["\\A"]);
 		}
 
+		if (do_fine && cell->type == "$mul")
+		{
+			bool a_signed = cell->parameters["\\A_SIGNED"].as_bool();
+			bool b_signed = cell->parameters["\\B_SIGNED"].as_bool();
+			bool swapped_ab = false;
+
+			RTLIL::SigSpec sig_a = assign_map(cell->connections["\\A"]);
+			RTLIL::SigSpec sig_b = assign_map(cell->connections["\\B"]);
+			RTLIL::SigSpec sig_y = assign_map(cell->connections["\\Y"]);
+
+			if (sig_b.is_fully_const() && sig_b.width <= 32)
+				std::swap(sig_a, sig_b), std::swap(a_signed, b_signed), swapped_ab = true;
+
+			if (sig_a.is_fully_def() && sig_a.width <= 32)
+			{
+				int a_val = sig_a.as_int();
+
+				if (a_val == 0)
+				{
+					log("Replacing multiply-by-zero cell `%s' in module `%s' with zero-driver.\n",
+							cell->name.c_str(), module->name.c_str());
+
+					module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.width)));
+					module->remove(cell);
+
+					OPT_DID_SOMETHING = true;
+					did_something = true;
+					goto next_cell;
+				}
+
+				for (int i = 0; i < sig_a.width - (a_signed ? 1 : 0); i++)
+					if (a_val == (1 << i))
+					{
+						log("Replacing multiply-by-%d cell `%s' in module `%s' with shift-by-%d.\n",
+								a_val, cell->name.c_str(), module->name.c_str(), i);
+
+						if (swapped_ab) {
+							cell->connections["\\A"] = cell->connections["\\B"];
+							cell->parameters["\\A_WIDTH"] = cell->parameters["\\B_WIDTH"];
+							cell->parameters["\\A_SIGNED"] = cell->parameters["\\B_SIGNED"];
+						}
+
+						cell->type = "$shl";
+						cell->parameters["\\B_WIDTH"] = 6;
+						cell->parameters["\\B_SIGNED"] = false;
+						cell->connections["\\B"] = RTLIL::SigSpec(i, 6);
+						cell->check();
+
+						OPT_DID_SOMETHING = true;
+						did_something = true;
+						goto next_cell;
+					}
+			}
+		}
+
 	next_cell:;
 #undef ACTION_DO
 #undef ACTION_DO_Y
