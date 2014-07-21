@@ -244,7 +244,7 @@ struct OptReduceWorker
 		}
 	}
 
-	OptReduceWorker(RTLIL::Design *design, RTLIL::Module *module) :
+	OptReduceWorker(RTLIL::Design *design, RTLIL::Module *module, bool do_fine) :
 			design(design), module(module), assign_map(module)
 	{
 		log("  Optimizing cells in module %s.\n", module->name.c_str());
@@ -318,7 +318,7 @@ struct OptReduceWorker
 
 				// this optimization is to aggressive for most coarse-grain applications.
 				// but we always want it for multiplexers driving write enable ports.
-				if (mem_wren_sigs.check_any(assign_map(cell->connections.at("\\Y"))))
+				if (do_fine || mem_wren_sigs.check_any(assign_map(cell->connections.at("\\Y"))))
 					opt_mux_bits(cell);
 
 				opt_mux(cell);
@@ -333,7 +333,7 @@ struct OptReducePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_reduce [selection]\n");
+		log("    opt_reduce [options] [selection]\n");
 		log("\n");
 		log("This pass performs two interlinked optimizations:\n");
 		log("\n");
@@ -343,17 +343,31 @@ struct OptReducePass : public Pass {
 		log("2. it identifies duplicated inputs to MUXes and replaces them with a single\n");
 		log("input with the original control signals OR'ed together.\n");
 		log("\n");
+		log("    -fine\n");
+		log("      perform fine-grain optimizations\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool do_fine = false;
+
 		log_header("Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).\n");
-		extra_args(args, 1, design);
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-fine") {
+				do_fine = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		int total_count = 0;
 		for (auto &mod_it : design->modules) {
 			if (!design->selected(mod_it.second))
 				continue;
-			OptReduceWorker worker(design, mod_it.second);
+			OptReduceWorker worker(design, mod_it.second, do_fine);
 			total_count += worker.total_count;
 		}
 

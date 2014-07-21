@@ -31,7 +31,7 @@ struct OptPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt [-purge] [-mux_undef] [-mux_bool] [-undriven] [selection]\n");
+		log("    opt [-purge] [-mux_undef] [-mux_bool] [-undriven] [-fine] [selection]\n");
 		log("\n");
 		log("This pass calls all the other opt_* passes in a useful order. This performs\n");
 		log("a series of trivial optimizations and cleanups. This pass executes the other\n");
@@ -42,11 +42,11 @@ struct OptPass : public Pass {
 		log("\n");
 		log("    do\n");
 		log("        opt_muxtree\n");
-		log("        opt_reduce\n");
+		log("        opt_reduce [-fine]\n");
 		log("        opt_share\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean [-purge]\n");
-		log("        opt_const [-mux_undef] [-mux_bool] [-undriven]\n");
+		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine]\n");
 		log("    while [changed design]\n");
 		log("\n");
 	}
@@ -54,6 +54,7 @@ struct OptPass : public Pass {
 	{
 		std::string opt_clean_args;
 		std::string opt_const_args;
+		std::string opt_reduce_args;
 
 		log_header("Executing OPT pass (performing simple optimizations).\n");
 		log_push();
@@ -76,6 +77,11 @@ struct OptPass : public Pass {
 				opt_const_args += " -undriven";
 				continue;
 			}
+			if (args[argidx] == "-fine") {
+				opt_const_args += " -fine";
+				opt_reduce_args += " -fine";
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -88,7 +94,7 @@ struct OptPass : public Pass {
 		while (1) {
 			OPT_DID_SOMETHING = false;
 			Pass::call(design, "opt_muxtree");
-			Pass::call(design, "opt_reduce");
+			Pass::call(design, "opt_reduce" + opt_reduce_args);
 			Pass::call(design, "opt_share");
 			Pass::call(design, "opt_rmdff");
 			Pass::call(design, "opt_clean" + opt_clean_args);

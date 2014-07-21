@@ -25,11 +25,11 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-#include <set>
+#include <algorithm>
 
 static bool did_something;
 
-void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
+static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 {
 	CellTypes ct(design);
 	SigMap sigmap(module);
@@ -71,7 +71,7 @@ void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	}
 }
 
-void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
+static void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->connections[out_port];
 	log("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
@@ -85,7 +85,103 @@ void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, st
 	did_something = true;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool)
+static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, bool extend_u0, SigMap &sigmap)
+{
+	std::string b_name = cell->connections.count("\\B") ? "\\B" : "\\A";
+
+	bool a_signed = cell->parameters.at("\\A_SIGNED").as_bool();
+	bool b_signed = cell->parameters.at(b_name + "_SIGNED").as_bool();
+
+	RTLIL::SigSpec sig_a = sigmap(cell->connections.at("\\A"));
+	RTLIL::SigSpec sig_b = sigmap(cell->connections.at(b_name));
+	RTLIL::SigSpec sig_y = sigmap(cell->connections.at("\\Y"));
+
+	if (extend_u0) {
+		sig_a.extend_u0(sig_y.width, a_signed);
+		sig_b.extend_u0(sig_y.width, b_signed);
+	} else {
+		sig_a.extend(sig_y.width, a_signed);
+		sig_b.extend(sig_y.width, b_signed);
+	}
+
+	std::vector<RTLIL::SigBit> bits_a = sig_a, bits_b = sig_b, bits_y = sig_y;
+
+	enum { GRP_DYN, GRP_CONST_A, GRP_CONST_B, GRP_CONST_AB, GRP_N };
+	std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, std::set<RTLIL::SigBit>> grouped_bits[GRP_N];
+
+	for (int i = 0; i < SIZE(bits_y); i++)
+	{
+		int group_idx = GRP_DYN;
+		RTLIL::SigBit bit_a = bits_a[i], bit_b = bits_b[i];
+
+		if (bit_a.wire == NULL && bit_b.wire == NULL)
+			group_idx = GRP_CONST_AB;
+		else if (bit_a.wire == NULL)
+			group_idx = GRP_CONST_A;
+		else if (bit_b.wire == NULL && commutative)
+			group_idx = GRP_CONST_A, std::swap(bit_a, bit_b);
+		else if (bit_b.wire == NULL)
+			group_idx = GRP_CONST_B;
+
+		grouped_bits[group_idx][std::pair<RTLIL::SigBit, RTLIL::SigBit>(bit_a, bit_b)].insert(bits_y[i]);
+	}
+
+	for (int i = 0; i < GRP_N; i++)
+		if (SIZE(grouped_bits[i]) == SIZE(bits_y))
+			return false;
+
+	log("Replacing %s cell `%s' in module `%s' with cells using grouped bits:\n",
+			log_id(cell->type), log_id(cell), log_id(module));
+
+	for (int i = 0; i < GRP_N; i++)
+	{
+		if (grouped_bits[i].empty())
+			continue;
+
+		RTLIL::Wire *new_y = module->addWire(NEW_ID, SIZE(grouped_bits[i]));
+		RTLIL::SigSpec new_a, new_b;
+		RTLIL::SigSig new_conn;
+
+		for (auto &it : grouped_bits[i]) {
+			for (auto &bit : it.second) {
+				new_conn.first.append_bit(bit);
+				new_conn.second.append_bit(RTLIL::SigBit(new_y, new_a.width));
+			}
+			new_a.append_bit(it.first.first);
+			new_b.append_bit(it.first.second);
+		}
+
+		RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
+
+		c->connections["\\A"] = new_a;
+		c->parameters["\\A_WIDTH"] = new_a.width;
+		c->parameters["\\A_SIGNED"] = false;
+
+		if (b_name == "\\B") {
+			c->connections["\\B"] = new_b;
+			c->parameters["\\B_WIDTH"] = new_b.width;
+			c->parameters["\\B_SIGNED"] = false;
+		}
+
+		c->connections["\\Y"] = new_y;
+		c->parameters["\\Y_WIDTH"] = new_y->width;
+		c->check();
+
+		module->connections.push_back(new_conn);
+
+		log("  New cell `%s': A=%s", log_id(c), log_signal(new_a));
+		if (b_name == "\\B")
+			log(", B=%s", log_signal(new_b));
+		log("\n");
+	}
+
+	module->remove(cell);
+	OPT_DID_SOMETHING = true;
+	did_something = true;
+	return true;
+}
+
+static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine)
 {
 	if (!design->selected(module))
 		return;
@@ -107,6 +203,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	{
 #define ACTION_DO(_p_, _s_) do { replace_cell(module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO("\\Y", RTLIL::SigSpec(RTLIL::State::S ## _v_))
+
+		if (do_fine && (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" ||
+				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor"))
+			if (group_cell_inputs(module, cell, true, cell->type != "$pos", assign_map))
+				goto next_cell;
 
 		if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") && cell->connections["\\Y"].width == 1 &&
 				invert_map.count(assign_map(cell->connections["\\A"])) != 0) {
@@ -573,12 +674,16 @@ struct OptConstPass : public Pass {
 		log("    -undriven\n");
 		log("        replace undriven nets with undef (x) constants\n");
 		log("\n");
+		log("    -fine\n");
+		log("        perform fine-grain optimizations\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool mux_undef = false;
 		bool mux_bool = false;
 		bool undriven = false;
+		bool do_fine = false;
 
 		log_header("Executing OPT_CONST pass (perform const folding).\n");
 		log_push();
@@ -597,6 +702,10 @@ struct OptConstPass : public Pass {
 				undriven = true;
 				continue;
 			}
+			if (args[argidx] == "-fine") {
+				do_fine = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -609,9 +718,9 @@ struct OptConstPass : public Pass {
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, mod_it.second, false, mux_undef, mux_bool);
+					replace_const_cells(design, mod_it.second, false, mux_undef, mux_bool, do_fine);
 				} while (did_something);
-				replace_const_cells(design, mod_it.second, true, mux_undef, mux_bool);
+				replace_const_cells(design, mod_it.second, true, mux_undef, mux_bool, do_fine);
 			} while (did_something);
 		}
 

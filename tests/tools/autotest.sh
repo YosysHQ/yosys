@@ -129,7 +129,7 @@ do
 			test_passes -p "verific -vlog2k $fn; verific -import -gates -all; opt; memory;;"
 		else
 			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory -nomap; opt; fsm; opt" $fn
-			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt; techmap; opt; abc -dff; opt" $fn
+			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt -fine; techmap; opt; abc -dff; opt" $fn
 		fi
 		touch ../${bn}.log
 	}
