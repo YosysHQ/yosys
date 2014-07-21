@@ -61,6 +61,7 @@ void log_cell(RTLIL::Cell *cell, std::string indent = "");
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
 #define log_assert(_assert_expr_) do { if (_assert_expr_) break; log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
+#define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 // simple timer for performance measurements
 // toggle the '#if 1' to get a baseline for the perormance penalty added by the measurement
