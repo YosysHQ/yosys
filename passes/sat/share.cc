@@ -30,11 +30,14 @@ struct ShareWorkerConfig
 	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
+	std::set<std::string> generic_uni_ops, generic_bin_ops, generic_cbin_ops;
 };
 
 struct ShareWorker
 {
 	ShareWorkerConfig config;
+	std::set<std::string> generic_ops;
+
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
@@ -125,19 +128,19 @@ struct ShareWorker
 			}
 
 			if (cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod") {
-				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 4)
+				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() >= 4)
 					shareable_cells.insert(cell);
 				continue;
 			}
 
 			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
-				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 8)
+				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() >= 8)
 					shareable_cells.insert(cell);
 				continue;
 			}
 
-			if (cell->type == "$add" || cell->type == "$sub") {
-				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() > 10)
+			if (generic_ops.count(cell->type)) {
+				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() >= 10)
 					shareable_cells.insert(cell);
 				continue;
 			}
@@ -157,15 +160,25 @@ struct ShareWorker
 			return true;
 		}
 
-		if (c1->type == "$mul" || c1->type == "$div" || c1->type == "$mod" || c1->type == "$add" || c1->type == "$sub" ||
-				c1->type == "$shl" || c1->type == "$shr" || c1->type == "$sshl" || c1->type == "$sshr")
+		if (config.generic_uni_ops.count(c1->type))
 		{
-			if (c1->parameters.at("\\A_SIGNED").as_bool() != c2->parameters.at("\\A_SIGNED").as_bool())
-				return false;
+			if (!config.opt_aggressive)
+			{
+				int a1_width = c1->parameters.at("\\A_WIDTH").as_int();
+				int y1_width = c1->parameters.at("\\Y_WIDTH").as_int();
 
-			if (c1->parameters.at("\\B_SIGNED").as_bool() != c2->parameters.at("\\B_SIGNED").as_bool())
-				return false;
+				int a2_width = c2->parameters.at("\\A_WIDTH").as_int();
+				int y2_width = c2->parameters.at("\\Y_WIDTH").as_int();
 
+				if (std::max(a1_width, a2_width) > 2 * std::min(a1_width, a2_width)) return false;
+				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
+			}
+
+			return true;
+		}
+
+		if (config.generic_bin_ops.count(c1->type))
+		{
 			if (!config.opt_aggressive)
 			{
 				int a1_width = c1->parameters.at("\\A_WIDTH").as_int();
@@ -178,6 +191,32 @@ struct ShareWorker
 
 				if (std::max(a1_width, a2_width) > 2 * std::min(a1_width, a2_width)) return false;
 				if (std::max(b1_width, b2_width) > 2 * std::min(b1_width, b2_width)) return false;
+				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
+			}
+
+			return true;
+		}
+
+		if (config.generic_cbin_ops.count(c1->type))
+		{
+			if (!config.opt_aggressive)
+			{
+				int a1_width = c1->parameters.at("\\A_WIDTH").as_int();
+				int b1_width = c1->parameters.at("\\B_WIDTH").as_int();
+				int y1_width = c1->parameters.at("\\Y_WIDTH").as_int();
+
+				int a2_width = c2->parameters.at("\\A_WIDTH").as_int();
+				int b2_width = c2->parameters.at("\\B_WIDTH").as_int();
+				int y2_width = c2->parameters.at("\\Y_WIDTH").as_int();
+
+				int min1_width = std::min(a1_width, b1_width);
+				int max1_width = std::max(a1_width, b1_width);
+
+				int min2_width = std::min(a2_width, b2_width);
+				int max2_width = std::max(a2_width, b2_width);
+
+				if (std::max(min1_width, min2_width) > 2 * std::min(min1_width, min2_width)) return false;
+				if (std::max(max1_width, max2_width) > 2 * std::min(max1_width, max2_width)) return false;
 				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
 			}
 
@@ -210,10 +249,106 @@ struct ShareWorker
 
 	RTLIL::Cell *make_supercell(RTLIL::Cell *c1, RTLIL::Cell *c2, RTLIL::SigSpec act)
 	{
-		if (c1->type == "$mul" || c1->type == "$div" || c1->type == "$mod" || c1->type == "$add" || c1->type == "$sub" ||
-				c1->type == "$shl" || c1->type == "$shr" || c1->type == "$sshl" || c1->type == "$sshr")
+		log_assert(c1->type == c2->type);
+
+		if (config.generic_uni_ops.count(c1->type))
 		{
-			log_assert(c1->type == c2->type);
+			if (c1->parameters.at("\\A_SIGNED").as_bool() != c2->parameters.at("\\A_SIGNED").as_bool())
+			{
+				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\A_SIGNED").as_bool() ? c2 : c1;
+				if (unsigned_cell->connections.at("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
+					unsigned_cell->parameters.at("\\A_WIDTH") = unsigned_cell->parameters.at("\\A_WIDTH").as_int() + 1;
+					unsigned_cell->connections.at("\\A").append_bit(RTLIL::State::S0);
+				}
+				unsigned_cell->parameters.at("\\A_SIGNED") = true;
+				unsigned_cell->check();
+			}
+
+			bool a_signed = c1->parameters.at("\\A_SIGNED").as_bool();
+			log_assert(a_signed == c2->parameters.at("\\A_SIGNED").as_bool());
+
+			RTLIL::SigSpec a1 = c1->connections.at("\\A");
+			RTLIL::SigSpec y1 = c1->connections.at("\\Y");
+
+			RTLIL::SigSpec a2 = c2->connections.at("\\A");
+			RTLIL::SigSpec y2 = c2->connections.at("\\Y");
+
+			int a_width = std::max(a1.width, a2.width);
+			int y_width = std::max(y1.width, y2.width);
+
+			if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+			if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+
+			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
+			RTLIL::Wire *y = module->new_wire(y_width, NEW_ID);
+
+			RTLIL::Cell *supercell = new RTLIL::Cell;
+			supercell->name = NEW_ID;
+			supercell->type = c1->type;
+			supercell->parameters["\\A_SIGNED"] = a_signed;
+			supercell->parameters["\\A_WIDTH"] = a_width;
+			supercell->parameters["\\Y_WIDTH"] = y_width;
+			supercell->connections["\\A"] = a;
+			supercell->connections["\\Y"] = y;
+			module->add(supercell);
+
+			RTLIL::SigSpec new_y1(y, y1.width);
+			RTLIL::SigSpec new_y2(y, y2.width);
+
+			module->connections.push_back(RTLIL::SigSig(y1, new_y1));
+			module->connections.push_back(RTLIL::SigSig(y2, new_y2));
+
+			return supercell;
+		}
+
+		if (config.generic_bin_ops.count(c1->type) || config.generic_cbin_ops.count(c1->type))
+		{
+			bool modified_src_cells = false;
+
+			if (config.generic_cbin_ops.count(c1->type))
+			{
+				int score_unflipped = std::max(c1->parameters.at("\\A_WIDTH").as_int(), c2->parameters.at("\\A_WIDTH").as_int()) +
+						std::max(c1->parameters.at("\\B_WIDTH").as_int(), c2->parameters.at("\\B_WIDTH").as_int());
+
+				int score_flipped = std::max(c1->parameters.at("\\A_WIDTH").as_int(), c2->parameters.at("\\B_WIDTH").as_int()) +
+						std::max(c1->parameters.at("\\B_WIDTH").as_int(), c2->parameters.at("\\A_WIDTH").as_int());
+
+				if (score_flipped < score_unflipped)
+				{
+					std::swap(c2->connections.at("\\A"), c2->connections.at("\\B"));
+					std::swap(c2->parameters.at("\\A_WIDTH"), c2->parameters.at("\\B_WIDTH"));
+					std::swap(c2->parameters.at("\\A_SIGNED"), c2->parameters.at("\\B_SIGNED"));
+					modified_src_cells = true;
+				}
+			}
+
+			if (c1->parameters.at("\\A_SIGNED").as_bool() != c2->parameters.at("\\A_SIGNED").as_bool())
+
+			{
+				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\A_SIGNED").as_bool() ? c2 : c1;
+				if (unsigned_cell->connections.at("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
+					unsigned_cell->parameters.at("\\A_WIDTH") = unsigned_cell->parameters.at("\\A_WIDTH").as_int() + 1;
+					unsigned_cell->connections.at("\\A").append_bit(RTLIL::State::S0);
+				}
+				unsigned_cell->parameters.at("\\A_SIGNED") = true;
+				modified_src_cells = true;
+			}
+
+			if (c1->parameters.at("\\B_SIGNED").as_bool() != c2->parameters.at("\\B_SIGNED").as_bool())
+			{
+				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\B_SIGNED").as_bool() ? c2 : c1;
+				if (unsigned_cell->connections.at("\\B").to_sigbit_vector().back() != RTLIL::State::S0) {
+					unsigned_cell->parameters.at("\\B_WIDTH") = unsigned_cell->parameters.at("\\B_WIDTH").as_int() + 1;
+					unsigned_cell->connections.at("\\B").append_bit(RTLIL::State::S0);
+				}
+				unsigned_cell->parameters.at("\\B_SIGNED") = true;
+				modified_src_cells = true;
+			}
+
+			if (modified_src_cells) {
+				c1->check();
+				c2->check();
+			}
 
 			bool a_signed = c1->parameters.at("\\A_SIGNED").as_bool();
 			bool b_signed = c1->parameters.at("\\B_SIGNED").as_bool();
@@ -259,9 +394,7 @@ struct ShareWorker
 			RTLIL::SigSpec b = module->Mux(NEW_ID, b2, b1, act);
 			RTLIL::Wire *y = module->new_wire(y_width, NEW_ID);
 
-			RTLIL::Cell *supercell = new RTLIL::Cell;
-			supercell->name = NEW_ID;
-			supercell->type = c1->type;
+			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1->type);
 			supercell->parameters["\\A_SIGNED"] = a_signed;
 			supercell->parameters["\\B_SIGNED"] = b_signed;
 			supercell->parameters["\\A_WIDTH"] = a_width;
@@ -270,7 +403,7 @@ struct ShareWorker
 			supercell->connections["\\A"] = a;
 			supercell->connections["\\B"] = b;
 			supercell->connections["\\Y"] = y;
-			module->add(supercell);
+			supercell->check();
 
 			RTLIL::SigSpec new_y1(y, y1.width);
 			RTLIL::SigSpec new_y2(y, y2.width);
@@ -502,6 +635,10 @@ struct ShareWorker
 	ShareWorker(ShareWorkerConfig config, RTLIL::Design *design, RTLIL::Module *module) :
 			config(config), design(design), module(module)
 	{
+		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
+		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
+		generic_ops.insert(config.generic_cbin_ops.begin(), config.generic_cbin_ops.end());
+
 		fwd_ct.setup_internals();
 
 		cone_ct.setup_internals();
@@ -752,9 +889,52 @@ struct SharePass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		ShareWorkerConfig config;
+
 		config.opt_force = false;
 		config.opt_aggressive = false;
 		config.opt_fast = false;
+
+		config.generic_uni_ops.insert("$not");
+		// config.generic_uni_ops.insert("$pos");
+		// config.generic_uni_ops.insert("$bu0");
+		config.generic_uni_ops.insert("$neg");
+
+		config.generic_uni_ops.insert("$reduce_and");
+		config.generic_uni_ops.insert("$reduce_or");
+		config.generic_uni_ops.insert("$reduce_xor");
+		config.generic_uni_ops.insert("$reduce_xnor");
+		config.generic_uni_ops.insert("$reduce_bool");
+
+		config.generic_cbin_ops.insert("$and");
+		config.generic_cbin_ops.insert("$or");
+		config.generic_cbin_ops.insert("$xor");
+		config.generic_cbin_ops.insert("$xnor");
+
+		config.generic_bin_ops.insert("$shl");
+		config.generic_bin_ops.insert("$shr");
+		config.generic_bin_ops.insert("$sshl");
+		config.generic_bin_ops.insert("$sshr");
+
+		config.generic_bin_ops.insert("$lt");
+		config.generic_bin_ops.insert("$le");
+		config.generic_bin_ops.insert("$eq");
+		config.generic_bin_ops.insert("$ne");
+		config.generic_bin_ops.insert("$eqx");
+		config.generic_bin_ops.insert("$nex");
+		config.generic_bin_ops.insert("$ge");
+		config.generic_bin_ops.insert("$gt");
+
+		config.generic_cbin_ops.insert("$add");
+		config.generic_cbin_ops.insert("$mul");
+
+		config.generic_bin_ops.insert("$sub");
+		config.generic_bin_ops.insert("$div");
+		config.generic_bin_ops.insert("$mod");
+		// config.generic_bin_ops.insert("$pow");
+
+		config.generic_uni_ops.insert("$logic_not");
+		config.generic_cbin_ops.insert("$logic_and");
+		config.generic_cbin_ops.insert("$logic_or");
 
 		log_header("Executing SHARE pass (SAT-based resource sharing).\n");
 
