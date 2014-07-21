@@ -601,6 +601,8 @@ struct ShareWorker
 				optimize_activation_patterns(filtered_other_cell_activation_patterns);
 
 				ezDefaultSAT ez;
+				ez.non_incremental();
+
 				SatGen satgen(&ez, &modwalker.sigmap);
 
 				std::set<RTLIL::Cell*> sat_cells;
