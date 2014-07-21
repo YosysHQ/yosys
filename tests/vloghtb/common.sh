@@ -28,7 +28,8 @@ test_equiv()
 		$2
 		cd ..
 
-		miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold work miter
+		miter -equiv -ignore_gold_x -make_outputs -make_outcmp gold work miter
+		flatten miter
 		sat $3 -verify -prove trigger 0 -show-inputs -show-outputs miter
 	EOT
 	then

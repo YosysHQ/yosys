@@ -6,6 +6,6 @@ source common.sh
 f=$1
 n=$(basename ${f%.v})
 
-test_equiv mapopt "opt; techmap; opt" "-set-def-inputs" $n $f
+test_equiv mapopt "opt -fine; techmap; opt" "-set-def-inputs" $n $f
 
 exit 0
