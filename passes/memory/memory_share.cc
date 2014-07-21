@@ -419,7 +419,7 @@ struct MemoryShareWorker
 					if (0) {
 				found_overlapping_bits_i_j:
 						log("      Creating collosion-detect logic for port %d.\n", j);
-						RTLIL::SigSpec is_same_addr = module->new_wire(1, NEW_ID);
+						RTLIL::SigSpec is_same_addr = module->addWire(NEW_ID);
 						module->addEq(NEW_ID, addr, wr_ports[j]->connections.at("\\ADDR"), is_same_addr);
 						merged_en = mask_en_grouped(is_same_addr, merged_en, sigmap(wr_ports[j]->connections.at("\\EN")));
 					}
@@ -603,7 +603,7 @@ struct MemoryShareWorker
 
 			std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, int> groups_en;
 			RTLIL::SigSpec grouped_last_en, grouped_this_en, en;
-			RTLIL::Wire *grouped_en = module->new_wire(0, NEW_ID);
+			RTLIL::Wire *grouped_en = module->addWire(NEW_ID, 0);
 
 			for (int j = 0; j < int(this_en.size()); j++) {
 				std::pair<RTLIL::SigBit, RTLIL::SigBit> key(last_en[j], this_en[j]);

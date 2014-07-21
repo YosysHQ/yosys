@@ -142,7 +142,7 @@ namespace RTLIL
 	RTLIL::new_id(__FILE__, __LINE__, __FUNCTION__)
 
 #define NEW_WIRE(_mod, _width) \
-	(_mod)->new_wire(_width, NEW_ID)
+	(_mod)->addWire(NEW_ID, _width)
 
 	template <typename T> struct sort_by_name {
 		bool operator()(T *a, T *b) const {
@@ -287,15 +287,15 @@ struct RTLIL::Module {
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void check();
 	virtual void optimize();
-	RTLIL::Wire *new_wire(int width, RTLIL::IdString name);
-	void add(RTLIL::Wire *wire);
-	void add(RTLIL::Cell *cell);
-	void remove(RTLIL::Cell *cell);
 	void fixup_ports();
 
 	template<typename T> void rewrite_sigspecs(T functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
+
+	void add(RTLIL::Wire *wire);
+	void add(RTLIL::Cell *cell);
+	void remove(RTLIL::Cell *cell);
 
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);

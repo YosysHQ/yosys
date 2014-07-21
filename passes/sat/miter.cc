@@ -164,7 +164,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 			if (flag_ignore_gold_x)
 			{
-				RTLIL::SigSpec gold_x = miter_module->new_wire(w2_gold->width, NEW_ID);
+				RTLIL::SigSpec gold_x = miter_module->addWire(NEW_ID, w2_gold->width);
 				for (int i = 0; i < w2_gold->width; i++) {
 					RTLIL::Cell *eqx_cell = new RTLIL::Cell;
 					eqx_cell->name = NEW_ID;
@@ -180,8 +180,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 					miter_module->add(eqx_cell);
 				}
 
-				RTLIL::SigSpec gold_masked = miter_module->new_wire(w2_gold->width, NEW_ID);
-				RTLIL::SigSpec gate_masked = miter_module->new_wire(w2_gate->width, NEW_ID);
+				RTLIL::SigSpec gold_masked = miter_module->addWire(NEW_ID, w2_gold->width);
+				RTLIL::SigSpec gate_masked = miter_module->addWire(NEW_ID, w2_gate->width);
 
 				RTLIL::Cell *or_gold_cell = new RTLIL::Cell;
 				or_gold_cell->name = NEW_ID;
@@ -219,7 +219,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				eq_cell->parameters["\\B_SIGNED"] = 0;
 				eq_cell->connections["\\A"] = gold_masked;
 				eq_cell->connections["\\B"] = gate_masked;
-				eq_cell->connections["\\Y"] = miter_module->new_wire(1, NEW_ID);
+				eq_cell->connections["\\Y"] = miter_module->addWire(NEW_ID);
 				this_condition = eq_cell->connections["\\Y"];
 				miter_module->add(eq_cell);
 			}
@@ -235,7 +235,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				eq_cell->parameters["\\B_SIGNED"] = 0;
 				eq_cell->connections["\\A"] = w2_gold;
 				eq_cell->connections["\\B"] = w2_gate;
-				eq_cell->connections["\\Y"] = miter_module->new_wire(1, NEW_ID);
+				eq_cell->connections["\\Y"] = miter_module->addWire(NEW_ID);
 				this_condition = eq_cell->connections["\\Y"];
 				miter_module->add(eq_cell);
 			}
@@ -261,7 +261,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 		reduce_cell->parameters["\\Y_WIDTH"] = 1;
 		reduce_cell->parameters["\\A_SIGNED"] = 0;
 		reduce_cell->connections["\\A"] = all_conditions;
-		reduce_cell->connections["\\Y"] = miter_module->new_wire(1, NEW_ID);
+		reduce_cell->connections["\\Y"] = miter_module->addWire(NEW_ID);
 		all_conditions = reduce_cell->connections["\\Y"];
 		miter_module->add(reduce_cell);
 	}

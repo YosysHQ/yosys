@@ -30,7 +30,7 @@ struct DeleteWireWorker
 		sig.optimize();
 		for (auto &c : sig.chunks)
 			if (c.wire != NULL && delete_wires_p->count(c.wire->name)) {
-				c.wire = module->new_wire(c.width, NEW_ID);
+				c.wire = module->addWire(NEW_ID, c.width);
 				c.offset = 0;
 			}
 	}

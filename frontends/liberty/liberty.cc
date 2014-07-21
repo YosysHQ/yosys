@@ -227,8 +227,8 @@ static RTLIL::SigSpec parse_func_expr(RTLIL::Module *module, const char *expr)
 
 static void create_ff(RTLIL::Module *module, LibertyAst *node)
 {
-	RTLIL::SigSpec iq_sig(module->new_wire(1, RTLIL::escape_id(node->args.at(0))));
-	RTLIL::SigSpec iqn_sig(module->new_wire(1, RTLIL::escape_id(node->args.at(1))));
+	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
+	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
 
 	RTLIL::SigSpec clk_sig, data_sig, clear_sig, preset_sig;
 	bool clk_polarity = true, clear_polarity = true, preset_polarity = true;
@@ -309,8 +309,8 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 
 static void create_latch(RTLIL::Module *module, LibertyAst *node)
 {
-	RTLIL::SigSpec iq_sig(module->new_wire(1, RTLIL::escape_id(node->args.at(0))));
-	RTLIL::SigSpec iqn_sig(module->new_wire(1, RTLIL::escape_id(node->args.at(1))));
+	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
+	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
 
 	RTLIL::SigSpec enable_sig, data_sig, clear_sig, preset_sig;
 	bool enable_polarity = true, clear_polarity = true, preset_polarity = true;
@@ -549,7 +549,7 @@ struct LibertyFrontend : public Frontend {
 						}
 					}
 					if (!flag_lib || dir->value != "internal")
-						module->new_wire(1, RTLIL::escape_id(node->args.at(0)));
+						module->addWire(RTLIL::escape_id(node->args.at(0)));
 				}
 
 			for (auto node : cell->children)

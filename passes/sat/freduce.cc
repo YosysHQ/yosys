@@ -707,7 +707,7 @@ struct FreduceWorker
 				log("      Connect slave%s: %s\n", grp[i].inverted ? " using inverter" : "", log_signal(grp[i].bit));
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
-				RTLIL::Wire *dummy_wire = module->new_wire(1, NEW_ID);
+				RTLIL::Wire *dummy_wire = module->addWire(NEW_ID);
 				for (auto &port : drv->connections)
 					if (ct.cell_output(drv->type, port.first))
 						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
@@ -716,7 +716,7 @@ struct FreduceWorker
 				{
 					if (inv_sig.width == 0)
 					{
-						inv_sig = module->new_wire(1, NEW_ID);
+						inv_sig = module->addWire(NEW_ID);
 
 						RTLIL::Cell *inv_cell = new RTLIL::Cell;
 						inv_cell->name = NEW_ID;

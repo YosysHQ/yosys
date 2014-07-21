@@ -819,15 +819,6 @@ RTLIL::Module *RTLIL::Module::clone() const
 	return new_mod;
 }
 
-RTLIL::Wire *RTLIL::Module::new_wire(int width, RTLIL::IdString name)
-{
-	RTLIL::Wire *wire = new RTLIL::Wire;
-	wire->width = width;
-	wire->name = name;
-	add(wire);
-	return wire;
-}
-
 void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	assert(!wire->name.empty());
@@ -908,7 +899,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed) { \
-		RTLIL::SigSpec sig_y = new_wire(_y_size, NEW_ID);   \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);    \
 		add ## _func(name, sig_a, sig_y, is_signed);        \
 		return sig_y;                                       \
 	}
@@ -941,7 +932,7 @@ DEF_METHOD(LogicNot,   1, "$logic_not")
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed) { \
-		RTLIL::SigSpec sig_y = new_wire(_y_size, NEW_ID);   \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);    \
 		add ## _func(name, sig_a, sig_b, sig_y, is_signed); \
 		return sig_y;                                       \
 	}
@@ -986,7 +977,7 @@ DEF_METHOD(LogicOr,  1, "$logic_or")
 		return cell;                                             \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s) { \
-		RTLIL::SigSpec sig_y = new_wire(sig_a.width, NEW_ID);    \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, sig_a.width);     \
 		add ## _func(name, sig_a, sig_b, sig_s, sig_y);          \
 		return sig_y;                                            \
 	}
@@ -1006,7 +997,7 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 		return cell;                                \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1) { \
-		RTLIL::SigSpec sig2 = new_wire(1, NEW_ID);  \
+		RTLIL::SigSpec sig2 = addWire(NEW_ID);      \
 		add ## _func(name, sig1, sig2);             \
 		return sig2;                                \
 	}
@@ -1022,7 +1013,7 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 		return cell;                                \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2) { \
-		RTLIL::SigSpec sig3 = new_wire(1, NEW_ID);  \
+		RTLIL::SigSpec sig3 = addWire(NEW_ID);      \
 		add ## _func(name, sig1, sig2, sig3);       \
 		return sig3;                                \
 	}
@@ -1039,7 +1030,7 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 		return cell;                                \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3) { \
-		RTLIL::SigSpec sig4 = new_wire(1, NEW_ID);  \
+		RTLIL::SigSpec sig4 = addWire(NEW_ID);      \
 		add ## _func(name, sig1, sig2, sig3, sig4); \
 		return sig4;                                \
 	}

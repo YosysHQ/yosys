@@ -89,7 +89,7 @@ static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	if (cell->type == "$xnor")
 	{
-		RTLIL::SigSpec sig_t = module->new_wire(width, NEW_ID);
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, width);
 		sig_t.expand();
 
 		for (int i = 0; i < width; i++) {
@@ -158,7 +158,7 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	while (sig_a.width > 1)
 	{
-		RTLIL::SigSpec sig_t = module->new_wire(sig_a.width / 2, NEW_ID);
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig_a.width / 2);
 		sig_t.expand();
 
 		for (int i = 0; i < sig_a.width; i += 2)
@@ -182,7 +182,7 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 
 	if (cell->type == "$reduce_xnor") {
-		RTLIL::SigSpec sig_t = module->new_wire(1, NEW_ID);
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID);
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = "$_INV_";
@@ -206,7 +206,7 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig)
 
 	while (sig.width > 1)
 	{
-		RTLIL::SigSpec sig_t = module->new_wire(sig.width / 2, NEW_ID);
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig.width / 2);
 		sig_t.expand();
 
 		for (int i = 0; i < sig.width; i += 2)

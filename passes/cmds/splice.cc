@@ -77,7 +77,7 @@ struct SpliceWorker
 			cell->parameters["\\A_WIDTH"] = sig_a.width;
 			cell->parameters["\\Y_WIDTH"] = sig.width;
 			cell->connections["\\A"] = sig_a;
-			cell->connections["\\Y"] = module->new_wire(sig.width, NEW_ID);
+			cell->connections["\\Y"] = module->addWire(NEW_ID, sig.width);
 			new_sig = cell->connections["\\Y"];
 			module->add(cell);
 		}
@@ -138,7 +138,7 @@ struct SpliceWorker
 			cell->parameters["\\B_WIDTH"] = sig2.width;
 			cell->connections["\\A"] = new_sig;
 			cell->connections["\\B"] = sig2;
-			cell->connections["\\Y"] = module->new_wire(new_sig.width + sig2.width, NEW_ID);
+			cell->connections["\\Y"] = module->addWire(NEW_ID, new_sig.width + sig2.width);
 			new_sig = cell->connections["\\Y"];
 			module->add(cell);
 		}

@@ -276,11 +276,11 @@ struct ShareWorker
 			int a_width = std::max(a1.width, a2.width);
 			int y_width = std::max(y1.width, y2.width);
 
-			if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
-			if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+			if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), a_signed)->connections.at("\\Y");
+			if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), a_signed)->connections.at("\\Y");
 
 			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
-			RTLIL::Wire *y = module->new_wire(y_width, NEW_ID);
+			RTLIL::Wire *y = module->addWire(NEW_ID, y_width);
 
 			RTLIL::Cell *supercell = new RTLIL::Cell;
 			supercell->name = NEW_ID;
@@ -375,24 +375,24 @@ struct ShareWorker
 			{
 				a_width = std::max(y_width, a_width);
 
-				if (a1.width < y1.width) a1 = module->addPos(NEW_ID, a1, module->new_wire(y1.width, NEW_ID), true)->connections.at("\\Y");
-				if (a2.width < y2.width) a2 = module->addPos(NEW_ID, a2, module->new_wire(y2.width, NEW_ID), true)->connections.at("\\Y");
+				if (a1.width < y1.width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, y1.width), true)->connections.at("\\Y");
+				if (a2.width < y2.width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, y2.width), true)->connections.at("\\Y");
 
-				if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), false)->connections.at("\\Y");
-				if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), false)->connections.at("\\Y");
+				if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), false)->connections.at("\\Y");
+				if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), false)->connections.at("\\Y");
 			}
 			else
 			{
-				if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
-				if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->new_wire(a_width, NEW_ID), a_signed)->connections.at("\\Y");
+				if (a1.width != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), a_signed)->connections.at("\\Y");
+				if (a2.width != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), a_signed)->connections.at("\\Y");
 			}
 
-			if (b1.width != b_width) b1 = module->addPos(NEW_ID, b1, module->new_wire(b_width, NEW_ID), b_signed)->connections.at("\\Y");
-			if (b2.width != b_width) b2 = module->addPos(NEW_ID, b2, module->new_wire(b_width, NEW_ID), b_signed)->connections.at("\\Y");
+			if (b1.width != b_width) b1 = module->addPos(NEW_ID, b1, module->addWire(NEW_ID, b_width), b_signed)->connections.at("\\Y");
+			if (b2.width != b_width) b2 = module->addPos(NEW_ID, b2, module->addWire(NEW_ID, b_width), b_signed)->connections.at("\\Y");
 
 			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
 			RTLIL::SigSpec b = module->Mux(NEW_ID, b2, b1, act);
-			RTLIL::Wire *y = module->new_wire(y_width, NEW_ID);
+			RTLIL::Wire *y = module->addWire(NEW_ID, y_width);
 
 			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1->type);
 			supercell->parameters["\\A_SIGNED"] = a_signed;
@@ -617,7 +617,7 @@ struct ShareWorker
 
 	RTLIL::SigSpec make_cell_activation_logic(const std::set<std::pair<RTLIL::SigSpec, RTLIL::Const>> &activation_patterns)
 	{
-		RTLIL::Wire *all_cases_wire = module->new_wire(0, NEW_ID);
+		RTLIL::Wire *all_cases_wire = module->addWire(NEW_ID, 0);
 		for (auto &p : activation_patterns) {
 			all_cases_wire->width++;
 			module->addEq(NEW_ID, p.first, p.second, RTLIL::SigSpec(all_cases_wire, 1, all_cases_wire->width - 1));
