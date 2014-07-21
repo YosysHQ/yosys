@@ -50,7 +50,7 @@ using namespace ILANG_FRONTEND;
 
 %token <string> TOK_ID TOK_VALUE TOK_STRING
 %token <integer> TOK_INT
-%token TOK_MODULE TOK_WIRE TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
+%token TOK_AUTOIDX TOK_MODULE TOK_WIRE TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
 %token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_INIT
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
@@ -82,6 +82,7 @@ optional_eol:
 design:
 	design module |
 	design attr_stmt |
+	design autoidx_stmt |
 	/* empty */;
 
 module:
@@ -111,6 +112,11 @@ attr_stmt:
 		attrbuf[$2] = *$3;
 		delete $3;
 		free($2);
+	};
+
+autoidx_stmt:
+	TOK_AUTOIDX TOK_INT EOL {
+		RTLIL::autoidx = std::max(RTLIL::autoidx, $2);
 	};
 
 wire_stmt:
