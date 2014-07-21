@@ -166,7 +166,15 @@ struct SatGen
 	void undefGating(std::vector<int> &vec_y, std::vector<int> &vec_yy, std::vector<int> &vec_undef)
 	{
 		assert(model_undef);
-		ez->assume(ez->expression(ezSAT::OpAnd, ez->vec_or(vec_undef, ez->vec_iff(vec_y, vec_yy))));
+		assert(vec_y.size() == vec_yy.size());
+		if (vec_y.size() > vec_undef.size()) {
+			std::vector<int> trunc_y(vec_y.begin(), vec_y.begin() + vec_undef.size());
+			std::vector<int> trunc_yy(vec_yy.begin(), vec_yy.begin() + vec_undef.size());
+			ez->assume(ez->expression(ezSAT::OpAnd, ez->vec_or(vec_undef, ez->vec_iff(trunc_y, trunc_yy))));
+		} else {
+			assert(vec_y.size() == vec_undef.size());
+			ez->assume(ez->expression(ezSAT::OpAnd, ez->vec_or(vec_undef, ez->vec_iff(vec_y, vec_yy))));
+		}
 	}
 
 	bool importCell(RTLIL::Cell *cell, int timestep = -1)
