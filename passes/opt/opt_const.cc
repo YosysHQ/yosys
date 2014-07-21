@@ -74,6 +74,8 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 static void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->connections[out_port];
+	out_val.extend_u0(Y.width, false);
+
 	log("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
 			cell->type.c_str(), cell->name.c_str(), info.c_str(),
 			module->name.c_str(), log_signal(Y), log_signal(out_val));
@@ -113,6 +115,12 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	{
 		int group_idx = GRP_DYN;
 		RTLIL::SigBit bit_a = bits_a[i], bit_b = bits_b[i];
+
+		if (cell->type == "$or" && (bit_a == RTLIL::State::S1 || bit_b == RTLIL::State::S1))
+			bit_a = bit_b = RTLIL::State::S1;
+
+		if (cell->type == "$and" && (bit_a == RTLIL::State::S0 || bit_b == RTLIL::State::S0))
+			bit_a = bit_b = RTLIL::State::S0;
 
 		if (bit_a.wire == NULL && bit_b.wire == NULL)
 			group_idx = GRP_CONST_AB;
@@ -181,7 +189,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	return true;
 }
 
-static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine)
+static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc)
 {
 	if (!design->selected(module))
 		return;
@@ -204,10 +212,132 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 #define ACTION_DO(_p_, _s_) do { replace_cell(module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO("\\Y", RTLIL::SigSpec(RTLIL::State::S ## _v_))
 
-		if (do_fine && (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" ||
-				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor"))
-			if (group_cell_inputs(module, cell, true, cell->type != "$pos", assign_map))
+		if (do_fine)
+		{
+			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" ||
+					cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor")
+				if (group_cell_inputs(module, cell, true, cell->type != "$pos", assign_map))
+					goto next_cell;
+
+			if (cell->type == "$reduce_and")
+			{
+				RTLIL::SigSpec sig_a = assign_map(cell->connections.at("\\A"));
+
+				RTLIL::State new_a = RTLIL::State::S1;
+				for (auto &bit : sig_a.to_sigbit_vector())
+					if (bit == RTLIL::State::Sx) {
+						if (new_a == RTLIL::State::S1)
+							new_a = RTLIL::State::Sx;
+					} else if (bit == RTLIL::State::S0) {
+						new_a = RTLIL::State::S0;
+						break;
+					} else if (bit.wire != NULL) {
+						new_a = RTLIL::State::Sm;
+					}
+
+				if (new_a != RTLIL::State::Sm && RTLIL::SigSpec(new_a) != sig_a) {
+					log("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
+							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
+					cell->connections.at("\\A") = sig_a = new_a;
+					cell->parameters.at("\\A_WIDTH") = 1;
+					OPT_DID_SOMETHING = true;
+					did_something = true;
+				}
+			}
+
+			if (cell->type == "$logic_not" || cell->type == "$logic_and" || cell->type == "$logic_or" || cell->type == "$reduce_or" || cell->type == "$reduce_bool")
+			{
+				RTLIL::SigSpec sig_a = assign_map(cell->connections.at("\\A"));
+
+				RTLIL::State new_a = RTLIL::State::S0;
+				for (auto &bit : sig_a.to_sigbit_vector())
+					if (bit == RTLIL::State::Sx) {
+						if (new_a == RTLIL::State::S0)
+							new_a = RTLIL::State::Sx;
+					} else if (bit == RTLIL::State::S1) {
+						new_a = RTLIL::State::S1;
+						break;
+					} else if (bit.wire != NULL) {
+						new_a = RTLIL::State::Sm;
+					}
+
+				if (new_a != RTLIL::State::Sm && RTLIL::SigSpec(new_a) != sig_a) {
+					log("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
+							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
+					cell->connections.at("\\A") = sig_a = new_a;
+					cell->parameters.at("\\A_WIDTH") = 1;
+					OPT_DID_SOMETHING = true;
+					did_something = true;
+				}
+			}
+
+			if (cell->type == "$logic_and" || cell->type == "$logic_or")
+			{
+				RTLIL::SigSpec sig_b = assign_map(cell->connections.at("\\B"));
+
+				RTLIL::State new_b = RTLIL::State::S0;
+				for (auto &bit : sig_b.to_sigbit_vector())
+					if (bit == RTLIL::State::Sx) {
+						if (new_b == RTLIL::State::S0)
+							new_b = RTLIL::State::Sx;
+					} else if (bit == RTLIL::State::S1) {
+						new_b = RTLIL::State::S1;
+						break;
+					} else if (bit.wire != NULL) {
+						new_b = RTLIL::State::Sm;
+					}
+
+				if (new_b != RTLIL::State::Sm && RTLIL::SigSpec(new_b) != sig_b) {
+					log("Replacing port B of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
+							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_b));
+					cell->connections.at("\\B") = sig_b = new_b;
+					cell->parameters.at("\\B_WIDTH") = 1;
+					OPT_DID_SOMETHING = true;
+					did_something = true;
+				}
+			}
+		}
+
+		if (cell->type == "$logic_or" && (assign_map(cell->connections.at("\\A")) == RTLIL::State::S1 || assign_map(cell->connections.at("\\B")) == RTLIL::State::S1)) {
+			replace_cell(module, cell, "one high", "\\Y", RTLIL::State::S1);
+			goto next_cell;
+		}
+
+		if (cell->type == "$logic_and" && (assign_map(cell->connections.at("\\A")) == RTLIL::State::S0 || assign_map(cell->connections.at("\\B")) == RTLIL::State::S0)) {
+			replace_cell(module, cell, "one low", "\\Y", RTLIL::State::S0);
+			goto next_cell;
+		}
+
+		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" ||
+				cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr" ||
+				cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt" ||
+				cell->type == "$neg" || cell->type == "$add" || cell->type == "$sub" ||
+				cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod" || cell->type == "$pow")
+		{
+			RTLIL::SigSpec sig_a = assign_map(cell->connections.at("\\A"));
+			RTLIL::SigSpec sig_b = cell->connections.count("\\B") ? assign_map(cell->connections.at("\\B")) : RTLIL::SigSpec();
+
+			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr")
+				sig_a = RTLIL::SigSpec();
+
+			for (auto &bit : sig_a.to_sigbit_vector())
+				if (bit == RTLIL::State::Sx)
+					goto found_the_x_bit;
+
+			for (auto &bit : sig_b.to_sigbit_vector())
+				if (bit == RTLIL::State::Sx)
+					goto found_the_x_bit;
+
+			if (0) {
+		found_the_x_bit:
+				if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" ||
+						cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt")
+					replace_cell(module, cell, "x-bit in input", "\\Y", RTLIL::State::Sx);
+				else
+					replace_cell(module, cell, "x-bit in input", "\\Y", RTLIL::SigSpec(RTLIL::State::Sx, cell->connections.at("\\Y").width));
 				goto next_cell;
+			}
+		}
 
 		if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") && cell->connections["\\Y"].width == 1 &&
 				invert_map.count(assign_map(cell->connections["\\A"])) != 0) {
@@ -389,7 +519,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			}
 		}
 
-		// checking for simple identities
+		if (!keepdc)
 		{
 			bool identity_bu0 = false;
 			bool identity_wrt_a = false;
@@ -647,7 +777,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				ACTION_DO("\\Y", cell->connections["\\A"]);
 		}
 
-		if (do_fine && cell->type == "$mul")
+		if (!keepdc && cell->type == "$mul")
 		{
 			bool a_signed = cell->parameters["\\A_SIGNED"].as_bool();
 			bool b_signed = cell->parameters["\\B_SIGNED"].as_bool();
@@ -677,22 +807,27 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					goto next_cell;
 				}
 
-				for (int i = 0; i < sig_a.width - (a_signed ? 1 : 0); i++)
+				for (int i = 1; i < (a_signed ? sig_a.width-1 : sig_a.width); i++)
 					if (a_val == (1 << i))
 					{
 						log("Replacing multiply-by-%d cell `%s' in module `%s' with shift-by-%d.\n",
 								a_val, cell->name.c_str(), module->name.c_str(), i);
 
-						if (swapped_ab) {
+						if (!swapped_ab) {
 							cell->connections["\\A"] = cell->connections["\\B"];
 							cell->parameters["\\A_WIDTH"] = cell->parameters["\\B_WIDTH"];
 							cell->parameters["\\A_SIGNED"] = cell->parameters["\\B_SIGNED"];
 						}
 
+						std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(i, 6);
+
+						while (SIZE(new_b) > 1 && new_b.back() == RTLIL::State::S0)
+							new_b.pop_back();
+
 						cell->type = "$shl";
-						cell->parameters["\\B_WIDTH"] = 6;
+						cell->parameters["\\B_WIDTH"] = SIZE(new_b);
 						cell->parameters["\\B_SIGNED"] = false;
-						cell->connections["\\B"] = RTLIL::SigSpec(i, 6);
+						cell->connections["\\B"] = new_b;
 						cell->check();
 
 						OPT_DID_SOMETHING = true;
@@ -729,6 +864,12 @@ struct OptConstPass : public Pass {
 		log("    -undriven\n");
 		log("        replace undriven nets with undef (x) constants\n");
 		log("\n");
+		log("    -keepdc\n");
+		log("        some optimizations change the behavior of the circuit with respect to\n");
+		log("        don't-care bits. for example in 'a+0' a single x-bit in 'a' will cause\n");
+		log("        all result bits to be set to x. this behavior changes when 'a+0' is\n");
+		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
+		log("\n");
 		log("    -fine\n");
 		log("        perform fine-grain optimizations\n");
 		log("\n");
@@ -739,6 +880,7 @@ struct OptConstPass : public Pass {
 		bool mux_bool = false;
 		bool undriven = false;
 		bool do_fine = false;
+		bool keepdc = false;
 
 		log_header("Executing OPT_CONST pass (perform const folding).\n");
 		log_push();
@@ -761,6 +903,10 @@ struct OptConstPass : public Pass {
 				do_fine = true;
 				continue;
 			}
+			if (args[argidx] == "-keepdc") {
+				keepdc = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -773,9 +919,9 @@ struct OptConstPass : public Pass {
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, mod_it.second, false, mux_undef, mux_bool, do_fine);
+					replace_const_cells(design, mod_it.second, false, mux_undef, mux_bool, do_fine, keepdc);
 				} while (did_something);
-				replace_const_cells(design, mod_it.second, true, mux_undef, mux_bool, do_fine);
+				replace_const_cells(design, mod_it.second, true, mux_undef, mux_bool, do_fine, keepdc);
 			} while (did_something);
 		}
 

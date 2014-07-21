@@ -31,7 +31,7 @@ struct OptPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt [-purge] [-mux_undef] [-mux_bool] [-undriven] [-fine] [selection]\n");
+		log("    opt [options] [selection]\n");
 		log("\n");
 		log("This pass calls all the other opt_* passes in a useful order. This performs\n");
 		log("a series of trivial optimizations and cleanups. This pass executes the other\n");
@@ -46,8 +46,11 @@ struct OptPass : public Pass {
 		log("        opt_share\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean [-purge]\n");
-		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine]\n");
-		log("    while [changed design]\n");
+		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine] [-keepdc]\n");
+		log("    while <changed design>\n");
+		log("\n");
+		log("Note: Options in square brackets (such as [-keepdc]) are passed through to\n");
+		log("the opt_* commands when given to 'opt'.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -80,6 +83,10 @@ struct OptPass : public Pass {
 			if (args[argidx] == "-fine") {
 				opt_const_args += " -fine";
 				opt_reduce_args += " -fine";
+				continue;
+			}
+			if (args[argidx] == "-keepdc") {
+				opt_const_args += " -keepdc";
 				continue;
 			}
 			break;
