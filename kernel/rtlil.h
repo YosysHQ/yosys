@@ -141,9 +141,6 @@ namespace RTLIL
 #define NEW_ID \
 	RTLIL::new_id(__FILE__, __LINE__, __FUNCTION__)
 
-#define NEW_WIRE(_mod, _width) \
-	(_mod)->addWire(NEW_ID, _width)
-
 	template <typename T> struct sort_by_name {
 		bool operator()(T *a, T *b) const {
 			return a->name < b->name;

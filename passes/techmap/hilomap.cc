@@ -34,7 +34,7 @@ void hilomap_worker(RTLIL::SigSpec &sig)
 	for (auto &c : sig.chunks) {
 		if (c.wire == NULL && (c.data.bits.at(0) == RTLIL::State::S1) && !hicell_celltype.empty()) {
 			if (!singleton_mode || last_hi.width == 0) {
-				last_hi = RTLIL::SigChunk(NEW_WIRE(module, 1));
+				last_hi = RTLIL::SigChunk(module->addWire(NEW_ID));
 				RTLIL::Cell *cell = new RTLIL::Cell;
 				cell->name = NEW_ID;
 				cell->type = RTLIL::escape_id(hicell_celltype);
@@ -45,7 +45,7 @@ void hilomap_worker(RTLIL::SigSpec &sig)
 		}
 		if (c.wire == NULL && (c.data.bits.at(0) == RTLIL::State::S0) && !locell_celltype.empty()) {
 			if (!singleton_mode || last_lo.width == 0) {
-				last_lo = RTLIL::SigChunk(NEW_WIRE(module, 1));
+				last_lo = RTLIL::SigChunk(module->addWire(NEW_ID));
 				RTLIL::Cell *cell = new RTLIL::Cell;
 				cell->name = NEW_ID;
 				cell->type = RTLIL::escape_id(locell_celltype);
