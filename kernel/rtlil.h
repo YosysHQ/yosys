@@ -498,14 +498,14 @@ struct RTLIL::SigBit {
 struct RTLIL::SigSpec {
 private:
 	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
+	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
 	int width_;
 
+	void pack() const;
+	void unpack() const;
+	bool packed() const;
+
 public:
-	std::vector<RTLIL::SigChunk> &chunks_rw() { return chunks_; }
-	const std::vector<RTLIL::SigChunk> &chunks() const { return chunks_; }
-
-	int size() const { return width_; }
-
 	SigSpec();
 	SigSpec(const RTLIL::Const &data);
 	SigSpec(const RTLIL::SigChunk &chunk);
@@ -516,46 +516,68 @@ public:
 	SigSpec(RTLIL::SigBit bit, int width = 1);
 	SigSpec(std::vector<RTLIL::SigBit> bits);
 	SigSpec(std::set<RTLIL::SigBit> bits);
+
+	std::vector<RTLIL::SigChunk> &chunks_rw() { pack(); return chunks_; }
+	const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
+	const std::vector<RTLIL::SigBit> &bits() const { unpack(); return bits_; }
+
+	int size() const { return width_; }
+
 	void expand();
 	void optimize();
 	RTLIL::SigSpec optimized() const;
+
 	void sort();
 	void sort_and_unify();
+
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const;
+	void replace(int offset, const RTLIL::SigSpec &with);
+
 	void remove(const RTLIL::SigSpec &pattern);
 	void remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other) const;
 	void remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other);
-	RTLIL::SigSpec extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *other = NULL) const;
-	void replace(int offset, const RTLIL::SigSpec &with);
+	void remove(int offset, int length = 1);
 	void remove_const();
-	void remove(int offset, int length);
+
+	RTLIL::SigSpec extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length) const;
+
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
-	bool combine(RTLIL::SigSpec signal, RTLIL::State freeState = RTLIL::State::Sz, bool override = false);
+
+	bool combine(RTLIL::SigSpec signal, RTLIL::State freeState = RTLIL::State::Sz, bool do_override = false);
+
 	void extend(int width, bool is_signed = false);
 	void extend_u0(int width, bool is_signed = false);
-	void check() const;
+
 	bool operator <(const RTLIL::SigSpec &other) const;
 	bool operator ==(const RTLIL::SigSpec &other) const;
 	bool operator !=(const RTLIL::SigSpec &other) const;
+
 	bool is_fully_const() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
 	bool has_marked_bits() const;
+
 	bool as_bool() const;
 	int as_int() const;
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
+
 	bool match(std::string pattern) const;
+
 	std::set<RTLIL::SigBit> to_sigbit_set() const;
 	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
 	RTLIL::SigBit to_single_sigbit() const;
+
 	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
+
 	operator std::vector<RTLIL::SigBit>() const { return to_sigbit_vector(); }
+
+	void check() const;
 };
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
