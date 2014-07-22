@@ -92,8 +92,8 @@ struct OptMuxtreeWorker
 				muxinfo_t muxinfo;
 				muxinfo.cell = cell;
 
-				for (int i = 0; i < sig_s.width; i++) {
-					RTLIL::SigSpec sig = sig_b.extract(i*sig_a.width, sig_a.width);
+				for (int i = 0; i < sig_s.__width; i++) {
+					RTLIL::SigSpec sig = sig_b.extract(i*sig_a.__width, sig_a.__width);
 					RTLIL::SigSpec ctrl_sig = assign_map(sig_s.extract(i, 1));
 					portinfo_t portinfo;
 					for (int idx : sig2bits(sig)) {
@@ -201,7 +201,7 @@ struct OptMuxtreeWorker
 
 			if (live_ports.size() == 1)
 			{
-				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*sig_a.width, sig_a.width);
+				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*sig_a.__width, sig_a.__width);
 				module->connections.push_back(RTLIL::SigSig(sig_y, sig_in));
 				module->cells.erase(mi.cell->name);
 				delete mi.cell;
@@ -211,7 +211,7 @@ struct OptMuxtreeWorker
 				RTLIL::SigSpec new_sig_a, new_sig_b, new_sig_s;
 
 				for (size_t i = 0; i < live_ports.size(); i++) {
-					RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[i]*sig_a.width, sig_a.width);
+					RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[i]*sig_a.__width, sig_a.__width);
 					if (i == live_ports.size()-1) {
 						new_sig_a = sig_in;
 					} else {
@@ -223,11 +223,11 @@ struct OptMuxtreeWorker
 				mi.cell->connections["\\A"] = new_sig_a;
 				mi.cell->connections["\\B"] = new_sig_b;
 				mi.cell->connections["\\S"] = new_sig_s;
-				if (new_sig_s.width == 1) {
+				if (new_sig_s.__width == 1) {
 					mi.cell->type = "$mux";
 					mi.cell->parameters.erase("\\S_WIDTH");
 				} else {
-					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.width);
+					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.__width);
 				}
 			}
 		}
@@ -260,7 +260,7 @@ struct OptMuxtreeWorker
 		std::vector<int> results;
 		assign_map.apply(sig);
 		sig.expand();
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.__chunks)
 			if (c.wire != NULL) {
 				bitDef_t bit(c.wire, c.offset);
 				if (bit2num.count(bit) == 0) {

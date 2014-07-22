@@ -31,7 +31,7 @@ static RTLIL::SigChunk last_hi, last_lo;
 void hilomap_worker(RTLIL::SigSpec &sig)
 {
 	sig.expand();
-	for (auto &c : sig.chunks) {
+	for (auto &c : sig.__chunks) {
 		if (c.wire == NULL && (c.data.bits.at(0) == RTLIL::State::S1) && !hicell_celltype.empty()) {
 			if (!singleton_mode || last_hi.width == 0) {
 				last_hi = RTLIL::SigChunk(module->addWire(NEW_ID));

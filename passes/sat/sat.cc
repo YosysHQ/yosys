@@ -101,10 +101,10 @@ struct SatHelper
 
 			RTLIL::SigSpec lhs = sigmap(it.second);
 			RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
-			log_assert(lhs.width == rhs.width);
+			log_assert(lhs.__width == rhs.__width);
 
 			RTLIL::SigSpec removed_bits;
-			for (int i = 0; i < lhs.width; i++) {
+			for (int i = 0; i < lhs.__width; i++) {
 				RTLIL::SigSpec bit = lhs.extract(i, 1);
 				if (!satgen.initial_state.check_all(bit)) {
 					removed_bits.append(bit);
@@ -118,10 +118,10 @@ struct SatHelper
 			rhs.optimize();
 			removed_bits.optimize();
 
-			if (removed_bits.width)
+			if (removed_bits.__width)
 				log("Warning: ignoring initial value on non-register: %s\n", log_signal(removed_bits));
 
-			if (lhs.width) {
+			if (lhs.__width) {
 				log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
 				big_lhs.remove2(lhs, &big_rhs);
 				big_lhs.append(lhs);
@@ -140,9 +140,9 @@ struct SatHelper
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
 
-			if (lhs.width != rhs.width)
+			if (lhs.__width != rhs.__width)
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+					s.first.c_str(), log_signal(lhs), lhs.__width, s.second.c_str(), log_signal(rhs), rhs.__width);
 
 			log("Import set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 			big_lhs.remove2(lhs, &big_rhs);
@@ -166,17 +166,17 @@ struct SatHelper
 			RTLIL::SigSpec rem = satgen.initial_state.export_all();
 			rem.remove(big_lhs);
 			big_lhs.append(rem);
-			big_rhs.append(RTLIL::SigSpec(RTLIL::State::Sx, rem.width));
+			big_rhs.append(RTLIL::SigSpec(RTLIL::State::Sx, rem.__width));
 		}
 
 		if (set_init_zero) {
 			RTLIL::SigSpec rem = satgen.initial_state.export_all();
 			rem.remove(big_lhs);
 			big_lhs.append(rem);
-			big_rhs.append(RTLIL::SigSpec(RTLIL::State::S0, rem.width));
+			big_rhs.append(RTLIL::SigSpec(RTLIL::State::S0, rem.__width));
 		}
 
-		if (big_lhs.width == 0) {
+		if (big_lhs.__width == 0) {
 			log("No constraints for initial state found.\n\n");
 			return;
 		}
@@ -209,9 +209,9 @@ struct SatHelper
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
 
-			if (lhs.width != rhs.width)
+			if (lhs.__width != rhs.__width)
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+					s.first.c_str(), log_signal(lhs), lhs.__width, s.second.c_str(), log_signal(rhs), rhs.__width);
 
 			log("Import set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 			big_lhs.remove2(lhs, &big_rhs);
@@ -230,9 +230,9 @@ struct SatHelper
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
 
-			if (lhs.width != rhs.width)
+			if (lhs.__width != rhs.__width)
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+					s.first.c_str(), log_signal(lhs), lhs.__width, s.second.c_str(), log_signal(rhs), rhs.__width);
 
 			log("Import set-constraint for this timestep: %s = %s\n", log_signal(lhs), log_signal(rhs));
 			big_lhs.remove2(lhs, &big_rhs);
@@ -358,9 +358,9 @@ struct SatHelper
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
-				if (lhs.width != rhs.width)
+				if (lhs.__width != rhs.__width)
 					log_cmd_error("Proof expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+						s.first.c_str(), log_signal(lhs), lhs.__width, s.second.c_str(), log_signal(rhs), rhs.__width);
 
 				log("Import proof-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 				big_lhs.remove2(lhs, &big_rhs);
@@ -386,9 +386,9 @@ struct SatHelper
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
-				if (lhs.width != rhs.width)
+				if (lhs.__width != rhs.__width)
 					log_cmd_error("Proof-x expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						s.first.c_str(), log_signal(lhs), lhs.width, s.second.c_str(), log_signal(rhs), rhs.width);
+						s.first.c_str(), log_signal(lhs), lhs.__width, s.second.c_str(), log_signal(rhs), rhs.__width);
 
 				log("Import proof-x-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 				big_lhs.remove2(lhs, &big_rhs);
@@ -413,8 +413,8 @@ struct SatHelper
 			satgen.getAsserts(asserts_a, asserts_en, timestep);
 			asserts_a.expand();
 			asserts_en.expand();
-			for (size_t i = 0; i < asserts_a.chunks.size(); i++)
-				log("Import proof for assert: %s when %s.\n", log_signal(asserts_a.chunks[i]), log_signal(asserts_en.chunks[i]));
+			for (size_t i = 0; i < asserts_a.__chunks.size(); i++)
+				log("Import proof for assert: %s when %s.\n", log_signal(asserts_a.__chunks[i]), log_signal(asserts_en.__chunks[i]));
 			prove_bits.push_back(satgen.importAsserts(timestep));
 		}
 
@@ -543,12 +543,12 @@ struct SatHelper
 
 		std::vector<int> modelUndefExpressions;
 
-		for (auto &c : modelSig.chunks)
+		for (auto &c : modelSig.__chunks)
 			if (c.wire != NULL)
 			{
 				ModelBlockInfo info;
 				RTLIL::SigSpec chunksig = c;
-				info.width = chunksig.width;
+				info.width = chunksig.__width;
 				info.description = log_signal(chunksig);
 
 				for (int timestep = -1; timestep <= max_timestep; timestep++)
@@ -573,7 +573,7 @@ struct SatHelper
 		// Add initial state signals as collected by satgen
 		//
 		modelSig = satgen.initial_state.export_all();
-		for (auto &c : modelSig.chunks)
+		for (auto &c : modelSig.__chunks)
 			if (c.wire != NULL)
 			{
 				ModelBlockInfo info;
@@ -581,7 +581,7 @@ struct SatHelper
 
 				info.timestep = 0;
 				info.offset = modelExpressions.size();
-				info.width = chunksig.width;
+				info.width = chunksig.__width;
 				info.description = log_signal(chunksig);
 				modelInfo.insert(info);
 

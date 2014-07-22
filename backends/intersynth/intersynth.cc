@@ -30,23 +30,23 @@ static std::string netname(std::set<std::string> &conntypes_code, std::set<std::
 {
 	sig.optimize();
 
-	if (sig.chunks.size() != 1)
+	if (sig.__chunks.size() != 1)
 error:
 		log_error("Can't export composite or non-word-wide signal %s.\n", log_signal(sig));
 
-	conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.width, sig.width, sig.width));
+	conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.__width, sig.__width, sig.__width));
 
-	if (sig.chunks[0].wire == NULL) {
-		celltypes_code.insert(stringf("celltype CONST_%d b%d *CONST cfg:%d VALUE\n", sig.width, sig.width, sig.width));
-		constcells_code.insert(stringf("node CONST_%d_0x%x CONST_%d CONST CONST_%d_0x%x VALUE 0x%x\n", sig.width, sig.chunks[0].data.as_int(),
-				sig.width, sig.width, sig.chunks[0].data.as_int(), sig.chunks[0].data.as_int()));
-		return stringf("CONST_%d_0x%x", sig.width, sig.chunks[0].data.as_int());
+	if (sig.__chunks[0].wire == NULL) {
+		celltypes_code.insert(stringf("celltype CONST_%d b%d *CONST cfg:%d VALUE\n", sig.__width, sig.__width, sig.__width));
+		constcells_code.insert(stringf("node CONST_%d_0x%x CONST_%d CONST CONST_%d_0x%x VALUE 0x%x\n", sig.__width, sig.__chunks[0].data.as_int(),
+				sig.__width, sig.__width, sig.__chunks[0].data.as_int(), sig.__chunks[0].data.as_int()));
+		return stringf("CONST_%d_0x%x", sig.__width, sig.__chunks[0].data.as_int());
 	}
 
-	if (sig.chunks[0].offset != 0 || sig.width != sig.chunks[0].wire->width)
+	if (sig.__chunks[0].offset != 0 || sig.__width != sig.__chunks[0].wire->width)
 		goto error;
 
-	return RTLIL::unescape_id(sig.chunks[0].wire->name);
+	return RTLIL::unescape_id(sig.__chunks[0].wire->name);
 }
 
 struct IntersynthBackend : public Backend {
@@ -177,9 +177,9 @@ struct IntersynthBackend : public Backend {
 				node_code = stringf("node %s %s", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				for (auto &port : cell->connections) {
 					RTLIL::SigSpec sig = sigmap(port.second);
-					if (sig.width != 0) {
-						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.width, sig.width, sig.width));
-						celltype_code += stringf(" b%d %s%s", sig.width, ct.cell_output(cell->type, port.first) ? "*" : "", RTLIL::id2cstr(port.first));
+					if (sig.__width != 0) {
+						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.__width, sig.__width, sig.__width));
+						celltype_code += stringf(" b%d %s%s", sig.__width, ct.cell_output(cell->type, port.first) ? "*" : "", RTLIL::id2cstr(port.first));
 						node_code += stringf(" %s %s", RTLIL::id2cstr(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
 					}
 				}

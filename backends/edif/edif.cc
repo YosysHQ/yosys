@@ -149,7 +149,7 @@ struct EdifBackend : public Backend {
 				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->get_bool_attribute("\\blackbox")) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections) {
-						if (p.second.width > 1)
+						if (p.second.__width > 1)
 							log_error("Found multi-bit port %s on library cell %s.%s (%s): not supported in EDIF backend!\n",
 									RTLIL::id2cstr(p.first), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 						lib_cell_ports[cell->type].insert(p.first);
@@ -307,9 +307,9 @@ struct EdifBackend : public Backend {
 				for (auto &p : cell->connections) {
 					RTLIL::SigSpec sig = sigmap(p.second);
 					sig.expand();
-					for (int i = 0; i < sig.width; i++) {
-						RTLIL::SigSpec sigbit(sig.chunks.at(i));
-						if (sig.width == 1)
+					for (int i = 0; i < sig.__width; i++) {
+						RTLIL::SigSpec sigbit(sig.__chunks.at(i));
+						if (sig.__width == 1)
 							net_join_db[sigbit].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
 						else
 							net_join_db[sigbit].insert(stringf("(portRef (member %s %d) (instanceRef %s))", EDIF_REF(p.first), i, EDIF_REF(cell->name)));
@@ -319,9 +319,9 @@ struct EdifBackend : public Backend {
 			for (auto &it : net_join_db) {
 				RTLIL::SigSpec sig = it.first;
 				sig.optimize();
-				log_assert(sig.width == 1);
-				if (sig.chunks.at(0).wire == NULL) {
-					if (sig.chunks.at(0).data.bits.at(0) != RTLIL::State::S0 && sig.chunks.at(0).data.bits.at(0) != RTLIL::State::S1)
+				log_assert(sig.__width == 1);
+				if (sig.__chunks.at(0).wire == NULL) {
+					if (sig.__chunks.at(0).data.bits.at(0) != RTLIL::State::S0 && sig.__chunks.at(0).data.bits.at(0) != RTLIL::State::S1)
 						continue;
 				}
 				std::string netname = log_signal(sig);
@@ -331,10 +331,10 @@ struct EdifBackend : public Backend {
 				fprintf(f, "          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
 					fprintf(f, "            %s\n", ref.c_str());
-				if (sig.chunks.at(0).wire == NULL) {
-					if (sig.chunks.at(0).data.bits.at(0) == RTLIL::State::S0)
+				if (sig.__chunks.at(0).wire == NULL) {
+					if (sig.__chunks.at(0).data.bits.at(0) == RTLIL::State::S0)
 						fprintf(f, "            (portRef G (instanceRef GND))\n");
-					if (sig.chunks.at(0).data.bits.at(0) == RTLIL::State::S1)
+					if (sig.__chunks.at(0).data.bits.at(0) == RTLIL::State::S1)
 						fprintf(f, "            (portRef P (instanceRef VCC))\n");
 				}
 				fprintf(f, "          ))\n");

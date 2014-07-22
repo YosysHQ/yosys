@@ -72,8 +72,8 @@ struct ConstEval
 #ifndef NDEBUG
 		RTLIL::SigSpec current_val = values_map(sig);
 		current_val.expand();
-		for (size_t i = 0; i < current_val.chunks.size(); i++) {
-			RTLIL::SigChunk &chunk = current_val.chunks[i];
+		for (size_t i = 0; i < current_val.__chunks.size(); i++) {
+			RTLIL::SigChunk &chunk = current_val.__chunks[i];
 			assert(chunk.wire != NULL || chunk.data.bits[0] == value.bits[i]);
 		}
 #endif
@@ -113,10 +113,10 @@ struct ConstEval
 			int count_maybe_set_s_bits = 0;
 			int count_set_s_bits = 0;
 
-			for (int i = 0; i < sig_s.width; i++)
+			for (int i = 0; i < sig_s.__width; i++)
 			{
 				RTLIL::State s_bit = sig_s.extract(i, 1).as_const().bits.at(0);
-				RTLIL::SigSpec b_slice = sig_b.extract(sig_y.width*i, sig_y.width);
+				RTLIL::SigSpec b_slice = sig_b.extract(sig_y.__width*i, sig_y.__width);
 
 				if (s_bit == RTLIL::State::Sx || s_bit == RTLIL::State::S1)
 					y_candidates.push_back(b_slice);
@@ -162,9 +162,9 @@ struct ConstEval
 		}
 		else
 		{
-			if (sig_a.width > 0 && !eval(sig_a, undef, cell))
+			if (sig_a.__width > 0 && !eval(sig_a, undef, cell))
 				return false;
-			if (sig_b.width > 0 && !eval(sig_b, undef, cell))
+			if (sig_b.__width > 0 && !eval(sig_b, undef, cell))
 				return false;
 			set(sig_y, CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const()));
 		}
@@ -210,9 +210,9 @@ struct ConstEval
 		if (sig.is_fully_const())
 			return true;
 
-		for (size_t i = 0; i < sig.chunks.size(); i++)
-			if (sig.chunks[i].wire != NULL)
-				undef.append(sig.chunks[i]);
+		for (size_t i = 0; i < sig.__chunks.size(); i++)
+			if (sig.__chunks[i].wire != NULL)
+				undef.append(sig.__chunks[i]);
 		return false;
 	}
 

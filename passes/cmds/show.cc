@@ -78,7 +78,7 @@ struct ShowWorker
 	std::string nextColor(RTLIL::SigSpec sig, std::string defaultColor)
 	{
 		sig.sort_and_unify();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire != NULL)
 				for (auto &s : color_selections)
 					if (s.second.selected_members.count(module->name) > 0 && s.second.selected_members.at(module->name).count(c.wire->name) > 0)
@@ -173,13 +173,13 @@ struct ShowWorker
 	{
 		sig.optimize();
 
-		if (sig.chunks.size() == 0) {
+		if (sig.__chunks.size() == 0) {
 			fprintf(f, "v%d [ label=\"\" ];\n", single_idx_count);
 			return stringf("v%d", single_idx_count++);
 		}
 
-		if (sig.chunks.size() == 1) {
-			RTLIL::SigChunk &c = sig.chunks[0];
+		if (sig.__chunks.size() == 1) {
+			RTLIL::SigChunk &c = sig.__chunks[0];
 			if (c.wire != NULL && design->selected_member(module->name, c.wire->name)) {
 				if (!range_check || c.wire->width == c.width)
 						return stringf("n%d", id2num(c.wire->name));
@@ -200,10 +200,10 @@ struct ShowWorker
 		{
 			std::string label_string;
 			sig.optimize();
-			int pos = sig.width-1;
+			int pos = sig.__width-1;
 			int idx = single_idx_count++;
-			for (int i = int(sig.chunks.size())-1; i >= 0; i--) {
-				RTLIL::SigChunk &c = sig.chunks[i];
+			for (int i = int(sig.__chunks.size())-1; i >= 0; i--) {
+				RTLIL::SigChunk &c = sig.__chunks[i];
 				net = gen_signode_simple(c, false);
 				assert(!net.empty());
 				if (driver) {
@@ -225,9 +225,9 @@ struct ShowWorker
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.width).c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.__width).c_str());
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.width).c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.__width).c_str());
 			}
 			if (node != NULL)
 				*node = stringf("x%d", idx);
@@ -239,7 +239,7 @@ struct ShowWorker
 					net_conn_map[net].in.insert(port);
 				else
 					net_conn_map[net].out.insert(port);
-				net_conn_map[net].bits = sig.width;
+				net_conn_map[net].bits = sig.__width;
 				net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
 			}
 			if (node != NULL)
@@ -405,7 +405,7 @@ struct ShowWorker
 				code += gen_portbox("", sig, false, &node);
 				fprintf(f, "%s", code.c_str());
 				net_conn_map[node].out.insert(stringf("p%d", pidx));
-				net_conn_map[node].bits = sig.width;
+				net_conn_map[node].bits = sig.__width;
 				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
@@ -414,7 +414,7 @@ struct ShowWorker
 				code += gen_portbox("", sig, true, &node);
 				fprintf(f, "%s", code.c_str());
 				net_conn_map[node].in.insert(stringf("p%d", pidx));
-				net_conn_map[node].bits = sig.width;
+				net_conn_map[node].bits = sig.__width;
 				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
@@ -427,12 +427,12 @@ struct ShowWorker
 		for (auto &conn : module->connections)
 		{
 			bool found_lhs_wire = false;
-			for (auto &c : conn.first.chunks) {
+			for (auto &c : conn.first.__chunks) {
 				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_lhs_wire = true;
 			}
 			bool found_rhs_wire = false;
-			for (auto &c : conn.second.chunks) {
+			for (auto &c : conn.second.__chunks) {
 				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_rhs_wire = true;
 			}
@@ -446,11 +446,11 @@ struct ShowWorker
 
 			if (left_node[0] == 'x' && right_node[0] == 'x') {
 				currentColor = xorshift32(currentColor);
-			fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.width).c_str());
+			fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.__width).c_str());
 		} else {
-				net_conn_map[right_node].bits = conn.first.width;
+				net_conn_map[right_node].bits = conn.first.__width;
 				net_conn_map[right_node].color = nextColor(conn, net_conn_map[right_node].color);
-				net_conn_map[left_node].bits = conn.first.width;
+				net_conn_map[left_node].bits = conn.first.__width;
 				net_conn_map[left_node].color = nextColor(conn, net_conn_map[left_node].color);
 				if (left_node[0] == 'x') {
 					net_conn_map[right_node].in.insert(left_node);

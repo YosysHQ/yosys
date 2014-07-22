@@ -415,7 +415,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 		include_match:
 			is_input = mode == 'x' || ct.cell_input(cell.second->type, conn.first);
 			is_output = mode == 'x' || ct.cell_output(cell.second->type, conn.first);
-			for (auto &chunk : conn.second.chunks)
+			for (auto &chunk : conn.second.__chunks)
 				if (chunk.wire != NULL) {
 					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && lhs.selected_members[mod->name].count(cell.first) == 0)
 						if (mode == 'x' || (mode == 'i' && is_output) || (mode == 'o' && is_input))

@@ -134,17 +134,17 @@ std::string id(std::string internal_id, bool may_rename = true)
 bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 {
 	sig.optimize();
-	if (sig.chunks.size() != 1 || sig.chunks[0].wire == NULL)
+	if (sig.__chunks.size() != 1 || sig.__chunks[0].wire == NULL)
 		return false;
-	if (reg_wires.count(sig.chunks[0].wire->name) == 0)
+	if (reg_wires.count(sig.__chunks[0].wire->name) == 0)
 		return false;
-	reg_name = id(sig.chunks[0].wire->name);
-	if (sig.width != sig.chunks[0].wire->width) {
-		if (sig.width == 1)
-			reg_name += stringf("[%d]", sig.chunks[0].wire->start_offset +  sig.chunks[0].offset);
+	reg_name = id(sig.__chunks[0].wire->name);
+	if (sig.__width != sig.__chunks[0].wire->width) {
+		if (sig.__width == 1)
+			reg_name += stringf("[%d]", sig.__chunks[0].wire->start_offset +  sig.__chunks[0].offset);
 		else
-			reg_name += stringf("[%d:%d]", sig.chunks[0].wire->start_offset +  sig.chunks[0].offset + sig.chunks[0].width - 1,
-					sig.chunks[0].wire->start_offset +  sig.chunks[0].offset);
+			reg_name += stringf("[%d:%d]", sig.__chunks[0].wire->start_offset +  sig.__chunks[0].offset + sig.__chunks[0].width - 1,
+					sig.__chunks[0].wire->start_offset +  sig.__chunks[0].offset);
 	}
 	return true;
 }
@@ -221,12 +221,12 @@ void dump_sigchunk(FILE *f, RTLIL::SigChunk &chunk, bool no_decimal = false)
 
 void dump_sigspec(FILE *f, RTLIL::SigSpec &sig)
 {
-	if (sig.chunks.size() == 1) {
-		dump_sigchunk(f, sig.chunks[0]);
+	if (sig.__chunks.size() == 1) {
+		dump_sigchunk(f, sig.__chunks[0]);
 	} else {
 		fprintf(f, "{ ");
-		for (auto it = sig.chunks.rbegin(); it != sig.chunks.rend(); it++) {
-			if (it != sig.chunks.rbegin())
+		for (auto it = sig.__chunks.rbegin(); it != sig.__chunks.rend(); it++) {
+			if (it != sig.__chunks.rbegin())
 				fprintf(f, ", ");
 			dump_sigchunk(f, *it, true);
 		}
@@ -300,11 +300,11 @@ std::string cellname(RTLIL::Cell *cell)
 	if (!norename && cell->name[0] == '$' && reg_ct.cell_known(cell->type) && cell->connections.count("\\Q") > 0)
 	{
 		RTLIL::SigSpec sig = cell->connections["\\Q"];
-		if (sig.width != 1 || sig.is_fully_const())
+		if (sig.__width != 1 || sig.is_fully_const())
 			goto no_special_reg_name;
 
 		sig.optimize();
-		RTLIL::Wire *wire = sig.chunks[0].wire;
+		RTLIL::Wire *wire = sig.__chunks[0].wire;
 
 		if (wire->name[0] != '\\')
 			goto no_special_reg_name;
@@ -318,7 +318,7 @@ std::string cellname(RTLIL::Cell *cell)
 			cell_name = cell_name + "_reg";
 
 		if (wire->width != 1)
-			cell_name += stringf("[%d]", wire->start_offset + sig.chunks[0].offset);
+			cell_name += stringf("[%d]", wire->start_offset + sig.__chunks[0].offset);
 
 		if (active_module && active_module->count_id(cell_name) > 0)
 				goto no_special_reg_name;
@@ -532,7 +532,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$pmux_safe")
 	{
 		int width = cell->parameters["\\WIDTH"].as_int();
-		int s_width = cell->connections["\\S"].width;
+		int s_width = cell->connections["\\S"].__width;
 		std::string func_name = cellname(cell);
 
 		fprintf(f, "%s" "function [%d:0] %s;\n", indent.c_str(), width-1, func_name.c_str());
@@ -725,7 +725,7 @@ void dump_cell(FILE *f, std::string indent, RTLIL::Cell *cell)
 			fprintf(f, ",");
 		first_arg = false;
 		fprintf(f, "\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-		if (it->second.width > 0)
+		if (it->second.__width > 0)
 			dump_sigspec(f, it->second);
 		fprintf(f, ")");
 	}
@@ -751,7 +751,7 @@ void dump_case_body(FILE *f, std::string indent, RTLIL::CaseRule *cs, bool omit_
 		fprintf(f, "%s" "begin\n", indent.c_str());
 
 	for (auto it = cs->actions.begin(); it != cs->actions.end(); it++) {
-		if (it->first.width == 0)
+		if (it->first.__width == 0)
 			continue;
 		fprintf(f, "%s  ", indent.c_str());
 		dump_sigspec(f, it->first);
@@ -772,7 +772,7 @@ void dump_case_body(FILE *f, std::string indent, RTLIL::CaseRule *cs, bool omit_
 
 void dump_proc_switch(FILE *f, std::string indent, RTLIL::SwitchRule *sw)
 {
-	if (sw->signal.width == 0) {
+	if (sw->signal.__width == 0) {
 		fprintf(f, "%s" "begin\n", indent.c_str());
 		for (auto it = sw->cases.begin(); it != sw->cases.end(); it++) {
 			if ((*it)->compare.size() == 0)
@@ -811,9 +811,9 @@ void case_body_find_regs(RTLIL::CaseRule *cs)
 		case_body_find_regs(*it2);
 
 	for (auto it = cs->actions.begin(); it != cs->actions.end(); it++) {
-		for (size_t i = 0; i < it->first.chunks.size(); i++)
-			if (it->first.chunks[i].wire)
-				reg_wires.insert(it->first.chunks[i].wire->name);
+		for (size_t i = 0; i < it->first.__chunks.size(); i++)
+			if (it->first.__chunks[i].wire)
+				reg_wires.insert(it->first.__chunks[i].wire->name);
 	}
 }
 
@@ -823,9 +823,9 @@ void dump_process(FILE *f, std::string indent, RTLIL::Process *proc, bool find_r
 		case_body_find_regs(&proc->root_case);
 		for (auto it = proc->syncs.begin(); it != proc->syncs.end(); it++)
 		for (auto it2 = (*it)->actions.begin(); it2 != (*it)->actions.end(); it2++) {
-			for (size_t i = 0; i < it2->first.chunks.size(); i++)
-				if (it2->first.chunks[i].wire)
-					reg_wires.insert(it2->first.chunks[i].wire->name);
+			for (size_t i = 0; i < it2->first.__chunks.size(); i++)
+				if (it2->first.__chunks[i].wire)
+					reg_wires.insert(it2->first.__chunks[i].wire->name);
 		}
 		return;
 	}
@@ -876,7 +876,7 @@ void dump_process(FILE *f, std::string indent, RTLIL::Process *proc, bool find_r
 		}
 
 		for (auto it = sync->actions.begin(); it != sync->actions.end(); it++) {
-			if (it->first.width == 0)
+			if (it->first.__width == 0)
 				continue;
 			fprintf(f, "%s  ", indent.c_str());
 			dump_sigspec(f, it->first);
@@ -911,9 +911,9 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 			RTLIL::SigSpec sig = cell->connections["\\Q"];
 			sig.optimize();
 
-			if (sig.chunks.size() == 1 && sig.chunks[0].wire)
-				for (int i = 0; i < sig.chunks[0].width; i++)
-					reg_bits.insert(std::pair<RTLIL::Wire*,int>(sig.chunks[0].wire, sig.chunks[0].offset+i));
+			if (sig.__chunks.size() == 1 && sig.__chunks[0].wire)
+				for (int i = 0; i < sig.__chunks[0].width; i++)
+					reg_bits.insert(std::pair<RTLIL::Wire*,int>(sig.__chunks[0].wire, sig.__chunks[0].offset+i));
 		}
 		for (auto &it : module->wires)
 		{

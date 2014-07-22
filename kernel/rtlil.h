@@ -496,8 +496,11 @@ struct RTLIL::SigBit {
 };
 
 struct RTLIL::SigSpec {
-	std::vector<RTLIL::SigChunk> chunks; // LSB at index 0
-	int width;
+public:
+	std::vector<RTLIL::SigChunk> __chunks; // LSB at index 0
+	int __width;
+
+public:
 	SigSpec();
 	SigSpec(const RTLIL::Const &data);
 	SigSpec(const RTLIL::SigChunk &chunk);
@@ -551,8 +554,8 @@ struct RTLIL::SigSpec {
 };
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	assert(sig.width == 1 && sig.chunks.size() == 1);
-	*this = SigBit(sig.chunks[0]);
+	assert(sig.__width == 1 && sig.__chunks.size() == 1);
+	*this = SigBit(sig.__chunks[0]);
 }
 
 struct RTLIL::CaseRule {

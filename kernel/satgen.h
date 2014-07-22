@@ -55,9 +55,9 @@ struct SatGen
 		sig.expand();
 
 		std::vector<int> vec;
-		vec.reserve(sig.chunks.size());
+		vec.reserve(sig.__chunks.size());
 
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.__chunks)
 			if (c.wire == NULL) {
 				RTLIL::State bit = c.data.bits.at(0);
 				if (model_undef && dup_undef && bit == RTLIL::State::Sx)
@@ -118,7 +118,7 @@ struct SatGen
 		if (timestep_rhs < 0)
 			timestep_rhs = timestep_lhs;
 
-		assert(lhs.width == rhs.width);
+		assert(lhs.__width == rhs.__width);
 
 		std::vector<int> vec_lhs = importSigSpec(lhs, timestep_lhs);
 		std::vector<int> vec_rhs = importSigSpec(rhs, timestep_rhs);
@@ -130,7 +130,7 @@ struct SatGen
 		std::vector<int> undef_rhs = importUndefSigSpec(rhs, timestep_rhs);
 
 		std::vector<int> eq_bits;
-		for (int i = 0; i < lhs.width; i++)
+		for (int i = 0; i < lhs.__width; i++)
 			eq_bits.push_back(ez->AND(ez->IFF(undef_lhs.at(i), undef_rhs.at(i)),
 					ez->IFF(ez->OR(vec_lhs.at(i), undef_lhs.at(i)), ez->OR(vec_rhs.at(i), undef_rhs.at(i)))));
 		return ez->expression(ezSAT::OpAnd, eq_bits);
@@ -742,11 +742,11 @@ struct SatGen
 						only_first_one.at(0) = ez->TRUE;
 						div_zero_result = ez->vec_ite(a.back(), only_first_one, all_ones);
 					} else {
-						div_zero_result.insert(div_zero_result.end(), cell->connections.at("\\A").width, ez->TRUE);
+						div_zero_result.insert(div_zero_result.end(), cell->connections.at("\\A").__width, ez->TRUE);
 						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), ez->FALSE);
 					}
 				} else {
-					int copy_a_bits = std::min(cell->connections.at("\\A").width, cell->connections.at("\\B").width);
+					int copy_a_bits = std::min(cell->connections.at("\\A").__width, cell->connections.at("\\B").__width);
 					div_zero_result.insert(div_zero_result.end(), a.begin(), a.begin() + copy_a_bits);
 					if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
 						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), div_zero_result.back());
@@ -768,7 +768,7 @@ struct SatGen
 		{
 			RTLIL::SigSpec a = cell->connections.at("\\A");
 			RTLIL::SigSpec y = cell->connections.at("\\Y");
-			ez->assume(signals_eq(a.extract(cell->parameters.at("\\OFFSET").as_int(), y.width), y, timestep));
+			ez->assume(signals_eq(a.extract(cell->parameters.at("\\OFFSET").as_int(), y.__width), y, timestep));
 			return true;
 		}
 

@@ -34,9 +34,9 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 	normalize_sig(module, sig);
 	sig.expand();
 
-	for (size_t i = 0; i < sig.chunks.size(); i++)
+	for (size_t i = 0; i < sig.__chunks.size(); i++)
 	{
-		RTLIL::SigChunk &chunk = sig.chunks[i];
+		RTLIL::SigChunk &chunk = sig.__chunks[i];
 
 		if (chunk.wire == NULL)
 			continue;
@@ -59,11 +59,11 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 			normalize_sig(module, q_norm);
 
 			RTLIL::SigSpec d = q_norm.extract(chunk, &cell->connections[after ? "\\Q" : "\\D"]);
-			if (d.width != 1)
+			if (d.__width != 1)
 				continue;
 
-			assert(d.chunks.size() == 1);
-			chunk = d.chunks[0];
+			assert(d.__chunks.size() == 1);
+			chunk = d.__chunks[0];
 			clk = cell->connections["\\CLK"];
 			clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
 			goto replaced_this_bit;
@@ -125,7 +125,7 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 
 	RTLIL::Wire *wire = new RTLIL::Wire;
 	wire->name = sstr.str();
-	wire->width = sig.width;
+	wire->width = sig.__width;
 	module->wires[wire->name] = wire;
 
 	RTLIL::SigSpec newsig(wire);

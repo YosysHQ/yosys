@@ -48,7 +48,7 @@ struct OptReduceWorker
 		sig_a.expand();
 
 		RTLIL::SigSpec new_sig_a;
-		for (auto &chunk : sig_a.chunks)
+		for (auto &chunk : sig_a.__chunks)
 		{
 			if (chunk.wire == NULL && chunk.data.bits[0] == RTLIL::State::S0) {
 				if (cell->type == "$reduce_and") {
@@ -85,7 +85,7 @@ struct OptReduceWorker
 		}
 		new_sig_a.sort_and_unify();
 
-		if (new_sig_a != sig_a || sig_a.width != cell->connections["\\A"].width) {
+		if (new_sig_a != sig_a || sig_a.__width != cell->connections["\\A"].__width) {
 			log("    New input vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_a));
 			did_something = true;
 			OPT_DID_SOMETHING = true;
@@ -93,7 +93,7 @@ struct OptReduceWorker
 		}
 
 		cell->connections["\\A"] = new_sig_a;
-		cell->parameters["\\A_WIDTH"] = RTLIL::Const(new_sig_a.width);
+		cell->parameters["\\A_WIDTH"] = RTLIL::Const(new_sig_a.__width);
 		return;
 	}
 
@@ -107,20 +107,20 @@ struct OptReduceWorker
 		std::set<RTLIL::SigSpec> handled_sig;
 
 		handled_sig.insert(sig_a);
-		for (int i = 0; i < sig_s.width; i++)
+		for (int i = 0; i < sig_s.__width; i++)
 		{
-			RTLIL::SigSpec this_b = sig_b.extract(i*sig_a.width, sig_a.width);
+			RTLIL::SigSpec this_b = sig_b.extract(i*sig_a.__width, sig_a.__width);
 			if (handled_sig.count(this_b) > 0)
 				continue;
 
 			RTLIL::SigSpec this_s = sig_s.extract(i, 1);
-			for (int j = i+1; j < sig_s.width; j++) {
-				RTLIL::SigSpec that_b = sig_b.extract(j*sig_a.width, sig_a.width);
+			for (int j = i+1; j < sig_s.__width; j++) {
+				RTLIL::SigSpec that_b = sig_b.extract(j*sig_a.__width, sig_a.__width);
 				if (this_b == that_b)
 					this_s.append(sig_s.extract(j, 1));
 			}
 
-			if (this_s.width > 1)
+			if (this_s.__width > 1)
 			{
 				RTLIL::Wire *reduce_or_wire = new RTLIL::Wire;
 				reduce_or_wire->name = NEW_ID;
@@ -131,7 +131,7 @@ struct OptReduceWorker
 				reduce_or_cell->type = "$reduce_or";
 				reduce_or_cell->connections["\\A"] = this_s;
 				reduce_or_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-				reduce_or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(this_s.width);
+				reduce_or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(this_s.__width);
 				reduce_or_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 				module->cells[reduce_or_cell->name] = reduce_or_cell;
 
@@ -144,14 +144,14 @@ struct OptReduceWorker
 			handled_sig.insert(this_b);
 		}
 
-		if (new_sig_s.width != sig_s.width) {
+		if (new_sig_s.__width != sig_s.__width) {
 			log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
 			did_something = true;
 			OPT_DID_SOMETHING = true;
 			total_count++;
 		}
 
-		if (new_sig_s.width == 0)
+		if (new_sig_s.__width == 0)
 		{
 			module->connections.push_back(RTLIL::SigSig(cell->connections["\\Y"], cell->connections["\\A"]));
 			assign_map.add(cell->connections["\\Y"], cell->connections["\\A"]);
@@ -162,8 +162,8 @@ struct OptReduceWorker
 		{
 			cell->connections["\\B"] = new_sig_b;
 			cell->connections["\\S"] = new_sig_s;
-			if (new_sig_s.width > 1) {
-				cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.width);
+			if (new_sig_s.__width > 1) {
+				cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.__width);
 			} else {
 				cell->type = "$mux";
 				cell->parameters.erase("\\S_WIDTH");
@@ -224,7 +224,7 @@ struct OptReduceWorker
 				cell->connections["\\A"].append(in_tuple.at(0));
 
 			cell->connections["\\B"] = RTLIL::SigSpec();
-			for (int i = 1; i <= cell->connections["\\S"].width; i++)
+			for (int i = 1; i <= cell->connections["\\S"].__width; i++)
 				for (auto &in_tuple : consolidated_in_tuples)
 					cell->connections["\\B"].append(in_tuple.at(i));
 

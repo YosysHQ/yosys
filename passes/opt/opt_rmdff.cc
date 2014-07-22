@@ -100,7 +100,7 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		}
 	}
 
-	if (sig_c.is_fully_const() && (!sig_r.width || !has_init)) {
+	if (sig_c.is_fully_const() && (!sig_r.__width || !has_init)) {
 		if (val_rv.bits.size() == 0)
 			val_rv = val_init;
 		RTLIL::SigSig conn(sig_q, val_rv);
@@ -108,26 +108,26 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_undef() && sig_r.width && !has_init) {
+	if (sig_d.is_fully_undef() && sig_r.__width && !has_init) {
 		RTLIL::SigSig conn(sig_q, val_rv);
 		mod->connections.push_back(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_undef() && !sig_r.width && has_init) {
+	if (sig_d.is_fully_undef() && !sig_r.__width && has_init) {
 		RTLIL::SigSig conn(sig_q, val_init);
 		mod->connections.push_back(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_const() && !sig_r.width && !has_init) {
+	if (sig_d.is_fully_const() && !sig_r.__width && !has_init) {
 		RTLIL::SigSig conn(sig_q, sig_d);
 		mod->connections.push_back(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d == sig_q && !(sig_r.width && has_init)) {
-		if (sig_r.width) {
+	if (sig_d == sig_q && !(sig_r.__width && has_init)) {
+		if (sig_r.__width) {
 			RTLIL::SigSig conn(sig_q, val_rv);
 			mod->connections.push_back(conn);
 		}
@@ -182,7 +182,7 @@ struct OptRmdffPass : public Pass {
 			std::vector<std::string> dff_list;
 			for (auto &it : mod_it.second->cells) {
 				if (it.second->type == "$mux" || it.second->type == "$pmux") {
-					if (it.second->connections.at("\\A").width == it.second->connections.at("\\B").width)
+					if (it.second->connections.at("\\A").__width == it.second->connections.at("\\B").__width)
 						mux_drivers.insert(assign_map(it.second->connections.at("\\Y")), it.second);
 					continue;
 				}

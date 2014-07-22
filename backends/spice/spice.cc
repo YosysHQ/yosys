@@ -27,16 +27,16 @@
 
 static void print_spice_net(FILE *f, RTLIL::SigSpec s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
 {
-	log_assert(s.chunks.size() == 1 && s.chunks[0].width == 1);
-	if (s.chunks[0].wire) {
-		if (s.chunks[0].wire->width > 1)
-			fprintf(f, " %s[%d]", RTLIL::id2cstr(s.chunks[0].wire->name), s.chunks[0].offset);
+	log_assert(s.__chunks.size() == 1 && s.__chunks[0].width == 1);
+	if (s.__chunks[0].wire) {
+		if (s.__chunks[0].wire->width > 1)
+			fprintf(f, " %s[%d]", RTLIL::id2cstr(s.__chunks[0].wire->name), s.__chunks[0].offset);
 		else
-			fprintf(f, " %s", RTLIL::id2cstr(s.chunks[0].wire->name));
+			fprintf(f, " %s", RTLIL::id2cstr(s.__chunks[0].wire->name));
 	} else {
-		if (s.chunks[0].data.bits.at(0) == RTLIL::State::S0)
+		if (s.__chunks[0].data.bits.at(0) == RTLIL::State::S0)
 			fprintf(f, " %s", neg.c_str());
-		else if (s.chunks[0].data.bits.at(0) == RTLIL::State::S1)
+		else if (s.__chunks[0].data.bits.at(0) == RTLIL::State::S1)
 			fprintf(f, " %s", pos.c_str());
 		else
 			fprintf(f, " %s%d", ncpf.c_str(), nc_counter++);
@@ -90,9 +90,9 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 		}
 
 		for (auto &sig : port_sigs) {
-			for (int i = 0; i < sig.width; i++) {
-				RTLIL::SigSpec s = sig.extract(big_endian ? sig.width - 1 - i : i, 1);
-				log_assert(s.chunks.size() == 1 && s.chunks[0].width == 1);
+			for (int i = 0; i < sig.__width; i++) {
+				RTLIL::SigSpec s = sig.extract(big_endian ? sig.__width - 1 - i : i, 1);
+				log_assert(s.__chunks.size() == 1 && s.__chunks[0].width == 1);
 				print_spice_net(f, s, neg, pos, ncpf, nc_counter);
 			}
 		}
@@ -101,7 +101,7 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 	}
 
 	for (auto &conn : module->connections)
-	for (int i = 0; i < conn.first.width; i++) {
+	for (int i = 0; i < conn.first.__width; i++) {
 		fprintf(f, "V%d", conn_counter++);
 		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter);
 		print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter);

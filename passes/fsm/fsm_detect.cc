@@ -56,8 +56,8 @@ static bool check_state_mux_tree(RTLIL::SigSpec old_sig, RTLIL::SigSpec sig, Sig
 		RTLIL::SigSpec sig_b = assign_map(cellport.first->connections["\\B"]);
 		if (!check_state_mux_tree(old_sig, sig_a, recursion_monitor))
 			return false;
-		for (int i = 0; i < sig_b.width; i += sig_a.width)
-			if (!check_state_mux_tree(old_sig, sig_b.extract(i, sig_a.width), recursion_monitor))
+		for (int i = 0; i < sig_b.__width; i += sig_a.__width)
+			if (!check_state_mux_tree(old_sig, sig_b.extract(i, sig_a.__width), recursion_monitor))
 				return false;
 		muxtree_cells.insert(cellport.first);
 	}

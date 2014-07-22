@@ -38,7 +38,7 @@ struct SigPool
 	void add(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -56,7 +56,7 @@ struct SigPool
 	void del(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -75,10 +75,10 @@ struct SigPool
 	{
 		from.expand();
 		to.expand();
-		assert(from.chunks.size() == to.chunks.size());
-		for (size_t i = 0; i < from.chunks.size(); i++) {
-			bitDef_t bit_from(from.chunks[i].wire, from.chunks[i].offset);
-			bitDef_t bit_to(to.chunks[i].wire, to.chunks[i].offset);
+		assert(from.__chunks.size() == to.__chunks.size());
+		for (size_t i = 0; i < from.__chunks.size(); i++) {
+			bitDef_t bit_from(from.__chunks[i].wire, from.__chunks[i].offset);
+			bitDef_t bit_to(to.__chunks[i].wire, to.__chunks[i].offset);
 			if (bit_from.first == NULL || bit_to.first == NULL)
 				continue;
 			if (bits.count(bit_from) > 0)
@@ -90,7 +90,7 @@ struct SigPool
 	{
 		RTLIL::SigSpec result;
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			bitDef_t bit(c.wire, c.offset);
@@ -104,7 +104,7 @@ struct SigPool
 	{
 		RTLIL::SigSpec result;
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			bitDef_t bit(c.wire, c.offset);
@@ -117,7 +117,7 @@ struct SigPool
 	bool check_any(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			bitDef_t bit(c.wire, c.offset);
@@ -130,7 +130,7 @@ struct SigPool
 	bool check_all(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			bitDef_t bit(c.wire, c.offset);
@@ -179,7 +179,7 @@ struct SigSet
 	void insert(RTLIL::SigSpec sig, T data)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -191,7 +191,7 @@ struct SigSet
 	void insert(RTLIL::SigSpec sig, const std::set<T> &data)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -203,7 +203,7 @@ struct SigSet
 	void erase(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -215,7 +215,7 @@ struct SigSet
 	void erase(RTLIL::SigSpec sig, T data)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -227,7 +227,7 @@ struct SigSet
 	void erase(RTLIL::SigSpec sig, const std::set<T> &data)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -239,7 +239,7 @@ struct SigSet
 	void find(RTLIL::SigSpec sig, std::set<T> &result)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -259,7 +259,7 @@ struct SigSet
 	bool has(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.__chunks) {
 			if (c.wire == NULL)
 				continue;
 			assert(c.width == 1);
@@ -420,11 +420,11 @@ struct SigMap
 		from.expand();
 		to.expand();
 
-		assert(from.chunks.size() == to.chunks.size());
-		for (size_t i = 0; i < from.chunks.size(); i++)
+		assert(from.__chunks.size() == to.__chunks.size());
+		for (size_t i = 0; i < from.__chunks.size(); i++)
 		{
-			RTLIL::SigChunk &cf = from.chunks[i];
-			RTLIL::SigChunk &ct = to.chunks[i];
+			RTLIL::SigChunk &cf = from.__chunks[i];
+			RTLIL::SigChunk &ct = to.__chunks[i];
 
 			if (cf.wire == NULL)
 				continue;
@@ -442,9 +442,9 @@ struct SigMap
 	void add(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (size_t i = 0; i < sig.chunks.size(); i++)
+		for (size_t i = 0; i < sig.__chunks.size(); i++)
 		{
-			RTLIL::SigChunk &c = sig.chunks[i];
+			RTLIL::SigChunk &c = sig.__chunks[i];
 			if (c.wire != NULL) {
 				register_bit(c);
 				set_bit(c, c);
@@ -455,14 +455,14 @@ struct SigMap
 	void del(RTLIL::SigSpec sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.__chunks)
 			unregister_bit(c);
 	}
 
 	void apply(RTLIL::SigSpec &sig) const
 	{
 		sig.expand();
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.__chunks)
 			map_bit(c);
 		sig.optimize();
 	}

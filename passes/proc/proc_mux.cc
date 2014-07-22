@@ -28,14 +28,14 @@
 static RTLIL::SigSpec find_any_lvalue(const RTLIL::CaseRule *cs)
 {
 	for (auto &action : cs->actions) {
-		if (action.first.width)
+		if (action.first.__width)
 			return action.first;
 	}
 
 	for (auto sw : cs->switches)
 	for (auto cs2 : sw->cases) {
 		RTLIL::SigSpec sig = find_any_lvalue(cs2);
-		if (sig.width)
+		if (sig.__width)
 			return sig;
 	}
 
@@ -46,7 +46,7 @@ static void extract_core_signal(const RTLIL::CaseRule *cs, RTLIL::SigSpec &sig)
 {
 	for (auto &action : cs->actions) {
 		RTLIL::SigSpec lvalue = action.first.extract(sig);
-		if (lvalue.width)
+		if (lvalue.__width)
 			sig = lvalue;
 	}
 
@@ -72,18 +72,18 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 		comp.expand();
 
 		// get rid of don't-care bits
-		assert(sig.width == comp.width);
-		for (int i = 0; i < comp.width; i++)
-			if (comp.chunks[i].wire == NULL && comp.chunks[i].data.bits[0] == RTLIL::State::Sa) {
+		assert(sig.__width == comp.__width);
+		for (int i = 0; i < comp.__width; i++)
+			if (comp.__chunks[i].wire == NULL && comp.__chunks[i].data.bits[0] == RTLIL::State::Sa) {
 				sig.remove(i, 1);
 				comp.remove(i--, 1);
 			}
-		if (comp.width == 0)
+		if (comp.__width == 0)
 			return RTLIL::SigSpec();
 		sig.optimize();
 		comp.optimize();
 
-		if (sig.width == 1 && comp == RTLIL::SigSpec(1,1))
+		if (sig.__width == 1 && comp == RTLIL::SigSpec(1,1))
 		{
 			mod->connections.push_back(RTLIL::SigSig(RTLIL::SigSpec(cmp_wire, 1, cmp_wire->width++), sig));
 		}
@@ -101,8 +101,8 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(0);
 
-			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig.width);
-			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(comp.width);
+			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig.__width);
+			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(comp.__width);
 			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 
 			eq_cell->connections["\\A"] = sig;
@@ -143,7 +143,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 
 static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw)
 {
-	assert(when_signal.width == else_signal.width);
+	assert(when_signal.__width == else_signal.__width);
 
 	std::stringstream sstr;
 	sstr << "$procmux$" << (RTLIL::autoidx++);
@@ -154,14 +154,14 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 
 	// compare results
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
-	if (ctrl_sig.width == 0)
+	if (ctrl_sig.__width == 0)
 		return when_signal;
-	assert(ctrl_sig.width == 1);
+	assert(ctrl_sig.__width == 1);
 
 	// prepare multiplexer output signal
 	RTLIL::Wire *result_wire = new RTLIL::Wire;
 	result_wire->name = sstr.str() + "_Y";
-	result_wire->width = when_signal.width;
+	result_wire->width = when_signal.__width;
 	mod->wires[result_wire->name] = result_wire;
 
 	// create the multiplexer itself
@@ -171,7 +171,7 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	mux_cell->attributes = sw->attributes;
 	mod->cells[mux_cell->name] = mux_cell;
 
-	mux_cell->parameters["\\WIDTH"] = RTLIL::Const(when_signal.width);
+	mux_cell->parameters["\\WIDTH"] = RTLIL::Const(when_signal.__width);
 	mux_cell->connections["\\A"] = else_signal;
 	mux_cell->connections["\\B"] = when_signal;
 	mux_cell->connections["\\S"] = ctrl_sig;
@@ -184,14 +184,14 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 static void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw)
 {
 	assert(last_mux_cell != NULL);
-	assert(when_signal.width == last_mux_cell->connections["\\A"].width);
+	assert(when_signal.__width == last_mux_cell->connections["\\A"].__width);
 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
-	assert(ctrl_sig.width == 1);
+	assert(ctrl_sig.__width == 1);
 	last_mux_cell->type = "$pmux";
 	last_mux_cell->connections["\\S"].append(ctrl_sig);
 	last_mux_cell->connections["\\B"].append(when_signal);
-	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->connections["\\S"].width;
+	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->connections["\\S"].__width;
 }
 
 static RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval)
@@ -208,7 +208,7 @@ static RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs
 		// detect groups of parallel cases
 		std::vector<int> pgroups(sw->cases.size());
 		if (!sw->get_bool_attribute("\\parallel_case")) {
-			BitPatternPool pool(sw->signal.width);
+			BitPatternPool pool(sw->signal.__width);
 			bool extra_group_for_next_case = false;
 			for (size_t i = 0; i < sw->cases.size(); i++) {
 				RTLIL::CaseRule *cs2 = sw->cases[i];
@@ -224,7 +224,7 @@ static RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs
 					if (cs2->compare.empty())
 						pgroups[i] = pgroups[i-1]+1;
 					if (pgroups[i] != pgroups[i-1])
-						pool = BitPatternPool(sw->signal.width);
+						pool = BitPatternPool(sw->signal.__width);
 				}
 				for (auto pat : cs2->compare)
 					if (!pat.is_fully_const())
@@ -258,7 +258,7 @@ static void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc)
 	{
 		RTLIL::SigSpec sig = find_any_lvalue(&proc->root_case);
 
-		if (sig.width == 0)
+		if (sig.__width == 0)
 			break;
 
 		if (first) {
@@ -270,7 +270,7 @@ static void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc)
 
 		log("  creating decoder for signal `%s'.\n", log_signal(sig));
 
-		RTLIL::SigSpec value = signal_to_mux_tree(mod, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.width));
+		RTLIL::SigSpec value = signal_to_mux_tree(mod, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.__width));
 		mod->connections.push_back(RTLIL::SigSig(sig, value));
 	}
 }

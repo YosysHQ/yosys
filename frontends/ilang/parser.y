@@ -363,8 +363,8 @@ sigspec:
 		chunk.offset = 0;
 		chunk.data = *$1;
 		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = chunk.width;
+		$$->__chunks.push_back(chunk);
+		$$->__width = chunk.width;
 		delete $1;
 	} |
 	TOK_ID {
@@ -375,8 +375,8 @@ sigspec:
 		chunk.width = current_module->wires[$1]->width;
 		chunk.offset = 0;
 		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = chunk.width;
+		$$->__chunks.push_back(chunk);
+		$$->__width = chunk.width;
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ']' {
@@ -387,8 +387,8 @@ sigspec:
 		chunk.offset = $3;
 		chunk.width = 1;
 		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = 1;
+		$$->__chunks.push_back(chunk);
+		$$->__width = 1;
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
@@ -399,8 +399,8 @@ sigspec:
 		chunk.width = $3 - $5 + 1;
 		chunk.offset = $5;
 		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = chunk.width;
+		$$->__chunks.push_back(chunk);
+		$$->__width = chunk.width;
 		free($1);
 	} |
 	'{' sigspec_list '}' {
@@ -410,13 +410,13 @@ sigspec:
 sigspec_list:
 	sigspec_list sigspec {
 		$$ = new RTLIL::SigSpec;
-		for (auto it = $2->chunks.begin(); it != $2->chunks.end(); it++) {
-			$$->chunks.push_back(*it);
-			$$->width += it->width;
+		for (auto it = $2->__chunks.begin(); it != $2->__chunks.end(); it++) {
+			$$->__chunks.push_back(*it);
+			$$->__width += it->width;
 		}
-		for (auto it = $1->chunks.begin(); it != $1->chunks.end(); it++) {
-			$$->chunks.push_back(*it);
-			$$->width += it->width;
+		for (auto it = $1->__chunks.begin(); it != $1->__chunks.end(); it++) {
+			$$->__chunks.push_back(*it);
+			$$->__width += it->width;
 		}
 		delete $1;
 		delete $2;

@@ -41,13 +41,13 @@ static void apply_prefix(std::string prefix, std::string &id)
 
 static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 {
-	for (size_t i = 0; i < sig.chunks.size(); i++) {
-		if (sig.chunks[i].wire == NULL)
+	for (size_t i = 0; i < sig.__chunks.size(); i++) {
+		if (sig.__chunks[i].wire == NULL)
 			continue;
-		std::string wire_name = sig.chunks[i].wire->name;
+		std::string wire_name = sig.__chunks[i].wire->name;
 		apply_prefix(prefix, wire_name);
 		assert(module->wires.count(wire_name) > 0);
-		sig.chunks[i].wire = module->wires[wire_name];
+		sig.__chunks[i].wire = module->wires[wire_name];
 	}
 }
 
@@ -163,11 +163,11 @@ struct TechmapWorker
 				c.second = it.second;
 				apply_prefix(cell->name, c.first, module);
 			}
-			if (c.second.width > c.first.width)
-				c.second.remove(c.first.width, c.second.width - c.first.width);
-			if (c.second.width < c.first.width)
-				c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.width - c.second.width));
-			assert(c.first.width == c.second.width);
+			if (c.second.__width > c.first.__width)
+				c.second.remove(c.first.__width, c.second.__width - c.first.__width);
+			if (c.second.__width < c.first.__width)
+				c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.__width - c.second.__width));
+			assert(c.first.__width == c.second.__width);
 			if (flatten_mode) {
 				// more conservative approach:
 				// connect internal and external wires

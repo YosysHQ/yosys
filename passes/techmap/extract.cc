@@ -133,8 +133,8 @@ namespace
 					needleSig.expand();
 					haystackSig.expand();
 
-					for (int i = 0; i < std::min(needleSig.width, haystackSig.width); i++) {
-						RTLIL::Wire *needleWire = needleSig.chunks.at(i).wire, *haystackWire = haystackSig.chunks.at(i).wire;
+					for (int i = 0; i < std::min(needleSig.__width, haystackSig.__width); i++) {
+						RTLIL::Wire *needleWire = needleSig.__chunks.at(i).wire, *haystackWire = haystackSig.__chunks.at(i).wire;
 						if (needleWire != lastNeedleWire || haystackWire != lastHaystackWire)
 							if (!compareAttributes(wire_attr, needleWire ? needleWire->attributes : emptyAttr, haystackWire ? haystackWire->attributes : emptyAttr))
 								return false;
@@ -193,7 +193,7 @@ namespace
 						RTLIL::SigSpec conn_sig = conn.second;
 						sigmap.apply(conn_sig);
 						conn_sig.expand();
-						for (auto &chunk : conn_sig.chunks)
+						for (auto &chunk : conn_sig.__chunks)
 							if (chunk.wire != NULL)
 								sig_use_count[std::pair<RTLIL::Wire*, int>(chunk.wire, chunk.offset)]++;
 					}
@@ -213,7 +213,7 @@ namespace
 
 			for (auto &conn : cell->connections)
 			{
-				graph.createPort(cell->name, conn.first, conn.second.width);
+				graph.createPort(cell->name, conn.first, conn.second.__width);
 
 				if (split && split->count(std::pair<RTLIL::IdString, RTLIL::IdString>(cell->type, conn.first)) > 0)
 					continue;
@@ -222,9 +222,9 @@ namespace
 				sigmap.apply(conn_sig);
 				conn_sig.expand();
 
-				for (size_t i = 0; i < conn_sig.chunks.size(); i++)
+				for (size_t i = 0; i < conn_sig.__chunks.size(); i++)
 				{
-					auto &chunk = conn_sig.chunks[i];
+					auto &chunk = conn_sig.__chunks[i];
 					assert(chunk.width == 1);
 
 					if (chunk.wire == NULL) {
@@ -269,7 +269,7 @@ namespace
 					sigmap.apply(conn_sig);
 					conn_sig.expand();
 
-					for (auto &chunk : conn_sig.chunks)
+					for (auto &chunk : conn_sig.__chunks)
 						if (sig_bit_ref.count(chunk) != 0) {
 							bit_ref_t &bit_ref = sig_bit_ref[chunk];
 							graph.markExtern(bit_ref.cell, bit_ref.port, bit_ref.bit);
@@ -287,7 +287,7 @@ namespace
 				sigmap.apply(conn_sig);
 				conn_sig.expand();
 
-				for (auto &chunk : conn_sig.chunks)
+				for (auto &chunk : conn_sig.__chunks)
 					if (sig_bit_ref.count(chunk) != 0) {
 						bit_ref_t &bit_ref = sig_bit_ref[chunk];
 						graph.markExtern(bit_ref.cell, bit_ref.port, bit_ref.bit);
@@ -334,8 +334,8 @@ namespace
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				if (mapping.portMapping.count(conn.first) > 0 && sig2port.has(sigmap(sig))) {
 					sig.expand();
-					for (int i = 0; i < sig.width; i++)
-					for (auto &port : sig2port.find(sig.chunks[i])) {
+					for (int i = 0; i < sig.__width; i++)
+					for (auto &port : sig2port.find(sig.__chunks[i])) {
 						RTLIL::SigSpec bitsig = haystack_cell->connections.at(mapping.portMapping[conn.first]).extract(i, 1);
 						cell->connections.at(port.first).replace(port.second, bitsig);
 					}
@@ -729,7 +729,7 @@ struct ExtractPass : public Pass {
 				for (auto cell : cells)
 				for (auto &conn : cell->connections) {
 					RTLIL::SigSpec sig = sigmap(conn.second);
-					for (auto &chunk : sig.chunks)
+					for (auto &chunk : sig.__chunks)
 						if (chunk.wire != NULL)
 							wires.insert(chunk.wire);
 				}
@@ -756,7 +756,7 @@ struct ExtractPass : public Pass {
 					newCell->parameters = cell->parameters;
 					for (auto &conn : cell->connections) {
 						RTLIL::SigSpec sig = sigmap(conn.second);
-						for (auto &chunk : sig.chunks)
+						for (auto &chunk : sig.__chunks)
 							if (chunk.wire != NULL)
 								chunk.wire = newMod->wires.at(chunk.wire->name);
 						newCell->connections[conn.first] = sig;

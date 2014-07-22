@@ -52,7 +52,7 @@ struct SpliceWorker
 
 	RTLIL::SigSpec get_sliced_signal(RTLIL::SigSpec sig)
 	{
-		if (sig.width == 0 || sig.is_fully_const())
+		if (sig.__width == 0 || sig.is_fully_const())
 			return sig;
 
 		if (sliced_signals_cache.count(sig))
@@ -69,15 +69,15 @@ struct SpliceWorker
 
 		RTLIL::SigSpec new_sig = sig;
 
-		if (sig_a.width != sig.width) {
+		if (sig_a.__width != sig.__width) {
 			RTLIL::Cell *cell = new RTLIL::Cell;
 			cell->name = NEW_ID;
 			cell->type = "$slice";
 			cell->parameters["\\OFFSET"] = offset;
-			cell->parameters["\\A_WIDTH"] = sig_a.width;
-			cell->parameters["\\Y_WIDTH"] = sig.width;
+			cell->parameters["\\A_WIDTH"] = sig_a.__width;
+			cell->parameters["\\Y_WIDTH"] = sig.__width;
 			cell->connections["\\A"] = sig_a;
-			cell->connections["\\Y"] = module->addWire(NEW_ID, sig.width);
+			cell->connections["\\Y"] = module->addWire(NEW_ID, sig.__width);
 			new_sig = cell->connections["\\Y"];
 			module->add(cell);
 		}
@@ -90,7 +90,7 @@ struct SpliceWorker
 
 	RTLIL::SigSpec get_spliced_signal(RTLIL::SigSpec sig)
 	{
-		if (sig.width == 0 || sig.is_fully_const())
+		if (sig.__width == 0 || sig.is_fully_const())
 			return sig;
 
 		if (spliced_signals_cache.count(sig))
@@ -134,11 +134,11 @@ struct SpliceWorker
 			RTLIL::Cell *cell = new RTLIL::Cell;
 			cell->name = NEW_ID;
 			cell->type = "$concat";
-			cell->parameters["\\A_WIDTH"] = new_sig.width;
-			cell->parameters["\\B_WIDTH"] = sig2.width;
+			cell->parameters["\\A_WIDTH"] = new_sig.__width;
+			cell->parameters["\\B_WIDTH"] = sig2.__width;
 			cell->connections["\\A"] = new_sig;
 			cell->connections["\\B"] = sig2;
-			cell->connections["\\Y"] = module->addWire(NEW_ID, new_sig.width + sig2.width);
+			cell->connections["\\Y"] = module->addWire(NEW_ID, new_sig.__width + sig2.__width);
 			new_sig = cell->connections["\\Y"];
 			module->add(cell);
 		}

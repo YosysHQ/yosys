@@ -191,7 +191,7 @@ struct SccWorker
 			nextsig.sort_and_unify();
 			sig = prevsig.extract(nextsig);
 
-			for (auto &chunk : sig.chunks)
+			for (auto &chunk : sig.__chunks)
 				if (chunk.wire != NULL)
 					sel.selected_members[module->name].insert(chunk.wire->name);
 		}

@@ -71,18 +71,18 @@ struct BlifDumper
 	const char *cstr(RTLIL::SigSpec sig)
 	{
 		sig.optimize();
-		log_assert(sig.width == 1);
+		log_assert(sig.__width == 1);
 
-		if (sig.chunks.at(0).wire == NULL)
-			return sig.chunks.at(0).data.bits.at(0) == RTLIL::State::S1 ?  "$true" : "$false";
+		if (sig.__chunks.at(0).wire == NULL)
+			return sig.__chunks.at(0).data.bits.at(0) == RTLIL::State::S1 ?  "$true" : "$false";
 
-		std::string str = RTLIL::unescape_id(sig.chunks.at(0).wire->name);
+		std::string str = RTLIL::unescape_id(sig.__chunks.at(0).wire->name);
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=')
 				str[i] = '?';
 
-		if (sig.chunks.at(0).wire->width != 1)
-			str += stringf("[%d]", sig.chunks.at(0).offset);
+		if (sig.__chunks.at(0).wire->width != 1)
+			str += stringf("[%d]", sig.__chunks.at(0).offset);
 
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
@@ -194,12 +194,12 @@ struct BlifDumper
 				fprintf(f, ".names");
 				auto &inputs = cell->connections.at("\\I");
 				auto width = cell->parameters.at("\\WIDTH").as_int();
-				log_assert(inputs.width == width);
-				for (int i = 0; i < inputs.width; i++) {
+				log_assert(inputs.__width == width);
+				for (int i = 0; i < inputs.__width; i++) {
 					fprintf(f, " %s", cstr(inputs.extract(i, 1)));
 				}
 				auto &output = cell->connections.at("\\O");
-				log_assert(output.width == 1);
+				log_assert(output.__width == 1);
 				fprintf(f, " %s", cstr(output));
 				fprintf(f, "\n");
 				auto mask = cell->parameters.at("\\LUT").as_string();
@@ -215,8 +215,8 @@ struct BlifDumper
 
 			fprintf(f, ".%s %s", subckt_or_gate(cell->type), cstr(cell->type));
 			for (auto &conn : cell->connections)
-			for (int i = 0; i < conn.second.width; i++) {
-				if (conn.second.width == 1)
+			for (int i = 0; i < conn.second.__width; i++) {
+				if (conn.second.__width == 1)
 					fprintf(f, " %s", cstr(conn.first));
 				else
 					fprintf(f, " %s[%d]", cstr(conn.first), i);
@@ -244,7 +244,7 @@ struct BlifDumper
 		}
 
 		for (auto &conn : module->connections)
-		for (int i = 0; i < conn.first.width; i++)
+		for (int i = 0; i < conn.first.__width; i++)
 			if (config->conn_mode)
 				fprintf(f, ".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
 			else if (!config->buf_type.empty())

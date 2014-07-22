@@ -53,7 +53,7 @@ struct ScatterPass : public Pass {
 			{
 				RTLIL::Wire *wire = new RTLIL::Wire;
 				wire->name = NEW_ID;
-				wire->width = p.second.width;
+				wire->width = p.second.__width;
 				mod_it.second->add(wire);
 
 				if (ct.cell_output(c.second->type, p.first)) {

@@ -28,7 +28,7 @@ struct DeleteWireWorker
 
 	void operator()(RTLIL::SigSpec &sig) {
 		sig.optimize();
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.__chunks)
 			if (c.wire != NULL && delete_wires_p->count(c.wire->name)) {
 				c.wire = module->addWire(NEW_ID, c.width);
 				c.offset = 0;

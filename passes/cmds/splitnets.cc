@@ -63,7 +63,7 @@ struct SplitnetsWorker
 	void operator()(RTLIL::SigSpec &sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.__chunks)
 			if (splitmap.count(c.wire) > 0)
 				c = splitmap.at(c.wire).at(c.offset);
 		sig.optimize();
@@ -144,7 +144,7 @@ struct SplitnetsPass : public Pass {
 						continue;
 
 					RTLIL::SigSpec sig = p.second.optimized();
-					for (auto &chunk : sig.chunks) {
+					for (auto &chunk : sig.__chunks) {
 						if (chunk.wire == NULL)
 							continue;
 						if (chunk.wire->port_id == 0 || flag_ports) {

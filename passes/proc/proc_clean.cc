@@ -27,7 +27,7 @@ extern void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count
 
 void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count, int max_depth)
 {
-	if (sw->signal.width > 0 && sw->signal.is_fully_const())
+	if (sw->signal.__width > 0 && sw->signal.is_fully_const())
 	{
 		int found_matching_case_idx = -1;
 		for (int i = 0; i < int(sw->cases.size()) && found_matching_case_idx < 0; i++)
@@ -59,7 +59,7 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 			sw->signal = RTLIL::SigSpec();
 	}
 
-	if (sw->cases.size() == 1 && (sw->signal.width == 0 || sw->cases[0]->compare.empty()))
+	if (sw->cases.size() == 1 && (sw->signal.__width == 0 || sw->cases[0]->compare.empty()))
 	{
 		did_something = true;
 		for (auto &action : sw->cases[0]->actions)
@@ -91,7 +91,7 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth)
 {
 	for (size_t i = 0; i < cs->actions.size(); i++) {
-		if (cs->actions[i].first.width == 0) {
+		if (cs->actions[i].first.__width == 0) {
 			did_something = true;
 			cs->actions.erase(cs->actions.begin() + (i--));
 		}
@@ -114,7 +114,7 @@ static void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_coun
 	bool did_something = true;
 	for (size_t i = 0; i < proc->syncs.size(); i++) {
 		for (size_t j = 0; j < proc->syncs[i]->actions.size(); j++)
-			if (proc->syncs[i]->actions[j].first.width == 0)
+			if (proc->syncs[i]->actions[j].first.__width == 0)
 				proc->syncs[i]->actions.erase(proc->syncs[i]->actions.begin() + (j--));
 		if (proc->syncs[i]->actions.size() == 0) {
 			delete proc->syncs[i];

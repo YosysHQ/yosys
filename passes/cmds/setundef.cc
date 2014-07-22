@@ -48,7 +48,7 @@ struct SetundefWorker
 	void operator()(RTLIL::SigSpec &sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.__chunks)
 			if (c.wire == NULL && c.data.bits.at(0) > RTLIL::State::S1)
 				c.data.bits.at(0) = next_bit();
 		sig.optimize();
@@ -141,7 +141,7 @@ struct SetundefPass : public Pass {
 						undriven_signals.del(sigmap(conn.second));
 
 				RTLIL::SigSpec sig = undriven_signals.export_all();
-				for (auto &c : sig.chunks) {
+				for (auto &c : sig.__chunks) {
 					RTLIL::SigSpec bits;
 					for (int i = 0; i < c.width; i++)
 						bits.append(next_bit());
