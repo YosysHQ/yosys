@@ -44,8 +44,10 @@ struct FsmOpt
 		
 		char *str = strdup(wire->attributes["\\unused_bits"].decode_string().c_str());
 		for (char *tok = strtok(str, " "); tok != NULL; tok = strtok(NULL, " ")) {
-			if (tok[0] && bit == atoi(tok))
+			if (tok[0] && bit == atoi(tok)) {
+				free(str);
 				return true;
+			}
 		}
 		free(str);
 
