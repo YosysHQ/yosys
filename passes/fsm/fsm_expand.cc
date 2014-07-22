@@ -43,7 +43,7 @@ struct FsmExpand
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
-			if (cell->connections.at("\\A").__width < 2)
+			if (cell->connections.at("\\A").size() < 2)
 				return true;
 
 		RTLIL::SigSpec new_signals;
@@ -62,7 +62,7 @@ struct FsmExpand
 		new_signals.remove(assign_map(fsm_cell->connections["\\CTRL_IN"]));
 		new_signals.remove(assign_map(fsm_cell->connections["\\CTRL_OUT"]));
 
-		if (new_signals.__width > 3)
+		if (new_signals.size() > 3)
 			return false;
 
 		if (cell->connections.count("\\Y") > 0) {
@@ -73,7 +73,7 @@ struct FsmExpand
 			new_signals.remove(assign_map(fsm_cell->connections["\\CTRL_OUT"]));
 		}
 
-		if (new_signals.__width > 2)
+		if (new_signals.size() > 2)
 			return false;
 
 		return true;
@@ -145,8 +145,8 @@ struct FsmExpand
 
 		std::vector<RTLIL::Const> truth_tab;
 
-		for (int i = 0; i < (1 << input_sig.__width); i++) {
-			RTLIL::Const in_val(i, input_sig.__width);
+		for (int i = 0; i < (1 << input_sig.size()); i++) {
+			RTLIL::Const in_val(i, input_sig.size());
 			RTLIL::SigSpec A, B, S;
 			if (cell->connections.count("\\A") > 0)
 				A = assign_map(cell->connections["\\A"]);
@@ -166,17 +166,17 @@ struct FsmExpand
 		FsmData fsm_data;
 		fsm_data.copy_from_cell(fsm_cell);
 
-		fsm_data.num_inputs += input_sig.__width;
+		fsm_data.num_inputs += input_sig.size();
 		fsm_cell->connections["\\CTRL_IN"].append(input_sig);
 
-		fsm_data.num_outputs += output_sig.__width;
+		fsm_data.num_outputs += output_sig.size();
 		fsm_cell->connections["\\CTRL_OUT"].append(output_sig);
 
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {
-			for (int i = 0; i < (1 << input_sig.__width); i++) {
+			for (int i = 0; i < (1 << input_sig.size()); i++) {
 				FsmData::transition_t new_tr = tr;
-				RTLIL::Const in_val(i, input_sig.__width);
+				RTLIL::Const in_val(i, input_sig.size());
 				RTLIL::Const out_val = truth_tab[i];
 				RTLIL::SigSpec ctrl_in = new_tr.ctrl_in;
 				RTLIL::SigSpec ctrl_out = new_tr.ctrl_out;

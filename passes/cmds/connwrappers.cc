@@ -90,7 +90,7 @@ struct ConnwrappersWorker
 					continue;
 
 				int inner_width = cell->parameters.at(decl.widthparam).as_int();
-				int outer_width = conn.second.__width;
+				int outer_width = conn.second.size();
 				bool is_signed = decl.signparam.empty() ? decl.is_signed : cell->parameters.at(decl.signparam).as_bool();
 
 				if (inner_width >= outer_width)
@@ -124,20 +124,20 @@ struct ConnwrappersWorker
 
 					int extend_width = 0;
 					RTLIL::SigBit extend_bit = is_signed ? sigbits[i] : RTLIL::SigBit(RTLIL::State::S0);
-					while (extend_width < extend_sig.__width && i + extend_width + 1 < sigbits.size() &&
+					while (extend_width < extend_sig.size() && i + extend_width + 1 < sigbits.size() &&
 							sigbits[i + extend_width + 1] == extend_bit) extend_width++;
 
 					if (extend_width == 0)
 						continue;
 
-					if (old_sig.__width == 0)
+					if (old_sig.size() == 0)
 						old_sig = conn.second;
 
 					conn.second.replace(i+1, extend_sig.extract(0, extend_width));
 					i += extend_width;
 				}
 
-				if (old_sig.__width)
+				if (old_sig.size())
 					log("Connected extended bits of %s.%s:%s: %s -> %s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name),
 							RTLIL::id2cstr(conn.first), log_signal(old_sig), log_signal(conn.second));
 			}

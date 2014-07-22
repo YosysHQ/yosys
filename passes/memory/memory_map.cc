@@ -68,7 +68,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::Const clocks_en = cell->parameters["\\WR_CLK_ENABLE"];
 	RTLIL::SigSpec refclock;
 	RTLIL::State refclock_pol = RTLIL::State::Sx;
-	for (int i = 0; i < clocks.__width; i++) {
+	for (int i = 0; i < clocks.size(); i++) {
 		RTLIL::SigSpec wr_en = cell->connections["\\WR_EN"].extract(i * mem_width, mem_width);
 		if (wr_en.is_fully_const() && !wr_en.as_bool()) {
 			static_ports.insert(i);
@@ -89,7 +89,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 					cell->name.c_str(), module->name.c_str(), i);
 			return;
 		}
-		if (refclock.__width == 0) {
+		if (refclock.size() == 0) {
 			refclock = clocks.extract(i, 1);
 			refclock_pol = clocks_pol.bits[i];
 		}
@@ -277,12 +277,12 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			c->connections["\\Y"] = w_seladdr;
 
 			int wr_offset = 0;
-			while (wr_offset < wr_en.__width)
+			while (wr_offset < wr_en.size())
 			{
 				int wr_width = 1;
 				RTLIL::SigSpec wr_bit = wr_en.extract(wr_offset, 1);
 
-				while (wr_offset + wr_width < wr_en.__width) {
+				while (wr_offset + wr_width < wr_en.size()) {
 					RTLIL::SigSpec next_wr_bit = wr_en.extract(wr_offset + wr_width, 1);
 					if (next_wr_bit != wr_bit)
 						break;

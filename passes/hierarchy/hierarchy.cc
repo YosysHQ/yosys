@@ -61,7 +61,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 				for (auto &conn : i2.second->connections) {
 					if (conn.first[0] != '$')
 						portnames.insert(conn.first);
-					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.__width);
+					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.size());
 				}
 				for (auto &para : i2.second->parameters)
 					parameters.insert(para.first);
@@ -220,7 +220,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		RTLIL::Module *mod = design->modules[cell->type];
 
 		for (auto &conn : cell->connections) {
-			int conn_size = conn.second.__width;
+			int conn_size = conn.second.size();
 			std::string portname = conn.first;
 			if (portname.substr(0, 1) == "$") {
 				int port_id = atoi(portname.substr(1).c_str());

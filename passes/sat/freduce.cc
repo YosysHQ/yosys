@@ -714,7 +714,7 @@ struct FreduceWorker
 
 				if (grp[i].inverted)
 				{
-					if (inv_sig.__width == 0)
+					if (inv_sig.size() == 0)
 					{
 						inv_sig = module->addWire(NEW_ID);
 

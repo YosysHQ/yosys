@@ -142,16 +142,16 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	sig_wr_clk_enable.optimize();
 	sig_wr_clk_polarity.optimize();
 
-	assert(sig_wr_clk.__width == wr_ports);
-	assert(sig_wr_clk_enable.__width == wr_ports && sig_wr_clk_enable.is_fully_const());
-	assert(sig_wr_clk_polarity.__width == wr_ports && sig_wr_clk_polarity.is_fully_const());
-	assert(sig_wr_addr.__width == wr_ports * addr_bits);
-	assert(sig_wr_data.__width == wr_ports * memory->width);
-	assert(sig_wr_en.__width == wr_ports * memory->width);
+	assert(sig_wr_clk.size() == wr_ports);
+	assert(sig_wr_clk_enable.size() == wr_ports && sig_wr_clk_enable.is_fully_const());
+	assert(sig_wr_clk_polarity.size() == wr_ports && sig_wr_clk_polarity.is_fully_const());
+	assert(sig_wr_addr.size() == wr_ports * addr_bits);
+	assert(sig_wr_data.size() == wr_ports * memory->width);
+	assert(sig_wr_en.size() == wr_ports * memory->width);
 
 	mem->parameters["\\WR_PORTS"] = RTLIL::Const(wr_ports);
-	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.__chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.__chunks[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.chunks()[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.chunks()[0].data : RTLIL::Const(0, 0);
 
 	mem->connections["\\WR_CLK"] = sig_wr_clk;
 	mem->connections["\\WR_ADDR"] = sig_wr_addr;
@@ -162,16 +162,16 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	sig_rd_clk_polarity.optimize();
 	sig_rd_transparent.optimize();
 
-	assert(sig_rd_clk.__width == rd_ports);
-	assert(sig_rd_clk_enable.__width == rd_ports && sig_rd_clk_enable.is_fully_const());
-	assert(sig_rd_clk_polarity.__width == rd_ports && sig_rd_clk_polarity.is_fully_const());
-	assert(sig_rd_addr.__width == rd_ports * addr_bits);
-	assert(sig_rd_data.__width == rd_ports * memory->width);
+	assert(sig_rd_clk.size() == rd_ports);
+	assert(sig_rd_clk_enable.size() == rd_ports && sig_rd_clk_enable.is_fully_const());
+	assert(sig_rd_clk_polarity.size() == rd_ports && sig_rd_clk_polarity.is_fully_const());
+	assert(sig_rd_addr.size() == rd_ports * addr_bits);
+	assert(sig_rd_data.size() == rd_ports * memory->width);
 
 	mem->parameters["\\RD_PORTS"] = RTLIL::Const(rd_ports);
-	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.__chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.__chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.__chunks[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.chunks()[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.chunks()[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.chunks()[0].data : RTLIL::Const(0, 0);
 
 	mem->connections["\\RD_CLK"] = sig_rd_clk;
 	mem->connections["\\RD_ADDR"] = sig_rd_addr;

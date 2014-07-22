@@ -116,7 +116,7 @@ struct MemoryShareWorker
 			created_conditions++;
 		}
 
-		if (terms.__width > 1)
+		if (terms.size() > 1)
 			terms = module->ReduceAnd(NEW_ID, terms);
 
 		return conditions_logic_cache[conditions] = terms;
@@ -254,7 +254,7 @@ struct MemoryShareWorker
 		// this is the naive version of the function that does not care about grouping the EN bits.
 
 		RTLIL::SigSpec inv_mask_bits = module->Not(NEW_ID, mask_bits);
-		RTLIL::SigSpec inv_mask_bits_filtered = module->Mux(NEW_ID, RTLIL::SigSpec(RTLIL::State::S1, bits.__width), inv_mask_bits, do_mask);
+		RTLIL::SigSpec inv_mask_bits_filtered = module->Mux(NEW_ID, RTLIL::SigSpec(RTLIL::State::S1, bits.size()), inv_mask_bits, do_mask);
 		RTLIL::SigSpec result = module->And(NEW_ID, inv_mask_bits_filtered, bits);
 		return result;
 	}
@@ -269,10 +269,10 @@ struct MemoryShareWorker
 		std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, std::pair<int, std::vector<int>>> groups;
 		RTLIL::SigSpec grouped_bits, grouped_mask_bits;
 
-		for (int i = 0; i < bits.__width; i++) {
+		for (int i = 0; i < bits.size(); i++) {
 			std::pair<RTLIL::SigBit, RTLIL::SigBit> key(v_bits[i], v_mask_bits[i]);
 			if (groups.count(key) == 0) {
-				groups[key].first = grouped_bits.__width;
+				groups[key].first = grouped_bits.size();
 				grouped_bits.append_bit(v_bits[i]);
 				grouped_mask_bits.append_bit(v_mask_bits[i]);
 			}
@@ -282,7 +282,7 @@ struct MemoryShareWorker
 		std::vector<RTLIL::SigBit> grouped_result = mask_en_naive(do_mask, grouped_bits, grouped_mask_bits);
 		RTLIL::SigSpec result;
 
-		for (int i = 0; i < bits.__width; i++) {
+		for (int i = 0; i < bits.size(); i++) {
 			std::pair<RTLIL::SigBit, RTLIL::SigBit> key(v_bits[i], v_mask_bits[i]);
 			result.append_bit(grouped_result.at(groups.at(key).first));
 		}
@@ -320,7 +320,7 @@ struct MemoryShareWorker
 
 		// Create the new merged_data signal.
 
-		RTLIL::SigSpec new_merged_data(RTLIL::State::Sx, merged_data.__width);
+		RTLIL::SigSpec new_merged_data(RTLIL::State::Sx, merged_data.size());
 
 		RTLIL::SigSpec old_data_set = module->And(NEW_ID, merged_en, merged_data);
 		RTLIL::SigSpec old_data_unset = module->And(NEW_ID, merged_en, module->Not(NEW_ID, merged_data));

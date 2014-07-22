@@ -60,13 +60,13 @@ static void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 					log_cmd_error("Failed to get a constant init value for %s: %s\n", log_signal(lhs), log_signal(rhs));
 
 				int offset = 0;
-				for (size_t i = 0; i < lhs.__chunks.size(); i++) {
-					if (lhs.__chunks[i].wire == NULL)
+				for (size_t i = 0; i < lhs.chunks().size(); i++) {
+					if (lhs.chunks()[i].wire == NULL)
 						continue;
-					RTLIL::Wire *wire = lhs.__chunks[i].wire;
-					RTLIL::SigSpec value = rhs.extract(offset, lhs.__chunks[i].width);
-					if (value.__width != wire->width)
-						log_cmd_error("Init value is not for the entire wire: %s = %s\n", log_signal(lhs.__chunks[i]), log_signal(value));
+					RTLIL::Wire *wire = lhs.chunks()[i].wire;
+					RTLIL::SigSpec value = rhs.extract(offset, lhs.chunks()[i].width);
+					if (value.size() != wire->width)
+						log_cmd_error("Init value is not for the entire wire: %s = %s\n", log_signal(lhs.chunks()[i]), log_signal(value));
 					log("  Setting init value: %s = %s\n", log_signal(wire), log_signal(value));
 					wire->attributes["\\init"] = value.as_const();
 					offset += wire->width;

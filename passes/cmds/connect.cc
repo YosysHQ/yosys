@@ -27,7 +27,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 {
 	CellTypes ct(design);
 
-	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.__width);
+	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
 
 	for (auto &it : module->cells)
 	for (auto &port : it.second->connections)

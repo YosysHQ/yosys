@@ -106,13 +106,13 @@ static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 
 static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
 {
-	assert(s1.__width == 1);
-	assert(s2.__width == 1);
-	assert(s1.__chunks.size() == 1);
-	assert(s2.__chunks.size() == 1);
+	assert(s1.size() == 1);
+	assert(s2.size() == 1);
+	assert(s1.chunks().size() == 1);
+	assert(s2.chunks().size() == 1);
 
-	RTLIL::Wire *w1 = s1.__chunks[0].wire;
-	RTLIL::Wire *w2 = s2.__chunks[0].wire;
+	RTLIL::Wire *w1 = s1.chunks()[0].wire;
+	RTLIL::Wire *w2 = s2.chunks()[0].wire;
 
 	if (w1 == NULL || w2 == NULL)
 		return w2 == NULL;
@@ -235,14 +235,14 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			} else {
 				s1.expand();
 				s2.expand();
-				assert(s1.__chunks.size() == s2.__chunks.size());
+				assert(s1.chunks().size() == s2.chunks().size());
 				RTLIL::SigSig new_conn;
-				for (size_t i = 0; i < s1.__chunks.size(); i++)
-					if (s1.__chunks[i] != s2.__chunks[i]) {
-						new_conn.first.append(s1.__chunks[i]);
-						new_conn.second.append(s2.__chunks[i]);
+				for (size_t i = 0; i < s1.chunks().size(); i++)
+					if (s1.chunks()[i] != s2.chunks()[i]) {
+						new_conn.first.append(s1.chunks()[i]);
+						new_conn.second.append(s2.chunks()[i]);
 					}
-				if (new_conn.first.__width > 0) {
+				if (new_conn.first.size() > 0) {
 					new_conn.first.optimize();
 					new_conn.second.optimize();
 					used_signals.add(new_conn.first);
@@ -258,8 +258,8 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 		if (!used_signals_nodrivers.check_any(sig)) {
 			std::string unused_bits;
 			sig.expand();
-			for (size_t i = 0; i < sig.__chunks.size(); i++) {
-				if (sig.__chunks[i].wire == NULL)
+			for (size_t i = 0; i < sig.chunks().size(); i++) {
+				if (sig.chunks()[i].wire == NULL)
 					continue;
 				if (!used_signals_nodrivers.check_any(sig)) {
 					if (!unused_bits.empty())

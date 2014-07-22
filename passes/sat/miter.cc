@@ -253,11 +253,11 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 		}
 	}
 
-	if (all_conditions.__width != 1) {
+	if (all_conditions.size() != 1) {
 		RTLIL::Cell *reduce_cell = new RTLIL::Cell;
 		reduce_cell->name = NEW_ID;
 		reduce_cell->type = "$reduce_and";
-		reduce_cell->parameters["\\A_WIDTH"] = all_conditions.__width;
+		reduce_cell->parameters["\\A_WIDTH"] = all_conditions.size();
 		reduce_cell->parameters["\\Y_WIDTH"] = 1;
 		reduce_cell->parameters["\\A_SIGNED"] = 0;
 		reduce_cell->connections["\\A"] = all_conditions;
@@ -283,8 +283,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	RTLIL::Cell *not_cell = new RTLIL::Cell;
 	not_cell->name = NEW_ID;
 	not_cell->type = "$not";
-	not_cell->parameters["\\A_WIDTH"] = all_conditions.__width;
-	not_cell->parameters["\\A_WIDTH"] = all_conditions.__width;
+	not_cell->parameters["\\A_WIDTH"] = all_conditions.size();
+	not_cell->parameters["\\A_WIDTH"] = all_conditions.size();
 	not_cell->parameters["\\Y_WIDTH"] = w_trigger->width;
 	not_cell->parameters["\\A_SIGNED"] = 0;
 	not_cell->connections["\\A"] = all_conditions;

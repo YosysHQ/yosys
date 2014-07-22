@@ -119,8 +119,8 @@ static void autotest(FILE *f, RTLIL::Design *design)
 					if ((*it4)->type == RTLIL::ST0 || (*it4)->type == RTLIL::ST1)
 						continue;
 					RTLIL::SigSpec &signal = (*it4)->signal;
-					for (size_t i = 0; i < signal.__chunks.size(); i++) {
-						if (signal.__chunks[i].wire == wire)
+					for (size_t i = 0; i < signal.chunks().size(); i++) {
+						if (signal.chunks()[i].wire == wire)
 							is_clksignal = true;
 					}
 				}

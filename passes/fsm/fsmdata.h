@@ -143,15 +143,15 @@ struct FsmData
 		log("  Input signals:\n");
 		RTLIL::SigSpec sig_in = cell->connections["\\CTRL_IN"];
 		sig_in.expand();
-		for (size_t i = 0; i < sig_in.__chunks.size(); i++)
-			log("  %3zd: %s\n", i, log_signal(sig_in.__chunks[i]));
+		for (size_t i = 0; i < sig_in.chunks().size(); i++)
+			log("  %3zd: %s\n", i, log_signal(sig_in.chunks()[i]));
 
 		log("\n");
 		log("  Output signals:\n");
 		RTLIL::SigSpec sig_out = cell->connections["\\CTRL_OUT"];
 		sig_out.expand();
-		for (size_t i = 0; i < sig_out.__chunks.size(); i++)
-			log("  %3zd: %s\n", i, log_signal(sig_out.__chunks[i]));
+		for (size_t i = 0; i < sig_out.chunks().size(); i++)
+			log("  %3zd: %s\n", i, log_signal(sig_out.chunks()[i]));
 
 		log("\n");
 		log("  State encoding:\n");

@@ -97,7 +97,7 @@ struct OptShareWorker
 			RTLIL::SigSpec sig = it.second;
 			assign_map.apply(sig);
 			hash_string += "C " + it.first + "=";
-			for (auto &chunk : sig.__chunks) {
+			for (auto &chunk : sig.chunks()) {
 				if (chunk.wire)
 					hash_string += "{" + chunk.wire->name + " " +
 							int_to_hash_string(chunk.offset) + " " +

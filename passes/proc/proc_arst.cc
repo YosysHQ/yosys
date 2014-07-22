@@ -28,7 +28,7 @@ extern void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count
 
 static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref, bool &polarity)
 {
-	if (signal.__width != 1)
+	if (signal.size() != 1)
 		return false;
 	if (signal == ref)
 		return true;
@@ -80,13 +80,13 @@ static void apply_const(RTLIL::Module *mod, const RTLIL::SigSpec rspec, RTLIL::S
 {
 	for (auto &action : cs->actions) {
 		if (unknown)
-			rspec.replace(action.first, RTLIL::SigSpec(RTLIL::State::Sm, action.second.__width), &rval);
+			rspec.replace(action.first, RTLIL::SigSpec(RTLIL::State::Sm, action.second.size()), &rval);
 		else
 			rspec.replace(action.first, action.second, &rval);
 	}
 
 	for (auto sw : cs->switches) {
-		if (sw->signal.__width == 0) {
+		if (sw->signal.size() == 0) {
 			for (auto cs2 : sw->cases)
 				apply_const(mod, rspec, rval, cs2, const_sig, polarity, unknown);
 		}
@@ -164,11 +164,11 @@ restart_proc_arst:
 				}
 				for (auto &action : sync->actions) {
 					RTLIL::SigSpec rspec = action.second;
-					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.__width);
+					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.size());
 					rspec.expand(), rval.expand();
-					for (int i = 0; i < int(rspec.__chunks.size()); i++)
-						if (rspec.__chunks[i].wire == NULL)
-							rval.__chunks[i] = rspec.__chunks[i];
+					for (int i = 0; i < int(rspec.chunks().size()); i++)
+						if (rspec.chunks()[i].wire == NULL)
+							rval.chunks()[i] = rspec.chunks()[i];
 					rspec.optimize(), rval.optimize();
 					RTLIL::SigSpec last_rval;
 					for (int count = 0; rval != last_rval; count++) {
@@ -252,14 +252,14 @@ struct ProcArstPass : public Pass {
 						if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn)
 							for (auto &act : sync->actions) {
 								RTLIL::SigSpec arst_sig, arst_val;
-								for (auto &chunk : act.first.__chunks)
+								for (auto &chunk : act.first.chunks())
 									if (chunk.wire && chunk.wire->attributes.count("\\init")) {
 										RTLIL::SigSpec value = chunk.wire->attributes.at("\\init");
 										value.extend(chunk.wire->width, false);
 										arst_sig.append(chunk);
 										arst_val.append(value.extract(chunk.offset, chunk.width));
 									}
-								if (arst_sig.__width) {
+								if (arst_sig.size()) {
 									log("Added global reset to process %s: %s <- %s\n",
 											proc_it.first.c_str(), log_signal(arst_sig), log_signal(arst_val));
 									arst_actions.push_back(RTLIL::SigSig(arst_sig, arst_val));

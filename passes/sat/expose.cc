@@ -649,7 +649,7 @@ struct ExposePass : public Pass {
 						{
 							RTLIL::Wire *w = new RTLIL::Wire;
 							w->name = cell->name + sep + RTLIL::unescape_id(it.first);
-							w->width = it.second.__width;
+							w->width = it.second.size();
 							if (ct.cell_input(cell->type, it.first))
 								w->port_output = true;
 							if (ct.cell_output(cell->type, it.first))

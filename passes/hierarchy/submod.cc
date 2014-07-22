@@ -67,7 +67,7 @@ struct SubmodWorker
 
 	void flag_signal(RTLIL::SigSpec &sig, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
 	{
-		for (auto &c : sig.__chunks)
+		for (auto &c : sig.chunks())
 			if (c.wire != NULL)
 				flag_wire(c.wire, create, set_int_driven, set_int_used, set_ext_driven, set_ext_used);
 	}
@@ -164,7 +164,7 @@ struct SubmodWorker
 		for (RTLIL::Cell *cell : submod.cells) {
 			RTLIL::Cell *new_cell = new RTLIL::Cell(*cell);
 			for (auto &conn : new_cell->connections)
-				for (auto &c : conn.second.__chunks)
+				for (auto &c : conn.second.chunks())
 					if (c.wire != NULL) {
 						assert(wire_flags.count(c.wire) > 0);
 						c.wire = wire_flags[c.wire].new_wire;

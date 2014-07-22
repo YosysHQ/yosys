@@ -50,12 +50,12 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 				or_sig.append(RTLIL::SigSpec(state_onehot, 1, in_state));
 		or_sig.optimize();
 
-		if (or_sig.__width == 0)
+		if (or_sig.size() == 0)
 			continue;
 
 		RTLIL::SigSpec and_sig;
 
-		if (eq_sig_a.__width > 0)
+		if (eq_sig_a.size() > 0)
 		{
 			RTLIL::Wire *eq_wire = new RTLIL::Wire;
 			eq_wire->name = NEW_ID;
@@ -69,17 +69,17 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			eq_cell->connections["\\Y"] = RTLIL::SigSpec(eq_wire);
 			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
 			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(false);
-			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(eq_sig_a.__width);
-			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(eq_sig_b.__width);
+			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(eq_sig_a.size());
+			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(eq_sig_b.size());
 			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 			module->add(eq_cell);
 
 			and_sig.append(RTLIL::SigSpec(eq_wire));
 		}
 
-		if (or_sig.__width < num_states-int(fullstate_cache.size()))
+		if (or_sig.size() < num_states-int(fullstate_cache.size()))
 		{
-			if (or_sig.__width == 1)
+			if (or_sig.size() == 1)
 			{
 				and_sig.append(or_sig);
 			}
@@ -95,7 +95,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 				or_cell->connections["\\A"] = or_sig;
 				or_cell->connections["\\Y"] = RTLIL::SigSpec(or_wire);
 				or_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
-				or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(or_sig.__width);
+				or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(or_sig.size());
 				or_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 				module->add(or_cell);
 
@@ -103,7 +103,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			}
 		}
 
-		switch (and_sig.__width)
+		switch (and_sig.size())
 		{
 		case 2:
 			{
@@ -138,17 +138,17 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 		}
 	}
 
-	if (cases_vector.__width > 1) {
+	if (cases_vector.size() > 1) {
 		RTLIL::Cell *or_cell = new RTLIL::Cell;
 		or_cell->name = NEW_ID;
 		or_cell->type = "$reduce_or";
 		or_cell->connections["\\A"] = cases_vector;
 		or_cell->connections["\\Y"] = output;
 		or_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
-		or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(cases_vector.__width);
+		or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(cases_vector.size());
 		or_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 		module->add(or_cell);
-	} else if (cases_vector.__width == 1) {
+	} else if (cases_vector.size() == 1) {
 		module->connections.push_back(RTLIL::SigSig(output, cases_vector));
 	} else {
 		module->connections.push_back(RTLIL::SigSig(output, RTLIL::SigSpec(0, 1)));
@@ -237,8 +237,8 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 			eq_cell->connections["\\Y"] = RTLIL::SigSpec(state_onehot, 1, i);
 			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
 			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(false);
-			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig_a.__width);
-			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(sig_b.__width);
+			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig_a.size());
+			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(sig_b.size());
 			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 			module->add(eq_cell);
 		}
@@ -308,8 +308,8 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		mux_cell->connections["\\B"] = sig_b;
 		mux_cell->connections["\\S"] = sig_s;
 		mux_cell->connections["\\Y"] = RTLIL::SigSpec(next_state_wire);
-		mux_cell->parameters["\\WIDTH"] = RTLIL::Const(sig_a.__width);
-		mux_cell->parameters["\\S_WIDTH"] = RTLIL::Const(sig_s.__width);
+		mux_cell->parameters["\\WIDTH"] = RTLIL::Const(sig_a.size());
+		mux_cell->parameters["\\S_WIDTH"] = RTLIL::Const(sig_s.size());
 		module->add(mux_cell);
 	}
 

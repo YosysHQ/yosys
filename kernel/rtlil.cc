@@ -350,7 +350,7 @@ namespace {
 		{
 			if (cell->connections.count(name) == 0)
 				error(__LINE__);
-			if (cell->connections.at(name).__width != width)
+			if (cell->connections.at(name).size() != width)
 				error(__LINE__);
 			expected_ports.insert(name);
 		}
@@ -381,7 +381,7 @@ namespace {
 				char portname[3] = { '\\', *p, 0 };
 				if (cell->connections.count(portname) == 0)
 					error(__LINE__);
-				if (cell->connections.at(portname).__width != 1)
+				if (cell->connections.at(portname).size() != 1)
 					error(__LINE__);
 			}
 
@@ -755,7 +755,7 @@ void RTLIL::Module::check()
 	}
 
 	for (auto &it : connections) {
-		assert(it.first.__width == it.second.__width);
+		assert(it.first.size() == it.second.size());
 		it.first.check();
 		it.second.check();
 	}
@@ -801,7 +801,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		RTLIL::Module *mod;
 		void operator()(RTLIL::SigSpec &sig)
 		{
-			for (auto &c : sig.__chunks)
+			for (auto &c : sig.chunks())
 				if (c.wire != NULL)
 					c.wire = mod->wires.at(c.wire->name);
 		}
@@ -891,8 +891,8 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 		cell->name = name;                                  \
 		cell->type = _type;                                 \
 		cell->parameters["\\A_SIGNED"] = is_signed;         \
-		cell->parameters["\\A_WIDTH"] = sig_a.__width;        \
-		cell->parameters["\\Y_WIDTH"] = sig_y.__width;        \
+		cell->parameters["\\A_WIDTH"] = sig_a.size();        \
+		cell->parameters["\\Y_WIDTH"] = sig_y.size();        \
 		cell->connections["\\A"] = sig_a;                   \
 		cell->connections["\\Y"] = sig_y;                   \
 		add(cell);                                          \
@@ -903,10 +903,10 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 		add ## _func(name, sig_a, sig_y, is_signed);        \
 		return sig_y;                                       \
 	}
-DEF_METHOD(Not,        sig_a.__width, "$not")
-DEF_METHOD(Pos,        sig_a.__width, "$pos")
-DEF_METHOD(Bu0,        sig_a.__width, "$bu0")
-DEF_METHOD(Neg,        sig_a.__width, "$neg")
+DEF_METHOD(Not,        sig_a.size(), "$not")
+DEF_METHOD(Pos,        sig_a.size(), "$pos")
+DEF_METHOD(Bu0,        sig_a.size(), "$bu0")
+DEF_METHOD(Neg,        sig_a.size(), "$neg")
 DEF_METHOD(ReduceAnd,  1, "$reduce_and")
 DEF_METHOD(ReduceOr,   1, "$reduce_or")
 DEF_METHOD(ReduceXor,  1, "$reduce_xor")
@@ -922,9 +922,9 @@ DEF_METHOD(LogicNot,   1, "$logic_not")
 		cell->type = _type;                                 \
 		cell->parameters["\\A_SIGNED"] = is_signed;         \
 		cell->parameters["\\B_SIGNED"] = is_signed;         \
-		cell->parameters["\\A_WIDTH"] = sig_a.__width;        \
-		cell->parameters["\\B_WIDTH"] = sig_b.__width;        \
-		cell->parameters["\\Y_WIDTH"] = sig_y.__width;        \
+		cell->parameters["\\A_WIDTH"] = sig_a.size();        \
+		cell->parameters["\\B_WIDTH"] = sig_b.size();        \
+		cell->parameters["\\Y_WIDTH"] = sig_y.size();        \
 		cell->connections["\\A"] = sig_a;                   \
 		cell->connections["\\B"] = sig_b;                   \
 		cell->connections["\\Y"] = sig_y;                   \
@@ -936,14 +936,14 @@ DEF_METHOD(LogicNot,   1, "$logic_not")
 		add ## _func(name, sig_a, sig_b, sig_y, is_signed); \
 		return sig_y;                                       \
 	}
-DEF_METHOD(And,      std::max(sig_a.__width, sig_b.__width), "$and")
-DEF_METHOD(Or,       std::max(sig_a.__width, sig_b.__width), "$or")
-DEF_METHOD(Xor,      std::max(sig_a.__width, sig_b.__width), "$xor")
-DEF_METHOD(Xnor,     std::max(sig_a.__width, sig_b.__width), "$xnor")
-DEF_METHOD(Shl,      sig_a.__width, "$shl")
-DEF_METHOD(Shr,      sig_a.__width, "$shr")
-DEF_METHOD(Sshl,     sig_a.__width, "$sshl")
-DEF_METHOD(Sshr,     sig_a.__width, "$sshr")
+DEF_METHOD(And,      std::max(sig_a.size(), sig_b.size()), "$and")
+DEF_METHOD(Or,       std::max(sig_a.size(), sig_b.size()), "$or")
+DEF_METHOD(Xor,      std::max(sig_a.size(), sig_b.size()), "$xor")
+DEF_METHOD(Xnor,     std::max(sig_a.size(), sig_b.size()), "$xnor")
+DEF_METHOD(Shl,      sig_a.size(), "$shl")
+DEF_METHOD(Shr,      sig_a.size(), "$shr")
+DEF_METHOD(Sshl,     sig_a.size(), "$sshl")
+DEF_METHOD(Sshr,     sig_a.size(), "$sshr")
 DEF_METHOD(Lt,       1, "$lt")
 DEF_METHOD(Le,       1, "$le")
 DEF_METHOD(Eq,       1, "$eq")
@@ -952,11 +952,11 @@ DEF_METHOD(Eqx,      1, "$eqx")
 DEF_METHOD(Nex,      1, "$nex")
 DEF_METHOD(Ge,       1, "$ge")
 DEF_METHOD(Gt,       1, "$gt")
-DEF_METHOD(Add,      std::max(sig_a.__width, sig_b.__width), "$add")
-DEF_METHOD(Sub,      std::max(sig_a.__width, sig_b.__width), "$sub")
-DEF_METHOD(Mul,      std::max(sig_a.__width, sig_b.__width), "$mul")
-DEF_METHOD(Div,      std::max(sig_a.__width, sig_b.__width), "$div")
-DEF_METHOD(Mod,      std::max(sig_a.__width, sig_b.__width), "$mod")
+DEF_METHOD(Add,      std::max(sig_a.size(), sig_b.size()), "$add")
+DEF_METHOD(Sub,      std::max(sig_a.size(), sig_b.size()), "$sub")
+DEF_METHOD(Mul,      std::max(sig_a.size(), sig_b.size()), "$mul")
+DEF_METHOD(Div,      std::max(sig_a.size(), sig_b.size()), "$div")
+DEF_METHOD(Mod,      std::max(sig_a.size(), sig_b.size()), "$mod")
 DEF_METHOD(LogicAnd, 1, "$logic_and")
 DEF_METHOD(LogicOr,  1, "$logic_or")
 #undef DEF_METHOD
@@ -966,9 +966,9 @@ DEF_METHOD(LogicOr,  1, "$logic_or")
 		RTLIL::Cell *cell = new RTLIL::Cell;                     \
 		cell->name = name;                                       \
 		cell->type = _type;                                      \
-		cell->parameters["\\WIDTH"] = sig_a.__width;               \
-		cell->parameters["\\WIDTH"] = sig_b.__width;               \
-		if (_pmux) cell->parameters["\\S_WIDTH"] = sig_s.__width;  \
+		cell->parameters["\\WIDTH"] = sig_a.size();               \
+		cell->parameters["\\WIDTH"] = sig_b.size();               \
+		if (_pmux) cell->parameters["\\S_WIDTH"] = sig_s.size();  \
 		cell->connections["\\A"] = sig_a;                        \
 		cell->connections["\\B"] = sig_b;                        \
 		cell->connections["\\S"] = sig_s;                        \
@@ -977,7 +977,7 @@ DEF_METHOD(LogicOr,  1, "$logic_or")
 		return cell;                                             \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, sig_a.__width);     \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, sig_a.size());     \
 		add ## _func(name, sig_a, sig_b, sig_s, sig_y);          \
 		return sig_y;                                            \
 	}
@@ -1050,9 +1050,9 @@ RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, RTLIL::SigSpec sig_a, R
 	cell->type = "$pow";
 	cell->parameters["\\A_SIGNED"] = a_signed;
 	cell->parameters["\\B_SIGNED"] = b_signed;
-	cell->parameters["\\A_WIDTH"] = sig_a.__width;
-	cell->parameters["\\B_WIDTH"] = sig_b.__width;
-	cell->parameters["\\Y_WIDTH"] = sig_y.__width;
+	cell->parameters["\\A_WIDTH"] = sig_a.size();
+	cell->parameters["\\B_WIDTH"] = sig_b.size();
+	cell->parameters["\\Y_WIDTH"] = sig_y.size();
 	cell->connections["\\A"] = sig_a;
 	cell->connections["\\B"] = sig_b;
 	cell->connections["\\Y"] = sig_y;
@@ -1065,8 +1065,8 @@ RTLIL::Cell* RTLIL::Module::addSlice(RTLIL::IdString name, RTLIL::SigSpec sig_a,
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	cell->name = name;
 	cell->type = "$slice";
-	cell->parameters["\\A_WIDTH"] = sig_a.__width;
-	cell->parameters["\\Y_WIDTH"] = sig_y.__width;
+	cell->parameters["\\A_WIDTH"] = sig_a.size();
+	cell->parameters["\\Y_WIDTH"] = sig_y.size();
 	cell->parameters["\\OFFSET"] = offset;
 	cell->connections["\\A"] = sig_a;
 	cell->connections["\\Y"] = sig_y;
@@ -1079,8 +1079,8 @@ RTLIL::Cell* RTLIL::Module::addConcat(RTLIL::IdString name, RTLIL::SigSpec sig_a
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	cell->name = name;
 	cell->type = "$concat";
-	cell->parameters["\\A_WIDTH"] = sig_a.__width;
-	cell->parameters["\\B_WIDTH"] = sig_b.__width;
+	cell->parameters["\\A_WIDTH"] = sig_a.size();
+	cell->parameters["\\B_WIDTH"] = sig_b.size();
 	cell->connections["\\A"] = sig_a;
 	cell->connections["\\B"] = sig_b;
 	cell->connections["\\Y"] = sig_y;
@@ -1094,7 +1094,7 @@ RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, RTLIL::SigSpec sig_i, R
 	cell->name = name;
 	cell->type = "$lut";
 	cell->parameters["\\LUT"] = lut;
-	cell->parameters["\\WIDTH"] = sig_i.__width;
+	cell->parameters["\\WIDTH"] = sig_i.size();
 	cell->connections["\\I"] = sig_i;
 	cell->connections["\\O"] = sig_o;
 	add(cell);
@@ -1119,7 +1119,7 @@ RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, 
 	cell->type = "$sr";
 	cell->parameters["\\SET_POLARITY"] = set_polarity;
 	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.__width;
+	cell->parameters["\\WIDTH"] = sig_q.size();
 	cell->connections["\\SET"] = sig_set;
 	cell->connections["\\CLR"] = sig_clr;
 	cell->connections["\\Q"] = sig_q;
@@ -1133,7 +1133,7 @@ RTLIL::Cell* RTLIL::Module::addDff(RTLIL::IdString name, RTLIL::SigSpec sig_clk,
 	cell->name = name;
 	cell->type = "$dff";
 	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.__width;
+	cell->parameters["\\WIDTH"] = sig_q.size();
 	cell->connections["\\CLK"] = sig_clk;
 	cell->connections["\\D"] = sig_d;
 	cell->connections["\\Q"] = sig_q;
@@ -1150,7 +1150,7 @@ RTLIL::Cell* RTLIL::Module::addDffsr(RTLIL::IdString name, RTLIL::SigSpec sig_cl
 	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
 	cell->parameters["\\SET_POLARITY"] = set_polarity;
 	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.__width;
+	cell->parameters["\\WIDTH"] = sig_q.size();
 	cell->connections["\\CLK"] = sig_clk;
 	cell->connections["\\SET"] = sig_set;
 	cell->connections["\\CLR"] = sig_clr;
@@ -1169,7 +1169,7 @@ RTLIL::Cell* RTLIL::Module::addAdff(RTLIL::IdString name, RTLIL::SigSpec sig_clk
 	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
 	cell->parameters["\\ARST_POLARITY"] = arst_polarity;
 	cell->parameters["\\ARST_VALUE"] = arst_value;
-	cell->parameters["\\WIDTH"] = sig_q.__width;
+	cell->parameters["\\WIDTH"] = sig_q.size();
 	cell->connections["\\CLK"] = sig_clk;
 	cell->connections["\\ARST"] = sig_arst;
 	cell->connections["\\D"] = sig_d;
@@ -1184,7 +1184,7 @@ RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_e
 	cell->name = name;
 	cell->type = "$dlatch";
 	cell->parameters["\\EN_POLARITY"] = en_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.__width;
+	cell->parameters["\\WIDTH"] = sig_q.size();
 	cell->connections["\\EN"] = sig_en;
 	cell->connections["\\D"] = sig_d;
 	cell->connections["\\Q"] = sig_q;
@@ -1201,7 +1201,7 @@ RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig
 	cell->parameters["\\EN_POLARITY"] = en_polarity;
 	cell->parameters["\\SET_POLARITY"] = set_polarity;
 	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
-	cell->parameters["\\WIDTH"] = sig_q.__width;
+	cell->parameters["\\WIDTH"] = sig_q.size();
 	cell->connections["\\EN"] = sig_en;
 	cell->connections["\\SET"] = sig_set;
 	cell->connections["\\CLR"] = sig_clr;

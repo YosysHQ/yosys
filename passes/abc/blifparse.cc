@@ -177,10 +177,10 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 					}
 					input_sig.append(wire);
 				}
-				output_sig = input_sig.extract(input_sig.__width-1, 1);
-				input_sig = input_sig.extract(0, input_sig.__width-1);
+				output_sig = input_sig.extract(input_sig.size()-1, 1);
+				input_sig = input_sig.extract(0, input_sig.size()-1);
 
-				if (input_sig.__width == 0) {
+				if (input_sig.size() == 0) {
 					RTLIL::State state = RTLIL::State::Sa;
 					while (1) {
 						if (!read_next_line(buffer, buffer_size, line_count, f))
@@ -218,8 +218,8 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				RTLIL::Cell *cell = new RTLIL::Cell;
 				cell->name = NEW_ID;
 				cell->type = "$lut";
-				cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.__width);
-				cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.__width);
+				cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
+				cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
 				cell->connections["\\I"] = input_sig;
 				cell->connections["\\O"] = output_sig;
 				lutptr = &cell->parameters.at("\\LUT");

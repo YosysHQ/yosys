@@ -244,7 +244,7 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 			preset_sig = parse_func_expr(module, child->value.c_str());
 	}
 
-	if (clk_sig.__width == 0 || data_sig.__width == 0)
+	if (clk_sig.size() == 0 || data_sig.size() == 0)
 		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", RTLIL::id2cstr(module->name));
 
 	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
@@ -284,21 +284,21 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	cell->connections["\\C"] = clk_sig;
 	module->add(cell);
 
-	if (clear_sig.__width == 0 && preset_sig.__width == 0) {
+	if (clear_sig.size() == 0 && preset_sig.size() == 0) {
 		cell->type = stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N');
 	}
 
-	if (clear_sig.__width == 1 && preset_sig.__width == 0) {
+	if (clear_sig.size() == 1 && preset_sig.size() == 0) {
 		cell->type = stringf("$_DFF_%c%c0_", clk_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
 		cell->connections["\\R"] = clear_sig;
 	}
 
-	if (clear_sig.__width == 0 && preset_sig.__width == 1) {
+	if (clear_sig.size() == 0 && preset_sig.size() == 1) {
 		cell->type = stringf("$_DFF_%c%c1_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N');
 		cell->connections["\\R"] = preset_sig;
 	}
 
-	if (clear_sig.__width == 1 && preset_sig.__width == 1) {
+	if (clear_sig.size() == 1 && preset_sig.size() == 1) {
 		cell->type = stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
 		cell->connections["\\S"] = preset_sig;
 		cell->connections["\\R"] = clear_sig;
@@ -326,7 +326,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 			preset_sig = parse_func_expr(module, child->value.c_str());
 	}
 
-	if (enable_sig.__width == 0 || data_sig.__width == 0)
+	if (enable_sig.size() == 0 || data_sig.size() == 0)
 		log_error("Latch cell %s has no data_in and/or enable attribute.\n", RTLIL::id2cstr(module->name));
 
 	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
@@ -359,7 +359,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 	cell->connections["\\Y"] = iqn_sig;
 	module->add(cell);
 
-	if (clear_sig.__width == 1)
+	if (clear_sig.size() == 1)
 	{
 		RTLIL::SigSpec clear_negative = clear_sig;
 		RTLIL::SigSpec clear_enable = clear_sig;
@@ -396,7 +396,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 		module->add(enable_gate);
 	}
 
-	if (preset_sig.__width == 1)
+	if (preset_sig.size() == 1)
 	{
 		RTLIL::SigSpec preset_positive = preset_sig;
 		RTLIL::SigSpec preset_enable = preset_sig;

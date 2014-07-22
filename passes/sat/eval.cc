@@ -44,7 +44,7 @@ struct BruteForceEquivChecker
 
 	void run_checker(RTLIL::SigSpec &inputs)
 	{
-		if (inputs.__width < mod1_inputs.__width) {
+		if (inputs.size() < mod1_inputs.size()) {
 			RTLIL::SigSpec inputs0 = inputs, inputs1 = inputs;
 			inputs0.append(RTLIL::Const(0, 1));
 			inputs1.append(RTLIL::Const(1, 1));
@@ -71,9 +71,9 @@ struct BruteForceEquivChecker
 
 		if (ignore_x_mod1) {
 			sig1.expand(), sig2.expand();
-			for (size_t i = 0; i < sig1.__chunks.size(); i++)
-				if (sig1.__chunks.at(i) == RTLIL::SigChunk(RTLIL::State::Sx))
-					sig2.__chunks.at(i) = RTLIL::SigChunk(RTLIL::State::Sx);
+			for (size_t i = 0; i < sig1.chunks().size(); i++)
+				if (sig1.chunks().at(i) == RTLIL::SigChunk(RTLIL::State::Sx))
+					sig2.chunks().at(i) = RTLIL::SigChunk(RTLIL::State::Sx);
 			sig1.optimize(), sig2.optimize();
 		}
 
@@ -172,11 +172,11 @@ struct VlogHammerReporter
 			log_error("Failed to find solution to SAT problem.\n");
 
 		expected_y.expand();
-		for (int i = 0; i < expected_y.__width; i++) {
+		for (int i = 0; i < expected_y.size(); i++) {
 			RTLIL::State solution_bit = y_values.at(i) ? RTLIL::State::S1 : RTLIL::State::S0;
-			RTLIL::State expected_bit = expected_y.__chunks.at(i).data.bits.at(0);
+			RTLIL::State expected_bit = expected_y.chunks().at(i).data.bits.at(0);
 			if (model_undef) {
-				if (y_values.at(expected_y.__width+i))
+				if (y_values.at(expected_y.size()+i))
 					solution_bit = RTLIL::State::Sx;
 			} else {
 				if (expected_bit == RTLIL::State::Sx)
@@ -184,17 +184,17 @@ struct VlogHammerReporter
 			}
 			if (solution_bit != expected_bit) {
 				std::string sat_bits, rtl_bits;
-				for (int k = expected_y.__width-1; k >= 0; k--) {
-					if (model_undef && y_values.at(expected_y.__width+k))
+				for (int k = expected_y.size()-1; k >= 0; k--) {
+					if (model_undef && y_values.at(expected_y.size()+k))
 						sat_bits += "x";
 					else
 						sat_bits += y_values.at(k) ? "1" : "0";
-					rtl_bits += expected_y.__chunks.at(k).data.bits.at(0) == RTLIL::State::Sx ? "x" :
-							expected_y.__chunks.at(k).data.bits.at(0) == RTLIL::State::S1 ? "1" : "0";
+					rtl_bits += expected_y.chunks().at(k).data.bits.at(0) == RTLIL::State::Sx ? "x" :
+							expected_y.chunks().at(k).data.bits.at(0) == RTLIL::State::S1 ? "1" : "0";
 				}
 				log_error("Found error in SAT model: y[%d] = %s, should be %s:\n   SAT: %s\n   RTL: %s\n        %*s^\n",
 						int(i), log_signal(solution_bit), log_signal(expected_bit),
-						sat_bits.c_str(), rtl_bits.c_str(), expected_y.__width-i-1, "");
+						sat_bits.c_str(), rtl_bits.c_str(), expected_y.size()-i-1, "");
 			}
 		}
 
@@ -203,16 +203,16 @@ struct VlogHammerReporter
 			std::vector<int> cmp_vars;
 			std::vector<bool> cmp_vals;
 
-			std::vector<bool> y_undef(y_values.begin() + expected_y.__width, y_values.end());
+			std::vector<bool> y_undef(y_values.begin() + expected_y.size(), y_values.end());
 
-			for (int i = 0; i < expected_y.__width; i++)
+			for (int i = 0; i < expected_y.size(); i++)
 				if (y_undef.at(i))
 				{
 					log("    Toggling undef bit %d to test undef gating.\n", i);
 					if (!ez.solve(y_vec, y_values, ez.IFF(y_vec.at(i), y_values.at(i) ? ez.FALSE : ez.TRUE)))
 						log_error("Failed to find solution with toggled bit!\n");
 
-					cmp_vars.push_back(y_vec.at(expected_y.__width + i));
+					cmp_vars.push_back(y_vec.at(expected_y.size() + i));
 					cmp_vals.push_back(true);
 				}
 				else
@@ -220,7 +220,7 @@ struct VlogHammerReporter
 					cmp_vars.push_back(y_vec.at(i));
 					cmp_vals.push_back(y_values.at(i));
 
-					cmp_vars.push_back(y_vec.at(expected_y.__width + i));
+					cmp_vars.push_back(y_vec.at(expected_y.size() + i));
 					cmp_vals.push_back(false);
 				}
 
@@ -283,7 +283,7 @@ struct VlogHammerReporter
 				while (!ce.eval(sig, undef)) {
 					// log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", RTLIL::id2cstr(module->name), log_signal(sig), log_signal(undef));
 					log("Warning: Setting signal %s in module %s to undef.\n", log_signal(undef), RTLIL::id2cstr(module->name));
-					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.__width));
+					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 				}
 
 				log("++VAL++ %d %s %s #\n", idx, module_name.c_str(), sig.as_const().as_string().c_str());
@@ -293,13 +293,13 @@ struct VlogHammerReporter
 					rtl_sig.expand();
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, false);
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
-				} else if (rtl_sig.__width > 0) {
+				} else if (rtl_sig.size() > 0) {
 					sig.expand();
-					if (rtl_sig.__width != sig.__width)
+					if (rtl_sig.size() != sig.size())
 						log_error("Output (y) has a different width in module %s compared to rtl!\n", RTLIL::id2cstr(module->name));
-					for (int i = 0; i < sig.__width; i++)
-						if (rtl_sig.__chunks.at(i).data.bits.at(0) == RTLIL::State::Sx)
-							sig.__chunks.at(i).data.bits.at(0) = RTLIL::State::Sx;
+					for (int i = 0; i < sig.size(); i++)
+						if (rtl_sig.chunks().at(i).data.bits.at(0) == RTLIL::State::Sx)
+							sig.chunks().at(i).data.bits.at(0) = RTLIL::State::Sx;
 				}
 
 				log("++RPT++ %d%s %s %s\n", idx, input_pattern_list.c_str(), sig.as_const().as_string().c_str(), module_name.c_str());
@@ -350,7 +350,7 @@ struct VlogHammerReporter
 			}
 			if (!RTLIL::SigSpec::parse(sig, NULL, pattern) || !sig.is_fully_const())
 				log_error("Failed to parse pattern %s!\n", pattern.c_str());
-			if (sig.__width < total_input_width)
+			if (sig.size() < total_input_width)
 				log_error("Pattern %s is to short!\n", pattern.c_str());
 			patterns.push_back(sig.as_const());
 			if (invert_pattern) {
@@ -470,9 +470,9 @@ struct EvalPass : public Pass {
 				log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second.c_str());
 			if (!rhs.is_fully_const())
 				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second.c_str());
-			if (lhs.__width != rhs.__width)
+			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						it.first.c_str(), log_signal(lhs), lhs.__width, it.second.c_str(), log_signal(rhs), rhs.__width);
+						it.first.c_str(), log_signal(lhs), lhs.size(), it.second.c_str(), log_signal(rhs), rhs.size());
 			ce.set(lhs, rhs.as_const());
 		}
 
@@ -493,7 +493,7 @@ struct EvalPass : public Pass {
 				if (set_undef) {
 					while (!ce.eval(value, undef)) {
 						log("Failed to evaluate signal %s: Missing value for %s. -> setting to undef\n", log_signal(signal), log_signal(undef));
-						ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.__width));
+						ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 						undef = RTLIL::SigSpec();
 					}
 					log("Eval result: %s = %s.\n", log_signal(signal), log_signal(value));
@@ -526,15 +526,15 @@ struct EvalPass : public Pass {
 			}
 
 			std::vector<std::string> tab_line;
-			for (auto &c : tabsigs.__chunks)
+			for (auto &c : tabsigs.chunks())
 				tab_line.push_back(log_signal(c));
 			tab_sep_colidx = tab_line.size();
-			for (auto &c : signal.__chunks)
+			for (auto &c : signal.chunks())
 				tab_line.push_back(log_signal(c));
 			tab.push_back(tab_line);
 			tab_line.clear();
 
-			RTLIL::Const tabvals(0, tabsigs.__width);
+			RTLIL::Const tabvals(0, tabsigs.size());
 			do
 			{
 				ce.push();
@@ -548,19 +548,19 @@ struct EvalPass : public Pass {
 								log_signal(tabsigs), log_signal(tabvals), log_signal(this_undef));
 						return;
 					}
-					ce.set(this_undef, RTLIL::Const(RTLIL::State::Sx, this_undef.__width));
+					ce.set(this_undef, RTLIL::Const(RTLIL::State::Sx, this_undef.size()));
 					undef.append(this_undef);
 					this_undef = RTLIL::SigSpec();
 				}
 
 				int pos = 0;
-				for (auto &c : tabsigs.__chunks) {
+				for (auto &c : tabsigs.chunks()) {
 					tab_line.push_back(log_signal(RTLIL::SigSpec(tabvals).extract(pos, c.width)));
 					pos += c.width;
 				}
 
 				pos = 0;
-				for (auto &c : signal.__chunks) {
+				for (auto &c : signal.chunks()) {
 					tab_line.push_back(log_signal(value.extract(pos, c.width)));
 					pos += c.width;
 				}
@@ -602,7 +602,7 @@ struct EvalPass : public Pass {
 			}
 
 			log("\n");
-			if (undef.__width > 0) {
+			if (undef.size() > 0) {
 				undef.sort_and_unify();
 				log("Assumend undef (x) value for the following singals: %s\n\n", log_signal(undef));
 			}

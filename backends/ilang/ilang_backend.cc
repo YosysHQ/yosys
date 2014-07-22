@@ -102,11 +102,11 @@ void ILANG_BACKEND::dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool au
 
 void ILANG_BACKEND::dump_sigspec(FILE *f, const RTLIL::SigSpec &sig, bool autoint)
 {
-	if (sig.__chunks.size() == 1) {
-		dump_sigchunk(f, sig.__chunks[0], autoint);
+	if (sig.chunks().size() == 1) {
+		dump_sigchunk(f, sig.chunks()[0], autoint);
 	} else {
 		fprintf(f, "{ ");
-		for (auto it = sig.__chunks.rbegin(); it != sig.__chunks.rend(); it++) {
+		for (auto it = sig.chunks().rbegin(); it != sig.chunks().rend(); it++) {
 			dump_sigchunk(f, *it, false);
 			fprintf(f, " ");
 		}
@@ -314,7 +314,7 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 			if (only_selected) {
 				RTLIL::SigSpec sigs = it->first;
 				sigs.append(it->second);
-				for (auto &c : sigs.__chunks) {
+				for (auto &c : sigs.chunks()) {
 					if (c.wire == NULL || !design->selected(module, c.wire))
 						continue;
 					show_conn = true;

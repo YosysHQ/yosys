@@ -560,8 +560,8 @@ public:
 };
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	assert(sig.__width == 1 && sig.__chunks.size() == 1);
-	*this = SigBit(sig.__chunks[0]);
+	assert(sig.size() == 1 && sig.chunks().size() == 1);
+	*this = SigBit(sig.chunks()[0]);
 }
 
 struct RTLIL::CaseRule {

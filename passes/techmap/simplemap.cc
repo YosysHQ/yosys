@@ -42,8 +42,8 @@ static void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = "$_INV_";
-		gate->connections["\\A"] = sig_a.__chunks.at(i);
-		gate->connections["\\Y"] = sig_y.__chunks.at(i);
+		gate->connections["\\A"] = sig_a.chunks().at(i);
+		gate->connections["\\Y"] = sig_y.chunks().at(i);
 		module->add(gate);
 	}
 }
@@ -96,8 +96,8 @@ static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 			RTLIL::Cell *gate = new RTLIL::Cell;
 			gate->name = NEW_ID;
 			gate->type = "$_INV_";
-			gate->connections["\\A"] = sig_t.__chunks.at(i);
-			gate->connections["\\Y"] = sig_y.__chunks.at(i);
+			gate->connections["\\A"] = sig_t.chunks().at(i);
+			gate->connections["\\Y"] = sig_y.chunks().at(i);
 			module->add(gate);
 		}
 
@@ -115,9 +115,9 @@ static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = gate_type;
-		gate->connections["\\A"] = sig_a.__chunks.at(i);
-		gate->connections["\\B"] = sig_b.__chunks.at(i);
-		gate->connections["\\Y"] = sig_y.__chunks.at(i);
+		gate->connections["\\A"] = sig_a.chunks().at(i);
+		gate->connections["\\B"] = sig_b.chunks().at(i);
+		gate->connections["\\Y"] = sig_y.chunks().at(i);
 		module->add(gate);
 	}
 }
@@ -129,20 +129,20 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
 
-	if (sig_y.__width == 0)
+	if (sig_y.size() == 0)
 		return;
 	
-	if (sig_a.__width == 0) {
-		if (cell->type == "$reduce_and")  module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(1, sig_y.__width)));
-		if (cell->type == "$reduce_or")   module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.__width)));
-		if (cell->type == "$reduce_xor")  module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.__width)));
-		if (cell->type == "$reduce_xnor") module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(1, sig_y.__width)));
-		if (cell->type == "$reduce_bool") module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.__width)));
+	if (sig_a.size() == 0) {
+		if (cell->type == "$reduce_and")  module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(1, sig_y.size())));
+		if (cell->type == "$reduce_or")   module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
+		if (cell->type == "$reduce_xor")  module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
+		if (cell->type == "$reduce_xnor") module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(1, sig_y.size())));
+		if (cell->type == "$reduce_bool") module->connections.push_back(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
 		return;
 	}
 
-	if (sig_y.__width > 1) {
-		module->connections.push_back(RTLIL::SigSig(sig_y.extract(1, sig_y.__width-1), RTLIL::SigSpec(0, sig_y.__width-1)));
+	if (sig_y.size() > 1) {
+		module->connections.push_back(RTLIL::SigSig(sig_y.extract(1, sig_y.size()-1), RTLIL::SigSpec(0, sig_y.size()-1)));
 		sig_y = sig_y.extract(0, 1);
 	}
 
@@ -156,24 +156,24 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec *last_output = NULL;
 
-	while (sig_a.__width > 1)
+	while (sig_a.size() > 1)
 	{
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig_a.__width / 2);
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig_a.size() / 2);
 		sig_t.expand();
 
-		for (int i = 0; i < sig_a.__width; i += 2)
+		for (int i = 0; i < sig_a.size(); i += 2)
 		{
-			if (i+1 == sig_a.__width) {
-				sig_t.append(sig_a.__chunks.at(i));
+			if (i+1 == sig_a.size()) {
+				sig_t.append(sig_a.chunks().at(i));
 				continue;
 			}
 
 			RTLIL::Cell *gate = new RTLIL::Cell;
 			gate->name = NEW_ID;
 			gate->type = gate_type;
-			gate->connections["\\A"] = sig_a.__chunks.at(i);
-			gate->connections["\\B"] = sig_a.__chunks.at(i+1);
-			gate->connections["\\Y"] = sig_t.__chunks.at(i/2);
+			gate->connections["\\A"] = sig_a.chunks().at(i);
+			gate->connections["\\B"] = sig_a.chunks().at(i+1);
+			gate->connections["\\Y"] = sig_t.chunks().at(i/2);
 			last_output = &gate->connections["\\Y"];
 			module->add(gate);
 		}
@@ -204,31 +204,31 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig)
 {
 	sig.expand();
 
-	while (sig.__width > 1)
+	while (sig.size() > 1)
 	{
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig.__width / 2);
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig.size() / 2);
 		sig_t.expand();
 
-		for (int i = 0; i < sig.__width; i += 2)
+		for (int i = 0; i < sig.size(); i += 2)
 		{
-			if (i+1 == sig.__width) {
-				sig_t.append(sig.__chunks.at(i));
+			if (i+1 == sig.size()) {
+				sig_t.append(sig.chunks().at(i));
 				continue;
 			}
 
 			RTLIL::Cell *gate = new RTLIL::Cell;
 			gate->name = NEW_ID;
 			gate->type = "$_OR_";
-			gate->connections["\\A"] = sig.__chunks.at(i);
-			gate->connections["\\B"] = sig.__chunks.at(i+1);
-			gate->connections["\\Y"] = sig_t.__chunks.at(i/2);
+			gate->connections["\\A"] = sig.chunks().at(i);
+			gate->connections["\\B"] = sig.chunks().at(i+1);
+			gate->connections["\\Y"] = sig_t.chunks().at(i/2);
 			module->add(gate);
 		}
 
 		sig = sig_t;
 	}
 
-	if (sig.__width == 0)
+	if (sig.size() == 0)
 		sig = RTLIL::SigSpec(0, 1);
 }
 
@@ -239,11 +239,11 @@ static void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
 
-	if (sig_y.__width == 0)
+	if (sig_y.size() == 0)
 		return;
 	
-	if (sig_y.__width > 1) {
-		module->connections.push_back(RTLIL::SigSig(sig_y.extract(1, sig_y.__width-1), RTLIL::SigSpec(0, sig_y.__width-1)));
+	if (sig_y.size() > 1) {
+		module->connections.push_back(RTLIL::SigSig(sig_y.extract(1, sig_y.size()-1), RTLIL::SigSpec(0, sig_y.size()-1)));
 		sig_y = sig_y.extract(0, 1);
 	}
 
@@ -265,11 +265,11 @@ static void simplemap_logbin(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
 
-	if (sig_y.__width == 0)
+	if (sig_y.size() == 0)
 		return;
 	
-	if (sig_y.__width > 1) {
-		module->connections.push_back(RTLIL::SigSig(sig_y.extract(1, sig_y.__width-1), RTLIL::SigSpec(0, sig_y.__width-1)));
+	if (sig_y.size() > 1) {
+		module->connections.push_back(RTLIL::SigSig(sig_y.extract(1, sig_y.size()-1), RTLIL::SigSpec(0, sig_y.size()-1)));
 		sig_y = sig_y.extract(0, 1);
 	}
 
@@ -304,10 +304,10 @@ static void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = "$_MUX_";
-		gate->connections["\\A"] = sig_a.__chunks.at(i);
-		gate->connections["\\B"] = sig_b.__chunks.at(i);
+		gate->connections["\\A"] = sig_a.chunks().at(i);
+		gate->connections["\\B"] = sig_b.chunks().at(i);
 		gate->connections["\\S"] = cell->connections.at("\\S");
-		gate->connections["\\Y"] = sig_y.__chunks.at(i);
+		gate->connections["\\Y"] = sig_y.chunks().at(i);
 		module->add(gate);
 	}
 }
@@ -317,7 +317,7 @@ static void simplemap_slice(RTLIL::Module *module, RTLIL::Cell *cell)
 	int offset = cell->parameters.at("\\OFFSET").as_int();
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
-	module->connections.push_back(RTLIL::SigSig(sig_y, sig_a.extract(offset, sig_y.__width)));
+	module->connections.push_back(RTLIL::SigSig(sig_y, sig_a.extract(offset, sig_y.size())));
 }
 
 static void simplemap_concat(RTLIL::Module *module, RTLIL::Cell *cell)
@@ -349,9 +349,9 @@ static void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell)
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = gate_type;
-		gate->connections["\\S"] = sig_s.__chunks.at(i);
-		gate->connections["\\R"] = sig_r.__chunks.at(i);
-		gate->connections["\\Q"] = sig_q.__chunks.at(i);
+		gate->connections["\\S"] = sig_s.chunks().at(i);
+		gate->connections["\\R"] = sig_r.chunks().at(i);
+		gate->connections["\\Q"] = sig_q.chunks().at(i);
 		module->add(gate);
 	}
 }
@@ -376,8 +376,8 @@ static void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->name = NEW_ID;
 		gate->type = gate_type;
 		gate->connections["\\C"] = sig_clk;
-		gate->connections["\\D"] = sig_d.__chunks.at(i);
-		gate->connections["\\Q"] = sig_q.__chunks.at(i);
+		gate->connections["\\D"] = sig_d.chunks().at(i);
+		gate->connections["\\Q"] = sig_q.chunks().at(i);
 		module->add(gate);
 	}
 }
@@ -410,10 +410,10 @@ static void simplemap_dffsr(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->name = NEW_ID;
 		gate->type = gate_type;
 		gate->connections["\\C"] = sig_clk;
-		gate->connections["\\S"] = sig_s.__chunks.at(i);
-		gate->connections["\\R"] = sig_r.__chunks.at(i);
-		gate->connections["\\D"] = sig_d.__chunks.at(i);
-		gate->connections["\\Q"] = sig_q.__chunks.at(i);
+		gate->connections["\\S"] = sig_s.chunks().at(i);
+		gate->connections["\\R"] = sig_r.chunks().at(i);
+		gate->connections["\\D"] = sig_d.chunks().at(i);
+		gate->connections["\\Q"] = sig_q.chunks().at(i);
 		module->add(gate);
 	}
 }
@@ -446,8 +446,8 @@ static void simplemap_adff(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->type = rst_val.at(i) == RTLIL::State::S1 ? gate_type_1 : gate_type_0;
 		gate->connections["\\C"] = sig_clk;
 		gate->connections["\\R"] = sig_rst;
-		gate->connections["\\D"] = sig_d.__chunks.at(i);
-		gate->connections["\\Q"] = sig_q.__chunks.at(i);
+		gate->connections["\\D"] = sig_d.chunks().at(i);
+		gate->connections["\\Q"] = sig_q.chunks().at(i);
 		module->add(gate);
 	}
 }
@@ -472,8 +472,8 @@ static void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->name = NEW_ID;
 		gate->type = gate_type;
 		gate->connections["\\E"] = sig_en;
-		gate->connections["\\D"] = sig_d.__chunks.at(i);
-		gate->connections["\\Q"] = sig_q.__chunks.at(i);
+		gate->connections["\\D"] = sig_d.chunks().at(i);
+		gate->connections["\\Q"] = sig_q.chunks().at(i);
 		module->add(gate);
 	}
 }

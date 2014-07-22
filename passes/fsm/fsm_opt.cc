@@ -33,11 +33,11 @@ struct FsmOpt
 	
 	bool signal_is_unused(RTLIL::SigSpec sig)
 	{
-		assert(sig.__width == 1);
+		assert(sig.size() == 1);
 		sig.optimize();
 
-		RTLIL::Wire *wire = sig.__chunks[0].wire;
-		int bit = sig.__chunks[0].offset;
+		RTLIL::Wire *wire = sig.chunks()[0].wire;
+		int bit = sig.chunks()[0].offset;
 
 		if (!wire || wire->attributes.count("\\unused_bits") == 0)
 			return false;
@@ -55,11 +55,11 @@ struct FsmOpt
 	void opt_const_and_unused_inputs()
 	{
 		RTLIL::SigSpec ctrl_in = cell->connections["\\CTRL_IN"];
-		std::vector<bool> ctrl_in_used(ctrl_in.__width);
+		std::vector<bool> ctrl_in_used(ctrl_in.size());
 
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {
-			for (int i = 0; i < ctrl_in.__width; i++) {
+			for (int i = 0; i < ctrl_in.size(); i++) {
 				RTLIL::SigSpec ctrl_bit = ctrl_in.extract(i, 1);
 				if (ctrl_bit.is_fully_const()) {
 					if (tr.ctrl_in.bits[i] <= RTLIL::State::S1 && RTLIL::SigSpec(tr.ctrl_in.bits[i]) != ctrl_bit)
@@ -112,8 +112,8 @@ struct FsmOpt
 	{
 		RTLIL::SigSpec &ctrl_in = cell->connections["\\CTRL_IN"];
 
-		for (int i = 0; i < ctrl_in.__width; i++)
-		for (int j = i+1; j < ctrl_in.__width; j++)
+		for (int i = 0; i < ctrl_in.size(); i++)
+		for (int j = i+1; j < ctrl_in.size(); j++)
 			if (ctrl_in.extract(i, 1) == ctrl_in.extract(j, 1))
 			{
 				log("  Optimize handling of signal %s that is connected to inputs %d and %d.\n", log_signal(ctrl_in.extract(i, 1)), i, j);
@@ -150,8 +150,8 @@ struct FsmOpt
 		RTLIL::SigSpec &ctrl_in = cell->connections["\\CTRL_IN"];
 		RTLIL::SigSpec &ctrl_out = cell->connections["\\CTRL_OUT"];
 
-		for (int j = 0; j < ctrl_out.__width; j++)
-		for (int i = 0; i < ctrl_in.__width; i++)
+		for (int j = 0; j < ctrl_out.size(); j++)
+		for (int i = 0; i < ctrl_in.size(); i++)
 			if (ctrl_in.extract(i, 1) == ctrl_out.extract(j, 1))
 			{
 				log("  Optimize handling of signal %s that is connected to input %d and output %d.\n", log_signal(ctrl_in.extract(i, 1)), i, j);
