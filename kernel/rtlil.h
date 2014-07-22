@@ -69,6 +69,7 @@ namespace RTLIL
 	struct Cell;
 	struct SigChunk;
 	struct SigBit;
+	struct SigSpecIterator;
 	struct SigSpec;
 	struct CaseRule;
 	struct SwitchRule;
@@ -494,6 +495,14 @@ struct RTLIL::SigBit {
 	}
 };
 
+struct RTLIL::SigSpecIterator {
+	RTLIL::SigSpec *sig_p;
+	int index;
+	inline RTLIL::SigBit &operator*() const;
+	inline bool operator!=(const RTLIL::SigSpecIterator &other) { return index != other.index; }
+	inline void operator++() { index++; }
+};
+
 struct RTLIL::SigSpec {
 private:
 	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
@@ -504,6 +513,11 @@ private:
 	void unpack() const;
 	bool packed() const;
 
+	inline void inline_unpack() const {
+		if (!chunks_.empty())
+			unpack();
+	}
+
 public:
 	SigSpec();
 	SigSpec(const RTLIL::Const &data);
@@ -513,17 +527,21 @@ public:
 	SigSpec(int val, int width = 32);
 	SigSpec(RTLIL::State bit, int width = 1);
 	SigSpec(RTLIL::SigBit bit, int width = 1);
+	SigSpec(std::vector<RTLIL::SigChunk> chunks);
 	SigSpec(std::vector<RTLIL::SigBit> bits);
 	SigSpec(std::set<RTLIL::SigBit> bits);
 
-	std::vector<RTLIL::SigChunk> &chunks_rw() { pack(); return chunks_; }
-	const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
-	const std::vector<RTLIL::SigBit> &bits() const { unpack(); return bits_; }
+	inline std::vector<RTLIL::SigChunk> &chunks_rw() { pack(); return chunks_; }
+	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
+	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
 
-	int size() const { return width_; }
+	inline int size() const { return width_; }
 
-	RTLIL::SigBit &operator[](int index) { unpack(); return bits_.at(index); }
-	const RTLIL::SigBit &operator[](int index) const { unpack(); return bits_.at(index); }
+	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
+	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }
+
+	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
+	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
 
 	void expand();
 	void optimize();
@@ -581,6 +599,10 @@ public:
 
 	void check() const;
 };
+
+inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
+	return (*sig_p)[index];
+}
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
 	assert(sig.size() == 1 && sig.chunks().size() == 1);
