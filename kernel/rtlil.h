@@ -501,7 +501,7 @@ private:
 	int width_;
 
 public:
-	std::vector<RTLIL::SigChunk> &chunks() { return chunks_; }
+	std::vector<RTLIL::SigChunk> &chunks_rw() { return chunks_; }
 	const std::vector<RTLIL::SigChunk> &chunks() const { return chunks_; }
 
 	int size() const { return width_; }

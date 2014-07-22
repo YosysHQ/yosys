@@ -168,7 +168,7 @@ restart_proc_arst:
 					rspec.expand(), rval.expand();
 					for (int i = 0; i < int(rspec.chunks().size()); i++)
 						if (rspec.chunks()[i].wire == NULL)
-							rval.chunks()[i] = rspec.chunks()[i];
+							rval.chunks_rw()[i] = rspec.chunks()[i];
 					rspec.optimize(), rval.optimize();
 					RTLIL::SigSpec last_rval;
 					for (int count = 0; rval != last_rval; count++) {

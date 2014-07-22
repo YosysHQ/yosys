@@ -179,7 +179,7 @@ struct ShowWorker
 		}
 
 		if (sig.chunks().size() == 1) {
-			RTLIL::SigChunk &c = sig.chunks()[0];
+			const RTLIL::SigChunk &c = sig.chunks()[0];
 			if (c.wire != NULL && design->selected_member(module->name, c.wire->name)) {
 				if (!range_check || c.wire->width == c.width)
 						return stringf("n%d", id2num(c.wire->name));
@@ -203,7 +203,7 @@ struct ShowWorker
 			int pos = sig.size()-1;
 			int idx = single_idx_count++;
 			for (int i = int(sig.chunks().size())-1; i >= 0; i--) {
-				RTLIL::SigChunk &c = sig.chunks()[i];
+				const RTLIL::SigChunk &c = sig.chunks()[i];
 				net = gen_signode_simple(c, false);
 				assert(!net.empty());
 				if (driver) {

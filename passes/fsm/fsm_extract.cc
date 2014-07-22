@@ -92,7 +92,7 @@ static RTLIL::Const sig2const(ConstEval &ce, RTLIL::SigSpec sig, RTLIL::State no
 {
 	if (dont_care.size() > 0) {
 		sig.expand();
-		for (auto &chunk : sig.chunks()) {
+		for (auto &chunk : sig.chunks_rw()) {
 			assert(chunk.width == 1);
 			if (dont_care.extract(chunk).size() > 0)
 				chunk.wire = NULL, chunk.data = RTLIL::Const(noconst_state);
@@ -104,7 +104,7 @@ static RTLIL::Const sig2const(ConstEval &ce, RTLIL::SigSpec sig, RTLIL::State no
 	ce.values_map.apply(sig);
 
 	sig.expand();
-	for (auto &chunk : sig.chunks()) {
+	for (auto &chunk : sig.chunks_rw()) {
 		assert(chunk.width == 1);
 		if (chunk.wire != NULL)
 			chunk.wire = NULL, chunk.data = RTLIL::Const(noconst_state);

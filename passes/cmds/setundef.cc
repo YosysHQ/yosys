@@ -48,7 +48,7 @@ struct SetundefWorker
 	void operator()(RTLIL::SigSpec &sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks())
+		for (auto &c : sig.chunks_rw())
 			if (c.wire == NULL && c.data.bits.at(0) > RTLIL::State::S1)
 				c.data.bits.at(0) = next_bit();
 		sig.optimize();

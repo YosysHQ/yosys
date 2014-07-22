@@ -47,7 +47,7 @@ static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module 
 		std::string wire_name = sig.chunks()[i].wire->name;
 		apply_prefix(prefix, wire_name);
 		assert(module->wires.count(wire_name) > 0);
-		sig.chunks()[i].wire = module->wires[wire_name];
+		sig.chunks_rw()[i].wire = module->wires[wire_name];
 	}
 }
 

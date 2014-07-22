@@ -699,10 +699,8 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			RTLIL::SigSpec a = cell->connections["\\A"]; \
 			assign_map.apply(a); \
 			if (a.is_fully_const()) { \
-				a.optimize(); \
-				if (a.chunks().empty()) a.chunks().push_back(RTLIL::SigChunk()); \
 				RTLIL::Const dummy_arg(RTLIL::State::S0, 1); \
-				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.chunks()[0].data, dummy_arg, \
+				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), dummy_arg, \
 						cell->parameters["\\A_SIGNED"].as_bool(), false, \
 						cell->parameters["\\Y_WIDTH"].as_int())); \
 				replace_cell(module, cell, stringf("%s", log_signal(a)), "\\Y", y); \
@@ -715,10 +713,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			RTLIL::SigSpec b = cell->connections["\\B"]; \
 			assign_map.apply(a), assign_map.apply(b); \
 			if (a.is_fully_const() && b.is_fully_const()) { \
-				a.optimize(), b.optimize(); \
-				if (a.chunks().empty()) a.chunks().push_back(RTLIL::SigChunk()); \
-				if (b.chunks().empty()) b.chunks().push_back(RTLIL::SigChunk()); \
-				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.chunks()[0].data, b.chunks()[0].data, \
+				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), b.as_const(), \
 						cell->parameters["\\A_SIGNED"].as_bool(), \
 						cell->parameters["\\B_SIGNED"].as_bool(), \
 						cell->parameters["\\Y_WIDTH"].as_int())); \

@@ -63,7 +63,7 @@ struct SplitnetsWorker
 	void operator()(RTLIL::SigSpec &sig)
 	{
 		sig.expand();
-		for (auto &c : sig.chunks())
+		for (auto &c : sig.chunks_rw())
 			if (splitmap.count(c.wire) > 0)
 				c = splitmap.at(c.wire).at(c.offset);
 		sig.optimize();

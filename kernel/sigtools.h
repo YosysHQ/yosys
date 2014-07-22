@@ -423,8 +423,8 @@ struct SigMap
 		assert(from.chunks().size() == to.chunks().size());
 		for (size_t i = 0; i < from.chunks().size(); i++)
 		{
-			RTLIL::SigChunk &cf = from.chunks()[i];
-			RTLIL::SigChunk &ct = to.chunks()[i];
+			const RTLIL::SigChunk &cf = from.chunks()[i];
+			const RTLIL::SigChunk &ct = to.chunks()[i];
 
 			if (cf.wire == NULL)
 				continue;
@@ -444,7 +444,7 @@ struct SigMap
 		sig.expand();
 		for (size_t i = 0; i < sig.chunks().size(); i++)
 		{
-			RTLIL::SigChunk &c = sig.chunks()[i];
+			const RTLIL::SigChunk &c = sig.chunks()[i];
 			if (c.wire != NULL) {
 				register_bit(c);
 				set_bit(c, c);
@@ -462,7 +462,7 @@ struct SigMap
 	void apply(RTLIL::SigSpec &sig) const
 	{
 		sig.expand();
-		for (auto &c : sig.chunks())
+		for (auto &c : sig.chunks_rw())
 			map_bit(c);
 		sig.optimize();
 	}

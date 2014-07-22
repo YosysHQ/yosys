@@ -801,7 +801,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		RTLIL::Module *mod;
 		void operator()(RTLIL::SigSpec &sig)
 		{
-			for (auto &c : sig.chunks())
+			for (auto &c : sig.chunks_rw())
 				if (c.wire != NULL)
 					c.wire = mod->wires.at(c.wire->name);
 		}

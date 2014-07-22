@@ -73,7 +73,7 @@ struct BruteForceEquivChecker
 			sig1.expand(), sig2.expand();
 			for (size_t i = 0; i < sig1.chunks().size(); i++)
 				if (sig1.chunks().at(i) == RTLIL::SigChunk(RTLIL::State::Sx))
-					sig2.chunks().at(i) = RTLIL::SigChunk(RTLIL::State::Sx);
+					sig2.chunks_rw().at(i) = RTLIL::SigChunk(RTLIL::State::Sx);
 			sig1.optimize(), sig2.optimize();
 		}
 
@@ -299,7 +299,7 @@ struct VlogHammerReporter
 						log_error("Output (y) has a different width in module %s compared to rtl!\n", RTLIL::id2cstr(module->name));
 					for (int i = 0; i < sig.size(); i++)
 						if (rtl_sig.chunks().at(i).data.bits.at(0) == RTLIL::State::Sx)
-							sig.chunks().at(i).data.bits.at(0) = RTLIL::State::Sx;
+							sig.chunks_rw().at(i).data.bits.at(0) = RTLIL::State::Sx;
 				}
 
 				log("++RPT++ %d%s %s %s\n", idx, input_pattern_list.c_str(), sig.as_const().as_string().c_str(), module_name.c_str());

@@ -149,7 +149,7 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 	return true;
 }
 
-void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false)
+void dump_const(FILE *f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false)
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
@@ -203,7 +203,7 @@ void dump_const(FILE *f, RTLIL::Const &data, int width = -1, int offset = 0, boo
 	}
 }
 
-void dump_sigchunk(FILE *f, RTLIL::SigChunk &chunk, bool no_decimal = false)
+void dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool no_decimal = false)
 {
 	if (chunk.wire == NULL) {
 		dump_const(f, chunk.data, chunk.width, chunk.offset, no_decimal);

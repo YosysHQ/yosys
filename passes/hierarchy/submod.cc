@@ -164,7 +164,7 @@ struct SubmodWorker
 		for (RTLIL::Cell *cell : submod.cells) {
 			RTLIL::Cell *new_cell = new RTLIL::Cell(*cell);
 			for (auto &conn : new_cell->connections)
-				for (auto &c : conn.second.chunks())
+				for (auto &c : conn.second.chunks_rw())
 					if (c.wire != NULL) {
 						assert(wire_flags.count(c.wire) > 0);
 						c.wire = wire_flags[c.wire].new_wire;

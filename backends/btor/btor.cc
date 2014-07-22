@@ -45,9 +45,9 @@ struct BtorDumperConfig
 struct WireInfo
 {
 	RTLIL::IdString cell_name;
-	RTLIL::SigChunk *chunk;
+	const RTLIL::SigChunk *chunk;
 
-	WireInfo(RTLIL::IdString c, RTLIL::SigChunk* ch) : cell_name(c), chunk(ch) { }
+	WireInfo(RTLIL::IdString c, const RTLIL::SigChunk* ch) : cell_name(c), chunk(ch) { }
 };
 
 struct WireInfoOrder

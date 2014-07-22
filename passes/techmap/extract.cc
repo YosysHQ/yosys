@@ -756,7 +756,7 @@ struct ExtractPass : public Pass {
 					newCell->parameters = cell->parameters;
 					for (auto &conn : cell->connections) {
 						RTLIL::SigSpec sig = sigmap(conn.second);
-						for (auto &chunk : sig.chunks())
+						for (auto &chunk : sig.chunks_rw())
 							if (chunk.wire != NULL)
 								chunk.wire = newMod->wires.at(chunk.wire->name);
 						newCell->connections[conn.first] = sig;

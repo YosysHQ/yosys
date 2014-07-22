@@ -36,7 +36,7 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 
 	for (size_t i = 0; i < sig.chunks().size(); i++)
 	{
-		RTLIL::SigChunk &chunk = sig.chunks()[i];
+		RTLIL::SigChunk &chunk = sig.chunks_rw()[i];
 
 		if (chunk.wire == NULL)
 			continue;

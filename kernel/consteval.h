@@ -73,7 +73,7 @@ struct ConstEval
 		RTLIL::SigSpec current_val = values_map(sig);
 		current_val.expand();
 		for (size_t i = 0; i < current_val.chunks().size(); i++) {
-			RTLIL::SigChunk &chunk = current_val.chunks()[i];
+			const RTLIL::SigChunk &chunk = current_val.chunks()[i];
 			assert(chunk.wire != NULL || chunk.data.bits[0] == value.bits[i]);
 		}
 #endif
