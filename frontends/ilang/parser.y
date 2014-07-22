@@ -225,6 +225,7 @@ proc_stmt:
 		switch_stack.push_back(&current_process->root_case.switches);
 		case_stack.clear();
 		case_stack.push_back(&current_process->root_case);
+		attrbuf.clear();
 		free($2);
 	} case_body sync_list TOK_END EOL;
 
