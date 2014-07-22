@@ -522,6 +522,9 @@ public:
 
 	int size() const { return width_; }
 
+	RTLIL::SigBit &operator[](int index) { unpack(); return bits_.at(index); }
+	const RTLIL::SigBit &operator[](int index) const { unpack(); return bits_.at(index); }
+
 	void expand();
 	void optimize();
 	RTLIL::SigSpec optimized() const;
@@ -540,7 +543,7 @@ public:
 	void remove_const();
 
 	RTLIL::SigSpec extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *other = NULL) const;
-	RTLIL::SigSpec extract(int offset, int length) const;
+	RTLIL::SigSpec extract(int offset, int length = 1) const;
 
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
