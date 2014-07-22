@@ -496,11 +496,17 @@ struct RTLIL::SigBit {
 };
 
 struct RTLIL::SigSpec {
-public:
-	std::vector<RTLIL::SigChunk> __chunks; // LSB at index 0
-	int __width;
+private:
+	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
+	int width_;
 
 public:
+	std::vector<RTLIL::SigChunk> &chunks() { return chunks_; }
+	const std::vector<RTLIL::SigChunk> &chunks() const { return chunks_; }
+
+	int &size() { return width_; }
+	const int &size() const { return width_; }
+
 	SigSpec();
 	SigSpec(const RTLIL::Const &data);
 	SigSpec(const RTLIL::SigChunk &chunk);
