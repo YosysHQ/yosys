@@ -43,11 +43,9 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 
 	assign_map.apply(sig);
 	if (sig.is_fully_const()) {
-		sig.optimize();
-		assert(sig.chunks().size() == 1);
-		if (states.count(sig.chunks()[0].data) == 0) {
+		if (states.count(sig.as_const()) == 0) {
 			log("  found state code: %s\n", log_signal(sig));
-			states[sig.chunks()[0].data] = -1;
+			states[sig.as_const()] = -1;
 		}
 		return true;
 	}
@@ -91,30 +89,19 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 static RTLIL::Const sig2const(ConstEval &ce, RTLIL::SigSpec sig, RTLIL::State noconst_state, RTLIL::SigSpec dont_care = RTLIL::SigSpec())
 {
 	if (dont_care.size() > 0) {
-		sig.expand();
-		for (auto &chunk : sig.chunks_rw()) {
-			assert(chunk.width == 1);
-			if (dont_care.extract(chunk).size() > 0)
-				chunk.wire = NULL, chunk.data = RTLIL::Const(noconst_state);
-		}
-		sig.optimize();
+		for (int i = 0; i < SIZE(sig); i++)
+			if (dont_care.extract(sig[i]).size() > 0)
+				sig[i] = noconst_state;
 	}
 
 	ce.assign_map.apply(sig);
 	ce.values_map.apply(sig);
 
-	sig.expand();
-	for (auto &chunk : sig.chunks_rw()) {
-		assert(chunk.width == 1);
-		if (chunk.wire != NULL)
-			chunk.wire = NULL, chunk.data = RTLIL::Const(noconst_state);
-	}
-	sig.optimize();
+	for (int i = 0; i < SIZE(sig); i++)
+		if (sig[i].wire != NULL)
+			sig[i] = noconst_state;
 
-	if (sig.size() == 0)
-		return RTLIL::Const();
-	assert(sig.chunks().size() == 1 && sig.chunks()[0].wire == NULL);
-	return sig.chunks()[0].data;
+	return sig.as_const();
 }
 
 static void find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_data, std::map<RTLIL::Const, int> &states, int state_in, RTLIL::SigSpec ctrl_in, RTLIL::SigSpec ctrl_out, RTLIL::SigSpec dff_in, RTLIL::SigSpec dont_care)

@@ -33,18 +33,14 @@ struct FsmOpt
 	
 	bool signal_is_unused(RTLIL::SigSpec sig)
 	{
-		assert(sig.size() == 1);
-		sig.optimize();
+		RTLIL::SigBit bit = sig.to_single_sigbit();
 
-		RTLIL::Wire *wire = sig.chunks()[0].wire;
-		int bit = sig.chunks()[0].offset;
-
-		if (!wire || wire->attributes.count("\\unused_bits") == 0)
+		if (bit.wire == NULL || bit.wire->attributes.count("\\unused_bits") == 0)
 			return false;
 		
-		char *str = strdup(wire->attributes["\\unused_bits"].decode_string().c_str());
+		char *str = strdup(bit.wire->attributes["\\unused_bits"].decode_string().c_str());
 		for (char *tok = strtok(str, " "); tok != NULL; tok = strtok(NULL, " ")) {
-			if (tok[0] && bit == atoi(tok)) {
+			if (tok[0] && bit.offset == atoi(tok)) {
 				free(str);
 				return true;
 			}
