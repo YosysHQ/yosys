@@ -68,20 +68,16 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	for (auto comp : compare)
 	{
 		RTLIL::SigSpec sig = signal;
-		sig.expand();
-		comp.expand();
 
 		// get rid of don't-care bits
 		assert(sig.size() == comp.size());
 		for (int i = 0; i < comp.size(); i++)
-			if (comp.chunks()[i].wire == NULL && comp.chunks()[i].data.bits[0] == RTLIL::State::Sa) {
-				sig.remove(i, 1);
-				comp.remove(i--, 1);
+			if (comp[i] == RTLIL::State::Sa) {
+				sig.remove(i);
+				comp.remove(i--);
 			}
 		if (comp.size() == 0)
 			return RTLIL::SigSpec();
-		sig.optimize();
-		comp.optimize();
 
 		if (sig.size() == 1 && comp == RTLIL::SigSpec(1,1))
 		{
