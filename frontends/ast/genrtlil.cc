@@ -56,15 +56,6 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 	wire->width = result_width;
 	current_module->wires[wire->name] = wire;
 
-	RTLIL::SigChunk chunk;
-	chunk.wire = wire;
-	chunk.width = wire->width;
-	chunk.offset = 0;
-
-	RTLIL::SigSpec sig;
-	sig.chunks().push_back(chunk);
-	sig.size() = chunk.width;
-
 	if (gen_attributes)
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
@@ -78,8 +69,8 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 	cell->connections["\\A"] = arg;
 
 	cell->parameters["\\Y_WIDTH"] = result_width;
-	cell->connections["\\Y"] = sig;
-	return sig;
+	cell->connections["\\Y"] = wire;
+	return wire;
 }
 
 // helper function for extending bit width (preferred over SigSpec::extend() because of correct undef propagation in ConstEval)
@@ -105,15 +96,6 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	wire->width = width;
 	current_module->wires[wire->name] = wire;
 
-	RTLIL::SigChunk chunk;
-	chunk.wire = wire;
-	chunk.width = wire->width;
-	chunk.offset = 0;
-
-	RTLIL::SigSpec new_sig;
-	new_sig.chunks().push_back(chunk);
-	new_sig.size() = chunk.width;
-
 	if (that != NULL)
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
@@ -127,8 +109,8 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	cell->connections["\\A"] = sig;
 
 	cell->parameters["\\Y_WIDTH"] = width;
-	cell->connections["\\Y"] = new_sig;
-	sig = new_sig;
+	cell->connections["\\Y"] = wire;
+	sig = wire;
 }
 
 // helper function for creating RTLIL code for binary operations
@@ -149,15 +131,6 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_wi
 	wire->width = result_width;
 	current_module->wires[wire->name] = wire;
 
-	RTLIL::SigChunk chunk;
-	chunk.wire = wire;
-	chunk.width = wire->width;
-	chunk.offset = 0;
-
-	RTLIL::SigSpec sig;
-	sig.chunks().push_back(chunk);
-	sig.size() = chunk.width;
-
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
 			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
@@ -175,8 +148,8 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_wi
 	cell->connections["\\B"] = right;
 
 	cell->parameters["\\Y_WIDTH"] = result_width;
-	cell->connections["\\Y"] = sig;
-	return sig;
+	cell->connections["\\Y"] = wire;
+	return wire;
 }
 
 // helper function for creating RTLIL code for multiplexers
@@ -199,15 +172,6 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	wire->width = left.size();
 	current_module->wires[wire->name] = wire;
 
-	RTLIL::SigChunk chunk;
-	chunk.wire = wire;
-	chunk.width = wire->width;
-	chunk.offset = 0;
-
-	RTLIL::SigSpec sig;
-	sig.chunks().push_back(chunk);
-	sig.size() = chunk.width;
-
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
 			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
@@ -220,9 +184,9 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	cell->connections["\\A"] = right;
 	cell->connections["\\B"] = left;
 	cell->connections["\\S"] = cond;
-	cell->connections["\\Y"] = sig;
+	cell->connections["\\Y"] = wire;
 
-	return sig;
+	return wire;
 }
 
 // helper class for converting AST always nodes to RTLIL processes
@@ -1001,9 +965,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 			}
 
-			RTLIL::SigSpec sig;
-			sig.chunks().push_back(chunk);
-			sig.size() = chunk.width;
+			RTLIL::SigSpec sig(chunk);
 
 			if (genRTLIL_subst_from && genRTLIL_subst_to)
 				sig.replace(*genRTLIL_subst_from, *genRTLIL_subst_to);
@@ -1025,14 +987,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// concatenation of signals can be done directly using RTLIL::SigSpec
 	case AST_CONCAT: {
 			RTLIL::SigSpec sig;
-			sig.size() = 0;
-			for (auto it = children.begin(); it != children.end(); it++) {
-				RTLIL::SigSpec s = (*it)->genRTLIL();
-				for (size_t i = 0; i < s.chunks().size(); i++) {
-					sig.chunks().push_back(s.chunks()[i]);
-					sig.size() += s.chunks()[i].width;
-				}
-			}
+			for (auto it = children.begin(); it != children.end(); it++)
+				sig.append((*it)->genRTLIL());
 			if (sig.size() < width_hint)
 				sig.extend_u0(width_hint, false);
 			return sig;

@@ -357,50 +357,25 @@ constant:
 
 sigspec:
 	constant {
-		RTLIL::SigChunk chunk;
-		chunk.wire = NULL;
-		chunk.width = $1->bits.size();
-		chunk.offset = 0;
-		chunk.data = *$1;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks().push_back(chunk);
-		$$->size() = chunk.width;
+		$$ = new RTLIL::SigSpec(*$1);
 		delete $1;
 	} |
 	TOK_ID {
 		if (current_module->wires.count($1) == 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		RTLIL::SigChunk chunk;
-		chunk.wire = current_module->wires[$1];
-		chunk.width = current_module->wires[$1]->width;
-		chunk.offset = 0;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks().push_back(chunk);
-		$$->size() = chunk.width;
+		$$ = new RTLIL::SigSpec(current_module->wires[$1]);
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ']' {
 		if (current_module->wires.count($1) == 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		RTLIL::SigChunk chunk;
-		chunk.wire = current_module->wires[$1];
-		chunk.offset = $3;
-		chunk.width = 1;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks().push_back(chunk);
-		$$->size() = 1;
+		$$ = new RTLIL::SigSpec(current_module->wires[$1], 1, $3);
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
 		if (current_module->wires.count($1) == 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		RTLIL::SigChunk chunk;
-		chunk.wire = current_module->wires[$1];
-		chunk.width = $3 - $5 + 1;
-		chunk.offset = $5;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks().push_back(chunk);
-		$$->size() = chunk.width;
+		$$ = new RTLIL::SigSpec(current_module->wires[$1], $3 - $5 + 1, $5);
 		free($1);
 	} |
 	'{' sigspec_list '}' {
@@ -410,14 +385,8 @@ sigspec:
 sigspec_list:
 	sigspec_list sigspec {
 		$$ = new RTLIL::SigSpec;
-		for (auto it = $2->chunks().begin(); it != $2->chunks().end(); it++) {
-			$$->chunks().push_back(*it);
-			$$->size() += it->width;
-		}
-		for (auto it = $1->chunks().begin(); it != $1->chunks().end(); it++) {
-			$$->chunks().push_back(*it);
-			$$->size() += it->width;
-		}
+		$$->append(*$2);
+		$$->append(*$1);
 		delete $1;
 		delete $2;
 	} |
