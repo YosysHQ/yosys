@@ -470,7 +470,6 @@ struct RTLIL::SigChunk {
 	bool operator <(const RTLIL::SigChunk &other) const;
 	bool operator ==(const RTLIL::SigChunk &other) const;
 	bool operator !=(const RTLIL::SigChunk &other) const;
-	static bool compare(const RTLIL::SigChunk &a, const RTLIL::SigChunk &b);
 };
 
 struct RTLIL::SigBit {

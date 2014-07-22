@@ -1382,6 +1382,7 @@ bool RTLIL::SigChunk::operator <(const RTLIL::SigChunk &other) const
 	if (wire && other.wire)
 		if (wire->name != other.wire->name)
 			return wire->name < other.wire->name;
+
 	if (wire != other.wire)
 		return wire < other.wire;
 
@@ -1391,10 +1392,7 @@ bool RTLIL::SigChunk::operator <(const RTLIL::SigChunk &other) const
 	if (width != other.width)
 		return width < other.width;
 
-	if (data.bits != other.data.bits)
-		return data.bits < other.data.bits;
-	
-	return false;
+	return data.bits < other.data.bits;
 }
 
 bool RTLIL::SigChunk::operator ==(const RTLIL::SigChunk &other) const
@@ -1566,28 +1564,11 @@ RTLIL::SigSpec RTLIL::SigSpec::optimized() const
 	return ret;
 }
 
-bool RTLIL::SigChunk::compare(const RTLIL::SigChunk &a, const RTLIL::SigChunk &b)
-{
-	if (a.wire != b.wire) {
-		if (a.wire == NULL || b.wire == NULL)
-			return a.wire < b.wire;
-		else if (a.wire->name != b.wire->name)
-			return a.wire->name < b.wire->name;
-		else
-			return a.wire < b.wire;
-	}
-	if (a.offset != b.offset)
-		return a.offset < b.offset;
-	if (a.width != b.width)
-		return a.width < b.width;
-	return a.data.bits < b.data.bits;
-}
-
 void RTLIL::SigSpec::sort()
 {
 	pack();
 	expand();
-	std::sort(chunks_.begin(), chunks_.end(), RTLIL::SigChunk::compare);
+	std::sort(chunks_.begin(), chunks_.end());
 	optimize();
 }
 
@@ -1595,11 +1576,11 @@ void RTLIL::SigSpec::sort_and_unify()
 {
 	pack();
 	expand();
-	std::sort(chunks_.begin(), chunks_.end(), RTLIL::SigChunk::compare);
+	std::sort(chunks_.begin(), chunks_.end());
 	for (size_t i = 1; i < chunks_.size(); i++) {
 		RTLIL::SigChunk &ch1 = chunks_[i-1];
 		RTLIL::SigChunk &ch2 = chunks_[i];
-		if (!RTLIL::SigChunk::compare(ch1, ch2) && !RTLIL::SigChunk::compare(ch2, ch1)) {
+		if (ch1 == ch2) {
 			chunks_.erase(chunks_.begin()+i);
 			width_ -= chunks_[i].width;
 			i--;
