@@ -801,9 +801,11 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		RTLIL::Module *mod;
 		void operator()(RTLIL::SigSpec &sig)
 		{
-			for (auto &c : sig.chunks_rw())
+			std::vector<RTLIL::SigChunk> chunks = sig.chunks();
+			for (auto &c : chunks)
 				if (c.wire != NULL)
 					c.wire = mod->wires.at(c.wire->name);
+			sig = chunks;
 		}
 	};
 
@@ -1466,6 +1468,14 @@ RTLIL::SigSpec::SigSpec(RTLIL::SigBit bit, int width)
 		for (int i = 0; i < width; i++)
 			chunks_.push_back(bit);
 	width_ = width;
+	check();
+}
+
+RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigChunk> chunks)
+{
+	width_ = 0;
+	for (auto &c : chunks)
+		append(c);
 	check();
 }
 

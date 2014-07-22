@@ -276,7 +276,7 @@ struct SigMap
 	typedef std::pair<RTLIL::Wire*,int> bitDef_t;
 
 	struct shared_bit_data_t {
-		RTLIL::SigChunk chunk;
+		RTLIL::SigBit map_to;
 		std::set<bitDef_t> bits;
 	};
 
@@ -304,7 +304,7 @@ struct SigMap
 		clear();
 		for (auto &bit : other.bits) {
 			bits[bit.first] = new shared_bit_data_t;
-			bits[bit.first]->chunk = bit.second->chunk;
+			bits[bit.first]->map_to = bit.second->map_to;
 			bits[bit.first]->bits = bit.second->bits;
 		}
 	}
@@ -337,24 +337,22 @@ struct SigMap
 	}
 
 	// internal helper function
-	void register_bit(const RTLIL::SigChunk &c)
+	void register_bit(const RTLIL::SigBit &b)
 	{
-		assert(c.width == 1);
-		bitDef_t bit(c.wire, c.offset);
-		if (c.wire && bits.count(bit) == 0) {
+		bitDef_t bit(b.wire, b.offset);
+		if (b.wire && bits.count(bit) == 0) {
 			shared_bit_data_t *bd = new shared_bit_data_t;
-			bd->chunk = c;
+			bd->map_to = b;
 			bd->bits.insert(bit);
 			bits[bit] = bd;
 		}
 	}
 
 	// internal helper function
-	void unregister_bit(const RTLIL::SigChunk &c)
+	void unregister_bit(const RTLIL::SigBit &b)
 	{
-		assert(c.width == 1);
-		bitDef_t bit(c.wire, c.offset);
-		if (c.wire && bits.count(bit) > 0) {
+		bitDef_t bit(b.wire, b.offset);
+		if (b.wire && bits.count(bit) > 0) {
 			shared_bit_data_t *bd = bits[bit];
 			bd->bits.erase(bit);
 			if (bd->bits.size() == 0)
@@ -364,13 +362,12 @@ struct SigMap
 	}
 
 	// internal helper function
-	void merge_bit(const RTLIL::SigChunk &c1, const RTLIL::SigChunk &c2)
+	void merge_bit(const RTLIL::SigBit &bit1, const RTLIL::SigBit &bit2)
 	{
-		assert(c1.wire != NULL && c2.wire != NULL);
-		assert(c1.width == 1 && c2.width == 1);
+		assert(bit1.wire != NULL && bit2.wire != NULL);
 
-		bitDef_t b1(c1.wire, c1.offset);
-		bitDef_t b2(c2.wire, c2.offset);
+		bitDef_t b1(bit1.wire, bit1.offset);
+		bitDef_t b2(bit2.wire, bit2.offset);
 
 		shared_bit_data_t *bd1 = bits[b1];
 		shared_bit_data_t *bd2 = bits[b2];
@@ -388,7 +385,7 @@ struct SigMap
 		}
 		else
 		{
-			bd1->chunk = bd2->chunk;
+			bd1->map_to = bd2->map_to;
 			for (auto &bit : bd2->bits)
 				bits[bit] = bd1;
 			bd1->bits.insert(bd2->bits.begin(), bd2->bits.end());
@@ -397,74 +394,62 @@ struct SigMap
 	}
 
 	// internal helper function
-	void set_bit(const RTLIL::SigChunk &c1, const RTLIL::SigChunk &c2)
+	void set_bit(const RTLIL::SigBit &b1, const RTLIL::SigBit &b2)
 	{
-		assert(c1.wire != NULL);
-		assert(c1.width == 1 && c2.width == 1);
-		bitDef_t bit(c1.wire, c1.offset);
+		assert(b1.wire != NULL);
+		bitDef_t bit(b1.wire, b1.offset);
 		assert(bits.count(bit) > 0);
-		bits[bit]->chunk = c2;
+		bits[bit]->map_to = b2;
 	}
 
 	// internal helper function
-	void map_bit(RTLIL::SigChunk &c) const
+	void map_bit(RTLIL::SigBit &b) const
 	{
-		assert(c.width == 1);
-		bitDef_t bit(c.wire, c.offset);
-		if (c.wire && bits.count(bit) > 0)
-			c = bits.at(bit)->chunk;
+		bitDef_t bit(b.wire, b.offset);
+		if (b.wire && bits.count(bit) > 0)
+			b = bits.at(bit)->map_to;
 	}
 
 	void add(RTLIL::SigSpec from, RTLIL::SigSpec to)
 	{
-		from.expand();
-		to.expand();
+		assert(SIZE(from) == SIZE(to));
 
-		assert(from.chunks().size() == to.chunks().size());
-		for (size_t i = 0; i < from.chunks().size(); i++)
+		for (int i = 0; i < SIZE(from); i++)
 		{
-			const RTLIL::SigChunk &cf = from.chunks()[i];
-			const RTLIL::SigChunk &ct = to.chunks()[i];
+			RTLIL::SigBit &bf = from[i];
+			RTLIL::SigBit &bt = to[i];
 
-			if (cf.wire == NULL)
+			if (bf.wire == NULL)
 				continue;
 
-			register_bit(cf);
-			register_bit(ct);
+			register_bit(bf);
+			register_bit(bt);
 
-			if (ct.wire != NULL)
-				merge_bit(cf, ct);
+			if (bt.wire != NULL)
+				merge_bit(bf, bt);
 			else
-				set_bit(cf, ct);
+				set_bit(bf, bt);
 		}
 	}
 
 	void add(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (size_t i = 0; i < sig.chunks().size(); i++)
-		{
-			const RTLIL::SigChunk &c = sig.chunks()[i];
-			if (c.wire != NULL) {
-				register_bit(c);
-				set_bit(c, c);
-			}
+		for (auto &bit : sig) {
+			register_bit(bit);
+			set_bit(bit, bit);
 		}
 	}
 
 	void del(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks())
-			unregister_bit(c);
+		for (auto &bit : sig)
+			unregister_bit(bit);
 	}
 
 	void apply(RTLIL::SigSpec &sig) const
 	{
-		sig.expand();
-		for (auto &c : sig.chunks_rw())
-			map_bit(c);
-		sig.optimize();
+		for (auto &bit : sig)
+			map_bit(bit);
 	}
 
 	RTLIL::SigSpec operator()(RTLIL::SigSpec sig) const

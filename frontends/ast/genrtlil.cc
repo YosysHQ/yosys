@@ -309,9 +309,11 @@ struct AST_INTERNAL::ProcessGenerator
 	RTLIL::SigSpec new_temp_signal(RTLIL::SigSpec sig)
 	{
 		sig.optimize();
-		for (size_t i = 0; i < sig.chunks().size(); i++)
+		std::vector<RTLIL::SigChunk> chunks = sig.chunks();
+
+		for (int i = 0; i < SIZE(chunks); i++)
 		{
-			RTLIL::SigChunk &chunk = sig.chunks_rw()[i];
+			RTLIL::SigChunk &chunk = chunks[i];
 			if (chunk.wire == NULL)
 				continue;
 
@@ -329,7 +331,8 @@ struct AST_INTERNAL::ProcessGenerator
 			chunk.wire = wire;
 			chunk.offset = 0;
 		}
-		return sig;
+
+		return chunks;
 	}
 
 	// recursively traverse the AST an collect all assigned signals
