@@ -1808,6 +1808,7 @@ RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 
 void RTLIL::SigSpec::check() const
 {
+#ifndef NDEBUG
 	if (packed())
 	{
 		int w = 0;
@@ -1836,6 +1837,7 @@ void RTLIL::SigSpec::check() const
 		assert(width_ == SIZE(bits_));
 		assert(chunks_.empty());
 	}
+#endif
 }
 
 bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
