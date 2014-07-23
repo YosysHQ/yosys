@@ -1316,10 +1316,10 @@ RTLIL::SigChunk::SigChunk()
 	offset = 0;
 }
 
-RTLIL::SigChunk::SigChunk(const RTLIL::Const &data)
+RTLIL::SigChunk::SigChunk(const RTLIL::Const &value)
 {
 	wire = NULL;
-	this->data = data;
+	data = value;
 	width = data.bits.size();
 	offset = 0;
 }
@@ -1418,9 +1418,9 @@ RTLIL::SigSpec::SigSpec()
 	width_ = 0;
 }
 
-RTLIL::SigSpec::SigSpec(const RTLIL::Const &data)
+RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 {
-	chunks_.push_back(RTLIL::SigChunk(data));
+	chunks_.push_back(RTLIL::SigChunk(value));
 	width_ = chunks_.back().width;
 	check();
 }
