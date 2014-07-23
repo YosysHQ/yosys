@@ -1,0 +1,33 @@
+
+Notes on buildin yosys with verific support on amd64 when you only have the
+i386 eval version of Verific:
+
+
+1.) Use a Makefile.conf like the following one:
+
+--snip--
+CONFIG := clang-debug
+ENABLE_TCL := 0
+ENABLE_QT4 := 0
+ENABLE_ABC := 0
+ENABLE_VERIFIC := 1
+CXXFLAGS += -m32
+LDFLAGS += -m32
+--snap--
+
+
+2.) Install the neccessary multilib packages.
+
+Hint: On debian/ubuntu the multilib packages have names such as
+libreadline-dev:amd64 or lib32readline6-dev, depending on the version
+of the system you are working with.
+
+Hint: On Ubuntu 14.04 there is a problem with the 32bit libz
+package. A workaround is running the following command in the
+yosys source directory:
+
+    ln -s /usr/include/x86_64-linux-gnu/zconf.h .
+
+
+3.) Run 'make' and 'make install' as usual.
+
