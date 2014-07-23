@@ -1291,8 +1291,10 @@ RTLIL::Memory::Memory()
 
 void RTLIL::Cell::check()
 {
+#ifndef NDEBUG
 	InternalCellChecker checker(NULL, this);
 	checker.check();
+#endif
 }
 
 RTLIL::SigChunk::SigChunk()
