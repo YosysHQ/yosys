@@ -2259,7 +2259,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 					log_error("Non-constant range in %s:%d (called from %s:%d).\n",
 							range->filename.c_str(), range->linenum, fcall->filename.c_str(), fcall->linenum);
 				int offset = std::min(range->range_left, range->range_right);
-				int width = std::min(std::abs(range->range_left - range->range_right) + 1, width);
+				int width = std::abs(range->range_left - range->range_right) + 1;
 				varinfo_t &v = variables[stmt->children.at(0)->str];
 				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.bits.size());
 				for (int i = 0; i < width; i++)
