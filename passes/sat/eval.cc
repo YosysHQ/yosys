@@ -260,8 +260,8 @@ struct VlogHammerReporter
 				for (int i = 0; i < int(inputs.size()); i++) {
 					RTLIL::Wire *wire = module->wires.at(inputs[i]);
 					for (int j = input_widths[i]-1; j >= 0; j--) {
-						ce.set(RTLIL::SigSpec(wire, 1, j), bits.back());
-						recorded_set_vars.append(RTLIL::SigSpec(wire, 1, j));
+						ce.set(RTLIL::SigSpec(wire, j), bits.back());
+						recorded_set_vars.append(RTLIL::SigSpec(wire, j));
 						recorded_set_vals.bits.push_back(bits.back());
 						bits.pop_back();
 					}

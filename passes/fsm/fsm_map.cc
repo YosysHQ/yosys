@@ -30,7 +30,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 	RTLIL::SigSpec cases_vector;
 
 	for (int in_state : fullstate_cache)
-		cases_vector.append(RTLIL::SigSpec(state_onehot, 1, in_state));
+		cases_vector.append(RTLIL::SigSpec(state_onehot, in_state));
 
 	for (auto &it : pattern_cache)
 	{
@@ -47,7 +47,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 
 		for (int in_state : it.second)
 			if (fullstate_cache.count(in_state) == 0)
-				or_sig.append(RTLIL::SigSpec(state_onehot, 1, in_state));
+				or_sig.append(RTLIL::SigSpec(state_onehot, in_state));
 		or_sig.optimize();
 
 		if (or_sig.size() == 0)
@@ -215,7 +215,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 		for (size_t j = 0; j < state.bits.size(); j++)
 			if (state.bits[j] == RTLIL::State::S0 || state.bits[j] == RTLIL::State::S1) {
-				sig_a.append(RTLIL::SigSpec(state_wire, 1, j));
+				sig_a.append(RTLIL::SigSpec(state_wire, j));
 				sig_b.append(RTLIL::SigSpec(state.bits[j]));
 			}
 		sig_a.optimize();
@@ -223,7 +223,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 		if (sig_b == RTLIL::SigSpec(RTLIL::State::S1))
 		{
-			module->connections.push_back(RTLIL::SigSig(RTLIL::SigSpec(state_onehot, 1, i), sig_a));
+			module->connections.push_back(RTLIL::SigSig(RTLIL::SigSpec(state_onehot, i), sig_a));
 		}
 		else
 		{
@@ -234,7 +234,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 			eq_cell->type = "$eq";
 			eq_cell->connections["\\A"] = sig_a;
 			eq_cell->connections["\\B"] = sig_b;
-			eq_cell->connections["\\Y"] = RTLIL::SigSpec(state_onehot, 1, i);
+			eq_cell->connections["\\Y"] = RTLIL::SigSpec(state_onehot, i);
 			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(false);
 			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(false);
 			eq_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig_a.size());
@@ -266,7 +266,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				fullstate_cache.erase(tr.state_in);
 		}
 
-		implement_pattern_cache(module, pattern_cache, fullstate_cache, fsm_data.state_table.size(), state_onehot, ctrl_in, RTLIL::SigSpec(next_state_onehot, 1, i));
+		implement_pattern_cache(module, pattern_cache, fullstate_cache, fsm_data.state_table.size(), state_onehot, ctrl_in, RTLIL::SigSpec(next_state_onehot, i));
 	}
 
 	if (encoding_is_onehot)
@@ -279,7 +279,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				if (state.bits[j] == RTLIL::State::S1)
 					bit_idx = j;
 			if (bit_idx >= 0)
-				next_state_sig.replace(bit_idx, RTLIL::SigSpec(next_state_onehot, 1, i));
+				next_state_sig.replace(bit_idx, RTLIL::SigSpec(next_state_onehot, i));
 		}
 		log_assert(!next_state_sig.has_marked_bits());
 		module->connections.push_back(RTLIL::SigSig(next_state_wire, next_state_sig));
@@ -297,7 +297,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				sig_a = RTLIL::SigSpec(state);
 			} else {
 				sig_b.append(RTLIL::SigSpec(state));
-				sig_s.append(RTLIL::SigSpec(next_state_onehot, 1, i));
+				sig_s.append(RTLIL::SigSpec(next_state_onehot, i));
 			}
 		}
 

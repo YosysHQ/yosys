@@ -292,8 +292,8 @@ struct ShareWorker
 			supercell->connections["\\Y"] = y;
 			module->add(supercell);
 
-			RTLIL::SigSpec new_y1(y, y1.size());
-			RTLIL::SigSpec new_y2(y, y2.size());
+			RTLIL::SigSpec new_y1(y, 0, y1.size());
+			RTLIL::SigSpec new_y2(y, 0, y2.size());
 
 			module->connections.push_back(RTLIL::SigSig(y1, new_y1));
 			module->connections.push_back(RTLIL::SigSig(y2, new_y2));
@@ -405,8 +405,8 @@ struct ShareWorker
 			supercell->connections["\\Y"] = y;
 			supercell->check();
 
-			RTLIL::SigSpec new_y1(y, y1.size());
-			RTLIL::SigSpec new_y2(y, y2.size());
+			RTLIL::SigSpec new_y1(y, 0, y1.size());
+			RTLIL::SigSpec new_y2(y, 0, y2.size());
 
 			module->connections.push_back(RTLIL::SigSig(y1, new_y1));
 			module->connections.push_back(RTLIL::SigSig(y2, new_y2));
@@ -620,7 +620,7 @@ struct ShareWorker
 		RTLIL::Wire *all_cases_wire = module->addWire(NEW_ID, 0);
 		for (auto &p : activation_patterns) {
 			all_cases_wire->width++;
-			module->addEq(NEW_ID, p.first, p.second, RTLIL::SigSpec(all_cases_wire, 1, all_cases_wire->width - 1));
+			module->addEq(NEW_ID, p.first, p.second, RTLIL::SigSpec(all_cases_wire, all_cases_wire->width - 1));
 		}
 		if (all_cases_wire->width == 1)
 			return all_cases_wire;

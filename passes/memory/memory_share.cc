@@ -613,7 +613,7 @@ struct MemoryShareWorker
 					groups_en[key] = grouped_en->width;
 					grouped_en->width++;
 				}
-				en.append(RTLIL::SigSpec(grouped_en, 1, groups_en[key]));
+				en.append(RTLIL::SigSpec(grouped_en, groups_en[key]));
 			}
 
 			module->addMux(NEW_ID, grouped_last_en, grouped_this_en, this_en_active, grouped_en);

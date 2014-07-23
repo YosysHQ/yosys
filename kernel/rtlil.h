@@ -462,7 +462,8 @@ struct RTLIL::SigChunk {
 	int width, offset;
 	SigChunk();
 	SigChunk(const RTLIL::Const &value);
-	SigChunk(RTLIL::Wire *wire, int width, int offset);
+	SigChunk(RTLIL::Wire *wire);
+	SigChunk(RTLIL::Wire *wire, int offset, int width = 1);
 	SigChunk(const std::string &str);
 	SigChunk(int val, int width = 32);
 	SigChunk(RTLIL::State bit, int width = 1);
@@ -522,7 +523,8 @@ public:
 	SigSpec();
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(const RTLIL::SigChunk &chunk);
-	SigSpec(RTLIL::Wire *wire, int width = -1, int offset = 0);
+	SigSpec(RTLIL::Wire *wire);
+	SigSpec(RTLIL::Wire *wire, int offset, int width = 1);
 	SigSpec(const std::string &str);
 	SigSpec(int val, int width = 32);
 	SigSpec(RTLIL::State bit, int width = 1);
