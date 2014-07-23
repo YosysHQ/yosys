@@ -3,6 +3,7 @@
 .*.swp
 /.cproject
 /.project
+/.settings
 /qtcreator.files
 /qtcreator.includes
 /qtcreator.config
