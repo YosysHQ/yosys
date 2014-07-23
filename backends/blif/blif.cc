@@ -70,7 +70,6 @@ struct BlifDumper
 
 	const char *cstr(RTLIL::SigSpec sig)
 	{
-		sig.optimize();
 		log_assert(sig.size() == 1);
 
 		if (sig.chunks().at(0).wire == NULL)

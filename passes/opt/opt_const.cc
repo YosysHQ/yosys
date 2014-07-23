@@ -481,8 +481,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			}
 
 			if (new_a.size() < a.size() || new_b.size() < b.size()) {
-				new_a.optimize();
-				new_b.optimize();
 				cell->connections["\\A"] = new_a;
 				cell->connections["\\B"] = new_b;
 				cell->parameters["\\A_WIDTH"] = new_a.size();

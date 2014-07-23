@@ -349,7 +349,7 @@ struct PerformReduction
 			std::vector<RTLIL::SigBit> bucket_sigbits;
 			for (int idx : bucket)
 				bucket_sigbits.push_back(out_bits[idx]);
-			log("%s  Trying to shatter bucket with %d signals: %s\n", indt, int(bucket.size()), log_signal(RTLIL::SigSpec(bucket_sigbits).optimized()));
+			log("%s  Trying to shatter bucket with %d signals: %s\n", indt, int(bucket.size()), log_signal(bucket_sigbits));
 		}
 
 		std::vector<int> sat_set_list, sat_clr_list;
@@ -494,7 +494,7 @@ struct PerformReduction
 				std::vector<RTLIL::SigBit> r_sigbits;
 				for (int idx : r)
 					r_sigbits.push_back(out_bits[idx]);
-				log("  Found group of %d equivialent signals: %s\n", int(r.size()), log_signal(RTLIL::SigSpec(r_sigbits).optimized()));
+				log("  Found group of %d equivialent signals: %s\n", int(r.size()), log_signal(r_sigbits));
 			}
 
 			std::vector<int> undef_slaves;
@@ -640,7 +640,7 @@ struct FreduceWorker
 
 		found_selected_wire:
 			log("  Finding reduced input cone for signal batch %s%c\n",
-					log_signal(RTLIL::SigSpec(std::vector<RTLIL::SigBit>(batch.begin(), batch.end())).optimized()), verbose_level ? ':' : '.');
+					log_signal(batch), verbose_level ? ':' : '.');
 
 			FindReducedInputs infinder(sigmap, drivers);
 			for (auto &bit : batch) {
@@ -663,12 +663,12 @@ struct FreduceWorker
 				continue;
 
 			if (bucket.first.size() == 0) {
-				log("  Finding const values for bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				log("  Finding const values for bucket %s%c\n", log_signal(bucket.second), verbose_level ? ':' : '.');
 				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
 				for (size_t idx = 0; idx < bucket.second.size(); idx++)
 					worker.analyze_const(equiv, idx);
 			} else {
-				log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				log("  Trying to shatter bucket %s%c\n", log_signal(bucket.second), verbose_level ? ':' : '.');
 				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
 				worker.analyze(equiv, 100 * bucket_count / (buckets.size() + 1));
 			}

@@ -69,7 +69,6 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 	replaced_this_bit:;
 	}
 
-	sig.optimize();
 	return true;
 }
 

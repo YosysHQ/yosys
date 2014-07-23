@@ -114,10 +114,6 @@ struct SatHelper
 				}
 			}
 
-			lhs.optimize();
-			rhs.optimize();
-			removed_bits.optimize();
-
 			if (removed_bits.size())
 				log("Warning: ignoring initial value on non-register: %s\n", log_signal(removed_bits));
 
@@ -152,7 +148,6 @@ struct SatHelper
 
 		if (!satgen.initial_state.check_all(big_lhs)) {
 			RTLIL::SigSpec rem = satgen.initial_state.remove(big_lhs);
-			rem.optimize();
 			log_cmd_error("Found -set-init bits that are not part of the initial_state: %s\n", log_signal(rem));
 		}
 

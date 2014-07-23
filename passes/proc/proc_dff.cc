@@ -352,10 +352,6 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		ce.assign_map.apply(rstval);
 		ce.assign_map.apply(sig);
 
-		insig.optimize();
-		rstval.optimize();
-		sig.optimize();
-
 		if (rstval == sig) {
 			rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
 			sync_level = NULL;

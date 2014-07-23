@@ -28,8 +28,6 @@
 
 static std::string netname(std::set<std::string> &conntypes_code, std::set<std::string> &celltypes_code, std::set<std::string> &constcells_code, RTLIL::SigSpec sig)
 {
-	sig.optimize();
-
 	if (sig.chunks().size() != 1)
 error:
 		log_error("Can't export composite or non-word-wide signal %s.\n", log_signal(sig));

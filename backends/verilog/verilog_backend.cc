@@ -133,7 +133,6 @@ std::string id(std::string internal_id, bool may_rename = true)
 
 bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 {
-	sig.optimize();
 	if (sig.chunks().size() != 1 || sig.chunks()[0].wire == NULL)
 		return false;
 	if (reg_wires.count(sig.chunks()[0].wire->name) == 0)
@@ -303,7 +302,6 @@ std::string cellname(RTLIL::Cell *cell)
 		if (sig.size() != 1 || sig.is_fully_const())
 			goto no_special_reg_name;
 
-		sig.optimize();
 		RTLIL::Wire *wire = sig.chunks()[0].wire;
 
 		if (wire->name[0] != '\\')
@@ -909,7 +907,6 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 				continue;
 
 			RTLIL::SigSpec sig = cell->connections["\\Q"];
-			sig.optimize();
 
 			if (sig.chunks().size() == 1 && sig.chunks()[0].wire)
 				for (int i = 0; i < sig.chunks()[0].width; i++)

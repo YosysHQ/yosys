@@ -439,8 +439,6 @@ struct MemoryShareWorker
 							merged_en.replace(k, cell_en.extract(k, 1));
 							merged_data.replace(k, cell_data.extract(k, 1));
 						}
-					merged_en.optimize();
-					merged_data.optimize();
 				}
 
 				// Connect the new EN and DATA signals and remove the old write port.

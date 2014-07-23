@@ -450,7 +450,6 @@ struct RTLIL::Cell {
 	std::map<RTLIL::IdString, RTLIL::SigSpec> connections;
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
 	RTLIL_ATTRIBUTE_MEMBERS
-	void optimize();
 	void check();
 
 	template<typename T> void rewrite_sigspecs(T functor);
@@ -544,9 +543,6 @@ public:
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
 	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
 
-	void optimize();
-	RTLIL::SigSpec optimized() const;
-
 	void sort();
 	void sort_and_unify();
 
@@ -624,7 +620,6 @@ struct RTLIL::SwitchRule {
 	RTLIL_ATTRIBUTE_MEMBERS
 	std::vector<RTLIL::CaseRule*> cases;
 	~SwitchRule();
-	void optimize();
 
 	template<typename T> void rewrite_sigspecs(T functor);
 	RTLIL::SwitchRule *clone() const;
@@ -634,7 +629,6 @@ struct RTLIL::SyncRule {
 	RTLIL::SyncType type;
 	RTLIL::SigSpec signal;
 	std::vector<RTLIL::SigSig> actions;
-	void optimize();
 
 	template<typename T> void rewrite_sigspecs(T functor);
 	RTLIL::SyncRule *clone() const;
@@ -646,7 +640,6 @@ struct RTLIL::Process {
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
 	~Process();
-	void optimize();
 
 	template<typename T> void rewrite_sigspecs(T functor);
 	RTLIL::Process *clone() const;

@@ -144,7 +144,6 @@ struct SetundefPass : public Pass {
 					RTLIL::SigSpec bits;
 					for (int i = 0; i < c.width; i++)
 						bits.append(worker.next_bit());
-					bits.optimize();
 					module->connections.push_back(RTLIL::SigSig(c, bits));
 				}
 			}

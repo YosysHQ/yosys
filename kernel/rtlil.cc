@@ -768,14 +768,6 @@ void RTLIL::Module::check()
 
 void RTLIL::Module::optimize()
 {
-	for (auto &it : cells)
-		it.second->optimize();
-	for (auto &it : processes)
-		it.second->optimize();
-	for (auto &it : connections) {
-		it.first.optimize();
-		it.second.optimize();
-	}
 }
 
 void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
@@ -1297,12 +1289,6 @@ RTLIL::Memory::Memory()
 	size = 0;
 }
 
-void RTLIL::Cell::optimize()
-{
-	for (auto &it : connections)
-		it.second.optimize();
-}
-
 void RTLIL::Cell::check()
 {
 	InternalCellChecker checker(NULL, this);
@@ -1548,40 +1534,6 @@ bool RTLIL::SigSpec::packed() const
 	return bits_.empty();
 }
 
-void RTLIL::SigSpec::optimize()
-{
-#if 0
-	pack();
-	std::vector<RTLIL::SigChunk> new_chunks;
-	for (auto &c : chunks_)
-		if (new_chunks.size() == 0) {
-			new_chunks.push_back(c);
-		} else {
-			RTLIL::SigChunk &cc = new_chunks.back();
-			if (c.wire == NULL && cc.wire == NULL)
-				cc.data.bits.insert(cc.data.bits.end(), c.data.bits.begin(), c.data.bits.end());
-			if (c.wire == cc.wire && (c.wire == NULL || cc.offset + cc.width == c.offset))
-				cc.width += c.width;
-			else
-				new_chunks.push_back(c);
-		}
-	chunks_.swap(new_chunks);
-	check();
-#endif
-}
-
-RTLIL::SigSpec RTLIL::SigSpec::optimized() const
-{
-#if 0
-	pack();
-	RTLIL::SigSpec ret = *this;
-	ret.optimize();
-	return ret;
-#else
-	return *this;
-#endif
-}
-
 void RTLIL::SigSpec::sort()
 {
 	unpack();
@@ -1825,8 +1777,6 @@ void RTLIL::SigSpec::extend(int width, bool is_signed)
 		while (width_ < width)
 			append(padding);
 	}
-
-	optimize();
 }
 
 void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
@@ -1844,7 +1794,6 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 			append(padding);
 	}
 
-	optimize();
 }
 
 void RTLIL::SigSpec::check() const
@@ -1888,8 +1837,6 @@ bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
 		return width_ < other.width_;
 
 	RTLIL::SigSpec a = *this, b = other;
-	a.optimize();
-	b.optimize();
 
 	if (a.chunks_.size() != b.chunks_.size())
 		return a.chunks_.size() < b.chunks_.size();
@@ -1910,8 +1857,6 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 		return false;
 
 	RTLIL::SigSpec a = *this, b = other;
-	a.optimize();
-	b.optimize();
 
 	if (a.chunks_.size() != b.chunks_.size())
 		return false;
@@ -1973,22 +1918,18 @@ bool RTLIL::SigSpec::has_marked_bits() const
 bool RTLIL::SigSpec::as_bool() const
 {
 	pack();
-	assert(is_fully_const());
-	SigSpec sig = *this;
-	sig.optimize();
-	if (sig.width_)
-		return sig.chunks_[0].data.as_bool();
+	assert(is_fully_const() && SIZE(chunks_) <= 1);
+	if (width_)
+		return chunks_[0].data.as_bool();
 	return false;
 }
 
 int RTLIL::SigSpec::as_int() const
 {
 	pack();
-	assert(is_fully_const());
-	SigSpec sig = *this;
-	sig.optimize();
-	if (sig.width_)
-		return sig.chunks_[0].data.as_int();
+	assert(is_fully_const() && SIZE(chunks_) <= 1);
+	if (width_)
+		return chunks_[0].data.as_int();
 	return 0;
 }
 
@@ -2010,11 +1951,9 @@ std::string RTLIL::SigSpec::as_string() const
 RTLIL::Const RTLIL::SigSpec::as_const() const
 {
 	pack();
-	assert(is_fully_const());
-	SigSpec sig = *this;
-	sig.optimize();
-	if (sig.width_)
-		return sig.chunks_[0].data;
+	assert(is_fully_const() && SIZE(chunks_) <= 1);
+	if (width_)
+		return chunks_[0].data;
 	return RTLIL::Const();
 }
 
@@ -2200,18 +2139,6 @@ RTLIL::CaseRule::~CaseRule()
 		delete *it;
 }
 
-void RTLIL::CaseRule::optimize()
-{
-	for (auto it : switches)
-		it->optimize();
-	for (auto &it : compare)
-		it.optimize();
-	for (auto &it : actions) {
-		it.first.optimize();
-		it.second.optimize();
-	}
-}
-
 RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 {
 	RTLIL::CaseRule *new_caserule = new RTLIL::CaseRule;
@@ -2228,13 +2155,6 @@ RTLIL::SwitchRule::~SwitchRule()
 		delete *it;
 }
 
-void RTLIL::SwitchRule::optimize()
-{
-	signal.optimize();
-	for (auto it : cases)
-		it->optimize();
-}
-
 RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
 {
 	RTLIL::SwitchRule *new_switchrule = new RTLIL::SwitchRule;
@@ -2244,15 +2164,6 @@ RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
 		new_switchrule->cases.push_back(it->clone());
 	return new_switchrule;
 	
-}
-
-void RTLIL::SyncRule::optimize()
-{
-	signal.optimize();
-	for (auto &it : actions) {
-		it.first.optimize();
-		it.second.optimize();
-	}
 }
 
 RTLIL::SyncRule *RTLIL::SyncRule::clone() const
@@ -2268,13 +2179,6 @@ RTLIL::Process::~Process()
 {
 	for (auto it = syncs.begin(); it != syncs.end(); it++)
 		delete *it;
-}
-
-void RTLIL::Process::optimize()
-{
-	root_case.optimize();
-	for (auto it : syncs)
-		it->optimize();
 }
 
 RTLIL::Process *RTLIL::Process::clone() const

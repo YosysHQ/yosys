@@ -171,8 +171,6 @@ struct ShowWorker
 
 	std::string gen_signode_simple(RTLIL::SigSpec sig, bool range_check = true)
 	{
-		sig.optimize();
-
 		if (sig.chunks().size() == 0) {
 			fprintf(f, "v%d [ label=\"\" ];\n", single_idx_count);
 			return stringf("v%d", single_idx_count++);
@@ -199,7 +197,6 @@ struct ShowWorker
 		if (net.empty())
 		{
 			std::string label_string;
-			sig.optimize();
 			int pos = sig.size()-1;
 			int idx = single_idx_count++;
 			for (int i = int(sig.chunks().size())-1; i >= 0; i--) {

@@ -241,8 +241,6 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 						new_conn.second.append_bit(s2[i]);
 					}
 				if (new_conn.first.size() > 0) {
-					new_conn.first.optimize();
-					new_conn.second.optimize();
 					used_signals.add(new_conn.first);
 					used_signals.add(new_conn.second);
 					module->connections.push_back(new_conn);

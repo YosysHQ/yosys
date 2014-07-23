@@ -28,7 +28,6 @@ static void proc_get_const(RTLIL::SigSpec &sig, RTLIL::CaseRule &rule)
 	assert(rule.compare.size() == 0);
 
 	while (1) {
-		sig.optimize();
 		RTLIL::SigSpec tmp = sig;
 		for (auto &it : rule.actions)
 			tmp.replace(it.first, it.second);
@@ -53,7 +52,6 @@ static void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 				RTLIL::SigSpec lhs = action.first;
 				RTLIL::SigSpec rhs = action.second;
 
-				lhs.optimize();
 				proc_get_const(rhs, proc->root_case);
 
 				if (!rhs.is_fully_const())

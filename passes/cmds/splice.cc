@@ -82,7 +82,6 @@ struct SpliceWorker
 			module->add(cell);
 		}
 
-		new_sig.optimize();
 		sliced_signals_cache[sig] = new_sig;
 
 		return new_sig;
@@ -143,7 +142,6 @@ struct SpliceWorker
 			module->add(cell);
 		}
 
-		new_sig.optimize();
 		spliced_signals_cache[sig] = new_sig;
 
 		log("  Created spliced signal: %s -> %s\n", log_signal(sig), log_signal(new_sig));

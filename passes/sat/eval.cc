@@ -53,8 +53,6 @@ struct BruteForceEquivChecker
 			return;
 		}
 
-		inputs.optimize();
-
 		ConstEval ce1(mod1), ce2(mod2);
 		ce1.set(mod1_inputs, inputs.as_const());
 		ce2.set(mod2_inputs, inputs.as_const());
@@ -482,7 +480,6 @@ struct EvalPass : public Pass {
 				RTLIL::SigSpec signal, value, undef;
 				if (!RTLIL::SigSpec::parse_sel(signal, design, module, it))
 					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
-				signal.optimize();
 				value = signal;
 				if (set_undef) {
 					while (!ce.eval(value, undef)) {

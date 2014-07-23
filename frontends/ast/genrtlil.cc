@@ -292,8 +292,6 @@ struct AST_INTERNAL::ProcessGenerator
 			proc->syncs.push_back(sync);
 
 			assert(init_lvalue.size() == init_rvalue.size());
-			init_lvalue.optimize();
-			init_rvalue.optimize();
 
 			int offset = 0;
 			for (size_t i = 0; i < init_lvalue.chunks().size(); i++) {
@@ -308,7 +306,6 @@ struct AST_INTERNAL::ProcessGenerator
 	// create new temporary signals
 	RTLIL::SigSpec new_temp_signal(RTLIL::SigSpec sig)
 	{
-		sig.optimize();
 		std::vector<RTLIL::SigChunk> chunks = sig.chunks();
 
 		for (int i = 0; i < SIZE(chunks); i++)
@@ -399,8 +396,6 @@ struct AST_INTERNAL::ProcessGenerator
 			lvalue.remove2(initSyncSignals, &rvalue);
 		}
 		assert(lvalue.size() == rvalue.size());
-		lvalue.optimize();
-		rvalue.optimize();
 
 		int offset = 0;
 		for (size_t i = 0; i < lvalue.chunks().size(); i++) {
@@ -433,9 +428,7 @@ struct AST_INTERNAL::ProcessGenerator
 				if (ast->type == AST_ASSIGN_EQ) {
 					subst_rvalue_from.remove2(unmapped_lvalue, &subst_rvalue_to);
 					subst_rvalue_from.append(unmapped_lvalue);
-					subst_rvalue_from.optimize();
 					subst_rvalue_to.append(rvalue);
-					subst_rvalue_to.optimize();
 				}
 
 				removeSignalFromCaseTree(lvalue, current_case);
@@ -486,9 +479,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 					subst_lvalue_from.remove2(this_case_eq_lvalue, &subst_lvalue_to);
 					subst_lvalue_from.append(this_case_eq_lvalue);
-					subst_lvalue_from.optimize();
 					subst_lvalue_to.append(this_case_eq_ltemp);
-					subst_lvalue_to.optimize();
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
@@ -527,9 +518,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				subst_rvalue_from.remove2(this_case_eq_lvalue, &subst_rvalue_to);
 				subst_rvalue_from.append(this_case_eq_lvalue);
-				subst_rvalue_from.optimize();
 				subst_rvalue_to.append(this_case_eq_ltemp);
-				subst_rvalue_to.optimize();
 
 				this_case_eq_lvalue.replace(subst_lvalue_from, subst_lvalue_to);
 				removeSignalFromCaseTree(this_case_eq_lvalue, current_case);

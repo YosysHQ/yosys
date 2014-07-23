@@ -212,9 +212,6 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 					goto continue_without_read;
 				}
 
-				input_sig.optimize();
-				output_sig.optimize();
-
 				RTLIL::Cell *cell = new RTLIL::Cell;
 				cell->name = NEW_ID;
 				cell->type = "$lut";

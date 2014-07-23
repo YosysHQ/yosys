@@ -42,13 +42,10 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 				eq_sig_a.append(ctrl_in.extract(j, 1));
 				eq_sig_b.append(RTLIL::SigSpec(pattern.bits[j]));
 			}
-		eq_sig_a.optimize();
-		eq_sig_b.optimize();
 
 		for (int in_state : it.second)
 			if (fullstate_cache.count(in_state) == 0)
 				or_sig.append(RTLIL::SigSpec(state_onehot, in_state));
-		or_sig.optimize();
 
 		if (or_sig.size() == 0)
 			continue;
@@ -218,8 +215,6 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				sig_a.append(RTLIL::SigSpec(state_wire, j));
 				sig_b.append(RTLIL::SigSpec(state.bits[j]));
 			}
-		sig_a.optimize();
-		sig_b.optimize();
 
 		if (sig_b == RTLIL::SigSpec(RTLIL::State::S1))
 		{

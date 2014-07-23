@@ -139,9 +139,6 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	mem->parameters["\\SIZE"] = RTLIL::Const(memory->size);
 	mem->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
 
-	sig_wr_clk_enable.optimize();
-	sig_wr_clk_polarity.optimize();
-
 	assert(sig_wr_clk.size() == wr_ports);
 	assert(sig_wr_clk_enable.size() == wr_ports && sig_wr_clk_enable.is_fully_const());
 	assert(sig_wr_clk_polarity.size() == wr_ports && sig_wr_clk_polarity.is_fully_const());
@@ -157,10 +154,6 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	mem->connections["\\WR_ADDR"] = sig_wr_addr;
 	mem->connections["\\WR_DATA"] = sig_wr_data;
 	mem->connections["\\WR_EN"] = sig_wr_en;
-
-	sig_rd_clk_enable.optimize();
-	sig_rd_clk_polarity.optimize();
-	sig_rd_transparent.optimize();
 
 	assert(sig_rd_clk.size() == rd_ports);
 	assert(sig_rd_clk_enable.size() == rd_ports && sig_rd_clk_enable.is_fully_const());

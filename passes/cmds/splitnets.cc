@@ -141,7 +141,7 @@ struct SplitnetsPass : public Pass {
 					if (!ct.cell_output(c.second->type, p.first))
 						continue;
 
-					RTLIL::SigSpec sig = p.second.optimized();
+					RTLIL::SigSpec sig = p.second;
 					for (auto &chunk : sig.chunks()) {
 						if (chunk.wire == NULL)
 							continue;

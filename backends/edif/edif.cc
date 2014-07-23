@@ -315,7 +315,6 @@ struct EdifBackend : public Backend {
 			}
 			for (auto &it : net_join_db) {
 				RTLIL::SigSpec sig = it.first;
-				sig.optimize();
 				log_assert(sig.size() == 1);
 				if (sig.chunks().at(0).wire == NULL) {
 					if (sig.chunks().at(0).data.bits.at(0) != RTLIL::State::S0 && sig.chunks().at(0).data.bits.at(0) != RTLIL::State::S1)
