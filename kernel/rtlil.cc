@@ -1796,6 +1796,14 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 
 }
 
+RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
+{
+	RTLIL::SigSpec sig;
+	for (int i = 0; i < num; i++)
+		sig.append(*this);
+	return sig;
+}
+
 void RTLIL::SigSpec::check() const
 {
 	if (packed())

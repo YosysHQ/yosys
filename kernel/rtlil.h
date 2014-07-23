@@ -565,6 +565,8 @@ public:
 	void extend(int width, bool is_signed = false);
 	void extend_u0(int width, bool is_signed = false);
 
+	RTLIL::SigSpec repeat(int num) const;
+
 	bool operator <(const RTLIL::SigSpec &other) const;
 	bool operator ==(const RTLIL::SigSpec &other) const;
 	inline bool operator !=(const RTLIL::SigSpec &other) const { return !(*this == other); }
