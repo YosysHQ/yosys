@@ -1550,6 +1550,7 @@ bool RTLIL::SigSpec::packed() const
 
 void RTLIL::SigSpec::optimize()
 {
+#if 0
 	pack();
 	std::vector<RTLIL::SigChunk> new_chunks;
 	for (auto &c : chunks_)
@@ -1566,14 +1567,19 @@ void RTLIL::SigSpec::optimize()
 		}
 	chunks_.swap(new_chunks);
 	check();
+#endif
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::optimized() const
 {
+#if 0
 	pack();
 	RTLIL::SigSpec ret = *this;
 	ret.optimize();
 	return ret;
+#else
+	return *this;
+#endif
 }
 
 void RTLIL::SigSpec::sort()
@@ -1741,15 +1747,40 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 
 void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 {
-	pack();
-	signal.pack();
+	if (signal.width_ == 0)
+		return;
 
-	for (size_t i = 0; i < signal.chunks_.size(); i++) {
-		chunks_.push_back(signal.chunks_[i]);
-		width_ += signal.chunks_[i].width;
+	if (width_ == 0) {
+		*this = signal;
+		return;
 	}
 
-	// check();
+	if (packed() != signal.packed()) {
+		pack();
+		signal.pack();
+	}
+
+	if (packed())
+		for (auto &other_c : signal.chunks_)
+		{
+			auto &my_last_c = chunks_.back();
+			if (my_last_c.wire == NULL && other_c.wire == NULL) {
+				auto &this_data = my_last_c.data.bits;
+				auto &other_data = other_c.data.bits;
+				this_data.insert(this_data.end(), other_data.begin(), other_data.end());
+				my_last_c.width += other_c.width;
+			} else
+			if (my_last_c.wire == other_c.wire && my_last_c.offset + my_last_c.width == other_c.offset) {
+				my_last_c.width += other_c.width;
+			} else
+				chunks_.push_back(other_c);
+		}
+	else
+		bits_.insert(bits_.end(), signal.bits_.begin(), signal.bits_.end());
+
+	width_ += signal.width_;
+
+	check();
 }
 
 void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
@@ -1776,7 +1807,7 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 
 	width_++;
 
-	// check();
+	check();
 }
 
 void RTLIL::SigSpec::extend(int width, bool is_signed)
@@ -1824,9 +1855,13 @@ void RTLIL::SigSpec::check() const
 		for (size_t i = 0; i < chunks_.size(); i++) {
 			const RTLIL::SigChunk chunk = chunks_[i];
 			if (chunk.wire == NULL) {
+				if (i > 0)
+					assert(chunks_[i-1].wire != NULL);
 				assert(chunk.offset == 0);
 				assert(chunk.data.bits.size() == (size_t)chunk.width);
 			} else {
+				if (i > 0 && chunks_[i-1].wire == chunk.wire)
+					assert(chunk.offset != chunks_[i-1].offset + chunks_[i-1].width);
 				assert(chunk.offset >= 0);
 				assert(chunk.width >= 0);
 				assert(chunk.offset + chunk.width <= chunk.wire->width);
