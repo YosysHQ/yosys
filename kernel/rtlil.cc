@@ -1324,11 +1324,27 @@ RTLIL::SigChunk::SigChunk(const RTLIL::Const &value)
 	offset = 0;
 }
 
+RTLIL::SigChunk::SigChunk(RTLIL::Wire *wire)
+{
+	this->wire = wire;
+	this->width = wire->width;
+	this->offset = 0;
+}
+
 RTLIL::SigChunk::SigChunk(RTLIL::Wire *wire, int width, int offset)
 {
 	this->wire = wire;
 	this->width = width >= 0 ? width : wire->width;
 	this->offset = offset;
+}
+
+RTLIL::SigChunk RTLIL::SigChunk::grml(RTLIL::Wire *wire, int offset, int width)
+{
+	RTLIL::SigChunk chunk;
+	chunk.wire = wire;
+	chunk.width = width;
+	chunk.offset = offset;
+	return chunk;
 }
 
 RTLIL::SigChunk::SigChunk(const std::string &str)
@@ -1432,11 +1448,27 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigChunk &chunk)
 	check();
 }
 
+RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
+{
+	chunks_.push_back(RTLIL::SigChunk(wire));
+	width_ = chunks_.back().width;
+	check();
+}
+
 RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int width, int offset)
 {
 	chunks_.push_back(RTLIL::SigChunk(wire, width, offset));
 	width_ = chunks_.back().width;
 	check();
+}
+
+RTLIL::SigSpec RTLIL::SigSpec::grml(RTLIL::Wire *wire, int offset, int width)
+{
+	RTLIL::SigSpec sig;
+	sig.chunks_.push_back(RTLIL::SigChunk::grml(wire, offset, width));
+	sig.width_ = sig.chunks_.back().width;
+	sig.check();
+	return sig;
 }
 
 RTLIL::SigSpec::SigSpec(const std::string &str)

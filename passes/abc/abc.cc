@@ -466,7 +466,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			clk_str = clk_str.substr(1);
 		}
 		if (module->wires.count(RTLIL::escape_id(clk_str)) != 0)
-			clk_sig = assign_map(RTLIL::SigSpec(module->wires.at(RTLIL::escape_id(clk_str)), 1));
+			clk_sig = assign_map(RTLIL::SigSpec(module->wires.at(RTLIL::escape_id(clk_str)), 1, 0));
 	}
 
 	if (dff_mode && clk_sig.size() == 0)

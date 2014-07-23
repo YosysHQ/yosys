@@ -292,8 +292,8 @@ struct ShareWorker
 			supercell->connections["\\Y"] = y;
 			module->add(supercell);
 
-			RTLIL::SigSpec new_y1(y, y1.size());
-			RTLIL::SigSpec new_y2(y, y2.size());
+			RTLIL::SigSpec new_y1(y, y1.size(), 0);
+			RTLIL::SigSpec new_y2(y, y2.size(), 0);
 
 			module->connections.push_back(RTLIL::SigSig(y1, new_y1));
 			module->connections.push_back(RTLIL::SigSig(y2, new_y2));
@@ -405,8 +405,8 @@ struct ShareWorker
 			supercell->connections["\\Y"] = y;
 			supercell->check();
 
-			RTLIL::SigSpec new_y1(y, y1.size());
-			RTLIL::SigSpec new_y2(y, y2.size());
+			RTLIL::SigSpec new_y1(y, y1.size(), 0);
+			RTLIL::SigSpec new_y2(y, y2.size(), 0);
 
 			module->connections.push_back(RTLIL::SigSig(y1, new_y1));
 			module->connections.push_back(RTLIL::SigSig(y2, new_y2));
