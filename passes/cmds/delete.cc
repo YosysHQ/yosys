@@ -27,12 +27,13 @@ struct DeleteWireWorker
 	std::set<std::string> *delete_wires_p;
 
 	void operator()(RTLIL::SigSpec &sig) {
-		sig.optimize();
-		for (auto &c : sig.chunks_rw())
+		std::vector<RTLIL::SigChunk> chunks = sig;
+		for (auto &c : chunks)
 			if (c.wire != NULL && delete_wires_p->count(c.wire->name)) {
 				c.wire = module->addWire(NEW_ID, c.width);
 				c.offset = 0;
 			}
+		sig = chunks;
 	}
 };
 

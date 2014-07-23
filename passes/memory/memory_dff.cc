@@ -32,13 +32,10 @@ static void normalize_sig(RTLIL::Module *module, RTLIL::SigSpec &sig)
 static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false)
 {
 	normalize_sig(module, sig);
-	sig.expand();
 
-	for (size_t i = 0; i < sig.chunks().size(); i++)
+	for (auto &bit : sig)
 	{
-		RTLIL::SigChunk &chunk = sig.chunks_rw()[i];
-
-		if (chunk.wire == NULL)
+		if (bit.wire == NULL)
 			continue;
 
 		for (auto &cell_it : module->cells)
@@ -58,12 +55,11 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 			RTLIL::SigSpec q_norm = cell->connections[after ? "\\D" : "\\Q"];
 			normalize_sig(module, q_norm);
 
-			RTLIL::SigSpec d = q_norm.extract(chunk, &cell->connections[after ? "\\Q" : "\\D"]);
+			RTLIL::SigSpec d = q_norm.extract(bit, &cell->connections[after ? "\\Q" : "\\D"]);
 			if (d.size() != 1)
 				continue;
 
-			assert(d.chunks().size() == 1);
-			chunk = d.chunks()[0];
+			bit = d;
 			clk = cell->connections["\\CLK"];
 			clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
 			goto replaced_this_bit;

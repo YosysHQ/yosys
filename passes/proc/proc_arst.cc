@@ -165,11 +165,9 @@ restart_proc_arst:
 				for (auto &action : sync->actions) {
 					RTLIL::SigSpec rspec = action.second;
 					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.size());
-					rspec.expand(), rval.expand();
-					for (int i = 0; i < int(rspec.chunks().size()); i++)
-						if (rspec.chunks()[i].wire == NULL)
-							rval.chunks_rw()[i] = rspec.chunks()[i];
-					rspec.optimize(), rval.optimize();
+					for (int i = 0; i < SIZE(rspec); i++)
+						if (rspec[i].wire == NULL)
+							rval[i] = rspec[i];
 					RTLIL::SigSpec last_rval;
 					for (int count = 0; rval != last_rval; count++) {
 						last_rval = rval;

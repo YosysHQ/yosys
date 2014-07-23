@@ -164,10 +164,10 @@ struct SubmodWorker
 		for (RTLIL::Cell *cell : submod.cells) {
 			RTLIL::Cell *new_cell = new RTLIL::Cell(*cell);
 			for (auto &conn : new_cell->connections)
-				for (auto &c : conn.second.chunks_rw())
-					if (c.wire != NULL) {
-						assert(wire_flags.count(c.wire) > 0);
-						c.wire = wire_flags[c.wire].new_wire;
+				for (auto &bit : conn.second)
+					if (bit.wire != NULL) {
+						assert(wire_flags.count(bit.wire) > 0);
+						bit.wire = wire_flags[bit.wire].new_wire;
 					}
 			log("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
 			new_mod->cells[new_cell->name] = new_cell;

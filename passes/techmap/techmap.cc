@@ -41,14 +41,15 @@ static void apply_prefix(std::string prefix, std::string &id)
 
 static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 {
-	for (size_t i = 0; i < sig.chunks().size(); i++) {
-		if (sig.chunks()[i].wire == NULL)
-			continue;
-		std::string wire_name = sig.chunks()[i].wire->name;
-		apply_prefix(prefix, wire_name);
-		assert(module->wires.count(wire_name) > 0);
-		sig.chunks_rw()[i].wire = module->wires[wire_name];
-	}
+	std::vector<RTLIL::SigChunk> chunks = sig;
+	for (auto &chunk : chunks)
+		if (chunk.wire != NULL) {
+			std::string wire_name = chunk.wire->name;
+			apply_prefix(prefix, wire_name);
+			assert(module->wires.count(wire_name) > 0);
+			chunk.wire = module->wires[wire_name];
+		}
+	sig = chunks;
 }
 
 struct TechmapWorker
