@@ -118,7 +118,7 @@ struct BlifDumper
 		for (auto &it : inputs) {
 			RTLIL::Wire *wire = it.second;
 			for (int i = 0; i < wire->width; i++)
-				fprintf(f, " %s", cstr(RTLIL::SigSpec::grml(wire, i)));
+				fprintf(f, " %s", cstr(RTLIL::SigSpec(wire, i)));
 		}
 		fprintf(f, "\n");
 
@@ -126,7 +126,7 @@ struct BlifDumper
 		for (auto &it : outputs) {
 			RTLIL::Wire *wire = it.second;
 			for (int i = 0; i < wire->width; i++)
-				fprintf(f, " %s", cstr(RTLIL::SigSpec::grml(wire, i)));
+				fprintf(f, " %s", cstr(RTLIL::SigSpec(wire, i)));
 		}
 		fprintf(f, "\n");
 

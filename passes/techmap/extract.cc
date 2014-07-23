@@ -315,7 +315,7 @@ namespace
 			RTLIL::Wire *wire = it.second;
 			if (wire->port_id > 0) {
 				for (int i = 0; i < wire->width; i++)
-					sig2port.insert(sigmap(RTLIL::SigSpec::grml(wire, i)), std::pair<std::string, int>(wire->name, i));
+					sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<std::string, int>(wire->name, i));
 				cell->connections[wire->name] = RTLIL::SigSpec(RTLIL::State::Sz, wire->width);
 			}
 		}

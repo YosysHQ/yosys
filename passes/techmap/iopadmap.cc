@@ -179,9 +179,9 @@ struct IopadmapPass : public Pass {
 						RTLIL::Cell *cell = new RTLIL::Cell;
 						cell->name = NEW_ID;
 						cell->type = RTLIL::escape_id(celltype);
-						cell->connections[RTLIL::escape_id(portname)] = RTLIL::SigSpec::grml(wire, i);
+						cell->connections[RTLIL::escape_id(portname)] = RTLIL::SigSpec(wire, i);
 						if (!portname2.empty())
-							cell->connections[RTLIL::escape_id(portname2)] = RTLIL::SigSpec::grml(new_wire, i);
+							cell->connections[RTLIL::escape_id(portname2)] = RTLIL::SigSpec(new_wire, i);
 						if (!widthparam.empty())
 							cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(1);
 						if (!nameparam.empty())

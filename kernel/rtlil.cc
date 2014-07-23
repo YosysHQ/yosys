@@ -1331,13 +1331,11 @@ RTLIL::SigChunk::SigChunk(RTLIL::Wire *wire)
 	this->offset = 0;
 }
 
-RTLIL::SigChunk RTLIL::SigChunk::grml(RTLIL::Wire *wire, int offset, int width)
+RTLIL::SigChunk::SigChunk(RTLIL::Wire *wire, int offset, int width)
 {
-	RTLIL::SigChunk chunk;
-	chunk.wire = wire;
-	chunk.width = width;
-	chunk.offset = offset;
-	return chunk;
+	this->wire = wire;
+	this->width = width;
+	this->offset = offset;
 }
 
 RTLIL::SigChunk::SigChunk(const std::string &str)
@@ -1448,13 +1446,11 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
 	check();
 }
 
-RTLIL::SigSpec RTLIL::SigSpec::grml(RTLIL::Wire *wire, int offset, int width)
+RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int offset, int width)
 {
-	RTLIL::SigSpec sig;
-	sig.chunks_.push_back(RTLIL::SigChunk::grml(wire, offset, width));
-	sig.width_ = sig.chunks_.back().width;
-	sig.check();
-	return sig;
+	chunks_.push_back(RTLIL::SigChunk(wire, offset, width));
+	width_ = chunks_.back().width;
+	check();
 }
 
 RTLIL::SigSpec::SigSpec(const std::string &str)
@@ -2152,7 +2148,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 			std::vector<std::string> index_tokens;
 			sigspec_parse_split(index_tokens, indices.substr(1, indices.size()-2), ':');
 			if (index_tokens.size() == 1)
-				sig.append(RTLIL::SigSpec::grml(wire, atoi(index_tokens.at(0).c_str())));
+				sig.append(RTLIL::SigSpec(wire, atoi(index_tokens.at(0).c_str())));
 			else {
 				int a = atoi(index_tokens.at(0).c_str());
 				int b = atoi(index_tokens.at(1).c_str());
@@ -2160,7 +2156,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 					int tmp = a;
 					a = b, b = tmp;
 				}
-				sig.append(RTLIL::SigSpec::grml(wire, a, b-a+1));
+				sig.append(RTLIL::SigSpec(wire, a, b-a+1));
 			}
 		} else
 			sig.append(wire);

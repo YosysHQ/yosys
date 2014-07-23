@@ -81,7 +81,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 
 		if (sig.size() == 1 && comp == RTLIL::SigSpec(1,1))
 		{
-			mod->connections.push_back(RTLIL::SigSig(RTLIL::SigSpec::grml(cmp_wire, cmp_wire->width++), sig));
+			mod->connections.push_back(RTLIL::SigSig(RTLIL::SigSpec(cmp_wire, cmp_wire->width++), sig));
 		}
 		else
 		{
@@ -103,7 +103,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 
 			eq_cell->connections["\\A"] = sig;
 			eq_cell->connections["\\B"] = comp;
-			eq_cell->connections["\\Y"] = RTLIL::SigSpec::grml(cmp_wire, cmp_wire->width++);
+			eq_cell->connections["\\Y"] = RTLIL::SigSpec(cmp_wire, cmp_wire->width++);
 		}
 	}
 

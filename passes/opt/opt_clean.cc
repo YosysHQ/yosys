@@ -189,7 +189,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
-			RTLIL::SigSpec s1 = RTLIL::SigSpec::grml(wire, i), s2 = assign_map(s1);
+			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire, i), s2 = assign_map(s1);
 			if (!compare_signals(s1, s2, register_signals, connected_signals, direct_wires))
 				assign_map.add(s1);
 		}

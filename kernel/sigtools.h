@@ -144,7 +144,7 @@ struct SigPool
 	{
 		RTLIL::SigSpec sig;
 		for (auto &bit : bits) {
-			sig.append(RTLIL::SigSpec::grml(bit.first, bit.second));
+			sig.append(RTLIL::SigSpec(bit.first, bit.second));
 			break;
 		}
 		return sig;
@@ -154,7 +154,7 @@ struct SigPool
 	{
 		RTLIL::SigSpec sig;
 		for (auto &bit : bits)
-			sig.append(RTLIL::SigSpec::grml(bit.first, bit.second));
+			sig.append(RTLIL::SigSpec(bit.first, bit.second));
 		sig.sort_and_unify();
 		return sig;
 	}
