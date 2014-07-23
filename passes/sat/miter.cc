@@ -174,7 +174,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 					eqx_cell->parameters["\\Y_WIDTH"] = 1;
 					eqx_cell->parameters["\\A_SIGNED"] = 0;
 					eqx_cell->parameters["\\B_SIGNED"] = 0;
-					eqx_cell->connections["\\A"] = RTLIL::SigSpec(w2_gold, 1, i);
+					eqx_cell->connections["\\A"] = RTLIL::SigSpec::grml(w2_gold, i);
 					eqx_cell->connections["\\B"] = RTLIL::State::Sx;
 					eqx_cell->connections["\\Y"] = gold_x.extract(i, 1);
 					miter_module->add(eqx_cell);
