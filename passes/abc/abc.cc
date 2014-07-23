@@ -55,26 +55,23 @@ struct gate_t
 	char type;
 	int in1, in2, in3;
 	bool is_port;
-	RTLIL::SigSpec sig;
+	RTLIL::SigBit bit;
 };
 
 static int map_autoidx;
 static SigMap assign_map;
 static RTLIL::Module *module;
 static std::vector<gate_t> signal_list;
-static std::map<RTLIL::SigSpec, int> signal_map;
+static std::map<RTLIL::SigBit, int> signal_map;
 
 static bool clk_polarity;
 static RTLIL::SigSpec clk_sig;
 
-static int map_signal(RTLIL::SigSpec sig, char gate_type = -1, int in1 = -1, int in2 = -1, int in3 = -1)
+static int map_signal(RTLIL::SigBit bit, char gate_type = -1, int in1 = -1, int in2 = -1, int in3 = -1)
 {
-	assert(sig.size() == 1);
-	assert(sig.chunks().size() == 1);
+	assign_map.apply(bit);
 
-	assign_map.apply(sig);
-
-	if (signal_map.count(sig) == 0) {
+	if (signal_map.count(bit) == 0) {
 		gate_t gate;
 		gate.id = signal_list.size();
 		gate.type = -1;
@@ -82,12 +79,12 @@ static int map_signal(RTLIL::SigSpec sig, char gate_type = -1, int in1 = -1, int
 		gate.in2 = -1;
 		gate.in3 = -1;
 		gate.is_port = false;
-		gate.sig = sig;
+		gate.bit = bit;
 		signal_list.push_back(gate);
-		signal_map[sig] = gate.id;
+		signal_map[bit] = gate.id;
 	}
 
-	gate_t &gate = signal_list[signal_map[sig]];
+	gate_t &gate = signal_list[signal_map[bit]];
 
 	if (gate_type >= 0)
 		gate.type = gate_type;
@@ -103,12 +100,9 @@ static int map_signal(RTLIL::SigSpec sig, char gate_type = -1, int in1 = -1, int
 
 static void mark_port(RTLIL::SigSpec sig)
 {
-	assign_map.apply(sig);
-	sig.expand();
-	for (auto &c : sig.chunks()) {
-		if (c.wire != NULL && signal_map.count(c) > 0)
-			signal_list[signal_map[c]].is_port = true;
-	}
+	for (auto &bit : assign_map(sig))
+		if (bit.wire != NULL && signal_map.count(bit) > 0)
+			signal_list[signal_map[bit]].is_port = true;
 }
 
 static void extract_cell(RTLIL::Cell *cell, bool keepff)
@@ -229,7 +223,7 @@ static void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edge
 	}
 
 	for (auto n : nodes)
-		fprintf(f, "  n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].sig),
+		fprintf(f, "  n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
 				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
 
 	for (auto &e : edges)
@@ -280,7 +274,7 @@ static void handle_loops()
 		int id = *workpool.begin();
 		workpool.erase(id);
 
-		// log("Removing non-loop node %d from graph: %s\n", id, log_signal(signal_list[id].sig));
+		// log("Removing non-loop node %d from graph: %s\n", id, log_signal(signal_list[id].bit));
 
 		for (int id2 : edges[id]) {
 			assert(in_edges_count[id2] > 0);
@@ -300,8 +294,8 @@ static void handle_loops()
 
 			for (auto &edge_it : edges) {
 				int id2 = edge_it.first;
-				RTLIL::Wire *w1 = signal_list[id1].sig.chunks()[0].wire;
-				RTLIL::Wire *w2 = signal_list[id2].sig.chunks()[0].wire;
+				RTLIL::Wire *w1 = signal_list[id1].bit.wire;
+				RTLIL::Wire *w2 = signal_list[id2].bit.wire;
 				if (w1 != NULL)
 					continue;
 				else if (w2 == NULL)
@@ -333,10 +327,10 @@ static void handle_loops()
 			for (int id2 : edges[id1]) {
 				if (first_line)
 					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
-							log_signal(signal_list[id1].sig), log_signal(signal_list[id2].sig));
+							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
 				else
 					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
-							log_signal(signal_list[id1].sig), log_signal(signal_list[id2].sig));
+							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
 				first_line = false;
 			}
 
@@ -357,7 +351,7 @@ static void handle_loops()
 			}
 			edges[id1].swap(edges[id3]);
 
-			module->connections.push_back(RTLIL::SigSig(signal_list[id3].sig, signal_list[id1].sig));
+			module->connections.push_back(RTLIL::SigSig(signal_list[id3].bit, signal_list[id1].bit));
 			dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
 		}
 	}
@@ -549,13 +543,12 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	fprintf(f, "\n");
 
 	for (auto &si : signal_list)
-		fprintf(f, "# n%-5d %s\n", si.id, log_signal(si.sig));
+		fprintf(f, "# n%-5d %s\n", si.id, log_signal(si.bit));
 
 	for (auto &si : signal_list) {
-		assert(si.sig.size() == 1 && si.sig.chunks().size() == 1);
-		if (si.sig.chunks()[0].wire == NULL) {
+		if (si.bit.wire == NULL) {
 			fprintf(f, ".names n%d\n", si.id);
-			if (si.sig.chunks()[0].data.bits[0] == RTLIL::State::S1)
+			if (si.bit == RTLIL::State::S1)
 				fprintf(f, "1\n");
 		}
 	}
@@ -837,12 +830,12 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				snprintf(buffer, 100, "\\n%d", si.id);
 				RTLIL::SigSig conn;
 				if (si.type >= 0) {
-					conn.first = si.sig;
+					conn.first = si.bit;
 					conn.second = RTLIL::SigSpec(module->wires[remap_name(buffer)]);
 					out_wires++;
 				} else {
 					conn.first = RTLIL::SigSpec(module->wires[remap_name(buffer)]);
-					conn.second = si.sig;
+					conn.second = si.bit;
 					in_wires++;
 				}
 				module->connections.push_back(conn);

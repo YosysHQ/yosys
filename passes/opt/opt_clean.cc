@@ -233,14 +233,12 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep")) {
 				del_wires.push_back(wire);
 			} else {
-				s1.expand();
-				s2.expand();
-				assert(s1.chunks().size() == s2.chunks().size());
+				assert(SIZE(s1) == SIZE(s2));
 				RTLIL::SigSig new_conn;
-				for (size_t i = 0; i < s1.chunks().size(); i++)
-					if (s1.chunks()[i] != s2.chunks()[i]) {
-						new_conn.first.append(s1.chunks()[i]);
-						new_conn.second.append(s2.chunks()[i]);
+				for (int i = 0; i < SIZE(s1); i++)
+					if (s1[i] != s2[i]) {
+						new_conn.first.append_bit(s1[i]);
+						new_conn.second.append_bit(s2[i]);
 					}
 				if (new_conn.first.size() > 0) {
 					new_conn.first.optimize();
@@ -257,9 +255,8 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 		RTLIL::SigSpec sig = assign_map(RTLIL::SigSpec(wire));
 		if (!used_signals_nodrivers.check_any(sig)) {
 			std::string unused_bits;
-			sig.expand();
-			for (size_t i = 0; i < sig.chunks().size(); i++) {
-				if (sig.chunks()[i].wire == NULL)
+			for (int i = 0; i < SIZE(sig); i++) {
+				if (sig[i].wire == NULL)
 					continue;
 				if (!used_signals_nodrivers.check_any(sig)) {
 					if (!unused_bits.empty())

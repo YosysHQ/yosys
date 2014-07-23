@@ -44,46 +44,48 @@ struct OptReduceWorker
 		cells.erase(cell);
 
 		RTLIL::SigSpec sig_a = assign_map(cell->connections["\\A"]);
-		sig_a.sort_and_unify();
-		sig_a.expand();
+		std::set<RTLIL::SigBit> new_sig_a_bits;
 
-		RTLIL::SigSpec new_sig_a;
-		for (auto &chunk : sig_a.chunks())
+		for (auto &bit : sig_a.to_sigbit_set())
 		{
-			if (chunk.wire == NULL && chunk.data.bits[0] == RTLIL::State::S0) {
+			if (bit == RTLIL::State::S0) {
 				if (cell->type == "$reduce_and") {
-					new_sig_a = RTLIL::SigSpec(RTLIL::State::S0);
+					new_sig_a_bits.clear();
+					new_sig_a_bits.insert(RTLIL::State::S0);
 					break;
 				}
 				continue;
 			}
-			if (chunk.wire == NULL && chunk.data.bits[0] == RTLIL::State::S1) {
+			if (bit == RTLIL::State::S1) {
 				if (cell->type == "$reduce_or") {
-					new_sig_a = RTLIL::SigSpec(RTLIL::State::S1);
+					new_sig_a_bits.clear();
+					new_sig_a_bits.insert(RTLIL::State::S1);
 					break;
 				}
 				continue;
 			}
-			if (chunk.wire == NULL) {
-				new_sig_a.append(chunk);
+			if (bit.wire == NULL) {
+				new_sig_a_bits.insert(bit);
 				continue;
 			}
 
 			bool imported_children = false;
-			for (auto child_cell : drivers.find(chunk)) {
+			for (auto child_cell : drivers.find(bit)) {
 				if (child_cell->type == cell->type) {
 					opt_reduce(cells, drivers, child_cell);
-					if (child_cell->connections["\\Y"].extract(0, 1) == chunk)
-						new_sig_a.append(child_cell->connections["\\A"]);
-					else
-						new_sig_a.append(RTLIL::State::S0);
+					if (child_cell->connections["\\Y"][0] == bit) {
+						std::set<RTLIL::SigBit> child_sig_a_bits = assign_map(child_cell->connections["\\A"]).to_sigbit_set();
+						new_sig_a_bits.insert(child_sig_a_bits.begin(), child_sig_a_bits.end());
+					} else
+						new_sig_a_bits.insert(RTLIL::State::S0);
 					imported_children = true;
 				}
 			}
 			if (!imported_children)
-				new_sig_a.append(chunk);
+				new_sig_a_bits.insert(bit);
 		}
-		new_sig_a.sort_and_unify();
+
+		RTLIL::SigSpec new_sig_a(new_sig_a_bits);
 
 		if (new_sig_a != sig_a || sig_a.size() != cell->connections["\\A"].size()) {
 			log("    New input vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_a));

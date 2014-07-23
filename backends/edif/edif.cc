@@ -306,14 +306,11 @@ struct EdifBackend : public Backend {
 				fprintf(f, ")\n");
 				for (auto &p : cell->connections) {
 					RTLIL::SigSpec sig = sigmap(p.second);
-					sig.expand();
-					for (int i = 0; i < sig.size(); i++) {
-						RTLIL::SigSpec sigbit(sig.chunks().at(i));
+					for (int i = 0; i < SIZE(sig); i++)
 						if (sig.size() == 1)
-							net_join_db[sigbit].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
+							net_join_db[sig[i]].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
 						else
-							net_join_db[sigbit].insert(stringf("(portRef (member %s %d) (instanceRef %s))", EDIF_REF(p.first), i, EDIF_REF(cell->name)));
-					}
+							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))", EDIF_REF(p.first), i, EDIF_REF(cell->name)));
 				}
 			}
 			for (auto &it : net_join_db) {

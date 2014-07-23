@@ -1548,18 +1548,6 @@ bool RTLIL::SigSpec::packed() const
 	return bits_.empty();
 }
 
-void RTLIL::SigSpec::expand()
-{
-	pack();
-	std::vector<RTLIL::SigChunk> new_chunks;
-	for (size_t i = 0; i < chunks_.size(); i++) {
-		for (int j = 0; j < chunks_[i].width; j++)
-			new_chunks.push_back(chunks_[i].extract(j, 1));
-	}
-	chunks_.swap(new_chunks);
-	check();
-}
-
 void RTLIL::SigSpec::optimize()
 {
 	pack();
@@ -1789,35 +1777,6 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 	width_++;
 
 	// check();
-}
-
-bool RTLIL::SigSpec::combine(RTLIL::SigSpec signal, RTLIL::State freeState, bool do_override)
-{
-	pack();
-	signal.pack();
-
-	bool no_collisions = true;
-
-	assert(width_ == signal.width_);
-	expand();
-	signal.expand();
-
-	for (size_t i = 0; i < chunks_.size(); i++) {
-		bool self_free = chunks_[i].wire == NULL && chunks_[i].data.bits[0] == freeState;
-		bool other_free = signal.chunks_[i].wire == NULL && signal.chunks_[i].data.bits[0] == freeState;
-		if (!self_free && !other_free) {
-			if (do_override)
-				chunks_[i] = signal.chunks_[i];
-			else
-				chunks_[i] = RTLIL::SigChunk(RTLIL::State::Sx, 1);
-			no_collisions = false;
-		}
-		if (self_free && !other_free)
-			chunks_[i] = signal.chunks_[i];
-	}
-
-	optimize();
-	return no_collisions;
 }
 
 void RTLIL::SigSpec::extend(int width, bool is_signed)

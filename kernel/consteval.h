@@ -71,11 +71,8 @@ struct ConstEval
 		assign_map.apply(sig);
 #ifndef NDEBUG
 		RTLIL::SigSpec current_val = values_map(sig);
-		current_val.expand();
-		for (size_t i = 0; i < current_val.chunks().size(); i++) {
-			const RTLIL::SigChunk &chunk = current_val.chunks()[i];
-			assert(chunk.wire != NULL || chunk.data.bits[0] == value.bits[i]);
-		}
+		for (int i = 0; i < SIZE(current_val); i++)
+			assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
 #endif
 		values_map.add(sig, RTLIL::SigSpec(value));
 	}

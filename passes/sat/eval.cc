@@ -169,10 +169,9 @@ struct VlogHammerReporter
 		if (!ez.solve(y_vec, y_values))
 			log_error("Failed to find solution to SAT problem.\n");
 
-		expected_y.expand();
 		for (int i = 0; i < expected_y.size(); i++) {
 			RTLIL::State solution_bit = y_values.at(i) ? RTLIL::State::S1 : RTLIL::State::S0;
-			RTLIL::State expected_bit = expected_y.chunks().at(i).data.bits.at(0);
+			RTLIL::State expected_bit = expected_y[i].data;
 			if (model_undef) {
 				if (y_values.at(expected_y.size()+i))
 					solution_bit = RTLIL::State::Sx;
@@ -187,8 +186,7 @@ struct VlogHammerReporter
 						sat_bits += "x";
 					else
 						sat_bits += y_values.at(k) ? "1" : "0";
-					rtl_bits += expected_y.chunks().at(k).data.bits.at(0) == RTLIL::State::Sx ? "x" :
-							expected_y.chunks().at(k).data.bits.at(0) == RTLIL::State::S1 ? "1" : "0";
+					rtl_bits += expected_y[k] == RTLIL::State::Sx ? "x" : expected_y[k] == RTLIL::State::S1 ? "1" : "0";
 				}
 				log_error("Found error in SAT model: y[%d] = %s, should be %s:\n   SAT: %s\n   RTL: %s\n        %*s^\n",
 						int(i), log_signal(solution_bit), log_signal(expected_bit),
@@ -288,11 +286,9 @@ struct VlogHammerReporter
 
 				if (module_name == "rtl") {
 					rtl_sig = sig;
-					rtl_sig.expand();
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, false);
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
 				} else if (rtl_sig.size() > 0) {
-					sig.expand();
 					if (rtl_sig.size() != sig.size())
 						log_error("Output (y) has a different width in module %s compared to rtl!\n", RTLIL::id2cstr(module->name));
 					for (int i = 0; i < SIZE(sig); i++)

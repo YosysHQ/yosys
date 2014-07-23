@@ -458,21 +458,19 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			}
 
 			RTLIL::SigSpec new_a, new_b;
-			a.expand(), b.expand();
 
-			assert(a.chunks().size() == b.chunks().size());
-			for (size_t i = 0; i < a.chunks().size(); i++) {
-				if (a.chunks()[i].wire == NULL && b.chunks()[i].wire == NULL && a.chunks()[i].data.bits[0] != b.chunks()[i].data.bits[0] &&
-						a.chunks()[i].data.bits[0] <= RTLIL::State::S1 && b.chunks()[i].data.bits[0] <= RTLIL::State::S1) {
+			assert(SIZE(a) == SIZE(b));
+			for (int i = 0; i < SIZE(a); i++) {
+				if (a[i].wire == NULL && b[i].wire == NULL && a[i] != b[i] && a[i].data <= RTLIL::State::S1 && b[i].data <= RTLIL::State::S1) {
 					RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S0 : RTLIL::State::S1);
 					new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
 					replace_cell(module, cell, "empty", "\\Y", new_y);
 					goto next_cell;
 				}
-				if (a.chunks()[i] == b.chunks()[i])
+				if (a[i] == b[i])
 					continue;
-				new_a.append(a.chunks()[i]);
-				new_b.append(b.chunks()[i]);
+				new_a.append(a[i]);
+				new_b.append(b[i]);
 			}
 
 			if (new_a.size() == 0) {

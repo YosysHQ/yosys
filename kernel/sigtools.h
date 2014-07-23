@@ -27,7 +27,11 @@
 
 struct SigPool
 {
-	typedef std::pair<RTLIL::Wire*,int> bitDef_t;
+	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
+		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
+		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+	};
+
 	std::set<bitDef_t> bits;
 
 	void clear()
@@ -37,14 +41,9 @@ struct SigPool
 
 	void add(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			bits.insert(bit);
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bits.insert(bit);
 	}
 
 	void add(const SigPool &other)
@@ -55,14 +54,9 @@ struct SigPool
 
 	void del(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			bits.erase(bit);
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bits.erase(bit);
 	}
 
 	void del(const SigPool &other)
@@ -73,15 +67,10 @@ struct SigPool
 
 	void expand(RTLIL::SigSpec from, RTLIL::SigSpec to)
 	{
-		from.expand();
-		to.expand();
-		assert(from.chunks().size() == to.chunks().size());
-		for (size_t i = 0; i < from.chunks().size(); i++) {
-			bitDef_t bit_from(from.chunks()[i].wire, from.chunks()[i].offset);
-			bitDef_t bit_to(to.chunks()[i].wire, to.chunks()[i].offset);
-			if (bit_from.first == NULL || bit_to.first == NULL)
-				continue;
-			if (bits.count(bit_from) > 0)
+		assert(SIZE(from) == SIZE(to));
+		for (int i = 0; i < SIZE(from); i++) {
+			bitDef_t bit_from(from[i]), bit_to(to[i]);
+			if (bit_from.first != NULL && bit_to.first != NULL && bits.count(bit_from) > 0)
 				bits.insert(bit_to);
 		}
 	}
@@ -89,73 +78,49 @@ struct SigPool
 	RTLIL::SigSpec extract(RTLIL::SigSpec sig)
 	{
 		RTLIL::SigSpec result;
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			bitDef_t bit(c.wire, c.offset);
-			if (bits.count(bit) > 0)
-				result.append(c);
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL && bits.count(bit))
+				result.append_bit(bit);
 		return result;
 	}
 
 	RTLIL::SigSpec remove(RTLIL::SigSpec sig)
 	{
 		RTLIL::SigSpec result;
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			bitDef_t bit(c.wire, c.offset);
-			if (bits.count(bit) == 0)
-				result.append(c);
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL && bits.count(bit) == 0)
+				result.append(bit);
 		return result;
 	}
 
 	bool check_any(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			bitDef_t bit(c.wire, c.offset);
-			if (bits.count(bit) != 0)
+		for (auto &bit : sig)
+			if (bit.wire != NULL && bits.count(bit))
 				return true;
-		}
 		return false;
 	}
 
 	bool check_all(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			bitDef_t bit(c.wire, c.offset);
-			if (bits.count(bit) == 0)
+		for (auto &bit : sig)
+			if (bit.wire != NULL && bits.count(bit) == 0)
 				return false;
-		}
 		return true;
 	}
 
 	RTLIL::SigSpec export_one()
 	{
-		RTLIL::SigSpec sig;
-		for (auto &bit : bits) {
-			sig.append(RTLIL::SigSpec(bit.first, bit.second));
-			break;
-		}
-		return sig;
+		for (auto &bit : bits)
+			return RTLIL::SigSpec(bit.first, bit.second);
+		return RTLIL::SigSpec();
 	}
 
 	RTLIL::SigSpec export_all()
 	{
-		RTLIL::SigSpec sig;
+		std::set<RTLIL::SigBit> sig;
 		for (auto &bit : bits)
-			sig.append(RTLIL::SigSpec(bit.first, bit.second));
-		sig.sort_and_unify();
+			sig.insert(RTLIL::SigBit(bit.first, bit.second));
 		return sig;
 	}
 
@@ -168,7 +133,11 @@ struct SigPool
 template <typename T, class Compare = std::less<T>>
 struct SigSet
 {
-	typedef std::pair<RTLIL::Wire*,int> bitDef_t;
+	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
+		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
+		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+	};
+
 	std::map<bitDef_t, std::set<T, Compare>> bits;
 
 	void clear()
@@ -178,75 +147,46 @@ struct SigSet
 
 	void insert(RTLIL::SigSpec sig, T data)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			bits[bit].insert(data);
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bits[bit].insert(data);
 	}
 
 	void insert(RTLIL::SigSpec sig, const std::set<T> &data)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			bits[bit].insert(data.begin(), data.end());
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bits[bit].insert(data.begin(), data.end());
 	}
 
 	void erase(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			bits[bit].clear();
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bits[bit].clear();
 	}
 
 	void erase(RTLIL::SigSpec sig, T data)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			bits[bit].erase(data);
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bits[bit].erase(data);
 	}
 
 	void erase(RTLIL::SigSpec sig, const std::set<T> &data)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			bits[bit].erase(data.begin(), data.end());
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bits[bit].erase(data.begin(), data.end());
 	}
 
 	void find(RTLIL::SigSpec sig, std::set<T> &result)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			for (auto &data : bits[bit])
-				result.insert(data);
-		}
+		for (auto &bit : sig)
+			if (bit.wire != NULL) {
+				auto &data = bits[bit];
+				result.insert(data.begin(), data.end());
+			}
 	}
 
 	std::set<T> find(RTLIL::SigSpec sig)
@@ -258,22 +198,19 @@ struct SigSet
 
 	bool has(RTLIL::SigSpec sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks()) {
-			if (c.wire == NULL)
-				continue;
-			assert(c.width == 1);
-			bitDef_t bit(c.wire, c.offset);
-			if (bits.count(bit))
+		for (auto &bit : sig)
+			if (bit.wire != NULL && bits.count(bit))
 				return true;
-		}
 		return false;
 	}
 };
 
 struct SigMap
 {
-	typedef std::pair<RTLIL::Wire*,int> bitDef_t;
+	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
+		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
+		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+	};
 
 	struct shared_bit_data_t {
 		RTLIL::SigBit map_to;
@@ -337,22 +274,20 @@ struct SigMap
 	}
 
 	// internal helper function
-	void register_bit(const RTLIL::SigBit &b)
+	void register_bit(const RTLIL::SigBit &bit)
 	{
-		bitDef_t bit(b.wire, b.offset);
-		if (b.wire && bits.count(bit) == 0) {
+		if (bit.wire && bits.count(bit) == 0) {
 			shared_bit_data_t *bd = new shared_bit_data_t;
-			bd->map_to = b;
+			bd->map_to = bit;
 			bd->bits.insert(bit);
 			bits[bit] = bd;
 		}
 	}
 
 	// internal helper function
-	void unregister_bit(const RTLIL::SigBit &b)
+	void unregister_bit(const RTLIL::SigBit &bit)
 	{
-		bitDef_t bit(b.wire, b.offset);
-		if (b.wire && bits.count(bit) > 0) {
+		if (bit.wire && bits.count(bit) > 0) {
 			shared_bit_data_t *bd = bits[bit];
 			bd->bits.erase(bit);
 			if (bd->bits.size() == 0)
@@ -366,11 +301,8 @@ struct SigMap
 	{
 		assert(bit1.wire != NULL && bit2.wire != NULL);
 
-		bitDef_t b1(bit1.wire, bit1.offset);
-		bitDef_t b2(bit2.wire, bit2.offset);
-
-		shared_bit_data_t *bd1 = bits[b1];
-		shared_bit_data_t *bd2 = bits[b2];
+		shared_bit_data_t *bd1 = bits[bit1];
+		shared_bit_data_t *bd2 = bits[bit2];
 		assert(bd1 != NULL && bd2 != NULL);
 
 		if (bd1 == bd2)
@@ -394,20 +326,18 @@ struct SigMap
 	}
 
 	// internal helper function
-	void set_bit(const RTLIL::SigBit &b1, const RTLIL::SigBit &b2)
+	void set_bit(const RTLIL::SigBit &bit1, const RTLIL::SigBit &bit2)
 	{
-		assert(b1.wire != NULL);
-		bitDef_t bit(b1.wire, b1.offset);
-		assert(bits.count(bit) > 0);
-		bits[bit]->map_to = b2;
+		assert(bit1.wire != NULL);
+		assert(bits.count(bit1) > 0);
+		bits[bit1]->map_to = bit2;
 	}
 
 	// internal helper function
-	void map_bit(RTLIL::SigBit &b) const
+	void map_bit(RTLIL::SigBit &bit) const
 	{
-		bitDef_t bit(b.wire, b.offset);
-		if (b.wire && bits.count(bit) > 0)
-			b = bits.at(bit)->map_to;
+		if (bit.wire && bits.count(bit) > 0)
+			bit = bits.at(bit)->map_to;
 	}
 
 	void add(RTLIL::SigSpec from, RTLIL::SigSpec to)
@@ -444,6 +374,11 @@ struct SigMap
 	{
 		for (auto &bit : sig)
 			unregister_bit(bit);
+	}
+
+	void apply(RTLIL::SigBit &bit) const
+	{
+		map_bit(bit);
 	}
 
 	void apply(RTLIL::SigSpec &sig) const

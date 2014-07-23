@@ -36,7 +36,11 @@ struct OptMuxtreeWorker
 	SigMap assign_map;
 	int removed_count;
 
-	typedef std::pair<RTLIL::Wire*,int> bitDef_t;
+        struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
+		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
+		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+	};
+
 
 	struct bitinfo_t {
 		int num;
@@ -259,10 +263,8 @@ struct OptMuxtreeWorker
 	{
 		std::vector<int> results;
 		assign_map.apply(sig);
-		sig.expand();
-		for (auto &c : sig.chunks())
-			if (c.wire != NULL) {
-				bitDef_t bit(c.wire, c.offset);
+		for (auto &bit : sig)
+			if (bit.wire != NULL) {
 				if (bit2num.count(bit) == 0) {
 					bitinfo_t info;
 					info.num = bit2info.size();

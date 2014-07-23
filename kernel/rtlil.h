@@ -544,7 +544,6 @@ public:
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
 	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
 
-	void expand();
 	void optimize();
 	RTLIL::SigSpec optimized() const;
 
@@ -566,8 +565,6 @@ public:
 
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
-
-	bool combine(RTLIL::SigSpec signal, RTLIL::State freeState = RTLIL::State::Sz, bool do_override = false);
 
 	void extend(int width, bool is_signed = false);
 	void extend_u0(int width, bool is_signed = false);

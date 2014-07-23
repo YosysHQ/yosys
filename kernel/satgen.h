@@ -52,20 +52,18 @@ struct SatGen
 	{
 		log_assert(!undef_mode || model_undef);
 		sigmap->apply(sig);
-		sig.expand();
 
 		std::vector<int> vec;
-		vec.reserve(sig.chunks().size());
+		vec.reserve(SIZE(sig));
 
-		for (auto &c : sig.chunks())
-			if (c.wire == NULL) {
-				RTLIL::State bit = c.data.bits.at(0);
+		for (auto &bit : sig)
+			if (bit.wire == NULL) {
 				if (model_undef && dup_undef && bit == RTLIL::State::Sx)
 					vec.push_back(ez->frozen_literal());
 				else
 					vec.push_back(bit == (undef_mode ? RTLIL::State::Sx : RTLIL::State::S1) ? ez->TRUE : ez->FALSE);
 			} else {
-				std::string name = pf + stringf(c.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(c.wire->name), c.offset);
+				std::string name = pf + stringf(bit.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(bit.wire->name), bit.offset);
 				vec.push_back(ez->frozen_literal(name));
 			}
 		return vec;

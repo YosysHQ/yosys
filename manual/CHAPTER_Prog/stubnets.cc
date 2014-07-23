@@ -21,7 +21,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 	SigMap sigmap(module);
 
 	// count how many times a single-bit signal is used
-	std::map<RTLIL::SigSpec, int> bit_usage_count;
+	std::map<RTLIL::SigBit, int> bit_usage_count;
 
 	// count ouput lines for this module (needed only for summary output at the end)
 	int line_count = 0;
@@ -36,13 +36,10 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 		// (use sigmap to get a uniqe signal name)
 		RTLIL::SigSpec sig = sigmap(conn.second);
 
-		// split the signal up into single-bit chunks
-		sig.expand();
-
-		// add each chunk to bit_usage_count, unless it is a constant
-		for (auto &c : sig.chunks)
-			if (c.wire != NULL)
-				bit_usage_count[c]++;
+		// add each bit to bit_usage_count, unless it is a constant
+		for (auto &bit : sig)
+			if (bit.wire != NULL)
+				bit_usage_count[bit]++;
 	}
 
 	// for each wire in the module
@@ -62,13 +59,11 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 
 		// get a signal description for this wire and split it into seperate bits
 		RTLIL::SigSpec sig = sigmap(wire);
-		sig.expand();
 
 		// for each bit (unless it is a constant):
 		// check if it is used at least two times and add to stub_bits otherwise
-		for (size_t i = 0; i < sig.chunks.size(); i++)
-			if (sig.chunks[i].wire != NULL && (bit_usage_count[sig.chunks[i]] +
-					usage_offset) < 2)
+		for (size_t i = 0; i < SIZE(sig); i++)
+			if (sig[i].wire != NULL && (bit_usage_count[sig[i]] + usage_offset) < 2)
 				stub_bits.insert(i);
 
 		// continue if no stub bits found

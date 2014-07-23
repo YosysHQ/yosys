@@ -29,75 +29,60 @@ extern void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, 
 
 static void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 {
-	int width = cell->parameters.at("\\Y_WIDTH").as_int();
-
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
-	sig_a.extend(width, cell->parameters.at("\\A_SIGNED").as_bool());
-	sig_a.expand();
-
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
-	sig_y.expand();
 
-	for (int i = 0; i < width; i++) {
+	sig_a.extend(SIZE(sig_y), cell->parameters.at("\\A_SIGNED").as_bool());
+
+	for (int i = 0; i < SIZE(sig_y); i++) {
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = "$_INV_";
-		gate->connections["\\A"] = sig_a.chunks().at(i);
-		gate->connections["\\Y"] = sig_y.chunks().at(i);
+		gate->connections["\\A"] = sig_a[i];
+		gate->connections["\\Y"] = sig_y[i];
 		module->add(gate);
 	}
 }
 
 static void simplemap_pos(RTLIL::Module *module, RTLIL::Cell *cell)
 {
-	int width = cell->parameters.at("\\Y_WIDTH").as_int();
-
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
-	sig_a.extend(width, cell->parameters.at("\\A_SIGNED").as_bool());
-
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
+
+	sig_a.extend(SIZE(sig_y), cell->parameters.at("\\A_SIGNED").as_bool());
 
 	module->connections.push_back(RTLIL::SigSig(sig_y, sig_a));
 }
 
 static void simplemap_bu0(RTLIL::Module *module, RTLIL::Cell *cell)
 {
-	int width = cell->parameters.at("\\Y_WIDTH").as_int();
-
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
-	sig_a.extend_u0(width, cell->parameters.at("\\A_SIGNED").as_bool());
-
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
+
+	sig_a.extend_u0(SIZE(sig_y), cell->parameters.at("\\A_SIGNED").as_bool());
 
 	module->connections.push_back(RTLIL::SigSig(sig_y, sig_a));
 }
 
 static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 {
-	int width = cell->parameters.at("\\Y_WIDTH").as_int();
-
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
-	sig_a.extend_u0(width, cell->parameters.at("\\A_SIGNED").as_bool());
-	sig_a.expand();
-
 	RTLIL::SigSpec sig_b = cell->connections.at("\\B");
-	sig_b.extend_u0(width, cell->parameters.at("\\B_SIGNED").as_bool());
-	sig_b.expand();
-
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
-	sig_y.expand();
+
+	sig_a.extend_u0(SIZE(sig_y), cell->parameters.at("\\A_SIGNED").as_bool());
+	sig_b.extend_u0(SIZE(sig_y), cell->parameters.at("\\B_SIGNED").as_bool());
 
 	if (cell->type == "$xnor")
 	{
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, width);
-		sig_t.expand();
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, SIZE(sig_y));
 
-		for (int i = 0; i < width; i++) {
+		for (int i = 0; i < SIZE(sig_y); i++) {
 			RTLIL::Cell *gate = new RTLIL::Cell;
 			gate->name = NEW_ID;
 			gate->type = "$_INV_";
-			gate->connections["\\A"] = sig_t.chunks().at(i);
-			gate->connections["\\Y"] = sig_y.chunks().at(i);
+			gate->connections["\\A"] = sig_t[i];
+			gate->connections["\\Y"] = sig_y[i];
 			module->add(gate);
 		}
 
@@ -111,13 +96,13 @@ static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 	if (cell->type == "$xnor") gate_type = "$_XOR_";
 	log_assert(!gate_type.empty());
 
-	for (int i = 0; i < width; i++) {
+	for (int i = 0; i < SIZE(sig_y); i++) {
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = gate_type;
-		gate->connections["\\A"] = sig_a.chunks().at(i);
-		gate->connections["\\B"] = sig_b.chunks().at(i);
-		gate->connections["\\Y"] = sig_y.chunks().at(i);
+		gate->connections["\\A"] = sig_a[i];
+		gate->connections["\\B"] = sig_b[i];
+		gate->connections["\\Y"] = sig_y[i];
 		module->add(gate);
 	}
 }
@@ -125,8 +110,6 @@ static void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
-	sig_a.expand();
-
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
 
 	if (sig_y.size() == 0)
@@ -159,21 +142,20 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 	while (sig_a.size() > 1)
 	{
 		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig_a.size() / 2);
-		sig_t.expand();
 
 		for (int i = 0; i < sig_a.size(); i += 2)
 		{
 			if (i+1 == sig_a.size()) {
-				sig_t.append(sig_a.chunks().at(i));
+				sig_t.append(sig_a[i]);
 				continue;
 			}
 
 			RTLIL::Cell *gate = new RTLIL::Cell;
 			gate->name = NEW_ID;
 			gate->type = gate_type;
-			gate->connections["\\A"] = sig_a.chunks().at(i);
-			gate->connections["\\B"] = sig_a.chunks().at(i+1);
-			gate->connections["\\Y"] = sig_t.chunks().at(i/2);
+			gate->connections["\\A"] = sig_a[i];
+			gate->connections["\\B"] = sig_a[i+1];
+			gate->connections["\\Y"] = sig_t[i/2];
 			last_output = &gate->connections["\\Y"];
 			module->add(gate);
 		}
@@ -202,26 +184,23 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 
 static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig)
 {
-	sig.expand();
-
 	while (sig.size() > 1)
 	{
 		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, sig.size() / 2);
-		sig_t.expand();
 
 		for (int i = 0; i < sig.size(); i += 2)
 		{
 			if (i+1 == sig.size()) {
-				sig_t.append(sig.chunks().at(i));
+				sig_t.append(sig[i]);
 				continue;
 			}
 
 			RTLIL::Cell *gate = new RTLIL::Cell;
 			gate->name = NEW_ID;
 			gate->type = "$_OR_";
-			gate->connections["\\A"] = sig.chunks().at(i);
-			gate->connections["\\B"] = sig.chunks().at(i+1);
-			gate->connections["\\Y"] = sig_t.chunks().at(i/2);
+			gate->connections["\\A"] = sig[i];
+			gate->connections["\\B"] = sig[i+1];
+			gate->connections["\\Y"] = sig_t[i/2];
 			module->add(gate);
 		}
 
@@ -289,25 +268,18 @@ static void simplemap_logbin(RTLIL::Module *module, RTLIL::Cell *cell)
 
 static void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
 {
-	int width = cell->parameters.at("\\WIDTH").as_int();
-
 	RTLIL::SigSpec sig_a = cell->connections.at("\\A");
-	sig_a.expand();
-
 	RTLIL::SigSpec sig_b = cell->connections.at("\\B");
-	sig_b.expand();
-
 	RTLIL::SigSpec sig_y = cell->connections.at("\\Y");
-	sig_y.expand();
 
-	for (int i = 0; i < width; i++) {
+	for (int i = 0; i < SIZE(sig_y); i++) {
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = "$_MUX_";
-		gate->connections["\\A"] = sig_a.chunks().at(i);
-		gate->connections["\\B"] = sig_b.chunks().at(i);
+		gate->connections["\\A"] = sig_a[i];
+		gate->connections["\\B"] = sig_b[i];
 		gate->connections["\\S"] = cell->connections.at("\\S");
-		gate->connections["\\Y"] = sig_y.chunks().at(i);
+		gate->connections["\\Y"] = sig_y[i];
 		module->add(gate);
 	}
 }
@@ -335,13 +307,8 @@ static void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell)
 	char clr_pol = cell->parameters.at("\\CLR_POLARITY").as_bool() ? 'P' : 'N';
 
 	RTLIL::SigSpec sig_s = cell->connections.at("\\SET");
-	sig_s.expand();
-
 	RTLIL::SigSpec sig_r = cell->connections.at("\\CLR");
-	sig_r.expand();
-
 	RTLIL::SigSpec sig_q = cell->connections.at("\\Q");
-	sig_q.expand();
 
 	std::string gate_type = stringf("$_SR_%c%c_", set_pol, clr_pol);
 
@@ -349,9 +316,9 @@ static void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell)
 		RTLIL::Cell *gate = new RTLIL::Cell;
 		gate->name = NEW_ID;
 		gate->type = gate_type;
-		gate->connections["\\S"] = sig_s.chunks().at(i);
-		gate->connections["\\R"] = sig_r.chunks().at(i);
-		gate->connections["\\Q"] = sig_q.chunks().at(i);
+		gate->connections["\\S"] = sig_s[i];
+		gate->connections["\\R"] = sig_r[i];
+		gate->connections["\\Q"] = sig_q[i];
 		module->add(gate);
 	}
 }
@@ -362,12 +329,8 @@ static void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell)
 	char clk_pol = cell->parameters.at("\\CLK_POLARITY").as_bool() ? 'P' : 'N';
 
 	RTLIL::SigSpec sig_clk = cell->connections.at("\\CLK");
-
 	RTLIL::SigSpec sig_d = cell->connections.at("\\D");
-	sig_d.expand();
-
 	RTLIL::SigSpec sig_q = cell->connections.at("\\Q");
-	sig_q.expand();
 
 	std::string gate_type = stringf("$_DFF_%c_", clk_pol);
 
@@ -376,8 +339,8 @@ static void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->name = NEW_ID;
 		gate->type = gate_type;
 		gate->connections["\\C"] = sig_clk;
-		gate->connections["\\D"] = sig_d.chunks().at(i);
-		gate->connections["\\Q"] = sig_q.chunks().at(i);
+		gate->connections["\\D"] = sig_d[i];
+		gate->connections["\\Q"] = sig_q[i];
 		module->add(gate);
 	}
 }
@@ -390,18 +353,10 @@ static void simplemap_dffsr(RTLIL::Module *module, RTLIL::Cell *cell)
 	char clr_pol = cell->parameters.at("\\CLR_POLARITY").as_bool() ? 'P' : 'N';
 
 	RTLIL::SigSpec sig_clk = cell->connections.at("\\CLK");
-
 	RTLIL::SigSpec sig_s = cell->connections.at("\\SET");
-	sig_s.expand();
-
 	RTLIL::SigSpec sig_r = cell->connections.at("\\CLR");
-	sig_r.expand();
-
 	RTLIL::SigSpec sig_d = cell->connections.at("\\D");
-	sig_d.expand();
-
 	RTLIL::SigSpec sig_q = cell->connections.at("\\Q");
-	sig_q.expand();
 
 	std::string gate_type = stringf("$_DFFSR_%c%c%c_", clk_pol, set_pol, clr_pol);
 
@@ -410,10 +365,10 @@ static void simplemap_dffsr(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->name = NEW_ID;
 		gate->type = gate_type;
 		gate->connections["\\C"] = sig_clk;
-		gate->connections["\\S"] = sig_s.chunks().at(i);
-		gate->connections["\\R"] = sig_r.chunks().at(i);
-		gate->connections["\\D"] = sig_d.chunks().at(i);
-		gate->connections["\\Q"] = sig_q.chunks().at(i);
+		gate->connections["\\S"] = sig_s[i];
+		gate->connections["\\R"] = sig_r[i];
+		gate->connections["\\D"] = sig_d[i];
+		gate->connections["\\Q"] = sig_q[i];
 		module->add(gate);
 	}
 }
@@ -430,12 +385,8 @@ static void simplemap_adff(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec sig_clk = cell->connections.at("\\CLK");
 	RTLIL::SigSpec sig_rst = cell->connections.at("\\ARST");
-
 	RTLIL::SigSpec sig_d = cell->connections.at("\\D");
-	sig_d.expand();
-
 	RTLIL::SigSpec sig_q = cell->connections.at("\\Q");
-	sig_q.expand();
 
 	std::string gate_type_0 = stringf("$_DFF_%c%c0_", clk_pol, rst_pol);
 	std::string gate_type_1 = stringf("$_DFF_%c%c1_", clk_pol, rst_pol);
@@ -446,8 +397,8 @@ static void simplemap_adff(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->type = rst_val.at(i) == RTLIL::State::S1 ? gate_type_1 : gate_type_0;
 		gate->connections["\\C"] = sig_clk;
 		gate->connections["\\R"] = sig_rst;
-		gate->connections["\\D"] = sig_d.chunks().at(i);
-		gate->connections["\\Q"] = sig_q.chunks().at(i);
+		gate->connections["\\D"] = sig_d[i];
+		gate->connections["\\Q"] = sig_q[i];
 		module->add(gate);
 	}
 }
@@ -458,12 +409,8 @@ static void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 	char en_pol = cell->parameters.at("\\EN_POLARITY").as_bool() ? 'P' : 'N';
 
 	RTLIL::SigSpec sig_en = cell->connections.at("\\EN");
-
 	RTLIL::SigSpec sig_d = cell->connections.at("\\D");
-	sig_d.expand();
-
 	RTLIL::SigSpec sig_q = cell->connections.at("\\Q");
-	sig_q.expand();
 
 	std::string gate_type = stringf("$_DLATCH_%c_", en_pol);
 
@@ -472,8 +419,8 @@ static void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 		gate->name = NEW_ID;
 		gate->type = gate_type;
 		gate->connections["\\E"] = sig_en;
-		gate->connections["\\D"] = sig_d.chunks().at(i);
-		gate->connections["\\Q"] = sig_q.chunks().at(i);
+		gate->connections["\\D"] = sig_d[i];
+		gate->connections["\\Q"] = sig_q[i];
 		module->add(gate);
 	}
 }
