@@ -1411,12 +1411,14 @@ bool RTLIL::SigChunk::operator !=(const RTLIL::SigChunk &other) const
 RTLIL::SigSpec::SigSpec()
 {
 	width_ = 0;
+	hash_ = 0;
 }
 
 RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 {
 	chunks_.push_back(RTLIL::SigChunk(value));
 	width_ = chunks_.back().width;
+	hash_ = 0;
 	check();
 }
 
@@ -1424,6 +1426,7 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigChunk &chunk)
 {
 	chunks_.push_back(chunk);
 	width_ = chunks_.back().width;
+	hash_ = 0;
 	check();
 }
 
@@ -1431,6 +1434,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
 {
 	chunks_.push_back(RTLIL::SigChunk(wire));
 	width_ = chunks_.back().width;
+	hash_ = 0;
 	check();
 }
 
@@ -1438,6 +1442,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int offset, int width)
 {
 	chunks_.push_back(RTLIL::SigChunk(wire, offset, width));
 	width_ = chunks_.back().width;
+	hash_ = 0;
 	check();
 }
 
@@ -1445,6 +1450,7 @@ RTLIL::SigSpec::SigSpec(const std::string &str)
 {
 	chunks_.push_back(RTLIL::SigChunk(str));
 	width_ = chunks_.back().width;
+	hash_ = 0;
 	check();
 }
 
@@ -1452,6 +1458,7 @@ RTLIL::SigSpec::SigSpec(int val, int width)
 {
 	chunks_.push_back(RTLIL::SigChunk(val, width));
 	width_ = width;
+	hash_ = 0;
 	check();
 }
 
@@ -1459,6 +1466,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::State bit, int width)
 {
 	chunks_.push_back(RTLIL::SigChunk(bit, width));
 	width_ = width;
+	hash_ = 0;
 	check();
 }
 
@@ -1470,12 +1478,14 @@ RTLIL::SigSpec::SigSpec(RTLIL::SigBit bit, int width)
 		for (int i = 0; i < width; i++)
 			chunks_.push_back(bit);
 	width_ = width;
+	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigChunk> chunks)
 {
 	width_ = 0;
+	hash_ = 0;
 	for (auto &c : chunks)
 		append(c);
 	check();
@@ -1484,6 +1494,7 @@ RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigChunk> chunks)
 RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
 {
 	width_ = 0;
+	hash_ = 0;
 	for (auto &bit : bits)
 		append_bit(bit);
 	check();
@@ -1492,6 +1503,7 @@ RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
 RTLIL::SigSpec::SigSpec(std::set<RTLIL::SigBit> bits)
 {
 	width_ = 0;
+	hash_ = 0;
 	for (auto &bit : bits)
 		append_bit(bit);
 	check();
@@ -1529,11 +1541,34 @@ void RTLIL::SigSpec::unpack() const
 			that->bits_.push_back(RTLIL::SigBit(c, i));
 
 	that->chunks_.clear();
+	that->hash_ = 0;
 }
 
-bool RTLIL::SigSpec::packed() const
+#define DJB2(_hash, _value) do { (_hash) = (((_hash) << 5) + (_hash)) + (_value); } while (0)
+
+void RTLIL::SigSpec::hash() const
 {
-	return bits_.empty();
+	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
+
+	if (that->hash_ != 0)
+		return;
+
+	that->pack();
+	that->hash_ = 5381;
+
+	for (auto &c : that->chunks_)
+		if (c.wire == NULL) {
+			for (auto &v : c.data.bits)
+				DJB2(that->hash_, v);
+		} else {
+			for (auto &v : c.wire->name)
+				DJB2(that->hash_, v);
+			DJB2(that->hash_, c.offset);
+			DJB2(that->hash_, c.width);
+		}
+
+	if (that->hash_ == 0)
+		that->hash_ = 1;
 }
 
 void RTLIL::SigSpec::sort()
@@ -1842,39 +1877,53 @@ void RTLIL::SigSpec::check() const
 
 bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
 {
-	pack();
-	other.pack();
+	if (this == &other)
+		return false;
 
 	if (width_ != other.width_)
 		return width_ < other.width_;
 
-	RTLIL::SigSpec a = *this, b = other;
+	pack();
+	other.pack();
 
-	if (a.chunks_.size() != b.chunks_.size())
-		return a.chunks_.size() < b.chunks_.size();
+	if (chunks_.size() != other.chunks_.size())
+		return chunks_.size() < other.chunks_.size();
 
-	for (size_t i = 0; i < a.chunks_.size(); i++)
-		if (a.chunks_[i] != b.chunks_[i])
-			return a.chunks_[i] < b.chunks_[i];
+	hash();
+	other.hash();
+
+	if (hash_ != other.hash_)
+		return hash_ < other.hash_;
+
+	for (size_t i = 0; i < chunks_.size(); i++)
+		if (chunks_[i] != other.chunks_[i])
+			return chunks_[i] < other.chunks_[i];
 
 	return false;
 }
 
 bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 {
-	pack();
-	other.pack();
+	if (this == &other)
+		return true;
 
 	if (width_ != other.width_)
 		return false;
 
-	RTLIL::SigSpec a = *this, b = other;
+	pack();
+	other.pack();
 
-	if (a.chunks_.size() != b.chunks_.size())
+	if (chunks_.size() != chunks_.size())
 		return false;
 
-	for (size_t i = 0; i < a.chunks_.size(); i++)
-		if (a.chunks_[i] != b.chunks_[i])
+	hash();
+	other.hash();
+
+	if (hash_ != other.hash_)
+		return false;
+
+	for (size_t i = 0; i < chunks_.size(); i++)
+		if (chunks_[i] != other.chunks_[i])
 			return false;
 
 	return true;

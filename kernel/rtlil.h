@@ -505,13 +505,18 @@ struct RTLIL::SigSpecIterator {
 
 struct RTLIL::SigSpec {
 private:
+	int width_;
+	unsigned long hash_;
 	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
 	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
-	int width_;
 
 	void pack() const;
 	void unpack() const;
-	bool packed() const;
+	void hash() const;
+
+	inline bool packed() const {
+		return bits_.empty();
+	}
 
 	inline void inline_unpack() const {
 		if (!chunks_.empty())
