@@ -1929,13 +1929,6 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 	return true;
 }
 
-bool RTLIL::SigSpec::operator !=(const RTLIL::SigSpec &other) const
-{
-	if (*this == other)
-		return false;
-	return true;
-}
-
 bool RTLIL::SigSpec::is_fully_const() const
 {
 	pack();

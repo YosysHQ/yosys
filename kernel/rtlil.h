@@ -575,7 +575,7 @@ public:
 
 	bool operator <(const RTLIL::SigSpec &other) const;
 	bool operator ==(const RTLIL::SigSpec &other) const;
-	bool operator !=(const RTLIL::SigSpec &other) const;
+	inline bool operator !=(const RTLIL::SigSpec &other) const { return !(*this == other); }
 
 	bool is_fully_const() const;
 	bool is_fully_def() const;
