@@ -22,6 +22,7 @@ EXTRA_TARGETS =
 TARGETS = yosys yosys-config
 
 PRETTY = 1
+SMALL = 0
 
 all: top-all
 
@@ -124,6 +125,9 @@ OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
 
 OBJS += libs/sha1/sha1.o
+
+ifneq ($(SMALL),1)
+
 OBJS += libs/subcircuit/subcircuit.o
 
 OBJS += libs/ezsat/ezsat.o
@@ -138,6 +142,28 @@ include frontends/*/Makefile.inc
 include passes/*/Makefile.inc
 include backends/*/Makefile.inc
 include techlibs/*/Makefile.inc
+
+else
+
+include frontends/verilog/Makefile.inc
+include frontends/ilang/Makefile.inc
+include frontends/ast/Makefile.inc
+
+OBJS += passes/hierarchy/hierarchy.o
+OBJS += passes/cmds/select.o
+OBJS += passes/cmds/show.o
+OBJS += passes/cmds/stat.o
+OBJS += passes/cmds/cover.o
+
+include passes/proc/Makefile.inc
+include passes/opt/Makefile.inc
+include passes/techmap/Makefile.inc
+include passes/abc/Makefile.inc
+
+include backends/verilog/Makefile.inc
+include backends/ilang/Makefile.inc
+
+endif
 
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 
