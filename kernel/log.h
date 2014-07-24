@@ -63,6 +63,39 @@ void log_cell(RTLIL::Cell *cell, std::string indent = "");
 #define log_assert(_assert_expr_) do { if (_assert_expr_) break; log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
 #define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
+#ifndef NDEBUG
+#  define cover(_id) do { \
+      static CoverAgent _cover_agent(__FILE__, __LINE__, __FUNCTION__, _id); \
+      _cover_agent.ticks++; \
+    } while (0)
+#else
+#  define cover(_id) do { } while (0)
+#endif
+
+struct CoverAgent
+{
+	static struct CoverAgent *first_cover_agent;
+	struct CoverAgent *next_cover_agent;
+
+	const char *file;
+	int line;
+	const char *func;
+	const char *id;
+	int ticks;
+
+	CoverAgent(const char *file, int line, const char *func, const char *id) :
+			file(file), line(line), func(func), id(id), ticks(0)
+	{
+		next_cover_agent = first_cover_agent;
+		first_cover_agent = this;
+	};
+};
+
+
+// ------------------------------------------------------------
+// everything below this line are utilities for troubleshooting
+// ------------------------------------------------------------
+
 // simple timer for performance measurements
 // toggle the '#if 1' to get a baseline for the perormance penalty added by the measurement
 struct PerformanceTimer

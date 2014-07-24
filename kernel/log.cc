@@ -29,6 +29,8 @@
 #include <vector>
 #include <list>
 
+CoverAgent *CoverAgent::first_cover_agent = NULL;
+
 std::vector<FILE*> log_files;
 FILE *log_errfile = NULL;
 bool log_time = false;
