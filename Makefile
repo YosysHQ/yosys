@@ -108,7 +108,9 @@ LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
 ifeq ($(PRETTY), 1)
-P = @echo "Building $@";
+I = 0
+P = @echo "$(eval I=$(shell bash -c 'i=0; for x in $(OBJS) yosys; do ((i++)); [ "$$x" = "$@" -a $I -lt $$i ] && echo $$i && exit; done; echo $I'))[$(shell \
+		gawk "BEGIN { N=`echo $(OBJS) yosys | wc -w`; printf \"%3d\", 100*$I/N; exit; }")%] Building $@";
 Q = @
 S = -s
 endif
