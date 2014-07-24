@@ -760,7 +760,7 @@ int main(int argc, char **argv)
 			f = fdopen(mkstemps(filename_buffer, 4), "w");
 		} else {
 			snprintf(filename_buffer, 4096, "%s", getenv("YOSYS_COVER_FILE"));
-			f = fopen(filename_buffer, "w");
+			f = fopen(filename_buffer, "a+");
 		}
 
 		if (f == NULL)
@@ -769,11 +769,11 @@ int main(int argc, char **argv)
 		log("<writing coverage file \"%s\">\n", filename_buffer);
 
 		std::map<std::string, std::pair<std::string, int>> coverage_data;
-		for (CoverAgent *p = CoverAgent::first_cover_agent; p; p = p->next_cover_agent) {
+		for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
 			if (coverage_data.count(p->id))
 				log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
 			coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
-			coverage_data[p->id].second += p->ticks;
+			coverage_data[p->id].second += p->counter;
 		}
 
 		for (auto &it : coverage_data)

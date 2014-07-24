@@ -63,33 +63,30 @@ void log_cell(RTLIL::Cell *cell, std::string indent = "");
 #define log_assert(_assert_expr_) do { if (_assert_expr_) break; log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
 #define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
+
+// ---------------------------------------------------
+// This is the magic behind the code coverage counters
+// ---------------------------------------------------
+
+struct CoverData {
+	const char *file, *func, *id;
+	int line, counter;
+} __attribute__ ((packed));
+
+// this two symbols are created by the linker for the "yosys_cover_list" ELF section
+#ifndef NDEBUG
+extern "C" struct CoverData __start_yosys_cover_list[];
+extern "C" struct CoverData __stop_yosys_cover_list[];
+#endif
+
 #ifndef NDEBUG
 #  define cover(_id) do { \
-      static CoverAgent _cover_agent(__FILE__, __LINE__, __FUNCTION__, _id); \
-      _cover_agent.ticks++; \
+      static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1))) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
+      __d.counter++; \
     } while (0)
 #else
 #  define cover(_id) do { } while (0)
 #endif
-
-struct CoverAgent
-{
-	static struct CoverAgent *first_cover_agent;
-	struct CoverAgent *next_cover_agent;
-
-	const char *file;
-	int line;
-	const char *func;
-	const char *id;
-	int ticks;
-
-	CoverAgent(const char *file, int line, const char *func, const char *id) :
-			file(file), line(line), func(func), id(id), ticks(0)
-	{
-		next_cover_agent = first_cover_agent;
-		first_cover_agent = this;
-	};
-};
 
 
 // ------------------------------------------------------------
