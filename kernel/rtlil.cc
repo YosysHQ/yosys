@@ -1516,15 +1516,32 @@ void RTLIL::SigSpec::pack() const
 	if (that->bits_.empty())
 		return;
 
-	cover("kernel.rtlil.sigspec.pack");
+	cover("kernel.rtlil.sigspec.convert.pack");
 	log_assert(that->chunks_.empty());
 
 	std::vector<RTLIL::SigBit> old_bits;
 	old_bits.swap(that->bits_);
 
-	that->width_ = 0;
+	RTLIL::SigChunk *last_const = NULL;
+	RTLIL::SigChunk *last_wire = NULL;
+	int last_wire_end = 0;
+
 	for (auto &bit : old_bits)
-		that->append_bit(bit);
+		if (bit.wire == NULL && last_const) {
+			last_const->data.bits.push_back(bit.data);
+			last_const->width++;
+		} else
+		if (bit.wire && last_wire && last_wire->wire == bit.wire && last_wire_end == bit.offset) {
+			last_wire->width++;
+			last_wire_end++;
+		} else {
+			that->chunks_.push_back(bit);
+			last_const = bit.wire ? NULL : &that->chunks_.back();
+			last_wire = bit.wire ? &that->chunks_.back() : NULL;
+			last_wire_end = bit.offset + 1;
+		}
+
+	check();
 }
 
 void RTLIL::SigSpec::unpack() const
@@ -1534,7 +1551,7 @@ void RTLIL::SigSpec::unpack() const
 	if (that->chunks_.empty())
 		return;
 
-	cover("kernel.rtlil.sigspec.unpack");
+	cover("kernel.rtlil.sigspec.convert.unpack");
 	log_assert(that->bits_.empty());
 
 	that->bits_.reserve(that->width_);
@@ -1701,7 +1718,7 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *o
 
 void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 {
-	cover("kernel.rtlil.sigspec.replace");
+	cover("kernel.rtlil.sigspec.replace_pos");
 
 	unpack();
 	with.unpack();
@@ -1794,7 +1811,7 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 		bits_.insert(bits_.end(), signal.bits_.begin(), signal.bits_.end());
 
 	width_ += signal.width_;
-	// check();
+	check();
 }
 
 void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
@@ -1825,7 +1842,7 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 	}
 
 	width_++;
-	// check();
+	check();
 }
 
 void RTLIL::SigSpec::extend(int width, bool is_signed)
@@ -1879,7 +1896,11 @@ RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 #ifndef NDEBUG
 void RTLIL::SigSpec::check() const
 {
-	if (packed())
+	if (width_ > 64)
+	{
+		cover("kernel.rtlil.sigspec.check.skip");
+	}
+	else if (packed())
 	{
 		cover("kernel.rtlil.sigspec.check.packed");
 
