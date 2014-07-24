@@ -1,0 +1,87 @@
+
+Update the CHANGELOG file:
+
+	cd ~yosys
+	gitk &
+	vi CHANGELOG
+
+
+Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.7,release}":
+
+	cd ~yosys
+	make clean
+	make test vloghtb
+	make install
+
+	cd ~yosys-bigsim
+	make clean
+	make full
+
+	cd ~vloghammer
+	make purge
+	make gen_issues gen_samples
+	make SYN_LIST="yosys" SIM_LIST="icarus yosim verilator" FULL=1 world
+	chromium-browser report.html
+
+
+Then with any config setting:
+
+	cd ~yosys
+	make manual
+	- sanity check the figures in the appnotes and presentation
+	    - if there are any odd things -> investigate
+	    - make cosmetic changes to the .tex files if necessary
+
+
+Finally if a current verific library is available:
+
+	cd ~yosys
+	cat frontends/verific/build_amd64.txt
+	- follow instructions
+
+	cd frontends/verific
+	../../yosys test_navre.ys
+
+
+Release candiate:
+
+	- create branch yosys-x.y.z-rc and push to github
+	- contact the usual suspects per mail and ask them to test
+	- post on the reddit and ask people to test
+	- commit KISS fixes to the -rc branch if necessary
+
+
+Release:
+
+	- set YOSYS_VER to x.y.z in Makefile
+	- update version string in CHANGELOG
+	git commit -am "Yosys x.y.z"
+
+	- push tag to github
+	- post changelog on github
+	- post short release note on reddit
+	- delete -rc branch from github
+
+
+Updating the website:
+
+	cd ~yosys
+	make manual
+	make install
+
+	- update pdf files on the website
+
+	cd ~yosys-web
+	make update_cmd
+	make update_show
+	git commit -am update
+	make push
+
+
+In master branch:
+
+	git merge {release-tag}
+	- set version to x.y.z+ in Makefile
+	- add section "Yosys x.y.z .. x.y.z+" to CHANGELOG
+	git commit --amend -am "Yosys x.y.z+"
+
