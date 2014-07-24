@@ -103,7 +103,7 @@ void ILANG_BACKEND::dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool au
 void ILANG_BACKEND::dump_sigspec(FILE *f, const RTLIL::SigSpec &sig, bool autoint)
 {
 	if (sig.chunks().size() == 1) {
-		dump_sigchunk(f, sig.chunks()[0], autoint);
+		dump_sigchunk(f, sig.chunks().front(), autoint);
 	} else {
 		fprintf(f, "{ ");
 		for (auto it = sig.chunks().rbegin(); it != sig.chunks().rend(); it++) {

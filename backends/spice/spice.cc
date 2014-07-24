@@ -25,18 +25,17 @@
 #include <string>
 #include <assert.h>
 
-static void print_spice_net(FILE *f, RTLIL::SigSpec s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
+static void print_spice_net(FILE *f, RTLIL::SigBit s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
 {
-	log_assert(s.chunks().size() == 1 && s.chunks()[0].width == 1);
-	if (s.chunks()[0].wire) {
-		if (s.chunks()[0].wire->width > 1)
-			fprintf(f, " %s[%d]", RTLIL::id2cstr(s.chunks()[0].wire->name), s.chunks()[0].offset);
+	if (s.wire) {
+		if (s.wire->width > 1)
+			fprintf(f, " %s[%d]", RTLIL::id2cstr(s.wire->name), s.offset);
 		else
-			fprintf(f, " %s", RTLIL::id2cstr(s.chunks()[0].wire->name));
+			fprintf(f, " %s", RTLIL::id2cstr(s.wire->name));
 	} else {
-		if (s.chunks()[0].data.bits.at(0) == RTLIL::State::S0)
+		if (s == RTLIL::State::S0)
 			fprintf(f, " %s", neg.c_str());
-		else if (s.chunks()[0].data.bits.at(0) == RTLIL::State::S1)
+		else if (s == RTLIL::State::S1)
 			fprintf(f, " %s", pos.c_str());
 		else
 			fprintf(f, " %s%d", ncpf.c_str(), nc_counter++);
@@ -92,7 +91,6 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 		for (auto &sig : port_sigs) {
 			for (int i = 0; i < sig.size(); i++) {
 				RTLIL::SigSpec s = sig.extract(big_endian ? sig.size() - 1 - i : i, 1);
-				log_assert(s.chunks().size() == 1 && s.chunks()[0].width == 1);
 				print_spice_net(f, s, neg, pos, ncpf, nc_counter);
 			}
 		}

@@ -314,12 +314,9 @@ struct EdifBackend : public Backend {
 				}
 			}
 			for (auto &it : net_join_db) {
-				RTLIL::SigSpec sig = it.first;
-				log_assert(sig.size() == 1);
-				if (sig.chunks().at(0).wire == NULL) {
-					if (sig.chunks().at(0).data.bits.at(0) != RTLIL::State::S0 && sig.chunks().at(0).data.bits.at(0) != RTLIL::State::S1)
-						continue;
-				}
+				RTLIL::SigBit sig = it.first;
+				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1)
+					continue;
 				std::string netname = log_signal(sig);
 				for (size_t i = 0; i < netname.size(); i++)
 					if (netname[i] == ' ' || netname[i] == '\\')
@@ -327,10 +324,10 @@ struct EdifBackend : public Backend {
 				fprintf(f, "          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
 					fprintf(f, "            %s\n", ref.c_str());
-				if (sig.chunks().at(0).wire == NULL) {
-					if (sig.chunks().at(0).data.bits.at(0) == RTLIL::State::S0)
+				if (sig.wire == NULL) {
+					if (sig == RTLIL::State::S0)
 						fprintf(f, "            (portRef G (instanceRef GND))\n");
-					if (sig.chunks().at(0).data.bits.at(0) == RTLIL::State::S1)
+					if (sig == RTLIL::State::S1)
 						fprintf(f, "            (portRef P (instanceRef VCC))\n");
 				}
 				fprintf(f, "          ))\n");

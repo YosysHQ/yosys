@@ -104,15 +104,10 @@ static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	return count;
 }
 
-static bool compare_signals(RTLIL::SigSpec &s1, RTLIL::SigSpec &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
+static bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
 {
-	assert(s1.size() == 1);
-	assert(s2.size() == 1);
-	assert(s1.chunks().size() == 1);
-	assert(s2.chunks().size() == 1);
-
-	RTLIL::Wire *w1 = s1.chunks()[0].wire;
-	RTLIL::Wire *w2 = s2.chunks()[0].wire;
+	RTLIL::Wire *w1 = s1.wire;
+	RTLIL::Wire *w2 = s2.wire;
 
 	if (w1 == NULL || w2 == NULL)
 		return w2 == NULL;
@@ -189,7 +184,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
-			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire, i), s2 = assign_map(s1);
+			RTLIL::SigBit s1 = RTLIL::SigBit(wire, i), s2 = assign_map(s1);
 			if (!compare_signals(s1, s2, register_signals, connected_signals, direct_wires))
 				assign_map.add(s1);
 		}

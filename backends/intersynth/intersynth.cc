@@ -28,23 +28,19 @@
 
 static std::string netname(std::set<std::string> &conntypes_code, std::set<std::string> &celltypes_code, std::set<std::string> &constcells_code, RTLIL::SigSpec sig)
 {
-	if (sig.chunks().size() != 1)
-error:
+	if (!sig.is_fully_const() && !sig.is_wire())
 		log_error("Can't export composite or non-word-wide signal %s.\n", log_signal(sig));
 
 	conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));
 
-	if (sig.chunks()[0].wire == NULL) {
+	if (sig.is_fully_const()) {
 		celltypes_code.insert(stringf("celltype CONST_%d b%d *CONST cfg:%d VALUE\n", sig.size(), sig.size(), sig.size()));
-		constcells_code.insert(stringf("node CONST_%d_0x%x CONST_%d CONST CONST_%d_0x%x VALUE 0x%x\n", sig.size(), sig.chunks()[0].data.as_int(),
-				sig.size(), sig.size(), sig.chunks()[0].data.as_int(), sig.chunks()[0].data.as_int()));
-		return stringf("CONST_%d_0x%x", sig.size(), sig.chunks()[0].data.as_int());
+		constcells_code.insert(stringf("node CONST_%d_0x%x CONST_%d CONST CONST_%d_0x%x VALUE 0x%x\n",
+				sig.size(), sig.as_int(), sig.size(), sig.size(), sig.as_int(), sig.as_int()));
+		return stringf("CONST_%d_0x%x", sig.size(), sig.as_int());
 	}
 
-	if (sig.chunks()[0].offset != 0 || sig.size() != sig.chunks()[0].wire->width)
-		goto error;
-
-	return RTLIL::unescape_id(sig.chunks()[0].wire->name);
+	return RTLIL::unescape_id(sig.as_wire()->name);
 }
 
 struct IntersynthBackend : public Backend {

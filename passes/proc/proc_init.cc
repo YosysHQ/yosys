@@ -58,16 +58,15 @@ static void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 					log_cmd_error("Failed to get a constant init value for %s: %s\n", log_signal(lhs), log_signal(rhs));
 
 				int offset = 0;
-				for (size_t i = 0; i < lhs.chunks().size(); i++) {
-					if (lhs.chunks()[i].wire == NULL)
-						continue;
-					RTLIL::Wire *wire = lhs.chunks()[i].wire;
-					RTLIL::SigSpec value = rhs.extract(offset, lhs.chunks()[i].width);
-					if (value.size() != wire->width)
-						log_cmd_error("Init value is not for the entire wire: %s = %s\n", log_signal(lhs.chunks()[i]), log_signal(value));
-					log("  Setting init value: %s = %s\n", log_signal(wire), log_signal(value));
-					wire->attributes["\\init"] = value.as_const();
-					offset += wire->width;
+				for (auto &lhs_c : lhs.chunks()) {
+					if (lhs_c.wire != NULL) {
+						RTLIL::SigSpec value = rhs.extract(offset, lhs_c.width);
+						if (value.size() != lhs_c.wire->width)
+							log_cmd_error("Init value is not for the entire wire: %s = %s\n", log_signal(lhs_c), log_signal(value));
+						log("  Setting init value: %s = %s\n", log_signal(lhs_c.wire), log_signal(value));
+						lhs_c.wire->attributes["\\init"] = value.as_const();
+					}
+					offset += lhs_c.width;
 				}
 			}
 		}

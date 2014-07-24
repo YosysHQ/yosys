@@ -119,10 +119,9 @@ static void autotest(FILE *f, RTLIL::Design *design)
 					if ((*it4)->type == RTLIL::ST0 || (*it4)->type == RTLIL::ST1)
 						continue;
 					RTLIL::SigSpec &signal = (*it4)->signal;
-					for (size_t i = 0; i < signal.chunks().size(); i++) {
-						if (signal.chunks()[i].wire == wire)
+					for (auto &c : signal.chunks())
+						if (c.wire == wire)
 							is_clksignal = true;
-					}
 				}
 				if (is_clksignal && wire->attributes.count("\\gentb_constant") == 0) {
 					signal_clk[idy("sig", mod->name, wire->name)] = wire->width;

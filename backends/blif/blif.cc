@@ -68,20 +68,18 @@ struct BlifDumper
 		return cstr_buf.back().c_str();
 	}
 
-	const char *cstr(RTLIL::SigSpec sig)
+	const char *cstr(RTLIL::SigBit sig)
 	{
-		log_assert(sig.size() == 1);
+		if (sig.wire == NULL)
+			return sig == RTLIL::State::S1 ?  "$true" : "$false";
 
-		if (sig.chunks().at(0).wire == NULL)
-			return sig.chunks().at(0).data.bits.at(0) == RTLIL::State::S1 ?  "$true" : "$false";
-
-		std::string str = RTLIL::unescape_id(sig.chunks().at(0).wire->name);
+		std::string str = RTLIL::unescape_id(sig.wire->name);
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=')
 				str[i] = '?';
 
-		if (sig.chunks().at(0).wire->width != 1)
-			str += stringf("[%d]", sig.chunks().at(0).offset);
+		if (sig.wire->width != 1)
+			str += stringf("[%d]", sig.offset);
 
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();

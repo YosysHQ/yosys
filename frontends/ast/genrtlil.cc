@@ -294,9 +294,9 @@ struct AST_INTERNAL::ProcessGenerator
 			assert(init_lvalue.size() == init_rvalue.size());
 
 			int offset = 0;
-			for (size_t i = 0; i < init_lvalue.chunks().size(); i++) {
-				RTLIL::SigSpec lhs = init_lvalue.chunks()[i];
-				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue.chunks()[i].width);
+			for (auto &init_lvalue_c : init_lvalue.chunks()) {
+				RTLIL::SigSpec lhs = init_lvalue_c;
+				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue_c.width);
 				sync->actions.push_back(RTLIL::SigSig(lhs, rhs));
 				offset += lhs.size();
 			}
@@ -398,10 +398,10 @@ struct AST_INTERNAL::ProcessGenerator
 		assert(lvalue.size() == rvalue.size());
 
 		int offset = 0;
-		for (size_t i = 0; i < lvalue.chunks().size(); i++) {
-			RTLIL::SigSpec lhs = lvalue.chunks()[i];
-			RTLIL::SigSpec rhs = rvalue.extract(offset, lvalue.chunks()[i].width);
-			if (inSyncRule && lvalue.chunks()[i].wire && lvalue.chunks()[i].wire->get_bool_attribute("\\nosync"))
+		for (auto &lvalue_c : lvalue.chunks()) {
+			RTLIL::SigSpec lhs = lvalue_c;
+			RTLIL::SigSpec rhs = rvalue.extract(offset, lvalue_c.width);
+			if (inSyncRule && lvalue_c.wire && lvalue_c.wire->get_bool_attribute("\\nosync"))
 				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.size());
 			actions.push_back(RTLIL::SigSig(lhs, rhs));
 			offset += lhs.size();

@@ -207,9 +207,9 @@ struct ConstEval
 		if (sig.is_fully_const())
 			return true;
 
-		for (size_t i = 0; i < sig.chunks().size(); i++)
-			if (sig.chunks()[i].wire != NULL)
-				undef.append(sig.chunks()[i]);
+		for (auto &c : sig.chunks())
+			if (c.wire != NULL)
+				undef.append(c);
 		return false;
 	}
 

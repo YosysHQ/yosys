@@ -576,6 +576,7 @@ public:
 	bool operator ==(const RTLIL::SigSpec &other) const;
 	inline bool operator !=(const RTLIL::SigSpec &other) const { return !(*this == other); }
 
+	bool is_wire() const;
 	bool is_fully_const() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
@@ -585,6 +586,7 @@ public:
 	int as_int() const;
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
+	RTLIL::Wire *as_wire() const;
 
 	bool match(std::string pattern) const;
 
@@ -612,7 +614,7 @@ inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
 	assert(sig.size() == 1 && sig.chunks().size() == 1);
-	*this = SigBit(sig.chunks()[0]);
+	*this = SigBit(sig.chunks().front());
 }
 
 struct RTLIL::CaseRule {

@@ -1999,6 +1999,14 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 	return true;
 }
 
+bool RTLIL::SigSpec::is_wire() const
+{
+	cover("kernel.rtlil.sigspec.is_wire");
+
+	pack();
+	return SIZE(chunks_) == 1 && chunks_[0].wire && chunks_[0].wire->width == width_;
+}
+
 bool RTLIL::SigSpec::is_fully_const() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_const");
@@ -2102,6 +2110,15 @@ RTLIL::Const RTLIL::SigSpec::as_const() const
 	if (width_)
 		return chunks_[0].data;
 	return RTLIL::Const();
+}
+
+RTLIL::Wire *RTLIL::SigSpec::as_wire() const
+{
+	cover("kernel.rtlil.sigspec.as_wire");
+
+	pack();
+	assert(is_wire());
+	return chunks_[0].wire;
 }
 
 bool RTLIL::SigSpec::match(std::string pattern) const

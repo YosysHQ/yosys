@@ -382,7 +382,7 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 					sync_edge->signal, sync_level->signal, proc);
 		}
 		else
-			gen_dff(mod, insig, rstval.chunks()[0].data, sig,
+			gen_dff(mod, insig, rstval.as_const(), sig,
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge->signal, sync_level ? &sync_level->signal : NULL, proc);
