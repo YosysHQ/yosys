@@ -749,6 +749,32 @@ int main(int argc, char **argv)
 	delete yosys_design;
 	yosys_design = NULL;
 
+#ifndef NDEBUG
+	if (getenv("YOSYS_COVER_DIR"))
+	{
+		char filename_buffer[4096];
+		snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", getenv("YOSYS_COVER_DIR"), getpid());
+		FILE *f = fdopen(mkstemps(filename_buffer, 4), "w");
+
+		if (f == NULL)
+			log_error("Can't create coverage file `%s'.\n", filename_buffer);
+
+		log("<writing coverage file \"%s\">\n", filename_buffer);
+
+		std::map<std::string, std::pair<std::string, int>> coverage_data;
+		for (CoverAgent *p = CoverAgent::first_cover_agent; p; p = p->next_cover_agent) {
+			if (coverage_data.count(p->id))
+				log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
+			coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
+			coverage_data[p->id].second += p->ticks;
+		}
+
+		for (auto &it : coverage_data)
+			fprintf(f, "%-40s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
+		fclose(f);
+	}
+#endif
+
 	log("\nREADY.\n");
 	log_pop();
 
