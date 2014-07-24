@@ -30,6 +30,10 @@
 #include <sys/resource.h>
 #include <vector>
 
+#define S__LINE__sub2(x) #x
+#define S__LINE__sub1(x) S__LINE__sub2(x)
+#define S__LINE__ S__LINE__sub1(__LINE__)
+
 extern std::vector<FILE*> log_files;
 extern FILE *log_errfile;
 extern bool log_time;
@@ -87,6 +91,19 @@ struct CoverData {
 extern "C" struct CoverData __start_yosys_cover_list[];
 extern "C" struct CoverData __stop_yosys_cover_list[];
 
+extern std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
+
+static inline void cover_extra(std::string parent, std::string id, bool increment = true) {
+	if (extra_coverage_data.count(id) == 0) {
+		for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++)
+			if (p->id == parent)
+				extra_coverage_data[id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
+		log_assert(extra_coverage_data.count(id));
+	}
+	if (increment)
+		extra_coverage_data[id].second++;
+}
+
 static inline std::map<std::string, std::pair<std::string, int>> get_coverage_data()
 {
 	std::map<std::string, std::pair<std::string, int>> coverage_data;
@@ -95,6 +112,13 @@ static inline std::map<std::string, std::pair<std::string, int>> get_coverage_da
 		std::string key = stringf("passes.%s", it.first.c_str());
 		coverage_data[key].first = stringf("%s:%d:%s", __FILE__, __LINE__, __FUNCTION__);
 		coverage_data[key].second += it.second->call_counter;
+	}
+
+	for (auto &it : extra_coverage_data) {
+		if (coverage_data.count(it.first))
+			log("WARNING: found duplicate coverage id \"%s\".\n", it.first.c_str());
+		coverage_data[it.first].first = it.second.first;
+		coverage_data[it.first].second += it.second.second;
 	}
 
 	for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
@@ -111,8 +135,25 @@ static inline std::map<std::string, std::pair<std::string, int>> get_coverage_da
 	return coverage_data;
 }
 
+#define cover_list(_id, ...) do { cover(_id); \
+	std::string r = cover_list_worker(_id, __VA_ARGS__); \
+	log_assert(r.empty()); \
+} while (0)
+
+static inline std::string cover_list_worker(std::string, std::string last) {
+	return last;
+}
+
+template<typename... T>
+std::string cover_list_worker(std::string prefix, std::string first, T... rest) {
+	std::string selected = cover_list_worker(prefix, rest...);
+	cover_extra(prefix, prefix + "." + first, first == selected);
+	return first == selected ? "" : selected;
+}
+
 #else
-#  define cover(_id) do { } while (0)
+#  define cover(...) do { } while (0)
+#  define cover_list(...) do { } while (0)
 #endif
 
 
@@ -196,7 +237,7 @@ static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 template<typename T>
 static inline void log_dump_val_worker(T *ptr) { log("%p", ptr); }
 
-template <typename T, typename ... Args>
+template<typename T, typename ... Args>
 void log_dump_args_worker(const char *p, T first, Args ... args)
 {
 	int next_p_state = 0;

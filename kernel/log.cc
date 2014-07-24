@@ -29,6 +29,9 @@
 #include <vector>
 #include <list>
 
+// declared extern in log.h
+std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
+
 std::vector<FILE*> log_files;
 FILE *log_errfile = NULL;
 bool log_time = false;
