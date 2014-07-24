@@ -44,6 +44,11 @@ YOSYS_VER := 0.3.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
+PRETTY = 0
+P =
+Q =
+S =
+
 # set 'ABCREV = default' to use abc/ as it is
 #
 # Note: If you do ABC development, make sure that 'abc' in this directory
@@ -102,6 +107,12 @@ CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABL
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
+ifeq ($(PRETTY), 1)
+P = @echo "Building $@";
+Q = @
+S = -s
+endif
+
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
 OBJS += kernel/compatibility.o
 
@@ -127,41 +138,48 @@ include techlibs/*/Makefile.inc
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 
 yosys: $(OBJS)
-	$(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
+	$(P) $(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
+
+%.o: %.cc
+	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
+
+%.o: %.cpp
+	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
 
 kernel/version_$(GIT_REV).cc: Makefile
-	rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
-	echo "extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV))\";" > kernel/version_$(GIT_REV).cc
+	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
+	$(Q) echo "extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV))\";" > kernel/version_$(GIT_REV).cc
 
 yosys-config: yosys-config.in
-	$(SED) -e 's,@CXX@,$(CXX),;' -e 's,@CXXFLAGS@,$(CXXFLAGS),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
+	$(P) $(SED) -e 's,@CXX@,$(CXX),;' -e 's,@CXXFLAGS@,$(CXXFLAGS),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
 			-e 's,@BINDIR@,$(DESTDIR)/bin,;' -e 's,@DATDIR@,$(DESTDIR)/share/yosys,;' < yosys-config.in > yosys-config
-	chmod +x yosys-config
+	$(Q) chmod +x yosys-config
 
 yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
-	cd libs/svgviewer && $(QMAKE) && make
-	cp `find libs/svgviewer -name svgviewer -type f` yosys-svgviewer
+	$(P) cd libs/svgviewer && $(QMAKE) && $(MAKE) $(S)
+	$(Q) cp `find libs/svgviewer -name svgviewer -type f` yosys-svgviewer
 
 abc/abc-$(ABCREV):
+	$(P)
 ifneq ($(ABCREV),default)
-	if ( cd abc && hg identify; ) | grep -q +; then \
+	$(Q) if ( cd abc && hg identify; ) | grep -q +; then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
-	if test "`cd abc && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
+	$(Q) if test "`cd abc && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
 		cd abc && hg pull && hg update -r $(ABCREV); \
 	fi
 endif
-	rm -f abc/abc-[0-9a-f]*
-	cd abc && $(MAKE) PROG="abc-$(ABCREV)" MSG_PREFIX="YOSYS-ABC: "
+	$(Q) rm -f abc/abc-[0-9a-f]*
+	$(Q) cd abc && $(MAKE) $(S) PROG="abc-$(ABCREV)" MSG_PREFIX="YOSYS-ABC: "
 
 ifeq ($(ABCREV),default)
 .PHONY: abc/abc-$(ABCREV)
 endif
 
 yosys-abc: abc/abc-$(ABCREV)
-	cp abc/abc-$(ABCREV) yosys-abc
+	$(P) cp abc/abc-$(ABCREV) yosys-abc
 
 test: $(TARGETS) $(EXTRA_TARGETS)
 	cd tests/simple && bash run-test.sh
