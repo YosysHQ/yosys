@@ -21,6 +21,8 @@ GENFILES =
 EXTRA_TARGETS =
 TARGETS = yosys yosys-config
 
+PRETTY = 1
+
 all: top-all
 
 CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I${DESTDIR}/include
@@ -43,11 +45,6 @@ endif
 YOSYS_VER := 0.3.0+
 GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
-
-PRETTY = 0
-P =
-Q =
-S =
 
 # set 'ABCREV = default' to use abc/ as it is
 #
@@ -113,6 +110,11 @@ P = @echo "$(eval I=$(shell bash -c 'i=0; for x in $(OBJS) yosys; do ((i++)); [ 
 		gawk "BEGIN { N=`echo $(OBJS) yosys | wc -w`; printf \"%3d\", 100*$I/N; exit; }")%] Building $@";
 Q = @
 S = -s
+else
+I =
+P =
+Q =
+S =
 endif
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o
