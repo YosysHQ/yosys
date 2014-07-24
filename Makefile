@@ -1,6 +1,7 @@
 
 CONFIG := clang-debug
 # CONFIG := gcc-debug
+# CONFIG := gcc-4.7
 # CONFIG := release
 
 # features (the more the better)
@@ -62,6 +63,11 @@ endif
 ifeq ($(CONFIG),gcc-debug)
 CXX = gcc
 CXXFLAGS += -std=gnu++0x -Os
+endif
+
+ifeq ($(CONFIG),gcc-4.7)
+CXX = gcc-4.7
+CXXFLAGS += -std=gnu++0x -march=native -O3
 endif
 
 ifeq ($(CONFIG),release)
@@ -207,6 +213,9 @@ config-clang-debug: clean
 
 config-gcc-debug: clean
 	echo 'CONFIG := gcc-debug' > Makefile.conf
+
+config-gcc-4.7: clean
+	echo 'CONFIG := gcc-4.7' > Makefile.conf
 
 config-release: clean
 	echo 'CONFIG := release' > Makefile.conf
