@@ -1,4 +1,9 @@
 
+
+Checklist for creating Yosys releases
+=====================================
+
+
 Update the CHANGELOG file:
 
 	cd ~yosys
