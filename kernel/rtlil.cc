@@ -1947,6 +1947,7 @@ bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
 			return chunks_[i] < other.chunks_[i];
 		}
 
+	cover("kernel.rtlil.sigspec.comp_lt.equal");
 	return false;
 }
 
@@ -1978,6 +1979,7 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 			return false;
 		}
 
+	cover("kernel.rtlil.sigspec.comp_eq.equal");
 	return true;
 }
 

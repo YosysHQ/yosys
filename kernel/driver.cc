@@ -750,11 +750,18 @@ int main(int argc, char **argv)
 	yosys_design = NULL;
 
 #ifndef NDEBUG
-	if (getenv("YOSYS_COVER_DIR"))
+	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
 	{
 		char filename_buffer[4096];
-		snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", getenv("YOSYS_COVER_DIR"), getpid());
-		FILE *f = fdopen(mkstemps(filename_buffer, 4), "w");
+		FILE *f;
+
+		if (getenv("YOSYS_COVER_DIR")) {
+			snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", getenv("YOSYS_COVER_DIR"), getpid());
+			f = fdopen(mkstemps(filename_buffer, 4), "w");
+		} else {
+			snprintf(filename_buffer, 4096, "%s", getenv("YOSYS_COVER_FILE"));
+			f = fopen(filename_buffer, "w");
+		}
 
 		if (f == NULL)
 			log_error("Can't create coverage file `%s'.\n", filename_buffer);
