@@ -599,7 +599,11 @@ public:
 	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 
+#ifndef NDEBUG
 	void check() const;
+#else
+	inline void check() const { }
+#endif
 };
 
 inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {

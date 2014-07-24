@@ -1594,10 +1594,7 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const
 {
-	if (other)
-		cover("kernel.rtlil.sigspec.replace_other");
-	else
-		cover("kernel.rtlil.sigspec.replace");
+	cover("kernel.rtlil.sigspec.replace");
 
 	unpack();
 	pattern.unpack();
@@ -1797,8 +1794,7 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 		bits_.insert(bits_.end(), signal.bits_.begin(), signal.bits_.end());
 
 	width_ += signal.width_;
-
-	check();
+	// check();
 }
 
 void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
@@ -1829,8 +1825,7 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 	}
 
 	width_++;
-
-	check();
+	// check();
 }
 
 void RTLIL::SigSpec::extend(int width, bool is_signed)
@@ -1881,9 +1876,9 @@ RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 	return sig;
 }
 
+#ifndef NDEBUG
 void RTLIL::SigSpec::check() const
 {
-#ifndef NDEBUG
 	if (packed())
 	{
 		cover("kernel.rtlil.sigspec.check.packed");
@@ -1916,8 +1911,8 @@ void RTLIL::SigSpec::check() const
 		assert(width_ == SIZE(bits_));
 		assert(chunks_.empty());
 	}
-#endif
 }
+#endif
 
 bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
 {
