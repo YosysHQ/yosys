@@ -23,7 +23,7 @@ TARGETS = yosys yosys-config
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -D_YOSYS_ -fPIC -I${DESTDIR}/include
+CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I${DESTDIR}/include
 LDFLAGS = -L${DESTDIR}/lib
 LDLIBS = -lstdc++ -lreadline -lm -ldl
 QMAKE = qmake-qt4

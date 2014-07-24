@@ -32,9 +32,7 @@ using namespace REGISTER_INTERN;
 namespace REGISTER_INTERN
 {
 	bool echo_mode = false;
-	int raw_register_count = 0;
-	bool raw_register_done = false;
-	Pass *raw_register_array[MAX_REG_COUNT];
+	Pass *first_queued_pass;
 
 	std::map<std::string, Frontend*> frontend_register;
 	std::map<std::string, Pass*> pass_register;
@@ -45,9 +43,9 @@ std::vector<std::string> Frontend::next_args;
 
 Pass::Pass(std::string name, std::string short_help) : pass_name(name), short_help(short_help)
 {
-	assert(!raw_register_done);
-	assert(raw_register_count < MAX_REG_COUNT);
-	raw_register_array[raw_register_count++] = this;
+	next_queued_pass = first_queued_pass;
+	first_queued_pass = this;
+	call_counter = 0;
 }
 
 void Pass::run_register()
@@ -58,11 +56,10 @@ void Pass::run_register()
 
 void Pass::init_register()
 {
-	if (raw_register_done)
-		done_register();
-	while (raw_register_count > 0)
-		raw_register_array[--raw_register_count]->run_register();
-	raw_register_done = true;
+	while (first_queued_pass) {
+		first_queued_pass->run_register();
+		first_queued_pass = first_queued_pass->next_queued_pass;
+	}
 }
 
 void Pass::done_register()
@@ -70,7 +67,7 @@ void Pass::done_register()
 	frontend_register.clear();
 	pass_register.clear();
 	backend_register.clear();
-	raw_register_done = false;
+	assert(first_queued_pass == NULL);
 }
 
 Pass::~Pass()
@@ -191,6 +188,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
+	pass_register[args[0]]->call_counter++;
 	pass_register[args[0]]->execute(args, design);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
@@ -271,6 +269,7 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 	do {
 		FILE *f = NULL;
 		next_args.clear();
+		call_counter++;
 		execute(f, std::string(), args, design);
 		args = next_args;
 		fclose(f);
@@ -334,9 +333,11 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 		log_cmd_error("No such frontend: %s\n", args[0].c_str());
 
 	if (f != NULL) {
+		frontend_register[args[0]]->call_counter++;
 		frontend_register[args[0]]->execute(f, filename, args, design);
 	} else if (filename == "-") {
 		FILE *f_stdin = stdin; // workaround for OpenBSD 'stdin' implementation
+		frontend_register[args[0]]->call_counter++;
 		frontend_register[args[0]]->execute(f_stdin, "<stdin>", args, design);
 	} else {
 		if (!filename.empty())
@@ -367,6 +368,7 @@ Backend::~Backend()
 void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
 	FILE *f = NULL;
+	call_counter++;
 	execute(f, std::string(), args, design);
 	if (f != stdout)
 		fclose(f);
@@ -428,9 +430,11 @@ void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename,
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 
 	if (f != NULL) {
+		backend_register[args[0]]->call_counter++;
 		backend_register[args[0]]->execute(f, filename, args, design);
 	} else if (filename == "-") {
 		FILE *f_stdout = stdout; // workaround for OpenBSD 'stdout' implementation
+		backend_register[args[0]]->call_counter++;
 		backend_register[args[0]]->execute(f_stdout, "<stdout>", args, design);
 	} else {
 		if (!filename.empty())

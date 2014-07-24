@@ -768,16 +768,9 @@ int main(int argc, char **argv)
 
 		log("<writing coverage file \"%s\">\n", filename_buffer);
 
-		std::map<std::string, std::pair<std::string, int>> coverage_data;
-		for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
-			if (coverage_data.count(p->id))
-				log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
-			coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
-			coverage_data[p->id].second += p->counter;
-		}
+		for (auto &it : get_coverage_data())
+			fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
 
-		for (auto &it : coverage_data)
-			fprintf(f, "%-40s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
 		fclose(f);
 	}
 #endif

@@ -21,7 +21,10 @@
 #define LOG_H
 
 #include "kernel/rtlil.h"
+#include "kernel/register.h"
+
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -68,22 +71,46 @@ void log_cell(RTLIL::Cell *cell, std::string indent = "");
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
 
+#ifndef NDEBUG
+
+#define cover(_id) do { \
+    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1))) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
+    __d.counter++; \
+} while (0)
+
 struct CoverData {
 	const char *file, *func, *id;
 	int line, counter;
 } __attribute__ ((packed));
 
 // this two symbols are created by the linker for the "yosys_cover_list" ELF section
-#ifndef NDEBUG
 extern "C" struct CoverData __start_yosys_cover_list[];
 extern "C" struct CoverData __stop_yosys_cover_list[];
-#endif
 
-#ifndef NDEBUG
-#  define cover(_id) do { \
-      static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1))) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
-      __d.counter++; \
-    } while (0)
+static inline std::map<std::string, std::pair<std::string, int>> get_coverage_data()
+{
+	std::map<std::string, std::pair<std::string, int>> coverage_data;
+
+	for (auto &it : REGISTER_INTERN::pass_register) {
+		std::string key = stringf("passes.%s", it.first.c_str());
+		coverage_data[key].first = stringf("%s:%d:%s", __FILE__, __LINE__, __FUNCTION__);
+		coverage_data[key].second += it.second->call_counter;
+	}
+
+	for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
+		if (coverage_data.count(p->id))
+			log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
+		coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
+		coverage_data[p->id].second += p->counter;
+	}
+
+	for (auto &it : coverage_data)
+		if (!it.second.first.compare(0, strlen(YOSYS_SRC "/"), YOSYS_SRC "/"))
+			it.second.first = it.second.first.substr(strlen(YOSYS_SRC "/"));
+
+	return coverage_data;
+}
+
 #else
 #  define cover(_id) do { } while (0)
 #endif

@@ -47,9 +47,11 @@ extern std::vector<RTLIL::Design*> pushed_designs;
 struct Pass
 {
 	std::string pass_name, short_help;
+	int call_counter;
+
 	Pass(std::string name, std::string short_help = "** document me **");
-	virtual void run_register();
 	virtual ~Pass();
+
 	virtual void help();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) = 0;
 
@@ -66,6 +68,8 @@ struct Pass
 	static void call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::string command);
 	static void call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vector<std::string> args);
 
+	Pass *next_queued_pass;
+	virtual void run_register();
 	static void init_register();
 	static void done_register();
 };
@@ -105,9 +109,6 @@ struct Backend : Pass
 extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design);
 
 namespace REGISTER_INTERN {
-	extern int raw_register_count;
-	extern bool raw_register_done;
-	extern Pass *raw_register_array[];
 	extern std::map<std::string, Pass*> pass_register;
 	extern std::map<std::string, Frontend*> frontend_register;
 	extern std::map<std::string, Backend*> backend_register;
