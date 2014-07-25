@@ -1866,7 +1866,7 @@ void RTLIL::SigSpec::extend(int width, bool is_signed)
 
 void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 {
-	cover("kernel.rtlil.sigspec.extend_0");
+	cover("kernel.rtlil.sigspec.extend_u0");
 
 	pack();
 
