@@ -171,13 +171,13 @@ struct ShowWorker
 
 	std::string gen_signode_simple(RTLIL::SigSpec sig, bool range_check = true)
 	{
-		if (sig.chunks().size() == 0) {
+		if (SIZE(sig) == 0) {
 			fprintf(f, "v%d [ label=\"\" ];\n", single_idx_count);
 			return stringf("v%d", single_idx_count++);
 		}
 
-		if (sig.chunks().size() == 1) {
-			const RTLIL::SigChunk &c = sig.chunks().front();
+		if (sig.is_chunk()) {
+			const RTLIL::SigChunk &c = sig.as_chunk();
 			if (c.wire != NULL && design->selected_member(module->name, c.wire->name)) {
 				if (!range_check || c.wire->width == c.width)
 						return stringf("n%d", id2num(c.wire->name));

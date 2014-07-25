@@ -133,18 +133,23 @@ std::string id(std::string internal_id, bool may_rename = true)
 
 bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 {
-	if (sig.chunks().size() != 1 || sig.chunks()[0].wire == NULL)
+	if (!sig.is_chunk() || sig.as_chunk().wire == NULL)
 		return false;
-	if (reg_wires.count(sig.chunks()[0].wire->name) == 0)
+
+	RTLIL::SigChunk chunk = sig.as_chunk();
+
+	if (reg_wires.count(chunk.wire->name) == 0)
 		return false;
-	reg_name = id(sig.chunks()[0].wire->name);
-	if (sig.size() != sig.chunks()[0].wire->width) {
+
+	reg_name = id(chunk.wire->name);
+	if (sig.size() != chunk.wire->width) {
 		if (sig.size() == 1)
-			reg_name += stringf("[%d]", sig.chunks()[0].wire->start_offset +  sig.chunks()[0].offset);
+			reg_name += stringf("[%d]", chunk.wire->start_offset +  chunk.offset);
 		else
-			reg_name += stringf("[%d:%d]", sig.chunks()[0].wire->start_offset +  sig.chunks()[0].offset + sig.chunks()[0].width - 1,
-					sig.chunks()[0].wire->start_offset +  sig.chunks()[0].offset);
+			reg_name += stringf("[%d:%d]", chunk.wire->start_offset +  chunk.offset + chunk.width - 1,
+					chunk.wire->start_offset +  chunk.offset);
 	}
+
 	return true;
 }
 
@@ -220,8 +225,8 @@ void dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool no_decimal = fals
 
 void dump_sigspec(FILE *f, RTLIL::SigSpec &sig)
 {
-	if (sig.chunks().size() == 1) {
-		dump_sigchunk(f, sig.chunks()[0]);
+	if (sig.is_chunk()) {
+		dump_sigchunk(f, sig.as_chunk());
 	} else {
 		fprintf(f, "{ ");
 		for (auto it = sig.chunks().rbegin(); it != sig.chunks().rend(); it++) {
@@ -299,10 +304,10 @@ std::string cellname(RTLIL::Cell *cell)
 	if (!norename && cell->name[0] == '$' && reg_ct.cell_known(cell->type) && cell->connections.count("\\Q") > 0)
 	{
 		RTLIL::SigSpec sig = cell->connections["\\Q"];
-		if (sig.size() != 1 || sig.is_fully_const())
+		if (SIZE(sig) != 1 || sig.is_fully_const())
 			goto no_special_reg_name;
 
-		RTLIL::Wire *wire = sig.chunks()[0].wire;
+		RTLIL::Wire *wire = sig[0].wire;
 
 		if (wire->name[0] != '\\')
 			goto no_special_reg_name;
@@ -316,7 +321,7 @@ std::string cellname(RTLIL::Cell *cell)
 			cell_name = cell_name + "_reg";
 
 		if (wire->width != 1)
-			cell_name += stringf("[%d]", wire->start_offset + sig.chunks()[0].offset);
+			cell_name += stringf("[%d]", wire->start_offset + sig[0].offset);
 
 		if (active_module && active_module->count_id(cell_name) > 0)
 				goto no_special_reg_name;
@@ -809,9 +814,9 @@ void case_body_find_regs(RTLIL::CaseRule *cs)
 		case_body_find_regs(*it2);
 
 	for (auto it = cs->actions.begin(); it != cs->actions.end(); it++) {
-		for (size_t i = 0; i < it->first.chunks().size(); i++)
-			if (it->first.chunks()[i].wire)
-				reg_wires.insert(it->first.chunks()[i].wire->name);
+		for (auto &c : it->first.chunks())
+			if (c.wire != NULL)
+				reg_wires.insert(c.wire->name);
 	}
 }
 
@@ -821,9 +826,9 @@ void dump_process(FILE *f, std::string indent, RTLIL::Process *proc, bool find_r
 		case_body_find_regs(&proc->root_case);
 		for (auto it = proc->syncs.begin(); it != proc->syncs.end(); it++)
 		for (auto it2 = (*it)->actions.begin(); it2 != (*it)->actions.end(); it2++) {
-			for (size_t i = 0; i < it2->first.chunks().size(); i++)
-				if (it2->first.chunks()[i].wire)
-					reg_wires.insert(it2->first.chunks()[i].wire->name);
+			for (auto &c : it2->first.chunks())
+				if (c.wire != NULL)
+					reg_wires.insert(c.wire->name);
 		}
 		return;
 	}
@@ -908,9 +913,12 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 
 			RTLIL::SigSpec sig = cell->connections["\\Q"];
 
-			if (sig.chunks().size() == 1 && sig.chunks()[0].wire)
-				for (int i = 0; i < sig.chunks()[0].width; i++)
-					reg_bits.insert(std::pair<RTLIL::Wire*,int>(sig.chunks()[0].wire, sig.chunks()[0].offset+i));
+			if (sig.is_chunk()) {
+				RTLIL::SigChunk chunk = sig.as_chunk();
+				if (chunk.wire != NULL)
+					for (int i = 0; i < chunk.width; i++)
+						reg_bits.insert(std::pair<RTLIL::Wire*,int>(chunk.wire, chunk.offset+i));
+			}
 		}
 		for (auto &it : module->wires)
 		{

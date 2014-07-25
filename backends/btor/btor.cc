@@ -207,15 +207,15 @@ struct BtorDumper
 						int start_bit=0;
 						for(unsigned j=0; j<cell_output->chunks().size(); ++j)
 						{
-							start_bit+=cell_output->chunks()[j].width;
-							if(cell_output->chunks()[j].wire->name == wire->name)
+							start_bit+=cell_output->chunks().at(j).width;
+							if(cell_output->chunks().at(j).wire->name == wire->name)
 							{
 								prev_wire_line = wire_line;
 								wire_line = ++line_num;
-								str = stringf("%d slice %d %d %d %d;1", line_num, cell_output->chunks()[j].width,
- 									cell_line, start_bit-1, start_bit-cell_output->chunks()[j].width);
+								str = stringf("%d slice %d %d %d %d;1", line_num, cell_output->chunks().at(j).width,
+									cell_line, start_bit-1, start_bit-cell_output->chunks().at(j).width);
 								fprintf(f, "%s\n", str.c_str());
-								wire_width += cell_output->chunks()[j].width;
+								wire_width += cell_output->chunks().at(j).width;
 								if(prev_wire_line!=0)
 								{
 									++line_num;
@@ -320,21 +320,21 @@ struct BtorDumper
 		auto it = sig_ref.find(s);
 		if(it == std::end(sig_ref))
 		{
-			if (s.chunks().size() == 1) 
+			if (s.is_chunk())
 			{
-				l = dump_sigchunk(&s.chunks()[0]);
+				l = dump_sigchunk(&s.chunks().front());
 			} 
 			else 
 			{
 				int l1, l2, w1, w2;
-				l1 = dump_sigchunk(&s.chunks()[0]);
+				l1 = dump_sigchunk(&s.chunks().front());
 				log_assert(l1>0);
-				w1 = s.chunks()[0].width;
+				w1 = s.chunks().front().width;
 				for (unsigned i=1; i < s.chunks().size(); ++i)
 				{
-					l2 = dump_sigchunk(&s.chunks()[i]);
+					l2 = dump_sigchunk(&s.chunks().at(i));
 					log_assert(l2>0);
-					w2 = s.chunks()[i].width;
+					w2 = s.chunks().at(i).width;
 					++line_num;
 					str = stringf("%d concat %d %d %d", line_num, w1+w2, l2, l1);
 					fprintf(f, "%s\n", str.c_str());
@@ -651,9 +651,9 @@ struct BtorDumper
 				unsigned start_bit = 0;
 				for(unsigned i=0; i<cell_output->chunks().size(); ++i)
 				{
-					output_width = cell_output->chunks()[i].width;
-					log_assert( output_width == cell_output->chunks()[i].wire->width);//full reg is given the next value
-					int reg = dump_wire(cell_output->chunks()[i].wire);//register
+					output_width = cell_output->chunks().at(i).width;
+					log_assert( output_width == cell_output->chunks().at(i).wire->width);//full reg is given the next value
+					int reg = dump_wire(cell_output->chunks().at(i).wire);//register
 					int slice = value;
 					if(cell_output->chunks().size()>1)
 					{
@@ -845,9 +845,9 @@ struct BtorDumper
 			{
 				for(unsigned i=0; i<output_sig->chunks().size(); ++i)
 				{
-					RTLIL::Wire *w = output_sig->chunks()[i].wire;
+					RTLIL::Wire *w = output_sig->chunks().at(i).wire;
 					RTLIL::IdString wire_id = w->name;
-					inter_wire_map[wire_id].insert(WireInfo(cell->name,&output_sig->chunks()[i]));
+					inter_wire_map[wire_id].insert(WireInfo(cell->name,&output_sig->chunks().at(i)));
 				}
 			}
 			else if(cell->type == "$memwr")
@@ -856,12 +856,12 @@ struct BtorDumper
 			}
 			else if(cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffsr")
 			{
-				RTLIL::IdString wire_id = output_sig->chunks()[0].wire->name;
+				RTLIL::IdString wire_id = output_sig->chunks().front().wire->name;
 				for(unsigned i=0; i<output_sig->chunks().size(); ++i)
 				{
-					RTLIL::Wire *w = output_sig->chunks()[i].wire;
+					RTLIL::Wire *w = output_sig->chunks().at(i).wire;
 					RTLIL::IdString wire_id = w->name;
-					inter_wire_map[wire_id].insert(WireInfo(cell->name,&output_sig->chunks()[i]));
+					inter_wire_map[wire_id].insert(WireInfo(cell->name,&output_sig->chunks().at(i)));
 					basic_wires[wire_id] = true;
 				}
 			}
@@ -869,9 +869,9 @@ struct BtorDumper
 			{
 				for(unsigned i=0; i<output_sig->chunks().size(); ++i)
 				{
-					RTLIL::Wire *w = output_sig->chunks()[i].wire;
+					RTLIL::Wire *w = output_sig->chunks().at(i).wire;
 					RTLIL::IdString wire_id = w->name;
-					inter_wire_map[wire_id].insert(WireInfo(cell->name,&output_sig->chunks()[i]));
+					inter_wire_map[wire_id].insert(WireInfo(cell->name,&output_sig->chunks().at(i)));
 				}
 			}
 		}
