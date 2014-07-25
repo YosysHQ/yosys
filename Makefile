@@ -248,6 +248,10 @@ clean:
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean
 
+clean-abc:
+	make -C abc clean
+	rm -f yosys-abc abc/abc-[0-9a-f]*
+
 mrproper: clean
 	git clean -xdf
 
