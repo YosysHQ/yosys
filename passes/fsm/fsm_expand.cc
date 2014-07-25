@@ -226,10 +226,8 @@ struct FsmExpand
 				merge_cell_into_fsm(c);
 		}
 
-		for (auto c : merged_set) {
-			module->cells.erase(c->name);
-			delete c;
-		}
+		for (auto c : merged_set)
+			module->remove(c);
 
 		if (merged_set.size() > 0 && !already_optimized)
 			FsmData::optimize_fsm(fsm_cell, module);

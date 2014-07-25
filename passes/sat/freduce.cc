@@ -718,12 +718,9 @@ struct FreduceWorker
 					{
 						inv_sig = module->addWire(NEW_ID);
 
-						RTLIL::Cell *inv_cell = new RTLIL::Cell;
-						inv_cell->name = NEW_ID;
-						inv_cell->type = "$_INV_";
+						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, "$_INV_");
 						inv_cell->connections["\\A"] = grp[0].bit;
 						inv_cell->connections["\\Y"] = inv_sig;
-						module->add(inv_cell);
 					}
 
 					module->connections.push_back(RTLIL::SigSig(grp[i].bit, inv_sig));

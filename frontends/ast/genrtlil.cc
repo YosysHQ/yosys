@@ -44,17 +44,11 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 	std::stringstream sstr;
 	sstr << type << "$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
 
-	RTLIL::Cell *cell = new RTLIL::Cell;
+	RTLIL::Cell *cell = current_module->addCell(sstr.str(), type);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	cell->name = sstr.str();
-	cell->type = type;
-	current_module->cells[cell->name] = cell;
 
-	RTLIL::Wire *wire = new RTLIL::Wire;
+	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", result_width);
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	wire->name = cell->name + "_Y";
-	wire->width = result_width;
-	current_module->wires[wire->name] = wire;
 
 	if (gen_attributes)
 		for (auto &attr : that->attributes) {
@@ -84,17 +78,11 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	std::stringstream sstr;
 	sstr << "$extend" << "$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
 
-	RTLIL::Cell *cell = new RTLIL::Cell;
+	RTLIL::Cell *cell = current_module->addCell(sstr.str(), celltype);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	cell->name = sstr.str();
-	cell->type = celltype;
-	current_module->cells[cell->name] = cell;
 
-	RTLIL::Wire *wire = new RTLIL::Wire;
+	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", width);
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	wire->name = cell->name + "_Y";
-	wire->width = width;
-	current_module->wires[wire->name] = wire;
 
 	if (that != NULL)
 		for (auto &attr : that->attributes) {
@@ -119,17 +107,11 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_wi
 	std::stringstream sstr;
 	sstr << type << "$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
 
-	RTLIL::Cell *cell = new RTLIL::Cell;
+	RTLIL::Cell *cell = current_module->addCell(sstr.str(), type);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	cell->name = sstr.str();
-	cell->type = type;
-	current_module->cells[cell->name] = cell;
 
-	RTLIL::Wire *wire = new RTLIL::Wire;
+	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", result_width);
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	wire->name = cell->name + "_Y";
-	wire->width = result_width;
-	current_module->wires[wire->name] = wire;
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
@@ -160,17 +142,11 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	std::stringstream sstr;
 	sstr << "$ternary$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
 
-	RTLIL::Cell *cell = new RTLIL::Cell;
+	RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$mux");
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	cell->name = sstr.str();
-	cell->type = "$mux";
-	current_module->cells[cell->name] = cell;
 
-	RTLIL::Wire *wire = new RTLIL::Wire;
+	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", left.size());
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
-	wire->name = cell->name + "_Y";
-	wire->width = left.size();
-	current_module->wires[wire->name] = wire;
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
@@ -1183,17 +1159,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			std::stringstream sstr;
 			sstr << "$memrd$" << str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
 
-			RTLIL::Cell *cell = new RTLIL::Cell;
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$memrd");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-			cell->name = sstr.str();
-			cell->type = "$memrd";
-			current_module->cells[cell->name] = cell;
 
-			RTLIL::Wire *wire = new RTLIL::Wire;
+			RTLIL::Wire *wire = current_module->addWire(cell->name + "_DATA", current_module->memories[str]->width);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-			wire->name = cell->name + "_DATA";
-			wire->width = current_module->memories[str]->width;
-			current_module->wires[wire->name] = wire;
 
 			int addr_bits = 1;
 			while ((1 << addr_bits) < current_module->memories[str]->size)
@@ -1220,11 +1190,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			std::stringstream sstr;
 			sstr << "$memwr$" << str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
 
-			RTLIL::Cell *cell = new RTLIL::Cell;
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$memwr");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-			cell->name = sstr.str();
-			cell->type = "$memwr";
-			current_module->cells[cell->name] = cell;
 
 			int addr_bits = 1;
 			while ((1 << addr_bits) < current_module->memories[str]->size)
@@ -1260,11 +1227,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			std::stringstream sstr;
 			sstr << "$assert$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
 
-			RTLIL::Cell *cell = new RTLIL::Cell;
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$assert");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-			cell->name = sstr.str();
-			cell->type = "$assert";
-			current_module->cells[cell->name] = cell;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
@@ -1297,9 +1261,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_CELL:
 		{
 			int port_counter = 0, para_counter = 0;
-			RTLIL::Cell *cell = new RTLIL::Cell;
+
+			if (current_module->count_id(str) != 0)
+				log_error("Re-definition of cell `%s' at %s:%d!\n",
+						str.c_str(), filename.c_str(), linenum);
+
+			RTLIL::Cell *cell = current_module->addCell(str, "");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-			cell->name = str;
+
 			for (auto it = children.begin(); it != children.end(); it++) {
 				AstNode *child = *it;
 				if (child->type == AST_CELLTYPE) {
@@ -1342,10 +1311,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							attr.first.c_str(), filename.c_str(), linenum);
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
-			if (current_module->cells.count(cell->name) != 0)
-				log_error("Re-definition of cell `%s' at %s:%d!\n",
-						str.c_str(), filename.c_str(), linenum);
-			current_module->cells[str] = cell;
 		}
 		break;
 

@@ -297,10 +297,7 @@ namespace
 		SigSet<std::pair<std::string, int>> sig2port;
 
 		// create new cell
-		RTLIL::Cell *cell = new RTLIL::Cell;
-		cell->name = stringf("$extract$%s$%d", needle->name.c_str(), RTLIL::autoidx++);
-		cell->type = needle->name;
-		haystack->add(cell);
+		RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name.c_str(), RTLIL::autoidx++), needle->name);
 
 		// create cell ports
 		for (auto &it : needle->wires) {
@@ -333,8 +330,7 @@ namespace
 				}
 			}
 
-			haystack->cells.erase(haystack_cell->name);
-			delete haystack_cell;
+			haystack->remove(haystack_cell);
 		}
 
 		return cell;
@@ -741,9 +737,7 @@ struct ExtractPass : public Pass {
 				}
 
 				for (auto cell : cells) {
-					RTLIL::Cell *newCell = new RTLIL::Cell;
-					newCell->name = cell->name;
-					newCell->type = cell->type;
+					RTLIL::Cell *newCell = newMod->addCell(cell->name, cell->type);
 					newCell->parameters = cell->parameters;
 					for (auto &conn : cell->connections) {
 						std::vector<RTLIL::SigChunk> chunks = sigmap(conn.second);
@@ -752,7 +746,6 @@ struct ExtractPass : public Pass {
 								chunk.wire = newMod->wires.at(chunk.wire->name);
 						newCell->connections[conn.first] = chunks;
 					}
-					newMod->add(newCell);
 				}
 			}
 

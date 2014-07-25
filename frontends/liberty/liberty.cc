@@ -54,48 +54,36 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 
 static RTLIL::SigSpec create_inv_cell(RTLIL::Module *module, RTLIL::SigSpec A)
 {
-	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
-	cell->type = "$_INV_";
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
 	cell->connections["\\A"] = A;
 	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	module->add(cell);
 	return cell->connections["\\Y"];
 }
 
 static RTLIL::SigSpec create_xor_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
 {
-	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
-	cell->type = "$_XOR_";
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_XOR_");
 	cell->connections["\\A"] = A;
 	cell->connections["\\B"] = B;
 	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	module->add(cell);
 	return cell->connections["\\Y"];
 }
 
 static RTLIL::SigSpec create_and_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
 {
-	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
-	cell->type = "$_AND_";
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_AND_");
 	cell->connections["\\A"] = A;
 	cell->connections["\\B"] = B;
 	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	module->add(cell);
 	return cell->connections["\\Y"];
 }
 
 static RTLIL::SigSpec create_or_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
 {
-	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
-	cell->type = "$_OR_";
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_OR_");
 	cell->connections["\\A"] = A;
 	cell->connections["\\B"] = B;
 	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	module->add(cell);
 	return cell->connections["\\Y"];
 }
 
@@ -270,19 +258,14 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 		}
 	}
 
-	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
-	cell->type = "$_INV_";
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
 	cell->connections["\\A"] = iq_sig;
 	cell->connections["\\Y"] = iqn_sig;
-	module->add(cell);
 
-	cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
+	cell = module->addCell(NEW_ID, "");
 	cell->connections["\\D"] = data_sig;
 	cell->connections["\\Q"] = iq_sig;
 	cell->connections["\\C"] = clk_sig;
-	module->add(cell);
 
 	if (clear_sig.size() == 0 && preset_sig.size() == 0) {
 		cell->type = stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N');
@@ -352,12 +335,9 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 		}
 	}
 
-	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
-	cell->type = "$_INV_";
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
 	cell->connections["\\A"] = iq_sig;
 	cell->connections["\\Y"] = iqn_sig;
-	module->add(cell);
 
 	if (clear_sig.size() == 1)
 	{
@@ -366,12 +346,9 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 
 		if (clear_polarity == true || clear_polarity != enable_polarity)
 		{
-			RTLIL::Cell *inv = new RTLIL::Cell;
-			inv->name = NEW_ID;
-			inv->type = "$_INV_";
+			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_INV_");
 			inv->connections["\\A"] = clear_sig;
 			inv->connections["\\Y"] = module->addWire(NEW_ID);
-			module->add(inv);
 
 			if (clear_polarity == true)
 				clear_negative = inv->connections["\\Y"];
@@ -379,21 +356,15 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 				clear_enable = inv->connections["\\Y"];
 		}
 
-		RTLIL::Cell *data_gate = new RTLIL::Cell;
-		data_gate->name = NEW_ID;
-		data_gate->type = "$_AND_";
+		RTLIL::Cell *data_gate = module->addCell(NEW_ID, "$_AND_");
 		data_gate->connections["\\A"] = data_sig;
 		data_gate->connections["\\B"] = clear_negative;
 		data_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
-		module->add(data_gate);
 
-		RTLIL::Cell *enable_gate = new RTLIL::Cell;
-		enable_gate->name = NEW_ID;
-		enable_gate->type = enable_polarity ? "$_OR_" : "$_AND_";
+		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? "$_OR_" : "$_AND_");
 		enable_gate->connections["\\A"] = enable_sig;
 		enable_gate->connections["\\B"] = clear_enable;
 		enable_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
-		module->add(enable_gate);
 	}
 
 	if (preset_sig.size() == 1)
@@ -403,12 +374,9 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 
 		if (preset_polarity == false || preset_polarity != enable_polarity)
 		{
-			RTLIL::Cell *inv = new RTLIL::Cell;
-			inv->name = NEW_ID;
-			inv->type = "$_INV_";
+			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_INV_");
 			inv->connections["\\A"] = preset_sig;
 			inv->connections["\\Y"] = module->addWire(NEW_ID);
-			module->add(inv);
 
 			if (preset_polarity == false)
 				preset_positive = inv->connections["\\Y"];
@@ -416,30 +384,21 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 				preset_enable = inv->connections["\\Y"];
 		}
 
-		RTLIL::Cell *data_gate = new RTLIL::Cell;
-		data_gate->name = NEW_ID;
-		data_gate->type = "$_OR_";
+		RTLIL::Cell *data_gate = module->addCell(NEW_ID, "$_OR_");
 		data_gate->connections["\\A"] = data_sig;
 		data_gate->connections["\\B"] = preset_positive;
 		data_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
-		module->add(data_gate);
 
-		RTLIL::Cell *enable_gate = new RTLIL::Cell;
-		enable_gate->name = NEW_ID;
-		enable_gate->type = enable_polarity ? "$_OR_" : "$_AND_";
+		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? "$_OR_" : "$_AND_");
 		enable_gate->connections["\\A"] = enable_sig;
 		enable_gate->connections["\\B"] = preset_enable;
 		enable_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
-		module->add(enable_gate);
 	}
 
-	cell = new RTLIL::Cell;
-	cell->name = NEW_ID;
-	cell->type = stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N');
+	cell = module->addCell(NEW_ID, stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N'));
 	cell->connections["\\D"] = data_sig;
 	cell->connections["\\Q"] = iq_sig;
 	cell->connections["\\E"] = enable_sig;
-	module->add(cell);
 }
 
 struct LibertyFrontend : public Frontend {

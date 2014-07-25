@@ -271,10 +271,9 @@ struct OptShareWorker
 						}
 					}
 					log("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
-					module->cells.erase(cell->name);
+					module->remove(cell);
 					OPT_DID_SOMETHING = true;
 					total_count++;
-					delete cell;
 				} else {
 					sharemap[cell] = cell;
 				}

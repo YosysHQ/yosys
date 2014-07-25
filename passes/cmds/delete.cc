@@ -107,7 +107,7 @@ struct DeletePass : public Pass {
 			}
 
 			std::set<std::string> delete_wires;
-			std::set<std::string> delete_cells;
+			std::set<RTLIL::Cell*> delete_cells;
 			std::set<std::string> delete_procs;
 			std::set<std::string> delete_mems;
 
@@ -121,10 +121,10 @@ struct DeletePass : public Pass {
 
 			for (auto &it : module->cells) {
 				if (design->selected(module, it.second))
-					delete_cells.insert(it.first);
+					delete_cells.insert(it.second);
 				if ((it.second->type == "$memrd" || it.second->type == "$memwr") &&
 						delete_mems.count(it.second->parameters.at("\\MEMID").decode_string()) != 0)
-					delete_cells.insert(it.first);
+					delete_cells.insert(it.second);
 			}
 
 			for (auto &it : module->processes)
@@ -147,8 +147,7 @@ struct DeletePass : public Pass {
 			}
 
 			for (auto &it : delete_cells) {
-				delete module->cells.at(it);
-				module->cells.erase(it);
+				module->remove(it);
 			}
 
 			for (auto &it : delete_procs) {

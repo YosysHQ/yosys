@@ -143,8 +143,7 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 delete_dff:
 	log("Removing %s (%s) from module %s.\n", dff->name.c_str(), dff->type.c_str(), mod->name.c_str());
 	OPT_DID_SOMETHING = true;
-	mod->cells.erase(dff->name);
-	delete dff;
+	mod->remove(dff);
 	return true;
 }
 

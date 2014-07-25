@@ -124,19 +124,13 @@ struct OptReduceWorker
 
 			if (this_s.size() > 1)
 			{
-				RTLIL::Wire *reduce_or_wire = new RTLIL::Wire;
-				reduce_or_wire->name = NEW_ID;
-				module->wires[reduce_or_wire->name] = reduce_or_wire;
-
-				RTLIL::Cell *reduce_or_cell = new RTLIL::Cell;
-				reduce_or_cell->name = NEW_ID;
-				reduce_or_cell->type = "$reduce_or";
+				RTLIL::Cell *reduce_or_cell = module->addCell(NEW_ID, "$reduce_or");
 				reduce_or_cell->connections["\\A"] = this_s;
 				reduce_or_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 				reduce_or_cell->parameters["\\A_WIDTH"] = RTLIL::Const(this_s.size());
 				reduce_or_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-				module->cells[reduce_or_cell->name] = reduce_or_cell;
 
+				RTLIL::Wire *reduce_or_wire = module->addWire(NEW_ID);
 				this_s = RTLIL::SigSpec(reduce_or_wire);
 				reduce_or_cell->connections["\\Y"] = this_s;
 			}
@@ -157,8 +151,7 @@ struct OptReduceWorker
 		{
 			module->connections.push_back(RTLIL::SigSig(cell->connections["\\Y"], cell->connections["\\A"]));
 			assign_map.add(cell->connections["\\Y"], cell->connections["\\A"]);
-			module->cells.erase(cell->name);
-			delete cell;
+			module->remove(cell);
 		}
 		else
 		{

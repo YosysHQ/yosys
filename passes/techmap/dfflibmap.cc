@@ -394,28 +394,24 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	}
 
 	std::map<std::string, int> stats;
-	for (auto cell : cell_list) {
-		cell_mapping &cm = cell_mappings[cell->type];
-		RTLIL::Cell *new_cell = new RTLIL::Cell;
-		new_cell->name = cell->name;
-		new_cell->type = "\\" + cm.cell_name;
+	for (auto cell : cell_list)
+	{
+		auto cell_type = cell->type;
+		auto cell_name = cell->name;
+		auto cell_connections = cell->connections;
+		module->remove(cell);
+
+		cell_mapping &cm = cell_mappings[cell_type];
+		RTLIL::Cell *new_cell = module->addCell(cell_name, "\\" + cm.cell_name);
+
 		for (auto &port : cm.ports) {
 			RTLIL::SigSpec sig;
 			if ('A' <= port.second && port.second <= 'Z') {
-				sig = cell->connections[std::string("\\") + port.second];
+				sig = cell_connections[std::string("\\") + port.second];
 			} else
 			if ('a' <= port.second && port.second <= 'z') {
-				sig = cell->connections[std::string("\\") + char(port.second - ('a' - 'A'))];
-				RTLIL::Cell *inv_cell = new RTLIL::Cell;
-				RTLIL::Wire *inv_wire = new RTLIL::Wire;
-				inv_cell->name = stringf("$dfflibmap$inv$%d", RTLIL::autoidx);
-				inv_wire->name = stringf("$dfflibmap$sig$%d", RTLIL::autoidx++);
-				inv_cell->type = "$_INV_";
-				inv_cell->connections[port.second == 'q' ? "\\Y" : "\\A"] = sig;
-				sig = RTLIL::SigSpec(inv_wire);
-				inv_cell->connections[port.second == 'q' ? "\\A" : "\\Y"] = sig;
-				module->cells[inv_cell->name] = inv_cell;
-				module->wires[inv_wire->name] = inv_wire;
+				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
+				sig = module->InvGate(NEW_ID, sig);
 			} else
 			if (port.second == '0' || port.second == '1') {
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);
@@ -424,9 +420,8 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 				log_abort();
 			new_cell->connections["\\" + port.first] = sig;
 		}
-		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell->type.c_str(), new_cell->type.c_str())]++;
-		module->cells[cell->name] = new_cell;
-		delete cell;
+
+		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;
 	}
 
 	for (auto &stat: stats)

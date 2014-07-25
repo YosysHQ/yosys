@@ -90,9 +90,8 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 		if (verbose)
 			log("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		OPT_DID_SOMETHING = true;
-		module->cells.erase(cell->name);
+		module->remove(cell);
 		count_rm_cells++;
-		delete cell;
 	}
 }
 

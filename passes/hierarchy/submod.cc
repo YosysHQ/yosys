@@ -162,7 +162,10 @@ struct SubmodWorker
 		}
 
 		for (RTLIL::Cell *cell : submod.cells) {
-			RTLIL::Cell *new_cell = new RTLIL::Cell(*cell);
+			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell->type);
+			new_cell->connections = cell->connections;
+			new_cell->parameters = cell->parameters;
+			new_cell->attributes = cell->attributes;
 			for (auto &conn : new_cell->connections)
 				for (auto &bit : conn.second)
 					if (bit.wire != NULL) {
@@ -170,15 +173,11 @@ struct SubmodWorker
 						bit.wire = wire_flags[bit.wire].new_wire;
 					}
 			log("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
-			new_mod->cells[new_cell->name] = new_cell;
-			module->cells.erase(cell->name);
-			delete cell;
+			module->remove(cell);
 		}
 		submod.cells.clear();
 
-		RTLIL::Cell *new_cell = new RTLIL::Cell;
-		new_cell->name = submod.full_name;
-		new_cell->type = submod.full_name;
+		RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod.full_name);
 		for (auto &it : wire_flags)
 		{
 			RTLIL::Wire *old_wire = it.first;
@@ -186,7 +185,6 @@ struct SubmodWorker
 			if (new_wire->port_id > 0)
 				new_cell->connections[new_wire->name] = RTLIL::SigSpec(old_wire);
 		}
-		module->cells[new_cell->name] = new_cell;
 	}
 
 	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, std::string opt_name = std::string()) : design(design), module(module), opt_name(opt_name)

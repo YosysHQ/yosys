@@ -86,13 +86,8 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 		else
 		{
 			// create compare cell
-			RTLIL::Cell *eq_cell = new RTLIL::Cell;
-			std::stringstream sstr2;
-			sstr2 << sstr.str() << "_CMP" << cmp_wire->width;
-			eq_cell->name = sstr2.str();
-			eq_cell->type = "$eq";
+			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str().c_str(), cmp_wire->width), "$eq");
 			eq_cell->attributes = sw->attributes;
-			mod->cells[eq_cell->name] = eq_cell;
 
 			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 			eq_cell->parameters["\\B_SIGNED"] = RTLIL::Const(0);
@@ -120,11 +115,8 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 		mod->wires[ctrl_wire->name] = ctrl_wire;
 
 		// reduce cmp vector to one logic signal
-		RTLIL::Cell *any_cell = new RTLIL::Cell;
-		any_cell->name = sstr.str() + "_ANY";
-		any_cell->type = "$reduce_or";
+		RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", "$reduce_or");
 		any_cell->attributes = sw->attributes;
-		mod->cells[any_cell->name] = any_cell;
 
 		any_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 		any_cell->parameters["\\A_WIDTH"] = RTLIL::Const(cmp_wire->width);
@@ -161,11 +153,8 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	mod->wires[result_wire->name] = result_wire;
 
 	// create the multiplexer itself
-	RTLIL::Cell *mux_cell = new RTLIL::Cell;
-	mux_cell->name = sstr.str();
-	mux_cell->type = "$mux";
+	RTLIL::Cell *mux_cell = mod->addCell(sstr.str(), "$mux");
 	mux_cell->attributes = sw->attributes;
-	mod->cells[mux_cell->name] = mux_cell;
 
 	mux_cell->parameters["\\WIDTH"] = RTLIL::Const(when_signal.size());
 	mux_cell->connections["\\A"] = else_signal;

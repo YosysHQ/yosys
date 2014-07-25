@@ -782,8 +782,14 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	for (auto &it : memories)
 		new_mod->memories[it.first] = new RTLIL::Memory(*it.second);
 
-	for (auto &it : cells)
-		new_mod->cells[it.first] = new RTLIL::Cell(*it.second);
+	for (auto &it : cells) {
+		new_mod->cells[it.first] = new RTLIL::Cell;
+		new_mod->cells[it.first]->name = it.second->name;
+		new_mod->cells[it.first]->type = it.second->type;
+		new_mod->cells[it.first]->connections = it.second->connections;
+		new_mod->cells[it.first]->parameters = it.second->parameters;
+		new_mod->cells[it.first]->attributes = it.second->attributes;
+	}
 
 	for (auto &it : processes)
 		new_mod->processes[it.first] = it.second->clone();
@@ -832,6 +838,33 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	assert(cells.count(cell->name) != 0);
 	cells.erase(cell->name);
 	delete cell;
+}
+
+void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
+{
+	assert(wires[wire->name] == wire);
+	wires.erase(wire->name);
+	wire->name = new_name;
+	add(wire);
+}
+
+void RTLIL::Module::rename(RTLIL::Cell *cell, RTLIL::IdString new_name)
+{
+	assert(cells[cell->name] == cell);
+	cells.erase(cell->name);
+	cell->name = new_name;
+	add(cell);
+}
+
+void RTLIL::Module::rename(RTLIL::IdString old_name, RTLIL::IdString new_name)
+{
+	assert(count_id(old_name) != 0);
+	if (wires.count(old_name))
+		rename(wires.at(old_name), new_name);
+	else if (cells.count(old_name))
+		rename(cells.at(old_name), new_name);
+	else
+		log_abort();
 }
 
 static bool fixup_ports_compare(const RTLIL::Wire *a, const RTLIL::Wire *b)

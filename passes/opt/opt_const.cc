@@ -81,8 +81,7 @@ static void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string i
 			module->name.c_str(), log_signal(Y), log_signal(out_val));
 	// ILANG_BACKEND::dump_cell(stderr, "--> ", cell);
 	module->connections.push_back(RTLIL::SigSig(Y, out_val));
-	module->cells.erase(cell->name);
-	delete cell;
+	module->remove(cell);
 	OPT_DID_SOMETHING = true;
 	did_something = true;
 }

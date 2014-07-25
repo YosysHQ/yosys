@@ -554,15 +554,12 @@ struct ExposePass : public Pass {
 				if (info.clk_polarity) {
 					module->connections.push_back(RTLIL::SigSig(wire_c, info.sig_clk));
 				} else {
-					RTLIL::Cell *c = new RTLIL::Cell;
-					c->name = NEW_ID;
-					c->type = "$not";
+					RTLIL::Cell *c = module->addCell(NEW_ID, "$not");
 					c->parameters["\\A_SIGNED"] = 0;
 					c->parameters["\\A_WIDTH"] = 1;
 					c->parameters["\\Y_WIDTH"] = 1;
 					c->connections["\\A"] = info.sig_clk;
 					c->connections["\\Y"] = wire_c;
-					module->add(c);
 				}
 
 				if (info.sig_arst != RTLIL::State::Sm)
@@ -575,15 +572,12 @@ struct ExposePass : public Pass {
 					if (info.arst_polarity) {
 						module->connections.push_back(RTLIL::SigSig(wire_r, info.sig_arst));
 					} else {
-						RTLIL::Cell *c = new RTLIL::Cell;
-						c->name = NEW_ID;
-						c->type = "$not";
+						RTLIL::Cell *c = module->addCell(NEW_ID, "$not");
 						c->parameters["\\A_SIGNED"] = 0;
 						c->parameters["\\A_WIDTH"] = 1;
 						c->parameters["\\Y_WIDTH"] = 1;
 						c->connections["\\A"] = info.sig_arst;
 						c->connections["\\Y"] = wire_r;
-						module->add(c);
 					}
 
 					RTLIL::Wire *wire_v = new RTLIL::Wire;
@@ -598,7 +592,7 @@ struct ExposePass : public Pass {
 
 			if (flag_evert)
 			{
-				std::vector<std::string> delete_cells;
+				std::vector<RTLIL::Cell*> delete_cells;
 
 				for (auto &it : module->cells)
 				{
@@ -665,13 +659,12 @@ struct ExposePass : public Pass {
 						}
 					}
 
-					delete_cells.push_back(cell->name);
+					delete_cells.push_back(cell);
 				}
 
-				for (auto &it : delete_cells) {
-					log("Removing cell: %s/%s (%s)\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(it), RTLIL::id2cstr(module->cells.at(it)->type));
-					delete module->cells.at(it);
-					module->cells.erase(it);
+				for (auto cell : delete_cells) {
+					log("Removing cell: %s/%s (%s)\n", log_id(module), log_id(cell), log_id(cell->type));
+					module->remove(cell);
 				}
 			}
 

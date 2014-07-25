@@ -282,15 +282,12 @@ struct ShareWorker
 			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
 			RTLIL::Wire *y = module->addWire(NEW_ID, y_width);
 
-			RTLIL::Cell *supercell = new RTLIL::Cell;
-			supercell->name = NEW_ID;
-			supercell->type = c1->type;
+			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1->type);
 			supercell->parameters["\\A_SIGNED"] = a_signed;
 			supercell->parameters["\\A_WIDTH"] = a_width;
 			supercell->parameters["\\Y_WIDTH"] = y_width;
 			supercell->connections["\\A"] = a;
 			supercell->connections["\\Y"] = y;
-			module->add(supercell);
 
 			RTLIL::SigSpec new_y1(y, 0, y1.size());
 			RTLIL::SigSpec new_y2(y, 0, y2.size());
@@ -846,8 +843,7 @@ struct ShareWorker
 			log("Removing %d cells in module %s:\n", SIZE(cells_to_remove), log_id(module));
 			for (auto c : cells_to_remove) {
 				log("  Removing cell %s (%s).\n", log_id(c), log_id(c->type));
-				module->cells.erase(c->name);
-				delete c;
+				module->remove(c);
 			}
 		}
 

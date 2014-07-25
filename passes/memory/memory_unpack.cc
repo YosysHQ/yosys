@@ -47,9 +47,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 
 	for (int i = 0; i < num_rd_ports; i++)
 	{
-		RTLIL::Cell *cell = new RTLIL::Cell;
-		cell->name = NEW_ID;
-		cell->type = "$memrd";
+		RTLIL::Cell *cell = module->addCell(NEW_ID, "$memrd");
 		cell->parameters["\\MEMID"] = mem_name;
 		cell->parameters["\\ABITS"] = memory->parameters.at("\\ABITS");
 		cell->parameters["\\WIDTH"] = memory->parameters.at("\\WIDTH");
@@ -59,14 +57,11 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->connections["\\CLK"] = memory->connections.at("\\RD_CLK").extract(i, 1);
 		cell->connections["\\ADDR"] = memory->connections.at("\\RD_ADDR").extract(i*abits, abits);
 		cell->connections["\\DATA"] = memory->connections.at("\\RD_DATA").extract(i*mem->width, mem->width);
-		module->add(cell);
 	}
 
 	for (int i = 0; i < num_wr_ports; i++)
 	{
-		RTLIL::Cell *cell = new RTLIL::Cell;
-		cell->name = NEW_ID;
-		cell->type = "$memwr";
+		RTLIL::Cell *cell = module->addCell(NEW_ID, "$memwr");
 		cell->parameters["\\MEMID"] = mem_name;
 		cell->parameters["\\ABITS"] = memory->parameters.at("\\ABITS");
 		cell->parameters["\\WIDTH"] = memory->parameters.at("\\WIDTH");
@@ -77,11 +72,9 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->connections["\\EN"] = memory->connections.at("\\WR_EN").extract(i*mem->width, mem->width);
 		cell->connections["\\ADDR"] = memory->connections.at("\\WR_ADDR").extract(i*abits, abits);
 		cell->connections["\\DATA"] = memory->connections.at("\\WR_DATA").extract(i*mem->width, mem->width);
-		module->add(cell);
 	}
 
-	module->cells.erase(memory->name);
-	delete memory;
+	module->remove(memory);
 }
 
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module)

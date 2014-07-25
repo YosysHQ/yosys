@@ -446,8 +446,7 @@ struct MemoryShareWorker
 				cell->connections.at("\\EN") = merged_en;
 				cell->connections.at("\\DATA") = merged_data;
 
-				module->cells.erase(wr_ports[last_i]->name);
-				delete wr_ports[last_i];
+				module->remove(wr_ports[last_i]);
 				wr_ports[last_i] = NULL;
 
 				log("      Active bits: ");
@@ -617,8 +616,7 @@ struct MemoryShareWorker
 			module->addMux(NEW_ID, grouped_last_en, grouped_this_en, this_en_active, grouped_en);
 			wr_ports[i]->connections.at("\\EN") = en;
 
-			module->cells.erase(wr_ports[i-1]->name);
-			delete wr_ports[i-1];
+			module->remove(wr_ports[i-1]);
 			wr_ports[i-1] = NULL;
 		}
 

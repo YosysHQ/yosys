@@ -190,8 +190,7 @@ struct OptMuxtreeWorker
 				continue;
 
 			if (live_ports.size() == 0) {
-				module->cells.erase(mi.cell->name);
-				delete mi.cell;
+				module->remove(mi.cell);
 				continue;
 			}
 
@@ -207,8 +206,7 @@ struct OptMuxtreeWorker
 			{
 				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*sig_a.size(), sig_a.size());
 				module->connections.push_back(RTLIL::SigSig(sig_y, sig_in));
-				module->cells.erase(mi.cell->name);
-				delete mi.cell;
+				module->remove(mi.cell);
 			}
 			else
 			{

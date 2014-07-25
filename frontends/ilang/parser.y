@@ -182,11 +182,8 @@ cell_stmt:
 	TOK_CELL TOK_ID TOK_ID EOL {
 		if (current_module->cells.count($3) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell %s.", $3).c_str());
-		current_cell = new RTLIL::Cell;
-		current_cell->type = $2;
-		current_cell->name = $3;
+		current_cell = current_module->addCell($3, $2);
 		current_cell->attributes = attrbuf;
-		current_module->cells[$3] = current_cell;
 		attrbuf.clear();
 		free($2);
 		free($3);

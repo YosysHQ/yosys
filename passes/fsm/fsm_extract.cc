@@ -270,9 +270,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// create fsm cell
 
-	RTLIL::Cell *fsm_cell = new RTLIL::Cell;
-	fsm_cell->name = stringf("$fsm$%s$%d", wire->name.c_str(), RTLIL::autoidx++);
-	fsm_cell->type = "$fsm";
+	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name.c_str(), RTLIL::autoidx++), "$fsm");
 	fsm_cell->connections["\\CLK"] = clk;
 	fsm_cell->connections["\\ARST"] = arst;
 	fsm_cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity ? 1 : 0, 1);
@@ -282,7 +280,6 @@ static void extract_fsm(RTLIL::Wire *wire)
 	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name);
 	fsm_cell->attributes = wire->attributes;
 	fsm_data.copy_to_cell(fsm_cell);
-	module->cells[fsm_cell->name] = fsm_cell;
 
 	// rename original state wire
 

@@ -115,15 +115,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	miter_module->name = miter_name;
 	design->modules[miter_name] = miter_module;
 
-	RTLIL::Cell *gold_cell = new RTLIL::Cell;
-	gold_cell->name = "\\gold";
-	gold_cell->type = gold_name;
-	miter_module->add(gold_cell);
-
-	RTLIL::Cell *gate_cell = new RTLIL::Cell;
-	gate_cell->name = "\\gate";
-	gate_cell->type = gate_name;
-	miter_module->add(gate_cell);
+	RTLIL::Cell *gold_cell = miter_module->addCell("\\gold", gold_name);
+	RTLIL::Cell *gate_cell = miter_module->addCell("\\gate", gate_name);
 
 	RTLIL::SigSpec all_conditions;
 
@@ -166,9 +159,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 			{
 				RTLIL::SigSpec gold_x = miter_module->addWire(NEW_ID, w2_gold->width);
 				for (int i = 0; i < w2_gold->width; i++) {
-					RTLIL::Cell *eqx_cell = new RTLIL::Cell;
-					eqx_cell->name = NEW_ID;
-					eqx_cell->type = "$eqx";
+					RTLIL::Cell *eqx_cell = miter_module->addCell(NEW_ID, "$eqx");
 					eqx_cell->parameters["\\A_WIDTH"] = 1;
 					eqx_cell->parameters["\\B_WIDTH"] = 1;
 					eqx_cell->parameters["\\Y_WIDTH"] = 1;
@@ -177,15 +168,12 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 					eqx_cell->connections["\\A"] = RTLIL::SigSpec(w2_gold, i);
 					eqx_cell->connections["\\B"] = RTLIL::State::Sx;
 					eqx_cell->connections["\\Y"] = gold_x.extract(i, 1);
-					miter_module->add(eqx_cell);
 				}
 
 				RTLIL::SigSpec gold_masked = miter_module->addWire(NEW_ID, w2_gold->width);
 				RTLIL::SigSpec gate_masked = miter_module->addWire(NEW_ID, w2_gate->width);
 
-				RTLIL::Cell *or_gold_cell = new RTLIL::Cell;
-				or_gold_cell->name = NEW_ID;
-				or_gold_cell->type = "$or";
+				RTLIL::Cell *or_gold_cell = miter_module->addCell(NEW_ID, "$or");
 				or_gold_cell->parameters["\\A_WIDTH"] = w2_gold->width;
 				or_gold_cell->parameters["\\B_WIDTH"] = w2_gold->width;
 				or_gold_cell->parameters["\\Y_WIDTH"] = w2_gold->width;
@@ -194,11 +182,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				or_gold_cell->connections["\\A"] = w2_gold;
 				or_gold_cell->connections["\\B"] = gold_x;
 				or_gold_cell->connections["\\Y"] = gold_masked;
-				miter_module->add(or_gold_cell);
 
-				RTLIL::Cell *or_gate_cell = new RTLIL::Cell;
-				or_gate_cell->name = NEW_ID;
-				or_gate_cell->type = "$or";
+				RTLIL::Cell *or_gate_cell = miter_module->addCell(NEW_ID, "$or");
 				or_gate_cell->parameters["\\A_WIDTH"] = w2_gate->width;
 				or_gate_cell->parameters["\\B_WIDTH"] = w2_gate->width;
 				or_gate_cell->parameters["\\Y_WIDTH"] = w2_gate->width;
@@ -207,11 +192,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				or_gate_cell->connections["\\A"] = w2_gate;
 				or_gate_cell->connections["\\B"] = gold_x;
 				or_gate_cell->connections["\\Y"] = gate_masked;
-				miter_module->add(or_gate_cell);
 
-				RTLIL::Cell *eq_cell = new RTLIL::Cell;
-				eq_cell->name = NEW_ID;
-				eq_cell->type = "$eqx";
+				RTLIL::Cell *eq_cell = miter_module->addCell(NEW_ID, "$eqx");
 				eq_cell->parameters["\\A_WIDTH"] = w2_gold->width;
 				eq_cell->parameters["\\B_WIDTH"] = w2_gate->width;
 				eq_cell->parameters["\\Y_WIDTH"] = 1;
@@ -221,13 +203,10 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				eq_cell->connections["\\B"] = gate_masked;
 				eq_cell->connections["\\Y"] = miter_module->addWire(NEW_ID);
 				this_condition = eq_cell->connections["\\Y"];
-				miter_module->add(eq_cell);
 			}
 			else
 			{
-				RTLIL::Cell *eq_cell = new RTLIL::Cell;
-				eq_cell->name = NEW_ID;
-				eq_cell->type = "$eqx";
+				RTLIL::Cell *eq_cell = miter_module->addCell(NEW_ID, "$eqx");
 				eq_cell->parameters["\\A_WIDTH"] = w2_gold->width;
 				eq_cell->parameters["\\B_WIDTH"] = w2_gate->width;
 				eq_cell->parameters["\\Y_WIDTH"] = 1;
@@ -237,7 +216,6 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 				eq_cell->connections["\\B"] = w2_gate;
 				eq_cell->connections["\\Y"] = miter_module->addWire(NEW_ID);
 				this_condition = eq_cell->connections["\\Y"];
-				miter_module->add(eq_cell);
 			}
 
 			if (flag_make_outcmp)
@@ -254,25 +232,19 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	}
 
 	if (all_conditions.size() != 1) {
-		RTLIL::Cell *reduce_cell = new RTLIL::Cell;
-		reduce_cell->name = NEW_ID;
-		reduce_cell->type = "$reduce_and";
+		RTLIL::Cell *reduce_cell = miter_module->addCell(NEW_ID, "$reduce_and");
 		reduce_cell->parameters["\\A_WIDTH"] = all_conditions.size();
 		reduce_cell->parameters["\\Y_WIDTH"] = 1;
 		reduce_cell->parameters["\\A_SIGNED"] = 0;
 		reduce_cell->connections["\\A"] = all_conditions;
 		reduce_cell->connections["\\Y"] = miter_module->addWire(NEW_ID);
 		all_conditions = reduce_cell->connections["\\Y"];
-		miter_module->add(reduce_cell);
 	}
 
 	if (flag_make_assert) {
-		RTLIL::Cell *assert_cell = new RTLIL::Cell;
-		assert_cell->name = NEW_ID;
-		assert_cell->type = "$assert";
+		RTLIL::Cell *assert_cell = miter_module->addCell(NEW_ID, "$assert");
 		assert_cell->connections["\\A"] = all_conditions;
 		assert_cell->connections["\\EN"] = RTLIL::SigSpec(1, 1);
-		miter_module->add(assert_cell);
 	}
 
 	RTLIL::Wire *w_trigger = new RTLIL::Wire;
@@ -280,16 +252,13 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	w_trigger->port_output = true;
 	miter_module->add(w_trigger);
 
-	RTLIL::Cell *not_cell = new RTLIL::Cell;
-	not_cell->name = NEW_ID;
-	not_cell->type = "$not";
+	RTLIL::Cell *not_cell = miter_module->addCell(NEW_ID, "$not");
 	not_cell->parameters["\\A_WIDTH"] = all_conditions.size();
 	not_cell->parameters["\\A_WIDTH"] = all_conditions.size();
 	not_cell->parameters["\\Y_WIDTH"] = w_trigger->width;
 	not_cell->parameters["\\A_SIGNED"] = 0;
 	not_cell->connections["\\A"] = all_conditions;
 	not_cell->connections["\\Y"] = w_trigger;
-	miter_module->add(not_cell);
 
 	miter_module->fixup_ports();
 

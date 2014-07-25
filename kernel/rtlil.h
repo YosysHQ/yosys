@@ -271,7 +271,8 @@ struct RTLIL::Design {
 		return attributes.at(id).as_bool();            \
 	}
 
-struct RTLIL::Module {
+struct RTLIL::Module
+{
 	RTLIL::IdString name;
 	std::set<RTLIL::IdString> avail_parameters;
 	std::map<RTLIL::IdString, RTLIL::Wire*> wires;
@@ -294,6 +295,10 @@ struct RTLIL::Module {
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
 	void remove(RTLIL::Cell *cell);
+
+	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
+	void rename(RTLIL::Cell *cell, RTLIL::IdString new_name);
+	void rename(RTLIL::IdString old_name, RTLIL::IdString new_name);
 
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
@@ -444,7 +449,19 @@ struct RTLIL::Memory {
 	Memory();
 };
 
-struct RTLIL::Cell {
+struct RTLIL::Cell
+{
+protected:
+	// Use module->addCell() and module->remove() to create or destroy modules.
+	friend struct RTLIL::Module;
+	Cell() { };
+	~Cell() { };
+
+public:
+	// do not copy simply cells
+	Cell(RTLIL::Cell &other) = delete;
+	void operator=(RTLIL::Cell &other) = delete;
+
 	RTLIL::IdString name;
 	RTLIL::IdString type;
 	std::map<RTLIL::IdString, RTLIL::SigSpec> connections;

@@ -58,7 +58,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	RTLIL::SigSpec sig_rd_addr;
 	RTLIL::SigSpec sig_rd_data;
 
-	std::vector<std::string> del_cell_ids;
+	std::vector<RTLIL::Cell*> del_cells;
 	std::vector<RTLIL::Cell*> memcells;
 
 	for (auto &cell_it : module->cells) {
@@ -74,7 +74,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 		if (cell->type == "$memwr" && cell->parameters["\\MEMID"].decode_string() == memory->name)
 		{
 			wr_ports++;
-			del_cell_ids.push_back(cell->name);
+			del_cells.push_back(cell);
 
 			RTLIL::SigSpec clk = cell->connections["\\CLK"];
 			RTLIL::SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
@@ -101,7 +101,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 		if (cell->type == "$memrd" && cell->parameters["\\MEMID"].decode_string() == memory->name)
 		{
 			rd_ports++;
-			del_cell_ids.push_back(cell->name);
+			del_cells.push_back(cell);
 
 			RTLIL::SigSpec clk = cell->connections["\\CLK"];
 			RTLIL::SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
@@ -129,10 +129,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	std::stringstream sstr;
 	sstr << "$mem$" << memory->name << "$" << (RTLIL::autoidx++);
 
-	RTLIL::Cell *mem = new RTLIL::Cell;
-	mem->name = sstr.str();
-	mem->type = "$mem";
-
+	RTLIL::Cell *mem = module->addCell(sstr.str(), "$mem");
 	mem->parameters["\\MEMID"] = RTLIL::Const(memory->name);
 	mem->parameters["\\WIDTH"] = RTLIL::Const(memory->width);
 	mem->parameters["\\OFFSET"] = RTLIL::Const(memory->start_offset);
@@ -170,11 +167,8 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	mem->connections["\\RD_ADDR"] = sig_rd_addr;
 	mem->connections["\\RD_DATA"] = sig_rd_data;
 
-	for (auto &id : del_cell_ids) {
-		delete module->cells[id];
-		module->cells.erase(id);
-	}
-	module->cells[mem->name] = mem;
+	for (auto c : del_cells)
+		module->remove(c);
 }
 
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module)

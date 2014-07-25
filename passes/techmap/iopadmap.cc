@@ -176,9 +176,7 @@ struct IopadmapPass : public Pass {
 				{
 					for (int i = 0; i < wire->width; i++)
 					{
-						RTLIL::Cell *cell = new RTLIL::Cell;
-						cell->name = NEW_ID;
-						cell->type = RTLIL::escape_id(celltype);
+						RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
 						cell->connections[RTLIL::escape_id(portname)] = RTLIL::SigSpec(wire, i);
 						if (!portname2.empty())
 							cell->connections[RTLIL::escape_id(portname2)] = RTLIL::SigSpec(new_wire, i);
@@ -187,14 +185,11 @@ struct IopadmapPass : public Pass {
 						if (!nameparam.empty())
 							cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(stringf("%s[%d]", RTLIL::id2cstr(wire->name), i));
 						cell->attributes["\\keep"] = RTLIL::Const(1);
-						module->add(cell);
 					}
 				}
 				else
 				{
-					RTLIL::Cell *cell = new RTLIL::Cell;
-					cell->name = NEW_ID;
-					cell->type = RTLIL::escape_id(celltype);
+					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
 					cell->connections[RTLIL::escape_id(portname)] = RTLIL::SigSpec(wire);
 					if (!portname2.empty())
 						cell->connections[RTLIL::escape_id(portname2)] = RTLIL::SigSpec(new_wire);
@@ -203,7 +198,6 @@ struct IopadmapPass : public Pass {
 					if (!nameparam.empty())
 						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(RTLIL::id2cstr(wire->name));
 					cell->attributes["\\keep"] = RTLIL::Const(1);
-					module->add(cell);
 				}
 
 				wire->port_id = 0;

@@ -127,8 +127,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 		map_signal(sig_q, 'f', map_signal(sig_d));
 
-		module->cells.erase(cell->name);
-		delete cell;
+		module->remove(cell);
 		return;
 	}
 
@@ -142,8 +141,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 		map_signal(sig_y, 'n', map_signal(sig_a));
 
-		module->cells.erase(cell->name);
-		delete cell;
+		module->remove(cell);
 		return;
 	}
 
@@ -169,8 +167,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		else
 			log_abort();
 
-		module->cells.erase(cell->name);
-		delete cell;
+		module->remove(cell);
 		return;
 	}
 
@@ -192,8 +189,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 
 		map_signal(sig_y, 'm', mapped_a, mapped_b, mapped_s);
 
-		module->cells.erase(cell->name);
-		delete cell;
+		module->remove(cell);
 		return;
 	}
 }
@@ -722,47 +718,35 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					continue;
 				}
 				if (c->type == "\\INV") {
-					RTLIL::Cell *cell = new RTLIL::Cell;
-					cell->type = "$_INV_";
-					cell->name = remap_name(c->name);
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_INV_");
 					cell->connections["\\A"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\A"].as_wire()->name)]);
 					cell->connections["\\Y"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].as_wire()->name)]);
-					module->cells[cell->name] = cell;
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR") {
-					RTLIL::Cell *cell = new RTLIL::Cell;
-					cell->type = "$_" + c->type.substr(1) + "_";
-					cell->name = remap_name(c->name);
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					cell->connections["\\A"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\A"].as_wire()->name)]);
 					cell->connections["\\B"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\B"].as_wire()->name)]);
 					cell->connections["\\Y"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].as_wire()->name)]);
-					module->cells[cell->name] = cell;
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\MUX") {
-					RTLIL::Cell *cell = new RTLIL::Cell;
-					cell->type = "$_MUX_";
-					cell->name = remap_name(c->name);
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_MUX_");
 					cell->connections["\\A"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\A"].as_wire()->name)]);
 					cell->connections["\\B"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\B"].as_wire()->name)]);
 					cell->connections["\\S"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\S"].as_wire()->name)]);
 					cell->connections["\\Y"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Y"].as_wire()->name)]);
-					module->cells[cell->name] = cell;
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\DFF") {
 					log_assert(clk_sig.size() == 1);
-					RTLIL::Cell *cell = new RTLIL::Cell;
-					cell->type = clk_polarity ? "$_DFF_P_" : "$_DFF_N_";
-					cell->name = remap_name(c->name);
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
 					cell->connections["\\D"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\D"].as_wire()->name)]);
 					cell->connections["\\Q"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Q"].as_wire()->name)]);
 					cell->connections["\\C"] = clk_sig;
-					module->cells[cell->name] = cell;
 					design->select(module, cell);
 					continue;
 				}
@@ -784,20 +768,15 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				}
 				if (c->type == "\\_dff_") {
 					log_assert(clk_sig.size() == 1);
-					RTLIL::Cell *cell = new RTLIL::Cell;
-					cell->type = clk_polarity ? "$_DFF_P_" : "$_DFF_N_";
-					cell->name = remap_name(c->name);
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
 					cell->connections["\\D"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\D"].as_wire()->name)]);
 					cell->connections["\\Q"] = RTLIL::SigSpec(module->wires[remap_name(c->connections["\\Q"].as_wire()->name)]);
 					cell->connections["\\C"] = clk_sig;
-					module->cells[cell->name] = cell;
 					design->select(module, cell);
 					continue;
 				}
-				RTLIL::Cell *cell = new RTLIL::Cell;
-				cell->type = c->type;
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
 				cell->parameters = c->parameters;
-				cell->name = remap_name(c->name);
 				for (auto &conn : c->connections) {
 					RTLIL::SigSpec newsig;
 					for (auto &c : conn.second.chunks()) {
@@ -808,7 +787,6 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					}
 					cell->connections[conn.first] = newsig;
 				}
-				module->cells[cell->name] = cell;
 				design->select(module, cell);
 			}
 		}

@@ -114,15 +114,12 @@ struct TechmapWorker
 			log_error("Technology map yielded processes -> this is not supported.\n");
 		}
 
-		// erase from namespace first for _TECHMAP_REPLACE_ to work
-		module->cells.erase(cell->name);
 		std::string orig_cell_name;
-
 		if (!flatten_mode)
 			for (auto &it : tpl->cells)
 				if (it.first == "\\_TECHMAP_REPLACE_") {
 					orig_cell_name = cell->name;
-					cell->name = stringf("$techmap%d", RTLIL::autoidx++) + cell->name;
+					module->rename(cell, stringf("$techmap%d", RTLIL::autoidx++) + cell->name);
 					break;
 				}
 
@@ -183,20 +180,29 @@ struct TechmapWorker
 			}
 		}
 
-		for (auto &it : tpl->cells) {
-			RTLIL::Cell *c = new RTLIL::Cell(*it.second);
-			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
-				c->type = c->type.substr(1);
-			if (!flatten_mode && c->name == "\\_TECHMAP_REPLACE_")
-				c->name = orig_cell_name;
+		for (auto &it : tpl->cells)
+		{
+			RTLIL::IdString c_name = it.second->name;
+			RTLIL::IdString c_type = it.second->type;
+
+			if (!flatten_mode && c_type.substr(0, 2) == "\\$")
+				c_type = c_type.substr(1);
+
+			if (!flatten_mode && c_name == "\\_TECHMAP_REPLACE_")
+				c_name = orig_cell_name;
 			else
-				apply_prefix(cell->name, c->name);
+				apply_prefix(cell->name, c_name);
+
+			RTLIL::Cell *c = module->addCell(c_name, c_type);
+			c->connections = it.second->connections;
+			c->parameters = it.second->parameters;
+			c->attributes = it.second->attributes;
+			design->select(module, c);
+
 			for (auto &it2 : c->connections) {
 				apply_prefix(cell->name, it2.second, module);
 				port_signal_map.apply(it2.second);
 			}
-			module->add(c);
-			design->select(module, c);
 		}
 
 		for (auto &it : tpl->connections) {
@@ -208,7 +214,7 @@ struct TechmapWorker
 			module->connections.push_back(c);
 		}
 
-		delete cell;
+		module->remove(cell);
 	}
 
 	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
@@ -254,8 +260,7 @@ struct TechmapWorker
 						if (simplemap_mappers.count(cell->type) == 0)
 							log_error("No simplemap mapper for cell type %s found!\n", RTLIL::id2cstr(cell->type));
 						simplemap_mappers.at(cell->type)(module, cell);
-						module->cells.erase(cell->name);
-						delete cell;
+						module->remove(cell);
 						cell = NULL;
 						did_something = true;
 						break;
