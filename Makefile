@@ -106,13 +106,15 @@ LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 
 ifeq ($(PRETTY), 1)
-I = 0
-P = @echo "$(eval I=$(shell bash -c 'i=0; for x in $(OBJS) yosys; do ((i++)); [ "$$x" = "$@" -a $I -lt $$i ] && echo $$i && exit; done; echo $I'))[$(shell \
-		gawk "BEGIN { N=`echo $(OBJS) yosys | wc -w`; printf \"%3d\", 100*$I/N; exit; }")%] Building $@";
+P_STATUS = 0
+P_OFFSET = 0
+P_UPDATE = $(eval P_STATUS=$(shell echo $(OBJS) yosys | gawk 'BEGIN { RS = " "; I = $(P_STATUS)+0; } $$1 == "$@" && NR > I { I = NR; } END { print I; }'))
+P_SHOW = [$(shell gawk "BEGIN { N=$(words $(OBJS) yosys); printf \"%3d\", $(P_OFFSET)+90*$(P_STATUS)/N; exit; }")%]
+P = @echo "$(if $(findstring $@,$(TARGETS) $(EXTRA_TARGETS)),$(eval P_OFFSET = 10))$(call P_UPDATE)$(call P_SHOW) Building $@";
 Q = @
 S = -s
 else
-I =
+P_SHOW = ->
 P =
 Q =
 S =
@@ -166,6 +168,9 @@ include backends/ilang/Makefile.inc
 endif
 
 top-all: $(TARGETS) $(EXTRA_TARGETS)
+	@echo ""
+	@echo "  It's a Yosys."
+	@echo ""
 
 yosys: $(OBJS)
 	$(P) $(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
@@ -202,7 +207,7 @@ ifneq ($(ABCREV),default)
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
-	$(Q) cd abc && $(MAKE) $(S) PROG="abc-$(ABCREV)" MSG_PREFIX="YOSYS-ABC: "
+	$(Q) cd abc && $(MAKE) $(S) PROG="abc-$(ABCREV)" MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: "
 
 ifeq ($(ABCREV),default)
 .PHONY: abc/abc-$(ABCREV)
