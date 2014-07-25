@@ -782,14 +782,8 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	for (auto &it : memories)
 		new_mod->memories[it.first] = new RTLIL::Memory(*it.second);
 
-	for (auto &it : cells) {
-		new_mod->cells[it.first] = new RTLIL::Cell;
-		new_mod->cells[it.first]->name = it.second->name;
-		new_mod->cells[it.first]->type = it.second->type;
-		new_mod->cells[it.first]->connections = it.second->connections;
-		new_mod->cells[it.first]->parameters = it.second->parameters;
-		new_mod->cells[it.first]->attributes = it.second->attributes;
-	}
+	for (auto &it : cells)
+		new_mod->addCell(it.first, it.second);
 
 	for (auto &it : processes)
 		new_mod->processes[it.first] = it.second->clone();
@@ -909,6 +903,15 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 	cell->name = name;
 	cell->type = type;
 	add(cell);
+	return cell;
+}
+
+RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
+{
+	RTLIL::Cell *cell = addCell(name, other->type);
+	cell->connections = other->connections;
+	cell->parameters = other->parameters;
+	cell->attributes = other->attributes;
 	return cell;
 }
 

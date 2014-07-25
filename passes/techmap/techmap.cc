@@ -183,21 +183,17 @@ struct TechmapWorker
 		for (auto &it : tpl->cells)
 		{
 			RTLIL::IdString c_name = it.second->name;
-			RTLIL::IdString c_type = it.second->type;
-
-			if (!flatten_mode && c_type.substr(0, 2) == "\\$")
-				c_type = c_type.substr(1);
 
 			if (!flatten_mode && c_name == "\\_TECHMAP_REPLACE_")
 				c_name = orig_cell_name;
 			else
 				apply_prefix(cell->name, c_name);
 
-			RTLIL::Cell *c = module->addCell(c_name, c_type);
-			c->connections = it.second->connections;
-			c->parameters = it.second->parameters;
-			c->attributes = it.second->attributes;
+			RTLIL::Cell *c = module->addCell(c_name, it.second);
 			design->select(module, c);
+
+			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
+				c->type = c->type.substr(1);
 
 			for (auto &it2 : c->connections) {
 				apply_prefix(cell->name, it2.second, module);

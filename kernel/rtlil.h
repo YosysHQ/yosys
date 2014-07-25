@@ -302,6 +302,7 @@ struct RTLIL::Module
 
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
 	// The add* methods create a cell and return the created cell. All signals must exist in advance.
 

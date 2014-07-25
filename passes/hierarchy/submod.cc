@@ -162,10 +162,7 @@ struct SubmodWorker
 		}
 
 		for (RTLIL::Cell *cell : submod.cells) {
-			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell->type);
-			new_cell->connections = cell->connections;
-			new_cell->parameters = cell->parameters;
-			new_cell->attributes = cell->attributes;
+			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell);
 			for (auto &conn : new_cell->connections)
 				for (auto &bit : conn.second)
 					if (bit.wire != NULL) {
