@@ -226,6 +226,11 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	cd tests/memories && bash run-test.sh
 	cd tests/sat && bash run-test.sh
 
+VALGRIND ?= valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
+
+vgtest: $(TARGETS) $(EXTRA_TARGETS)
+	$(VALGRIND) ./yosys -p 'setattr -mod -unset top; hierarchy; proc; opt; memory -nomap; opt -fine; techmap; opt' $$( ls tests/simple/*.v | grep -v repwhile.v )
+
 vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 	cd tests/vloghtb && bash run-test.sh
 
