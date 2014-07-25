@@ -895,7 +895,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					log_error("Expression in generate case at %s:%d is not constant!\n", filename.c_str(), linenum);
 				}
 
-				if (RTLIL::const_eq(ref_value, buf->bitsAsConst(), ref_signed && buf->is_signed, ref_signed && buf->is_signed, 1).as_bool()) {
+				bool is_selected = RTLIL::const_eq(ref_value, buf->bitsAsConst(), ref_signed && buf->is_signed, ref_signed && buf->is_signed, 1).as_bool();
+				delete buf;
+
+				if (is_selected) {
 					selected_case = this_genblock;
 					i = children.size();
 					break;
@@ -1301,6 +1304,8 @@ skip_dynamic_range_lvalue_expansion:;
 					log_error("Failed to evaluate system function `%s' with non-constant value at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 
 				RTLIL::Const arg_value = buf->bitsAsConst();
+				delete buf;
+
 				uint32_t result = 0;
 				for (size_t i = 0; i < arg_value.bits.size(); i++)
 					if (arg_value.bits.at(i) == RTLIL::State::S1)
