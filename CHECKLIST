@@ -29,13 +29,25 @@ Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.7,release}":
 	chromium-browser report.html
 
 
-Then with any config setting:
+Then with default config setting:
 
 	cd ~yosys
 	make manual
 	- sanity check the figures in the appnotes and presentation
 	    - if there are any odd things -> investigate
 	    - make cosmetic changes to the .tex files if necessary
+
+
+Also with default config setting:
+
+	cd ~yosys/techlibs/cmos
+	bash testbench.sh
+
+	cd ~yosys/techlibs/xilinx/example_sim_counter
+	bash run_sim.sh
+
+	cd ~yosys/techlibs/xilinx/example_mojo_counter
+	bash example.sh
 
 
 Finally if a current verific library is available:
