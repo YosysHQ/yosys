@@ -1,5 +1,5 @@
 
-module test001(a, b, c, y);
+module array_test001(a, b, c, y);
 	input a;
 	input [31:0] b, c;
 	input [31:0] y;

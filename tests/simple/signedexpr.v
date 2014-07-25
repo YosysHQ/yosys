@@ -1,4 +1,4 @@
-module test01(a, b, xu, xs, yu, ys, zu, zs);
+module signed_test01(a, b, xu, xs, yu, ys, zu, zs);
 
 input signed [1:0] a;
 input signed [2:0] b;

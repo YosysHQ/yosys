@@ -1,4 +1,4 @@
-module test001(input [5:0] a, output [7:0] y, output [31:0] x);
+module repwhile_test001(input [5:0] a, output [7:0] y, output [31:0] x);
 
 	function [7:0] mylog2;
 		input [31:0] value;

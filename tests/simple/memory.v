@@ -1,5 +1,5 @@
 
-module test00(clk, setA, setB, y);
+module memtest00(clk, setA, setB, y);
 
 input clk, setA, setB;
 output y;
@@ -16,7 +16,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test01(clk, wr_en, wr_addr, wr_value, rd_addr, rd_value);
+module memtest01(clk, wr_en, wr_addr, wr_value, rd_addr, rd_value);
 
 input clk, wr_en;
 input [3:0] wr_addr, rd_addr;
@@ -36,7 +36,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test02(clk, setA, setB, addr, bit, y1, y2, y3, y4);
+module memtest02(clk, setA, setB, addr, bit, y1, y2, y3, y4);
 
 input clk, setA, setB;
 input [1:0] addr;
@@ -77,7 +77,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test03(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
+module memtest03(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
 
 input clk, wr_enable;
 input [3:0] wr_addr, wr_data, rd_addr;
@@ -95,7 +95,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test04(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
+module memtest04(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
 
 input clk, wr_enable;
 input [3:0] wr_addr, wr_data, rd_addr;
@@ -116,7 +116,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test05(clk, addr, wdata, rdata, wen);
+module memtest05(clk, addr, wdata, rdata, wen);
 
 input clk;
 input [1:0] addr;
@@ -137,7 +137,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test06_sync(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
+module memtest06_sync(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
     (* gentb_constant=0 *) wire rst;
     reg [7:0] test [0:7];
     integer i;
@@ -156,7 +156,7 @@ module test06_sync(input clk, input rst, input [2:0] idx, input [7:0] din, outpu
     assign dout = test[idx];
 endmodule
 
-module test06_async(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
+module memtest06_async(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
     (* gentb_constant=0 *) wire rst;
     reg [7:0] test [0:7];
     integer i;
@@ -177,7 +177,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test07(clk, addr, woffset, wdata, rdata);
+module memtest07(clk, addr, woffset, wdata, rdata);
 
 input clk;
 input [1:0] addr;

@@ -1,5 +1,5 @@
 
-module test01(clk, a, b, c, x, y, z, w);
+module task_func_test01(clk, a, b, c, x, y, z, w);
 
 input clk;
 input [7:0] a, b, c;

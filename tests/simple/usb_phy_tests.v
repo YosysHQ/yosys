@@ -1,6 +1,6 @@
 
 // from usb_rx_phy
-module test01(clk, rst, rx_en, fs_ce);
+module usb_phy_test01(clk, rst, rx_en, fs_ce);
 
 input		clk, rst;
 input		rx_en;

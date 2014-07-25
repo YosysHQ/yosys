@@ -1,5 +1,5 @@
 
-module test1(a, b, x, y);
+module pm_test1(a, b, x, y);
 
 input [7:0] a, b;
 output [7:0] x, y;
@@ -11,7 +11,7 @@ endmodule
 
 // -----------------------------------
 
-module test2(a, b, x, y);
+module pm_test2(a, b, x, y);
 
 input [7:0] a, b;
 output [7:0] x, y;
@@ -23,7 +23,7 @@ endmodule
 
 // -----------------------------------
 
-module test3(a, b, x, y);
+module pm_test3(a, b, x, y);
 
 input [7:0] a, b;
 output [7:0] x, y;

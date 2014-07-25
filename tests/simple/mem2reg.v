@@ -1,5 +1,5 @@
 
-module test1(in_addr, in_data, out_addr, out_data);
+module mem2reg_test1(in_addr, in_data, out_addr, out_data);
 
 input [1:0] in_addr, out_addr;
 input [3:0] in_data;
@@ -19,7 +19,7 @@ endmodule
 
 // ------------------------------------------------------
 
-module test2(clk, mode, addr, data);
+module mem2reg_test2(clk, mode, addr, data);
 
 input clk, mode;
 input [2:0] addr;
@@ -46,7 +46,7 @@ endmodule
 // ------------------------------------------------------
 
 // http://www.reddit.com/r/yosys/comments/28d9lx/problem_with_concatenation_of_two_dimensional/
-module test3( input clk, input [8:0] din_a, output reg [7:0] dout_a, output [7:0] dout_b);
+module mem2reg_test3( input clk, input [8:0] din_a, output reg [7:0] dout_a, output [7:0] dout_b);
 reg [7:0] dint_c [0:7]; 
 always @(posedge clk)
   begin

@@ -1,4 +1,4 @@
-module test(y);
+module undef_eqx_nex(y);
 output [7:0] y;
 assign y[0] = 0/0;
 assign y[1] = 0/1;
