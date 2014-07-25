@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <csignal>
 #include <cinttypes>
+#include <unistd.h>
 
 #include "../minisat/Solver.h"
 #include "../minisat/SimpSolver.h"

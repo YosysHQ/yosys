@@ -1,0 +1,38 @@
+--- ParseUtils.h
++++ ParseUtils.h
+@@ -24,8 +24,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
+ #include <stdlib.h>
+ #include <stdio.h>
+ 
+-#include <zlib.h>
+-
+ #include "XAlloc.h"
+ 
+ namespace Minisat {
+@@ -36,24 +34,16 @@ namespace Minisat {
+ 
+ 
+ class StreamBuffer {
+-    gzFile         in;
+     unsigned char* buf;
+     int            pos;
+     int            size;
+ 
+     enum { buffer_size = 64*1024 };
+ 
+-    void assureLookahead() {
+-        if (pos >= size) {
+-            pos  = 0;
+-            size = gzread(in, buf, buffer_size); } }
++    virtual void assureLookahead() = 0;
+ 
+ public:
+-    explicit StreamBuffer(gzFile i) : in(i), pos(0), size(0){
+-        buf = (unsigned char*)xrealloc(NULL, buffer_size);
+-        assureLookahead();
+-    }
+-    ~StreamBuffer() { free(buf); }
++    virtual ~StreamBuffer() { }
+ 
+     int  operator *  () const { return (pos >= size) ? EOF : buf[pos]; }
+     void operator ++ ()       { pos++; assureLookahead(); }
