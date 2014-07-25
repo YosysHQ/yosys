@@ -17,6 +17,10 @@
  *
  */
 
+#include <sys/types.h>
+#include <unistd.h>
+#include <fnmatch.h>
+
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
@@ -27,7 +31,7 @@ struct CoverPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    cover [-q] [-o logfile|-a logfile]\n");
+		log("    cover [options] [pattern]\n");
 		log("\n");
 		log("Print the code coverage counters collected using the cover() macro in the Yosys\n");
 		log("C++ code. This is useful to figure out what parts of Yosys are utilized by a\n");
@@ -36,22 +40,28 @@ struct CoverPass : public Pass {
 		log("    -q\n");
 		log("        Do not print output to the normal destination (console and/or log file)\n");
 		log("\n");
-		log("    -o logfile\n");
+		log("    -o file\n");
 		log("        Write output to this file, truncate if exists.\n");
 		log("\n");
-		log("    -a logfile\n");
+		log("    -a file\n");
 		log("        Write output to this file, append if exists.\n");
 		log("\n");
+		log("    -d dir\n");
+		log("        Write output to a newly created file in the specified directory.\n");
 		log("\n");
-		log("It is also possible to instruct Yosys to print the coverage counters to a file\n");
-		log("using environment variables.\n");
+		log("When one or more pattern (shell wildcards) are specified, then only counters\n");
+		log("matching at least one pattern are printed.\n");
 		log("\n");
-		log("    YOSYS_COVER_DIR=\"{dir-name}\" yosys {args}n");
+		log("\n");
+		log("It is also possible to instruct Yosys to print the coverage counters on program\n");
+		log("exit to a file using environment variables:\n");
+		log("\n");
+		log("    YOSYS_COVER_DIR=\"{dir-name}\" yosys {args}\n");
 		log("\n");
 		log("        This will create a file (with an auto-generated name) in this\n");
-		log("        directory and wire the coverage counters to it.\n");
+		log("        directory and write the coverage counters to it.\n");
 		log("\n");
-		log("    YOSYS_COVER_FILE=\"{file-name}\" yosys {args}n");
+		log("    YOSYS_COVER_FILE=\"{file-name}\" yosys {args}\n");
 		log("\n");
 		log("        This will append the coverage counters to the specified file.\n");
 		log("\n");
@@ -65,6 +75,7 @@ struct CoverPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::vector<FILE*> out_files;
+		std::vector<std::string> patterns;
 		bool do_log = true;
 
 		size_t argidx;
@@ -74,9 +85,15 @@ struct CoverPass : public Pass {
 				do_log = false;
 				continue;
 			}
-			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
-				const char *open_mode = args[argidx] == "-o" ? "w" : "a+";
-				FILE *f = fopen(args[++argidx].c_str(), open_mode);
+			if ((args[argidx] == "-o" || args[argidx] == "-a" || args[argidx] == "-d") && argidx+1 < args.size()) {
+				const char *open_mode = args[argidx] == "-a" ? "a+" : "w";
+				std::string filename = args[++argidx];
+				if (args[argidx-1] == "-d") {
+					char filename_buffer[4096];
+					snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", filename.c_str(), getpid());
+					filename = mkstemps(filename_buffer, 4);
+				}
+				FILE *f = fopen(filename.c_str(), open_mode);
 				if (f == NULL) {
 					for (auto f : out_files)
 						fclose(f);
@@ -87,6 +104,8 @@ struct CoverPass : public Pass {
 			}
 			break;
 		}
+		while (argidx < args.size() && args[argidx].substr(0, 1) != "-")
+			patterns.push_back(args[argidx++]);
 		extra_args(args, argidx, design);
 
 		if (do_log) {
@@ -96,6 +115,13 @@ struct CoverPass : public Pass {
 
 #ifndef NDEBUG
 		for (auto &it : get_coverage_data()) {
+			if (!patterns.empty()) {
+				for (auto &p : patterns)
+					if (!fnmatch(p.c_str(), it.first.c_str(), 0))
+						goto pattern_match;
+				continue;
+			}
+		pattern_match:
 			for (auto f : out_files)
 				fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
 			if (do_log)
