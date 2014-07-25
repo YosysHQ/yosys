@@ -577,6 +577,8 @@ public:
 	inline bool operator !=(const RTLIL::SigSpec &other) const { return !(*this == other); }
 
 	bool is_wire() const;
+	bool is_chunk() const;
+
 	bool is_fully_const() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
@@ -587,6 +589,7 @@ public:
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
+	RTLIL::SigChunk as_chunk() const;
 
 	bool match(std::string pattern) const;
 

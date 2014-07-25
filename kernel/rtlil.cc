@@ -2007,6 +2007,14 @@ bool RTLIL::SigSpec::is_wire() const
 	return SIZE(chunks_) == 1 && chunks_[0].wire && chunks_[0].wire->width == width_;
 }
 
+bool RTLIL::SigSpec::is_chunk() const
+{
+	cover("kernel.rtlil.sigspec.is_chunk");
+
+	pack();
+	return SIZE(chunks_) == 1;
+}
+
 bool RTLIL::SigSpec::is_fully_const() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_const");
@@ -2119,6 +2127,15 @@ RTLIL::Wire *RTLIL::SigSpec::as_wire() const
 	pack();
 	assert(is_wire());
 	return chunks_[0].wire;
+}
+
+RTLIL::SigChunk RTLIL::SigSpec::as_chunk() const
+{
+	cover("kernel.rtlil.sigspec.as_chunk");
+
+	pack();
+	assert(is_chunk());
+	return chunks_[0];
 }
 
 bool RTLIL::SigSpec::match(std::string pattern) const
