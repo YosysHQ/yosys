@@ -1,11 +1,11 @@
-verific -vlog2k ../../../yosys-bigsim/softusb_navre/rtl/softusb_navre.v
+verific -vlog2k ../yosys-bigsim/softusb_navre/rtl/softusb_navre.v
 verific -import softusb_navre
 
 memory softusb_navre
 flatten softusb_navre
 rename softusb_navre gate
 
-read_verilog ../../../yosys-bigsim/softusb_navre/rtl/softusb_navre.v
+read_verilog ../yosys-bigsim/softusb_navre/rtl/softusb_navre.v
 cd softusb_navre; proc; opt; memory; opt; cd ..
 rename softusb_navre gold
 
