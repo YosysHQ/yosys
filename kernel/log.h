@@ -75,7 +75,8 @@ void log_cell(RTLIL::Cell *cell, std::string indent = "");
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
 
-#ifndef NDEBUG
+#if defined(__linux__) && !defined(NDEBUG)
+#define COVER_ACTIVE
 
 #define cover(_id) do { \
     static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1))) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \

@@ -749,7 +749,7 @@ int main(int argc, char **argv)
 	delete yosys_design;
 	yosys_design = NULL;
 
-#ifndef NDEBUG
+#ifdef COVER_ACTIVE
 	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
 	{
 		char filename_buffer[4096];

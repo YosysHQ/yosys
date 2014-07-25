@@ -71,6 +71,9 @@ struct CoverPass : public Pass {
 		log("    gawk '{ p[$3] = $1; c[$3] += $2; } END { for (i in p)\n");
 		log("      printf \"%%-60s %%10d %%s\\n\", p[i], c[i], i; }' {files} | sort -k3\n");
 		log("\n");
+		log("\n");
+		log("Coverage counters are only available in debug builds of Yosys for Linux.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -113,7 +116,7 @@ struct CoverPass : public Pass {
 			log("\n");
 		}
 
-#ifndef NDEBUG
+#ifdef COVER_ACTIVE
 		for (auto &it : get_coverage_data()) {
 			if (!patterns.empty()) {
 				for (auto &p : patterns)
@@ -131,7 +134,7 @@ struct CoverPass : public Pass {
 		for (auto f : out_files)
 			fclose(f);
 
-		log_cmd_error("Coverage counters are only available in debug builds of Yosys.");
+		log_cmd_error("Coverage counters are only available in debug builds of Yosys for Linux.\n");
 #endif
 
 		for (auto f : out_files)
