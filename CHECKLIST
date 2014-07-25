@@ -32,6 +32,10 @@ Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.7,release}":
 Then with default config setting:
 
 	cd ~yosys
+	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'proc; opt; show' tests/simple/fiedler-cooley.v
+
+	cd ~yosys
 	make manual
 	- sanity check the figures in the appnotes and presentation
 	    - if there are any odd things -> investigate
