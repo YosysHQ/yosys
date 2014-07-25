@@ -312,12 +312,14 @@ struct OptReduceWorker
 
 			// merge identical inputs on $mux and $pmux cells
 
-			for (auto &cell_it : module->cells)
-			{
-				RTLIL::Cell *cell = cell_it.second;
-				if ((cell->type != "$mux" && cell->type != "$pmux" && cell->type != "$safe_pmux") || !design->selected(module, cell))
-					continue;
+			std::vector<RTLIL::Cell*> cells;
 
+			for (auto &it : module->cells)
+				if ((it.second->type == "$mux" || it.second->type == "$pmux" || it.second->type == "$safe_pmux") && design->selected(module, it.second))
+					cells.push_back(it.second);
+
+			for (auto cell : cells)
+			{
 				// this optimization is to aggressive for most coarse-grain applications.
 				// but we always want it for multiplexers driving write enable ports.
 				if (do_fine || mem_wren_sigs.check_any(assign_map(cell->connections.at("\\Y"))))
