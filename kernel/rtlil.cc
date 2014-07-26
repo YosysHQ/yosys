@@ -1518,6 +1518,48 @@ RTLIL::SigSpec::SigSpec()
 	hash_ = 0;
 }
 
+RTLIL::SigSpec::SigSpec(const RTLIL::SigSpec &other)
+{
+	*this = other;
+}
+
+const RTLIL::SigSpec &RTLIL::SigSpec::operator=(const RTLIL::SigSpec &other)
+{
+	cover("kernel.rtlil.sigspec.assign");
+
+	width_ = other.width_;
+	hash_ = other.hash_;
+	chunks_ = other.chunks_;
+	bits_.clear();
+
+	if (!other.bits_.empty())
+	{
+		RTLIL::SigChunk *last = NULL;
+		int last_end_offset = 0;
+
+		for (auto &bit : other.bits_) {
+			if (last && bit.wire == last->wire) {
+				if (bit.wire == NULL) {
+					last->data.bits.push_back(bit.data);
+					last->width++;
+					continue;
+				} else if (last_end_offset == bit.offset) {
+					last_end_offset++;
+					last->width++;
+					continue;
+				}
+			}
+			chunks_.push_back(bit);
+			last = &chunks_.back();
+			last_end_offset = bit.offset + 1;
+		}
+
+		check();
+	}
+
+	return *this;
+}
+
 RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 {
 	chunks_.push_back(RTLIL::SigChunk(value));
@@ -1626,24 +1668,25 @@ void RTLIL::SigSpec::pack() const
 	std::vector<RTLIL::SigBit> old_bits;
 	old_bits.swap(that->bits_);
 
-	RTLIL::SigChunk *last_const = NULL;
-	RTLIL::SigChunk *last_wire = NULL;
-	int last_wire_end = 0;
+	RTLIL::SigChunk *last = NULL;
+	int last_end_offset = 0;
 
-	for (auto &bit : old_bits)
-		if (bit.wire == NULL && last_const) {
-			last_const->data.bits.push_back(bit.data);
-			last_const->width++;
-		} else
-		if (bit.wire && last_wire && last_wire->wire == bit.wire && last_wire_end == bit.offset) {
-			last_wire->width++;
-			last_wire_end++;
-		} else {
-			that->chunks_.push_back(bit);
-			last_const = bit.wire ? NULL : &that->chunks_.back();
-			last_wire = bit.wire ? &that->chunks_.back() : NULL;
-			last_wire_end = bit.offset + 1;
+	for (auto &bit : old_bits) {
+		if (last && bit.wire == last->wire) {
+			if (bit.wire == NULL) {
+				last->data.bits.push_back(bit.data);
+				last->width++;
+				continue;
+			} else if (last_end_offset == bit.offset) {
+				last_end_offset++;
+				last->width++;
+				continue;
+			}
 		}
+		that->chunks_.push_back(bit);
+		last = &that->chunks_.back();
+		last_end_offset = bit.offset + 1;
+	}
 
 	check();
 }

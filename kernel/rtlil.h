@@ -567,6 +567,9 @@ private:
 
 public:
 	SigSpec();
+	SigSpec(const RTLIL::SigSpec &other);
+	const RTLIL::SigSpec &operator=(const RTLIL::SigSpec &other);
+
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(const RTLIL::SigChunk &chunk);
 	SigSpec(RTLIL::Wire *wire);
