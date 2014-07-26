@@ -290,7 +290,7 @@ struct RTLIL::Module
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
-	const std::vector<RTLIL::SigSig> &connections();
+	const std::vector<RTLIL::SigSig> &connections() const;
 	void fixup_ports();
 
 	template<typename T> void rewrite_sigspecs(T functor);
@@ -490,8 +490,8 @@ public:
 	// access cell ports
 	void unset(RTLIL::IdString portname);
 	void set(RTLIL::IdString portname, RTLIL::SigSpec signal);
-	RTLIL::SigSpec get(RTLIL::IdString portname) const;
-	const std::map<RTLIL::IdString, RTLIL::SigSpec> &connections();
+	const RTLIL::SigSpec &get(RTLIL::IdString portname) const;
+	const std::map<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
@@ -608,7 +608,7 @@ public:
 	void remove(int offset, int length = 1);
 	void remove_const();
 
-	RTLIL::SigSpec extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *other = NULL) const;
+	RTLIL::SigSpec extract(RTLIL::SigSpec pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
 
 	void append(const RTLIL::SigSpec &signal);

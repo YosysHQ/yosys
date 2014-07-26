@@ -883,7 +883,7 @@ void RTLIL::Module::connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs
 	connections_.push_back(RTLIL::SigSig(lhs, rhs));
 }
 
-const std::vector<RTLIL::SigSig> &RTLIL::Module::connections()
+const std::vector<RTLIL::SigSig> &RTLIL::Module::connections() const
 {
 	return connections_;
 }
@@ -1350,12 +1350,12 @@ void RTLIL::Cell::set(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	connections_[portname] = signal;
 }
 
-RTLIL::SigSpec RTLIL::Cell::get(RTLIL::IdString portname) const
+const RTLIL::SigSpec &RTLIL::Cell::get(RTLIL::IdString portname) const
 {
 	return connections_.at(portname);
 }
 
-const std::map<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections()
+const std::map<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections() const
 {
 	return connections_;
 }
@@ -1839,7 +1839,7 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 	check();
 }
 
-RTLIL::SigSpec RTLIL::SigSpec::extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *other) const
+RTLIL::SigSpec RTLIL::SigSpec::extract(RTLIL::SigSpec pattern, const RTLIL::SigSpec *other) const
 {
 	if (other)
 		cover("kernel.rtlil.sigspec.extract_other");
@@ -1859,7 +1859,7 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(RTLIL::SigSpec pattern, RTLIL::SigSpec *o
 	RTLIL::SigSpec ret;
 
 	if (other) {
-		std::vector<RTLIL::SigBit> bits_other = other ? other->to_sigbit_vector() : bits_match;
+		std::vector<RTLIL::SigBit> bits_other = other->to_sigbit_vector();
 		for (int i = 0; i < width_; i++)
 			if (bits_match[i].wire && pat.count(bits_match[i]))
 				ret.append_bit(bits_other[i]);
