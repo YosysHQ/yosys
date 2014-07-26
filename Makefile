@@ -169,7 +169,7 @@ endif
 
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
-	@echo "  It's a Yosys."
+	@echo "  Build successful."
 	@echo ""
 
 yosys: $(OBJS)
