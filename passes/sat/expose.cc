@@ -83,7 +83,7 @@ static void find_dff_wires(std::set<std::string> &dff_wires, RTLIL::Module *modu
 	SigPool dffsignals;
 
 	for (auto &it : module->cells) {
-		if (ct.cell_known(it.second->type) && it.second->connections().count("\\Q"))
+		if (ct.cell_known(it.second->type) && it.second->has("\\Q"))
 			dffsignals.add(sigmap(it.second->get("\\Q")));
 	}
 
@@ -628,7 +628,7 @@ struct ExposePass : public Pass {
 							log("New module port: %s/%s (%s)\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name), RTLIL::id2cstr(cell->type));
 
 							RTLIL::SigSpec sig;
-							if (cell->connections().count(p->name) != 0)
+							if (cell->has(p->name))
 								sig = cell->connections().at(p->name);
 							sig.extend(w->width);
 							if (w->port_input)

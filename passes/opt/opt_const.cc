@@ -88,7 +88,7 @@ static void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string i
 
 static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, bool extend_u0, SigMap &sigmap)
 {
-	std::string b_name = cell->connections().count("\\B") ? "\\B" : "\\A";
+	std::string b_name = cell->has("\\B") ? "\\B" : "\\A";
 
 	bool a_signed = cell->parameters.at("\\A_SIGNED").as_bool();
 	bool b_signed = cell->parameters.at(b_name + "_SIGNED").as_bool();
@@ -321,7 +321,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod" || cell->type == "$pow")
 		{
 			RTLIL::SigSpec sig_a = assign_map(cell->get("\\A"));
-			RTLIL::SigSpec sig_b = cell->connections().count("\\B") ? assign_map(cell->get("\\B")) : RTLIL::SigSpec();
+			RTLIL::SigSpec sig_b = cell->has("\\B") ? assign_map(cell->get("\\B")) : RTLIL::SigSpec();
 
 			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr")
 				sig_a = RTLIL::SigSpec();

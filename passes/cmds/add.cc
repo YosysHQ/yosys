@@ -75,7 +75,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			continue;
 		if (mod->get_bool_attribute("\\blackbox"))
 			continue;
-		if (it.second->connections().count(name) > 0)
+		if (it.second->has(name))
 			continue;
 
 		it.second->set(name, wire);

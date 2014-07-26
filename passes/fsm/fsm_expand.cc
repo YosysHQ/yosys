@@ -47,13 +47,13 @@ struct FsmExpand
 				return true;
 
 		RTLIL::SigSpec new_signals;
-		if (cell->connections().count("\\A") > 0)
+		if (cell->has("\\A"))
 			new_signals.append(assign_map(cell->get("\\A")));
-		if (cell->connections().count("\\B") > 0)
+		if (cell->has("\\B"))
 			new_signals.append(assign_map(cell->get("\\B")));
-		if (cell->connections().count("\\S") > 0)
+		if (cell->has("\\S"))
 			new_signals.append(assign_map(cell->get("\\S")));
-		if (cell->connections().count("\\Y") > 0)
+		if (cell->has("\\Y"))
 			new_signals.append(assign_map(cell->get("\\Y")));
 
 		new_signals.sort_and_unify();
@@ -65,7 +65,7 @@ struct FsmExpand
 		if (new_signals.size() > 3)
 			return false;
 
-		if (cell->connections().count("\\Y") > 0) {
+		if (cell->has("\\Y")) {
 			new_signals.append(assign_map(cell->get("\\Y")));
 			new_signals.sort_and_unify();
 			new_signals.remove_const();
@@ -148,11 +148,11 @@ struct FsmExpand
 		for (int i = 0; i < (1 << input_sig.size()); i++) {
 			RTLIL::Const in_val(i, input_sig.size());
 			RTLIL::SigSpec A, B, S;
-			if (cell->connections().count("\\A") > 0)
+			if (cell->has("\\A"))
 				A = assign_map(cell->get("\\A"));
-			if (cell->connections().count("\\B") > 0)
+			if (cell->has("\\B"))
 				B = assign_map(cell->get("\\B"));
-			if (cell->connections().count("\\S") > 0)
+			if (cell->has("\\S"))
 				S = assign_map(cell->get("\\S"));
 			A.replace(input_sig, RTLIL::SigSpec(in_val));
 			B.replace(input_sig, RTLIL::SigSpec(in_val));

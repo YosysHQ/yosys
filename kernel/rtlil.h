@@ -488,6 +488,7 @@ public:
 	RTLIL_ATTRIBUTE_MEMBERS
 
 	// access cell ports
+	bool has(RTLIL::IdString portname);
 	void unset(RTLIL::IdString portname);
 	void set(RTLIL::IdString portname, RTLIL::SigSpec signal);
 	const RTLIL::SigSpec &get(RTLIL::IdString portname) const;

@@ -80,7 +80,7 @@ static bool check_state_users(RTLIL::SigSpec sig)
 			continue;
 		if (cellport.second != "\\A" && cellport.second != "\\B")
 			return false;
-		if (cell->connections().count("\\A") == 0 || cell->connections().count("\\B") == 0 || cell->connections().count("\\Y") == 0)
+		if (!cell->has("\\A") || !cell->has("\\B") || !cell->has("\\Y"))
 			return false;
 		for (auto &port_it : cell->connections())
 			if (port_it.first != "\\A" && port_it.first != "\\B" && port_it.first != "\\Y")

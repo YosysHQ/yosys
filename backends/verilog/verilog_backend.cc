@@ -301,7 +301,7 @@ void dump_cell_expr_port(FILE *f, RTLIL::Cell *cell, std::string port, bool gen_
 
 std::string cellname(RTLIL::Cell *cell)
 {
-	if (!norename && cell->name[0] == '$' && reg_ct.cell_known(cell->type) && cell->connections().count("\\Q") > 0)
+	if (!norename && cell->name[0] == '$' && reg_ct.cell_known(cell->type) && cell->has("\\Q"))
 	{
 		RTLIL::SigSpec sig = cell->get("\\Q");
 		if (SIZE(sig) != 1 || sig.is_fully_const())
@@ -908,7 +908,7 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 		for (auto &it : module->cells)
 		{
 			RTLIL::Cell *cell = it.second;
-			if (!reg_ct.cell_known(cell->type) || cell->connections().count("\\Q") == 0)
+			if (!reg_ct.cell_known(cell->type) || !cell->has("\\Q"))
 				continue;
 
 			RTLIL::SigSpec sig = cell->get("\\Q");

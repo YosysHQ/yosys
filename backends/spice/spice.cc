@@ -80,7 +80,7 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				RTLIL::SigSpec sig(RTLIL::State::Sz, wire->width);
-				if (cell->connections().count(wire->name) > 0) {
+				if (cell->has(wire->name)) {
 					sig = sigmap(cell->connections().at(wire->name));
 					sig.extend(wire->width, false);
 				}

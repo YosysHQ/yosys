@@ -348,9 +348,9 @@ namespace {
 
 		void port(const char *name, int width)
 		{
-			if (cell->connections().count(name) == 0)
+			if (!cell->has(name))
 				error(__LINE__);
-			if (cell->connections().at(name).size() != width)
+			if (cell->get(name).size() != width)
 				error(__LINE__);
 			expected_ports.insert(name);
 		}
@@ -379,9 +379,9 @@ namespace {
 
 			for (const char *p = ports; *p; p++) {
 				char portname[3] = { '\\', *p, 0 };
-				if (cell->connections().count(portname) == 0)
+				if (!cell->has(portname))
 					error(__LINE__);
-				if (cell->connections().at(portname).size() != 1)
+				if (cell->get(portname).size() != 1)
 					error(__LINE__);
 			}
 
@@ -1338,6 +1338,11 @@ RTLIL::Memory::Memory()
 {
 	width = 1;
 	size = 0;
+}
+
+bool RTLIL::Cell::has(RTLIL::IdString portname)
+{
+	return connections_.count(portname) != 0;
 }
 
 void RTLIL::Cell::unset(RTLIL::IdString portname)
