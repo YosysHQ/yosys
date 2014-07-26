@@ -484,7 +484,15 @@ public:
 	std::map<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
 	RTLIL_ATTRIBUTE_MEMBERS
+
+	// access cell ports
+	void unset(RTLIL::IdString portname);
+	void set(RTLIL::IdString portname, RTLIL::SigSpec signal);
+	RTLIL::SigSpec get(RTLIL::IdString portname) const;
+	const std::map<RTLIL::IdString, RTLIL::SigSpec> &connections();
+
 	void check();
+	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
 	template<typename T> void rewrite_sigspecs(T functor);
 };

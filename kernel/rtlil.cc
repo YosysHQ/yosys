@@ -1330,12 +1330,75 @@ RTLIL::Memory::Memory()
 	size = 0;
 }
 
+void RTLIL::Cell::unset(RTLIL::IdString portname)
+{
+	connections_.erase(portname);
+}
+
+void RTLIL::Cell::set(RTLIL::IdString portname, RTLIL::SigSpec signal)
+{
+	connections_[portname] = signal;
+}
+
+RTLIL::SigSpec RTLIL::Cell::get(RTLIL::IdString portname) const
+{
+	return connections_.at(portname);
+}
+
+const std::map<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections()
+{
+	return connections_;
+}
+
 void RTLIL::Cell::check()
 {
 #ifndef NDEBUG
 	InternalCellChecker checker(NULL, this);
 	checker.check();
 #endif
+}
+
+void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
+{
+	if (type[0] != '$' || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" ||
+			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:")
+		return;
+
+	if (type == "$mux" || type == "$pmux" || type == "$safe_pmux")
+	{
+		parameters["\\WIDTH"] = SIZE(connections_["\\Y"]);
+		if (type == "$pmux" || type == "$safe_pmux")
+			parameters["\\S_WIDTH"] = SIZE(connections_["\\S"]);
+		check();
+		return;
+	}
+
+	bool signedness_ab = type != "$slice" && type != "$concat";
+
+	if (connections_.count("\\A")) {
+		if (signedness_ab) {
+			if (set_a_signed)
+				parameters["\\A_SIGNED"] = true;
+			else if (parameters.count("\\A_SIGNED") == 0)
+				parameters["\\A_SIGNED"] = false;
+		}
+		parameters["\\A_WIDTH"] = SIZE(connections_["\\A"]);
+	}
+
+	if (connections_.count("\\B")) {
+		if (signedness_ab) {
+			if (set_b_signed)
+				parameters["\\B_SIGNED"] = true;
+			else if (parameters.count("\\B_SIGNED") == 0)
+				parameters["\\B_SIGNED"] = false;
+		}
+		parameters["\\B_WIDTH"] = SIZE(connections_["\\B"]);
+	}
+
+	if (connections_.count("\\Y"))
+		parameters["\\Y_WIDTH"] = SIZE(connections_["\\Y"]);
+
+	check();
 }
 
 RTLIL::SigChunk::SigChunk()
