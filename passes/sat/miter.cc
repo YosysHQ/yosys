@@ -132,8 +132,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 			w2->width = w1->width;
 			miter_module->add(w2);
 
-			gold_cell->connections()[w1->name] = w2;
-			gate_cell->connections()[w1->name] = w2;
+			gold_cell->set(w1->name, w2);
+			gate_cell->set(w1->name, w2);
 		}
 
 		if (w1->port_output)
@@ -150,8 +150,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 			w2_gate->width = w1->width;
 			miter_module->add(w2_gate);
 
-			gold_cell->connections()[w1->name] = w2_gold;
-			gate_cell->connections()[w1->name] = w2_gate;
+			gold_cell->set(w1->name, w2_gold);
+			gate_cell->set(w1->name, w2_gate);
 
 			RTLIL::SigSpec this_condition;
 

@@ -78,7 +78,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 		if (it.second->connections().count(name) > 0)
 			continue;
 
-		it.second->connections()[name] = wire;
+		it.second->set(name, wire);
 		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), it.first.c_str(), it.second->type.c_str());
 	}
 }

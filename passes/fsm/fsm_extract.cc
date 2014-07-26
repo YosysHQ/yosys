@@ -294,13 +294,13 @@ static void extract_fsm(RTLIL::Wire *wire)
 	sig2driver.find(ctrl_out, cellport_list);
 	for (auto &cellport : cellport_list) {
 		RTLIL::Cell *cell = module->cells.at(cellport.first);
-		RTLIL::SigSpec port_sig = assign_map(cell->connections()[cellport.second]);
+		RTLIL::SigSpec port_sig = assign_map(cell->get(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
 		RTLIL::Wire *unconn_wire = new RTLIL::Wire;
 		unconn_wire->name = stringf("$fsm_unconnect$%s$%d", log_signal(unconn_sig), RTLIL::autoidx++);
 		unconn_wire->width = unconn_sig.size();
 		module->wires[unconn_wire->name] = unconn_wire;
-		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections()[cellport.second]);
+		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections_[cellport.second]);
 	}
 }
 

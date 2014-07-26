@@ -160,15 +160,15 @@ static void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec 
 
 	RTLIL::Cell *mux_sr_set = mod->addCell(NEW_ID, "$mux");
 	mux_sr_set->parameters["\\WIDTH"] = RTLIL::Const(sig_in.size());
-	mux_sr_set->connections()[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.size());
-	mux_sr_set->connections()[set_polarity ? "\\B" : "\\A"] = sig_set;
+	mux_sr_set->set(set_polarity ? "\\A" : "\\B", RTLIL::Const(0, sig_in.size()));
+	mux_sr_set->set(set_polarity ? "\\B" : "\\A", sig_set);
 	mux_sr_set->set("\\Y", sig_sr_set);
 	mux_sr_set->set("\\S", set);
 
 	RTLIL::Cell *mux_sr_clr = mod->addCell(NEW_ID, "$mux");
 	mux_sr_clr->parameters["\\WIDTH"] = RTLIL::Const(sig_in.size());
-	mux_sr_clr->connections()[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.size());
-	mux_sr_clr->connections()[set_polarity ? "\\B" : "\\A"] = sig_set_inv;
+	mux_sr_clr->set(set_polarity ? "\\A" : "\\B", RTLIL::Const(0, sig_in.size()));
+	mux_sr_clr->set(set_polarity ? "\\B" : "\\A", sig_set_inv);
 	mux_sr_clr->set("\\Y", sig_sr_clr);
 	mux_sr_clr->set("\\S", set);
 

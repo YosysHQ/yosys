@@ -204,7 +204,7 @@ cell_body:
 	cell_body TOK_CONNECT TOK_ID sigspec EOL {
 		if (current_cell->connections().count($3) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell port %s.", $3).c_str());
-		current_cell->connections()[$3] = *$4;
+		current_cell->set($3, *$4);
 		delete $4;
 		free($3);
 	} |

@@ -785,7 +785,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 						assert(c.width == 1);
 						newsig.append(module->wires[remap_name(c.wire->name)]);
 					}
-					cell->connections()[conn.first] = newsig;
+					cell->set(conn.first, newsig);
 				}
 				design->select(module, cell);
 			}

@@ -174,8 +174,15 @@ static void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
 	assert(ctrl_sig.size() == 1);
 	last_mux_cell->type = "$pmux";
-	last_mux_cell->get("\\S").append(ctrl_sig);
-	last_mux_cell->get("\\B").append(when_signal);
+
+	RTLIL::SigSpec new_s = last_mux_cell->get("\\S");
+	new_s.append(ctrl_sig);
+	last_mux_cell->set("\\S", new_s);
+
+	RTLIL::SigSpec new_b = last_mux_cell->get("\\B");
+	new_b.append(when_signal);
+	last_mux_cell->set("\\B", new_b);
+
 	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->get("\\S").size();
 }
 

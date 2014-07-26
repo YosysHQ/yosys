@@ -193,7 +193,7 @@ struct BtorDumper
 						break;
 					log(" -- found cell %s\n", cstr(cell_id));
 					RTLIL::Cell* cell = module->cells.at(cell_id);
-					RTLIL::SigSpec* cell_output = get_cell_output(cell);
+					const RTLIL::SigSpec* cell_output = get_cell_output(cell);
 					int cell_line = dump_cell(cell);				
 
 					if(dep_set.size()==1 && wire->width == cell_output->size())
@@ -796,9 +796,9 @@ struct BtorDumper
 		}
 	}
 
-	RTLIL::SigSpec* get_cell_output(RTLIL::Cell* cell)
+	const RTLIL::SigSpec* get_cell_output(RTLIL::Cell* cell)
 	{
-		RTLIL::SigSpec *output_sig = nullptr;
+		const RTLIL::SigSpec *output_sig = nullptr;
 		if (cell->type == "$memrd")
 		{
 			output_sig = &cell->connections().at(RTLIL::IdString("\\DATA"));
@@ -835,7 +835,7 @@ struct BtorDumper
 		for (auto it = module->cells.begin(); it != module->cells.end(); ++it)
 		{
 			RTLIL::Cell *cell = it->second;
-			RTLIL::SigSpec* output_sig = get_cell_output(cell);
+			const RTLIL::SigSpec* output_sig = get_cell_output(cell);
 			if(output_sig==nullptr)
 				continue;
 			RTLIL::SigSpec s = sigmap(*output_sig);

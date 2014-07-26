@@ -49,7 +49,7 @@ struct ScatterPass : public Pass {
 				continue;
 
 			for (auto &c : mod_it.second->cells)
-			for (auto &p : c.second->connections())
+			for (auto &p : c.second->connections_)
 			{
 				RTLIL::Wire *wire = new RTLIL::Wire;
 				wire->name = NEW_ID;

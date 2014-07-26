@@ -219,7 +219,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 
 		RTLIL::Module *mod = design->modules[cell->type];
 
-		for (auto &conn : cell->connections()) {
+		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
 			std::string portname = conn.first;
 			if (portname.substr(0, 1) == "$") {
@@ -519,7 +519,7 @@ struct HierarchyPass : public Pass {
 							new_connections[pos_map.at(key)] = conn.second;
 					} else
 						new_connections[conn.first] = conn.second;
-				cell->connections() = new_connections;
+				cell->connections_ = new_connections;
 			}
 		}
 

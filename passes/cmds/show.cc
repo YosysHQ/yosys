@@ -87,17 +87,17 @@ struct ShowWorker
 		return defaultColor;
 	}
 
-	std::string nextColor(RTLIL::SigSig &conn, std::string defaultColor)
+	std::string nextColor(const RTLIL::SigSig &conn, std::string defaultColor)
 	{
 		return nextColor(conn.first, nextColor(conn.second, defaultColor));
 	}
 
-	std::string nextColor(RTLIL::SigSpec &sig)
+	std::string nextColor(const RTLIL::SigSpec &sig)
 	{
 		return nextColor(sig, nextColor());
 	}
 
-	std::string nextColor(RTLIL::SigSig &conn)
+	std::string nextColor(const RTLIL::SigSig &conn)
 	{
 		return nextColor(conn, nextColor());
 	}

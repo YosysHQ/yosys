@@ -128,7 +128,7 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 	if (cell->type == "$reduce_bool") gate_type = "$_OR_";
 	log_assert(!gate_type.empty());
 
-	RTLIL::SigSpec *last_output = NULL;
+	RTLIL::Cell *last_output_cell = NULL;
 
 	while (sig_a.size() > 1)
 	{
@@ -145,7 +145,7 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 			gate->set("\\A", sig_a[i]);
 			gate->set("\\B", sig_a[i+1]);
 			gate->set("\\Y", sig_t[i/2]);
-			last_output = &gate->get("\\Y");
+			last_output_cell = gate;
 		}
 
 		sig_a = sig_t;
@@ -156,14 +156,14 @@ static void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 		RTLIL::Cell *gate = module->addCell(NEW_ID, "$_INV_");
 		gate->set("\\A", sig_a);
 		gate->set("\\Y", sig_t);
-		last_output = &gate->get("\\Y");
+		last_output_cell = gate;
 		sig_a = sig_t;
 	}
 
-	if (last_output == NULL) {
+	if (last_output_cell == NULL) {
 		module->connect(RTLIL::SigSig(sig_y, sig_a));
 	} else {
-		*last_output = sig_y;
+		last_output_cell->set("\\Y", sig_y);
 	}
 }
 

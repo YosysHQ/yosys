@@ -773,7 +773,7 @@ void RTLIL::Module::optimize()
 void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 {
 	new_mod->name = name;
-	new_mod->connections() = connections_;
+	new_mod->connections_ = connections_;
 	new_mod->attributes = attributes;
 
 	for (auto &it : wires)
@@ -924,7 +924,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
 	RTLIL::Cell *cell = addCell(name, other->type);
-	cell->connections() = other->connections();
+	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
 	return cell;
@@ -1036,8 +1036,8 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 		RTLIL::Cell *cell = new RTLIL::Cell;        \
 		cell->name = name;                          \
 		cell->type = _type;                         \
-		cell->connections()["\\" #_P1] = sig1;        \
-		cell->connections()["\\" #_P2] = sig2;        \
+		cell->set("\\" #_P1, sig1);                 \
+		cell->set("\\" #_P2, sig2);                 \
 		add(cell);                                  \
 		return cell;                                \
 	} \
@@ -1051,9 +1051,9 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 		RTLIL::Cell *cell = new RTLIL::Cell;        \
 		cell->name = name;                          \
 		cell->type = _type;                         \
-		cell->connections()["\\" #_P1] = sig1;        \
-		cell->connections()["\\" #_P2] = sig2;        \
-		cell->connections()["\\" #_P3] = sig3;        \
+		cell->set("\\" #_P1, sig1);                 \
+		cell->set("\\" #_P2, sig2);                 \
+		cell->set("\\" #_P3, sig3);                 \
 		add(cell);                                  \
 		return cell;                                \
 	} \
@@ -1067,10 +1067,10 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 		RTLIL::Cell *cell = new RTLIL::Cell;        \
 		cell->name = name;                          \
 		cell->type = _type;                         \
-		cell->connections()["\\" #_P1] = sig1;        \
-		cell->connections()["\\" #_P2] = sig2;        \
-		cell->connections()["\\" #_P3] = sig3;        \
-		cell->connections()["\\" #_P4] = sig4;        \
+		cell->set("\\" #_P1, sig1);                 \
+		cell->set("\\" #_P2, sig2);                 \
+		cell->set("\\" #_P3, sig3);                 \
+		cell->set("\\" #_P4, sig4);                 \
 		add(cell);                                  \
 		return cell;                                \
 	} \

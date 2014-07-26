@@ -72,8 +72,11 @@ struct MemoryShareWorker
 
 		for (int i = 0; i < int(sig_s.size()); i++)
 			if (state.count(sig_s[i]) && state.at(sig_s[i]) == true) {
-				if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), state, conditions))
-					cell->get("\\B").replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
+				if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), state, conditions)) {
+					RTLIL::SigSpec new_b = cell->get("\\B");
+					new_b.replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
+					cell->set("\\B", new_b);
+				}
 				return false;
 			}
 				
@@ -86,16 +89,22 @@ struct MemoryShareWorker
 			std::map<RTLIL::SigBit, bool> new_state = state;
 			new_state[sig_s[i]] = true;
 
-			if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), new_state, conditions))
-				cell->get("\\B").replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
+			if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), new_state, conditions)) {
+				RTLIL::SigSpec new_b = cell->get("\\B");
+				new_b.replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
+				cell->set("\\B", new_b);
+			}
 		}
 
 		std::map<RTLIL::SigBit, bool> new_state = state;
 		for (int i = 0; i < int(sig_s.size()); i++)
 			new_state[sig_s[i]] = false;
 
-		if (find_data_feedback(async_rd_bits, sig_a.at(bit_idx), new_state, conditions))
-			cell->get("\\A").replace(bit_idx, RTLIL::State::Sx);
+		if (find_data_feedback(async_rd_bits, sig_a.at(bit_idx), new_state, conditions)) {
+			RTLIL::SigSpec new_a = cell->get("\\A");
+			new_a.replace(bit_idx, RTLIL::State::Sx);
+			cell->set("\\A", new_a);
+		}
 
 		return false;
 	}
@@ -239,7 +248,7 @@ struct MemoryShareWorker
 
 			if (created_conditions) {
 				log("    Added enable logic for %d different cases.\n", created_conditions);
-				cell->get("\\EN") = cell_en;
+				cell->set("\\EN", cell_en);
 			}
 		}
 	}
@@ -399,7 +408,7 @@ struct MemoryShareWorker
 
 				// Force this ports addr input to addr directly (skip don't care muxes)
 
-				cell->get("\\ADDR") = addr;
+				cell->set("\\ADDR", addr);
 
 				// If any of the ports between `last_i' and `i' write to the same address, this
 				// will have priority over whatever `last_i` wrote. So we need to revisit those
@@ -443,8 +452,8 @@ struct MemoryShareWorker
 
 				// Connect the new EN and DATA signals and remove the old write port.
 
-				cell->get("\\EN") = merged_en;
-				cell->get("\\DATA") = merged_data;
+				cell->set("\\EN", merged_en);
+				cell->set("\\DATA", merged_data);
 
 				module->remove(wr_ports[last_i]);
 				wr_ports[last_i] = NULL;
@@ -595,8 +604,8 @@ struct MemoryShareWorker
 
 			RTLIL::SigBit this_en_active = module->ReduceOr(NEW_ID, this_en);
 
-			wr_ports[i]->get("\\ADDR") = module->Mux(NEW_ID, last_addr, this_addr, this_en_active);
-			wr_ports[i]->get("\\DATA") = module->Mux(NEW_ID, last_data, this_data, this_en_active);
+			wr_ports[i]->set("\\ADDR", module->Mux(NEW_ID, last_addr, this_addr, this_en_active));
+			wr_ports[i]->set("\\DATA", module->Mux(NEW_ID, last_data, this_data, this_en_active));
 
 			std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, int> groups_en;
 			RTLIL::SigSpec grouped_last_en, grouped_this_en, en;
@@ -614,7 +623,7 @@ struct MemoryShareWorker
 			}
 
 			module->addMux(NEW_ID, grouped_last_en, grouped_this_en, this_en_active, grouped_en);
-			wr_ports[i]->get("\\EN") = en;
+			wr_ports[i]->set("\\EN", en);
 
 			module->remove(wr_ports[i-1]);
 			wr_ports[i-1] = NULL;

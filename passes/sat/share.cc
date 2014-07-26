@@ -258,7 +258,9 @@ struct ShareWorker
 				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\A_SIGNED").as_bool() ? c2 : c1;
 				if (unsigned_cell->get("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at("\\A_WIDTH") = unsigned_cell->parameters.at("\\A_WIDTH").as_int() + 1;
-					unsigned_cell->get("\\A").append_bit(RTLIL::State::S0);
+					RTLIL::SigSpec new_a = unsigned_cell->get("\\A");
+					new_a.append_bit(RTLIL::State::S0);
+					unsigned_cell->set("\\A", new_a);
 				}
 				unsigned_cell->parameters.at("\\A_SIGNED") = true;
 				unsigned_cell->check();
@@ -312,7 +314,10 @@ struct ShareWorker
 
 				if (score_flipped < score_unflipped)
 				{
-					std::swap(c2->get("\\A"), c2->get("\\B"));
+					RTLIL::SigSpec tmp = c2->get("\\A");
+					c2->set("\\A", c2->get("\\B"));
+					c2->set("\\B", tmp);
+
 					std::swap(c2->parameters.at("\\A_WIDTH"), c2->parameters.at("\\B_WIDTH"));
 					std::swap(c2->parameters.at("\\A_SIGNED"), c2->parameters.at("\\B_SIGNED"));
 					modified_src_cells = true;
@@ -325,7 +330,9 @@ struct ShareWorker
 				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\A_SIGNED").as_bool() ? c2 : c1;
 				if (unsigned_cell->get("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at("\\A_WIDTH") = unsigned_cell->parameters.at("\\A_WIDTH").as_int() + 1;
-					unsigned_cell->get("\\A").append_bit(RTLIL::State::S0);
+					RTLIL::SigSpec new_a = unsigned_cell->get("\\A");
+					new_a.append_bit(RTLIL::State::S0);
+					unsigned_cell->set("\\A", new_a);
 				}
 				unsigned_cell->parameters.at("\\A_SIGNED") = true;
 				modified_src_cells = true;
@@ -336,7 +343,9 @@ struct ShareWorker
 				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\B_SIGNED").as_bool() ? c2 : c1;
 				if (unsigned_cell->get("\\B").to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at("\\B_WIDTH") = unsigned_cell->parameters.at("\\B_WIDTH").as_int() + 1;
-					unsigned_cell->get("\\B").append_bit(RTLIL::State::S0);
+					RTLIL::SigSpec new_b = unsigned_cell->get("\\B");
+					new_b.append_bit(RTLIL::State::S0);
+					unsigned_cell->set("\\B", new_b);
 				}
 				unsigned_cell->parameters.at("\\B_SIGNED") = true;
 				modified_src_cells = true;

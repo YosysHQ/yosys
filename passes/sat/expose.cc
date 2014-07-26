@@ -485,12 +485,12 @@ struct ExposePass : public Pass {
 				for (auto &it : module->cells) {
 					if (!ct.cell_known(it.second->type))
 						continue;
-					for (auto &conn : it.second->connections())
+					for (auto &conn : it.second->connections_)
 						if (ct.cell_input(it.second->type, conn.first))
 							conn.second = out_to_in_map(sigmap(conn.second));
 				}
 
-				for (auto &conn : module->connections())
+				for (auto &conn : module->connections_)
 					conn.second = out_to_in_map(sigmap(conn.second));
 			}
 
@@ -518,7 +518,7 @@ struct ExposePass : public Pass {
 					for (auto &bit : cell_q_bits)
 						if (wire_bits_set.count(bit))
 							bit = RTLIL::SigBit(wire_dummy_q, wire_dummy_q->width++);
-					cell->get("\\Q") = cell_q_bits;
+					cell->set("\\Q", cell_q_bits);
 				}
 
 				RTLIL::Wire *wire_q = new RTLIL::Wire;

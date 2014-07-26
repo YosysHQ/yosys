@@ -1297,9 +1297,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					if (child->str.size() == 0) {
 						char buf[100];
 						snprintf(buf, 100, "$%d", ++port_counter);
-						cell->connections()[buf] = sig;
+						cell->set(buf, sig);
 					} else {
-						cell->connections()[child->str] = sig;
+						cell->set(child->str, sig);
 					}
 					continue;
 				}

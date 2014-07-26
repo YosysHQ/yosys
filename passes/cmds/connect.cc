@@ -30,11 +30,11 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
 
 	for (auto &it : module->cells)
-	for (auto &port : it.second->connections())
+	for (auto &port : it.second->connections_)
 		if (ct.cell_output(it.second->type, port.first))
 			sigmap(port.second).replace(sig, dummy_wire, &port.second);
 
-	for (auto &conn : module->connections())
+	for (auto &conn : module->connections_)
 		sigmap(conn.first).replace(sig, dummy_wire, &conn.first);
 }
 
@@ -176,7 +176,7 @@ struct ConnectPass : public Pass {
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr.c_str());
 
-			module->cells.at(RTLIL::escape_id(port_cell))->connections()[RTLIL::escape_id(port_port)] = sigmap(sig);
+			module->cells.at(RTLIL::escape_id(port_cell))->set(RTLIL::escape_id(port_port), sigmap(sig));
 		}
 		else
 			log_cmd_error("Expected -set, -unset, or -port.\n");

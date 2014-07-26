@@ -263,7 +263,7 @@ struct OptShareWorker
 					log("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
 					for (auto &it : cell->connections()) {
 						if (ct.cell_output(cell->type, it.first)) {
-							RTLIL::SigSpec other_sig = sharemap[cell]->connections()[it.first];
+							RTLIL::SigSpec other_sig = sharemap[cell]->get(it.first);
 							log("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 									log_signal(it.second), log_signal(other_sig));
 							module->connect(RTLIL::SigSig(it.second, other_sig));

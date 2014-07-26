@@ -215,13 +215,19 @@ struct OptReduceWorker
 					log_signal(cell->get("\\B")), log_signal(cell->get("\\Y")));
 
 			cell->set("\\A", RTLIL::SigSpec());
-			for (auto &in_tuple : consolidated_in_tuples)
-				cell->get("\\A").append(in_tuple.at(0));
+			for (auto &in_tuple : consolidated_in_tuples) {
+				RTLIL::SigSpec new_a = cell->get("\\A");
+				new_a.append(in_tuple.at(0));
+				cell->set("\\A", new_a);
+			}
 
 			cell->set("\\B", RTLIL::SigSpec());
 			for (int i = 1; i <= cell->get("\\S").size(); i++)
-				for (auto &in_tuple : consolidated_in_tuples)
-					cell->get("\\B").append(in_tuple.at(i));
+				for (auto &in_tuple : consolidated_in_tuples) {
+					RTLIL::SigSpec new_b = cell->get("\\B");
+					new_b.append(in_tuple.at(i));
+					cell->set("\\B", new_b);
+				}
 
 			cell->parameters["\\WIDTH"] = RTLIL::Const(new_sig_y.size());
 			cell->set("\\Y", new_sig_y);

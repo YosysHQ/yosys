@@ -182,7 +182,7 @@ struct SpliceWorker
 		for (auto &it : module->cells) {
 			if (!sel_by_wire && !design->selected(module, it.second))
 				continue;
-			for (auto &conn : it.second->connections())
+			for (auto &conn : it.second->connections_)
 				if (ct.cell_input(it.second->type, conn.first)) {
 					if (ports.size() > 0 && !ports.count(conn.first))
 						continue;

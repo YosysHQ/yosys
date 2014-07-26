@@ -52,10 +52,10 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 					continue;
 			}
 
-			RTLIL::SigSpec q_norm = cell->connections()[after ? "\\D" : "\\Q"];
+			RTLIL::SigSpec q_norm = cell->get(after ? "\\D" : "\\Q");
 			normalize_sig(module, q_norm);
 
-			RTLIL::SigSpec d = q_norm.extract(bit, &cell->connections()[after ? "\\Q" : "\\D"]);
+			RTLIL::SigSpec d = q_norm.extract(bit, &cell->get(after ? "\\Q" : "\\D"));
 			if (d.size() != 1)
 				continue;
 
@@ -127,8 +127,11 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 
 	for (auto &cell_it : module->cells) {
 		RTLIL::Cell *cell = cell_it.second;
-		if (cell->type == "$dff")
-			cell->get("\\Q").replace(sig, newsig);
+		if (cell->type == "$dff") {
+			RTLIL::SigSpec new_q = cell->get("\\Q");
+			new_q.replace(sig, newsig);
+			cell->set("\\Q", new_q);
+		}
 	}
 }
 

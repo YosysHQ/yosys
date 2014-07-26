@@ -189,13 +189,13 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 		}
 	}
 
-	module->connections().clear();
+	module->connections_.clear();
 
 	SigPool used_signals;
 	SigPool used_signals_nodrivers;
 	for (auto &it : module->cells) {
 		RTLIL::Cell *cell = it.second;
-		for (auto &it2 : cell->connections()) {
+		for (auto &it2 : cell->connections_) {
 			assign_map.apply(it2.second);
 			used_signals.add(it2.second);
 			if (!ct.cell_output(cell->type, it2.first))

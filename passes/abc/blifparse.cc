@@ -148,7 +148,7 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 					*(q++) = 0;
 					if (module->wires.count(RTLIL::escape_id(q)) == 0)
 						module->addWire(RTLIL::escape_id(q));
-					cell->connections()[RTLIL::escape_id(p)] = module->wires.at(RTLIL::escape_id(q));
+					cell->set(RTLIL::escape_id(p), module->wires.at(RTLIL::escape_id(q)));
 				}
 				continue;
 			}

@@ -73,7 +73,7 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 
 static void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
-	RTLIL::SigSpec Y = cell->connections()[out_port];
+	RTLIL::SigSpec Y = cell->get(out_port);
 	out_val.extend_u0(Y.size(), false);
 
 	log("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
@@ -240,7 +240,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cover("opt.opt_const.fine.$reduce_and");
 					log("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
-					cell->get("\\A") = sig_a = new_a;
+					cell->set("\\A", sig_a = new_a);
 					cell->parameters.at("\\A_WIDTH") = 1;
 					OPT_DID_SOMETHING = true;
 					did_something = true;
@@ -267,7 +267,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cover_list("opt.opt_const.fine.A", "$logic_not", "$logic_and", "$logic_or", "$reduce_or", "$reduce_bool", cell->type);
 					log("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
-					cell->get("\\A") = sig_a = new_a;
+					cell->set("\\A", sig_a = new_a);
 					cell->parameters.at("\\A_WIDTH") = 1;
 					OPT_DID_SOMETHING = true;
 					did_something = true;
@@ -294,7 +294,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cover_list("opt.opt_const.fine.B", "$logic_and", "$logic_or", cell->type);
 					log("Replacing port B of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_b));
-					cell->get("\\B") = sig_b = new_b;
+					cell->set("\\B", sig_b = new_b);
 					cell->parameters.at("\\B_WIDTH") = 1;
 					OPT_DID_SOMETHING = true;
 					did_something = true;
@@ -441,8 +441,8 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cover("opt.opt_const.mux_to_inv");
 				cell->type = "$_INV_";
 				cell->set("\\A", input.extract(0, 1));
-				cell->connections().erase("\\B");
-				cell->connections().erase("\\S");
+				cell->unset("\\B");
+				cell->unset("\\S");
 				goto next_cell;
 			}
 			if (input.match("11 ")) ACTION_DO_Y(1);
@@ -510,7 +510,9 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 			if (a.is_fully_const()) {
 				cover_list("opt.opt_const.eqneq.swapconst", "$eq", "$ne", cell->type);
-				std::swap(cell->get("\\A"), cell->get("\\B"));
+				RTLIL::SigSpec tmp = cell->get("\\A");
+				cell->set("\\A", cell->get("\\B"));
+				cell->set("\\B", tmp);
 			}
 
 			if (b.is_fully_const()) {
@@ -522,7 +524,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cell->type = "$not";
 					cell->parameters.erase("\\B_WIDTH");
 					cell->parameters.erase("\\B_SIGNED");
-					cell->connections().erase("\\B");
+					cell->unset("\\B");
 				}
 				goto next_cell;
 			}
@@ -585,13 +587,13 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cell->type.c_str(), cell->name.c_str(), module->name.c_str(), identity_wrt_a ? 'A' : 'B');
 
 				if (!identity_wrt_a) {
-					cell->get("\\A") = cell->get("\\B");
+					cell->set("\\A", cell->get("\\B"));
 					cell->parameters.at("\\A_WIDTH") = cell->parameters.at("\\B_WIDTH");
 					cell->parameters.at("\\A_SIGNED") = cell->parameters.at("\\B_SIGNED");
 				}
 
 				cell->type = identity_bu0 ? "$bu0" : "$pos";
-				cell->connections().erase("\\B");
+				cell->unset("\\B");
 				cell->parameters.erase("\\B_WIDTH");
 				cell->parameters.erase("\\B_SIGNED");
 				cell->check();
@@ -613,8 +615,8 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cell->get("\\A") == RTLIL::SigSpec(1, 1) && cell->get("\\B") == RTLIL::SigSpec(0, 1)) {
 			cover_list("opt.opt_const.mux_invert", "$mux", "$_MUX_", cell->type);
 			cell->set("\\A", cell->get("\\S"));
-			cell->connections().erase("\\B");
-			cell->connections().erase("\\S");
+			cell->unset("\\B");
+			cell->unset("\\S");
 			if (cell->type == "$mux") {
 				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
 				cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
@@ -631,7 +633,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 		if (consume_x && mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") && cell->get("\\A") == RTLIL::SigSpec(0, 1)) {
 			cover_list("opt.opt_const.mux_and", "$mux", "$_MUX_", cell->type);
 			cell->set("\\A", cell->get("\\S"));
-			cell->connections().erase("\\S");
+			cell->unset("\\S");
 			if (cell->type == "$mux") {
 				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
 				cell->parameters["\\B_WIDTH"] = cell->parameters["\\WIDTH"];
@@ -650,7 +652,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 		if (consume_x && mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") && cell->get("\\B") == RTLIL::SigSpec(1, 1)) {
 			cover_list("opt.opt_const.mux_or", "$mux", "$_MUX_", cell->type);
 			cell->set("\\B", cell->get("\\S"));
-			cell->connections().erase("\\S");
+			cell->unset("\\S");
 			if (cell->type == "$mux") {
 				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
 				cell->parameters["\\B_WIDTH"] = cell->parameters["\\WIDTH"];
@@ -701,9 +703,9 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			}
 			if (cell->get("\\S").size() != new_s.size()) {
 				cover_list("opt.opt_const.mux_reduce", "$mux", "$pmux", cell->type);
-				cell->get("\\A") = new_a;
-				cell->get("\\B") = new_b;
-				cell->get("\\S") = new_s;
+				cell->set("\\A", new_a);
+				cell->set("\\B", new_b);
+				cell->set("\\S", new_s);
 				if (new_s.size() > 1) {
 					cell->type = "$pmux";
 					cell->parameters["\\S_WIDTH"] = new_s.size();

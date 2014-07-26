@@ -167,10 +167,14 @@ struct FsmExpand
 		fsm_data.copy_from_cell(fsm_cell);
 
 		fsm_data.num_inputs += input_sig.size();
-		fsm_cell->get("\\CTRL_IN").append(input_sig);
+		RTLIL::SigSpec new_ctrl_in = fsm_cell->get("\\CTRL_IN");
+		new_ctrl_in.append(input_sig);
+		fsm_cell->set("\\CTRL_IN", new_ctrl_in);
 
 		fsm_data.num_outputs += output_sig.size();
-		fsm_cell->get("\\CTRL_OUT").append(output_sig);
+		RTLIL::SigSpec new_ctrl_out = fsm_cell->get("\\CTRL_OUT");
+		new_ctrl_out.append(output_sig);
+		fsm_cell->set("\\CTRL_OUT", new_ctrl_out);
 
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {

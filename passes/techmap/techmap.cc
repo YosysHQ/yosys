@@ -195,7 +195,7 @@ struct TechmapWorker
 			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
 				c->type = c->type.substr(1);
 
-			for (auto &it2 : c->connections()) {
+			for (auto &it2 : c->connections_) {
 				apply_prefix(cell->name, it2.second, module);
 				port_signal_map.apply(it2.second);
 			}

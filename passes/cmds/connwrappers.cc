@@ -109,7 +109,7 @@ struct ConnwrappersWorker
 			if (!design->selected(module, cell))
 				continue;
 
-			for (auto &conn : cell->connections())
+			for (auto &conn : cell->connections_)
 			{
 				std::vector<RTLIL::SigBit> sigbits = sigmap(conn.second).to_sigbit_vector();
 				RTLIL::SigSpec old_sig;

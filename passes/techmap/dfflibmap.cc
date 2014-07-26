@@ -418,7 +418,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			} else
 			if (port.second != 0)
 				log_abort();
-			new_cell->connections()["\\" + port.first] = sig;
+			new_cell->set("\\" + port.first, sig);
 		}
 
 		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;

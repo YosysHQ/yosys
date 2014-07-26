@@ -223,7 +223,7 @@ void dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool no_decimal = fals
 	}
 }
 
-void dump_sigspec(FILE *f, RTLIL::SigSpec &sig)
+void dump_sigspec(FILE *f, const RTLIL::SigSpec &sig)
 {
 	if (sig.is_chunk()) {
 		dump_sigchunk(f, sig.as_chunk());
@@ -293,10 +293,10 @@ void dump_cell_expr_port(FILE *f, RTLIL::Cell *cell, std::string port, bool gen_
 {
 	if (gen_signed && cell->parameters.count("\\" + port + "_SIGNED") > 0 && cell->parameters["\\" + port + "_SIGNED"].as_bool()) {
 		fprintf(f, "$signed(");
-		dump_sigspec(f, cell->connections()["\\" + port]);
+		dump_sigspec(f, cell->get("\\" + port));
 		fprintf(f, ")");
 	} else
-		dump_sigspec(f, cell->connections()["\\" + port]);
+		dump_sigspec(f, cell->get("\\" + port));
 }
 
 std::string cellname(RTLIL::Cell *cell)
@@ -735,7 +735,7 @@ void dump_cell(FILE *f, std::string indent, RTLIL::Cell *cell)
 	fprintf(f, "\n%s" ");\n", indent.c_str());
 }
 
-void dump_conn(FILE *f, std::string indent, RTLIL::SigSpec &left, RTLIL::SigSpec &right)
+void dump_conn(FILE *f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
 	fprintf(f, "%s" "assign ", indent.c_str());
 	dump_sigspec(f, left);
