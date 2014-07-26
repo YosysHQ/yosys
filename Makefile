@@ -197,11 +197,12 @@ yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
 abc/abc-$(ABCREV):
 	$(P)
 ifneq ($(ABCREV),default)
-	$(Q) if ( cd abc && hg identify; ) | grep -q +; then \
+	$(Q) if ( cd abc 2> /dev/null && hg identify; ) | grep -q +; then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
-	$(Q) if test "`cd abc && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
+	$(Q) if test "`cd abc 2> /dev/null && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
+		echo "Pulling ABC from bitbucket.org:"; \
 		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
 		cd abc && hg pull && hg update -r $(ABCREV); \
 	fi
