@@ -1,7 +1,16 @@
 
+This file contains checklists for various tasks.
 
-Checklist for creating Yosys releases
-=====================================
+
+Table of contents
+=================
+
+1. Checklist for creating Yosys releases
+2. Checklist for adding internal cell types
+
+
+1. Checklist for creating Yosys releases
+========================================
 
 
 Update the CHANGELOG file:
@@ -105,4 +114,19 @@ In master branch:
 	- set version to x.y.z+ in Makefile
 	- add section "Yosys x.y.z .. x.y.z+" to CHANGELOG
 	git commit --amend -am "Yosys x.y.z+"
+
+
+2. Checklist for adding internal cell types
+===========================================
+
+Things to do right away:
+
+	- Add to kernel/celltypes.h (incl. eval() handling for non-mem cells)
+	- Add to InternalCellChecker::check() in kernel/rtlil.cc
+
+Things to do after finalizing the cell interface:
+
+	- Add support to kernel/satgen.h for the new cell type
+	- Add to manual/CHAPTER_CellLib.tex (or just add a fixme to the bottom)
+	- Maybe add support to the verilog backend for dumping such cells as expression
 
