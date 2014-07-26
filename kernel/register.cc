@@ -276,6 +276,9 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 	} while (!args.empty());
 }
 
+FILE *Frontend::current_script_file = NULL;
+std::string Frontend::last_here_document;
+
 void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
 {
 	bool called_with_fp = f != NULL;
@@ -291,7 +294,33 @@ void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::stri
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
 
 		filename = arg;
-		f = fopen(filename.c_str(), "r");
+		if (filename == "<<" && argidx+1 < args.size())
+			filename += args[++argidx];
+		if (filename.substr(0, 2) == "<<") {
+			if (Frontend::current_script_file == NULL)
+				log_error("Unexpected here document '%s' outside of script!\n", filename.c_str());
+			if (filename.size() <= 2)
+				log_error("Missing EOT marker in here document!\n");
+			std::string eot_marker = filename.substr(2);
+			last_here_document.clear();
+			while (1) {
+				std::string buffer;
+				char block[4096];
+				while (1) {
+					if (fgets(block, 4096, Frontend::current_script_file) == NULL)
+						log_error("Unexpected end of file in here document '%s'!\n", filename.c_str());
+					buffer += block;
+					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
+						break;
+				}
+				int indent = buffer.find_first_not_of(" \t\r\n");
+				if (buffer.substr(indent, eot_marker.size()) == eot_marker)
+					break;
+				last_here_document += buffer;
+			}
+			f = fmemopen((void*)last_here_document.c_str(), last_here_document.size(), "r");
+		} else
+			f = fopen(filename.c_str(), "r");
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 

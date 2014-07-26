@@ -28,6 +28,7 @@
 #include <errno.h>
 
 #include <algorithm>
+#include <exception>
 
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
@@ -116,25 +117,36 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 
-		std::string command;
-		while (fgetline(f, command)) {
-			while (!command.empty() && command[command.size()-1] == '\\') {
-				std::string next_line;
-				if (!fgetline(f, next_line))
-					break;
-				command.resize(command.size()-1);
-				command += next_line;
+		FILE *backup_script_file = Frontend::current_script_file;
+		Frontend::current_script_file = f;
+
+		try {
+			std::string command;
+			while (fgetline(f, command)) {
+				while (!command.empty() && command[command.size()-1] == '\\') {
+					std::string next_line;
+					if (!fgetline(f, next_line))
+						break;
+					command.resize(command.size()-1);
+					command += next_line;
+				}
+				handle_label(command, from_to_active, run_from, run_to);
+				if (from_to_active)
+					Pass::call(design, command);
 			}
-			handle_label(command, from_to_active, run_from, run_to);
-			if (from_to_active)
-				Pass::call(design, command);
+
+			if (!command.empty()) {
+				handle_label(command, from_to_active, run_from, run_to);
+				if (from_to_active)
+					Pass::call(design, command);
+			}
+		}
+		catch (...) {
+			Frontend::current_script_file = backup_script_file;
+			std::rethrow_exception(std::current_exception());
 		}
 
-		if (!command.empty()) {
-			handle_label(command, from_to_active, run_from, run_to);
-			if (from_to_active)
-				Pass::call(design, command);
-		}
+		Frontend::current_script_file = backup_script_file;
 
 		if (filename != "-")
 			fclose(f);

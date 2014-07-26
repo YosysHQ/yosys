@@ -38,7 +38,7 @@ extern const char *yosys_version_str;
 extern RTLIL::Design *yosys_get_design();
 extern std::string proc_self_dirname();
 extern std::string proc_share_dirname();
-const char *create_prompt(RTLIL::Design *design, int recursion_counter);
+extern const char *create_prompt(RTLIL::Design *design, int recursion_counter);
 
 // from passes/cmds/design.cc
 extern std::map<std::string, RTLIL::Design*> saved_designs;
@@ -76,6 +76,10 @@ struct Pass
 
 struct Frontend : Pass
 {
+	// for reading of here documents
+	static FILE *current_script_file;
+	static std::string last_here_document;
+
 	std::string frontend_name;
 	Frontend(std::string name, std::string short_help = "** document me **");
 	virtual void run_register();
