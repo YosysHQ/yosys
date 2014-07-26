@@ -126,20 +126,17 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				c->set("\\CLK", RTLIL::SigSpec(RTLIL::State::S0));
 			}
 
-			RTLIL::Wire *w_in = new RTLIL::Wire;
-			w_in->name = genid(cell->name, "", i, "$d");
-			w_in->width = mem_width;
-			module->wires[w_in->name] = w_in;
+			RTLIL::Wire *w_in = module->addWire(genid(cell->name, "", i, "$d"), mem_width);
 			data_reg_in.push_back(RTLIL::SigSpec(w_in));
 			c->set("\\D", data_reg_in.back());
 
-			RTLIL::Wire *w_out = new RTLIL::Wire;
-			w_out->name = stringf("%s[%d]", cell->parameters["\\MEMID"].decode_string().c_str(), i);
-			if (module->wires.count(w_out->name) > 0)
-				w_out->name = genid(cell->name, "", i, "$q");
-			w_out->width = mem_width;
+			std::string w_out_name = stringf("%s[%d]", cell->parameters["\\MEMID"].decode_string().c_str(), i);
+			if (module->wires.count(w_out_name) > 0)
+				w_out_name = genid(cell->name, "", i, "$q");
+
+			RTLIL::Wire *w_out = module->addWire(w_out_name, mem_width);
 			w_out->start_offset = mem_offset;
-			module->wires[w_out->name] = w_out;
+
 			data_reg_out.push_back(RTLIL::SigSpec(w_out));
 			c->set("\\Q", data_reg_out.back());
 		}
@@ -167,10 +164,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				c->set("\\D", rd_addr);
 				count_dff++;
 
-				RTLIL::Wire *w = new RTLIL::Wire;
-				w->name = genid(cell->name, "$rdreg", i, "$q");
-				w->width = mem_abits;
-				module->wires[w->name] = w;
+				RTLIL::Wire *w = module->addWire(genid(cell->name, "$rdreg", i, "$q"), mem_abits);
 
 				c->set("\\Q", RTLIL::SigSpec(w));
 				rd_addr = RTLIL::SigSpec(w);
@@ -184,10 +178,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				c->set("\\Q", rd_signals.back());
 				count_dff++;
 
-				RTLIL::Wire *w = new RTLIL::Wire;
-				w->name = genid(cell->name, "$rdreg", i, "$d");
-				w->width = mem_width;
-				module->wires[w->name] = w;
+				RTLIL::Wire *w = module->addWire(genid(cell->name, "$rdreg", i, "$d"), mem_width);
 
 				rd_signals.clear();
 				rd_signals.push_back(RTLIL::SigSpec(w));
@@ -207,17 +198,8 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				c->set("\\S", rd_addr.extract(mem_abits-j-1, 1));
 				count_mux++;
 
-				RTLIL::Wire *w = new RTLIL::Wire;
-				w->name = genid(cell->name, "$rdmux", i, "", j, "", k, "$a");
-				w->width = mem_width;
-				module->wires[w->name] = w;
-				c->set("\\A", RTLIL::SigSpec(w));
-
-				w = new RTLIL::Wire;
-				w->name = genid(cell->name, "$rdmux", i, "", j, "", k, "$b");
-				w->width = mem_width;
-				module->wires[w->name] = w;
-				c->set("\\B", RTLIL::SigSpec(w));
+				c->set("\\A", module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$a"), mem_width));
+				c->set("\\B", module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$b"), mem_width));
 
 				next_rd_signals.push_back(c->get("\\A"));
 				next_rd_signals.push_back(c->get("\\B"));
@@ -255,9 +237,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			c->set("\\B", wr_addr);
 			count_wrmux++;
 
-			RTLIL::Wire *w_seladdr = new RTLIL::Wire;
-			w_seladdr->name = genid(cell->name, "$wreq", i, "", j, "$y");
-			module->wires[w_seladdr->name] = w_seladdr;
+			RTLIL::Wire *w_seladdr = module->addWire(genid(cell->name, "$wreq", i, "", j, "$y"));
 			c->set("\\Y", w_seladdr);
 
 			int wr_offset = 0;
@@ -286,9 +266,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 					c->set("\\A", w);
 					c->set("\\B", wr_bit);
 
-					w = new RTLIL::Wire;
-					w->name = genid(cell->name, "$wren", i, "", j, "", wr_offset, "$y");
-					module->wires[w->name] = w;
+					w = module->addWire(genid(cell->name, "$wren", i, "", j, "", wr_offset, "$y"));
 					c->set("\\Y", RTLIL::SigSpec(w));
 				}
 
@@ -298,10 +276,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				c->set("\\B", wr_data.extract(wr_offset, wr_width));
 				c->set("\\S", RTLIL::SigSpec(w));
 
-				w = new RTLIL::Wire;
-				w->name = genid(cell->name, "$wrmux", i, "", j, "", wr_offset, "$y");
-				w->width = wr_width;
-				module->wires[w->name] = w;
+				w = module->addWire(genid(cell->name, "$wrmux", i, "", j, "", wr_offset, "$y"), wr_width);
 				c->set("\\Y", w);
 
 				sig.replace(wr_offset, w);

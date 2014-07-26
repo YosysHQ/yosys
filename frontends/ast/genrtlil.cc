@@ -290,16 +290,16 @@ struct AST_INTERNAL::ProcessGenerator
 			if (chunk.wire == NULL)
 				continue;
 
-			RTLIL::Wire *wire = new RTLIL::Wire;
-			wire->attributes["\\src"] = stringf("%s:%d", always->filename.c_str(), always->linenum);
+			std::string wire_name;
 			do {
-				wire->name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
+				wire_name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
 						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.find('$') != std::string::npos)
-					wire->name += stringf("$%d", RTLIL::autoidx++);
-			} while (current_module->wires.count(wire->name) > 0);
-			wire->width = chunk.width;
-			current_module->wires[wire->name] = wire;
+					wire_name += stringf("$%d", RTLIL::autoidx++);
+			} while (current_module->wires.count(wire_name) > 0);
+
+			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
+			wire->attributes["\\src"] = stringf("%s:%d", always->filename.c_str(), always->linenum);
 
 			chunk.wire = wire;
 			chunk.offset = 0;
@@ -792,15 +792,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				range_right = tmp;
 			}
 
-			RTLIL::Wire *wire = new RTLIL::Wire;
+			RTLIL::Wire *wire = current_module->addWire(str, range_left - range_right + 1);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
-			wire->name = str;
-			wire->width = range_left - range_right + 1;
 			wire->start_offset = range_right;
 			wire->port_id = port_id;
 			wire->port_input = is_input;
 			wire->port_output = is_output;
-			current_module->wires[wire->name] = wire;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
@@ -873,14 +870,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::SigChunk chunk;
 
 			if (id2ast && id2ast->type == AST_AUTOWIRE && current_module->wires.count(str) == 0) {
-				RTLIL::Wire *wire = new RTLIL::Wire;
+				RTLIL::Wire *wire = current_module->addWire(str);
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				wire->name = str;
 				if (flag_autowire)
 					log("Warning: Identifier `%s' is implicitly declared at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 				else
 					log_error("Identifier `%s' is implicitly declared at %s:%d and `default_nettype is set to none.\n", str.c_str(), filename.c_str(), linenum);
-				current_module->wires[str] = wire;
 			}
 			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM) {
 				if (id2ast->children[0]->type != AST_CONSTANT)

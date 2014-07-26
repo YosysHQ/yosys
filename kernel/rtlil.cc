@@ -827,6 +827,46 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	cells[cell->name] = cell;
 }
 
+namespace {
+	struct DeleteWireWorker
+	{
+		RTLIL::Module *module;
+		const std::set<RTLIL::Wire*> *wires_p;
+
+		void operator()(RTLIL::SigSpec &sig) {
+			std::vector<RTLIL::SigChunk> chunks = sig;
+			for (auto &c : chunks)
+				if (c.wire != NULL && wires_p->count(c.wire)) {
+					c.wire = module->addWire(NEW_ID, c.width);
+					c.offset = 0;
+				}
+			sig = chunks;
+		}
+	};
+}
+
+#if 0
+void RTLIL::Module::remove(RTLIL::Wire *wire)
+{
+	std::set<RTLIL::Wire*> wires;
+	wires.insert(wire);
+	remove(wires);
+}
+#endif
+
+void RTLIL::Module::remove(const std::set<RTLIL::Wire*> &wires)
+{
+	DeleteWireWorker delete_wire_worker;
+	delete_wire_worker.module = this;
+	delete_wire_worker.wires_p = &wires;
+	rewrite_sigspecs(delete_wire_worker);
+
+	for (auto &it : wires) {
+		this->wires.erase(it->name);
+		delete it;
+	}
+}
+
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
 	assert(cells.count(cell->name) != 0);

@@ -118,13 +118,10 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		design->modules[mod->name] = mod;
 
 		for (auto &decl : ports) {
-			RTLIL::Wire *wire = new RTLIL::Wire;
-			wire->name = decl.portname;
-			wire->width = portwidths.at(decl.portname);
+			RTLIL::Wire *wire = mod->addWire(decl.portname, portwidths.at(decl.portname));
 			wire->port_id = decl.index;
 			wire->port_input = decl.input;
 			wire->port_output = decl.output;
-			mod->add(wire);
 		}
 
 		for (auto &para : parameters)

@@ -143,13 +143,11 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 	// create state register
 
-	RTLIL::Wire *state_wire = new RTLIL::Wire;
-	state_wire->name = fsm_cell->parameters["\\NAME"].decode_string();
-	while (module->count_id(state_wire->name) > 0)
-		state_wire->name += "_";
-	state_wire->width = fsm_data.state_bits;
-	module->add(state_wire);
+	std::string state_wire_name = fsm_cell->parameters["\\NAME"].decode_string();
+	while (module->count_id(state_wire_name) > 0)
+		state_wire_name += "_";
 
+	RTLIL::Wire *state_wire = module->addWire(state_wire_name, fsm_data.state_bits);
 	RTLIL::Wire *next_state_wire = module->addWire(NEW_ID, fsm_data.state_bits);
 
 	RTLIL::Cell *state_dff = module->addCell(NEW_ID, "");
@@ -209,10 +207,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 	// generate next_state signal
 
-	RTLIL::Wire *next_state_onehot = new RTLIL::Wire;
-	next_state_onehot->name = NEW_ID;
-	next_state_onehot->width = fsm_data.state_table.size();
-	module->add(next_state_onehot);
+	RTLIL::Wire *next_state_onehot = module->addWire(NEW_ID, fsm_data.state_table.size());
 
 	for (size_t i = 0; i < fsm_data.state_table.size(); i++)
 	{
@@ -274,11 +269,6 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 	}
 
 	// Generate ctrl_out signal
-
-	RTLIL::Wire *ctrl_out_wire = new RTLIL::Wire;
-	ctrl_out_wire->name = NEW_ID;
-	ctrl_out_wire->width = fsm_data.num_outputs;
-	module->add(ctrl_out_wire);
 
 	for (int i = 0; i < fsm_data.num_outputs; i++)
 	{

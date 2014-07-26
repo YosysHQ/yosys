@@ -121,14 +121,13 @@ autoidx_stmt:
 
 wire_stmt:
 	TOK_WIRE {
-		current_wire = new RTLIL::Wire;
+		current_wire = current_module->addWire("$__ilang_frontend_tmp__");
 		current_wire->attributes = attrbuf;
 		attrbuf.clear();
 	} wire_options TOK_ID EOL {
 		if (current_module->wires.count($4) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of wire %s.", $4).c_str());
-		current_wire->name = $4;
-		current_module->wires[$4] = current_wire;
+		current_module->rename(current_wire, $4);
 		free($4);
 	};
 

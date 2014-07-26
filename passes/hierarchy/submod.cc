@@ -123,30 +123,36 @@ struct SubmodWorker
 			if (wire->port_output)
 				flags.is_ext_used = true;
 
-			RTLIL::Wire *new_wire = new RTLIL::Wire;
-			new_wire->name = wire->name;
-			new_wire->width = wire->width;
-			new_wire->start_offset = wire->start_offset;
-			new_wire->attributes = wire->attributes;
+			bool new_wire_port_input = false;
+			bool new_wire_port_output = false;
 
 			if (flags.is_int_driven && flags.is_ext_used)
-				new_wire->port_output = true;
+				new_wire_port_output = true;
 			if (flags.is_ext_driven && flags.is_int_used)
-				new_wire->port_input = true;
+				new_wire_port_input = true;
 
 			if (flags.is_int_driven && flags.is_ext_driven)
-				new_wire->port_input = true, new_wire->port_output = true;
+				new_wire_port_input = true, new_wire_port_output = true;
 
-			if (new_wire->port_input || new_wire->port_output) {
-				new_wire->port_id = port_counter++;
-				while (new_wire->name[0] == '$') {
-					std::string new_wire_name = stringf("\\n%d", auto_name_counter++);
-					if (all_wire_names.count(new_wire_name) == 0) {
-						all_wire_names.insert(new_wire_name);
-						new_wire->name = new_wire_name;
+			std::string new_wire_name = wire->name;
+			if (new_wire_port_input || new_wire_port_output) {
+				while (new_wire_name[0] == '$') {
+					std::string next_wire_name = stringf("\\n%d", auto_name_counter++);
+					if (all_wire_names.count(next_wire_name) == 0) {
+						all_wire_names.insert(next_wire_name);
+						new_wire_name = next_wire_name;
 					}
 				}
 			}
+
+			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name, wire->width);
+			new_wire->port_input = new_wire_port_input;
+			new_wire->port_output = new_wire_port_output;
+			new_wire->start_offset = wire->start_offset;
+			new_wire->attributes = wire->attributes;
+
+			if (new_wire->port_input || new_wire->port_output)
+				new_wire->port_id = port_counter++;
 
 			if (new_wire->port_input && new_wire->port_output)
 				log("  signal %s: inout %s\n", wire->name.c_str(), new_wire->name.c_str());
@@ -157,7 +163,6 @@ struct SubmodWorker
 			else
 				log("  signal %s: internal\n", wire->name.c_str());
 
-			new_mod->wires[new_wire->name] = new_wire;
 			flags.new_wire = new_wire;
 		}
 

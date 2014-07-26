@@ -218,14 +218,14 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 		}
 	}
 
-	std::vector<RTLIL::Wire*> del_wires;
+	std::vector<RTLIL::Wire*> maybe_del_wires;
 	for (auto &it : module->wires) {
 		RTLIL::Wire *wire = it.second;
 		if ((!purge_mode && check_public_name(wire->name)) || wire->port_id != 0 || wire->get_bool_attribute("\\keep")) {
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;
 			assign_map.apply(s2);
 			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep")) {
-				del_wires.push_back(wire);
+				maybe_del_wires.push_back(wire);
 			} else {
 				assert(SIZE(s1) == SIZE(s2));
 				RTLIL::SigSig new_conn;
@@ -242,7 +242,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			}
 		} else {
 			if (!used_signals.check_any(RTLIL::SigSpec(wire)))
-				del_wires.push_back(wire);
+				maybe_del_wires.push_back(wire);
 		}
 		RTLIL::SigSpec sig = assign_map(RTLIL::SigSpec(wire));
 		if (!used_signals_nodrivers.check_any(sig)) {
@@ -265,6 +265,9 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 		}
 	}
 
+
+	std::set<RTLIL::Wire*> del_wires;
+
 	int del_wires_count = 0;
 	for (auto wire : del_wires)
 		if (!used_signals.check_any(RTLIL::SigSpec(wire))) {
@@ -272,10 +275,11 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 				log("  removing unused non-port wire %s.\n", wire->name.c_str());
 				del_wires_count++;
 			}
-			module->wires.erase(wire->name);
-			count_rm_wires++;
-			delete wire;
+			del_wires.insert(wire);
 		}
+
+	module->remove(del_wires);
+	count_rm_wires += del_wires.size();;
 
 	if (del_wires_count > 0)
 		log("  removed %d unused temporary wires.\n", del_wires_count);

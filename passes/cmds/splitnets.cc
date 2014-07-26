@@ -28,33 +28,31 @@ struct SplitnetsWorker
 
 	void append_wire(RTLIL::Module *module, RTLIL::Wire *wire, int offset, int width, std::string format)
 	{
-		RTLIL::Wire *new_wire = new RTLIL::Wire;
+		std::string new_wire_name = wire->name;
 
+		if (format.size() > 0)
+			new_wire_name += format.substr(0, 1);
+
+		if (width > 1) {
+			new_wire_name += stringf("%d", offset+width-1);
+			if (format.size() > 2)
+				new_wire_name += format.substr(2, 1);
+			else
+				new_wire_name += ":";
+		}
+
+		new_wire_name += stringf("%d", offset);
+
+		if (format.size() > 1)
+			new_wire_name += format.substr(1, 1);
+
+		while (module->count_id(new_wire_name) > 0)
+			new_wire_name += "_";
+
+		RTLIL::Wire *new_wire = module->addWire(new_wire_name, width);
 		new_wire->port_id = wire->port_id;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
-		new_wire->name = wire->name;
-		new_wire->width = width;
-
-		if (format.size() > 0)
-			new_wire->name += format.substr(0, 1);
-
-		if (width > 1) {
-			new_wire->name += stringf("%d", offset+width-1);
-			if (format.size() > 2)
-				new_wire->name += format.substr(2, 1);
-			else
-				new_wire->name += ":";
-		}
-
-		new_wire->name += stringf("%d", offset);
-
-		if (format.size() > 1)
-			new_wire->name += format.substr(1, 1);
-
-		while (module->count_id(new_wire->name) > 0)
-			new_wire->name = new_wire->name + "_";
-		module->add(new_wire);
 
 		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
 		splitmap[wire].insert(splitmap[wire].end(), sigvec.begin(), sigvec.end());
@@ -178,10 +176,10 @@ struct SplitnetsPass : public Pass {
 
 			module->rewrite_sigspecs(worker);
 
-			for (auto &it : worker.splitmap) {
-				module->wires.erase(it.first->name);
-				delete it.first;
-			}
+			std::set<RTLIL::Wire*> delete_wires;
+			for (auto &it : worker.splitmap)
+				delete_wires.insert(it.first);
+			module->remove(delete_wires);
 
 			module->fixup_ports();
 		}

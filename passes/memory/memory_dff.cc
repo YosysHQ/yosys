@@ -118,18 +118,13 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 	std::stringstream sstr;
 	sstr << "$memory_dff_disconnected$" << (RTLIL::autoidx++);
 
-	RTLIL::Wire *wire = new RTLIL::Wire;
-	wire->name = sstr.str();
-	wire->width = sig.size();
-	module->wires[wire->name] = wire;
-
-	RTLIL::SigSpec newsig(wire);
+	RTLIL::SigSpec new_sig = module->addWire(sstr.str(), sig.size());
 
 	for (auto &cell_it : module->cells) {
 		RTLIL::Cell *cell = cell_it.second;
 		if (cell->type == "$dff") {
 			RTLIL::SigSpec new_q = cell->get("\\Q");
-			new_q.replace(sig, newsig);
+			new_q.replace(sig, new_sig);
 			cell->set("\\Q", new_q);
 		}
 	}

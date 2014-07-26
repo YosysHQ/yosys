@@ -47,12 +47,9 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	}
 	else
 	{
-		wire = new RTLIL::Wire;
-		wire->name = name;
-		wire->width = width;
+		wire = module->addWire(name, width);
 		wire->port_input = flag_input;
 		wire->port_output = flag_output;
-		module->add(wire);
 
 		if (flag_input || flag_output) {
 			wire->port_id = module->wires.size();

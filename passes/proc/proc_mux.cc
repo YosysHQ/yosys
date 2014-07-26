@@ -60,10 +60,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	std::stringstream sstr;
 	sstr << "$procmux$" << (RTLIL::autoidx++);
 
-	RTLIL::Wire *cmp_wire = new RTLIL::Wire;
-	cmp_wire->name = sstr.str() + "_CMP";
-	cmp_wire->width = 0;
-	mod->wires[cmp_wire->name] = cmp_wire;
+	RTLIL::Wire *cmp_wire = mod->addWire(sstr.str() + "_CMP", 0);
 
 	for (auto comp : compare)
 	{
@@ -109,10 +106,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	}
 	else
 	{
-		ctrl_wire = new RTLIL::Wire;
-		ctrl_wire->name = sstr.str() + "_CTRL";
-		ctrl_wire->width = 1;
-		mod->wires[ctrl_wire->name] = ctrl_wire;
+		ctrl_wire = mod->addWire(sstr.str() + "_CTRL");
 
 		// reduce cmp vector to one logic signal
 		RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", "$reduce_or");
@@ -147,10 +141,7 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	assert(ctrl_sig.size() == 1);
 
 	// prepare multiplexer output signal
-	RTLIL::Wire *result_wire = new RTLIL::Wire;
-	result_wire->name = sstr.str() + "_Y";
-	result_wire->width = when_signal.size();
-	mod->wires[result_wire->name] = result_wire;
+	RTLIL::Wire *result_wire = mod->addWire(sstr.str() + "_Y", when_signal.size());
 
 	// create the multiplexer itself
 	RTLIL::Cell *mux_cell = mod->addCell(sstr.str(), "$mux");

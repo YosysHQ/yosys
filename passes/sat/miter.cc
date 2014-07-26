@@ -126,11 +126,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 		if (w1->port_input)
 		{
-			RTLIL::Wire *w2 = new RTLIL::Wire;
-			w2->name = "\\in_" + RTLIL::unescape_id(w1->name);
+			RTLIL::Wire *w2 = miter_module->addWire("\\in_" + RTLIL::unescape_id(w1->name), w1->width);
 			w2->port_input = true;
-			w2->width = w1->width;
-			miter_module->add(w2);
 
 			gold_cell->set(w1->name, w2);
 			gate_cell->set(w1->name, w2);
@@ -138,17 +135,11 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 		if (w1->port_output)
 		{
-			RTLIL::Wire *w2_gold = new RTLIL::Wire;
-			w2_gold->name = "\\gold_" + RTLIL::unescape_id(w1->name);
+			RTLIL::Wire *w2_gold = miter_module->addWire("\\gold_" + RTLIL::unescape_id(w1->name), w1->width);
 			w2_gold->port_output = flag_make_outputs;
-			w2_gold->width = w1->width;
-			miter_module->add(w2_gold);
 
-			RTLIL::Wire *w2_gate = new RTLIL::Wire;
-			w2_gate->name = "\\gate_" + RTLIL::unescape_id(w1->name);
+			RTLIL::Wire *w2_gate = miter_module->addWire("\\gate_" + RTLIL::unescape_id(w1->name), w1->width);
 			w2_gate->port_output = flag_make_outputs;
-			w2_gate->width = w1->width;
-			miter_module->add(w2_gate);
 
 			gold_cell->set(w1->name, w2_gold);
 			gate_cell->set(w1->name, w2_gate);
@@ -220,10 +211,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 			if (flag_make_outcmp)
 			{
-				RTLIL::Wire *w_cmp = new RTLIL::Wire;
-				w_cmp->name = "\\cmp_" + RTLIL::unescape_id(w1->name);
+				RTLIL::Wire *w_cmp = miter_module->addWire("\\cmp_" + RTLIL::unescape_id(w1->name));
 				w_cmp->port_output = true;
-				miter_module->add(w_cmp);
 				miter_module->connect(RTLIL::SigSig(w_cmp, this_condition));
 			}
 
@@ -247,10 +236,8 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 		assert_cell->set("\\EN", RTLIL::SigSpec(1, 1));
 	}
 
-	RTLIL::Wire *w_trigger = new RTLIL::Wire;
-	w_trigger->name = "\\trigger";
+	RTLIL::Wire *w_trigger = miter_module->addWire("\\trigger");
 	w_trigger->port_output = true;
-	miter_module->add(w_trigger);
 
 	RTLIL::Cell *not_cell = miter_module->addCell(NEW_ID, "$not");
 	not_cell->parameters["\\A_WIDTH"] = all_conditions.size();

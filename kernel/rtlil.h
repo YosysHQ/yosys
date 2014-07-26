@@ -299,6 +299,9 @@ struct RTLIL::Module
 
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
+
+	// Removing wires is expensive. If you have to remove wires, remove them all at once.
+	void remove(const std::set<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);

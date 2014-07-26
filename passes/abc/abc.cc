@@ -313,11 +313,9 @@ static void handle_loops()
 				continue;
 			}
 
-			RTLIL::Wire *wire = new RTLIL::Wire;
 			std::stringstream sstr;
 			sstr << "$abcloop$" << (RTLIL::autoidx++);
-			wire->name = sstr.str();
-			module->wires[wire->name] = wire;
+			RTLIL::Wire *wire = module->addWire(sstr.str());
 
 			bool first_line = true;
 			for (int id2 : edges[id1]) {
@@ -691,9 +689,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			log_error("ABC output file does not contain a module `netlist'.\n");
 		for (auto &it : mapped_mod->wires) {
 			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *wire = new RTLIL::Wire;
-			wire->name = remap_name(w->name);
-			module->wires[wire->name] = wire;
+			RTLIL::Wire *wire = module->addWire(remap_name(w->name));
 			design->select(module, wire);
 		}
 
