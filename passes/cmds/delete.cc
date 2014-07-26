@@ -103,7 +103,7 @@ struct DeletePass : public Pass {
 				if (design->selected(module, it.second))
 					delete_mems.insert(it.first);
 
-			for (auto &it : module->cells) {
+			for (auto &it : module->cells_) {
 				if (design->selected(module, it.second))
 					delete_cells.insert(it.second);
 				if ((it.second->type == "$memrd" || it.second->type == "$memwr") &&

@@ -248,8 +248,8 @@ struct OptShareWorker
 			cell_hash_cache.clear();
 #endif
 			std::vector<RTLIL::Cell*> cells;
-			cells.reserve(module->cells.size());
-			for (auto &it : module->cells) {
+			cells.reserve(module->cells_.size());
+			for (auto &it : module->cells_) {
 				if (ct.cell_known(it.second->type) && design->selected(module, it.second))
 					cells.push_back(it.second);
 			}

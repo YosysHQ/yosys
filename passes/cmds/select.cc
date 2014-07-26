@@ -167,7 +167,7 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 		for (auto &it : mod->memories)
 			if (!lhs.selected_member(mod_it.first, it.first))
 				new_sel.selected_members[mod->name].insert(it.first);
-		for (auto &it : mod->cells)
+		for (auto &it : mod->cells_)
 			if (!lhs.selected_member(mod_it.first, it.first))
 				new_sel.selected_members[mod->name].insert(it.first);
 		for (auto &it : mod->processes)
@@ -185,7 +185,7 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 	{
 		if (lhs.selected_whole_module(mod_it.first))
 		{
-			for (auto &cell_it : mod_it.second->cells)
+			for (auto &cell_it : mod_it.second->cells_)
 			{
 				if (design->modules.count(cell_it.second->type) == 0)
 					continue;
@@ -282,7 +282,7 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 				lhs.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->memories)
 				lhs.selected_members[mod->name].insert(it.first);
-			for (auto &it : mod->cells)
+			for (auto &it : mod->cells_)
 				lhs.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->processes)
 				lhs.selected_members[mod->name].insert(it.first);
@@ -395,7 +395,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			}
 		}
 
-		for (auto &cell : mod->cells)
+		for (auto &cell : mod->cells_)
 		for (auto &conn : cell.second->connections())
 		{
 			char last_mode = '-';
@@ -742,12 +742,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "c:") {
-			for (auto &it : mod->cells)
+			for (auto &it : mod->cells_)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "t:") {
-			for (auto &it : mod->cells)
+			for (auto &it : mod->cells_)
 				if (match_ids(it.second->type, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
@@ -763,7 +763,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			for (auto &it : mod->memories)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
-			for (auto &it : mod->cells)
+			for (auto &it : mod->cells_)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->processes)
@@ -771,7 +771,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "r:") {
-			for (auto &it : mod->cells)
+			for (auto &it : mod->cells_)
 				if (match_attr(it.second->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else {
@@ -783,7 +783,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			for (auto &it : mod->memories)
 				if (match_ids(it.first, arg_memb))
 					sel.selected_members[mod->name].insert(it.first);
-			for (auto &it : mod->cells)
+			for (auto &it : mod->cells_)
 				if (match_ids(it.first, arg_memb))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->processes)
@@ -1158,7 +1158,7 @@ struct SelectPass : public Pass {
 					for (auto &it : mod_it.second->memories)
 						if (sel->selected_member(mod_it.first, it.first))
 							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
-					for (auto &it : mod_it.second->cells)
+					for (auto &it : mod_it.second->cells_)
 						if (sel->selected_member(mod_it.first, it.first))
 							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->processes)
@@ -1225,7 +1225,7 @@ struct SelectPass : public Pass {
 					for (auto &it : mod_it.second->memories)
 						if (sel->selected_member(mod_it.first, it.first))
 							total_count++;
-					for (auto &it : mod_it.second->cells)
+					for (auto &it : mod_it.second->cells_)
 						if (sel->selected_member(mod_it.first, it.first))
 							total_count++;
 					for (auto &it : mod_it.second->processes)
@@ -1303,8 +1303,8 @@ struct CdPass : public Pass {
 			RTLIL::Module *module = NULL;
 			if (design->modules.count(design->selected_active_module) > 0)
 				module = design->modules.at(design->selected_active_module);
-			if (module != NULL && module->cells.count(modname) > 0)
-				modname = module->cells.at(modname)->type;
+			if (module != NULL && module->cells_.count(modname) > 0)
+				modname = module->cells_.at(modname)->type;
 		}
 
 		if (design->modules.count(modname) > 0) {
@@ -1376,7 +1376,7 @@ struct LsPass : public Pass {
 			RTLIL::Module *module = design->modules.at(design->selected_active_module);
 			counter += log_matches("wires", pattern, module->wires_);
 			counter += log_matches("memories", pattern, module->memories);
-			counter += log_matches("cells", pattern, module->cells);
+			counter += log_matches("cells", pattern, module->cells_);
 			counter += log_matches("processes", pattern, module->processes);
 		}
 

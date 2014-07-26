@@ -90,7 +90,7 @@ namespace
 				num_memory_bits += it.second->width * it.second->size;
 			}
 
-			for (auto &it : mod->cells) {
+			for (auto &it : mod->cells_) {
 				if (!design->selected(mod, it.second))
 					continue;
 				num_cells++;

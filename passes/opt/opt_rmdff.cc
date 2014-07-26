@@ -179,7 +179,7 @@ struct OptRmdffPass : public Pass {
 			mux_drivers.clear();
 
 			std::vector<std::string> dff_list;
-			for (auto &it : mod_it.second->cells) {
+			for (auto &it : mod_it.second->cells_) {
 				if (it.second->type == "$mux" || it.second->type == "$pmux") {
 					if (it.second->get("\\A").size() == it.second->get("\\B").size())
 						mux_drivers.insert(assign_map(it.second->get("\\Y")), it.second);
@@ -202,8 +202,8 @@ struct OptRmdffPass : public Pass {
 			}
 
 			for (auto &id : dff_list) {
-				if (mod_it.second->cells.count(id) > 0 &&
-						handle_dff(mod_it.second, mod_it.second->cells[id]))
+				if (mod_it.second->cells_.count(id) > 0 &&
+						handle_dff(mod_it.second, mod_it.second->cells_[id]))
 					total_count++;
 			}
 		}

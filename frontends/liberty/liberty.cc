@@ -239,7 +239,7 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	{
 		rerun_invert_rollback = false;
 
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (it.second->type == "$_INV_" && it.second->get("\\Y") == clk_sig) {
 				clk_sig = it.second->get("\\A");
 				clk_polarity = !clk_polarity;
@@ -316,7 +316,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 	{
 		rerun_invert_rollback = false;
 
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (it.second->type == "$_INV_" && it.second->get("\\Y") == enable_sig) {
 				enable_sig = it.second->get("\\A");
 				enable_polarity = !enable_polarity;

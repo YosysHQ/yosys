@@ -294,7 +294,7 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 				dump_memory(f, indent + "  ", it->second);
 			}
 
-		for (auto it = module->cells.begin(); it != module->cells.end(); it++)
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); it++)
 			if (!only_selected || design->selected(module, it->second)) {
 				if (only_selected)
 					fprintf(f, "\n");

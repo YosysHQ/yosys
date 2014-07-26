@@ -116,7 +116,7 @@ struct TechmapWorker
 
 		std::string orig_cell_name;
 		if (!flatten_mode)
-			for (auto &it : tpl->cells)
+			for (auto &it : tpl->cells_)
 				if (it.first == "\\_TECHMAP_REPLACE_") {
 					orig_cell_name = cell->name;
 					module->rename(cell, stringf("$techmap%d", RTLIL::autoidx++) + cell->name);
@@ -180,7 +180,7 @@ struct TechmapWorker
 			}
 		}
 
-		for (auto &it : tpl->cells)
+		for (auto &it : tpl->cells_)
 		{
 			RTLIL::IdString c_name = it.second->name;
 
@@ -224,15 +224,15 @@ struct TechmapWorker
 		std::vector<std::string> cell_names;
 
 		SigMap sigmap(module);
-		for (auto &cell_it : module->cells)
+		for (auto &cell_it : module->cells_)
 			cell_names.push_back(cell_it.first);
 
 		for (auto &cell_name : cell_names)
 		{
-			if (module->cells.count(cell_name) == 0)
+			if (module->cells_.count(cell_name) == 0)
 				continue;
 
-			RTLIL::Cell *cell = module->cells[cell_name];
+			RTLIL::Cell *cell = module->cells_[cell_name];
 
 			if (!design->selected(module, cell) || handled_cells.count(cell) > 0)
 				continue;

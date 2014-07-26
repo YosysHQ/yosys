@@ -295,7 +295,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 {
 	std::vector<RTLIL::Cell*> cells;
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 		if (it.second->type == "$mem" && design->selected(module, it.second))
 			cells.push_back(it.second);
 	for (auto cell : cells)

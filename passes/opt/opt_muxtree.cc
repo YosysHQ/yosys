@@ -83,7 +83,7 @@ struct OptMuxtreeWorker
 		//	.ctrl_sigs
 		//	.input_sigs
 		//	.const_activated
-		for (auto &cell_it : module->cells)
+		for (auto &cell_it : module->cells_)
 		{
 			RTLIL::Cell *cell = cell_it.second;
 			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")

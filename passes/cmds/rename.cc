@@ -36,7 +36,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 			return;
 		}
 
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 		if (it.first == from_name) {
 			log("Renaming cell %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
 			module->rename(it.second, to_name);
@@ -114,13 +114,13 @@ struct RenamePass : public Pass {
 				module->wires_.swap(new_wires);
 
 				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
-				for (auto &it : module->cells) {
+				for (auto &it : module->cells_) {
 					if (it.first[0] == '$' && design->selected(module, it.second))
 						do it.second->name = stringf("\\_%d_", counter++);
 						while (module->count_id(it.second->name) > 0);
 					new_cells[it.second->name] = it.second;
 				}
-				module->cells.swap(new_cells);
+				module->cells_.swap(new_cells);
 			}
 		}
 		else
@@ -144,13 +144,13 @@ struct RenamePass : public Pass {
 				module->wires_.swap(new_wires);
 
 				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
-				for (auto &it : module->cells) {
+				for (auto &it : module->cells_) {
 					if (design->selected(module, it.second))
 						if (it.first[0] == '\\')
 							it.second->name = NEW_ID;
 					new_cells[it.second->name] = it.second;
 				}
-				module->cells.swap(new_cells);
+				module->cells_.swap(new_cells);
 			}
 		}
 		else

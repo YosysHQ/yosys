@@ -313,7 +313,7 @@ struct FsmMapPass : public Pass {
 			if (!design->selected(mod_it.second))
 				continue;
 			std::vector<RTLIL::Cell*> fsm_cells;
-			for (auto &cell_it : mod_it.second->cells)
+			for (auto &cell_it : mod_it.second->cells_)
 				if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
 					fsm_cells.push_back(cell_it.second);
 			for (auto cell : fsm_cells)

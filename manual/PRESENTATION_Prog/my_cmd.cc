@@ -14,7 +14,7 @@ struct MyPass : public Pass {
         log("Modules in current design:\n");
         for (auto &mod : design->modules)
             log("  %s (%zd wires, %zd cells)\n", RTLIL::id2cstr(mod.first),
-                    mod.second->wires_.size(), mod.second->cells.size());
+                    mod.second->wires_.size(), mod.second->cells_.size());
     }
 } MyPass;
 

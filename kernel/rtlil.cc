@@ -204,7 +204,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		if (it.second.size() == 0)
 			del_list.push_back(it.first);
 		else if (it.second.size() == design->modules[it.first]->wires_.size() + design->modules[it.first]->memories.size() +
-				design->modules[it.first]->cells.size() + design->modules[it.first]->processes.size())
+				design->modules[it.first]->cells_.size() + design->modules[it.first]->processes.size())
 			add_list.push_back(it.first);
 	for (auto mod_name : del_list)
 		selected_members.erase(mod_name);
@@ -280,7 +280,7 @@ RTLIL::Module::~Module()
 		delete it->second;
 	for (auto it = memories.begin(); it != memories.end(); it++)
 		delete it->second;
-	for (auto it = cells.begin(); it != cells.end(); it++)
+	for (auto it = cells_.begin(); it != cells_.end(); it++)
 		delete it->second;
 	for (auto it = processes.begin(); it != processes.end(); it++)
 		delete it->second;
@@ -293,7 +293,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, std::map<RTLIL::IdString, 
 
 size_t RTLIL::Module::count_id(RTLIL::IdString id)
 {
-	return wires_.count(id) + memories.count(id) + cells.count(id) + processes.count(id);
+	return wires_.count(id) + memories.count(id) + cells_.count(id) + processes.count(id);
 }
 
 #ifndef NDEBUG
@@ -730,7 +730,7 @@ void RTLIL::Module::check()
 		}
 	}
 
-	for (auto &it : cells) {
+	for (auto &it : cells_) {
 		assert(it.first == it.second->name);
 		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		assert(it.second->type.size() > 0 && (it.second->type[0] == '\\' || it.second->type[0] == '$'));
@@ -782,7 +782,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	for (auto &it : memories)
 		new_mod->memories[it.first] = new RTLIL::Memory(*it.second);
 
-	for (auto &it : cells)
+	for (auto &it : cells_)
 		new_mod->addCell(it.first, it.second);
 
 	for (auto &it : processes)
@@ -824,7 +824,7 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 {
 	assert(!cell->name.empty());
 	assert(count_id(cell->name) == 0);
-	cells[cell->name] = cell;
+	cells_[cell->name] = cell;
 }
 
 namespace {
@@ -869,8 +869,8 @@ void RTLIL::Module::remove(const std::set<RTLIL::Wire*> &wires)
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
-	assert(cells.count(cell->name) != 0);
-	cells.erase(cell->name);
+	assert(cells_.count(cell->name) != 0);
+	cells_.erase(cell->name);
 	delete cell;
 }
 
@@ -884,8 +884,8 @@ void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
 
 void RTLIL::Module::rename(RTLIL::Cell *cell, RTLIL::IdString new_name)
 {
-	assert(cells[cell->name] == cell);
-	cells.erase(cell->name);
+	assert(cells_[cell->name] == cell);
+	cells_.erase(cell->name);
 	cell->name = new_name;
 	add(cell);
 }
@@ -895,8 +895,8 @@ void RTLIL::Module::rename(RTLIL::IdString old_name, RTLIL::IdString new_name)
 	assert(count_id(old_name) != 0);
 	if (wires_.count(old_name))
 		rename(wires_.at(old_name), new_name);
-	else if (cells.count(old_name))
-		rename(cells.at(old_name), new_name);
+	else if (cells_.count(old_name))
+		rename(cells_.at(old_name), new_name);
 	else
 		log_abort();
 }

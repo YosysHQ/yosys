@@ -128,7 +128,7 @@ struct IntersynthBackend : public Backend {
 
 			if (module->get_bool_attribute("\\blackbox"))
 				continue;
-			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells.size() == 0)
+			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells_.size() == 0)
 				continue;
 
 			if (selected && !design->selected_whole_module(module->name)) {
@@ -159,7 +159,7 @@ struct IntersynthBackend : public Backend {
 			}
 
 			// Submodules: "std::set<string> celltypes_code" prevents duplicate cell types 
-			for (auto cell_it : module->cells)
+			for (auto cell_it : module->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;
 				std::string celltype_code, node_code;

@@ -87,7 +87,7 @@ struct SubmodWorker
 					flag_signal(conn.second, true, true, true, false, false);
 			}
 		}
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			RTLIL::Cell *cell = it.second;
 			if (submod.cells.count(cell) > 0)
 				continue;
@@ -215,7 +215,7 @@ struct SubmodWorker
 			for (auto &it : module->wires_)
 				it.second->attributes.erase("\\submod");
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 			{
 				RTLIL::Cell *cell = it.second;
 				if (cell->attributes.count("\\submod") == 0 || cell->attributes["\\submod"].bits.size() == 0) {
@@ -239,7 +239,7 @@ struct SubmodWorker
 		}
 		else
 		{
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 			{
 				RTLIL::Cell *cell = it.second;
 				if (!design->selected(module, cell))

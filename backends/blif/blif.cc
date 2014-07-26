@@ -140,7 +140,7 @@ struct BlifDumper
 				fprintf(f, ".names $true\n1\n");
 		}
 
-		for (auto &cell_it : module->cells)
+		for (auto &cell_it : module->cells_)
 		{
 			RTLIL::Cell *cell = cell_it.second;
 

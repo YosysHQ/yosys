@@ -146,7 +146,7 @@ struct FsmRecodePass : public Pass {
 
 		for (auto &mod_it : design->modules)
 			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells)
+				for (auto &cell_it : mod_it.second->cells_)
 					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
 						fsm_recode(cell_it.second, mod_it.second, fm_set_fsm_file, default_encoding);
 

@@ -53,7 +53,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(sig, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != "$mux" && cell->type != "$pmux" && cell->type != "$safe_pmux") || cellport.second != "\\Y") {
 			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type.c_str(), cell->name.c_str());
 			return false;
@@ -179,7 +179,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != "$dff" && cell->type != "$adff") || cellport.second != "\\Q")
 			continue;
 		log("  found %s cell for state register: %s\n", cell->type.c_str(), cell->name.c_str());
@@ -223,7 +223,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	cellport_list.clear();
 	sig2trigger.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		RTLIL::SigSpec sig_a = assign_map(cell->get("\\A"));
 		RTLIL::SigSpec sig_b = assign_map(cell->get("\\B"));
 		RTLIL::SigSpec sig_y = assign_map(cell->get("\\Y"));
@@ -293,7 +293,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	cellport_list.clear();
 	sig2driver.find(ctrl_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		RTLIL::SigSpec port_sig = assign_map(cell->get(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
 		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%s$%d", log_signal(unconn_sig), RTLIL::autoidx++), unconn_sig.size());
@@ -340,7 +340,7 @@ struct FsmExtractPass : public Pass {
 
 			sig2driver.clear();
 			sig2trigger.clear();
-			for (auto &cell_it : module->cells)
+			for (auto &cell_it : module->cells_)
 				for (auto &conn_it : cell_it.second->connections()) {
 					if (ct.cell_output(cell_it.second->type, conn_it.first) || !ct.cell_known(cell_it.second->type)) {
 						RTLIL::SigSpec sig = conn_it.second;

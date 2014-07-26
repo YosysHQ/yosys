@@ -251,7 +251,7 @@ static char *readline_obj_generator(const char *text, int state)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
 

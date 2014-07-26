@@ -33,7 +33,7 @@ static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSp
 	if (signal == ref)
 		return true;
 
-	for (auto &cell_it : mod->cells) {
+	for (auto &cell_it : mod->cells_) {
 		RTLIL::Cell *cell = cell_it.second;
 		if (cell->type == "$reduce_or" && cell->get("\\Y") == signal)
 			return check_signal(mod, cell->get("\\A"), ref, polarity);

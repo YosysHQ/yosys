@@ -38,7 +38,7 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 		if (bit.wire == NULL)
 			continue;
 
-		for (auto &cell_it : module->cells)
+		for (auto &cell_it : module->cells_)
 		{
 			RTLIL::Cell *cell = cell_it.second;
 
@@ -120,7 +120,7 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 
 	RTLIL::SigSpec new_sig = module->addWire(sstr.str(), sig.size());
 
-	for (auto &cell_it : module->cells) {
+	for (auto &cell_it : module->cells_) {
 		RTLIL::Cell *cell = cell_it.second;
 		if (cell->type == "$dff") {
 			RTLIL::SigSpec new_q = cell->get("\\Q");
@@ -170,7 +170,7 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_wr_only)
 {
-	for (auto &cell_it : module->cells) {
+	for (auto &cell_it : module->cells_) {
 		if (!design->selected(module, cell_it.second))
 			continue;
 		if (cell_it.second->type == "$memwr" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())

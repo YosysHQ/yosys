@@ -29,7 +29,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 	log("Looking for stub wires in module %s:\n", RTLIL::id2cstr(module->name));
 
 	// For all ports on all cells
-	for (auto &cell_iter : module->cells)
+	for (auto &cell_iter : module->cells_)
 	for (auto &conn : cell_iter.second->connections())
 	{
 		// Get the signals on the port

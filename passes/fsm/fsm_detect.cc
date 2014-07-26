@@ -159,7 +159,7 @@ struct FsmDetectPass : public Pass {
 			sig2driver.clear();
 			sig2user.clear();
 			sig_at_port.clear();
-			for (auto &cell_it : module->cells)
+			for (auto &cell_it : module->cells_)
 				for (auto &conn_it : cell_it.second->connections()) {
 					if (ct.cell_output(cell_it.second->type, conn_it.first) || !ct.cell_known(cell_it.second->type)) {
 						RTLIL::SigSpec sig = conn_it.second;

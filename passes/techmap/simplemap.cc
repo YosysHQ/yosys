@@ -439,7 +439,7 @@ struct SimplemapPass : public Pass {
 			if (!design->selected(mod_it.second))
 				continue;
 			std::vector<RTLIL::Cell*> delete_cells;
-			for (auto &cell_it : mod_it.second->cells) {
+			for (auto &cell_it : mod_it.second->cells_) {
 				if (mappers.count(cell_it.second->type) == 0)
 					continue;
 				if (!design->selected(mod_it.second, cell_it.second))

@@ -40,7 +40,7 @@ struct ConstEval
 		ct.setup_internals();
 		ct.setup_stdcells();
 
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (!ct.cell_known(it.second->type))
 				continue;
 			for (auto &it2 : it.second->connections())

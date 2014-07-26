@@ -337,7 +337,7 @@ struct ShowWorker
 			fprintf(f, "}\n");
 		}
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			if (!design->selected_member(module->name, it.first))
 				continue;
@@ -516,7 +516,7 @@ struct ShowWorker
 					log("Skipping blackbox module %s.\n", id2cstr(module->name));
 					continue;
 				} else
-				if (module->cells.empty() && module->connections().empty() && module->processes.empty()) {
+				if (module->cells_.empty() && module->connections().empty() && module->processes.empty()) {
 					log("Skipping empty module %s.\n", id2cstr(module->name));
 					continue;
 				} else
@@ -695,7 +695,7 @@ struct ShowPass : public Pass {
 			for (auto &mod_it : design->modules) {
 				if (mod_it.second->get_bool_attribute("\\blackbox"))
 					continue;
-				if (mod_it.second->cells.empty() && mod_it.second->connections().empty())
+				if (mod_it.second->cells_.empty() && mod_it.second->connections().empty())
 					continue;
 				if (design->selected_module(mod_it.first))
 					modcount++;

@@ -282,7 +282,7 @@ public:
 	std::set<RTLIL::IdString> avail_parameters;
 	std::map<RTLIL::IdString, RTLIL::Wire*> wires_;
 	std::map<RTLIL::IdString, RTLIL::Memory*> memories;
-	std::map<RTLIL::IdString, RTLIL::Cell*> cells;
+	std::map<RTLIL::IdString, RTLIL::Cell*> cells_;
 	std::map<RTLIL::IdString, RTLIL::Process*> processes;
 	std::vector<RTLIL::SigSig> connections_;
 	RTLIL_ATTRIBUTE_MEMBERS
@@ -719,7 +719,7 @@ struct RTLIL::Process {
 template<typename T>
 void RTLIL::Module::rewrite_sigspecs(T functor)
 {
-	for (auto &it : cells)
+	for (auto &it : cells_)
 		it.second->rewrite_sigspecs(functor);
 	for (auto &it : processes)
 		it.second->rewrite_sigspecs(functor);

@@ -82,7 +82,7 @@ static void find_dff_wires(std::set<std::string> &dff_wires, RTLIL::Module *modu
 	SigMap sigmap(module);
 	SigPool dffsignals;
 
-	for (auto &it : module->cells) {
+	for (auto &it : module->cells_) {
 		if (ct.cell_known(it.second->type) && it.second->has("\\Q"))
 			dffsignals.add(sigmap(it.second->get("\\Q")));
 	}
@@ -98,7 +98,7 @@ static void create_dff_dq_map(std::map<std::string, dff_map_info_t> &map, RTLIL:
 	std::map<RTLIL::SigBit, dff_map_bit_info_t> bit_info;
 	SigMap sigmap(module);
 
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 	{
 		if (!design->selected(module, it.second))
 			continue;
@@ -371,7 +371,7 @@ struct ExposePass : public Pass {
 								shared_wires.insert(it.first);
 
 					if (flag_evert)
-						for (auto &it : module->cells)
+						for (auto &it : module->cells_)
 							if (design->selected(module, it.second) && consider_cell(design, dff_cells[module], it.second))
 								shared_cells.insert(it.first);
 
@@ -409,16 +409,16 @@ struct ExposePass : public Pass {
 						{
 							RTLIL::Cell *cell;
 
-							if (module->cells.count(it) == 0)
+							if (module->cells_.count(it) == 0)
 								goto delete_shared_cell;
 
-							cell = module->cells.at(it);
+							cell = module->cells_.at(it);
 
 							if (!design->selected(module, cell))
 								goto delete_shared_cell;
 							if (!consider_cell(design, dff_cells[module], cell))
 								goto delete_shared_cell;
-							if (!compare_cells(first_module->cells.at(it), cell))
+							if (!compare_cells(first_module->cells_.at(it), cell))
 								goto delete_shared_cell;
 
 							if (0)
@@ -475,7 +475,7 @@ struct ExposePass : public Pass {
 
 			if (flag_cut)
 			{
-				for (auto &it : module->cells) {
+				for (auto &it : module->cells_) {
 					if (!ct.cell_known(it.second->type))
 						continue;
 					for (auto &conn : it.second->connections_)
@@ -503,7 +503,7 @@ struct ExposePass : public Pass {
 				RTLIL::Wire *wire_dummy_q = add_new_wire(module, NEW_ID, 0);
 
 				for (auto &cell_name : info.cells) {
-					RTLIL::Cell *cell = module->cells.at(cell_name);
+					RTLIL::Cell *cell = module->cells_.at(cell_name);
 					std::vector<RTLIL::SigBit> cell_q_bits = sigmap(cell->get("\\Q")).to_sigbit_vector();
 					for (auto &bit : cell_q_bits)
 						if (wire_bits_set.count(bit))
@@ -571,7 +571,7 @@ struct ExposePass : public Pass {
 			{
 				std::vector<RTLIL::Cell*> delete_cells;
 
-				for (auto &it : module->cells)
+				for (auto &it : module->cells_)
 				{
 					if (flag_shared) {
 						if (shared_cells.count(it.first) == 0)

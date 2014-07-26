@@ -143,7 +143,7 @@ struct EdifBackend : public Backend {
 			if (module->memories.size() != 0)
 				log_error("Found munmapped emories in module %s: unmapped memories are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
 
-			for (auto cell_it : module->cells)
+			for (auto cell_it : module->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;
 				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->get_bool_attribute("\\blackbox")) {
@@ -215,7 +215,7 @@ struct EdifBackend : public Backend {
 		std::map<RTLIL::Module*, std::set<RTLIL::Module*>> module_deps;
 		for (auto &mod_it : design->modules) {
 			module_deps[mod_it.second] = std::set<RTLIL::Module*>();
-			for (auto &cell_it : mod_it.second->cells)
+			for (auto &cell_it : mod_it.second->cells_)
 				if (design->modules.count(cell_it.second->type) > 0)
 					module_deps[mod_it.second].insert(design->modules.at(cell_it.second->type));
 		}
@@ -280,7 +280,7 @@ struct EdifBackend : public Backend {
 			fprintf(f, "        (contents\n");
 			fprintf(f, "          (instance GND (viewRef VIEW_NETLIST (cellRef GND (libraryRef LIB))))\n");
 			fprintf(f, "          (instance VCC (viewRef VIEW_NETLIST (cellRef VCC (libraryRef LIB))))\n");
-			for (auto &cell_it : module->cells) {
+			for (auto &cell_it : module->cells_) {
 				RTLIL::Cell *cell = cell_it.second;
 				fprintf(f, "          (instance %s\n", EDIF_DEF(cell->name));
 				fprintf(f, "            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),

@@ -134,7 +134,7 @@ struct SetundefPass : public Pass {
 						undriven_signals.add(sigmap(it.second));
 
 				CellTypes ct(design);
-				for (auto &it : module->cells)
+				for (auto &it : module->cells_)
 				for (auto &conn : it.second->connections())
 					if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
 						undriven_signals.del(sigmap(conn.second));

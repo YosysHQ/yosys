@@ -38,7 +38,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 	std::set<std::string> found_celltypes;
 
 	for (auto i1 : design->modules)
-	for (auto i2 : i1.second->cells)
+	for (auto i2 : i1.second->cells_)
 	{
 		RTLIL::Cell *cell = i2.second;
 		if (cell->type[0] == '$' || design->modules.count(cell->type) > 0)
@@ -56,7 +56,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		log("Generate module for cell type %s:\n", celltype.c_str());
 
 		for (auto i1 : design->modules)
-		for (auto i2 : i1.second->cells)
+		for (auto i2 : i1.second->cells_)
 			if (i2.second->type == celltype) {
 				for (auto &conn : i2.second->connections()) {
 					if (conn.first[0] != '$')
@@ -137,7 +137,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
 	std::string filename;
 
-	for (auto &cell_it : module->cells)
+	for (auto &cell_it : module->cells_)
 	{
 		RTLIL::Cell *cell = cell_it.second;
 
@@ -252,7 +252,7 @@ static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &us
 		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
 	used.insert(mod);
 
-	for (auto &it : mod->cells) {
+	for (auto &it : mod->cells_) {
 		if (design->modules.count(it.second->type) > 0)
 			hierarchy_worker(design, used, design->modules[it.second->type], indent+4);
 	}
@@ -479,7 +479,7 @@ struct HierarchyPass : public Pass {
 			std::vector<std::pair<RTLIL::Module*,RTLIL::Cell*>> pos_work;
 
 			for (auto &mod_it : design->modules)
-			for (auto &cell_it : mod_it.second->cells) {
+			for (auto &cell_it : mod_it.second->cells_) {
 				RTLIL::Cell *cell = cell_it.second;
 				if (design->modules.count(cell->type) == 0)
 					continue;

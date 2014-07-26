@@ -61,7 +61,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	std::vector<RTLIL::Cell*> del_cells;
 	std::vector<RTLIL::Cell*> memcells;
 
-	for (auto &cell_it : module->cells) {
+	for (auto &cell_it : module->cells_) {
 		RTLIL::Cell *cell = cell_it.second;
 		if ((cell->type == "$memwr" || cell->type == "$memrd") && cell->parameters["\\MEMID"].decode_string() == memory->name)
 			memcells.push_back(cell);

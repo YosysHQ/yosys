@@ -158,7 +158,7 @@ struct SpliceWorker
 				driven_bits.push_back(RTLIL::State::Sm);
 			}
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		for (auto &conn : it.second->connections())
 			if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first)) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
@@ -179,7 +179,7 @@ struct SpliceWorker
 				if (design->selected(module, it.second))
 					selected_bits.add(sigmap(it.second));
 
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (!sel_by_wire && !design->selected(module, it.second))
 				continue;
 			for (auto &conn : it.second->connections_)

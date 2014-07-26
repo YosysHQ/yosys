@@ -131,7 +131,7 @@ struct SplitnetsPass : public Pass {
 
 				std::map<RTLIL::Wire*, std::set<int>> split_wires_at;
 
-				for (auto &c : module->cells)
+				for (auto &c : module->cells_)
 				for (auto &p : c.second->connections())
 				{
 					if (!ct.cell_known(c.second->type))

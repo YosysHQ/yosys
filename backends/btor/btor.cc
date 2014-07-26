@@ -192,7 +192,7 @@ struct BtorDumper
 					if(cell_id == curr_cell)
 						break;
 					log(" -- found cell %s\n", cstr(cell_id));
-					RTLIL::Cell* cell = module->cells.at(cell_id);
+					RTLIL::Cell* cell = module->cells_.at(cell_id);
 					const RTLIL::SigSpec* cell_output = get_cell_output(cell);
 					int cell_line = dump_cell(cell);				
 
@@ -832,7 +832,7 @@ struct BtorDumper
 		
 		log("creating intermediate wires map\n");
 		//creating map of intermediate wires as output of some cell
-		for (auto it = module->cells.begin(); it != module->cells.end(); ++it)
+		for (auto it = module->cells_.begin(); it != module->cells_.end(); ++it)
 		{
 			RTLIL::Cell *cell = it->second;
 			const RTLIL::SigSpec* output_sig = get_cell_output(cell);
@@ -911,7 +911,7 @@ struct BtorDumper
 		}
 
 		log("writing cells\n");
-		for(auto cell_it = module->cells.begin(); cell_it != module->cells.end(); ++cell_it)
+		for(auto cell_it = module->cells_.begin(); cell_it != module->cells_.end(); ++cell_it)
 		{
 			dump_cell(cell_it->second);	
 		}

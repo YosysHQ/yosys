@@ -143,7 +143,7 @@ struct MemoryShareWorker
 				non_feedback_nets.insert(bits.begin(), bits.end());
 			}
 
-		for (auto cell_it : module->cells)
+		for (auto cell_it : module->cells_)
 		{
 			RTLIL::Cell *cell = cell_it.second;
 			bool ignore_data_port = false;
@@ -650,7 +650,7 @@ struct MemoryShareWorker
 		std::map<std::string, std::pair<std::vector<RTLIL::Cell*>, std::vector<RTLIL::Cell*>>> memindex;
 
 		sigmap_xmux = sigmap;
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 

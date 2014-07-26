@@ -388,7 +388,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
 
 	std::vector<RTLIL::Cell*> cell_list;
-	for (auto &it : module->cells) {
+	for (auto &it : module->cells_) {
 		if (design->selected(module, it.second) && cell_mappings.count(it.second->type) > 0)
 			cell_list.push_back(it.second);
 	}

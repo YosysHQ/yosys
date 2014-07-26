@@ -48,7 +48,7 @@ struct ScatterPass : public Pass {
 			if (!design->selected(mod_it.second))
 				continue;
 
-			for (auto &c : mod_it.second->cells)
+			for (auto &c : mod_it.second->cells_)
 			for (auto &p : c.second->connections_)
 			{
 				RTLIL::Wire *wire = mod_it.second->addWire(NEW_ID, p.second.size());

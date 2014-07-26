@@ -79,7 +79,7 @@ void reset_auto_counter(RTLIL::Module *module)
 	for (auto it = module->wires_.begin(); it != module->wires_.end(); it++)
 		reset_auto_counter_id(it->second->name, true);
 
-	for (auto it = module->cells.begin(); it != module->cells.end(); it++) {
+	for (auto it = module->cells_.begin(); it != module->cells_.end(); it++) {
 		reset_auto_counter_id(it->second->name, true);
 		reset_auto_counter_id(it->second->type, false);
 	}
@@ -905,7 +905,7 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 	if (!noexpr)
 	{
 		std::set<std::pair<RTLIL::Wire*,int>> reg_bits;
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 			if (!reg_ct.cell_known(cell->type) || !cell->has("\\Q"))
@@ -955,7 +955,7 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 	for (auto it = module->memories.begin(); it != module->memories.end(); it++)
 		dump_memory(f, indent + "  ", it->second);
 
-	for (auto it = module->cells.begin(); it != module->cells.end(); it++)
+	for (auto it = module->cells_.begin(); it != module->cells_.end(); it++)
 		dump_cell(f, indent + "  ", it->second);
 
 	for (auto it = module->processes.begin(); it != module->processes.end(); it++)

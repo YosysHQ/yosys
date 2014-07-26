@@ -61,7 +61,7 @@ struct ShareWorker
 
 		queue_bits.insert(modwalker.signal_outputs.begin(), modwalker.signal_outputs.end());
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 			if (!fwd_ct.cell_known(it.second->type)) {
 				std::set<RTLIL::SigBit> &bits = modwalker.cell_inputs[it.second];
 				queue_bits.insert(bits.begin(), bits.end());
@@ -101,7 +101,7 @@ struct ShareWorker
 
 	void find_shareable_cells()
 	{
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 

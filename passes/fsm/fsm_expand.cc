@@ -205,7 +205,7 @@ struct FsmExpand
 		assign_map.set(module);
 		ct.setup_internals();
 
-		for (auto &cell_it : module->cells) {
+		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *c = cell_it.second;
 			if (ct.cell_known(c->type) && design->selected(mod, c))
 				for (auto &p : c->connections()) {
@@ -262,7 +262,7 @@ struct FsmExpandPass : public Pass {
 			if (!design->selected(mod_it.second))
 				continue;
 			std::vector<RTLIL::Cell*> fsm_cells;
-			for (auto &cell_it : mod_it.second->cells)
+			for (auto &cell_it : mod_it.second->cells_)
 				if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
 					fsm_cells.push_back(cell_it.second);
 			for (auto c : fsm_cells) {

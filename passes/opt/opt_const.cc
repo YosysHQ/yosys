@@ -37,7 +37,7 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	SigPool used_signals;
 	SigPool all_signals;
 
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 	for (auto &conn : it.second->connections()) {
 		if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
 			driven_signals.add(sigmap(conn.second));
@@ -199,8 +199,8 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 	std::map<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
 	std::vector<RTLIL::Cell*> cells;
-	cells.reserve(module->cells.size());
-	for (auto &cell_it : module->cells)
+	cells.reserve(module->cells_.size());
+	for (auto &cell_it : module->cells_)
 		if (design->selected(module, cell_it.second)) {
 			if ((cell_it.second->type == "$_INV_" || cell_it.second->type == "$not" || cell_it.second->type == "$logic_not") &&
 					cell_it.second->get("\\A").size() == 1 && cell_it.second->get("\\Y").size() == 1)

@@ -118,7 +118,7 @@ struct SccWorker
 			if (design->selected(module, it.second))
 				selectedSignals.add(sigmap(RTLIL::SigSpec(it.second)));
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 

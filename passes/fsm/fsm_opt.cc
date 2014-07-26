@@ -290,7 +290,7 @@ struct FsmOptPass : public Pass {
 
 		for (auto &mod_it : design->modules) {
 			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells)
+				for (auto &cell_it : mod_it.second->cells_)
 					if (cell_it.second->type == "$fsm" and design->selected(mod_it.second, cell_it.second))
 						FsmData::optimize_fsm(cell_it.second, mod_it.second);
 		}

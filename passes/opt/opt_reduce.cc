@@ -254,14 +254,14 @@ struct OptReduceWorker
 		did_something = true;
 
 		SigPool mem_wren_sigs;
-		for (auto &cell_it : module->cells) {
+		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *cell = cell_it.second;
 			if (cell->type == "$mem")
 				mem_wren_sigs.add(assign_map(cell->get("\\WR_EN")));
 			if (cell->type == "$memwr")
 				mem_wren_sigs.add(assign_map(cell->get("\\EN")));
 		}
-		for (auto &cell_it : module->cells) {
+		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *cell = cell_it.second;
 			if (cell->type == "$dff" && mem_wren_sigs.check_any(assign_map(cell->get("\\Q"))))
 				mem_wren_sigs.add(assign_map(cell->get("\\D")));
@@ -270,7 +270,7 @@ struct OptReduceWorker
 		bool keep_expanding_mem_wren_sigs = true;
 		while (keep_expanding_mem_wren_sigs) {
 			keep_expanding_mem_wren_sigs = false;
-			for (auto &cell_it : module->cells) {
+			for (auto &cell_it : module->cells_) {
 				RTLIL::Cell *cell = cell_it.second;
 				if (cell->type == "$mux" && mem_wren_sigs.check_any(assign_map(cell->get("\\Y")))) {
 					if (!mem_wren_sigs.check_all(assign_map(cell->get("\\A"))) ||
@@ -295,7 +295,7 @@ struct OptReduceWorker
 				SigSet<RTLIL::Cell*> drivers;
 				std::set<RTLIL::Cell*> cells;
 
-				for (auto &cell_it : module->cells) {
+				for (auto &cell_it : module->cells_) {
 					RTLIL::Cell *cell = cell_it.second;
 					if (cell->type != type || !design->selected(module, cell))
 						continue;
@@ -313,7 +313,7 @@ struct OptReduceWorker
 
 			std::vector<RTLIL::Cell*> cells;
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 				if ((it.second->type == "$mux" || it.second->type == "$pmux" || it.second->type == "$safe_pmux") && design->selected(module, it.second))
 					cells.push_back(it.second);
 

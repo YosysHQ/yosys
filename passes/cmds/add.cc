@@ -62,7 +62,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	if (!flag_global)
 		return;
 
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 	{
 		if (design->modules.count(it.second->type) == 0)
 			continue;

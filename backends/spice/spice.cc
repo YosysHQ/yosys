@@ -47,7 +47,7 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 	SigMap sigmap(module);
 	int cell_counter = 0, conn_counter = 0, nc_counter = 0;
 
-	for (auto &cell_it : module->cells)
+	for (auto &cell_it : module->cells_)
 	{
 		RTLIL::Cell *cell = cell_it.second;
 		fprintf(f, "X%d", cell_counter++);

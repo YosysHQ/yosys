@@ -119,7 +119,7 @@ struct SetattrPass : public Pass {
 				if (design->selected(module, it.second))
 					do_setunset(it.second->attributes, setunset_list);
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 				if (design->selected(module, it.second))
 					do_setunset(it.second->attributes, setunset_list);
 
@@ -171,7 +171,7 @@ struct SetparamPass : public Pass {
 			if (!design->selected(module))
 				continue;
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 				if (design->selected(module, it.second))
 					do_setunset(it.second->parameters, setunset_list);
 		}

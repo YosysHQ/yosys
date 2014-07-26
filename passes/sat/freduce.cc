@@ -607,7 +607,7 @@ struct FreduceWorker
 				batches.push_back(sigmap(it.second).to_sigbit_set());
 				bits_full_total += it.second->width;
 			}
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (ct.cell_known(it.second->type)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
 				for (auto &port : it.second->connections()) {

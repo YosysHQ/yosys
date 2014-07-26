@@ -29,7 +29,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 
 	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
 
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 	for (auto &port : it.second->connections_)
 		if (ct.cell_output(it.second->type, port.first))
 			sigmap(port.second).replace(sig, dummy_wire, &port.second);
@@ -169,14 +169,14 @@ struct ConnectPass : public Pass {
 			if (flag_nounset)
 				log_cmd_error("Cant use -port together with -nounset.\n");
 
-			if (module->cells.count(RTLIL::escape_id(port_cell)) == 0)
+			if (module->cells_.count(RTLIL::escape_id(port_cell)) == 0)
 				log_cmd_error("Can't find cell %s.\n", port_cell.c_str());
 
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr.c_str());
 
-			module->cells.at(RTLIL::escape_id(port_cell))->set(RTLIL::escape_id(port_port), sigmap(sig));
+			module->cells_.at(RTLIL::escape_id(port_cell))->set(RTLIL::escape_id(port_port), sigmap(sig));
 		}
 		else
 			log_cmd_error("Expected -set, -unset, or -port.\n");

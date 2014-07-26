@@ -462,7 +462,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		int best_dff_counter = 0;
 		std::map<std::pair<bool, RTLIL::SigSpec>, int> dff_counters;
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 			if (cell->type != "$_DFF_N_" && cell->type != "$_DFF_P_")
@@ -488,8 +488,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		mark_port(clk_sig);
 
 	std::vector<RTLIL::Cell*> cells;
-	cells.reserve(module->cells.size());
-	for (auto &it : module->cells)
+	cells.reserve(module->cells_.size());
+	for (auto &it : module->cells_)
 		if (design->selected(current_module, it.second))
 			cells.push_back(it.second);
 	for (auto c : cells)
@@ -500,7 +500,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			mark_port(RTLIL::SigSpec(wire_it.second));
 	}
 
-	for (auto &cell_it : module->cells)
+	for (auto &cell_it : module->cells_)
 	for (auto &port_it : cell_it.second->connections())
 		mark_port(port_it.second);
 	
@@ -696,7 +696,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		std::map<std::string, int> cell_stats;
 		if (builtin_lib)
 		{
-			for (auto &it : mapped_mod->cells) {
+			for (auto &it : mapped_mod->cells_) {
 				RTLIL::Cell *c = it.second;
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 				if (c->type == "\\ZERO" || c->type == "\\ONE") {
@@ -751,7 +751,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		}
 		else
 		{
-			for (auto &it : mapped_mod->cells)
+			for (auto &it : mapped_mod->cells_)
 			{
 				RTLIL::Cell *c = it.second;
 				cell_stats[RTLIL::unescape_id(c->type)]++;

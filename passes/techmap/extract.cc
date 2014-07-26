@@ -182,7 +182,7 @@ namespace
 
 		std::map<std::pair<RTLIL::Wire*, int>, int> sig_use_count;
 		if (max_fanout > 0)
-			for (auto &cell_it : mod->cells)
+			for (auto &cell_it : mod->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;
 				if (!sel || sel->selected(mod, cell))
@@ -196,7 +196,7 @@ namespace
 			}
 
 		// create graph nodes from cells
-		for (auto &cell_it : mod->cells)
+		for (auto &cell_it : mod->cells_)
 		{
 			RTLIL::Cell *cell = cell_it.second;
 			if (sel && !sel->selected(mod, cell))
@@ -253,7 +253,7 @@ namespace
 		}
 
 		// mark external signals (used in non-selected cells)
-		for (auto &cell_it : mod->cells)
+		for (auto &cell_it : mod->cells_)
 		{
 			RTLIL::Cell *cell = cell_it.second;
 			if (sel && !sel->selected(mod, cell))

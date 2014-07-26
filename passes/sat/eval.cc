@@ -147,7 +147,7 @@ struct VlogHammerReporter
 		SatGen satgen(&ez, &sigmap);
 		satgen.model_undef = model_undef;
 
-		for (auto &c : module->cells)
+		for (auto &c : module->cells_)
 			if (!satgen.importCell(c.second))
 				log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 

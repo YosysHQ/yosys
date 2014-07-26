@@ -80,11 +80,11 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 {
 	std::vector<RTLIL::IdString> memcells;
-	for (auto &cell_it : module->cells)
+	for (auto &cell_it : module->cells_)
 		if (cell_it.second->type == "$mem" && design->selected(module, cell_it.second))
 			memcells.push_back(cell_it.first);
 	for (auto &it : memcells)
-		handle_memory(module, module->cells.at(it));
+		handle_memory(module, module->cells_.at(it));
 }
 
 struct MemoryUnpackPass : public Pass {

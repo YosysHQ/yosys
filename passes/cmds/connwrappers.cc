@@ -67,7 +67,7 @@ struct ConnwrappersWorker
 		std::map<RTLIL::SigBit, std::pair<bool, RTLIL::SigSpec>> extend_map;
 		SigMap sigmap(module);
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 
@@ -102,7 +102,7 @@ struct ConnwrappersWorker
 			}
 		}
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 
