@@ -75,10 +75,10 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			continue;
 		if (mod->get_bool_attribute("\\blackbox"))
 			continue;
-		if (it.second->connections_.count(name) > 0)
+		if (it.second->connections().count(name) > 0)
 			continue;
 
-		it.second->connections_[name] = wire;
+		it.second->set(name, wire);
 		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), it.first.c_str(), it.second->type.c_str());
 	}
 }

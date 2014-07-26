@@ -74,7 +74,7 @@ struct ConnwrappersWorker
 			if (!decl_celltypes.count(cell->type))
 				continue;
 
-			for (auto &conn : cell->connections_)
+			for (auto &conn : cell->connections())
 			{
 				std::pair<std::string, std::string> key(cell->type, conn.first);
 

@@ -141,7 +141,7 @@ struct TechmapWorker
 
 		SigMap port_signal_map;
 
-		for (auto &it : cell->connections_) {
+		for (auto &it : cell->connections()) {
 			RTLIL::IdString portname = it.first;
 			if (positional_ports.count(portname) > 0)
 				portname = positional_ports.at(portname);
@@ -169,7 +169,7 @@ struct TechmapWorker
 			if (flatten_mode) {
 				// more conservative approach:
 				// connect internal and external wires
-				module->connections_.push_back(c);
+				module->connect(c);
 			} else {
 				// approach that yields nicer outputs:
 				// replace internal wires that are connected to external wires
@@ -201,13 +201,13 @@ struct TechmapWorker
 			}
 		}
 
-		for (auto &it : tpl->connections_) {
+		for (auto &it : tpl->connections()) {
 			RTLIL::SigSig c = it;
 			apply_prefix(cell->name, c.first, module);
 			apply_prefix(cell->name, c.second, module);
 			port_signal_map.apply(c.first);
 			port_signal_map.apply(c.second);
-			module->connections_.push_back(c);
+			module->connect(c);
 		}
 
 		module->remove(cell);
@@ -262,7 +262,7 @@ struct TechmapWorker
 						break;
 					}
 
-					for (auto conn : cell->connections_) {
+					for (auto conn : cell->connections()) {
 						if (conn.first.substr(0, 1) == "$")
 							continue;
 						if (tpl->wires.count(conn.first) > 0 && tpl->wires.at(conn.first)->port_id > 0)
@@ -280,7 +280,7 @@ struct TechmapWorker
 					if (tpl->avail_parameters.count("\\_TECHMAP_CELLTYPE_") != 0)
 						parameters["\\_TECHMAP_CELLTYPE_"] = RTLIL::unescape_id(cell->type);
 
-					for (auto conn : cell->connections_) {
+					for (auto conn : cell->connections()) {
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", RTLIL::id2cstr(conn.first))) != 0) {
 							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 							for (auto &bit : v)
@@ -303,7 +303,7 @@ struct TechmapWorker
 					unique_bit_id[RTLIL::State::Sx] = unique_bit_id_counter++;
 					unique_bit_id[RTLIL::State::Sz] = unique_bit_id_counter++;
 
-					for (auto conn : cell->connections_)
+					for (auto conn : cell->connections())
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", RTLIL::id2cstr(conn.first))) != 0) {
 							for (auto &bit : sigmap(conn.second).to_sigbit_vector())
 								if (unique_bit_id.count(bit) == 0)
@@ -317,7 +317,7 @@ struct TechmapWorker
 					if (tpl->avail_parameters.count("\\_TECHMAP_BITS_CONNMAP_"))
 						parameters["\\_TECHMAP_BITS_CONNMAP_"] = bits;
 
-					for (auto conn : cell->connections_)
+					for (auto conn : cell->connections())
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", RTLIL::id2cstr(conn.first))) != 0) {
 							RTLIL::Const value;
 							for (auto &bit : sigmap(conn.second).to_sigbit_vector()) {

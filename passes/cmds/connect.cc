@@ -123,7 +123,7 @@ struct ConnectPass : public Pass {
 
 		SigMap sigmap;
 		if (!flag_nomap)
-			for (auto &it : module->connections_) {
+			for (auto &it : module->connections()) {
 				std::vector<RTLIL::SigBit> lhs = it.first.to_sigbit_vector();
 				std::vector<RTLIL::SigBit> rhs = it.first.to_sigbit_vector();
 				for (size_t i = 0; i < lhs.size(); i++)
@@ -148,7 +148,7 @@ struct ConnectPass : public Pass {
 			if (!flag_nounset)
 				unset_drivers(design, module, sigmap, sig_lhs);
 
-			module->connections_.push_back(RTLIL::SigSig(sig_lhs, sig_rhs));
+			module->connect(RTLIL::SigSig(sig_lhs, sig_rhs));
 		}
 		else
 		if (!unset_expr.empty())
@@ -176,7 +176,7 @@ struct ConnectPass : public Pass {
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr.c_str());
 
-			module->cells.at(RTLIL::escape_id(port_cell))->connections_[RTLIL::escape_id(port_port)] = sigmap(sig);
+			module->cells.at(RTLIL::escape_id(port_cell))->set(RTLIL::escape_id(port_port), sigmap(sig));
 		}
 		else
 			log_cmd_error("Expected -set, -unset, or -port.\n");

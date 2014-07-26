@@ -58,7 +58,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		for (auto i1 : design->modules)
 		for (auto i2 : i1.second->cells)
 			if (i2.second->type == celltype) {
-				for (auto &conn : i2.second->connections_) {
+				for (auto &conn : i2.second->connections()) {
 					if (conn.first[0] != '$')
 						portnames.insert(conn.first);
 					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.size());
@@ -486,7 +486,7 @@ struct HierarchyPass : public Pass {
 				RTLIL::Cell *cell = cell_it.second;
 				if (design->modules.count(cell->type) == 0)
 					continue;
-				for (auto &conn : cell->connections_)
+				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 						pos_mods.insert(design->modules.at(cell->type));
 						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod_it.second, cell));
@@ -507,7 +507,7 @@ struct HierarchyPass : public Pass {
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
 						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				std::map<RTLIL::IdString, RTLIL::SigSpec> new_connections;
-				for (auto &conn : cell->connections_)
+				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 						int id = atoi(conn.first.c_str()+1);
 						std::pair<RTLIL::Module*,int> key(design->modules.at(cell->type), id);

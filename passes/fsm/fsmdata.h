@@ -141,13 +141,13 @@ struct FsmData
 
 		log("\n");
 		log("  Input signals:\n");
-		RTLIL::SigSpec sig_in = cell->connections_["\\CTRL_IN"];
+		RTLIL::SigSpec sig_in = cell->get("\\CTRL_IN");
 		for (int i = 0; i < SIZE(sig_in); i++)
 			log("  %3d: %s\n", i, log_signal(sig_in[i]));
 
 		log("\n");
 		log("  Output signals:\n");
-		RTLIL::SigSpec sig_out = cell->connections_["\\CTRL_OUT"];
+		RTLIL::SigSpec sig_out = cell->get("\\CTRL_OUT");
 		for (int i = 0; i < SIZE(sig_out); i++)
 			log("  %3d: %s\n", i, log_signal(sig_out[i]));
 

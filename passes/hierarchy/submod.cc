@@ -65,7 +65,7 @@ struct SubmodWorker
 		flag_found_something = true;
 	}
 
-	void flag_signal(RTLIL::SigSpec &sig, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
+	void flag_signal(const RTLIL::SigSpec &sig, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
 	{
 		for (auto &c : sig.chunks())
 			if (c.wire != NULL)
@@ -79,11 +79,11 @@ struct SubmodWorker
 		wire_flags.clear();
 		for (RTLIL::Cell *cell : submod.cells) {
 			if (ct.cell_known(cell->type)) {
-				for (auto &conn : cell->connections_)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, true, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first), false, false);
 			} else {
 				log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
-				for (auto &conn : cell->connections_)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, true, true, true, false, false);
 			}
 		}
@@ -92,11 +92,11 @@ struct SubmodWorker
 			if (submod.cells.count(cell) > 0)
 				continue;
 			if (ct.cell_known(cell->type)) {
-				for (auto &conn : cell->connections_)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, false, false, false, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first));
 			} else {
 				flag_found_something = false;
-				for (auto &conn : cell->connections_)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, false, false, false, true, true);
 				if (flag_found_something)
 					log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
@@ -180,7 +180,7 @@ struct SubmodWorker
 			RTLIL::Wire *old_wire = it.first;
 			RTLIL::Wire *new_wire = it.second.new_wire;
 			if (new_wire->port_id > 0)
-				new_cell->connections_[new_wire->name] = RTLIL::SigSpec(old_wire);
+				new_cell->set(new_wire->name, RTLIL::SigSpec(old_wire));
 		}
 	}
 

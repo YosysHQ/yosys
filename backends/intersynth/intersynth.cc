@@ -169,7 +169,7 @@ struct IntersynthBackend : public Backend {
 
 				celltype_code = stringf("celltype %s", RTLIL::id2cstr(cell->type));
 				node_code = stringf("node %s %s", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
-				for (auto &port : cell->connections_) {
+				for (auto &port : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(port.second);
 					if (sig.size() != 0) {
 						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));

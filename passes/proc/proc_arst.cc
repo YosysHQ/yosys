@@ -35,40 +35,40 @@ static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSp
 
 	for (auto &cell_it : mod->cells) {
 		RTLIL::Cell *cell = cell_it.second;
-		if (cell->type == "$reduce_or" && cell->connections_["\\Y"] == signal)
-			return check_signal(mod, cell->connections_["\\A"], ref, polarity);
-		if (cell->type == "$reduce_bool" && cell->connections_["\\Y"] == signal)
-			return check_signal(mod, cell->connections_["\\A"], ref, polarity);
-		if (cell->type == "$logic_not" && cell->connections_["\\Y"] == signal) {
+		if (cell->type == "$reduce_or" && cell->get("\\Y") == signal)
+			return check_signal(mod, cell->get("\\A"), ref, polarity);
+		if (cell->type == "$reduce_bool" && cell->get("\\Y") == signal)
+			return check_signal(mod, cell->get("\\A"), ref, polarity);
+		if (cell->type == "$logic_not" && cell->get("\\Y") == signal) {
 			polarity = !polarity;
-			return check_signal(mod, cell->connections_["\\A"], ref, polarity);
+			return check_signal(mod, cell->get("\\A"), ref, polarity);
 		}
-		if (cell->type == "$not" && cell->connections_["\\Y"] == signal) {
+		if (cell->type == "$not" && cell->get("\\Y") == signal) {
 			polarity = !polarity;
-			return check_signal(mod, cell->connections_["\\A"], ref, polarity);
+			return check_signal(mod, cell->get("\\A"), ref, polarity);
 		}
-		if ((cell->type == "$eq" || cell->type == "$eqx") && cell->connections_["\\Y"] == signal) {
-			if (cell->connections_["\\A"].is_fully_const()) {
-				if (!cell->connections_["\\A"].as_bool())
+		if ((cell->type == "$eq" || cell->type == "$eqx") && cell->get("\\Y") == signal) {
+			if (cell->get("\\A").is_fully_const()) {
+				if (!cell->get("\\A").as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->connections_["\\B"], ref, polarity);
+				return check_signal(mod, cell->get("\\B"), ref, polarity);
 			}
-			if (cell->connections_["\\B"].is_fully_const()) {
-				if (!cell->connections_["\\B"].as_bool())
+			if (cell->get("\\B").is_fully_const()) {
+				if (!cell->get("\\B").as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->connections_["\\A"], ref, polarity);
+				return check_signal(mod, cell->get("\\A"), ref, polarity);
 			}
 		}
-		if ((cell->type == "$ne" || cell->type == "$nex") && cell->connections_["\\Y"] == signal) {
-			if (cell->connections_["\\A"].is_fully_const()) {
-				if (cell->connections_["\\A"].as_bool())
+		if ((cell->type == "$ne" || cell->type == "$nex") && cell->get("\\Y") == signal) {
+			if (cell->get("\\A").is_fully_const()) {
+				if (cell->get("\\A").as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->connections_["\\B"], ref, polarity);
+				return check_signal(mod, cell->get("\\B"), ref, polarity);
 			}
-			if (cell->connections_["\\B"].is_fully_const()) {
-				if (cell->connections_["\\B"].as_bool())
+			if (cell->get("\\B").is_fully_const()) {
+				if (cell->get("\\B").as_bool())
 					polarity = !polarity;
-				return check_signal(mod, cell->connections_["\\A"], ref, polarity);
+				return check_signal(mod, cell->get("\\A"), ref, polarity);
 			}
 		}
 	}

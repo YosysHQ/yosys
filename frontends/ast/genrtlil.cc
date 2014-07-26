@@ -60,10 +60,10 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 
 	cell->parameters["\\A_SIGNED"] = RTLIL::Const(that->children[0]->is_signed);
 	cell->parameters["\\A_WIDTH"] = RTLIL::Const(arg.size());
-	cell->connections_["\\A"] = arg;
+	cell->set("\\A", arg);
 
 	cell->parameters["\\Y_WIDTH"] = result_width;
-	cell->connections_["\\Y"] = wire;
+	cell->set("\\Y", wire);
 	return wire;
 }
 
@@ -94,10 +94,10 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 
 	cell->parameters["\\A_SIGNED"] = RTLIL::Const(is_signed);
 	cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig.size());
-	cell->connections_["\\A"] = sig;
+	cell->set("\\A", sig);
 
 	cell->parameters["\\Y_WIDTH"] = width;
-	cell->connections_["\\Y"] = wire;
+	cell->set("\\Y", wire);
 	sig = wire;
 }
 
@@ -126,11 +126,11 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_wi
 	cell->parameters["\\A_WIDTH"] = RTLIL::Const(left.size());
 	cell->parameters["\\B_WIDTH"] = RTLIL::Const(right.size());
 
-	cell->connections_["\\A"] = left;
-	cell->connections_["\\B"] = right;
+	cell->set("\\A", left);
+	cell->set("\\B", right);
 
 	cell->parameters["\\Y_WIDTH"] = result_width;
-	cell->connections_["\\Y"] = wire;
+	cell->set("\\Y", wire);
 	return wire;
 }
 
@@ -157,10 +157,10 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 
 	cell->parameters["\\WIDTH"] = RTLIL::Const(left.size());
 
-	cell->connections_["\\A"] = right;
-	cell->connections_["\\B"] = left;
-	cell->connections_["\\S"] = cond;
-	cell->connections_["\\Y"] = wire;
+	cell->set("\\A", right);
+	cell->set("\\B", left);
+	cell->set("\\S", cond);
+	cell->set("\\Y", wire);
 
 	return wire;
 }
@@ -1169,9 +1169,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			while ((1 << addr_bits) < current_module->memories[str]->size)
 				addr_bits++;
 
-			cell->connections_["\\CLK"] = RTLIL::SigSpec(RTLIL::State::Sx, 1);
-			cell->connections_["\\ADDR"] = children[0]->genWidthRTLIL(addr_bits);
-			cell->connections_["\\DATA"] = RTLIL::SigSpec(wire);
+			cell->set("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
+			cell->set("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
+			cell->set("\\DATA", RTLIL::SigSpec(wire));
 
 			cell->parameters["\\MEMID"] = RTLIL::Const(str);
 			cell->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
@@ -1197,10 +1197,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			while ((1 << addr_bits) < current_module->memories[str]->size)
 				addr_bits++;
 
-			cell->connections_["\\CLK"] = RTLIL::SigSpec(RTLIL::State::Sx, 1);
-			cell->connections_["\\ADDR"] = children[0]->genWidthRTLIL(addr_bits);
-			cell->connections_["\\DATA"] = children[1]->genWidthRTLIL(current_module->memories[str]->width);
-			cell->connections_["\\EN"] = children[2]->genRTLIL();
+			cell->set("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
+			cell->set("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
+			cell->set("\\DATA", children[1]->genWidthRTLIL(current_module->memories[str]->width));
+			cell->set("\\EN", children[2]->genRTLIL());
 
 			cell->parameters["\\MEMID"] = RTLIL::Const(str);
 			cell->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
@@ -1237,8 +1237,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
 
-			cell->connections_["\\A"] = check;
-			cell->connections_["\\EN"] = en;
+			cell->set("\\A", check);
+			cell->set("\\EN", en);
 		}
 		break;
 
@@ -1248,11 +1248,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_AUTOWIRE) {
 				RTLIL::SigSpec right = children[1]->genRTLIL();
 				RTLIL::SigSpec left = children[0]->genWidthRTLIL(right.size());
-				current_module->connections_.push_back(RTLIL::SigSig(left, right));
+				current_module->connect(RTLIL::SigSig(left, right));
 			} else {
 				RTLIL::SigSpec left = children[0]->genRTLIL();
 				RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
-				current_module->connections_.push_back(RTLIL::SigSig(left, right));
+				current_module->connect(RTLIL::SigSig(left, right));
 			}
 		}
 		break;
@@ -1297,9 +1297,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					if (child->str.size() == 0) {
 						char buf[100];
 						snprintf(buf, 100, "$%d", ++port_counter);
-						cell->connections_[buf] = sig;
+						cell->set(buf, sig);
 					} else {
-						cell->connections_[child->str] = sig;
+						cell->set(child->str, sig);
 					}
 					continue;
 				}

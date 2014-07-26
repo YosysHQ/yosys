@@ -88,10 +88,10 @@ struct OptMuxtreeWorker
 			RTLIL::Cell *cell = cell_it.second;
 			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
 			{
-				RTLIL::SigSpec sig_a = cell->connections_["\\A"];
-				RTLIL::SigSpec sig_b = cell->connections_["\\B"];
-				RTLIL::SigSpec sig_s = cell->connections_["\\S"];
-				RTLIL::SigSpec sig_y = cell->connections_["\\Y"];
+				RTLIL::SigSpec sig_a = cell->get("\\A");
+				RTLIL::SigSpec sig_b = cell->get("\\B");
+				RTLIL::SigSpec sig_s = cell->get("\\S");
+				RTLIL::SigSpec sig_y = cell->get("\\Y");
 
 				muxinfo_t muxinfo;
 				muxinfo.cell = cell;
@@ -130,7 +130,7 @@ struct OptMuxtreeWorker
 			}
 			else
 			{
-				for (auto &it : cell->connections_) {
+				for (auto &it : cell->connections()) {
 					for (int idx : sig2bits(it.second))
 						bit2info[idx].seen_non_mux = true;
 				}
@@ -194,10 +194,10 @@ struct OptMuxtreeWorker
 				continue;
 			}
 
-			RTLIL::SigSpec sig_a = mi.cell->connections_["\\A"];
-			RTLIL::SigSpec sig_b = mi.cell->connections_["\\B"];
-			RTLIL::SigSpec sig_s = mi.cell->connections_["\\S"];
-			RTLIL::SigSpec sig_y = mi.cell->connections_["\\Y"];
+			RTLIL::SigSpec sig_a = mi.cell->get("\\A");
+			RTLIL::SigSpec sig_b = mi.cell->get("\\B");
+			RTLIL::SigSpec sig_s = mi.cell->get("\\S");
+			RTLIL::SigSpec sig_y = mi.cell->get("\\Y");
 
 			RTLIL::SigSpec sig_ports = sig_b;
 			sig_ports.append(sig_a);
@@ -205,7 +205,7 @@ struct OptMuxtreeWorker
 			if (live_ports.size() == 1)
 			{
 				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*sig_a.size(), sig_a.size());
-				module->connections_.push_back(RTLIL::SigSig(sig_y, sig_in));
+				module->connect(RTLIL::SigSig(sig_y, sig_in));
 				module->remove(mi.cell);
 			}
 			else
@@ -222,9 +222,9 @@ struct OptMuxtreeWorker
 					}
 				}
 
-				mi.cell->connections_["\\A"] = new_sig_a;
-				mi.cell->connections_["\\B"] = new_sig_b;
-				mi.cell->connections_["\\S"] = new_sig_s;
+				mi.cell->set("\\A", new_sig_a);
+				mi.cell->set("\\B", new_sig_b);
+				mi.cell->set("\\S", new_sig_s);
 				if (new_sig_s.size() == 1) {
 					mi.cell->type = "$mux";
 					mi.cell->parameters.erase("\\S_WIDTH");

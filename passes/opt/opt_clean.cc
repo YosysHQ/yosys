@@ -40,7 +40,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 	SigSet<RTLIL::Cell*> wire2driver;
 	for (auto &it : module->cells) {
 		RTLIL::Cell *cell = it.second;
-		for (auto &it2 : cell->connections_) {
+		for (auto &it2 : cell->connections()) {
 			if (!ct.cell_input(cell->type, it2.first)) {
 				RTLIL::SigSpec sig = it2.second;
 				assign_map.apply(sig);
@@ -70,7 +70,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 		for (auto cell : queue)
 			unused.erase(cell);
 		for (auto cell : queue) {
-			for (auto &it : cell->connections_) {
+			for (auto &it : cell->connections()) {
 				if (!ct.cell_output(cell->type, it.first)) {
 					std::set<RTLIL::Cell*> cell_list;
 					RTLIL::SigSpec sig = it.second;
@@ -158,10 +158,10 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 		for (auto &it : module->cells) {
 			RTLIL::Cell *cell = it.second;
 			if (ct_reg.cell_known(cell->type))
-				for (auto &it2 : cell->connections_)
+				for (auto &it2 : cell->connections())
 					if (ct_reg.cell_output(cell->type, it2.first))
 						register_signals.add(it2.second);
-			for (auto &it2 : cell->connections_)
+			for (auto &it2 : cell->connections())
 				connected_signals.add(it2.second);
 		}
 	
@@ -171,7 +171,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 	for (auto &it : module->cells) {
 		RTLIL::Cell *cell = it.second;
 		if (ct_all.cell_known(cell->type))
-			for (auto &it2 : cell->connections_)
+			for (auto &it2 : cell->connections())
 				if (ct_all.cell_output(cell->type, it2.first))
 					direct_sigs.insert(assign_map(it2.second));
 	}
@@ -237,7 +237,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 				if (new_conn.first.size() > 0) {
 					used_signals.add(new_conn.first);
 					used_signals.add(new_conn.second);
-					module->connections_.push_back(new_conn);
+					module->connect(new_conn);
 				}
 			}
 		} else {

@@ -132,7 +132,7 @@ struct SccWorker
 
 			RTLIL::SigSpec inputSignals, outputSignals;
 
-			for (auto &conn : cell->connections_)
+			for (auto &conn : cell->connections())
 			{
 				bool isInput = true, isOutput = true;
 

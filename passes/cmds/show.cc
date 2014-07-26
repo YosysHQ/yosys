@@ -87,17 +87,17 @@ struct ShowWorker
 		return defaultColor;
 	}
 
-	std::string nextColor(RTLIL::SigSig &conn, std::string defaultColor)
+	std::string nextColor(const RTLIL::SigSig &conn, std::string defaultColor)
 	{
 		return nextColor(conn.first, nextColor(conn.second, defaultColor));
 	}
 
-	std::string nextColor(RTLIL::SigSpec &sig)
+	std::string nextColor(const RTLIL::SigSpec &sig)
 	{
 		return nextColor(sig, nextColor());
 	}
 
-	std::string nextColor(RTLIL::SigSig &conn)
+	std::string nextColor(const RTLIL::SigSig &conn)
 	{
 		return nextColor(conn, nextColor());
 	}
@@ -344,7 +344,7 @@ struct ShowWorker
 
 			std::vector<RTLIL::IdString> in_ports, out_ports;
 
-			for (auto &conn : it.second->connections_) {
+			for (auto &conn : it.second->connections()) {
 				if (!ct.cell_output(it.second->type, conn.first))
 					in_ports.push_back(conn.first);
 				else
@@ -368,7 +368,7 @@ struct ShowWorker
 			label_string += "}}";
 
 			std::string code;
-			for (auto &conn : it.second->connections_) {
+			for (auto &conn : it.second->connections()) {
 				code += gen_portbox(stringf("c%d:p%d", id2num(it.first), id2num(conn.first)),
 						conn.second, ct.cell_output(it.second->type, conn.first));
 			}
@@ -421,7 +421,7 @@ struct ShowWorker
 			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name), proc_src.c_str());
 		}
 
-		for (auto &conn : module->connections_)
+		for (auto &conn : module->connections())
 		{
 			bool found_lhs_wire = false;
 			for (auto &c : conn.first.chunks()) {
@@ -516,7 +516,7 @@ struct ShowWorker
 					log("Skipping blackbox module %s.\n", id2cstr(module->name));
 					continue;
 				} else
-				if (module->cells.empty() && module->connections_.empty() && module->processes.empty()) {
+				if (module->cells.empty() && module->connections().empty() && module->processes.empty()) {
 					log("Skipping empty module %s.\n", id2cstr(module->name));
 					continue;
 				} else
@@ -695,7 +695,7 @@ struct ShowPass : public Pass {
 			for (auto &mod_it : design->modules) {
 				if (mod_it.second->get_bool_attribute("\\blackbox"))
 					continue;
-				if (mod_it.second->cells.empty() && mod_it.second->connections_.empty())
+				if (mod_it.second->cells.empty() && mod_it.second->connections().empty())
 					continue;
 				if (design->selected_module(mod_it.first))
 					modcount++;
