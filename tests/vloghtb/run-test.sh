@@ -2,8 +2,8 @@
 
 set -ex
 
-rm -rf Makefile refdat rtl scripts spec vloghammer_tb.tar.bz2
-wget http://www.clifford.at/yosys/nogit/vloghammer_tb.tar.bz2
+rm -rf Makefile refdat rtl scripts spec
+wget -N http://www.clifford.at/yosys/nogit/vloghammer_tb.tar.bz2
 tar --strip=1 -xjf vloghammer_tb.tar.bz2
 
 make clean
