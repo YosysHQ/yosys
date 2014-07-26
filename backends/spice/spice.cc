@@ -58,7 +58,7 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 		{
 			log("Warning: no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
 					RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name));
-			for (auto &conn : cell->connections) {
+			for (auto &conn : cell->connections_) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				port_sigs.push_back(sig);
 			}
@@ -80,8 +80,8 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				RTLIL::SigSpec sig(RTLIL::State::Sz, wire->width);
-				if (cell->connections.count(wire->name) > 0) {
-					sig = sigmap(cell->connections.at(wire->name));
+				if (cell->connections_.count(wire->name) > 0) {
+					sig = sigmap(cell->connections_.at(wire->name));
 					sig.extend(wire->width, false);
 				}
 				port_sigs.push_back(sig);
@@ -98,7 +98,7 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 		fprintf(f, " %s\n", RTLIL::id2cstr(cell->type));
 	}
 
-	for (auto &conn : module->connections)
+	for (auto &conn : module->connections_)
 	for (int i = 0; i < conn.first.size(); i++) {
 		fprintf(f, "V%d", conn_counter++);
 		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter);

@@ -55,36 +55,36 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 static RTLIL::SigSpec create_inv_cell(RTLIL::Module *module, RTLIL::SigSpec A)
 {
 	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
-	cell->connections["\\A"] = A;
-	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	return cell->connections["\\Y"];
+	cell->connections_["\\A"] = A;
+	cell->connections_["\\Y"] = module->addWire(NEW_ID);
+	return cell->connections_["\\Y"];
 }
 
 static RTLIL::SigSpec create_xor_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
 {
 	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_XOR_");
-	cell->connections["\\A"] = A;
-	cell->connections["\\B"] = B;
-	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	return cell->connections["\\Y"];
+	cell->connections_["\\A"] = A;
+	cell->connections_["\\B"] = B;
+	cell->connections_["\\Y"] = module->addWire(NEW_ID);
+	return cell->connections_["\\Y"];
 }
 
 static RTLIL::SigSpec create_and_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
 {
 	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_AND_");
-	cell->connections["\\A"] = A;
-	cell->connections["\\B"] = B;
-	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	return cell->connections["\\Y"];
+	cell->connections_["\\A"] = A;
+	cell->connections_["\\B"] = B;
+	cell->connections_["\\Y"] = module->addWire(NEW_ID);
+	return cell->connections_["\\Y"];
 }
 
 static RTLIL::SigSpec create_or_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
 {
 	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_OR_");
-	cell->connections["\\A"] = A;
-	cell->connections["\\B"] = B;
-	cell->connections["\\Y"] = module->addWire(NEW_ID);
-	return cell->connections["\\Y"];
+	cell->connections_["\\A"] = A;
+	cell->connections_["\\B"] = B;
+	cell->connections_["\\Y"] = module->addWire(NEW_ID);
+	return cell->connections_["\\Y"];
 }
 
 static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack, token_t next_token)
@@ -240,18 +240,18 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 		rerun_invert_rollback = false;
 
 		for (auto &it : module->cells) {
-			if (it.second->type == "$_INV_" && it.second->connections.at("\\Y") == clk_sig) {
-				clk_sig = it.second->connections.at("\\A");
+			if (it.second->type == "$_INV_" && it.second->connections_.at("\\Y") == clk_sig) {
+				clk_sig = it.second->connections_.at("\\A");
 				clk_polarity = !clk_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->connections.at("\\Y") == clear_sig) {
-				clear_sig = it.second->connections.at("\\A");
+			if (it.second->type == "$_INV_" && it.second->connections_.at("\\Y") == clear_sig) {
+				clear_sig = it.second->connections_.at("\\A");
 				clear_polarity = !clear_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->connections.at("\\Y") == preset_sig) {
-				preset_sig = it.second->connections.at("\\A");
+			if (it.second->type == "$_INV_" && it.second->connections_.at("\\Y") == preset_sig) {
+				preset_sig = it.second->connections_.at("\\A");
 				preset_polarity = !preset_polarity;
 				rerun_invert_rollback = true;
 			}
@@ -259,13 +259,13 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	}
 
 	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
-	cell->connections["\\A"] = iq_sig;
-	cell->connections["\\Y"] = iqn_sig;
+	cell->connections_["\\A"] = iq_sig;
+	cell->connections_["\\Y"] = iqn_sig;
 
 	cell = module->addCell(NEW_ID, "");
-	cell->connections["\\D"] = data_sig;
-	cell->connections["\\Q"] = iq_sig;
-	cell->connections["\\C"] = clk_sig;
+	cell->connections_["\\D"] = data_sig;
+	cell->connections_["\\Q"] = iq_sig;
+	cell->connections_["\\C"] = clk_sig;
 
 	if (clear_sig.size() == 0 && preset_sig.size() == 0) {
 		cell->type = stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N');
@@ -273,18 +273,18 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 
 	if (clear_sig.size() == 1 && preset_sig.size() == 0) {
 		cell->type = stringf("$_DFF_%c%c0_", clk_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
-		cell->connections["\\R"] = clear_sig;
+		cell->connections_["\\R"] = clear_sig;
 	}
 
 	if (clear_sig.size() == 0 && preset_sig.size() == 1) {
 		cell->type = stringf("$_DFF_%c%c1_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N');
-		cell->connections["\\R"] = preset_sig;
+		cell->connections_["\\R"] = preset_sig;
 	}
 
 	if (clear_sig.size() == 1 && preset_sig.size() == 1) {
 		cell->type = stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
-		cell->connections["\\S"] = preset_sig;
-		cell->connections["\\R"] = clear_sig;
+		cell->connections_["\\S"] = preset_sig;
+		cell->connections_["\\R"] = clear_sig;
 	}
 
 	log_assert(!cell->type.empty());
@@ -317,18 +317,18 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 		rerun_invert_rollback = false;
 
 		for (auto &it : module->cells) {
-			if (it.second->type == "$_INV_" && it.second->connections.at("\\Y") == enable_sig) {
-				enable_sig = it.second->connections.at("\\A");
+			if (it.second->type == "$_INV_" && it.second->connections_.at("\\Y") == enable_sig) {
+				enable_sig = it.second->connections_.at("\\A");
 				enable_polarity = !enable_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->connections.at("\\Y") == clear_sig) {
-				clear_sig = it.second->connections.at("\\A");
+			if (it.second->type == "$_INV_" && it.second->connections_.at("\\Y") == clear_sig) {
+				clear_sig = it.second->connections_.at("\\A");
 				clear_polarity = !clear_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->connections.at("\\Y") == preset_sig) {
-				preset_sig = it.second->connections.at("\\A");
+			if (it.second->type == "$_INV_" && it.second->connections_.at("\\Y") == preset_sig) {
+				preset_sig = it.second->connections_.at("\\A");
 				preset_polarity = !preset_polarity;
 				rerun_invert_rollback = true;
 			}
@@ -336,8 +336,8 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 	}
 
 	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
-	cell->connections["\\A"] = iq_sig;
-	cell->connections["\\Y"] = iqn_sig;
+	cell->connections_["\\A"] = iq_sig;
+	cell->connections_["\\Y"] = iqn_sig;
 
 	if (clear_sig.size() == 1)
 	{
@@ -347,24 +347,24 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 		if (clear_polarity == true || clear_polarity != enable_polarity)
 		{
 			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_INV_");
-			inv->connections["\\A"] = clear_sig;
-			inv->connections["\\Y"] = module->addWire(NEW_ID);
+			inv->connections_["\\A"] = clear_sig;
+			inv->connections_["\\Y"] = module->addWire(NEW_ID);
 
 			if (clear_polarity == true)
-				clear_negative = inv->connections["\\Y"];
+				clear_negative = inv->connections_["\\Y"];
 			if (clear_polarity != enable_polarity)
-				clear_enable = inv->connections["\\Y"];
+				clear_enable = inv->connections_["\\Y"];
 		}
 
 		RTLIL::Cell *data_gate = module->addCell(NEW_ID, "$_AND_");
-		data_gate->connections["\\A"] = data_sig;
-		data_gate->connections["\\B"] = clear_negative;
-		data_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
+		data_gate->connections_["\\A"] = data_sig;
+		data_gate->connections_["\\B"] = clear_negative;
+		data_gate->connections_["\\Y"] = data_sig = module->addWire(NEW_ID);
 
 		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? "$_OR_" : "$_AND_");
-		enable_gate->connections["\\A"] = enable_sig;
-		enable_gate->connections["\\B"] = clear_enable;
-		enable_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
+		enable_gate->connections_["\\A"] = enable_sig;
+		enable_gate->connections_["\\B"] = clear_enable;
+		enable_gate->connections_["\\Y"] = data_sig = module->addWire(NEW_ID);
 	}
 
 	if (preset_sig.size() == 1)
@@ -375,30 +375,30 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 		if (preset_polarity == false || preset_polarity != enable_polarity)
 		{
 			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_INV_");
-			inv->connections["\\A"] = preset_sig;
-			inv->connections["\\Y"] = module->addWire(NEW_ID);
+			inv->connections_["\\A"] = preset_sig;
+			inv->connections_["\\Y"] = module->addWire(NEW_ID);
 
 			if (preset_polarity == false)
-				preset_positive = inv->connections["\\Y"];
+				preset_positive = inv->connections_["\\Y"];
 			if (preset_polarity != enable_polarity)
-				preset_enable = inv->connections["\\Y"];
+				preset_enable = inv->connections_["\\Y"];
 		}
 
 		RTLIL::Cell *data_gate = module->addCell(NEW_ID, "$_OR_");
-		data_gate->connections["\\A"] = data_sig;
-		data_gate->connections["\\B"] = preset_positive;
-		data_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
+		data_gate->connections_["\\A"] = data_sig;
+		data_gate->connections_["\\B"] = preset_positive;
+		data_gate->connections_["\\Y"] = data_sig = module->addWire(NEW_ID);
 
 		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? "$_OR_" : "$_AND_");
-		enable_gate->connections["\\A"] = enable_sig;
-		enable_gate->connections["\\B"] = preset_enable;
-		enable_gate->connections["\\Y"] = data_sig = module->addWire(NEW_ID);
+		enable_gate->connections_["\\A"] = enable_sig;
+		enable_gate->connections_["\\B"] = preset_enable;
+		enable_gate->connections_["\\Y"] = data_sig = module->addWire(NEW_ID);
 	}
 
 	cell = module->addCell(NEW_ID, stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N'));
-	cell->connections["\\D"] = data_sig;
-	cell->connections["\\Q"] = iq_sig;
-	cell->connections["\\E"] = enable_sig;
+	cell->connections_["\\D"] = data_sig;
+	cell->connections_["\\Q"] = iq_sig;
+	cell->connections_["\\E"] = enable_sig;
 }
 
 struct LibertyFrontend : public Frontend {
@@ -559,7 +559,7 @@ struct LibertyFrontend : public Frontend {
 					}
 
 					RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
-					module->connections.push_back(RTLIL::SigSig(wire, out_sig));
+					module->connections_.push_back(RTLIL::SigSig(wire, out_sig));
 				}
 			}
 

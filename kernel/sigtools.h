@@ -269,7 +269,7 @@ struct SigMap
 	void set(RTLIL::Module *module)
 	{
 		clear();
-		for (auto &it : module->connections)
+		for (auto &it : module->connections_)
 			add(it.first, it.second);
 	}
 

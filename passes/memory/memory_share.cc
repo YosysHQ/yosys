@@ -64,16 +64,16 @@ struct MemoryShareWorker
 		RTLIL::Cell *cell = sig_to_mux.at(sig).first;
 		int bit_idx = sig_to_mux.at(sig).second;
 
-		std::vector<RTLIL::SigBit> sig_a = sigmap(cell->connections.at("\\A"));
-		std::vector<RTLIL::SigBit> sig_b = sigmap(cell->connections.at("\\B"));
-		std::vector<RTLIL::SigBit> sig_s = sigmap(cell->connections.at("\\S"));
-		std::vector<RTLIL::SigBit> sig_y = sigmap(cell->connections.at("\\Y"));
+		std::vector<RTLIL::SigBit> sig_a = sigmap(cell->connections_.at("\\A"));
+		std::vector<RTLIL::SigBit> sig_b = sigmap(cell->connections_.at("\\B"));
+		std::vector<RTLIL::SigBit> sig_s = sigmap(cell->connections_.at("\\S"));
+		std::vector<RTLIL::SigBit> sig_y = sigmap(cell->connections_.at("\\Y"));
 		log_assert(sig_y.at(bit_idx) == sig);
 
 		for (int i = 0; i < int(sig_s.size()); i++)
 			if (state.count(sig_s[i]) && state.at(sig_s[i]) == true) {
 				if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), state, conditions))
-					cell->connections.at("\\B").replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
+					cell->connections_.at("\\B").replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
 				return false;
 			}
 				
@@ -87,7 +87,7 @@ struct MemoryShareWorker
 			new_state[sig_s[i]] = true;
 
 			if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), new_state, conditions))
-				cell->connections.at("\\B").replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
+				cell->connections_.at("\\B").replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
 		}
 
 		std::map<RTLIL::SigBit, bool> new_state = state;
@@ -95,7 +95,7 @@ struct MemoryShareWorker
 			new_state[sig_s[i]] = false;
 
 		if (find_data_feedback(async_rd_bits, sig_a.at(bit_idx), new_state, conditions))
-			cell->connections.at("\\A").replace(bit_idx, RTLIL::State::Sx);
+			cell->connections_.at("\\A").replace(bit_idx, RTLIL::State::Sx);
 
 		return false;
 	}
@@ -141,10 +141,10 @@ struct MemoryShareWorker
 
 			if (cell->type == "$mux" || cell->type == "$pmux")
 			{
-				std::vector<RTLIL::SigBit> sig_a = sigmap(cell->connections.at("\\A"));
-				std::vector<RTLIL::SigBit> sig_b = sigmap(cell->connections.at("\\B"));
-				std::vector<RTLIL::SigBit> sig_s = sigmap(cell->connections.at("\\S"));
-				std::vector<RTLIL::SigBit> sig_y = sigmap(cell->connections.at("\\Y"));
+				std::vector<RTLIL::SigBit> sig_a = sigmap(cell->connections_.at("\\A"));
+				std::vector<RTLIL::SigBit> sig_b = sigmap(cell->connections_.at("\\B"));
+				std::vector<RTLIL::SigBit> sig_s = sigmap(cell->connections_.at("\\S"));
+				std::vector<RTLIL::SigBit> sig_y = sigmap(cell->connections_.at("\\Y"));
 
 				non_feedback_nets.insert(sig_s.begin(), sig_s.end());
 
@@ -161,7 +161,7 @@ struct MemoryShareWorker
 					cell->parameters.at("\\MEMID").decode_string() == memid)
 				ignore_data_port = true;
 
-			for (auto conn : cell_it.second->connections)
+			for (auto conn : cell_it.second->connections_)
 			{
 				if (ignore_data_port && conn.first == "\\DATA")
 					continue;
@@ -191,8 +191,8 @@ struct MemoryShareWorker
 			if (cell->parameters.at("\\CLK_ENABLE").as_bool())
 				continue;
 
-			RTLIL::SigSpec sig_addr = sigmap(cell->connections.at("\\ADDR"));
-			std::vector<RTLIL::SigBit> sig_data = sigmap(cell->connections.at("\\DATA"));
+			RTLIL::SigSpec sig_addr = sigmap(cell->connections_.at("\\ADDR"));
+			std::vector<RTLIL::SigBit> sig_data = sigmap(cell->connections_.at("\\DATA"));
 
 			for (int i = 0; i < int(sig_data.size()); i++)
 				if (non_feedback_nets.count(sig_data[i]))
@@ -212,14 +212,14 @@ struct MemoryShareWorker
 
 		for (auto cell : wr_ports)
 		{
-			RTLIL::SigSpec sig_addr = sigmap_xmux(cell->connections.at("\\ADDR"));
+			RTLIL::SigSpec sig_addr = sigmap_xmux(cell->connections_.at("\\ADDR"));
 			if (!async_rd_bits.count(sig_addr))
 				continue;
 
 			log("  Analyzing write port %s.\n", log_id(cell));
 
-			std::vector<RTLIL::SigBit> cell_data = cell->connections.at("\\DATA");
-			std::vector<RTLIL::SigBit> cell_en = cell->connections.at("\\EN");
+			std::vector<RTLIL::SigBit> cell_data = cell->connections_.at("\\DATA");
+			std::vector<RTLIL::SigBit> cell_en = cell->connections_.at("\\EN");
 
 			int created_conditions = 0;
 			for (int i = 0; i < int(cell_data.size()); i++)
@@ -239,7 +239,7 @@ struct MemoryShareWorker
 
 			if (created_conditions) {
 				log("    Added enable logic for %d different cases.\n", created_conditions);
-				cell->connections.at("\\EN") = cell_en;
+				cell->connections_.at("\\EN") = cell_en;
 			}
 		}
 	}
@@ -357,15 +357,15 @@ struct MemoryShareWorker
 		for (int i = 0; i < int(wr_ports.size()); i++)
 		{
 			RTLIL::Cell *cell = wr_ports.at(i);
-			RTLIL::SigSpec addr = sigmap_xmux(cell->connections.at("\\ADDR"));
+			RTLIL::SigSpec addr = sigmap_xmux(cell->connections_.at("\\ADDR"));
 
 			if (cell->parameters.at("\\CLK_ENABLE").as_bool() != cache_clk_enable ||
-					(cache_clk_enable && (sigmap(cell->connections.at("\\CLK")) != cache_clk ||
+					(cache_clk_enable && (sigmap(cell->connections_.at("\\CLK")) != cache_clk ||
 					cell->parameters.at("\\CLK_POLARITY").as_bool() != cache_clk_polarity)))
 			{
 				cache_clk_enable = cell->parameters.at("\\CLK_ENABLE").as_bool();
 				cache_clk_polarity = cell->parameters.at("\\CLK_POLARITY").as_bool();
-				cache_clk = sigmap(cell->connections.at("\\CLK"));
+				cache_clk = sigmap(cell->connections_.at("\\CLK"));
 				last_port_by_addr.clear();
 
 				if (cache_clk_enable)
@@ -377,7 +377,7 @@ struct MemoryShareWorker
 			log("    Port %d (%s) has addr %s.\n", i, log_id(cell), log_signal(addr));
 
 			log("      Active bits: ");
-			std::vector<RTLIL::SigBit> en_bits = sigmap(cell->connections.at("\\EN"));
+			std::vector<RTLIL::SigBit> en_bits = sigmap(cell->connections_.at("\\EN"));
 			active_bits_on_port.push_back(std::vector<bool>(en_bits.size()));
 			for (int k = int(en_bits.size())-1; k >= 0; k--) {
 				active_bits_on_port[i][k] = en_bits[k].wire != NULL || en_bits[k].data != RTLIL::State::S0;
@@ -399,13 +399,13 @@ struct MemoryShareWorker
 
 				// Force this ports addr input to addr directly (skip don't care muxes)
 
-				cell->connections.at("\\ADDR") = addr;
+				cell->connections_.at("\\ADDR") = addr;
 
 				// If any of the ports between `last_i' and `i' write to the same address, this
 				// will have priority over whatever `last_i` wrote. So we need to revisit those
 				// ports and mask the EN bits accordingly.
 
-				RTLIL::SigSpec merged_en = sigmap(wr_ports[last_i]->connections.at("\\EN"));
+				RTLIL::SigSpec merged_en = sigmap(wr_ports[last_i]->connections_.at("\\EN"));
 
 				for (int j = last_i+1; j < i; j++)
 				{
@@ -420,20 +420,20 @@ struct MemoryShareWorker
 				found_overlapping_bits_i_j:
 						log("      Creating collosion-detect logic for port %d.\n", j);
 						RTLIL::SigSpec is_same_addr = module->addWire(NEW_ID);
-						module->addEq(NEW_ID, addr, wr_ports[j]->connections.at("\\ADDR"), is_same_addr);
-						merged_en = mask_en_grouped(is_same_addr, merged_en, sigmap(wr_ports[j]->connections.at("\\EN")));
+						module->addEq(NEW_ID, addr, wr_ports[j]->connections_.at("\\ADDR"), is_same_addr);
+						merged_en = mask_en_grouped(is_same_addr, merged_en, sigmap(wr_ports[j]->connections_.at("\\EN")));
 					}
 				}
 
 				// Then we need to merge the (masked) EN and the DATA signals.
 
-				RTLIL::SigSpec merged_data = wr_ports[last_i]->connections.at("\\DATA");
+				RTLIL::SigSpec merged_data = wr_ports[last_i]->connections_.at("\\DATA");
 				if (found_overlapping_bits) {
 					log("      Creating logic for merging DATA and EN ports.\n");
-					merge_en_data(merged_en, merged_data, sigmap(cell->connections.at("\\EN")), sigmap(cell->connections.at("\\DATA")));
+					merge_en_data(merged_en, merged_data, sigmap(cell->connections_.at("\\EN")), sigmap(cell->connections_.at("\\DATA")));
 				} else {
-					RTLIL::SigSpec cell_en = sigmap(cell->connections.at("\\EN"));
-					RTLIL::SigSpec cell_data = sigmap(cell->connections.at("\\DATA"));
+					RTLIL::SigSpec cell_en = sigmap(cell->connections_.at("\\EN"));
+					RTLIL::SigSpec cell_data = sigmap(cell->connections_.at("\\DATA"));
 					for (int k = 0; k < int(en_bits.size()); k++)
 						if (!active_bits_on_port[last_i][k]) {
 							merged_en.replace(k, cell_en.extract(k, 1));
@@ -443,14 +443,14 @@ struct MemoryShareWorker
 
 				// Connect the new EN and DATA signals and remove the old write port.
 
-				cell->connections.at("\\EN") = merged_en;
-				cell->connections.at("\\DATA") = merged_data;
+				cell->connections_.at("\\EN") = merged_en;
+				cell->connections_.at("\\DATA") = merged_data;
 
 				module->remove(wr_ports[last_i]);
 				wr_ports[last_i] = NULL;
 
 				log("      Active bits: ");
-				std::vector<RTLIL::SigBit> en_bits = sigmap(cell->connections.at("\\EN"));
+				std::vector<RTLIL::SigBit> en_bits = sigmap(cell->connections_.at("\\EN"));
 				active_bits_on_port.push_back(std::vector<bool>(en_bits.size()));
 				for (int k = int(en_bits.size())-1; k >= 0; k--)
 					log("%c", active_bits_on_port[i][k] ? '1' : '0');
@@ -489,7 +489,7 @@ struct MemoryShareWorker
 		std::set<int> considered_port_pairs;
 
 		for (int i = 0; i < int(wr_ports.size()); i++) {
-			std::vector<RTLIL::SigBit> bits = modwalker.sigmap(wr_ports[i]->connections.at("\\EN"));
+			std::vector<RTLIL::SigBit> bits = modwalker.sigmap(wr_ports[i]->connections_.at("\\EN"));
 			for (auto bit : bits)
 				if (bit == RTLIL::State::S1)
 					goto port_is_always_active;
@@ -509,12 +509,12 @@ struct MemoryShareWorker
 			RTLIL::Cell *cell = wr_ports.at(i);
 
 			if (cell->parameters.at("\\CLK_ENABLE").as_bool() != cache_clk_enable ||
-					(cache_clk_enable && (sigmap(cell->connections.at("\\CLK")) != cache_clk ||
+					(cache_clk_enable && (sigmap(cell->connections_.at("\\CLK")) != cache_clk ||
 					cell->parameters.at("\\CLK_POLARITY").as_bool() != cache_clk_polarity)))
 			{
 				cache_clk_enable = cell->parameters.at("\\CLK_ENABLE").as_bool();
 				cache_clk_polarity = cell->parameters.at("\\CLK_POLARITY").as_bool();
-				cache_clk = sigmap(cell->connections.at("\\CLK"));
+				cache_clk = sigmap(cell->connections_.at("\\CLK"));
 			}
 			else if (i > 0 && considered_ports.count(i-1) && considered_ports.count(i))
 				considered_port_pairs.insert(i);
@@ -542,7 +542,7 @@ struct MemoryShareWorker
 		for (int i = 0; i < int(wr_ports.size()); i++)
 			if (considered_port_pairs.count(i) || considered_port_pairs.count(i+1))
 			{
-				RTLIL::SigSpec sig = modwalker.sigmap(wr_ports[i]->connections.at("\\EN"));
+				RTLIL::SigSpec sig = modwalker.sigmap(wr_ports[i]->connections_.at("\\EN"));
 				port_to_sat_variable[i] = ez.expression(ez.OpOr, satgen.importSigSpec(sig));
 
 				std::vector<RTLIL::SigBit> bits = sig;
@@ -585,18 +585,18 @@ struct MemoryShareWorker
 			log("  Merging port %d into port %d.\n", i-1, i);
 			port_to_sat_variable.at(i) = ez.OR(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i));
 
-			RTLIL::SigSpec last_addr = wr_ports[i-1]->connections.at("\\ADDR");
-			RTLIL::SigSpec last_data = wr_ports[i-1]->connections.at("\\DATA");
-			std::vector<RTLIL::SigBit> last_en = modwalker.sigmap(wr_ports[i-1]->connections.at("\\EN"));
+			RTLIL::SigSpec last_addr = wr_ports[i-1]->connections_.at("\\ADDR");
+			RTLIL::SigSpec last_data = wr_ports[i-1]->connections_.at("\\DATA");
+			std::vector<RTLIL::SigBit> last_en = modwalker.sigmap(wr_ports[i-1]->connections_.at("\\EN"));
 
-			RTLIL::SigSpec this_addr = wr_ports[i]->connections.at("\\ADDR");
-			RTLIL::SigSpec this_data = wr_ports[i]->connections.at("\\DATA");
-			std::vector<RTLIL::SigBit> this_en = modwalker.sigmap(wr_ports[i]->connections.at("\\EN"));
+			RTLIL::SigSpec this_addr = wr_ports[i]->connections_.at("\\ADDR");
+			RTLIL::SigSpec this_data = wr_ports[i]->connections_.at("\\DATA");
+			std::vector<RTLIL::SigBit> this_en = modwalker.sigmap(wr_ports[i]->connections_.at("\\EN"));
 
 			RTLIL::SigBit this_en_active = module->ReduceOr(NEW_ID, this_en);
 
-			wr_ports[i]->connections.at("\\ADDR") = module->Mux(NEW_ID, last_addr, this_addr, this_en_active);
-			wr_ports[i]->connections.at("\\DATA") = module->Mux(NEW_ID, last_data, this_data, this_en_active);
+			wr_ports[i]->connections_.at("\\ADDR") = module->Mux(NEW_ID, last_addr, this_addr, this_en_active);
+			wr_ports[i]->connections_.at("\\DATA") = module->Mux(NEW_ID, last_data, this_data, this_en_active);
 
 			std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, int> groups_en;
 			RTLIL::SigSpec grouped_last_en, grouped_this_en, en;
@@ -614,7 +614,7 @@ struct MemoryShareWorker
 			}
 
 			module->addMux(NEW_ID, grouped_last_en, grouped_this_en, this_en_active, grouped_en);
-			wr_ports[i]->connections.at("\\EN") = en;
+			wr_ports[i]->connections_.at("\\EN") = en;
 
 			module->remove(wr_ports[i-1]);
 			wr_ports[i-1] = NULL;
@@ -653,18 +653,18 @@ struct MemoryShareWorker
 
 			if (cell->type == "$mux")
 			{
-				RTLIL::SigSpec sig_a = sigmap_xmux(cell->connections.at("\\A"));
-				RTLIL::SigSpec sig_b = sigmap_xmux(cell->connections.at("\\B"));
+				RTLIL::SigSpec sig_a = sigmap_xmux(cell->connections_.at("\\A"));
+				RTLIL::SigSpec sig_b = sigmap_xmux(cell->connections_.at("\\B"));
 
 				if (sig_a.is_fully_undef())
-					sigmap_xmux.add(cell->connections.at("\\Y"), sig_b);
+					sigmap_xmux.add(cell->connections_.at("\\Y"), sig_b);
 				else if (sig_b.is_fully_undef())
-					sigmap_xmux.add(cell->connections.at("\\Y"), sig_a);
+					sigmap_xmux.add(cell->connections_.at("\\Y"), sig_a);
 			}
 
 			if (cell->type == "$mux" || cell->type == "$pmux")
 			{
-				std::vector<RTLIL::SigBit> sig_y = sigmap(cell->connections.at("\\Y"));
+				std::vector<RTLIL::SigBit> sig_y = sigmap(cell->connections_.at("\\Y"));
 				for (int i = 0; i < int(sig_y.size()); i++)
 					sig_to_mux[sig_y[i]] = std::pair<RTLIL::Cell*, int>(cell, i);
 			}

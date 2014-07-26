@@ -202,9 +202,9 @@ cell_body:
 		delete $5;
 	} |
 	cell_body TOK_CONNECT TOK_ID sigspec EOL {
-		if (current_cell->connections.count($3) != 0)
+		if (current_cell->connections_.count($3) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell port %s.", $3).c_str());
-		current_cell->connections[$3] = *$4;
+		current_cell->connections_[$3] = *$4;
 		delete $4;
 		free($3);
 	} |
@@ -395,7 +395,7 @@ conn_stmt:
 	TOK_CONNECT sigspec sigspec EOL {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
-		current_module->connections.push_back(RTLIL::SigSig(*$2, *$3));
+		current_module->connect(*$2, *$3);
 		delete $2;
 		delete $3;
 	};

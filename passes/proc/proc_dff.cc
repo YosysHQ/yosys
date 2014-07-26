@@ -77,8 +77,8 @@ static void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::S
 			cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 			cell->parameters["\\A_WIDTH"] = RTLIL::Const(sync_low_signals.size());
 			cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-			cell->connections["\\A"] = sync_low_signals;
-			cell->connections["\\Y"] = sync_low_signals = mod->addWire(NEW_ID);
+			cell->connections_["\\A"] = sync_low_signals;
+			cell->connections_["\\Y"] = sync_low_signals = mod->addWire(NEW_ID);
 		}
 
 		if (sync_low_signals.size() > 0) {
@@ -86,9 +86,9 @@ static void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::S
 			cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 			cell->parameters["\\A_WIDTH"] = RTLIL::Const(sync_low_signals.size());
 			cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-			cell->connections["\\A"] = sync_low_signals;
-			cell->connections["\\Y"] = mod->addWire(NEW_ID);
-			sync_high_signals.append(cell->connections["\\Y"]);
+			cell->connections_["\\A"] = sync_low_signals;
+			cell->connections_["\\Y"] = mod->addWire(NEW_ID);
+			sync_high_signals.append(cell->connections_["\\Y"]);
 		}
 
 		if (sync_high_signals.size() > 1) {
@@ -96,30 +96,30 @@ static void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::S
 			cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 			cell->parameters["\\A_WIDTH"] = RTLIL::Const(sync_high_signals.size());
 			cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-			cell->connections["\\A"] = sync_high_signals;
-			cell->connections["\\Y"] = sync_high_signals = mod->addWire(NEW_ID);
+			cell->connections_["\\A"] = sync_high_signals;
+			cell->connections_["\\Y"] = sync_high_signals = mod->addWire(NEW_ID);
 		}
 
 		RTLIL::Cell *inv_cell = mod->addCell(NEW_ID, "$not");
 		inv_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 		inv_cell->parameters["\\A_WIDTH"] = RTLIL::Const(sig_d.size());
 		inv_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(sig_d.size());
-		inv_cell->connections["\\A"] = sync_value;
-		inv_cell->connections["\\Y"] = sync_value_inv = mod->addWire(NEW_ID, sig_d.size());
+		inv_cell->connections_["\\A"] = sync_value;
+		inv_cell->connections_["\\Y"] = sync_value_inv = mod->addWire(NEW_ID, sig_d.size());
 
 		RTLIL::Cell *mux_set_cell = mod->addCell(NEW_ID, "$mux");
 		mux_set_cell->parameters["\\WIDTH"] = RTLIL::Const(sig_d.size());
-		mux_set_cell->connections["\\A"] = sig_sr_set;
-		mux_set_cell->connections["\\B"] = sync_value;
-		mux_set_cell->connections["\\S"] = sync_high_signals;
-		mux_set_cell->connections["\\Y"] = sig_sr_set = mod->addWire(NEW_ID, sig_d.size());
+		mux_set_cell->connections_["\\A"] = sig_sr_set;
+		mux_set_cell->connections_["\\B"] = sync_value;
+		mux_set_cell->connections_["\\S"] = sync_high_signals;
+		mux_set_cell->connections_["\\Y"] = sig_sr_set = mod->addWire(NEW_ID, sig_d.size());
 
 		RTLIL::Cell *mux_clr_cell = mod->addCell(NEW_ID, "$mux");
 		mux_clr_cell->parameters["\\WIDTH"] = RTLIL::Const(sig_d.size());
-		mux_clr_cell->connections["\\A"] = sig_sr_clr;
-		mux_clr_cell->connections["\\B"] = sync_value_inv;
-		mux_clr_cell->connections["\\S"] = sync_high_signals;
-		mux_clr_cell->connections["\\Y"] = sig_sr_clr = mod->addWire(NEW_ID, sig_d.size());
+		mux_clr_cell->connections_["\\A"] = sig_sr_clr;
+		mux_clr_cell->connections_["\\B"] = sync_value_inv;
+		mux_clr_cell->connections_["\\S"] = sync_high_signals;
+		mux_clr_cell->connections_["\\Y"] = sig_sr_clr = mod->addWire(NEW_ID, sig_d.size());
 	}
 
 	std::stringstream sstr;
@@ -131,11 +131,11 @@ static void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::S
 	cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity, 1);
 	cell->parameters["\\SET_POLARITY"] = RTLIL::Const(true, 1);
 	cell->parameters["\\CLR_POLARITY"] = RTLIL::Const(true, 1);
-	cell->connections["\\D"] = sig_d;
-	cell->connections["\\Q"] = sig_q;
-	cell->connections["\\CLK"] = clk;
-	cell->connections["\\SET"] = sig_sr_set;
-	cell->connections["\\CLR"] = sig_sr_clr;
+	cell->connections_["\\D"] = sig_d;
+	cell->connections_["\\Q"] = sig_q;
+	cell->connections_["\\CLK"] = clk;
+	cell->connections_["\\SET"] = sig_sr_set;
+	cell->connections_["\\CLR"] = sig_sr_clr;
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
@@ -155,22 +155,22 @@ static void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec 
 	inv_set->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 	inv_set->parameters["\\A_WIDTH"] = RTLIL::Const(sig_in.size());
 	inv_set->parameters["\\Y_WIDTH"] = RTLIL::Const(sig_in.size());
-	inv_set->connections["\\A"] = sig_set;
-	inv_set->connections["\\Y"] = sig_set_inv;
+	inv_set->connections_["\\A"] = sig_set;
+	inv_set->connections_["\\Y"] = sig_set_inv;
 
 	RTLIL::Cell *mux_sr_set = mod->addCell(NEW_ID, "$mux");
 	mux_sr_set->parameters["\\WIDTH"] = RTLIL::Const(sig_in.size());
-	mux_sr_set->connections[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.size());
-	mux_sr_set->connections[set_polarity ? "\\B" : "\\A"] = sig_set;
-	mux_sr_set->connections["\\Y"] = sig_sr_set;
-	mux_sr_set->connections["\\S"] = set;
+	mux_sr_set->connections_[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.size());
+	mux_sr_set->connections_[set_polarity ? "\\B" : "\\A"] = sig_set;
+	mux_sr_set->connections_["\\Y"] = sig_sr_set;
+	mux_sr_set->connections_["\\S"] = set;
 
 	RTLIL::Cell *mux_sr_clr = mod->addCell(NEW_ID, "$mux");
 	mux_sr_clr->parameters["\\WIDTH"] = RTLIL::Const(sig_in.size());
-	mux_sr_clr->connections[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.size());
-	mux_sr_clr->connections[set_polarity ? "\\B" : "\\A"] = sig_set_inv;
-	mux_sr_clr->connections["\\Y"] = sig_sr_clr;
-	mux_sr_clr->connections["\\S"] = set;
+	mux_sr_clr->connections_[set_polarity ? "\\A" : "\\B"] = RTLIL::Const(0, sig_in.size());
+	mux_sr_clr->connections_[set_polarity ? "\\B" : "\\A"] = sig_set_inv;
+	mux_sr_clr->connections_["\\Y"] = sig_sr_clr;
+	mux_sr_clr->connections_["\\S"] = set;
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), "$dffsr");
 	cell->attributes = proc->attributes;
@@ -178,11 +178,11 @@ static void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec 
 	cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity, 1);
 	cell->parameters["\\SET_POLARITY"] = RTLIL::Const(true, 1);
 	cell->parameters["\\CLR_POLARITY"] = RTLIL::Const(true, 1);
-	cell->connections["\\D"] = sig_in;
-	cell->connections["\\Q"] = sig_out;
-	cell->connections["\\CLK"] = clk;
-	cell->connections["\\SET"] = sig_sr_set;
-	cell->connections["\\CLR"] = sig_sr_clr;
+	cell->connections_["\\D"] = sig_in;
+	cell->connections_["\\Q"] = sig_out;
+	cell->connections_["\\CLK"] = clk;
+	cell->connections_["\\SET"] = sig_sr_set;
+	cell->connections_["\\CLR"] = sig_sr_clr;
 
 	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type.c_str(), cell->name.c_str(),
 			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
@@ -204,11 +204,11 @@ static void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_
 	}
 	cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity, 1);
 
-	cell->connections["\\D"] = sig_in;
-	cell->connections["\\Q"] = sig_out;
+	cell->connections_["\\D"] = sig_in;
+	cell->connections_["\\Q"] = sig_out;
 	if (arst)
-		cell->connections["\\ARST"] = *arst;
-	cell->connections["\\CLK"] = clk;
+		cell->connections_["\\ARST"] = *arst;
+	cell->connections_["\\CLK"] = clk;
 
 	log("  created %s cell `%s' with %s edge clock", cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
 	if (arst)
@@ -296,9 +296,9 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 				cell->parameters["\\A_WIDTH"] = RTLIL::Const(inputs.size());
 				cell->parameters["\\B_WIDTH"] = RTLIL::Const(inputs.size());
 				cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-				cell->connections["\\A"] = inputs;
-				cell->connections["\\B"] = compare;
-				cell->connections["\\Y"] = sync_level->signal;
+				cell->connections_["\\A"] = inputs;
+				cell->connections_["\\B"] = compare;
+				cell->connections_["\\Y"] = sync_level->signal;
 
 				many_async_rules.clear();
 			}
@@ -322,7 +322,7 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			if (sync_edge || sync_level || many_async_rules.size() > 0)
 				log_error("Mixed always event with edge and/or level sensitive events!\n");
 			log("  created direct connection (no actual register cell created).\n");
-			mod->connections.push_back(RTLIL::SigSig(sig, insig));
+			mod->connections_.push_back(RTLIL::SigSig(sig, insig));
 			continue;
 		}
 

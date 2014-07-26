@@ -79,11 +79,11 @@ struct SubmodWorker
 		wire_flags.clear();
 		for (RTLIL::Cell *cell : submod.cells) {
 			if (ct.cell_known(cell->type)) {
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections_)
 					flag_signal(conn.second, true, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first), false, false);
 			} else {
 				log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections_)
 					flag_signal(conn.second, true, true, true, false, false);
 			}
 		}
@@ -92,11 +92,11 @@ struct SubmodWorker
 			if (submod.cells.count(cell) > 0)
 				continue;
 			if (ct.cell_known(cell->type)) {
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections_)
 					flag_signal(conn.second, false, false, false, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first));
 			} else {
 				flag_found_something = false;
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections_)
 					flag_signal(conn.second, false, false, false, true, true);
 				if (flag_found_something)
 					log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
@@ -163,7 +163,7 @@ struct SubmodWorker
 
 		for (RTLIL::Cell *cell : submod.cells) {
 			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell);
-			for (auto &conn : new_cell->connections)
+			for (auto &conn : new_cell->connections_)
 				for (auto &bit : conn.second)
 					if (bit.wire != NULL) {
 						assert(wire_flags.count(bit.wire) > 0);
@@ -180,7 +180,7 @@ struct SubmodWorker
 			RTLIL::Wire *old_wire = it.first;
 			RTLIL::Wire *new_wire = it.second.new_wire;
 			if (new_wire->port_id > 0)
-				new_cell->connections[new_wire->name] = RTLIL::SigSpec(old_wire);
+				new_cell->connections_[new_wire->name] = RTLIL::SigSpec(old_wire);
 		}
 	}
 

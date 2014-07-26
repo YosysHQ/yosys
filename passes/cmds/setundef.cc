@@ -135,7 +135,7 @@ struct SetundefPass : public Pass {
 
 				CellTypes ct(design);
 				for (auto &it : module->cells)
-				for (auto &conn : it.second->connections)
+				for (auto &conn : it.second->connections_)
 					if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
 						undriven_signals.del(sigmap(conn.second));
 
@@ -144,7 +144,7 @@ struct SetundefPass : public Pass {
 					RTLIL::SigSpec bits;
 					for (int i = 0; i < c.width; i++)
 						bits.append(worker.next_bit());
-					module->connections.push_back(RTLIL::SigSig(c, bits));
+					module->connections_.push_back(RTLIL::SigSig(c, bits));
 				}
 			}
 

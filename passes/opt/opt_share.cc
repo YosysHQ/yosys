@@ -66,7 +66,7 @@ struct OptShareWorker
 		for (auto &it : cell->parameters)
 			hash_string += "P " + it.first + "=" + it.second.as_string() + "\n";
 
-		const std::map<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections;
+		const std::map<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections_;
 		std::map<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
 
 		if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" || cell->type == "$add" || cell->type == "$mul" ||
@@ -135,8 +135,8 @@ struct OptShareWorker
 			return true;
 		}
 
-		std::map<RTLIL::IdString, RTLIL::SigSpec> conn1 = cell1->connections;
-		std::map<RTLIL::IdString, RTLIL::SigSpec> conn2 = cell2->connections;
+		std::map<RTLIL::IdString, RTLIL::SigSpec> conn1 = cell1->connections_;
+		std::map<RTLIL::IdString, RTLIL::SigSpec> conn2 = cell2->connections_;
 
 		for (auto &it : conn1) {
 			if (ct.cell_output(cell1->type, it.first))
@@ -180,8 +180,8 @@ struct OptShareWorker
 		}
 
 		if (cell1->type.substr(0, 1) == "$" && conn1.count("\\Q") != 0) {
-			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->connections.at("\\Q")).to_sigbit_vector();
-			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->connections.at("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->connections_.at("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->connections_.at("\\Q")).to_sigbit_vector();
 			for (size_t i = 0; i < q1.size(); i++)
 				if ((q1.at(i).wire == NULL || q2.at(i).wire == NULL) && q1.at(i) != q2.at(i)) {
 					lt = q1.at(i) < q2.at(i);
@@ -261,12 +261,12 @@ struct OptShareWorker
 				if (sharemap.count(cell) > 0) {
 					did_something = true;
 					log("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
-					for (auto &it : cell->connections) {
+					for (auto &it : cell->connections_) {
 						if (ct.cell_output(cell->type, it.first)) {
-							RTLIL::SigSpec other_sig = sharemap[cell]->connections[it.first];
+							RTLIL::SigSpec other_sig = sharemap[cell]->connections_[it.first];
 							log("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 									log_signal(it.second), log_signal(other_sig));
-							module->connections.push_back(RTLIL::SigSig(it.second, other_sig));
+							module->connections_.push_back(RTLIL::SigSig(it.second, other_sig));
 							assign_map.add(it.second, other_sig);
 						}
 					}

@@ -148,7 +148,7 @@ struct EdifBackend : public Backend {
 				RTLIL::Cell *cell = cell_it.second;
 				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->get_bool_attribute("\\blackbox")) {
 					lib_cell_ports[cell->type];
-					for (auto p : cell->connections) {
+					for (auto p : cell->connections_) {
 						if (p.second.size() > 1)
 							log_error("Found multi-bit port %s on library cell %s.%s (%s): not supported in EDIF backend!\n",
 									RTLIL::id2cstr(p.first), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
@@ -304,7 +304,7 @@ struct EdifBackend : public Backend {
 						fprintf(f, "\n            (property %s (string \"%s\"))", EDIF_DEF(p.first), hex_string.c_str());
 					}
 				fprintf(f, ")\n");
-				for (auto &p : cell->connections) {
+				for (auto &p : cell->connections_) {
 					RTLIL::SigSpec sig = sigmap(p.second);
 					for (int i = 0; i < SIZE(sig); i++)
 						if (sig.size() == 1)

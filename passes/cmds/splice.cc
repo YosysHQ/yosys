@@ -74,9 +74,9 @@ struct SpliceWorker
 			cell->parameters["\\OFFSET"] = offset;
 			cell->parameters["\\A_WIDTH"] = sig_a.size();
 			cell->parameters["\\Y_WIDTH"] = sig.size();
-			cell->connections["\\A"] = sig_a;
-			cell->connections["\\Y"] = module->addWire(NEW_ID, sig.size());
-			new_sig = cell->connections["\\Y"];
+			cell->connections_["\\A"] = sig_a;
+			cell->connections_["\\Y"] = module->addWire(NEW_ID, sig.size());
+			new_sig = cell->connections_["\\Y"];
 		}
 
 		sliced_signals_cache[sig] = new_sig;
@@ -130,10 +130,10 @@ struct SpliceWorker
 			RTLIL::Cell *cell = module->addCell(NEW_ID, "$concat");
 			cell->parameters["\\A_WIDTH"] = new_sig.size();
 			cell->parameters["\\B_WIDTH"] = sig2.size();
-			cell->connections["\\A"] = new_sig;
-			cell->connections["\\B"] = sig2;
-			cell->connections["\\Y"] = module->addWire(NEW_ID, new_sig.size() + sig2.size());
-			new_sig = cell->connections["\\Y"];
+			cell->connections_["\\A"] = new_sig;
+			cell->connections_["\\B"] = sig2;
+			cell->connections_["\\Y"] = module->addWire(NEW_ID, new_sig.size() + sig2.size());
+			new_sig = cell->connections_["\\Y"];
 		}
 
 		spliced_signals_cache[sig] = new_sig;
@@ -159,7 +159,7 @@ struct SpliceWorker
 			}
 
 		for (auto &it : module->cells)
-		for (auto &conn : it.second->connections)
+		for (auto &conn : it.second->connections_)
 			if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first)) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				driven_chunks.insert(sig);
@@ -182,7 +182,7 @@ struct SpliceWorker
 		for (auto &it : module->cells) {
 			if (!sel_by_wire && !design->selected(module, it.second))
 				continue;
-			for (auto &conn : it.second->connections)
+			for (auto &conn : it.second->connections_)
 				if (ct.cell_input(it.second->type, conn.first)) {
 					if (ports.size() > 0 && !ports.count(conn.first))
 						continue;
@@ -232,7 +232,7 @@ struct SpliceWorker
 			it.first->port_output = false;
 			module->add(it.first);
 			module->add(new_port);
-			module->connections.push_back(RTLIL::SigSig(new_port, it.second));
+			module->connections_.push_back(RTLIL::SigSig(new_port, it.second));
 		}
 	}
 };

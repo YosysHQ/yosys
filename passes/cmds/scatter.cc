@@ -49,7 +49,7 @@ struct ScatterPass : public Pass {
 				continue;
 
 			for (auto &c : mod_it.second->cells)
-			for (auto &p : c.second->connections)
+			for (auto &p : c.second->connections_)
 			{
 				RTLIL::Wire *wire = new RTLIL::Wire;
 				wire->name = NEW_ID;
@@ -58,10 +58,10 @@ struct ScatterPass : public Pass {
 
 				if (ct.cell_output(c.second->type, p.first)) {
 					RTLIL::SigSig sigsig(p.second, wire);
-					mod_it.second->connections.push_back(sigsig);
+					mod_it.second->connections_.push_back(sigsig);
 				} else {
 					RTLIL::SigSig sigsig(wire, p.second);
-					mod_it.second->connections.push_back(sigsig);
+					mod_it.second->connections_.push_back(sigsig);
 				}
 
 				p.second = wire;

@@ -146,56 +146,56 @@ struct BlifDumper
 
 			if (!config->icells_mode && cell->type == "$_INV_") {
 				fprintf(f, ".names %s %s\n0 1\n",
-						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\Y")));
+						cstr(cell->connections_.at("\\A")), cstr(cell->connections_.at("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_AND_") {
 				fprintf(f, ".names %s %s %s\n11 1\n",
-						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
+						cstr(cell->connections_.at("\\A")), cstr(cell->connections_.at("\\B")), cstr(cell->connections_.at("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_OR_") {
 				fprintf(f, ".names %s %s %s\n1- 1\n-1 1\n",
-						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
+						cstr(cell->connections_.at("\\A")), cstr(cell->connections_.at("\\B")), cstr(cell->connections_.at("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_XOR_") {
 				fprintf(f, ".names %s %s %s\n10 1\n01 1\n",
-						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")), cstr(cell->connections.at("\\Y")));
+						cstr(cell->connections_.at("\\A")), cstr(cell->connections_.at("\\B")), cstr(cell->connections_.at("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_MUX_") {
 				fprintf(f, ".names %s %s %s %s\n1-0 1\n-11 1\n",
-						cstr(cell->connections.at("\\A")), cstr(cell->connections.at("\\B")),
-						cstr(cell->connections.at("\\S")), cstr(cell->connections.at("\\Y")));
+						cstr(cell->connections_.at("\\A")), cstr(cell->connections_.at("\\B")),
+						cstr(cell->connections_.at("\\S")), cstr(cell->connections_.at("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_N_") {
 				fprintf(f, ".latch %s %s fe %s\n",
-						cstr(cell->connections.at("\\D")), cstr(cell->connections.at("\\Q")), cstr(cell->connections.at("\\C")));
+						cstr(cell->connections_.at("\\D")), cstr(cell->connections_.at("\\Q")), cstr(cell->connections_.at("\\C")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_P_") {
 				fprintf(f, ".latch %s %s re %s\n",
-						cstr(cell->connections.at("\\D")), cstr(cell->connections.at("\\Q")), cstr(cell->connections.at("\\C")));
+						cstr(cell->connections_.at("\\D")), cstr(cell->connections_.at("\\Q")), cstr(cell->connections_.at("\\C")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$lut") {
 				fprintf(f, ".names");
-				auto &inputs = cell->connections.at("\\I");
+				auto &inputs = cell->connections_.at("\\I");
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				log_assert(inputs.size() == width);
 				for (int i = 0; i < inputs.size(); i++) {
 					fprintf(f, " %s", cstr(inputs.extract(i, 1)));
 				}
-				auto &output = cell->connections.at("\\O");
+				auto &output = cell->connections_.at("\\O");
 				log_assert(output.size() == 1);
 				fprintf(f, " %s", cstr(output));
 				fprintf(f, "\n");
@@ -211,7 +211,7 @@ struct BlifDumper
 			}
 
 			fprintf(f, ".%s %s", subckt_or_gate(cell->type), cstr(cell->type));
-			for (auto &conn : cell->connections)
+			for (auto &conn : cell->connections_)
 			for (int i = 0; i < conn.second.size(); i++) {
 				if (conn.second.size() == 1)
 					fprintf(f, " %s", cstr(conn.first));
@@ -240,7 +240,7 @@ struct BlifDumper
 				}
 		}
 
-		for (auto &conn : module->connections)
+		for (auto &conn : module->connections_)
 		for (int i = 0; i < conn.first.size(); i++)
 			if (config->conn_mode)
 				fprintf(f, ".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));

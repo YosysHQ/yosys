@@ -52,7 +52,7 @@ struct FsmOpt
 
 	void opt_const_and_unused_inputs()
 	{
-		RTLIL::SigSpec ctrl_in = cell->connections["\\CTRL_IN"];
+		RTLIL::SigSpec ctrl_in = cell->connections_["\\CTRL_IN"];
 		std::vector<bool> ctrl_in_used(ctrl_in.size());
 
 		std::vector<FsmData::transition_t> new_transition_table;
@@ -73,13 +73,13 @@ struct FsmOpt
 
 		for (int i = int(ctrl_in_used.size())-1; i >= 0; i--) {
 			if (!ctrl_in_used[i]) {
-				log("  Removing unused input signal %s.\n", log_signal(cell->connections["\\CTRL_IN"].extract(i, 1)));
+				log("  Removing unused input signal %s.\n", log_signal(cell->connections_["\\CTRL_IN"].extract(i, 1)));
 				for (auto &tr : new_transition_table) {
 					RTLIL::SigSpec tmp(tr.ctrl_in);
 					tmp.remove(i, 1);
 					tr.ctrl_in = tmp.as_const();
 				}
-				cell->connections["\\CTRL_IN"].remove(i, 1);
+				cell->connections_["\\CTRL_IN"].remove(i, 1);
 				fsm_data.num_inputs--;
 			}
 		}
@@ -91,10 +91,10 @@ struct FsmOpt
 	void opt_unused_outputs()
 	{
 		for (int i = 0; i < fsm_data.num_outputs; i++) {
-			RTLIL::SigSpec sig = cell->connections["\\CTRL_OUT"].extract(i, 1);
+			RTLIL::SigSpec sig = cell->connections_["\\CTRL_OUT"].extract(i, 1);
 			if (signal_is_unused(sig)) {
 				log("  Removing unused output signal %s.\n", log_signal(sig));
-				cell->connections["\\CTRL_OUT"].remove(i, 1);
+				cell->connections_["\\CTRL_OUT"].remove(i, 1);
 				for (auto &tr : fsm_data.transition_table) {
 					RTLIL::SigSpec tmp(tr.ctrl_out);
 					tmp.remove(i, 1);
@@ -108,7 +108,7 @@ struct FsmOpt
 
 	void opt_alias_inputs()
 	{
-		RTLIL::SigSpec &ctrl_in = cell->connections["\\CTRL_IN"];
+		RTLIL::SigSpec &ctrl_in = cell->connections_["\\CTRL_IN"];
 
 		for (int i = 0; i < ctrl_in.size(); i++)
 		for (int j = i+1; j < ctrl_in.size(); j++)
@@ -145,8 +145,8 @@ struct FsmOpt
 
 	void opt_feedback_inputs()
 	{
-		RTLIL::SigSpec &ctrl_in = cell->connections["\\CTRL_IN"];
-		RTLIL::SigSpec &ctrl_out = cell->connections["\\CTRL_OUT"];
+		RTLIL::SigSpec &ctrl_in = cell->connections_["\\CTRL_IN"];
+		RTLIL::SigSpec &ctrl_out = cell->connections_["\\CTRL_OUT"];
 
 		for (int j = 0; j < ctrl_out.size(); j++)
 		for (int i = 0; i < ctrl_in.size(); i++)

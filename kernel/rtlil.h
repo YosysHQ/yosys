@@ -279,13 +279,16 @@ struct RTLIL::Module
 	std::map<RTLIL::IdString, RTLIL::Memory*> memories;
 	std::map<RTLIL::IdString, RTLIL::Cell*> cells;
 	std::map<RTLIL::IdString, RTLIL::Process*> processes;
-	std::vector<RTLIL::SigSig> connections;
+	std::vector<RTLIL::SigSig> connections_;
 	RTLIL_ATTRIBUTE_MEMBERS
+
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void check();
 	virtual void optimize();
+
+	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	void fixup_ports();
 
 	template<typename T> void rewrite_sigspecs(T functor);
@@ -435,37 +438,50 @@ struct RTLIL::Module
 	RTLIL::SigSpec MuxGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 };
 
-struct RTLIL::Wire {
+struct RTLIL::Wire
+{
+//protected:
+	// use module->addWire() and module->remove() to create or destroy wires
+	friend struct RTLIL::Module;
+	Wire();
+	~Wire() { };
+
+public:
+	// do not simply copy wires
+	//Wire(RTLIL::Wire &other) = delete;
+	//void operator=(RTLIL::Wire &other) = delete;
+
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output;
 	RTLIL_ATTRIBUTE_MEMBERS
-	Wire();
 };
 
-struct RTLIL::Memory {
+struct RTLIL::Memory
+{
+	Memory();
+
 	RTLIL::IdString name;
 	int width, start_offset, size;
 	RTLIL_ATTRIBUTE_MEMBERS
-	Memory();
 };
 
 struct RTLIL::Cell
 {
 protected:
-	// Use module->addCell() and module->remove() to create or destroy modules.
+	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
 	Cell() { };
 	~Cell() { };
 
 public:
-	// do not copy simply cells
+	// do not simply copy cells
 	Cell(RTLIL::Cell &other) = delete;
 	void operator=(RTLIL::Cell &other) = delete;
 
 	RTLIL::IdString name;
 	RTLIL::IdString type;
-	std::map<RTLIL::IdString, RTLIL::SigSpec> connections;
+	std::map<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	std::map<RTLIL::IdString, RTLIL::Const> parameters;
 	RTLIL_ATTRIBUTE_MEMBERS
 	void check();
@@ -686,7 +702,7 @@ void RTLIL::Module::rewrite_sigspecs(T functor)
 		it.second->rewrite_sigspecs(functor);
 	for (auto &it : processes)
 		it.second->rewrite_sigspecs(functor);
-	for (auto &it : connections) {
+	for (auto &it : connections_) {
 		functor(it.first);
 		functor(it.second);
 	}
@@ -694,7 +710,7 @@ void RTLIL::Module::rewrite_sigspecs(T functor)
 
 template<typename T>
 void RTLIL::Cell::rewrite_sigspecs(T functor) {
-	for (auto &it : connections)
+	for (auto &it : connections_)
 		functor(it.second);
 }
 

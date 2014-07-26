@@ -321,7 +321,7 @@ struct SatHelper
 			if (design->selected(module, c.second)) {
 				// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
 				if (satgen.importCell(c.second, timestep)) {
-					for (auto &p : c.second->connections)
+					for (auto &p : c.second->connections_)
 						if (ct.cell_output(c.second->type, p.first))
 							show_drivers.insert(sigmap(p.second), c.second);
 					import_cell_counter++;
@@ -505,7 +505,7 @@ struct SatHelper
 					final_signals.add(sig);
 				} else {
 					for (auto &d : drivers)
-					for (auto &p : d->connections) {
+					for (auto &p : d->connections_) {
 						if (d->type == "$dff" && p.first == "\\CLK")
 							continue;
 						if (d->type.substr(0, 6) == "$_DFF_" && p.first == "\\C")

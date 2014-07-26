@@ -54,9 +54,9 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_ENABLE")).extract(i, 1).as_const();
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\TRANSPARENT"] = RTLIL::SigSpec(memory->parameters.at("\\RD_TRANSPARENT")).extract(i, 1).as_const();
-		cell->connections["\\CLK"] = memory->connections.at("\\RD_CLK").extract(i, 1);
-		cell->connections["\\ADDR"] = memory->connections.at("\\RD_ADDR").extract(i*abits, abits);
-		cell->connections["\\DATA"] = memory->connections.at("\\RD_DATA").extract(i*mem->width, mem->width);
+		cell->connections_["\\CLK"] = memory->connections_.at("\\RD_CLK").extract(i, 1);
+		cell->connections_["\\ADDR"] = memory->connections_.at("\\RD_ADDR").extract(i*abits, abits);
+		cell->connections_["\\DATA"] = memory->connections_.at("\\RD_DATA").extract(i*mem->width, mem->width);
 	}
 
 	for (int i = 0; i < num_wr_ports; i++)
@@ -68,10 +68,10 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_ENABLE")).extract(i, 1).as_const();
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\PRIORITY"] = i;
-		cell->connections["\\CLK"] = memory->connections.at("\\WR_CLK").extract(i, 1);
-		cell->connections["\\EN"] = memory->connections.at("\\WR_EN").extract(i*mem->width, mem->width);
-		cell->connections["\\ADDR"] = memory->connections.at("\\WR_ADDR").extract(i*abits, abits);
-		cell->connections["\\DATA"] = memory->connections.at("\\WR_DATA").extract(i*mem->width, mem->width);
+		cell->connections_["\\CLK"] = memory->connections_.at("\\WR_CLK").extract(i, 1);
+		cell->connections_["\\EN"] = memory->connections_.at("\\WR_EN").extract(i*mem->width, mem->width);
+		cell->connections_["\\ADDR"] = memory->connections_.at("\\WR_ADDR").extract(i*abits, abits);
+		cell->connections_["\\DATA"] = memory->connections_.at("\\WR_DATA").extract(i*mem->width, mem->width);
 	}
 
 	module->remove(memory);
