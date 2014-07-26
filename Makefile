@@ -225,6 +225,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	cd tests/share && bash run-test.sh
 	cd tests/techmap && bash run-test.sh
 	cd tests/memories && bash run-test.sh
+	cd tests/various && bash run-test.sh
 	cd tests/sat && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."

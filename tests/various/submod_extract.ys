@@ -1,0 +1,21 @@
+read_verilog << EOT
+  module test(input [7:0] a, b, c, d, output [7:0] x, y, z);
+    assign x = a + b, y = b + c, z = c + d;
+  endmodule
+EOT
+
+copy test gold
+rename test gate
+
+submod -name mycell gate/x %ci*
+design -copy-to mymap mycell
+extract -map %mymap gate
+
+select -assert-count 3 gold/t:*
+select -assert-count 3 gold/t:$add
+
+select -assert-count 3 gate/t:*
+select -assert-count 3 gate/t:mycell
+
+miter -equiv -flatten gold gate miter
+sat -verify -prove trigger 0 miter
