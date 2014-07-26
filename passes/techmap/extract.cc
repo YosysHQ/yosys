@@ -128,7 +128,7 @@ namespace
 				for (auto &conn : needleCell->connections())
 				{
 					RTLIL::SigSpec needleSig = conn.second;
-					RTLIL::SigSpec haystackSig = haystackCell->connections().at(portMapping.at(conn.first));
+					RTLIL::SigSpec haystackSig = haystackCell->get(portMapping.at(conn.first));
 
 					for (int i = 0; i < std::min(needleSig.size(), haystackSig.size()); i++) {
 						RTLIL::Wire *needleWire = needleSig[i].wire, *haystackWire = haystackSig[i].wire;
@@ -324,7 +324,7 @@ namespace
 				if (mapping.portMapping.count(conn.first) > 0 && sig2port.has(sigmap(sig))) {
 					for (int i = 0; i < sig.size(); i++)
 					for (auto &port : sig2port.find(sig[i])) {
-						RTLIL::SigSpec bitsig = haystack_cell->connections().at(mapping.portMapping[conn.first]).extract(i, 1);
+						RTLIL::SigSpec bitsig = haystack_cell->get(mapping.portMapping[conn.first]).extract(i, 1);
 						RTLIL::SigSpec new_sig = cell->get(port.first);
 						new_sig.replace(port.second, bitsig);
 						cell->set(port.first, new_sig);

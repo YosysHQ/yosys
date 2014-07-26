@@ -94,7 +94,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	bool b_signed = cell->parameters.at(b_name + "_SIGNED").as_bool();
 
 	RTLIL::SigSpec sig_a = sigmap(cell->get("\\A"));
-	RTLIL::SigSpec sig_b = sigmap(cell->connections().at(b_name));
+	RTLIL::SigSpec sig_b = sigmap(cell->get(b_name));
 	RTLIL::SigSpec sig_y = sigmap(cell->get("\\Y"));
 
 	if (extend_u0) {

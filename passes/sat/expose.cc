@@ -629,7 +629,7 @@ struct ExposePass : public Pass {
 
 							RTLIL::SigSpec sig;
 							if (cell->has(p->name))
-								sig = cell->connections().at(p->name);
+								sig = cell->get(p->name);
 							sig.extend(w->width);
 							if (w->port_input)
 								module->connect(RTLIL::SigSig(sig, w));
