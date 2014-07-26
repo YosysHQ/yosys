@@ -52,7 +52,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 		unused.insert(cell);
 	}
 
-	for (auto &it : module->wires) {
+	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_output || wire->get_bool_attribute("\\keep")) {
 			std::set<RTLIL::Cell*> cell_list;
@@ -175,12 +175,12 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 				if (ct_all.cell_output(cell->type, it2.first))
 					direct_sigs.insert(assign_map(it2.second));
 	}
-	for (auto &it : module->wires) {
+	for (auto &it : module->wires_) {
 		if (direct_sigs.count(assign_map(it.second)) || it.second->port_input)
 			direct_wires.insert(it.second);
 	}
 
-	for (auto &it : module->wires) {
+	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
 			RTLIL::SigBit s1 = RTLIL::SigBit(wire, i), s2 = assign_map(s1);
@@ -202,7 +202,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 				used_signals_nodrivers.add(it2.second);
 		}
 	}
-	for (auto &it : module->wires) {
+	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_id > 0) {
 			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
@@ -219,7 +219,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 	}
 
 	std::vector<RTLIL::Wire*> maybe_del_wires;
-	for (auto &it : module->wires) {
+	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		if ((!purge_mode && check_public_name(wire->name)) || wire->port_id != 0 || wire->get_bool_attribute("\\keep")) {
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;

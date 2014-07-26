@@ -129,7 +129,7 @@ struct SetundefPass : public Pass {
 				SigMap sigmap(module);
 				SigPool undriven_signals;
 
-				for (auto &it : module->wires)
+				for (auto &it : module->wires_)
 					if (!it.second->port_input)
 						undriven_signals.add(sigmap(it.second));
 

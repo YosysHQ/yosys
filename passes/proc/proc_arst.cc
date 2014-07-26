@@ -243,7 +243,7 @@ struct ProcArstPass : public Pass {
 					if (!design->selected(mod_it.second, proc_it.second))
 						continue;
 					proc_arst(mod_it.second, proc_it.second, assign_map);
-					if (global_arst.empty() || mod_it.second->wires.count(global_arst) == 0)
+					if (global_arst.empty() || mod_it.second->wires_.count(global_arst) == 0)
 						continue;
 					std::vector<RTLIL::SigSig> arst_actions;
 					for (auto sync : proc_it.second->syncs)
@@ -266,7 +266,7 @@ struct ProcArstPass : public Pass {
 					if (!arst_actions.empty()) {
 						RTLIL::SyncRule *sync = new RTLIL::SyncRule;
 						sync->type = global_arst_neg ? RTLIL::SyncType::ST0 : RTLIL::SyncType::ST1;
-						sync->signal = mod_it.second->wires.at(global_arst);
+						sync->signal = mod_it.second->wires_.at(global_arst);
 						sync->actions = arst_actions;
 						proc_it.second->syncs.push_back(sync);
 					}

@@ -113,15 +113,15 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				char *d = strtok(NULL, " \t\r\n");
 				char *q = strtok(NULL, " \t\r\n");
 
-				if (module->wires.count(RTLIL::escape_id(d)) == 0)
+				if (module->wires_.count(RTLIL::escape_id(d)) == 0)
 					module->addWire(RTLIL::escape_id(d));
 
-				if (module->wires.count(RTLIL::escape_id(q)) == 0)
+				if (module->wires_.count(RTLIL::escape_id(q)) == 0)
 					module->addWire(RTLIL::escape_id(q));
 
 				RTLIL::Cell *cell = module->addCell(NEW_ID, dff_name);
-				cell->set("\\D", module->wires.at(RTLIL::escape_id(d)));
-				cell->set("\\Q", module->wires.at(RTLIL::escape_id(q)));
+				cell->set("\\D", module->wires_.at(RTLIL::escape_id(d)));
+				cell->set("\\Q", module->wires_.at(RTLIL::escape_id(q)));
 				continue;
 			}
 
@@ -138,9 +138,9 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 					if (q == NULL || !q[0] || !q[1])
 						goto error;
 					*(q++) = 0;
-					if (module->wires.count(RTLIL::escape_id(q)) == 0)
+					if (module->wires_.count(RTLIL::escape_id(q)) == 0)
 						module->addWire(RTLIL::escape_id(q));
-					cell->set(RTLIL::escape_id(p), module->wires.at(RTLIL::escape_id(q)));
+					cell->set(RTLIL::escape_id(p), module->wires_.at(RTLIL::escape_id(q)));
 				}
 				continue;
 			}
@@ -151,8 +151,8 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				RTLIL::SigSpec input_sig, output_sig;
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					RTLIL::Wire *wire;
-					if (module->wires.count(stringf("\\%s", p)) > 0) {
-						wire = module->wires.at(stringf("\\%s", p));
+					if (module->wires_.count(stringf("\\%s", p)) > 0) {
+						wire = module->wires_.at(stringf("\\%s", p));
 					} else {
 						wire = module->addWire(stringf("\\%s", p));
 					}

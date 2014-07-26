@@ -69,7 +69,7 @@ namespace
 			STAT_INT_MEMBERS
 		#undef X
 
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 			{
 				if (!design->selected(mod, it.second))
 					continue;

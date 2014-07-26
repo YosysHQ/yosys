@@ -103,7 +103,7 @@ struct BlifDumper
 
 		std::map<int, RTLIL::Wire*> inputs, outputs;
 
-		for (auto &wire_it : module->wires) {
+		for (auto &wire_it : module->wires_) {
 			RTLIL::Wire *wire = wire_it.second;
 			if (wire->port_input)
 				inputs[wire->port_id] = wire;

@@ -118,7 +118,7 @@ struct IopadmapPass : public Pass {
 			if (!design->selected(module) || module->get_bool_attribute("\\blackbox"))
 				continue;
 
-			for (auto &it2 : module->wires)
+			for (auto &it2 : module->wires_)
 			{
 				RTLIL::Wire *wire = it2.second;
 

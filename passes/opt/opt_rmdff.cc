@@ -173,7 +173,7 @@ struct OptRmdffPass : public Pass {
 
 			assign_map.set(mod_it.second);
 			dff_init_map.set(mod_it.second);
-			for (auto &it : mod_it.second->wires)
+			for (auto &it : mod_it.second->wires_)
 				if (it.second->attributes.count("\\init") != 0)
 					dff_init_map.add(it.second, it.second->attributes.at("\\init"));
 			mux_drivers.clear();

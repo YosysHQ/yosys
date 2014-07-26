@@ -121,7 +121,7 @@ struct ModWalker
 		signal_inputs.clear();
 		signal_outputs.clear();
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			add_wire(it.second);
 		for (auto &it : module->cells)
 			if (filter_ct == NULL || filter_ct->cell_known(it.second->type))

@@ -105,7 +105,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 
 		int count_ports = 0;
 		log("Generating test bench for module `%s'.\n", it->first.c_str());
-		for (auto it2 = mod->wires.begin(); it2 != mod->wires.end(); it2++) {
+		for (auto it2 = mod->wires_.begin(); it2 != mod->wires_.end(); it2++) {
 			RTLIL::Wire *wire = it2->second;
 			if (wire->port_output) {
 				count_ports++;
@@ -134,7 +134,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 			}
 		}
 		fprintf(f, "%s %s(\n", id(mod->name).c_str(), idy("uut", mod->name).c_str());
-		for (auto it2 = mod->wires.begin(); it2 != mod->wires.end(); it2++) {
+		for (auto it2 = mod->wires_.begin(); it2 != mod->wires_.end(); it2++) {
 			RTLIL::Wire *wire = it2->second;
 			if (wire->port_output || wire->port_input)
 				fprintf(f, "\t.%s(%s)%s\n", id(wire->name).c_str(),

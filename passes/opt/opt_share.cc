@@ -237,7 +237,7 @@ struct OptShareWorker
 		assign_map.set(module);
 
 		dff_init_map.set(module);
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (it.second->attributes.count("\\init") != 0)
 				dff_init_map.add(it.second, it.second->attributes.at("\\init"));
 

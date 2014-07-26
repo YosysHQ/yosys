@@ -163,7 +163,7 @@ struct SplitnetsPass : public Pass {
 			}
 			else
 			{
-				for (auto &w : module->wires) {
+				for (auto &w : module->wires_) {
 					RTLIL::Wire *wire = w.second;
 					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, w.second))
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();

@@ -212,7 +212,7 @@ struct SubmodWorker
 
 		if (opt_name.empty())
 		{
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				it.second->attributes.erase("\\submod");
 
 			for (auto &it : module->cells)

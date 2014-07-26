@@ -271,7 +271,7 @@ namespace
 		}
 
 		// mark external signals (used in module ports)
-		for (auto &wire_it : mod->wires)
+		for (auto &wire_it : mod->wires_)
 		{
 			RTLIL::Wire *wire = wire_it.second;
 			if (wire->port_id > 0)
@@ -300,7 +300,7 @@ namespace
 		RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name.c_str(), RTLIL::autoidx++), needle->name);
 
 		// create cell ports
-		for (auto &it : needle->wires) {
+		for (auto &it : needle->wires_) {
 			RTLIL::Wire *wire = it.second;
 			if (wire->port_id > 0) {
 				for (int i = 0; i < wire->width; i++)
@@ -742,7 +742,7 @@ struct ExtractPass : public Pass {
 						std::vector<RTLIL::SigChunk> chunks = sigmap(conn.second);
 						for (auto &chunk : chunks)
 							if (chunk.wire != NULL)
-								chunk.wire = newMod->wires.at(chunk.wire->name);
+								chunk.wire = newMod->wires_.at(chunk.wire->name);
 						newCell->set(conn.first, chunks);
 					}
 				}

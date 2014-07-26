@@ -161,7 +161,7 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 		}
 
 		RTLIL::Module *mod = mod_it.second;
-		for (auto &it : mod->wires)
+		for (auto &it : mod->wires_)
 			if (!lhs.selected_member(mod_it.first, it.first))
 				new_sel.selected_members[mod->name].insert(it.first);
 		for (auto &it : mod->memories)
@@ -215,11 +215,11 @@ static void select_op_alias(RTLIL::Design *design, RTLIL::Selection &lhs)
 		SigMap sigmap(mod_it.second);
 		SigPool selected_bits;
 
-		for (auto &it : mod_it.second->wires)
+		for (auto &it : mod_it.second->wires_)
 			if (lhs.selected_member(mod_it.first, it.first))
 				selected_bits.add(sigmap(it.second));
 
-		for (auto &it : mod_it.second->wires)
+		for (auto &it : mod_it.second->wires_)
 			if (!lhs.selected_member(mod_it.first, it.first) && selected_bits.check_any(sigmap(it.second)))
 				lhs.selected_members[mod_it.first].insert(it.first);
 	}
@@ -278,7 +278,7 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 
 		if (lhs.selected_modules.count(mod->name) > 0)
 		{
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 				lhs.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->memories)
 				lhs.selected_members[mod->name].insert(it.first);
@@ -376,7 +376,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 		RTLIL::Module *mod = mod_it.second;
 		std::set<RTLIL::Wire*> selected_wires;
 
-		for (auto &it : mod->wires)
+		for (auto &it : mod->wires_)
 			if (lhs.selected_member(mod_it.first, it.first) && limits.count(it.first) == 0)
 				selected_wires.insert(it.second);
 
@@ -700,22 +700,22 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 
 		RTLIL::Module *mod = mod_it.second;
 		if (arg_memb.substr(0, 2) == "w:") {
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "i:") {
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 				if (it.second->port_input && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "o:") {
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 				if (it.second->port_output && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "x:") {
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 				if ((it.second->port_input || it.second->port_output) && match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
@@ -723,7 +723,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			size_t delim = arg_memb.substr(2).find(':');
 			if (delim == std::string::npos) {
 				int width = atoi(arg_memb.substr(2).c_str());
-				for (auto &it : mod->wires)
+				for (auto &it : mod->wires_)
 					if (it.second->width == width)
 						sel.selected_members[mod->name].insert(it.first);
 			} else {
@@ -731,7 +731,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				std::string max_str = arg_memb.substr(2+delim+1);
 				int min_width = min_str.empty() ? 0 : atoi(min_str.c_str());
 				int max_width = max_str.empty() ? -1 : atoi(max_str.c_str());
-				for (auto &it : mod->wires)
+				for (auto &it : mod->wires_)
 					if (min_width <= it.second->width && (it.second->width <= max_width || max_width == -1))
 						sel.selected_members[mod->name].insert(it.first);
 			}
@@ -757,7 +757,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.substr(0, 2) == "a:") {
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->memories)
@@ -777,7 +777,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		} else {
 			if (arg_memb.substr(0, 2) == "n:")
 				arg_memb = arg_memb.substr(2);
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 				if (match_ids(it.first, arg_memb))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto &it : mod->memories)
@@ -1152,7 +1152,7 @@ struct SelectPass : public Pass {
 				if (sel->selected_whole_module(mod_it.first) && list_mode)
 					log("%s\n", id2cstr(mod_it.first));
 				if (sel->selected_module(mod_it.first)) {
-					for (auto &it : mod_it.second->wires)
+					for (auto &it : mod_it.second->wires_)
 						if (sel->selected_member(mod_it.first, it.first))
 							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
 					for (auto &it : mod_it.second->memories)
@@ -1219,7 +1219,7 @@ struct SelectPass : public Pass {
 			sel->optimize(design);
 			for (auto mod_it : design->modules)
 				if (sel->selected_module(mod_it.first)) {
-					for (auto &it : mod_it.second->wires)
+					for (auto &it : mod_it.second->wires_)
 						if (sel->selected_member(mod_it.first, it.first))
 							total_count++;
 					for (auto &it : mod_it.second->memories)
@@ -1374,7 +1374,7 @@ struct LsPass : public Pass {
 		if (design->modules.count(design->selected_active_module) > 0)
 		{
 			RTLIL::Module *module = design->modules.at(design->selected_active_module);
-			counter += log_matches("wires", pattern, module->wires);
+			counter += log_matches("wires", pattern, module->wires_);
 			counter += log_matches("memories", pattern, module->memories);
 			counter += log_matches("cells", pattern, module->cells);
 			counter += log_matches("processes", pattern, module->processes);

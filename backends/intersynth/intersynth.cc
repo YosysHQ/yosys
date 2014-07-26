@@ -147,7 +147,7 @@ struct IntersynthBackend : public Backend {
 			netlists_code += stringf("netlist %s\n", RTLIL::id2cstr(module->name));
 
 			// Module Ports: "std::set<string> celltypes_code" prevents duplicate top level ports
-			for (auto wire_it : module->wires) {
+			for (auto wire_it : module->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_input || wire->port_output) {
 					celltypes_code.insert(stringf("celltype !%s b%d %sPORT\n" "%s %s %d %s PORT\n",

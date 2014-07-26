@@ -45,7 +45,7 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 			used_signals.add(sigmap(conn.second));
 	}
 
-	for (auto &it : module->wires) {
+	for (auto &it : module->wires_) {
 		if (it.second->port_input)
 			driven_signals.add(sigmap(it.second));
 		if (it.second->port_output)

@@ -114,7 +114,7 @@ struct SccWorker
 		SigPool selectedSignals;
 		SigSet<RTLIL::Cell*> sigToNextCells;
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (design->selected(module, it.second))
 				selectedSignals.add(sigmap(RTLIL::SigSpec(it.second)));
 

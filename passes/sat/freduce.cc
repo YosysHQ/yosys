@@ -602,7 +602,7 @@ struct FreduceWorker
 
 		int bits_full_total = 0;
 		std::vector<std::set<RTLIL::SigBit>> batches;
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (it.second->port_input) {
 				batches.push_back(sigmap(it.second).to_sigbit_set());
 				bits_full_total += it.second->width;

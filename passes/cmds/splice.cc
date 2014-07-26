@@ -149,7 +149,7 @@ struct SpliceWorker
 		driven_bits.push_back(RTLIL::State::Sm);
 		driven_bits.push_back(RTLIL::State::Sm);
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (it.second->port_input) {
 				RTLIL::SigSpec sig = sigmap(it.second);
 				driven_chunks.insert(sig);
@@ -175,7 +175,7 @@ struct SpliceWorker
 
 		SigPool selected_bits;
 		if (!sel_by_cell)
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
 					selected_bits.add(sigmap(it.second));
 
@@ -203,7 +203,7 @@ struct SpliceWorker
 
 		std::vector<std::pair<RTLIL::Wire*, RTLIL::SigSpec>> rework_wires;
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (!no_outputs && it.second->port_output) {
 				if (!design->selected(module, it.second))
 					continue;

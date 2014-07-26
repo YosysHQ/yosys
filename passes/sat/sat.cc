@@ -94,7 +94,7 @@ struct SatHelper
 
 		RTLIL::SigSpec big_lhs, big_rhs;
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 		{
 			if (it.second->attributes.count("\\init") == 0)
 				continue;
@@ -1158,19 +1158,19 @@ struct SatPass : public Pass {
 			log_cmd_error("The options -set-init-undef, -set-init-def, and -set-init-zero are exclusive!\n");
 
 		if (set_def_inputs) {
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (it.second->port_input)
 					sets_def.push_back(it.second->name);
 		}
 
 		if (show_inputs) {
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (it.second->port_input)
 					shows.push_back(it.second->name);
 		}
 
 		if (show_outputs) {
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (it.second->port_output)
 					shows.push_back(it.second->name);
 		}

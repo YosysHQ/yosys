@@ -173,11 +173,11 @@ struct FsmDetectPass : public Pass {
 					}
 				}
 
-			for (auto &wire_it : module->wires)
+			for (auto &wire_it : module->wires_)
 				if (wire_it.second->port_id != 0)
 					sig_at_port.add(assign_map(RTLIL::SigSpec(wire_it.second)));
 
-			for (auto &wire_it : module->wires)
+			for (auto &wire_it : module->wires_)
 				if (design->selected(module, wire_it.second))
 					detect_fsm(wire_it.second);
 		}

@@ -76,7 +76,7 @@ void reset_auto_counter(RTLIL::Module *module)
 
 	reset_auto_counter_id(module->name, false);
 
-	for (auto it = module->wires.begin(); it != module->wires.end(); it++)
+	for (auto it = module->wires_.begin(); it != module->wires_.end(); it++)
 		reset_auto_counter_id(it->second->name, true);
 
 	for (auto it = module->cells.begin(); it != module->cells.end(); it++) {
@@ -920,7 +920,7 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 						reg_bits.insert(std::pair<RTLIL::Wire*,int>(chunk.wire, chunk.offset+i));
 			}
 		}
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 		{
 			RTLIL::Wire *wire = it.second;
 			for (int i = 0; i < wire->width; i++)
@@ -936,7 +936,7 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 	bool keep_running = true;
 	for (int port_id = 1; keep_running; port_id++) {
 		keep_running = false;
-		for (auto it = module->wires.begin(); it != module->wires.end(); it++) {
+		for (auto it = module->wires_.begin(); it != module->wires_.end(); it++) {
 			RTLIL::Wire *wire = it->second;
 			if (wire->port_id == port_id) {
 				if (port_id != 1)
@@ -949,7 +949,7 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 	}
 	fprintf(f, ");\n");
 
-	for (auto it = module->wires.begin(); it != module->wires.end(); it++)
+	for (auto it = module->wires_.begin(); it != module->wires_.end(); it++)
 		dump_wire(f, indent + "  ", it->second);
 
 	for (auto it = module->memories.begin(); it != module->memories.end(); it++)

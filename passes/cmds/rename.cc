@@ -29,7 +29,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	if (module->count_id(to_name))
 		log_cmd_error("There is already an object `%s' in module `%s'.\n", to_name.c_str(), module->name.c_str());
 
-	for (auto &it : module->wires)
+	for (auto &it : module->wires_)
 		if (it.first == from_name) {
 			log("Renaming wire %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
 			module->rename(it.second, to_name);
@@ -105,13 +105,13 @@ struct RenamePass : public Pass {
 					continue;
 
 				std::map<RTLIL::IdString, RTLIL::Wire*> new_wires;
-				for (auto &it : module->wires) {
+				for (auto &it : module->wires_) {
 					if (it.first[0] == '$' && design->selected(module, it.second))
 						do it.second->name = stringf("\\_%d_", counter++);
 						while (module->count_id(it.second->name) > 0);
 					new_wires[it.second->name] = it.second;
 				}
-				module->wires.swap(new_wires);
+				module->wires_.swap(new_wires);
 
 				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
 				for (auto &it : module->cells) {
@@ -135,13 +135,13 @@ struct RenamePass : public Pass {
 					continue;
 
 				std::map<RTLIL::IdString, RTLIL::Wire*> new_wires;
-				for (auto &it : module->wires) {
+				for (auto &it : module->wires_) {
 					if (design->selected(module, it.second))
 						if (it.first[0] == '\\' && it.second->port_id == 0)
 							it.second->name = NEW_ID;
 					new_wires[it.second->name] = it.second;
 				}
-				module->wires.swap(new_wires);
+				module->wires_.swap(new_wires);
 
 				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
 				for (auto &it : module->cells) {

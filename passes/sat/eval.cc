@@ -87,16 +87,16 @@ struct BruteForceEquivChecker
 			mod1(mod1), mod2(mod2), counter(0), errors(0), ignore_x_mod1(ignore_x_mod1)
 	{
 		log("Checking for equivialence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
-		for (auto &w : mod1->wires)
+		for (auto &w : mod1->wires_)
 		{
 			RTLIL::Wire *wire1 = w.second;
 			if (wire1->port_id == 0)
 				continue;
 
-			if (mod2->wires.count(wire1->name) == 0)
+			if (mod2->wires_.count(wire1->name) == 0)
 				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", wire1->name.c_str());
 
-			RTLIL::Wire *wire2 = mod2->wires.at(wire1->name);
+			RTLIL::Wire *wire2 = mod2->wires_.at(wire1->name);
 			if (wire1->width != wire2->width || wire1->port_input != wire2->port_input || wire1->port_output != wire2->port_output)
 				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", wire1->name.c_str());
 
@@ -153,11 +153,11 @@ struct VlogHammerReporter
 
 		ez.assume(satgen.signals_eq(recorded_set_vars, recorded_set_vals));
 
-		std::vector<int> y_vec = satgen.importDefSigSpec(module->wires.at("\\y"));
+		std::vector<int> y_vec = satgen.importDefSigSpec(module->wires_.at("\\y"));
 		std::vector<bool> y_values;
 
 		if (model_undef) {
-			std::vector<int> y_undef_vec = satgen.importUndefSigSpec(module->wires.at("\\y"));
+			std::vector<int> y_undef_vec = satgen.importUndefSigSpec(module->wires_.at("\\y"));
 			y_vec.insert(y_vec.end(), y_undef_vec.begin(), y_undef_vec.end());
 		}
 
@@ -252,7 +252,7 @@ struct VlogHammerReporter
 
 				std::vector<RTLIL::State> bits(patterns[idx].bits.begin(), patterns[idx].bits.begin() + total_input_width);
 				for (int i = 0; i < int(inputs.size()); i++) {
-					RTLIL::Wire *wire = module->wires.at(inputs[i]);
+					RTLIL::Wire *wire = module->wires_.at(inputs[i]);
 					for (int j = input_widths[i]-1; j >= 0; j--) {
 						ce.set(RTLIL::SigSpec(wire, j), bits.back());
 						recorded_set_vars.append(RTLIL::SigSpec(wire, j));
@@ -268,10 +268,10 @@ struct VlogHammerReporter
 					}
 				}
 
-				if (module->wires.count("\\y") == 0)
+				if (module->wires_.count("\\y") == 0)
 					log_error("No output wire (y) found in module %s!\n", RTLIL::id2cstr(module->name));
 
-				RTLIL::SigSpec sig(module->wires.at("\\y"));
+				RTLIL::SigSpec sig(module->wires_.at("\\y"));
 				RTLIL::SigSpec undef;
 
 				while (!ce.eval(sig, undef)) {
@@ -318,9 +318,9 @@ struct VlogHammerReporter
 			int width = -1;
 			RTLIL::IdString esc_name = RTLIL::escape_id(name);
 			for (auto mod : modules) {
-				if (mod->wires.count(esc_name) == 0)
+				if (mod->wires_.count(esc_name) == 0)
 					log_error("Can't find input %s in module %s!\n", name.c_str(), RTLIL::id2cstr(mod->name));
-				RTLIL::Wire *port = mod->wires.at(esc_name);
+				RTLIL::Wire *port = mod->wires_.at(esc_name);
 				if (!port->port_input || port->port_output)
 					log_error("Wire %s in module %s is not an input!\n", name.c_str(), RTLIL::id2cstr(mod->name));
 				if (width >= 0 && width != port->width)
@@ -469,7 +469,7 @@ struct EvalPass : public Pass {
 		}
 
 		if (shows.size() == 0) {
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (it.second->port_output)
 					shows.push_back(it.second->name);
 		}

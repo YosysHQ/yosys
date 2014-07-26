@@ -296,7 +296,7 @@ struct AST_INTERNAL::ProcessGenerator
 						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.find('$') != std::string::npos)
 					wire_name += stringf("$%d", RTLIL::autoidx++);
-			} while (current_module->wires.count(wire_name) > 0);
+			} while (current_module->wires_.count(wire_name) > 0);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
 			wire->attributes["\\src"] = stringf("%s:%d", always->filename.c_str(), always->linenum);
@@ -779,7 +779,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// create an RTLIL::Wire for an AST_WIRE node
 	case AST_WIRE: {
-			if (current_module->wires.count(str) != 0)
+			if (current_module->wires_.count(str) != 0)
 				log_error("Re-definition of signal `%s' at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
 			if (!range_valid)
@@ -869,7 +869,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Wire *wire = NULL;
 			RTLIL::SigChunk chunk;
 
-			if (id2ast && id2ast->type == AST_AUTOWIRE && current_module->wires.count(str) == 0) {
+			if (id2ast && id2ast->type == AST_AUTOWIRE && current_module->wires_.count(str) == 0) {
 				RTLIL::Wire *wire = current_module->addWire(str);
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				wire->name = str;
@@ -886,7 +886,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				goto use_const_chunk;
 			}
 			else if (!id2ast || (id2ast->type != AST_WIRE && id2ast->type != AST_AUTOWIRE &&
-					id2ast->type != AST_MEMORY) || current_module->wires.count(str) == 0)
+					id2ast->type != AST_MEMORY) || current_module->wires_.count(str) == 0)
 				log_error("Identifier `%s' doesn't map to any signal at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
 
@@ -894,7 +894,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_error("Identifier `%s' does map to an unexpanded memory at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
 
-			wire = current_module->wires[str];
+			wire = current_module->wires_[str];
 			chunk.wire = wire;
 			chunk.width = wire->width;
 			chunk.offset = 0;

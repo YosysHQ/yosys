@@ -203,7 +203,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	for (auto &it : selected_members)
 		if (it.second.size() == 0)
 			del_list.push_back(it.first);
-		else if (it.second.size() == design->modules[it.first]->wires.size() + design->modules[it.first]->memories.size() +
+		else if (it.second.size() == design->modules[it.first]->wires_.size() + design->modules[it.first]->memories.size() +
 				design->modules[it.first]->cells.size() + design->modules[it.first]->processes.size())
 			add_list.push_back(it.first);
 	for (auto mod_name : del_list)
@@ -276,7 +276,7 @@ bool RTLIL::Design::selected_member(RTLIL::IdString mod_name, RTLIL::IdString me
 
 RTLIL::Module::~Module()
 {
-	for (auto it = wires.begin(); it != wires.end(); it++)
+	for (auto it = wires_.begin(); it != wires_.end(); it++)
 		delete it->second;
 	for (auto it = memories.begin(); it != memories.end(); it++)
 		delete it->second;
@@ -293,7 +293,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, std::map<RTLIL::IdString, 
 
 size_t RTLIL::Module::count_id(RTLIL::IdString id)
 {
-	return wires.count(id) + memories.count(id) + cells.count(id) + processes.count(id);
+	return wires_.count(id) + memories.count(id) + cells.count(id) + processes.count(id);
 }
 
 #ifndef NDEBUG
@@ -710,7 +710,7 @@ namespace {
 void RTLIL::Module::check()
 {
 #ifndef NDEBUG
-	for (auto &it : wires) {
+	for (auto &it : wires_) {
 		assert(it.first == it.second->name);
 		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		assert(it.second->width >= 0);
@@ -776,7 +776,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	new_mod->connections_ = connections_;
 	new_mod->attributes = attributes;
 
-	for (auto &it : wires)
+	for (auto &it : wires_)
 		new_mod->addWire(it.first, it.second);
 
 	for (auto &it : memories)
@@ -796,7 +796,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 			std::vector<RTLIL::SigChunk> chunks = sig.chunks();
 			for (auto &c : chunks)
 				if (c.wire != NULL)
-					c.wire = mod->wires.at(c.wire->name);
+					c.wire = mod->wires_.at(c.wire->name);
 			sig = chunks;
 		}
 	};
@@ -817,7 +817,7 @@ void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	assert(!wire->name.empty());
 	assert(count_id(wire->name) == 0);
-	wires[wire->name] = wire;
+	wires_[wire->name] = wire;
 }
 
 void RTLIL::Module::add(RTLIL::Cell *cell)
@@ -848,9 +848,9 @@ namespace {
 #if 0
 void RTLIL::Module::remove(RTLIL::Wire *wire)
 {
-	std::set<RTLIL::Wire*> wires;
-	wires.insert(wire);
-	remove(wires);
+	std::set<RTLIL::Wire*> wires_;
+	wires_.insert(wire);
+	remove(wires_);
 }
 #endif
 
@@ -862,7 +862,7 @@ void RTLIL::Module::remove(const std::set<RTLIL::Wire*> &wires)
 	rewrite_sigspecs(delete_wire_worker);
 
 	for (auto &it : wires) {
-		this->wires.erase(it->name);
+		this->wires_.erase(it->name);
 		delete it;
 	}
 }
@@ -876,8 +876,8 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
 {
-	assert(wires[wire->name] == wire);
-	wires.erase(wire->name);
+	assert(wires_[wire->name] == wire);
+	wires_.erase(wire->name);
 	wire->name = new_name;
 	add(wire);
 }
@@ -893,8 +893,8 @@ void RTLIL::Module::rename(RTLIL::Cell *cell, RTLIL::IdString new_name)
 void RTLIL::Module::rename(RTLIL::IdString old_name, RTLIL::IdString new_name)
 {
 	assert(count_id(old_name) != 0);
-	if (wires.count(old_name))
-		rename(wires.at(old_name), new_name);
+	if (wires_.count(old_name))
+		rename(wires_.at(old_name), new_name);
 	else if (cells.count(old_name))
 		rename(cells.at(old_name), new_name);
 	else
@@ -932,7 +932,7 @@ void RTLIL::Module::fixup_ports()
 {
 	std::vector<RTLIL::Wire*> all_ports;
 
-	for (auto &w : wires)
+	for (auto &w : wires_)
 		if (w.second->port_input || w.second->port_output)
 			all_ports.push_back(w.second);
 		else
@@ -2457,7 +2457,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 		if (netname[0] != '$' && netname[0] != '\\')
 			netname = "\\" + netname;
 
-		if (module->wires.count(netname) == 0) {
+		if (module->wires_.count(netname) == 0) {
 			size_t indices_pos = netname.size()-1;
 			if (indices_pos > 2 && netname[indices_pos] == ']')
 			{
@@ -2474,10 +2474,10 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 			}
 		}
 
-		if (module->wires.count(netname) == 0)
+		if (module->wires_.count(netname) == 0)
 			return false;
 
-		RTLIL::Wire *wire = module->wires.at(netname);
+		RTLIL::Wire *wire = module->wires_.at(netname);
 		if (!indices.empty()) {
 			std::vector<std::string> index_tokens;
 			sigspec_parse_split(index_tokens, indices.substr(1, indices.size()-2), ':');
@@ -2514,7 +2514,7 @@ bool RTLIL::SigSpec::parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL
 
 	sig = RTLIL::SigSpec();
 	RTLIL::Selection &sel = design->selection_vars.at(str);
-	for (auto &it : module->wires)
+	for (auto &it : module->wires_)
 		if (sel.selected_member(module->name, it.first))
 			sig.append(it.second);
 

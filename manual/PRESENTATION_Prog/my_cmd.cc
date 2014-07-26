@@ -14,7 +14,7 @@ struct MyPass : public Pass {
         log("Modules in current design:\n");
         for (auto &mod : design->modules)
             log("  %s (%zd wires, %zd cells)\n", RTLIL::id2cstr(mod.first),
-                    mod.second->wires.size(), mod.second->cells.size());
+                    mod.second->wires_.size(), mod.second->cells.size());
     }
 } MyPass;
 
@@ -58,8 +58,8 @@ struct Test2Pass : public Pass {
 
         RTLIL::Module *module = design->modules.at("\\test");
 
-        RTLIL::SigSpec a(module->wires.at("\\a")), x(module->wires.at("\\x")),
-                                                   y(module->wires.at("\\y"));
+        RTLIL::SigSpec a(module->wires_.at("\\a")), x(module->wires_.at("\\x")),
+                                                   y(module->wires_.at("\\y"));
         log("%d %d %d\n", a == x, x == y, y == a); // will print "0 0 0"
 
         SigMap sigmap(module);

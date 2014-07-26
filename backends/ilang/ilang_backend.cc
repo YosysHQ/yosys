@@ -280,7 +280,7 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 
 	if (print_body)
 	{
-		for (auto it = module->wires.begin(); it != module->wires.end(); it++)
+		for (auto it = module->wires_.begin(); it != module->wires_.end(); it++)
 			if (!only_selected || design->selected(module, it->second)) {
 				if (only_selected)
 					fprintf(f, "\n");

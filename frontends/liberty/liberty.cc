@@ -45,11 +45,11 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
-	if (!module->wires.count(id))
+	if (!module->wires_.count(id))
 		log_error("Can't resolve wire name %s.\n", RTLIL::id2cstr(id));
 
 	expr += id_len;
-	return module->wires.at(id);
+	return module->wires_.at(id);
 }
 
 static RTLIL::SigSpec create_inv_cell(RTLIL::Module *module, RTLIL::SigSpec A)
@@ -527,7 +527,7 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib && dir->value == "internal")
 						continue;
 
-					RTLIL::Wire *wire = module->wires.at(RTLIL::escape_id(node->args.at(0)));
+					RTLIL::Wire *wire = module->wires_.at(RTLIL::escape_id(node->args.at(0)));
 
 					if (dir && dir->value == "inout") {
 						wire->port_input = true;

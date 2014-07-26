@@ -43,7 +43,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 	}
 
 	// for each wire in the module
-	for (auto &wire_iter : module->wires)
+	for (auto &wire_iter : module->wires_)
 	{
 		RTLIL::Wire *wire = wire_iter.second;
 

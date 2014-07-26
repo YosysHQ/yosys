@@ -79,7 +79,7 @@ struct DeletePass : public Pass {
 			RTLIL::Module *module = mod_it.second;
 
 			if (flag_input || flag_output) {
-				for (auto &it : module->wires)
+				for (auto &it : module->wires_)
 					if (design->selected(module, it.second)) {
 						if (flag_input)
 							it.second->port_input = false;
@@ -95,7 +95,7 @@ struct DeletePass : public Pass {
 			std::set<std::string> delete_procs;
 			std::set<std::string> delete_mems;
 
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
 					delete_wires.insert(it.second);
 

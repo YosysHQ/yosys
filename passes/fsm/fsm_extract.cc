@@ -283,10 +283,10 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// rename original state wire
 
-	module->wires.erase(wire->name);
+	module->wires_.erase(wire->name);
 	wire->attributes.erase("\\fsm_encoding");
 	wire->name = stringf("$fsm$oldstate%s", wire->name.c_str());
-	module->wires[wire->name] = wire;
+	module->wires_[wire->name] = wire;
 
 	// unconnect control outputs from old drivers
 
@@ -356,7 +356,7 @@ struct FsmExtractPass : public Pass {
 				}
 
 			std::vector<RTLIL::Wire*> wire_list;
-			for (auto &wire_it : module->wires)
+			for (auto &wire_it : module->wires_)
 				if (wire_it.second->attributes.count("\\fsm_encoding") > 0 && wire_it.second->attributes["\\fsm_encoding"].decode_string() != "none")
 					if (design->selected(module, wire_it.second))
 						wire_list.push_back(wire_it.second);

@@ -111,7 +111,7 @@ struct SetattrPass : public Pass {
 			if (!design->selected(module))
 				continue;
 
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
 					do_setunset(it.second->attributes, setunset_list);
 

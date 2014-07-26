@@ -280,7 +280,7 @@ protected:
 public:
 	RTLIL::IdString name;
 	std::set<RTLIL::IdString> avail_parameters;
-	std::map<RTLIL::IdString, RTLIL::Wire*> wires;
+	std::map<RTLIL::IdString, RTLIL::Wire*> wires_;
 	std::map<RTLIL::IdString, RTLIL::Memory*> memories;
 	std::map<RTLIL::IdString, RTLIL::Cell*> cells;
 	std::map<RTLIL::IdString, RTLIL::Process*> processes;

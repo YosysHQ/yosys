@@ -68,7 +68,7 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 			RTLIL::Module *mod = design->modules.at(cell->type);
 
 			std::vector<RTLIL::Wire*> ports;
-			for (auto wire_it : mod->wires) {
+			for (auto wire_it : mod->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_id == 0)
 					continue;
@@ -195,7 +195,7 @@ struct SpiceBackend : public Backend {
 			}
 
 			std::vector<RTLIL::Wire*> ports;
-			for (auto wire_it : module->wires) {
+			for (auto wire_it : module->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_id == 0)
 					continue;

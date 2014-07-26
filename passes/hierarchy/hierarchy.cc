@@ -221,15 +221,15 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 			std::string portname = conn.first;
 			if (portname.substr(0, 1) == "$") {
 				int port_id = atoi(portname.substr(1).c_str());
-				for (auto &wire_it : mod->wires)
+				for (auto &wire_it : mod->wires_)
 					if (wire_it.second->port_id == port_id) {
 						portname = wire_it.first;
 						break;
 					}
 			}
-			if (mod->wires.count(portname) == 0)
+			if (mod->wires_.count(portname) == 0)
 				log_error("Array cell `%s.%s' connects to unkown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
-			int port_size = mod->wires.at(portname)->width;
+			int port_size = mod->wires_.at(portname)->width;
 			if (conn_size == port_size)
 				continue;
 			if (conn_size != port_size*num)
@@ -492,7 +492,7 @@ struct HierarchyPass : public Pass {
 			}
 
 			for (auto module : pos_mods)
-			for (auto &wire_it : module->wires) {
+			for (auto &wire_it : module->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_id > 0)
 					pos_map[std::pair<RTLIL::Module*,int>(module, wire->port_id)] = wire->name;

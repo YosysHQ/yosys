@@ -73,13 +73,13 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	RTLIL::Module *gold_module = design->modules.at(gold_name);
 	RTLIL::Module *gate_module = design->modules.at(gate_name);
 
-	for (auto &it : gold_module->wires) {
+	for (auto &it : gold_module->wires_) {
 		RTLIL::Wire *w1 = it.second, *w2;
 		if (w1->port_id == 0)
 			continue;
-		if (gate_module->wires.count(it.second->name) == 0)
+		if (gate_module->wires_.count(it.second->name) == 0)
 			goto match_gold_port_error;
-		w2 = gate_module->wires.at(it.second->name);
+		w2 = gate_module->wires_.at(it.second->name);
 		if (w1->port_input != w2->port_input)
 			goto match_gold_port_error;
 		if (w1->port_output != w2->port_output)
@@ -91,13 +91,13 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 		log_cmd_error("No matching port in gate module was found for %s!\n", it.second->name.c_str());
 	}
 
-	for (auto &it : gate_module->wires) {
+	for (auto &it : gate_module->wires_) {
 		RTLIL::Wire *w1 = it.second, *w2;
 		if (w1->port_id == 0)
 			continue;
-		if (gold_module->wires.count(it.second->name) == 0)
+		if (gold_module->wires_.count(it.second->name) == 0)
 			goto match_gate_port_error;
-		w2 = gold_module->wires.at(it.second->name);
+		w2 = gold_module->wires_.at(it.second->name);
 		if (w1->port_input != w2->port_input)
 			goto match_gate_port_error;
 		if (w1->port_output != w2->port_output)
@@ -120,7 +120,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 	RTLIL::SigSpec all_conditions;
 
-	for (auto &it : gold_module->wires)
+	for (auto &it : gold_module->wires_)
 	{
 		RTLIL::Wire *w1 = it.second;
 

@@ -46,8 +46,8 @@ static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module 
 		if (chunk.wire != NULL) {
 			std::string wire_name = chunk.wire->name;
 			apply_prefix(prefix, wire_name);
-			assert(module->wires.count(wire_name) > 0);
-			chunk.wire = module->wires[wire_name];
+			assert(module->wires_.count(wire_name) > 0);
+			chunk.wire = module->wires_[wire_name];
 		}
 	sig = chunks;
 }
@@ -72,7 +72,7 @@ struct TechmapWorker
 		if (module == NULL)
 			return result;
 
-		for (auto &it : module->wires) {
+		for (auto &it : module->wires_) {
 			const char *p = it.first.c_str();
 			if (*p == '$')
 				continue;
@@ -125,7 +125,7 @@ struct TechmapWorker
 
 		std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
 
-		for (auto &it : tpl->wires) {
+		for (auto &it : tpl->wires_) {
 			if (it.second->port_id > 0)
 				positional_ports[stringf("$%d", it.second->port_id)] = it.first;
 			std::string w_name = it.second->name;
@@ -145,12 +145,12 @@ struct TechmapWorker
 			RTLIL::IdString portname = it.first;
 			if (positional_ports.count(portname) > 0)
 				portname = positional_ports.at(portname);
-			if (tpl->wires.count(portname) == 0 || tpl->wires.at(portname)->port_id == 0) {
+			if (tpl->wires_.count(portname) == 0 || tpl->wires_.at(portname)->port_id == 0) {
 				if (portname.substr(0, 1) == "$")
 					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname.c_str(), cell->name.c_str(), tpl->name.c_str());
 				continue;
 			}
-			RTLIL::Wire *w = tpl->wires.at(portname);
+			RTLIL::Wire *w = tpl->wires_.at(portname);
 			RTLIL::SigSig c;
 			if (w->port_output) {
 				c.first = it.second;
@@ -265,7 +265,7 @@ struct TechmapWorker
 					for (auto conn : cell->connections()) {
 						if (conn.first.substr(0, 1) == "$")
 							continue;
-						if (tpl->wires.count(conn.first) > 0 && tpl->wires.at(conn.first)->port_id > 0)
+						if (tpl->wires_.count(conn.first) > 0 && tpl->wires_.at(conn.first)->port_id > 0)
 							continue;
 						if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0 || tpl->avail_parameters.count(conn.first) == 0)
 							goto next_tpl;
@@ -388,7 +388,7 @@ struct TechmapWorker
 
 							assert(!strncmp(q, "_TECHMAP_DO_", 12));
 							std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
-							while (tpl->wires.count(new_name))
+							while (tpl->wires_.count(new_name))
 								new_name += "_";
 							tpl->rename(data.wire, new_name);
 

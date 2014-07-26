@@ -137,7 +137,7 @@ struct MemoryShareWorker
 		std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> muxtree_upstream_map;
 		std::set<RTLIL::SigBit> non_feedback_nets;
 
-		for (auto wire_it : module->wires)
+		for (auto wire_it : module->wires_)
 			if (wire_it.second->port_output) {
 				std::vector<RTLIL::SigBit> bits = RTLIL::SigSpec(wire_it.second);
 				non_feedback_nets.insert(bits.begin(), bits.end());

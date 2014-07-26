@@ -255,7 +255,7 @@ struct EdifBackend : public Backend {
 			fprintf(f, "      (view VIEW_NETLIST\n");
 			fprintf(f, "        (viewType NETLIST)\n");
 			fprintf(f, "        (interface\n");
-			for (auto &wire_it : module->wires) {
+			for (auto &wire_it : module->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_id == 0)
 					continue;

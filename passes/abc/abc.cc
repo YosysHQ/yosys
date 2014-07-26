@@ -453,8 +453,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			clk_polarity = false;
 			clk_str = clk_str.substr(1);
 		}
-		if (module->wires.count(RTLIL::escape_id(clk_str)) != 0)
-			clk_sig = assign_map(RTLIL::SigSpec(module->wires.at(RTLIL::escape_id(clk_str)), 0));
+		if (module->wires_.count(RTLIL::escape_id(clk_str)) != 0)
+			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
 	}
 
 	if (dff_mode && clk_sig.size() == 0)
@@ -495,7 +495,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	for (auto c : cells)
 		extract_cell(c, keepff);
 
-	for (auto &wire_it : module->wires) {
+	for (auto &wire_it : module->wires_) {
 		if (wire_it.second->port_id > 0 || wire_it.second->get_bool_attribute("\\keep"))
 			mark_port(RTLIL::SigSpec(wire_it.second));
 	}
@@ -687,7 +687,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		RTLIL::Module *mapped_mod = mapped_design->modules["\\netlist"];
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `netlist'.\n");
-		for (auto &it : mapped_mod->wires) {
+		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
 			RTLIL::Wire *wire = module->addWire(remap_name(w->name));
 			design->select(module, wire);
@@ -701,47 +701,47 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 				if (c->type == "\\ZERO" || c->type == "\\ONE") {
 					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires[remap_name(c->get("\\Y").as_wire()->name)]);
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->get("\\Y").as_wire()->name)]);
 					conn.second = RTLIL::SigSpec(c->type == "\\ZERO" ? 0 : 1, 1);
 					module->connect(conn);
 					continue;
 				}
 				if (c->type == "\\BUF") {
 					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires[remap_name(c->get("\\Y").as_wire()->name)]);
-					conn.second = RTLIL::SigSpec(module->wires[remap_name(c->get("\\A").as_wire()->name)]);
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->get("\\Y").as_wire()->name)]);
+					conn.second = RTLIL::SigSpec(module->wires_[remap_name(c->get("\\A").as_wire()->name)]);
 					module->connect(conn);
 					continue;
 				}
 				if (c->type == "\\INV") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_INV_");
-					cell->set("\\A", RTLIL::SigSpec(module->wires[remap_name(c->get("\\A").as_wire()->name)]));
-					cell->set("\\Y", RTLIL::SigSpec(module->wires[remap_name(c->get("\\Y").as_wire()->name)]));
+					cell->set("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\A").as_wire()->name)]));
+					cell->set("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\Y").as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
-					cell->set("\\A", RTLIL::SigSpec(module->wires[remap_name(c->get("\\A").as_wire()->name)]));
-					cell->set("\\B", RTLIL::SigSpec(module->wires[remap_name(c->get("\\B").as_wire()->name)]));
-					cell->set("\\Y", RTLIL::SigSpec(module->wires[remap_name(c->get("\\Y").as_wire()->name)]));
+					cell->set("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\A").as_wire()->name)]));
+					cell->set("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\B").as_wire()->name)]));
+					cell->set("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\Y").as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\MUX") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_MUX_");
-					cell->set("\\A", RTLIL::SigSpec(module->wires[remap_name(c->get("\\A").as_wire()->name)]));
-					cell->set("\\B", RTLIL::SigSpec(module->wires[remap_name(c->get("\\B").as_wire()->name)]));
-					cell->set("\\S", RTLIL::SigSpec(module->wires[remap_name(c->get("\\S").as_wire()->name)]));
-					cell->set("\\Y", RTLIL::SigSpec(module->wires[remap_name(c->get("\\Y").as_wire()->name)]));
+					cell->set("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\A").as_wire()->name)]));
+					cell->set("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\B").as_wire()->name)]));
+					cell->set("\\S", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\S").as_wire()->name)]));
+					cell->set("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\Y").as_wire()->name)]));
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type == "\\DFF") {
 					log_assert(clk_sig.size() == 1);
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
-					cell->set("\\D", RTLIL::SigSpec(module->wires[remap_name(c->get("\\D").as_wire()->name)]));
-					cell->set("\\Q", RTLIL::SigSpec(module->wires[remap_name(c->get("\\Q").as_wire()->name)]));
+					cell->set("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\D").as_wire()->name)]));
+					cell->set("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\Q").as_wire()->name)]));
 					cell->set("\\C", clk_sig);
 					design->select(module, cell);
 					continue;
@@ -757,7 +757,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 				if (c->type == "\\_const0_" || c->type == "\\_const1_") {
 					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires[remap_name(c->connections().begin()->second.as_wire()->name)]);
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->connections().begin()->second.as_wire()->name)]);
 					conn.second = RTLIL::SigSpec(c->type == "\\_const0_" ? 0 : 1, 1);
 					module->connect(conn);
 					continue;
@@ -765,8 +765,8 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				if (c->type == "\\_dff_") {
 					log_assert(clk_sig.size() == 1);
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
-					cell->set("\\D", RTLIL::SigSpec(module->wires[remap_name(c->get("\\D").as_wire()->name)]));
-					cell->set("\\Q", RTLIL::SigSpec(module->wires[remap_name(c->get("\\Q").as_wire()->name)]));
+					cell->set("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\D").as_wire()->name)]));
+					cell->set("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->get("\\Q").as_wire()->name)]));
 					cell->set("\\C", clk_sig);
 					design->select(module, cell);
 					continue;
@@ -779,7 +779,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 						if (c.width == 0)
 							continue;
 						assert(c.width == 1);
-						newsig.append(module->wires[remap_name(c.wire->name)]);
+						newsig.append(module->wires_[remap_name(c.wire->name)]);
 					}
 					cell->set(conn.first, newsig);
 				}
@@ -789,9 +789,9 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		for (auto conn : mapped_mod->connections()) {
 			if (!conn.first.is_fully_const())
-				conn.first = RTLIL::SigSpec(module->wires[remap_name(conn.first.as_wire()->name)]);
+				conn.first = RTLIL::SigSpec(module->wires_[remap_name(conn.first.as_wire()->name)]);
 			if (!conn.second.is_fully_const())
-				conn.second = RTLIL::SigSpec(module->wires[remap_name(conn.second.as_wire()->name)]);
+				conn.second = RTLIL::SigSpec(module->wires_[remap_name(conn.second.as_wire()->name)]);
 			module->connect(conn);
 		}
 
@@ -805,10 +805,10 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				RTLIL::SigSig conn;
 				if (si.type >= 0) {
 					conn.first = si.bit;
-					conn.second = RTLIL::SigSpec(module->wires[remap_name(buffer)]);
+					conn.second = RTLIL::SigSpec(module->wires_[remap_name(buffer)]);
 					out_wires++;
 				} else {
-					conn.first = RTLIL::SigSpec(module->wires[remap_name(buffer)]);
+					conn.first = RTLIL::SigSpec(module->wires_[remap_name(buffer)]);
 					conn.second = si.bit;
 					in_wires++;
 				}

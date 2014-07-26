@@ -243,7 +243,7 @@ static char *readline_obj_generator(const char *text, int state)
 		{
 			RTLIL::Module *module = design->modules.at(design->selected_active_module);
 
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
 

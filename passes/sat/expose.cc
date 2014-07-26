@@ -87,7 +87,7 @@ static void find_dff_wires(std::set<std::string> &dff_wires, RTLIL::Module *modu
 			dffsignals.add(sigmap(it.second->get("\\Q")));
 	}
 
-	for (auto &it : module->wires) {
+	for (auto &it : module->wires_) {
 		if (dffsignals.check_any(it.second))
 			dff_wires.insert(it.first);
 	}
@@ -161,7 +161,7 @@ static void create_dff_dq_map(std::map<std::string, dff_map_info_t> &map, RTLIL:
 	}
 
 	std::map<std::string, dff_map_info_t> empty_dq_map;
-	for (auto &it : module->wires)
+	for (auto &it : module->wires_)
 	{
 		if (!consider_wire(it.second, empty_dq_map))
 			continue;
@@ -321,7 +321,7 @@ struct ExposePass : public Pass {
 					for (auto &it : shared_dff_wires) {
 						if (!dff_dq_maps[mod_it.second].count(it))
 							continue;
-						if (!compare_wires(first_module->wires.at(it), mod_it.second->wires.at(it)))
+						if (!compare_wires(first_module->wires_.at(it), mod_it.second->wires_.at(it)))
 							continue;
 						new_shared_dff_wires.insert(it);
 					}
@@ -365,7 +365,7 @@ struct ExposePass : public Pass {
 
 				if (first_module == NULL)
 				{
-					for (auto &it : module->wires)
+					for (auto &it : module->wires_)
 						if (design->selected(module, it.second) && consider_wire(it.second, dff_dq_maps[module]))
 							if (!flag_dff || dff_wires.count(it.first))
 								shared_wires.insert(it.first);
@@ -385,16 +385,16 @@ struct ExposePass : public Pass {
 					{
 						RTLIL::Wire *wire;
 
-						if (module->wires.count(it) == 0)
+						if (module->wires_.count(it) == 0)
 							goto delete_shared_wire;
 
-						wire = module->wires.at(it);
+						wire = module->wires_.at(it);
 
 						if (!design->selected(module, wire))
 							goto delete_shared_wire;
 						if (!consider_wire(wire, dff_dq_maps[module]))
 							goto delete_shared_wire;
-						if (!compare_wires(first_module->wires.at(it), wire))
+						if (!compare_wires(first_module->wires_.at(it), wire))
 							goto delete_shared_wire;
 						if (flag_dff && !dff_wires.count(it))
 							goto delete_shared_wire;
@@ -449,7 +449,7 @@ struct ExposePass : public Pass {
 
 			SigMap out_to_in_map;
 
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 			{
 				if (flag_shared) {
 					if (shared_wires.count(it.first) == 0)
@@ -491,10 +491,10 @@ struct ExposePass : public Pass {
 
 			for (auto &dq : dff_dq_maps[module])
 			{
-				if (!module->wires.count(dq.first))
+				if (!module->wires_.count(dq.first))
 					continue;
 
-				RTLIL::Wire *wire = module->wires.at(dq.first);
+				RTLIL::Wire *wire = module->wires_.at(dq.first);
 				std::set<RTLIL::SigBit> wire_bits_set = sigmap(wire).to_sigbit_set();
 				std::vector<RTLIL::SigBit> wire_bits_vec = sigmap(wire).to_sigbit_vector();
 
@@ -587,7 +587,7 @@ struct ExposePass : public Pass {
 					{
 						RTLIL::Module *mod = design->modules.at(cell->type);
 
-						for (auto &it : mod->wires)
+						for (auto &it : mod->wires_)
 						{
 							RTLIL::Wire *p = it.second;
 							if (!p->port_input && !p->port_output)

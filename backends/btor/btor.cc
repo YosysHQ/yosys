@@ -80,7 +80,7 @@ struct BtorDumper
 	{
 		line_num=0;
 		str.clear();
-		for(auto it=module->wires.begin(); it!=module->wires.end(); ++it)
+		for(auto it=module->wires_.begin(); it!=module->wires_.end(); ++it)
 		{
 			if(it->second->port_input)
 			{
@@ -880,7 +880,7 @@ struct BtorDumper
 		std::map<int, RTLIL::Wire*> inputs, outputs;
 		std::vector<RTLIL::Wire*> safety;
 		
-		for (auto &wire_it : module->wires) {
+		for (auto &wire_it : module->wires_) {
 			RTLIL::Wire *wire = wire_it.second;
 			if (wire->port_input)
 				inputs[wire->port_id] = wire;

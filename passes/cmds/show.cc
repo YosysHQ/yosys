@@ -305,7 +305,7 @@ struct ShowWorker
 		std::set<std::string> all_sources, all_sinks;
 
 		std::map<std::string, std::string> wires_on_demand;
-		for (auto &it : module->wires) {
+		for (auto &it : module->wires_) {
 			if (!design->selected_member(module->name, it.first))
 				continue;
 			const char *shape = "diamond";
