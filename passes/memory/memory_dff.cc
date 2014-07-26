@@ -25,7 +25,7 @@
 
 static void normalize_sig(RTLIL::Module *module, RTLIL::SigSpec &sig)
 {
-	for (auto &conn : module->connections_)
+	for (auto &conn : module->connections())
 		sig.replace(conn.first, conn.second);
 }
 
@@ -46,21 +46,21 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 				continue;
 
 			if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
-				if (cell->connections_["\\CLK"] != clk)
+				if (cell->get("\\CLK") != clk)
 					continue;
 				if (cell->parameters["\\CLK_POLARITY"].as_bool() != clk_polarity)
 					continue;
 			}
 
-			RTLIL::SigSpec q_norm = cell->connections_[after ? "\\D" : "\\Q"];
+			RTLIL::SigSpec q_norm = cell->connections()[after ? "\\D" : "\\Q"];
 			normalize_sig(module, q_norm);
 
-			RTLIL::SigSpec d = q_norm.extract(bit, &cell->connections_[after ? "\\Q" : "\\D"]);
+			RTLIL::SigSpec d = q_norm.extract(bit, &cell->connections()[after ? "\\Q" : "\\D"]);
 			if (d.size() != 1)
 				continue;
 
 			bit = d;
-			clk = cell->connections_["\\CLK"];
+			clk = cell->get("\\CLK");
 			clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
 			goto replaced_this_bit;
 		}
@@ -79,29 +79,29 @@ static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec clk = RTLIL::SigSpec(RTLIL::State::Sx);
 	bool clk_polarity = 0;
 
-	RTLIL::SigSpec sig_addr = cell->connections_["\\ADDR"];
+	RTLIL::SigSpec sig_addr = cell->get("\\ADDR");
 	if (!find_sig_before_dff(module, sig_addr, clk, clk_polarity)) {
 		log("no (compatible) $dff for address input found.\n");
 		return;
 	}
 
-	RTLIL::SigSpec sig_data = cell->connections_["\\DATA"];
+	RTLIL::SigSpec sig_data = cell->get("\\DATA");
 	if (!find_sig_before_dff(module, sig_data, clk, clk_polarity)) {
 		log("no (compatible) $dff for data input found.\n");
 		return;
 	}
 
-	RTLIL::SigSpec sig_en = cell->connections_["\\EN"];
+	RTLIL::SigSpec sig_en = cell->get("\\EN");
 	if (!find_sig_before_dff(module, sig_en, clk, clk_polarity)) {
 		log("no (compatible) $dff for enable input found.\n");
 		return;
 	}
 
 	if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
-		cell->connections_["\\CLK"] = clk;
-		cell->connections_["\\ADDR"] = sig_addr;
-		cell->connections_["\\DATA"] = sig_data;
-		cell->connections_["\\EN"] = sig_en;
+		cell->set("\\CLK", clk);
+		cell->set("\\ADDR", sig_addr);
+		cell->set("\\DATA", sig_data);
+		cell->set("\\EN", sig_en);
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		log("merged $dff to cell.\n");
@@ -128,7 +128,7 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 	for (auto &cell_it : module->cells) {
 		RTLIL::Cell *cell = cell_it.second;
 		if (cell->type == "$dff")
-			cell->connections_["\\Q"].replace(sig, newsig);
+			cell->get("\\Q").replace(sig, newsig);
 	}
 }
 
@@ -139,13 +139,13 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	bool clk_polarity = 0;
 
 	RTLIL::SigSpec clk_data = RTLIL::SigSpec(RTLIL::State::Sx);
-	RTLIL::SigSpec sig_data = cell->connections_["\\DATA"];
+	RTLIL::SigSpec sig_data = cell->get("\\DATA");
 	if (find_sig_before_dff(module, sig_data, clk_data, clk_polarity, true) &&
 			clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
 	{
 		disconnect_dff(module, sig_data);
-		cell->connections_["\\CLK"] = clk_data;
-		cell->connections_["\\DATA"] = sig_data;
+		cell->set("\\CLK", clk_data);
+		cell->set("\\DATA", sig_data);
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
@@ -154,12 +154,12 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 
 	RTLIL::SigSpec clk_addr = RTLIL::SigSpec(RTLIL::State::Sx);
-	RTLIL::SigSpec sig_addr = cell->connections_["\\ADDR"];
+	RTLIL::SigSpec sig_addr = cell->get("\\ADDR");
 	if (find_sig_before_dff(module, sig_addr, clk_addr, clk_polarity) &&
 			clk_addr != RTLIL::SigSpec(RTLIL::State::Sx))
 	{
-		cell->connections_["\\CLK"] = clk_addr;
-		cell->connections_["\\ADDR"] = sig_addr;
+		cell->set("\\CLK", clk_addr);
+		cell->set("\\ADDR", sig_addr);
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		cell->parameters["\\TRANSPARENT"] = RTLIL::Const(1);

@@ -43,34 +43,34 @@ struct FsmExpand
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
-			if (cell->connections_.at("\\A").size() < 2)
+			if (cell->get("\\A").size() < 2)
 				return true;
 
 		RTLIL::SigSpec new_signals;
-		if (cell->connections_.count("\\A") > 0)
-			new_signals.append(assign_map(cell->connections_["\\A"]));
-		if (cell->connections_.count("\\B") > 0)
-			new_signals.append(assign_map(cell->connections_["\\B"]));
-		if (cell->connections_.count("\\S") > 0)
-			new_signals.append(assign_map(cell->connections_["\\S"]));
-		if (cell->connections_.count("\\Y") > 0)
-			new_signals.append(assign_map(cell->connections_["\\Y"]));
+		if (cell->connections().count("\\A") > 0)
+			new_signals.append(assign_map(cell->get("\\A")));
+		if (cell->connections().count("\\B") > 0)
+			new_signals.append(assign_map(cell->get("\\B")));
+		if (cell->connections().count("\\S") > 0)
+			new_signals.append(assign_map(cell->get("\\S")));
+		if (cell->connections().count("\\Y") > 0)
+			new_signals.append(assign_map(cell->get("\\Y")));
 
 		new_signals.sort_and_unify();
 		new_signals.remove_const();
 
-		new_signals.remove(assign_map(fsm_cell->connections_["\\CTRL_IN"]));
-		new_signals.remove(assign_map(fsm_cell->connections_["\\CTRL_OUT"]));
+		new_signals.remove(assign_map(fsm_cell->get("\\CTRL_IN")));
+		new_signals.remove(assign_map(fsm_cell->get("\\CTRL_OUT")));
 
 		if (new_signals.size() > 3)
 			return false;
 
-		if (cell->connections_.count("\\Y") > 0) {
-			new_signals.append(assign_map(cell->connections_["\\Y"]));
+		if (cell->connections().count("\\Y") > 0) {
+			new_signals.append(assign_map(cell->get("\\Y")));
 			new_signals.sort_and_unify();
 			new_signals.remove_const();
-			new_signals.remove(assign_map(fsm_cell->connections_["\\CTRL_IN"]));
-			new_signals.remove(assign_map(fsm_cell->connections_["\\CTRL_OUT"]));
+			new_signals.remove(assign_map(fsm_cell->get("\\CTRL_IN")));
+			new_signals.remove(assign_map(fsm_cell->get("\\CTRL_OUT")));
 		}
 
 		if (new_signals.size() > 2)
@@ -83,10 +83,10 @@ struct FsmExpand
 	{
 		std::vector<RTLIL::Cell*> cell_list;
 
-		for (auto c : sig2driver.find(assign_map(fsm_cell->connections_["\\CTRL_IN"])))
+		for (auto c : sig2driver.find(assign_map(fsm_cell->get("\\CTRL_IN"))))
 			cell_list.push_back(c);
 
-		for (auto c : sig2user.find(assign_map(fsm_cell->connections_["\\CTRL_OUT"])))
+		for (auto c : sig2user.find(assign_map(fsm_cell->get("\\CTRL_OUT"))))
 			cell_list.push_back(c);
 
 		current_set.clear();
@@ -94,7 +94,7 @@ struct FsmExpand
 		{
 			if (merged_set.count(c) > 0 || current_set.count(c) > 0 || no_candidate_set.count(c) > 0)
 				continue;
-			for (auto &p : c->connections_) {
+			for (auto &p : c->connections()) {
 				if (p.first != "\\A" && p.first != "\\B" && p.first != "\\S" && p.first != "\\Y")
 					goto next_cell;
 			}
@@ -135,7 +135,7 @@ struct FsmExpand
 
 		RTLIL::SigSpec input_sig, output_sig;
 
-		for (auto &p : cell->connections_)
+		for (auto &p : cell->connections())
 			if (ct.cell_output(cell->type, p.first))
 				output_sig.append(assign_map(p.second));
 			else
@@ -148,12 +148,12 @@ struct FsmExpand
 		for (int i = 0; i < (1 << input_sig.size()); i++) {
 			RTLIL::Const in_val(i, input_sig.size());
 			RTLIL::SigSpec A, B, S;
-			if (cell->connections_.count("\\A") > 0)
-				A = assign_map(cell->connections_["\\A"]);
-			if (cell->connections_.count("\\B") > 0)
-				B = assign_map(cell->connections_["\\B"]);
-			if (cell->connections_.count("\\S") > 0)
-				S = assign_map(cell->connections_["\\S"]);
+			if (cell->connections().count("\\A") > 0)
+				A = assign_map(cell->get("\\A"));
+			if (cell->connections().count("\\B") > 0)
+				B = assign_map(cell->get("\\B"));
+			if (cell->connections().count("\\S") > 0)
+				S = assign_map(cell->get("\\S"));
 			A.replace(input_sig, RTLIL::SigSpec(in_val));
 			B.replace(input_sig, RTLIL::SigSpec(in_val));
 			S.replace(input_sig, RTLIL::SigSpec(in_val));
@@ -167,10 +167,10 @@ struct FsmExpand
 		fsm_data.copy_from_cell(fsm_cell);
 
 		fsm_data.num_inputs += input_sig.size();
-		fsm_cell->connections_["\\CTRL_IN"].append(input_sig);
+		fsm_cell->get("\\CTRL_IN").append(input_sig);
 
 		fsm_data.num_outputs += output_sig.size();
-		fsm_cell->connections_["\\CTRL_OUT"].append(output_sig);
+		fsm_cell->get("\\CTRL_OUT").append(output_sig);
 
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {
@@ -204,7 +204,7 @@ struct FsmExpand
 		for (auto &cell_it : module->cells) {
 			RTLIL::Cell *c = cell_it.second;
 			if (ct.cell_known(c->type) && design->selected(mod, c))
-				for (auto &p : c->connections_) {
+				for (auto &p : c->connections()) {
 					if (ct.cell_output(c->type, p.first))
 						sig2driver.insert(assign_map(p.second), c);
 					else

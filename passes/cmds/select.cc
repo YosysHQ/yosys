@@ -380,7 +380,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			if (lhs.selected_member(mod_it.first, it.first) && limits.count(it.first) == 0)
 				selected_wires.insert(it.second);
 
-		for (auto &conn : mod->connections_)
+		for (auto &conn : mod->connections())
 		{
 			std::vector<RTLIL::SigBit> conn_lhs = conn.first.to_sigbit_vector();
 			std::vector<RTLIL::SigBit> conn_rhs = conn.second.to_sigbit_vector();
@@ -396,7 +396,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 		}
 
 		for (auto &cell : mod->cells)
-		for (auto &conn : cell.second->connections_)
+		for (auto &conn : cell.second->connections())
 		{
 			char last_mode = '-';
 			for (auto &rule : rules) {

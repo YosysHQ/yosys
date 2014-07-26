@@ -163,7 +163,7 @@ void ILANG_BACKEND::dump_cell(FILE *f, std::string indent, const RTLIL::Cell *ce
 		dump_const(f, it->second);
 		fprintf(f, "\n");
 	}
-	for (auto it = cell->connections_.begin(); it != cell->connections_.end(); it++) {
+	for (auto it = cell->connections().begin(); it != cell->connections().end(); it++) {
 		fprintf(f, "%s  connect %s ", indent.c_str(), it->first.c_str());
 		dump_sigspec(f, it->second);
 		fprintf(f, "\n");
@@ -309,7 +309,7 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 			}
 
 		bool first_conn_line = true;
-		for (auto it = module->connections_.begin(); it != module->connections_.end(); it++) {
+		for (auto it = module->connections().begin(); it != module->connections().end(); it++) {
 			bool show_conn = !only_selected;
 			if (only_selected) {
 				RTLIL::SigSpec sigs = it->first;

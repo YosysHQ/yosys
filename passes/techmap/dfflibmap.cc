@@ -398,7 +398,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	{
 		auto cell_type = cell->type;
 		auto cell_name = cell->name;
-		auto cell_connections = cell->connections_;
+		auto cell_connections = cell->connections();
 		module->remove(cell);
 
 		cell_mapping &cm = cell_mappings[cell_type];
@@ -418,7 +418,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			} else
 			if (port.second != 0)
 				log_abort();
-			new_cell->connections_["\\" + port.first] = sig;
+			new_cell->connections()["\\" + port.first] = sig;
 		}
 
 		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;

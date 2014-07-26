@@ -610,7 +610,7 @@ struct FreduceWorker
 		for (auto &it : module->cells) {
 			if (ct.cell_known(it.second->type)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
-				for (auto &port : it.second->connections_) {
+				for (auto &port : it.second->connections()) {
 					std::vector<RTLIL::SigBit> bits = sigmap(port.second).to_sigbit_vector();
 					if (ct.cell_output(it.second->type, port.first))
 						outputs.insert(bits.begin(), bits.end());
@@ -624,7 +624,7 @@ struct FreduceWorker
 				bits_full_total += outputs.size();
 			}
 			if (inv_mode && it.second->type == "$_INV_")
-				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(it.second->connections_.at("\\A")), sigmap(it.second->connections_.at("\\Y"))));
+				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(it.second->get("\\A")), sigmap(it.second->get("\\Y"))));
 		}
 
 		int bits_count = 0;
@@ -708,7 +708,7 @@ struct FreduceWorker
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
 				RTLIL::Wire *dummy_wire = module->addWire(NEW_ID);
-				for (auto &port : drv->connections_)
+				for (auto &port : drv->connections())
 					if (ct.cell_output(drv->type, port.first))
 						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
 
@@ -719,14 +719,14 @@ struct FreduceWorker
 						inv_sig = module->addWire(NEW_ID);
 
 						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, "$_INV_");
-						inv_cell->connections_["\\A"] = grp[0].bit;
-						inv_cell->connections_["\\Y"] = inv_sig;
+						inv_cell->set("\\A", grp[0].bit);
+						inv_cell->set("\\Y", inv_sig);
 					}
 
-					module->connections_.push_back(RTLIL::SigSig(grp[i].bit, inv_sig));
+					module->connect(RTLIL::SigSig(grp[i].bit, inv_sig));
 				}
 				else
-					module->connections_.push_back(RTLIL::SigSig(grp[i].bit, grp[0].bit));
+					module->connect(RTLIL::SigSig(grp[i].bit, grp[0].bit));
 
 				rewired_sigbits++;
 			}

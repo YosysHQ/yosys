@@ -43,7 +43,7 @@ struct ConstEval
 		for (auto &it : module->cells) {
 			if (!ct.cell_known(it.second->type))
 				continue;
-			for (auto &it2 : it.second->connections_)
+			for (auto &it2 : it.second->connections())
 				if (ct.cell_output(it.second->type, it2.first))
 					sig2driver.insert(assign_map(it2.second), it.second);
 		}
@@ -87,22 +87,22 @@ struct ConstEval
 	{
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
 
-		assert(cell->connections_.count("\\Y") > 0);
-		sig_y = values_map(assign_map(cell->connections_["\\Y"]));
+		assert(cell->connections().count("\\Y") > 0);
+		sig_y = values_map(assign_map(cell->get("\\Y")));
 		if (sig_y.is_fully_const())
 			return true;
 
-		if (cell->connections_.count("\\S") > 0) {
-			sig_s = cell->connections_["\\S"];
+		if (cell->connections().count("\\S") > 0) {
+			sig_s = cell->get("\\S");
 			if (!eval(sig_s, undef, cell))
 				return false;
 		}
 
-		if (cell->connections_.count("\\A") > 0)
-			sig_a = cell->connections_["\\A"];
+		if (cell->connections().count("\\A") > 0)
+			sig_a = cell->get("\\A");
 
-		if (cell->connections_.count("\\B") > 0)
-			sig_b = cell->connections_["\\B"];
+		if (cell->connections().count("\\B") > 0)
+			sig_b = cell->get("\\B");
 
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_")
 		{

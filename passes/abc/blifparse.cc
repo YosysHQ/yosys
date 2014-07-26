@@ -128,8 +128,8 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				}
 
 				RTLIL::Cell *cell = module->addCell(NEW_ID, dff_name);
-				cell->connections_["\\D"] = module->wires.at(RTLIL::escape_id(d));
-				cell->connections_["\\Q"] = module->wires.at(RTLIL::escape_id(q));
+				cell->set("\\D", module->wires.at(RTLIL::escape_id(d)));
+				cell->set("\\Q", module->wires.at(RTLIL::escape_id(q)));
 				continue;
 			}
 
@@ -148,7 +148,7 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 					*(q++) = 0;
 					if (module->wires.count(RTLIL::escape_id(q)) == 0)
 						module->addWire(RTLIL::escape_id(q));
-					cell->connections_[RTLIL::escape_id(p)] = module->wires.at(RTLIL::escape_id(q));
+					cell->connections()[RTLIL::escape_id(p)] = module->wires.at(RTLIL::escape_id(q));
 				}
 				continue;
 			}
@@ -199,15 +199,15 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				finished_parsing_constval:
 					if (state == RTLIL::State::Sa)
 						state = RTLIL::State::S1;
-					module->connections_.push_back(RTLIL::SigSig(output_sig, state));
+					module->connect(RTLIL::SigSig(output_sig, state));
 					goto continue_without_read;
 				}
 
 				RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
 				cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
 				cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
-				cell->connections_["\\I"] = input_sig;
-				cell->connections_["\\O"] = output_sig;
+				cell->set("\\I", input_sig);
+				cell->set("\\O", output_sig);
 				lutptr = &cell->parameters.at("\\LUT");
 				lut_default_state = RTLIL::State::Sx;
 				continue;

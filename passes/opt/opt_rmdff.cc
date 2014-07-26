@@ -33,34 +33,34 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	RTLIL::Const val_cp, val_rp, val_rv;
 
 	if (dff->type == "$_DFF_N_" || dff->type == "$_DFF_P_") {
-		sig_d = dff->connections_["\\D"];
-		sig_q = dff->connections_["\\Q"];
-		sig_c = dff->connections_["\\C"];
+		sig_d = dff->get("\\D");
+		sig_q = dff->get("\\Q");
+		sig_c = dff->get("\\C");
 		val_cp = RTLIL::Const(dff->type == "$_DFF_P_", 1);
 	}
 	else if (dff->type.substr(0,6) == "$_DFF_" && dff->type.substr(9) == "_" &&
 			(dff->type[6] == 'N' || dff->type[6] == 'P') &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == '0' || dff->type[8] == '1')) {
-		sig_d = dff->connections_["\\D"];
-		sig_q = dff->connections_["\\Q"];
-		sig_c = dff->connections_["\\C"];
-		sig_r = dff->connections_["\\R"];
+		sig_d = dff->get("\\D");
+		sig_q = dff->get("\\Q");
+		sig_c = dff->get("\\C");
+		sig_r = dff->get("\\R");
 		val_cp = RTLIL::Const(dff->type[6] == 'P', 1);
 		val_rp = RTLIL::Const(dff->type[7] == 'P', 1);
 		val_rv = RTLIL::Const(dff->type[8] == '1', 1);
 	}
 	else if (dff->type == "$dff") {
-		sig_d = dff->connections_["\\D"];
-		sig_q = dff->connections_["\\Q"];
-		sig_c = dff->connections_["\\CLK"];
+		sig_d = dff->get("\\D");
+		sig_q = dff->get("\\Q");
+		sig_c = dff->get("\\CLK");
 		val_cp = RTLIL::Const(dff->parameters["\\CLK_POLARITY"].as_bool(), 1);
 	}
 	else if (dff->type == "$adff") {
-		sig_d = dff->connections_["\\D"];
-		sig_q = dff->connections_["\\Q"];
-		sig_c = dff->connections_["\\CLK"];
-		sig_r = dff->connections_["\\ARST"];
+		sig_d = dff->get("\\D");
+		sig_q = dff->get("\\Q");
+		sig_c = dff->get("\\CLK");
+		sig_r = dff->get("\\ARST");
 		val_cp = RTLIL::Const(dff->parameters["\\CLK_POLARITY"].as_bool(), 1);
 		val_rp = RTLIL::Const(dff->parameters["\\ARST_POLARITY"].as_bool(), 1);
 		val_rv = dff->parameters["\\ARST_VALUE"];
@@ -85,16 +85,16 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
 		for (auto mux : muxes) {
-			RTLIL::SigSpec sig_a = assign_map(mux->connections_.at("\\A"));
-			RTLIL::SigSpec sig_b = assign_map(mux->connections_.at("\\B"));
+			RTLIL::SigSpec sig_a = assign_map(mux->get("\\A"));
+			RTLIL::SigSpec sig_b = assign_map(mux->get("\\B"));
 			if (sig_a == sig_q && sig_b.is_fully_const()) {
 				RTLIL::SigSig conn(sig_q, sig_b);
-				mod->connections_.push_back(conn);
+				mod->connect(conn);
 				goto delete_dff;
 			}
 			if (sig_b == sig_q && sig_a.is_fully_const()) {
 				RTLIL::SigSig conn(sig_q, sig_a);
-				mod->connections_.push_back(conn);
+				mod->connect(conn);
 				goto delete_dff;
 			}
 		}
@@ -104,36 +104,36 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		if (val_rv.bits.size() == 0)
 			val_rv = val_init;
 		RTLIL::SigSig conn(sig_q, val_rv);
-		mod->connections_.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
 	if (sig_d.is_fully_undef() && sig_r.size() && !has_init) {
 		RTLIL::SigSig conn(sig_q, val_rv);
-		mod->connections_.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
 	if (sig_d.is_fully_undef() && !sig_r.size() && has_init) {
 		RTLIL::SigSig conn(sig_q, val_init);
-		mod->connections_.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
 	if (sig_d.is_fully_const() && !sig_r.size() && !has_init) {
 		RTLIL::SigSig conn(sig_q, sig_d);
-		mod->connections_.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
 	if (sig_d == sig_q && !(sig_r.size() && has_init)) {
 		if (sig_r.size()) {
 			RTLIL::SigSig conn(sig_q, val_rv);
-			mod->connections_.push_back(conn);
+			mod->connect(conn);
 		}
 		if (has_init) {
 			RTLIL::SigSig conn(sig_q, val_init);
-			mod->connections_.push_back(conn);
+			mod->connect(conn);
 		}
 		goto delete_dff;
 	}
@@ -181,8 +181,8 @@ struct OptRmdffPass : public Pass {
 			std::vector<std::string> dff_list;
 			for (auto &it : mod_it.second->cells) {
 				if (it.second->type == "$mux" || it.second->type == "$pmux") {
-					if (it.second->connections_.at("\\A").size() == it.second->connections_.at("\\B").size())
-						mux_drivers.insert(assign_map(it.second->connections_.at("\\Y")), it.second);
+					if (it.second->get("\\A").size() == it.second->get("\\B").size())
+						mux_drivers.insert(assign_map(it.second->get("\\Y")), it.second);
 					continue;
 				}
 				if (!design->selected(mod_it.second, it.second))

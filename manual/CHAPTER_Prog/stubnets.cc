@@ -30,7 +30,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 
 	// For all ports on all cells
 	for (auto &cell_iter : module->cells)
-	for (auto &conn : cell_iter.second->connections_)
+	for (auto &conn : cell_iter.second->connections())
 	{
 		// Get the signals on the port
 		// (use sigmap to get a uniqe signal name)

@@ -88,12 +88,12 @@ struct ModWalker
 	void add_cell(RTLIL::Cell *cell)
 	{
 		if (ct.cell_known(cell->type)) {
-			for (auto &conn : cell->connections_)
+			for (auto &conn : cell->connections())
 				add_cell_port(cell, conn.first, sigmap(conn.second),
 						ct.cell_output(cell->type, conn.first),
 						ct.cell_input(cell->type, conn.first));
 		} else {
-			for (auto &conn : cell->connections_)
+			for (auto &conn : cell->connections())
 				add_cell_port(cell, conn.first, sigmap(conn.second), true, true);
 		}
 	}

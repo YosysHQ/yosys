@@ -77,7 +77,7 @@ struct ShareWorker
 
 			for (auto &pbit : portbits) {
 				if (pbit.cell->type == "$mux" || pbit.cell->type == "$pmux") {
-					std::set<RTLIL::SigBit> bits = modwalker.sigmap(pbit.cell->connections_.at("\\S")).to_sigbit_set();
+					std::set<RTLIL::SigBit> bits = modwalker.sigmap(pbit.cell->get("\\S")).to_sigbit_set();
 					terminal_bits.insert(bits.begin(), bits.end());
 					queue_bits.insert(bits.begin(), bits.end());
 					visited_cells.insert(pbit.cell);
@@ -256,9 +256,9 @@ struct ShareWorker
 			if (c1->parameters.at("\\A_SIGNED").as_bool() != c2->parameters.at("\\A_SIGNED").as_bool())
 			{
 				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\A_SIGNED").as_bool() ? c2 : c1;
-				if (unsigned_cell->connections_.at("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
+				if (unsigned_cell->get("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at("\\A_WIDTH") = unsigned_cell->parameters.at("\\A_WIDTH").as_int() + 1;
-					unsigned_cell->connections_.at("\\A").append_bit(RTLIL::State::S0);
+					unsigned_cell->get("\\A").append_bit(RTLIL::State::S0);
 				}
 				unsigned_cell->parameters.at("\\A_SIGNED") = true;
 				unsigned_cell->check();
@@ -267,17 +267,17 @@ struct ShareWorker
 			bool a_signed = c1->parameters.at("\\A_SIGNED").as_bool();
 			log_assert(a_signed == c2->parameters.at("\\A_SIGNED").as_bool());
 
-			RTLIL::SigSpec a1 = c1->connections_.at("\\A");
-			RTLIL::SigSpec y1 = c1->connections_.at("\\Y");
+			RTLIL::SigSpec a1 = c1->get("\\A");
+			RTLIL::SigSpec y1 = c1->get("\\Y");
 
-			RTLIL::SigSpec a2 = c2->connections_.at("\\A");
-			RTLIL::SigSpec y2 = c2->connections_.at("\\Y");
+			RTLIL::SigSpec a2 = c2->get("\\A");
+			RTLIL::SigSpec y2 = c2->get("\\Y");
 
 			int a_width = std::max(a1.size(), a2.size());
 			int y_width = std::max(y1.size(), y2.size());
 
-			if (a1.size() != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), a_signed)->connections_.at("\\Y");
-			if (a2.size() != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), a_signed)->connections_.at("\\Y");
+			if (a1.size() != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), a_signed)->get("\\Y");
+			if (a2.size() != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), a_signed)->get("\\Y");
 
 			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
 			RTLIL::Wire *y = module->addWire(NEW_ID, y_width);
@@ -286,14 +286,14 @@ struct ShareWorker
 			supercell->parameters["\\A_SIGNED"] = a_signed;
 			supercell->parameters["\\A_WIDTH"] = a_width;
 			supercell->parameters["\\Y_WIDTH"] = y_width;
-			supercell->connections_["\\A"] = a;
-			supercell->connections_["\\Y"] = y;
+			supercell->set("\\A", a);
+			supercell->set("\\Y", y);
 
 			RTLIL::SigSpec new_y1(y, 0, y1.size());
 			RTLIL::SigSpec new_y2(y, 0, y2.size());
 
-			module->connections_.push_back(RTLIL::SigSig(y1, new_y1));
-			module->connections_.push_back(RTLIL::SigSig(y2, new_y2));
+			module->connect(RTLIL::SigSig(y1, new_y1));
+			module->connect(RTLIL::SigSig(y2, new_y2));
 
 			return supercell;
 		}
@@ -312,7 +312,7 @@ struct ShareWorker
 
 				if (score_flipped < score_unflipped)
 				{
-					std::swap(c2->connections_.at("\\A"), c2->connections_.at("\\B"));
+					std::swap(c2->get("\\A"), c2->get("\\B"));
 					std::swap(c2->parameters.at("\\A_WIDTH"), c2->parameters.at("\\B_WIDTH"));
 					std::swap(c2->parameters.at("\\A_SIGNED"), c2->parameters.at("\\B_SIGNED"));
 					modified_src_cells = true;
@@ -323,9 +323,9 @@ struct ShareWorker
 
 			{
 				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\A_SIGNED").as_bool() ? c2 : c1;
-				if (unsigned_cell->connections_.at("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
+				if (unsigned_cell->get("\\A").to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at("\\A_WIDTH") = unsigned_cell->parameters.at("\\A_WIDTH").as_int() + 1;
-					unsigned_cell->connections_.at("\\A").append_bit(RTLIL::State::S0);
+					unsigned_cell->get("\\A").append_bit(RTLIL::State::S0);
 				}
 				unsigned_cell->parameters.at("\\A_SIGNED") = true;
 				modified_src_cells = true;
@@ -334,9 +334,9 @@ struct ShareWorker
 			if (c1->parameters.at("\\B_SIGNED").as_bool() != c2->parameters.at("\\B_SIGNED").as_bool())
 			{
 				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\B_SIGNED").as_bool() ? c2 : c1;
-				if (unsigned_cell->connections_.at("\\B").to_sigbit_vector().back() != RTLIL::State::S0) {
+				if (unsigned_cell->get("\\B").to_sigbit_vector().back() != RTLIL::State::S0) {
 					unsigned_cell->parameters.at("\\B_WIDTH") = unsigned_cell->parameters.at("\\B_WIDTH").as_int() + 1;
-					unsigned_cell->connections_.at("\\B").append_bit(RTLIL::State::S0);
+					unsigned_cell->get("\\B").append_bit(RTLIL::State::S0);
 				}
 				unsigned_cell->parameters.at("\\B_SIGNED") = true;
 				modified_src_cells = true;
@@ -356,13 +356,13 @@ struct ShareWorker
 			if (c1->type == "$shl" || c1->type == "$shr" || c1->type == "$sshl" || c1->type == "$sshr")
 				b_signed = false;
 
-			RTLIL::SigSpec a1 = c1->connections_.at("\\A");
-			RTLIL::SigSpec b1 = c1->connections_.at("\\B");
-			RTLIL::SigSpec y1 = c1->connections_.at("\\Y");
+			RTLIL::SigSpec a1 = c1->get("\\A");
+			RTLIL::SigSpec b1 = c1->get("\\B");
+			RTLIL::SigSpec y1 = c1->get("\\Y");
 
-			RTLIL::SigSpec a2 = c2->connections_.at("\\A");
-			RTLIL::SigSpec b2 = c2->connections_.at("\\B");
-			RTLIL::SigSpec y2 = c2->connections_.at("\\Y");
+			RTLIL::SigSpec a2 = c2->get("\\A");
+			RTLIL::SigSpec b2 = c2->get("\\B");
+			RTLIL::SigSpec y2 = c2->get("\\Y");
 
 			int a_width = std::max(a1.size(), a2.size());
 			int b_width = std::max(b1.size(), b2.size());
@@ -372,20 +372,20 @@ struct ShareWorker
 			{
 				a_width = std::max(y_width, a_width);
 
-				if (a1.size() < y1.size()) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, y1.size()), true)->connections_.at("\\Y");
-				if (a2.size() < y2.size()) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, y2.size()), true)->connections_.at("\\Y");
+				if (a1.size() < y1.size()) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, y1.size()), true)->get("\\Y");
+				if (a2.size() < y2.size()) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, y2.size()), true)->get("\\Y");
 
-				if (a1.size() != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), false)->connections_.at("\\Y");
-				if (a2.size() != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), false)->connections_.at("\\Y");
+				if (a1.size() != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), false)->get("\\Y");
+				if (a2.size() != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), false)->get("\\Y");
 			}
 			else
 			{
-				if (a1.size() != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), a_signed)->connections_.at("\\Y");
-				if (a2.size() != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), a_signed)->connections_.at("\\Y");
+				if (a1.size() != a_width) a1 = module->addPos(NEW_ID, a1, module->addWire(NEW_ID, a_width), a_signed)->get("\\Y");
+				if (a2.size() != a_width) a2 = module->addPos(NEW_ID, a2, module->addWire(NEW_ID, a_width), a_signed)->get("\\Y");
 			}
 
-			if (b1.size() != b_width) b1 = module->addPos(NEW_ID, b1, module->addWire(NEW_ID, b_width), b_signed)->connections_.at("\\Y");
-			if (b2.size() != b_width) b2 = module->addPos(NEW_ID, b2, module->addWire(NEW_ID, b_width), b_signed)->connections_.at("\\Y");
+			if (b1.size() != b_width) b1 = module->addPos(NEW_ID, b1, module->addWire(NEW_ID, b_width), b_signed)->get("\\Y");
+			if (b2.size() != b_width) b2 = module->addPos(NEW_ID, b2, module->addWire(NEW_ID, b_width), b_signed)->get("\\Y");
 
 			RTLIL::SigSpec a = module->Mux(NEW_ID, a2, a1, act);
 			RTLIL::SigSpec b = module->Mux(NEW_ID, b2, b1, act);
@@ -397,16 +397,16 @@ struct ShareWorker
 			supercell->parameters["\\A_WIDTH"] = a_width;
 			supercell->parameters["\\B_WIDTH"] = b_width;
 			supercell->parameters["\\Y_WIDTH"] = y_width;
-			supercell->connections_["\\A"] = a;
-			supercell->connections_["\\B"] = b;
-			supercell->connections_["\\Y"] = y;
+			supercell->set("\\A", a);
+			supercell->set("\\B", b);
+			supercell->set("\\Y", y);
 			supercell->check();
 
 			RTLIL::SigSpec new_y1(y, 0, y1.size());
 			RTLIL::SigSpec new_y2(y, 0, y2.size());
 
-			module->connections_.push_back(RTLIL::SigSig(y1, new_y1));
-			module->connections_.push_back(RTLIL::SigSig(y2, new_y2));
+			module->connect(RTLIL::SigSig(y1, new_y1));
+			module->connect(RTLIL::SigSig(y2, new_y2));
 
 			return supercell;
 		}
@@ -438,7 +438,7 @@ struct ShareWorker
 
 		for (auto &bit : pbits) {
 			if ((bit.cell->type == "$mux" || bit.cell->type == "$pmux") && bit.port == "\\S")
-				forbidden_controls_cache[cell].insert(bit.cell->connections_.at("\\S").extract(bit.offset, 1));
+				forbidden_controls_cache[cell].insert(bit.cell->get("\\S").extract(bit.offset, 1));
 			consumer_cells.insert(bit.cell);
 		}
 
@@ -532,9 +532,9 @@ struct ShareWorker
 			std::set<int> used_in_b_parts;
 
 			int width = c->parameters.at("\\WIDTH").as_int();
-			std::vector<RTLIL::SigBit> sig_a = modwalker.sigmap(c->connections_.at("\\A"));
-			std::vector<RTLIL::SigBit> sig_b = modwalker.sigmap(c->connections_.at("\\B"));
-			std::vector<RTLIL::SigBit> sig_s = modwalker.sigmap(c->connections_.at("\\S"));
+			std::vector<RTLIL::SigBit> sig_a = modwalker.sigmap(c->get("\\A"));
+			std::vector<RTLIL::SigBit> sig_b = modwalker.sigmap(c->get("\\B"));
+			std::vector<RTLIL::SigBit> sig_s = modwalker.sigmap(c->get("\\S"));
 
 			for (auto &bit : sig_a)
 				if (cell_out_bits.count(bit))
@@ -572,7 +572,7 @@ struct ShareWorker
 		if (activation_patterns_cache[cell].empty()) {
 			log("%sFound cell that is never activated: %s\n", indent, log_id(cell));
 			RTLIL::SigSpec cell_outputs = modwalker.cell_outputs[cell];
-			module->connections_.push_back(RTLIL::SigSig(cell_outputs, RTLIL::SigSpec(RTLIL::State::Sx, cell_outputs.size())));
+			module->connect(RTLIL::SigSig(cell_outputs, RTLIL::SigSpec(RTLIL::State::Sx, cell_outputs.size())));
 			cells_to_remove.insert(cell);
 		}
 

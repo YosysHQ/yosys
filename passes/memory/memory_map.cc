@@ -62,20 +62,20 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 
 	// all write ports must share the same clock
-	RTLIL::SigSpec clocks = cell->connections_["\\WR_CLK"];
+	RTLIL::SigSpec clocks = cell->get("\\WR_CLK");
 	RTLIL::Const clocks_pol = cell->parameters["\\WR_CLK_POLARITY"];
 	RTLIL::Const clocks_en = cell->parameters["\\WR_CLK_ENABLE"];
 	RTLIL::SigSpec refclock;
 	RTLIL::State refclock_pol = RTLIL::State::Sx;
 	for (int i = 0; i < clocks.size(); i++) {
-		RTLIL::SigSpec wr_en = cell->connections_["\\WR_EN"].extract(i * mem_width, mem_width);
+		RTLIL::SigSpec wr_en = cell->get("\\WR_EN").extract(i * mem_width, mem_width);
 		if (wr_en.is_fully_const() && !wr_en.as_bool()) {
 			static_ports.insert(i);
 			continue;
 		}
 		if (clocks_en.bits[i] != RTLIL::State::S1) {
-			RTLIL::SigSpec wr_addr = cell->connections_["\\WR_ADDR"].extract(i*mem_abits, mem_abits);
-			RTLIL::SigSpec wr_data = cell->connections_["\\WR_DATA"].extract(i*mem_width, mem_width);
+			RTLIL::SigSpec wr_addr = cell->get("\\WR_ADDR").extract(i*mem_abits, mem_abits);
+			RTLIL::SigSpec wr_data = cell->get("\\WR_DATA").extract(i*mem_width, mem_width);
 			if (wr_addr.is_fully_const()) {
 				// FIXME: Actually we should check for wr_en.is_fully_const() also and
 				// create a $adff cell with this ports wr_en input as reset pin when wr_en
@@ -120,10 +120,10 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
 			if (clocks_pol.bits.size() > 0) {
 				c->parameters["\\CLK_POLARITY"] = RTLIL::Const(clocks_pol.bits[0]);
-				c->connections_["\\CLK"] = clocks.extract(0, 1);
+				c->set("\\CLK", clocks.extract(0, 1));
 			} else {
 				c->parameters["\\CLK_POLARITY"] = RTLIL::Const(RTLIL::State::S1);
-				c->connections_["\\CLK"] = RTLIL::SigSpec(RTLIL::State::S0);
+				c->set("\\CLK", RTLIL::SigSpec(RTLIL::State::S0));
 			}
 
 			RTLIL::Wire *w_in = new RTLIL::Wire;
@@ -131,7 +131,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			w_in->width = mem_width;
 			module->wires[w_in->name] = w_in;
 			data_reg_in.push_back(RTLIL::SigSpec(w_in));
-			c->connections_["\\D"] = data_reg_in.back();
+			c->set("\\D", data_reg_in.back());
 
 			RTLIL::Wire *w_out = new RTLIL::Wire;
 			w_out->name = stringf("%s[%d]", cell->parameters["\\MEMID"].decode_string().c_str(), i);
@@ -141,7 +141,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			w_out->start_offset = mem_offset;
 			module->wires[w_out->name] = w_out;
 			data_reg_out.push_back(RTLIL::SigSpec(w_out));
-			c->connections_["\\Q"] = data_reg_out.back();
+			c->set("\\Q", data_reg_out.back());
 		}
 	}
 
@@ -151,10 +151,10 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < cell->parameters["\\RD_PORTS"].as_int(); i++)
 	{
-		RTLIL::SigSpec rd_addr = cell->connections_["\\RD_ADDR"].extract(i*mem_abits, mem_abits);
+		RTLIL::SigSpec rd_addr = cell->get("\\RD_ADDR").extract(i*mem_abits, mem_abits);
 
 		std::vector<RTLIL::SigSpec> rd_signals;
-		rd_signals.push_back(cell->connections_["\\RD_DATA"].extract(i*mem_width, mem_width));
+		rd_signals.push_back(cell->get("\\RD_DATA").extract(i*mem_width, mem_width));
 
 		if (cell->parameters["\\RD_CLK_ENABLE"].bits[i] == RTLIL::State::S1)
 		{
@@ -163,8 +163,8 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
 				c->parameters["\\WIDTH"] = RTLIL::Const(mem_abits);
 				c->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
-				c->connections_["\\CLK"] = cell->connections_["\\RD_CLK"].extract(i, 1);
-				c->connections_["\\D"] = rd_addr;
+				c->set("\\CLK", cell->get("\\RD_CLK").extract(i, 1));
+				c->set("\\D", rd_addr);
 				count_dff++;
 
 				RTLIL::Wire *w = new RTLIL::Wire;
@@ -172,7 +172,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				w->width = mem_abits;
 				module->wires[w->name] = w;
 
-				c->connections_["\\Q"] = RTLIL::SigSpec(w);
+				c->set("\\Q", RTLIL::SigSpec(w));
 				rd_addr = RTLIL::SigSpec(w);
 			}
 			else
@@ -180,8 +180,8 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
 				c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
 				c->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
-				c->connections_["\\CLK"] = cell->connections_["\\RD_CLK"].extract(i, 1);
-				c->connections_["\\Q"] = rd_signals.back();
+				c->set("\\CLK", cell->get("\\RD_CLK").extract(i, 1));
+				c->set("\\Q", rd_signals.back());
 				count_dff++;
 
 				RTLIL::Wire *w = new RTLIL::Wire;
@@ -191,7 +191,7 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 				rd_signals.clear();
 				rd_signals.push_back(RTLIL::SigSpec(w));
-				c->connections_["\\D"] = rd_signals.back();
+				c->set("\\D", rd_signals.back());
 			}
 		}
 
@@ -203,31 +203,31 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			{
 				RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdmux", i, "", j, "", k), "$mux");
 				c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
-				c->connections_["\\Y"] = rd_signals[k];
-				c->connections_["\\S"] = rd_addr.extract(mem_abits-j-1, 1);
+				c->set("\\Y", rd_signals[k]);
+				c->set("\\S", rd_addr.extract(mem_abits-j-1, 1));
 				count_mux++;
 
 				RTLIL::Wire *w = new RTLIL::Wire;
 				w->name = genid(cell->name, "$rdmux", i, "", j, "", k, "$a");
 				w->width = mem_width;
 				module->wires[w->name] = w;
-				c->connections_["\\A"] = RTLIL::SigSpec(w);
+				c->set("\\A", RTLIL::SigSpec(w));
 
 				w = new RTLIL::Wire;
 				w->name = genid(cell->name, "$rdmux", i, "", j, "", k, "$b");
 				w->width = mem_width;
 				module->wires[w->name] = w;
-				c->connections_["\\B"] = RTLIL::SigSpec(w);
+				c->set("\\B", RTLIL::SigSpec(w));
 
-				next_rd_signals.push_back(c->connections_["\\A"]);
-				next_rd_signals.push_back(c->connections_["\\B"]);
+				next_rd_signals.push_back(c->get("\\A"));
+				next_rd_signals.push_back(c->get("\\B"));
 			}
 
 			next_rd_signals.swap(rd_signals);
 		}
 
 		for (int j = 0; j < mem_size; j++)
-			module->connections_.push_back(RTLIL::SigSig(rd_signals[j], data_reg_out[j]));
+			module->connect(RTLIL::SigSig(rd_signals[j], data_reg_out[j]));
 	}
 
 	log("  read interface: %d $dff and %d $mux cells.\n", count_dff, count_mux);
@@ -241,9 +241,9 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 		for (int j = 0; j < cell->parameters["\\WR_PORTS"].as_int(); j++)
 		{
-			RTLIL::SigSpec wr_addr = cell->connections_["\\WR_ADDR"].extract(j*mem_abits, mem_abits);
-			RTLIL::SigSpec wr_data = cell->connections_["\\WR_DATA"].extract(j*mem_width, mem_width);
-			RTLIL::SigSpec wr_en = cell->connections_["\\WR_EN"].extract(j*mem_width, mem_width);
+			RTLIL::SigSpec wr_addr = cell->get("\\WR_ADDR").extract(j*mem_abits, mem_abits);
+			RTLIL::SigSpec wr_data = cell->get("\\WR_DATA").extract(j*mem_width, mem_width);
+			RTLIL::SigSpec wr_en = cell->get("\\WR_EN").extract(j*mem_width, mem_width);
 
 			RTLIL::Cell *c = module->addCell(genid(cell->name, "$wreq", i, "", j), "$eq");
 			c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
@@ -251,14 +251,14 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 			c->parameters["\\A_WIDTH"] = cell->parameters["\\ABITS"];
 			c->parameters["\\B_WIDTH"] = cell->parameters["\\ABITS"];
 			c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-			c->connections_["\\A"] = RTLIL::SigSpec(i, mem_abits);
-			c->connections_["\\B"] = wr_addr;
+			c->set("\\A", RTLIL::SigSpec(i, mem_abits));
+			c->set("\\B", wr_addr);
 			count_wrmux++;
 
 			RTLIL::Wire *w_seladdr = new RTLIL::Wire;
 			w_seladdr->name = genid(cell->name, "$wreq", i, "", j, "$y");
 			module->wires[w_seladdr->name] = w_seladdr;
-			c->connections_["\\Y"] = w_seladdr;
+			c->set("\\Y", w_seladdr);
 
 			int wr_offset = 0;
 			while (wr_offset < wr_en.size())
@@ -283,33 +283,33 @@ static void handle_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 					c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
 					c->parameters["\\B_WIDTH"] = RTLIL::Const(1);
 					c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-					c->connections_["\\A"] = w;
-					c->connections_["\\B"] = wr_bit;
+					c->set("\\A", w);
+					c->set("\\B", wr_bit);
 
 					w = new RTLIL::Wire;
 					w->name = genid(cell->name, "$wren", i, "", j, "", wr_offset, "$y");
 					module->wires[w->name] = w;
-					c->connections_["\\Y"] = RTLIL::SigSpec(w);
+					c->set("\\Y", RTLIL::SigSpec(w));
 				}
 
 				c = module->addCell(genid(cell->name, "$wrmux", i, "", j, "", wr_offset), "$mux");
 				c->parameters["\\WIDTH"] = wr_width;
-				c->connections_["\\A"] = sig.extract(wr_offset, wr_width);
-				c->connections_["\\B"] = wr_data.extract(wr_offset, wr_width);
-				c->connections_["\\S"] = RTLIL::SigSpec(w);
+				c->set("\\A", sig.extract(wr_offset, wr_width));
+				c->set("\\B", wr_data.extract(wr_offset, wr_width));
+				c->set("\\S", RTLIL::SigSpec(w));
 
 				w = new RTLIL::Wire;
 				w->name = genid(cell->name, "$wrmux", i, "", j, "", wr_offset, "$y");
 				w->width = wr_width;
 				module->wires[w->name] = w;
-				c->connections_["\\Y"] = w;
+				c->set("\\Y", w);
 
 				sig.replace(wr_offset, w);
 				wr_offset += wr_width;
 			}
 		}
 
-		module->connections_.push_back(RTLIL::SigSig(data_reg_in[i], sig));
+		module->connect(RTLIL::SigSig(data_reg_in[i], sig));
 	}
 
 	log("  write interface: %d blocks of $eq, $and and $mux cells.\n", count_wrmux);
