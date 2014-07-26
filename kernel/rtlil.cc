@@ -873,6 +873,11 @@ static bool fixup_ports_compare(const RTLIL::Wire *a, const RTLIL::Wire *b)
 	return a->port_id < b->port_id;
 }
 
+void RTLIL::Module::connect(const RTLIL::SigSig &conn)
+{
+	connections_.push_back(conn);
+}
+
 void RTLIL::Module::connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs)
 {
 	connections_.push_back(RTLIL::SigSig(lhs, rhs));

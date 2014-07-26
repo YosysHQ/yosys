@@ -288,6 +288,7 @@ struct RTLIL::Module
 	virtual void check();
 	virtual void optimize();
 
+	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	void fixup_ports();
 
