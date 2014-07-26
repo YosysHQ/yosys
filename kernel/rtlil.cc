@@ -883,6 +883,11 @@ void RTLIL::Module::connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs
 	connections_.push_back(RTLIL::SigSig(lhs, rhs));
 }
 
+const std::vector<RTLIL::SigSig> &RTLIL::Module::connections()
+{
+	return connections_;
+}
+
 void RTLIL::Module::fixup_ports()
 {
 	std::vector<RTLIL::Wire*> all_ports;

@@ -290,6 +290,7 @@ struct RTLIL::Module
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
+	const std::vector<RTLIL::SigSig> &connections();
 	void fixup_ports();
 
 	template<typename T> void rewrite_sigspecs(T functor);
