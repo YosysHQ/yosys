@@ -128,14 +128,14 @@ struct TechmapWorker
 		for (auto &it : tpl->wires) {
 			if (it.second->port_id > 0)
 				positional_ports[stringf("$%d", it.second->port_id)] = it.first;
-			RTLIL::Wire *w = new RTLIL::Wire(*it.second);
-			apply_prefix(cell->name, w->name);
+			std::string w_name = it.second->name;
+			apply_prefix(cell->name, w_name);
+			RTLIL::Wire *w = module->addWire(w_name, it.second);
 			w->port_input = false;
 			w->port_output = false;
 			w->port_id = 0;
 			if (it.second->get_bool_attribute("\\_techmap_special_"))
 				w->attributes.clear();
-			module->add(w);
 			design->select(module, w);
 		}
 
@@ -381,7 +381,6 @@ struct TechmapWorker
 								log_error("Techmap yielded config wire %s with non-const value %s.\n", RTLIL::id2cstr(data.wire->name), log_signal(data.value));
 
 							techmap_wire_names.erase(it.first);
-							tpl->wires.erase(data.wire->name);
 
 							const char *p = data.wire->name.c_str();
 							const char *q = strrchr(p+1, '.');
@@ -391,8 +390,7 @@ struct TechmapWorker
 							std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
 							while (tpl->wires.count(new_name))
 								new_name += "_";
-							data.wire->name = new_name;
-							tpl->add(data.wire);
+							tpl->rename(data.wire, new_name);
 
 							std::string cmd_string = data.value.as_const().decode_string();
 							Pass::call_on_module(map, tpl, cmd_string);

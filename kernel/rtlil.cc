@@ -777,7 +777,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	new_mod->attributes = attributes;
 
 	for (auto &it : wires)
-		new_mod->wires[it.first] = new RTLIL::Wire(*it.second);
+		new_mod->addWire(it.first, it.second);
 
 	for (auto &it : memories)
 		new_mod->memories[it.first] = new RTLIL::Memory(*it.second);
@@ -949,6 +949,18 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 	wire->name = name;
 	wire->width = width;
 	add(wire);
+	return wire;
+}
+
+RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
+{
+	RTLIL::Wire *wire = addWire(name);
+	wire->width = other->width;
+	wire->start_offset = other->start_offset;
+	wire->port_id = other->port_id;
+	wire->port_input = other->port_input;
+	wire->port_output = other->port_output;
+	wire->attributes = other->attributes;
 	return wire;
 }
 

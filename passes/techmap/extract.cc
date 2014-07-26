@@ -729,13 +729,10 @@ struct ExtractPass : public Pass {
 
 				int portCounter = 1;
 				for (auto wire : wires) {
-					RTLIL::Wire *newWire = new RTLIL::Wire;
-					newWire->name = wire->name;
-					newWire->width = wire->width;
+					RTLIL::Wire *newWire = newMod->addWire(wire->name, wire->width);
 					newWire->port_id = portCounter++;
 					newWire->port_input = true;
 					newWire->port_output = true;
-					newMod->add(newWire);
 				}
 
 				for (auto cell : cells) {

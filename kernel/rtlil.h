@@ -273,6 +273,11 @@ struct RTLIL::Design {
 
 struct RTLIL::Module
 {
+protected:
+	void add(RTLIL::Wire *wire);
+	void add(RTLIL::Cell *cell);
+
+public:
 	RTLIL::IdString name;
 	std::set<RTLIL::IdString> avail_parameters;
 	std::map<RTLIL::IdString, RTLIL::Wire*> wires;
@@ -297,9 +302,6 @@ struct RTLIL::Module
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
 
-	void add(RTLIL::Wire *wire);
-	void add(RTLIL::Cell *cell);
-
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const std::set<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
@@ -309,6 +311,8 @@ struct RTLIL::Module
 	void rename(RTLIL::IdString old_name, RTLIL::IdString new_name);
 
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
+	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
+
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
@@ -445,7 +449,7 @@ struct RTLIL::Module
 
 struct RTLIL::Wire
 {
-//protected:
+protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
 	Wire();
@@ -453,8 +457,8 @@ struct RTLIL::Wire
 
 public:
 	// do not simply copy wires
-	//Wire(RTLIL::Wire &other) = delete;
-	//void operator=(RTLIL::Wire &other) = delete;
+	Wire(RTLIL::Wire &other) = delete;
+	void operator=(RTLIL::Wire &other) = delete;
 
 	RTLIL::IdString name;
 	int width, start_offset, port_id;

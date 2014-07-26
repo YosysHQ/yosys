@@ -31,21 +31,15 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 
 	for (auto &it : module->wires)
 		if (it.first == from_name) {
-			RTLIL::Wire *wire = it.second;
-			log("Renaming wire %s to %s in module %s.\n", wire->name.c_str(), to_name.c_str(), module->name.c_str());
-			module->wires.erase(wire->name);
-			wire->name = to_name;
-			module->add(wire);
+			log("Renaming wire %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
+			module->rename(it.second, to_name);
 			return;
 		}
 
 	for (auto &it : module->cells)
 		if (it.first == from_name) {
-			RTLIL::Cell *cell = it.second;
-			log("Renaming cell %s to %s in module %s.\n", cell->name.c_str(), to_name.c_str(), module->name.c_str());
-			module->cells.erase(cell->name);
-			cell->name = to_name;
-			module->add(cell);
+			log("Renaming cell %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
+			module->rename(it.second, to_name);
 			return;
 		}
 

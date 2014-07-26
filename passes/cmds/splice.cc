@@ -224,14 +224,14 @@ struct SpliceWorker
 
 		for (auto &it : rework_wires)
 		{
-			module->wires.erase(it.first->name);
-			RTLIL::Wire *new_port = new RTLIL::Wire(*it.first);
-			it.first->name = NEW_ID;
+			std::string orig_name = it.first->name;
+			module->rename(it.first, NEW_ID);
+
+			RTLIL::Wire *new_port = module->addWire(orig_name, it.first);
 			it.first->port_id = 0;
 			it.first->port_input = false;
 			it.first->port_output = false;
-			module->add(it.first);
-			module->add(new_port);
+
 			module->connect(RTLIL::SigSig(new_port, it.second));
 		}
 	}
