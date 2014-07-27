@@ -358,6 +358,9 @@ struct RTLIL::Design
 	bool selected_whole_module(RTLIL::IdString mod_name) const;
 	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 
+	bool selected_module(RTLIL::Module *mod) const;
+	bool selected_whole_module(RTLIL::Module *mod) const;
+
 	bool full_selection() const {
 		return selection_stack.back().full_selection;
 	}
@@ -424,6 +427,9 @@ public:
 	template<typename T> void rewrite_sigspecs(T functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
+
+	RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; }
+	RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; }
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
@@ -663,8 +669,8 @@ struct RTLIL::SigBit
 
 	SigBit() : wire(NULL), data(RTLIL::State::S0), offset(0) { }
 	SigBit(RTLIL::State bit) : wire(NULL), data(bit), offset(0) { }
-	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0), offset(0) { assert(!wire || wire->width == 1); }
-	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), data(RTLIL::State::S0), offset(offset) { }
+	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0), offset(0) { assert(wire && wire->width == 1); }
+	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), data(RTLIL::State::S0), offset(offset) { assert(wire); }
 	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[0]), offset(chunk.offset) { assert(chunk.width == 1); }
 	SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[index]), offset(chunk.wire ? chunk.offset + index : 0) { }
 	SigBit(const RTLIL::SigSpec &sig);

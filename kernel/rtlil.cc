@@ -274,6 +274,16 @@ bool RTLIL::Design::selected_member(RTLIL::IdString mod_name, RTLIL::IdString me
 	return selection_stack.back().selected_member(mod_name, memb_name);
 }
 
+bool RTLIL::Design::selected_module(RTLIL::Module *mod) const
+{
+	return selected_module(mod->name);
+}
+
+bool RTLIL::Design::selected_whole_module(RTLIL::Module *mod) const
+{
+	return selected_whole_module(mod->name);
+}
+
 RTLIL::Module::Module()
 {
 	refcount_wires_ = 0;
@@ -1502,6 +1512,7 @@ RTLIL::SigChunk::SigChunk(const RTLIL::Const &value)
 
 RTLIL::SigChunk::SigChunk(RTLIL::Wire *wire)
 {
+	log_assert(wire != nullptr);
 	this->wire = wire;
 	this->width = wire->width;
 	this->offset = 0;
@@ -1509,6 +1520,7 @@ RTLIL::SigChunk::SigChunk(RTLIL::Wire *wire)
 
 RTLIL::SigChunk::SigChunk(RTLIL::Wire *wire, int offset, int width)
 {
+	log_assert(wire != nullptr);
 	this->wire = wire;
 	this->width = width;
 	this->offset = offset;
