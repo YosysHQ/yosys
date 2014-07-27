@@ -1978,19 +1978,36 @@ void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 
 void RTLIL::SigSpec::remove_const()
 {
-	cover("kernel.rtlil.sigspec.remove_const");
+	if (packed())
+	{
+		cover("kernel.rtlil.sigspec.remove_const.packed");
 
-	unpack();
+		std::vector<RTLIL::SigChunk> new_chunks;
+		new_chunks.reserve(SIZE(chunks_));
 
-	std::vector<RTLIL::SigBit> new_bits;
-	new_bits.reserve(width_);
+		width_ = 0;
+		for (auto &chunk : chunks_)
+			if (chunk.wire != NULL) {
+				new_chunks.push_back(chunk);
+				width_ += chunk.width;
+			}
 
-	for (auto &bit : bits_)
-		if (bit.wire != NULL)
-			new_bits.push_back(bit);
+		chunks_.swap(new_chunks);
+	}
+	else
+	{
+		cover("kernel.rtlil.sigspec.remove_const.unpacked");
 
-	bits_.swap(new_bits);
-	width_ = bits_.size();
+		std::vector<RTLIL::SigBit> new_bits;
+		new_bits.reserve(width_);
+
+		for (auto &bit : bits_)
+			if (bit.wire != NULL)
+				new_bits.push_back(bit);
+
+		bits_.swap(new_bits);
+		width_ = bits_.size();
+	}
 
 	check();
 }
