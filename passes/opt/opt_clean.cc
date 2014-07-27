@@ -251,10 +251,10 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			for (int i = 0; i < SIZE(sig); i++) {
 				if (sig[i].wire == NULL)
 					continue;
-				if (!used_signals_nodrivers.check_any(sig[i])) {
+				if (!used_signals_nodrivers.check(sig[i])) {
 					if (!unused_bits.empty())
 						unused_bits += " ";
-					unused_bits += stringf("%zd", i);
+					unused_bits += stringf("%d", i);
 				}
 			}
 			if (unused_bits.empty() || wire->port_id != 0)

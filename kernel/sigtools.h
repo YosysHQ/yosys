@@ -93,6 +93,11 @@ struct SigPool
 		return result;
 	}
 
+	bool check(RTLIL::SigBit bit)
+	{
+		return bit.wire != NULL && bits.count(bit);
+	}
+
 	bool check_any(RTLIL::SigSpec sig)
 	{
 		for (auto &bit : sig)
