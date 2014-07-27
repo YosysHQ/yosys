@@ -149,23 +149,23 @@ struct ProcCleanPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules_) {
+		for (auto mod : design->modules()) {
 			std::vector<std::string> delme;
-			if (!design->selected(mod_it.second))
+			if (!design->selected(mod))
 				continue;
-			for (auto &proc_it : mod_it.second->processes) {
-				if (!design->selected(mod_it.second, proc_it.second))
+			for (auto &proc_it : mod->processes) {
+				if (!design->selected(mod, proc_it.second))
 					continue;
-				proc_clean(mod_it.second, proc_it.second, total_count);
+				proc_clean(mod, proc_it.second, total_count);
 				if (proc_it.second->syncs.size() == 0 && proc_it.second->root_case.switches.size() == 0 &&
 						proc_it.second->root_case.actions.size() == 0) {
-					log("Removing empty process `%s.%s'.\n", mod_it.first.c_str(), proc_it.second->name.c_str());
+					log("Removing empty process `%s.%s'.\n", log_id(mod), proc_it.second->name.c_str());
 					delme.push_back(proc_it.first);
 				}
 			}
 			for (auto &id : delme) {
-				delete mod_it.second->processes[id];
-				mod_it.second->processes.erase(id);
+				delete mod->processes[id];
+				mod->processes.erase(id);
 			}
 		}
 

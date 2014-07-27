@@ -38,10 +38,8 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 		if (bit.wire == NULL)
 			continue;
 
-		for (auto &cell_it : module->cells_)
+		for (auto cell : module->cells())
 		{
-			RTLIL::Cell *cell = cell_it.second;
-
 			if (cell->type != "$dff")
 				continue;
 
@@ -120,14 +118,12 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 
 	RTLIL::SigSpec new_sig = module->addWire(sstr.str(), sig.size());
 
-	for (auto &cell_it : module->cells_) {
-		RTLIL::Cell *cell = cell_it.second;
+	for (auto cell : module->cells())
 		if (cell->type == "$dff") {
 			RTLIL::SigSpec new_q = cell->get("\\Q");
 			new_q.replace(sig, new_sig);
 			cell->set("\\Q", new_q);
 		}
-	}
 }
 
 static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
@@ -170,13 +166,13 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_wr_only)
 {
-	for (auto &cell_it : module->cells_) {
-		if (!design->selected(module, cell_it.second))
+	for (auto cell : module->cells()) {
+		if (!design->selected(module, cell))
 			continue;
-		if (cell_it.second->type == "$memwr" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())
-				handle_wr_cell(module, cell_it.second);
-		if (!flag_wr_only && cell_it.second->type == "$memrd" && !cell_it.second->parameters["\\CLK_ENABLE"].as_bool())
-				handle_rd_cell(module, cell_it.second);
+		if (cell->type == "$memwr" && !cell->parameters["\\CLK_ENABLE"].as_bool())
+				handle_wr_cell(module, cell);
+		if (!flag_wr_only && cell->type == "$memrd" && !cell->parameters["\\CLK_ENABLE"].as_bool())
+				handle_rd_cell(module, cell);
 	}
 }
 
@@ -212,9 +208,9 @@ struct MemoryDffPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				handle_module(design, mod_it.second, flag_wr_only);
+		for (auto mod : design->modules())
+			if (design->selected(mod))
+				handle_module(design, mod, flag_wr_only);
 	}
 } MemoryDffPass;
  

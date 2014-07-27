@@ -33,20 +33,24 @@ static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSp
 	if (signal == ref)
 		return true;
 
-	for (auto &cell_it : mod->cells_) {
-		RTLIL::Cell *cell = cell_it.second;
+	for (auto cell : mod->cells())
+	{
 		if (cell->type == "$reduce_or" && cell->get("\\Y") == signal)
 			return check_signal(mod, cell->get("\\A"), ref, polarity);
+
 		if (cell->type == "$reduce_bool" && cell->get("\\Y") == signal)
 			return check_signal(mod, cell->get("\\A"), ref, polarity);
+
 		if (cell->type == "$logic_not" && cell->get("\\Y") == signal) {
 			polarity = !polarity;
 			return check_signal(mod, cell->get("\\A"), ref, polarity);
 		}
+
 		if (cell->type == "$not" && cell->get("\\Y") == signal) {
 			polarity = !polarity;
 			return check_signal(mod, cell->get("\\A"), ref, polarity);
 		}
+
 		if ((cell->type == "$eq" || cell->type == "$eqx") && cell->get("\\Y") == signal) {
 			if (cell->get("\\A").is_fully_const()) {
 				if (!cell->get("\\A").as_bool())
@@ -59,6 +63,7 @@ static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSp
 				return check_signal(mod, cell->get("\\A"), ref, polarity);
 			}
 		}
+
 		if ((cell->type == "$ne" || cell->type == "$nex") && cell->get("\\Y") == signal) {
 			if (cell->get("\\A").is_fully_const()) {
 				if (cell->get("\\A").as_bool())
@@ -236,14 +241,14 @@ struct ProcArstPass : public Pass {
 
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second)) {
-				SigMap assign_map(mod_it.second);
-				for (auto &proc_it : mod_it.second->processes) {
-					if (!design->selected(mod_it.second, proc_it.second))
+		for (auto mod : design->modules())
+			if (design->selected(mod)) {
+				SigMap assign_map(mod);
+				for (auto &proc_it : mod->processes) {
+					if (!design->selected(mod, proc_it.second))
 						continue;
-					proc_arst(mod_it.second, proc_it.second, assign_map);
-					if (global_arst.empty() || mod_it.second->wires_.count(global_arst) == 0)
+					proc_arst(mod, proc_it.second, assign_map);
+					if (global_arst.empty() || mod->wire(global_arst) == nullptr)
 						continue;
 					std::vector<RTLIL::SigSig> arst_actions;
 					for (auto sync : proc_it.second->syncs)
@@ -266,7 +271,7 @@ struct ProcArstPass : public Pass {
 					if (!arst_actions.empty()) {
 						RTLIL::SyncRule *sync = new RTLIL::SyncRule;
 						sync->type = global_arst_neg ? RTLIL::SyncType::ST0 : RTLIL::SyncType::ST1;
-						sync->signal = mod_it.second->wires_.at(global_arst);
+						sync->signal = mod->wire(global_arst);
 						sync->actions = arst_actions;
 						proc_it.second->syncs.push_back(sync);
 					}

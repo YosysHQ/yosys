@@ -83,9 +83,8 @@ struct OptMuxtreeWorker
 		//	.ctrl_sigs
 		//	.input_sigs
 		//	.const_activated
-		for (auto &cell_it : module->cells_)
+		for (auto cell : module->cells())
 		{
-			RTLIL::Cell *cell = cell_it.second;
 			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
 			{
 				RTLIL::SigSpec sig_a = cell->get("\\A");
@@ -136,9 +135,9 @@ struct OptMuxtreeWorker
 				}
 			}
 		}
-		for (auto &it : module->wires_) {
-			if (it.second->port_output)
-				for (int idx : sig2bits(RTLIL::SigSpec(it.second)))
+		for (auto wire : module->wires()) {
+			if (wire->port_output)
+				for (int idx : sig2bits(RTLIL::SigSpec(wire)))
 					bit2info[idx].seen_non_mux = true;
 		}
 
@@ -423,16 +422,16 @@ struct OptMuxtreePass : public Pass {
 		extra_args(args, 1, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules_) {
-			if (!design->selected_whole_module(mod_it.first)) {
-				if (design->selected(mod_it.second))
-					log("Skipping module %s as it is only partially selected.\n", id2cstr(mod_it.second->name));
+		for (auto mod : design->modules()) {
+			if (!design->selected_whole_module(mod)) {
+				if (design->selected(mod))
+					log("Skipping module %s as it is only partially selected.\n", log_id(mod));
 				continue;
 			}
-			if (mod_it.second->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", id2cstr(mod_it.second->name));
+			if (mod->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(mod));
 			} else {
-				OptMuxtreeWorker worker(design, mod_it.second);
+				OptMuxtreeWorker worker(design, mod);
 				total_count += worker.removed_count;
 			}
 		}

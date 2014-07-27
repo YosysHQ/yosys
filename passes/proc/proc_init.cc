@@ -101,11 +101,11 @@ struct ProcInitPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				for (auto &proc_it : mod_it.second->processes)
-					if (design->selected(mod_it.second, proc_it.second))
-						proc_init(mod_it.second, proc_it.second);
+		for (auto mod : design->modules())
+			if (design->selected(mod))
+				for (auto &proc_it : mod->processes)
+					if (design->selected(mod, proc_it.second))
+						proc_init(mod, proc_it.second);
 	}
 } ProcInitPass;
  

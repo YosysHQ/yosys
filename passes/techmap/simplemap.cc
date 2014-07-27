@@ -435,21 +435,19 @@ struct SimplemapPass : public Pass {
 		std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
 		simplemap_get_mappers(mappers);
 
-		for (auto &mod_it : design->modules_) {
-			if (!design->selected(mod_it.second))
+		for (auto mod : design->modules()) {
+			if (!design->selected(mod))
 				continue;
-			std::vector<RTLIL::Cell*> delete_cells;
-			for (auto &cell_it : mod_it.second->cells_) {
-				if (mappers.count(cell_it.second->type) == 0)
+			std::vector<RTLIL::Cell*> cells = mod->cells();
+			for (auto cell : cells) {
+				if (mappers.count(cell->type) == 0)
 					continue;
-				if (!design->selected(mod_it.second, cell_it.second))
+				if (!design->selected(mod, cell))
 					continue;
-				log("Mapping %s.%s (%s).\n", RTLIL::id2cstr(mod_it.first), RTLIL::id2cstr(cell_it.first), RTLIL::id2cstr(cell_it.second->type));
-				mappers.at(cell_it.second->type)(mod_it.second, cell_it.second);
-				delete_cells.push_back(cell_it.second);
+				log("Mapping %s.%s (%s).\n", log_id(mod), log_id(cell), log_id(cell->type));
+				mappers.at(cell->type)(mod, cell);
+				mod->remove(cell);
 			}
-			for (auto c : delete_cells)
-				mod_it.second->remove(c);
 		}
 	}
 } SimplemapPass;

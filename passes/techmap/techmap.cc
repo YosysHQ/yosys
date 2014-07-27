@@ -658,9 +658,9 @@ struct FlattenPass : public Pass {
 
 		RTLIL::Module *top_mod = NULL;
 		if (design->full_selection())
-			for (auto &mod_it : design->modules_)
-				if (mod_it.second->get_bool_attribute("\\top"))
-					top_mod = mod_it.second;
+			for (auto mod : design->modules())
+				if (mod->get_bool_attribute("\\top"))
+					top_mod = mod;
 
 		bool did_something = true;
 		std::set<RTLIL::Cell*> handled_cells;
@@ -670,8 +670,8 @@ struct FlattenPass : public Pass {
 				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap, true))
 					did_something = true;
 			} else {
-				for (auto &mod_it : design->modules_)
-					if (worker.techmap_module(design, mod_it.second, design, handled_cells, celltypeMap, true))
+				for (auto mod : design->modules())
+					if (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, true))
 						did_something = true;
 			}
 		}
@@ -680,12 +680,12 @@ struct FlattenPass : public Pass {
 
 		if (top_mod != NULL) {
 			std::map<RTLIL::IdString, RTLIL::Module*> new_modules;
-			for (auto &mod_it : design->modules_)
-				if (mod_it.second == top_mod || mod_it.second->get_bool_attribute("\\blackbox")) {
-					new_modules[mod_it.first] = mod_it.second;
+			for (auto mod : design->modules())
+				if (mod == top_mod || mod->get_bool_attribute("\\blackbox")) {
+					new_modules[mod->name] = mod;
 				} else {
-					log("Deleting now unused module %s.\n", RTLIL::id2cstr(mod_it.first));
-					delete mod_it.second;
+					log("Deleting now unused module %s.\n", log_id(mod));
+					delete mod;
 				}
 			design->modules_.swap(new_modules);
 		}
