@@ -21,6 +21,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/toposort.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -71,7 +72,7 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	}
 }
 
-static void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
+static void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->get(out_port);
 	out_val.extend_u0(Y.size(), false);
@@ -80,7 +81,8 @@ static void replace_cell(RTLIL::Module *module, RTLIL::Cell *cell, std::string i
 			cell->type.c_str(), cell->name.c_str(), info.c_str(),
 			module->name.c_str(), log_signal(Y), log_signal(out_val));
 	// ILANG_BACKEND::dump_cell(stderr, "--> ", cell);
-	module->connect(RTLIL::SigSig(Y, out_val));
+	assign_map.add(Y, out_val);
+	module->connect(Y, out_val);
 	module->remove(cell);
 	OPT_DID_SOMETHING = true;
 	did_something = true;
@@ -195,22 +197,45 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 	if (!design->selected(module))
 		return;
 
+	CellTypes ct_combinational;
+	ct_combinational.setup_internals();
+	ct_combinational.setup_stdcells();
+
 	SigMap assign_map(module);
 	std::map<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
-	std::vector<RTLIL::Cell*> cells;
-	cells.reserve(module->cells_.size());
-	for (auto &cell_it : module->cells_)
-		if (design->selected(module, cell_it.second)) {
-			if ((cell_it.second->type == "$_INV_" || cell_it.second->type == "$not" || cell_it.second->type == "$logic_not") &&
-					cell_it.second->get("\\A").size() == 1 && cell_it.second->get("\\Y").size() == 1)
-				invert_map[assign_map(cell_it.second->get("\\Y"))] = assign_map(cell_it.second->get("\\A"));
-			cells.push_back(cell_it.second);
+	TopoSort<RTLIL::Cell*> cells;
+	std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
+	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
+
+	for (auto cell : module->cells())
+		if (design->selected(module, cell) && cell->type[0] == '$') {
+			if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") &&
+					cell->get("\\A").size() == 1 && cell->get("\\Y").size() == 1)
+				invert_map[assign_map(cell->get("\\Y"))] = assign_map(cell->get("\\A"));
+			if (ct_combinational.cell_known(cell->type))
+				for (auto &conn : cell->connections()) {
+					RTLIL::SigSpec sig = assign_map(conn.second);
+					sig.remove_const();
+					if (ct_combinational.cell_input(cell->type, conn.first))
+						cell_to_inbit[cell].insert(sig.begin(), sig.end());
+					if (ct_combinational.cell_output(cell->type, conn.first))
+						for (auto &bit : sig)
+							outbit_to_cell[bit].insert(cell);
+				}
+			cells.node(cell);
 		}
 
-	for (auto cell : cells)
+	for (auto &it_right : cell_to_inbit)
+	for (auto &it_sigbit : it_right.second)
+	for (auto &it_left : outbit_to_cell[it_sigbit])
+		cells.edge(it_left, it_right.first);
+
+	cells.sort();
+
+	for (auto cell : cells.sorted)
 	{
-#define ACTION_DO(_p_, _s_) do { cover("opt.opt_const.action_" S__LINE__); replace_cell(module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
+#define ACTION_DO(_p_, _s_) do { cover("opt.opt_const.action_" S__LINE__); replace_cell(assign_map, module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO("\\Y", RTLIL::SigSpec(RTLIL::State::S ## _v_))
 
 		if (do_fine)
@@ -304,13 +329,13 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 		if (cell->type == "$logic_or" && (assign_map(cell->get("\\A")) == RTLIL::State::S1 || assign_map(cell->get("\\B")) == RTLIL::State::S1)) {
 			cover("opt.opt_const.one_high");
-			replace_cell(module, cell, "one high", "\\Y", RTLIL::State::S1);
+			replace_cell(assign_map, module, cell, "one high", "\\Y", RTLIL::State::S1);
 			goto next_cell;
 		}
 
 		if (cell->type == "$logic_and" && (assign_map(cell->get("\\A")) == RTLIL::State::S0 || assign_map(cell->get("\\B")) == RTLIL::State::S0)) {
 			cover("opt.opt_const.one_low");
-			replace_cell(module, cell, "one low", "\\Y", RTLIL::State::S0);
+			replace_cell(assign_map, module, cell, "one low", "\\Y", RTLIL::State::S0);
 			goto next_cell;
 		}
 
@@ -340,9 +365,9 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 						"$neg", "$add", "$sub", "$mul", "$div", "$mod", "$pow", cell->type);
 				if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" ||
 						cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt")
-					replace_cell(module, cell, "x-bit in input", "\\Y", RTLIL::State::Sx);
+					replace_cell(assign_map, module, cell, "x-bit in input", "\\Y", RTLIL::State::Sx);
 				else
-					replace_cell(module, cell, "x-bit in input", "\\Y", RTLIL::SigSpec(RTLIL::State::Sx, cell->get("\\Y").size()));
+					replace_cell(assign_map, module, cell, "x-bit in input", "\\Y", RTLIL::SigSpec(RTLIL::State::Sx, cell->get("\\Y").size()));
 				goto next_cell;
 			}
 		}
@@ -350,7 +375,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 		if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") && cell->get("\\Y").size() == 1 &&
 				invert_map.count(assign_map(cell->get("\\A"))) != 0) {
 			cover_list("opt.opt_const.invert.double", "$_INV_", "$not", "$logic_not", cell->type);
-			replace_cell(module, cell, "double_invert", "\\Y", invert_map.at(assign_map(cell->get("\\A"))));
+			replace_cell(assign_map, module, cell, "double_invert", "\\Y", invert_map.at(assign_map(cell->get("\\A"))));
 			goto next_cell;
 		}
 
@@ -476,7 +501,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cover_list("opt.opt_const.eqneq.isneq", "$eq", "$ne", "$eqx", "$nex", cell->type);
 					RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S0 : RTLIL::State::S1);
 					new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
-					replace_cell(module, cell, "isneq", "\\Y", new_y);
+					replace_cell(assign_map, module, cell, "isneq", "\\Y", new_y);
 					goto next_cell;
 				}
 				if (a[i] == b[i])
@@ -489,7 +514,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cover_list("opt.opt_const.eqneq.empty", "$eq", "$ne", "$eqx", "$nex", cell->type);
 				RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S1 : RTLIL::State::S0);
 				new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
-				replace_cell(module, cell, "empty", "\\Y", new_y);
+				replace_cell(assign_map, module, cell, "empty", "\\Y", new_y);
 				goto next_cell;
 			}
 
@@ -607,7 +632,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 		if (mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") &&
 				cell->get("\\A") == RTLIL::SigSpec(0, 1) && cell->get("\\B") == RTLIL::SigSpec(1, 1)) {
 			cover_list("opt.opt_const.mux_bool", "$mux", "$_MUX_", cell->type);
-			replace_cell(module, cell, "mux_bool", "\\Y", cell->get("\\S"));
+			replace_cell(assign_map, module, cell, "mux_bool", "\\Y", cell->get("\\S"));
 			goto next_cell;
 		}
 
@@ -674,7 +699,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			if ((cell->get("\\A").is_fully_undef() && cell->get("\\B").is_fully_undef()) ||
 					cell->get("\\S").is_fully_undef()) {
 				cover_list("opt.opt_const.mux_undef", "$mux", "$pmux", cell->type);
-				replace_cell(module, cell, "mux_undef", "\\Y", cell->get("\\A"));
+				replace_cell(assign_map, module, cell, "mux_undef", "\\Y", cell->get("\\A"));
 				goto next_cell;
 			}
 			for (int i = 0; i < cell->get("\\S").size(); i++) {
@@ -693,12 +718,12 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			}
 			if (new_s.size() == 0) {
 				cover_list("opt.opt_const.mux_empty", "$mux", "$pmux", cell->type);
-				replace_cell(module, cell, "mux_empty", "\\Y", new_a);
+				replace_cell(assign_map, module, cell, "mux_empty", "\\Y", new_a);
 				goto next_cell;
 			}
 			if (new_a == RTLIL::SigSpec(RTLIL::State::S0) && new_b == RTLIL::SigSpec(RTLIL::State::S1)) {
 				cover_list("opt.opt_const.mux_sel01", "$mux", "$pmux", cell->type);
-				replace_cell(module, cell, "mux_sel01", "\\Y", new_s);
+				replace_cell(assign_map, module, cell, "mux_sel01", "\\Y", new_s);
 				goto next_cell;
 			}
 			if (cell->get("\\S").size() != new_s.size()) {
@@ -728,7 +753,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 						cell->parameters["\\A_SIGNED"].as_bool(), false, \
 						cell->parameters["\\Y_WIDTH"].as_int())); \
 				cover("opt.opt_const.const.$" #_t); \
-				replace_cell(module, cell, stringf("%s", log_signal(a)), "\\Y", y); \
+				replace_cell(assign_map, module, cell, stringf("%s", log_signal(a)), "\\Y", y); \
 				goto next_cell; \
 			} \
 		}
@@ -743,7 +768,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 						cell->parameters["\\B_SIGNED"].as_bool(), \
 						cell->parameters["\\Y_WIDTH"].as_int())); \
 				cover("opt.opt_const.const.$" #_t); \
-				replace_cell(module, cell, stringf("%s, %s", log_signal(a), log_signal(b)), "\\Y", y); \
+				replace_cell(assign_map, module, cell, stringf("%s, %s", log_signal(a), log_signal(b)), "\\Y", y); \
 				goto next_cell; \
 			} \
 		}
@@ -939,17 +964,17 @@ struct OptConstPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules_)
+		for (auto module : design->modules())
 		{
 			if (undriven)
-				replace_undriven(design, mod_it.second);
+				replace_undriven(design, module);
 
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, mod_it.second, false, mux_undef, mux_bool, do_fine, keepdc);
+					replace_const_cells(design, module, false, mux_undef, mux_bool, do_fine, keepdc);
 				} while (did_something);
-				replace_const_cells(design, mod_it.second, true, mux_undef, mux_bool, do_fine, keepdc);
+				replace_const_cells(design, module, true, mux_undef, mux_bool, do_fine, keepdc);
 			} while (did_something);
 		}
 
