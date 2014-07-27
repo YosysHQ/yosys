@@ -251,7 +251,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			for (int i = 0; i < SIZE(sig); i++) {
 				if (sig[i].wire == NULL)
 					continue;
-				if (!used_signals_nodrivers.check_any(sig)) {
+				if (!used_signals_nodrivers.check_any(sig[i])) {
 					if (!unused_bits.empty())
 						unused_bits += " ";
 					unused_bits += stringf("%zd", i);
