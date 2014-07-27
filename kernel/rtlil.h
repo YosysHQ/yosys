@@ -268,6 +268,21 @@ namespace RTLIL
 		ObjRange(decltype(list_p) list_p, int *refcount_p) : list_p(list_p), refcount_p(refcount_p) { }
 		RTLIL::ObjIterator<T> begin() { return RTLIL::ObjIterator<T>(list_p, refcount_p); }
 		RTLIL::ObjIterator<T> end() { return RTLIL::ObjIterator<T>(); }
+
+		operator std::set<T>() const {
+			std::set<T> result;
+			for (auto &it : *list_p)
+				result.insert(it.second);
+			return result;
+		}
+
+		operator std::vector<T>() const {
+			std::vector<T> result;
+			result.reserve(list_p->size());
+			for (auto &it : *list_p)
+				result.push_back(it.second);
+			return result;
+		}
 	};
 };
 
