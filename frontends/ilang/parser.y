@@ -87,12 +87,12 @@ design:
 
 module:
 	TOK_MODULE TOK_ID EOL {
-		if (current_design->modules.count($2) != 0)
+		if (current_design->modules_.count($2) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
 		current_module = new RTLIL::Module;
 		current_module->name = $2;
 		current_module->attributes = attrbuf;
-		current_design->modules[$2] = current_module;
+		current_design->modules_[$2] = current_module;
 		attrbuf.clear();
 		free($2);
 	} module_body TOK_END {
@@ -125,7 +125,7 @@ wire_stmt:
 		current_wire->attributes = attrbuf;
 		attrbuf.clear();
 	} wire_options TOK_ID EOL {
-		if (current_module->wires.count($4) != 0)
+		if (current_module->wires_.count($4) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of wire %s.", $4).c_str());
 		current_module->rename(current_wire, $4);
 		free($4);
@@ -179,7 +179,7 @@ memory_options:
 
 cell_stmt:
 	TOK_CELL TOK_ID TOK_ID EOL {
-		if (current_module->cells.count($3) != 0)
+		if (current_module->cells_.count($3) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell %s.", $3).c_str());
 		current_cell = current_module->addCell($3, $2);
 		current_cell->attributes = attrbuf;
@@ -357,21 +357,21 @@ sigspec:
 		delete $1;
 	} |
 	TOK_ID {
-		if (current_module->wires.count($1) == 0)
+		if (current_module->wires_.count($1) == 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires[$1]);
+		$$ = new RTLIL::SigSpec(current_module->wires_[$1]);
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ']' {
-		if (current_module->wires.count($1) == 0)
+		if (current_module->wires_.count($1) == 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires[$1], $3);
+		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $3);
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
-		if (current_module->wires.count($1) == 0)
+		if (current_module->wires_.count($1) == 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires[$1], $5, $3 - $5 + 1);
+		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $5, $3 - $5 + 1);
 		free($1);
 	} |
 	'{' sigspec_list '}' {
