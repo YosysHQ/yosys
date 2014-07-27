@@ -32,7 +32,7 @@ std::string stringf(const char *fmt, ...);
 
 namespace RTLIL
 {
-	enum State {
+	enum State : unsigned char {
 		S0 = 0,
 		S1 = 1,
 		Sx = 2, // undefined value or conflict
@@ -41,7 +41,7 @@ namespace RTLIL
 		Sm = 5  // marker (used internally by some passes)
 	};
 
-	enum SyncType {
+	enum SyncType : unsigned char {
 		ST0 = 0, // level sensitive: 0
 		ST1 = 1, // level sensitive: 1
 		STp = 2, // edge sensitive: posedge
@@ -51,7 +51,7 @@ namespace RTLIL
 		STi = 6  // init
 	};
 
-	enum ConstFlags {
+	enum ConstFlags : unsigned char {
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
 		CONST_FLAG_SIGNED = 2,  // only used for parameters
@@ -191,67 +191,87 @@ namespace RTLIL
 	RTLIL::Const const_neg         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 };
 
-struct RTLIL::Const {
+struct RTLIL::Const
+{
 	int flags;
 	std::vector<RTLIL::State> bits;
+
 	Const();
 	Const(std::string str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
 	Const(std::vector<RTLIL::State> bits) : bits(bits) { flags = CONST_FLAG_NONE; };
+
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
+
 	bool as_bool() const;
 	int as_int() const;
 	std::string as_string() const;
+
 	std::string decode_string() const;
 };
 
-struct RTLIL::Selection {
+struct RTLIL::Selection
+{
 	bool full_selection;
 	std::set<RTLIL::IdString> selected_modules;
 	std::map<RTLIL::IdString, std::set<RTLIL::IdString>> selected_members;
+
 	Selection(bool full = true) : full_selection(full) { }
+
 	bool selected_module(RTLIL::IdString mod_name) const;
 	bool selected_whole_module(RTLIL::IdString mod_name) const;
 	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 	void optimize(RTLIL::Design *design);
+
 	template<typename T1> void select(T1 *module) {
 		if (!full_selection && selected_modules.count(module->name) == 0) {
 			selected_modules.insert(module->name);
 			selected_members.erase(module->name);
 		}
 	}
+
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		if (!full_selection && selected_modules.count(module->name) == 0)
 			selected_members[module->name].insert(member->name);
 	}
+
 	bool empty() const {
 		return !full_selection && selected_modules.empty() && selected_members.empty();
 	}
 };
 
-struct RTLIL::Design {
+struct RTLIL::Design
+{
 	std::map<RTLIL::IdString, RTLIL::Module*> modules;
+
 	std::vector<RTLIL::Selection> selection_stack;
 	std::map<RTLIL::IdString, RTLIL::Selection> selection_vars;
 	std::string selected_active_module;
+
 	~Design();
+
 	void check();
 	void optimize();
+
 	bool selected_module(RTLIL::IdString mod_name) const;
 	bool selected_whole_module(RTLIL::IdString mod_name) const;
 	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
+
 	bool full_selection() const {
 		return selection_stack.back().full_selection;
 	}
+
 	template<typename T1> bool selected(T1 *module) const {
 		return selected_module(module->name);
 	}
+
 	template<typename T1, typename T2> bool selected(T1 *module, T2 *member) const {
 		return selected_member(module->name, member->name);
 	}
+
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		if (selection_stack.size() > 0) {
 			RTLIL::Selection &sel = selection_stack.back();
@@ -278,13 +298,14 @@ protected:
 	void add(RTLIL::Cell *cell);
 
 public:
+	std::map<RTLIL::IdString, RTLIL::Wire*> wires_;
+	std::map<RTLIL::IdString, RTLIL::Cell*> cells_;
+	std::vector<RTLIL::SigSig> connections_;
+
 	RTLIL::IdString name;
 	std::set<RTLIL::IdString> avail_parameters;
-	std::map<RTLIL::IdString, RTLIL::Wire*> wires_;
 	std::map<RTLIL::IdString, RTLIL::Memory*> memories;
-	std::map<RTLIL::IdString, RTLIL::Cell*> cells_;
 	std::map<RTLIL::IdString, RTLIL::Process*> processes;
-	std::vector<RTLIL::SigSig> connections_;
 	RTLIL_ATTRIBUTE_MEMBERS
 
 	virtual ~Module();
@@ -507,10 +528,12 @@ public:
 	template<typename T> void rewrite_sigspecs(T functor);
 };
 
-struct RTLIL::SigChunk {
+struct RTLIL::SigChunk
+{
 	RTLIL::Wire *wire;
 	RTLIL::Const data; // only used if wire == NULL, LSB at index 0
 	int width, offset;
+
 	SigChunk();
 	SigChunk(const RTLIL::Const &value);
 	SigChunk(RTLIL::Wire *wire);
@@ -519,16 +542,20 @@ struct RTLIL::SigChunk {
 	SigChunk(int val, int width = 32);
 	SigChunk(RTLIL::State bit, int width = 1);
 	SigChunk(RTLIL::SigBit bit);
+
 	RTLIL::SigChunk extract(int offset, int length) const;
+
 	bool operator <(const RTLIL::SigChunk &other) const;
 	bool operator ==(const RTLIL::SigChunk &other) const;
 	bool operator !=(const RTLIL::SigChunk &other) const;
 };
 
-struct RTLIL::SigBit {
+struct RTLIL::SigBit
+{
 	RTLIL::Wire *wire;
 	RTLIL::State data;
 	int offset;
+
 	SigBit() : wire(NULL), data(RTLIL::State::S0), offset(0) { }
 	SigBit(RTLIL::State bit) : wire(NULL), data(bit), offset(0) { }
 	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0), offset(0) { assert(!wire || wire->width == 1); }
@@ -536,26 +563,32 @@ struct RTLIL::SigBit {
 	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[0]), offset(chunk.offset) { assert(chunk.width == 1); }
 	SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[index]), offset(chunk.wire ? chunk.offset + index : 0) { }
 	SigBit(const RTLIL::SigSpec &sig);
+
 	bool operator <(const RTLIL::SigBit &other) const {
 		return (wire != other.wire) ? (wire < other.wire) : wire ? (offset < other.offset) : (data < other.data);
 	}
+
 	bool operator ==(const RTLIL::SigBit &other) const {
 		return (wire == other.wire) && (wire ? (offset == other.offset) : (data == other.data));
 	}
+
 	bool operator !=(const RTLIL::SigBit &other) const {
 		return (wire != other.wire) || (wire ? (offset != other.offset) : (data != other.data));
 	}
 };
 
-struct RTLIL::SigSpecIterator {
+struct RTLIL::SigSpecIterator
+{
 	RTLIL::SigSpec *sig_p;
 	int index;
+
 	inline RTLIL::SigBit &operator*() const;
 	inline bool operator!=(const RTLIL::SigSpecIterator &other) { return index != other.index; }
 	inline void operator++() { index++; }
 };
 
-struct RTLIL::SigSpec {
+struct RTLIL::SigSpec
+{
 private:
 	int width_;
 	unsigned long hash_;
@@ -675,10 +708,12 @@ inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
 	*this = SigBit(sig.chunks().front());
 }
 
-struct RTLIL::CaseRule {
+struct RTLIL::CaseRule
+{
 	std::vector<RTLIL::SigSpec> compare;
 	std::vector<RTLIL::SigSig> actions;
 	std::vector<RTLIL::SwitchRule*> switches;
+
 	~CaseRule();
 	void optimize();
 
@@ -686,17 +721,20 @@ struct RTLIL::CaseRule {
 	RTLIL::CaseRule *clone() const;
 };
 
-struct RTLIL::SwitchRule {
+struct RTLIL::SwitchRule
+{
 	RTLIL::SigSpec signal;
 	RTLIL_ATTRIBUTE_MEMBERS
 	std::vector<RTLIL::CaseRule*> cases;
+
 	~SwitchRule();
 
 	template<typename T> void rewrite_sigspecs(T functor);
 	RTLIL::SwitchRule *clone() const;
 };
 
-struct RTLIL::SyncRule {
+struct RTLIL::SyncRule
+{
 	RTLIL::SyncType type;
 	RTLIL::SigSpec signal;
 	std::vector<RTLIL::SigSig> actions;
@@ -705,11 +743,13 @@ struct RTLIL::SyncRule {
 	RTLIL::SyncRule *clone() const;
 };
 
-struct RTLIL::Process {
+struct RTLIL::Process
+{
 	RTLIL::IdString name;
 	RTLIL_ATTRIBUTE_MEMBERS
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
+
 	~Process();
 
 	template<typename T> void rewrite_sigspecs(T functor);
