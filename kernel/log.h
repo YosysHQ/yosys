@@ -34,6 +34,8 @@
 #define S__LINE__sub1(x) S__LINE__sub2(x)
 #define S__LINE__ S__LINE__sub1(__LINE__)
 
+struct log_cmd_error_expection { };
+
 extern std::vector<FILE*> log_files;
 extern FILE *log_errfile;
 extern bool log_time;

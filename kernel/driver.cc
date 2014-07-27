@@ -141,9 +141,9 @@ static void run_frontend(std::string filename, std::string command, RTLIL::Desig
 					Pass::call(design, command);
 			}
 		}
-		catch (...) {
+		catch (log_cmd_error_expection) {
 			Frontend::current_script_file = backup_script_file;
-			std::rethrow_exception(std::current_exception());
+			throw log_cmd_error_expection();
 		}
 
 		Frontend::current_script_file = backup_script_file;
@@ -329,7 +329,7 @@ static void shell(RTLIL::Design *design)
 		try {
 			assert(design->selection_stack.size() == 1);
 			Pass::call(design, command);
-		} catch (int) {
+		} catch (log_cmd_error_expection) {
 			while (design->selection_stack.size() > 1)
 				design->selection_stack.pop_back();
 			log_reset_stack();

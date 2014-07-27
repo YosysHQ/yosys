@@ -160,7 +160,7 @@ void log_cmd_error(const char *format, ...)
 		log("ERROR: ");
 		logv(format, ap);
 		log_flush();
-		throw 0;
+		throw log_cmd_error_expection();
 	}
 
 	logv_error(format, ap);

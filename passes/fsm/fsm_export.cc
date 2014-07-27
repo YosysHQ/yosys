@@ -32,10 +32,7 @@
  * Convert a signal into a KISS-compatible textual representation.
  */
 std::string kiss_convert_signal(const RTLIL::SigSpec &sig) {
-	if (!sig.is_fully_const()) {
-		throw 0;
-	}
-
+	log_assert(sig.is_fully_const());
 	return sig.as_const().as_string();
 }
 
