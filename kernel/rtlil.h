@@ -340,6 +340,7 @@ struct RTLIL::Selection
 
 struct RTLIL::Design
 {
+	int refcount_modules_;
 	std::map<RTLIL::IdString, RTLIL::Module*> modules_;
 
 	std::vector<RTLIL::Selection> selection_stack;
@@ -347,6 +348,8 @@ struct RTLIL::Design
 	std::string selected_active_module;
 
 	~Design();
+
+	RTLIL::ObjRange<RTLIL::Module*> modules() { return RTLIL::ObjRange<RTLIL::Module*>(&modules_, &refcount_modules_); }
 
 	void check();
 	void optimize();
