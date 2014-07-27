@@ -274,6 +274,12 @@ bool RTLIL::Design::selected_member(RTLIL::IdString mod_name, RTLIL::IdString me
 	return selection_stack.back().selected_member(mod_name, memb_name);
 }
 
+RTLIL::Module::Module()
+{
+	refcount_wires_ = 0;
+	refcount_cells_ = 0;
+}
+
 RTLIL::Module::~Module()
 {
 	for (auto it = wires_.begin(); it != wires_.end(); it++)
@@ -772,6 +778,9 @@ void RTLIL::Module::optimize()
 
 void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 {
+	log_assert(new_mod->refcount_wires_ == 0);
+	log_assert(new_mod->refcount_cells_ == 0);
+
 	new_mod->name = name;
 	new_mod->connections_ = connections_;
 	new_mod->attributes = attributes;
@@ -815,15 +824,17 @@ RTLIL::Module *RTLIL::Module::clone() const
 
 void RTLIL::Module::add(RTLIL::Wire *wire)
 {
-	assert(!wire->name.empty());
-	assert(count_id(wire->name) == 0);
+	log_assert(!wire->name.empty());
+	log_assert(count_id(wire->name) == 0);
+	log_assert(refcount_wires_ == 0);
 	wires_[wire->name] = wire;
 }
 
 void RTLIL::Module::add(RTLIL::Cell *cell)
 {
-	assert(!cell->name.empty());
-	assert(count_id(cell->name) == 0);
+	log_assert(!cell->name.empty());
+	log_assert(count_id(cell->name) == 0);
+	log_assert(refcount_cells_ == 0);
 	cells_[cell->name] = cell;
 }
 
@@ -856,20 +867,24 @@ void RTLIL::Module::remove(RTLIL::Wire *wire)
 
 void RTLIL::Module::remove(const std::set<RTLIL::Wire*> &wires)
 {
+	log_assert(refcount_wires_ == 0);
+
 	DeleteWireWorker delete_wire_worker;
 	delete_wire_worker.module = this;
 	delete_wire_worker.wires_p = &wires;
 	rewrite_sigspecs(delete_wire_worker);
 
 	for (auto &it : wires) {
-		this->wires_.erase(it->name);
+		log_assert(wires_.count(it->name) != 0);
+		wires_.erase(it->name);
 		delete it;
 	}
 }
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
-	assert(cells_.count(cell->name) != 0);
+	log_assert(cells_.count(cell->name) != 0);
+	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell->name);
 	delete cell;
 }
@@ -877,6 +892,7 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
 {
 	assert(wires_[wire->name] == wire);
+	log_assert(refcount_wires_ == 0);
 	wires_.erase(wire->name);
 	wire->name = new_name;
 	add(wire);
@@ -885,6 +901,7 @@ void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
 void RTLIL::Module::rename(RTLIL::Cell *cell, RTLIL::IdString new_name)
 {
 	assert(cells_[cell->name] == cell);
+	log_assert(refcount_wires_ == 0);
 	cells_.erase(cell->name);
 	cell->name = new_name;
 	add(cell);

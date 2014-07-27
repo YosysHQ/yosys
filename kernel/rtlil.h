@@ -189,6 +189,86 @@ namespace RTLIL
 	RTLIL::Const const_pos         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 	RTLIL::Const const_bu0         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 	RTLIL::Const const_neg         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+
+
+	// This iterator-range-pair is used for Design::modules(), Module::wires() and Module::cells().
+	// It maintains a reference counter that is used to make sure that the container is not modified while being iterated over.
+
+	template<typename T>
+	struct ObjIterator
+	{
+		typename std::map<RTLIL::IdString, T>::iterator it;
+		std::map<RTLIL::IdString, T> *list_p;
+		int *refcount_p;
+
+		ObjIterator() : list_p(nullptr), refcount_p(nullptr) {
+		}
+
+		ObjIterator(decltype(list_p) list_p, int *refcount_p) : list_p(list_p), refcount_p(refcount_p) {
+			if (list_p->empty()) {
+				this->list_p = nullptr;
+				this->refcount_p = nullptr;
+			} else {
+				it = list_p->begin();
+				(*refcount_p)++;
+			}
+		}
+
+		ObjIterator(const RTLIL::ObjIterator<T> &other) {
+			it = other.it;
+			list_p = other.list_p;
+			refcount_p = other.refcount_p;
+			if (refcount_p)
+				(*refcount_p)++;
+		}
+
+		ObjIterator &operator=(const RTLIL::ObjIterator<T> &other) {
+			if (refcount_p)
+				(*refcount_p)--;
+			it = other.it;
+			list_p = other.list_p;
+			refcount_p = other.refcount_p;
+			if (refcount_p)
+				(*refcount_p)++;
+			return *this;
+		}
+
+		~ObjIterator() {
+			if (refcount_p)
+				(*refcount_p)--;
+		}
+
+		inline T operator*() const {
+			assert(list_p != nullptr);
+			return it->second;
+		}
+
+		inline bool operator!=(const RTLIL::ObjIterator<T> &other) const {
+			if (list_p == nullptr || other.list_p == nullptr)
+				return list_p != other.list_p;
+			return it != other.it;
+		}
+
+		inline void operator++() {
+			assert(list_p != nullptr);
+			if (++it == list_p->end()) {
+				(*refcount_p)--;
+				list_p = nullptr;
+				refcount_p = nullptr;
+			}
+		}
+	};
+
+	template<typename T>
+	struct ObjRange
+	{
+		std::map<RTLIL::IdString, T> *list_p;
+		int *refcount_p;
+
+		ObjRange(decltype(list_p) list_p, int *refcount_p) : list_p(list_p), refcount_p(refcount_p) { }
+		RTLIL::ObjIterator<T> begin() { return RTLIL::ObjIterator<T>(list_p, refcount_p); }
+		RTLIL::ObjIterator<T> end() { return RTLIL::ObjIterator<T>(); }
+	};
 };
 
 struct RTLIL::Const
@@ -298,6 +378,9 @@ protected:
 	void add(RTLIL::Cell *cell);
 
 public:
+	int refcount_wires_;
+	int refcount_cells_;
+
 	std::map<RTLIL::IdString, RTLIL::Wire*> wires_;
 	std::map<RTLIL::IdString, RTLIL::Cell*> cells_;
 	std::vector<RTLIL::SigSig> connections_;
@@ -308,6 +391,7 @@ public:
 	std::map<RTLIL::IdString, RTLIL::Process*> processes;
 	RTLIL_ATTRIBUTE_MEMBERS
 
+	Module();
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
 	virtual size_t count_id(RTLIL::IdString id);
@@ -322,6 +406,9 @@ public:
 	template<typename T> void rewrite_sigspecs(T functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
+
+	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
+	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const std::set<RTLIL::Wire*> &wires);
@@ -583,7 +670,7 @@ struct RTLIL::SigSpecIterator
 	int index;
 
 	inline RTLIL::SigBit &operator*() const;
-	inline bool operator!=(const RTLIL::SigSpecIterator &other) { return index != other.index; }
+	inline bool operator!=(const RTLIL::SigSpecIterator &other) const { return index != other.index; }
 	inline void operator++() { index++; }
 };
 
