@@ -20,6 +20,7 @@
 #include "kernel/compatibility.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
+#include "kernel/toposort.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -221,24 +222,54 @@ struct TechmapWorker
 
 		bool log_continue = false;
 		bool did_something = false;
-		std::vector<std::string> cell_names;
 
 		SigMap sigmap(module);
-		for (auto &cell_it : module->cells_)
-			cell_names.push_back(cell_it.first);
 
-		for (auto &cell_name : cell_names)
+		TopoSort<RTLIL::Cell*> cells;
+		std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
+		std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
+
+		for (auto cell : module->cells())
 		{
-			if (module->cells_.count(cell_name) == 0)
-				continue;
-
-			RTLIL::Cell *cell = module->cells_[cell_name];
-
 			if (!design->selected(module, cell) || handled_cells.count(cell) > 0)
 				continue;
 
 			if (celltypeMap.count(cell->type) == 0)
 				continue;
+
+			for (auto &conn : cell->connections())
+			{
+				RTLIL::SigSpec sig = sigmap(conn.second);
+				sig.remove_const();
+
+				if (SIZE(sig) == 0)
+					continue;
+
+				for (auto &tpl_name : celltypeMap.at(cell->type)) {
+					RTLIL::Module *tpl = map->modules_[tpl_name];
+					RTLIL::Wire *port = tpl->wire(conn.first);
+					if (port && port->port_input)
+						cell_to_inbit[cell].insert(sig.begin(), sig.end());
+					if (port && port->port_output)
+						for (auto &bit : sig)
+							outbit_to_cell[bit].insert(cell);
+				}
+			}
+
+			cells.node(cell);
+		}
+
+		for (auto &it_right : cell_to_inbit)
+		for (auto &it_sigbit : it_right.second)
+		for (auto &it_left : outbit_to_cell[it_sigbit])
+			cells.edge(it_left, it_right.first);
+
+		cells.sort();
+
+		for (auto cell : cells.sorted)
+		{
+			log_assert(handled_cells.count(cell) == 0);
+			log_assert(cell == module->cell(cell->name));
 
 			for (auto &tpl_name : celltypeMap.at(cell->type))
 			{
@@ -610,17 +641,18 @@ struct TechmapPass : public Pass {
 				celltypeMap[it.first].insert(it.first);
 		}
 
-		bool did_something = true;
-		std::set<RTLIL::Cell*> handled_cells;
-		while (did_something) {
-			did_something = false;
-			for (auto &mod_it : design->modules_)
-				if (worker.techmap_module(design, mod_it.second, map, handled_cells, celltypeMap, false))
-					did_something = true;
-			if (did_something)
-				design->check();
-			if (max_iter > 0 && --max_iter == 0)
-				break;
+		for (auto module : design->modules()) {
+			bool did_something = true;
+			std::set<RTLIL::Cell*> handled_cells;
+			while (did_something) {
+				did_something = false;
+					if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
+						did_something = true;
+				if (did_something)
+					module->check();
+				if (max_iter > 0 && --max_iter == 0)
+					break;
+			}
 		}
 
 		log("No more expansions possible.\n");

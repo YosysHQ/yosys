@@ -46,7 +46,7 @@ struct TopoSort
 		database[right].insert(left);
 	}
 
-	void sort_worker(T n, std::set<T> &marked_cells, std::set<T> &active_cells, std::vector<T> active_stack)
+	void sort_worker(const T &n, std::set<T> &marked_cells, std::set<T> &active_cells, std::vector<T> &active_stack)
 	{
 		if (active_cells.count(n)) {
 			found_loops = false;
@@ -96,6 +96,7 @@ struct TopoSort
 		for (auto &it : database)
 			sort_worker(it.first, marked_cells, active_cells, active_stack);
 
+		log_assert(SIZE(sorted) == SIZE(database));
 		return !found_loops;
 	}
 };
