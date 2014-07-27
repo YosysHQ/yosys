@@ -481,7 +481,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 {
 	std::string module_name = nl->IsOperator() ? std::string("$verific$") + nl->Owner()->Name() : RTLIL::escape_id(nl->Owner()->Name());
 
-	if (design->modules.count(module_name)) {
+	if (design->modules_.count(module_name)) {
 		if (!nl->IsOperator())
 			log_cmd_error("Re-definition of module `%s'.\n", nl->Owner()->Name());
 		return;
@@ -489,7 +489,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 	RTLIL::Module *module = new RTLIL::Module;
 	module->name = module_name;
-	design->modules[module->name] = module;
+	design->modules_[module->name] = module;
 
 	log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 
@@ -511,10 +511,8 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 		// log("  importing port %s.\n", port->Name());
 
-		RTLIL::Wire *wire = new RTLIL::Wire;
-		wire->name = RTLIL::escape_id(port->Name());
+		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(port->Name()));
 		import_attributes(wire->attributes, port);
-		module->add(wire);
 
 		wire->port_id = nl->IndexOf(port) + 1;
 
@@ -528,9 +526,9 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			if (net_map.count(net) == 0)
 				net_map[net] = wire;
 			else if (wire->port_input)
-				module->connections.push_back(RTLIL::SigSig(net_map.at(net), wire));
+				module->connect(net_map.at(net), wire);
 			else
-				module->connections.push_back(RTLIL::SigSig(wire, net_map.at(net)));
+				module->connect(wire, net_map.at(net));
 		}
 	}
 
@@ -538,12 +536,9 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 	{
 		// log("  importing portbus %s.\n", portbus->Name());
 
-		RTLIL::Wire *wire = new RTLIL::Wire;
-		wire->name = RTLIL::escape_id(portbus->Name());
-		wire->width = portbus->Size();
+		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
 		wire->start_offset = std::min(portbus->LeftIndex(), portbus->RightIndex());
 		import_attributes(wire->attributes, portbus);
-		module->add(wire);
 
 		if (portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN)
 			wire->port_input = true;
@@ -557,9 +552,9 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 				if (net_map.count(net) == 0)
 					net_map[net] = bit;
 				else if (wire->port_input)
-					module->connections.push_back(RTLIL::SigSig(net_map.at(net), bit));
+					module->connect(net_map.at(net), bit);
 				else
-					module->connections.push_back(RTLIL::SigSig(bit, net_map.at(net)));
+					module->connect(bit, net_map.at(net));
 			}
 			if (i == portbus->RightIndex())
 				break;
@@ -607,12 +602,11 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 		// log("  importing net %s.\n", net->Name());
 
-		RTLIL::Wire *wire = new RTLIL::Wire;
-		wire->name = RTLIL::escape_id(net->Name());
-		while (module->count_id(wire->name))
-			wire->name += "_";
+		std::string wire_name = RTLIL::escape_id(net->Name());
+		while (module->count_id(wire_name))
+			wire_name += "_";
+		RTLIL::Wire *wire = module->addWire(wire_name);
 		import_attributes(wire->attributes, net);
-		module->add(wire);
 
 		net_map[net] = wire;
 	}
@@ -632,14 +626,12 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		{
 			// log("  importing netbus %s.\n", netbus->Name());
 
-			RTLIL::Wire *wire = new RTLIL::Wire;
-			wire->name = RTLIL::escape_id(netbus->Name());
-			wire->width = netbus->Size();
+			std::string wire_name = RTLIL::escape_id(netbus->Name());
+			while (module->count_id(wire_name))
+				wire_name += "_";
+			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = std::min(netbus->LeftIndex(), netbus->RightIndex());
-			while (module->count_id(wire->name))
-				wire->name += "_";
 			import_attributes(wire->attributes, netbus);
-			module->add(wire);
 
 			for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1) {
 				if (netbus->ElementAtIndex(i)) {
@@ -648,7 +640,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 					if (net_map.count(net) == 0)
 						net_map[net] = bit;
 					else
-						module->connections.push_back(RTLIL::SigSig(bit, net_map.at(net)));
+						module->connect(bit, net_map.at(net));
 				}
 				if (i == netbus->RightIndex())
 					break;
@@ -665,22 +657,22 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		// log("  importing cell %s (%s).\n", inst->Name(), inst->View()->Owner()->Name());
 
 		if (inst->Type() == PRIM_PWR) {
-			module->connections.push_back(RTLIL::SigSig(net_map.at(inst->GetOutput()), RTLIL::State::S1));
+			module->connect(net_map.at(inst->GetOutput()), RTLIL::State::S1);
 			continue;
 		}
 
 		if (inst->Type() == PRIM_GND) {
-			module->connections.push_back(RTLIL::SigSig(net_map.at(inst->GetOutput()), RTLIL::State::S0));
+			module->connect(net_map.at(inst->GetOutput()), RTLIL::State::S0);
 			continue;
 		}
 
 		if (inst->Type() == PRIM_X) {
-			module->connections.push_back(RTLIL::SigSig(net_map.at(inst->GetOutput()), RTLIL::State::Sx));
+			module->connect(net_map.at(inst->GetOutput()), RTLIL::State::Sx);
 			continue;
 		}
 
 		if (inst->Type() == PRIM_Z) {
-			module->connections.push_back(RTLIL::SigSig(net_map.at(inst->GetOutput()), RTLIL::State::Sz));
+			module->connect(net_map.at(inst->GetOutput()), RTLIL::State::Sz);
 			continue;
 		}
 
@@ -693,19 +685,16 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			RTLIL::SigSpec addr = operatorInput1(inst, net_map);
 			RTLIL::SigSpec data = operatorOutput(inst, net_map, module);
 
-			RTLIL::Cell *cell = new RTLIL::Cell;
-			cell->name = RTLIL::escape_id(inst->Name());
-			cell->type = "$memrd";
+			RTLIL::Cell *cell = module->addCell(RTLIL::escape_id(inst->Name()), "$memrd");
 			cell->parameters["\\MEMID"] = memory->name;
 			cell->parameters["\\CLK_ENABLE"] = false;
 			cell->parameters["\\CLK_POLARITY"] = true;
 			cell->parameters["\\TRANSPARENT"] = false;
 			cell->parameters["\\ABITS"] = SIZE(addr);
 			cell->parameters["\\WIDTH"] = SIZE(data);
-			cell->connections["\\CLK"] = RTLIL::State::S0;
-			cell->connections["\\ADDR"] = addr;
-			cell->connections["\\DATA"] = data;
-			module->add(cell);
+			cell->set("\\CLK", RTLIL::State::S0);
+			cell->set("\\ADDR", addr);
+			cell->set("\\DATA", data);
 			continue;
 		}
 
@@ -718,24 +707,21 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			RTLIL::SigSpec addr = operatorInput1(inst, net_map);
 			RTLIL::SigSpec data = operatorInput2(inst, net_map);
 
-			RTLIL::Cell *cell = new RTLIL::Cell;
-			cell->name = RTLIL::escape_id(inst->Name());
-			cell->type = "$memwr";
+			RTLIL::Cell *cell = module->addCell(RTLIL::escape_id(inst->Name()), "$memwr");
 			cell->parameters["\\MEMID"] = memory->name;
 			cell->parameters["\\CLK_ENABLE"] = false;
 			cell->parameters["\\CLK_POLARITY"] = true;
 			cell->parameters["\\PRIORITY"] = 0;
 			cell->parameters["\\ABITS"] = SIZE(addr);
 			cell->parameters["\\WIDTH"] = SIZE(data);
-			cell->connections["\\EN"] = RTLIL::SigSpec(net_map.at(inst->GetControl())).repeat(SIZE(data));
-			cell->connections["\\CLK"] = RTLIL::State::S0;
-			cell->connections["\\ADDR"] = addr;
-			cell->connections["\\DATA"] = data;
-			module->add(cell);
+			cell->set("\\EN", RTLIL::SigSpec(net_map.at(inst->GetControl())).repeat(SIZE(data)));
+			cell->set("\\CLK", RTLIL::State::S0);
+			cell->set("\\ADDR", addr);
+			cell->set("\\DATA", data);
 
 			if (inst->Type() == OPER_CLOCKED_WRITE_PORT) {
 				cell->parameters["\\CLK_ENABLE"] = true;
-				cell->connections["\\CLK"] = net_map.at(inst->GetClock());
+				cell->set("\\CLK", net_map.at(inst->GetClock()));
 			}
 			continue;
 		}
@@ -755,10 +741,8 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 		nl_todo.insert(inst->View());
 
-		RTLIL::Cell *cell = new RTLIL::Cell;
-		cell->name = RTLIL::escape_id(inst->Name());
-		cell->type = inst->IsOperator() ? std::string("$verific$") + inst->View()->Owner()->Name() : RTLIL::escape_id(inst->View()->Owner()->Name());
-		module->add(cell);
+		RTLIL::Cell *cell = module->addCell(RTLIL::escape_id(inst->Name()), inst->IsOperator() ?
+				std::string("$verific$") + inst->View()->Owner()->Name() : RTLIL::escape_id(inst->View()->Owner()->Name()));
 
 		FOREACH_PORTREF_OF_INST(inst, mi2, pr) {
 			// log("      .%s(%s)\n", pr->GetPort()->Name(), pr->GetNet()->Name());
@@ -769,13 +753,16 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 				port_offset = pr->GetPort()->Bus()->IndexOf(pr->GetPort()) -
 						std::min(pr->GetPort()->Bus()->LeftIndex(), pr->GetPort()->Bus()->RightIndex());
 			}
-			RTLIL::SigSpec &conn = cell->connections[RTLIL::escape_id(port_name)];
+			RTLIL::SigSpec conn;
+			if (cell->has(RTLIL::escape_id(port_name)))
+				conn = cell->get(RTLIL::escape_id(port_name));
 			while (SIZE(conn) <= port_offset) {
 				if (pr->GetPort()->GetDir() != DIR_IN)
 					conn.append(module->addWire(NEW_ID, port_offset - SIZE(conn)));
 				conn.append(RTLIL::State::Sz);
 			}
 			conn.replace(port_offset, net_map.at(pr->GetNet()));
+			cell->set(RTLIL::escape_id(port_name), conn);
 		}
 	}
 }
