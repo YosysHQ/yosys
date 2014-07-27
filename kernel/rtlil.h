@@ -70,6 +70,7 @@ namespace RTLIL
 	struct SigChunk;
 	struct SigBit;
 	struct SigSpecIterator;
+	struct SigSpecConstIterator;
 	struct SigSpec;
 	struct CaseRule;
 	struct SwitchRule;
@@ -698,6 +699,16 @@ struct RTLIL::SigSpecIterator
 	inline void operator++() { index++; }
 };
 
+struct RTLIL::SigSpecConstIterator
+{
+	const RTLIL::SigSpec *sig_p;
+	int index;
+
+	inline const RTLIL::SigBit &operator*() const;
+	inline bool operator!=(const RTLIL::SigSpecConstIterator &other) const { return index != other.index; }
+	inline void operator++() { index++; }
+};
+
 struct RTLIL::SigSpec
 {
 private:
@@ -761,6 +772,9 @@ public:
 
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
 	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
+
+	inline RTLIL::SigSpecConstIterator begin() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = 0; return it; }
+	inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = width_; return it; }
 
 	void sort();
 	void sort_and_unify();
@@ -826,6 +840,10 @@ public:
 };
 
 inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
+	return (*sig_p)[index];
+}
+
+inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
 	return (*sig_p)[index];
 }
 
