@@ -175,7 +175,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 	del_list.clear();
 	for (auto mod_name : selected_modules) {
-		if (design->modules.count(mod_name) == 0)
+		if (design->modules_.count(mod_name) == 0)
 			del_list.push_back(mod_name);
 		selected_members.erase(mod_name);
 	}
@@ -184,7 +184,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 	del_list.clear();
 	for (auto &it : selected_members)
-		if (design->modules.count(it.first) == 0)
+		if (design->modules_.count(it.first) == 0)
 			del_list.push_back(it.first);
 	for (auto mod_name : del_list)
 		selected_members.erase(mod_name);
@@ -192,7 +192,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	for (auto &it : selected_members) {
 		del_list.clear();
 		for (auto memb_name : it.second)
-			if (design->modules[it.first]->count_id(memb_name) == 0)
+			if (design->modules_[it.first]->count_id(memb_name) == 0)
 				del_list.push_back(memb_name);
 		for (auto memb_name : del_list)
 			it.second.erase(memb_name);
@@ -203,8 +203,8 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	for (auto &it : selected_members)
 		if (it.second.size() == 0)
 			del_list.push_back(it.first);
-		else if (it.second.size() == design->modules[it.first]->wires_.size() + design->modules[it.first]->memories.size() +
-				design->modules[it.first]->cells_.size() + design->modules[it.first]->processes.size())
+		else if (it.second.size() == design->modules_[it.first]->wires_.size() + design->modules_[it.first]->memories.size() +
+				design->modules_[it.first]->cells_.size() + design->modules_[it.first]->processes.size())
 			add_list.push_back(it.first);
 	for (auto mod_name : del_list)
 		selected_members.erase(mod_name);
@@ -213,7 +213,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		selected_modules.insert(mod_name);
 	}
 
-	if (selected_modules.size() == design->modules.size()) {
+	if (selected_modules.size() == design->modules_.size()) {
 		full_selection = true;
 		selected_modules.clear();
 		selected_members.clear();
@@ -222,14 +222,14 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 RTLIL::Design::~Design()
 {
-	for (auto it = modules.begin(); it != modules.end(); it++)
+	for (auto it = modules_.begin(); it != modules_.end(); it++)
 		delete it->second;
 }
 
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
-	for (auto &it : modules) {
+	for (auto &it : modules_) {
 		assert(it.first == it.second->name);
 		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		it.second->check();
@@ -239,7 +239,7 @@ void RTLIL::Design::check()
 
 void RTLIL::Design::optimize()
 {
-	for (auto &it : modules)
+	for (auto &it : modules_)
 		it.second->optimize();
 	for (auto &it : selection_stack)
 		it.optimize(this);

@@ -288,7 +288,7 @@ struct FsmOptPass : public Pass {
 		log_header("Executing FSM_OPT pass (simple optimizations of FSMs).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (design->selected(mod_it.second))
 				for (auto &cell_it : mod_it.second->cells_)
 					if (cell_it.second->type == "$fsm" and design->selected(mod_it.second, cell_it.second))

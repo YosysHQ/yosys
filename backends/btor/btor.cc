@@ -964,7 +964,7 @@ struct BtorBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 		
 		if (top_module_name.empty())
-			for (auto & mod_it:design->modules)
+			for (auto & mod_it:design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_module_name = mod_it.first;
 
@@ -975,7 +975,7 @@ struct BtorBackend : public Backend {
 		
 		std::vector<RTLIL::Module*> mod_list;
 
-		for (auto module_it : design->modules)
+		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
 			if (module->get_bool_attribute("\\blackbox"))

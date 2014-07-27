@@ -174,7 +174,7 @@ struct FsmExportPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 				for (auto &cell_it : mod_it.second->cells_)
 					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second)) {

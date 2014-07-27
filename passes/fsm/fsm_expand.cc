@@ -258,7 +258,7 @@ struct FsmExpandPass : public Pass {
 		log_header("Executing FSM_EXPAND pass (merging auxiliary logic into FSMs).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
 				continue;
 			std::vector<RTLIL::Cell*> fsm_cells;

@@ -684,7 +684,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		free(p);
 
 		log_header("Re-integrating ABC results.\n");
-		RTLIL::Module *mapped_mod = mapped_design->modules["\\netlist"];
+		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `netlist'.\n");
 		for (auto &it : mapped_mod->wires_) {
@@ -1000,7 +1000,7 @@ struct AbcPass : public Pass {
 		if (!constr_file.empty() && liberty_file.empty())
 			log_cmd_error("Got -constr but no -liberty!\n");
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second)) {
 				if (mod_it.second->processes.size() > 0)
 					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());

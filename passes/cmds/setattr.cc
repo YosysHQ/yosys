@@ -98,7 +98,7 @@ struct SetattrPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules)
+		for (auto &mod : design->modules_)
 		{
 			RTLIL::Module *module = mod.second;
 
@@ -164,7 +164,7 @@ struct SetparamPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules)
+		for (auto &mod : design->modules_)
 		{
 			RTLIL::Module *module = mod.second;
 

@@ -280,7 +280,7 @@ struct SccPass : public Pass {
 
 		RTLIL::Selection newSelection(false);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 			{
 				SccWorker worker(design, mod_it.second, allCellTypes, maxDepth);

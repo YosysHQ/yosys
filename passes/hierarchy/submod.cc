@@ -105,7 +105,7 @@ struct SubmodWorker
 
 		RTLIL::Module *new_mod = new RTLIL::Module;
 		new_mod->name = submod.full_name;
-		design->modules[new_mod->name] = new_mod;
+		design->modules_[new_mod->name] = new_mod;
 		int port_counter = 1, auto_name_counter = 1;
 
 		std::set<std::string> all_wire_names;
@@ -229,7 +229,7 @@ struct SubmodWorker
 				if (submodules.count(submod_str) == 0) {
 					submodules[submod_str].name = submod_str;
 					submodules[submod_str].full_name = module->name + "_" + submod_str;
-					while (design->modules.count(submodules[submod_str].full_name) != 0 ||
+					while (design->modules_.count(submodules[submod_str].full_name) != 0 ||
 							module->count_id(submodules[submod_str].full_name) != 0)
 						submodules[submod_str].full_name += "_";
 				}
@@ -312,12 +312,12 @@ struct SubmodPass : public Pass {
 			while (did_something) {
 				did_something = false;
 				std::vector<std::string> queued_modules;
-				for (auto &mod_it : design->modules)
+				for (auto &mod_it : design->modules_)
 					if (handled_modules.count(mod_it.first) == 0 && design->selected_whole_module(mod_it.first))
 						queued_modules.push_back(mod_it.first);
 				for (auto &modname : queued_modules)
-					if (design->modules.count(modname) != 0) {
-						SubmodWorker worker(design, design->modules[modname]);
+					if (design->modules_.count(modname) != 0) {
+						SubmodWorker worker(design, design->modules_[modname]);
 						handled_modules.insert(modname);
 						did_something = true;
 					}
@@ -328,7 +328,7 @@ struct SubmodPass : public Pass {
 		else
 		{
 			RTLIL::Module *module = NULL;
-			for (auto &mod_it : design->modules) {
+			for (auto &mod_it : design->modules_) {
 				if (!design->selected_module(mod_it.first))
 					continue;
 				if (module != NULL)

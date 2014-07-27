@@ -115,7 +115,7 @@ struct SetundefPass : public Pass {
 		if (!got_value)
 			log_cmd_error("One of the options -zero, -one, or -random <seed> must be specified.\n");
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			RTLIL::Module *module = mod_it.second;
 			if (!design->selected(module))

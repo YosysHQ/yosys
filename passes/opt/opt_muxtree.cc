@@ -423,7 +423,7 @@ struct OptMuxtreePass : public Pass {
 		extra_args(args, 1, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected_whole_module(mod_it.first)) {
 				if (design->selected(mod_it.second))
 					log("Skipping module %s as it is only partially selected.\n", id2cstr(mod_it.second->name));

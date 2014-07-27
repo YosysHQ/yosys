@@ -1141,7 +1141,7 @@ struct SatPass : public Pass {
 		extra_args(args, argidx, design);
 
 		RTLIL::Module *module = NULL;
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second)) {
 				if (module)
 					log_cmd_error("Only one module must be selected for the SAT pass! (selected: %s and %s)\n",

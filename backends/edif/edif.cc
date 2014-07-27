@@ -125,11 +125,11 @@ struct EdifBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		if (top_module_name.empty())
-			for (auto & mod_it:design->modules)
+			for (auto & mod_it:design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_module_name = mod_it.first;
 
-		for (auto module_it : design->modules)
+		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
 			if (module->get_bool_attribute("\\blackbox"))
@@ -146,7 +146,7 @@ struct EdifBackend : public Backend {
 			for (auto cell_it : module->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;
-				if (!design->modules.count(cell->type) || design->modules.at(cell->type)->get_bool_attribute("\\blackbox")) {
+				if (!design->modules_.count(cell->type) || design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections()) {
 						if (p.second.size() > 1)
@@ -213,11 +213,11 @@ struct EdifBackend : public Backend {
 
 		// extract module dependencies
 		std::map<RTLIL::Module*, std::set<RTLIL::Module*>> module_deps;
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			module_deps[mod_it.second] = std::set<RTLIL::Module*>();
 			for (auto &cell_it : mod_it.second->cells_)
-				if (design->modules.count(cell_it.second->type) > 0)
-					module_deps[mod_it.second].insert(design->modules.at(cell_it.second->type));
+				if (design->modules_.count(cell_it.second->type) > 0)
+					module_deps[mod_it.second].insert(design->modules_.at(cell_it.second->type));
 		}
 
 		// simple good-enough topological sort

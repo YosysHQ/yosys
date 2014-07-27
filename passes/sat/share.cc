@@ -961,7 +961,7 @@ struct SharePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 				ShareWorker(config, design, mod_it.second);
 	}

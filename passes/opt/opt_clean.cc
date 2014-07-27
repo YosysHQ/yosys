@@ -338,7 +338,7 @@ struct OptCleanPass : public Pass {
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected_whole_module(mod_it.first)) {
 				if (design->selected(mod_it.second))
 					log("Skipping module %s as it is only partially selected.\n", id2cstr(mod_it.second->name));
@@ -402,7 +402,7 @@ struct CleanPass : public Pass {
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (design->selected_whole_module(mod_it.first) && mod_it.second->processes.size() == 0)
 				do {
 					OPT_DID_SOMETHING = false;

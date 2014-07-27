@@ -340,7 +340,7 @@ struct RTLIL::Selection
 
 struct RTLIL::Design
 {
-	std::map<RTLIL::IdString, RTLIL::Module*> modules;
+	std::map<RTLIL::IdString, RTLIL::Module*> modules_;
 
 	std::vector<RTLIL::Selection> selection_stack;
 	std::map<RTLIL::IdString, RTLIL::Selection> selection_vars;

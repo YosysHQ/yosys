@@ -367,7 +367,7 @@ struct OptReducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
 				continue;
 			OptReduceWorker worker(design, mod_it.second, do_fine);

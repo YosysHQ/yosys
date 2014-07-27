@@ -817,7 +817,7 @@ struct FreducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int bitcount = 0;
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			RTLIL::Module *module = mod_it.second;
 			if (design->selected(module))
 				bitcount += FreduceWorker(design, module).run();

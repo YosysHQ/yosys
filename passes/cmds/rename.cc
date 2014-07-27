@@ -96,7 +96,7 @@ struct RenamePass : public Pass {
 		{
 			extra_args(args, argidx, design);
 
-			for (auto &mod : design->modules)
+			for (auto &mod : design->modules_)
 			{
 				int counter = 0;
 
@@ -128,7 +128,7 @@ struct RenamePass : public Pass {
 		{
 			extra_args(args, argidx, design);
 
-			for (auto &mod : design->modules)
+			for (auto &mod : design->modules_)
 			{
 				RTLIL::Module *module = mod.second;
 				if (!design->selected(module))
@@ -163,19 +163,19 @@ struct RenamePass : public Pass {
 
 			if (!design->selected_active_module.empty())
 			{
-				if (design->modules.count(design->selected_active_module) > 0)
-					rename_in_module(design->modules.at(design->selected_active_module), from_name, to_name);
+				if (design->modules_.count(design->selected_active_module) > 0)
+					rename_in_module(design->modules_.at(design->selected_active_module), from_name, to_name);
 			}
 			else
 			{
-				for (auto &mod : design->modules) {
+				for (auto &mod : design->modules_) {
 					if (mod.first == from_name || RTLIL::unescape_id(mod.first) == from_name) {
 						to_name = RTLIL::escape_id(to_name);
 						log("Renaming module %s to %s.\n", mod.first.c_str(), to_name.c_str());
 						RTLIL::Module *module = mod.second;
-						design->modules.erase(module->name);
+						design->modules_.erase(module->name);
 						module->name = to_name;
-						design->modules[module->name] = module;
+						design->modules_[module->name] = module;
 						goto rename_ok;
 					}
 				}

@@ -63,15 +63,15 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	std::string gate_name = RTLIL::escape_id(args[argidx++]);
 	std::string miter_name = RTLIL::escape_id(args[argidx++]);
 
-	if (design->modules.count(gold_name) == 0)
+	if (design->modules_.count(gold_name) == 0)
 		log_cmd_error("Can't find gold module %s!\n", gold_name.c_str());
-	if (design->modules.count(gate_name) == 0)
+	if (design->modules_.count(gate_name) == 0)
 		log_cmd_error("Can't find gate module %s!\n", gate_name.c_str());
-	if (design->modules.count(miter_name) != 0)
+	if (design->modules_.count(miter_name) != 0)
 		log_cmd_error("There is already a module %s!\n", gate_name.c_str());
 
-	RTLIL::Module *gold_module = design->modules.at(gold_name);
-	RTLIL::Module *gate_module = design->modules.at(gate_name);
+	RTLIL::Module *gold_module = design->modules_.at(gold_name);
+	RTLIL::Module *gate_module = design->modules_.at(gate_name);
 
 	for (auto &it : gold_module->wires_) {
 		RTLIL::Wire *w1 = it.second, *w2;
@@ -113,7 +113,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 	RTLIL::Module *miter_module = new RTLIL::Module;
 	miter_module->name = miter_name;
-	design->modules[miter_name] = miter_module;
+	design->modules_[miter_name] = miter_module;
 
 	RTLIL::Cell *gold_cell = miter_module->addCell("\\gold", gold_name);
 	RTLIL::Cell *gate_cell = miter_module->addCell("\\gate", gate_name);

@@ -276,7 +276,7 @@ struct ProcMuxPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 				for (auto &proc_it : mod_it.second->processes)
 					if (design->selected(mod_it.second, proc_it.second))

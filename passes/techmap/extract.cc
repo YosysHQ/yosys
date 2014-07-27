@@ -604,9 +604,9 @@ struct ExtractPass : public Pass {
 						delete map;
 						log_cmd_error("Can't saved design `%s'.\n", filename.c_str()+1);
 					}
-					for (auto &it : saved_designs.at(filename.substr(1))->modules)
-						if (!map->modules.count(it.first))
-							map->modules[it.first] = it.second->clone();
+					for (auto &it : saved_designs.at(filename.substr(1))->modules_)
+						if (!map->modules_.count(it.first))
+							map->modules_[it.first] = it.second->clone();
 				}
 				else
 				{
@@ -632,7 +632,7 @@ struct ExtractPass : public Pass {
 		log_header("Creating graphs for SubCircuit library.\n");
 
 		if (!mine_mode)
-			for (auto &mod_it : map->modules) {
+			for (auto &mod_it : map->modules_) {
 				SubCircuit::Graph mod_graph;
 				std::string graph_name = "needle_" + RTLIL::unescape_id(mod_it.first);
 				log("Creating needle graph %s.\n", graph_name.c_str());
@@ -643,7 +643,7 @@ struct ExtractPass : public Pass {
 				}
 			}
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			SubCircuit::Graph mod_graph;
 			std::string graph_name = "haystack_" + RTLIL::unescape_id(mod_it.first);
 			log("Creating haystack graph %s.\n", graph_name.c_str());
@@ -725,7 +725,7 @@ struct ExtractPass : public Pass {
 
 				RTLIL::Module *newMod = new RTLIL::Module;
 				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, id2cstr(haystack_map.at(result.graphId)->name), result.totalMatchesAfterLimits);
-				map->modules[newMod->name] = newMod;
+				map->modules_[newMod->name] = newMod;
 
 				int portCounter = 1;
 				for (auto wire : wires) {

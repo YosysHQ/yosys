@@ -506,7 +506,7 @@ struct ShowWorker
 
 		design->optimize();
 		page_counter = 0;
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			module = mod_it.second;
 			if (!design->selected_module(module->name))
@@ -692,7 +692,7 @@ struct ShowPass : public Pass {
 
 		if (format != "ps") {
 			int modcount = 0;
-			for (auto &mod_it : design->modules) {
+			for (auto &mod_it : design->modules_) {
 				if (mod_it.second->get_bool_attribute("\\blackbox"))
 					continue;
 				if (mod_it.second->cells_.empty() && mod_it.second->connections().empty())

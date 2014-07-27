@@ -89,9 +89,9 @@ struct BlifDumper
 	{
 		if (!config->gates_mode)
 			return "subckt";
-		if (!design->modules.count(RTLIL::escape_id(cell_type)))
+		if (!design->modules_.count(RTLIL::escape_id(cell_type)))
 			return "gate";
-		if (design->modules.at(RTLIL::escape_id(cell_type))->get_bool_attribute("\\blackbox"))
+		if (design->modules_.at(RTLIL::escape_id(cell_type))->get_bool_attribute("\\blackbox"))
 			return "gate";
 		return "subckt";
 	}
@@ -362,7 +362,7 @@ struct BlifBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		if (top_module_name.empty())
-			for (auto & mod_it:design->modules)
+			for (auto & mod_it:design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_module_name = mod_it.first;
 
@@ -370,7 +370,7 @@ struct BlifBackend : public Backend {
 
 		std::vector<RTLIL::Module*> mod_list;
 
-		for (auto module_it : design->modules)
+		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
 			if (module->get_bool_attribute("\\blackbox"))

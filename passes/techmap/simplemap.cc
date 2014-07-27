@@ -435,7 +435,7 @@ struct SimplemapPass : public Pass {
 		std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
 		simplemap_get_mappers(mappers);
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
 				continue;
 			std::vector<RTLIL::Cell*> delete_cells;

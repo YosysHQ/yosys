@@ -151,7 +151,7 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 	RTLIL::Selection new_sel(false);
 
-	for (auto &mod_it : design->modules)
+	for (auto &mod_it : design->modules_)
 	{
 		if (lhs.selected_whole_module(mod_it.first))
 			continue;
@@ -181,13 +181,13 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	for (auto &mod_it : design->modules)
+	for (auto &mod_it : design->modules_)
 	{
 		if (lhs.selected_whole_module(mod_it.first))
 		{
 			for (auto &cell_it : mod_it.second->cells_)
 			{
-				if (design->modules.count(cell_it.second->type) == 0)
+				if (design->modules_.count(cell_it.second->type) == 0)
 					continue;
 				lhs.selected_modules.insert(cell_it.second->type);
 			}
@@ -205,7 +205,7 @@ static void select_op_fullmod(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 static void select_op_alias(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	for (auto &mod_it : design->modules)
+	for (auto &mod_it : design->modules_)
 	{
 		if (lhs.selected_whole_module(mod_it.first))
 			continue;
@@ -260,7 +260,7 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 		if (!rhs.full_selection && rhs.selected_modules.size() == 0 && rhs.selected_members.size() == 0)
 			return;
 		lhs.full_selection = false;
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 			lhs.selected_modules.insert(it.first);
 	}
 
@@ -271,10 +271,10 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 
 	for (auto &it : rhs.selected_members)
 	{
-		if (design->modules.count(it.first) == 0)
+		if (design->modules_.count(it.first) == 0)
 			continue;
 
-		RTLIL::Module *mod = design->modules[it.first];
+		RTLIL::Module *mod = design->modules_[it.first];
 
 		if (lhs.selected_modules.count(mod->name) > 0)
 		{
@@ -304,7 +304,7 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 
 	if (lhs.full_selection) {
 		lhs.full_selection = false;
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 			lhs.selected_modules.insert(it.first);
 	}
 
@@ -368,7 +368,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 {
 	int sel_objects = 0;
 	bool is_input, is_output;
-	for (auto &mod_it : design->modules)
+	for (auto &mod_it : design->modules_)
 	{
 		if (lhs.selected_whole_module(mod_it.first) || !lhs.selected_module(mod_it.first))
 			continue;
@@ -684,7 +684,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	}
 	
 	sel.full_selection = false;
-	for (auto &mod_it : design->modules)
+	for (auto &mod_it : design->modules_)
 	{
 		if (arg_mod.substr(0, 2) == "A:") {
 			if (!match_attr(mod_it.second->attributes, arg_mod.substr(2)))
@@ -1078,7 +1078,7 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-module" && argidx+1 < args.size()) {
 				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
-				if (design->modules.count(mod_name) == 0)
+				if (design->modules_.count(mod_name) == 0)
 					log_cmd_error("No such module: %s\n", id2cstr(mod_name));
 				design->selected_active_module = mod_name;
 				got_module = true;
@@ -1147,7 +1147,7 @@ struct SelectPass : public Pass {
 			if (work_stack.size() > 0)
 				sel = &work_stack.back();
 			sel->optimize(design);
-			for (auto mod_it : design->modules)
+			for (auto mod_it : design->modules_)
 			{
 				if (sel->selected_whole_module(mod_it.first) && list_mode)
 					log("%s\n", id2cstr(mod_it.first));
@@ -1217,7 +1217,7 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			RTLIL::Selection *sel = &work_stack.back();
 			sel->optimize(design);
-			for (auto mod_it : design->modules)
+			for (auto mod_it : design->modules_)
 				if (sel->selected_module(mod_it.first)) {
 					for (auto &it : mod_it.second->wires_)
 						if (sel->selected_member(mod_it.first, it.first))
@@ -1299,15 +1299,15 @@ struct CdPass : public Pass {
 
 		std::string modname = RTLIL::escape_id(args[1]);
 
-		if (design->modules.count(modname) == 0 && !design->selected_active_module.empty()) {
+		if (design->modules_.count(modname) == 0 && !design->selected_active_module.empty()) {
 			RTLIL::Module *module = NULL;
-			if (design->modules.count(design->selected_active_module) > 0)
-				module = design->modules.at(design->selected_active_module);
+			if (design->modules_.count(design->selected_active_module) > 0)
+				module = design->modules_.at(design->selected_active_module);
 			if (module != NULL && module->cells_.count(modname) > 0)
 				modname = module->cells_.at(modname)->type;
 		}
 
-		if (design->modules.count(modname) > 0) {
+		if (design->modules_.count(modname) > 0) {
 			design->selected_active_module = modname;
 			design->selection_stack.back() = RTLIL::Selection();
 			select_filter_active_mod(design, design->selection_stack.back());
@@ -1368,12 +1368,12 @@ struct LsPass : public Pass {
 
 		if (design->selected_active_module.empty())
 		{
-			counter += log_matches("modules", pattern, design->modules);
+			counter += log_matches("modules", pattern, design->modules_);
 		}
 		else
-		if (design->modules.count(design->selected_active_module) > 0)
+		if (design->modules_.count(design->selected_active_module) > 0)
 		{
-			RTLIL::Module *module = design->modules.at(design->selected_active_module);
+			RTLIL::Module *module = design->modules_.at(design->selected_active_module);
 			counter += log_matches("wires", pattern, module->wires_);
 			counter += log_matches("memories", pattern, module->memories);
 			counter += log_matches("cells", pattern, module->cells_);

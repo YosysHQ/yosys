@@ -41,14 +41,14 @@ struct CopyPass : public Pass {
 		std::string src_name = RTLIL::escape_id(args[1]);
 		std::string trg_name = RTLIL::escape_id(args[2]);
 
-		if (design->modules.count(src_name) == 0)
+		if (design->modules_.count(src_name) == 0)
 			log_cmd_error("Can't find source module %s.\n", src_name.c_str());
 
-		if (design->modules.count(trg_name) != 0)
+		if (design->modules_.count(trg_name) != 0)
 			log_cmd_error("Target module name %s already exists.\n", trg_name.c_str());
 
-		design->modules[trg_name] = design->modules.at(src_name)->clone();
-		design->modules[trg_name]->name = trg_name;
+		design->modules_[trg_name] = design->modules_.at(src_name)->clone();
+		design->modules_[trg_name]->name = trg_name;
 	}
 } CopyPass;
  

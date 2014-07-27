@@ -121,7 +121,7 @@ struct IntersynthBackend : public Backend {
 		for (auto lib : libs)
 			ct.setup_design(lib);
 
-		for (auto module_it : design->modules)
+		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
 			SigMap sigmap(module);

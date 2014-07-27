@@ -148,7 +148,7 @@ struct FsmDetectPass : public Pass {
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (!design->selected(mod_it.second))
 				continue;

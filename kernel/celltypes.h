@@ -171,7 +171,7 @@ struct CellTypes
 		if (cell_types.count(type) > 0)
 			return true;
 		for (auto design : designs)
-			if (design->modules.count(type) > 0)
+			if (design->modules_.count(type) > 0)
 				return true;
 		return false;
 	}
@@ -180,9 +180,9 @@ struct CellTypes
 	{
 		if (cell_types.count(type) == 0) {
 			for (auto design : designs)
-				if (design->modules.count(type) > 0) {
-					if (design->modules.at(type)->wires_.count(port))
-						return design->modules.at(type)->wires_.at(port)->port_output;
+				if (design->modules_.count(type) > 0) {
+					if (design->modules_.at(type)->wires_.count(port))
+						return design->modules_.at(type)->wires_.at(port)->port_output;
 					return false;
 				}
 			return false;
@@ -203,9 +203,9 @@ struct CellTypes
 	{
 		if (cell_types.count(type) == 0) {
 			for (auto design : designs)
-				if (design->modules.count(type) > 0) {
-					if (design->modules.at(type)->wires_.count(port))
-						return design->modules.at(type)->wires_.at(port)->port_input;
+				if (design->modules_.count(type) > 0) {
+					if (design->modules_.at(type)->wires_.count(port))
+						return design->modules_.at(type)->wires_.at(port)->port_input;
 					return false;
 				}
 			return false;

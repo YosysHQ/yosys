@@ -75,7 +75,7 @@ struct ConnectPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		RTLIL::Module *module = NULL;
-		for (auto &it : design->modules) {
+		for (auto &it : design->modules_) {
 			if (!design->selected(it.second))
 				continue;
 			if (module != NULL)

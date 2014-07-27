@@ -166,7 +166,7 @@ struct OptRmdffPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (!design->selected(mod_it.second))
 				continue;

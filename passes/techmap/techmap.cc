@@ -243,7 +243,7 @@ struct TechmapWorker
 			for (auto &tpl_name : celltypeMap.at(cell->type))
 			{
 				std::string derived_name = tpl_name;
-				RTLIL::Module *tpl = map->modules[tpl_name];
+				RTLIL::Module *tpl = map->modules_[tpl_name];
 				std::map<RTLIL::IdString, RTLIL::Const> parameters = cell->parameters;
 
 				if (tpl->get_bool_attribute("\\blackbox"))
@@ -334,7 +334,7 @@ struct TechmapWorker
 				} else {
 					if (cell->parameters.size() != 0) {
 						derived_name = tpl->derive(map, parameters);
-						tpl = map->modules[derived_name];
+						tpl = map->modules_[derived_name];
 						log_continue = true;
 					}
 					techmap_cache[key] = tpl;
@@ -592,15 +592,15 @@ struct TechmapPass : public Pass {
 			}
 
 		std::map<RTLIL::IdString, RTLIL::Module*> modules_new;
-		for (auto &it : map->modules) {
+		for (auto &it : map->modules_) {
 			if (it.first.substr(0, 2) == "\\$")
 				it.second->name = it.first.substr(1);
 			modules_new[it.second->name] = it.second;
 		}
-		map->modules.swap(modules_new);
+		map->modules_.swap(modules_new);
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
-		for (auto &it : map->modules) {
+		for (auto &it : map->modules_) {
 			if (it.second->attributes.count("\\techmap_celltype") && !it.second->attributes.at("\\techmap_celltype").bits.empty()) {
 				char *p = strdup(it.second->attributes.at("\\techmap_celltype").decode_string().c_str());
 				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(NULL, " \t\r\n"))
@@ -614,7 +614,7 @@ struct TechmapPass : public Pass {
 		std::set<RTLIL::Cell*> handled_cells;
 		while (did_something) {
 			did_something = false;
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 				if (worker.techmap_module(design, mod_it.second, map, handled_cells, celltypeMap, false))
 					did_something = true;
 			if (did_something)
@@ -653,12 +653,12 @@ struct FlattenPass : public Pass {
 		TechmapWorker worker;
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 			celltypeMap[it.first].insert(it.first);
 
 		RTLIL::Module *top_mod = NULL;
 		if (design->full_selection())
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
 
@@ -670,7 +670,7 @@ struct FlattenPass : public Pass {
 				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap, true))
 					did_something = true;
 			} else {
-				for (auto &mod_it : design->modules)
+				for (auto &mod_it : design->modules_)
 					if (worker.techmap_module(design, mod_it.second, design, handled_cells, celltypeMap, true))
 						did_something = true;
 			}
@@ -680,14 +680,14 @@ struct FlattenPass : public Pass {
 
 		if (top_mod != NULL) {
 			std::map<RTLIL::IdString, RTLIL::Module*> new_modules;
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 				if (mod_it.second == top_mod || mod_it.second->get_bool_attribute("\\blackbox")) {
 					new_modules[mod_it.first] = mod_it.second;
 				} else {
 					log("Deleting now unused module %s.\n", RTLIL::id2cstr(mod_it.first));
 					delete mod_it.second;
 				}
-			design->modules.swap(new_modules);
+			design->modules_.swap(new_modules);
 		}
 
 		log_pop();

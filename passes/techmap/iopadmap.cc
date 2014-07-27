@@ -111,7 +111,7 @@ struct IopadmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 		{
 			RTLIL::Module *module = it.second;
 

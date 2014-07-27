@@ -37,11 +37,11 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 {
 	std::set<std::string> found_celltypes;
 
-	for (auto i1 : design->modules)
+	for (auto i1 : design->modules_)
 	for (auto i2 : i1.second->cells_)
 	{
 		RTLIL::Cell *cell = i2.second;
-		if (cell->type[0] == '$' || design->modules.count(cell->type) > 0)
+		if (cell->type[0] == '$' || design->modules_.count(cell->type) > 0)
 			continue;
 		for (auto &pattern : celltypes)
 			if (!fnmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str(), FNM_NOESCAPE))
@@ -55,7 +55,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		std::map<std::string, int> portwidths;
 		log("Generate module for cell type %s:\n", celltype.c_str());
 
-		for (auto i1 : design->modules)
+		for (auto i1 : design->modules_)
 		for (auto i2 : i1.second->cells_)
 			if (i2.second->type == celltype) {
 				for (auto &conn : i2.second->connections()) {
@@ -115,7 +115,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		RTLIL::Module *mod = new RTLIL::Module;
 		mod->name = celltype;
 		mod->attributes["\\blackbox"] = RTLIL::Const(1);
-		design->modules[mod->name] = mod;
+		design->modules_[mod->name] = mod;
 
 		for (auto &decl : ports) {
 			RTLIL::Wire *wire = mod->addWire(decl.portname, portwidths.at(decl.portname));
@@ -151,11 +151,11 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 			cell->type = cell->type.substr(pos_type + 1);
 		}
 
-		if (design->modules.count(cell->type) == 0)
+		if (design->modules_.count(cell->type) == 0)
 		{
-			if (design->modules.count("$abstract" + cell->type))
+			if (design->modules_.count("$abstract" + cell->type))
 			{
-				cell->type = design->modules.at("$abstract" + cell->type)->derive(design, cell->parameters);
+				cell->type = design->modules_.at("$abstract" + cell->type)->derive(design, cell->parameters);
 				cell->parameters.clear();
 				did_something = true;
 				continue;
@@ -189,7 +189,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 			continue;
 
 		loaded_module:
-			if (design->modules.count(cell->type) == 0)
+			if (design->modules_.count(cell->type) == 0)
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
 		}
@@ -197,10 +197,10 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		if (cell->parameters.size() == 0)
 			continue;
 
-		if (design->modules.at(cell->type)->get_bool_attribute("\\blackbox"))
+		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox"))
 			continue;
 
-		RTLIL::Module *mod = design->modules[cell->type];
+		RTLIL::Module *mod = design->modules_[cell->type];
 		cell->type = mod->derive(design, cell->parameters);
 		cell->parameters.clear();
 		did_something = true;
@@ -211,10 +211,10 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		RTLIL::Cell *cell = it.first;
 		int idx = it.second.first, num = it.second.second;
 
-		if (design->modules.count(cell->type) == 0)
+		if (design->modules_.count(cell->type) == 0)
 			log_error("Array cell `%s.%s' of unkown type `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 
-		RTLIL::Module *mod = design->modules[cell->type];
+		RTLIL::Module *mod = design->modules_[cell->type];
 
 		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
@@ -253,8 +253,8 @@ static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &us
 	used.insert(mod);
 
 	for (auto &it : mod->cells_) {
-		if (design->modules.count(it.second->type) > 0)
-			hierarchy_worker(design, used, design->modules[it.second->type], indent+4);
+		if (design->modules_.count(it.second->type) > 0)
+			hierarchy_worker(design, used, design->modules_[it.second->type], indent+4);
 	}
 }
 
@@ -264,7 +264,7 @@ static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib,
 	hierarchy_worker(design, used, top, 0);
 
 	std::vector<RTLIL::Module*> del_modules;
-	for (auto &it : design->modules)
+	for (auto &it : design->modules_)
 		if (used.count(it.second) == 0)
 			del_modules.push_back(it.second);
 
@@ -274,7 +274,7 @@ static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib,
 		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
-		design->modules.erase(mod->name);
+		design->modules_.erase(mod->name);
 		delete mod;
 	}
 
@@ -412,11 +412,11 @@ struct HierarchyPass : public Pass {
 			if (args[argidx] == "-top") {
 				if (++argidx >= args.size())
 					log_cmd_error("Option -top requires an additional argument!\n");
-				top_mod = design->modules.count(RTLIL::escape_id(args[argidx])) ? design->modules.at(RTLIL::escape_id(args[argidx])) : NULL;
-				if (top_mod == NULL && design->modules.count("$abstract" + RTLIL::escape_id(args[argidx]))) {
+				top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
+				if (top_mod == NULL && design->modules_.count("$abstract" + RTLIL::escape_id(args[argidx]))) {
 					std::map<RTLIL::IdString, RTLIL::Const> empty_parameters;
-					design->modules.at("$abstract" + RTLIL::escape_id(args[argidx]))->derive(design, empty_parameters);
-					top_mod = design->modules.count(RTLIL::escape_id(args[argidx])) ? design->modules.at(RTLIL::escape_id(args[argidx])) : NULL;
+					design->modules_.at("$abstract" + RTLIL::escape_id(args[argidx]))->derive(design, empty_parameters);
+					top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
 				}
 				if (top_mod == NULL)
 					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
@@ -434,7 +434,7 @@ struct HierarchyPass : public Pass {
 		log_push();
 
 		if (top_mod == NULL)
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
 
@@ -446,13 +446,13 @@ struct HierarchyPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			std::vector<std::string> modnames;
-			modnames.reserve(design->modules.size());
-			for (auto &mod_it : design->modules)
+			modnames.reserve(design->modules_.size());
+			for (auto &mod_it : design->modules_)
 				modnames.push_back(mod_it.first);
 			for (auto &modname : modnames) {
-				if (design->modules.count(modname) == 0)
+				if (design->modules_.count(modname) == 0)
 					continue;
-				if (expand_module(design, design->modules[modname], flag_check, libdirs))
+				if (expand_module(design, design->modules_[modname], flag_check, libdirs))
 					did_something = true;
 			}
 			if (did_something)
@@ -465,7 +465,7 @@ struct HierarchyPass : public Pass {
 		}
 
 		if (top_mod != NULL) {
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 				if (mod_it.second == top_mod)
 					mod_it.second->attributes["\\top"] = RTLIL::Const(1);
 				else
@@ -478,14 +478,14 @@ struct HierarchyPass : public Pass {
 			std::map<std::pair<RTLIL::Module*,int>, RTLIL::IdString> pos_map;
 			std::vector<std::pair<RTLIL::Module*,RTLIL::Cell*>> pos_work;
 
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 			for (auto &cell_it : mod_it.second->cells_) {
 				RTLIL::Cell *cell = cell_it.second;
-				if (design->modules.count(cell->type) == 0)
+				if (design->modules_.count(cell->type) == 0)
 					continue;
 				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
-						pos_mods.insert(design->modules.at(cell->type));
+						pos_mods.insert(design->modules_.at(cell->type));
 						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod_it.second, cell));
 						break;
 					}
@@ -507,7 +507,7 @@ struct HierarchyPass : public Pass {
 				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 						int id = atoi(conn.first.c_str()+1);
-						std::pair<RTLIL::Module*,int> key(design->modules.at(cell->type), id);
+						std::pair<RTLIL::Module*,int> key(design->modules_.at(cell->type), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
 									id, RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));

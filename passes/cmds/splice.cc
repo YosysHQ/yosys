@@ -327,7 +327,7 @@ struct SplicePass : public Pass {
 
 		log_header("Executing SPLICE pass (creating cells for signal splicing).\n");
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (!design->selected(mod_it.second))
 				continue;

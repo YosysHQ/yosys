@@ -315,7 +315,7 @@ struct OptSharePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
 				continue;
 			OptShareWorker worker(design, mod_it.second, mode_nomux);

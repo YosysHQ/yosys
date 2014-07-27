@@ -64,10 +64,10 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 
 	for (auto &it : module->cells_)
 	{
-		if (design->modules.count(it.second->type) == 0)
+		if (design->modules_.count(it.second->type) == 0)
 			continue;
 
-		RTLIL::Module *mod = design->modules.at(it.second->type);
+		RTLIL::Module *mod = design->modules_.at(it.second->type);
 		if (!design->selected_whole_module(mod->name))
 			continue;
 		if (mod->get_bool_attribute("\\blackbox"))
@@ -136,7 +136,7 @@ struct AddPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules)
+		for (auto &mod : design->modules_)
 		{
 			RTLIL::Module *module = mod.second;
 			if (!design->selected_whole_module(module->name))

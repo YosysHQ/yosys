@@ -91,7 +91,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 	fprintf(f, "end\n");
 	fprintf(f, "endtask\n\n");
 
-	for (auto it = design->modules.begin(); it != design->modules.end(); it++)
+	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++)
 	{
 		std::map<std::string, int> signal_in;
 		std::map<std::string, std::string> signal_const;
@@ -292,7 +292,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 	fprintf(f, "initial begin\n");
 	fprintf(f, "\t// $dumpfile(\"testbench.vcd\");\n");
 	fprintf(f, "\t// $dumpvars(0, testbench);\n");
-	for (auto it = design->modules.begin(); it != design->modules.end(); it++)
+	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++)
 		if (!it->second->get_bool_attribute("\\gentb_skip"))
 			fprintf(f, "\t%s;\n", idy(it->first, "test").c_str());
 	fprintf(f, "\t$finish;\n");

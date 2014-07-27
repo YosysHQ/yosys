@@ -309,7 +309,7 @@ struct FsmMapPass : public Pass {
 		log_header("Executing FSM_MAP pass (mapping FSMs to basic logic).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
 				continue;
 			std::vector<RTLIL::Cell*> fsm_cells;

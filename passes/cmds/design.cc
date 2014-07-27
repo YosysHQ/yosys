@@ -165,7 +165,7 @@ struct DesignPass : public Pass {
 				argidx = args.size();
 			}
 
-			for (auto &it : copy_from_design->modules) {
+			for (auto &it : copy_from_design->modules_) {
 				if (sel.selected_whole_module(it.first)) {
 					copy_src_modules.push_back(it.second);
 					continue;
@@ -192,10 +192,10 @@ struct DesignPass : public Pass {
 			{
 				std::string trg_name = as_name.empty() ? mod->name : RTLIL::escape_id(as_name);
 
-				if (copy_to_design->modules.count(trg_name))
-					delete copy_to_design->modules.at(trg_name);
-				copy_to_design->modules[trg_name] = mod->clone();
-				copy_to_design->modules[trg_name]->name = trg_name;
+				if (copy_to_design->modules_.count(trg_name))
+					delete copy_to_design->modules_.at(trg_name);
+				copy_to_design->modules_[trg_name] = mod->clone();
+				copy_to_design->modules_[trg_name]->name = trg_name;
 			}
 		}
 
@@ -203,8 +203,8 @@ struct DesignPass : public Pass {
 		{
 			RTLIL::Design *design_copy = new RTLIL::Design;
 
-			for (auto &it : design->modules)
-				design_copy->modules[it.first] = it.second->clone();
+			for (auto &it : design->modules_)
+				design_copy->modules_[it.first] = it.second->clone();
 
 			design_copy->selection_stack = design->selection_stack;
 			design_copy->selection_vars = design->selection_vars;
@@ -221,9 +221,9 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto &it : design->modules)
+			for (auto &it : design->modules_)
 				delete it.second;
-			design->modules.clear();
+			design->modules_.clear();
 
 			design->selection_stack.clear();
 			design->selection_vars.clear();
@@ -239,8 +239,8 @@ struct DesignPass : public Pass {
 			if (pop_mode)
 				pushed_designs.pop_back();
 
-			for (auto &it : saved_design->modules)
-				design->modules[it.first] = it.second->clone();
+			for (auto &it : saved_design->modules_)
+				design->modules_[it.first] = it.second->clone();
 
 			design->selection_stack = saved_design->selection_stack;
 			design->selection_vars = saved_design->selection_vars;

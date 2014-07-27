@@ -236,7 +236,7 @@ struct ProcArstPass : public Pass {
 
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second)) {
 				SigMap assign_map(mod_it.second);
 				for (auto &proc_it : mod_it.second->processes) {

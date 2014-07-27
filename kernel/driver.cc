@@ -234,14 +234,14 @@ static char *readline_obj_generator(const char *text, int state)
 
 		if (design->selected_active_module.empty())
 		{
-			for (auto &it : design->modules)
+			for (auto &it : design->modules_)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
 					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
 		}
 		else
-		if (design->modules.count(design->selected_active_module) > 0)
+		if (design->modules_.count(design->selected_active_module) > 0)
 		{
-			RTLIL::Module *module = design->modules.at(design->selected_active_module);
+			RTLIL::Module *module = design->modules_.at(design->selected_active_module);
 
 			for (auto &it : module->wires_)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)

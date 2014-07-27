@@ -66,7 +66,7 @@ struct DeletePass : public Pass {
 
 		std::vector<std::string> delete_mods;
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (design->selected_whole_module(mod_it.first) && !flag_input && !flag_output) {
 				delete_mods.push_back(mod_it.first);
@@ -134,8 +134,8 @@ struct DeletePass : public Pass {
 		}
 
 		for (auto &it : delete_mods) {
-			delete design->modules.at(it);
-			design->modules.erase(it);
+			delete design->modules_.at(it);
+			design->modules_.erase(it);
 		}
 	}
 } DeletePass;

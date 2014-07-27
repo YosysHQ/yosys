@@ -197,7 +197,7 @@ struct ConnwrappersPass : public Pass {
 
 		log_header("Executing CONNWRAPPERS pass (connect extended ports of wrapper cells).\n");
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 				worker.work(design, mod_it.second);
 	}

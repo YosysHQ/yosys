@@ -120,7 +120,7 @@ struct StubnetsPass : public Pass {
 
 		// call find_stub_nets() for each module that is either
 		// selected as a whole or contains selected objects.
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 			if (design->selected_module(it.first))
 				find_stub_nets(design, it.second, report_bits);
 	}

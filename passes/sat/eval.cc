@@ -306,10 +306,10 @@ struct VlogHammerReporter
 	{
 		for (auto name : split(module_list, ",")) {
 			RTLIL::IdString esc_name = RTLIL::escape_id(module_prefix + name);
-			if (design->modules.count(esc_name) == 0)
+			if (design->modules_.count(esc_name) == 0)
 				log_error("Can't find module %s in current design!\n", name.c_str());
 			log("Using module %s (%s).\n", esc_name.c_str(), name.c_str());
-			modules.push_back(design->modules.at(esc_name));
+			modules.push_back(design->modules_.at(esc_name));
 			module_names.push_back(name);
 		}
 
@@ -416,11 +416,11 @@ struct EvalPass : public Pass {
 				/* this should only be used for regression testing of ConstEval -- see vloghammer */
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
-				if (design->modules.count(mod1_name) == 0)
+				if (design->modules_.count(mod1_name) == 0)
 					log_error("Can't find module `%s'!\n", mod1_name.c_str());
-				if (design->modules.count(mod2_name) == 0)
+				if (design->modules_.count(mod2_name) == 0)
 					log_error("Can't find module `%s'!\n", mod2_name.c_str());
-				BruteForceEquivChecker checker(design->modules.at(mod1_name), design->modules.at(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
+				BruteForceEquivChecker checker(design->modules_.at(mod1_name), design->modules_.at(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivialent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",
@@ -442,7 +442,7 @@ struct EvalPass : public Pass {
 		extra_args(args, argidx, design);
 
 		RTLIL::Module *module = NULL;
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second)) {
 				if (module)
 					log_cmd_error("Only one module must be selected for the EVAL pass! (selected: %s and %s)\n",

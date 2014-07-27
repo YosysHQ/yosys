@@ -166,16 +166,16 @@ struct StatPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
-				if (design->modules.count(RTLIL::escape_id(args[argidx+1])) == 0)
+				if (design->modules_.count(RTLIL::escape_id(args[argidx+1])) == 0)
 					log_cmd_error("Can't find module %s.\n", args[argidx+1].c_str());
-				top_mod = design->modules.at(RTLIL::escape_id(args[++argidx]));
+				top_mod = design->modules_.at(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 		{
 			if (!design->selected_module(it.first))
 				continue;

@@ -12,7 +12,7 @@ struct MyPass : public Pass {
             log("  %s\n", arg.c_str());
 
         log("Modules in current design:\n");
-        for (auto &mod : design->modules)
+        for (auto &mod : design->modules_)
             log("  %s (%zd wires, %zd cells)\n", RTLIL::id2cstr(mod.first),
                     mod.second->wires_.size(), mod.second->cells_.size());
     }
@@ -40,11 +40,11 @@ struct Test1Pass : public Pass {
 
         log("Name of this module: %s\n", RTLIL::id2cstr(module->name));
 
-        if (design->modules.count(module->name) != 0)
+        if (design->modules_.count(module->name) != 0)
             log_error("A module with the name %s already exists!\n",
                     RTLIL::id2cstr(module->name));
 
-        design->modules[module->name] = module;
+        design->modules_[module->name] = module;
     }
 } Test1Pass;
 
@@ -56,7 +56,7 @@ struct Test2Pass : public Pass {
         if (design->selection_stack.back().empty())
             log_cmd_error("This command can't operator on an empty selection!\n");
 
-        RTLIL::Module *module = design->modules.at("\\test");
+        RTLIL::Module *module = design->modules_.at("\\test");
 
         RTLIL::SigSpec a(module->wires_.at("\\a")), x(module->wires_.at("\\x")),
                                                    y(module->wires_.at("\\y"));

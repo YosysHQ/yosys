@@ -50,7 +50,7 @@ static bool consider_cell(RTLIL::Design *design, std::set<std::string> &dff_cell
 {
 	if (cell->name[0] == '$' || dff_cells.count(cell->name))
 		return false;
-	if (cell->type.at(0) == '\\' && !design->modules.count(cell->type))
+	if (cell->type.at(0) == '\\' && !design->modules_.count(cell->type))
 		return false;
 	return true;
 }
@@ -302,7 +302,7 @@ struct ExposePass : public Pass {
 			RTLIL::Module *first_module = NULL;
 			std::set<std::string> shared_dff_wires;
 
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 			{
 				if (!design->selected(mod_it.second))
 					continue;
@@ -352,7 +352,7 @@ struct ExposePass : public Pass {
 		{
 			RTLIL::Module *first_module = NULL;
 
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 			{
 				RTLIL::Module *module = mod_it.second;
 
@@ -434,7 +434,7 @@ struct ExposePass : public Pass {
 			}
 		}
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			RTLIL::Module *module = mod_it.second;
 
@@ -583,9 +583,9 @@ struct ExposePass : public Pass {
 
 					RTLIL::Cell *cell = it.second;
 
-					if (design->modules.count(cell->type))
+					if (design->modules_.count(cell->type))
 					{
-						RTLIL::Module *mod = design->modules.at(cell->type);
+						RTLIL::Module *mod = design->modules_.at(cell->type);
 
 						for (auto &it : mod->wires_)
 						{

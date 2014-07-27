@@ -212,7 +212,7 @@ struct MemoryDffPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 				handle_module(design, mod_it.second, flag_wr_only);
 	}

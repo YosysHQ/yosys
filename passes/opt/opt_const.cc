@@ -939,7 +939,7 @@ struct OptConstPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (undriven)
 				replace_undriven(design, mod_it.second);

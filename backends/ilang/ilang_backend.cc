@@ -339,7 +339,7 @@ void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_
 
 	if (!flag_m) {
 		int count_selected_mods = 0;
-		for (auto it = design->modules.begin(); it != design->modules.end(); it++) {
+		for (auto it = design->modules_.begin(); it != design->modules_.end(); it++) {
 			if (design->selected_whole_module(it->first))
 				flag_m = true;
 			if (design->selected(it->second))
@@ -355,7 +355,7 @@ void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_
 		fprintf(f, "autoidx %d\n", RTLIL::autoidx);
 	}
 
-	for (auto it = design->modules.begin(); it != design->modules.end(); it++) {
+	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++) {
 		if (!only_selected || design->selected(it->second)) {
 			if (only_selected)
 				fprintf(f, "\n");

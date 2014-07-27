@@ -104,7 +104,7 @@ struct HilomapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 		{
 			module = it.second;
 
