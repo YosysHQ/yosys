@@ -1051,6 +1051,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 RTLIL::Module *AstModule::clone() const
 {
 	AstModule *new_mod = new AstModule;
+	new_mod->name = name;
 	cloneInto(new_mod);
 
 	new_mod->ast = ast->clone();

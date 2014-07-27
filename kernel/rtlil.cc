@@ -226,6 +226,39 @@ RTLIL::Design::~Design()
 		delete it->second;
 }
 
+RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
+{
+	return RTLIL::ObjRange<RTLIL::Module*>(&modules_, &refcount_modules_);
+}
+
+RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name)
+{
+	return modules_.count(name) ? modules_.at(name) : NULL;
+}
+
+void RTLIL::Design::add(RTLIL::Module *module)
+{
+	assert(modules_.count(module->name) == 0);
+	assert(refcount_modules_ == 0);
+	modules_[module->name] = module;
+}
+
+RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
+{
+	assert(modules_.count(name) == 0);
+	assert(refcount_modules_ == 0);
+	modules_[name] = new RTLIL::Module;
+	modules_[name]->name = name;
+	return modules_[name];
+}
+
+void RTLIL::Design::remove(RTLIL::Module *module)
+{
+	assert(modules_.at(module->name) == module);
+	modules_.erase(module->name);
+	delete module;
+}
+
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
@@ -412,7 +445,7 @@ namespace {
 		void check()
 		{
 			if (cell->type[0] != '$' || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" ||
-					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:")
+					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
 				return;
 
 			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" || cell->type == "$neg") {
@@ -791,7 +824,6 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	log_assert(new_mod->refcount_wires_ == 0);
 	log_assert(new_mod->refcount_cells_ == 0);
 
-	new_mod->name = name;
 	new_mod->connections_ = connections_;
 	new_mod->attributes = attributes;
 
@@ -828,6 +860,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 RTLIL::Module *RTLIL::Module::clone() const
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
+	new_mod->name = name;
 	cloneInto(new_mod);
 	return new_mod;
 }
@@ -1455,7 +1488,7 @@ void RTLIL::Cell::check()
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
 	if (type[0] != '$' || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" ||
-			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:")
+			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
 		return;
 
 	if (type == "$mux" || type == "$pmux" || type == "$safe_pmux")

@@ -350,7 +350,12 @@ struct RTLIL::Design
 
 	~Design();
 
-	RTLIL::ObjRange<RTLIL::Module*> modules() { return RTLIL::ObjRange<RTLIL::Module*>(&modules_, &refcount_modules_); }
+	RTLIL::ObjRange<RTLIL::Module*> modules();
+	RTLIL::Module *module(RTLIL::IdString name);
+
+	void add(RTLIL::Module *module);
+	RTLIL::Module *addModule(RTLIL::IdString name);
+	void remove(RTLIL::Module *module);
 
 	void check();
 	void optimize();
