@@ -628,15 +628,15 @@ public:
 	SigSpec(RTLIL::SigSpec &&other) {
 		width_ = other.width_;
 		hash_ = other.hash_;
-		chunks_.swap(other.chunks_);
-		bits_.swap(other.bits_);
+		chunks_ = std::move(other.chunks_);
+		bits_ = std::move(other.bits_);
 	}
 
 	const RTLIL::SigSpec &operator=(RTLIL::SigSpec &&other) {
 		width_ = other.width_;
 		hash_ = other.hash_;
-		chunks_.swap(other.chunks_);
-		bits_.swap(other.bits_);
+		chunks_ = std::move(other.chunks_);
+		bits_ = std::move(other.bits_);
 		return *this;
 	}
 
