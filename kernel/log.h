@@ -199,12 +199,12 @@ struct PerformanceTimer
 		total_ns = 0;
 	}
 
-	void add() {
-		total_ns += query();
+	void begin() {
+		total_ns -= query();
 	}
 
-	void sub() {
-		total_ns -= query();
+	void end() {
+		total_ns += query();
 	}
 
 	float sec() const {
@@ -212,8 +212,8 @@ struct PerformanceTimer
 	}
 #else
 	void reset() { }
-	void add() { }
-	void sub() { }
+	void begin() { }
+	void end() { }
 	float sec() const { return 0; }
 #endif
 };
@@ -235,6 +235,7 @@ static inline void log_dump_val_worker(double v) { log("%f", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(RTLIL::SigSpec v) { log("%s", log_signal(v)); }
+static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
 static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 
 template<typename T>
