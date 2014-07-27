@@ -625,6 +625,21 @@ public:
 	SigSpec(std::vector<RTLIL::SigBit> bits);
 	SigSpec(std::set<RTLIL::SigBit> bits);
 
+	SigSpec(RTLIL::SigSpec &&other) {
+		width_ = other.width_;
+		hash_ = other.hash_;
+		chunks_.swap(other.chunks_);
+		bits_.swap(other.bits_);
+	}
+
+	const RTLIL::SigSpec &operator=(RTLIL::SigSpec &&other) {
+		width_ = other.width_;
+		hash_ = other.hash_;
+		chunks_.swap(other.chunks_);
+		bits_.swap(other.bits_);
+		return *this;
+	}
+
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
 
