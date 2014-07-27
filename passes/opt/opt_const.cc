@@ -37,20 +37,20 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	SigPool used_signals;
 	SigPool all_signals;
 
-	for (auto &it : module->cells_)
-	for (auto &conn : it.second->connections()) {
-		if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+	for (auto cell : module->cells())
+	for (auto &conn : cell->connections()) {
+		if (!ct.cell_known(cell->type) || ct.cell_output(cell->type, conn.first))
 			driven_signals.add(sigmap(conn.second));
-		if (!ct.cell_known(it.second->type) || ct.cell_input(it.second->type, conn.first))
+		if (!ct.cell_known(cell->type) || ct.cell_input(cell->type, conn.first))
 			used_signals.add(sigmap(conn.second));
 	}
 
-	for (auto &it : module->wires_) {
-		if (it.second->port_input)
-			driven_signals.add(sigmap(it.second));
-		if (it.second->port_output)
-			used_signals.add(sigmap(it.second));
-		all_signals.add(sigmap(it.second));
+	for (auto wire : module->wires()) {
+		if (wire->port_input)
+			driven_signals.add(sigmap(wire));
+		if (wire->port_output)
+			used_signals.add(sigmap(wire));
+		all_signals.add(sigmap(wire));
 	}
 
 	all_signals.del(driven_signals);
