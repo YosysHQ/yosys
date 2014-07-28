@@ -1120,7 +1120,7 @@ struct SelectPass : public Pass {
 			work_stack.pop_back();
 		}
 
-		assert(design->selection_stack.size() > 0);
+		log_assert(design->selection_stack.size() > 0);
 
 		if (clear_mode) {
 			design->selection_stack.back() = RTLIL::Selection(true);

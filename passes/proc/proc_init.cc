@@ -25,7 +25,7 @@
 
 static void proc_get_const(RTLIL::SigSpec &sig, RTLIL::CaseRule &rule)
 {
-	assert(rule.compare.size() == 0);
+	log_assert(rule.compare.size() == 0);
 
 	while (1) {
 		RTLIL::SigSpec tmp = sig;

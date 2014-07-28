@@ -24,7 +24,6 @@
 #include "kernel/log.h"
 #include "kernel/rtlil.h"
 #include "libs/bigint/BigIntegerLibrary.hh"
-#include <assert.h>
 
 static void extend(RTLIL::Const &arg, int width, bool is_signed)
 {

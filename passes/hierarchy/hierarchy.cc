@@ -98,7 +98,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 					generate_port_decl_t d = decl;
 					d.portname = portname;
 					d.index = *indices.begin();
-					assert(!indices.empty());
+					log_assert(!indices.empty());
 					indices.erase(d.index);
 					ports[d.index-1] = d;
 					portwidths[d.portname] = std::max(portwidths[d.portname], 1);
@@ -110,7 +110,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 			portnames.erase(portname);
 		}
 
-		assert(indices.empty());
+		log_assert(indices.empty());
 
 		RTLIL::Module *mod = new RTLIL::Module;
 		mod->name = celltype;

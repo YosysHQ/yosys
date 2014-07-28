@@ -51,7 +51,7 @@ struct SccWorker
 
 	void run(RTLIL::Cell *cell, int depth, int maxDepth)
 	{
-		assert(workQueue.count(cell) > 0);
+		log_assert(workQueue.count(cell) > 0);
 
 		workQueue.erase(cell);
 		cellLabels[cell] = std::pair<int, int>(labelCounter, labelCounter);
@@ -166,7 +166,7 @@ struct SccWorker
 
 		while (workQueue.size() > 0) {
 			RTLIL::Cell *cell = *workQueue.begin();
-			assert(cellStack.size() == 0);
+			log_assert(cellStack.size() == 0);
 			cellDepth.clear();
 			run(cell, 0, maxDepth);
 		}
@@ -290,7 +290,7 @@ struct SccPass : public Pass {
 			}
 
 		if (selectMode) {
-			assert(origSelectPos >= 0);
+			log_assert(origSelectPos >= 0);
 			design->selection_stack[origSelectPos] = newSelection;
 			design->selection_stack[origSelectPos].optimize(design);
 		}

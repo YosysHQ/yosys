@@ -23,7 +23,6 @@
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <set>
 

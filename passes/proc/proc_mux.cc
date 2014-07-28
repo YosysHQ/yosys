@@ -23,7 +23,6 @@
 #include <sstream>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 
 static RTLIL::SigSpec find_any_lvalue(const RTLIL::CaseRule *cs)
 {
@@ -67,7 +66,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 		RTLIL::SigSpec sig = signal;
 
 		// get rid of don't-care bits
-		assert(sig.size() == comp.size());
+		log_assert(sig.size() == comp.size());
 		for (int i = 0; i < comp.size(); i++)
 			if (comp[i] == RTLIL::State::Sa) {
 				sig.remove(i);
@@ -125,7 +124,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 
 static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw)
 {
-	assert(when_signal.size() == else_signal.size());
+	log_assert(when_signal.size() == else_signal.size());
 
 	std::stringstream sstr;
 	sstr << "$procmux$" << (RTLIL::autoidx++);
@@ -138,7 +137,7 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
 	if (ctrl_sig.size() == 0)
 		return when_signal;
-	assert(ctrl_sig.size() == 1);
+	log_assert(ctrl_sig.size() == 1);
 
 	// prepare multiplexer output signal
 	RTLIL::Wire *result_wire = mod->addWire(sstr.str() + "_Y", when_signal.size());
@@ -159,11 +158,11 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 
 static void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw)
 {
-	assert(last_mux_cell != NULL);
-	assert(when_signal.size() == last_mux_cell->get("\\A").size());
+	log_assert(last_mux_cell != NULL);
+	log_assert(when_signal.size() == last_mux_cell->get("\\A").size());
 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
-	assert(ctrl_sig.size() == 1);
+	log_assert(ctrl_sig.size() == 1);
 	last_mux_cell->type = "$pmux";
 
 	RTLIL::SigSpec new_s = last_mux_cell->get("\\S");

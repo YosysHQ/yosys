@@ -22,7 +22,6 @@
 
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
-#include <assert.h>
 #include <set>
 
 struct SigPool
@@ -67,7 +66,7 @@ struct SigPool
 
 	void expand(RTLIL::SigSpec from, RTLIL::SigSpec to)
 	{
-		assert(SIZE(from) == SIZE(to));
+		log_assert(SIZE(from) == SIZE(to));
 		for (int i = 0; i < SIZE(from); i++) {
 			bitDef_t bit_from(from[i]), bit_to(to[i]);
 			if (bit_from.first != NULL && bit_to.first != NULL && bits.count(bit_from) > 0)
@@ -304,11 +303,11 @@ struct SigMap
 	// internal helper function
 	void merge_bit(const RTLIL::SigBit &bit1, const RTLIL::SigBit &bit2)
 	{
-		assert(bit1.wire != NULL && bit2.wire != NULL);
+		log_assert(bit1.wire != NULL && bit2.wire != NULL);
 
 		shared_bit_data_t *bd1 = bits[bit1];
 		shared_bit_data_t *bd2 = bits[bit2];
-		assert(bd1 != NULL && bd2 != NULL);
+		log_assert(bd1 != NULL && bd2 != NULL);
 
 		if (bd1 == bd2)
 			return;
@@ -333,8 +332,8 @@ struct SigMap
 	// internal helper function
 	void set_bit(const RTLIL::SigBit &bit1, const RTLIL::SigBit &bit2)
 	{
-		assert(bit1.wire != NULL);
-		assert(bits.count(bit1) > 0);
+		log_assert(bit1.wire != NULL);
+		log_assert(bits.count(bit1) > 0);
 		bits[bit1]->map_to = bit2;
 	}
 
@@ -347,7 +346,7 @@ struct SigMap
 
 	void add(RTLIL::SigSpec from, RTLIL::SigSpec to)
 	{
-		assert(SIZE(from) == SIZE(to));
+		log_assert(SIZE(from) == SIZE(to));
 
 		for (int i = 0; i < SIZE(from); i++)
 		{

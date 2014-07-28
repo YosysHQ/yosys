@@ -171,7 +171,7 @@ struct SubmodWorker
 			for (auto &conn : new_cell->connections_)
 				for (auto &bit : conn.second)
 					if (bit.wire != NULL) {
-						assert(wire_flags.count(bit.wire) > 0);
+						log_assert(wire_flags.count(bit.wire) > 0);
 						bit.wire = wire_flags[bit.wire].new_wire;
 					}
 			log("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());

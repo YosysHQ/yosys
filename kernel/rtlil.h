@@ -24,8 +24,8 @@
 #include <set>
 #include <vector>
 #include <string>
-#include <assert.h>
 
+#include "kernel/log.h"
 #include <initializer_list>
 
 // various helpers (unrelated to RTLIL)
@@ -107,7 +107,7 @@ namespace RTLIL
 			return std::string(*this) < std::string(rhs);
 		}
 		void check() const {
-			assert(empty() || (size() >= 2 && (at(0) == '$' || at(0) == '\\')));
+			log_assert(empty() || (size() >= 2 && (at(0) == '$' || at(0) == '\\')));
 		}
 	};
 #endif
@@ -242,7 +242,7 @@ namespace RTLIL
 		}
 
 		inline T operator*() const {
-			assert(list_p != nullptr);
+			log_assert(list_p != nullptr);
 			return it->second;
 		}
 
@@ -253,7 +253,7 @@ namespace RTLIL
 		}
 
 		inline void operator++() {
-			assert(list_p != nullptr);
+			log_assert(list_p != nullptr);
 			if (++it == list_p->end()) {
 				(*refcount_p)--;
 				list_p = nullptr;
@@ -677,9 +677,9 @@ struct RTLIL::SigBit
 
 	SigBit() : wire(NULL), data(RTLIL::State::S0), offset(0) { }
 	SigBit(RTLIL::State bit) : wire(NULL), data(bit), offset(0) { }
-	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0), offset(0) { assert(wire && wire->width == 1); }
-	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), data(RTLIL::State::S0), offset(offset) { assert(wire); }
-	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[0]), offset(chunk.offset) { assert(chunk.width == 1); }
+	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0), offset(0) { log_assert(wire && wire->width == 1); }
+	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), data(RTLIL::State::S0), offset(offset) { log_assert(wire); }
+	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[0]), offset(chunk.offset) { log_assert(chunk.width == 1); }
 	SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[index]), offset(chunk.wire ? chunk.offset + index : 0) { }
 	SigBit(const RTLIL::SigSpec &sig);
 
@@ -856,7 +856,7 @@ inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
 }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	assert(sig.size() == 1 && sig.chunks().size() == 1);
+	log_assert(sig.size() == 1 && sig.chunks().size() == 1);
 	*this = SigBit(sig.chunks().front());
 }
 

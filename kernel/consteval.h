@@ -72,7 +72,7 @@ struct ConstEval
 #ifndef NDEBUG
 		RTLIL::SigSpec current_val = values_map(sig);
 		for (int i = 0; i < SIZE(current_val); i++)
-			assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
+			log_assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
 #endif
 		values_map.add(sig, RTLIL::SigSpec(value));
 	}
@@ -87,7 +87,7 @@ struct ConstEval
 	{
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
 
-		assert(cell->has("\\Y"));
+		log_assert(cell->has("\\Y"));
 		sig_y = values_map(assign_map(cell->get("\\Y")));
 		if (sig_y.is_fully_const())
 			return true;
@@ -133,7 +133,7 @@ struct ConstEval
 
 			std::vector<RTLIL::Const> y_values;
 
-			assert(y_candidates.size() > 0);
+			log_assert(y_candidates.size() > 0);
 			for (auto &yc : y_candidates) {
 				if (!eval(yc, undef, cell))
 					return false;
@@ -146,7 +146,7 @@ struct ConstEval
 
 				for (size_t i = 1; i < y_values.size(); i++) {
 					std::vector<RTLIL::State> &slave_bits = y_values.at(i).bits;
-					assert(master_bits.size() == slave_bits.size());
+					log_assert(master_bits.size() == slave_bits.size());
 					for (size_t j = 0; j < master_bits.size(); j++)
 						if (master_bits[j] != slave_bits[j])
 							master_bits[j] = RTLIL::State::Sx;

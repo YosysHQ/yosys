@@ -23,7 +23,6 @@
 #include <sstream>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 #include <set>
 
 static void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)

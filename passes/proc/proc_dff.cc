@@ -24,7 +24,6 @@
 #include <sstream>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 
 static RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 {
@@ -288,7 +287,7 @@ static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 					inputs.append(it->signal);
 					compare.append(it->type == RTLIL::SyncType::ST0 ? RTLIL::State::S1 : RTLIL::State::S0);
 				}
-				assert(inputs.size() == compare.size());
+				log_assert(inputs.size() == compare.size());
 
 				RTLIL::Cell *cell = mod->addCell(NEW_ID, "$ne");
 				cell->parameters["\\A_SIGNED"] = RTLIL::Const(false, 1);

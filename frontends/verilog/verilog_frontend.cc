@@ -33,7 +33,6 @@
 #include "libs/sha1/sha1.h"
 #include <sstream>
 #include <stdarg.h>
-#include <assert.h>
 
 using namespace VERILOG_FRONTEND;
 

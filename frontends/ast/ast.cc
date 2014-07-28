@@ -820,7 +820,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast, bool defer)
 {
-	assert(ast->type == AST_MODULE);
+	log_assert(ast->type == AST_MODULE);
 
 	if (defer)
 		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
@@ -925,7 +925,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_icells = icells;
 	flag_autowire = autowire;
 
-	assert(current_ast->type == AST_DESIGN);
+	log_assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
 		if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
 			(*it)->str = (*it)->str.substr(1);

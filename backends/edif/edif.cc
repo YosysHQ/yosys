@@ -26,7 +26,6 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 
 #define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true).c_str()
 #define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false).c_str()

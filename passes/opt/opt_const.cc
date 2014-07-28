@@ -24,7 +24,6 @@
 #include "kernel/toposort.h"
 #include "kernel/log.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <algorithm>
 
@@ -495,7 +494,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 			RTLIL::SigSpec new_a, new_b;
 
-			assert(SIZE(a) == SIZE(b));
+			log_assert(SIZE(a) == SIZE(b));
 			for (int i = 0; i < SIZE(a); i++) {
 				if (a[i].wire == NULL && b[i].wire == NULL && a[i] != b[i] && a[i].data <= RTLIL::State::S1 && b[i].data <= RTLIL::State::S1) {
 					cover_list("opt.opt_const.eqneq.isneq", "$eq", "$ne", "$eqx", "$nex", cell->type);

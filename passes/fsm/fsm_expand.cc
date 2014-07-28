@@ -157,9 +157,9 @@ struct FsmExpand
 			A.replace(input_sig, RTLIL::SigSpec(in_val));
 			B.replace(input_sig, RTLIL::SigSpec(in_val));
 			S.replace(input_sig, RTLIL::SigSpec(in_val));
-			assert(A.is_fully_const());
-			assert(B.is_fully_const());
-			assert(S.is_fully_const());
+			log_assert(A.is_fully_const());
+			log_assert(B.is_fully_const());
+			log_assert(S.is_fully_const());
 			truth_tab.push_back(ct.eval(cell, A.as_const(), B.as_const(), S.as_const()));
 		}
 

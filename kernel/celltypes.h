@@ -313,7 +313,7 @@ struct CellTypes
 			return ret;
 		}
 
-		assert(sel.bits.size() == 0);
+		log_assert(sel.bits.size() == 0);
 		return eval(cell, arg1, arg2);
 	}
 };

@@ -23,7 +23,6 @@
 #include "kernel/toposort.h"
 #include "kernel/log.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -47,7 +46,7 @@ static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module 
 		if (chunk.wire != NULL) {
 			std::string wire_name = chunk.wire->name;
 			apply_prefix(prefix, wire_name);
-			assert(module->wires_.count(wire_name) > 0);
+			log_assert(module->wires_.count(wire_name) > 0);
 			chunk.wire = module->wires_[wire_name];
 		}
 	sig = chunks;
@@ -167,7 +166,7 @@ struct TechmapWorker
 				c.second.remove(c.first.size(), c.second.size() - c.first.size());
 			if (c.second.size() < c.first.size())
 				c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.size() - c.second.size()));
-			assert(c.first.size() == c.second.size());
+			log_assert(c.first.size() == c.second.size());
 			if (flatten_mode) {
 				// more conservative approach:
 				// connect internal and external wires
@@ -427,7 +426,7 @@ struct TechmapWorker
 							const char *q = strrchr(p+1, '.');
 							q = q ? q : p+1;
 
-							assert(!strncmp(q, "_TECHMAP_DO_", 12));
+							log_assert(!strncmp(q, "_TECHMAP_DO_", 12));
 							std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
 							while (tpl->wires_.count(new_name))
 								new_name += "_";

@@ -21,7 +21,6 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 

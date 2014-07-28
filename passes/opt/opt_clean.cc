@@ -23,7 +23,6 @@
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <set>
 
@@ -227,7 +226,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep")) {
 				maybe_del_wires.push_back(wire);
 			} else {
-				assert(SIZE(s1) == SIZE(s2));
+				log_assert(SIZE(s1) == SIZE(s2));
 				RTLIL::SigSig new_conn;
 				for (int i = 0; i < SIZE(s1); i++)
 					if (s1[i] != s2[i]) {

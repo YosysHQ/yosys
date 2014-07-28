@@ -549,7 +549,7 @@ struct BtorDumper
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				l1_width = pow(2, ceil(log(l1_width)/log(2)));
 				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
-				//assert(l2_width <= ceil(log(l1_width)/log(2)) );
+				//log_assert(l2_width <= ceil(log(l1_width)/log(2)) );
 				int l1 = dump_sigspec(&cell->get(RTLIL::IdString("\\A")), l1_width);
 				int l2 = dump_sigspec(&cell->get(RTLIL::IdString("\\B")), ceil(log(l1_width)/log(2)));
 				int cell_output = ++line_num;

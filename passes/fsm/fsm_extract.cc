@@ -109,7 +109,7 @@ static void find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_d
 	RTLIL::SigSpec undef, constval;
 
 	if (ce.eval(ctrl_out, undef) && ce.eval(dff_in, undef)) {
-		assert(ctrl_out.is_fully_const() && dff_in.is_fully_const());
+		log_assert(ctrl_out.is_fully_const() && dff_in.is_fully_const());
 		FsmData::transition_t tr;
 		tr.state_in = state_in;
 		tr.state_out = states[ce.values_map(ce.assign_map(dff_in)).as_const()];

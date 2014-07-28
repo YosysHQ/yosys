@@ -57,7 +57,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (stage == 0)
 	{
-		assert(type == AST_MODULE);
+		log_assert(type == AST_MODULE);
 
 		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
 
@@ -73,7 +73,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			{
 				AstNode *mem = it.first;
 				uint32_t memflags = it.second;
-				assert((memflags & ~0x00ffff00) == 0);
+				log_assert((memflags & ~0x00ffff00) == 0);
 
 				if (mem->get_bool_attribute("\\nomem2reg"))
 					continue;
@@ -480,7 +480,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// dumpAst(NULL, ">   ");
 			log_error("Index in generate block prefix syntax at %s:%d is not constant!\n", filename.c_str(), linenum);
 		}
-		assert(children[1]->type == AST_IDENTIFIER);
+		log_assert(children[1]->type == AST_IDENTIFIER);
 		newNode = children[1]->clone();
 		const char *second_part = children[1]->str.c_str();
 		if (second_part[0] == '\\')
@@ -506,7 +506,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		range_valid = false;
 		range_left = -1;
 		range_right = 0;
-		assert(children.size() >= 1);
+		log_assert(children.size() >= 1);
 		if (children[0]->type == AST_CONSTANT) {
 			range_valid = true;
 			range_left = children[0]->integer;
@@ -963,8 +963,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		std::vector<AstNode*> children_list;
 		for (auto child : children) {
-			assert(child->type == AST_ARGUMENT);
-			assert(child->children.size() == 1);
+			log_assert(child->type == AST_ARGUMENT);
+			log_assert(child->children.size() == 1);
 			children_list.push_back(child->children[0]);
 			child->children.clear();
 			delete child;
@@ -1019,7 +1019,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				op_type = AST_POS;
 			if (str == "not")
 				op_type = AST_POS, invert_results = true;
-			assert(op_type != AST_NONE);
+			log_assert(op_type != AST_NONE);
 
 			AstNode *node = children_list[1];
 			if (op_type != AST_POS)
@@ -1423,13 +1423,13 @@ skip_dynamic_range_lvalue_expansion:;
 
 		if (current_block == NULL)
 		{
-			assert(type == AST_FCALL);
+			log_assert(type == AST_FCALL);
 
 			AstNode *wire = NULL;
 			for (auto child : decl->children)
 				if (child->type == AST_WIRE && child->str == str)
 					wire = child->clone();
-			assert(wire != NULL);
+			log_assert(wire != NULL);
 
 			wire->str = prefix + str;
 			wire->port_id = 0;
@@ -1714,7 +1714,7 @@ skip_dynamic_range_lvalue_expansion:;
 				} else if (children[1]->type == AST_CONSTANT && children[2]->type == AST_CONSTANT) {
 					RTLIL::Const a = children[1]->bitsAsConst(width_hint, sign_hint);
 					RTLIL::Const b = children[2]->bitsAsConst(width_hint, sign_hint);
-					assert(a.bits.size() == b.bits.size());
+					log_assert(a.bits.size() == b.bits.size());
 					for (size_t i = 0; i < a.bits.size(); i++)
 						if (a.bits[i] != b.bits[i])
 							a.bits[i] = RTLIL::State::Sx;
@@ -1761,7 +1761,7 @@ apply_newNode:
 		// fprintf(stderr, "----\n");
 		// dumpAst(stderr, "- ");
 		// newNode->dumpAst(stderr, "+ ");
-		assert(newNode != NULL);
+		log_assert(newNode != NULL);
 		newNode->filename = filename;
 		newNode->linenum = linenum;
 		newNode->cloneInto(this);
@@ -1937,7 +1937,7 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 
 	uint32_t backup_flags = flags;
 	flags |= children_flags;
-	assert((flags & ~0x000000ff) == 0);
+	log_assert((flags & ~0x000000ff) == 0);
 
 	for (auto child : children)
 		if (ignore_children_counter > 0)
@@ -1986,11 +1986,11 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		mod->children.push_back(wire_data);
 		while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
-		assert(block != NULL);
+		log_assert(block != NULL);
 		size_t assign_idx = 0;
 		while (assign_idx < block->children.size() && block->children[assign_idx] != this)
 			assign_idx++;
-		assert(assign_idx < block->children.size());
+		log_assert(assign_idx < block->children.size());
 
 		AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 		assign_addr->children[0]->str = id_addr;
@@ -2091,7 +2091,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 				size_t assign_idx = 0;
 				while (assign_idx < block->children.size() && !block->children[assign_idx]->contains(this))
 					assign_idx++;
-				assert(assign_idx < block->children.size());
+				log_assert(assign_idx < block->children.size());
 				block->children.insert(block->children.begin()+assign_idx, case_node);
 				block->children.insert(block->children.begin()+assign_idx, assign_addr);
 			}
@@ -2113,7 +2113,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 			children.push_back(bit_part_sel);
 	}
 
-	assert(id2ast == NULL || mem2reg_set.count(id2ast) == 0);
+	log_assert(id2ast == NULL || mem2reg_set.count(id2ast) == 0);
 
 	auto children_list = children;
 	for (size_t i = 0; i < children_list.size(); i++)
@@ -2123,7 +2123,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 // calulate memory dimensions
 void AstNode::meminfo(int &mem_width, int &mem_size, int &addr_bits)
 {
-	assert(type == AST_MEMORY);
+	log_assert(type == AST_MEMORY);
 
 	mem_width = children[0]->range_left - children[0]->range_right + 1;
 	mem_size = children[1]->range_left - children[1]->range_right;

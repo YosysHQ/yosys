@@ -335,7 +335,7 @@ struct SatHelper
 
 	int setup_proof(int timestep = -1)
 	{
-		assert(prove.size() || prove_x.size() || prove_asserts);
+		log_assert(prove.size() || prove_x.size() || prove_asserts);
 
 		RTLIL::SigSpec big_lhs, big_rhs;
 		std::vector<int> prove_bits;

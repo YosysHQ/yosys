@@ -27,7 +27,6 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 #include <string.h>
 #include <errno.h>
 
@@ -41,7 +40,7 @@ void ILANG_BACKEND::dump_const(FILE *f, const RTLIL::Const &data, int width, int
 		if (width == 32 && autoint) {
 			int32_t val = 0;
 			for (int i = 0; i < width; i++) {
-				assert(offset+i < (int)data.bits.size());
+				log_assert(offset+i < (int)data.bits.size());
 				switch (data.bits[offset+i]) {
 				case RTLIL::S0: break;
 				case RTLIL::S1: val |= 1 << i; break;
@@ -55,7 +54,7 @@ void ILANG_BACKEND::dump_const(FILE *f, const RTLIL::Const &data, int width, int
 		}
 		fprintf(f, "%d'", width);
 		for (int i = offset+width-1; i >= offset; i--) {
-			assert(i < (int)data.bits.size());
+			log_assert(i < (int)data.bits.size());
 			switch (data.bits[i]) {
 			case RTLIL::S0: fprintf(f, "0"); break;
 			case RTLIL::S1: fprintf(f, "1"); break;

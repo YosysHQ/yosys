@@ -23,7 +23,6 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 
 
 static std::string netname(std::set<std::string> &conntypes_code, std::set<std::string> &celltypes_code, std::set<std::string> &constcells_code, RTLIL::SigSpec sig)

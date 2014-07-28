@@ -22,7 +22,6 @@
 #include <sstream>
 #include <algorithm>
 #include <stdlib.h>
-#include <assert.h>
 
 static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 {
@@ -136,12 +135,12 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	mem->parameters["\\SIZE"] = RTLIL::Const(memory->size);
 	mem->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
 
-	assert(sig_wr_clk.size() == wr_ports);
-	assert(sig_wr_clk_enable.size() == wr_ports && sig_wr_clk_enable.is_fully_const());
-	assert(sig_wr_clk_polarity.size() == wr_ports && sig_wr_clk_polarity.is_fully_const());
-	assert(sig_wr_addr.size() == wr_ports * addr_bits);
-	assert(sig_wr_data.size() == wr_ports * memory->width);
-	assert(sig_wr_en.size() == wr_ports * memory->width);
+	log_assert(sig_wr_clk.size() == wr_ports);
+	log_assert(sig_wr_clk_enable.size() == wr_ports && sig_wr_clk_enable.is_fully_const());
+	log_assert(sig_wr_clk_polarity.size() == wr_ports && sig_wr_clk_polarity.is_fully_const());
+	log_assert(sig_wr_addr.size() == wr_ports * addr_bits);
+	log_assert(sig_wr_data.size() == wr_ports * memory->width);
+	log_assert(sig_wr_en.size() == wr_ports * memory->width);
 
 	mem->parameters["\\WR_PORTS"] = RTLIL::Const(wr_ports);
 	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.as_const() : RTLIL::Const(0, 0);
@@ -152,11 +151,11 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	mem->set("\\WR_DATA", sig_wr_data);
 	mem->set("\\WR_EN", sig_wr_en);
 
-	assert(sig_rd_clk.size() == rd_ports);
-	assert(sig_rd_clk_enable.size() == rd_ports && sig_rd_clk_enable.is_fully_const());
-	assert(sig_rd_clk_polarity.size() == rd_ports && sig_rd_clk_polarity.is_fully_const());
-	assert(sig_rd_addr.size() == rd_ports * addr_bits);
-	assert(sig_rd_data.size() == rd_ports * memory->width);
+	log_assert(sig_rd_clk.size() == rd_ports);
+	log_assert(sig_rd_clk_enable.size() == rd_ports && sig_rd_clk_enable.is_fully_const());
+	log_assert(sig_rd_clk_polarity.size() == rd_ports && sig_rd_clk_polarity.is_fully_const());
+	log_assert(sig_rd_addr.size() == rd_ports * addr_bits);
+	log_assert(sig_rd_data.size() == rd_ports * memory->width);
 
 	mem->parameters["\\RD_PORTS"] = RTLIL::Const(rd_ports);
 	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.as_const() : RTLIL::Const(0, 0);

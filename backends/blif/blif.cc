@@ -27,7 +27,6 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 
 struct BlifDumperConfig
 {

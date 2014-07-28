@@ -37,7 +37,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 static std::list<std::string> output_code;
 static std::list<std::string> input_buffer;
@@ -65,7 +64,7 @@ static char next_char()
 	if (input_buffer.empty())
 		return 0;
 
-	assert(input_buffer_charp <= input_buffer.front().size());
+	log_assert(input_buffer_charp <= input_buffer.front().size());
 	if (input_buffer_charp == input_buffer.front().size()) {
 		input_buffer_charp = 0;
 		input_buffer.pop_front();

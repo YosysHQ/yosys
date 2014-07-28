@@ -22,7 +22,6 @@
 #include <sstream>
 #include <set>
 #include <stdlib.h>
-#include <assert.h>
 
 static std::string genid(std::string name, std::string token1 = "", int i = -1, std::string token2 = "", int j = -1, std::string token3 = "", int k = -1, std::string token4 = "")
 {

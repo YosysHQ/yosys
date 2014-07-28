@@ -66,8 +66,8 @@ struct BitPatternPool
 
 	bool match(bits_t a, bits_t b)
 	{
-		assert(int(a.size()) == width);
-		assert(int(b.size()) == width);
+		log_assert(int(a.size()) == width);
+		log_assert(int(b.size()) == width);
 		for (int i = 0; i < width; i++)
 			if (a[i] <= RTLIL::State::S1 && b[i] <= RTLIL::State::S1 && a[i] != b[i])
 				return false;

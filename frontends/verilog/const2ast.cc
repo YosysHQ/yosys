@@ -36,7 +36,6 @@
 
 #include "verilog_frontend.h"
 #include "kernel/log.h"
-#include <assert.h>
 #include <string.h>
 #include <math.h>
 
@@ -47,7 +46,7 @@ static int my_decimal_div_by_two(std::vector<uint8_t> &digits)
 {
 	int carry = 0;
 	for (size_t i = 0; i < digits.size(); i++) {
-		assert(digits[i] < 10);
+		log_assert(digits[i] < 10);
 		digits[i] += carry * 10;
 		carry = digits[i] % 2;
 		digits[i] /= 2;

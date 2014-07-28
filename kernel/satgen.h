@@ -116,7 +116,7 @@ struct SatGen
 		if (timestep_rhs < 0)
 			timestep_rhs = timestep_lhs;
 
-		assert(lhs.size() == rhs.size());
+		log_assert(lhs.size() == rhs.size());
 
 		std::vector<int> vec_lhs = importSigSpec(lhs, timestep_lhs);
 		std::vector<int> vec_rhs = importSigSpec(rhs, timestep_rhs);
@@ -163,14 +163,14 @@ struct SatGen
 
 	void undefGating(std::vector<int> &vec_y, std::vector<int> &vec_yy, std::vector<int> &vec_undef)
 	{
-		assert(model_undef);
-		assert(vec_y.size() == vec_yy.size());
+		log_assert(model_undef);
+		log_assert(vec_y.size() == vec_yy.size());
 		if (vec_y.size() > vec_undef.size()) {
 			std::vector<int> trunc_y(vec_y.begin(), vec_y.begin() + vec_undef.size());
 			std::vector<int> trunc_yy(vec_yy.begin(), vec_yy.begin() + vec_undef.size());
 			ez->assume(ez->expression(ezSAT::OpAnd, ez->vec_or(vec_undef, ez->vec_iff(trunc_y, trunc_yy))));
 		} else {
-			assert(vec_y.size() == vec_undef.size());
+			log_assert(vec_y.size() == vec_undef.size());
 			ez->assume(ez->expression(ezSAT::OpAnd, ez->vec_or(vec_undef, ez->vec_iff(vec_y, vec_yy))));
 		}
 	}

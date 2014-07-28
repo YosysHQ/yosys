@@ -23,7 +23,6 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 
 static void print_spice_net(FILE *f, RTLIL::SigBit s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
 {

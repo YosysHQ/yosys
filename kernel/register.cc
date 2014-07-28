@@ -20,7 +20,6 @@
 #include "kernel/compatibility.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
-#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -50,7 +49,7 @@ Pass::Pass(std::string name, std::string short_help) : pass_name(name), short_he
 
 void Pass::run_register()
 {
-	assert(pass_register.count(pass_name) == 0);
+	log_assert(pass_register.count(pass_name) == 0);
 	pass_register[pass_name] = this;
 }
 
@@ -67,7 +66,7 @@ void Pass::done_register()
 	frontend_register.clear();
 	pass_register.clear();
 	backend_register.clear();
-	assert(first_queued_pass == NULL);
+	log_assert(first_queued_pass == NULL);
 }
 
 Pass::~Pass()
@@ -252,10 +251,10 @@ Frontend::Frontend(std::string name, std::string short_help) : Pass("read_"+name
 
 void Frontend::run_register()
 {
-	assert(pass_register.count(pass_name) == 0);
+	log_assert(pass_register.count(pass_name) == 0);
 	pass_register[pass_name] = this;
 
-	assert(frontend_register.count(frontend_name) == 0);
+	log_assert(frontend_register.count(frontend_name) == 0);
 	frontend_register[frontend_name] = this;
 }
 
@@ -265,7 +264,7 @@ Frontend::~Frontend()
 
 void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
-	assert(next_args.empty());
+	log_assert(next_args.empty());
 	do {
 		FILE *f = NULL;
 		next_args.clear();
@@ -383,10 +382,10 @@ Backend::Backend(std::string name, std::string short_help) : Pass("write_"+name,
 
 void Backend::run_register()
 {
-	assert(pass_register.count(pass_name) == 0);
+	log_assert(pass_register.count(pass_name) == 0);
 	pass_register[pass_name] = this;
 
-	assert(backend_register.count(backend_name) == 0);
+	log_assert(backend_register.count(backend_name) == 0);
 	backend_register[backend_name] = this;
 }
 

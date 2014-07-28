@@ -23,7 +23,6 @@
 #include "frontends/verilog/verilog_frontend.h"
 #include "backends/ilang/ilang_backend.h"
 
-#include <assert.h>
 #include <string.h>
 #include <algorithm>
 
@@ -238,15 +237,15 @@ RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name)
 
 void RTLIL::Design::add(RTLIL::Module *module)
 {
-	assert(modules_.count(module->name) == 0);
-	assert(refcount_modules_ == 0);
+	log_assert(modules_.count(module->name) == 0);
+	log_assert(refcount_modules_ == 0);
 	modules_[module->name] = module;
 }
 
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 {
-	assert(modules_.count(name) == 0);
-	assert(refcount_modules_ == 0);
+	log_assert(modules_.count(name) == 0);
+	log_assert(refcount_modules_ == 0);
 	modules_[name] = new RTLIL::Module;
 	modules_[name]->name = name;
 	return modules_[name];
@@ -254,7 +253,7 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 
 void RTLIL::Design::remove(RTLIL::Module *module)
 {
-	assert(modules_.at(module->name) == module);
+	log_assert(modules_.at(module->name) == module);
 	modules_.erase(module->name);
 	delete module;
 }
@@ -263,8 +262,8 @@ void RTLIL::Design::check()
 {
 #ifndef NDEBUG
 	for (auto &it : modules_) {
-		assert(it.first == it.second->name);
-		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(it.first == it.second->name);
+		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		it.second->check();
 	}
 #endif
@@ -760,57 +759,57 @@ void RTLIL::Module::check()
 {
 #ifndef NDEBUG
 	for (auto &it : wires_) {
-		assert(it.first == it.second->name);
-		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
-		assert(it.second->width >= 0);
-		assert(it.second->port_id >= 0);
+		log_assert(it.first == it.second->name);
+		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(it.second->width >= 0);
+		log_assert(it.second->port_id >= 0);
 		for (auto &it2 : it.second->attributes) {
-			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
 		}
 	}
 
 	for (auto &it : memories) {
-		assert(it.first == it.second->name);
-		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
-		assert(it.second->width >= 0);
-		assert(it.second->size >= 0);
+		log_assert(it.first == it.second->name);
+		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(it.second->width >= 0);
+		log_assert(it.second->size >= 0);
 		for (auto &it2 : it.second->attributes) {
-			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
 		}
 	}
 
 	for (auto &it : cells_) {
-		assert(it.first == it.second->name);
-		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
-		assert(it.second->type.size() > 0 && (it.second->type[0] == '\\' || it.second->type[0] == '$'));
+		log_assert(it.first == it.second->name);
+		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(it.second->type.size() > 0 && (it.second->type[0] == '\\' || it.second->type[0] == '$'));
 		for (auto &it2 : it.second->connections()) {
-			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
 			it2.second.check();
 		}
 		for (auto &it2 : it.second->attributes) {
-			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
 		}
 		for (auto &it2 : it.second->parameters) {
-			assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
 		}
 		InternalCellChecker checker(this, it.second);
 		checker.check();
 	}
 
 	for (auto &it : processes) {
-		assert(it.first == it.second->name);
-		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(it.first == it.second->name);
+		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		// FIXME: More checks here..
 	}
 
 	for (auto &it : connections_) {
-		assert(it.first.size() == it.second.size());
+		log_assert(it.first.size() == it.second.size());
 		it.first.check();
 		it.second.check();
 	}
 
 	for (auto &it : attributes) {
-		assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 	}
 #endif
 }
@@ -934,7 +933,7 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
 {
-	assert(wires_[wire->name] == wire);
+	log_assert(wires_[wire->name] == wire);
 	log_assert(refcount_wires_ == 0);
 	wires_.erase(wire->name);
 	wire->name = new_name;
@@ -943,7 +942,7 @@ void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
 
 void RTLIL::Module::rename(RTLIL::Cell *cell, RTLIL::IdString new_name)
 {
-	assert(cells_[cell->name] == cell);
+	log_assert(cells_[cell->name] == cell);
 	log_assert(refcount_wires_ == 0);
 	cells_.erase(cell->name);
 	cell->name = new_name;
@@ -952,7 +951,7 @@ void RTLIL::Module::rename(RTLIL::Cell *cell, RTLIL::IdString new_name)
 
 void RTLIL::Module::rename(RTLIL::IdString old_name, RTLIL::IdString new_name)
 {
-	assert(count_id(old_name) != 0);
+	log_assert(count_id(old_name) != 0);
 	if (wires_.count(old_name))
 		rename(wires_.at(old_name), new_name);
 	else if (cells_.count(old_name))
@@ -1927,11 +1926,11 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 	pattern.unpack();
 	with.unpack();
 
-	assert(other != NULL);
-	assert(width_ == other->width_);
+	log_assert(other != NULL);
+	log_assert(width_ == other->width_);
 	other->unpack();
 
-	assert(pattern.width_ == with.width_);
+	log_assert(pattern.width_ == with.width_);
 
 	std::map<RTLIL::SigBit, RTLIL::SigBit> pattern_map;
 	for (int i = 0; i < SIZE(pattern.bits_); i++)
@@ -1966,7 +1965,7 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 	unpack();
 
 	if (other != NULL) {
-		assert(width_ == other->width_);
+		log_assert(width_ == other->width_);
 		other->unpack();
 	}
 
@@ -2005,7 +2004,7 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(RTLIL::SigSpec pattern, const RTLIL::SigS
 	if (other != NULL)
 		other->pack();
 
-	assert(other == NULL || width_ == other->width_);
+	log_assert(other == NULL || width_ == other->width_);
 
 	std::set<RTLIL::SigBit> pat = pattern.to_sigbit_set();
 	std::vector<RTLIL::SigBit> bits_match = to_sigbit_vector();
@@ -2033,9 +2032,9 @@ void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 	unpack();
 	with.unpack();
 
-	assert(offset >= 0);
-	assert(with.width_ >= 0);
-	assert(offset+with.width_ <= width_);
+	log_assert(offset >= 0);
+	log_assert(with.width_ >= 0);
+	log_assert(offset+with.width_ <= width_);
 
 	for (int i = 0; i < with.width_; i++)
 		bits_.at(offset + i) = with.bits_.at(i);
@@ -2085,9 +2084,9 @@ void RTLIL::SigSpec::remove(int offset, int length)
 
 	unpack();
 
-	assert(offset >= 0);
-	assert(length >= 0);
-	assert(offset + length <= width_);
+	log_assert(offset >= 0);
+	log_assert(length >= 0);
+	log_assert(offset + length <= width_);
 
 	bits_.erase(bits_.begin() + offset, bits_.begin() + offset + length);
 	width_ = bits_.size();
@@ -2236,28 +2235,28 @@ void RTLIL::SigSpec::check() const
 			const RTLIL::SigChunk chunk = chunks_[i];
 			if (chunk.wire == NULL) {
 				if (i > 0)
-					assert(chunks_[i-1].wire != NULL);
-				assert(chunk.offset == 0);
-				assert(chunk.data.bits.size() == (size_t)chunk.width);
+					log_assert(chunks_[i-1].wire != NULL);
+				log_assert(chunk.offset == 0);
+				log_assert(chunk.data.bits.size() == (size_t)chunk.width);
 			} else {
 				if (i > 0 && chunks_[i-1].wire == chunk.wire)
-					assert(chunk.offset != chunks_[i-1].offset + chunks_[i-1].width);
-				assert(chunk.offset >= 0);
-				assert(chunk.width >= 0);
-				assert(chunk.offset + chunk.width <= chunk.wire->width);
-				assert(chunk.data.bits.size() == 0);
+					log_assert(chunk.offset != chunks_[i-1].offset + chunks_[i-1].width);
+				log_assert(chunk.offset >= 0);
+				log_assert(chunk.width >= 0);
+				log_assert(chunk.offset + chunk.width <= chunk.wire->width);
+				log_assert(chunk.data.bits.size() == 0);
 			}
 			w += chunk.width;
 		}
-		assert(w == width_);
-		assert(bits_.empty());
+		log_assert(w == width_);
+		log_assert(bits_.empty());
 	}
 	else
 	{
 		cover("kernel.rtlil.sigspec.check.unpacked");
 
-		assert(width_ == SIZE(bits_));
-		assert(chunks_.empty());
+		log_assert(width_ == SIZE(bits_));
+		log_assert(chunks_.empty());
 	}
 }
 #endif
@@ -2402,7 +2401,7 @@ bool RTLIL::SigSpec::as_bool() const
 	cover("kernel.rtlil.sigspec.as_bool");
 
 	pack();
-	assert(is_fully_const() && SIZE(chunks_) <= 1);
+	log_assert(is_fully_const() && SIZE(chunks_) <= 1);
 	if (width_)
 		return chunks_[0].data.as_bool();
 	return false;
@@ -2413,7 +2412,7 @@ int RTLIL::SigSpec::as_int() const
 	cover("kernel.rtlil.sigspec.as_int");
 
 	pack();
-	assert(is_fully_const() && SIZE(chunks_) <= 1);
+	log_assert(is_fully_const() && SIZE(chunks_) <= 1);
 	if (width_)
 		return chunks_[0].data.as_int();
 	return 0;
@@ -2441,7 +2440,7 @@ RTLIL::Const RTLIL::SigSpec::as_const() const
 	cover("kernel.rtlil.sigspec.as_const");
 
 	pack();
-	assert(is_fully_const() && SIZE(chunks_) <= 1);
+	log_assert(is_fully_const() && SIZE(chunks_) <= 1);
 	if (width_)
 		return chunks_[0].data;
 	return RTLIL::Const();
@@ -2452,7 +2451,7 @@ RTLIL::Wire *RTLIL::SigSpec::as_wire() const
 	cover("kernel.rtlil.sigspec.as_wire");
 
 	pack();
-	assert(is_wire());
+	log_assert(is_wire());
 	return chunks_[0].wire;
 }
 
@@ -2461,7 +2460,7 @@ RTLIL::SigChunk RTLIL::SigSpec::as_chunk() const
 	cover("kernel.rtlil.sigspec.as_chunk");
 
 	pack();
-	assert(is_chunk());
+	log_assert(is_chunk());
 	return chunks_[0];
 }
 
@@ -2471,7 +2470,7 @@ bool RTLIL::SigSpec::match(std::string pattern) const
 
 	pack();
 	std::string str = as_string();
-	assert(pattern.size() == str.size());
+	log_assert(pattern.size() == str.size());
 
 	for (size_t i = 0; i < pattern.size(); i++) {
 		if (pattern[i] == ' ')

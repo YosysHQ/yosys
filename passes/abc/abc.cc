@@ -39,7 +39,6 @@
 #include "kernel/log.h"
 #include <unistd.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
@@ -273,7 +272,7 @@ static void handle_loops()
 		// log("Removing non-loop node %d from graph: %s\n", id, log_signal(signal_list[id].bit));
 
 		for (int id2 : edges[id]) {
-			assert(in_edges_count[id2] > 0);
+			log_assert(in_edges_count[id2] > 0);
 			if (--in_edges_count[id2] == 0)
 				workpool.insert(id2);
 		}
@@ -331,7 +330,7 @@ static void handle_loops()
 			int id3 = map_signal(RTLIL::SigSpec(wire));
 			signal_list[id1].is_port = true;
 			signal_list[id3].is_port = true;
-			assert(id3 == int(in_edges_count.size()));
+			log_assert(id3 == int(in_edges_count.size()));
 			in_edges_count.push_back(0);
 			workpool.insert(id3);
 
@@ -778,7 +777,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					for (auto &c : conn.second.chunks()) {
 						if (c.width == 0)
 							continue;
-						assert(c.width == 1);
+						log_assert(c.width == 1);
 						newsig.append(module->wires_[remap_name(c.wire->name)]);
 					}
 					cell->set(conn.first, newsig);
@@ -831,7 +830,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		struct dirent **namelist;
 		int n = scandir(tempdir_name, &namelist, 0, alphasort);
-		assert(n >= 0);
+		log_assert(n >= 0);
 		for (int i = 0; i < n; i++) {
 			if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
 				if (asprintf(&p, "%s/%s", tempdir_name, namelist[i]->d_name) < 0) log_abort();

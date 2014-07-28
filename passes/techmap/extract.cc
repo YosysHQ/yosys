@@ -23,7 +23,6 @@
 #include "libs/subcircuit/subcircuit.h"
 #include <algorithm>
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -100,7 +99,7 @@ namespace
 			RTLIL::Cell *haystackCell = (RTLIL::Cell*) haystackUserData;
 
 			if (!needleCell || !haystackCell) {
-				assert(!needleCell && !haystackCell);
+				log_assert(!needleCell && !haystackCell);
 				return true;
 			}
 

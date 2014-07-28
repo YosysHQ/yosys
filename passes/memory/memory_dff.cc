@@ -20,7 +20,6 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <sstream>
 
 static void normalize_sig(RTLIL::Module *module, RTLIL::SigSpec &sig)

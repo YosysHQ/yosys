@@ -327,7 +327,7 @@ static void shell(RTLIL::Design *design)
 		}
 
 		try {
-			assert(design->selection_stack.size() == 1);
+			log_assert(design->selection_stack.size() == 1);
 			Pass::call(design, command);
 		} catch (log_cmd_error_expection) {
 			while (design->selection_stack.size() > 1)

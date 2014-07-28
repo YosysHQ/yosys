@@ -18,6 +18,8 @@
  */
 
 #include "kernel/log.h"
+#include "kernel/rtlil.h"
+#include "kernel/register.h"
 #include "kernel/compatibility.h"
 #include "backends/ilang/ilang_backend.h"
 
@@ -28,9 +30,6 @@
 #include <stdarg.h>
 #include <vector>
 #include <list>
-
-// declared extern in log.h
-std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
 
 std::vector<FILE*> log_files;
 FILE *log_errfile = NULL;
@@ -192,6 +191,10 @@ void log_flush()
 		fflush(f);
 }
 
+void log_dump_val_worker(RTLIL::SigSpec v) {
+	log("%s", log_signal(v));
+}
+
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
 	char *ptr;
@@ -229,5 +232,53 @@ void log_cell(RTLIL::Cell *cell, std::string indent)
 
 	log("%s", ptr);
 	free(ptr);
+}
+
+// ---------------------------------------------------
+// This is the magic behind the code coverage counters
+// ---------------------------------------------------
+
+std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
+
+void cover_extra(std::string parent, std::string id, bool increment) {
+	if (extra_coverage_data.count(id) == 0) {
+		for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++)
+			if (p->id == parent)
+				extra_coverage_data[id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
+		log_assert(extra_coverage_data.count(id));
+	}
+	if (increment)
+		extra_coverage_data[id].second++;
+}
+
+std::map<std::string, std::pair<std::string, int>> get_coverage_data()
+{
+	std::map<std::string, std::pair<std::string, int>> coverage_data;
+
+	for (auto &it : REGISTER_INTERN::pass_register) {
+		std::string key = stringf("passes.%s", it.first.c_str());
+		coverage_data[key].first = stringf("%s:%d:%s", __FILE__, __LINE__, __FUNCTION__);
+		coverage_data[key].second += it.second->call_counter;
+	}
+
+	for (auto &it : extra_coverage_data) {
+		if (coverage_data.count(it.first))
+			log("WARNING: found duplicate coverage id \"%s\".\n", it.first.c_str());
+		coverage_data[it.first].first = it.second.first;
+		coverage_data[it.first].second += it.second.second;
+	}
+
+	for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
+		if (coverage_data.count(p->id))
+			log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
+		coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
+		coverage_data[p->id].second += p->counter;
+	}
+
+	for (auto &it : coverage_data)
+		if (!it.second.first.compare(0, strlen(YOSYS_SRC "/"), YOSYS_SRC "/"))
+			it.second.first = it.second.first.substr(strlen(YOSYS_SRC "/"));
+
+	return coverage_data;
 }
 

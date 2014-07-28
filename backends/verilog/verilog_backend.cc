@@ -30,7 +30,6 @@
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
-#include <assert.h>
 #include <string>
 #include <sstream>
 #include <set>
@@ -161,7 +160,7 @@ void dump_const(FILE *f, const RTLIL::Const &data, int width = -1, int offset = 
 		if (width == 32 && !no_decimal) {
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
-				assert(i < (int)data.bits.size());
+				log_assert(i < (int)data.bits.size());
 				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
 					goto dump_bits;
 				if (data.bits[i] == RTLIL::S1)
@@ -175,7 +174,7 @@ void dump_const(FILE *f, const RTLIL::Const &data, int width = -1, int offset = 
 			if (width == 0)
 				fprintf(f, "0");
 			for (int i = offset+width-1; i >= offset; i--) {
-				assert(i < (int)data.bits.size());
+				log_assert(i < (int)data.bits.size());
 				switch (data.bits[i]) {
 				case RTLIL::S0: fprintf(f, "0"); break;
 				case RTLIL::S1: fprintf(f, "1"); break;

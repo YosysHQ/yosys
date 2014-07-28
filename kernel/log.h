@@ -20,15 +20,15 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include "kernel/rtlil.h"
-#include "kernel/register.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+
+#include <map>
 #include <vector>
+#include <string>
 
 #define S__LINE__sub2(x) #x
 #define S__LINE__sub1(x) S__LINE__sub2(x)
@@ -58,6 +58,11 @@ void log_pop();
 
 void log_reset_stack();
 void log_flush();
+
+namespace RTLIL {
+	struct SigSpec;
+	struct Cell;
+}
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_id(std::string id);
@@ -96,47 +101,8 @@ extern "C" struct CoverData __stop_yosys_cover_list[];
 
 extern std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
 
-static inline void cover_extra(std::string parent, std::string id, bool increment = true) {
-	if (extra_coverage_data.count(id) == 0) {
-		for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++)
-			if (p->id == parent)
-				extra_coverage_data[id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
-		log_assert(extra_coverage_data.count(id));
-	}
-	if (increment)
-		extra_coverage_data[id].second++;
-}
-
-static inline std::map<std::string, std::pair<std::string, int>> get_coverage_data()
-{
-	std::map<std::string, std::pair<std::string, int>> coverage_data;
-
-	for (auto &it : REGISTER_INTERN::pass_register) {
-		std::string key = stringf("passes.%s", it.first.c_str());
-		coverage_data[key].first = stringf("%s:%d:%s", __FILE__, __LINE__, __FUNCTION__);
-		coverage_data[key].second += it.second->call_counter;
-	}
-
-	for (auto &it : extra_coverage_data) {
-		if (coverage_data.count(it.first))
-			log("WARNING: found duplicate coverage id \"%s\".\n", it.first.c_str());
-		coverage_data[it.first].first = it.second.first;
-		coverage_data[it.first].second += it.second.second;
-	}
-
-	for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
-		if (coverage_data.count(p->id))
-			log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
-		coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
-		coverage_data[p->id].second += p->counter;
-	}
-
-	for (auto &it : coverage_data)
-		if (!it.second.first.compare(0, strlen(YOSYS_SRC "/"), YOSYS_SRC "/"))
-			it.second.first = it.second.first.substr(strlen(YOSYS_SRC "/"));
-
-	return coverage_data;
-}
+void cover_extra(std::string parent, std::string id, bool increment = true);
+std::map<std::string, std::pair<std::string, int>> get_coverage_data();
 
 #define cover_list(_id, ...) do { cover(_id); \
 	std::string r = cover_list_worker(_id, __VA_ARGS__); \
@@ -234,9 +200,9 @@ static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false")
 static inline void log_dump_val_worker(double v) { log("%f", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
-static inline void log_dump_val_worker(RTLIL::SigSpec v) { log("%s", log_signal(v)); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
 static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
+void log_dump_val_worker(RTLIL::SigSpec v);
 
 template<typename T>
 static inline void log_dump_val_worker(T *ptr) { log("%p", ptr); }

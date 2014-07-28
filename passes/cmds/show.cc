@@ -202,7 +202,7 @@ struct ShowWorker
 			for (int i = int(sig.chunks().size())-1; i >= 0; i--) {
 				const RTLIL::SigChunk &c = sig.chunks().at(i);
 				net = gen_signode_simple(c, false);
-				assert(!net.empty());
+				log_assert(!net.empty());
 				if (driver) {
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, pos, pos-c.width+1, c.offset+c.width-1, c.offset);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));

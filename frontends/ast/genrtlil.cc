@@ -32,7 +32,6 @@
 
 #include <sstream>
 #include <stdarg.h>
-#include <assert.h>
 #include <algorithm>
 
 using namespace AST;
@@ -137,7 +136,7 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_wi
 // helper function for creating RTLIL code for multiplexers
 static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	assert(cond.size() == 1);
+	log_assert(cond.size() == 1);
 
 	std::stringstream sstr;
 	sstr << "$ternary$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
@@ -267,7 +266,7 @@ struct AST_INTERNAL::ProcessGenerator
 			sync->type = RTLIL::SyncType::STi;
 			proc->syncs.push_back(sync);
 
-			assert(init_lvalue.size() == init_rvalue.size());
+			log_assert(init_lvalue.size() == init_rvalue.size());
 
 			int offset = 0;
 			for (auto &init_lvalue_c : init_lvalue.chunks()) {
@@ -316,7 +315,7 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_CASE:
 			for (auto child : ast->children)
 				if (child != ast->children[0]) {
-					assert(child->type == AST_COND);
+					log_assert(child->type == AST_COND);
 					collect_lvalues(reg, child, type_eq, type_le, false);
 				}
 			break;
@@ -341,7 +340,7 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		default:
-			assert(0);
+			log_abort();
 		}
 
 		if (run_sort_and_unify)
@@ -371,7 +370,7 @@ struct AST_INTERNAL::ProcessGenerator
 			init_rvalue.append(lvalue.extract(initSyncSignals, &rvalue));
 			lvalue.remove2(initSyncSignals, &rvalue);
 		}
-		assert(lvalue.size() == rvalue.size());
+		log_assert(lvalue.size() == rvalue.size());
 
 		int offset = 0;
 		for (auto &lvalue_c : lvalue.chunks()) {
@@ -445,7 +444,7 @@ struct AST_INTERNAL::ProcessGenerator
 				{
 					if (child == ast->children[0])
 						continue;
-					assert(child->type == AST_COND);
+					log_assert(child->type == AST_COND);
 
 					subst_lvalue_from = backup_subst_lvalue_from;
 					subst_lvalue_to = backup_subst_lvalue_to;
@@ -815,9 +814,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_error("Re-definition of memory `%s' at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
 
-			assert(children.size() >= 2);
-			assert(children[0]->type == AST_RANGE);
-			assert(children[1]->type == AST_RANGE);
+			log_assert(children.size() >= 2);
+			log_assert(children[0]->type == AST_RANGE);
+			log_assert(children[1]->type == AST_RANGE);
 
 			if (!children[0]->range_valid || !children[1]->range_valid)
 				log_error("Memory `%s' with non-constant width or size at %s:%d!\n",
@@ -902,7 +901,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 		use_const_chunk:
 			if (children.size() != 0) {
-				assert(children[0]->type == AST_RANGE);
+				log_assert(children[0]->type == AST_RANGE);
 				if (!children[0]->range_valid) {
 					AstNode *left_at_zero_ast = children[0]->children[0]->clone();
 					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
@@ -1300,7 +1299,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					}
 					continue;
 				}
-				assert(0);
+				log_abort();
 			}
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)

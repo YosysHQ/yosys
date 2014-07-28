@@ -22,7 +22,6 @@
 #include <sstream>
 #include <algorithm>
 #include <stdlib.h>
-#include <assert.h>
 
 static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 {
