@@ -504,6 +504,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_RANGE) {
 		bool old_range_valid = range_valid;
 		range_valid = false;
+		range_swapped = false;
 		range_left = -1;
 		range_right = 0;
 		log_assert(children.size() >= 1);
@@ -525,6 +526,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			int tmp = range_right;
 			range_right = range_left;
 			range_left = tmp;
+			range_swapped = true;
 		}
 	}
 
@@ -535,6 +537,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (!range_valid)
 					did_something = true;
 				range_valid = true;
+				range_swapped = children[0]->range_swapped;
 				range_left = children[0]->range_left;
 				range_right = children[0]->range_right;
 			}
@@ -542,6 +545,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (!range_valid)
 				did_something = true;
 			range_valid = true;
+			range_swapped = false;
 			range_left = 0;
 			range_right = 0;
 		}

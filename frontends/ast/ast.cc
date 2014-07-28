@@ -181,6 +181,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 	is_signed = false;
 	is_string = false;
 	range_valid = false;
+	range_swapped = false;
 	port_id = 0;
 	range_left = -1;
 	range_right = 0;
@@ -276,7 +277,7 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 	if (port_id > 0)
 		fprintf(f, " port=%d", port_id);
 	if (range_valid || range_left != -1 || range_right != 0)
-		fprintf(f, " range=[%d:%d]%s", range_left, range_right, range_valid ? "" : "!");
+		fprintf(f, " %srange=[%d:%d]%s", range_swapped ? "swapped_" : "", range_left, range_right, range_valid ? "" : "!");
 	if (integer != 0)
 		fprintf(f, " int=%u", (int)integer);
 	if (realvalue != 0)
@@ -619,6 +620,8 @@ bool AstNode::operator==(const AstNode &other) const
 	if (is_string != other.is_string)
 		return false;
 	if (range_valid != other.range_valid)
+		return false;
+	if (range_swapped != other.range_swapped)
 		return false;
 	if (port_id != other.port_id)
 		return false;

@@ -211,14 +211,23 @@ void dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool no_decimal = fals
 	if (chunk.wire == NULL) {
 		dump_const(f, chunk.data, chunk.width, chunk.offset, no_decimal);
 	} else {
-		if (chunk.width == chunk.wire->width && chunk.offset == 0)
+		if (chunk.width == chunk.wire->width && chunk.offset == 0) {
 			fprintf(f, "%s", id(chunk.wire->name).c_str());
-		else if (chunk.width == 1)
-			fprintf(f, "%s[%d]", id(chunk.wire->name).c_str(), chunk.offset + chunk.wire->start_offset);
-		else
-			fprintf(f, "%s[%d:%d]", id(chunk.wire->name).c_str(),
-					chunk.offset + chunk.wire->start_offset + chunk.width - 1,
-					chunk.offset + chunk.wire->start_offset);
+		} else if (chunk.width == 1) {
+			if (chunk.wire->upto)
+				fprintf(f, "%s[%d]", id(chunk.wire->name).c_str(), (chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset);
+			else
+				fprintf(f, "%s[%d]", id(chunk.wire->name).c_str(), chunk.offset + chunk.wire->start_offset);
+		} else {
+			if (chunk.wire->upto)
+				fprintf(f, "%s[%d:%d]", id(chunk.wire->name).c_str(),
+						(chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset,
+						(chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset);
+			else
+				fprintf(f, "%s[%d:%d]", id(chunk.wire->name).c_str(),
+						(chunk.offset + chunk.width - 1) + chunk.wire->start_offset,
+						chunk.offset + chunk.wire->start_offset);
+		}
 	}
 }
 
@@ -267,8 +276,12 @@ void dump_wire(FILE *f, std::string indent, RTLIL::Wire *wire)
 #else
 	// do not use Verilog-2k "outut reg" syntax in verilog export
 	std::string range = "";
-	if (wire->width != 1)
-		range = stringf(" [%d:%d]", wire->width - 1 + wire->start_offset, wire->start_offset);
+	if (wire->width != 1) {
+		if (wire->upto)
+			range = stringf(" [%d:%d]", wire->start_offset, wire->width - 1 + wire->start_offset);
+		else
+			range = stringf(" [%d:%d]", wire->width - 1 + wire->start_offset, wire->start_offset);
+	}
 	if (wire->port_input && !wire->port_output)
 		fprintf(f, "%s" "input%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 	if (!wire->port_input && wire->port_output)

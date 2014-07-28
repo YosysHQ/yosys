@@ -786,13 +786,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_error("Signal `%s' with non-constant width at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
 
-			bool wire_upto = false;
-			if (range_left < range_right && (range_left != -1 || range_right != 0)) {
-				int tmp = range_left;
-				range_left = range_right;
-				range_right = tmp;
-				wire_upto = true;
-			}
+			log_assert(range_left >= range_right || (range_left == -1 && range_right == 0));
 
 			RTLIL::Wire *wire = current_module->addWire(str, range_left - range_right + 1);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -800,7 +794,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			wire->port_id = port_id;
 			wire->port_input = is_input;
 			wire->port_output = is_output;
-			wire->upto = wire_upto;
+			wire->upto = range_swapped;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
@@ -918,17 +912,20 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
 					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shr", width,
-							fake_ast->children[0]->genRTLIL(), fake_ast->children[1]->genRTLIL());
+							fake_ast->children[0]->genRTLIL(), !wire->upto ? fake_ast->children[1]->genRTLIL() :
+							current_module->Sub(NEW_ID, RTLIL::SigSpec(wire->width - width), fake_ast->children[1]->genRTLIL()));
 					delete left_at_zero_ast;
 					delete right_at_zero_ast;
 					delete fake_ast;
 					return sig;
 				} else {
-					chunk.offset = children[0]->range_right - id2ast->range_right;
-					chunk.width = children[0]->range_left - children[0]->range_right + 1;
 					if (children[0]->range_left > id2ast->range_left || id2ast->range_right > children[0]->range_right)
 						log_error("Range select out of bounds on signal `%s' at %s:%d!\n",
 								str.c_str(), filename.c_str(), linenum);
+					chunk.width = children[0]->range_left - children[0]->range_right + 1;
+					chunk.offset = children[0]->range_right - id2ast->range_right;
+					if (wire->upto)
+						chunk.offset = wire->width - (chunk.offset + chunk.width);
 				}
 			}
 
