@@ -11,27 +11,28 @@ log_fail()
 test_autotest()
 {
 	# Usage:
-	# test_autotest <test_name> <mod_name> <vlog_file> <autotest_cmd_line_options>
+	# test_autotest <test_name> <synth_script> <mod_name> <vlog_file>
 
 	test_name="$1"
-	mod_name="$2"
-	vlog_file="$3"
-	shift 3
+	synth_cmd="$2"
+	mod_name="$3"
+	vlog_file="$4"
 
 	mkdir -p log_test_$test_name
 	rm -rf log_test_$test_name/$mod_name.*
 
-	cp $vlog_file log_test_$test_name/$mod_name.v
+	../../yosys -q -l log_test_$test_name/$mod_name.out -o log_test_$test_name/$mod_name.v -p "$synth_cmd" "$vlog_file"
+	cat spec/${mod_name}_spec.v scripts/check.v >> log_test_$test_name/$mod_name.v
+	iverilog -o log_test_$test_name/$mod_name.bin -D"REFDAT_FN=\"refdat/${mod_name}_refdat.txt\"" log_test_$test_name/$mod_name.v
 
-	cd log_test_$test_name
-	if bash ../../tools/autotest.sh "$@" $mod_name.v > /dev/null 2>&1; then
-		mv $mod_name.out $mod_name.txt
+	if log_test_$test_name/$mod_name.bin 2>&1 | tee -a log_test_$test_name/$mod_name.out | grep -q '++OK++'; then
+		mv log_test_$test_name/$mod_name.out log_test_$test_name/$mod_name.txt
 		log_pass test_$test_name $mod_name
 	else
+		mv log_test_$test_name/$mod_name.out log_test_$test_name/$mod_name.err
 		log_fail test_$test_name $mod_name
+		exit 1
 	fi
-
-	cd ..
 }
 
 test_equiv()
