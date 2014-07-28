@@ -917,7 +917,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
 					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL();
-					log_dump(width, shift_val, id2ast->range_swapped, source_width, id2ast->range_left, id2ast->range_right);
 					if (id2ast->range_right != 0)
 						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right);
 					if (id2ast->range_swapped)
