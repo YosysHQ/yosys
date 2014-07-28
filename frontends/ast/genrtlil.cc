@@ -912,7 +912,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
 					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shr", width,
-							fake_ast->children[0]->genRTLIL(), !wire->upto ? fake_ast->children[1]->genRTLIL() :
+							fake_ast->children[0]->genRTLIL(), !id2ast->range_swapped ? fake_ast->children[1]->genRTLIL() :
 							current_module->Sub(NEW_ID, RTLIL::SigSpec(wire->width - width), fake_ast->children[1]->genRTLIL()));
 					delete left_at_zero_ast;
 					delete right_at_zero_ast;
@@ -924,7 +924,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 								str.c_str(), filename.c_str(), linenum);
 					chunk.width = children[0]->range_left - children[0]->range_right + 1;
 					chunk.offset = children[0]->range_right - id2ast->range_right;
-					if (wire->upto)
+					if (id2ast->range_swapped)
 						chunk.offset = wire->width - (chunk.offset + chunk.width);
 				}
 			}
