@@ -123,6 +123,8 @@ void ILANG_BACKEND::dump_wire(FILE *f, std::string indent, const RTLIL::Wire *wi
 	fprintf(f, "%s" "wire ", indent.c_str());
 	if (wire->width != 1)
 		fprintf(f, "width %d ", wire->width);
+	if (wire->upto)
+		fprintf(f, "upto ");
 	if (wire->start_offset != 0)
 		fprintf(f, "offset %d ", wire->start_offset);
 	if (wire->port_input && !wire->port_output)

@@ -602,7 +602,7 @@ public:
 
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
-	bool port_input, port_output;
+	bool port_input, port_output, upto;
 	RTLIL_ATTRIBUTE_MEMBERS
 };
 

@@ -786,10 +786,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_error("Signal `%s' with non-constant width at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
 
+			bool wire_upto = false;
 			if (range_left < range_right && (range_left != -1 || range_right != 0)) {
 				int tmp = range_left;
 				range_left = range_right;
 				range_right = tmp;
+				wire_upto = true;
 			}
 
 			RTLIL::Wire *wire = current_module->addWire(str, range_left - range_right + 1);
@@ -798,6 +800,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			wire->port_id = port_id;
 			wire->port_input = is_input;
 			wire->port_output = is_output;
+			wire->upto = wire_upto;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)

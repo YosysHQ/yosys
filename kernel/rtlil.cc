@@ -1019,6 +1019,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	wire->port_id = other->port_id;
 	wire->port_input = other->port_input;
 	wire->port_output = other->port_output;
+	wire->upto = other->upto;
 	wire->attributes = other->attributes;
 	return wire;
 }
@@ -1443,6 +1444,7 @@ RTLIL::Wire::Wire()
 	port_id = 0;
 	port_input = false;
 	port_output = false;
+	upto = false;
 }
 
 RTLIL::Memory::Memory()

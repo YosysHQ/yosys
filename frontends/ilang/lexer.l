@@ -51,6 +51,7 @@
 "wire"		{ return TOK_WIRE; }
 "memory"	{ return TOK_MEMORY; }
 "width"		{ return TOK_WIDTH; }
+"upto"		{ return TOK_UPTO; }
 "offset"	{ return TOK_OFFSET; }
 "size"		{ return TOK_SIZE; }
 "input"		{ return TOK_INPUT; }
