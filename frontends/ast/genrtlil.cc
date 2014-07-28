@@ -866,6 +866,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Wire *wire = NULL;
 			RTLIL::SigChunk chunk;
 
+			int add_undef_bits_msb = 0;
+			int add_undef_bits_lsb = 0;
+
 			if (id2ast && id2ast->type == AST_AUTOWIRE && current_module->wires_.count(str) == 0) {
 				RTLIL::Wire *wire = current_module->addWire(str);
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -919,17 +922,40 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					delete fake_ast;
 					return sig;
 				} else {
-					if (children[0]->range_left > id2ast->range_left || id2ast->range_right > children[0]->range_right)
-						log_error("Range select out of bounds on signal `%s' at %s:%d!\n",
-								str.c_str(), filename.c_str(), linenum);
+					int source_width = id2ast->range_left - id2ast->range_right + 1;
 					chunk.width = children[0]->range_left - children[0]->range_right + 1;
 					chunk.offset = children[0]->range_right - id2ast->range_right;
 					if (id2ast->range_swapped)
-						chunk.offset = wire->width - (chunk.offset + chunk.width);
+						chunk.offset = (id2ast->range_left - id2ast->range_right + 1) - (chunk.offset + chunk.width);
+					if (chunk.offset >= source_width || chunk.offset + chunk.width < 0) {
+						if (chunk.width == 1)
+							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting result bit to undef.\n",
+									str.c_str(), filename.c_str(), linenum);
+						else
+							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting all %d result bits to undef.\n",
+									str.c_str(), filename.c_str(), linenum, chunk.width);
+						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
+					} else {
+						if (chunk.width + chunk.offset > source_width) {
+							add_undef_bits_msb = (chunk.width + chunk.offset) - source_width;
+							chunk.width -= add_undef_bits_msb;
+						}
+						if (chunk.offset < 0) {
+							add_undef_bits_lsb = -chunk.offset;
+							chunk.width -= add_undef_bits_lsb;
+							chunk.offset += add_undef_bits_lsb;
+						}
+						if (add_undef_bits_lsb)
+							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting %d LSB bits to undef.\n",
+									str.c_str(), filename.c_str(), linenum, add_undef_bits_lsb);
+						if (add_undef_bits_msb)
+							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting %d MSB bits to undef.\n",
+									str.c_str(), filename.c_str(), linenum, add_undef_bits_msb);
+					}
 				}
 			}
 
-			RTLIL::SigSpec sig(chunk);
+			RTLIL::SigSpec sig = { RTLIL::SigSpec(RTLIL::State::Sx, add_undef_bits_msb), chunk, RTLIL::SigSpec(RTLIL::State::Sx, add_undef_bits_lsb) };
 
 			if (genRTLIL_subst_from && genRTLIL_subst_to)
 				sig.replace(*genRTLIL_subst_from, *genRTLIL_subst_to);
