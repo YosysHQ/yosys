@@ -902,6 +902,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		use_const_chunk:
 			if (children.size() != 0) {
 				log_assert(children[0]->type == AST_RANGE);
+				int source_width = id2ast->range_left - id2ast->range_right + 1;
+				int source_offset = id2ast->range_right;
 				if (!children[0]->range_valid) {
 					AstNode *left_at_zero_ast = children[0]->children[0]->clone();
 					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
@@ -914,17 +916,20 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					AstNode *fake_ast = new AstNode(AST_NONE, clone(), children[0]->children.size() >= 2 ?
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
-					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shr", width,
-							fake_ast->children[0]->genRTLIL(), !id2ast->range_swapped ? fake_ast->children[1]->genRTLIL() :
-							current_module->Sub(NEW_ID, RTLIL::SigSpec(wire->width - width), fake_ast->children[1]->genRTLIL()));
+					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL();
+					log_dump(width, shift_val, id2ast->range_swapped, source_width, id2ast->range_left, id2ast->range_right);
+					if (id2ast->range_right != 0)
+						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right);
+					if (id2ast->range_swapped)
+						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val);
+					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shr", width, fake_ast->children[0]->genRTLIL(), shift_val);
 					delete left_at_zero_ast;
 					delete right_at_zero_ast;
 					delete fake_ast;
 					return sig;
 				} else {
-					int source_width = id2ast->range_left - id2ast->range_right + 1;
 					chunk.width = children[0]->range_left - children[0]->range_right + 1;
-					chunk.offset = children[0]->range_right - id2ast->range_right;
+					chunk.offset = children[0]->range_right - source_offset;
 					if (id2ast->range_swapped)
 						chunk.offset = (id2ast->range_left - id2ast->range_right + 1) - (chunk.offset + chunk.width);
 					if (chunk.offset >= source_width || chunk.offset + chunk.width < 0) {

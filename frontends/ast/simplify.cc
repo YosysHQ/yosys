@@ -575,6 +575,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				}
 				children[0]->is_signed = is_signed;
 			}
+			range_valid = true;
+			range_swapped = children[1]->range_swapped;
+			range_left = children[1]->range_left;
+			range_right = children[1]->range_right;
 		} else
 		if (children.size() > 1 && children[1]->type == AST_REALVALUE && children[0]->type == AST_CONSTANT) {
 			double as_realvalue = children[0]->asReal(sign_hint);
@@ -1522,8 +1526,23 @@ skip_dynamic_range_lvalue_expansion:;
 				if (current_scope[str]->children[0]->type == AST_CONSTANT) {
 					if (children.size() != 0 && children[0]->type == AST_RANGE && children[0]->range_valid) {
 						std::vector<RTLIL::State> data;
-						for (int i = children[0]->range_right; i <= children[0]->range_left; i++)
-							data.push_back(current_scope[str]->children[0]->bits[i]);
+						bool param_upto = current_scope[str]->range_valid && current_scope[str]->range_swapped;
+						int param_offset = current_scope[str]->range_valid ? current_scope[str]->range_right : 0;
+						int param_width = current_scope[str]->range_valid ? current_scope[str]->range_left - current_scope[str]->range_right + 1 :
+								SIZE(current_scope[str]->children[0]->bits);
+						int tmp_range_left = children[0]->range_left, tmp_range_right = children[0]->range_right;
+						if (param_upto) {
+							tmp_range_left = (param_width + 2*param_offset) - children[0]->range_right - 1;
+							tmp_range_right = (param_width + 2*param_offset) - children[0]->range_left - 1;
+						}
+						log_dump(param_upto, param_offset, param_width, children[0]->range_left, children[0]->range_right, tmp_range_left, tmp_range_right);
+						for (int i = tmp_range_right; i <= tmp_range_left; i++) {
+							int index = i - param_offset;
+							if (0 <= index && index < param_width)
+								data.push_back(current_scope[str]->children[0]->bits[index]);
+							else
+								data.push_back(RTLIL::State::Sx);
+						}
 						newNode = mkconst_bits(data, false);
 					} else
 					if (children.size() == 0)
