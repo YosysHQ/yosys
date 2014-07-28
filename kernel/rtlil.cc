@@ -1652,6 +1652,18 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigSpec &other)
 	*this = other;
 }
 
+RTLIL::SigSpec::SigSpec(std::initializer_list<RTLIL::SigSpec> parts)
+{
+	cover("kernel.rtlil.sigspec.init.list");
+
+	width_ = 0;
+	hash_ = 0;
+
+	std::vector<RTLIL::SigSpec> parts_vec(parts.begin(), parts.end());
+	for (auto it = parts_vec.rbegin(); it != parts_vec.rend(); it++)
+		append(*it);
+}
+
 const RTLIL::SigSpec &RTLIL::SigSpec::operator=(const RTLIL::SigSpec &other)
 {
 	cover("kernel.rtlil.sigspec.assign");
