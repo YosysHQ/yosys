@@ -597,7 +597,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr")
+		if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr" || cell->type == "$shift" || cell->type == "$shiftx")
 		{
 			std::vector<int> a = importDefSigSpec(cell->get("\\A"), timestep);
 			std::vector<int> b = importDefSigSpec(cell->get("\\B"), timestep);
@@ -605,6 +605,7 @@ struct SatGen
 
 			char shift_left = cell->type == "$shl" || cell->type == "$sshl";
 			bool sign_extend = cell->type == "$sshr" && cell->parameters["\\A_SIGNED"].as_bool();
+			bool shift_shiftx = cell->type == "$shift" || cell->type == "$shiftx";
 
 			while (y.size() < a.size())
 				y.push_back(ez->literal());
@@ -616,9 +617,13 @@ struct SatGen
 			std::vector<int> tmp = a;
 			for (size_t i = 0; i < b.size(); i++)
 			{
+				bool shift_left_this = shift_left;
+				if (shift_shiftx && i == b.size()-1 && cell->parameters["\\B_SIGNED"].as_bool())
+					shift_left_this = true;
+
 				std::vector<int> tmp_shifted(tmp.size());
 				for (size_t j = 0; j < tmp.size(); j++) {
-					int idx = j + (1 << (i > 30 ? 30 : i)) * (shift_left ? -1 : +1);
+					int idx = j + (1 << (i > 30 ? 30 : i)) * (shift_left_this ? -1 : +1);
 					tmp_shifted.at(j) = (0 <= idx && idx < int(tmp.size())) ? tmp.at(idx) : sign_extend ? tmp.back() : ez->FALSE;
 				}
 				tmp = ez->vec_ite(b.at(i), tmp_shifted, tmp);
@@ -639,10 +644,15 @@ struct SatGen
 				tmp = undef_a;
 				for (size_t i = 0; i < b.size(); i++)
 				{
+					bool shift_left_this = shift_left;
+					if (shift_shiftx && i == b.size()-1 && cell->parameters["\\B_SIGNED"].as_bool())
+						shift_left_this = true;
+
 					std::vector<int> tmp_shifted(tmp.size());
 					for (size_t j = 0; j < tmp.size(); j++) {
-						int idx = j + (1 << (i > 30 ? 30 : i)) * (shift_left ? -1 : +1);
-						tmp_shifted.at(j) = (0 <= idx && idx < int(tmp.size())) ? tmp.at(idx) : sign_extend ? tmp.back() : ez->FALSE;
+						int idx = j + (1 << (i > 30 ? 30 : i)) * (shift_left_this ? -1 : +1);
+						tmp_shifted.at(j) = (0 <= idx && idx < int(tmp.size())) ? tmp.at(idx) :
+								sign_extend ? tmp.back() : cell->type == "$shiftx" ? ez->TRUE : ez->FALSE;
 					}
 					tmp = ez->vec_ite(b.at(i), tmp_shifted, tmp);
 				}

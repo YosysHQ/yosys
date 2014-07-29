@@ -111,6 +111,8 @@ struct BtorDumper
 		cell_type_translation["$shl"] = "sll";
 		cell_type_translation["$sshr"] = "sra";
 		cell_type_translation["$sshl"] = "sll";
+		cell_type_translation["$shift"] = "srl";
+		cell_type_translation["$shiftx"] = "srl";
 		cell_type_translation["$lt"] = "ult";
 		cell_type_translation["$le"] = "ulte";
 		cell_type_translation["$gt"] = "ugt";
@@ -540,7 +542,7 @@ struct BtorDumper
 				}
 				line_ref[cell->name]=line_num;
 			}
-			else if(cell->type == "$shr" || cell->type == "$shl" || cell->type == "$sshr" || cell->type == "$sshl")
+			else if(cell->type == "$shr" || cell->type == "$shl" || cell->type == "$sshr" || cell->type == "$sshl" || cell->type == "$shift" || cell->type == "$shiftx")
 			{
 				log("writing binary cell - %s\n", cstr(cell->type));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();

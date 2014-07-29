@@ -917,11 +917,17 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
 					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL();
-					if (id2ast->range_right != 0)
-						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right);
-					if (id2ast->range_swapped)
-						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val);
-					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shr", width, fake_ast->children[0]->genRTLIL(), shift_val);
+					if (id2ast->range_right != 0) {
+						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right, fake_ast->children[1]->is_signed);
+						fake_ast->children[1]->is_signed = true;
+					}
+					if (id2ast->range_swapped) {
+						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast->children[1]->is_signed);
+						fake_ast->children[1]->is_signed = true;
+					}
+					if (SIZE(shift_val) >= 32)
+						fake_ast->children[1]->is_signed = true;
+					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shiftx", width, fake_ast->children[0]->genRTLIL(), shift_val);
 					delete left_at_zero_ast;
 					delete right_at_zero_ast;
 					delete fake_ast;

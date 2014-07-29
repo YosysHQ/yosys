@@ -474,7 +474,8 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr") {
+			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr" ||
+					cell->type == "$shift" || cell->type == "$shiftx") {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
@@ -1101,6 +1102,8 @@ DEF_METHOD(Shl,      sig_a.size(), "$shl")
 DEF_METHOD(Shr,      sig_a.size(), "$shr")
 DEF_METHOD(Sshl,     sig_a.size(), "$sshl")
 DEF_METHOD(Sshr,     sig_a.size(), "$sshr")
+DEF_METHOD(Shift,    sig_a.size(), "$shift")
+DEF_METHOD(Shiftx,   sig_a.size(), "$shiftx")
 DEF_METHOD(Lt,       1, "$lt")
 DEF_METHOD(Le,       1, "$le")
 DEF_METHOD(Eq,       1, "$eq")

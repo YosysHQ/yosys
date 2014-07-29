@@ -695,6 +695,8 @@ struct MemoryShareWorker
 		cone_ct.cell_types.erase("$shr");
 		cone_ct.cell_types.erase("$sshl");
 		cone_ct.cell_types.erase("$sshr");
+		cone_ct.cell_types.erase("$shift");
+		cone_ct.cell_types.erase("$shiftx");
 
 		modwalker.setup(design, module, &cone_ct);
 

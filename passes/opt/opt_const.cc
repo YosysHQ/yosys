@@ -338,7 +338,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			goto next_cell;
 		}
 
-		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" ||
+		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" || cell->type == "$shift" || cell->type == "$shiftx" ||
 				cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr" ||
 				cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt" ||
 				cell->type == "$neg" || cell->type == "$add" || cell->type == "$sub" ||
@@ -347,7 +347,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			RTLIL::SigSpec sig_a = assign_map(cell->get("\\A"));
 			RTLIL::SigSpec sig_b = cell->has("\\B") ? assign_map(cell->get("\\B")) : RTLIL::SigSpec();
 
-			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr")
+			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr" || cell->type == "$shift" || cell->type == "$shiftx")
 				sig_a = RTLIL::SigSpec();
 
 			for (auto &bit : sig_a.to_sigbit_vector())
@@ -360,8 +360,8 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 			if (0) {
 		found_the_x_bit:
-				cover_list("opt.opt_const.xbit", "$reduce_xor", "$reduce_xnor", "$shl", "$shr", "$sshl", "$sshr", "$lt", "$le", "$ge", "$gt",
-						"$neg", "$add", "$sub", "$mul", "$div", "$mod", "$pow", cell->type);
+				cover_list("opt.opt_const.xbit", "$reduce_xor", "$reduce_xnor", "$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
+						"$lt", "$le", "$ge", "$gt", "$neg", "$add", "$sub", "$mul", "$div", "$mod", "$pow", cell->type);
 				if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" ||
 						cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt")
 					replace_cell(assign_map, module, cell, "x-bit in input", "\\Y", RTLIL::State::Sx);
@@ -572,7 +572,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					identity_wrt_a = true;
 			}
 
-			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr")
+			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr" || cell->type == "$shift" || cell->type == "$shiftx")
 			{
 				RTLIL::SigSpec b = assign_map(cell->get("\\B"));
 
@@ -603,9 +603,9 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			if (identity_wrt_a || identity_wrt_b)
 			{
 				if (identity_wrt_a)
-					cover_list("opt.opt_const.identwrt.a", "$add", "$sub", "$or", "$xor", "$shl", "$shr", "$sshl", "$sshr", "$mul", "$div", cell->type);
+					cover_list("opt.opt_const.identwrt.a", "$add", "$sub", "$or", "$xor", "$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx", "$mul", "$div", cell->type);
 				if (identity_wrt_b)
-					cover_list("opt.opt_const.identwrt.b", "$add", "$sub", "$or", "$xor", "$shl", "$shr", "$sshl", "$sshr", "$mul", "$div", cell->type);
+					cover_list("opt.opt_const.identwrt.b", "$add", "$sub", "$or", "$xor", "$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx", "$mul", "$div", cell->type);
 
 				log("Replacing %s cell `%s' in module `%s' with identity for port %c.\n",
 					cell->type.c_str(), cell->name.c_str(), module->name.c_str(), identity_wrt_a ? 'A' : 'B');
@@ -792,6 +792,8 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 		FOLD_2ARG_CELL(shr)
 		FOLD_2ARG_CELL(sshl)
 		FOLD_2ARG_CELL(sshr)
+		FOLD_2ARG_CELL(shift)
+		FOLD_2ARG_CELL(shiftx)
 
 		FOLD_2ARG_CELL(lt)
 		FOLD_2ARG_CELL(le)

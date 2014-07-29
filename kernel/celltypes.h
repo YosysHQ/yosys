@@ -75,6 +75,8 @@ struct CellTypes
 		cell_types.insert("$shr");
 		cell_types.insert("$sshl");
 		cell_types.insert("$sshr");
+		cell_types.insert("$shift");
+		cell_types.insert("$shiftx");
 		cell_types.insert("$lt");
 		cell_types.insert("$le");
 		cell_types.insert("$eq");
@@ -224,7 +226,7 @@ struct CellTypes
 		if (type == "$sshl" && !signed1)
 			type = "$shl";
 
-		if (type != "$sshr" && type != "$sshl" && type != "$shr" && type != "$shl" &&
+		if (type != "$sshr" && type != "$sshl" && type != "$shr" && type != "$shl" && type != "$shift" && type != "$shiftx" &&
 				type != "$pos" && type != "$neg" && type != "$not" && type != "$bu0") {
 			if (!signed1 || !signed2)
 				signed1 = false, signed2 = false;
@@ -248,6 +250,8 @@ struct CellTypes
 		HANDLE_CELL_TYPE(shr)
 		HANDLE_CELL_TYPE(sshl)
 		HANDLE_CELL_TYPE(sshr)
+		HANDLE_CELL_TYPE(shift)
+		HANDLE_CELL_TYPE(shiftx)
 		HANDLE_CELL_TYPE(lt)
 		HANDLE_CELL_TYPE(le)
 		HANDLE_CELL_TYPE(eq)

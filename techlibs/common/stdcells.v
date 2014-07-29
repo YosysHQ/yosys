@@ -129,12 +129,12 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$__shift (X, A, Y);
+module \$__shift (XL, XR, A, Y);
 
 parameter WIDTH = 1;
 parameter SHIFT = 0;
 
-input X;
+input XL, XR;
 input [WIDTH-1:0] A;
 output [WIDTH-1:0] Y;
 
@@ -142,12 +142,12 @@ genvar i;
 generate
 	for (i = 0; i < WIDTH; i = i + 1) begin:V
 		if (i+SHIFT < 0) begin
-			assign Y[i] = 0;
+			assign Y[i] = XR;
 		end else
 		if (i+SHIFT < WIDTH) begin
 			assign Y[i] = A[i+SHIFT];
 		end else begin
-			assign Y[i] = X;
+			assign Y[i] = XL;
 		end
 	end
 endgenerate
@@ -196,7 +196,8 @@ generate
 			.WIDTH(WIDTH),
 			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
 		) sh (
-			.X(0),
+			.XL(1'b0),
+			.XR(1'b0),
 			.A(unshifted),
 			.Y(shifted)
 		);
@@ -255,7 +256,8 @@ generate
 			.WIDTH(WIDTH),
 			.SHIFT(2 ** (i > 30 ? 30 : i))
 		) sh (
-			.X(0),
+			.XL(1'b0),
+			.XR(1'b0),
 			.A(unshifted),
 			.Y(shifted)
 		);
@@ -314,7 +316,8 @@ generate
 			.WIDTH(WIDTH),
 			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
 		) sh (
-			.X(0),
+			.XL(1'b0),
+			.XR(1'b0),
 			.A(unshifted),
 			.Y(shifted)
 		);
@@ -382,7 +385,8 @@ generate
 			.WIDTH(WIDTH),
 			.SHIFT(2 ** (i > 30 ? 30 : i))
 		) sh (
-			.X(A_SIGNED && A[A_WIDTH-1]),
+			.XL(A_SIGNED && A[A_WIDTH-1]),
+			.XR(1'b0),
 			.A(unshifted),
 			.Y(shifted)
 		);
@@ -396,6 +400,58 @@ generate
 		);
 	end
 endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$shift (A, B, Y);
+
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 1;
+parameter B_WIDTH = 1;
+parameter Y_WIDTH = 1;
+
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
+output [Y_WIDTH-1:0] Y;
+
+generate
+	if (B_SIGNED) begin:BLOCK1
+		assign Y = $signed(B) < 0 ? A << -B : A >> B;
+	end else begin:BLOCK2
+		assign Y = A >> B;
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$shiftx (A, B, Y);
+
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 1;
+parameter B_WIDTH = 1;
+parameter Y_WIDTH = 1;
+
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
+output [Y_WIDTH-1:0] Y;
+
+\$shift #(
+	.A_SIGNED(A_SIGNED),
+	.B_SIGNED(B_SIGNED),
+	.A_WIDTH(A_WIDTH),
+	.B_WIDTH(B_WIDTH),
+	.Y_WIDTH(Y_WIDTH),
+) sh (
+	.A(A),
+	.B(B),
+	.Y(Y)
+);
 
 endmodule
 
