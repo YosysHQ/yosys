@@ -656,13 +656,22 @@ struct TechmapPass : public Pass {
 			Frontend::frontend_call(map, f, "<stdcells.v>", verilog_frontend);
 			fclose(f);
 		} else
-			for (auto &fn : map_files) {
-				FILE *f = fopen(fn.c_str(), "rt");
-				if (f == NULL)
-					log_cmd_error("Can't open map file `%s'\n", fn.c_str());
-				Frontend::frontend_call(map, f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
-				fclose(f);
-			}
+			for (auto &fn : map_files)
+				if (fn.substr(0, 1) == "%") {
+					if (!saved_designs.count(fn.substr(1))) {
+						delete map;
+						log_cmd_error("Can't saved design `%s'.\n", fn.c_str()+1);
+					}
+					for (auto mod : saved_designs.at(fn.substr(1))->modules())
+						if (!map->has(mod->name))
+							map->add(mod->clone());
+				} else {
+					FILE *f = fopen(fn.c_str(), "rt");
+					if (f == NULL)
+						log_cmd_error("Can't open map file `%s'\n", fn.c_str());
+					Frontend::frontend_call(map, f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
+					fclose(f);
+				}
 
 		std::map<RTLIL::IdString, RTLIL::Module*> modules_new;
 		for (auto &it : map->modules_) {

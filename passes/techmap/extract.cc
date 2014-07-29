@@ -603,9 +603,9 @@ struct ExtractPass : public Pass {
 						delete map;
 						log_cmd_error("Can't saved design `%s'.\n", filename.c_str()+1);
 					}
-					for (auto &it : saved_designs.at(filename.substr(1))->modules_)
-						if (!map->modules_.count(it.first))
-							map->modules_[it.first] = it.second->clone();
+					for (auto mod : saved_designs.at(filename.substr(1))->modules())
+						if (!map->has(mod->name))
+							map->add(mod->clone());
 				}
 				else
 				{

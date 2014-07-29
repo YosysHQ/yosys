@@ -219,6 +219,11 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	}
 }
 
+RTLIL::Design::Design()
+{
+	refcount_modules_ = 0;
+}
+
 RTLIL::Design::~Design()
 {
 	for (auto it = modules_.begin(); it != modules_.end(); it++)

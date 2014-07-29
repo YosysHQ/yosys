@@ -352,10 +352,15 @@ struct RTLIL::Design
 	std::map<RTLIL::IdString, RTLIL::Selection> selection_vars;
 	std::string selected_active_module;
 
+	Design();
 	~Design();
 
 	RTLIL::ObjRange<RTLIL::Module*> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
+
+	bool has(RTLIL::IdString id) const {
+		return modules_.count(id) != 0;
+	}
 
 	void add(RTLIL::Module *module);
 	RTLIL::Module *addModule(RTLIL::IdString name);
