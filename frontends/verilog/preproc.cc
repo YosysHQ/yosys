@@ -198,7 +198,7 @@ static void input_file(FILE *f, std::string filename)
 		buffer[rc] = 0;
 		input_buffer.insert(it, buffer);
 	}
-	input_buffer.insert(it, "`file_pop\n");
+	input_buffer.insert(it, "\n`file_pop\n");
 }
 
 std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
