@@ -93,7 +93,7 @@ do
 		cd ${bn}.out
 		cp ../$fn $fn
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -b autotest -o ${bn}_tb.v $fn
+			"$toolsdir"/../../yosys -b test_autotb -o ${bn}_tb.v $fn
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi

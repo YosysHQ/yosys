@@ -301,13 +301,13 @@ static void autotest(FILE *f, RTLIL::Design *design)
 	fprintf(f, "endmodule\n");
 }
 
-struct AutotestBackend : public Backend {
-	AutotestBackend() : Backend("autotest", "generate simple test benches") { }
+struct TestAutotbBackend : public Backend {
+	TestAutotbBackend() : Backend("=test_autotb", "generate simple test benches") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    write_autotest [filename]\n");
+		log("    test_autotb [filename]\n");
 		log("\n");
 		log("Automatically create primitive verilog test benches for all modules in the\n");
 		log("design. The generated testbenches toggle the input pins of the module in\n");
@@ -327,9 +327,9 @@ struct AutotestBackend : public Backend {
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing AUTOTEST backend (auto-generate pseudo-random test benches).\n");
+		log_header("Executing TEST_AUTOTB backend (auto-generate pseudo-random test benches).\n");
 		extra_args(f, filename, args, 1);
 		autotest(f, design);
 	}
-} AutotestBackend;
+} TestAutotbBackend;
  

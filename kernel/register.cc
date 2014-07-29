@@ -376,7 +376,9 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 	design->check();
 }
 
-Backend::Backend(std::string name, std::string short_help) : Pass("write_"+name, short_help), backend_name(name)
+Backend::Backend(std::string name, std::string short_help) :
+		Pass(name.substr(0, 1) == "=" ? name.substr(1) : "write_"+name, short_help),
+		backend_name(name.substr(0, 1) == "=" ? name.substr(1) : name)
 {
 }
 
