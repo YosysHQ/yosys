@@ -289,7 +289,7 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	str += "yosys";
 	if (!design->selected_active_module.empty())
 		str += stringf(" [%s]", RTLIL::id2cstr(design->selected_active_module));
-	if (!design->selection_stack.back().full_selection) {
+	if (!design->selection_stack.empty() && !design->selection_stack.back().full_selection) {
 		if (design->selected_active_module.empty())
 			str += "*";
 		else if (design->selection_stack.back().selected_modules.size() != 1 || design->selection_stack.back().selected_members.size() != 0 ||
