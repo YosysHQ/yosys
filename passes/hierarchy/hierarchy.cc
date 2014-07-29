@@ -41,7 +41,9 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 	for (auto i2 : i1.second->cells_)
 	{
 		RTLIL::Cell *cell = i2.second;
-		if (cell->type[0] == '$' || design->modules_.count(cell->type) > 0)
+		if (design->has(cell->type))
+			continue;
+		if (cell->type.substr(0, 1) == "$" && cell->type.substr(0, 3) != "$__")
 			continue;
 		for (auto &pattern : celltypes)
 			if (!fnmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str(), FNM_NOESCAPE))
