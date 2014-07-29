@@ -455,11 +455,12 @@ input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
 generate
-	if (B_SIGNED) begin:BLOCK1
-		assign Y = A[$signed(B) +: Y_WIDTH];
-	end else begin:BLOCK2
-		assign Y = A[B +: Y_WIDTH];
-	end
+	if (Y_WIDTH > 0)
+		if (B_SIGNED) begin:BLOCK1
+			assign Y = A[$signed(B) +: Y_WIDTH];
+		end else begin:BLOCK2
+			assign Y = A[B +: Y_WIDTH];
+		end
 endgenerate
 
 endmodule
