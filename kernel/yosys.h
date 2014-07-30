@@ -1,0 +1,86 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *  
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+
+// *** NOTE TO THE READER ***
+//
+// Maybe you have just opened this file in the hope to learn more about the
+// Yosys API. Let me congratulate you on this great decision!  ;)
+//
+// If you want to know how the design is represented by Yosys in the memory,
+// you should read "kernel/rtlil.h".
+//
+// If you want to know how to register a command with Yosys, you could read
+// "kernel/register.h", but it would be easier to just look at a simple
+// example instead. A simple one would be "passes/cmds/log.cc".
+
+
+#ifndef YOSYS_H
+#define YOSYS_H
+
+#include <map>
+#include <set>
+#include <vector>
+#include <string>
+#include <initializer_list>
+
+#if 0
+#  define YOSYS_NAMESPACE_BEGIN  namespace Yosys {
+#  define YOSYS_NAMESPACE_END    }
+#else
+#  define YOSYS_NAMESPACE_BEGIN
+#  define YOSYS_NAMESPACE_END
+#endif
+
+YOSYS_NAMESPACE_BEGIN
+
+std::string stringf(const char *fmt, ...);
+
+#define SIZE(__obj) int(__obj.size())
+
+YOSYS_NAMESPACE_END
+
+#include "kernel/log.h"
+#include "kernel/rtlil.h"
+#include "kernel/register.h"
+#include "kernel/compatibility.h"
+
+YOSYS_NAMESPACE_BEGIN
+
+#ifdef YOSYS_ENABLE_TCL
+#include <tcl.h>
+extern Tcl_Interp *yosys_get_tcl_interp();
+#endif
+
+// from kernel/version_*.o (cc source generated from Makefile)
+extern const char *yosys_version_str;
+
+// implemented in driver.cc
+extern RTLIL::Design *yosys_get_design();
+extern std::string proc_self_dirname();
+extern std::string proc_share_dirname();
+extern const char *create_prompt(RTLIL::Design *design, int recursion_counter);
+
+// from passes/cmds/design.cc
+extern std::map<std::string, RTLIL::Design*> saved_designs;
+extern std::vector<RTLIL::Design*> pushed_designs;
+
+YOSYS_NAMESPACE_END
+
+#endif

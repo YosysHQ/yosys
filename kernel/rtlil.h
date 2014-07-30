@@ -17,20 +17,10 @@
  *
  */
 
+#include "kernel/yosys.h"
+
 #ifndef RTLIL_H
 #define RTLIL_H
-
-#include <map>
-#include <set>
-#include <vector>
-#include <string>
-
-#include "kernel/log.h"
-#include <initializer_list>
-
-// various helpers (unrelated to RTLIL)
-std::string stringf(const char *fmt, ...);
-#define SIZE(__obj) int(__obj.size())
 
 namespace RTLIL
 {

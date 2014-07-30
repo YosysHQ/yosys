@@ -17,6 +17,8 @@
  *
  */
 
+#include "kernel/yosys.h"
+
 #ifndef LOG_H
 #define LOG_H
 
@@ -25,10 +27,6 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-
-#include <map>
-#include <vector>
-#include <string>
 
 #define S__LINE__sub2(x) #x
 #define S__LINE__sub1(x) S__LINE__sub2(x)

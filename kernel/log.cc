@@ -17,10 +17,7 @@
  *
  */
 
-#include "kernel/log.h"
-#include "kernel/rtlil.h"
-#include "kernel/register.h"
-#include "kernel/compatibility.h"
+#include "kernel/yosys.h"
 #include "backends/ilang/ilang_backend.h"
 
 #include <sys/time.h>
@@ -42,25 +39,6 @@ std::list<std::string> string_buf;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
-
-std::string stringf(const char *fmt, ...)
-{
-	std::string string;
-	char *str = NULL;
-	va_list ap;
-
-	va_start(ap, fmt);
-	if (vasprintf(&str, fmt, ap) < 0)
-		str = NULL;
-	va_end(ap);
-
-	if (str != NULL) {
-		string = str;
-		free(str);
-	}
-
-	return string;
-}
 
 void logv(const char *format, va_list ap)
 {

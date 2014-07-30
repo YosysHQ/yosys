@@ -30,9 +30,7 @@
 #include <algorithm>
 #include <exception>
 
-#include "kernel/rtlil.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 
 bool fgetline(FILE *f, std::string &buffer)
 {

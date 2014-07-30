@@ -26,24 +26,6 @@
 #include <vector>
 #include <map>
 
-#ifdef YOSYS_ENABLE_TCL
-#include <tcl.h>
-extern Tcl_Interp *yosys_get_tcl_interp();
-#endif
-
-// from kernel/version_*.o (cc source generated from Makefile)
-extern const char *yosys_version_str;
-
-// implemented in driver.cc
-extern RTLIL::Design *yosys_get_design();
-extern std::string proc_self_dirname();
-extern std::string proc_share_dirname();
-extern const char *create_prompt(RTLIL::Design *design, int recursion_counter);
-
-// from passes/cmds/design.cc
-extern std::map<std::string, RTLIL::Design*> saved_designs;
-extern std::vector<RTLIL::Design*> pushed_designs;
-
 struct Pass
 {
 	std::string pass_name, short_help;
