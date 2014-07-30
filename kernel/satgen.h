@@ -603,63 +603,66 @@ struct SatGen
 			std::vector<int> b = importDefSigSpec(cell->get("\\B"), timestep);
 			std::vector<int> y = importDefSigSpec(cell->get("\\Y"), timestep);
 
-			char shift_left = cell->type == "$shl" || cell->type == "$sshl";
-			bool sign_extend = cell->type == "$sshr" && cell->parameters["\\A_SIGNED"].as_bool();
-			bool shift_shiftx = cell->type == "$shift" || cell->type == "$shiftx";
+			int extend_bit = ez->FALSE;
+
+			if (cell->type != "$shift" && cell->type != "$shiftx" && cell->parameters["\\A_SIGNED"].as_bool())
+				extend_bit = a.back();
 
 			while (y.size() < a.size())
 				y.push_back(ez->literal());
 			while (y.size() > a.size())
-				a.push_back(cell->parameters["\\A_SIGNED"].as_bool() ? a.back() : ez->FALSE);
+				a.push_back(extend_bit);
 
 			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+			std::vector<int> shifted_a;
 
-			std::vector<int> tmp = a;
-			for (size_t i = 0; i < b.size(); i++)
-			{
-				bool shift_left_this = shift_left;
-				if (shift_shiftx && i == b.size()-1 && cell->parameters["\\B_SIGNED"].as_bool())
-					shift_left_this = true;
+			if (cell->type == "$shl" || cell->type == "$sshl")
+				shifted_a = ez->vec_shift_left(a, b, false, ez->FALSE, ez->FALSE);
 
-				std::vector<int> tmp_shifted(tmp.size());
-				for (size_t j = 0; j < tmp.size(); j++) {
-					int idx = j + (1 << (i > 30 ? 30 : i)) * (shift_left_this ? -1 : +1);
-					tmp_shifted.at(j) = (0 <= idx && idx < int(tmp.size())) ? tmp.at(idx) : sign_extend ? tmp.back() : ez->FALSE;
-				}
-				tmp = ez->vec_ite(b.at(i), tmp_shifted, tmp);
-			}
-			ez->assume(ez->vec_eq(tmp, yy));
+			if (cell->type == "$shr")
+				shifted_a = ez->vec_shift_right(a, b, false, ez->FALSE, ez->FALSE);
+
+			if (cell->type == "$sshr")
+				shifted_a = ez->vec_shift_right(a, b, false, cell->parameters["\\A_SIGNED"].as_bool() ? a.back() : ez->FALSE, ez->FALSE);
+
+			if (cell->type == "$shift" || cell->type == "$shiftx")
+				shifted_a = ez->vec_shift_right(a, b, cell->parameters["\\B_SIGNED"].as_bool(), ez->FALSE, ez->FALSE);
+
+			ez->assume(ez->vec_eq(shifted_a, yy));
 
 			if (model_undef)
 			{
 				std::vector<int> undef_a = importUndefSigSpec(cell->get("\\A"), timestep);
 				std::vector<int> undef_b = importUndefSigSpec(cell->get("\\B"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->get("\\Y"), timestep);
+				std::vector<int> undef_a_shifted;
+
+				if (cell->type != "$shift" && cell->type != "$shiftx" && cell->parameters["\\A_SIGNED"].as_bool())
+					extend_bit = undef_a.back();
 
 				while (undef_y.size() < undef_a.size())
 					undef_y.push_back(ez->literal());
 				while (undef_y.size() > undef_a.size())
-					undef_a.push_back(cell->parameters["\\A_SIGNED"].as_bool() ? undef_a.back() : ez->FALSE);
+					undef_a.push_back(extend_bit);
 
-				tmp = undef_a;
-				for (size_t i = 0; i < b.size(); i++)
-				{
-					bool shift_left_this = shift_left;
-					if (shift_shiftx && i == b.size()-1 && cell->parameters["\\B_SIGNED"].as_bool())
-						shift_left_this = true;
+				if (cell->type == "$shl" || cell->type == "$sshl")
+					undef_a_shifted = ez->vec_shift_left(undef_a, b, false, ez->FALSE, ez->FALSE);
 
-					std::vector<int> tmp_shifted(tmp.size());
-					for (size_t j = 0; j < tmp.size(); j++) {
-						int idx = j + (1 << (i > 30 ? 30 : i)) * (shift_left_this ? -1 : +1);
-						tmp_shifted.at(j) = (0 <= idx && idx < int(tmp.size())) ? tmp.at(idx) :
-								sign_extend ? tmp.back() : cell->type == "$shiftx" ? ez->TRUE : ez->FALSE;
-					}
-					tmp = ez->vec_ite(b.at(i), tmp_shifted, tmp);
-				}
+				if (cell->type == "$shr")
+					undef_a_shifted = ez->vec_shift_right(undef_a, b, false, ez->FALSE, ez->FALSE);
+
+				if (cell->type == "$sshr")
+					undef_a_shifted = ez->vec_shift_right(undef_a, b, false, cell->parameters["\\A_SIGNED"].as_bool() ? undef_a.back() : ez->FALSE, ez->FALSE);
+
+				if (cell->type == "$shift")
+					undef_a_shifted = ez->vec_shift_right(undef_a, b, cell->parameters["\\B_SIGNED"].as_bool(), ez->FALSE, ez->FALSE);
+
+				if (cell->type == "$shiftx")
+					undef_a_shifted = ez->vec_shift_right(undef_a, b, cell->parameters["\\B_SIGNED"].as_bool(), ez->TRUE, ez->TRUE);
 
 				int undef_any_b = ez->expression(ezSAT::OpOr, undef_b);
 				std::vector<int> undef_all_y_bits(undef_y.size(), undef_any_b);
-				ez->assume(ez->vec_eq(ez->vec_or(tmp, undef_all_y_bits), undef_y));
+				ez->assume(ez->vec_eq(ez->vec_or(undef_a_shifted, undef_all_y_bits), undef_y));
 				undefGating(y, yy, undef_y);
 			}
 			return true;
