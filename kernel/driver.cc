@@ -555,6 +555,7 @@ int main(int argc, char **argv)
 	std::string scriptfile = "";
 	bool scriptfile_tcl = false;
 	bool got_output_filename = false;
+	bool print_banner = true;
 
 	int history_offset = 0;
 	std::string history_file;
@@ -565,10 +566,13 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "VSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "QVSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
 	{
 		switch (opt)
 		{
+		case 'Q':
+			print_banner = false;
+			break;
 		case 'V':
 			printf("%s\n", yosys_version_str);
 			exit(0);
@@ -634,8 +638,11 @@ int main(int argc, char **argv)
 			break;
 		default:
 			fprintf(stderr, "\n");
-			fprintf(stderr, "Usage: %s [-V] [-S] [-q] [-v <level>[-t] [-l <logfile>] [-o <outfile>] [-f <frontend>] [-h cmd] \\\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-V -S -Q -q] [-v <level>[-t] [-l <logfile>] [-o <outfile>] [-f <frontend>] [-h cmd] \\\n", argv[0]);
 			fprintf(stderr, "       %*s[{-s|-c} <scriptfile>] [-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -Q\n");
+			fprintf(stderr, "        suppress printing of banner (copyright, disclaimer, version)\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
 			fprintf(stderr, "        quiet operation. only write error messages to console\n");
@@ -699,29 +706,31 @@ int main(int argc, char **argv)
 	if (log_errfile == NULL)
 		log_files.push_back(stderr);
 
-	log("\n");
-	log(" /-----------------------------------------------------------------------------\\\n");
-	log(" |                                                                             |\n");
-	log(" |  yosys -- Yosys Open SYnthesis Suite                                        |\n");
-	log(" |                                                                             |\n");
-	log(" |  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>                   |\n");
-	log(" |                                                                             |\n");
-	log(" |  Permission to use, copy, modify, and/or distribute this software for any   |\n");
-	log(" |  purpose with or without fee is hereby granted, provided that the above     |\n");
-	log(" |  copyright notice and this permission notice appear in all copies.          |\n");
-	log(" |                                                                             |\n");
-	log(" |  THE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES   |\n");
-	log(" |  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF           |\n");
-	log(" |  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR    |\n");
-	log(" |  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES     |\n");
-	log(" |  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN      |\n");
-	log(" |  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF    |\n");
-	log(" |  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.             |\n");
-	log(" |                                                                             |\n");
-	log(" \\-----------------------------------------------------------------------------/\n");
-	log("\n");
-	log(" %s\n", yosys_version_str);
-	log("\n");
+	if (print_banner) {
+		log("\n");
+		log(" /-----------------------------------------------------------------------------\\\n");
+		log(" |                                                                             |\n");
+		log(" |  yosys -- Yosys Open SYnthesis Suite                                        |\n");
+		log(" |                                                                             |\n");
+		log(" |  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>                   |\n");
+		log(" |                                                                             |\n");
+		log(" |  Permission to use, copy, modify, and/or distribute this software for any   |\n");
+		log(" |  purpose with or without fee is hereby granted, provided that the above     |\n");
+		log(" |  copyright notice and this permission notice appear in all copies.          |\n");
+		log(" |                                                                             |\n");
+		log(" |  THE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES   |\n");
+		log(" |  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF           |\n");
+		log(" |  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR    |\n");
+		log(" |  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES     |\n");
+		log(" |  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN      |\n");
+		log(" |  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF    |\n");
+		log(" |  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.             |\n");
+		log(" |                                                                             |\n");
+		log(" \\-----------------------------------------------------------------------------/\n");
+		log("\n");
+		log(" %s\n", yosys_version_str);
+		log("\n");
+	}
 
 	Pass::init_register();
 
@@ -785,7 +794,7 @@ int main(int argc, char **argv)
 	}
 #endif
 
-	log("\nREADY.\n");
+	log("\nEnd of script.\n");
 	log_pop();
 
 	if (!history_file.empty()) {
