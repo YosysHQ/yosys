@@ -30,6 +30,9 @@
  *
  */
 
+`define MIN(_a, _b) ((_a) < (_b) ? (_a) : (_b))
+`define MAX(_a, _b) ((_a) > (_b) ? (_a) : (_b))
+
 // --------------------------------------------------------
 
 (* techmap_simplemap *)
@@ -65,7 +68,7 @@ output [Y_WIDTH-1:0] Y;
 	.A_WIDTH(1),
 	.B_WIDTH(A_WIDTH),
 	.Y_WIDTH(Y_WIDTH)
-) sub (
+) _TECHMAP_REPLACE_ (
 	.A(1'b0),
 	.B(A),
 	.Y(Y)
@@ -129,34 +132,55 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$__shift (XL, XR, A, Y);
+(* techmap_celltype = "$shr $shl $sshl $sshr" *)
+module shift_ops_shr_shl_sshl_sshr (A, B, Y);
 
-parameter WIDTH = 1;
-parameter SHIFT = 0;
+parameter A_SIGNED = 0;
+parameter B_SIGNED = 0;
+parameter A_WIDTH = 1;
+parameter B_WIDTH = 1;
+parameter Y_WIDTH = 1;
 
-input XL, XR;
-input [WIDTH-1:0] A;
-output [WIDTH-1:0] Y;
+parameter _TECHMAP_CELLTYPE_ = "";
+localparam shift_left = _TECHMAP_CELLTYPE_ == "$shl" || _TECHMAP_CELLTYPE_ == "$sshl";
+localparam sign_extend = A_SIGNED && _TECHMAP_CELLTYPE_ == "$sshr";
 
-genvar i;
-generate
-	for (i = 0; i < WIDTH; i = i + 1) begin:V
-		if (i+SHIFT < 0) begin
-			assign Y[i] = XR;
-		end else
-		if (i+SHIFT < WIDTH) begin
-			assign Y[i] = A[i+SHIFT];
-		end else begin
-			assign Y[i] = XL;
+input [A_WIDTH-1:0] A;
+input [B_WIDTH-1:0] B;
+output [Y_WIDTH-1:0] Y;
+
+localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH);
+localparam BB_WIDTH = `MIN($clog2(shift_left ? Y_WIDTH : A_SIGNED ? WIDTH : A_WIDTH) + 1, B_WIDTH);
+
+wire [1023:0] _TECHMAP_DO_ = "proc; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
+
+integer i;
+reg [WIDTH-1:0] buffer;
+reg overflow;
+
+always @* begin
+	overflow = B_WIDTH > BB_WIDTH ? |B[B_WIDTH-1:BB_WIDTH] : 1'b0;
+	buffer = overflow ? {WIDTH{sign_extend ? A[A_WIDTH-1] : 1'b0}} : {{WIDTH-A_WIDTH{A_SIGNED ? A[A_WIDTH-1] : 1'b0}}, A};
+
+	for (i = 0; i < BB_WIDTH; i = i+1)
+		if (B[i]) begin
+			if (shift_left)
+				buffer = {buffer, (2**i)'b0};
+			else if (2**i < WIDTH)
+				buffer = {{2**i{sign_extend ? buffer[WIDTH-1] : 1'b0}}, buffer[WIDTH-1 : 2**i]};
+			else
+				buffer = {WIDTH{sign_extend ? buffer[WIDTH-1] : 1'b0}};
 		end
-	end
-endgenerate
+end
+
+assign Y = buffer;
 
 endmodule
 
 // --------------------------------------------------------
 
-module \$shl (A, B, Y);
+(* techmap_celltype = "$shift $shiftx" *)
+module shift_shiftx (A, B, Y);
 
 parameter A_SIGNED = 0;
 parameter B_SIGNED = 0;
@@ -164,294 +188,50 @@ parameter A_WIDTH = 1;
 parameter B_WIDTH = 1;
 parameter Y_WIDTH = 1;
 
-parameter WIDTH = Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
-
 input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
-genvar i;
-generate
-	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
-	\$bu0 #(
-		.A_SIGNED(A_SIGNED),
-		.A_WIDTH(A_WIDTH),
-		.Y_WIDTH(WIDTH)
-	) expand (
-		.A(A),
-		.Y(chain[WIDTH-1:0])
-	);
-	assign Y = chain[WIDTH*(BB_WIDTH+1)-1 : WIDTH*BB_WIDTH];
-	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
-		wire [WIDTH-1:0] unshifted, shifted, result;
-		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
-		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		wire BBIT;
-		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
-			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
-		else
-			assign BBIT = B[i];
-		\$__shift #(
-			.WIDTH(WIDTH),
-			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
-		) sh (
-			.XL(1'b0),
-			.XR(1'b0),
-			.A(unshifted),
-			.Y(shifted)
-		);
-		\$mux #(
-			.WIDTH(WIDTH)
-		) mux (
-			.A(unshifted),
-			.B(shifted),
-			.Y(result),
-			.S(BBIT)
-		);
-	end
-endgenerate
+localparam BB_WIDTH = `MIN($clog2(`MAX(A_WIDTH, Y_WIDTH)) + (B_SIGNED ? 2 : 1), B_WIDTH);
+localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH) + (B_SIGNED ? 2**(BB_WIDTH-1) : 0);
 
-endmodule
+parameter _TECHMAP_CELLTYPE_ = "";
+localparam extbit = _TECHMAP_CELLTYPE_ == "$shift" ? 1'b0 : 1'bx;
 
-// --------------------------------------------------------
+wire [1023:0] _TECHMAP_DO_ = "proc; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
 
-module \$shr (A, B, Y);
+integer i;
+reg [WIDTH-1:0] buffer;
+reg overflow;
 
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
+always @* begin
+	overflow = 0;
+	buffer = {WIDTH{extbit}};
+	buffer[`MAX(A_WIDTH, Y_WIDTH)-1:0] = A;
 
-localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-genvar i;
-generate
-	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
-	\$bu0 #(
-		.A_SIGNED(A_SIGNED),
-		.A_WIDTH(A_WIDTH),
-		.Y_WIDTH(WIDTH)
-	) expand (
-		.A(A),
-		.Y(chain[WIDTH-1:0])
-	);
-	assign Y = chain[WIDTH*(BB_WIDTH+1)-1 : WIDTH*BB_WIDTH];
-	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
-		wire [WIDTH-1:0] unshifted, shifted, result;
-		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
-		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		wire BBIT;
-		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
-			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
-		else
-			assign BBIT = B[i];
-		\$__shift #(
-			.WIDTH(WIDTH),
-			.SHIFT(2 ** (i > 30 ? 30 : i))
-		) sh (
-			.XL(1'b0),
-			.XR(1'b0),
-			.A(unshifted),
-			.Y(shifted)
-		);
-		\$mux #(
-			.WIDTH(WIDTH)
-		) mux (
-			.A(unshifted),
-			.B(shifted),
-			.Y(result),
-			.S(BBIT)
-		);
-	end
-endgenerate
-
-endmodule
-
-// --------------------------------------------------------
-
-module \$sshl (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-localparam WIDTH = Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-genvar i;
-generate
-	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
-	\$bu0 #(
-		.A_SIGNED(A_SIGNED),
-		.A_WIDTH(A_WIDTH),
-		.Y_WIDTH(WIDTH)
-	) expand (
-		.A(A),
-		.Y(chain[WIDTH-1:0])
-	);
-	assign Y = chain[WIDTH*(BB_WIDTH+1)-1 : WIDTH*BB_WIDTH];
-	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
-		wire [WIDTH-1:0] unshifted, shifted, result;
-		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
-		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		wire BBIT;
-		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
-			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
-		else
-			assign BBIT = B[i];
-		\$__shift #(
-			.WIDTH(WIDTH),
-			.SHIFT(0 - (2 ** (i > 30 ? 30 : i)))
-		) sh (
-			.XL(1'b0),
-			.XR(1'b0),
-			.A(unshifted),
-			.Y(shifted)
-		);
-		\$mux #(
-			.WIDTH(WIDTH)
-		) mux (
-			.A(unshifted),
-			.B(shifted),
-			.Y(result),
-			.S(BBIT)
-		);
-	end
-endgenerate
-
-endmodule
-
-// --------------------------------------------------------
-
-module \$sshr (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-localparam WIDTH = A_WIDTH > Y_WIDTH ? A_WIDTH : Y_WIDTH;
-localparam BB_WIDTH = $clog2(WIDTH) + 2 < B_WIDTH ? $clog2(WIDTH) + 2 : B_WIDTH;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-genvar i;
-generate
-	wire [WIDTH*(BB_WIDTH+1)-1:0] chain;
-	\$bu0 #(
-		.A_SIGNED(A_SIGNED),
-		.A_WIDTH(A_WIDTH),
-		.Y_WIDTH(WIDTH)
-	) expand (
-		.A(A),
-		.Y(chain[WIDTH-1:0])
-	);
-	for (i = 0; i < Y_WIDTH; i = i + 1) begin:Y
-		if (i < WIDTH) begin
-			assign Y[i] = chain[WIDTH*BB_WIDTH + i];
+	if (B_WIDTH > BB_WIDTH) begin
+		if (B_SIGNED) begin
+			for (i = BB_WIDTH; i < B_WIDTH; i = i+1)
+				if (B[i] != B[BB_WIDTH-1])
+					overflow = 1;
 		end else
-		if (A_SIGNED) begin
-			assign Y[i] = chain[WIDTH*BB_WIDTH + WIDTH-1];
-		end else begin
-			assign Y[i] = 0;
+			overflow = |B[B_WIDTH-1:BB_WIDTH];
+		if (overflow)
+			buffer = {WIDTH{extbit}};
+	end
+
+	for (i = BB_WIDTH-1; i >= 0; i = i-1)
+		if (B[i]) begin
+			if (B_SIGNED && i == BB_WIDTH-1)
+				buffer = {buffer, {2**i{extbit}}};
+			else if (2**i < WIDTH)
+				buffer = {{2**i{extbit}}, buffer[WIDTH-1 : 2**i]};
+			else
+				buffer = {WIDTH{extbit}};
 		end
-	end
-	for (i = 0; i < BB_WIDTH; i = i + 1) begin:V
-		wire [WIDTH-1:0] unshifted, shifted, result;
-		assign unshifted = chain[WIDTH*i + WIDTH-1 : WIDTH*i];
-		assign chain[WIDTH*(i+1) + WIDTH-1 : WIDTH*(i+1)] = result;
-		wire BBIT;
-		if (i == BB_WIDTH-1 && BB_WIDTH < B_WIDTH)
-			assign BBIT = |B[B_WIDTH-1:BB_WIDTH-1];
-		else
-			assign BBIT = B[i];
-		\$__shift #(
-			.WIDTH(WIDTH),
-			.SHIFT(2 ** (i > 30 ? 30 : i))
-		) sh (
-			.XL(A_SIGNED && A[A_WIDTH-1]),
-			.XR(1'b0),
-			.A(unshifted),
-			.Y(shifted)
-		);
-		\$mux #(
-			.WIDTH(WIDTH)
-		) mux (
-			.A(unshifted),
-			.B(shifted),
-			.Y(result),
-			.S(BBIT)
-		);
-	end
-endgenerate
+end
 
-endmodule
-
-// --------------------------------------------------------
-
-module \$shift (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-generate
-	if (B_SIGNED) begin:BLOCK1
-		assign Y = $signed(B) < 0 ? A << -B : A >> B;
-	end else begin:BLOCK2
-		assign Y = A >> B;
-	end
-endgenerate
-
-endmodule
-
-// --------------------------------------------------------
-
-module \$shiftx (A, B, Y);
-
-parameter A_SIGNED = 0;
-parameter B_SIGNED = 0;
-parameter A_WIDTH = 1;
-parameter B_WIDTH = 1;
-parameter Y_WIDTH = 1;
-
-input [A_WIDTH-1:0] A;
-input [B_WIDTH-1:0] B;
-output [Y_WIDTH-1:0] Y;
-
-\$shift #(
-	.A_SIGNED(A_SIGNED),
-	.B_SIGNED(B_SIGNED),
-	.A_WIDTH(A_WIDTH),
-	.B_WIDTH(B_WIDTH),
-	.Y_WIDTH(Y_WIDTH),
-) sh (
-	.A(A),
-	.B(B),
-	.Y(Y)
-);
+assign Y = buffer;
 
 endmodule
 
