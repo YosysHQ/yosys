@@ -556,6 +556,7 @@ int main(int argc, char **argv)
 	bool scriptfile_tcl = false;
 	bool got_output_filename = false;
 	bool print_banner = true;
+	bool call_abort = false;
 
 	int history_offset = 0;
 	std::string history_file;
@@ -566,10 +567,13 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "QVSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "AQVSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
 	{
 		switch (opt)
 		{
+		case 'A':
+			call_abort = true;
+			break;
 		case 'Q':
 			print_banner = false;
 			break;
@@ -683,6 +687,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "    -m module_file\n");
 			fprintf(stderr, "        load the specified module (aka plugin)\n");
 			fprintf(stderr, "\n");
+			fprintf(stderr, "    -A\n");
+			fprintf(stderr, "        will call abort() at the end of the script. useful for debugging\n");
+			fprintf(stderr, "\n");
 			fprintf(stderr, "    -V\n");
 			fprintf(stderr, "        print version information and exit\n");
 			fprintf(stderr, "\n");
@@ -795,6 +802,8 @@ int main(int argc, char **argv)
 #endif
 
 	log("\nEnd of script.\n");
+	if (call_abort)
+		abort();
 	log_pop();
 
 	if (!history_file.empty()) {
