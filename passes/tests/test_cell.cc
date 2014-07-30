@@ -18,9 +18,8 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include <algorithm>
 
 static uint32_t xorshift32(uint32_t limit) {
 	static uint32_t x = 123456789;
@@ -84,21 +83,52 @@ struct TestCellPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    test_cell {cell-type}\n");
+		log("    test_cell [options] {cell-types}\n");
 		log("\n");
 		log("Tests the internal implementation of the given cell type (for example '$mux')\n");
-		log("by comparing SAT solver, EVAL and TECHMAP implementations of the cell type..\n");
+		log("by comparing SAT solver, EVAL and TECHMAP implementations of the cell types..\n");
 		log("\n");
-		log("Run with '-all' instead of a cell type to run the test on all supported\n");
+		log("Run with 'all' instead of a cell type to run the test on all supported\n");
 		log("cell types.\n");
 		log("\n");
+		log("    -n {integer}\n");
+		log("        create this number of cell instances and test them (default = 100).\n");
+		log("\n");
+		log("    -f {ilang_file}\n");
+		log("        don't generate circuits. instead load the specified ilang file.\n");
+		log("\n");
+		log("    -map {filename}\n");
+		log("        pass this option to techmap.\n");
+		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *current_design)
+	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
-		if (SIZE(args) != 2)
-			log_cmd_error("Expecting exactly one argument.\n");
+		int num_iter = 100;
+		std::string techmap_cmd = "techmap";
+		std::string ilang_file;
+
+		int argidx;
+		for (argidx = 1; argidx < SIZE(args); argidx++)
+		{
+			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
+				num_iter = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-map" && argidx+1 < SIZE(args)) {
+				techmap_cmd += " -map " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-f" && argidx+1 < SIZE(args)) {
+				ilang_file = args[++argidx];
+				num_iter = 1;
+				continue;
+			}
+			break;
+		}
 
 		std::map<std::string, std::string> cell_types;
+		std::vector<std::string> selected_cell_types;
+
 		cell_types["$not"] = "ASY";
 		cell_types["$pos"] = "ASY";
 		cell_types["$bu0"] = "ASY";
@@ -119,8 +149,8 @@ struct TestCellPass : public Pass {
 		cell_types["$shr"]    = "ABshY";
 		cell_types["$sshl"]   = "ABshY";
 		cell_types["$sshr"]   = "ABshY";
-		// cell_types["$shift"]  = "ABshY";  <-- FIXME
-		// cell_types["$shiftx"] = "ABshY";
+		cell_types["$shift"]  = "ABshY";
+		cell_types["$shiftx"] = "ABshY";
 
 		cell_types["$lt"]  = "ABSY";
 		cell_types["$le"]  = "ABSY";
@@ -150,35 +180,59 @@ struct TestCellPass : public Pass {
 		// cell_types["$lut"] = "A";
 		// cell_types["$assert"] = "A";
 
-		if (args[1] == "-all") {
-			for (auto &it : cell_types)
-				Pass::call(current_design, "test_cell " + it.first);
-			return;
-		}
-
-		if (cell_types.count(args[1]) == 0) {
-			std::string cell_type_list;
-			int charcount = 100;
-			for (auto &it : cell_types) {
-				if (charcount > 60) {
-					cell_type_list += "\n" + it.first;
-					charcount = 0;
-				} else
-					cell_type_list += " " + it.first;
-				charcount += SIZE(it.first);
-			}
-			log_cmd_error("This cell type is currently not supported. Try one of these:%s\n", cell_type_list.c_str());
-		}
-
-		for (int i = 0; i < 100; i++)
+		for (; argidx < SIZE(args); argidx++)
 		{
-			RTLIL::Design *design = new RTLIL::Design;
-			create_gold_module(design, args[1], cell_types.at(args[1]));
-			Pass::call(design, "copy gold gate; techmap gate; opt gate; dump gold");
-			Pass::call(design, "miter -equiv -flatten -ignore_gold_x gold gate miter");
-			Pass::call(design, "sat -verify -enable_undef -prove trigger 0 miter");
-			delete design;
+			if (args[argidx].rfind("-", 0) == 0)
+				log_cmd_error("Unexpected option: %s\n", args[argidx].c_str());
+
+			if (args[argidx] == "all") {
+				for (auto &it : cell_types)
+					if (std::count(selected_cell_types.begin(), selected_cell_types.end(), it.first) == 0)
+						selected_cell_types.push_back(it.first);
+				continue;
+			}
+
+			if (cell_types.count(args[argidx]) == 0) {
+				std::string cell_type_list;
+				int charcount = 100;
+				for (auto &it : cell_types) {
+					if (charcount > 60) {
+						cell_type_list += "\n" + it.first;
+						charcount = 0;
+					} else
+						cell_type_list += " " + it.first;
+					charcount += SIZE(it.first);
+				}
+				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",
+						args[argidx].c_str(), cell_type_list.c_str());
+			}
+
+			if (std::count(selected_cell_types.begin(), selected_cell_types.end(), args[argidx]) == 0)
+				selected_cell_types.push_back(args[argidx]);
 		}
+
+		if (!ilang_file.empty()) {
+			if (!selected_cell_types.empty())
+				log_cmd_error("Do not specify any cell types when using -f.\n");
+			selected_cell_types.push_back("ilang");
+		}
+
+		if (selected_cell_types.empty())
+			log_cmd_error("No cell type to test specified.\n");
+
+		for (auto cell_type : selected_cell_types)
+			for (int i = 0; i < num_iter; i++)
+			{
+				RTLIL::Design *design = new RTLIL::Design;
+				if (cell_type == "ilang")
+					Frontend::frontend_call(design, NULL, std::string(), "ilang " + ilang_file);
+				else
+					create_gold_module(design, cell_type, cell_types.at(cell_type));
+				Pass::call(design, stringf("copy gold gate; %s gate; opt gate", techmap_cmd.c_str()));
+				Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter; dump gold");
+				Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
+				delete design;
+			}
 	}
 } TestCellPass;
 
