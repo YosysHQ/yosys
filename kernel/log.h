@@ -196,6 +196,7 @@ static inline void log_dump_val_worker(char c) { log(c >= 32 && c < 127 ? "'%c'"
 static inline void log_dump_val_worker(unsigned char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
 static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false"); }
 static inline void log_dump_val_worker(double v) { log("%f", v); }
+static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
