@@ -278,6 +278,9 @@ namespace RTLIL
 				result.push_back(it.second);
 			return result;
 		}
+
+		std::set<T> to_set() const { return *this; }
+		std::vector<T> to_vector() const { return *this; }
 	};
 };
 

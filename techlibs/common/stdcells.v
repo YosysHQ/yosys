@@ -152,7 +152,8 @@ output [Y_WIDTH-1:0] Y;
 localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH);
 localparam BB_WIDTH = `MIN($clog2(shift_left ? Y_WIDTH : A_SIGNED ? WIDTH : A_WIDTH) + 1, B_WIDTH);
 
-wire [1023:0] _TECHMAP_DO_ = "proc; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
+wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
+wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
 
 integer i;
 reg [WIDTH-1:0] buffer;
@@ -198,7 +199,8 @@ localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH) + (B_SIGNED ? 2**(BB_WIDTH-1) : 0);
 parameter _TECHMAP_CELLTYPE_ = "";
 localparam extbit = _TECHMAP_CELLTYPE_ == "$shift" ? 1'b0 : 1'bx;
 
-wire [1023:0] _TECHMAP_DO_ = "proc; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
+wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
+wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
 
 integer i;
 reg [WIDTH-1:0] buffer;

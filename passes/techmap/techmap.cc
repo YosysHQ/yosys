@@ -17,11 +17,11 @@
  *
  */
 
-#include "kernel/compatibility.h"
-#include "kernel/register.h"
-#include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 #include "kernel/toposort.h"
-#include "kernel/log.h"
+#include "kernel/sigtools.h"
+#include "libs/sha1/sha1.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -65,6 +65,36 @@ struct TechmapWorker
 	};
 
 	typedef std::map<std::string, std::vector<TechmapWireData>> TechmapWires;
+
+	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
+	{
+		std::string constmap_info;
+		std::map<RTLIL::SigBit, std::pair<std::string, int>> connbits_map;
+
+		for (auto conn : cell->connections())
+			for (int i = 0; i < SIZE(conn.second); i++) {
+				RTLIL::SigBit bit = sigmap(conn.second[i]);
+				if (bit.wire == nullptr) {
+					if (verbose)
+						log("  Constant input on bit %d of port %s: %s\n", i, log_id(conn.first), log_signal(bit));
+					constmap_info += stringf("|%s %d %d", log_id(conn.first), i, bit.data);
+				} else if (connbits_map.count(bit)) {
+					if (verbose)
+						log("  Bit %d of port %s and bit %d of port %s are connected.\n", i, log_id(conn.first),
+								connbits_map.at(bit).second, log_id(connbits_map.at(bit).first));
+					constmap_info += stringf("|%s %d %s %d", log_id(conn.first), i,
+							log_id(connbits_map.at(bit).first), connbits_map.at(bit).second);
+				} else
+					connbits_map[bit] = std::pair<std::string, int>(conn.first, i);stringf("%s %d", log_id(conn.first), i, bit.data);
+			}
+
+		unsigned char hash[20];
+		char hash_hex_string[41];
+		sha1::calc(constmap_info.c_str(), constmap_info.size(), hash);
+		sha1::toHexString(hash, hash_hex_string);
+
+		return stringf("$paramod$constmap$%s%s", hash_hex_string, tpl->name.c_str());
+	}
 
 	TechmapWires techmap_find_special_wires(RTLIL::Module *module)
 	{
@@ -374,14 +404,19 @@ struct TechmapWorker
 				} else {
 					if (cell->parameters.size() != 0) {
 						derived_name = tpl->derive(map, parameters);
-						tpl = map->modules_[derived_name];
+						tpl = map->module(derived_name);
 						log_continue = true;
 					}
 					techmap_cache[key] = tpl;
 				}
 
-				if (flatten_mode)
+				if (flatten_mode) {
 					techmap_do_cache[tpl] = true;
+				} else {
+					RTLIL::Module *constmapped_tpl = map->module(constmap_tpl_name(sigmap, tpl, cell, false));
+					if (constmapped_tpl != nullptr)
+						tpl = constmapped_tpl;
+				}
 
 				if (techmap_do_cache.count(tpl) == 0)
 				{
@@ -426,14 +461,80 @@ struct TechmapWorker
 							const char *q = strrchr(p+1, '.');
 							q = q ? q : p+1;
 
+							std::string cmd_string = data.value.as_const().decode_string();
+
+							if (cmd_string.rfind("CONSTMAP; ", 0) == 0)
+							{
+								cmd_string = cmd_string.substr(strlen("CONSTMAP; "));
+
+								log("Analyzing pattern of constant bits for this cell:\n");
+								std::string new_tpl_name = constmap_tpl_name(sigmap, tpl, cell, true);
+								log("Creating constmapped module `%s'.\n", log_id(new_tpl_name));
+								log_assert(map->module(new_tpl_name) == nullptr);
+
+								RTLIL::Module *new_tpl = map->addModule(new_tpl_name);
+								tpl->cloneInto(new_tpl);
+
+								techmap_do_cache.erase(tpl);
+								techmap_do_cache[new_tpl] = true;
+								tpl = new_tpl;
+
+								std::map<RTLIL::SigBit, RTLIL::SigBit> port_new2old_map;
+								std::map<RTLIL::SigBit, RTLIL::SigBit> port_connmap;
+								std::map<RTLIL::SigBit, RTLIL::SigBit> cellbits_to_tplbits;
+
+								for (auto wire : tpl->wires().to_vector())
+								{
+									if (!wire->port_input || wire->port_output)
+										continue;
+
+									std::string port_name = wire->name;
+									tpl->rename(wire, NEW_ID);
+
+									RTLIL::Wire *new_wire = tpl->addWire(port_name, wire);
+									wire->port_input = false;
+
+									for (int i = 0; i < wire->width; i++) {
+										port_new2old_map[RTLIL::SigBit(new_wire, i)] = RTLIL::SigBit(wire, i);
+										port_connmap[RTLIL::SigBit(wire, i)] = RTLIL::SigBit(new_wire, i);
+									}
+								}
+
+								for (auto conn : cell->connections())
+									for (int i = 0; i < SIZE(conn.second); i++)
+									{
+										RTLIL::SigBit bit = sigmap(conn.second[i]);
+										RTLIL::SigBit tplbit(tpl->wire(conn.first), i);
+
+										if (bit.wire == nullptr)
+										{
+											RTLIL::SigBit oldbit = port_new2old_map.at(tplbit);
+											port_connmap.at(oldbit) = bit;
+										}
+										else if (cellbits_to_tplbits.count(bit))
+										{
+											RTLIL::SigBit oldbit = port_new2old_map.at(tplbit);
+											port_connmap.at(oldbit) = cellbits_to_tplbits[bit];
+										}
+										else
+											cellbits_to_tplbits[bit] = tplbit;
+									}
+
+								RTLIL::SigSig port_conn;
+								for (auto &it : port_connmap) {
+									port_conn.first.append_bit(it.first);
+									port_conn.second.append_bit(it.second);
+								}
+								tpl->connect(port_conn);
+							}
+
+							Pass::call_on_module(map, tpl, cmd_string);
+
 							log_assert(!strncmp(q, "_TECHMAP_DO_", 12));
 							std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
 							while (tpl->wires_.count(new_name))
 								new_name += "_";
-							tpl->rename(data.wire, new_name);
-
-							std::string cmd_string = data.value.as_const().decode_string();
-							Pass::call_on_module(map, tpl, cmd_string);
+							tpl->rename(data.wire->name, new_name);
 
 							keep_running = true;
 							break;
@@ -570,6 +671,14 @@ struct TechmapPass : public Pass {
 		log("        evaluated, an error is produced. That means it is possible for such a\n");
 		log("        wire to start out as non-constant and evaluate to a constant value\n");
 		log("        during processing of other _TECHMAP_DO_* commands.\n");
+		log("\n");
+		log("        A _TECHMAP_DO_* command may start with the special token 'CONSTMAP; '.\n");
+		log("        in this case techmap will create a copy for each distinct configuration\n");
+		log("        of constant inputs and shorted inputs at this point and import the\n");
+		log("        constant and connected bits into the map module. All further commands\n");
+		log("        are executed in this copy. This is a very convenient way of creating\n");
+		log("        optimizied specializations of techmap modules without using the special\n");
+		log("        parameters described below.\n");
 		log("\n");
 		log("In addition to this special wires, techmap also supports special parameters in\n");
 		log("modules in the map file:\n");
