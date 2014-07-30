@@ -245,7 +245,9 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vec
 	design->selected_active_module = backup_selected_active_module;
 }
 
-Frontend::Frontend(std::string name, std::string short_help) : Pass("read_"+name, short_help), frontend_name(name)
+Frontend::Frontend(std::string name, std::string short_help) :
+		Pass(name.rfind("=", 0) == 0 ? name.substr(1) : "read_" + name, short_help),
+		frontend_name(name.rfind("=", 0) == 0 ? name.substr(1) : name)
 {
 }
 
@@ -377,8 +379,8 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 }
 
 Backend::Backend(std::string name, std::string short_help) :
-		Pass(name.substr(0, 1) == "=" ? name.substr(1) : "write_"+name, short_help),
-		backend_name(name.substr(0, 1) == "=" ? name.substr(1) : name)
+		Pass(name.rfind("=", 0) == 0 ? name.substr(1) : "write_" + name, short_help),
+		backend_name(name.rfind("=", 0) == 0 ? name.substr(1) : name)
 {
 }
 

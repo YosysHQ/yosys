@@ -16,6 +16,7 @@ OBJS += passes/cmds/splice.o
 OBJS += passes/cmds/scc.o
 OBJS += passes/cmds/log.o
 OBJS += passes/cmds/tee.o
+OBJS += passes/cmds/write_file.o
 OBJS += passes/cmds/connwrappers.o
 OBJS += passes/cmds/cover.o
 
