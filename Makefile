@@ -218,15 +218,15 @@ yosys-abc: abc/abc-$(ABCREV)
 	$(P) cp abc/abc-$(ABCREV) yosys-abc
 
 test: $(TARGETS) $(EXTRA_TARGETS)
-	cd tests/simple && bash run-test.sh
-	cd tests/hana && bash run-test.sh
-	cd tests/asicworld && bash run-test.sh
-	cd tests/realmath && bash run-test.sh
-	cd tests/share && bash run-test.sh
-	cd tests/techmap && bash run-test.sh
-	cd tests/memories && bash run-test.sh
-	cd tests/various && bash run-test.sh
-	cd tests/sat && bash run-test.sh
+	+cd tests/simple && bash run-test.sh
+	+cd tests/hana && bash run-test.sh
+	+cd tests/asicworld && bash run-test.sh
+	+cd tests/realmath && bash run-test.sh
+	+cd tests/share && bash run-test.sh
+	+cd tests/techmap && bash run-test.sh
+	+cd tests/memories && bash run-test.sh
+	+cd tests/various && bash run-test.sh
+	+cd tests/sat && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -240,7 +240,7 @@ vgtest: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 
 vloghtb: $(TARGETS) $(EXTRA_TARGETS)
-	cd tests/vloghtb && bash run-test.sh
+	+cd tests/vloghtb && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make vloghtb\"."
 	@echo ""

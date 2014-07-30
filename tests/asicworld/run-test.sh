@@ -1,2 +1,2 @@
 #!/bin/bash
-exec bash ../tools/autotest.sh -G *.v
+exec ${MAKE:-make} -f ../tools/autotest.mk *.v

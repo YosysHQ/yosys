@@ -6,6 +6,7 @@ use_xsim=false
 use_modelsim=false
 verbose=false
 keeprunning=false
+makejmode=false
 frontend="verilog"
 backend_opts="-noattr -noexpr"
 scriptfiles=""
@@ -17,7 +18,7 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkvrf:s:p: opt; do
+while getopts xmGl:wkjvrf:s:p: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -31,6 +32,8 @@ while getopts xmGl:wkvrf:s:p: opt; do
 			genvcd=true ;;
 		k)
 			keeprunning=true ;;
+		j)
+			makejmode=true ;;
 		v)
 			verbose=true ;;
 		r)
@@ -43,7 +46,7 @@ while getopts xmGl:wkvrf:s:p: opt; do
 		p)
 			scriptopt="$OPTARG" ;;
 		*)
-			echo "Usage: $0 [-x|-m] [-w] [-k] [-v] [-r] [-l libs] [-f frontend] [-s script] [-p cmdstring] verilog-files\n" >&2
+			echo "Usage: $0 [-x|-m] [-w] [-k] [-j] [-v] [-r] [-l libs] [-f frontend] [-s script] [-p cmdstring] verilog-files\n" >&2
 			exit 1
 	esac
 done
@@ -83,7 +86,13 @@ do
 		exit 1
 	fi
 	[[ "$bn" == *_tb ]] && continue
-	echo -n "Test: $bn "
+
+	if $makejmode; then
+		status_prefix="Test: $bn "
+	else
+		status_prefix=""
+		echo -n "Test: $bn "
+	fi
 
 	rm -f ${bn}.{err,log,sikp}
 	mkdir -p ${bn}.out
@@ -144,12 +153,12 @@ do
 
 	if [ -f ${bn}.log ]; then
 		mv ${bn}.err ${bn}.log
-		echo "-> ok"
+		echo "${status_prefix}-> ok"
 	elif [ -f ${bn}.skip ]; then
 		mv ${bn}.err ${bn}.skip
-		echo "-> skip"
+		echo "${status_prefix}-> skip"
 	else
-		echo "-> ERROR!"
+		echo "${status_prefix}-> ERROR!"
 		if $warn_iverilog_git; then
 			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of icarus verilog."
 		fi

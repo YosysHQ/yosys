@@ -1,2 +1,2 @@
 #!/bin/bash
-exec bash ../tools/autotest.sh -G -l hana_vlib.v test_*.v
+exec ${MAKE:-make} -f ../tools/autotest.mk EXTRA_FLAGS="-l hana_vlib.v" test_*.v
