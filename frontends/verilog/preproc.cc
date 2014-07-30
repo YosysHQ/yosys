@@ -300,7 +300,7 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 				input_file(fp, fn);
 				fclose(fp);
 			} else
-				output_code.push_back("`file_notfound " + fn + "\n");
+				output_code.push_back("`file_notfound " + fn);
 			continue;
 		}
 

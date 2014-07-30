@@ -74,21 +74,21 @@ namespace VERILOG_FRONTEND {
 
 %%
 
-"`file_push "[^\n]* {
+<INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_push "[^\n]* {
 	fn_stack.push_back(current_filename);
 	ln_stack.push_back(frontend_verilog_yyget_lineno());
 	current_filename = yytext+11;
 	frontend_verilog_yyset_lineno(0);
 }
 
-"`file_pop"[^\n]*\n {
+<INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_pop"[^\n]*\n {
 	current_filename = fn_stack.back();
 	fn_stack.pop_back();
 	frontend_verilog_yyset_lineno(ln_stack.back());
 	ln_stack.pop_back();
 }
 
-"`line"[ \t]+[^ \t\r\n]+[ \t]+\"[^ \r\n]+\"[^\r\n]*\n {
+<INITIAL,SYNOPSYS_TRANSLATE_OFF>"`line"[ \t]+[^ \t\r\n]+[ \t]+\"[^ \r\n]+\"[^\r\n]*\n {
 	char *p = yytext + 5;
 	while (*p == ' ' || *p == '\t') p++;
 	frontend_verilog_yyset_lineno(atoi(p));
