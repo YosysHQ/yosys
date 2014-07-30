@@ -237,7 +237,7 @@ public:
 
 	std::vector<int> vec_iff(const std::vector<int> &vec1, const std::vector<int> &vec2);
 	std::vector<int> vec_ite(const std::vector<int> &vec1, const std::vector<int> &vec2, const std::vector<int> &vec3);
-	std::vector<int> vec_ite(int sel, const std::vector<int> &vec2, const std::vector<int> &vec3);
+	std::vector<int> vec_ite(int sel, const std::vector<int> &vec1, const std::vector<int> &vec2);
 
 	std::vector<int> vec_count(const std::vector<int> &vec, int numBits, bool clip = true);
 	std::vector<int> vec_add(const std::vector<int> &vec1, const std::vector<int> &vec2);
@@ -264,6 +264,10 @@ public:
 
 	std::vector<int> vec_shr(const std::vector<int> &vec1, int shift, bool signExtend = false) { return vec_shl(vec1, -shift, signExtend); }
 	std::vector<int> vec_srr(const std::vector<int> &vec1, int shift) { return vec_srl(vec1, -shift); }
+
+	std::vector<int> vec_shift(const std::vector<int> &vec1, int shift, int extend_left, int extend_right);
+	std::vector<int> vec_shift_right(const std::vector<int> &vec1, const std::vector<int> &vec2, bool vec2_signed, int extend_left, int extend_right);
+	std::vector<int> vec_shift_left(const std::vector<int> &vec1, const std::vector<int> &vec2, bool vec2_signed, int extend_left, int extend_right);
 
 	void vec_append(std::vector<int> &vec, const std::vector<int> &vec1) const;
 	void vec_append_signed(std::vector<int> &vec, const std::vector<int> &vec1, int64_t value);
