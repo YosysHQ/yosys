@@ -54,6 +54,7 @@ namespace RTLIL
 
 	struct Const;
 	struct Selection;
+	struct Monitor;
 	struct Design;
 	struct Module;
 	struct Wire;
@@ -328,8 +329,20 @@ struct RTLIL::Selection
 	}
 };
 
+struct RTLIL::Monitor
+{
+	virtual void notify_module_add(RTLIL::Module*) { }
+	virtual void notify_module_del(RTLIL::Module*) { }
+	virtual void notify_cell_connect(RTLIL::Cell*, const std::pair<RTLIL::IdString, RTLIL::SigSpec>&) { }
+	virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
+	virtual void notify_new_connections(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
+	virtual void notify_blackout(RTLIL::Module*) { }
+};
+
 struct RTLIL::Design
 {
+	std::set<RTLIL::Monitor*> monitors;
+
 	int refcount_modules_;
 	std::map<RTLIL::IdString, RTLIL::Module*> modules_;
 
@@ -404,6 +417,8 @@ protected:
 
 public:
 	RTLIL::Design *design;
+	std::set<RTLIL::Monitor*> monitors;
+
 	int refcount_wires_;
 	int refcount_cells_;
 
@@ -426,6 +441,7 @@ public:
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
+	void new_connections(const std::vector<RTLIL::SigSig> &new_conn);
 	const std::vector<RTLIL::SigSig> &connections() const;
 	void fixup_ports();
 
@@ -631,7 +647,7 @@ struct RTLIL::Cell
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
-	Cell() { };
+	Cell() : module(nullptr) { };
 	~Cell() { };
 
 public:
@@ -647,7 +663,7 @@ public:
 	RTLIL_ATTRIBUTE_MEMBERS
 
 	// access cell ports
-	bool has(RTLIL::IdString portname);
+	bool has(RTLIL::IdString portname) const;
 	void unset(RTLIL::IdString portname);
 	void set(RTLIL::IdString portname, RTLIL::SigSpec signal);
 	const RTLIL::SigSpec &get(RTLIL::IdString portname) const;
