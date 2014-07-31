@@ -1,8 +1,7 @@
 
-CONFIG := clang-debug
-# CONFIG := gcc-debug
+CONFIG := clang
+# CONFIG := gcc
 # CONFIG := gcc-4.7
-# CONFIG := release
 
 # features (the more the better)
 ENABLE_TCL := 1
@@ -44,7 +43,7 @@ else
 endif
 
 YOSYS_VER := 0.3.0+
-GIT_REV := $(shell git rev-parse --short HEAD || echo UNKOWN)
+GIT_REV := $(shell git rev-parse --short HEAD 2> /dev/null || echo UNKOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
 # set 'ABCREV = default' to use abc/ as it is
@@ -58,24 +57,19 @@ ABCPULL = 1
 
 -include Makefile.conf
 
-ifeq ($(CONFIG),clang-debug)
+ifeq ($(CONFIG),clang)
 CXX = clang
 CXXFLAGS += -std=c++11 -Os
 endif
 
-ifeq ($(CONFIG),gcc-debug)
+ifeq ($(CONFIG),gcc)
 CXX = gcc
 CXXFLAGS += -std=gnu++0x -Os
 endif
 
 ifeq ($(CONFIG),gcc-4.7)
 CXX = gcc-4.7
-CXXFLAGS += -std=gnu++0x -march=native -O3
-endif
-
-ifeq ($(CONFIG),release)
-CXX = gcc
-CXXFLAGS += -std=gnu++0x -march=native -O3 -DNDEBUG
+CXXFLAGS += -std=gnu++0x -Os
 endif
 
 ifeq ($(ENABLE_TCL),1)
@@ -282,20 +276,17 @@ qtcreator:
 config-clean: clean
 	rm -f Makefile.conf
 
-config-clang-debug: clean
-	echo 'CONFIG := clang-debug' > Makefile.conf
+config-clang: clean
+	echo 'CONFIG := clang' > Makefile.conf
 
-config-gcc-debug: clean
-	echo 'CONFIG := gcc-debug' > Makefile.conf
+config-gcc: clean
+	echo 'CONFIG := gcc' > Makefile.conf
 
 config-gcc-4.7: clean
 	echo 'CONFIG := gcc-4.7' > Makefile.conf
 
-config-release: clean
-	echo 'CONFIG := release' > Makefile.conf
-
 config-gprof: clean
-	echo 'CONFIG := gcc-debug' > Makefile.conf
+	echo 'CONFIG := gcc' > Makefile.conf
 	echo 'ENABLE_GPROF := 1' >> Makefile.conf
 
 config-sudo:
@@ -309,5 +300,5 @@ config-sudo:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
-.PHONY: config-clean config-clang-debug config-gcc-debug config-release
+.PHONY: config-clean config-clang config-gcc config-gcc-4.7 config-gprof config-sudo
 
