@@ -47,8 +47,9 @@ struct CopyPass : public Pass {
 		if (design->modules_.count(trg_name) != 0)
 			log_cmd_error("Target module name %s already exists.\n", trg_name.c_str());
 
-		design->modules_[trg_name] = design->modules_.at(src_name)->clone();
-		design->modules_[trg_name]->name = trg_name;
+		RTLIL::Module *new_mod = design->module(src_name)->clone();
+		new_mod->name = trg_name;
+		design->add(new_mod);
 	}
 } CopyPass;
  

@@ -198,6 +198,7 @@ struct DesignPass : public Pass {
 					delete copy_to_design->modules_.at(trg_name);
 				copy_to_design->modules_[trg_name] = mod->clone();
 				copy_to_design->modules_[trg_name]->name = trg_name;
+				copy_to_design->modules_[trg_name]->design = copy_to_design;
 			}
 		}
 
@@ -206,7 +207,7 @@ struct DesignPass : public Pass {
 			RTLIL::Design *design_copy = new RTLIL::Design;
 
 			for (auto &it : design->modules_)
-				design_copy->modules_[it.first] = it.second->clone();
+				design_copy->add(it.second->clone());
 
 			design_copy->selection_stack = design->selection_stack;
 			design_copy->selection_vars = design->selection_vars;
@@ -242,7 +243,7 @@ struct DesignPass : public Pass {
 				pushed_designs.pop_back();
 
 			for (auto &it : saved_design->modules_)
-				design->modules_[it.first] = it.second->clone();
+				design->add(it.second->clone());
 
 			design->selection_stack = saved_design->selection_stack;
 			design->selection_vars = saved_design->selection_vars;

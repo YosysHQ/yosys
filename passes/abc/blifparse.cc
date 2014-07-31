@@ -60,7 +60,7 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 
 	int port_count = 0;
 	module->name = "\\netlist";
-	design->modules_[module->name] = module;
+	design->add(module);
 
 	size_t buffer_size = 4096;
 	char *buffer = (char*)malloc(buffer_size);

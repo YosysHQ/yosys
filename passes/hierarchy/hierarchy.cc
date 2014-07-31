@@ -117,7 +117,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		RTLIL::Module *mod = new RTLIL::Module;
 		mod->name = celltype;
 		mod->attributes["\\blackbox"] = RTLIL::Const(1);
-		design->modules_[mod->name] = mod;
+		design->add(mod);
 
 		for (auto &decl : ports) {
 			RTLIL::Wire *wire = mod->addWire(decl.portname, portwidths.at(decl.portname));

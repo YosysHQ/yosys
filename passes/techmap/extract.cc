@@ -724,7 +724,7 @@ struct ExtractPass : public Pass {
 
 				RTLIL::Module *newMod = new RTLIL::Module;
 				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, id2cstr(haystack_map.at(result.graphId)->name), result.totalMatchesAfterLimits);
-				map->modules_[newMod->name] = newMod;
+				map->add(newMod);
 
 				int portCounter = 1;
 				for (auto wire : wires) {

@@ -936,7 +936,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			(*it)->str = (*it)->str.substr(1);
 		if (defer)
 			(*it)->str = "$abstract" + (*it)->str;
-		if (design->modules_.count((*it)->str)) {
+		if (design->has((*it)->str)) {
 			if (!ignore_redef)
 				log_error("Re-definition of module `%s' at %s:%d!\n",
 						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
@@ -944,7 +944,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 					(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
 			continue;
 		}
-		design->modules_[(*it)->str] =  process_module(*it, defer);
+		design->add(process_module(*it, defer));
 	}
 }
 
@@ -1041,10 +1041,10 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 		modname = "$paramod" + stripped_name + para_info;
 	}
 
-	if (design->modules_.count(modname) == 0) {
+	if (!design->has(modname)) {
 		new_ast->str = modname;
-		design->modules_[modname] = process_module(new_ast, false);
-		design->modules_[modname]->check();
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
 	} else {
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
 	}

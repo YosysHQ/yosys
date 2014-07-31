@@ -105,7 +105,7 @@ struct SubmodWorker
 
 		RTLIL::Module *new_mod = new RTLIL::Module;
 		new_mod->name = submod.full_name;
-		design->modules_[new_mod->name] = new_mod;
+		design->add(new_mod);
 		int port_counter = 1, auto_name_counter = 1;
 
 		std::set<std::string> all_wire_names;

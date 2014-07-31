@@ -482,7 +482,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 {
 	std::string module_name = nl->IsOperator() ? std::string("$verific$") + nl->Owner()->Name() : RTLIL::escape_id(nl->Owner()->Name());
 
-	if (design->modules_.count(module_name)) {
+	if (design->has(module_name)) {
 		if (!nl->IsOperator())
 			log_cmd_error("Re-definition of module `%s'.\n", nl->Owner()->Name());
 		return;
@@ -490,7 +490,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 	RTLIL::Module *module = new RTLIL::Module;
 	module->name = module_name;
-	design->modules_[module->name] = module;
+	design->add(module);
 
 	log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 

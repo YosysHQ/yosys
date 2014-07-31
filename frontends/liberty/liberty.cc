@@ -477,7 +477,7 @@ struct LibertyFrontend : public Frontend {
 
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
 
-			if (design->modules_.count(cell_name)) {
+			if (design->has(cell_name)) {
 				if (flag_ignore_redef)
 					continue;
 				log_error("Duplicate definition of cell/module %s.\n", RTLIL::id2cstr(cell_name));
@@ -565,7 +565,7 @@ struct LibertyFrontend : public Frontend {
 			}
 
 			module->fixup_ports();
-			design->modules_[module->name] = module;
+			design->add(module);
 			cell_count++;
 skip_cell:;
 		}

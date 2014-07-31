@@ -243,6 +243,7 @@ void RTLIL::Design::add(RTLIL::Module *module)
 	log_assert(modules_.count(module->name) == 0);
 	log_assert(refcount_modules_ == 0);
 	modules_[module->name] = module;
+	module->design = this;
 }
 
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
@@ -250,6 +251,7 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 	log_assert(modules_.count(name) == 0);
 	log_assert(refcount_modules_ == 0);
 	modules_[name] = new RTLIL::Module;
+	modules_[name]->design = this;
 	modules_[name]->name = name;
 	return modules_[name];
 }
@@ -265,6 +267,7 @@ void RTLIL::Design::check()
 {
 #ifndef NDEBUG
 	for (auto &it : modules_) {
+		log_assert(this == it.second->design);
 		log_assert(it.first == it.second->name);
 		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		it.second->check();
@@ -317,6 +320,38 @@ bool RTLIL::Design::selected_module(RTLIL::Module *mod) const
 bool RTLIL::Design::selected_whole_module(RTLIL::Module *mod) const
 {
 	return selected_whole_module(mod->name);
+}
+
+std::vector<RTLIL::Module*> RTLIL::Design::selected_modules() const
+{
+	std::vector<RTLIL::Module*> result;
+	result.reserve(modules_.size());
+	for (auto &it : modules_)
+		if (selected_module(it.first))
+			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
+{
+	std::vector<RTLIL::Module*> result;
+	result.reserve(modules_.size());
+	for (auto &it : modules_)
+		if (selected_whole_module(it.first))
+			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
+{
+	std::vector<RTLIL::Module*> result;
+	result.reserve(modules_.size());
+	for (auto &it : modules_)
+		if (selected_whole_module(it.first))
+			result.push_back(it.second);
+		else if (selected_module(it.first))
+			log("Warning: Ignoring partially selected module %s.\n", log_id(it.first));
+	return result;
 }
 
 RTLIL::Module::Module()
@@ -763,6 +798,7 @@ void RTLIL::Module::check()
 {
 #ifndef NDEBUG
 	for (auto &it : wires_) {
+		log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
 		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		log_assert(it.second->width >= 0);
@@ -783,6 +819,7 @@ void RTLIL::Module::check()
 	}
 
 	for (auto &it : cells_) {
+		log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
 		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
 		log_assert(it.second->type.size() > 0 && (it.second->type[0] == '\\' || it.second->type[0] == '$'));
@@ -868,12 +905,57 @@ RTLIL::Module *RTLIL::Module::clone() const
 	return new_mod;
 }
 
+bool RTLIL::Module::has_memories() const
+{
+	return !memories.empty();
+}
+
+bool RTLIL::Module::has_processes() const
+{
+	return !processes.empty();
+}
+
+bool RTLIL::Module::has_memories_warn() const
+{
+	if (!memories.empty())
+		log("Warning: Ignoring module %s because it contains memories (run 'memory' command first).\n", log_id(this));
+	return !memories.empty();
+}
+
+bool RTLIL::Module::has_processes_warn() const
+{
+	if (!processes.empty())
+		log("Warning: Ignoring module %s because it contains processes (run 'proc' command first).\n", log_id(this));
+	return !processes.empty();
+}
+
+std::vector<RTLIL::Wire*> RTLIL::Module::selected_wires() const
+{
+	std::vector<RTLIL::Wire*> result;
+	result.reserve(wires_.size());
+	for (auto &it : wires_)
+		if (design->selected(this, it.second))
+			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
+{
+	std::vector<RTLIL::Cell*> result;
+	result.reserve(wires_.size());
+	for (auto &it : cells_)
+		if (design->selected(this, it.second))
+			result.push_back(it.second);
+	return result;
+}
+
 void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	log_assert(!wire->name.empty());
 	log_assert(count_id(wire->name) == 0);
 	log_assert(refcount_wires_ == 0);
 	wires_[wire->name] = wire;
+	wire->module = this;
 }
 
 void RTLIL::Module::add(RTLIL::Cell *cell)
@@ -882,6 +964,7 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	log_assert(count_id(cell->name) == 0);
 	log_assert(refcount_cells_ == 0);
 	cells_[cell->name] = cell;
+	cell->module = this;
 }
 
 namespace {

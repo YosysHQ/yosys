@@ -90,12 +90,12 @@ design:
 
 module:
 	TOK_MODULE TOK_ID EOL {
-		if (current_design->modules_.count($2) != 0)
+		if (current_design->has($2))
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
 		current_module = new RTLIL::Module;
 		current_module->name = $2;
 		current_module->attributes = attrbuf;
-		current_design->modules_[$2] = current_module;
+		current_design->add(current_module);
 		attrbuf.clear();
 		free($2);
 	} module_body TOK_END {

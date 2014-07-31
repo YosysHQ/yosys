@@ -252,6 +252,10 @@ namespace RTLIL
 		RTLIL::ObjIterator<T> begin() { return RTLIL::ObjIterator<T>(list_p, refcount_p); }
 		RTLIL::ObjIterator<T> end() { return RTLIL::ObjIterator<T>(); }
 
+		size_t size() const {
+			return list_p->size();
+		}
+
 		operator std::set<T>() const {
 			std::set<T> result;
 			for (auto &it : *list_p)
@@ -375,6 +379,10 @@ struct RTLIL::Design
 			sel.select(module, member);
 		}
 	}
+
+	std::vector<RTLIL::Module*> selected_modules() const;
+	std::vector<RTLIL::Module*> selected_whole_modules() const;
+	std::vector<RTLIL::Module*> selected_whole_modules_warn() const;
 };
 
 #define RTLIL_ATTRIBUTE_MEMBERS                                \
@@ -395,6 +403,7 @@ protected:
 	void add(RTLIL::Cell *cell);
 
 public:
+	RTLIL::Design *design;
 	int refcount_wires_;
 	int refcount_cells_;
 
@@ -423,6 +432,15 @@ public:
 	template<typename T> void rewrite_sigspecs(T functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
+
+	bool has_memories() const;
+	bool has_processes() const;
+
+	bool has_memories_warn() const;
+	bool has_processes_warn() const;
+
+	std::vector<RTLIL::Wire*> selected_wires() const;
+	std::vector<RTLIL::Cell*> selected_cells() const;
 
 	RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; }
 	RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; }
@@ -592,6 +610,7 @@ public:
 	Wire(RTLIL::Wire &other) = delete;
 	void operator=(RTLIL::Wire &other) = delete;
 
+	RTLIL::Module *module;
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto;
@@ -620,6 +639,7 @@ public:
 	Cell(RTLIL::Cell &other) = delete;
 	void operator=(RTLIL::Cell &other) = delete;
 
+	RTLIL::Module *module;
 	RTLIL::IdString name;
 	RTLIL::IdString type;
 	std::map<RTLIL::IdString, RTLIL::SigSpec> connections_;

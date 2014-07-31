@@ -1,6 +1,4 @@
-#include "kernel/rtlil.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
 struct MyPass : public Pass {
@@ -12,9 +10,9 @@ struct MyPass : public Pass {
             log("  %s\n", arg.c_str());
 
         log("Modules in current design:\n");
-        for (auto &mod : design->modules_)
-            log("  %s (%zd wires, %zd cells)\n", RTLIL::id2cstr(mod.first),
-                    mod.second->wires_.size(), mod.second->cells_.size());
+        for (auto mod : design->modules())
+            log("  %s (%zd wires, %zd cells)\n", log_id(mod),
+                    SIZE(mod->wires()), SIZE(mod->cells()));
     }
 } MyPass;
 
@@ -23,28 +21,24 @@ struct Test1Pass : public Pass {
     Test1Pass() : Pass("test1", "creating the absval module") { }
     virtual void execute(std::vector<std::string>, RTLIL::Design *design)
     {
-        RTLIL::Module *module = new RTLIL::Module;
-        module->name = "\\absval";
+        if (design->has("\\absval") != 0)
+            log_error("A module with the name absval already exists!\n");
 
-        RTLIL::Wire *a = module->new_wire(4, "\\a");
+        RTLIL::Module *module = design->addModule("\\absval");
+
+        RTLIL::Wire *a = module->addWire("\\a", 4);
         a->port_input = true;
         a->port_id = 1;
 
-        RTLIL::Wire *y = module->new_wire(4, "\\y");
+        RTLIL::Wire *y = module->addWire("\\y", 4);
         y->port_output = true;
         y->port_id = 2;
 
-        RTLIL::Wire *a_inv = module->new_wire(4, NEW_ID);
+        RTLIL::Wire *a_inv = module->addWire(NEW_ID, 4);
         module->addNeg(NEW_ID, a, a_inv, true);
-        module->addMux(NEW_ID, a, a_inv, RTLIL::SigSpec(a, 1, 3), y);
+        module->addMux(NEW_ID, a, a_inv, RTLIL::SigSpec(a, 3), y);
 
-        log("Name of this module: %s\n", RTLIL::id2cstr(module->name));
-
-        if (design->modules_.count(module->name) != 0)
-            log_error("A module with the name %s already exists!\n",
-                    RTLIL::id2cstr(module->name));
-
-        design->modules_[module->name] = module;
+        log("Name of this module: %s\n", log_id(module));
     }
 } Test1Pass;
 
@@ -58,8 +52,7 @@ struct Test2Pass : public Pass {
 
         RTLIL::Module *module = design->modules_.at("\\test");
 
-        RTLIL::SigSpec a(module->wires_.at("\\a")), x(module->wires_.at("\\x")),
-                                                   y(module->wires_.at("\\y"));
+        RTLIL::SigSpec a(module->wire("\\a")), x(module->wire("\\x")), y(module->wire("\\y"));
         log("%d %d %d\n", a == x, x == y, y == a); // will print "0 0 0"
 
         SigMap sigmap(module);
