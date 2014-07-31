@@ -44,6 +44,9 @@
 #include <algorithm>
 #include <initializer_list>
 
+#define PRIVATE_NAMESPACE_BEGIN  namespace {
+#define PRIVATE_NAMESPACE_END    }
+
 #if 0
 #  define YOSYS_NAMESPACE_BEGIN  namespace Yosys {
 #  define YOSYS_NAMESPACE_END    }

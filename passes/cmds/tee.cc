@@ -73,11 +73,11 @@ struct TeePass : public Pass {
 		try {
 			std::vector<std::string> new_args(args.begin() + argidx, args.end());
 			Pass::call(design, new_args);
-		} catch (int ex) {
+		} catch (log_cmd_error_expection) {
 			for (auto cf : files_to_close)
 				fclose(cf);
 			log_files = backup_log_files;
-			throw ex;
+			throw log_cmd_error_expection();
 		}
 
 		for (auto cf : files_to_close)
