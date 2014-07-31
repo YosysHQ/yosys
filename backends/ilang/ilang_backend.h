@@ -25,8 +25,10 @@
 #ifndef ILANG_BACKEND_H
 #define ILANG_BACKEND_H
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include <stdio.h>
+
+YOSYS_NAMESPACE_BEGIN
 
 namespace ILANG_BACKEND {
 	void dump_const(FILE *f, const RTLIL::Const &data, int width = -1, int offset = 0, bool autoint = true);
@@ -43,5 +45,7 @@ namespace ILANG_BACKEND {
 	void dump_module(FILE *f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
 	void dump_design(FILE *f, const RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
 }
+
+YOSYS_NAMESPACE_END
 
 #endif

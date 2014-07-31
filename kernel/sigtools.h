@@ -20,9 +20,9 @@
 #ifndef SIGTOOLS_H
 #define SIGTOOLS_H
 
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
-#include <set>
+#include "kernel/yosys.h"
+
+YOSYS_NAMESPACE_BEGIN
 
 struct SigPool
 {
@@ -397,5 +397,7 @@ struct SigMap
 		return sig;
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif /* SIGTOOLS_H */

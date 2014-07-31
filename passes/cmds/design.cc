@@ -22,6 +22,8 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+YOSYS_NAMESPACE_BEGIN
+
 std::map<std::string, RTLIL::Design*> saved_designs;
 std::vector<RTLIL::Design*> pushed_designs;
 
@@ -248,4 +250,6 @@ struct DesignPass : public Pass {
 		}
 	}
 } DesignPass;
+
+YOSYS_NAMESPACE_END
 

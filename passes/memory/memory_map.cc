@@ -41,7 +41,7 @@ static std::string genid(std::string name, std::string token1 = "", int i = -1, 
 	if (k >= 0)
 		sstr << "[" << k << "]";
 
-	sstr << token4 << "$" << (RTLIL::autoidx++);
+	sstr << token4 << "$" << (autoidx++);
 	return sstr.str();
 }
 

@@ -29,11 +29,13 @@
 #ifndef VERILOG_FRONTEND_H
 #define VERILOG_FRONTEND_H
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include "frontends/ast/ast.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <list>
+
+YOSYS_NAMESPACE_BEGIN
 
 namespace VERILOG_FRONTEND
 {
@@ -52,6 +54,8 @@ namespace VERILOG_FRONTEND
 
 // the pre-processor
 std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs);
+
+YOSYS_NAMESPACE_END
 
 // the usual bison/flex stuff
 extern int frontend_verilog_yydebug;

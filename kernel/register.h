@@ -20,11 +20,13 @@
 #ifndef REGISTER_H
 #define REGISTER_H
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include <stdio.h>
 #include <string>
 #include <vector>
 #include <map>
+
+YOSYS_NAMESPACE_BEGIN
 
 struct Pass
 {
@@ -94,10 +96,10 @@ struct Backend : Pass
 // implemented in passes/cmds/select.cc
 extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design);
 
-namespace REGISTER_INTERN {
-	extern std::map<std::string, Pass*> pass_register;
-	extern std::map<std::string, Frontend*> frontend_register;
-	extern std::map<std::string, Backend*> backend_register;
-}
+extern std::map<std::string, Pass*> pass_register;
+extern std::map<std::string, Frontend*> frontend_register;
+extern std::map<std::string, Backend*> backend_register;
+
+YOSYS_NAMESPACE_END
 
 #endif

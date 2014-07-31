@@ -113,7 +113,7 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 	sig.sort_and_unify();
 
 	std::stringstream sstr;
-	sstr << "$memory_dff_disconnected$" << (RTLIL::autoidx++);
+	sstr << "$memory_dff_disconnected$" << (autoidx++);
 
 	RTLIL::SigSpec new_sig = module->addWire(sstr.str(), sig.size());
 

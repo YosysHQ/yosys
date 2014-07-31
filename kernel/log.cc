@@ -28,6 +28,8 @@
 #include <vector>
 #include <list>
 
+YOSYS_NAMESPACE_BEGIN
+
 std::vector<FILE*> log_files;
 FILE *log_errfile = NULL;
 bool log_time = false;
@@ -233,7 +235,7 @@ std::map<std::string, std::pair<std::string, int>> get_coverage_data()
 {
 	std::map<std::string, std::pair<std::string, int>> coverage_data;
 
-	for (auto &it : REGISTER_INTERN::pass_register) {
+	for (auto &it : pass_register) {
 		std::string key = stringf("passes.%s", it.first.c_str());
 		coverage_data[key].first = stringf("%s:%d:%s", __FILE__, __LINE__, __FUNCTION__);
 		coverage_data[key].second += it.second->call_counter;
@@ -259,4 +261,6 @@ std::map<std::string, std::pair<std::string, int>> get_coverage_data()
 
 	return coverage_data;
 }
+
+YOSYS_NAMESPACE_END
 

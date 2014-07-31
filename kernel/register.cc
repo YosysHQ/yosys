@@ -17,26 +17,22 @@
  *
  */
 
-#include "kernel/compatibility.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 
-using namespace REGISTER_INTERN;
+YOSYS_NAMESPACE_BEGIN
+
 #define MAX_REG_COUNT 1000
 
-namespace REGISTER_INTERN
-{
-	bool echo_mode = false;
-	Pass *first_queued_pass;
+bool echo_mode = false;
+Pass *first_queued_pass;
 
-	std::map<std::string, Frontend*> frontend_register;
-	std::map<std::string, Pass*> pass_register;
-	std::map<std::string, Backend*> backend_register;
-}
+std::map<std::string, Frontend*> frontend_register;
+std::map<std::string, Pass*> pass_register;
+std::map<std::string, Backend*> backend_register;
 
 std::vector<std::string> Frontend::next_args;
 
@@ -552,7 +548,7 @@ struct HelpPass : public Pass {
 	{
 		if (args.size() == 1) {
 			log("\n");
-			for (auto &it : REGISTER_INTERN::pass_register)
+			for (auto &it : pass_register)
 				log("    %-20s %s\n", it.first.c_str(), it.second->short_help.c_str());
 			log("\n");
 			log("Type 'help <command>' for more information on a command.\n");
@@ -562,7 +558,7 @@ struct HelpPass : public Pass {
 
 		if (args.size() == 2) {
 			if (args[1] == "-all") {
-				for (auto &it : REGISTER_INTERN::pass_register) {
+				for (auto &it : pass_register) {
 					log("\n\n");
 					log("%s  --  %s\n", it.first.c_str(), it.second->short_help.c_str());
 					for (size_t i = 0; i < it.first.size() + it.second->short_help.size() + 6; i++)
@@ -575,7 +571,7 @@ struct HelpPass : public Pass {
 			else if (args[1] == "-write-tex-command-reference-manual") {
 				FILE *f = fopen("command-reference-manual.tex", "wt");
 				fprintf(f, "%% Generated using the yosys 'help -write-tex-command-reference-manual' command.\n\n");
-				for (auto &it : REGISTER_INTERN::pass_register) {
+				for (auto &it : pass_register) {
 					size_t memsize;
 					char *memptr;
 					FILE *memf = open_memstream(&memptr, &memsize);
@@ -591,7 +587,7 @@ struct HelpPass : public Pass {
 			// this option is undocumented as it is for internal use only
 			else if (args[1] == "-write-web-command-reference-manual") {
 				FILE *f = fopen("templates/cmd_index.in", "wt");
-				for (auto &it : REGISTER_INTERN::pass_register) {
+				for (auto &it : pass_register) {
 					size_t memsize;
 					char *memptr;
 					FILE *memf = open_memstream(&memptr, &memsize);
@@ -604,10 +600,10 @@ struct HelpPass : public Pass {
 				}
 				fclose(f);
 			}
-			else if (REGISTER_INTERN::pass_register.count(args[1]) == 0)
+			else if (pass_register.count(args[1]) == 0)
 				log("No such command: %s\n", args[1].c_str());
 			else
-				REGISTER_INTERN::pass_register.at(args[1])->help();
+				pass_register.at(args[1])->help();
 			return;
 		}
 
@@ -648,3 +644,5 @@ struct EchoPass : public Pass {
 	}
 } EchoPass;
  
+YOSYS_NAMESPACE_END
+

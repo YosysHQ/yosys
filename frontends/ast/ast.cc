@@ -34,6 +34,8 @@
 #include <stdarg.h>
 #include <math.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 using namespace AST;
 using namespace AST_INTERNAL;
 
@@ -806,7 +808,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 {
 	double v = round(realvalue);
 	RTLIL::Const result;
-	if (!isfinite(v)) {
+	if (!std::isfinite(v)) {
 		result.bits = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
 	} else {
 		bool is_negative = v < 0;
@@ -1086,4 +1088,6 @@ void AST::use_internal_line_num()
 	set_line_num = &internal_set_line_num;
 	get_line_num = &internal_get_line_num;
 }
+
+YOSYS_NAMESPACE_END
 

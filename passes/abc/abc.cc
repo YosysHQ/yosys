@@ -313,7 +313,7 @@ static void handle_loops()
 			}
 
 			std::stringstream sstr;
-			sstr << "$abcloop$" << (RTLIL::autoidx++);
+			sstr << "$abcloop$" << (autoidx++);
 			RTLIL::Wire *wire = module->addWire(sstr.str());
 
 			bool first_line = true;
@@ -400,7 +400,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str, bool keepff)
 {
 	module = current_module;
-	map_autoidx = RTLIL::autoidx++;
+	map_autoidx = autoidx++;
 
 	signal_map.clear();
 	signal_list.clear();

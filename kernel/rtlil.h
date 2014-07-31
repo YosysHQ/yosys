@@ -22,6 +22,8 @@
 #ifndef RTLIL_H
 #define RTLIL_H
 
+YOSYS_NAMESPACE_BEGIN
+
 namespace RTLIL
 {
 	enum State : unsigned char {
@@ -49,8 +51,6 @@ namespace RTLIL
 		CONST_FLAG_SIGNED = 2,  // only used for parameters
 		CONST_FLAG_REAL   = 4   // unused -- to be used for parameters
 	};
-
-	extern int autoidx;
 
 	struct Const;
 	struct Selection;
@@ -122,18 +122,6 @@ namespace RTLIL
 			return str.c_str() + 1;
 		return str.c_str();
 	}
-
-	static IdString new_id(std::string file, int line, std::string func) __attribute__((unused));
-	static IdString new_id(std::string file, int line, std::string func) {
-		std::string str = "$auto$";
-		size_t pos = file.find_last_of('/');
-		str += pos != std::string::npos ? file.substr(pos+1) : file;
-		str += stringf(":%d:%s$%d", line, func.c_str(), autoidx++);
-		return str;
-	}
-
-#define NEW_ID \
-	RTLIL::new_id(__FILE__, __LINE__, __FUNCTION__)
 
 	template <typename T> struct sort_by_name {
 		bool operator()(T *a, T *b) const {
@@ -968,5 +956,7 @@ void RTLIL::Process::rewrite_sigspecs(T functor)
 	for (auto it : syncs)
 		it->rewrite_sigspecs(functor);
 }
+
+YOSYS_NAMESPACE_END
 
 #endif

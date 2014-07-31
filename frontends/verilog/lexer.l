@@ -44,13 +44,16 @@
 #include "frontends/ast/ast.h"
 #include "parser.tab.h"
 
+USING_YOSYS_NAMESPACE
 using namespace AST;
 using namespace VERILOG_FRONTEND;
 
+YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	std::vector<std::string> fn_stack;
 	std::vector<int> ln_stack;
 }
+YOSYS_NAMESPACE_END
 
 #define SV_KEYWORD(_tok) \
 	if (sv_mode) return _tok; \

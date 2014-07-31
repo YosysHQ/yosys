@@ -21,6 +21,7 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 
+YOSYS_NAMESPACE_BEGIN
 using namespace PASS_DFFLIBMAP;
 
 struct token_t {
@@ -572,4 +573,6 @@ skip_cell:;
 		log("Imported %d cell types from liberty file.\n", cell_count);
 	}
 } LibertyFrontend;
+
+YOSYS_NAMESPACE_END
 

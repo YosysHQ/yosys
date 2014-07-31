@@ -34,6 +34,8 @@
 #include <stdarg.h>
 #include <math.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 using namespace AST;
 using namespace AST_INTERNAL;
 
@@ -624,7 +626,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 		std::stringstream sstr;
-		sstr << "$mem2bits$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+		sstr << "$mem2bits$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string wire_id = sstr.str();
 
 		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
@@ -744,7 +746,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				buf = new AstNode(AST_GENBLOCK, body_ast->clone());
 			if (buf->str.empty()) {
 				std::stringstream sstr;
-				sstr << "$genblock$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+				sstr << "$genblock$" << filename << ":" << linenum << "$" << (autoidx++);
 				buf->str = sstr.str();
 			}
 			std::map<std::string, std::string> name_map;
@@ -1091,7 +1093,7 @@ skip_dynamic_range_lvalue_expansion:;
 	if (stage > 1 && type == AST_ASSERT && current_block != NULL)
 	{
 		std::stringstream sstr;
-		sstr << "$assert$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+		sstr << "$assert$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_check = sstr.str() + "_CHECK", id_en = sstr.str() + "_EN";
 
 		AstNode *wire_check = new AstNode(AST_WIRE);
@@ -1166,7 +1168,7 @@ skip_dynamic_range_lvalue_expansion:;
 			(children[0]->children.size() == 1 || children[0]->children.size() == 2))
 	{
 		std::stringstream sstr;
-		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
 		if (type == AST_ASSIGN_EQ)
@@ -1364,27 +1366,27 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 
 				newNode = new AstNode(AST_REALVALUE);
-				if (str == "\\$ln")         newNode->realvalue = log(x);
-				else if (str == "\\$log10") newNode->realvalue = log10(x);
-				else if (str == "\\$exp")   newNode->realvalue = exp(x);
-				else if (str == "\\$sqrt")  newNode->realvalue = sqrt(x);
-				else if (str == "\\$pow")   newNode->realvalue = pow(x, y);
-				else if (str == "\\$floor") newNode->realvalue = floor(x);
-				else if (str == "\\$ceil")  newNode->realvalue = ceil(x);
-				else if (str == "\\$sin")   newNode->realvalue = sin(x);
-				else if (str == "\\$cos")   newNode->realvalue = cos(x);
-				else if (str == "\\$tan")   newNode->realvalue = tan(x);
-				else if (str == "\\$asin")  newNode->realvalue = asin(x);
-				else if (str == "\\$acos")  newNode->realvalue = acos(x);
-				else if (str == "\\$atan")  newNode->realvalue = atan(x);
-				else if (str == "\\$atan2") newNode->realvalue = atan2(x, y);
-				else if (str == "\\$hypot") newNode->realvalue = hypot(x, y);
-				else if (str == "\\$sinh")  newNode->realvalue = sinh(x);
-				else if (str == "\\$cosh")  newNode->realvalue = cosh(x);
-				else if (str == "\\$tanh")  newNode->realvalue = tanh(x);
-				else if (str == "\\$asinh") newNode->realvalue = asinh(x);
-				else if (str == "\\$acosh") newNode->realvalue = acosh(x);
-				else if (str == "\\$atanh") newNode->realvalue = atanh(x);
+				if (str == "\\$ln")         newNode->realvalue = ::log(x);
+				else if (str == "\\$log10") newNode->realvalue = ::log10(x);
+				else if (str == "\\$exp")   newNode->realvalue = ::exp(x);
+				else if (str == "\\$sqrt")  newNode->realvalue = ::sqrt(x);
+				else if (str == "\\$pow")   newNode->realvalue = ::pow(x, y);
+				else if (str == "\\$floor") newNode->realvalue = ::floor(x);
+				else if (str == "\\$ceil")  newNode->realvalue = ::ceil(x);
+				else if (str == "\\$sin")   newNode->realvalue = ::sin(x);
+				else if (str == "\\$cos")   newNode->realvalue = ::cos(x);
+				else if (str == "\\$tan")   newNode->realvalue = ::tan(x);
+				else if (str == "\\$asin")  newNode->realvalue = ::asin(x);
+				else if (str == "\\$acos")  newNode->realvalue = ::acos(x);
+				else if (str == "\\$atan")  newNode->realvalue = ::atan(x);
+				else if (str == "\\$atan2") newNode->realvalue = ::atan2(x, y);
+				else if (str == "\\$hypot") newNode->realvalue = ::hypot(x, y);
+				else if (str == "\\$sinh")  newNode->realvalue = ::sinh(x);
+				else if (str == "\\$cosh")  newNode->realvalue = ::cosh(x);
+				else if (str == "\\$tanh")  newNode->realvalue = ::tanh(x);
+				else if (str == "\\$asinh") newNode->realvalue = ::asinh(x);
+				else if (str == "\\$acosh") newNode->realvalue = ::acosh(x);
+				else if (str == "\\$atanh") newNode->realvalue = ::atanh(x);
 				else log_abort();
 				goto apply_newNode;
 			}
@@ -1423,7 +1425,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 		AstNode *decl = current_scope[str];
 		std::stringstream sstr;
-		sstr << "$func$" << str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++) << "$";
+		sstr << "$func$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++) << "$";
 		std::string prefix = sstr.str();
 
 		size_t arg_count = 0;
@@ -1988,7 +1990,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 			mem2reg_set.count(children[0]->id2ast) > 0 && children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
-		sstr << "$mem2reg_wr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+		sstr << "$mem2reg_wr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 		int mem_width, mem_size, addr_bits;
@@ -2059,7 +2061,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		else
 		{
 			std::stringstream sstr;
-			sstr << "$mem2reg_rd$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+			sstr << "$mem2reg_rd$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 			std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 			int mem_width, mem_size, addr_bits;
@@ -2420,4 +2422,6 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 	return AstNode::mkconst_bits(variables.at(str).val.bits, variables.at(str).is_signed);
 }
+
+YOSYS_NAMESPACE_END
 

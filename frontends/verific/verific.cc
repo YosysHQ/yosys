@@ -17,7 +17,7 @@
  *
  */
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include <unistd.h>
@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+
+USING_YOSYS_NAMESPACE
 
 #ifdef YOSYS_ENABLE_VERIFIC
 
@@ -768,6 +770,8 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 #endif /* YOSYS_ENABLE_VERIFIC */
 
+YOSYS_NAMESPACE_BEGIN
+
 struct VerificPass : public Pass {
 	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
 	virtual void help()
@@ -945,3 +949,5 @@ struct VerificPass : public Pass {
 #endif
 } VerificPass;
  
+YOSYS_NAMESPACE_END
+

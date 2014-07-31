@@ -31,7 +31,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 	RTLIL::IdString mem_name = RTLIL::escape_id(memory->parameters.at("\\MEMID").decode_string());
 
 	while (module->memories.count(mem_name) != 0)
-		mem_name += stringf("_%d", RTLIL::autoidx++);
+		mem_name += stringf("_%d", autoidx++);
 
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = mem_name;

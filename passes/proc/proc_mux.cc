@@ -57,7 +57,7 @@ static void extract_core_signal(const RTLIL::CaseRule *cs, RTLIL::SigSpec &sig)
 static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw)
 {
 	std::stringstream sstr;
-	sstr << "$procmux$" << (RTLIL::autoidx++);
+	sstr << "$procmux$" << (autoidx++);
 
 	RTLIL::Wire *cmp_wire = mod->addWire(sstr.str() + "_CMP", 0);
 
@@ -127,7 +127,7 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	log_assert(when_signal.size() == else_signal.size());
 
 	std::stringstream sstr;
-	sstr << "$procmux$" << (RTLIL::autoidx++);
+	sstr << "$procmux$" << (autoidx++);
 
 	// the trivial cases
 	if (compare.size() == 0 || when_signal == else_signal)

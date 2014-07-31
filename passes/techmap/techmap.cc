@@ -161,7 +161,7 @@ struct TechmapWorker
 			for (auto &it : tpl->cells_)
 				if (it.first == "\\_TECHMAP_REPLACE_") {
 					orig_cell_name = cell->name;
-					module->rename(cell, stringf("$techmap%d", RTLIL::autoidx++) + cell->name);
+					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name);
 					break;
 				}
 

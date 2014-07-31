@@ -25,13 +25,17 @@
 #ifndef ILANG_FRONTEND_H
 #define ILANG_FRONTEND_H
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include <stdio.h>
+
+YOSYS_NAMESPACE_BEGIN
 
 namespace ILANG_FRONTEND {
 	void ilang_frontend(FILE *f, RTLIL::Design *design);
 	extern RTLIL::Design *current_design;
 }
+
+YOSYS_NAMESPACE_END
 
 extern int rtlil_frontend_ilang_yydebug;
 int rtlil_frontend_ilang_yylex(void);

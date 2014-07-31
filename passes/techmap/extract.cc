@@ -296,7 +296,7 @@ namespace
 		SigSet<std::pair<std::string, int>> sig2port;
 
 		// create new cell
-		RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name.c_str(), RTLIL::autoidx++), needle->name);
+		RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name.c_str(), autoidx++), needle->name);
 
 		// create cell ports
 		for (auto &it : needle->wires_) {

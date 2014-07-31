@@ -34,6 +34,7 @@
 #include <sstream>
 #include <stdarg.h>
 
+YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
 
 // use the Verilog bison/flex parser to generate an AST and use AST::process() to convert it to RTLIL
@@ -375,4 +376,6 @@ struct VerilogDefaults : public Pass {
 		}
 	}
 } VerilogDefaults;
+
+YOSYS_NAMESPACE_END
 

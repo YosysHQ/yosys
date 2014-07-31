@@ -21,9 +21,10 @@
 // Schneier, Bruce (1996). Applied Cryptography: Protocols, Algorithms, and Source Code in C,
 // Second Edition (2nd ed.). Wiley. ISBN 978-0-471-11709-4, page 244
 
-#include "kernel/log.h"
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include "libs/bigint/BigIntegerLibrary.hh"
+
+YOSYS_NAMESPACE_BEGIN
 
 static void extend(RTLIL::Const &arg, int width, bool is_signed)
 {
@@ -591,4 +592,6 @@ RTLIL::Const RTLIL::const_neg(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 	RTLIL::Const zero(RTLIL::State::S0, 1);
 	return RTLIL::const_sub(zero, arg1_ext, false, signed1, result_len);
 }
+
+YOSYS_NAMESPACE_END
 

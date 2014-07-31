@@ -34,6 +34,8 @@
 #include <stdarg.h>
 #include <algorithm>
 
+YOSYS_NAMESPACE_BEGIN
+
 using namespace AST;
 using namespace AST_INTERNAL;
 
@@ -41,7 +43,7 @@ using namespace AST_INTERNAL;
 static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_width, const RTLIL::SigSpec &arg, bool gen_attributes = true)
 {
 	std::stringstream sstr;
-	sstr << type << "$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
+	sstr << type << "$" << that->filename << ":" << that->linenum << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), type);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
@@ -75,7 +77,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	}
 
 	std::stringstream sstr;
-	sstr << "$extend" << "$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
+	sstr << "$extend" << "$" << that->filename << ":" << that->linenum << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), celltype);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
@@ -104,7 +106,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
 	std::stringstream sstr;
-	sstr << type << "$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
+	sstr << type << "$" << that->filename << ":" << that->linenum << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), type);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
@@ -139,7 +141,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	log_assert(cond.size() == 1);
 
 	std::stringstream sstr;
-	sstr << "$ternary$" << that->filename << ":" << that->linenum << "$" << (RTLIL::autoidx++);
+	sstr << "$ternary$" << that->filename << ":" << that->linenum << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$mux");
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
@@ -201,7 +203,7 @@ struct AST_INTERNAL::ProcessGenerator
 		// generate process and simple root case
 		proc = new RTLIL::Process;
 		proc->attributes["\\src"] = stringf("%s:%d", always->filename.c_str(), always->linenum);
-		proc->name = stringf("$proc$%s:%d$%d", always->filename.c_str(), always->linenum, RTLIL::autoidx++);
+		proc->name = stringf("$proc$%s:%d$%d", always->filename.c_str(), always->linenum, autoidx++);
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
@@ -294,7 +296,7 @@ struct AST_INTERNAL::ProcessGenerator
 				wire_name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
 						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.find('$') != std::string::npos)
-					wire_name += stringf("$%d", RTLIL::autoidx++);
+					wire_name += stringf("$%d", autoidx++);
 			} while (current_module->wires_.count(wire_name) > 0);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
@@ -1189,7 +1191,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMRD:
 		{
 			std::stringstream sstr;
-			sstr << "$memrd$" << str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+			sstr << "$memrd$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$memrd");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -1220,7 +1222,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMWR:
 		{
 			std::stringstream sstr;
-			sstr << "$memwr$" << str << "$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+			sstr << "$memwr$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$memwr");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -1241,7 +1243,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(0);
 			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
 
-			cell->parameters["\\PRIORITY"] = RTLIL::Const(RTLIL::autoidx-1);
+			cell->parameters["\\PRIORITY"] = RTLIL::Const(autoidx-1);
 		}
 		break;
 
@@ -1257,7 +1259,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			log_assert(en.size() == 1);
 
 			std::stringstream sstr;
-			sstr << "$assert$" << filename << ":" << linenum << "$" << (RTLIL::autoidx++);
+			sstr << "$assert$" << filename << ":" << linenum << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$assert");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
@@ -1398,4 +1400,6 @@ RTLIL::SigSpec AstNode::genWidthRTLIL(int width, RTLIL::SigSpec *subst_from,  RT
 
 	return sig;
 }
+
+YOSYS_NAMESPACE_END
 

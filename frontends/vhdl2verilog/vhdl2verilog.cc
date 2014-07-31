@@ -28,6 +28,8 @@
 #include <errno.h>
 #include <limits.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 struct Vhdl2verilogPass : public Pass {
 	Vhdl2verilogPass() : Pass("vhdl2verilog", "importing VHDL designs using vhdl2verilog") { }
 	virtual void help()
@@ -190,3 +192,5 @@ struct Vhdl2verilogPass : public Pass {
 	}
 } Vhdl2verilogPass;
  
+YOSYS_NAMESPACE_END
+

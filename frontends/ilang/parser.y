@@ -25,6 +25,7 @@
 %{
 #include <list>
 #include "ilang_frontend.h"
+YOSYS_NAMESPACE_BEGIN
 namespace ILANG_FRONTEND {
 	RTLIL::Design *current_design;
 	RTLIL::Module *current_module;
@@ -37,6 +38,8 @@ namespace ILANG_FRONTEND {
 	std::map<RTLIL::IdString, RTLIL::Const> attrbuf;
 }
 using namespace ILANG_FRONTEND;
+YOSYS_NAMESPACE_END
+USING_YOSYS_NAMESPACE
 %}
 
 %name-prefix "rtlil_frontend_ilang_yy"
@@ -44,8 +47,8 @@ using namespace ILANG_FRONTEND;
 %union {
 	char *string;
 	int integer;
-	RTLIL::Const *data;
-	RTLIL::SigSpec *sigspec;
+	YOSYS_NAMESPACE_PREFIX RTLIL::Const *data;
+	YOSYS_NAMESPACE_PREFIX RTLIL::SigSpec *sigspec;
 }
 
 %token <string> TOK_ID TOK_VALUE TOK_STRING
@@ -116,7 +119,7 @@ attr_stmt:
 
 autoidx_stmt:
 	TOK_AUTOIDX TOK_INT EOL {
-		RTLIL::autoidx = std::max(RTLIL::autoidx, $2);
+		autoidx = std::max(autoidx, $2);
 	};
 
 wire_stmt:

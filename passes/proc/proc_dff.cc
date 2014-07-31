@@ -122,7 +122,7 @@ static void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::S
 	}
 
 	std::stringstream sstr;
-	sstr << "$procdff$" << (RTLIL::autoidx++);
+	sstr << "$procdff$" << (autoidx++);
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), "$dffsr");
 	cell->attributes = proc->attributes;
@@ -144,7 +144,7 @@ static void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec 
 		bool clk_polarity, bool set_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec set, RTLIL::Process *proc)
 {
 	std::stringstream sstr;
-	sstr << "$procdff$" << (RTLIL::autoidx++);
+	sstr << "$procdff$" << (autoidx++);
 
 	RTLIL::SigSpec sig_set_inv = mod->addWire(NEW_ID, sig_in.size());
 	RTLIL::SigSpec sig_sr_set = mod->addWire(NEW_ID, sig_in.size());
@@ -191,7 +191,7 @@ static void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_
 		bool clk_polarity, bool arst_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec *arst, RTLIL::Process *proc)
 {
 	std::stringstream sstr;
-	sstr << "$procdff$" << (RTLIL::autoidx++);
+	sstr << "$procdff$" << (autoidx++);
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), arst ? "$adff" : "$dff");
 	cell->attributes = proc->attributes;

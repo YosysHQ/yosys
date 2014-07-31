@@ -336,7 +336,7 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 
 void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
-	int init_autoidx = RTLIL::autoidx;
+	int init_autoidx = autoidx;
 
 	if (!flag_m) {
 		int count_selected_mods = 0;
@@ -353,7 +353,7 @@ void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_
 	if (!only_selected || flag_m) {
 		if (only_selected)
 			fprintf(f, "\n");
-		fprintf(f, "autoidx %d\n", RTLIL::autoidx);
+		fprintf(f, "autoidx %d\n", autoidx);
 	}
 
 	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++) {
@@ -364,7 +364,7 @@ void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_
 		}
 	}
 
-	log_assert(init_autoidx == RTLIL::autoidx);
+	log_assert(init_autoidx == autoidx);
 }
 
 struct IlangBackend : public Backend {

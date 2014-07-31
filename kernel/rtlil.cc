@@ -17,16 +17,14 @@
  *
  */
 
-#include "kernel/compatibility.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "backends/ilang/ilang_backend.h"
 
 #include <string.h>
 #include <algorithm>
 
-int RTLIL::autoidx = 1;
+YOSYS_NAMESPACE_BEGIN
 
 RTLIL::Const::Const()
 {
@@ -2735,4 +2733,6 @@ RTLIL::Process *RTLIL::Process::clone() const
 	
 	return new_proc;
 }
+
+YOSYS_NAMESPACE_END
 

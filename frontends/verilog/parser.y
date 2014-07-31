@@ -39,9 +39,11 @@
 #include "verilog_frontend.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
 using namespace AST;
 using namespace VERILOG_FRONTEND;
 
+YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	int port_counter;
 	std::map<std::string, int> port_stubs;
@@ -56,6 +58,7 @@ namespace VERILOG_FRONTEND {
 	bool default_nettype_wire;
 	bool sv_mode;
 }
+YOSYS_NAMESPACE_END
 
 static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
 {
@@ -89,8 +92,8 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 
 %union {
 	std::string *string;
-	struct AstNode *ast;
-	std::map<std::string, AstNode*> *al;
+	struct YOSYS_NAMESPACE_PREFIX AST::AstNode *ast;
+	std::map<std::string, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
 	bool boolean;
 }
 

@@ -28,6 +28,8 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 #define S__LINE__sub2(x) #x
 #define S__LINE__sub1(x) S__LINE__sub2(x)
 #define S__LINE__ S__LINE__sub1(__LINE__)
@@ -39,8 +41,6 @@ extern FILE *log_errfile;
 extern bool log_time;
 extern bool log_cmd_error_throw;
 extern int log_verbose_level;
-
-std::string stringf(const char *fmt, ...);
 
 void logv(const char *format, va_list ap);
 void logv_header(const char *format, va_list ap);
@@ -245,5 +245,7 @@ void log_dump_args_worker(const char *p, T first, Args ... args)
 	log_dump_args_worker(#__VA_ARGS__, __VA_ARGS__); \
 	log("\n"); \
 } while (0)
+
+YOSYS_NAMESPACE_END
 
 #endif

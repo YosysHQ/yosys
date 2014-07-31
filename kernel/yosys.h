@@ -29,6 +29,9 @@
 // If you want to know how to register a command with Yosys, you could read
 // "kernel/register.h", but it would be easier to just look at a simple
 // example instead. A simple one would be "passes/cmds/log.cc".
+//
+// This header is very boring. It just defines some general things that
+// belong nowhere else and includes the interesting headers.
 
 
 #ifndef YOSYS_H
@@ -38,20 +41,24 @@
 #include <set>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include <initializer_list>
 
 #if 0
 #  define YOSYS_NAMESPACE_BEGIN  namespace Yosys {
 #  define YOSYS_NAMESPACE_END    }
+#  define YOSYS_NAMESPACE_PREFIX Yosys::
+#  define USING_YOSYS_NAMESPACE  using namespace Yosys;
 #else
 #  define YOSYS_NAMESPACE_BEGIN
 #  define YOSYS_NAMESPACE_END
+#  define YOSYS_NAMESPACE_PREFIX
+#  define USING_YOSYS_NAMESPACE
 #endif
 
 YOSYS_NAMESPACE_BEGIN
 
 std::string stringf(const char *fmt, ...);
-
 #define SIZE(__obj) int(__obj.size())
 
 YOSYS_NAMESPACE_END
@@ -63,19 +70,34 @@ YOSYS_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
 
+void yosys_setup();
+void yosys_shutdown();
+
 #ifdef YOSYS_ENABLE_TCL
 #include <tcl.h>
-extern Tcl_Interp *yosys_get_tcl_interp();
+Tcl_Interp *yosys_get_tcl_interp();
 #endif
+
+extern int autoidx;
+extern RTLIL::Design *yosys_design;
+
+RTLIL::IdString new_id(std::string file, int line, std::string func);
+
+#define NEW_ID \
+	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
+
+RTLIL::Design *yosys_get_design();
+std::string proc_self_dirname();
+std::string proc_share_dirname();
+const char *create_prompt(RTLIL::Design *design, int recursion_counter);
+
+void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command, std::string *from_to_label);
+void run_pass(std::string command, RTLIL::Design *design);
+void run_backend(std::string filename, std::string command, RTLIL::Design *design);
+void shell(RTLIL::Design *design);
 
 // from kernel/version_*.o (cc source generated from Makefile)
 extern const char *yosys_version_str;
-
-// implemented in driver.cc
-extern RTLIL::Design *yosys_get_design();
-extern std::string proc_self_dirname();
-extern std::string proc_share_dirname();
-extern const char *create_prompt(RTLIL::Design *design, int recursion_counter);
 
 // from passes/cmds/design.cc
 extern std::map<std::string, RTLIL::Design*> saved_designs;

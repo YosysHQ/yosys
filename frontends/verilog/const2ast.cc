@@ -39,6 +39,8 @@
 #include <string.h>
 #include <math.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 using namespace AST;
 
 // divide an arbitrary length decimal number by two and return the rest
@@ -209,4 +211,6 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 
 	return NULL;
 }
+
+YOSYS_NAMESPACE_END
 

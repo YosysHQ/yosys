@@ -33,6 +33,8 @@
 #include <stdint.h>
 #include <set>
 
+YOSYS_NAMESPACE_BEGIN
+
 namespace AST
 {
 	// all node types, type2str() must be extended
@@ -284,5 +286,7 @@ namespace AST_INTERNAL
 	extern AST::AstModule *current_module;
 	struct ProcessGenerator;
 }
+
+YOSYS_NAMESPACE_END
 
 #endif

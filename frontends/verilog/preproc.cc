@@ -38,6 +38,8 @@
 #include <stdio.h>
 #include <string.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 static std::list<std::string> output_code;
 static std::list<std::string> input_buffer;
 static size_t input_buffer_charp;
@@ -426,4 +428,6 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 
 	return output;
 }
+
+YOSYS_NAMESPACE_END
 
