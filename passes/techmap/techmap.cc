@@ -66,6 +66,17 @@ struct TechmapWorker
 
 	typedef std::map<std::string, std::vector<TechmapWireData>> TechmapWires;
 
+	bool extern_mode;
+	bool assert_mode;
+	bool flatten_mode;
+
+	TechmapWorker()
+	{
+		extern_mode = false;
+		assert_mode = false;
+		flatten_mode = false;
+	}
+
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
 	{
 		std::string constmap_info;
@@ -131,7 +142,7 @@ struct TechmapWorker
 		return result;
 	}
 
-	void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, bool flatten_mode)
+	void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
 	{
 		log("Mapping `%s.%s' using `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(tpl->name));
 
@@ -245,7 +256,7 @@ struct TechmapWorker
 	}
 
 	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
-			const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap, bool flatten_mode, bool extern_mode)
+			const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap)
 	{
 		if (!design->selected(module))
 			return false;
@@ -264,8 +275,11 @@ struct TechmapWorker
 			if (!design->selected(module, cell) || handled_cells.count(cell) > 0)
 				continue;
 
-			if (celltypeMap.count(cell->type) == 0)
+			if (celltypeMap.count(cell->type) == 0) {
+				if (assert_mode && cell->type.back() != '_')
+					log_error("(ASSERT MODE) No matching template cell for type %s found.\n", log_id(cell->type));
 				continue;
+			}
 
 			for (auto &conn : cell->connections())
 			{
@@ -300,6 +314,7 @@ struct TechmapWorker
 		{
 			log_assert(handled_cells.count(cell) == 0);
 			log_assert(cell == module->cell(cell->name));
+			bool mapped_cell = false;
 
 			for (auto &tpl_name : celltypeMap.at(cell->type))
 			{
@@ -316,7 +331,7 @@ struct TechmapWorker
 					{
 						if (extern_mode)
 						{
-							log("WARNING: Mapping simplat cell %s.%s (%s) in -extern mode is not supported yet.\n", log_id(module), log_id(cell), log_id(cell->type));
+							log("WARNING: Mapping simplemap cell %s.%s (%s) in -extern mode is not supported yet.\n", log_id(module), log_id(cell), log_id(cell->type));
 							break;
 						}
 						else
@@ -328,6 +343,7 @@ struct TechmapWorker
 							module->remove(cell);
 							cell = NULL;
 							did_something = true;
+							mapped_cell = true;
 							break;
 						}
 					}
@@ -587,12 +603,16 @@ struct TechmapWorker
 				}
 				else
 				{
-					techmap_module_worker(design, module, cell, tpl, flatten_mode);
+					techmap_module_worker(design, module, cell, tpl);
 					cell = NULL;
 				}
 				did_something = true;
+				mapped_cell = true;
 				break;
 			}
+
+			if (assert_mode && !mapped_cell)
+				log_error("(ASSERT MODE) Failed to map cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 
 			handled_cells.insert(cell);
 		}
@@ -635,6 +655,11 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("    -max_iter <number>\n");
 		log("        only run the specified number of iterations.\n");
+		log("\n");
+		log("    -assert\n");
+		log("        this option will cause techmap to exit with an error if it can't map\n");
+		log("        a selected cell. only cell types that end on an underscore are accepted\n");
+		log("        as final cell types by this mode.\n");
 		log("\n");
 		log("    -D <define>, -I <incdir>\n");
 		log("        this options are passed as-is to the verilog frontend for loading the\n");
@@ -720,9 +745,11 @@ struct TechmapPass : public Pass {
 		log_header("Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();
 
+		TechmapWorker worker;
+		simplemap_get_mappers(worker.simplemap_mappers);
+
 		std::vector<std::string> map_files;
 		std::string verilog_frontend = "verilog -ignore_redef";
-		bool extern_mode = false;
 		int max_iter = -1;
 
 		size_t argidx;
@@ -748,16 +775,17 @@ struct TechmapPass : public Pass {
 				verilog_frontend += " -I " + args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-assert") {
+				worker.assert_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-extern") {
-				extern_mode = true;
+				worker.extern_mode = true;
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
-
-		TechmapWorker worker;
-		simplemap_get_mappers(worker.simplemap_mappers);
 
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
@@ -811,7 +839,7 @@ struct TechmapPass : public Pass {
 			std::set<RTLIL::Cell*> handled_cells;
 			while (did_something) {
 				did_something = false;
-					if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false, extern_mode))
+					if (worker.techmap_module(design, module, map, handled_cells, celltypeMap))
 						did_something = true;
 				if (did_something)
 					module->check();
@@ -848,6 +876,7 @@ struct FlattenPass : public Pass {
 		extra_args(args, 1, design);
 
 		TechmapWorker worker;
+		worker.flatten_mode = true;
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
 		for (auto &it : design->modules_)
@@ -864,11 +893,11 @@ struct FlattenPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			if (top_mod != NULL) {
-				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap, true, false))
+				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap))
 					did_something = true;
 			} else {
 				for (auto mod : design->modules())
-					if (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, true, false))
+					if (worker.techmap_module(design, mod, design, handled_cells, celltypeMap))
 						did_something = true;
 			}
 		}

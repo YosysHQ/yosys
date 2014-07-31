@@ -104,7 +104,7 @@ struct TestCellPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
 		int num_iter = 100;
-		std::string techmap_cmd = "techmap";
+		std::string techmap_cmd = "techmap -assert";
 		std::string ilang_file;
 
 		int argidx;
