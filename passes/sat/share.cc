@@ -17,13 +17,12 @@
  *
  */
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include "kernel/satgen.h"
 #include "kernel/sigtools.h"
-#include "kernel/modwalker.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
-#include <algorithm>
+#include "kernel/modtools.h"
+
+PRIVATE_NAMESPACE_BEGIN
 
 struct ShareWorkerConfig
 {
@@ -966,4 +965,6 @@ struct SharePass : public Pass {
 				ShareWorker(config, design, mod_it.second);
 	}
 } SharePass;
+
+PRIVATE_NAMESPACE_END
 

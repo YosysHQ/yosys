@@ -17,8 +17,8 @@
  *
  */
 
-#ifndef MODWALKER_H
-#define MODWALKER_H
+#ifndef MODTOOLS_H
+#define MODTOOLS_H
 
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"

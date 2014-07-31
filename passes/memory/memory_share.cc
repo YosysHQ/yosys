@@ -17,13 +17,12 @@
  *
  */
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include "kernel/satgen.h"
 #include "kernel/sigtools.h"
-#include "kernel/modwalker.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
-#include <algorithm>
+#include "kernel/modtools.h"
+
+PRIVATE_NAMESPACE_BEGIN
 
 static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 {
@@ -741,4 +740,6 @@ struct MemorySharePass : public Pass {
 				MemoryShareWorker(design, mod_it.second);
 	}
 } MemorySharePass;
+
+PRIVATE_NAMESPACE_END
 
