@@ -693,9 +693,9 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			cell->parameters["\\TRANSPARENT"] = false;
 			cell->parameters["\\ABITS"] = SIZE(addr);
 			cell->parameters["\\WIDTH"] = SIZE(data);
-			cell->set("\\CLK", RTLIL::State::S0);
-			cell->set("\\ADDR", addr);
-			cell->set("\\DATA", data);
+			cell->setPort("\\CLK", RTLIL::State::S0);
+			cell->setPort("\\ADDR", addr);
+			cell->setPort("\\DATA", data);
 			continue;
 		}
 
@@ -715,14 +715,14 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			cell->parameters["\\PRIORITY"] = 0;
 			cell->parameters["\\ABITS"] = SIZE(addr);
 			cell->parameters["\\WIDTH"] = SIZE(data);
-			cell->set("\\EN", RTLIL::SigSpec(net_map.at(inst->GetControl())).repeat(SIZE(data)));
-			cell->set("\\CLK", RTLIL::State::S0);
-			cell->set("\\ADDR", addr);
-			cell->set("\\DATA", data);
+			cell->setPort("\\EN", RTLIL::SigSpec(net_map.at(inst->GetControl())).repeat(SIZE(data)));
+			cell->setPort("\\CLK", RTLIL::State::S0);
+			cell->setPort("\\ADDR", addr);
+			cell->setPort("\\DATA", data);
 
 			if (inst->Type() == OPER_CLOCKED_WRITE_PORT) {
 				cell->parameters["\\CLK_ENABLE"] = true;
-				cell->set("\\CLK", net_map.at(inst->GetClock()));
+				cell->setPort("\\CLK", net_map.at(inst->GetClock()));
 			}
 			continue;
 		}
@@ -755,15 +755,15 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 						std::min(pr->GetPort()->Bus()->LeftIndex(), pr->GetPort()->Bus()->RightIndex());
 			}
 			RTLIL::SigSpec conn;
-			if (cell->has(RTLIL::escape_id(port_name)))
-				conn = cell->get(RTLIL::escape_id(port_name));
+			if (cell->hasPort(RTLIL::escape_id(port_name)))
+				conn = cell->getPort(RTLIL::escape_id(port_name));
 			while (SIZE(conn) <= port_offset) {
 				if (pr->GetPort()->GetDir() != DIR_IN)
 					conn.append(module->addWire(NEW_ID, port_offset - SIZE(conn)));
 				conn.append(RTLIL::State::Sz);
 			}
 			conn.replace(port_offset, net_map.at(pr->GetNet()));
-			cell->set(RTLIL::escape_id(port_name), conn);
+			cell->setPort(RTLIL::escape_id(port_name), conn);
 		}
 	}
 }
