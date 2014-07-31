@@ -124,7 +124,7 @@ Things to do right away:
 	- Add to kernel/celltypes.h (incl. eval() handling for non-mem cells)
 	- Add to InternalCellChecker::check() in kernel/rtlil.cc
 	- Add to techlibs/common/simlib.v
-	- Add to techlibs/common/stdcells.v
+	- Add to techlibs/common/techmap.v
 
 Things to do after finalizing the cell interface:
 

@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "passes/techmap/stdcells.inc"
+#include "passes/techmap/techmap.inc"
 
 // see simplemap.cc
 extern void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
@@ -790,7 +790,7 @@ struct TechmapPass : public Pass {
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
 			FILE *f = fmemopen(stdcells_code, strlen(stdcells_code), "rt");
-			Frontend::frontend_call(map, f, "<stdcells.v>", verilog_frontend);
+			Frontend::frontend_call(map, f, "<techmap.v>", verilog_frontend);
 			fclose(f);
 		} else
 			for (auto &fn : map_files)
