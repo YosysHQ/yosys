@@ -447,9 +447,9 @@ namespace {
 
 		void port(const char *name, int width)
 		{
-			if (!cell->has(name))
+			if (!cell->hasPort(name))
 				error(__LINE__);
-			if (cell->get(name).size() != width)
+			if (cell->getPort(name).size() != width)
 				error(__LINE__);
 			expected_ports.insert(name);
 		}
@@ -478,9 +478,9 @@ namespace {
 
 			for (const char *p = ports; *p; p++) {
 				char portname[3] = { '\\', *p, 0 };
-				if (!cell->has(portname))
+				if (!cell->hasPort(portname))
 					error(__LINE__);
-				if (cell->get(portname).size() != 1)
+				if (cell->getPort(portname).size() != 1)
 					error(__LINE__);
 			}
 
@@ -1001,7 +1001,7 @@ namespace {
 #if 0
 void RTLIL::Module::remove(RTLIL::Wire *wire)
 {
-	std::set<RTLIL::Wire*> wires_;
+	std::setPort<RTLIL::Wire*> wires_;
 	wires_.insert(wire);
 	remove(wires_);
 }
@@ -1167,8 +1167,8 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 		cell->parameters["\\A_SIGNED"] = is_signed;         \
 		cell->parameters["\\A_WIDTH"] = sig_a.size();        \
 		cell->parameters["\\Y_WIDTH"] = sig_y.size();        \
-		cell->set("\\A", sig_a);                   \
-		cell->set("\\Y", sig_y);                   \
+		cell->setPort("\\A", sig_a);                   \
+		cell->setPort("\\Y", sig_y);                   \
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed) { \
@@ -1196,9 +1196,9 @@ DEF_METHOD(LogicNot,   1, "$logic_not")
 		cell->parameters["\\A_WIDTH"] = sig_a.size();        \
 		cell->parameters["\\B_WIDTH"] = sig_b.size();        \
 		cell->parameters["\\Y_WIDTH"] = sig_y.size();        \
-		cell->set("\\A", sig_a);                   \
-		cell->set("\\B", sig_b);                   \
-		cell->set("\\Y", sig_y);                   \
+		cell->setPort("\\A", sig_a);                   \
+		cell->setPort("\\B", sig_b);                   \
+		cell->setPort("\\Y", sig_y);                   \
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, bool is_signed) { \
@@ -1239,10 +1239,10 @@ DEF_METHOD(LogicOr,  1, "$logic_or")
 		cell->parameters["\\WIDTH"] = sig_a.size();               \
 		cell->parameters["\\WIDTH"] = sig_b.size();               \
 		if (_pmux) cell->parameters["\\S_WIDTH"] = sig_s.size();  \
-		cell->set("\\A", sig_a);                        \
-		cell->set("\\B", sig_b);                        \
-		cell->set("\\S", sig_s);                        \
-		cell->set("\\Y", sig_y);                        \
+		cell->setPort("\\A", sig_a);                        \
+		cell->setPort("\\B", sig_b);                        \
+		cell->setPort("\\S", sig_s);                        \
+		cell->setPort("\\Y", sig_y);                        \
 		return cell;                                             \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s) { \
@@ -1258,8 +1258,8 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 #define DEF_METHOD_2(_func, _type, _P1, _P2) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2) { \
 		RTLIL::Cell *cell = addCell(name, _type);   \
-		cell->set("\\" #_P1, sig1);                 \
-		cell->set("\\" #_P2, sig2);                 \
+		cell->setPort("\\" #_P1, sig1);                 \
+		cell->setPort("\\" #_P2, sig2);                 \
 		return cell;                                \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1) { \
@@ -1270,9 +1270,9 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 #define DEF_METHOD_3(_func, _type, _P1, _P2, _P3) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3) { \
 		RTLIL::Cell *cell = addCell(name, _type);   \
-		cell->set("\\" #_P1, sig1);                 \
-		cell->set("\\" #_P2, sig2);                 \
-		cell->set("\\" #_P3, sig3);                 \
+		cell->setPort("\\" #_P1, sig1);                 \
+		cell->setPort("\\" #_P2, sig2);                 \
+		cell->setPort("\\" #_P3, sig3);                 \
 		return cell;                                \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2) { \
@@ -1283,10 +1283,10 @@ DEF_METHOD(SafePmux, "$safe_pmux",  1)
 #define DEF_METHOD_4(_func, _type, _P1, _P2, _P3, _P4) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3, RTLIL::SigSpec sig4) { \
 		RTLIL::Cell *cell = addCell(name, _type);   \
-		cell->set("\\" #_P1, sig1);                 \
-		cell->set("\\" #_P2, sig2);                 \
-		cell->set("\\" #_P3, sig3);                 \
-		cell->set("\\" #_P4, sig4);                 \
+		cell->setPort("\\" #_P1, sig1);                 \
+		cell->setPort("\\" #_P2, sig2);                 \
+		cell->setPort("\\" #_P3, sig3);                 \
+		cell->setPort("\\" #_P4, sig4);                 \
 		return cell;                                \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig1, RTLIL::SigSpec sig2, RTLIL::SigSpec sig3) { \
@@ -1311,9 +1311,9 @@ RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, RTLIL::SigSpec sig_a, R
 	cell->parameters["\\A_WIDTH"] = sig_a.size();
 	cell->parameters["\\B_WIDTH"] = sig_b.size();
 	cell->parameters["\\Y_WIDTH"] = sig_y.size();
-	cell->set("\\A", sig_a);
-	cell->set("\\B", sig_b);
-	cell->set("\\Y", sig_y);
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\B", sig_b);
+	cell->setPort("\\Y", sig_y);
 	return cell;
 }
 
@@ -1323,8 +1323,8 @@ RTLIL::Cell* RTLIL::Module::addSlice(RTLIL::IdString name, RTLIL::SigSpec sig_a,
 	cell->parameters["\\A_WIDTH"] = sig_a.size();
 	cell->parameters["\\Y_WIDTH"] = sig_y.size();
 	cell->parameters["\\OFFSET"] = offset;
-	cell->set("\\A", sig_a);
-	cell->set("\\Y", sig_y);
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\Y", sig_y);
 	return cell;
 }
 
@@ -1333,9 +1333,9 @@ RTLIL::Cell* RTLIL::Module::addConcat(RTLIL::IdString name, RTLIL::SigSpec sig_a
 	RTLIL::Cell *cell = addCell(name, "$concat");
 	cell->parameters["\\A_WIDTH"] = sig_a.size();
 	cell->parameters["\\B_WIDTH"] = sig_b.size();
-	cell->set("\\A", sig_a);
-	cell->set("\\B", sig_b);
-	cell->set("\\Y", sig_y);
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\B", sig_b);
+	cell->setPort("\\Y", sig_y);
 	return cell;
 }
 
@@ -1344,16 +1344,16 @@ RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, RTLIL::SigSpec sig_i, R
 	RTLIL::Cell *cell = addCell(name, "$lut");
 	cell->parameters["\\LUT"] = lut;
 	cell->parameters["\\WIDTH"] = sig_i.size();
-	cell->set("\\I", sig_i);
-	cell->set("\\O", sig_o);
+	cell->setPort("\\I", sig_i);
+	cell->setPort("\\O", sig_o);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addAssert(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
 {
 	RTLIL::Cell *cell = addCell(name, "$assert");
-	cell->set("\\A", sig_a);
-	cell->set("\\EN", sig_en);
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
 	return cell;
 }
 
@@ -1363,9 +1363,9 @@ RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, 
 	cell->parameters["\\SET_POLARITY"] = set_polarity;
 	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
 	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->set("\\SET", sig_set);
-	cell->set("\\CLR", sig_clr);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\SET", sig_set);
+	cell->setPort("\\CLR", sig_clr);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1374,9 +1374,9 @@ RTLIL::Cell* RTLIL::Module::addDff(RTLIL::IdString name, RTLIL::SigSpec sig_clk,
 	RTLIL::Cell *cell = addCell(name, "$dff");
 	cell->parameters["\\CLK_POLARITY"] = clk_polarity;
 	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->set("\\CLK", sig_clk);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\CLK", sig_clk);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1388,11 +1388,11 @@ RTLIL::Cell* RTLIL::Module::addDffsr(RTLIL::IdString name, RTLIL::SigSpec sig_cl
 	cell->parameters["\\SET_POLARITY"] = set_polarity;
 	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
 	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->set("\\CLK", sig_clk);
-	cell->set("\\SET", sig_set);
-	cell->set("\\CLR", sig_clr);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\CLK", sig_clk);
+	cell->setPort("\\SET", sig_set);
+	cell->setPort("\\CLR", sig_clr);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1404,10 +1404,10 @@ RTLIL::Cell* RTLIL::Module::addAdff(RTLIL::IdString name, RTLIL::SigSpec sig_clk
 	cell->parameters["\\ARST_POLARITY"] = arst_polarity;
 	cell->parameters["\\ARST_VALUE"] = arst_value;
 	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->set("\\CLK", sig_clk);
-	cell->set("\\ARST", sig_arst);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\CLK", sig_clk);
+	cell->setPort("\\ARST", sig_arst);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1416,9 +1416,9 @@ RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, RTLIL::SigSpec sig_e
 	RTLIL::Cell *cell = addCell(name, "$dlatch");
 	cell->parameters["\\EN_POLARITY"] = en_polarity;
 	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->set("\\EN", sig_en);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\EN", sig_en);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1430,20 +1430,20 @@ RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig
 	cell->parameters["\\SET_POLARITY"] = set_polarity;
 	cell->parameters["\\CLR_POLARITY"] = clr_polarity;
 	cell->parameters["\\WIDTH"] = sig_q.size();
-	cell->set("\\EN", sig_en);
-	cell->set("\\SET", sig_set);
-	cell->set("\\CLR", sig_clr);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\EN", sig_en);
+	cell->setPort("\\SET", sig_set);
+	cell->setPort("\\CLR", sig_clr);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addDffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N'));
-	cell->set("\\C", sig_clk);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\C", sig_clk);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1451,11 +1451,11 @@ RTLIL::Cell* RTLIL::Module::addDffsrGate(RTLIL::IdString name, RTLIL::SigSpec si
 		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
-	cell->set("\\C", sig_clk);
-	cell->set("\\S", sig_set);
-	cell->set("\\R", sig_clr);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\C", sig_clk);
+	cell->setPort("\\S", sig_set);
+	cell->setPort("\\R", sig_clr);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1463,19 +1463,19 @@ RTLIL::Cell* RTLIL::Module::addAdffGate(RTLIL::IdString name, RTLIL::SigSpec sig
 		bool arst_value, bool clk_polarity, bool arst_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
-	cell->set("\\C", sig_clk);
-	cell->set("\\R", sig_arst);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\C", sig_clk);
+	cell->setPort("\\R", sig_arst);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
 RTLIL::Cell* RTLIL::Module::addDlatchGate(RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N'));
-	cell->set("\\E", sig_en);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\E", sig_en);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1483,11 +1483,11 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec
 		RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity, bool set_polarity, bool clr_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
-	cell->set("\\E", sig_en);
-	cell->set("\\S", sig_set);
-	cell->set("\\R", sig_clr);
-	cell->set("\\D", sig_d);
-	cell->set("\\Q", sig_q);
+	cell->setPort("\\E", sig_en);
+	cell->setPort("\\S", sig_set);
+	cell->setPort("\\R", sig_clr);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
 	return cell;
 }
 
@@ -1509,12 +1509,12 @@ RTLIL::Memory::Memory()
 	size = 0;
 }
 
-bool RTLIL::Cell::has(RTLIL::IdString portname) const
+bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const
 {
 	return connections_.count(portname) != 0;
 }
 
-void RTLIL::Cell::unset(RTLIL::IdString portname)
+void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 {
 	std::pair<RTLIL::IdString, RTLIL::SigSpec> new_conn(portname, RTLIL::SigSpec());
 
@@ -1528,7 +1528,7 @@ void RTLIL::Cell::unset(RTLIL::IdString portname)
 	connections_.erase(portname);
 }
 
-void RTLIL::Cell::set(RTLIL::IdString portname, RTLIL::SigSpec signal)
+void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
 	std::pair<RTLIL::IdString, RTLIL::SigSpec> new_conn(portname, signal);
 
@@ -1542,7 +1542,7 @@ void RTLIL::Cell::set(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	connections_[portname] = signal;
 }
 
-const RTLIL::SigSpec &RTLIL::Cell::get(RTLIL::IdString portname) const
+const RTLIL::SigSpec &RTLIL::Cell::getPort(RTLIL::IdString portname) const
 {
 	return connections_.at(portname);
 }
@@ -1550,6 +1550,26 @@ const RTLIL::SigSpec &RTLIL::Cell::get(RTLIL::IdString portname) const
 const std::map<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections() const
 {
 	return connections_;
+}
+
+bool RTLIL::Cell::hasParam(RTLIL::IdString paramname) const
+{
+	return parameters.count(paramname);
+}
+
+void RTLIL::Cell::unsetParam(RTLIL::IdString paramname)
+{
+	parameters.erase(paramname);
+}
+
+void RTLIL::Cell::setParam(RTLIL::IdString paramname, RTLIL::Const value)
+{
+	parameters[paramname] = value;
+}
+
+const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
+{
+	return parameters.at(paramname);
 }
 
 void RTLIL::Cell::check()

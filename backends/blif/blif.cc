@@ -145,56 +145,56 @@ struct BlifDumper
 
 			if (!config->icells_mode && cell->type == "$_INV_") {
 				fprintf(f, ".names %s %s\n0 1\n",
-						cstr(cell->get("\\A")), cstr(cell->get("\\Y")));
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_AND_") {
 				fprintf(f, ".names %s %s %s\n11 1\n",
-						cstr(cell->get("\\A")), cstr(cell->get("\\B")), cstr(cell->get("\\Y")));
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_OR_") {
 				fprintf(f, ".names %s %s %s\n1- 1\n-1 1\n",
-						cstr(cell->get("\\A")), cstr(cell->get("\\B")), cstr(cell->get("\\Y")));
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_XOR_") {
 				fprintf(f, ".names %s %s %s\n10 1\n01 1\n",
-						cstr(cell->get("\\A")), cstr(cell->get("\\B")), cstr(cell->get("\\Y")));
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_MUX_") {
 				fprintf(f, ".names %s %s %s %s\n1-0 1\n-11 1\n",
-						cstr(cell->get("\\A")), cstr(cell->get("\\B")),
-						cstr(cell->get("\\S")), cstr(cell->get("\\Y")));
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
+						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_N_") {
 				fprintf(f, ".latch %s %s fe %s\n",
-						cstr(cell->get("\\D")), cstr(cell->get("\\Q")), cstr(cell->get("\\C")));
+						cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")), cstr(cell->getPort("\\C")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_P_") {
 				fprintf(f, ".latch %s %s re %s\n",
-						cstr(cell->get("\\D")), cstr(cell->get("\\Q")), cstr(cell->get("\\C")));
+						cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")), cstr(cell->getPort("\\C")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$lut") {
 				fprintf(f, ".names");
-				auto &inputs = cell->get("\\I");
+				auto &inputs = cell->getPort("\\I");
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				log_assert(inputs.size() == width);
 				for (int i = 0; i < inputs.size(); i++) {
 					fprintf(f, " %s", cstr(inputs.extract(i, 1)));
 				}
-				auto &output = cell->get("\\O");
+				auto &output = cell->getPort("\\O");
 				log_assert(output.size() == 1);
 				fprintf(f, " %s", cstr(output));
 				fprintf(f, "\n");

@@ -86,10 +86,10 @@ struct OptMuxtreeWorker
 		{
 			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
 			{
-				RTLIL::SigSpec sig_a = cell->get("\\A");
-				RTLIL::SigSpec sig_b = cell->get("\\B");
-				RTLIL::SigSpec sig_s = cell->get("\\S");
-				RTLIL::SigSpec sig_y = cell->get("\\Y");
+				RTLIL::SigSpec sig_a = cell->getPort("\\A");
+				RTLIL::SigSpec sig_b = cell->getPort("\\B");
+				RTLIL::SigSpec sig_s = cell->getPort("\\S");
+				RTLIL::SigSpec sig_y = cell->getPort("\\Y");
 
 				muxinfo_t muxinfo;
 				muxinfo.cell = cell;
@@ -192,10 +192,10 @@ struct OptMuxtreeWorker
 				continue;
 			}
 
-			RTLIL::SigSpec sig_a = mi.cell->get("\\A");
-			RTLIL::SigSpec sig_b = mi.cell->get("\\B");
-			RTLIL::SigSpec sig_s = mi.cell->get("\\S");
-			RTLIL::SigSpec sig_y = mi.cell->get("\\Y");
+			RTLIL::SigSpec sig_a = mi.cell->getPort("\\A");
+			RTLIL::SigSpec sig_b = mi.cell->getPort("\\B");
+			RTLIL::SigSpec sig_s = mi.cell->getPort("\\S");
+			RTLIL::SigSpec sig_y = mi.cell->getPort("\\Y");
 
 			RTLIL::SigSpec sig_ports = sig_b;
 			sig_ports.append(sig_a);
@@ -220,9 +220,9 @@ struct OptMuxtreeWorker
 					}
 				}
 
-				mi.cell->set("\\A", new_sig_a);
-				mi.cell->set("\\B", new_sig_b);
-				mi.cell->set("\\S", new_sig_s);
+				mi.cell->setPort("\\A", new_sig_a);
+				mi.cell->setPort("\\B", new_sig_b);
+				mi.cell->setPort("\\S", new_sig_s);
 				if (new_sig_s.size() == 1) {
 					mi.cell->type = "$mux";
 					mi.cell->parameters.erase("\\S_WIDTH");

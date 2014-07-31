@@ -53,9 +53,9 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_ENABLE")).extract(i, 1).as_const();
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\TRANSPARENT"] = RTLIL::SigSpec(memory->parameters.at("\\RD_TRANSPARENT")).extract(i, 1).as_const();
-		cell->set("\\CLK", memory->get("\\RD_CLK").extract(i, 1));
-		cell->set("\\ADDR", memory->get("\\RD_ADDR").extract(i*abits, abits));
-		cell->set("\\DATA", memory->get("\\RD_DATA").extract(i*mem->width, mem->width));
+		cell->setPort("\\CLK", memory->getPort("\\RD_CLK").extract(i, 1));
+		cell->setPort("\\ADDR", memory->getPort("\\RD_ADDR").extract(i*abits, abits));
+		cell->setPort("\\DATA", memory->getPort("\\RD_DATA").extract(i*mem->width, mem->width));
 	}
 
 	for (int i = 0; i < num_wr_ports; i++)
@@ -67,10 +67,10 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_ENABLE")).extract(i, 1).as_const();
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\PRIORITY"] = i;
-		cell->set("\\CLK", memory->get("\\WR_CLK").extract(i, 1));
-		cell->set("\\EN", memory->get("\\WR_EN").extract(i*mem->width, mem->width));
-		cell->set("\\ADDR", memory->get("\\WR_ADDR").extract(i*abits, abits));
-		cell->set("\\DATA", memory->get("\\WR_DATA").extract(i*mem->width, mem->width));
+		cell->setPort("\\CLK", memory->getPort("\\WR_CLK").extract(i, 1));
+		cell->setPort("\\EN", memory->getPort("\\WR_EN").extract(i*mem->width, mem->width));
+		cell->setPort("\\ADDR", memory->getPort("\\WR_ADDR").extract(i*abits, abits));
+		cell->setPort("\\DATA", memory->getPort("\\WR_DATA").extract(i*mem->width, mem->width));
 	}
 
 	module->remove(memory);

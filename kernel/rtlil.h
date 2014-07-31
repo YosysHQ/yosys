@@ -331,6 +331,7 @@ struct RTLIL::Selection
 
 struct RTLIL::Monitor
 {
+	virtual ~Monitor() { }
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
 	virtual void notify_cell_connect(RTLIL::Cell*, const std::pair<RTLIL::IdString, RTLIL::SigSpec>&) { }
@@ -663,11 +664,17 @@ public:
 	RTLIL_ATTRIBUTE_MEMBERS
 
 	// access cell ports
-	bool has(RTLIL::IdString portname) const;
-	void unset(RTLIL::IdString portname);
-	void set(RTLIL::IdString portname, RTLIL::SigSpec signal);
-	const RTLIL::SigSpec &get(RTLIL::IdString portname) const;
+	bool hasPort(RTLIL::IdString portname) const;
+	void unsetPort(RTLIL::IdString portname);
+	void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
+	const RTLIL::SigSpec &getPort(RTLIL::IdString portname) const;
 	const std::map<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
+
+	// access cell parameters
+	bool hasParam(RTLIL::IdString portname) const;
+	void unsetParam(RTLIL::IdString portname);
+	void setParam(RTLIL::IdString portname, RTLIL::Const value);
+	const RTLIL::Const &getParam(RTLIL::IdString portname) const;
 
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);

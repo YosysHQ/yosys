@@ -43,34 +43,34 @@ struct FsmExpand
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
-			if (cell->get("\\A").size() < 2)
+			if (cell->getPort("\\A").size() < 2)
 				return true;
 
 		RTLIL::SigSpec new_signals;
-		if (cell->has("\\A"))
-			new_signals.append(assign_map(cell->get("\\A")));
-		if (cell->has("\\B"))
-			new_signals.append(assign_map(cell->get("\\B")));
-		if (cell->has("\\S"))
-			new_signals.append(assign_map(cell->get("\\S")));
-		if (cell->has("\\Y"))
-			new_signals.append(assign_map(cell->get("\\Y")));
+		if (cell->hasPort("\\A"))
+			new_signals.append(assign_map(cell->getPort("\\A")));
+		if (cell->hasPort("\\B"))
+			new_signals.append(assign_map(cell->getPort("\\B")));
+		if (cell->hasPort("\\S"))
+			new_signals.append(assign_map(cell->getPort("\\S")));
+		if (cell->hasPort("\\Y"))
+			new_signals.append(assign_map(cell->getPort("\\Y")));
 
 		new_signals.sort_and_unify();
 		new_signals.remove_const();
 
-		new_signals.remove(assign_map(fsm_cell->get("\\CTRL_IN")));
-		new_signals.remove(assign_map(fsm_cell->get("\\CTRL_OUT")));
+		new_signals.remove(assign_map(fsm_cell->getPort("\\CTRL_IN")));
+		new_signals.remove(assign_map(fsm_cell->getPort("\\CTRL_OUT")));
 
 		if (new_signals.size() > 3)
 			return false;
 
-		if (cell->has("\\Y")) {
-			new_signals.append(assign_map(cell->get("\\Y")));
+		if (cell->hasPort("\\Y")) {
+			new_signals.append(assign_map(cell->getPort("\\Y")));
 			new_signals.sort_and_unify();
 			new_signals.remove_const();
-			new_signals.remove(assign_map(fsm_cell->get("\\CTRL_IN")));
-			new_signals.remove(assign_map(fsm_cell->get("\\CTRL_OUT")));
+			new_signals.remove(assign_map(fsm_cell->getPort("\\CTRL_IN")));
+			new_signals.remove(assign_map(fsm_cell->getPort("\\CTRL_OUT")));
 		}
 
 		if (new_signals.size() > 2)
@@ -83,10 +83,10 @@ struct FsmExpand
 	{
 		std::vector<RTLIL::Cell*> cell_list;
 
-		for (auto c : sig2driver.find(assign_map(fsm_cell->get("\\CTRL_IN"))))
+		for (auto c : sig2driver.find(assign_map(fsm_cell->getPort("\\CTRL_IN"))))
 			cell_list.push_back(c);
 
-		for (auto c : sig2user.find(assign_map(fsm_cell->get("\\CTRL_OUT"))))
+		for (auto c : sig2user.find(assign_map(fsm_cell->getPort("\\CTRL_OUT"))))
 			cell_list.push_back(c);
 
 		current_set.clear();
@@ -148,12 +148,12 @@ struct FsmExpand
 		for (int i = 0; i < (1 << input_sig.size()); i++) {
 			RTLIL::Const in_val(i, input_sig.size());
 			RTLIL::SigSpec A, B, S;
-			if (cell->has("\\A"))
-				A = assign_map(cell->get("\\A"));
-			if (cell->has("\\B"))
-				B = assign_map(cell->get("\\B"));
-			if (cell->has("\\S"))
-				S = assign_map(cell->get("\\S"));
+			if (cell->hasPort("\\A"))
+				A = assign_map(cell->getPort("\\A"));
+			if (cell->hasPort("\\B"))
+				B = assign_map(cell->getPort("\\B"));
+			if (cell->hasPort("\\S"))
+				S = assign_map(cell->getPort("\\S"));
 			A.replace(input_sig, RTLIL::SigSpec(in_val));
 			B.replace(input_sig, RTLIL::SigSpec(in_val));
 			S.replace(input_sig, RTLIL::SigSpec(in_val));
@@ -167,14 +167,14 @@ struct FsmExpand
 		fsm_data.copy_from_cell(fsm_cell);
 
 		fsm_data.num_inputs += input_sig.size();
-		RTLIL::SigSpec new_ctrl_in = fsm_cell->get("\\CTRL_IN");
+		RTLIL::SigSpec new_ctrl_in = fsm_cell->getPort("\\CTRL_IN");
 		new_ctrl_in.append(input_sig);
-		fsm_cell->set("\\CTRL_IN", new_ctrl_in);
+		fsm_cell->setPort("\\CTRL_IN", new_ctrl_in);
 
 		fsm_data.num_outputs += output_sig.size();
-		RTLIL::SigSpec new_ctrl_out = fsm_cell->get("\\CTRL_OUT");
+		RTLIL::SigSpec new_ctrl_out = fsm_cell->getPort("\\CTRL_OUT");
 		new_ctrl_out.append(output_sig);
-		fsm_cell->set("\\CTRL_OUT", new_ctrl_out);
+		fsm_cell->setPort("\\CTRL_OUT", new_ctrl_out);
 
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {

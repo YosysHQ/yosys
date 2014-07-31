@@ -176,7 +176,7 @@ struct ConnectPass : public Pass {
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr.c_str());
 
-			module->cells_.at(RTLIL::escape_id(port_cell))->set(RTLIL::escape_id(port_port), sigmap(sig));
+			module->cells_.at(RTLIL::escape_id(port_cell))->setPort(RTLIL::escape_id(port_port), sigmap(sig));
 		}
 		else
 			log_cmd_error("Expected -set, -unset, or -port.\n");

@@ -127,7 +127,7 @@ namespace
 				for (auto &conn : needleCell->connections())
 				{
 					RTLIL::SigSpec needleSig = conn.second;
-					RTLIL::SigSpec haystackSig = haystackCell->get(portMapping.at(conn.first));
+					RTLIL::SigSpec haystackSig = haystackCell->getPort(portMapping.at(conn.first));
 
 					for (int i = 0; i < std::min(needleSig.size(), haystackSig.size()); i++) {
 						RTLIL::Wire *needleWire = needleSig[i].wire, *haystackWire = haystackSig[i].wire;
@@ -304,7 +304,7 @@ namespace
 			if (wire->port_id > 0) {
 				for (int i = 0; i < wire->width; i++)
 					sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<std::string, int>(wire->name, i));
-				cell->set(wire->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
+				cell->setPort(wire->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
 			}
 		}
 
@@ -323,10 +323,10 @@ namespace
 				if (mapping.portMapping.count(conn.first) > 0 && sig2port.has(sigmap(sig))) {
 					for (int i = 0; i < sig.size(); i++)
 					for (auto &port : sig2port.find(sig[i])) {
-						RTLIL::SigSpec bitsig = haystack_cell->get(mapping.portMapping[conn.first]).extract(i, 1);
-						RTLIL::SigSpec new_sig = cell->get(port.first);
+						RTLIL::SigSpec bitsig = haystack_cell->getPort(mapping.portMapping[conn.first]).extract(i, 1);
+						RTLIL::SigSpec new_sig = cell->getPort(port.first);
 						new_sig.replace(port.second, bitsig);
-						cell->set(port.first, new_sig);
+						cell->setPort(port.first, new_sig);
 					}
 				}
 			}
@@ -742,7 +742,7 @@ struct ExtractPass : public Pass {
 						for (auto &chunk : chunks)
 							if (chunk.wire != NULL)
 								chunk.wire = newMod->wires_.at(chunk.wire->name);
-						newCell->set(conn.first, chunks);
+						newCell->setPort(conn.first, chunks);
 					}
 				}
 			}

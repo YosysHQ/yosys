@@ -305,17 +305,17 @@ void dump_cell_expr_port(FILE *f, RTLIL::Cell *cell, std::string port, bool gen_
 {
 	if (gen_signed && cell->parameters.count("\\" + port + "_SIGNED") > 0 && cell->parameters["\\" + port + "_SIGNED"].as_bool()) {
 		fprintf(f, "$signed(");
-		dump_sigspec(f, cell->get("\\" + port));
+		dump_sigspec(f, cell->getPort("\\" + port));
 		fprintf(f, ")");
 	} else
-		dump_sigspec(f, cell->get("\\" + port));
+		dump_sigspec(f, cell->getPort("\\" + port));
 }
 
 std::string cellname(RTLIL::Cell *cell)
 {
-	if (!norename && cell->name[0] == '$' && reg_ct.cell_known(cell->type) && cell->has("\\Q"))
+	if (!norename && cell->name[0] == '$' && reg_ct.cell_known(cell->type) && cell->hasPort("\\Q"))
 	{
-		RTLIL::SigSpec sig = cell->get("\\Q");
+		RTLIL::SigSpec sig = cell->getPort("\\Q");
 		if (SIZE(sig) != 1 || sig.is_fully_const())
 			goto no_special_reg_name;
 
@@ -350,7 +350,7 @@ no_special_reg_name:
 void dump_cell_expr_uniop(FILE *f, std::string indent, RTLIL::Cell *cell, std::string op)
 {
 	fprintf(f, "%s" "assign ", indent.c_str());
-	dump_sigspec(f, cell->get("\\Y"));
+	dump_sigspec(f, cell->getPort("\\Y"));
 	fprintf(f, " = %s ", op.c_str());
 	dump_attributes(f, "", cell->attributes, ' ');
 	dump_cell_expr_port(f, cell, "A", true);
@@ -360,7 +360,7 @@ void dump_cell_expr_uniop(FILE *f, std::string indent, RTLIL::Cell *cell, std::s
 void dump_cell_expr_binop(FILE *f, std::string indent, RTLIL::Cell *cell, std::string op)
 {
 	fprintf(f, "%s" "assign ", indent.c_str());
-	dump_sigspec(f, cell->get("\\Y"));
+	dump_sigspec(f, cell->getPort("\\Y"));
 	fprintf(f, " = ");
 	dump_cell_expr_port(f, cell, "A", true);
 	fprintf(f, " %s ", op.c_str());
@@ -373,7 +373,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 {
 	if (cell->type == "$_INV_") {
 		fprintf(f, "%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->get("\\Y"));
+		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = ");
 		fprintf(f, "~");
 		dump_attributes(f, "", cell->attributes, ' ');
@@ -384,7 +384,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_") {
 		fprintf(f, "%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->get("\\Y"));
+		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = ");
 		dump_cell_expr_port(f, cell, "A", false);
 		fprintf(f, " ");
@@ -403,7 +403,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type == "$_MUX_") {
 		fprintf(f, "%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->get("\\Y"));
+		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = ");
 		dump_cell_expr_port(f, cell, "S", false);
 		fprintf(f, " ? ");
@@ -418,23 +418,23 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type.substr(0, 6) == "$_DFF_")
 	{
 		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->get("\\Q"), reg_name);
+		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
 		if (!out_is_reg_wire)
 			fprintf(f, "%s" "reg %s;\n", indent.c_str(), reg_name.c_str());
 
 		dump_attributes(f, indent, cell->attributes);
 		fprintf(f, "%s" "always @(%sedge ", indent.c_str(), cell->type[6] == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->get("\\C"));
+		dump_sigspec(f, cell->getPort("\\C"));
 		if (cell->type[7] != '_') {
 			fprintf(f, " or %sedge ", cell->type[7] == 'P' ? "pos" : "neg");
-			dump_sigspec(f, cell->get("\\R"));
+			dump_sigspec(f, cell->getPort("\\R"));
 		}
 		fprintf(f, ")\n");
 
 		if (cell->type[7] != '_') {
 			fprintf(f, "%s" "  if (%s", indent.c_str(), cell->type[7] == 'P' ? "" : "!");
-			dump_sigspec(f, cell->get("\\R"));
+			dump_sigspec(f, cell->getPort("\\R"));
 			fprintf(f, ")\n");
 			fprintf(f, "%s" "    %s <= %c;\n", indent.c_str(), reg_name.c_str(), cell->type[8]);
 			fprintf(f, "%s" "  else\n", indent.c_str());
@@ -446,7 +446,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 
 		if (!out_is_reg_wire) {
 			fprintf(f, "%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->get("\\Q"));
+			dump_sigspec(f, cell->getPort("\\Q"));
 			fprintf(f, " = %s;\n", reg_name.c_str());
 		}
 
@@ -458,27 +458,27 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		char pol_c = cell->type[8], pol_s = cell->type[9], pol_r = cell->type[10];
 
 		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->get("\\Q"), reg_name);
+		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
 		if (!out_is_reg_wire)
 			fprintf(f, "%s" "reg %s;\n", indent.c_str(), reg_name.c_str());
 
 		dump_attributes(f, indent, cell->attributes);
 		fprintf(f, "%s" "always @(%sedge ", indent.c_str(), pol_c == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->get("\\C"));
+		dump_sigspec(f, cell->getPort("\\C"));
 		fprintf(f, " or %sedge ", pol_s == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->get("\\S"));
+		dump_sigspec(f, cell->getPort("\\S"));
 		fprintf(f, " or %sedge ", pol_r == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->get("\\R"));
+		dump_sigspec(f, cell->getPort("\\R"));
 		fprintf(f, ")\n");
 
 		fprintf(f, "%s" "  if (%s", indent.c_str(), pol_r == 'P' ? "" : "!");
-		dump_sigspec(f, cell->get("\\R"));
+		dump_sigspec(f, cell->getPort("\\R"));
 		fprintf(f, ")\n");
 		fprintf(f, "%s" "    %s <= 0;\n", indent.c_str(), reg_name.c_str());
 
 		fprintf(f, "%s" "  else if (%s", indent.c_str(), pol_s == 'P' ? "" : "!");
-		dump_sigspec(f, cell->get("\\S"));
+		dump_sigspec(f, cell->getPort("\\S"));
 		fprintf(f, ")\n");
 		fprintf(f, "%s" "    %s <= 1;\n", indent.c_str(), reg_name.c_str());
 
@@ -489,7 +489,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 
 		if (!out_is_reg_wire) {
 			fprintf(f, "%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->get("\\Q"));
+			dump_sigspec(f, cell->getPort("\\Q"));
 			fprintf(f, " = %s;\n", reg_name.c_str());
 		}
 
@@ -547,7 +547,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$pmux_safe")
 	{
 		int width = cell->parameters["\\WIDTH"].as_int();
-		int s_width = cell->get("\\S").size();
+		int s_width = cell->getPort("\\S").size();
 		std::string func_name = cellname(cell);
 
 		fprintf(f, "%s" "function [%d:0] %s;\n", indent.c_str(), width-1, func_name.c_str());
@@ -579,13 +579,13 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		fprintf(f, "%s" "endfunction\n", indent.c_str());
 
 		fprintf(f, "%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->get("\\Y"));
+		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = %s(", func_name.c_str());
-		dump_sigspec(f, cell->get("\\A"));
+		dump_sigspec(f, cell->getPort("\\A"));
 		fprintf(f, ", ");
-		dump_sigspec(f, cell->get("\\B"));
+		dump_sigspec(f, cell->getPort("\\B"));
 		fprintf(f, ", ");
-		dump_sigspec(f, cell->get("\\S"));
+		dump_sigspec(f, cell->getPort("\\S"));
 		fprintf(f, ");\n");
 		return true;
 	}
@@ -593,9 +593,9 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == "$slice")
 	{
 		fprintf(f, "%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->get("\\Y"));
+		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = ");
-		dump_sigspec(f, cell->get("\\A"));
+		dump_sigspec(f, cell->getPort("\\A"));
 		fprintf(f, " >> %d;\n", cell->parameters.at("\\OFFSET").as_int());
 		return true;
 	}
@@ -603,14 +603,14 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == "$bu0")
 	{
 		fprintf(f, "%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->get("\\Y"));
+		dump_sigspec(f, cell->getPort("\\Y"));
 		if (cell->parameters["\\A_SIGNED"].as_bool()) {
 			fprintf(f, " = $signed(");
-			dump_sigspec(f, cell->get("\\A"));
+			dump_sigspec(f, cell->getPort("\\A"));
 			fprintf(f, ");\n");
 		} else {
 			fprintf(f, " = { 1'b0, ");
-			dump_sigspec(f, cell->get("\\A"));
+			dump_sigspec(f, cell->getPort("\\A"));
 			fprintf(f, " };\n");
 		}
 		return true;
@@ -619,11 +619,11 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == "$concat")
 	{
 		fprintf(f, "%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->get("\\Y"));
+		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = { ");
-		dump_sigspec(f, cell->get("\\B"));
+		dump_sigspec(f, cell->getPort("\\B"));
 		fprintf(f, " , ");
-		dump_sigspec(f, cell->get("\\A"));
+		dump_sigspec(f, cell->getPort("\\A"));
 		fprintf(f, " };\n");
 		return true;
 	}
@@ -633,17 +633,17 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		RTLIL::SigSpec sig_clk, sig_arst, val_arst;
 		bool pol_clk, pol_arst = false;
 
-		sig_clk = cell->get("\\CLK");
+		sig_clk = cell->getPort("\\CLK");
 		pol_clk = cell->parameters["\\CLK_POLARITY"].as_bool();
 
 		if (cell->type == "$adff") {
-			sig_arst = cell->get("\\ARST");
+			sig_arst = cell->getPort("\\ARST");
 			pol_arst = cell->parameters["\\ARST_POLARITY"].as_bool();
 			val_arst = RTLIL::SigSpec(cell->parameters["\\ARST_VALUE"]);
 		}
 
 		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->get("\\Q"), reg_name);
+		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
 		if (!out_is_reg_wire)
 			fprintf(f, "%s" "reg [%d:0] %s;\n", indent.c_str(), cell->parameters["\\WIDTH"].as_int()-1, reg_name.c_str());
@@ -672,7 +672,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 
 		if (!out_is_reg_wire) {
 			fprintf(f, "%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->get("\\Q"));
+			dump_sigspec(f, cell->getPort("\\Q"));
 			fprintf(f, " = %s;\n", reg_name.c_str());
 		}
 
@@ -920,10 +920,10 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
-			if (!reg_ct.cell_known(cell->type) || !cell->has("\\Q"))
+			if (!reg_ct.cell_known(cell->type) || !cell->hasPort("\\Q"))
 				continue;
 
-			RTLIL::SigSpec sig = cell->get("\\Q");
+			RTLIL::SigSpec sig = cell->getPort("\\Q");
 
 			if (sig.is_chunk()) {
 				RTLIL::SigChunk chunk = sig.as_chunk();

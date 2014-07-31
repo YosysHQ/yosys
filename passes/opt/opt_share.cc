@@ -179,8 +179,8 @@ struct OptShareWorker
 		}
 
 		if (cell1->type.substr(0, 1) == "$" && conn1.count("\\Q") != 0) {
-			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->get("\\Q")).to_sigbit_vector();
-			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->get("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->getPort("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->getPort("\\Q")).to_sigbit_vector();
 			for (size_t i = 0; i < q1.size(); i++)
 				if ((q1.at(i).wire == NULL || q2.at(i).wire == NULL) && q1.at(i) != q2.at(i)) {
 					lt = q1.at(i) < q2.at(i);
@@ -262,7 +262,7 @@ struct OptShareWorker
 					log("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
 					for (auto &it : cell->connections()) {
 						if (ct.cell_output(cell->type, it.first)) {
-							RTLIL::SigSpec other_sig = sharemap[cell]->get(it.first);
+							RTLIL::SigSpec other_sig = sharemap[cell]->getPort(it.first);
 							log("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 									log_signal(it.second), log_signal(other_sig));
 							module->connect(RTLIL::SigSig(it.second, other_sig));

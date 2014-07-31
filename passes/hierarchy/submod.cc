@@ -185,7 +185,7 @@ struct SubmodWorker
 			RTLIL::Wire *old_wire = it.first;
 			RTLIL::Wire *new_wire = it.second.new_wire;
 			if (new_wire->port_id > 0)
-				new_cell->set(new_wire->name, RTLIL::SigSpec(old_wire));
+				new_cell->setPort(new_wire->name, RTLIL::SigSpec(old_wire));
 		}
 	}
 

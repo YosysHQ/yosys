@@ -35,7 +35,7 @@ void hilomap_worker(RTLIL::SigSpec &sig)
 			if (!singleton_mode || last_hi == RTLIL::State::Sm) {
 				last_hi = module->addWire(NEW_ID);
 				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(hicell_celltype));
-				cell->set(RTLIL::escape_id(hicell_portname), last_hi);
+				cell->setPort(RTLIL::escape_id(hicell_portname), last_hi);
 			}
 			bit = last_hi;
 		}
@@ -43,7 +43,7 @@ void hilomap_worker(RTLIL::SigSpec &sig)
 			if (!singleton_mode || last_lo == RTLIL::State::Sm) {
 				last_lo = module->addWire(NEW_ID);
 				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(locell_celltype));
-				cell->set(RTLIL::escape_id(locell_portname), last_lo);
+				cell->setPort(RTLIL::escape_id(locell_portname), last_lo);
 			}
 			bit = last_lo;
 		}

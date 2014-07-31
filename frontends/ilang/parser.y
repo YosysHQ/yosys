@@ -207,9 +207,9 @@ cell_body:
 		delete $5;
 	} |
 	cell_body TOK_CONNECT TOK_ID sigspec EOL {
-		if (current_cell->has($3))
+		if (current_cell->hasPort($3))
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell port %s.", $3).c_str());
-		current_cell->set($3, *$4);
+		current_cell->setPort($3, *$4);
 		delete $4;
 		free($3);
 	} |

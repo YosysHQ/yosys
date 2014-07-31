@@ -83,8 +83,8 @@ static void find_dff_wires(std::set<std::string> &dff_wires, RTLIL::Module *modu
 	SigPool dffsignals;
 
 	for (auto &it : module->cells_) {
-		if (ct.cell_known(it.second->type) && it.second->has("\\Q"))
-			dffsignals.add(sigmap(it.second->get("\\Q")));
+		if (ct.cell_known(it.second->type) && it.second->hasPort("\\Q"))
+			dffsignals.add(sigmap(it.second->getPort("\\Q")));
 	}
 
 	for (auto &it : module->wires_) {
@@ -113,10 +113,10 @@ static void create_dff_dq_map(std::map<std::string, dff_map_info_t> &map, RTLIL:
 		info.cell = it.second;
 
 		if (info.cell->type == "$dff") {
-			info.bit_clk = sigmap(info.cell->get("\\CLK")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\CLK")).to_single_sigbit();
 			info.clk_polarity = info.cell->parameters.at("\\CLK_POLARITY").as_bool();
-			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->get("\\D")).to_sigbit_vector();
-			std::vector<RTLIL::SigBit> sig_q = sigmap(info.cell->get("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->getPort("\\D")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> sig_q = sigmap(info.cell->getPort("\\Q")).to_sigbit_vector();
 			for (size_t i = 0; i < sig_d.size(); i++) {
 				info.bit_d = sig_d.at(i);
 				bit_info[sig_q.at(i)] = info;
@@ -125,12 +125,12 @@ static void create_dff_dq_map(std::map<std::string, dff_map_info_t> &map, RTLIL:
 		}
 
 		if (info.cell->type == "$adff") {
-			info.bit_clk = sigmap(info.cell->get("\\CLK")).to_single_sigbit();
-			info.bit_arst = sigmap(info.cell->get("\\ARST")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\CLK")).to_single_sigbit();
+			info.bit_arst = sigmap(info.cell->getPort("\\ARST")).to_single_sigbit();
 			info.clk_polarity = info.cell->parameters.at("\\CLK_POLARITY").as_bool();
 			info.arst_polarity = info.cell->parameters.at("\\ARST_POLARITY").as_bool();
-			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->get("\\D")).to_sigbit_vector();
-			std::vector<RTLIL::SigBit> sig_q = sigmap(info.cell->get("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->getPort("\\D")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> sig_q = sigmap(info.cell->getPort("\\Q")).to_sigbit_vector();
 			std::vector<RTLIL::State> arst_value = info.cell->parameters.at("\\ARST_VALUE").bits;
 			for (size_t i = 0; i < sig_d.size(); i++) {
 				info.bit_d = sig_d.at(i);
@@ -141,21 +141,21 @@ static void create_dff_dq_map(std::map<std::string, dff_map_info_t> &map, RTLIL:
 		}
 
 		if (info.cell->type == "$_DFF_N_" || info.cell->type == "$_DFF_P_") {
-			info.bit_clk = sigmap(info.cell->get("\\C")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\C")).to_single_sigbit();
 			info.clk_polarity = info.cell->type == "$_DFF_P_";
-			info.bit_d = sigmap(info.cell->get("\\D")).to_single_sigbit();
-			bit_info[sigmap(info.cell->get("\\Q")).to_single_sigbit()] = info;
+			info.bit_d = sigmap(info.cell->getPort("\\D")).to_single_sigbit();
+			bit_info[sigmap(info.cell->getPort("\\Q")).to_single_sigbit()] = info;
 			continue;
 		}
 
 		if (info.cell->type.size() == 10 && info.cell->type.substr(0, 6) == "$_DFF_") {
-			info.bit_clk = sigmap(info.cell->get("\\C")).to_single_sigbit();
-			info.bit_arst = sigmap(info.cell->get("\\R")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\C")).to_single_sigbit();
+			info.bit_arst = sigmap(info.cell->getPort("\\R")).to_single_sigbit();
 			info.clk_polarity = info.cell->type[6] == 'P';
 			info.arst_polarity = info.cell->type[7] == 'P';
 			info.arst_value = info.cell->type[0] == '1' ? RTLIL::State::S1 : RTLIL::State::S0;
-			info.bit_d = sigmap(info.cell->get("\\D")).to_single_sigbit();
-			bit_info[sigmap(info.cell->get("\\Q")).to_single_sigbit()] = info;
+			info.bit_d = sigmap(info.cell->getPort("\\D")).to_single_sigbit();
+			bit_info[sigmap(info.cell->getPort("\\Q")).to_single_sigbit()] = info;
 			continue;
 		}
 	}
@@ -504,11 +504,11 @@ struct ExposePass : public Pass {
 
 				for (auto &cell_name : info.cells) {
 					RTLIL::Cell *cell = module->cells_.at(cell_name);
-					std::vector<RTLIL::SigBit> cell_q_bits = sigmap(cell->get("\\Q")).to_sigbit_vector();
+					std::vector<RTLIL::SigBit> cell_q_bits = sigmap(cell->getPort("\\Q")).to_sigbit_vector();
 					for (auto &bit : cell_q_bits)
 						if (wire_bits_set.count(bit))
 							bit = RTLIL::SigBit(wire_dummy_q, wire_dummy_q->width++);
-					cell->set("\\Q", cell_q_bits);
+					cell->setPort("\\Q", cell_q_bits);
 				}
 
 				RTLIL::Wire *wire_q = add_new_wire(module, wire->name + sep + "q", wire->width);
@@ -540,8 +540,8 @@ struct ExposePass : public Pass {
 					c->parameters["\\A_SIGNED"] = 0;
 					c->parameters["\\A_WIDTH"] = 1;
 					c->parameters["\\Y_WIDTH"] = 1;
-					c->set("\\A", info.sig_clk);
-					c->set("\\Y", wire_c);
+					c->setPort("\\A", info.sig_clk);
+					c->setPort("\\Y", wire_c);
 				}
 
 				if (info.sig_arst != RTLIL::State::Sm)
@@ -556,8 +556,8 @@ struct ExposePass : public Pass {
 						c->parameters["\\A_SIGNED"] = 0;
 						c->parameters["\\A_WIDTH"] = 1;
 						c->parameters["\\Y_WIDTH"] = 1;
-						c->set("\\A", info.sig_arst);
-						c->set("\\Y", wire_r);
+						c->setPort("\\A", info.sig_arst);
+						c->setPort("\\Y", wire_r);
 					}
 
 					RTLIL::Wire *wire_v = add_new_wire(module, wire->name + sep + "v", wire->width);
@@ -602,8 +602,8 @@ struct ExposePass : public Pass {
 							log("New module port: %s/%s (%s)\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name), RTLIL::id2cstr(cell->type));
 
 							RTLIL::SigSpec sig;
-							if (cell->has(p->name))
-								sig = cell->get(p->name);
+							if (cell->hasPort(p->name))
+								sig = cell->getPort(p->name);
 							sig.extend(w->width);
 							if (w->port_input)
 								module->connect(RTLIL::SigSig(sig, w));

@@ -92,9 +92,9 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 			eq_cell->parameters["\\B_WIDTH"] = RTLIL::Const(comp.size());
 			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 
-			eq_cell->set("\\A", sig);
-			eq_cell->set("\\B", comp);
-			eq_cell->set("\\Y", RTLIL::SigSpec(cmp_wire, cmp_wire->width++));
+			eq_cell->setPort("\\A", sig);
+			eq_cell->setPort("\\B", comp);
+			eq_cell->setPort("\\Y", RTLIL::SigSpec(cmp_wire, cmp_wire->width++));
 		}
 	}
 
@@ -115,8 +115,8 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 		any_cell->parameters["\\A_WIDTH"] = RTLIL::Const(cmp_wire->width);
 		any_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 
-		any_cell->set("\\A", cmp_wire);
-		any_cell->set("\\Y", RTLIL::SigSpec(ctrl_wire));
+		any_cell->setPort("\\A", cmp_wire);
+		any_cell->setPort("\\Y", RTLIL::SigSpec(ctrl_wire));
 	}
 
 	return RTLIL::SigSpec(ctrl_wire);
@@ -147,10 +147,10 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	mux_cell->attributes = sw->attributes;
 
 	mux_cell->parameters["\\WIDTH"] = RTLIL::Const(when_signal.size());
-	mux_cell->set("\\A", else_signal);
-	mux_cell->set("\\B", when_signal);
-	mux_cell->set("\\S", ctrl_sig);
-	mux_cell->set("\\Y", RTLIL::SigSpec(result_wire));
+	mux_cell->setPort("\\A", else_signal);
+	mux_cell->setPort("\\B", when_signal);
+	mux_cell->setPort("\\S", ctrl_sig);
+	mux_cell->setPort("\\Y", RTLIL::SigSpec(result_wire));
 
 	last_mux_cell = mux_cell;
 	return RTLIL::SigSpec(result_wire);
@@ -159,21 +159,21 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 static void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw)
 {
 	log_assert(last_mux_cell != NULL);
-	log_assert(when_signal.size() == last_mux_cell->get("\\A").size());
+	log_assert(when_signal.size() == last_mux_cell->getPort("\\A").size());
 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
 	log_assert(ctrl_sig.size() == 1);
 	last_mux_cell->type = "$pmux";
 
-	RTLIL::SigSpec new_s = last_mux_cell->get("\\S");
+	RTLIL::SigSpec new_s = last_mux_cell->getPort("\\S");
 	new_s.append(ctrl_sig);
-	last_mux_cell->set("\\S", new_s);
+	last_mux_cell->setPort("\\S", new_s);
 
-	RTLIL::SigSpec new_b = last_mux_cell->get("\\B");
+	RTLIL::SigSpec new_b = last_mux_cell->getPort("\\B");
 	new_b.append(when_signal);
-	last_mux_cell->set("\\B", new_b);
+	last_mux_cell->setPort("\\B", new_b);
 
-	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->get("\\S").size();
+	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->getPort("\\S").size();
 }
 
 static RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval)

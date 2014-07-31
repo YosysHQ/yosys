@@ -87,22 +87,22 @@ struct ConstEval
 	{
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
 
-		log_assert(cell->has("\\Y"));
-		sig_y = values_map(assign_map(cell->get("\\Y")));
+		log_assert(cell->hasPort("\\Y"));
+		sig_y = values_map(assign_map(cell->getPort("\\Y")));
 		if (sig_y.is_fully_const())
 			return true;
 
-		if (cell->has("\\S")) {
-			sig_s = cell->get("\\S");
+		if (cell->hasPort("\\S")) {
+			sig_s = cell->getPort("\\S");
 			if (!eval(sig_s, undef, cell))
 				return false;
 		}
 
-		if (cell->has("\\A"))
-			sig_a = cell->get("\\A");
+		if (cell->hasPort("\\A"))
+			sig_a = cell->getPort("\\A");
 
-		if (cell->has("\\B"))
-			sig_b = cell->get("\\B");
+		if (cell->hasPort("\\B"))
+			sig_b = cell->getPort("\\B");
 
 		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_")
 		{

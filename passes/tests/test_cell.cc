@@ -38,7 +38,7 @@ static void create_gold_module(RTLIL::Design *design, std::string cell_type, std
 		RTLIL::Wire *wire = module->addWire("\\A");
 		wire->width = 1 + xorshift32(8);
 		wire->port_input = true;
-		cell->set("\\A", wire);
+		cell->setPort("\\A", wire);
 	}
 
 	if (cell_type_flags.find('B') != std::string::npos) {
@@ -48,7 +48,7 @@ static void create_gold_module(RTLIL::Design *design, std::string cell_type, std
 		else
 			wire->width = 1 + xorshift32(8);
 		wire->port_input = true;
-		cell->set("\\B", wire);
+		cell->setPort("\\B", wire);
 	}
 
 	if (cell_type_flags.find('S') != std::string::npos && xorshift32(2)) {
@@ -69,7 +69,7 @@ static void create_gold_module(RTLIL::Design *design, std::string cell_type, std
 		RTLIL::Wire *wire = module->addWire("\\Y");
 		wire->width = 1 + xorshift32(8);
 		wire->port_output = true;
-		cell->set("\\Y", wire);
+		cell->setPort("\\Y", wire);
 	}
 
 	module->fixup_ports();

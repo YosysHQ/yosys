@@ -74,9 +74,9 @@ struct SpliceWorker
 			cell->parameters["\\OFFSET"] = offset;
 			cell->parameters["\\A_WIDTH"] = sig_a.size();
 			cell->parameters["\\Y_WIDTH"] = sig.size();
-			cell->set("\\A", sig_a);
-			cell->set("\\Y", module->addWire(NEW_ID, sig.size()));
-			new_sig = cell->get("\\Y");
+			cell->setPort("\\A", sig_a);
+			cell->setPort("\\Y", module->addWire(NEW_ID, sig.size()));
+			new_sig = cell->getPort("\\Y");
 		}
 
 		sliced_signals_cache[sig] = new_sig;
@@ -130,10 +130,10 @@ struct SpliceWorker
 			RTLIL::Cell *cell = module->addCell(NEW_ID, "$concat");
 			cell->parameters["\\A_WIDTH"] = new_sig.size();
 			cell->parameters["\\B_WIDTH"] = sig2.size();
-			cell->set("\\A", new_sig);
-			cell->set("\\B", sig2);
-			cell->set("\\Y", module->addWire(NEW_ID, new_sig.size() + sig2.size()));
-			new_sig = cell->get("\\Y");
+			cell->setPort("\\A", new_sig);
+			cell->setPort("\\B", sig2);
+			cell->setPort("\\Y", module->addWire(NEW_ID, new_sig.size() + sig2.size()));
+			new_sig = cell->getPort("\\Y");
 		}
 
 		spliced_signals_cache[sig] = new_sig;

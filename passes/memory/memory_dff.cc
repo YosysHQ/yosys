@@ -43,21 +43,21 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 				continue;
 
 			if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
-				if (cell->get("\\CLK") != clk)
+				if (cell->getPort("\\CLK") != clk)
 					continue;
 				if (cell->parameters["\\CLK_POLARITY"].as_bool() != clk_polarity)
 					continue;
 			}
 
-			RTLIL::SigSpec q_norm = cell->get(after ? "\\D" : "\\Q");
+			RTLIL::SigSpec q_norm = cell->getPort(after ? "\\D" : "\\Q");
 			normalize_sig(module, q_norm);
 
-			RTLIL::SigSpec d = q_norm.extract(bit, &cell->get(after ? "\\Q" : "\\D"));
+			RTLIL::SigSpec d = q_norm.extract(bit, &cell->getPort(after ? "\\Q" : "\\D"));
 			if (d.size() != 1)
 				continue;
 
 			bit = d;
-			clk = cell->get("\\CLK");
+			clk = cell->getPort("\\CLK");
 			clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
 			goto replaced_this_bit;
 		}
@@ -76,29 +76,29 @@ static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec clk = RTLIL::SigSpec(RTLIL::State::Sx);
 	bool clk_polarity = 0;
 
-	RTLIL::SigSpec sig_addr = cell->get("\\ADDR");
+	RTLIL::SigSpec sig_addr = cell->getPort("\\ADDR");
 	if (!find_sig_before_dff(module, sig_addr, clk, clk_polarity)) {
 		log("no (compatible) $dff for address input found.\n");
 		return;
 	}
 
-	RTLIL::SigSpec sig_data = cell->get("\\DATA");
+	RTLIL::SigSpec sig_data = cell->getPort("\\DATA");
 	if (!find_sig_before_dff(module, sig_data, clk, clk_polarity)) {
 		log("no (compatible) $dff for data input found.\n");
 		return;
 	}
 
-	RTLIL::SigSpec sig_en = cell->get("\\EN");
+	RTLIL::SigSpec sig_en = cell->getPort("\\EN");
 	if (!find_sig_before_dff(module, sig_en, clk, clk_polarity)) {
 		log("no (compatible) $dff for enable input found.\n");
 		return;
 	}
 
 	if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
-		cell->set("\\CLK", clk);
-		cell->set("\\ADDR", sig_addr);
-		cell->set("\\DATA", sig_data);
-		cell->set("\\EN", sig_en);
+		cell->setPort("\\CLK", clk);
+		cell->setPort("\\ADDR", sig_addr);
+		cell->setPort("\\DATA", sig_data);
+		cell->setPort("\\EN", sig_en);
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		log("merged $dff to cell.\n");
@@ -119,9 +119,9 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 
 	for (auto cell : module->cells())
 		if (cell->type == "$dff") {
-			RTLIL::SigSpec new_q = cell->get("\\Q");
+			RTLIL::SigSpec new_q = cell->getPort("\\Q");
 			new_q.replace(sig, new_sig);
-			cell->set("\\Q", new_q);
+			cell->setPort("\\Q", new_q);
 		}
 }
 
@@ -132,13 +132,13 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	bool clk_polarity = 0;
 
 	RTLIL::SigSpec clk_data = RTLIL::SigSpec(RTLIL::State::Sx);
-	RTLIL::SigSpec sig_data = cell->get("\\DATA");
+	RTLIL::SigSpec sig_data = cell->getPort("\\DATA");
 	if (find_sig_before_dff(module, sig_data, clk_data, clk_polarity, true) &&
 			clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
 	{
 		disconnect_dff(module, sig_data);
-		cell->set("\\CLK", clk_data);
-		cell->set("\\DATA", sig_data);
+		cell->setPort("\\CLK", clk_data);
+		cell->setPort("\\DATA", sig_data);
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
@@ -147,12 +147,12 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 
 	RTLIL::SigSpec clk_addr = RTLIL::SigSpec(RTLIL::State::Sx);
-	RTLIL::SigSpec sig_addr = cell->get("\\ADDR");
+	RTLIL::SigSpec sig_addr = cell->getPort("\\ADDR");
 	if (find_sig_before_dff(module, sig_addr, clk_addr, clk_polarity) &&
 			clk_addr != RTLIL::SigSpec(RTLIL::State::Sx))
 	{
-		cell->set("\\CLK", clk_addr);
-		cell->set("\\ADDR", sig_addr);
+		cell->setPort("\\CLK", clk_addr);
+		cell->setPort("\\ADDR", sig_addr);
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		cell->parameters["\\TRANSPARENT"] = RTLIL::Const(1);
