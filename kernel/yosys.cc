@@ -37,13 +37,22 @@ Tcl_Interp *yosys_tcl_interp = NULL;
 std::string stringf(const char *fmt, ...)
 {
 	std::string string;
-	char *str = NULL;
 	va_list ap;
 
 	va_start(ap, fmt);
+	string = vstringf(fmt, ap);
+	va_end(ap);
+
+	return string;
+}
+
+std::string vstringf(const char *fmt, va_list ap)
+{
+	std::string string;
+	char *str = NULL;
+
 	if (vasprintf(&str, fmt, ap) < 0)
 		str = NULL;
-	va_end(ap);
 
 	if (str != NULL) {
 		string = str;
@@ -70,6 +79,9 @@ void yosys_setup()
 void yosys_shutdown()
 {
 	log_pop();
+
+	delete yosys_design;
+	yosys_design = NULL;
 
 	for (auto f : log_files)
 		if (f != stderr)

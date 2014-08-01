@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "libs/sha1/sha1.h"
 #include "backends/ilang/ilang_backend.h"
 
 #include <sys/time.h>
@@ -32,6 +33,8 @@ YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
 FILE *log_errfile = NULL;
+SHA1 *log_hasher = NULL;
+
 bool log_time = false;
 bool log_cmd_error_throw = false;
 int log_verbose_level;
@@ -44,11 +47,20 @@ static bool next_print_log = false;
 
 void logv(const char *format, va_list ap)
 {
-	if (log_time) {
-		while (format[0] == '\n' && format[1] != 0) {
-			format++;
-			log("\n");
-		}
+	while (format[0] == '\n' && format[1] != 0) {
+		log("\n");
+		format++;
+	}
+
+	std::string str = vstringf(format, ap);
+
+	if (log_hasher)
+		log_hasher->update(str);
+
+	if (log_time)
+	{
+		std::string time_str;
+
 		if (next_print_log || initial_tv.tv_sec == 0) {
 			next_print_log = false;
 			struct timeval tv;
@@ -61,18 +73,18 @@ void logv(const char *format, va_list ap)
 			}
 			tv.tv_sec -= initial_tv.tv_sec;
 			tv.tv_usec -= initial_tv.tv_usec;
-			log("[%05d.%06d] ", int(tv.tv_sec), int(tv.tv_usec));
+			time_str += stringf("[%05d.%06d] ", int(tv.tv_sec), int(tv.tv_usec));
 		}
+
 		if (format[0] && format[strlen(format)-1] == '\n')
 			next_print_log = true;
+
+		for (auto f : log_files)
+			fputs(time_str.c_str(), f);
 	}
 
-	for (auto f : log_files) {
-		va_list aq;
-		va_copy(aq, ap);
-		vfprintf(f, format, aq);
-		va_end(aq);
-	}
+	for (auto f : log_files)
+		fputs(str.c_str(), f);
 }
 
 void logv_header(const char *format, va_list ap)

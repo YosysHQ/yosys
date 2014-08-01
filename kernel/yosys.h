@@ -43,6 +43,7 @@
 #include <string>
 #include <algorithm>
 #include <initializer_list>
+#include <stdarg.h>
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
@@ -68,6 +69,7 @@ namespace RTLIL {
 }
 
 std::string stringf(const char *fmt, ...);
+std::string vstringf(const char *fmt, va_list ap);
 template<typename T> int SIZE(const T &obj) { return obj.size(); }
 int SIZE(RTLIL::Wire *wire);
 

@@ -38,6 +38,8 @@ struct log_cmd_error_expection { };
 
 extern std::vector<FILE*> log_files;
 extern FILE *log_errfile;
+extern class SHA1 *log_hasher;
+
 extern bool log_time;
 extern bool log_cmd_error_throw;
 extern int log_verbose_level;

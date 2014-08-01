@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "libs/sha1/sha1.h"
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -233,6 +234,9 @@ int main(int argc, char **argv)
 		log("\n");
 	}
 
+	if (print_stats)
+		log_hasher = new SHA1;
+
 	yosys_setup();
 
 	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty()) {
@@ -262,8 +266,40 @@ int main(int argc, char **argv)
 	if (!backend_command.empty())
 		run_backend(output_filename, backend_command, yosys_design);
 
-	delete yosys_design;
-	yosys_design = NULL;
+	if (print_stats)
+	{
+		std::string hash = log_hasher->final().substr(0, 10);
+		delete log_hasher;
+		log_hasher = nullptr;
+
+		struct rusage ru_buffer;
+		getrusage(RUSAGE_SELF, &ru_buffer);
+		log("\nEnd of script. Logfile hash: %s, CPU: user %.2fs system %.2fs\n", hash.c_str(),
+				ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec);
+		log("%s\n", yosys_version_str);
+
+		int64_t total_ns = 0;
+		std::set<std::tuple<int64_t, int, std::string>> timedat;
+
+		for (auto &it : pass_register)
+			if (it.second->call_counter) {
+				total_ns += it.second->runtime_ns + 1;
+				timedat.insert(make_tuple(it.second->runtime_ns + 1, it.second->call_counter, it.first));
+			}
+
+		int out_count = 0;
+		log("Time spent:");
+		for (auto it = timedat.rbegin(); it != timedat.rend() && out_count < 4; it++, out_count++) {
+			if (out_count >= 2 && (std::get<0>(*it) < 1000000000 || int(100*std::get<0>(*it) / total_ns) < 20)) {
+				log(", ...");
+				break;
+			}
+			log("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
+					std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
+		}
+		log("%s\n", out_count ? "" : " no commands executed");
+	}
 
 #ifdef COVER_ACTIVE
 	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
@@ -290,36 +326,6 @@ int main(int argc, char **argv)
 		fclose(f);
 	}
 #endif
-
-	if (print_stats)
-	{
-		struct rusage ru_buffer;
-		getrusage(RUSAGE_SELF, &ru_buffer);
-		log("\nEnd of script. Logfile hash: xxxxxxxxxx, CPU: user %.2fs system %.2fs\n",
-				ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
-				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec);
-		log("%s\nTime spent:", yosys_version_str);
-
-		int64_t total_ns = 0;
-		std::set<std::tuple<int64_t, int, std::string>> timedat;
-
-		for (auto &it : pass_register)
-			if (it.second->call_counter) {
-				total_ns += it.second->runtime_ns + 1;
-				timedat.insert(make_tuple(it.second->runtime_ns + 1, it.second->call_counter, it.first));
-			}
-
-		int out_count = 0;
-		for (auto it = timedat.rbegin(); it != timedat.rend() && out_count < 4; it++, out_count++) {
-			if (out_count >= 2 && (std::get<0>(*it) < 1000000000 || int(100*std::get<0>(*it) / total_ns) < 20)) {
-				log(", ...");
-				break;
-			}
-			log("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
-					std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
-		}
-		log("%s\n", out_count ? "" : " no commands executed");
-	}
 
 	if (call_abort)
 		abort();
