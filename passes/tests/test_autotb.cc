@@ -17,12 +17,12 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
-#define NUM_ITER 1000
+PRIVATE_NAMESPACE_BEGIN
 
 static std::string id(std::string internal_id)
 {
@@ -70,7 +70,7 @@ static std::string idy(std::string str1, std::string str2 = std::string(), std::
 	return id(str1);
 }
 
-static void autotest(FILE *f, RTLIL::Design *design)
+static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 {
 	fprintf(f, "module testbench;\n\n");
 
@@ -79,7 +79,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 	fprintf(f, "reg [31:0] xorshift128_x = 123456789;\n");
 	fprintf(f, "reg [31:0] xorshift128_y = 362436069;\n");
 	fprintf(f, "reg [31:0] xorshift128_z = 521288629;\n");
-	fprintf(f, "reg [31:0] xorshift128_w = 88675123;\n");
+	fprintf(f, "reg [31:0] xorshift128_w = %u; // <-- seed value\n", int(time(NULL)));
 	fprintf(f, "reg [31:0] xorshift128_t;\n\n");
 	fprintf(f, "task xorshift128;\n");
 	fprintf(f, "begin\n");
@@ -279,7 +279,7 @@ static void autotest(FILE *f, RTLIL::Design *design)
 		fprintf(f, "begin\n");
 		fprintf(f, "\t$display(\"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name).c_str());
 		fprintf(f, "\t%s;\n", idy(mod->name, "reset").c_str());
-		fprintf(f, "\tfor (i=0; i<%d; i=i+1) begin\n", NUM_ITER);
+		fprintf(f, "\tfor (i=0; i<%d; i=i+1) begin\n", num_iter);
 		fprintf(f, "\t\tif (i %% 20 == 0) %s;\n", idy(mod->name, "print_header").c_str());
 		fprintf(f, "\t\t#100; %s;\n", idy(mod->name, "update_data").c_str());
 		fprintf(f, "\t\t#100; %s;\n", idy(mod->name, "update_clock").c_str());
@@ -307,7 +307,7 @@ struct TestAutotbBackend : public Backend {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    test_autotb [filename]\n");
+		log("    test_autotb [options] [filename]\n");
 		log("\n");
 		log("Automatically create primitive verilog test benches for all modules in the\n");
 		log("design. The generated testbenches toggle the input pins of the module in\n");
@@ -324,12 +324,30 @@ struct TestAutotbBackend : public Backend {
 		log("value after initialization. This can e.g. be used to force a reset signal\n");
 		log("low in order to explore more inner states in a state machine.\n");
 		log("\n");
+		log("    -n <int>\n");
+		log("        number of iterations the test bench shuld run (default = 1000)\n");
+		log("\n");
 	}
 	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
+		int num_iter = 1000;
+
 		log_header("Executing TEST_AUTOTB backend (auto-generate pseudo-random test benches).\n");
-		extra_args(f, filename, args, 1);
-		autotest(f, design);
+
+		int argidx;
+		for (argidx = 1; argidx < SIZE(args); argidx++)
+		{
+			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
+				num_iter = atoi(args[++argidx].c_str());
+				continue;
+			}
+			break;
+		}
+
+		extra_args(f, filename, args, argidx);
+		autotest(f, design, num_iter);
 	}
 } TestAutotbBackend;
  
+PRIVATE_NAMESPACE_END
+

@@ -9,6 +9,7 @@ keeprunning=false
 makejmode=false
 frontend="verilog"
 backend_opts="-noattr -noexpr"
+autotb_opts=""
 scriptfiles=""
 scriptopt=""
 toolsdir="$(cd $(dirname $0); pwd)"
@@ -18,7 +19,7 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkjvrf:s:p: opt; do
+while getopts xmGl:wkjvrf:s:p:n: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -45,6 +46,8 @@ while getopts xmGl:wkjvrf:s:p: opt; do
 			scriptfiles="$scriptfiles $OPTARG" ;;
 		p)
 			scriptopt="$OPTARG" ;;
+		n)
+			autotb_opts="$autotb_opts -n $OPTARG" ;;
 		*)
 			echo "Usage: $0 [-x|-m] [-w] [-k] [-j] [-v] [-r] [-l libs] [-f frontend] [-s script] [-p cmdstring] verilog-files\n" >&2
 			exit 1
@@ -102,7 +105,7 @@ do
 		cd ${bn}.out
 		cp ../$fn $fn
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -b test_autotb -o ${bn}_tb.v $fn
+			"$toolsdir"/../../yosys -b "test_autotb $autotb_opts" -o ${bn}_tb.v $fn
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
