@@ -53,6 +53,11 @@ std::string stringf(const char *fmt, ...)
 	return string;
 }
 
+int SIZE(RTLIL::Wire *wire)
+{
+	return wire->width;
+}
+
 void yosys_setup()
 {
 	Pass::init_register();

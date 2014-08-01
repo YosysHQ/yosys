@@ -391,8 +391,21 @@ struct SigMap
 			map_bit(bit);
 	}
 
+	RTLIL::SigBit operator()(RTLIL::SigBit bit) const
+	{
+		apply(bit);
+		return bit;
+	}
+
 	RTLIL::SigSpec operator()(RTLIL::SigSpec sig) const
 	{
+		apply(sig);
+		return sig;
+	}
+
+	RTLIL::SigSpec operator()(RTLIL::Wire *wire) const
+	{
+		RTLIL::SigSpec sig(wire);
 		apply(sig);
 		return sig;
 	}

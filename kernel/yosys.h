@@ -61,8 +61,15 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+namespace RTLIL {
+	struct SigSpec;
+	struct Wire;
+	struct Cell;
+}
+
 std::string stringf(const char *fmt, ...);
-#define SIZE(__obj) int(__obj.size())
+template<typename T> int SIZE(const T &obj) { return obj.size(); }
+int SIZE(RTLIL::Wire *wire);
 
 YOSYS_NAMESPACE_END
 

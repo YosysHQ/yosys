@@ -20,8 +20,117 @@
 #ifndef MODTOOLS_H
 #define MODTOOLS_H
 
+#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+
+YOSYS_NAMESPACE_BEGIN
+
+struct ModIndex : public RTLIL::Monitor
+{
+	struct PortInfo {
+		const RTLIL::Cell* cell;
+		const RTLIL::IdString &port;
+		const int offset;
+
+		PortInfo(RTLIL::Cell* _c, const RTLIL::IdString &_p, int _o) : cell(_c), port(_p), offset(_o) { }
+
+		bool operator<(const PortInfo &other) const {
+			if (cell != other.cell)
+				return cell < other.cell;
+			if (offset != other.offset)
+				return offset < other.offset;
+			return port < other.port;
+		}
+	};
+
+	struct SigBitInfo
+	{
+		bool is_input, is_output;
+		std::set<PortInfo> ports;
+
+		SigBitInfo() : is_input(false), is_output(false) { }
+	};
+
+	SigMap sigmap;
+	RTLIL::Module *module;
+	std::map<RTLIL::SigBit, SigBitInfo> database;
+	bool auto_reload_module;
+
+	void port_add(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &sig)
+	{
+		for (int i = 0; i < SIZE(sig); i++)
+			database[sigmap(sig[i])].ports.insert(PortInfo(cell, port, i));
+	}
+
+	void port_del(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &sig)
+	{
+		for (int i = 0; i < SIZE(sig); i++)
+			database[sigmap(sig[i])].ports.erase(PortInfo(cell, port, i));
+	}
+
+	const SigBitInfo &info(RTLIL::SigBit bit)
+	{
+		return database[sigmap(bit)];
+	}
+
+	void reload_module()
+	{
+		sigmap.clear();
+		sigmap.set(module);
+
+		database.clear();
+		for (auto wire : module->wires())
+			if (wire->port_input || wire->port_output)
+				for (int i = 0; i < SIZE(wire); i++) {
+					if (wire->port_input)
+						database[sigmap(RTLIL::SigBit(wire, i))].is_input = true;
+					if (wire->port_output)
+						database[sigmap(RTLIL::SigBit(wire, i))].is_output = true;
+				}
+		for (auto cell : module->cells())
+			for (auto &conn : cell->connections())
+				port_add(cell, conn.first, conn.second);
+
+		auto_reload_module = false;
+	}
+
+	virtual void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) override
+	{
+		if (auto_reload_module)
+			reload_module();
+
+		port_del(cell, port, old_sig);
+		port_add(cell, port, sig);
+	}
+
+	virtual void notify_connect(RTLIL::Module *mod, const RTLIL::SigSig&)
+	{
+		log_assert(module == mod);
+		auto_reload_module = true;
+	}
+
+	virtual void notify_connect(RTLIL::Module *mod, const std::vector<RTLIL::SigSig>&)
+	{
+		log_assert(module == mod);
+		auto_reload_module = true;
+	}
+
+	virtual void notify_blackout(RTLIL::Module *mod)
+	{
+		log_assert(module == mod);
+		auto_reload_module = true;
+	}
+
+	ModIndex(RTLIL::Module *_m) : module(_m) {
+		auto_reload_module = true;
+		module->monitors.insert(this);
+	}
+
+	~ModIndex() {
+		module->monitors.erase(this);
+	}
+};
 
 struct ModWalker
 {
@@ -294,5 +403,7 @@ struct ModWalker
 		return get_outputs(result, sig);
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

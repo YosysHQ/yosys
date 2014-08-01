@@ -57,11 +57,6 @@ void log_pop();
 void log_reset_stack();
 void log_flush();
 
-namespace RTLIL {
-	struct SigSpec;
-	struct Cell;
-}
-
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_id(std::string id);
 

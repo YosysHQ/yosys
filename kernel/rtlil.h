@@ -334,9 +334,9 @@ struct RTLIL::Monitor
 	virtual ~Monitor() { }
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
-	virtual void notify_cell_connect(RTLIL::Cell*, const std::pair<RTLIL::IdString, RTLIL::SigSpec>&) { }
+	virtual void notify_connect(RTLIL::Cell*, const RTLIL::IdString&, const RTLIL::SigSpec&, RTLIL::SigSpec&) { }
 	virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
-	virtual void notify_new_connections(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
+	virtual void notify_connect(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
 	virtual void notify_blackout(RTLIL::Module*) { }
 };
 
@@ -708,15 +708,15 @@ struct RTLIL::SigBit
 {
 	RTLIL::Wire *wire;
 	union {
-		RTLIL::State data;
-		int offset;
+		RTLIL::State data; // used if wire == NULL
+		int offset;        // used if wire != NULL
 	};
 
 	SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 	SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
 	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0) { log_assert(wire && wire->width == 1); }
 	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire); }
-	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { if (wire) offset = chunk.offset; else data = chunk.data.bits[0]; log_assert(chunk.width == 1); }
+	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data.bits[0]; }
 	SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire) { if (wire) offset = chunk.offset + index; else data = chunk.data.bits[index]; }
 	SigBit(const RTLIL::SigSpec &sig);
 

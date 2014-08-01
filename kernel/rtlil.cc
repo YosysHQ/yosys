@@ -1092,11 +1092,11 @@ void RTLIL::Module::connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs
 void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
 {
 	for (auto mon : monitors)
-		mon->notify_new_connections(this, new_conn);
+		mon->notify_connect(this, new_conn);
 
 	if (design)
 		for (auto mon : design->monitors)
-			mon->notify_new_connections(this, new_conn);
+			mon->notify_connect(this, new_conn);
 
 	connections_ = new_conn;
 }
@@ -1516,30 +1516,40 @@ bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const
 
 void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 {
-	std::pair<RTLIL::IdString, RTLIL::SigSpec> new_conn(portname, RTLIL::SigSpec());
+	RTLIL::SigSpec signal;
+	auto conn_it = connections_.find(portname);
 
-	for (auto mon : module->monitors)
-		mon->notify_cell_connect(this, new_conn);
+	if (conn_it != connections_.end())
+	{
+		for (auto mon : module->monitors)
+			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
-	if (module->design)
-		for (auto mon : module->design->monitors)
-			mon->notify_cell_connect(this, new_conn);
+		if (module->design)
+			for (auto mon : module->design->monitors)
+				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
-	connections_.erase(portname);
+		connections_.erase(conn_it);
+	}
 }
 
 void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
-	std::pair<RTLIL::IdString, RTLIL::SigSpec> new_conn(portname, signal);
+	auto conn_it = connections_.find(portname);
+
+	if (conn_it == connections_.end()) {
+		connections_[portname] = RTLIL::SigSpec();
+		conn_it = connections_.find(portname);
+		log_assert(conn_it != connections_.end());
+	}
 
 	for (auto mon : module->monitors)
-		mon->notify_cell_connect(this, new_conn);
+		mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 	if (module->design)
 		for (auto mon : module->design->monitors)
-			mon->notify_cell_connect(this, new_conn);
+			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
-	connections_[portname] = signal;
+	conn_it->second = signal;
 }
 
 const RTLIL::SigSpec &RTLIL::Cell::getPort(RTLIL::IdString portname) const
