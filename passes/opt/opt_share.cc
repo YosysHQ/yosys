@@ -107,12 +107,7 @@ struct OptShareWorker
 			hash_string += "\n";
 		}
 
-		unsigned char hash[20];
-		char hash_hex_string[41];
-		sha1::calc(hash_string.c_str(), hash_string.size(), hash);
-		sha1::toHexString(hash, hash_hex_string);
-		cell_hash_cache[cell] = hash_hex_string;
-
+		cell_hash_cache[cell] = sha1(hash_string);
 		return cell_hash_cache[cell];
 	}
 #endif

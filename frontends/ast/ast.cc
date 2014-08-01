@@ -979,10 +979,6 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	use_internal_line_num();
 
 	std::string para_info;
-	std::vector<unsigned char> hash_data;
-	hash_data.insert(hash_data.end(), stripped_name.begin(), stripped_name.end());
-	hash_data.push_back(0);
-
 	AstNode *new_ast = ast->clone();
 
 	int para_counter = 0;
@@ -999,10 +995,6 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
 			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
-			hash_data.insert(hash_data.end(), child->str.begin(), child->str.end());
-			hash_data.push_back(0);
-			hash_data.insert(hash_data.end(), parameters[para_id].bits.begin(), parameters[para_id].bits.end());
-			hash_data.push_back(0xff);
 			parameters.erase(para_id);
 			continue;
 		}
@@ -1018,28 +1010,11 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	std::string modname;
 
 	if (orig_parameters_n == 0)
-	{
 		modname = stripped_name;
-	}
+	else if (para_info.size() > 60)
+		modname = "$paramod$" + sha1(para_info) + stripped_name;
 	else
-	if (para_info.size() > 60)
-	{
-		unsigned char hash[20];
-		unsigned char *hash_data2 = new unsigned char[hash_data.size()];
-		for (size_t i = 0; i < hash_data.size(); i++)
-			hash_data2[i] = hash_data[i];
-		sha1::calc(hash_data2, hash_data.size(), hash);
-		delete[] hash_data2;
-
-		char hexstring[41];
-		sha1::toHexString(hash, hexstring);
-
-		modname = "$paramod$" + std::string(hexstring) + stripped_name;
-	}
-	else
-	{
 		modname = "$paramod" + stripped_name + para_info;
-	}
 
 	if (!design->has(modname)) {
 		new_ast->str = modname;

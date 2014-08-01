@@ -99,12 +99,7 @@ struct TechmapWorker
 					connbits_map[bit] = std::pair<std::string, int>(conn.first, i);stringf("%s %d", log_id(conn.first), i, bit.data);
 			}
 
-		unsigned char hash[20];
-		char hash_hex_string[41];
-		sha1::calc(constmap_info.c_str(), constmap_info.size(), hash);
-		sha1::toHexString(hash, hash_hex_string);
-
-		return stringf("$paramod$constmap$%s%s", hash_hex_string, tpl->name.c_str());
+		return stringf("$paramod$constmap:%s%s", sha1(constmap_info).c_str(), tpl->name.c_str());
 	}
 
 	TechmapWires techmap_find_special_wires(RTLIL::Module *module)
