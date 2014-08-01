@@ -170,6 +170,7 @@ struct PerformanceTimer
 		return total_ns * 1e-9;
 	}
 #else
+	static int64_t query() { return 0; }
 	void reset() { }
 	void begin() { }
 	void end() { }

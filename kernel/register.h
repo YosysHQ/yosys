@@ -31,13 +31,22 @@ YOSYS_NAMESPACE_BEGIN
 struct Pass
 {
 	std::string pass_name, short_help;
-	int call_counter;
-
 	Pass(std::string name, std::string short_help = "** document me **");
 	virtual ~Pass();
 
 	virtual void help();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) = 0;
+
+	int call_counter;
+	int64_t runtime_ns;
+
+	struct pre_post_exec_state_t {
+		Pass *parent_pass;
+		int64_t begin_ns;
+	};
+
+	pre_post_exec_state_t pre_execute();
+	void post_execute(pre_post_exec_state_t state);
 
 	void cmd_log_args(const std::vector<std::string> &args);
 	void cmd_error(const std::vector<std::string> &args, size_t argidx, std::string msg);

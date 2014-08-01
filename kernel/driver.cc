@@ -43,6 +43,7 @@ int main(int argc, char **argv)
 	bool scriptfile_tcl = false;
 	bool got_output_filename = false;
 	bool print_banner = true;
+	bool print_stats = true;
 	bool call_abort = false;
 
 	int history_offset = 0;
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "AQVSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "AQTVSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -63,6 +64,9 @@ int main(int argc, char **argv)
 			break;
 		case 'Q':
 			print_banner = false;
+			break;
+		case 'T':
+			print_stats = false;
 			break;
 		case 'V':
 			printf("%s\n", yosys_version_str);
@@ -129,11 +133,14 @@ int main(int argc, char **argv)
 			break;
 		default:
 			fprintf(stderr, "\n");
-			fprintf(stderr, "Usage: %s [-V -S -Q -q] [-v <level>[-t] [-l <logfile>] [-o <outfile>] [-f <frontend>] [-h cmd] \\\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-V -S -Q -T -q] [-v <level>[-t] [-l <logfile>] [-o <outfile>] [-f <frontend>] [-h cmd] \\\n", argv[0]);
 			fprintf(stderr, "       %*s[{-s|-c} <scriptfile>] [-p <pass> [-p ..]] [-b <backend>] [-m <module_file>] [<infile> [..]]\n", int(strlen(argv[0])+1), "");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -Q\n");
 			fprintf(stderr, "        suppress printing of banner (copyright, disclaimer, version)\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -T\n");
+			fprintf(stderr, "        suppress printing of footer (log hash, version, timing statistics)\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
 			fprintf(stderr, "        quiet operation. only write error messages to console\n");
@@ -284,7 +291,36 @@ int main(int argc, char **argv)
 	}
 #endif
 
-	log("\nEnd of script.\n");
+	if (print_stats)
+	{
+		struct rusage ru_buffer;
+		getrusage(RUSAGE_SELF, &ru_buffer);
+		log("\nEnd of script. Logfile hash: xxxxxxxxxx, CPU: user %.2fs system %.2fs\n",
+				ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec);
+		log("%s\nTime spent:", yosys_version_str);
+
+		int64_t total_ns = 0;
+		std::set<std::tuple<int64_t, int, std::string>> timedat;
+
+		for (auto &it : pass_register)
+			if (it.second->call_counter) {
+				total_ns += it.second->runtime_ns + 1;
+				timedat.insert(make_tuple(it.second->runtime_ns + 1, it.second->call_counter, it.first));
+			}
+
+		int out_count = 0;
+		for (auto it = timedat.rbegin(); it != timedat.rend() && out_count < 4; it++, out_count++) {
+			if (out_count >= 2 && (std::get<0>(*it) < 1000000000 || int(100*std::get<0>(*it) / total_ns) < 20)) {
+				log(", ...");
+				break;
+			}
+			log("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
+					std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
+		}
+		log("%s\n", out_count ? "" : " no commands executed");
+	}
+
 	if (call_abort)
 		abort();
 

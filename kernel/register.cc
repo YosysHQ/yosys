@@ -29,6 +29,7 @@ YOSYS_NAMESPACE_BEGIN
 
 bool echo_mode = false;
 Pass *first_queued_pass;
+Pass *current_pass;
 
 std::map<std::string, Frontend*> frontend_register;
 std::map<std::string, Pass*> pass_register;
@@ -41,6 +42,7 @@ Pass::Pass(std::string name, std::string short_help) : pass_name(name), short_he
 	next_queued_pass = first_queued_pass;
 	first_queued_pass = this;
 	call_counter = 0;
+	runtime_ns = 0;
 }
 
 void Pass::run_register()
@@ -67,6 +69,25 @@ void Pass::done_register()
 
 Pass::~Pass()
 {
+}
+
+Pass::pre_post_exec_state_t Pass::pre_execute()
+{
+	pre_post_exec_state_t state;
+	call_counter++;
+	state.begin_ns = PerformanceTimer::query();
+	state.parent_pass = current_pass;
+	current_pass = this;
+	return state;
+}
+
+void Pass::post_execute(Pass::pre_post_exec_state_t state)
+{
+	int64_t time_ns = PerformanceTimer::query() - state.begin_ns;
+	runtime_ns += time_ns;
+	current_pass = state.parent_pass;
+	if (current_pass)
+		current_pass->runtime_ns -= time_ns;
 }
 
 void Pass::help()
@@ -183,8 +204,9 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
-	pass_register[args[0]]->call_counter++;
+	auto state = pass_register[args[0]]->pre_execute();
 	pass_register[args[0]]->execute(args, design);
+	pass_register[args[0]]->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->selection_stack.pop_back();
 
@@ -266,8 +288,9 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 	do {
 		FILE *f = NULL;
 		next_args.clear();
-		call_counter++;
+		auto state = pre_execute();
 		execute(f, std::string(), args, design);
+		post_execute(state);
 		args = next_args;
 		fclose(f);
 	} while (!args.empty());
@@ -359,12 +382,14 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 		log_cmd_error("No such frontend: %s\n", args[0].c_str());
 
 	if (f != NULL) {
-		frontend_register[args[0]]->call_counter++;
+		auto state = frontend_register[args[0]]->pre_execute();
 		frontend_register[args[0]]->execute(f, filename, args, design);
+		frontend_register[args[0]]->post_execute(state);
 	} else if (filename == "-") {
 		FILE *f_stdin = stdin; // workaround for OpenBSD 'stdin' implementation
-		frontend_register[args[0]]->call_counter++;
+		auto state = frontend_register[args[0]]->pre_execute();
 		frontend_register[args[0]]->execute(f_stdin, "<stdin>", args, design);
+		frontend_register[args[0]]->post_execute(state);
 	} else {
 		if (!filename.empty())
 			args.push_back(filename);
@@ -396,8 +421,9 @@ Backend::~Backend()
 void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
 	FILE *f = NULL;
-	call_counter++;
+	auto state = pre_execute();
 	execute(f, std::string(), args, design);
+	post_execute(state);
 	if (f != stdout)
 		fclose(f);
 }
@@ -458,12 +484,14 @@ void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename,
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 
 	if (f != NULL) {
-		backend_register[args[0]]->call_counter++;
+		auto state = backend_register[args[0]]->pre_execute();
 		backend_register[args[0]]->execute(f, filename, args, design);
+		backend_register[args[0]]->post_execute(state);
 	} else if (filename == "-") {
 		FILE *f_stdout = stdout; // workaround for OpenBSD 'stdout' implementation
-		backend_register[args[0]]->call_counter++;
+		auto state = backend_register[args[0]]->pre_execute();
 		backend_register[args[0]]->execute(f_stdout, "<stdout>", args, design);
+		backend_register[args[0]]->post_execute(state);
 	} else {
 		if (!filename.empty())
 			args.push_back(filename);
