@@ -193,7 +193,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 	}
 }
 
-static std::string remap_name(std::string abc_name)
+static std::string remap_name(RTLIL::IdString abc_name)
 {
 	std::stringstream sstr;
 	sstr << "$abc$" << map_autoidx << "$" << abc_name.substr(1);

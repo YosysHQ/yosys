@@ -29,7 +29,7 @@
 
 struct CellTypes
 {
-	std::set<std::string> cell_types;
+	std::set<RTLIL::IdString> cell_types;
 	std::vector<const RTLIL::Design*> designs;
 
 	CellTypes()
@@ -168,7 +168,7 @@ struct CellTypes
 		designs.clear();
 	}
 
-	bool cell_known(std::string type)
+	bool cell_known(RTLIL::IdString type)
 	{
 		if (cell_types.count(type) > 0)
 			return true;
@@ -178,7 +178,7 @@ struct CellTypes
 		return false;
 	}
 
-	bool cell_output(std::string type, std::string port)
+	bool cell_output(RTLIL::IdString type, RTLIL::IdString port)
 	{
 		if (cell_types.count(type) == 0) {
 			for (auto design : designs)
@@ -201,7 +201,7 @@ struct CellTypes
 		return false;
 	}
 
-	bool cell_input(std::string type, std::string port)
+	bool cell_input(RTLIL::IdString type, RTLIL::IdString port)
 	{
 		if (cell_types.count(type) == 0) {
 			for (auto design : designs)
@@ -219,7 +219,7 @@ struct CellTypes
 		return false;
 	}
 
-	static RTLIL::Const eval(std::string type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+	static RTLIL::Const eval(RTLIL::IdString type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 	{
 		if (type == "$sshr" && !signed1)
 			type = "$shr";

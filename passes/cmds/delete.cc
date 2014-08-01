@@ -64,7 +64,7 @@ struct DeletePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		std::vector<std::string> delete_mods;
+		std::vector<RTLIL::IdString> delete_mods;
 
 		for (auto &mod_it : design->modules_)
 		{
@@ -92,8 +92,8 @@ struct DeletePass : public Pass {
 
 			std::set<RTLIL::Wire*> delete_wires;
 			std::set<RTLIL::Cell*> delete_cells;
-			std::set<std::string> delete_procs;
-			std::set<std::string> delete_mems;
+			std::set<RTLIL::IdString> delete_procs;
+			std::set<RTLIL::IdString> delete_mems;
 
 			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))

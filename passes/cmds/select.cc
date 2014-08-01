@@ -547,7 +547,7 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 		return;
 	}
 
-	std::vector<std::string> del_list;
+	std::vector<RTLIL::IdString> del_list;
 	for (auto mod_name : sel.selected_modules)
 		if (mod_name != design->selected_active_module)
 			del_list.push_back(mod_name);
@@ -1322,7 +1322,7 @@ struct CdPass : public Pass {
 template<typename T>
 static int log_matches(const char *title, std::string pattern, T list)
 {
-	std::vector<std::string> matches;
+	std::vector<RTLIL::IdString> matches;
 
 	for (auto &it : list)
 		if (pattern.empty() || match_ids(it.first, pattern))

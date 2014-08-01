@@ -72,9 +72,7 @@ namespace RTLIL
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
-#ifdef NDEBUG
-	typedef std::string IdString;
-#else
+#if 1
 	struct IdString : public std::string {
 		IdString() { }
 		IdString(std::string str) : std::string(str) {
@@ -100,28 +98,68 @@ namespace RTLIL
 		void check() const {
 			log_assert(empty() || (size() >= 2 && (at(0) == '$' || at(0) == '\\')));
 		}
+		const std::string& str() const {
+			return *this;
+		}
 	};
+#else
+	struct IdString {
+		IdString();
+		IdString(const char *str);
+		IdString(const IdString &str);
+		IdString(const std::string &str);
+
+		void operator=(const char *rhs);
+		void operator=(const IdString &rhs);
+		void operator=(const std::string &rhs);
+
+		operator const char*() const;
+		const std::string& str() const;
+
+		bool operator<(const IdString &rhs) const;
+		bool operator==(const IdString &rhs) const;
+		bool operator!=(const IdString &rhs) const;
+		bool operator==(const char *rhs) const;
+		bool operator!=(const char *rhs) const;
+		std::string operator+(const char *other) const;
+
+		std::string::const_iterator begin() const;
+		std::string::const_iterator end() const;
+		char at(int i) const;
+		const char*c_str() const;
+		size_t find(char c) const;
+		std::string substr(size_t pos = 0, size_t len = std::string::npos) const;
+		size_t size() const;
+		bool empty() const;
+		void clear();
+	};
+
 #endif
 
-	static IdString escape_id(std::string str) __attribute__((unused));
-	static IdString escape_id(std::string str) {
+	static inline std::string escape_id(std::string str) {
 		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')
 			return "\\" + str;
 		return str;
 	}
 
-	static std::string unescape_id(std::string str) __attribute__((unused));
-	static std::string unescape_id(std::string str) {
+	static inline std::string unescape_id(std::string str) {
 		if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
 			return str.substr(1);
 		return str;
 	}
 
-	static const char *id2cstr(std::string str) __attribute__((unused));
-	static const char *id2cstr(std::string str) {
+	static inline const char *id2cstr(std::string str) {
 		if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
 			return str.c_str() + 1;
 		return str.c_str();
+	}
+
+	static inline std::string unescape_id(RTLIL::IdString str) {
+		return unescape_id(str.str());
+	}
+
+	static inline const char *id2cstr(RTLIL::IdString str) {
+		return id2cstr(str.str());
 	}
 
 	template <typename T> struct sort_by_name {

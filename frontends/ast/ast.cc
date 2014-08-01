@@ -325,7 +325,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 	}
 
 	for (auto &it : attributes) {
-		fprintf(f, "%s" "(* %s = ", indent.c_str(), id2vl(it.first).c_str());
+		fprintf(f, "%s" "(* %s = ", indent.c_str(), id2vl(it.first.str()).c_str());
 		it.second->dumpVlog(f, "");
 		fprintf(f, " *)%s", indent.empty() ? "" : "\n");
 	}
@@ -958,7 +958,7 @@ AstModule::~AstModule()
 // create a new parametric module (when needed) and return the name of the generated module
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters)
 {
-	std::string stripped_name = name;
+	std::string stripped_name = name.str();
 
 	if (stripped_name.substr(0, 9) == "$abstract")
 		stripped_name = stripped_name.substr(9);

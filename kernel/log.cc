@@ -203,12 +203,12 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 	return string_buf.back().c_str();
 }
 
-const char *log_id(std::string str)
+const char *log_id(RTLIL::IdString str)
 {
 	if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
 		string_buf.push_back(str.substr(1));
 	else
-		string_buf.push_back(str);
+		string_buf.push_back(str.str());
 	return string_buf.back().c_str();
 }
 

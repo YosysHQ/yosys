@@ -63,6 +63,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL {
+	struct IdString;
 	struct SigSpec;
 	struct Wire;
 	struct Cell;

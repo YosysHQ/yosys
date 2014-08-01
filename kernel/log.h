@@ -60,7 +60,7 @@ void log_reset_stack();
 void log_flush();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
-const char *log_id(std::string id);
+const char *log_id(RTLIL::IdString id);
 
 template<typename T> static inline const char *log_id(T *obj) {
 	return log_id(obj->name);

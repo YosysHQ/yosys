@@ -445,7 +445,7 @@ static char *readline_obj_generator(const char *text, int state)
 		{
 			for (auto &it : design->modules_)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 		}
 		else
 		if (design->modules_.count(design->selected_active_module) > 0)
@@ -454,19 +454,19 @@ static char *readline_obj_generator(const char *text, int state)
 
 			for (auto &it : module->wires_)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->memories)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->cells_)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 
 			for (auto &it : module->processes)
 				if (RTLIL::unescape_id(it.first).substr(0, len) == text)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first.c_str())));
+					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());
