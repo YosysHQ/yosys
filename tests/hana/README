@@ -2,13 +2,3 @@
 This test cases are copied from the hana project:
 https://sourceforge.net/projects/sim-sim/
 
-** Copy tests from hana: **
-while read fn; do cp -v $fn ALL_TESTS/${fn//\//_}; done < <(find test -name '*.v' ! -name '*_gold.v')
-
-** Eliminate test's we can't parse atm: **
-rm -f test_synthesizability*.v
-rm -f test_parse2synthtrans_latch_1_test.v
-rm -f test_parse2synthtrans_always_1_test.v
-rm -f test_parse2synthtrans_always_2_test.v
-for x in test_*.v; do ../../yosys -b "" $x || rm $x; done
-
