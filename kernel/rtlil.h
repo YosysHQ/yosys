@@ -707,15 +707,17 @@ struct RTLIL::SigChunk
 struct RTLIL::SigBit
 {
 	RTLIL::Wire *wire;
-	RTLIL::State data;
-	int offset;
+	union {
+		RTLIL::State data;
+		int offset;
+	};
 
-	SigBit() : wire(NULL), data(RTLIL::State::S0), offset(0) { }
-	SigBit(RTLIL::State bit) : wire(NULL), data(bit), offset(0) { }
-	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0), offset(0) { log_assert(wire && wire->width == 1); }
-	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), data(RTLIL::State::S0), offset(offset) { log_assert(wire); }
-	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[0]), offset(chunk.offset) { log_assert(chunk.width == 1); }
-	SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire), data(chunk.wire ? RTLIL::State::S0 : chunk.data.bits[index]), offset(chunk.wire ? chunk.offset + index : 0) { }
+	SigBit() : wire(NULL), data(RTLIL::State::S0) { }
+	SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
+	SigBit(RTLIL::Wire *wire) : wire(wire), data(RTLIL::State::S0) { log_assert(wire && wire->width == 1); }
+	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire); }
+	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { if (wire) offset = chunk.offset; else data = chunk.data.bits[0]; log_assert(chunk.width == 1); }
+	SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire) { if (wire) offset = chunk.offset + index; else data = chunk.data.bits[index]; }
 	SigBit(const RTLIL::SigSpec &sig);
 
 	bool operator <(const RTLIL::SigBit &other) const {

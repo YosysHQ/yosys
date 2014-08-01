@@ -1681,9 +1681,11 @@ RTLIL::SigChunk::SigChunk(RTLIL::State bit, int width)
 RTLIL::SigChunk::SigChunk(RTLIL::SigBit bit)
 {
 	wire = bit.wire;
+	offset = 0;
 	if (wire == NULL)
 		data = RTLIL::Const(bit.data);
-	offset = bit.offset;
+	else
+		offset = bit.offset;
 	width = 1;
 }
 
