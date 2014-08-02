@@ -815,25 +815,34 @@ namespace {
 void RTLIL::Module::check()
 {
 #ifndef NDEBUG
+	std::vector<bool> ports_declared;
 	for (auto &it : wires_) {
 		log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(it.second->width >= 0);
 		log_assert(it.second->port_id >= 0);
-		for (auto &it2 : it.second->attributes) {
+		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
-		}
+		if (it.second->port_id) {
+			log_assert(it.second->port_input || it.second->port_output);
+			if (SIZE(ports_declared) < it.second->port_id)
+				ports_declared.resize(it.second->port_id);
+			log_assert(ports_declared[it.second->port_id-1] == false);
+			ports_declared[it.second->port_id-1] = true;
+		} else
+			log_assert(!it.second->port_input && !it.second->port_output);
 	}
+	for (auto port_declared : ports_declared)
+		log_assert(port_declared == true);
 
 	for (auto &it : memories) {
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(it.second->width >= 0);
 		log_assert(it.second->size >= 0);
-		for (auto &it2 : it.second->attributes) {
+		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
-		}
 	}
 
 	for (auto &it : cells_) {
@@ -845,12 +854,10 @@ void RTLIL::Module::check()
 			log_assert(!it2.first.empty());
 			it2.second.check();
 		}
-		for (auto &it2 : it.second->attributes) {
+		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
-		}
-		for (auto &it2 : it.second->parameters) {
+		for (auto &it2 : it.second->parameters)
 			log_assert(!it2.first.empty());
-		}
 		InternalCellChecker checker(this, it.second);
 		checker.check();
 	}
@@ -867,9 +874,8 @@ void RTLIL::Module::check()
 		it.second.check();
 	}
 
-	for (auto &it : attributes) {
+	for (auto &it : attributes)
 		log_assert(!it.first.empty());
-	}
 #endif
 }
 

@@ -504,6 +504,7 @@ struct TechmapWorker
 
 									RTLIL::Wire *new_wire = tpl->addWire(port_name, wire);
 									wire->port_input = false;
+									wire->port_id = 0;
 
 									for (int i = 0; i < wire->width; i++) {
 										port_new2old_map[RTLIL::SigBit(new_wire, i)] = RTLIL::SigBit(wire, i);
