@@ -26,6 +26,11 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+std::vector<int> RTLIL::IdString::global_refcount_storage_;
+std::vector<std::string> RTLIL::IdString::global_id_storage_;
+std::map<const std::string, int> RTLIL::IdString::global_id_index_;
+std::vector<int> RTLIL::IdString::global_free_idx_list_;
+
 RTLIL::Const::Const()
 {
 	flags = RTLIL::CONST_FLAG_NONE;
@@ -1998,8 +2003,7 @@ void RTLIL::SigSpec::hash() const
 			for (auto &v : c.data.bits)
 				DJB2(that->hash_, v);
 		} else {
-			for (auto &v : c.wire->name.str())
-				DJB2(that->hash_, v);
+			DJB2(that->hash_, c.wire->name.index_);
 			DJB2(that->hash_, c.offset);
 			DJB2(that->hash_, c.width);
 		}

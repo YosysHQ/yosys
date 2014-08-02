@@ -74,29 +74,100 @@ namespace RTLIL
 
 	struct IdString
 	{
-	private:
-		std::string str_;
-	
-	public:
-		IdString() : str_() { }
-		IdString(const char *str) : str_(str) { }
-		IdString(const IdString &str) : str_(str.str_) { }
-		IdString(const std::string &str) : str_(str) { }
+		// the global string cache
 
-		void operator=(const char *rhs) { str_ = rhs; }
-		void operator=(const IdString &rhs) { str_ = rhs.str_; }
-		void operator=(const std::string &rhs) { str_ = rhs; }
+		static std::vector<int> global_refcount_storage_;
+		static std::vector<std::string> global_id_storage_;
+		static std::map<const std::string, int> global_id_index_;
+		static std::vector<int> global_free_idx_list_;
 
-		const std::string& str() const { return str_; }
+		static inline int get_reference(int idx)
+		{
+			global_refcount_storage_.at(idx)++;
+			return idx;
+		}
+
+		static inline int get_reference(const std::string &str)
+		{
+			if (!str.empty()) {
+				log_assert(str.size() >= 2);
+				log_assert(str[0] == '$' || str[0] == '\\');
+			}
+
+			auto it = global_id_index_.find(str);
+			if (it != global_id_index_.end()) {
+				global_refcount_storage_.at(it->second)++;
+				return it->second;
+			}
+
+			if (global_free_idx_list_.empty()) {
+				log_assert(global_id_storage_.size() < 0x40000000);
+				global_free_idx_list_.push_back(global_id_storage_.size());
+				global_id_storage_.push_back(std::string());
+				global_refcount_storage_.push_back(0);
+			}
+
+			int idx = global_free_idx_list_.back();
+			global_free_idx_list_.pop_back();
+			global_id_storage_.at(idx) = str;
+			global_id_index_[global_id_storage_.at(idx)] = idx;
+			global_refcount_storage_.at(idx)++;
+			return idx;
+		}
+
+		static inline void put_reference(int idx)
+		{
+			if (--global_refcount_storage_.at(idx) != 0)
+				return;
+
+			global_id_index_.erase(global_id_storage_.at(idx));
+			global_id_storage_.at(idx).clear();
+			global_free_idx_list_.push_back(idx);
+		}
+
+		// The actual IdString objects just is a single int
+
+		int index_;
+
+		IdString() : index_(get_reference("")) { }
+		IdString(const char *str) : index_(get_reference(str)) { }
+		IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+		IdString(const std::string &str) : index_(get_reference(str)) { }
+		~IdString() { put_reference(index_); }
+
+		void operator=(const IdString &rhs) {
+			put_reference(index_);
+			index_ = get_reference(rhs.index_);
+		}
+
+		void operator=(const char *rhs) {
+			IdString id(rhs);
+			*this = id;
+		}
+
+		void operator=(const std::string &rhs) {
+			IdString id(rhs);
+			*this = id;
+		}
+
+		const std::string& str() const {
+			return global_id_storage_.at(index_);
+		}
+
+		bool operator<(const IdString &rhs) const {
+			return index_ < rhs.index_;
+		}
 
 		// The methods below are just convinience functions for better compatibility
 		// with std::string. Except clear() they all just deligate to std::string.
 
 		operator const char*() const { return str().c_str(); }
 
-		bool operator<(const IdString &rhs) const { return str() < rhs.str(); }
 		bool operator==(const IdString &rhs) const { return str() == rhs.str(); }
 		bool operator!=(const IdString &rhs) const { return str() != rhs.str(); }
+
+		bool operator==(const std::string &rhs) const { return str() == rhs; }
+		bool operator!=(const std::string &rhs) const { return str() != rhs; }
 
 		bool operator==(const char *rhs) const { return str() == rhs; }
 		bool operator!=(const char *rhs) const { return str() != rhs; }
