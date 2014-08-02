@@ -326,8 +326,40 @@ struct TechmapWorker
 					{
 						if (extern_mode)
 						{
-							log("WARNING: Mapping simplemap cell %s.%s (%s) in -extern mode is not supported yet.\n", log_id(module), log_id(cell), log_id(cell->type));
-							break;
+							std::string m_name = stringf("$extern:simplemap:%s", log_id(cell->type));
+
+							for (auto &c : cell->parameters)
+								m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
+
+							RTLIL::Module *simplemap_module = design->module(m_name);
+
+							if (simplemap_module == nullptr)
+							{
+								simplemap_module = design->addModule(m_name);
+								RTLIL::Cell *simplemap_cell = simplemap_module->addCell(cell->type, cell);
+
+								int port_counter = 1;
+								for (auto &c : simplemap_cell->connections_) {
+									RTLIL::Wire *w = simplemap_module->addWire(c.first, SIZE(c.second));
+									if (w->name == "\\Y" || w->name == "\\Q")
+										w->port_output = true;
+									else
+										w->port_input = true;
+									w->port_id = port_counter++;
+									c.second = w;
+								}
+
+								simplemap_module->check();
+
+								log("Creating %s with simplemap.\n", log_id(simplemap_module));
+								if (simplemap_mappers.count(simplemap_cell->type) == 0)
+									log_error("No simplemap mapper for cell type %s found!\n", RTLIL::id2cstr(simplemap_cell->type));
+								simplemap_mappers.at(simplemap_cell->type)(simplemap_module, simplemap_cell);
+								simplemap_module->remove(simplemap_cell);
+							}
+
+							cell->type = m_name;
+							cell->parameters.clear();
 						}
 						else
 						{
@@ -337,10 +369,11 @@ struct TechmapWorker
 							simplemap_mappers.at(cell->type)(module, cell);
 							module->remove(cell);
 							cell = NULL;
-							did_something = true;
-							mapped_cell = true;
-							break;
 						}
+
+						did_something = true;
+						mapped_cell = true;
+						break;
 					}
 
 					for (auto conn : cell->connections()) {
@@ -538,6 +571,8 @@ struct TechmapWorker
 									port_conn.second.append_bit(it.second);
 								}
 								tpl->connect(port_conn);
+
+								tpl->check();
 							}
 
 							Pass::call_on_module(map, tpl, cmd_string);
