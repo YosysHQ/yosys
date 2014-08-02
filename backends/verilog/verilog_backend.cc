@@ -544,7 +544,22 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 #undef HANDLE_UNIOP
 #undef HANDLE_BINOP
 
-	if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$pmux_safe")
+	if (cell->type == "$mux")
+	{
+		fprintf(f, "%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		fprintf(f, " = ");
+		dump_sigspec(f, cell->getPort("\\S"));
+		fprintf(f, " ? ");
+		dump_attributes(f, "", cell->attributes, ' ');
+		dump_sigspec(f, cell->getPort("\\B"));
+		fprintf(f, " : ");
+		dump_sigspec(f, cell->getPort("\\A"));
+		fprintf(f, ";\n");
+		return true;
+	}
+
+	if (cell->type == "$pmux" || cell->type == "$pmux_safe")
 	{
 		int width = cell->parameters["\\WIDTH"].as_int();
 		int s_width = cell->getPort("\\S").size();
@@ -556,10 +571,11 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		fprintf(f, "%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
-		if (!noattr)
+		if (cell->type != "$pmux_safe" && !noattr)
 			fprintf(f, "%s" "  (* parallel_case *)\n", indent.c_str());
 		fprintf(f, "%s" "  casez (s)", indent.c_str());
-		fprintf(f, noattr ? " // synopsys parallel_case\n" : "\n");
+		if (cell->type != "$pmux_safe")
+			fprintf(f, noattr ? " // synopsys parallel_case\n" : "\n");
 
 		for (int i = 0; i < s_width; i++)
 		{
