@@ -163,11 +163,12 @@ void dump_const(FILE *f, const RTLIL::Const &data, int width = -1, int offset = 
 				log_assert(i < (int)data.bits.size());
 				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
 					goto dump_bits;
+				if (data.bits[i] == RTLIL::S1 && (i - offset) == 31)
+					goto dump_bits;
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
-			// fprintf(f, "%s32'sd%u", val < 0 ? "-" : "", abs(val));
-			fprintf(f, "%d", val);
+			fprintf(f, "32'%sd%d", set_signed ? "s" : "", val);
 		} else {
 	dump_bits:
 			fprintf(f, "%d'%sb", width, set_signed ? "s" : "");
