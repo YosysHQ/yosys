@@ -205,11 +205,11 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 
 const char *log_id(RTLIL::IdString str)
 {
-	if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
-		string_buf.push_back(str.substr(1));
-	else
-		string_buf.push_back(str.str());
-	return string_buf.back().c_str();
+	const char *p = str;
+	log_assert(RTLIL::IdString::global_refcount_storage_[str.index_] > 1);
+	if (p[0] == '\\' && p[1] != '$' && p[1] != 0)
+		return p+1;
+	return p;
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)

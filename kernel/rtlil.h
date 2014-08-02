@@ -76,9 +76,18 @@ namespace RTLIL
 	{
 		// the global string cache
 
+		struct char_ptr_cmp {
+			bool operator()(const char *a, const char *b) {
+				for (int i = 0; a[i] || b[i]; i++)
+					if (a[i] != b[i])
+						return a[i] < b[i];
+				return false;
+			}
+		};
+
 		static std::vector<int> global_refcount_storage_;
-		static std::vector<std::string> global_id_storage_;
-		static std::map<const std::string, int> global_id_index_;
+		static std::vector<char*> global_id_storage_;
+		static std::map<char*, int, char_ptr_cmp> global_id_index_;
 		static std::vector<int> global_free_idx_list_;
 
 		static inline int get_reference(int idx)
@@ -87,14 +96,14 @@ namespace RTLIL
 			return idx;
 		}
 
-		static inline int get_reference(const std::string &str)
+		static inline int get_reference(const char *p)
 		{
-			if (!str.empty()) {
-				log_assert(str.size() >= 2);
-				log_assert(str[0] == '$' || str[0] == '\\');
+			if (p[0]) {
+				log_assert(p[1] != 0);
+				log_assert(p[0] == '$' || p[0] == '\\');
 			}
 
-			auto it = global_id_index_.find(str);
+			auto it = global_id_index_.find((char*)p);
 			if (it != global_id_index_.end()) {
 				global_refcount_storage_.at(it->second)++;
 				return it->second;
@@ -103,13 +112,13 @@ namespace RTLIL
 			if (global_free_idx_list_.empty()) {
 				log_assert(global_id_storage_.size() < 0x40000000);
 				global_free_idx_list_.push_back(global_id_storage_.size());
-				global_id_storage_.push_back(std::string());
+				global_id_storage_.push_back(nullptr);
 				global_refcount_storage_.push_back(0);
 			}
 
 			int idx = global_free_idx_list_.back();
 			global_free_idx_list_.pop_back();
-			global_id_storage_.at(idx) = str;
+			global_id_storage_.at(idx) = strdup(p);
 			global_id_index_[global_id_storage_.at(idx)] = idx;
 			global_refcount_storage_.at(idx)++;
 			return idx;
@@ -121,7 +130,7 @@ namespace RTLIL
 				return;
 
 			global_id_index_.erase(global_id_storage_.at(idx));
-			global_id_storage_.at(idx).clear();
+			free(global_id_storage_.at(idx));
 			global_free_idx_list_.push_back(idx);
 		}
 
@@ -132,7 +141,7 @@ namespace RTLIL
 		IdString() : index_(get_reference("")) { }
 		IdString(const char *str) : index_(get_reference(str)) { }
 		IdString(const IdString &str) : index_(get_reference(str.index_)) { }
-		IdString(const std::string &str) : index_(get_reference(str)) { }
+		IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
 		~IdString() { put_reference(index_); }
 
 		void operator=(const IdString &rhs) {
@@ -150,21 +159,26 @@ namespace RTLIL
 			*this = id;
 		}
 
-		const std::string& str() const {
+		const char*c_str() const {
 			return global_id_storage_.at(index_);
+		}
+
+		operator const char*() const {
+			return global_id_storage_.at(index_);
+		}
+
+		std::string str() const {
+			return std::string(global_id_storage_.at(index_));
 		}
 
 		bool operator<(const IdString &rhs) const {
 			return index_ < rhs.index_;
 		}
 
-		// The methods below are just convinience functions for better compatibility
-		// with std::string. Except clear() they all just deligate to std::string.
+		bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
+		bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
 
-		operator const char*() const { return str().c_str(); }
-
-		bool operator==(const IdString &rhs) const { return str() == rhs.str(); }
-		bool operator!=(const IdString &rhs) const { return str() != rhs.str(); }
+		// The methods below are just convinience functions for better compatibility with std::string.
 
 		bool operator==(const std::string &rhs) const { return str() == rhs; }
 		bool operator!=(const std::string &rhs) const { return str() != rhs; }
@@ -172,12 +186,28 @@ namespace RTLIL
 		bool operator==(const char *rhs) const { return str() == rhs; }
 		bool operator!=(const char *rhs) const { return str() != rhs; }
 
-		char at(size_t i) const { return str().at(i); }
-		const char*c_str() const { return str().c_str(); }
-		std::string substr(size_t pos = 0, size_t len = std::string::npos) const { return str().substr(pos, len); }
-		size_t size() const { return str().size(); }
-		bool empty() const { return str().empty(); }
-		void clear() { *this = IdString(); }
+		char at(size_t i) const {
+			return c_str()[i];
+		}
+
+		std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+			if (len == std::string::npos)
+				return std::string(c_str() + pos);
+			else
+				return std::string(c_str() + pos, len);
+		}
+
+		size_t size() const {
+			return str().size();
+		}
+
+		bool empty() const {
+			return c_str()[0] == 0;
+		}
+
+		void clear() {
+			*this = IdString();
+		}
 	};
 
 	static inline std::string escape_id(std::string str) {

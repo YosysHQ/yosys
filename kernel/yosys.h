@@ -43,7 +43,11 @@
 #include <string>
 #include <algorithm>
 #include <initializer_list>
+
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }

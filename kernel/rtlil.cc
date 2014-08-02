@@ -27,8 +27,8 @@
 YOSYS_NAMESPACE_BEGIN
 
 std::vector<int> RTLIL::IdString::global_refcount_storage_;
-std::vector<std::string> RTLIL::IdString::global_id_storage_;
-std::map<const std::string, int> RTLIL::IdString::global_id_index_;
+std::vector<char*> RTLIL::IdString::global_id_storage_;
+std::map<char*, int, RTLIL::IdString::char_ptr_cmp> RTLIL::IdString::global_id_index_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 
 RTLIL::Const::Const()
