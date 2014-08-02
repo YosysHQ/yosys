@@ -28,7 +28,7 @@
 namespace {
 	struct generate_port_decl_t {
 		bool input, output;
-		std::string portname;
+		RTLIL::IdString portname;
 		int index;
 	};
 }

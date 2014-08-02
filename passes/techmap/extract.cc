@@ -700,7 +700,7 @@ struct ExtractPass : public Pass {
 				log("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
 				log("  primary match in %s:", id2cstr(haystack_map.at(result.graphId)->name));
 				for (auto &node : result.nodes)
-					log(" %s", id2cstr(node.nodeId));
+					log(" %s", RTLIL::unescape_id(node.nodeId).c_str());
 				log("\n");
 				for (auto &it : result.matchesPerGraph)
 					log("  matches in %s: %d\n", id2cstr(haystack_map.at(it.first)->name), it.second);

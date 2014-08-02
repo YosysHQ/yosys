@@ -59,9 +59,9 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 	if (argidx+3 != args.size() || args[argidx].substr(0, 1) == "-")
 		that->cmd_error(args, argidx, "command argument error");
 	
-	std::string gold_name = RTLIL::escape_id(args[argidx++]);
-	std::string gate_name = RTLIL::escape_id(args[argidx++]);
-	std::string miter_name = RTLIL::escape_id(args[argidx++]);
+	RTLIL::IdString gold_name = RTLIL::escape_id(args[argidx++]);
+	RTLIL::IdString gate_name = RTLIL::escape_id(args[argidx++]);
+	RTLIL::IdString miter_name = RTLIL::escape_id(args[argidx++]);
 
 	if (design->modules_.count(gold_name) == 0)
 		log_cmd_error("Can't find gold module %s!\n", gold_name.c_str());

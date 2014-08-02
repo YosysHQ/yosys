@@ -490,7 +490,7 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode)
 						for (auto i2 : i1.second)
 							limits.insert(i2);
 					} else
-						log_cmd_error("Selection %s is not defined!\n", RTLIL::id2cstr(str));
+						log_cmd_error("Selection %s is not defined!\n", RTLIL::unescape_id(str).c_str());
 				} else
 					limits.insert(RTLIL::escape_id(str));
 			}
@@ -654,7 +654,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		if (design->selection_vars.count(set_name) > 0)
 			work_stack.push_back(design->selection_vars[set_name]);
 		else
-			log_cmd_error("Selection @%s is not defined!\n", RTLIL::id2cstr(set_name));
+			log_cmd_error("Selection @%s is not defined!\n", RTLIL::unescape_id(set_name).c_str());
 		select_filter_active_mod(design, work_stack.back());
 		return;
 	}
@@ -1315,7 +1315,7 @@ struct CdPass : public Pass {
 			return;
 		}
 
-		log_cmd_error("No such module `%s' found!\n", RTLIL::id2cstr(modname));
+		log_cmd_error("No such module `%s' found!\n", RTLIL::unescape_id(modname).c_str());
 	}
 } CdPass;
 

@@ -47,7 +47,7 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
 	if (!module->wires_.count(id))
-		log_error("Can't resolve wire name %s.\n", RTLIL::id2cstr(id));
+		log_error("Can't resolve wire name %s.\n", RTLIL::unescape_id(id).c_str());
 
 	expr += id_len;
 	return module->wires_.at(id);
@@ -234,7 +234,7 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	}
 
 	if (clk_sig.size() == 0 || data_sig.size() == 0)
-		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", RTLIL::id2cstr(module->name));
+		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", log_id(module->name));
 
 	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
 	{
@@ -311,7 +311,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 	}
 
 	if (enable_sig.size() == 0 || data_sig.size() == 0)
-		log_error("Latch cell %s has no data_in and/or enable attribute.\n", RTLIL::id2cstr(module->name));
+		log_error("Latch cell %s has no data_in and/or enable attribute.\n", log_id(module->name));
 
 	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
 	{
@@ -480,10 +480,10 @@ struct LibertyFrontend : public Frontend {
 			if (design->has(cell_name)) {
 				if (flag_ignore_redef)
 					continue;
-				log_error("Duplicate definition of cell/module %s.\n", RTLIL::id2cstr(cell_name));
+				log_error("Duplicate definition of cell/module %s.\n", RTLIL::unescape_id(cell_name).c_str());
 			}
 
-			// log("Processing cell type %s.\n", RTLIL::id2cstr(cell_name));
+			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name).c_str());
 
 			RTLIL::Module *module = new RTLIL::Module;
 			module->name = cell_name;
@@ -501,9 +501,9 @@ struct LibertyFrontend : public Frontend {
 					{
 						if (!flag_ignore_miss_dir)
 						{
-							log_error("Missing or invalid direction for pin %s of cell %s.\n", node->args.at(0).c_str(), RTLIL::id2cstr(module->name));
+							log_error("Missing or invalid direction for pin %s of cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
 						} else {
-							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", RTLIL::id2cstr(module->name), node->args.at(0).c_str());
+							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", log_id(module->name), node->args.at(0).c_str());
 							delete module;
 							goto skip_cell;
 						}
@@ -551,9 +551,9 @@ struct LibertyFrontend : public Frontend {
 					{
 						if (!flag_ignore_miss_func)
 						{
-							log_error("Missing function on output %s of cell %s.\n", RTLIL::id2cstr(wire->name), RTLIL::id2cstr(module->name));
+							log_error("Missing function on output %s of cell %s.\n", log_id(wire->name), log_id(module->name));
 						} else {
-							log("Ignoring cell %s with missing function on output %s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+							log("Ignoring cell %s with missing function on output %s.\n", log_id(module->name), log_id(wire->name));
 							delete module;
 							goto skip_cell;
 						}

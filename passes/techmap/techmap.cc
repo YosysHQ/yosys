@@ -57,7 +57,7 @@ struct TechmapWorker
 	std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
 	std::map<std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	std::map<RTLIL::Module*, bool> techmap_do_cache;
-	std::set<RTLIL::Module*> module_queue;
+	std::set<RTLIL::Module*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Module>> module_queue;
 
 	struct TechmapWireData {
 		RTLIL::Wire *wire;
@@ -479,7 +479,7 @@ struct TechmapWorker
 								cmd_string = cmd_string.substr(strlen("CONSTMAP; "));
 
 								log("Analyzing pattern of constant bits for this cell:\n");
-								std::string new_tpl_name = constmap_tpl_name(sigmap, tpl, cell, true);
+								RTLIL::IdString new_tpl_name = constmap_tpl_name(sigmap, tpl, cell, true);
 								log("Creating constmapped module `%s'.\n", log_id(new_tpl_name));
 								log_assert(map->module(new_tpl_name) == nullptr);
 
@@ -824,7 +824,9 @@ struct TechmapPass : public Pass {
 				celltypeMap[it.first].insert(it.first);
 		}
 
-		worker.module_queue = design->modules();
+		for (auto module : design->modules())
+			worker.module_queue.insert(module);
+
 		while (!worker.module_queue.empty())
 		{
 			RTLIL::Module *module = *worker.module_queue.begin();

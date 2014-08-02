@@ -90,22 +90,25 @@ void logv(const char *format, va_list ap)
 
 void logv_header(const char *format, va_list ap)
 {
+	bool pop_errfile = false;
+
 	log("\n");
 	if (header_count.size() > 0)
 		header_count.back()++;
+
+	if (int(header_count.size()) <= log_verbose_level && log_errfile != NULL) {
+		log_files.push_back(log_errfile);
+		pop_errfile = true;
+	}
+
 	for (int c : header_count)
 		log("%d.", c);
 	log(" ");
 	logv(format, ap);
 	log_flush();
 
-	if (int(header_count.size()) <= log_verbose_level && log_errfile != NULL) {
-		for (int c : header_count)
-			fprintf(log_errfile, "%d.", c);
-		fprintf(log_errfile, " ");
-		vfprintf(log_errfile, format, ap);
-		fflush(log_errfile);
-	}
+	if (pop_errfile)
+		log_files.pop_back();
 }
 
 void logv_error(const char *format, va_list ap)

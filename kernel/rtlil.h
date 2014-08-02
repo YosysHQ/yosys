@@ -126,11 +126,14 @@ namespace RTLIL
 
 		static inline void put_reference(int idx)
 		{
+			log_assert(global_refcount_storage_.at(idx) > 0);
+
 			if (--global_refcount_storage_.at(idx) != 0)
 				return;
 
 			global_id_index_.erase(global_id_storage_.at(idx));
 			free(global_id_storage_.at(idx));
+			global_id_storage_.at(idx) = nullptr;
 			global_free_idx_list_.push_back(idx);
 		}
 
@@ -191,7 +194,7 @@ namespace RTLIL
 		}
 
 		std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-			if (len == std::string::npos)
+			if (len == std::string::npos || len >= strlen(c_str() + pos))
 				return std::string(c_str() + pos);
 			else
 				return std::string(c_str() + pos, len);
@@ -208,6 +211,16 @@ namespace RTLIL
 		void clear() {
 			*this = IdString();
 		}
+
+		// The following is a helper key_compare class. Instead of for example std::set<Cell*>
+		// use std::set<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
+		// set has an influence on the algorithm.
+
+		template<typename T> struct compare_ptr_by_name {
+			bool operator()(const T *a, const T *b) {
+				return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
+			}
+		};
 	};
 
 	static inline std::string escape_id(std::string str) {
@@ -222,18 +235,12 @@ namespace RTLIL
 		return str;
 	}
 
-	static inline const char *id2cstr(const std::string &str) {
-		if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
-			return str.c_str() + 1;
-		return str.c_str();
-	}
-
 	static inline std::string unescape_id(RTLIL::IdString str) {
 		return unescape_id(str.str());
 	}
 
 	static inline const char *id2cstr(const RTLIL::IdString &str) {
-		return id2cstr(str.str());
+		return log_id(str);
 	}
 
 	template <typename T> struct sort_by_name {
@@ -833,7 +840,11 @@ struct RTLIL::SigBit
 	SigBit(const RTLIL::SigSpec &sig);
 
 	bool operator <(const RTLIL::SigBit &other) const {
-		return (wire != other.wire) ? (wire < other.wire) : wire ? (offset < other.offset) : (data < other.data);
+		if (wire == other.wire)
+			return wire ? (offset < other.offset) : (data < other.data);
+		if (wire != nullptr && other.wire != nullptr)
+			return wire->name < other.wire->name;
+		return wire < other.wire;
 	}
 
 	bool operator ==(const RTLIL::SigBit &other) const {

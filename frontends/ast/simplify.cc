@@ -465,10 +465,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		size_t pos = str.rfind('.');
 		if (pos == std::string::npos)
 			log_error("Defparam `%s' does not contain a dot (module/parameter seperator) at %s:%d!\n",
-					RTLIL::id2cstr(str), filename.c_str(), linenum);
+					RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
 		std::string modname = str.substr(0, pos), paraname = "\\" + str.substr(pos+1);
 		if (current_scope.count(modname) == 0 || current_scope.at(modname)->type != AST_CELL)
-			log_error("Can't find cell for defparam `%s . %s` at %s:%d!\n", RTLIL::id2cstr(modname), RTLIL::id2cstr(paraname), filename.c_str(), linenum);
+			log_error("Can't find cell for defparam `%s . %s` at %s:%d!\n", RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paraname).c_str(), filename.c_str(), linenum);
 		AstNode *cell = current_scope.at(modname), *paraset = clone();
 		cell->children.insert(cell->children.begin() + 1, paraset);
 		paraset->type = AST_PARASET;
@@ -1306,7 +1306,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (children.size() != 1)
 					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
-							RTLIL::id2cstr(str), int(children.size()), filename.c_str(), linenum);
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
 
 				AstNode *buf = children[0]->clone();
 				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
@@ -1336,18 +1336,18 @@ skip_dynamic_range_lvalue_expansion:;
 				if (func_with_two_arguments) {
 					if (children.size() != 2)
 						log_error("System function %s got %d arguments, expected 2 at %s:%d.\n",
-								RTLIL::id2cstr(str), int(children.size()), filename.c_str(), linenum);
+								RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
 				} else {
 					if (children.size() != 1)
 						log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
-								RTLIL::id2cstr(str), int(children.size()), filename.c_str(), linenum);
+								RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
 				}
 
 				if (children.size() >= 1) {
 					while (children[0]->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (!children[0]->isConst())
 						log_error("Failed to evaluate system function `%s' with non-constant argument at %s:%d.\n",
-								RTLIL::id2cstr(str), filename.c_str(), linenum);
+								RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[0]->detectSignWidth(child_width_hint, child_sign_hint);
@@ -1358,7 +1358,7 @@ skip_dynamic_range_lvalue_expansion:;
 					while (children[1]->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (!children[1]->isConst())
 						log_error("Failed to evaluate system function `%s' with non-constant argument at %s:%d.\n",
-								RTLIL::id2cstr(str), filename.c_str(), linenum);
+								RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[1]->detectSignWidth(child_width_hint, child_sign_hint);
