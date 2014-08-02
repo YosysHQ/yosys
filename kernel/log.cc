@@ -113,12 +113,11 @@ void logv_header(const char *format, va_list ap)
 
 void logv_error(const char *format, va_list ap)
 {
+	if (log_errfile != NULL)
+		log_files.push_back(log_errfile);
+
 	log("ERROR: ");
 	logv(format, ap);
-	if (log_errfile != NULL) {
-		fprintf(log_errfile, "ERROR: ");
-		vfprintf(log_errfile, format, ap);
-	}
 	log_flush();
 	exit(1);
 }
