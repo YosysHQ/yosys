@@ -490,9 +490,9 @@ namespace {
 			}
 
 			for (auto &conn : cell->connections()) {
-				if (conn.first.size() != 2 || conn.first.at(0) != '\\')
+				if (conn.first.size() != 2 || conn.first[0] != '\\')
 					error(__LINE__);
-				if (strchr(ports, conn.first.at(1)) == NULL)
+				if (strchr(ports, conn.first[1]) == NULL)
 					error(__LINE__);
 			}
 		}

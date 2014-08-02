@@ -50,7 +50,7 @@ static bool consider_cell(RTLIL::Design *design, std::set<RTLIL::IdString> &dff_
 {
 	if (cell->name[0] == '$' || dff_cells.count(cell->name))
 		return false;
-	if (cell->type.at(0) == '\\' && !design->modules_.count(cell->type))
+	if (cell->type[0] == '\\' && !design->modules_.count(cell->type))
 		return false;
 	return true;
 }

@@ -185,12 +185,11 @@ namespace RTLIL
 		bool operator==(const char *rhs) const { return str() == rhs; }
 		bool operator!=(const char *rhs) const { return str() != rhs; }
 
-		char at(size_t i) const {
-			return c_str()[i];
-		}
-
 		char operator[](size_t i) const {
-			return c_str()[i];
+			const char *p = c_str();
+			for (; i != 0; i--, p++) 
+				log_assert(*p != 0);
+			return *p;
 		}
 
 		std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
