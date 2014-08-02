@@ -41,6 +41,7 @@ int log_verbose_level;
 
 std::vector<int> header_count;
 std::list<std::string> string_buf;
+int string_buf_size = 0;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
@@ -166,6 +167,7 @@ void log_pop()
 {
 	header_count.pop_back();
 	string_buf.clear();
+	string_buf_size = 0;
 	log_flush();
 }
 
@@ -174,6 +176,7 @@ void log_reset_stack()
 	while (header_count.size() > 1)
 		header_count.pop_back();
 	string_buf.clear();
+	string_buf_size = 0;
 	log_flush();
 }
 
@@ -197,6 +200,10 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 	fputc(0, f);
 	fclose(f);
 
+	if (string_buf_size < 100)
+		string_buf_size++;
+	else
+		string_buf.pop_front();
 	string_buf.push_back(ptr);
 	free(ptr);
 

@@ -74,7 +74,7 @@ namespace RTLIL
 
 	struct IdString
 	{
-		// the global string cache
+		// the global id string cache
 
 		struct char_ptr_cmp {
 			bool operator()(const char *a, const char *b) {
@@ -134,7 +134,7 @@ namespace RTLIL
 			global_free_idx_list_.push_back(idx);
 		}
 
-		// The actual IdString objects just is a single int
+		// the actual IdString object is just is a single int
 
 		int index_;
 
