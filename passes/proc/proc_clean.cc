@@ -150,7 +150,7 @@ struct ProcCleanPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto mod : design->modules()) {
-			std::vector<std::string> delme;
+			std::vector<RTLIL::IdString> delme;
 			if (!design->selected(mod))
 				continue;
 			for (auto &proc_it : mod->processes) {

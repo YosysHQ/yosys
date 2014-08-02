@@ -29,13 +29,13 @@ struct ShareWorkerConfig
 	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
-	std::set<std::string> generic_uni_ops, generic_bin_ops, generic_cbin_ops;
+	std::set<RTLIL::IdString> generic_uni_ops, generic_bin_ops, generic_cbin_ops;
 };
 
 struct ShareWorker
 {
 	ShareWorkerConfig config;
-	std::set<std::string> generic_ops;
+	std::set<RTLIL::IdString> generic_ops;
 
 	RTLIL::Design *design;
 	RTLIL::Module *module;

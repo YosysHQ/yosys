@@ -471,7 +471,7 @@ struct EvalPass : public Pass {
 		if (shows.size() == 0) {
 			for (auto &it : module->wires_)
 				if (it.second->port_output)
-					shows.push_back(it.second->name);
+					shows.push_back(it.second->name.str());
 		}
 
 		if (tables.empty())

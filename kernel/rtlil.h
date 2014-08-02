@@ -72,69 +72,42 @@ namespace RTLIL
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
-#if 1
-	struct IdString : public std::string {
-		IdString() { }
-		IdString(std::string str) : std::string(str) {
-			check();
-		}
-		IdString(const char *s) : std::string(s) {
-			check();
-		}
-		IdString &operator=(const std::string &str) {
-			std::string::operator=(str);
-			check();
-			return *this;
-		}
-		IdString &operator=(const char *s) {
-			std::string::operator=(s);
-			check();
-			return *this;
-		}
-		bool operator<(const IdString &rhs) {
-			check(), rhs.check();
-			return std::string(*this) < std::string(rhs);
-		}
-		void check() const {
-			log_assert(empty() || (size() >= 2 && (at(0) == '$' || at(0) == '\\')));
-		}
-		const std::string& str() const {
-			return *this;
-		}
+	struct IdString
+	{
+	private:
+		std::string str_;
+	
+	public:
+		IdString() : str_() { }
+		IdString(const char *str) : str_(str) { }
+		IdString(const IdString &str) : str_(str.str_) { }
+		IdString(const std::string &str) : str_(str) { }
+
+		void operator=(const char *rhs) { str_ = rhs; }
+		void operator=(const IdString &rhs) { str_ = rhs.str_; }
+		void operator=(const std::string &rhs) { str_ = rhs; }
+
+		const std::string& str() const { return str_; }
+
+		// The methods below are just convinience functions for better compatibility
+		// with std::string. Except clear() they all just deligate to std::string.
+
+		operator const char*() const { return str().c_str(); }
+
+		bool operator<(const IdString &rhs) const { return str() < rhs.str(); }
+		bool operator==(const IdString &rhs) const { return str() == rhs.str(); }
+		bool operator!=(const IdString &rhs) const { return str() != rhs.str(); }
+
+		bool operator==(const char *rhs) const { return str() == rhs; }
+		bool operator!=(const char *rhs) const { return str() != rhs; }
+
+		char at(size_t i) const { return str().at(i); }
+		const char*c_str() const { return str().c_str(); }
+		std::string substr(size_t pos = 0, size_t len = std::string::npos) const { return str().substr(pos, len); }
+		size_t size() const { return str().size(); }
+		bool empty() const { return str().empty(); }
+		void clear() { *this = IdString(); }
 	};
-#else
-	struct IdString {
-		IdString();
-		IdString(const char *str);
-		IdString(const IdString &str);
-		IdString(const std::string &str);
-
-		void operator=(const char *rhs);
-		void operator=(const IdString &rhs);
-		void operator=(const std::string &rhs);
-
-		operator const char*() const;
-		const std::string& str() const;
-
-		bool operator<(const IdString &rhs) const;
-		bool operator==(const IdString &rhs) const;
-		bool operator!=(const IdString &rhs) const;
-		bool operator==(const char *rhs) const;
-		bool operator!=(const char *rhs) const;
-		std::string operator+(const char *other) const;
-
-		std::string::const_iterator begin() const;
-		std::string::const_iterator end() const;
-		char at(int i) const;
-		const char*c_str() const;
-		size_t find(char c) const;
-		std::string substr(size_t pos = 0, size_t len = std::string::npos) const;
-		size_t size() const;
-		bool empty() const;
-		void clear();
-	};
-
-#endif
 
 	static inline std::string escape_id(std::string str) {
 		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')

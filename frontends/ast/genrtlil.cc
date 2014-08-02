@@ -48,7 +48,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), type);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
-	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", result_width);
+	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
 	if (gen_attributes)
@@ -82,7 +82,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), celltype);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
-	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", width);
+	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", width);
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
 	if (that != NULL)
@@ -111,7 +111,7 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, std::string type, int result_wi
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), type);
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
-	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", result_width);
+	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
 	for (auto &attr : that->attributes) {
@@ -146,7 +146,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$mux");
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
-	RTLIL::Wire *wire = current_module->addWire(cell->name + "_Y", left.size());
+	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
 	wire->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
 	for (auto &attr : that->attributes) {
@@ -295,7 +295,7 @@ struct AST_INTERNAL::ProcessGenerator
 			do {
 				wire_name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
 						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
-				if (chunk.wire->name.find('$') != std::string::npos)
+				if (chunk.wire->name.str().find('$') != std::string::npos)
 					wire_name += stringf("$%d", autoidx++);
 			} while (current_module->wires_.count(wire_name) > 0);
 
@@ -1196,7 +1196,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$memrd");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
-			RTLIL::Wire *wire = current_module->addWire(cell->name + "_DATA", current_module->memories[str]->width);
+			RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_DATA", current_module->memories[str]->width);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			int addr_bits = 1;

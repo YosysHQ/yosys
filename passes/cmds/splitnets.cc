@@ -28,7 +28,7 @@ struct SplitnetsWorker
 
 	void append_wire(RTLIL::Module *module, RTLIL::Wire *wire, int offset, int width, std::string format)
 	{
-		std::string new_wire_name = wire->name;
+		std::string new_wire_name = wire->name.str();
 
 		if (format.size() > 0)
 			new_wire_name += format.substr(0, 1);

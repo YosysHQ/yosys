@@ -178,7 +178,7 @@ struct OptRmdffPass : public Pass {
 					dff_init_map.add(it.second, it.second->attributes.at("\\init"));
 			mux_drivers.clear();
 
-			std::vector<std::string> dff_list;
+			std::vector<RTLIL::IdString> dff_list;
 			for (auto &it : mod_it.second->cells_) {
 				if (it.second->type == "$mux" || it.second->type == "$pmux") {
 					if (it.second->getPort("\\A").size() == it.second->getPort("\\B").size())

@@ -29,7 +29,7 @@ struct cell_mapping {
 	std::string cell_name;
 	std::map<std::string, char> ports;
 };
-static std::map<std::string, cell_mapping> cell_mappings;
+static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
 
 static void logmap(std::string dff)
 {
@@ -319,7 +319,7 @@ static bool expand_cellmap(std::string pattern, std::string inv)
 	bool return_status = false;
 
 	for (auto &it : cell_mappings) {
-		std::string from = it.first, to = it.first;
+		std::string from = it.first.str(), to = it.first.str();
 		if (from.size() != pattern.size())
 			continue;
 		for (size_t i = 0; i < from.size(); i++) {

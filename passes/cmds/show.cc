@@ -111,7 +111,7 @@ struct ShowWorker
 		return stringf("style=\"setlinewidth(3)\", label=\"<%d>\"", bits);
 	}
 
-	const char *findColor(std::string member_name)
+	const char *findColor(RTLIL::IdString member_name)
 	{
 		for (auto &s : color_selections)
 			if (s.second.selected_member(module->name, member_name)) {
@@ -121,20 +121,22 @@ struct ShowWorker
 		return "";
 	}
 
-	const char *findLabel(std::string member_name)
+	const char *findLabel(RTLIL::IdString member_name)
 	{
 		for (auto &s : label_selections)
-			if (s.second.selected_member(module->name, RTLIL::escape_id(member_name)))
+			if (s.second.selected_member(module->name, member_name))
 				return escape(s.first);
 		return escape(member_name, true);
 	}
 
-	const char *escape(std::string id, bool is_name = false)
+	const char *escape(RTLIL::IdString id, bool is_name = false)
 	{
-		if (id.size() == 0)
+		std::string id_str = id.str();
+
+		if (id_str.size() == 0)
 			return "";
 
-		if (id[0] == '$' && is_name) {
+		if (id_str[0] == '$' && is_name) {
 			if (enumerateIds) {
 				if (autonames.count(id) == 0) {
 					autonames[id] = autonames.size() + 1;
@@ -142,17 +144,17 @@ struct ShowWorker
 				}
 				id = stringf("_%d_", autonames[id]);
 			} else if (abbreviateIds) {
-				const char *p = id.c_str();
+				const char *p = id_str.c_str();
 				const char *q = strrchr(p, '$');
-				id = std::string(q);
+				id_str = std::string(q);
 			}
 		}
 
-		if (id[0] == '\\')
-			id = id.substr(1);
+		if (id_str[0] == '\\')
+			id_str = id_str.substr(1);
 
 		std::string str;
-		for (char ch : id) {
+		for (char ch : id_str) {
 			if (ch == '\\' || ch == '"')
 				str += "\\";
 			str += ch;

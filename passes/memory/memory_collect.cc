@@ -62,7 +62,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	for (auto &cell_it : module->cells_) {
 		RTLIL::Cell *cell = cell_it.second;
-		if ((cell->type == "$memwr" || cell->type == "$memrd") && cell->parameters["\\MEMID"].decode_string() == memory->name)
+		if ((cell->type == "$memwr" || cell->type == "$memrd") && memory->name == cell->parameters["\\MEMID"].decode_string())
 			memcells.push_back(cell);
 	}
 
@@ -70,7 +70,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	for (auto cell : memcells)
 	{
-		if (cell->type == "$memwr" && cell->parameters["\\MEMID"].decode_string() == memory->name)
+		if (cell->type == "$memwr" && memory->name == cell->parameters["\\MEMID"].decode_string())
 		{
 			wr_ports++;
 			del_cells.push_back(cell);
@@ -97,7 +97,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			sig_wr_en.append(en);
 		}
 
-		if (cell->type == "$memrd" && cell->parameters["\\MEMID"].decode_string() == memory->name)
+		if (cell->type == "$memrd" && memory->name == cell->parameters["\\MEMID"].decode_string())
 		{
 			rd_ports++;
 			del_cells.push_back(cell);
@@ -129,7 +129,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	sstr << "$mem$" << memory->name << "$" << (autoidx++);
 
 	RTLIL::Cell *mem = module->addCell(sstr.str(), "$mem");
-	mem->parameters["\\MEMID"] = RTLIL::Const(memory->name);
+	mem->parameters["\\MEMID"] = RTLIL::Const(memory->name.str());
 	mem->parameters["\\WIDTH"] = RTLIL::Const(memory->width);
 	mem->parameters["\\OFFSET"] = RTLIL::Const(memory->start_offset);
 	mem->parameters["\\SIZE"] = RTLIL::Const(memory->size);

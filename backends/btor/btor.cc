@@ -428,7 +428,7 @@ struct BtorDumper
 				{	
 					cell_line = ++line_num;
 					bool reduced = (cell->type == "$not" || cell->type == "$neg") ? false : true;
-					str = stringf ("%d %s %d %d", cell_line, cell_type_translation.at(cell->type).c_str(), reduced?output_width:w, l);
+					str = stringf ("%d %s %d %d", cell_line, cell_type_translation.at(cell->type.str()).c_str(), reduced?output_width:w, l);
 					fprintf(f, "%s\n", str.c_str());
 				}
 				if(output_width < w && (cell->type == "$not" || cell->type == "$neg" || cell->type == "$pos"))
@@ -487,13 +487,13 @@ struct BtorDumper
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), l2_width);
 				
 				++line_num;
-				std::string op = cell_type_translation.at(cell->type);
+				std::string op = cell_type_translation.at(cell->type.str());
 				if(cell->type == "$lt" || cell->type == "$le" ||
 				 cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex" ||
 				 cell->type == "$ge" || cell->type == "$gt")
 				{
 					if(l1_signed)
-						op = s_cell_type_translation.at(cell->type);
+						op = s_cell_type_translation.at(cell->type.str());
 				}
 				
 				str = stringf ("%d %s %d %d %d", line_num, op.c_str(), output_width, l1, l2);
@@ -521,9 +521,9 @@ struct BtorDumper
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), l2_width);
 				
 				++line_num;
-				std::string op = cell_type_translation.at(cell->type);
+				std::string op = cell_type_translation.at(cell->type.str());
 				if(cell->type == "$div" && l1_signed)
-					op = s_cell_type_translation.at(cell->type);
+					op = s_cell_type_translation.at(cell->type.str());
 				else if(cell->type == "$mod")
 				{
 					if(l1_signed)
@@ -555,7 +555,7 @@ struct BtorDumper
 				int l1 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), l1_width);
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), ceil(log(l1_width)/log(2)));
 				int cell_output = ++line_num;
-				str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), l1_width, l1, l2);
+				str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), l1_width, l1, l2);
 				fprintf(f, "%s\n", str.c_str());
 
 				if(l2_width > ceil(log(l1_width)/log(2)))
@@ -635,7 +635,7 @@ struct BtorDumper
 				int s = dump_sigspec(&cell->getPort(RTLIL::IdString("\\S")), 1);
 				++line_num;
 				str = stringf ("%d %s %d %d %d %d", 
-					line_num, cell_type_translation.at(cell->type).c_str(), output_width, s, l2, l1);//if s is 0 then l1, if s is 1 then l2 //according to the implementation of mux cell
+					line_num, cell_type_translation.at(cell->type.str()).c_str(), output_width, s, l2, l1);//if s is 0 then l1, if s is 1 then l2 //according to the implementation of mux cell
 				fprintf(f, "%s\n", str.c_str());
 				line_ref[cell->name]=line_num;
 			}
@@ -697,7 +697,7 @@ struct BtorDumper
 						fprintf(f, "%s\n", str.c_str());
 					}
 					++line_num;
-					str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), 
+					str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), 
 						output_width, reg, next);
 					fprintf(f, "%s\n", str.c_str());
 				}
@@ -768,7 +768,7 @@ struct BtorDumper
 				log_assert(output->size() == output_width);
 				int offset = cell->parameters.at(RTLIL::IdString("\\OFFSET")).as_int();	
 				++line_num;
-				str = stringf("%d %s %d %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), output_width, input_line, output_width+offset-1, offset);	
+				str = stringf("%d %s %d %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), output_width, input_line, output_width+offset-1, offset);
 				fprintf(f, "%s\n", str.c_str());				
 				line_ref[cell->name]=line_num;	
 			}
@@ -784,7 +784,7 @@ struct BtorDumper
 				log_assert(input_b->size() == input_b_width);
 				int input_b_line = dump_sigspec(input_b, input_b_width);
 				++line_num;
-				str = stringf("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), input_a_width+input_b_width, 
+				str = stringf("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), input_a_width+input_b_width, 
 					input_a_line, input_b_line);	
 				fprintf(f, "%s\n", str.c_str());				
 				line_ref[cell->name]=line_num;				
@@ -888,7 +888,7 @@ struct BtorDumper
 				inputs[wire->port_id] = wire;
 			if (wire->port_output) {
 				outputs[wire->port_id] = wire;
-				if (wire->name.find("safety") != std::string::npos )
+				if (wire->name.str().find("safety") != std::string::npos )
 					safety.push_back(wire);
 			}
 		}

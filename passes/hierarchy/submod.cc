@@ -108,7 +108,7 @@ struct SubmodWorker
 		design->add(new_mod);
 		int port_counter = 1, auto_name_counter = 1;
 
-		std::set<std::string> all_wire_names;
+		std::set<RTLIL::IdString> all_wire_names;
 		for (auto &it : wire_flags) {
 			all_wire_names.insert(it.first->name);
 		}
@@ -134,7 +134,7 @@ struct SubmodWorker
 			if (flags.is_int_driven && flags.is_ext_driven)
 				new_wire_port_input = true, new_wire_port_output = true;
 
-			std::string new_wire_name = wire->name;
+			std::string new_wire_name = wire->name.str();
 			if (new_wire_port_input || new_wire_port_output) {
 				while (new_wire_name[0] == '$') {
 					std::string next_wire_name = stringf("\\n%d", auto_name_counter++);
@@ -228,7 +228,7 @@ struct SubmodWorker
 
 				if (submodules.count(submod_str) == 0) {
 					submodules[submod_str].name = submod_str;
-					submodules[submod_str].full_name = module->name + "_" + submod_str;
+					submodules[submod_str].full_name = module->name.str() + "_" + submod_str;
 					while (design->modules_.count(submodules[submod_str].full_name) != 0 ||
 							module->count_id(submodules[submod_str].full_name) != 0)
 						submodules[submod_str].full_name += "_";
@@ -306,12 +306,12 @@ struct SubmodPass : public Pass {
 			Pass::call(design, "opt_clean");
 			log_header("Continuing SUBMOD pass.\n");
 
-			std::set<std::string> handled_modules;
+			std::set<RTLIL::IdString> handled_modules;
 
 			bool did_something = true;
 			while (did_something) {
 				did_something = false;
-				std::vector<std::string> queued_modules;
+				std::vector<RTLIL::IdString> queued_modules;
 				for (auto &mod_it : design->modules_)
 					if (handled_modules.count(mod_it.first) == 0 && design->selected_whole_module(mod_it.first))
 						queued_modules.push_back(mod_it.first);

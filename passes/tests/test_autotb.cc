@@ -109,8 +109,8 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 			RTLIL::Wire *wire = it2->second;
 			if (wire->port_output) {
 				count_ports++;
-				signal_out[idy("sig", mod->name, wire->name)] = wire->width;
-				fprintf(f, "wire [%d:0] %s;\n", wire->width-1, idy("sig", mod->name, wire->name).c_str());
+				signal_out[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
+				fprintf(f, "wire [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()).c_str());
 			} else if (wire->port_input) {
 				count_ports++;
 				bool is_clksignal = wire->get_bool_attribute("\\gentb_clock");
@@ -124,25 +124,25 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 							is_clksignal = true;
 				}
 				if (is_clksignal && wire->attributes.count("\\gentb_constant") == 0) {
-					signal_clk[idy("sig", mod->name, wire->name)] = wire->width;
+					signal_clk[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
 				} else {
-					signal_in[idy("sig", mod->name, wire->name)] = wire->width;
+					signal_in[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
 					if (wire->attributes.count("\\gentb_constant") != 0)
-						signal_const[idy("sig", mod->name, wire->name)] = wire->attributes["\\gentb_constant"].as_string();
+						signal_const[idy("sig", mod->name.str(), wire->name.str())] = wire->attributes["\\gentb_constant"].as_string();
 				}
-				fprintf(f, "reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name, wire->name).c_str());
+				fprintf(f, "reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()).c_str());
 			}
 		}
-		fprintf(f, "%s %s(\n", id(mod->name).c_str(), idy("uut", mod->name).c_str());
+		fprintf(f, "%s %s(\n", id(mod->name.str()).c_str(), idy("uut", mod->name.str()).c_str());
 		for (auto it2 = mod->wires_.begin(); it2 != mod->wires_.end(); it2++) {
 			RTLIL::Wire *wire = it2->second;
 			if (wire->port_output || wire->port_input)
-				fprintf(f, "\t.%s(%s)%s\n", id(wire->name).c_str(),
-						idy("sig", mod->name, wire->name).c_str(), --count_ports ? "," : "");
+				fprintf(f, "\t.%s(%s)%s\n", id(wire->name.str()).c_str(),
+						idy("sig", mod->name.str(), wire->name.str()).c_str(), --count_ports ? "," : "");
 		}
 		fprintf(f, ");\n\n");
 
-		fprintf(f, "task %s;\n", idy(mod->name, "reset").c_str());
+		fprintf(f, "task %s;\n", idy(mod->name.str(), "reset").c_str());
 		fprintf(f, "begin\n");
 		int delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); it++)
@@ -169,7 +169,7 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 		fprintf(f, "end\n");
 		fprintf(f, "endtask\n\n");
 
-		fprintf(f, "task %s;\n", idy(mod->name, "update_data").c_str());
+		fprintf(f, "task %s;\n", idy(mod->name.str(), "update_data").c_str());
 		fprintf(f, "begin\n");
 		delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
@@ -181,7 +181,7 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 		fprintf(f, "end\n");
 		fprintf(f, "endtask\n\n");
 
-		fprintf(f, "task %s;\n", idy(mod->name, "update_clock").c_str());
+		fprintf(f, "task %s;\n", idy(mod->name.str(), "update_clock").c_str());
 		fprintf(f, "begin\n");
 		if (signal_clk.size()) {
 			fprintf(f, "\txorshift128;\n");
@@ -203,7 +203,7 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 		std::vector<std::string> header1;
 		std::string header2 = "";
 
-		fprintf(f, "task %s;\n", idy(mod->name, "print_status").c_str());
+		fprintf(f, "task %s;\n", idy(mod->name.str(), "print_status").c_str());
 		fprintf(f, "begin\n");
 		fprintf(f, "\t$display(\"#OUT# %%b %%b %%b %%t %%d\", {");
 		if (signal_in.size())
@@ -265,7 +265,7 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 		fprintf(f, "end\n");
 		fprintf(f, "endtask\n\n");
 
-		fprintf(f, "task %s;\n", idy(mod->name, "print_header").c_str());
+		fprintf(f, "task %s;\n", idy(mod->name.str(), "print_header").c_str());
 		fprintf(f, "begin\n");
 		fprintf(f, "\t$display(\"#OUT#\");\n");
 		for (auto &hdr : header1)
@@ -275,15 +275,15 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 		fprintf(f, "end\n");
 		fprintf(f, "endtask\n\n");
 
-		fprintf(f, "task %s;\n", idy(mod->name, "test").c_str());
+		fprintf(f, "task %s;\n", idy(mod->name.str(), "test").c_str());
 		fprintf(f, "begin\n");
-		fprintf(f, "\t$display(\"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name).c_str());
-		fprintf(f, "\t%s;\n", idy(mod->name, "reset").c_str());
+		fprintf(f, "\t$display(\"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name.str()).c_str());
+		fprintf(f, "\t%s;\n", idy(mod->name.str(), "reset").c_str());
 		fprintf(f, "\tfor (i=0; i<%d; i=i+1) begin\n", num_iter);
-		fprintf(f, "\t\tif (i %% 20 == 0) %s;\n", idy(mod->name, "print_header").c_str());
-		fprintf(f, "\t\t#100; %s;\n", idy(mod->name, "update_data").c_str());
-		fprintf(f, "\t\t#100; %s;\n", idy(mod->name, "update_clock").c_str());
-		fprintf(f, "\t\t#100; %s;\n", idy(mod->name, "print_status").c_str());
+		fprintf(f, "\t\tif (i %% 20 == 0) %s;\n", idy(mod->name.str(), "print_header").c_str());
+		fprintf(f, "\t\t#100; %s;\n", idy(mod->name.str(), "update_data").c_str());
+		fprintf(f, "\t\t#100; %s;\n", idy(mod->name.str(), "update_clock").c_str());
+		fprintf(f, "\t\t#100; %s;\n", idy(mod->name.str(), "print_status").c_str());
 		fprintf(f, "\tend\n");
 		fprintf(f, "end\n");
 		fprintf(f, "endtask\n\n");
@@ -294,7 +294,7 @@ static void autotest(FILE *f, RTLIL::Design *design, int num_iter)
 	fprintf(f, "\t// $dumpvars(0, testbench);\n");
 	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++)
 		if (!it->second->get_bool_attribute("\\gentb_skip"))
-			fprintf(f, "\t%s;\n", idy(it->first, "test").c_str());
+			fprintf(f, "\t%s;\n", idy(it->first.str(), "test").c_str());
 	fprintf(f, "\t$finish;\n");
 	fprintf(f, "end\n\n");
 

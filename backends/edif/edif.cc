@@ -108,7 +108,7 @@ struct EdifBackend : public Backend {
 		log_header("Executing EDIF backend.\n");
 
 		std::string top_module_name;
-		std::map<std::string, std::set<std::string>> lib_cell_ports;
+		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> lib_cell_ports;
 		CellTypes ct(design);
 		EdifNames edif_names;
 

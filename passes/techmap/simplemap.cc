@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 
-extern void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
+extern void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
 
 static void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 {
@@ -382,7 +382,7 @@ static void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
-void simplemap_get_mappers(std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
+void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
 {
 	mappers["$not"]         = simplemap_not;
 	mappers["$pos"]         = simplemap_pos;
@@ -431,7 +431,7 @@ struct SimplemapPass : public Pass {
 		log_header("Executing SIMPLEMAP pass (map simple cells to gate primitives).\n");
 		extra_args(args, 1, design);
 
-		std::map<std::string, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
+		std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
 		simplemap_get_mappers(mappers);
 
 		for (auto mod : design->modules()) {

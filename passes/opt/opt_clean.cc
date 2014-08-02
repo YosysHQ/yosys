@@ -139,11 +139,12 @@ static bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs,
 
 static bool check_public_name(RTLIL::IdString id)
 {
-	if (id[0] == '$')
+	const std::string &id_str = id.str();
+	if (id_str[0] == '$')
 		return false;
-	if (id.substr(0, 2) == "\\_" && (id[id.size()-1] == '_' || id.find("_[") != std::string::npos))
+	if (id_str.substr(0, 2) == "\\_" && (id_str[id_str.size()-1] == '_' || id_str.find("_[") != std::string::npos))
 		return false;
-	if (id.find(".$") != std::string::npos)
+	if (id_str.find(".$") != std::string::npos)
 		return false;
 	return true;
 }

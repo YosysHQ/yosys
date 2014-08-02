@@ -60,10 +60,10 @@ struct OptShareWorker
 		if (cell_hash_cache.count(cell) > 0)
 			return cell_hash_cache[cell];
 
-		std::string hash_string = cell->type + "\n";
+		std::string hash_string = cell->type.str() + "\n";
 
 		for (auto &it : cell->parameters)
-			hash_string += "P " + it.first + "=" + it.second.as_string() + "\n";
+			hash_string += "P " + it.first.str() + "=" + it.second.as_string() + "\n";
 
 		const std::map<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
 		std::map<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
@@ -95,10 +95,10 @@ struct OptShareWorker
 				continue;
 			RTLIL::SigSpec sig = it.second;
 			assign_map.apply(sig);
-			hash_string += "C " + it.first + "=";
+			hash_string += "C " + it.first.str() + "=";
 			for (auto &chunk : sig.chunks()) {
 				if (chunk.wire)
-					hash_string += "{" + chunk.wire->name + " " +
+					hash_string += "{" + chunk.wire->name.str() + " " +
 							int_to_hash_string(chunk.offset) + " " +
 							int_to_hash_string(chunk.width) + "}";
 				else

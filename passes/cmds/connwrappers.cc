@@ -30,8 +30,8 @@ struct ConnwrappersWorker
 		bool is_signed;
 	};
 
-	std::set<std::string> decl_celltypes;
-	std::map<std::pair<std::string, std::string>, portdecl_t> decls;
+	std::set<RTLIL::IdString> decl_celltypes;
+	std::map<std::pair<RTLIL::IdString, RTLIL::IdString>, portdecl_t> decls;
 
 	void add_port(std::string celltype, std::string portname, std::string widthparam, std::string signparam)
 	{
@@ -76,7 +76,7 @@ struct ConnwrappersWorker
 
 			for (auto &conn : cell->connections())
 			{
-				std::pair<std::string, std::string> key(cell->type, conn.first);
+				std::pair<RTLIL::IdString, RTLIL::IdString> key(cell->type, conn.first);
 
 				if (!decls.count(key))
 					continue;

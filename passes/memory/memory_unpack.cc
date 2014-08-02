@@ -31,7 +31,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 	RTLIL::IdString mem_name = RTLIL::escape_id(memory->parameters.at("\\MEMID").decode_string());
 
 	while (module->memories.count(mem_name) != 0)
-		mem_name += stringf("_%d", autoidx++);
+		mem_name = mem_name.str() + stringf("_%d", autoidx++);
 
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = mem_name;
@@ -47,7 +47,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 	for (int i = 0; i < num_rd_ports; i++)
 	{
 		RTLIL::Cell *cell = module->addCell(NEW_ID, "$memrd");
-		cell->parameters["\\MEMID"] = mem_name;
+		cell->parameters["\\MEMID"] = mem_name.str();
 		cell->parameters["\\ABITS"] = memory->parameters.at("\\ABITS");
 		cell->parameters["\\WIDTH"] = memory->parameters.at("\\WIDTH");
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_ENABLE")).extract(i, 1).as_const();
@@ -61,7 +61,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 	for (int i = 0; i < num_wr_ports; i++)
 	{
 		RTLIL::Cell *cell = module->addCell(NEW_ID, "$memwr");
-		cell->parameters["\\MEMID"] = mem_name;
+		cell->parameters["\\MEMID"] = mem_name.str();
 		cell->parameters["\\ABITS"] = memory->parameters.at("\\ABITS");
 		cell->parameters["\\WIDTH"] = memory->parameters.at("\\WIDTH");
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_ENABLE")).extract(i, 1).as_const();

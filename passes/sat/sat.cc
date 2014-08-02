@@ -1160,19 +1160,19 @@ struct SatPass : public Pass {
 		if (set_def_inputs) {
 			for (auto &it : module->wires_)
 				if (it.second->port_input)
-					sets_def.push_back(it.second->name);
+					sets_def.push_back(it.second->name.str());
 		}
 
 		if (show_inputs) {
 			for (auto &it : module->wires_)
 				if (it.second->port_input)
-					shows.push_back(it.second->name);
+					shows.push_back(it.second->name.str());
 		}
 
 		if (show_outputs) {
 			for (auto &it : module->wires_)
 				if (it.second->port_output)
-					shows.push_back(it.second->name);
+					shows.push_back(it.second->name.str());
 		}
 
 		if (tempinduct)

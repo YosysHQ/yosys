@@ -33,8 +33,8 @@ struct SpliceWorker
 	bool sel_by_wire;
 	bool sel_any_bit;
 	bool no_outputs;
-	std::set<std::string> ports;
-	std::set<std::string> no_ports;
+	std::set<RTLIL::IdString> ports;
+	std::set<RTLIL::IdString> no_ports;
 
 	CellTypes ct;
 	SigMap sigmap;
@@ -224,7 +224,7 @@ struct SpliceWorker
 
 		for (auto &it : rework_wires)
 		{
-			std::string orig_name = it.first->name;
+			RTLIL::IdString orig_name = it.first->name;
 			module->rename(it.first, NEW_ID);
 
 			RTLIL::Wire *new_port = module->addWire(orig_name, it.first);
@@ -283,7 +283,7 @@ struct SplicePass : public Pass {
 		bool sel_by_wire = false;
 		bool sel_any_bit = false;
 		bool no_outputs = false;
-		std::set<std::string> ports, no_ports;
+		std::set<RTLIL::IdString> ports, no_ports;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

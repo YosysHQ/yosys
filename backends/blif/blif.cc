@@ -209,7 +209,7 @@ struct BlifDumper
 				continue;
 			}
 
-			fprintf(f, ".%s %s", subckt_or_gate(cell->type), cstr(cell->type));
+			fprintf(f, ".%s %s", subckt_or_gate(cell->type.str()), cstr(cell->type));
 			for (auto &conn : cell->connections())
 			for (int i = 0; i < conn.second.size(); i++) {
 				if (conn.second.size() == 1)

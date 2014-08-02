@@ -1998,7 +1998,7 @@ void RTLIL::SigSpec::hash() const
 			for (auto &v : c.data.bits)
 				DJB2(that->hash_, v);
 		} else {
-			for (auto &v : c.wire->name)
+			for (auto &v : c.wire->name.str())
 				DJB2(that->hash_, v);
 			DJB2(that->hash_, c.offset);
 			DJB2(that->hash_, c.width);

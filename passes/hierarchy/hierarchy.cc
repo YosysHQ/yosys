@@ -35,7 +35,7 @@ namespace {
 
 static void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
 {
-	std::set<std::string> found_celltypes;
+	std::set<RTLIL::IdString> found_celltypes;
 
 	for (auto i1 : design->modules_)
 	for (auto i2 : i1.second->cells_)
@@ -52,9 +52,9 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 
 	for (auto &celltype : found_celltypes)
 	{
-		std::set<std::string> portnames;
-		std::set<std::string> parameters;
-		std::map<std::string, int> portwidths;
+		std::set<RTLIL::IdString> portnames;
+		std::set<RTLIL::IdString> parameters;
+		std::map<RTLIL::IdString, int> portwidths;
 		log("Generate module for cell type %s:\n", celltype.c_str());
 
 		for (auto i1 : design->modules_)
@@ -94,7 +94,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 			}
 
 		while (portnames.size() > 0) {
-			std::string portname = *portnames.begin();
+			RTLIL::IdString portname = *portnames.begin();
 			for (auto &decl : portdecls)
 				if (decl.index == 0 && !fnmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str(), FNM_NOESCAPE)) {
 					generate_port_decl_t d = decl;
@@ -144,20 +144,20 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		RTLIL::Cell *cell = cell_it.second;
 
 		if (cell->type.substr(0, 7) == "$array:") {
-			int pos_idx = cell->type.find_first_of(':');
-			int pos_num = cell->type.find_first_of(':', pos_idx + 1);
-			int pos_type = cell->type.find_first_of(':', pos_num + 1);
-			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
-			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
+			int pos_idx = cell->type.str().find_first_of(':');
+			int pos_num = cell->type.str().find_first_of(':', pos_idx + 1);
+			int pos_type = cell->type.str().find_first_of(':', pos_num + 1);
+			int idx = atoi(cell->type.str().substr(pos_idx + 1, pos_num).c_str());
+			int num = atoi(cell->type.str().substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->type.substr(pos_type + 1);
+			cell->type = cell->type.str().substr(pos_type + 1);
 		}
 
 		if (design->modules_.count(cell->type) == 0)
 		{
-			if (design->modules_.count("$abstract" + cell->type))
+			if (design->modules_.count("$abstract" + cell->type.str()))
 			{
-				cell->type = design->modules_.at("$abstract" + cell->type)->derive(design, cell->parameters);
+				cell->type = design->modules_.at("$abstract" + cell->type.str())->derive(design, cell->parameters);
 				cell->parameters.clear();
 				did_something = true;
 				continue;
@@ -220,7 +220,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 
 		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
-			std::string portname = conn.first;
+			RTLIL::IdString portname = conn.first;
 			if (portname.substr(0, 1) == "$") {
 				int port_id = atoi(portname.substr(1).c_str());
 				for (auto &wire_it : mod->wires_)
@@ -447,7 +447,7 @@ struct HierarchyPass : public Pass {
 		bool did_something_once = false;
 		while (did_something) {
 			did_something = false;
-			std::vector<std::string> modnames;
+			std::vector<RTLIL::IdString> modnames;
 			modnames.reserve(design->modules_.size());
 			for (auto &mod_it : design->modules_)
 				modnames.push_back(mod_it.first);

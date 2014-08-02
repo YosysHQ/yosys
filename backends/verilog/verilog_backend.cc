@@ -39,14 +39,14 @@ namespace {
 
 bool norename, noattr, attr2comment, noexpr;
 int auto_name_counter, auto_name_offset, auto_name_digits;
-std::map<std::string, int> auto_name_map;
+std::map<RTLIL::IdString, int> auto_name_map;
 
-std::set<std::string> reg_wires;
+std::set<RTLIL::IdString> reg_wires;
 
 CellTypes reg_ct;
 RTLIL::Module *active_module;
 
-void reset_auto_counter_id(const std::string &id, bool may_rename)
+void reset_auto_counter_id(RTLIL::IdString id, bool may_rename)
 {
 	const char *str = id.c_str();
 
@@ -94,7 +94,7 @@ void reset_auto_counter(RTLIL::Module *module)
 		log("  renaming `%s' to `_%0*d_'.\n", it->first.c_str(), auto_name_digits, auto_name_offset + it->second);
 }
 
-std::string id(std::string internal_id, bool may_rename = true)
+std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 {
 	const char *str = internal_id.c_str();
 	bool do_escape = false;
@@ -324,7 +324,7 @@ std::string cellname(RTLIL::Cell *cell)
 		if (wire->name[0] != '\\')
 			goto no_special_reg_name;
 
-		std::string cell_name = wire->name;
+		std::string cell_name = wire->name.str();
 
 		size_t pos = cell_name.find('[');
 		if (pos != std::string::npos)
@@ -715,7 +715,7 @@ void dump_cell(FILE *f, std::string indent, RTLIL::Cell *cell)
 		fprintf(f, " %s (", cell_name.c_str());
 
 	bool first_arg = true;
-	std::set<std::string> numbered_ports;
+	std::set<RTLIL::IdString> numbered_ports;
 	for (int i = 1; true; i++) {
 		char str[16];
 		snprintf(str, 16, "$%d", i);

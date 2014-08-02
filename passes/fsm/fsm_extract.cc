@@ -31,7 +31,7 @@
 
 static RTLIL::Module *module;
 static SigMap assign_map;
-typedef std::pair<std::string, std::string> sig2driver_entry_t;
+typedef std::pair<RTLIL::IdString, RTLIL::IdString> sig2driver_entry_t;
 static SigSet<sig2driver_entry_t> sig2driver, sig2trigger;
 
 static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL::SigSpec &ctrl, std::map<RTLIL::Const, int> &states, RTLIL::Const *reset_state = NULL)
@@ -277,7 +277,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	fsm_cell->parameters["\\ARST_POLARITY"] = RTLIL::Const(arst_polarity ? 1 : 0, 1);
 	fsm_cell->setPort("\\CTRL_IN", ctrl_in);
 	fsm_cell->setPort("\\CTRL_OUT", ctrl_out);
-	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name);
+	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name.str());
 	fsm_cell->attributes = wire->attributes;
 	fsm_data.copy_to_cell(fsm_cell);
 
