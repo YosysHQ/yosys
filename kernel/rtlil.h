@@ -121,7 +121,7 @@ namespace RTLIL
 		return str;
 	}
 
-	static inline const char *id2cstr(std::string str) {
+	static inline const char *id2cstr(const std::string &str) {
 		if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
 			return str.c_str() + 1;
 		return str.c_str();
@@ -131,7 +131,7 @@ namespace RTLIL
 		return unescape_id(str.str());
 	}
 
-	static inline const char *id2cstr(RTLIL::IdString str) {
+	static inline const char *id2cstr(const RTLIL::IdString &str) {
 		return id2cstr(str.str());
 	}
 
