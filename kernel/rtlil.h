@@ -162,11 +162,7 @@ namespace RTLIL
 			*this = id;
 		}
 
-		const char*c_str() const {
-			return global_id_storage_.at(index_);
-		}
-
-		operator const char*() const {
+		const char *c_str() const {
 			return global_id_storage_.at(index_);
 		}
 
@@ -190,6 +186,10 @@ namespace RTLIL
 		bool operator!=(const char *rhs) const { return str() != rhs; }
 
 		char at(size_t i) const {
+			return c_str()[i];
+		}
+
+		char operator[](size_t i) const {
 			return c_str()[i];
 		}
 

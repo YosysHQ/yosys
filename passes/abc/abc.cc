@@ -303,7 +303,7 @@ static void handle_loops()
 					id1 = id2;
 				else if (edges[id1].size() > edges[id2].size())
 					continue;
-				else if (w1->name > w2->name)
+				else if (w2->name < w1->name)
 					id1 = id2;
 			}
 

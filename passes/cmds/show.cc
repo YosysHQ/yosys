@@ -322,7 +322,7 @@ struct ShowWorker
 				else if (it.second->port_output)
 					all_sinks.insert(stringf("n%d", id2num(it.first)));
 			} else {
-				wires_on_demand[stringf("n%d", id2num(it.first))] = it.first;
+				wires_on_demand[stringf("n%d", id2num(it.first))] = it.first.str();
 			}
 		}
 

@@ -126,7 +126,7 @@ struct EdifBackend : public Backend {
 		if (top_module_name.empty())
 			for (auto & mod_it:design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
-					top_module_name = mod_it.first;
+					top_module_name = mod_it.first.str();
 
 		for (auto module_it : design->modules_)
 		{
@@ -135,7 +135,7 @@ struct EdifBackend : public Backend {
 				continue;
 
 			if (top_module_name.empty())
-				top_module_name = module->name;
+				top_module_name = module->name.str();
 
 			if (module->processes.size() != 0)
 				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));

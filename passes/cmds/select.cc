@@ -1080,7 +1080,7 @@ struct SelectPass : public Pass {
 				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
 				if (design->modules_.count(mod_name) == 0)
 					log_cmd_error("No such module: %s\n", id2cstr(mod_name));
-				design->selected_active_module = mod_name;
+				design->selected_active_module = mod_name.str();
 				got_module = true;
 				continue;
 			}
@@ -1304,7 +1304,7 @@ struct CdPass : public Pass {
 			if (design->modules_.count(design->selected_active_module) > 0)
 				module = design->modules_.at(design->selected_active_module);
 			if (module != NULL && module->cells_.count(modname) > 0)
-				modname = module->cells_.at(modname)->type;
+				modname = module->cells_.at(modname)->type.str();
 		}
 
 		if (design->modules_.count(modname) > 0) {

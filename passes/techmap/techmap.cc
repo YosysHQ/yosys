@@ -155,7 +155,7 @@ struct TechmapWorker
 		if (!flatten_mode)
 			for (auto &it : tpl->cells_)
 				if (it.first == "\\_TECHMAP_REPLACE_") {
-					orig_cell_name = cell->name;
+					orig_cell_name = cell->name.str();
 					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 					break;
 				}

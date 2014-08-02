@@ -215,7 +215,7 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 
 const char *log_id(RTLIL::IdString str)
 {
-	const char *p = str;
+	const char *p = str.c_str();
 	log_assert(RTLIL::IdString::global_refcount_storage_[str.index_] > 1);
 	if (p[0] == '\\' && p[1] != '$' && p[1] != 0)
 		return p+1;

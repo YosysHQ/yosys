@@ -61,7 +61,7 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
 		kiss_name.assign(attr_it->second.decode_string());
 	}
 	else {
-		kiss_name.assign(module->name);
+		kiss_name.assign(module->name.str());
 		kiss_name.append('-' + cell->name.str() + ".kiss2");
 	}
 

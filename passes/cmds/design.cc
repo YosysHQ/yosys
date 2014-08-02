@@ -192,7 +192,7 @@ struct DesignPass : public Pass {
 
 			for (auto mod : copy_src_modules)
 			{
-				std::string trg_name = as_name.empty() ? std::string(mod->name) : RTLIL::escape_id(as_name);
+				std::string trg_name = as_name.empty() ? mod->name.str() : RTLIL::escape_id(as_name);
 
 				if (copy_to_design->modules_.count(trg_name))
 					delete copy_to_design->modules_.at(trg_name);

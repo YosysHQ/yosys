@@ -286,7 +286,7 @@ void RTLIL::Design::check()
 	for (auto &it : modules_) {
 		log_assert(this == it.second->design);
 		log_assert(it.first == it.second->name);
-		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(!it.first.empty());
 		it.second->check();
 	}
 #endif
@@ -499,7 +499,7 @@ namespace {
 
 		void check()
 		{
-			if (cell->type[0] != '$' || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" ||
+			if (cell->type.substr(0, 1) != "$" || cell->type.substr(0, 3) == "$__" || cell->type.substr(0, 8) == "$paramod" ||
 					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
 				return;
 
@@ -818,38 +818,38 @@ void RTLIL::Module::check()
 	for (auto &it : wires_) {
 		log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
-		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(!it.first.empty());
 		log_assert(it.second->width >= 0);
 		log_assert(it.second->port_id >= 0);
 		for (auto &it2 : it.second->attributes) {
-			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(!it2.first.empty());
 		}
 	}
 
 	for (auto &it : memories) {
 		log_assert(it.first == it.second->name);
-		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(!it.first.empty());
 		log_assert(it.second->width >= 0);
 		log_assert(it.second->size >= 0);
 		for (auto &it2 : it.second->attributes) {
-			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(!it2.first.empty());
 		}
 	}
 
 	for (auto &it : cells_) {
 		log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
-		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
-		log_assert(it.second->type.size() > 0 && (it.second->type[0] == '\\' || it.second->type[0] == '$'));
+		log_assert(!it.first.empty());
+		log_assert(!it.second->type.empty());
 		for (auto &it2 : it.second->connections()) {
-			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(!it2.first.empty());
 			it2.second.check();
 		}
 		for (auto &it2 : it.second->attributes) {
-			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(!it2.first.empty());
 		}
 		for (auto &it2 : it.second->parameters) {
-			log_assert(it2.first.size() > 0 && (it2.first[0] == '\\' || it2.first[0] == '$'));
+			log_assert(!it2.first.empty());
 		}
 		InternalCellChecker checker(this, it.second);
 		checker.check();
@@ -857,7 +857,7 @@ void RTLIL::Module::check()
 
 	for (auto &it : processes) {
 		log_assert(it.first == it.second->name);
-		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(!it.first.empty());
 		// FIXME: More checks here..
 	}
 
@@ -868,7 +868,7 @@ void RTLIL::Module::check()
 	}
 
 	for (auto &it : attributes) {
-		log_assert(it.first.size() > 0 && (it.first[0] == '\\' || it.first[0] == '$'));
+		log_assert(!it.first.empty());
 	}
 #endif
 }
@@ -1597,7 +1597,7 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	if (type[0] != '$' || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" ||
+	if (type.substr(0, 1) != "$" || type.substr(0, 2) == "$_" || type.substr(0, 8) == "$paramod" ||
 			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
 		return;
 

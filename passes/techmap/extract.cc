@@ -240,8 +240,8 @@ namespace
 
 					if (sig_bit_ref.count(bit) == 0) {
 						bit_ref_t &bit_ref = sig_bit_ref[bit];
-						bit_ref.cell = cell->name;
-						bit_ref.port = conn.first;
+						bit_ref.cell = cell->name.str();
+						bit_ref.port = conn.first.str();
 						bit_ref.bit = i;
 					}
 

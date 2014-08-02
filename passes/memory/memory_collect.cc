@@ -126,7 +126,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	}
 
 	std::stringstream sstr;
-	sstr << "$mem$" << memory->name << "$" << (autoidx++);
+	sstr << "$mem$" << memory->name.str() << "$" << (autoidx++);
 
 	RTLIL::Cell *mem = module->addCell(sstr.str(), "$mem");
 	mem->parameters["\\MEMID"] = RTLIL::Const(memory->name.str());
