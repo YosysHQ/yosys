@@ -368,8 +368,12 @@ struct OptReducePass : public Pass {
 		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
 				continue;
-			OptReduceWorker worker(design, mod_it.second, do_fine);
-			total_count += worker.total_count;
+			do {
+				OptReduceWorker worker(design, mod_it.second, do_fine);
+				total_count += worker.total_count;
+				if (worker.total_count == 0)
+					break;
+			} while (1);
 		}
 
 		log("Performed a total of %d changes.\n", total_count);
