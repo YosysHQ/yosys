@@ -419,6 +419,13 @@ struct ShareWorker
 			return supercell;
 		}
 
+		if (c1->type == "$memrd")
+		{
+			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1);
+			module->connect(c2->getPort("\\DATA"), supercell->getPort("\\DATA"));
+			return supercell;
+		}
+
 		log_abort();
 	}
 
