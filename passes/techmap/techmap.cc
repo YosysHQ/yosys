@@ -69,12 +69,14 @@ struct TechmapWorker
 	bool extern_mode;
 	bool assert_mode;
 	bool flatten_mode;
+	bool recursive_mode;
 
 	TechmapWorker()
 	{
 		extern_mode = false;
 		assert_mode = false;
 		flatten_mode = false;
+		recursive_mode = false;
 	}
 
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
@@ -139,8 +141,6 @@ struct TechmapWorker
 
 	void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
 	{
-		log("Mapping `%s.%s' using `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(tpl->name));
-
 		if (tpl->memories.size() != 0)
 			log_error("Technology map yielded memories -> this is not supported.\n");
 
@@ -251,8 +251,10 @@ struct TechmapWorker
 	}
 
 	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
-			const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap)
+			const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap, bool in_recursion)
 	{
+		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
+
 		if (!design->selected(module))
 			return false;
 
@@ -270,9 +272,13 @@ struct TechmapWorker
 			if (!design->selected(module, cell) || handled_cells.count(cell) > 0)
 				continue;
 
-			if (celltypeMap.count(cell->type) == 0) {
-				if (assert_mode && cell->type.str().back() != '_')
-					log_error("(ASSERT MODE) No matching template cell for type %s found.\n", log_id(cell->type));
+			std::string cell_type = cell->type.str();
+			if (in_recursion && cell_type.substr(0, 2) == "\\$")
+				cell_type = cell_type.substr(1);
+
+			if (celltypeMap.count(cell_type) == 0) {
+				if (assert_mode && cell_type.back() != '_')
+					log_error("(ASSERT MODE) No matching template cell for type %s found.\n", log_id(cell_type));
 				continue;
 			}
 
@@ -284,7 +290,7 @@ struct TechmapWorker
 				if (SIZE(sig) == 0)
 					continue;
 
-				for (auto &tpl_name : celltypeMap.at(cell->type)) {
+				for (auto &tpl_name : celltypeMap.at(cell_type)) {
 					RTLIL::Module *tpl = map->modules_[tpl_name];
 					RTLIL::Wire *port = tpl->wire(conn.first);
 					if (port && port->port_input)
@@ -311,7 +317,11 @@ struct TechmapWorker
 			log_assert(cell == module->cell(cell->name));
 			bool mapped_cell = false;
 
-			for (auto &tpl_name : celltypeMap.at(cell->type))
+			std::string cell_type = cell->type.str();
+			if (in_recursion && cell_type.substr(0, 2) == "\\$")
+				cell_type = cell_type.substr(1);
+
+			for (auto &tpl_name : celltypeMap.at(cell_type))
 			{
 				RTLIL::IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->modules_[tpl_name];
@@ -324,7 +334,9 @@ struct TechmapWorker
 				{
 					if (tpl->get_bool_attribute("\\techmap_simplemap"))
 					{
-						if (extern_mode)
+						cell->type = cell_type;
+
+						if (extern_mode && !in_recursion)
 						{
 							std::string m_name = stringf("$extern:simplemap:%s", log_id(cell->type));
 
@@ -358,12 +370,13 @@ struct TechmapWorker
 								simplemap_module->remove(simplemap_cell);
 							}
 
-							cell->type = m_name;
+							log("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(simplemap_module));
+							cell->type = simplemap_module->name;
 							cell->parameters.clear();
 						}
 						else
 						{
-							log("Mapping %s.%s (%s) with simplemap.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+							log("%s %s.%s (%s) with simplemap.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type));
 							if (simplemap_mappers.count(cell->type) == 0)
 								log_error("No simplemap mapper for cell type %s found!\n", RTLIL::id2cstr(cell->type));
 							simplemap_mappers.at(cell->type)(module, cell);
@@ -507,6 +520,7 @@ struct TechmapWorker
 
 							std::string cmd_string = data.value.as_const().decode_string();
 
+						restart_eval_cmd_string:
 							if (cmd_string.rfind("CONSTMAP; ", 0) == 0)
 							{
 								cmd_string = cmd_string.substr(strlen("CONSTMAP; "));
@@ -573,6 +587,14 @@ struct TechmapWorker
 								tpl->connect(port_conn);
 
 								tpl->check();
+								goto restart_eval_cmd_string;
+							}
+
+							if (cmd_string.rfind("RECURSION; ", 0) == 0)
+							{
+								cmd_string = cmd_string.substr(strlen("RECURSION; "));
+								while (techmap_module(map, tpl, map, handled_cells, celltypeMap, true)) { }
+								goto restart_eval_cmd_string;
 							}
 
 							Pass::call_on_module(map, tpl, cmd_string);
@@ -601,6 +623,14 @@ struct TechmapWorker
 
 					for (auto &it : techmap_wire_names)
 						log_error("Techmap special wire %s disappeared. This is considered a fatal error.\n", RTLIL::id2cstr(it));
+
+					if (recursive_mode) {
+						if (log_continue) {
+							log_header("Continuing TECHMAP pass.\n");
+							log_continue = false;
+						}
+						while (techmap_module(map, tpl, map, handled_cells, celltypeMap, true)) { }
+					}
 				}
 
 				if (techmap_do_cache.at(tpl) == false)
@@ -611,7 +641,7 @@ struct TechmapWorker
 					log_continue = false;
 				}
 
-				if (extern_mode)
+				if (extern_mode && !in_recursion)
 				{
 					std::string m_name = stringf("$extern:%s", log_id(tpl));
 
@@ -628,12 +658,13 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log("Mapping %s.%s to imported %s.\n", log_id(module), log_id(cell), log_id(m_name));
+					log("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
 					cell->type = m_name;
 					cell->parameters.clear();
 				}
 				else
 				{
+					log("%s %s.%s using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(tpl));
 					techmap_module_worker(design, module, cell, tpl);
 					cell = NULL;
 				}
@@ -687,6 +718,11 @@ struct TechmapPass : public Pass {
 		log("    -max_iter <number>\n");
 		log("        only run the specified number of iterations.\n");
 		log("\n");
+		log("    -recursive\n");
+		log("        instead of the iterative breadth-first algorithm use a recursive\n");
+		log("        depth-first algorithm. both methods should yield equivialent results,\n");
+		log("        but may differ in performance.\n");
+		log("\n");
 		log("    -assert\n");
 		log("        this option will cause techmap to exit with an error if it can't map\n");
 		log("        a selected cell. only cell types that end on an underscore are accepted\n");
@@ -735,6 +771,12 @@ struct TechmapPass : public Pass {
 		log("        are executed in this copy. This is a very convenient way of creating\n");
 		log("        optimizied specializations of techmap modules without using the special\n");
 		log("        parameters described below.\n");
+		log("\n");
+		log("        A _TECHMAP_DO_* command may start with the special token 'RECURSION; '.\n");
+		log("        then techmap will recursively replace the cells in the module with their\n");
+		log("        implementation. This is not affected by the -max_iter option.\n");
+		log("\n");
+		log("        It is possible to combine both prefixes to 'RECURSION; CONSTMAP; '.\n");
 		log("\n");
 		log("In addition to this special wires, techmap also supports special parameters in\n");
 		log("modules in the map file:\n");
@@ -814,6 +856,10 @@ struct TechmapPass : public Pass {
 				worker.extern_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-recursive") {
+				worker.recursive_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -872,7 +918,7 @@ struct TechmapPass : public Pass {
 			std::set<RTLIL::Cell*> handled_cells;
 			while (did_something) {
 				did_something = false;
-					if (worker.techmap_module(design, module, map, handled_cells, celltypeMap))
+					if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
 						did_something = true;
 				if (did_something)
 					module->check();
@@ -926,11 +972,11 @@ struct FlattenPass : public Pass {
 		while (did_something) {
 			did_something = false;
 			if (top_mod != NULL) {
-				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap))
+				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap, false))
 					did_something = true;
 			} else {
 				for (auto mod : design->modules())
-					if (worker.techmap_module(design, mod, design, handled_cells, celltypeMap))
+					if (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false))
 						did_something = true;
 			}
 		}
