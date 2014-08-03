@@ -29,11 +29,11 @@ YOSYS_NAMESPACE_BEGIN
 struct ModIndex : public RTLIL::Monitor
 {
 	struct PortInfo {
-		const RTLIL::Cell* cell;
-		const RTLIL::IdString &port;
-		const int offset;
+		RTLIL::Cell* cell;
+		RTLIL::IdString port;
+		int offset;
 
-		PortInfo(RTLIL::Cell* _c, const RTLIL::IdString &_p, int _o) : cell(_c), port(_p), offset(_o) { }
+		PortInfo(RTLIL::Cell* _c, RTLIL::IdString _p, int _o) : cell(_c), port(_p), offset(_o) { }
 
 		bool operator<(const PortInfo &other) const {
 			if (cell != other.cell)
@@ -57,13 +57,13 @@ struct ModIndex : public RTLIL::Monitor
 	std::map<RTLIL::SigBit, SigBitInfo> database;
 	bool auto_reload_module;
 
-	void port_add(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &sig)
+	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
 		for (int i = 0; i < SIZE(sig); i++)
 			database[sigmap(sig[i])].ports.insert(PortInfo(cell, port, i));
 	}
 
-	void port_del(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &sig)
+	void port_del(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
 		for (int i = 0; i < SIZE(sig); i++)
 			database[sigmap(sig[i])].ports.erase(PortInfo(cell, port, i));
@@ -122,13 +122,51 @@ struct ModIndex : public RTLIL::Monitor
 		auto_reload_module = true;
 	}
 
-	ModIndex(RTLIL::Module *_m) : module(_m) {
+	ModIndex(RTLIL::Module *_m) : module(_m)
+	{
 		auto_reload_module = true;
 		module->monitors.insert(this);
 	}
 
-	~ModIndex() {
+	~ModIndex()
+	{
 		module->monitors.erase(this);
+	}
+
+	SigBitInfo *query(RTLIL::SigBit bit)
+	{
+		if (auto_reload_module)
+			reload_module();
+		auto it = database.find(sigmap(bit));
+		if (it == database.end())
+			return nullptr;
+		else
+			return &it->second;
+	}
+
+	bool query_is_input(RTLIL::SigBit bit)
+	{
+		const SigBitInfo *info = query(bit);
+		if (info == nullptr)
+			return false;
+		return info->is_input;
+	}
+
+	bool query_is_output(RTLIL::SigBit bit)
+	{
+		const SigBitInfo *info = query(bit);
+		if (info == nullptr)
+			return false;
+		return info->is_output;
+	}
+
+	std::set<PortInfo> &query_ports(RTLIL::SigBit bit)
+	{
+		static std::set<PortInfo> empty_result_set;
+		SigBitInfo *info = query(bit);
+		if (info == nullptr)
+			return empty_result_set;
+		return info->ports;
 	}
 };
 
