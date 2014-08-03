@@ -103,6 +103,9 @@ RTLIL::IdString new_id(std::string file, int line, std::string func);
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
 
+#define ID(_str) \
+	([]() { static YOSYS_NAMESPACE_PREFIX RTLIL::IdString _id(_str); return _id; })()
+
 RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();
 std::string proc_share_dirname();
