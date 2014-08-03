@@ -124,17 +124,19 @@ struct WreduceWorker
 		SigSpec sig = mi.sigmap(cell->getPort("\\Y"));
 
 		int bits_removed = 0;
-		while (SIZE(sig) > 0) {
+		while (SIZE(sig) > 0)
+		{
 			auto info = mi.query(sig[SIZE(sig)-1]);
+
 			if (info->is_output || SIZE(info->ports) > 1)
 				break;
+
 			sig.remove(SIZE(sig)-1);
 			bits_removed++;
 		}
 
-		if (cell->type == ID("$not") || cell->type == ID("$pos") || cell->type == ID("$bu0") || cell->type == ID("$neg") ||
-				cell->type == ID("$and") || cell->type == ID("$or") || cell->type == ID("$xor") || cell->type == ID("$xnor") ||
-				cell->type == ID("$add") || cell->type == ID("$sub") || cell->type == ID("$mul"))
+		if (cell->type == ID("$pos") || cell->type == ID("$bu0") || cell->type == ID("$add") || cell->type == ID("$mul") ||
+				cell->type == ID("$and") || cell->type == ID("$or") || cell->type == ID("$xor"))
 		{
 			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
 
@@ -142,7 +144,15 @@ struct WreduceWorker
 			if (cell->hasPort("\\A")) a_size = SIZE(cell->getPort("\\A"));
 			if (cell->hasPort("\\B")) b_size = SIZE(cell->getPort("\\B"));
 
-			while (SIZE(sig) > 1 && SIZE(sig) > std::max(a_size, b_size)) {
+			int max_y_size = std::max(a_size, b_size);
+
+			if (cell->type == "$add")
+				max_y_size++;
+
+			if (cell->type == "$mul")
+				max_y_size = a_size + b_size;
+
+			while (SIZE(sig) > 1 && SIZE(sig) > max_y_size) {
 				module->connect(sig[SIZE(sig)-1], is_signed ? sig[SIZE(sig)-2] : S0);
 				sig.remove(SIZE(sig)-1);
 				bits_removed++;
@@ -174,41 +184,6 @@ struct WreduceWorker
 			for (auto port : mi.query_ports(bit))
 				work_queue_cells.insert(port.cell);
 		}
-
-		std::set<SigBit> removed_wire_bits;
-
-		for (auto w : module->selected_wires())
-		{
-			int bits_removed = 0;
-			while (w->width > 0) {
-				SigBit bit(w, w->width-1);
-				auto info = mi.query(bit);
-				if (info == nullptr || (!info->is_output && !info->is_input && !SIZE(info->ports))) {
-					removed_wire_bits.insert(bit);
-					bits_removed++;
-					w->width--;
-					continue;
-				}
-				break;
-			}
-			if (bits_removed)
-				log("Removed top %d bits (of %d) from wire %s.%s.\n",
-						bits_removed, SIZE(w) + bits_removed, log_id(module), log_id(w));
-		}
-
-		if (!removed_wire_bits.empty()) {
-			std::vector<RTLIL::SigSig> new_conn = module->connections();
-			for (auto &ss : new_conn) {
-				SigSig new_ss;
-				for (int i = 0; i < SIZE(ss.first); i++)
-					if (!removed_wire_bits.count(ss.first[i]) && !removed_wire_bits.count(ss.second[i])) {
-						new_ss.first.append_bit(ss.first[i]);
-						new_ss.second.append_bit(ss.second[i]);
-					}
-				ss = std::move(new_ss);
-			}
-			module->new_connections(new_conn);
-		}
 	}
 };
 
@@ -227,9 +202,7 @@ struct WreducePass : public Pass {
 	{
 		WreduceConfig config;
 
-		log_header("Executing WREDCUE pass (reducing word size of cells).\n");
-
-		log_error("FIXME: This command is under construction.\n");
+		log_header("Executing WREDUCE pass (reducing word size of cells).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
