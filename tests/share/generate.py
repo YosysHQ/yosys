@@ -66,6 +66,7 @@ for idx in range(100):
         print('rename uut_%05d gate' % idx)
         print('tee -a temp/all_share_log.txt log')
         print('tee -a temp/all_share_log.txt log #job# uut_%05d' % idx)
+        print('tee -a temp/all_share_log.txt wreduce')
         print('tee -a temp/all_share_log.txt share -aggressive gate')
         print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
         print('sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter')
