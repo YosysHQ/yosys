@@ -111,7 +111,7 @@ struct ShowWorker
 		return stringf("style=\"setlinewidth(3)\", label=\"<%d>\"", bits);
 	}
 
-	const char *findColor(RTLIL::IdString member_name)
+	const char *findColor(std::string member_name)
 	{
 		for (auto &s : color_selections)
 			if (s.second.selected_member(module->name, member_name)) {
@@ -121,7 +121,7 @@ struct ShowWorker
 		return "";
 	}
 
-	const char *findLabel(RTLIL::IdString member_name)
+	const char *findLabel(std::string member_name)
 	{
 		for (auto &s : label_selections)
 			if (s.second.selected_member(module->name, member_name))
@@ -129,14 +129,12 @@ struct ShowWorker
 		return escape(member_name, true);
 	}
 
-	const char *escape(RTLIL::IdString id, bool is_name = false)
+	const char *escape(std::string id, bool is_name = false)
 	{
-		std::string id_str = id.str();
-
-		if (id_str.size() == 0)
+		if (id.size() == 0)
 			return "";
 
-		if (id_str[0] == '$' && is_name) {
+		if (id[0] == '$' && is_name) {
 			if (enumerateIds) {
 				if (autonames.count(id) == 0) {
 					autonames[id] = autonames.size() + 1;
@@ -144,17 +142,17 @@ struct ShowWorker
 				}
 				id = stringf("_%d_", autonames[id]);
 			} else if (abbreviateIds) {
-				const char *p = id_str.c_str();
+				const char *p = id.c_str();
 				const char *q = strrchr(p, '$');
-				id_str = std::string(q);
+				id = std::string(q);
 			}
 		}
 
-		if (id_str[0] == '\\')
-			id_str = id_str.substr(1);
+		if (id[0] == '\\')
+			id = id.substr(1);
 
 		std::string str;
-		for (char ch : id_str) {
+		for (char ch : id) {
 			if (ch == '\\' || ch == '"')
 				str += "\\";
 			str += ch;
@@ -298,9 +296,9 @@ struct ShowWorker
 		dot_id2num_store.clear();
 		net_conn_map.clear();
 
-		fprintf(f, "digraph \"%s\" {\n", escape(module->name));
+		fprintf(f, "digraph \"%s\" {\n", escape(module->name.str()));
 		if (!notitle)
-			fprintf(f, "label=\"%s\";\n", escape(module->name));
+			fprintf(f, "label=\"%s\";\n", escape(module->name.str()));
 		fprintf(f, "rankdir=\"LR\";\n");
 		fprintf(f, "remincross=true;\n");
 
@@ -315,7 +313,7 @@ struct ShowWorker
 				shape = "octagon";
 			if (it.first[0] == '\\') {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
-						id2num(it.first), shape, findLabel(it.first),
+						id2num(it.first), shape, findLabel(it.first.str()),
 						nextColor(RTLIL::SigSpec(it.second), "color=\"black\"").c_str());
 				if (it.second->port_input)
 					all_sources.insert(stringf("n%d", id2num(it.first)));
@@ -356,14 +354,14 @@ struct ShowWorker
 			std::string label_string = "{{";
 
 			for (auto &p : in_ports)
-				label_string += stringf("<p%d> %s|", id2num(p), escape(p));
+				label_string += stringf("<p%d> %s|", id2num(p), escape(p.str()));
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
-			label_string += stringf("}|%s\\n%s|{", findLabel(it.first), escape(it.second->type));
+			label_string += stringf("}|%s\\n%s|{", findLabel(it.first.str()), escape(it.second->type.str()));
 
 			for (auto &p : out_ports)
-				label_string += stringf("<p%d> %s|", id2num(p), escape(p));
+				label_string += stringf("<p%d> %s|", id2num(p), escape(p.str()));
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
@@ -382,7 +380,7 @@ struct ShowWorker
 			else
 #endif
 				fprintf(f, "c%d [ shape=record, label=\"%s\"%s ];\n%s",
-						id2num(it.first), label_string.c_str(), findColor(it.first), code.c_str());
+						id2num(it.first), label_string.c_str(), findColor(it.first.str()), code.c_str());
 		}
 
 		for (auto &it : module->processes)
@@ -420,7 +418,7 @@ struct ShowWorker
 			std::string proc_src = RTLIL::unescape_id(proc->name);
 			if (proc->attributes.count("\\src") > 0)
 				proc_src = proc->attributes.at("\\src").decode_string();
-			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name), proc_src.c_str());
+			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name.str()), proc_src.c_str());
 		}
 
 		for (auto &conn : module->connections())
