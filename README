@@ -276,6 +276,11 @@ Verilog Attributes and non-standard features
   for everything that comes after the {* ... *} statement. (Reset
   by adding an empty {* *} statement.)
 
+- Modules can be declared with "module mod_name(...);" (with three dots
+  instead of a list of moudle ports). With this syntax it is sufficient
+  to simply declare a module port as 'input' or 'output' in the module
+  body.
+
 - Sized constants (the syntax <size>'s?[bodh]<value>) support constant
   expressions as <size>. If the expresion is not a simple identifier, it
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010

@@ -55,6 +55,7 @@ namespace VERILOG_FRONTEND {
 	struct AstNode *current_ast, *current_ast_mod;
 	int current_function_or_task_port_id;
 	std::vector<char> case_type_stack;
+	bool do_not_require_port_stubs;
 	bool default_nettype_wire;
 	bool sv_mode;
 }
@@ -210,6 +211,7 @@ hierarchical_id:
 
 module:
 	attr TOK_MODULE TOK_ID {
+		do_not_require_port_stubs = false;
 		AstNode *mod = new AstNode(AST_MODULE);
 		current_ast->children.push_back(mod);
 		current_ast_mod = mod;
@@ -244,7 +246,8 @@ single_module_para:
 	};
 
 module_args_opt:
-	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
+	'(' ')' | /* empty */ | '(' module_args optional_comma ')' |
+	'(' '.' '.' '.' ')' { do_not_require_port_stubs = true; };
 
 module_args:
 	module_arg | module_args ',' module_arg;
@@ -582,6 +585,9 @@ wire_name:
 			node->children.push_back($2);
 		}
 		if (current_function_or_task == NULL) {
+			if (do_not_require_port_stubs && (node->is_input || node->is_output) && port_stubs.count(*$1) == 0) {
+				port_stubs[*$1] = ++port_counter;
+			}
 			if (port_stubs.count(*$1) != 0) {
 				if (!node->is_input && !node->is_output)
 					frontend_verilog_yyerror("Module port `%s' is neither input nor output.", $1->c_str());
