@@ -109,10 +109,10 @@ struct WreduceWorker
 
 	void run_cell(Cell *cell)
 	{
-		if (config->supported_cell_types.count(cell->type) == 0)
+		if (!cell->type.in(config->supported_cell_types))
 			return;
 
-		if (cell->type == ID("$shl") || cell->type == ID("$shr") || cell->type == ID("$sshl") || cell->type == ID("$sshr"))
+		if (cell->type.in("$shl", "$shr", "$sshl", "$sshr"))
 			cell->setParam("\\B_SIGNED", false);
 
 		if (cell->hasParam("\\A_SIGNED"))
@@ -135,8 +135,7 @@ struct WreduceWorker
 			bits_removed++;
 		}
 
-		if (cell->type == ID("$pos") || cell->type == ID("$bu0") || cell->type == ID("$add") || cell->type == ID("$mul") ||
-				cell->type == ID("$and") || cell->type == ID("$or") || cell->type == ID("$xor"))
+		if (cell->type.in("$pos", "$bu0", "$add", "$mul", "$and", "$or", "$xor"))
 		{
 			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
 

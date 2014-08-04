@@ -170,20 +170,20 @@ namespace RTLIL
 			return std::string(global_id_storage_.at(index_));
 		}
 
-		bool operator<(const IdString &rhs) const {
+		bool operator<(IdString rhs) const {
 			return index_ < rhs.index_;
 		}
 
-		bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-		bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+		bool operator==(IdString rhs) const { return index_ == rhs.index_; }
+		bool operator!=(IdString rhs) const { return index_ != rhs.index_; }
 
 		// The methods below are just convinience functions for better compatibility with std::string.
 
 		bool operator==(const std::string &rhs) const { return str() == rhs; }
 		bool operator!=(const std::string &rhs) const { return str() != rhs; }
 
-		bool operator==(const char *rhs) const { return str() == rhs; }
-		bool operator!=(const char *rhs) const { return str() != rhs; }
+		bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
+		bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
 
 		char operator[](size_t i) const {
 			const char *p = c_str();
@@ -220,6 +220,19 @@ namespace RTLIL
 				return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
 			}
 		};
+
+		// often one needs to check if a given IdString is part of a list (for example a list
+		// of cell types). the following functions helps with that.
+
+		template<typename T, typename... Args>
+		bool in(T first, Args... rest) {
+			return in(first) || in(rest...);
+		}
+
+		bool in(IdString rhs) { return *this == rhs; }
+		bool in(const char *rhs) { return *this == rhs; }
+		bool in(const std::string &rhs) { return *this == rhs; }
+		bool in(const std::set<IdString> &rhs) { return rhs.count(*this) != 0; }
 	};
 
 	static inline std::string escape_id(std::string str) {
