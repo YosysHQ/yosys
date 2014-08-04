@@ -45,6 +45,7 @@ struct ShowWorker
 	RTLIL::Module *module;
 	uint32_t currentColor;
 	bool genWidthLabels;
+	bool genSignedLabels;
 	bool stretchIO;
 	bool enumerateIds;
 	bool abbreviateIds;
@@ -354,7 +355,9 @@ struct ShowWorker
 			std::string label_string = "{{";
 
 			for (auto &p : in_ports)
-				label_string += stringf("<p%d> %s|", id2num(p), escape(p.str()));
+				label_string += stringf("<p%d> %s%s|", id2num(p), escape(p.str()),
+						genSignedLabels && it.second->hasParam(p.str() + "_SIGNED") &&
+						it.second->getParam(p.str() + "_SIGNED").as_bool() ? "*" : "");
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
@@ -487,12 +490,12 @@ struct ShowWorker
 		fprintf(f, "}\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed,
-			bool genWidthLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle,
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels,
+			bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections) :
 			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels),
-			stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
+			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			notitle(notitle), color_selections(color_selections), label_selections(label_selections)
 	{
 		ct.setup_internals();
@@ -572,6 +575,10 @@ struct ShowPass : public Pass {
 		log("    -width\n");
 		log("        annotate busses with a label indicating the width of the bus.\n");
 		log("\n");
+		log("    -signed\n");
+		log("        mark ports (A, B) that are declarted as signed (using the [AB]_SIGNED\n");
+		log("        cell parameter) with an asterisk next to the port name.\n");
+		log("\n");
 		log("    -stretch\n");
 		log("        stretch the graph so all inputs are on the left side and all outputs\n");
 		log("        (including inout ports) are on the right side.\n");
@@ -610,6 +617,7 @@ struct ShowPass : public Pass {
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
 		bool flag_width = false;
+		bool flag_signed = false;
 		bool flag_stretch = false;
 		bool flag_pause = false;
 		bool flag_enum = false;
@@ -662,6 +670,10 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-width") {
 				flag_width= true;
+				continue;
+			}
+			if (arg == "-signed") {
+				flag_signed= true;
 				continue;
 			}
 			if (arg == "-stretch") {
@@ -727,7 +739,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch, flag_enum, flag_abbeviate, flag_notitle, color_selections, label_selections);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbeviate, flag_notitle, color_selections, label_selections);
 		fclose(f);
 
 		for (auto lib : libs)
