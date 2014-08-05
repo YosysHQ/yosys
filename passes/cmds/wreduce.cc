@@ -54,7 +54,6 @@ struct WreduceWorker
 
 	std::set<Cell*, IdString::compare_ptr_by_name<Cell>> work_queue_cells;
 	std::set<SigBit> work_queue_bits;
-	SigMap constmap;
 
 	WreduceWorker(WreduceConfig *config, Module *module) :
 			config(config), module(module), mi(module) { }
@@ -145,10 +144,10 @@ struct WreduceWorker
 		}
 
 		if (is_signed) {
-			while (SIZE(sig) > 1 && constmap(sig[SIZE(sig)-1]) == constmap(sig[SIZE(sig)-2]))
+			while (SIZE(sig) > 1 && sig[SIZE(sig)-1] == sig[SIZE(sig)-2])
 				work_queue_bits.insert(sig[SIZE(sig)-1]), sig.remove(SIZE(sig)-1), bits_removed++;
 		} else {
-			while (SIZE(sig) > 1 && constmap(sig[SIZE(sig)-1]) == S0)
+			while (SIZE(sig) > 1 && sig[SIZE(sig)-1] == S0)
 				work_queue_bits.insert(sig[SIZE(sig)-1]), sig.remove(SIZE(sig)-1), bits_removed++;
 		}
 
