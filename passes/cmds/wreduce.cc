@@ -28,48 +28,23 @@ using namespace RTLIL;
 
 PRIVATE_NAMESPACE_BEGIN
 
+static inline std::set<IdString> &operator<<(std::set<IdString> &set, IdString id) {
+	set.insert(id);
+	return set;
+}
+
 struct WreduceConfig
 {
 	std::set<IdString> supported_cell_types;
 
 	WreduceConfig()
 	{
-		supported_cell_types.insert("$not");
-		supported_cell_types.insert("$pos");
-		supported_cell_types.insert("$bu0");
-		supported_cell_types.insert("$neg");
-
-		supported_cell_types.insert("$and");
-		supported_cell_types.insert("$or");
-		supported_cell_types.insert("$xor");
-		supported_cell_types.insert("$xnor");
-
-		supported_cell_types.insert("$shl");
-		supported_cell_types.insert("$shr");
-		supported_cell_types.insert("$sshl");
-		supported_cell_types.insert("$sshr");
-		supported_cell_types.insert("$shift");
-		supported_cell_types.insert("$shiftx");
-
-		supported_cell_types.insert("$lt");
-		supported_cell_types.insert("$le");
-		supported_cell_types.insert("$eq");
-		supported_cell_types.insert("$ne");
-		supported_cell_types.insert("$eqx");
-		supported_cell_types.insert("$nex");
-		supported_cell_types.insert("$ge");
-		supported_cell_types.insert("$gt");
-
-		supported_cell_types.insert("$add");
-		supported_cell_types.insert("$sub");
-		// supported_cell_types.insert("$mul");
-		// supported_cell_types.insert("$div");
-		// supported_cell_types.insert("$mod");
-		// supported_cell_types.insert("$pow");
-
-		// supported_cell_types.insert("$mux");
-		// supported_cell_types.insert("$pmux");
-		// supported_cell_types.insert("$safe_pmux");
+		supported_cell_types << "$not" << "$pos" << "$bu0" << "$neg";
+		supported_cell_types << "$and" << "$or" << "$xor" << "$xnor";
+		supported_cell_types << "$shl" << "$shr" << "$sshl" << "$sshr" << "$shift" << "$shiftx";
+		supported_cell_types << "$lt" << "$le" << "$eq" << "$ne" << "$eqx" << "$nex" << "$ge" << "$gt";
+		supported_cell_types << "$add" << "$sub"; // << "$mul" << "$div" << "$mod" << "$pow"
+		supported_cell_types << "$mux" << "$pmux" << "$safe_pmux";
 	}
 };
 
@@ -85,6 +60,72 @@ struct WreduceWorker
 
 	WreduceWorker(WreduceConfig *config, Module *module) :
 			config(config), module(module), mi(module) { }
+
+	void run_cell_mux(Cell *cell)
+	{
+		SigSpec sig_a = mi.sigmap(cell->getPort("\\A"));
+		SigSpec sig_b = mi.sigmap(cell->getPort("\\B"));
+		SigSpec sig_s = mi.sigmap(cell->getPort("\\S"));
+		SigSpec sig_y = mi.sigmap(cell->getPort("\\Y"));
+		std::vector<SigBit> bits_removed;
+
+		for (int i = SIZE(sig_y)-1; i >= 0; i--)
+		{
+			auto info = mi.query(sig_y[i]);
+			if (!info->is_output && SIZE(info->ports) <= 1) {
+				bits_removed.push_back(Sx);
+				continue;
+			}
+
+			SigBit ref = sig_a[i];
+			for (int k = 0; k < SIZE(sig_s); k++) {
+				if (ref != Sx && sig_b[k*SIZE(sig_a) + i] != Sx && ref != sig_b[k*SIZE(sig_a) + i])
+					goto no_match_ab;
+				if (sig_b[k*SIZE(sig_a) + i] != Sx)
+					ref = sig_b[k*SIZE(sig_a) + i];
+			}
+			if (0)
+		no_match_ab:
+				break;
+			bits_removed.push_back(ref);
+		}
+
+		if (!bits_removed.empty())
+		{
+			SigSpec sig_removed;
+			for (int i = SIZE(bits_removed)-1; i >= 0; i--)
+				sig_removed.append_bit(bits_removed[i]);
+
+			log("Removed top %d bits (of %d) from mux cell %s.%s (%s).\n",
+					SIZE(sig_removed), SIZE(sig_y), log_id(module), log_id(cell), log_id(cell->type));
+
+			int n_removed = SIZE(sig_removed);
+			int n_kept = SIZE(sig_y) - SIZE(sig_removed);
+
+			SigSpec new_work_queue_bits;
+			new_work_queue_bits.append(sig_a.extract(n_kept, n_removed));
+			new_work_queue_bits.append(sig_y.extract(n_kept, n_removed));
+
+			SigSpec new_sig_a = sig_a.extract(0, n_kept);
+			SigSpec new_sig_y = sig_y.extract(0, n_kept);
+			SigSpec new_sig_b;
+
+			for (int k = 0; k < SIZE(sig_s); k++) {
+				new_sig_b.append(sig_b.extract(k*SIZE(sig_a), n_kept));
+				new_work_queue_bits.append(sig_b.extract(k*SIZE(sig_a) + n_kept, n_removed));
+			}
+
+			for (auto bit : new_work_queue_bits)
+				work_queue_bits.insert(bit);
+
+			cell->setPort("\\A", new_sig_a);
+			cell->setPort("\\B", new_sig_b);
+			cell->setPort("\\Y", new_sig_y);
+			cell->fixup_parameters();
+
+			module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
+		}
+	}
 
 	void run_reduce_inport(Cell *cell, char port)
 	{
@@ -111,6 +152,11 @@ struct WreduceWorker
 	{
 		if (!cell->type.in(config->supported_cell_types))
 			return;
+
+		if (cell->type.in("$mux", "$pmux", "$safe_pmux")) {
+			run_cell_mux(cell);
+			return;
+		}
 
 		if (cell->type.in("$shl", "$shr", "$sshl", "$sshr"))
 			cell->setParam("\\B_SIGNED", false);
