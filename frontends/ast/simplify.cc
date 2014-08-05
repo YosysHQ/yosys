@@ -1460,7 +1460,6 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		for (auto child : decl->children)
-		{
 			if (child->type == AST_WIRE)
 			{
 				AstNode *wire = child->clone();
@@ -1488,7 +1487,9 @@ skip_dynamic_range_lvalue_expansion:;
 					}
 				}
 			}
-			else
+
+		for (auto child : decl->children)
+			if (child->type != AST_WIRE)
 			{
 				AstNode *stmt = child->clone();
 				stmt->replace_ids(replace_rules);
@@ -1500,7 +1501,6 @@ skip_dynamic_range_lvalue_expansion:;
 					break;
 				}
 			}
-		}
 
 	replace_fcall_with_id:
 		if (type == AST_FCALL) {
