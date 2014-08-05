@@ -61,8 +61,10 @@ struct WreduceWorker
 	WreduceWorker(WreduceConfig *config, Module *module) :
 			config(config), module(module), mi(module) { }
 
-	void run_cell_mux(Cell *cell)
+	bool run_cell_mux(Cell *cell)
 	{
+		// Reduce size of MUX if inputs agree on a value for a bit or a output bit is unused
+
 		SigSpec sig_a = mi.sigmap(cell->getPort("\\A"));
 		SigSpec sig_b = mi.sigmap(cell->getPort("\\B"));
 		SigSpec sig_s = mi.sigmap(cell->getPort("\\S"));
@@ -90,49 +92,60 @@ struct WreduceWorker
 			bits_removed.push_back(ref);
 		}
 
-		if (!bits_removed.empty())
-		{
-			SigSpec sig_removed;
-			for (int i = SIZE(bits_removed)-1; i >= 0; i--)
-				sig_removed.append_bit(bits_removed[i]);
+		if (bits_removed.empty())
+			return false;
 
-			log("Removed top %d bits (of %d) from mux cell %s.%s (%s).\n",
-					SIZE(sig_removed), SIZE(sig_y), log_id(module), log_id(cell), log_id(cell->type));
+		SigSpec sig_removed;
+		for (int i = SIZE(bits_removed)-1; i >= 0; i--)
+			sig_removed.append_bit(bits_removed[i]);
 
-			int n_removed = SIZE(sig_removed);
-			int n_kept = SIZE(sig_y) - SIZE(sig_removed);
+		log("Removed top %d bits (of %d) from mux cell %s.%s (%s).\n",
+				SIZE(sig_removed), SIZE(sig_y), log_id(module), log_id(cell), log_id(cell->type));
 
-			SigSpec new_work_queue_bits;
-			new_work_queue_bits.append(sig_a.extract(n_kept, n_removed));
-			new_work_queue_bits.append(sig_y.extract(n_kept, n_removed));
+		int n_removed = SIZE(sig_removed);
+		int n_kept = SIZE(sig_y) - SIZE(sig_removed);
 
-			SigSpec new_sig_a = sig_a.extract(0, n_kept);
-			SigSpec new_sig_y = sig_y.extract(0, n_kept);
-			SigSpec new_sig_b;
+		SigSpec new_work_queue_bits;
+		new_work_queue_bits.append(sig_a.extract(n_kept, n_removed));
+		new_work_queue_bits.append(sig_y.extract(n_kept, n_removed));
 
-			for (int k = 0; k < SIZE(sig_s); k++) {
-				new_sig_b.append(sig_b.extract(k*SIZE(sig_a), n_kept));
-				new_work_queue_bits.append(sig_b.extract(k*SIZE(sig_a) + n_kept, n_removed));
-			}
+		SigSpec new_sig_a = sig_a.extract(0, n_kept);
+		SigSpec new_sig_y = sig_y.extract(0, n_kept);
+		SigSpec new_sig_b;
 
-			for (auto bit : new_work_queue_bits)
-				work_queue_bits.insert(bit);
-
-			cell->setPort("\\A", new_sig_a);
-			cell->setPort("\\B", new_sig_b);
-			cell->setPort("\\Y", new_sig_y);
-			cell->fixup_parameters();
-
-			module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
+		for (int k = 0; k < SIZE(sig_s); k++) {
+			new_sig_b.append(sig_b.extract(k*SIZE(sig_a), n_kept));
+			new_work_queue_bits.append(sig_b.extract(k*SIZE(sig_a) + n_kept, n_removed));
 		}
+
+		for (auto bit : new_work_queue_bits)
+			work_queue_bits.insert(bit);
+
+		cell->setPort("\\A", new_sig_a);
+		cell->setPort("\\B", new_sig_b);
+		cell->setPort("\\Y", new_sig_y);
+		cell->fixup_parameters();
+
+		module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
+		return true;
 	}
 
-	void run_reduce_inport(Cell *cell, char port)
+	bool run_reduce_inport(Cell *cell, char port, int max_port_size)
 	{
 		bool is_signed = cell->getParam(stringf("\\%c_SIGNED", port)).as_bool();
 		SigSpec sig = mi.sigmap(cell->getPort(stringf("\\%c", port)));
 
+		if (port == 'B' && cell->type.in("$shl", "$shr", "$sshl", "$sshr"))
+			is_signed = false;
+
 		int bits_removed = 0;
+		if (SIZE(sig) > max_port_size) {
+			bits_removed = SIZE(sig) - max_port_size;
+			for (auto bit : sig.extract(max_port_size, bits_removed))
+				work_queue_bits.insert(bit);
+			sig = sig.extract(0, max_port_size);
+		}
+
 		if (is_signed) {
 			while (SIZE(sig) > 1 && constmap(sig[SIZE(sig)-1]) == constmap(sig[SIZE(sig)-2]))
 				work_queue_bits.insert(sig[SIZE(sig)-1]), sig.remove(SIZE(sig)-1), bits_removed++;
@@ -141,31 +154,44 @@ struct WreduceWorker
 				work_queue_bits.insert(sig[SIZE(sig)-1]), sig.remove(SIZE(sig)-1), bits_removed++;
 		}
 
-		if (bits_removed) {
-			log("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
-					bits_removed, SIZE(sig) + bits_removed, port, log_id(module), log_id(cell), log_id(cell->type));
-			cell->setPort(stringf("\\%c", port), sig);
-		}
+		if (bits_removed == 0)
+			return false;
+
+		log("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
+				bits_removed, SIZE(sig) + bits_removed, port, log_id(module), log_id(cell), log_id(cell->type));
+		cell->setPort(stringf("\\%c", port), sig);
+		return true;
 	}
 
-	void run_cell(Cell *cell)
+	bool run_cell(Cell *cell)
 	{
-		if (!cell->type.in(config->supported_cell_types))
-			return;
+		bool did_something = false;
 
-		if (cell->type.in("$mux", "$pmux", "$safe_pmux")) {
-			run_cell_mux(cell);
-			return;
+		if (!cell->type.in(config->supported_cell_types))
+			return false;
+
+		if (cell->type.in("$mux", "$pmux", "$safe_pmux"))
+			return run_cell_mux(cell);
+
+
+		// Reduce size of ports A and B based on constant input bits and size of output port
+
+		int max_port_a_size = cell->hasPort("\\A") ? SIZE(cell->getPort("\\A")) : -1;
+		int max_port_b_size = cell->hasPort("\\B") ? SIZE(cell->getPort("\\B")) : -1;
+
+		if (cell->type.in("$not", "$pos", "$bu0", "$neg", "$and", "$or", "$xor", "$add", "$sub")) {
+			max_port_a_size = std::min(max_port_a_size, SIZE(cell->getPort("\\Y")));
+			max_port_b_size = std::min(max_port_b_size, SIZE(cell->getPort("\\Y")));
 		}
 
-		if (cell->type.in("$shl", "$shr", "$sshl", "$sshr"))
-			cell->setParam("\\B_SIGNED", false);
+		if (max_port_a_size >= 0)
+			did_something = run_reduce_inport(cell, 'A', max_port_a_size) || did_something;
 
-		if (cell->hasParam("\\A_SIGNED"))
-			run_reduce_inport(cell, 'A');
+		if (max_port_b_size >= 0)
+			did_something = run_reduce_inport(cell, 'B', max_port_b_size) || did_something;
 
-		if (cell->hasParam("\\B_SIGNED"))
-			run_reduce_inport(cell, 'B');
+
+		// Reduce size of port Y based on sizes for A and B and unused bits in Y
 
 		SigSpec sig = mi.sigmap(cell->getPort("\\Y"));
 
@@ -208,9 +234,13 @@ struct WreduceWorker
 			log("Removed top %d bits (of %d) from port Y of cell %s.%s (%s).\n",
 					bits_removed, SIZE(sig) + bits_removed, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort("\\Y", sig);
+			did_something = true;
 		}
 
-		cell->fixup_parameters();
+		if (did_something)
+			cell->fixup_parameters();
+
+		return did_something;
 	}
 
 	void run()
@@ -222,7 +252,7 @@ struct WreduceWorker
 		{
 			work_queue_bits.clear();
 			for (auto c : work_queue_cells)
-				run_cell(c);
+				while (run_cell(c)) { }
 
 			work_queue_cells.clear();
 			for (auto bit : work_queue_bits)
