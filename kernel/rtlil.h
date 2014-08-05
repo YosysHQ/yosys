@@ -590,6 +590,10 @@ public:
 	std::vector<RTLIL::Wire*> selected_wires() const;
 	std::vector<RTLIL::Cell*> selected_cells() const;
 
+	template<typename T> bool selected(T *member) const {
+		return design->selected_member(name, member->name);
+	}
+
 	RTLIL::Wire* wire(RTLIL::IdString id) { return wires_.count(id) ? wires_.at(id) : nullptr; }
 	RTLIL::Cell* cell(RTLIL::IdString id) { return cells_.count(id) ? cells_.at(id) : nullptr; }
 
@@ -603,6 +607,9 @@ public:
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
 	void rename(RTLIL::Cell *cell, RTLIL::IdString new_name);
 	void rename(RTLIL::IdString old_name, RTLIL::IdString new_name);
+
+	void swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2);
+	void swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2);
 
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);

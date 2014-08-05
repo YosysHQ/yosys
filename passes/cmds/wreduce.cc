@@ -21,8 +21,6 @@
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 
-#include <type_traits>
-
 USING_YOSYS_NAMESPACE
 using namespace RTLIL;
 
@@ -243,6 +241,14 @@ struct WreduceWorker
 		return did_something;
 	}
 
+	static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
+	{
+		int count = w->attributes.size();
+		count -= w->attributes.count("\\src");
+		count -= w->attributes.count("\\unused_bits");
+		return count;
+	}
+
 	void run()
 	{
 		for (auto c : module->selected_cells())
@@ -257,7 +263,32 @@ struct WreduceWorker
 			work_queue_cells.clear();
 			for (auto bit : work_queue_bits)
 			for (auto port : mi.query_ports(bit))
-				work_queue_cells.insert(port.cell);
+				if (module->selected(port.cell))
+					work_queue_cells.insert(port.cell);
+		}
+
+		for (auto w : module->selected_wires())
+		{
+			int unused_top_bits = 0;
+
+			if (w->port_id > 0 || count_nontrivial_wire_attrs(w) > 0)
+				continue;
+
+			for (int i = SIZE(w)-1; i >= 0; i--) {
+				SigBit bit(w, i);
+				auto info = mi.query(bit);
+				if (info && (info->is_input || info->is_output || SIZE(info->ports) > 0))
+					break;
+				unused_top_bits++;
+			}
+
+			if (0 < unused_top_bits && unused_top_bits < SIZE(w)) {
+				log("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, SIZE(w), log_id(module), log_id(w));
+				Wire *nw = module->addWire(NEW_ID, w);
+				nw->width = SIZE(w) - unused_top_bits;
+				module->connect(nw, SigSpec(w).extract(0, SIZE(nw)));
+				module->swap_names(w, nw);
+			}
 		}
 	}
 };
@@ -270,7 +301,12 @@ struct WreducePass : public Pass {
 		log("\n");
 		log("    wreduce [options] [selection]\n");
 		log("\n");
-		log("This command reduces the word size of operations.\n");
+		log("This command reduces the word size of operations. For example it will replace\n");
+		log("the 32 bit adders in the following code with adders of more appropriate widths:\n");
+		log("\n");
+		log("    module test(input [3:0] a, b, c, output [7:0] y);\n");
+		log("        assign y = a + b + c + 1;\n");
+		log("    endmodule\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)

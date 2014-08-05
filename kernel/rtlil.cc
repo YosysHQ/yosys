@@ -1071,6 +1071,36 @@ void RTLIL::Module::rename(RTLIL::IdString old_name, RTLIL::IdString new_name)
 		log_abort();
 }
 
+void RTLIL::Module::swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2)
+{
+	log_assert(wires_[w1->name] == w1);
+	log_assert(wires_[w2->name] == w2);
+	log_assert(refcount_wires_ == 0);
+
+	wires_.erase(w1->name);
+	wires_.erase(w2->name);
+
+	std::swap(w1->name, w2->name);
+
+	wires_[w1->name] = w1;
+	wires_[w2->name] = w2;
+}
+
+void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
+{
+	log_assert(cells_[c1->name] == c1);
+	log_assert(cells_[c2->name] == c2);
+	log_assert(refcount_cells_ == 0);
+
+	cells_.erase(c1->name);
+	cells_.erase(c2->name);
+
+	std::swap(c1->name, c2->name);
+
+	cells_[c1->name] = c1;
+	cells_[c2->name] = c2;
+}
+
 static bool fixup_ports_compare(const RTLIL::Wire *a, const RTLIL::Wire *b)
 {
 	if (a->port_id && !b->port_id)

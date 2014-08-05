@@ -59,14 +59,20 @@ struct ModIndex : public RTLIL::Monitor
 
 	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
-		for (int i = 0; i < SIZE(sig); i++)
-			database[sigmap(sig[i])].ports.insert(PortInfo(cell, port, i));
+		for (int i = 0; i < SIZE(sig); i++) {
+			RTLIL::SigBit bit = sigmap(sig[i]);
+			if (bit.wire)
+				database[bit].ports.insert(PortInfo(cell, port, i));
+		}
 	}
 
 	void port_del(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
-		for (int i = 0; i < SIZE(sig); i++)
-			database[sigmap(sig[i])].ports.erase(PortInfo(cell, port, i));
+		for (int i = 0; i < SIZE(sig); i++) {
+			RTLIL::SigBit bit = sigmap(sig[i]);
+			if (bit.wire)
+				database[bit].ports.erase(PortInfo(cell, port, i));
+		}
 	}
 
 	const SigBitInfo &info(RTLIL::SigBit bit)
@@ -83,10 +89,11 @@ struct ModIndex : public RTLIL::Monitor
 		for (auto wire : module->wires())
 			if (wire->port_input || wire->port_output)
 				for (int i = 0; i < SIZE(wire); i++) {
-					if (wire->port_input)
-						database[sigmap(RTLIL::SigBit(wire, i))].is_input = true;
-					if (wire->port_output)
-						database[sigmap(RTLIL::SigBit(wire, i))].is_output = true;
+					RTLIL::SigBit bit = sigmap(RTLIL::SigBit(wire, i));
+					if (bit.wire && wire->port_input)
+						database[bit].is_input = true;
+					if (bit.wire && wire->port_output)
+						database[bit].is_output = true;
 				}
 		for (auto cell : module->cells())
 			for (auto &conn : cell->connections())
@@ -137,6 +144,7 @@ struct ModIndex : public RTLIL::Monitor
 	{
 		if (auto_reload_module)
 			reload_module();
+
 		auto it = database.find(sigmap(bit));
 		if (it == database.end())
 			return nullptr;
