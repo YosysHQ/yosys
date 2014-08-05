@@ -599,12 +599,11 @@ wire_name:
 				if (node->is_input || node->is_output)
 					frontend_verilog_yyerror("Module port `%s' is not declared in module header.", $1->c_str());
 			}
-			ast_stack.back()->children.push_back(node);
 		} else {
 			if (node->is_input || node->is_output)
 				node->port_id = current_function_or_task_port_id++;
-			current_function_or_task->children.push_back(node);
 		}
+		ast_stack.back()->children.push_back(node);
 		delete $1;
 	};
 

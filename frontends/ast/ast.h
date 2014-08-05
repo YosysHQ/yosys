@@ -200,7 +200,7 @@ namespace AST
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
 		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
-		void replace_ids(std::map<std::string, std::string> &rules);
+		void replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules);
 		void mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
 				std::map<AstNode*, uint32_t> &mem2reg_flags, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
 		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);

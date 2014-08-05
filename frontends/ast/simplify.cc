@@ -794,6 +794,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (children[i]->type == AST_WIRE) {
 				children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(children[i]);
+				current_scope[children[i]->str] = children[i];
 			} else
 				new_children.push_back(children[i]);
 
@@ -1492,7 +1493,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (child->type != AST_WIRE)
 			{
 				AstNode *stmt = child->clone();
-				stmt->replace_ids(replace_rules);
+				stmt->replace_ids(prefix, replace_rules);
 
 				for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
 					if (*it != current_block_child)
@@ -1855,12 +1856,30 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 }
 
 // rename stuff (used when tasks of functions are instanciated)
-void AstNode::replace_ids(std::map<std::string, std::string> &rules)
+void AstNode::replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules)
 {
-	if (type == AST_IDENTIFIER && rules.count(str) > 0)
-		str = rules[str];
-	for (auto child : children)
-		child->replace_ids(rules);
+	if (type == AST_BLOCK)
+	{
+		std::map<std::string, std::string> new_rules = rules;
+		std::string new_prefix = prefix + str;
+
+		for (auto child : children)
+			if (child->type == AST_WIRE) {
+				new_rules[child->str] = new_prefix + child->str;
+				child->str = new_prefix + child->str;
+			}
+
+		for (auto child : children)
+			if (child->type != AST_WIRE)
+				child->replace_ids(new_prefix, new_rules);
+	}
+	else
+	{
+		if (type == AST_IDENTIFIER && rules.count(str) > 0)
+			str = rules.at(str);
+		for (auto child : children)
+			child->replace_ids(prefix, rules);
+	}
 }
 
 // helper function for mem2reg_as_needed_pass1
