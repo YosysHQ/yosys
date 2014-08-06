@@ -326,7 +326,6 @@ Other Unsorted TODOs
 
 - Implement missing Verilog 2005 features:
 
-  - Multi-dimensional arrays
   - Support for real (float) const. expressions and parameters
   - ROM modeling using $readmemh/$readmemb in "initial" blocks
   - Ignore what needs to be ignored (e.g. drive and charge strengths)

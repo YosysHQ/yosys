@@ -553,6 +553,56 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 	}
 
+	// resolve multiranges on memory decl
+	if (type == AST_MEMORY && children.size() > 1 && children[1]->type == AST_MULTIRANGE)
+	{
+		int total_size = 1;
+		multirange_dimensions.clear();
+		for (auto range : children[1]->children) {
+			if (!range->range_valid)
+				log_error("Non-constant range on memory decl at %s:%d.\n", filename.c_str(), linenum);
+			multirange_dimensions.push_back(std::min(range->range_left, range->range_right));
+			multirange_dimensions.push_back(std::max(range->range_left, range->range_right) - std::min(range->range_left, range->range_right) + 1);
+			total_size *= multirange_dimensions.back();
+		}
+		delete children[1];
+		children[1] = new AstNode(AST_RANGE, AstNode::mkconst_int(0, true), AstNode::mkconst_int(total_size-1, true));
+		did_something = true;
+	}
+
+	// resolve multiranges on memory access
+	if (type == AST_IDENTIFIER && id2ast && id2ast->type == AST_MEMORY && children.size() > 0 && children[0]->type == AST_MULTIRANGE)
+	{
+		AstNode *index_expr = nullptr;
+
+		for (int i = 0; 2*i < SIZE(id2ast->multirange_dimensions); i++)
+		{
+			if (SIZE(children[0]->children) < i)
+				log_error("Insufficient number of array indices for %s at %s:%d.\n", log_id(str), filename.c_str(), linenum);
+
+			AstNode *new_index_expr = children[0]->children[i]->children.at(0)->clone();
+
+			if (id2ast->multirange_dimensions[2*i])
+				new_index_expr = new AstNode(AST_SUB, new_index_expr, AstNode::mkconst_int(id2ast->multirange_dimensions[2*i], true));
+
+			if (i == 0)
+				index_expr = new_index_expr;
+			else
+				index_expr = new AstNode(AST_ADD, new AstNode(AST_MUL, index_expr, AstNode::mkconst_int(id2ast->multirange_dimensions[2*i-1], true)), new_index_expr);
+		}
+
+		for (int i = SIZE(id2ast->multirange_dimensions)/1; i < SIZE(children[0]->children); i++)
+			children.push_back(children[0]->children[i]->clone());
+
+		delete children[0];
+		if (index_expr == nullptr)
+			children.erase(children.begin());
+		else
+			children[0] = new AstNode(AST_RANGE, index_expr);
+
+		did_something = true;
+	}
+
 	// trim/extend parameters
 	if (type == AST_PARAMETER || type == AST_LOCALPARAM) {
 		if (children.size() > 1 && children[1]->type == AST_RANGE) {
@@ -1166,7 +1216,7 @@ skip_dynamic_range_lvalue_expansion:;
 	if (stage > 1 && (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE) && children[0]->type == AST_IDENTIFIER &&
 			children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY && children[0]->id2ast->children.size() >= 2 &&
 			children[0]->id2ast->children[0]->range_valid && children[0]->id2ast->children[1]->range_valid &&
-			(children[0]->children.size() == 1 || children[0]->children.size() == 2))
+			(children[0]->children.size() == 1 || children[0]->children.size() == 2) && children[0]->children[0]->type == AST_RANGE)
 	{
 		std::stringstream sstr;
 		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);

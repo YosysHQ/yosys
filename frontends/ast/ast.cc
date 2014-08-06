@@ -78,6 +78,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_PARASET)
 	X(AST_ARGUMENT)
 	X(AST_RANGE)
+	X(AST_MULTIRANGE)
 	X(AST_CONSTANT)
 	X(AST_REALVALUE)
 	X(AST_CELLTYPE)
@@ -284,6 +285,12 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 		fprintf(f, " int=%u", (int)integer);
 	if (realvalue != 0)
 		fprintf(f, " real=%e", realvalue);
+	if (!multirange_dimensions.empty()) {
+		fprintf(f, " multirange=[");
+		for (int v : multirange_dimensions)
+			fprintf(f, " %d", v);
+		fprintf(f, " ]");
+	}
 	fprintf(f, "\n");
 
 	for (auto &it : attributes) {

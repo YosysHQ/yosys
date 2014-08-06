@@ -112,7 +112,8 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_PROPERTY
 
-%type <ast> wire_type range non_opt_range range_or_signed_int expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
+%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
 %type <boolean> opt_signed
 %type <al> attr
@@ -361,6 +362,15 @@ non_opt_range:
 		$$->children.push_back($2);
 	};
 
+non_opt_multirange:
+	non_opt_range non_opt_range {
+		$$ = new AstNode(AST_MULTIRANGE, $1, $2);
+	} |
+	non_opt_multirange non_opt_range {
+		$$ = $1;
+		$$->children.push_back($2);
+	};
+
 range:
 	non_opt_range {
 		$$ = $1;
@@ -368,6 +378,10 @@ range:
 	/* empty */ {
 		$$ = NULL;
 	};
+
+range_or_multirange:
+	range { $$ = $1; } |
+	non_opt_multirange { $$ = $1; };
 
 range_or_signed_int:
 	range {
@@ -566,7 +580,7 @@ wire_name_and_opt_assign:
 	};
 
 wire_name:
-	TOK_ID range {
+	TOK_ID range_or_multirange {
 		AstNode *node = astbuf1->clone();
 		node->str = *$1;
 		append_attr_clone(node, albuf);
@@ -1007,8 +1021,8 @@ rvalue:
 		$$->str = *$1;
 		delete $1;
 	} |
-	hierarchical_id non_opt_range non_opt_range {
-		$$ = new AstNode(AST_IDENTIFIER, $2, $3);
+	hierarchical_id non_opt_multirange {
+		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
 		delete $1;
 	};

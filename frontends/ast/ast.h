@@ -56,6 +56,7 @@ namespace AST
 		AST_PARASET,
 		AST_ARGUMENT,
 		AST_RANGE,
+		AST_MULTIRANGE,
 		AST_CONSTANT,
 		AST_REALVALUE,
 		AST_CELLTYPE,
@@ -157,6 +158,9 @@ namespace AST
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;
+
+		// if this is a multirange memory then this vector contains offset and length of each dimension
+		std::vector<int> multirange_dimensions;
 
 		// this is set by simplify and used during RTLIL generation
 		AstNode *id2ast;
