@@ -28,7 +28,7 @@ static void normalize_sig(RTLIL::Module *module, RTLIL::SigSpec &sig)
 		sig.replace(conn.first, conn.second);
 }
 
-static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false)
+static bool find_sig_before_dff(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false)
 {
 	normalize_sig(module, sig);
 
@@ -37,11 +37,8 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 		if (bit.wire == NULL)
 			continue;
 
-		for (auto cell : module->cells())
+		for (auto cell : dff_cells)
 		{
-			if (cell->type != "$dff")
-				continue;
-
 			if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
 				if (cell->getPort("\\CLK") != clk)
 					continue;
@@ -69,7 +66,7 @@ static bool find_sig_before_dff(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLI
 	return true;
 }
 
-static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
+static void handle_wr_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::Cell *cell)
 {
 	log("Checking cell `%s' in module `%s': ", cell->name.c_str(), module->name.c_str());
 
@@ -77,19 +74,19 @@ static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	bool clk_polarity = 0;
 
 	RTLIL::SigSpec sig_addr = cell->getPort("\\ADDR");
-	if (!find_sig_before_dff(module, sig_addr, clk, clk_polarity)) {
+	if (!find_sig_before_dff(module, dff_cells, sig_addr, clk, clk_polarity)) {
 		log("no (compatible) $dff for address input found.\n");
 		return;
 	}
 
 	RTLIL::SigSpec sig_data = cell->getPort("\\DATA");
-	if (!find_sig_before_dff(module, sig_data, clk, clk_polarity)) {
+	if (!find_sig_before_dff(module, dff_cells, sig_data, clk, clk_polarity)) {
 		log("no (compatible) $dff for data input found.\n");
 		return;
 	}
 
 	RTLIL::SigSpec sig_en = cell->getPort("\\EN");
-	if (!find_sig_before_dff(module, sig_en, clk, clk_polarity)) {
+	if (!find_sig_before_dff(module, dff_cells, sig_en, clk, clk_polarity)) {
 		log("no (compatible) $dff for enable input found.\n");
 		return;
 	}
@@ -102,6 +99,7 @@ static void handle_wr_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
 		log("merged $dff to cell.\n");
+		return;
 	}
 
 	log("no (compatible) $dff found.\n");
@@ -125,7 +123,7 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 		}
 }
 
-static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
+static void handle_rd_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::Cell *cell)
 {
 	log("Checking cell `%s' in module `%s': ", cell->name.c_str(), module->name.c_str());
 
@@ -133,7 +131,7 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec clk_data = RTLIL::SigSpec(RTLIL::State::Sx);
 	RTLIL::SigSpec sig_data = cell->getPort("\\DATA");
-	if (find_sig_before_dff(module, sig_data, clk_data, clk_polarity, true) &&
+	if (find_sig_before_dff(module, dff_cells, sig_data, clk_data, clk_polarity, true) &&
 			clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
 	{
 		disconnect_dff(module, sig_data);
@@ -148,7 +146,7 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec clk_addr = RTLIL::SigSpec(RTLIL::State::Sx);
 	RTLIL::SigSpec sig_addr = cell->getPort("\\ADDR");
-	if (find_sig_before_dff(module, sig_addr, clk_addr, clk_polarity) &&
+	if (find_sig_before_dff(module, dff_cells, sig_addr, clk_addr, clk_polarity) &&
 			clk_addr != RTLIL::SigSpec(RTLIL::State::Sx))
 	{
 		cell->setPort("\\CLK", clk_addr);
@@ -163,15 +161,19 @@ static void handle_rd_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 	log("no (compatible) $dff found.\n");
 }
 
-static void handle_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_wr_only)
+static void handle_module(RTLIL::Module *module, bool flag_wr_only)
 {
-	for (auto cell : module->cells()) {
-		if (!design->selected(module, cell))
-			continue;
+	std::vector<RTLIL::Cell*> dff_cells;
+
+	for (auto cell : module->cells())
+		if (cell->type == "$dff")
+			dff_cells.push_back(cell);
+
+	for (auto cell : module->selected_cells()) {
 		if (cell->type == "$memwr" && !cell->parameters["\\CLK_ENABLE"].as_bool())
-				handle_wr_cell(module, cell);
+				handle_wr_cell(module, dff_cells, cell);
 		if (!flag_wr_only && cell->type == "$memrd" && !cell->parameters["\\CLK_ENABLE"].as_bool())
-				handle_rd_cell(module, cell);
+				handle_rd_cell(module, dff_cells, cell);
 	}
 }
 
@@ -207,9 +209,8 @@ struct MemoryDffPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod))
-				handle_module(design, mod, flag_wr_only);
+		for (auto mod : design->selected_modules())
+			handle_module(mod, flag_wr_only);
 	}
 } MemoryDffPass;
  
