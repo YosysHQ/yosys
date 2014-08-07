@@ -20,7 +20,7 @@ Update the CHANGELOG file:
 	vi CHANGELOG
 
 
-Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.7,release}":
+Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.6,release}":
 
 	cd ~yosys
 	make clean

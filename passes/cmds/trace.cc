@@ -24,34 +24,34 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct TraceMonitor : public RTLIL::Monitor
 {
-	virtual void notify_module_add(RTLIL::Module *module) override
+	virtual void notify_module_add(RTLIL::Module *module) OVERRIDE
 	{
 		log("#TRACE# Module add: %s\n", log_id(module));
 	}
 
-	virtual void notify_module_del(RTLIL::Module *module) override
+	virtual void notify_module_del(RTLIL::Module *module) OVERRIDE
 	{
 		log("#TRACE# Module delete: %s\n", log_id(module));
 	}
 
-	virtual void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) override
+	virtual void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) OVERRIDE
 	{
 		log("#TRACE# Cell connect: %s.%s.%s = %s (was: %s)\n", log_id(cell->module), log_id(cell), log_id(port), log_signal(sig), log_signal(old_sig));
 	}
 
-	virtual void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &sigsig) override
+	virtual void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &sigsig) OVERRIDE
 	{
 		log("#TRACE# Connection in module %s: %s = %s\n", log_id(module), log_signal(sigsig.first), log_signal(sigsig.second));
 	}
 
-	virtual void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &sigsig_vec) override
+	virtual void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &sigsig_vec) OVERRIDE
 	{
 		log("#TRACE# New connections in module %s:\n", log_id(module));
 		for (auto &sigsig : sigsig_vec)
 			log("##    %s = %s\n", log_signal(sigsig.first), log_signal(sigsig.second));
 	}
 
-	virtual void notify_blackout(RTLIL::Module *module) override
+	virtual void notify_blackout(RTLIL::Module *module) OVERRIDE
 	{
 		log("#TRACE# Blackout in module %s:\n", log_id(module));
 	}

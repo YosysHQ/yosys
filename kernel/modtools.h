@@ -102,7 +102,7 @@ struct ModIndex : public RTLIL::Monitor
 		auto_reload_module = false;
 	}
 
-	virtual void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) override
+	virtual void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) OVERRIDE
 	{
 		if (auto_reload_module)
 			reload_module();

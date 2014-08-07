@@ -1,7 +1,7 @@
 
 CONFIG := clang
 # CONFIG := gcc
-# CONFIG := gcc-4.7
+# CONFIG := gcc-4.6
 
 # features (the more the better)
 ENABLE_TCL := 1
@@ -67,8 +67,8 @@ CXX = gcc
 CXXFLAGS += -std=gnu++0x -Os
 endif
 
-ifeq ($(CONFIG),gcc-4.7)
-CXX = gcc-4.7
+ifeq ($(CONFIG),gcc-4.6)
+CXX = gcc-4.6
 CXXFLAGS += -std=gnu++0x -Os
 endif
 
@@ -282,8 +282,8 @@ config-clang: clean
 config-gcc: clean
 	echo 'CONFIG := gcc' > Makefile.conf
 
-config-gcc-4.7: clean
-	echo 'CONFIG := gcc-4.7' > Makefile.conf
+config-gcc-4.6: clean
+	echo 'CONFIG := gcc-4.6' > Makefile.conf
 
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
@@ -300,5 +300,5 @@ config-sudo:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
-.PHONY: config-clean config-clang config-gcc config-gcc-4.7 config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-4.6 config-gprof config-sudo
 
