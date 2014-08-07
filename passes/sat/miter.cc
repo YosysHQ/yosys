@@ -251,7 +251,7 @@ static void create_miter_equiv(struct Pass *that, std::vector<std::string> args,
 
 	if (flag_flatten) {
 		log_push();
-		Pass::call_on_module(design, miter_module, "flatten; opt_const -undriven;;");
+		Pass::call_on_module(design, miter_module, "flatten; opt_const -keepdc -undriven;;");
 		log_pop();
 	}
 }
@@ -285,7 +285,7 @@ struct MiterPass : public Pass {
 		log("        also create an 'assert' cell that checks if trigger is always low.\n");
 		log("\n");
 		log("    -flatten\n");
-		log("        call 'flatten; opt_const -undriven;;' on the miter circuit.\n");
+		log("        call 'flatten; opt_const -keepdc -undriven;;' on the miter circuit.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
