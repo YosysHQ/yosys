@@ -5,7 +5,7 @@ techlibs/common/blackbox.v: techlibs/common/blackbox.sed techlibs/common/simlib.
 	$(P) cat techlibs/common/simlib.v techlibs/common/simcells.v | $(SED) -rf techlibs/common/blackbox.sed > techlibs/common/blackbox.v.new
 	$(Q) mv techlibs/common/blackbox.v.new techlibs/common/blackbox.v
 
-EXTRA_TARGETS += share/simlib.v share/simcells.v share/techmap.v share/blackbox.v share/pmux2mux.v
+EXTRA_TARGETS += share/simlib.v share/simcells.v share/techmap.v share/blackbox.v share/pmux2mux.v share/adff2dff.v
 
 share/simlib.v: techlibs/common/simlib.v
 	$(P) mkdir -p share
@@ -26,4 +26,8 @@ share/blackbox.v: techlibs/common/blackbox.v
 share/pmux2mux.v: techlibs/common/pmux2mux.v
 	$(P) mkdir -p share
 	$(Q) cp techlibs/common/pmux2mux.v share/pmux2mux.v
+
+share/adff2dff.v: techlibs/common/adff2dff.v
+	$(P) mkdir -p share
+	$(Q) cp techlibs/common/adff2dff.v share/adff2dff.v
 
