@@ -247,8 +247,7 @@ single_module_para:
 	};
 
 module_args_opt:
-	'(' ')' | /* empty */ | '(' module_args optional_comma ')' |
-	'(' '.' '.' '.' ')' { do_not_require_port_stubs = true; };
+	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
 
 module_args:
 	module_arg | module_args ',' module_arg;
@@ -297,7 +296,10 @@ module_arg:
 		ast_stack.back()->children.push_back(node);
 		append_attr(node, $1);
 		delete $4;
-	} module_arg_opt_assignment;
+	} module_arg_opt_assignment |
+	'.' '.' '.' {
+		do_not_require_port_stubs = true;
+	};
 
 wire_type:
 	{
