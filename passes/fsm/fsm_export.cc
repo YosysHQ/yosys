@@ -56,13 +56,12 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
 
 	attr_it = cell->attributes.find("\\fsm_export");
 	if (!filename.empty()) {
-	  kiss_name.assign(filename);
+		kiss_name.assign(filename);
 	} else if (attr_it != cell->attributes.end() && attr_it->second.decode_string() != "") {
 		kiss_name.assign(attr_it->second.decode_string());
 	}
 	else {
-		kiss_name.assign(module->name.str());
-		kiss_name.append('-' + cell->name.str() + ".kiss2");
+		kiss_name.assign(log_id(module) + std::string("-") + log_id(cell) + ".kiss2");
 	}
 
 	log("\n");
