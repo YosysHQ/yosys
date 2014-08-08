@@ -18,6 +18,7 @@ python generate.py
 		echo "temp/uut_${idx}.log: temp/uut_${idx}.ys temp/uut_${idx}.v"
 		echo "	@echo -n '[$i]'"
 		echo "	@../../yosys -ql temp/uut_${idx}.log temp/uut_${idx}.ys"
+		echo "	@grep -q 'SAT proof finished' temp/uut_${idx}.log && echo -n K || echo -n T"
 		all_targets="$all_targets temp/uut_${idx}.log"
 	done
 	echo "$all_targets"

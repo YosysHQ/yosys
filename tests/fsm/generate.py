@@ -30,7 +30,7 @@ def random_expr(variables):
         return "%d'd%s" % (bits, random.randint(0, 2**bits-1))
     raise AssertionError
 
-for idx in range(100):
+for idx in range(50):
     with file('temp/uut_%05d.v' % idx, 'w') as f, redirect_stdout(f):
         print('module uut_%05d(clk, rst, a, b, c, x, y, z);' % (idx))
         print('  input clk, rst;')
@@ -79,5 +79,5 @@ for idx in range(100):
         print('opt; wreduce; share; opt; fsm;;')
         print('cd ..')
         print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
-        print('sat -verify -seq 5 -set-at 1 in_rst 1 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter')
+        print('sat -verify-no-timeout -timeout 20 -seq 5 -set-at 1 in_rst 1 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter')
  
