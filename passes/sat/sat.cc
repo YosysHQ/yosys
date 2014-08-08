@@ -917,6 +917,9 @@ struct SatPass : public Pass {
 		log("    -prove-asserts\n");
 		log("        Prove that all asserts in the design hold.\n");
 		log("\n");
+		log("    -prove-skip <N>\n");
+		log("        Do not enforce the prove-condition for the first <N> time steps.\n");
+		log("\n");
 		log("    -maxsteps <N>\n");
 		log("        Set a maximum length for the induction.\n");
 		log("\n");
@@ -945,7 +948,7 @@ struct SatPass : public Pass {
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_any_undef_at, sets_all_undef_at;
 		std::vector<std::string> shows, sets_def, sets_any_undef, sets_all_undef;
-		int loopcount = 0, seq_len = 0, maxsteps = 0, initsteps = 0, timeout = 0;
+		int loopcount = 0, seq_len = 0, maxsteps = 0, initsteps = 0, timeout = 0, prove_skip = 0;
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
@@ -1059,6 +1062,10 @@ struct SatPass : public Pass {
 				prove_asserts = true;
 				continue;
 			}
+			if (args[argidx] == "-prove-skip" && argidx+1 < args.size()) {
+				prove_skip = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
 				seq_len = atoi(args[++argidx].c_str());
 				continue;
@@ -1153,6 +1160,12 @@ struct SatPass : public Pass {
 
 		if (!prove.size() && !prove_x.size() && !prove_asserts && tempinduct)
 			log_cmd_error("Got -tempinduct but nothing to prove!\n");
+
+		if (prove_skip && tempinduct)
+			log_cmd_error("Options -prove-skip and -tempinduct don't work with each other.\n");
+
+		if (prove_skip >= seq_len && prove_skip > 0)
+			log_cmd_error("The value of -prove-skip must be smaller than the one of -seq.\n");
 
 		if (set_init_undef + set_init_zero + set_init_def > 1)
 			log_cmd_error("The options -set-init-undef, -set-init-def, and -set-init-zero are exclusive!\n");
@@ -1359,7 +1372,8 @@ struct SatPass : public Pass {
 				for (int timestep = 1; timestep <= seq_len; timestep++) {
 					sathelper.setup(timestep);
 					if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
-						prove_bits.push_back(sathelper.setup_proof(timestep));
+						if (timestep > prove_skip)
+							prove_bits.push_back(sathelper.setup_proof(timestep));
 				}
 				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
 					sathelper.ez.assume(sathelper.ez.NOT(sathelper.ez.expression(ezSAT::OpAnd, prove_bits)));
