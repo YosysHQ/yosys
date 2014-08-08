@@ -52,33 +52,50 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(sig, cellport_list);
-	for (auto &cellport : cellport_list) {
+	for (auto &cellport : cellport_list)
+	{
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != "$mux" && cell->type != "$pmux" && cell->type != "$safe_pmux") || cellport.second != "\\Y") {
 			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type.c_str(), cell->name.c_str());
 			return false;
 		}
+
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
 		RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
 		RTLIL::SigSpec sig_s = assign_map(cell->getPort("\\S"));
+		RTLIL::SigSpec sig_y = assign_map(cell->getPort("\\Y"));
+
+		RTLIL::SigSpec sig_aa = sig;
+		sig_aa.replace(sig_y, sig_a);
+
+		RTLIL::SigSpec sig_bb;
+		for (int i = 0; i < SIZE(sig_b)/SIZE(sig_a); i++) {
+			RTLIL::SigSpec s = sig;
+			s.replace(sig_y, sig_b.extract(i*SIZE(sig_a), SIZE(sig_a)));
+			sig_bb.append(s);
+		}
+
 		if (reset_state && RTLIL::SigSpec(*reset_state).is_fully_undef())
 			do {
-				if (sig_a.is_fully_def())
-					*reset_state = sig_a.as_const();
-				else if (sig_b.is_fully_def())
-					*reset_state = sig_b.as_const();
+				if (sig_aa.is_fully_def())
+					*reset_state = sig_aa.as_const();
+				else if (sig_bb.is_fully_def())
+					*reset_state = sig_bb.as_const();
 				else
 					break;
 				log("  found reset state: %s (guessed from mux tree)\n", log_signal(*reset_state));
 			} while (0);
+
 		if (ctrl.extract(sig_s).size() == 0) {
 			log("  found ctrl input: %s\n", log_signal(sig_s));
 			ctrl.append(sig_s);
 		}
-		if (!find_states(sig_a, dff_out, ctrl, states))
+
+		if (!find_states(sig_aa, dff_out, ctrl, states))
 			return false;
-		for (int i = 0; i < sig_b.size()/sig_a.size(); i++) {
-			if (!find_states(sig_b.extract(i*sig_a.size(), sig_a.size()), dff_out, ctrl, states))
+
+		for (int i = 0; i < SIZE(sig_bb)/SIZE(sig_aa); i++) {
+			if (!find_states(sig_bb.extract(i*SIZE(sig_aa), SIZE(sig_aa)), dff_out, ctrl, states))
 				return false;
 		}
 	}
