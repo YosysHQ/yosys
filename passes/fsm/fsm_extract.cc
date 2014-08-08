@@ -231,6 +231,10 @@ static void extract_fsm(RTLIL::Wire *wire)
 		log("  fsm extraction failed: state selection tree is not closed.\n");
 		return;
 	}
+	if (SIZE(states) <= 1) {
+		log("  fsm extraction failed: at least two states are required.\n");
+		return;
+	}
 
 	// find control outputs
 	// (add the state signals to the list of control outputs. if everything goes right, this signals
