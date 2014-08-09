@@ -30,6 +30,48 @@ struct FsmOpt
 	FsmData fsm_data;
 	RTLIL::Cell *cell;
 	RTLIL::Module *module;
+
+	void opt_unreachable_states()
+	{
+		while (1)
+		{
+			std::set<int> unreachable_states;
+			std::vector<FsmData::transition_t> new_transition_table;
+			std::vector<RTLIL::Const> new_state_table;
+			std::map<int, int> old_to_new_state;
+
+			for (int i = 0; i < SIZE(fsm_data.state_table); i++)
+				if (i != fsm_data.reset_state)
+					unreachable_states.insert(i);
+
+			for (auto &trans : fsm_data.transition_table)
+				unreachable_states.erase(trans.state_out);
+
+			if (unreachable_states.empty())
+				break;
+
+			for (int i = 0; i < SIZE(fsm_data.state_table); i++) {
+				if (unreachable_states.count(i)) {
+					log("  Removing unreachable state %s.\n", log_signal(fsm_data.state_table[i]));
+					continue;
+				}
+				old_to_new_state[i] = SIZE(new_state_table);
+				new_state_table.push_back(fsm_data.state_table[i]);
+			}
+
+			for (auto trans : fsm_data.transition_table) {
+				if (unreachable_states.count(trans.state_in))
+					continue;
+				trans.state_in = old_to_new_state.at(trans.state_in);
+				trans.state_out = old_to_new_state.at(trans.state_out);
+				new_transition_table.push_back(trans);
+			}
+
+			new_transition_table.swap(fsm_data.transition_table);
+			new_state_table.swap(fsm_data.state_table);
+			fsm_data.reset_state = old_to_new_state.at(fsm_data.reset_state);
+		}
+	}
 	
 	bool signal_is_unused(RTLIL::SigSpec sig)
 	{
@@ -252,6 +294,8 @@ struct FsmOpt
 		fsm_data.copy_from_cell(cell);
 		this->cell = cell;
 		this->module = module;
+
+		opt_unreachable_states();
 
 		opt_unused_outputs();
 

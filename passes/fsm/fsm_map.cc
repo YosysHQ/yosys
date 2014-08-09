@@ -207,65 +207,72 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 	// generate next_state signal
 
-	RTLIL::Wire *next_state_onehot = module->addWire(NEW_ID, fsm_data.state_table.size());
-
-	for (size_t i = 0; i < fsm_data.state_table.size(); i++)
+	if (SIZE(fsm_data.state_table) == 1)
 	{
-		std::map<RTLIL::Const, std::set<int>> pattern_cache;
-		std::set<int> fullstate_cache;
-
-		for (size_t j = 0; j < fsm_data.state_table.size(); j++)
-			fullstate_cache.insert(j);
-
-		for (auto &tr : fsm_data.transition_table) {
-			if (tr.state_out == int(i))
-				pattern_cache[tr.ctrl_in].insert(tr.state_in);
-			else
-				fullstate_cache.erase(tr.state_in);
-		}
-
-		implement_pattern_cache(module, pattern_cache, fullstate_cache, fsm_data.state_table.size(), state_onehot, ctrl_in, RTLIL::SigSpec(next_state_onehot, i));
-	}
-
-	if (encoding_is_onehot)
-	{
-		RTLIL::SigSpec next_state_sig(RTLIL::State::Sm, next_state_wire->width);
-		for (size_t i = 0; i < fsm_data.state_table.size(); i++) {
-			RTLIL::Const state = fsm_data.state_table[i];
-			int bit_idx = -1;
-			for (size_t j = 0; j < state.bits.size(); j++)
-				if (state.bits[j] == RTLIL::State::S1)
-					bit_idx = j;
-			if (bit_idx >= 0)
-				next_state_sig.replace(bit_idx, RTLIL::SigSpec(next_state_onehot, i));
-		}
-		log_assert(!next_state_sig.has_marked_bits());
-		module->connect(RTLIL::SigSig(next_state_wire, next_state_sig));
+		module->connect(next_state_wire, fsm_data.state_table.front());
 	}
 	else
 	{
-		RTLIL::SigSpec sig_a, sig_b, sig_s;
-		int reset_state = fsm_data.reset_state;
-		if (reset_state < 0)
-			reset_state = 0;
+		RTLIL::Wire *next_state_onehot = module->addWire(NEW_ID, fsm_data.state_table.size());
 
-		for (size_t i = 0; i < fsm_data.state_table.size(); i++) {
-			RTLIL::Const state = fsm_data.state_table[i];
-			if (int(i) == fsm_data.reset_state) {
-				sig_a = RTLIL::SigSpec(state);
-			} else {
-				sig_b.append(RTLIL::SigSpec(state));
-				sig_s.append(RTLIL::SigSpec(next_state_onehot, i));
+		for (size_t i = 0; i < fsm_data.state_table.size(); i++)
+		{
+			std::map<RTLIL::Const, std::set<int>> pattern_cache;
+			std::set<int> fullstate_cache;
+
+			for (size_t j = 0; j < fsm_data.state_table.size(); j++)
+				fullstate_cache.insert(j);
+
+			for (auto &tr : fsm_data.transition_table) {
+				if (tr.state_out == int(i))
+					pattern_cache[tr.ctrl_in].insert(tr.state_in);
+				else
+					fullstate_cache.erase(tr.state_in);
 			}
+
+			implement_pattern_cache(module, pattern_cache, fullstate_cache, fsm_data.state_table.size(), state_onehot, ctrl_in, RTLIL::SigSpec(next_state_onehot, i));
 		}
 
-		RTLIL::Cell *mux_cell = module->addCell(NEW_ID, "$safe_pmux");
-		mux_cell->setPort("\\A", sig_a);
-		mux_cell->setPort("\\B", sig_b);
-		mux_cell->setPort("\\S", sig_s);
-		mux_cell->setPort("\\Y", RTLIL::SigSpec(next_state_wire));
-		mux_cell->parameters["\\WIDTH"] = RTLIL::Const(sig_a.size());
-		mux_cell->parameters["\\S_WIDTH"] = RTLIL::Const(sig_s.size());
+		if (encoding_is_onehot)
+		{
+			RTLIL::SigSpec next_state_sig(RTLIL::State::Sm, next_state_wire->width);
+			for (size_t i = 0; i < fsm_data.state_table.size(); i++) {
+				RTLIL::Const state = fsm_data.state_table[i];
+				int bit_idx = -1;
+				for (size_t j = 0; j < state.bits.size(); j++)
+					if (state.bits[j] == RTLIL::State::S1)
+						bit_idx = j;
+				if (bit_idx >= 0)
+					next_state_sig.replace(bit_idx, RTLIL::SigSpec(next_state_onehot, i));
+			}
+			log_assert(!next_state_sig.has_marked_bits());
+			module->connect(RTLIL::SigSig(next_state_wire, next_state_sig));
+		}
+		else
+		{
+			RTLIL::SigSpec sig_a, sig_b, sig_s;
+			int reset_state = fsm_data.reset_state;
+			if (reset_state < 0)
+				reset_state = 0;
+
+			for (size_t i = 0; i < fsm_data.state_table.size(); i++) {
+				RTLIL::Const state = fsm_data.state_table[i];
+				if (int(i) == fsm_data.reset_state) {
+					sig_a = RTLIL::SigSpec(state);
+				} else {
+					sig_b.append(RTLIL::SigSpec(state));
+					sig_s.append(RTLIL::SigSpec(next_state_onehot, i));
+				}
+			}
+
+			RTLIL::Cell *mux_cell = module->addCell(NEW_ID, "$safe_pmux");
+			mux_cell->setPort("\\A", sig_a);
+			mux_cell->setPort("\\B", sig_b);
+			mux_cell->setPort("\\S", sig_s);
+			mux_cell->setPort("\\Y", RTLIL::SigSpec(next_state_wire));
+			mux_cell->parameters["\\WIDTH"] = RTLIL::Const(sig_a.size());
+			mux_cell->parameters["\\S_WIDTH"] = RTLIL::Const(sig_s.size());
+		}
 	}
 
 	// Generate ctrl_out signal
