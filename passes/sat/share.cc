@@ -685,12 +685,13 @@ struct ShareWorker
 			RTLIL::SigSpec cell_activation_signals = bits_from_activation_patterns(cell_activation_patterns);
 
 			if (cell_activation_patterns.empty()) {
-				log ("    Cell is never active. Sharing is pointless, we simply remove it.\n");
+				log("    Cell is never active. Sharing is pointless, we simply remove it.\n");
+				cells_to_remove.insert(cell);
 				continue;
 			}
 
 			if (cell_activation_patterns.count(std::pair<RTLIL::SigSpec, RTLIL::Const>())) {
-				log ("    Cell is always active. Therefore no sharing is possible.\n");
+				log("    Cell is always active. Therefore no sharing is possible.\n");
 				continue;
 			}
 
@@ -717,13 +718,15 @@ struct ShareWorker
 				RTLIL::SigSpec other_cell_activation_signals = bits_from_activation_patterns(other_cell_activation_patterns);
 
 				if (other_cell_activation_patterns.empty()) {
-					log ("      Cell is never active. Sharing is pointless, we simply remove it.\n");
+					log("      Cell is never active. Sharing is pointless, we simply remove it.\n");
 					shareable_cells.erase(other_cell);
+					cells_to_remove.insert(other_cell);
 					continue;
 				}
 
 				if (other_cell_activation_patterns.count(std::pair<RTLIL::SigSpec, RTLIL::Const>())) {
-					log ("      Cell is always active. Therefore no sharing is possible.\n");
+					log("      Cell is always active. Therefore no sharing is possible.\n");
+					shareable_cells.erase(other_cell);
 					continue;
 				}
 
@@ -750,8 +753,6 @@ struct ShareWorker
 				optimize_activation_patterns(filtered_other_cell_activation_patterns);
 
 				ezDefaultSAT ez;
-				ez.non_incremental();
-
 				SatGen satgen(&ez, &modwalker.sigmap);
 
 				std::set<RTLIL::Cell*> sat_cells;
@@ -797,6 +798,21 @@ struct ShareWorker
 					if (config.opt_fast && sat_cells.size() > 100)
 						break;
 				}
+
+				if (!ez.solve(ez.expression(ez.OpOr, cell_active))) {
+					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(cell));
+					cells_to_remove.insert(cell);
+					break;
+				}
+
+				if (!ez.solve(ez.expression(ez.OpOr, other_cell_active))) {
+					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(other_cell));
+					cells_to_remove.insert(other_cell);
+					shareable_cells.erase(other_cell);
+					continue;
+				}
+
+				ez.non_incremental();
 
 				all_ctrl_signals.sort_and_unify();
 				std::vector<int> sat_model = satgen.importSigSpec(all_ctrl_signals);
