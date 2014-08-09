@@ -252,19 +252,6 @@ struct ShareWorker
 
 		if (config.generic_uni_ops.count(c1->type))
 		{
-			if (c1->type.in("$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool") && c1->getParam("\\A_WIDTH").as_int() != c2->getParam("\\A_WIDTH").as_int())
-			{
-				RTLIL::SigBit extbit = c1->type == "$reduce_and" ? RTLIL::State::S1 : RTLIL::State::S0;
-				while (c1->getParam("\\A_WIDTH").as_int() < c2->getParam("\\A_WIDTH").as_int()) {
-					c1->setParam("\\A_WIDTH", c1->getParam("\\A_WIDTH").as_int() + 1);
-					c1->setPort("\\A", {extbit, c1->getPort("\\A")});
-				}
-				while (c2->getParam("\\A_WIDTH").as_int() < c1->getParam("\\A_WIDTH").as_int()) {
-					c2->setParam("\\A_WIDTH", c2->getParam("\\A_WIDTH").as_int() + 1);
-					c2->setPort("\\A", {extbit, c2->getPort("\\A")});
-				}
-			}
-
 			if (c1->parameters.at("\\A_SIGNED").as_bool() != c2->parameters.at("\\A_SIGNED").as_bool())
 			{
 				RTLIL::Cell *unsigned_cell = c1->parameters.at("\\A_SIGNED").as_bool() ? c2 : c1;
@@ -922,12 +909,6 @@ struct SharePass : public Pass {
 		// config.generic_uni_ops.insert("$pos");
 		// config.generic_uni_ops.insert("$bu0");
 		config.generic_uni_ops.insert("$neg");
-
-		config.generic_uni_ops.insert("$reduce_and");
-		config.generic_uni_ops.insert("$reduce_or");
-		config.generic_uni_ops.insert("$reduce_xor");
-		config.generic_uni_ops.insert("$reduce_xnor");
-		config.generic_uni_ops.insert("$reduce_bool");
 
 		config.generic_cbin_ops.insert("$and");
 		config.generic_cbin_ops.insert("$or");
