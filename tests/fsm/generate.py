@@ -32,8 +32,15 @@ def random_expr(variables):
 
 for idx in range(50):
     with file('temp/uut_%05d.v' % idx, 'w') as f, redirect_stdout(f):
-        print('module uut_%05d(clk, rst, a, b, c, x, y, z);' % (idx))
-        print('  input clk, rst;')
+        rst2 = random.choice([False, True])
+        if rst2:
+            print('module uut_%05d(clk, rst1, rst2, rst, a, b, c, x, y, z);' % (idx))
+            print('  input clk, rst1, rst2;')
+            print('  output rst;')
+            print('  assign rst = rst1 || rst2;')
+        else:
+            print('module uut_%05d(clk, rst, a, b, c, x, y, z);' % (idx))
+            print('  input clk, rst;')
         variables=['a', 'b', 'c', 'x', 'y', 'z']
         print('  input%s [%d:0] a;' % (random.choice(['', ' signed']), random.randint(0, 31)))
         print('  input%s [%d:0] b;' % (random.choice(['', ' signed']), random.randint(0, 31)))
@@ -41,14 +48,15 @@ for idx in range(50):
         print('  output reg%s [%d:0] x;' % (random.choice(['', ' signed']), random.randint(0, 31)))
         print('  output reg%s [%d:0] y;' % (random.choice(['', ' signed']), random.randint(0, 31)))
         print('  output reg%s [%d:0] z;' % (random.choice(['', ' signed']), random.randint(0, 31)))
-        print('  reg [15:0] state;')
+        state_bits = random.randint(5, 16);
+        print('  reg [%d:0] state;' % (state_bits-1))
         states=[]
         for i in range(random.randint(2, 10)):
-            n = random.randint(0, 2**16-1)
+            n = random.randint(0, 2**state_bits-1)
             if n not in states:
                 states.append(n)
         print('  always @(posedge clk) begin')
-        print('    if (rst) begin')
+        print('    if (%s) begin' % ('rst1' if rst2 else 'rst'))
         print('      x <= %d;' % random.randint(0, 2**31-1))
         print('      y <= %d;' % random.randint(0, 2**31-1))
         print('      z <= %d;' % random.randint(0, 2**31-1))
@@ -67,6 +75,13 @@ for idx in range(50):
                         random.choice(['<', '<=', '>=', '>']), random_expr(variables), next_state))
             print('          end')
         print('      endcase')
+        if rst2:
+            print('      if (rst2) begin')
+            print('        x <= a;')
+            print('        y <= b;')
+            print('        z <= c;')
+            print('        state <= %d;' % random.choice(states))
+            print('      end')
         print('    end')
         print('  end')
         print('endmodule')
@@ -76,8 +91,8 @@ for idx in range(50):
         print('copy uut_%05d gold' % idx)
         print('rename uut_%05d gate' % idx)
         print('cd gate')
-        print('opt; wreduce; share; opt; fsm;;')
+        print('opt; wreduce; share%s; opt; fsm;;' % random.choice(['', ' -aggressive']))
         print('cd ..')
         print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
-        print('sat -verify-no-timeout -timeout 20 -seq 5 -set-at 1 in_rst 1 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter')
+        print('sat -verify-no-timeout -timeout 20 -seq 5 -set-at 1 %s_rst 1 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter' % ('gold' if rst2 else 'in'))
  

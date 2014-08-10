@@ -25,6 +25,20 @@
 #include "fsmdata.h"
 #include <string.h>
 
+static bool pattern_is_subset(const RTLIL::Const &super_pattern, const RTLIL::Const &sub_pattern)
+{
+	log_assert(SIZE(super_pattern.bits) == SIZE(sub_pattern.bits));
+	for (int i = 0; i < SIZE(super_pattern.bits); i++)
+		if (sub_pattern.bits[i] == RTLIL::State::S0 || sub_pattern.bits[i] == RTLIL::State::S1) {
+			if (super_pattern.bits[i] == RTLIL::State::S0 || super_pattern.bits[i] == RTLIL::State::S1) {
+					if (super_pattern.bits[i] != sub_pattern.bits[i])
+						return false;
+			} else
+				return false;
+		}
+	return true;
+}
+
 static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const, std::set<int>> &pattern_cache, std::set<int> &fullstate_cache, int num_states, RTLIL::Wire *state_onehot, RTLIL::SigSpec &ctrl_in, RTLIL::SigSpec output)
 {
 	RTLIL::SigSpec cases_vector;
@@ -68,7 +82,13 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			eq_cell->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
 		}
 
-		if (or_sig.size() < num_states-int(fullstate_cache.size()))
+		std::set<int> complete_in_state_cache = it.second;
+
+		for (auto &it2 : pattern_cache)
+			if (pattern_is_subset(pattern, it2.first))
+				complete_in_state_cache.insert(it2.second.begin(), it2.second.end());
+
+		if (SIZE(complete_in_state_cache) < num_states)
 		{
 			if (or_sig.size() == 1)
 			{
