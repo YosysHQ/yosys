@@ -238,6 +238,7 @@ void log_cell(RTLIL::Cell *cell, std::string indent)
 // ---------------------------------------------------
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
+#ifdef COVER_ACTIVE
 
 std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
 
@@ -282,6 +283,8 @@ std::map<std::string, std::pair<std::string, int>> get_coverage_data()
 
 	return coverage_data;
 }
+
+#endif
 
 YOSYS_NAMESPACE_END
 
