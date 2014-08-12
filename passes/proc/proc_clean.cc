@@ -59,7 +59,8 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 			sw->signal = RTLIL::SigSpec();
 	}
 
-	if (sw->cases.size() == 1 && (sw->signal.size() == 0 || sw->cases[0]->compare.empty()))
+	if (parent->switches.front() == sw && sw->cases.size() == 1 &&
+			(sw->signal.size() == 0 || sw->cases[0]->compare.empty()))
 	{
 		did_something = true;
 		for (auto &action : sw->cases[0]->actions)
