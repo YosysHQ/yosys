@@ -687,7 +687,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			RTLIL::SigSpec data = operatorOutput(inst, net_map, module);
 
 			RTLIL::Cell *cell = module->addCell(RTLIL::escape_id(inst->Name()), "$memrd");
-			cell->parameters["\\MEMID"] = memory->name;
+			cell->parameters["\\MEMID"] = memory->name.str();
 			cell->parameters["\\CLK_ENABLE"] = false;
 			cell->parameters["\\CLK_POLARITY"] = true;
 			cell->parameters["\\TRANSPARENT"] = false;
@@ -709,7 +709,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			RTLIL::SigSpec data = operatorInput2(inst, net_map);
 
 			RTLIL::Cell *cell = module->addCell(RTLIL::escape_id(inst->Name()), "$memwr");
-			cell->parameters["\\MEMID"] = memory->name;
+			cell->parameters["\\MEMID"] = memory->name.str();
 			cell->parameters["\\CLK_ENABLE"] = false;
 			cell->parameters["\\CLK_POLARITY"] = true;
 			cell->parameters["\\PRIORITY"] = 0;
