@@ -7,6 +7,9 @@ import sys
 import random
 from contextlib import contextmanager
 
+# set to 'True' to compare verific with yosys
+test_verific = False
+
 @contextmanager
 def redirect_stdout(new_target):
     old_target, sys.stdout = sys.stdout, new_target
@@ -86,13 +89,20 @@ for idx in range(50):
         print('  end')
         print('endmodule')
     with file('temp/uut_%05d.ys' % idx, 'w') as f, redirect_stdout(f):
-        print('read_verilog temp/uut_%05d.v' % idx)
-        print('proc;;')
-        print('copy uut_%05d gold' % idx)
-        print('rename uut_%05d gate' % idx)
-        print('cd gate')
-        print('opt; wreduce; share%s; opt; fsm;;' % random.choice(['', ' -aggressive']))
-        print('cd ..')
+        if test_verific:
+            print('read_verilog temp/uut_%05d.v' % idx)
+            print('proc;; rename uut_%05d gold' % idx)
+            print('verific -vlog2k temp/uut_%05d.v' % idx)
+            print('verific -import uut_%05d' % idx)
+            print('rename uut_%05d gate' % idx)
+        else:
+            print('read_verilog temp/uut_%05d.v' % idx)
+            print('proc;;')
+            print('copy uut_%05d gold' % idx)
+            print('rename uut_%05d gate' % idx)
+            print('cd gate')
+            print('opt; wreduce; share%s; opt; fsm;;' % random.choice(['', ' -aggressive']))
+            print('cd ..')
         print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
         print('sat -verify-no-timeout -timeout 20 -seq 5 -set-at 1 %s_rst 1 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter' % ('gold' if rst2 else 'in'))
  
