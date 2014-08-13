@@ -131,6 +131,12 @@ static std::string next_token(bool pass_newline = false)
 					token += ch;
 			}
 		}
+		if (token == "\"\"" && (ch = next_char()) != 0) {
+			if (ch == '"')
+				token += ch;
+			else
+				return_char(ch);
+		}
 	}
 	else if (ch == '/')
 	{
@@ -311,12 +317,17 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			std::map<std::string, int> args;
 			skip_spaces();
 			name = next_token(true);
+			bool here_doc_mode = false;
 			int newline_count = 0;
 			int state = 0;
 			if (skip_spaces() != "")
 				state = 3;
 			while (!tok.empty()) {
 				tok = next_token();
+				if (tok == "\"\"\"") {
+					here_doc_mode = !here_doc_mode;
+					continue;
+				}
 				if (state == 0 && tok == "(") {
 					state = 1;
 					skip_spaces();
@@ -332,7 +343,7 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 				} else {
 					if (state != 2)
 						state = 3;
-					if (tok == "\n") {
+					if (tok == "\n" && !here_doc_mode) {
 						return_char('\n');
 						break;
 					}

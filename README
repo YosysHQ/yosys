@@ -281,6 +281,15 @@ Verilog Attributes and non-standard features
   to simply declare a module port as 'input' or 'output' in the module
   body.
 
+- When defining a macro with `define, all text between tripple double quotes
+  is interpreted as macro body, even if it contains unescaped newlines. The
+  tripple double quotes are removed from the macro body. For example:
+
+      `define MY_MACRO(a, b) """
+         assign a = 23;
+         assign b = 42;
+      """
+
 - Sized constants (the syntax <size>'s?[bodh]<value>) support constant
   expressions as <size>. If the expresion is not a simple identifier, it
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
