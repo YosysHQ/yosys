@@ -266,26 +266,36 @@ module \$__fulladd (A, B, C, X, Y);
 	\$_OR_  gate5 ( .A(t1), .B(t3), .Y(X)  );
 endmodule
 
-module \$__alu (A, B, Cin, Y, Cout, Csign);
-	parameter WIDTH = 1;
+module \$__alu (A, B, CI, S, Y, CO, CS);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
 
-	input [WIDTH-1:0] A, B;
-	input Cin;
+	input [A_WIDTH-1:0] A;
+	input [B_WIDTH-1:0] B;
+	output [Y_WIDTH-1:0] Y;
 
-	output [WIDTH-1:0] Y;
-	output Cout, Csign;
+	// carry in, sub, carry out, carry sign
+	input CI, S;
+	output CO, CS;
 
-	wire [WIDTH:0] carry;
-	assign carry[0] = Cin;
-	assign Cout = carry[WIDTH];
-	assign Csign = carry[WIDTH-1];
+	wire [Y_WIDTH-1:0] A_buf, B_buf;
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
+
+	wire [Y_WIDTH:0] carry;
+	assign carry[0] = CI;
+	assign CO = carry[Y_WIDTH];
+	assign CS = carry[Y_WIDTH-1];
 
 	genvar i;
 	generate
-		for (i = 0; i < WIDTH; i = i + 1) begin:V
+		for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
 			\$__fulladd adder (
-				.A(A[i]),
-				.B(B[i]),
+				.A(A_buf[i]),
+				.B(S ? !B_buf[i] : B_buf[i]),
 				.C(carry[i]),
 				.X(carry[i+1]),
 				.Y(Y[i])
@@ -294,99 +304,60 @@ module \$__alu (A, B, Cin, Y, Cout, Csign);
 	endgenerate
 endmodule
 
+`define ALU_COMMONS(_width, _ci, _s) """
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	localparam WIDTH = _width;
+
+	input [A_WIDTH-1:0] A;
+	input [B_WIDTH-1:0] B;
+	output [Y_WIDTH-1:0] Y;
+
+	wire alu_co, alu_cs;
+	wire [WIDTH-1:0] alu_y;
+
+	\$__alu #(
+		.A_SIGNED(A_SIGNED),
+		.B_SIGNED(B_SIGNED),
+		.A_WIDTH(A_WIDTH),
+		.B_WIDTH(B_WIDTH),
+		.Y_WIDTH(WIDTH)
+	) alu (
+		.A(A),
+		.B(B),
+		.CI(_ci),
+		.S(_s),
+		.Y(alu_y),
+		.CO(alu_co),
+		.CS(alu_cs)
+	);
+
+	wire cf, of, zf, sf;
+	assign cf = !alu_co;
+	assign of = alu_co ^ alu_cs;
+	assign zf = ~|alu_y;
+	assign sf = alu_y[WIDTH-1];
+"""
+
 
 // --------------------------------------------------------
 // Compare cells
 // --------------------------------------------------------
 
 module \$lt (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire carry, carry_sign;
-	wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	\$__alu #(
-		.WIDTH(WIDTH)
-	) alu (
-		.A(A_buf),
-		.B(~B_buf),
-		.Cin(1'b1),
-		.Y(Y_buf),
-		.Cout(carry),
-		.Csign(carry_sign)
-	);
-
-	// ALU flags
-	wire cf, of, zf, sf;
-	assign cf = !carry;
-	assign of = carry ^ carry_sign;
-	assign zf = ~|Y_buf;
-	assign sf = Y_buf[WIDTH-1];
-
-	generate
-		if (A_SIGNED && B_SIGNED) begin
-			assign Y = of != sf;
-		end else begin
-			assign Y = cf;
-		end
-	endgenerate
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1, 1)
+	assign Y = A_SIGNED && B_SIGNED ? of != sf : cf;
 endmodule
 
 module \$le (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire carry, carry_sign;
-	wire [WIDTH-1:0] A_buf, B_buf, Y_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	\$__alu #(
-		.WIDTH(WIDTH)
-	) alu (
-		.A(A_buf),
-		.B(~B_buf),
-		.Cin(1'b1),
-		.Y(Y_buf),
-		.Cout(carry),
-		.Csign(carry_sign)
-	);
-
-	// ALU flags
-	wire cf, of, zf, sf;
-	assign cf = !carry;
-	assign of = carry ^ carry_sign;
-	assign zf = ~|Y_buf;
-	assign sf = Y_buf[WIDTH-1];
-
-	generate
-		if (A_SIGNED && B_SIGNED) begin
-			assign Y = zf || (of != sf);
-		end else begin
-			assign Y = zf || cf;
-		end
-	endgenerate
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1, 1)
+	assign Y = zf || (A_SIGNED && B_SIGNED ? of != sf : cf);
 endmodule
 
 
@@ -395,53 +366,15 @@ endmodule
 // --------------------------------------------------------
 
 module \$add (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire [Y_WIDTH-1:0] A_buf, B_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	\$__alu #(
-		.WIDTH(Y_WIDTH)
-	) alu (
-		.A(A_buf),
-		.B(B_buf),
-		.Cin(1'b0),
-		.Y(Y)
-	);
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	`ALU_COMMONS(Y_WIDTH, 0, 0)
+	assign Y = alu_y;
 endmodule
 
 module \$sub (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire [Y_WIDTH-1:0] A_buf, B_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	\$__alu #(
-		.WIDTH(Y_WIDTH)
-	) alu (
-		.A(A_buf),
-		.B(~B_buf),
-		.Cin(1'b1),
-		.Y(Y)
-	);
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	`ALU_COMMONS(Y_WIDTH, 1, 1)
+	assign Y = alu_y;
 endmodule
 
 
