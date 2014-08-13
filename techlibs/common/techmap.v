@@ -251,19 +251,91 @@ endmodule
 // ALU Infrastructure
 // --------------------------------------------------------
 
-module \$__fulladd (A, B, C, X, Y);
-	// {X, Y} = A + B + C
-	input A, B, C;
-	output X, Y;
+module \$__alu_ripple (A, B, CI, Y, CO, CS);
+	parameter WIDTH = 1;
 
-	// {t1, t2} = A + B
-	wire t1, t2, t3;
+	input [WIDTH-1:0] A, B;
+	output [WIDTH-1:0] Y;
 
-	\$_AND_ gate1 ( .A(A),  .B(B),  .Y(t1) );
-	\$_XOR_ gate2 ( .A(A),  .B(B),  .Y(t2) );
-	\$_AND_ gate3 ( .A(t2), .B(C),  .Y(t3) ); 
-	\$_XOR_ gate4 ( .A(t2), .B(C),  .Y(Y)  );
-	\$_OR_  gate5 ( .A(t1), .B(t3), .Y(X)  );
+	input CI;
+	output CO, CS;
+
+	wire [WIDTH:0] carry;
+	assign carry[0] = CI;
+	assign CO = carry[WIDTH];
+	assign CS = carry[WIDTH-1];
+
+	genvar i;
+	generate
+		for (i = 0; i < WIDTH; i = i + 1)
+		begin:V
+			// {x, y} = a + b + c
+			wire a, b, c, x, y;
+			wire t1, t2, t3;
+
+			\$_AND_ gate1 ( .A(a),  .B(b),  .Y(t1) );
+			\$_XOR_ gate2 ( .A(a),  .B(b),  .Y(t2) );
+			\$_AND_ gate3 ( .A(t2), .B(c),  .Y(t3) ); 
+			\$_XOR_ gate4 ( .A(t2), .B(c),  .Y(y)  );
+			\$_OR_  gate5 ( .A(t1), .B(t3), .Y(x)  );
+
+			assign a = A[i], b = B[i], c = carry[i];
+			assign carry[i+1] = x, Y[i] = y;
+		end
+	endgenerate
+endmodule
+
+module \$__lcu (P, G, CI, CO, PG, GG);
+	parameter WIDTH = 1;
+
+	input [WIDTH-1:0] P, G;
+	input CI;
+
+	output [WIDTH:0] CO;
+	output PG, GG;
+
+	assign CO[0] = CI;
+	assign PG = 'bx, GG = 'bx;
+
+	genvar i;
+	generate
+		// TBD: Actually implement a LCU topology
+		for (i = 0; i < WIDTH; i = i + 1)
+			assign CO[i+1] = G[i] | (P[i] & CO[i]);
+	endgenerate
+endmodule
+
+module \$__alu_lookahead (A, B, CI, Y, CO, CS);
+	parameter WIDTH = 1;
+
+	input [WIDTH-1:0] A, B;
+	output [WIDTH-1:0] Y;
+
+	input CI;
+	output CO, CS;
+
+	wire [WIDTH-1:0] P, G;
+	wire [WIDTH:0] C;
+
+	assign CO = C[WIDTH];
+	assign CS = C[WIDTH-1];
+
+	genvar i;
+	generate
+		for (i = 0; i < WIDTH; i = i + 1)
+		begin:V
+			wire a, b, c, p, g, y;
+
+			\$_AND_ gate1 ( .A(a),  .B(b),  .Y(g) );
+			\$_XOR_ gate2 ( .A(a),  .B(b),  .Y(p) );
+			\$_XOR_ gate3 ( .A(p),  .B(c),  .Y(y) );
+
+			assign a = A[i], b = B[i], c = C[i];
+			assign P[i] = p, G[i] = g, Y[i] = y;
+		end
+	endgenerate
+
+	\$__lcu #(.WIDTH(WIDTH)) lcu (.P(P), .G(G), .CI(CI), .CO(C));
 endmodule
 
 module \$__alu (A, B, CI, S, Y, CO, CS);
@@ -285,23 +357,15 @@ module \$__alu (A, B, CI, S, Y, CO, CS);
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-	wire [Y_WIDTH:0] carry;
-	assign carry[0] = CI;
-	assign CO = carry[Y_WIDTH];
-	assign CS = carry[Y_WIDTH-1];
-
-	genvar i;
-	generate
-		for (i = 0; i < Y_WIDTH; i = i + 1) begin:V
-			\$__fulladd adder (
-				.A(A_buf[i]),
-				.B(S ? !B_buf[i] : B_buf[i]),
-				.C(carry[i]),
-				.X(carry[i+1]),
-				.Y(Y[i])
-			);
-		end
-	endgenerate
+`ifdef ALU_RIPPLE
+	\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(S ? ~B_buf : B_buf), .CI(CI), .Y(Y), .CO(CO), .CS(CS));
+`else
+	if (Y_WIDTH <= 4) begin
+		\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(S ? ~B_buf : B_buf), .CI(CI), .Y(Y), .CO(CO), .CS(CS));
+	end else begin
+		\$__alu_lookahead #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(S ? ~B_buf : B_buf), .CI(CI), .Y(Y), .CO(CO), .CS(CS));
+	end
+`endif
 endmodule
 
 `define ALU_COMMONS(_width, _ci, _s) """
