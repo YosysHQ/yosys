@@ -267,7 +267,7 @@ module \$__alu_ripple (A, B, CI, Y, CO, CS);
 
 	genvar i;
 	generate
-		for (i = 0; i < WIDTH; i = i + 1)
+		for (i = 0; i < WIDTH; i = i+1)
 		begin:V
 			// {x, y} = a + b + c
 			wire a, b, c, x, y;
@@ -285,8 +285,47 @@ module \$__alu_ripple (A, B, CI, Y, CO, CS);
 	endgenerate
 endmodule
 
+module \$__lcu_simple (P, G, CI, CO, PG, GG);
+	parameter WIDTH = 1;
+
+	input [WIDTH-1:0] P, G;
+	input CI;
+
+	output reg [WIDTH:0] CO;
+	output reg PG, GG;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc;;";
+
+	integer i, j;
+	reg [WIDTH-1:0] tmp;
+
+	always @* begin
+		PG = &P;
+		GG = 0;
+		for (i = 0; i < WIDTH; i = i+1) begin
+			tmp = ~0;
+			tmp[i] = G[i];
+			for (j = i+1; j < WIDTH; j = j+1)
+				tmp[j] = P[j];
+			GG = GG || &tmp[WIDTH-1:i];
+		end
+
+		CO[0] = CI;
+		for (i = 0; i < WIDTH; i = i+1)
+			CO[i+1] = G[i] | (P[i] & CO[i]);
+	end
+endmodule
+
 module \$__lcu (P, G, CI, CO, PG, GG);
 	parameter WIDTH = 1;
+
+	function integer get_group_size;
+		begin
+			get_group_size = 4;
+			while (4 * get_group_size < WIDTH)
+				get_group_size = 4 * get_group_size;
+		end
+	endfunction
 
 	input [WIDTH-1:0] P, G;
 	input CI;
@@ -294,14 +333,31 @@ module \$__lcu (P, G, CI, CO, PG, GG);
 	output [WIDTH:0] CO;
 	output PG, GG;
 
-	assign CO[0] = CI;
-	assign PG = 'bx, GG = 'bx;
-
 	genvar i;
 	generate
-		// TBD: Actually implement a LCU topology
-		for (i = 0; i < WIDTH; i = i + 1)
-			assign CO[i+1] = G[i] | (P[i] & CO[i]);
+		if (WIDTH <= 4) begin
+			\$__lcu_simple #(.WIDTH(WIDTH)) _TECHMAP_REPLACE_ (.P(P), .G(G), .CI(CI), .CO(CO), .PG(PG), .GG(GG));
+		end else begin
+			localparam GROUP_SIZE = get_group_size();
+			localparam GROUPS_NUM = (WIDTH + GROUP_SIZE - 1) / GROUP_SIZE;
+
+			wire [GROUPS_NUM-1:0] groups_p, groups_g;
+			wire [GROUPS_NUM:0] groups_ci;
+
+			for (i = 0; i < GROUPS_NUM; i = i+1) begin:V
+				localparam g_size = `MIN(GROUP_SIZE, WIDTH - i*GROUP_SIZE);
+				localparam g_offset = i*GROUP_SIZE;
+				wire [g_size:0] g_co;
+
+				\$__lcu #(.WIDTH(g_size)) g (.P(P[g_offset +: g_size]), .G(G[g_offset +: g_size]),
+						.CI(groups_ci[i]), .CO(g_co), .PG(groups_p[i]), .GG(groups_g[i]));
+				assign CO[g_offset+1 +: g_size] = g_co[1 +: g_size];
+			end
+
+			\$__lcu_simple #(.WIDTH(GROUPS_NUM)) super_lcu (.P(groups_p), .G(groups_g), .CI(CI), .CO(groups_ci), .PG(PG), .GG(GG));
+
+			assign CO[0] = CI;
+		end
 	endgenerate
 endmodule
 
@@ -322,7 +378,7 @@ module \$__alu_lookahead (A, B, CI, Y, CO, CS);
 
 	genvar i;
 	generate
-		for (i = 0; i < WIDTH; i = i + 1)
+		for (i = 0; i < WIDTH; i = i+1)
 		begin:V
 			wire a, b, c, p, g, y;
 
@@ -368,6 +424,11 @@ module \$__alu (A, B, CI, S, Y, CO, CS);
 `endif
 endmodule
 
+
+// --------------------------------------------------------
+// ALU Cell Types: Compare, Add, Subtract
+// --------------------------------------------------------
+
 `define ALU_COMMONS(_width, _ci, _s) """
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
@@ -407,36 +468,26 @@ endmodule
 	assign sf = alu_y[WIDTH-1];
 """
 
-
-// --------------------------------------------------------
-// Compare cells
-// --------------------------------------------------------
-
 module \$lt (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
 	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1, 1)
 	assign Y = A_SIGNED && B_SIGNED ? of != sf : cf;
 endmodule
 
 module \$le (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
 	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1, 1)
 	assign Y = zf || (A_SIGNED && B_SIGNED ? of != sf : cf);
 endmodule
 
-
-// --------------------------------------------------------
-// Add and Subtract
-// --------------------------------------------------------
-
 module \$add (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
 	`ALU_COMMONS(Y_WIDTH, 0, 0)
 	assign Y = alu_y;
 endmodule
 
 module \$sub (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt_const -mux_undef -mux_bool -fine;;;";
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
 	`ALU_COMMONS(Y_WIDTH, 1, 1)
 	assign Y = alu_y;
 endmodule
