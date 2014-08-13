@@ -639,10 +639,25 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 			log("ABC: %s", logbuf);
 #else
 		bool got_cr = false;
+		int escape_seq_state = 0;
 		std::string linebuf;
 		char logbuf[1024];
 		while (fgets(logbuf, 1024, f) != NULL)
 			for (char *p = logbuf; *p; p++) {
+				if (escape_seq_state == 0 && *p == '\033') {
+					escape_seq_state = 1;
+					continue;
+				}
+				if (escape_seq_state == 1) {
+					escape_seq_state = *p == '[' ? 2 : 0;
+					continue;
+				}
+				if (escape_seq_state == 2) {
+					if ((*p < '0' || '9' < *p) && *p != ';')
+						escape_seq_state = 0;
+					continue;
+				}
+				escape_seq_state = 0;
 				if (*p == '\r') {
 					got_cr = true;
 					continue;
