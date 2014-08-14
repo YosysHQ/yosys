@@ -947,7 +947,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			if (!ignore_redef)
 				log_error("Re-definition of module `%s' at %s:%d!\n",
 						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-			log_error("Ignoring re-definition of module `%s' at %s:%d!\n",
+			log("Ignoring re-definition of module `%s' at %s:%d!\n",
 					(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
 			continue;
 		}
