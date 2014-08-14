@@ -173,7 +173,7 @@ struct AST_INTERNAL::ProcessGenerator
 	AstNode *always;
 	RTLIL::SigSpec initSyncSignals;
 	RTLIL::Process *proc;
-	const RTLIL::SigSpec &outputSignals;
+	RTLIL::SigSpec outputSignals;
 
 	// This always points to the RTLIL::CaseRule beeing filled at the moment
 	RTLIL::CaseRule *current_case;
@@ -198,7 +198,7 @@ struct AST_INTERNAL::ProcessGenerator
 	// Buffer for generating the init action
 	RTLIL::SigSpec init_lvalue, init_rvalue;
 
-	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg), outputSignals(subst_lvalue_from)
+	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg)
 	{
 		// generate process and simple root case
 		proc = new RTLIL::Process;
@@ -278,6 +278,8 @@ struct AST_INTERNAL::ProcessGenerator
 				offset += lhs.size();
 			}
 		}
+
+		outputSignals = RTLIL::SigSpec(subst_lvalue_from);
 	}
 
 	// create new temporary signals
@@ -398,8 +400,12 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_ASSIGN_EQ:
 		case AST_ASSIGN_LE:
 			{
+				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map;
+				for (int i = 0; i < SIZE(subst_rvalue_to); i++)
+					new_subst_rvalue_map[subst_rvalue_from[i]] = subst_rvalue_to[i];
+
 				RTLIL::SigSpec unmapped_lvalue = ast->children[0]->genRTLIL(), lvalue = unmapped_lvalue;
-				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &subst_rvalue_from, &subst_rvalue_to);
+				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &new_subst_rvalue_map);
 				lvalue.replace(subst_lvalue_from, subst_lvalue_to);
 
 				if (ast->type == AST_ASSIGN_EQ) {
@@ -415,8 +421,12 @@ struct AST_INTERNAL::ProcessGenerator
 
 		case AST_CASE:
 			{
+				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map;
+				for (int i = 0; i < SIZE(subst_rvalue_to); i++)
+					new_subst_rvalue_map[subst_rvalue_from[i]] = subst_rvalue_to[i];
+
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
-				sw->signal = ast->children[0]->genWidthRTLIL(-1, &subst_rvalue_from, &subst_rvalue_to);
+				sw->signal = ast->children[0]->genWidthRTLIL(-1, &new_subst_rvalue_map);
 				current_case->switches.push_back(sw);
 
 				for (auto &attr : ast->attributes) {
@@ -467,8 +477,12 @@ struct AST_INTERNAL::ProcessGenerator
 							default_case = current_case;
 						else if (node->type == AST_BLOCK)
 							processAst(node);
-						else
-							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &subst_rvalue_from, &subst_rvalue_to));
+						else {
+							std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map;
+							for (int i = 0; i < SIZE(subst_rvalue_to); i++)
+								new_subst_rvalue_map[subst_rvalue_from[i]] = subst_rvalue_to[i];
+							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &new_subst_rvalue_map));
+						}
 					}
 					if (default_case != current_case)
 						sw->cases.push_back(current_case);
@@ -969,8 +983,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::SigSpec sig = { RTLIL::SigSpec(RTLIL::State::Sx, add_undef_bits_msb), chunk, RTLIL::SigSpec(RTLIL::State::Sx, add_undef_bits_lsb) };
 
-			if (genRTLIL_subst_from && genRTLIL_subst_to)
-				sig.replace(*genRTLIL_subst_from, *genRTLIL_subst_to);
+			if (genRTLIL_subst_ptr)
+				sig.replace(*genRTLIL_subst_ptr);
 
 			is_signed = children.size() > 0 ? false : id2ast->is_signed && sign_hint;
 			return sig;
@@ -1377,23 +1391,19 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 // this is a wrapper for AstNode::genRTLIL() when a specific signal width is requested and/or
 // signals must be substituted before beeing used as input values (used by ProcessGenerator)
 // note that this is using some global variables to communicate this special settings to AstNode::genRTLIL().
-RTLIL::SigSpec AstNode::genWidthRTLIL(int width, RTLIL::SigSpec *subst_from,  RTLIL::SigSpec *subst_to)
+RTLIL::SigSpec AstNode::genWidthRTLIL(int width, std::map<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
 {
-	RTLIL::SigSpec *backup_subst_from = genRTLIL_subst_from;
-	RTLIL::SigSpec *backup_subst_to = genRTLIL_subst_to;
+	std::map<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
 
-	if (subst_from)
-		genRTLIL_subst_from = subst_from;
-	if (subst_to)
-		genRTLIL_subst_to = subst_to;
+	if (new_subst_ptr)
+		genRTLIL_subst_ptr = new_subst_ptr;
 
 	bool sign_hint = true;
 	int width_hint = width;
 	detectSignWidthWorker(width_hint, sign_hint);
 	RTLIL::SigSpec sig = genRTLIL(width_hint, sign_hint);
 
-	genRTLIL_subst_from = backup_subst_from;
-	genRTLIL_subst_to = backup_subst_to;
+	genRTLIL_subst_ptr = backup_subst_ptr;
 
 	if (width >= 0)
 		sig.extend_u0(width, is_signed);
