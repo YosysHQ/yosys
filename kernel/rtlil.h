@@ -1020,6 +1020,7 @@ public:
 
 	std::set<RTLIL::SigBit> to_sigbit_set() const;
 	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
+	std::map<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_map(const RTLIL::SigSpec &other) const;
 	RTLIL::SigBit to_single_sigbit() const;
 
 	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);

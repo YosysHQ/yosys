@@ -400,10 +400,7 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_ASSIGN_EQ:
 		case AST_ASSIGN_LE:
 			{
-				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map;
-				for (int i = 0; i < SIZE(subst_rvalue_to); i++)
-					new_subst_rvalue_map[subst_rvalue_from[i]] = subst_rvalue_to[i];
-
+				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map = subst_rvalue_from.to_sigbit_map(subst_rvalue_to);
 				RTLIL::SigSpec unmapped_lvalue = ast->children[0]->genRTLIL(), lvalue = unmapped_lvalue;
 				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &new_subst_rvalue_map);
 				lvalue.replace(subst_lvalue_from, subst_lvalue_to);
@@ -421,10 +418,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		case AST_CASE:
 			{
-				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map;
-				for (int i = 0; i < SIZE(subst_rvalue_to); i++)
-					new_subst_rvalue_map[subst_rvalue_from[i]] = subst_rvalue_to[i];
-
+				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map = subst_rvalue_from.to_sigbit_map(subst_rvalue_to);
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
 				sw->signal = ast->children[0]->genWidthRTLIL(-1, &new_subst_rvalue_map);
 				current_case->switches.push_back(sw);
@@ -478,9 +472,7 @@ struct AST_INTERNAL::ProcessGenerator
 						else if (node->type == AST_BLOCK)
 							processAst(node);
 						else {
-							std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map;
-							for (int i = 0; i < SIZE(subst_rvalue_to); i++)
-								new_subst_rvalue_map[subst_rvalue_from[i]] = subst_rvalue_to[i];
+							std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map = subst_rvalue_from.to_sigbit_map(subst_rvalue_to);
 							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &new_subst_rvalue_map));
 						}
 					}

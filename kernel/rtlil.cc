@@ -2687,6 +2687,22 @@ std::vector<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_vector() const
 	return bits_;
 }
 
+std::map<RTLIL::SigBit, RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_map(const RTLIL::SigSpec &other) const
+{
+	cover("kernel.rtlil.sigspec.to_sigbit_map");
+
+	unpack();
+	other.unpack();
+
+	log_assert(width_ == other.width_);
+
+	std::map<RTLIL::SigBit, RTLIL::SigBit> new_map;
+	for (int i = 0; i < width_; i++)
+		new_map[bits_[i]] = other.bits_[i];
+
+	return new_map;
+}
+
 RTLIL::SigBit RTLIL::SigSpec::to_single_sigbit() const
 {
 	cover("kernel.rtlil.sigspec.to_single_sigbit");
