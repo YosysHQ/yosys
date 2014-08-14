@@ -52,7 +52,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = b1e63d18768d
+ABCREV = 4935c2b946de
 ABCPULL = 1
 
 -include Makefile.conf
