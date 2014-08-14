@@ -42,7 +42,7 @@ struct FsmExpand
 
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
-		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
+		if (cell->type == "$mux" || cell->type == "$pmux")
 			if (cell->getPort("\\A").size() < 2)
 				return true;
 

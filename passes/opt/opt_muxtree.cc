@@ -84,7 +84,7 @@ struct OptMuxtreeWorker
 		//	.const_activated
 		for (auto cell : module->cells())
 		{
-			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
+			if (cell->type == "$mux" || cell->type == "$pmux")
 			{
 				RTLIL::SigSpec sig_a = cell->getPort("\\A");
 				RTLIL::SigSpec sig_b = cell->getPort("\\B");

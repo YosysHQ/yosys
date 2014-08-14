@@ -98,7 +98,6 @@ struct CellTypes
 		cell_types.insert("$pmux");
 		cell_types.insert("$slice");
 		cell_types.insert("$concat");
-		cell_types.insert("$safe_pmux");
 		cell_types.insert("$lut");
 		cell_types.insert("$assert");
 	}
@@ -307,7 +306,7 @@ struct CellTypes
 
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &sel)
 	{
-		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_") {
+		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$_MUX_") {
 			RTLIL::Const ret = arg1;
 			for (size_t i = 0; i < sel.bits.size(); i++)
 				if (sel.bits[i] == RTLIL::State::S1) {

@@ -224,7 +224,6 @@ struct OptShareWorker
 		if (mode_nomux) {
 			ct.cell_types.erase("$mux");
 			ct.cell_types.erase("$pmux");
-			ct.cell_types.erase("$safe_pmux");
 		}
 
 		log("Finding identical cells in module `%s'.\n", module->name.c_str());

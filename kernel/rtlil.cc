@@ -608,7 +608,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$pmux" || cell->type == "$safe_pmux") {
+			if (cell->type == "$pmux") {
 				port("\\A", param("\\WIDTH"));
 				port("\\B", param("\\WIDTH") * param("\\S_WIDTH"));
 				port("\\S", param("\\S_WIDTH"));
@@ -1293,7 +1293,6 @@ DEF_METHOD(LogicOr,  1, "$logic_or")
 	}
 DEF_METHOD(Mux,      "$mux",        0)
 DEF_METHOD(Pmux,     "$pmux",       1)
-DEF_METHOD(SafePmux, "$safe_pmux",  1)
 #undef DEF_METHOD
 
 #define DEF_METHOD_2(_func, _type, _P1, _P2) \
@@ -1637,10 +1636,10 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
 		return;
 
-	if (type == "$mux" || type == "$pmux" || type == "$safe_pmux")
+	if (type == "$mux" || type == "$pmux")
 	{
 		parameters["\\WIDTH"] = SIZE(connections_["\\Y"]);
-		if (type == "$pmux" || type == "$safe_pmux")
+		if (type == "$pmux")
 			parameters["\\S_WIDTH"] = SIZE(connections_["\\S"]);
 		check();
 		return;

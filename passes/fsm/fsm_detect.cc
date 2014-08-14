@@ -50,7 +50,7 @@ static bool check_state_mux_tree(RTLIL::SigSpec old_sig, RTLIL::SigSpec sig, Sig
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(sig, cellport_list);
 	for (auto &cellport : cellport_list) {
-		if ((cellport.first->type != "$mux" && cellport.first->type != "$pmux" && cellport.first->type != "$safe_pmux") || cellport.second != "\\Y")
+		if ((cellport.first->type != "$mux" && cellport.first->type != "$pmux") || cellport.second != "\\Y")
 			return false;
 		RTLIL::SigSpec sig_a = assign_map(cellport.first->getPort("\\A"));
 		RTLIL::SigSpec sig_b = assign_map(cellport.first->getPort("\\B"));

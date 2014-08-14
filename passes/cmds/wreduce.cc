@@ -42,7 +42,7 @@ struct WreduceConfig
 		supported_cell_types << "$shl" << "$shr" << "$sshl" << "$sshr" << "$shift" << "$shiftx";
 		supported_cell_types << "$lt" << "$le" << "$eq" << "$ne" << "$eqx" << "$nex" << "$ge" << "$gt";
 		supported_cell_types << "$add" << "$sub"; // << "$mul" << "$div" << "$mod" << "$pow"
-		supported_cell_types << "$mux" << "$pmux" << "$safe_pmux";
+		supported_cell_types << "$mux" << "$pmux";
 	}
 };
 
@@ -172,7 +172,7 @@ struct WreduceWorker
 		if (!cell->type.in(config->supported_cell_types))
 			return;
 
-		if (cell->type.in("$mux", "$pmux", "$safe_pmux"))
+		if (cell->type.in("$mux", "$pmux"))
 			return run_cell_mux(cell);
 
 

@@ -176,7 +176,6 @@ struct TestCellPass : public Pass {
 		// cell_types["$pmux"] = "A";
 		// cell_types["$slice"] = "A";
 		// cell_types["$concat"] = "A";
-		// cell_types["$safe_pmux"] = "A";
 		// cell_types["$lut"] = "A";
 		// cell_types["$assert"] = "A";
 

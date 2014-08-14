@@ -662,9 +662,8 @@ public:
 	RTLIL::Cell* addLogicAnd (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false);
 	RTLIL::Cell* addLogicOr  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y, bool is_signed = false);
                      
-	RTLIL::Cell* addMux      (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y);
-	RTLIL::Cell* addPmux     (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y);
-	RTLIL::Cell* addSafePmux (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y);
+	RTLIL::Cell* addMux  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y);
+	RTLIL::Cell* addPmux (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y);
                      
 	RTLIL::Cell* addSlice  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const offset);
 	RTLIL::Cell* addConcat (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
@@ -743,7 +742,6 @@ public:
 
 	RTLIL::SigSpec Mux      (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 	RTLIL::SigSpec Pmux     (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
-	RTLIL::SigSpec SafePmux (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 
 	RTLIL::SigSpec InvGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a);
 	RTLIL::SigSpec AndGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);

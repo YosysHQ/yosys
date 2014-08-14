@@ -316,7 +316,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type == "$pmux" || cell->type == "$safe_pmux")
+		if (cell->type == "$pmux")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
 			std::vector<int> b = importDefSigSpec(cell->getPort("\\B"), timestep);
@@ -330,8 +330,6 @@ struct SatGen
 				std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
 				tmp = ez->vec_ite(s.at(i), part_of_b, tmp);
 			}
-			if (cell->type == "$safe_pmux")
-				tmp = ez->vec_ite(ez->onehot(s, true), tmp, a);
 			ez->assume(ez->vec_eq(tmp, yy));
 
 			if (model_undef)
@@ -369,12 +367,6 @@ struct SatGen
 				}
 
 				int maybe_a = ez->NOT(maybe_one_hot);
-
-				if (cell->type == "$safe_pmux") {
-					maybe_a = ez->OR(maybe_a, maybe_many_hot);
-					bits_set = ez->vec_ite(sure_many_hot, ez->vec_or(a, undef_a), bits_set);
-					bits_clr = ez->vec_ite(sure_many_hot, ez->vec_or(ez->vec_not(a), undef_a), bits_clr);
-				}
 
 				bits_set = ez->vec_ite(maybe_a, ez->vec_or(bits_set, ez->vec_or(bits_set, ez->vec_or(a, undef_a))), bits_set);
 				bits_clr = ez->vec_ite(maybe_a, ez->vec_or(bits_clr, ez->vec_or(bits_clr, ez->vec_or(ez->vec_not(a), undef_a))), bits_clr);

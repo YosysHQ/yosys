@@ -104,7 +104,7 @@ struct ConstEval
 		if (cell->hasPort("\\B"))
 			sig_b = cell->getPort("\\B");
 
-		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_")
+		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$_MUX_")
 		{
 			std::vector<RTLIL::SigSpec> y_candidates;
 			int count_maybe_set_s_bits = 0;
@@ -125,10 +125,7 @@ struct ConstEval
 					count_set_s_bits++;
 			}
 
-			if (cell->type == "$safe_pmux" && count_set_s_bits > 1)
-				y_candidates.clear();
-
-			if ((cell->type == "$safe_pmux" && count_maybe_set_s_bits > 1) || count_set_s_bits == 0)
+			if (count_set_s_bits == 0)
 				y_candidates.push_back(sig_a);
 
 			std::vector<RTLIL::Const> y_values;

@@ -55,7 +55,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 	for (auto &cellport : cellport_list)
 	{
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
-		if ((cell->type != "$mux" && cell->type != "$pmux" && cell->type != "$safe_pmux") || cellport.second != "\\Y") {
+		if ((cell->type != "$mux" && cell->type != "$pmux") || cellport.second != "\\Y") {
 			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type.c_str(), cell->name.c_str());
 			return false;
 		}

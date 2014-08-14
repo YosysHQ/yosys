@@ -312,7 +312,7 @@ struct OptReduceWorker
 			std::vector<RTLIL::Cell*> cells;
 
 			for (auto &it : module->cells_)
-				if ((it.second->type == "$mux" || it.second->type == "$pmux" || it.second->type == "$safe_pmux") && design->selected(module, it.second))
+				if ((it.second->type == "$mux" || it.second->type == "$pmux") && design->selected(module, it.second))
 					cells.push_back(it.second);
 
 			for (auto cell : cells)

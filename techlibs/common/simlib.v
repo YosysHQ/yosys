@@ -938,39 +938,16 @@ input [S_WIDTH-1:0] S;
 output reg [WIDTH-1:0] Y;
 
 integer i;
+reg found_active_sel_bit;
 
 always @* begin
 	Y = A;
-	for (i = 0; i < S_WIDTH; i = i+1)
-		if (S[i])
-			Y = B >> (WIDTH*i);
-end
-
-endmodule
-
-// --------------------------------------------------------
-
-module \$safe_pmux (A, B, S, Y);
-
-parameter WIDTH = 0;
-parameter S_WIDTH = 0;
-
-input [WIDTH-1:0] A;
-input [WIDTH*S_WIDTH-1:0] B;
-input [S_WIDTH-1:0] S;
-output reg [WIDTH-1:0] Y;
-
-integer i, j;
-
-always @* begin
-	j = 0;
+	found_active_sel_bit = 0;
 	for (i = 0; i < S_WIDTH; i = i+1)
 		if (S[i]) begin
-			Y = B >> (WIDTH*i);
-			j = j + 1;
+			Y = found_active_sel_bit ? 'bx : B >> (WIDTH*i);
+			found_active_sel_bit = 1;
 		end
-	if (j != 1)
-		Y = A;
 end
 
 endmodule
