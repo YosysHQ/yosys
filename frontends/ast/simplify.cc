@@ -1523,12 +1523,14 @@ skip_dynamic_range_lvalue_expansion:;
 
 				replace_rules[child->str] = wire->str;
 
-				if (child->is_input && arg_count < children.size())
+				if ((child->is_input || child->is_output) && arg_count < children.size())
 				{
 					AstNode *arg = children[arg_count++]->clone();
 					AstNode *wire_id = new AstNode(AST_IDENTIFIER);
 					wire_id->str = wire->str;
-					AstNode *assign = new AstNode(AST_ASSIGN_EQ, wire_id, arg);
+					AstNode *assign = child->is_input ?
+							new AstNode(AST_ASSIGN_EQ, wire_id, arg) :
+							new AstNode(AST_ASSIGN_EQ, arg, wire_id);
 
 					for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
 						if (*it != current_block_child)
