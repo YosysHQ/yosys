@@ -502,15 +502,21 @@ module \$__arraymul (A, B, Y);
 	input [WIDTH-1:0] A, B;
 	output [WIDTH-1:0] Y;
 
-	wire [WIDTH*WIDTH-1:0] partials;
+	wire [1023:0] _TECHMAP_DO_ = "proc;;";
 
-	genvar i;
-	assign partials[WIDTH-1 : 0] = A[0] ? B : 0;
-	generate for (i = 1; i < WIDTH; i = i+1) begin:gen
-		assign partials[WIDTH*(i+1)-1 : WIDTH*i] = (A[i] ? B << i : 0) + partials[WIDTH*i-1 : WIDTH*(i-1)];
-	end endgenerate
+	integer i;
+	reg [WIDTH-1:0] x, y;
 
-	assign Y = partials[WIDTH*WIDTH-1 : WIDTH*(WIDTH-1)];
+	always @* begin
+		x = B;
+		y = A[0] ? x : 0;
+		for (i = 1; i < WIDTH; i = i+1) begin
+			x = {x[WIDTH-2:0], 1'b0};
+			y = y + (A[i] ? x : 0);
+		end
+	end
+
+	assign Y = y;
 endmodule
 
 module \$mul (A, B, Y);
