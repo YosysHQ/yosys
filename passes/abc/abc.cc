@@ -29,8 +29,8 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; map -v"
-#define ABC_COMMAND_CTR "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; map -v; buffer -v; upsize -v; dnsize -v; stime -p"
+#define ABC_COMMAND_LIB "strash; scorr -v; ifraig -v; retime -v {D}; strash; dch -vf; map -v {D}"
+#define ABC_COMMAND_CTR "strash; scorr -v; ifraig -v; retime -v {D}; strash; dch -vf; map -v {D}; buffer -v; upsize -v {D}; dnsize -v {D}; stime -p"
 #define ABC_COMMAND_LUT "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; if -v"
 #define ABC_COMMAND_DFL "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; map -v"
 
@@ -397,7 +397,8 @@ static std::string fold_abc_cmd(std::string str)
 }
 
 static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str, bool keepff)
+		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str,
+		bool keepff, std::string delay_target)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -435,6 +436,10 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		abc_command = constr_file.empty() ? ABC_COMMAND_LIB : ABC_COMMAND_CTR;
 	else
 		abc_command = ABC_COMMAND_DFL;
+
+	for (size_t pos = abc_command.find("{D}"); pos != std::string::npos; pos = abc_command.find("{D}", pos))
+		abc_command = abc_command.substr(0, pos) + delay_target + abc_command.substr(pos+3);
+
 	abc_command = add_echos_to_abc_cmd(abc_command);
 
 	if (abc_command.size() > 128) {
@@ -915,6 +920,10 @@ struct AbcPass : public Pass {
 		log("        drive the primary inputs and the set_load statement sets the load in\n");
 		log("        femtofarads for each primary output.\n");
 		log("\n");
+		log("    -D <picoseconds>\n");
+		log("        set delay target. the string {D} in the default scripts above is\n");
+		log("        replaced by this option when used, and an empty string otherwise.\n");
+		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
 		log("\n");
@@ -951,7 +960,7 @@ struct AbcPass : public Pass {
 		log_push();
 
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
-		std::string script_file, liberty_file, constr_file, clk_str;
+		std::string script_file, liberty_file, constr_file, clk_str, delay_target;
 		bool dff_mode = false, keepff = false, cleanup = true;
 		int lut_mode = 0;
 
@@ -983,6 +992,10 @@ struct AbcPass : public Pass {
 				constr_file = args[++argidx];
 				if (!constr_file.empty() && constr_file[0] != '/')
 					constr_file = std::string(pwd) + "/" + constr_file;
+				continue;
+			}
+			if (arg == "-D" && argidx+1 < args.size()) {
+				delay_target = "-D " + args[++argidx];
 				continue;
 			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
@@ -1019,7 +1032,7 @@ struct AbcPass : public Pass {
 				if (mod_it.second->processes.size() > 0)
 					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 				else
-					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff);
+					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff, delay_target);
 			}
 
 		assign_map.clear();
