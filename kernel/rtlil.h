@@ -968,15 +968,25 @@ public:
 
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const;
+
+	void replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules);
+	void replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const;
+
 	void replace(int offset, const RTLIL::SigSpec &with);
 
 	void remove(const RTLIL::SigSpec &pattern);
 	void remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other) const;
 	void remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other);
+
+	void remove(const std::set<RTLIL::SigBit> &pattern);
+	void remove(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const;
+	void remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
+
 	void remove(int offset, int length = 1);
 	void remove_const();
 
-	RTLIL::SigSpec extract(RTLIL::SigSpec pattern, const RTLIL::SigSpec *other = NULL) const;
+	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
+	RTLIL::SigSpec extract(const std::set<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
 
 	void append(const RTLIL::SigSpec &signal);

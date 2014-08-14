@@ -2071,26 +2071,40 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const
 {
-	cover("kernel.rtlil.sigspec.replace");
+	log_assert(pattern.width_ == with.width_);
 
-	unpack();
 	pattern.unpack();
 	with.unpack();
 
-	log_assert(other != NULL);
-	log_assert(width_ == other->width_);
-	other->unpack();
+	std::map<RTLIL::SigBit, RTLIL::SigBit> rules;
 
-	log_assert(pattern.width_ == with.width_);
-
-	std::map<RTLIL::SigBit, RTLIL::SigBit> pattern_map;
 	for (int i = 0; i < SIZE(pattern.bits_); i++)
 		if (pattern.bits_[i].wire != NULL)
-			pattern_map[pattern.bits_[i]] = with.bits_[i];
+			rules[pattern.bits_[i]] = with.bits_[i];
 
-	for (int i = 0; i < SIZE(bits_); i++)
-		if (pattern_map.count(bits_[i]))
-			other->bits_[i] = pattern_map.at(bits_[i]);
+	replace(rules, other);
+}
+
+void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules)
+{
+	replace(rules, this);
+}
+
+void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const
+{
+	cover("kernel.rtlil.sigspec.replace");
+
+	log_assert(other != NULL);
+	log_assert(width_ == other->width_);
+
+	unpack();
+	other->unpack();
+
+	for (int i = 0; i < SIZE(bits_); i++) {
+		auto it = rules.find(bits_[i]);
+		if (it != rules.end())
+			other->bits_[i] = it->second;
+	}
 
 	other->check();
 }
@@ -2108,6 +2122,23 @@ void RTLIL::SigSpec::remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other
 
 void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other)
 {
+	std::set<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_set();
+	remove2(pattern_bits, other);
+}
+
+void RTLIL::SigSpec::remove(const std::set<RTLIL::SigBit> &pattern)
+{
+	remove2(pattern, NULL);
+}
+
+void RTLIL::SigSpec::remove(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const
+{
+	RTLIL::SigSpec tmp = *this;
+	tmp.remove2(pattern, other);
+}
+
+void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other)
+{
 	if (other)
 		cover("kernel.rtlil.sigspec.remove_other");
 	else
@@ -2120,11 +2151,10 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 		other->unpack();
 	}
 
-	std::set<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_set();
 	std::vector<RTLIL::SigBit> new_bits, new_other_bits;
 
 	for (int i = 0; i < SIZE(bits_); i++) {
-		if (bits_[i].wire != NULL && pattern_bits.count(bits_[i]))
+		if (bits_[i].wire != NULL && pattern.count(bits_[i]))
 			continue;
 		if (other != NULL)
 			new_other_bits.push_back(other->bits_[i]);
@@ -2142,33 +2172,32 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 	check();
 }
 
-RTLIL::SigSpec RTLIL::SigSpec::extract(RTLIL::SigSpec pattern, const RTLIL::SigSpec *other) const
+RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other) const
+{
+	std::set<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_set();
+	return extract(pattern_bits, other);
+}
+
+RTLIL::SigSpec RTLIL::SigSpec::extract(const std::set<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other) const
 {
 	if (other)
 		cover("kernel.rtlil.sigspec.extract_other");
 	else
 		cover("kernel.rtlil.sigspec.extract");
 
-	pack();
-	pattern.pack();
-
-	if (other != NULL)
-		other->pack();
-
 	log_assert(other == NULL || width_ == other->width_);
 
-	std::set<RTLIL::SigBit> pat = pattern.to_sigbit_set();
 	std::vector<RTLIL::SigBit> bits_match = to_sigbit_vector();
 	RTLIL::SigSpec ret;
 
 	if (other) {
 		std::vector<RTLIL::SigBit> bits_other = other->to_sigbit_vector();
 		for (int i = 0; i < width_; i++)
-			if (bits_match[i].wire && pat.count(bits_match[i]))
+			if (bits_match[i].wire && pattern.count(bits_match[i]))
 				ret.append_bit(bits_other[i]);
 	} else {
 		for (int i = 0; i < width_; i++)
-			if (bits_match[i].wire && pat.count(bits_match[i]))
+			if (bits_match[i].wire && pattern.count(bits_match[i]))
 				ret.append_bit(bits_match[i]);
 	}
 
