@@ -67,7 +67,8 @@ struct CellTypes
 	void setup_module(RTLIL::Module *module)
 	{
 		std::set<RTLIL::IdString> inputs, outputs;
-		for (auto wire : module->wires()) {
+		for (RTLIL::IdString wire_name : module->ports) {
+			RTLIL::Wire *wire = module->wire(wire_name);
 			if (wire->port_input)
 				inputs.insert(wire->name);
 			if (wire->port_output)

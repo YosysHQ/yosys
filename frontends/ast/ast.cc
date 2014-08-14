@@ -919,6 +919,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 	current_module->noopt = flag_noopt;
 	current_module->icells = flag_icells;
 	current_module->autowire = flag_autowire;
+	current_module->fixup_ports();
 	return current_module;
 }
 

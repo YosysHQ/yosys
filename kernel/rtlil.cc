@@ -821,6 +821,8 @@ void RTLIL::Module::check()
 		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
 		if (it.second->port_id) {
+			log_assert(SIZE(ports) >= it.second->port_id);
+			log_assert(ports.at(it.second->port_id-1) == it.first);
 			log_assert(it.second->port_input || it.second->port_output);
 			if (SIZE(ports_declared) < it.second->port_id)
 				ports_declared.resize(it.second->port_id);
@@ -831,6 +833,7 @@ void RTLIL::Module::check()
 	}
 	for (auto port_declared : ports_declared)
 		log_assert(port_declared == true);
+	log_assert(SIZE(ports) == SIZE(ports_declared));
 
 	for (auto &it : memories) {
 		log_assert(it.first == it.second->name);
@@ -915,6 +918,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	RewriteSigSpecWorker rewriteSigSpecWorker;
 	rewriteSigSpecWorker.mod = new_mod;
 	new_mod->rewrite_sigspecs(rewriteSigSpecWorker);
+	new_mod->fixup_ports();
 }
 
 RTLIL::Module *RTLIL::Module::clone() const
@@ -1154,8 +1158,12 @@ void RTLIL::Module::fixup_ports()
 			w.second->port_id = 0;
 
 	std::sort(all_ports.begin(), all_ports.end(), fixup_ports_compare);
-	for (size_t i = 0; i < all_ports.size(); i++)
+
+	ports.clear();
+	for (size_t i = 0; i < all_ports.size(); i++) {
+		ports.push_back(all_ports[i]->name);
 		all_ports[i]->port_id = i+1;
+	}
 }
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)

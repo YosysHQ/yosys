@@ -101,6 +101,7 @@ module:
 	} module_body TOK_END {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
+		current_module->fixup_ports();
 	} EOL;
 
 module_body:

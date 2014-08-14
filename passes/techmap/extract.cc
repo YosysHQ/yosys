@@ -726,13 +726,13 @@ struct ExtractPass : public Pass {
 				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, id2cstr(haystack_map.at(result.graphId)->name), result.totalMatchesAfterLimits);
 				map->add(newMod);
 
-				int portCounter = 1;
 				for (auto wire : wires) {
 					RTLIL::Wire *newWire = newMod->addWire(wire->name, wire->width);
-					newWire->port_id = portCounter++;
 					newWire->port_input = true;
 					newWire->port_output = true;
 				}
+
+				newMod->fixup_ports();
 
 				for (auto cell : cells) {
 					RTLIL::Cell *newCell = newMod->addCell(cell->name, cell->type);

@@ -58,7 +58,6 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 	RTLIL::Const *lutptr = NULL;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
 
-	int port_count = 0;
 	module->name = "\\netlist";
 	design->add(module);
 
@@ -91,6 +90,7 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				continue;
 
 			if (!strcmp(cmd, ".end")) {
+				module->fixup_ports();
 				free(buffer);
 				return design;
 			}
@@ -99,7 +99,6 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				char *p;
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					RTLIL::Wire *wire = module->addWire(stringf("\\%s", p));
-					wire->port_id = ++port_count;
 					if (!strcmp(cmd, ".inputs"))
 						wire->port_input = true;
 					else

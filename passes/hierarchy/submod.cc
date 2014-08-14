@@ -106,7 +106,7 @@ struct SubmodWorker
 		RTLIL::Module *new_mod = new RTLIL::Module;
 		new_mod->name = submod.full_name;
 		design->add(new_mod);
-		int port_counter = 1, auto_name_counter = 1;
+		int auto_name_counter = 1;
 
 		std::set<RTLIL::IdString> all_wire_names;
 		for (auto &it : wire_flags) {
@@ -151,9 +151,6 @@ struct SubmodWorker
 			new_wire->start_offset = wire->start_offset;
 			new_wire->attributes = wire->attributes;
 
-			if (new_wire->port_input || new_wire->port_output)
-				new_wire->port_id = port_counter++;
-
 			if (new_wire->port_input && new_wire->port_output)
 				log("  signal %s: inout %s\n", wire->name.c_str(), new_wire->name.c_str());
 			else if (new_wire->port_input)
@@ -165,6 +162,8 @@ struct SubmodWorker
 
 			flags.new_wire = new_wire;
 		}
+
+		new_mod->fixup_ports();
 
 		for (RTLIL::Cell *cell : submod.cells) {
 			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell);

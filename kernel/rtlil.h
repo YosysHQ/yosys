@@ -575,6 +575,8 @@ public:
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	void new_connections(const std::vector<RTLIL::SigSig> &new_conn);
 	const std::vector<RTLIL::SigSig> &connections() const;
+
+	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
 
 	template<typename T> void rewrite_sigspecs(T functor);

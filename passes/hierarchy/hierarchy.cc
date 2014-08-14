@@ -126,6 +126,8 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 			wire->port_output = decl.output;
 		}
 
+		mod->fixup_ports();
+
 		for (auto &para : parameters)
 			log("  ignoring parameter %s.\n", RTLIL::id2cstr(para));
 
