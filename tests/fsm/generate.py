@@ -52,7 +52,8 @@ for idx in range(50):
         print('  output reg%s [%d:0] y;' % (random.choice(['', ' signed']), random.randint(0, 31)))
         print('  output reg%s [%d:0] z;' % (random.choice(['', ' signed']), random.randint(0, 31)))
         state_bits = random.randint(5, 16);
-        print('  reg [%d:0] state;' % (state_bits-1))
+        print('  %sreg [%d:0] state;' % (random.choice(['', '(* fsm_encoding = "one-hot" *)',
+                '(* fsm_encoding = "binary" *)']), state_bits-1))
         states=[]
         for i in range(random.randint(2, 10)):
             n = random.randint(0, 2**state_bits-1)

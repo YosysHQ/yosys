@@ -53,10 +53,10 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 	std::string encoding = cell->attributes.count("\\fsm_encoding") ? cell->attributes.at("\\fsm_encoding").decode_string() : "auto";
 
 	log("Recoding FSM `%s' from module `%s' using `%s' encoding:\n", cell->name.c_str(), module->name.c_str(), encoding.c_str());
-	if (encoding != "none" && encoding != "one-hot" && encoding != "binary") {
-		if (encoding != "auto")
-			log("  unkown encoding `%s': using auto (%s) instead.\n", encoding.c_str(), default_encoding.c_str());
-		encoding = default_encoding;
+
+	if (encoding != "none" && encoding != "one-hot" && encoding != "binary" && encoding != "auto") {
+		log("  unkown encoding `%s': using auto instead.\n", encoding.c_str());
+		encoding = "auto";
 	}
 
 	if (encoding == "none") {
@@ -70,10 +70,18 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 	if (fm_set_fsm_file != NULL)
 		fm_set_fsm_print(cell, module, fsm_data, "r", fm_set_fsm_file);
 
+	if (encoding == "auto") {
+		if (!default_encoding.empty())
+			encoding = default_encoding;
+		else
+			encoding = SIZE(fsm_data.state_table) < 32 ? "one-hot" : "binary";
+		log("  mapping auto encoding to `%s` for this FSM.\n", encoding.c_str());
+	}
+
 	if (encoding == "one-hot") {
 		fsm_data.state_bits = fsm_data.state_table.size();
 	} else
-	if (encoding == "auto" || encoding == "binary") {
+	if (encoding == "binary") {
 		fsm_data.state_bits = ceil(log2(fsm_data.state_table.size()));
 	} else
 		log_error("FSM encoding `%s' is not supported!\n", encoding.c_str());
@@ -88,7 +96,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 			new_code = RTLIL::Const(RTLIL::State::Sa, fsm_data.state_bits);
 			new_code.bits[state_idx] = RTLIL::State::S1;
 		} else
-		if (encoding == "auto" || encoding == "binary") {
+		if (encoding == "binary") {
 			new_code = RTLIL::Const(state_idx, fsm_data.state_bits);
 		} else
 			log_abort();
@@ -124,7 +132,7 @@ struct FsmRecodePass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		FILE *fm_set_fsm_file = NULL;
-		std::string default_encoding = "one-hot";
+		std::string default_encoding;
 
 		log_header("Executing FSM_RECODE pass (re-assigning FSM state encoding).\n");
 		size_t argidx;

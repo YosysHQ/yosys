@@ -285,7 +285,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				}
 			}
 
-			RTLIL::Cell *mux_cell = module->addCell(NEW_ID, "$safe_pmux");
+			RTLIL::Cell *mux_cell = module->addCell(NEW_ID, "$pmux");
 			mux_cell->setPort("\\A", sig_a);
 			mux_cell->setPort("\\B", sig_b);
 			mux_cell->setPort("\\S", sig_s);
