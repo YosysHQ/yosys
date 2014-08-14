@@ -343,10 +343,15 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 				} else {
 					if (state != 2)
 						state = 3;
-					if (tok == "\n" && !here_doc_mode) {
-						return_char('\n');
-						break;
-					}
+					if (tok == "\n") {
+						if (here_doc_mode) {
+							value += " ";
+							newline_count++;
+						} else {
+							return_char('\n');
+							break;
+						}
+					} else
 					if (tok == "\\") {
 						char ch = next_char();
 						if (ch == '\n') {
