@@ -27,195 +27,165 @@
 #include <kernel/rtlil.h>
 #include <kernel/log.h>
 
+struct CellType
+{
+	RTLIL::IdString type;
+	std::set<RTLIL::IdString> inputs, outputs;
+	bool maybe_has_internal_state;
+};
+
 struct CellTypes
 {
-	std::set<RTLIL::IdString> cell_types;
-	std::vector<const RTLIL::Design*> designs;
+	std::map<RTLIL::IdString, CellType> cell_types;
 
 	CellTypes()
 	{
 	}
 
-	CellTypes(const RTLIL::Design *design)
+	CellTypes(RTLIL::Design *design)
 	{
 		setup(design);
 	}
 
-	void setup(const RTLIL::Design *design = NULL)
+	void setup(RTLIL::Design *design = NULL)
 	{
 		if (design)
 			setup_design(design);
+
 		setup_internals();
 		setup_internals_mem();
 		setup_stdcells();
 		setup_stdcells_mem();
 	}
 
-	void setup_design(const RTLIL::Design *design)
+	void setup_type(RTLIL::IdString type, const std::set<RTLIL::IdString> &inputs, const std::set<RTLIL::IdString> &outputs, bool maybe_has_internal_state)
 	{
-		designs.push_back(design);
+		CellType ct = {type, inputs, outputs, maybe_has_internal_state};
+		cell_types[ct.type] = ct;
+	}
+
+	void setup_module(RTLIL::Module *module)
+	{
+		std::set<RTLIL::IdString> inputs, outputs;
+		for (auto wire : module->wires()) {
+			if (wire->port_input)
+				inputs.insert(wire->name);
+			if (wire->port_output)
+				outputs.insert(wire->name);
+		}
+		setup_type(module->name, inputs, outputs, true);
+	}
+
+	void setup_design(RTLIL::Design *design)
+	{
+		for (auto module : design->modules())
+			setup_module(module);
 	}
 
 	void setup_internals()
 	{
-		cell_types.insert("$not");
-		cell_types.insert("$pos");
-		cell_types.insert("$bu0");
-		cell_types.insert("$neg");
-		cell_types.insert("$and");
-		cell_types.insert("$or");
-		cell_types.insert("$xor");
-		cell_types.insert("$xnor");
-		cell_types.insert("$reduce_and");
-		cell_types.insert("$reduce_or");
-		cell_types.insert("$reduce_xor");
-		cell_types.insert("$reduce_xnor");
-		cell_types.insert("$reduce_bool");
-		cell_types.insert("$shl");
-		cell_types.insert("$shr");
-		cell_types.insert("$sshl");
-		cell_types.insert("$sshr");
-		cell_types.insert("$shift");
-		cell_types.insert("$shiftx");
-		cell_types.insert("$lt");
-		cell_types.insert("$le");
-		cell_types.insert("$eq");
-		cell_types.insert("$ne");
-		cell_types.insert("$eqx");
-		cell_types.insert("$nex");
-		cell_types.insert("$ge");
-		cell_types.insert("$gt");
-		cell_types.insert("$add");
-		cell_types.insert("$sub");
-		cell_types.insert("$mul");
-		cell_types.insert("$div");
-		cell_types.insert("$mod");
-		cell_types.insert("$pow");
-		cell_types.insert("$logic_not");
-		cell_types.insert("$logic_and");
-		cell_types.insert("$logic_or");
-		cell_types.insert("$mux");
-		cell_types.insert("$pmux");
-		cell_types.insert("$slice");
-		cell_types.insert("$concat");
-		cell_types.insert("$lut");
-		cell_types.insert("$assert");
+		std::vector<RTLIL::IdString> unary_ops = {
+			"$not", "$pos", "$bu0", "$neg",
+			"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
+			"$logic_not", "$slice"
+		};
+
+		std::vector<RTLIL::IdString> binary_ops = {
+			"$and", "$or", "$xor", "$xnor",
+			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
+			"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
+			"$add", "$sub", "$mul", "$div", "$mod", "$pow",
+			"$logic_and", "$logic_or", "$concat"
+		};
+
+		for (auto type : unary_ops)
+			setup_type(type, {"\\A"}, {"\\Y"}, false);
+
+		for (auto type : binary_ops)
+			setup_type(type, {"\\A", "\\B"}, {"\\Y"}, false);
+
+		for (auto type : std::vector<RTLIL::IdString>({"$mux", "$pmux"}))
+			setup_type(type, {"\\A", "\\B", "\\S"}, {"\\Y"}, false);
+
+		setup_type("$lut", {"\\I"}, {"\\O"}, false);
+		setup_type("$assert", {"\\A", "\\EN"}, {}, false);
 	}
 
 	void setup_internals_mem()
 	{
-		cell_types.insert("$sr");
-		cell_types.insert("$dff");
-		cell_types.insert("$dffsr");
-		cell_types.insert("$adff");
-		cell_types.insert("$dlatch");
-		cell_types.insert("$dlatchsr");
-		cell_types.insert("$memrd");
-		cell_types.insert("$memwr");
-		cell_types.insert("$mem");
-		cell_types.insert("$fsm");
+		setup_type("$sr", {"\\SET", "\\CLR"}, {"\\Q"}, true);
+		setup_type("$dff", {"\\CLK", "\\D"}, {"\\Q"}, true);
+		setup_type("$dffsr", {"\\CLK", "\\SET", "\\CLR", "\\D"}, {"\\Q"}, true);
+		setup_type("$adff", {"\\CLK", "\\ARST", "\\D"}, {"\\Q"}, true);
+		setup_type("$dlatch", {"\\EN", "\\D"}, {"\\Q"}, true);
+		setup_type("$dlatchsr", {"\\EN", "\\SET", "\\CLR", "\\D"}, {"\\Q"}, true);
+
+		setup_type("$memrd", {"\\CLK", "\\ADDR"}, {"\\DATA"}, true);
+		setup_type("$memwr", {"\\CLK", "\\EN", "\\ADDR", "\\DATA"}, {}, true);
+		setup_type("$mem", {"\\RD_CLK", "\\RD_ADDR", "\\WR_CLK", "\\WR_EN", "\\WR_ADDR", "\\WR_DATA"}, {"\\RD_DATA"}, true);
+
+		setup_type("$fsm", {"\\CLK", "\\ARST", "\\CTRL_IN"}, {"\\CTRL_OUT"}, true);
 	}
 
 	void setup_stdcells()
 	{
-		cell_types.insert("$_INV_");
-		cell_types.insert("$_AND_");
-		cell_types.insert("$_OR_");
-		cell_types.insert("$_XOR_");
-		cell_types.insert("$_MUX_");
+		setup_type("$_INV_", {"\\A"}, {"\\Y"}, false);
+		setup_type("$_AND_", {"\\A", "\\B"}, {"\\Y"}, false);
+		setup_type("$_OR_",  {"\\A", "\\B"}, {"\\Y"}, false);
+		setup_type("$_XOR_", {"\\A", "\\B"}, {"\\Y"}, false);
+		setup_type("$_MUX_", {"\\A", "\\B", "\\S"}, {"\\Y"}, false);
 	}
 
 	void setup_stdcells_mem()
 	{
-		cell_types.insert("$_SR_NN_");
-		cell_types.insert("$_SR_NP_");
-		cell_types.insert("$_SR_PN_");
-		cell_types.insert("$_SR_PP_");
-		cell_types.insert("$_DFF_N_");
-		cell_types.insert("$_DFF_P_");
-		cell_types.insert("$_DFF_NN0_");
-		cell_types.insert("$_DFF_NN1_");
-		cell_types.insert("$_DFF_NP0_");
-		cell_types.insert("$_DFF_NP1_");
-		cell_types.insert("$_DFF_PN0_");
-		cell_types.insert("$_DFF_PN1_");
-		cell_types.insert("$_DFF_PP0_");
-		cell_types.insert("$_DFF_PP1_");
-		cell_types.insert("$_DFFSR_NNN_");
-		cell_types.insert("$_DFFSR_NNP_");
-		cell_types.insert("$_DFFSR_NPN_");
-		cell_types.insert("$_DFFSR_NPP_");
-		cell_types.insert("$_DFFSR_PNN_");
-		cell_types.insert("$_DFFSR_PNP_");
-		cell_types.insert("$_DFFSR_PPN_");
-		cell_types.insert("$_DFFSR_PPP_");
-		cell_types.insert("$_DLATCH_N_");
-		cell_types.insert("$_DLATCH_P_");
-		cell_types.insert("$_DLATCHSR_NNN_");
-		cell_types.insert("$_DLATCHSR_NNP_");
-		cell_types.insert("$_DLATCHSR_NPN_");
-		cell_types.insert("$_DLATCHSR_NPP_");
-		cell_types.insert("$_DLATCHSR_PNN_");
-		cell_types.insert("$_DLATCHSR_PNP_");
-		cell_types.insert("$_DLATCHSR_PPN_");
-		cell_types.insert("$_DLATCHSR_PPP_");
+		std::vector<char> list_np = {'N', 'P'}, list_01 = {'0', '1'};
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+			setup_type(stringf("$_SR_%c%c_", c1, c2), {"\\S", "\\R"}, {"\\Q"}, true);
+
+		for (auto c1 : list_np)
+			setup_type(stringf("$_DFF_%c_", c1), {"\\C", "\\D"}, {"\\Q"}, true);
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {"\\C", "\\R", "\\D"}, {"\\Q"}, true);
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {"\\C", "\\S", "\\R", "\\D"}, {"\\Q"}, true);
+
+		for (auto c1 : list_np)
+			setup_type(stringf("$_DLATCH_%c_", c1), {"\\E", "\\D"}, {"\\Q"}, true);
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {"\\E", "\\S", "\\R", "\\D"}, {"\\Q"}, true);
 	}
 
 	void clear()
 	{
 		cell_types.clear();
-		designs.clear();
 	}
 
 	bool cell_known(RTLIL::IdString type)
 	{
-		if (cell_types.count(type) > 0)
-			return true;
-		for (auto design : designs)
-			if (design->modules_.count(type) > 0)
-				return true;
-		return false;
+		return cell_types.count(type) != 0;
 	}
 
 	bool cell_output(RTLIL::IdString type, RTLIL::IdString port)
 	{
-		if (cell_types.count(type) == 0) {
-			for (auto design : designs)
-				if (design->modules_.count(type) > 0) {
-					if (design->modules_.at(type)->wires_.count(port))
-						return design->modules_.at(type)->wires_.at(port)->port_output;
-					return false;
-				}
-			return false;
-		}
-
-		if (port == "\\Y" || port == "\\Q" || port == "\\RD_DATA")
-			return true;
-		if (type == "$memrd" && port == "\\DATA")
-			return true;
-		if (type == "$fsm" && port == "\\CTRL_OUT")
-			return true;
-		if (type == "$lut" && port == "\\O")
-			return true;
-		return false;
+		auto it = cell_types.find(type);
+		return it != cell_types.end() && it->second.outputs.count(port) != 0;
 	}
 
 	bool cell_input(RTLIL::IdString type, RTLIL::IdString port)
 	{
-		if (cell_types.count(type) == 0) {
-			for (auto design : designs)
-				if (design->modules_.count(type) > 0) {
-					if (design->modules_.at(type)->wires_.count(port))
-						return design->modules_.at(type)->wires_.at(port)->port_input;
-					return false;
-				}
-			return false;
-		}
-
-		if (cell_types.count(type) > 0)
-			return !cell_output(type, port);
-
-		return false;
+		auto it = cell_types.find(type);
+		return it != cell_types.end() && it->second.inputs.count(port) != 0;
 	}
 
 	static RTLIL::Const eval(RTLIL::IdString type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)

@@ -40,10 +40,8 @@ namespace {
 bool norename, noattr, attr2comment, noexpr;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
+std::set<RTLIL::IdString> reg_wires, reg_ct;
 
-std::set<RTLIL::IdString> reg_wires;
-
-CellTypes reg_ct;
 RTLIL::Module *active_module;
 
 void reset_auto_counter_id(RTLIL::IdString id, bool may_rename)
@@ -314,7 +312,7 @@ void dump_cell_expr_port(FILE *f, RTLIL::Cell *cell, std::string port, bool gen_
 
 std::string cellname(RTLIL::Cell *cell)
 {
-	if (!norename && cell->name[0] == '$' && reg_ct.cell_known(cell->type) && cell->hasPort("\\Q"))
+	if (!norename && cell->name[0] == '$' && reg_ct.count(cell->type) && cell->hasPort("\\Q"))
 	{
 		RTLIL::SigSpec sig = cell->getPort("\\Q");
 		if (SIZE(sig) != 1 || sig.is_fully_const())
@@ -696,7 +694,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_
+	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_, $_DLATCHSR_[PN][PN][PN]_
 	// FIXME: $sr, $dffsr, $dlatch, $memrd, $memwr, $mem, $fsm
 
 	return false;
@@ -937,7 +935,7 @@ void dump_module(FILE *f, std::string indent, RTLIL::Module *module)
 		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
-			if (!reg_ct.cell_known(cell->type) || !cell->hasPort("\\Q"))
+			if (!reg_ct.count(cell->type) || !cell->hasPort("\\Q"))
 				continue;
 
 			RTLIL::SigSpec sig = cell->getPort("\\Q");
@@ -1047,10 +1045,30 @@ struct VerilogBackend : public Backend {
 		bool selected = false;
 
 		reg_ct.clear();
-		reg_ct.setup_stdcells_mem();
-		reg_ct.cell_types.insert("$sr");
-		reg_ct.cell_types.insert("$dff");
-		reg_ct.cell_types.insert("$adff");
+
+		reg_ct.insert("$dff");
+		reg_ct.insert("$adff");
+
+		reg_ct.insert("$_DFF_N_");
+		reg_ct.insert("$_DFF_P_");
+
+		reg_ct.insert("$_DFF_NN0_");
+		reg_ct.insert("$_DFF_NN1_");
+		reg_ct.insert("$_DFF_NP0_");
+		reg_ct.insert("$_DFF_NP1_");
+		reg_ct.insert("$_DFF_PN0_");
+		reg_ct.insert("$_DFF_PN1_");
+		reg_ct.insert("$_DFF_PP0_");
+		reg_ct.insert("$_DFF_PP1_");
+
+		reg_ct.insert("$_DFFSR_NNN_");
+		reg_ct.insert("$_DFFSR_NNP_");
+		reg_ct.insert("$_DFFSR_NPN_");
+		reg_ct.insert("$_DFFSR_NPP_");
+		reg_ct.insert("$_DFFSR_PNN_");
+		reg_ct.insert("$_DFFSR_PNP_");
+		reg_ct.insert("$_DFFSR_PPN_");
+		reg_ct.insert("$_DFFSR_PPP_");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

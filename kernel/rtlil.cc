@@ -503,7 +503,7 @@ namespace {
 					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
 				return;
 
-			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" || cell->type == "$neg") {
+			if (cell->type.in("$not", "$pos", "$bu0", "$neg")) {
 				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -511,7 +511,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor") {
+			if (cell->type.in("$and", "$or", "$xor", "$xnor")) {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
@@ -521,8 +521,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$reduce_and" || cell->type == "$reduce_or" || cell->type == "$reduce_xor" ||
-					cell->type == "$reduce_xnor" || cell->type == "$reduce_bool") {
+			if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool")) {
 				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -530,8 +529,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$shl" || cell->type == "$shr" || cell->type == "$sshl" || cell->type == "$sshr" ||
-					cell->type == "$shift" || cell->type == "$shiftx") {
+			if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx")) {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
@@ -541,8 +539,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" ||
-					cell->type == "$eqx" || cell->type == "$nex" || cell->type == "$ge" || cell->type == "$gt") {
+			if (cell->type.in("$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt")) {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
@@ -552,8 +549,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" ||
-					cell->type == "$mod" || cell->type == "$pow") {
+			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$pow")) {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
