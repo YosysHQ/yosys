@@ -209,7 +209,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 	for (auto cell : module->cells())
 		if (design->selected(module, cell) && cell->type[0] == '$') {
-			if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") &&
+			if ((cell->type == "$_NOT_" || cell->type == "$not" || cell->type == "$logic_not") &&
 					cell->getPort("\\A").size() == 1 && cell->getPort("\\Y").size() == 1)
 				invert_map[assign_map(cell->getPort("\\Y"))] = assign_map(cell->getPort("\\A"));
 			if (ct_combinational.cell_known(cell->type))
@@ -371,9 +371,9 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			}
 		}
 
-		if ((cell->type == "$_INV_" || cell->type == "$not" || cell->type == "$logic_not") && cell->getPort("\\Y").size() == 1 &&
+		if ((cell->type == "$_NOT_" || cell->type == "$not" || cell->type == "$logic_not") && cell->getPort("\\Y").size() == 1 &&
 				invert_map.count(assign_map(cell->getPort("\\A"))) != 0) {
-			cover_list("opt.opt_const.invert.double", "$_INV_", "$not", "$logic_not", cell->type.str());
+			cover_list("opt.opt_const.invert.double", "$_NOT_", "$not", "$logic_not", cell->type.str());
 			replace_cell(assign_map, module, cell, "double_invert", "\\Y", invert_map.at(assign_map(cell->getPort("\\A"))));
 			goto next_cell;
 		}
@@ -389,7 +389,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			goto next_cell;
 		}
 
-		if (cell->type == "$_INV_") {
+		if (cell->type == "$_NOT_") {
 			RTLIL::SigSpec input = cell->getPort("\\A");
 			assign_map.apply(input);
 			if (input.match("1")) ACTION_DO_Y(0);
@@ -463,7 +463,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			if (input.match("01 ")) ACTION_DO("\\Y", input.extract(0, 1));
 			if (input.match("10 ")) {
 				cover("opt.opt_const.mux_to_inv");
-				cell->type = "$_INV_";
+				cell->type = "$_NOT_";
 				cell->setPort("\\A", input.extract(0, 1));
 				cell->unsetPort("\\B");
 				cell->unsetPort("\\S");
@@ -648,7 +648,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cell->parameters.erase("\\WIDTH");
 				cell->type = "$not";
 			} else
-				cell->type = "$_INV_";
+				cell->type = "$_NOT_";
 			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;

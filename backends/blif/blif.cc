@@ -143,7 +143,7 @@ struct BlifDumper
 		{
 			RTLIL::Cell *cell = cell_it.second;
 
-			if (!config->icells_mode && cell->type == "$_INV_") {
+			if (!config->icells_mode && cell->type == "$_NOT_") {
 				fprintf(f, ".names %s %s\n0 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\Y")));
 				continue;

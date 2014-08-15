@@ -271,7 +271,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type == "$_INV_" || cell->type == "$not")
+		if (cell->type == "$_NOT_" || cell->type == "$not")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
 			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);

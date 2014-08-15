@@ -370,7 +370,7 @@ void dump_cell_expr_binop(FILE *f, std::string indent, RTLIL::Cell *cell, std::s
 
 bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 {
-	if (cell->type == "$_INV_") {
+	if (cell->type == "$_NOT_") {
 		fprintf(f, "%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = ");

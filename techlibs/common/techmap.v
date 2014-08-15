@@ -20,7 +20,7 @@
  *  The internal logic cell technology mapper.
  *
  *  This verilog library contains the mapping of internal cells (e.g. $not with
- *  variable bit width) to the internal logic cells (such as the single bit $_INV_ 
+ *  variable bit width) to the internal logic cells (such as the single bit $_NOT_ 
  *  gate). Usually this logic network is then mapped to the actual technology
  *  using e.g. the "abc" pass.
  *

@@ -130,7 +130,7 @@ struct CellTypes
 
 	void setup_stdcells()
 	{
-		setup_type("$_INV_", {"\\A"}, {"\\Y"}, false);
+		setup_type("$_NOT_", {"\\A"}, {"\\Y"}, false);
 		setup_type("$_AND_", {"\\A", "\\B"}, {"\\Y"}, false);
 		setup_type("$_OR_",  {"\\A", "\\B"}, {"\\Y"}, false);
 		setup_type("$_XOR_", {"\\A", "\\B"}, {"\\Y"}, false);
@@ -241,7 +241,7 @@ struct CellTypes
 		HANDLE_CELL_TYPE(neg)
 #undef HANDLE_CELL_TYPE
 
-		if (type == "$_INV_")
+		if (type == "$_NOT_")
 			return const_not(arg1, arg2, false, false, 1);
 		if (type == "$_AND_")
 			return const_and(arg1, arg2, false, false, 1);

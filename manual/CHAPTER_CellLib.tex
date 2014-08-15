@@ -371,7 +371,7 @@ source tree.
 \begin{tabular}[t]{ll}
 Verilog & Cell Type \\
 \hline
-\lstinline[language=Verilog]; Y = ~A;    & {\tt \$\_INV\_} \\
+\lstinline[language=Verilog]; Y = ~A;    & {\tt \$\_NOT\_} \\
 \lstinline[language=Verilog]; Y = A & B; & {\tt \$\_AND\_} \\
 \lstinline[language=Verilog]; Y = A | B; & {\tt \$\_OR\_} \\
 \lstinline[language=Verilog]; Y = A ^ B; & {\tt \$\_XOR\_} \\
@@ -398,7 +398,7 @@ $ClkEdge$ & $RstLvl$ & $RstVal$ & Cell Type \\
 \end{table}
 
 Table~\ref{tab:CellLib_gates} lists all cell types used for gate level logic. The cell types
-{\tt \$\_INV\_}, {\tt \$\_AND\_}, {\tt \$\_OR\_}, {\tt \$\_XOR\_} and {\tt \$\_MUX\_}
+{\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_OR\_}, {\tt \$\_XOR\_} and {\tt \$\_MUX\_}
 are used to model combinatorial logic. The cell types {\tt \$\_DFF\_N\_} and {\tt \$\_DFF\_P\_}
 represent d-type flip-flops.
 

@@ -55,7 +55,7 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 
 static RTLIL::SigSpec create_inv_cell(RTLIL::Module *module, RTLIL::SigSpec A)
 {
-	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_NOT_");
 	cell->setPort("\\A", A);
 	cell->setPort("\\Y", module->addWire(NEW_ID));
 	return cell->getPort("\\Y");
@@ -241,17 +241,17 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 		rerun_invert_rollback = false;
 
 		for (auto &it : module->cells_) {
-			if (it.second->type == "$_INV_" && it.second->getPort("\\Y") == clk_sig) {
+			if (it.second->type == "$_NOT_" && it.second->getPort("\\Y") == clk_sig) {
 				clk_sig = it.second->getPort("\\A");
 				clk_polarity = !clk_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->getPort("\\Y") == clear_sig) {
+			if (it.second->type == "$_NOT_" && it.second->getPort("\\Y") == clear_sig) {
 				clear_sig = it.second->getPort("\\A");
 				clear_polarity = !clear_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->getPort("\\Y") == preset_sig) {
+			if (it.second->type == "$_NOT_" && it.second->getPort("\\Y") == preset_sig) {
 				preset_sig = it.second->getPort("\\A");
 				preset_polarity = !preset_polarity;
 				rerun_invert_rollback = true;
@@ -259,7 +259,7 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 		}
 	}
 
-	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_NOT_");
 	cell->setPort("\\A", iq_sig);
 	cell->setPort("\\Y", iqn_sig);
 
@@ -318,17 +318,17 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 		rerun_invert_rollback = false;
 
 		for (auto &it : module->cells_) {
-			if (it.second->type == "$_INV_" && it.second->getPort("\\Y") == enable_sig) {
+			if (it.second->type == "$_NOT_" && it.second->getPort("\\Y") == enable_sig) {
 				enable_sig = it.second->getPort("\\A");
 				enable_polarity = !enable_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->getPort("\\Y") == clear_sig) {
+			if (it.second->type == "$_NOT_" && it.second->getPort("\\Y") == clear_sig) {
 				clear_sig = it.second->getPort("\\A");
 				clear_polarity = !clear_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == "$_INV_" && it.second->getPort("\\Y") == preset_sig) {
+			if (it.second->type == "$_NOT_" && it.second->getPort("\\Y") == preset_sig) {
 				preset_sig = it.second->getPort("\\A");
 				preset_polarity = !preset_polarity;
 				rerun_invert_rollback = true;
@@ -336,7 +336,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 		}
 	}
 
-	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_INV_");
+	RTLIL::Cell *cell = module->addCell(NEW_ID, "$_NOT_");
 	cell->setPort("\\A", iq_sig);
 	cell->setPort("\\Y", iqn_sig);
 
@@ -347,7 +347,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 
 		if (clear_polarity == true || clear_polarity != enable_polarity)
 		{
-			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_INV_");
+			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_NOT_");
 			inv->setPort("\\A", clear_sig);
 			inv->setPort("\\Y", module->addWire(NEW_ID));
 
@@ -375,7 +375,7 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 
 		if (preset_polarity == false || preset_polarity != enable_polarity)
 		{
-			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_INV_");
+			RTLIL::Cell *inv = module->addCell(NEW_ID, "$_NOT_");
 			inv->setPort("\\A", preset_sig);
 			inv->setPort("\\Y", module->addWire(NEW_ID));
 

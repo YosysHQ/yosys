@@ -758,7 +758,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$_INV_") { check_gate("AY"); return; }
+			if (cell->type == "$_NOT_") { check_gate("AY"); return; }
 			if (cell->type == "$_AND_") { check_gate("ABY"); return; }
 			if (cell->type == "$_OR_")  { check_gate("ABY"); return; }
 			if (cell->type == "$_XOR_") { check_gate("ABY"); return; }
@@ -1338,7 +1338,7 @@ DEF_METHOD(Pmux,     "$pmux",       1)
 		add ## _func(name, sig1, sig2, sig3, sig4); \
 		return sig4;                                \
 	}
-DEF_METHOD_2(InvGate, "$_INV_", A, Y)
+DEF_METHOD_2(NotGate, "$_NOT_", A, Y)
 DEF_METHOD_3(AndGate, "$_AND_", A, B, Y)
 DEF_METHOD_3(OrGate,  "$_OR_",  A, B, Y)
 DEF_METHOD_3(XorGate, "$_XOR_", A, B, Y)

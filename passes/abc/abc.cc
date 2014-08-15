@@ -130,7 +130,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type == "$_INV_")
+	if (cell->type == "$_NOT_")
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
@@ -733,7 +733,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					continue;
 				}
 				if (c->type == "\\INV") {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_INV_");
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_NOT_");
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
 					design->select(module, cell);

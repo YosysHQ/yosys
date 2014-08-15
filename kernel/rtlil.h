@@ -694,7 +694,7 @@ public:
 	RTLIL::Cell* addDlatchsr (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
 			RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true);
 
-	RTLIL::Cell* addInvGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y);
+	RTLIL::Cell* addNotGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y);
 	RTLIL::Cell* addAndGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
 	RTLIL::Cell* addOrGate   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
 	RTLIL::Cell* addXorGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
@@ -757,7 +757,7 @@ public:
 	RTLIL::SigSpec Mux      (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 	RTLIL::SigSpec Pmux     (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 
-	RTLIL::SigSpec InvGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a);
+	RTLIL::SigSpec NotGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a);
 	RTLIL::SigSpec AndGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
 	RTLIL::SigSpec OrGate   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
 	RTLIL::SigSpec XorGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);

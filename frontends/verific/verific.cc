@@ -162,7 +162,7 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 	if (inst->Type() == PRIM_NAND) {
 		RTLIL::SigSpec tmp = module->addWire(NEW_ID);
 		module->addAndGate(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
-		module->addInvGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+		module->addNotGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
 		return true;
 	}
 
@@ -174,7 +174,7 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 	if (inst->Type() == PRIM_NOR) {
 		RTLIL::SigSpec tmp = module->addWire(NEW_ID);
 		module->addOrGate(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
-		module->addInvGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+		module->addNotGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
 		return true;
 	}
 
@@ -184,7 +184,7 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 	}
 
 	if (inst->Type() == PRIM_INV) {
-		module->addInvGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+		module->addNotGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
 		return true;
 	}
 
