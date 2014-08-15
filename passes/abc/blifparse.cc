@@ -195,8 +195,8 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
 				cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
 				cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
-				cell->setPort("\\I", input_sig);
-				cell->setPort("\\O", output_sig);
+				cell->setPort("\\A", input_sig);
+				cell->setPort("\\Y", output_sig);
 				lutptr = &cell->parameters.at("\\LUT");
 				lut_default_state = RTLIL::State::Sx;
 				continue;

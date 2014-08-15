@@ -955,13 +955,13 @@ endmodule
 // --------------------------------------------------------
 `ifndef SIMLIB_NOLUT
 
-module \$lut (I, O);
+module \$lut (A, Y);
 
 parameter WIDTH = 0;
 parameter LUT = 0;
 
-input [WIDTH-1:0] I;
-output reg O;
+input [WIDTH-1:0] A;
+output reg Y;
 
 wire lut0_out, lut1_out;
 
@@ -969,18 +969,18 @@ generate
 	if (WIDTH <= 1) begin:simple
 		assign {lut1_out, lut0_out} = LUT;
 	end else begin:complex
-		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT                  ) ) lut0 ( .I(I[WIDTH-2:0]), .O(lut0_out) );
-		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT >> (2**(WIDTH-1))) ) lut1 ( .I(I[WIDTH-2:0]), .O(lut1_out) );
+		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT                  ) ) lut0 ( .A(A[WIDTH-2:0]), .Y(lut0_out) );
+		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT >> (2**(WIDTH-1))) ) lut1 ( .A(A[WIDTH-2:0]), .Y(lut1_out) );
 	end
 
 	if (WIDTH > 0) begin:lutlogic
 		always @* begin
-			casez ({I[WIDTH-1], lut0_out, lut1_out})
-				3'b?11: O = 1'b1;
-				3'b?00: O = 1'b0;
-				3'b0??: O = lut0_out;
-				3'b1??: O = lut1_out;
-				default: O = 1'bx;
+			casez ({A[WIDTH-1], lut0_out, lut1_out})
+				3'b?11: Y = 1'b1;
+				3'b?00: Y = 1'b0;
+				3'b0??: Y = lut0_out;
+				3'b1??: Y = lut1_out;
+				default: Y = 1'bx;
 			endcase
 		end
 	end

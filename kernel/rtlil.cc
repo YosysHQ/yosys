@@ -615,8 +615,8 @@ namespace {
 
 			if (cell->type == "$lut") {
 				param("\\LUT");
-				port("\\I", param("\\WIDTH"));
-				port("\\O", 1);
+				port("\\A", param("\\WIDTH"));
+				port("\\Y", 1);
 				check_expected();
 				return;
 			}
@@ -1388,8 +1388,8 @@ RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, RTLIL::SigSpec sig_i, R
 	RTLIL::Cell *cell = addCell(name, "$lut");
 	cell->parameters["\\LUT"] = lut;
 	cell->parameters["\\WIDTH"] = sig_i.size();
-	cell->setPort("\\I", sig_i);
-	cell->setPort("\\O", sig_o);
+	cell->setPort("\\A", sig_i);
+	cell->setPort("\\Y", sig_o);
 	return cell;
 }
 

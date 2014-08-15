@@ -188,13 +188,13 @@ struct BlifDumper
 
 			if (!config->icells_mode && cell->type == "$lut") {
 				fprintf(f, ".names");
-				auto &inputs = cell->getPort("\\I");
+				auto &inputs = cell->getPort("\\A");
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				log_assert(inputs.size() == width);
 				for (int i = 0; i < inputs.size(); i++) {
 					fprintf(f, " %s", cstr(inputs.extract(i, 1)));
 				}
-				auto &output = cell->getPort("\\O");
+				auto &output = cell->getPort("\\Y");
 				log_assert(output.size() == 1);
 				fprintf(f, " %s", cstr(output));
 				fprintf(f, "\n");

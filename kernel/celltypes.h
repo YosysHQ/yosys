@@ -88,7 +88,7 @@ struct CellTypes
 		std::vector<RTLIL::IdString> unary_ops = {
 			"$not", "$pos", "$bu0", "$neg",
 			"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
-			"$logic_not", "$slice"
+			"$logic_not", "$slice", "$lut"
 		};
 
 		std::vector<RTLIL::IdString> binary_ops = {
@@ -108,7 +108,6 @@ struct CellTypes
 		for (auto type : std::vector<RTLIL::IdString>({"$mux", "$pmux"}))
 			setup_type(type, {"\\A", "\\B", "\\S"}, {"\\Y"}, false);
 
-		setup_type("$lut", {"\\I"}, {"\\O"}, false);
 		setup_type("$assert", {"\\A", "\\EN"}, {}, false);
 	}
 
