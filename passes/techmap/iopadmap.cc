@@ -164,8 +164,10 @@ struct IopadmapPass : public Pass {
 				log("Mapping port %s.%s using %s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name), celltype.c_str());
 
 				RTLIL::Wire *new_wire = NULL;
-				if (!portname2.empty())
+				if (!portname2.empty()) {
 					new_wire = module->addWire(NEW_ID, wire);
+					module->swap_names(new_wire, wire);
+				}
 
 				if (flag_bits)
 				{
