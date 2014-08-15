@@ -706,6 +706,9 @@ struct TechmapPass : public Pass {
 		log("        transforms the internal RTL cells to the internal gate\n");
 		log("        library.\n");
 		log("\n");
+		log("    -map %%<design-name>\n");
+		log("        like -map above, but with an in-memory design instead of a file.\n");
+		log("\n");
 		log("    -share_map filename\n");
 		log("        like -map, but look for the file in the share directory (where the\n");
 		log("        yosys data files are). this is mainly used internally when techmap\n");
