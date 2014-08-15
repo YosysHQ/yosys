@@ -339,8 +339,11 @@ void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::stri
 				last_here_document += buffer;
 			}
 			f = fmemopen((void*)last_here_document.c_str(), last_here_document.size(), "r");
-		} else
+		} else {
+			if (filename.substr(0, 2) == "+/")
+				filename = proc_share_dirname() + filename.substr(1);
 			f = fopen(filename.c_str(), "r");
+		}
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 
