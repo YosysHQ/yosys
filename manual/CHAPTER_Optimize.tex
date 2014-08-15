@@ -136,7 +136,7 @@ This pass performs trivial resource sharing. This means that this pass identifie
 with identical inputs and replaces them with a single instance of the cell.
 
 The option {\tt -nomux} can be used to disable resource sharing for multiplexer
-cells ({\tt \$mux}, {\tt \$pmux}, and {\tt \$safe\_pmux}). This can be useful as
+cells ({\tt \$mux} and {\tt \$pmux}. This can be useful as
 it prevents multiplexer trees to be merged, which might prevent {\tt opt\_muxtree}
 to identify possible optimizations.
 

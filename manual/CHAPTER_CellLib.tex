@@ -125,10 +125,6 @@ than one bit from \B{S} is set the output is undefined. Cells of this type are u
 ``parallel cases'' (defined by using the {\tt parallel\_case} attribute or detected by
 an optimization).
 
-The {\tt \$safe\_pmux} behaves similarly to the {\tt \$pmux} cell type. But when more than one bit
-of \B{S} is set, it is guaranteed that this cell type will output the value of the \B{A} input instead of
-an undefined value.
-
 Behavioural code with cascaded {\tt if-then-else}- and {\tt case}-statements
 usually results in trees of multiplexer cells. Many passes (from various
 optimizations to FSM extraction) heavily depend on these multiplexer trees to
