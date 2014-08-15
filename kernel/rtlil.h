@@ -255,9 +255,21 @@ namespace RTLIL
 		return log_id(str);
 	}
 
-	template <typename T> struct sort_by_name {
+	template <typename T> struct sort_by_name_id {
 		bool operator()(T *a, T *b) const {
 			return a->name < b->name;
+		}
+	};
+
+	template <typename T> struct sort_by_name_str {
+		bool operator()(T *a, T *b) const {
+			return strcmp(a->name.c_str(), b->name.c_str()) < 0;
+		}
+	};
+
+	struct sort_by_id_str {
+		bool operator()(RTLIL::IdString a, RTLIL::IdString b) const {
+			return strcmp(a.c_str(), b.c_str()) < 0;
 		}
 	};
 

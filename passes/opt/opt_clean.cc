@@ -34,7 +34,7 @@ static int count_rm_cells, count_rm_wires;
 static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 {
 	SigMap assign_map(module);
-	std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> queue, unused;
+	std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> queue, unused;
 
 	SigSet<RTLIL::Cell*> wire2driver;
 	for (auto &it : module->cells_) {
@@ -65,7 +65,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 
 	while (queue.size() > 0)
 	{
-		std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> new_queue;
+		std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> new_queue;
 		for (auto cell : queue)
 			unused.erase(cell);
 		for (auto cell : queue) {

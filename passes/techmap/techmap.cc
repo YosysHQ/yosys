@@ -251,7 +251,7 @@ struct TechmapWorker
 	}
 
 	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
-			const std::map<RTLIL::IdString, std::set<RTLIL::IdString>> &celltypeMap, bool in_recursion)
+			const std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> &celltypeMap, bool in_recursion)
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
 
@@ -898,7 +898,7 @@ struct TechmapPass : public Pass {
 		}
 		map->modules_.swap(modules_new);
 
-		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
+		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto &it : map->modules_) {
 			if (it.second->attributes.count("\\techmap_celltype") && !it.second->attributes.at("\\techmap_celltype").bits.empty()) {
 				char *p = strdup(it.second->attributes.at("\\techmap_celltype").decode_string().c_str());
@@ -960,7 +960,7 @@ struct FlattenPass : public Pass {
 		TechmapWorker worker;
 		worker.flatten_mode = true;
 
-		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> celltypeMap;
+		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto &it : design->modules_)
 			celltypeMap[it.first].insert(it.first);
 
