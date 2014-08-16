@@ -45,6 +45,7 @@ int string_buf_size = 0;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
+static int log_newline_count = 0;
 
 void logv(const char *format, va_list ap)
 {
@@ -54,6 +55,15 @@ void logv(const char *format, va_list ap)
 	}
 
 	std::string str = vstringf(format, ap);
+
+	if (str.empty())
+		return;
+
+	size_t nnl_pos = str.find_last_not_of('\n');
+	if (nnl_pos == std::string::npos)
+		log_newline_count += SIZE(str);
+	else
+		log_newline_count = SIZE(str) - nnl_pos - 1;
 
 	if (log_hasher)
 		log_hasher->update(str);
@@ -92,7 +102,7 @@ void logv_header(const char *format, va_list ap)
 {
 	bool pop_errfile = false;
 
-	log("\n");
+	log_spacer();
 	if (header_count.size() > 0)
 		header_count.back()++;
 
@@ -158,6 +168,12 @@ void log_cmd_error(const char *format, ...)
 	}
 
 	logv_error(format, ap);
+}
+
+void log_spacer()
+{
+	while (log_newline_count < 2)
+		log("\n");
 }
 
 void log_push()

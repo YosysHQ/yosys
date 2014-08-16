@@ -274,7 +274,8 @@ int main(int argc, char **argv)
 
 		struct rusage ru_buffer;
 		getrusage(RUSAGE_SELF, &ru_buffer);
-		log("\nEnd of script. Logfile hash: %s, CPU: user %.2fs system %.2fs\n", hash.c_str(),
+		log_spacer();
+		log("End of script. Logfile hash: %s, CPU: user %.2fs system %.2fs\n", hash.c_str(),
 				ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
 				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec);
 		log("%s\n", yosys_version_str);

@@ -51,6 +51,7 @@ void log_header(const char *format, ...) __attribute__ ((format (printf, 1, 2)))
 void log_error(const char *format, ...) __attribute__ ((format (printf, 1, 2))) __attribute__ ((noreturn));
 void log_cmd_error(const char *format, ...) __attribute__ ((format (printf, 1, 2))) __attribute__ ((noreturn));
 
+void log_spacer();
 void log_push();
 void log_pop();
 
