@@ -163,11 +163,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 	// create state register
 
-	std::string state_wire_name = fsm_cell->parameters["\\NAME"].decode_string();
-	while (module->count_id(state_wire_name) > 0)
-		state_wire_name += "_";
-
-	RTLIL::Wire *state_wire = module->addWire(state_wire_name, fsm_data.state_bits);
+	RTLIL::Wire *state_wire = module->addWire(module->uniquify(fsm_cell->parameters["\\NAME"].decode_string()), fsm_data.state_bits);
 	RTLIL::Wire *next_state_wire = module->addWire(NEW_ID, fsm_data.state_bits);
 
 	RTLIL::Cell *state_dff = module->addCell(NEW_ID, "");

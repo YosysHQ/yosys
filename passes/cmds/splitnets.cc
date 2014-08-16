@@ -46,10 +46,7 @@ struct SplitnetsWorker
 		if (format.size() > 1)
 			new_wire_name += format.substr(1, 1);
 
-		while (module->count_id(new_wire_name) > 0)
-			new_wire_name += "_";
-
-		RTLIL::Wire *new_wire = module->addWire(new_wire_name, width);
+		RTLIL::Wire *new_wire = module->addWire(module->uniquify(new_wire_name), width);
 		new_wire->port_id = wire->port_id;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;

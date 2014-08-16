@@ -1108,6 +1108,28 @@ void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
 	cells_[c2->name] = c2;
 }
 
+RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name)
+{
+	int index = 0;
+	return uniquify(name, index);
+}
+
+RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name, int &index)
+{
+	if (index == 0) {
+		if (count_id(name) == 0)
+			return name;
+		index++;
+	}
+
+	while (1) {
+		RTLIL::IdString new_name = stringf("%s_%d", name.c_str(), index);
+		if (count_id(new_name) == 0)
+			return new_name;
+		index++;
+	}
+}
+
 static bool fixup_ports_compare(const RTLIL::Wire *a, const RTLIL::Wire *b)
 {
 	if (a->port_id && !b->port_id)

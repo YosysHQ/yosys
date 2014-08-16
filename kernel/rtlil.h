@@ -625,6 +625,9 @@ public:
 	void swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2);
 	void swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2);
 
+	RTLIL::IdString uniquify(RTLIL::IdString name);
+	RTLIL::IdString uniquify(RTLIL::IdString name, int &index);
+
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 

@@ -603,9 +603,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 		// log("  importing net %s.\n", net->Name());
 
-		std::string wire_name = RTLIL::escape_id(net->Name());
-		while (module->count_id(wire_name))
-			wire_name += "_";
+		RTLIL::IdString wire_name = module->uniquify(RTLIL::escape_id(net->Name()));
 		RTLIL::Wire *wire = module->addWire(wire_name);
 		import_attributes(wire->attributes, net);
 
@@ -627,9 +625,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		{
 			// log("  importing netbus %s.\n", netbus->Name());
 
-			std::string wire_name = RTLIL::escape_id(netbus->Name());
-			while (module->count_id(wire_name))
-				wire_name += "_";
+			RTLIL::IdString wire_name = module->uniquify(RTLIL::escape_id(netbus->Name()));
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = std::min(netbus->LeftIndex(), netbus->RightIndex());
 			import_attributes(wire->attributes, netbus);
