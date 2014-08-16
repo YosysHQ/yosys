@@ -31,7 +31,7 @@ struct CellType
 {
 	RTLIL::IdString type;
 	std::set<RTLIL::IdString> inputs, outputs;
-	bool maybe_has_internal_state;
+	bool is_evaluable;
 };
 
 struct CellTypes
@@ -58,9 +58,9 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const std::set<RTLIL::IdString> &inputs, const std::set<RTLIL::IdString> &outputs, bool maybe_has_internal_state)
+	void setup_type(RTLIL::IdString type, const std::set<RTLIL::IdString> &inputs, const std::set<RTLIL::IdString> &outputs, bool is_evaluable = false)
 	{
-		CellType ct = {type, inputs, outputs, maybe_has_internal_state};
+		CellType ct = {type, inputs, outputs, is_evaluable};
 		cell_types[ct.type] = ct;
 	}
 
@@ -74,7 +74,7 @@ struct CellTypes
 			if (wire->port_output)
 				outputs.insert(wire->name);
 		}
-		setup_type(module->name, inputs, outputs, true);
+		setup_type(module->name, inputs, outputs);
 	}
 
 	void setup_design(RTLIL::Design *design)
@@ -100,40 +100,40 @@ struct CellTypes
 		};
 
 		for (auto type : unary_ops)
-			setup_type(type, {"\\A"}, {"\\Y"}, false);
+			setup_type(type, {"\\A"}, {"\\Y"}, true);
 
 		for (auto type : binary_ops)
-			setup_type(type, {"\\A", "\\B"}, {"\\Y"}, false);
+			setup_type(type, {"\\A", "\\B"}, {"\\Y"}, true);
 
 		for (auto type : std::vector<RTLIL::IdString>({"$mux", "$pmux"}))
-			setup_type(type, {"\\A", "\\B", "\\S"}, {"\\Y"}, false);
+			setup_type(type, {"\\A", "\\B", "\\S"}, {"\\Y"}, true);
 
-		setup_type("$assert", {"\\A", "\\EN"}, {}, false);
+		setup_type("$assert", {"\\A", "\\EN"}, {}, true);
 	}
 
 	void setup_internals_mem()
 	{
-		setup_type("$sr", {"\\SET", "\\CLR"}, {"\\Q"}, true);
-		setup_type("$dff", {"\\CLK", "\\D"}, {"\\Q"}, true);
-		setup_type("$dffsr", {"\\CLK", "\\SET", "\\CLR", "\\D"}, {"\\Q"}, true);
-		setup_type("$adff", {"\\CLK", "\\ARST", "\\D"}, {"\\Q"}, true);
-		setup_type("$dlatch", {"\\EN", "\\D"}, {"\\Q"}, true);
-		setup_type("$dlatchsr", {"\\EN", "\\SET", "\\CLR", "\\D"}, {"\\Q"}, true);
+		setup_type("$sr", {"\\SET", "\\CLR"}, {"\\Q"});
+		setup_type("$dff", {"\\CLK", "\\D"}, {"\\Q"});
+		setup_type("$dffsr", {"\\CLK", "\\SET", "\\CLR", "\\D"}, {"\\Q"});
+		setup_type("$adff", {"\\CLK", "\\ARST", "\\D"}, {"\\Q"});
+		setup_type("$dlatch", {"\\EN", "\\D"}, {"\\Q"});
+		setup_type("$dlatchsr", {"\\EN", "\\SET", "\\CLR", "\\D"}, {"\\Q"});
 
-		setup_type("$memrd", {"\\CLK", "\\ADDR"}, {"\\DATA"}, true);
-		setup_type("$memwr", {"\\CLK", "\\EN", "\\ADDR", "\\DATA"}, {}, true);
-		setup_type("$mem", {"\\RD_CLK", "\\RD_ADDR", "\\WR_CLK", "\\WR_EN", "\\WR_ADDR", "\\WR_DATA"}, {"\\RD_DATA"}, true);
+		setup_type("$memrd", {"\\CLK", "\\ADDR"}, {"\\DATA"});
+		setup_type("$memwr", {"\\CLK", "\\EN", "\\ADDR", "\\DATA"}, {});
+		setup_type("$mem", {"\\RD_CLK", "\\RD_ADDR", "\\WR_CLK", "\\WR_EN", "\\WR_ADDR", "\\WR_DATA"}, {"\\RD_DATA"});
 
-		setup_type("$fsm", {"\\CLK", "\\ARST", "\\CTRL_IN"}, {"\\CTRL_OUT"}, true);
+		setup_type("$fsm", {"\\CLK", "\\ARST", "\\CTRL_IN"}, {"\\CTRL_OUT"});
 	}
 
 	void setup_stdcells()
 	{
-		setup_type("$_NOT_", {"\\A"}, {"\\Y"}, false);
-		setup_type("$_AND_", {"\\A", "\\B"}, {"\\Y"}, false);
-		setup_type("$_OR_",  {"\\A", "\\B"}, {"\\Y"}, false);
-		setup_type("$_XOR_", {"\\A", "\\B"}, {"\\Y"}, false);
-		setup_type("$_MUX_", {"\\A", "\\B", "\\S"}, {"\\Y"}, false);
+		setup_type("$_NOT_", {"\\A"}, {"\\Y"}, true);
+		setup_type("$_AND_", {"\\A", "\\B"}, {"\\Y"}, true);
+		setup_type("$_OR_",  {"\\A", "\\B"}, {"\\Y"}, true);
+		setup_type("$_XOR_", {"\\A", "\\B"}, {"\\Y"}, true);
+		setup_type("$_MUX_", {"\\A", "\\B", "\\S"}, {"\\Y"}, true);
 	}
 
 	void setup_stdcells_mem()
@@ -142,28 +142,28 @@ struct CellTypes
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
-			setup_type(stringf("$_SR_%c%c_", c1, c2), {"\\S", "\\R"}, {"\\Q"}, true);
+			setup_type(stringf("$_SR_%c%c_", c1, c2), {"\\S", "\\R"}, {"\\Q"});
 
 		for (auto c1 : list_np)
-			setup_type(stringf("$_DFF_%c_", c1), {"\\C", "\\D"}, {"\\Q"}, true);
+			setup_type(stringf("$_DFF_%c_", c1), {"\\C", "\\D"}, {"\\Q"});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
-			setup_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {"\\C", "\\R", "\\D"}, {"\\Q"}, true);
+			setup_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {"\\C", "\\R", "\\D"}, {"\\Q"});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_np)
-			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {"\\C", "\\S", "\\R", "\\D"}, {"\\Q"}, true);
+			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {"\\C", "\\S", "\\R", "\\D"}, {"\\Q"});
 
 		for (auto c1 : list_np)
-			setup_type(stringf("$_DLATCH_%c_", c1), {"\\E", "\\D"}, {"\\Q"}, true);
+			setup_type(stringf("$_DLATCH_%c_", c1), {"\\E", "\\D"}, {"\\Q"});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_np)
-			setup_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {"\\E", "\\S", "\\R", "\\D"}, {"\\Q"}, true);
+			setup_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {"\\E", "\\S", "\\R", "\\D"}, {"\\Q"});
 	}
 
 	void clear()
@@ -186,6 +186,12 @@ struct CellTypes
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.inputs.count(port) != 0;
+	}
+
+	bool cell_evaluable(RTLIL::IdString type)
+	{
+		auto it = cell_types.find(type);
+		return it != cell_types.end() && it->second.is_evaluable;
 	}
 
 	static RTLIL::Const eval(RTLIL::IdString type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
