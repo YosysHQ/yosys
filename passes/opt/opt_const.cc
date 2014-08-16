@@ -21,7 +21,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
-#include "kernel/toposort.h"
+#include "kernel/utils.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <stdio.h>

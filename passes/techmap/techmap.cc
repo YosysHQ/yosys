@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/toposort.h"
+#include "kernel/utils.h"
 #include "kernel/sigtools.h"
 #include "libs/sha1/sha1.h"
 
