@@ -502,21 +502,61 @@ module \$__arraymul (A, B, Y);
 	input [WIDTH-1:0] A, B;
 	output [WIDTH-1:0] Y;
 
-	wire [1023:0] _TECHMAP_DO_ = "proc;;";
+	wire [1023:0] _TECHMAP_DO_ = "proc;; opt";
 
 	integer i;
-	reg [WIDTH-1:0] x, y;
+	reg [WIDTH-1:0] x;
+	reg [2*WIDTH-1:0] y;
+
+	function [2*WIDTH-1:0] acc_set;
+		input [WIDTH-1:0] value;
+		integer k;
+		begin
+			for (k = 0; k < WIDTH; k = k+1) begin
+				acc_set[2*k +: 2] = value[k];
+			end
+		end
+	endfunction
+
+	function [2*WIDTH-1:0] acc_add;
+		input [2*WIDTH-1:0] old_acc;
+		input [WIDTH-1:0] value;
+		integer k;
+		reg a, b, c;
+		begin
+			for (k = 0; k < WIDTH; k = k+1) begin
+				a = old_acc[2*k];
+				b = k ? old_acc[2*k-1] : 1'b0;
+				c = value[k];
+				acc_add[2*k] = (a ^ b) ^ c;
+				acc_add[2*k+1] = (a & b) | ((a ^ b) & c);
+			end
+		end
+	endfunction
+
+	function [WIDTH-1:0] acc_get;
+		input [2*WIDTH-1:0] acc;
+		integer k;
+		begin
+			// at the end of the multiplier chain the carry-save accumulator
+			// should also have propagated all carries. thus we just need to
+			// copy the even bits from the carry accumulator to the output.
+			for (k = 0; k < WIDTH; k = k+1) begin
+				acc_get[k] = acc[2*k];
+			end
+		end
+	endfunction
 
 	always @* begin
 		x = B;
-		y = A[0] ? x : 0;
+		y = acc_set(A[0] ? x : 0);
 		for (i = 1; i < WIDTH; i = i+1) begin
 			x = {x[WIDTH-2:0], 1'b0};
-			y = y + (A[i] ? x : 0);
+			y = acc_add(y, A[i] ? x : 0);
 		end
 	end
 
-	assign Y = y;
+	assign Y = acc_get(y);
 endmodule
 
 module \$mul (A, B, Y);
