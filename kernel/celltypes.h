@@ -131,9 +131,16 @@ struct CellTypes
 	{
 		setup_type("$_NOT_", {"\\A"}, {"\\Y"}, true);
 		setup_type("$_AND_", {"\\A", "\\B"}, {"\\Y"}, true);
+		setup_type("$_NAND_", {"\\A", "\\B"}, {"\\Y"}, true);
 		setup_type("$_OR_",  {"\\A", "\\B"}, {"\\Y"}, true);
+		setup_type("$_NOR_",  {"\\A", "\\B"}, {"\\Y"}, true);
 		setup_type("$_XOR_", {"\\A", "\\B"}, {"\\Y"}, true);
+		setup_type("$_XNOR_", {"\\A", "\\B"}, {"\\Y"}, true);
 		setup_type("$_MUX_", {"\\A", "\\B", "\\S"}, {"\\Y"}, true);
+		setup_type("$_AOI3_", {"\\A", "\\B", "\\C"}, {"\\Y"}, true);
+		setup_type("$_OAI3_", {"\\A", "\\B", "\\C"}, {"\\Y"}, true);
+		setup_type("$_AOI4_", {"\\A", "\\B", "\\C", "\\D"}, {"\\Y"}, true);
+		setup_type("$_OAI4_", {"\\A", "\\B", "\\C", "\\D"}, {"\\Y"}, true);
 	}
 
 	void setup_stdcells_mem()
@@ -194,6 +201,14 @@ struct CellTypes
 		return it != cell_types.end() && it->second.is_evaluable;
 	}
 
+	static RTLIL::Const eval_not(RTLIL::Const v)
+	{
+		for (auto &bit : v.bits)
+			if (bit == RTLIL::S0) bit = RTLIL::S1;
+			else if (bit == RTLIL::S1) bit = RTLIL::S0;
+		return v;
+	}
+
 	static RTLIL::Const eval(RTLIL::IdString type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 	{
 		if (type == "$sshr" && !signed1)
@@ -247,13 +262,19 @@ struct CellTypes
 #undef HANDLE_CELL_TYPE
 
 		if (type == "$_NOT_")
-			return const_not(arg1, arg2, false, false, 1);
+			return eval_not(arg1);
 		if (type == "$_AND_")
 			return const_and(arg1, arg2, false, false, 1);
+		if (type == "$_NAND_")
+			return eval_not(const_and(arg1, arg2, false, false, 1));
 		if (type == "$_OR_")
 			return const_or(arg1, arg2, false, false, 1);
+		if (type == "$_NOR_")
+			return eval_not(const_and(arg1, arg2, false, false, 1));
 		if (type == "$_XOR_")
 			return const_xor(arg1, arg2, false, false, 1);
+		if (type == "$_XNOR_")
+			return const_xnor(arg1, arg2, false, false, 1);
 
 		log_abort();
 	}
@@ -280,20 +301,36 @@ struct CellTypes
 		return eval(cell->type, arg1, arg2, signed_a, signed_b, result_len);
 	}
 
-	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &sel)
+	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3)
 	{
-		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$_MUX_") {
+		if (cell->type.in("$mux", "$pmux", "$_MUX_")) {
 			RTLIL::Const ret = arg1;
-			for (size_t i = 0; i < sel.bits.size(); i++)
-				if (sel.bits[i] == RTLIL::State::S1) {
+			for (size_t i = 0; i < arg3.bits.size(); i++)
+				if (arg3.bits[i] == RTLIL::State::S1) {
 					std::vector<RTLIL::State> bits(arg2.bits.begin() + i*arg1.bits.size(), arg2.bits.begin() + (i+1)*arg1.bits.size());
 					ret = RTLIL::Const(bits);
 				}
 			return ret;
 		}
 
-		log_assert(sel.bits.size() == 0);
+		if (cell->type == "$_AOI3_")
+			return eval_not(const_or(const_and(arg1, arg2, false, false, 1), arg3, false, false, 1));
+		if (cell->type == "$_OAI3_")
+			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), arg3, false, false, 1));
+
+		log_assert(arg3.bits.size() == 0);
 		return eval(cell, arg1, arg2);
+	}
+
+	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, const RTLIL::Const &arg4)
+	{
+		if (cell->type == "$_AOI4_")
+			return eval_not(const_or(const_and(arg1, arg2, false, false, 1), const_and(arg3, arg4, false, false, 1), false, false, 1));
+		if (cell->type == "$_OAI4_")
+			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), const_and(arg3, arg4, false, false, 1), false, false, 1));
+
+		log_assert(arg4.bits.size() == 0);
+		return eval(cell, arg1, arg2, arg3);
 	}
 };
 

@@ -156,11 +156,26 @@ struct ConstEval
 		}
 		else
 		{
+			RTLIL::SigSpec sig_c, sig_d;
+
+			if (cell->type.in("$_AOI3_", "$_OAI3_", "$_AOI4_", "$_OAI4_")) {
+				if (cell->hasPort("\\C"))
+					sig_c = cell->getPort("\\C");
+				if (cell->hasPort("\\D"))
+					sig_d = cell->getPort("\\D");
+			}
+
 			if (sig_a.size() > 0 && !eval(sig_a, undef, cell))
 				return false;
 			if (sig_b.size() > 0 && !eval(sig_b, undef, cell))
 				return false;
-			set(sig_y, CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const()));
+			if (sig_c.size() > 0 && !eval(sig_c, undef, cell))
+				return false;
+			if (sig_d.size() > 0 && !eval(sig_d, undef, cell))
+				return false;
+
+			set(sig_y, CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(),
+					sig_c.as_const(), sig_d.as_const()));
 		}
 
 		return true;

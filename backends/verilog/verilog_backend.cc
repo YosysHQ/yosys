@@ -381,21 +381,25 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_") {
+	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_")) {
 		fprintf(f, "%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
 		fprintf(f, " = ");
+		if (cell->type.in("$_NAND_", "$_NOR_", "$_XNOR_"))
+			fprintf(f, "~(");
 		dump_cell_expr_port(f, cell, "A", false);
 		fprintf(f, " ");
-		if (cell->type == "$_AND_")
+		if (cell->type.in("$_AND_", "$_NAND_"))
 			fprintf(f, "&");
-		if (cell->type == "$_OR_")
+		if (cell->type.in("$_OR_", "$_NOR_"))
 			fprintf(f, "|");
-		if (cell->type == "$_XOR_")
+		if (cell->type.in("$_XOR_", "$_XNOR_"))
 			fprintf(f, "^");
 		dump_attributes(f, "", cell->attributes, ' ');
 		fprintf(f, " ");
 		dump_cell_expr_port(f, cell, "B", false);
+		if (cell->type.in("$_NAND_", "$_NOR_", "$_XNOR_"))
+			fprintf(f, ")");
 		fprintf(f, ";\n");
 		return true;
 	}
@@ -411,6 +415,38 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		fprintf(f, " : ");
 		dump_cell_expr_port(f, cell, "A", false);
 		fprintf(f, ";\n");
+		return true;
+	}
+
+	if (cell->type.in("$_AOI3_", "$_OAI3_")) {
+		fprintf(f, "%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		fprintf(f, " = (");
+		dump_cell_expr_port(f, cell, "A", false);
+		fprintf(f, cell->type == "$_AOI3_" ? " & " : " | ");
+		dump_cell_expr_port(f, cell, "B", false);
+		fprintf(f, cell->type == "$_AOI3_" ? ") |" : ") &");
+		dump_attributes(f, "", cell->attributes, ' ');
+		fprintf(f, " ");
+		dump_cell_expr_port(f, cell, "C", false);
+		fprintf(f, ";\n");
+		return true;
+	}
+
+	if (cell->type.in("$_AOI4_", "$_OAI4_")) {
+		fprintf(f, "%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		fprintf(f, " = (");
+		dump_cell_expr_port(f, cell, "A", false);
+		fprintf(f, cell->type == "$_AOI4_" ? " & " : " | ");
+		dump_cell_expr_port(f, cell, "B", false);
+		fprintf(f, cell->type == "$_AOI4_" ? ") |" : ") &");
+		dump_attributes(f, "", cell->attributes, ' ');
+		fprintf(f, " (");
+		dump_cell_expr_port(f, cell, "C", false);
+		fprintf(f, cell->type == "$_AOI4_" ? " & " : " | ");
+		dump_cell_expr_port(f, cell, "D", false);
+		fprintf(f, ");\n");
 		return true;
 	}
 

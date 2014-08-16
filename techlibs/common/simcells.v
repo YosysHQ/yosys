@@ -37,10 +37,22 @@ output Y;
 assign Y = A & B;
 endmodule
 
+module  \$_NAND_ (A, B, Y);
+input A, B;
+output Y;
+assign Y = ~(A & B);
+endmodule
+
 module  \$_OR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = A | B;
+endmodule
+
+module  \$_NOR_ (A, B, Y);
+input A, B;
+output Y;
+assign Y = ~(A | B);
 endmodule
 
 module  \$_XOR_ (A, B, Y);
@@ -49,10 +61,40 @@ output Y;
 assign Y = A ^ B;
 endmodule
 
+module  \$_XNOR_ (A, B, Y);
+input A, B;
+output Y;
+assign Y = ~(A ^ B);
+endmodule
+
 module \$_MUX_ (A, B, S, Y);
 input A, B, S;
 output Y;
 assign Y = S ? B : A;
+endmodule
+
+module  \$_AOI3_ (A, B, C, Y);
+input A, B, C;
+output Y;
+assign Y = ~((A & B) | C);
+endmodule
+
+module  \$_OAI3_ (A, B, C, Y);
+input A, B, C;
+output Y;
+assign Y = ~((A | B) & C);
+endmodule
+
+module  \$_AOI4_ (A, B, C, D, Y);
+input A, B, C, D;
+output Y;
+assign Y = ~((A & B) | (C & D));
+endmodule
+
+module  \$_OAI4_ (A, B, C, D, Y);
+input A, B, C, D;
+output Y;
+assign Y = ~((A | B) & (C | D));
 endmodule
 
 module  \$_SR_NN_ (S, R, Q);

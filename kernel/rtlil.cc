@@ -758,11 +758,18 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$_NOT_") { check_gate("AY"); return; }
-			if (cell->type == "$_AND_") { check_gate("ABY"); return; }
-			if (cell->type == "$_OR_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_XOR_") { check_gate("ABY"); return; }
-			if (cell->type == "$_MUX_") { check_gate("ABSY"); return; }
+			if (cell->type == "$_NOT_")  { check_gate("AY"); return; }
+			if (cell->type == "$_AND_")  { check_gate("ABY"); return; }
+			if (cell->type == "$_NAND_") { check_gate("ABY"); return; }
+			if (cell->type == "$_OR_")   { check_gate("ABY"); return; }
+			if (cell->type == "$_NOR_")  { check_gate("ABY"); return; }
+			if (cell->type == "$_XOR_")  { check_gate("ABY"); return; }
+			if (cell->type == "$_XNOR_") { check_gate("ABY"); return; }
+			if (cell->type == "$_MUX_")  { check_gate("ABSY"); return; }
+			if (cell->type == "$_AOI3_") { check_gate("ABCY"); return; }
+			if (cell->type == "$_OAI3_") { check_gate("ABCY"); return; }
+			if (cell->type == "$_AOI4_") { check_gate("ABCDY"); return; }
+			if (cell->type == "$_OAI4_") { check_gate("ABCDY"); return; }
 
 			if (cell->type == "$_SR_NN_") { check_gate("SRQ"); return; }
 			if (cell->type == "$_SR_NP_") { check_gate("SRQ"); return; }

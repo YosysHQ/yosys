@@ -48,11 +48,30 @@
 
 #include "blifparse.h"
 
+enum class gate_type_t {
+	G_NONE,
+	G_FF,
+	G_NOT,
+	G_AND,
+	G_NAND,
+	G_OR,
+	G_NOR,
+	G_XOR,
+	G_XNOR,
+	G_MUX,
+	G_AOI3,
+	G_OAI3,
+	G_AOI4,
+	G_OAI4
+};
+
+#define G(_name) gate_type_t::G_ ## _name
+
 struct gate_t
 {
 	int id;
-	char type;
-	int in1, in2, in3;
+	gate_type_t type;
+	int in1, in2, in3, in4;
 	bool is_port;
 	RTLIL::SigBit bit;
 };
@@ -66,17 +85,18 @@ static std::map<RTLIL::SigBit, int> signal_map;
 static bool clk_polarity;
 static RTLIL::SigSpec clk_sig;
 
-static int map_signal(RTLIL::SigBit bit, char gate_type = -1, int in1 = -1, int in2 = -1, int in3 = -1)
+static int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
 {
 	assign_map.apply(bit);
 
 	if (signal_map.count(bit) == 0) {
 		gate_t gate;
 		gate.id = signal_list.size();
-		gate.type = -1;
+		gate.type = G(NONE);
 		gate.in1 = -1;
 		gate.in2 = -1;
 		gate.in3 = -1;
+		gate.in4 = -1;
 		gate.is_port = false;
 		gate.bit = bit;
 		signal_list.push_back(gate);
@@ -85,7 +105,7 @@ static int map_signal(RTLIL::SigBit bit, char gate_type = -1, int in1 = -1, int 
 
 	gate_t &gate = signal_list[signal_map[bit]];
 
-	if (gate_type >= 0)
+	if (gate_type != G(NONE))
 		gate.type = gate_type;
 	if (in1 >= 0)
 		gate.in1 = in1;
@@ -93,6 +113,8 @@ static int map_signal(RTLIL::SigBit bit, char gate_type = -1, int in1 = -1, int 
 		gate.in2 = in2;
 	if (in3 >= 0)
 		gate.in3 = in3;
+	if (in4 >= 0)
+		gate.in4 = in4;
 
 	return gate.id;
 }
@@ -124,7 +146,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		assign_map.apply(sig_d);
 		assign_map.apply(sig_q);
 
-		map_signal(sig_q, 'f', map_signal(sig_d));
+		map_signal(sig_q, G(FF), map_signal(sig_d));
 
 		module->remove(cell);
 		return;
@@ -138,13 +160,13 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_y);
 
-		map_signal(sig_y, 'n', map_signal(sig_a));
+		map_signal(sig_y, G(NOT), map_signal(sig_a));
 
 		module->remove(cell);
 		return;
 	}
 
-	if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_")
+	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR", "$_XOR_", "$_XNOR_"))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -158,11 +180,17 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		int mapped_b = map_signal(sig_b);
 
 		if (cell->type == "$_AND_")
-			map_signal(sig_y, 'a', mapped_a, mapped_b);
+			map_signal(sig_y, G(AND), mapped_a, mapped_b);
+		else if (cell->type == "$_NAND_")
+			map_signal(sig_y, G(NAND), mapped_a, mapped_b);
 		else if (cell->type == "$_OR_")
-			map_signal(sig_y, 'o', mapped_a, mapped_b);
+			map_signal(sig_y, G(OR), mapped_a, mapped_b);
+		else if (cell->type == "$_NOR_")
+			map_signal(sig_y, G(NOR), mapped_a, mapped_b);
 		else if (cell->type == "$_XOR_")
-			map_signal(sig_y, 'x', mapped_a, mapped_b);
+			map_signal(sig_y, G(XOR), mapped_a, mapped_b);
+		else if (cell->type == "$_XNOR_")
+			map_signal(sig_y, G(XNOR), mapped_a, mapped_b);
 		else
 			log_abort();
 
@@ -186,7 +214,54 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		int mapped_b = map_signal(sig_b);
 		int mapped_s = map_signal(sig_s);
 
-		map_signal(sig_y, 'm', mapped_a, mapped_b, mapped_s);
+		map_signal(sig_y, G(MUX), mapped_a, mapped_b, mapped_s);
+
+		module->remove(cell);
+		return;
+	}
+
+	if (cell->type.in("$_AOI3_", "$_OAI3_"))
+	{
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		RTLIL::SigSpec sig_b = cell->getPort("\\B");
+		RTLIL::SigSpec sig_c = cell->getPort("\\C");
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+		assign_map.apply(sig_a);
+		assign_map.apply(sig_b);
+		assign_map.apply(sig_c);
+		assign_map.apply(sig_y);
+
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+		int mapped_c = map_signal(sig_c);
+
+		map_signal(sig_y, cell->type == "$_AOI3_" ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
+
+		module->remove(cell);
+		return;
+	}
+
+	if (cell->type.in("$_AOI4_", "$_OAI4_"))
+	{
+		RTLIL::SigSpec sig_a = cell->getPort("\\A");
+		RTLIL::SigSpec sig_b = cell->getPort("\\B");
+		RTLIL::SigSpec sig_c = cell->getPort("\\C");
+		RTLIL::SigSpec sig_d = cell->getPort("\\D");
+		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+		assign_map.apply(sig_a);
+		assign_map.apply(sig_b);
+		assign_map.apply(sig_c);
+		assign_map.apply(sig_d);
+		assign_map.apply(sig_y);
+
+		int mapped_a = map_signal(sig_a);
+		int mapped_b = map_signal(sig_b);
+		int mapped_c = map_signal(sig_c);
+		int mapped_d = map_signal(sig_d);
+
+		map_signal(sig_y, cell->type == "$_AOI4_" ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
 
 		module->remove(cell);
 		return;
@@ -244,7 +319,7 @@ static void handle_loops()
 	// dot_f = fopen("test.dot", "w");
 
 	for (auto &g : signal_list) {
-		if (g.type == -1 || g.type == 'f') {
+		if (g.type == G(NONE) || g.type == G(FF)) {
 			workpool.insert(g.id);
 		} else {
 			if (g.in1 >= 0) {
@@ -257,6 +332,10 @@ static void handle_loops()
 			}
 			if (g.in3 >= 0 && g.in3 != g.in2 && g.in3 != g.in1) {
 				edges[g.in3].insert(g.id);
+				in_edges_count[g.id]++;
+			}
+			if (g.in4 >= 0 && g.in4 != g.in3 && g.in4 != g.in2 && g.in4 != g.in1) {
+				edges[g.in4].insert(g.id);
 				in_edges_count[g.id]++;
 			}
 		}
@@ -341,6 +420,8 @@ static void handle_loops()
 					signal_list[id2].in2 = id3;
 				if (signal_list[id2].in3 == id1)
 					signal_list[id2].in3 = id3;
+				if (signal_list[id2].in4 == id1)
+					signal_list[id2].in4 = id3;
 			}
 			edges[id1].swap(edges[id3]);
 
@@ -521,7 +602,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	int count_input = 0;
 	fprintf(f, ".inputs");
 	for (auto &si : signal_list) {
-		if (!si.is_port || si.type >= 0)
+		if (!si.is_port || si.type != G(NONE))
 			continue;
 		fprintf(f, " n%d", si.id);
 		count_input++;
@@ -533,7 +614,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 	int count_output = 0;
 	fprintf(f, ".outputs");
 	for (auto &si : signal_list) {
-		if (!si.is_port || si.type < 0)
+		if (!si.is_port || si.type == G(NONE))
 			continue;
 		fprintf(f, " n%d", si.id);
 		count_output++;
@@ -553,29 +634,58 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 	int count_gates = 0;
 	for (auto &si : signal_list) {
-		if (si.type == 'n') {
+		if (si.type == G(NOT)) {
 			fprintf(f, ".names n%d n%d\n", si.in1, si.id);
 			fprintf(f, "0 1\n");
-		} else if (si.type == 'a') {
+		} else if (si.type == G(AND)) {
 			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "11 1\n");
-		} else if (si.type == 'o') {
+		} else if (si.type == G(NAND)) {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "0- 1\n");
+			fprintf(f, "-0 1\n");
+		} else if (si.type == G(OR)) {
 			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "-1 1\n");
 			fprintf(f, "1- 1\n");
-		} else if (si.type == 'x') {
+		} else if (si.type == G(NOR)) {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "00 1\n");
+		} else if (si.type == G(XOR)) {
 			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "01 1\n");
 			fprintf(f, "10 1\n");
-		} else if (si.type == 'm') {
+		} else if (si.type == G(XNOR)) {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "00 1\n");
+			fprintf(f, "11 1\n");
+		} else if (si.type == G(MUX)) {
 			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "1-0 1\n");
 			fprintf(f, "-11 1\n");
-		} else if (si.type == 'f') {
+		} else if (si.type == G(AOI3)) {
+			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, "-00 1\n");
+			fprintf(f, "0-0 1\n");
+		} else if (si.type == G(OAI3)) {
+			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
+			fprintf(f, "00- 1\n");
+			fprintf(f, "--0 1\n");
+		} else if (si.type == G(AOI4)) {
+			fprintf(f, ".names n%d n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.in4, si.id);
+			fprintf(f, "-0-0 1\n");
+			fprintf(f, "-00- 1\n");
+			fprintf(f, "0--0 1\n");
+			fprintf(f, "0-0- 1\n");
+		} else if (si.type == G(OAI4)) {
+			fprintf(f, ".names n%d n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.in4, si.id);
+			fprintf(f, "00-- 1\n");
+			fprintf(f, "--00 1\n");
+		} else if (si.type == G(FF)) {
 			fprintf(f, ".latch n%d n%d\n", si.in1, si.id);
-		} else if (si.type >= 0)
+		} else if (si.type != G(NONE))
 			log_abort();
-		if (si.type >= 0)
+		if (si.type != G(NONE))
 			count_gates++;
 	}
 
@@ -599,9 +709,16 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		fprintf(f, "GATE BUF  1 Y=A;                  PIN * NONINV  1 999 1 0 1 0\n");
 		fprintf(f, "GATE INV  1 Y=!A;                 PIN * INV     1 999 1 0 1 0\n");
 		fprintf(f, "GATE AND  1 Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n");
+		fprintf(f, "GATE NAND 1 Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n");
 		fprintf(f, "GATE OR   1 Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n");
+		fprintf(f, "GATE NOR  1 Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n");
 		fprintf(f, "GATE XOR  1 Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n");
+		fprintf(f, "GATE XNOR 1 Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n");
 		fprintf(f, "GATE MUX  1 Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n");
+		fprintf(f, "GATE AOI3 1 Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n");
+		fprintf(f, "GATE OAI3 1 Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n");
+		fprintf(f, "GATE AOI4 1 Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n");
+		fprintf(f, "GATE OAI4 1 Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n");
 		fclose(f);
 		free(p);
 
@@ -739,7 +856,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR") {
+				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" || c->type == "\\XNOR") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
@@ -752,6 +869,25 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\S", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\S").as_wire()->name)]));
+					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
+					design->select(module, cell);
+					continue;
+				}
+				if (c->type == "\\AOI3" || c->type == "\\OAI3") {
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
+					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
+					cell->setPort("\\C", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\C").as_wire()->name)]));
+					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
+					design->select(module, cell);
+					continue;
+				}
+				if (c->type == "\\AOI4" || c->type == "\\OAI4") {
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
+					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
+					cell->setPort("\\C", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\C").as_wire()->name)]));
+					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
 					design->select(module, cell);
 					continue;
@@ -822,7 +958,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 				char buffer[100];
 				snprintf(buffer, 100, "\\n%d", si.id);
 				RTLIL::SigSig conn;
-				if (si.type >= 0) {
+				if (si.type != G(NONE)) {
 					conn.first = si.bit;
 					conn.second = RTLIL::SigSpec(module->wires_[remap_name(buffer)]);
 					out_wires++;

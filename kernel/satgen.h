@@ -175,6 +175,11 @@ struct SatGen
 		}
 	}
 
+	void undefGating(int y, int yy, int undef)
+	{
+		ez->assume(ez->OR(undef, ez->IFF(y, yy)));
+	}
+
 	bool importCell(RTLIL::Cell *cell, int timestep = -1)
 	{
 		bool arith_undef_handled = false;
@@ -211,9 +216,8 @@ struct SatGen
 			arith_undef_handled = true;
 		}
 
-		if (cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_" ||
-				cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
-				cell->type == "$add" || cell->type == "$sub")
+		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_",
+				"$and", "$or", "$xor", "$xnor", "$add", "$sub"))
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
 			std::vector<int> b = importDefSigSpec(cell->getPort("\\B"), timestep);
@@ -224,11 +228,15 @@ struct SatGen
 
 			if (cell->type == "$and" || cell->type == "$_AND_")
 				ez->assume(ez->vec_eq(ez->vec_and(a, b), yy));
+			if (cell->type == "$_NAND_")
+				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_and(a, b)), yy));
 			if (cell->type == "$or" || cell->type == "$_OR_")
 				ez->assume(ez->vec_eq(ez->vec_or(a, b), yy));
+			if (cell->type == "$_NOR_")
+				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_or(a, b)), yy));
 			if (cell->type == "$xor" || cell->type == "$_XOR_")
 				ez->assume(ez->vec_eq(ez->vec_xor(a, b), yy));
-			if (cell->type == "$xnor")
+			if (cell->type == "$xnor" || cell->type == "$_XNOR_")
 				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(a, b)), yy));
 			if (cell->type == "$add")
 				ez->assume(ez->vec_eq(ez->vec_add(a, b), yy));
@@ -242,19 +250,19 @@ struct SatGen
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
 				extendSignalWidth(undef_a, undef_b, undef_y, cell, false);
 
-				if (cell->type == "$and" || cell->type == "$_AND_") {
+				if (cell->type.in("$and", "$_AND_", "$_NAND_")) {
 					std::vector<int> a0 = ez->vec_and(ez->vec_not(a), ez->vec_not(undef_a));
 					std::vector<int> b0 = ez->vec_and(ez->vec_not(b), ez->vec_not(undef_b));
 					std::vector<int> yX = ez->vec_and(ez->vec_or(undef_a, undef_b), ez->vec_not(ez->vec_or(a0, b0)));
 					ez->assume(ez->vec_eq(yX, undef_y));
 				}
-				else if (cell->type == "$or" || cell->type == "$_OR_") {
+				else if (cell->type.in("$or", "$_OR_", "$_NOR_")) {
 					std::vector<int> a1 = ez->vec_and(a, ez->vec_not(undef_a));
 					std::vector<int> b1 = ez->vec_and(b, ez->vec_not(undef_b));
 					std::vector<int> yX = ez->vec_and(ez->vec_or(undef_a, undef_b), ez->vec_not(ez->vec_or(a1, b1)));
 					ez->assume(ez->vec_eq(yX, undef_y));
 				}
-				else if (cell->type == "$xor" || cell->type == "$_XOR_" || cell->type == "$xnor") {
+				else if (cell->type.in("$xor", "$xnor", "$_XOR_", "$_XNOR_")) {
 					std::vector<int> yX = ez->vec_or(undef_a, undef_b);
 					ez->assume(ez->vec_eq(yX, undef_y));
 				}
@@ -268,6 +276,72 @@ struct SatGen
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
 				undefGating(y, yy, undef_y);
 			}
+			return true;
+		}
+
+		if (cell->type.in("$_AOI3_", "$_OAI3_", "$_AOI4_", "$_OAI4_"))
+		{
+			bool aoi_mode = cell->type.in("$_AOI3_", "$_AOI4_");
+			bool three_mode = cell->type.in("$_AOI3_", "$_OAI3_");
+
+			int a = importDefSigSpec(cell->getPort("\\A"), timestep).at(0);
+			int b = importDefSigSpec(cell->getPort("\\B"), timestep).at(0);
+			int c = importDefSigSpec(cell->getPort("\\C"), timestep).at(0);
+			int d = three_mode ? (aoi_mode ? ez->TRUE : ez->FALSE) : importDefSigSpec(cell->getPort("\\D"), timestep).at(0);
+			int y = importDefSigSpec(cell->getPort("\\Y"), timestep).at(0);
+			int yy = model_undef ? ez->literal() : y;
+
+			if (cell->type.in("$_AOI3_", "$_AOI4_"))
+				ez->assume(ez->IFF(ez->NOT(ez->OR(ez->AND(a, b), ez->AND(c, d))), yy));
+			else
+				ez->assume(ez->IFF(ez->NOT(ez->AND(ez->OR(a, b), ez->OR(c, d))), yy));
+
+			if (model_undef)
+			{
+				int undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep).at(0);
+				int undef_b = importUndefSigSpec(cell->getPort("\\B"), timestep).at(0);
+				int undef_c = importUndefSigSpec(cell->getPort("\\C"), timestep).at(0);
+				int undef_d = three_mode ? ez->FALSE : importUndefSigSpec(cell->getPort("\\D"), timestep).at(0);
+				int undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep).at(0);
+
+				if (aoi_mode)
+				{
+					int a0 = ez->AND(ez->NOT(a), ez->NOT(undef_a));
+					int b0 = ez->AND(ez->NOT(b), ez->NOT(undef_b));
+					int c0 = ez->AND(ez->NOT(c), ez->NOT(undef_c));
+					int d0 = ez->AND(ez->NOT(d), ez->NOT(undef_d));
+
+					int ab = ez->AND(a, b), cd = ez->AND(c, d);
+					int undef_ab = ez->AND(ez->OR(undef_a, undef_b), ez->NOT(ez->OR(a0, b0)));
+					int undef_cd = ez->AND(ez->OR(undef_c, undef_d), ez->NOT(ez->OR(c0, d0)));
+
+					int ab1 = ez->AND(ab, ez->NOT(undef_ab));
+					int cd1 = ez->AND(cd, ez->NOT(undef_cd));
+					int yX = ez->AND(ez->OR(undef_ab, undef_cd), ez->NOT(ez->OR(ab1, cd1)));
+
+					ez->assume(ez->IFF(yX, undef_y));
+				}
+				else
+				{
+					int a1 = ez->AND(a, ez->NOT(undef_a));
+					int b1 = ez->AND(b, ez->NOT(undef_b));
+					int c1 = ez->AND(c, ez->NOT(undef_c));
+					int d1 = ez->AND(d, ez->NOT(undef_d));
+
+					int ab = ez->OR(a, b), cd = ez->OR(c, d);
+					int undef_ab = ez->AND(ez->OR(undef_a, undef_b), ez->NOT(ez->OR(a1, b1)));
+					int undef_cd = ez->AND(ez->OR(undef_c, undef_d), ez->NOT(ez->OR(c1, d1)));
+
+					int ab0 = ez->AND(ez->NOT(ab), ez->NOT(undef_ab));
+					int cd0 = ez->AND(ez->NOT(cd), ez->NOT(undef_cd));
+					int yX = ez->AND(ez->OR(undef_ab, undef_cd), ez->NOT(ez->OR(ab0, cd0)));
+
+					ez->assume(ez->IFF(yX, undef_y));
+				}
+
+				undefGating(y, yy, undef_y);
+			}
+
 			return true;
 		}
 
