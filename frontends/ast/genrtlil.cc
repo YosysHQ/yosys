@@ -27,6 +27,7 @@
  */
 
 #include "kernel/log.h"
+#include "kernel/utils.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
 
@@ -183,13 +184,13 @@ struct AST_INTERNAL::ProcessGenerator
 	// hand side of the 2nd assignment needs to be replace with the temporary signal holding
 	// the value assigned in the first assignment. So when the first assignement is processed
 	// the according information is appended to subst_rvalue_from and subst_rvalue_to.
-	std::map<RTLIL::SigBit, RTLIL::SigBit> subst_rvalue_map;
+	stackmap<RTLIL::SigBit, RTLIL::SigBit> subst_rvalue_map;
 
 	// This map contains the replacement pattern to be used in the left hand side
 	// of an assignment. E.g. in the code "always @(posedge clk) foo <= bar" the signal bar
 	// should not be connected to the signal foo. Instead it must be connected to the temporary
 	// signal that is used as input for the register that drives the signal foo.
-	std::map<RTLIL::SigBit, RTLIL::SigBit> subst_lvalue_map;
+	stackmap<RTLIL::SigBit, RTLIL::SigBit> subst_lvalue_map;
 
 	// The code here generates a number of temprorary signal for each output register. This
 	// map helps generating nice numbered names for all this temporary signals.
@@ -402,12 +403,12 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_ASSIGN_LE:
 			{
 				RTLIL::SigSpec unmapped_lvalue = ast->children[0]->genRTLIL(), lvalue = unmapped_lvalue;
-				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &subst_rvalue_map);
-				lvalue.replace(subst_lvalue_map);
+				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &subst_rvalue_map.stdmap());
+				lvalue.replace(subst_lvalue_map.stdmap());
 
 				if (ast->type == AST_ASSIGN_EQ) {
 					for (int i = 0; i < SIZE(unmapped_lvalue); i++)
-						subst_rvalue_map[unmapped_lvalue[i]] = rvalue[i];
+						subst_rvalue_map.set(unmapped_lvalue[i], rvalue[i]);
 				}
 
 				removeSignalFromCaseTree(lvalue, current_case);
@@ -418,7 +419,7 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_CASE:
 			{
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
-				sw->signal = ast->children[0]->genWidthRTLIL(-1, &subst_rvalue_map);
+				sw->signal = ast->children[0]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
 				current_case->switches.push_back(sw);
 
 				for (auto &attr : ast->attributes) {
@@ -434,10 +435,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec this_case_eq_ltemp = new_temp_signal(this_case_eq_lvalue);
 
 				RTLIL::SigSpec this_case_eq_rvalue = this_case_eq_lvalue;
-				this_case_eq_rvalue.replace(subst_rvalue_map);
-
-				std::map<RTLIL::SigBit, RTLIL::SigBit> backup_subst_lvalue_map = subst_lvalue_map;
-				std::map<RTLIL::SigBit, RTLIL::SigBit> backup_subst_rvalue_map = subst_rvalue_map;
+				this_case_eq_rvalue.replace(subst_rvalue_map.stdmap());
 
 				RTLIL::CaseRule *default_case = NULL;
 				RTLIL::CaseRule *last_generated_case = NULL;
@@ -447,11 +445,11 @@ struct AST_INTERNAL::ProcessGenerator
 						continue;
 					log_assert(child->type == AST_COND);
 
-					subst_lvalue_map = backup_subst_lvalue_map;
-					subst_rvalue_map = backup_subst_rvalue_map;
+					subst_lvalue_map.save();
+					subst_rvalue_map.save();
 
 					for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
-						subst_lvalue_map[this_case_eq_lvalue[i]] = this_case_eq_ltemp[i];
+						subst_lvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
@@ -463,13 +461,16 @@ struct AST_INTERNAL::ProcessGenerator
 						else if (node->type == AST_BLOCK)
 							processAst(node);
 						else
-							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &subst_rvalue_map));
+							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &subst_rvalue_map.stdmap()));
 					}
 					if (default_case != current_case)
 						sw->cases.push_back(current_case);
 					else
 						log_assert(current_case->compare.size() == 0);
 					current_case = backup_case;
+
+					subst_lvalue_map.restore();
+					subst_rvalue_map.restore();
 				}
 
 				if (last_generated_case != NULL && ast->get_bool_attribute("\\full_case") && default_case == NULL) {
@@ -482,13 +483,10 @@ struct AST_INTERNAL::ProcessGenerator
 					sw->cases.push_back(default_case);
 				}
 
-				subst_lvalue_map = backup_subst_lvalue_map;
-				subst_rvalue_map = backup_subst_rvalue_map;
-
 				for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
-					subst_rvalue_map[this_case_eq_lvalue[i]] = this_case_eq_ltemp[i];
+					subst_rvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
-				this_case_eq_lvalue.replace(subst_lvalue_map);
+				this_case_eq_lvalue.replace(subst_lvalue_map.stdmap());
 				removeSignalFromCaseTree(this_case_eq_lvalue, current_case);
 				addChunkActions(current_case->actions, this_case_eq_lvalue, this_case_eq_ltemp);
 			}
@@ -1368,9 +1366,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 // this is a wrapper for AstNode::genRTLIL() when a specific signal width is requested and/or
 // signals must be substituted before beeing used as input values (used by ProcessGenerator)
 // note that this is using some global variables to communicate this special settings to AstNode::genRTLIL().
-RTLIL::SigSpec AstNode::genWidthRTLIL(int width, std::map<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
+RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const std::map<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
 {
-	std::map<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
+	const std::map<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
 
 	if (new_subst_ptr)
 		genRTLIL_subst_ptr = new_subst_ptr;

@@ -51,7 +51,7 @@ namespace AST_INTERNAL {
 	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
-	std::map<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
+	const std::map<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
 	AstNode *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
