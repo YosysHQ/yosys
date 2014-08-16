@@ -421,7 +421,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type.in("$_AOI3_", "$_OAI3_")) {
 		fprintf(f, "%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
-		fprintf(f, " = (");
+		fprintf(f, " = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
 		fprintf(f, cell->type == "$_AOI3_" ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
@@ -429,14 +429,14 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		dump_attributes(f, "", cell->attributes, ' ');
 		fprintf(f, " ");
 		dump_cell_expr_port(f, cell, "C", false);
-		fprintf(f, ";\n");
+		fprintf(f, ");\n");
 		return true;
 	}
 
 	if (cell->type.in("$_AOI4_", "$_OAI4_")) {
 		fprintf(f, "%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
-		fprintf(f, " = (");
+		fprintf(f, " = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
 		fprintf(f, cell->type == "$_AOI4_" ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
@@ -446,7 +446,7 @@ bool dump_cell_expr(FILE *f, std::string indent, RTLIL::Cell *cell)
 		dump_cell_expr_port(f, cell, "C", false);
 		fprintf(f, cell->type == "$_AOI4_" ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "D", false);
-		fprintf(f, ");\n");
+		fprintf(f, "));\n");
 		return true;
 	}
 
