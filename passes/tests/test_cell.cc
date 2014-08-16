@@ -21,12 +21,13 @@
 #include "kernel/yosys.h"
 #include <algorithm>
 
+static uint32_t xorshift32_state = 123456789;
+
 static uint32_t xorshift32(uint32_t limit) {
-	static uint32_t x = 123456789;
-	x ^= x << 13;
-	x ^= x >> 17;
-	x ^= x << 5;
-	return x % limit;
+	xorshift32_state ^= xorshift32_state << 13;
+	xorshift32_state ^= xorshift32_state >> 17;
+	xorshift32_state ^= xorshift32_state << 5;
+	return xorshift32_state % limit;
 }
 
 static void create_gold_module(RTLIL::Design *design, std::string cell_type, std::string cell_type_flags)
@@ -94,6 +95,9 @@ struct TestCellPass : public Pass {
 		log("    -n {integer}\n");
 		log("        create this number of cell instances and test them (default = 100).\n");
 		log("\n");
+		log("    -s {positive_integer}\n");
+		log("        use this value as rng seed value (default = unix time).\n");
+		log("\n");
 		log("    -f {ilang_file}\n");
 		log("        don't generate circuits. instead load the specified ilang file.\n");
 		log("\n");
@@ -106,12 +110,17 @@ struct TestCellPass : public Pass {
 		int num_iter = 100;
 		std::string techmap_cmd = "techmap -assert";
 		std::string ilang_file;
+		xorshift32_state = 0;
 
 		int argidx;
 		for (argidx = 1; argidx < SIZE(args); argidx++)
 		{
 			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
 				num_iter = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-s" && argidx+1 < SIZE(args)) {
+				xorshift32_state = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-map" && argidx+1 < SIZE(args)) {
@@ -125,6 +134,9 @@ struct TestCellPass : public Pass {
 			}
 			break;
 		}
+
+		if (xorshift32_state == 0)
+			xorshift32_state = time(NULL);
 
 		std::map<std::string, std::string> cell_types;
 		std::vector<std::string> selected_cell_types;
