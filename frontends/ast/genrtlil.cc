@@ -178,18 +178,18 @@ struct AST_INTERNAL::ProcessGenerator
 	// This always points to the RTLIL::CaseRule beeing filled at the moment
 	RTLIL::CaseRule *current_case;
 
-	// This two variables contain the replacement pattern to be used in the right hand side
+	// This map contains the replacement pattern to be used in the right hand side
 	// of an assignment. E.g. in the code "foo = bar; foo = func(foo);" the foo in the right
 	// hand side of the 2nd assignment needs to be replace with the temporary signal holding
 	// the value assigned in the first assignment. So when the first assignement is processed
 	// the according information is appended to subst_rvalue_from and subst_rvalue_to.
-	RTLIL::SigSpec subst_rvalue_from, subst_rvalue_to;
+	std::map<RTLIL::SigBit, RTLIL::SigBit> subst_rvalue_map;
 
-	// This two variables contain the replacement pattern to be used in the left hand side
+	// This map contains the replacement pattern to be used in the left hand side
 	// of an assignment. E.g. in the code "always @(posedge clk) foo <= bar" the signal bar
 	// should not be connected to the signal foo. Instead it must be connected to the temporary
 	// signal that is used as input for the register that drives the signal foo.
-	RTLIL::SigSpec subst_lvalue_from, subst_lvalue_to;
+	std::map<RTLIL::SigBit, RTLIL::SigBit> subst_lvalue_map;
 
 	// The code here generates a number of temprorary signal for each output register. This
 	// map helps generating nice numbered names for all this temporary signals.
@@ -214,8 +214,10 @@ struct AST_INTERNAL::ProcessGenerator
 		current_case = &proc->root_case;
 
 		// create initial temporary signal for all output registers
+		RTLIL::SigSpec subst_lvalue_from, subst_lvalue_to;
 		collect_lvalues(subst_lvalue_from, always, true, true);
 		subst_lvalue_to = new_temp_signal(subst_lvalue_from);
+		subst_lvalue_map = subst_lvalue_from.to_sigbit_map(subst_lvalue_to);
 
 		bool found_anyedge_syncs = false;
 		for (auto child : always->children)
@@ -251,8 +253,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		// create initial assignments for the temporary signals
 		if ((flag_nolatches || always->get_bool_attribute("\\nolatches") || current_module->get_bool_attribute("\\nolatches")) && !found_clocked_sync) {
-			subst_rvalue_from = subst_lvalue_from;
-			subst_rvalue_to = RTLIL::SigSpec(RTLIL::State::Sx, subst_rvalue_from.size());
+			subst_rvalue_map = subst_lvalue_from.to_sigbit_map(RTLIL::SigSpec(RTLIL::State::Sx, SIZE(subst_lvalue_from)));
 		} else {
 			addChunkActions(current_case->actions, subst_lvalue_to, subst_lvalue_from);
 		}
@@ -400,15 +401,13 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_ASSIGN_EQ:
 		case AST_ASSIGN_LE:
 			{
-				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map = subst_rvalue_from.to_sigbit_map(subst_rvalue_to);
 				RTLIL::SigSpec unmapped_lvalue = ast->children[0]->genRTLIL(), lvalue = unmapped_lvalue;
-				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &new_subst_rvalue_map);
-				lvalue.replace(subst_lvalue_from, subst_lvalue_to);
+				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &subst_rvalue_map);
+				lvalue.replace(subst_lvalue_map);
 
 				if (ast->type == AST_ASSIGN_EQ) {
-					subst_rvalue_from.remove2(unmapped_lvalue, &subst_rvalue_to);
-					subst_rvalue_from.append(unmapped_lvalue);
-					subst_rvalue_to.append(rvalue);
+					for (int i = 0; i < SIZE(unmapped_lvalue); i++)
+						subst_rvalue_map[unmapped_lvalue[i]] = rvalue[i];
 				}
 
 				removeSignalFromCaseTree(lvalue, current_case);
@@ -418,9 +417,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 		case AST_CASE:
 			{
-				std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map = subst_rvalue_from.to_sigbit_map(subst_rvalue_to);
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
-				sw->signal = ast->children[0]->genWidthRTLIL(-1, &new_subst_rvalue_map);
+				sw->signal = ast->children[0]->genWidthRTLIL(-1, &subst_rvalue_map);
 				current_case->switches.push_back(sw);
 
 				for (auto &attr : ast->attributes) {
@@ -436,13 +434,10 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec this_case_eq_ltemp = new_temp_signal(this_case_eq_lvalue);
 
 				RTLIL::SigSpec this_case_eq_rvalue = this_case_eq_lvalue;
-				this_case_eq_rvalue.replace(subst_rvalue_from, subst_rvalue_to);
+				this_case_eq_rvalue.replace(subst_rvalue_map);
 
-				RTLIL::SigSpec backup_subst_lvalue_from = subst_lvalue_from;
-				RTLIL::SigSpec backup_subst_lvalue_to = subst_lvalue_to;
-
-				RTLIL::SigSpec backup_subst_rvalue_from = subst_rvalue_from;
-				RTLIL::SigSpec backup_subst_rvalue_to = subst_rvalue_to;
+				std::map<RTLIL::SigBit, RTLIL::SigBit> backup_subst_lvalue_map = subst_lvalue_map;
+				std::map<RTLIL::SigBit, RTLIL::SigBit> backup_subst_rvalue_map = subst_rvalue_map;
 
 				RTLIL::CaseRule *default_case = NULL;
 				RTLIL::CaseRule *last_generated_case = NULL;
@@ -452,15 +447,11 @@ struct AST_INTERNAL::ProcessGenerator
 						continue;
 					log_assert(child->type == AST_COND);
 
-					subst_lvalue_from = backup_subst_lvalue_from;
-					subst_lvalue_to = backup_subst_lvalue_to;
+					subst_lvalue_map = backup_subst_lvalue_map;
+					subst_rvalue_map = backup_subst_rvalue_map;
 
-					subst_rvalue_from = backup_subst_rvalue_from;
-					subst_rvalue_to = backup_subst_rvalue_to;
-
-					subst_lvalue_from.remove2(this_case_eq_lvalue, &subst_lvalue_to);
-					subst_lvalue_from.append(this_case_eq_lvalue);
-					subst_lvalue_to.append(this_case_eq_ltemp);
+					for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
+						subst_lvalue_map[this_case_eq_lvalue[i]] = this_case_eq_ltemp[i];
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
@@ -471,10 +462,8 @@ struct AST_INTERNAL::ProcessGenerator
 							default_case = current_case;
 						else if (node->type == AST_BLOCK)
 							processAst(node);
-						else {
-							std::map<RTLIL::SigBit, RTLIL::SigBit> new_subst_rvalue_map = subst_rvalue_from.to_sigbit_map(subst_rvalue_to);
-							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &new_subst_rvalue_map));
-						}
+						else
+							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &subst_rvalue_map));
 					}
 					if (default_case != current_case)
 						sw->cases.push_back(current_case);
@@ -493,17 +482,13 @@ struct AST_INTERNAL::ProcessGenerator
 					sw->cases.push_back(default_case);
 				}
 
-				subst_lvalue_from = backup_subst_lvalue_from;
-				subst_lvalue_to = backup_subst_lvalue_to;
+				subst_lvalue_map = backup_subst_lvalue_map;
+				subst_rvalue_map = backup_subst_rvalue_map;
 
-				subst_rvalue_from = backup_subst_rvalue_from;
-				subst_rvalue_to = backup_subst_rvalue_to;
+				for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
+					subst_rvalue_map[this_case_eq_lvalue[i]] = this_case_eq_ltemp[i];
 
-				subst_rvalue_from.remove2(this_case_eq_lvalue, &subst_rvalue_to);
-				subst_rvalue_from.append(this_case_eq_lvalue);
-				subst_rvalue_to.append(this_case_eq_ltemp);
-
-				this_case_eq_lvalue.replace(subst_lvalue_from, subst_lvalue_to);
+				this_case_eq_lvalue.replace(subst_lvalue_map);
 				removeSignalFromCaseTree(this_case_eq_lvalue, current_case);
 				addChunkActions(current_case->actions, this_case_eq_lvalue, this_case_eq_ltemp);
 			}
