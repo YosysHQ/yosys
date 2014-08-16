@@ -17,8 +17,114 @@
  *
  */
 
-#ifndef TOPOSORT_H
-#define TOPOSORT_H
+// This file contains various c++ utility routines and helper classes that
+// do not depend on any other components of yosys (except stuff like log_*).
+
+#include "kernel/yosys.h"
+
+#ifndef UTILS_H
+#define UTILS_H
+
+// ------------------------------------------------
+// A map-like container, but you can save and restore the state
+// ------------------------------------------------
+
+template<typename Key, typename T, typename Compare = std::less<Key>>
+struct stackmap
+{
+private:
+	std::vector<std::map<Key, T*, Compare>> backup_state;
+	std::map<Key, T, Compare> current_state;
+	static T empty_tuple;
+
+public:
+	stackmap() { }
+	stackmap(const std::map<Key, T, Compare> &other) : current_state(other) { }
+
+	template<typename Other>
+	void operator=(const Other &other)
+	{
+		for (auto &it : current_state)
+			if (!backup_state.empty() && backup_state.back().count(it.first) == 0)
+				backup_state.back()[it.first] = new T(it.second);
+		current_state.clear();
+
+		for (auto &it : other)
+			set(it.first, it.second);
+	}
+
+	bool has(const Key &k)
+	{
+		return current_state.count(k) != 0;
+	}
+
+	void set(const Key &k, const T &v)
+	{
+		if (!backup_state.empty() && backup_state.back().count(k) == 0)
+			backup_state.back()[k] = current_state.count(k) ? new T(current_state.at(k)) : nullptr;
+		current_state[k] = v;
+	}
+
+	void unset(const Key &k)
+	{
+		if (!backup_state.empty() && backup_state.back().count(k) == 0)
+			backup_state.back()[k] = current_state.count(k) ? new T(current_state.at(k)) : nullptr;
+		current_state.erase(k);
+	}
+
+	const T &get(const Key &k)
+	{
+		if (current_state.count(k) == 0)
+			return empty_tuple;
+		return current_state.at(k);
+	}
+
+	void reset(const Key &k)
+	{
+		for (int i = SIZE(backup_state)-1; i >= 0; i--)
+			if (backup_state[i].count(k) != 0) {
+				if (backup_state[i].at(k) == nullptr)
+					current_state.erase(k);
+				else
+					current_state[k] = *backup_state[i].at(k);
+				return;
+			}
+		current_state.erase(k);
+	}
+
+	const std::map<Key, T, Compare> &stdmap()
+	{
+		return current_state;
+	}
+
+	void save()
+	{
+		backup_state.resize(backup_state.size()+1);
+	}
+
+	void restore()
+	{
+		log_assert(!backup_state.empty());
+		for (auto &it : backup_state.back())
+			if (it.second != nullptr) {
+				current_state[it.first] = *it.second;
+				delete it.second;
+			} else
+				current_state.erase(it.first);
+		backup_state.pop_back();
+	}
+
+	~stackmap()
+	{
+		while (!backup_state.empty())
+			restore();
+	}
+};
+
+
+// ------------------------------------------------
+// A simple class for topological sorting
+// ------------------------------------------------
 
 template<typename T>
 struct TopoSort

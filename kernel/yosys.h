@@ -42,6 +42,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <functional>
 #include <initializer_list>
 
 #include <stdarg.h>
