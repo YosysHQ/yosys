@@ -722,6 +722,14 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 	return node;
 }
 
+bool AstNode::bits_only_01()
+{
+	for (auto bit : bits)
+		if (bit != RTLIL::S0 && bit != RTLIL::S1)
+			return false;
+	return true;
+}
+
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
 {
 	std::vector<RTLIL::State> bits = this->bits;

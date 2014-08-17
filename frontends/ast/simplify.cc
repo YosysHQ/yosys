@@ -1567,7 +1567,7 @@ skip_dynamic_range_lvalue_expansion:;
 	}
 
 	// perform const folding when activated
-	if (const_fold && newNode == NULL)
+	if (const_fold)
 	{
 		bool string_op;
 		std::vector<RTLIL::State> tmp_bits;
@@ -1744,6 +1744,37 @@ skip_dynamic_range_lvalue_expansion:;
 					newNode->realvalue = +children[0]->asReal(sign_hint);
 				else
 					newNode->realvalue = -children[0]->asReal(sign_hint);
+			}
+			break;
+		case AST_CASE:
+			if (children[0]->type == AST_CONSTANT && children[0]->bits_only_01()) {
+				std::vector<AstNode*> new_children;
+				new_children.push_back(children[0]);
+				for (int i = 1; i < SIZE(children); i++) {
+					AstNode *child = children[i];
+					log_assert(child->type == AST_COND);
+					for (auto v : child->children) {
+						if (v->type == AST_DEFAULT)
+							goto keep_const_cond;
+						if (v->type == AST_BLOCK)
+							continue;
+						if (v->type == AST_CONSTANT && v->bits_only_01()) {
+							if (v->bits == children[0]->bits) {
+								while (i+1 < SIZE(children))
+									delete children[++i];
+								goto keep_const_cond;
+							}
+							continue;
+						}
+						goto keep_const_cond;
+					}
+					if (0)
+				keep_const_cond:
+						new_children.push_back(child);
+					else
+						delete child;
+				}
+				new_children.swap(children);
 			}
 			break;
 		case AST_TERNARY:

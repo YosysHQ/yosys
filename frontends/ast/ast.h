@@ -246,6 +246,7 @@ namespace AST
 		RTLIL::Const bitsAsConst(int width = -1);
 		RTLIL::Const asAttrConst();
 		RTLIL::Const asParaConst();
+		bool bits_only_01();
 		bool asBool();
 
 		// helper functions for real valued const eval
