@@ -285,80 +285,50 @@ module \$__alu_ripple (A, B, CI, X, Y, CO, CS);
 	endgenerate
 endmodule
 
-module \$__lcu_simple (P, G, CI, CO, PG, GG);
-	parameter WIDTH = 1;
+module \$__lcu (P, G, CI, CO);
+	parameter WIDTH = 2;
 
 	input [WIDTH-1:0] P, G;
 	input CI;
 
 	output reg [WIDTH:0] CO;
-	output reg PG, GG;
 
-	wire [1023:0] _TECHMAP_DO_ = "proc;;";
+	integer i, j, k;
+	reg [WIDTH-1:0] p, g;
 
-	integer i, j;
-	reg [WIDTH-1:0] tmp;
+	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
 
 	always @* begin
-		PG = &P;
-		GG = 0;
-		for (i = 0; i < WIDTH; i = i+1) begin
-			tmp = ~0;
-			tmp[i] = G[i];
-			for (j = i+1; j < WIDTH; j = j+1)
-				tmp[j] = P[j];
-			GG = GG || &tmp[WIDTH-1:i];
-		end
+		p = P;
+		g = G;
 
-		CO[0] = CI;
-		for (i = 0; i < WIDTH; i = i+1)
-			CO[i+1] = G[i] | (P[i] & CO[i]);
-	end
-endmodule
+		// in almost all cases CI will be constant zero
+		g[0] = g[0] | (p[0] & CI);
 
-module \$__lcu (P, G, CI, CO, PG, GG);
-	parameter WIDTH = 1;
+		// [[CITE]] Brent Kung Adder
+		// R. P. Brent and H. T. Kung, “A Regular Layout for Parallel Adders”,
+		// IEEE Transaction on Computers, Vol. C-31, No. 3, p. 260-264, March, 1982
 
-	function integer get_group_size;
-		begin
-			get_group_size = 4;
-			while (4 * get_group_size < WIDTH)
-				get_group_size = 4 * get_group_size;
-		end
-	endfunction
-
-	input [WIDTH-1:0] P, G;
-	input CI;
-
-	output [WIDTH:0] CO;
-	output PG, GG;
-
-	genvar i;
-	generate
-		if (WIDTH <= 4) begin
-			\$__lcu_simple #(.WIDTH(WIDTH)) _TECHMAP_REPLACE_ (.P(P), .G(G), .CI(CI), .CO(CO), .PG(PG), .GG(GG));
-		end else begin
-			localparam GROUP_SIZE = get_group_size();
-			localparam GROUPS_NUM = (WIDTH + GROUP_SIZE - 1) / GROUP_SIZE;
-
-			wire [GROUPS_NUM-1:0] groups_p, groups_g;
-			wire [GROUPS_NUM:0] groups_ci;
-
-			for (i = 0; i < GROUPS_NUM; i = i+1) begin:V
-				localparam g_size = `MIN(GROUP_SIZE, WIDTH - i*GROUP_SIZE);
-				localparam g_offset = i*GROUP_SIZE;
-				wire [g_size:0] g_co;
-
-				\$__lcu #(.WIDTH(g_size)) g (.P(P[g_offset +: g_size]), .G(G[g_offset +: g_size]),
-						.CI(groups_ci[i]), .CO(g_co), .PG(groups_p[i]), .GG(groups_g[i]));
-				assign CO[g_offset+1 +: g_size] = g_co[1 +: g_size];
+		// Main tree
+		for (i = 1; i <= $clog2(WIDTH); i = i+1) begin
+			for (j = 2**i - 1; j < WIDTH; j = j + 2**i) begin
+				k = j - 2**(i-1);
+				g[j] = g[j] | p[j] & g[k];
+				p[j] = p[j] & p[k];
 			end
-
-			\$__lcu_simple #(.WIDTH(GROUPS_NUM)) super_lcu (.P(groups_p), .G(groups_g), .CI(CI), .CO(groups_ci), .PG(PG), .GG(GG));
-
-			assign CO[0] = CI;
 		end
-	endgenerate
+
+		// Inverse tree
+		for (i = $clog2(WIDTH); i > 0; i = i-1) begin
+			for (j = 2**i + 2**(i-1) - 1; j < WIDTH; j = j + 2**i) begin
+				k = j - 2**(i-1);
+				g[j] = g[j] | p[j] & g[k];
+				p[j] = p[j] & p[k];
+			end
+		end
+	end
+
+	assign CO = {g, CI};
 endmodule
 
 module \$__alu_lookahead (A, B, CI, X, Y, CO, CS);
