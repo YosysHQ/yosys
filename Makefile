@@ -80,7 +80,7 @@ LDLIBS += -l$(TCL_VERSION)
 endif
 
 ifeq ($(ENABLE_GPROF),1)
-CXXFLAGS += -pg -fno-inline
+CXXFLAGS += -pg
 LDFLAGS += -pg
 endif
 
@@ -150,6 +150,7 @@ OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/cover.o
+OBJS += passes/cmds/design.o
 
 include passes/proc/Makefile.inc
 include passes/opt/Makefile.inc
@@ -158,6 +159,8 @@ include passes/abc/Makefile.inc
 
 include backends/verilog/Makefile.inc
 include backends/ilang/Makefile.inc
+
+include techlibs/common/Makefile.inc
 
 endif
 
