@@ -293,7 +293,7 @@ module \$__lcu (P, G, CI, CO);
 
 	output reg [WIDTH:0] CO;
 
-	integer i, j, k;
+	integer i, j;
 	reg [WIDTH-1:0] p, g;
 
 	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
@@ -312,18 +312,16 @@ module \$__lcu (P, G, CI, CO);
 		// Main tree
 		for (i = 1; i <= $clog2(WIDTH); i = i+1) begin
 			for (j = 2**i - 1; j < WIDTH; j = j + 2**i) begin
-				k = j - 2**(i-1);
-				g[j] = g[j] | p[j] & g[k];
-				p[j] = p[j] & p[k];
+				g[j] = g[j] | p[j] & g[j - 2**(i-1)];
+				p[j] = p[j] & p[j - 2**(i-1)];
 			end
 		end
 
 		// Inverse tree
 		for (i = $clog2(WIDTH); i > 0; i = i-1) begin
 			for (j = 2**i + 2**(i-1) - 1; j < WIDTH; j = j + 2**i) begin
-				k = j - 2**(i-1);
-				g[j] = g[j] | p[j] & g[k];
-				p[j] = p[j] & p[k];
+				g[j] = g[j] | p[j] & g[j - 2**(i-1)];
+				p[j] = p[j] & p[j - 2**(i-1)];
 			end
 		end
 	end
