@@ -2182,13 +2182,22 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 
 	std::vector<RTLIL::SigBit> new_bits, new_other_bits;
 
+	new_bits.resize(SIZE(bits_));
+	if (other != NULL)
+		new_other_bits.resize(SIZE(bits_));
+
+	int k = 0;
 	for (int i = 0; i < SIZE(bits_); i++) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i]))
 			continue;
 		if (other != NULL)
-			new_other_bits.push_back(other->bits_[i]);
-		new_bits.push_back(bits_[i]);
+			new_other_bits[k] = other->bits_[i];
+		new_bits[k++] = bits_[i];
 	}
+
+	new_bits.resize(k);
+	if (other != NULL)
+		new_other_bits.resize(k);
 
 	bits_.swap(new_bits);
 	width_ = SIZE(bits_);
