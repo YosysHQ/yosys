@@ -207,8 +207,7 @@ std::string proc_self_dirname ()
 	char path [PATH_MAX];
 	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
 	if (buflen < 0) {
-		log_cmd_error("readlink(\"/proc/self/exe\") failed: %s", strerror(errno));
-		log_abort();
+		log_error("readlink(\"/proc/self/exe\") failed: %s\n", strerror(errno));
 	}
 	while (buflen > 0 && path[buflen-1] != '/')
 		buflen--;
@@ -239,8 +238,7 @@ std::string proc_share_dirname ()
 	proc_share_path = proc_self_path + "../share/yosys/";
 	if (access(proc_share_path.c_str(), X_OK) == 0)
 		return proc_share_path;
-	log_cmd_error("proc_share_dirname: unable to determine share/ directory!");
-	log_abort();
+	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }
 
 bool fgetline(FILE *f, std::string &buffer)
