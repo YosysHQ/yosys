@@ -357,7 +357,7 @@ struct AST_INTERNAL::ProcessGenerator
 	// e.g. when the last statement in the code "a = 23; if (b) a = 42; a = 0;" is processed this
 	// function is called to clean up the first two assignments as they are overwritten by
 	// the third assignment.
-	void removeSignalFromCaseTree(RTLIL::SigSpec pattern, RTLIL::CaseRule *cs)
+	void removeSignalFromCaseTree(const std::set<RTLIL::SigBit> &pattern, RTLIL::CaseRule *cs)
 	{
 		for (auto it = cs->actions.begin(); it != cs->actions.end(); it++)
 			it->first.remove2(pattern, &it->second);
@@ -411,7 +411,7 @@ struct AST_INTERNAL::ProcessGenerator
 						subst_rvalue_map.set(unmapped_lvalue[i], rvalue[i]);
 				}
 
-				removeSignalFromCaseTree(lvalue, current_case);
+				removeSignalFromCaseTree(lvalue.to_sigbit_set(), current_case);
 				current_case->actions.push_back(RTLIL::SigSig(lvalue, rvalue));
 			}
 			break;
@@ -487,7 +487,7 @@ struct AST_INTERNAL::ProcessGenerator
 					subst_rvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 				this_case_eq_lvalue.replace(subst_lvalue_map.stdmap());
-				removeSignalFromCaseTree(this_case_eq_lvalue, current_case);
+				removeSignalFromCaseTree(this_case_eq_lvalue.to_sigbit_set(), current_case);
 				addChunkActions(current_case->actions, this_case_eq_lvalue, this_case_eq_ltemp);
 			}
 			break;
