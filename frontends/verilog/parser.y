@@ -407,33 +407,35 @@ module_body_stmt:
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property;
 
 task_func_decl:
-	TOK_TASK TOK_ID ';' {
+	attr TOK_TASK TOK_ID ';' {
 		current_function_or_task = new AstNode(AST_TASK);
-		current_function_or_task->str = *$2;
+		current_function_or_task->str = *$3;
+		append_attr(current_function_or_task, $1);
 		ast_stack.back()->children.push_back(current_function_or_task);
 		ast_stack.push_back(current_function_or_task);
 		current_function_or_task_port_id = 1;
-		delete $2;
+		delete $3;
 	} task_func_body TOK_ENDTASK {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	} |
-	TOK_FUNCTION opt_signed range_or_signed_int TOK_ID ';' {
+	attr TOK_FUNCTION opt_signed range_or_signed_int TOK_ID ';' {
 		current_function_or_task = new AstNode(AST_FUNCTION);
-		current_function_or_task->str = *$4;
+		current_function_or_task->str = *$5;
+		append_attr(current_function_or_task, $1);
 		ast_stack.back()->children.push_back(current_function_or_task);
 		ast_stack.push_back(current_function_or_task);
 		AstNode *outreg = new AstNode(AST_WIRE);
-		outreg->str = *$4;
-		outreg->is_signed = $2;
-		if ($3 != NULL) {
-			outreg->children.push_back($3);
-			outreg->is_signed = $2 || $3->is_signed;
-			$3->is_signed = false;
+		outreg->str = *$5;
+		outreg->is_signed = $3;
+		if ($4 != NULL) {
+			outreg->children.push_back($4);
+			outreg->is_signed = $3 || $4->is_signed;
+			$4->is_signed = false;
 		}
 		current_function_or_task->children.push_back(outreg);
 		current_function_or_task_port_id = 1;
-		delete $4;
+		delete $5;
 	} task_func_body TOK_ENDFUNCTION {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();

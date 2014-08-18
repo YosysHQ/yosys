@@ -1450,9 +1450,15 @@ skip_dynamic_range_lvalue_expansion:;
 				log_error("Can't resolve task name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
 
+		AstNode *decl = current_scope[str];
+
+		std::stringstream sstr;
+		sstr << "$func$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++) << "$";
+		std::string prefix = sstr.str();
+
 		bool recommend_const_eval = false;
 		bool require_const_eval = in_param ? false : has_const_only_constructs(recommend_const_eval);
-		if (in_param || recommend_const_eval || require_const_eval)
+		if ((in_param || recommend_const_eval || require_const_eval) && !decl->attributes.count("\\via_celltype"))
 		{
 			bool all_args_const = true;
 			for (auto child : children) {
@@ -1473,11 +1479,6 @@ skip_dynamic_range_lvalue_expansion:;
 			if (require_const_eval)
 				log_error("Function %s can only be called with constant arguments at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
-
-		AstNode *decl = current_scope[str];
-		std::stringstream sstr;
-		sstr << "$func$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++) << "$";
-		std::string prefix = sstr.str();
 
 		size_t arg_count = 0;
 		std::map<std::string, std::string> replace_rules;
@@ -1507,6 +1508,68 @@ skip_dynamic_range_lvalue_expansion:;
 					new AstNode(AST_ASSIGN_EQ, lvalue, clone())));
 			current_ast_mod->children.push_back(always);
 
+			goto replace_fcall_with_id;
+		}
+
+		if (decl->attributes.count("\\via_celltype"))
+		{
+			std::string celltype = decl->attributes.at("\\via_celltype")->asAttrConst().decode_string();
+			std::string outport = str;
+
+			if (celltype.find(' ') != std::string::npos) {
+				int pos = celltype.find(' ');
+				outport = RTLIL::escape_id(celltype.substr(pos+1));
+				celltype = RTLIL::escape_id(celltype.substr(0, pos));
+			} else
+				celltype = RTLIL::escape_id(celltype);
+
+			AstNode *cell = new AstNode(AST_CELL, new AstNode(AST_CELLTYPE));
+			cell->str = prefix.substr(0, SIZE(prefix)-1);
+			cell->children[0]->str = celltype;
+
+			for (auto attr : decl->attributes)
+				if (attr.first.str().rfind("\\via_celltype_defparam_", 0) == 0)
+				{
+					AstNode *cell_arg = new AstNode(AST_PARASET, attr.second->clone());
+					cell_arg->str = RTLIL::escape_id(attr.first.str().substr(strlen("\\via_celltype_defparam_")));
+					cell->children.push_back(cell_arg);
+				}
+
+			for (auto child : decl->children)
+				if (child->type == AST_WIRE && (child->is_input || child->is_output || (type == AST_FCALL && child->str == str)))
+				{
+					AstNode *wire = child->clone();
+					wire->str = prefix + wire->str;
+					wire->port_id = 0;
+					wire->is_input = false;
+					wire->is_output = false;
+					current_ast_mod->children.push_back(wire);
+					while (wire->simplify(true, false, false, 1, -1, false, false)) { }
+
+					AstNode *wire_id = new AstNode(AST_IDENTIFIER);
+					wire_id->str = wire->str;
+
+					if ((child->is_input || child->is_output) && arg_count < children.size())
+					{
+						AstNode *arg = children[arg_count++]->clone();
+						AstNode *assign = child->is_input ?
+								new AstNode(AST_ASSIGN_EQ, wire_id, arg) :
+								new AstNode(AST_ASSIGN_EQ, arg, wire_id);
+
+						for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
+							if (*it != current_block_child)
+								continue;
+							current_block->children.insert(it, assign);
+							break;
+						}
+					}
+
+					AstNode *cell_arg = new AstNode(AST_ARGUMENT, wire_id->clone());
+					cell_arg->str = child->str == str ? outport : child->str;
+					cell->children.push_back(cell_arg);
+				}
+
+			current_ast_mod->children.push_back(cell);
 			goto replace_fcall_with_id;
 		}
 

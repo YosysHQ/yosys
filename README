@@ -290,6 +290,33 @@ Verilog Attributes and non-standard features
          assign b = 42;
       """
 
+- The attribute "via_celltype" can be used to implement a verilog task or
+  function by instantiating the specified cell type. The value is the name
+  of the cell type to use. For functions the name of the output port can
+  be specified by appending it to the cell type separated by a whitespace.
+  The body of the task or function is unused in this case and can be used
+  to specify a behavioral model of the cell type for simulation. For example:
+
+      module my_add3(A, B, C, Y);
+        parameter WIDTH = 8;
+        input [WIDTH-1:0] A, B, C;
+        output [WIDTH-1:0] Y;
+        ...
+      endmodule
+
+      module top;
+        ...
+        (* via_celltype = "my_add3 Y" *)
+        (* via_celltype_defparam_WIDTH = 32 *)
+        function [31:0] add3;
+          input [31:0] A, B, C;
+          begin
+            add3 = A + B + C;
+          end
+        endfunction
+        ...
+      endmodule
+
 - Sized constants (the syntax <size>'s?[bodh]<value>) support constant
   expressions as <size>. If the expresion is not a simple identifier, it
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
