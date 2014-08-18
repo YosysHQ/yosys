@@ -465,62 +465,98 @@ endmodule
 // Multiply
 // --------------------------------------------------------
 
-module \$__arraymul (A, B, Y);
-	parameter WIDTH = 8;
+module \$__acc_set (acc_new, value);
+	parameter WIDTH = 1;
+	output reg [2*WIDTH-1:0] acc_new;
+	input [WIDTH-1:0] value;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc;;;";
+
+	integer k;
+	always @* begin
+		for (k = 0; k < WIDTH; k = k+1) begin
+			acc_new[2*k +: 2] = value[k];
+		end
+	end
+endmodule
+
+module \$__acc_add (acc_new, acc_old, value);
+	parameter WIDTH = 1;
+	output reg [2*WIDTH-1:0] acc_new;
+	input [2*WIDTH-1:0] acc_old;
+	input [WIDTH-1:0] value;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc; simplemap; opt -purge";
+
+	integer k;
+	reg a, b, c;
+
+	always @* begin
+		for (k = 0; k < WIDTH; k = k+1) begin
+			a = acc_old[2*k];
+			b = k ? acc_old[2*k-1] : 1'b0;
+			c = value[k];
+			acc_new[2*k] = (a ^ b) ^ c;
+			acc_new[2*k+1] = (a & b) | ((a ^ b) & c);
+		end
+	end
+endmodule
+
+module \$__acc_get (value, acc);
+	parameter WIDTH = 1;
+	output reg [WIDTH-1:0] value;
+	input [2*WIDTH-1:0] acc;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc;;;";
+
+	integer k;
+
+	always @* begin
+		// at the end of the multiplier chain the carry-save accumulator
+		// should also have propagated all carries. thus we just need to
+		// copy the even bits from the carry accumulator to the output.
+		for (k = 0; k < WIDTH; k = k+1) begin
+			value[k] = acc[2*k];
+		end
+	end
+endmodule
+
+module \$__acc_mul (A, B, Y);
+	parameter WIDTH = 1;
 	input [WIDTH-1:0] A, B;
 	output [WIDTH-1:0] Y;
 
-	wire [1023:0] _TECHMAP_DO_ = "proc;; opt";
+	wire [1023:0] _TECHMAP_DO_ = "proc;;";
 
 	integer i;
 	reg [WIDTH-1:0] x;
 	reg [2*WIDTH-1:0] y;
 
+	(* via_celltype = "\\$__acc_set acc_new" *)
+	(* via_celltype_defparam_WIDTH = WIDTH *)
 	function [2*WIDTH-1:0] acc_set;
 		input [WIDTH-1:0] value;
-		integer k;
-		begin
-			for (k = 0; k < WIDTH; k = k+1) begin
-				acc_set[2*k +: 2] = value[k];
-			end
-		end
 	endfunction
 
+	(* via_celltype = "\\$__acc_add acc_new" *)
+	(* via_celltype_defparam_WIDTH = WIDTH *)
 	function [2*WIDTH-1:0] acc_add;
-		input [2*WIDTH-1:0] old_acc;
+		input [2*WIDTH-1:0] acc_old;
 		input [WIDTH-1:0] value;
-		integer k;
-		reg a, b, c;
-		begin
-			for (k = 0; k < WIDTH; k = k+1) begin
-				a = old_acc[2*k];
-				b = k ? old_acc[2*k-1] : 1'b0;
-				c = value[k];
-				acc_add[2*k] = (a ^ b) ^ c;
-				acc_add[2*k+1] = (a & b) | ((a ^ b) & c);
-			end
-		end
 	endfunction
 
+	(* via_celltype = "\\$__acc_get value" *)
+	(* via_celltype_defparam_WIDTH = WIDTH *)
 	function [WIDTH-1:0] acc_get;
 		input [2*WIDTH-1:0] acc;
-		integer k;
-		begin
-			// at the end of the multiplier chain the carry-save accumulator
-			// should also have propagated all carries. thus we just need to
-			// copy the even bits from the carry accumulator to the output.
-			for (k = 0; k < WIDTH; k = k+1) begin
-				acc_get[k] = acc[2*k];
-			end
-		end
 	endfunction
 
 	always @* begin
 		x = B;
-		y = acc_set(A[0] ? x : 0);
+		y = acc_set(A[0] ? x : 1'b0);
 		for (i = 1; i < WIDTH; i = i+1) begin
 			x = {x[WIDTH-2:0], 1'b0};
-			y = acc_add(y, A[i] ? x : 0);
+			y = acc_add(y, A[i] ? x : 1'b0);
 		end
 	end
 
@@ -538,13 +574,15 @@ module \$mul (A, B, Y);
 	input [B_WIDTH-1:0] B;
 	output [Y_WIDTH-1:0] Y;
 
+	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt -purge";
+
 	wire [Y_WIDTH-1:0] A_buf, B_buf;
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-	\$__arraymul #(
+	\$__acc_mul #(
 		.WIDTH(Y_WIDTH)
-	) arraymul (
+	) _TECHMAP_REPLACE_ (
 		.A(A_buf),
 		.B(B_buf),
 		.Y(Y)
