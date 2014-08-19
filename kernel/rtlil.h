@@ -697,11 +697,18 @@ public:
 	RTLIL::Cell* addDlatchsr (RTLIL::IdString name, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
 			RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true);
 
-	RTLIL::Cell* addNotGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y);
-	RTLIL::Cell* addAndGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
-	RTLIL::Cell* addOrGate   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
-	RTLIL::Cell* addXorGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
-	RTLIL::Cell* addMuxGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y);
+	RTLIL::Cell* addNotGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addAndGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addNandGate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addOrGate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addNorGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addXorGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addXnorGate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addMuxGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addAoi3Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addOai3Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addAoi4Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y);
+	RTLIL::Cell* addOai4Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y);
 
 	RTLIL::Cell* addDffGate    (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true);
 	RTLIL::Cell* addDffsrGate  (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
@@ -760,11 +767,18 @@ public:
 	RTLIL::SigSpec Mux      (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 	RTLIL::SigSpec Pmux     (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
 
-	RTLIL::SigSpec NotGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a);
-	RTLIL::SigSpec AndGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
-	RTLIL::SigSpec OrGate   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
-	RTLIL::SigSpec XorGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b);
-	RTLIL::SigSpec MuxGate  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s);
+	RTLIL::SigBit NotGate  (RTLIL::IdString name, RTLIL::SigBit sig_a);
+	RTLIL::SigBit AndGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b);
+	RTLIL::SigBit NandGate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b);
+	RTLIL::SigBit OrGate   (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b);
+	RTLIL::SigBit NorGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b);
+	RTLIL::SigBit XorGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b);
+	RTLIL::SigBit XnorGate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b);
+	RTLIL::SigBit MuxGate  (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_s);
+	RTLIL::SigBit Aoi3Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c);
+	RTLIL::SigBit Oai3Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c);
+	RTLIL::SigBit Aoi4Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d);
+	RTLIL::SigBit Oai4Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d);
 };
 
 struct RTLIL::Wire
