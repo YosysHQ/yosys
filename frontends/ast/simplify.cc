@@ -1585,8 +1585,8 @@ skip_dynamic_range_lvalue_expansion:;
 					{
 						AstNode *arg = children[arg_count++]->clone();
 						AstNode *assign = child->is_input ?
-								new AstNode(AST_ASSIGN_EQ, wire_id, arg) :
-								new AstNode(AST_ASSIGN_EQ, arg, wire_id);
+								new AstNode(AST_ASSIGN_EQ, wire_id->clone(), arg) :
+								new AstNode(AST_ASSIGN_EQ, arg, wire_id->clone());
 
 						for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
 							if (*it != current_block_child)
@@ -1596,7 +1596,7 @@ skip_dynamic_range_lvalue_expansion:;
 						}
 					}
 
-					AstNode *cell_arg = new AstNode(AST_ARGUMENT, wire_id->clone());
+					AstNode *cell_arg = new AstNode(AST_ARGUMENT, wire_id);
 					cell_arg->str = child->str == str ? outport : child->str;
 					cell->children.push_back(cell_arg);
 				}
