@@ -1451,15 +1451,15 @@ skip_dynamic_range_lvalue_expansion:;
 				std::vector<AstNode*> args;
 
 				rtype = RTLIL::unescape_id(dpi_decl->children.at(0)->str);
-				fname = RTLIL::unescape_id(dpi_decl->str);
+				fname = RTLIL::unescape_id(dpi_decl->children.at(1)->str);
 
-				for (int i = 1; i < SIZE(dpi_decl->children); i++)
+				for (int i = 2; i < SIZE(dpi_decl->children); i++)
 				{
-					if (i-1 >= SIZE(children))
+					if (i-2 >= SIZE(children))
 						log_error("Insufficient number of arguments in DPI function call at %s:%d.\n", filename.c_str(), linenum);
 
 					argtypes.push_back(RTLIL::unescape_id(dpi_decl->children.at(i)->str));
-					args.push_back(children.at(i-1)->clone());
+					args.push_back(children.at(i-2)->clone());
 					while (args.back()->simplify(true, false, false, stage, -1, false, true)) { }
 
 					if (args.back()->type != AST_CONSTANT && args.back()->type != AST_REALVALUE)

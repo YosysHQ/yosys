@@ -280,10 +280,6 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 	return TOK_DPI_FUNCTION;
 }
 
-<IMPORT_DPI>[(),] {
-	return *yytext;
-}
-
 <IMPORT_DPI>[a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
 	return TOK_ID;
@@ -293,6 +289,10 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 <IMPORT_DPI>";" {
 	BEGIN(0);
+	return *yytext;
+}
+
+<IMPORT_DPI>. {
 	return *yytext;
 }
 

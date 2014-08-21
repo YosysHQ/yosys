@@ -416,12 +416,23 @@ module_body_stmt:
 
 task_func_decl:
 	attr TOK_DPI_FUNCTION TOK_ID TOK_ID {
-		current_function_or_task = new AstNode(AST_DPI_FUNCTION, AstNode::mkconst_str(*$3));
+		current_function_or_task = new AstNode(AST_DPI_FUNCTION, AstNode::mkconst_str(*$3), AstNode::mkconst_str(*$4));
 		current_function_or_task->str = *$4;
 		append_attr(current_function_or_task, $1);
 		ast_stack.back()->children.push_back(current_function_or_task);
 		delete $3;
 		delete $4;
+	} opt_dpi_function_args ';' {
+		current_function_or_task = NULL;
+	} |
+	attr TOK_DPI_FUNCTION TOK_ID '=' TOK_ID TOK_ID {
+		current_function_or_task = new AstNode(AST_DPI_FUNCTION, AstNode::mkconst_str(*$5), AstNode::mkconst_str(*$3));
+		current_function_or_task->str = *$6;
+		append_attr(current_function_or_task, $1);
+		ast_stack.back()->children.push_back(current_function_or_task);
+		delete $3;
+		delete $5;
+		delete $6;
 	} opt_dpi_function_args ';' {
 		current_function_or_task = NULL;
 	} |
