@@ -137,14 +137,21 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 
 %%
 
-input:
-	module input |
-	defattr input |
-	/* empty */ {
-		for (auto &it : default_attr_list)
-			delete it.second;
-		default_attr_list.clear();
-	};
+input: {
+	ast_stack.push_back(current_ast);
+} design {
+	ast_stack.pop_back();
+	log_assert(SIZE(ast_stack) == 0);
+	for (auto &it : default_attr_list)
+		delete it.second;
+	default_attr_list.clear();
+};
+
+design:
+	module design |
+	defattr design |
+	task_func_decl design |
+	/* empty */;
 
 attr:
 	{
@@ -214,9 +221,9 @@ module:
 	attr TOK_MODULE TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *mod = new AstNode(AST_MODULE);
-		current_ast->children.push_back(mod);
-		current_ast_mod = mod;
+		ast_stack.back()->children.push_back(mod);
 		ast_stack.push_back(mod);
+		current_ast_mod = mod;
 		port_stubs.clear();
 		port_counter = 0;
 		mod->str = *$3;
@@ -227,7 +234,8 @@ module:
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
 					port_stubs.begin()->first.c_str());
 		ast_stack.pop_back();
-		log_assert(ast_stack.size() == 0);
+		log_assert(ast_stack.size() == 1);
+		current_ast_mod = NULL;
 	};
 
 module_para_opt:

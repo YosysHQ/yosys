@@ -945,21 +945,35 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_icells = icells;
 	flag_autowire = autowire;
 
+	std::vector<AstNode*> global_decls;
+
 	log_assert(current_ast->type == AST_DESIGN);
-	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
-		if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
-			(*it)->str = (*it)->str.substr(1);
-		if (defer)
-			(*it)->str = "$abstract" + (*it)->str;
-		if (design->has((*it)->str)) {
-			if (!ignore_redef)
-				log_error("Re-definition of module `%s' at %s:%d!\n",
+	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
+	{
+		if ((*it)->type == AST_MODULE)
+		{
+			for (auto n : global_decls)
+				(*it)->children.push_back(n->clone());
+
+			if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
+				(*it)->str = (*it)->str.substr(1);
+
+			if (defer)
+				(*it)->str = "$abstract" + (*it)->str;
+
+			if (design->has((*it)->str)) {
+				if (!ignore_redef)
+					log_error("Re-definition of module `%s' at %s:%d!\n",
+							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+				log("Ignoring re-definition of module `%s' at %s:%d!\n",
 						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-			log("Ignoring re-definition of module `%s' at %s:%d!\n",
-					(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-			continue;
+				continue;
+			}
+
+			design->add(process_module(*it, defer));
 		}
-		design->add(process_module(*it, defer));
+		else
+			global_decls.push_back(*it);
 	}
 }
 

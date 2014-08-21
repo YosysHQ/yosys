@@ -285,10 +285,10 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yylex_destroy();
 
 		for (auto &child : current_ast->children) {
-			log_assert(child->type == AST::AST_MODULE);
-			for (auto &attr : attributes)
-				if (child->attributes.count(attr) == 0)
-					child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
+			if (child->type == AST::AST_MODULE)
+				for (auto &attr : attributes)
+					if (child->attributes.count(attr) == 0)
+						child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
 		}
 
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
