@@ -13,6 +13,7 @@ python generate.py
 {
 	all_targets="all_targets:"
 	echo "all: all_targets"
+	echo "	@echo"
 	for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do
 		idx=$( printf "%05d" $i )
 		echo "temp/uut_${idx}.log: temp/uut_${idx}.ys temp/uut_${idx}.v"
@@ -27,6 +28,5 @@ python generate.py
 
 echo "running tests.."
 ${MAKE:-make} -f temp/makefile
-echo
 
 exit 0
