@@ -30,7 +30,7 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 		if (argtypes[i] == "real" || argtypes[i] == "shortreal")
 			log("  arg %d (%s): %f\n", i, argtypes[i].c_str(), args[i]->asReal(args[i]->is_signed));
 		else
-			log("  arg %d (%s): %d\n", i, argtypes[i].c_str(), args[i]->bitsAsConst().as_int());
+			log("  arg %d (%s): %lld\n", i, argtypes[i].c_str(), (long long)args[i]->asInt(args[i]->is_signed));
 
 	if (rtype == "real" || rtype == "shortreal") {
 		newNode = new AstNode(AST_REALVALUE);

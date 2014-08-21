@@ -792,9 +792,30 @@ int AstNode::isConst()
 	return 0;
 }
 
+uint64_t AstNode::asInt(bool is_signed)
+{
+	if (type == AST_CONSTANT)
+	{
+		RTLIL::Const v = bitsAsConst(64, is_signed);
+		uint64_t ret = 0;
+
+		for (int i = 0; i < 64; i++)
+			if (v.bits.at(i) == RTLIL::State::S1)
+				ret |= uint64_t(1) << i;
+
+		return ret;
+	}
+
+	if (type == AST_REALVALUE)
+		return realvalue;
+
+	log_abort();
+}
+
 double AstNode::asReal(bool is_signed)
 {
-	if (type == AST_CONSTANT) {
+	if (type == AST_CONSTANT)
+	{
 		RTLIL::Const val(bits);
 
 		bool is_negative = is_signed && val.bits.back() == RTLIL::State::S1;

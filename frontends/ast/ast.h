@@ -247,6 +247,7 @@ namespace AST
 		RTLIL::Const bitsAsConst(int width = -1);
 		RTLIL::Const asAttrConst();
 		RTLIL::Const asParaConst();
+		uint64_t asInt(bool is_signed);
 		bool bits_only_01();
 		bool asBool();
 
