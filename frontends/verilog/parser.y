@@ -104,7 +104,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
-%token TOK_POSEDGE TOK_NEGEDGE TOK_OR
+%token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
@@ -415,6 +415,16 @@ module_body_stmt:
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property;
 
 task_func_decl:
+	attr TOK_DPI_FUNCTION TOK_ID TOK_ID {
+		current_function_or_task = new AstNode(AST_DPI_FUNCTION, AstNode::mkconst_str(*$3));
+		current_function_or_task->str = *$4;
+		append_attr(current_function_or_task, $1);
+		ast_stack.back()->children.push_back(current_function_or_task);
+		delete $3;
+		delete $4;
+	} opt_dpi_function_args ';' {
+		current_function_or_task = NULL;
+	} |
 	attr TOK_TASK TOK_ID ';' {
 		current_function_or_task = new AstNode(AST_TASK);
 		current_function_or_task->str = *$3;
@@ -448,6 +458,27 @@ task_func_decl:
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	};
+
+dpi_function_arg:
+	TOK_ID TOK_ID {
+		current_function_or_task->children.push_back(AstNode::mkconst_str(*$1));
+		delete $1;
+		delete $2;
+	} |
+	TOK_ID {
+		current_function_or_task->children.push_back(AstNode::mkconst_str(*$1));
+		delete $1;
+	};
+
+opt_dpi_function_args:
+	'(' dpi_function_args ')' |
+	/* empty */;
+
+dpi_function_args:
+	dpi_function_args ',' dpi_function_arg |
+	dpi_function_args ',' |
+	dpi_function_arg |
+	/* empty */;
 
 opt_signed:
 	TOK_SIGNED {

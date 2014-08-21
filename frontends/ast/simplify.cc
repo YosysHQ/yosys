@@ -226,7 +226,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				this_wire_scope[node->str] = node;
 			}
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
-					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_CELL) {
+					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_DPI_FUNCTION || node->type == AST_CELL) {
 				backup_scope[node->str] = current_scope[node->str];
 				current_scope[node->str] = node;
 			}
@@ -646,7 +646,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (current_scope.count(str) == 0) {
 			for (auto node : current_ast_mod->children) {
 				if ((node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
-						node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK) && str == node->str) {
+						node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_DPI_FUNCTION) && str == node->str) {
 					current_scope[node->str] = node;
 					break;
 				}
@@ -1439,6 +1439,34 @@ skip_dynamic_range_lvalue_expansion:;
 				else if (str == "\\$acosh") newNode->realvalue = ::acosh(x);
 				else if (str == "\\$atanh") newNode->realvalue = ::atanh(x);
 				else log_abort();
+				goto apply_newNode;
+			}
+
+			if (current_scope.count(str) != 0 && current_scope[str]->type == AST_DPI_FUNCTION)
+			{
+				AstNode *dpi_decl = current_scope[str];
+
+				std::string rtype, fname;
+				std::vector<std::string> argtypes;
+				std::vector<AstNode*> args;
+
+				rtype = RTLIL::unescape_id(dpi_decl->children.at(0)->str);
+				fname = RTLIL::unescape_id(dpi_decl->str);
+
+				for (int i = 1; i < SIZE(dpi_decl->children); i++)
+				{
+					if (i-1 >= SIZE(children))
+						log_error("Insufficient number of arguments in DPI function call at %s:%d.\n", filename.c_str(), linenum);
+
+					argtypes.push_back(RTLIL::unescape_id(dpi_decl->children.at(i)->str));
+					args.push_back(children.at(i-1)->clone());
+					while (args.back()->simplify(true, false, false, stage, -1, false, true)) { }
+
+					if (args.back()->type != AST_CONSTANT && args.back()->type != AST_REALVALUE)
+						log_error("Failed to evaluate DPI function with non-constant argument at %s:%d.\n", filename.c_str(), linenum);
+				}
+
+				newNode = dpi_call(rtype, fname, argtypes, args);
 				goto apply_newNode;
 			}
 

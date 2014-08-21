@@ -753,6 +753,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// and are only accessed here thru this references
 	case AST_TASK:
 	case AST_FUNCTION:
+	case AST_DPI_FUNCTION:
 	case AST_AUTOWIRE:
 	case AST_LOCALPARAM:
 	case AST_DEFPARAM:

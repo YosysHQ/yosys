@@ -74,6 +74,7 @@ YOSYS_NAMESPACE_END
 %x STRING
 %x SYNOPSYS_TRANSLATE_OFF
 %x SYNOPSYS_FLAGS
+%x IMPORT_DPI
 
 %%
 
@@ -273,6 +274,27 @@ supply1 { return TOK_SUPPLY1; }
 }
 <SYNOPSYS_FLAGS>. /* ignore everything else */
 <SYNOPSYS_FLAGS>"*/" { BEGIN(0); }
+
+import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
+	BEGIN(IMPORT_DPI);
+	return TOK_DPI_FUNCTION;
+}
+
+<IMPORT_DPI>[(),] {
+	return *yytext;
+}
+
+<IMPORT_DPI>[a-zA-Z_$][a-zA-Z0-9_$]* {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+	return TOK_ID;
+}
+
+<IMPORT_DPI>[ \t\r\n] /* ignore whitespaces */
+
+<IMPORT_DPI>";" {
+	BEGIN(0);
+	return *yytext;
+}
 
 "\\"[^ \t\r\n]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
