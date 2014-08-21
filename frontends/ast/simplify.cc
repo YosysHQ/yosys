@@ -1467,6 +1467,10 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 
 				newNode = dpi_call(rtype, fname, argtypes, args);
+
+				for (auto arg : args)
+					delete arg;
+
 				goto apply_newNode;
 			}
 
