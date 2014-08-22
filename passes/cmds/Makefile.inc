@@ -21,4 +21,5 @@ OBJS += passes/cmds/connwrappers.o
 OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/trace.o
 OBJS += passes/cmds/wreduce.o
+OBJS += passes/cmds/plugin.o
 

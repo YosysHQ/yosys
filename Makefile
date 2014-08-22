@@ -151,6 +151,7 @@ OBJS += passes/cmds/show.o
 OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
+OBJS += passes/cmds/plugin.o
 
 include passes/proc/Makefile.inc
 include passes/opt/Makefile.inc

@@ -132,6 +132,11 @@ extern const char *yosys_version_str;
 extern std::map<std::string, RTLIL::Design*> saved_designs;
 extern std::vector<RTLIL::Design*> pushed_designs;
 
+// from passes/cmds/pluginc.cc
+extern std::map<std::string, void*> loaded_plugins;
+extern std::map<std::string, std::string> loaded_plugin_aliases;
+void load_plugin(std::string filename, std::vector<std::string> aliases);
+
 YOSYS_NAMESPACE_END
 
 #endif

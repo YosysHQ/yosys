@@ -22,6 +22,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#include <dlfcn.h>
 #include <unistd.h>
 #include <limits.h>
 
@@ -98,6 +99,12 @@ void yosys_shutdown()
 		yosys_tcl_interp = NULL;
 	}
 #endif
+
+	for (auto &it : loaded_plugins)
+		dlclose(it.second);
+
+	loaded_plugins.clear();
+	loaded_plugin_aliases.clear();
 }
 
 RTLIL::IdString new_id(std::string file, int line, std::string func)

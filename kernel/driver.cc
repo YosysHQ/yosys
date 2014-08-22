@@ -27,7 +27,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <libgen.h>
-#include <dlfcn.h>
 #include <limits.h>
 #include <errno.h>
 
@@ -38,7 +37,7 @@ int main(int argc, char **argv)
 	std::string frontend_command = "auto";
 	std::string backend_command = "auto";
 	std::vector<std::string> passes_commands;
-	std::vector<void*> loaded_modules;
+	std::vector<std::string> plugin_filenames;
 	std::string output_filename = "";
 	std::string scriptfile = "";
 	bool scriptfile_tcl = false;
@@ -82,11 +81,7 @@ int main(int argc, char **argv)
 			passes_commands.push_back("opt");
 			break;
 		case 'm':
-			loaded_modules.push_back(dlopen(optarg, RTLD_LAZY|RTLD_GLOBAL));
-			if (loaded_modules.back() == NULL) {
-				fprintf(stderr, "Can't load module `%s': %s\n", optarg, dlerror());
-				exit(1);
-			}
+			plugin_filenames.push_back(optarg);
 			break;
 		case 'f':
 			frontend_command = optarg;
@@ -239,6 +234,9 @@ int main(int argc, char **argv)
 
 	yosys_setup();
 
+	for (auto &fn : plugin_filenames)
+		load_plugin(fn, {});
+
 	if (optind == argc && passes_commands.size() == 0 && scriptfile.empty()) {
 		if (!got_output_filename)
 			backend_command = "";
@@ -345,9 +343,6 @@ int main(int argc, char **argv)
 		free(hist_list);
 
 	yosys_shutdown();
-
-	for (auto mod : loaded_modules)
-		dlclose(mod);
 
 	return 0;
 }
