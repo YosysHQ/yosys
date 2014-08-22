@@ -436,6 +436,18 @@ task_func_decl:
 	} opt_dpi_function_args ';' {
 		current_function_or_task = NULL;
 	} |
+	attr TOK_DPI_FUNCTION TOK_ID ':' TOK_ID '=' TOK_ID TOK_ID {
+		current_function_or_task = new AstNode(AST_DPI_FUNCTION, AstNode::mkconst_str(*$7), AstNode::mkconst_str(*$3 + ":" + RTLIL::unescape_id(*$5)));
+		current_function_or_task->str = *$8;
+		append_attr(current_function_or_task, $1);
+		ast_stack.back()->children.push_back(current_function_or_task);
+		delete $3;
+		delete $5;
+		delete $7;
+		delete $8;
+	} opt_dpi_function_args ';' {
+		current_function_or_task = NULL;
+	} |
 	attr TOK_TASK TOK_ID ';' {
 		current_function_or_task = new AstNode(AST_TASK);
 		current_function_or_task->str = *$3;
