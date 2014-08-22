@@ -57,8 +57,8 @@ Icarus Verilog. For example on Ubuntu Linux 12.04 LTS the following commands
 will install all prerequisites for building yosys:
 
 	$ yosys_deps="git g++ clang make bison flex libreadline-dev
-	              tcl8.5-dev zlib1g-dev libqt4-dev mercurial
-	              iverilog graphviz"
+	              tcl8.5-dev zlib1g-dev libqt4-dev libffi-dev
+	              mercurial iverilog graphviz"
 	$ sudo apt-get install $yosys_deps
 
 There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys

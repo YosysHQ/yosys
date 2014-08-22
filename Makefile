@@ -27,7 +27,7 @@ all: top-all
 
 CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I${DESTDIR}/include
 LDFLAGS = -L${DESTDIR}/lib
-LDLIBS = -lstdc++ -lreadline -lm -ldl
+LDLIBS = -lstdc++ -lreadline -lm -lffi -ldl
 QMAKE = qmake-qt4
 SED = sed
 
