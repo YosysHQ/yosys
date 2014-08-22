@@ -1605,6 +1605,10 @@ RTLIL::Memory::Memory()
 	size = 0;
 }
 
+RTLIL::Cell::Cell() : module(nullptr)
+{
+}
+
 bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const
 {
 	return connections_.count(portname) != 0;

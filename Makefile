@@ -2,11 +2,14 @@
 CONFIG := clang
 # CONFIG := gcc
 # CONFIG := gcc-4.6
+# CONFIG := emcc
 
 # features (the more the better)
 ENABLE_TCL := 1
 ENABLE_QT4 := 1
 ENABLE_ABC := 1
+ENABLE_PLUGINS := 1
+ENABLE_READLINE := 1
 ENABLE_VERIFIC := 0
 
 # other configuration flags
@@ -27,7 +30,7 @@ all: top-all
 
 CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I${DESTDIR}/include
 LDFLAGS = -L${DESTDIR}/lib
-LDLIBS = -lstdc++ -lreadline -lm -lffi -ldl
+LDLIBS = -lstdc++ -lm
 QMAKE = qmake-qt4
 SED = sed
 
@@ -70,6 +73,22 @@ endif
 ifeq ($(CONFIG),gcc-4.6)
 CXX = gcc-4.6
 CXXFLAGS += -std=gnu++0x -Os
+endif
+
+ifeq ($(CONFIG),emcc)
+CXX = emcc
+CXXFLAGS += -std=c++11 -Os -Wno-warn-absolute-paths
+CXXFLAGS := $(filter-out -ggdb,$(CXXFLAGS))
+endif
+
+ifeq ($(ENABLE_READLINE),1)
+CXXFLAGS += -DYOSYS_ENABLE_READLINE
+LDLIBS += -lreadline
+endif
+
+ifeq ($(ENABLE_PLUGINS),1)
+CXXFLAGS += -DYOSYS_ENABLE_PLUGINS
+LDLIBS += -lffi -ldl
 endif
 
 ifeq ($(ENABLE_TCL),1)
@@ -289,6 +308,14 @@ config-gcc: clean
 
 config-gcc-4.6: clean
 	echo 'CONFIG := gcc-4.6' > Makefile.conf
+
+config-emcc: clean
+	echo 'CONFIG := emcc' > Makefile.conf
+	echo 'ENABLE_TCL := 0' >> Makefile.conf
+	echo 'ENABLE_QT4 := 0' >> Makefile.conf
+	echo 'ENABLE_ABC := 0' >> Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf

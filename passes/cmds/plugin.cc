@@ -18,7 +18,10 @@
  */
 
 #include "kernel/yosys.h"
-#include <dlfcn.h>
+
+#ifdef YOSYS_ENABLE_PLUGINS
+#  include <dlfcn.h>
+#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -27,6 +30,7 @@ std::map<std::string, std::string> loaded_plugin_aliases;
 
 void load_plugin(std::string filename, std::vector<std::string> aliases)
 {
+#ifdef YOSYS_ENABLE_PLUGINS
 	if (filename.find('/') == std::string::npos)
 		filename = "./" + filename;
 
@@ -40,6 +44,9 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 
 	for (auto &alias : aliases)
 		loaded_plugin_aliases[alias] = filename;
+#else
+	log_error("This version of yosys is built without plugin support.\n");
+#endif
 }
 
 struct PluginPass : public Pass {

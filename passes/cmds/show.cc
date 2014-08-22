@@ -22,7 +22,10 @@
 #include "kernel/log.h"
 #include <string.h>
 #include <dirent.h>
-#include <readline/readline.h>
+
+#ifdef YOSYS_ENABLE_READLINE
+#  include <readline/readline.h>
+#endif
 
 using RTLIL::id2cstr;
 
@@ -770,6 +773,7 @@ struct ShowPass : public Pass {
 		}
 
 		if (flag_pause) {
+		#ifdef YOSYS_ENABLE_READLINE
 			char *input = NULL;
 			while ((input = readline("Press ENTER to continue (or type 'shell' to open a shell)> ")) != NULL) {
 				if (input[strspn(input, " \t\r\n")] == 0)
@@ -780,6 +784,9 @@ struct ShowPass : public Pass {
 					break;
 				}
 			}
+		#else
+			log_cmd_error("This version of yosys is built without readline support => 'show -pause' is not available.\n");
+		#endif
 		}
 
 		log_pop();

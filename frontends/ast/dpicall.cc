@@ -17,9 +17,12 @@
  *
  */
 
+#include "ast.h"
+
+#ifdef YOSYS_ENABLE_PLUGINS
+
 #include <dlfcn.h>
 #include <ffi.h>
-#include "ast.h"
 
 typedef void (*ffi_fptr) ();
 
@@ -125,4 +128,13 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 
 	return newNode;
 }
+
+#else /* YOSYS_ENABLE_PLUGINS */
+
+AST::AstNode *AST::dpi_call(const std::string&, const std::string &fname, const std::vector<std::string>&, const std::vector<AstNode*>&)
+{
+	log_error("Can't call DPI function `%s': this version of yosys is built without plugin support\n", fname.c_str());
+}
+
+#endif /* YOSYS_ENABLE_PLUGINS */
 

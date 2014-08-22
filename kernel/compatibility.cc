@@ -26,7 +26,7 @@
 #include <string.h>
 #include <errno.h>
 
-#if !(_XOPEN_SOURCE >= 700 || _POSIX_C_SOURCE >= 200809L)
+#if !(_XOPEN_SOURCE >= 700 || _POSIX_C_SOURCE >= 200809L || defined(EMSCRIPTEN))
 
 typedef struct memstream {
 	off_t pos;

@@ -19,12 +19,15 @@
 
 #include "kernel/yosys.h"
 
-#include <readline/readline.h>
-#include <readline/history.h>
+#ifdef YOSYS_ENABLE_READLINE
+#  include <readline/readline.h>
+#  include <readline/history.h>
+#endif
 
 #include <dlfcn.h>
 #include <unistd.h>
 #include <limits.h>
+#include <errno.h>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -232,6 +235,11 @@ std::string proc_self_dirname ()
 		buflen--;
 	return std::string(path, buflen);
 }
+#elif defined(EMSCRIPTEN)
+std::string proc_self_dirname ()
+{
+	return "/";
+}
 #else
 	#error Dont know how to determine process executable base path!
 #endif
@@ -416,6 +424,7 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 	Backend::backend_call(design, NULL, filename, command);
 }
 
+#ifdef YOSYS_ENABLE_READLINE
 static char *readline_cmd_generator(const char *text, int state)
 {
 	static std::map<std::string, Pass*>::iterator it;
@@ -493,6 +502,7 @@ static char **readline_completion(const char *text, int start, int)
 		return rl_completion_matches(text, readline_obj_generator);
 	return NULL;
 }
+#endif
 
 void shell(RTLIL::Design *design)
 {
@@ -501,16 +511,25 @@ void shell(RTLIL::Design *design)
 	recursion_counter++;
 	log_cmd_error_throw = true;
 
+#ifdef YOSYS_ENABLE_READLINE
 	rl_readline_name = "yosys";
 	rl_attempted_completion_function = readline_completion;
 	rl_basic_word_break_characters = " \t\n";
+#endif
 
 	char *command = NULL;
+#ifdef YOSYS_ENABLE_READLINE
 	while ((command = readline(create_prompt(design, recursion_counter))) != NULL)
+#else
+	char command_buffer[4096];
+	while ((command = fgets(command_buffer, 4096, stdin)) != NULL)
+#endif
 	{
 		if (command[strspn(command, " \t\r\n")] == 0)
 			continue;
+#ifdef YOSYS_ENABLE_READLINE
 		add_history(command);
+#endif
 
 		char *p = command + strspn(command, " \t\r\n");
 		if (!strncmp(p, "exit", 4)) {
@@ -576,6 +595,7 @@ struct ShellPass : public Pass {
 	}
 } ShellPass;
 
+#ifdef YOSYS_ENABLE_READLINE
 struct HistoryPass : public Pass {
 	HistoryPass() : Pass("history", "show last interactive commands") { }
 	virtual void help() {
@@ -593,6 +613,7 @@ struct HistoryPass : public Pass {
 			log("%s\n", (*list)->line);
 	}
 } HistoryPass;
+#endif
 
 struct ScriptPass : public Pass {
 	ScriptPass() : Pass("script", "execute commands from script file") { }

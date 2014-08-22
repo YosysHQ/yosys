@@ -108,7 +108,7 @@ struct CellTypes
 		for (auto type : std::vector<RTLIL::IdString>({"$mux", "$pmux"}))
 			setup_type(type, {"\\A", "\\B", "\\S"}, {"\\Y"}, true);
 
-		setup_type("$assert", {"\\A", "\\EN"}, {}, true);
+		setup_type("$assert", {"\\A", "\\EN"}, std::set<RTLIL::IdString>(), true);
 	}
 
 	void setup_internals_mem()
@@ -121,7 +121,7 @@ struct CellTypes
 		setup_type("$dlatchsr", {"\\EN", "\\SET", "\\CLR", "\\D"}, {"\\Q"});
 
 		setup_type("$memrd", {"\\CLK", "\\ADDR"}, {"\\DATA"});
-		setup_type("$memwr", {"\\CLK", "\\EN", "\\ADDR", "\\DATA"}, {});
+		setup_type("$memwr", {"\\CLK", "\\EN", "\\ADDR", "\\DATA"}, std::set<RTLIL::IdString>());
 		setup_type("$mem", {"\\RD_CLK", "\\RD_ADDR", "\\WR_CLK", "\\WR_EN", "\\WR_ADDR", "\\WR_DATA"}, {"\\RD_DATA"});
 
 		setup_type("$fsm", {"\\CLK", "\\ARST", "\\CTRL_IN"}, {"\\CTRL_OUT"});

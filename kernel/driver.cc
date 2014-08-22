@@ -20,8 +20,10 @@
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 
-#include <readline/readline.h>
-#include <readline/history.h>
+#ifdef YOSYS_ENABLE_READLINE
+#  include <readline/readline.h>
+#  include <readline/history.h>
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -46,6 +48,7 @@ int main(int argc, char **argv)
 	bool print_stats = true;
 	bool call_abort = false;
 
+#ifdef YOSYS_ENABLE_READLINE
 	int history_offset = 0;
 	std::string history_file;
 	if (getenv("HOME") != NULL) {
@@ -53,6 +56,7 @@ int main(int argc, char **argv)
 		read_history(history_file.c_str());
 		history_offset = where_history();
 	}
+#endif
 
 	int opt;
 	while ((opt = getopt(argc, argv, "AQTVSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
@@ -329,6 +333,7 @@ int main(int argc, char **argv)
 	if (call_abort)
 		abort();
 
+#ifdef YOSYS_ENABLE_READLINE
 	if (!history_file.empty()) {
 		if (history_offset > 0) {
 			history_truncate_file(history_file.c_str(), 100);
@@ -341,6 +346,7 @@ int main(int argc, char **argv)
 	HIST_ENTRY **hist_list = history_list();
 	if (hist_list != NULL)
 		free(hist_list);
+#endif
 
 	yosys_shutdown();
 

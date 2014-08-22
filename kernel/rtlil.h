@@ -77,7 +77,7 @@ namespace RTLIL
 		// the global id string cache
 
 		struct char_ptr_cmp {
-			bool operator()(const char *a, const char *b) {
+			bool operator()(const char *a, const char *b) const {
 				for (int i = 0; a[i] || b[i]; i++)
 					if (a[i] != b[i])
 						return a[i] < b[i];
@@ -815,8 +815,7 @@ struct RTLIL::Cell
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
-	Cell() : module(nullptr) { };
-	~Cell() { };
+	Cell();
 
 public:
 	// do not simply copy cells
