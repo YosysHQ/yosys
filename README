@@ -317,6 +317,18 @@ Verilog Attributes and non-standard features
         ...
       endmodule
 
+- A limited subset of DPI-C functions is supported. The plugin mechanism
+  (see "help plugin") can be used load .so files with implementations of
+  DPI-C routines. As a non-standard extension it is possible to specify
+  a plugin alias using the "<alias>:" syntax. for example:
+
+      module dpitest;
+        import "DPI-C" function foo:round = real my_round (real);
+        parameter real r = my_round(12.345);
+      endmodule
+
+      $ yosys -p 'plugin -a foo -i /lib/libm.so; read_verilog dpitest.v'
+
 - Sized constants (the syntax <size>'s?[bodh]<value>) support constant
   expressions as <size>. If the expresion is not a simple identifier, it
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
