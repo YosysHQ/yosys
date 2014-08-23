@@ -35,6 +35,7 @@ YOSYS_NAMESPACE_BEGIN
 struct log_cmd_error_expection { };
 
 extern std::vector<FILE*> log_files;
+extern std::vector<std::ostream*> log_streams;
 extern FILE *log_errfile;
 extern class SHA1 *log_hasher;
 

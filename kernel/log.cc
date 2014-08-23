@@ -32,6 +32,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
+std::vector<std::ostream*> log_streams;
 FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
 
@@ -92,10 +93,16 @@ void logv(const char *format, va_list ap)
 
 		for (auto f : log_files)
 			fputs(time_str.c_str(), f);
+
+		for (auto f : log_streams)
+			*f << time_str;
 	}
 
 	for (auto f : log_files)
 		fputs(str.c_str(), f);
+
+	for (auto f : log_streams)
+		*f << str;
 }
 
 void logv_header(const char *format, va_list ap)
@@ -202,6 +209,9 @@ void log_flush()
 {
 	for (auto f : log_files)
 		fflush(f);
+
+	for (auto f : log_streams)
+		f->flush();
 }
 
 void log_dump_val_worker(RTLIL::SigSpec v) {

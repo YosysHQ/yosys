@@ -612,15 +612,11 @@ struct HelpPass : public Pass {
 				FILE *f = fopen("command-reference-manual.tex", "wt");
 				fprintf(f, "%% Generated using the yosys 'help -write-tex-command-reference-manual' command.\n\n");
 				for (auto &it : pass_register) {
-					size_t memsize;
-					char *memptr;
-					FILE *memf = open_memstream(&memptr, &memsize);
-					log_files.push_back(memf);
+					std::ostringstream buf;
+					log_streams.push_back(&buf);
 					it.second->help();
-					log_files.pop_back();
-					fclose(memf);
-					write_tex(f, it.first, it.second->short_help, memptr);
-					free(memptr);
+					log_streams.pop_back();
+					write_tex(f, it.first, it.second->short_help, buf.str());
 				}
 				fclose(f);
 			}
@@ -628,15 +624,11 @@ struct HelpPass : public Pass {
 			else if (args[1] == "-write-web-command-reference-manual") {
 				FILE *f = fopen("templates/cmd_index.in", "wt");
 				for (auto &it : pass_register) {
-					size_t memsize;
-					char *memptr;
-					FILE *memf = open_memstream(&memptr, &memsize);
-					log_files.push_back(memf);
+					std::ostringstream buf;
+					log_streams.push_back(&buf);
 					it.second->help();
-					log_files.pop_back();
-					fclose(memf);
-					write_html(f, it.first, it.second->short_help, memptr);
-					free(memptr);
+					log_streams.pop_back();
+					write_html(f, it.first, it.second->short_help, buf.str());
 				}
 				fclose(f);
 			}

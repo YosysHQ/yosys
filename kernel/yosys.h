@@ -98,7 +98,6 @@ YOSYS_NAMESPACE_END
 #include "kernel/log.h"
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
-#include "kernel/compatibility.h"
 
 YOSYS_NAMESPACE_BEGIN
 
