@@ -747,11 +747,12 @@ struct ExtractPass : public Pass {
 				}
 			}
 
-			FILE *f = fopen(mine_outfile.c_str(), "wt");
-			if (f == NULL)
+			std::ofstream f;
+			f.open(mine_outfile.c_str(), std::ofstream::trunc);
+			if (f.fail())
 				log_error("Can't open output file `%s'.\n", mine_outfile.c_str());
-			Backend::backend_call(map, f, mine_outfile, "ilang");
-			fclose(f);
+			Backend::backend_call(map, &f, mine_outfile, "ilang");
+			f.close();
 		}
 
 		delete map;

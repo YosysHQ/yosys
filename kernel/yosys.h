@@ -45,6 +45,11 @@
 #include <functional>
 #include <initializer_list>
 
+#include <sstream>
+#include <fstream>
+#include <ostream>
+#include <iostream>
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>

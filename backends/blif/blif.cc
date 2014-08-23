@@ -44,13 +44,13 @@ struct BlifDumperConfig
 
 struct BlifDumper
 {
-	FILE *f;
+	std::ostream &f;
 	RTLIL::Module *module;
 	RTLIL::Design *design;
 	BlifDumperConfig *config;
 	CellTypes ct;
 
-	BlifDumper(FILE *f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig *config) :
+	BlifDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig *config) :
 			f(f), module(module), design(design), config(config), ct(design)
 	{
 	}
@@ -97,8 +97,8 @@ struct BlifDumper
 
 	void dump()
 	{
-		fprintf(f, "\n");
-		fprintf(f, ".model %s\n", cstr(module->name));
+		f << stringf("\n");
+		f << stringf(".model %s\n", cstr(module->name));
 
 		std::map<int, RTLIL::Wire*> inputs, outputs;
 
@@ -110,33 +110,33 @@ struct BlifDumper
 				outputs[wire->port_id] = wire;
 		}
 
-		fprintf(f, ".inputs");
+		f << stringf(".inputs");
 		for (auto &it : inputs) {
 			RTLIL::Wire *wire = it.second;
 			for (int i = 0; i < wire->width; i++)
-				fprintf(f, " %s", cstr(RTLIL::SigSpec(wire, i)));
+				f << stringf(" %s", cstr(RTLIL::SigSpec(wire, i)));
 		}
-		fprintf(f, "\n");
+		f << stringf("\n");
 
-		fprintf(f, ".outputs");
+		f << stringf(".outputs");
 		for (auto &it : outputs) {
 			RTLIL::Wire *wire = it.second;
 			for (int i = 0; i < wire->width; i++)
-				fprintf(f, " %s", cstr(RTLIL::SigSpec(wire, i)));
+				f << stringf(" %s", cstr(RTLIL::SigSpec(wire, i)));
 		}
-		fprintf(f, "\n");
+		f << stringf("\n");
 
 		if (!config->impltf_mode) {
 			if (!config->false_type.empty())
-				fprintf(f, ".%s %s %s=$false\n", subckt_or_gate(config->false_type),
+				f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_type),
 						config->false_type.c_str(), config->false_out.c_str());
 			else
-				fprintf(f, ".names $false\n");
+				f << stringf(".names $false\n");
 			if (!config->true_type.empty())
-				fprintf(f, ".%s %s %s=$true\n", subckt_or_gate(config->true_type),
+				f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_type),
 						config->true_type.c_str(), config->true_out.c_str());
 			else
-				fprintf(f, ".names $true\n1\n");
+				f << stringf(".names $true\n1\n");
 		}
 
 		for (auto &cell_it : module->cells_)
@@ -144,116 +144,116 @@ struct BlifDumper
 			RTLIL::Cell *cell = cell_it.second;
 
 			if (!config->icells_mode && cell->type == "$_NOT_") {
-				fprintf(f, ".names %s %s\n0 1\n",
+				f << stringf(".names %s %s\n0 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_AND_") {
-				fprintf(f, ".names %s %s %s\n11 1\n",
+				f << stringf(".names %s %s %s\n11 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_OR_") {
-				fprintf(f, ".names %s %s %s\n1- 1\n-1 1\n",
+				f << stringf(".names %s %s %s\n1- 1\n-1 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_XOR_") {
-				fprintf(f, ".names %s %s %s\n10 1\n01 1\n",
+				f << stringf(".names %s %s %s\n10 1\n01 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_MUX_") {
-				fprintf(f, ".names %s %s %s %s\n1-0 1\n-11 1\n",
+				f << stringf(".names %s %s %s %s\n1-0 1\n-11 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
 						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_N_") {
-				fprintf(f, ".latch %s %s fe %s\n",
+				f << stringf(".latch %s %s fe %s\n",
 						cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")), cstr(cell->getPort("\\C")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_P_") {
-				fprintf(f, ".latch %s %s re %s\n",
+				f << stringf(".latch %s %s re %s\n",
 						cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")), cstr(cell->getPort("\\C")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$lut") {
-				fprintf(f, ".names");
+				f << stringf(".names");
 				auto &inputs = cell->getPort("\\A");
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				log_assert(inputs.size() == width);
 				for (int i = 0; i < inputs.size(); i++) {
-					fprintf(f, " %s", cstr(inputs.extract(i, 1)));
+					f << stringf(" %s", cstr(inputs.extract(i, 1)));
 				}
 				auto &output = cell->getPort("\\Y");
 				log_assert(output.size() == 1);
-				fprintf(f, " %s", cstr(output));
-				fprintf(f, "\n");
+				f << stringf(" %s", cstr(output));
+				f << stringf("\n");
 				auto mask = cell->parameters.at("\\LUT").as_string();
 				for (int i = 0; i < (1 << width); i++) {
 					if (mask[i] == '0') continue;
 					for (int j = width-1; j >= 0; j--) {
-						fputc((i>>j)&1 ? '1' : '0', f);
+						f << ((i>>j)&1 ? '1' : '0');
 					}
-					fprintf(f, " %c\n", mask[i]);
+					f << stringf(" %c\n", mask[i]);
 				}
 				continue;
 			}
 
-			fprintf(f, ".%s %s", subckt_or_gate(cell->type.str()), cstr(cell->type));
+			f << stringf(".%s %s", subckt_or_gate(cell->type.str()), cstr(cell->type));
 			for (auto &conn : cell->connections())
 			for (int i = 0; i < conn.second.size(); i++) {
 				if (conn.second.size() == 1)
-					fprintf(f, " %s", cstr(conn.first));
+					f << stringf(" %s", cstr(conn.first));
 				else
-					fprintf(f, " %s[%d]", cstr(conn.first), i);
-				fprintf(f, "=%s", cstr(conn.second.extract(i, 1)));
+					f << stringf(" %s[%d]", cstr(conn.first), i);
+				f << stringf("=%s", cstr(conn.second.extract(i, 1)));
 			}
-			fprintf(f, "\n");
+			f << stringf("\n");
 
 			if (config->param_mode)
 				for (auto &param : cell->parameters) {
-					fprintf(f, ".param %s ", RTLIL::id2cstr(param.first));
+					f << stringf(".param %s ", RTLIL::id2cstr(param.first));
 					if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
 						std::string str = param.second.decode_string();
-						fprintf(f, "\"");
+						f << stringf("\"");
 						for (char ch : str)
 							if (ch == '"' || ch == '\\')
-								fprintf(f, "\\%c", ch);
+								f << stringf("\\%c", ch);
 							else if (ch < 32 || ch >= 127)
-								fprintf(f, "\\%03o", ch);
+								f << stringf("\\%03o", ch);
 							else
-								fprintf(f, "%c", ch);
-						fprintf(f, "\"\n");
+								f << stringf("%c", ch);
+						f << stringf("\"\n");
 					} else
-						fprintf(f, "%s\n", param.second.as_string().c_str());
+						f << stringf("%s\n", param.second.as_string().c_str());
 				}
 		}
 
 		for (auto &conn : module->connections())
 		for (int i = 0; i < conn.first.size(); i++)
 			if (config->conn_mode)
-				fprintf(f, ".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
+				f << stringf(".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
 			else if (!config->buf_type.empty())
-				fprintf(f, ".%s %s %s=%s %s=%s\n", subckt_or_gate(config->buf_type), config->buf_type.c_str(), config->buf_in.c_str(), cstr(conn.second.extract(i, 1)),
+				f << stringf(".%s %s %s=%s %s=%s\n", subckt_or_gate(config->buf_type), config->buf_type.c_str(), config->buf_in.c_str(), cstr(conn.second.extract(i, 1)),
 						config->buf_out.c_str(), cstr(conn.first.extract(i, 1)));
 			else
-				fprintf(f, ".names %s %s\n1 1\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
+				f << stringf(".names %s %s\n1 1\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
 
 
-		fprintf(f, ".end\n");
+		f << stringf(".end\n");
 	}
 
-	static void dump(FILE *f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig &config)
+	static void dump(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig &config)
 	{
 		BlifDumper dumper(f, module, design, &config);
 		dumper.dump();
@@ -303,7 +303,7 @@ struct BlifBackend : public Backend {
 		log("        do not write definitions for the $true and $false wires.\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string top_module_name;
 		std::string buf_type, buf_in, buf_out;
@@ -365,7 +365,7 @@ struct BlifBackend : public Backend {
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_module_name = mod_it.first.str();
 
-		fprintf(f, "# Generated by %s\n", yosys_version_str);
+		*f << stringf("# Generated by %s\n", yosys_version_str);
 
 		std::vector<RTLIL::Module*> mod_list;
 
@@ -381,7 +381,7 @@ struct BlifBackend : public Backend {
 				log_error("Found munmapped emories in module %s: unmapped memories are not supported in BLIF backend!\n", RTLIL::id2cstr(module->name));
 
 			if (module->name == RTLIL::escape_id(top_module_name)) {
-				BlifDumper::dump(f, module, design, config);
+				BlifDumper::dump(*f, module, design, config);
 				top_module_name.clear();
 				continue;
 			}
@@ -393,7 +393,7 @@ struct BlifBackend : public Backend {
 			log_error("Can't find top module `%s'!\n", top_module_name.c_str());
 
 		for (auto module : mod_list)
-			BlifDumper::dump(f, module, design, config);
+			BlifDumper::dump(*f, module, design, config);
 	}
 } BlifBackend;
 

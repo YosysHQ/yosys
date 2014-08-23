@@ -23,16 +23,12 @@
  */
 
 #include "ilang_backend.h"
-#include "kernel/compatibility.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
-#include <string>
-#include <string.h>
+#include "kernel/yosys.h"
 #include <errno.h>
 
 using namespace ILANG_BACKEND;
 
-void ILANG_BACKEND::dump_const(FILE *f, const RTLIL::Const &data, int width, int offset, bool autoint)
+void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
@@ -48,222 +44,222 @@ void ILANG_BACKEND::dump_const(FILE *f, const RTLIL::Const &data, int width, int
 				}
 			}
 			if (val >= 0) {
-				fprintf(f, "%d", val);
+				f << stringf("%d", val);
 				return;
 			}
 		}
-		fprintf(f, "%d'", width);
+		f << stringf("%d'", width);
 		for (int i = offset+width-1; i >= offset; i--) {
 			log_assert(i < (int)data.bits.size());
 			switch (data.bits[i]) {
-			case RTLIL::S0: fprintf(f, "0"); break;
-			case RTLIL::S1: fprintf(f, "1"); break;
-			case RTLIL::Sx: fprintf(f, "x"); break;
-			case RTLIL::Sz: fprintf(f, "z"); break;
-			case RTLIL::Sa: fprintf(f, "-"); break;
-			case RTLIL::Sm: fprintf(f, "m"); break;
+			case RTLIL::S0: f << stringf("0"); break;
+			case RTLIL::S1: f << stringf("1"); break;
+			case RTLIL::Sx: f << stringf("x"); break;
+			case RTLIL::Sz: f << stringf("z"); break;
+			case RTLIL::Sa: f << stringf("-"); break;
+			case RTLIL::Sm: f << stringf("m"); break;
 			}
 		}
 	} else {
-		fprintf(f, "\"");
+		f << stringf("\"");
 		std::string str = data.decode_string();
 		for (size_t i = 0; i < str.size(); i++) {
 			if (str[i] == '\n')
-				fprintf(f, "\\n");
+				f << stringf("\\n");
 			else if (str[i] == '\t')
-				fprintf(f, "\\t");
+				f << stringf("\\t");
 			else if (str[i] < 32)
-				fprintf(f, "\\%03o", str[i]);
+				f << stringf("\\%03o", str[i]);
 			else if (str[i] == '"')
-				fprintf(f, "\\\"");
+				f << stringf("\\\"");
 			else if (str[i] == '\\')
-				fprintf(f, "\\\\");
+				f << stringf("\\\\");
 			else
-				fputc(str[i], f);
+				f << str[i];
 		}
-		fprintf(f, "\"");
+		f << stringf("\"");
 	}
 }
 
-void ILANG_BACKEND::dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool autoint)
+void ILANG_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint)
 {
 	if (chunk.wire == NULL) {
 		dump_const(f, chunk.data, chunk.width, chunk.offset, autoint);
 	} else {
 		if (chunk.width == chunk.wire->width && chunk.offset == 0)
-			fprintf(f, "%s", chunk.wire->name.c_str());
+			f << stringf("%s", chunk.wire->name.c_str());
 		else if (chunk.width == 1)
-			fprintf(f, "%s [%d]", chunk.wire->name.c_str(), chunk.offset);
+			f << stringf("%s [%d]", chunk.wire->name.c_str(), chunk.offset);
 		else
-			fprintf(f, "%s [%d:%d]", chunk.wire->name.c_str(), chunk.offset+chunk.width-1, chunk.offset);
+			f << stringf("%s [%d:%d]", chunk.wire->name.c_str(), chunk.offset+chunk.width-1, chunk.offset);
 	}
 }
 
-void ILANG_BACKEND::dump_sigspec(FILE *f, const RTLIL::SigSpec &sig, bool autoint)
+void ILANG_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint)
 {
 	if (sig.is_chunk()) {
 		dump_sigchunk(f, sig.as_chunk(), autoint);
 	} else {
-		fprintf(f, "{ ");
+		f << stringf("{ ");
 		for (auto it = sig.chunks().rbegin(); it != sig.chunks().rend(); it++) {
 			dump_sigchunk(f, *it, false);
-			fprintf(f, " ");
+			f << stringf(" ");
 		}
-		fprintf(f, "}");
+		f << stringf("}");
 	}
 }
 
-void ILANG_BACKEND::dump_wire(FILE *f, std::string indent, const RTLIL::Wire *wire)
+void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire)
 {
 	for (auto it = wire->attributes.begin(); it != wire->attributes.end(); it++) {
-		fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
+		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
-	fprintf(f, "%s" "wire ", indent.c_str());
+	f << stringf("%s" "wire ", indent.c_str());
 	if (wire->width != 1)
-		fprintf(f, "width %d ", wire->width);
+		f << stringf("width %d ", wire->width);
 	if (wire->upto)
-		fprintf(f, "upto ");
+		f << stringf("upto ");
 	if (wire->start_offset != 0)
-		fprintf(f, "offset %d ", wire->start_offset);
+		f << stringf("offset %d ", wire->start_offset);
 	if (wire->port_input && !wire->port_output)
-		fprintf(f, "input %d ", wire->port_id);
+		f << stringf("input %d ", wire->port_id);
 	if (!wire->port_input && wire->port_output)
-		fprintf(f, "output %d ", wire->port_id);
+		f << stringf("output %d ", wire->port_id);
 	if (wire->port_input && wire->port_output)
-		fprintf(f, "inout %d ", wire->port_id);
-	fprintf(f, "%s\n", wire->name.c_str());
+		f << stringf("inout %d ", wire->port_id);
+	f << stringf("%s\n", wire->name.c_str());
 }
 
-void ILANG_BACKEND::dump_memory(FILE *f, std::string indent, const RTLIL::Memory *memory)
+void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory)
 {
 	for (auto it = memory->attributes.begin(); it != memory->attributes.end(); it++) {
-		fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
+		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
-	fprintf(f, "%s" "memory ", indent.c_str());
+	f << stringf("%s" "memory ", indent.c_str());
 	if (memory->width != 1)
-		fprintf(f, "width %d ", memory->width);
+		f << stringf("width %d ", memory->width);
 	if (memory->size != 0)
-		fprintf(f, "size %d ", memory->size);
-	fprintf(f, "%s\n", memory->name.c_str());
+		f << stringf("size %d ", memory->size);
+	f << stringf("%s\n", memory->name.c_str());
 }
 
-void ILANG_BACKEND::dump_cell(FILE *f, std::string indent, const RTLIL::Cell *cell)
+void ILANG_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
 {
 	for (auto it = cell->attributes.begin(); it != cell->attributes.end(); it++) {
-		fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
+		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
-	fprintf(f, "%s" "cell %s %s\n", indent.c_str(), cell->type.c_str(), cell->name.c_str());
+	f << stringf("%s" "cell %s %s\n", indent.c_str(), cell->type.c_str(), cell->name.c_str());
 	for (auto it = cell->parameters.begin(); it != cell->parameters.end(); it++) {
-		fprintf(f, "%s  parameter%s %s ", indent.c_str(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "", it->first.c_str());
+		f << stringf("%s  parameter%s %s ", indent.c_str(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "", it->first.c_str());
 		dump_const(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
 	for (auto it = cell->connections().begin(); it != cell->connections().end(); it++) {
-		fprintf(f, "%s  connect %s ", indent.c_str(), it->first.c_str());
+		f << stringf("%s  connect %s ", indent.c_str(), it->first.c_str());
 		dump_sigspec(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
-	fprintf(f, "%s" "end\n", indent.c_str());
+	f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_proc_case_body(FILE *f, std::string indent, const RTLIL::CaseRule *cs)
+void ILANG_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, const RTLIL::CaseRule *cs)
 {
 	for (auto it = cs->actions.begin(); it != cs->actions.end(); it++)
 	{
-		fprintf(f, "%s" "assign ", indent.c_str());
+		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, it->first);
-		fprintf(f, " ");
+		f << stringf(" ");
 		dump_sigspec(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
 
 	for (auto it = cs->switches.begin(); it != cs->switches.end(); it++)
 		dump_proc_switch(f, indent, *it);
 }
 
-void ILANG_BACKEND::dump_proc_switch(FILE *f, std::string indent, const RTLIL::SwitchRule *sw)
+void ILANG_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const RTLIL::SwitchRule *sw)
 {
 	for (auto it = sw->attributes.begin(); it != sw->attributes.end(); it++) {
-		fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
+		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
 
-	fprintf(f, "%s" "switch ", indent.c_str());
+	f << stringf("%s" "switch ", indent.c_str());
 	dump_sigspec(f, sw->signal);
-	fprintf(f, "\n");
+	f << stringf("\n");
 
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); it++)
 	{
-		fprintf(f, "%s  case ", indent.c_str());
+		f << stringf("%s  case ", indent.c_str());
 		for (size_t i = 0; i < (*it)->compare.size(); i++) {
 			if (i > 0)
-				fprintf(f, ", ");
+				f << stringf(", ");
 			dump_sigspec(f, (*it)->compare[i]);
 		}
-		fprintf(f, "\n");
+		f << stringf("\n");
 
 		dump_proc_case_body(f, indent + "    ", *it);
 	}
 
-	fprintf(f, "%s" "end\n", indent.c_str());
+	f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_proc_sync(FILE *f, std::string indent, const RTLIL::SyncRule *sy)
+void ILANG_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RTLIL::SyncRule *sy)
 {
-	fprintf(f, "%s" "sync ", indent.c_str());
+	f << stringf("%s" "sync ", indent.c_str());
 	switch (sy->type) {
-	if (0) case RTLIL::ST0: fprintf(f, "low ");
-	if (0) case RTLIL::ST1: fprintf(f, "high ");
-	if (0) case RTLIL::STp: fprintf(f, "posedge ");
-	if (0) case RTLIL::STn: fprintf(f, "negedge ");
-	if (0) case RTLIL::STe: fprintf(f, "edge ");
+	if (0) case RTLIL::ST0: f << stringf("low ");
+	if (0) case RTLIL::ST1: f << stringf("high ");
+	if (0) case RTLIL::STp: f << stringf("posedge ");
+	if (0) case RTLIL::STn: f << stringf("negedge ");
+	if (0) case RTLIL::STe: f << stringf("edge ");
 		dump_sigspec(f, sy->signal);
-		fprintf(f, "\n");
+		f << stringf("\n");
 		break;
-	case RTLIL::STa: fprintf(f, "always\n"); break;
-	case RTLIL::STi: fprintf(f, "init\n"); break;
+	case RTLIL::STa: f << stringf("always\n"); break;
+	case RTLIL::STi: f << stringf("init\n"); break;
 	}
 
 	for (auto it = sy->actions.begin(); it != sy->actions.end(); it++) {
-		fprintf(f, "%s  update ", indent.c_str());
+		f << stringf("%s  update ", indent.c_str());
 		dump_sigspec(f, it->first);
-		fprintf(f, " ");
+		f << stringf(" ");
 		dump_sigspec(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
 }
 
-void ILANG_BACKEND::dump_proc(FILE *f, std::string indent, const RTLIL::Process *proc)
+void ILANG_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc)
 {
 	for (auto it = proc->attributes.begin(); it != proc->attributes.end(); it++) {
-		fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
+		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
-		fprintf(f, "\n");
+		f << stringf("\n");
 	}
-	fprintf(f, "%s" "process %s\n", indent.c_str(), proc->name.c_str());
+	f << stringf("%s" "process %s\n", indent.c_str(), proc->name.c_str());
 	dump_proc_case_body(f, indent + "  ", &proc->root_case);
 	for (auto it = proc->syncs.begin(); it != proc->syncs.end(); it++)
 		dump_proc_sync(f, indent + "  ", *it);
-	fprintf(f, "%s" "end\n", indent.c_str());
+	f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_conn(FILE *f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
+void ILANG_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	fprintf(f, "%s" "connect ", indent.c_str());
+	f << stringf("%s" "connect ", indent.c_str());
 	dump_sigspec(f, left);
-	fprintf(f, " ");
+	f << stringf(" ");
 	dump_sigspec(f, right);
-	fprintf(f, "\n");
+	f << stringf("\n");
 }
 
-void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
 	bool print_header = flag_m || design->selected_whole_module(module->name);
 	bool print_body = !flag_n || !design->selected_whole_module(module->name);
@@ -271,12 +267,12 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 	if (print_header)
 	{
 		for (auto it = module->attributes.begin(); it != module->attributes.end(); it++) {
-			fprintf(f, "%s" "attribute %s ", indent.c_str(), it->first.c_str());
+			f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 			dump_const(f, it->second);
-			fprintf(f, "\n");
+			f << stringf("\n");
 		}
 
-		fprintf(f, "%s" "module %s\n", indent.c_str(), module->name.c_str());
+		f << stringf("%s" "module %s\n", indent.c_str(), module->name.c_str());
 	}
 
 	if (print_body)
@@ -284,28 +280,28 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 		for (auto it = module->wires_.begin(); it != module->wires_.end(); it++)
 			if (!only_selected || design->selected(module, it->second)) {
 				if (only_selected)
-					fprintf(f, "\n");
+					f << stringf("\n");
 				dump_wire(f, indent + "  ", it->second);
 			}
 
 		for (auto it = module->memories.begin(); it != module->memories.end(); it++)
 			if (!only_selected || design->selected(module, it->second)) {
 				if (only_selected)
-					fprintf(f, "\n");
+					f << stringf("\n");
 				dump_memory(f, indent + "  ", it->second);
 			}
 
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); it++)
 			if (!only_selected || design->selected(module, it->second)) {
 				if (only_selected)
-					fprintf(f, "\n");
+					f << stringf("\n");
 				dump_cell(f, indent + "  ", it->second);
 			}
 
 		for (auto it = module->processes.begin(); it != module->processes.end(); it++)
 			if (!only_selected || design->selected(module, it->second)) {
 				if (only_selected)
-					fprintf(f, "\n");
+					f << stringf("\n");
 				dump_proc(f, indent + "  ", it->second);
 			}
 
@@ -323,7 +319,7 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 			}
 			if (show_conn) {
 				if (only_selected && first_conn_line)
-					fprintf(f, "\n");
+					f << stringf("\n");
 				dump_conn(f, indent + "  ", it->first, it->second);
 				first_conn_line = false;
 			}
@@ -331,10 +327,10 @@ void ILANG_BACKEND::dump_module(FILE *f, std::string indent, const RTLIL::Module
 	}
 
 	if (print_header)
-		fprintf(f, "%s" "end\n", indent.c_str());
+		f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void ILANG_BACKEND::dump_design(std::ostream &f, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
 	int init_autoidx = autoidx;
 
@@ -352,14 +348,14 @@ void ILANG_BACKEND::dump_design(FILE *f, const RTLIL::Design *design, bool only_
 
 	if (!only_selected || flag_m) {
 		if (only_selected)
-			fprintf(f, "\n");
-		fprintf(f, "autoidx %d\n", autoidx);
+			f << stringf("\n");
+		f << stringf("autoidx %d\n", autoidx);
 	}
 
 	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++) {
 		if (!only_selected || design->selected(it->second)) {
 			if (only_selected)
-				fprintf(f, "\n");
+				f << stringf("\n");
 			dump_module(f, "", it->second, design, only_selected, flag_m, flag_n);
 		}
 	}
@@ -382,7 +378,7 @@ struct IlangBackend : public Backend {
 		log("        only write selected parts of the design.\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool selected = false;
 
@@ -400,8 +396,8 @@ struct IlangBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		log("Output filename: %s\n", filename.c_str());
-		fprintf(f, "# Generated by %s\n", yosys_version_str);
-		ILANG_BACKEND::dump_design(f, design, selected, true, false);
+		*f << stringf("# Generated by %s\n", yosys_version_str);
+		ILANG_BACKEND::dump_design(*f, design, selected, true, false);
 	}
 } IlangBackend;
 
@@ -461,25 +457,27 @@ struct DumpPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		FILE *f = NULL;
-		char *buf_ptr;
-		size_t buf_size;
+		std::ostream *f;
+		std::stringstream buf;
 
 		if (!filename.empty()) {
-			f = fopen(filename.c_str(), append ? "a" : "w");
-			if (f == NULL)
+			std::ofstream *ff = new std::ofstream;
+			ff->open(filename.c_str(), append ? std::ofstream::app : std::ofstream::trunc);
+			if (ff->fail()) {
+				delete ff;
 				log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+			}
+			f = ff;
 		} else {
-			f = open_memstream(&buf_ptr, &buf_size);
+			f = &buf;
 		}
 
-		ILANG_BACKEND::dump_design(f, design, true, flag_m, flag_n);
+		ILANG_BACKEND::dump_design(*f, design, true, flag_m, flag_n);
 
-		fclose(f);
-
-		if (filename.empty()) {
-			log("%s", buf_ptr);
-			free(buf_ptr);
+		if (!filename.empty()) {
+			delete f;
+		} else {
+			log("%s", buf.str().c_str());
 		}
 	}
 } DumpPass;

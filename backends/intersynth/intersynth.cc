@@ -69,7 +69,7 @@ struct IntersynthBackend : public Backend {
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing INTERSYNTH backend.\n");
 		log_push();
@@ -198,15 +198,15 @@ struct IntersynthBackend : public Backend {
 		}
 
 		if (!flag_notypes) {
-			fprintf(f, "### Connection Types\n");
+			*f << stringf("### Connection Types\n");
 			for (auto code : conntypes_code)
-				fprintf(f, "%s", code.c_str());
-			fprintf(f, "\n### Cell Types\n");
+				*f << stringf("%s", code.c_str());
+			*f << stringf("\n### Cell Types\n");
 			for (auto code : celltypes_code)
-				fprintf(f, "%s", code.c_str());
+				*f << stringf("%s", code.c_str());
 		}
-		fprintf(f, "\n### Netlists\n");
-		fprintf(f, "%s", netlists_code.c_str());
+		*f << stringf("\n### Netlists\n");
+		*f << stringf("%s", netlists_code.c_str());
 
 		for (auto lib : libs)
 			delete lib;

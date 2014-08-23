@@ -29,11 +29,10 @@
 #ifndef VERILOG_BACKEND_H
 #define VERILOG_BACKEND_H
 
-#include "kernel/rtlil.h"
-#include <stdio.h>
+#include "kernel/yosys.h"
 
 namespace VERILOG_BACKEND {
-	void verilog_backend(FILE *f, std::vector<std::string> args, RTLIL::Design *design);
+	void verilog_backend(std::ostream &f, std::vector<std::string> args, RTLIL::Design *design);
 }
 
 #endif

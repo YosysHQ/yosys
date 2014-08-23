@@ -423,15 +423,15 @@ Backend::~Backend()
 
 void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
-	FILE *f = NULL;
+	std::ostream *f = NULL;
 	auto state = pre_execute();
 	execute(f, std::string(), args, design);
 	post_execute(state);
-	if (f != stdout)
-		fclose(f);
+	if (f != &std::cout)
+		delete f;
 }
 
-void Backend::extra_args(FILE *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
+void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
 {
 	bool called_with_fp = f != NULL;
 
@@ -446,14 +446,18 @@ void Backend::extra_args(FILE *&f, std::string &filename, std::vector<std::strin
 
 		if (arg == "-") {
 			filename = "<stdout>";
-			f = stdout;
+			f = &std::cout;
 			continue;
 		}
 
 		filename = arg;
-		f = fopen(filename.c_str(), "w");
-		if (f == NULL)
+		std::ofstream *ff = new std::ofstream;
+		ff->open(filename.c_str(), std::ofstream::trunc);
+		if (ff->fail()) {
+			delete ff;
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+		}
+		f = ff;
 	}
 
 	if (called_with_fp)
@@ -463,11 +467,11 @@ void Backend::extra_args(FILE *&f, std::string &filename, std::vector<std::strin
 
 	if (f == NULL) {
 		filename = "<stdout>";
-		f = stdout;
+		f = &std::cout;
 	}
 }
 
-void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename, std::string command)
+void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string filename, std::string command)
 {
 	std::vector<std::string> args;
 	char *s = strdup(command.c_str());
@@ -477,7 +481,7 @@ void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename,
 	backend_call(design, f, filename, args);
 }
 
-void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename, std::vector<std::string> args)
+void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string filename, std::vector<std::string> args)
 {
 	if (args.size() == 0)
 		return;
@@ -491,9 +495,9 @@ void Backend::backend_call(RTLIL::Design *design, FILE *f, std::string filename,
 		backend_register[args[0]]->execute(f, filename, args, design);
 		backend_register[args[0]]->post_execute(state);
 	} else if (filename == "-") {
-		FILE *f_stdout = stdout; // workaround for OpenBSD 'stdout' implementation
+		std::ostream *f_cout = &std::cout;
 		auto state = backend_register[args[0]]->pre_execute();
-		backend_register[args[0]]->execute(f_stdout, "<stdout>", args, design);
+		backend_register[args[0]]->execute(f_cout, "<stdout>", args, design);
 		backend_register[args[0]]->post_execute(state);
 	} else {
 		if (!filename.empty())

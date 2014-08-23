@@ -210,20 +210,14 @@ void log_dump_val_worker(RTLIL::SigSpec v) {
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
-	char *ptr;
-	size_t size;
-
-	FILE *f = open_memstream(&ptr, &size);
-	ILANG_BACKEND::dump_sigspec(f, sig, autoint);
-	fputc(0, f);
-	fclose(f);
+	std::stringstream buf;
+	ILANG_BACKEND::dump_sigspec(buf, sig, autoint);
 
 	if (string_buf_size < 100)
 		string_buf_size++;
 	else
 		string_buf.pop_front();
-	string_buf.push_back(ptr);
-	free(ptr);
+	string_buf.push_back(buf.str());
 
 	return string_buf.back().c_str();
 }
@@ -239,16 +233,9 @@ const char *log_id(RTLIL::IdString str)
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
 {
-	char *ptr;
-	size_t size;
-
-	FILE *f = open_memstream(&ptr, &size);
-	ILANG_BACKEND::dump_cell(f, indent, cell);
-	fputc(0, f);
-	fclose(f);
-
-	log("%s", ptr);
-	free(ptr);
+	std::stringstream buf;
+	ILANG_BACKEND::dump_cell(buf, indent, cell);
+	log("%s", buf.str().c_str());
 }
 
 // ---------------------------------------------------

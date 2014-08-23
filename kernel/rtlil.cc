@@ -412,17 +412,12 @@ namespace {
 
 		void error(int linenr)
 		{
-			char *ptr;
-			size_t size;
-
-			FILE *f = open_memstream(&ptr, &size);
-			ILANG_BACKEND::dump_cell(f, "  ", cell);
-			fputc(0, f);
-			fclose(f);
+			std::stringstream buf;
+			ILANG_BACKEND::dump_cell(buf, "  ", cell);
 
 			log_error("Found error in internal cell %s%s%s (%s) at %s:%d:\n%s",
 					module ? module->name.c_str() : "", module ? "." : "",
-					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, ptr);
+					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 		}
 
 		int param(const char *name)

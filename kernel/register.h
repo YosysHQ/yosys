@@ -17,14 +17,10 @@
  *
  */
 
+#include "kernel/yosys.h"
+
 #ifndef REGISTER_H
 #define REGISTER_H
-
-#include "kernel/yosys.h"
-#include <stdio.h>
-#include <string>
-#include <vector>
-#include <map>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -94,12 +90,12 @@ struct Backend : Pass
 	virtual void run_register();
 	virtual ~Backend();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) OVERRIDE FINAL;
-	virtual void execute(FILE *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
+	virtual void execute(std::ostream *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
 
-	void extra_args(FILE *&f, std::string &filename, std::vector<std::string> args, size_t argidx);
+	void extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx);
 
-	static void backend_call(RTLIL::Design *design, FILE *f, std::string filename, std::string command);
-	static void backend_call(RTLIL::Design *design, FILE *f, std::string filename, std::vector<std::string> args);
+	static void backend_call(RTLIL::Design *design, std::ostream *f, std::string filename, std::string command);
+	static void backend_call(RTLIL::Design *design, std::ostream *f, std::string filename, std::vector<std::string> args);
 };
 
 // implemented in passes/cmds/select.cc
