@@ -26,12 +26,11 @@
 #define ILANG_FRONTEND_H
 
 #include "kernel/yosys.h"
-#include <stdio.h>
 
 YOSYS_NAMESPACE_BEGIN
 
 namespace ILANG_FRONTEND {
-	void ilang_frontend(FILE *f, RTLIL::Design *design);
+	extern std::istream *lexin;
 	extern RTLIL::Design *current_design;
 }
 
@@ -42,7 +41,7 @@ int rtlil_frontend_ilang_yylex(void);
 void rtlil_frontend_ilang_yyerror(char const *s);
 void rtlil_frontend_ilang_yyrestart(FILE *f);
 int rtlil_frontend_ilang_yyparse(void);
-void rtlil_frontend_ilang_yylex_destroy(void);
+int rtlil_frontend_ilang_yylex_destroy(void);
 int rtlil_frontend_ilang_yyget_lineno(void);
 
 #endif

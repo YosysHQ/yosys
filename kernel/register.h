@@ -74,13 +74,13 @@ struct Frontend : Pass
 	virtual void run_register();
 	virtual ~Frontend();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) OVERRIDE FINAL;
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
+	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	static std::vector<std::string> next_args;
-	void extra_args(FILE *&f, std::string &filename, std::vector<std::string> args, size_t argidx);
+	void extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx);
 
-	static void frontend_call(RTLIL::Design *design, FILE *f, std::string filename, std::string command);
-	static void frontend_call(RTLIL::Design *design, FILE *f, std::string filename, std::vector<std::string> args);
+	static void frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::string command);
+	static void frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::vector<std::string> args);
 };
 
 struct Backend : Pass

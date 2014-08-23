@@ -430,7 +430,7 @@ struct LibertyFrontend : public Frontend {
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_lib = false;
 		bool flag_ignore_redef = false;
@@ -467,7 +467,7 @@ struct LibertyFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		LibertyParser parser(f);
+		LibertyParser parser(*f);
 		int cell_count = 0;
 
 		for (auto cell : parser.ast->children)

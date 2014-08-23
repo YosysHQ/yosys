@@ -869,9 +869,8 @@ struct TechmapPass : public Pass {
 
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
-			FILE *f = fmemopen(stdcells_code, strlen(stdcells_code), "rt");
-			Frontend::frontend_call(map, f, "<techmap.v>", verilog_frontend);
-			fclose(f);
+			std::istringstream f(stdcells_code);
+			Frontend::frontend_call(map, &f, "<techmap.v>", verilog_frontend);
 		} else
 			for (auto &fn : map_files)
 				if (fn.substr(0, 1) == "%") {
@@ -883,11 +882,11 @@ struct TechmapPass : public Pass {
 						if (!map->has(mod->name))
 							map->add(mod->clone());
 				} else {
-					FILE *f = fopen(fn.c_str(), "rt");
-					if (f == NULL)
+					std::ifstream f;
+					f.open(fn.c_str());
+					if (f.fail())
 						log_cmd_error("Can't open map file `%s'\n", fn.c_str());
-					Frontend::frontend_call(map, f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
-					fclose(f);
+					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
 				}
 
 		std::map<RTLIL::IdString, RTLIL::Module*> modules_new;

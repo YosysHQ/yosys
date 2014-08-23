@@ -47,6 +47,7 @@
 
 #include <sstream>
 #include <fstream>
+#include <istream>
 #include <ostream>
 #include <iostream>
 

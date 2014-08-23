@@ -609,13 +609,14 @@ struct ExtractPass : public Pass {
 				}
 				else
 				{
-					FILE *f = fopen(filename.c_str(), "rt");
-					if (f == NULL) {
+					std::ifstream f;
+					f.open(filename.c_str());
+					if (f.fail()) {
 						delete map;
 						log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
 					}
-					Frontend::frontend_call(map, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
-					fclose(f);
+					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+					f.close();
 
 					if (filename.size() <= 3 || filename.substr(filename.size()-3) != ".il") {
 						Pass::call(map, "proc");

@@ -101,13 +101,13 @@ struct IntersynthBackend : public Backend {
 		log("Output filename: %s\n", filename.c_str());
 
 		for (auto filename : libfiles) {
-			FILE *f = fopen(filename.c_str(), "rt");
-			if (f == NULL)
+			std::ifstream f;
+			f.open(filename.c_str());
+			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename.c_str());
 			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
 			libs.push_back(lib);
-			fclose(f);
 		}
 
 		if (libs.size() > 0)

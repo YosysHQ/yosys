@@ -29,8 +29,11 @@
 #pragma clang diagnostic ignored "-Wdeprecated-register"
 #endif
 
-#include "kernel/rtlil.h"
+#include "ilang_frontend.h"
 #include "parser.tab.h"
+
+#define YY_INPUT(buf,result,max_size) \
+        result = ILANG_FRONTEND::lexin->readsome(buf, max_size);
 
 %}
 

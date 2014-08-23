@@ -27,6 +27,7 @@
 #include "ilang_frontend.h"
 YOSYS_NAMESPACE_BEGIN
 namespace ILANG_FRONTEND {
+	std::istream *lexin;
 	RTLIL::Design *current_design;
 	RTLIL::Module *current_module;
 	RTLIL::Wire *current_wire;

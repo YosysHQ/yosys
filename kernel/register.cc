@@ -286,20 +286,20 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
 	log_assert(next_args.empty());
 	do {
-		FILE *f = NULL;
+		std::istream *f = NULL;
 		next_args.clear();
 		auto state = pre_execute();
 		execute(f, std::string(), args, design);
 		post_execute(state);
 		args = next_args;
-		fclose(f);
+		delete f;
 	} while (!args.empty());
 }
 
 FILE *Frontend::current_script_file = NULL;
 std::string Frontend::last_here_document;
 
-void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
+void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx)
 {
 	bool called_with_fp = f != NULL;
 
@@ -338,11 +338,16 @@ void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::stri
 					break;
 				last_here_document += buffer;
 			}
-			f = fmemopen((void*)last_here_document.c_str(), last_here_document.size(), "r");
+			f = new std::istringstream(last_here_document);
 		} else {
 			if (filename.substr(0, 2) == "+/")
 				filename = proc_share_dirname() + filename.substr(1);
-			f = fopen(filename.c_str(), "r");
+			std::ifstream *ff = new std::ifstream;
+			ff->open(filename.c_str());
+			if (ff->fail())
+				delete ff;
+			else
+				f = ff;
 		}
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
@@ -367,7 +372,7 @@ void Frontend::extra_args(FILE *&f, std::string &filename, std::vector<std::stri
 	// cmd_log_args(args);
 }
 
-void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filename, std::string command)
+void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::string command)
 {
 	std::vector<std::string> args;
 	char *s = strdup(command.c_str());
@@ -377,7 +382,7 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 	frontend_call(design, f, filename, args);
 }
 
-void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filename, std::vector<std::string> args)
+void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::vector<std::string> args)
 {
 	if (args.size() == 0)
 		return;
@@ -389,9 +394,9 @@ void Frontend::frontend_call(RTLIL::Design *design, FILE *f, std::string filenam
 		frontend_register[args[0]]->execute(f, filename, args, design);
 		frontend_register[args[0]]->post_execute(state);
 	} else if (filename == "-") {
-		FILE *f_stdin = stdin; // workaround for OpenBSD 'stdin' implementation
+		std::istream *f_cin = &std::cin;
 		auto state = frontend_register[args[0]]->pre_execute();
-		frontend_register[args[0]]->execute(f_stdin, "<stdin>", args, design);
+		frontend_register[args[0]]->execute(f_cin, "<stdin>", args, design);
 		frontend_register[args[0]]->post_execute(state);
 	} else {
 		if (!filename.empty())

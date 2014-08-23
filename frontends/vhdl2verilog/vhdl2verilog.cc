@@ -177,11 +177,11 @@ struct Vhdl2verilogPass : public Pass {
 			log_error("Execution of command \"%s\" failed: the shell returned %d\n", command.c_str(), WEXITSTATUS(ret));
 
 		if (out_file.empty()) {
-			f = fopen(stringf("%s/vhdl2verilog_output.v", tempdir_name).c_str(), "rt");
-			if (f == NULL)
+			std::ifstream ff;
+			ff.open(stringf("%s/vhdl2verilog_output.v", tempdir_name).c_str());
+			if (ff.fail())
 				log_error("Can't open vhdl2verilog output file `vhdl2verilog_output.v'.\n");
-			Frontend::frontend_call(design, f, stringf("%s/vhdl2verilog_output.v", tempdir_name), "verilog");
-			fclose(f);
+			Frontend::frontend_call(design, &ff, stringf("%s/vhdl2verilog_output.v", tempdir_name), "verilog");
 		}
 
 		log_header("Removing temp directory `%s':\n", tempdir_name);

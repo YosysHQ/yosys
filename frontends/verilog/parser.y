@@ -58,6 +58,7 @@ namespace VERILOG_FRONTEND {
 	bool do_not_require_port_stubs;
 	bool default_nettype_wire;
 	bool sv_mode;
+	std::istream *lexin;
 }
 YOSYS_NAMESPACE_END
 

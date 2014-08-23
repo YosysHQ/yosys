@@ -21,6 +21,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <istream>
+#include <fstream>
+#include <iostream>
+
 #ifndef FILTERLIB
 #include "kernel/log.h"
 #endif
@@ -85,19 +89,19 @@ int LibertyParser::lexer(std::string &str)
 	int c;
 
 	do {
-		c = fgetc(f);
+		c = f.get();
 	} while (c == ' ' || c == '\t' || c == '\r');
 
 	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
 		str = c;
 		while (1) {
-			c = fgetc(f);
+			c = f.get();
 			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
 				str += c;
 			else
 				break;
 		}
-		ungetc(c, f);
+		f.unget();
 		// fprintf(stderr, "LEX: identifier >>%s<<\n", str.c_str());
 		return 'v';
 	}
@@ -105,7 +109,7 @@ int LibertyParser::lexer(std::string &str)
 	if (c == '"') {
 		str = c;
 		while (1) {
-			c = fgetc(f);
+			c = f.get();
 			if (c == '\n')
 				line++;
 			str += c;
@@ -117,34 +121,34 @@ int LibertyParser::lexer(std::string &str)
 	}
 
 	if (c == '/') {
-		c = fgetc(f);
+		c = f.get();
 		if (c == '*') {
 			int last_c = 0;
 			while (c > 0 && (last_c != '*' || c != '/')) {
 				last_c = c;
-				c = fgetc(f);
+				c = f.get();
 				if (c == '\n')
 					line++;
 			}
 			return lexer(str);
 		} else if (c == '/') {
 			while (c > 0 && c != '\n')
-				c = fgetc(f);
+				c = f.get();
 			line++;
 			return lexer(str);
 		}
-		ungetc(c, f);
+		f.unget();
 		// fprintf(stderr, "LEX: char >>/<<\n");
 		return '/';
 	}
 
 	if (c == '\\') {
-		c = fgetc(f);
+		c = f.get();
 		if (c == '\r')
-			c = fgetc(f);
+			c = f.get();
 		if (c == '\n')
 			return lexer(str);
-		ungetc(c, f);
+		f.unget();
 		return '\\';
 	}
 
@@ -608,16 +612,20 @@ int main(int argc, char **argv)
 		}
 	}
 
-	FILE *f = stdin;
+	std::istream *f = &std::cin;
+
 	if (argc == 3) {
-		f = fopen(argv[2], "r");
-		if (f == NULL) {
+		std::ifstream *ff = new std::ifstream;
+		ff->open(argv[2]);
+		if (ff->fail()) {
+			delete ff;
 			fprintf(stderr, "Can't open liberty file `%s'.\n", argv[2]);
 			usage();
 		}
+		f = ff;
 	}
 
-	LibertyParser parser(f);
+	LibertyParser parser(*f);
 	if (parser.ast) {
 		if (flag_verilogsim)
 			gen_verilogsim(parser.ast);
@@ -626,7 +634,7 @@ int main(int argc, char **argv)
 	}
 
 	if (argc == 3)
-		fclose(f);
+		delete f;
 
 	return 0;
 }

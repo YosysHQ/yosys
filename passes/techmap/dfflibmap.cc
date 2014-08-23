@@ -463,11 +463,12 @@ struct DfflibmapPass : public Pass {
 		if (liberty_file.empty())
 			log_cmd_error("Missing `-liberty liberty_file' option!\n");
 
-		FILE *f = fopen(liberty_file.c_str(), "r");
-		if (f == NULL)
+		std::ifstream f;
+		f.open(liberty_file.c_str());
+		if (f.fail())
 			log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
 		LibertyParser libparser(f);
-		fclose(f);
+		f.close();
 
 		find_cell(libparser.ast, "$_DFF_N_", false, false, false, false);
 		find_cell(libparser.ast, "$_DFF_P_", true, false, false, false);

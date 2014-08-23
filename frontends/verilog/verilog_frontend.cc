@@ -136,7 +136,7 @@ struct VerilogFrontend : public Frontend {
 		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
@@ -269,18 +269,18 @@ struct VerilogFrontend : public Frontend {
 		current_ast = new AST::AstNode(AST::AST_DESIGN);
 		default_nettype_wire = true;
 
-		FILE *fp = f;
+		lexin = f;
 		std::string code_after_preproc;
 
 		if (!flag_nopp) {
-			code_after_preproc = frontend_verilog_preproc(f, filename, defines_map, include_dirs);
+			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, include_dirs);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
-			fp = fmemopen((void*)code_after_preproc.c_str(), code_after_preproc.size(), "r");
+			lexin = new std::istringstream(code_after_preproc);
 		}
 
 		frontend_verilog_yyset_lineno(1);
-		frontend_verilog_yyrestart(fp);
+		frontend_verilog_yyrestart(NULL);
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
@@ -294,7 +294,7 @@ struct VerilogFrontend : public Frontend {
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
-			fclose(fp);
+			delete lexin;
 
 		delete current_ast;
 		current_ast = NULL;

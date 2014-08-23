@@ -63,6 +63,9 @@ YOSYS_NAMESPACE_END
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext); \
 	return TOK_ID;
 
+#define YY_INPUT(buf,result,max_size) \
+	result = lexin->readsome(buf, max_size);
+
 %}
 
 %option yylineno

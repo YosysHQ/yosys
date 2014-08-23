@@ -41,7 +41,7 @@ struct WriteFileFrontend : public Frontend {
 		log("    EOT\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design*)
+	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design*)
 	{
 		bool append_mode = false;
 		std::string output_filename;
@@ -67,7 +67,7 @@ struct WriteFileFrontend : public Frontend {
 		char buffer[64 * 1024];
 		size_t bytes;
 
-		while (0 < (bytes = fread(buffer, 1, sizeof(buffer), f)))
+		while (0 < (bytes = f->readsome(buffer, sizeof(buffer))))
 			fwrite(buffer, bytes, 1, of);
 
 		fclose(of);
