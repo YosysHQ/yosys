@@ -1320,6 +1320,8 @@ struct SatPass : public Pass {
 			}
 
 			log("\nReached maximum number of time steps -> proof failed.\n");
+			if(!vcd_file_name.empty())
+				inductstep.dump_model_to_vcd(vcd_file_name);
 			print_proof_failed();
 
 		tip_failed:
