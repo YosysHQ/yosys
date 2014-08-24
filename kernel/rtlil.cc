@@ -92,11 +92,14 @@ bool RTLIL::Const::as_bool() const
 	return false;
 }
 
-int RTLIL::Const::as_int() const
+int RTLIL::Const::as_int(bool is_signed) const
 {
-	int ret = 0;
+	int32_t ret = 0;
 	for (size_t i = 0; i < bits.size() && i < 32; i++)
 		if (bits[i] == RTLIL::S1)
+			ret |= 1 << i;
+	if (is_signed && bits.back() == RTLIL::S1)
+		for (size_t i = bits.size(); i < 32; i++)
 			ret |= 1 << i;
 	return ret;
 }
@@ -2647,14 +2650,14 @@ bool RTLIL::SigSpec::as_bool() const
 	return false;
 }
 
-int RTLIL::SigSpec::as_int() const
+int RTLIL::SigSpec::as_int(bool is_signed) const
 {
 	cover("kernel.rtlil.sigspec.as_int");
 
 	pack();
 	log_assert(is_fully_const() && SIZE(chunks_) <= 1);
 	if (width_)
-		return chunks_[0].data.as_int();
+		return chunks_[0].data.as_int(is_signed);
 	return 0;
 }
 

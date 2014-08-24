@@ -436,7 +436,7 @@ struct RTLIL::Const
 	bool operator !=(const RTLIL::Const &other) const;
 
 	bool as_bool() const;
-	int as_int() const;
+	int as_int(bool is_signed = false) const;
 	std::string as_string() const;
 
 	std::string decode_string() const;
@@ -1038,7 +1038,7 @@ public:
 	bool has_marked_bits() const;
 
 	bool as_bool() const;
-	int as_int() const;
+	int as_int(bool is_signed = false) const;
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
