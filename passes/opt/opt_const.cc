@@ -558,6 +558,41 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			}
 		}
 
+		if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx") && assign_map(cell->getPort("\\B")).is_fully_const())
+		{
+			bool sign_ext = cell->type == "$sshr" && cell->getParam("\\A_SIGNED").as_bool();
+			int shift_bits = assign_map(cell->getPort("\\B")).as_int(cell->type.in("$shift", "$shiftx") && cell->getParam("\\B_SIGNED").as_bool());
+
+			if (cell->type.in("$shl", "$sshl"))
+				shift_bits *= -1;
+
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
+			RTLIL::SigSpec sig_y(cell->type == "$shiftx" ? RTLIL::State::Sx : RTLIL::State::S0, cell->getParam("\\Y_WIDTH").as_int());
+
+			if (SIZE(sig_a) < SIZE(sig_y))
+				sig_a.extend(SIZE(sig_y), cell->getParam("\\A_SIGNED").as_bool());
+
+			for (int i = 0; i < SIZE(sig_y); i++) {
+				int idx = i + shift_bits;
+				if (0 <= idx && idx < SIZE(sig_a))
+					sig_y[i] = sig_a[idx];
+				else if (SIZE(sig_a) <= idx && sign_ext)
+					sig_y[i] = sig_a[SIZE(sig_a)-1];
+			}
+
+			cover_list("opt.opt_const.constshift", "$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx", cell->type.str());
+
+			log("Replacing %s cell `%s' (B=%s, SHR=%d) in module `%s' with fixed wiring: %s\n",
+					log_id(cell->type), log_id(cell), log_signal(assign_map(cell->getPort("\\B"))), shift_bits, log_id(module), log_signal(sig_y));
+
+			module->connect(cell->getPort("\\Y"), sig_y);
+			module->remove(cell);
+
+			OPT_DID_SOMETHING = true;
+			did_something = true;
+			goto next_cell;
+		}
+
 		if (!keepdc)
 		{
 			bool identity_bu0 = false;
