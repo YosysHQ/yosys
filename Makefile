@@ -63,22 +63,22 @@ ABCPULL = 1
 ifeq ($(CONFIG),clang)
 CXX = clang
 CXXFLAGS += -std=c++11 -Os
-endif
 
-ifeq ($(CONFIG),gcc)
+else ifeq ($(CONFIG),gcc)
 CXX = gcc
 CXXFLAGS += -std=gnu++0x -Os
-endif
 
-ifeq ($(CONFIG),gcc-4.6)
+else ifeq ($(CONFIG),gcc-4.6)
 CXX = gcc-4.6
 CXXFLAGS += -std=gnu++0x -Os
-endif
 
-ifeq ($(CONFIG),emcc)
+else ifeq ($(CONFIG),emcc)
 CXX = emcc
 CXXFLAGS += -std=c++11 -Os -Wno-warn-absolute-paths
 CXXFLAGS := $(filter-out -ggdb,$(CXXFLAGS))
+
+else ifneq ($(CONFIG),none)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.6, emcc, none)
 endif
 
 ifeq ($(ENABLE_READLINE),1)
