@@ -58,7 +58,10 @@ OBJS = kernel/version_$(GIT_REV).o
 ABCREV = 4d547a5e065b
 ABCPULL = 1
 
--include Makefile.conf
+ifneq ($(wildcard Makefile.conf),)
+$(info $(shell sed 's,^,[Makefile.conf] ,' < Makefile.conf))
+include Makefile.conf
+endif
 
 ifeq ($(CONFIG),clang)
 CXX = clang
