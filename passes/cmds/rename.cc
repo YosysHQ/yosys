@@ -58,10 +58,12 @@ struct RenamePass : public Pass {
 		log("by this command.\n");
 		log("\n");
 		log("\n");
-		log("    rename -enumerate [selection]\n");
+		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
 		log("\n");
 		log("Assign short auto-generated names to all selected wires and cells with private\n");
-		log("names.\n");
+		log("names. The -pattern option can be used to set the pattern for the new names.\n");
+		log("The character %% in the pattern is replaced with a integer number. The default\n");
+		log("pattern is '_%%_'.\n");
 		log("\n");
 		log("    rename -hide [selection]\n");
 		log("\n");
@@ -71,6 +73,7 @@ struct RenamePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		std::string pattern_prefix = "_", pattern_suffix = "_";
 		bool flag_enumerate = false;
 		bool flag_hide = false;
 		bool got_mode = false;
@@ -87,6 +90,12 @@ struct RenamePass : public Pass {
 			if (arg == "-hide" && !got_mode) {
 				flag_hide = true;
 				got_mode = true;
+				continue;
+			}
+			if (arg == "-pattern" && argidx+1 < args.size() && args[argidx+1].find('%') != std::string::npos) {
+				int pos = args[++argidx].find('%');
+				pattern_prefix = args[argidx].substr(0, pos);
+				pattern_suffix = args[argidx].substr(pos+1);
 				continue;
 			}
 			break;
@@ -107,7 +116,7 @@ struct RenamePass : public Pass {
 				std::map<RTLIL::IdString, RTLIL::Wire*> new_wires;
 				for (auto &it : module->wires_) {
 					if (it.first[0] == '$' && design->selected(module, it.second))
-						do it.second->name = stringf("\\_%d_", counter++);
+						do it.second->name = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
 						while (module->count_id(it.second->name) > 0);
 					new_wires[it.second->name] = it.second;
 				}
@@ -116,7 +125,7 @@ struct RenamePass : public Pass {
 				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
 				for (auto &it : module->cells_) {
 					if (it.first[0] == '$' && design->selected(module, it.second))
-						do it.second->name = stringf("\\_%d_", counter++);
+						do it.second->name = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
 						while (module->count_id(it.second->name) > 0);
 					new_cells[it.second->name] = it.second;
 				}
