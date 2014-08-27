@@ -58,8 +58,13 @@ OBJS = kernel/version_$(GIT_REV).o
 ABCREV = 4d547a5e065b
 ABCPULL = 1
 
+define newline
+
+
+endef
+
 ifneq ($(wildcard Makefile.conf),)
-$(info $(shell sed 's,^,[Makefile.conf] ,' < Makefile.conf))
+$(info $(subst $$--$$,$(newline),$(shell sed 's,^,[Makefile.conf] ,; s,$$,$$--$$,;' < Makefile.conf | tr -d '\n' | sed 's,\$$--\$$$$,,')))
 include Makefile.conf
 endif
 
