@@ -1309,7 +1309,6 @@ DEF_METHOD(LogicOr,  1, "$logic_or")
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_s, RTLIL::SigSpec sig_y) { \
 		RTLIL::Cell *cell = addCell(name, _type);                 \
 		cell->parameters["\\WIDTH"] = sig_a.size();               \
-		cell->parameters["\\WIDTH"] = sig_b.size();               \
 		if (_pmux) cell->parameters["\\S_WIDTH"] = sig_s.size();  \
 		cell->setPort("\\A", sig_a);                              \
 		cell->setPort("\\B", sig_b);                              \
