@@ -28,6 +28,8 @@ struct MemoryMapWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
+	std::map<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>, RTLIL::SigBit> decoder_cache;
+
 	std::string genid(RTLIL::IdString name, std::string token1 = "", int i = -1, std::string token2 = "", int j = -1, std::string token3 = "", int k = -1, std::string token4 = "")
 	{
 		std::stringstream sstr;
@@ -48,6 +50,27 @@ struct MemoryMapWorker
 
 		sstr << token4 << "$" << (autoidx++);
 		return sstr.str();
+	}
+
+	RTLIL::Wire *addr_decode(RTLIL::SigSpec addr_sig, RTLIL::SigSpec addr_val)
+	{
+		std::pair<RTLIL::SigSpec, RTLIL::SigSpec> key(addr_sig, addr_val);
+		log_assert(SIZE(addr_sig) == SIZE(addr_val));
+
+		if (decoder_cache.count(key) == 0) {
+			if (SIZE(addr_sig) < 2) {
+				decoder_cache[key] = module->Eq(NEW_ID, addr_sig, addr_val);
+			} else {
+				int split_at = SIZE(addr_sig) / 2;
+				RTLIL::SigBit left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at));
+				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, SIZE(addr_sig) - split_at), addr_val.extract(split_at, SIZE(addr_val) - split_at));
+				decoder_cache[key] = module->And(NEW_ID, left_eq, right_eq);
+			}
+		}
+
+		RTLIL::SigBit bit = decoder_cache.at(key);
+		log_assert(bit.wire != nullptr && SIZE(bit.wire) == 1);
+		return bit.wire;
 	}
 
 	void handle_cell(RTLIL::Cell *cell)
@@ -230,19 +253,7 @@ struct MemoryMapWorker
 				RTLIL::SigSpec wr_addr = cell->getPort("\\WR_ADDR").extract(j*mem_abits, mem_abits);
 				RTLIL::SigSpec wr_data = cell->getPort("\\WR_DATA").extract(j*mem_width, mem_width);
 				RTLIL::SigSpec wr_en = cell->getPort("\\WR_EN").extract(j*mem_width, mem_width);
-
-				RTLIL::Cell *c = module->addCell(genid(cell->name, "$wreq", i, "", j), "$eq");
-				c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-				c->parameters["\\B_SIGNED"] = RTLIL::Const(0);
-				c->parameters["\\A_WIDTH"] = cell->parameters["\\ABITS"];
-				c->parameters["\\B_WIDTH"] = cell->parameters["\\ABITS"];
-				c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-				c->setPort("\\A", RTLIL::SigSpec(i, mem_abits));
-				c->setPort("\\B", wr_addr);
-				count_wrmux++;
-
-				RTLIL::Wire *w_seladdr = module->addWire(genid(cell->name, "$wreq", i, "", j, "$y"));
-				c->setPort("\\Y", w_seladdr);
+				RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(i, mem_abits));
 
 				int wr_offset = 0;
 				while (wr_offset < wr_en.size())
@@ -261,7 +272,7 @@ struct MemoryMapWorker
 
 					if (wr_bit != RTLIL::SigSpec(1, 1))
 					{
-						c = module->addCell(genid(cell->name, "$wren", i, "", j, "", wr_offset), "$and");
+						RTLIL::Cell *c = module->addCell(genid(cell->name, "$wren", i, "", j, "", wr_offset), "$and");
 						c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
 						c->parameters["\\B_SIGNED"] = RTLIL::Const(0);
 						c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
@@ -274,7 +285,7 @@ struct MemoryMapWorker
 						c->setPort("\\Y", RTLIL::SigSpec(w));
 					}
 
-					c = module->addCell(genid(cell->name, "$wrmux", i, "", j, "", wr_offset), "$mux");
+					RTLIL::Cell *c = module->addCell(genid(cell->name, "$wrmux", i, "", j, "", wr_offset), "$mux");
 					c->parameters["\\WIDTH"] = wr_width;
 					c->setPort("\\A", sig.extract(wr_offset, wr_width));
 					c->setPort("\\B", wr_data.extract(wr_offset, wr_width));
@@ -285,13 +296,14 @@ struct MemoryMapWorker
 
 					sig.replace(wr_offset, w);
 					wr_offset += wr_width;
+					count_wrmux++;
 				}
 			}
 
 			module->connect(RTLIL::SigSig(data_reg_in[i], sig));
 		}
 
-		log("  write interface: %d blocks of $eq, $and and $mux cells.\n", count_wrmux);
+		log("  write interface: %d write mux blocks.\n", count_wrmux);
 
 		module->remove(cell);
 	}
