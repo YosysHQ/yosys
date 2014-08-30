@@ -82,7 +82,12 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		fsm_data.state_bits = fsm_data.state_table.size();
 	} else
 	if (encoding == "binary") {
-		fsm_data.state_bits = ceil(log2(fsm_data.state_table.size()));
+		int new_num_state_bits = ceil(log2(fsm_data.state_table.size()));
+		if (fsm_data.state_bits == new_num_state_bits) {
+			log("  existing encoding is already a packed binary encoding.\n");
+			return;
+		}
+		fsm_data.state_bits = new_num_state_bits;
 	} else
 		log_error("FSM encoding `%s' is not supported!\n", encoding.c_str());
 	
