@@ -17,7 +17,6 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -142,7 +141,6 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 delete_dff:
 	log("Removing %s (%s) from module %s.\n", dff->name.c_str(), dff->type.c_str(), mod->name.c_str());
-	OPT_DID_SOMETHING = true;
 	mod->remove(dff);
 	return true;
 }
@@ -210,6 +208,9 @@ struct OptRmdffPass : public Pass {
 
 		assign_map.clear();
 		mux_drivers.clear();
+
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
 		log("Replaced %d DFF cells.\n", total_count);
 	}
 } OptRmdffPass;

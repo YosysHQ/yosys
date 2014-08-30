@@ -17,7 +17,6 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -88,7 +87,6 @@ struct OptReduceWorker
 		if (new_sig_a != sig_a || sig_a.size() != cell->getPort("\\A").size()) {
 			log("    New input vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_a));
 			did_something = true;
-			OPT_DID_SOMETHING = true;
 			total_count++;
 		}
 
@@ -141,7 +139,6 @@ struct OptReduceWorker
 		if (new_sig_s.size() != sig_s.size()) {
 			log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
 			did_something = true;
-			OPT_DID_SOMETHING = true;
 			total_count++;
 		}
 
@@ -238,7 +235,6 @@ struct OptReduceWorker
 			module->check();
 
 			did_something = true;
-			OPT_DID_SOMETHING = true;
 			total_count++;
 		}
 	}
@@ -376,6 +372,8 @@ struct OptReducePass : public Pass {
 			} while (1);
 		}
 
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
 		log("Performed a total of %d changes.\n", total_count);
 	}
 } OptReducePass;

@@ -17,13 +17,10 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include <stdlib.h>
 #include <stdio.h>
-
-bool OPT_DID_SOMETHING;
 
 struct OptPass : public Pass {
 	OptPass() : Pass("opt", "perform simple optimizations") { }
@@ -113,9 +110,9 @@ struct OptPass : public Pass {
 			while (1) {
 				Pass::call(design, "opt_const" + opt_const_args);
 				Pass::call(design, "opt_share");
-				OPT_DID_SOMETHING = false;
+				design->scratchpad_unset("opt.did_something");
 				Pass::call(design, "opt_rmdff");
-				if (OPT_DID_SOMETHING == false)
+				if (design->scratchpad_get_bool("opt.did_something") == false)
 					break;
 				Pass::call(design, "opt_clean" + opt_clean_args);
 				log_header("Rerunning OPT passes. (Removed registers in this run.)\n");
@@ -127,14 +124,14 @@ struct OptPass : public Pass {
 			Pass::call(design, "opt_const" + opt_const_args);
 			Pass::call(design, "opt_share -nomux");
 			while (1) {
-				OPT_DID_SOMETHING = false;
+				design->scratchpad_unset("opt.did_something");
 				Pass::call(design, "opt_muxtree");
 				Pass::call(design, "opt_reduce" + opt_reduce_args);
 				Pass::call(design, "opt_share");
 				Pass::call(design, "opt_rmdff");
 				Pass::call(design, "opt_clean" + opt_clean_args);
 				Pass::call(design, "opt_const" + opt_const_args);
-				if (OPT_DID_SOMETHING == false)
+				if (design->scratchpad_get_bool("opt.did_something") == false)
 					break;
 				log_header("Rerunning OPT passes. (Maybe there is more to do..)\n");
 			}

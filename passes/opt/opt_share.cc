@@ -17,7 +17,6 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -265,7 +264,6 @@ struct OptShareWorker
 					}
 					log("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
 					module->remove(cell);
-					OPT_DID_SOMETHING = true;
 					total_count++;
 				} else {
 					sharemap[cell] = cell;
@@ -315,6 +313,8 @@ struct OptSharePass : public Pass {
 			total_count += worker.total_count;
 		}
 
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
 		log("Removed a total of %d cells.\n", total_count);
 	}
 } OptSharePass;

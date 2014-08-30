@@ -17,7 +17,6 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -88,7 +87,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 	for (auto cell : unused) {
 		if (verbose)
 			log("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
-		OPT_DID_SOMETHING = true;
+		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
 	}
@@ -406,9 +405,9 @@ struct CleanPass : public Pass {
 		for (auto &mod_it : design->modules_) {
 			if (design->selected_whole_module(mod_it.first) && mod_it.second->processes.size() == 0)
 				do {
-					OPT_DID_SOMETHING = false;
+					design->scratchpad_unset("opt.did_something");
 					rmunused_module(mod_it.second, purge_mode, false);
-				} while (OPT_DID_SOMETHING);
+				} while (design->scratchpad_get_bool("opt.did_something"));
 		}
 
 		if (count_rm_cells > 0 || count_rm_wires > 0)

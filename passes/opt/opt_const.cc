@@ -17,7 +17,6 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
@@ -67,7 +66,7 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 
 		log("Setting undriven signal in %s to undef: %s\n", RTLIL::id2cstr(module->name), log_signal(c));
 		module->connect(RTLIL::SigSig(c, RTLIL::SigSpec(RTLIL::State::Sx, c.width)));
-		OPT_DID_SOMETHING = true;
+		did_something = true;
 	}
 }
 
@@ -83,7 +82,6 @@ static void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell 
 	assign_map.add(Y, out_val);
 	module->connect(Y, out_val);
 	module->remove(cell);
-	OPT_DID_SOMETHING = true;
 	did_something = true;
 }
 
@@ -186,7 +184,6 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	cover_list("opt.opt_const.fine.group", "$not", "$pos", "$bu0", "$and", "$or", "$xor", "$xnor", cell->type.str());
 
 	module->remove(cell);
-	OPT_DID_SOMETHING = true;
 	did_something = true;
 	return true;
 }
@@ -266,7 +263,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
 					cell->setPort("\\A", sig_a = new_a);
 					cell->parameters.at("\\A_WIDTH") = 1;
-					OPT_DID_SOMETHING = true;
 					did_something = true;
 				}
 			}
@@ -293,7 +289,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
 					cell->setPort("\\A", sig_a = new_a);
 					cell->parameters.at("\\A_WIDTH") = 1;
-					OPT_DID_SOMETHING = true;
 					did_something = true;
 				}
 			}
@@ -320,7 +315,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_b));
 					cell->setPort("\\B", sig_b = new_b);
 					cell->parameters.at("\\B_WIDTH") = 1;
-					OPT_DID_SOMETHING = true;
 					did_something = true;
 				}
 			}
@@ -385,7 +379,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			cell->setPort("\\A", cell->getPort("\\B"));
 			cell->setPort("\\B", tmp);
 			cell->setPort("\\S", invert_map.at(assign_map(cell->getPort("\\S"))));
-			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -551,7 +544,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cell->parameters.erase("\\B_WIDTH");
 					cell->parameters.erase("\\B_SIGNED");
 					cell->unsetPort("\\B");
-					OPT_DID_SOMETHING = true;
 					did_something = true;
 				}
 				goto next_cell;
@@ -588,7 +580,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			module->connect(cell->getPort("\\Y"), sig_y);
 			module->remove(cell);
 
-			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -661,7 +652,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cell->parameters.erase("\\B_SIGNED");
 				cell->check();
 
-				OPT_DID_SOMETHING = true;
 				did_something = true;
 				goto next_cell;
 			}
@@ -689,7 +679,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cell->type = "$not";
 			} else
 				cell->type = "$_NOT_";
-			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -709,7 +698,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cell->type = "$and";
 			} else
 				cell->type = "$_AND_";
-			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -729,7 +717,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				cell->type = "$or";
 			} else
 				cell->type = "$_OR_";
-			OPT_DID_SOMETHING = true;
 			did_something = true;
 			goto next_cell;
 		}
@@ -781,7 +768,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cell->type = "$mux";
 					cell->parameters.erase("\\S_WIDTH");
 				}
-				OPT_DID_SOMETHING = true;
 				did_something = true;
 			}
 		}
@@ -895,7 +881,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
 					module->remove(cell);
 
-					OPT_DID_SOMETHING = true;
 					did_something = true;
 					goto next_cell;
 				}
@@ -928,7 +913,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 						cell->setPort("\\B", new_b);
 						cell->check();
 
-						OPT_DID_SOMETHING = true;
 						did_something = true;
 						goto next_cell;
 					}
@@ -1018,6 +1002,8 @@ struct OptConstPass : public Pass {
 				do {
 					did_something = false;
 					replace_const_cells(design, module, false, mux_undef, mux_bool, do_fine, keepdc);
+					if (did_something)
+						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
 				replace_const_cells(design, module, true, mux_undef, mux_bool, do_fine, keepdc);
 			} while (did_something);

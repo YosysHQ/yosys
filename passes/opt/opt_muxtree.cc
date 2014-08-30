@@ -17,7 +17,6 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -179,7 +178,6 @@ struct OptMuxtreeWorker
 				} else {
 					log("    dead port %zd/%zd on %s %s.\n", port_idx+1, mi.ports.size(),
 							mi.cell->type.c_str(), mi.cell->name.c_str());
-					OPT_DID_SOMETHING = true;
 					removed_count++;
 				}
 			}
@@ -434,6 +432,8 @@ struct OptMuxtreePass : public Pass {
 				total_count += worker.removed_count;
 			}
 		}
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
 		log("Removed %d multiplexer ports.\n", total_count);
 	}
 } OptMuxtreePass;

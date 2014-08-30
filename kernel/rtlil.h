@@ -486,6 +486,7 @@ struct RTLIL::Monitor
 struct RTLIL::Design
 {
 	std::set<RTLIL::Monitor*> monitors;
+	std::map<std::string, std::string> scratchpad;
 
 	int refcount_modules_;
 	std::map<RTLIL::IdString, RTLIL::Module*> modules_;
@@ -507,6 +508,16 @@ struct RTLIL::Design
 	void add(RTLIL::Module *module);
 	RTLIL::Module *addModule(RTLIL::IdString name);
 	void remove(RTLIL::Module *module);
+
+	void scratchpad_unset(std::string varname);
+
+	void scratchpad_set_int(std::string varname, int value);
+	void scratchpad_set_bool(std::string varname, bool value);
+	void scratchpad_set_string(std::string varname, std::string value);
+
+	int scratchpad_get_int(std::string varname, int default_value = 0) const;
+	bool scratchpad_get_bool(std::string varname, bool default_value = false) const;
+	std::string scratchpad_get_string(std::string varname, std::string default_value = std::string()) const;
 
 	void check();
 	void optimize();

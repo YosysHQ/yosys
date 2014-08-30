@@ -273,6 +273,67 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 	return module;
 }
 
+void RTLIL::Design::scratchpad_unset(std::string varname)
+{
+	scratchpad.erase(varname);
+}
+
+void RTLIL::Design::scratchpad_set_int(std::string varname, int value)
+{
+	scratchpad[varname] = stringf("%d", value);
+}
+
+void RTLIL::Design::scratchpad_set_bool(std::string varname, bool value)
+{
+	scratchpad[varname] = value ? "true" : "false";
+}
+
+void RTLIL::Design::scratchpad_set_string(std::string varname, std::string value)
+{
+	scratchpad[varname] = value;
+}
+
+int RTLIL::Design::scratchpad_get_int(std::string varname, int default_value) const
+{
+	if (scratchpad.count(varname) == 0)
+		return default_value;
+
+	std::string str = scratchpad.at(varname);
+
+	if (str == "0" || str == "false")
+		return 0;
+
+	if (str == "1" || str == "true")
+		return 1;
+
+	char *endptr = nullptr;
+	long int parsed_value = strtol(str.c_str(), &endptr, 10);
+	return *endptr ? default_value : parsed_value;
+}
+
+bool RTLIL::Design::scratchpad_get_bool(std::string varname, bool default_value) const
+{
+	if (scratchpad.count(varname) == 0)
+		return default_value;
+
+	std::string str = scratchpad.at(varname);
+
+	if (str == "0" || str == "false")
+		return false;
+
+	if (str == "1" || str == "true")
+		return true;
+
+	return default_value;
+}
+
+std::string RTLIL::Design::scratchpad_get_string(std::string varname, std::string default_value) const
+{
+	if (scratchpad.count(varname) == 0)
+		return default_value;
+	return scratchpad.at(varname);
+}
+
 void RTLIL::Design::remove(RTLIL::Module *module)
 {
 	for (auto mon : monitors)
