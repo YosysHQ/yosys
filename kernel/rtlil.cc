@@ -557,6 +557,20 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$alu") {
+				param_bool("\\A_SIGNED");
+				param_bool("\\B_SIGNED");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\CI", 1);
+				port("\\BI", 1);
+				port("\\X", param("\\Y_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				port("\\CO", param("\\Y_WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$logic_not") {
 				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));

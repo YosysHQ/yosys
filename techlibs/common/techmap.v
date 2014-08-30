@@ -359,7 +359,7 @@ module \$__alu_lookahead (A, B, CI, X, Y, CO);
 	assign carry = {CO, CI};
 endmodule
 
-module \$__alu (A, B, CI, BI, X, Y, CO);
+module \$alu (A, B, CI, BI, X, Y, CO);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -370,7 +370,6 @@ module \$__alu (A, B, CI, BI, X, Y, CO);
 	input [B_WIDTH-1:0] B;
 	output [Y_WIDTH-1:0] X, Y;
 
-	// carry in, sub, carry out, carry sign
 	input CI, BI;
 	output [Y_WIDTH-1:0] CO;
 
@@ -410,7 +409,7 @@ endmodule
 	wire [WIDTH-1:0] alu_x, alu_y, alu_co;
 	wire [WIDTH:0] carry = {alu_co, |_sub};
 
-	\$__alu #(
+	\$alu #(
 		.A_SIGNED(A_SIGNED),
 		.B_SIGNED(B_SIGNED),
 		.A_WIDTH(A_WIDTH),
