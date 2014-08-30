@@ -251,19 +251,18 @@ endmodule
 // ALU Infrastructure
 // --------------------------------------------------------
 
-module \$__alu_ripple (A, B, CI, X, Y, CO, CS);
+module \$__alu_ripple (A, B, CI, X, Y, CO);
 	parameter WIDTH = 1;
 
 	input [WIDTH-1:0] A, B;
 	output [WIDTH-1:0] X, Y;
 
 	input CI;
-	output CO, CS;
+	output [WIDTH-1:0] CO;
 
 	wire [WIDTH:0] carry;
 	assign carry[0] = CI;
-	assign CO = carry[WIDTH];
-	assign CS = carry[WIDTH-1];
+	assign CO = carry[WIDTH:1];
 
 	genvar i;
 	generate
@@ -291,7 +290,7 @@ module \$__lcu (P, G, CI, CO);
 	input [WIDTH-1:0] P, G;
 	input CI;
 
-	output reg [WIDTH:0] CO;
+	output [WIDTH-1:0] CO;
 
 	integer i, j;
 	reg [WIDTH-1:0] p, g;
@@ -326,23 +325,20 @@ module \$__lcu (P, G, CI, CO);
 		end
 	end
 
-	assign CO = {g, CI};
+	assign CO = g;
 endmodule
 
-module \$__alu_lookahead (A, B, CI, X, Y, CO, CS);
+module \$__alu_lookahead (A, B, CI, X, Y, CO);
 	parameter WIDTH = 1;
 
 	input [WIDTH-1:0] A, B;
 	output [WIDTH-1:0] X, Y;
 
 	input CI;
-	output CO, CS;
+	output [WIDTH-1:0] CO;
 
 	wire [WIDTH-1:0] P, G;
-	wire [WIDTH:0] C;
-
-	assign CO = C[WIDTH];
-	assign CS = C[WIDTH-1];
+	wire [WIDTH:0] carry;
 
 	genvar i;
 	generate
@@ -354,15 +350,16 @@ module \$__alu_lookahead (A, B, CI, X, Y, CO, CS);
 			\$_XOR_ gate2 ( .A(a),  .B(b),  .Y(p) );
 			\$_XOR_ gate3 ( .A(p),  .B(c),  .Y(y) );
 
-			assign a = A[i], b = B[i], c = C[i];
+			assign a = A[i], b = B[i], c = carry[i];
 			assign P[i] = p, G[i] = g, X[i] = p, Y[i] = y;
 		end
 	endgenerate
 
-	\$__lcu #(.WIDTH(WIDTH)) lcu (.P(P), .G(G), .CI(CI), .CO(C));
+	\$__lcu #(.WIDTH(WIDTH)) lcu (.P(P), .G(G), .CI(CI), .CO(CO));
+	assign carry = {CO, CI};
 endmodule
 
-module \$__alu (A, B, CI, BI, X, Y, CO, CS);
+module \$__alu (A, B, CI, BI, X, Y, CO);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -375,19 +372,19 @@ module \$__alu (A, B, CI, BI, X, Y, CO, CS);
 
 	// carry in, sub, carry out, carry sign
 	input CI, BI;
-	output CO, CS;
+	output [Y_WIDTH-1:0] CO;
 
 	wire [Y_WIDTH-1:0] A_buf, B_buf;
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 `ifdef ALU_RIPPLE
-	\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO), .CS(CS));
+	\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO));
 `else
 	if (Y_WIDTH <= 4) begin
-		\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO), .CS(CS));
+		\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO));
 	end else begin
-		\$__alu_lookahead #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO), .CS(CS));
+		\$__alu_lookahead #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO));
 	end
 `endif
 endmodule
@@ -397,7 +394,7 @@ endmodule
 // ALU Cell Types: Compare, Add, Subtract
 // --------------------------------------------------------
 
-`define ALU_COMMONS(_width, _ci, _bi) """
+`define ALU_COMMONS(_width, _sub) """
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -410,8 +407,8 @@ endmodule
 	input [B_WIDTH-1:0] B;
 	output [Y_WIDTH-1:0] Y;
 
-	wire alu_co, alu_cs;
-	wire [WIDTH-1:0] alu_x, alu_y;
+	wire [WIDTH-1:0] alu_x, alu_y, alu_co;
+	wire [WIDTH:0] carry = {alu_co, |_sub};
 
 	\$__alu #(
 		.A_SIGNED(A_SIGNED),
@@ -422,41 +419,40 @@ endmodule
 	) alu (
 		.A(A),
 		.B(B),
-		.CI(_ci),
-		.BI(_bi),
+		.CI(|_sub),
+		.BI(|_sub),
 		.X(alu_x),
 		.Y(alu_y),
-		.CO(alu_co),
-		.CS(alu_cs)
+		.CO(alu_co)
 	);
 
 	wire cf, of, zf, sf;
-	assign cf = !alu_co;
-	assign of = alu_co ^ alu_cs;
+	assign cf = !carry[WIDTH];
+	assign of = carry[WIDTH] ^ carry[WIDTH-1];
 	assign sf = alu_y[WIDTH-1];
 """
 
 module \$lt (A, B, Y);
 	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1, 1)
+	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1)
 	assign Y = A_SIGNED && B_SIGNED ? of != sf : cf;
 endmodule
 
 module \$le (A, B, Y);
 	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1, 1)
+	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1)
 	assign Y = &alu_x || (A_SIGNED && B_SIGNED ? of != sf : cf);
 endmodule
 
 module \$add (A, B, Y);
 	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(Y_WIDTH, 0, 0)
+	`ALU_COMMONS(Y_WIDTH, 0)
 	assign Y = alu_y;
 endmodule
 
 module \$sub (A, B, Y);
 	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(Y_WIDTH, 1, 1)
+	`ALU_COMMONS(Y_WIDTH, 1)
 	assign Y = alu_y;
 endmodule
 
