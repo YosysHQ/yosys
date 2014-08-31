@@ -19,6 +19,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/consteval.h"
 #include <algorithm>
 
 static uint32_t xorshift32_state = 123456789;
@@ -97,6 +98,92 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	module->fixup_ports();
 	cell->fixup_parameters();
 	cell->check();
+}
+
+static void run_eval_test(RTLIL::Design *design)
+{
+	RTLIL::Module *gold_mod = design->module("\\gold");
+	RTLIL::Module *gate_mod = design->module("\\gate");
+	ConstEval gold_ce(gold_mod), gate_ce(gate_mod);
+
+	log("Eval testing: ");
+
+	for (int i = 0; i < 64; i++)
+	{
+		log(".");
+		gold_ce.clear();
+		gate_ce.clear();
+
+		for (auto port : gold_mod->ports)
+		{
+			RTLIL::Wire *gold_wire = gold_mod->wire(port);
+			RTLIL::Wire *gate_wire = gate_mod->wire(port);
+
+			log_assert(gold_wire != nullptr);
+			log_assert(gate_wire != nullptr);
+			log_assert(gold_wire->port_input == gate_wire->port_input);
+			log_assert(SIZE(gold_wire) == SIZE(gate_wire));
+
+			if (!gold_wire->port_input)
+				continue;
+
+			RTLIL::Const in_value;
+			for (int i = 0; i < SIZE(gold_wire); i++)
+				in_value.bits.push_back(xorshift32(2) ? RTLIL::S1 : RTLIL::S0);
+
+			if (xorshift32(4) == 0) {
+				int inv_chance = 1 + xorshift32(8);
+				for (int i = 0; i < SIZE(gold_wire); i++)
+					if (xorshift32(inv_chance) == 0)
+						in_value.bits[i] = RTLIL::Sx;
+			}
+
+			// log("%s: %s\n", log_id(gold_wire), log_signal(in_value));
+
+			gold_ce.set(gold_wire, in_value);
+			gate_ce.set(gate_wire, in_value);
+		}
+
+		for (auto port : gold_mod->ports)
+		{
+			RTLIL::Wire *gold_wire = gold_mod->wire(port);
+			RTLIL::Wire *gate_wire = gate_mod->wire(port);
+
+			log_assert(gold_wire != nullptr);
+			log_assert(gate_wire != nullptr);
+			log_assert(gold_wire->port_output == gate_wire->port_output);
+			log_assert(SIZE(gold_wire) == SIZE(gate_wire));
+
+			if (!gold_wire->port_output)
+				continue;
+
+			RTLIL::SigSpec gold_outval(gold_wire);
+			RTLIL::SigSpec gate_outval(gate_wire);
+
+			if (!gold_ce.eval(gold_outval))
+				log_error("Failed to eval %s in gold module.\n", log_id(gold_wire));
+
+			if (!gate_ce.eval(gate_outval))
+				log_error("Failed to eval %s in gate module.\n", log_id(gate_wire));
+
+			bool gold_gate_mismatch = false;
+			for (int i = 0; i < SIZE(gold_wire); i++) {
+				if (gold_outval[i] == RTLIL::Sx)
+					continue;
+				if (gold_outval[i] == gate_outval[i])
+					continue;
+				gold_gate_mismatch = true;
+				break;
+			}
+
+			if (gold_gate_mismatch)
+				log_error("Mismatch in output %s: gold:%s != gate:%s\n", log_id(gate_wire), log_signal(gold_outval), log_signal(gate_outval));
+
+			// log("%s: %s\n", log_id(gold_wire), log_signal(gold_outval));
+		}
+	}
+
+	log(" ok.\n");
 }
 
 struct TestCellPass : public Pass {
@@ -265,6 +352,7 @@ struct TestCellPass : public Pass {
 				Pass::call(design, stringf("copy gold gate; %s gate; opt gate", techmap_cmd.c_str()));
 				Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter; dump gold");
 				Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
+				run_eval_test(design);
 				delete design;
 			}
 	}
