@@ -848,10 +848,10 @@ public:
 	const std::map<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
 	// access cell parameters
-	bool hasParam(RTLIL::IdString portname) const;
-	void unsetParam(RTLIL::IdString portname);
-	void setParam(RTLIL::IdString portname, RTLIL::Const value);
-	const RTLIL::Const &getParam(RTLIL::IdString portname) const;
+	bool hasParam(RTLIL::IdString paramname) const;
+	void unsetParam(RTLIL::IdString paramname);
+	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
+	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
