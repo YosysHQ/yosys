@@ -297,6 +297,32 @@ struct CellTypes
 			return ret;
 		}
 
+		if (cell->type == "$lut")
+		{
+			int width = cell->parameters.at("\\WIDTH").as_int();
+
+			std::vector<RTLIL::State> t = cell->parameters.at("\\LUT").bits;
+			while (SIZE(t) < (1 << width))
+				t.push_back(RTLIL::S0);
+			t.resize(1 << width);
+
+			for (int i = width-1; i >= 0; i--) {
+				RTLIL::State sel = arg1.bits.at(i);
+				std::vector<RTLIL::State> new_t;
+				if (sel == RTLIL::S0)
+					new_t = std::vector<RTLIL::State>(t.begin(), t.begin() + SIZE(t)/2);
+				else if (sel == RTLIL::S1)
+					new_t = std::vector<RTLIL::State>(t.begin() + SIZE(t)/2, t.end());
+				else
+					for (int j = 0; j < SIZE(t)/2; j++)
+						new_t.push_back(t[j] == t[j + SIZE(t)/2] ? t[j] : RTLIL::Sx);
+				t.swap(new_t);
+			}
+
+			log_assert(SIZE(t) == 1);
+			return t;
+		}
+
 		bool signed_a = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();
 		bool signed_b = cell->parameters.count("\\B_SIGNED") > 0 && cell->parameters["\\B_SIGNED"].as_bool();
 		int result_len = cell->parameters.count("\\Y_WIDTH") > 0 ? cell->parameters["\\Y_WIDTH"].as_int() : -1;
