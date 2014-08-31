@@ -30,20 +30,41 @@ static uint32_t xorshift32(uint32_t limit) {
 	return xorshift32_state % limit;
 }
 
-static void create_gold_module(RTLIL::Design *design, std::string cell_type, std::string cell_type_flags)
+static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags)
 {
 	RTLIL::Module *module = design->addModule("\\gold");
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
+	RTLIL::Wire *wire;
+
+	if (cell_type == "$lut")
+	{
+		int width = 1 + xorshift32(6);
+
+		wire = module->addWire("\\A");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\A", wire);
+
+		wire = module->addWire("\\Y");
+		wire->port_output = true;
+		cell->setPort("\\Y", wire);
+
+		RTLIL::SigSpec config;
+		for (int i = 0; i < (1 << width); i++)
+			config.append(xorshift32(2) ? RTLIL::S1 : RTLIL::S0);
+
+		cell->setParam("\\LUT", config.as_const());
+	}
 
 	if (cell_type_flags.find('A') != std::string::npos) {
-		RTLIL::Wire *wire = module->addWire("\\A");
+		wire = module->addWire("\\A");
 		wire->width = 1 + xorshift32(8);
 		wire->port_input = true;
 		cell->setPort("\\A", wire);
 	}
 
 	if (cell_type_flags.find('B') != std::string::npos) {
-		RTLIL::Wire *wire = module->addWire("\\B");
+		wire = module->addWire("\\B");
 		if (cell_type_flags.find('h') != std::string::npos)
 			wire->width = 1 + xorshift32(6);
 		else
@@ -67,7 +88,7 @@ static void create_gold_module(RTLIL::Design *design, std::string cell_type, std
 	}
 
 	if (cell_type_flags.find('Y') != std::string::npos) {
-		RTLIL::Wire *wire = module->addWire("\\Y");
+		wire = module->addWire("\\Y");
 		wire->width = 1 + xorshift32(8);
 		wire->port_output = true;
 		cell->setPort("\\Y", wire);
@@ -188,8 +209,10 @@ struct TestCellPass : public Pass {
 		// cell_types["$pmux"] = "A";
 		// cell_types["$slice"] = "A";
 		// cell_types["$concat"] = "A";
-		// cell_types["$lut"] = "A";
 		// cell_types["$assert"] = "A";
+
+		cell_types["$lut"] = "*";
+		// cell_types["$alu"] = "*";
 
 		for (; argidx < SIZE(args); argidx++)
 		{

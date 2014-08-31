@@ -841,3 +841,20 @@ module \$pmux (A, B, S, Y);
 	assign Y = |S ? Y_B : A;
 endmodule
 
+
+// --------------------------------------------------------
+// LUTs
+// --------------------------------------------------------
+
+`ifndef NOLUT
+module \$lut (A, Y);
+	parameter WIDTH = 1;
+	parameter LUT = 0;
+
+	input [WIDTH-1:0] A;
+	output Y;
+
+	assign Y = LUT[A];
+endmodule
+`endif
+

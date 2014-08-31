@@ -841,6 +841,56 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$lut")
+		{
+			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
+
+			std::vector<int> lut;
+			for (auto bit : cell->getParam("\\LUT").bits)
+				lut.push_back(bit == RTLIL::S1 ? ez->TRUE : ez->FALSE);
+			while (SIZE(lut) < (1 << SIZE(a)))
+				lut.push_back(ez->FALSE);
+			lut.resize(1 << SIZE(a));
+
+			if (model_undef)
+			{
+				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
+				std::vector<int> t(lut), u(SIZE(t), ez->FALSE);
+
+				for (int i = SIZE(a)-1; i >= 0; i--)
+				{
+					std::vector<int> t0(t.begin(), t.begin() + SIZE(t)/2);
+					std::vector<int> t1(t.begin() + SIZE(t)/2, t.end());
+
+					std::vector<int> u0(u.begin(), u.begin() + SIZE(u)/2);
+					std::vector<int> u1(u.begin() + SIZE(u)/2, u.end());
+
+					t = ez->vec_ite(a[i], t1, t0);
+					u = ez->vec_ite(undef_a[i], ez->vec_or(ez->vec_xor(t0, t1), ez->vec_or(u0, u1)), ez->vec_ite(a[i], u1, u0));
+				}
+
+				log_assert(SIZE(t) == 1);
+				log_assert(SIZE(u) == 1);
+				undefGating(y, t, u);
+				ez->assume(ez->vec_eq(importUndefSigSpec(cell->getPort("\\Y"), timestep), u));
+			}
+			else
+			{
+				std::vector<int> t = lut;
+				for (int i = SIZE(a)-1; i >= 0; i--)
+				{
+					std::vector<int> t0(t.begin(), t.begin() + SIZE(t)/2);
+					std::vector<int> t1(t.begin() + SIZE(t)/2, t.end());
+					t = ez->vec_ite(a[i], t1, t0);
+				}
+
+				log_assert(SIZE(t) == 1);
+				ez->assume(ez->vec_eq(y, t));
+			}
+			return true;
+		}
+
 		if (cell->type == "$slice")
 		{
 			RTLIL::SigSpec a = cell->getPort("\\A");
@@ -903,4 +953,3 @@ struct SatGen
 };
 
 #endif
-

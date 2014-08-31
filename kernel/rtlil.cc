@@ -1768,8 +1768,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 			type.substr(0, 9) == "$verific$" || type.substr(0, 7) == "$array:" || type.substr(0, 8) == "$extern:")
 		return;
 
-	if (type == "$mux" || type == "$pmux")
-	{
+	if (type == "$mux" || type == "$pmux") {
 		parameters["\\WIDTH"] = SIZE(connections_["\\Y"]);
 		if (type == "$pmux")
 			parameters["\\S_WIDTH"] = SIZE(connections_["\\S"]);
@@ -1777,7 +1776,12 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		return;
 	}
 
-	bool signedness_ab = type != "$slice" && type != "$concat";
+	if (type == "$lut") {
+		parameters["\\WIDTH"] = SIZE(connections_["\\A"]);
+		return;
+	}
+
+	bool signedness_ab = !type.in("$slice", "$concat");
 
 	if (connections_.count("\\A")) {
 		if (signedness_ab) {
