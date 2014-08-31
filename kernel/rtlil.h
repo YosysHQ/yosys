@@ -440,6 +440,8 @@ struct RTLIL::Const
 	std::string as_string() const;
 
 	std::string decode_string() const;
+
+	inline int size() const { return bits.size(); }
 };
 
 struct RTLIL::Selection
