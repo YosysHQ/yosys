@@ -108,12 +108,13 @@ parameter Y_WIDTH = 0;
 
 input [A_WIDTH-1:0] A;
 output [Y_WIDTH-1:0] Y;
+wire [Y_WIDTH-1:0] tmp;
 
 generate
 	if (A_SIGNED) begin:BLOCK1
-		assign Y = -$signed(A);
+		assign tmp = $signed(A), Y = -tmp;
 	end else begin:BLOCK2
-		assign Y = -A;
+		assign tmp = A, Y = -tmp;
 	end
 endgenerate
 
