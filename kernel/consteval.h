@@ -154,6 +154,62 @@ struct ConstEval
 			else
 				set(sig_y, y_values.front());
 		}
+		else if (cell->type == "$alu")
+		{
+			bool signed_a = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();
+			bool signed_b = cell->parameters.count("\\B_SIGNED") > 0 && cell->parameters["\\B_SIGNED"].as_bool();
+
+			RTLIL::SigSpec sig_ci = cell->getPort("\\CI");
+			RTLIL::SigSpec sig_bi = cell->getPort("\\BI");
+
+			if (!eval(sig_a, undef, cell))
+				return false;
+
+			if (!eval(sig_b, undef, cell))
+				return false;
+
+			if (!eval(sig_ci, undef, cell))
+				return false;
+
+			if (!eval(sig_bi, undef, cell))
+				return false;
+
+			RTLIL::SigSpec sig_x = cell->getPort("\\X");
+			RTLIL::SigSpec sig_co = cell->getPort("\\CO");
+
+			bool any_input_undef = !(sig_a.is_fully_def() && sig_b.is_fully_def() && sig_ci.is_fully_def() && sig_bi.is_fully_def());
+			sig_a.extend(SIZE(sig_y), signed_a);
+			sig_b.extend(SIZE(sig_y), signed_b);
+
+			bool carry = sig_ci[0] == RTLIL::S1;
+			bool b_inv = sig_bi[0] == RTLIL::S1;
+
+			for (int i = 0; i < SIZE(sig_y); i++)
+			{
+				RTLIL::SigSpec x_inputs = { sig_a[i], sig_b[i], sig_bi[0] };
+
+				if (!x_inputs.is_fully_def()) {
+					set(sig_x[i], RTLIL::Sx);
+				} else {
+					bool bit_a = sig_a[i] == RTLIL::S1;
+					bool bit_b = (sig_b[i] == RTLIL::S1) != b_inv;
+					bool bit_x = bit_a != bit_b;
+					set(sig_x[i], bit_x ? RTLIL::S1 : RTLIL::S0);
+				}
+
+				if (any_input_undef) {
+					set(sig_y[i], RTLIL::Sx);
+					set(sig_co[i], RTLIL::Sx);
+				} else {
+					bool bit_a = sig_a[i] == RTLIL::S1;
+					bool bit_b = (sig_b[i] == RTLIL::S1) != b_inv;
+					bool bit_y = (bit_a != bit_b) != carry;
+					carry = (bit_a && bit_b) || (bit_a && carry) || (bit_b && carry);
+					set(sig_y[i], bit_y ? RTLIL::S1 : RTLIL::S0);
+					set(sig_co[i], carry ? RTLIL::S1 : RTLIL::S0);
+				}
+			}
+		}
 		else
 		{
 			RTLIL::SigSpec sig_c, sig_d;
