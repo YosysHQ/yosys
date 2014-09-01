@@ -294,7 +294,8 @@ struct BtorDumper
 		int l=-1;
 		if(chunk->wire == NULL)
 		{
-			l=dump_const(&chunk->data, chunk->width, chunk->offset);			
+			RTLIL::Const data_const(chunk->data);
+			l=dump_const(&data_const, chunk->width, chunk->offset);			
 		}
 		else
 		{

@@ -101,7 +101,7 @@ struct OptShareWorker
 							int_to_hash_string(chunk.offset) + " " +
 							int_to_hash_string(chunk.width) + "}";
 				else
-					hash_string += chunk.data.as_string();
+					hash_string += RTLIL::Const(chunk.data).as_string();
 			}
 			hash_string += "\n";
 		}
