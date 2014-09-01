@@ -100,17 +100,17 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	cell->check();
 }
 
-static void run_eval_test(RTLIL::Design *design)
+static void run_eval_test(RTLIL::Design *design, bool verbose)
 {
 	RTLIL::Module *gold_mod = design->module("\\gold");
 	RTLIL::Module *gate_mod = design->module("\\gate");
 	ConstEval gold_ce(gold_mod), gate_ce(gate_mod);
 
-	log("Eval testing: ");
+	log("Eval testing:%c", verbose ? '\n' : ' ');
 
 	for (int i = 0; i < 64; i++)
 	{
-		log(".");
+		log(verbose ? "\n" : ".");
 		gold_ce.clear();
 		gate_ce.clear();
 
@@ -138,7 +138,8 @@ static void run_eval_test(RTLIL::Design *design)
 						in_value.bits[i] = RTLIL::Sx;
 			}
 
-			// log("%s: %s\n", log_id(gold_wire), log_signal(in_value));
+			if (verbose)
+				log("%s: %s\n", log_id(gold_wire), log_signal(in_value));
 
 			gold_ce.set(gold_wire, in_value);
 			gate_ce.set(gate_wire, in_value);
@@ -179,11 +180,13 @@ static void run_eval_test(RTLIL::Design *design)
 			if (gold_gate_mismatch)
 				log_error("Mismatch in output %s: gold:%s != gate:%s\n", log_id(gate_wire), log_signal(gold_outval), log_signal(gate_outval));
 
-			// log("%s: %s\n", log_id(gold_wire), log_signal(gold_outval));
+			if (verbose)
+				log("%s: %s\n", log_id(gold_wire), log_signal(gold_outval));
 		}
 	}
 
-	log(" ok.\n");
+	if (!verbose)
+		log(" ok.\n");
 }
 
 struct TestCellPass : public Pass {
@@ -212,6 +215,12 @@ struct TestCellPass : public Pass {
 		log("    -map {filename}\n");
 		log("        pass this option to techmap.\n");
 		log("\n");
+		log("    -simplib\n");
+		log("        use \"techmap -map +/simlib.v -max_iter 2 -autoproc\"\n");
+		log("\n");
+		log("    -v\n");
+		log("        print additional debug information to the console\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
@@ -219,6 +228,7 @@ struct TestCellPass : public Pass {
 		std::string techmap_cmd = "techmap -assert";
 		std::string ilang_file;
 		xorshift32_state = 0;
+		bool verbose = false;
 
 		int argidx;
 		for (argidx = 1; argidx < SIZE(args); argidx++)
@@ -238,6 +248,14 @@ struct TestCellPass : public Pass {
 			if (args[argidx] == "-f" && argidx+1 < SIZE(args)) {
 				ilang_file = args[++argidx];
 				num_iter = 1;
+				continue;
+			}
+			if (args[argidx] == "-simlib") {
+				techmap_cmd = "techmap -map +/simlib.v -max_iter 2 -autoproc";
+				continue;
+			}
+			if (args[argidx] == "-v") {
+				verbose = true;
 				continue;
 			}
 			break;
@@ -350,9 +368,12 @@ struct TestCellPass : public Pass {
 				else
 					create_gold_module(design, cell_type, cell_types.at(cell_type));
 				Pass::call(design, stringf("copy gold gate; %s gate; opt gate", techmap_cmd.c_str()));
-				Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter; dump gold");
+				Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
+				if (verbose)
+					Pass::call(design, "dump gate");
+				Pass::call(design, "dump gold");
 				Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
-				run_eval_test(design);
+				run_eval_test(design, verbose);
 				delete design;
 			}
 	}
