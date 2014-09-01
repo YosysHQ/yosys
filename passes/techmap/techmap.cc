@@ -70,6 +70,7 @@ struct TechmapWorker
 	bool assert_mode;
 	bool flatten_mode;
 	bool recursive_mode;
+	bool autoproc_mode;
 
 	TechmapWorker()
 	{
@@ -77,6 +78,7 @@ struct TechmapWorker
 		assert_mode = false;
 		flatten_mode = false;
 		recursive_mode = false;
+		autoproc_mode = false;
 	}
 
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
@@ -148,7 +150,11 @@ struct TechmapWorker
 			log("Technology map yielded processes:\n");
 			for (auto &it : tpl->processes)
 				log("  %s",RTLIL::id2cstr(it.first));
-			log_error("Technology map yielded processes -> this is not supported.\n");
+			if (autoproc_mode) {
+				Pass::call_on_module(tpl->design, tpl, "proc");
+				log_assert(SIZE(tpl->processes) == 0);
+			} else
+				log_error("Technology map yielded processes -> this is not supported (use -autoproc to run 'proc' automatically).\n");
 		}
 
 		std::string orig_cell_name;
@@ -726,6 +732,9 @@ struct TechmapPass : public Pass {
 		log("        depth-first algorithm. both methods should yield equivialent results,\n");
 		log("        but may differ in performance.\n");
 		log("\n");
+		log("    -autoproc\n");
+		log("        Automatically call \"proc\" on implementations that contain processes.\n");
+		log("\n");
 		log("    -assert\n");
 		log("        this option will cause techmap to exit with an error if it can't map\n");
 		log("        a selected cell. only cell types that end on an underscore are accepted\n");
@@ -831,7 +840,10 @@ struct TechmapPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
-				map_files.push_back(args[++argidx]);
+				if (args[argidx+1].substr(0, 2) == "+/")
+					map_files.push_back(proc_share_dirname() + args[++argidx].substr(2));
+				else
+					map_files.push_back(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-share_map" && argidx+1 < args.size()) {
@@ -860,6 +872,10 @@ struct TechmapPass : public Pass {
 			}
 			if (args[argidx] == "-recursive") {
 				worker.recursive_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-autoproc") {
+				worker.autoproc_mode = true;
 				continue;
 			}
 			break;
