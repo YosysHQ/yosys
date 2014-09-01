@@ -183,9 +183,9 @@ struct SatGen
 	bool importCell(RTLIL::Cell *cell, int timestep = -1)
 	{
 		bool arith_undef_handled = false;
-		bool is_arith_compare = cell->type == "$lt" || cell->type == "$le" || cell->type == "$ge" || cell->type == "$gt";
+		bool is_arith_compare = cell->type.in("$lt", "$le", "$ge", "$gt");
 
-		if (model_undef && (cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" || cell->type == "$mod" || is_arith_compare))
+		if (model_undef && (cell->type.in("$add", "$sub", "$mul", "$div", "$mod") || is_arith_compare))
 		{
 			std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
 			std::vector<int> undef_b = importUndefSigSpec(cell->getPort("\\B"), timestep);
@@ -888,6 +888,73 @@ struct SatGen
 				log_assert(SIZE(t) == 1);
 				ez->assume(ez->vec_eq(y, t));
 			}
+			return true;
+		}
+
+		if (cell->type == "$alu")
+		{
+			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->getPort("\\B"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
+			std::vector<int> x = importDefSigSpec(cell->getPort("\\X"), timestep);
+			std::vector<int> ci = importDefSigSpec(cell->getPort("\\CI"), timestep);
+			std::vector<int> bi = importDefSigSpec(cell->getPort("\\BI"), timestep);
+			std::vector<int> co = importDefSigSpec(cell->getPort("\\CO"), timestep);
+
+			extendSignalWidth(a, b, y, cell);
+			extendSignalWidth(a, b, x, cell);
+			extendSignalWidth(a, b, co, cell);
+
+			std::vector<int> def_y = model_undef ? ez->vec_var(y.size()) : y;
+			std::vector<int> def_x = model_undef ? ez->vec_var(x.size()) : x;
+			std::vector<int> def_co = model_undef ? ez->vec_var(co.size()) : co;
+
+			log_assert(SIZE(y) == SIZE(x));
+			log_assert(SIZE(y) == SIZE(co));
+			log_assert(SIZE(ci) == 1);
+			log_assert(SIZE(bi) == 1);
+
+			for (int i = 0; i < SIZE(y); i++)
+			{
+				int s1 = a.at(i), s2 = ez->XOR(b.at(i), bi.at(0)), s3 = i ? co.at(i-1) : ci.at(0);
+				ez->SET(def_x.at(i), ez->XOR(s1, s2));
+				ez->SET(def_y.at(i), ez->XOR(def_x.at(i), s3));
+				ez->SET(def_co.at(i), ez->OR(ez->AND(s1, s2), ez->AND(s1, s3), ez->AND(s2, s3)));
+			}
+
+			if (model_undef)
+			{
+				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
+				std::vector<int> undef_b = importUndefSigSpec(cell->getPort("\\B"), timestep);
+				std::vector<int> undef_ci = importUndefSigSpec(cell->getPort("\\CI"), timestep);
+				std::vector<int> undef_bi = importUndefSigSpec(cell->getPort("\\BI"), timestep);
+
+				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
+				std::vector<int> undef_x = importUndefSigSpec(cell->getPort("\\X"), timestep);
+				std::vector<int> undef_co = importUndefSigSpec(cell->getPort("\\CO"), timestep);
+
+				extendSignalWidth(undef_a, undef_b, undef_y, cell, true);
+				extendSignalWidth(undef_a, undef_b, undef_x, cell, true);
+				extendSignalWidth(undef_a, undef_b, undef_co, cell, true);
+
+				std::vector<int> all_inputs_undef;
+				all_inputs_undef.insert(all_inputs_undef.end(), undef_a.begin(), undef_a.end());
+				all_inputs_undef.insert(all_inputs_undef.end(), undef_b.begin(), undef_b.end());
+				all_inputs_undef.insert(all_inputs_undef.end(), undef_ci.begin(), undef_ci.end());
+				all_inputs_undef.insert(all_inputs_undef.end(), undef_bi.begin(), undef_bi.end());
+				int undef_any = ez->expression(ezSAT::OpOr, all_inputs_undef);
+
+				for (int i = 0; i < SIZE(undef_y); i++) {
+					ez->SET(undef_y.at(i), undef_any);
+					ez->SET(undef_x.at(i), ez->OR(undef_a.at(i), undef_b.at(i), undef_bi.at(0)));
+					ez->SET(undef_co.at(i), undef_any);
+				}
+
+				undefGating(y, def_y, undef_y);
+				undefGating(x, def_x, undef_x);
+				undefGating(co, def_co, undef_co);
+			}
+			log_ping();
 			return true;
 		}
 
