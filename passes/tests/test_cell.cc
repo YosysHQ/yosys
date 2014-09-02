@@ -122,7 +122,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	cell->check();
 }
 
-static void run_eval_test(RTLIL::Design *design, bool verbose)
+static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_name, std::ofstream &vlog_file)
 {
 	log("Eval testing:%c", verbose ? '\n' : ' ');
 
@@ -139,6 +139,35 @@ static void run_eval_test(RTLIL::Design *design, bool verbose)
 	for (auto cell : gold_mod->cells()) {
 		satgen1.importCell(cell);
 		satgen2.importCell(cell);
+	}
+
+	if (vlog_file.is_open())
+	{
+		vlog_file << stringf("\nmodule %s;\n", uut_name.c_str());
+
+		for (auto port : gold_mod->ports) {
+			RTLIL::Wire *wire = gold_mod->wire(port);
+			if (wire->port_input)
+				vlog_file << stringf("  reg [%d:0] %s;\n", SIZE(wire)-1, log_id(wire));
+			else
+				vlog_file << stringf("  wire [%d:0] %s_expr, %s_noexpr;\n", SIZE(wire)-1, log_id(wire), log_id(wire));
+		}
+
+		vlog_file << stringf("  %s_expr uut_expr(", uut_name.c_str());
+		for (int i = 0; i < SIZE(gold_mod->ports); i++)
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
+					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_expr");
+		vlog_file << stringf(");\n");
+
+		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name.c_str());
+		for (int i = 0; i < SIZE(gold_mod->ports); i++)
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
+					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_noexpr");
+		vlog_file << stringf(");\n");
+
+		vlog_file << stringf("  task run;\n");
+		vlog_file << stringf("    begin\n");
+		vlog_file << stringf("      $display(\"%s\");\n", uut_name.c_str());
 	}
 
 	for (int i = 0; i < 64; i++)
@@ -182,7 +211,13 @@ static void run_eval_test(RTLIL::Design *design, bool verbose)
 
 			gold_ce.set(gold_wire, in_value);
 			gate_ce.set(gate_wire, in_value);
+
+			if (vlog_file.is_open())
+				vlog_file << stringf("      %s = 'b%s;\n", log_id(gold_wire), in_value.as_string().c_str());
 		}
+
+		if (vlog_file.is_open())
+			vlog_file << stringf("      #1;\n");
 
 		for (auto port : gold_mod->ports)
 		{
@@ -224,6 +259,13 @@ static void run_eval_test(RTLIL::Design *design, bool verbose)
 
 			out_sig.append(gold_wire);
 			out_val.append(gold_outval);
+
+			if (vlog_file.is_open()) {
+				vlog_file << stringf("      $display(\"[%s %s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
+						log_signal(in_sig), log_signal(in_val), log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str(), log_id(gold_wire), log_id(gold_wire));
+				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str());
+				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str());
+			}
 		}
 
 		if (verbose)
@@ -294,6 +336,12 @@ static void run_eval_test(RTLIL::Design *design, bool verbose)
 		}
 	}
 
+	if (vlog_file.is_open()) {
+		vlog_file << stringf("    end\n");
+		vlog_file << stringf("  endtask\n");
+		vlog_file << stringf("endmodule\n");
+	}
+
 	if (!verbose)
 		log(" ok.\n");
 }
@@ -330,6 +378,9 @@ struct TestCellPass : public Pass {
 		log("    -v\n");
 		log("        print additional debug information to the console\n");
 		log("\n");
+		log("    -vlog {filename}\n");
+		log("        create a verilog test bench to test simlib and write_verilog\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
@@ -337,6 +388,7 @@ struct TestCellPass : public Pass {
 		std::string techmap_cmd = "techmap -assert";
 		std::string ilang_file;
 		xorshift32_state = 0;
+		std::ofstream vlog_file;
 		bool verbose = false;
 
 		int argidx;
@@ -365,6 +417,12 @@ struct TestCellPass : public Pass {
 			}
 			if (args[argidx] == "-v") {
 				verbose = true;
+				continue;
+			}
+			if (args[argidx] == "-vlog" && argidx+1 < SIZE(args)) {
+				vlog_file.open(args[++argidx], std::ios_base::trunc);
+				if (!vlog_file.is_open())
+					log_cmd_error("Failed to open output file `%s'.\n", args[argidx].c_str());
 				continue;
 			}
 			break;
@@ -468,6 +526,8 @@ struct TestCellPass : public Pass {
 		if (selected_cell_types.empty())
 			log_cmd_error("No cell type to test specified.\n");
 
+		std::vector<std::string> task_names;
+
 		for (auto cell_type : selected_cell_types)
 			for (int i = 0; i < num_iter; i++)
 			{
@@ -482,9 +542,26 @@ struct TestCellPass : public Pass {
 					Pass::call(design, "dump gate");
 				Pass::call(design, "dump gold");
 				Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
-				run_eval_test(design, verbose);
+				std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1).c_str(), i);
+				if (vlog_file.is_open()) {
+					Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name.c_str(), uut_name.c_str()));
+					Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected");
+					Pass::call(design, stringf("copy gold %s_noexpr; select %s_noexpr", uut_name.c_str(), uut_name.c_str()));
+					Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected -noexpr");
+					task_names.push_back(uut_name + ".run");
+				}
+				run_eval_test(design, verbose, uut_name, vlog_file);
 				delete design;
 			}
+
+		if (vlog_file.is_open()) {
+			vlog_file << "\nmodule testbench;\n";
+			vlog_file << "  initial begin\n";
+			for (auto &task : task_names)
+				vlog_file << "    " << task << ";\n";
+			vlog_file << "  end\n";
+			vlog_file << "endmodule\n";
+		}
 	}
 } TestCellPass;
 
