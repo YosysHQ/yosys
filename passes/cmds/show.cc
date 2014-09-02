@@ -751,8 +751,8 @@ struct ShowPass : public Pass {
 		if (worker.page_counter == 0)
 			log_cmd_error("Nothing there to show.\n");
 
-		if (format != "dot") {
-			std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.empty() ? "svg" : format.c_str(), out_file.c_str(), dot_file.c_str());
+		if (format != "dot" && !format.empty()) {
+			std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.c_str(), out_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
@@ -765,8 +765,7 @@ struct ShowPass : public Pass {
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
-			std::string svgviewer = proc_self_dirname() + "yosys-svgviewer";
-			std::string cmd = stringf("fuser -s '%s' || '%s' '%s' &", out_file.c_str(), svgviewer.c_str(), out_file.c_str());
+			std::string cmd = stringf("fuser -s '%s' || xdot '%s' < '%s' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
