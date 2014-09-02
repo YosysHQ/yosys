@@ -357,7 +357,7 @@ struct SatGen
 			if (model_undef) {
 				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
-				extendSignalWidthUnary(undef_a, undef_y, cell, true);
+				extendSignalWidthUnary(undef_a, undef_y, cell, false);
 				ez->assume(ez->vec_eq(undef_a, undef_y));
 				undefGating(y, yy, undef_y);
 			}
@@ -671,7 +671,7 @@ struct SatGen
 
 			int extend_bit = ez->FALSE;
 
-			if (cell->type != "$shift" && cell->type != "$shiftx" && cell->parameters["\\A_SIGNED"].as_bool())
+			if (!cell->type.in("$shift", "$shiftx") && cell->parameters["\\A_SIGNED"].as_bool())
 				extend_bit = a.back();
 
 			while (y.size() < a.size())
@@ -703,7 +703,8 @@ struct SatGen
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
 				std::vector<int> undef_a_shifted;
 
-				if (cell->type != "$shift" && cell->type != "$shiftx" && cell->parameters["\\A_SIGNED"].as_bool())
+				extend_bit = cell->type == "$shiftx" ? ez->TRUE : ez->FALSE;
+				if (!cell->type.in("$shift", "$shiftx") && cell->parameters["\\A_SIGNED"].as_bool())
 					extend_bit = undef_a.back();
 
 				while (undef_y.size() < undef_a.size())
