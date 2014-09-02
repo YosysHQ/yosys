@@ -6,7 +6,6 @@ CONFIG := clang
 
 # features (the more the better)
 ENABLE_TCL := 1
-ENABLE_QT4 := 1
 ENABLE_ABC := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
@@ -111,10 +110,6 @@ CXXFLAGS += -pg
 LDFLAGS += -pg
 endif
 
-ifeq ($(ENABLE_QT4),1)
-TARGETS += yosys-svgviewer
-endif
-
 ifeq ($(ENABLE_ABC),1)
 TARGETS += yosys-abc
 endif
@@ -215,10 +210,6 @@ yosys-config: yosys-config.in
 			-e 's,@BINDIR@,$(DESTDIR)/bin,;' -e 's,@DATDIR@,$(DESTDIR)/share/yosys,;' < yosys-config.in > yosys-config
 	$(Q) chmod +x yosys-config
 
-yosys-svgviewer: libs/svgviewer/*.h libs/svgviewer/*.cpp
-	$(P) cd libs/svgviewer && $(QMAKE) && $(MAKE) $(S)
-	$(Q) cp `find libs/svgviewer -name svgviewer -type f` yosys-svgviewer
-
 abc/abc-$(ABCREV):
 	$(P)
 ifneq ($(ABCREV),default)
@@ -288,7 +279,6 @@ clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS)
 	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
-	test ! -f libs/svgviewer/Makefile || make -C libs/svgviewer distclean
 
 clean-abc:
 	make -C abc clean
@@ -319,7 +309,6 @@ config-gcc-4.6: clean
 config-emcc: clean
 	echo 'CONFIG := emcc' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
-	echo 'ENABLE_QT4 := 0' >> Makefile.conf
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf

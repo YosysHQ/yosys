@@ -50,15 +50,13 @@ Getting Started
 
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
-The Qt4 library is needed for the yosys SVG viewer, that is used to display
-schematics, the minisat library is required for the SAT features in yosys
-and TCL for the scripting functionality. The extensive test suite requires
-Icarus Verilog. For example on Ubuntu Linux 12.04 LTS the following commands
-will install all prerequisites for building yosys:
+TCL, readline and libffi are optional (see ENABLE_* settings in Makefile).
+Xdot (graphviz) is used by the "show" command in yosys to display schematics.
+For example on Ubuntu Linux 14.04 LTS the following commands will install all
+prerequisites for building yosys:
 
-	$ yosys_deps="git g++ clang make bison flex libreadline-dev
-	              tcl8.5-dev zlib1g-dev libqt4-dev libffi-dev
-	              mercurial iverilog graphviz xdot"
+	$ yosys_deps="build-essential clang bison flex libreadline-dev
+	              tcl8.5-dev libffi-dev git mercurial graphviz xdot"
 	$ sudo apt-get install $yosys_deps
 
 There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys
@@ -66,12 +64,10 @@ download page to learn more about this:
 
 	http://www.clifford.at/yosys/download.html 
 
-To configure the build system to use a specific set of compiler and
-build configuration, use one of
+To configure the build system to use a specific compiler, use one of
 
-	$ make config-clang-debug
-	$ make config-gcc-debug
-	$ make config-release
+	$ make config-clang
+	$ make config-gcc
 
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
@@ -118,7 +114,7 @@ some simple optimizations:
 
 	yosys> proc; opt
 
-display design netlist using the yosys svg viewer:
+display design netlist using xdot:
 
 	yosys> show
 
@@ -156,16 +152,19 @@ commands in the synthesis script:
 
 	$ ./yosys -o synth.v tests/simple/fiedler-cooley.v synth.ys
 
-The following synthesis script works reasonable for all designs:
+The following very basic synthesis script should work well with all designs:
 
 	# check design hierarchy
 	hierarchy
 
-	# translate processes (always blocks) and memories (arrays)
-	proc; memory; opt
+	# translate processes (always blocks)
+	proc; opt
 
 	# detect and optimize FSM encodings
 	fsm; opt
+
+	# implement memories (arrays)
+	memory; opt
 
 	# convert to gate logic
 	techmap; opt
@@ -175,7 +174,7 @@ in the liberty file mycells.lib, the following synthesis script will synthesize
 for the given cell library:
 
 	# the high-level stuff
-	hierarchy; proc; memory; opt; fsm; opt
+	hierarchy; proc; fsm; opt; memory; opt
 
 	# mapping to internal cell library
 	techmap; opt
