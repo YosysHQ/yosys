@@ -228,6 +228,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 RTLIL::Design::Design()
 {
 	refcount_modules_ = 0;
+	selection_stack.push_back(RTLIL::Selection());
 }
 
 RTLIL::Design::~Design()

@@ -74,9 +74,7 @@ int SIZE(RTLIL::Wire *wire)
 void yosys_setup()
 {
 	Pass::init_register();
-
 	yosys_design = new RTLIL::Design;
-	yosys_design->selection_stack.push_back(RTLIL::Selection());
 	log_push();
 }
 
