@@ -19,6 +19,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/satgen.h"
 #include "kernel/consteval.h"
 #include <algorithm>
 
@@ -123,17 +124,31 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 static void run_eval_test(RTLIL::Design *design, bool verbose)
 {
+	log("Eval testing:%c", verbose ? '\n' : ' ');
+
 	RTLIL::Module *gold_mod = design->module("\\gold");
 	RTLIL::Module *gate_mod = design->module("\\gate");
 	ConstEval gold_ce(gold_mod), gate_ce(gate_mod);
 
-	log("Eval testing:%c", verbose ? '\n' : ' ');
+	ezDefaultSAT ez1, ez2;
+	SigMap sigmap(gold_mod);
+	SatGen satgen1(&ez1, &sigmap);
+	SatGen satgen2(&ez2, &sigmap);
+	satgen2.model_undef = true;
+
+	for (auto cell : gold_mod->cells()) {
+		satgen1.importCell(cell);
+		satgen2.importCell(cell);
+	}
 
 	for (int i = 0; i < 64; i++)
 	{
 		log(verbose ? "\n" : ".");
 		gold_ce.clear();
 		gate_ce.clear();
+
+		RTLIL::SigSpec in_sig, in_val;
+		RTLIL::SigSpec out_sig, out_val;
 
 		for (auto port : gold_mod->ports)
 		{
@@ -161,6 +176,9 @@ static void run_eval_test(RTLIL::Design *design, bool verbose)
 
 			if (verbose)
 				log("%s: %s\n", log_id(gold_wire), log_signal(in_value));
+
+			in_sig.append(gold_wire);
+			in_val.append(in_value);
 
 			gold_ce.set(gold_wire, in_value);
 			gate_ce.set(gate_wire, in_value);
@@ -203,6 +221,76 @@ static void run_eval_test(RTLIL::Design *design, bool verbose)
 
 			if (verbose)
 				log("%s: %s\n", log_id(gold_wire), log_signal(gold_outval));
+
+			out_sig.append(gold_wire);
+			out_val.append(gold_outval);
+		}
+
+		if (verbose)
+			log("EVAL:  %s\n", out_val.as_string().c_str());
+
+		std::vector<int> sat1_in_sig = satgen1.importSigSpec(in_sig);
+		std::vector<int> sat1_in_val = satgen1.importSigSpec(in_val);
+
+		std::vector<int> sat1_model = satgen1.importSigSpec(out_sig);
+		std::vector<bool> sat1_model_value;
+
+		if (!ez1.solve(sat1_model, sat1_model_value, ez1.vec_eq(sat1_in_sig, sat1_in_val)))
+			log_error("Evaluating sat model 1 (no undef modeling) failed!\n");
+
+		if (verbose) {
+			log("SAT 1: ");
+			for (int i = SIZE(out_sig)-1; i >= 0; i--)
+				log("%c", sat1_model_value.at(i) ? '1' : '0');
+			log("\n");
+		}
+
+		for (int i = 0; i < SIZE(out_sig); i++) {
+			if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
+				continue;
+			if (out_val[i] == RTLIL::S0 && sat1_model_value.at(i) == false)
+				continue;
+			if (out_val[i] == RTLIL::S1 && sat1_model_value.at(i) == true)
+				continue;
+			log_error("Mismatch in sat model 1 (no undef modeling) output!\n");
+		}
+
+		std::vector<int> sat2_in_def_sig = satgen2.importDefSigSpec(in_sig);
+		std::vector<int> sat2_in_def_val = satgen2.importDefSigSpec(in_val);
+
+		std::vector<int> sat2_in_undef_sig = satgen2.importUndefSigSpec(in_sig);
+		std::vector<int> sat2_in_undef_val = satgen2.importUndefSigSpec(in_val);
+
+		std::vector<int> sat2_model_def_sig = satgen2.importDefSigSpec(out_sig);
+		std::vector<int> sat2_model_undef_sig = satgen2.importUndefSigSpec(out_sig);
+
+		std::vector<int> sat2_model;
+		sat2_model.insert(sat2_model.end(), sat2_model_def_sig.begin(), sat2_model_def_sig.end());
+		sat2_model.insert(sat2_model.end(), sat2_model_undef_sig.begin(), sat2_model_undef_sig.end());
+
+		std::vector<bool> sat2_model_value;
+
+		if (!ez2.solve(sat2_model, sat2_model_value, ez2.vec_eq(sat2_in_def_sig, sat2_in_def_val), ez2.vec_eq(sat2_in_undef_sig, sat2_in_undef_val)))
+			log_error("Evaluating sat model 2 (undef modeling) failed!\n");
+
+		if (verbose) {
+			log("SAT 2: ");
+			for (int i = SIZE(out_sig)-1; i >= 0; i--)
+				log("%c", sat2_model_value.at(SIZE(out_sig) + i) ? 'x' : sat2_model_value.at(i) ? '1' : '0');
+			log("\n");
+		}
+
+		for (int i = 0; i < SIZE(out_sig); i++) {
+			if (sat2_model_value.at(SIZE(out_sig) + i)) {
+				if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
+					continue;
+			} else {
+				if (out_val[i] == RTLIL::S0 && sat2_model_value.at(i) == false)
+					continue;
+				if (out_val[i] == RTLIL::S1 && sat2_model_value.at(i) == true)
+					continue;
+			}
+			log_error("Mismatch in sat model 2 (undef modeling) output!\n");
 		}
 	}
 
