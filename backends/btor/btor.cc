@@ -638,7 +638,42 @@ struct BtorDumper
 				fprintf(f, "%s\n", str.c_str());
 				line_ref[cell->name]=line_num;
 			}
-			//registers
+			else if(cell->type == "$pmux")
+                        {
+                          log("writing pmux cell\n");
+                          int output_width = cell->parameters.at(RTLIL::IdString("\\WIDTH")).as_int();
+                          int select_width = cell->parameters.at(RTLIL::IdString("\\S_WIDTH")).as_int();
+                          int default_case = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\A")), output_width);
+                          int cases = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\B")), output_width*select_width);
+                          int select = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\S")), select_width);
+                          int *c = new int[select_width];
+                          
+                          for (int i=0; i<select_width; ++i)
+                          {
+                            ++line_num;
+                            str = stringf ("%d slice 1 %d %d %d", line_num, select, i, i);
+                            fprintf(f, "%s\n", str.c_str());
+                            c[i] = line_num;
+                            ++line_num;
+                            str = stringf ("%d slice %d %d %d %d", line_num, output_width, cases, i*output_width+output_width-1, 
+                                           i*output_width);
+                            fprintf(f, "%s\n", str.c_str());
+                          }
+                          
+                          ++line_num;
+                          str = stringf ("%d cond 1 %d %d %d", line_num, c[select_width-1], c[select_width-1]+1, default_case);
+                          fprintf(f, "%s\n", str.c_str());
+                          
+                          for (int i=select_width-2; i>=0; --i)
+                          {
+                            ++line_num;
+                            str = stringf ("%d cond 1 %d %d %d", line_num, c[i], c[i]+1, line_num-1);
+                            fprintf(f, "%s\n", str.c_str());
+                          }
+
+                          line_ref[cell->name]=line_num;
+                        }
+                        //registers
 			else if(cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffsr")
 			{
 				//TODO: remodelling fo adff cells
@@ -767,7 +802,8 @@ struct BtorDumper
 				assert(output->width == output_width);
 				int offset = cell->parameters.at(RTLIL::IdString("\\OFFSET")).as_int();	
 				++line_num;
-				str = stringf("%d %s %d %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), output_width, input_line, output_width+offset-1, offset);	
+				str = stringf("%d %s %d %d %d %d", line_num, cell_type_translation.at(cell->type).c_str(), 
+                                              output_width, input_line, output_width+offset-1, offset);	
 				fprintf(f, "%s\n", str.c_str());				
 				line_ref[cell->name]=line_num;	
 			}
