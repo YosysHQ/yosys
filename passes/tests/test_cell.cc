@@ -178,6 +178,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_n
 
 		RTLIL::SigSpec in_sig, in_val;
 		RTLIL::SigSpec out_sig, out_val;
+		std::string vlog_pattern_info;
 
 		for (auto port : gold_mod->ports)
 		{
@@ -212,8 +213,12 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_n
 			gold_ce.set(gold_wire, in_value);
 			gate_ce.set(gate_wire, in_value);
 
-			if (vlog_file.is_open())
+			if (vlog_file.is_open()) {
 				vlog_file << stringf("      %s = 'b%s;\n", log_id(gold_wire), in_value.as_string().c_str());
+				if (!vlog_pattern_info.empty())
+					vlog_pattern_info += " ";
+				vlog_pattern_info += stringf("%s=%s", log_id(gold_wire), log_signal(in_value));
+			}
 		}
 
 		if (vlog_file.is_open())
@@ -261,8 +266,8 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_n
 			out_val.append(gold_outval);
 
 			if (vlog_file.is_open()) {
-				vlog_file << stringf("      $display(\"[%s %s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
-						log_signal(in_sig), log_signal(in_val), log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str(), log_id(gold_wire), log_id(gold_wire));
+				vlog_file << stringf("      $display(\"[%s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
+						vlog_pattern_info.c_str(), log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str(), log_id(gold_wire), log_id(gold_wire));
 				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str());
 				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str());
 			}
