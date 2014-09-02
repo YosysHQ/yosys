@@ -598,8 +598,8 @@ struct ShowPass : public Pass {
 		log("    -notitle\n");
 		log("        do not add the module name as graph title to the dot file\n");
 		log("\n");
-		log("When no <format> is specified, SVG is used. When no <format> and <viewer> is\n");
-		log("specified, 'yosys-svgviewer' is used to display the schematic.\n");
+		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
+		log("specified, 'xdot' is used to display the schematic.\n");
 		log("\n");
 		log("The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',\n");
 		log("unless another prefix is specified using -prefix <prefix>.\n");

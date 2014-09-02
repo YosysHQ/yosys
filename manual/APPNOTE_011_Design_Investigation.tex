@@ -54,7 +54,7 @@
 \begin{document}
 
 \title{Yosys Application Note 011: \\ Interactive Design Investigation}
-\author{Clifford Wolf \\ December 2013}
+\author{Clifford Wolf \\ Original Verision December 2013}
 \maketitle
 
 \begin{abstract}
@@ -74,9 +74,7 @@ commands for evaluating circuits and solving SAT problems.
 This Application Note is based on the Yosys \cite{yosys} GIT Rev. {\tt 2b90ba1} from
 2013-12-08. The {\tt README} file covers how to install Yosys. The
 {\tt show} command requires a working installation of GraphViz \cite{graphviz}
-for generating the actual circuit diagrams. Yosys must be build with Qt
-support for the built-in SVG viewer. Alternatively an external viewer can be
-used, if Qt is not available.
+and \cite{xdot} for generating the actual circuit diagrams.
 
 \section{Overview}
 
@@ -131,8 +129,8 @@ The {\tt show} command generates a circuit diagram for the design in its
 current state. Various options can be used to change the appearance of the
 circuit diagram, set the name and format for the output file, and so forth.
 When called without any special options, it saves the circuit diagram in
-a temporary file and launches {\tt yosys-svgviewer} to display the diagram.
-Subsequent calls to {\tt show} re-use the {\tt yosys-svgviewer} instance
+a temporary file and launches {\tt xdot} to display the diagram.
+Subsequent calls to {\tt show} re-use the {\tt xdot} instance
 (if still running).
 
 \subsection{A simple circuit}
@@ -270,17 +268,11 @@ command only operates on interior signals.
 
 \subsection{Miscellaneous notes}
 
-Per default the {\tt show} command outputs a temporary SVG file and launches
-{\tt yosys-svgviewer} to display it. The options {\tt -format}, {\tt -viewer}
+Per default the {\tt show} command outputs a temporary {\tt dot} file and launches
+{\tt xdot} to display it. The options {\tt -format}, {\tt -viewer}
 and {\tt -prefix} can be used to change format, viewer and filename prefix.
 Note that the {\tt pdf} and {\tt ps} format are the only formats that support
 plotting multiple modules in one run.
-
-In {\tt yosys-svgviewer} the left mouse button is per default bound to move the
-diagram (and the mouse wheel can be used for zooming in and out). However, in
-some cases one wants to copy text from the diagram. In this cases the
-View->Interactive checkbox must be activated. This switches the rendering back-end
-in a mode that supports interaction with the SVG file, such as selecting text.
 
 In densely connected circuits it is sometimes hard to keep track of the
 individual signal wires. For this cases it can be useful to call {\tt show}
@@ -1055,6 +1047,10 @@ Clifford Wolf. The Yosys Open SYnthesis Suite.
 \bibitem{graphviz}
 Graphviz - Graph Visualization Software.
 \url{http://www.graphviz.org/}
+
+\bibitem{xdot}
+xdot.py - an interactive viewer for graphs written in Graphviz's dot language.
+\url{https://github.com/jrfonseca/xdot.py}
 
 \bibitem{CircuitSAT}
 {\it Circuit satisfiability problem} on Wikipedia
