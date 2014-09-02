@@ -492,8 +492,11 @@ generate
 	end
 endgenerate
 
+// this is 'x' if Y and CO should be all 'x', and '0' otherwise
+wire y_co_undef = ^{A, A, B, B, CI, CI, BI, BI};
+
 assign X = AA ^ BB;
-assign Y = AA + BB + CI;
+assign Y = (AA + BB + CI) ^ {Y_WIDTH{y_co_undef}};
 
 function get_carry;
 	input a, b, c;
@@ -502,9 +505,9 @@ endfunction
 
 genvar i;
 generate
-	assign CO[0] = get_carry(AA[0], BB[0], CI);
+	assign CO[0] = get_carry(AA[0], BB[0], CI) ^ y_co_undef;
 	for (i = 1; i < Y_WIDTH; i = i+1) begin:BLOCK3
-		assign CO[i] = get_carry(AA[i], BB[i], CO[i-1]);
+		assign CO[i] = get_carry(AA[i], BB[i], CO[i-1]) ^ y_co_undef;
 	end
 endgenerate
 
