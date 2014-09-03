@@ -470,7 +470,7 @@ struct SatGen
 			{
 				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
-				extendSignalWidthUnary(undef_a, undef_y, cell, cell->type != "$bu0");
+				extendSignalWidthUnary(undef_a, undef_y, cell);
 
 				if (cell->type == "$pos" || cell->type == "$bu0") {
 					ez->assume(ez->vec_eq(undef_a, undef_y));

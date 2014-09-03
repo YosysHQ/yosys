@@ -538,6 +538,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	HANDLE_UNIOP("$not", "~")
 	HANDLE_UNIOP("$pos", "+")
+	HANDLE_UNIOP("$bu0", "+")
 	HANDLE_UNIOP("$neg", "-")
 
 	HANDLE_BINOP("$and",  "&")
@@ -648,22 +649,6 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(" = ");
 		dump_sigspec(f, cell->getPort("\\A"));
 		f << stringf(" >> %d;\n", cell->parameters.at("\\OFFSET").as_int());
-		return true;
-	}
-
-	if (cell->type == "$bu0")
-	{
-		f << stringf("%s" "assign ", indent.c_str());
-		dump_sigspec(f, cell->getPort("\\Y"));
-		if (cell->parameters["\\A_SIGNED"].as_bool()) {
-			f << stringf(" = $signed(");
-			dump_sigspec(f, cell->getPort("\\A"));
-			f << stringf(");\n");
-		} else {
-			f << stringf(" = { 1'b0, ");
-			dump_sigspec(f, cell->getPort("\\A"));
-			f << stringf(" };\n");
-		}
 		return true;
 	}
 
