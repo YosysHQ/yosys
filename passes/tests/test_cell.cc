@@ -531,7 +531,7 @@ struct TestCellPass : public Pass {
 		if (selected_cell_types.empty())
 			log_cmd_error("No cell type to test specified.\n");
 
-		std::vector<std::string> task_names;
+		std::vector<std::string> uut_names;
 
 		for (auto cell_type : selected_cell_types)
 			for (int i = 0; i < num_iter; i++)
@@ -553,7 +553,7 @@ struct TestCellPass : public Pass {
 					Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected");
 					Pass::call(design, stringf("copy gold %s_noexpr; select %s_noexpr", uut_name.c_str(), uut_name.c_str()));
 					Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected -noexpr");
-					task_names.push_back(uut_name + ".run");
+					uut_names.push_back(uut_name);
 				}
 				run_eval_test(design, verbose, uut_name, vlog_file);
 				delete design;
@@ -561,9 +561,11 @@ struct TestCellPass : public Pass {
 
 		if (vlog_file.is_open()) {
 			vlog_file << "\nmodule testbench;\n";
+			for (auto &uut : uut_names)
+				vlog_file << stringf("  %s %s ();\n", uut.c_str(), uut.c_str());
 			vlog_file << "  initial begin\n";
-			for (auto &task : task_names)
-				vlog_file << "    " << task << ";\n";
+			for (auto &uut : uut_names)
+				vlog_file << "    " << uut << ".run;\n";
 			vlog_file << "  end\n";
 			vlog_file << "endmodule\n";
 		}
