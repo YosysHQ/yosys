@@ -934,9 +934,9 @@ struct SatGen
 				std::vector<int> undef_x = importUndefSigSpec(cell->getPort("\\X"), timestep);
 				std::vector<int> undef_co = importUndefSigSpec(cell->getPort("\\CO"), timestep);
 
-				extendSignalWidth(undef_a, undef_b, undef_y, cell, true);
-				extendSignalWidth(undef_a, undef_b, undef_x, cell, true);
-				extendSignalWidth(undef_a, undef_b, undef_co, cell, true);
+				extendSignalWidth(undef_a, undef_b, undef_y, cell);
+				extendSignalWidth(undef_a, undef_b, undef_x, cell);
+				extendSignalWidth(undef_a, undef_b, undef_co, cell);
 
 				std::vector<int> all_inputs_undef;
 				all_inputs_undef.insert(all_inputs_undef.end(), undef_a.begin(), undef_a.end());
@@ -955,7 +955,6 @@ struct SatGen
 				undefGating(x, def_x, undef_x);
 				undefGating(co, def_co, undef_co);
 			}
-			log_ping();
 			return true;
 		}
 

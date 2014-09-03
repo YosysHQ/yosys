@@ -178,8 +178,8 @@ struct ConstEval
 			RTLIL::SigSpec sig_co = cell->getPort("\\CO");
 
 			bool any_input_undef = !(sig_a.is_fully_def() && sig_b.is_fully_def() && sig_ci.is_fully_def() && sig_bi.is_fully_def());
-			sig_a.extend(SIZE(sig_y), signed_a);
-			sig_b.extend(SIZE(sig_y), signed_b);
+			sig_a.extend_u0(SIZE(sig_y), signed_a);
+			sig_b.extend_u0(SIZE(sig_y), signed_b);
 
 			bool carry = sig_ci[0] == RTLIL::S1;
 			bool b_inv = sig_bi[0] == RTLIL::S1;
