@@ -85,7 +85,7 @@ static void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell 
 	did_something = true;
 }
 
-static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, bool extend_u0, SigMap &sigmap)
+static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap)
 {
 	std::string b_name = cell->hasPort("\\B") ? "\\B" : "\\A";
 
@@ -96,13 +96,8 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	RTLIL::SigSpec sig_b = sigmap(cell->getPort(b_name));
 	RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
 
-	if (extend_u0) {
-		sig_a.extend_u0(sig_y.size(), a_signed);
-		sig_b.extend_u0(sig_y.size(), b_signed);
-	} else {
-		sig_a.extend(sig_y.size(), a_signed);
-		sig_b.extend(sig_y.size(), b_signed);
-	}
+	sig_a.extend_u0(sig_y.size(), a_signed);
+	sig_b.extend_u0(sig_y.size(), b_signed);
 
 	std::vector<RTLIL::SigBit> bits_a = sig_a, bits_b = sig_b, bits_y = sig_y;
 
@@ -238,7 +233,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 		{
 			if (cell->type == "$not" || cell->type == "$pos" ||
 					cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor")
-				if (group_cell_inputs(module, cell, true, cell->type != "$pos", assign_map))
+				if (group_cell_inputs(module, cell, true, assign_map))
 					goto next_cell;
 
 			if (cell->type == "$reduce_and")
