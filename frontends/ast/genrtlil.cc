@@ -70,7 +70,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 }
 
 // helper function for extending bit width (preferred over SigSpec::extend() because of correct undef propagation in ConstEval)
-static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_signed, std::string celltype)
+static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_signed)
 {
 	if (width <= sig.size()) {
 		sig.extend(width, is_signed);
@@ -80,7 +80,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	std::stringstream sstr;
 	sstr << "$extend" << "$" << that->filename << ":" << that->linenum << "$" << (autoidx++);
 
-	RTLIL::Cell *cell = current_module->addCell(sstr.str(), celltype);
+	RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$pos");
 	cell->attributes["\\src"] = stringf("%s:%d", that->filename.c_str(), that->linenum);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", width);
@@ -1012,7 +1012,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int width = arg.size();
 			if (width_hint > 0) {
 				width = width_hint;
-				widthExtend(this, arg, width, is_signed, "$pos");
+				widthExtend(this, arg, width, is_signed);
 			}
 			return uniop2rtlil(this, type_name, width, arg);
 		}
@@ -1167,8 +1167,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			int width = std::max(val1.size(), val2.size());
 			is_signed = children[1]->is_signed && children[2]->is_signed;
-			widthExtend(this, val1, width, is_signed, "$bu0");
-			widthExtend(this, val2, width, is_signed, "$bu0");
+			widthExtend(this, val1, width, is_signed);
+			widthExtend(this, val2, width, is_signed);
 
 			RTLIL::SigSpec sig = mux2rtlil(this, cond, val1, val2);
 

@@ -39,11 +39,6 @@
 // --------------------------------------------------------
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$pos $bu0" *)
-module simplemap_buffers;
-endmodule
-
-(* techmap_simplemap *)
 (* techmap_celltype = "$not $and $or $xor $xnor" *)
 module simplemap_bool_ops;
 endmodule
@@ -59,7 +54,7 @@ module simplemap_logic_ops;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$slice $concat $mux" *)
+(* techmap_celltype = "$pos $slice $concat $mux" *)
 module simplemap_various;
 endmodule
 
@@ -738,8 +733,8 @@ module \$eq (A, B, Y);
 
 	wire carry, carry_sign;
 	wire [WIDTH-1:0] A_buf, B_buf;
-	\$bu0 #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$bu0 #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 	assign Y = ~|(A_buf ^ B_buf);
 endmodule
@@ -759,8 +754,8 @@ module \$ne (A, B, Y);
 
 	wire carry, carry_sign;
 	wire [WIDTH-1:0] A_buf, B_buf;
-	\$bu0 #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$bu0 #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 	assign Y = |(A_buf ^ B_buf);
 endmodule

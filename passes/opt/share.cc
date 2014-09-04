@@ -923,7 +923,6 @@ struct SharePass : public Pass {
 
 		config.generic_uni_ops.insert("$not");
 		// config.generic_uni_ops.insert("$pos");
-		// config.generic_uni_ops.insert("$bu0");
 		config.generic_uni_ops.insert("$neg");
 
 		config.generic_cbin_ops.insert("$and");

@@ -99,7 +99,7 @@ namespace
 
 				if (width_mode)
 				{
-					if (cell_type.in("$not", "$pos", "$bu0", "$neg",
+					if (cell_type.in("$not", "$pos", "$neg",
 							"$logic_not", "$logic_and", "$logic_or",
 							"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
 							"$lut", "$and", "$or", "$xor", "$xnor",

@@ -563,7 +563,7 @@ namespace {
 					cell->type.substr(0, 9) == "$verific$" || cell->type.substr(0, 7) == "$array:" || cell->type.substr(0, 8) == "$extern:")
 				return;
 
-			if (cell->type.in("$not", "$pos", "$bu0", "$neg")) {
+			if (cell->type.in("$not", "$pos", "$neg")) {
 				param_bool("\\A_SIGNED");
 				port("\\A", param("\\A_WIDTH"));
 				port("\\Y", param("\\Y_WIDTH"));
@@ -1326,7 +1326,6 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 	}
 DEF_METHOD(Not,        sig_a.size(), "$not")
 DEF_METHOD(Pos,        sig_a.size(), "$pos")
-DEF_METHOD(Bu0,        sig_a.size(), "$bu0")
 DEF_METHOD(Neg,        sig_a.size(), "$neg")
 DEF_METHOD(ReduceAnd,  1, "$reduce_and")
 DEF_METHOD(ReduceOr,   1, "$reduce_or")

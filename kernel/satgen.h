@@ -451,7 +451,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type == "$pos" || cell->type == "$bu0" || cell->type == "$neg")
+		if (cell->type == "$pos" || cell->type == "$neg")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
 			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
@@ -459,7 +459,7 @@ struct SatGen
 
 			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
-			if (cell->type == "$pos" || cell->type == "$bu0") {
+			if (cell->type == "$pos") {
 				ez->assume(ez->vec_eq(a, yy));
 			} else {
 				std::vector<int> zero(a.size(), ez->FALSE);
@@ -472,7 +472,7 @@ struct SatGen
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
 				extendSignalWidthUnary(undef_a, undef_y, cell);
 
-				if (cell->type == "$pos" || cell->type == "$bu0") {
+				if (cell->type == "$pos") {
 					ez->assume(ez->vec_eq(undef_a, undef_y));
 				} else {
 					int undef_any_a = ez->expression(ezSAT::OpOr, undef_a);

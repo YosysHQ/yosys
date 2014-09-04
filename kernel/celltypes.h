@@ -86,7 +86,7 @@ struct CellTypes
 	void setup_internals()
 	{
 		std::vector<RTLIL::IdString> unary_ops = {
-			"$not", "$pos", "$bu0", "$neg",
+			"$not", "$pos", "$neg",
 			"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
 			"$logic_not", "$slice", "$lut"
 		};
@@ -219,7 +219,7 @@ struct CellTypes
 			type = "$shl";
 
 		if (type != "$sshr" && type != "$sshl" && type != "$shr" && type != "$shl" && type != "$shift" && type != "$shiftx" &&
-				type != "$pos" && type != "$neg" && type != "$not" && type != "$bu0") {
+				type != "$pos" && type != "$neg" && type != "$not") {
 			if (!signed1 || !signed2)
 				signed1 = false, signed2 = false;
 		}
@@ -259,7 +259,6 @@ struct CellTypes
 		HANDLE_CELL_TYPE(mod)
 		HANDLE_CELL_TYPE(pow)
 		HANDLE_CELL_TYPE(pos)
-		HANDLE_CELL_TYPE(bu0)
 		HANDLE_CELL_TYPE(neg)
 #undef HANDLE_CELL_TYPE
 

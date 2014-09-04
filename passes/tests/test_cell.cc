@@ -441,7 +441,6 @@ struct TestCellPass : public Pass {
 
 		cell_types["$not"] = "ASY";
 		cell_types["$pos"] = "ASY";
-		cell_types["$bu0"] = "ASY";
 		cell_types["$neg"] = "ASY";
 
 		cell_types["$and"]  = "ABSY";

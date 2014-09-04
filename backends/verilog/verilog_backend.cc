@@ -538,7 +538,6 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	HANDLE_UNIOP("$not", "~")
 	HANDLE_UNIOP("$pos", "+")
-	HANDLE_UNIOP("$bu0", "+")
 	HANDLE_UNIOP("$neg", "-")
 
 	HANDLE_BINOP("$and",  "&")

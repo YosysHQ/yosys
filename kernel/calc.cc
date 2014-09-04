@@ -26,19 +26,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-static void extend(RTLIL::Const &arg, int width, bool is_signed)
-{
-	RTLIL::State padding = RTLIL::State::S0;
-
-	if (arg.bits.size() > 0 && (is_signed || arg.bits.back() > RTLIL::State::S1))
-		padding = arg.bits.back();
-
-	while (int(arg.bits.size()) < width)
-		arg.bits.push_back(padding);
-
-	arg.bits.resize(width);
-}
-
 static void extend_u0(RTLIL::Const &arg, int width, bool is_signed)
 {
 	RTLIL::State padding = RTLIL::State::S0;
@@ -573,14 +560,6 @@ RTLIL::Const RTLIL::const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 }
 
 RTLIL::Const RTLIL::const_pos(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
-{
-	RTLIL::Const arg1_ext = arg1;
-	extend_u0(arg1_ext, result_len, signed1);
-
-	return arg1_ext;
-}
-
-RTLIL::Const RTLIL::const_bu0(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
 	extend_u0(arg1_ext, result_len, signed1);

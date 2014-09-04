@@ -181,7 +181,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 		log("\n");
 	}
 
-	cover_list("opt.opt_const.fine.group", "$not", "$pos", "$bu0", "$and", "$or", "$xor", "$xnor", cell->type.str());
+	cover_list("opt.opt_const.fine.group", "$not", "$pos", "$and", "$or", "$xor", "$xnor", cell->type.str());
 
 	module->remove(cell);
 	did_something = true;
@@ -236,7 +236,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 		if (do_fine)
 		{
-			if (cell->type == "$not" || cell->type == "$pos" || cell->type == "$bu0" ||
+			if (cell->type == "$not" || cell->type == "$pos" ||
 					cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor")
 				if (group_cell_inputs(module, cell, true, cell->type != "$pos", assign_map))
 					goto next_cell;
@@ -586,7 +586,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 		if (!keepdc)
 		{
-			bool identity_bu0 = false;
 			bool identity_wrt_a = false;
 			bool identity_wrt_b = false;
 
@@ -607,7 +606,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 				RTLIL::SigSpec b = assign_map(cell->getPort("\\B"));
 
 				if (b.is_fully_const() && b.as_bool() == false)
-					identity_wrt_a = true, identity_bu0 = true;
+					identity_wrt_a = true;
 			}
 
 			if (cell->type == "$mul")
@@ -646,7 +645,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 					cell->parameters.at("\\A_SIGNED") = cell->parameters.at("\\B_SIGNED");
 				}
 
-				cell->type = identity_bu0 ? "$bu0" : "$pos";
+				cell->type = "$pos";
 				cell->unsetPort("\\B");
 				cell->parameters.erase("\\B_WIDTH");
 				cell->parameters.erase("\\B_SIGNED");
@@ -840,7 +839,6 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 		FOLD_2ARG_CELL(pow)
 
 		FOLD_1ARG_CELL(pos)
-		FOLD_1ARG_CELL(bu0)
 		FOLD_1ARG_CELL(neg)
 
 		// be very conservative with optimizing $mux cells as we do not want to break mux trees

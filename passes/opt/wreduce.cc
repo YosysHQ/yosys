@@ -37,7 +37,7 @@ struct WreduceConfig
 
 	WreduceConfig()
 	{
-		supported_cell_types << "$not" << "$pos" << "$bu0" << "$neg";
+		supported_cell_types << "$not" << "$pos" << "$neg";
 		supported_cell_types << "$and" << "$or" << "$xor" << "$xnor";
 		supported_cell_types << "$shl" << "$shr" << "$sshl" << "$sshr" << "$shift" << "$shiftx";
 		supported_cell_types << "$lt" << "$le" << "$eq" << "$ne" << "$eqx" << "$nex" << "$ge" << "$gt";
@@ -181,7 +181,7 @@ struct WreduceWorker
 		int max_port_a_size = cell->hasPort("\\A") ? SIZE(cell->getPort("\\A")) : -1;
 		int max_port_b_size = cell->hasPort("\\B") ? SIZE(cell->getPort("\\B")) : -1;
 
-		if (cell->type.in("$not", "$pos", "$bu0", "$neg", "$and", "$or", "$xor", "$add", "$sub")) {
+		if (cell->type.in("$not", "$pos", "$neg", "$and", "$or", "$xor", "$add", "$sub")) {
 			max_port_a_size = std::min(max_port_a_size, SIZE(cell->getPort("\\Y")));
 			max_port_b_size = std::min(max_port_b_size, SIZE(cell->getPort("\\Y")));
 		}
@@ -216,7 +216,7 @@ struct WreduceWorker
 			}
 		}
 
-		if (cell->type.in("$pos", "$bu0", "$add", "$mul", "$and", "$or", "$xor"))
+		if (cell->type.in("$pos", "$add", "$mul", "$and", "$or", "$xor"))
 		{
 			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
 
