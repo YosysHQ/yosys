@@ -262,7 +262,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_n
 			gold_ce.set(gold_wire, in_value);
 			gate_ce.set(gate_wire, in_value);
 
-			if (vlog_file.is_open()) {
+			if (vlog_file.is_open() && SIZE(in_value) > 0) {
 				vlog_file << stringf("      %s = 'b%s;\n", log_id(gold_wire), in_value.as_string().c_str());
 				if (!vlog_pattern_info.empty())
 					vlog_pattern_info += " ";

@@ -768,7 +768,7 @@ module \$macc (A, B, Y);
 
 	localparam integer num_bits = CONFIG[3:0];
 	localparam integer num_ports = (CONFIG_WIDTH-4) / (2 + 2*num_bits);
-	localparam integer num_abits = $clog2(A_WIDTH);
+	localparam integer num_abits = $clog2(A_WIDTH) > 0 ? $clog2(A_WIDTH) : 1;
 
 	function [2*num_ports*num_abits-1:0] get_port_offsets;
 		input [CONFIG_WIDTH-1:0] cfg;

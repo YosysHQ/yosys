@@ -973,7 +973,8 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 			for (int i = 0; i < wire->width; i++)
 				if (reg_bits.count(std::pair<RTLIL::Wire*,int>(wire, i)) == 0)
 					goto this_wire_aint_reg;
-			reg_wires.insert(wire->name);
+			if (wire->width)
+				reg_wires.insert(wire->name);
 		this_wire_aint_reg:;
 		}
 	}
