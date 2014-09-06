@@ -380,6 +380,9 @@ struct TestCellPass : public Pass {
 		log("    -simplib\n");
 		log("        use \"techmap -map +/simlib.v -max_iter 2 -autoproc\"\n");
 		log("\n");
+		log("    -script {script_file}\n");
+		log("        instead of calling \"techmap\", call \"script {script_file}\".\n");
+		log("\n");
 		log("    -v\n");
 		log("        print additional debug information to the console\n");
 		log("\n");
@@ -414,6 +417,10 @@ struct TestCellPass : public Pass {
 			if (args[argidx] == "-f" && argidx+1 < SIZE(args)) {
 				ilang_file = args[++argidx];
 				num_iter = 1;
+				continue;
+			}
+			if (args[argidx] == "-script" && argidx+1 < SIZE(args)) {
+				techmap_cmd = "script " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-simlib") {
@@ -540,7 +547,7 @@ struct TestCellPass : public Pass {
 					Frontend::frontend_call(design, NULL, std::string(), "ilang " + ilang_file);
 				else
 					create_gold_module(design, cell_type, cell_types.at(cell_type));
-				Pass::call(design, stringf("copy gold gate; %s gate; opt gate", techmap_cmd.c_str()));
+				Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
 				Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
 				if (verbose)
 					Pass::call(design, "dump gate");
