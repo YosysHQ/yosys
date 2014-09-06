@@ -874,7 +874,7 @@ struct SatPass : public Pass {
 		log("    -set-def-at <N> <signal>\n");
 		log("    -set-any-undef-at <N> <signal>\n");
 		log("    -set-all-undef-at <N> <signal>\n");
-		log("        add undef contraints in the given timestep.\n");
+		log("        add undef constraints in the given timestep.\n");
 		log("\n");
 		log("    -set-init <signal> <value>\n");
 		log("        set the initial value for the register driving the signal to the value\n");

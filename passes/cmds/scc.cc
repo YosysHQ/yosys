@@ -216,7 +216,7 @@ struct SccPass : public Pass {
 		log("\n");
 		log("    -all_cell_types\n");
 		log("        Usually this command only considers internal non-memory cells. With\n");
-		log("        this option set, all cells are considered. For unkown cells all ports\n");
+		log("        this option set, all cells are considered. For unknown cells all ports\n");
 		log("        are assumed to be bidirectional 'inout' ports.\n");
 		log("\n");
 		log("    -set_attr <name> <value>\n");

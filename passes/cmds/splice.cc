@@ -251,12 +251,12 @@ struct SplicePass : public Pass {
 		log("\n");
 		log("    -sel_by_cell\n");
 		log("        only select the cell ports to rewire by the cell. if the selection\n");
-		log("        contains a cell, than all cell inputs are rewired, if neccessary.\n");
+		log("        contains a cell, than all cell inputs are rewired, if necessary.\n");
 		log("\n");
 		log("    -sel_by_wire\n");
 		log("        only select the cell ports to rewire by the wire. if the selection\n");
 		log("        contains a wire, than all cell ports driven by this wire are wired,\n");
-		log("        if neccessary.\n");
+		log("        if necessary.\n");
 		log("\n");
 		log("    -sel_any_bit\n");
 		log("        it is sufficient if the driver of any bit of a cell port is selected.\n");

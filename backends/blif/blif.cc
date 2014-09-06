@@ -280,7 +280,7 @@ struct BlifBackend : public Backend {
 		log("    -false <cell-type> <out-port>\n");
 		log("        use the specified cell types to drive nets that are constant 1 or 0\n");
 		log("\n");
-		log("The following options can be usefull when the generated file is not going to be\n");
+		log("The following options can be useful when the generated file is not going to be\n");
 		log("read by a BLIF parser but a custom tool. It is recommended to not name the output\n");
 		log("file *.blif when any of this options is used.\n");
 		log("\n");

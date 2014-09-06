@@ -985,7 +985,7 @@ struct SelectPass : public Pass {
 		log("        (i.e. select all cells connected to selected wires and select all\n");
 		log("        wires connected to selected cells) The rules specify which cell\n");
 		log("        ports to use for this. the syntax for a rule is a '-' for exclusion\n");
-		log("        and a '+' for inclusion, followed by an optional comma seperated\n");
+		log("        and a '+' for inclusion, followed by an optional comma separated\n");
 		log("        list of cell types followed by an optional comma separated list of\n");
 		log("        cell ports in square brackets. a rule can also be just a cell or wire\n");
 		log("        name that limits the expansion (is included but does not go beyond).\n");
@@ -1089,7 +1089,7 @@ struct SelectPass : public Pass {
 				continue;
 			}
 			if (arg.size() > 0 && arg[0] == '-')
-				log_cmd_error("Unkown option %s.\n", arg.c_str());
+				log_cmd_error("Unknown option %s.\n", arg.c_str());
 			select_stmt(design, arg);
 			sel_str += " " + arg;
 		}

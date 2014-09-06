@@ -76,7 +76,7 @@ struct SplitnetsPass : public Pass {
 		log("    -format char1[char2[char3]]\n");
 		log("        the first char is inserted between the net name and the bit index, the\n");
 		log("        second char is appended to the netname. e.g. -format () creates net\n");
-		log("        names like 'mysignal(42)'. the 3rd character is the range seperation\n");
+		log("        names like 'mysignal(42)'. the 3rd character is the range separation\n");
 		log("        character when creating multi-bit wires. the default is '[]:'.\n");
 		log("\n");
 		log("    -ports\n");
