@@ -1123,7 +1123,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 				log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
-			result_width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
+			result_width = abs(left_at_zero_ast->integer - right_at_zero_ast->integer) + 1;
 		}
 		did_something = true;
 		newNode = new AstNode(AST_CASE, shift_expr);
@@ -1370,7 +1370,7 @@ skip_dynamic_range_lvalue_expansion:;
 				uint32_t result = 0;
 				for (size_t i = 0; i < arg_value.bits.size(); i++)
 					if (arg_value.bits.at(i) == RTLIL::State::S1)
-						result = i;
+						result = i + 1;
 
 				newNode = mkconst_int(result, false);
 				goto apply_newNode;
