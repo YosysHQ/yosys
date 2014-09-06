@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/macc.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "backends/ilang/ilang_backend.h"
 
@@ -630,6 +631,17 @@ namespace {
 				port("\\Y", param("\\Y_WIDTH"));
 				port("\\CO", param("\\Y_WIDTH"));
 				check_expected();
+				return;
+			}
+
+			if (cell->type == "$macc") {
+				param("\\CONFIG");
+				param("\\CONFIG_WIDTH");
+				port("\\A", param("\\A_WIDTH"));
+				port("\\B", param("\\B_WIDTH"));
+				port("\\Y", param("\\Y_WIDTH"));
+				check_expected();
+				Macc().from_cell(cell);
 				return;
 			}
 
@@ -1781,7 +1793,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		return;
 	}
 
-	bool signedness_ab = !type.in("$slice", "$concat");
+	bool signedness_ab = !type.in("$slice", "$concat", "$macc");
 
 	if (connections_.count("\\A")) {
 		if (signedness_ab) {

@@ -21,6 +21,7 @@
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
 #include "kernel/consteval.h"
+#include "kernel/macc.h"
 #include <algorithm>
 
 static uint32_t xorshift32_state = 123456789;
@@ -37,6 +38,53 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	RTLIL::Module *module = design->addModule("\\gold");
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
 	RTLIL::Wire *wire;
+
+	if (cell_type == "$macc")
+	{
+		Macc macc;
+		int width = 1 + xorshift32(16);
+		int depth = 1 + xorshift32(6);
+		int mulbits = 0;
+
+		RTLIL::Wire *wire_a = module->addWire("\\A");
+		wire_a->width = 0;
+		wire_a->port_input = true;
+
+		for (int i = 0; i < depth; i++)
+		{
+			int size_a = xorshift32(width) + 1;
+			int size_b = xorshift32(width) + 1;
+
+			if (mulbits + size_a*size_b > 256 || xorshift32(2) == 1)
+				size_b = 0;
+			else
+				mulbits += size_a*size_b;
+
+			Macc::port_t this_port;
+
+			wire_a->width += size_a;
+			this_port.in_a = RTLIL::SigSpec(wire_a, wire_a->width - size_a, size_a);
+
+			wire_a->width += size_b;
+			this_port.in_b = RTLIL::SigSpec(wire_a, wire_a->width - size_b, size_b);
+
+			this_port.is_signed = xorshift32(2) == 1;
+			this_port.do_subtract = xorshift32(2) == 1;
+			macc.ports.push_back(this_port);
+		}
+
+		wire = module->addWire("\\B");
+		wire->width = xorshift32(xorshift32(16)+1);
+		wire->port_input = true;
+		macc.bit_ports = wire;
+
+		wire = module->addWire("\\Y");
+		wire->width = width;
+		wire->port_output = true;
+		cell->setPort("\\Y", wire);
+
+		macc.to_cell(cell);
+	}
 
 	if (cell_type == "$lut")
 	{
@@ -440,8 +488,10 @@ struct TestCellPass : public Pass {
 			break;
 		}
 
-		if (xorshift32_state == 0)
-			xorshift32_state = time(NULL);
+		if (xorshift32_state == 0) {
+			xorshift32_state = time(NULL) & 0x7fffffff;
+			log("Rng seed value: %d\n", int(xorshift32_state));
+		}
 
 		std::map<std::string, std::string> cell_types;
 		std::vector<std::string> selected_cell_types;
@@ -496,6 +546,7 @@ struct TestCellPass : public Pass {
 
 		cell_types["$lut"] = "*";
 		cell_types["$alu"] = "ABSY";
+		cell_types["$macc"] = "*";
 
 		for (; argidx < SIZE(args); argidx++)
 		{

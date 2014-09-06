@@ -20,12 +20,9 @@
 #ifndef CELLTYPES_H
 #define CELLTYPES_H
 
-#include <set>
-#include <string>
-#include <stdlib.h>
+#include <kernel/yosys.h>
 
-#include <kernel/rtlil.h>
-#include <kernel/log.h>
+YOSYS_NAMESPACE_BEGIN
 
 struct CellType
 {
@@ -96,7 +93,7 @@ struct CellTypes
 			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 			"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 			"$add", "$sub", "$mul", "$div", "$mod", "$pow",
-			"$logic_and", "$logic_or", "$concat"
+			"$logic_and", "$logic_or", "$concat", "$macc"
 		};
 
 		for (auto type : unary_ops)
@@ -360,6 +357,8 @@ struct CellTypes
 		return eval(cell, arg1, arg2, arg3);
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif
 
