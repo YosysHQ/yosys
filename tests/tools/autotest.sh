@@ -105,6 +105,9 @@ do
 
 	body() {
 		cd ${bn}.out
+		fn=$(basename $fn)
+		bn=$(basename $bn)
+
 		cp ../$fn $fn
 		if [ ! -f ../${bn}_tb.v ]; then
 			"$toolsdir"/../../yosys -b "test_autotb $autotb_opts" -o ${bn}_tb.v $fn
