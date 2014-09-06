@@ -464,7 +464,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_DEFPARAM && !str.empty()) {
 		size_t pos = str.rfind('.');
 		if (pos == std::string::npos)
-			log_error("Defparam `%s' does not contain a dot (module/parameter seperator) at %s:%d!\n",
+			log_error("Defparam `%s' does not contain a dot (module/parameter separator) at %s:%d!\n",
 					RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
 		std::string modname = str.substr(0, pos), paraname = "\\" + str.substr(pos+1);
 		if (current_scope.count(modname) == 0 || current_scope.at(modname)->type != AST_CELL)

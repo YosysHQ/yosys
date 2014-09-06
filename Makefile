@@ -45,7 +45,7 @@ else
 endif
 
 YOSYS_VER := 0.3.0+
-GIT_REV := $(shell git rev-parse --short HEAD 2> /dev/null || echo UNKOWN)
+GIT_REV := $(shell git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
 # set 'ABCREV = default' to use abc/ as it is

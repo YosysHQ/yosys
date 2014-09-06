@@ -132,7 +132,7 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 		std::string arg = args[argidx];
 
 		if (arg.substr(0, 1) == "-")
-			cmd_error(args, argidx, "Unkown option or option in arguments.");
+			cmd_error(args, argidx, "Unknown option or option in arguments.");
 
 		if (!select)
 			cmd_error(args, argidx, "Extra argument.");
@@ -309,7 +309,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 		std::string arg = args[argidx];
 
 		if (arg.substr(0, 1) == "-")
-			cmd_error(args, argidx, "Unkown option or option in arguments.");
+			cmd_error(args, argidx, "Unknown option or option in arguments.");
 		if (f != NULL)
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
 
@@ -445,7 +445,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 		std::string arg = args[argidx];
 
 		if (arg.substr(0, 1) == "-" && arg != "-")
-			cmd_error(args, argidx, "Unkown option or option in arguments.");
+			cmd_error(args, argidx, "Unknown option or option in arguments.");
 		if (f != NULL)
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
 

@@ -116,7 +116,7 @@ struct Vhdl2verilogPass : public Pass {
 		if (argidx == args.size())
 			cmd_error(args, argidx, "Missing filenames.");
 		if (args[argidx].substr(0, 1) == "-")
-			cmd_error(args, argidx, "Unkown option.");
+			cmd_error(args, argidx, "Unknown option.");
 		if (top_entity.empty())
 			log_cmd_error("Missing -top option.\n");
 

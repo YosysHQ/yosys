@@ -216,7 +216,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		int idx = it.second.first, num = it.second.second;
 
 		if (design->modules_.count(cell->type) == 0)
-			log_error("Array cell `%s.%s' of unkown type `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+			log_error("Array cell `%s.%s' of unknown type `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 
 		RTLIL::Module *mod = design->modules_[cell->type];
 
@@ -232,7 +232,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 					}
 			}
 			if (mod->wires_.count(portname) == 0)
-				log_error("Array cell `%s.%s' connects to unkown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
+				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
 			int port_size = mod->wires_.at(portname)->width;
 			if (conn_size == port_size)
 				continue;
@@ -294,7 +294,7 @@ struct HierarchyPass : public Pass {
 		log("    hierarchy [-check] [-top <module>]\n");
 		log("    hierarchy -generate <cell-types> <port-decls>\n");
 		log("\n");
-		log("In parametric designs, a module might exists in serveral variations with\n");
+		log("In parametric designs, a module might exists in several variations with\n");
 		log("different parameter values. This pass looks at all modules in the current\n");
 		log("design an re-runs the language frontends for the parametric modules as\n");
 		log("needed.\n");
@@ -309,7 +309,7 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -libdir <directory>\n");
 		log("        search for files named <module_name>.v in the specified directory\n");
-		log("        for unkown modules and automatically run read_verilog for each\n");
+		log("        for unknown modules and automatically run read_verilog for each\n");
 		log("        unknown module.\n");
 		log("\n");
 		log("    -keep_positionals\n");

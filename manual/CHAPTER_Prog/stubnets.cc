@@ -57,7 +57,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 		// we will record which bits of the (possibly multi-bit) wire are stub signals
 		std::set<int> stub_bits;
 
-		// get a signal description for this wire and split it into seperate bits
+		// get a signal description for this wire and split it into separate bits
 		RTLIL::SigSpec sig = sigmap(wire);
 
 		// for each bit (unless it is a constant):
