@@ -23,6 +23,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/macc.h"
 
 struct ConstEval
 {
@@ -209,6 +210,27 @@ struct ConstEval
 					set(sig_co[i], carry ? RTLIL::S1 : RTLIL::S0);
 				}
 			}
+		}
+		else if (cell->type == "$macc")
+		{
+			Macc macc;
+			macc.from_cell(cell);
+
+			if (!eval(macc.bit_ports, undef, cell))
+				return false;
+
+			for (auto &port : macc.ports) {
+				if (!eval(port.in_a, undef, cell))
+					return false;
+				if (!eval(port.in_b, undef, cell))
+					return false;
+			}
+
+			RTLIL::Const result(0, SIZE(cell->getPort("\\Y")));
+			if (!macc.eval(result))
+				log_abort();
+
+			set(cell->getPort("\\Y"), result);
 		}
 		else
 		{
