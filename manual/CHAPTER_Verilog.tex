@@ -444,7 +444,7 @@ on the AST data structure:
 \begin{itemize}
 \item Inline all task and function calls.
 \item Evaluate all \lstinline[language=Verilog]{generate}-statements and unroll all \lstinline[language=Verilog]{for}-loops.
-\item Perform const folding where it is neccessary (e.g.~in the value part of {\tt AST\_PARAMETER}, {\tt AST\_LOCALPARAM},
+\item Perform const folding where it is necessary (e.g.~in the value part of {\tt AST\_PARAMETER}, {\tt AST\_LOCALPARAM},
 {\tt AST\_PARASET} and {\tt AST\_RANGE} nodes).
 \item Replace {\tt AST\_PRIMITIVE} nodes with appropriate {\tt AST\_ASSIGN} nodes.
 \item Replace dynamic bit ranges in the left-hand-side of assignments with {\tt AST\_CASE} nodes with {\tt AST\_COND} children
@@ -819,7 +819,7 @@ the \C{RTLIL::SyncRule}s that describe the output registers.
 %
 \item {\tt proc\_dff} \\
 This pass replaces the \C{RTLIL::SyncRule}s to d-type flip-flops (with
-asynchronous resets if neccessary).
+asynchronous resets if necessary).
 %
 \item {\tt proc\_clean} \\
 A final call to {\tt proc\_clean} removes the now empty \C{RTLIL::Process} objects.
@@ -827,7 +827,7 @@ A final call to {\tt proc\_clean} removes the now empty \C{RTLIL::Process} objec
 
 Performing these last processing steps in passes instead of in the Verilog frontend has two important benefits:
 
-First it improves the transparency of the process. Everything that happens in a seperate pass is easier to debug,
+First it improves the transparency of the process. Everything that happens in a separate pass is easier to debug,
 as the RTLIL data structures can be easily investigated before and after each of the steps.
 
 Second it improves flexibility. This scheme can easily be extended to support other types of storage-elements, such

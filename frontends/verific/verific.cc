@@ -887,7 +887,7 @@ struct VerificPass : public Pass {
 			}
 
 			if (argidx > args.size() && args[argidx].substr(0, 1) == "-")
-				cmd_error(args, argidx, "unkown option");
+				cmd_error(args, argidx, "unknown option");
 
 			if (mode_all)
 			{

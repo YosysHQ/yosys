@@ -720,7 +720,7 @@ struct MemorySharePass : public Pass {
 		log("    address, then this feedback path is converted to a write port with\n");
 		log("    byte/part enable signals.\n");
 		log("\n");
-		log("  - When multiple write ports access the same adress then this is converted\n");
+		log("  - When multiple write ports access the same address then this is converted\n");
 		log("    to a single write port with a more complex data and/or enable logic path.\n");
 		log("\n");
 		log("  - When multiple write ports are never accessed at the same time (a SAT\n");

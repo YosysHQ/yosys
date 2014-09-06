@@ -85,10 +85,10 @@ This is just a shortcut for 'select -clear'.
 
 This is identical to 'opt_clean', but less verbose.
 
-When commands are seperated using the ';;' token, this command will be executed
+When commands are separated using the ';;' token, this command will be executed
 between the commands.
 
-When commands are seperated using the ';;;' token, this command will be executed
+When commands are separated using the ';;;' token, this command will be executed
 in -purge mode between the commands.
 \end{lstlisting}
 
@@ -419,7 +419,7 @@ commands.
     hierarchy [-check] [-top <module>]
     hierarchy -generate <cell-types> <port-decls>
 
-In parametric designs, a module might exists in serveral variations with
+In parametric designs, a module might exists in several variations with
 different parameter values. This pass looks at all modules in the current
 design an re-runs the language frontends for the parametric modules as
 needed.
@@ -881,7 +881,7 @@ The following options can be used to set up a sequential problem:
     -set-def-at <N> <signal>
     -set-any-undef-at <N> <signal>
     -set-all-undef-at <N> <signal>
-        add undef contraints in the given timestep.
+        add undef constraints in the given timestep.
 
     -set-init <signal> <value>
         set the initial value for the register driving the signal to the value
@@ -942,7 +942,7 @@ design.
 
     -all_cell_types
         Usually this command only considers internal non-memory cells. With
-        this option set, all cells are considered. For unkown cells all ports
+        this option set, all cells are considered. For unknown cells all ports
         are assumed to be bidirectional 'inout' ports.
 
     -set_attr <name> <value>
@@ -1089,7 +1089,7 @@ The following actions can be performed on the top sets on the stack:
         (i.e. select all cells connected to selected wires and select all
         wires connected to selected cells) The rules specify which cell
         ports to use for this. the syntax for a rule is a '-' for exclusion
-        and a '+' for inclusion, followed by an optional comma seperated
+        and a '+' for inclusion, followed by an optional comma separated
         list of cell types followed by an optional comma separated list of
         cell ports in square brackets. a rule can also be just a cell or wire
         name that limits the expansion (is included but does not go beyond).
@@ -1452,7 +1452,7 @@ Write the current design to an BLIF file.
     -false <cell-type> <out-port>
         use the specified cell types to drive nets that are constant 1 or 0
 
-The following options can be usefull when the generated file is not going to be
+The following options can be useful when the generated file is not going to be
 read by a BLIF parser but a custom tool. It is recommended to not name the output
 file *.blif when any of this options is used.
 
