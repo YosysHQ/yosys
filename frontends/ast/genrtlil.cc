@@ -276,12 +276,29 @@ struct AST_INTERNAL::ProcessGenerator
 			for (auto &init_lvalue_c : init_lvalue.chunks()) {
 				RTLIL::SigSpec lhs = init_lvalue_c;
 				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue_c.width);
+				remove_unwanted_lvalue_bits(lhs, rhs);
 				sync->actions.push_back(RTLIL::SigSig(lhs, rhs));
 				offset += lhs.size();
 			}
 		}
 
 		outputSignals = RTLIL::SigSpec(subst_lvalue_from);
+	}
+
+	void remove_unwanted_lvalue_bits(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs)
+	{
+		RTLIL::SigSpec new_lhs, new_rhs;
+
+		log_assert(SIZE(lhs) == SIZE(rhs));
+		for (int i = 0; i < SIZE(lhs); i++) {
+			if (lhs[i].wire == nullptr)
+				continue;
+			new_lhs.append(lhs[i]);
+			new_rhs.append(rhs[i]);
+		}
+
+		lhs = new_lhs;
+		rhs = new_rhs;
 	}
 
 	// create new temporary signals
@@ -349,8 +366,13 @@ struct AST_INTERNAL::ProcessGenerator
 			log_abort();
 		}
 
-		if (run_sort_and_unify)
-			reg.sort_and_unify();
+		if (run_sort_and_unify) {
+			std::set<RTLIL::SigBit> sorted_reg;
+			for (auto bit : reg)
+				if (bit.wire)
+					sorted_reg.insert(bit);
+			reg = RTLIL::SigSpec(sorted_reg);
+		}
 	}
 
 	// remove all assignments to the given signal pattern in a case and all its children.
@@ -384,6 +406,7 @@ struct AST_INTERNAL::ProcessGenerator
 			RTLIL::SigSpec rhs = rvalue.extract(offset, lvalue_c.width);
 			if (inSyncRule && lvalue_c.wire && lvalue_c.wire->get_bool_attribute("\\nosync"))
 				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.size());
+			remove_unwanted_lvalue_bits(lhs, rhs);
 			actions.push_back(RTLIL::SigSig(lhs, rhs));
 			offset += lhs.size();
 		}
@@ -412,6 +435,7 @@ struct AST_INTERNAL::ProcessGenerator
 				}
 
 				removeSignalFromCaseTree(lvalue.to_sigbit_set(), current_case);
+				remove_unwanted_lvalue_bits(lvalue, rvalue);
 				current_case->actions.push_back(RTLIL::SigSig(lvalue, rvalue));
 			}
 			break;
