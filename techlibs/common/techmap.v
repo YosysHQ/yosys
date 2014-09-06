@@ -597,16 +597,16 @@ module \$macc (A, B, Y);
 	localparam integer num_abits = $clog2(A_WIDTH);
 
 	function [2*num_ports*num_abits-1:0] get_port_offsets;
-		input [CONFIG_WIDTH-1:0] CONFIG;
+		input [CONFIG_WIDTH-1:0] cfg;
 		integer i, cursor;
 		begin
 			cursor = 0;
 			get_port_offsets = 0;
 			for (i = 0; i < num_ports; i = i+1) begin
 				get_port_offsets[(2*i + 0)*num_abits +: num_abits] = cursor;
-				cursor = cursor + CONFIG[4 + i*(2 + 2*num_bits) + 2 +: num_bits];
+				cursor = cursor + cfg[4 + i*(2 + 2*num_bits) + 2 +: num_bits];
 				get_port_offsets[(2*i + 1)*num_abits +: num_abits] = cursor;
-				cursor = cursor + CONFIG[4 + i*(2 + 2*num_bits) + 2 + num_bits +: num_bits];
+				cursor = cursor + cfg[4 + i*(2 + 2*num_bits) + 2 + num_bits +: num_bits];
 			end
 		end
 	endfunction

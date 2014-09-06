@@ -23,6 +23,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/macc.h"
 
 #include "libs/ezsat/ezminisat.h"
 typedef ezMiniSAT ezDefaultSAT;
@@ -759,6 +760,76 @@ struct SatGen
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
 				undefGating(y, yy, undef_y);
 			}
+			return true;
+		}
+
+		if (cell->type == "$macc")
+		{
+			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->getPort("\\B"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
+
+			Macc macc;
+			macc.from_cell(cell);
+
+			std::vector<int> tmp(SIZE(y), ez->FALSE);
+
+			for (auto &port : macc.ports)
+			{
+				std::vector<int> in_a = importDefSigSpec(port.in_a, timestep);
+				std::vector<int> in_b = importDefSigSpec(port.in_b, timestep);
+
+				while (SIZE(in_a) < SIZE(y))
+					in_a.push_back(port.is_signed && !in_a.empty() ? in_a.back() : ez->FALSE);
+				in_a.resize(SIZE(y));
+
+				if (SIZE(in_b))
+				{
+					while (SIZE(in_b) < SIZE(y))
+						in_b.push_back(port.is_signed && !in_b.empty() ? in_b.back() : ez->FALSE);
+					in_b.resize(SIZE(y));
+
+					for (int i = 0; i < SIZE(in_b); i++) {
+						std::vector<int> shifted_a(in_a.size(), ez->FALSE);
+						for (int j = i; j < int(in_a.size()); j++)
+							shifted_a.at(j) = in_a.at(j-i);
+						if (port.do_subtract)
+							tmp = ez->vec_ite(in_b.at(i), ez->vec_sub(tmp, shifted_a), tmp);
+						else
+							tmp = ez->vec_ite(in_b.at(i), ez->vec_add(tmp, shifted_a), tmp);
+					}
+				}
+				else
+				{
+					if (port.do_subtract)
+						tmp = ez->vec_sub(tmp, in_a);
+					else
+						tmp = ez->vec_add(tmp, in_a);
+				}
+			}
+
+			for (int i = 0; i < SIZE(b); i++) {
+				std::vector<int> val(SIZE(y), ez->FALSE);
+				val.at(0) = b.at(i);
+				tmp = ez->vec_add(tmp, val);
+			}
+
+			if (model_undef)
+			{
+				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
+				std::vector<int> undef_b = importUndefSigSpec(cell->getPort("\\B"), timestep);
+
+				int undef_any_a = ez->expression(ezSAT::OpOr, undef_a);
+				int undef_any_b = ez->expression(ezSAT::OpOr, undef_b);
+
+				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
+				ez->assume(ez->vec_eq(undef_y, std::vector<int>(SIZE(y), ez->OR(undef_any_a, undef_any_b))));
+
+				undefGating(y, tmp, undef_y);
+			}
+			else
+				ez->assume(ez->vec_eq(y, tmp));
+
 			return true;
 		}
 

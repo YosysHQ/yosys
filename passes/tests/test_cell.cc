@@ -42,9 +42,9 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	if (cell_type == "$macc")
 	{
 		Macc macc;
-		int width = 1 + xorshift32(16);
+		int width = 1 + xorshift32(8);
 		int depth = 1 + xorshift32(6);
-		int mulbits = 0;
+		int mulbits_a = 0, mulbits_b = 0;
 
 		RTLIL::Wire *wire_a = module->addWire("\\A");
 		wire_a->width = 0;
@@ -55,10 +55,11 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 			int size_a = xorshift32(width) + 1;
 			int size_b = xorshift32(width) + 1;
 
-			if (mulbits + size_a*size_b > 256 || xorshift32(2) == 1)
+			if (mulbits_a + size_a*size_b <= 96 && mulbits_b + size_a + size_b <= 16 && xorshift32(2) == 1) {
+				mulbits_a += size_a * size_b;
+				mulbits_b += size_a + size_b;
+			} else
 				size_b = 0;
-			else
-				mulbits += size_a*size_b;
 
 			Macc::port_t this_port;
 
