@@ -53,7 +53,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		for (int i = 0; i < depth; i++)
 		{
 			int size_a = xorshift32(width) + 1;
-			int size_b = xorshift32(width) + 1;
+			int size_b = depth > 4 ? 0 : xorshift32(width) + 1;
 
 			if (mulbits_a + size_a*size_b <= 96 && mulbits_b + size_a + size_b <= 16 && xorshift32(2) == 1) {
 				mulbits_a += size_a * size_b;
@@ -75,7 +75,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		}
 
 		wire = module->addWire("\\B");
-		wire->width = xorshift32(xorshift32(16)+1);
+		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
 		wire->port_input = true;
 		macc.bit_ports = wire;
 
@@ -171,7 +171,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	cell->check();
 }
 
-static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_name, std::ofstream &vlog_file)
+static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::string uut_name, std::ofstream &vlog_file)
 {
 	log("Eval testing:%c", verbose ? '\n' : ' ');
 
@@ -185,10 +185,11 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_n
 	SatGen satgen2(&ez2, &sigmap);
 	satgen2.model_undef = true;
 
-	for (auto cell : gold_mod->cells()) {
-		satgen1.importCell(cell);
-		satgen2.importCell(cell);
-	}
+	if (!nosat)
+		for (auto cell : gold_mod->cells()) {
+			satgen1.importCell(cell);
+			satgen2.importCell(cell);
+		}
 
 	if (vlog_file.is_open())
 	{
@@ -325,68 +326,71 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, std::string uut_n
 		if (verbose)
 			log("EVAL:  %s\n", out_val.as_string().c_str());
 
-		std::vector<int> sat1_in_sig = satgen1.importSigSpec(in_sig);
-		std::vector<int> sat1_in_val = satgen1.importSigSpec(in_val);
+		if (!nosat)
+		{
+			std::vector<int> sat1_in_sig = satgen1.importSigSpec(in_sig);
+			std::vector<int> sat1_in_val = satgen1.importSigSpec(in_val);
 
-		std::vector<int> sat1_model = satgen1.importSigSpec(out_sig);
-		std::vector<bool> sat1_model_value;
+			std::vector<int> sat1_model = satgen1.importSigSpec(out_sig);
+			std::vector<bool> sat1_model_value;
 
-		if (!ez1.solve(sat1_model, sat1_model_value, ez1.vec_eq(sat1_in_sig, sat1_in_val)))
-			log_error("Evaluating sat model 1 (no undef modeling) failed!\n");
+			if (!ez1.solve(sat1_model, sat1_model_value, ez1.vec_eq(sat1_in_sig, sat1_in_val)))
+				log_error("Evaluating sat model 1 (no undef modeling) failed!\n");
 
-		if (verbose) {
-			log("SAT 1: ");
-			for (int i = SIZE(out_sig)-1; i >= 0; i--)
-				log("%c", sat1_model_value.at(i) ? '1' : '0');
-			log("\n");
-		}
+			if (verbose) {
+				log("SAT 1: ");
+				for (int i = SIZE(out_sig)-1; i >= 0; i--)
+					log("%c", sat1_model_value.at(i) ? '1' : '0');
+				log("\n");
+			}
 
-		for (int i = 0; i < SIZE(out_sig); i++) {
-			if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
-				continue;
-			if (out_val[i] == RTLIL::S0 && sat1_model_value.at(i) == false)
-				continue;
-			if (out_val[i] == RTLIL::S1 && sat1_model_value.at(i) == true)
-				continue;
-			log_error("Mismatch in sat model 1 (no undef modeling) output!\n");
-		}
-
-		std::vector<int> sat2_in_def_sig = satgen2.importDefSigSpec(in_sig);
-		std::vector<int> sat2_in_def_val = satgen2.importDefSigSpec(in_val);
-
-		std::vector<int> sat2_in_undef_sig = satgen2.importUndefSigSpec(in_sig);
-		std::vector<int> sat2_in_undef_val = satgen2.importUndefSigSpec(in_val);
-
-		std::vector<int> sat2_model_def_sig = satgen2.importDefSigSpec(out_sig);
-		std::vector<int> sat2_model_undef_sig = satgen2.importUndefSigSpec(out_sig);
-
-		std::vector<int> sat2_model;
-		sat2_model.insert(sat2_model.end(), sat2_model_def_sig.begin(), sat2_model_def_sig.end());
-		sat2_model.insert(sat2_model.end(), sat2_model_undef_sig.begin(), sat2_model_undef_sig.end());
-
-		std::vector<bool> sat2_model_value;
-
-		if (!ez2.solve(sat2_model, sat2_model_value, ez2.vec_eq(sat2_in_def_sig, sat2_in_def_val), ez2.vec_eq(sat2_in_undef_sig, sat2_in_undef_val)))
-			log_error("Evaluating sat model 2 (undef modeling) failed!\n");
-
-		if (verbose) {
-			log("SAT 2: ");
-			for (int i = SIZE(out_sig)-1; i >= 0; i--)
-				log("%c", sat2_model_value.at(SIZE(out_sig) + i) ? 'x' : sat2_model_value.at(i) ? '1' : '0');
-			log("\n");
-		}
-
-		for (int i = 0; i < SIZE(out_sig); i++) {
-			if (sat2_model_value.at(SIZE(out_sig) + i)) {
+			for (int i = 0; i < SIZE(out_sig); i++) {
 				if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
 					continue;
-			} else {
-				if (out_val[i] == RTLIL::S0 && sat2_model_value.at(i) == false)
+				if (out_val[i] == RTLIL::S0 && sat1_model_value.at(i) == false)
 					continue;
-				if (out_val[i] == RTLIL::S1 && sat2_model_value.at(i) == true)
+				if (out_val[i] == RTLIL::S1 && sat1_model_value.at(i) == true)
 					continue;
+				log_error("Mismatch in sat model 1 (no undef modeling) output!\n");
 			}
-			log_error("Mismatch in sat model 2 (undef modeling) output!\n");
+
+			std::vector<int> sat2_in_def_sig = satgen2.importDefSigSpec(in_sig);
+			std::vector<int> sat2_in_def_val = satgen2.importDefSigSpec(in_val);
+
+			std::vector<int> sat2_in_undef_sig = satgen2.importUndefSigSpec(in_sig);
+			std::vector<int> sat2_in_undef_val = satgen2.importUndefSigSpec(in_val);
+
+			std::vector<int> sat2_model_def_sig = satgen2.importDefSigSpec(out_sig);
+			std::vector<int> sat2_model_undef_sig = satgen2.importUndefSigSpec(out_sig);
+
+			std::vector<int> sat2_model;
+			sat2_model.insert(sat2_model.end(), sat2_model_def_sig.begin(), sat2_model_def_sig.end());
+			sat2_model.insert(sat2_model.end(), sat2_model_undef_sig.begin(), sat2_model_undef_sig.end());
+
+			std::vector<bool> sat2_model_value;
+
+			if (!ez2.solve(sat2_model, sat2_model_value, ez2.vec_eq(sat2_in_def_sig, sat2_in_def_val), ez2.vec_eq(sat2_in_undef_sig, sat2_in_undef_val)))
+				log_error("Evaluating sat model 2 (undef modeling) failed!\n");
+
+			if (verbose) {
+				log("SAT 2: ");
+				for (int i = SIZE(out_sig)-1; i >= 0; i--)
+					log("%c", sat2_model_value.at(SIZE(out_sig) + i) ? 'x' : sat2_model_value.at(i) ? '1' : '0');
+				log("\n");
+			}
+
+			for (int i = 0; i < SIZE(out_sig); i++) {
+				if (sat2_model_value.at(SIZE(out_sig) + i)) {
+					if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
+						continue;
+				} else {
+					if (out_val[i] == RTLIL::S0 && sat2_model_value.at(i) == false)
+						continue;
+					if (out_val[i] == RTLIL::S1 && sat2_model_value.at(i) == true)
+						continue;
+				}
+				log_error("Mismatch in sat model 2 (undef modeling) output!\n");
+			}
 		}
 	}
 
@@ -432,6 +436,9 @@ struct TestCellPass : public Pass {
 		log("    -script {script_file}\n");
 		log("        instead of calling \"techmap\", call \"script {script_file}\".\n");
 		log("\n");
+		log("    -nosat\n");
+		log("        do not check SAT model or run SAT equivalence checking\n");
+		log("\n");
 		log("    -v\n");
 		log("        print additional debug information to the console\n");
 		log("\n");
@@ -447,6 +454,7 @@ struct TestCellPass : public Pass {
 		xorshift32_state = 0;
 		std::ofstream vlog_file;
 		bool verbose = false;
+		bool nosat = false;
 
 		int argidx;
 		for (argidx = 1; argidx < SIZE(args); argidx++)
@@ -474,6 +482,10 @@ struct TestCellPass : public Pass {
 			}
 			if (args[argidx] == "-simlib") {
 				techmap_cmd = "techmap -map +/simlib.v -max_iter 2 -autoproc";
+				continue;
+			}
+			if (args[argidx] == "-nosat") {
+				nosat = true;
 				continue;
 			}
 			if (args[argidx] == "-v") {
@@ -600,11 +612,13 @@ struct TestCellPass : public Pass {
 				else
 					create_gold_module(design, cell_type, cell_types.at(cell_type));
 				Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
-				Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
+				if (!nosat)
+					Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
 				if (verbose)
 					Pass::call(design, "dump gate");
 				Pass::call(design, "dump gold");
-				Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
+				if (!nosat)
+					Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
 				std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1).c_str(), i);
 				if (vlog_file.is_open()) {
 					Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name.c_str(), uut_name.c_str()));
@@ -613,7 +627,7 @@ struct TestCellPass : public Pass {
 					Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected -noexpr");
 					uut_names.push_back(uut_name);
 				}
-				run_eval_test(design, verbose, uut_name, vlog_file);
+				run_eval_test(design, verbose, nosat, uut_name, vlog_file);
 				delete design;
 			}
 
