@@ -31,6 +31,9 @@
 // see simplemap.cc
 extern void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
 
+// see maccmap.cc
+extern void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap = false);
+
 static void apply_prefix(std::string prefix, std::string &id)
 {
 	if (id[0] == '\\')
@@ -338,27 +341,35 @@ struct TechmapWorker
 
 				if (!flatten_mode)
 				{
+					std::string extmapper_name;
+
 					if (tpl->get_bool_attribute("\\techmap_simplemap"))
+						extmapper_name = "simplemap";
+
+					if (tpl->get_bool_attribute("\\techmap_maccmap"))
+						extmapper_name = "maccmap";
+
+					if (!extmapper_name.empty())
 					{
 						cell->type = cell_type;
 
 						if (extern_mode && !in_recursion)
 						{
-							std::string m_name = stringf("$extern:simplemap:%s", log_id(cell->type));
+							std::string m_name = stringf("$extern:%s:%s", extmapper_name.c_str(), log_id(cell->type));
 
 							for (auto &c : cell->parameters)
 								m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
 
-							RTLIL::Module *simplemap_module = design->module(m_name);
+							RTLIL::Module *extmapper_module = design->module(m_name);
 
-							if (simplemap_module == nullptr)
+							if (extmapper_module == nullptr)
 							{
-								simplemap_module = design->addModule(m_name);
-								RTLIL::Cell *simplemap_cell = simplemap_module->addCell(cell->type, cell);
+								extmapper_module = design->addModule(m_name);
+								RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
 
 								int port_counter = 1;
-								for (auto &c : simplemap_cell->connections_) {
-									RTLIL::Wire *w = simplemap_module->addWire(c.first, SIZE(c.second));
+								for (auto &c : extmapper_cell->connections_) {
+									RTLIL::Wire *w = extmapper_module->addWire(c.first, SIZE(c.second));
 									if (w->name == "\\Y" || w->name == "\\Q")
 										w->port_output = true;
 									else
@@ -367,25 +378,45 @@ struct TechmapWorker
 									c.second = w;
 								}
 
-								simplemap_module->check();
+								extmapper_module->check();
 
-								log("Creating %s with simplemap.\n", log_id(simplemap_module));
-								if (simplemap_mappers.count(simplemap_cell->type) == 0)
-									log_error("No simplemap mapper for cell type %s found!\n", RTLIL::id2cstr(simplemap_cell->type));
-								simplemap_mappers.at(simplemap_cell->type)(simplemap_module, simplemap_cell);
-								simplemap_module->remove(simplemap_cell);
+								if (extmapper_name == "simplemap") {
+									log("Creating %s with simplemap.\n", log_id(extmapper_module));
+									if (simplemap_mappers.count(extmapper_cell->type) == 0)
+										log_error("No simplemap mapper for cell type %s found!\n", log_id(extmapper_cell->type));
+									simplemap_mappers.at(extmapper_cell->type)(extmapper_module, extmapper_cell);
+								}
+
+								if (extmapper_name == "maccmap") {
+									log("Creating %s with maccmap.\n", log_id(extmapper_module));
+									if (extmapper_cell->type != "$macc")
+										log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(extmapper_cell->type));
+									maccmap(extmapper_module, extmapper_cell);
+								}
+
+								extmapper_module->remove(extmapper_cell);
 							}
 
-							log("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(simplemap_module));
-							cell->type = simplemap_module->name;
+							log("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
+							cell->type = extmapper_module->name;
 							cell->parameters.clear();
 						}
 						else
 						{
-							log("%s %s.%s (%s) with simplemap.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type));
-							if (simplemap_mappers.count(cell->type) == 0)
-								log_error("No simplemap mapper for cell type %s found!\n", RTLIL::id2cstr(cell->type));
-							simplemap_mappers.at(cell->type)(module, cell);
+							log("%s %s.%s (%s) with %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), extmapper_name.c_str());
+
+							if (extmapper_name == "simplemap") {
+								if (simplemap_mappers.count(cell->type) == 0)
+									log_error("No simplemap mapper for cell type %s found!\n", RTLIL::id2cstr(cell->type));
+								simplemap_mappers.at(cell->type)(module, cell);
+							}
+
+							if (extmapper_name == "maccmap") {
+								if (cell->type != "$macc")
+									log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(cell->type));
+								maccmap(module, cell);
+							}
+
 							module->remove(cell);
 							cell = NULL;
 						}
@@ -751,6 +782,9 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("When a module in the map file has the 'techmap_simplemap' attribute set, techmap\n");
 		log("will use 'simplemap' (see 'help simplemap') to map cells matching the module.\n");
+		log("\n");
+		log("When a module in the map file has the 'techmap_maccmap' attribute set, techmap\n");
+		log("will use 'maccmap' (see 'help maccmap') to map cells matching the module.\n");
 		log("\n");
 		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
 		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
