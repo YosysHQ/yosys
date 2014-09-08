@@ -85,12 +85,34 @@ struct MaccmapWorker
 
 	void fulladd(RTLIL::SigSpec &in1, RTLIL::SigSpec &in2, RTLIL::SigSpec &in3, RTLIL::SigSpec &out1, RTLIL::SigSpec &out2)
 	{
-		RTLIL::SigSpec t1 = module->Xor(NEW_ID, in1, in2);
-		out1 = module->Xor(NEW_ID, t1, in3);
+		int start_index = 0, stop_index = SIZE(in1);
 
-		RTLIL::SigSpec t2 = module->And(NEW_ID, in1, in2);
-		RTLIL::SigSpec t3 = module->And(NEW_ID, in3, t1);
-		out2 = module->Or(NEW_ID, t2, t3);
+		while (start_index < stop_index && in1[start_index] == RTLIL::S0 && in2[start_index] == RTLIL::S0 && in3[start_index] == RTLIL::S0)
+			start_index++;
+
+		while (start_index < stop_index && in1[stop_index-1] == RTLIL::S0 && in2[stop_index-1] == RTLIL::S0 && in3[stop_index-1] == RTLIL::S0)
+			stop_index--;
+
+		if (start_index == stop_index)
+		{
+			out1 = RTLIL::SigSpec(0, SIZE(in1));
+			out2 = RTLIL::SigSpec(0, SIZE(in1));
+		}
+		else
+		{
+			RTLIL::SigSpec out_zeros_lsb(0, start_index), out_zeros_msb(0, SIZE(in1)-stop_index);
+
+			in1 = in1.extract(start_index, stop_index-start_index);
+			in2 = in2.extract(start_index, stop_index-start_index);
+			in3 = in3.extract(start_index, stop_index-start_index);
+
+			RTLIL::SigSpec t1 = module->Xor(NEW_ID, in1, in2);
+			out1 = {out_zeros_msb, module->Xor(NEW_ID, t1, in3), out_zeros_lsb};
+
+			RTLIL::SigSpec t2 = module->And(NEW_ID, in1, in2);
+			RTLIL::SigSpec t3 = module->And(NEW_ID, in3, t1);
+			out2 = {out_zeros_msb, module->Or(NEW_ID, t2, t3), out_zeros_lsb};
+		}
 	}
 
 	int tree_bit_slots(int n)
