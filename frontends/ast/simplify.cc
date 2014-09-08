@@ -1365,6 +1365,8 @@ skip_dynamic_range_lvalue_expansion:;
 					log_error("Failed to evaluate system function `%s' with non-constant value at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 
 				RTLIL::Const arg_value = buf->bitsAsConst();
+				if (arg_value.as_bool())
+					arg_value = const_sub(arg_value, 1, false, false, SIZE(arg_value));
 				delete buf;
 
 				uint32_t result = 0;
