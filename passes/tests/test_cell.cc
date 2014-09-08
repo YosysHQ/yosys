@@ -33,7 +33,7 @@ static uint32_t xorshift32(uint32_t limit) {
 	return xorshift32_state % limit;
 }
 
-static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags)
+static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode)
 {
 	RTLIL::Module *module = design->addModule("\\gold");
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
@@ -164,6 +164,41 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		wire->width = SIZE(cell->getPort("\\Y"));
 		wire->port_output = true;
 		cell->setPort("\\CO", wire);
+	}
+
+	if (constmode)
+	{
+		auto conn_list = cell->connections();
+		for (auto &conn : conn_list)
+		{
+			RTLIL::SigSpec sig = conn.second;
+
+			if (SIZE(sig) == 0 || sig[0].wire == nullptr || sig[0].wire->port_output)
+				continue;
+
+			int n, m;
+			switch (xorshift32(5))
+			{
+			case 0:
+				n = xorshift32(SIZE(sig) + 1);
+				for (int i = 0; i < n; i++)
+					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
+				break;
+			case 1:
+				n = xorshift32(SIZE(sig) + 1);
+				for (int i = n; i < SIZE(sig); i++)
+					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
+				break;
+			case 2:
+				n = xorshift32(SIZE(sig));
+				m = xorshift32(SIZE(sig));
+				for (int i = std::min(n, m); i < std::max(n, m); i++)
+					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
+				break;
+			}
+
+			cell->setPort(conn.first, sig);
+		}
 	}
 
 	module->fixup_ports();
@@ -436,6 +471,9 @@ struct TestCellPass : public Pass {
 		log("    -script {script_file}\n");
 		log("        instead of calling \"techmap\", call \"script {script_file}\".\n");
 		log("\n");
+		log("    -const\n");
+		log("        set some input bits to random constant values\n");
+		log("\n");
 		log("    -nosat\n");
 		log("        do not check SAT model or run SAT equivalence checking\n");
 		log("\n");
@@ -454,6 +492,7 @@ struct TestCellPass : public Pass {
 		xorshift32_state = 0;
 		std::ofstream vlog_file;
 		bool verbose = false;
+		bool constmode = false;
 		bool nosat = false;
 
 		int argidx;
@@ -482,6 +521,10 @@ struct TestCellPass : public Pass {
 			}
 			if (args[argidx] == "-simlib") {
 				techmap_cmd = "techmap -map +/simlib.v -max_iter 2 -autoproc";
+				continue;
+			}
+			if (args[argidx] == "-const") {
+				constmode = true;
 				continue;
 			}
 			if (args[argidx] == "-nosat") {
@@ -610,7 +653,7 @@ struct TestCellPass : public Pass {
 				if (cell_type == "ilang")
 					Frontend::frontend_call(design, NULL, std::string(), "ilang " + ilang_file);
 				else
-					create_gold_module(design, cell_type, cell_types.at(cell_type));
+					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode);
 				Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
 				if (!nosat)
 					Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
