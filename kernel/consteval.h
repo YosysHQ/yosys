@@ -214,6 +214,10 @@ struct ConstEval
 			RTLIL::Const t3 = const_and(sig_c.as_const(), t1, false, false, width);
 			RTLIL::Const val_x = const_or(t2, t3, false, false, width);
 
+			for (int i = 0; i < SIZE(val_y); i++)
+				if (val_y.bits[i] == RTLIL::Sx)
+					val_x.bits[i] = RTLIL::Sx;
+
 			set(sig_y, val_y);
 			set(sig_x, val_x);
 		}

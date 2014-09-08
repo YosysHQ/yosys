@@ -991,20 +991,7 @@ struct SatGen
 				std::vector<int> undef_x = importUndefSigSpec(cell->getPort("\\X"), timestep);
 
 				ez->assume(ez->vec_eq(undef_y, ez->vec_or(ez->vec_or(undef_a, undef_b), undef_c)));
-
-				std::vector<int> undef_t1 = ez->vec_or(undef_a, undef_b);
-
-				std::vector<int> a0 = ez->vec_and(ez->vec_not(a), ez->vec_not(undef_a));
-				std::vector<int> b0 = ez->vec_and(ez->vec_not(b), ez->vec_not(undef_b));
-				std::vector<int> undef_t2 = ez->vec_and(ez->vec_or(undef_a, undef_b), ez->vec_not(ez->vec_or(a0, b0)));
-
-				std::vector<int> c0 = ez->vec_and(ez->vec_not(c), ez->vec_not(undef_c));
-				std::vector<int> t10 = ez->vec_and(ez->vec_not(t1), ez->vec_not(undef_t1));
-				std::vector<int> undef_t3 = ez->vec_and(ez->vec_or(undef_c, undef_t1), ez->vec_not(ez->vec_or(c0, t10)));
-
-				std::vector<int> t21 = ez->vec_and(t2, ez->vec_not(undef_t2));
-				std::vector<int> t31 = ez->vec_and(t3, ez->vec_not(undef_t3));
-				ez->assume(ez->vec_eq(undef_x, ez->vec_and(ez->vec_or(undef_t2, undef_t3), ez->vec_not(ez->vec_or(t21, t31)))));
+				ez->assume(ez->vec_eq(undef_x, undef_y));
 
 				undefGating(y, yy, undef_y);
 				undefGating(x, xx, undef_x);
