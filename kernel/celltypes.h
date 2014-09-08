@@ -105,6 +105,7 @@ struct CellTypes
 		for (auto type : std::vector<RTLIL::IdString>({"$mux", "$pmux"}))
 			setup_type(type, {"\\A", "\\B", "\\S"}, {"\\Y"}, true);
 
+		setup_type("$lcu", {"\\P", "\\G", "\\CI"}, {"\\CO"}, true);
 		setup_type("$alu", {"\\A", "\\B", "\\CI", "\\BI"}, {"\\X", "\\Y", "\\CO"}, true);
 		setup_type("$fa", {"\\A", "\\B", "\\C"}, {"\\X", "\\Y"}, true);
 

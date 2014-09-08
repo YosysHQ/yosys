@@ -1012,6 +1012,38 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$lcu")
+		{
+			std::vector<int> p = importDefSigSpec(cell->getPort("\\P"), timestep);
+			std::vector<int> g = importDefSigSpec(cell->getPort("\\G"), timestep);
+			std::vector<int> ci = importDefSigSpec(cell->getPort("\\CI"), timestep);
+			std::vector<int> co = importDefSigSpec(cell->getPort("\\CO"), timestep);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(co.size()) : co;
+
+			for (int i = 0; i < SIZE(co); i++)
+				ez->SET(yy[i], ez->OR(g[i], ez->AND(p[i], i ? yy[i-1] : ci[0])));
+
+			if (model_undef)
+			{
+				std::vector<int> undef_p = importUndefSigSpec(cell->getPort("\\P"), timestep);
+				std::vector<int> undef_g = importUndefSigSpec(cell->getPort("\\G"), timestep);
+				std::vector<int> undef_ci = importUndefSigSpec(cell->getPort("\\CI"), timestep);
+				std::vector<int> undef_co = importUndefSigSpec(cell->getPort("\\CO"), timestep);
+
+				int undef_any_p = ez->expression(ezSAT::OpOr, undef_p);
+				int undef_any_g = ez->expression(ezSAT::OpOr, undef_g);
+				int undef_any_ci = ez->expression(ezSAT::OpOr, undef_ci);
+				int undef_co_bit = ez->OR(undef_any_p, undef_any_g, undef_any_ci);
+
+				std::vector<int> undef_co_bits(undef_co.size(), undef_co_bit);
+				ez->assume(ez->vec_eq(undef_co_bits, undef_co));
+
+				undefGating(co, yy, undef_co);
+			}
+			return true;
+		}
+
 		if (cell->type == "$alu")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);

@@ -258,40 +258,7 @@ module \$fa (A, B, C, X, Y);
 	assign Y = t1 ^ C, X = t2 | t3;
 endmodule
 
-module \$__alu_ripple (A, B, CI, X, Y, CO);
-	parameter WIDTH = 1;
-
-	input [WIDTH-1:0] A, B;
-	output [WIDTH-1:0] X, Y;
-
-	input CI;
-	output [WIDTH-1:0] CO;
-
-	wire [WIDTH:0] carry;
-	assign carry[0] = CI;
-	assign CO = carry[WIDTH:1];
-
-	genvar i;
-	generate
-		for (i = 0; i < WIDTH; i = i+1)
-		begin:V
-			// {x, y} = a + b + c
-			wire a, b, c, x, y;
-			wire t1, t2, t3;
-
-			\$_AND_ gate1 ( .A(a),  .B(b),  .Y(t1) );
-			\$_XOR_ gate2 ( .A(a),  .B(b),  .Y(t2) );
-			\$_AND_ gate3 ( .A(t2), .B(c),  .Y(t3) ); 
-			\$_XOR_ gate4 ( .A(t2), .B(c),  .Y(y)  );
-			\$_OR_  gate5 ( .A(t1), .B(t3), .Y(x)  );
-
-			assign a = A[i], b = B[i], c = carry[i];
-			assign carry[i+1] = x, X[i] = t2, Y[i] = y;
-		end
-	endgenerate
-endmodule
-
-module \$__lcu (P, G, CI, CO);
+module \$lcu (P, G, CI, CO);
 	parameter WIDTH = 2;
 
 	input [WIDTH-1:0] P, G;
@@ -335,37 +302,6 @@ module \$__lcu (P, G, CI, CO);
 	assign CO = g;
 endmodule
 
-module \$__alu_lookahead (A, B, CI, X, Y, CO);
-	parameter WIDTH = 1;
-
-	input [WIDTH-1:0] A, B;
-	output [WIDTH-1:0] X, Y;
-
-	input CI;
-	output [WIDTH-1:0] CO;
-
-	wire [WIDTH-1:0] P, G;
-	wire [WIDTH:0] carry;
-
-	genvar i;
-	generate
-		for (i = 0; i < WIDTH; i = i+1)
-		begin:V
-			wire a, b, c, p, g, y;
-
-			\$_AND_ gate1 ( .A(a),  .B(b),  .Y(g) );
-			\$_XOR_ gate2 ( .A(a),  .B(b),  .Y(p) );
-			\$_XOR_ gate3 ( .A(p),  .B(c),  .Y(y) );
-
-			assign a = A[i], b = B[i], c = carry[i];
-			assign P[i] = p, G[i] = g, X[i] = p, Y[i] = y;
-		end
-	endgenerate
-
-	\$__lcu #(.WIDTH(WIDTH)) lcu (.P(P), .G(G), .CI(CI), .CO(CO));
-	assign carry = {CO, CI};
-endmodule
-
 module \$alu (A, B, CI, BI, X, Y, CO);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
@@ -384,15 +320,13 @@ module \$alu (A, B, CI, BI, X, Y, CO);
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-`ifdef ALU_RIPPLE
-	\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO));
-`else
-	if (Y_WIDTH <= 4) begin
-		\$__alu_ripple #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO));
-	end else begin
-		\$__alu_lookahead #(.WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_buf), .B(BI ? ~B_buf : B_buf), .CI(CI), .X(X), .Y(Y), .CO(CO));
-	end
-`endif
+	wire [Y_WIDTH-1:0] AA = A_buf;
+	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
+
+	\$lcu #(.WIDTH(Y_WIDTH)) lcu (.P(X), .G(AA & BB), .CI(CI), .CO(CO));
+
+	assign X = AA ^ BB;
+	assign Y = X ^ {CO, CI};
 endmodule
 
 

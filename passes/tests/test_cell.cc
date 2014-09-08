@@ -69,6 +69,30 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort("\\Y", wire);
 	}
 
+	if (cell_type == "$lcu")
+	{
+		int width = 1 + xorshift32(8);
+
+		wire = module->addWire("\\P");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\P", wire);
+
+		wire = module->addWire("\\G");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\G", wire);
+
+		wire = module->addWire("\\CI");
+		wire->port_input = true;
+		cell->setPort("\\CI", wire);
+
+		wire = module->addWire("\\CO");
+		wire->width = width;
+		wire->port_output = true;
+		cell->setPort("\\CO", wire);
+	}
+
 	if (cell_type == "$macc")
 	{
 		Macc macc;
@@ -477,7 +501,7 @@ struct TestCellPass : public Pass {
 		log("\n");
 		log("    test_cell [options] {cell-types}\n");
 		log("\n");
-		log("Tests the internal implementation of the given cell type (for example '$mux')\n");
+		log("Tests the internal implementation of the given cell type (for example '$add')\n");
 		log("by comparing SAT solver, EVAL and TECHMAP implementations of the cell types..\n");
 		log("\n");
 		log("Run with 'all' instead of a cell type to run the test on all supported\n");
@@ -632,6 +656,7 @@ struct TestCellPass : public Pass {
 
 		cell_types["$lut"] = "*";
 		cell_types["$alu"] = "ABSY";
+		cell_types["$lcu"] = "*";
 		cell_types["$macc"] = "*";
 		cell_types["$fa"] = "*";
 

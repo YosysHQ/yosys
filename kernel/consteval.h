@@ -86,6 +86,43 @@ struct ConstEval
 
 	bool eval(RTLIL::Cell *cell, RTLIL::SigSpec &undef)
 	{
+		if (cell->type == "$lcu")
+		{
+			RTLIL::SigSpec sig_p = cell->getPort("\\P");
+			RTLIL::SigSpec sig_g = cell->getPort("\\G");
+			RTLIL::SigSpec sig_ci = cell->getPort("\\CI");
+			RTLIL::SigSpec sig_co = values_map(assign_map(cell->getPort("\\CO")));
+
+			if (sig_co.is_fully_const())
+				return true;
+
+			if (!eval(sig_p, undef, cell))
+				return false;
+
+			if (!eval(sig_g, undef, cell))
+				return false;
+
+			if (!eval(sig_ci, undef, cell))
+				return false;
+
+			if (sig_p.is_fully_def() && sig_g.is_fully_def() && sig_ci.is_fully_def())
+			{
+				RTLIL::Const coval(RTLIL::Sx, SIZE(sig_co));
+				bool carry = sig_ci.as_bool();
+
+				for (int i = 0; i < SIZE(coval); i++) {
+					carry = (sig_g[i] == RTLIL::S1) || (sig_p[i] == RTLIL::S1 && carry);
+					coval.bits[i] = carry ? RTLIL::S1 : RTLIL::S0;
+				}
+
+				set(sig_co, coval);
+			}
+			else
+				set(sig_co, RTLIL::Const(RTLIL::Sx, SIZE(sig_co)));
+
+			return true;
+		}
+
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
 
 		log_assert(cell->hasPort("\\Y"));
