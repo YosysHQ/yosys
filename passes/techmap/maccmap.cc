@@ -106,12 +106,20 @@ struct MaccmapWorker
 			in2 = in2.extract(start_index, stop_index-start_index);
 			in3 = in3.extract(start_index, stop_index-start_index);
 
-			RTLIL::SigSpec t1 = module->Xor(NEW_ID, in1, in2);
-			out1 = {out_zeros_msb, module->Xor(NEW_ID, t1, in3), out_zeros_lsb};
+			int width = SIZE(in1);
+			RTLIL::Wire *w1 = module->addWire(NEW_ID, width);
+			RTLIL::Wire *w2 = module->addWire(NEW_ID, width);
 
-			RTLIL::SigSpec t2 = module->And(NEW_ID, in1, in2);
-			RTLIL::SigSpec t3 = module->And(NEW_ID, in3, t1);
-			out2 = {out_zeros_msb, module->Or(NEW_ID, t2, t3), out_zeros_lsb};
+			RTLIL::Cell *cell = module->addCell(NEW_ID, "$fa");
+			cell->setParam("\\WIDTH", width);
+			cell->setPort("\\A", in1);
+			cell->setPort("\\B", in2);
+			cell->setPort("\\C", in3);
+			cell->setPort("\\Y", w1);
+			cell->setPort("\\X", w2);
+
+			out1 = {out_zeros_msb, w1, out_zeros_lsb};
+			out2 = {out_zeros_msb, w2, out_zeros_lsb};
 		}
 	}
 
@@ -197,6 +205,8 @@ struct MaccmapWorker
 				}
 			summands.swap(new_summands);
 		}
+
+		log_assert(tree_sum_bits.empty());
 
 		return module->Add(NEW_ID, summands.front(), summands.back());
 	}

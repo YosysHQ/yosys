@@ -106,6 +106,7 @@ struct CellTypes
 			setup_type(type, {"\\A", "\\B", "\\S"}, {"\\Y"}, true);
 
 		setup_type("$alu", {"\\A", "\\B", "\\CI", "\\BI"}, {"\\X", "\\Y", "\\CO"}, true);
+		setup_type("$fa", {"\\A", "\\B", "\\C"}, {"\\X", "\\Y"}, true);
 
 		setup_type("$assert", {"\\A", "\\EN"}, std::set<RTLIL::IdString>(), true);
 	}

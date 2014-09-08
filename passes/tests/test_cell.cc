@@ -39,6 +39,36 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
 	RTLIL::Wire *wire;
 
+	if (cell_type == "$fa")
+	{
+		int width = 1 + xorshift32(8);
+
+		wire = module->addWire("\\A");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\A", wire);
+
+		wire = module->addWire("\\B");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\B", wire);
+
+		wire = module->addWire("\\C");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\C", wire);
+
+		wire = module->addWire("\\X");
+		wire->width = width;
+		wire->port_output = true;
+		cell->setPort("\\X", wire);
+
+		wire = module->addWire("\\Y");
+		wire->width = width;
+		wire->port_output = true;
+		cell->setPort("\\Y", wire);
+	}
+
 	if (cell_type == "$macc")
 	{
 		Macc macc;
@@ -603,6 +633,7 @@ struct TestCellPass : public Pass {
 		cell_types["$lut"] = "*";
 		cell_types["$alu"] = "ABSY";
 		cell_types["$macc"] = "*";
+		cell_types["$fa"] = "*";
 
 		for (; argidx < SIZE(args); argidx++)
 		{

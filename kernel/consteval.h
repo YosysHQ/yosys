@@ -155,6 +155,31 @@ struct ConstEval
 			else
 				set(sig_y, y_values.front());
 		}
+		else if (cell->type == "$fa")
+		{
+			RTLIL::SigSpec sig_c = cell->getPort("\\C");
+			RTLIL::SigSpec sig_x = cell->getPort("\\X");
+			int width = SIZE(sig_c);
+
+			if (!eval(sig_a, undef, cell))
+				return false;
+
+			if (!eval(sig_b, undef, cell))
+				return false;
+
+			if (!eval(sig_c, undef, cell))
+				return false;
+
+			RTLIL::Const t1 = const_xor(sig_a.as_const(), sig_b.as_const(), false, false, width);
+			RTLIL::Const val_y = const_xor(t1, sig_c.as_const(), false, false, width);
+
+			RTLIL::Const t2 = const_and(sig_a.as_const(), sig_b.as_const(), false, false, width);
+			RTLIL::Const t3 = const_and(sig_c.as_const(), t1, false, false, width);
+			RTLIL::Const val_x = const_or(t2, t3, false, false, width);
+
+			set(sig_y, val_y);
+			set(sig_x, val_x);
+		}
 		else if (cell->type == "$alu")
 		{
 			bool signed_a = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();

@@ -963,6 +963,55 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$fa")
+		{
+			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
+			std::vector<int> b = importDefSigSpec(cell->getPort("\\B"), timestep);
+			std::vector<int> c = importDefSigSpec(cell->getPort("\\C"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
+			std::vector<int> x = importDefSigSpec(cell->getPort("\\X"), timestep);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+			std::vector<int> xx = model_undef ? ez->vec_var(x.size()) : x;
+
+			std::vector<int> t1 = ez->vec_xor(a, b);
+			ez->assume(ez->vec_eq(yy, ez->vec_xor(t1, c)));
+
+			std::vector<int> t2 = ez->vec_and(a, b);
+			std::vector<int> t3 = ez->vec_and(c, t1);
+			ez->assume(ez->vec_eq(xx, ez->vec_or(t2, t3)));
+
+			if (model_undef)
+			{
+				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
+				std::vector<int> undef_b = importUndefSigSpec(cell->getPort("\\B"), timestep);
+				std::vector<int> undef_c = importUndefSigSpec(cell->getPort("\\C"), timestep);
+
+				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
+				std::vector<int> undef_x = importUndefSigSpec(cell->getPort("\\X"), timestep);
+
+				ez->assume(ez->vec_eq(undef_y, ez->vec_or(ez->vec_or(undef_a, undef_b), undef_c)));
+
+				std::vector<int> undef_t1 = ez->vec_or(undef_a, undef_b);
+
+				std::vector<int> a0 = ez->vec_and(ez->vec_not(a), ez->vec_not(undef_a));
+				std::vector<int> b0 = ez->vec_and(ez->vec_not(b), ez->vec_not(undef_b));
+				std::vector<int> undef_t2 = ez->vec_and(ez->vec_or(undef_a, undef_b), ez->vec_not(ez->vec_or(a0, b0)));
+
+				std::vector<int> c0 = ez->vec_and(ez->vec_not(c), ez->vec_not(undef_c));
+				std::vector<int> t10 = ez->vec_and(ez->vec_not(t1), ez->vec_not(undef_t1));
+				std::vector<int> undef_t3 = ez->vec_and(ez->vec_or(undef_c, undef_t1), ez->vec_not(ez->vec_or(c0, t10)));
+
+				std::vector<int> t21 = ez->vec_and(t2, ez->vec_not(undef_t2));
+				std::vector<int> t31 = ez->vec_and(t3, ez->vec_not(undef_t3));
+				ez->assume(ez->vec_eq(undef_x, ez->vec_and(ez->vec_or(undef_t2, undef_t3), ez->vec_not(ez->vec_or(t21, t31)))));
+
+				undefGating(y, yy, undef_y);
+				undefGating(x, xx, undef_x);
+			}
+			return true;
+		}
+
 		if (cell->type == "$alu")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);

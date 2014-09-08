@@ -620,6 +620,16 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$fa") {
+				port("\\A", param("\\WIDTH"));
+				port("\\B", param("\\WIDTH"));
+				port("\\C", param("\\WIDTH"));
+				port("\\X", param("\\WIDTH"));
+				port("\\Y", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$alu") {
 				param_bool("\\A_SIGNED");
 				param_bool("\\B_SIGNED");
@@ -1790,6 +1800,11 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 
 	if (type == "$lut") {
 		parameters["\\WIDTH"] = SIZE(connections_["\\A"]);
+		return;
+	}
+
+	if (type == "$fa") {
+		parameters["\\WIDTH"] = SIZE(connections_["\\Y"]);
 		return;
 	}
 
