@@ -806,9 +806,23 @@ input [A_WIDTH-1:0] A;
 input [B_WIDTH-1:0] B;
 output reg [Y_WIDTH-1:0] Y;
 
+// Xilinx XSIM does not like $clog2() below..
+function integer my_clog2;
+	input integer v;
+	begin
+		if (v > 0)
+			v = v - 1;
+		my_clog2 = 0;
+		while (v) begin
+			v = v >> 1;
+			my_clog2 = my_clog2 + 1;
+		end
+	end
+endfunction
+
 localparam integer num_bits = CONFIG[3:0];
 localparam integer num_ports = (CONFIG_WIDTH-4) / (2 + 2*num_bits);
-localparam integer num_abits = $clog2(A_WIDTH) > 0 ? $clog2(A_WIDTH) : 1;
+localparam integer num_abits = my_clog2(A_WIDTH) > 0 ? my_clog2(A_WIDTH) : 1;
 
 function [2*num_ports*num_abits-1:0] get_port_offsets;
 	input [CONFIG_WIDTH-1:0] cfg;
