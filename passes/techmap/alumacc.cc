@@ -281,7 +281,7 @@ struct AlumaccWorker
 			if (SIZE(C) > 1)
 				goto next_macc;
 
-			if (!subtract_b && B < A)
+			if (!subtract_b && B < A && SIZE(B))
 				std::swap(A, B);
 
 			log("  creating $alu model for $macc %s.\n", log_id(n->cell));
@@ -309,13 +309,14 @@ struct AlumaccWorker
 
 	void replace_macc()
 	{
-		macc_counter += SIZE(sig_macc);
-
 		for (auto &it : sig_macc)
 		{
 			auto n = it.second;
 			auto cell = module->addCell(NEW_ID, "$macc");
+			macc_counter++;
+
 			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
+
 			n->macc.to_cell(cell);
 			cell->setPort("\\Y", n->y);
 			cell->fixup_parameters();
@@ -350,7 +351,7 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort("\\B"));
 			RTLIL::SigSpec Y = sigmap(cell->getPort("\\Y"));
 
-			if (B < A) {
+			if (B < A && SIZE(B)) {
 				cmp_less = !cmp_less;
 				std::swap(A, B);
 			}
@@ -390,7 +391,7 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort("\\B"));
 			RTLIL::SigSpec Y = sigmap(cell->getPort("\\Y"));
 
-			if (B < A)
+			if (B < A && SIZE(B))
 				std::swap(A, B);
 
 			alunode_t *n = nullptr;
@@ -411,29 +412,38 @@ struct AlumaccWorker
 
 	void replace_alu()
 	{
-		alu_counter += SIZE(sig_alu);
-
 		for (auto &it1 : sig_alu)
 		for (auto n : it1.second)
 		{
+			if (SIZE(n->b) == 0 && SIZE(n->c) == 0 && SIZE(n->cmp) == 0)
+			{
+				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
+
+				log("  creating $pos cell for ");
+				for (int i = 0; i < SIZE(n->cells); i++)
+					log("%s%s", i ? ", ": "", log_id(n->cells[i]));
+				log(": %s\n", log_id(n->alu_cell));
+
+				goto delete_node;
+			}
+
 			n->alu_cell = module->addCell(NEW_ID, "$alu");
+			alu_counter++;
 
 			log("  creating $alu cell for ");
 			for (int i = 0; i < SIZE(n->cells); i++)
 				log("%s%s", i ? ", ": "", log_id(n->cells[i]));
 			log(": %s\n", log_id(n->alu_cell));
 
-			RTLIL::Wire *x = module->addWire(NEW_ID, SIZE(n->y));
-			RTLIL::Wire *co = module->addWire(NEW_ID, SIZE(n->y));
-
 			n->alu_cell->setPort("\\A", n->a);
 			n->alu_cell->setPort("\\B", n->b);
 			n->alu_cell->setPort("\\CI", SIZE(n->c) ? n->c : RTLIL::S0);
 			n->alu_cell->setPort("\\BI", n->invert_b ? RTLIL::S1 : RTLIL::S0);
 			n->alu_cell->setPort("\\Y", n->y);
-			n->alu_cell->setPort("\\X", x);
-			n->alu_cell->setPort("\\CO", co);
-			n->alu_cell->fixup_parameters();
+			n->alu_cell->setPort("\\X", module->addWire(NEW_ID, SIZE(n->y)));
+			n->alu_cell->setPort("\\CO", module->addWire(NEW_ID, SIZE(n->y)));
+			n->alu_cell->fixup_parameters(n->is_signed, n->is_signed);
+			log_cell(n->alu_cell);
 
 			for (auto &it : n->cmp)
 			{
@@ -456,6 +466,7 @@ struct AlumaccWorker
 				module->connect(cmp_y, sig);
 			}
 
+		delete_node:
 			for (auto c : n->cells)
 				module->remove(c);
 			delete n;
