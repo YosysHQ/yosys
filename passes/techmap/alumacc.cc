@@ -33,10 +33,78 @@ struct AlumaccWorker
 		int users;
 	};
 
+	struct alunode_t
+	{
+		std::vector<RTLIL::Cell*> cells;
+		RTLIL::SigSpec a, b, c, y;
+		std::vector<std::tuple<bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
+		bool is_signed, invert_b;
+
+		RTLIL::Cell *alu_cell;
+		RTLIL::SigSpec cached_lt, cached_gt, cached_eq, cached_ne;
+		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
+
+		RTLIL::SigSpec get_lt() {
+			if (SIZE(cached_lt) == 0)
+				cached_lt = is_signed ? alu_cell->module->Xor(NEW_ID, get_of(), get_sf()) : get_cf();
+			return cached_lt;
+		}
+
+		RTLIL::SigSpec get_gt() {
+			if (SIZE(cached_gt) == 0)
+				cached_gt = alu_cell->module->Not(NEW_ID, alu_cell->module->Or(NEW_ID, get_lt(), get_eq()));
+			return cached_gt;
+		}
+
+		RTLIL::SigSpec get_eq() {
+			if (SIZE(cached_eq) == 0)
+				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort("\\X"));
+			return cached_eq;
+		}
+
+		RTLIL::SigSpec get_ne() {
+			if (SIZE(cached_ne) == 0)
+				cached_ne = alu_cell->module->Not(NEW_ID, get_eq());
+			return cached_ne;
+		}
+
+		RTLIL::SigSpec get_cf() {
+			if (SIZE(cached_cf) == 0) {
+				cached_cf = alu_cell->getPort("\\CO");
+				log_assert(SIZE(cached_cf) >= 1);
+				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[SIZE(cached_cf)-1]);
+			}
+			return cached_cf;
+		}
+
+		RTLIL::SigSpec get_of() {
+			if (SIZE(cached_of) == 0) {
+				cached_of = {alu_cell->getPort("\\CO"), alu_cell->getPort("\\CI")};
+				log_assert(SIZE(cached_of) >= 2);
+				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[SIZE(cached_of)-1], cached_of[SIZE(cached_of)-2]);
+			}
+			return cached_of;
+		}
+
+		RTLIL::SigSpec get_sf() {
+			if (SIZE(cached_sf) == 0) {
+				cached_sf = alu_cell->getPort("\\Y");
+				cached_sf = cached_sf[SIZE(cached_sf)-1];
+			}
+			return cached_sf;
+		}
+	};
+
 	std::map<RTLIL::SigBit, int> bit_users;
 	std::map<RTLIL::SigSpec, maccnode_t*> sig_macc;
+	std::map<RTLIL::SigSig, std::set<alunode_t*>> sig_alu;
+	int macc_counter, alu_counter;
 
-	AlumaccWorker(RTLIL::Module *module) : module(module), sigmap(module) { }
+	AlumaccWorker(RTLIL::Module *module) : module(module), sigmap(module)
+	{
+		macc_counter = 0;
+		alu_counter = 0;
+	}
 
 	void count_bit_users()
 	{
@@ -158,12 +226,96 @@ struct AlumaccWorker
 		}
 	}
 
+	void macc_to_alu()
+	{
+		std::set<maccnode_t*> delete_nodes;
+
+		for (auto &it : sig_macc)
+		{
+			auto n = it.second;
+			RTLIL::SigSpec A, B, C = n->macc.bit_ports;
+			bool a_signed = false, b_signed = false;
+			bool subtract_b = false;
+			alunode_t *alunode;
+
+			for (auto &port : n->macc.ports)
+				if (SIZE(port.in_b) > 0) {
+					goto next_macc;
+				} else if (SIZE(port.in_a) == 1 && !port.is_signed && !port.do_subtract) {
+					C.append(port.in_a);
+				} else if (SIZE(A) || port.do_subtract) {
+					if (SIZE(B))
+						goto next_macc;
+					B = port.in_a;
+					b_signed = port.is_signed;
+					subtract_b = port.do_subtract;
+				} else {
+					if (SIZE(A))
+						goto next_macc;
+					A = port.in_a;
+					a_signed = port.is_signed;
+				}
+
+			if (!a_signed || !b_signed) {
+				if (SIZE(A) == SIZE(n->y))
+					a_signed = false;
+				if (SIZE(B) == SIZE(n->y))
+					b_signed = false;
+				if (a_signed != b_signed)
+					goto next_macc;
+			}
+
+			if (SIZE(A) == 0 && SIZE(C) > 0) {
+				A = C[0];
+				C.remove(0);
+			}
+
+			if (SIZE(B) == 0 && SIZE(C) > 0) {
+				B = C[0];
+				C.remove(0);
+			}
+
+			if (subtract_b)
+				C.append(RTLIL::S1);
+
+			if (SIZE(C) > 1)
+				goto next_macc;
+
+			if (!subtract_b && B < A)
+				std::swap(A, B);
+
+			log("  creating $alu model for $macc %s.\n", log_id(n->cell));
+
+			alunode = new alunode_t;
+			alunode->cells.push_back(n->cell);
+			alunode->is_signed = a_signed;
+			alunode->invert_b = subtract_b;
+
+			alunode->a = A;
+			alunode->b = B;
+			alunode->c = C;
+			alunode->y = n->y;
+
+			sig_alu[RTLIL::SigSig(A, B)].insert(alunode);
+			delete_nodes.insert(n);
+		next_macc:;
+		}
+
+		for (auto n : delete_nodes) {
+			sig_macc.erase(n->y);
+			delete n;
+		}
+	}
+
 	void replace_macc()
 	{
+		macc_counter += SIZE(sig_macc);
+
 		for (auto &it : sig_macc)
 		{
 			auto n = it.second;
 			auto cell = module->addCell(NEW_ID, "$macc");
+			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
 			n->macc.to_cell(cell);
 			cell->setPort("\\Y", n->y);
 			cell->fixup_parameters();
@@ -174,6 +326,144 @@ struct AlumaccWorker
 		sig_macc.clear();
 	}
 
+	void extract_cmp_alu()
+	{
+		std::vector<RTLIL::Cell*> lge_cells, eq_cells;
+
+		for (auto cell : module->selected_cells())
+		{
+			if (cell->type.in("$lt", "$le", "$ge", "$gt"))
+				lge_cells.push_back(cell);
+			if (cell->type.in("$eq", "$eqx", "$ne", "$nex"))
+				eq_cells.push_back(cell);
+		}
+
+		for (auto cell : lge_cells)
+		{
+			log("  creating $alu model for %s (%s):", log_id(cell), log_id(cell->type));
+
+			bool cmp_less = cell->type.in("$lt", "$le");
+			bool cmp_equal = cell->type.in("$le", "$ge");
+			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+
+			RTLIL::SigSpec A = sigmap(cell->getPort("\\A"));
+			RTLIL::SigSpec B = sigmap(cell->getPort("\\B"));
+			RTLIL::SigSpec Y = sigmap(cell->getPort("\\Y"));
+
+			if (B < A) {
+				cmp_less = !cmp_less;
+				std::swap(A, B);
+			}
+
+			alunode_t *n = nullptr;
+
+			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
+				if (node->is_signed == is_signed && node->invert_b && node->c == RTLIL::S1) {
+					n = node;
+					break;
+				}
+
+			if (n == nullptr) {
+				n = new alunode_t;
+				n->a = A;
+				n->b = B;
+				n->c = RTLIL::S1;
+				n->y = module->addWire(NEW_ID, std::max(SIZE(A), SIZE(B)));
+				n->is_signed = is_signed;
+				n->invert_b = true;
+				sig_alu[RTLIL::SigSig(A, B)].insert(n);
+				log(" new $alu\n");
+			} else {
+				log(" merged with %s.\n", log_id(n->cells.front()));
+			}
+
+			n->cells.push_back(cell);
+			n->cmp.push_back(std::make_tuple(cmp_less, !cmp_less, cmp_equal, false, Y));
+		}
+
+		for (auto cell : eq_cells)
+		{
+			bool cmp_equal = cell->type.in("$eq", "$eqx");
+			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+
+			RTLIL::SigSpec A = sigmap(cell->getPort("\\A"));
+			RTLIL::SigSpec B = sigmap(cell->getPort("\\B"));
+			RTLIL::SigSpec Y = sigmap(cell->getPort("\\Y"));
+
+			if (B < A)
+				std::swap(A, B);
+
+			alunode_t *n = nullptr;
+
+			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
+				if (node->is_signed == is_signed && node->invert_b && node->c == RTLIL::S1) {
+					n = node;
+					break;
+				}
+
+			if (n != nullptr) {
+				log("  creating $alu model for %s (%s): merged with %s.\n", log_id(cell), log_id(cell->type), log_id(n->cells.front()));
+				n->cells.push_back(cell);
+				n->cmp.push_back(std::make_tuple(false, false, cmp_equal, !cmp_equal, Y));
+			}
+		}
+	}
+
+	void replace_alu()
+	{
+		alu_counter += SIZE(sig_alu);
+
+		for (auto &it1 : sig_alu)
+		for (auto n : it1.second)
+		{
+			n->alu_cell = module->addCell(NEW_ID, "$alu");
+
+			log("  creating $alu cell for ");
+			for (int i = 0; i < SIZE(n->cells); i++)
+				log("%s%s", i ? ", ": "", log_id(n->cells[i]));
+			log(": %s\n", log_id(n->alu_cell));
+
+			RTLIL::Wire *x = module->addWire(NEW_ID, SIZE(n->y));
+			RTLIL::Wire *co = module->addWire(NEW_ID, SIZE(n->y));
+
+			n->alu_cell->setPort("\\A", n->a);
+			n->alu_cell->setPort("\\B", n->b);
+			n->alu_cell->setPort("\\CI", SIZE(n->c) ? n->c : RTLIL::S0);
+			n->alu_cell->setPort("\\BI", n->invert_b ? RTLIL::S1 : RTLIL::S0);
+			n->alu_cell->setPort("\\Y", n->y);
+			n->alu_cell->setPort("\\X", x);
+			n->alu_cell->setPort("\\CO", co);
+			n->alu_cell->fixup_parameters();
+
+			for (auto &it : n->cmp)
+			{
+				bool cmp_lt = std::get<0>(it);
+				bool cmp_gt = std::get<1>(it);
+				bool cmp_eq = std::get<2>(it);
+				bool cmp_ne = std::get<3>(it);
+				RTLIL::SigSpec cmp_y = std::get<4>(it);
+
+				RTLIL::SigSpec sig;
+				if (cmp_lt) sig.append(n->get_lt());
+				if (cmp_gt) sig.append(n->get_gt());
+				if (cmp_eq) sig.append(n->get_eq());
+				if (cmp_ne) sig.append(n->get_ne());
+
+				if (SIZE(sig) > 1)
+					sig = module->ReduceOr(NEW_ID, sig);
+
+				sig.extend(SIZE(cmp_y));
+				module->connect(cmp_y, sig);
+			}
+
+			for (auto c : n->cells)
+				module->remove(c);
+			delete n;
+		}
+
+		sig_alu.clear();
+	}
+
 	void run()
 	{
 		log("Extracting $alu and $macc cells in module %s:\n", log_id(module));
@@ -181,7 +471,12 @@ struct AlumaccWorker
 		count_bit_users();
 		extract_macc();
 		merge_macc();
+		macc_to_alu();
 		replace_macc();
+		extract_cmp_alu();
+		replace_alu();
+
+		log("  created %d $alu and %d $macc cells.\n", alu_counter, macc_counter);
 	}
 };
 
