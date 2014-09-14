@@ -40,101 +40,27 @@
 
 (* techmap_simplemap *)
 (* techmap_celltype = "$not $and $or $xor $xnor" *)
-module simplemap_bool_ops;
+module _90_simplemap_bool_ops;
 endmodule
 
 (* techmap_simplemap *)
 (* techmap_celltype = "$reduce_and $reduce_or $reduce_xor $reduce_xnor $reduce_bool" *)
-module simplemap_reduce_ops;
+module _90_simplemap_reduce_ops;
 endmodule
 
 (* techmap_simplemap *)
 (* techmap_celltype = "$logic_not $logic_and $logic_or" *)
-module simplemap_logic_ops;
+module _90_simplemap_logic_ops;
 endmodule
 
 (* techmap_simplemap *)
 (* techmap_celltype = "$pos $slice $concat $mux" *)
-module simplemap_various;
+module _90_simplemap_various;
 endmodule
 
 (* techmap_simplemap *)
 (* techmap_celltype = "$sr $dff $adff $dffsr $dlatch" *)
-module simplemap_registers;
-endmodule
-
-
-// --------------------------------------------------------
-// Trivial substitutions
-// --------------------------------------------------------
-
-module \$neg (A, Y);
-	parameter A_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	input [A_WIDTH-1:0] A;
-	output [Y_WIDTH-1:0] Y;
-
-	\$sub #(
-		.A_SIGNED(A_SIGNED),
-		.B_SIGNED(A_SIGNED),
-		.A_WIDTH(1),
-		.B_WIDTH(A_WIDTH),
-		.Y_WIDTH(Y_WIDTH)
-	) _TECHMAP_REPLACE_ (
-		.A(1'b0),
-		.B(A),
-		.Y(Y)
-	);
-endmodule
-
-module \$ge (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	\$le #(
-		.A_SIGNED(B_SIGNED),
-		.B_SIGNED(A_SIGNED),
-		.A_WIDTH(B_WIDTH),
-		.B_WIDTH(A_WIDTH),
-		.Y_WIDTH(Y_WIDTH)
-	) _TECHMAP_REPLACE_ (
-		.A(B),
-		.B(A),
-		.Y(Y)
-	);
-endmodule
-
-module \$gt (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	\$lt #(
-		.A_SIGNED(B_SIGNED),
-		.B_SIGNED(A_SIGNED),
-		.A_WIDTH(B_WIDTH),
-		.B_WIDTH(A_WIDTH),
-		.Y_WIDTH(Y_WIDTH)
-	) _TECHMAP_REPLACE_ (
-		.A(B),
-		.B(A),
-		.Y(Y)
-	);
+module _90_simplemap_registers;
 endmodule
 
 
@@ -143,7 +69,7 @@ endmodule
 // --------------------------------------------------------
 
 (* techmap_celltype = "$shr $shl $sshl $sshr" *)
-module shift_ops_shr_shl_sshl_sshr (A, B, Y);
+module _90_shift_ops_shr_shl_sshl_sshr (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -187,7 +113,7 @@ module shift_ops_shr_shl_sshl_sshr (A, B, Y);
 endmodule
 
 (* techmap_celltype = "$shift $shiftx" *)
-module shift_shiftx (A, B, Y);
+module _90_shift_shiftx (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -243,10 +169,11 @@ endmodule
 
 
 // --------------------------------------------------------
-// ALU Infrastructure
+// Arithmetic operators
 // --------------------------------------------------------
 
-module \$fa (A, B, C, X, Y);
+(* techmap_celltype = "$fa" *)
+module _90_fa (A, B, C, X, Y);
 	parameter WIDTH = 1;
 
 	input [WIDTH-1:0] A, B, C;
@@ -258,7 +185,8 @@ module \$fa (A, B, C, X, Y);
 	assign Y = t1 ^ C, X = t2 | t3;
 endmodule
 
-module \$lcu (P, G, CI, CO);
+(* techmap_celltype = "$lcu" *)
+module _90_lcu (P, G, CI, CO);
 	parameter WIDTH = 2;
 
 	input [WIDTH-1:0] P, G;
@@ -302,7 +230,8 @@ module \$lcu (P, G, CI, CO);
 	assign CO = g;
 endmodule
 
-module \$alu (A, B, CI, BI, X, Y, CO);
+(* techmap_celltype = "$alu" *)
+module _90_alu (A, B, CI, BI, X, Y, CO);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -329,112 +258,14 @@ module \$alu (A, B, CI, BI, X, Y, CO);
 	assign Y = X ^ {CO, CI};
 endmodule
 
-
-// --------------------------------------------------------
-// ALU Cell Types: Compare, Add, Subtract
-// --------------------------------------------------------
-
-`define ALU_COMMONS(_width, _sub) """
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	localparam WIDTH = _width;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire [WIDTH-1:0] alu_x, alu_y, alu_co;
-	wire [WIDTH:0] carry = {alu_co, |_sub};
-
-	\$alu #(
-		.A_SIGNED(A_SIGNED),
-		.B_SIGNED(B_SIGNED),
-		.A_WIDTH(A_WIDTH),
-		.B_WIDTH(B_WIDTH),
-		.Y_WIDTH(WIDTH)
-	) alu (
-		.A(A),
-		.B(B),
-		.CI(|_sub),
-		.BI(|_sub),
-		.X(alu_x),
-		.Y(alu_y),
-		.CO(alu_co)
-	);
-
-	wire cf, of, zf, sf;
-	assign cf = !carry[WIDTH];
-	assign of = carry[WIDTH] ^ carry[WIDTH-1];
-	assign sf = alu_y[WIDTH-1];
-"""
-
-module \$lt (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1)
-	assign Y = A_SIGNED && B_SIGNED ? of != sf : cf;
-endmodule
-
-module \$le (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(`MAX(A_WIDTH, B_WIDTH), 1)
-	assign Y = &alu_x || (A_SIGNED && B_SIGNED ? of != sf : cf);
-endmodule
-
-module \$add (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(Y_WIDTH, 0)
-	assign Y = alu_y;
-endmodule
-
-module \$sub (A, B, Y);
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; opt_const -mux_undef -mux_bool -fine;;;";
-	`ALU_COMMONS(Y_WIDTH, 1)
-	assign Y = alu_y;
-endmodule
-
-
-// --------------------------------------------------------
-// Multiply
-// --------------------------------------------------------
-
 (* techmap_maccmap *)
-module \$macc ;
+(* techmap_celltype = "$macc" *)
+module _90_macc;
 endmodule
 
-module \$mul (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire [1023:0] _TECHMAP_DO_ = "RECURSION; CONSTMAP; opt -purge";
-
-	localparam [ 3:0] CONFIG_WIDTH_BITS = 15;
-	localparam [ 0:0] CONFIG_IS_SIGNED = A_SIGNED && B_SIGNED;
-	localparam [ 0:0] CONFIG_DO_SUBTRACT = 0;
-	localparam [14:0] CONFIG_A_WIDTH = A_WIDTH;
-	localparam [14:0] CONFIG_B_WIDTH = B_WIDTH;
-
-	\$macc #(
-		.CONFIG({CONFIG_B_WIDTH, CONFIG_A_WIDTH, CONFIG_DO_SUBTRACT, CONFIG_IS_SIGNED, CONFIG_WIDTH_BITS}),
-		.CONFIG_WIDTH(15 + 15 + 2 + 4),
-		.A_WIDTH(B_WIDTH + A_WIDTH),
-		.B_WIDTH(0),
-		.Y_WIDTH(Y_WIDTH)
-	) _TECHMAP_REPLACE_ (
-		.A({B, A}),
-		.B(),
-		.Y(Y)
-	);
+(* techmap_wrap = "alumacc" *)
+(* techmap_celltype = "$lt $le $ge $gt $add $sub $neg $mul" *)
+module _90_alumacc;
 endmodule
 
 
@@ -504,7 +335,8 @@ module \$__div_mod (A, B, Y, R);
 	assign R = A_SIGNED && B_SIGNED && A_buf[WIDTH-1] ? -R_u : R_u;
 endmodule
 
-module \$div (A, B, Y);
+(* techmap_celltype = "$div" *)
+module _90_div (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -528,7 +360,8 @@ module \$div (A, B, Y);
 	);
 endmodule
 
-module \$mod (A, B, Y);
+(* techmap_celltype = "$mod" *)
+module _90_mod (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -557,7 +390,8 @@ endmodule
 // Power
 // --------------------------------------------------------
 
-module \$pow (A, B, Y);
+(* techmap_celltype = "$pow" *)
+module _90_pow (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -576,7 +410,8 @@ endmodule
 // Equal and Not-Equal
 // --------------------------------------------------------
 
-module \$eq (A, B, Y);
+(* techmap_celltype = "$eq $eqx" *)
+module _90_eq_eqx (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -597,49 +432,8 @@ module \$eq (A, B, Y);
 	assign Y = ~|(A_buf ^ B_buf);
 endmodule
 
-module \$ne (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire carry, carry_sign;
-	wire [WIDTH-1:0] A_buf, B_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	assign Y = |(A_buf ^ B_buf);
-endmodule
-
-module \$eqx (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire carry, carry_sign;
-	wire [WIDTH-1:0] A_buf, B_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	assign Y = ~|(A_buf ^ B_buf);
-endmodule
-
-module \$nex (A, B, Y);
+(* techmap_celltype = "$ne $nex" *)
+module _90_ne_nex (A, B, Y);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -665,7 +459,8 @@ endmodule
 // Parallel Multiplexers
 // --------------------------------------------------------
 
-module \$pmux (A, B, S, Y);
+(* techmap_celltype = "$pmux" *)
+module _90_pmux (A, B, S, Y);
 	parameter WIDTH = 1;
 	parameter S_WIDTH = 1;
 
@@ -700,7 +495,8 @@ endmodule
 // --------------------------------------------------------
 
 `ifndef NOLUT
-module \$lut (A, Y);
+(* techmap_celltype = "$lut" *)
+module _90_lut (A, Y);
 	parameter WIDTH = 1;
 	parameter LUT = 0;
 
