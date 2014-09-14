@@ -363,6 +363,9 @@ struct TechmapWorker
 							for (auto &c : cell->parameters)
 								m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
 
+							if (extmapper_name == "wrap")
+								m_name += ":" + sha1(tpl->attributes.at("\\techmap_wrap").decode_string());
+
 							RTLIL::Design *extmapper_design = extern_mode && !in_recursion ? design : tpl->design;
 							RTLIL::Module *extmapper_module = extmapper_design->module(m_name);
 
@@ -444,7 +447,6 @@ struct TechmapWorker
 						break;
 					}
 
-			use_wrapper_tpl:
 					for (auto conn : cell->connections()) {
 						if (conn.first.substr(0, 1) == "$")
 							continue;
@@ -511,16 +513,21 @@ struct TechmapWorker
 						}
 				}
 
-				std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
-				if (techmap_cache.count(key) > 0) {
-					tpl = techmap_cache[key];
+				if (0) {
+			use_wrapper_tpl:;
+					// do not register techmap_wrap modules with techmap_cache
 				} else {
-					if (cell->parameters.size() != 0) {
-						derived_name = tpl->derive(map, parameters);
-						tpl = map->module(derived_name);
-						log_continue = true;
+					std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
+					if (techmap_cache.count(key) > 0) {
+						tpl = techmap_cache[key];
+					} else {
+						if (cell->parameters.size() != 0) {
+							derived_name = tpl->derive(map, parameters);
+							tpl = map->module(derived_name);
+							log_continue = true;
+						}
+						techmap_cache[key] = tpl;
 					}
-					techmap_cache[key] = tpl;
 				}
 
 				if (flatten_mode) {
