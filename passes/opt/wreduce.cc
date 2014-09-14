@@ -26,23 +26,20 @@ using namespace RTLIL;
 
 PRIVATE_NAMESPACE_BEGIN
 
-static inline std::set<IdString> &operator<<(std::set<IdString> &set, IdString id) {
-	set.insert(id);
-	return set;
-}
-
 struct WreduceConfig
 {
 	std::set<IdString> supported_cell_types;
 
 	WreduceConfig()
 	{
-		supported_cell_types << "$not" << "$pos" << "$neg";
-		supported_cell_types << "$and" << "$or" << "$xor" << "$xnor";
-		supported_cell_types << "$shl" << "$shr" << "$sshl" << "$sshr" << "$shift" << "$shiftx";
-		supported_cell_types << "$lt" << "$le" << "$eq" << "$ne" << "$eqx" << "$nex" << "$ge" << "$gt";
-		supported_cell_types << "$add" << "$sub"; // << "$mul" << "$div" << "$mod" << "$pow"
-		supported_cell_types << "$mux" << "$pmux";
+		supported_cell_types = {
+			"$not", "$pos", "$neg",
+			"$and", "$or", "$xor", "$xnor",
+			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
+			"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
+			"$add", "$sub", // "$mul", "$div", "$mod", "$pow",
+			"$mux", "$pmux"
+		};
 	}
 };
 
