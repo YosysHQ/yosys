@@ -443,7 +443,6 @@ struct AlumaccWorker
 			n->alu_cell->setPort("\\X", module->addWire(NEW_ID, SIZE(n->y)));
 			n->alu_cell->setPort("\\CO", module->addWire(NEW_ID, SIZE(n->y)));
 			n->alu_cell->fixup_parameters(n->is_signed, n->is_signed);
-			log_cell(n->alu_cell);
 
 			for (auto &it : n->cmp)
 			{

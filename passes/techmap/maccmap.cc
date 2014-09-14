@@ -208,7 +208,17 @@ struct MaccmapWorker
 
 		log_assert(tree_sum_bits.empty());
 
-		return module->Add(NEW_ID, summands.front(), summands.back());
+		RTLIL::Cell *c = module->addCell(NEW_ID, "$alu");
+		c->setPort("\\A", summands.front());
+		c->setPort("\\B", summands.back());
+		c->setPort("\\CI", RTLIL::S0);
+		c->setPort("\\BI", RTLIL::S0);
+		c->setPort("\\Y", module->addWire(NEW_ID, width));
+		c->setPort("\\X", module->addWire(NEW_ID, width));
+		c->setPort("\\CO", module->addWire(NEW_ID, width));
+		c->fixup_parameters();
+
+		return c->getPort("\\Y");
 	}
 };
 
