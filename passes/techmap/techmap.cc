@@ -349,22 +349,26 @@ struct TechmapWorker
 					if (tpl->get_bool_attribute("\\techmap_maccmap"))
 						extmapper_name = "maccmap";
 
+					if (tpl->attributes.count("\\techmap_wrap"))
+						extmapper_name = "wrap";
+
 					if (!extmapper_name.empty())
 					{
 						cell->type = cell_type;
 
-						if (extern_mode && !in_recursion)
+						if ((extern_mode && !in_recursion) || extmapper_name == "wrap")
 						{
 							std::string m_name = stringf("$extern:%s:%s", extmapper_name.c_str(), log_id(cell->type));
 
 							for (auto &c : cell->parameters)
 								m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
 
-							RTLIL::Module *extmapper_module = design->module(m_name);
+							RTLIL::Design *extmapper_design = extern_mode && !in_recursion ? design : tpl->design;
+							RTLIL::Module *extmapper_module = extmapper_design->module(m_name);
 
 							if (extmapper_module == nullptr)
 							{
-								extmapper_module = design->addModule(m_name);
+								extmapper_module = extmapper_design->addModule(m_name);
 								RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
 
 								int port_counter = 1;
@@ -378,6 +382,7 @@ struct TechmapWorker
 									c.second = w;
 								}
 
+								extmapper_module->fixup_ports();
 								extmapper_module->check();
 
 								if (extmapper_name == "simplemap") {
@@ -385,6 +390,7 @@ struct TechmapWorker
 									if (simplemap_mappers.count(extmapper_cell->type) == 0)
 										log_error("No simplemap mapper for cell type %s found!\n", log_id(extmapper_cell->type));
 									simplemap_mappers.at(extmapper_cell->type)(extmapper_module, extmapper_cell);
+									extmapper_module->remove(extmapper_cell);
 								}
 
 								if (extmapper_name == "maccmap") {
@@ -392,14 +398,26 @@ struct TechmapWorker
 									if (extmapper_cell->type != "$macc")
 										log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(extmapper_cell->type));
 									maccmap(extmapper_module, extmapper_cell);
+									extmapper_module->remove(extmapper_cell);
 								}
 
-								extmapper_module->remove(extmapper_cell);
+								if (extmapper_name == "wrap") {
+									std::string cmd_string = tpl->attributes.at("\\techmap_wrap").decode_string();
+									log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
+									Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
+									log_continue = true;
+								}
+							}
+
+							cell->type = extmapper_module->name;
+							cell->parameters.clear();
+
+							if (!extern_mode || in_recursion) {
+								tpl = extmapper_module;
+								goto use_wrapper_tpl;
 							}
 
 							log("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
-							cell->type = extmapper_module->name;
-							cell->parameters.clear();
 						}
 						else
 						{
@@ -426,6 +444,7 @@ struct TechmapWorker
 						break;
 					}
 
+			use_wrapper_tpl:
 					for (auto conn : cell->connections()) {
 						if (conn.first.substr(0, 1) == "$")
 							continue;
@@ -785,6 +804,10 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("When a module in the map file has the 'techmap_maccmap' attribute set, techmap\n");
 		log("will use 'maccmap' (see 'help maccmap') to map cells matching the module.\n");
+		log("\n");
+		log("When a module in the map file has the 'techmap_wrap' attribute set, techmap\n");
+		log("will create a wrapper for the cell and then run the command string that the\n");
+		log("attribute is set to on the wrapper module.\n");
 		log("\n");
 		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
 		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
