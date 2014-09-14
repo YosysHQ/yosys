@@ -57,6 +57,8 @@ struct AlumaccWorker
 			if (!cell->type.in("$pos", "$neg", "$add", "$sub", "$mul"))
 				continue;
 
+			log("  creating $macc model for %s (%s).\n", log_id(cell), log_id(cell->type));
+
 			maccnode_t *n = new maccnode_t;
 			Macc::port_t new_port;
 
@@ -66,7 +68,6 @@ struct AlumaccWorker
 
 			for (auto bit : n->y)
 				n->users = std::max(n->users, bit_users.at(bit) - 1);
-
 
 			if (cell->type.in("$pos", "$neg"))
 			{
@@ -103,6 +104,60 @@ struct AlumaccWorker
 		}
 	}
 
+	void merge_macc()
+	{
+		while (1)
+		{
+			std::set<maccnode_t*> delete_nodes;
+
+			for (auto &it : sig_macc)
+			{
+				auto n = it.second;
+
+				if (delete_nodes.count(n))
+					continue;
+
+				for (int i = 0; i < SIZE(n->macc.ports); i++)
+				{
+					auto &port = n->macc.ports[i];
+
+					if (SIZE(port.in_b) > 0 || sig_macc.count(port.in_a) == 0)
+						continue;
+
+					auto other_n = sig_macc.at(port.in_a);
+
+					if (other_n->users > 1)
+						continue;
+
+					if (SIZE(other_n->y) != SIZE(n->y))
+						continue;
+
+					log("  merging $macc model for %s into %s.\n", log_id(other_n->cell), log_id(n->cell));
+
+					bool do_subtract = port.do_subtract;
+					for (int j = 0; j < SIZE(other_n->macc.ports); j++) {
+						if (do_subtract)
+							other_n->macc.ports[j].do_subtract = !other_n->macc.ports[j].do_subtract;
+						if (j == 0)
+							n->macc.ports[i--] = other_n->macc.ports[j];
+						else
+							n->macc.ports.push_back(other_n->macc.ports[j]);
+					}
+
+					delete_nodes.insert(other_n);
+				}
+			}
+
+			if (delete_nodes.empty())
+				break;
+
+			for (auto n : delete_nodes) {
+				sig_macc.erase(n->y);
+				delete n;
+			}
+		}
+	}
+
 	void replace_macc()
 	{
 		for (auto &it : sig_macc)
@@ -121,8 +176,11 @@ struct AlumaccWorker
 
 	void run()
 	{
+		log("Extracting $alu and $macc cells in module %s:\n", log_id(module));
+
 		count_bit_users();
 		extract_macc();
+		merge_macc();
 		replace_macc();
 	}
 };
