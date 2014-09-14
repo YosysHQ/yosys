@@ -9,6 +9,7 @@ OBJS += passes/techmap/iopadmap.o
 OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/maccmap.o
+OBJS += passes/techmap/alumacc.o
 endif
 
 GENFILES += passes/techmap/techmap.inc
