@@ -76,13 +76,7 @@ int main(int argc, char **argv)
 			printf("%s\n", yosys_version_str);
 			exit(0);
 		case 'S':
-			passes_commands.push_back("hierarchy");
-			passes_commands.push_back("proc");
-			passes_commands.push_back("opt");
-			passes_commands.push_back("memory");
-			passes_commands.push_back("opt");
-			passes_commands.push_back("techmap");
-			passes_commands.push_back("opt");
+			passes_commands.push_back("synth");
 			break;
 		case 'm':
 			plugin_filenames.push_back(optarg);
@@ -187,10 +181,10 @@ int main(int argc, char **argv)
 			fprintf(stderr, "    -V\n");
 			fprintf(stderr, "        print version information and exit\n");
 			fprintf(stderr, "\n");
-			fprintf(stderr, "The option -S is an alias for the following options that perform a simple\n");
-			fprintf(stderr, "transformation of the input to a gate-level netlist.\n");
+			fprintf(stderr, "The option -S is an shortcut for calling the \"synth\" command, a default\n");
+			fprintf(stderr, "script for transforming the verilog input to a gate-level netlist. For example:\n");
 			fprintf(stderr, "\n");
-			fprintf(stderr, "    -p hierarchy -p proc -p opt -p memory -p opt -p techmap -p opt\n");
+			fprintf(stderr, "    yosys -o output.blif -S input.v\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "For more complex synthesis jobs it is recommended to use the read_* and write_*\n");
 			fprintf(stderr, "commands in a script file instead of specifying input and output files on the\n");

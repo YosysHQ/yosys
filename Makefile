@@ -111,6 +111,7 @@ LDFLAGS += -pg
 endif
 
 ifeq ($(ENABLE_ABC),1)
+CXXFLAGS += -DYOSYS_ENABLE_ABC
 TARGETS += yosys-abc
 endif
 

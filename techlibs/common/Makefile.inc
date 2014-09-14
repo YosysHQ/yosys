@@ -1,4 +1,6 @@
 
+OBJS += techlibs/common/synth.o
+
 EXTRA_TARGETS += techlibs/common/blackbox.v
 
 techlibs/common/blackbox.v: techlibs/common/blackbox.sed techlibs/common/simlib.v techlibs/common/simcells.v

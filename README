@@ -199,6 +199,19 @@ Various more complex liberty files (for testing) can be found here:
 		../cadence/lib/tsmc018/signalstorm/osu018_stdcells.lib
 		../cadence/lib/ami05/signalstorm/osu05_stdcells.lib
 
+The command "synth" provides a good default synthesis script (see "help synth").
+If possible a synthesis script should borrow from "synth". For example:
+
+	# the high-level stuff
+	hierarchy
+	synth -run coarse
+
+	# mapping to internal cells
+	techmap; opt -fast
+	dfflibmap -liberty mycells.lib
+	abc -liberty mycells.lib
+	clean
+
 Yosys is under construction. A more detailed documentation will follow.
 
 
@@ -351,12 +364,7 @@ from SystemVerilog:
 Roadmap / Large-scale TODOs
 ===========================
 
-- Verification and Regression Tests
-   - VlogHammer: http://www.clifford.at/yosys/vloghammer.html
-   - yosys-bigsim: https://github.com/cliffordwolf/yosys-bigsim
-
 - Technology mapping for real-world applications
-   - Rewrite current techmap.v rules (modular and clean)
    - Improve Xilinx FGPA synthesis (RAMB, CARRY4, SLR, etc.)
 
 - Implement SAT-based formal equivialence checker
@@ -382,7 +390,4 @@ Other Unsorted TODOs
 
   - Add brief source code documentation to most passes and kernel code
   - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
-  - Add more commands for changing the design (delete, add, modify objects)
-  - Add full support for $lut cell type (const evaluation, sat solving, etc.)
-  - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
 
