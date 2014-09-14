@@ -18,14 +18,112 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/sigtools.h"
 #include "kernel/macc.h"
 
 struct AlumaccWorker
 {
 	RTLIL::Module *module;
+	SigMap sigmap;
 
-	AlumaccWorker(RTLIL::Module *module) : module(module)
+	struct maccnode_t {
+		Macc macc;
+		RTLIL::Cell *cell;
+		RTLIL::SigSpec y;
+		int users;
+	};
+
+	std::map<RTLIL::SigBit, int> bit_users;
+	std::map<RTLIL::SigSpec, maccnode_t*> sig_macc;
+
+	AlumaccWorker(RTLIL::Module *module) : module(module), sigmap(module) { }
+
+	void count_bit_users()
 	{
+		for (auto port : module->ports)
+			for (auto bit : sigmap(module->wire(port)))
+				bit_users[bit]++;
+
+		for (auto cell : module->cells())
+		for (auto &conn : cell->connections())
+			for (auto bit : sigmap(conn.second))
+				bit_users[bit]++;
+	}
+
+	void extract_macc()
+	{
+		for (auto cell : module->selected_cells())
+		{
+			if (!cell->type.in("$pos", "$neg", "$add", "$sub", "$mul"))
+				continue;
+
+			maccnode_t *n = new maccnode_t;
+			Macc::port_t new_port;
+
+			n->cell = cell;
+			n->y = sigmap(cell->getPort("\\Y"));
+			n->users = 0;
+
+			for (auto bit : n->y)
+				n->users = std::max(n->users, bit_users.at(bit) - 1);
+
+
+			if (cell->type.in("$pos", "$neg"))
+			{
+				new_port.in_a = sigmap(cell->getPort("\\A"));
+				new_port.is_signed = cell->getParam("\\A_SIGNED").as_bool();
+				new_port.do_subtract = cell->type == "$neg";
+				n->macc.ports.push_back(new_port);
+			}
+
+			if (cell->type.in("$add", "$sub"))
+			{
+				new_port.in_a = sigmap(cell->getPort("\\A"));
+				new_port.is_signed = cell->getParam("\\A_SIGNED").as_bool();
+				new_port.do_subtract = false;
+				n->macc.ports.push_back(new_port);
+
+				new_port.in_a = sigmap(cell->getPort("\\B"));
+				new_port.is_signed = cell->getParam("\\B_SIGNED").as_bool();
+				new_port.do_subtract = cell->type == "$sub";
+				n->macc.ports.push_back(new_port);
+			}
+
+			if (cell->type.in("$mul"))
+			{
+				new_port.in_a = sigmap(cell->getPort("\\A"));
+				new_port.in_b = sigmap(cell->getPort("\\B"));
+				new_port.is_signed = cell->getParam("\\A_SIGNED").as_bool();
+				new_port.do_subtract = false;
+				n->macc.ports.push_back(new_port);
+			}
+
+			log_assert(sig_macc.count(n->y) == 0);
+			sig_macc[n->y] = n;
+		}
+	}
+
+	void replace_macc()
+	{
+		for (auto &it : sig_macc)
+		{
+			auto n = it.second;
+			auto cell = module->addCell(NEW_ID, "$macc");
+			n->macc.to_cell(cell);
+			cell->setPort("\\Y", n->y);
+			cell->fixup_parameters();
+			module->remove(n->cell);
+			delete n;
+		}
+
+		sig_macc.clear();
+	}
+
+	void run()
+	{
+		count_bit_users();
+		extract_macc();
+		replace_macc();
 	}
 };
 
@@ -55,9 +153,11 @@ struct AlumaccPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->selected_modules()) {
-			AlumaccWorker worker(mod);
-		}
+		for (auto mod : design->selected_modules())
+			if (!mod->has_processes_warn()) {
+				AlumaccWorker worker(mod);
+				worker.run();
+			}
 	}
 } AlumaccPass;
  
