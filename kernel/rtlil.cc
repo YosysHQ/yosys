@@ -1148,6 +1148,9 @@ void RTLIL::Module::remove(const std::set<RTLIL::Wire*> &wires)
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
+	while (!cell->connections_.empty())
+		cell->unsetPort(cell->connections_.begin()->first);
+
 	log_assert(cells_.count(cell->name) != 0);
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell->name);
