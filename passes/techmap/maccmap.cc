@@ -126,14 +126,14 @@ struct MaccmapWorker
 	int tree_bit_slots(int n)
 	{
 	#if 0
-		int retval = 0;
+		int retval = 1;
 		while (n > 2) {
 			retval += n / 3;
 			n = 2*(n / 3) + (n % 3);
 		}
 		return retval;
 	#else
-		return std::max(n - 2, 0);
+		return std::max(n - 1, 0);
 	#endif
 	}
 
@@ -142,6 +142,7 @@ struct MaccmapWorker
 		std::vector<RTLIL::SigSpec> summands;
 		std::vector<RTLIL::SigBit> tree_sum_bits;
 		int unique_tree_bits = 0;
+		int count_tree_words = 0;
 
 		while (1)
 		{
@@ -160,27 +161,55 @@ struct MaccmapWorker
 				break;
 
 			summands.push_back(summand);
-			int free_bit_slots = tree_bit_slots(SIZE(summands)) - SIZE(tree_sum_bits);
 
-			for (int i = 0; i < width && (1 << i) <= free_bit_slots; i++)
-				while (!bits.at(i).empty() && (1 << i) <= free_bit_slots) {
-					auto it = bits.at(i).begin();
-					RTLIL::SigBit bit = *it;
-					bits.at(i).erase(it);
-					for (int k = 0; k < (1 << i); k++, free_bit_slots--)
-						tree_sum_bits.push_back(bit);
-					unique_tree_bits++;
-				}
+			while (1)
+			{
+				int free_bit_slots = tree_bit_slots(SIZE(summands)) - SIZE(tree_sum_bits);
+
+				int max_depth = 0, max_position = 0;
+				for (int i = 0; i < width; i++)
+					if (max_depth <= SIZE(bits.at(i))) {
+						max_depth = SIZE(bits.at(i));
+						max_position = i;
+					}
+
+				if (max_depth == 0 || max_position > 4)
+					break;
+
+				int required_bits = 0;
+				for (int i = 0; i <= max_position; i++)
+					if (SIZE(bits.at(i)) == max_depth)
+						required_bits += 1 << i;
+
+				if (required_bits > free_bit_slots)
+					break;
+
+				for (int i = 0; i <= max_position; i++)
+					if (SIZE(bits.at(i)) == max_depth) {
+						auto it = bits.at(i).begin();
+						RTLIL::SigBit bit = *it;
+						for (int k = 0; k < (1 << i); k++, free_bit_slots--)
+							tree_sum_bits.push_back(bit);
+						bits.at(i).erase(it);
+						unique_tree_bits++;
+					}
+
+				count_tree_words++;
+			}
 		}
 
 		if (!tree_sum_bits.empty())
-			log("  packed %d (%d) bits into adder tree\n", SIZE(tree_sum_bits), unique_tree_bits);
+			log("  packed %d (%d) bits / %d words into adder tree\n", SIZE(tree_sum_bits), unique_tree_bits, count_tree_words);
 
-		if (SIZE(summands) == 0)
+		if (SIZE(summands) == 0) {
+			log_assert(tree_sum_bits.empty());
 			return RTLIL::SigSpec(0, width);
+		}
 
-		if (SIZE(summands) == 1)
+		if (SIZE(summands) == 1) {
+			log_assert(tree_sum_bits.empty());
 			return summands.front();
+		}
 
 		while (SIZE(summands) > 2)
 		{
@@ -206,7 +235,6 @@ struct MaccmapWorker
 			summands.swap(new_summands);
 		}
 
-		log_assert(tree_sum_bits.empty());
 
 		RTLIL::Cell *c = module->addCell(NEW_ID, "$alu");
 		c->setPort("\\A", summands.front());
@@ -217,6 +245,12 @@ struct MaccmapWorker
 		c->setPort("\\X", module->addWire(NEW_ID, width));
 		c->setPort("\\CO", module->addWire(NEW_ID, width));
 		c->fixup_parameters();
+
+		if (!tree_sum_bits.empty()) {
+			c->setPort("\\CI", tree_sum_bits.back());
+			tree_sum_bits.pop_back();
+		}
+		log_assert(tree_sum_bits.empty());
 
 		return c->getPort("\\Y");
 	}
