@@ -172,6 +172,42 @@ struct AlumaccWorker
 		}
 	}
 
+	static bool macc_may_overflow(Macc &macc, int width, bool is_signed)
+	{
+		std::vector<int> port_sizes;
+
+		for (auto &port : macc.ports) {
+			if (port.is_signed != is_signed)
+				return true;
+			if (!port.is_signed && port.do_subtract)
+				return true;
+			if (SIZE(port.in_b))
+				port_sizes.push_back(SIZE(port.in_a) + SIZE(port.in_b));
+			else
+				port_sizes.push_back(SIZE(port.in_a));
+		}
+
+		std::sort(port_sizes.begin(), port_sizes.end());
+
+		int acc_sum = 0, acc_shift = 0;
+		for (int sz : port_sizes) {
+			while ((sz - acc_shift) > 20) {
+				if (acc_sum & 1)
+					acc_sum++;
+				acc_sum = acc_sum >> 1;
+				acc_shift++;
+			}
+			acc_sum += (1 << (sz - acc_shift)) - 1;
+		}
+
+		while (acc_sum) {
+			acc_sum = acc_sum >> 1;
+			acc_shift++;
+		}
+
+		return acc_shift > width;
+	}
+
 	void merge_macc()
 	{
 		while (1)
@@ -197,7 +233,7 @@ struct AlumaccWorker
 					if (other_n->users > 1)
 						continue;
 
-					if (SIZE(other_n->y) != SIZE(n->y))
+					if (SIZE(other_n->y) != SIZE(n->y) && macc_may_overflow(other_n->macc, SIZE(other_n->y), port.is_signed))
 						continue;
 
 					log("  merging $macc model for %s into %s.\n", log_id(other_n->cell), log_id(n->cell));
