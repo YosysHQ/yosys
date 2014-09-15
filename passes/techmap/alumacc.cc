@@ -317,6 +317,7 @@ struct AlumaccWorker
 
 			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
 
+			n->macc.optimize(SIZE(n->y));
 			n->macc.to_cell(cell);
 			cell->setPort("\\Y", n->y);
 			cell->fixup_parameters();

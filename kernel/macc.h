@@ -34,6 +34,66 @@ struct Macc
 	std::vector<port_t> ports;
 	RTLIL::SigSpec bit_ports;
 
+	void optimize(int width)
+	{
+		std::vector<port_t> new_ports;
+		RTLIL::SigSpec new_bit_ports;
+		RTLIL::Const off(0, width);
+
+		for (auto &port : ports)
+		{
+			if (SIZE(port.in_a) == 0 && SIZE(port.in_b) == 0)
+				continue;
+
+			if (SIZE(port.in_a) == 1 && SIZE(port.in_b) == 0 && !port.is_signed && !port.do_subtract) {
+				bit_ports.append(port.in_a);
+				continue;
+			}
+
+			if (port.in_a.is_fully_const() && port.in_b.is_fully_const()) {
+				RTLIL::Const v = port.in_a.as_const();
+				if (SIZE(port.in_b))
+					v = const_mul(v, port.in_b.as_const(), port.is_signed, port.is_signed, width);
+				if (port.do_subtract)
+					off = const_sub(off, v, port.is_signed, port.is_signed, width);
+				else
+					off = const_add(off, v, port.is_signed, port.is_signed, width);
+				continue;
+			}
+
+			if (port.is_signed) {
+				while (SIZE(port.in_a) > 1 && port.in_a[SIZE(port.in_a)-1] == port.in_a[SIZE(port.in_a)-2])
+					port.in_a.remove(SIZE(port.in_a)-1);
+				while (SIZE(port.in_b) > 1 && port.in_b[SIZE(port.in_b)-1] == port.in_b[SIZE(port.in_b)-2])
+					port.in_b.remove(SIZE(port.in_b)-1);
+			} else {
+				while (SIZE(port.in_a) > 1 && port.in_a[SIZE(port.in_a)-1] == RTLIL::S0)
+					port.in_a.remove(SIZE(port.in_a)-1);
+				while (SIZE(port.in_b) > 1 && port.in_b[SIZE(port.in_b)-1] == RTLIL::S0)
+					port.in_b.remove(SIZE(port.in_b)-1);
+			}
+
+			new_ports.push_back(port);
+		}
+
+		for (auto &bit : bit_ports)
+			if (bit == RTLIL::S1)
+				off = const_add(off, RTLIL::Const(1, width), false, false, width);
+			else if (bit != RTLIL::S0)
+				new_bit_ports.append(bit);
+
+		if (off.as_bool()) {
+			port_t port;
+			port.in_a = off;
+			port.is_signed = false;
+			port.do_subtract = false;
+			new_ports.push_back(port);
+		}
+
+		new_ports.swap(ports);
+		bit_ports = new_bit_ports;
+	}
+
 	void from_cell(RTLIL::Cell *cell)
 	{
 		RTLIL::SigSpec port_a = cell->getPort("\\A");
