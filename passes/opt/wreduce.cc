@@ -186,7 +186,7 @@ struct WreduceWorker
 		bool port_a_signed = false;
 		bool port_b_signed = false;
 
-		if (max_port_a_size >= 0)
+		if (max_port_a_size >= 0 && cell->type != "$shiftx")
 			run_reduce_inport(cell, 'A', max_port_a_size, port_a_signed, did_something);
 
 		if (max_port_b_size >= 0)
