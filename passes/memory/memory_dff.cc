@@ -169,12 +169,14 @@ static void handle_module(RTLIL::Module *module, bool flag_wr_only)
 		if (cell->type == "$dff")
 			dff_cells.push_back(cell);
 
-	for (auto cell : module->selected_cells()) {
+	for (auto cell : module->selected_cells())
 		if (cell->type == "$memwr" && !cell->parameters["\\CLK_ENABLE"].as_bool())
-				handle_wr_cell(module, dff_cells, cell);
-		if (!flag_wr_only && cell->type == "$memrd" && !cell->parameters["\\CLK_ENABLE"].as_bool())
+			handle_wr_cell(module, dff_cells, cell);
+
+	if (!flag_wr_only)
+		for (auto cell : module->selected_cells())
+			if (cell->type == "$memrd" && !cell->parameters["\\CLK_ENABLE"].as_bool())
 				handle_rd_cell(module, dff_cells, cell);
-	}
 }
 
 struct MemoryDffPass : public Pass {
