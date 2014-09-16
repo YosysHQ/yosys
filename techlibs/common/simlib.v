@@ -820,7 +820,7 @@ function integer my_clog2;
 	end
 endfunction
 
-localparam integer num_bits = CONFIG[3:0];
+localparam integer num_bits = CONFIG[3:0] > 0 ? CONFIG[3:0] : 1;
 localparam integer num_ports = (CONFIG_WIDTH-4) / (2 + 2*num_bits);
 localparam integer num_abits = my_clog2(A_WIDTH) > 0 ? my_clog2(A_WIDTH) : 1;
 
