@@ -34,6 +34,11 @@
 #define ABC_COMMAND_LUT "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; if -v"
 #define ABC_COMMAND_DFL "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; map -v"
 
+#define ABC_FAST_COMMAND_LIB "strash; scorr -v; retime -v {D}; strash; map -v {D}"
+#define ABC_FAST_COMMAND_CTR "strash; scorr -v; retime -v {D}; strash; map -v {D}; buffer -v; upsize -v {D}; dnsize -v {D}; stime -p"
+#define ABC_FAST_COMMAND_LUT "strash; scorr -v; retime -v; strash; if -v"
+#define ABC_FAST_COMMAND_DFL "strash; scorr -v; retime -v; strash; map -v"
+
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -479,7 +484,7 @@ static std::string fold_abc_cmd(std::string str)
 
 static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target)
+		bool keepff, std::string delay_target, bool fast_mode)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -512,11 +517,11 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		} else
 			abc_command = stringf("source %s", script_file.c_str());
 	} else if (lut_mode)
-		abc_command = ABC_COMMAND_LUT;
+		abc_command = fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 	else if (!liberty_file.empty())
-		abc_command = constr_file.empty() ? ABC_COMMAND_LIB : ABC_COMMAND_CTR;
+		abc_command = constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else
-		abc_command = ABC_COMMAND_DFL;
+		abc_command = fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
 
 	for (size_t pos = abc_command.find("{D}"); pos != std::string::npos; pos = abc_command.find("{D}", pos))
 		abc_command = abc_command.substr(0, pos) + delay_target + abc_command.substr(pos+3);
@@ -1041,6 +1046,22 @@ struct AbcPass : public Pass {
 		log("        otherwise:\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL).c_str());
 		log("\n");
+		log("    -fast\n");
+		log("        use different default scripts that are slightly faster (at the cost\n");
+		log("        of output quality):\n");
+		log("\n");
+		log("        for -liberty without -constr:\n");
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LIB).c_str());
+		log("\n");
+		log("        for -liberty with -constr:\n");
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_CTR).c_str());
+		log("\n");
+		log("        for -lut:\n");
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("\n");
+		log("        otherwise:\n");
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_DFL).c_str());
+		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");
 		log("        file format).\n");
@@ -1097,7 +1118,7 @@ struct AbcPass : public Pass {
 
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 		std::string script_file, liberty_file, constr_file, clk_str, delay_target;
-		bool dff_mode = false, keepff = false, cleanup = true;
+		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		int lut_mode = 0;
 
 		size_t argidx;
@@ -1138,6 +1159,10 @@ struct AbcPass : public Pass {
 				lut_mode = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (arg == "-fast") {
+				fast_mode = true;
+				continue;
+			}
 			if (arg == "-dff") {
 				dff_mode = true;
 				continue;
@@ -1168,7 +1193,7 @@ struct AbcPass : public Pass {
 				if (mod_it.second->processes.size() > 0)
 					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
 				else
-					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff, delay_target);
+					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff, delay_target, fast_mode);
 			}
 
 		assign_map.clear();
