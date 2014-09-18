@@ -66,18 +66,20 @@ struct SynthPass : public Pass {
 		log("        wreduce\n");
 		log("        alumacc\n");
 		log("        share\n");
-		log("        opt -fast\n");
+		log("        opt\n");
 		log("        fsm\n");
 		log("        opt -fast\n");
-		log("        memory\n");
+		log("        memory -nomap\n");
+		log("        opt_clean\n");
 		log("\n");
 		log("    fine:\n");
+		log("        memory_map\n");
 		log("        techmap\n");
 		log("        opt -fast\n");
 	#ifdef YOSYS_ENABLE_ABC
-		log("        abc\n");
+		log("        abc -fast\n");
+		log("        opt_clean\n");
 	#endif
-		log("        clean\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -130,20 +132,22 @@ struct SynthPass : public Pass {
 			Pass::call(design, "wreduce");
 			Pass::call(design, "alumacc");
 			Pass::call(design, "share");
-			Pass::call(design, "opt -fast");
+			Pass::call(design, "opt");
 			Pass::call(design, "fsm");
 			Pass::call(design, "opt -fast");
-			Pass::call(design, "memory");
+			Pass::call(design, "memory -nomap");
+			Pass::call(design, "opt_clean");
 		}
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
+			Pass::call(design, "memory_map");
 			Pass::call(design, "techmap");
 			Pass::call(design, "opt -fast");
 		#ifdef YOSYS_ENABLE_ABC
-			Pass::call(design, "abc");
+			Pass::call(design, "abc -fast");
+			Pass::call(design, "opt_clean");
 		#endif
-			Pass::call(design, "clean");
 		}
 
 		log_pop();
