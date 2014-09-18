@@ -75,7 +75,8 @@ struct BtorDumper
 	std::string str;//temp string for writing file
 	std::map<RTLIL::IdString, bool> basic_wires;//input wires and registers	
 	RTLIL::IdString curr_cell; //current cell being dumped
-	std::map<std::string, std::string> cell_type_translation, s_cell_type_translation; //RTLIL to BTOR translation
+        std::set<int> mem_next; //if memory (line_number) already has next
+        std::map<std::string, std::string> cell_type_translation, s_cell_type_translation; //RTLIL to BTOR translation
 	BtorDumper(FILE *f, RTLIL::Module *module, RTLIL::Design *design, BtorDumperConfig *config) :
 			f(f), module(module), design(design), config(config), ct(design), sigmap(module)
 	{
@@ -414,7 +415,7 @@ struct BtorDumper
 				line_ref[cell->name]=cell_line;
 			}
 			//unary cells
-			if(cell->type == "$not" || cell->type == "$neg" || cell->type == "$pos" || cell->type == "$reduce_and" ||
+			else if(cell->type == "$not" || cell->type == "$neg" || cell->type == "$pos" || cell->type == "$reduce_and" ||
 				cell->type == "$reduce_or" || cell->type == "$reduce_xor" || cell->type == "$reduce_bool")
 			{
 				log("writing unary cell - %s\n", cstr(cell->type));
@@ -451,15 +452,17 @@ struct BtorDumper
 					++line_num;
 					str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$reduce_or").c_str(), output_width, l);
 					fprintf(f, "%s\n", str.c_str());
+                                        l = line_num;
 				}
 				else if(cell->type == "$reduce_xnor")
 				{
 					++line_num;
 					str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$reduce_xor").c_str(), output_width, l);
 					fprintf(f, "%s\n", str.c_str());
+                                        l = line_num;
 				}		
 				++line_num;
-				str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$not").c_str(), output_width, line_num-1);
+				str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$not").c_str(), output_width, l);
 				fprintf(f, "%s\n", str.c_str());
 				line_ref[cell->name]=line_num;
 			}
@@ -661,13 +664,13 @@ struct BtorDumper
                           }
                           
                           ++line_num;
-                          str = stringf ("%d cond 1 %d %d %d", line_num, c[select_width-1], c[select_width-1]+1, default_case);
+                          str = stringf ("%d cond %d %d %d %d", line_num, output_width, c[select_width-1], c[select_width-1]+1, default_case);
                           fprintf(f, "%s\n", str.c_str());
                           
                           for (int i=select_width-2; i>=0; --i)
                           {
                             ++line_num;
-                            str = stringf ("%d cond 1 %d %d %d", line_num, c[i], c[i]+1, line_num-1);
+                            str = stringf ("%d cond %d %d %d %d", line_num, output_width, c[i], c[i]+1, line_num-1);
                             fprintf(f, "%s\n", str.c_str());
                           }
 
@@ -763,11 +766,26 @@ struct BtorDumper
 				int enable = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\EN")), 1);
 				int address_width = cell->parameters.at(RTLIL::IdString("\\ABITS")).as_int();
 				int address = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\ADDR")), address_width);
-				int data_width = cell->parameters.at(RTLIL::IdString("\\WIDTH")).as_int();
+                                int data_width = cell->parameters.at(RTLIL::IdString("\\WIDTH")).as_int();
 				int data = dump_sigspec(&cell->connections.at(RTLIL::IdString("\\DATA")), data_width);
 				str = cell->parameters.at(RTLIL::IdString("\\MEMID")).decode_string();
 				int mem = dump_memory(module->memories.at(RTLIL::IdString(str.c_str())));
-				++line_num;
+				//check if the memory has already next
+                                auto it = mem_next.find(mem);
+                                if(it != std::end(mem_next))
+                                {
+                                        ++line_num;
+                                        str = cell->parameters.at(RTLIL::IdString("\\MEMID")).decode_string();
+                                        RTLIL::Memory *memory = module->memories.at(RTLIL::IdString(str.c_str()));
+                                        int address_bits = ceil(log(memory->size)/log(2));
+                                        str = stringf("%d array %d %d", line_num, memory->width, address_bits);
+                                        fprintf(f, "%s\n", str.c_str());
+                                        ++line_num;
+                                        str = stringf("%d eq 1 %d %d", line_num, mem, line_num - 1);
+                                        fprintf(f, "%s\n", str.c_str());
+                                        mem = line_num - 1;
+                                }
+                                ++line_num;
 				if(polarity)
 					str = stringf("%d one 1", line_num);
 				else
@@ -788,7 +806,8 @@ struct BtorDumper
 				++line_num;
 				str = stringf("%d anext %d %d %d %d", line_num, data_width, address_width, mem, line_num-1);	
 				fprintf(f, "%s\n", str.c_str());				
-				line_ref[cell->name]=line_num;
+				mem_next.insert(mem);
+                                line_ref[cell->name]=line_num;
 			}
 			else if(cell->type == "$slice")
 			{
