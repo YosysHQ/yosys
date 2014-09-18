@@ -34,10 +34,10 @@
 #define ABC_COMMAND_LUT "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; if -v"
 #define ABC_COMMAND_DFL "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; map -v"
 
-#define ABC_FAST_COMMAND_LIB "strash; scorr -v; retime -v {D}; strash; map -v {D}"
-#define ABC_FAST_COMMAND_CTR "strash; scorr -v; retime -v {D}; strash; map -v {D}; buffer -v; upsize -v {D}; dnsize -v {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "strash; scorr -v; retime -v; strash; if -v"
-#define ABC_FAST_COMMAND_DFL "strash; scorr -v; retime -v; strash; map -v"
+#define ABC_FAST_COMMAND_LIB "retime -v {D}; map -v {D}"
+#define ABC_FAST_COMMAND_CTR "retime -v {D}; map -v {D}; buffer -v; upsize -v {D}; dnsize -v {D}; stime -p"
+#define ABC_FAST_COMMAND_LUT "retime -v; if -v"
+#define ABC_FAST_COMMAND_DFL "retime -v; map -v"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
