@@ -111,7 +111,9 @@ void ILANG_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, boo
 
 void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire)
 {
-	for (auto it = wire->attributes.begin(); it != wire->attributes.end(); it++) {
+	std::map<RTLIL::IdString, RTLIL::Const, RTLIL::sort_by_id_str> sorted_attributes(wire->attributes.begin(), wire->attributes.end());
+
+	for (auto it = sorted_attributes.begin(); it != sorted_attributes.end(); it++) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
 		f << stringf("\n");
@@ -134,7 +136,9 @@ void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 
 void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory)
 {
-	for (auto it = memory->attributes.begin(); it != memory->attributes.end(); it++) {
+	std::map<RTLIL::IdString, RTLIL::Const, RTLIL::sort_by_id_str> sorted_attributes(memory->attributes.begin(), memory->attributes.end());
+
+	for (auto it = sorted_attributes.begin(); it != sorted_attributes.end(); it++) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
 		f << stringf("\n");
@@ -149,18 +153,22 @@ void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL
 
 void ILANG_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
 {
-	for (auto it = cell->attributes.begin(); it != cell->attributes.end(); it++) {
+	std::map<RTLIL::IdString, RTLIL::Const, RTLIL::sort_by_id_str> sorted_attributes(cell->attributes.begin(), cell->attributes.end());
+	std::map<RTLIL::IdString, RTLIL::Const, RTLIL::sort_by_id_str> sorted_parameters(cell->parameters.begin(), cell->parameters.end());
+	std::map<RTLIL::IdString, RTLIL::SigSpec, RTLIL::sort_by_id_str> sorted_connections(cell->connections().begin(), cell->connections().end());
+
+	for (auto it = sorted_attributes.begin(); it != sorted_attributes.end(); it++) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
 		dump_const(f, it->second);
 		f << stringf("\n");
 	}
 	f << stringf("%s" "cell %s %s\n", indent.c_str(), cell->type.c_str(), cell->name.c_str());
-	for (auto it = cell->parameters.begin(); it != cell->parameters.end(); it++) {
+	for (auto it = sorted_parameters.begin(); it != sorted_parameters.end(); it++) {
 		f << stringf("%s  parameter%s %s ", indent.c_str(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "", it->first.c_str());
 		dump_const(f, it->second);
 		f << stringf("\n");
 	}
-	for (auto it = cell->connections().begin(); it != cell->connections().end(); it++) {
+	for (auto it = sorted_connections.begin(); it != sorted_connections.end(); it++) {
 		f << stringf("%s  connect %s ", indent.c_str(), it->first.c_str());
 		dump_sigspec(f, it->second);
 		f << stringf("\n");
@@ -259,7 +267,7 @@ void ILANG_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::
 	f << stringf("\n");
 }
 
-void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
 	bool print_header = flag_m || design->selected_whole_module(module->name);
 	bool print_body = !flag_n || !design->selected_whole_module(module->name);
@@ -277,32 +285,52 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, const RTLIL
 
 	if (print_body)
 	{
-		for (auto it = module->wires_.begin(); it != module->wires_.end(); it++)
-			if (!only_selected || design->selected(module, it->second)) {
+		std::vector<RTLIL::Wire*> sorted_wires;
+		for (auto it : module->wires())
+			sorted_wires.push_back(it);
+		std::sort(sorted_wires.begin(), sorted_wires.end(), RTLIL::sort_by_name_str<RTLIL::Wire>());
+
+		std::vector<RTLIL::Memory*> sorted_memories;
+		for (auto it : module->memories)
+			sorted_memories.push_back(it.second);
+		std::sort(sorted_memories.begin(), sorted_memories.end(), RTLIL::sort_by_name_str<RTLIL::Memory>());
+
+		std::vector<RTLIL::Cell*> sorted_cells;
+		for (auto it : module->cells())
+			sorted_cells.push_back(it);
+		std::sort(sorted_cells.begin(), sorted_cells.end(), RTLIL::sort_by_name_str<RTLIL::Cell>());
+
+		std::vector<RTLIL::Process*> sorted_processes;
+		for (auto it : module->processes)
+			sorted_processes.push_back(it.second);
+		std::sort(sorted_processes.begin(), sorted_processes.end(), RTLIL::sort_by_name_str<RTLIL::Process>());
+
+		for (auto it : sorted_wires)
+			if (!only_selected || design->selected(module, it)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_wire(f, indent + "  ", it->second);
+				dump_wire(f, indent + "  ", it);
 			}
 
-		for (auto it = module->memories.begin(); it != module->memories.end(); it++)
-			if (!only_selected || design->selected(module, it->second)) {
+		for (auto it : sorted_memories)
+			if (!only_selected || design->selected(module, it)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_memory(f, indent + "  ", it->second);
+				dump_memory(f, indent + "  ", it);
 			}
 
-		for (auto it = module->cells_.begin(); it != module->cells_.end(); it++)
-			if (!only_selected || design->selected(module, it->second)) {
+		for (auto it : sorted_cells)
+			if (!only_selected || design->selected(module, it)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_cell(f, indent + "  ", it->second);
+				dump_cell(f, indent + "  ", it);
 			}
 
-		for (auto it = module->processes.begin(); it != module->processes.end(); it++)
-			if (!only_selected || design->selected(module, it->second)) {
+		for (auto it : sorted_processes)
+			if (!only_selected || design->selected(module, it)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_proc(f, indent + "  ", it->second);
+				dump_proc(f, indent + "  ", it);
 			}
 
 		bool first_conn_line = true;
@@ -330,7 +358,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, const RTLIL
 		f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_design(std::ostream &f, const RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
 	int init_autoidx = autoidx;
 
