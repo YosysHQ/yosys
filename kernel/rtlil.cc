@@ -65,6 +65,13 @@ RTLIL::Const::Const(RTLIL::State bit, int width)
 		bits.push_back(bit);
 }
 
+RTLIL::Const::Const(const std::vector<bool> &bits)
+{
+	flags = RTLIL::CONST_FLAG_NONE;
+	for (auto b : bits)
+		this->bits.push_back(b ? RTLIL::S1 : RTLIL::S0);
+}
+
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 {
 	if (bits.size() != other.bits.size())
