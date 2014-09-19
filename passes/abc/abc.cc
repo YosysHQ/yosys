@@ -712,7 +712,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		fprintf(f, "GATE ZERO 1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE  1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF  1 Y=A;                  PIN * NONINV  1 999 1 0 1 0\n");
-		fprintf(f, "GATE INV  1 Y=!A;                 PIN * INV     1 999 1 0 1 0\n");
+		fprintf(f, "GATE NOT  1 Y=!A;                 PIN * INV     1 999 1 0 1 0\n");
 		fprintf(f, "GATE AND  1 Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n");
 		fprintf(f, "GATE NAND 1 Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n");
 		fprintf(f, "GATE OR   1 Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n");
@@ -854,7 +854,7 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 					module->connect(conn);
 					continue;
 				}
-				if (c->type == "\\INV") {
+				if (c->type == "\\NOT") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_NOT_");
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
