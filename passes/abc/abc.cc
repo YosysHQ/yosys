@@ -287,8 +287,9 @@ static void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edge
 
 	log("Dumping loop state graph to slide %d.\n", ++nr);
 
-	fprintf(f, "digraph slide%d {\n", nr);
-	fprintf(f, "  rankdir=\"LR\";\n");
+	fprintf(f, "digraph \"slide%d\" {\n", nr);
+	fprintf(f, "  label=\"slide%d\";\n", nr);
+	fprintf(f, "  rankdir=\"TD\";\n");
 
 	std::set<int> nodes;
 	for (auto &e : edges) {
@@ -375,10 +376,10 @@ static void handle_loops()
 				int id2 = edge_it.first;
 				RTLIL::Wire *w1 = signal_list[id1].bit.wire;
 				RTLIL::Wire *w2 = signal_list[id2].bit.wire;
-				if (w1 != NULL)
-					continue;
-				else if (w2 == NULL)
+				if (w1 == NULL)
 					id1 = id2;
+				else if (w2 == NULL)
+					continue;
 				else if (w1->name[0] == '$' && w2->name[0] == '\\')
 					id1 = id2;
 				else if (w1->name[0] == '\\' && w2->name[0] == '$')
@@ -387,7 +388,7 @@ static void handle_loops()
 					id1 = id2;
 				else if (edges[id1].size() > edges[id2].size())
 					continue;
-				else if (w2->name < w1->name)
+				else if (w2->name.str() < w1->name.str())
 					id1 = id2;
 			}
 
@@ -395,6 +396,8 @@ static void handle_loops()
 				edges.erase(id1);
 				continue;
 			}
+
+			log_assert(signal_list[id1].bit.wire != NULL);
 
 			std::stringstream sstr;
 			sstr << "$abcloop$" << (autoidx++);
