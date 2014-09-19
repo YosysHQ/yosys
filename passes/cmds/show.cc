@@ -355,6 +355,9 @@ struct ShowWorker
 					out_ports.push_back(conn.first);
 			}
 
+			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str());
+			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str());
+
 			std::string label_string = "{{";
 
 			for (auto &p : in_ports)
