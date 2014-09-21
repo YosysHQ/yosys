@@ -47,7 +47,9 @@ struct ShareWorker
 	std::set<RTLIL::Cell*> cells_to_remove;
 	std::set<RTLIL::Cell*> recursion_state;
 
-	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> to_drivers_edges;
+	SigMap topo_sigmap;
+	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> topo_cell_drivers;
+	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> topo_bit_drivers;
 
 
 	// ------------------------------------------------------------------------------
@@ -647,16 +649,17 @@ struct ShareWorker
 	// Helper functions used to make sure that this pass does not introduce new logic loops.
 	// -------------------------------------------------------------------------------------
 
-	bool module_has_scc(std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> *edges = NULL)
+	bool module_has_scc()
 	{
-		SigMap sigmap(module);
-
 		CellTypes ct;
 		ct.setup_internals();
 		ct.setup_stdcells();
 
 		TopoSort<RTLIL::Cell*> toposort;
 		toposort.analyze_loops = false;
+
+		topo_sigmap.set(module);
+		topo_bit_drivers.clear();
 
 		std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bits;
 		std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cells;
@@ -665,10 +668,12 @@ struct ShareWorker
 			if (ct.cell_known(cell->type))
 				for (auto &conn : cell->connections()) {
 					if (ct.cell_output(cell->type, conn.first))
-						for (auto bit : sigmap(conn.second))
+						for (auto bit : topo_sigmap(conn.second)) {
 							cell_to_bits[cell].insert(bit);
+							topo_bit_drivers[bit].insert(cell);
+						}
 					else
-						for (auto bit : sigmap(conn.second))
+						for (auto bit : topo_sigmap(conn.second))
 							bit_to_cells[bit].insert(cell);
 				}
 
@@ -682,8 +687,8 @@ struct ShareWorker
 		}
 
 		bool found_scc = !toposort.sort();
-		if (edges)
-			*edges = std::move(toposort.database);
+		topo_cell_drivers = std::move(toposort.database);
+
 		return found_scc;
 	}
 
@@ -697,7 +702,7 @@ struct ShareWorker
 
 		stop.insert(root);
 
-		for (auto c : to_drivers_edges[root])
+		for (auto c : topo_cell_drivers[root])
 			if (find_in_input_cone_worker(c, needle, stop))
 				return true;
 		return false;
@@ -717,7 +722,7 @@ struct ShareWorker
 	ShareWorker(ShareWorkerConfig config, RTLIL::Design *design, RTLIL::Module *module) :
 			config(config), design(design), module(module)
 	{
-		bool before_scc = module_has_scc(&to_drivers_edges);
+		bool before_scc = module_has_scc();
 
 		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
 		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
@@ -950,8 +955,12 @@ struct ShareWorker
 				cells_to_remove.insert(cell);
 				cells_to_remove.insert(other_cell);
 
-				to_drivers_edges[cell].insert(to_drivers_edges[other_cell].begin(), to_drivers_edges[other_cell].end());
-				to_drivers_edges[other_cell] = to_drivers_edges[cell];
+				for (auto bit : topo_sigmap(all_ctrl_signals))
+					for (auto c : topo_bit_drivers[bit])
+						topo_cell_drivers[cell].insert(c);
+
+				topo_cell_drivers[cell].insert(topo_cell_drivers[other_cell].begin(), topo_cell_drivers[other_cell].end());
+				topo_cell_drivers[other_cell] = topo_cell_drivers[cell];
 				break;
 			}
 		}
@@ -967,7 +976,10 @@ struct ShareWorker
 		log_assert(recursion_state.empty());
 
 		bool after_scc = before_scc || module_has_scc();
-		log_assert(before_scc == after_scc);
+		if (before_scc != after_scc)
+			log("Warning: introduced topological logic loops!\n");
+		// Pass::call_on_module(design, module, "scc;; show");
+		// log_assert(before_scc == after_scc);
 	}
 };
 
