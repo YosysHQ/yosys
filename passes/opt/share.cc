@@ -47,6 +47,8 @@ struct ShareWorker
 	std::set<RTLIL::Cell*> cells_to_remove;
 	std::set<RTLIL::Cell*> recursion_state;
 
+	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> to_drivers_edges;
+
 
 	// ------------------------------------------------------------------------------
 	// Find terminal bits -- i.e. bits that do not (exclusively) feed into a mux tree
@@ -641,11 +643,11 @@ struct ShareWorker
 	}
 
 
-	// ------------------------------------------------------------------------------------------------
-	// Find SCCs (logic loops). This is only used to make sure that this pass does not introduce loops.
-	// ------------------------------------------------------------------------------------------------
+	// -------------------------------------------------------------------------------------
+	// Helper functions used to make sure that this pass does not introduce new logic loops.
+	// -------------------------------------------------------------------------------------
 
-	bool module_has_scc()
+	bool module_has_scc(std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> *edges = NULL)
 	{
 		SigMap sigmap(module);
 
@@ -679,7 +681,32 @@ struct ShareWorker
 				toposort.edge(c1, c2);
 		}
 
-		return !toposort.sort();
+		bool found_scc = !toposort.sort();
+		if (edges)
+			*edges = std::move(toposort.database);
+		return found_scc;
+	}
+
+	bool find_in_input_cone_worker(RTLIL::Cell *root, RTLIL::Cell *needle, std::set<RTLIL::Cell*> &stop)
+	{
+		if (root == needle)
+			return true;
+
+		if (stop.count(root))
+			return false;
+
+		stop.insert(root);
+
+		for (auto c : to_drivers_edges[root])
+			if (find_in_input_cone_worker(c, needle, stop))
+				return true;
+		return false;
+	}
+
+	bool find_in_input_cone(RTLIL::Cell *root, RTLIL::Cell *needle)
+	{
+		std::set<RTLIL::Cell*> stop;
+		return find_in_input_cone_worker(root, needle, stop);
 	}
 
 
@@ -690,7 +717,7 @@ struct ShareWorker
 	ShareWorker(ShareWorkerConfig config, RTLIL::Design *design, RTLIL::Module *module) :
 			config(config), design(design), module(module)
 	{
-		bool before_scc = module_has_scc();
+		bool before_scc = module_has_scc(&to_drivers_edges);
 
 		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
 		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
@@ -878,6 +905,17 @@ struct ShareWorker
 				}
 
 				log("      According to the SAT solver this pair of cells can be shared.\n");
+
+				if (find_in_input_cone(cell, other_cell)) {
+					log("      Sharing not possible: %s is in input cone of %s.\n", log_id(other_cell), log_id(cell));
+					continue;
+				}
+
+				if (find_in_input_cone(other_cell, cell)) {
+					log("      Sharing not possible: %s is in input cone of %s.\n", log_id(cell), log_id(other_cell));
+					continue;
+				}
+
 				shareable_cells.erase(other_cell);
 
 				int cell_select_score = 0;
@@ -911,6 +949,9 @@ struct ShareWorker
 
 				cells_to_remove.insert(cell);
 				cells_to_remove.insert(other_cell);
+
+				to_drivers_edges[cell].insert(to_drivers_edges[other_cell].begin(), to_drivers_edges[other_cell].end());
+				to_drivers_edges[other_cell] = to_drivers_edges[cell];
 				break;
 			}
 		}
