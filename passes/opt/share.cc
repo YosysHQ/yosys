@@ -27,6 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ShareWorkerConfig
 {
+	int limit;
 	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
@@ -751,7 +752,7 @@ struct ShareWorker
 		log("Found %d cells in module %s that may be considered for resource sharing.\n",
 				SIZE(shareable_cells), log_id(module));
 
-		while (!shareable_cells.empty())
+		while (!shareable_cells.empty() && config.limit != 0)
 		{
 			RTLIL::Cell *cell = *shareable_cells.begin();
 			shareable_cells.erase(cell);
@@ -959,6 +960,9 @@ struct ShareWorker
 					for (auto c : topo_bit_drivers[bit])
 						topo_cell_drivers[cell].insert(c);
 
+				if (config.limit > 0)
+					config.limit--;
+
 				topo_cell_drivers[cell].insert(topo_cell_drivers[other_cell].begin(), topo_cell_drivers[other_cell].end());
 				topo_cell_drivers[other_cell] = topo_cell_drivers[cell];
 				break;
@@ -1013,11 +1017,15 @@ struct SharePass : public Pass {
 		log("    in much easier SAT problems at the cost of maybe missing some oportunities\n");
 		log("    for resource sharing.\n");
 		log("\n");
+		log("  -limit N\n");
+		log("    Only perform the first N merges, then stop. This is useful for debugging.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		ShareWorkerConfig config;
 
+		config.limit = -1;
 		config.opt_force = false;
 		config.opt_aggressive = false;
 		config.opt_fast = false;
@@ -1071,6 +1079,10 @@ struct SharePass : public Pass {
 			}
 			if (args[argidx] == "-fast") {
 				config.opt_fast = true;
+				continue;
+			}
+			if (args[argidx] == "-limit" && argidx+1 < args.size()) {
+				config.limit = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
