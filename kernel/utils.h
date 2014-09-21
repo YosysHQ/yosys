@@ -155,7 +155,7 @@ struct TopoSort
 	void sort_worker(const T &n, std::set<T> &marked_cells, std::set<T> &active_cells, std::vector<T> &active_stack)
 	{
 		if (active_cells.count(n)) {
-			found_loops = false;
+			found_loops = true;
 			if (analyze_loops) {
 				std::set<T> loop;
 				for (int i = SIZE(active_stack)-1; i >= 0; i--) {

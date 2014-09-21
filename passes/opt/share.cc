@@ -21,6 +21,7 @@
 #include "kernel/satgen.h"
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
+#include "kernel/utils.h"
 
 PRIVATE_NAMESPACE_BEGIN
 
@@ -640,6 +641,48 @@ struct ShareWorker
 	}
 
 
+	// ------------------------------------------------------------------------------------------------
+	// Find SCCs (logic loops). This is only used to make sure that this pass does not introduce loops.
+	// ------------------------------------------------------------------------------------------------
+
+	bool module_has_scc()
+	{
+		SigMap sigmap(module);
+
+		CellTypes ct;
+		ct.setup_internals();
+		ct.setup_stdcells();
+
+		TopoSort<RTLIL::Cell*> toposort;
+		toposort.analyze_loops = false;
+
+		std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bits;
+		std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cells;
+
+		for (auto cell : module->cells())
+			if (ct.cell_known(cell->type))
+				for (auto &conn : cell->connections()) {
+					if (ct.cell_output(cell->type, conn.first))
+						for (auto bit : sigmap(conn.second))
+							cell_to_bits[cell].insert(bit);
+					else
+						for (auto bit : sigmap(conn.second))
+							bit_to_cells[bit].insert(cell);
+				}
+
+		for (auto &it : cell_to_bits)
+		{
+			RTLIL::Cell *c1 = it.first;
+
+			for (auto bit : it.second)
+			for (auto c2 : bit_to_cells[bit])
+				toposort.edge(c1, c2);
+		}
+
+		return !toposort.sort();
+	}
+
+
 	// -------------
 	// Setup and run
 	// -------------
@@ -647,6 +690,8 @@ struct ShareWorker
 	ShareWorker(ShareWorkerConfig config, RTLIL::Design *design, RTLIL::Module *module) :
 			config(config), design(design), module(module)
 	{
+		bool before_scc = module_has_scc();
+
 		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
 		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
 		generic_ops.insert(config.generic_cbin_ops.begin(), config.generic_cbin_ops.end());
@@ -879,6 +924,9 @@ struct ShareWorker
 		}
 
 		log_assert(recursion_state.empty());
+
+		bool after_scc = before_scc || module_has_scc();
+		log_assert(before_scc == after_scc);
 	}
 };
 
