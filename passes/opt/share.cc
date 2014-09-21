@@ -1055,10 +1055,7 @@ struct ShareWorker
 		log_assert(recursion_state.empty());
 
 		bool after_scc = before_scc || module_has_scc();
-		if (before_scc != after_scc)
-			log("Warning: introduced topological logic loops!\n");
-		// Pass::call_on_module(design, module, "scc;; show");
-		// log_assert(before_scc == after_scc);
+		log_assert(before_scc == after_scc);
 	}
 };
 
