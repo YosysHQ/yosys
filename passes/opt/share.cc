@@ -958,13 +958,17 @@ struct ShareWorker
 
 				for (auto bit : topo_sigmap(all_ctrl_signals))
 					for (auto c : topo_bit_drivers[bit])
-						topo_cell_drivers[cell].insert(c);
+						topo_cell_drivers[supercell].insert(c);
+
+				topo_cell_drivers[supercell].insert(topo_cell_drivers[cell].begin(), topo_cell_drivers[cell].end());
+				topo_cell_drivers[supercell].insert(topo_cell_drivers[other_cell].begin(), topo_cell_drivers[other_cell].end());
+
+				topo_cell_drivers[cell] = { supercell };
+				topo_cell_drivers[other_cell] = { supercell };
 
 				if (config.limit > 0)
 					config.limit--;
 
-				topo_cell_drivers[cell].insert(topo_cell_drivers[other_cell].begin(), topo_cell_drivers[other_cell].end());
-				topo_cell_drivers[other_cell] = topo_cell_drivers[cell];
 				break;
 			}
 		}
