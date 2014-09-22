@@ -75,8 +75,9 @@ struct BtorDumper
 	std::map<RTLIL::IdString, bool> basic_wires;//input wires and registers	
 	RTLIL::IdString curr_cell; //current cell being dumped
 	std::map<std::string, std::string> cell_type_translation, s_cell_type_translation; //RTLIL to BTOR translation
-	BtorDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BtorDumperConfig *config) :
-			f(f), module(module), design(design), config(config), ct(design), sigmap(module)
+	std::set<int> mem_next; //if memory (line_number) already has next
+    	BtorDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BtorDumperConfig *config) :
+    		f(f), module(module), design(design), config(config), ct(design), sigmap(module)
 	{
 		line_num=0;
 		str.clear();
@@ -416,7 +417,7 @@ struct BtorDumper
 				line_ref[cell->name]=cell_line;
 			}
 			//unary cells
-			if(cell->type == "$not" || cell->type == "$neg" || cell->type == "$pos" || cell->type == "$reduce_and" ||
+			else if(cell->type == "$not" || cell->type == "$neg" || cell->type == "$pos" || cell->type == "$reduce_and" ||
 				cell->type == "$reduce_or" || cell->type == "$reduce_xor" || cell->type == "$reduce_bool")
 			{
 				log("writing unary cell - %s\n", cstr(cell->type));
@@ -461,7 +462,7 @@ struct BtorDumper
 					f << stringf("%s\n", str.c_str());
 				}		
 				++line_num;
-				str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$not").c_str(), output_width, line_num-1);
+				str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$not").c_str(), output_width, l);
 				f << stringf("%s\n", str.c_str());
 				line_ref[cell->name]=line_num;
 			}
@@ -636,11 +637,47 @@ struct BtorDumper
 				int s = dump_sigspec(&cell->getPort(RTLIL::IdString("\\S")), 1);
 				++line_num;
 				str = stringf ("%d %s %d %d %d %d", 
-					line_num, cell_type_translation.at(cell->type.str()).c_str(), output_width, s, l2, l1);//if s is 0 then l1, if s is 1 then l2 //according to the implementation of mux cell
+					line_num, cell_type_translation.at(cell->type.str()).c_str(), output_width, s, l2, l1);
+				//if s is 0 then l1, if s is 1 then l2 //according to the implementation of mux cell
 				f << stringf("%s\n", str.c_str());
 				line_ref[cell->name]=line_num;
 			}
-			//registers
+			else if(cell->type == "$pmux")
+                        {
+                          log("writing pmux cell\n");
+                          int output_width = cell->parameters.at(RTLIL::IdString("\\WIDTH")).as_int();
+                          int select_width = cell->parameters.at(RTLIL::IdString("\\S_WIDTH")).as_int();
+                          int default_case = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), output_width);
+                          int cases = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), output_width*select_width);
+                          int select = dump_sigspec(&cell->getPort(RTLIL::IdString("\\S")), select_width);
+                          int *c = new int[select_width];
+                          
+                          for (int i=0; i<select_width; ++i)
+                          {
+                            ++line_num;
+                            str = stringf ("%d slice 1 %d %d %d", line_num, select, i, i);
+                            f << stringf("%s\n", str.c_str());
+                            c[i] = line_num;
+                            ++line_num;
+                            str = stringf ("%d slice %d %d %d %d", line_num, output_width, cases, i*output_width+output_width-1, 
+                                           i*output_width);
+                            f << stringf("%s\n", str.c_str());
+                          }
+                          
+                          ++line_num;
+                          str = stringf ("%d cond %d %d %d %d", line_num, output_width, c[select_width-1], c[select_width-1]+1, default_case);
+                          f << stringf("%s\n", str.c_str());
+                          
+                          for (int i=select_width-2; i>=0; --i)
+                          {
+                            ++line_num;
+                            str = stringf ("%d cond %d %d %d %d", line_num, output_width, c[i], c[i]+1, line_num-1);
+                            f << stringf("%s\n", str.c_str());
+                          }
+
+                          line_ref[cell->name]=line_num;
+                        }
+            //registers
 			else if(cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffsr")
 			{
 				//TODO: remodelling fo adff cells
@@ -734,7 +771,22 @@ struct BtorDumper
 				int data = dump_sigspec(&cell->getPort(RTLIL::IdString("\\DATA")), data_width);
 				str = cell->parameters.at(RTLIL::IdString("\\MEMID")).decode_string();
 				int mem = dump_memory(module->memories.at(RTLIL::IdString(str.c_str())));
-				++line_num;
+				//check if the memory has already next
+                                auto it = mem_next.find(mem);
+                                if(it != std::end(mem_next))
+                                {
+                                        ++line_num;
+                                        str = cell->parameters.at(RTLIL::IdString("\\MEMID")).decode_string();
+                                        RTLIL::Memory *memory = module->memories.at(RTLIL::IdString(str.c_str()));
+                                        int address_bits = ceil(log(memory->size)/log(2));
+                                        str = stringf("%d array %d %d", line_num, memory->width, address_bits);
+                                        f << stringf("%s\n", str.c_str());
+                                        ++line_num;
+                                        str = stringf("%d eq 1 %d %d", line_num, mem, line_num - 1);
+                                        f << stringf("%s\n", str.c_str());
+                                        mem = line_num - 1;
+                                }
+                		++line_num;
 				if(polarity)
 					str = stringf("%d one 1", line_num);
 				else
@@ -755,6 +807,7 @@ struct BtorDumper
 				++line_num;
 				str = stringf("%d anext %d %d %d %d", line_num, data_width, address_width, mem, line_num-1);	
 				f << stringf("%s\n", str.c_str());				
+				mem_next.insert(mem);
 				line_ref[cell->name]=line_num;
 			}
 			else if(cell->type == "$slice")
