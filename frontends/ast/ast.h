@@ -33,6 +33,8 @@
 #include <stdint.h>
 #include <set>
 
+YOSYS_NAMESPACE_BEGIN
+
 namespace AST
 {
 	// all node types, type2str() must be extended
@@ -44,6 +46,7 @@ namespace AST
 		AST_MODULE,
 		AST_TASK,
 		AST_FUNCTION,
+		AST_DPI_FUNCTION,
 
 		AST_WIRE,
 		AST_MEMORY,
@@ -54,7 +57,9 @@ namespace AST
 		AST_PARASET,
 		AST_ARGUMENT,
 		AST_RANGE,
+		AST_MULTIRANGE,
 		AST_CONSTANT,
+		AST_REALVALUE,
 		AST_CELLTYPE,
 		AST_IDENTIFIER,
 		AST_PREFIX,
@@ -107,6 +112,7 @@ namespace AST
 		AST_ASSIGN,
 		AST_CELL,
 		AST_PRIMITIVE,
+		AST_CELLARRAY,
 		AST_ALWAYS,
 		AST_INITIAL,
 		AST_BLOCK,
@@ -116,6 +122,8 @@ namespace AST
 		AST_COND,
 		AST_DEFAULT,
 		AST_FOR,
+		AST_WHILE,
+		AST_REPEAT,
 
 		AST_GENVAR,
 		AST_GENFOR,
@@ -147,9 +155,13 @@ namespace AST
 		// node content - most of it is unused in most node types
 		std::string str;
 		std::vector<RTLIL::State> bits;
-		bool is_input, is_output, is_reg, is_signed, is_string, range_valid;
+		bool is_input, is_output, is_reg, is_signed, is_string, range_valid, range_swapped;
 		int port_id, range_left, range_right;
 		uint32_t integer;
+		double realvalue;
+
+		// if this is a multirange memory then this vector contains offset and length of each dimension
+		std::vector<int> multirange_dimensions;
 
 		// this is set by simplify and used during RTLIL generation
 		AstNode *id2ast;
@@ -183,6 +195,7 @@ namespace AST
 			MEM2REG_FL_SET_ELSE  = 0x00000400,
 			MEM2REG_FL_SET_ASYNC = 0x00000800,
 			MEM2REG_FL_EQ2       = 0x00001000,
+			MEM2REG_FL_CMPLX_LHS = 0x00002000,
 
 			/* proc flags */
 			MEM2REG_FL_EQ1       = 0x01000000,
@@ -190,27 +203,33 @@ namespace AST
 
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
-		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint);
+		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
-		void replace_ids(std::map<std::string, std::string> &rules);
+		void replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules);
 		void mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
 				std::map<AstNode*, uint32_t> &mem2reg_flags, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
 		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
+
+		// additional functionality for evaluating constant functions
+		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
+		bool has_const_only_constructs(bool &recommend_const_eval);
+		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
+		AstNode *eval_const_function(AstNode *fcall);
 
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent);
 		void dumpVlog(FILE *f, std::string indent);
 
 		// used by genRTLIL() for detecting expression width and sign
-		void detectSignWidthWorker(int &width_hint, bool &sign_hint);
-		void detectSignWidth(int &width_hint, bool &sign_hint);
+		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL);
+		void detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real = NULL);
 
 		// create RTLIL code for this AST node
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
 		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
-		RTLIL::SigSpec genWidthRTLIL(int width, RTLIL::SigSpec *subst_from = NULL,  RTLIL::SigSpec *subst_to = NULL);
+		RTLIL::SigSpec genWidthRTLIL(int width, const std::map<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
 
 		// compare AST nodes
 		bool operator==(const AstNode &other) const;
@@ -228,17 +247,24 @@ namespace AST
 		RTLIL::Const bitsAsConst(int width = -1);
 		RTLIL::Const asAttrConst();
 		RTLIL::Const asParaConst();
+		uint64_t asInt(bool is_signed);
+		bool bits_only_01();
 		bool asBool();
+
+		// helper functions for real valued const eval
+		int isConst(); // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
+		double asReal(bool is_signed);
+		RTLIL::Const realAsConst(int width);
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1 = false, bool dump_ast2 = false, bool dump_vlog = false, bool nolatches = false, bool nomem2reg = false, bool mem2reg = false, bool lib = false, bool noopt = false, bool icells = false, bool ignore_redef = false);
+	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire);
 
 	// parametric modules are supported directly by the AST library
 	// therfore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
-		bool nolatches, nomem2reg, mem2reg, lib, noopt, icells;
+		bool nolatches, nomem2reg, mem2reg, lib, noopt, icells, autowire;
 		virtual ~AstModule();
 		virtual RTLIL::IdString derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters);
 		virtual RTLIL::Module *clone() const;
@@ -254,18 +280,24 @@ namespace AST
 	// set set_line_num and get_line_num to internal dummy functions (done by simplify() and AstModule::derive
 	// to control the filename and linenum properties of new nodes not generated by a frontend parser)
 	void use_internal_line_num();
+
+	// call a DPI function
+	AstNode *dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<AstNode*> &args);
 }
 
 namespace AST_INTERNAL
 {
 	// internal state variables
-	extern bool flag_dump_ast1, flag_dump_ast2, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells;
+	extern bool flag_dump_ast1, flag_dump_ast2, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;
-	extern RTLIL::SigSpec *genRTLIL_subst_from, *genRTLIL_subst_to, ignoreThisSignalsInInitial;
+	extern const std::map<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;
+	extern RTLIL::SigSpec ignoreThisSignalsInInitial;
 	extern AST::AstNode *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;
 	struct ProcessGenerator;
 }
+
+YOSYS_NAMESPACE_END
 
 #endif

@@ -65,9 +65,9 @@ struct SubmodWorker
 		flag_found_something = true;
 	}
 
-	void flag_signal(RTLIL::SigSpec &sig, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
+	void flag_signal(const RTLIL::SigSpec &sig, bool create, bool set_int_driven, bool set_int_used, bool set_ext_driven, bool set_ext_used)
 	{
-		for (auto &c : sig.chunks)
+		for (auto &c : sig.chunks())
 			if (c.wire != NULL)
 				flag_wire(c.wire, create, set_int_driven, set_int_used, set_ext_driven, set_ext_used);
 	}
@@ -79,24 +79,24 @@ struct SubmodWorker
 		wire_flags.clear();
 		for (RTLIL::Cell *cell : submod.cells) {
 			if (ct.cell_known(cell->type)) {
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, true, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first), false, false);
 			} else {
 				log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, true, true, true, false, false);
 			}
 		}
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			RTLIL::Cell *cell = it.second;
 			if (submod.cells.count(cell) > 0)
 				continue;
 			if (ct.cell_known(cell->type)) {
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, false, false, false, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first));
 			} else {
 				flag_found_something = false;
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections())
 					flag_signal(conn.second, false, false, false, true, true);
 				if (flag_found_something)
 					log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
@@ -105,10 +105,10 @@ struct SubmodWorker
 
 		RTLIL::Module *new_mod = new RTLIL::Module;
 		new_mod->name = submod.full_name;
-		design->modules[new_mod->name] = new_mod;
-		int port_counter = 1, auto_name_counter = 1;
+		design->add(new_mod);
+		int auto_name_counter = 1;
 
-		std::set<std::string> all_wire_names;
+		std::set<RTLIL::IdString> all_wire_names;
 		for (auto &it : wire_flags) {
 			all_wire_names.insert(it.first->name);
 		}
@@ -123,30 +123,33 @@ struct SubmodWorker
 			if (wire->port_output)
 				flags.is_ext_used = true;
 
-			RTLIL::Wire *new_wire = new RTLIL::Wire;
-			new_wire->name = wire->name;
-			new_wire->width = wire->width;
-			new_wire->start_offset = wire->start_offset;
-			new_wire->attributes = wire->attributes;
+			bool new_wire_port_input = false;
+			bool new_wire_port_output = false;
 
 			if (flags.is_int_driven && flags.is_ext_used)
-				new_wire->port_output = true;
+				new_wire_port_output = true;
 			if (flags.is_ext_driven && flags.is_int_used)
-				new_wire->port_input = true;
+				new_wire_port_input = true;
 
 			if (flags.is_int_driven && flags.is_ext_driven)
-				new_wire->port_input = true, new_wire->port_output = true;
+				new_wire_port_input = true, new_wire_port_output = true;
 
-			if (new_wire->port_input || new_wire->port_output) {
-				new_wire->port_id = port_counter++;
-				while (new_wire->name[0] == '$') {
-					std::string new_wire_name = stringf("\\n%d", auto_name_counter++);
-					if (all_wire_names.count(new_wire_name) == 0) {
-						all_wire_names.insert(new_wire_name);
-						new_wire->name = new_wire_name;
+			std::string new_wire_name = wire->name.str();
+			if (new_wire_port_input || new_wire_port_output) {
+				while (new_wire_name[0] == '$') {
+					std::string next_wire_name = stringf("\\n%d", auto_name_counter++);
+					if (all_wire_names.count(next_wire_name) == 0) {
+						all_wire_names.insert(next_wire_name);
+						new_wire_name = next_wire_name;
 					}
 				}
 			}
+
+			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name, wire->width);
+			new_wire->port_input = new_wire_port_input;
+			new_wire->port_output = new_wire_port_output;
+			new_wire->start_offset = wire->start_offset;
+			new_wire->attributes = wire->attributes;
 
 			if (new_wire->port_input && new_wire->port_output)
 				log("  signal %s: inout %s\n", wire->name.c_str(), new_wire->name.c_str());
@@ -157,36 +160,32 @@ struct SubmodWorker
 			else
 				log("  signal %s: internal\n", wire->name.c_str());
 
-			new_mod->wires[new_wire->name] = new_wire;
 			flags.new_wire = new_wire;
 		}
 
+		new_mod->fixup_ports();
+
 		for (RTLIL::Cell *cell : submod.cells) {
-			RTLIL::Cell *new_cell = new RTLIL::Cell(*cell);
-			for (auto &conn : new_cell->connections)
-				for (auto &c : conn.second.chunks)
-					if (c.wire != NULL) {
-						assert(wire_flags.count(c.wire) > 0);
-						c.wire = wire_flags[c.wire].new_wire;
+			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell);
+			for (auto &conn : new_cell->connections_)
+				for (auto &bit : conn.second)
+					if (bit.wire != NULL) {
+						log_assert(wire_flags.count(bit.wire) > 0);
+						bit.wire = wire_flags[bit.wire].new_wire;
 					}
 			log("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
-			new_mod->cells[new_cell->name] = new_cell;
-			module->cells.erase(cell->name);
-			delete cell;
+			module->remove(cell);
 		}
 		submod.cells.clear();
 
-		RTLIL::Cell *new_cell = new RTLIL::Cell;
-		new_cell->name = submod.full_name;
-		new_cell->type = submod.full_name;
+		RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod.full_name);
 		for (auto &it : wire_flags)
 		{
 			RTLIL::Wire *old_wire = it.first;
 			RTLIL::Wire *new_wire = it.second.new_wire;
 			if (new_wire->port_id > 0)
-				new_cell->connections[new_wire->name] = RTLIL::SigSpec(old_wire);
+				new_cell->setPort(new_wire->name, RTLIL::SigSpec(old_wire));
 		}
-		module->cells[new_cell->name] = new_cell;
 	}
 
 	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, std::string opt_name = std::string()) : design(design), module(module), opt_name(opt_name)
@@ -212,10 +211,10 @@ struct SubmodWorker
 
 		if (opt_name.empty())
 		{
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				it.second->attributes.erase("\\submod");
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 			{
 				RTLIL::Cell *cell = it.second;
 				if (cell->attributes.count("\\submod") == 0 || cell->attributes["\\submod"].bits.size() == 0) {
@@ -228,8 +227,8 @@ struct SubmodWorker
 
 				if (submodules.count(submod_str) == 0) {
 					submodules[submod_str].name = submod_str;
-					submodules[submod_str].full_name = module->name + "_" + submod_str;
-					while (design->modules.count(submodules[submod_str].full_name) != 0 ||
+					submodules[submod_str].full_name = module->name.str() + "_" + submod_str;
+					while (design->modules_.count(submodules[submod_str].full_name) != 0 ||
 							module->count_id(submodules[submod_str].full_name) != 0)
 						submodules[submod_str].full_name += "_";
 				}
@@ -239,7 +238,7 @@ struct SubmodWorker
 		}
 		else
 		{
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 			{
 				RTLIL::Cell *cell = it.second;
 				if (!design->selected(module, cell))
@@ -306,18 +305,18 @@ struct SubmodPass : public Pass {
 			Pass::call(design, "opt_clean");
 			log_header("Continuing SUBMOD pass.\n");
 
-			std::set<std::string> handled_modules;
+			std::set<RTLIL::IdString> handled_modules;
 
 			bool did_something = true;
 			while (did_something) {
 				did_something = false;
-				std::vector<std::string> queued_modules;
-				for (auto &mod_it : design->modules)
+				std::vector<RTLIL::IdString> queued_modules;
+				for (auto &mod_it : design->modules_)
 					if (handled_modules.count(mod_it.first) == 0 && design->selected_whole_module(mod_it.first))
 						queued_modules.push_back(mod_it.first);
 				for (auto &modname : queued_modules)
-					if (design->modules.count(modname) != 0) {
-						SubmodWorker worker(design, design->modules[modname]);
+					if (design->modules_.count(modname) != 0) {
+						SubmodWorker worker(design, design->modules_[modname]);
 						handled_modules.insert(modname);
 						did_something = true;
 					}
@@ -328,7 +327,7 @@ struct SubmodPass : public Pass {
 		else
 		{
 			RTLIL::Module *module = NULL;
-			for (auto &mod_it : design->modules) {
+			for (auto &mod_it : design->modules_) {
 				if (!design->selected_module(mod_it.first))
 					continue;
 				if (module != NULL)
@@ -338,7 +337,7 @@ struct SubmodPass : public Pass {
 			if (module == NULL)
 				log("Nothing selected -> do nothing.\n");
 			else {
-				Pass::call_newsel(design, stringf("opt_clean %s", module->name.c_str()));
+				Pass::call_on_module(design, module, "opt_clean");
 				log_header("Continuing SUBMOD pass.\n");
 				SubmodWorker worker(design, module, opt_name);
 			}

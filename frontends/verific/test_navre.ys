@@ -1,0 +1,18 @@
+verific -vlog2k ../yosys-bigsim/softusb_navre/rtl/softusb_navre.v
+verific -import softusb_navre
+
+memory softusb_navre
+flatten softusb_navre
+rename softusb_navre gate
+
+read_verilog ../yosys-bigsim/softusb_navre/rtl/softusb_navre.v
+cd softusb_navre; proc; opt; memory; opt; cd ..
+rename softusb_navre gold
+
+expose -dff -shared gold gate
+miter -equiv -ignore_gold_x -make_assert -make_outputs -make_outcmp gold gate miter
+
+cd miter
+flatten; opt -undriven
+sat -verify -maxsteps 5 -set-init-undef -set-def-inputs -prove-asserts -tempinduct-def \
+    -seq 1 -set-at 1 in_rst 1 # -show-inputs -show-outputs

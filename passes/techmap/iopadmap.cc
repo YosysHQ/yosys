@@ -57,6 +57,11 @@ struct IopadmapPass : public Pass {
 		log("    -nameparam <param_name>\n");
 		log("        Use the specified parameter to set the port name.\n");
 		log("\n");
+		log("    -bits\n");
+		log("        create individual bit-wide buffers even for ports that\n");
+		log("        are wider. (the default behavio is to create word-wide\n");
+		log("        buffers use -widthparam to set the word size on the cell.)\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -66,6 +71,7 @@ struct IopadmapPass : public Pass {
 		std::string outpad_celltype, outpad_portname, outpad_portname2;
 		std::string inoutpad_celltype, inoutpad_portname, inoutpad_portname2;
 		std::string widthparam, nameparam;
+		bool flag_bits = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -97,18 +103,22 @@ struct IopadmapPass : public Pass {
 				nameparam = args[++argidx];
 				continue;
 			}
+			if (arg == "-bits") {
+				flag_bits = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 		{
 			RTLIL::Module *module = it.second;
 
-			if (!design->selected(module))
+			if (!design->selected(module) || module->get_bool_attribute("\\blackbox"))
 				continue;
 
-			for (auto &it2 : module->wires)
+			for (auto &it2 : module->wires_)
 			{
 				RTLIL::Wire *wire = it2.second;
 
@@ -146,31 +156,46 @@ struct IopadmapPass : public Pass {
 				} else
 					log_abort();
 
-				if (wire->width != 1 && widthparam.empty()) {
-					log("Don't map multi-bit port %s.%s: Missing option -widthparam.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+				if (!flag_bits && wire->width != 1 && widthparam.empty()) {
+					log("Don't map multi-bit port %s.%s: Missing option -widthparam or -bits.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
 					continue;
 				}
 
 				log("Mapping port %s.%s using %s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name), celltype.c_str());
 
-				RTLIL::Cell *cell = new RTLIL::Cell;
-				cell->name = NEW_ID;
-				cell->type = RTLIL::escape_id(celltype);
-				cell->connections[RTLIL::escape_id(portname)] = RTLIL::SigSpec(wire);
+				RTLIL::Wire *new_wire = NULL;
 				if (!portname2.empty()) {
-					RTLIL::Wire *new_wire = new RTLIL::Wire;
-					*new_wire = *wire;
-					wire->name = NEW_ID;
-					module->wires[wire->name] = wire;
-					module->wires[new_wire->name] = new_wire;
-					cell->connections[RTLIL::escape_id(portname2)] = RTLIL::SigSpec(new_wire);
+					new_wire = module->addWire(NEW_ID, wire);
+					module->swap_names(new_wire, wire);
 				}
-				if (!widthparam.empty())
-					cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
-				if (!nameparam.empty())
-					cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(RTLIL::id2cstr(wire->name));
-				cell->attributes["\\keep"] = RTLIL::Const(1);
-				module->add(cell);
+
+				if (flag_bits)
+				{
+					for (int i = 0; i < wire->width; i++)
+					{
+						RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
+						cell->setPort(RTLIL::escape_id(portname), RTLIL::SigSpec(wire, i));
+						if (!portname2.empty())
+							cell->setPort(RTLIL::escape_id(portname2), RTLIL::SigSpec(new_wire, i));
+						if (!widthparam.empty())
+							cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(1);
+						if (!nameparam.empty())
+							cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(stringf("%s[%d]", RTLIL::id2cstr(wire->name), i));
+						cell->attributes["\\keep"] = RTLIL::Const(1);
+					}
+				}
+				else
+				{
+					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
+					cell->setPort(RTLIL::escape_id(portname), RTLIL::SigSpec(wire));
+					if (!portname2.empty())
+						cell->setPort(RTLIL::escape_id(portname2), RTLIL::SigSpec(new_wire));
+					if (!widthparam.empty())
+						cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
+					if (!nameparam.empty())
+						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(RTLIL::id2cstr(wire->name));
+					cell->attributes["\\keep"] = RTLIL::Const(1);
+				}
 
 				wire->port_id = 0;
 				wire->port_input = false;

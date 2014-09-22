@@ -1,4 +1,4 @@
-read_verilog asserts_seq.v
+read_verilog -sv asserts_seq.v
 hierarchy; proc; opt
 
 sat -verify  -prove-asserts -tempinduct -seq 1 test_001

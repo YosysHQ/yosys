@@ -22,7 +22,6 @@
 #include <sstream>
 #include <algorithm>
 #include <stdlib.h>
-#include <assert.h>
 
 static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 {
@@ -58,12 +57,12 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	RTLIL::SigSpec sig_rd_addr;
 	RTLIL::SigSpec sig_rd_data;
 
-	std::vector<std::string> del_cell_ids;
+	std::vector<RTLIL::Cell*> del_cells;
 	std::vector<RTLIL::Cell*> memcells;
 
-	for (auto &cell_it : module->cells) {
+	for (auto &cell_it : module->cells_) {
 		RTLIL::Cell *cell = cell_it.second;
-		if ((cell->type == "$memwr" || cell->type == "$memrd") && cell->parameters["\\MEMID"].decode_string() == memory->name)
+		if ((cell->type == "$memwr" || cell->type == "$memrd") && memory->name == cell->parameters["\\MEMID"].decode_string())
 			memcells.push_back(cell);
 	}
 
@@ -71,24 +70,24 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	for (auto cell : memcells)
 	{
-		if (cell->type == "$memwr" && cell->parameters["\\MEMID"].decode_string() == memory->name)
+		if (cell->type == "$memwr" && memory->name == cell->parameters["\\MEMID"].decode_string())
 		{
 			wr_ports++;
-			del_cell_ids.push_back(cell->name);
+			del_cells.push_back(cell);
 
-			RTLIL::SigSpec clk = cell->connections["\\CLK"];
+			RTLIL::SigSpec clk = cell->getPort("\\CLK");
 			RTLIL::SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
 			RTLIL::SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
-			RTLIL::SigSpec addr = cell->connections["\\ADDR"];
-			RTLIL::SigSpec data = cell->connections["\\DATA"];
-			RTLIL::SigSpec en = cell->connections["\\EN"];
+			RTLIL::SigSpec addr = cell->getPort("\\ADDR");
+			RTLIL::SigSpec data = cell->getPort("\\DATA");
+			RTLIL::SigSpec en = cell->getPort("\\EN");
 
 			clk.extend(1, false);
 			clk_enable.extend(1, false);
 			clk_polarity.extend(1, false);
 			addr.extend(addr_bits, false);
 			data.extend(memory->width, false);
-			en.extend(1, false);
+			en.extend(memory->width, false);
 
 			sig_wr_clk.append(clk);
 			sig_wr_clk_enable.append(clk_enable);
@@ -98,17 +97,17 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			sig_wr_en.append(en);
 		}
 
-		if (cell->type == "$memrd" && cell->parameters["\\MEMID"].decode_string() == memory->name)
+		if (cell->type == "$memrd" && memory->name == cell->parameters["\\MEMID"].decode_string())
 		{
 			rd_ports++;
-			del_cell_ids.push_back(cell->name);
+			del_cells.push_back(cell);
 
-			RTLIL::SigSpec clk = cell->connections["\\CLK"];
+			RTLIL::SigSpec clk = cell->getPort("\\CLK");
 			RTLIL::SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
 			RTLIL::SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
 			RTLIL::SigSpec transparent = RTLIL::SigSpec(cell->parameters["\\TRANSPARENT"]);
-			RTLIL::SigSpec addr = cell->connections["\\ADDR"];
-			RTLIL::SigSpec data = cell->connections["\\DATA"];
+			RTLIL::SigSpec addr = cell->getPort("\\ADDR");
+			RTLIL::SigSpec data = cell->getPort("\\DATA");
 
 			clk.extend(1, false);
 			clk_enable.extend(1, false);
@@ -127,61 +126,48 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	}
 
 	std::stringstream sstr;
-	sstr << "$mem$" << memory->name << "$" << (RTLIL::autoidx++);
+	sstr << "$mem$" << memory->name.str() << "$" << (autoidx++);
 
-	RTLIL::Cell *mem = new RTLIL::Cell;
-	mem->name = sstr.str();
-	mem->type = "$mem";
-
-	mem->parameters["\\MEMID"] = RTLIL::Const(memory->name);
+	RTLIL::Cell *mem = module->addCell(sstr.str(), "$mem");
+	mem->parameters["\\MEMID"] = RTLIL::Const(memory->name.str());
 	mem->parameters["\\WIDTH"] = RTLIL::Const(memory->width);
 	mem->parameters["\\OFFSET"] = RTLIL::Const(memory->start_offset);
 	mem->parameters["\\SIZE"] = RTLIL::Const(memory->size);
 	mem->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
 
-	sig_wr_clk_enable.optimize();
-	sig_wr_clk_polarity.optimize();
-
-	assert(sig_wr_clk.width == wr_ports);
-	assert(sig_wr_clk_enable.width == wr_ports && sig_wr_clk_enable.is_fully_const());
-	assert(sig_wr_clk_polarity.width == wr_ports && sig_wr_clk_polarity.is_fully_const());
-	assert(sig_wr_addr.width == wr_ports * addr_bits);
-	assert(sig_wr_data.width == wr_ports * memory->width);
-	assert(sig_wr_en.width == wr_ports);
+	log_assert(sig_wr_clk.size() == wr_ports);
+	log_assert(sig_wr_clk_enable.size() == wr_ports && sig_wr_clk_enable.is_fully_const());
+	log_assert(sig_wr_clk_polarity.size() == wr_ports && sig_wr_clk_polarity.is_fully_const());
+	log_assert(sig_wr_addr.size() == wr_ports * addr_bits);
+	log_assert(sig_wr_data.size() == wr_ports * memory->width);
+	log_assert(sig_wr_en.size() == wr_ports * memory->width);
 
 	mem->parameters["\\WR_PORTS"] = RTLIL::Const(wr_ports);
-	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.chunks[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.as_const() : RTLIL::Const(0, 0);
+	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.as_const() : RTLIL::Const(0, 0);
 
-	mem->connections["\\WR_CLK"] = sig_wr_clk;
-	mem->connections["\\WR_ADDR"] = sig_wr_addr;
-	mem->connections["\\WR_DATA"] = sig_wr_data;
-	mem->connections["\\WR_EN"] = sig_wr_en;
+	mem->setPort("\\WR_CLK", sig_wr_clk);
+	mem->setPort("\\WR_ADDR", sig_wr_addr);
+	mem->setPort("\\WR_DATA", sig_wr_data);
+	mem->setPort("\\WR_EN", sig_wr_en);
 
-	sig_rd_clk_enable.optimize();
-	sig_rd_clk_polarity.optimize();
-	sig_rd_transparent.optimize();
-
-	assert(sig_rd_clk.width == rd_ports);
-	assert(sig_rd_clk_enable.width == rd_ports && sig_rd_clk_enable.is_fully_const());
-	assert(sig_rd_clk_polarity.width == rd_ports && sig_rd_clk_polarity.is_fully_const());
-	assert(sig_rd_addr.width == rd_ports * addr_bits);
-	assert(sig_rd_data.width == rd_ports * memory->width);
+	log_assert(sig_rd_clk.size() == rd_ports);
+	log_assert(sig_rd_clk_enable.size() == rd_ports && sig_rd_clk_enable.is_fully_const());
+	log_assert(sig_rd_clk_polarity.size() == rd_ports && sig_rd_clk_polarity.is_fully_const());
+	log_assert(sig_rd_addr.size() == rd_ports * addr_bits);
+	log_assert(sig_rd_data.size() == rd_ports * memory->width);
 
 	mem->parameters["\\RD_PORTS"] = RTLIL::Const(rd_ports);
-	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.chunks[0].data : RTLIL::Const(0, 0);
-	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.chunks[0].data : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.as_const() : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.as_const() : RTLIL::Const(0, 0);
+	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.as_const() : RTLIL::Const(0, 0);
 
-	mem->connections["\\RD_CLK"] = sig_rd_clk;
-	mem->connections["\\RD_ADDR"] = sig_rd_addr;
-	mem->connections["\\RD_DATA"] = sig_rd_data;
+	mem->setPort("\\RD_CLK", sig_rd_clk);
+	mem->setPort("\\RD_ADDR", sig_rd_addr);
+	mem->setPort("\\RD_DATA", sig_rd_data);
 
-	for (auto &id : del_cell_ids) {
-		delete module->cells[id];
-		module->cells.erase(id);
-	}
-	module->cells[mem->name] = mem;
+	for (auto c : del_cells)
+		module->remove(c);
 }
 
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
@@ -213,7 +199,7 @@ struct MemoryCollectPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		log_header("Executing MEMORY_COLLECT pass (generating $mem cells).\n");
 		extra_args(args, 1, design);
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 				handle_module(design, mod_it.second);
 	}

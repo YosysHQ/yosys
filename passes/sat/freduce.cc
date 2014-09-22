@@ -31,8 +31,9 @@
 namespace {
 
 bool inv_mode;
-int verbose_level;
+int verbose_level, reduce_counter, reduce_stop_at;
 typedef std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>>> drivers_t;
+std::string dump_prefix;
 
 struct equiv_bit_t
 {
@@ -112,13 +113,13 @@ struct FindReducedInputs
 		size_t idx_bits = get_bits(idx);
 
 		if (sat_pi_uniq_bitvec.size() != idx_bits) {
-			sat_pi_uniq_bitvec.push_back(ez.literal(stringf("uniq_%d", int(idx_bits)-1)));
+			sat_pi_uniq_bitvec.push_back(ez.frozen_literal(stringf("uniq_%d", int(idx_bits)-1)));
 			for (auto &it : sat_pi)
 				ez.assume(ez.OR(ez.NOT(it.second), ez.NOT(sat_pi_uniq_bitvec.back())));
 		}
 		log_assert(sat_pi_uniq_bitvec.size() == idx_bits);
 
-		sat_pi[bit] = ez.literal(stringf("pi_%s", log_signal(bit)));
+		sat_pi[bit] = ez.frozen_literal(stringf("p, falsei_%s", log_signal(bit)));
 		ez.assume(ez.IFF(ez.XOR(sat_a, sat_b), sat_pi[bit]));
 
 		for (size_t i = 0; i < idx_bits; i++)
@@ -243,7 +244,6 @@ struct PerformReduction
 			return 0;
 		if (sigdepth.count(out) != 0)
 			return sigdepth.at(out);
-		sigdepth[out] = 0;
 
 		if (drivers.count(out) != 0) {
 			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
@@ -252,17 +252,18 @@ struct PerformReduction
 					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(drv.first->name), RTLIL::id2cstr(drv.first->type));
 				celldone.insert(drv.first);
 			}
-			int max_child_dept = 0;
+			int max_child_depth = 0;
 			for (auto &bit : drv.second)
-				max_child_dept = std::max(register_cone_worker(celldone, sigdepth, bit), max_child_dept);
-			sigdepth[out] = max_child_dept + 1;
+				max_child_depth = std::max(register_cone_worker(celldone, sigdepth, bit), max_child_depth);
+			sigdepth[out] = max_child_depth + 1;
 		} else {
 			pi_bits.push_back(out);
 			sat_pi.push_back(satgen.importSigSpec(out).front());
 			ez.assume(ez.NOT(satgen.importUndefSigSpec(out).front()));
+			sigdepth[out] = 0;
 		}
 
-		return sigdepth[out];
+		return sigdepth.at(out);
 	}
 
 	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits, int cone_size) :
@@ -348,7 +349,7 @@ struct PerformReduction
 			std::vector<RTLIL::SigBit> bucket_sigbits;
 			for (int idx : bucket)
 				bucket_sigbits.push_back(out_bits[idx]);
-			log("%s  Trying to shatter bucket with %d signals: %s\n", indt, int(bucket.size()), log_signal(RTLIL::SigSpec(bucket_sigbits).optimized()));
+			log("%s  Trying to shatter bucket with %d signals: %s\n", indt, int(bucket.size()), log_signal(bucket_sigbits));
 		}
 
 		std::vector<int> sat_set_list, sat_clr_list;
@@ -493,7 +494,7 @@ struct PerformReduction
 				std::vector<RTLIL::SigBit> r_sigbits;
 				for (int idx : r)
 					r_sigbits.push_back(out_bits[idx]);
-				log("  Found group of %d equivialent signals: %s\n", int(r.size()), log_signal(RTLIL::SigSpec(r_sigbits).optimized()));
+				log("  Found group of %d equivialent signals: %s\n", int(r.size()), log_signal(r_sigbits));
 			}
 
 			std::vector<int> undef_slaves;
@@ -559,6 +560,38 @@ struct FreduceWorker
 	{
 	}
 
+	bool find_bit_in_cone(std::set<RTLIL::Cell*> &celldone, RTLIL::SigBit needle, RTLIL::SigBit haystack)
+	{
+		if (needle == haystack)
+			return true;
+		if (haystack.wire == NULL || needle.wire == NULL || drivers.count(haystack) == 0)
+			return false;
+
+		std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(haystack);
+
+		if (celldone.count(drv.first))
+			return false;
+		celldone.insert(drv.first);
+
+		for (auto &bit : drv.second)
+			if (find_bit_in_cone(celldone, needle, bit))
+				return true;
+		return false;
+	}
+
+	bool find_bit_in_cone(RTLIL::SigBit needle, RTLIL::SigBit haystack)
+	{
+		std::set<RTLIL::Cell*> celldone;
+		return find_bit_in_cone(celldone, needle, haystack);
+	}
+
+	void dump()
+	{
+		std::string filename = stringf("%s_%s_%05d.il", dump_prefix.c_str(), RTLIL::id2cstr(module->name), reduce_counter);
+		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename.c_str());
+		Pass::call(design, stringf("dump -outfile %s %s", filename.c_str(), design->selected_active_module.empty() ? module->name.c_str() : ""));
+	}
+
 	int run()
 	{
 		log("Running functional reduction on module %s:\n", RTLIL::id2cstr(module->name));
@@ -569,15 +602,15 @@ struct FreduceWorker
 
 		int bits_full_total = 0;
 		std::vector<std::set<RTLIL::SigBit>> batches;
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (it.second->port_input) {
 				batches.push_back(sigmap(it.second).to_sigbit_set());
 				bits_full_total += it.second->width;
 			}
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (ct.cell_known(it.second->type)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
-				for (auto &port : it.second->connections) {
+				for (auto &port : it.second->connections()) {
 					std::vector<RTLIL::SigBit> bits = sigmap(port.second).to_sigbit_vector();
 					if (ct.cell_output(it.second->type, port.first))
 						outputs.insert(bits.begin(), bits.end());
@@ -590,8 +623,8 @@ struct FreduceWorker
 				batches.push_back(outputs);
 				bits_full_total += outputs.size();
 			}
-			if (inv_mode && it.second->type == "$_INV_")
-				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(it.second->connections.at("\\A")), sigmap(it.second->connections.at("\\Y"))));
+			if (inv_mode && it.second->type == "$_NOT_")
+				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(it.second->getPort("\\A")), sigmap(it.second->getPort("\\Y"))));
 		}
 
 		int bits_count = 0;
@@ -607,7 +640,7 @@ struct FreduceWorker
 
 		found_selected_wire:
 			log("  Finding reduced input cone for signal batch %s%c\n",
-					log_signal(RTLIL::SigSpec(std::vector<RTLIL::SigBit>(batch.begin(), batch.end())).optimized()), verbose_level ? ':' : '.');
+					log_signal(batch), verbose_level ? ':' : '.');
 
 			FindReducedInputs infinder(sigmap, drivers);
 			for (auto &bit : batch) {
@@ -630,12 +663,12 @@ struct FreduceWorker
 				continue;
 
 			if (bucket.first.size() == 0) {
-				log("  Finding const values for bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				log("  Finding const values for bucket %s%c\n", log_signal(bucket.second), verbose_level ? ':' : '.');
 				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
 				for (size_t idx = 0; idx < bucket.second.size(); idx++)
 					worker.analyze_const(equiv, idx);
 			} else {
-				log("  Trying to shatter bucket %s%c\n", log_signal(RTLIL::SigSpec(bucket.second).optimized()), verbose_level ? ':' : '.');
+				log("  Trying to shatter bucket %s%c\n", log_signal(bucket.second), verbose_level ? ':' : '.');
 				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
 				worker.analyze(equiv, 100 * bucket_count / (buckets.size() + 1));
 			}
@@ -644,11 +677,14 @@ struct FreduceWorker
 		std::map<RTLIL::SigBit, int> bitusage;
 		module->rewrite_sigspecs(CountBitUsage(sigmap, bitusage));
 
+		if (!dump_prefix.empty())
+			dump();
+
 		log("  Rewiring %d equivialent groups:\n", int(equiv.size()));
 		int rewired_sigbits = 0;
 		for (auto &grp : equiv)
 		{
-			log("    Using as master for group: %s\n", log_signal(grp.front().bit));
+			log("    [%05d] Using as master for group: %s\n", ++reduce_counter, log_signal(grp.front().bit));
 
 			RTLIL::SigSpec inv_sig;
 			for (size_t i = 1; i < grp.size(); i++)
@@ -663,34 +699,44 @@ struct FreduceWorker
 					continue;
 				}
 
+				if (find_bit_in_cone(grp[i].bit, grp.front().bit)) {
+					log("      Skipping dependency of master: %s\n", log_signal(grp[i].bit));
+					continue;
+				}
+
 				log("      Connect slave%s: %s\n", grp[i].inverted ? " using inverter" : "", log_signal(grp[i].bit));
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
-				RTLIL::Wire *dummy_wire = module->new_wire(1, NEW_ID);
-				for (auto &port : drv->connections)
+				RTLIL::Wire *dummy_wire = module->addWire(NEW_ID);
+				for (auto &port : drv->connections_)
 					if (ct.cell_output(drv->type, port.first))
 						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
 
 				if (grp[i].inverted)
 				{
-					if (inv_sig.width == 0)
+					if (inv_sig.size() == 0)
 					{
-						inv_sig = module->new_wire(1, NEW_ID);
+						inv_sig = module->addWire(NEW_ID);
 
-						RTLIL::Cell *inv_cell = new RTLIL::Cell;
-						inv_cell->name = NEW_ID;
-						inv_cell->type = "$_INV_";
-						inv_cell->connections["\\A"] = grp[0].bit;
-						inv_cell->connections["\\Y"] = inv_sig;
-						module->add(inv_cell);
+						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, "$_NOT_");
+						inv_cell->setPort("\\A", grp[0].bit);
+						inv_cell->setPort("\\Y", inv_sig);
 					}
 
-					module->connections.push_back(RTLIL::SigSig(grp[i].bit, inv_sig));
+					module->connect(RTLIL::SigSig(grp[i].bit, inv_sig));
 				}
 				else
-					module->connections.push_back(RTLIL::SigSig(grp[i].bit, grp[0].bit));
+					module->connect(RTLIL::SigSig(grp[i].bit, grp[0].bit));
 
 				rewired_sigbits++;
+			}
+
+			if (!dump_prefix.empty())
+				dump();
+
+			if (reduce_counter == reduce_stop_at) {
+				log("    Reached limit passed using -stop option. Skipping all further reductions.\n");
+				break;
 			}
 		}
 
@@ -711,13 +757,21 @@ struct FreducePass : public Pass {
 		log("\n");
 		log("This pass performs functional reduction in the circuit. I.e. if two nodes are\n");
 		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
-		log("unconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
+		log("disconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
 		log("\n");
 		log("    -v, -vv\n");
 		log("        enable verbose or very verbose output\n");
 		log("\n");
 		log("    -inv\n");
 		log("        enable explicit handling of inverted signals\n");
+		log("\n");
+		log("    -stop <n>\n");
+		log("        stop after <n> reduction operations. this is mostly used for\n");
+		log("        debugging the freduce command itself.\n");
+		log("\n");
+		log("    -dump <prefix>\n");
+		log("        dump the design to <prefix>_<module>_<num>.il after each reduction\n");
+		log("        operation. this is mostly used for debugging the freduce command.\n");
 		log("\n");
 		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
 		log("equivialent nodes.\n");
@@ -728,8 +782,11 @@ struct FreducePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		reduce_counter = 0;
+		reduce_stop_at = 0;
 		verbose_level = 0;
 		inv_mode = false;
+		dump_prefix = std::string();
 
 		log_header("Executing FREDUCE pass (perform functional reduction).\n");
 
@@ -747,12 +804,20 @@ struct FreducePass : public Pass {
 				inv_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
+				reduce_stop_at = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-dump" && argidx+1 < args.size()) {
+				dump_prefix = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		int bitcount = 0;
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			RTLIL::Module *module = mod_it.second;
 			if (design->selected(module))
 				bitcount += FreduceWorker(design, module).run();

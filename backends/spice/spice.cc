@@ -23,53 +23,51 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 
-static void print_spice_net(FILE *f, RTLIL::SigSpec s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
+static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
 {
-	log_assert(s.chunks.size() == 1 && s.chunks[0].width == 1);
-	if (s.chunks[0].wire) {
-		if (s.chunks[0].wire->width > 1)
-			fprintf(f, " %s[%d]", RTLIL::id2cstr(s.chunks[0].wire->name), s.chunks[0].offset);
+	if (s.wire) {
+		if (s.wire->width > 1)
+			f << stringf(" %s[%d]", RTLIL::id2cstr(s.wire->name), s.offset);
 		else
-			fprintf(f, " %s", RTLIL::id2cstr(s.chunks[0].wire->name));
+			f << stringf(" %s", RTLIL::id2cstr(s.wire->name));
 	} else {
-		if (s.chunks[0].data.bits.at(0) == RTLIL::State::S0)
-			fprintf(f, " %s", neg.c_str());
-		else if (s.chunks[0].data.bits.at(0) == RTLIL::State::S1)
-			fprintf(f, " %s", pos.c_str());
+		if (s == RTLIL::State::S0)
+			f << stringf(" %s", neg.c_str());
+		else if (s == RTLIL::State::S1)
+			f << stringf(" %s", pos.c_str());
 		else
-			fprintf(f, " %s%d", ncpf.c_str(), nc_counter++);
+			f << stringf(" %s%d", ncpf.c_str(), nc_counter++);
 	}
 }
 
-static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *design, std::string &neg, std::string &pos, std::string &ncpf, bool big_endian)
+static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, std::string &neg, std::string &pos, std::string &ncpf, bool big_endian)
 {
 	SigMap sigmap(module);
 	int cell_counter = 0, conn_counter = 0, nc_counter = 0;
 
-	for (auto &cell_it : module->cells)
+	for (auto &cell_it : module->cells_)
 	{
 		RTLIL::Cell *cell = cell_it.second;
-		fprintf(f, "X%d", cell_counter++);
+		f << stringf("X%d", cell_counter++);
 
 		std::vector<RTLIL::SigSpec> port_sigs;
 
-		if (design->modules.count(cell->type) == 0)
+		if (design->modules_.count(cell->type) == 0)
 		{
 			log("Warning: no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
 					RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name));
-			for (auto &conn : cell->connections) {
+			for (auto &conn : cell->connections()) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				port_sigs.push_back(sig);
 			}
 		}
 		else
 		{
-			RTLIL::Module *mod = design->modules.at(cell->type);
+			RTLIL::Module *mod = design->modules_.at(cell->type);
 
 			std::vector<RTLIL::Wire*> ports;
-			for (auto wire_it : mod->wires) {
+			for (auto wire_it : mod->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_id == 0)
 					continue;
@@ -81,8 +79,8 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				RTLIL::SigSpec sig(RTLIL::State::Sz, wire->width);
-				if (cell->connections.count(wire->name) > 0) {
-					sig = sigmap(cell->connections.at(wire->name));
+				if (cell->hasPort(wire->name)) {
+					sig = sigmap(cell->getPort(wire->name));
 					sig.extend(wire->width, false);
 				}
 				port_sigs.push_back(sig);
@@ -90,22 +88,21 @@ static void print_spice_module(FILE *f, RTLIL::Module *module, RTLIL::Design *de
 		}
 
 		for (auto &sig : port_sigs) {
-			for (int i = 0; i < sig.width; i++) {
-				RTLIL::SigSpec s = sig.extract(big_endian ? sig.width - 1 - i : i, 1);
-				log_assert(s.chunks.size() == 1 && s.chunks[0].width == 1);
+			for (int i = 0; i < sig.size(); i++) {
+				RTLIL::SigSpec s = sig.extract(big_endian ? sig.size() - 1 - i : i, 1);
 				print_spice_net(f, s, neg, pos, ncpf, nc_counter);
 			}
 		}
 
-		fprintf(f, " %s\n", RTLIL::id2cstr(cell->type));
+		f << stringf(" %s\n", RTLIL::id2cstr(cell->type));
 	}
 
-	for (auto &conn : module->connections)
-	for (int i = 0; i < conn.first.width; i++) {
-		fprintf(f, "V%d", conn_counter++);
+	for (auto &conn : module->connections())
+	for (int i = 0; i < conn.first.size(); i++) {
+		f << stringf("V%d", conn_counter++);
 		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter);
 		print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter);
-		fprintf(f, " DC 0\n");
+		f << stringf(" DC 0\n");
 	}
 }
 
@@ -136,7 +133,7 @@ struct SpiceBackend : public Backend {
 		log("        set the specified module as design top module\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string top_module_name;
 		RTLIL::Module *top_module = NULL;
@@ -173,14 +170,14 @@ struct SpiceBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		if (top_module_name.empty())
-			for (auto & mod_it:design->modules)
+			for (auto & mod_it:design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
-					top_module_name = mod_it.first;
+					top_module_name = mod_it.first.str();
 
-		fprintf(f, "* SPICE netlist generated by %s\n", yosys_version_str);
-		fprintf(f, "\n");
+		*f << stringf("* SPICE netlist generated by %s\n", yosys_version_str);
+		*f << stringf("\n");
 
-		for (auto module_it : design->modules)
+		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
 			if (module->get_bool_attribute("\\blackbox"))
@@ -197,7 +194,7 @@ struct SpiceBackend : public Backend {
 			}
 
 			std::vector<RTLIL::Wire*> ports;
-			for (auto wire_it : module->wires) {
+			for (auto wire_it : module->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_id == 0)
 					continue;
@@ -206,31 +203,31 @@ struct SpiceBackend : public Backend {
 				ports.at(wire->port_id-1) = wire;
 			}
 
-			fprintf(f, ".SUBCKT %s", RTLIL::id2cstr(module->name));
+			*f << stringf(".SUBCKT %s", RTLIL::id2cstr(module->name));
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				if (wire->width > 1) {
 					for (int i = 0; i < wire->width; i++)
-						fprintf(f, " %s[%d]", RTLIL::id2cstr(wire->name), big_endian ? wire->width - 1 - i : i);
+						*f << stringf(" %s[%d]", RTLIL::id2cstr(wire->name), big_endian ? wire->width - 1 - i : i);
 				} else
-					fprintf(f, " %s", RTLIL::id2cstr(wire->name));
+					*f << stringf(" %s", RTLIL::id2cstr(wire->name));
 			}
-			fprintf(f, "\n");
-			print_spice_module(f, module, design, neg, pos, ncpf, big_endian);
-			fprintf(f, ".ENDS %s\n\n", RTLIL::id2cstr(module->name));
+			*f << stringf("\n");
+			print_spice_module(*f, module, design, neg, pos, ncpf, big_endian);
+			*f << stringf(".ENDS %s\n\n", RTLIL::id2cstr(module->name));
 		}
 
 		if (!top_module_name.empty()) {
 			if (top_module == NULL)
 				log_error("Can't find top module `%s'!\n", top_module_name.c_str());
-			print_spice_module(f, top_module, design, neg, pos, ncpf, big_endian);
-			fprintf(f, "\n");
+			print_spice_module(*f, top_module, design, neg, pos, ncpf, big_endian);
+			*f << stringf("\n");
 		}
 
-		fprintf(f, "************************\n");
-		fprintf(f, "* end of SPICE netlist *\n");
-		fprintf(f, "************************\n");
-		fprintf(f, "\n");
+		*f << stringf("************************\n");
+		*f << stringf("* end of SPICE netlist *\n");
+		*f << stringf("************************\n");
+		*f << stringf("\n");
 	}
 } SpiceBackend;
 

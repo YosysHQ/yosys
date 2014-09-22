@@ -51,7 +51,7 @@ struct SccWorker
 
 	void run(RTLIL::Cell *cell, int depth, int maxDepth)
 	{
-		assert(workQueue.count(cell) > 0);
+		log_assert(workQueue.count(cell) > 0);
 
 		workQueue.erase(cell);
 		cellLabels[cell] = std::pair<int, int>(labelCounter, labelCounter);
@@ -114,11 +114,11 @@ struct SccWorker
 		SigPool selectedSignals;
 		SigSet<RTLIL::Cell*> sigToNextCells;
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (design->selected(module, it.second))
 				selectedSignals.add(sigmap(RTLIL::SigSpec(it.second)));
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
 
@@ -132,7 +132,7 @@ struct SccWorker
 
 			RTLIL::SigSpec inputSignals, outputSignals;
 
-			for (auto &conn : cell->connections)
+			for (auto &conn : cell->connections())
 			{
 				bool isInput = true, isOutput = true;
 
@@ -166,7 +166,7 @@ struct SccWorker
 
 		while (workQueue.size() > 0) {
 			RTLIL::Cell *cell = *workQueue.begin();
-			assert(cellStack.size() == 0);
+			log_assert(cellStack.size() == 0);
 			cellDepth.clear();
 			run(cell, 0, maxDepth);
 		}
@@ -191,7 +191,7 @@ struct SccWorker
 			nextsig.sort_and_unify();
 			sig = prevsig.extract(nextsig);
 
-			for (auto &chunk : sig.chunks)
+			for (auto &chunk : sig.chunks())
 				if (chunk.wire != NULL)
 					sel.selected_members[module->name].insert(chunk.wire->name);
 		}
@@ -216,7 +216,7 @@ struct SccPass : public Pass {
 		log("\n");
 		log("    -all_cell_types\n");
 		log("        Usually this command only considers internal non-memory cells. With\n");
-		log("        this option set, all cells are considered. For unkown cells all ports\n");
+		log("        this option set, all cells are considered. For unknown cells all ports\n");
 		log("        are assumed to be bidirectional 'inout' ports.\n");
 		log("\n");
 		log("    -set_attr <name> <value>\n");
@@ -280,7 +280,7 @@ struct SccPass : public Pass {
 
 		RTLIL::Selection newSelection(false);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 			{
 				SccWorker worker(design, mod_it.second, allCellTypes, maxDepth);
@@ -290,7 +290,7 @@ struct SccPass : public Pass {
 			}
 
 		if (selectMode) {
-			assert(origSelectPos >= 0);
+			log_assert(origSelectPos >= 0);
 			design->selection_stack[origSelectPos] = newSelection;
 			design->selection_stack[origSelectPos].optimize(design);
 		}

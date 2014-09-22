@@ -36,9 +36,10 @@
 
 #include "verilog_frontend.h"
 #include "kernel/log.h"
-#include <assert.h>
 #include <string.h>
 #include <math.h>
+
+YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;
 
@@ -47,11 +48,13 @@ static int my_decimal_div_by_two(std::vector<uint8_t> &digits)
 {
 	int carry = 0;
 	for (size_t i = 0; i < digits.size(); i++) {
-		assert(digits[i] < 10);
+		log_assert(digits[i] < 10);
 		digits[i] += carry * 10;
 		carry = digits[i] % 2;
 		digits[i] /= 2;
 	}
+	while (!digits.empty() && !digits.front())
+		digits.erase(digits.begin());
 	return carry;
 }
 
@@ -90,10 +93,15 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 
 	if (base == 10) {
 		data.clear();
-		if (len_in_bits < 0)
-			len_in_bits = ceil(digits.size()/log10(2));
-		for (int i = 0; i < len_in_bits; i++)
-			data.push_back(my_decimal_div_by_two(digits) ? RTLIL::S1 : RTLIL::S0);
+		if (len_in_bits < 0) {
+			while (!digits.empty())
+				data.push_back(my_decimal_div_by_two(digits) ? RTLIL::S1 : RTLIL::S0);
+			while (data.size() < 32)
+				data.push_back(RTLIL::S0);
+		} else {
+			for (int i = 0; i < len_in_bits; i++)
+				data.push_back(my_decimal_div_by_two(digits) ? RTLIL::S1 : RTLIL::S0);
+		}
 		return;
 	}
 
@@ -151,20 +159,24 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 	str = code.c_str();
 
 	char *endptr;
-	long intval = strtol(str, &endptr, 10);
+	long len_in_bits = strtol(str, &endptr, 10);
 
-	// Simple 32 bit integer
-	if (*endptr == 0)
-		return AstNode::mkconst_int(intval, true);
-	
+	// Simple base-10 integer
+	if (*endptr == 0) {
+		std::vector<RTLIL::State> data;
+		my_strtobin(data, str, -1, 10, case_type);
+		if (data.back() == RTLIL::S1)
+			data.push_back(RTLIL::S0);
+		return AstNode::mkconst_bits(data, true);
+	}
+
 	// unsized constant
 	if (str == endptr)
-		intval = -1;
+		len_in_bits = -1;
 
 	// The "<bits>'s?[bodh]<digits>" syntax
 	if (*endptr == '\'')
 	{
-		int len_in_bits = intval;
 		std::vector<RTLIL::State> data;
 		bool is_signed = false;
 		if (*(endptr+1) == 's') {
@@ -188,9 +200,17 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 		default:
 			return NULL;
 		}
+		if (len_in_bits < 0) {
+			if (is_signed && data.back() == RTLIL::S1)
+				data.push_back(RTLIL::S0);
+			while (data.size() < 32)
+				data.push_back(RTLIL::S0);
+		}
 		return AstNode::mkconst_bits(data, is_signed);
 	}
 
 	return NULL;
 }
+
+YOSYS_NAMESPACE_END
 

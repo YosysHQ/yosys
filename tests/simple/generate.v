@@ -1,5 +1,5 @@
 
-module test1(clk, a, b, y);
+module gen_test1(clk, a, b, y);
 
 input clk;
 input [7:0] a, b;
@@ -40,7 +40,7 @@ endmodule
 
 // ------------------------------------------
 
-module test2(clk, a, b, y);
+module gen_test2(clk, a, b, y);
 
 input clk;
 input [7:0] a, b;
@@ -67,7 +67,7 @@ endmodule
 
 // ------------------------------------------
 
-module test3(a, b, sel, y, z);
+module gen_test3(a, b, sel, y, z);
 
 input [3:0] a, b;
 input sel;

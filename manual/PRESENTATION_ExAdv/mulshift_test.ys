@@ -1,0 +1,7 @@
+read_verilog mulshift_test.v
+hierarchy -check -top test
+
+techmap -map sym_mul_map.v \
+        -map mulshift_map.v;;
+
+show -prefix mulshift -format pdf -notitle -lib sym_mul_cells.v

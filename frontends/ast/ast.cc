@@ -32,7 +32,9 @@
 
 #include <sstream>
 #include <stdarg.h>
-#include <assert.h>
+#include <math.h>
+
+YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;
 using namespace AST_INTERNAL;
@@ -46,11 +48,10 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells;
+	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
-	RTLIL::SigSpec *genRTLIL_subst_from = NULL;
-	RTLIL::SigSpec *genRTLIL_subst_to = NULL;
+	const std::map<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
 	AstNode *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
@@ -67,6 +68,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_MODULE)
 	X(AST_TASK)
 	X(AST_FUNCTION)
+	X(AST_DPI_FUNCTION)
 	X(AST_WIRE)
 	X(AST_MEMORY)
 	X(AST_AUTOWIRE)
@@ -76,7 +78,9 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_PARASET)
 	X(AST_ARGUMENT)
 	X(AST_RANGE)
+	X(AST_MULTIRANGE)
 	X(AST_CONSTANT)
+	X(AST_REALVALUE)
 	X(AST_CELLTYPE)
 	X(AST_IDENTIFIER)
 	X(AST_PREFIX)
@@ -127,6 +131,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_ASSIGN)
 	X(AST_CELL)
 	X(AST_PRIMITIVE)
+	X(AST_CELLARRAY)
 	X(AST_ALWAYS)
 	X(AST_INITIAL)
 	X(AST_BLOCK)
@@ -136,6 +141,8 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_COND)
 	X(AST_DEFAULT)
 	X(AST_FOR)
+	X(AST_WHILE)
+	X(AST_REPEAT)
 	X(AST_GENVAR)
 	X(AST_GENFOR)
 	X(AST_GENIF)
@@ -177,10 +184,12 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 	is_signed = false;
 	is_string = false;
 	range_valid = false;
+	range_swapped = false;
 	port_id = 0;
 	range_left = -1;
 	range_right = 0;
 	integer = 0;
+	realvalue = 0;
 	id2ast = NULL;
 	basic_prep = false;
 
@@ -243,6 +252,12 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 
 	std::string type_name = type2str(type);
 	fprintf(f, "%s%s <%s:%d>", indent.c_str(), type_name.c_str(), filename.c_str(), linenum);
+
+	if (id2ast)
+		fprintf(f, " [%p -> %p]", this, id2ast);
+	else
+		fprintf(f, " [%p]", this);
+
 	if (!str.empty())
 		fprintf(f, " str='%s'", str.c_str());
 	if (!bits.empty()) {
@@ -265,9 +280,17 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 	if (port_id > 0)
 		fprintf(f, " port=%d", port_id);
 	if (range_valid || range_left != -1 || range_right != 0)
-		fprintf(f, " range=[%d:%d]%s", range_left, range_right, range_valid ? "" : "!");
+		fprintf(f, " %srange=[%d:%d]%s", range_swapped ? "swapped_" : "", range_left, range_right, range_valid ? "" : "!");
 	if (integer != 0)
 		fprintf(f, " int=%u", (int)integer);
+	if (realvalue != 0)
+		fprintf(f, " real=%e", realvalue);
+	if (!multirange_dimensions.empty()) {
+		fprintf(f, " multirange=[");
+		for (int v : multirange_dimensions)
+			fprintf(f, " %d", v);
+		fprintf(f, " ]");
+	}
 	fprintf(f, "\n");
 
 	for (auto &it : attributes) {
@@ -309,7 +332,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 	}
 
 	for (auto &it : attributes) {
-		fprintf(f, "%s" "(* %s = ", indent.c_str(), id2vl(it.first).c_str());
+		fprintf(f, "%s" "(* %s = ", indent.c_str(), id2vl(it.first.str()).c_str());
 		it.second->dumpVlog(f, "");
 		fprintf(f, " *)%s", indent.empty() ? "" : "\n");
 	}
@@ -449,6 +472,10 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 			fprintf(f, "%d", RTLIL::Const(bits).as_int());
 		else
 			fprintf(f, "%zd'b %s", bits.size(), RTLIL::Const(bits).as_string().c_str());
+		break;
+
+	case AST_REALVALUE:
+		fprintf(f, "%e", realvalue);
 		break;
 
 	case AST_BLOCK:
@@ -603,6 +630,8 @@ bool AstNode::operator==(const AstNode &other) const
 		return false;
 	if (range_valid != other.range_valid)
 		return false;
+	if (range_swapped != other.range_swapped)
+		return false;
 	if (port_id != other.port_id)
 		return false;
 	if (range_left != other.range_left)
@@ -694,6 +723,14 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 	return node;
 }
 
+bool AstNode::bits_only_01()
+{
+	for (auto bit : bits)
+		if (bit != RTLIL::S0 && bit != RTLIL::S1)
+			return false;
+	return true;
+}
+
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
 {
 	std::vector<RTLIL::State> bits = this->bits;
@@ -746,11 +783,94 @@ bool AstNode::asBool()
 	return false;
 }
 
-// create a new AstModule from an AST_MODULE AST node
-static AstModule* process_module(AstNode *ast)
+int AstNode::isConst()
 {
-	assert(ast->type == AST_MODULE);
-	log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
+	if (type == AST_CONSTANT)
+		return 1;
+	if (type == AST_REALVALUE)
+		return 2;
+	return 0;
+}
+
+uint64_t AstNode::asInt(bool is_signed)
+{
+	if (type == AST_CONSTANT)
+	{
+		RTLIL::Const v = bitsAsConst(64, is_signed);
+		uint64_t ret = 0;
+
+		for (int i = 0; i < 64; i++)
+			if (v.bits.at(i) == RTLIL::State::S1)
+				ret |= uint64_t(1) << i;
+
+		return ret;
+	}
+
+	if (type == AST_REALVALUE)
+		return realvalue;
+
+	log_abort();
+}
+
+double AstNode::asReal(bool is_signed)
+{
+	if (type == AST_CONSTANT)
+	{
+		RTLIL::Const val(bits);
+
+		bool is_negative = is_signed && val.bits.back() == RTLIL::State::S1;
+		if (is_negative)
+			val = const_neg(val, val, false, false, val.bits.size());
+
+		double v = 0;
+		for (size_t i = 0; i < val.bits.size(); i++)
+			// IEEE Std 1800-2012 Par 6.12.2: Individual bits that are x or z in
+			// the net or the variable shall be treated as zero upon conversion.
+			if (val.bits.at(i) == RTLIL::State::S1)
+				v += exp2(i);
+		if (is_negative)
+			v *= -1;
+
+		return v;
+	}
+
+	if (type == AST_REALVALUE)
+		return realvalue;
+
+	log_abort();
+}
+
+RTLIL::Const AstNode::realAsConst(int width)
+{
+	double v = round(realvalue);
+	RTLIL::Const result;
+#ifdef EMSCRIPTEN
+	if (!isfinite(v)) {
+#else
+	if (!std::isfinite(v)) {
+#endif
+		result.bits = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
+	} else {
+		bool is_negative = v < 0;
+		if (is_negative)
+			v *= -1;
+		for (int i = 0; i < width; i++, v /= 2)
+			result.bits.push_back((fmod(floor(v), 2) != 0) ? RTLIL::State::S1 : RTLIL::State::S0);
+		if (is_negative)
+			result = const_neg(result, result, false, false, result.bits.size());
+	}
+	return result;
+}
+
+// create a new AstModule from an AST_MODULE AST node
+static AstModule* process_module(AstNode *ast, bool defer)
+{
+	log_assert(ast->type == AST_MODULE);
+
+	if (defer)
+		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
+	else
+		log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
 
 	current_module = new AstModule;
 	current_module->ast = NULL;
@@ -766,60 +886,63 @@ static AstModule* process_module(AstNode *ast)
 		log("--- END OF AST DUMP ---\n");
 	}
 
-	while (ast->simplify(!flag_noopt, false, false, 0, -1, false)) { }
+	if (!defer)
+	{
+		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
-	if (flag_dump_ast2) {
-		log("Dumping verilog AST after simplification:\n");
-		ast->dumpAst(NULL, "    ");
-		log("--- END OF AST DUMP ---\n");
-	}
-
-	if (flag_dump_vlog) {
-		log("Dumping verilog AST (as requested by dump_vlog option):\n");
-		ast->dumpVlog(NULL, "    ");
-		log("--- END OF AST DUMP ---\n");
-	}
-
-	if (flag_lib) {
-		std::vector<AstNode*> new_children;
-		for (auto child : ast->children) {
-			if (child->type == AST_WIRE && (child->is_input || child->is_output))
-				new_children.push_back(child);
-			else
-				delete child;
+		if (flag_dump_ast2) {
+			log("Dumping verilog AST after simplification:\n");
+			ast->dumpAst(NULL, "    ");
+			log("--- END OF AST DUMP ---\n");
 		}
-		ast->children.swap(new_children);
-		ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
-	}
 
-	ignoreThisSignalsInInitial = RTLIL::SigSpec();
+		if (flag_dump_vlog) {
+			log("Dumping verilog AST (as requested by dump_vlog option):\n");
+			ast->dumpVlog(NULL, "    ");
+			log("--- END OF AST DUMP ---\n");
+		}
 
-	for (auto &attr : ast->attributes) {
-		if (attr.second->type != AST_CONSTANT)
-			log_error("Attribute `%s' with non-constant value at %s:%d!\n",
-					attr.first.c_str(), ast->filename.c_str(), ast->linenum);
-		current_module->attributes[attr.first] = attr.second->asAttrConst();
-	}
-	for (size_t i = 0; i < ast->children.size(); i++) {
-		AstNode *node = ast->children[i];
-		if (node->type == AST_WIRE || node->type == AST_MEMORY)
-			node->genRTLIL();
-	}
-	for (size_t i = 0; i < ast->children.size(); i++) {
-		AstNode *node = ast->children[i];
-		if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL)
-			node->genRTLIL();
-	}
+		if (flag_lib) {
+			std::vector<AstNode*> new_children;
+			for (auto child : ast->children) {
+				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+					new_children.push_back(child);
+				else
+					delete child;
+			}
+			ast->children.swap(new_children);
+			ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
+		}
 
-	ignoreThisSignalsInInitial.sort_and_unify();
+		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
-	for (size_t i = 0; i < ast->children.size(); i++) {
-		AstNode *node = ast->children[i];
-		if (node->type == AST_INITIAL)
-			node->genRTLIL();
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				log_error("Attribute `%s' with non-constant value at %s:%d!\n",
+						attr.first.c_str(), ast->filename.c_str(), ast->linenum);
+			current_module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+		for (size_t i = 0; i < ast->children.size(); i++) {
+			AstNode *node = ast->children[i];
+			if (node->type == AST_WIRE || node->type == AST_MEMORY)
+				node->genRTLIL();
+		}
+		for (size_t i = 0; i < ast->children.size(); i++) {
+			AstNode *node = ast->children[i];
+			if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL)
+				node->genRTLIL();
+		}
+
+		ignoreThisSignalsInInitial.sort_and_unify();
+
+		for (size_t i = 0; i < ast->children.size(); i++) {
+			AstNode *node = ast->children[i];
+			if (node->type == AST_INITIAL)
+				node->genRTLIL();
+		}
+
+		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 	}
-
-	ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
@@ -828,11 +951,13 @@ static AstModule* process_module(AstNode *ast)
 	current_module->lib = flag_lib;
 	current_module->noopt = flag_noopt;
 	current_module->icells = flag_icells;
+	current_module->autowire = flag_autowire;
+	current_module->fixup_ports();
 	return current_module;
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
@@ -844,18 +969,37 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_lib = lib;
 	flag_noopt = noopt;
 	flag_icells = icells;
+	flag_autowire = autowire;
 
-	assert(current_ast->type == AST_DESIGN);
-	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++) {
-		if (design->modules.count((*it)->str) != 0) {
-			if (!ignore_redef)
-				log_error("Re-definition of module `%s' at %s:%d!\n",
+	std::vector<AstNode*> global_decls;
+
+	log_assert(current_ast->type == AST_DESIGN);
+	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
+	{
+		if ((*it)->type == AST_MODULE)
+		{
+			for (auto n : global_decls)
+				(*it)->children.push_back(n->clone());
+
+			if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
+				(*it)->str = (*it)->str.substr(1);
+
+			if (defer)
+				(*it)->str = "$abstract" + (*it)->str;
+
+			if (design->has((*it)->str)) {
+				if (!ignore_redef)
+					log_error("Re-definition of module `%s' at %s:%d!\n",
+							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
+				log("Ignoring re-definition of module `%s' at %s:%d!\n",
 						(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-			log_error("Ignoring re-definition of module `%s' at %s:%d!\n",
-					(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->linenum);
-			continue;
+				continue;
+			}
+
+			design->add(process_module(*it, defer));
 		}
-		design->modules[(*it)->str] = process_module(*it);
+		else
+			global_decls.push_back(*it);
 	}
 }
 
@@ -869,7 +1013,12 @@ AstModule::~AstModule()
 // create a new parametric module (when needed) and return the name of the generated module
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters)
 {
-	log_header("Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", name.c_str());
+	std::string stripped_name = name.str();
+
+	if (stripped_name.substr(0, 9) == "$abstract")
+		stripped_name = stripped_name.substr(9);
+
+	log_header("Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
 
 	current_ast = NULL;
 	flag_dump_ast1 = false;
@@ -881,16 +1030,14 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_lib = lib;
 	flag_noopt = noopt;
 	flag_icells = icells;
+	flag_autowire = autowire;
 	use_internal_line_num();
 
 	std::string para_info;
-	std::vector<unsigned char> hash_data;
-	hash_data.insert(hash_data.end(), name.begin(), name.end());
-	hash_data.push_back(0);
-
 	AstNode *new_ast = ast->clone();
 
 	int para_counter = 0;
+	int orig_parameters_n = parameters.size();
 	for (auto it = new_ast->children.begin(); it != new_ast->children.end(); it++) {
 		AstNode *child = *it;
 		if (child->type != AST_PARAMETER)
@@ -903,10 +1050,6 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
 			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
-			hash_data.insert(hash_data.end(), child->str.begin(), child->str.end());
-			hash_data.push_back(0);
-			hash_data.insert(hash_data.end(), parameters[para_id].bits.begin(), parameters[para_id].bits.end());
-			hash_data.push_back(0xff);
 			parameters.erase(para_id);
 			continue;
 		}
@@ -917,33 +1060,21 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 		}
 	}
 	if (parameters.size() > 0)
-		log_error("Requested parameter `%s' does not exist in module `%s'!\n", parameters.begin()->first.c_str(), name.c_str());
+		log_error("Requested parameter `%s' does not exist in module `%s'!\n", parameters.begin()->first.c_str(), stripped_name.c_str());
 
 	std::string modname;
 
-	if (para_info.size() > 60)
-	{
-		unsigned char hash[20];
-		unsigned char *hash_data2 = new unsigned char[hash_data.size()];
-		for (size_t i = 0; i < hash_data.size(); i++)
-			hash_data2[i] = hash_data[i];
-		sha1::calc(hash_data2, hash_data.size(), hash);
-		delete[] hash_data2;
-
-		char hexstring[41];
-		sha1::toHexString(hash, hexstring);
-
-		modname = "$paramod$" + std::string(hexstring) + name;
-	}
+	if (orig_parameters_n == 0)
+		modname = stripped_name;
+	else if (para_info.size() > 60)
+		modname = "$paramod$" + sha1(para_info) + stripped_name;
 	else
-	{
-		modname = "$paramod" + name + para_info;
-	}
+		modname = "$paramod" + stripped_name + para_info;
 
-	if (design->modules.count(modname) == 0) {
+	if (!design->has(modname)) {
 		new_ast->str = modname;
-		design->modules[modname] = process_module(new_ast);
-		design->modules[modname]->check();
+		design->add(process_module(new_ast, false));
+		design->module(modname)->check();
 	} else {
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
 	}
@@ -955,6 +1086,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 RTLIL::Module *AstModule::clone() const
 {
 	AstModule *new_mod = new AstModule;
+	new_mod->name = name;
 	cloneInto(new_mod);
 
 	new_mod->ast = ast->clone();
@@ -964,6 +1096,7 @@ RTLIL::Module *AstModule::clone() const
 	new_mod->lib = lib;
 	new_mod->noopt = noopt;
 	new_mod->icells = icells;
+	new_mod->autowire = autowire;
 
 	return new_mod;
 }
@@ -985,4 +1118,6 @@ void AST::use_internal_line_num()
 	set_line_num = &internal_set_line_num;
 	get_line_num = &internal_get_line_num;
 }
+
+YOSYS_NAMESPACE_END
 

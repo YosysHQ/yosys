@@ -29,6 +29,8 @@ if ! $fast_mode; then
 	make -C PRESENTATION_Intro
 	make -C PRESENTATION_ExSyn
 	make -C PRESENTATION_ExAdv
+	make -C PRESENTATION_ExOth
+	make -C PRESENTATION_Prog
 fi
 
 set -ex

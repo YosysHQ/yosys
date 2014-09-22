@@ -34,18 +34,37 @@
 
 %{
 
+#ifdef __clang__
+// bison generates code using the 'register' storage class specifier
+#pragma clang diagnostic ignored "-Wdeprecated-register"
+#endif
+
 #include "kernel/log.h"
 #include "verilog_frontend.h"
 #include "frontends/ast/ast.h"
 #include "parser.tab.h"
 
+USING_YOSYS_NAMESPACE
 using namespace AST;
 using namespace VERILOG_FRONTEND;
 
+YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	std::vector<std::string> fn_stack;
 	std::vector<int> ln_stack;
 }
+YOSYS_NAMESPACE_END
+
+#define SV_KEYWORD(_tok) \
+	if (sv_mode) return _tok; \
+	log("Lexer warning: The SystemVerilog keyword `%s' (at %s:%d) is not "\
+			"recognized unless read_verilog is called with -sv!\n", yytext, \
+			AST::current_filename.c_str(), frontend_verilog_yyget_lineno()); \
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext); \
+	return TOK_ID;
+
+#define YY_INPUT(buf,result,max_size) \
+	result = lexin->readsome(buf, max_size);
 
 %}
 
@@ -58,21 +77,33 @@ namespace VERILOG_FRONTEND {
 %x STRING
 %x SYNOPSYS_TRANSLATE_OFF
 %x SYNOPSYS_FLAGS
+%x IMPORT_DPI
 
 %%
 
-"`file_push "[^\n]* {
+<INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_push "[^\n]* {
 	fn_stack.push_back(current_filename);
 	ln_stack.push_back(frontend_verilog_yyget_lineno());
 	current_filename = yytext+11;
 	frontend_verilog_yyset_lineno(0);
 }
 
-"`file_pop"[^\n]*\n {
+<INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_pop"[^\n]*\n {
 	current_filename = fn_stack.back();
 	fn_stack.pop_back();
 	frontend_verilog_yyset_lineno(ln_stack.back());
 	ln_stack.pop_back();
+}
+
+<INITIAL,SYNOPSYS_TRANSLATE_OFF>"`line"[ \t]+[^ \t\r\n]+[ \t]+\"[^ \r\n]+\"[^\r\n]*\n {
+	char *p = yytext + 5;
+	while (*p == ' ' || *p == '\t') p++;
+	frontend_verilog_yyset_lineno(atoi(p));
+	while (*p && *p != ' ' && *p != '\t') p++;
+	while (*p == ' ' || *p == '\t') p++;
+	char *q = *p ? p + 1 : p;
+	while (*q && *q != '"') q++;
+	current_filename = std::string(p).substr(1, q-p-1);
 }
 
 "`file_notfound "[^\n]* {
@@ -80,6 +111,18 @@ namespace VERILOG_FRONTEND {
 }
 
 "`timescale"[ \t]+[^ \t\r\n/]+[ \t]*"/"[ \t]*[^ \t\r\n]* /* ignore timescale directive */
+
+"`default_nettype"[ \t]+[^ \t\r\n/]+ {
+	char *p = yytext;
+	while (*p != 0 && *p != ' ' && *p != '\t') p++;
+	while (*p == ' ' || *p == '\t') p++;
+	if (!strcmp(p, "none"))
+		VERILOG_FRONTEND::default_nettype_wire = false;
+	else if (!strcmp(p, "wire"))
+		VERILOG_FRONTEND::default_nettype_wire = true;
+	else
+		frontend_verilog_yyerror("Unsupported default nettype: %s", p);
+}
 
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
 	frontend_verilog_yyerror("Unimplemented compiler directive or undefined macro %s.", yytext);
@@ -112,8 +155,17 @@ namespace VERILOG_FRONTEND {
 "default"      { return TOK_DEFAULT; }
 "generate"     { return TOK_GENERATE; }
 "endgenerate"  { return TOK_ENDGENERATE; }
+"while"        { return TOK_WHILE; }
+"repeat"       { return TOK_REPEAT; }
 
-"assert"([ \t\r\n]+"property")? { return TOK_ASSERT; }
+"always_comb"  { SV_KEYWORD(TOK_ALWAYS); }
+"always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
+"always_latch" { SV_KEYWORD(TOK_ALWAYS); }
+
+"assert"   { SV_KEYWORD(TOK_ASSERT); }
+"property" { SV_KEYWORD(TOK_PROPERTY); }
+"logic"    { SV_KEYWORD(TOK_REG); }
+"bit"      { SV_KEYWORD(TOK_REG); }
 
 "input"   { return TOK_INPUT; }
 "output"  { return TOK_OUTPUT; }
@@ -123,6 +175,7 @@ namespace VERILOG_FRONTEND {
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }
 "genvar"  { return TOK_GENVAR; }
+"real"    { return TOK_REAL; }
 
 [0-9]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
@@ -132,6 +185,16 @@ namespace VERILOG_FRONTEND {
 [0-9]*[ \t]*\'s?[bodh][ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_CONST;
+}
+
+[0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)? {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_REALVAL;
+}
+
+[0-9][0-9_]*[eE][-+]?[0-9_]+ {
+	frontend_verilog_yylval.string = new std::string(yytext);
+	return TOK_REALVAL;
 }
 
 \"		{ BEGIN(STRING); }
@@ -214,6 +277,27 @@ supply1 { return TOK_SUPPLY1; }
 }
 <SYNOPSYS_FLAGS>. /* ignore everything else */
 <SYNOPSYS_FLAGS>"*/" { BEGIN(0); }
+
+import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
+	BEGIN(IMPORT_DPI);
+	return TOK_DPI_FUNCTION;
+}
+
+<IMPORT_DPI>[a-zA-Z_$][a-zA-Z0-9_$]* {
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext);
+	return TOK_ID;
+}
+
+<IMPORT_DPI>[ \t\r\n] /* ignore whitespaces */
+
+<IMPORT_DPI>";" {
+	BEGIN(0);
+	return *yytext;
+}
+
+<IMPORT_DPI>. {
+	return *yytext;
+}
 
 "\\"[^ \t\r\n]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);

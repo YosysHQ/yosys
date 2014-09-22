@@ -63,13 +63,13 @@ namespace
 		#undef X
 		}
 
-		statdata_t(RTLIL::Design *design, RTLIL::Module *mod)
+		statdata_t(RTLIL::Design *design, RTLIL::Module *mod, bool width_mode)
 		{
 		#define X(_name) _name = 0;
 			STAT_INT_MEMBERS
 		#undef X
 
-			for (auto &it : mod->wires)
+			for (auto &it : mod->wires_)
 			{
 				if (!design->selected(mod, it.second))
 					continue;
@@ -90,11 +90,35 @@ namespace
 				num_memory_bits += it.second->width * it.second->size;
 			}
 
-			for (auto &it : mod->cells) {
+			for (auto &it : mod->cells_)
+			{
 				if (!design->selected(mod, it.second))
 					continue;
+
+				RTLIL::IdString cell_type = it.second->type;
+
+				if (width_mode)
+				{
+					if (cell_type.in("$not", "$pos", "$neg",
+							"$logic_not", "$logic_and", "$logic_or",
+							"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
+							"$lut", "$and", "$or", "$xor", "$xnor",
+							"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
+							"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
+							"$add", "$sub", "$mul", "$div", "$mod", "$pow")) {
+						int width_a = it.second->hasPort("\\A") ? SIZE(it.second->getPort("\\A")) : 0;
+						int width_b = it.second->hasPort("\\B") ? SIZE(it.second->getPort("\\B")) : 0;
+						int width_y = it.second->hasPort("\\Y") ? SIZE(it.second->getPort("\\Y")) : 0;
+						cell_type = stringf("%s_%d", cell_type.c_str(), std::max<int>({width_a, width_b, width_y}));
+					}
+					else if (cell_type.in("$mux", "$pmux"))
+						cell_type = stringf("%s_%d", cell_type.c_str(), SIZE(it.second->getPort("\\Y")));
+					else if (cell_type.in("$sr", "$dff", "$dffsr", "$adff", "$dlatch", "$dlatchsr"))
+						cell_type = stringf("%s_%d", cell_type.c_str(), SIZE(it.second->getPort("\\Q")));
+				}
+
 				num_cells++;
-				num_cells_by_type[it.second->type]++;
+				num_cells_by_type[cell_type]++;
 			}
 
 			for (auto &it : mod->processes) {
@@ -154,28 +178,37 @@ struct StatPass : public Pass {
 		log("        selected and a module has the 'top' attribute set, this module is used\n");
 		log("        default value for this option.\n");
 		log("\n");
+		log("    -width\n");
+		log("        annotate internal cell types with their word width.\n");
+		log("        e.g. $add_8 for an 8 bit wide $add cell.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Printing statistics.\n");
 
+		bool width_mode = false;
 		RTLIL::Module *top_mod = NULL;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-width") {
+				width_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
-				if (design->modules.count(RTLIL::escape_id(args[argidx+1])) == 0)
+				if (design->modules_.count(RTLIL::escape_id(args[argidx+1])) == 0)
 					log_cmd_error("Can't find module %s.\n", args[argidx+1].c_str());
-				top_mod = design->modules.at(RTLIL::escape_id(args[++argidx]));
+				top_mod = design->modules_.at(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 		{
 			if (!design->selected_module(it.first))
 				continue;
@@ -184,7 +217,7 @@ struct StatPass : public Pass {
 				if (it.second->get_bool_attribute("\\top"))
 					top_mod = it.second;
 
-			statdata_t data(design, it.second);
+			statdata_t data(design, it.second, width_mode);
 			mod_stat[it.first] = data;
 
 			log("\n");

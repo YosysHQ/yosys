@@ -21,6 +21,7 @@
 #include "kernel/log.h"
 #include "libparse.h"
 #include <string.h>
+#include <errno.h>
 
 using namespace PASS_DFFLIBMAP;
 
@@ -28,7 +29,7 @@ struct cell_mapping {
 	std::string cell_name;
 	std::map<std::string, char> ports;
 };
-static std::map<std::string, cell_mapping> cell_mappings;
+static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
 
 static void logmap(std::string dff)
 {
@@ -318,7 +319,7 @@ static bool expand_cellmap(std::string pattern, std::string inv)
 	bool return_status = false;
 
 	for (auto &it : cell_mappings) {
-		std::string from = it.first, to = it.first;
+		std::string from = it.first.str(), to = it.first.str();
 		if (from.size() != pattern.size())
 			continue;
 		for (size_t i = 0; i < from.size(); i++) {
@@ -342,7 +343,7 @@ static bool expand_cellmap(std::string pattern, std::string inv)
 
 static void map_sr_to_arst(const char *from, const char *to)
 {
-	if (cell_mappings.count(to) > 0)
+	if (!cell_mappings.count(from) || cell_mappings.count(to) > 0)
 		return;
 
 	char from_clk_pol = from[8], from_set_pol = from[9], from_clr_pol = from[10];
@@ -387,45 +388,45 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
 
 	std::vector<RTLIL::Cell*> cell_list;
-	for (auto &it : module->cells) {
+	for (auto &it : module->cells_) {
 		if (design->selected(module, it.second) && cell_mappings.count(it.second->type) > 0)
 			cell_list.push_back(it.second);
 	}
 
 	std::map<std::string, int> stats;
-	for (auto cell : cell_list) {
-		cell_mapping &cm = cell_mappings[cell->type];
-		RTLIL::Cell *new_cell = new RTLIL::Cell;
-		new_cell->name = cell->name;
-		new_cell->type = "\\" + cm.cell_name;
+	for (auto cell : cell_list)
+	{
+		auto cell_type = cell->type;
+		auto cell_name = cell->name;
+		auto cell_connections = cell->connections();
+		module->remove(cell);
+
+		cell_mapping &cm = cell_mappings[cell_type];
+		RTLIL::Cell *new_cell = module->addCell(cell_name, "\\" + cm.cell_name);
+
 		for (auto &port : cm.ports) {
 			RTLIL::SigSpec sig;
 			if ('A' <= port.second && port.second <= 'Z') {
-				sig = cell->connections[std::string("\\") + port.second];
+				sig = cell_connections[std::string("\\") + port.second];
+			} else
+			if (port.second == 'q') {
+				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
+				sig = module->addWire(NEW_ID, SIZE(old_sig));
+				module->addNotGate(NEW_ID, sig, old_sig);
 			} else
 			if ('a' <= port.second && port.second <= 'z') {
-				sig = cell->connections[std::string("\\") + char(port.second - ('a' - 'A'))];
-				RTLIL::Cell *inv_cell = new RTLIL::Cell;
-				RTLIL::Wire *inv_wire = new RTLIL::Wire;
-				inv_cell->name = stringf("$dfflibmap$inv$%d", RTLIL::autoidx);
-				inv_wire->name = stringf("$dfflibmap$sig$%d", RTLIL::autoidx++);
-				inv_cell->type = "$_INV_";
-				inv_cell->connections[port.second == 'q' ? "\\Y" : "\\A"] = sig;
-				sig = RTLIL::SigSpec(inv_wire);
-				inv_cell->connections[port.second == 'q' ? "\\A" : "\\Y"] = sig;
-				module->cells[inv_cell->name] = inv_cell;
-				module->wires[inv_wire->name] = inv_wire;
+				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
+				sig = module->NotGate(NEW_ID, sig);
 			} else
 			if (port.second == '0' || port.second == '1') {
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);
 			} else
 			if (port.second != 0)
 				log_abort();
-			new_cell->connections["\\" + port.first] = sig;
+			new_cell->setPort("\\" + port.first, sig);
 		}
-		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell->type.c_str(), new_cell->type.c_str())]++;
-		module->cells[cell->name] = new_cell;
-		delete cell;
+
+		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;
 	}
 
 	for (auto &stat: stats)
@@ -467,11 +468,12 @@ struct DfflibmapPass : public Pass {
 		if (liberty_file.empty())
 			log_cmd_error("Missing `-liberty liberty_file' option!\n");
 
-		FILE *f = fopen(liberty_file.c_str(), "r");
-		if (f == NULL)
+		std::ifstream f;
+		f.open(liberty_file.c_str());
+		if (f.fail())
 			log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
 		LibertyParser libparser(f);
-		fclose(f);
+		f.close();
 
 		find_cell(libparser.ast, "$_DFF_N_", false, false, false, false);
 		find_cell(libparser.ast, "$_DFF_P_", true, false, false, false);
@@ -528,7 +530,7 @@ struct DfflibmapPass : public Pass {
  		log("  final dff cell mappings:\n");
  		logmap_all();
 
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 			if (design->selected(it.second) && !it.second->get_bool_attribute("\\blackbox"))
 				dfflibmap(design, it.second);
 

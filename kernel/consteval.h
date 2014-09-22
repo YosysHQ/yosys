@@ -23,6 +23,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/macc.h"
 
 struct ConstEval
 {
@@ -40,10 +41,10 @@ struct ConstEval
 		ct.setup_internals();
 		ct.setup_stdcells();
 
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (!ct.cell_known(it.second->type))
 				continue;
-			for (auto &it2 : it.second->connections)
+			for (auto &it2 : it.second->connections())
 				if (ct.cell_output(it.second->type, it2.first))
 					sig2driver.insert(assign_map(it2.second), it.second);
 		}
@@ -71,11 +72,8 @@ struct ConstEval
 		assign_map.apply(sig);
 #ifndef NDEBUG
 		RTLIL::SigSpec current_val = values_map(sig);
-		current_val.expand();
-		for (size_t i = 0; i < current_val.chunks.size(); i++) {
-			RTLIL::SigChunk &chunk = current_val.chunks[i];
-			assert(chunk.wire != NULL || chunk.data.bits[0] == value.bits[i]);
-		}
+		for (int i = 0; i < SIZE(current_val); i++)
+			log_assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
 #endif
 		values_map.add(sig, RTLIL::SigSpec(value));
 	}
@@ -88,35 +86,72 @@ struct ConstEval
 
 	bool eval(RTLIL::Cell *cell, RTLIL::SigSpec &undef)
 	{
+		if (cell->type == "$lcu")
+		{
+			RTLIL::SigSpec sig_p = cell->getPort("\\P");
+			RTLIL::SigSpec sig_g = cell->getPort("\\G");
+			RTLIL::SigSpec sig_ci = cell->getPort("\\CI");
+			RTLIL::SigSpec sig_co = values_map(assign_map(cell->getPort("\\CO")));
+
+			if (sig_co.is_fully_const())
+				return true;
+
+			if (!eval(sig_p, undef, cell))
+				return false;
+
+			if (!eval(sig_g, undef, cell))
+				return false;
+
+			if (!eval(sig_ci, undef, cell))
+				return false;
+
+			if (sig_p.is_fully_def() && sig_g.is_fully_def() && sig_ci.is_fully_def())
+			{
+				RTLIL::Const coval(RTLIL::Sx, SIZE(sig_co));
+				bool carry = sig_ci.as_bool();
+
+				for (int i = 0; i < SIZE(coval); i++) {
+					carry = (sig_g[i] == RTLIL::S1) || (sig_p[i] == RTLIL::S1 && carry);
+					coval.bits[i] = carry ? RTLIL::S1 : RTLIL::S0;
+				}
+
+				set(sig_co, coval);
+			}
+			else
+				set(sig_co, RTLIL::Const(RTLIL::Sx, SIZE(sig_co)));
+
+			return true;
+		}
+
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
 
-		assert(cell->connections.count("\\Y") > 0);
-		sig_y = values_map(assign_map(cell->connections["\\Y"]));
+		log_assert(cell->hasPort("\\Y"));
+		sig_y = values_map(assign_map(cell->getPort("\\Y")));
 		if (sig_y.is_fully_const())
 			return true;
 
-		if (cell->connections.count("\\S") > 0) {
-			sig_s = cell->connections["\\S"];
+		if (cell->hasPort("\\S")) {
+			sig_s = cell->getPort("\\S");
 			if (!eval(sig_s, undef, cell))
 				return false;
 		}
 
-		if (cell->connections.count("\\A") > 0)
-			sig_a = cell->connections["\\A"];
+		if (cell->hasPort("\\A"))
+			sig_a = cell->getPort("\\A");
 
-		if (cell->connections.count("\\B") > 0)
-			sig_b = cell->connections["\\B"];
+		if (cell->hasPort("\\B"))
+			sig_b = cell->getPort("\\B");
 
-		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux" || cell->type == "$_MUX_")
+		if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$_MUX_")
 		{
 			std::vector<RTLIL::SigSpec> y_candidates;
 			int count_maybe_set_s_bits = 0;
 			int count_set_s_bits = 0;
 
-			for (int i = 0; i < sig_s.width; i++)
+			for (int i = 0; i < sig_s.size(); i++)
 			{
 				RTLIL::State s_bit = sig_s.extract(i, 1).as_const().bits.at(0);
-				RTLIL::SigSpec b_slice = sig_b.extract(sig_y.width*i, sig_y.width);
+				RTLIL::SigSpec b_slice = sig_b.extract(sig_y.size()*i, sig_y.size());
 
 				if (s_bit == RTLIL::State::Sx || s_bit == RTLIL::State::S1)
 					y_candidates.push_back(b_slice);
@@ -128,15 +163,12 @@ struct ConstEval
 					count_set_s_bits++;
 			}
 
-			if (cell->type == "$safe_pmux" && count_set_s_bits > 1)
-				y_candidates.clear();
-
-			if ((cell->type == "$safe_pmux" && count_maybe_set_s_bits > 1) || count_set_s_bits == 0)
+			if (count_set_s_bits == 0)
 				y_candidates.push_back(sig_a);
 
 			std::vector<RTLIL::Const> y_values;
 
-			assert(y_candidates.size() > 0);
+			log_assert(y_candidates.size() > 0);
 			for (auto &yc : y_candidates) {
 				if (!eval(yc, undef, cell))
 					return false;
@@ -149,7 +181,7 @@ struct ConstEval
 
 				for (size_t i = 1; i < y_values.size(); i++) {
 					std::vector<RTLIL::State> &slave_bits = y_values.at(i).bits;
-					assert(master_bits.size() == slave_bits.size());
+					log_assert(master_bits.size() == slave_bits.size());
 					for (size_t j = 0; j < master_bits.size(); j++)
 						if (master_bits[j] != slave_bits[j])
 							master_bits[j] = RTLIL::State::Sx;
@@ -160,13 +192,134 @@ struct ConstEval
 			else
 				set(sig_y, y_values.front());
 		}
+		else if (cell->type == "$fa")
+		{
+			RTLIL::SigSpec sig_c = cell->getPort("\\C");
+			RTLIL::SigSpec sig_x = cell->getPort("\\X");
+			int width = SIZE(sig_c);
+
+			if (!eval(sig_a, undef, cell))
+				return false;
+
+			if (!eval(sig_b, undef, cell))
+				return false;
+
+			if (!eval(sig_c, undef, cell))
+				return false;
+
+			RTLIL::Const t1 = const_xor(sig_a.as_const(), sig_b.as_const(), false, false, width);
+			RTLIL::Const val_y = const_xor(t1, sig_c.as_const(), false, false, width);
+
+			RTLIL::Const t2 = const_and(sig_a.as_const(), sig_b.as_const(), false, false, width);
+			RTLIL::Const t3 = const_and(sig_c.as_const(), t1, false, false, width);
+			RTLIL::Const val_x = const_or(t2, t3, false, false, width);
+
+			for (int i = 0; i < SIZE(val_y); i++)
+				if (val_y.bits[i] == RTLIL::Sx)
+					val_x.bits[i] = RTLIL::Sx;
+
+			set(sig_y, val_y);
+			set(sig_x, val_x);
+		}
+		else if (cell->type == "$alu")
+		{
+			bool signed_a = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();
+			bool signed_b = cell->parameters.count("\\B_SIGNED") > 0 && cell->parameters["\\B_SIGNED"].as_bool();
+
+			RTLIL::SigSpec sig_ci = cell->getPort("\\CI");
+			RTLIL::SigSpec sig_bi = cell->getPort("\\BI");
+
+			if (!eval(sig_a, undef, cell))
+				return false;
+
+			if (!eval(sig_b, undef, cell))
+				return false;
+
+			if (!eval(sig_ci, undef, cell))
+				return false;
+
+			if (!eval(sig_bi, undef, cell))
+				return false;
+
+			RTLIL::SigSpec sig_x = cell->getPort("\\X");
+			RTLIL::SigSpec sig_co = cell->getPort("\\CO");
+
+			bool any_input_undef = !(sig_a.is_fully_def() && sig_b.is_fully_def() && sig_ci.is_fully_def() && sig_bi.is_fully_def());
+			sig_a.extend_u0(SIZE(sig_y), signed_a);
+			sig_b.extend_u0(SIZE(sig_y), signed_b);
+
+			bool carry = sig_ci[0] == RTLIL::S1;
+			bool b_inv = sig_bi[0] == RTLIL::S1;
+
+			for (int i = 0; i < SIZE(sig_y); i++)
+			{
+				RTLIL::SigSpec x_inputs = { sig_a[i], sig_b[i], sig_bi[0] };
+
+				if (!x_inputs.is_fully_def()) {
+					set(sig_x[i], RTLIL::Sx);
+				} else {
+					bool bit_a = sig_a[i] == RTLIL::S1;
+					bool bit_b = (sig_b[i] == RTLIL::S1) != b_inv;
+					bool bit_x = bit_a != bit_b;
+					set(sig_x[i], bit_x ? RTLIL::S1 : RTLIL::S0);
+				}
+
+				if (any_input_undef) {
+					set(sig_y[i], RTLIL::Sx);
+					set(sig_co[i], RTLIL::Sx);
+				} else {
+					bool bit_a = sig_a[i] == RTLIL::S1;
+					bool bit_b = (sig_b[i] == RTLIL::S1) != b_inv;
+					bool bit_y = (bit_a != bit_b) != carry;
+					carry = (bit_a && bit_b) || (bit_a && carry) || (bit_b && carry);
+					set(sig_y[i], bit_y ? RTLIL::S1 : RTLIL::S0);
+					set(sig_co[i], carry ? RTLIL::S1 : RTLIL::S0);
+				}
+			}
+		}
+		else if (cell->type == "$macc")
+		{
+			Macc macc;
+			macc.from_cell(cell);
+
+			if (!eval(macc.bit_ports, undef, cell))
+				return false;
+
+			for (auto &port : macc.ports) {
+				if (!eval(port.in_a, undef, cell))
+					return false;
+				if (!eval(port.in_b, undef, cell))
+					return false;
+			}
+
+			RTLIL::Const result(0, SIZE(cell->getPort("\\Y")));
+			if (!macc.eval(result))
+				log_abort();
+
+			set(cell->getPort("\\Y"), result);
+		}
 		else
 		{
-			if (sig_a.width > 0 && !eval(sig_a, undef, cell))
+			RTLIL::SigSpec sig_c, sig_d;
+
+			if (cell->type.in("$_AOI3_", "$_OAI3_", "$_AOI4_", "$_OAI4_")) {
+				if (cell->hasPort("\\C"))
+					sig_c = cell->getPort("\\C");
+				if (cell->hasPort("\\D"))
+					sig_d = cell->getPort("\\D");
+			}
+
+			if (sig_a.size() > 0 && !eval(sig_a, undef, cell))
 				return false;
-			if (sig_b.width > 0 && !eval(sig_b, undef, cell))
+			if (sig_b.size() > 0 && !eval(sig_b, undef, cell))
 				return false;
-			set(sig_y, CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const()));
+			if (sig_c.size() > 0 && !eval(sig_c, undef, cell))
+				return false;
+			if (sig_d.size() > 0 && !eval(sig_d, undef, cell))
+				return false;
+
+			set(sig_y, CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(),
+					sig_c.as_const(), sig_d.as_const()));
 		}
 
 		return true;
@@ -210,9 +363,9 @@ struct ConstEval
 		if (sig.is_fully_const())
 			return true;
 
-		for (size_t i = 0; i < sig.chunks.size(); i++)
-			if (sig.chunks[i].wire != NULL)
-				undef.append(sig.chunks[i]);
+		for (auto &c : sig.chunks())
+			if (c.wire != NULL)
+				undef.append(c);
 		return false;
 	}
 

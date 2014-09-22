@@ -32,10 +32,7 @@
  * Convert a signal into a KISS-compatible textual representation.
  */
 std::string kiss_convert_signal(const RTLIL::SigSpec &sig) {
-	if (!sig.is_fully_const()) {
-		throw 0;
-	}
-
+	log_assert(sig.is_fully_const());
 	return sig.as_const().as_string();
 }
 
@@ -59,13 +56,12 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
 
 	attr_it = cell->attributes.find("\\fsm_export");
 	if (!filename.empty()) {
-	  kiss_name.assign(filename);
+		kiss_name.assign(filename);
 	} else if (attr_it != cell->attributes.end() && attr_it->second.decode_string() != "") {
 		kiss_name.assign(attr_it->second.decode_string());
 	}
 	else {
-		kiss_name.assign(module->name);
-		kiss_name.append('-' + cell->name + ".kiss2");
+		kiss_name.assign(log_id(module) + std::string("-") + log_id(cell) + ".kiss2");
 	}
 
 	log("\n");
@@ -174,9 +170,9 @@ struct FsmExportPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells)
+				for (auto &cell_it : mod_it.second->cells_)
 					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second)) {
 						attr_it = cell_it.second->attributes.find("\\fsm_export");
 						if (!flag_noauto || (attr_it != cell_it.second->attributes.end())) {

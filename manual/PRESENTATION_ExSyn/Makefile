@@ -8,7 +8,7 @@ TARGETS += abc_01
 all: $(addsuffix .pdf,$(TARGETS))
 
 define make_pdf_template
-$(1).pdf: $(1).v $(1).ys
+$(1).pdf: $(1)*.v $(1)*.ys
 	../../yosys -p 'script $(1).ys; show -notitle -prefix $(1) -format pdf'
 endef
 

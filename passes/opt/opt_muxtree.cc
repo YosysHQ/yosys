@@ -17,13 +17,11 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <set>
 
@@ -36,7 +34,11 @@ struct OptMuxtreeWorker
 	SigMap assign_map;
 	int removed_count;
 
-	typedef std::pair<RTLIL::Wire*,int> bitDef_t;
+        struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
+		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
+		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+	};
+
 
 	struct bitinfo_t {
 		int num;
@@ -79,21 +81,20 @@ struct OptMuxtreeWorker
 		//	.ctrl_sigs
 		//	.input_sigs
 		//	.const_activated
-		for (auto &cell_it : module->cells)
+		for (auto cell : module->cells())
 		{
-			RTLIL::Cell *cell = cell_it.second;
-			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$safe_pmux")
+			if (cell->type == "$mux" || cell->type == "$pmux")
 			{
-				RTLIL::SigSpec sig_a = cell->connections["\\A"];
-				RTLIL::SigSpec sig_b = cell->connections["\\B"];
-				RTLIL::SigSpec sig_s = cell->connections["\\S"];
-				RTLIL::SigSpec sig_y = cell->connections["\\Y"];
+				RTLIL::SigSpec sig_a = cell->getPort("\\A");
+				RTLIL::SigSpec sig_b = cell->getPort("\\B");
+				RTLIL::SigSpec sig_s = cell->getPort("\\S");
+				RTLIL::SigSpec sig_y = cell->getPort("\\Y");
 
 				muxinfo_t muxinfo;
 				muxinfo.cell = cell;
 
-				for (int i = 0; i < sig_s.width; i++) {
-					RTLIL::SigSpec sig = sig_b.extract(i*sig_a.width, sig_a.width);
+				for (int i = 0; i < sig_s.size(); i++) {
+					RTLIL::SigSpec sig = sig_b.extract(i*sig_a.size(), sig_a.size());
 					RTLIL::SigSpec ctrl_sig = assign_map(sig_s.extract(i, 1));
 					portinfo_t portinfo;
 					for (int idx : sig2bits(sig)) {
@@ -126,15 +127,15 @@ struct OptMuxtreeWorker
 			}
 			else
 			{
-				for (auto &it : cell->connections) {
+				for (auto &it : cell->connections()) {
 					for (int idx : sig2bits(it.second))
 						bit2info[idx].seen_non_mux = true;
 				}
 			}
 		}
-		for (auto &it : module->wires) {
-			if (it.second->port_output)
-				for (int idx : sig2bits(RTLIL::SigSpec(it.second)))
+		for (auto wire : module->wires()) {
+			if (wire->port_output)
+				for (int idx : sig2bits(RTLIL::SigSpec(wire)))
 					bit2info[idx].seen_non_mux = true;
 		}
 
@@ -177,7 +178,6 @@ struct OptMuxtreeWorker
 				} else {
 					log("    dead port %zd/%zd on %s %s.\n", port_idx+1, mi.ports.size(),
 							mi.cell->type.c_str(), mi.cell->name.c_str());
-					OPT_DID_SOMETHING = true;
 					removed_count++;
 				}
 			}
@@ -186,32 +186,30 @@ struct OptMuxtreeWorker
 				continue;
 
 			if (live_ports.size() == 0) {
-				module->cells.erase(mi.cell->name);
-				delete mi.cell;
+				module->remove(mi.cell);
 				continue;
 			}
 
-			RTLIL::SigSpec sig_a = mi.cell->connections["\\A"];
-			RTLIL::SigSpec sig_b = mi.cell->connections["\\B"];
-			RTLIL::SigSpec sig_s = mi.cell->connections["\\S"];
-			RTLIL::SigSpec sig_y = mi.cell->connections["\\Y"];
+			RTLIL::SigSpec sig_a = mi.cell->getPort("\\A");
+			RTLIL::SigSpec sig_b = mi.cell->getPort("\\B");
+			RTLIL::SigSpec sig_s = mi.cell->getPort("\\S");
+			RTLIL::SigSpec sig_y = mi.cell->getPort("\\Y");
 
 			RTLIL::SigSpec sig_ports = sig_b;
 			sig_ports.append(sig_a);
 
 			if (live_ports.size() == 1)
 			{
-				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*sig_a.width, sig_a.width);
-				module->connections.push_back(RTLIL::SigSig(sig_y, sig_in));
-				module->cells.erase(mi.cell->name);
-				delete mi.cell;
+				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*sig_a.size(), sig_a.size());
+				module->connect(RTLIL::SigSig(sig_y, sig_in));
+				module->remove(mi.cell);
 			}
 			else
 			{
 				RTLIL::SigSpec new_sig_a, new_sig_b, new_sig_s;
 
 				for (size_t i = 0; i < live_ports.size(); i++) {
-					RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[i]*sig_a.width, sig_a.width);
+					RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[i]*sig_a.size(), sig_a.size());
 					if (i == live_ports.size()-1) {
 						new_sig_a = sig_in;
 					} else {
@@ -220,14 +218,14 @@ struct OptMuxtreeWorker
 					}
 				}
 
-				mi.cell->connections["\\A"] = new_sig_a;
-				mi.cell->connections["\\B"] = new_sig_b;
-				mi.cell->connections["\\S"] = new_sig_s;
-				if (new_sig_s.width == 1) {
+				mi.cell->setPort("\\A", new_sig_a);
+				mi.cell->setPort("\\B", new_sig_b);
+				mi.cell->setPort("\\S", new_sig_s);
+				if (new_sig_s.size() == 1) {
 					mi.cell->type = "$mux";
 					mi.cell->parameters.erase("\\S_WIDTH");
 				} else {
-					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.width);
+					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.size());
 				}
 			}
 		}
@@ -259,10 +257,8 @@ struct OptMuxtreeWorker
 	{
 		std::vector<int> results;
 		assign_map.apply(sig);
-		sig.expand();
-		for (auto &c : sig.chunks)
-			if (c.wire != NULL) {
-				bitDef_t bit(c.wire, c.offset);
+		for (auto &bit : sig)
+			if (bit.wire != NULL) {
 				if (bit2num.count(bit) == 0) {
 					bitinfo_t info;
 					info.num = bit2info.size();
@@ -309,13 +305,17 @@ struct OptMuxtreeWorker
 		if (port_idx < int(muxinfo.ports.size())-1 && !muxinfo.ports[port_idx].const_activated)
 			knowledge.known_active.push_back(muxinfo.ports[port_idx].ctrl_sigs);
 
+		std::vector<int> parent_muxes;
 		for (int m : muxinfo.ports[port_idx].input_muxes) {
 			if (knowledge.visited_muxes.count(m) > 0)
 				continue;
 			knowledge.visited_muxes.insert(m);
-			eval_mux(knowledge, m);
-			knowledge.visited_muxes.erase(m);
+			parent_muxes.push_back(m);
 		}
+		for (int m : parent_muxes)
+			eval_mux(knowledge, m);
+		for (int m : parent_muxes)
+			knowledge.visited_muxes.erase(m);
 
 		if (port_idx < int(muxinfo.ports.size())-1 && !muxinfo.ports[port_idx].const_activated)
 			knowledge.known_active.pop_back();
@@ -393,6 +393,7 @@ struct OptMuxtreeWorker
 	void eval_root_mux(int mux_idx)
 	{
 		knowledge_t knowledge;
+		knowledge.visited_muxes.insert(mux_idx);
 		eval_mux(knowledge, mux_idx);
 	}
 };
@@ -418,19 +419,21 @@ struct OptMuxtreePass : public Pass {
 		extra_args(args, 1, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules) {
-			if (!design->selected_whole_module(mod_it.first)) {
-				if (design->selected(mod_it.second))
-					log("Skipping module %s as it is only partially selected.\n", id2cstr(mod_it.second->name));
+		for (auto mod : design->modules()) {
+			if (!design->selected_whole_module(mod)) {
+				if (design->selected(mod))
+					log("Skipping module %s as it is only partially selected.\n", log_id(mod));
 				continue;
 			}
-			if (mod_it.second->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", id2cstr(mod_it.second->name));
+			if (mod->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(mod));
 			} else {
-				OptMuxtreeWorker worker(design, mod_it.second);
+				OptMuxtreeWorker worker(design, mod);
 				total_count += worker.removed_count;
 			}
 		}
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
 		log("Removed %d multiplexer ports.\n", total_count);
 	}
 } OptMuxtreePass;

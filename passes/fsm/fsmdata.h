@@ -141,29 +141,27 @@ struct FsmData
 
 		log("\n");
 		log("  Input signals:\n");
-		RTLIL::SigSpec sig_in = cell->connections["\\CTRL_IN"];
-		sig_in.expand();
-		for (size_t i = 0; i < sig_in.chunks.size(); i++)
-			log("  %3zd: %s\n", i, log_signal(sig_in.chunks[i]));
+		RTLIL::SigSpec sig_in = cell->getPort("\\CTRL_IN");
+		for (int i = 0; i < SIZE(sig_in); i++)
+			log("  %3d: %s\n", i, log_signal(sig_in[i]));
 
 		log("\n");
 		log("  Output signals:\n");
-		RTLIL::SigSpec sig_out = cell->connections["\\CTRL_OUT"];
-		sig_out.expand();
-		for (size_t i = 0; i < sig_out.chunks.size(); i++)
-			log("  %3zd: %s\n", i, log_signal(sig_out.chunks[i]));
+		RTLIL::SigSpec sig_out = cell->getPort("\\CTRL_OUT");
+		for (int i = 0; i < SIZE(sig_out); i++)
+			log("  %3d: %s\n", i, log_signal(sig_out[i]));
 
 		log("\n");
 		log("  State encoding:\n");
-		for (size_t i = 0; i < state_table.size(); i++)
-			log("  %3zd: %10s%s\n", i, log_signal(state_table[i], false),
+		for (int i = 0; i < SIZE(state_table); i++)
+			log("  %3d: %10s%s\n", i, log_signal(state_table[i], false),
 					int(i) == reset_state ? "  <RESET STATE>" : "");
 
 		log("\n");
 		log("  Transition Table (state_in, ctrl_in, state_out, ctrl_out):\n");
-		for (size_t i = 0; i < transition_table.size(); i++) {
+		for (int i = 0; i < SIZE(transition_table); i++) {
 			transition_t &tr = transition_table[i];
-			log("  %5zd: %5d %s   -> %5d %s\n", i, tr.state_in, log_signal(tr.ctrl_in), tr.state_out, log_signal(tr.ctrl_out));
+			log("  %5d: %5d %s   -> %5d %s\n", i, tr.state_in, log_signal(tr.ctrl_in), tr.state_out, log_signal(tr.ctrl_out));
 		}
 
 		log("\n");

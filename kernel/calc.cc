@@ -21,21 +21,10 @@
 // Schneier, Bruce (1996). Applied Cryptography: Protocols, Algorithms, and Source Code in C,
 // Second Edition (2nd ed.). Wiley. ISBN 978-0-471-11709-4, page 244
 
-#include "kernel/log.h"
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include "libs/bigint/BigIntegerLibrary.hh"
-#include <assert.h>
 
-static void extend(RTLIL::Const &arg, int width, bool is_signed)
-{
-	RTLIL::State padding = RTLIL::State::S0;
-
-	if (arg.bits.size() > 0 && (is_signed || arg.bits.back() > RTLIL::State::S1))
-		padding = arg.bits.back();
-
-	while (int(arg.bits.size()) < width)
-		arg.bits.push_back(padding);
-}
+YOSYS_NAMESPACE_BEGIN
 
 static void extend_u0(RTLIL::Const &arg, int width, bool is_signed)
 {
@@ -46,6 +35,8 @@ static void extend_u0(RTLIL::Const &arg, int width, bool is_signed)
 
 	while (int(arg.bits.size()) < width)
 		arg.bits.push_back(padding);
+
+	arg.bits.resize(width);
 }
 
 static BigInteger const2big(const RTLIL::Const &val, bool as_signed, int &undef_bit_pos)
@@ -277,7 +268,7 @@ RTLIL::Const RTLIL::const_logic_or(const RTLIL::Const &arg1, const RTLIL::Const 
 	return result;
 }
 
-static RTLIL::Const const_shift(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool sign_ext, int direction, int result_len)
+static RTLIL::Const const_shift_worker(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool sign_ext, int direction, int result_len)
 {
 	int undef_bit_pos = -1;
 	BigInteger offset = const2big(arg2, false, undef_bit_pos) * direction;
@@ -305,29 +296,62 @@ static RTLIL::Const const_shift(const RTLIL::Const &arg1, const RTLIL::Const &ar
 RTLIL::Const RTLIL::const_shl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
-	extend(arg1_ext, result_len, signed1);
-	return const_shift(arg1_ext, arg2, false, -1, result_len);
+	extend_u0(arg1_ext, result_len, signed1);
+	return const_shift_worker(arg1_ext, arg2, false, -1, result_len);
 }
 
 RTLIL::Const RTLIL::const_shr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
-	extend(arg1_ext, result_len, signed1);
-	return const_shift(arg1_ext, arg2, false, +1, result_len);
+	extend_u0(arg1_ext, std::max(result_len, SIZE(arg1)), signed1);
+	return const_shift_worker(arg1_ext, arg2, false, +1, result_len);
 }
 
 RTLIL::Const RTLIL::const_sshl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
 	if (!signed1)
 		return const_shl(arg1, arg2, signed1, signed2, result_len);
-	return const_shift(arg1, arg2, true, -1, result_len);
+	return const_shift_worker(arg1, arg2, true, -1, result_len);
 }
 
 RTLIL::Const RTLIL::const_sshr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
 	if (!signed1)
 		return const_shr(arg1, arg2, signed1, signed2, result_len);
-	return const_shift(arg1, arg2, true, +1, result_len);
+	return const_shift_worker(arg1, arg2, true, +1, result_len);
+}
+
+static RTLIL::Const const_shift_shiftx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool, bool signed2, int result_len, RTLIL::State other_bits)
+{
+	int undef_bit_pos = -1;
+	BigInteger offset = const2big(arg2, signed2, undef_bit_pos);
+
+	if (result_len < 0)
+		result_len = arg1.bits.size();
+
+	RTLIL::Const result(RTLIL::State::Sx, result_len);
+	if (undef_bit_pos >= 0)
+		return result;
+
+	for (int i = 0; i < result_len; i++) {
+		BigInteger pos = BigInteger(i) + offset;
+		if (pos < 0 || pos >= arg1.bits.size())
+			result.bits[i] = other_bits;
+		else
+			result.bits[i] = arg1.bits[pos.toInt()];
+	}
+
+	return result;
+}
+
+RTLIL::Const RTLIL::const_shift(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+{
+	return const_shift_shiftx(arg1, arg2, signed1, signed2, result_len, RTLIL::State::S0);
+}
+
+RTLIL::Const RTLIL::const_shiftx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+{
+	return const_shift_shiftx(arg1, arg2, signed1, signed2, result_len, RTLIL::State::Sx);
 }
 
 RTLIL::Const RTLIL::const_lt(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
@@ -538,14 +562,6 @@ RTLIL::Const RTLIL::const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 RTLIL::Const RTLIL::const_pos(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
-	extend(arg1_ext, result_len, signed1);
-
-	return arg1_ext;
-}
-
-RTLIL::Const RTLIL::const_bu0(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
-{
-	RTLIL::Const arg1_ext = arg1;
 	extend_u0(arg1_ext, result_len, signed1);
 
 	return arg1_ext;
@@ -554,9 +570,10 @@ RTLIL::Const RTLIL::const_bu0(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 RTLIL::Const RTLIL::const_neg(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
-	extend(arg1_ext, result_len, signed1);
-
 	RTLIL::Const zero(RTLIL::State::S0, 1);
-	return RTLIL::const_sub(zero, arg1_ext, false, signed1, result_len);
+
+	return RTLIL::const_sub(zero, arg1_ext, true, signed1, result_len);
 }
+
+YOSYS_NAMESPACE_END
 

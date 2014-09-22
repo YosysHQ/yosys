@@ -50,48 +50,37 @@ Getting Started
 
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
-The Qt4 library is needed for the yosys SVG viewer, that is used to display
-schematics, the minisat library is required for the SAT features in yosys
-and TCL for the scripting functionality. The extensive test suite requires
-Icarus Verilog. For example on Ubuntu Linux 12.04 LTS the following commands
-will install all prerequisites for building yosys:
+TCL, readline and libffi are optional (see ENABLE_* settings in Makefile).
+Xdot (graphviz) is used by the "show" command in yosys to display schematics.
+For example on Ubuntu Linux 14.04 LTS the following commands will install all
+prerequisites for building yosys:
 
-	$ sudo apt-get install git
-	$ sudo apt-get install g++
-	$ sudo apt-get install clang
-	$ sudo apt-get install make
-	$ sudo apt-get install bison
-	$ sudo apt-get install flex
-	$ sudo apt-get install libreadline-dev
-	$ sudo apt-get install tcl8.5-dev
-	$ sudo apt-get install minisat
-	$ sudo apt-get install zlib1g-dev
-	$ sudo apt-get install libqt4-dev
-	$ sudo apt-get install mercurial
-	$ sudo apt-get install iverilog
-	$ sudo apt-get install graphviz
+	$ yosys_deps="build-essential clang bison flex libreadline-dev
+	              tcl8.5-dev libffi-dev git mercurial graphviz xdot"
+	$ sudo apt-get install $yosys_deps
 
-To configure the build system to use a specific set of compiler and
-build configuration, use one of
+There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys
+download page to learn more about this:
 
-	$ make config-clang-debug
-	$ make config-gcc-debug
-	$ make config-release
+	http://www.clifford.at/yosys/download.html 
+
+To configure the build system to use a specific compiler, use one of
+
+	$ make config-clang
+	$ make config-gcc
 
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
 Makefile.
 
-	$ vi Makefile
+	$ vi Makefile             ..or..
+	$ vi Makefile.conf
 
 To build Yosys simply type 'make' in this directory.
 
 	$ make
 	$ make test
 	$ sudo make install
-
-If you encounter any problems during build, make sure to check the section
-"Workarounds for known build problems" at the end of this README file.
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executeable name).
@@ -116,12 +105,16 @@ writing the design to the console in yosys's internal format:
 
 	yosys> write_ilang
 
+elaborate design hierarchy:
+
+	yosys> hierarchy
+
 convert processes ("always" blocks) to netlist elements and perform
 some simple optimizations:
 
 	yosys> proc; opt
 
-display design netlist using the yosys svg viewer:
+display design netlist using xdot:
 
 	yosys> show
 
@@ -139,13 +132,14 @@ write design netlist to a new verilog file:
 
 a similar synthesis can be performed using yosys command line options only:
 
-	$ ./yosys -o synth.v -p proc -p opt -p techmap -p opt tests/simple/fiedler-cooley.v
+	$ ./yosys -o synth.v -p hierarchy -p proc -p opt \
+	                     -p techmap -p opt tests/simple/fiedler-cooley.v
 
 or using a simple synthesis script:
 
 	$ cat synth.ys
 	read_verilog tests/simple/fiedler-cooley.v
-	proc; opt; techmap; opt
+	hierarchy; proc; opt; techmap; opt
 	write_verilog synth.v
 
 	$ ./yosys synth.ys
@@ -154,20 +148,23 @@ It is also possible to only have the synthesis commands but not the read/write
 commands in the synthesis script:
 
 	$ cat synth.ys
-	proc; opt; techmap; opt
+	hierarchy; proc; opt; techmap; opt
 
 	$ ./yosys -o synth.v tests/simple/fiedler-cooley.v synth.ys
 
-The following synthesis script works reasonable for all designs:
+The following very basic synthesis script should work well with all designs:
 
 	# check design hierarchy
 	hierarchy
 
-	# translate processes (always blocks) and memories (arrays)
-	proc; memory; opt
+	# translate processes (always blocks)
+	proc; opt
 
 	# detect and optimize FSM encodings
 	fsm; opt
+
+	# implement memories (arrays)
+	memory; opt
 
 	# convert to gate logic
 	techmap; opt
@@ -177,7 +174,7 @@ in the liberty file mycells.lib, the following synthesis script will synthesize
 for the given cell library:
 
 	# the high-level stuff
-	hierarchy; proc; memory; opt; fsm; opt
+	hierarchy; proc; fsm; opt; memory; opt
 
 	# mapping to internal cell library
 	techmap; opt
@@ -193,6 +190,27 @@ for the given cell library:
 
 If you do not have a liberty file but want to test this synthesis script,
 you can use the file techlibs/cmos/cmos_cells.lib from the yosys sources.
+
+Various more complex liberty files (for testing) can be found here:
+
+	http://vlsiarch.ecen.okstate.edu/flows/MOSIS_SCMOS/latest/..
+		../cadence/lib/tsmc025/signalstorm/osu025_stdcells.lib
+		../cadence/lib/ami035/signalstorm/osu035_stdcells.lib
+		../cadence/lib/tsmc018/signalstorm/osu018_stdcells.lib
+		../cadence/lib/ami05/signalstorm/osu05_stdcells.lib
+
+The command "synth" provides a good default synthesis script (see "help synth").
+If possible a synthesis script should borrow from "synth". For example:
+
+	# the high-level stuff
+	hierarchy
+	synth -run coarse
+
+	# mapping to internal cells
+	techmap; opt -fast
+	dfflibmap -liberty mycells.lib
+	abc -liberty mycells.lib
+	clean
 
 Yosys is under construction. A more detailed documentation will follow.
 
@@ -270,41 +288,83 @@ Verilog Attributes and non-standard features
   for everything that comes after the {* ... *} statement. (Reset
   by adding an empty {* *} statement.)
 
-- The "assert" statement from SystemVerilog is supported in its most basic
-  form. In module context: "assert property (<expression>);" and within an
-  always block: "assert(<expression>);". It is transformed to a $assert cell
-  that is supported by the "sat" and "write_btor" commands.
+- Modules can be declared with "module mod_name(...);" (with three dots
+  instead of a list of moudle ports). With this syntax it is sufficient
+  to simply declare a module port as 'input' or 'output' in the module
+  body.
+
+- When defining a macro with `define, all text between tripple double quotes
+  is interpreted as macro body, even if it contains unescaped newlines. The
+  tripple double quotes are removed from the macro body. For example:
+
+      `define MY_MACRO(a, b) """
+         assign a = 23;
+         assign b = 42;
+      """
+
+- The attribute "via_celltype" can be used to implement a verilog task or
+  function by instantiating the specified cell type. The value is the name
+  of the cell type to use. For functions the name of the output port can
+  be specified by appending it to the cell type separated by a whitespace.
+  The body of the task or function is unused in this case and can be used
+  to specify a behavioral model of the cell type for simulation. For example:
+
+      module my_add3(A, B, C, Y);
+        parameter WIDTH = 8;
+        input [WIDTH-1:0] A, B, C;
+        output [WIDTH-1:0] Y;
+        ...
+      endmodule
+
+      module top;
+        ...
+        (* via_celltype = "my_add3 Y" *)
+        (* via_celltype_defparam_WIDTH = 32 *)
+        function [31:0] add3;
+          input [31:0] A, B, C;
+          begin
+            add3 = A + B + C;
+          end
+        endfunction
+        ...
+      endmodule
+
+- A limited subset of DPI-C functions is supported. The plugin mechanism
+  (see "help plugin") can be used load .so files with implementations of
+  DPI-C routines. As a non-standard extension it is possible to specify
+  a plugin alias using the "<alias>:" syntax. for example:
+
+      module dpitest;
+        import "DPI-C" function foo:round = real my_round (real);
+        parameter real r = my_round(12.345);
+      endmodule
+
+      $ yosys -p 'plugin -a foo -i /lib/libm.so; read_verilog dpitest.v'
 
 - Sized constants (the syntax <size>'s?[bodh]<value>) support constant
   expressions as <size>. If the expresion is not a simple identifier, it
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
 
 
-Workarounds for known build problems
-====================================
+Supported features from SystemVerilog
+=====================================
 
-You might get an error message like this one during build when building with
-a recent version of gcc:
+When read_verilog is called with -sv, it accepts some language features
+from SystemVerilog:
 
-	/usr/include/minisat/utils/Options.h:285:29: error:
-	unable to find string literal operator ‘operator"" PRIi64’
+- The "assert" statement from SystemVerilog is supported in its most basic
+  form. In module context: "assert property (<expression>);" and within an
+  always block: "assert(<expression>);". It is transformed to a $assert cell
+  that is supported by the "sat" and "write_btor" commands.
 
-This is a bug in the minisat header. It can be fixed by adding spaces before
-and after each occurrence of PRIi64 in the header file:
-
-	 sudo sed -i 's/PRIi64/ & /' /usr/include/minisat/utils/Options.h
+- The keywords "always_comb", "always_ff" and "always_latch", "logic" and
+  "bit" are supported.
 
 
 Roadmap / Large-scale TODOs
 ===========================
 
-- Verification and Regression Tests
-   - VlogHammer: http://www.clifford.at/yosys/vloghammer.html
-   - yosys-bigsim: https://github.com/cliffordwolf/yosys-bigsim
-
 - Technology mapping for real-world applications
-   - Add bit-wise const-folding via cell parameters to techmap pass
-   - Rewrite current stdcells.v techmap rules (modular and clean)
    - Improve Xilinx FGPA synthesis (RAMB, CARRY4, SLR, etc.)
 
 - Implement SAT-based formal equivialence checker
@@ -321,7 +381,6 @@ Other Unsorted TODOs
 
 - Implement missing Verilog 2005 features:
 
-  - Multi-dimensional arrays
   - Support for real (float) const. expressions and parameters
   - ROM modeling using $readmemh/$readmemb in "initial" blocks
   - Ignore what needs to be ignored (e.g. drive and charge strengths)
@@ -331,7 +390,4 @@ Other Unsorted TODOs
 
   - Add brief source code documentation to most passes and kernel code
   - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
-  - Add more commands for changing the design (delete, add, modify objects)
-  - Add full support for $lut cell type (const evaluation, sat solving, etc.)
-  - Smarter resource sharing pass (add MUXes and get rid of duplicated cells)
 

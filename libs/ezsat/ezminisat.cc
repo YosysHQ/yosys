@@ -25,15 +25,20 @@
 
 #include <limits.h>
 #include <stdint.h>
-#include <signal.h>
+#include <csignal>
 #include <cinttypes>
+#include <unistd.h>
 
-#include <minisat/core/Solver.h>
+#include "../minisat/Solver.h"
+#include "../minisat/SimpSolver.h"
 
 ezMiniSAT::ezMiniSAT() : minisatSolver(NULL)
 {
 	minisatSolver = NULL;
 	foundContradiction = false;
+
+	freeze(TRUE);
+	freeze(FALSE);
 }
 
 ezMiniSAT::~ezMiniSAT()
@@ -50,8 +55,27 @@ void ezMiniSAT::clear()
 	}
 	foundContradiction = false;
 	minisatVars.clear();
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	cnfFrozenVars.clear();
+#endif
 	ezSAT::clear();
 }
+
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+void ezMiniSAT::freeze(int id)
+{
+	if (!mode_non_incremental())
+		cnfFrozenVars.insert(bind(id));
+}
+
+bool ezMiniSAT::eliminated(int idx)
+{
+	idx = idx < 0 ? -idx : idx;
+	if (minisatSolver != NULL && idx > 0 && idx <= int(minisatVars.size()))
+		return minisatSolver->isEliminated(minisatVars.at(idx-1));
+	return false;
+}
+#endif
 
 ezMiniSAT *ezMiniSAT::alarmHandlerThis = NULL;
 clock_t ezMiniSAT::alarmHandlerTimeout = 0;
@@ -67,6 +91,8 @@ void ezMiniSAT::alarmHandler(int)
 
 bool ezMiniSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
 {
+	preSolverCallback();
+
 	solverTimoutStatus = false;
 
 	if (0) {
@@ -90,22 +116,42 @@ contradiction:
 	for (auto id : modelExpressions)
 		modelIdx.push_back(bind(id));
 
-	if (minisatSolver == NULL)
-		minisatSolver = new Minisat::Solver;
+	if (minisatSolver == NULL) {
+		minisatSolver = new Solver;
+		minisatSolver->verbosity = EZMINISAT_VERBOSITY;
+	}
 
+#if EZMINISAT_INCREMENTAL
 	std::vector<std::vector<int>> cnf;
 	consumeCnf(cnf);
+#else
+	const std::vector<std::vector<int>> &cnf = this->cnf();
+#endif
 
 	while (int(minisatVars.size()) < numCnfVariables())
 		minisatVars.push_back(minisatSolver->newVar());
 
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	for (auto idx : cnfFrozenVars)
+		minisatSolver->setFrozen(minisatVars.at(idx > 0 ? idx-1 : -idx-1), true);
+	cnfFrozenVars.clear();
+#endif
+
 	for (auto &clause : cnf) {
 		Minisat::vec<Minisat::Lit> ps;
-		for (auto idx : clause)
+		for (auto idx : clause) {
 			if (idx > 0)
 				ps.push(Minisat::mkLit(minisatVars.at(idx-1)));
 			else
 				ps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
+#if EZMINISAT_SIMPSOLVER
+			if (minisatSolver->isEliminated(minisatVars.at(idx > 0 ? idx-1 : -idx-1))) {
+				fprintf(stderr, "Assert in %s:%d failed! Missing call to ezsat->freeze(): %s (lit=%d)\n",
+						__FILE__, __LINE__, cnfLiteralInfo(idx).c_str(), idx);
+				abort();
+			}
+#endif
+		}
 		if (!minisatSolver->addClause(ps))
 			goto contradiction;
 	}
@@ -115,20 +161,31 @@ contradiction:
 
 	Minisat::vec<Minisat::Lit> assumps;
 
-	for (auto idx : extraClauses)
+	for (auto idx : extraClauses) {
 		if (idx > 0)
 			assumps.push(Minisat::mkLit(minisatVars.at(idx-1)));
 		else
 			assumps.push(Minisat::mkLit(minisatVars.at(-idx-1), true));
+#if EZMINISAT_SIMPSOLVER
+		if (minisatSolver->isEliminated(minisatVars.at(idx > 0 ? idx-1 : -idx-1))) {
+			fprintf(stderr, "Assert in %s:%d failed! Missing call to ezsat->freeze(): %s\n", __FILE__, __LINE__, cnfLiteralInfo(idx).c_str());
+			abort();
+		}
+#endif
+	}
 
-	sighandler_t old_alarm_sighandler = NULL;
+	struct sigaction sig_action;
+	struct sigaction old_sig_action;
 	int old_alarm_timeout = 0;
 
 	if (solverTimeout > 0) {
+		sig_action.sa_handler = alarmHandler;
+		sigemptyset(&sig_action.sa_mask);
+		sig_action.sa_flags = SA_RESTART;
 		alarmHandlerThis = this;
 		alarmHandlerTimeout = clock() + solverTimeout*CLOCKS_PER_SEC;
 		old_alarm_timeout = alarm(0);
-		old_alarm_sighandler = signal(SIGALRM, alarmHandler);
+		sigaction(SIGALRM, &sig_action, &old_sig_action);
 		alarm(1);
 	}
 
@@ -138,12 +195,18 @@ contradiction:
 		if (alarmHandlerTimeout == 0)
 			solverTimoutStatus = true;
 		alarm(0);
-		signal(SIGALRM, old_alarm_sighandler);
+		sigaction(SIGALRM, &old_sig_action, NULL);
 		alarm(old_alarm_timeout);
 	}
 
-	if (!foundSolution)
+	if (!foundSolution) {
+#if !EZMINISAT_INCREMENTAL
+		delete minisatSolver;
+		minisatSolver = NULL;
+		minisatVars.clear();
+#endif
 		return false;
+	}
 
 	modelValues.clear();
 	modelValues.resize(modelIdx.size());
@@ -161,6 +224,11 @@ contradiction:
 		modelValues[i] = (value == Minisat::lbool(refvalue));
 	}
 
+#if !EZMINISAT_INCREMENTAL
+	delete minisatSolver;
+	minisatSolver = NULL;
+	minisatVars.clear();
+#endif
 	return true;
 }
 

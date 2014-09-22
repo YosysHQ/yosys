@@ -26,6 +26,8 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 
+YOSYS_NAMESPACE_BEGIN
+
 void rtlil_frontend_ilang_yyerror(char const *s)
 {
 	log_error("Parser error in line %d: %s\n", rtlil_frontend_ilang_yyget_lineno(), s);
@@ -43,17 +45,20 @@ struct IlangFrontend : public Frontend {
 		log("representation of a design in yosys's internal format.)\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing ILANG frontend.\n");
 		extra_args(f, filename, args, 1);
 		log("Input filename: %s\n", filename.c_str());
 
+		ILANG_FRONTEND::lexin = f;
 		ILANG_FRONTEND::current_design = design;
 		rtlil_frontend_ilang_yydebug = false;
-		rtlil_frontend_ilang_yyrestart(f);
+		rtlil_frontend_ilang_yyrestart(NULL);
 		rtlil_frontend_ilang_yyparse();
 		rtlil_frontend_ilang_yylex_destroy();
 	}
 } IlangFrontend;
+
+YOSYS_NAMESPACE_END
 

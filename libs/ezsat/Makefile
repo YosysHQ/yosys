@@ -3,7 +3,8 @@ CC = clang
 CXX = clang
 CXXFLAGS = -MD -Wall -Wextra -ggdb
 CXXFLAGS += -std=c++11 -O0
-LDLIBS = -lminisat -lstdc++
+LDLIBS = ../minisat/Options.cc ../minisat/SimpSolver.cc ../minisat/Solver.cc ../minisat/System.cc -lm -lstdc++
+
 
 all: demo_vec demo_bit demo_cmp testbench puzzle3d
 
@@ -17,10 +18,11 @@ test: all
 	./testbench
 	./demo_bit
 	./demo_vec
-	./demo_cmp
+	# ./demo_cmp
+	# ./puzzle3d
 
 clean:
-	rm -f demo_bit demo_vec testbench puzzle3d *.o *.d
+	rm -f demo_bit demo_vec demo_cmp testbench puzzle3d *.o *.d
 
 .PHONY: all test clean
 

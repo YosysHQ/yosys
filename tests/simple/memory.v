@@ -1,5 +1,5 @@
 
-module test00(clk, setA, setB, y);
+module memtest00(clk, setA, setB, y);
 
 input clk, setA, setB;
 output y;
@@ -16,7 +16,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test01(clk, wr_en, wr_addr, wr_value, rd_addr, rd_value);
+module memtest01(clk, wr_en, wr_addr, wr_value, rd_addr, rd_value);
 
 input clk, wr_en;
 input [3:0] wr_addr, rd_addr;
@@ -36,7 +36,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test02(clk, setA, setB, addr, bit, y1, y2, y3, y4);
+module memtest02(clk, setA, setB, addr, bit, y1, y2, y3, y4);
 
 input clk, setA, setB;
 input [1:0] addr;
@@ -77,7 +77,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test03(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
+module memtest03(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
 
 input clk, wr_enable;
 input [3:0] wr_addr, wr_data, rd_addr;
@@ -95,7 +95,7 @@ endmodule
 
 // ----------------------------------------------------------
 
-module test04(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
+module memtest04(clk, wr_addr, wr_data, wr_enable, rd_addr, rd_data);
 
 input clk, wr_enable;
 input [3:0] wr_addr, wr_data, rd_addr;
@@ -112,5 +112,96 @@ end
 
 assign rd_data = memory[rd_addr_buf];
 
+endmodule
+
+// ----------------------------------------------------------
+
+module memtest05(clk, addr, wdata, rdata, wen);
+
+input clk;
+input [1:0] addr;
+input [7:0] wdata;
+output reg [7:0] rdata;
+input [3:0] wen;
+
+reg [7:0] mem [0:3];
+
+integer i;
+always @(posedge clk) begin
+	for (i = 0; i < 4; i = i+1)
+		if (wen[i]) mem[addr][i*2 +: 2] <= wdata[i*2 +: 2];
+	rdata <= mem[addr];
+end
+
+endmodule
+
+// ----------------------------------------------------------
+
+module memtest06_sync(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
+    (* gentb_constant=0 *) wire rst;
+    reg [7:0] test [0:7];
+    integer i;
+    always @(posedge clk) begin
+        if (rst) begin
+            for (i=0; i<8; i=i+1)
+                test[i] <= 0;
+        end else begin
+            test[0][2] <= din[1];
+            test[0][5] <= test[0][2];
+            test[idx][3] <= din[idx];
+            test[idx][6] <= test[idx][2];
+            test[idx][idx] <= !test[idx][idx];
+        end
+    end
+    assign dout = test[idx];
+endmodule
+
+module memtest06_async(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
+    (* gentb_constant=0 *) wire rst;
+    reg [7:0] test [0:7];
+    integer i;
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            for (i=0; i<8; i=i+1)
+                test[i] <= 0;
+        end else begin
+            test[0][2] <= din[1];
+            test[0][5] <= test[0][2];
+            test[idx][3] <= din[idx];
+            test[idx][6] <= test[idx][2];
+            test[idx][idx] <= !test[idx][idx];
+        end
+    end
+    assign dout = test[idx];
+endmodule
+
+// ----------------------------------------------------------
+
+module memtest07(clk, addr, woffset, wdata, rdata);
+
+input clk;
+input [1:0] addr;
+input [3:0] wdata;
+input [1:0] woffset;
+output reg [7:0] rdata;
+
+reg [7:0] mem [0:3];
+
+integer i;
+always @(posedge clk) begin
+	mem[addr][woffset +: 4] <= wdata;
+	rdata <= mem[addr];
+end
+
+endmodule
+
+// ----------------------------------------------------------
+
+module memtest08(input clk, input [3:0] a, b, c, output reg [3:0] y);
+	reg [3:0] mem [0:15] [0:15];
+	always @(posedge clk) begin
+		y <= mem[a][b];
+		mem[a][b] <= c;
+	end
 endmodule
 

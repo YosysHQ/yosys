@@ -30,22 +30,62 @@ struct FsmOpt
 	FsmData fsm_data;
 	RTLIL::Cell *cell;
 	RTLIL::Module *module;
+
+	void opt_unreachable_states()
+	{
+		while (1)
+		{
+			std::set<int> unreachable_states;
+			std::vector<FsmData::transition_t> new_transition_table;
+			std::vector<RTLIL::Const> new_state_table;
+			std::map<int, int> old_to_new_state;
+
+			for (int i = 0; i < SIZE(fsm_data.state_table); i++)
+				if (i != fsm_data.reset_state)
+					unreachable_states.insert(i);
+
+			for (auto &trans : fsm_data.transition_table)
+				unreachable_states.erase(trans.state_out);
+
+			if (unreachable_states.empty())
+				break;
+
+			for (int i = 0; i < SIZE(fsm_data.state_table); i++) {
+				if (unreachable_states.count(i)) {
+					log("  Removing unreachable state %s.\n", log_signal(fsm_data.state_table[i]));
+					continue;
+				}
+				old_to_new_state[i] = SIZE(new_state_table);
+				new_state_table.push_back(fsm_data.state_table[i]);
+			}
+
+			for (auto trans : fsm_data.transition_table) {
+				if (unreachable_states.count(trans.state_in))
+					continue;
+				trans.state_in = old_to_new_state.at(trans.state_in);
+				trans.state_out = old_to_new_state.at(trans.state_out);
+				new_transition_table.push_back(trans);
+			}
+
+			new_transition_table.swap(fsm_data.transition_table);
+			new_state_table.swap(fsm_data.state_table);
+			fsm_data.reset_state = old_to_new_state.at(fsm_data.reset_state);
+		}
+	}
 	
 	bool signal_is_unused(RTLIL::SigSpec sig)
 	{
-		assert(sig.width == 1);
-		sig.optimize();
+		RTLIL::SigBit bit = sig.to_single_sigbit();
 
-		RTLIL::Wire *wire = sig.chunks[0].wire;
-		int bit = sig.chunks[0].offset;
-
-		if (!wire || wire->attributes.count("\\unused_bits") == 0)
+		if (bit.wire == NULL || bit.wire->attributes.count("\\unused_bits") == 0)
 			return false;
 		
-		char *str = strdup(wire->attributes["\\unused_bits"].decode_string().c_str());
+		char *str = strdup(bit.wire->attributes["\\unused_bits"].decode_string().c_str());
 		for (char *tok = strtok(str, " "); tok != NULL; tok = strtok(NULL, " ")) {
-			if (tok[0] && bit == atoi(tok))
+			if (tok[0] && bit.offset == atoi(tok)) {
+				free(str);
 				return true;
+			}
 		}
 		free(str);
 
@@ -54,12 +94,12 @@ struct FsmOpt
 
 	void opt_const_and_unused_inputs()
 	{
-		RTLIL::SigSpec ctrl_in = cell->connections["\\CTRL_IN"];
-		std::vector<bool> ctrl_in_used(ctrl_in.width);
+		RTLIL::SigSpec ctrl_in = cell->getPort("\\CTRL_IN");
+		std::vector<bool> ctrl_in_used(ctrl_in.size());
 
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {
-			for (int i = 0; i < ctrl_in.width; i++) {
+			for (int i = 0; i < ctrl_in.size(); i++) {
 				RTLIL::SigSpec ctrl_bit = ctrl_in.extract(i, 1);
 				if (ctrl_bit.is_fully_const()) {
 					if (tr.ctrl_in.bits[i] <= RTLIL::State::S1 && RTLIL::SigSpec(tr.ctrl_in.bits[i]) != ctrl_bit)
@@ -75,13 +115,15 @@ struct FsmOpt
 
 		for (int i = int(ctrl_in_used.size())-1; i >= 0; i--) {
 			if (!ctrl_in_used[i]) {
-				log("  Removing unused input signal %s.\n", log_signal(cell->connections["\\CTRL_IN"].extract(i, 1)));
+				log("  Removing unused input signal %s.\n", log_signal(cell->getPort("\\CTRL_IN").extract(i, 1)));
 				for (auto &tr : new_transition_table) {
 					RTLIL::SigSpec tmp(tr.ctrl_in);
 					tmp.remove(i, 1);
 					tr.ctrl_in = tmp.as_const();
 				}
-				cell->connections["\\CTRL_IN"].remove(i, 1);
+				RTLIL::SigSpec new_ctrl_in = cell->getPort("\\CTRL_IN");
+				new_ctrl_in.remove(i, 1);
+				cell->setPort("\\CTRL_IN", new_ctrl_in);
 				fsm_data.num_inputs--;
 			}
 		}
@@ -93,10 +135,12 @@ struct FsmOpt
 	void opt_unused_outputs()
 	{
 		for (int i = 0; i < fsm_data.num_outputs; i++) {
-			RTLIL::SigSpec sig = cell->connections["\\CTRL_OUT"].extract(i, 1);
+			RTLIL::SigSpec sig = cell->getPort("\\CTRL_OUT").extract(i, 1);
 			if (signal_is_unused(sig)) {
 				log("  Removing unused output signal %s.\n", log_signal(sig));
-				cell->connections["\\CTRL_OUT"].remove(i, 1);
+				RTLIL::SigSpec new_ctrl_out = cell->getPort("\\CTRL_OUT");
+				new_ctrl_out.remove(i, 1);
+				cell->setPort("\\CTRL_OUT", new_ctrl_out);
 				for (auto &tr : fsm_data.transition_table) {
 					RTLIL::SigSpec tmp(tr.ctrl_out);
 					tmp.remove(i, 1);
@@ -110,10 +154,10 @@ struct FsmOpt
 
 	void opt_alias_inputs()
 	{
-		RTLIL::SigSpec &ctrl_in = cell->connections["\\CTRL_IN"];
+		RTLIL::SigSpec &ctrl_in = cell->connections_["\\CTRL_IN"];
 
-		for (int i = 0; i < ctrl_in.width; i++)
-		for (int j = i+1; j < ctrl_in.width; j++)
+		for (int i = 0; i < ctrl_in.size(); i++)
+		for (int j = i+1; j < ctrl_in.size(); j++)
 			if (ctrl_in.extract(i, 1) == ctrl_in.extract(j, 1))
 			{
 				log("  Optimize handling of signal %s that is connected to inputs %d and %d.\n", log_signal(ctrl_in.extract(i, 1)), i, j);
@@ -147,11 +191,11 @@ struct FsmOpt
 
 	void opt_feedback_inputs()
 	{
-		RTLIL::SigSpec &ctrl_in = cell->connections["\\CTRL_IN"];
-		RTLIL::SigSpec &ctrl_out = cell->connections["\\CTRL_OUT"];
+		RTLIL::SigSpec &ctrl_in = cell->connections_["\\CTRL_IN"];
+		RTLIL::SigSpec &ctrl_out = cell->connections_["\\CTRL_OUT"];
 
-		for (int j = 0; j < ctrl_out.width; j++)
-		for (int i = 0; i < ctrl_in.width; i++)
+		for (int j = 0; j < ctrl_out.size(); j++)
+		for (int i = 0; i < ctrl_in.size(); i++)
 			if (ctrl_in.extract(i, 1) == ctrl_out.extract(j, 1))
 			{
 				log("  Optimize handling of signal %s that is connected to input %d and output %d.\n", log_signal(ctrl_in.extract(i, 1)), i, j);
@@ -251,6 +295,8 @@ struct FsmOpt
 		this->cell = cell;
 		this->module = module;
 
+		opt_unreachable_states();
+
 		opt_unused_outputs();
 
 		opt_alias_inputs();
@@ -286,9 +332,9 @@ struct FsmOptPass : public Pass {
 		log_header("Executing FSM_OPT pass (simple optimizations of FSMs).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells)
+				for (auto &cell_it : mod_it.second->cells_)
 					if (cell_it.second->type == "$fsm" and design->selected(mod_it.second, cell_it.second))
 						FsmData::optimize_fsm(cell_it.second, mod_it.second);
 		}

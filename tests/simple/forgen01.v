@@ -1,3 +1,6 @@
+
+// VERIFIC-SKIP
+
 module uut_forgen01(a, y);
 
 input [4:0] a;

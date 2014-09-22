@@ -33,6 +33,9 @@ struct MemoryPass : public Pass {
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
 		log("    memory_dff\n");
+		log("    opt_clean\n");
+		log("    memory_share\n");
+		log("    opt_clean\n");
 		log("    memory_collect\n");
 		log("    memory_map          (skipped if called with -nomap)\n");
 		log("\n");
@@ -58,6 +61,9 @@ struct MemoryPass : public Pass {
 		extra_args(args, argidx, design);
 
 		Pass::call(design, "memory_dff");
+		Pass::call(design, "opt_clean");
+		Pass::call(design, "memory_share");
+		Pass::call(design, "opt_clean");
 		Pass::call(design, "memory_collect");
 
 		if (!flag_nomap)

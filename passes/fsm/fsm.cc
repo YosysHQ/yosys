@@ -127,11 +127,11 @@ struct FsmPass : public Pass {
 			Pass::call(design, "fsm_recode" + fm_set_fsm_file_opt + encoding_opt);
 		Pass::call(design, "fsm_info");
 
-		if (!flag_nomap)
-			Pass::call(design, "fsm_map");
-
 		if (flag_export)
 			Pass::call(design, "fsm_export");
+
+		if (!flag_nomap)
+			Pass::call(design, "fsm_map");
 
 		log_pop();
 	}

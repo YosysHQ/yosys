@@ -31,16 +31,12 @@ struct BitPatternPool
 
 	BitPatternPool(RTLIL::SigSpec sig)
 	{
-		width = sig.width;
+		width = sig.size();
 		if (width > 0) {
 			std::vector<RTLIL::State> pattern(width);
-			sig.optimize();
 			for (int i = 0; i < width; i++) {
-				RTLIL::SigSpec s = sig.extract(i, 1);
-				s.optimize();
-				assert(s.chunks.size() == 1);
-				if (s.chunks[0].wire == NULL && s.chunks[0].data.bits[0] <= RTLIL::State::S1)
-					pattern[i] = s.chunks[0].data.bits[0];
+				if (sig[i].wire == NULL && sig[i].data <= RTLIL::State::S1)
+					pattern[i] = sig[i].data;
 				else
 					pattern[i] = RTLIL::State::Sa;
 			}
@@ -61,10 +57,7 @@ struct BitPatternPool
 
 	bits_t sig2bits(RTLIL::SigSpec sig)
 	{
-		sig.optimize();
-		assert(sig.is_fully_const());
-		assert(sig.chunks.size() == 1);
-		bits_t bits = sig.chunks[0].data.bits;
+		bits_t bits = sig.as_const().bits;
 		for (auto &b : bits)
 			if (b > RTLIL::State::S1)
 				b = RTLIL::State::Sa;
@@ -73,8 +66,8 @@ struct BitPatternPool
 
 	bool match(bits_t a, bits_t b)
 	{
-		assert(int(a.size()) == width);
-		assert(int(b.size()) == width);
+		log_assert(int(a.size()) == width);
+		log_assert(int(b.size()) == width);
 		for (int i = 0; i < width; i++)
 			if (a[i] <= RTLIL::State::S1 && b[i] <= RTLIL::State::S1 && a[i] != b[i])
 				return false;

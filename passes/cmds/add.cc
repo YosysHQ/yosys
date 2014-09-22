@@ -28,8 +28,8 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 
 	if (module->count_id(name) != 0)
 	{
-		if (module->wires.count(name) > 0)
-			wire = module->wires.at(name);
+		if (module->wires_.count(name) > 0)
+			wire = module->wires_.at(name);
 
 		if (wire != NULL && wire->width != width)
 			wire = NULL;
@@ -47,15 +47,12 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	}
 	else
 	{
-		wire = new RTLIL::Wire;
-		wire->name = name;
-		wire->width = width;
+		wire = module->addWire(name, width);
 		wire->port_input = flag_input;
 		wire->port_output = flag_output;
-		module->add(wire);
 
 		if (flag_input || flag_output) {
-			wire->port_id = module->wires.size();
+			wire->port_id = module->wires_.size();
 			module->fixup_ports();
 		}
 
@@ -65,20 +62,20 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	if (!flag_global)
 		return;
 
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 	{
-		if (design->modules.count(it.second->type) == 0)
+		if (design->modules_.count(it.second->type) == 0)
 			continue;
 
-		RTLIL::Module *mod = design->modules.at(it.second->type);
+		RTLIL::Module *mod = design->modules_.at(it.second->type);
 		if (!design->selected_whole_module(mod->name))
 			continue;
 		if (mod->get_bool_attribute("\\blackbox"))
 			continue;
-		if (it.second->connections.count(name) > 0)
+		if (it.second->hasPort(name))
 			continue;
 
-		it.second->connections[name] = wire;
+		it.second->setPort(name, wire);
 		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), it.first.c_str(), it.second->type.c_str());
 	}
 }
@@ -139,7 +136,7 @@ struct AddPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules)
+		for (auto &mod : design->modules_)
 		{
 			RTLIL::Module *module = mod.second;
 			if (!design->selected_whole_module(module->name))

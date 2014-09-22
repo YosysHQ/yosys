@@ -1,4 +1,4 @@
-module test(clk, mode, u1, s1, u2, s2, y);
+module optest(clk, mode, u1, s1, u2, s2, y);
 
 input clk;
 input [6:0] mode;

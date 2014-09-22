@@ -29,23 +29,17 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	if (module->count_id(to_name))
 		log_cmd_error("There is already an object `%s' in module `%s'.\n", to_name.c_str(), module->name.c_str());
 
-	for (auto &it : module->wires)
+	for (auto &it : module->wires_)
 		if (it.first == from_name) {
-			RTLIL::Wire *wire = it.second;
-			log("Renaming wire %s to %s in module %s.\n", wire->name.c_str(), to_name.c_str(), module->name.c_str());
-			module->wires.erase(wire->name);
-			wire->name = to_name;
-			module->add(wire);
+			log("Renaming wire %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
+			module->rename(it.second, to_name);
 			return;
 		}
 
-	for (auto &it : module->cells)
+	for (auto &it : module->cells_)
 		if (it.first == from_name) {
-			RTLIL::Cell *cell = it.second;
-			log("Renaming cell %s to %s in module %s.\n", cell->name.c_str(), to_name.c_str(), module->name.c_str());
-			module->cells.erase(cell->name);
-			cell->name = to_name;
-			module->add(cell);
+			log("Renaming cell %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
+			module->rename(it.second, to_name);
 			return;
 		}
 
@@ -64,10 +58,12 @@ struct RenamePass : public Pass {
 		log("by this command.\n");
 		log("\n");
 		log("\n");
-		log("    rename -enumerate [selection]\n");
+		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
 		log("\n");
 		log("Assign short auto-generated names to all selected wires and cells with private\n");
-		log("names.\n");
+		log("names. The -pattern option can be used to set the pattern for the new names.\n");
+		log("The character %% in the pattern is replaced with a integer number. The default\n");
+		log("pattern is '_%%_'.\n");
 		log("\n");
 		log("    rename -hide [selection]\n");
 		log("\n");
@@ -77,6 +73,7 @@ struct RenamePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		std::string pattern_prefix = "_", pattern_suffix = "_";
 		bool flag_enumerate = false;
 		bool flag_hide = false;
 		bool got_mode = false;
@@ -95,6 +92,12 @@ struct RenamePass : public Pass {
 				got_mode = true;
 				continue;
 			}
+			if (arg == "-pattern" && argidx+1 < args.size() && args[argidx+1].find('%') != std::string::npos) {
+				int pos = args[++argidx].find('%');
+				pattern_prefix = args[argidx].substr(0, pos);
+				pattern_suffix = args[argidx].substr(pos+1);
+				continue;
+			}
 			break;
 		}
 
@@ -102,7 +105,7 @@ struct RenamePass : public Pass {
 		{
 			extra_args(args, argidx, design);
 
-			for (auto &mod : design->modules)
+			for (auto &mod : design->modules_)
 			{
 				int counter = 0;
 
@@ -111,22 +114,22 @@ struct RenamePass : public Pass {
 					continue;
 
 				std::map<RTLIL::IdString, RTLIL::Wire*> new_wires;
-				for (auto &it : module->wires) {
+				for (auto &it : module->wires_) {
 					if (it.first[0] == '$' && design->selected(module, it.second))
-						do it.second->name = stringf("\\_%d_", counter++);
+						do it.second->name = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
 						while (module->count_id(it.second->name) > 0);
 					new_wires[it.second->name] = it.second;
 				}
-				module->wires.swap(new_wires);
+				module->wires_.swap(new_wires);
 
 				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
-				for (auto &it : module->cells) {
+				for (auto &it : module->cells_) {
 					if (it.first[0] == '$' && design->selected(module, it.second))
-						do it.second->name = stringf("\\_%d_", counter++);
+						do it.second->name = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
 						while (module->count_id(it.second->name) > 0);
 					new_cells[it.second->name] = it.second;
 				}
-				module->cells.swap(new_cells);
+				module->cells_.swap(new_cells);
 			}
 		}
 		else
@@ -134,29 +137,29 @@ struct RenamePass : public Pass {
 		{
 			extra_args(args, argidx, design);
 
-			for (auto &mod : design->modules)
+			for (auto &mod : design->modules_)
 			{
 				RTLIL::Module *module = mod.second;
 				if (!design->selected(module))
 					continue;
 
 				std::map<RTLIL::IdString, RTLIL::Wire*> new_wires;
-				for (auto &it : module->wires) {
+				for (auto &it : module->wires_) {
 					if (design->selected(module, it.second))
 						if (it.first[0] == '\\' && it.second->port_id == 0)
 							it.second->name = NEW_ID;
 					new_wires[it.second->name] = it.second;
 				}
-				module->wires.swap(new_wires);
+				module->wires_.swap(new_wires);
 
 				std::map<RTLIL::IdString, RTLIL::Cell*> new_cells;
-				for (auto &it : module->cells) {
+				for (auto &it : module->cells_) {
 					if (design->selected(module, it.second))
 						if (it.first[0] == '\\')
 							it.second->name = NEW_ID;
 					new_cells[it.second->name] = it.second;
 				}
-				module->cells.swap(new_cells);
+				module->cells_.swap(new_cells);
 			}
 		}
 		else
@@ -169,19 +172,19 @@ struct RenamePass : public Pass {
 
 			if (!design->selected_active_module.empty())
 			{
-				if (design->modules.count(design->selected_active_module) > 0)
-					rename_in_module(design->modules.at(design->selected_active_module), from_name, to_name);
+				if (design->modules_.count(design->selected_active_module) > 0)
+					rename_in_module(design->modules_.at(design->selected_active_module), from_name, to_name);
 			}
 			else
 			{
-				for (auto &mod : design->modules) {
+				for (auto &mod : design->modules_) {
 					if (mod.first == from_name || RTLIL::unescape_id(mod.first) == from_name) {
 						to_name = RTLIL::escape_id(to_name);
 						log("Renaming module %s to %s.\n", mod.first.c_str(), to_name.c_str());
 						RTLIL::Module *module = mod.second;
-						design->modules.erase(module->name);
+						design->modules_.erase(module->name);
 						module->name = to_name;
-						design->modules[module->name] = module;
+						design->modules_[module->name] = module;
 						goto rename_ok;
 					}
 				}

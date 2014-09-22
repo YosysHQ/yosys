@@ -25,7 +25,9 @@
 %{
 #include <list>
 #include "ilang_frontend.h"
+YOSYS_NAMESPACE_BEGIN
 namespace ILANG_FRONTEND {
+	std::istream *lexin;
 	RTLIL::Design *current_design;
 	RTLIL::Module *current_module;
 	RTLIL::Wire *current_wire;
@@ -37,24 +39,26 @@ namespace ILANG_FRONTEND {
 	std::map<RTLIL::IdString, RTLIL::Const> attrbuf;
 }
 using namespace ILANG_FRONTEND;
+YOSYS_NAMESPACE_END
+USING_YOSYS_NAMESPACE
 %}
 
-%name-prefix="rtlil_frontend_ilang_yy"
+%name-prefix "rtlil_frontend_ilang_yy"
 
 %union {
 	char *string;
 	int integer;
-	RTLIL::Const *data;
-	RTLIL::SigSpec *sigspec;
+	YOSYS_NAMESPACE_PREFIX RTLIL::Const *data;
+	YOSYS_NAMESPACE_PREFIX RTLIL::SigSpec *sigspec;
 }
 
 %token <string> TOK_ID TOK_VALUE TOK_STRING
 %token <integer> TOK_INT
-%token TOK_MODULE TOK_WIRE TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
+%token TOK_AUTOIDX TOK_MODULE TOK_WIRE TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
 %token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_INIT
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
-%token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED
+%token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED TOK_UPTO
 
 %type <sigspec> sigspec sigspec_list
 %type <integer> sync_type
@@ -82,21 +86,23 @@ optional_eol:
 design:
 	design module |
 	design attr_stmt |
+	design autoidx_stmt |
 	/* empty */;
 
 module:
 	TOK_MODULE TOK_ID EOL {
-		if (current_design->modules.count($2) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of module %s.", $2).c_str());
+		if (current_design->has($2))
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
 		current_module = new RTLIL::Module;
 		current_module->name = $2;
 		current_module->attributes = attrbuf;
-		current_design->modules[$2] = current_module;
+		current_design->add(current_module);
 		attrbuf.clear();
 		free($2);
 	} module_body TOK_END {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
+		current_module->fixup_ports();
 	} EOL;
 
 module_body:
@@ -113,22 +119,29 @@ attr_stmt:
 		free($2);
 	};
 
+autoidx_stmt:
+	TOK_AUTOIDX TOK_INT EOL {
+		autoidx = std::max(autoidx, $2);
+	};
+
 wire_stmt:
 	TOK_WIRE {
-		current_wire = new RTLIL::Wire;
+		current_wire = current_module->addWire("$__ilang_frontend_tmp__");
 		current_wire->attributes = attrbuf;
 		attrbuf.clear();
 	} wire_options TOK_ID EOL {
-		if (current_module->wires.count($4) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of wire %s.", $4).c_str());
-		current_wire->name = $4;
-		current_module->wires[$4] = current_wire;
+		if (current_module->wires_.count($4) != 0)
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of wire %s.", $4).c_str());
+		current_module->rename(current_wire, $4);
 		free($4);
 	};
 
 wire_options:
 	wire_options TOK_WIDTH TOK_INT {
 		current_wire->width = $3;
+	} |
+	wire_options TOK_UPTO {
+		current_wire->upto = true;
 	} |
 	wire_options TOK_OFFSET TOK_INT {
 		current_wire->start_offset = $3;
@@ -157,7 +170,7 @@ memory_stmt:
 		attrbuf.clear();
 	} memory_options TOK_ID EOL {
 		if (current_module->memories.count($4) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of memory %s.", $4).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of memory %s.", $4).c_str());
 		current_memory->name = $4;
 		current_module->memories[$4] = current_memory;
 		free($4);
@@ -174,13 +187,10 @@ memory_options:
 
 cell_stmt:
 	TOK_CELL TOK_ID TOK_ID EOL {
-		if (current_module->cells.count($3) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of cell %s.", $3).c_str());
-		current_cell = new RTLIL::Cell;
-		current_cell->type = $2;
-		current_cell->name = $3;
+		if (current_module->cells_.count($3) != 0)
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell %s.", $3).c_str());
+		current_cell = current_module->addCell($3, $2);
 		current_cell->attributes = attrbuf;
-		current_module->cells[$3] = current_cell;
 		attrbuf.clear();
 		free($2);
 		free($3);
@@ -199,9 +209,9 @@ cell_body:
 		delete $5;
 	} |
 	cell_body TOK_CONNECT TOK_ID sigspec EOL {
-		if (current_cell->connections.count($3) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of cell port %s.", $3).c_str());
-		current_cell->connections[$3] = *$4;
+		if (current_cell->hasPort($3))
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell port %s.", $3).c_str());
+		current_cell->setPort($3, *$4);
 		delete $4;
 		free($3);
 	} |
@@ -210,7 +220,7 @@ cell_body:
 proc_stmt:
 	TOK_PROCESS TOK_ID EOL {
 		if (current_module->processes.count($2) != 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: redefinition of process %s.", $2).c_str());
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of process %s.", $2).c_str());
 		current_process = new RTLIL::Process;
 		current_process->name = $2;
 		current_process->attributes = attrbuf;
@@ -219,6 +229,7 @@ proc_stmt:
 		switch_stack.push_back(&current_process->root_case.switches);
 		case_stack.clear();
 		case_stack.push_back(&current_process->root_case);
+		attrbuf.clear();
 		free($2);
 	} case_body sync_list TOK_END EOL;
 
@@ -350,50 +361,25 @@ constant:
 
 sigspec:
 	constant {
-		RTLIL::SigChunk chunk;
-		chunk.wire = NULL;
-		chunk.width = $1->bits.size();
-		chunk.offset = 0;
-		chunk.data = *$1;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = chunk.width;
+		$$ = new RTLIL::SigSpec(*$1);
 		delete $1;
 	} |
 	TOK_ID {
-		if (current_module->wires.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: wire %s not found", $1).c_str());
-		RTLIL::SigChunk chunk;
-		chunk.wire = current_module->wires[$1];
-		chunk.width = current_module->wires[$1]->width;
-		chunk.offset = 0;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = chunk.width;
+		if (current_module->wires_.count($1) == 0)
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
+		$$ = new RTLIL::SigSpec(current_module->wires_[$1]);
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ']' {
-		if (current_module->wires.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: wire %s not found", $1).c_str());
-		RTLIL::SigChunk chunk;
-		chunk.wire = current_module->wires[$1];
-		chunk.offset = $3;
-		chunk.width = 1;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = 1;
+		if (current_module->wires_.count($1) == 0)
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
+		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $3);
 		free($1);
 	} |
 	TOK_ID '[' TOK_INT ':' TOK_INT ']' {
-		if (current_module->wires.count($1) == 0)
-			rtlil_frontend_ilang_yyerror(stringf("scope error: wire %s not found", $1).c_str());
-		RTLIL::SigChunk chunk;
-		chunk.wire = current_module->wires[$1];
-		chunk.width = $3 - $5 + 1;
-		chunk.offset = $5;
-		$$ = new RTLIL::SigSpec;
-		$$->chunks.push_back(chunk);
-		$$->width = chunk.width;
+		if (current_module->wires_.count($1) == 0)
+			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
+		$$ = new RTLIL::SigSpec(current_module->wires_[$1], $5, $3 - $5 + 1);
 		free($1);
 	} |
 	'{' sigspec_list '}' {
@@ -403,14 +389,8 @@ sigspec:
 sigspec_list:
 	sigspec_list sigspec {
 		$$ = new RTLIL::SigSpec;
-		for (auto it = $2->chunks.begin(); it != $2->chunks.end(); it++) {
-			$$->chunks.push_back(*it);
-			$$->width += it->width;
-		}
-		for (auto it = $1->chunks.begin(); it != $1->chunks.end(); it++) {
-			$$->chunks.push_back(*it);
-			$$->width += it->width;
-		}
+		$$->append(*$2);
+		$$->append(*$1);
 		delete $1;
 		delete $2;
 	} |
@@ -422,7 +402,7 @@ conn_stmt:
 	TOK_CONNECT sigspec sigspec EOL {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_ilang_yyerror("dangling attribute");
-		current_module->connections.push_back(RTLIL::SigSig(*$2, *$3));
+		current_module->connect(*$2, *$3);
 		delete $2;
 		delete $3;
 	};

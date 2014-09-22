@@ -21,21 +21,6 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-struct DeleteWireWorker
-{
-	RTLIL::Module *module;
-	std::set<std::string> *delete_wires_p;
-
-	void operator()(RTLIL::SigSpec &sig) {
-		sig.optimize();
-		for (auto &c : sig.chunks)
-			if (c.wire != NULL && delete_wires_p->count(c.wire->name)) {
-				c.wire = module->new_wire(c.width, NEW_ID);
-				c.offset = 0;
-			}
-	}
-};
-
 struct DeletePass : public Pass {
 	DeletePass() : Pass("delete", "delete objects in the design") { }
 	virtual void help()
@@ -79,9 +64,9 @@ struct DeletePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		std::vector<std::string> delete_mods;
+		std::vector<RTLIL::IdString> delete_mods;
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (design->selected_whole_module(mod_it.first) && !flag_input && !flag_output) {
 				delete_mods.push_back(mod_it.first);
@@ -94,7 +79,7 @@ struct DeletePass : public Pass {
 			RTLIL::Module *module = mod_it.second;
 
 			if (flag_input || flag_output) {
-				for (auto &it : module->wires)
+				for (auto &it : module->wires_)
 					if (design->selected(module, it.second)) {
 						if (flag_input)
 							it.second->port_input = false;
@@ -105,62 +90,52 @@ struct DeletePass : public Pass {
 				continue;
 			}
 
-			std::set<std::string> delete_wires;
-			std::set<std::string> delete_cells;
-			std::set<std::string> delete_procs;
-			std::set<std::string> delete_mems;
+			std::set<RTLIL::Wire*> delete_wires;
+			std::set<RTLIL::Cell*> delete_cells;
+			std::set<RTLIL::IdString> delete_procs;
+			std::set<RTLIL::IdString> delete_mems;
 
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
-					delete_wires.insert(it.first);
+					delete_wires.insert(it.second);
 
 			for (auto &it : module->memories)
 				if (design->selected(module, it.second))
 					delete_mems.insert(it.first);
 
-			for (auto &it : module->cells) {
+			for (auto &it : module->cells_) {
 				if (design->selected(module, it.second))
-					delete_cells.insert(it.first);
+					delete_cells.insert(it.second);
 				if ((it.second->type == "$memrd" || it.second->type == "$memwr") &&
 						delete_mems.count(it.second->parameters.at("\\MEMID").decode_string()) != 0)
-					delete_cells.insert(it.first);
+					delete_cells.insert(it.second);
 			}
 
 			for (auto &it : module->processes)
 				if (design->selected(module, it.second))
 					delete_procs.insert(it.first);
 
-			DeleteWireWorker delete_wire_worker;
-			delete_wire_worker.module = module;
-			delete_wire_worker.delete_wires_p = &delete_wires;
-			module->rewrite_sigspecs(delete_wire_worker);
-
-			for (auto &it : delete_wires) {
-				delete module->wires.at(it);
-				module->wires.erase(it);
-			}
-
 			for (auto &it : delete_mems) {
 				delete module->memories.at(it);
 				module->memories.erase(it);
 			}
 
-			for (auto &it : delete_cells) {
-				delete module->cells.at(it);
-				module->cells.erase(it);
-			}
+			for (auto &it : delete_cells)
+				module->remove(it);
 
 			for (auto &it : delete_procs) {
 				delete module->processes.at(it);
 				module->processes.erase(it);
 			}
 
+			module->remove(delete_wires);
+
 			module->fixup_ports();
 		}
 
 		for (auto &it : delete_mods) {
-			delete design->modules.at(it);
-			design->modules.erase(it);
+			delete design->modules_.at(it);
+			design->modules_.erase(it);
 		}
 	}
 } DeletePass;

@@ -3,6 +3,7 @@
 .*.swp
 /.cproject
 /.project
+/.settings
 /qtcreator.files
 /qtcreator.includes
 /qtcreator.config
@@ -14,6 +15,5 @@
 /yosys-abc
 /yosys-config
 /yosys-filterlib
-/yosys-svgviewer
 /kernel/version_*.cc
 /share

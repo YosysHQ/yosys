@@ -27,14 +27,14 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 {
 	CellTypes ct(design);
 
-	RTLIL::Wire *dummy_wire = module->new_wire(sig.width, NEW_ID);
+	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
 
-	for (auto &it : module->cells)
-	for (auto &port : it.second->connections)
+	for (auto &it : module->cells_)
+	for (auto &port : it.second->connections_)
 		if (ct.cell_output(it.second->type, port.first))
 			sigmap(port.second).replace(sig, dummy_wire, &port.second);
 
-	for (auto &conn : module->connections)
+	for (auto &conn : module->connections_)
 		sigmap(conn.first).replace(sig, dummy_wire, &conn.first);
 }
 
@@ -75,7 +75,7 @@ struct ConnectPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		RTLIL::Module *module = NULL;
-		for (auto &it : design->modules) {
+		for (auto &it : design->modules_) {
 			if (!design->selected(it.second))
 				continue;
 			if (module != NULL)
@@ -123,7 +123,7 @@ struct ConnectPass : public Pass {
 
 		SigMap sigmap;
 		if (!flag_nomap)
-			for (auto &it : module->connections) {
+			for (auto &it : module->connections()) {
 				std::vector<RTLIL::SigBit> lhs = it.first.to_sigbit_vector();
 				std::vector<RTLIL::SigBit> rhs = it.first.to_sigbit_vector();
 				for (size_t i = 0; i < lhs.size(); i++)
@@ -148,7 +148,7 @@ struct ConnectPass : public Pass {
 			if (!flag_nounset)
 				unset_drivers(design, module, sigmap, sig_lhs);
 
-			module->connections.push_back(RTLIL::SigSig(sig_lhs, sig_rhs));
+			module->connect(RTLIL::SigSig(sig_lhs, sig_rhs));
 		}
 		else
 		if (!unset_expr.empty())
@@ -169,14 +169,14 @@ struct ConnectPass : public Pass {
 			if (flag_nounset)
 				log_cmd_error("Cant use -port together with -nounset.\n");
 
-			if (module->cells.count(RTLIL::escape_id(port_cell)) == 0)
+			if (module->cells_.count(RTLIL::escape_id(port_cell)) == 0)
 				log_cmd_error("Can't find cell %s.\n", port_cell.c_str());
 
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr.c_str());
 
-			module->cells.at(RTLIL::escape_id(port_cell))->connections[RTLIL::escape_id(port_port)] = sigmap(sig);
+			module->cells_.at(RTLIL::escape_id(port_cell))->setPort(RTLIL::escape_id(port_port), sigmap(sig));
 		}
 		else
 			log_cmd_error("Expected -set, -unset, or -port.\n");

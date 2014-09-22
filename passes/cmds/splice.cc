@@ -33,8 +33,8 @@ struct SpliceWorker
 	bool sel_by_wire;
 	bool sel_any_bit;
 	bool no_outputs;
-	std::set<std::string> ports;
-	std::set<std::string> no_ports;
+	std::set<RTLIL::IdString> ports;
+	std::set<RTLIL::IdString> no_ports;
 
 	CellTypes ct;
 	SigMap sigmap;
@@ -52,7 +52,7 @@ struct SpliceWorker
 
 	RTLIL::SigSpec get_sliced_signal(RTLIL::SigSpec sig)
 	{
-		if (sig.width == 0 || sig.is_fully_const())
+		if (sig.size() == 0 || sig.is_fully_const())
 			return sig;
 
 		if (sliced_signals_cache.count(sig))
@@ -69,20 +69,16 @@ struct SpliceWorker
 
 		RTLIL::SigSpec new_sig = sig;
 
-		if (sig_a.width != sig.width) {
-			RTLIL::Cell *cell = new RTLIL::Cell;
-			cell->name = NEW_ID;
-			cell->type = "$slice";
+		if (sig_a.size() != sig.size()) {
+			RTLIL::Cell *cell = module->addCell(NEW_ID, "$slice");
 			cell->parameters["\\OFFSET"] = offset;
-			cell->parameters["\\A_WIDTH"] = sig_a.width;
-			cell->parameters["\\Y_WIDTH"] = sig.width;
-			cell->connections["\\A"] = sig_a;
-			cell->connections["\\Y"] = module->new_wire(sig.width, NEW_ID);
-			new_sig = cell->connections["\\Y"];
-			module->add(cell);
+			cell->parameters["\\A_WIDTH"] = sig_a.size();
+			cell->parameters["\\Y_WIDTH"] = sig.size();
+			cell->setPort("\\A", sig_a);
+			cell->setPort("\\Y", module->addWire(NEW_ID, sig.size()));
+			new_sig = cell->getPort("\\Y");
 		}
 
-		new_sig.optimize();
 		sliced_signals_cache[sig] = new_sig;
 
 		return new_sig;
@@ -90,7 +86,7 @@ struct SpliceWorker
 
 	RTLIL::SigSpec get_spliced_signal(RTLIL::SigSpec sig)
 	{
-		if (sig.width == 0 || sig.is_fully_const())
+		if (sig.size() == 0 || sig.is_fully_const())
 			return sig;
 
 		if (spliced_signals_cache.count(sig))
@@ -131,19 +127,15 @@ struct SpliceWorker
 		RTLIL::SigSpec new_sig = get_sliced_signal(chunks.front());
 		for (size_t i = 1; i < chunks.size(); i++) {
 			RTLIL::SigSpec sig2 = get_sliced_signal(chunks[i]);
-			RTLIL::Cell *cell = new RTLIL::Cell;
-			cell->name = NEW_ID;
-			cell->type = "$concat";
-			cell->parameters["\\A_WIDTH"] = new_sig.width;
-			cell->parameters["\\B_WIDTH"] = sig2.width;
-			cell->connections["\\A"] = new_sig;
-			cell->connections["\\B"] = sig2;
-			cell->connections["\\Y"] = module->new_wire(new_sig.width + sig2.width, NEW_ID);
-			new_sig = cell->connections["\\Y"];
-			module->add(cell);
+			RTLIL::Cell *cell = module->addCell(NEW_ID, "$concat");
+			cell->parameters["\\A_WIDTH"] = new_sig.size();
+			cell->parameters["\\B_WIDTH"] = sig2.size();
+			cell->setPort("\\A", new_sig);
+			cell->setPort("\\B", sig2);
+			cell->setPort("\\Y", module->addWire(NEW_ID, new_sig.size() + sig2.size()));
+			new_sig = cell->getPort("\\Y");
 		}
 
-		new_sig.optimize();
 		spliced_signals_cache[sig] = new_sig;
 
 		log("  Created spliced signal: %s -> %s\n", log_signal(sig), log_signal(new_sig));
@@ -157,7 +149,7 @@ struct SpliceWorker
 		driven_bits.push_back(RTLIL::State::Sm);
 		driven_bits.push_back(RTLIL::State::Sm);
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (it.second->port_input) {
 				RTLIL::SigSpec sig = sigmap(it.second);
 				driven_chunks.insert(sig);
@@ -166,8 +158,8 @@ struct SpliceWorker
 				driven_bits.push_back(RTLIL::State::Sm);
 			}
 
-		for (auto &it : module->cells)
-		for (auto &conn : it.second->connections)
+		for (auto &it : module->cells_)
+		for (auto &conn : it.second->connections())
 			if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first)) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				driven_chunks.insert(sig);
@@ -183,14 +175,14 @@ struct SpliceWorker
 
 		SigPool selected_bits;
 		if (!sel_by_cell)
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
 					selected_bits.add(sigmap(it.second));
 
-		for (auto &it : module->cells) {
+		for (auto &it : module->cells_) {
 			if (!sel_by_wire && !design->selected(module, it.second))
 				continue;
-			for (auto &conn : it.second->connections)
+			for (auto &conn : it.second->connections_)
 				if (ct.cell_input(it.second->type, conn.first)) {
 					if (ports.size() > 0 && !ports.count(conn.first))
 						continue;
@@ -211,7 +203,7 @@ struct SpliceWorker
 
 		std::vector<std::pair<RTLIL::Wire*, RTLIL::SigSpec>> rework_wires;
 
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (!no_outputs && it.second->port_output) {
 				if (!design->selected(module, it.second))
 					continue;
@@ -232,15 +224,15 @@ struct SpliceWorker
 
 		for (auto &it : rework_wires)
 		{
-			module->wires.erase(it.first->name);
-			RTLIL::Wire *new_port = new RTLIL::Wire(*it.first);
-			it.first->name = NEW_ID;
+			RTLIL::IdString orig_name = it.first->name;
+			module->rename(it.first, NEW_ID);
+
+			RTLIL::Wire *new_port = module->addWire(orig_name, it.first);
 			it.first->port_id = 0;
 			it.first->port_input = false;
 			it.first->port_output = false;
-			module->add(it.first);
-			module->add(new_port);
-			module->connections.push_back(RTLIL::SigSig(new_port, it.second));
+
+			module->connect(RTLIL::SigSig(new_port, it.second));
 		}
 	}
 };
@@ -259,12 +251,12 @@ struct SplicePass : public Pass {
 		log("\n");
 		log("    -sel_by_cell\n");
 		log("        only select the cell ports to rewire by the cell. if the selection\n");
-		log("        contains a cell, than all cell inputs are rewired, if neccessary.\n");
+		log("        contains a cell, than all cell inputs are rewired, if necessary.\n");
 		log("\n");
 		log("    -sel_by_wire\n");
 		log("        only select the cell ports to rewire by the wire. if the selection\n");
 		log("        contains a wire, than all cell ports driven by this wire are wired,\n");
-		log("        if neccessary.\n");
+		log("        if necessary.\n");
 		log("\n");
 		log("    -sel_any_bit\n");
 		log("        it is sufficient if the driver of any bit of a cell port is selected.\n");
@@ -291,7 +283,7 @@ struct SplicePass : public Pass {
 		bool sel_by_wire = false;
 		bool sel_any_bit = false;
 		bool no_outputs = false;
-		std::set<std::string> ports, no_ports;
+		std::set<RTLIL::IdString> ports, no_ports;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -335,7 +327,7 @@ struct SplicePass : public Pass {
 
 		log_header("Executing SPLICE pass (creating cells for signal splicing).\n");
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (!design->selected(mod_it.second))
 				continue;

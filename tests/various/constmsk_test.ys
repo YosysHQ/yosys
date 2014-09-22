@@ -1,0 +1,15 @@
+read_verilog constmsk_test.v
+
+copy test gold
+rename test gate
+
+cd gate
+techmap -map constmsk_testmap.v;;
+cd ..
+
+select -assert-count 2 gold/r:A_WIDTH=3
+select -assert-count 1 gate/r:A_WIDTH=2
+select -assert-count 1 gate/c:*
+
+miter -equiv -flatten gold gate miter
+sat -verify -prove trigger 0 miter

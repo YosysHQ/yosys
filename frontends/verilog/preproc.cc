@@ -37,7 +37,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+
+YOSYS_NAMESPACE_BEGIN
 
 static std::list<std::string> output_code;
 static std::list<std::string> input_buffer;
@@ -65,7 +66,7 @@ static char next_char()
 	if (input_buffer.empty())
 		return 0;
 
-	assert(input_buffer_charp <= input_buffer.front().size());
+	log_assert(input_buffer_charp <= input_buffer.front().size());
 	if (input_buffer_charp == input_buffer.front().size()) {
 		input_buffer_charp = 0;
 		input_buffer.pop_front();
@@ -130,6 +131,12 @@ static std::string next_token(bool pass_newline = false)
 					token += ch;
 			}
 		}
+		if (token == "\"\"" && (ch = next_char()) != 0) {
+			if (ch == '"')
+				token += ch;
+			else
+				return_char(ch);
+		}
 	}
 	else if (ch == '/')
 	{
@@ -186,7 +193,7 @@ static std::string next_token(bool pass_newline = false)
 	return token;
 }
 
-static void input_file(FILE *f, std::string filename)
+static void input_file(std::istream &f, std::string filename)
 {
 	char buffer[513];
 	int rc;
@@ -195,14 +202,14 @@ static void input_file(FILE *f, std::string filename)
 	auto it = input_buffer.begin();
 
 	input_buffer.insert(it, "`file_push " + filename + "\n");
-	while ((rc = fread(buffer, 1, sizeof(buffer)-1, f)) > 0) {
+	while ((rc = f.readsome(buffer, sizeof(buffer)-1)) > 0) {
 		buffer[rc] = 0;
 		input_buffer.insert(it, buffer);
 	}
-	input_buffer.insert(it, "`file_pop\n");
+	input_buffer.insert(it, "\n`file_pop\n");
 }
 
-std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
+std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
 {
 	std::set<std::string> defines_with_args;
 	std::map<std::string, std::string> defines_map(pre_defines_map);
@@ -281,27 +288,28 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 				else
 					fn = fn.substr(0, pos) + fn.substr(pos+1);
 			}
-			FILE *fp = fopen(fn.c_str(), "r");
-			if (fp == NULL && fn.size() > 0 && fn[0] != '/' && filename.find('/') != std::string::npos) {
+			std::ifstream ff;
+			ff.clear();
+			ff.open(fn.c_str());
+			if (ff.fail() && fn.size() > 0 && fn[0] != '/' && filename.find('/') != std::string::npos) {
 				// if the include file was not found, it is not given with an absolute path, and the
 				// currently read file is given with a path, then try again relative to its directory
-				std::string fn2 = filename.substr(0, filename.rfind('/')+1) + fn;
-				fp = fopen(fn2.c_str(), "r");
+				ff.clear();
+				ff.open(filename.substr(0, filename.rfind('/')+1) + fn);
 			}
-			if (fp == NULL && fn.size() > 0 && fn[0] != '/') {
+			if (ff.fail() && fn.size() > 0 && fn[0] != '/') {
 				// if the include file was not found and it is not given with an absolute path, then
 				// search it in the include path
 				for (auto incdir : include_dirs) {
-					std::string fn2 = incdir + '/' + fn;
-					fp = fopen(fn2.c_str(), "r");
-					if (fp != NULL) break;
+					ff.clear();
+					ff.open(incdir + '/' + fn);
+					if (!ff.fail()) break;
 				}
 			}
-			if (fp != NULL) {
-				input_file(fp, fn);
-				fclose(fp);
-			} else
-				output_code.push_back("`file_notfound " + fn + "\n");
+			if (ff.fail())
+				output_code.push_back("`file_notfound " + fn);
+			else
+				input_file(ff, fn);
 			continue;
 		}
 
@@ -310,12 +318,17 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 			std::map<std::string, int> args;
 			skip_spaces();
 			name = next_token(true);
+			bool here_doc_mode = false;
 			int newline_count = 0;
 			int state = 0;
 			if (skip_spaces() != "")
 				state = 3;
 			while (!tok.empty()) {
 				tok = next_token();
+				if (tok == "\"\"\"") {
+					here_doc_mode = !here_doc_mode;
+					continue;
+				}
 				if (state == 0 && tok == "(") {
 					state = 1;
 					skip_spaces();
@@ -332,9 +345,14 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 					if (state != 2)
 						state = 3;
 					if (tok == "\n") {
-						return_char('\n');
-						break;
-					}
+						if (here_doc_mode) {
+							value += " ";
+							newline_count++;
+						} else {
+							return_char('\n');
+							break;
+						}
+					} else
 					if (tok == "\\") {
 						char ch = next_char();
 						if (ch == '\n') {
@@ -373,7 +391,6 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 		}
 
 		if (tok == "`timescale") {
-			std::string name;
 			skip_spaces();
 			while (!tok.empty() && tok != "\n")
 				tok = next_token(true);
@@ -428,4 +445,6 @@ std::string frontend_verilog_preproc(FILE *f, std::string filename, const std::m
 
 	return output;
 }
+
+YOSYS_NAMESPACE_END
 

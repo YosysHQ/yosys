@@ -26,8 +26,8 @@
 #include <stdio.h>
 
 #ifdef _YOSYS_
-#  include "kernel/log.h"
-#  define my_printf log
+#  include "kernel/yosys.h"
+#  define my_printf YOSYS_NAMESPACE_PREFIX log
 #else
 #  define my_printf printf
 #endif

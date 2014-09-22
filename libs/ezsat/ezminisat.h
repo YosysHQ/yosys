@@ -20,6 +20,10 @@
 #ifndef EZMINISAT_H
 #define EZMINISAT_H
 
+#define EZMINISAT_SIMPSOLVER 1
+#define EZMINISAT_VERBOSITY 0
+#define EZMINISAT_INCREMENTAL 1
+
 #include "ezsat.h"
 #include <time.h>
 
@@ -28,14 +32,24 @@
 // don't force ezSAT users to use minisat headers..
 namespace Minisat {
 	class Solver;
+	class SimpSolver;
 }
 
 class ezMiniSAT : public ezSAT
 {
 private:
-	Minisat::Solver *minisatSolver;
+#if EZMINISAT_SIMPSOLVER
+	typedef Minisat::SimpSolver Solver;
+#else
+	typedef Minisat::Solver Solver;
+#endif
+	Solver *minisatSolver;
 	std::vector<int> minisatVars;
 	bool foundContradiction;
+
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	std::set<int> cnfFrozenVars;
+#endif
 
 	static ezMiniSAT *alarmHandlerThis;
 	static clock_t alarmHandlerTimeout;
@@ -45,6 +59,10 @@ public:
 	ezMiniSAT();
 	virtual ~ezMiniSAT();
 	virtual void clear();
+#if EZMINISAT_SIMPSOLVER && EZMINISAT_INCREMENTAL
+	virtual void freeze(int id);
+	virtual bool eliminated(int idx);
+#endif
 	virtual bool solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions);
 };
 

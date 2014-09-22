@@ -17,14 +17,12 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
 #include "libs/sha1/sha1.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include <set>
 
@@ -61,12 +59,12 @@ struct OptShareWorker
 		if (cell_hash_cache.count(cell) > 0)
 			return cell_hash_cache[cell];
 
-		std::string hash_string = cell->type + "\n";
+		std::string hash_string = cell->type.str() + "\n";
 
 		for (auto &it : cell->parameters)
-			hash_string += "P " + it.first + "=" + it.second.as_string() + "\n";
+			hash_string += "P " + it.first.str() + "=" + it.second.as_string() + "\n";
 
-		const std::map<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections;
+		const std::map<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
 		std::map<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
 
 		if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" || cell->type == "$add" || cell->type == "$mul" ||
@@ -96,24 +94,19 @@ struct OptShareWorker
 				continue;
 			RTLIL::SigSpec sig = it.second;
 			assign_map.apply(sig);
-			hash_string += "C " + it.first + "=";
-			for (auto &chunk : sig.chunks) {
+			hash_string += "C " + it.first.str() + "=";
+			for (auto &chunk : sig.chunks()) {
 				if (chunk.wire)
-					hash_string += "{" + chunk.wire->name + " " +
+					hash_string += "{" + chunk.wire->name.str() + " " +
 							int_to_hash_string(chunk.offset) + " " +
 							int_to_hash_string(chunk.width) + "}";
 				else
-					hash_string += chunk.data.as_string();
+					hash_string += RTLIL::Const(chunk.data).as_string();
 			}
 			hash_string += "\n";
 		}
 
-		unsigned char hash[20];
-		char hash_hex_string[41];
-		sha1::calc(hash_string.c_str(), hash_string.size(), hash);
-		sha1::toHexString(hash, hash_hex_string);
-		cell_hash_cache[cell] = hash_hex_string;
-
+		cell_hash_cache[cell] = sha1(hash_string);
 		return cell_hash_cache[cell];
 	}
 #endif
@@ -135,8 +128,8 @@ struct OptShareWorker
 			return true;
 		}
 
-		std::map<RTLIL::IdString, RTLIL::SigSpec> conn1 = cell1->connections;
-		std::map<RTLIL::IdString, RTLIL::SigSpec> conn2 = cell2->connections;
+		std::map<RTLIL::IdString, RTLIL::SigSpec> conn1 = cell1->connections();
+		std::map<RTLIL::IdString, RTLIL::SigSpec> conn2 = cell2->connections();
 
 		for (auto &it : conn1) {
 			if (ct.cell_output(cell1->type, it.first))
@@ -180,8 +173,8 @@ struct OptShareWorker
 		}
 
 		if (cell1->type.substr(0, 1) == "$" && conn1.count("\\Q") != 0) {
-			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->connections.at("\\Q")).to_sigbit_vector();
-			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->connections.at("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q1 = dff_init_map(cell1->getPort("\\Q")).to_sigbit_vector();
+			std::vector<RTLIL::SigBit> q2 = dff_init_map(cell2->getPort("\\Q")).to_sigbit_vector();
 			for (size_t i = 0; i < q1.size(); i++)
 				if ((q1.at(i).wire == NULL || q2.at(i).wire == NULL) && q1.at(i) != q2.at(i)) {
 					lt = q1.at(i) < q2.at(i);
@@ -230,14 +223,13 @@ struct OptShareWorker
 		if (mode_nomux) {
 			ct.cell_types.erase("$mux");
 			ct.cell_types.erase("$pmux");
-			ct.cell_types.erase("$safe_pmux");
 		}
 
 		log("Finding identical cells in module `%s'.\n", module->name.c_str());
 		assign_map.set(module);
 
 		dff_init_map.set(module);
-		for (auto &it : module->wires)
+		for (auto &it : module->wires_)
 			if (it.second->attributes.count("\\init") != 0)
 				dff_init_map.add(it.second, it.second->attributes.at("\\init"));
 
@@ -248,8 +240,8 @@ struct OptShareWorker
 			cell_hash_cache.clear();
 #endif
 			std::vector<RTLIL::Cell*> cells;
-			cells.reserve(module->cells.size());
-			for (auto &it : module->cells) {
+			cells.reserve(module->cells_.size());
+			for (auto &it : module->cells_) {
 				if (ct.cell_known(it.second->type) && design->selected(module, it.second))
 					cells.push_back(it.second);
 			}
@@ -261,20 +253,18 @@ struct OptShareWorker
 				if (sharemap.count(cell) > 0) {
 					did_something = true;
 					log("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
-					for (auto &it : cell->connections) {
+					for (auto &it : cell->connections()) {
 						if (ct.cell_output(cell->type, it.first)) {
-							RTLIL::SigSpec other_sig = sharemap[cell]->connections[it.first];
+							RTLIL::SigSpec other_sig = sharemap[cell]->getPort(it.first);
 							log("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 									log_signal(it.second), log_signal(other_sig));
-							module->connections.push_back(RTLIL::SigSig(it.second, other_sig));
+							module->connect(RTLIL::SigSig(it.second, other_sig));
 							assign_map.add(it.second, other_sig);
 						}
 					}
 					log("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
-					module->cells.erase(cell->name);
-					OPT_DID_SOMETHING = true;
+					module->remove(cell);
 					total_count++;
-					delete cell;
 				} else {
 					sharemap[cell] = cell;
 				}
@@ -316,13 +306,15 @@ struct OptSharePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules) {
+		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
 				continue;
 			OptShareWorker worker(design, mod_it.second, mode_nomux);
 			total_count += worker.total_count;
 		}
 
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
 		log("Removed a total of %d cells.\n", total_count);
 	}
 } OptSharePass;

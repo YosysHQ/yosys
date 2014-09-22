@@ -25,23 +25,27 @@
 #ifndef ILANG_BACKEND_H
 #define ILANG_BACKEND_H
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
 #include <stdio.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 namespace ILANG_BACKEND {
-	void dump_const(FILE *f, const RTLIL::Const &data, int width = -1, int offset = 0, bool autoint = true);
-	void dump_sigchunk(FILE *f, const RTLIL::SigChunk &chunk, bool autoint = true);
-	void dump_sigspec(FILE *f, const RTLIL::SigSpec &sig, bool autoint = true);
-	void dump_wire(FILE *f, std::string indent, const RTLIL::Wire *wire);
-	void dump_memory(FILE *f, std::string indent, const RTLIL::Memory *memory);
-	void dump_cell(FILE *f, std::string indent, const RTLIL::Cell *cell);
-	void dump_proc_case_body(FILE *f, std::string indent, const RTLIL::CaseRule *cs);
-	void dump_proc_switch(FILE *f, std::string indent, const RTLIL::SwitchRule *sw);
-	void dump_proc_sync(FILE *f, std::string indent, const RTLIL::SyncRule *sy);
-	void dump_proc(FILE *f, std::string indent, const RTLIL::Process *proc);
-	void dump_conn(FILE *f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right);
-	void dump_module(FILE *f, std::string indent, const RTLIL::Module *module, const RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
-	void dump_design(FILE *f, const RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
+	void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool autoint = true);
+	void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint = true);
+	void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint = true);
+	void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
+	void dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory);
+	void dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell);
+	void dump_proc_case_body(std::ostream &f, std::string indent, const RTLIL::CaseRule *cs);
+	void dump_proc_switch(std::ostream &f, std::string indent, const RTLIL::SwitchRule *sw);
+	void dump_proc_sync(std::ostream &f, std::string indent, const RTLIL::SyncRule *sy);
+	void dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc);
+	void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right);
+	void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
+	void dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
 }
+
+YOSYS_NAMESPACE_END
 
 #endif

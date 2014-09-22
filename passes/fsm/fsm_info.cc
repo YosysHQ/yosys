@@ -43,9 +43,9 @@ struct FsmInfoPass : public Pass {
 		log_header("Executing FSM_INFO pass (dumping all available information on FSM cells).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells)
+				for (auto &cell_it : mod_it.second->cells_)
 					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second)) {
 						log("\n");
 						log("FSM `%s' from module `%s':\n", cell_it.second->name.c_str(), mod_it.first.c_str());

@@ -17,7 +17,6 @@
  *
  */
 
-#include "opt_status.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
@@ -33,34 +32,34 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	RTLIL::Const val_cp, val_rp, val_rv;
 
 	if (dff->type == "$_DFF_N_" || dff->type == "$_DFF_P_") {
-		sig_d = dff->connections["\\D"];
-		sig_q = dff->connections["\\Q"];
-		sig_c = dff->connections["\\C"];
+		sig_d = dff->getPort("\\D");
+		sig_q = dff->getPort("\\Q");
+		sig_c = dff->getPort("\\C");
 		val_cp = RTLIL::Const(dff->type == "$_DFF_P_", 1);
 	}
 	else if (dff->type.substr(0,6) == "$_DFF_" && dff->type.substr(9) == "_" &&
 			(dff->type[6] == 'N' || dff->type[6] == 'P') &&
 			(dff->type[7] == 'N' || dff->type[7] == 'P') &&
 			(dff->type[8] == '0' || dff->type[8] == '1')) {
-		sig_d = dff->connections["\\D"];
-		sig_q = dff->connections["\\Q"];
-		sig_c = dff->connections["\\C"];
-		sig_r = dff->connections["\\R"];
+		sig_d = dff->getPort("\\D");
+		sig_q = dff->getPort("\\Q");
+		sig_c = dff->getPort("\\C");
+		sig_r = dff->getPort("\\R");
 		val_cp = RTLIL::Const(dff->type[6] == 'P', 1);
 		val_rp = RTLIL::Const(dff->type[7] == 'P', 1);
 		val_rv = RTLIL::Const(dff->type[8] == '1', 1);
 	}
 	else if (dff->type == "$dff") {
-		sig_d = dff->connections["\\D"];
-		sig_q = dff->connections["\\Q"];
-		sig_c = dff->connections["\\CLK"];
+		sig_d = dff->getPort("\\D");
+		sig_q = dff->getPort("\\Q");
+		sig_c = dff->getPort("\\CLK");
 		val_cp = RTLIL::Const(dff->parameters["\\CLK_POLARITY"].as_bool(), 1);
 	}
 	else if (dff->type == "$adff") {
-		sig_d = dff->connections["\\D"];
-		sig_q = dff->connections["\\Q"];
-		sig_c = dff->connections["\\CLK"];
-		sig_r = dff->connections["\\ARST"];
+		sig_d = dff->getPort("\\D");
+		sig_q = dff->getPort("\\Q");
+		sig_c = dff->getPort("\\CLK");
+		sig_r = dff->getPort("\\ARST");
 		val_cp = RTLIL::Const(dff->parameters["\\CLK_POLARITY"].as_bool(), 1);
 		val_rp = RTLIL::Const(dff->parameters["\\ARST_POLARITY"].as_bool(), 1);
 		val_rv = dff->parameters["\\ARST_VALUE"];
@@ -85,55 +84,55 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
 		for (auto mux : muxes) {
-			RTLIL::SigSpec sig_a = assign_map(mux->connections.at("\\A"));
-			RTLIL::SigSpec sig_b = assign_map(mux->connections.at("\\B"));
+			RTLIL::SigSpec sig_a = assign_map(mux->getPort("\\A"));
+			RTLIL::SigSpec sig_b = assign_map(mux->getPort("\\B"));
 			if (sig_a == sig_q && sig_b.is_fully_const()) {
 				RTLIL::SigSig conn(sig_q, sig_b);
-				mod->connections.push_back(conn);
+				mod->connect(conn);
 				goto delete_dff;
 			}
 			if (sig_b == sig_q && sig_a.is_fully_const()) {
 				RTLIL::SigSig conn(sig_q, sig_a);
-				mod->connections.push_back(conn);
+				mod->connect(conn);
 				goto delete_dff;
 			}
 		}
 	}
 
-	if (sig_c.is_fully_const() && (!sig_r.width || !has_init)) {
+	if (sig_c.is_fully_const() && (!sig_r.size() || !has_init)) {
 		if (val_rv.bits.size() == 0)
 			val_rv = val_init;
 		RTLIL::SigSig conn(sig_q, val_rv);
-		mod->connections.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_undef() && sig_r.width && !has_init) {
+	if (sig_d.is_fully_undef() && sig_r.size() && !has_init) {
 		RTLIL::SigSig conn(sig_q, val_rv);
-		mod->connections.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_undef() && !sig_r.width && has_init) {
+	if (sig_d.is_fully_undef() && !sig_r.size() && has_init) {
 		RTLIL::SigSig conn(sig_q, val_init);
-		mod->connections.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_const() && !sig_r.width && !has_init) {
+	if (sig_d.is_fully_const() && !sig_r.size() && !has_init) {
 		RTLIL::SigSig conn(sig_q, sig_d);
-		mod->connections.push_back(conn);
+		mod->connect(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d == sig_q && !(sig_r.width && has_init)) {
-		if (sig_r.width) {
+	if (sig_d == sig_q && !(sig_r.size() && has_init)) {
+		if (sig_r.size()) {
 			RTLIL::SigSig conn(sig_q, val_rv);
-			mod->connections.push_back(conn);
+			mod->connect(conn);
 		}
 		if (has_init) {
 			RTLIL::SigSig conn(sig_q, val_init);
-			mod->connections.push_back(conn);
+			mod->connect(conn);
 		}
 		goto delete_dff;
 	}
@@ -142,9 +141,7 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 delete_dff:
 	log("Removing %s (%s) from module %s.\n", dff->name.c_str(), dff->type.c_str(), mod->name.c_str());
-	OPT_DID_SOMETHING = true;
-	mod->cells.erase(dff->name);
-	delete dff;
+	mod->remove(dff);
 	return true;
 }
 
@@ -167,23 +164,23 @@ struct OptRmdffPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (!design->selected(mod_it.second))
 				continue;
 
 			assign_map.set(mod_it.second);
 			dff_init_map.set(mod_it.second);
-			for (auto &it : mod_it.second->wires)
+			for (auto &it : mod_it.second->wires_)
 				if (it.second->attributes.count("\\init") != 0)
 					dff_init_map.add(it.second, it.second->attributes.at("\\init"));
 			mux_drivers.clear();
 
-			std::vector<std::string> dff_list;
-			for (auto &it : mod_it.second->cells) {
+			std::vector<RTLIL::IdString> dff_list;
+			for (auto &it : mod_it.second->cells_) {
 				if (it.second->type == "$mux" || it.second->type == "$pmux") {
-					if (it.second->connections.at("\\A").width == it.second->connections.at("\\B").width)
-						mux_drivers.insert(assign_map(it.second->connections.at("\\Y")), it.second);
+					if (it.second->getPort("\\A").size() == it.second->getPort("\\B").size())
+						mux_drivers.insert(assign_map(it.second->getPort("\\Y")), it.second);
 					continue;
 				}
 				if (!design->selected(mod_it.second, it.second))
@@ -203,14 +200,17 @@ struct OptRmdffPass : public Pass {
 			}
 
 			for (auto &id : dff_list) {
-				if (mod_it.second->cells.count(id) > 0 &&
-						handle_dff(mod_it.second, mod_it.second->cells[id]))
+				if (mod_it.second->cells_.count(id) > 0 &&
+						handle_dff(mod_it.second, mod_it.second->cells_[id]))
 					total_count++;
 			}
 		}
 
 		assign_map.clear();
 		mux_drivers.clear();
+
+		if (total_count)
+			design->scratchpad_set_bool("opt.did_something", true);
 		log("Replaced %d DFF cells.\n", total_count);
 	}
 } OptRmdffPass;

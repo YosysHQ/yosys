@@ -3,7 +3,7 @@
 // this core that triggered bugs in early versions of yosys.
 
 // from i2c_master_bit_ctrl
-module test01(clk, rst, nReset, al);
+module i2c_test01(clk, rst, nReset, al);
 
 	input clk, rst, nReset;
 	output reg al;
@@ -26,7 +26,7 @@ module test01(clk, rst, nReset, al);
 endmodule
 
 // from i2c_master_bit_ctrl
-module test02(clk, slave_wait, clk_cnt, cmd, cmd_stop, cnt);
+module i2c_test02(clk, slave_wait, clk_cnt, cmd, cmd_stop, cnt);
 
 	input clk, slave_wait, clk_cnt;
 	input cmd;

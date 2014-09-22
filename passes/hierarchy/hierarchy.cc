@@ -28,20 +28,22 @@
 namespace {
 	struct generate_port_decl_t {
 		bool input, output;
-		std::string portname;
+		RTLIL::IdString portname;
 		int index;
 	};
 }
 
 static void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
 {
-	std::set<std::string> found_celltypes;
+	std::set<RTLIL::IdString> found_celltypes;
 
-	for (auto i1 : design->modules)
-	for (auto i2 : i1.second->cells)
+	for (auto i1 : design->modules_)
+	for (auto i2 : i1.second->cells_)
 	{
 		RTLIL::Cell *cell = i2.second;
-		if (cell->type[0] == '$' || design->modules.count(cell->type) > 0)
+		if (design->has(cell->type))
+			continue;
+		if (cell->type.substr(0, 1) == "$" && cell->type.substr(0, 3) != "$__")
 			continue;
 		for (auto &pattern : celltypes)
 			if (!fnmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str(), FNM_NOESCAPE))
@@ -50,18 +52,18 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 
 	for (auto &celltype : found_celltypes)
 	{
-		std::set<std::string> portnames;
-		std::set<std::string> parameters;
-		std::map<std::string, int> portwidths;
+		std::set<RTLIL::IdString> portnames;
+		std::set<RTLIL::IdString> parameters;
+		std::map<RTLIL::IdString, int> portwidths;
 		log("Generate module for cell type %s:\n", celltype.c_str());
 
-		for (auto i1 : design->modules)
-		for (auto i2 : i1.second->cells)
+		for (auto i1 : design->modules_)
+		for (auto i2 : i1.second->cells_)
 			if (i2.second->type == celltype) {
-				for (auto &conn : i2.second->connections) {
+				for (auto &conn : i2.second->connections()) {
 					if (conn.first[0] != '$')
 						portnames.insert(conn.first);
-					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.width);
+					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.size());
 				}
 				for (auto &para : i2.second->parameters)
 					parameters.insert(para.first);
@@ -92,13 +94,13 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 			}
 
 		while (portnames.size() > 0) {
-			std::string portname = *portnames.begin();
+			RTLIL::IdString portname = *portnames.begin();
 			for (auto &decl : portdecls)
 				if (decl.index == 0 && !fnmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str(), FNM_NOESCAPE)) {
 					generate_port_decl_t d = decl;
 					d.portname = portname;
 					d.index = *indices.begin();
-					assert(!indices.empty());
+					log_assert(!indices.empty());
 					indices.erase(d.index);
 					ports[d.index-1] = d;
 					portwidths[d.portname] = std::max(portwidths[d.portname], 1);
@@ -110,22 +112,21 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 			portnames.erase(portname);
 		}
 
-		assert(indices.empty());
+		log_assert(indices.empty());
 
 		RTLIL::Module *mod = new RTLIL::Module;
 		mod->name = celltype;
 		mod->attributes["\\blackbox"] = RTLIL::Const(1);
-		design->modules[mod->name] = mod;
+		design->add(mod);
 
 		for (auto &decl : ports) {
-			RTLIL::Wire *wire = new RTLIL::Wire;
-			wire->name = decl.portname;
-			wire->width = portwidths.at(decl.portname);
+			RTLIL::Wire *wire = mod->addWire(decl.portname, portwidths.at(decl.portname));
 			wire->port_id = decl.index;
 			wire->port_input = decl.input;
 			wire->port_output = decl.output;
-			mod->add(wire);
 		}
+
+		mod->fixup_ports();
 
 		for (auto &para : parameters)
 			log("  ignoring parameter %s.\n", RTLIL::id2cstr(para));
@@ -137,14 +138,33 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
+	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
 	std::string filename;
 
-	for (auto &cell_it : module->cells)
+	for (auto &cell_it : module->cells_)
 	{
 		RTLIL::Cell *cell = cell_it.second;
 
-		if (design->modules.count(cell->type) == 0)
+		if (cell->type.substr(0, 7) == "$array:") {
+			int pos_idx = cell->type.str().find_first_of(':');
+			int pos_num = cell->type.str().find_first_of(':', pos_idx + 1);
+			int pos_type = cell->type.str().find_first_of(':', pos_num + 1);
+			int idx = atoi(cell->type.str().substr(pos_idx + 1, pos_num).c_str());
+			int num = atoi(cell->type.str().substr(pos_num + 1, pos_type).c_str());
+			array_cells[cell] = std::pair<int, int>(idx, num);
+			cell->type = cell->type.str().substr(pos_type + 1);
+		}
+
+		if (design->modules_.count(cell->type) == 0)
 		{
+			if (design->modules_.count("$abstract" + cell->type.str()))
+			{
+				cell->type = design->modules_.at("$abstract" + cell->type.str())->derive(design, cell->parameters);
+				cell->parameters.clear();
+				did_something = true;
+				continue;
+			}
+
 			if (cell->type[0] == '$')
 				continue;
 
@@ -173,7 +193,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 			continue;
 
 		loaded_module:
-			if (design->modules.count(cell->type) == 0)
+			if (design->modules_.count(cell->type) == 0)
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
 		}
@@ -181,13 +201,45 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 		if (cell->parameters.size() == 0)
 			continue;
 
-		if (design->modules.at(cell->type)->get_bool_attribute("\\blackbox"))
+		if (design->modules_.at(cell->type)->get_bool_attribute("\\blackbox"))
 			continue;
 
-		RTLIL::Module *mod = design->modules[cell->type];
+		RTLIL::Module *mod = design->modules_[cell->type];
 		cell->type = mod->derive(design, cell->parameters);
 		cell->parameters.clear();
 		did_something = true;
+	}
+
+	for (auto &it : array_cells)
+	{
+		RTLIL::Cell *cell = it.first;
+		int idx = it.second.first, num = it.second.second;
+
+		if (design->modules_.count(cell->type) == 0)
+			log_error("Array cell `%s.%s' of unknown type `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+
+		RTLIL::Module *mod = design->modules_[cell->type];
+
+		for (auto &conn : cell->connections_) {
+			int conn_size = conn.second.size();
+			RTLIL::IdString portname = conn.first;
+			if (portname.substr(0, 1) == "$") {
+				int port_id = atoi(portname.substr(1).c_str());
+				for (auto &wire_it : mod->wires_)
+					if (wire_it.second->port_id == port_id) {
+						portname = wire_it.first;
+						break;
+					}
+			}
+			if (mod->wires_.count(portname) == 0)
+				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
+			int port_size = mod->wires_.at(portname)->width;
+			if (conn_size == port_size)
+				continue;
+			if (conn_size != port_size*num)
+				log_error("Array cell `%s.%s' has invalid port vs. signal size for port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
+			conn.second = conn.second.extract(port_size*idx, port_size);
+		}
 	}
 
 	return did_something;
@@ -204,27 +256,29 @@ static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &us
 		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
 	used.insert(mod);
 
-	for (auto &it : mod->cells) {
-		if (design->modules.count(it.second->type) > 0)
-			hierarchy_worker(design, used, design->modules[it.second->type], indent+4);
+	for (auto &it : mod->cells_) {
+		if (design->modules_.count(it.second->type) > 0)
+			hierarchy_worker(design, used, design->modules_[it.second->type], indent+4);
 	}
 }
 
-static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
+static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool first_pass)
 {
 	std::set<RTLIL::Module*> used;
 	hierarchy_worker(design, used, top, 0);
 
 	std::vector<RTLIL::Module*> del_modules;
-	for (auto &it : design->modules)
+	for (auto &it : design->modules_)
 		if (used.count(it.second) == 0)
 			del_modules.push_back(it.second);
 
 	for (auto mod : del_modules) {
+		if (first_pass && mod->name.substr(0, 9) == "$abstract")
+			continue;
 		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
-		design->modules.erase(mod->name);
+		design->modules_.erase(mod->name);
 		delete mod;
 	}
 
@@ -240,7 +294,7 @@ struct HierarchyPass : public Pass {
 		log("    hierarchy [-check] [-top <module>]\n");
 		log("    hierarchy -generate <cell-types> <port-decls>\n");
 		log("\n");
-		log("In parametric designs, a module might exists in serveral variations with\n");
+		log("In parametric designs, a module might exists in several variations with\n");
 		log("different parameter values. This pass looks at all modules in the current\n");
 		log("design an re-runs the language frontends for the parametric modules as\n");
 		log("needed.\n");
@@ -255,7 +309,7 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -libdir <directory>\n");
 		log("        search for files named <module_name>.v in the specified directory\n");
-		log("        for unkown modules and automatically run read_verilog for each\n");
+		log("        for unknown modules and automatically run read_verilog for each\n");
 		log("        unknown module.\n");
 		log("\n");
 		log("    -keep_positionals\n");
@@ -362,10 +416,12 @@ struct HierarchyPass : public Pass {
 			if (args[argidx] == "-top") {
 				if (++argidx >= args.size())
 					log_cmd_error("Option -top requires an additional argument!\n");
-				if (args[argidx][0] != '$' && args[argidx][0] != '\\')
-					top_mod = design->modules.count("\\" + args[argidx]) > 0 ? design->modules["\\" + args[argidx]] : NULL;
-				else
-					top_mod = design->modules.count(args[argidx]) > 0 ? design->modules[args[argidx]] : NULL;
+				top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
+				if (top_mod == NULL && design->modules_.count("$abstract" + RTLIL::escape_id(args[argidx]))) {
+					std::map<RTLIL::IdString, RTLIL::Const> empty_parameters;
+					design->modules_.at("$abstract" + RTLIL::escape_id(args[argidx]))->derive(design, empty_parameters);
+					top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
+				}
 				if (top_mod == NULL)
 					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
 				continue;
@@ -382,25 +438,25 @@ struct HierarchyPass : public Pass {
 		log_push();
 
 		if (top_mod == NULL)
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
 
 		if (top_mod != NULL)
-			hierarchy(design, top_mod, purge_lib);
+			hierarchy(design, top_mod, purge_lib, true);
 
 		bool did_something = true;
 		bool did_something_once = false;
 		while (did_something) {
 			did_something = false;
-			std::vector<std::string> modnames;
-			modnames.reserve(design->modules.size());
-			for (auto &mod_it : design->modules)
+			std::vector<RTLIL::IdString> modnames;
+			modnames.reserve(design->modules_.size());
+			for (auto &mod_it : design->modules_)
 				modnames.push_back(mod_it.first);
 			for (auto &modname : modnames) {
-				if (design->modules.count(modname) == 0)
+				if (design->modules_.count(modname) == 0)
 					continue;
-				if (expand_module(design, design->modules[modname], flag_check, libdirs))
+				if (expand_module(design, design->modules_[modname], flag_check, libdirs))
 					did_something = true;
 			}
 			if (did_something)
@@ -409,11 +465,11 @@ struct HierarchyPass : public Pass {
 
 		if (top_mod != NULL && did_something_once) {
 			log_header("Re-running hierarchy analysis..\n");
-			hierarchy(design, top_mod, purge_lib);
+			hierarchy(design, top_mod, purge_lib, false);
 		}
 
 		if (top_mod != NULL) {
-			for (auto &mod_it : design->modules)
+			for (auto &mod_it : design->modules_)
 				if (mod_it.second == top_mod)
 					mod_it.second->attributes["\\top"] = RTLIL::Const(1);
 				else
@@ -426,21 +482,21 @@ struct HierarchyPass : public Pass {
 			std::map<std::pair<RTLIL::Module*,int>, RTLIL::IdString> pos_map;
 			std::vector<std::pair<RTLIL::Module*,RTLIL::Cell*>> pos_work;
 
-			for (auto &mod_it : design->modules)
-			for (auto &cell_it : mod_it.second->cells) {
+			for (auto &mod_it : design->modules_)
+			for (auto &cell_it : mod_it.second->cells_) {
 				RTLIL::Cell *cell = cell_it.second;
-				if (design->modules.count(cell->type) == 0)
+				if (design->modules_.count(cell->type) == 0)
 					continue;
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
-						pos_mods.insert(design->modules.at(cell->type));
+						pos_mods.insert(design->modules_.at(cell->type));
 						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod_it.second, cell));
 						break;
 					}
 			}
 
 			for (auto module : pos_mods)
-			for (auto &wire_it : module->wires) {
+			for (auto &wire_it : module->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_id > 0)
 					pos_map[std::pair<RTLIL::Module*,int>(module, wire->port_id)] = wire->name;
@@ -452,10 +508,10 @@ struct HierarchyPass : public Pass {
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
 						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				std::map<RTLIL::IdString, RTLIL::SigSpec> new_connections;
-				for (auto &conn : cell->connections)
+				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 						int id = atoi(conn.first.c_str()+1);
-						std::pair<RTLIL::Module*,int> key(design->modules.at(cell->type), id);
+						std::pair<RTLIL::Module*,int> key(design->modules_.at(cell->type), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
 									id, RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
@@ -464,7 +520,7 @@ struct HierarchyPass : public Pass {
 							new_connections[pos_map.at(key)] = conn.second;
 					} else
 						new_connections[conn.first] = conn.second;
-				cell->connections = new_connections;
+				cell->connections_ = new_connections;
 			}
 		}
 

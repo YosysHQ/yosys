@@ -41,10 +41,10 @@ namespace PASS_DFFLIBMAP
 
 	struct LibertyParser
 	{
-		FILE *f;
+		std::istream &f;
 		int line;
 		LibertyAst *ast;
-		LibertyParser(FILE *f) : f(f), line(1), ast(parse()) {}
+		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
 		~LibertyParser() { if (ast) delete ast; }
 		int lexer(std::string &str);
 		LibertyAst *parse();

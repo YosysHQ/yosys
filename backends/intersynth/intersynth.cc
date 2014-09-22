@@ -23,30 +23,23 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string>
-#include <assert.h>
 
 
 static std::string netname(std::set<std::string> &conntypes_code, std::set<std::string> &celltypes_code, std::set<std::string> &constcells_code, RTLIL::SigSpec sig)
 {
-	sig.optimize();
-
-	if (sig.chunks.size() != 1)
-error:
+	if (!sig.is_fully_const() && !sig.is_wire())
 		log_error("Can't export composite or non-word-wide signal %s.\n", log_signal(sig));
 
-	conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.width, sig.width, sig.width));
+	conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));
 
-	if (sig.chunks[0].wire == NULL) {
-		celltypes_code.insert(stringf("celltype CONST_%d b%d *CONST cfg:%d VALUE\n", sig.width, sig.width, sig.width));
-		constcells_code.insert(stringf("node CONST_%d_0x%x CONST_%d CONST CONST_%d_0x%x VALUE 0x%x\n", sig.width, sig.chunks[0].data.as_int(),
-				sig.width, sig.width, sig.chunks[0].data.as_int(), sig.chunks[0].data.as_int()));
-		return stringf("CONST_%d_0x%x", sig.width, sig.chunks[0].data.as_int());
+	if (sig.is_fully_const()) {
+		celltypes_code.insert(stringf("celltype CONST_%d b%d *CONST cfg:%d VALUE\n", sig.size(), sig.size(), sig.size()));
+		constcells_code.insert(stringf("node CONST_%d_0x%x CONST_%d CONST CONST_%d_0x%x VALUE 0x%x\n",
+				sig.size(), sig.as_int(), sig.size(), sig.size(), sig.as_int(), sig.as_int()));
+		return stringf("CONST_%d_0x%x", sig.size(), sig.as_int());
 	}
 
-	if (sig.chunks[0].offset != 0 || sig.width != sig.chunks[0].wire->width)
-		goto error;
-
-	return RTLIL::unescape_id(sig.chunks[0].wire->name);
+	return RTLIL::unescape_id(sig.as_wire()->name);
 }
 
 struct IntersynthBackend : public Backend {
@@ -76,7 +69,7 @@ struct IntersynthBackend : public Backend {
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing INTERSYNTH backend.\n");
 		log_push();
@@ -108,13 +101,13 @@ struct IntersynthBackend : public Backend {
 		log("Output filename: %s\n", filename.c_str());
 
 		for (auto filename : libfiles) {
-			FILE *f = fopen(filename.c_str(), "rt");
-			if (f == NULL)
+			std::ifstream f;
+			f.open(filename.c_str());
+			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename.c_str());
 			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
 			libs.push_back(lib);
-			fclose(f);
 		}
 
 		if (libs.size() > 0)
@@ -127,14 +120,14 @@ struct IntersynthBackend : public Backend {
 		for (auto lib : libs)
 			ct.setup_design(lib);
 
-		for (auto module_it : design->modules)
+		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
 			SigMap sigmap(module);
 
 			if (module->get_bool_attribute("\\blackbox"))
 				continue;
-			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells.size() == 0)
+			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells_.size() == 0)
 				continue;
 
 			if (selected && !design->selected_whole_module(module->name)) {
@@ -153,7 +146,7 @@ struct IntersynthBackend : public Backend {
 			netlists_code += stringf("netlist %s\n", RTLIL::id2cstr(module->name));
 
 			// Module Ports: "std::set<string> celltypes_code" prevents duplicate top level ports
-			for (auto wire_it : module->wires) {
+			for (auto wire_it : module->wires_) {
 				RTLIL::Wire *wire = wire_it.second;
 				if (wire->port_input || wire->port_output) {
 					celltypes_code.insert(stringf("celltype !%s b%d %sPORT\n" "%s %s %d %s PORT\n",
@@ -165,7 +158,7 @@ struct IntersynthBackend : public Backend {
 			}
 
 			// Submodules: "std::set<string> celltypes_code" prevents duplicate cell types 
-			for (auto cell_it : module->cells)
+			for (auto cell_it : module->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;
 				std::string celltype_code, node_code;
@@ -175,11 +168,11 @@ struct IntersynthBackend : public Backend {
 
 				celltype_code = stringf("celltype %s", RTLIL::id2cstr(cell->type));
 				node_code = stringf("node %s %s", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
-				for (auto &port : cell->connections) {
+				for (auto &port : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(port.second);
-					if (sig.width != 0) {
-						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.width, sig.width, sig.width));
-						celltype_code += stringf(" b%d %s%s", sig.width, ct.cell_output(cell->type, port.first) ? "*" : "", RTLIL::id2cstr(port.first));
+					if (sig.size() != 0) {
+						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));
+						celltype_code += stringf(" b%d %s%s", sig.size(), ct.cell_output(cell->type, port.first) ? "*" : "", RTLIL::id2cstr(port.first));
 						node_code += stringf(" %s %s", RTLIL::id2cstr(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
 					}
 				}
@@ -205,15 +198,15 @@ struct IntersynthBackend : public Backend {
 		}
 
 		if (!flag_notypes) {
-			fprintf(f, "### Connection Types\n");
+			*f << stringf("### Connection Types\n");
 			for (auto code : conntypes_code)
-				fprintf(f, "%s", code.c_str());
-			fprintf(f, "\n### Cell Types\n");
+				*f << stringf("%s", code.c_str());
+			*f << stringf("\n### Cell Types\n");
 			for (auto code : celltypes_code)
-				fprintf(f, "%s", code.c_str());
+				*f << stringf("%s", code.c_str());
 		}
-		fprintf(f, "\n### Netlists\n");
-		fprintf(f, "%s", netlists_code.c_str());
+		*f << stringf("\n### Netlists\n");
+		*f << stringf("%s", netlists_code.c_str());
 
 		for (auto lib : libs)
 			delete lib;

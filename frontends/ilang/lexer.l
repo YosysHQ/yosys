@@ -23,9 +23,18 @@
  */
 
 %{
-#include "kernel/rtlil.h"
+
+#ifdef __clang__
+// bison generates code using the 'register' storage class specifier
+#pragma clang diagnostic ignored "-Wdeprecated-register"
+#endif
+
+#include "ilang_frontend.h"
 #include "parser.tab.h"
-void update_autoidx(const char *p);
+
+#define YY_INPUT(buf,result,max_size) \
+        result = ILANG_FRONTEND::lexin->readsome(buf, max_size);
+
 %}
 
 %option yylineno
@@ -37,6 +46,7 @@ void update_autoidx(const char *p);
 
 %%
 
+"autoidx"	{ return TOK_AUTOIDX; }
 "module"	{ return TOK_MODULE; }
 "attribute"	{ return TOK_ATTRIBUTE; }
 "parameter"	{ return TOK_PARAMETER; }
@@ -44,6 +54,7 @@ void update_autoidx(const char *p);
 "wire"		{ return TOK_WIRE; }
 "memory"	{ return TOK_MEMORY; }
 "width"		{ return TOK_WIDTH; }
+"upto"		{ return TOK_UPTO; }
 "offset"	{ return TOK_OFFSET; }
 "size"		{ return TOK_SIZE; }
 "input"		{ return TOK_INPUT; }
@@ -69,11 +80,11 @@ void update_autoidx(const char *p);
 [a-z]+		{ return TOK_INVALID; }
 
 "\\"[^ \t\r\n]+		{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_ID; }
-"$"[^ \t\r\n]+		{ rtlil_frontend_ilang_yylval.string = strdup(yytext); update_autoidx(yytext); return TOK_ID; }
+"$"[^ \t\r\n]+		{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_ID; }
 "."[0-9]+		{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_ID; }
 
 [0-9]+'[01xzm-]*	{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_VALUE; }
-[0-9]+			{ rtlil_frontend_ilang_yylval.integer = atoi(yytext); return TOK_INT; }
+-?[0-9]+		{ rtlil_frontend_ilang_yylval.integer = atoi(yytext); return TOK_INT; }
 
 \"		{ BEGIN(STRING); }
 <STRING>\\.	{ yymore(); }
@@ -116,27 +127,6 @@ void update_autoidx(const char *p);
 .               { return *yytext; }
 
 %%
-
-void update_autoidx(const char *p)
-{
-	if (*p != '$')
-		return;
-
-	while (*p) {
-		if (*(p++) != '$')
-			continue;
-		if ('0' <= *p && *p <= '9') {
-			const char *q = p;
-			while ('0' <= *q && *q <= '9')
-				q++;
-			if ((q - p) < 10) {
-				int idx = atoi(p);
-				if (idx > RTLIL::autoidx)
-					RTLIL::autoidx = idx;
-			}
-		}
-	}
-}
 
 // this is a hack to avoid the 'yyinput defined but not used' error msgs
 void *rtlil_frontend_ilang_avoid_input_warnings() {

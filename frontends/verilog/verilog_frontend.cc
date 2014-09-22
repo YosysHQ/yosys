@@ -27,13 +27,11 @@
  */
 
 #include "verilog_frontend.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
-#include <sstream>
 #include <stdarg.h>
-#include <assert.h>
 
+YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
 
 // use the Verilog bison/flex parser to generate an AST and use AST::process() to convert it to RTLIL
@@ -47,10 +45,14 @@ struct VerilogFrontend : public Frontend {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    read_verilog [filename]\n");
+		log("    read_verilog [options] [filename]\n");
 		log("\n");
 		log("Load modules from a verilog file to the current design. A large subset of\n");
 		log("Verilog-2005 is supported.\n");
+		log("\n");
+		log("    -sv\n");
+		log("        enable support for SystemVerilog features. (only a small subset\n");
+		log("        of SystemVerilog is supported)\n");
 		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
@@ -106,6 +108,11 @@ struct VerilogFrontend : public Frontend {
 		log("        ignore re-definitions of modules. (the default behavior is to\n");
 		log("        create an error message.)\n");
 		log("\n");
+		log("    -defer\n");
+		log("        only read the abstract syntax tree and defer actual compilation\n");
+		log("        to a later 'hierarchy' command. Useful in cases where the default\n");
+		log("        parameters of modules yield invalid or not synthesizable code.\n");
+		log("\n");
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
@@ -120,8 +127,13 @@ struct VerilogFrontend : public Frontend {
 		log("The command 'verilog_defaults' can be used to register default options for\n");
 		log("subsequent calls to 'read_verilog'.\n");
 		log("\n");
+		log("Note that the Verilog frontend does a pretty good job of processing valid\n");
+		log("verilog input, but has not very good error reporting. It generally is\n");
+		log("recommended to use a simulator (for example icarus verilog) for checking\n");
+		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
+		log("\n");
 	}
-	virtual void execute(FILE *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
@@ -135,10 +147,13 @@ struct VerilogFrontend : public Frontend {
 		bool flag_noopt = false;
 		bool flag_icells = false;
 		bool flag_ignore_redef = false;
+		bool flag_defer = false;
 		std::map<std::string, std::string> defines_map;
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
+
 		frontend_verilog_yydebug = false;
+		sv_mode = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
 
@@ -147,6 +162,10 @@ struct VerilogFrontend : public Frontend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
+			if (arg == "-sv") {
+				sv_mode = true;
+				continue;
+			}
 			if (arg == "-dump_ast1") {
 				flag_dump_ast1 = true;
 				continue;
@@ -199,6 +218,10 @@ struct VerilogFrontend : public Frontend {
 				flag_ignore_redef = true;
 				continue;
 			}
+			if (arg == "-defer") {
+				flag_defer = true;
+				continue;
+			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
 				attributes.push_back(RTLIL::escape_id(args[++argidx]));
 				continue;
@@ -241,33 +264,34 @@ struct VerilogFrontend : public Frontend {
 		AST::get_line_num = &frontend_verilog_yyget_lineno;
 
 		current_ast = new AST::AstNode(AST::AST_DESIGN);
+		default_nettype_wire = true;
 
-		FILE *fp = f;
+		lexin = f;
 		std::string code_after_preproc;
 
 		if (!flag_nopp) {
-			code_after_preproc = frontend_verilog_preproc(f, filename, defines_map, include_dirs);
+			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, include_dirs);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
-			fp = fmemopen((void*)code_after_preproc.c_str(), code_after_preproc.size(), "r");
+			lexin = new std::istringstream(code_after_preproc);
 		}
 
 		frontend_verilog_yyset_lineno(1);
-		frontend_verilog_yyrestart(fp);
+		frontend_verilog_yyrestart(NULL);
 		frontend_verilog_yyparse();
 		frontend_verilog_yylex_destroy();
 
 		for (auto &child : current_ast->children) {
-			log_assert(child->type == AST::AST_MODULE);
-			for (auto &attr : attributes)
-				if (child->attributes.count(attr) == 0)
-					child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
+			if (child->type == AST::AST_MODULE)
+				for (auto &attr : attributes)
+					if (child->attributes.count(attr) == 0)
+						child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
 		}
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
-			fclose(fp);
+			delete lexin;
 
 		delete current_ast;
 		current_ast = NULL;
@@ -349,4 +373,6 @@ struct VerilogDefaults : public Pass {
 		}
 	}
 } VerilogDefaults;
+
+YOSYS_NAMESPACE_END
 

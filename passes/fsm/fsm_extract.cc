@@ -31,56 +31,72 @@
 
 static RTLIL::Module *module;
 static SigMap assign_map;
-typedef std::pair<std::string, std::string> sig2driver_entry_t;
+typedef std::pair<RTLIL::IdString, RTLIL::IdString> sig2driver_entry_t;
 static SigSet<sig2driver_entry_t> sig2driver, sig2trigger;
+static std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> exclusive_ctrls;
 
 static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL::SigSpec &ctrl, std::map<RTLIL::Const, int> &states, RTLIL::Const *reset_state = NULL)
 {
-	sig.extend(dff_out.width, false);
+	sig.extend(dff_out.size(), false);
 
 	if (sig == dff_out)
 		return true;
 
 	assign_map.apply(sig);
 	if (sig.is_fully_const()) {
-		sig.optimize();
-		assert(sig.chunks.size() == 1);
-		if (states.count(sig.chunks[0].data) == 0) {
+		if (sig.is_fully_def() && states.count(sig.as_const()) == 0) {
 			log("  found state code: %s\n", log_signal(sig));
-			states[sig.chunks[0].data] = -1;
+			states[sig.as_const()] = -1;
 		}
 		return true;
 	}
 
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(sig, cellport_list);
-	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
-		if ((cell->type != "$mux" && cell->type != "$pmux" && cell->type != "$safe_pmux") || cellport.second != "\\Y") {
+	for (auto &cellport : cellport_list)
+	{
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
+		if ((cell->type != "$mux" && cell->type != "$pmux") || cellport.second != "\\Y") {
 			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type.c_str(), cell->name.c_str());
 			return false;
 		}
-		RTLIL::SigSpec sig_a = assign_map(cell->connections["\\A"]);
-		RTLIL::SigSpec sig_b = assign_map(cell->connections["\\B"]);
-		RTLIL::SigSpec sig_s = assign_map(cell->connections["\\S"]);
+
+		RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
+		RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
+		RTLIL::SigSpec sig_s = assign_map(cell->getPort("\\S"));
+		RTLIL::SigSpec sig_y = assign_map(cell->getPort("\\Y"));
+
+		RTLIL::SigSpec sig_aa = sig;
+		sig_aa.replace(sig_y, sig_a);
+
+		RTLIL::SigSpec sig_bb;
+		for (int i = 0; i < SIZE(sig_b)/SIZE(sig_a); i++) {
+			RTLIL::SigSpec s = sig;
+			s.replace(sig_y, sig_b.extract(i*SIZE(sig_a), SIZE(sig_a)));
+			sig_bb.append(s);
+		}
+
 		if (reset_state && RTLIL::SigSpec(*reset_state).is_fully_undef())
 			do {
-				if (sig_a.is_fully_def())
-					*reset_state = sig_a.as_const();
-				else if (sig_b.is_fully_def())
-					*reset_state = sig_b.as_const();
+				if (sig_aa.is_fully_def())
+					*reset_state = sig_aa.as_const();
+				else if (sig_bb.is_fully_def())
+					*reset_state = sig_bb.as_const();
 				else
 					break;
 				log("  found reset state: %s (guessed from mux tree)\n", log_signal(*reset_state));
 			} while (0);
-		if (ctrl.extract(sig_s).width == 0) {
+
+		if (ctrl.extract(sig_s).size() == 0) {
 			log("  found ctrl input: %s\n", log_signal(sig_s));
 			ctrl.append(sig_s);
 		}
-		if (!find_states(sig_a, dff_out, ctrl, states))
+
+		if (!find_states(sig_aa, dff_out, ctrl, states))
 			return false;
-		for (int i = 0; i < sig_b.width/sig_a.width; i++) {
-			if (!find_states(sig_b.extract(i*sig_a.width, sig_a.width), dff_out, ctrl, states))
+
+		for (int i = 0; i < SIZE(sig_bb)/SIZE(sig_aa); i++) {
+			if (!find_states(sig_bb.extract(i*SIZE(sig_aa), SIZE(sig_aa)), dff_out, ctrl, states))
 				return false;
 		}
 	}
@@ -90,47 +106,69 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 
 static RTLIL::Const sig2const(ConstEval &ce, RTLIL::SigSpec sig, RTLIL::State noconst_state, RTLIL::SigSpec dont_care = RTLIL::SigSpec())
 {
-	if (dont_care.width > 0) {
-		sig.expand();
-		for (auto &chunk : sig.chunks) {
-			assert(chunk.width == 1);
-			if (dont_care.extract(chunk).width > 0)
-				chunk.wire = NULL, chunk.data = RTLIL::Const(noconst_state);
-		}
-		sig.optimize();
+	if (dont_care.size() > 0) {
+		for (int i = 0; i < SIZE(sig); i++)
+			if (dont_care.extract(sig[i]).size() > 0)
+				sig[i] = noconst_state;
 	}
 
 	ce.assign_map.apply(sig);
 	ce.values_map.apply(sig);
 
-	sig.expand();
-	for (auto &chunk : sig.chunks) {
-		assert(chunk.width == 1);
-		if (chunk.wire != NULL)
-			chunk.wire = NULL, chunk.data = RTLIL::Const(noconst_state);
-	}
-	sig.optimize();
+	for (int i = 0; i < SIZE(sig); i++)
+		if (sig[i].wire != NULL)
+			sig[i] = noconst_state;
 
-	if (sig.width == 0)
-		return RTLIL::Const();
-	assert(sig.chunks.size() == 1 && sig.chunks[0].wire == NULL);
-	return sig.chunks[0].data;
+	return sig.as_const();
 }
 
 static void find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_data, std::map<RTLIL::Const, int> &states, int state_in, RTLIL::SigSpec ctrl_in, RTLIL::SigSpec ctrl_out, RTLIL::SigSpec dff_in, RTLIL::SigSpec dont_care)
 {
+	bool undef_bit_in_next_state_mode = false;
 	RTLIL::SigSpec undef, constval;
 
-	if (ce.eval(ctrl_out, undef) && ce.eval(dff_in, undef)) {
-		assert(ctrl_out.is_fully_const() && dff_in.is_fully_const());
+	if (ce.eval(ctrl_out, undef) && ce.eval(dff_in, undef))
+	{
+		if (0) {
+undef_bit_in_next_state:
+			for (auto &bit : dff_in)
+				if (bit.wire != nullptr) bit = RTLIL::Sm;
+			for (auto &bit : ctrl_out)
+				if (bit.wire != nullptr) bit = RTLIL::Sm;
+			undef_bit_in_next_state_mode = true;
+		}
+
+		log_assert(ctrl_out.is_fully_const() && dff_in.is_fully_const());
+
 		FsmData::transition_t tr;
-		tr.state_in = state_in;
-		tr.state_out = states[ce.values_map(ce.assign_map(dff_in)).as_const()];
 		tr.ctrl_in = sig2const(ce, ctrl_in, RTLIL::State::Sa, dont_care);
 		tr.ctrl_out = sig2const(ce, ctrl_out, RTLIL::State::Sx);
+
+		std::map<RTLIL::SigBit, int> ctrl_in_bit_indices;
+		for (int i = 0; i < SIZE(ctrl_in); i++)
+			ctrl_in_bit_indices[ctrl_in[i]] = i;
+
+		for (auto &it : ctrl_in_bit_indices)
+			if (tr.ctrl_in.bits.at(it.second) == RTLIL::S1 && exclusive_ctrls.count(it.first) != 0)
+				for (auto &dc_bit : exclusive_ctrls.at(it.first))
+					if (ctrl_in_bit_indices.count(dc_bit))
+						tr.ctrl_in.bits.at(ctrl_in_bit_indices.at(dc_bit)) = RTLIL::State::Sa;
+
 		RTLIL::Const log_state_in = RTLIL::Const(RTLIL::State::Sx, fsm_data.state_bits);
 		if (state_in >= 0)
-			log_state_in = fsm_data.state_table[tr.state_in];
+			log_state_in = fsm_data.state_table.at(state_in);
+
+		if (states.count(ce.values_map(ce.assign_map(dff_in)).as_const()) == 0) {
+			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transistion!>%s\n",
+					log_signal(log_state_in), log_signal(tr.ctrl_in),
+					log_signal(ce.values_map(ce.assign_map(dff_in))), log_signal(tr.ctrl_out),
+					undef_bit_in_next_state_mode ? " SHORTENED" : "");
+			return;
+		}
+
+		tr.state_in = state_in;
+		tr.state_out = states.at(ce.values_map(ce.assign_map(dff_in)).as_const());
+
 		if (dff_in.is_fully_def()) {
 			fsm_data.transition_table.push_back(tr);
 			log("  transition: %10s %s -> %10s %s\n",
@@ -144,7 +182,11 @@ static void find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_d
 		return;
 	}
 
-	log_assert(undef.width > 0);
+	for (auto &bit : dff_in)
+		if (bit == RTLIL::Sx)
+			goto undef_bit_in_next_state;
+
+	log_assert(undef.size() > 0);
 	log_assert(ce.stop_signals.check_all(undef));
 
 	undef = undef.extract(0, 1);
@@ -155,21 +197,39 @@ static void find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_d
 		ce.push();
 		dont_care.append(undef);
 		ce.set(undef, constval.as_const());
+		if (exclusive_ctrls.count(undef) && constval == RTLIL::S1)
+			for (auto &bit : exclusive_ctrls.at(undef)) {
+				RTLIL::SigSpec bitval = bit;
+				if (ce.eval(bitval) && bitval != RTLIL::S0)
+					goto found_contradiction_1;
+				else
+					ce.set(bit, RTLIL::S0);
+			}
 		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
+	found_contradiction_1:
 		ce.pop();
 	}
 	else
 	{
 		ce.push(), ce_nostop.push();
-		ce.set(undef, RTLIL::Const(0, 1));
-		ce_nostop.set(undef, RTLIL::Const(0, 1));
+		ce.set(undef, RTLIL::S0);
+		ce_nostop.set(undef, RTLIL::S0);
 		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
 		ce.pop(), ce_nostop.pop();
 
 		ce.push(), ce_nostop.push();
-		ce.set(undef, RTLIL::Const(1, 1));
-		ce_nostop.set(undef, RTLIL::Const(1, 1));
+		ce.set(undef, RTLIL::S1);
+		ce_nostop.set(undef, RTLIL::S1);
+		if (exclusive_ctrls.count(undef))
+			for (auto &bit : exclusive_ctrls.at(undef)) {
+				RTLIL::SigSpec bitval = bit;
+				if ((ce.eval(bitval) || ce_nostop.eval(bitval)) && bitval != RTLIL::S0)
+					goto found_contradiction_2;
+				else
+					ce.set(bit, RTLIL::S0), ce_nostop.set(bit, RTLIL::S0);
+			}
 		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
+	found_contradiction_2:
 		ce.pop(), ce_nostop.pop();
 	}
 }
@@ -184,24 +244,24 @@ static void extract_fsm(RTLIL::Wire *wire)
 	RTLIL::SigSpec dff_in(RTLIL::State::Sm, wire->width);
 	RTLIL::Const reset_state(RTLIL::State::Sx, wire->width);
 
-	RTLIL::SigSpec clk = RTLIL::SigSpec(0, 1);
-	RTLIL::SigSpec arst = RTLIL::SigSpec(0, 1);
+	RTLIL::SigSpec clk = RTLIL::S0;
+	RTLIL::SigSpec arst = RTLIL::S0;
 	bool clk_polarity = true;
 	bool arst_polarity = true;
 
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != "$dff" && cell->type != "$adff") || cellport.second != "\\Q")
 			continue;
 		log("  found %s cell for state register: %s\n", cell->type.c_str(), cell->name.c_str());
-		RTLIL::SigSpec sig_q = assign_map(cell->connections["\\Q"]);
-		RTLIL::SigSpec sig_d = assign_map(cell->connections["\\D"]);
-		clk = cell->connections["\\CLK"];
+		RTLIL::SigSpec sig_q = assign_map(cell->getPort("\\Q"));
+		RTLIL::SigSpec sig_d = assign_map(cell->getPort("\\D"));
+		clk = cell->getPort("\\CLK");
 		clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
 		if (cell->type == "$adff") {
-			arst = cell->connections["\\ARST"];
+			arst = cell->getPort("\\ARST");
 			arst_polarity = cell->parameters["\\ARST_POLARITY"].as_bool();
 			reset_state = cell->parameters["\\ARST_VALUE"];
 		}
@@ -227,6 +287,10 @@ static void extract_fsm(RTLIL::Wire *wire)
 		log("  fsm extraction failed: state selection tree is not closed.\n");
 		return;
 	}
+	if (SIZE(states) <= 1) {
+		log("  fsm extraction failed: at least two states are required.\n");
+		return;
+	}
 
 	// find control outputs
 	// (add the state signals to the list of control outputs. if everything goes right, this signals
@@ -236,10 +300,10 @@ static void extract_fsm(RTLIL::Wire *wire)
 	cellport_list.clear();
 	sig2trigger.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
-		RTLIL::SigSpec sig_a = assign_map(cell->connections["\\A"]);
-		RTLIL::SigSpec sig_b = assign_map(cell->connections["\\B"]);
-		RTLIL::SigSpec sig_y = assign_map(cell->connections["\\Y"]);
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
+		RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
+		RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
+		RTLIL::SigSpec sig_y = assign_map(cell->getPort("\\Y"));
 		if (cellport.second == "\\A" && !sig_b.is_fully_const())
 			continue;
 		if (cellport.second == "\\B" && !sig_a.is_fully_const())
@@ -258,8 +322,8 @@ static void extract_fsm(RTLIL::Wire *wire)
 	// Initialize fsm data struct
 
 	FsmData fsm_data;
-	fsm_data.num_inputs = ctrl_in.width;
-	fsm_data.num_outputs = ctrl_out.width;
+	fsm_data.num_inputs = ctrl_in.size();
+	fsm_data.num_outputs = ctrl_out.size();
 	fsm_data.state_bits = wire->width;
 	fsm_data.reset_state = -1;
 	for (auto &it : states) {
@@ -283,40 +347,34 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// create fsm cell
 
-	RTLIL::Cell *fsm_cell = new RTLIL::Cell;
-	fsm_cell->name = stringf("$fsm$%s$%d", wire->name.c_str(), RTLIL::autoidx++);
-	fsm_cell->type = "$fsm";
-	fsm_cell->connections["\\CLK"] = clk;
-	fsm_cell->connections["\\ARST"] = arst;
-	fsm_cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity ? 1 : 0, 1);
-	fsm_cell->parameters["\\ARST_POLARITY"] = RTLIL::Const(arst_polarity ? 1 : 0, 1);
-	fsm_cell->connections["\\CTRL_IN"] = ctrl_in;
-	fsm_cell->connections["\\CTRL_OUT"] = ctrl_out;
-	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name);
+	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++), "$fsm");
+	fsm_cell->setPort("\\CLK", clk);
+	fsm_cell->setPort("\\ARST", arst);
+	fsm_cell->parameters["\\CLK_POLARITY"] = clk_polarity ? RTLIL::S1 : RTLIL::S0;
+	fsm_cell->parameters["\\ARST_POLARITY"] = arst_polarity ? RTLIL::S1 : RTLIL::S0;
+	fsm_cell->setPort("\\CTRL_IN", ctrl_in);
+	fsm_cell->setPort("\\CTRL_OUT", ctrl_out);
+	fsm_cell->parameters["\\NAME"] = RTLIL::Const(wire->name.str());
 	fsm_cell->attributes = wire->attributes;
 	fsm_data.copy_to_cell(fsm_cell);
-	module->cells[fsm_cell->name] = fsm_cell;
 
 	// rename original state wire
 
-	module->wires.erase(wire->name);
+	module->wires_.erase(wire->name);
 	wire->attributes.erase("\\fsm_encoding");
 	wire->name = stringf("$fsm$oldstate%s", wire->name.c_str());
-	module->wires[wire->name] = wire;
+	module->wires_[wire->name] = wire;
 
 	// unconnect control outputs from old drivers
 
 	cellport_list.clear();
 	sig2driver.find(ctrl_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells.at(cellport.first);
-		RTLIL::SigSpec port_sig = assign_map(cell->connections[cellport.second]);
+		RTLIL::Cell *cell = module->cells_.at(cellport.first);
+		RTLIL::SigSpec port_sig = assign_map(cell->getPort(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
-		RTLIL::Wire *unconn_wire = new RTLIL::Wire;
-		unconn_wire->name = stringf("$fsm_unconnect$%s$%d", log_signal(unconn_sig), RTLIL::autoidx++);
-		unconn_wire->width = unconn_sig.width;
-		module->wires[unconn_wire->name] = unconn_wire;
-		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections[cellport.second]);
+		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%s$%d", log_signal(unconn_sig), autoidx++), unconn_sig.size());
+		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections_[cellport.second]);
 	}
 }
 
@@ -349,7 +407,7 @@ struct FsmExtractPass : public Pass {
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			if (!design->selected(mod_it.second))
 				continue;
@@ -359,23 +417,32 @@ struct FsmExtractPass : public Pass {
 
 			sig2driver.clear();
 			sig2trigger.clear();
-			for (auto &cell_it : module->cells)
-				for (auto &conn_it : cell_it.second->connections) {
-					if (ct.cell_output(cell_it.second->type, conn_it.first) || !ct.cell_known(cell_it.second->type)) {
+			exclusive_ctrls.clear();
+			for (auto cell : module->cells()) {
+				for (auto &conn_it : cell->connections()) {
+					if (ct.cell_output(cell->type, conn_it.first) || !ct.cell_known(cell->type)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2driver.insert(sig, sig2driver_entry_t(cell_it.first, conn_it.first));
+						sig2driver.insert(sig, sig2driver_entry_t(cell->name, conn_it.first));
 					}
-					if (ct.cell_input(cell_it.second->type, conn_it.first) && cell_it.second->connections.count("\\Y") > 0 &&
-							cell_it.second->connections["\\Y"].width == 1 && (conn_it.first == "\\A" || conn_it.first == "\\B")) {
+					if (ct.cell_input(cell->type, conn_it.first) && cell->hasPort("\\Y") &&
+							cell->getPort("\\Y").size() == 1 && (conn_it.first == "\\A" || conn_it.first == "\\B")) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2trigger.insert(sig, sig2driver_entry_t(cell_it.first, conn_it.first));
+						sig2trigger.insert(sig, sig2driver_entry_t(cell->name, conn_it.first));
 					}
 				}
+				if (cell->type == "$pmux") {
+					RTLIL::SigSpec sel_sig = assign_map(cell->getPort("\\S"));
+					for (auto &bit1 : sel_sig)
+					for (auto &bit2 : sel_sig)
+						if (bit1 != bit2)
+							exclusive_ctrls[bit1].insert(bit2);
+				}
+			}
 
 			std::vector<RTLIL::Wire*> wire_list;
-			for (auto &wire_it : module->wires)
+			for (auto &wire_it : module->wires_)
 				if (wire_it.second->attributes.count("\\fsm_encoding") > 0 && wire_it.second->attributes["\\fsm_encoding"].decode_string() != "none")
 					if (design->selected(module, wire_it.second))
 						wire_list.push_back(wire_it.second);

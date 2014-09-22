@@ -22,7 +22,6 @@
 #include <sstream>
 #include <algorithm>
 #include <stdlib.h>
-#include <assert.h>
 
 static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 {
@@ -32,7 +31,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 	RTLIL::IdString mem_name = RTLIL::escape_id(memory->parameters.at("\\MEMID").decode_string());
 
 	while (module->memories.count(mem_name) != 0)
-		mem_name += stringf("_%d", RTLIL::autoidx++);
+		mem_name = mem_name.str() + stringf("_%d", autoidx++);
 
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = mem_name;
@@ -47,51 +46,44 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 
 	for (int i = 0; i < num_rd_ports; i++)
 	{
-		RTLIL::Cell *cell = new RTLIL::Cell;
-		cell->name = NEW_ID;
-		cell->type = "$memrd";
-		cell->parameters["\\MEMID"] = mem_name;
+		RTLIL::Cell *cell = module->addCell(NEW_ID, "$memrd");
+		cell->parameters["\\MEMID"] = mem_name.str();
 		cell->parameters["\\ABITS"] = memory->parameters.at("\\ABITS");
 		cell->parameters["\\WIDTH"] = memory->parameters.at("\\WIDTH");
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_ENABLE")).extract(i, 1).as_const();
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\TRANSPARENT"] = RTLIL::SigSpec(memory->parameters.at("\\RD_TRANSPARENT")).extract(i, 1).as_const();
-		cell->connections["\\CLK"] = memory->connections.at("\\RD_CLK").extract(i, 1);
-		cell->connections["\\ADDR"] = memory->connections.at("\\RD_ADDR").extract(i*abits, abits);
-		cell->connections["\\DATA"] = memory->connections.at("\\RD_DATA").extract(i*mem->width, mem->width);
-		module->add(cell);
+		cell->setPort("\\CLK", memory->getPort("\\RD_CLK").extract(i, 1));
+		cell->setPort("\\ADDR", memory->getPort("\\RD_ADDR").extract(i*abits, abits));
+		cell->setPort("\\DATA", memory->getPort("\\RD_DATA").extract(i*mem->width, mem->width));
 	}
 
 	for (int i = 0; i < num_wr_ports; i++)
 	{
-		RTLIL::Cell *cell = new RTLIL::Cell;
-		cell->name = NEW_ID;
-		cell->type = "$memwr";
-		cell->parameters["\\MEMID"] = mem_name;
+		RTLIL::Cell *cell = module->addCell(NEW_ID, "$memwr");
+		cell->parameters["\\MEMID"] = mem_name.str();
 		cell->parameters["\\ABITS"] = memory->parameters.at("\\ABITS");
 		cell->parameters["\\WIDTH"] = memory->parameters.at("\\WIDTH");
 		cell->parameters["\\CLK_ENABLE"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_ENABLE")).extract(i, 1).as_const();
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\WR_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\PRIORITY"] = i;
-		cell->connections["\\CLK"] = memory->connections.at("\\WR_CLK").extract(i, 1);
-		cell->connections["\\EN"] = memory->connections.at("\\WR_EN").extract(i, 1);
-		cell->connections["\\ADDR"] = memory->connections.at("\\WR_ADDR").extract(i*abits, abits);
-		cell->connections["\\DATA"] = memory->connections.at("\\WR_DATA").extract(i*mem->width, mem->width);
-		module->add(cell);
+		cell->setPort("\\CLK", memory->getPort("\\WR_CLK").extract(i, 1));
+		cell->setPort("\\EN", memory->getPort("\\WR_EN").extract(i*mem->width, mem->width));
+		cell->setPort("\\ADDR", memory->getPort("\\WR_ADDR").extract(i*abits, abits));
+		cell->setPort("\\DATA", memory->getPort("\\WR_DATA").extract(i*mem->width, mem->width));
 	}
 
-	module->cells.erase(memory->name);
-	delete memory;
+	module->remove(memory);
 }
 
 static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 {
 	std::vector<RTLIL::IdString> memcells;
-	for (auto &cell_it : module->cells)
+	for (auto &cell_it : module->cells_)
 		if (cell_it.second->type == "$mem" && design->selected(module, cell_it.second))
 			memcells.push_back(cell_it.first);
 	for (auto &it : memcells)
-		handle_memory(module, module->cells.at(it));
+		handle_memory(module, module->cells_.at(it));
 }
 
 struct MemoryUnpackPass : public Pass {
@@ -109,7 +101,7 @@ struct MemoryUnpackPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		log_header("Executing MEMORY_UNPACK pass (generating $memrd/$memwr cells form $mem cells).\n");
 		extra_args(args, 1, design);
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 				handle_module(design, mod_it.second);
 	}

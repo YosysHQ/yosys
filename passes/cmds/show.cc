@@ -22,7 +22,10 @@
 #include "kernel/log.h"
 #include <string.h>
 #include <dirent.h>
-#include <readline/readline.h>
+
+#ifdef YOSYS_ENABLE_READLINE
+#  include <readline/readline.h>
+#endif
 
 using RTLIL::id2cstr;
 
@@ -45,6 +48,7 @@ struct ShowWorker
 	RTLIL::Module *module;
 	uint32_t currentColor;
 	bool genWidthLabels;
+	bool genSignedLabels;
 	bool stretchIO;
 	bool enumerateIds;
 	bool abbreviateIds;
@@ -54,7 +58,7 @@ struct ShowWorker
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections;
 
-	uint32_t xorshift32(uint32_t x) {
+	static uint32_t xorshift32(uint32_t x) {
 		x ^= x << 13;
 		x ^= x >> 17;
 		x ^= x << 5;
@@ -78,7 +82,7 @@ struct ShowWorker
 	std::string nextColor(RTLIL::SigSpec sig, std::string defaultColor)
 	{
 		sig.sort_and_unify();
-		for (auto &c : sig.chunks) {
+		for (auto &c : sig.chunks()) {
 			if (c.wire != NULL)
 				for (auto &s : color_selections)
 					if (s.second.selected_members.count(module->name) > 0 && s.second.selected_members.at(module->name).count(c.wire->name) > 0)
@@ -87,17 +91,17 @@ struct ShowWorker
 		return defaultColor;
 	}
 
-	std::string nextColor(RTLIL::SigSig &conn, std::string defaultColor)
+	std::string nextColor(const RTLIL::SigSig &conn, std::string defaultColor)
 	{
 		return nextColor(conn.first, nextColor(conn.second, defaultColor));
 	}
 
-	std::string nextColor(RTLIL::SigSpec &sig)
+	std::string nextColor(const RTLIL::SigSpec &sig)
 	{
 		return nextColor(sig, nextColor());
 	}
 
-	std::string nextColor(RTLIL::SigSig &conn)
+	std::string nextColor(const RTLIL::SigSig &conn)
 	{
 		return nextColor(conn, nextColor());
 	}
@@ -124,7 +128,7 @@ struct ShowWorker
 	const char *findLabel(std::string member_name)
 	{
 		for (auto &s : label_selections)
-			if (s.second.selected_member(module->name, RTLIL::escape_id(member_name)))
+			if (s.second.selected_member(module->name, member_name))
 				return escape(s.first);
 		return escape(member_name, true);
 	}
@@ -171,15 +175,13 @@ struct ShowWorker
 
 	std::string gen_signode_simple(RTLIL::SigSpec sig, bool range_check = true)
 	{
-		sig.optimize();
-
-		if (sig.chunks.size() == 0) {
+		if (SIZE(sig) == 0) {
 			fprintf(f, "v%d [ label=\"\" ];\n", single_idx_count);
 			return stringf("v%d", single_idx_count++);
 		}
 
-		if (sig.chunks.size() == 1) {
-			RTLIL::SigChunk &c = sig.chunks[0];
+		if (sig.is_chunk()) {
+			const RTLIL::SigChunk &c = sig.as_chunk();
 			if (c.wire != NULL && design->selected_member(module->name, c.wire->name)) {
 				if (!range_check || c.wire->width == c.width)
 						return stringf("n%d", id2num(c.wire->name));
@@ -199,13 +201,12 @@ struct ShowWorker
 		if (net.empty())
 		{
 			std::string label_string;
-			sig.optimize();
-			int pos = sig.width-1;
+			int pos = sig.size()-1;
 			int idx = single_idx_count++;
-			for (int i = int(sig.chunks.size())-1; i >= 0; i--) {
-				RTLIL::SigChunk &c = sig.chunks[i];
+			for (int i = int(sig.chunks().size())-1; i >= 0; i--) {
+				const RTLIL::SigChunk &c = sig.chunks().at(i);
 				net = gen_signode_simple(c, false);
-				assert(!net.empty());
+				log_assert(!net.empty());
 				if (driver) {
 					label_string += stringf("<s%d> %d:%d - %d:%d |", i, pos, pos-c.width+1, c.offset+c.width-1, c.offset);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));
@@ -225,9 +226,9 @@ struct ShowWorker
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.width).c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.width).c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 			}
 			if (node != NULL)
 				*node = stringf("x%d", idx);
@@ -239,7 +240,7 @@ struct ShowWorker
 					net_conn_map[net].in.insert(port);
 				else
 					net_conn_map[net].out.insert(port);
-				net_conn_map[net].bits = sig.width;
+				net_conn_map[net].bits = sig.size();
 				net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
 			}
 			if (node != NULL)
@@ -299,16 +300,16 @@ struct ShowWorker
 		dot_id2num_store.clear();
 		net_conn_map.clear();
 
-		fprintf(f, "digraph \"%s\" {\n", escape(module->name));
+		fprintf(f, "digraph \"%s\" {\n", escape(module->name.str()));
 		if (!notitle)
-			fprintf(f, "label=\"%s\";\n", escape(module->name));
+			fprintf(f, "label=\"%s\";\n", escape(module->name.str()));
 		fprintf(f, "rankdir=\"LR\";\n");
 		fprintf(f, "remincross=true;\n");
 
 		std::set<std::string> all_sources, all_sinks;
 
 		std::map<std::string, std::string> wires_on_demand;
-		for (auto &it : module->wires) {
+		for (auto &it : module->wires_) {
 			if (!design->selected_member(module->name, it.first))
 				continue;
 			const char *shape = "diamond";
@@ -316,14 +317,14 @@ struct ShowWorker
 				shape = "octagon";
 			if (it.first[0] == '\\') {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
-						id2num(it.first), shape, findLabel(it.first),
+						id2num(it.first), shape, findLabel(it.first.str()),
 						nextColor(RTLIL::SigSpec(it.second), "color=\"black\"").c_str());
 				if (it.second->port_input)
 					all_sources.insert(stringf("n%d", id2num(it.first)));
 				else if (it.second->port_output)
 					all_sinks.insert(stringf("n%d", id2num(it.first)));
 			} else {
-				wires_on_demand[stringf("n%d", id2num(it.first))] = it.first;
+				wires_on_demand[stringf("n%d", id2num(it.first))] = it.first.str();
 			}
 		}
 
@@ -340,38 +341,43 @@ struct ShowWorker
 			fprintf(f, "}\n");
 		}
 
-		for (auto &it : module->cells)
+		for (auto &it : module->cells_)
 		{
 			if (!design->selected_member(module->name, it.first))
 				continue;
 
 			std::vector<RTLIL::IdString> in_ports, out_ports;
 
-			for (auto &conn : it.second->connections) {
+			for (auto &conn : it.second->connections()) {
 				if (!ct.cell_output(it.second->type, conn.first))
 					in_ports.push_back(conn.first);
 				else
 					out_ports.push_back(conn.first);
 			}
 
+			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str());
+			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str());
+
 			std::string label_string = "{{";
 
 			for (auto &p : in_ports)
-				label_string += stringf("<p%d> %s|", id2num(p), escape(p));
+				label_string += stringf("<p%d> %s%s|", id2num(p), escape(p.str()),
+						genSignedLabels && it.second->hasParam(p.str() + "_SIGNED") &&
+						it.second->getParam(p.str() + "_SIGNED").as_bool() ? "*" : "");
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
-			label_string += stringf("}|%s\\n%s|{", findLabel(it.first), escape(it.second->type));
+			label_string += stringf("}|%s\\n%s|{", findLabel(it.first.str()), escape(it.second->type.str()));
 
 			for (auto &p : out_ports)
-				label_string += stringf("<p%d> %s|", id2num(p), escape(p));
+				label_string += stringf("<p%d> %s|", id2num(p), escape(p.str()));
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
 			label_string += "}}";
 
 			std::string code;
-			for (auto &conn : it.second->connections) {
+			for (auto &conn : it.second->connections()) {
 				code += gen_portbox(stringf("c%d:p%d", id2num(it.first), id2num(conn.first)),
 						conn.second, ct.cell_output(it.second->type, conn.first));
 			}
@@ -383,7 +389,7 @@ struct ShowWorker
 			else
 #endif
 				fprintf(f, "c%d [ shape=record, label=\"%s\"%s ];\n%s",
-						id2num(it.first), label_string.c_str(), findColor(it.first), code.c_str());
+						id2num(it.first), label_string.c_str(), findColor(it.first.str()), code.c_str());
 		}
 
 		for (auto &it : module->processes)
@@ -405,7 +411,7 @@ struct ShowWorker
 				code += gen_portbox("", sig, false, &node);
 				fprintf(f, "%s", code.c_str());
 				net_conn_map[node].out.insert(stringf("p%d", pidx));
-				net_conn_map[node].bits = sig.width;
+				net_conn_map[node].bits = sig.size();
 				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
@@ -414,25 +420,25 @@ struct ShowWorker
 				code += gen_portbox("", sig, true, &node);
 				fprintf(f, "%s", code.c_str());
 				net_conn_map[node].in.insert(stringf("p%d", pidx));
-				net_conn_map[node].bits = sig.width;
+				net_conn_map[node].bits = sig.size();
 				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
 			std::string proc_src = RTLIL::unescape_id(proc->name);
 			if (proc->attributes.count("\\src") > 0)
 				proc_src = proc->attributes.at("\\src").decode_string();
-			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name), proc_src.c_str());
+			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name.str()), proc_src.c_str());
 		}
 
-		for (auto &conn : module->connections)
+		for (auto &conn : module->connections())
 		{
 			bool found_lhs_wire = false;
-			for (auto &c : conn.first.chunks) {
+			for (auto &c : conn.first.chunks()) {
 				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_lhs_wire = true;
 			}
 			bool found_rhs_wire = false;
-			for (auto &c : conn.second.chunks) {
+			for (auto &c : conn.second.chunks()) {
 				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_rhs_wire = true;
 			}
@@ -446,11 +452,11 @@ struct ShowWorker
 
 			if (left_node[0] == 'x' && right_node[0] == 'x') {
 				currentColor = xorshift32(currentColor);
-			fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.width).c_str());
+			fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.size()).c_str());
 		} else {
-				net_conn_map[right_node].bits = conn.first.width;
+				net_conn_map[right_node].bits = conn.first.size();
 				net_conn_map[right_node].color = nextColor(conn, net_conn_map[right_node].color);
-				net_conn_map[left_node].bits = conn.first.width;
+				net_conn_map[left_node].bits = conn.first.size();
 				net_conn_map[left_node].color = nextColor(conn, net_conn_map[left_node].color);
 				if (left_node[0] == 'x') {
 					net_conn_map[right_node].in.insert(left_node);
@@ -487,15 +493,15 @@ struct ShowWorker
 				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.c_str(), nextColor(it.second.color).c_str(), widthLabel(it.second.bits).c_str());
 		}
 
-		fprintf(f, "};\n");
+		fprintf(f, "}\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed,
-			bool genWidthLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle,
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels,
+			bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections) :
 			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels),
-			stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
+			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			notitle(notitle), color_selections(color_selections), label_selections(label_selections)
 	{
 		ct.setup_internals();
@@ -509,7 +515,7 @@ struct ShowWorker
 
 		design->optimize();
 		page_counter = 0;
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			module = mod_it.second;
 			if (!design->selected_module(module->name))
@@ -519,7 +525,7 @@ struct ShowWorker
 					log("Skipping blackbox module %s.\n", id2cstr(module->name));
 					continue;
 				} else
-				if (module->cells.empty() && module->connections.empty() && module->processes.empty()) {
+				if (module->cells_.empty() && module->connections().empty() && module->processes.empty()) {
 					log("Skipping empty module %s.\n", id2cstr(module->name));
 					continue;
 				} else
@@ -575,6 +581,10 @@ struct ShowPass : public Pass {
 		log("    -width\n");
 		log("        annotate busses with a label indicating the width of the bus.\n");
 		log("\n");
+		log("    -signed\n");
+		log("        mark ports (A, B) that are declarted as signed (using the [AB]_SIGNED\n");
+		log("        cell parameter) with an asterisk next to the port name.\n");
+		log("\n");
 		log("    -stretch\n");
 		log("        stretch the graph so all inputs are on the left side and all outputs\n");
 		log("        (including inout ports) are on the right side.\n");
@@ -591,8 +601,8 @@ struct ShowPass : public Pass {
 		log("    -notitle\n");
 		log("        do not add the module name as graph title to the dot file\n");
 		log("\n");
-		log("When no <format> is specified, SVG is used. When no <format> and <viewer> is\n");
-		log("specified, 'yosys-svgviewer' is used to display the schematic.\n");
+		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
+		log("specified, 'xdot' is used to display the schematic.\n");
 		log("\n");
 		log("The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',\n");
 		log("unless another prefix is specified using -prefix <prefix>.\n");
@@ -613,6 +623,7 @@ struct ShowPass : public Pass {
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
 		bool flag_width = false;
+		bool flag_signed = false;
 		bool flag_stretch = false;
 		bool flag_pause = false;
 		bool flag_enum = false;
@@ -655,6 +666,8 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-colors" && argidx+1 < args.size()) {
 				colorSeed = atoi(args[++argidx].c_str());
+				for (int i = 0; i < 100; i++)
+					colorSeed = ShowWorker::xorshift32(colorSeed);
 				continue;
 			}
 			if (arg == "-format" && argidx+1 < args.size()) {
@@ -663,6 +676,10 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-width") {
 				flag_width= true;
+				continue;
+			}
+			if (arg == "-signed") {
+				flag_signed= true;
 				continue;
 			}
 			if (arg == "-stretch") {
@@ -693,10 +710,10 @@ struct ShowPass : public Pass {
 
 		if (format != "ps") {
 			int modcount = 0;
-			for (auto &mod_it : design->modules) {
+			for (auto &mod_it : design->modules_) {
 				if (mod_it.second->get_bool_attribute("\\blackbox"))
 					continue;
-				if (mod_it.second->cells.empty() && mod_it.second->connections.empty())
+				if (mod_it.second->cells_.empty() && mod_it.second->connections().empty())
 					continue;
 				if (design->selected_module(mod_it.first))
 					modcount++;
@@ -706,13 +723,13 @@ struct ShowPass : public Pass {
 		}
 
 		for (auto filename : libfiles) {
-			FILE *f = fopen(filename.c_str(), "rt");
-			if (f == NULL)
+			std::ifstream f;
+			f.open(filename.c_str());
+			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename.c_str());
 			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
+			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.substr(filename.size()-3) == ".il") ? "ilang" : "verilog");
 			libs.push_back(lib);
-			fclose(f);
 		}
 
 		if (libs.size() > 0)
@@ -728,7 +745,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_stretch, flag_enum, flag_abbeviate, flag_notitle, color_selections, label_selections);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbeviate, flag_notitle, color_selections, label_selections);
 		fclose(f);
 
 		for (auto lib : libs)
@@ -737,8 +754,8 @@ struct ShowPass : public Pass {
 		if (worker.page_counter == 0)
 			log_cmd_error("Nothing there to show.\n");
 
-		if (format != "dot") {
-			std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.empty() ? "svg" : format.c_str(), out_file.c_str(), dot_file.c_str());
+		if (format != "dot" && !format.empty()) {
+			std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.c_str(), out_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
@@ -751,13 +768,14 @@ struct ShowPass : public Pass {
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
-			std::string cmd = stringf("fuser -s '%s' || '%s' '%s' &", out_file.c_str(), rewrite_yosys_exe("yosys-svgviewer").c_str(), out_file.c_str());
+			std::string cmd = stringf("fuser -s '%s' || xdot '%s' < '%s' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (system(cmd.c_str()) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
 
 		if (flag_pause) {
+		#ifdef YOSYS_ENABLE_READLINE
 			char *input = NULL;
 			while ((input = readline("Press ENTER to continue (or type 'shell' to open a shell)> ")) != NULL) {
 				if (input[strspn(input, " \t\r\n")] == 0)
@@ -768,6 +786,9 @@ struct ShowPass : public Pass {
 					break;
 				}
 			}
+		#else
+			log_cmd_error("This version of yosys is built without readline support => 'show -pause' is not available.\n");
+		#endif
 		}
 
 		log_pop();

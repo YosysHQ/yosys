@@ -23,35 +23,33 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static int next_bit_mode;
-static uint32_t next_bit_state;
-
-static RTLIL::State next_bit()
-{
-	if (next_bit_mode == 0)
-		return RTLIL::State::S0;
-
-	if (next_bit_mode == 1)
-		return RTLIL::State::S1;
-
-	// xorshift32
-	next_bit_state ^= next_bit_state << 13;
-	next_bit_state ^= next_bit_state >> 17;
-	next_bit_state ^= next_bit_state << 5;
-	log_assert(next_bit_state != 0);
-
-	return ((next_bit_state >> (next_bit_state & 15)) & 16) ? RTLIL::State::S0 : RTLIL::State::S1;
-}
-
 struct SetundefWorker
 {
+	int next_bit_mode;
+	uint32_t next_bit_state;
+
+	RTLIL::State next_bit()
+	{
+		if (next_bit_mode == 0)
+			return RTLIL::State::S0;
+
+		if (next_bit_mode == 1)
+			return RTLIL::State::S1;
+
+		// xorshift32
+		next_bit_state ^= next_bit_state << 13;
+		next_bit_state ^= next_bit_state >> 17;
+		next_bit_state ^= next_bit_state << 5;
+		log_assert(next_bit_state != 0);
+
+		return ((next_bit_state >> (next_bit_state & 15)) & 16) ? RTLIL::State::S0 : RTLIL::State::S1;
+	}
+
 	void operator()(RTLIL::SigSpec &sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks)
-			if (c.wire == NULL && c.data.bits.at(0) > RTLIL::State::S1)
-				c.data.bits.at(0) = next_bit();
-		sig.optimize();
+		for (auto &bit : sig)
+			if (bit.wire == NULL && bit.data > RTLIL::State::S1)
+				bit = next_bit();
 	}
 };
 
@@ -83,6 +81,7 @@ struct SetundefPass : public Pass {
 	{
 		bool got_value = false;
 		bool undriven_mode = false;
+		SetundefWorker worker;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -93,20 +92,20 @@ struct SetundefPass : public Pass {
 			}
 			if (args[argidx] == "-zero") {
 				got_value = true;
-				next_bit_mode = 0;
+				worker.next_bit_mode = 0;
 				continue;
 			}
 			if (args[argidx] == "-one") {
 				got_value = true;
-				next_bit_mode = 1;
+				worker.next_bit_mode = 1;
 				continue;
 			}
 			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
 				got_value = true;
-				next_bit_mode = 2;
-				next_bit_state = atoi(args[++argidx].c_str()) + 1;
+				worker.next_bit_mode = 2;
+				worker.next_bit_state = atoi(args[++argidx].c_str()) + 1;
 				for (int i = 0; i < 10; i++)
-					next_bit();
+					worker.next_bit();
 				continue;
 			}
 			break;
@@ -116,7 +115,7 @@ struct SetundefPass : public Pass {
 		if (!got_value)
 			log_cmd_error("One of the options -zero, -one, or -random <seed> must be specified.\n");
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			RTLIL::Module *module = mod_it.second;
 			if (!design->selected(module))
@@ -130,27 +129,26 @@ struct SetundefPass : public Pass {
 				SigMap sigmap(module);
 				SigPool undriven_signals;
 
-				for (auto &it : module->wires)
+				for (auto &it : module->wires_)
 					if (!it.second->port_input)
 						undriven_signals.add(sigmap(it.second));
 
 				CellTypes ct(design);
-				for (auto &it : module->cells)
-				for (auto &conn : it.second->connections)
+				for (auto &it : module->cells_)
+				for (auto &conn : it.second->connections())
 					if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
 						undriven_signals.del(sigmap(conn.second));
 
 				RTLIL::SigSpec sig = undriven_signals.export_all();
-				for (auto &c : sig.chunks) {
+				for (auto &c : sig.chunks()) {
 					RTLIL::SigSpec bits;
 					for (int i = 0; i < c.width; i++)
-						bits.append(next_bit());
-					bits.optimize();
-					module->connections.push_back(RTLIL::SigSig(c, bits));
+						bits.append(worker.next_bit());
+					module->connect(RTLIL::SigSig(c, bits));
 				}
 			}
 
-			module->rewrite_sigspecs(SetundefWorker());
+			module->rewrite_sigspecs(worker);
 		}
 	}
 } SetundefPass;

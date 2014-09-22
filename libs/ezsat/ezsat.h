@@ -48,6 +48,11 @@ public:
 	static const int FALSE;
 
 private:
+	bool flag_keep_cnf;
+	bool flag_non_incremental;
+
+	bool non_incremental_solve_used_up;
+
 	std::map<std::string, int> literalsCache;
 	std::vector<std::string> literals;
 
@@ -57,8 +62,7 @@ private:
 	bool cnfConsumed;
 	int cnfVariableCount, cnfClausesCount;
 	std::vector<int> cnfLiteralVariables, cnfExpressionVariables;
-	std::vector<std::vector<int>> cnfClauses;
-	std::set<int> cnfAssumptions;
+	std::vector<std::vector<int>> cnfClauses, cnfClausesBackup;
 
 	void add_clause(const std::vector<int> &args);
 	void add_clause(const std::vector<int> &args, bool argsPolarity, int a = 0, int b = 0, int c = 0);
@@ -68,6 +72,9 @@ private:
 	int bind_cnf_and(const std::vector<int> &args);
 	int bind_cnf_or(const std::vector<int> &args);
 
+protected:
+	void preSolverCallback();
+
 public:
 	int solverTimeout;
 	bool solverTimoutStatus;
@@ -75,11 +82,19 @@ public:
 	ezSAT();
 	virtual ~ezSAT();
 
+	void keep_cnf() { flag_keep_cnf = true; }
+	void non_incremental() { flag_non_incremental = true; }
+
+	bool mode_keep_cnf() const { return flag_keep_cnf; }
+	bool mode_non_incremental() const { return flag_non_incremental; }
+
 	// manage expressions
 
 	int value(bool val);
 	int literal();
 	int literal(const std::string &name);
+	int frozen_literal();
+	int frozen_literal(const std::string &name);
 	int expression(OpId op, int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0);
 	int expression(OpId op, const std::vector<int> &args);
 
@@ -141,10 +156,10 @@ public:
 	// manage CNF (usually only accessed by SAT solvers)
 
 	virtual void clear();
+	virtual void freeze(int id);
+	virtual bool eliminated(int idx);
 	void assume(int id);
-	int bind(int id);
-
-	const std::set<int> &assumed() const { return cnfAssumptions; }
+	int bind(int id, bool auto_freeze = true);
 	int bound(int id) const;
 
 	int numCnfVariables() const { return cnfVariableCount; }
@@ -153,6 +168,11 @@ public:
 
 	void consumeCnf();
 	void consumeCnf(std::vector<std::vector<int>> &cnf);
+
+	// use this function to get the full CNF in keep_cnf mode
+	void getFullCnf(std::vector<std::vector<int>> &full_cnf) const;
+
+	std::string cnfLiteralInfo(int idx) const;
 
 	// simple helpers for build expressions easily
 
@@ -165,7 +185,7 @@ public:
 		int get(ezSAT *that) {
 			if (name.empty())
 				return id;
-			return that->literal(name);
+			return that->frozen_literal(name);
 		}
 	};
 
@@ -217,7 +237,7 @@ public:
 
 	std::vector<int> vec_iff(const std::vector<int> &vec1, const std::vector<int> &vec2);
 	std::vector<int> vec_ite(const std::vector<int> &vec1, const std::vector<int> &vec2, const std::vector<int> &vec3);
-	std::vector<int> vec_ite(int sel, const std::vector<int> &vec2, const std::vector<int> &vec3);
+	std::vector<int> vec_ite(int sel, const std::vector<int> &vec1, const std::vector<int> &vec2);
 
 	std::vector<int> vec_count(const std::vector<int> &vec, int numBits, bool clip = true);
 	std::vector<int> vec_add(const std::vector<int> &vec1, const std::vector<int> &vec2);
@@ -244,6 +264,10 @@ public:
 
 	std::vector<int> vec_shr(const std::vector<int> &vec1, int shift, bool signExtend = false) { return vec_shl(vec1, -shift, signExtend); }
 	std::vector<int> vec_srr(const std::vector<int> &vec1, int shift) { return vec_srl(vec1, -shift); }
+
+	std::vector<int> vec_shift(const std::vector<int> &vec1, int shift, int extend_left, int extend_right);
+	std::vector<int> vec_shift_right(const std::vector<int> &vec1, const std::vector<int> &vec2, bool vec2_signed, int extend_left, int extend_right);
+	std::vector<int> vec_shift_left(const std::vector<int> &vec1, const std::vector<int> &vec2, bool vec2_signed, int extend_left, int extend_right);
 
 	void vec_append(std::vector<int> &vec, const std::vector<int> &vec1) const;
 	void vec_append_signed(std::vector<int> &vec, const std::vector<int> &vec1, int64_t value);

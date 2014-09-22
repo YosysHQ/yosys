@@ -40,7 +40,7 @@ static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, 
 		}
 
 		if (buffer_len == 0 || buffer[buffer_len-1] == '\\') {
-			if (buffer[buffer_len-1] == '\\')
+			if (buffer_len > 0 && buffer[buffer_len-1] == '\\')
 				buffer[--buffer_len] = 0;
 			line_count++;
 			if (fgets(buffer+buffer_len, buffer_size-buffer_len, f) == NULL)
@@ -58,9 +58,8 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 	RTLIL::Const *lutptr = NULL;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
 
-	int port_count = 0;
 	module->name = "\\netlist";
-	design->modules[module->name] = module;
+	design->add(module);
 
 	size_t buffer_size = 4096;
 	char *buffer = (char*)malloc(buffer_size);
@@ -91,6 +90,7 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				continue;
 
 			if (!strcmp(cmd, ".end")) {
+				module->fixup_ports();
 				free(buffer);
 				return design;
 			}
@@ -98,14 +98,11 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 			if (!strcmp(cmd, ".inputs") || !strcmp(cmd, ".outputs")) {
 				char *p;
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
-					RTLIL::Wire *wire = new RTLIL::Wire;
-					wire->name = stringf("\\%s", p);
-					wire->port_id = ++port_count;
+					RTLIL::Wire *wire = module->addWire(stringf("\\%s", p));
 					if (!strcmp(cmd, ".inputs"))
 						wire->port_input = true;
 					else
 						wire->port_output = true;
-					module->add(wire);
 				}
 				continue;
 			}
@@ -115,49 +112,34 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				char *d = strtok(NULL, " \t\r\n");
 				char *q = strtok(NULL, " \t\r\n");
 
-				if (module->wires.count(RTLIL::escape_id(d)) == 0) {
-					RTLIL::Wire *wire = new RTLIL::Wire;
-					wire->name = RTLIL::escape_id(d);
-					module->add(wire);
-				}
+				if (module->wires_.count(RTLIL::escape_id(d)) == 0)
+					module->addWire(RTLIL::escape_id(d));
 
-				if (module->wires.count(RTLIL::escape_id(q)) == 0) {
-					RTLIL::Wire *wire = new RTLIL::Wire;
-					wire->name = RTLIL::escape_id(q);
-					module->add(wire);
-				}
+				if (module->wires_.count(RTLIL::escape_id(q)) == 0)
+					module->addWire(RTLIL::escape_id(q));
 
-				RTLIL::Cell *cell = new RTLIL::Cell;
-				cell->name = NEW_ID;
-				cell->type = dff_name;
-				cell->connections["\\D"] = module->wires.at(RTLIL::escape_id(d));
-				cell->connections["\\Q"] = module->wires.at(RTLIL::escape_id(q));
-				module->add(cell);
+				RTLIL::Cell *cell = module->addCell(NEW_ID, dff_name);
+				cell->setPort("\\D", module->wires_.at(RTLIL::escape_id(d)));
+				cell->setPort("\\Q", module->wires_.at(RTLIL::escape_id(q)));
 				continue;
 			}
 
 			if (!strcmp(cmd, ".gate"))
 			{
-				RTLIL::Cell *cell = new RTLIL::Cell;
-				cell->name = NEW_ID;
-				module->add(cell);
-
 				char *p = strtok(NULL, " \t\r\n");
 				if (p == NULL)
 					goto error;
-				cell->type = RTLIL::escape_id(p);
+
+				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(p));
 
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					char *q = strchr(p, '=');
 					if (q == NULL || !q[0] || !q[1])
 						goto error;
 					*(q++) = 0;
-					if (module->wires.count(RTLIL::escape_id(q)) == 0) {
-						RTLIL::Wire *wire = new RTLIL::Wire;
-						wire->name = RTLIL::escape_id(q);
-						module->add(wire);
-					}
-					cell->connections[RTLIL::escape_id(p)] = module->wires.at(RTLIL::escape_id(q));
+					if (module->wires_.count(RTLIL::escape_id(q)) == 0)
+						module->addWire(RTLIL::escape_id(q));
+					cell->setPort(RTLIL::escape_id(p), module->wires_.at(RTLIL::escape_id(q)));
 				}
 				continue;
 			}
@@ -168,19 +150,17 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				RTLIL::SigSpec input_sig, output_sig;
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					RTLIL::Wire *wire;
-					if (module->wires.count(stringf("\\%s", p)) > 0) {
-						wire = module->wires.at(stringf("\\%s", p));
+					if (module->wires_.count(stringf("\\%s", p)) > 0) {
+						wire = module->wires_.at(stringf("\\%s", p));
 					} else {
-						wire = new RTLIL::Wire;
-						wire->name = stringf("\\%s", p);
-						module->add(wire);
+						wire = module->addWire(stringf("\\%s", p));
 					}
 					input_sig.append(wire);
 				}
-				output_sig = input_sig.extract(input_sig.width-1, 1);
-				input_sig = input_sig.extract(0, input_sig.width-1);
+				output_sig = input_sig.extract(input_sig.size()-1, 1);
+				input_sig = input_sig.extract(0, input_sig.size()-1);
 
-				if (input_sig.width == 0) {
+				if (input_sig.size() == 0) {
 					RTLIL::State state = RTLIL::State::Sa;
 					while (1) {
 						if (!read_next_line(buffer, buffer_size, line_count, f))
@@ -208,23 +188,17 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				finished_parsing_constval:
 					if (state == RTLIL::State::Sa)
 						state = RTLIL::State::S1;
-					module->connections.push_back(RTLIL::SigSig(output_sig, state));
+					module->connect(RTLIL::SigSig(output_sig, state));
 					goto continue_without_read;
 				}
 
-				input_sig.optimize();
-				output_sig.optimize();
-
-				RTLIL::Cell *cell = new RTLIL::Cell;
-				cell->name = NEW_ID;
-				cell->type = "$lut";
-				cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.width);
-				cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.width);
-				cell->connections["\\I"] = input_sig;
-				cell->connections["\\O"] = output_sig;
+				RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
+				cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
+				cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
+				cell->setPort("\\A", input_sig);
+				cell->setPort("\\Y", output_sig);
 				lutptr = &cell->parameters.at("\\LUT");
 				lut_default_state = RTLIL::State::Sx;
-				module->add(cell);
 				continue;
 			}
 

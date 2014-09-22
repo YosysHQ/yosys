@@ -26,36 +26,28 @@ static std::string locell_celltype, locell_portname;
 static bool singleton_mode;
 
 static RTLIL::Module *module;
-static RTLIL::SigChunk last_hi, last_lo;
+static RTLIL::SigBit last_hi, last_lo;
 
 void hilomap_worker(RTLIL::SigSpec &sig)
 {
-	sig.expand();
-	for (auto &c : sig.chunks) {
-		if (c.wire == NULL && (c.data.bits.at(0) == RTLIL::State::S1) && !hicell_celltype.empty()) {
-			if (!singleton_mode || last_hi.width == 0) {
-				last_hi = RTLIL::SigChunk(NEW_WIRE(module, 1));
-				RTLIL::Cell *cell = new RTLIL::Cell;
-				cell->name = NEW_ID;
-				cell->type = RTLIL::escape_id(hicell_celltype);
-				cell->connections[RTLIL::escape_id(hicell_portname)] = last_hi;
-				module->add(cell);
+	for (auto &bit : sig) {
+		if (bit == RTLIL::State::S1 && !hicell_celltype.empty()) {
+			if (!singleton_mode || last_hi == RTLIL::State::Sm) {
+				last_hi = module->addWire(NEW_ID);
+				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(hicell_celltype));
+				cell->setPort(RTLIL::escape_id(hicell_portname), last_hi);
 			}
-			c = last_hi;
+			bit = last_hi;
 		}
-		if (c.wire == NULL && (c.data.bits.at(0) == RTLIL::State::S0) && !locell_celltype.empty()) {
-			if (!singleton_mode || last_lo.width == 0) {
-				last_lo = RTLIL::SigChunk(NEW_WIRE(module, 1));
-				RTLIL::Cell *cell = new RTLIL::Cell;
-				cell->name = NEW_ID;
-				cell->type = RTLIL::escape_id(locell_celltype);
-				cell->connections[RTLIL::escape_id(locell_portname)] = last_lo;
-				module->add(cell);
+		if (bit == RTLIL::State::S0 && !locell_celltype.empty()) {
+			if (!singleton_mode || last_lo == RTLIL::State::Sm) {
+				last_lo = module->addWire(NEW_ID);
+				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(locell_celltype));
+				cell->setPort(RTLIL::escape_id(locell_portname), last_lo);
 			}
-			c = last_lo;
+			bit = last_lo;
 		}
 	}
-	sig.optimize();
 }
 
 struct HilomapPass : public Pass {
@@ -112,15 +104,15 @@ struct HilomapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules)
+		for (auto &it : design->modules_)
 		{
 			module = it.second;
 
 			if (!design->selected(module))
 				continue;
 
-			last_hi = RTLIL::SigChunk();
-			last_lo = RTLIL::SigChunk();
+			last_hi = RTLIL::State::Sm;
+			last_lo = RTLIL::State::Sm;
 
 			module->rewrite_sigspecs(hilomap_worker);
 		}

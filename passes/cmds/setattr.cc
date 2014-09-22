@@ -98,7 +98,7 @@ struct SetattrPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules)
+		for (auto &mod : design->modules_)
 		{
 			RTLIL::Module *module = mod.second;
 
@@ -111,7 +111,7 @@ struct SetattrPass : public Pass {
 			if (!design->selected(module))
 				continue;
 
-			for (auto &it : module->wires)
+			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
 					do_setunset(it.second->attributes, setunset_list);
 
@@ -119,7 +119,7 @@ struct SetattrPass : public Pass {
 				if (design->selected(module, it.second))
 					do_setunset(it.second->attributes, setunset_list);
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 				if (design->selected(module, it.second))
 					do_setunset(it.second->attributes, setunset_list);
 
@@ -164,14 +164,14 @@ struct SetparamPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules)
+		for (auto &mod : design->modules_)
 		{
 			RTLIL::Module *module = mod.second;
 
 			if (!design->selected(module))
 				continue;
 
-			for (auto &it : module->cells)
+			for (auto &it : module->cells_)
 				if (design->selected(module, it.second))
 					do_setunset(it.second->parameters, setunset_list);
 		}

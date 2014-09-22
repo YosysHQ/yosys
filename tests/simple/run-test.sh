@@ -6,5 +6,4 @@ if ! which iverilog > /dev/null ; then
   exit 1
 fi
 
-make -C ../.. || exit 1
-exec bash ../tools/autotest.sh *.v
+exec ${MAKE:-make} -f ../tools/autotest.mk *.v

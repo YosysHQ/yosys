@@ -1,13 +1,14 @@
 
 read_verilog example.v
 proc; opt_clean
+echo on
 
 sat -set y 1'b1 example001
 sat -set y 1'b1 example002
 sat -set y_sshl 8'hf0 -set y_sshr 8'hf0 -set sh 4'd3 example003
-sat -set y 1'b1 example004
+sat -set y 1'b1 -ignore_unknown_cells example004
 sat -show rst,counter -set-at 3 y 1'b1 -seq 4 example004
 
-sat -prove y 1'b0 -show rst,counter,y example004
-sat -prove y 1'b0 -show rst,counter,y -set-at 1 rst 1'b1 -seq 1 example004
+sat -prove y 1'b0 -show rst,counter,y -ignore_unknown_cells example004
+sat -prove y 1'b0 -tempinduct -show rst,counter,y -set-at 1 rst 1'b1 -seq 1 example004
 

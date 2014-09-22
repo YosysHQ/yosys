@@ -22,13 +22,20 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+YOSYS_NAMESPACE_BEGIN
+
+std::map<std::string, RTLIL::Design*> saved_designs;
+std::vector<RTLIL::Design*> pushed_designs;
+
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
-	std::map<std::string, RTLIL::Design*> saved_designs;
 	virtual ~DesignPass() {
 		for (auto &it : saved_designs)
 			delete it.second;
 		saved_designs.clear();
+		for (auto &it : pushed_designs)
+			delete it;
+		pushed_designs.clear();
 	}
 	virtual void help()
 	{
@@ -47,6 +54,16 @@ struct DesignPass : public Pass {
 		log("    design -stash <name>\n");
 		log("\n");
 		log("Save the current design under the given name and then clear the current design.\n");
+		log("\n");
+		log("\n");
+		log("    design -push\n");
+		log("\n");
+		log("Push the current design to the stack and then clear the current design.\n");
+		log("\n");
+		log("\n");
+		log("    design -pop\n");
+		log("\n");
+		log("Reset the current design and pop the last design from the stack.\n");
 		log("\n");
 		log("\n");
 		log("    design -load <name>\n");
@@ -70,6 +87,8 @@ struct DesignPass : public Pass {
 	{
 		bool got_mode = false;
 		bool reset_mode = false;
+		bool push_mode = false;
+		bool pop_mode = false;
 		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
 		std::string save_name, load_name, as_name;
 		std::vector<RTLIL::Module*> copy_src_modules;
@@ -81,6 +100,16 @@ struct DesignPass : public Pass {
 			if (!got_mode && args[argidx] == "-reset") {
 				got_mode = true;
 				reset_mode = true;
+				continue;
+			}
+			if (!got_mode && args[argidx] == "-push") {
+				got_mode = true;
+				push_mode = true;
+				continue;
+			}
+			if (!got_mode && args[argidx] == "-pop") {
+				got_mode = true;
+				pop_mode = true;
 				continue;
 			}
 			if (!got_mode && args[argidx] == "-save" && argidx+1 < args.size()) {
@@ -138,7 +167,7 @@ struct DesignPass : public Pass {
 				argidx = args.size();
 			}
 
-			for (auto &it : copy_from_design->modules) {
+			for (auto &it : copy_from_design->modules_) {
 				if (sel.selected_whole_module(it.first)) {
 					copy_src_modules.push_back(it.second);
 					continue;
@@ -151,7 +180,10 @@ struct DesignPass : public Pass {
 		extra_args(args, argidx, design, false);
 
 		if (!got_mode)
-			cmd_error(args, argidx, "Missing mode argument (-reset, -save, -load, -copy-from, or -copy-to).");
+			cmd_error(args, argidx, "Missing mode argument.");
+
+		if (pop_mode && pushed_designs.empty())
+			log_cmd_error("No pushed designs.\n");
 
 		if (copy_to_design != NULL)
 		{
@@ -160,21 +192,22 @@ struct DesignPass : public Pass {
 
 			for (auto mod : copy_src_modules)
 			{
-				std::string trg_name = as_name.empty() ? mod->name : RTLIL::escape_id(as_name);
+				std::string trg_name = as_name.empty() ? mod->name.str() : RTLIL::escape_id(as_name);
 
-				if (copy_to_design->modules.count(trg_name))
-					delete copy_to_design->modules.at(trg_name);
-				copy_to_design->modules[trg_name] = mod->clone();
-				copy_to_design->modules[trg_name]->name = trg_name;
+				if (copy_to_design->modules_.count(trg_name))
+					delete copy_to_design->modules_.at(trg_name);
+				copy_to_design->modules_[trg_name] = mod->clone();
+				copy_to_design->modules_[trg_name]->name = trg_name;
+				copy_to_design->modules_[trg_name]->design = copy_to_design;
 			}
 		}
 
-		if (!save_name.empty())
+		if (!save_name.empty() || push_mode)
 		{
 			RTLIL::Design *design_copy = new RTLIL::Design;
 
-			for (auto &it : design->modules)
-				design_copy->modules[it.first] = it.second->clone();
+			for (auto &it : design->modules_)
+				design_copy->add(it.second->clone());
 
 			design_copy->selection_stack = design->selection_stack;
 			design_copy->selection_vars = design->selection_vars;
@@ -182,14 +215,18 @@ struct DesignPass : public Pass {
 
 			if (saved_designs.count(save_name))
 				delete saved_designs.at(save_name);
-			saved_designs[save_name] = design_copy;
+
+			if (push_mode)
+				pushed_designs.push_back(design_copy);
+			else
+				saved_designs[save_name] = design_copy;
 		}
 
-		if (reset_mode || !load_name.empty())
+		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto &it : design->modules)
+			for (auto &it : design->modules_)
 				delete it.second;
-			design->modules.clear();
+			design->modules_.clear();
 
 			design->selection_stack.clear();
 			design->selection_vars.clear();
@@ -198,12 +235,15 @@ struct DesignPass : public Pass {
 			design->selection_stack.push_back(RTLIL::Selection());
 		}
 
-		if (!load_name.empty())
+		if (!load_name.empty() || pop_mode)
 		{
-			RTLIL::Design *saved_design = saved_designs.at(load_name);
+			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
 
-			for (auto &it : saved_design->modules)
-				design->modules[it.first] = it.second->clone();
+			if (pop_mode)
+				pushed_designs.pop_back();
+
+			for (auto &it : saved_design->modules_)
+				design->add(it.second->clone());
 
 			design->selection_stack = saved_design->selection_stack;
 			design->selection_vars = saved_design->selection_vars;
@@ -211,4 +251,6 @@ struct DesignPass : public Pass {
 		}
 	}
 } DesignPass;
- 
+
+YOSYS_NAMESPACE_END
+

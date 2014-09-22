@@ -1,7 +1,7 @@
 
 // `define ASYNC_RESET
 
-module test(clk, reset, button_a, button_b, red_a, green_a, red_b, green_b);
+module fsm_test(clk, reset, button_a, button_b, red_a, green_a, red_b, green_b);
 
 input clk, reset, button_a, button_b;
 output reg red_a, green_a, red_b, green_b;

@@ -17,21 +17,31 @@
  *
  */
 
+#include "kernel/yosys.h"
+
 #ifndef LOG_H
 #define LOG_H
 
-#include "kernel/rtlil.h"
-#include <stdio.h>
 #include <time.h>
-#include <vector>
+#include <sys/time.h>
+#include <sys/resource.h>
+
+YOSYS_NAMESPACE_BEGIN
+
+#define S__LINE__sub2(x) #x
+#define S__LINE__sub1(x) S__LINE__sub2(x)
+#define S__LINE__ S__LINE__sub1(__LINE__)
+
+struct log_cmd_error_expection { };
 
 extern std::vector<FILE*> log_files;
+extern std::vector<std::ostream*> log_streams;
 extern FILE *log_errfile;
+extern class SHA1 *log_hasher;
+
 extern bool log_time;
 extern bool log_cmd_error_throw;
 extern int log_verbose_level;
-
-std::string stringf(const char *fmt, ...);
 
 void logv(const char *format, va_list ap);
 void logv_header(const char *format, va_list ap);
@@ -42,6 +52,7 @@ void log_header(const char *format, ...) __attribute__ ((format (printf, 1, 2)))
 void log_error(const char *format, ...) __attribute__ ((format (printf, 1, 2))) __attribute__ ((noreturn));
 void log_cmd_error(const char *format, ...) __attribute__ ((format (printf, 1, 2))) __attribute__ ((noreturn));
 
+void log_spacer();
 void log_push();
 void log_pop();
 
@@ -49,9 +60,70 @@ void log_reset_stack();
 void log_flush();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
+const char *log_id(RTLIL::IdString id);
+
+template<typename T> static inline const char *log_id(T *obj) {
+	return log_id(obj->name);
+}
+
+void log_cell(RTLIL::Cell *cell, std::string indent = "");
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
 #define log_assert(_assert_expr_) do { if (_assert_expr_) break; log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
+#define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+
+
+// ---------------------------------------------------
+// This is the magic behind the code coverage counters
+// ---------------------------------------------------
+
+#if defined(__linux__) && !defined(NDEBUG)
+#define COVER_ACTIVE
+
+#define cover(_id) do { \
+    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1))) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
+    __d.counter++; \
+} while (0)
+
+struct CoverData {
+	const char *file, *func, *id;
+	int line, counter;
+} __attribute__ ((packed));
+
+// this two symbols are created by the linker for the "yosys_cover_list" ELF section
+extern "C" struct CoverData __start_yosys_cover_list[];
+extern "C" struct CoverData __stop_yosys_cover_list[];
+
+extern std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
+
+void cover_extra(std::string parent, std::string id, bool increment = true);
+std::map<std::string, std::pair<std::string, int>> get_coverage_data();
+
+#define cover_list(_id, ...) do { cover(_id); \
+	std::string r = cover_list_worker(_id, __VA_ARGS__); \
+	log_assert(r.empty()); \
+} while (0)
+
+static inline std::string cover_list_worker(std::string, std::string last) {
+	return last;
+}
+
+template<typename... T>
+std::string cover_list_worker(std::string prefix, std::string first, T... rest) {
+	std::string selected = cover_list_worker(prefix, rest...);
+	cover_extra(prefix, prefix + "." + first, first == selected);
+	return first == selected ? "" : selected;
+}
+
+#else
+#  define cover(...) do { } while (0)
+#  define cover_list(...) do { } while (0)
+#endif
+
+
+// ------------------------------------------------------------
+// everything below this line are utilities for troubleshooting
+// ------------------------------------------------------------
 
 // simple timer for performance measurements
 // toggle the '#if 1' to get a baseline for the perormance penalty added by the measurement
@@ -65,30 +137,45 @@ struct PerformanceTimer
 	}
 
 	static int64_t query() {
+#if defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
 		struct timespec ts;
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
 		return int64_t(ts.tv_sec)*1000000000 + ts.tv_nsec;
+#elif defined(RUSAGE_SELF)
+		struct rusage rusage;
+		int64_t t;
+		if (getrusage(RUSAGE_SELF, &rusage) == -1) {
+			log_cmd_error("getrusage failed!\n");
+			log_abort();
+		}
+		t = 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
+		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
+		return t;
+#else
+	#error Dont know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?).
+#endif
 	}
 
 	void reset() {
 		total_ns = 0;
 	}
 
-	void add() {
-		total_ns += query();
+	void begin() {
+		total_ns -= query();
 	}
 
-	void sub() {
-		total_ns -= query();
+	void end() {
+		total_ns += query();
 	}
 
 	float sec() const {
 		return total_ns * 1e-9;
 	}
 #else
+	static int64_t query() { return 0; }
 	void reset() { }
-	void add() { }
-	void sub() { }
+	void begin() { }
+	void end() { }
 	float sec() const { return 0; }
 #endif
 };
@@ -107,12 +194,17 @@ static inline void log_dump_val_worker(char c) { log(c >= 32 && c < 127 ? "'%c'"
 static inline void log_dump_val_worker(unsigned char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
 static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false"); }
 static inline void log_dump_val_worker(double v) { log("%f", v); }
+static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
-static inline void log_dump_val_worker(RTLIL::SigSpec v) { log("%s", log_signal(v)); }
+static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
 static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
+void log_dump_val_worker(RTLIL::SigSpec v);
 
-template <typename T, typename ... Args>
+template<typename T>
+static inline void log_dump_val_worker(T *ptr) { log("%p", ptr); }
+
+template<typename T, typename ... Args>
 void log_dump_args_worker(const char *p, T first, Args ... args)
 {
 	int next_p_state = 0;
@@ -151,5 +243,7 @@ void log_dump_args_worker(const char *p, T first, Args ... args)
 	log_dump_args_worker(#__VA_ARGS__, __VA_ARGS__); \
 	log("\n"); \
 } while (0)
+
+YOSYS_NAMESPACE_END
 
 #endif

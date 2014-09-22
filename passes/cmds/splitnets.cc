@@ -28,33 +28,28 @@ struct SplitnetsWorker
 
 	void append_wire(RTLIL::Module *module, RTLIL::Wire *wire, int offset, int width, std::string format)
 	{
-		RTLIL::Wire *new_wire = new RTLIL::Wire;
+		std::string new_wire_name = wire->name.str();
 
+		if (format.size() > 0)
+			new_wire_name += format.substr(0, 1);
+
+		if (width > 1) {
+			new_wire_name += stringf("%d", offset+width-1);
+			if (format.size() > 2)
+				new_wire_name += format.substr(2, 1);
+			else
+				new_wire_name += ":";
+		}
+
+		new_wire_name += stringf("%d", offset);
+
+		if (format.size() > 1)
+			new_wire_name += format.substr(1, 1);
+
+		RTLIL::Wire *new_wire = module->addWire(module->uniquify(new_wire_name), width);
 		new_wire->port_id = wire->port_id;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
-		new_wire->name = wire->name;
-		new_wire->width = width;
-
-		if (format.size() > 0)
-			new_wire->name += format.substr(0, 1);
-
-		if (width > 1) {
-			new_wire->name += stringf("%d", offset+width-1);
-			if (format.size() > 2)
-				new_wire->name += format.substr(2, 1);
-			else
-				new_wire->name += ":";
-		}
-
-		new_wire->name += stringf("%d", offset);
-
-		if (format.size() > 1)
-			new_wire->name += format.substr(1, 1);
-
-		while (module->count_id(new_wire->name) > 0)
-			new_wire->name = new_wire->name + "_";
-		module->add(new_wire);
 
 		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
 		splitmap[wire].insert(splitmap[wire].end(), sigvec.begin(), sigvec.end());
@@ -62,11 +57,9 @@ struct SplitnetsWorker
 
 	void operator()(RTLIL::SigSpec &sig)
 	{
-		sig.expand();
-		for (auto &c : sig.chunks)
-			if (splitmap.count(c.wire) > 0)
-				c = splitmap.at(c.wire).at(c.offset);
-		sig.optimize();
+		for (auto &bit : sig)
+			if (splitmap.count(bit.wire) > 0)
+				bit = splitmap.at(bit.wire).at(bit.offset);
 	}
 };
 
@@ -83,7 +76,7 @@ struct SplitnetsPass : public Pass {
 		log("    -format char1[char2[char3]]\n");
 		log("        the first char is inserted between the net name and the bit index, the\n");
 		log("        second char is appended to the netname. e.g. -format () creates net\n");
-		log("        names like 'mysignal(42)'. the 3rd character is the range seperation\n");
+		log("        names like 'mysignal(42)'. the 3rd character is the range separation\n");
 		log("        character when creating multi-bit wires. the default is '[]:'.\n");
 		log("\n");
 		log("    -ports\n");
@@ -121,7 +114,7 @@ struct SplitnetsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules)
+		for (auto &mod_it : design->modules_)
 		{
 			RTLIL::Module *module = mod_it.second;
 			if (!design->selected(module))
@@ -135,16 +128,16 @@ struct SplitnetsPass : public Pass {
 
 				std::map<RTLIL::Wire*, std::set<int>> split_wires_at;
 
-				for (auto &c : module->cells)
-				for (auto &p : c.second->connections)
+				for (auto &c : module->cells_)
+				for (auto &p : c.second->connections())
 				{
 					if (!ct.cell_known(c.second->type))
 						continue;
 					if (!ct.cell_output(c.second->type, p.first))
 						continue;
 
-					RTLIL::SigSpec sig = p.second.optimized();
-					for (auto &chunk : sig.chunks) {
+					RTLIL::SigSpec sig = p.second;
+					for (auto &chunk : sig.chunks()) {
 						if (chunk.wire == NULL)
 							continue;
 						if (chunk.wire->port_id == 0 || flag_ports) {
@@ -167,9 +160,9 @@ struct SplitnetsPass : public Pass {
 			}
 			else
 			{
-				for (auto &w : module->wires) {
+				for (auto &w : module->wires_) {
 					RTLIL::Wire *wire = w.second;
-					if (wire->width > 1 && (wire->port_id == 0 || flag_ports))
+					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, w.second))
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
 				}
 
@@ -180,10 +173,10 @@ struct SplitnetsPass : public Pass {
 
 			module->rewrite_sigspecs(worker);
 
-			for (auto &it : worker.splitmap) {
-				module->wires.erase(it.first->name);
-				delete it.first;
-			}
+			std::set<RTLIL::Wire*> delete_wires;
+			for (auto &it : worker.splitmap)
+				delete_wires.insert(it.first);
+			module->remove(delete_wires);
 
 			module->fixup_ports();
 		}
