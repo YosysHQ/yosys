@@ -31,7 +31,8 @@
 #include <string.h>
 #include <algorithm>
 
-namespace {
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 /* this should only be used for regression testing of ConstEval -- see vloghammer */
 struct BruteForceEquivChecker
@@ -357,8 +358,6 @@ struct VlogHammerReporter
 	}
 };
 
-} /* namespace */
-
 struct EvalPass : public Pass {
 	EvalPass() : Pass("eval", "evaluate the circuit given an input") { }
 	virtual void help()
@@ -601,3 +600,4 @@ struct EvalPass : public Pass {
 	}
 } EvalPass;
  
+PRIVATE_NAMESPACE_END

@@ -22,7 +22,6 @@
 #include "kernel/log.h"
 
 YOSYS_NAMESPACE_BEGIN
-using namespace PASS_DFFLIBMAP;
 
 struct token_t {
 	char type;

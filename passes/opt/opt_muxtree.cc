@@ -25,6 +25,9 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 using RTLIL::id2cstr;
 
 struct OptMuxtreeWorker
@@ -438,3 +441,4 @@ struct OptMuxtreePass : public Pass {
 	}
 } OptMuxtreePass;
  
+PRIVATE_NAMESPACE_END

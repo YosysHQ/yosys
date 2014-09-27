@@ -25,7 +25,7 @@
 #include <vector>
 #include <set>
 
-namespace PASS_DFFLIBMAP
+namespace Yosys
 {
 	struct LibertyAst
 	{

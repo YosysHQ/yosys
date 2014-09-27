@@ -25,6 +25,9 @@
 #include "fsmdata.h"
 #include <string.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static bool pattern_is_subset(const RTLIL::Const &super_pattern, const RTLIL::Const &sub_pattern)
 {
 	log_assert(SIZE(super_pattern.bits) == SIZE(sub_pattern.bits));
@@ -345,3 +348,4 @@ struct FsmMapPass : public Pass {
 	}
 } FsmMapPass;
  
+PRIVATE_NAMESPACE_END

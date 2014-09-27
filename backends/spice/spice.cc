@@ -24,6 +24,9 @@
 #include "kernel/log.h"
 #include <string>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
 {
 	if (s.wire) {
@@ -231,3 +234,4 @@ struct SpiceBackend : public Backend {
 	}
 } SpiceBackend;
 
+PRIVATE_NAMESPACE_END

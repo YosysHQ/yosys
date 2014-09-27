@@ -18,9 +18,8 @@
  */
 
 #include "blifparse.h"
-#include "kernel/log.h"
-#include <stdio.h>
-#include <string.h>
+
+YOSYS_NAMESPACE_BEGIN
 
 static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, FILE *f)
 {
@@ -239,4 +238,6 @@ error:
 	// delete design;
 	// return NULL;
 }
+
+YOSYS_NAMESPACE_END
 

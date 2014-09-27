@@ -22,6 +22,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct LogPass : public Pass {
 	LogPass() : Pass("log", "print text and log files") { }
 	virtual void help()
@@ -76,3 +79,4 @@ struct LogPass : public Pass {
 	}
 } LogPass;
 
+PRIVATE_NAMESPACE_END

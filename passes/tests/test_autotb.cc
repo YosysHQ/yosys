@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <time.h>
 
+USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 static std::string id(std::string internal_id)

@@ -24,7 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 
-extern void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 static void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 {
@@ -372,6 +373,11 @@ static void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+PRIVATE_NAMESPACE_END
+YOSYS_NAMESPACE_BEGIN
+
+extern void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
+
 void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
 {
 	mappers["$not"]         = simplemap_not;
@@ -397,6 +403,9 @@ void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTL
 	mappers["$adff"]        = simplemap_adff;
 	mappers["$dlatch"]      = simplemap_dlatch;
 }
+
+YOSYS_NAMESPACE_END
+PRIVATE_NAMESPACE_BEGIN
 
 struct SimplemapPass : public Pass {
 	SimplemapPass() : Pass("simplemap", "mapping simple coarse-grain cells") { }
@@ -440,3 +449,4 @@ struct SimplemapPass : public Pass {
 	}
 } SimplemapPass;
  
+PRIVATE_NAMESPACE_END

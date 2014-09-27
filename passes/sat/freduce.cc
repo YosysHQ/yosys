@@ -28,7 +28,8 @@
 #include <string.h>
 #include <algorithm>
 
-namespace {
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 bool inv_mode;
 int verbose_level, reduce_counter, reduce_stop_at;
@@ -745,8 +746,6 @@ struct FreduceWorker
 	}
 };
 
-} /* namespace */
-
 struct FreducePass : public Pass {
 	FreducePass() : Pass("freduce", "perform functional reduction") { }
 	virtual void help()
@@ -827,3 +826,4 @@ struct FreducePass : public Pass {
 	}
 } FreducePass;
  
+PRIVATE_NAMESPACE_END

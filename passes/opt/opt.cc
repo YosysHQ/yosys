@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct OptPass : public Pass {
 	OptPass() : Pass("opt", "perform simple optimizations") { }
 	virtual void help()
@@ -142,3 +145,4 @@ struct OptPass : public Pass {
 	}
 } OptPass;
  
+PRIVATE_NAMESPACE_END

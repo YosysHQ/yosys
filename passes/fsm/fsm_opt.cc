@@ -25,6 +25,9 @@
 #include "fsmdata.h"
 #include <string.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct FsmOpt
 {
 	FsmData fsm_data;
@@ -309,10 +312,14 @@ struct FsmOpt
 	}
 };
 
-void FsmData::optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module)
+PRIVATE_NAMESPACE_END
+
+void YOSYS_NAMESPACE_PREFIX FsmData::optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module)
 {
 	FsmOpt fsmopt(cell, module);
 }
+
+PRIVATE_NAMESPACE_BEGIN
 
 struct FsmOptPass : public Pass {
 	FsmOptPass() : Pass("fsm_opt", "optimize finite state machines") { }
@@ -341,3 +348,4 @@ struct FsmOptPass : public Pass {
 	}
 } FsmOptPass;
  
+PRIVATE_NAMESPACE_END

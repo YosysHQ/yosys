@@ -21,6 +21,9 @@
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static uint32_t xorshift32_state = 123456789;
 
 static uint32_t xorshift32(uint32_t limit) {
@@ -283,3 +286,4 @@ struct TestAbcloopPass : public Pass {
 	}
 } TestAbcloopPass;
 
+PRIVATE_NAMESPACE_END

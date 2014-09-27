@@ -23,7 +23,10 @@
 #include <algorithm>
 #include <stdlib.h>
 
-static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 {
 	if (a->type == "$memrd" && b->type == "$memrd")
 		return a->name < b->name;
@@ -32,7 +35,7 @@ static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 	return a->parameters.at("\\PRIORITY").as_int() < b->parameters.at("\\PRIORITY").as_int();
 }
 
-static void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
+void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 {
 	log("Collecting $memrd and $memwr for memory `%s' in module `%s':\n",
 			memory->name.c_str(), module->name.c_str());
@@ -205,3 +208,4 @@ struct MemoryCollectPass : public Pass {
 	}
 } MemoryCollectPass;
  
+PRIVATE_NAMESPACE_END

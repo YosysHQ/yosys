@@ -22,6 +22,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct TeePass : public Pass {
 	TeePass() : Pass("tee", "redirect command output to file") { }
 	virtual void help()
@@ -86,3 +89,4 @@ struct TeePass : public Pass {
 	}
 } TeePass;
 
+PRIVATE_NAMESPACE_END

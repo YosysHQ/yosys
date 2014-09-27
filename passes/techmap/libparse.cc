@@ -29,7 +29,7 @@
 #include "kernel/log.h"
 #endif
 
-using namespace PASS_DFFLIBMAP;
+using namespace Yosys;
 
 std::set<std::string> LibertyAst::blacklist;
 std::set<std::string> LibertyAst::whitelist;

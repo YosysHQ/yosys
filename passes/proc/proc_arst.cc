@@ -23,10 +23,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// defined in proc_clean.cc
+YOSYS_NAMESPACE_BEGIN
 extern void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth);
+YOSYS_NAMESPACE_END
 
-static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref, bool &polarity)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref, bool &polarity)
 {
 	if (signal.size() != 1)
 		return false;
@@ -81,7 +85,7 @@ static bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSp
 	return false;
 }
 
-static void apply_const(RTLIL::Module *mod, const RTLIL::SigSpec rspec, RTLIL::SigSpec &rval, RTLIL::CaseRule *cs, RTLIL::SigSpec const_sig, bool polarity, bool unknown)
+void apply_const(RTLIL::Module *mod, const RTLIL::SigSpec rspec, RTLIL::SigSpec &rval, RTLIL::CaseRule *cs, RTLIL::SigSpec const_sig, bool polarity, bool unknown)
 {
 	for (auto &action : cs->actions) {
 		if (unknown)
@@ -114,7 +118,7 @@ static void apply_const(RTLIL::Module *mod, const RTLIL::SigSpec rspec, RTLIL::S
 	}
 }
 
-static void eliminate_const(RTLIL::Module *mod, RTLIL::CaseRule *cs, RTLIL::SigSpec const_sig, bool polarity)
+void eliminate_const(RTLIL::Module *mod, RTLIL::CaseRule *cs, RTLIL::SigSpec const_sig, bool polarity)
 {
 	for (auto sw : cs->switches) {
 		bool this_polarity = polarity;
@@ -149,7 +153,7 @@ static void eliminate_const(RTLIL::Module *mod, RTLIL::CaseRule *cs, RTLIL::SigS
 	}
 }
 
-static void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
+void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 {
 restart_proc_arst:
 	if (proc->root_case.switches.size() != 1)
@@ -280,3 +284,4 @@ struct ProcArstPass : public Pass {
 	}
 } ProcArstPass;
  
+PRIVATE_NAMESPACE_END

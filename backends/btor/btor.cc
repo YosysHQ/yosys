@@ -30,6 +30,9 @@
 #include <string>
 #include <math.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct BtorDumperConfig
 {
 	bool subckt_mode;
@@ -1057,3 +1060,4 @@ struct BtorBackend : public Backend {
 	}
 } BtorBackend;
 
+PRIVATE_NAMESPACE_END

@@ -25,6 +25,9 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct OptReduceWorker
 {
 	RTLIL::Design *design;
@@ -378,3 +381,4 @@ struct OptReducePass : public Pass {
 	}
 } OptReducePass;
  
+PRIVATE_NAMESPACE_END

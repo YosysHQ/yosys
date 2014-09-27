@@ -28,6 +28,9 @@
 #include "kernel/log.h"
 #include <string>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct BlifDumperConfig
 {
 	bool icells_mode;
@@ -397,3 +400,4 @@ struct BlifBackend : public Backend {
 	}
 } BlifBackend;
 
+PRIVATE_NAMESPACE_END

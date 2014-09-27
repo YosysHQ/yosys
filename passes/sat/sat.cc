@@ -33,7 +33,8 @@
 #include <errno.h>
 #include <string.h>
 
-namespace {
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 struct SatHelper
 {
@@ -766,9 +767,7 @@ struct SatHelper
 	}
 };
 
-} /* namespace */
-
-static void print_proof_failed()
+void print_proof_failed()
 {
 	log("\n");
 	log("   ______                   ___       ___       _ _            _ _ \n");
@@ -780,7 +779,7 @@ static void print_proof_failed()
 	log("\n");
 }
 
-static void print_timeout()
+void print_timeout()
 {
 	log("\n");
 	log("        _____  _  _      _____ ____  _     _____\n");
@@ -791,7 +790,7 @@ static void print_timeout()
 	log("\n");
 }
 
-static void print_qed()
+void print_qed()
 {
 	log("\n");
 	log("                  /$$$$$$      /$$$$$$$$     /$$$$$$$    \n");
@@ -1484,3 +1483,4 @@ struct SatPass : public Pass {
 	}
 } SatPass;
  
+PRIVATE_NAMESPACE_END

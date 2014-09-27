@@ -26,7 +26,9 @@
 #include "kernel/yosys.h"
 #include <errno.h>
 
+USING_YOSYS_NAMESPACE
 using namespace ILANG_BACKEND;
+YOSYS_NAMESPACE_BEGIN
 
 void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
 {
@@ -391,6 +393,9 @@ void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 	log_assert(init_autoidx == autoidx);
 }
 
+YOSYS_NAMESPACE_END
+PRIVATE_NAMESPACE_BEGIN
+
 struct IlangBackend : public Backend {
 	IlangBackend() : Backend("ilang", "write design to ilang file") { }
 	virtual void help()
@@ -510,3 +515,4 @@ struct DumpPass : public Pass {
 	}
 } DumpPass;
  
+PRIVATE_NAMESPACE_END

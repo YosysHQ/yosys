@@ -26,6 +26,9 @@
 #include "kernel/macc.h"
 
 #include "libs/ezsat/ezminisat.h"
+
+YOSYS_NAMESPACE_BEGIN
+
 typedef ezMiniSAT ezDefaultSAT;
 
 struct SatGen
@@ -1157,5 +1160,7 @@ struct SatGen
 		return false;
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

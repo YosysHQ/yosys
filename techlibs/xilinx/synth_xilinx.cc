@@ -22,7 +22,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
 {
 	if (label == run_from)
 		active = true;
@@ -208,3 +211,4 @@ struct SynthXilinxPass : public Pass {
 	}
 } SynthXilinxPass;
  
+PRIVATE_NAMESPACE_END

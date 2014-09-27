@@ -22,8 +22,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-extern void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count, int max_depth);
+YOSYS_NAMESPACE_BEGIN
 extern void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth);
+YOSYS_NAMESPACE_END
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count, int max_depth)
 {
@@ -89,6 +93,9 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 	}
 }
 
+PRIVATE_NAMESPACE_END
+YOSYS_NAMESPACE_BEGIN
+
 void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth)
 {
 	for (size_t i = 0; i < cs->actions.size(); i++) {
@@ -109,7 +116,10 @@ void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int m
 	}
 }
 
-static void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count)
+YOSYS_NAMESPACE_END
+PRIVATE_NAMESPACE_BEGIN
+
+void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count)
 {
 	int count = 0;
 	bool did_something = true;
@@ -174,3 +184,4 @@ struct ProcCleanPass : public Pass {
 	}
 } ProcCleanPass;
  
+PRIVATE_NAMESPACE_END

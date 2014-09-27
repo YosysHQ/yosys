@@ -25,6 +25,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct CoverPass : public Pass {
 	CoverPass() : Pass("cover", "print code coverage counters") { }
 	virtual void help()
@@ -142,3 +145,4 @@ struct CoverPass : public Pass {
 	}
 } CoverPass;
 
+PRIVATE_NAMESPACE_END

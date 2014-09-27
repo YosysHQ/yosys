@@ -21,6 +21,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static std::string hicell_celltype, hicell_portname;
 static std::string locell_celltype, locell_portname;
 static bool singleton_mode;
@@ -119,3 +122,4 @@ struct HilomapPass : public Pass {
 	}
 } HilomapPass;
  
+PRIVATE_NAMESPACE_END

@@ -22,6 +22,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct SplitnetsWorker
 {
 	std::map<RTLIL::Wire*, std::vector<RTLIL::SigBit>> splitmap;
@@ -183,3 +186,4 @@ struct SplitnetsPass : public Pass {
 	}
 } SplitnetsPass;
  
+PRIVATE_NAMESPACE_END

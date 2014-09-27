@@ -25,6 +25,9 @@
 #include "fsmdata.h"
 #include <string.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct FsmExpand
 {
 	RTLIL::Module *module;
@@ -273,3 +276,4 @@ struct FsmExpandPass : public Pass {
 	}
 } FsmExpandPass;
  
+PRIVATE_NAMESPACE_END

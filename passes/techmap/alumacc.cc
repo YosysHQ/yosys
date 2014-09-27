@@ -21,6 +21,9 @@
 #include "kernel/sigtools.h"
 #include "kernel/macc.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct AlumaccWorker
 {
 	RTLIL::Module *module;
@@ -561,3 +564,4 @@ struct AlumaccPass : public Pass {
 	}
 } AlumaccPass;
  
+PRIVATE_NAMESPACE_END

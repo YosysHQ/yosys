@@ -25,6 +25,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+YOSYS_NAMESPACE_BEGIN
+
 // ------------------------------------------------
 // A map-like container, but you can save and restore the state
 // ------------------------------------------------
@@ -206,5 +208,7 @@ struct TopoSort
 		return !found_loops;
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

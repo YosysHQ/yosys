@@ -27,6 +27,9 @@
 #  include <readline/readline.h>
 #endif
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 using RTLIL::id2cstr;
 
 #undef CLUSTER_CELLS_AND_PORTBOXES
@@ -795,3 +798,4 @@ struct ShowPass : public Pass {
 	}
 } ShowPass;
  
+PRIVATE_NAMESPACE_END

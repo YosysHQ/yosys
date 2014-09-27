@@ -27,6 +27,9 @@
 #include <string.h>
 #include <errno.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &fsm_data, const char *prefix, FILE *f)
 {
 	std::string name = cell->parameters["\\NAME"].decode_string();
@@ -168,3 +171,4 @@ struct FsmRecodePass : public Pass {
 	}
 } FsmRecodePass;
  
+PRIVATE_NAMESPACE_END

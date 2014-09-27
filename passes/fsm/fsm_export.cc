@@ -28,6 +28,9 @@
 #include <iostream>
 #include <fstream>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 /**
  * Convert a signal into a KISS-compatible textual representation.
  */
@@ -182,3 +185,5 @@ struct FsmExportPass : public Pass {
 					}
 	}
 } FsmExportPass;
+
+PRIVATE_NAMESPACE_END

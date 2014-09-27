@@ -23,6 +23,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct SetundefWorker
 {
 	int next_bit_mode;
@@ -153,3 +156,4 @@ struct SetundefPass : public Pass {
 	}
 } SetundefPass;
  
+PRIVATE_NAMESPACE_END

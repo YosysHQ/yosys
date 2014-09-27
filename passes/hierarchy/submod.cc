@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct SubmodWorker
 {
 	CellTypes ct;
@@ -347,3 +350,4 @@ struct SubmodPass : public Pass {
 	}
 } SubmodPass;
  
+PRIVATE_NAMESPACE_END

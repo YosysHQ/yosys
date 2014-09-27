@@ -17,9 +17,10 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 struct DeletePass : public Pass {
 	DeletePass() : Pass("delete", "delete objects in the design") { }
@@ -140,3 +141,4 @@ struct DeletePass : public Pass {
 	}
 } DeletePass;
  
+PRIVATE_NAMESPACE_END

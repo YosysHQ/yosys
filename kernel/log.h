@@ -26,6 +26,9 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+// from libs/sha1/sha1.h
+class SHA1;
+
 YOSYS_NAMESPACE_BEGIN
 
 #define S__LINE__sub2(x) #x
@@ -37,7 +40,7 @@ struct log_cmd_error_expection { };
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern FILE *log_errfile;
-extern class SHA1 *log_hasher;
+extern SHA1 *log_hasher;
 
 extern bool log_time;
 extern bool log_cmd_error_throw;
@@ -68,9 +71,9 @@ template<typename T> static inline const char *log_id(T *obj) {
 
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
 
-#define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
-#define log_assert(_assert_expr_) do { if (_assert_expr_) break; log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
-#define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+#define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
+#define log_assert(_assert_expr_) do { if (_assert_expr_) break; YOSYS_NAMESPACE_PREFIX log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
+#define log_ping() YOSYS_NAMESPACE_PREFIX log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 
 // ---------------------------------------------------

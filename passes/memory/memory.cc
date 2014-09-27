@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct MemoryPass : public Pass {
 	MemoryPass() : Pass("memory", "translate memories to basic cells") { }
 	virtual void help()
@@ -73,3 +76,4 @@ struct MemoryPass : public Pass {
 	}
 } MemoryPass;
  
+PRIVATE_NAMESPACE_END

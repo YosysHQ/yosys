@@ -21,6 +21,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct CopyPass : public Pass {
 	CopyPass() : Pass("copy", "copy modules in the design") { }
 	virtual void help()
@@ -53,3 +56,4 @@ struct CopyPass : public Pass {
 	}
 } CopyPass;
  
+PRIVATE_NAMESPACE_END

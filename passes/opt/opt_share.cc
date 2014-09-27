@@ -28,6 +28,9 @@
 
 #define USE_CELL_HASH_CACHE
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct OptShareWorker
 {
 	RTLIL::Design *design;
@@ -319,3 +322,4 @@ struct OptSharePass : public Pass {
 	}
 } OptSharePass;
  
+PRIVATE_NAMESPACE_END

@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct FsmPass : public Pass {
 	FsmPass() : Pass("fsm", "extract and optimize finite state machines") { }
 	virtual void help()
@@ -137,3 +140,4 @@ struct FsmPass : public Pass {
 	}
 } FsmPass;
  
+PRIVATE_NAMESPACE_END

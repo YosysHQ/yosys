@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct ProcPass : public Pass {
 	ProcPass() : Pass("proc", "translate processes to netlists") { }
 	virtual void help()
@@ -81,3 +84,4 @@ struct ProcPass : public Pass {
 	}
 } ProcPass;
  
+PRIVATE_NAMESPACE_END

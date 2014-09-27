@@ -23,10 +23,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static SigMap assign_map, dff_init_map;
-static SigSet<RTLIL::Cell*> mux_drivers;
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
-static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
+SigMap assign_map, dff_init_map;
+SigSet<RTLIL::Cell*> mux_drivers;
+
+bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 {
 	RTLIL::SigSpec sig_d, sig_q, sig_c, sig_r;
 	RTLIL::Const val_cp, val_rp, val_rv;
@@ -215,3 +218,4 @@ struct OptRmdffPass : public Pass {
 	}
 } OptRmdffPass;
  
+PRIVATE_NAMESPACE_END

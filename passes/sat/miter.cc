@@ -21,7 +21,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL::Design *design)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL::Design *design)
 {
 	bool flag_ignore_gold_x = false;
 	bool flag_make_outputs = false;
@@ -299,3 +302,4 @@ struct MiterPass : public Pass {
 	}
 } MiterPass;
  
+PRIVATE_NAMESPACE_END

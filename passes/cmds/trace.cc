@@ -20,6 +20,7 @@
 
 #include "kernel/yosys.h"
 
+USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct TraceMonitor : public RTLIL::Monitor

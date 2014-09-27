@@ -24,6 +24,8 @@
 #include <dlfcn.h>
 #include <ffi.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 typedef void (*ffi_fptr) ();
 
 static ffi_fptr resolve_fn (std::string symbol_name)
@@ -129,12 +131,18 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 	return newNode;
 }
 
+YOSYS_NAMESPACE_END
+
 #else /* YOSYS_ENABLE_PLUGINS */
+
+YOSYS_NAMESPACE_BEGIN
 
 AST::AstNode *AST::dpi_call(const std::string&, const std::string &fname, const std::vector<std::string>&, const std::vector<AstNode*>&)
 {
 	log_error("Can't call DPI function `%s': this version of yosys is built without plugin support\n", fname.c_str());
 }
+
+YOSYS_NAMESPACE_END
 
 #endif /* YOSYS_ENABLE_PLUGINS */
 

@@ -23,7 +23,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static void proc_get_const(RTLIL::SigSpec &sig, RTLIL::CaseRule &rule)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void proc_get_const(RTLIL::SigSpec &sig, RTLIL::CaseRule &rule)
 {
 	log_assert(rule.compare.size() == 0);
 
@@ -37,7 +40,7 @@ static void proc_get_const(RTLIL::SigSpec &sig, RTLIL::CaseRule &rule)
 	}
 }
 
-static void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
+void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 {
 	bool found_init = false;
 
@@ -109,3 +112,4 @@ struct ProcInitPass : public Pass {
 	}
 } ProcInitPass;
  
+PRIVATE_NAMESPACE_END

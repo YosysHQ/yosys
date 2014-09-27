@@ -26,9 +26,12 @@
 #include <stdio.h>
 #include <algorithm>
 
-static bool did_something;
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
-static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
+bool did_something;
+
+void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 {
 	CellTypes ct(design);
 	SigMap sigmap(module);
@@ -70,7 +73,7 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	}
 }
 
-static void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
+void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->getPort(out_port);
 	out_val.extend_u0(Y.size(), false);
@@ -85,7 +88,7 @@ static void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell 
 	did_something = true;
 }
 
-static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap)
+bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap)
 {
 	std::string b_name = cell->hasPort("\\B") ? "\\B" : "\\A";
 
@@ -183,7 +186,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	return true;
 }
 
-static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc)
 {
 	if (!design->selected(module))
 		return;
@@ -1006,3 +1009,4 @@ struct OptConstPass : public Pass {
 	}
 } OptConstPass;
 
+PRIVATE_NAMESPACE_END

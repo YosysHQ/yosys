@@ -300,22 +300,6 @@ struct VerilogFrontend : public Frontend {
 	}
 } VerilogFrontend;
 
-// the yyerror function used by bison to report parser errors
-void frontend_verilog_yyerror(char const *fmt, ...)
-{
-	va_list ap;
-	char buffer[1024];
-	char *p = buffer;
-	p += snprintf(p, buffer + sizeof(buffer) - p, "Parser error in line %s:%d: ",
-			AST::current_filename.c_str(), frontend_verilog_yyget_lineno());
-	va_start(ap, fmt);
-	p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
-	va_end(ap);
-	p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-	log_error("%s", buffer);
-	exit(1);
-}
-
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
 	virtual void help()
@@ -375,4 +359,20 @@ struct VerilogDefaults : public Pass {
 } VerilogDefaults;
 
 YOSYS_NAMESPACE_END
+
+// the yyerror function used by bison to report parser errors
+void frontend_verilog_yyerror(char const *fmt, ...)
+{
+	va_list ap;
+	char buffer[1024];
+	char *p = buffer;
+	p += snprintf(p, buffer + sizeof(buffer) - p, "Parser error in line %s:%d: ",
+			YOSYS_NAMESPACE_PREFIX AST::current_filename.c_str(), frontend_verilog_yyget_lineno());
+	va_start(ap, fmt);
+	p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
+	va_end(ap);
+	p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
+	YOSYS_NAMESPACE_PREFIX log_error("%s", buffer);
+	exit(1);
+}
 

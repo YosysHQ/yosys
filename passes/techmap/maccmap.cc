@@ -20,7 +20,8 @@
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
 
-extern void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap = false);
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 struct MaccmapWorker
 {
@@ -256,6 +257,11 @@ struct MaccmapWorker
 	}
 };
 
+PRIVATE_NAMESPACE_END
+YOSYS_NAMESPACE_BEGIN
+
+extern void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap = false);
+
 void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 {
 	int width = SIZE(cell->getPort("\\Y"));
@@ -354,6 +360,9 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 	}
 }
 
+YOSYS_NAMESPACE_END
+PRIVATE_NAMESPACE_BEGIN
+
 struct MaccmapPass : public Pass {
 	MaccmapPass() : Pass("maccmap", "mapping macc cells") { }
 	virtual void help()
@@ -392,3 +401,4 @@ struct MaccmapPass : public Pass {
 	}
 } MaccmapPass;
  
+PRIVATE_NAMESPACE_END

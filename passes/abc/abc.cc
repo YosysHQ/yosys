@@ -53,6 +53,9 @@
 
 #include "blifparse.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 enum class gate_type_t {
 	G_NONE,
 	G_FF,
@@ -1207,3 +1210,4 @@ struct AbcPass : public Pass {
 	}
 } AbcPass;
  
+ PRIVATE_NAMESPACE_END

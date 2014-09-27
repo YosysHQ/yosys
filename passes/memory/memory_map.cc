@@ -23,6 +23,9 @@
 #include <set>
 #include <stdlib.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct MemoryMapWorker
 {
 	RTLIL::Design *design;
@@ -339,3 +342,4 @@ struct MemoryMapPass : public Pass {
 	}
 } MemoryMapPass;
  
+PRIVATE_NAMESPACE_END

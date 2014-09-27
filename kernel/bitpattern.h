@@ -23,6 +23,8 @@
 #include "kernel/log.h"
 #include "kernel/rtlil.h"
 
+YOSYS_NAMESPACE_BEGIN
+
 struct BitPatternPool
 {
 	int width;
@@ -132,5 +134,7 @@ struct BitPatternPool
 		return pool.empty();
 	}
 }; 
+
+YOSYS_NAMESPACE_END
 
 #endif

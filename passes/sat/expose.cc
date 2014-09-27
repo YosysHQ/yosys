@@ -23,6 +23,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct dff_map_info_t {
 	RTLIL::SigSpec sig_d, sig_clk, sig_arst;
 	bool clk_polarity, arst_polarity;
@@ -37,7 +40,7 @@ struct dff_map_bit_info_t {
 	RTLIL::Cell *cell;
 };
 
-static bool consider_wire(RTLIL::Wire *wire, std::map<RTLIL::IdString, dff_map_info_t> &dff_dq_map)
+bool consider_wire(RTLIL::Wire *wire, std::map<RTLIL::IdString, dff_map_info_t> &dff_dq_map)
 {
 	if (wire->name[0] == '$' || dff_dq_map.count(wire->name))
 		return false;
@@ -46,7 +49,7 @@ static bool consider_wire(RTLIL::Wire *wire, std::map<RTLIL::IdString, dff_map_i
 	return true;
 }
 
-static bool consider_cell(RTLIL::Design *design, std::set<RTLIL::IdString> &dff_cells, RTLIL::Cell *cell)
+bool consider_cell(RTLIL::Design *design, std::set<RTLIL::IdString> &dff_cells, RTLIL::Cell *cell)
 {
 	if (cell->name[0] == '$' || dff_cells.count(cell->name))
 		return false;
@@ -55,7 +58,7 @@ static bool consider_cell(RTLIL::Design *design, std::set<RTLIL::IdString> &dff_
 	return true;
 }
 
-static bool compare_wires(RTLIL::Wire *wire1, RTLIL::Wire *wire2)
+bool compare_wires(RTLIL::Wire *wire1, RTLIL::Wire *wire2)
 {
 	log_assert(wire1->name == wire2->name);
 	if (wire1->width != wire2->width)
@@ -63,7 +66,7 @@ static bool compare_wires(RTLIL::Wire *wire1, RTLIL::Wire *wire2)
 	return true;
 }
 
-static bool compare_cells(RTLIL::Cell *cell1, RTLIL::Cell *cell2)
+bool compare_cells(RTLIL::Cell *cell1, RTLIL::Cell *cell2)
 {
 	log_assert(cell1->name == cell2->name);
 	if (cell1->type != cell2->type)
@@ -73,7 +76,7 @@ static bool compare_cells(RTLIL::Cell *cell1, RTLIL::Cell *cell2)
 	return true;
 }
 
-static void find_dff_wires(std::set<RTLIL::IdString> &dff_wires, RTLIL::Module *module)
+void find_dff_wires(std::set<RTLIL::IdString> &dff_wires, RTLIL::Module *module)
 {
 	CellTypes ct;
 	ct.setup_internals_mem();
@@ -93,7 +96,7 @@ static void find_dff_wires(std::set<RTLIL::IdString> &dff_wires, RTLIL::Module *
 	}
 }
 
-static void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Design *design, RTLIL::Module *module)
+void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Design *design, RTLIL::Module *module)
 {
 	std::map<RTLIL::SigBit, dff_map_bit_info_t> bit_info;
 	SigMap sigmap(module);
@@ -208,7 +211,7 @@ static void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RT
 	}
 }
 
-static RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width = 1)
+RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width = 1)
 {
 	if (module->count_id(name))
 		log_error("Attempting to create wire %s, but a wire of this name exists already! Hint: Try another value for -sep.\n", log_id(name));
@@ -644,3 +647,4 @@ struct ExposePass : public Pass {
 	}
 } ExposePass;
  
+PRIVATE_NAMESPACE_END

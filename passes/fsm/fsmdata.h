@@ -20,8 +20,9 @@
 #ifndef FSMDATA_H
 #define FSMDATA_H
 
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+
+YOSYS_NAMESPACE_BEGIN
 
 struct FsmData
 {
@@ -171,5 +172,7 @@ struct FsmData
 	// implemented in fsm_opt.cc
 	static void optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module);
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

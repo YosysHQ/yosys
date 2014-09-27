@@ -21,7 +21,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static void split_portname_pair(std::string &port1, std::string &port2)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void split_portname_pair(std::string &port1, std::string &port2)
 {
 	size_t pos = port1.find_first_of(':');
 	if (pos != std::string::npos) {
@@ -207,3 +210,4 @@ struct IopadmapPass : public Pass {
 	}
 } IopadmapPass;
  
+PRIVATE_NAMESPACE_END

@@ -25,6 +25,8 @@
 #include "kernel/celltypes.h"
 #include "kernel/macc.h"
 
+YOSYS_NAMESPACE_BEGIN
+
 struct ConstEval
 {
 	RTLIL::Module *module;
@@ -375,5 +377,7 @@ struct ConstEval
 		return eval(sig, undef);
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

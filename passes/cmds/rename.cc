@@ -21,6 +21,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static void rename_in_module(RTLIL::Module *module, std::string from_name, std::string to_name)
 {
 	from_name = RTLIL::escape_id(from_name);
@@ -196,3 +199,4 @@ struct RenamePass : public Pass {
 	}
 } RenamePass;
  
+PRIVATE_NAMESPACE_END

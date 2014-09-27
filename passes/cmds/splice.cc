@@ -24,6 +24,9 @@
 #include "kernel/log.h"
 #include <tuple>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct SpliceWorker
 {
 	RTLIL::Design *design;
@@ -349,3 +352,4 @@ struct SplicePass : public Pass {
 	}
 } SplicePass;
  
+PRIVATE_NAMESPACE_END

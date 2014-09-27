@@ -21,6 +21,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct setunset_t
 {
 	RTLIL::IdString name;
@@ -178,3 +181,4 @@ struct SetparamPass : public Pass {
 	}
 } SetparamPass;
  
+PRIVATE_NAMESPACE_END

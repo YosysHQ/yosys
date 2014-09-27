@@ -24,6 +24,9 @@
 #include "kernel/macc.h"
 #include <algorithm>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static uint32_t xorshift32_state = 123456789;
 
 static uint32_t xorshift32(uint32_t limit) {
@@ -743,3 +746,4 @@ struct TestCellPass : public Pass {
 	}
 } TestCellPass;
 
+PRIVATE_NAMESPACE_END

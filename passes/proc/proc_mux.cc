@@ -24,7 +24,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static RTLIL::SigSpec find_any_lvalue(const RTLIL::CaseRule *cs)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+RTLIL::SigSpec find_any_lvalue(const RTLIL::CaseRule *cs)
 {
 	for (auto &action : cs->actions) {
 		if (action.first.size())
@@ -41,7 +44,7 @@ static RTLIL::SigSpec find_any_lvalue(const RTLIL::CaseRule *cs)
 	return RTLIL::SigSpec();
 }
 
-static void extract_core_signal(const RTLIL::CaseRule *cs, RTLIL::SigSpec &sig)
+void extract_core_signal(const RTLIL::CaseRule *cs, RTLIL::SigSpec &sig)
 {
 	for (auto &action : cs->actions) {
 		RTLIL::SigSpec lvalue = action.first.extract(sig);
@@ -54,7 +57,7 @@ static void extract_core_signal(const RTLIL::CaseRule *cs, RTLIL::SigSpec &sig)
 		extract_core_signal(cs2, sig);
 }
 
-static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw)
+RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw)
 {
 	std::stringstream sstr;
 	sstr << "$procmux$" << (autoidx++);
@@ -122,7 +125,7 @@ static RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	return RTLIL::SigSpec(ctrl_wire);
 }
 
-static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw)
+RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw)
 {
 	log_assert(when_signal.size() == else_signal.size());
 
@@ -156,7 +159,7 @@ static RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, 
 	return RTLIL::SigSpec(result_wire);
 }
 
-static void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw)
+void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw)
 {
 	log_assert(last_mux_cell != NULL);
 	log_assert(when_signal.size() == last_mux_cell->getPort("\\A").size());
@@ -176,7 +179,7 @@ static void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const 
 	last_mux_cell->parameters["\\S_WIDTH"] = last_mux_cell->getPort("\\S").size();
 }
 
-static RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval)
+RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval)
 {
 	RTLIL::SigSpec result = defval;
 
@@ -233,7 +236,7 @@ static RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, RTLIL::CaseRule *cs
 	return result;
 }
 
-static void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc)
+void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc)
 {
 	bool first = true;
 	while (1)
@@ -283,3 +286,4 @@ struct ProcMuxPass : public Pass {
 	}
 } ProcMuxPass;
  
+PRIVATE_NAMESPACE_END

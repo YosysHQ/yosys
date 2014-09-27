@@ -24,6 +24,9 @@
 #include "kernel/celltypes.h"
 #include "fsmdata.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static RTLIL::Module *module;
 static SigMap assign_map;
 typedef std::pair<RTLIL::Cell*, RTLIL::IdString> sig2driver_entry_t;
@@ -189,3 +192,4 @@ struct FsmDetectPass : public Pass {
 	}
 } FsmDetectPass;
  
+PRIVATE_NAMESPACE_END

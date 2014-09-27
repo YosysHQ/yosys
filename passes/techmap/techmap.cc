@@ -28,13 +28,20 @@
 
 #include "passes/techmap/techmap.inc"
 
+YOSYS_NAMESPACE_BEGIN
+
 // see simplemap.cc
 extern void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
 
 // see maccmap.cc
 extern void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap = false);
 
-static void apply_prefix(std::string prefix, std::string &id)
+YOSYS_NAMESPACE_END
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void apply_prefix(std::string prefix, std::string &id)
 {
 	if (id[0] == '\\')
 		id = prefix + "." + id.substr(1);
@@ -42,7 +49,7 @@ static void apply_prefix(std::string prefix, std::string &id)
 		id = "$techmap" + prefix + "." + id;
 }
 
-static void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
+void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 {
 	std::vector<RTLIL::SigChunk> chunks = sig;
 	for (auto &chunk : chunks)
@@ -1080,3 +1087,4 @@ struct FlattenPass : public Pass {
 	}
 } FlattenPass;
 
+PRIVATE_NAMESPACE_END

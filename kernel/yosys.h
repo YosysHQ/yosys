@@ -60,18 +60,10 @@
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
-
-#if 0
-#  define YOSYS_NAMESPACE_BEGIN  namespace Yosys {
-#  define YOSYS_NAMESPACE_END    }
-#  define YOSYS_NAMESPACE_PREFIX Yosys::
-#  define USING_YOSYS_NAMESPACE  using namespace Yosys;
-#else
-#  define YOSYS_NAMESPACE_BEGIN
-#  define YOSYS_NAMESPACE_END
-#  define YOSYS_NAMESPACE_PREFIX
-#  define USING_YOSYS_NAMESPACE
-#endif
+#define YOSYS_NAMESPACE_BEGIN    namespace Yosys {
+#define YOSYS_NAMESPACE_END      }
+#define YOSYS_NAMESPACE_PREFIX   Yosys::
+#define USING_YOSYS_NAMESPACE    using namespace Yosys;
 
 #if __cplusplus >= 201103L
 #  define OVERRIDE override

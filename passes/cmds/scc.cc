@@ -29,6 +29,9 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct SccWorker
 {
 	RTLIL::Design *design;
@@ -297,3 +300,4 @@ struct SccPass : public Pass {
 	}
 } SccPass;
  
+PRIVATE_NAMESPACE_END

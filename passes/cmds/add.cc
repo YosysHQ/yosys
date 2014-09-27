@@ -17,9 +17,10 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output, bool flag_global)
 {
@@ -150,3 +151,4 @@ struct AddPass : public Pass {
 	}
 } AddPass;
  
+PRIVATE_NAMESPACE_END

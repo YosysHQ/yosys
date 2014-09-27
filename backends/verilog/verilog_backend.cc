@@ -26,7 +26,6 @@
  *
  */
 
-#include "verilog_backend.h"
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
@@ -35,7 +34,8 @@
 #include <set>
 #include <map>
 
-namespace {
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 bool norename, noattr, attr2comment, noexpr;
 int auto_name_counter, auto_name_offset, auto_name_digits;
@@ -1016,8 +1016,6 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	active_module = NULL;
 }
 
-} /* namespace */
-
 struct VerilogBackend : public Backend {
 	VerilogBackend() : Backend("verilog", "write design to verilog file") { }
 	virtual void help()
@@ -1139,3 +1137,4 @@ struct VerilogBackend : public Backend {
 	}
 } VerilogBackend;
 
+PRIVATE_NAMESPACE_END

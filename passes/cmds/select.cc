@@ -25,6 +25,9 @@
 #include <fnmatch.h>
 #include <errno.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 using RTLIL::id2cstr;
 
 static std::vector<RTLIL::Selection> work_stack;
@@ -795,6 +798,9 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	select_filter_active_mod(design, work_stack.back());
 }
 
+PRIVATE_NAMESPACE_END
+YOSYS_NAMESPACE_BEGIN
+
 // used in kernel/register.cc and maybe other locations, extern decl. in register.h
 void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design)
 {
@@ -817,6 +823,9 @@ void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t 
 	else
 		design->selection_stack.push_back(RTLIL::Selection(false));
 }
+
+YOSYS_NAMESPACE_END
+PRIVATE_NAMESPACE_BEGIN
 
 struct SelectPass : public Pass {
 	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
@@ -1384,3 +1393,4 @@ struct LsPass : public Pass {
 	}
 } LsPass;
  
+PRIVATE_NAMESPACE_END

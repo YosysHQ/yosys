@@ -25,7 +25,10 @@
 #include <stdio.h>
 #include <set>
 
-static void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)
 {
 	BitPatternPool pool(sw->signal);
 
@@ -98,3 +101,4 @@ struct ProcRmdeadPass : public Pass {
 	}
 } ProcRmdeadPass;
  
+PRIVATE_NAMESPACE_END

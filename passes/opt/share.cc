@@ -23,6 +23,7 @@
 #include "kernel/modtools.h"
 #include "kernel/utils.h"
 
+USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ShareWorkerConfig
@@ -1168,4 +1169,3 @@ struct SharePass : public Pass {
 } SharePass;
 
 PRIVATE_NAMESPACE_END
-

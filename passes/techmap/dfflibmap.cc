@@ -23,7 +23,8 @@
 #include <string.h>
 #include <errno.h>
 
-using namespace PASS_DFFLIBMAP;
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 struct cell_mapping {
 	std::string cell_name;
@@ -538,3 +539,4 @@ struct DfflibmapPass : public Pass {
 	}
 } DfflibmapPass;
  
+PRIVATE_NAMESPACE_END

@@ -25,15 +25,16 @@
 #include <set>
 #include <unistd.h>
 
-namespace {
-	struct generate_port_decl_t {
-		bool input, output;
-		RTLIL::IdString portname;
-		int index;
-	};
-}
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
-static void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
+struct generate_port_decl_t {
+	bool input, output;
+	RTLIL::IdString portname;
+	int index;
+};
+
+void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
 {
 	std::set<RTLIL::IdString> found_celltypes;
 
@@ -135,7 +136,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 	}
 }
 
-static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
 	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
@@ -245,7 +246,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 	return did_something;
 }
 
-static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTLIL::Module *mod, int indent)
+void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTLIL::Module *mod, int indent)
 {
 	if (used.count(mod) > 0)
 		return;
@@ -262,7 +263,7 @@ static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &us
 	}
 }
 
-static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool first_pass)
+void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool first_pass)
 {
 	std::set<RTLIL::Module*> used;
 	hierarchy_worker(design, used, top, 0);
@@ -528,3 +529,4 @@ struct HierarchyPass : public Pass {
 	}
 } HierarchyPass;
  
+PRIVATE_NAMESPACE_END

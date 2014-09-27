@@ -25,7 +25,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 {
 	RTLIL::SigSpec lvalue;
 
@@ -50,7 +53,7 @@ static RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	return lvalue;
 }
 
-static void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
+void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
 		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
 {
 	RTLIL::SigSpec sig_sr_set = RTLIL::SigSpec(0, sig_d.size());
@@ -140,7 +143,7 @@ static void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::S
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
 }
 
-static void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
+void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
 		bool clk_polarity, bool set_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec set, RTLIL::Process *proc)
 {
 	std::stringstream sstr;
@@ -187,7 +190,7 @@ static void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec 
 			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
 }
 
-static void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RTLIL::SigSpec sig_out,
+void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RTLIL::SigSpec sig_out,
 		bool clk_polarity, bool arst_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec *arst, RTLIL::Process *proc)
 {
 	std::stringstream sstr;
@@ -215,7 +218,7 @@ static void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_
 	log(".\n");
 }
 
-static void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
+void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 {
 	while (1)
 	{
@@ -380,3 +383,4 @@ struct ProcDffPass : public Pass {
 	}
 } ProcDffPass;
  
+PRIVATE_NAMESPACE_END

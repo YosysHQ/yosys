@@ -25,12 +25,15 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 using RTLIL::id2cstr;
 
-static CellTypes ct, ct_reg, ct_all;
-static int count_rm_cells, count_rm_wires;
+CellTypes ct, ct_reg, ct_all;
+int count_rm_cells, count_rm_wires;
 
-static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
+void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 {
 	SigMap assign_map(module);
 	std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> queue, unused;
@@ -93,7 +96,7 @@ static void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 	}
 }
 
-static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
+int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 {
 	int count = w->attributes.size();
 	count -= w->attributes.count("\\src");
@@ -101,7 +104,7 @@ static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	return count;
 }
 
-static bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
+bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
 {
 	RTLIL::Wire *w1 = s1.wire;
 	RTLIL::Wire *w2 = s2.wire;
@@ -136,7 +139,7 @@ static bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs,
 	return w2->name < w1->name;
 }
 
-static bool check_public_name(RTLIL::IdString id)
+bool check_public_name(RTLIL::IdString id)
 {
 	const std::string &id_str = id.str();
 	if (id_str[0] == '$')
@@ -148,7 +151,7 @@ static bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
+void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
 	SigPool register_signals;
 	SigPool connected_signals;
@@ -285,7 +288,7 @@ static void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool
 		log("  removed %d unused temporary wires.\n", del_wires_count);
 }
 
-static void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose)
+void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
 	if (verbose)
 		log("Finding unused cells or wires in module %s..\n", module->name.c_str());
@@ -419,3 +422,4 @@ struct CleanPass : public Pass {
 	}
 } CleanPass;
  
+PRIVATE_NAMESPACE_END

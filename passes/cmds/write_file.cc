@@ -20,6 +20,9 @@
 
 #include "kernel/yosys.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct WriteFileFrontend : public Frontend {
 	WriteFileFrontend() : Frontend("=write_file", "write a text to a file") { }
 	virtual void help()
@@ -74,3 +77,4 @@ struct WriteFileFrontend : public Frontend {
 	}
 } WriteFileFrontend;
 
+PRIVATE_NAMESPACE_END

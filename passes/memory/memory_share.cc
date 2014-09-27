@@ -22,9 +22,10 @@
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 
+USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
+bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 {
 	if (a->type == "$memrd" && b->type == "$memrd")
 		return a->name < b->name;
@@ -741,4 +742,3 @@ struct MemorySharePass : public Pass {
 } MemorySharePass;
 
 PRIVATE_NAMESPACE_END
-
