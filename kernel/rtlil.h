@@ -857,6 +857,11 @@ public:
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
+	bool has_keep_attr() const {
+		return get_bool_attribute("\\keep") || (module && module->design && module->design->module(type) &&
+				module->design->module(type)->get_bool_attribute("\\keep"));
+	}
+
 	template<typename T> void rewrite_sigspecs(T functor);
 };
 

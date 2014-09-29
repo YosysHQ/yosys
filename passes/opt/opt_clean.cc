@@ -48,7 +48,7 @@ void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 				wire2driver.insert(sig, cell);
 			}
 		}
-		if (cell->type == "$memwr" || cell->type == "$assert" || cell->get_bool_attribute("\\keep"))
+		if (cell->type == "$memwr" || cell->type == "$assert" || cell->has_keep_attr())
 			queue.insert(cell);
 		unused.insert(cell);
 	}

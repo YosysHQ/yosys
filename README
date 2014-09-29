@@ -273,6 +273,8 @@ Verilog Attributes and non-standard features
 - The "keep" attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
   have hidden connections that are not part of the netlist, such as IO pads.
+  Setting the "keep" attribute on a module has the same effect as setting it
+  on all instances of the module.
 
 - The "init" attribute on wires is set by the frontend when a register is
   initialized "FPGA-style" with 'reg foo = val'. It can be used during synthesis

@@ -196,7 +196,7 @@ struct OptShareWorker
 		if (!ct.cell_known(cell1->type))
 			return cell1 < cell2;
 
-		if (cell1->get_bool_attribute("\\keep") || cell2->get_bool_attribute("\\keep"))
+		if (cell1->has_keep_attr() || cell2->has_keep_attr())
 			return cell1 < cell2;
 
 		bool lt;
