@@ -286,6 +286,17 @@ void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool f
 	log("Removed %zd unused modules.\n", del_modules.size());
 }
 
+bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
+{
+	if (cache.count(mod) == 0)
+		for (auto c : mod->cells()) {
+			RTLIL::Module *m = mod->design->module(c->type);
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type == "$assert")
+				return cache[mod] = true;
+		}
+	return cache[mod];
+}
+
 struct HierarchyPass : public Pass {
 	HierarchyPass() : Pass("hierarchy", "check, expand and clean up design hierarchy") { }
 	virtual void help()
@@ -316,6 +327,11 @@ struct HierarchyPass : public Pass {
 		log("    -keep_positionals\n");
 		log("        per default this pass also converts positional arguments in cells\n");
 		log("        to arguments using port names. this option disables this behavior.\n");
+		log("\n");
+		log("    -nokeep_asserts\n");
+		log("        per default this pass sets the \"keep\" attribute on all modules\n");
+		log("        that directly or indirectly contain one or more $assert cells. this\n");
+		log("        option disables this behavior.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified top module to built a design hierarchy. modules\n");
@@ -353,6 +369,7 @@ struct HierarchyPass : public Pass {
 
 		bool generate_mode = false;
 		bool keep_positionals = false;
+		bool nokeep_asserts = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
 
@@ -408,6 +425,10 @@ struct HierarchyPass : public Pass {
 			}
 			if (args[argidx] == "-keep_positionals") {
 				keep_positionals = true;
+				continue;
+			}
+			if (args[argidx] == "-nokeep_asserts") {
+				nokeep_asserts = true;
 				continue;
 			}
 			if (args[argidx] == "-libdir" && argidx+1 < args.size()) {
@@ -475,6 +496,15 @@ struct HierarchyPass : public Pass {
 					mod_it.second->attributes["\\top"] = RTLIL::Const(1);
 				else
 					mod_it.second->attributes.erase("\\top");
+		}
+
+		if (!nokeep_asserts) {
+			std::map<RTLIL::Module*, bool> cache;
+			for (auto mod : design->modules())
+				if (set_keep_assert(cache, mod)) {
+					log("Module %s directly or indirectly contains $assert cells -> setting \"keep\" attribute.\n", log_id(mod));
+					mod->set_bool_attribute("\\keep");
+				}
 		}
 
 		if (!keep_positionals)
