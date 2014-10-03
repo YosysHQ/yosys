@@ -32,7 +32,7 @@ struct ShareWorkerConfig
 	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
-	std::set<RTLIL::IdString> generic_uni_ops, generic_bin_ops, generic_cbin_ops;
+	std::set<RTLIL::IdString> generic_uni_ops, generic_bin_ops, generic_cbin_ops, generic_other_ops;
 };
 
 struct ShareWorker
@@ -184,7 +184,7 @@ struct ShareWorker
 			return true;
 		}
 
-		if (config.generic_bin_ops.count(c1->type))
+		if (config.generic_bin_ops.count(c1->type) || c1->type == "$alu")
 		{
 			if (!config.opt_aggressive)
 			{
@@ -307,7 +307,7 @@ struct ShareWorker
 			return supercell;
 		}
 
-		if (config.generic_bin_ops.count(c1->type) || config.generic_cbin_ops.count(c1->type))
+		if (config.generic_bin_ops.count(c1->type) || config.generic_cbin_ops.count(c1->type) || c1->type == "$alu")
 		{
 			bool modified_src_cells = false;
 
@@ -410,6 +410,8 @@ struct ShareWorker
 			supercell_aux.insert(module->addMux(NEW_ID, b2, b1, act, b));
 
 			RTLIL::Wire *y = module->addWire(NEW_ID, y_width);
+			RTLIL::Wire *x = c1->type == "$alu" ? module->addWire(NEW_ID, y_width) : nullptr;
+			RTLIL::Wire *co = c1->type == "$alu" ? module->addWire(NEW_ID, y_width) : nullptr;
 
 			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1->type);
 			supercell->parameters["\\A_SIGNED"] = a_signed;
@@ -420,10 +422,22 @@ struct ShareWorker
 			supercell->setPort("\\A", a);
 			supercell->setPort("\\B", b);
 			supercell->setPort("\\Y", y);
+			if (c1->type == "$alu") {
+				supercell->setPort("\\CI", module->Mux(NEW_ID, c2->getPort("\\CI"), c1->getPort("\\CI"), act));
+				supercell->setPort("\\BI", module->Mux(NEW_ID, c2->getPort("\\BI"), c1->getPort("\\BI"), act));
+				supercell->setPort("\\CO", co);
+				supercell->setPort("\\X", x);
+			}
 			supercell->check();
 
 			supercell_aux.insert(module->addPos(NEW_ID, y, y1));
 			supercell_aux.insert(module->addPos(NEW_ID, y, y2));
+			if (c1->type == "$alu") {
+				supercell_aux.insert(module->addPos(NEW_ID, co, c1->getPort("\\CO")));
+				supercell_aux.insert(module->addPos(NEW_ID, co, c2->getPort("\\CO")));
+				supercell_aux.insert(module->addPos(NEW_ID, x, c1->getPort("\\X")));
+				supercell_aux.insert(module->addPos(NEW_ID, x, c2->getPort("\\X")));
+			}
 
 			supercell_aux.insert(supercell);
 			return supercell;
@@ -784,6 +798,7 @@ struct ShareWorker
 		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
 		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
 		generic_ops.insert(config.generic_cbin_ops.begin(), config.generic_cbin_ops.end());
+		generic_ops.insert(config.generic_other_ops.begin(), config.generic_other_ops.end());
 
 		fwd_ct.setup_internals();
 
@@ -1137,6 +1152,9 @@ struct SharePass : public Pass {
 		config.generic_uni_ops.insert("$logic_not");
 		config.generic_cbin_ops.insert("$logic_and");
 		config.generic_cbin_ops.insert("$logic_or");
+
+		config.generic_other_ops.insert("$alu");
+		// config.generic_other_ops.insert("$macc");
 
 		log_header("Executing SHARE pass (SAT-based resource sharing).\n");
 
