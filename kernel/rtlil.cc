@@ -870,6 +870,7 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$_BUF_")  { check_gate("AY"); return; }
 			if (cell->type == "$_NOT_")  { check_gate("AY"); return; }
 			if (cell->type == "$_AND_")  { check_gate("ABY"); return; }
 			if (cell->type == "$_NAND_") { check_gate("ABY"); return; }

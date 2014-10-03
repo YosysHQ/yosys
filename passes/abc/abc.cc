@@ -59,6 +59,7 @@ PRIVATE_NAMESPACE_BEGIN
 enum class gate_type_t {
 	G_NONE,
 	G_FF,
+	G_BUF,
 	G_NOT,
 	G_AND,
 	G_NAND,
@@ -160,7 +161,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type == "$_NOT_")
+	if (cell->type.in("$_BUF_", "$_NOT_"))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_y = cell->getPort("\\Y");
@@ -168,7 +169,7 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 		assign_map.apply(sig_a);
 		assign_map.apply(sig_y);
 
-		map_signal(sig_y, G(NOT), map_signal(sig_a));
+		map_signal(sig_y, cell->type == "$_BUF_" ? G(BUF) : G(NOT), map_signal(sig_a));
 
 		module->remove(cell);
 		return;
@@ -645,7 +646,10 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 	int count_gates = 0;
 	for (auto &si : signal_list) {
-		if (si.type == G(NOT)) {
+		if (si.type == G(BUF)) {
+			fprintf(f, ".names n%d n%d\n", si.in1, si.id);
+			fprintf(f, "1 1\n");
+		} else if (si.type == G(NOT)) {
 			fprintf(f, ".names n%d n%d\n", si.in1, si.id);
 			fprintf(f, "0 1\n");
 		} else if (si.type == G(AND)) {

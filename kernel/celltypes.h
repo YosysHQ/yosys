@@ -130,6 +130,7 @@ struct CellTypes
 
 	void setup_stdcells()
 	{
+		setup_type("$_BUF_", {"\\A"}, {"\\Y"}, true);
 		setup_type("$_NOT_", {"\\A"}, {"\\Y"}, true);
 		setup_type("$_AND_", {"\\A", "\\B"}, {"\\Y"}, true);
 		setup_type("$_NAND_", {"\\A", "\\B"}, {"\\Y"}, true);
@@ -261,6 +262,8 @@ struct CellTypes
 		HANDLE_CELL_TYPE(neg)
 #undef HANDLE_CELL_TYPE
 
+		if (type == "$_BUF_")
+			return arg1;
 		if (type == "$_NOT_")
 			return eval_not(arg1);
 		if (type == "$_AND_")
