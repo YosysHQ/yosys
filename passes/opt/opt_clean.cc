@@ -293,6 +293,19 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose)
 	if (verbose)
 		log("Finding unused cells or wires in module %s..\n", module->name.c_str());
 
+	std::vector<RTLIL::Cell*> delcells;
+	for (auto cell : module->cells())
+		if (cell->type == "$pos") {
+			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+			RTLIL::SigSpec a = cell->getPort("\\A");
+			RTLIL::SigSpec y = cell->getPort("\\Y");
+			a.extend_u0(SIZE(y), is_signed);
+			module->connect(y, a);
+			delcells.push_back(cell);
+		}
+	for (auto cell : delcells)
+		module->remove(cell);
+
 	rmunused_module_cells(module, verbose);
 	rmunused_module_signals(module, purge_mode, verbose);
 }
