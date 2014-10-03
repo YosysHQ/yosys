@@ -38,6 +38,7 @@ struct SatGen
 	std::string prefix;
 	SigPool initial_state;
 	std::map<std::string, RTLIL::SigSpec> asserts_a, asserts_en;
+	std::map<std::string, std::map<RTLIL::SigBit, int>> imported_signals;
 	bool ignore_div_by_zero;
 	bool model_undef;
 
@@ -52,7 +53,7 @@ struct SatGen
 		this->prefix = prefix;
 	}
 
-	std::vector<int> importSigSpecWorker(RTLIL::SigSpec &sig, std::string &pf, bool undef_mode, bool dup_undef)
+	std::vector<int> importSigSpecWorker(RTLIL::SigSpec sig, std::string &pf, bool undef_mode, bool dup_undef)
 	{
 		log_assert(!undef_mode || model_undef);
 		sigmap->apply(sig);
@@ -69,6 +70,7 @@ struct SatGen
 			} else {
 				std::string name = pf + stringf(bit.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(bit.wire->name), bit.offset);
 				vec.push_back(ez->frozen_literal(name));
+				imported_signals[pf][bit] = vec.back();
 			}
 		return vec;
 	}
@@ -92,6 +94,20 @@ struct SatGen
 		log_assert(timestep != 0);
 		std::string pf = "undef:" + prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
 		return importSigSpecWorker(sig, pf, true, false);
+	}
+
+	int importSigBit(RTLIL::SigBit bit, int timestep = -1)
+	{
+		log_assert(timestep != 0);
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		return importSigSpecWorker(bit, pf, false, false).front();
+	}
+
+	bool importedSigBit(RTLIL::SigBit bit, int timestep = -1)
+	{
+		log_assert(timestep != 0);
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		return imported_signals[pf].count(bit);
 	}
 
 	void getAsserts(RTLIL::SigSpec &sig_a, RTLIL::SigSpec &sig_en, int timestep = -1)
