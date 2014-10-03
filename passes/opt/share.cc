@@ -55,6 +55,8 @@ struct ShareWorker
 	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> topo_cell_drivers;
 	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> topo_bit_drivers;
 
+	std::vector<std::pair<RTLIL::SigBit, RTLIL::SigBit>> exclusive_ctrls;
+
 
 	// ------------------------------------------------------------------------------
 	// Find terminal bits -- i.e. bits that do not (exclusively) feed into a mux tree
@@ -261,7 +263,6 @@ struct ShareWorker
 			for (int i : m1_unmapped)
 			for (int j : m2_unmapped) {
 				int score = share_macc_ports(m1.ports[i], m2.ports[j], w1, w2);
-				log("[%s, %s] vs [%s, %s] -> %d\n", log_signal(m1.ports[i].in_a), log_signal(m1.ports[i].in_b), log_signal(m2.ports[j].in_a), log_signal(m2.ports[j].in_b), score);
 				if (score >= 0 && (best_i < 0 || best_score > score))
 					best_i = i, best_j = j, best_score = score;
 			}
@@ -346,10 +347,8 @@ struct ShareWorker
 
 	void find_shareable_cells()
 	{
-		for (auto &it : module->cells_)
+		for (auto cell : module->cells())
 		{
-			RTLIL::Cell *cell = it.second;
-
 			if (!design->selected(module, cell) || !modwalker.ct.cell_known(cell->type))
 				continue;
 
@@ -1081,6 +1080,13 @@ struct ShareWorker
 		log("Found %d cells in module %s that may be considered for resource sharing.\n",
 				SIZE(shareable_cells), log_id(module));
 
+		for (auto cell : module->cells())
+			if (cell->type == "$pmux")
+				for (auto bit : cell->getPort("\\S"))
+				for (auto other_bit : cell->getPort("\\S"))
+					if (bit < other_bit)
+						exclusive_ctrls.push_back(std::pair<RTLIL::SigBit, RTLIL::SigBit>(bit, other_bit));
+
 		while (!shareable_cells.empty() && config.limit != 0)
 		{
 			RTLIL::Cell *cell = *shareable_cells.begin();
@@ -1205,6 +1211,12 @@ struct ShareWorker
 					if (config.opt_fast && sat_cells.size() > 100)
 						break;
 				}
+
+				for (auto it : exclusive_ctrls)
+					if (satgen.importedSigBit(it.first) && satgen.importedSigBit(it.second)) {
+						log("      Adding exclusive control bits: %s vs. %s\n", log_signal(it.first), log_signal(it.second));
+						ez.assume(ez.NOT(ez.AND(satgen.importSigBit(it.first), satgen.importSigBit(it.second))));
+					}
 
 				if (!ez.solve(ez.expression(ez.OpOr, cell_active))) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(cell));
