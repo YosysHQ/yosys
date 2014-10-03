@@ -45,6 +45,9 @@ struct Macc
 			if (SIZE(port.in_a) == 0 && SIZE(port.in_b) == 0)
 				continue;
 
+			if (SIZE(port.in_a) < SIZE(port.in_b))
+				std::swap(port.in_a, port.in_b);
+
 			if (SIZE(port.in_a) == 1 && SIZE(port.in_b) == 0 && !port.is_signed && !port.do_subtract) {
 				bit_ports.append(port.in_a);
 				continue;
@@ -223,6 +226,12 @@ struct Macc
 		}
 
 		return true;
+	}
+
+	Macc(RTLIL::Cell *cell = nullptr)
+	{
+		if (cell != nullptr)
+			from_cell(cell);
 	}
 };
 

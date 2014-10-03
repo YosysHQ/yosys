@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 #include "kernel/utils.h"
+#include "kernel/macc.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -97,6 +98,243 @@ struct ShareWorker
 				}
 			}
 		}
+	}
+
+
+	// ---------------------------------------------------
+	// Code for sharing and comparing MACC cells
+	// ---------------------------------------------------
+
+	static int bits_macc_port(const Macc::port_t &p, int width)
+	{
+		if (SIZE(p.in_a) == 0 || SIZE(p.in_b) == 0)
+			return std::min(std::max(SIZE(p.in_a), SIZE(p.in_b)), width);
+		return std::min(SIZE(p.in_a), width) * std::min(SIZE(p.in_b), width) / 2;
+	}
+
+	static int bits_macc(const Macc &m, int width)
+	{
+		int bits = SIZE(m.bit_ports);
+		for (auto &p : m.ports)
+			bits += bits_macc_port(p, width);
+		return bits;
+	}
+
+	static int bits_macc(RTLIL::Cell *c)
+	{
+		Macc m(c);
+		int width = SIZE(c->getPort("\\Y"));
+		return bits_macc(m, width);
+	}
+
+	static bool cmp_macc_ports(const Macc::port_t &p1, const Macc::port_t &p2)
+	{
+		bool mul1 = SIZE(p1.in_a) && SIZE(p1.in_b);
+		bool mul2 = SIZE(p2.in_a) && SIZE(p2.in_b);
+
+		int w1 = mul1 ? SIZE(p1.in_a) * SIZE(p1.in_b) : SIZE(p1.in_a) + SIZE(p1.in_b);
+		int w2 = mul2 ? SIZE(p2.in_a) * SIZE(p2.in_b) : SIZE(p2.in_a) + SIZE(p2.in_b);
+
+		if (mul1 != mul2)
+			return mul1;
+
+		if (w1 != w2)
+			return w1 > w2;
+
+		if (p1.is_signed != p2.is_signed)
+			return p1.is_signed < p2.is_signed;
+
+		if (p1.do_subtract != p2.do_subtract)
+			return p1.do_subtract < p2.do_subtract;
+
+		if (p1.in_a != p2.in_a)
+			return p1.in_a < p2.in_a;
+
+		if (p1.in_b != p2.in_b)
+			return p1.in_b < p2.in_b;
+
+		return false;
+	}
+
+	int share_macc_ports(Macc::port_t &p1, Macc::port_t &p2, int w1, int w2,
+			RTLIL::SigSpec act = RTLIL::SigSpec(), Macc *supermacc = nullptr, std::set<RTLIL::Cell*> *supercell_aux = nullptr)
+	{
+		if (p1.do_subtract != p2.do_subtract)
+			return -1;
+
+		bool mul1 = SIZE(p1.in_a) && SIZE(p1.in_b);
+		bool mul2 = SIZE(p2.in_a) && SIZE(p2.in_b);
+
+		if (mul1 != mul2)
+			return -1;
+
+		bool force_signed = false, force_not_signed = false;
+
+		if ((SIZE(p1.in_a) && SIZE(p1.in_a) < w1) || (SIZE(p1.in_b) && SIZE(p1.in_b) < w1)) {
+			if (p1.is_signed)
+				force_signed = true;
+			else
+				force_not_signed = true;
+		}
+
+		if ((SIZE(p2.in_a) && SIZE(p2.in_a) < w2) || (SIZE(p2.in_b) && SIZE(p2.in_b) < w2)) {
+			if (p2.is_signed)
+				force_signed = true;
+			else
+				force_not_signed = true;
+		}
+
+		if (force_signed && force_not_signed)
+			return -1;
+
+		if (supermacc)
+		{
+			RTLIL::SigSpec sig_a1 = p1.in_a, sig_b1 = p1.in_b;
+			RTLIL::SigSpec sig_a2 = p2.in_a, sig_b2 = p2.in_b;
+
+			RTLIL::SigSpec sig_a = SIZE(sig_a1) > SIZE(sig_a2) ? sig_a1 : sig_a2;
+			RTLIL::SigSpec sig_b = SIZE(sig_b1) > SIZE(sig_b2) ? sig_b1 : sig_b2;
+
+			sig_a1.extend_u0(SIZE(sig_a), p1.is_signed);
+			sig_b1.extend_u0(SIZE(sig_b), p1.is_signed);
+
+			sig_a2.extend_u0(SIZE(sig_a), p2.is_signed);
+			sig_b2.extend_u0(SIZE(sig_b), p2.is_signed);
+
+			if (supercell_aux && SIZE(sig_a)) {
+				sig_a = module->addWire(NEW_ID, SIZE(sig_a));
+				supercell_aux->insert(module->addMux(NEW_ID, sig_a2, sig_a1, act, sig_a));
+			}
+
+			if (supercell_aux && SIZE(sig_b)) {
+				sig_b = module->addWire(NEW_ID, SIZE(sig_b));
+				supercell_aux->insert(module->addMux(NEW_ID, sig_b2, sig_b1, act, sig_b));
+			}
+
+			Macc::port_t p;
+			p.in_a = sig_a;
+			p.in_b = sig_b;
+			p.is_signed = force_signed;
+			p.do_subtract = p1.do_subtract;
+			supermacc->ports.push_back(p);
+		}
+
+		int score = 1000 + abs(SIZE(p1.in_a) - SIZE(p2.in_a)) * std::max(abs(SIZE(p1.in_b) - SIZE(p2.in_b)), 1);
+
+		for (int i = 0; i < std::min(SIZE(p1.in_a), SIZE(p2.in_a)); i++)
+			if (p1.in_a[i] == p2.in_a[i] && score > 0)
+				score--;
+
+		for (int i = 0; i < std::min(SIZE(p1.in_b), SIZE(p2.in_b)); i++)
+			if (p1.in_b[i] == p2.in_b[i] && score > 0)
+				score--;
+
+		return score;
+	}
+
+	int share_macc(RTLIL::Cell *c1, RTLIL::Cell *c2,
+			RTLIL::SigSpec act = RTLIL::SigSpec(), RTLIL::Cell *supercell = nullptr, std::set<RTLIL::Cell*> *supercell_aux = nullptr)
+	{
+		Macc m1(c1), m2(c2), supermacc;
+
+		int w1 = SIZE(c1->getPort("\\Y")), w2 = SIZE(c2->getPort("\\Y"));
+		int width = std::max(w1, w2);
+
+		m1.optimize(w1);
+		m2.optimize(w2);
+
+		std::sort(m1.ports.begin(), m1.ports.end(), cmp_macc_ports);
+		std::sort(m2.ports.begin(), m2.ports.end(), cmp_macc_ports);
+
+		std::set<int> m1_unmapped, m2_unmapped;
+
+		for (int i = 0; i < SIZE(m1.ports); i++)
+			m1_unmapped.insert(i);
+
+		for (int i = 0; i < SIZE(m2.ports); i++)
+			m2_unmapped.insert(i);
+
+		while (1)
+		{
+			int best_i = -1, best_j = -1, best_score = 0;
+
+			for (int i : m1_unmapped)
+			for (int j : m2_unmapped) {
+				int score = share_macc_ports(m1.ports[i], m2.ports[j], w1, w2);
+				log("[%s, %s] vs [%s, %s] -> %d\n", log_signal(m1.ports[i].in_a), log_signal(m1.ports[i].in_b), log_signal(m2.ports[j].in_a), log_signal(m2.ports[j].in_b), score);
+				if (score >= 0 && (best_i < 0 || best_score > score))
+					best_i = i, best_j = j, best_score = score;
+			}
+
+			if (best_i >= 0) {
+				m1_unmapped.erase(best_i);
+				m2_unmapped.erase(best_j);
+				share_macc_ports(m1.ports[best_i], m2.ports[best_j], w1, w2, act, &supermacc, supercell_aux);
+			} else
+				break;
+		}
+
+		for (int i : m1_unmapped)
+		{
+			RTLIL::SigSpec sig_a = m1.ports[i].in_a;
+			RTLIL::SigSpec sig_b = m1.ports[i].in_b;
+
+			if (supercell_aux && SIZE(sig_a)) {
+				sig_a = module->addWire(NEW_ID, SIZE(sig_a));
+				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, SIZE(sig_a)), m1.ports[i].in_a, act, sig_a));
+			}
+
+			if (supercell_aux && SIZE(sig_b)) {
+				sig_b = module->addWire(NEW_ID, SIZE(sig_b));
+				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, SIZE(sig_b)), m1.ports[i].in_b, act, sig_b));
+			}
+
+			Macc::port_t p;
+			p.in_a = sig_a;
+			p.in_b = sig_b;
+			p.is_signed = m1.ports[i].is_signed;
+			p.do_subtract = m1.ports[i].do_subtract;
+			supermacc.ports.push_back(p);
+		}
+
+		for (int i : m2_unmapped)
+		{
+			RTLIL::SigSpec sig_a = m2.ports[i].in_a;
+			RTLIL::SigSpec sig_b = m2.ports[i].in_b;
+
+			if (supercell_aux && SIZE(sig_a)) {
+				sig_a = module->addWire(NEW_ID, SIZE(sig_a));
+				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_a, RTLIL::SigSpec(0, SIZE(sig_a)), act, sig_a));
+			}
+
+			if (supercell_aux && SIZE(sig_b)) {
+				sig_b = module->addWire(NEW_ID, SIZE(sig_b));
+				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_b, RTLIL::SigSpec(0, SIZE(sig_b)), act, sig_b));
+			}
+
+			Macc::port_t p;
+			p.in_a = sig_a;
+			p.in_b = sig_b;
+			p.is_signed = m2.ports[i].is_signed;
+			p.do_subtract = m2.ports[i].do_subtract;
+			supermacc.ports.push_back(p);
+		}
+
+		if (supercell)
+		{
+			RTLIL::SigSpec sig_y = module->addWire(NEW_ID, width);
+
+			supercell_aux->insert(module->addPos(NEW_ID, sig_y, c1->getPort("\\Y")));
+			supercell_aux->insert(module->addPos(NEW_ID, sig_y, c2->getPort("\\Y")));
+
+			supercell->setParam("\\Y_WIDTH", width);
+			supercell->setPort("\\Y", sig_y);
+
+			supermacc.optimize(width);
+			supermacc.to_cell(supercell);
+		}
+
+		return bits_macc(supermacc, width);
 	}
 
 
@@ -226,6 +464,14 @@ struct ShareWorker
 				if (std::max(max1_width, max2_width) > 2 * std::min(max1_width, max2_width)) return false;
 				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
 			}
+
+			return true;
+		}
+
+		if (c1->type == "$macc")
+		{
+			if (!config.opt_aggressive)
+				if (share_macc(c1, c2) > 2 * std::min(bits_macc(c1), bits_macc(c2))) return false;
 
 			return true;
 		}
@@ -423,8 +669,11 @@ struct ShareWorker
 			supercell->setPort("\\B", b);
 			supercell->setPort("\\Y", y);
 			if (c1->type == "$alu") {
-				supercell->setPort("\\CI", module->Mux(NEW_ID, c2->getPort("\\CI"), c1->getPort("\\CI"), act));
-				supercell->setPort("\\BI", module->Mux(NEW_ID, c2->getPort("\\BI"), c1->getPort("\\BI"), act));
+				RTLIL::Wire *ci = module->addWire(NEW_ID), *bi = module->addWire(NEW_ID);
+				supercell_aux.insert(module->addMux(NEW_ID, c2->getPort("\\CI"), c1->getPort("\\CI"), act, ci));
+				supercell_aux.insert(module->addMux(NEW_ID, c2->getPort("\\BI"), c1->getPort("\\BI"), act, bi));
+				supercell->setPort("\\CI", ci);
+				supercell->setPort("\\BI", bi);
 				supercell->setPort("\\CO", co);
 				supercell->setPort("\\X", x);
 			}
@@ -440,6 +689,15 @@ struct ShareWorker
 			}
 
 			supercell_aux.insert(supercell);
+			return supercell;
+		}
+
+		if (c1->type == "$macc")
+		{
+			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1->type);
+			supercell_aux.insert(supercell);
+			share_macc(c1, c2, act, supercell, &supercell_aux);
+			supercell->check();
 			return supercell;
 		}
 
@@ -1154,7 +1412,7 @@ struct SharePass : public Pass {
 		config.generic_cbin_ops.insert("$logic_or");
 
 		config.generic_other_ops.insert("$alu");
-		// config.generic_other_ops.insert("$macc");
+		config.generic_other_ops.insert("$macc");
 
 		log_header("Executing SHARE pass (SAT-based resource sharing).\n");
 
