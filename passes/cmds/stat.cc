@@ -33,7 +33,7 @@ struct statdata_t
 	STAT_INT_MEMBERS
 	#undef X
 
-	std::map<RTLIL::IdString, int> num_cells_by_type;
+	std::map<RTLIL::IdString, int, RTLIL::sort_by_id_str> num_cells_by_type;
 
 	statdata_t operator+(const statdata_t &other) const
 	{
@@ -147,7 +147,7 @@ struct statdata_t
 statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTLIL::IdString mod, int level)
 {
 	statdata_t mod_data = mod_stat.at(mod);
-	std::map<RTLIL::IdString, int> num_cells_by_type;
+	std::map<RTLIL::IdString, int, RTLIL::sort_by_id_str> num_cells_by_type;
 	num_cells_by_type.swap(mod_data.num_cells_by_type);
 
 	for (auto &it : num_cells_by_type)
