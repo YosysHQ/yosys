@@ -3,6 +3,7 @@ CONFIG := clang
 # CONFIG := gcc
 # CONFIG := gcc-4.6
 # CONFIG := emcc
+# CONFIG := mxe
 
 # features (the more the better)
 ENABLE_TCL := 1
@@ -17,10 +18,11 @@ ENABLE_GPROF := 0
 DESTDIR := /usr/local
 INSTALL_SUDO :=
 
+EXE =
 OBJS =
 GENFILES =
 EXTRA_TARGETS =
-TARGETS = yosys yosys-config
+TARGETS = yosys$(EXE) yosys-config
 
 PRETTY = 1
 SMALL = 0
@@ -83,6 +85,15 @@ else ifeq ($(CONFIG),emcc)
 CXX = emcc
 CXXFLAGS += -std=c++11 -Os -Wno-warn-absolute-paths
 CXXFLAGS := $(filter-out -ggdb,$(CXXFLAGS))
+EXE = .html
+
+else ifeq ($(CONFIG),mxe)
+CXX = /usr/local/src/mxe/usr/bin/i686-pc-mingw32-gcc
+CXXFLAGS += -std=gnu++0x -Os -D_POSIX_SOURCE
+CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS))
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+EXE = .exe
 
 else ifneq ($(CONFIG),none)
 $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.6, emcc, none)
@@ -192,8 +203,8 @@ top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo "  Build successful."
 	@echo ""
 
-yosys: $(OBJS)
-	$(P) $(CXX) -o yosys $(LDFLAGS) $(OBJS) $(LDLIBS)
+yosys$(EXE): $(OBJS)
+	$(P) $(CXX) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
 %.o: %.cc
 	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
@@ -309,6 +320,13 @@ config-gcc-4.6: clean
 
 config-emcc: clean
 	echo 'CONFIG := emcc' > Makefile.conf
+	echo 'ENABLE_TCL := 0' >> Makefile.conf
+	echo 'ENABLE_ABC := 0' >> Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+
+config-mxe: clean
+	echo 'CONFIG := mxe' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
