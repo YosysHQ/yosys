@@ -268,12 +268,16 @@ int main(int argc, char **argv)
 		delete log_hasher;
 		log_hasher = nullptr;
 
+		log_spacer();
+#ifdef WIN32
+		log("End of script. Logfile hash: %s\n", hash.c_str());
+#else
 		struct rusage ru_buffer;
 		getrusage(RUSAGE_SELF, &ru_buffer);
-		log_spacer();
 		log("End of script. Logfile hash: %s, CPU: user %.2fs system %.2fs\n", hash.c_str(),
 				ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
 				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec);
+#endif
 		log("%s\n", yosys_version_str);
 
 		int64_t total_ns = 0;
