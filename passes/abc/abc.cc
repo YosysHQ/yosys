@@ -41,6 +41,7 @@
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
+#include "kernel/cost.h"
 #include "kernel/log.h"
 #include <unistd.h>
 #include <stdlib.h>
@@ -719,21 +720,21 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 		f = fopen(p, "wt");
 		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", p, strerror(errno));
-		fprintf(f, "GATE ZERO 1 Y=CONST0;\n");
-		fprintf(f, "GATE ONE  1 Y=CONST1;\n");
-		fprintf(f, "GATE BUF  1 Y=A;                  PIN * NONINV  1 999 1 0 1 0\n");
-		fprintf(f, "GATE NOT  1 Y=!A;                 PIN * INV     1 999 1 0 1 0\n");
-		fprintf(f, "GATE AND  1 Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n");
-		fprintf(f, "GATE NAND 1 Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n");
-		fprintf(f, "GATE OR   1 Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n");
-		fprintf(f, "GATE NOR  1 Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n");
-		fprintf(f, "GATE XOR  1 Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n");
-		fprintf(f, "GATE XNOR 1 Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n");
-		fprintf(f, "GATE MUX  1 Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n");
-		fprintf(f, "GATE AOI3 1 Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n");
-		fprintf(f, "GATE OAI3 1 Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n");
-		fprintf(f, "GATE AOI4 1 Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n");
-		fprintf(f, "GATE OAI4 1 Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n");
+		fprintf(f, "GATE ZERO  1 Y=CONST0;\n");
+		fprintf(f, "GATE ONE   1 Y=CONST1;\n");
+		fprintf(f, "GATE BUF  %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_BUF_"));
+		fprintf(f, "GATE NOT  %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOT_"));
+		fprintf(f, "GATE AND  %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
+		fprintf(f, "GATE NAND %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
+		fprintf(f, "GATE OR   %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
+		fprintf(f, "GATE NOR  %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
+		fprintf(f, "GATE XOR  %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
+		fprintf(f, "GATE XNOR %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
+		fprintf(f, "GATE AOI3 %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
+		fprintf(f, "GATE OAI3 %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
+		fprintf(f, "GATE AOI4 %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
+		fprintf(f, "GATE OAI4 %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
+		fprintf(f, "GATE MUX  %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
 		fclose(f);
 		free(p);
 
