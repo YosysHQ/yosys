@@ -25,7 +25,7 @@
 #include <time.h>
 #include <sys/time.h>
 
-#ifndef WIN32
+#ifndef _WIN32
 #  include <sys/resource.h>
 #endif
 
@@ -157,7 +157,7 @@ struct PerformanceTimer
 		t = 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
 		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		return t;
-#elif WIN32
+#elif _WIN32
 		return 0;
 #else
 	#error Dont know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?).
@@ -196,7 +196,7 @@ static inline void log_dump_val_worker(int v) { log("%d", v); }
 static inline void log_dump_val_worker(unsigned int v) { log("%u", v); }
 static inline void log_dump_val_worker(long int v) { log("%ld", v); }
 static inline void log_dump_val_worker(unsigned long int v) { log("%lu", v); }
-#ifndef WIN32
+#ifndef _WIN32
 static inline void log_dump_val_worker(long long int v) { log("%lld", v); }
 static inline void log_dump_val_worker(unsigned long long int v) { log("%lld", v); }
 #endif
