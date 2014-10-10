@@ -59,7 +59,7 @@ struct SatGen
 		sigmap->apply(sig);
 
 		std::vector<int> vec;
-		vec.reserve(SIZE(sig));
+		vec.reserve(GetSize(sig));
 
 		for (auto &bit : sig)
 			if (bit.wire == NULL) {
@@ -791,24 +791,24 @@ struct SatGen
 			Macc macc;
 			macc.from_cell(cell);
 
-			std::vector<int> tmp(SIZE(y), ez->FALSE);
+			std::vector<int> tmp(GetSize(y), ez->FALSE);
 
 			for (auto &port : macc.ports)
 			{
 				std::vector<int> in_a = importDefSigSpec(port.in_a, timestep);
 				std::vector<int> in_b = importDefSigSpec(port.in_b, timestep);
 
-				while (SIZE(in_a) < SIZE(y))
+				while (GetSize(in_a) < GetSize(y))
 					in_a.push_back(port.is_signed && !in_a.empty() ? in_a.back() : ez->FALSE);
-				in_a.resize(SIZE(y));
+				in_a.resize(GetSize(y));
 
-				if (SIZE(in_b))
+				if (GetSize(in_b))
 				{
-					while (SIZE(in_b) < SIZE(y))
+					while (GetSize(in_b) < GetSize(y))
 						in_b.push_back(port.is_signed && !in_b.empty() ? in_b.back() : ez->FALSE);
-					in_b.resize(SIZE(y));
+					in_b.resize(GetSize(y));
 
-					for (int i = 0; i < SIZE(in_b); i++) {
+					for (int i = 0; i < GetSize(in_b); i++) {
 						std::vector<int> shifted_a(in_a.size(), ez->FALSE);
 						for (int j = i; j < int(in_a.size()); j++)
 							shifted_a.at(j) = in_a.at(j-i);
@@ -827,8 +827,8 @@ struct SatGen
 				}
 			}
 
-			for (int i = 0; i < SIZE(b); i++) {
-				std::vector<int> val(SIZE(y), ez->FALSE);
+			for (int i = 0; i < GetSize(b); i++) {
+				std::vector<int> val(GetSize(y), ez->FALSE);
 				val.at(0) = b.at(i);
 				tmp = ez->vec_add(tmp, val);
 			}
@@ -842,7 +842,7 @@ struct SatGen
 				int undef_any_b = ez->expression(ezSAT::OpOr, undef_b);
 
 				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
-				ez->assume(ez->vec_eq(undef_y, std::vector<int>(SIZE(y), ez->OR(undef_any_a, undef_any_b))));
+				ez->assume(ez->vec_eq(undef_y, std::vector<int>(GetSize(y), ez->OR(undef_any_a, undef_any_b))));
 
 				undefGating(y, tmp, undef_y);
 			}
@@ -940,43 +940,43 @@ struct SatGen
 			std::vector<int> lut;
 			for (auto bit : cell->getParam("\\LUT").bits)
 				lut.push_back(bit == RTLIL::S1 ? ez->TRUE : ez->FALSE);
-			while (SIZE(lut) < (1 << SIZE(a)))
+			while (GetSize(lut) < (1 << GetSize(a)))
 				lut.push_back(ez->FALSE);
-			lut.resize(1 << SIZE(a));
+			lut.resize(1 << GetSize(a));
 
 			if (model_undef)
 			{
 				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
-				std::vector<int> t(lut), u(SIZE(t), ez->FALSE);
+				std::vector<int> t(lut), u(GetSize(t), ez->FALSE);
 
-				for (int i = SIZE(a)-1; i >= 0; i--)
+				for (int i = GetSize(a)-1; i >= 0; i--)
 				{
-					std::vector<int> t0(t.begin(), t.begin() + SIZE(t)/2);
-					std::vector<int> t1(t.begin() + SIZE(t)/2, t.end());
+					std::vector<int> t0(t.begin(), t.begin() + GetSize(t)/2);
+					std::vector<int> t1(t.begin() + GetSize(t)/2, t.end());
 
-					std::vector<int> u0(u.begin(), u.begin() + SIZE(u)/2);
-					std::vector<int> u1(u.begin() + SIZE(u)/2, u.end());
+					std::vector<int> u0(u.begin(), u.begin() + GetSize(u)/2);
+					std::vector<int> u1(u.begin() + GetSize(u)/2, u.end());
 
 					t = ez->vec_ite(a[i], t1, t0);
 					u = ez->vec_ite(undef_a[i], ez->vec_or(ez->vec_xor(t0, t1), ez->vec_or(u0, u1)), ez->vec_ite(a[i], u1, u0));
 				}
 
-				log_assert(SIZE(t) == 1);
-				log_assert(SIZE(u) == 1);
+				log_assert(GetSize(t) == 1);
+				log_assert(GetSize(u) == 1);
 				undefGating(y, t, u);
 				ez->assume(ez->vec_eq(importUndefSigSpec(cell->getPort("\\Y"), timestep), u));
 			}
 			else
 			{
 				std::vector<int> t = lut;
-				for (int i = SIZE(a)-1; i >= 0; i--)
+				for (int i = GetSize(a)-1; i >= 0; i--)
 				{
-					std::vector<int> t0(t.begin(), t.begin() + SIZE(t)/2);
-					std::vector<int> t1(t.begin() + SIZE(t)/2, t.end());
+					std::vector<int> t0(t.begin(), t.begin() + GetSize(t)/2);
+					std::vector<int> t1(t.begin() + GetSize(t)/2, t.end());
 					t = ez->vec_ite(a[i], t1, t0);
 				}
 
-				log_assert(SIZE(t) == 1);
+				log_assert(GetSize(t) == 1);
 				ez->assume(ez->vec_eq(y, t));
 			}
 			return true;
@@ -1027,7 +1027,7 @@ struct SatGen
 
 			std::vector<int> yy = model_undef ? ez->vec_var(co.size()) : co;
 
-			for (int i = 0; i < SIZE(co); i++)
+			for (int i = 0; i < GetSize(co); i++)
 				ez->SET(yy[i], ez->OR(g[i], ez->AND(p[i], i ? yy[i-1] : ci[0])));
 
 			if (model_undef)
@@ -1068,12 +1068,12 @@ struct SatGen
 			std::vector<int> def_x = model_undef ? ez->vec_var(x.size()) : x;
 			std::vector<int> def_co = model_undef ? ez->vec_var(co.size()) : co;
 
-			log_assert(SIZE(y) == SIZE(x));
-			log_assert(SIZE(y) == SIZE(co));
-			log_assert(SIZE(ci) == 1);
-			log_assert(SIZE(bi) == 1);
+			log_assert(GetSize(y) == GetSize(x));
+			log_assert(GetSize(y) == GetSize(co));
+			log_assert(GetSize(ci) == 1);
+			log_assert(GetSize(bi) == 1);
 
-			for (int i = 0; i < SIZE(y); i++)
+			for (int i = 0; i < GetSize(y); i++)
 			{
 				int s1 = a.at(i), s2 = ez->XOR(b.at(i), bi.at(0)), s3 = i ? co.at(i-1) : ci.at(0);
 				ez->SET(def_x.at(i), ez->XOR(s1, s2));
@@ -1103,7 +1103,7 @@ struct SatGen
 				all_inputs_undef.insert(all_inputs_undef.end(), undef_bi.begin(), undef_bi.end());
 				int undef_any = ez->expression(ezSAT::OpOr, all_inputs_undef);
 
-				for (int i = 0; i < SIZE(undef_y); i++) {
+				for (int i = 0; i < GetSize(undef_y); i++) {
 					ez->SET(undef_y.at(i), undef_any);
 					ez->SET(undef_x.at(i), ez->OR(undef_a.at(i), undef_b.at(i), undef_bi.at(0)));
 					ez->SET(undef_co.at(i), undef_any);

@@ -407,7 +407,7 @@ struct SatHelper
 		if (prove_asserts) {
 			RTLIL::SigSpec asserts_a, asserts_en;
 			satgen.getAsserts(asserts_a, asserts_en, timestep);
-			for (int i = 0; i < SIZE(asserts_a); i++)
+			for (int i = 0; i < GetSize(asserts_a); i++)
 				log("Import proof for assert: %s when %s.\n", log_signal(asserts_a[i]), log_signal(asserts_en[i]));
 			prove_bits.push_back(satgen.importAsserts(timestep));
 		}

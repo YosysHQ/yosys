@@ -75,8 +75,8 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 
 	log("Calling DPI function `%s' and returning `%s':\n", fname.c_str(), rtype.c_str());
 
-	log_assert(SIZE(args) == SIZE(argtypes));
-	for (int i = 0; i < SIZE(args); i++) {
+	log_assert(GetSize(args) == GetSize(argtypes));
+	for (int i = 0; i < GetSize(args); i++) {
 		if (argtypes[i] == "real") {
 			log("  arg %d (%s): %f\n", i, argtypes[i].c_str(), args[i]->asReal(args[i]->is_signed));
 			value_store[i].f64 = args[i]->asReal(args[i]->is_signed);

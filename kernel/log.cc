@@ -62,9 +62,9 @@ void logv(const char *format, va_list ap)
 
 	size_t nnl_pos = str.find_last_not_of('\n');
 	if (nnl_pos == std::string::npos)
-		log_newline_count += SIZE(str);
+		log_newline_count += GetSize(str);
 	else
-		log_newline_count = SIZE(str) - nnl_pos - 1;
+		log_newline_count = GetSize(str) - nnl_pos - 1;
 
 	if (log_hasher)
 		log_hasher->update(str);

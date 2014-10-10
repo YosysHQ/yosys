@@ -84,8 +84,8 @@ namespace RTLIL {
 
 std::string stringf(const char *fmt, ...);
 std::string vstringf(const char *fmt, va_list ap);
-template<typename T> int SIZE(const T &obj) { return obj.size(); }
-int SIZE(RTLIL::Wire *wire);
+template<typename T> int GetSize(const T &obj) { return obj.size(); }
+int GetSize(RTLIL::Wire *wire);
 
 YOSYS_NAMESPACE_END
 

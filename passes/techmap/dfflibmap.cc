@@ -412,7 +412,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			} else
 			if (port.second == 'q') {
 				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
-				sig = module->addWire(NEW_ID, SIZE(old_sig));
+				sig = module->addWire(NEW_ID, GetSize(old_sig));
 				module->addNotGate(NEW_ID, sig, old_sig);
 			} else
 			if ('a' <= port.second && port.second <= 'z') {

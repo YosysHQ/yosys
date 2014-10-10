@@ -107,15 +107,15 @@ struct statdata_t
 						"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 						"$add", "$sub", "$mul", "$div", "$mod", "$pow")) {
-					int width_a = it.second->hasPort("\\A") ? SIZE(it.second->getPort("\\A")) : 0;
-					int width_b = it.second->hasPort("\\B") ? SIZE(it.second->getPort("\\B")) : 0;
-					int width_y = it.second->hasPort("\\Y") ? SIZE(it.second->getPort("\\Y")) : 0;
+					int width_a = it.second->hasPort("\\A") ? GetSize(it.second->getPort("\\A")) : 0;
+					int width_b = it.second->hasPort("\\B") ? GetSize(it.second->getPort("\\B")) : 0;
+					int width_y = it.second->hasPort("\\Y") ? GetSize(it.second->getPort("\\Y")) : 0;
 					cell_type = stringf("%s_%d", cell_type.c_str(), std::max<int>({width_a, width_b, width_y}));
 				}
 				else if (cell_type.in("$mux", "$pmux"))
-					cell_type = stringf("%s_%d", cell_type.c_str(), SIZE(it.second->getPort("\\Y")));
+					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Y")));
 				else if (cell_type.in("$sr", "$dff", "$dffsr", "$adff", "$dlatch", "$dlatchsr"))
-					cell_type = stringf("%s_%d", cell_type.c_str(), SIZE(it.second->getPort("\\Q")));
+					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Q")));
 			}
 
 			num_cells++;

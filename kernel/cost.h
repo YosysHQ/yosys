@@ -70,7 +70,7 @@ int get_cell_cost(RTLIL::IdString type, const std::map<RTLIL::IdString, RTLIL::C
 		return module_cost;
 	}
 
-	log("Warning: Can't determine cost of %s cell (%d parameters).\n", log_id(type), SIZE(parameters));
+	log("Warning: Can't determine cost of %s cell (%d parameters).\n", log_id(type), GetSize(parameters));
 	return 1;
 }
 

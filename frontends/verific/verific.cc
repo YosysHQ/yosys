@@ -324,7 +324,7 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		if (inst->GetCin()->IsGnd()) {
 			module->addAdd(RTLIL::escape_id(inst->Name()), IN1, IN2, out, SIGNED);
 		} else {
-			RTLIL::SigSpec tmp = module->addWire(NEW_ID, SIZE(out));
+			RTLIL::SigSpec tmp = module->addWire(NEW_ID, GetSize(out));
 			module->addAdd(NEW_ID, IN1, IN2, tmp, SIGNED);
 			module->addAdd(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetCin()), out, false);
 		}
@@ -687,8 +687,8 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			cell->parameters["\\CLK_ENABLE"] = false;
 			cell->parameters["\\CLK_POLARITY"] = true;
 			cell->parameters["\\TRANSPARENT"] = false;
-			cell->parameters["\\ABITS"] = SIZE(addr);
-			cell->parameters["\\WIDTH"] = SIZE(data);
+			cell->parameters["\\ABITS"] = GetSize(addr);
+			cell->parameters["\\WIDTH"] = GetSize(data);
 			cell->setPort("\\CLK", RTLIL::State::S0);
 			cell->setPort("\\ADDR", addr);
 			cell->setPort("\\DATA", data);
@@ -709,9 +709,9 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			cell->parameters["\\CLK_ENABLE"] = false;
 			cell->parameters["\\CLK_POLARITY"] = true;
 			cell->parameters["\\PRIORITY"] = 0;
-			cell->parameters["\\ABITS"] = SIZE(addr);
-			cell->parameters["\\WIDTH"] = SIZE(data);
-			cell->setPort("\\EN", RTLIL::SigSpec(net_map.at(inst->GetControl())).repeat(SIZE(data)));
+			cell->parameters["\\ABITS"] = GetSize(addr);
+			cell->parameters["\\WIDTH"] = GetSize(data);
+			cell->setPort("\\EN", RTLIL::SigSpec(net_map.at(inst->GetControl())).repeat(GetSize(data)));
 			cell->setPort("\\CLK", RTLIL::State::S0);
 			cell->setPort("\\ADDR", addr);
 			cell->setPort("\\DATA", data);
@@ -753,9 +753,9 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			RTLIL::SigSpec conn;
 			if (cell->hasPort(RTLIL::escape_id(port_name)))
 				conn = cell->getPort(RTLIL::escape_id(port_name));
-			while (SIZE(conn) <= port_offset) {
+			while (GetSize(conn) <= port_offset) {
 				if (pr->GetPort()->GetDir() != DIR_IN)
-					conn.append(module->addWire(NEW_ID, port_offset - SIZE(conn)));
+					conn.append(module->addWire(NEW_ID, port_offset - GetSize(conn)));
 				conn.append(RTLIL::State::Sz);
 			}
 			conn.replace(port_offset, net_map.at(pr->GetNet()));

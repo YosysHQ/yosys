@@ -48,51 +48,51 @@ struct AlumaccWorker
 		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
 
 		RTLIL::SigSpec get_lt() {
-			if (SIZE(cached_lt) == 0)
+			if (GetSize(cached_lt) == 0)
 				cached_lt = is_signed ? alu_cell->module->Xor(NEW_ID, get_of(), get_sf()) : get_cf();
 			return cached_lt;
 		}
 
 		RTLIL::SigSpec get_gt() {
-			if (SIZE(cached_gt) == 0)
+			if (GetSize(cached_gt) == 0)
 				cached_gt = alu_cell->module->Not(NEW_ID, alu_cell->module->Or(NEW_ID, get_lt(), get_eq()));
 			return cached_gt;
 		}
 
 		RTLIL::SigSpec get_eq() {
-			if (SIZE(cached_eq) == 0)
+			if (GetSize(cached_eq) == 0)
 				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort("\\X"));
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
-			if (SIZE(cached_ne) == 0)
+			if (GetSize(cached_ne) == 0)
 				cached_ne = alu_cell->module->Not(NEW_ID, get_eq());
 			return cached_ne;
 		}
 
 		RTLIL::SigSpec get_cf() {
-			if (SIZE(cached_cf) == 0) {
+			if (GetSize(cached_cf) == 0) {
 				cached_cf = alu_cell->getPort("\\CO");
-				log_assert(SIZE(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[SIZE(cached_cf)-1]);
+				log_assert(GetSize(cached_cf) >= 1);
+				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1]);
 			}
 			return cached_cf;
 		}
 
 		RTLIL::SigSpec get_of() {
-			if (SIZE(cached_of) == 0) {
+			if (GetSize(cached_of) == 0) {
 				cached_of = {alu_cell->getPort("\\CO"), alu_cell->getPort("\\CI")};
-				log_assert(SIZE(cached_of) >= 2);
-				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[SIZE(cached_of)-1], cached_of[SIZE(cached_of)-2]);
+				log_assert(GetSize(cached_of) >= 2);
+				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
 			}
 			return cached_of;
 		}
 
 		RTLIL::SigSpec get_sf() {
-			if (SIZE(cached_sf) == 0) {
+			if (GetSize(cached_sf) == 0) {
 				cached_sf = alu_cell->getPort("\\Y");
-				cached_sf = cached_sf[SIZE(cached_sf)-1];
+				cached_sf = cached_sf[GetSize(cached_sf)-1];
 			}
 			return cached_sf;
 		}
@@ -184,10 +184,10 @@ struct AlumaccWorker
 				return true;
 			if (!port.is_signed && port.do_subtract)
 				return true;
-			if (SIZE(port.in_b))
-				port_sizes.push_back(SIZE(port.in_a) + SIZE(port.in_b));
+			if (GetSize(port.in_b))
+				port_sizes.push_back(GetSize(port.in_a) + GetSize(port.in_b));
 			else
-				port_sizes.push_back(SIZE(port.in_a));
+				port_sizes.push_back(GetSize(port.in_a));
 		}
 
 		std::sort(port_sizes.begin(), port_sizes.end());
@@ -224,11 +224,11 @@ struct AlumaccWorker
 				if (delete_nodes.count(n))
 					continue;
 
-				for (int i = 0; i < SIZE(n->macc.ports); i++)
+				for (int i = 0; i < GetSize(n->macc.ports); i++)
 				{
 					auto &port = n->macc.ports[i];
 
-					if (SIZE(port.in_b) > 0 || sig_macc.count(port.in_a) == 0)
+					if (GetSize(port.in_b) > 0 || sig_macc.count(port.in_a) == 0)
 						continue;
 
 					auto other_n = sig_macc.at(port.in_a);
@@ -236,13 +236,13 @@ struct AlumaccWorker
 					if (other_n->users > 1)
 						continue;
 
-					if (SIZE(other_n->y) != SIZE(n->y) && macc_may_overflow(other_n->macc, SIZE(other_n->y), port.is_signed))
+					if (GetSize(other_n->y) != GetSize(n->y) && macc_may_overflow(other_n->macc, GetSize(other_n->y), port.is_signed))
 						continue;
 
 					log("  merging $macc model for %s into %s.\n", log_id(other_n->cell), log_id(n->cell));
 
 					bool do_subtract = port.do_subtract;
-					for (int j = 0; j < SIZE(other_n->macc.ports); j++) {
+					for (int j = 0; j < GetSize(other_n->macc.ports); j++) {
 						if (do_subtract)
 							other_n->macc.ports[j].do_subtract = !other_n->macc.ports[j].do_subtract;
 						if (j == 0)
@@ -278,38 +278,38 @@ struct AlumaccWorker
 			alunode_t *alunode;
 
 			for (auto &port : n->macc.ports)
-				if (SIZE(port.in_b) > 0) {
+				if (GetSize(port.in_b) > 0) {
 					goto next_macc;
-				} else if (SIZE(port.in_a) == 1 && !port.is_signed && !port.do_subtract) {
+				} else if (GetSize(port.in_a) == 1 && !port.is_signed && !port.do_subtract) {
 					C.append(port.in_a);
-				} else if (SIZE(A) || port.do_subtract) {
-					if (SIZE(B))
+				} else if (GetSize(A) || port.do_subtract) {
+					if (GetSize(B))
 						goto next_macc;
 					B = port.in_a;
 					b_signed = port.is_signed;
 					subtract_b = port.do_subtract;
 				} else {
-					if (SIZE(A))
+					if (GetSize(A))
 						goto next_macc;
 					A = port.in_a;
 					a_signed = port.is_signed;
 				}
 
 			if (!a_signed || !b_signed) {
-				if (SIZE(A) == SIZE(n->y))
+				if (GetSize(A) == GetSize(n->y))
 					a_signed = false;
-				if (SIZE(B) == SIZE(n->y))
+				if (GetSize(B) == GetSize(n->y))
 					b_signed = false;
 				if (a_signed != b_signed)
 					goto next_macc;
 			}
 
-			if (SIZE(A) == 0 && SIZE(C) > 0) {
+			if (GetSize(A) == 0 && GetSize(C) > 0) {
 				A = C[0];
 				C.remove(0);
 			}
 
-			if (SIZE(B) == 0 && SIZE(C) > 0) {
+			if (GetSize(B) == 0 && GetSize(C) > 0) {
 				B = C[0];
 				C.remove(0);
 			}
@@ -317,10 +317,10 @@ struct AlumaccWorker
 			if (subtract_b)
 				C.append(RTLIL::S1);
 
-			if (SIZE(C) > 1)
+			if (GetSize(C) > 1)
 				goto next_macc;
 
-			if (!subtract_b && B < A && SIZE(B))
+			if (!subtract_b && B < A && GetSize(B))
 				std::swap(A, B);
 
 			log("  creating $alu model for $macc %s.\n", log_id(n->cell));
@@ -356,7 +356,7 @@ struct AlumaccWorker
 
 			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
 
-			n->macc.optimize(SIZE(n->y));
+			n->macc.optimize(GetSize(n->y));
 			n->macc.to_cell(cell);
 			cell->setPort("\\Y", n->y);
 			cell->fixup_parameters();
@@ -391,7 +391,7 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort("\\B"));
 			RTLIL::SigSpec Y = sigmap(cell->getPort("\\Y"));
 
-			if (B < A && SIZE(B)) {
+			if (B < A && GetSize(B)) {
 				cmp_less = !cmp_less;
 				std::swap(A, B);
 			}
@@ -409,7 +409,7 @@ struct AlumaccWorker
 				n->a = A;
 				n->b = B;
 				n->c = RTLIL::S1;
-				n->y = module->addWire(NEW_ID, std::max(SIZE(A), SIZE(B)));
+				n->y = module->addWire(NEW_ID, std::max(GetSize(A), GetSize(B)));
 				n->is_signed = is_signed;
 				n->invert_b = true;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
@@ -431,7 +431,7 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort("\\B"));
 			RTLIL::SigSpec Y = sigmap(cell->getPort("\\Y"));
 
-			if (B < A && SIZE(B))
+			if (B < A && GetSize(B))
 				std::swap(A, B);
 
 			alunode_t *n = nullptr;
@@ -455,12 +455,12 @@ struct AlumaccWorker
 		for (auto &it1 : sig_alu)
 		for (auto n : it1.second)
 		{
-			if (SIZE(n->b) == 0 && SIZE(n->c) == 0 && SIZE(n->cmp) == 0)
+			if (GetSize(n->b) == 0 && GetSize(n->c) == 0 && GetSize(n->cmp) == 0)
 			{
 				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
 
 				log("  creating $pos cell for ");
-				for (int i = 0; i < SIZE(n->cells); i++)
+				for (int i = 0; i < GetSize(n->cells); i++)
 					log("%s%s", i ? ", ": "", log_id(n->cells[i]));
 				log(": %s\n", log_id(n->alu_cell));
 
@@ -471,17 +471,17 @@ struct AlumaccWorker
 			alu_counter++;
 
 			log("  creating $alu cell for ");
-			for (int i = 0; i < SIZE(n->cells); i++)
+			for (int i = 0; i < GetSize(n->cells); i++)
 				log("%s%s", i ? ", ": "", log_id(n->cells[i]));
 			log(": %s\n", log_id(n->alu_cell));
 
 			n->alu_cell->setPort("\\A", n->a);
 			n->alu_cell->setPort("\\B", n->b);
-			n->alu_cell->setPort("\\CI", SIZE(n->c) ? n->c : RTLIL::S0);
+			n->alu_cell->setPort("\\CI", GetSize(n->c) ? n->c : RTLIL::S0);
 			n->alu_cell->setPort("\\BI", n->invert_b ? RTLIL::S1 : RTLIL::S0);
 			n->alu_cell->setPort("\\Y", n->y);
-			n->alu_cell->setPort("\\X", module->addWire(NEW_ID, SIZE(n->y)));
-			n->alu_cell->setPort("\\CO", module->addWire(NEW_ID, SIZE(n->y)));
+			n->alu_cell->setPort("\\X", module->addWire(NEW_ID, GetSize(n->y)));
+			n->alu_cell->setPort("\\CO", module->addWire(NEW_ID, GetSize(n->y)));
 			n->alu_cell->fixup_parameters(n->is_signed, n->is_signed);
 
 			for (auto &it : n->cmp)
@@ -498,10 +498,10 @@ struct AlumaccWorker
 				if (cmp_eq) sig.append(n->get_eq());
 				if (cmp_ne) sig.append(n->get_ne());
 
-				if (SIZE(sig) > 1)
+				if (GetSize(sig) > 1)
 					sig = module->ReduceOr(NEW_ID, sig);
 
-				sig.extend(SIZE(cmp_y));
+				sig.extend(GetSize(cmp_y));
 				module->connect(cmp_y, sig);
 			}
 

@@ -109,14 +109,14 @@ struct ShareWorker
 
 	static int bits_macc_port(const Macc::port_t &p, int width)
 	{
-		if (SIZE(p.in_a) == 0 || SIZE(p.in_b) == 0)
-			return std::min(std::max(SIZE(p.in_a), SIZE(p.in_b)), width);
-		return std::min(SIZE(p.in_a), width) * std::min(SIZE(p.in_b), width) / 2;
+		if (GetSize(p.in_a) == 0 || GetSize(p.in_b) == 0)
+			return std::min(std::max(GetSize(p.in_a), GetSize(p.in_b)), width);
+		return std::min(GetSize(p.in_a), width) * std::min(GetSize(p.in_b), width) / 2;
 	}
 
 	static int bits_macc(const Macc &m, int width)
 	{
-		int bits = SIZE(m.bit_ports);
+		int bits = GetSize(m.bit_ports);
 		for (auto &p : m.ports)
 			bits += bits_macc_port(p, width);
 		return bits;
@@ -125,17 +125,17 @@ struct ShareWorker
 	static int bits_macc(RTLIL::Cell *c)
 	{
 		Macc m(c);
-		int width = SIZE(c->getPort("\\Y"));
+		int width = GetSize(c->getPort("\\Y"));
 		return bits_macc(m, width);
 	}
 
 	static bool cmp_macc_ports(const Macc::port_t &p1, const Macc::port_t &p2)
 	{
-		bool mul1 = SIZE(p1.in_a) && SIZE(p1.in_b);
-		bool mul2 = SIZE(p2.in_a) && SIZE(p2.in_b);
+		bool mul1 = GetSize(p1.in_a) && GetSize(p1.in_b);
+		bool mul2 = GetSize(p2.in_a) && GetSize(p2.in_b);
 
-		int w1 = mul1 ? SIZE(p1.in_a) * SIZE(p1.in_b) : SIZE(p1.in_a) + SIZE(p1.in_b);
-		int w2 = mul2 ? SIZE(p2.in_a) * SIZE(p2.in_b) : SIZE(p2.in_a) + SIZE(p2.in_b);
+		int w1 = mul1 ? GetSize(p1.in_a) * GetSize(p1.in_b) : GetSize(p1.in_a) + GetSize(p1.in_b);
+		int w2 = mul2 ? GetSize(p2.in_a) * GetSize(p2.in_b) : GetSize(p2.in_a) + GetSize(p2.in_b);
 
 		if (mul1 != mul2)
 			return mul1;
@@ -164,22 +164,22 @@ struct ShareWorker
 		if (p1.do_subtract != p2.do_subtract)
 			return -1;
 
-		bool mul1 = SIZE(p1.in_a) && SIZE(p1.in_b);
-		bool mul2 = SIZE(p2.in_a) && SIZE(p2.in_b);
+		bool mul1 = GetSize(p1.in_a) && GetSize(p1.in_b);
+		bool mul2 = GetSize(p2.in_a) && GetSize(p2.in_b);
 
 		if (mul1 != mul2)
 			return -1;
 
 		bool force_signed = false, force_not_signed = false;
 
-		if ((SIZE(p1.in_a) && SIZE(p1.in_a) < w1) || (SIZE(p1.in_b) && SIZE(p1.in_b) < w1)) {
+		if ((GetSize(p1.in_a) && GetSize(p1.in_a) < w1) || (GetSize(p1.in_b) && GetSize(p1.in_b) < w1)) {
 			if (p1.is_signed)
 				force_signed = true;
 			else
 				force_not_signed = true;
 		}
 
-		if ((SIZE(p2.in_a) && SIZE(p2.in_a) < w2) || (SIZE(p2.in_b) && SIZE(p2.in_b) < w2)) {
+		if ((GetSize(p2.in_a) && GetSize(p2.in_a) < w2) || (GetSize(p2.in_b) && GetSize(p2.in_b) < w2)) {
 			if (p2.is_signed)
 				force_signed = true;
 			else
@@ -194,22 +194,22 @@ struct ShareWorker
 			RTLIL::SigSpec sig_a1 = p1.in_a, sig_b1 = p1.in_b;
 			RTLIL::SigSpec sig_a2 = p2.in_a, sig_b2 = p2.in_b;
 
-			RTLIL::SigSpec sig_a = SIZE(sig_a1) > SIZE(sig_a2) ? sig_a1 : sig_a2;
-			RTLIL::SigSpec sig_b = SIZE(sig_b1) > SIZE(sig_b2) ? sig_b1 : sig_b2;
+			RTLIL::SigSpec sig_a = GetSize(sig_a1) > GetSize(sig_a2) ? sig_a1 : sig_a2;
+			RTLIL::SigSpec sig_b = GetSize(sig_b1) > GetSize(sig_b2) ? sig_b1 : sig_b2;
 
-			sig_a1.extend_u0(SIZE(sig_a), p1.is_signed);
-			sig_b1.extend_u0(SIZE(sig_b), p1.is_signed);
+			sig_a1.extend_u0(GetSize(sig_a), p1.is_signed);
+			sig_b1.extend_u0(GetSize(sig_b), p1.is_signed);
 
-			sig_a2.extend_u0(SIZE(sig_a), p2.is_signed);
-			sig_b2.extend_u0(SIZE(sig_b), p2.is_signed);
+			sig_a2.extend_u0(GetSize(sig_a), p2.is_signed);
+			sig_b2.extend_u0(GetSize(sig_b), p2.is_signed);
 
-			if (supercell_aux && SIZE(sig_a)) {
-				sig_a = module->addWire(NEW_ID, SIZE(sig_a));
+			if (supercell_aux && GetSize(sig_a)) {
+				sig_a = module->addWire(NEW_ID, GetSize(sig_a));
 				supercell_aux->insert(module->addMux(NEW_ID, sig_a2, sig_a1, act, sig_a));
 			}
 
-			if (supercell_aux && SIZE(sig_b)) {
-				sig_b = module->addWire(NEW_ID, SIZE(sig_b));
+			if (supercell_aux && GetSize(sig_b)) {
+				sig_b = module->addWire(NEW_ID, GetSize(sig_b));
 				supercell_aux->insert(module->addMux(NEW_ID, sig_b2, sig_b1, act, sig_b));
 			}
 
@@ -221,13 +221,13 @@ struct ShareWorker
 			supermacc->ports.push_back(p);
 		}
 
-		int score = 1000 + abs(SIZE(p1.in_a) - SIZE(p2.in_a)) * std::max(abs(SIZE(p1.in_b) - SIZE(p2.in_b)), 1);
+		int score = 1000 + abs(GetSize(p1.in_a) - GetSize(p2.in_a)) * std::max(abs(GetSize(p1.in_b) - GetSize(p2.in_b)), 1);
 
-		for (int i = 0; i < std::min(SIZE(p1.in_a), SIZE(p2.in_a)); i++)
+		for (int i = 0; i < std::min(GetSize(p1.in_a), GetSize(p2.in_a)); i++)
 			if (p1.in_a[i] == p2.in_a[i] && score > 0)
 				score--;
 
-		for (int i = 0; i < std::min(SIZE(p1.in_b), SIZE(p2.in_b)); i++)
+		for (int i = 0; i < std::min(GetSize(p1.in_b), GetSize(p2.in_b)); i++)
 			if (p1.in_b[i] == p2.in_b[i] && score > 0)
 				score--;
 
@@ -239,7 +239,7 @@ struct ShareWorker
 	{
 		Macc m1(c1), m2(c2), supermacc;
 
-		int w1 = SIZE(c1->getPort("\\Y")), w2 = SIZE(c2->getPort("\\Y"));
+		int w1 = GetSize(c1->getPort("\\Y")), w2 = GetSize(c2->getPort("\\Y"));
 		int width = std::max(w1, w2);
 
 		m1.optimize(w1);
@@ -250,10 +250,10 @@ struct ShareWorker
 
 		std::set<int> m1_unmapped, m2_unmapped;
 
-		for (int i = 0; i < SIZE(m1.ports); i++)
+		for (int i = 0; i < GetSize(m1.ports); i++)
 			m1_unmapped.insert(i);
 
-		for (int i = 0; i < SIZE(m2.ports); i++)
+		for (int i = 0; i < GetSize(m2.ports); i++)
 			m2_unmapped.insert(i);
 
 		while (1)
@@ -280,14 +280,14 @@ struct ShareWorker
 			RTLIL::SigSpec sig_a = m1.ports[i].in_a;
 			RTLIL::SigSpec sig_b = m1.ports[i].in_b;
 
-			if (supercell_aux && SIZE(sig_a)) {
-				sig_a = module->addWire(NEW_ID, SIZE(sig_a));
-				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, SIZE(sig_a)), m1.ports[i].in_a, act, sig_a));
+			if (supercell_aux && GetSize(sig_a)) {
+				sig_a = module->addWire(NEW_ID, GetSize(sig_a));
+				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(sig_a)), m1.ports[i].in_a, act, sig_a));
 			}
 
-			if (supercell_aux && SIZE(sig_b)) {
-				sig_b = module->addWire(NEW_ID, SIZE(sig_b));
-				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, SIZE(sig_b)), m1.ports[i].in_b, act, sig_b));
+			if (supercell_aux && GetSize(sig_b)) {
+				sig_b = module->addWire(NEW_ID, GetSize(sig_b));
+				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(sig_b)), m1.ports[i].in_b, act, sig_b));
 			}
 
 			Macc::port_t p;
@@ -303,14 +303,14 @@ struct ShareWorker
 			RTLIL::SigSpec sig_a = m2.ports[i].in_a;
 			RTLIL::SigSpec sig_b = m2.ports[i].in_b;
 
-			if (supercell_aux && SIZE(sig_a)) {
-				sig_a = module->addWire(NEW_ID, SIZE(sig_a));
-				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_a, RTLIL::SigSpec(0, SIZE(sig_a)), act, sig_a));
+			if (supercell_aux && GetSize(sig_a)) {
+				sig_a = module->addWire(NEW_ID, GetSize(sig_a));
+				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_a, RTLIL::SigSpec(0, GetSize(sig_a)), act, sig_a));
 			}
 
-			if (supercell_aux && SIZE(sig_b)) {
-				sig_b = module->addWire(NEW_ID, SIZE(sig_b));
-				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_b, RTLIL::SigSpec(0, SIZE(sig_b)), act, sig_b));
+			if (supercell_aux && GetSize(sig_b)) {
+				sig_b = module->addWire(NEW_ID, GetSize(sig_b));
+				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_b, RTLIL::SigSpec(0, GetSize(sig_b)), act, sig_b));
 			}
 
 			Macc::port_t p;
@@ -765,7 +765,7 @@ struct ShareWorker
 		std::map<RTLIL::SigBit, RTLIL::State> p_bits;
 
 		std::vector<RTLIL::SigBit> p_first_bits = p.first;
-		for (int i = 0; i < SIZE(p_first_bits); i++) {
+		for (int i = 0; i < GetSize(p_first_bits); i++) {
 			RTLIL::SigBit b = p_first_bits[i];
 			RTLIL::State v = p.second.bits[i];
 			if (p_bits.count(b) && p_bits.at(b) != v)
@@ -837,13 +837,13 @@ struct ShareWorker
 				if (cell_out_bits.count(bit))
 					used_in_a = true;
 
-			for (int i = 0; i < SIZE(sig_b); i++)
+			for (int i = 0; i < GetSize(sig_b); i++)
 				if (cell_out_bits.count(sig_b[i]))
 					used_in_b_parts.insert(i / width);
 
 			if (used_in_a)
 				for (auto p : c_patterns) {
-					for (int i = 0; i < SIZE(sig_s); i++)
+					for (int i = 0; i < GetSize(sig_s); i++)
 						p.first.append_bit(sig_s[i]), p.second.bits.push_back(RTLIL::State::S0);
 					if (sort_check_activation_pattern(p))
 						activation_patterns_cache[cell].insert(p);
@@ -899,7 +899,7 @@ struct ShareWorker
 			std::vector<RTLIL::SigBit> p_first = p.first;
 			std::pair<RTLIL::SigSpec, RTLIL::Const> new_p;
 
-			for (int i = 0; i < SIZE(p_first); i++)
+			for (int i = 0; i < GetSize(p_first); i++)
 				if (filter_bits.count(p_first[i]) == 0) {
 					new_p.first.append_bit(p_first[i]);
 					new_p.second.bits.push_back(p.second.bits.at(i));
@@ -1078,7 +1078,7 @@ struct ShareWorker
 			return;
 
 		log("Found %d cells in module %s that may be considered for resource sharing.\n",
-				SIZE(shareable_cells), log_id(module));
+				GetSize(shareable_cells), log_id(module));
 
 		for (auto cell : module->cells())
 			if (cell->type == "$pmux")
@@ -1108,7 +1108,7 @@ struct ShareWorker
 				continue;
 			}
 
-			log("    Found %d activation_patterns using ctrl signal %s.\n", SIZE(cell_activation_patterns), log_signal(cell_activation_signals));
+			log("    Found %d activation_patterns using ctrl signal %s.\n", GetSize(cell_activation_patterns), log_signal(cell_activation_signals));
 
 			std::vector<RTLIL::Cell*> candidates;
 			find_shareable_partners(candidates, cell);
@@ -1118,7 +1118,7 @@ struct ShareWorker
 				continue;
 			}
 
-			log("    Found %d candidates:", SIZE(candidates));
+			log("    Found %d candidates:", GetSize(candidates));
 			for (auto c : candidates)
 				log(" %s", log_id(c));
 			log("\n");
@@ -1144,7 +1144,7 @@ struct ShareWorker
 				}
 
 				log("      Found %d activation_patterns using ctrl signal %s.\n",
-						SIZE(other_cell_activation_patterns), log_signal(other_cell_activation_signals));
+						GetSize(other_cell_activation_patterns), log_signal(other_cell_activation_signals));
 
 				const std::set<RTLIL::SigBit> &cell_forbidden_controls = find_forbidden_controls(cell);
 				const std::set<RTLIL::SigBit> &other_cell_forbidden_controls = find_forbidden_controls(other_cell);
@@ -1240,12 +1240,12 @@ struct ShareWorker
 				ez.assume(ez.AND(ez.expression(ez.OpOr, cell_active), ez.expression(ez.OpOr, other_cell_active)));
 
 				log("      Size of SAT problem: %d cells, %d variables, %d clauses\n",
-						SIZE(sat_cells), ez.numCnfVariables(), ez.numCnfClauses());
+						GetSize(sat_cells), ez.numCnfVariables(), ez.numCnfClauses());
 
 				if (ez.solve(sat_model, sat_model_values)) {
 					log("      According to the SAT solver this pair of cells can not be shared.\n");
-					log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), SIZE(sat_model_values));
-					for (int i = SIZE(sat_model_values)-1; i >= 0; i--)
+					log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
+					for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
 						log("%c", sat_model_values[i] ? '1' : '0');
 					log("\n");
 					continue;
@@ -1331,7 +1331,7 @@ struct ShareWorker
 		}
 
 		if (!cells_to_remove.empty()) {
-			log("Removing %d cells in module %s:\n", SIZE(cells_to_remove), log_id(module));
+			log("Removing %d cells in module %s:\n", GetSize(cells_to_remove), log_id(module));
 			for (auto c : cells_to_remove) {
 				log("  Removing cell %s (%s).\n", log_id(c), log_id(c->type));
 				module->remove(c);

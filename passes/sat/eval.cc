@@ -69,7 +69,7 @@ struct BruteForceEquivChecker
 					log_signal(undef2), log_signal(mod1_inputs), log_signal(inputs));
 
 		if (ignore_x_mod1) {
-			for (int i = 0; i < SIZE(sig1); i++)
+			for (int i = 0; i < GetSize(sig1); i++)
 				if (sig1[i] == RTLIL::State::Sx)
 					sig2[i] = RTLIL::State::Sx;
 		}
@@ -290,7 +290,7 @@ struct VlogHammerReporter
 				} else if (rtl_sig.size() > 0) {
 					if (rtl_sig.size() != sig.size())
 						log_error("Output (y) has a different width in module %s compared to rtl!\n", RTLIL::id2cstr(module->name));
-					for (int i = 0; i < SIZE(sig); i++)
+					for (int i = 0; i < GetSize(sig); i++)
 						if (rtl_sig[i] == RTLIL::State::Sx)
 							sig[i] = RTLIL::State::Sx;
 				}

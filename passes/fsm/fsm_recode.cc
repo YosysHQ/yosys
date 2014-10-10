@@ -77,7 +77,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		if (!default_encoding.empty())
 			encoding = default_encoding;
 		else
-			encoding = SIZE(fsm_data.state_table) < 32 ? "one-hot" : "binary";
+			encoding = GetSize(fsm_data.state_table) < 32 ? "one-hot" : "binary";
 		log("  mapping auto encoding to `%s` for this FSM.\n", encoding.c_str());
 	}
 

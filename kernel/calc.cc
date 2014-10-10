@@ -303,7 +303,7 @@ RTLIL::Const RTLIL::const_shl(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 RTLIL::Const RTLIL::const_shr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
-	extend_u0(arg1_ext, std::max(result_len, SIZE(arg1)), signed1);
+	extend_u0(arg1_ext, std::max(result_len, GetSize(arg1)), signed1);
 	return const_shift_worker(arg1_ext, arg2, false, +1, result_len);
 }
 

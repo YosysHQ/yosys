@@ -575,9 +575,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		AstNode *index_expr = nullptr;
 
-		for (int i = 0; 2*i < SIZE(id2ast->multirange_dimensions); i++)
+		for (int i = 0; 2*i < GetSize(id2ast->multirange_dimensions); i++)
 		{
-			if (SIZE(children[0]->children) < i)
+			if (GetSize(children[0]->children) < i)
 				log_error("Insufficient number of array indices for %s at %s:%d.\n", log_id(str), filename.c_str(), linenum);
 
 			AstNode *new_index_expr = children[0]->children[i]->children.at(0)->clone();
@@ -591,7 +591,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				index_expr = new AstNode(AST_ADD, new AstNode(AST_MUL, index_expr, AstNode::mkconst_int(id2ast->multirange_dimensions[2*i-1], true)), new_index_expr);
 		}
 
-		for (int i = SIZE(id2ast->multirange_dimensions)/1; i < SIZE(children[0]->children); i++)
+		for (int i = GetSize(id2ast->multirange_dimensions)/1; i < GetSize(children[0]->children); i++)
 			children.push_back(children[0]->children[i]->clone());
 
 		delete children[0];
@@ -1366,7 +1366,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 				RTLIL::Const arg_value = buf->bitsAsConst();
 				if (arg_value.as_bool())
-					arg_value = const_sub(arg_value, 1, false, false, SIZE(arg_value));
+					arg_value = const_sub(arg_value, 1, false, false, GetSize(arg_value));
 				delete buf;
 
 				uint32_t result = 0;
@@ -1455,9 +1455,9 @@ skip_dynamic_range_lvalue_expansion:;
 				rtype = RTLIL::unescape_id(dpi_decl->children.at(0)->str);
 				fname = RTLIL::unescape_id(dpi_decl->children.at(1)->str);
 
-				for (int i = 2; i < SIZE(dpi_decl->children); i++)
+				for (int i = 2; i < GetSize(dpi_decl->children); i++)
 				{
-					if (i-2 >= SIZE(children))
+					if (i-2 >= GetSize(children))
 						log_error("Insufficient number of arguments in DPI function call at %s:%d.\n", filename.c_str(), linenum);
 
 					argtypes.push_back(RTLIL::unescape_id(dpi_decl->children.at(i)->str));
@@ -1558,7 +1558,7 @@ skip_dynamic_range_lvalue_expansion:;
 				celltype = RTLIL::escape_id(celltype);
 
 			AstNode *cell = new AstNode(AST_CELL, new AstNode(AST_CELLTYPE));
-			cell->str = prefix.substr(0, SIZE(prefix)-1);
+			cell->str = prefix.substr(0, GetSize(prefix)-1);
 			cell->children[0]->str = celltype;
 
 			for (auto attr : decl->attributes)
@@ -1681,7 +1681,7 @@ skip_dynamic_range_lvalue_expansion:;
 						bool param_upto = current_scope[str]->range_valid && current_scope[str]->range_swapped;
 						int param_offset = current_scope[str]->range_valid ? current_scope[str]->range_right : 0;
 						int param_width = current_scope[str]->range_valid ? current_scope[str]->range_left - current_scope[str]->range_right + 1 :
-								SIZE(current_scope[str]->children[0]->bits);
+								GetSize(current_scope[str]->children[0]->bits);
 						int tmp_range_left = children[0]->range_left, tmp_range_right = children[0]->range_right;
 						if (param_upto) {
 							tmp_range_left = (param_width + 2*param_offset) - children[0]->range_right - 1;
@@ -1847,7 +1847,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (children[0]->type == AST_CONSTANT && children[0]->bits_only_01()) {
 				std::vector<AstNode*> new_children;
 				new_children.push_back(children[0]);
-				for (int i = 1; i < SIZE(children); i++) {
+				for (int i = 1; i < GetSize(children); i++) {
 					AstNode *child = children[i];
 					log_assert(child->type == AST_COND);
 					for (auto v : child->children) {
@@ -1857,7 +1857,7 @@ skip_dynamic_range_lvalue_expansion:;
 							continue;
 						if (v->type == AST_CONSTANT && v->bits_only_01()) {
 							if (v->bits == children[0]->bits) {
-								while (i+1 < SIZE(children))
+								while (i+1 < GetSize(children))
 									delete children[++i];
 								goto keep_const_cond;
 							}

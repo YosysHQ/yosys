@@ -42,20 +42,20 @@ struct Macc
 
 		for (auto &port : ports)
 		{
-			if (SIZE(port.in_a) == 0 && SIZE(port.in_b) == 0)
+			if (GetSize(port.in_a) == 0 && GetSize(port.in_b) == 0)
 				continue;
 
-			if (SIZE(port.in_a) < SIZE(port.in_b))
+			if (GetSize(port.in_a) < GetSize(port.in_b))
 				std::swap(port.in_a, port.in_b);
 
-			if (SIZE(port.in_a) == 1 && SIZE(port.in_b) == 0 && !port.is_signed && !port.do_subtract) {
+			if (GetSize(port.in_a) == 1 && GetSize(port.in_b) == 0 && !port.is_signed && !port.do_subtract) {
 				bit_ports.append(port.in_a);
 				continue;
 			}
 
 			if (port.in_a.is_fully_const() && port.in_b.is_fully_const()) {
 				RTLIL::Const v = port.in_a.as_const();
-				if (SIZE(port.in_b))
+				if (GetSize(port.in_b))
 					v = const_mul(v, port.in_b.as_const(), port.is_signed, port.is_signed, width);
 				if (port.do_subtract)
 					off = const_sub(off, v, port.is_signed, port.is_signed, width);
@@ -65,15 +65,15 @@ struct Macc
 			}
 
 			if (port.is_signed) {
-				while (SIZE(port.in_a) > 1 && port.in_a[SIZE(port.in_a)-1] == port.in_a[SIZE(port.in_a)-2])
-					port.in_a.remove(SIZE(port.in_a)-1);
-				while (SIZE(port.in_b) > 1 && port.in_b[SIZE(port.in_b)-1] == port.in_b[SIZE(port.in_b)-2])
-					port.in_b.remove(SIZE(port.in_b)-1);
+				while (GetSize(port.in_a) > 1 && port.in_a[GetSize(port.in_a)-1] == port.in_a[GetSize(port.in_a)-2])
+					port.in_a.remove(GetSize(port.in_a)-1);
+				while (GetSize(port.in_b) > 1 && port.in_b[GetSize(port.in_b)-1] == port.in_b[GetSize(port.in_b)-2])
+					port.in_b.remove(GetSize(port.in_b)-1);
 			} else {
-				while (SIZE(port.in_a) > 1 && port.in_a[SIZE(port.in_a)-1] == RTLIL::S0)
-					port.in_a.remove(SIZE(port.in_a)-1);
-				while (SIZE(port.in_b) > 1 && port.in_b[SIZE(port.in_b)-1] == RTLIL::S0)
-					port.in_b.remove(SIZE(port.in_b)-1);
+				while (GetSize(port.in_a) > 1 && port.in_a[GetSize(port.in_a)-1] == RTLIL::S0)
+					port.in_a.remove(GetSize(port.in_a)-1);
+				while (GetSize(port.in_b) > 1 && port.in_b[GetSize(port.in_b)-1] == RTLIL::S0)
+					port.in_b.remove(GetSize(port.in_b)-1);
 			}
 
 			new_ports.push_back(port);
@@ -108,7 +108,7 @@ struct Macc
 		int config_width = cell->getParam("\\CONFIG_WIDTH").as_int();
 		int config_cursor = 0;
 
-		log_assert(SIZE(config_bits) >= config_width);
+		log_assert(GetSize(config_bits) >= config_width);
 
 		int num_bits = 0;
 		if (config_bits[config_cursor++] == RTLIL::S1) num_bits |= 1;
@@ -117,7 +117,7 @@ struct Macc
 		if (config_bits[config_cursor++] == RTLIL::S1) num_bits |= 8;
 
 		int port_a_cursor = 0;
-		while (port_a_cursor < SIZE(port_a))
+		while (port_a_cursor < GetSize(port_a))
 		{
 			log_assert(config_cursor + 2 + 2*num_bits <= config_width);
 
@@ -146,7 +146,7 @@ struct Macc
 		}
 
 		log_assert(config_cursor == config_width);
-		log_assert(port_a_cursor == SIZE(port_a));
+		log_assert(port_a_cursor == GetSize(port_a));
 	}
 
 	void to_cell(RTLIL::Cell *cell) const
@@ -156,8 +156,8 @@ struct Macc
 		int max_size = 0, num_bits = 0;
 
 		for (auto &port : ports) {
-			max_size = std::max(max_size, SIZE(port.in_a));
-			max_size = std::max(max_size, SIZE(port.in_b));
+			max_size = std::max(max_size, GetSize(port.in_a));
+			max_size = std::max(max_size, GetSize(port.in_b));
 		}
 
 		while (max_size)
@@ -171,17 +171,17 @@ struct Macc
 
 		for (auto &port : ports)
 		{
-			if (SIZE(port.in_a) == 0)
+			if (GetSize(port.in_a) == 0)
 				continue;
 
 			config_bits.push_back(port.is_signed ? RTLIL::S1 : RTLIL::S0);
 			config_bits.push_back(port.do_subtract ? RTLIL::S1 : RTLIL::S0);
 
-			int size_a = SIZE(port.in_a);
+			int size_a = GetSize(port.in_a);
 			for (int i = 0; i < num_bits; i++)
 				config_bits.push_back(size_a & (1 << i) ? RTLIL::S1 : RTLIL::S0);
 
-			int size_b = SIZE(port.in_b);
+			int size_b = GetSize(port.in_b);
 			for (int i = 0; i < num_bits; i++)
 				config_bits.push_back(size_b & (1 << i) ? RTLIL::S1 : RTLIL::S0);
 
@@ -192,9 +192,9 @@ struct Macc
 		cell->setPort("\\A", port_a);
 		cell->setPort("\\B", bit_ports);
 		cell->setParam("\\CONFIG", config_bits);
-		cell->setParam("\\CONFIG_WIDTH", SIZE(config_bits));
-		cell->setParam("\\A_WIDTH", SIZE(port_a));
-		cell->setParam("\\B_WIDTH", SIZE(bit_ports));
+		cell->setParam("\\CONFIG_WIDTH", GetSize(config_bits));
+		cell->setParam("\\A_WIDTH", GetSize(port_a));
+		cell->setParam("\\B_WIDTH", GetSize(bit_ports));
 	}
 
 	bool eval(RTLIL::Const &result) const
@@ -208,21 +208,21 @@ struct Macc
 				return false;
 
 			RTLIL::Const summand;
-			if (SIZE(port.in_b) == 0)
-				summand = const_pos(port.in_a.as_const(), port.in_b.as_const(), port.is_signed, port.is_signed, SIZE(result));
+			if (GetSize(port.in_b) == 0)
+				summand = const_pos(port.in_a.as_const(), port.in_b.as_const(), port.is_signed, port.is_signed, GetSize(result));
 			else
-				summand = const_mul(port.in_a.as_const(), port.in_b.as_const(), port.is_signed, port.is_signed, SIZE(result));
+				summand = const_mul(port.in_a.as_const(), port.in_b.as_const(), port.is_signed, port.is_signed, GetSize(result));
 
 			if (port.do_subtract)
-				result = const_sub(result, summand, port.is_signed, port.is_signed, SIZE(result));
+				result = const_sub(result, summand, port.is_signed, port.is_signed, GetSize(result));
 			else
-				result = const_add(result, summand, port.is_signed, port.is_signed, SIZE(result));
+				result = const_add(result, summand, port.is_signed, port.is_signed, GetSize(result));
 		}
 
 		for (auto bit : bit_ports) {
 			if (bit.wire)
 				return false;
-			result = const_add(result, bit.data, false, false, SIZE(result));
+			result = const_add(result, bit.data, false, false, GetSize(result));
 		}
 
 		return true;

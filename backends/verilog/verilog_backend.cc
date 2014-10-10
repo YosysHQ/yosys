@@ -315,7 +315,7 @@ std::string cellname(RTLIL::Cell *cell)
 	if (!norename && cell->name[0] == '$' && reg_ct.count(cell->type) && cell->hasPort("\\Q"))
 	{
 		RTLIL::SigSpec sig = cell->getPort("\\Q");
-		if (SIZE(sig) != 1 || sig.is_fully_const())
+		if (GetSize(sig) != 1 || sig.is_fully_const())
 			goto no_special_reg_name;
 
 		RTLIL::Wire *wire = sig[0].wire;

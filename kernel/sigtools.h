@@ -66,8 +66,8 @@ struct SigPool
 
 	void expand(RTLIL::SigSpec from, RTLIL::SigSpec to)
 	{
-		log_assert(SIZE(from) == SIZE(to));
-		for (int i = 0; i < SIZE(from); i++) {
+		log_assert(GetSize(from) == GetSize(to));
+		for (int i = 0; i < GetSize(from); i++) {
 			bitDef_t bit_from(from[i]), bit_to(to[i]);
 			if (bit_from.first != NULL && bit_to.first != NULL && bits.count(bit_from) > 0)
 				bits.insert(bit_to);
@@ -346,9 +346,9 @@ struct SigMap
 
 	void add(RTLIL::SigSpec from, RTLIL::SigSpec to)
 	{
-		log_assert(SIZE(from) == SIZE(to));
+		log_assert(GetSize(from) == GetSize(to));
 
-		for (int i = 0; i < SIZE(from); i++)
+		for (int i = 0; i < GetSize(from); i++)
 		{
 			RTLIL::SigBit &bf = from[i];
 			RTLIL::SigBit &bt = to[i];

@@ -229,9 +229,9 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep")) {
 				maybe_del_wires.push_back(wire);
 			} else {
-				log_assert(SIZE(s1) == SIZE(s2));
+				log_assert(GetSize(s1) == GetSize(s2));
 				RTLIL::SigSig new_conn;
-				for (int i = 0; i < SIZE(s1); i++)
+				for (int i = 0; i < GetSize(s1); i++)
 					if (s1[i] != s2[i]) {
 						new_conn.first.append_bit(s1[i]);
 						new_conn.second.append_bit(s2[i]);
@@ -250,7 +250,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		RTLIL::SigSpec sig = assign_map(RTLIL::SigSpec(wire));
 		if (!used_signals_nodrivers.check_any(sig)) {
 			std::string unused_bits;
-			for (int i = 0; i < SIZE(sig); i++) {
+			for (int i = 0; i < GetSize(sig); i++) {
 				if (sig[i].wire == NULL)
 					continue;
 				if (!used_signals_nodrivers.check(sig[i])) {
@@ -299,7 +299,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose)
 			bool is_signed = cell->type == "$pos" && cell->getParam("\\A_SIGNED").as_bool();
 			RTLIL::SigSpec a = cell->getPort("\\A");
 			RTLIL::SigSpec y = cell->getPort("\\Y");
-			a.extend_u0(SIZE(y), is_signed);
+			a.extend_u0(GetSize(y), is_signed);
 			module->connect(y, a);
 			delcells.push_back(cell);
 		}

@@ -36,7 +36,7 @@ static uint32_t xorshift32(uint32_t limit) {
 static RTLIL::Wire *getw(std::vector<RTLIL::Wire*> &wires, RTLIL::Wire *w)
 {
 	while (1) {
-		int idx = xorshift32(SIZE(wires));
+		int idx = xorshift32(GetSize(wires));
 		if (wires[idx] != w && !wires[idx]->port_output)
 			return wires[idx];
 	}
@@ -144,7 +144,7 @@ static void test_abcloop()
 		for (int i = 0; i < 16; i++)
 		{
 			std::vector<int> assumptions;
-			for (int j = 0; j < SIZE(in_vec); j++)
+			for (int j = 0; j < GetSize(in_vec); j++)
 				assumptions.push_back((i & (1 << j)) ? in_vec.at(j) : inverse_in_vec.at(j));
 
 			std::vector<bool> results;
@@ -197,7 +197,7 @@ static void test_abcloop()
 	for (int i = 0; i < 16; i++)
 	{
 		std::vector<int> assumptions;
-		for (int j = 0; j < SIZE(in_vec); j++)
+		for (int j = 0; j < GetSize(in_vec); j++)
 			assumptions.push_back((i & (1 << j)) ? in_vec.at(j) : inverse_in_vec.at(j));
 
 		for (int j = 0; j < 4; j++)
@@ -265,13 +265,13 @@ struct TestAbcloopPass : public Pass {
 		xorshift32_state = 0;
 
 		int argidx;
-		for (argidx = 1; argidx < SIZE(args); argidx++)
+		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
-			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-n" && argidx+1 < GetSize(args)) {
 				num_iter = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-s" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-s" && argidx+1 < GetSize(args)) {
 				xorshift32_state = atoi(args[++argidx].c_str());
 				continue;
 			}

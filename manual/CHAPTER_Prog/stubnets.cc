@@ -62,7 +62,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 
 		// for each bit (unless it is a constant):
 		// check if it is used at least two times and add to stub_bits otherwise
-		for (int i = 0; i < SIZE(sig); i++)
+		for (int i = 0; i < GetSize(sig); i++)
 			if (sig[i].wire != NULL && (bit_usage_count[sig[i]] + usage_offset) < 2)
 				stub_bits.insert(i);
 
@@ -72,7 +72,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 
 		// report stub bits and/or stub wires, don't report single bits
 		// if called with report_bits set to false.
-		if (SIZE(stub_bits) == SIZE(sig)) {
+		if (GetSize(stub_bits) == GetSize(sig)) {
 			log("  found stub wire: %s\n", RTLIL::id2cstr(wire->name));
 		} else {
 			if (!report_bits)

@@ -178,7 +178,7 @@ struct ShowWorker
 
 	std::string gen_signode_simple(RTLIL::SigSpec sig, bool range_check = true)
 	{
-		if (SIZE(sig) == 0) {
+		if (GetSize(sig) == 0) {
 			fprintf(f, "v%d [ label=\"\" ];\n", single_idx_count);
 			return stringf("v%d", single_idx_count++);
 		}

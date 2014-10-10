@@ -97,7 +97,7 @@ struct TechmapWorker
 		std::map<RTLIL::SigBit, std::pair<RTLIL::IdString, int>> connbits_map;
 
 		for (auto conn : cell->connections())
-			for (int i = 0; i < SIZE(conn.second); i++) {
+			for (int i = 0; i < GetSize(conn.second); i++) {
 				RTLIL::SigBit bit = sigmap(conn.second[i]);
 				if (bit.wire == nullptr) {
 					if (verbose)
@@ -162,7 +162,7 @@ struct TechmapWorker
 				log("  %s",RTLIL::id2cstr(it.first));
 			if (autoproc_mode) {
 				Pass::call_on_module(tpl->design, tpl, "proc");
-				log_assert(SIZE(tpl->processes) == 0);
+				log_assert(GetSize(tpl->processes) == 0);
 			} else
 				log_error("Technology map yielded processes -> this is not supported (use -autoproc to run 'proc' automatically).\n");
 		}
@@ -303,7 +303,7 @@ struct TechmapWorker
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				sig.remove_const();
 
-				if (SIZE(sig) == 0)
+				if (GetSize(sig) == 0)
 					continue;
 
 				for (auto &tpl_name : celltypeMap.at(cell_type)) {
@@ -383,7 +383,7 @@ struct TechmapWorker
 
 								int port_counter = 1;
 								for (auto &c : extmapper_cell->connections_) {
-									RTLIL::Wire *w = extmapper_module->addWire(c.first, SIZE(c.second));
+									RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
 									if (w->name == "\\Y" || w->name == "\\Q")
 										w->port_output = true;
 									else
@@ -630,7 +630,7 @@ struct TechmapWorker
 								}
 
 								for (auto conn : cell->connections())
-									for (int i = 0; i < SIZE(conn.second); i++)
+									for (int i = 0; i < GetSize(conn.second); i++)
 									{
 										RTLIL::SigBit bit = sigmap(conn.second[i]);
 										RTLIL::SigBit tplbit(tpl->wire(conn.first), i);

@@ -12,7 +12,7 @@ struct MyPass : public Pass {
         log("Modules in current design:\n");
         for (auto mod : design->modules())
             log("  %s (%zd wires, %zd cells)\n", log_id(mod),
-                    SIZE(mod->wires()), SIZE(mod->cells()));
+                    GetSize(mod->wires()), GetSize(mod->cells()));
     }
 } MyPass;
 

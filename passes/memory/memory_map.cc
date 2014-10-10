@@ -58,21 +58,21 @@ struct MemoryMapWorker
 	RTLIL::Wire *addr_decode(RTLIL::SigSpec addr_sig, RTLIL::SigSpec addr_val)
 	{
 		std::pair<RTLIL::SigSpec, RTLIL::SigSpec> key(addr_sig, addr_val);
-		log_assert(SIZE(addr_sig) == SIZE(addr_val));
+		log_assert(GetSize(addr_sig) == GetSize(addr_val));
 
 		if (decoder_cache.count(key) == 0) {
-			if (SIZE(addr_sig) < 2) {
+			if (GetSize(addr_sig) < 2) {
 				decoder_cache[key] = module->Eq(NEW_ID, addr_sig, addr_val);
 			} else {
-				int split_at = SIZE(addr_sig) / 2;
+				int split_at = GetSize(addr_sig) / 2;
 				RTLIL::SigBit left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at));
-				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, SIZE(addr_sig) - split_at), addr_val.extract(split_at, SIZE(addr_val) - split_at));
+				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at));
 				decoder_cache[key] = module->And(NEW_ID, left_eq, right_eq);
 			}
 		}
 
 		RTLIL::SigBit bit = decoder_cache.at(key);
-		log_assert(bit.wire != nullptr && SIZE(bit.wire) == 1);
+		log_assert(bit.wire != nullptr && GetSize(bit.wire) == 1);
 		return bit.wire;
 	}
 

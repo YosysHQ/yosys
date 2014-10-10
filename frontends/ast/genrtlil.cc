@@ -254,7 +254,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		// create initial assignments for the temporary signals
 		if ((flag_nolatches || always->get_bool_attribute("\\nolatches") || current_module->get_bool_attribute("\\nolatches")) && !found_clocked_sync) {
-			subst_rvalue_map = subst_lvalue_from.to_sigbit_map(RTLIL::SigSpec(RTLIL::State::Sx, SIZE(subst_lvalue_from)));
+			subst_rvalue_map = subst_lvalue_from.to_sigbit_map(RTLIL::SigSpec(RTLIL::State::Sx, GetSize(subst_lvalue_from)));
 		} else {
 			addChunkActions(current_case->actions, subst_lvalue_to, subst_lvalue_from);
 		}
@@ -289,8 +289,8 @@ struct AST_INTERNAL::ProcessGenerator
 	{
 		RTLIL::SigSpec new_lhs, new_rhs;
 
-		log_assert(SIZE(lhs) == SIZE(rhs));
-		for (int i = 0; i < SIZE(lhs); i++) {
+		log_assert(GetSize(lhs) == GetSize(rhs));
+		for (int i = 0; i < GetSize(lhs); i++) {
 			if (lhs[i].wire == nullptr)
 				continue;
 			new_lhs.append(lhs[i]);
@@ -306,7 +306,7 @@ struct AST_INTERNAL::ProcessGenerator
 	{
 		std::vector<RTLIL::SigChunk> chunks = sig.chunks();
 
-		for (int i = 0; i < SIZE(chunks); i++)
+		for (int i = 0; i < GetSize(chunks); i++)
 		{
 			RTLIL::SigChunk &chunk = chunks[i];
 			if (chunk.wire == NULL)
@@ -430,7 +430,7 @@ struct AST_INTERNAL::ProcessGenerator
 				lvalue.replace(subst_lvalue_map.stdmap());
 
 				if (ast->type == AST_ASSIGN_EQ) {
-					for (int i = 0; i < SIZE(unmapped_lvalue); i++)
+					for (int i = 0; i < GetSize(unmapped_lvalue); i++)
 						subst_rvalue_map.set(unmapped_lvalue[i], rvalue[i]);
 				}
 
@@ -472,7 +472,7 @@ struct AST_INTERNAL::ProcessGenerator
 					subst_lvalue_map.save();
 					subst_rvalue_map.save();
 
-					for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
+					for (int i = 0; i < GetSize(this_case_eq_lvalue); i++)
 						subst_lvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 					RTLIL::CaseRule *backup_case = current_case;
@@ -507,7 +507,7 @@ struct AST_INTERNAL::ProcessGenerator
 					sw->cases.push_back(default_case);
 				}
 
-				for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
+				for (int i = 0; i < GetSize(this_case_eq_lvalue); i++)
 					subst_rvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 				this_case_eq_lvalue.replace(subst_lvalue_map.stdmap());
@@ -941,7 +941,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast->children[1]->is_signed);
 						fake_ast->children[1]->is_signed = true;
 					}
-					if (SIZE(shift_val) >= 32)
+					if (GetSize(shift_val) >= 32)
 						fake_ast->children[1]->is_signed = true;
 					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shiftx", width, fake_ast->children[0]->genRTLIL(), shift_val);
 					delete left_at_zero_ast;

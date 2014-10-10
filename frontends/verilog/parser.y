@@ -142,7 +142,7 @@ input: {
 	ast_stack.push_back(current_ast);
 } design {
 	ast_stack.pop_back();
-	log_assert(SIZE(ast_stack) == 0);
+	log_assert(GetSize(ast_stack) == 0);
 	for (auto &it : default_attr_list)
 		delete it.second;
 	default_attr_list.clear();

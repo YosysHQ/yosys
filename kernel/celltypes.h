@@ -303,7 +303,7 @@ struct CellTypes
 			int width = cell->parameters.at("\\WIDTH").as_int();
 
 			std::vector<RTLIL::State> t = cell->parameters.at("\\LUT").bits;
-			while (SIZE(t) < (1 << width))
+			while (GetSize(t) < (1 << width))
 				t.push_back(RTLIL::S0);
 			t.resize(1 << width);
 
@@ -311,16 +311,16 @@ struct CellTypes
 				RTLIL::State sel = arg1.bits.at(i);
 				std::vector<RTLIL::State> new_t;
 				if (sel == RTLIL::S0)
-					new_t = std::vector<RTLIL::State>(t.begin(), t.begin() + SIZE(t)/2);
+					new_t = std::vector<RTLIL::State>(t.begin(), t.begin() + GetSize(t)/2);
 				else if (sel == RTLIL::S1)
-					new_t = std::vector<RTLIL::State>(t.begin() + SIZE(t)/2, t.end());
+					new_t = std::vector<RTLIL::State>(t.begin() + GetSize(t)/2, t.end());
 				else
-					for (int j = 0; j < SIZE(t)/2; j++)
-						new_t.push_back(t[j] == t[j + SIZE(t)/2] ? t[j] : RTLIL::Sx);
+					for (int j = 0; j < GetSize(t)/2; j++)
+						new_t.push_back(t[j] == t[j + GetSize(t)/2] ? t[j] : RTLIL::Sx);
 				t.swap(new_t);
 			}
 
-			log_assert(SIZE(t) == 1);
+			log_assert(GetSize(t) == 1);
 			return t;
 		}
 

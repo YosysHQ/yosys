@@ -336,9 +336,9 @@ struct TestAutotbBackend : public Backend {
 		log_header("Executing TEST_AUTOTB backend (auto-generate pseudo-random test benches).\n");
 
 		int argidx;
-		for (argidx = 1; argidx < SIZE(args); argidx++)
+		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
-			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-n" && argidx+1 < GetSize(args)) {
 				num_iter = atoi(args[++argidx].c_str());
 				continue;
 			}

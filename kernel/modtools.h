@@ -59,7 +59,7 @@ struct ModIndex : public RTLIL::Monitor
 
 	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
-		for (int i = 0; i < SIZE(sig); i++) {
+		for (int i = 0; i < GetSize(sig); i++) {
 			RTLIL::SigBit bit = sigmap(sig[i]);
 			if (bit.wire)
 				database[bit].ports.insert(PortInfo(cell, port, i));
@@ -68,7 +68,7 @@ struct ModIndex : public RTLIL::Monitor
 
 	void port_del(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
-		for (int i = 0; i < SIZE(sig); i++) {
+		for (int i = 0; i < GetSize(sig); i++) {
 			RTLIL::SigBit bit = sigmap(sig[i]);
 			if (bit.wire)
 				database[bit].ports.erase(PortInfo(cell, port, i));
@@ -88,7 +88,7 @@ struct ModIndex : public RTLIL::Monitor
 		database.clear();
 		for (auto wire : module->wires())
 			if (wire->port_input || wire->port_output)
-				for (int i = 0; i < SIZE(wire); i++) {
+				for (int i = 0; i < GetSize(wire); i++) {
 					RTLIL::SigBit bit = sigmap(RTLIL::SigBit(wire, i));
 					if (bit.wire && wire->port_input)
 						database[bit].is_input = true;

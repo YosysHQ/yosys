@@ -43,7 +43,7 @@ struct FsmOpt
 			std::vector<RTLIL::Const> new_state_table;
 			std::map<int, int> old_to_new_state;
 
-			for (int i = 0; i < SIZE(fsm_data.state_table); i++)
+			for (int i = 0; i < GetSize(fsm_data.state_table); i++)
 				if (i != fsm_data.reset_state)
 					unreachable_states.insert(i);
 
@@ -53,12 +53,12 @@ struct FsmOpt
 			if (unreachable_states.empty())
 				break;
 
-			for (int i = 0; i < SIZE(fsm_data.state_table); i++) {
+			for (int i = 0; i < GetSize(fsm_data.state_table); i++) {
 				if (unreachable_states.count(i)) {
 					log("  Removing unreachable state %s.\n", log_signal(fsm_data.state_table[i]));
 					continue;
 				}
-				old_to_new_state[i] = SIZE(new_state_table);
+				old_to_new_state[i] = GetSize(new_state_table);
 				new_state_table.push_back(fsm_data.state_table[i]);
 			}
 
