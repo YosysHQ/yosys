@@ -518,24 +518,21 @@ struct ExtractPass : public Pass {
 			if (args[argidx] == "-swap" && argidx+2 < args.size()) {
 				std::string type = RTLIL::escape_id(args[++argidx]);
 				std::set<std::string> ports;
-				char *ports_str = strdup(args[++argidx].c_str());
-				for (char *sptr, *p = strtok_r(ports_str, ",\t\r\n ", &sptr); p != NULL; p = strtok_r(NULL, ",\t\r\n ", &sptr))
+				std::string ports_str = args[++argidx], p;
+				while (!(p = next_token(ports_str, ",\t\r\n ")).empty())
 					ports.insert(RTLIL::escape_id(p));
-				free(ports_str);
 				solver.addSwappablePorts(type, ports);
 				continue;
 			}
 			if (args[argidx] == "-perm" && argidx+3 < args.size()) {
 				std::string type = RTLIL::escape_id(args[++argidx]);
 				std::vector<std::string> map_left, map_right;
-				char *left_str = strdup(args[++argidx].c_str());
-				char *right_str = strdup(args[++argidx].c_str());
-				for (char *sptr, *p = strtok_r(left_str, ",\t\r\n ", &sptr); p != NULL; p = strtok_r(NULL, ",\t\r\n ", &sptr))
+				std::string left_str = args[++argidx];
+				std::string right_str = args[++argidx], p;
+				while (!(p = next_token(left_str, ",\t\r\n ")).empty())
 					map_left.push_back(RTLIL::escape_id(p));
-				for (char *sptr, *p = strtok_r(right_str, ",\t\r\n ", &sptr); p != NULL; p = strtok_r(NULL, ",\t\r\n ", &sptr))
+				while (!(p = next_token(right_str, ",\t\r\n ")).empty())
 					map_right.push_back(RTLIL::escape_id(p));
-				free(left_str);
-				free(right_str);
 				if (map_left.size() != map_right.size())
 					log_cmd_error("Arguments to -perm are not a valid permutation!\n");
 				std::map<std::string, std::string> map;
@@ -665,7 +662,7 @@ struct ExtractPass : public Pass {
 				log("Solving for %s in %s.\n", ("needle_" + RTLIL::unescape_id(needle->name)).c_str(), haystack_it.first.c_str());
 				solver.solve(results, "needle_" + RTLIL::unescape_id(needle->name), haystack_it.first, false);
 			}
-			log("Found %zd matches.\n", results.size());
+			log("Found %d matches.\n", GetSize(results));
 
 			if (results.size() > 0)
 			{
