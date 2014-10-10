@@ -17,11 +17,10 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/patmatch.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <fnmatch.h>
 #include <set>
 #include <unistd.h>
 
@@ -47,7 +46,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		if (cell->type.substr(0, 1) == "$" && cell->type.substr(0, 3) != "$__")
 			continue;
 		for (auto &pattern : celltypes)
-			if (!fnmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str(), FNM_NOESCAPE))
+			if (patmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str()))
 				found_celltypes.insert(cell->type);
 	}
 
@@ -97,7 +96,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		while (portnames.size() > 0) {
 			RTLIL::IdString portname = *portnames.begin();
 			for (auto &decl : portdecls)
-				if (decl.index == 0 && !fnmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str(), FNM_NOESCAPE)) {
+				if (decl.index == 0 && patmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str())) {
 					generate_port_decl_t d = decl;
 					d.portname = portname;
 					d.index = *indices.begin();

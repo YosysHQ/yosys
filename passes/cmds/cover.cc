@@ -19,11 +19,9 @@
 
 #include <sys/types.h>
 #include <unistd.h>
-#include <fnmatch.h>
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/patmatch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -123,7 +121,7 @@ struct CoverPass : public Pass {
 		for (auto &it : get_coverage_data()) {
 			if (!patterns.empty()) {
 				for (auto &p : patterns)
-					if (!fnmatch(p.c_str(), it.first.c_str(), 0))
+					if (patmatch(p.c_str(), it.first.c_str()))
 						goto pattern_match;
 				continue;
 			}
