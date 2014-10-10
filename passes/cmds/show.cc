@@ -72,7 +72,7 @@ struct ShowWorker
 	{
 		if (currentColor == 0)
 			return "color=\"black\"";
-		return stringf("colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", currentColor%8+1);
+		return stringf("colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", currentColor%8+1, currentColor%8+1);
 	}
 
 	std::string nextColor(std::string presetColor)

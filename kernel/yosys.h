@@ -82,7 +82,7 @@ namespace RTLIL {
 	struct Cell;
 }
 
-std::string stringf(const char *fmt, ...);
+std::string stringf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 std::string vstringf(const char *fmt, va_list ap);
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 int GetSize(RTLIL::Wire *wire);

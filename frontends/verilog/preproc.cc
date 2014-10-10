@@ -422,7 +422,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 					if (tok == "(" || tok == "{" || tok == "[")
 						level++;
 				}
-				for (size_t i = 0; i < args.size(); i++)
+				for (int i = 0; i < GetSize(args); i++)
 					defines_map[stringf("macro_%s_arg%d", name.c_str(), i+1)] = args[i];
 			} else {
 				insert_input(tok);

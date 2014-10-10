@@ -109,8 +109,10 @@ struct TechmapWorker
 								connbits_map.at(bit).second, log_id(connbits_map.at(bit).first));
 					constmap_info += stringf("|%s %d %s %d", log_id(conn.first), i,
 							log_id(connbits_map.at(bit).first), connbits_map.at(bit).second);
-				} else
-					connbits_map[bit] = std::pair<RTLIL::IdString, int>(conn.first, i);stringf("%s %d", log_id(conn.first), i, bit.data);
+				} else {
+					connbits_map[bit] = std::pair<RTLIL::IdString, int>(conn.first, i);
+					constmap_info += stringf("|%s %d", log_id(conn.first), i);
+				}
 			}
 
 		return stringf("$paramod$constmap:%s%s", sha1(constmap_info).c_str(), tpl->name.c_str());

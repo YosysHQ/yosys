@@ -68,7 +68,7 @@ struct SatGen
 				else
 					vec.push_back(bit == (undef_mode ? RTLIL::State::Sx : RTLIL::State::S1) ? ez->CONST_TRUE : ez->CONST_FALSE);
 			} else {
-				std::string name = pf + stringf(bit.wire->width == 1 ?  "%s" : "%s [%d]", RTLIL::id2cstr(bit.wire->name), bit.offset);
+				std::string name = pf + (bit.wire->width == 1 ? stringf("%s", log_id(bit.wire)) : stringf("%s [%d]", log_id(bit.wire->name), bit.offset));
 				vec.push_back(ez->frozen_literal(name));
 				imported_signals[pf][bit] = vec.back();
 			}
