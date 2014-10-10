@@ -20,7 +20,6 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
-#include "kernel/patmatch.h"
 #include <string.h>
 #include <errno.h>
 

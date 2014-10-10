@@ -18,7 +18,6 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/patmatch.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>

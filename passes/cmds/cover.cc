@@ -19,9 +19,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
-
 #include "kernel/yosys.h"
-#include "kernel/patmatch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

@@ -66,6 +66,68 @@ std::string vstringf(const char *fmt, va_list ap)
 	return string;
 }
 
+// this is very similar to fnmatch(). the exact rules used by this
+// function are:
+//
+//    ?        matches any character except
+//    *        matches any sequence of characters
+//    [...]    matches any of the characters in the list
+//    [!..]    matches any of the characters not in the list
+//
+// a backslash may be used to escape the next characters in the
+// pattern. each special character can also simply match itself.
+//
+static bool patmatch(const char *pattern, const char *string)
+{
+	if (*pattern == 0)
+		return *string == 0;
+
+	if (*pattern == '\\') {
+		if (pattern[1] == string[0] && patmatch(pattern+2, string+1))
+			return true;
+	}
+
+	if (*pattern == '?') {
+		if (*string == 0)
+			return false;
+		return patmatch(pattern+1, string+1);
+	}
+
+	if (*pattern == '*') {
+		while (*string) {
+			if (patmatch(pattern+1, string++))
+				return true;
+		}
+		return pattern[1] == 0;
+	}
+
+	if (*pattern == '[') {
+		bool found_match = false;
+		bool inverted_list = pattern[1] == '!';
+		const char *p = pattern + (inverted_list ? 1 : 0);
+
+		while (*++p) {
+			if (*p == ']') {
+				if (found_match != inverted_list && patmatch(p+1, string+1))
+					return true;
+				break;
+			}
+
+			if (*p == '\\') {
+				if (*++p == *string)
+					found_match = true;
+			} else
+			if (*p == *string)
+				found_match = true;
+		}
+	}
+
+	if (*pattern == *string)
+		return patmatch(pattern+1, string+1);
+
+	return false;
+}
+
 int GetSize(RTLIL::Wire *wire)
 {
 	return wire->width;
