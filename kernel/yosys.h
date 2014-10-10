@@ -84,7 +84,7 @@ namespace RTLIL {
 
 std::string stringf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 std::string vstringf(const char *fmt, va_list ap);
-
+std::string next_token(std::string &text, const char *sep);
 bool patmatch(const char *pattern, const char *string);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
