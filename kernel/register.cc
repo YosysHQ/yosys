@@ -146,35 +146,34 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 void Pass::call(RTLIL::Design *design, std::string command)
 {
 	std::vector<std::string> args;
-	char *s = strdup(command.c_str()), *sstart = s, *saveptr;
-	s += strspn(s, " \t\r\n");
-	if (*s == 0 || *s == '#') {
-		free(sstart);
+
+	std::string cmd_buf = command;
+	std::string tok = next_token(cmd_buf, " \t\r\n");
+
+	if (tok.empty() || tok[0] == '#')
 		return;
-	}
-	if (*s == '!') {
-		for (s++; *s == ' ' || *s == '\t'; s++) { }
-		char *p = s + strlen(s) - 1;
-		while (p >= s && (*p == '\r' || *p == '\n'))
-			*(p--) = 0;
-		log_header("Shell command: %s\n", s);
-		int retCode = system(s);
+
+	if (tok[0] == '!') {
+		cmd_buf = command.substr(command.find('!') + 1);
+		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
+				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
+			cmd_buf.resize(cmd_buf.size()-1);
+		log_header("Shell command: %s\n", cmd_buf.c_str());
+		int retCode = system(cmd_buf.c_str());
 		if (retCode != 0)
 			log_cmd_error("Shell command returned error code %d.\n", retCode);
-		free(sstart);
 		return;
 	}
-	for (char *p = strtok_r(s, " \t\r\n", &saveptr); p; p = strtok_r(NULL, " \t\r\n", &saveptr)) {
-		std::string str = p;
-		int strsz = str.size();
-		if (str == "#")
+
+	while (!tok.empty()) {
+		if (tok == "#")
 			break;
-		if (strsz > 0 && str[strsz-1] == ';') {
+		if (tok.back() == ';') {
 			int num_semikolon = 0;
-			while (strsz > 0 && str[strsz-1] == ';')
-				strsz--, num_semikolon++;
-			if (strsz > 0)
-				args.push_back(str.substr(0, strsz));
+			while (!tok.empty() && tok.back() == ';')
+				tok.resize(tok.size()-1), num_semikolon++;
+			if (!tok.empty())
+				args.push_back(tok);
 			call(design, args);
 			args.clear();
 			if (num_semikolon == 2)
@@ -182,9 +181,10 @@ void Pass::call(RTLIL::Design *design, std::string command)
 			if (num_semikolon == 3)
 				call(design, "clean -purge");
 		} else
-			args.push_back(str);
+			args.push_back(tok);
+		tok = next_token(cmd_buf, " \t\r\n");
 	}
-	free(sstart);
+
 	call(design, args);
 }
 
