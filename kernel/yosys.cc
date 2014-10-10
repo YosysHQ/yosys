@@ -87,12 +87,12 @@ std::string next_token(std::string &text, const char *sep)
 {
 	size_t pos_begin = text.find_first_not_of(sep);
 
-	if (pos_begin == string::npos)
+	if (pos_begin == std::string::npos)
 		pos_begin = text.size();
 
 	size_t pos_end = text.find_first_of(sep, pos_begin);
 
-	if (pos_end == string::npos)
+	if (pos_end == std::string::npos)
 		pos_end = text.size();
 
 	std::string token = text.substr(pos_begin, pos_end-pos_begin);
