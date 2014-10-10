@@ -24,7 +24,10 @@
 #  include <readline/history.h>
 #endif
 
-#include <dlfcn.h>
+#ifndef _WIN32
+#  include <dlfcn.h>
+#endif
+
 #include <unistd.h>
 #include <limits.h>
 #include <errno.h>
@@ -55,8 +58,22 @@ std::string vstringf(const char *fmt, va_list ap)
 	std::string string;
 	char *str = NULL;
 
+#ifdef _WIN32
+	int sz = 64, rc;
+	while (1) {
+		va_list apc;
+		va_copy(apc, ap);
+		str = (char*)realloc(str, sz);
+		rc = vsnprintf(str, sz, fmt, apc);
+		va_end(apc);
+		if (rc >= 0 && rc < sz)
+			break;
+		sz *= 2;
+	}
+#else
 	if (vasprintf(&str, fmt, ap) < 0)
 		str = NULL;
+#endif
 
 	if (str != NULL) {
 		string = str;
@@ -163,8 +180,10 @@ void yosys_shutdown()
 	}
 #endif
 
+#ifndef _WIN32
 	for (auto &it : loaded_plugins)
 		dlclose(it.second);
+#endif
 
 	loaded_plugins.clear();
 	loaded_plugin_aliases.clear();
@@ -272,7 +291,7 @@ struct TclPass : public Pass {
 #endif
 
 #if defined(__linux__)
-std::string proc_self_dirname ()
+std::string proc_self_dirname()
 {
 	char path [PATH_MAX];
 	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
@@ -285,7 +304,7 @@ std::string proc_self_dirname ()
 }
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
-std::string proc_self_dirname ()
+std::string proc_self_dirname()
 {
 	char * path = NULL;
 	uint32_t buflen = 0;
@@ -295,8 +314,14 @@ std::string proc_self_dirname ()
 		buflen--;
 	return std::string(path, buflen);
 }
+#elif defined(_WIN32)
+std::string proc_self_dirname()
+{
+	#warning Fixme: Implement proc_self_dirname() for win32.
+	log_error("proc_self_dirname() is not implemented for win32 yet!\n");
+}
 #elif defined(EMSCRIPTEN)
-std::string proc_self_dirname ()
+std::string proc_self_dirname()
 {
 	return "/";
 }
@@ -304,7 +329,7 @@ std::string proc_self_dirname ()
 	#error Dont know how to determine process executable base path!
 #endif
 
-std::string proc_share_dirname ()
+std::string proc_share_dirname()
 {
 	std::string proc_self_path = proc_self_dirname();
 	std::string proc_share_path = proc_self_path + "share/";
