@@ -204,7 +204,7 @@ struct VlogHammerReporter
 				if (y_undef.at(i))
 				{
 					log("    Toggling undef bit %d to test undef gating.\n", i);
-					if (!ez.solve(y_vec, y_values, ez.IFF(y_vec.at(i), y_values.at(i) ? ez.FALSE : ez.TRUE)))
+					if (!ez.solve(y_vec, y_values, ez.IFF(y_vec.at(i), y_values.at(i) ? ez.CONST_FALSE : ez.CONST_TRUE)))
 						log_error("Failed to find solution with toggled bit!\n");
 
 					cmp_vars.push_back(y_vec.at(expected_y.size() + i));

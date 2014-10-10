@@ -37,8 +37,8 @@ ezMiniSAT::ezMiniSAT() : minisatSolver(NULL)
 	minisatSolver = NULL;
 	foundContradiction = false;
 
-	freeze(TRUE);
-	freeze(FALSE);
+	freeze(CONST_TRUE);
+	freeze(CONST_FALSE);
 }
 
 ezMiniSAT::~ezMiniSAT()

@@ -25,8 +25,8 @@
 
 #include <stdlib.h>
 
-const int ezSAT::TRUE = 1;
-const int ezSAT::FALSE = 2;
+const int ezSAT::CONST_TRUE = 1;
+const int ezSAT::CONST_FALSE = 2;
 
 ezSAT::ezSAT()
 {
@@ -42,11 +42,11 @@ ezSAT::ezSAT()
 	solverTimeout = 0;
 	solverTimoutStatus = false;
 
-	literal("TRUE");
-	literal("FALSE");
+	literal("CONST_TRUE");
+	literal("CONST_FALSE");
 
-	assert(literal("TRUE") == TRUE);
-	assert(literal("FALSE") == FALSE);
+	assert(literal("CONST_TRUE") == CONST_TRUE);
+	assert(literal("CONST_FALSE") == CONST_FALSE);
 }
 
 ezSAT::~ezSAT()
@@ -55,7 +55,7 @@ ezSAT::~ezSAT()
 
 int ezSAT::value(bool val)
 {
-	return val ? TRUE : FALSE;
+	return val ? CONST_TRUE : CONST_FALSE;
 }
 
 int ezSAT::literal()
@@ -105,11 +105,11 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 	{
 		if (arg == 0)
 			continue;
-		if (op == OpAnd && arg == TRUE)
+		if (op == OpAnd && arg == CONST_TRUE)
 			continue;
-		if ((op == OpOr || op == OpXor) && arg == FALSE)
+		if ((op == OpOr || op == OpXor) && arg == CONST_FALSE)
 			continue;
-		if (op == OpXor && arg == TRUE) {
+		if (op == OpXor && arg == CONST_TRUE) {
 			xorRemovedOddTrues = !xorRemovedOddTrues;
 			continue;
 		}
@@ -131,29 +131,29 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 	{
 	case OpNot:
 		assert(myArgs.size() == 1);
-		if (myArgs[0] == TRUE)
-			return FALSE;
-		if (myArgs[0] == FALSE)
-			return TRUE;
+		if (myArgs[0] == CONST_TRUE)
+			return CONST_FALSE;
+		if (myArgs[0] == CONST_FALSE)
+			return CONST_TRUE;
 		break;
 
 	case OpAnd:
 		if (myArgs.size() == 0)
-			return TRUE;
+			return CONST_TRUE;
 		if (myArgs.size() == 1)
 			return myArgs[0];
 		break;
 
 	case OpOr:
 		if (myArgs.size() == 0)
-			return FALSE;
+			return CONST_FALSE;
 		if (myArgs.size() == 1)
 			return myArgs[0];
 		break;
 
 	case OpXor:
 		if (myArgs.size() == 0)
-			return xorRemovedOddTrues ? TRUE : FALSE;
+			return xorRemovedOddTrues ? CONST_TRUE : CONST_FALSE;
 		if (myArgs.size() == 1)
 			return xorRemovedOddTrues ? NOT(myArgs[0]) : myArgs[0];
 		break;
@@ -161,15 +161,15 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 	case OpIFF:
 		assert(myArgs.size() >= 1);
 		if (myArgs.size() == 1)
-			return TRUE;
+			return CONST_TRUE;
 		// FIXME: Add proper const folding
 		break;
 
 	case OpITE:
 		assert(myArgs.size() == 3);
-		if (myArgs[0] == TRUE)
+		if (myArgs[0] == CONST_TRUE)
 			return myArgs[1];
-		if (myArgs[0] == FALSE)
+		if (myArgs[0] == CONST_FALSE)
 			return myArgs[2];
 		break;
 
@@ -281,7 +281,7 @@ std::string ezSAT::to_string(int id) const
 int ezSAT::eval(int id, const std::vector<int> &values) const
 {
 	if (id > 0) {
-		if (id <= int(values.size()) && (values[id-1] == TRUE || values[id-1] == FALSE || values[id-1] == 0))
+		if (id <= int(values.size()) && (values[id-1] == CONST_TRUE || values[id-1] == CONST_FALSE || values[id-1] == 0))
 			return values[id-1];
 		return 0;
 	}
@@ -295,39 +295,39 @@ int ezSAT::eval(int id, const std::vector<int> &values) const
 	case OpNot:
 		assert(args.size() == 1);
 		a = eval(args[0], values);
-		if (a == TRUE)
-			return FALSE;
-		if (a == FALSE)
-			return TRUE;
+		if (a == CONST_TRUE)
+			return CONST_FALSE;
+		if (a == CONST_FALSE)
+			return CONST_TRUE;
 		return 0;
 	case OpAnd:
-		a = TRUE;
+		a = CONST_TRUE;
 		for (auto arg : args) {
 			b = eval(arg, values);
-			if (b != TRUE && b != FALSE)
+			if (b != CONST_TRUE && b != CONST_FALSE)
 				a = 0;
-			if (b == FALSE)
-				return FALSE;
+			if (b == CONST_FALSE)
+				return CONST_FALSE;
 		}
 		return a;
 	case OpOr:
-		a = FALSE;
+		a = CONST_FALSE;
 		for (auto arg : args) {
 			b = eval(arg, values);
-			if (b != TRUE && b != FALSE)
+			if (b != CONST_TRUE && b != CONST_FALSE)
 				a = 0;
-			if (b == TRUE)
-				return TRUE;
+			if (b == CONST_TRUE)
+				return CONST_TRUE;
 		}
 		return a;
 	case OpXor:
-		a = FALSE;
+		a = CONST_FALSE;
 		for (auto arg : args) {
 			b = eval(arg, values);
-			if (b != TRUE && b != FALSE)
+			if (b != CONST_TRUE && b != CONST_FALSE)
 				return 0;
-			if (b == TRUE)
-				a = a == TRUE ? FALSE : TRUE;
+			if (b == CONST_TRUE)
+				a = a == CONST_TRUE ? CONST_FALSE : CONST_TRUE;
 		}
 		return a;
 	case OpIFF:
@@ -335,18 +335,18 @@ int ezSAT::eval(int id, const std::vector<int> &values) const
 		a = eval(args[0], values);
 		for (auto arg : args) {
 			b = eval(arg, values);
-			if (b != TRUE && b != FALSE)
+			if (b != CONST_TRUE && b != CONST_FALSE)
 				return 0;
 			if (b != a)
-				return FALSE;
+				return CONST_FALSE;
 		}
-		return TRUE;
+		return CONST_TRUE;
 	case OpITE:
 		assert(args.size() == 3);
 		a = eval(args[0], values);
-		if (a == TRUE)
+		if (a == CONST_TRUE)
 			return eval(args[1], values);
-		if (a == FALSE)
+		if (a == CONST_FALSE)
 			return eval(args[2], values);
 		return 0;
 	default:
@@ -516,9 +516,9 @@ int ezSAT::bind(int id, bool auto_freeze)
 		}
 		if (cnfLiteralVariables[id-1] == 0) {
 			cnfLiteralVariables[id-1] = ++cnfVariableCount;
-			if (id == TRUE)
+			if (id == CONST_TRUE)
 				add_clause(+cnfLiteralVariables[id-1]);
-			if (id == FALSE)
+			if (id == CONST_FALSE)
 				add_clause(-cnfLiteralVariables[id-1]);
 		}
 		return cnfLiteralVariables[id-1];
@@ -638,7 +638,7 @@ std::vector<int> ezSAT::vec_const(const std::vector<bool> &bits)
 {
 	std::vector<int> vec;
 	for (auto bit : bits)
-		vec.push_back(bit ? TRUE : FALSE);
+		vec.push_back(bit ? CONST_TRUE : CONST_FALSE);
 	return vec;
 }
 
@@ -646,7 +646,7 @@ std::vector<int> ezSAT::vec_const_signed(int64_t value, int numBits)
 {
 	std::vector<int> vec;
 	for (int i = 0; i < numBits; i++)
-		vec.push_back(((value >> i) & 1) != 0 ? TRUE : FALSE);
+		vec.push_back(((value >> i) & 1) != 0 ? CONST_TRUE : CONST_FALSE);
 	return vec;
 }
 
@@ -654,7 +654,7 @@ std::vector<int> ezSAT::vec_const_unsigned(uint64_t value, int numBits)
 {
 	std::vector<int> vec;
 	for (int i = 0; i < numBits; i++)
-		vec.push_back(((value >> i) & 1) != 0 ? TRUE : FALSE);
+		vec.push_back(((value >> i) & 1) != 0 ? CONST_TRUE : CONST_FALSE);
 	return vec;
 }
 
@@ -679,7 +679,7 @@ std::vector<int> ezSAT::vec_cast(const std::vector<int> &vec1, int toBits, bool 
 	std::vector<int> vec;
 	for (int i = 0; i < toBits; i++)
 		if (i >= int(vec1.size()))
-			vec.push_back(signExtend ? vec1.back() : FALSE);
+			vec.push_back(signExtend ? vec1.back() : CONST_FALSE);
 		else
 			vec.push_back(vec1[i]);
 	return vec;
@@ -807,7 +807,7 @@ std::vector<int> ezSAT::vec_add(const std::vector<int> &vec1, const std::vector<
 {
 	assert(vec1.size() == vec2.size());
 	std::vector<int> vec(vec1.size());
-	int carry = FALSE;
+	int carry = CONST_FALSE;
 	for (int i = 0; i < int(vec1.size()); i++)
 		fulladder(this, vec1[i], vec2[i], carry, carry, vec[i]);
 
@@ -831,7 +831,7 @@ std::vector<int> ezSAT::vec_sub(const std::vector<int> &vec1, const std::vector<
 {
 	assert(vec1.size() == vec2.size());
 	std::vector<int> vec(vec1.size());
-	int carry = TRUE;
+	int carry = CONST_TRUE;
 	for (int i = 0; i < int(vec1.size()); i++)
 		fulladder(this, vec1[i], NOT(vec2[i]), carry, carry, vec[i]);
 
@@ -853,15 +853,15 @@ std::vector<int> ezSAT::vec_sub(const std::vector<int> &vec1, const std::vector<
 
 std::vector<int> ezSAT::vec_neg(const std::vector<int> &vec)
 {
-	std::vector<int> zero(vec.size(), FALSE);
+	std::vector<int> zero(vec.size(), CONST_FALSE);
 	return vec_sub(zero, vec);
 }
 
 void ezSAT::vec_cmp(const std::vector<int> &vec1, const std::vector<int> &vec2, int &carry, int &overflow, int &sign, int &zero)
 {
 	assert(vec1.size() == vec2.size());
-	carry = TRUE;
-	zero = FALSE;
+	carry = CONST_TRUE;
+	zero = CONST_FALSE;
 	for (int i = 0; i < int(vec1.size()); i++) {
 		overflow = carry;
 		fulladder(this, vec1[i], NOT(vec2[i]), carry, carry, sign);
@@ -954,11 +954,11 @@ std::vector<int> ezSAT::vec_shl(const std::vector<int> &vec1, int shift, bool si
 	for (int i = 0; i < int(vec1.size()); i++) {
 		int j = i-shift;
 		if (int(vec1.size()) <= j)
-			vec.push_back(signExtend ? vec1.back() : FALSE);
+			vec.push_back(signExtend ? vec1.back() : CONST_FALSE);
 		else if (0 <= j)
 			vec.push_back(vec1[j]);
 		else
-			vec.push_back(FALSE);
+			vec.push_back(CONST_FALSE);
 	}
 	return vec;
 }
@@ -1005,10 +1005,10 @@ std::vector<int> ezSAT::vec_shift_right(const std::vector<int> &vec1, const std:
 	int vec2_bits = std::min(my_clog2(vec1.size()) + (vec2_signed ? 1 : 0), int(vec2.size()));
 
 	std::vector<int> overflow_bits(vec2.begin() + vec2_bits, vec2.end());
-	int overflow_left = FALSE, overflow_right = FALSE;
+	int overflow_left = CONST_FALSE, overflow_right = CONST_FALSE;
 
 	if (vec2_signed) {
-		int overflow = FALSE;
+		int overflow = CONST_FALSE;
 		for (auto bit : overflow_bits)
 			overflow = OR(overflow, XOR(bit, vec2[vec2_bits-1]));
 		overflow_left = AND(overflow, NOT(vec2.back()));
@@ -1330,7 +1330,7 @@ int ezSAT::manyhot(const std::vector<int> &vec, int min_hot, int max_hot)
 
 	for (int i = -1; i < N; i++)
 	for (int j = -1; j < M; j++)
-		x[std::pair<int,int>(i,j)] = j < 0 ? TRUE : i < 0 ? FALSE : literal();
+		x[std::pair<int,int>(i,j)] = j < 0 ? CONST_TRUE : i < 0 ? CONST_FALSE : literal();
 
 	for (int i = 0; i < N; i++)
 	for (int j = 0; j < M; j++) {
@@ -1358,7 +1358,7 @@ int ezSAT::manyhot(const std::vector<int> &vec, int min_hot, int max_hot)
 int ezSAT::ordered(const std::vector<int> &vec1, const std::vector<int> &vec2, bool allow_equal)
 {
 	std::vector<int> formula;
-	int last_x = FALSE;
+	int last_x = CONST_FALSE;
 
 	assert(vec1.size() == vec2.size());
 	for (size_t i = 0; i < vec1.size(); i++)
@@ -1366,7 +1366,7 @@ int ezSAT::ordered(const std::vector<int> &vec1, const std::vector<int> &vec2, b
 		int a = vec1[i], b = vec2[i];
 		formula.push_back(OR(NOT(a), b, last_x));
 
-		int next_x = i+1 < vec1.size() ? literal() : allow_equal ? FALSE : TRUE;
+		int next_x = i+1 < vec1.size() ? literal() : allow_equal ? CONST_FALSE : CONST_TRUE;
 		formula.push_back(OR(a, b, last_x, NOT(next_x)));
 		formula.push_back(OR(NOT(a), NOT(b), last_x, NOT(next_x)));
 		last_x = next_x;
