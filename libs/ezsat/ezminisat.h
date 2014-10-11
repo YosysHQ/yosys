@@ -51,9 +51,11 @@ private:
 	std::set<int> cnfFrozenVars;
 #endif
 
+#ifndef _WIN32
 	static ezMiniSAT *alarmHandlerThis;
 	static clock_t alarmHandlerTimeout;
 	static void alarmHandler(int);
+#endif
 
 public:
 	ezMiniSAT();

@@ -77,6 +77,7 @@ bool ezMiniSAT::eliminated(int idx)
 }
 #endif
 
+#ifndef _WIN32
 ezMiniSAT *ezMiniSAT::alarmHandlerThis = NULL;
 clock_t ezMiniSAT::alarmHandlerTimeout = 0;
 
@@ -88,6 +89,7 @@ void ezMiniSAT::alarmHandler(int)
 	} else
 		alarm(1);
 }
+#endif
 
 bool ezMiniSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
 {
@@ -174,6 +176,7 @@ contradiction:
 #endif
 	}
 
+#ifndef _WIN32
 	struct sigaction sig_action;
 	struct sigaction old_sig_action;
 	int old_alarm_timeout = 0;
@@ -188,9 +191,11 @@ contradiction:
 		sigaction(SIGALRM, &sig_action, &old_sig_action);
 		alarm(1);
 	}
+#endif
 
 	bool foundSolution = minisatSolver->solve(assumps);
 
+#ifndef _WIN32
 	if (solverTimeout > 0) {
 		if (alarmHandlerTimeout == 0)
 			solverTimoutStatus = true;
@@ -198,6 +203,7 @@ contradiction:
 		sigaction(SIGALRM, &old_sig_action, NULL);
 		alarm(old_alarm_timeout);
 	}
+#endif
 
 	if (!foundSolution) {
 #if !EZMINISAT_INCREMENTAL
