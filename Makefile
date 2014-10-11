@@ -102,6 +102,9 @@ endif
 ifeq ($(ENABLE_READLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_READLINE
 LDLIBS += -lreadline
+ifeq ($(CONFIG),mxe)
+LDLIBS += -lpdcurses
+endif
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
@@ -330,7 +333,6 @@ config-mxe: clean
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
-	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
