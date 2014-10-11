@@ -91,9 +91,13 @@ struct CoverPass : public Pass {
 				const char *open_mode = args[argidx] == "-a" ? "a+" : "w";
 				std::string filename = args[++argidx];
 				if (args[argidx-1] == "-d") {
+			#ifdef _WIN32
+					log_cmd_error("The 'cover -d' option is not supported on win32.\n");
+			#else
 					char filename_buffer[4096];
 					snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", filename.c_str(), getpid());
 					filename = mkstemps(filename_buffer, 4);
+			#endif
 				}
 				FILE *f = fopen(filename.c_str(), open_mode);
 				if (f == NULL) {
