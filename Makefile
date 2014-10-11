@@ -91,7 +91,7 @@ else ifeq ($(CONFIG),mxe)
 CXX = /usr/local/src/mxe/usr/bin/i686-pc-mingw32-gcc
 CXXFLAGS += -std=gnu++0x -Os -D_POSIX_SOURCE
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS))
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 EXE = .exe
 
