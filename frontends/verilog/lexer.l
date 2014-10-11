@@ -64,7 +64,7 @@ YOSYS_NAMESPACE_END
 	return TOK_ID;
 
 #define YY_INPUT(buf,result,max_size) \
-	result = lexin->readsome(buf, max_size);
+	result = readsome(*lexin, buf, max_size);
 
 %}
 

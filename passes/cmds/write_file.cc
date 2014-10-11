@@ -70,7 +70,7 @@ struct WriteFileFrontend : public Frontend {
 		char buffer[64 * 1024];
 		size_t bytes;
 
-		while (0 < (bytes = f->readsome(buffer, sizeof(buffer))))
+		while (0 < (bytes = readsome(*f, buffer, sizeof(buffer))))
 			fwrite(buffer, bytes, 1, of);
 
 		fclose(of);

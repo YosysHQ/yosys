@@ -202,7 +202,7 @@ static void input_file(std::istream &f, std::string filename)
 	auto it = input_buffer.begin();
 
 	input_buffer.insert(it, "`file_push " + filename + "\n");
-	while ((rc = f.readsome(buffer, sizeof(buffer)-1)) > 0) {
+	while ((rc = readsome(f, buffer, sizeof(buffer)-1)) > 0) {
 		buffer[rc] = 0;
 		input_buffer.insert(it, buffer);
 	}
