@@ -669,8 +669,11 @@ std::vector<int> ezSAT::vec_var(int numBits)
 std::vector<int> ezSAT::vec_var(std::string name, int numBits)
 {
 	std::vector<int> vec;
-	for (int i = 0; i < numBits; i++)
-		vec.push_back(VAR(name + "[" + std::to_string(i) + "]"));
+	for (int i = 0; i < numBits; i++) {
+		char buf[64];
+		snprintf(buf, 64, " [%d]", i);
+		vec.push_back(VAR(name + buf));
+	}
 	return vec;
 }
 
@@ -1195,7 +1198,7 @@ void ezSAT::printDIMACS(FILE *f, bool verbose) const
 		fprintf(f, "c mapping of variables to expressions:\n");
 		for (int i = 0; i < int(cnfExpressionVariables.size()); i++)
 			if (cnfExpressionVariables[i] != 0)
-				fprintf(f, "c %*d: %s\n", digits, cnfExpressionVariables[i], to_string(-i-1).c_str());
+				fprintf(f, "c %*d: %d\n", digits, cnfExpressionVariables[i], -i-1);
 
 		if (mode_keep_cnf()) {
 			fprintf(f, "c\n");
@@ -1242,8 +1245,11 @@ static std::string expression2str(const std::pair<ezSAT::OpId, std::vector<int>>
 #undef X
 	}
 	text += ":";
-	for (auto it : data.second)
-		text += " " + std::to_string(it);
+	for (auto it : data.second) {
+		char buf[64];
+		snprintf(buf, 64, " %d", it);
+		text += buf;
+	}
 	return text;
 }
 
