@@ -309,6 +309,16 @@ qtcreator:
 	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
 	touch qtcreator.config qtcreator.creator
 
+ifeq ($(CONFIG),mxe)
+dist: $(TARGETS) $(EXTRA_TARGETS)
+	rm -rf yosys-win32-$(YOSYS_VER)
+	mkdir -p yosys-win32-$(YOSYS_VER)
+	cp -r yosys.exe share/ yosys-win32-$(YOSYS_VER)/
+	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-$(YOSYS_VER)/readme.txt
+	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-$(YOSYS_VER)/readme.txt
+	zip -r yosys-win32-$(YOSYS_VER).zip yosys-win32-$(YOSYS_VER)/
+endif
+
 config-clean: clean
 	rm -f Makefile.conf
 
