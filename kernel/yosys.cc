@@ -24,7 +24,7 @@
 #  include <readline/history.h>
 #endif
 
-#ifndef _WIN32
+#ifdef YOSYS_ENABLE_PLUGINS
 #  include <dlfcn.h>
 #endif
 
@@ -197,7 +197,7 @@ void yosys_shutdown()
 	}
 #endif
 
-#ifndef _WIN32
+#ifdef YOSYS_ENABLE_PLUGINS
 	for (auto &it : loaded_plugins)
 		dlclose(it.second);
 #endif
