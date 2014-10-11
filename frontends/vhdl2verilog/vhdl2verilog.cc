@@ -120,6 +120,10 @@ struct Vhdl2verilogPass : public Pass {
 		if (top_entity.empty())
 			log_cmd_error("Missing -top option.\n");
 
+#ifdef _WIN32
+		#warning Fixme: The vhdl2veriog command has not been ported to win32.
+		log_cmd_error("The vhdl2veriog command has not been ported to win32.\n");
+#else
 		char tempdir_name[] = "/tmp/yosys-vhdl2verilog-XXXXXX";
 		char *p = mkdtemp(tempdir_name);
 		log("Using temp directory %s.\n", tempdir_name);
@@ -189,6 +193,7 @@ struct Vhdl2verilogPass : public Pass {
 			log_error("Execution of \"rm -rf '%s'\" failed!\n", tempdir_name);
 
 		log_pop();
+#endif
 	}
 } Vhdl2verilogPass;
  
