@@ -281,7 +281,7 @@ void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool f
 		delete mod;
 	}
 
-	log("Removed %zd unused modules.\n", del_modules.size());
+	log("Removed %d unused modules.\n", GetSize(del_modules));
 }
 
 bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)

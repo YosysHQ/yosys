@@ -239,7 +239,7 @@ struct FsmExpand
 		if (merged_set.size() > 0 && !already_optimized)
 			FsmData::optimize_fsm(fsm_cell, module);
 
-		log("  merged %zd cells into FSM.\n", merged_set.size());
+		log("  merged %d cells into FSM.\n", GetSize(merged_set));
 	}
 };
 

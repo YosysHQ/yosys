@@ -41,9 +41,9 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 			prefix, RTLIL::unescape_id(module->name).c_str());
 
 	fprintf(f, "set_fsm_encoding {");
-	for (size_t i = 0; i < fsm_data.state_table.size(); i++) {
-		fprintf(f, " s%zd=2#", i);
-		for (int j = int(fsm_data.state_table[i].bits.size())-1; j >= 0; j--)
+	for (int i = 0; i < GetSize(fsm_data.state_table); i++) {
+		fprintf(f, " s%d=2#", i);
+		for (int j = GetSize(fsm_data.state_table[i].bits)-1; j >= 0; j--)
 			fprintf(f, "%c", fsm_data.state_table[i].bits[j] == RTLIL::State::S1 ? '1' : '0');
 	}
 	fprintf(f, " } -name {%s_%s} {%s:/WORK/%s}\n",

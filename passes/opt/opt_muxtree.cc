@@ -174,12 +174,12 @@ struct OptMuxtreeWorker
 		for (auto &mi : mux2info)
 		{
 			std::vector<int> live_ports;
-			for (size_t port_idx = 0; port_idx < mi.ports.size(); port_idx++) {
+			for (int port_idx = 0; port_idx < GetSize(mi.ports); port_idx++) {
 				portinfo_t &pi = mi.ports[port_idx];
 				if (pi.enabled) {
 					live_ports.push_back(port_idx);
 				} else {
-					log("    dead port %zd/%zd on %s %s.\n", port_idx+1, mi.ports.size(),
+					log("    dead port %d/%d on %s %s.\n", port_idx+1, GetSize(mi.ports),
 							mi.cell->type.c_str(), mi.cell->name.c_str());
 					removed_count++;
 				}

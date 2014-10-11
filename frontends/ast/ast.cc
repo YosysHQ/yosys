@@ -267,7 +267,7 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 					bits[i-1] == RTLIL::S1 ? '1' :
 					bits[i-1] == RTLIL::Sx ? 'x' :
 					bits[i-1] == RTLIL::Sz ? 'z' : '?');
-		fprintf(f, "'(%zd)", bits.size());
+		fprintf(f, "'(%d)", GetSize(bits));
 	}
 	if (is_input)
 		fprintf(f, " input");
@@ -471,7 +471,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		else if (bits.size() == 32)
 			fprintf(f, "%d", RTLIL::Const(bits).as_int());
 		else
-			fprintf(f, "%zd'b %s", bits.size(), RTLIL::Const(bits).as_string().c_str());
+			fprintf(f, "%d'b %s", GetSize(bits), RTLIL::Const(bits).as_string().c_str());
 		break;
 
 	case AST_REALVALUE:
