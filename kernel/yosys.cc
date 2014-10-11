@@ -28,6 +28,10 @@
 #  include <dlfcn.h>
 #endif
 
+#ifdef _WIN32
+#  include <windows.h>
+#endif
+
 #include <unistd.h>
 #include <limits.h>
 #include <errno.h>
@@ -310,7 +314,7 @@ struct TclPass : public Pass {
 #if defined(__linux__)
 std::string proc_self_dirname()
 {
-	char path [PATH_MAX];
+	char path[PATH_MAX];
 	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
 	if (buflen < 0) {
 		log_error("readlink(\"/proc/self/exe\") failed: %s\n", strerror(errno));
@@ -323,7 +327,7 @@ std::string proc_self_dirname()
 #include <mach-o/dyld.h>
 std::string proc_self_dirname()
 {
-	char * path = NULL;
+	char *path = NULL;
 	uint32_t buflen = 0;
 	while (_NSGetExecutablePath(path, &buflen) != 0)
 		path = (char *) realloc((void *) path, buflen);
@@ -334,8 +338,12 @@ std::string proc_self_dirname()
 #elif defined(_WIN32)
 std::string proc_self_dirname()
 {
-	#warning Fixme: Implement proc_self_dirname() for win32.
-	log_error("proc_self_dirname() is not implemented for win32 yet!\n");
+	char path[MAX_PATH+1];
+	if (!GetModuleFileName(0, path, MAX_PATH+1))
+		log_error("GetModuleFileName() failed.\n");
+	for (int i = strlen(path)-1; i >= 0 && path[i] != '/' && path[i] != '\\' ; i--)
+		path[i] = 0;
+	return std::string(path);
 }
 #elif defined(EMSCRIPTEN)
 std::string proc_self_dirname()
