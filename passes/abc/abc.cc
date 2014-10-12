@@ -553,13 +553,11 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	clk_polarity = true;
 	clk_sig = RTLIL::SigSpec();
 
-	char tempdir_name[] = "/tmp/yosys-abc-XXXXXX";
+	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
-	char *p = mkdtemp(tempdir_name);
-	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n", module->name.c_str(), tempdir_name);
-	if (p == NULL)
-		log_error("For some reason mkdtemp() failed!\n");
+	tempdir_name = make_temp_dir(tempdir_name);
+	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n", module->name.c_str(), tempdir_name.c_str());
 
 	std::string abc_command;
 	if (!script_file.empty()) {
@@ -589,10 +587,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		for (size_t i = 0; i+1 < abc_command.size(); i++)
 			if (abc_command[i] == ';' && abc_command[i+1] == ' ')
 				abc_command[i+1] = '\n';
-		FILE *f = fopen(stringf("%s/abc.script", tempdir_name).c_str(), "wt");
+		FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
 		fprintf(f, "%s\n", abc_command.c_str());
 		fclose(f);
-		abc_command = stringf("source %s/abc.script", tempdir_name);
+		abc_command = stringf("source %s/abc.script", tempdir_name.c_str());
 	}
 
 	if (clk_str.empty()) {
@@ -653,7 +651,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	
 	handle_loops();
 
-	std::string buffer = stringf("%s/input.blif", tempdir_name);
+	std::string buffer = stringf("%s/input.blif", tempdir_name.c_str());
 	FILE *f = fopen(buffer.c_str(), "wt");
 	if (f == NULL)
 		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -764,7 +762,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	{
 		log_header("Executing ABC.\n");
 
-		buffer = stringf("%s/stdcells.genlib", tempdir_name);
+		buffer = stringf("%s/stdcells.genlib", tempdir_name.c_str());
 		f = fopen(buffer.c_str(), "wt");
 		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -786,7 +784,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		fclose(f);
 
 		if (lut_mode) {
-			buffer = stringf("%s/lutdefs.txt", tempdir_name);
+			buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
 			f = fopen(buffer.c_str(), "wt");
 			if (f == NULL)
 				log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -798,18 +796,18 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		buffer = stringf("%s -s -c '", exe_file.c_str());
 		if (!liberty_file.empty()) {
 			buffer += stringf("read_blif %s/input.blif; read_lib -w %s; ",
-					tempdir_name, liberty_file.c_str());
+					tempdir_name.c_str(), liberty_file.c_str());
 			if (!constr_file.empty())
 				buffer += stringf("read_constr -v %s; ", constr_file.c_str());
 			buffer += abc_command + "; ";
 		} else
 		if (lut_mode)
 			buffer += stringf("read_blif %s/input.blif; read_lut %s/lutdefs.txt; %s; ",
-					tempdir_name, tempdir_name, abc_command.c_str());
+					tempdir_name.c_str(), tempdir_name.c_str(), abc_command.c_str());
 		else
 			buffer += stringf("read_blif %s/input.blif; read_library %s/stdcells.genlib; %s; ",
-					tempdir_name, tempdir_name, abc_command.c_str());
-		buffer += stringf("write_blif %s/output.blif' 2>&1", tempdir_name);
+					tempdir_name.c_str(), tempdir_name.c_str(), abc_command.c_str());
+		buffer += stringf("write_blif %s/output.blif' 2>&1", tempdir_name.c_str());
 
 		log("%s\n", buffer.c_str());
 
@@ -818,7 +816,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
-		buffer = stringf("%s/%s", tempdir_name, "output.blif");
+		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.blif");
 		f = fopen(buffer.c_str(), "rt");
 		if (f == NULL)
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
@@ -991,22 +989,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	if (cleanup)
 	{
-		log_header("Removing temp directory `%s':\n", tempdir_name);
-
-		struct dirent **namelist;
-		int n = scandir(tempdir_name, &namelist, 0, alphasort);
-		log_assert(n >= 0);
-		for (int i = 0; i < n; i++) {
-			if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
-				buffer = stringf("%s/%s", tempdir_name, namelist[i]->d_name);
-				log("Removing `%s'.\n", buffer.c_str());
-				remove(buffer.c_str());
-			}
-			free(namelist[i]);
-		}
-		free(namelist);
-		log("Removing `%s'.\n", tempdir_name);
-		rmdir(tempdir_name);
+		log_header("Removing temp directory `%s':\n", tempdir_name.c_str());
+		remove_directory(tempdir_name);
 	}
 
 	log_pop();

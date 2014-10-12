@@ -120,15 +120,8 @@ struct Vhdl2verilogPass : public Pass {
 		if (top_entity.empty())
 			log_cmd_error("Missing -top option.\n");
 
-#ifdef _WIN32
-		#warning Fixme: The vhdl2veriog command has not been ported to win32.
-		log_cmd_error("The vhdl2veriog command has not been ported to win32.\n");
-#else
-		char tempdir_name[] = "/tmp/yosys-vhdl2verilog-XXXXXX";
-		char *p = mkdtemp(tempdir_name);
-		log("Using temp directory %s.\n", tempdir_name);
-		if (p == NULL)
-			log_error("For some reason mkdtemp() failed!\n");
+		std::string tempdir_name = make_temp_dir("/tmp/yosys-vhdl2verilog-XXXXXX");
+		log("Using temp directory %s.\n", tempdir_name.c_str());
 
 		if (!out_file.empty() && out_file[0] != '/') {
 			char pwd[PATH_MAX];
@@ -139,7 +132,7 @@ struct Vhdl2verilogPass : public Pass {
 			out_file = pwd + ("/" + out_file);
 		}
 
-		FILE *f = fopen(stringf("%s/files.list", tempdir_name).c_str(), "wt");
+		FILE *f = fopen(stringf("%s/files.list", tempdir_name.c_str()).c_str(), "wt");
 		while (argidx < args.size()) {
 			std::string file = args[argidx++];
 			if (file.empty())
@@ -160,7 +153,7 @@ struct Vhdl2verilogPass : public Pass {
 		std::string command = "exec 2>&1; ";
 		if (!vhdl2verilog_dir.empty())
 			command += stringf("cd '%s'; . ./setup_env.sh; ", vhdl2verilog_dir.c_str());
-		command += stringf("cd '%s'; vhdl2verilog -out '%s' -filelist files.list -top '%s'%s", tempdir_name,
+		command += stringf("cd '%s'; vhdl2verilog -out '%s' -filelist files.list -top '%s'%s", tempdir_name.c_str(),
 				out_file.empty() ? "vhdl2verilog_output.v" : out_file.c_str(), top_entity.c_str(), extra_opts.c_str());
 
 		log("Running '%s'..\n", command.c_str());
@@ -171,18 +164,15 @@ struct Vhdl2verilogPass : public Pass {
 
 		if (out_file.empty()) {
 			std::ifstream ff;
-			ff.open(stringf("%s/vhdl2verilog_output.v", tempdir_name).c_str());
+			ff.open(stringf("%s/vhdl2verilog_output.v", tempdir_name.c_str()).c_str());
 			if (ff.fail())
 				log_error("Can't open vhdl2verilog output file `vhdl2verilog_output.v'.\n");
-			Frontend::frontend_call(design, &ff, stringf("%s/vhdl2verilog_output.v", tempdir_name), "verilog");
+			Frontend::frontend_call(design, &ff, stringf("%s/vhdl2verilog_output.v", tempdir_name.c_str()), "verilog");
 		}
 
-		log_header("Removing temp directory `%s':\n", tempdir_name);
-		if (run_command(stringf("rm -rf '%s'", tempdir_name).c_str()) != 0)
-			log_error("Execution of \"rm -rf '%s'\" failed!\n", tempdir_name);
-
+		log_header("Removing temp directory `%s':\n", tempdir_name.c_str());
+		remove_directory(tempdir_name);
 		log_pop();
-#endif
 	}
 } Vhdl2verilogPass;
  

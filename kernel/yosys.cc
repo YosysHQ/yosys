@@ -34,6 +34,7 @@
 
 #include <unistd.h>
 #include <limits.h>
+#include <dirent.h>
 #include <errno.h>
 
 YOSYS_NAMESPACE_BEGIN
@@ -204,7 +205,96 @@ int run_command(const std::string &command, std::function<void(const std::string
 	int ret = pclose(f);
 	if (ret < 0)
 		return -1;
+#ifdef _WIN32
+	return ret;
+#else
 	return WEXITSTATUS(ret);
+#endif
+}
+
+std::string make_temp_file(std::string template_str)
+{
+#ifdef _WIN32
+	if (template_str.rfind("/tmp/", 0) == 0) {
+		char path[MAX_PATH+1];
+		GetTempPath(MAX_PATH+1, path);
+		template_str = stringf("%s\\%s", path, template_str.c_str() + 5);
+	}
+
+	size_t pos = template_str.rfind("XXXXXX");
+	log_assert(pos != std::string::npos);
+
+	while (1) {
+		for (int i = 0; i < 6; i++) {
+			static std::string y = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			static uint32_t x = 314159265 ^ time(NULL);
+			x ^= x << 13, x ^= x >> 17, x ^= x << 5;
+			template_str[pos+i] = y[x % y.size()];
+		}
+		if (access(template_str.c_str(), F_OK) != 0)
+			break;
+	}
+#else
+	size_t pos = template_str.rfind("XXXXXX");
+	log_assert(pos != std::string::npos);
+
+	int suffixlen = GetSize(template_str) - pos - 6;
+
+	char *p = strdup(template_str.c_str());
+	close(mkstemps(p, suffixlen));
+	template_str = p;
+	free(p);
+#endif
+
+	return template_str;
+}
+
+std::string make_temp_dir(std::string template_str)
+{
+#ifdef _WIN32
+	template_str = make_temp_file(template_str);
+	mkdir(template_str.c_str());
+	return template_str;
+#else
+	size_t pos = template_str.rfind("XXXXXX");
+	log_assert(pos != std::string::npos);
+
+	int suffixlen = GetSize(template_str) - pos - 6;
+	log_assert(suffixlen == 0);
+
+	char *p = strdup(template_str.c_str());
+	mkdtemp(p, suffixlen);
+	template_str = p;
+	free(p);
+
+	return template_str;
+#endif
+}
+
+void remove_directory(std::string dirname)
+{
+#ifdef _WIN32
+	run_command(stringf("rmdir /s /q \"%s\"", dirname.c_str()));
+#else
+	struct stat stbuf;
+	struct dirent **namelist;
+	int n = scandir(dirname.c_str(), &namelist, nullptr, alphasort);
+	log_assert(n >= 0);
+	for (int i = 0; i < n; i++) {
+		if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
+			buffer = stringf("%s/%s", dirname.c_str(), namelist[i]->d_name);
+			if (!stat(buffer.c_str(), &stbuf) && S_ISREG(stbuf.st_mode)) {
+				log("Removing `%s'.\n", buffer.c_str());
+				remove(buffer.c_str());
+			} else
+				remove_directory(buffer);
+		}
+		free(namelist[i]);
+	}
+	free(namelist);
+	log("Removing `%s'.\n", dirname.c_str());
+	rmdir(dirname.c_str());
+#endif
 }
 
 int GetSize(RTLIL::Wire *wire)
