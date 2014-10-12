@@ -86,16 +86,16 @@ struct gate_t
 	RTLIL::SigBit bit;
 };
 
-static int map_autoidx;
-static SigMap assign_map;
-static RTLIL::Module *module;
-static std::vector<gate_t> signal_list;
-static std::map<RTLIL::SigBit, int> signal_map;
+int map_autoidx;
+SigMap assign_map;
+RTLIL::Module *module;
+std::vector<gate_t> signal_list;
+std::map<RTLIL::SigBit, int> signal_map;
 
-static bool clk_polarity;
-static RTLIL::SigSpec clk_sig;
+bool clk_polarity;
+RTLIL::SigSpec clk_sig;
 
-static int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
+int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
 {
 	assign_map.apply(bit);
 
@@ -129,14 +129,14 @@ static int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in
 	return gate.id;
 }
 
-static void mark_port(RTLIL::SigSpec sig)
+void mark_port(RTLIL::SigSpec sig)
 {
 	for (auto &bit : assign_map(sig))
 		if (bit.wire != NULL && signal_map.count(bit) > 0)
 			signal_list[signal_map[bit]].is_port = true;
 }
 
-static void extract_cell(RTLIL::Cell *cell, bool keepff)
+void extract_cell(RTLIL::Cell *cell, bool keepff)
 {
 	if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
 	{
@@ -278,14 +278,14 @@ static void extract_cell(RTLIL::Cell *cell, bool keepff)
 	}
 }
 
-static std::string remap_name(RTLIL::IdString abc_name)
+std::string remap_name(RTLIL::IdString abc_name)
 {
 	std::stringstream sstr;
 	sstr << "$abc$" << map_autoidx << "$" << abc_name.substr(1);
 	return sstr.str();
 }
 
-static void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std::set<int> &workpool, std::vector<int> &in_counts)
+void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std::set<int> &workpool, std::vector<int> &in_counts)
 {
 	if (f == NULL)
 		return;
@@ -314,7 +314,7 @@ static void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edge
 	fprintf(f, "}\n");
 }
 
-static void handle_loops()
+void handle_loops()
 {
 	// http://en.wikipedia.org/wiki/Topological_sorting
 	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
@@ -447,7 +447,7 @@ static void handle_loops()
 		fclose(dot_f);
 }
 
-static std::string add_echos_to_abc_cmd(std::string str)
+std::string add_echos_to_abc_cmd(std::string str)
 {
 	std::string new_str, token;
 	for (size_t i = 0; i < str.size(); i++) {
@@ -471,7 +471,7 @@ static std::string add_echos_to_abc_cmd(std::string str)
 	return new_str;
 }
 
-static std::string fold_abc_cmd(std::string str)
+std::string fold_abc_cmd(std::string str)
 {
 	std::string token, new_str = "          ";
 	int char_counter = 10;
@@ -490,7 +490,56 @@ static std::string fold_abc_cmd(std::string str)
 	return new_str;
 }
 
-static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
+struct abc_output_filter
+{
+	bool got_cr;
+	int escape_seq_state;
+	std::string linebuf;
+
+	abc_output_filter()
+	{
+		got_cr = false;
+		escape_seq_state = 0;
+	}
+
+	void next_char(char ch)
+	{
+		if (escape_seq_state == 0 && ch == '\033') {
+			escape_seq_state = 1;
+			return;
+		}
+		if (escape_seq_state == 1) {
+			escape_seq_state = ch == '[' ? 2 : 0;
+			return;
+		}
+		if (escape_seq_state == 2) {
+			if ((ch < '0' || '9' < ch) && ch != ';')
+				escape_seq_state = 0;
+			return;
+		}
+		escape_seq_state = 0;
+		if (ch == '\r') {
+			got_cr = true;
+			return;
+		}
+		if (ch == '\n') {
+			log("ABC: %s\n", linebuf.c_str());
+			got_cr = false, linebuf.clear();
+			return;
+		}
+		if (got_cr)
+			got_cr = false, linebuf.clear();
+		linebuf += ch;
+	}
+
+	void next_line(const std::string &line)
+	{
+		for (char ch : line)
+			next_char(ch);
+	}
+};
+
+void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, bool fast_mode)
 {
@@ -767,62 +816,10 @@ static void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std
 
 		log("%s\n", buffer.c_str());
 
-		errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
-		f = popen(buffer.c_str(), "r");
-		if (f == NULL)
-			log_error("Opening pipe to `%s' for reading failed: %s\n", buffer.c_str(), strerror(errno));
-#if 0
-		char logbuf[1024];
-		while (fgets(logbuf, 1024, f) != NULL)
-			log("ABC: %s", logbuf);
-#else
-		bool got_cr = false;
-		int escape_seq_state = 0;
-		std::string linebuf;
-		char logbuf[1024];
-		while (fgets(logbuf, 1024, f) != NULL)
-			for (char *p = logbuf; *p; p++) {
-				if (escape_seq_state == 0 && *p == '\033') {
-					escape_seq_state = 1;
-					continue;
-				}
-				if (escape_seq_state == 1) {
-					escape_seq_state = *p == '[' ? 2 : 0;
-					continue;
-				}
-				if (escape_seq_state == 2) {
-					if ((*p < '0' || '9' < *p) && *p != ';')
-						escape_seq_state = 0;
-					continue;
-				}
-				escape_seq_state = 0;
-				if (*p == '\r') {
-					got_cr = true;
-					continue;
-				}
-				if (*p == '\n') {
-					log("ABC: %s\n", linebuf.c_str());
-					got_cr = false, linebuf.clear();
-					continue;
-				}
-				if (got_cr)
-					got_cr = false, linebuf.clear();
-				linebuf += *p;
-			}
-		if (!linebuf.empty())
-			log("ABC: %s\n", linebuf.c_str());
-#endif
-		errno = 0;
-		int ret = pclose(f);
-		if (ret < 0)
-			log_error("Closing pipe to `%s' failed: %s\n", buffer.c_str(), strerror(errno));
-		if (WEXITSTATUS(ret) != 0) {
-			switch (WEXITSTATUS(ret)) {
-				case 127: log_error("ABC: execution of command \"%s\" failed: Command not found\n", exe_file.c_str()); break;
-				case 126: log_error("ABC: execution of command \"%s\" failed: Command not executable\n", exe_file.c_str()); break;
-				default:  log_error("ABC: execution of command \"%s\" failed: the shell returned %d\n", exe_file.c_str(), WEXITSTATUS(ret)); break;
-			}
-		}
+		abc_output_filter filt;
+		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
+		if (ret != 0)
+			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
 		if (asprintf(&p, "%s/%s", tempdir_name, "output.blif") < 0) log_abort();
 		f = fopen(p, "rt");
@@ -1215,4 +1212,4 @@ struct AbcPass : public Pass {
 	}
 } AbcPass;
  
- PRIVATE_NAMESPACE_END
+PRIVATE_NAMESPACE_END

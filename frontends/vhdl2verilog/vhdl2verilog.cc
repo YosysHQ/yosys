@@ -165,20 +165,9 @@ struct Vhdl2verilogPass : public Pass {
 
 		log("Running '%s'..\n", command.c_str());
 
-                errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
-		f = popen(command.c_str(), "r");
-		if (f == NULL)
-			log_error("Opening pipe to `%s' for reading failed: %s\n", command.c_str(), strerror(errno));
-
-		char logbuf[1024];
-		while (fgets(logbuf, 1024, f) != NULL)
-			log("%s", logbuf);
-
-		int ret = pclose(f);
-		if (ret < 0)
-			log_error("Closing pipe to `%s' failed: %s\n", command.c_str(), strerror(errno));
-		if (WEXITSTATUS(ret) != 0)
-			log_error("Execution of command \"%s\" failed: the shell returned %d\n", command.c_str(), WEXITSTATUS(ret));
+		int ret = run_command(command, [](const std::string &line) { log("%s", line.c_str()); });
+		if (ret != 0)
+			log_error("Execution of command \"%s\" failed: return code %d.\n", command.c_str(), ret);
 
 		if (out_file.empty()) {
 			std::ifstream ff;
@@ -189,7 +178,7 @@ struct Vhdl2verilogPass : public Pass {
 		}
 
 		log_header("Removing temp directory `%s':\n", tempdir_name);
-		if (system(stringf("rm -rf '%s'", tempdir_name).c_str()) != 0)
+		if (run_command(stringf("rm -rf '%s'", tempdir_name).c_str()) != 0)
 			log_error("Execution of \"rm -rf '%s'\" failed!\n", tempdir_name);
 
 		log_pop();

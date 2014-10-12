@@ -760,20 +760,20 @@ struct ShowPass : public Pass {
 		if (format != "dot" && !format.empty()) {
 			std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.c_str(), out_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
-			if (system(cmd.c_str()) != 0)
+			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
 
 		if (!viewer_exe.empty()) {
 			std::string cmd = stringf("%s '%s' &", viewer_exe.c_str(), out_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
-			if (system(cmd.c_str()) != 0)
+			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
 			std::string cmd = stringf("fuser -s '%s' || xdot '%s' < '%s' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
-			if (system(cmd.c_str()) != 0)
+			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
 

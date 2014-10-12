@@ -182,6 +182,31 @@ int readsome(std::istream &f, char *s, int n)
 	return rc;
 }
 
+int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
+{
+	if (!process_line)
+		return system(command.c_str());
+
+	FILE *f = popen(command.c_str(), "r");
+	if (f == nullptr)
+		return -1;
+
+	std::string line;
+	char logbuf[128];
+	while (fgets(logbuf, 128, f) != NULL) {
+		line += logbuf;
+		if (!line.empty() && line.back() == '\n')
+			process_line(line), line.clear();
+	}
+	if (!line.empty())
+		process_line(line);
+
+	int ret = pclose(f);
+	if (ret < 0)
+		return -1;
+	return WEXITSTATUS(ret);
+}
+
 int GetSize(RTLIL::Wire *wire)
 {
 	return wire->width;
