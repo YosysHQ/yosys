@@ -58,6 +58,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # delete your work on ABC..
 ABCREV = 4d547a5e065b
 ABCPULL = 1
+ABCMKARGS = CC="$(CXX)" CXX="$(CXX)"
 
 define newline
 
@@ -93,6 +94,8 @@ CXXFLAGS += -std=gnu++0x -Os -D_POSIX_SOURCE
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
+ABCMKARGS += ARCHFLAGS="-DLIN -DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -x c++ -fpermissive -w -pthread"
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib" READLINE=0
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
@@ -126,7 +129,7 @@ endif
 
 ifeq ($(ENABLE_ABC),1)
 CXXFLAGS += -DYOSYS_ENABLE_ABC
-TARGETS += yosys-abc
+TARGETS += yosys-abc$(EXE)
 endif
 
 ifeq ($(ENABLE_VERIFIC),1)
@@ -225,7 +228,7 @@ yosys-config: yosys-config.in
 			-e 's,@BINDIR@,$(DESTDIR)/bin,;' -e 's,@DATDIR@,$(DESTDIR)/share/yosys,;' < yosys-config.in > yosys-config
 	$(Q) chmod +x yosys-config
 
-abc/abc-$(ABCREV):
+abc/abc-$(ABCREV)$(EXE):
 	$(P)
 ifneq ($(ABCREV),default)
 	$(Q) if ( cd abc 2> /dev/null && hg identify; ) | grep -q +; then \
@@ -239,14 +242,14 @@ ifneq ($(ABCREV),default)
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
-	$(Q) cd abc && $(MAKE) $(S) PROG="abc-$(ABCREV)" MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: "
+	$(Q) cd abc && $(MAKE) $(S) $(ABCMKARGS) PROG="abc-$(ABCREV)$(EXE)" MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: "
 
 ifeq ($(ABCREV),default)
-.PHONY: abc/abc-$(ABCREV)
+.PHONY: abc/abc-$(ABCREV)$(EXE)
 endif
 
-yosys-abc: abc/abc-$(ABCREV)
-	$(P) cp abc/abc-$(ABCREV) yosys-abc
+yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
+	$(P) cp abc/abc-$(ABCREV)$(EXE) yosys-abc$(EXE)
 
 test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh
@@ -296,8 +299,8 @@ clean:
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 
 clean-abc:
-	make -C abc clean
-	rm -f yosys-abc abc/abc-[0-9a-f]*
+	$(MAKE) -C abc clean
+	rm -f yosys-abc$(EXE) abc/abc-[0-9a-f]*
 
 mrproper: clean
 	git clean -xdf
