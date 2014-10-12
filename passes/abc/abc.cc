@@ -559,39 +559,49 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	tempdir_name = make_temp_dir(tempdir_name);
 	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n", module->name.c_str(), tempdir_name.c_str());
 
-	std::string abc_command;
+	std::string abc_script = stringf("read_blif %s/input.blif; ", tempdir_name.c_str());
+
+	if (!liberty_file.empty()) {
+		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
+		if (!constr_file.empty())
+			abc_script += stringf("read_constr -v %s; ", constr_file.c_str());
+	} else
+	if (lut_mode)
+		abc_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
+	else
+		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
+
 	if (!script_file.empty()) {
 		if (script_file[0] == '+') {
 			for (size_t i = 1; i < script_file.size(); i++)
 				if (script_file[i] == '\'')
-					abc_command += "'\\''";
+					abc_script += "'\\''";
 				else if (script_file[i] == ',')
-					abc_command += " ";
+					abc_script += " ";
 				else
-					abc_command += script_file[i];
+					abc_script += script_file[i];
 		} else
-			abc_command = stringf("source %s", script_file.c_str());
+			abc_script += stringf("source %s", script_file.c_str());
 	} else if (lut_mode)
-		abc_command = fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
+		abc_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 	else if (!liberty_file.empty())
-		abc_command = constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
+		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else
-		abc_command = fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
+		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
 
-	for (size_t pos = abc_command.find("{D}"); pos != std::string::npos; pos = abc_command.find("{D}", pos))
-		abc_command = abc_command.substr(0, pos) + delay_target + abc_command.substr(pos+3);
+	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
+		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
 
-	abc_command = add_echos_to_abc_cmd(abc_command);
+	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
+	abc_script = add_echos_to_abc_cmd(abc_script);
 
-	if (abc_command.size() > 128) {
-		for (size_t i = 0; i+1 < abc_command.size(); i++)
-			if (abc_command[i] == ';' && abc_command[i+1] == ' ')
-				abc_command[i+1] = '\n';
-		FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
-		fprintf(f, "%s\n", abc_command.c_str());
-		fclose(f);
-		abc_command = stringf("source %s/abc.script", tempdir_name.c_str());
-	}
+	for (size_t i = 0; i+1 < abc_script.size(); i++)
+		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
+			abc_script[i+1] = '\n';
+
+	FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
+	fprintf(f, "%s\n", abc_script.c_str());
+	fclose(f);
 
 	if (clk_str.empty()) {
 		if (clk_str[0] == '!') {
@@ -652,7 +662,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	handle_loops();
 
 	std::string buffer = stringf("%s/input.blif", tempdir_name.c_str());
-	FILE *f = fopen(buffer.c_str(), "wt");
+	f = fopen(buffer.c_str(), "wt");
 	if (f == NULL)
 		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
 
@@ -793,23 +803,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fclose(f);
 		}
 
-		buffer = stringf("%s -s -c '", exe_file.c_str());
-		if (!liberty_file.empty()) {
-			buffer += stringf("read_blif %s/input.blif; read_lib -w %s; ",
-					tempdir_name.c_str(), liberty_file.c_str());
-			if (!constr_file.empty())
-				buffer += stringf("read_constr -v %s; ", constr_file.c_str());
-			buffer += abc_command + "; ";
-		} else
-		if (lut_mode)
-			buffer += stringf("read_blif %s/input.blif; read_lut %s/lutdefs.txt; %s; ",
-					tempdir_name.c_str(), tempdir_name.c_str(), abc_command.c_str());
-		else
-			buffer += stringf("read_blif %s/input.blif; read_library %s/stdcells.genlib; %s; ",
-					tempdir_name.c_str(), tempdir_name.c_str(), abc_command.c_str());
-		buffer += stringf("write_blif %s/output.blif' 2>&1", tempdir_name.c_str());
-
-		log("%s\n", buffer.c_str());
+		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
+		log("Running ABC command: %s\n", buffer.c_str());
 
 		abc_output_filter filt;
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));

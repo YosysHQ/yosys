@@ -95,7 +95,7 @@ CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DLIN -DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -x c++ -fpermissive -w -pthread"
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib" READLINE=0
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" READLINE=0
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
@@ -220,7 +220,7 @@ yosys$(EXE): $(OBJS)
 
 kernel/version_$(GIT_REV).cc: Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
-	$(Q) echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV), $(CXX) ` \
+	$(Q) echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV), $(notdir $(CXX)) ` \
 			$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1` $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))\"; }" > kernel/version_$(GIT_REV).cc
 
 yosys-config: yosys-config.in
@@ -315,8 +315,12 @@ qtcreator:
 ifeq ($(CONFIG),mxe)
 dist: $(TARGETS) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-$(YOSYS_VER)
+	rm -rf yosys-win32-$(YOSYS_VER).zip
 	mkdir -p yosys-win32-$(YOSYS_VER)
 	cp -r yosys.exe share/ yosys-win32-$(YOSYS_VER)/
+ifeq ($(ENABLE_ABC),1)
+	cp -r yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-$(YOSYS_VER)/
+endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-$(YOSYS_VER)/readme.txt
 	zip -r yosys-win32-$(YOSYS_VER).zip yosys-win32-$(YOSYS_VER)/

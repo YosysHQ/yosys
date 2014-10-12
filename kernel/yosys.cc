@@ -473,12 +473,14 @@ std::string proc_self_dirname()
 #elif defined(_WIN32)
 std::string proc_self_dirname()
 {
-	char path[MAX_PATH+1];
-	if (!GetModuleFileName(0, path, MAX_PATH+1))
+	char longpath[MAX_PATH+1], shortpath[MAX_PATH+1];
+	if (!GetModuleFileName(0, longpath, MAX_PATH+1))
 		log_error("GetModuleFileName() failed.\n");
-	for (int i = strlen(path)-1; i >= 0 && path[i] != '/' && path[i] != '\\' ; i--)
-		path[i] = 0;
-	return std::string(path);
+	if (!GetShortPathName(longpath, shortpath, MAX_PATH+1))
+		log_error("GetShortPathName() failed.\n");
+	for (int i = strlen(shortpath)-1; i >= 0 && shortpath[i] != '/' && shortpath[i] != '\\' ; i--)
+		shortpath[i] = 0;
+	return std::string(shortpath);
 }
 #elif defined(EMSCRIPTEN)
 std::string proc_self_dirname()
