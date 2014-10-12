@@ -30,6 +30,11 @@
 
 #ifdef _WIN32
 #  include <windows.h>
+#elif defined(__APPLE__)
+#  include <mach-o/dyld.h>
+#else
+#  include <sys/types.h>
+#  include <sys/stat.h>
 #endif
 
 #include <unistd.h>
@@ -263,7 +268,7 @@ std::string make_temp_dir(std::string template_str)
 	log_assert(suffixlen == 0);
 
 	char *p = strdup(template_str.c_str());
-	mkdtemp(p, suffixlen);
+	mkdtemp(p);
 	template_str = p;
 	free(p);
 
@@ -282,7 +287,7 @@ void remove_directory(std::string dirname)
 	log_assert(n >= 0);
 	for (int i = 0; i < n; i++) {
 		if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
-			buffer = stringf("%s/%s", dirname.c_str(), namelist[i]->d_name);
+			std::string buffer = stringf("%s/%s", dirname.c_str(), namelist[i]->d_name);
 			if (!stat(buffer.c_str(), &stbuf) && S_ISREG(stbuf.st_mode)) {
 				log("Removing `%s'.\n", buffer.c_str());
 				remove(buffer.c_str());
@@ -455,7 +460,6 @@ std::string proc_self_dirname()
 	return std::string(path, buflen);
 }
 #elif defined(__APPLE__)
-#include <mach-o/dyld.h>
 std::string proc_self_dirname()
 {
 	char *path = NULL;

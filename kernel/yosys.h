@@ -58,6 +58,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef YOSYS_ENABLE_TCL
+#  include <tcl.h>
+#endif
+
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
 #define YOSYS_NAMESPACE_BEGIN    namespace Yosys {
@@ -107,7 +111,6 @@ void yosys_setup();
 void yosys_shutdown();
 
 #ifdef YOSYS_ENABLE_TCL
-#include <tcl.h>
 Tcl_Interp *yosys_get_tcl_interp();
 #endif
 
