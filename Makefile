@@ -94,7 +94,7 @@ CXXFLAGS += -std=gnu++0x -Os -D_POSIX_SOURCE
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
-ABCMKARGS += ARCHFLAGS="-DLIN -DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -x c++ -fpermissive -w -pthread"
+ABCMKARGS += ARCHFLAGS="-DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -x c++ -fpermissive -w"
 ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" READLINE=0
 EXE = .exe
 
