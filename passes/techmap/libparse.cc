@@ -244,21 +244,6 @@ void LibertyParser::error()
 
 /**** BEGIN: http://svn.clifford.at/tools/trunk/examples/check.h ****/
 
-// This is to not confuse the VIM syntax highlighting
-#define CHECK_VAL_OPEN (
-#define CHECK_VAL_CLOSE )
-
-#define CHECK(result, check)                                         \
-   CHECK_VAL_OPEN{                                                   \
-     auto _R = (result);                                             \
-     if (!(_R check)) {                                              \
-       fprintf(stderr, "Error from '%s' (%ld %s) in %s:%d.\n",       \
-               #result, (long int)_R, #check, __FILE__, __LINE__);   \
-       abort();                                                      \
-     }                                                               \
-     _R;                                                             \
-   }CHECK_VAL_CLOSE
-
 #define CHECK_NV(result, check)                                      \
    do {                                                              \
      auto _R = (result);                                             \
@@ -279,6 +264,14 @@ void LibertyParser::error()
    } while(0)
 
 /**** END: http://svn.clifford.at/tools/trunk/examples/check.h ****/
+
+LibertyAst *find_non_null(LibertyAst *node, const char *name)
+{
+	LibertyAst *ret = node->find(name);
+	if (ret == NULL)
+		fprintf(stderr, "Error: expected to find `%s' node.\n", name);
+	return ret;
+}
 
 std::string func2vl(std::string str)
 {
@@ -388,7 +381,7 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		if (child->id != "pin")
 			continue;
 		CHECK_NV(child->args.size(), == 1);
-		LibertyAst *dir = CHECK(child->find("direction"), != NULL);
+		LibertyAst *dir = find_non_null(child, "direction");
 		LibertyAst *func = child->find("function");
 		printf("  %s %s;\n", dir->value.c_str(), child->args[0].c_str());
 		if (func != NULL)
@@ -428,8 +421,8 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		const char *else_prefix = "";
 		if (!clear_expr.empty() && !preset_expr.empty()) {
 			printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear_expr.c_str(), preset_expr.c_str());
-			clear_preset_var(iq_var, CHECK(child->find("clear_preset_var1"), != NULL)->value);
-			clear_preset_var(iqn_var, CHECK(child->find("clear_preset_var2"), != NULL)->value);
+			clear_preset_var(iq_var, find_non_null(child, "clear_preset_var1")->value);
+			clear_preset_var(iqn_var, find_non_null(child, "clear_preset_var2")->value);
 			printf("    end\n");
 			else_prefix = "else ";
 		}
@@ -449,7 +442,7 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		}
 		if (*else_prefix)
 			printf("    %sbegin\n", else_prefix);
-		std::string expr = CHECK(child->find("next_state"), != NULL)->value;
+		std::string expr = find_non_null(child, "next_state")->value;
 		printf("      // %s\n", expr.c_str());
 		printf("      %s <= %s;\n", iq_var.c_str(), func2vl(expr).c_str());
 		printf("      %s <= ~(%s);\n", iqn_var.c_str(), func2vl(expr).c_str());
@@ -481,8 +474,8 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		const char *else_prefix = "";
 		if (!clear_expr.empty() && !preset_expr.empty()) {
 			printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear_expr.c_str(), preset_expr.c_str());
-			clear_preset_var(iq_var, CHECK(child->find("clear_preset_var1"), != NULL)->value);
-			clear_preset_var(iqn_var, CHECK(child->find("clear_preset_var2"), != NULL)->value);
+			clear_preset_var(iq_var, find_non_null(child, "clear_preset_var1")->value);
+			clear_preset_var(iqn_var, find_non_null(child, "clear_preset_var2")->value);
 			printf("    end\n");
 			else_prefix = "else ";
 		}
@@ -502,7 +495,7 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		}
 		if (!enable_expr.empty()) {
 			printf("    %sif (%s) begin\n", else_prefix, enable_expr.c_str());
-			std::string expr = CHECK(child->find("data_in"), != NULL)->value;
+			std::string expr = find_non_null(child, "data_in")->value;
 			printf("      %s <= %s;\n", iq_var.c_str(), func2vl(expr).c_str());
 			printf("      %s <= ~(%s);\n", iqn_var.c_str(), func2vl(expr).c_str());
 			printf("    end\n");
