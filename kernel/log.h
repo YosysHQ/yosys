@@ -52,19 +52,11 @@ extern int log_verbose_level;
 void logv(const char *format, va_list ap);
 void logv_header(const char *format, va_list ap);
 
-#if !defined(__GNUC__) && !defined(__clang__)
-	void logv_error(const char *format, va_list ap);
-	void log(const char *format, ...);
-	void log_header(const char *format, ...);
-	void log_error(const char *format, ...);
-	void log_cmd_error(const char *format, ...);
-#else
-	void logv_error(const char *format, va_list ap) __attribute__((noreturn));
-	void log(const char *format, ...)  __attribute__((format(printf, 1, 2)));
-	void log_header(const char *format, ...) __attribute__((format(printf, 1, 2)));
-	void log_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
-	void log_cmd_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
-#endif
+void logv_error(const char *format, va_list ap) __attribute__((noreturn));
+void log(const char *format, ...)  __attribute__((format(printf, 1, 2)));
+void log_header(const char *format, ...) __attribute__((format(printf, 1, 2)));
+void log_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
+void log_cmd_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
 
 void log_spacer();
 void log_push();

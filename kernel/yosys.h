@@ -77,6 +77,10 @@
 #  define FINAL
 #endif
 
+#if !defined(__GNUC__) && !defined(__clang__)
+#  define __attribute__(...)
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL {
