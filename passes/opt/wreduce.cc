@@ -32,14 +32,14 @@ struct WreduceConfig
 
 	WreduceConfig()
 	{
-		supported_cell_types = {
+		supported_cell_types = std::set<IdString>({
 			"$not", "$pos", "$neg",
 			"$and", "$or", "$xor", "$xnor",
 			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 			"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 			"$add", "$sub", // "$mul", "$div", "$mod", "$pow",
 			"$mux", "$pmux"
-		};
+		});
 	}
 };
 

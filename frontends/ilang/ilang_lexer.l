@@ -30,12 +30,16 @@
 #endif
 
 #include "ilang_frontend.h"
-#include "parser.tab.h"
+#include "ilang_parser.tab.h"
 
 USING_YOSYS_NAMESPACE
 
 #define YY_INPUT(buf,result,max_size) \
-        result = readsome(*ILANG_FRONTEND::lexin, buf, max_size);
+	do { \
+		ILANG_FRONTEND::lexin->read(buf, max_size-1); \
+		result = ILANG_FRONTEND::lexin->gcount(); \
+		if (result >= 0) buf[result] = '\0'; \
+	} while (0)
 
 %}
 

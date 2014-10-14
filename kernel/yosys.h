@@ -58,6 +58,12 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifndef _YOSYS_
+#  error It looks like you are trying to build Yosys with the config defines set. \
+         When building Yosys with a custom make system, make sure you set all the \
+	 defines the Yosys Makefile would set for your build configuration.
+#endif
+
 #ifdef YOSYS_ENABLE_TCL
 #  include <tcl.h>
 #endif
@@ -77,6 +83,10 @@
 #  define FINAL
 #endif
 
+#if !defined(__GNUC__) && !defined(__clang__)
+#  define __attribute__(...)
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL {
@@ -90,7 +100,6 @@ std::string stringf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2))
 std::string vstringf(const char *fmt, va_list ap);
 std::string next_token(std::string &text, const char *sep);
 bool patmatch(const char *pattern, const char *string);
-int readsome(std::istream &f, char *s, int n);
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
 std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
 std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");

@@ -172,22 +172,6 @@ bool patmatch(const char *pattern, const char *string)
 	return false;
 }
 
-int readsome(std::istream &f, char *s, int n)
-{
-	int rc = f.readsome(s, n);
-
-	// win32 sometimes returns 0 on a non-empty stream..
-	if (rc == 0) {
-		int c = f.get();
-		if (c != EOF) {
-			*s = c;
-			rc = 1;
-		}
-	}
-
-	return rc;
-}
-
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
 	if (!process_line)
