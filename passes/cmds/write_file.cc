@@ -68,10 +68,13 @@ struct WriteFileFrontend : public Frontend {
 
 		FILE *of = fopen(output_filename.c_str(), append_mode ? "a" : "w");
 		char buffer[64 * 1024];
-		size_t bytes;
 
-		while (0 < (bytes = readsome(*f, buffer, sizeof(buffer))))
-			fwrite(buffer, bytes, 1, of);
+		while (1) {
+			f->read(buffer, sizeof(buffer));
+			if (f->gcount() <= 0)
+				break;
+			fwrite(buffer, f->gcount(), 1, of);
+		}
 
 		fclose(of);
 	}

@@ -94,7 +94,6 @@ std::string stringf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2))
 std::string vstringf(const char *fmt, va_list ap);
 std::string next_token(std::string &text, const char *sep);
 bool patmatch(const char *pattern, const char *string);
-int readsome(std::istream &f, char *s, int n);
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
 std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
 std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
