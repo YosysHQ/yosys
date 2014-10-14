@@ -21,7 +21,10 @@
 #include "libs/sha1/sha1.h"
 #include "backends/ilang/ilang_backend.h"
 
-#include <sys/time.h>
+#ifndef _WIN32
+	#include <sys/time.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,6 +50,26 @@ int string_buf_size = 0;
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
+
+#ifdef _WIN32
+// this will get time information and return it in timeval, simulating gettimeofday()
+int gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	LARGE_INTEGER counter;
+	LARGE_INTEGER freq;
+
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&counter);
+
+	counter.QuadPart *= 1000000;
+	counter.QuadPart /= freq.QuadPart;
+
+	tv->tv_sec = counter.QuadPart / 1000000;
+	tv->tv_usec = counter.QuadPart % 1000000;
+
+	return 0;
+}
+#endif
 
 void logv(const char *format, va_list ap)
 {
