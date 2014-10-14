@@ -25,8 +25,8 @@
 #include <time.h>
 
 #ifndef _WIN32
-	#include <sys/time.h>
-	#include <sys/resource.h>
+#  include <sys/time.h>
+#  include <sys/resource.h>
 #endif
 
 // from libs/sha1/sha1.h

@@ -22,7 +22,7 @@
 #include "backends/ilang/ilang_backend.h"
 
 #ifndef _WIN32
-	#include <sys/time.h>
+#  include <sys/time.h>
 #endif
 
 #include <stdlib.h>
