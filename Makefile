@@ -56,9 +56,9 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 4d547a5e065b
+ABCREV = 930a4de962a1
 ABCPULL = 1
-ABCMKARGS = CC="$(CXX)" CXX="$(CXX)"
+ABCMKARGS = # CC="$(CXX)" CXX="$(CXX)"
 
 define newline
 
@@ -348,7 +348,6 @@ config-emcc: clean
 config-mxe: clean
 	echo 'CONFIG := mxe' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
-	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-gprof: clean
