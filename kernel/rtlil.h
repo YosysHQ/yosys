@@ -920,23 +920,25 @@ struct RTLIL::SigBit
 	}
 };
 
-struct RTLIL::SigSpecIterator
+struct RTLIL::SigSpecIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>
 {
 	RTLIL::SigSpec *sig_p;
 	int index;
 
 	inline RTLIL::SigBit &operator*() const;
 	inline bool operator!=(const RTLIL::SigSpecIterator &other) const { return index != other.index; }
+	inline bool operator==(const RTLIL::SigSpecIterator &other) const { return index == other.index; }
 	inline void operator++() { index++; }
 };
 
-struct RTLIL::SigSpecConstIterator
+struct RTLIL::SigSpecConstIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>
 {
 	const RTLIL::SigSpec *sig_p;
 	int index;
 
 	inline const RTLIL::SigBit &operator*() const;
 	inline bool operator!=(const RTLIL::SigSpecConstIterator &other) const { return index != other.index; }
+	inline bool operator==(const RTLIL::SigSpecIterator &other) const { return index == other.index; }
 	inline void operator++() { index++; }
 };
 
