@@ -252,7 +252,8 @@ std::string make_temp_dir(std::string template_str)
 	log_assert(suffixlen == 0);
 
 	char *p = strdup(template_str.c_str());
-	mkdtemp(p);
+	p = mkdtemp(p);
+	log_assert(p != NULL);
 	template_str = p;
 	free(p);
 
