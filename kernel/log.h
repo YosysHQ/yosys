@@ -74,8 +74,12 @@ template<typename T> static inline const char *log_id(T *obj) {
 
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
 
+static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line) {
+	if (!cond) log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
+}
+
 #define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
-#define log_assert(_assert_expr_) do { if (_assert_expr_) break; YOSYS_NAMESPACE_PREFIX log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
+#define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #define log_ping() YOSYS_NAMESPACE_PREFIX log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 
