@@ -21,7 +21,7 @@
 #include "libs/sha1/sha1.h"
 #include "backends/ilang/ilang_backend.h"
 
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(__MINGW32__)
 #  include <sys/time.h>
 #endif
 
@@ -51,7 +51,7 @@ static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 // this will get time information and return it in timeval, simulating gettimeofday()
 int gettimeofday(struct timeval *tv, struct timezone *tz)
 {
