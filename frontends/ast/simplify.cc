@@ -2179,14 +2179,25 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 	}
 }
 
+bool AstNode::mem2reg_check(std::set<AstNode*> &mem2reg_set)
+{
+	if (type != AST_IDENTIFIER || !id2ast || !mem2reg_set.count(id2ast))
+		return false;
+
+	if (children.empty() || children[0]->type != AST_RANGE || GetSize(children[0]->children) != 1)
+		log_error("Invalid array access at %s:%d.\n", filename.c_str(), linenum);
+
+	return true;
+}
+
 // actually replace memories with registers
 void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
 {
 	if (type == AST_BLOCK)
 		block = this;
 
-	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && block != NULL && children[0]->id2ast &&
-			mem2reg_set.count(children[0]->id2ast) > 0 && children[0]->children[0]->children[0]->type != AST_CONSTANT)
+	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && block != NULL &&
+			children[0]->mem2reg_check(mem2reg_set) && children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
 		sstr << "$mem2reg_wr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
@@ -2242,7 +2253,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		type = AST_ASSIGN_EQ;
 	}
 
-	if (type == AST_IDENTIFIER && id2ast && mem2reg_set.count(id2ast) > 0)
+	if (mem2reg_check(mem2reg_set))
 	{
 		AstNode *bit_part_sel = NULL;
 		if (children.size() == 2)

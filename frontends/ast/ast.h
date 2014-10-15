@@ -209,6 +209,7 @@ namespace AST
 		void mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
 				std::map<AstNode*, uint32_t> &mem2reg_flags, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
 		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);
+		bool mem2reg_check(std::set<AstNode*> &mem2reg_set);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 
 		// additional functionality for evaluating constant functions
