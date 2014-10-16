@@ -35,18 +35,15 @@ int count_rm_cells, count_rm_wires;
 
 void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 {
-	SigMap assign_map(module);
+	SigMap sigmap(module);
 	std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> queue, unused;
 
 	SigSet<RTLIL::Cell*> wire2driver;
 	for (auto &it : module->cells_) {
 		RTLIL::Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
-			if (!ct.cell_input(cell->type, it2.first)) {
-				RTLIL::SigSpec sig = it2.second;
-				assign_map.apply(sig);
-				wire2driver.insert(sig, cell);
-			}
+			if (!ct.cell_input(cell->type, it2.first))
+				wire2driver.insert(sigmap(it2.second), cell);
 		}
 		if (cell->type == "$memwr" || cell->type == "$assert" || cell->has_keep_attr())
 			queue.insert(cell);
@@ -57,15 +54,13 @@ void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_output || wire->get_bool_attribute("\\keep")) {
 			std::set<RTLIL::Cell*> cell_list;
-			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
-			assign_map.apply(sig);
-			wire2driver.find(sig, cell_list);
+			wire2driver.find(sigmap(wire), cell_list);
 			for (auto cell : cell_list)
 				queue.insert(cell);
 		}
 	}
 
-	while (queue.size() > 0)
+	while (!queue.empty())
 	{
 		std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> new_queue;
 		for (auto cell : queue)
@@ -74,12 +69,10 @@ void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 			for (auto &it : cell->connections()) {
 				if (!ct.cell_output(cell->type, it.first)) {
 					std::set<RTLIL::Cell*> cell_list;
-					RTLIL::SigSpec sig = it.second;
-					assign_map.apply(sig);
-					wire2driver.find(sig, cell_list);
-					for (auto cell : cell_list) {
-						if (unused.count(cell) > 0)
-							new_queue.insert(cell);
+					wire2driver.find(sigmap(it.second), cell_list);
+					for (auto c : cell_list) {
+						if (unused.count(c))
+							new_queue.insert(c);
 					}
 				}
 			}
