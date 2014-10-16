@@ -257,7 +257,7 @@ struct VerilogFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		log("Parsing Verilog input from `%s' to AST representation.\n", filename.c_str());
+		log("Parsing %s input from `%s' to AST representation.\n", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());
 
 		AST::current_filename = filename;
 		AST::set_line_num = &frontend_verilog_yyset_lineno;
