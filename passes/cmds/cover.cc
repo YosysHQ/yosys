@@ -17,9 +17,18 @@
  *
  */
 
-#include <sys/types.h>
-#include <unistd.h>
 #include "kernel/yosys.h"
+#include <sys/types.h>
+
+#ifndef _WIN32
+#  include <unistd.h>
+#else
+#  include <io.h>
+#endif
+
+#include "kernel/register.h"
+#include "kernel/rtlil.h"
+#include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

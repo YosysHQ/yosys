@@ -33,16 +33,20 @@
 #elif defined(__APPLE__)
 #  include <mach-o/dyld.h>
 #else
+#  include <unistd.h>
+#  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/stat.h>
 #endif
 
-#include <unistd.h>
 #include <limits.h>
-#include <dirent.h>
 #include <errno.h>
 
 YOSYS_NAMESPACE_BEGIN
+
+#ifdef _WIN32
+const char *yosys_version_str = "Windows";
+#endif
 
 int autoidx = 1;
 RTLIL::Design *yosys_design = NULL;
@@ -325,10 +329,10 @@ void yosys_shutdown()
 #ifdef YOSYS_ENABLE_PLUGINS
 	for (auto &it : loaded_plugins)
 		dlclose(it.second);
-#endif
 
 	loaded_plugins.clear();
 	loaded_plugin_aliases.clear();
+#endif
 }
 
 RTLIL::IdString new_id(std::string file, int line, std::string func)

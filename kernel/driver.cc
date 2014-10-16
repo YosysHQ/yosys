@@ -27,10 +27,13 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <libgen.h>
 #include <limits.h>
 #include <errno.h>
+
+#ifndef _WIN32
+#  include <unistd.h>
+#endif
+
 
 USING_YOSYS_NAMESPACE
 

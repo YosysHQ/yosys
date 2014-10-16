@@ -21,7 +21,10 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include <string.h>
-#include <dirent.h>
+
+#ifndef _WIN32
+#  include <dirent.h>
+#endif
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>

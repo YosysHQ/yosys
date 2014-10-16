@@ -21,7 +21,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
-#include <unistd.h>
+
+#ifndef _WIN32
+#  include <unistd.h>
+#endif
+
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

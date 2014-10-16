@@ -20,11 +20,14 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <dirent.h>
+
+#ifndef _WIN32
+#  include <unistd.h>
+#  include <dirent.h>
+#endif
 
 USING_YOSYS_NAMESPACE
 

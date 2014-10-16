@@ -68,6 +68,30 @@
 #  include <tcl.h>
 #endif
 
+// a few platform specific things
+#ifdef _WIN32
+#  define NOMINMAX
+#  include <Windows.h>
+#  include <stdint.h> // takes care of a number of typedefs
+#  include <io.h>
+#  include <direct.h>
+
+// these are always a bit dangerous :-)
+#  define strtok_r strtok_s
+#  define strdup _strdup
+#  define snprintf _snprintf
+#  define access _access
+#  define getcwd _getcwd
+#  define mkdir _mkdir
+#  define popen _popen
+#  define pclose _pclose
+
+#  define PATH_MAX MAX_PATH
+#  define F_OK 00
+#  define X_OK 00 // note this is NOT correct as there is no execute flag in Windows
+#endif
+
+
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
 #define YOSYS_NAMESPACE_BEGIN    namespace Yosys {
@@ -85,6 +109,9 @@
 
 #if !defined(__GNUC__) && !defined(__clang__)
 #  define __attribute__(...)
+#  define _NORETURN_ __declspec(noreturn)
+#else
+#  define _NORETURN_
 #endif
 
 YOSYS_NAMESPACE_BEGIN
@@ -96,7 +123,7 @@ namespace RTLIL {
 	struct Cell;
 }
 
-std::string stringf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+std::string stringf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 std::string vstringf(const char *fmt, va_list ap);
 std::string next_token(std::string &text, const char *sep);
 bool patmatch(const char *pattern, const char *string);

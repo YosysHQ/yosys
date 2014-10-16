@@ -43,14 +43,17 @@
 #include "kernel/sigtools.h"
 #include "kernel/cost.h"
 #include "kernel/log.h"
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <dirent.h>
 #include <cerrno>
 #include <sstream>
 #include <climits>
+
+#ifndef _WIN32
+#  include <unistd.h>
+#  include <dirent.h>
+#endif
 
 #include "blifparse.h"
 
