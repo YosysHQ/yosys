@@ -30,6 +30,7 @@
 
 #ifdef _WIN32
 #  include <windows.h>
+#  include <io.h>
 #elif defined(__APPLE__)
 #  include <mach-o/dyld.h>
 #else
@@ -44,7 +45,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 const char *yosys_version_str = "Windows";
 #endif
 
@@ -224,7 +225,7 @@ std::string make_temp_file(std::string template_str)
 			x ^= x << 13, x ^= x >> 17, x ^= x << 5;
 			template_str[pos+i] = y[x % y.size()];
 		}
-		if (access(template_str.c_str(), F_OK) != 0)
+		if (_access(template_str.c_str(), 0) != 0)
 			break;
 	}
 #else
@@ -264,6 +265,18 @@ std::string make_temp_dir(std::string template_str)
 	return template_str;
 #endif
 }
+
+#ifdef _WIN32
+bool check_file_exists(std::string filename, bool)
+{
+	return _access(filename.c_str(), 0);
+}
+#else
+bool check_file_exists(std::string filename, bool is_exec)
+{
+	return access(filename.c_str(), is_exec ? X_OK : F_OK);
+}
+#endif
 
 void remove_directory(std::string dirname)
 {
@@ -484,10 +497,10 @@ std::string proc_share_dirname()
 {
 	std::string proc_self_path = proc_self_dirname();
 	std::string proc_share_path = proc_self_path + "share/";
-	if (access(proc_share_path.c_str(), X_OK) == 0)
+	if (check_file_exists(proc_share_path, true) == 0)
 		return proc_share_path;
 	proc_share_path = proc_self_path + "../share/yosys/";
-	if (access(proc_share_path.c_str(), X_OK) == 0)
+	if (check_file_exists(proc_share_path, true) == 0)
 		return proc_share_path;
 	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }

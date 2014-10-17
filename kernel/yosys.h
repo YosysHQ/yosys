@@ -70,8 +70,10 @@
 
 // a few platform specific things
 #ifdef _WIN32
-#  define NOMINMAX
-#  include <Windows.h>
+#  ifndef NOMINMAX
+#    define NOMINMAX 1
+#  endif
+#  include <windows.h>
 #  include <stdint.h> // takes care of a number of typedefs
 #  include <io.h>
 #  include <direct.h>
@@ -80,15 +82,11 @@
 #  define strtok_r strtok_s
 #  define strdup _strdup
 #  define snprintf _snprintf
-#  define access _access
 #  define getcwd _getcwd
 #  define mkdir _mkdir
 #  define popen _popen
 #  define pclose _pclose
-
 #  define PATH_MAX MAX_PATH
-#  define F_OK 00
-#  define X_OK 00 // note this is NOT correct as there is no execute flag in Windows
 #endif
 
 
@@ -130,6 +128,7 @@ bool patmatch(const char *pattern, const char *string);
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
 std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
 std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
+bool check_file(std::string filename, bool is_exec = false);
 void remove_directory(std::string dirname);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
