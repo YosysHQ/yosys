@@ -46,7 +46,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 #if defined(_WIN32) && !defined(__MINGW32__)
-const char *yosys_version_str = "Windows";
+const char *yosys_version_str = "Yosys for Windows (Version Information Unavailable)";
 #endif
 
 int autoidx = 1;
@@ -210,9 +210,19 @@ std::string make_temp_file(std::string template_str)
 {
 #ifdef _WIN32
 	if (template_str.rfind("/tmp/", 0) == 0) {
-		char path[MAX_PATH+1];
-		GetTempPath(MAX_PATH+1, path);
-		template_str = stringf("%s\\%s", path, template_str.c_str() + 5);
+#  ifdef __MINGW32__
+		char longpath[MAX_PATH + 1];
+		char shortpath[MAX_PATH + 1];
+#  else
+		WCHAR longpath[MAX_PATH + 1];
+		TCHAR shortpath[MAX_PATH + 1];
+#  endif
+		if (!GetTempPath(MAX_PATH+1, longpath))
+			log_error("GetTempPath() failed.\n");
+		if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
+			log_error("GetShortPathName() failed.\n");
+		log_assert(sizeof(TCHAR) == sizeof(char));
+		template_str = stringf("%s\\%s", shortpath, template_str.c_str() + 5);
 	}
 
 	size_t pos = template_str.rfind("XXXXXX");
@@ -475,14 +485,24 @@ std::string proc_self_dirname()
 #elif defined(_WIN32)
 std::string proc_self_dirname()
 {
-	char longpath[MAX_PATH+1], shortpath[MAX_PATH+1];
+	int i = 0;
+#  ifdef __MINGW32__
+	char longpath[MAX_PATH + 1];
+	char shortpath[MAX_PATH + 1];
+#  else
+	WCHAR longpath[MAX_PATH + 1];
+	TCHAR shortpath[MAX_PATH + 1];
+#  endif
 	if (!GetModuleFileName(0, longpath, MAX_PATH+1))
 		log_error("GetModuleFileName() failed.\n");
 	if (!GetShortPathName(longpath, shortpath, MAX_PATH+1))
 		log_error("GetShortPathName() failed.\n");
-	for (int i = strlen(shortpath)-1; i >= 0 && shortpath[i] != '/' && shortpath[i] != '\\' ; i--)
-		shortpath[i] = 0;
-	return std::string(shortpath);
+	while (shortpath[i] != 0)
+		i++;
+	while (i > 0 && shortpath[i-1] != '/' && shortpath[i-1] != '\\')
+		shortpath[--i] = 0;
+	log_assert(sizeof(TCHAR) == sizeof(char));
+	return std::string((char*)shortpath);
 }
 #elif defined(EMSCRIPTEN)
 std::string proc_self_dirname()

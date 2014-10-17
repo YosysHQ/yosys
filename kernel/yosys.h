@@ -60,9 +60,9 @@
 #include <stdio.h>
 
 #ifndef _YOSYS_
-#  error It looks like you are trying to build Yosys with the config defines set. \
+#  error It looks like you are trying to build Yosys without the config defines set. \
          When building Yosys with a custom make system, make sure you set all the \
-	 defines the Yosys Makefile would set for your build configuration.
+         defines the Yosys Makefile would set for your build configuration.
 #endif
 
 #ifdef YOSYS_ENABLE_TCL
@@ -74,8 +74,6 @@
 #  define NOMINMAX 1
 #  undef YY_NO_UNISTD_H
 #  define YY_NO_UNISTD_H 1
-#  undef _CRT_SECURE_NO_WARNINGS
-#  define _CRT_SECURE_NO_WARNINGS 1
 
 #  include <windows.h>
 #  include <io.h>
@@ -89,6 +87,11 @@
 #  define popen _popen
 #  define pclose _pclose
 #  define PATH_MAX MAX_PATH
+
+#  ifndef __MINGW32__
+#    define isatty _isatty
+#    define fileno _fileno
+#  endif
 #endif
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {

@@ -32,6 +32,36 @@
 
 #if !defined(_WIN32) || defined(__MINGW32__)
 #  include <unistd.h>
+#else
+char *optarg;
+int optind = 1, optcur = 1;
+int getopt(int argc, char **argv, const char *optstring)
+{
+	if (optind >= argc || argv[optind][0] != '-')
+		return -1;
+
+	bool takes_arg = false;
+	int opt = argv[optind][optcur];
+	for (int i = 0; optstring[i]; i++)
+		if (opt == optstring[i] && optstring[i + 1] == ':')
+			takes_arg = true;
+
+	if (!takes_arg) {
+		if (argv[optind][++optcur] == 0)
+			optind++, optcur = 1;
+		return opt;
+	}
+
+	if (argv[optind][++optcur]) {
+		optarg = argv[optind++] + optcur;
+		optcur = 1;
+		return opt;
+	}
+
+	optarg = argv[++optind];
+	optind++, optcur = 1;
+	return opt;
+}
 #endif
 
 

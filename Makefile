@@ -324,8 +324,9 @@ ifeq ($(ENABLE_ABC),1)
 endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-$(YOSYS_VER)/readme.txt
-	find backends frontends kernel libs passes techlibs -name '*.d' | xargs sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,;' \
-		-e 's,/[^/]*/\.\./,/,g; s,'"$PWD/"',,' | sort -u | sed '/^[^/]/ ! d; s,$,\r,;' > srcfiles.txt
+	find backends frontends kernel libs passes techlibs -name '*.d' | xargs
+	sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,; s,/[^/]*/\.\./,/,g; s,'"$$PWD/"',,' $(addsuffix .d,$(basename $(OBJS))) \
+			| sort -u | sed '/^[^/]/ ! d; s,$$,\r,;' > srcfiles.txt
 	zip yosys-win32-$(YOSYS_VER)/genfiles.zip $(GENFILES) srcfiles.txt
 	zip -r yosys-win32-$(YOSYS_VER).zip yosys-win32-$(YOSYS_VER)/
 	rm -f srcfiles.txt

@@ -22,11 +22,23 @@
 #include <cmath>
 #include <algorithm>
 #include <cassert>
+#include <string>
 
 #include <stdlib.h>
 
 const int ezSAT::CONST_TRUE = 1;
 const int ezSAT::CONST_FALSE = 2;
+
+static std::string my_int_to_string(int i)
+{
+#ifdef __MINGW32__
+	char buffer[64];
+	snprintf(buffer, 64, "%d", i);
+	return buffer;
+#else
+	return std::to_string(i);
+#endif
+}
 
 ezSAT::ezSAT()
 {
@@ -183,7 +195,7 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 	if (expressionsCache.count(myExpr) > 0) {
 		id = expressionsCache.at(myExpr);
 	} else {
-		id = -(expressions.size() + 1);
+		id = -(int(expressions.size()) + 1);
 		expressionsCache[myExpr] = id;
 		expressions.push_back(myExpr);
 	}
@@ -490,13 +502,13 @@ int ezSAT::bound(int id) const
 
 std::string ezSAT::cnfLiteralInfo(int idx) const
 {
-	for (size_t i = 0; i < cnfLiteralVariables.size(); i++) {
+	for (int i = 0; i < int(cnfLiteralVariables.size()); i++) {
 		if (cnfLiteralVariables[i] == idx)
 			return to_string(i+1);
 		if (cnfLiteralVariables[i] == -idx)
 			return "NOT " + to_string(i+1);
 	}
-	for (size_t i = 0; i < cnfExpressionVariables.size(); i++) {
+	for (int i = 0; i < int(cnfExpressionVariables.size()); i++) {
 		if (cnfExpressionVariables[i] == idx)
 			return to_string(-i-1);
 		if (cnfExpressionVariables[i] == -idx)
@@ -670,9 +682,7 @@ std::vector<int> ezSAT::vec_var(std::string name, int numBits)
 {
 	std::vector<int> vec;
 	for (int i = 0; i < numBits; i++) {
-		char buf[64];
-		snprintf(buf, 64, " [%d]", i);
-		vec.push_back(VAR(name + buf));
+		vec.push_back(VAR(name + my_int_to_string(i)));
 	}
 	return vec;
 }
@@ -1245,11 +1255,8 @@ static std::string expression2str(const std::pair<ezSAT::OpId, std::vector<int>>
 #undef X
 	}
 	text += ":";
-	for (auto it : data.second) {
-		char buf[64];
-		snprintf(buf, 64, " %d", it);
-		text += buf;
-	}
+	for (auto it : data.second)
+		text += " " + my_int_to_string(it);
 	return text;
 }
 
