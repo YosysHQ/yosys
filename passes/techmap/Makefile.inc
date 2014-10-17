@@ -24,7 +24,7 @@ passes/techmap/techmap.inc: techlibs/common/techmap.v
 passes/techmap/techmap.o: passes/techmap/techmap.inc
 
 TARGETS += yosys-filterlib$(EXE)
-GENFILES += passes/techmap/filterlib.o
+EXTRA_OBJS += passes/techmap/filterlib.o
 
 yosys-filterlib$(EXE): passes/techmap/filterlib.o
 	$(P) $(CXX) -o yosys-filterlib$(EXE) $(LDFLAGS) $^ $(LDLIBS)

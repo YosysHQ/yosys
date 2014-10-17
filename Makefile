@@ -21,6 +21,7 @@ INSTALL_SUDO :=
 EXE =
 OBJS =
 GENFILES =
+EXTRA_OBJS =
 EXTRA_TARGETS =
 TARGETS = yosys$(EXE) yosys-config
 
@@ -294,7 +295,7 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 clean:
 	rm -rf share
 	cd manual && bash clean.sh
-	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS)
+	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 
@@ -323,6 +324,7 @@ ifeq ($(ENABLE_ABC),1)
 endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-$(YOSYS_VER)/readme.txt
+	zip yosys-win32-$(YOSYS_VER)/genfiles.zip $(GENFILES)
 	zip -r yosys-win32-$(YOSYS_VER).zip yosys-win32-$(YOSYS_VER)/
 endif
 
