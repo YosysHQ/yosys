@@ -25,6 +25,7 @@
 #include <vector>
 #include <string>
 #include <stdio.h>
+#include <stdint.h>
 
 class ezSAT
 {

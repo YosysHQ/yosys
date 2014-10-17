@@ -269,12 +269,12 @@ std::string make_temp_dir(std::string template_str)
 #ifdef _WIN32
 bool check_file_exists(std::string filename, bool)
 {
-	return _access(filename.c_str(), 0);
+	return _access(filename.c_str(), 0) == 0;
 }
 #else
 bool check_file_exists(std::string filename, bool is_exec)
 {
-	return access(filename.c_str(), is_exec ? X_OK : F_OK);
+	return access(filename.c_str(), is_exec ? X_OK : F_OK) == 0;
 }
 #endif
 
@@ -497,10 +497,10 @@ std::string proc_share_dirname()
 {
 	std::string proc_self_path = proc_self_dirname();
 	std::string proc_share_path = proc_self_path + "share/";
-	if (check_file_exists(proc_share_path, true) == 0)
+	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 	proc_share_path = proc_self_path + "../share/yosys/";
-	if (check_file_exists(proc_share_path, true) == 0)
+	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }

@@ -174,7 +174,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			for (auto &dir : libdirs)
 			{
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".v";
-				if (access(filename.c_str(), F_OK) == 0) {
+				if (check_file_exists(filename)) {
 					std::vector<std::string> args;
 					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "verilog");
@@ -182,7 +182,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				}
 
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
-				if (access(filename.c_str(), F_OK) == 0) {
+				if (check_file_exists(filename)) {
 					std::vector<std::string> args;
 					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "ilang");

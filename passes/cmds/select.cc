@@ -1142,7 +1142,7 @@ struct SelectPass : public Pass {
 
 		if (list_mode || count_mode || !write_file.empty())
 		{
-		#define LOG_OBJECT(...) do { if (list_mode) log(__VA_ARGS__); if (f != NULL) fprintf(f, __VA_ARGS__); total_count++; } while (0)
+		#define LOG_OBJECT(...) { if (list_mode) log(__VA_ARGS__); if (f != NULL) fprintf(f, __VA_ARGS__); total_count++; }
 			int total_count = 0;
 			FILE *f = NULL;
 			if (!write_file.empty()) {
@@ -1161,16 +1161,16 @@ struct SelectPass : public Pass {
 				if (sel->selected_module(mod_it.first)) {
 					for (auto &it : mod_it.second->wires_)
 						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
 					for (auto &it : mod_it.second->memories)
 						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
 					for (auto &it : mod_it.second->cells_)
 						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
 					for (auto &it : mod_it.second->processes)
 						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
 				}
 			}
 			if (count_mode)

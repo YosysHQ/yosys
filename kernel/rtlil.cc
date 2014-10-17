@@ -2204,7 +2204,7 @@ void RTLIL::SigSpec::unpack() const
 	that->hash_ = 0;
 }
 
-#define DJB2(_hash, _value) do { (_hash) = (((_hash) << 5) + (_hash)) + (_value); } while (0)
+#define DJB2(_hash, _value) (_hash) = (((_hash) << 5) + (_hash)) + (_value)
 
 void RTLIL::SigSpec::hash() const
 {

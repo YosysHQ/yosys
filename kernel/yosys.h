@@ -56,6 +56,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #ifndef _YOSYS_
@@ -68,17 +69,18 @@
 #  include <tcl.h>
 #endif
 
-// a few platform specific things
 #ifdef _WIN32
-#  ifndef NOMINMAX
-#    define NOMINMAX 1
-#  endif
+#  undef NOMINMAX
+#  define NOMINMAX 1
+#  undef YY_NO_UNISTD_H
+#  define YY_NO_UNISTD_H 1
+#  undef _CRT_SECURE_NO_WARNINGS
+#  define _CRT_SECURE_NO_WARNINGS 1
+
 #  include <windows.h>
-#  include <stdint.h> // takes care of a number of typedefs
 #  include <io.h>
 #  include <direct.h>
 
-// these are always a bit dangerous :-)
 #  define strtok_r strtok_s
 #  define strdup _strdup
 #  define snprintf _snprintf
@@ -88,7 +90,6 @@
 #  define pclose _pclose
 #  define PATH_MAX MAX_PATH
 #endif
-
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
@@ -128,7 +129,7 @@ bool patmatch(const char *pattern, const char *string);
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
 std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
 std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
-bool check_file(std::string filename, bool is_exec = false);
+bool check_file_exists(std::string filename, bool is_exec = false);
 void remove_directory(std::string dirname);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }

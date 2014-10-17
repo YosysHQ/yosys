@@ -55,8 +55,8 @@ void logv_header(const char *format, va_list ap);
 void logv_error(const char *format, va_list ap) __attribute__((noreturn));
 void log(const char *format, ...)  __attribute__((format(printf, 1, 2)));
 void log_header(const char *format, ...) __attribute__((format(printf, 1, 2)));
-void log_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
-void log_cmd_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
+_NORETURN_ void log_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
+_NORETURN_ void log_cmd_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
 
 void log_spacer();
 void log_push();
