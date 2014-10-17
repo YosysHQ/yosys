@@ -67,6 +67,41 @@ of "foobar.size()". (GetSize() is defined by kernel/yosys.h)
 Use range-based for loops whenever applicable.
 
 
+Building in Visual Studio
+=========================
+
+1. Create an empty Visual C++ Win32 Console App project
+   (recommended name: YosysVS)
+
+2. Close VS and launch "Git Bash" in the project directory
+
+3. Prepare sources
+
+	git clone https://github.com/cliffordwolf/yosys.git yosys
+	cd yosys
+
+	curl -O http://www.clifford.at/yosys/nogit/yosys-win32-<version>.zip
+	unzip yosys-win32-<version>.zip
+	unzip yosys-win32-<version>/genfiles.zip
+
+4. Add files to VS project
+
+	notepad vcxproj_files.txt
+	notepad ../YosysVS/YosysVS.vcxproj
+
+	(replace the empty <ItemGroup> in YosysVS.vcxproj
+	with the XML text from vcxproj_files.txt)
+
+5. Open project in VS and go to the project properties:
+
+	C/C++ -> General -> Additional Include Directories
+		Add: ..\yosys
+
+	C/C++ -> Preprocessor -> Preprocessor Definitions
+		Add: _YOSYS_;_CRT_SECURE_NO_WARNINGS
+
+6. Build YosysVS
+
 
 Checklist for adding internal cell types
 ========================================

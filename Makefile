@@ -325,9 +325,9 @@ endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-$(YOSYS_VER)/readme.txt
 	sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,; s,/[^/]*/\.\./,/,g; s,'"$$PWD/"',,' \
-			$(addsuffix .d,$(basename $(OBJS))) | sort -u | grep '^[^/]' > srcfiles.txt
-	{ egrep '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClInclude Include="../yosys/&" />,'; echo; \
-		egrep -v '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClCompile Include="../yosys/&" />,'; } > vcxproj_files.txt
+			$(addsuffix .d,$(basename $(OBJS))) | sort -u | grep '^[^/]' | grep -v kernel/version_ > srcfiles.txt
+	{ echo '<ItemGroup>'; egrep '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClInclude Include="../yosys/&" />,'; \
+		egrep -v '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClCompile Include="../yosys/&" />,'; echo '</ItemGroup>'; } > vcxproj_files.txt
 	sed -i 's/$$/\r/' srcfiles.txt vcxproj_files.txt
 	zip yosys-win32-$(YOSYS_VER)/genfiles.zip $(GENFILES) srcfiles.txt vcxproj_files.txt
 	zip -r yosys-win32-$(YOSYS_VER).zip yosys-win32-$(YOSYS_VER)/
