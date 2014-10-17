@@ -181,7 +181,7 @@ struct PerformanceTimer
 	}
 
 	float sec() const {
-		return total_ns * 1e-9;
+		return total_ns * 1e-9f;
 	}
 #else
 	static int64_t query() { return 0; }

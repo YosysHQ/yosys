@@ -107,7 +107,7 @@ struct SatGen
 	{
 		log_assert(timestep != 0);
 		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
-		return imported_signals[pf].count(bit);
+		return imported_signals[pf].count(bit) != 0;
 	}
 
 	void getAsserts(RTLIL::SigSpec &sig_a, RTLIL::SigSpec &sig_en, int timestep = -1)
