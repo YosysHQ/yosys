@@ -324,12 +324,14 @@ ifeq ($(ENABLE_ABC),1)
 endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-$(YOSYS_VER)/readme.txt
-	find backends frontends kernel libs passes techlibs -name '*.d' | xargs
-	sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,; s,/[^/]*/\.\./,/,g; s,'"$$PWD/"',,' $(addsuffix .d,$(basename $(OBJS))) \
-			| sort -u | sed '/^[^/]/ ! d; s,$$,\r,;' > srcfiles.txt
-	zip yosys-win32-$(YOSYS_VER)/genfiles.zip $(GENFILES) srcfiles.txt
+	sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,; s,/[^/]*/\.\./,/,g; s,'"$$PWD/"',,' \
+			$(addsuffix .d,$(basename $(OBJS))) | sort -u | grep '^[^/]' > srcfiles.txt
+	{ egrep '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClInclude Include="../yosys/&" />,'; echo; \
+		egrep -v '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClCompile Include="../yosys/&" />,'; } > vcxproj_files.txt
+	sed -i 's/$$/\r/' srcfiles.txt vcxproj_files.txt
+	zip yosys-win32-$(YOSYS_VER)/genfiles.zip $(GENFILES) srcfiles.txt vcxproj_files.txt
 	zip -r yosys-win32-$(YOSYS_VER).zip yosys-win32-$(YOSYS_VER)/
-	rm -f srcfiles.txt
+	rm -f srcfiles.txt vcxproj_files.txt
 endif
 
 config-clean: clean
