@@ -315,23 +315,21 @@ qtcreator:
 
 ifeq ($(CONFIG),mxe)
 dist: $(TARGETS) $(EXTRA_TARGETS)
-	rm -rf yosys-win32-$(YOSYS_VER)
-	rm -rf yosys-win32-$(YOSYS_VER).zip
-	mkdir -p yosys-win32-$(YOSYS_VER)
-	cp -r yosys.exe share/ yosys-win32-$(YOSYS_VER)/
+	rm -rf yosys-win32-{mxebin,vcxsrc}-$(YOSYS_VER){,.zip}
+	mkdir -p yosys-win32-mxebin-$(YOSYS_VER)
+	cp -r yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
 ifeq ($(ENABLE_ABC),1)
-	cp -r yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-$(YOSYS_VER)/
+	cp -r yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-mxebin-$(YOSYS_VER)/
 endif
-	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-$(YOSYS_VER)/readme.txt
-	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-$(YOSYS_VER)/readme.txt
+	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
+	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
 	sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,; s,/[^/]*/\.\./,/,g; s,'"$$PWD/"',,' \
 			$(addsuffix .d,$(basename $(OBJS))) | sort -u | grep '^[^/]' | grep -v kernel/version_ > srcfiles.txt
-	{ echo '<ItemGroup>'; egrep '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClInclude Include="../yosys/&" />,'; \
-		egrep -v '\.(h|hh|hpp|inc)$$' srcfiles.txt | sed 's,.*,<ClCompile Include="../yosys/&" />,'; echo '</ItemGroup>'; } > vcxproj_files.txt
-	sed -i 's/$$/\r/' srcfiles.txt vcxproj_files.txt
-	zip yosys-win32-$(YOSYS_VER)/genfiles.zip $(GENFILES) srcfiles.txt vcxproj_files.txt
-	zip -r yosys-win32-$(YOSYS_VER).zip yosys-win32-$(YOSYS_VER)/
-	rm -f srcfiles.txt vcxproj_files.txt
+	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc-$(YOSYS_VER)
+	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES)
+	zip -r yosys-win32-mxebin-$(YOSYS_VER).zip yosys-win32-mxebin-$(YOSYS_VER)/
+	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
+	rm -f srcfiles.txt
 endif
 
 config-clean: clean

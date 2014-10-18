@@ -67,32 +67,27 @@ of "foobar.size()". (GetSize() is defined by kernel/yosys.h)
 Use range-based for loops whenever applicable.
 
 
-Building in Visual Studio
-=========================
+
+Creating the Visual Studio Template Project
+===========================================
 
 1. Create an empty Visual C++ Win32 Console App project
-   (recommended name: YosysVS)
 
-2. Close VS and launch "Git Bash" in the project directory
+	Microsoft Visual Studio Express 2013 for Windows Desktop
+	Open New Project Wizard (File -> New Project..)
 
-3. Prepare sources
+	Project Name: YosysVS
+	Solution Name: YosysVS
+	[X] Create directory for solution
+	[ ] Add to source control
 
-	git clone https://github.com/cliffordwolf/yosys.git yosys
-	cd yosys
+	[X] Console applications
+	[X] Empty Projcect
+	[ ] SDL checks
 
-	curl -O http://www.clifford.at/yosys/nogit/yosys-win32-<version>.zip
-	unzip yosys-win32-<version>.zip
-	unzip yosys-win32-<version>/genfiles.zip
+2. Open YosysVS Project Properties
 
-4. Add files to VS project
-
-	notepad vcxproj_files.txt
-	notepad ../YosysVS/YosysVS.vcxproj
-
-	(replace the empty <ItemGroup> in YosysVS.vcxproj
-	with the XML text from vcxproj_files.txt)
-
-5. Open project in VS and go to the project properties:
+	Select Configuration: All Configurations
 
 	C/C++ -> General -> Additional Include Directories
 		Add: ..\yosys
@@ -100,7 +95,18 @@ Building in Visual Studio
 	C/C++ -> Preprocessor -> Preprocessor Definitions
 		Add: _YOSYS_;_CRT_SECURE_NO_WARNINGS
 
-6. Build YosysVS
+3. Resulting file system tree:
+
+	YosysVS/
+	YosysVS/YosysVS
+	YosysVS/YosysVS/YosysVS.vcxproj
+	YosysVS/YosysVS/YosysVS.vcxproj.filters
+	YosysVS/YosysVS.sdf
+	YosysVS/YosysVS.sln
+	YosysVS/YosysVS.v12.suo
+
+4. Zip YosysVS as YosysVS-Tpl-v1.zip
+
 
 
 Checklist for adding internal cell types
