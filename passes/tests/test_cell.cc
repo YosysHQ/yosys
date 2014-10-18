@@ -522,7 +522,7 @@ struct TestCellPass : public Pass {
 		log("    -map {filename}\n");
 		log("        pass this option to techmap.\n");
 		log("\n");
-		log("    -simplib\n");
+		log("    -simlib\n");
 		log("        use \"techmap -map +/simlib.v -max_iter 2 -autoproc\"\n");
 		log("\n");
 		log("    -script {script_file}\n");
