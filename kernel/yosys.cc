@@ -358,11 +358,19 @@ void yosys_shutdown()
 
 RTLIL::IdString new_id(std::string file, int line, std::string func)
 {
-	std::string str = "$auto$";
+#ifdef _WIN32
+	size_t pos = file.find_last_of("/\\");
+#else
 	size_t pos = file.find_last_of('/');
-	str += pos != std::string::npos ? file.substr(pos+1) : file;
-	str += stringf(":%d:%s$%d", line, func.c_str(), autoidx++);
-	return str;
+#endif
+	if (pos != std::string::npos)
+		file = file.substr(pos+1);
+
+	pos = func.find_last_of(':');
+	if (pos != std::string::npos)
+		func = func.substr(pos+1);
+
+	return stringf("$auto$%s:%d:%s$%d", file.c_str(), line, func.c_str(), autoidx++);
 }
 
 RTLIL::Design *yosys_get_design()
