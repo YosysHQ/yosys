@@ -1106,6 +1106,11 @@ struct AbcPass : public Pass {
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		int lut_mode = 0;
 
+#ifdef _WIN32
+		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\yosys-abc.exe"))
+			exe_file = proc_self_dirname() + "..\\yosys-abc";
+#endif
+
 		size_t argidx;
 		char pwd [PATH_MAX];
 		if (!getcwd(pwd, sizeof(pwd))) {
