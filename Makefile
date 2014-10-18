@@ -355,6 +355,7 @@ config-mxe: clean
 	echo 'CONFIG := mxe' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
