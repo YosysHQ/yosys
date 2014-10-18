@@ -221,8 +221,10 @@ std::string make_temp_file(std::string template_str)
 			log_error("GetTempPath() failed.\n");
 		if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
 			log_error("GetShortPathName() failed.\n");
-		log_assert(sizeof(TCHAR) == sizeof(char));
-		template_str = stringf("%s\\%s", shortpath, template_str.c_str() + 5);
+		std::string path;
+		for (int i = 0; shortpath[i]; i++)
+			path += char(shortpath[i]);
+		template_str = stringf("%s\\%s", path.c_str(), template_str.c_str() + 5);
 	}
 
 	size_t pos = template_str.rfind("XXXXXX");
@@ -501,8 +503,10 @@ std::string proc_self_dirname()
 		i++;
 	while (i > 0 && shortpath[i-1] != '/' && shortpath[i-1] != '\\')
 		shortpath[--i] = 0;
-	log_assert(sizeof(TCHAR) == sizeof(char));
-	return std::string((char*)shortpath);
+	std::string path;
+	for (i = 0; shortpath[i]; i++)
+		path += char(shortpath[i]);
+	return path;
 }
 #elif defined(EMSCRIPTEN)
 std::string proc_self_dirname()
@@ -516,12 +520,21 @@ std::string proc_self_dirname()
 std::string proc_share_dirname()
 {
 	std::string proc_self_path = proc_self_dirname();
+#ifdef _WIN32
+	std::string proc_share_path = proc_self_path + "share\\";
+	if (check_file_exists(proc_share_path, true))
+		return proc_share_path;
+	proc_share_path = proc_self_path + "..\\share\\";
+	if (check_file_exists(proc_share_path, true))
+		return proc_share_path;
+#else
 	std::string proc_share_path = proc_self_path + "share/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 	proc_share_path = proc_self_path + "../share/yosys/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
+#endif
 	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }
 
@@ -789,11 +802,16 @@ void shell(RTLIL::Design *design)
 	char *command = NULL;
 #ifdef YOSYS_ENABLE_READLINE
 	while ((command = readline(create_prompt(design, recursion_counter))) != NULL)
+	{
 #else
 	char command_buffer[4096];
-	while ((command = fgets(command_buffer, 4096, stdin)) != NULL)
-#endif
+	while (1)
 	{
+		fputs(create_prompt(design, recursion_counter), stdout);
+		fflush(stdout);
+		if ((command = fgets(command_buffer, 4096, stdin)) == NULL)
+			break;
+#endif
 		if (command[strspn(command, " \t\r\n")] == 0)
 			continue;
 #ifdef YOSYS_ENABLE_READLINE
