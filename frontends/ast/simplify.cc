@@ -2457,7 +2457,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 	}
 
 	log_assert(block != NULL);
-	log_assert(variables.count(str));
+	log_assert(variables.count(str) != 0);
 
 	while (!block->children.empty())
 	{

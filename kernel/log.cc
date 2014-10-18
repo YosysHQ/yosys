@@ -64,7 +64,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 	counter.QuadPart *= 1000000;
 	counter.QuadPart /= freq.QuadPart;
 
-	tv->tv_sec = counter.QuadPart / 1000000;
+	tv->tv_sec = long(counter.QuadPart / 1000000);
 	tv->tv_usec = counter.QuadPart % 1000000;
 
 	return 0;

@@ -1118,7 +1118,7 @@ int64_t ezSAT::vec_model_get_signed(const std::vector<int> &modelExpressions, co
 	for (int i = 0; i < 64; i++) {
 		int j = i < int(vec1.size()) ? i : vec1.size()-1;
 		if (modelMap.at(vec1[j]))
-			value |= 1 << i;
+			value |= int64_t(1) << i;
 	}
 	return value;
 }
@@ -1132,7 +1132,7 @@ uint64_t ezSAT::vec_model_get_unsigned(const std::vector<int> &modelExpressions,
 		modelMap[modelExpressions[i]] = modelValues[i];
 	for (int i = 0; i < int(vec1.size()); i++)
 		if (modelMap.at(vec1[i]))
-			value |= 1 << i;
+			value |= uint64_t(1) << i;
 	return value;
 }
 

@@ -747,7 +747,7 @@ struct ShareWorker
 				forbidden_controls_cache[cell].insert(bits.begin(), bits.end());
 			}
 
-		log_assert(recursion_state.count(cell));
+		log_assert(recursion_state.count(cell) != 0);
 		recursion_state.erase(cell);
 
 		return forbidden_controls_cache[cell];
@@ -862,7 +862,7 @@ struct ShareWorker
 			activation_patterns_cache[cell].insert(c_patterns.begin(), c_patterns.end());
 		}
 
-		log_assert(recursion_state.count(cell));
+		log_assert(recursion_state.count(cell) != 0);
 		recursion_state.erase(cell);
 
 		optimize_activation_patterns(activation_patterns_cache[cell]);

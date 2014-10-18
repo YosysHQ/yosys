@@ -231,7 +231,7 @@ std::string make_temp_file(std::string template_str)
 	while (1) {
 		for (int i = 0; i < 6; i++) {
 			static std::string y = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-			static uint32_t x = 314159265 ^ time(NULL);
+			static uint32_t x = 314159265 ^ uint32_t(time(NULL));
 			x ^= x << 13, x ^= x >> 17, x ^= x << 5;
 			template_str[pos+i] = y[x % y.size()];
 		}

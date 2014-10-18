@@ -112,7 +112,7 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 		if (regs.check_any(s1) != regs.check_any(s2))
 			return regs.check_any(s2);
 		if (direct_wires.count(w1) != direct_wires.count(w2))
-			return direct_wires.count(w2);
+			return direct_wires.count(w2) != 0;
 		if (conns.check_any(s1) != conns.check_any(s2))
 			return conns.check_any(s2);
 	}

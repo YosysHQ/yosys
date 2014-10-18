@@ -108,7 +108,7 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 	LibertyAst *best_cell = NULL;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
-	float best_cell_area = 0;
+	double best_cell_area = 0;
 
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");
@@ -144,7 +144,7 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 			this_cell_ports[cell_rst_pin] = 'R';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		float area = 0;
+		double area = 0;
 		LibertyAst *ar = cell->find("area");
 		if (ar != NULL && !ar->value.empty())
 			area = atof(ar->value.c_str());
@@ -204,7 +204,7 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 	LibertyAst *best_cell = NULL;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
-	float best_cell_area = 0;
+	double best_cell_area = 0;
 
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");
@@ -236,7 +236,7 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 		this_cell_ports[cell_clr_pin] = 'R';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		float area = 0;
+		double area = 0;
 		LibertyAst *ar = cell->find("area");
 		if (ar != NULL && !ar->value.empty())
 			area = atof(ar->value.c_str());

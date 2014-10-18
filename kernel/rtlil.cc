@@ -1778,7 +1778,7 @@ const std::map<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections() cons
 
 bool RTLIL::Cell::hasParam(RTLIL::IdString paramname) const
 {
-	return parameters.count(paramname);
+	return parameters.count(paramname) != 0;
 }
 
 void RTLIL::Cell::unsetParam(RTLIL::IdString paramname)
@@ -3041,7 +3041,7 @@ bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, R
 
 	if (lhs.chunks_.size() == 1) {
 		char *p = (char*)str.c_str(), *endptr;
-		long long int val = strtoll(p, &endptr, 10);
+		long int val = strtol(p, &endptr, 10);
 		if (endptr && endptr != p && *endptr == 0) {
 			sig = RTLIL::SigSpec(val, lhs.width_);
 			cover("kernel.rtlil.sigspec.parse.rhs_dec");
