@@ -325,11 +325,12 @@ endif
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
 	sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,; s,/[^/]*/\.\./,/,g; s,'"$$PWD/"',,' \
 			$(addsuffix .d,$(basename $(OBJS))) | sort -u | grep '^[^/]' | grep -v kernel/version_ > srcfiles.txt
-	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc-$(YOSYS_VER)
-	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES)
+	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
+	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
+	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc
 	zip -r yosys-win32-mxebin-$(YOSYS_VER).zip yosys-win32-mxebin-$(YOSYS_VER)/
 	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
-	rm -f srcfiles.txt
+	rm -f srcfiles.txt kernel/version.cc
 endif
 
 config-clean: clean

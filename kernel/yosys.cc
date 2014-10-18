@@ -45,10 +45,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#if defined(_WIN32) && !defined(__MINGW32__)
-const char *yosys_version_str = "Yosys for Windows (Version Information Unavailable)";
-#endif
-
 int autoidx = 1;
 RTLIL::Design *yosys_design = NULL;
 
