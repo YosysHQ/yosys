@@ -34,9 +34,9 @@
 #include <stdarg.h>
 
 #if defined(__APPLE__)
-#include <cmath>
+#  include <cmath>
 #else
-#include <math.h>
+#  include <math.h>
 #endif
 
 YOSYS_NAMESPACE_BEGIN
