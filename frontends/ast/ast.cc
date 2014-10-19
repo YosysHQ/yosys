@@ -32,7 +32,12 @@
 
 #include <sstream>
 #include <stdarg.h>
+
+#if defined(__APPLE__)
+#include <cmath>
+#else
 #include <math.h>
+#endif
 
 YOSYS_NAMESPACE_BEGIN
 

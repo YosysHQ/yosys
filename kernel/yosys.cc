@@ -33,6 +33,9 @@
 #  include <io.h>
 #elif defined(__APPLE__)
 #  include <mach-o/dyld.h>
+#  include <unistd.h>
+#  include <dirent.h>
+#  include <sys/stat.h>
 #else
 #  include <unistd.h>
 #  include <dirent.h>
