@@ -97,6 +97,22 @@ std::string vstringf(const char *fmt, va_list ap)
 	return string;
 }
 
+int readsome(std::istream &f, char *s, int n)
+{
+	int rc = f.readsome(s, n);
+
+	// f.readsome() sometimes returns 0 on a non-empty stream..
+	if (rc == 0) {
+		int c = f.get();
+		if (c != EOF) {
+			*s = c;
+			rc = 1;
+		}
+	}
+
+	return rc;
+}
+
 std::string next_token(std::string &text, const char *sep)
 {
 	size_t pos_begin = text.find_first_not_of(sep);

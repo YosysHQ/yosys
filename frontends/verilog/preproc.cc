@@ -196,16 +196,14 @@ static std::string next_token(bool pass_newline = false)
 static void input_file(std::istream &f, std::string filename)
 {
 	char buffer[513];
+	int rc;
 
 	insert_input("");
 	auto it = input_buffer.begin();
 
 	input_buffer.insert(it, "`file_push " + filename + "\n");
-	while (1) {
-		f.read(buffer, sizeof(buffer)-1);
-		if (f.gcount() <= 0)
-			break;
-		buffer[f.gcount()] = 0;
+	while ((rc = readsome(f, buffer, sizeof(buffer)-1)) > 0) {
+		buffer[rc] = 0;
 		input_buffer.insert(it, buffer);
 	}
 	input_buffer.insert(it, "\n`file_pop\n");

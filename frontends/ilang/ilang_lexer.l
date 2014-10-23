@@ -35,11 +35,7 @@
 USING_YOSYS_NAMESPACE
 
 #define YY_INPUT(buf,result,max_size) \
-	do { \
-		ILANG_FRONTEND::lexin->read(buf, max_size-1); \
-		result = ILANG_FRONTEND::lexin->gcount(); \
-		if (result >= 0) buf[result] = '\0'; \
-	} while (0)
+	result = readsome(*ILANG_FRONTEND::lexin, buf, max_size)
 
 %}
 

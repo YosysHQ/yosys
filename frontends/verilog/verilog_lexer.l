@@ -64,11 +64,7 @@ YOSYS_NAMESPACE_END
 	return TOK_ID;
 
 #define YY_INPUT(buf,result,max_size) \
-	do { \
-		lexin->read(buf, max_size-1); \
-		result = lexin->gcount(); \
-		if (result >= 0) buf[result] = '\0'; \
-	} while (0)
+	result = readsome(*VERILOG_FRONTEND::lexin, buf, max_size)
 
 %}
 
