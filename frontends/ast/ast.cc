@@ -706,6 +706,8 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 AstNode *AstNode::mkconst_str(const std::vector<RTLIL::State> &v)
 {
 	AstNode *node = mkconst_str(RTLIL::Const(v).decode_string());
+	while (GetSize(node->bits) < GetSize(v))
+		node->bits.push_back(RTLIL::State::S0);
 	log_assert(node->bits == v);
 	return node;
 }
