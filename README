@@ -384,7 +384,6 @@ Other Unsorted TODOs
 - Implement missing Verilog 2005 features:
 
   - Support for real (float) const. expressions and parameters
-  - ROM modeling using $readmemh/$readmemb in "initial" blocks
   - Ignore what needs to be ignored (e.g. drive and charge strengths)
   - Check standard vs. implementation to identify missing features
 

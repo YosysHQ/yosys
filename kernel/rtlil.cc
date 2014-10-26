@@ -2935,7 +2935,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 		if (netname.size() == 0)
 			continue;
 
-		if ('0' <= netname[0] && netname[0] <= '9') {
+		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
 			cover("kernel.rtlil.sigspec.parse.const");
 			AST::get_line_num = sigspec_parse_get_dummy_line_num;
 			AST::AstNode *ast = VERILOG_FRONTEND::const2ast(netname);

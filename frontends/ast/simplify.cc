@@ -28,10 +28,12 @@
 
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"
+#include "frontends/verilog/verilog_frontend.h"
 #include "ast.h"
 
 #include <sstream>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <math.h>
 
 YOSYS_NAMESPACE_BEGIN
@@ -1480,6 +1482,44 @@ skip_dynamic_range_lvalue_expansion:;
 				log_error("Can't resolve function name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
 		if (type == AST_TCALL) {
+			if (str == "\\$readmemh" || str == "\\$readmemb")
+			{
+				if (GetSize(children) < 2 || GetSize(children) > 4)
+					log_error("System function %s got %d arguments, expected 2-4 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
+
+				AstNode *node_filename = children[0]->clone();
+				while (node_filename->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+				if (node_filename->type != AST_CONSTANT)
+					log_error("Failed to evaluate system function `%s' with non-constant 1st argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+
+				AstNode *node_memory = children[1]->clone();
+				while (node_memory->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+				if (node_memory->type != AST_IDENTIFIER || node_memory->id2ast == nullptr || node_memory->id2ast->type != AST_MEMORY)
+					log_error("Failed to evaluate system function `%s' with non-memory 2nd argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+
+				int start_addr = -1, finish_addr = -1;
+
+				if (GetSize(children) > 2) {
+					AstNode *node_addr = children[2]->clone();
+					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (node_addr->type != AST_CONSTANT)
+						log_error("Failed to evaluate system function `%s' with non-constant 3rd argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					start_addr = node_addr->asInt(false);
+				}
+
+				if (GetSize(children) > 3) {
+					AstNode *node_addr = children[3]->clone();
+					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (node_addr->type != AST_CONSTANT)
+						log_error("Failed to evaluate system function `%s' with non-constant 4th argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					finish_addr = node_addr->asInt(false);
+				}
+
+				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr);
+				goto apply_newNode;
+			}
+
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_TASK)
 				log_error("Can't resolve task name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
@@ -1986,6 +2026,78 @@ static void replace_result_wire_name_in_function(AstNode *node, std::string &fro
 		replace_result_wire_name_in_function(it, from, to);
 	if (node->str == from)
 		node->str = to;
+}
+
+// replace a readmem[bh] TCALL ast node with a block of memory assignments
+AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr)
+{
+	AstNode *block = new AstNode(AST_BLOCK);
+
+	std::ifstream f;
+	f.open(mem_filename.c_str());
+
+	if (f.fail())
+		log_error("Can not open file `%s` for %s at %s:%d.\n", mem_filename.c_str(), str.c_str(), filename.c_str(), linenum);
+
+	// log_assert(GetSize(memory->children) == 2 && memory->children[0]->type == AST_RANGE && memory->children[0]->range_valid);
+	// int wordsize_left =  memory->children[0]->range_left, wordsize_right =  memory->children[0]->range_right;
+	// int wordsize = std::max(wordsize_left, wordsize_right) - std::min(wordsize_left, wordsize_right) + 1;
+
+	bool in_comment = false;
+	int increment = (start_addr < finish_addr) || (start_addr < 0) || (finish_addr < 0) ? +1 : -1;
+	int cursor = start_addr < 0 ? 0 : start_addr;
+
+	while (!f.eof())
+	{
+		std::string line, token;
+		std::getline(f, line);
+
+		for (int i = 0; i < GetSize(line); i++) {
+			if (in_comment && line.substr(i, 2) == "*/") {
+				line[i] = ' ';
+				line[i+1] = ' ';
+				in_comment = false;
+				continue;
+			}
+			if (!in_comment && line.substr(i, 2) == "/*")
+				in_comment = true;
+			if (in_comment)
+				line[i] = ' ';
+		}
+
+		while (1)
+		{
+			token = next_token(line, " \t\r\n");
+			if (token.empty() || token.substr(0, 2) == "//")
+				break;
+
+			if (token[0] == '@') {
+				token = token.substr(1);
+				const char *nptr = token.c_str();
+				char *endptr;
+				cursor = strtol(nptr, &endptr, 16);
+				if (!*nptr || *endptr)
+					log_error("Can not parse address `%s` for %s at %s:%d.\n", nptr, str.c_str(), filename.c_str(), linenum);
+				continue;
+			}
+
+			AstNode *value = VERILOG_FRONTEND::const2ast((is_readmemh ? "'h" : "'b") + token);
+
+			block->children.push_back(new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER, new AstNode(AST_RANGE, AstNode::mkconst_int(cursor, false))), value));
+			block->children.back()->children[0]->str = memory->str;
+			block->children.back()->children[0]->id2ast = memory;
+
+			if (cursor == finish_addr)
+				break;
+			cursor += increment;
+		}
+
+		if (cursor == finish_addr)
+			break;
+	}
+
+	// fixme
+	return block;
 }
 
 // annotate the names of all wires and other named objects in a generate block
