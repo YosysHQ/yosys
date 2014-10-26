@@ -2039,13 +2039,19 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 	if (f.fail())
 		log_error("Can not open file `%s` for %s at %s:%d.\n", mem_filename.c_str(), str.c_str(), filename.c_str(), linenum);
 
-	// log_assert(GetSize(memory->children) == 2 && memory->children[0]->type == AST_RANGE && memory->children[0]->range_valid);
-	// int wordsize_left =  memory->children[0]->range_left, wordsize_right =  memory->children[0]->range_right;
-	// int wordsize = std::max(wordsize_left, wordsize_right) - std::min(wordsize_left, wordsize_right) + 1;
+	log_assert(GetSize(memory->children) == 2 && memory->children[1]->type == AST_RANGE && memory->children[1]->range_valid);
+	int range_left =  memory->children[1]->range_left, range_right =  memory->children[1]->range_right;
+	int range_min = std::min(range_left, range_right), range_max = std::max(range_left, range_right);
+
+	if (start_addr < 0)
+		start_addr = range_min;
+
+	if (finish_addr < 0)
+		finish_addr = range_max;
 
 	bool in_comment = false;
-	int increment = (start_addr < finish_addr) || (start_addr < 0) || (finish_addr < 0) ? +1 : -1;
-	int cursor = start_addr < 0 ? 0 : start_addr;
+	int increment = start_addr <= finish_addr ? +1 : -1;
+	int cursor = start_addr;
 
 	while (!f.eof())
 	{
@@ -2087,16 +2093,15 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 			block->children.back()->children[0]->str = memory->str;
 			block->children.back()->children[0]->id2ast = memory;
 
-			if (cursor == finish_addr)
+			if ((cursor == finish_addr) || (increment > 0 && cursor >= range_max) || (increment < 0 && cursor <= range_min))
 				break;
 			cursor += increment;
 		}
 
-		if (cursor == finish_addr)
+		if ((cursor == finish_addr) || (increment > 0 && cursor >= range_max) || (increment < 0 && cursor <= range_min))
 			break;
 	}
 
-	// fixme
 	return block;
 }
 
