@@ -449,7 +449,7 @@ task_func_decl:
 	} opt_dpi_function_args ';' {
 		current_function_or_task = NULL;
 	} |
-	attr TOK_TASK TOK_ID ';' {
+	attr TOK_TASK TOK_ID {
 		current_function_or_task = new AstNode(AST_TASK);
 		current_function_or_task->str = *$3;
 		append_attr(current_function_or_task, $1);
@@ -457,11 +457,11 @@ task_func_decl:
 		ast_stack.push_back(current_function_or_task);
 		current_function_or_task_port_id = 1;
 		delete $3;
-	} task_func_body TOK_ENDTASK {
+	} task_func_args_opt ';' task_func_body TOK_ENDTASK {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	} |
-	attr TOK_FUNCTION opt_signed range_or_signed_int TOK_ID ';' {
+	attr TOK_FUNCTION opt_signed range_or_signed_int TOK_ID {
 		current_function_or_task = new AstNode(AST_FUNCTION);
 		current_function_or_task->str = *$5;
 		append_attr(current_function_or_task, $1);
@@ -478,7 +478,7 @@ task_func_decl:
 		current_function_or_task->children.push_back(outreg);
 		current_function_or_task_port_id = 1;
 		delete $5;
-	} task_func_body TOK_ENDFUNCTION {
+	} task_func_args_opt ';' task_func_body TOK_ENDFUNCTION {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	};
@@ -511,6 +511,45 @@ opt_signed:
 	/* empty */ {
 		$$ = false;
 	};
+
+task_func_args_opt:
+	'(' ')' | /* empty */ | '(' {
+		albuf = nullptr;
+		astbuf1 = nullptr;
+		astbuf2 = nullptr;
+	} task_func_args optional_comma {
+		delete astbuf1;
+		if (astbuf2 != NULL)
+			delete astbuf2;
+		free_attr(albuf);
+	} ')';
+
+task_func_args:
+	task_func_port | task_func_args ',' task_func_port;
+
+task_func_port:
+	attr wire_type range {
+		if (albuf) {
+			delete astbuf1;
+			if (astbuf2 != NULL)
+				delete astbuf2;
+			free_attr(albuf);
+		}
+		albuf = $1;
+		astbuf1 = $2;
+		astbuf2 = $3;
+		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
+			if (astbuf2) {
+				frontend_verilog_yyerror("Syntax error.");
+			} else {
+				astbuf2 = new AstNode(AST_RANGE);
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
+				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
+			}
+		}
+		if (astbuf2 && astbuf2->children.size() != 2)
+			frontend_verilog_yyerror("Syntax error.");
+	} wire_name | wire_name;
 
 task_func_body:
 	task_func_body behavioral_stmt |
@@ -609,12 +648,12 @@ wire_decl:
 		}
 		if (astbuf2 && astbuf2->children.size() != 2)
 			frontend_verilog_yyerror("Syntax error.");
-	} wire_name_list ';' {
+	} wire_name_list {
 		delete astbuf1;
 		if (astbuf2 != NULL)
 			delete astbuf2;
 		free_attr(albuf);
-	} |
+	} ';' |
 	attr TOK_SUPPLY0 TOK_ID ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_WIRE));
 		ast_stack.back()->children.back()->str = *$3;
