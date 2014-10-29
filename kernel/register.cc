@@ -333,8 +333,8 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
 						break;
 				}
-				int indent = buffer.find_first_not_of(" \t\r\n");
-				if (buffer.substr(indent, eot_marker.size()) == eot_marker)
+				size_t indent = buffer.find_first_not_of(" \t\r\n");
+				if (indent != std::string::npos && buffer.substr(indent, eot_marker.size()) == eot_marker)
 					break;
 				last_here_document += buffer;
 			}
