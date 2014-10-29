@@ -384,6 +384,41 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 	}
 
+	if (const_fold && type == AST_CASE)
+	{
+		while (children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) { }
+		if (children[0]->type == AST_CONSTANT && children[0]->bits_only_01()) {
+			std::vector<AstNode*> new_children;
+			new_children.push_back(children[0]);
+			for (int i = 1; i < GetSize(children); i++) {
+				AstNode *child = children[i];
+				log_assert(child->type == AST_COND);
+				for (auto v : child->children) {
+					if (v->type == AST_DEFAULT)
+						goto keep_const_cond;
+					if (v->type == AST_BLOCK)
+						continue;
+					while (v->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) { }
+					if (v->type == AST_CONSTANT && v->bits_only_01()) {
+						if (v->bits == children[0]->bits) {
+							while (i+1 < GetSize(children))
+								delete children[++i];
+							goto keep_const_cond;
+						}
+						continue;
+					}
+					goto keep_const_cond;
+				}
+				if (0)
+			keep_const_cond:
+					new_children.push_back(child);
+				else
+					delete child;
+			}
+			new_children.swap(children);
+		}
+	}
+
 	// simplify all children first
 	// (iterate by index as e.g. auto wires can add new children in the process)
 	for (size_t i = 0; i < children.size(); i++) {
@@ -1881,37 +1916,6 @@ skip_dynamic_range_lvalue_expansion:;
 					newNode->realvalue = +children[0]->asReal(sign_hint);
 				else
 					newNode->realvalue = -children[0]->asReal(sign_hint);
-			}
-			break;
-		case AST_CASE:
-			if (children[0]->type == AST_CONSTANT && children[0]->bits_only_01()) {
-				std::vector<AstNode*> new_children;
-				new_children.push_back(children[0]);
-				for (int i = 1; i < GetSize(children); i++) {
-					AstNode *child = children[i];
-					log_assert(child->type == AST_COND);
-					for (auto v : child->children) {
-						if (v->type == AST_DEFAULT)
-							goto keep_const_cond;
-						if (v->type == AST_BLOCK)
-							continue;
-						if (v->type == AST_CONSTANT && v->bits_only_01()) {
-							if (v->bits == children[0]->bits) {
-								while (i+1 < GetSize(children))
-									delete children[++i];
-								goto keep_const_cond;
-							}
-							continue;
-						}
-						goto keep_const_cond;
-					}
-					if (0)
-				keep_const_cond:
-						new_children.push_back(child);
-					else
-						delete child;
-				}
-				new_children.swap(children);
 			}
 			break;
 		case AST_TERNARY:
