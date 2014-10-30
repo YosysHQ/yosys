@@ -248,7 +248,10 @@ Verilog Attributes and non-standard features
   is strongly recommended instead).
 
 - The "nomem2reg" attribute on modules or arrays prohibits the
-  automatic early conversion of arrays to separate registers.
+  automatic early conversion of arrays to separate registers. This
+  is potentially dangerous. Usually the front-end has good reasons
+  for converting an array to a list of registers. Prohibiting this
+  step will likely result in incorrect synthesis results.
 
 - The "mem2reg" attribute on modules or arrays forces the early
   conversion of arrays to separate registers.
