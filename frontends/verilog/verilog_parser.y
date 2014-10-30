@@ -240,7 +240,7 @@ module:
 	};
 
 module_para_opt:
-	'#' '(' module_para_list ')' | /* empty */;
+	'#' '(' { astbuf1 = nullptr; } module_para_list { if (astbuf1) delete astbuf1; } ')' | /* empty */;
 
 module_para_list:
 	single_module_para |
@@ -249,11 +249,10 @@ module_para_list:
 
 single_module_para:
 	TOK_PARAMETER {
+		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	} param_signed param_integer param_range single_param_decl {
-		delete astbuf1;
-	};
+	} param_signed param_integer param_range single_param_decl | single_param_decl;
 
 module_args_opt:
 	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
@@ -607,6 +606,8 @@ param_decl_list:
 
 single_param_decl:
 	TOK_ID '=' expr {
+		if (astbuf1 == nullptr)
+			frontend_verilog_yyerror("syntax error");
 		AstNode *node = astbuf1->clone();
 		node->str = *$1;
 		delete node->children[0];
