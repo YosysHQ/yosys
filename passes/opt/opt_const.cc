@@ -942,14 +942,17 @@ struct OptConstPass : public Pass {
 		log("    -undriven\n");
 		log("        replace undriven nets with undef (x) constants\n");
 		log("\n");
+		log("    -fine\n");
+		log("        perform fine-grain optimizations\n");
+		log("\n");
+		log("    -full\n");
+		log("        alias for -mux_undef -mux_bool -undriven -fine\n");
+		log("\n");
 		log("    -keepdc\n");
 		log("        some optimizations change the behavior of the circuit with respect to\n");
 		log("        don't-care bits. for example in 'a+0' a single x-bit in 'a' will cause\n");
 		log("        all result bits to be set to x. this behavior changes when 'a+0' is\n");
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
-		log("\n");
-		log("    -fine\n");
-		log("        perform fine-grain optimizations\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -978,6 +981,13 @@ struct OptConstPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-fine") {
+				do_fine = true;
+				continue;
+			}
+			if (args[argidx] == "-full") {
+				mux_undef = true;
+				mux_bool = true;
+				undriven = true;
 				do_fine = true;
 				continue;
 			}

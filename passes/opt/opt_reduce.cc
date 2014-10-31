@@ -346,6 +346,9 @@ struct OptReducePass : public Pass {
 		log("    -fine\n");
 		log("      perform fine-grain optimizations\n");
 		log("\n");
+		log("    -full\n");
+		log("      alias for -fine\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -356,6 +359,10 @@ struct OptReducePass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-fine") {
+				do_fine = true;
+				continue;
+			}
+			if (args[argidx] == "-full") {
 				do_fine = true;
 				continue;
 			}
