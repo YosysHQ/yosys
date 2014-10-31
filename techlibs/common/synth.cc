@@ -80,10 +80,12 @@ struct SynthPass : public Pass {
 		log("        memory_map\n");
 		log("        opt -full\n");
 		log("        techmap\n");
-		log("        opt -fast -full\n");
+		log("        opt -fast\n");
 	#ifdef YOSYS_ENABLE_ABC
+		log("\n");
+		log("    abc:\n");
 		log("        abc -fast\n");
-		log("        opt_clean\n");
+		log("        opt -fast\n");
 	#endif
 		log("\n");
 	}
@@ -150,12 +152,16 @@ struct SynthPass : public Pass {
 			Pass::call(design, "memory_map");
 			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap");
-			Pass::call(design, "opt -fast -full");
-		#ifdef YOSYS_ENABLE_ABC
-			Pass::call(design, "abc -fast");
-			Pass::call(design, "opt_clean");
-		#endif
+			Pass::call(design, "opt -fast");
 		}
+
+	#ifdef YOSYS_ENABLE_ABC
+		if (check_label(active, run_from, run_to, "abc"))
+		{
+			Pass::call(design, "abc -fast");
+			Pass::call(design, "opt -fast");
+		}
+	#endif
 
 		log_pop();
 	}
