@@ -150,7 +150,8 @@ endmodule
 
 \begin{figure}[H]
 \begin{lstlisting}[language=Verilog]
-module test(input clk, input rst, output y);
+module test(input clk, input rst, output y, 
+  output safety1);
 reg [2:0] state;
 output safety1;
 always @(posedge clk) begin
