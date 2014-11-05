@@ -33,14 +33,12 @@ all: top-all
 CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I${DESTDIR}/include
 LDFLAGS = -L${DESTDIR}/lib
 LDLIBS = -lstdc++ -lm
-QMAKE = qmake-qt4
 SED = sed
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
 	CXXFLAGS += -I/opt/local/include
 	LDFLAGS += -L/opt/local/lib
-	QMAKE = qmake
 	SED = gsed
 else
 	LDFLAGS += -rdynamic
