@@ -11,6 +11,7 @@ ENABLE_ABC := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
 ENABLE_VERIFIC := 0
+ENABLE_COVER := 0
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -136,6 +137,10 @@ VERIFIC_DIR ?= /usr/local/src/verific_lib_eval
 VERIFIC_COMPONENTS ?= verilog vhdl database util containers
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
+endif
+
+ifeq ($(ENABLE_COVER),1)
+CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
 
 ifeq ($(PRETTY), 1)

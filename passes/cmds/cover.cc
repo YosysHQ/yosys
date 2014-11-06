@@ -128,7 +128,7 @@ struct CoverPass : public Pass {
 			log("\n");
 		}
 
-#ifdef COVER_ACTIVE
+#ifdef YOSYS_ENABLE_COVER
 		for (auto &it : get_coverage_data()) {
 			if (!patterns.empty()) {
 				for (auto &p : patterns)
@@ -146,7 +146,7 @@ struct CoverPass : public Pass {
 		for (auto f : out_files)
 			fclose(f);
 
-		log_cmd_error("Coverage counters are only available in debug builds of Yosys for Linux.\n");
+		log_cmd_error("This version of Yosys was not built with support for code coverage counters.\n");
 #endif
 
 		for (auto f : out_files)

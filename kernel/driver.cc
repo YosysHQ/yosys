@@ -335,7 +335,7 @@ int main(int argc, char **argv)
 		log("%s\n", out_count ? "" : " no commands executed");
 	}
 
-#ifdef COVER_ACTIVE
+#ifdef YOSYS_ENABLE_COVER
 	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
 	{
 		char filename_buffer[4096];
