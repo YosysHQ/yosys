@@ -37,7 +37,7 @@ Yosys 0.3.0 .. Yosys 0.4
          - Remaining adders are now implemented using Brent–Kung carry look-ahead adders
      - Various new high-level optimizations on RTL netlist
      - Various improvements in FSM optimization
-     - Updated ABC to hg 930a4de962a1 (from 2014-10-14)
+     - Updated ABC to hg 5b5af75f1dda (from 2014-11-07)
 
  * Changes in internal APIs and RTLIL
      - Added log_id() and log_cell() helper functions
