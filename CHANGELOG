@@ -3,13 +3,82 @@ List of changes and major improvements between releases
 =======================================================
 
 
-Yosys 0.3.0 .. Yoys 0.3.0+
---------------------------
+Yosys 0.3.0 .. Yosys 0.4
+------------------------
 
- ... TBD ...
+ * Platform Support
+     - Added support for mxe-based cross-builds for win32
+     - Added sourcecode-export as VisualStudio project
+     - Added experimental EMCC (JavaScript) support
+
+ * Verilog Frontend
+     - Added -sv option for SystemVerilog (and automatic *.sv file support)
+     - Added support for real-valued constants and constant expressions
+     - Added support for non-standard "via_celltype" attribute on task/func
+     - Added support for non-standard "module mod_name(...);" syntax
+     - Added support for non-standard """ macro bodies
+     - Added support for array with more than one dimension
+     - Added support for $readmemh and $readmemb
+     - Added support for DPI functions
+
+ * Changes in internal cell library
+     - Added $shift and $shiftx cell types
+     - Added $alu, $lcu, $fa and $macc cell types
+     - Removed $bu0 and $safe_pmux cell types
+     - $mem/$memwr WR_EN input is now a per-data-bit enable signal
+     - Added $_NAND_ $_NOR_ $_XNOR_ $_AOI3_ $_OAI3_ $_AOI4_ $_OAI4_
+     - Renamed ports of $lut cells (from I->O to A->Y)
+     - Renamed $_INV_ to $_NOT_
+
+ * Changes for simple synthesis flows
+     - There is now a "synth" command with a recommended default script
+     - Many improvements in synthesis of arithmetic functions to gates
+	 - Multiplieres and adders with many operands are using carry-save adder trees
+         - Remaining adders are now implemented using Brent–Kung carry look-ahead adders
+     - Various new high-level optimizations on RTL netlist
+     - Various improvements in FSM optimization
+     - Updated ABC to hg 930a4de962a1 (from 2014-10-14)
+
+ * Changes in internal APIs and RTLIL
+     - Added log_id() and log_cell() helper functions
+     - Added function-like cell creation helpers
+     - Added GetSize() function (like .size() but with int)
+     - Major refactoring of RTLIL::Module and related classes
+     - Major refactoring of RTLIL::SigSpec and related classes
+     - Now RTLIL::IdString is essentially an int
+     - Added macros for code coverage counters
+     - Added some Makefile magic for pretty make logs
+     - Added "kernel/yosys.h" with all the core definitions
+     - Chanded a lot of code from FILE* to c++ streams
+     - Added RTLIL::Monitor API and "trace" command
+     - Added "Yosys" C++ namespace
+
+ * Changes relevant to SAT solving
+     - Added ezSAT::keep_cnf() and ezSAT::non_incremental()
+     - Added native ezSAT support for vector shift ops
+     - Updated MiniSAT to git 37dc6c67e2 (from 2013-09-25)
+
+ * New commands (or large improvements to commands)
+     - Added "synth" command with default script
+     - Added "share" (finally some real resource sharing)
+     - Added "memory_share" (reduce number of ports on memories)
+     - Added "wreduce" and "alumacc" commands
+     - Added "opt -keepdc -fine -full -fast"
+     - Added some "test_*" commands
+
+ * Various other changes
+     - Added %D and %c select operators
+     - Added support for labels in yosys scripts
+     - Added support for here-documents in yosys scripts
+     - Support "+/" prefix for files from proc_share_dir
+     - Added "autoidx" statement to ilang language
+     - Switched from "yosys-svgviewer" to "xdot"
+     - Renamed "stdcells.v" to "techmap.v"
+     - Various bug fixes and small improvements
+     - Improved welcome and bye messages
 
 
-Yosys 0.2.0 .. Yoys 0.3.0
+Yosys 0.2.0 .. Yosys 0.3.0
 --------------------------
 
  * Driver program and overall behavior:
@@ -59,8 +128,8 @@ Yosys 0.2.0 .. Yoys 0.3.0
      - Various build fixes for OSX (Darwin) and OpenBSD
 
 
-Yosys 0.1.0 .. Yoys 0.2.0
--------------------------
+Yosys 0.1.0 .. Yosys 0.2.0
+--------------------------
 
  * Changes to the driver program:
      - Added "yosys -h" and "yosys -H"
