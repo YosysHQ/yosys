@@ -85,9 +85,9 @@ struct TracePass : public Pass {
 		try {
 			std::vector<std::string> new_args(args.begin() + argidx, args.end());
 			Pass::call(design, new_args);
-		} catch (log_cmd_error_expection) {
+		} catch (log_cmd_error_exception) {
 			design->monitors.erase(&monitor);
-			throw log_cmd_error_expection();
+			throw log_cmd_error_exception();
 		}
 
 		design->monitors.erase(&monitor);

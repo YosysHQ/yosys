@@ -194,7 +194,7 @@ void log_cmd_error(const char *format, ...)
 		log("ERROR: ");
 		logv(format, ap);
 		log_flush();
-		throw log_cmd_error_expection();
+		throw log_cmd_error_exception();
 	}
 
 	logv_error(format, ap);
