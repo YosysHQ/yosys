@@ -137,7 +137,7 @@ Update the CHANGELOG file:
 	vi CHANGELOG
 
 
-Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.6,release}":
+Run all tests with "make config-{clang,gcc,gcc-4.6}":
 
 	cd ~yosys
 	make clean
@@ -149,9 +149,8 @@ Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.6,release}":
 	make full
 
 	cd ~vloghammer
-	make purge
-	make gen_issues gen_samples
-	make SYN_LIST="yosys" SIM_LIST="icarus yosim verilator" FULL=1 world
+	make purge gen_issues gen_samples
+	make SYN_LIST="yosys" SIM_LIST="icarus yosim verilator" REPORT_FULL=1 world
 	chromium-browser report.html
 
 
