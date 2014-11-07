@@ -90,7 +90,7 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 #ifdef YOSYS_ENABLE_COVER
 
 #define cover(_id) do { \
-    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1))) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
+    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1), used)) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
     __d.counter++; \
 } while (0)
 
