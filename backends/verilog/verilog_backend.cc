@@ -51,16 +51,17 @@ void reset_auto_counter_id(RTLIL::IdString id, bool may_rename)
 	if (*str == '$' && may_rename && !norename)
 		auto_name_map[id] = auto_name_counter++;
 
-	if (str[0] != '_' && str[1] != 0)
+	if (str[0] != '\\' || str[1] != '_' || str[2] == 0)
 		return;
-	for (int i = 0; str[i] != 0; i++) {
-		if (str[i] == '_')
+
+	for (int i = 2; str[i] != 0; i++) {
+		if (str[i] == '_' && str[i+1] == 0)
 			continue;
 		if (str[i] < '0' || str[i] > '9')
 			return;
 	}
 
-	int num = atoi(str+1);
+	int num = atoi(str+2);
 	if (num >= auto_name_offset)
 		auto_name_offset = num + 1;
 }
