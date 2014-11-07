@@ -216,7 +216,7 @@ namespace RTLIL
 		// set has an influence on the algorithm.
 
 		template<typename T> struct compare_ptr_by_name {
-			bool operator()(const T *a, const T *b) {
+			bool operator()(const T *a, const T *b) const {
 				return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
 			}
 		};

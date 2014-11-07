@@ -27,6 +27,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+typedef RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell> cell_ptr_cmp;
+
 struct ShareWorkerConfig
 {
 	int limit;
@@ -52,8 +54,8 @@ struct ShareWorker
 	std::set<RTLIL::Cell*> recursion_state;
 
 	SigMap topo_sigmap;
-	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> topo_cell_drivers;
-	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> topo_bit_drivers;
+	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*, cell_ptr_cmp>, cell_ptr_cmp> topo_cell_drivers;
+	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*, cell_ptr_cmp>> topo_bit_drivers;
 
 	std::vector<std::pair<RTLIL::SigBit, RTLIL::SigBit>> exclusive_ctrls;
 
@@ -937,7 +939,7 @@ struct ShareWorker
 		ct.setup_internals();
 		ct.setup_stdcells();
 
-		TopoSort<RTLIL::Cell*> toposort;
+		TopoSort<RTLIL::Cell*, cell_ptr_cmp> toposort;
 		toposort.analyze_loops = false;
 
 		topo_sigmap.set(module);

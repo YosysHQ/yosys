@@ -128,12 +128,12 @@ public:
 // A simple class for topological sorting
 // ------------------------------------------------
 
-template<typename T>
+template<typename T, typename C = std::less<T>>
 struct TopoSort
 {
 	bool analyze_loops, found_loops;
-	std::map<T, std::set<T>> database;
-	std::set<std::set<T>> loops;
+	std::map<T, std::set<T, C>, C> database;
+	std::set<std::set<T, C>> loops;
 	std::vector<T> sorted;
 
 	TopoSort()
@@ -145,7 +145,7 @@ struct TopoSort
 	void node(T n)
 	{
 		if (database.count(n) == 0)
-			database[n] = std::set<T>();
+			database[n] = std::set<T, C>();
 	}
 
 	void edge(T left, T right)
@@ -154,12 +154,12 @@ struct TopoSort
 		database[right].insert(left);
 	}
 
-	void sort_worker(const T &n, std::set<T> &marked_cells, std::set<T> &active_cells, std::vector<T> &active_stack)
+	void sort_worker(const T &n, std::set<T, C> &marked_cells, std::set<T, C> &active_cells, std::vector<T> &active_stack)
 	{
 		if (active_cells.count(n)) {
 			found_loops = true;
 			if (analyze_loops) {
-				std::set<T> loop;
+				std::set<T, C> loop;
 				for (int i = GetSize(active_stack)-1; i >= 0; i--) {
 					loop.insert(active_stack[i]);
 					if (active_stack[i] == n)
@@ -197,8 +197,8 @@ struct TopoSort
 		sorted.clear();
 		found_loops = false;
 
-		std::set<T> marked_cells;
-		std::set<T> active_cells;
+		std::set<T, C> marked_cells;
+		std::set<T, C> active_cells;
 		std::vector<T> active_stack;
 
 		for (auto &it : database)

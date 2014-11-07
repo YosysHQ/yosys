@@ -281,7 +281,7 @@ struct TechmapWorker
 
 		SigMap sigmap(module);
 
-		TopoSort<RTLIL::Cell*> cells;
+		TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
 		std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
 		std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
 
