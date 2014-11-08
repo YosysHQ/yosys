@@ -240,9 +240,9 @@ ifneq ($(ABCREV),default)
 	fi
 	$(Q) if test "`cd abc 2> /dev/null && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
-		echo "Pulling ABC from bitbucket.org:"; \
+		echo "Pulling ABC from bitbucket.org:"; set -x; \
 		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
-		cd abc && hg pull && hg update -r $(ABCREV); \
+		cd abc && $(MAKE) clean && hg pull && hg update -r $(ABCREV); \
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
