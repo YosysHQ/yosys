@@ -44,6 +44,7 @@ bool log_cmd_error_throw = false;
 int log_verbose_level;
 
 std::vector<int> header_count;
+std::set<RTLIL::IdString> log_id_cache;
 std::list<std::string> string_buf;
 int string_buf_size = 0;
 
@@ -214,6 +215,7 @@ void log_push()
 void log_pop()
 {
 	header_count.pop_back();
+	log_id_cache.clear();
 	string_buf.clear();
 	string_buf_size = 0;
 	log_flush();
@@ -223,6 +225,7 @@ void log_reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
+	log_id_cache.clear();
 	string_buf.clear();
 	string_buf_size = 0;
 	log_flush();
@@ -257,8 +260,8 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 
 const char *log_id(RTLIL::IdString str)
 {
+	log_id_cache.insert(str);
 	const char *p = str.c_str();
-	log_assert(RTLIL::IdString::global_refcount_storage_[str.index_] > 1);
 	if (p[0] == '\\' && p[1] != '$' && p[1] != 0)
 		return p+1;
 	return p;
