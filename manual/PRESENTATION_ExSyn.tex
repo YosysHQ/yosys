@@ -268,7 +268,7 @@ memory -nomap; techmap -map my_memory_map.v; memory_map
 \end{frame}
 
 \begin{frame}[t, fragile]{\subsecname{} -- Example 1/2}
-\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -10cm]{PRESENTATION_ExSyn/memory_01.pdf}\vss}
+\vbox to 0cm{\includegraphics[width=\linewidth,trim=0cm 0cm 0cm -6cm]{PRESENTATION_ExSyn/memory_01.pdf}\vss}
 \vskip-1cm
 \begin{columns}
 \column[t]{5cm}
@@ -455,7 +455,7 @@ read_verilog -D WITH_MULT cpu_alu.v
 hierarchy -check -top cpu_top
 
 # high-level synthesis
-proc; opt; memory -nomap;; fsm; opt
+proc; opt; fsm;; memory -nomap; opt
 
 # substitute block rams
 techmap -map map_rams.v
@@ -497,7 +497,7 @@ the next part (Section 3, ``Advanced Synthesis'') of this presentation.}
 \item Yosys provides commands for each phase of the synthesis.
 \item Each command solves a (more or less) simple problem.
 \item Complex commands are often only front-ends to simple commands.
-\item {\tt proc; opt; memory; opt; fsm; opt; techmap; opt; abc;;}
+\item {\tt proc; opt; fsm; opt; memory; opt; techmap; opt; abc;;}
 \end{itemize}
 
 \bigskip

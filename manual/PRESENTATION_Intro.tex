@@ -277,7 +277,7 @@ Direct link to the files: \\ \footnotesize
 
 \medskip
 {\color{YosysGreen}\# the high-level stuff}\\
-\boxalert<3>{proc}; \boxalert<4>{opt}; \boxalert<5>{memory}; \boxalert<6>{opt}; \boxalert<7>{fsm}; \boxalert<8>{opt}
+\boxalert<3>{proc}; \boxalert<4>{opt}; \boxalert<5>{fsm}; \boxalert<6>{opt}; \boxalert<7>{memory}; \boxalert<8>{opt}
 
 \medskip
 {\color{YosysGreen}\# mapping to internal cell library}\\
@@ -308,9 +308,9 @@ Direct link to the files: \\ \footnotesize
 \only<2>{hierarchy -check -top counter}%
 \only<3>{proc}%
 \only<4>{opt}%
-\only<5>{memory}%
+\only<5>{fsm}%
 \only<6>{opt}%
-\only<7>{fsm}%
+\only<7>{memory}%
 \only<8>{opt}%
 \only<9>{techmap}%
 \only<10>{opt}%
@@ -333,13 +333,13 @@ Direct link to the files: \\ \footnotesize
 	Perform some basic optimizations and cleanups.
 }%
 \only<5>{
-	Analyze memories and create circuits to implement them.
+	Analyze and optimize finite state machines.
 }%
 \only<6>{
 	Perform some basic optimizations and cleanups.
 }%
 \only<7>{
-	Analyze and optimize finite state machines.
+	Analyze memories and create circuits to implement them.
 }%
 \only<8>{
 	Perform some basic optimizations and cleanups.
@@ -398,7 +398,7 @@ hierarchy -check -top counter
 
 \begin{frame}[t, fragile]{\subsecname{} -- Step 2/4}
 \begin{verbatim}
-proc; opt; memory; opt; fsm; opt
+proc; opt; fsm; opt; memory; opt
 \end{verbatim}
 
 \vfill
@@ -423,6 +423,48 @@ clean
 
 \vfill\hfil
 \includegraphics[width=10cm,trim=0 0cm 0 0cm]{PRESENTATION_Intro/counter_03.pdf}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{The synth command}
+
+\begin{frame}[fragile]{\subsecname{}}
+Yosys contains a default (recommended example) synthesis script in form of the
+{\tt synth} command. The following commands are executed by this synthesis command:
+
+\begin{columns}
+\column[t]{5cm}
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+begin:
+    hierarchy -check [-top <top>]
+
+coarse:
+    proc
+    opt
+    wreduce
+    alumacc
+    share
+    opt
+    fsm
+    opt -fast
+    memory -nomap
+    opt_clean
+\end{lstlisting}
+\column[t]{5cm}
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+fine:
+    opt -fast -full
+    memory_map
+    opt -full
+    techmap
+    opt -fast
+
+abc:
+    abc -fast
+    opt -fast
+\end{lstlisting}
+\end{columns}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -500,6 +542,7 @@ Commands for writing the results:
 \bigskip
 Script-Commands for standard synthesis tasks:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
+    synth                # generic synthesis script
     synth_xilinx         # synthesis for Xilinx FPGAs
 \end{lstlisting}
 
@@ -603,12 +646,8 @@ endmodule
 
 \begin{frame}{\subsecname}
 \begin{itemize}
-\item Multi-dimensional arrays (memories)
-\item Writing to arrays using bit- and part-selects (todo for 0.4.0)
-\item The wor/wand wire types (maybe for 0.4.0)
 \item Tri-state logic
-
-\bigskip
+\item The wor/wand wire types (maybe for 0.5)
 \item Latched logic (is synthesized as logic with feedback loops)
 \item Some non-synthesizable features that should be ignored in synthesis are not supported by the parser and cause a parser error (file a bug report if you encounter this problem)
 \end{itemize}
@@ -813,10 +852,12 @@ control logic because it is simpler than setting up a commercial flow.
 \item When building on other Linux distributions:
 \begin{itemize}
 \item Needs compiler with some C++11 support
+\item See README file for build instructions
 \item Post to the subreddit if you get stuck
 \end{itemize}
 \item Ported to OS X (Darwin) and OpenBSD
-\item No win32 support (yet)
+\item Native win32 build with VisualStudio
+\item Cross win32 build with MXE
 \end{itemize}
 \end{frame}
 

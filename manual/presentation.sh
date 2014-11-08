@@ -24,6 +24,8 @@ done
 
 PDFTEX_OPT="-shell-escape -halt-on-error"
 
+set -ex
+
 if ! $fast_mode; then
 	md5sum *.aux *.snm *.nav *.toc > autoloop.old
 	make -C PRESENTATION_Intro

@@ -89,12 +89,13 @@ left with a much simpler version of RTLIL:
 \bigskip
 Many commands simply choose to only work on this simpler version:
 \begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
-if (module->processes.size() != 0 || module->memories.size() != 0)
-    log_error("This command does not operate on modules with processes "
-              "and/or memories! Run 'proc' and 'memory' first.\n");
+for (RTLIL::Module *module : design->selected_modules() {
+    if (module->has_memories_warn() || module->has_processes_warn())
+        continue;
+    ....
+}
 \end{lstlisting}
 
-\bigskip
 For simplicity we only discuss this version of RTLIL in this presentation.
 \end{frame}
 
@@ -145,7 +146,9 @@ See {\tt yosys/kernel/rtlil.h} for details.
 \subsubsection{RTLIL::IdString}
 
 \begin{frame}{\subsubsecname}{}
-{\tt RTLIL::IdString} is a simple wrapper for {\tt std::string}. It is used for names of RTLIL objects.
+{\tt RTLIL::IdString} in many ways behave like a {\tt std::string}. It is used
+for names of RTLIL objects. Internally a RTLIL::IdString object is only a
+single integer.
 
 \medskip
 The first character of a {\tt RTLIL::IdString} specifies if the name is {\it public\/} or {\it private\/}:
@@ -168,25 +171,25 @@ Use the {\tt NEW\_ID} macro to create a new unique private name.
 
 \begin{frame}[t, fragile]{\subsubsecname}
 The {\tt RTLIL::Design} and {\tt RTLIL::Module} structs are the top-level RTLIL
-data structures.
-
-Yosys always operates on one active design, but can hold many designs in memory.
+data structures. Yosys always operates on one active design, but can hold many designs in memory.
 
 \bigskip
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
 struct RTLIL::Design {
-    std::map<RTLIL::IdString, RTLIL::Module*> modules;
+    std::map<RTLIL::IdString, RTLIL::Module*> modules_;
     ...
 };
 
 struct RTLIL::Module {
     RTLIL::IdString name;
-    std::map<RTLIL::IdString, RTLIL::Wire*> wires;
-    std::map<RTLIL::IdString, RTLIL::Cell*> cells;
-    std::vector<RTLIL::SigSig> connections;
+    std::map<RTLIL::IdString, RTLIL::Wire*> wires_;
+    std::map<RTLIL::IdString, RTLIL::Cell*> cells_;
+    std::vector<RTLIL::SigSig> connections_;
     ...
 };
 \end{lstlisting}
+
+(Use the various accessor functions instead of directly working with the {\tt *\_} members.)
 \end{frame}
 
 \subsubsection{The RTLIL::Wire Structure}
@@ -251,21 +254,22 @@ constants are part of the RTLIL representation itself.
 
 \begin{frame}[t, fragile]{\subsubsecname}
 The {\tt RTLIL::SigSpec} struct represents a signal vector. Each bit can either be a bit from a wire
-or a constant value. Consecutive bits from a wire or consecutive constant bits are consolidated into
-a {\tt RTLIL::SigChunk}:
+or a constant value.
 
 \bigskip
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
-struct RTLIL::SigChunk {
+struct RTLIL::SigBit
+{
     RTLIL::Wire *wire;
-    RTLIL::Const data; // only used if wire == NULL
-    int width, offset;
+    union {
+        RTLIL::State data; // used if wire == NULL
+        int offset;        // used if wire != NULL
+    };
     ...
 };
 
 struct RTLIL::SigSpec {
-    std::vector<RTLIL::SigChunk> chunks; // LSB at index 0
-    int width;
+    std::vector<RTLIL::SigBit> bits_; // LSB at index 0
     ...
 };
 \end{lstlisting}
@@ -289,7 +293,7 @@ instances:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
 struct RTLIL::Cell {
     RTLIL::IdString name, type;
-    std::map<RTLIL::IdString, RTLIL::SigSpec> connections;
+    std::map<RTLIL::IdString, RTLIL::SigSpec> connections_;
     std::map<RTLIL::IdString, RTLIL::Const> parameters;
     ...
 };
@@ -345,7 +349,7 @@ typedef std::pair<RTLIL::SigSpec, RTLIL::SigSpec> RTLIL::SigSig;
 
 struct RTLIL::Module {
     ...
-    std::vector<RTLIL::SigSig> connections;
+    std::vector<RTLIL::SigSig> connections_;
     ...
 };
 \end{lstlisting}
@@ -354,8 +358,8 @@ struct RTLIL::Module {
 {\tt RTLIL::SigSig::first} is the driven signal and {\tt RTLIL::SigSig::second} is the driving signal.
 Example usage (setting wire {\tt foo} to value {\tt 42}):
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
-module->connections.push_back(RTLIL::SigSig(module->wires.at("\\foo"),
-        RTLIL::SigSpec(42, module->wires.at("\\foo")->width)));
+module->connect(module->wire("\\foo"),
+                RTLIL::SigSpec(42, module->wire("\\foo")->width));
 \end{lstlisting}
 \end{frame}
 
@@ -378,17 +382,19 @@ endmodule
 RTLIL::Module *module = new RTLIL::Module;
 module->name = "\\absval";
 
-RTLIL::Wire *a = module->new_wire(4, "\\a");
+RTLIL::Wire *a = module->addWire("\\a", 4);
 a->port_input = true;
 a->port_id = 1;
 
-RTLIL::Wire *y = module->new_wire(4, "\\y");
+RTLIL::Wire *y = module->addWire("\\y", 4);
 y->port_output = true;
 y->port_id = 2;
 
-RTLIL::Wire *a_inv = module->new_wire(4, NEW_ID);
+RTLIL::Wire *a_inv = module->addWire(NEW_ID, 4);
 module->addNeg(NEW_ID, a, a_inv, true);
 module->addMux(NEW_ID, a, a_inv, RTLIL::SigSpec(a, 1, 3), y);
+
+module->fixup_ports();
 \end{lstlisting}
 \end{frame}
 
@@ -431,8 +437,8 @@ In this case {\tt a}, {\tt x}, and {\tt y} are all different names for the same 
 
 \smallskip
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
-RTLIL::SigSpec a(module->wires.at("\\a")), x(module->wires.at("\\x")),
-                                           y(module->wires.at("\\y"));
+RTLIL::SigSpec a(module->wire("\\a")), x(module->wire("\\x")),
+                                       y(module->wire("\\y"));
 log("%d %d %d\n", a == x, x == y, y == a); // will print "0 0 0"
 \end{lstlisting}
 
@@ -462,9 +468,9 @@ log("Mapped signal x: %s\n", log_signal(sigmap(x)));
 \end{lstlisting}
 
 \medskip
-Use {\tt RTLIL::id2cstr()} to create a C-string for an {\tt RTLIL::IdString}:
+Use {\tt log\_id()} to create a C-string for an {\tt RTLIL::IdString}:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
-log("Name of this module: %s\n", RTLIL::id2cstr(module->name));
+log("Name of this module: %s\n", log_id(module->name));
 \end{lstlisting}
 
 \medskip
@@ -513,9 +519,8 @@ a new yosys command:
 
 \bigskip
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
-#include "kernel/rtlil.h"
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+USING_YOSYS_NAMESPACE
 
 struct MyPass : public Pass {
     MyPass() : Pass("my_cmd", "just a simple test") { }
@@ -526,9 +531,9 @@ struct MyPass : public Pass {
             log("  %s\n", arg.c_str());
 
         log("Modules in current design:\n");
-        for (auto &mod : design->modules)
-            log("  %s (%zd wires, %zd cells)\n", RTLIL::id2cstr(mod.first),
-                    mod.second->wires.size(), mod.second->cells.size());
+        for (auto mod : design->modules())
+            log("  %s (%d wires, %d cells)\n", log_id(mod),
+                    GetSize(mod->wires), GetSize(mod->cells));
     }
 } MyPass;
 \end{lstlisting}
@@ -566,7 +571,7 @@ yosys -m ./my_cmd.so -p 'my_cmd foo bar'
 \item \dots and even simpler if you don't need RTLIL::Memory or RTLIL::Process objects.
 
 \bigskip
-\item Writing synthesis software? Consider learning the Yosys API and make your stuff
+\item Writing synthesis software? Consider learning the Yosys API and make your work
 part of the Yosys framework.
 \end{itemize}
 

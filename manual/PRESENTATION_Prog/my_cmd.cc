@@ -1,6 +1,9 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct MyPass : public Pass {
     MyPass() : Pass("my_cmd", "just a simple test") { }
     virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -25,6 +28,7 @@ struct Test1Pass : public Pass {
             log_error("A module with the name absval already exists!\n");
 
         RTLIL::Module *module = design->addModule("\\absval");
+        log("Name of this module: %s\n", log_id(module));
 
         RTLIL::Wire *a = module->addWire("\\a", 4);
         a->port_input = true;
@@ -38,7 +42,7 @@ struct Test1Pass : public Pass {
         module->addNeg(NEW_ID, a, a_inv, true);
         module->addMux(NEW_ID, a, a_inv, RTLIL::SigSpec(a, 3), y);
 
-        log("Name of this module: %s\n", log_id(module));
+	module->fixup_ports();
     }
 } Test1Pass;
 
@@ -69,3 +73,4 @@ struct Test2Pass : public Pass {
     }
 } Test2Pass;
 
+PRIVATE_NAMESPACE_END
