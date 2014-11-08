@@ -46,7 +46,7 @@ else
 	LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.4
+YOSYS_VER := 0.4+$(shell test -d .git && { git log --author=clifford@clifford.at --oneline d5aa0ee158b41.. | wc -l; })
 GIT_REV := $(shell git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
