@@ -209,22 +209,24 @@ struct ShowWorker
 			std::string label_string;
 			int pos = sig.size()-1;
 			int idx = single_idx_count++;
-			for (int i = int(sig.chunks().size())-1; i >= 0; i--) {
+			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
 				const RTLIL::SigChunk &c = sig.chunks().at(i);
 				net = gen_signode_simple(c, false);
 				log_assert(!net.empty());
+				for (rep = 1; i-rep >= 0 && c == sig.chunks().at(i-rep); rep++) {}
+				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				if (driver) {
-					label_string += stringf("<s%d> %d:%d - %d:%d |", i, pos, pos-c.width+1, c.offset+c.width-1, c.offset);
+					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-c.width+1, repinfo.c_str(), c.offset+c.width-1, c.offset);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));
-					net_conn_map[net].bits = c.width;
+					net_conn_map[net].bits = rep*c.width;
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else {
-					label_string += stringf("<s%d> %d:%d - %d:%d |", i, c.offset+c.width-1, c.offset, pos, pos-c.width+1);
+					label_string += stringf("<s%d> %s%d:%d - %d:%d |", i, repinfo.c_str(), c.offset+c.width-1, c.offset, pos, pos-rep*c.width+1);
 					net_conn_map[net].out.insert(stringf("x%d:s%d", idx, i));
-					net_conn_map[net].bits = c.width;
+					net_conn_map[net].bits = rep*c.width;
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				}
-				pos -= c.width;
+				pos -= rep * c.width;
 			}
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
