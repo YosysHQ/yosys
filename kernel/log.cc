@@ -41,6 +41,7 @@ SHA1 *log_hasher = NULL;
 
 bool log_time = false;
 bool log_cmd_error_throw = false;
+bool log_quiet_warnings = false;
 int log_verbose_level;
 
 std::vector<int> header_count;
@@ -154,14 +155,14 @@ void logv_header(const char *format, va_list ap)
 
 void logv_warning(const char *format, va_list ap)
 {
-	if (log_errfile != NULL)
+	if (log_errfile != NULL && !log_quiet_warnings)
 		log_files.push_back(log_errfile);
 
 	log("Warning: ");
 	logv(format, ap);
 	log_flush();
 
-	if (log_errfile != NULL)
+	if (log_errfile != NULL && !log_quiet_warnings)
 		log_files.pop_back();
 }
 

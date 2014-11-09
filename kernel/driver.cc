@@ -141,6 +141,8 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'q':
+			if (log_errfile == stderr)
+				log_quiet_warnings = true;
 			log_errfile = stderr;
 			break;
 		case 'v':
@@ -170,7 +172,8 @@ int main(int argc, char **argv)
 			fprintf(stderr, "        suppress printing of footer (log hash, version, timing statistics)\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -q\n");
-			fprintf(stderr, "        quiet operation. only write error messages to console\n");
+			fprintf(stderr, "        quiet operation. only write warnings and error messages to console\n");
+			fprintf(stderr, "        use this option twice to also quiet warning messages\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -v <level>\n");
 			fprintf(stderr, "        print log headers up to level <level> to the console. (implies -q)\n");

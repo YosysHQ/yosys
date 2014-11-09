@@ -47,6 +47,7 @@ extern SHA1 *log_hasher;
 
 extern bool log_time;
 extern bool log_cmd_error_throw;
+extern bool log_quiet_warnings;
 extern int log_verbose_level;
 
 void logv(const char *format, va_list ap);
