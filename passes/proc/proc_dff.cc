@@ -333,12 +333,12 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 
 		if (many_async_rules.size() > 0)
 		{
-			log("WARNING: Complex async reset for dff `%s'.\n", log_signal(sig));
+			log_warning("Complex async reset for dff `%s'.\n", log_signal(sig));
 			gen_dffsr_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, many_async_rules, proc);
 		}
 		else if (!rstval.is_fully_const() && !ce.eval(rstval))
 		{
-			log("WARNING: Async reset value `%s' is not constant!\n", log_signal(rstval));
+			log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
 			gen_dffsr(mod, insig, rstval, sig,
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,

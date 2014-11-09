@@ -116,7 +116,7 @@ struct SatHelper
 			}
 
 			if (removed_bits.size())
-				log("Warning: ignoring initial value on non-register: %s\n", log_signal(removed_bits));
+				log_warning("ignoring initial value on non-register: %s\n", log_signal(removed_bits));
 
 			if (lhs.size()) {
 				log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
@@ -327,7 +327,7 @@ struct SatHelper
 							show_drivers.insert(sigmap(p.second), c.second);
 					import_cell_counter++;
 				} else if (ignore_unknown_cells)
-					log("Warning: Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+					log_warning("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 				else
 					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 		}

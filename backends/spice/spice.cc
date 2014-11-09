@@ -58,7 +58,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 
 		if (design->modules_.count(cell->type) == 0)
 		{
-			log("Warning: no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
+			log_warning("no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
 					RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name));
 			for (auto &conn : cell->connections()) {
 				RTLIL::SigSpec sig = sigmap(conn.second);

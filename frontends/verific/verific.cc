@@ -730,7 +730,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			if (import_netlist_instance_cells(module, net_map, inst))
 				continue;
 			if (inst->IsOperator())
-				log("Warning: Unsupported Verific operator: %s (fallback to gate level implementation provided by verific)\n", inst->View()->Owner()->Name());
+				log_warning("Unsupported Verific operator: %s (fallback to gate level implementation provided by verific)\n", inst->View()->Owner()->Name());
 		} else {
 			if (import_netlist_instance_gates(module, net_map, inst))
 				continue;

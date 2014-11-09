@@ -532,7 +532,7 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode)
 	}
 
 	if (rem_objects == 0)
-		log("Warning: reached configured limit at `%s'.\n", arg.c_str());
+		log_warning("reached configured limit at `%s'.\n", arg.c_str());
 }
 
 static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &sel)

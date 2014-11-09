@@ -440,7 +440,7 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
 		if (selected_whole_module(it.first))
 			result.push_back(it.second);
 		else if (selected_module(it.first))
-			log("Warning: Ignoring partially selected module %s.\n", log_id(it.first));
+			log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
 	return result;
 }
 
@@ -1062,14 +1062,14 @@ bool RTLIL::Module::has_processes() const
 bool RTLIL::Module::has_memories_warn() const
 {
 	if (!memories.empty())
-		log("Warning: Ignoring module %s because it contains memories (run 'memory' command first).\n", log_id(this));
+		log_warning("Ignoring module %s because it contains memories (run 'memory' command first).\n", log_id(this));
 	return !memories.empty();
 }
 
 bool RTLIL::Module::has_processes_warn() const
 {
 	if (!processes.empty())
-		log("Warning: Ignoring module %s because it contains processes (run 'proc' command first).\n", log_id(this));
+		log_warning("Ignoring module %s because it contains processes (run 'proc' command first).\n", log_id(this));
 	return !processes.empty();
 }
 

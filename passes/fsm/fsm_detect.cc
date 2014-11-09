@@ -43,7 +43,7 @@ static bool check_state_mux_tree(RTLIL::SigSpec old_sig, RTLIL::SigSpec sig, Sig
 		return true;
 
 	if (recursion_monitor.check_any(sig)) {
-		log("Warning: logic loop in mux tree at signal %s in module %s.\n",
+		log_warning("logic loop in mux tree at signal %s in module %s.\n",
 				log_signal(sig), RTLIL::id2cstr(module->name));
 		return false;
 	}

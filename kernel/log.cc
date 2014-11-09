@@ -152,6 +152,19 @@ void logv_header(const char *format, va_list ap)
 		log_files.pop_back();
 }
 
+void logv_warning(const char *format, va_list ap)
+{
+	if (log_errfile != NULL)
+		log_files.push_back(log_errfile);
+
+	log("Warning: ");
+	logv(format, ap);
+	log_flush();
+
+	if (log_errfile != NULL)
+		log_files.pop_back();
+}
+
 void logv_error(const char *format, va_list ap)
 {
 	if (log_errfile != NULL)
@@ -176,6 +189,14 @@ void log_header(const char *format, ...)
 	va_list ap;
 	va_start(ap, format);
 	logv_header(format, ap);
+	va_end(ap);
+}
+
+void log_warning(const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	logv_warning(format, ap);
 	va_end(ap);
 }
 
@@ -304,14 +325,14 @@ std::map<std::string, std::pair<std::string, int>> get_coverage_data()
 
 	for (auto &it : extra_coverage_data) {
 		if (coverage_data.count(it.first))
-			log("WARNING: found duplicate coverage id \"%s\".\n", it.first.c_str());
+			log_warning("found duplicate coverage id \"%s\".\n", it.first.c_str());
 		coverage_data[it.first].first = it.second.first;
 		coverage_data[it.first].second += it.second.second;
 	}
 
 	for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
 		if (coverage_data.count(p->id))
-			log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
+			log_warning("found duplicate coverage id \"%s\".\n", p->id);
 		coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
 		coverage_data[p->id].second += p->counter;
 	}

@@ -102,7 +102,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			verbose_activate:
 				if (mem2reg_set.count(mem) == 0) {
-					log("Warning: Replacing memory %s with list of registers.", mem->str.c_str());
+					log_warning("Replacing memory %s with list of registers.", mem->str.c_str());
 					bool first_element = true;
 					for (auto &place : mem2reg_places[it.first]) {
 						log("%s%s", first_element ? " See " : ", ", place.c_str());
@@ -648,7 +648,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			int width = children[1]->range_left - children[1]->range_right + 1;
 			if (children[0]->type == AST_REALVALUE) {
 				RTLIL::Const constvalue = children[0]->realAsConst(width);
-				log("Warning: converting real value %e to binary %s at %s:%d.\n",
+				log_warning("converting real value %e to binary %s at %s:%d.\n",
 						children[0]->realvalue, log_signal(constvalue), filename.c_str(), linenum);
 				delete children[0];
 				children[0] = mkconst_bits(constvalue.bits, sign_hint);
@@ -690,7 +690,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 		if (current_scope.count(str) == 0) {
-			// log("Warning: Creating auto-wire `%s' in module `%s'.\n", str.c_str(), current_ast_mod->str.c_str());
+			// log_warning("Creating auto-wire `%s' in module `%s'.\n", str.c_str(), current_ast_mod->str.c_str());
 			AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
 			auto_wire->str = str;
 			current_ast_mod->children.push_back(auto_wire);
@@ -1260,7 +1260,7 @@ skip_dynamic_range_lvalue_expansion:;
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
 		if (type == AST_ASSIGN_EQ)
-			log("Warning: Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
+			log_warning("Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
 					filename.c_str(), linenum);
 
 		int mem_width, mem_size, addr_bits;

@@ -869,7 +869,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_REALVALUE:
 		{
 			RTLIL::SigSpec sig = realAsConst(width_hint);
-			log("Warning: converting real value %e to binary %s at %s:%d.\n",
+			log_warning("converting real value %e to binary %s at %s:%d.\n",
 					realvalue, log_signal(sig), filename.c_str(), linenum);
 			return sig;
 		}
@@ -890,7 +890,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				wire->name = str;
 				if (flag_autowire)
-					log("Warning: Identifier `%s' is implicitly declared at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_warning("Identifier `%s' is implicitly declared at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 				else
 					log_error("Identifier `%s' is implicitly declared at %s:%d and `default_nettype is set to none.\n", str.c_str(), filename.c_str(), linenum);
 			}
@@ -955,10 +955,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						chunk.offset = (id2ast->range_left - id2ast->range_right + 1) - (chunk.offset + chunk.width);
 					if (chunk.offset >= source_width || chunk.offset + chunk.width < 0) {
 						if (chunk.width == 1)
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting result bit to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting result bit to undef.\n",
 									str.c_str(), filename.c_str(), linenum);
 						else
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting all %d result bits to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting all %d result bits to undef.\n",
 									str.c_str(), filename.c_str(), linenum, chunk.width);
 						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
 					} else {
@@ -972,10 +972,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							chunk.offset += add_undef_bits_lsb;
 						}
 						if (add_undef_bits_lsb)
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting %d LSB bits to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting %d LSB bits to undef.\n",
 									str.c_str(), filename.c_str(), linenum, add_undef_bits_lsb);
 						if (add_undef_bits_msb)
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting %d MSB bits to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting %d MSB bits to undef.\n",
 									str.c_str(), filename.c_str(), linenum, add_undef_bits_msb);
 					}
 				}
