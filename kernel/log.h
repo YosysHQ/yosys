@@ -52,13 +52,13 @@ extern int log_verbose_level;
 void logv(const char *format, va_list ap);
 void logv_header(const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
-_NORETURN_ void logv_error(const char *format, va_list ap) __attribute__((noreturn));
+YS_NORETURN void logv_error(const char *format, va_list ap) YS_ATTRIBUTE(noreturn);
 
-void log(const char *format, ...)  __attribute__((format(printf, 1, 2)));
-void log_header(const char *format, ...) __attribute__((format(printf, 1, 2)));
-void log_warning(const char *format, ...) __attribute__((format(printf, 1, 2)));
-_NORETURN_ void log_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
-_NORETURN_ void log_cmd_error(const char *format, ...) __attribute__((format(printf, 1, 2))) __attribute__((noreturn));
+void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
+void log_header(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
+YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
 void log_spacer();
 void log_push();
@@ -92,14 +92,14 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 #ifdef YOSYS_ENABLE_COVER
 
 #define cover(_id) do { \
-    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1), used)) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
+    static CoverData __d YS_ATTRIBUTE(section("yosys_cover_list"), aligned(1), used) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
     __d.counter++; \
 } while (0)
 
 struct CoverData {
 	const char *file, *func, *id;
 	int line, counter;
-} __attribute__ ((packed));
+} YS_ATTRIBUTE(packed);
 
 // this two symbols are created by the linker for the "yosys_cover_list" ELF section
 extern "C" struct CoverData __start_yosys_cover_list[];

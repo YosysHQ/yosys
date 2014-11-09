@@ -102,18 +102,22 @@
 #define USING_YOSYS_NAMESPACE    using namespace Yosys;
 
 #if __cplusplus >= 201103L
-#  define OVERRIDE override
-#  define FINAL final
+#  define YS_OVERRIDE override
+#  define YS_FINAL final
 #else
-#  define OVERRIDE
-#  define FINAL
+#  define YS_OVERRIDE
+#  define YS_FINAL
 #endif
 
-#if !defined(__GNUC__) && !defined(__clang__)
-#  define __attribute__(...)
-#  define _NORETURN_ __declspec(noreturn)
+#if defined(__GNUC__) || defined(__clang__)
+#  define YS_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
+#  define YS_NORETURN
+#elif defined(_MSC_VER)
+#  define YS_ATTRIBUTE(...)
+#  define YS_NORETURN __declspec(noreturn)
 #else
-#  define _NORETURN_
+#  define YS_ATTRIBUTE(...)
+#  define YS_NORETURN
 #endif
 
 YOSYS_NAMESPACE_BEGIN
@@ -125,7 +129,7 @@ namespace RTLIL {
 	struct Cell;
 }
 
-std::string stringf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);
 int readsome(std::istream &f, char *s, int n);
 std::string next_token(std::string &text, const char *sep);

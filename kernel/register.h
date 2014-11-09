@@ -73,7 +73,7 @@ struct Frontend : Pass
 	Frontend(std::string name, std::string short_help = "** document me **");
 	virtual void run_register();
 	virtual ~Frontend();
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) OVERRIDE FINAL;
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	static std::vector<std::string> next_args;
@@ -89,7 +89,7 @@ struct Backend : Pass
 	Backend(std::string name, std::string short_help = "** document me **");
 	virtual void run_register();
 	virtual ~Backend();
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) OVERRIDE FINAL;
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
 	virtual void execute(std::ostream *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	void extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx);
