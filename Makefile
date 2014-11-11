@@ -316,9 +316,19 @@ qtcreator:
 	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
 	touch qtcreator.config qtcreator.creator
 
+vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
+	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
+	set -e; for f in $(shell ls $(filter %.cc $.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS)) $(addsuffix .cpp,$(basename $(OBJS)))) 2> /dev/null); do \
+		echo "Analyse: $$f" >&2; cpp -std=c++11 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u > srcfiles.txt
+	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
+	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
+	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc
+	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
+	rm -f srcfiles.txt kernel/version.cc
+
 ifeq ($(CONFIG),mxe)
-dist: $(TARGETS) $(EXTRA_TARGETS)
-	rm -rf yosys-win32-{mxebin,vcxsrc}-$(YOSYS_VER){,.zip}
+mxebin: $(TARGETS) $(EXTRA_TARGETS)
+	rm -rf yosys-win32-mxebin-$(YOSYS_VER){,.zip}
 	mkdir -p yosys-win32-mxebin-$(YOSYS_VER)
 	cp -r yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
 ifeq ($(ENABLE_ABC),1)
@@ -326,14 +336,7 @@ ifeq ($(ENABLE_ABC),1)
 endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
-	sed -e 's,^[^ ]*:,,; s, ,\n,g; s, *\\,,; s,/[^/]*/\.\./,/,g; s,'"$$PWD/"',,' \
-			$(addsuffix .d,$(basename $(OBJS))) | sort -u | grep '^[^/]' | grep -v kernel/version_ > srcfiles.txt
-	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
-	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
-	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc
 	zip -r yosys-win32-mxebin-$(YOSYS_VER).zip yosys-win32-mxebin-$(YOSYS_VER)/
-	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
-	rm -f srcfiles.txt kernel/version.cc
 endif
 
 config-clean: clean
