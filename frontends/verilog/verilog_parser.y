@@ -1321,7 +1321,7 @@ basic_expr:
 	'{' concat_list '}' {
 		$$ = $2;
 	} |
-	'{' expr '{' expr '}' '}' {
+	'{' expr '{' concat_list '}' '}' {
 		$$ = new AstNode(AST_REPLICATE, $2, $4);
 	} |
 	'~' attr basic_expr %prec UNARY_OPS {
