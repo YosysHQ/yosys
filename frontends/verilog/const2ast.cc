@@ -132,8 +132,16 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 }
 
 // convert the verilog code for a constant to an AST node
-AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
+AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn_z)
 {
+	if (warn_z) {
+		AstNode *ret = const2ast(code, case_type);
+		if (std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
+			log_warning("Yosys does not support tri-state logic at the moment. (%s:%d)\n",
+				current_filename.c_str(), frontend_verilog_yyget_lineno());
+		return ret;
+	}
+
 	const char *str = code.c_str();
 
 	// Strings
