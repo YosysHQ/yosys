@@ -5,14 +5,15 @@
 // binary, for any purpose, commercial or non-commercial, and by any
 // means.
 
-#include "kernel/rtlil.h"
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "kernel/log.h"
 
 #include <string>
 #include <map>
 #include <set>
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 // this function is called for each module in the design
 static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool report_bits)
@@ -126,3 +127,4 @@ struct StubnetsPass : public Pass {
 	}
 } StubnetsPass;
 
+PRIVATE_NAMESPACE_END
