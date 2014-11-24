@@ -177,12 +177,12 @@ YOSYS_NAMESPACE_END
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
 
-[0-9]+ {
+[0-9][0-9_]* {
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_CONST;
 }
 
-[0-9]*[ \t]*\'s?[bodh][ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
+[0-9]*[ \t]*\'s?[bodhBODH][ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_CONST;
 }

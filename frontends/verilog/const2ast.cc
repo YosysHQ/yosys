@@ -182,7 +182,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	if (str == endptr)
 		len_in_bits = -1;
 
-	// The "<bits>'s?[bodh]<digits>" syntax
+	// The "<bits>'s?[bodhBODH]<digits>" syntax
 	if (*endptr == '\'')
 	{
 		std::vector<RTLIL::State> data;
@@ -194,15 +194,19 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 		switch (*(endptr+1))
 		{
 		case 'b':
+		case 'B':
 			my_strtobin(data, endptr+2, len_in_bits, 2, case_type);
 			break;
 		case 'o':
+		case 'O':
 			my_strtobin(data, endptr+2, len_in_bits, 8, case_type);
 			break;
 		case 'd':
+		case 'D':
 			my_strtobin(data, endptr+2, len_in_bits, 10, case_type);
 			break;
 		case 'h':
+		case 'H':
 			my_strtobin(data, endptr+2, len_in_bits, 16, case_type);
 			break;
 		default:
