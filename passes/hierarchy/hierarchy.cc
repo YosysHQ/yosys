@@ -259,9 +259,16 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTL
 		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
 	used.insert(mod);
 
-	for (auto &it : mod->cells_) {
-		if (design->modules_.count(it.second->type) > 0)
-			hierarchy_worker(design, used, design->modules_[it.second->type], indent+4);
+	for (auto cell : mod->cells()) {
+		std::string celltype = cell->type.str();
+		if (celltype.substr(0, 7) == "$array:") {
+			int pos_idx = celltype.find_first_of(':');
+			int pos_num = celltype.find_first_of(':', pos_idx + 1);
+			int pos_type = celltype.find_first_of(':', pos_num + 1);
+			celltype = celltype.substr(pos_type + 1);
+		}
+		if (design->module(celltype))
+			hierarchy_worker(design, used, design->module(celltype), indent+4);
 	}
 }
 
