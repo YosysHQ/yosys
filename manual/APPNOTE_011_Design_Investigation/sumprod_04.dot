@@ -8,4 +8,4 @@ n1 [ shape=diamond, label="$3_Y" ];
 n1:e -> c7:p4:w [color="black", style="setlinewidth(3)", label=""];
 n2:e -> c7:p5:w [color="black", style="setlinewidth(3)", label=""];
 c7:p6:e -> n3:w [color="black", style="setlinewidth(3)", label=""];
-};
+}

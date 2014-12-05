@@ -12,4 +12,4 @@ n2:e -> c9:p6:w [color="black", style="setlinewidth(3)", label=""];
 n3:e -> c9:p7:w [color="black", style="setlinewidth(3)", label=""];
 n4:e -> c10:p7:w [color="black", style="setlinewidth(3)", label=""];
 c10:p8:e -> n5:w [color="black", style="setlinewidth(3)", label=""];
-};
+}
