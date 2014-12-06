@@ -30,4 +30,4 @@ n8:e -> c21:p19:w [color="black", label=""];
 n8:e -> x1:w:w [color="black", label=""];
 n9:e -> c18:p15:w [color="black", label=""];
 v0:e -> c21:p11:w [color="black", style="setlinewidth(3)", label=""];
-};
+}

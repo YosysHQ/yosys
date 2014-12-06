@@ -36,4 +36,4 @@ x1:s0:e -> n8:w [color="black", style="setlinewidth(3)", label=""];
 x3:s0:e -> n8:w [color="black", style="setlinewidth(3)", label=""];
 x3:s1:e -> n8:w [color="black", style="setlinewidth(3)", label=""];
 x6:s0:e -> n8:w [color="black", style="setlinewidth(3)", label=""];
-};
+}
