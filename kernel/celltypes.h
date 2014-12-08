@@ -116,6 +116,7 @@ struct CellTypes
 	{
 		setup_type("$sr", {"\\SET", "\\CLR"}, {"\\Q"});
 		setup_type("$dff", {"\\CLK", "\\D"}, {"\\Q"});
+		setup_type("$dffe", {"\\CLK", "\\EN", "\\D"}, {"\\Q"});
 		setup_type("$dffsr", {"\\CLK", "\\SET", "\\CLR", "\\D"}, {"\\Q"});
 		setup_type("$adff", {"\\CLK", "\\ARST", "\\D"}, {"\\Q"});
 		setup_type("$dlatch", {"\\EN", "\\D"}, {"\\Q"});
