@@ -701,6 +701,7 @@ public:
 
 	RTLIL::Cell* addSr    (RTLIL::IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, RTLIL::SigSpec sig_q, bool set_polarity = true, bool clr_polarity = true);
 	RTLIL::Cell* addDff   (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d,   RTLIL::SigSpec sig_q, bool clk_polarity = true);
+	RTLIL::Cell* addDffe  (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en,  RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true);
 	RTLIL::Cell* addDffsr (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
 			RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true);
 	RTLIL::Cell* addAdff (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,
@@ -723,6 +724,7 @@ public:
 	RTLIL::Cell* addOai4Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d, RTLIL::SigBit sig_y);
 
 	RTLIL::Cell* addDffGate    (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true);
+	RTLIL::Cell* addDffeGate   (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool en_polarity = true);
 	RTLIL::Cell* addDffsrGate  (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr,
 			RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity = true, bool set_polarity = true, bool clr_polarity = true);
 	RTLIL::Cell* addAdffGate   (RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_arst, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q,
