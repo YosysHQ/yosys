@@ -752,6 +752,17 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$dffe") {
+				param_bool("\\CLK_POLARITY");
+				param_bool("\\EN_POLARITY");
+				port("\\CLK", 1);
+				port("\\EN", 1);
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$dffsr") {
 				param_bool("\\CLK_POLARITY");
 				param_bool("\\SET_POLARITY");

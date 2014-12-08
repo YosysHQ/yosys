@@ -302,6 +302,28 @@ static void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+static void simplemap_dffe(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	int width = cell->parameters.at("\\WIDTH").as_int();
+	char clk_pol = cell->parameters.at("\\CLK_POLARITY").as_bool() ? 'P' : 'N';
+	char en_pol = cell->parameters.at("\\EN_POLARITY").as_bool() ? 'P' : 'N';
+
+	RTLIL::SigSpec sig_clk = cell->getPort("\\CLK");
+	RTLIL::SigSpec sig_en = cell->getPort("\\EN");
+	RTLIL::SigSpec sig_d = cell->getPort("\\D");
+	RTLIL::SigSpec sig_q = cell->getPort("\\Q");
+
+	std::string gate_type = stringf("$_DFFE_%c%c_", clk_pol, en_pol);
+
+	for (int i = 0; i < width; i++) {
+		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->setPort("\\C", sig_clk);
+		gate->setPort("\\E", sig_en);
+		gate->setPort("\\D", sig_d[i]);
+		gate->setPort("\\Q", sig_q[i]);
+	}
+}
+
 static void simplemap_dffsr(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	int width = cell->parameters.at("\\WIDTH").as_int();
@@ -399,6 +421,7 @@ void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTL
 	mappers["$concat"]      = simplemap_concat;
 	mappers["$sr"]          = simplemap_sr;
 	mappers["$dff"]         = simplemap_dff;
+	mappers["$dffe"]        = simplemap_dffe;
 	mappers["$dffsr"]       = simplemap_dffsr;
 	mappers["$adff"]        = simplemap_adff;
 	mappers["$dlatch"]      = simplemap_dlatch;
