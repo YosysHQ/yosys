@@ -538,8 +538,8 @@ struct AlumaccPass : public Pass {
 		log("\n");
 		log("    alumacc [selection]\n");
 		log("\n");
-		log("This pass translates arithmetic operations $add, $mul, $lt, etc. to $alu and\n");
-		log("$macc cells.\n");
+		log("This pass translates arithmetic operations like $add, $mul, $lt, etc. to $alu\n");
+		log("and $macc cells.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

@@ -10,6 +10,7 @@ OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/maccmap.o
 OBJS += passes/techmap/alumacc.o
+OBJS += passes/techmap/dff2dffe.o
 endif
 
 GENFILES += passes/techmap/techmap.inc
