@@ -892,6 +892,11 @@ namespace {
 			if (cell->type == "$_DFF_N_") { check_gate("DQC"); return; }
 			if (cell->type == "$_DFF_P_") { check_gate("DQC"); return; }
 
+			if (cell->type == "$_DFFE_NN_") { check_gate("DQCE"); return; }
+			if (cell->type == "$_DFFE_NP_") { check_gate("DQCE"); return; }
+			if (cell->type == "$_DFFE_PN_") { check_gate("DQCE"); return; }
+			if (cell->type == "$_DFFE_PP_") { check_gate("DQCE"); return; }
+
 			if (cell->type == "$_DFF_NN0_") { check_gate("DQCR"); return; }
 			if (cell->type == "$_DFF_NN1_") { check_gate("DQCR"); return; }
 			if (cell->type == "$_DFF_NP0_") { check_gate("DQCR"); return; }

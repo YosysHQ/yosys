@@ -163,6 +163,38 @@ always @(posedge C) begin
 end
 endmodule
 
+module  \$_DFFE_NN_ (D, Q, C, E);
+input D, C, E;
+output reg Q;
+always @(negedge C) begin
+	if (!E) Q <= D;
+end
+endmodule
+
+module  \$_DFFE_NP_ (D, Q, C, E);
+input D, C, E;
+output reg Q;
+always @(negedge C) begin
+	if (E) Q <= D;
+end
+endmodule
+
+module  \$_DFFE_PN_ (D, Q, C, E);
+input D, C, E;
+output reg Q;
+always @(posedge C) begin
+	if (!E) Q <= D;
+end
+endmodule
+
+module  \$_DFFE_PP_ (D, Q, C, E);
+input D, C, E;
+output reg Q;
+always @(posedge C) begin
+	if (E) Q <= D;
+end
+endmodule
+
 module  \$_DFF_NN0_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
