@@ -2188,6 +2188,16 @@ RTLIL::SigSpec::SigSpec(std::set<RTLIL::SigBit> bits)
 	check();
 }
 
+RTLIL::SigSpec::SigSpec(bool bit)
+{
+	cover("kernel.rtlil.sigspec.init.bool");
+
+	width_ = 0;
+	hash_ = 0;
+	append_bit(bit);
+	check();
+}
+
 void RTLIL::SigSpec::pack() const
 {
 	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;

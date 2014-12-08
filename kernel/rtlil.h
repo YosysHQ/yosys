@@ -899,6 +899,7 @@ struct RTLIL::SigBit
 
 	SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 	SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
+	SigBit(bool bit) : wire(NULL), data(bit ? RTLIL::S1 : RTLIL::S0) { }
 	SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_assert(wire && wire->width == 1); }
 	SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 	SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }
@@ -982,6 +983,7 @@ public:
 	SigSpec(std::vector<RTLIL::SigChunk> chunks);
 	SigSpec(std::vector<RTLIL::SigBit> bits);
 	SigSpec(std::set<RTLIL::SigBit> bits);
+	SigSpec(bool bit);
 
 	SigSpec(RTLIL::SigSpec &&other) {
 		width_ = other.width_;
