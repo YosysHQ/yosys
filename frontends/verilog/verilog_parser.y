@@ -655,20 +655,32 @@ wire_decl:
 			delete astbuf2;
 		free_attr(albuf);
 	} ';' |
-	attr TOK_SUPPLY0 TOK_ID ';' {
+	attr TOK_SUPPLY0 TOK_ID {
 		ast_stack.back()->children.push_back(new AstNode(AST_WIRE));
 		ast_stack.back()->children.back()->str = *$3;
 		append_attr(ast_stack.back()->children.back(), $1);
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)));
 		ast_stack.back()->children.back()->children[0]->str = *$3;
 		delete $3;
-	} |
-	attr TOK_SUPPLY1 TOK_ID ';' {
+	} opt_supply_wires ';' |
+	attr TOK_SUPPLY1 TOK_ID {
 		ast_stack.back()->children.push_back(new AstNode(AST_WIRE));
 		ast_stack.back()->children.back()->str = *$3;
 		append_attr(ast_stack.back()->children.back(), $1);
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(1, false, 1)));
 		ast_stack.back()->children.back()->children[0]->str = *$3;
+		delete $3;
+	} opt_supply_wires ';';
+
+opt_supply_wires:
+	/* empty */ |
+	opt_supply_wires ',' TOK_ID {
+		AstNode *wire_node = ast_stack.back()->children.at(GetSize(ast_stack.back()->children)-2)->clone();
+		AstNode *assign_node = ast_stack.back()->children.at(GetSize(ast_stack.back()->children)-1)->clone();
+		wire_node->str = *$3;
+		assign_node->children[0]->str = *$3;
+		ast_stack.back()->children.push_back(wire_node);
+		ast_stack.back()->children.push_back(assign_node);
 		delete $3;
 	};
 
