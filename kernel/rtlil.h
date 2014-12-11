@@ -85,6 +85,12 @@ namespace RTLIL
 			}
 		};
 
+		static struct destruct_guard_t {
+			bool ok = false;
+			destruct_guard_t() { ok = true; }
+			~destruct_guard_t() { ok = false; }
+		} destruct_guard;
+
 		static std::vector<int> global_refcount_storage_;
 		static std::vector<char*> global_id_storage_;
 		static std::map<char*, int, char_ptr_cmp> global_id_index_;
@@ -98,6 +104,8 @@ namespace RTLIL
 
 		static inline int get_reference(const char *p)
 		{
+			log_assert(destruct_guard.ok);
+
 			if (p[0]) {
 				log_assert(p[1] != 0);
 				log_assert(p[0] == '$' || p[0] == '\\');
@@ -126,6 +134,11 @@ namespace RTLIL
 
 		static inline void put_reference(int idx)
 		{
+			// put_reference() may be called from destructors after the destructor of
+			// global_refcount_storage_ has been run. in this case we simply do nothing.
+			if (!destruct_guard.ok)
+				return;
+
 			log_assert(global_refcount_storage_.at(idx) > 0);
 
 			if (--global_refcount_storage_.at(idx) != 0)
