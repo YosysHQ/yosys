@@ -56,7 +56,8 @@ For example on Ubuntu Linux 14.04 LTS the following commands will install all
 prerequisites for building yosys:
 
 	$ yosys_deps="build-essential clang bison flex libreadline-dev
-	              tcl8.5-dev libffi-dev git mercurial graphviz xdot"
+	              tcl8.5-dev libffi-dev git mercurial graphviz xdot
+	              gawk pkg-config"
 	$ sudo apt-get install $yosys_deps
 
 There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys
