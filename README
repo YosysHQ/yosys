@@ -57,7 +57,7 @@ prerequisites for building yosys:
 
 	$ yosys_deps="build-essential clang bison flex libreadline-dev
 	              tcl8.5-dev libffi-dev git mercurial graphviz xdot
-	              gawk pkg-config"
+	              gawk pkg-config psmics"
 	$ sudo apt-get install $yosys_deps
 
 There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys
