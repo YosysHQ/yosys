@@ -40,6 +40,7 @@ struct BlifDumperConfig
 	bool param_mode;
 
 	std::string buf_type, buf_in, buf_out;
+	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
 	std::string true_type, true_out, false_type, false_out;
 
 	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false) { }
@@ -145,6 +146,13 @@ struct BlifDumper
 		for (auto &cell_it : module->cells_)
 		{
 			RTLIL::Cell *cell = cell_it.second;
+
+			if (config->unbuf_types.count(cell->type)) {
+				auto portnames = config->unbuf_types.at(cell->type);
+				f << stringf(".names %s %s\n1 1\n",
+						cstr(cell->getPort(portnames.first)), cstr(cell->getPort(portnames.second)));
+				continue;
+			}
 
 			if (!config->icells_mode && cell->type == "$_NOT_") {
 				f << stringf(".names %s %s\n0 1\n",
@@ -279,6 +287,10 @@ struct BlifBackend : public Backend {
 		log("    -buf <cell-type> <in-port> <out-port>\n");
 		log("        use cells of type <cell-type> with the specified port names for buffers\n");
 		log("\n");
+		log("    -unbuf <cell-type> <in-port> <out-port>\n");
+		log("        replace buffer cells with the specified name and port names with\n");
+		log("        a .names statement that models a buffer\n");
+		log("\n");
 		log("    -true <cell-type> <out-port>\n");
 		log("    -false <cell-type> <out-port>\n");
 		log("        use the specified cell types to drive nets that are constant 1 or 0\n");
@@ -327,6 +339,13 @@ struct BlifBackend : public Backend {
 				config.buf_type = args[++argidx];
 				config.buf_in = args[++argidx];
 				config.buf_out = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-unbuf" && argidx+3 < args.size()) {
+				RTLIL::IdString unbuf_type = RTLIL::escape_id(args[++argidx]);
+				RTLIL::IdString unbuf_in = RTLIL::escape_id(args[++argidx]);
+				RTLIL::IdString unbuf_out = RTLIL::escape_id(args[++argidx]);
+				config.unbuf_types[unbuf_type] = std::pair<RTLIL::IdString, RTLIL::IdString>(unbuf_in, unbuf_out);
 				continue;
 			}
 			if (args[argidx] == "-true" && argidx+2 < args.size()) {
