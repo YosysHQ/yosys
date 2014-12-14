@@ -38,12 +38,13 @@ struct BlifDumperConfig
 	bool impltf_mode;
 	bool gates_mode;
 	bool param_mode;
+	bool blackbox_mode;
 
 	std::string buf_type, buf_in, buf_out;
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
 	std::string true_type, true_out, false_type, false_out;
 
-	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false) { }
+	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false), blackbox_mode(false) { }
 };
 
 struct BlifDumper
@@ -129,6 +130,12 @@ struct BlifDumper
 				f << stringf(" %s", cstr(RTLIL::SigSpec(wire, i)));
 		}
 		f << stringf("\n");
+
+		if (module->get_bool_attribute("\\blackbox")) {
+			f << stringf(".blackbox\n");
+			f << stringf(".end\n");
+			return;
+		}
 
 		if (!config->impltf_mode) {
 			if (!config->false_type.empty())
@@ -314,6 +321,9 @@ struct BlifBackend : public Backend {
 		log("    -param\n");
 		log("        use the non-standard .param statement to write module parameters\n");
 		log("\n");
+		log("    -blackbox\n");
+		log("        write blackbox cells with .blackbox statement.\n");
+		log("\n");
 		log("    -impltf\n");
 		log("        do not write definitions for the $true and $false wires.\n");
 		log("\n");
@@ -374,6 +384,10 @@ struct BlifBackend : public Backend {
 				config.param_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-blackbox") {
+				config.blackbox_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-impltf") {
 				config.impltf_mode = true;
 				continue;
@@ -394,7 +408,7 @@ struct BlifBackend : public Backend {
 		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_bool_attribute("\\blackbox") && !config.blackbox_mode)
 				continue;
 
 			if (module->processes.size() != 0)
