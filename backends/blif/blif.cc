@@ -42,7 +42,7 @@ struct BlifDumperConfig
 
 	std::string buf_type, buf_in, buf_out;
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
-	std::string true_type, true_out, false_type, false_out;
+	std::string true_type, true_out, false_type, false_out, undef_type, undef_out;
 
 	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false), blackbox_mode(false) { }
 };
@@ -74,8 +74,11 @@ struct BlifDumper
 
 	const char *cstr(RTLIL::SigBit sig)
 	{
-		if (sig.wire == NULL)
-			return sig == RTLIL::State::S1 ?  "$true" : "$false";
+		if (sig.wire == NULL) {
+			if (sig == RTLIL::State::S0) return config->false_type == "-" ? config->false_out.c_str() : "$false";
+			if (sig == RTLIL::State::S1) return config->true_type == "-" ? config->true_out.c_str() : "$true";
+			return config->undef_type == "-" ? config->undef_out.c_str() : "$undef";
+		}
 
 		std::string str = RTLIL::unescape_id(sig.wire->name);
 		for (size_t i = 0; i < str.size(); i++)
@@ -138,16 +141,24 @@ struct BlifDumper
 		}
 
 		if (!config->impltf_mode) {
-			if (!config->false_type.empty())
-				f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_type),
-						config->false_type.c_str(), config->false_out.c_str());
-			else
+			if (!config->false_type.empty()) {
+				if (config->false_type != "-")
+					f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_type),
+							config->false_type.c_str(), config->false_out.c_str());
+			} else
 				f << stringf(".names $false\n");
-			if (!config->true_type.empty())
-				f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_type),
-						config->true_type.c_str(), config->true_out.c_str());
-			else
+			if (!config->true_type.empty()) {
+				if (config->true_type != "-")
+					f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_type),
+							config->true_type.c_str(), config->true_out.c_str());
+			} else
 				f << stringf(".names $true\n1\n");
+			if (!config->undef_type.empty()) {
+				if (config->undef_type != "-")
+					f << stringf(".%s %s %s=$undef\n", subckt_or_gate(config->undef_type),
+							config->undef_type.c_str(), config->undef_out.c_str());
+			} else
+				f << stringf(".names $undef\n");
 		}
 
 		for (auto &cell_it : module->cells_)
@@ -300,7 +311,11 @@ struct BlifBackend : public Backend {
 		log("\n");
 		log("    -true <cell-type> <out-port>\n");
 		log("    -false <cell-type> <out-port>\n");
-		log("        use the specified cell types to drive nets that are constant 1 or 0\n");
+		log("    -undef <cell-type> <out-port>\n");
+		log("        use the specified cell types to drive nets that are constant 1, 0, or\n");
+		log("        undefined. when '-' is used as <cell-type>, then <out-port> specifies\n");
+		log("        the wire name to be used for the constant signal and no cell driving\n");
+		log("        that wire is generated.\n");
 		log("\n");
 		log("The following options can be useful when the generated file is not going to be\n");
 		log("read by a BLIF parser but a custom tool. It is recommended to not name the output\n");
@@ -325,7 +340,7 @@ struct BlifBackend : public Backend {
 		log("        write blackbox cells with .blackbox statement.\n");
 		log("\n");
 		log("    -impltf\n");
-		log("        do not write definitions for the $true and $false wires.\n");
+		log("        do not write definitions for the $true, $false and $undef wires.\n");
 		log("\n");
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
@@ -366,6 +381,11 @@ struct BlifBackend : public Backend {
 			if (args[argidx] == "-false" && argidx+2 < args.size()) {
 				config.false_type = args[++argidx];
 				config.false_out = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-undef" && argidx+2 < args.size()) {
+				config.undef_type = args[++argidx];
+				config.undef_out = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-icells") {
