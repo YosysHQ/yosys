@@ -86,7 +86,7 @@ namespace RTLIL
 		};
 
 		static struct destruct_guard_t {
-			bool ok = false;
+			bool ok; // POD, will be initialized to zero
 			destruct_guard_t() { ok = true; }
 			~destruct_guard_t() { ok = false; }
 		} destruct_guard;
