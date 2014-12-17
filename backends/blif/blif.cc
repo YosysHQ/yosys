@@ -227,14 +227,14 @@ struct BlifDumper
 				log_assert(output.size() == 1);
 				f << stringf(" %s", cstr(output));
 				f << stringf("\n");
-				auto mask = cell->parameters.at("\\LUT").as_string();
-				for (int i = 0; i < (1 << width); i++) {
-					if (mask[i] == '0') continue;
-					for (int j = width-1; j >= 0; j--) {
-						f << ((i>>j)&1 ? '1' : '0');
+				RTLIL::SigSpec mask = cell->parameters.at("\\LUT");
+				for (int i = 0; i < (1 << width); i++)
+					if (mask[i] == RTLIL::S1) {
+						for (int j = width-1; j >= 0; j--) {
+							f << ((i>>j)&1 ? '1' : '0');
+						}
+						f << " 1\n";
 					}
-					f << stringf(" %c\n", mask[i]);
-				}
 				continue;
 			}
 
