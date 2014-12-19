@@ -220,7 +220,7 @@ struct BlifDumper
 				auto &inputs = cell->getPort("\\A");
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				log_assert(inputs.size() == width);
-				for (int i = 0; i < inputs.size(); i++) {
+				for (int i = width-1; i >= 0; i--) {
 					f << stringf(" %s", cstr(inputs.extract(i, 1)));
 				}
 				auto &output = cell->getPort("\\Y");
