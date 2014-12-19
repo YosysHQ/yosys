@@ -95,8 +95,8 @@ RTLIL::Module *module;
 std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
 
-bool clk_polarity;
-RTLIL::SigSpec clk_sig;
+bool clk_polarity, en_polarity;
+RTLIL::SigSpec clk_sig, en_sig;
 
 int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
 {
@@ -147,7 +147,24 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 			return;
 		if (clk_sig != assign_map(cell->getPort("\\C")))
 			return;
+		goto matching_dff;
+	}
 
+	if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+	{
+		if (clk_polarity != (cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_"))
+			return;
+		if (en_polarity != (cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_"))
+			return;
+		if (clk_sig != assign_map(cell->getPort("\\C")))
+			return;
+		if (en_sig != assign_map(cell->getPort("\\E")))
+			return;
+		goto matching_dff;
+	}
+
+	if (0) {
+	matching_dff:
 		RTLIL::SigSpec sig_d = cell->getPort("\\D");
 		RTLIL::SigSpec sig_q = cell->getPort("\\Q");
 
@@ -556,6 +573,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	clk_polarity = true;
 	clk_sig = RTLIL::SigSpec();
 
+	en_polarity = true;
+	en_sig = RTLIL::SigSpec();
+
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
@@ -607,6 +627,17 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	fclose(f);
 
 	if (clk_str.empty()) {
+		if (clk_str.find(',') != std::string::npos) {
+			int pos = clk_str.find(',');
+			std::string en_str = clk_str.substr(pos+1);
+			clk_str = clk_str.substr(0, pos);
+			if (en_str[0] == '!') {
+				en_polarity = false;
+				en_str = en_str.substr(1);
+			}
+			if (module->wires_.count(RTLIL::escape_id(en_str)) != 0)
+				en_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(en_str)), 0));
+		}
 		if (clk_str[0] == '!') {
 			clk_polarity = false;
 			clk_str = clk_str.substr(1);
@@ -618,19 +649,34 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (dff_mode && clk_sig.size() == 0)
 	{
 		int best_dff_counter = 0;
-		std::map<std::pair<bool, RTLIL::SigSpec>, int> dff_counters;
+		typedef std::tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
+		std::map<clkdomain_t, int> dff_counters;
 
 		for (auto &it : module->cells_)
 		{
 			RTLIL::Cell *cell = it.second;
-			if (cell->type != "$_DFF_N_" && cell->type != "$_DFF_P_")
+			clkdomain_t key;
+
+			if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+			{
+				key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
+			}
+			else
+			if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+			{
+				bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
+				bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
+				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
+			}
+			else
 				continue;
 
-			std::pair<bool, RTLIL::SigSpec> key(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")));
 			if (++dff_counters[key] > best_dff_counter) {
 				best_dff_counter = dff_counters[key];
-				clk_polarity = key.first;
-				clk_sig = key.second;
+				clk_polarity = std::get<0>(key);
+				clk_sig = std::get<1>(key);
+				en_polarity = std::get<2>(key);
+				en_sig = std::get<3>(key);
 			}
 		}
 	}
@@ -638,12 +684,19 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (dff_mode || !clk_str.empty()) {
 		if (clk_sig.size() == 0)
 			log("No (matching) clock domain found. Not extracting any FF cells.\n");
-		else
-			log("Found (matching) %s clock domain: %s\n", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+		else {
+			log("Found (matching) %s clock domain: %s", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+			if (en_sig.size() != 0)
+				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
+			log("\n");
+		}
 	}
 
 	if (clk_sig.size() != 0)
 		mark_port(clk_sig);
+
+	if (en_sig.size() != 0)
+		mark_port(en_sig);
 
 	std::vector<RTLIL::Cell*> cells;
 	cells.reserve(module->cells_.size());
@@ -899,7 +952,14 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == "\\DFF") {
 					log_assert(clk_sig.size() == 1);
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
+					RTLIL::Cell *cell;
+					if (en_sig.size() == 0) {
+						cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
+					} else {
+						log_assert(en_sig.size() == 1);
+						cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+						cell->setPort("\\E", en_sig);
+					}
 					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 					cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
 					cell->setPort("\\C", clk_sig);
@@ -924,7 +984,14 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == "\\_dff_") {
 					log_assert(clk_sig.size() == 1);
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
+					RTLIL::Cell *cell;
+					if (en_sig.size() == 0) {
+						cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
+					} else {
+						log_assert(en_sig.size() == 1);
+						cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+						cell->setPort("\\E", en_sig);
+					}
 					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 					cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
 					cell->setPort("\\C", clk_sig);
