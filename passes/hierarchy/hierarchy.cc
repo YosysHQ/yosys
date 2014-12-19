@@ -199,6 +199,19 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			if (design->modules_.count(cell->type) == 0)
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
+		} else
+		if (flag_check)
+		{
+			RTLIL::Module *mod = design->module(cell->type);
+			for (auto &conn : cell->connections())
+				if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
+					int id = atoi(conn.first.c_str()+1);
+					if (id < 0 || id >= GetSize(mod->ports))
+						log_error("Module `%s' referenced in module `%s' in cell `%s' has only %d ports, requested port %d.\n",
+								log_id(cell->type), log_id(module), log_id(cell), GetSize(mod->ports), id + 1);
+				} else if (mod->wire(conn.first) == nullptr || mod->wire(conn.first)->port_id == 0)
+					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a port named '%s'.\n",
+							log_id(cell->type), log_id(module), log_id(cell), log_id(conn.first));
 		}
 
 		if (cell->parameters.size() == 0)
