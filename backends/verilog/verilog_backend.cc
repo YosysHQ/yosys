@@ -664,10 +664,10 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$dff" || cell->type == "$adff")
+	if (cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffe")
 	{
-		RTLIL::SigSpec sig_clk, sig_arst, val_arst;
-		bool pol_clk, pol_arst = false;
+		RTLIL::SigSpec sig_clk, sig_arst, sig_en, val_arst;
+		bool pol_clk, pol_arst = false, pol_en = false;
 
 		sig_clk = cell->getPort("\\CLK");
 		pol_clk = cell->parameters["\\CLK_POLARITY"].as_bool();
@@ -676,6 +676,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			sig_arst = cell->getPort("\\ARST");
 			pol_arst = cell->parameters["\\ARST_POLARITY"].as_bool();
 			val_arst = RTLIL::SigSpec(cell->parameters["\\ARST_VALUE"]);
+		}
+
+		if (cell->type == "$dffe") {
+			sig_en = cell->getPort("\\EN");
+			pol_en = cell->parameters["\\EN_POLARITY"].as_bool();
 		}
 
 		std::string reg_name = cellname(cell);
@@ -700,6 +705,12 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			dump_sigspec(f, val_arst);
 			f << stringf(";\n");
 			f << stringf("%s" "  else\n", indent.c_str());
+		}
+
+		if (cell->type == "$dffe") {
+			f << stringf("%s" "  if (%s", indent.c_str(), pol_en ? "" : "!");
+			dump_sigspec(f, sig_en);
+			f << stringf(")\n");
 		}
 
 		f << stringf("%s" "    %s <= ", indent.c_str(), reg_name.c_str());
