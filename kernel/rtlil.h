@@ -1017,6 +1017,7 @@ public:
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
 
 	inline int size() const { return width_; }
+	inline bool empty() const { return width_ == 0; }
 
 	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
 	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }

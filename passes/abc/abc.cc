@@ -563,20 +563,24 @@ struct abc_output_filter
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, bool fast_mode)
+		bool keepff, std::string delay_target, bool fast_mode, const std::vector<RTLIL::Cell*> &cells)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
 
 	signal_map.clear();
 	signal_list.clear();
-	assign_map.set(module);
 
-	clk_polarity = true;
-	clk_sig = RTLIL::SigSpec();
+	if (clk_str != "$")
+	{
+		assign_map.set(module);
 
-	en_polarity = true;
-	en_sig = RTLIL::SigSpec();
+		clk_polarity = true;
+		clk_sig = RTLIL::SigSpec();
+
+		en_polarity = true;
+		en_sig = RTLIL::SigSpec();
+	}
 
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
@@ -628,7 +632,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
-	if (clk_str.empty()) {
+	if (!clk_str.empty() && clk_str != "$")
+	{
 		if (clk_str.find(',') != std::string::npos) {
 			int pos = clk_str.find(',');
 			std::string en_str = clk_str.substr(pos+1);
@@ -648,57 +653,21 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
 	}
 
-	if (dff_mode && clk_sig.size() == 0)
+	if (dff_mode && clk_sig.empty())
+		log_error("Clock domain %s not found.\n", clk_str.c_str());
+
+	if (dff_mode || !clk_str.empty())
 	{
-		int best_dff_counter = 0;
-		typedef std::tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-		std::map<clkdomain_t, int> dff_counters;
-
-		for (auto &it : module->cells_)
-		{
-			RTLIL::Cell *cell = it.second;
-			clkdomain_t key;
-
-			if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
-			{
-				key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
-			}
-			else
-			if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
-			{
-				bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
-				bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
-				key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
-			}
-			else
-				continue;
-
-			if (++dff_counters[key] > best_dff_counter) {
-				best_dff_counter = dff_counters[key];
-				clk_polarity = std::get<0>(key);
-				clk_sig = std::get<1>(key);
-				en_polarity = std::get<2>(key);
-				en_sig = std::get<3>(key);
-			}
-		}
-	}
-
-	if (dff_mode || !clk_str.empty()) {
 		if (clk_sig.size() == 0)
-			log("No (matching) clock domain found. Not extracting any FF cells.\n");
+			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
 		else {
-			log("Found (matching) %s clock domain: %s", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
 			if (en_sig.size() != 0)
 				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
 			log("\n");
 		}
 	}
 
-	std::vector<RTLIL::Cell*> cells;
-	cells.reserve(module->cells_.size());
-	for (auto &it : module->cells_)
-		if (design->selected(current_module, it.second))
-			cells.push_back(it.second);
 	for (auto c : cells)
 		extract_cell(c, keepff);
 
@@ -716,7 +685,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	if (en_sig.size() != 0)
 		mark_port(en_sig);
-	
+
 	handle_loops();
 
 	std::string buffer = stringf("%s/input.blif", tempdir_name.c_str());
@@ -825,7 +794,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			count_gates, GetSize(signal_list), count_input, count_output);
 	log_push();
-	
+
 	if (count_output > 0)
 	{
 		log_header("Executing ABC.\n");
@@ -1139,14 +1108,13 @@ struct AbcPass : public Pass {
 		log("        generate netlist using luts of (max) the specified width.\n");
 		log("\n");
 		log("    -dff\n");
-		log("        also pass $_DFF_?_ cells through ABC (only one clock domain, if many\n");
-		log("        clock domains are present in a module, the one with the largest number\n");
-		log("        of $_DFF_?_ cells in it is used)\n");
+		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
+		log("        clock domains are automatically partitioned in clock domains and each\n");
+		log("        domain is passed through ABC independently.\n");
 		log("\n");
-		log("    -clk [!]<signal-name>\n");
-		log("        use the specified clock domain. (when this option is used in combination\n");
-		log("        with -dff, then it falls back to the automatic dection of clock domain\n");
-		log("        if the specified clock is not found in a module.)\n");
+		log("    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>]\n");
+		log("        use only the specified clock domain. this is like -dff, but only FF\n");
+		log("        cells that belong to the specified clock domain are used.\n");
 		log("\n");
 		log("    -keepff\n");
 		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
@@ -1228,6 +1196,7 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-clk" && argidx+1 < args.size()) {
 				clk_str = args[++argidx];
+				dff_mode = true;
 				continue;
 			}
 			if (arg == "-keepff") {
@@ -1247,12 +1216,102 @@ struct AbcPass : public Pass {
 		if (!constr_file.empty() && liberty_file.empty())
 			log_cmd_error("Got -constr but no -liberty!\n");
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second)) {
-				if (mod_it.second->processes.size() > 0)
-					log("Skipping module %s as it contains processes.\n", mod_it.second->name.c_str());
-				else
-					abc_module(design, mod_it.second, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff, delay_target, fast_mode);
+		for (auto mod : design->selected_modules())
+			if (mod->processes.size() > 0)
+				log("Skipping module %s as it contains processes.\n", log_id(mod));
+			else if (!dff_mode || !clk_str.empty())
+				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff, delay_target, fast_mode, mod->selected_cells());
+			else
+			{
+				assign_map.set(mod);
+
+				std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
+				std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+				std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
+
+				typedef std::tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
+				std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
+				std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
+
+				std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit;
+				std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell;
+
+				for (auto cell : all_cells)
+				{
+					clkdomain_t key;
+
+					for (auto &conn : cell->connections())
+					for (auto bit : conn.second) {
+						bit = assign_map(bit);
+						if (bit.wire != nullptr) {
+							cell_to_bit[cell].insert(bit);
+							bit_to_cell[bit].insert(cell);
+						}
+					}
+
+					if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+					{
+						key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
+					}
+					else
+					if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
+					{
+						bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
+						bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
+						key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
+					}
+					else
+						continue;
+
+					unassigned_cells.erase(cell);
+					expand_queue.insert(cell);
+
+					assigned_cells[key].push_back(cell);
+					assigned_cells_reverse[cell] = key;
+				}
+
+				while (!expand_queue.empty())
+				{
+					RTLIL::Cell *cell = *expand_queue.begin();
+					clkdomain_t key = assigned_cells_reverse.at(cell);
+					expand_queue.erase(cell);
+
+					for (auto bit : cell_to_bit.at(cell)) {
+						for (auto c : bit_to_cell[bit])
+							if (unassigned_cells.count(c)) {
+								unassigned_cells.erase(c);
+								next_expand_queue.insert(c);
+								assigned_cells[key].push_back(c);
+								assigned_cells_reverse[c] = key;
+							}
+						bit_to_cell[bit].clear();
+					}
+
+					if (expand_queue.empty())
+						expand_queue.swap(next_expand_queue);
+				}
+
+				clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
+				for (auto cell : unassigned_cells) {
+					assigned_cells[key].push_back(cell);
+					assigned_cells_reverse[cell] = key;
+				}
+
+				log_header("Summary of detected clock domains:\n");
+				for (auto &it : assigned_cells)
+					log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
+							std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
+							std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
+
+				for (auto &it : assigned_cells) {
+					clk_polarity = std::get<0>(it.first);
+					clk_sig = assign_map(std::get<1>(it.first));
+					en_polarity = std::get<2>(it.first);
+					en_sig = assign_map(std::get<3>(it.first));
+					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode,
+							!clk_sig.empty(), "$", keepff, delay_target, fast_mode, it.second);
+					assign_map.set(mod);
+				}
 			}
 
 		assign_map.clear();
