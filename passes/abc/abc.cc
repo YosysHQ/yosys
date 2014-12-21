@@ -147,6 +147,8 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 			return;
 		if (clk_sig != assign_map(cell->getPort("\\C")))
 			return;
+		if (GetSize(en_sig) != 0)
+			return;
 		goto matching_dff;
 	}
 
@@ -692,12 +694,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		}
 	}
 
-	if (clk_sig.size() != 0)
-		mark_port(clk_sig);
-
-	if (en_sig.size() != 0)
-		mark_port(en_sig);
-
 	std::vector<RTLIL::Cell*> cells;
 	cells.reserve(module->cells_.size());
 	for (auto &it : module->cells_)
@@ -714,6 +710,12 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	for (auto &cell_it : module->cells_)
 	for (auto &port_it : cell_it.second->connections())
 		mark_port(port_it.second);
+
+	if (clk_sig.size() != 0)
+		mark_port(clk_sig);
+
+	if (en_sig.size() != 0)
+		mark_port(en_sig);
 	
 	handle_loops();
 
