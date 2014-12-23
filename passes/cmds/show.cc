@@ -482,8 +482,8 @@ struct ShowWorker
 
 			if (left_node[0] == 'x' && right_node[0] == 'x') {
 				currentColor = xorshift32(currentColor);
-			fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.size()).c_str());
-		} else {
+				fprintf(f, "%s:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", left_node.c_str(), right_node.c_str(), nextColor(conn).c_str(), widthLabel(conn.first.size()).c_str());
+			} else {
 				net_conn_map[right_node].bits = conn.first.size();
 				net_conn_map[right_node].color = nextColor(conn, net_conn_map[right_node].color);
 				net_conn_map[left_node].bits = conn.first.size();
