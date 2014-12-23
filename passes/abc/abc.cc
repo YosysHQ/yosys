@@ -89,6 +89,7 @@ struct gate_t
 	RTLIL::SigBit bit;
 };
 
+bool markgroups;
 int map_autoidx;
 SigMap assign_map;
 RTLIL::Module *module;
@@ -855,6 +856,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		for (auto &it : mapped_mod->wires_) {
 			RTLIL::Wire *w = it.second;
 			RTLIL::Wire *wire = module->addWire(remap_name(w->name));
+			if (markgroups) wire->attributes["\\abcgroup"] = map_autoidx;
 			design->select(module, wire);
 		}
 
@@ -880,6 +882,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == "\\NOT") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_NOT_");
+					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
 					design->select(module, cell);
@@ -887,6 +890,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" || c->type == "\\XNOR") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\Y", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)]));
@@ -895,6 +899,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == "\\MUX") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_MUX_");
+					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\S", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\S").as_wire()->name)]));
@@ -904,6 +909,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == "\\AOI3" || c->type == "\\OAI3") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\C", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\C").as_wire()->name)]));
@@ -913,6 +919,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == "\\AOI4" || c->type == "\\OAI4") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
+					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
 					cell->setPort("\\B", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\B").as_wire()->name)]));
 					cell->setPort("\\C", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\C").as_wire()->name)]));
@@ -931,6 +938,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 						cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
 						cell->setPort("\\E", en_sig);
 					}
+					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 					cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
 					cell->setPort("\\C", clk_sig);
@@ -963,6 +971,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 						cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
 						cell->setPort("\\E", en_sig);
 					}
+					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
 					cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
 					cell->setPort("\\C", clk_sig);
@@ -970,6 +979,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
+				if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 				cell->parameters = c->parameters;
 				for (auto &conn : c->connections()) {
 					RTLIL::SigSpec newsig;
@@ -1124,6 +1134,11 @@ struct AbcPass : public Pass {
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
 		log("\n");
+		log("    -markgroups\n");
+		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
+		log("        this attribute is a unique integer for each ABC process started. This\n");
+		log("        is usefull for debugging the partitioning of clock domains.\n");
+		log("\n");
 		log("When neither -liberty nor -lut is used, the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
@@ -1142,6 +1157,7 @@ struct AbcPass : public Pass {
 		std::string script_file, liberty_file, constr_file, clk_str, delay_target;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		int lut_mode = 0;
+		markgroups = false;
 
 #ifdef _WIN32
 		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\yosys-abc.exe"))
@@ -1205,6 +1221,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-nocleanup") {
 				cleanup = false;
+				continue;
+			}
+			if (arg == "-markgroups") {
+				markgroups = true;
 				continue;
 			}
 			break;
