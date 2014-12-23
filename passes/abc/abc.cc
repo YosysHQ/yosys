@@ -41,6 +41,7 @@
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
+#include "kernel/celltypes.h"
 #include "kernel/cost.h"
 #include "kernel/log.h"
 #include <stdlib.h>
@@ -1244,17 +1245,21 @@ struct AbcPass : public Pass {
 			else
 			{
 				assign_map.set(mod);
+				CellTypes ct(design);
 
 				std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
 				std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+
 				std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
+				std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
+				std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
 				typedef std::tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
 				std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
 				std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 
-				std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit;
-				std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell;
+				std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
+				std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
 				for (auto cell : all_cells)
 				{
@@ -1266,6 +1271,14 @@ struct AbcPass : public Pass {
 						if (bit.wire != nullptr) {
 							cell_to_bit[cell].insert(bit);
 							bit_to_cell[bit].insert(cell);
+							if (ct.cell_input(cell->type, conn.first)) {
+								cell_to_bit_up[cell].insert(bit);
+								bit_to_cell_down[bit].insert(cell);
+							}
+							if (ct.cell_output(cell->type, conn.first)) {
+								cell_to_bit_down[cell].insert(bit);
+								bit_to_cell_up[bit].insert(cell);
+							}
 						}
 					}
 
@@ -1285,9 +1298,53 @@ struct AbcPass : public Pass {
 
 					unassigned_cells.erase(cell);
 					expand_queue.insert(cell);
+					expand_queue_up.insert(cell);
+					expand_queue_down.insert(cell);
 
 					assigned_cells[key].push_back(cell);
 					assigned_cells_reverse[cell] = key;
+				}
+
+				while (!expand_queue_up.empty() || !expand_queue_down.empty())
+				{
+					if (!expand_queue_up.empty())
+					{
+						RTLIL::Cell *cell = *expand_queue_up.begin();
+						clkdomain_t key = assigned_cells_reverse.at(cell);
+						expand_queue_up.erase(cell);
+
+						for (auto bit : cell_to_bit_up[cell])
+						for (auto c : bit_to_cell_up[bit])
+							if (unassigned_cells.count(c)) {
+								unassigned_cells.erase(c);
+								next_expand_queue_up.insert(c);
+								assigned_cells[key].push_back(c);
+								assigned_cells_reverse[c] = key;
+								expand_queue.insert(c);
+							}
+					}
+
+					if (!expand_queue_down.empty())
+					{
+						RTLIL::Cell *cell = *expand_queue_down.begin();
+						clkdomain_t key = assigned_cells_reverse.at(cell);
+						expand_queue_down.erase(cell);
+
+						for (auto bit : cell_to_bit_down[cell])
+						for (auto c : bit_to_cell_down[bit])
+							if (unassigned_cells.count(c)) {
+								unassigned_cells.erase(c);
+								next_expand_queue_up.insert(c);
+								assigned_cells[key].push_back(c);
+								assigned_cells_reverse[c] = key;
+								expand_queue.insert(c);
+							}
+					}
+
+					if (expand_queue_up.empty() && expand_queue_down.empty()) {
+						expand_queue_up.swap(next_expand_queue_up);
+						expand_queue_down.swap(next_expand_queue_down);
+					}
 				}
 
 				while (!expand_queue.empty())
