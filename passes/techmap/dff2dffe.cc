@@ -241,25 +241,61 @@ struct Dff2dffePass : public Pass {
 		log("    dff2dffe [selection]\n");
 		log("\n");
 		log("This pass transforms $dff cells driven by a tree of multiplexers with one or\n");
-		log("more feedback paths to $dffe cells.\n");
+		log("more feedback paths to $dffe cells. It also works on gate-level cells such as\n");
+		log("$_DFF_P_, $_DFF_N_ and $_MUX_.\n");
+		log("\n");
+		log("    -unmap\n");
+		log("        operate in the opposite direction: replace $dffe cells with combinations\n");
+		log("        of $dff and $mux cells\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
+		bool unmap_mode = false;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			// if (args[argidx] == "-foobar") {
-			// 	foobar_mode = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-unmap") {
+				unmap_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules())
-			if (!mod->has_processes_warn()) {
+			if (!mod->has_processes_warn())
+			{
+				if (unmap_mode) {
+					for (auto cell : mod->selected_cells()) {
+						if (cell->type == "$dffe") {
+							RTLIL::SigSpec tmp = mod->addWire(NEW_ID, GetSize(cell->getPort("\\D")));
+							mod->addDff(NEW_ID, cell->getPort("\\CLK"), tmp, cell->getPort("\\Q"), cell->getParam("\\CLK_POLARITY").as_bool());
+							if (cell->getParam("\\EN_POLARITY").as_bool())
+								mod->addMux(NEW_ID, cell->getPort("\\Q"), cell->getPort("\\D"), cell->getPort("\\EN"), tmp);
+							else
+								mod->addMux(NEW_ID, cell->getPort("\\D"), cell->getPort("\\Q"), cell->getPort("\\EN"), tmp);
+							mod->remove(cell);
+							continue;
+						}
+						if (cell->type.substr(0, 7) == "$_DFFE_") {
+							bool clk_pol = cell->type.substr(7, 1) == "P";
+							bool en_pol = cell->type.substr(8, 1) == "P";
+							RTLIL::SigSpec tmp = mod->addWire(NEW_ID);
+							mod->addDff(NEW_ID, cell->getPort("\\C"), tmp, cell->getPort("\\Q"), clk_pol);
+							if (en_pol)
+								mod->addMux(NEW_ID, cell->getPort("\\Q"), cell->getPort("\\D"), cell->getPort("\\E"), tmp);
+							else
+								mod->addMux(NEW_ID, cell->getPort("\\D"), cell->getPort("\\Q"), cell->getPort("\\E"), tmp);
+							mod->remove(cell);
+							continue;
+						}
+					}
+					continue;
+				}
+
 				Dff2dffeWorker worker(mod);
 				worker.run();
 			}
