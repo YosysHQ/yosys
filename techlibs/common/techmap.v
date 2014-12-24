@@ -54,6 +54,11 @@ module _90_simplemap_logic_ops;
 endmodule
 
 (* techmap_simplemap *)
+(* techmap_celltype = "$eq $eqx $ne $nex" *)
+module _90_simplemap_compare_ops;
+endmodule
+
+(* techmap_simplemap *)
 (* techmap_celltype = "$pos $slice $concat $mux" *)
 module _90_simplemap_various;
 endmodule
@@ -403,55 +408,6 @@ module _90_pow (A, B, Y);
 	output [Y_WIDTH-1:0] Y;
 
 	wire _TECHMAP_FAIL_ = 1;
-endmodule
-
-
-// --------------------------------------------------------
-// Equal and Not-Equal
-// --------------------------------------------------------
-
-(* techmap_celltype = "$eq $eqx" *)
-module _90_eq_eqx (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire carry, carry_sign;
-	wire [WIDTH-1:0] A_buf, B_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	assign Y = ~|(A_buf ^ B_buf);
-endmodule
-
-(* techmap_celltype = "$ne $nex" *)
-module _90_ne_nex (A, B, Y);
-	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
-	parameter A_WIDTH = 1;
-	parameter B_WIDTH = 1;
-	parameter Y_WIDTH = 1;
-
-	localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
-
-	input [A_WIDTH-1:0] A;
-	input [B_WIDTH-1:0] B;
-	output [Y_WIDTH-1:0] Y;
-
-	wire carry, carry_sign;
-	wire [WIDTH-1:0] A_buf, B_buf;
-	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
-	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	assign Y = |(A_buf ^ B_buf);
 endmodule
 
 

@@ -26,12 +26,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "simplemap.h"
 #include "passes/techmap/techmap.inc"
 
 YOSYS_NAMESPACE_BEGIN
-
-// see simplemap.cc
-extern void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
 
 // see maccmap.cc
 extern void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap = false);
