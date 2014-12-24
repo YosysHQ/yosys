@@ -31,6 +31,8 @@ struct Dff2dffeWorker
 	SigMap sigmap;
 	CellTypes ct;
 
+	RTLIL::IdString direct_to;
+
 	typedef std::pair<RTLIL::Cell*, int> cell_int_t;
 	std::map<RTLIL::SigBit, cell_int_t> bit2mux;
 	std::vector<RTLIL::Cell*> dff_cells;
@@ -39,7 +41,9 @@ struct Dff2dffeWorker
 	typedef std::map<RTLIL::SigBit, bool> pattern_t;
 	typedef std::set<pattern_t> patterns_t;
 
-	Dff2dffeWorker(RTLIL::Module *module) : module(module), sigmap(module), ct(module->design)
+
+	Dff2dffeWorker(RTLIL::Module *module, RTLIL::IdString direct_from, RTLIL::IdString direct_to) :
+			module(module), sigmap(module), ct(module->design), direct_to(direct_to)
 	{
 		for (auto wire : module->wires()) {
 			if (wire->port_output)
@@ -53,8 +57,13 @@ struct Dff2dffeWorker
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
-			if (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
-				dff_cells.push_back(cell);
+			if (direct_to.empty()) {
+				if (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
+					dff_cells.push_back(cell);
+			} else {
+				if (cell->type == direct_from)
+					dff_cells.push_back(cell);
+			}
 			for (auto conn : cell->connections()) {
 				if (ct.cell_output(cell->type, conn.first))
 					continue;
@@ -197,6 +206,11 @@ struct Dff2dffeWorker
 				new_sig_d.append(sig_d[i]);
 				new_sig_q.append(sig_q[i]);
 			}
+			if (!direct_to.empty()) {
+				log("  converting %s cell %s to %s for %s -> %s.\n", log_id(dff_cell->type), log_id(dff_cell), log_id(direct_to), log_signal(new_sig_d), log_signal(new_sig_q));
+				dff_cell->setPort("\\E", make_patterns_logic(it.first, true));
+				dff_cell->type = direct_to;
+			} else
 			if (dff_cell->type == "$dff") {
 				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort("\\CLK"), make_patterns_logic(it.first, false),
 						new_sig_d, new_sig_q, dff_cell->getParam("\\CLK_POLARITY").as_bool(), true);
@@ -207,6 +221,9 @@ struct Dff2dffeWorker
 				log("  created %s cell %s for %s -> %s.\n", log_id(new_cell->type), log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
 			}
 		}
+
+		if (!direct_to.empty())
+			return;
 
 		if (remaining_indices.empty()) {
 			log("  removing now obsolete cell %s.\n", log_id(dff_cell));
@@ -246,7 +263,16 @@ struct Dff2dffePass : public Pass {
 		log("\n");
 		log("    -unmap\n");
 		log("        operate in the opposite direction: replace $dffe cells with combinations\n");
-		log("        of $dff and $mux cells\n");
+		log("        of $dff and $mux cells. the options below are ignore in unmap mode.\n");
+		log("\n");
+		log("    -direct <internal_gate_type> <external_gate_type>\n");
+		log("        map directly to external gate type. <internal_gate_type> can\n");
+		log("        be any internal gate-level FF cell (except $_DFFE_??_). the\n");
+		log("        <external_gate_type> is the cell type name for a cell with an\n");
+		log("        identical interface to the <internal_gate_type>, except it\n");
+		log("        also has an high-active enable port 'E'.\n");
+		log("          Usually <external_gate_type> is an intemediate cell type\n");
+		log("        that is then translated to the final type using 'techmap'.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -254,11 +280,17 @@ struct Dff2dffePass : public Pass {
 		log_header("Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
 		bool unmap_mode = false;
+		RTLIL::IdString direct_from, direct_to;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-unmap") {
 				unmap_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-direct" && argidx + 2 < args.size()) {
+				direct_from = RTLIL::escape_id(args[++argidx]);
+				direct_to = RTLIL::escape_id(args[++argidx]);
 				continue;
 			}
 			break;
@@ -296,7 +328,7 @@ struct Dff2dffePass : public Pass {
 					continue;
 				}
 
-				Dff2dffeWorker worker(mod);
+				Dff2dffeWorker worker(mod, direct_from, direct_to);
 				worker.run();
 			}
 	}
