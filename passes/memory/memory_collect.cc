@@ -85,12 +85,12 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			RTLIL::SigSpec data = cell->getPort("\\DATA");
 			RTLIL::SigSpec en = cell->getPort("\\EN");
 
-			clk.extend(1, false);
-			clk_enable.extend(1, false);
-			clk_polarity.extend(1, false);
-			addr.extend(addr_bits, false);
-			data.extend(memory->width, false);
-			en.extend(memory->width, false);
+			clk.extend_u0(1, false);
+			clk_enable.extend_u0(1, false);
+			clk_polarity.extend_u0(1, false);
+			addr.extend_u0(addr_bits, false);
+			data.extend_u0(memory->width, false);
+			en.extend_u0(memory->width, false);
 
 			sig_wr_clk.append(clk);
 			sig_wr_clk_enable.append(clk_enable);
@@ -112,12 +112,12 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			RTLIL::SigSpec addr = cell->getPort("\\ADDR");
 			RTLIL::SigSpec data = cell->getPort("\\DATA");
 
-			clk.extend(1, false);
-			clk_enable.extend(1, false);
-			clk_polarity.extend(1, false);
-			transparent.extend(1, false);
-			addr.extend(addr_bits, false);
-			data.extend(memory->width, false);
+			clk.extend_u0(1, false);
+			clk_enable.extend_u0(1, false);
+			clk_polarity.extend_u0(1, false);
+			transparent.extend_u0(1, false);
+			addr.extend_u0(addr_bits, false);
+			data.extend_u0(memory->width, false);
 
 			sig_rd_clk.append(clk);
 			sig_rd_clk_enable.append(clk_enable);

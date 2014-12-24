@@ -262,7 +262,7 @@ struct ProcArstPass : public Pass {
 								for (auto &chunk : act.first.chunks())
 									if (chunk.wire && chunk.wire->attributes.count("\\init")) {
 										RTLIL::SigSpec value = chunk.wire->attributes.at("\\init");
-										value.extend(chunk.wire->width, false);
+										value.extend_xx(chunk.wire->width, false);
 										arst_sig.append(chunk);
 										arst_val.append(value.extract(chunk.offset, chunk.width));
 									}

@@ -40,7 +40,7 @@ static std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> exclusive_ctrls;
 
 static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL::SigSpec &ctrl, std::map<RTLIL::Const, int> &states, RTLIL::Const *reset_state = NULL)
 {
-	sig.extend(dff_out.size(), false);
+	sig.extend_u0(dff_out.size(), false);
 
 	if (sig == dff_out)
 		return true;

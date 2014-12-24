@@ -32,7 +32,7 @@ static void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec sig_a = cell->getPort("\\A");
 	RTLIL::SigSpec sig_y = cell->getPort("\\Y");
 
-	sig_a.extend(GetSize(sig_y), cell->parameters.at("\\A_SIGNED").as_bool());
+	sig_a.extend_u0(GetSize(sig_y), cell->parameters.at("\\A_SIGNED").as_bool());
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, "$_NOT_");

@@ -501,7 +501,7 @@ struct AlumaccWorker
 				if (GetSize(sig) > 1)
 					sig = module->ReduceOr(NEW_ID, sig);
 
-				sig.extend(GetSize(cmp_y));
+				sig.extend_u0(GetSize(cmp_y));
 				module->connect(cmp_y, sig);
 			}
 

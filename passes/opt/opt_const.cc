@@ -491,7 +491,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				if (a[i].wire == NULL && b[i].wire == NULL && a[i] != b[i] && a[i].data <= RTLIL::State::S1 && b[i].data <= RTLIL::State::S1) {
 					cover_list("opt.opt_const.eqneq.isneq", "$eq", "$ne", "$eqx", "$nex", cell->type.str());
 					RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S0 : RTLIL::State::S1);
-					new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
+					new_y.extend_u0(cell->parameters["\\Y_WIDTH"].as_int(), false);
 					replace_cell(assign_map, module, cell, "isneq", "\\Y", new_y);
 					goto next_cell;
 				}
@@ -504,7 +504,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (new_a.size() == 0) {
 				cover_list("opt.opt_const.eqneq.empty", "$eq", "$ne", "$eqx", "$nex", cell->type.str());
 				RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S1 : RTLIL::State::S0);
-				new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
+				new_y.extend_u0(cell->parameters["\\Y_WIDTH"].as_int(), false);
 				replace_cell(assign_map, module, cell, "empty", "\\Y", new_y);
 				goto next_cell;
 			}
@@ -560,7 +560,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			RTLIL::SigSpec sig_y(cell->type == "$shiftx" ? RTLIL::State::Sx : RTLIL::State::S0, cell->getParam("\\Y_WIDTH").as_int());
 
 			if (GetSize(sig_a) < GetSize(sig_y))
-				sig_a.extend(GetSize(sig_y), cell->getParam("\\A_SIGNED").as_bool());
+				sig_a.extend_u0(GetSize(sig_y), cell->getParam("\\A_SIGNED").as_bool());
 
 			for (int i = 0; i < GetSize(sig_y); i++) {
 				int idx = i + shift_bits;

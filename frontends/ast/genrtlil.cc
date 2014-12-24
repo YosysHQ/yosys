@@ -73,7 +73,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_signed)
 {
 	if (width <= sig.size()) {
-		sig.extend(width, is_signed);
+		sig.extend_u0(width, is_signed);
 		return;
 	}
 

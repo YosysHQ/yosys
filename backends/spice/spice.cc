@@ -84,7 +84,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 				RTLIL::SigSpec sig(RTLIL::State::Sz, wire->width);
 				if (cell->hasPort(wire->name)) {
 					sig = sigmap(cell->getPort(wire->name));
-					sig.extend(wire->width, false);
+					sig.extend_u0(wire->width, false);
 				}
 				port_sigs.push_back(sig);
 			}

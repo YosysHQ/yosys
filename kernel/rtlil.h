@@ -1057,7 +1057,7 @@ public:
 	void append(const RTLIL::SigSpec &signal);
 	void append_bit(const RTLIL::SigBit &bit);
 
-	void extend(int width, bool is_signed = false);
+	void extend_xx(int width, bool is_signed = false);
 	void extend_u0(int width, bool is_signed = false);
 
 	RTLIL::SigSpec repeat(int num) const;

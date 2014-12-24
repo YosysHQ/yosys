@@ -49,7 +49,7 @@ struct MaccmapWorker
 
 	void add(RTLIL::SigSpec a, bool is_signed, bool do_subtract)
 	{
-		a.extend(width, is_signed);
+		a.extend_u0(width, is_signed);
 
 		if (do_subtract) {
 			a = module->Not(NEW_ID, a);
@@ -65,10 +65,10 @@ struct MaccmapWorker
 		if (GetSize(a) < GetSize(b))
 			std::swap(a, b);
 
-		a.extend(width, is_signed);
+		a.extend_u0(width, is_signed);
 
 		if (GetSize(b) > width)
-			b.extend(width, is_signed);
+			b.extend_u0(width, is_signed);
 
 		for (int i = 0; i < GetSize(b); i++)
 			if (is_signed && i+1 == GetSize(b))

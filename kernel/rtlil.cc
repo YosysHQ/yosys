@@ -2590,9 +2590,9 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 	check();
 }
 
-void RTLIL::SigSpec::extend(int width, bool is_signed)
+void RTLIL::SigSpec::extend_xx(int width, bool is_signed)
 {
-	cover("kernel.rtlil.sigspec.extend");
+	cover("kernel.rtlil.sigspec.extend_xx");
 
 	pack();
 
@@ -2600,10 +2600,9 @@ void RTLIL::SigSpec::extend(int width, bool is_signed)
 		remove(width, width_ - width);
 	
 	if (width_ < width) {
-		RTLIL::SigSpec padding = width_ > 0 ? extract(width_ - 1, 1) : RTLIL::SigSpec(RTLIL::State::S0);
-		if (!is_signed && padding != RTLIL::SigSpec(RTLIL::State::Sx) && padding != RTLIL::SigSpec(RTLIL::State::Sz) &&
-				padding != RTLIL::SigSpec(RTLIL::State::Sa) && padding != RTLIL::SigSpec(RTLIL::State::Sm))
-			padding = RTLIL::SigSpec(RTLIL::State::S0);
+		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::S0;
+		if (!is_signed && (padding == RTLIL::State::S1 || padding.wire))
+			padding = RTLIL::State::S0;
 		while (width_ < width)
 			append(padding);
 	}
@@ -2619,9 +2618,9 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 		remove(width, width_ - width);
 	
 	if (width_ < width) {
-		RTLIL::SigSpec padding = width_ > 0 ? extract(width_ - 1, 1) : RTLIL::SigSpec(RTLIL::State::S0);
+		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::S0;
 		if (!is_signed)
-			padding = RTLIL::SigSpec(RTLIL::State::S0);
+			padding = RTLIL::State::S0;
 		while (width_ < width)
 			append(padding);
 	}
