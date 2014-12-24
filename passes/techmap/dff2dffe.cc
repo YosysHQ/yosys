@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "passes/techmap/simplemap.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -47,12 +48,12 @@ struct Dff2dffeWorker
 		}
 
 		for (auto cell : module->cells()) {
-			if (cell->type == "$mux" || cell->type == "$pmux") {
+			if (cell->type == "$mux" || cell->type == "$pmux" || cell->type == "$_MUX_") {
 				RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
-			if (cell->type == "$dff")
+			if (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
 				dff_cells.push_back(cell);
 			for (auto conn : cell->connections()) {
 				if (ct.cell_output(cell->type, conn.first))
@@ -133,22 +134,44 @@ struct Dff2dffeWorker
 		// TBD
 	}
 
-	RTLIL::SigSpec make_patterns_logic(patterns_t patterns)
+	RTLIL::SigSpec make_patterns_logic(patterns_t patterns, bool make_gates)
 	{
 		RTLIL::SigSpec or_input;
-		for (auto pat : patterns) {
+
+		for (auto pat : patterns)
+		{
 			RTLIL::SigSpec s1, s2;
 			for (auto it : pat) {
 				s1.append(it.first);
 				s2.append(it.second);
 			}
-			or_input.append(module->Ne(NEW_ID, s1, s2));
+
+			RTLIL::SigSpec y = module->addWire(NEW_ID);
+			RTLIL::Cell *c = module->addNe(NEW_ID, s1, s2, y);
+
+			if (make_gates) {
+				simplemap(module, c);
+				module->remove(c);
+			}
+
+			or_input.append(y);
 		}
+
 		if (GetSize(or_input) == 0)
 			return RTLIL::S1;
+
 		if (GetSize(or_input) == 1)
 			return or_input;
-		return module->ReduceOr(NEW_ID, or_input);
+
+		RTLIL::SigSpec y = module->addWire(NEW_ID);
+		RTLIL::Cell *c = module->addReduceOr(NEW_ID, or_input, y);
+
+		if (make_gates) {
+			simplemap(module, c);
+			module->remove(c);
+		}
+
+		return y;
 	}
 
 	void handle_dff_cell(RTLIL::Cell *dff_cell)
@@ -174,9 +197,15 @@ struct Dff2dffeWorker
 				new_sig_d.append(sig_d[i]);
 				new_sig_q.append(sig_q[i]);
 			}
-			RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort("\\CLK"), make_patterns_logic(it.first),
-					new_sig_d, new_sig_q, dff_cell->getParam("\\CLK_POLARITY").as_bool(), true);
-			log("  created $dffe cell %s for %s -> %s.\n", log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
+			if (dff_cell->type == "$dff") {
+				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort("\\CLK"), make_patterns_logic(it.first, false),
+						new_sig_d, new_sig_q, dff_cell->getParam("\\CLK_POLARITY").as_bool(), true);
+				log("  created $dffe cell %s for %s -> %s.\n", log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
+			} else {
+				RTLIL::Cell *new_cell = module->addDffeGate(NEW_ID, dff_cell->getPort("\\C"), make_patterns_logic(it.first, true),
+						new_sig_d, new_sig_q, dff_cell->type == "$_DFF_P_", true);
+				log("  created %s cell %s for %s -> %s.\n", log_id(new_cell->type), log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
+			}
 		}
 
 		if (remaining_indices.empty()) {
