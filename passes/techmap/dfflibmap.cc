@@ -457,13 +457,17 @@ struct DfflibmapPass : public Pass {
 	virtual void help()
 	{
 		log("\n");
-		log("    dfflibmap -liberty <file> [selection]\n");
+		log("    dfflibmap [-prepare] -liberty <file> [selection]\n");
 		log("\n");
 		log("Map internal flip-flop cells to the flip-flop cells in the technology\n");
 		log("library specified in the given liberty file.\n");
 		log("\n");
 		log("This pass may add inverters as needed. Therefore it is recommended to\n");
 		log("first run this pass and then map the logic paths to the target technology.\n");
+		log("\n");
+		log("When called with -prepare, this command will convert the internal FF cells\n");
+		log("to the internal cell types that best match the cells found in the given\n");
+		log("liberty file.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
