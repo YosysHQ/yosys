@@ -215,9 +215,9 @@ struct Smt2Worker
 		bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
 		int width = GetSize(sig_y);
 
-		if (type == 's') {
-			width = std::max(width, GetSize(sig_a));
-			width = std::max(width, GetSize(sig_b));
+		if (type == 's' || type == 'd' || type == 'b') {
+			width = std::max(width, GetSize(cell->getPort("\\A")));
+			width = std::max(width, GetSize(cell->getPort("\\B")));
 		}
 
 		if (cell->hasPort("\\A")) {
@@ -240,7 +240,7 @@ struct Smt2Worker
 			else processed_expr += ch;
 		}
 
-		if (width != GetSize(sig_y))
+		if (width != GetSize(sig_y) && type != 'b')
 			processed_expr = stringf("((_ extract %d 0) %s)", GetSize(sig_y)-1, processed_expr.c_str());
 
 		if (type == 'b') {
@@ -347,8 +347,8 @@ struct Smt2Worker
 		if (cell->type == "$add") return export_bvop(cell, "(bvadd A B)");
 		if (cell->type == "$sub") return export_bvop(cell, "(bvsub A B)");
 		if (cell->type == "$mul") return export_bvop(cell, "(bvmul A B)");
-		if (cell->type == "$div") return export_bvop(cell, "(bvUdiv A B)");
-		if (cell->type == "$mod") return export_bvop(cell, "(bvUrem A B)");
+		if (cell->type == "$div") return export_bvop(cell, "(bvUdiv A B)", 'd');
+		if (cell->type == "$mod") return export_bvop(cell, "(bvUrem A B)", 'd');
 
 		if (cell->type == "$reduce_and") return export_reduce(cell, "(and A)", true);
 		if (cell->type == "$reduce_or") return export_reduce(cell, "(or A)", false);
@@ -360,7 +360,28 @@ struct Smt2Worker
 		if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))", false);
 		if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)", false);
 
-		// FIXME: $slice $concat $mux $pmux
+		if (cell->type == "$mux" || cell->type == "$pmux")
+		{
+			int width = GetSize(cell->getPort("\\Y"));
+			std::string processed_expr = get_bv(cell->getPort("\\A"));
+
+			RTLIL::SigSpec sig_b = cell->getPort("\\B");
+			RTLIL::SigSpec sig_s = cell->getPort("\\S");
+			get_bv(sig_b);
+			get_bv(sig_s);
+
+			for (int i = 0; i < GetSize(sig_s); i++)
+				processed_expr = stringf("(ite %s %s %s)", get_bool(sig_s[i]).c_str(),
+						get_bv(sig_b.extract(i*width, width)).c_str(), processed_expr.c_str());
+
+			RTLIL::SigSpec sig = sigmap(cell->getPort("\\Y"));
+			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+					log_id(module), idcounter, log_id(module), width, processed_expr.c_str(), log_signal(sig)));
+			register_bv(sig, idcounter++);
+			return;
+		}
+
+		// FIXME: $slice $concat
 
 		log_error("Unsupported cell type %s for cell %s.%s.\n",
 				log_id(cell->type), log_id(module), log_id(cell));
