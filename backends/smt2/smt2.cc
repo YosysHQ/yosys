@@ -133,7 +133,7 @@ struct Smt2Worker
 				export_cell(bit_driver.at(bit));
 		sigmap.apply(sig);
 
-		for (int i = 0, j = 1; i < GetSize(sig); i += j)
+		for (int i = 0, j = 1; i < GetSize(sig); i += j, j = 1)
 		{
 			if (sig[i].wire == nullptr) {
 				while (i+j < GetSize(sig) && sig[i+j].wire == nullptr) j++;
@@ -167,7 +167,10 @@ struct Smt2Worker
 				continue;
 			}
 
-			while (i+j < GetSize(sig) && sig[i+j].wire && !fcache.count(sig[i+j])) j++;
+			std::set<RTLIL::SigBit> seen_bits = { sig[i] };
+			while (i+j < GetSize(sig) && sig[i+j].wire && !fcache.count(sig[i+j]) && !seen_bits.count(sig[i+j]))
+				seen_bits.insert(sig[i+j]), j++;
+
 			decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) (_ BitVec %d)) ; %s\n",
 					log_id(module), idcounter, log_id(module), j, log_signal(sig.extract(i, j))));
 			subexpr.push_back(stringf("(|%s#%d| state)", log_id(module), idcounter));
@@ -205,14 +208,14 @@ struct Smt2Worker
 		return;
 	}
 
-	void export_bvop(RTLIL::Cell *cell, std::string expr, bool shift_op = false)
+	void export_bvop(RTLIL::Cell *cell, std::string expr, char type = 0)
 	{
 		RTLIL::SigSpec sig_a, sig_b;
 		RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
 		bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
 		int width = GetSize(sig_y);
 
-		if (shift_op) {
+		if (type == 's') {
 			width = std::max(width, GetSize(sig_a));
 			width = std::max(width, GetSize(sig_b));
 		}
@@ -224,7 +227,7 @@ struct Smt2Worker
 
 		if (cell->hasPort("\\B")) {
 			sig_b = cell->getPort("\\B");
-			sig_b.extend_u0(width, is_signed && !shift_op);
+			sig_b.extend_u0(width, is_signed && !(type == 's'));
 		}
 
 		std::string processed_expr;
@@ -233,20 +236,26 @@ struct Smt2Worker
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
-			else if (ch == 'U') processed_expr += is_signed ? "" : "u";
+			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
 		}
 
 		if (width != GetSize(sig_y))
 			processed_expr = stringf("((_ extract %d 0) %s)", GetSize(sig_y)-1, processed_expr.c_str());
 
-		decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-				log_id(module), idcounter, log_id(module), GetSize(sig_y), processed_expr.c_str(), log_signal(sig_y)));
-		register_bv(sig_y, idcounter++);
+		if (type == 'b') {
+			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
+					log_id(module), idcounter, log_id(module), processed_expr.c_str(), log_signal(sig_y)));
+			register_boolvec(sig_y, idcounter++);
+		} else {
+			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+					log_id(module), idcounter, log_id(module), GetSize(sig_y), processed_expr.c_str(), log_signal(sig_y)));
+			register_bv(sig_y, idcounter++);
+		}
 		return;
 	}
 
-	void export_reduce(RTLIL::Cell *cell, std::string expr)
+	void export_reduce(RTLIL::Cell *cell, std::string expr, bool identity_val)
 	{
 		RTLIL::SigSpec sig_y = sigmap(cell->getPort("\\Y"));
 		std::string processed_expr;
@@ -256,6 +265,8 @@ struct Smt2Worker
 				RTLIL::SigSpec sig = sigmap(cell->getPort(stringf("\\%c", ch)));
 				for (auto bit : sig)
 					processed_expr += " " + get_bool(bit);
+				if (GetSize(sig) == 1)
+					processed_expr += identity_val ? " true" : " false";
 			} else
 				processed_expr += ch;
 
@@ -312,22 +323,22 @@ struct Smt2Worker
 		if (cell->type == "$xor") return export_bvop(cell, "(bvxor A B)");
 		if (cell->type == "$xnor") return export_bvop(cell, "(bvxnor A B)");
 
-		if (cell->type == "$shl") return export_bvop(cell, "(bvshl A B)", true);
-		if (cell->type == "$shr") return export_bvop(cell, "(bvlshr A B)", true);
-		if (cell->type == "$sshl") return export_bvop(cell, "(bvshl A B)", true);
-		if (cell->type == "$sshr") return export_bvop(cell, "(bvLshr A B)", true);
+		if (cell->type == "$shl") return export_bvop(cell, "(bvshl A B)", 's');
+		if (cell->type == "$shr") return export_bvop(cell, "(bvlshr A B)", 's');
+		if (cell->type == "$sshl") return export_bvop(cell, "(bvshl A B)", 's');
+		if (cell->type == "$sshr") return export_bvop(cell, "(bvLshr A B)", 's');
 
 		// FIXME: $shift $shiftx
 
-		if (cell->type == "$lt") return export_bvop(cell, "(bvUlt A B)");
-		if (cell->type == "$le") return export_bvop(cell, "(bvUle A B)");
-		if (cell->type == "$ge") return export_bvop(cell, "(bvUge A B)");
-		if (cell->type == "$gt") return export_bvop(cell, "(bvUgt A B)");
+		if (cell->type == "$lt") return export_bvop(cell, "(bvUlt A B)", 'b');
+		if (cell->type == "$le") return export_bvop(cell, "(bvUle A B)", 'b');
+		if (cell->type == "$ge") return export_bvop(cell, "(bvUge A B)", 'b');
+		if (cell->type == "$gt") return export_bvop(cell, "(bvUgt A B)", 'b');
 
-		if (cell->type == "$ne") return export_bvop(cell, "(distinct A B)");
-		if (cell->type == "$nex") return export_bvop(cell, "(distinct A B)");
-		if (cell->type == "$eq") return export_bvop(cell, "(= A B)");
-		if (cell->type == "$eqx") return export_bvop(cell, "(= A B)");
+		if (cell->type == "$ne") return export_bvop(cell, "(distinct A B)", 'b');
+		if (cell->type == "$nex") return export_bvop(cell, "(distinct A B)", 'b');
+		if (cell->type == "$eq") return export_bvop(cell, "(= A B)", 'b');
+		if (cell->type == "$eqx") return export_bvop(cell, "(= A B)", 'b');
 
 		if (cell->type == "$not") return export_bvop(cell, "(bvnot A)");
 		if (cell->type == "$pos") return export_bvop(cell, "A");
@@ -339,15 +350,15 @@ struct Smt2Worker
 		if (cell->type == "$div") return export_bvop(cell, "(bvUdiv A B)");
 		if (cell->type == "$mod") return export_bvop(cell, "(bvUrem A B)");
 
-		if (cell->type == "$reduce_and") return export_reduce(cell, "(and A)");
-		if (cell->type == "$reduce_or") return export_reduce(cell, "(or A)");
-		if (cell->type == "$reduce_xor") return export_reduce(cell, "(xor A)");
-		if (cell->type == "$reduce_xnor") return export_reduce(cell, "(not (xor A))");
-		if (cell->type == "$reduce_bool") return export_reduce(cell, "(or A)");
+		if (cell->type == "$reduce_and") return export_reduce(cell, "(and A)", true);
+		if (cell->type == "$reduce_or") return export_reduce(cell, "(or A)", false);
+		if (cell->type == "$reduce_xor") return export_reduce(cell, "(xor A)", false);
+		if (cell->type == "$reduce_xnor") return export_reduce(cell, "(not (xor A))", false);
+		if (cell->type == "$reduce_bool") return export_reduce(cell, "(or A)", false);
 
-		if (cell->type == "$logic_not") return export_reduce(cell, "(not (or A))");
-		if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))");
-		if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)");
+		if (cell->type == "$logic_not") return export_reduce(cell, "(not (or A))", false);
+		if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))", false);
+		if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)", false);
 
 		// FIXME: $slice $concat $mux $pmux
 
@@ -407,8 +418,8 @@ struct Smt2Backend : public Backend {
 		log("'<mod>' this will declare the sort '<mod>_s' (state of the module) and the the\n");
 		log("function '<mod>_t' (state transition function).\n");
 		log("\n");
-		log("The '<mod>_s' sort represents the a module state. Additional '<mod>_n' functions\n");
-		log("are provided that can be used to access the values of all signals in the module.\n");
+		log("The '<mod>_s' sort represents a module state. Additional '<mod>_n' functions\n");
+		log("are provided that can be used to access the values of the signals in the module.\n");
 		log("Only ports, and signals with the 'keep' attribute set are made available via\n");
 		log("such functions. Without the -bv option, multi-bit wires are exported as\n");
 		log("separate functions of type Bool for the individual bits. With the -bv option\n");
