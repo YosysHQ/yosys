@@ -32,184 +32,155 @@ struct Smt2Worker
 	CellTypes ct;
 	SigMap sigmap;
 	RTLIL::Module *module;
+	bool bvmode;
+	int idcounter;
 
-	std::vector<std::string> decls, clauses, trans;
-	std::map<RTLIL::SigBit, std::string> bool_cache;
-	std::map<RTLIL::IdString, std::vector<RTLIL::Cell*>> cells_by_type;
+	std::vector<std::string> decls, trans;
+	std::map<RTLIL::SigBit, RTLIL::Cell*> bit_driver;
+	std::set<RTLIL::Cell*> exported_cells;
 
-	Smt2Worker(RTLIL::Module *module) : ct(module->design), sigmap(module), module(module)
+	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
+	std::map<int, int> bvsizes;
+
+	Smt2Worker(RTLIL::Module *module, bool bvmode) : ct(module->design), sigmap(module), module(module), bvmode(bvmode), idcounter(0)
 	{
 		decls.push_back(stringf("(declare-sort |%s_s| 0)\n", log_id(module)));
+
+		for (auto cell : module->cells())
+		for (auto &conn : cell->connections()) {
+			bool is_input = ct.cell_input(cell->type, conn.first);
+			bool is_output = ct.cell_output(cell->type, conn.first);
+			if (is_output && !is_input)
+				for (auto bit : sigmap(conn.second)) {
+					if (bit_driver.count(bit))
+						log_error("Found multiple drivers for %s.\n", log_signal(bit));
+					bit_driver[bit] = cell;
+				}
+			else if (is_output || !is_input)
+				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
+						log_id(conn.first), log_id(module), log_id(cell), log_id(cell->type));
+		}
+	}
+
+	void register_bool(RTLIL::SigBit bit, int id)
+	{
+		sigmap.apply(bit);
+		log_assert(fcache.count(bit) == 0);
+		fcache[bit] = std::pair<int, int>(id, -1);
 	}
 
 	std::string get_bool(RTLIL::SigBit bit, const char *state_name = "state")
 	{
 		sigmap.apply(bit);
 
-		if (bit.wire == nullptr)
-			return bit.data == RTLIL::State::S1 ? "true" : "false";
+		if (bit_driver.count(bit))
+			export_cell(bit_driver.at(bit));
 
-		if (!bool_cache.count(bit)) {
-			std::string name = stringf("|%s_n %s %d|", log_id(module), log_id(bit.wire), bit.offset);
-			for (auto &c : name)
-				if (c == '\\') c = '/';
-			decls.push_back(stringf("(declare-fun %s (|%s_s|) Bool)\n", name.c_str(), log_id(module)));
-			bool_cache[bit] = name;
+		if (fcache.count(bit) == 0) {
+			decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) Bool) ; %s\n",
+					log_id(module), idcounter, log_id(module), log_signal(bit)));
+			register_bool(bit, idcounter++);
 		}
 
-		return stringf("(%s %s)", bool_cache.at(bit).c_str(), state_name);
+		auto f = fcache.at(bit);
+		log_assert(f.second == -1);
+		return stringf("(|%s#%d| %s)", log_id(module), f.first, state_name);
 	}
 
-	void make_wire(RTLIL::Wire *wire)
+	std::string get_bv(RTLIL::SigSpec sig, const char *state_name = "state")
 	{
-		for (int i = 0; i < GetSize(wire); i++)
-			get_bool(RTLIL::SigBit(wire, i));
+		std::vector<std::string> subexpr;
+
+		for (auto bit : sig)
+			subexpr.push_back(stringf("(ite %s #b1 #b0)", get_bool(bit, state_name).c_str()));
+
+		if (GetSize(subexpr) > 1) {
+			std::string expr = "(concat";
+			for (int i = GetSize(subexpr)-1; i >= 0; i--)
+				expr += " " + subexpr[i];
+			return expr + ")";
+		} else {
+			log_assert(GetSize(subexpr) == 1);
+			return subexpr[0];
+		}
 	}
 
-	void run_gates()
+	void export_gate(RTLIL::Cell *cell, std::string expr)
 	{
-		// basic gate-level logic cell types
+		RTLIL::SigBit bit = sigmap(cell->getPort("\\Y")[0]);
+		std::string processed_expr;
 
-		for (auto cell : cells_by_type["$_BUF_"])
-			clauses.push_back(stringf("  (= %s %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_BUF_");
+		for (char ch : expr) {
+			if (ch == 'A') processed_expr += get_bool(cell->getPort("\\A")[0]);
+			else if (ch == 'B') processed_expr += get_bool(cell->getPort("\\B")[0]);
+			else if (ch == 'C') processed_expr += get_bool(cell->getPort("\\C")[0]);
+			else if (ch == 'D') processed_expr += get_bool(cell->getPort("\\D")[0]);
+			else if (ch == 'S') processed_expr += get_bool(cell->getPort("\\S")[0]);
+			else processed_expr += ch;
+		}
 
-		for (auto cell : cells_by_type["$_NOT_"])
-			clauses.push_back(stringf("  (distinct %s %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_NOT_");
+		decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
+				log_id(module), idcounter, log_id(module), processed_expr.c_str(), log_signal(bit)));
+		register_bool(bit, idcounter++);
+		return;
+	}
 
-		for (auto cell : cells_by_type["$_AND_"])
-			clauses.push_back(stringf("  (= (and %s %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_AND_");
+	void export_cell(RTLIL::Cell *cell)
+	{
+		if (exported_cells.count(cell))
+			return;
+		exported_cells.insert(cell);
 
-		for (auto cell : cells_by_type["$_OR_"])
-			clauses.push_back(stringf("  (= (or %s %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_OR_");
+		if (cell->type == "$_DFF_P_" || cell->type == "$_DFF_N_")
+		{
+			std::string expr_d = get_bool(cell->getPort("\\D")[0]);
+			std::string expr_q = get_bool(cell->getPort("\\Q")[0], "next_state");
+			trans.push_back(stringf("  (= %s %s)\n", expr_d.c_str(), expr_q.c_str()));
+			return;
+		}
 
-		for (auto cell : cells_by_type["$_XOR_"])
-			clauses.push_back(stringf("  (= (xor %s %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_XOR_");
+		if (cell->type == "$_BUF_") return export_gate(cell, "A");
+		if (cell->type == "$_NOT_") return export_gate(cell, "(not A)");
+		if (cell->type == "$_AND_") return export_gate(cell, "(and A B)");
+		if (cell->type == "$_NAND_") return export_gate(cell, "(not (and A B))");
+		if (cell->type == "$_OR_") return export_gate(cell, "(or A B)");
+		if (cell->type == "$_NOR_") return export_gate(cell, "(not (or A B))");
+		if (cell->type == "$_XOR_") return export_gate(cell, "(xor A B)");
+		if (cell->type == "$_XNOR_") return export_gate(cell, "(not (xor A B))");
+		if (cell->type == "$_MUX_") return export_gate(cell, "(ite S B A)");
+		if (cell->type == "$_AOI3_") return export_gate(cell, "(not (or (and A B) C))");
+		if (cell->type == "$_OAI3_") return export_gate(cell, "(not (and (or A B) C))");
+		if (cell->type == "$_AOI4_") return export_gate(cell, "(not (or (and A B) (and C D)))");
+		if (cell->type == "$_OAI4_") return export_gate(cell, "(not (and (or A B) (or C D)))");
 
-		for (auto cell : cells_by_type["$_MUX_"])
-			clauses.push_back(stringf("  (= (ite %s %s %s) %s)\n",
-					get_bool(cell->getPort("\\S").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_MUX_");
-
-
-		// inverted gate-level logic cell types
-
-		for (auto cell : cells_by_type["$_NAND_"])
-			clauses.push_back(stringf("  (distinct (and %s %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_NAND_");
-
-		for (auto cell : cells_by_type["$_NOR_"])
-			clauses.push_back(stringf("  (distinct (or %s %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_NOR_");
-
-		for (auto cell : cells_by_type["$_XNOR_"])
-			clauses.push_back(stringf("  (distinct (xor %s %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_XNOR_");
-
-
-		// advanced cmos-style logic cell types
-
-		for (auto cell : cells_by_type["$_AOI3_"])
-			clauses.push_back(stringf("  (distinct (or (and %s %s) %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\C").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_AOI3_");
-
-		for (auto cell : cells_by_type["$_AOI4_"])
-			clauses.push_back(stringf("  (distinct (or (and %s %s) (and %s %s)) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\C").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\D").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_AOI4_");
-
-		for (auto cell : cells_by_type["$_OAI3_"])
-			clauses.push_back(stringf("  (distinct (or (and %s %s) %s) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\C").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_OAI3_");
-
-		for (auto cell : cells_by_type["$_OAI4_"])
-			clauses.push_back(stringf("  (distinct (or (and %s %s) (and %s %s)) %s)\n",
-					get_bool(cell->getPort("\\A").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\B").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\C").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\D").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Y").to_single_sigbit()).c_str()));
-		cells_by_type.erase("$_OAI4_");
-
-
-		// simple DFF cells (ignoring clock domains)
-
-		for (auto cell : cells_by_type["$_DFF_P_"])
-			trans.push_back(stringf("  (= %s %s)\n",
-					get_bool(cell->getPort("\\D").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Q").to_single_sigbit(), "next_state").c_str()));
-		cells_by_type.erase("$_DFF_P_");
-
-		for (auto cell : cells_by_type["$_DFF_N_"])
-			trans.push_back(stringf("  (= %s %s)\n",
-					get_bool(cell->getPort("\\D").to_single_sigbit()).c_str(),
-					get_bool(cell->getPort("\\Q").to_single_sigbit(), "next_state").c_str()));
-		cells_by_type.erase("$_DFF_N_");
+		log_error("Unsupported cell type %s for cell %s.%s.\n",
+				log_id(cell->type), log_id(module), log_id(cell));
 	}
 
 	void run()
 	{
-		for (auto port : module->ports)
-			make_wire(module->wire(port));
-
-		for (auto cell : module->cells())
-			cells_by_type[cell->type].push_back(cell);
-
-		run_gates();
-
-		for (auto &it : cells_by_type)
-			log_error("Found %d cells of unsupported type %s in module %s.\n", GetSize(it.second), log_id(it.first), log_id(module));
+		for (auto wire : module->wires())
+			if (wire->port_id || wire->get_bool_attribute("\\keep")) {
+				RTLIL::SigSpec sig = sigmap(wire);
+				if (bvmode && GetSize(sig) > 1) {
+					decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
+							log_id(module), log_id(wire), log_id(module), GetSize(sig), get_bv(sig).c_str()));
+				} else {
+					for (int i = 0; i < GetSize(sig); i++)
+						if (GetSize(sig) > 1)
+							decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
+									log_id(module), log_id(wire), i, log_id(module), get_bool(sig[i]).c_str()));
+						else
+							decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
+									log_id(module), log_id(wire), log_id(module), get_bool(sig[i]).c_str()));
+				}
+			}
 	}
 
 	void write(std::ostream &f)
 	{
 		for (auto it : decls)
 			f << it;
-		f << stringf("(define-fun |%s_c| ((state |%s_s|)) Bool (and\n", log_id(module), log_id(module));
-		for (auto it : clauses)
-			f << it;
-		f << "true true))\n";
 		f << stringf("(define-fun |%s_t| ((state |%s_s|)(next_state |%s_s|)) Bool (and\n", log_id(module), log_id(module), log_id(module));
 		for (auto it : trans)
 			f << it;
@@ -225,23 +196,31 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("    write_smt2 [options] [filename]\n");
 		log("\n");
-		log("Write a SMT-LIBv2 description of the current design. For a module with name\n");
-		log("'<mod>' this will declare the sort '<mod>_s' and the two functions '<mod>_c'\n");
-		log("(of arity 1) and '<mod>_t' (of arity 2).\n");
+		log("Write a SMT-LIBv2 [1] description of the current design. For a module with name\n");
+		log("'<mod>' this will declare the sort '<mod>_s' (state of the module) and the the\n");
+		log("function '<mod>_t' (state transition function).\n");
 		log("\n");
-		log("The sort represents the state of the module. Additional '<mod>_n' functions are\n");
-		log("declared that can be used to access the values of all signals in the module.\n");
+		log("The '<mod>_s' sort represents the a module state. Additional '<mod>_n' functions\n");
+		log("are provided that can be used to access the values of all signals in the module.\n");
+		log("Only ports, and signals with the 'keep' attribute set are made available via\n");
+		log("such functions. Without the -bv option, multi-bit wires are exported as\n");
+		log("separate functions of type Bool for the individual bits. With the -bv option\n");
+		log("multi-bit wires are exported as single functions of type BitVec.\n");
 		log("\n");
-		log("The '<mod>_c' function evaluates to 'true' when the given state is consistent\n");
-		log("with the description of the models.\n");
+		log("The '<mod>_t' function evaluates to 'true' when the given pair of states\n");
+		log("describes a valid state transition.\n");
 		log("\n");
-		log("The '<mod>_t' function evaluates to 'true' when the given pair of states is\n");
-		log("describes a valid state transition, provided that '<mod>_c' is true for both\n");
-		log("states.\n");
+		log("    -bv\n");
+		log("        enable support for BitVec (FixedSizeBitVectors theory). with this\n");
+		log("        option set multi-bit wires are represented using the BitVec sort and\n");
+		log("        support for coarse grain cells (incl. arithmetic) is enabled.\n");
 		log("\n");
 		log("    -tpl <template_file>\n");
 		log("        use the given template file. the line containing only the token '%%%%'\n");
 		log("        is replaced with the regular output of this command.\n");
+		log("\n");
+		log("[1] For more information on SMT-LIBv2 visit http://smt-lib.org/ or read David\n");
+		log("R. Cok's tutorial: http://www.grammatech.com/resources/smt/SMTLIBTutorial.pdf\n");
 		log("\n");
 		log("---------------------------------------------------------------------------\n");
 		log("\n");
@@ -257,8 +236,8 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("For this proof we create the following template (test.tpl).\n");
 		log("\n");
-		log("        ; we only need QF_UF for this poof\n");
-		log("        (set-logic QF_UF)\n");
+		log("        ; we need QF_UFBV for this poof\n");
+		log("        (set-logic QF_UFBV)\n");
 		log("\n");
 		log("        ; insert the auto-generated code here\n");
 		log("        %%%%\n");
@@ -267,27 +246,23 @@ struct Smt2Backend : public Backend {
 		log("        (declare-fun s1 () test_s)\n");
 		log("        (declare-fun s2 () test_s)\n");
 		log("\n");
-		log("        ; both states are valid and s2 follows s1\n");
-		log("        (assert (test_c s1))\n");
-		log("        (assert (test_c s2))\n");
+		log("        ; state s2 is the successor of state s1\n");
 		log("        (assert (test_t s1 s2))\n");
 		log("\n");
-		log("        ; we are looking for a solution with y non-zero in s1\n");
-		log("        (assert (or (|test_n y 0| s1) (|test_n y 1| s1)\n");
-		log("                    (|test_n y 2| s1) (|test_n y 3| s1)))\n");
+		log("        ; we are looking for a model with y non-zero in s1\n");
+		log("        (assert (distinct (|test_n y| s1) #b0000))\n");
 		log("\n");
-		log("        ; we are looking for a solution with y zero in s2\n");
-		log("        (assert (not (or (|test_n y 0| s2) (|test_n y 1| s2)\n");
-		log("                         (|test_n y 2| s2) (|test_n y 3| s2))))\n");
+		log("        ; we are looking for a model with y zero in s2\n");
+		log("        (assert (= (|test_n y| s2) #b0000))\n");
 		log("\n");
-		log("        ; is there such a solution?\n");
+		log("        ; is there such a model?\n");
 		log("        (check-sat)\n");
 		log("\n");
 		log("The following yosys script will create a 'test.smt2' file for our proof:\n");
 		log("\n");
 		log("        read_verilog test.v\n");
 		log("        hierarchy; proc; techmap; opt -fast\n");
-		log("        write_smt2 -template test.tpl test.smt2\n");
+		log("        write_smt2 -bv -tpl test.tpl test.smt2\n");
 		log("\n");
 		log("Running 'cvc4 test.smt2' will print 'unsat' because y can never transition\n");
 		log("from non-zero to zero in the test design.\n");
@@ -296,15 +271,21 @@ struct Smt2Backend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::ifstream template_f;
+		bool bvmode = false;
+
 		log_header("Executing SMT2 backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-template" && argidx+1 < args.size()) {
+			if (args[argidx] == "-tpl" && argidx+1 < args.size()) {
 				template_f.open(args[++argidx]);
 				if (template_f.fail())
 					log_error("Can't open template file `%s'.\n", args[argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-bv") {
+				bvmode = true;
 				continue;
 			}
 			break;
@@ -332,7 +313,7 @@ struct Smt2Backend : public Backend {
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
 
-			Smt2Worker worker(module);
+			Smt2Worker worker(module, bvmode);
 			worker.run();
 			worker.write(*f);
 		}
