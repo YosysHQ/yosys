@@ -36,7 +36,7 @@ static uint32_t xorshift32(uint32_t limit) {
 	return xorshift32_state % limit;
 }
 
-static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode)
+static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
 {
 	RTLIL::Module *module = design->addModule("\\gold");
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
@@ -200,6 +200,13 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		wire->width = 1 + xorshift32(8);
 		wire->port_output = true;
 		cell->setPort("\\Y", wire);
+	}
+
+	if (muxdiv && (cell_type == "$div" || cell_type == "$mod")) {
+		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort("\\B"));
+		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort("\\Y")));
+		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort("\\Y"));
+		cell->setPort("\\Y", div_out);
 	}
 
 	if (cell_type == "$alu")
@@ -529,6 +536,10 @@ struct TestCellPass : public Pass {
 		log("    -simlib\n");
 		log("        use \"techmap -map +/simlib.v -max_iter 2 -autoproc\"\n");
 		log("\n");
+		log("    -muxdiv\n");
+		log("        when creating test benches with dividers, create an additional mux\n");
+		log("        to mask out the division-by-zero case\n");
+		log("\n");
 		log("    -script {script_file}\n");
 		log("        instead of calling \"techmap\", call \"script {script_file}\".\n");
 		log("\n");
@@ -552,6 +563,7 @@ struct TestCellPass : public Pass {
 		std::string ilang_file, write_prefix;
 		xorshift32_state = 0;
 		std::ofstream vlog_file;
+		bool muxdiv = false;
 		bool verbose = false;
 		bool constmode = false;
 		bool nosat = false;
@@ -586,6 +598,10 @@ struct TestCellPass : public Pass {
 			}
 			if (args[argidx] == "-simlib") {
 				techmap_cmd = "techmap -map +/simlib.v -max_iter 2 -autoproc";
+				continue;
+			}
+			if (args[argidx] == "-muxdiv") {
+				muxdiv = true;
 				continue;
 			}
 			if (args[argidx] == "-const") {
@@ -729,7 +745,7 @@ struct TestCellPass : public Pass {
 				if (cell_type == "ilang")
 					Frontend::frontend_call(design, NULL, std::string(), "ilang " + ilang_file);
 				else
-					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode);
+					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
 				if (!write_prefix.empty()) {
 					Pass::call(design, stringf("write_ilang %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
 				} else {
