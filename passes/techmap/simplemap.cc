@@ -241,18 +241,19 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec xor_out = module->addWire(NEW_ID, std::max(GetSize(sig_a), GetSize(sig_b)));
 	RTLIL::Cell *xor_cell = module->addXor(NEW_ID, sig_a, sig_b, xor_out, is_signed);
-
-	RTLIL::SigSpec reduce_out = is_ne ? sig_y : module->addWire(NEW_ID);
-	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_ID, xor_out, reduce_out);
-
-	if (!is_ne)
-		module->addNotGate(NEW_ID, reduce_out, sig_y);
-
 	simplemap_bitop(module, xor_cell);
 	module->remove(xor_cell);
 
+	RTLIL::SigSpec reduce_out = is_ne ? sig_y : module->addWire(NEW_ID);
+	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_ID, xor_out, reduce_out);
 	simplemap_reduce(module, reduce_cell);
 	module->remove(reduce_cell);
+
+	if (!is_ne) {
+		RTLIL::Cell *not_cell = module->addLogicNot(NEW_ID, reduce_out, sig_y);
+		simplemap_lognot(module, not_cell);
+		module->remove(not_cell);
+	}
 }
 
 void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
