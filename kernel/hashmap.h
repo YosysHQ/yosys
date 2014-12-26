@@ -65,7 +65,7 @@ struct hash_cstr_ops {
 		return true;
 	}
 	unsigned int hash(const char *a) const {
-		size_t hash = 5381;
+		unsigned int hash = 5381;
 		while (*a)
 			 hash = mkhash(hash, *(a++));
 		 return hash;
@@ -80,6 +80,34 @@ struct hash_ptr_ops {
 		return (unsigned long)a;
 	}
 };
+
+inline int hashtable_size(int old_size)
+{
+	if (old_size <         53) return         53;
+	if (old_size <        113) return        113;
+	if (old_size <        251) return        251;
+	if (old_size <        503) return        503;
+	if (old_size <       1129) return       1129;
+	if (old_size <       2503) return       2503;
+	if (old_size <       5023) return       5023;
+	if (old_size <      11299) return      11299;
+	if (old_size <      25097) return      25097;
+	if (old_size <      50291) return      50291;
+	if (old_size <     112997) return     112997;
+	if (old_size <     251003) return     251003;
+	if (old_size <     503003) return     503003;
+	if (old_size <    1129991) return    1129991;
+	if (old_size <    2509993) return    2509993;
+	if (old_size <    5029991) return    5029991;
+	if (old_size <   11299997) return   11299997;
+	if (old_size <   25099999) return   25099999;
+	if (old_size <   50299999) return   50299999;
+	if (old_size <  113000009) return  113000009;
+	if (old_size <  250999999) return  250999999;
+	if (old_size <  503000009) return  503000009;
+	if (old_size < 1129999999) return 1129999999;
+	throw std::length_error("hash table exceeded maximum size");
+}
 
 template<typename K, typename T, typename OPS = hash_ops<K>>
 class dict
@@ -116,41 +144,13 @@ class dict
 		entries.clear();
 
 		counter = other.size();
-		int new_size = grow_size(counter);
+		int new_size = hashtable_size(counter);
 		entries.reserve(new_size);
 
 		for (auto &it : other)
 			entries.push_back(entry_t(it));
 		entries.resize(new_size);
 		rehash();
-	}
-
-	size_t grow_size(size_t old_size)
-	{
-		if (old_size <         53) return         53;
-		if (old_size <        113) return        113;
-		if (old_size <        251) return        251;
-		if (old_size <        503) return        503;
-		if (old_size <       1130) return       1130;
-		if (old_size <       2510) return       2510;
-		if (old_size <       5030) return       5030;
-		if (old_size <      11300) return      11300;
-		if (old_size <      25100) return      25100;
-		if (old_size <      50300) return      50300;
-		if (old_size <     113000) return     113000;
-		if (old_size <     251000) return     251000;
-		if (old_size <     503000) return     503000;
-		if (old_size <    1130000) return    1130000;
-		if (old_size <    2510000) return    2510000;
-		if (old_size <    5030000) return    5030000;
-		if (old_size <   11300000) return   11300000;
-		if (old_size <   25100000) return   25100000;
-		if (old_size <   50300000) return   50300000;
-		if (old_size <  113000000) return  113000000;
-		if (old_size <  251000000) return  251000000;
-		if (old_size <  503000000) return  503000000;
-		if (old_size < 1130000000) return 1130000000;
-		throw std::length_error("maximum size for dict reached");
 	}
 
 	int mkhash(const K &key) const
@@ -221,7 +221,7 @@ class dict
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			entries.resize(grow_size(i));
+			entries.resize(hashtable_size(i));
 			entries[i].udata = value;
 			entries[i].set_next_used(0);
 			counter++;
@@ -473,41 +473,13 @@ class pool
 		entries.clear();
 
 		counter = other.size();
-		int new_size = grow_size(counter);
+		int new_size = hashtable_size(counter);
 		entries.reserve(new_size);
 
 		for (auto &it : other)
 			entries.push_back(entry_t(it));
 		entries.resize(new_size);
 		rehash();
-	}
-
-	size_t grow_size(size_t old_size)
-	{
-		if (old_size <         53) return         53;
-		if (old_size <        113) return        113;
-		if (old_size <        251) return        251;
-		if (old_size <        503) return        503;
-		if (old_size <       1130) return       1130;
-		if (old_size <       2510) return       2510;
-		if (old_size <       5030) return       5030;
-		if (old_size <      11300) return      11300;
-		if (old_size <      25100) return      25100;
-		if (old_size <      50300) return      50300;
-		if (old_size <     113000) return     113000;
-		if (old_size <     251000) return     251000;
-		if (old_size <     503000) return     503000;
-		if (old_size <    1130000) return    1130000;
-		if (old_size <    2510000) return    2510000;
-		if (old_size <    5030000) return    5030000;
-		if (old_size <   11300000) return   11300000;
-		if (old_size <   25100000) return   25100000;
-		if (old_size <   50300000) return   50300000;
-		if (old_size <  113000000) return  113000000;
-		if (old_size <  251000000) return  251000000;
-		if (old_size <  503000000) return  503000000;
-		if (old_size < 1130000000) return 1130000000;
-		throw std::length_error("maximum size for pool reached");
 	}
 
 	int mkhash(const K &key) const
@@ -578,7 +550,7 @@ class pool
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			entries.resize(grow_size(i));
+			entries.resize(hashtable_size(i));
 			entries[i].key = key;
 			entries[i].set_next_used(0);
 			counter++;
