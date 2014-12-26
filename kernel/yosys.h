@@ -124,14 +124,9 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-template <class Key, class T, class Hash = std::hash<Key>, class KeyEqual = std::equal_to<Key>>
-using dict = std::unordered_map<Key, T, Hash, KeyEqual>;
-
-template <class Key, class Hash = std::hash<Key>, class KeyEqual = std::equal_to<Key>>
-using nodict = std::unordered_set<Key, Hash, KeyEqual>;
-
-template <class T>
-using vector = std::vector<T>;
+#define dict std::unordered_map
+#define nodict std::unordered_set
+using std::vector;
 
 namespace RTLIL {
 	struct IdString;
