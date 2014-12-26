@@ -22,27 +22,6 @@
 #ifndef RTLIL_H
 #define RTLIL_H
 
-namespace std {
-	template<> struct hash<Yosys::RTLIL::IdString> {
-		size_t operator()(const Yosys::RTLIL::IdString &arg) const;
-	};
-	template<> struct equal_to<Yosys::RTLIL::IdString> {
-		bool operator()(const Yosys::RTLIL::IdString &lhs, const Yosys::RTLIL::IdString &rhs) const;
-	};
-	template<> struct hash<Yosys::RTLIL::SigBit> {
-		size_t operator()(const Yosys::RTLIL::SigBit &arg) const;
-	};
-	template<> struct equal_to<Yosys::RTLIL::SigBit> {
-		bool operator()(const Yosys::RTLIL::SigBit &lhs, const Yosys::RTLIL::SigBit &rhs) const;
-	};
-	template<> struct hash<Yosys::RTLIL::SigSpec> {
-		size_t operator()(const Yosys::RTLIL::SigSpec &arg) const;
-	};
-	template<> struct equal_to<Yosys::RTLIL::SigSpec> {
-		bool operator()(const Yosys::RTLIL::SigSpec &lhs, const Yosys::RTLIL::SigSpec &rhs) const;
-	};
-}
-
 YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL
@@ -97,48 +76,6 @@ namespace RTLIL
 	{
 		// the global id string cache
 
-		struct char_ptr_cmp {
-			bool operator()(const char *a, const char *b) const {
-				for (int i = 0; a[i] || b[i]; i++)
-					if (a[i] != b[i])
-						return a[i] < b[i];
-				return false;
-			}
-		};
-
-		struct char_ptr_hash {
-			size_t operator()(const char *a) const {
-				size_t hash = 5381;
-				for (int c; (c = *a); a++)
-					hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-				return hash;
-			}
-		};
-
-		struct char_ptr_eq {
-			bool operator()(const char *a, const char *b) const {
-				for (int i = 0; a[i] || b[i]; i++)
-					if (a[i] != b[i])
-						return false;
-				return true;
-			}
-		};
-
-		struct char_ptr_ops {
-			bool cmp(const char *a, const char *b) const {
-				for (int i = 0; a[i] || b[i]; i++)
-					if (a[i] != b[i])
-						return false;
-				return true;
-			}
-			unsigned int hash(const char *a) const {
-				size_t hash = 5381;
-				while (*a)
-					hash = mkhash(hash, *(a++));
-				return hash;
-			}
-		};
-
 		static struct destruct_guard_t {
 			bool ok; // POD, will be initialized to zero
 			destruct_guard_t() { ok = true; }
@@ -147,7 +84,7 @@ namespace RTLIL
 
 		static std::vector<int> global_refcount_storage_;
 		static std::vector<char*> global_id_storage_;
-		static dict<char*, int, char_ptr_ops> global_id_index_;
+		static dict<char*, int, hash_cstr_ops> global_id_index_;
 		static std::vector<int> global_free_idx_list_;
 
 		static inline int get_reference(int idx)
@@ -282,8 +219,8 @@ namespace RTLIL
 			return index_;
 		}
 
-		// The following is a helper key_compare class. Instead of for example nodict<Cell*>
-		// use nodict<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
+		// The following is a helper key_compare class. Instead of for example pool<Cell*>
+		// use pool<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
 		// set has an influence on the algorithm.
 
 		template<typename T> struct compare_ptr_by_name {
@@ -303,7 +240,7 @@ namespace RTLIL
 		bool in(IdString rhs) { return *this == rhs; }
 		bool in(const char *rhs) { return *this == rhs; }
 		bool in(const std::string &rhs) { return *this == rhs; }
-		bool in(const nodict<IdString> &rhs) { return rhs.count(*this) != 0; }
+		bool in(const pool<IdString> &rhs) { return rhs.count(*this) != 0; }
 	};
 
 	static inline std::string escape_id(std::string str) {
@@ -470,8 +407,8 @@ namespace RTLIL
 			return list_p->size();
 		}
 
-		operator nodict<T>() const {
-			nodict<T> result;
+		operator pool<T>() const {
+			pool<T> result;
 			for (auto &it : *list_p)
 				result.insert(it.second);
 			return result;
@@ -485,7 +422,7 @@ namespace RTLIL
 			return result;
 		}
 
-		nodict<T> to_set() const { return *this; }
+		pool<T> to_set() const { return *this; }
 		std::vector<T> to_vector() const { return *this; }
 	};
 };
@@ -619,7 +556,7 @@ public:
 	SigSpec(RTLIL::SigBit bit, int width = 1);
 	SigSpec(std::vector<RTLIL::SigChunk> chunks);
 	SigSpec(std::vector<RTLIL::SigBit> bits);
-	SigSpec(nodict<RTLIL::SigBit> bits);
+	SigSpec(pool<RTLIL::SigBit> bits);
 	SigSpec(std::set<RTLIL::SigBit> bits);
 	SigSpec(bool bit);
 
@@ -676,15 +613,15 @@ public:
 	void remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other) const;
 	void remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other);
 
-	void remove(const nodict<RTLIL::SigBit> &pattern);
-	void remove(const nodict<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const;
-	void remove2(const nodict<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
+	void remove(const pool<RTLIL::SigBit> &pattern);
+	void remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const;
+	void remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
 
 	void remove(int offset, int length = 1);
 	void remove_const();
 
 	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
-	RTLIL::SigSpec extract(const nodict<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
+	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
 
 	void append(const RTLIL::SigSpec &signal);
@@ -717,7 +654,7 @@ public:
 	bool match(std::string pattern) const;
 
 	std::set<RTLIL::SigBit> to_sigbit_set() const;
-	nodict<RTLIL::SigBit> to_sigbit_nodict() const;
+	pool<RTLIL::SigBit> to_sigbit_nodict() const;
 	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
 	std::map<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_map(const RTLIL::SigSpec &other) const;
 	dict<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_dict(const RTLIL::SigSpec &other) const;
@@ -742,8 +679,8 @@ public:
 struct RTLIL::Selection
 {
 	bool full_selection;
-	nodict<RTLIL::IdString> selected_modules;
-	dict<RTLIL::IdString, nodict<RTLIL::IdString>> selected_members;
+	pool<RTLIL::IdString> selected_modules;
+	dict<RTLIL::IdString, pool<RTLIL::IdString>> selected_members;
 
 	Selection(bool full = true) : full_selection(full) { }
 
@@ -782,7 +719,7 @@ struct RTLIL::Monitor
 
 struct RTLIL::Design
 {
-	nodict<RTLIL::Monitor*> monitors;
+	pool<RTLIL::Monitor*, hash_ptr_ops> monitors;
 	dict<std::string, std::string> scratchpad;
 
 	int refcount_modules_;
@@ -869,7 +806,7 @@ protected:
 
 public:
 	RTLIL::Design *design;
-	nodict<RTLIL::Monitor*> monitors;
+	pool<RTLIL::Monitor*, hash_ptr_ops> monitors;
 
 	int refcount_wires_;
 	int refcount_cells_;
@@ -879,7 +816,7 @@ public:
 	std::vector<RTLIL::SigSig> connections_;
 
 	RTLIL::IdString name;
-	nodict<RTLIL::IdString> avail_parameters;
+	pool<RTLIL::IdString> avail_parameters;
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
 	dict<RTLIL::IdString, RTLIL::Process*> processes;
 	RTLIL_ATTRIBUTE_MEMBERS
@@ -923,7 +860,7 @@ public:
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
-	void remove(const nodict<RTLIL::Wire*> &wires);
+	void remove(const pool<RTLIL::Wire*, hash_ptr_ops> &wires);
 	void remove(RTLIL::Cell *cell);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
@@ -1312,36 +1249,5 @@ void RTLIL::Process::rewrite_sigspecs(T functor)
 }
 
 YOSYS_NAMESPACE_END
-
-inline size_t std::hash<Yosys::RTLIL::IdString>::operator()(const Yosys::RTLIL::IdString &arg) const {
-	return arg.index_;
-}
-
-inline bool std::equal_to<Yosys::RTLIL::IdString>::operator()(const Yosys::RTLIL::IdString &lhs, const Yosys::RTLIL::IdString &rhs) const {
-	return lhs.index_ == rhs.index_;
-}
-
-inline size_t std::hash<Yosys::RTLIL::SigBit>::operator()(const Yosys::RTLIL::SigBit &arg) const {
-	if (arg.wire) {
-		size_t hash = arg.wire->name.index_;
-		hash = ((hash << 5) + hash) + arg.offset;
-		return hash;
-	}
-	return arg.data;
-}
-
-inline bool std::equal_to<Yosys::RTLIL::SigBit>::operator()(const Yosys::RTLIL::SigBit &lhs, const Yosys::RTLIL::SigBit &rhs) const {
-	if (lhs.wire || rhs.wire)
-		return lhs.wire == rhs.wire && lhs.offset == rhs.offset;
-	return lhs.data == rhs.data;
-}
-
-inline size_t std::hash<Yosys::RTLIL::SigSpec>::operator()(const Yosys::RTLIL::SigSpec &arg) const {
-	return arg.get_hash();
-}
-
-inline bool std::equal_to<Yosys::RTLIL::SigSpec>::operator()(const Yosys::RTLIL::SigSpec &lhs, const Yosys::RTLIL::SigSpec &rhs) const {
-	return lhs == rhs;
-}
 
 #endif

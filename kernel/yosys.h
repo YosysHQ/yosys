@@ -124,7 +124,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#define nodict std::unordered_set
 #include "kernel/hashmap.h"
 using std::vector;
 

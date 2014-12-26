@@ -28,11 +28,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct WreduceConfig
 {
-	nodict<IdString> supported_cell_types;
+	pool<IdString> supported_cell_types;
 
 	WreduceConfig()
 	{
-		supported_cell_types = nodict<IdString>({
+		supported_cell_types = pool<IdString>({
 			"$not", "$pos", "$neg",
 			"$and", "$or", "$xor", "$xnor",
 			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",

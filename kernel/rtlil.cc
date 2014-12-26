@@ -30,7 +30,7 @@ YOSYS_NAMESPACE_BEGIN
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int, RTLIL::IdString::char_ptr_ops> RTLIL::IdString::global_id_index_;
+dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 
 RTLIL::Const::Const()
@@ -480,7 +480,7 @@ namespace {
 	{
 		RTLIL::Module *module;
 		RTLIL::Cell *cell;
-		nodict<RTLIL::IdString> expected_params, expected_ports;
+		pool<RTLIL::IdString> expected_params, expected_ports;
 
 		InternalCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
 
@@ -1132,7 +1132,7 @@ namespace {
 	struct DeleteWireWorker
 	{
 		RTLIL::Module *module;
-		const nodict<RTLIL::Wire*> *wires_p;
+		const pool<RTLIL::Wire*, hash_ptr_ops> *wires_p;
 
 		void operator()(RTLIL::SigSpec &sig) {
 			std::vector<RTLIL::SigChunk> chunks = sig;
@@ -1146,7 +1146,7 @@ namespace {
 	};
 }
 
-void RTLIL::Module::remove(const nodict<RTLIL::Wire*> &wires)
+void RTLIL::Module::remove(const pool<RTLIL::Wire*, hash_ptr_ops> &wires)
 {
 	log_assert(refcount_wires_ == 0);
 
@@ -2169,9 +2169,9 @@ RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
 	check();
 }
 
-RTLIL::SigSpec::SigSpec(nodict<RTLIL::SigBit> bits)
+RTLIL::SigSpec::SigSpec(pool<RTLIL::SigBit> bits)
 {
-	cover("kernel.rtlil.sigspec.init.nodict_bits");
+	cover("kernel.rtlil.sigspec.init.pool_bits");
 
 	width_ = 0;
 	hash_ = 0;
@@ -2378,22 +2378,22 @@ void RTLIL::SigSpec::remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other
 
 void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other)
 {
-	nodict<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_nodict();
+	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_nodict();
 	remove2(pattern_bits, other);
 }
 
-void RTLIL::SigSpec::remove(const nodict<RTLIL::SigBit> &pattern)
+void RTLIL::SigSpec::remove(const pool<RTLIL::SigBit> &pattern)
 {
 	remove2(pattern, NULL);
 }
 
-void RTLIL::SigSpec::remove(const nodict<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const
+void RTLIL::SigSpec::remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const
 {
 	RTLIL::SigSpec tmp = *this;
 	tmp.remove2(pattern, other);
 }
 
-void RTLIL::SigSpec::remove2(const nodict<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other)
+void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other)
 {
 	if (other)
 		cover("kernel.rtlil.sigspec.remove_other");
@@ -2439,11 +2439,11 @@ void RTLIL::SigSpec::remove2(const nodict<RTLIL::SigBit> &pattern, RTLIL::SigSpe
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other) const
 {
-	nodict<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_nodict();
+	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_nodict();
 	return extract(pattern_bits, other);
 }
 
-RTLIL::SigSpec RTLIL::SigSpec::extract(const nodict<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other) const
+RTLIL::SigSpec RTLIL::SigSpec::extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other) const
 {
 	if (other)
 		cover("kernel.rtlil.sigspec.extract_other");
@@ -2943,12 +2943,12 @@ std::set<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_set() const
 	return sigbits;
 }
 
-nodict<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_nodict() const
+pool<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_nodict() const
 {
-	cover("kernel.rtlil.sigspec.to_sigbit_nodict");
+	cover("kernel.rtlil.sigspec.to_sigbit_pool");
 
 	pack();
-	nodict<RTLIL::SigBit> sigbits;
+	pool<RTLIL::SigBit> sigbits;
 	for (auto &c : chunks_)
 		for (int i = 0; i < c.width; i++)
 			sigbits.insert(RTLIL::SigBit(c, i));
