@@ -126,6 +126,7 @@ YOSYS_NAMESPACE_BEGIN
 
 #define dict std::unordered_map
 #define nodict std::unordered_set
+#include "kernel/hashmap.h"
 using std::vector;
 
 namespace RTLIL {

@@ -106,10 +106,10 @@ struct CoverData {
 extern "C" struct CoverData __start_yosys_cover_list[];
 extern "C" struct CoverData __stop_yosys_cover_list[];
 
-extern std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
+extern new_dict<std::string, std::pair<std::string, int>> extra_coverage_data;
 
 void cover_extra(std::string parent, std::string id, bool increment = true);
-std::map<std::string, std::pair<std::string, int>> get_coverage_data();
+new_dict<std::string, std::pair<std::string, int>> get_coverage_data();
 
 #define cover_list(_id, ...) do { cover(_id); \
 	std::string r = cover_list_worker(_id, __VA_ARGS__); \

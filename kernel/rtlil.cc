@@ -2171,7 +2171,7 @@ RTLIL::SigSpec::SigSpec(std::vector<RTLIL::SigBit> bits)
 
 RTLIL::SigSpec::SigSpec(nodict<RTLIL::SigBit> bits)
 {
-	cover("kernel.rtlil.sigspec.init.stdset_bits");
+	cover("kernel.rtlil.sigspec.init.nodict_bits");
 
 	width_ = 0;
 	hash_ = 0;
