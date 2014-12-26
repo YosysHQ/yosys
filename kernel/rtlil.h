@@ -124,6 +124,21 @@ namespace RTLIL
 			}
 		};
 
+		struct char_ptr_ops {
+			bool cmp(const char *a, const char *b) const {
+				for (int i = 0; a[i] || b[i]; i++)
+					if (a[i] != b[i])
+						return false;
+				return true;
+			}
+			unsigned int hash(const char *a) const {
+				size_t hash = 5381;
+				while (*a)
+					hash = mkhash(hash, *(a++));
+				return hash;
+			}
+		};
+
 		static struct destruct_guard_t {
 			bool ok; // POD, will be initialized to zero
 			destruct_guard_t() { ok = true; }
@@ -132,7 +147,7 @@ namespace RTLIL
 
 		static std::vector<int> global_refcount_storage_;
 		static std::vector<char*> global_id_storage_;
-		static dict<char*, int, char_ptr_hash, char_ptr_eq> global_id_index_;
+		static dict<char*, int, char_ptr_ops> global_id_index_;
 		static std::vector<int> global_free_idx_list_;
 
 		static inline int get_reference(int idx)
@@ -261,6 +276,10 @@ namespace RTLIL
 
 		void clear() {
 			*this = IdString();
+		}
+
+		unsigned int hash() const {
+			return index_;
 		}
 
 		// The following is a helper key_compare class. Instead of for example nodict<Cell*>
@@ -538,6 +557,7 @@ struct RTLIL::SigBit
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
+	unsigned int hash() const;
 };
 
 struct RTLIL::SigSpecIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>
@@ -572,7 +592,7 @@ private:
 
 	void pack() const;
 	void unpack() const;
-	void hash() const;
+	void updhash() const;
 
 	inline bool packed() const {
 		return bits_.empty();
@@ -709,6 +729,8 @@ public:
 
 	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
+
+	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
 
 #ifndef NDEBUG
 	void check() const;
@@ -1211,6 +1233,12 @@ inline bool RTLIL::SigBit::operator==(const RTLIL::SigBit &other) const {
 
 inline bool RTLIL::SigBit::operator!=(const RTLIL::SigBit &other) const {
 	return (wire != other.wire) || (wire ? (offset != other.offset) : (data != other.data));
+}
+
+inline unsigned int RTLIL::SigBit::hash() const {
+	if (wire)
+		return wire->name.hash() * 33 + offset;
+	return data;
 }
 
 inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {

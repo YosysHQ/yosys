@@ -30,7 +30,7 @@ YOSYS_NAMESPACE_BEGIN
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int, RTLIL::IdString::char_ptr_hash, RTLIL::IdString::char_ptr_eq> RTLIL::IdString::global_id_index_;
+dict<char*, int, RTLIL::IdString::char_ptr_ops> RTLIL::IdString::global_id_index_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 
 RTLIL::Const::Const()
@@ -242,7 +242,7 @@ RTLIL::Design::Design()
 
 RTLIL::Design::~Design()
 {
-	for (auto it = modules_.begin(); it != modules_.end(); it++)
+	for (auto it = modules_.begin(); it != modules_.end(); ++it)
 		delete it->second;
 }
 
@@ -454,13 +454,13 @@ RTLIL::Module::Module()
 
 RTLIL::Module::~Module()
 {
-	for (auto it = wires_.begin(); it != wires_.end(); it++)
+	for (auto it = wires_.begin(); it != wires_.end(); ++it)
 		delete it->second;
-	for (auto it = memories.begin(); it != memories.end(); it++)
+	for (auto it = memories.begin(); it != memories.end(); ++it)
 		delete it->second;
-	for (auto it = cells_.begin(); it != cells_.end(); it++)
+	for (auto it = cells_.begin(); it != cells_.end(); ++it)
 		delete it->second;
-	for (auto it = processes.begin(); it != processes.end(); it++)
+	for (auto it = processes.begin(); it != processes.end(); ++it)
 		delete it->second;
 }
 
@@ -2258,7 +2258,7 @@ void RTLIL::SigSpec::unpack() const
 
 #define DJB2(_hash, _value) (_hash) = (((_hash) << 5) + (_hash)) + (_value)
 
-void RTLIL::SigSpec::hash() const
+void RTLIL::SigSpec::updhash() const
 {
 	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
 
@@ -2721,8 +2721,8 @@ bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
 	if (chunks_.size() != other.chunks_.size())
 		return chunks_.size() < other.chunks_.size();
 
-	hash();
-	other.hash();
+	updhash();
+	other.updhash();
 
 	if (hash_ != other.hash_)
 		return hash_ < other.hash_;
@@ -2753,8 +2753,8 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 	if (chunks_.size() != chunks_.size())
 		return false;
 
-	hash();
-	other.hash();
+	updhash();
+	other.updhash();
 
 	if (hash_ != other.hash_)
 		return false;

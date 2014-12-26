@@ -24,10 +24,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::Module*, int> *mod_cost_cache = nullptr);
+int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr);
 
 int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const> &parameters = dict<RTLIL::IdString, RTLIL::Const>(),
-		RTLIL::Design *design = nullptr, dict<RTLIL::Module*, int> *mod_cost_cache = nullptr)
+		RTLIL::Design *design = nullptr, dict<RTLIL::IdString, int> *mod_cost_cache = nullptr)
 {
 	static dict<RTLIL::IdString, int> gate_cost = {
 		{ "$_BUF_",   1 },
@@ -55,18 +55,18 @@ int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const
 		if (mod->attributes.count("\\cost"))
 			return mod->attributes.at("\\cost").as_int();
 
-		dict<RTLIL::Module*, int> local_mod_cost_cache;
+		dict<RTLIL::IdString, int> local_mod_cost_cache;
 		if (mod_cost_cache == nullptr)
 			mod_cost_cache = &local_mod_cost_cache;
 
-		if (mod_cost_cache->count(mod))
-			return mod_cost_cache->at(mod);
+		if (mod_cost_cache->count(mod->name))
+			return mod_cost_cache->at(mod->name);
 
 		int module_cost = 1;
 		for (auto c : mod->cells())
 			module_cost += get_cell_cost(c, mod_cost_cache);
 
-		(*mod_cost_cache)[mod] = module_cost;
+		(*mod_cost_cache)[mod->name] = module_cost;
 		return module_cost;
 	}
 
@@ -74,7 +74,7 @@ int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const
 	return 1;
 }
 
-int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::Module*, int> *mod_cost_cache)
+int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::IdString, int> *mod_cost_cache)
 {
 	return get_cell_cost(cell->type, cell->parameters, cell->module->design, mod_cost_cache);
 }

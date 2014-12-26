@@ -301,7 +301,7 @@ void log_cell(RTLIL::Cell *cell, std::string indent)
 // ---------------------------------------------------
 #ifdef YOSYS_ENABLE_COVER
 
-new_dict<std::string, std::pair<std::string, int>> extra_coverage_data;
+dict<std::string, std::pair<std::string, int>> extra_coverage_data;
 
 void cover_extra(std::string parent, std::string id, bool increment) {
 	if (extra_coverage_data.count(id) == 0) {
@@ -314,9 +314,9 @@ void cover_extra(std::string parent, std::string id, bool increment) {
 		extra_coverage_data[id].second++;
 }
 
-new_dict<std::string, std::pair<std::string, int>> get_coverage_data()
+dict<std::string, std::pair<std::string, int>> get_coverage_data()
 {
-	new_dict<std::string, std::pair<std::string, int>> coverage_data;
+	dict<std::string, std::pair<std::string, int>> coverage_data;
 
 	for (auto &it : pass_register) {
 		std::string key = stringf("passes.%s", it.first.c_str());
