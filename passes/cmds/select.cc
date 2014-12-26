@@ -101,7 +101,7 @@ static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char 
 	log_abort();
 }
 
-static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes, std::string name_pat, std::string value_pat, char match_op)
+static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string name_pat, std::string value_pat, char match_op)
 {
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
@@ -119,7 +119,7 @@ static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes
 	return false;
 }
 
-static bool match_attr(const std::map<RTLIL::IdString, RTLIL::Const> &attributes, std::string match_expr)
+static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string match_expr)
 {
 	size_t pos = match_expr.find_first_of("<!=>");
 

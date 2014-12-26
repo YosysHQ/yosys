@@ -28,11 +28,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct WreduceConfig
 {
-	std::set<IdString> supported_cell_types;
+	nodict<IdString> supported_cell_types;
 
 	WreduceConfig()
 	{
-		supported_cell_types = std::set<IdString>({
+		supported_cell_types = nodict<IdString>({
 			"$not", "$pos", "$neg",
 			"$and", "$or", "$xor", "$xnor",
 			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",

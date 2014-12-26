@@ -50,7 +50,7 @@ struct setunset_t
 	}
 };
 
-static void do_setunset(std::map<RTLIL::IdString, RTLIL::Const> &attrs, std::vector<setunset_t> &list)
+static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
 		if (item.unset)

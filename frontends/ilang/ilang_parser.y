@@ -36,7 +36,7 @@ namespace ILANG_FRONTEND {
 	RTLIL::Process *current_process;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
-	std::map<RTLIL::IdString, RTLIL::Const> attrbuf;
+	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
 }
 using namespace ILANG_FRONTEND;
 YOSYS_NAMESPACE_END

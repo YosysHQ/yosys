@@ -24,12 +24,12 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-int get_cell_cost(RTLIL::Cell *cell, std::map<RTLIL::Module*, int> *mod_cost_cache = nullptr);
+int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::Module*, int> *mod_cost_cache = nullptr);
 
-int get_cell_cost(RTLIL::IdString type, const std::map<RTLIL::IdString, RTLIL::Const> &parameters = std::map<RTLIL::IdString, RTLIL::Const>(),
-		RTLIL::Design *design = nullptr, std::map<RTLIL::Module*, int> *mod_cost_cache = nullptr)
+int get_cell_cost(RTLIL::IdString type, const dict<RTLIL::IdString, RTLIL::Const> &parameters = dict<RTLIL::IdString, RTLIL::Const>(),
+		RTLIL::Design *design = nullptr, dict<RTLIL::Module*, int> *mod_cost_cache = nullptr)
 {
-	static std::map<RTLIL::IdString, int> gate_cost = {
+	static dict<RTLIL::IdString, int> gate_cost = {
 		{ "$_BUF_",   1 },
 		{ "$_NOT_",   2 },
 		{ "$_AND_",   4 },
@@ -55,7 +55,7 @@ int get_cell_cost(RTLIL::IdString type, const std::map<RTLIL::IdString, RTLIL::C
 		if (mod->attributes.count("\\cost"))
 			return mod->attributes.at("\\cost").as_int();
 
-		std::map<RTLIL::Module*, int> local_mod_cost_cache;
+		dict<RTLIL::Module*, int> local_mod_cost_cache;
 		if (mod_cost_cache == nullptr)
 			mod_cost_cache = &local_mod_cost_cache;
 
@@ -74,7 +74,7 @@ int get_cell_cost(RTLIL::IdString type, const std::map<RTLIL::IdString, RTLIL::C
 	return 1;
 }
 
-int get_cell_cost(RTLIL::Cell *cell, std::map<RTLIL::Module*, int> *mod_cost_cache)
+int get_cell_cost(RTLIL::Cell *cell, dict<RTLIL::Module*, int> *mod_cost_cache)
 {
 	return get_cell_cost(cell->type, cell->parameters, cell->module->design, mod_cost_cache);
 }

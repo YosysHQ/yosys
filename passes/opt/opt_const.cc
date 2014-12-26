@@ -196,11 +196,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	ct_combinational.setup_stdcells();
 
 	SigMap assign_map(module);
-	std::map<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
 	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-	std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
-	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
+	dict<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
+	dict<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
 
 	for (auto cell : module->cells())
 		if (design->selected(module, cell) && cell->type[0] == '$') {

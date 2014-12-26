@@ -42,7 +42,7 @@ public:
 	{
 	}
 
-	bool compareAttributes(const std::set<RTLIL::IdString> &attr, const std::map<RTLIL::IdString, RTLIL::Const> &needleAttr, const std::map<RTLIL::IdString, RTLIL::Const> &haystackAttr)
+	bool compareAttributes(const std::set<RTLIL::IdString> &attr, const dict<RTLIL::IdString, RTLIL::Const> &needleAttr, const dict<RTLIL::IdString, RTLIL::Const> &haystackAttr)
 	{
 		for (auto &it : attr) {
 			size_t nc = needleAttr.count(it), hc = haystackAttr.count(it);
@@ -123,7 +123,7 @@ public:
 		{
 			RTLIL::Wire *lastNeedleWire = NULL;
 			RTLIL::Wire *lastHaystackWire = NULL;
-			std::map<RTLIL::IdString, RTLIL::Const> emptyAttr;
+			dict<RTLIL::IdString, RTLIL::Const> emptyAttr;
 
 			for (auto &conn : needleCell->connections())
 			{

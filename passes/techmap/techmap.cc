@@ -341,7 +341,7 @@ struct TechmapWorker
 			{
 				RTLIL::IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->modules_[tpl_name];
-				std::map<RTLIL::IdString, RTLIL::Const> parameters = cell->parameters;
+				std::map<RTLIL::IdString, RTLIL::Const> parameters(cell->parameters.begin(), cell->parameters.end());
 
 				if (tpl->get_bool_attribute("\\blackbox"))
 					continue;
@@ -529,7 +529,7 @@ struct TechmapWorker
 						tpl = techmap_cache[key];
 					} else {
 						if (cell->parameters.size() != 0) {
-							derived_name = tpl->derive(map, parameters);
+							derived_name = tpl->derive(map, dict<RTLIL::IdString, RTLIL::Const>(parameters.begin(), parameters.end()));
 							tpl = map->module(derived_name);
 							log_continue = true;
 						}
@@ -975,7 +975,7 @@ struct TechmapPass : public Pass {
 					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
 				}
 
-		std::map<RTLIL::IdString, RTLIL::Module*> modules_new;
+		dict<RTLIL::IdString, RTLIL::Module*> modules_new;
 		for (auto &it : map->modules_) {
 			if (it.first.substr(0, 2) == "\\$")
 				it.second->name = it.first.substr(1);
@@ -1072,7 +1072,7 @@ struct FlattenPass : public Pass {
 		log("No more expansions possible.\n");
 
 		if (top_mod != NULL) {
-			std::map<RTLIL::IdString, RTLIL::Module*> new_modules;
+			dict<RTLIL::IdString, RTLIL::Module*> new_modules;
 			for (auto mod : design->modules())
 				if (mod == top_mod || mod->get_bool_attribute("\\blackbox")) {
 					new_modules[mod->name] = mod;

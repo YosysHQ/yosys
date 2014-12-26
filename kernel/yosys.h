@@ -45,6 +45,8 @@
 #include <string>
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
+#include <unordered_set>
 #include <initializer_list>
 
 #include <sstream>
@@ -122,8 +124,18 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+template <class Key, class T, class Hash = std::hash<Key>, class KeyEqual = std::equal_to<Key>>
+using dict = std::unordered_map<Key, T, Hash, KeyEqual>;
+
+template <class Key, class Hash = std::hash<Key>, class KeyEqual = std::equal_to<Key>>
+using nodict = std::unordered_set<Key, Hash, KeyEqual>;
+
+template <class T>
+using vector = std::vector<T>;
+
 namespace RTLIL {
 	struct IdString;
+	struct SigBit;
 	struct SigSpec;
 	struct Wire;
 	struct Cell;

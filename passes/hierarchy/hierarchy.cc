@@ -462,7 +462,7 @@ struct HierarchyPass : public Pass {
 					log_cmd_error("Option -top requires an additional argument!\n");
 				top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
 				if (top_mod == NULL && design->modules_.count("$abstract" + RTLIL::escape_id(args[argidx]))) {
-					std::map<RTLIL::IdString, RTLIL::Const> empty_parameters;
+					dict<RTLIL::IdString, RTLIL::Const> empty_parameters;
 					design->modules_.at("$abstract" + RTLIL::escape_id(args[argidx]))->derive(design, empty_parameters);
 					top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
 				}
@@ -560,7 +560,7 @@ struct HierarchyPass : public Pass {
 				RTLIL::Cell *cell = work.second;
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
 						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
-				std::map<RTLIL::IdString, RTLIL::SigSpec> new_connections;
+				dict<RTLIL::IdString, RTLIL::SigSpec> new_connections;
 				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 						int id = atoi(conn.first.c_str()+1);

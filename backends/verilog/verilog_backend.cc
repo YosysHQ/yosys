@@ -246,7 +246,7 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 	}
 }
 
-void dump_attributes(std::ostream &f, std::string indent, std::map<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n')
+void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n')
 {
 	if (noattr)
 		return;

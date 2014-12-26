@@ -176,7 +176,7 @@ struct SplitnetsPass : public Pass {
 
 			module->rewrite_sigspecs(worker);
 
-			std::set<RTLIL::Wire*> delete_wires;
+			nodict<RTLIL::Wire*> delete_wires;
 			for (auto &it : worker.splitmap)
 				delete_wires.insert(it.first);
 			module->remove(delete_wires);

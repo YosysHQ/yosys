@@ -91,10 +91,10 @@ struct DeletePass : public Pass {
 				continue;
 			}
 
-			std::set<RTLIL::Wire*> delete_wires;
-			std::set<RTLIL::Cell*> delete_cells;
-			std::set<RTLIL::IdString> delete_procs;
-			std::set<RTLIL::IdString> delete_mems;
+			nodict<RTLIL::Wire*> delete_wires;
+			nodict<RTLIL::Cell*> delete_cells;
+			nodict<RTLIL::IdString> delete_procs;
+			nodict<RTLIL::IdString> delete_mems;
 
 			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
