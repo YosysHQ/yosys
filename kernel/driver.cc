@@ -80,6 +80,7 @@ int main(int argc, char **argv)
 	bool print_banner = true;
 	bool print_stats = true;
 	bool call_abort = false;
+	bool timing_details = false;
 
 #ifdef YOSYS_ENABLE_READLINE
 	int history_offset = 0;
@@ -92,7 +93,7 @@ int main(int argc, char **argv)
 #endif
 
 	int opt;
-	while ((opt = getopt(argc, argv, "AQTVSm:f:Hh:b:o:p:l:qv:ts:c:")) != -1)
+	while ((opt = getopt(argc, argv, "AQTVSm:f:Hh:b:o:p:l:qv:tds:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -152,6 +153,9 @@ int main(int argc, char **argv)
 		case 't':
 			log_time = true;
 			break;
+		case 'd':
+			timing_details = true;
+			break;
 		case 's':
 			scriptfile = optarg;
 			scriptfile_tcl = false;
@@ -180,6 +184,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -t\n");
 			fprintf(stderr, "        annotate all log messages with a time stamp\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "    -d\n");
+			fprintf(stderr, "        print more detailed timing stats at exit\n");
 			fprintf(stderr, "\n");
 			fprintf(stderr, "    -l logfile\n");
 			fprintf(stderr, "        write log messages to the specified file\n");
@@ -325,17 +332,28 @@ int main(int argc, char **argv)
 				timedat.insert(make_tuple(it.second->runtime_ns + 1, it.second->call_counter, it.first));
 			}
 
-		int out_count = 0;
-		log("Time spent:");
-		for (auto it = timedat.rbegin(); it != timedat.rend() && out_count < 4; it++, out_count++) {
-			if (out_count >= 2 && (std::get<0>(*it) < 1000000000 || int(100*std::get<0>(*it) / total_ns) < 20)) {
-				log(", ...");
-				break;
+		if (timing_details)
+		{
+			log("Time spent:\n");
+			for (auto it = timedat.rbegin(); it != timedat.rend(); it++) {
+				log("%5d%% %5d calls %8.3f sec %s\n", int(100*std::get<0>(*it) / total_ns),
+						std::get<1>(*it), std::get<0>(*it) / 1000000000.0, std::get<2>(*it).c_str());
 			}
-			log("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
-					std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
 		}
-		log("%s\n", out_count ? "" : " no commands executed");
+		else
+		{
+			int out_count = 0;
+			log("Time spent:");
+			for (auto it = timedat.rbegin(); it != timedat.rend() && out_count < 4; it++, out_count++) {
+				if (out_count >= 2 && (std::get<0>(*it) < 1000000000 || int(100*std::get<0>(*it) / total_ns) < 20)) {
+					log(", ...");
+					break;
+				}
+				log("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
+						std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
+			}
+			log("%s\n", out_count ? "" : " no commands executed");
+		}
 	}
 
 #ifdef YOSYS_ENABLE_COVER
