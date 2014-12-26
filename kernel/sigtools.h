@@ -29,9 +29,10 @@ struct SigPool
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+		unsigned int hash() const { return first->name.hash() + second; }
 	};
 
-	std::set<bitDef_t> bits;
+	pool<bitDef_t> bits;
 
 	void clear()
 	{
@@ -122,7 +123,7 @@ struct SigPool
 
 	RTLIL::SigSpec export_all()
 	{
-		std::set<RTLIL::SigBit> sig;
+		pool<RTLIL::SigBit> sig;
 		for (auto &bit : bits)
 			sig.insert(RTLIL::SigBit(bit.first, bit.second));
 		return sig;
@@ -140,9 +141,10 @@ struct SigSet
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+		unsigned int hash() const { return first->name.hash() + second; }
 	};
 
-	std::map<bitDef_t, std::set<T, Compare>> bits;
+	dict<bitDef_t, std::set<T, Compare>> bits;
 
 	void clear()
 	{
@@ -214,6 +216,7 @@ struct SigMap
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
+		unsigned int hash() const { return first->name.hash() + second; }
 	};
 
 	struct shared_bit_data_t {
@@ -221,7 +224,7 @@ struct SigMap
 		std::set<bitDef_t> bits;
 	};
 
-	std::map<bitDef_t, shared_bit_data_t*> bits;
+	dict<bitDef_t, shared_bit_data_t*> bits;
 
 	SigMap(RTLIL::Module *module = NULL)
 	{
