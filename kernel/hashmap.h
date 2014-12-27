@@ -25,8 +25,16 @@
 
 #define YOSYS_HASHTABLE_SIZE_FACTOR 3
 
+// The XOR version of DJB2
+// (traditionally 5381 is used as starting value for the djb2 hash)
 inline unsigned int mkhash(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) ^ b;
+}
+
+// The ADD version of DJB2
+// (use this version as last call for cache locality in b)
+inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
+	return ((a << 5) + a) + b;
 }
 
 template<typename T> struct hash_ops {

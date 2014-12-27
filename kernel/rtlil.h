@@ -654,7 +654,7 @@ public:
 	bool match(std::string pattern) const;
 
 	std::set<RTLIL::SigBit> to_sigbit_set() const;
-	pool<RTLIL::SigBit> to_sigbit_nodict() const;
+	pool<RTLIL::SigBit> to_sigbit_pool() const;
 	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
 	std::map<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_map(const RTLIL::SigSpec &other) const;
 	dict<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_dict(const RTLIL::SigSpec &other) const;
@@ -1176,7 +1176,7 @@ inline bool RTLIL::SigBit::operator!=(const RTLIL::SigBit &other) const {
 
 inline unsigned int RTLIL::SigBit::hash() const {
 	if (wire)
-		return wire->name.hash() * 33 + offset;
+		return mkhash_add(wire->name.hash(), offset);
 	return data;
 }
 

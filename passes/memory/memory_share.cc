@@ -560,13 +560,13 @@ struct MemoryShareWorker
 
 		while (!bits_queue.empty())
 		{
-			std::set<ModWalker::PortBit> portbits;
+			pool<ModWalker::PortBit> portbits;
 			modwalker.get_drivers(portbits, bits_queue);
 			bits_queue.clear();
 
 			for (auto &pbit : portbits)
 				if (sat_cells.count(pbit.cell) == 0 && cone_ct.cell_known(pbit.cell->type)) {
-					std::set<RTLIL::SigBit> &cell_inputs = modwalker.cell_inputs[pbit.cell];
+					pool<RTLIL::SigBit> &cell_inputs = modwalker.cell_inputs[pbit.cell];
 					bits_queue.insert(cell_inputs.begin(), cell_inputs.end());
 					sat_cells.insert(pbit.cell);
 				}

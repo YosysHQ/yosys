@@ -2256,8 +2256,6 @@ void RTLIL::SigSpec::unpack() const
 	that->hash_ = 0;
 }
 
-#define DJB2(_hash, _value) (_hash) = (((_hash) << 5) + (_hash)) + (_value)
-
 void RTLIL::SigSpec::updhash() const
 {
 	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
@@ -2272,11 +2270,11 @@ void RTLIL::SigSpec::updhash() const
 	for (auto &c : that->chunks_)
 		if (c.wire == NULL) {
 			for (auto &v : c.data)
-				DJB2(that->hash_, v);
+				that->hash_ = mkhash(that->hash_, v);
 		} else {
-			DJB2(that->hash_, c.wire->name.index_);
-			DJB2(that->hash_, c.offset);
-			DJB2(that->hash_, c.width);
+			that->hash_ = mkhash(that->hash_, c.wire->name.index_);
+			that->hash_ = mkhash(that->hash_, c.offset);
+			that->hash_ = mkhash(that->hash_, c.width);
 		}
 
 	if (that->hash_ == 0)
@@ -2378,7 +2376,7 @@ void RTLIL::SigSpec::remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other
 
 void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other)
 {
-	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_nodict();
+	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_pool();
 	remove2(pattern_bits, other);
 }
 
@@ -2439,7 +2437,7 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec 
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other) const
 {
-	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_nodict();
+	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_pool();
 	return extract(pattern_bits, other);
 }
 
@@ -2943,7 +2941,7 @@ std::set<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_set() const
 	return sigbits;
 }
 
-pool<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_nodict() const
+pool<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_pool() const
 {
 	cover("kernel.rtlil.sigspec.to_sigbit_pool");
 

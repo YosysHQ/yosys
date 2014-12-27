@@ -33,6 +33,7 @@ struct ModIndex : public RTLIL::Monitor
 		RTLIL::IdString port;
 		int offset;
 
+		PortInfo() : cell(), port(), offset() { }
 		PortInfo(RTLIL::Cell* _c, RTLIL::IdString _p, int _o) : cell(_c), port(_p), offset(_o) { }
 
 		bool operator<(const PortInfo &other) const {
@@ -42,19 +43,27 @@ struct ModIndex : public RTLIL::Monitor
 				return offset < other.offset;
 			return port < other.port;
 		}
+
+		bool operator==(const PortInfo &other) const {
+			return cell == other.cell && port == other.port && offset == other.offset;
+		}
+
+		unsigned int hash() const {
+			return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+		}
 	};
 
 	struct SigBitInfo
 	{
 		bool is_input, is_output;
-		std::set<PortInfo> ports;
+		pool<PortInfo> ports;
 
 		SigBitInfo() : is_input(false), is_output(false) { }
 	};
 
 	SigMap sigmap;
 	RTLIL::Module *module;
-	std::map<RTLIL::SigBit, SigBitInfo> database;
+	dict<RTLIL::SigBit, SigBitInfo> database;
 	bool auto_reload_module;
 
 	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
@@ -168,9 +177,9 @@ struct ModIndex : public RTLIL::Monitor
 		return info->is_output;
 	}
 
-	std::set<PortInfo> &query_ports(RTLIL::SigBit bit)
+	pool<PortInfo> &query_ports(RTLIL::SigBit bit)
 	{
-		static std::set<PortInfo> empty_result_set;
+		static pool<PortInfo> empty_result_set;
 		SigBitInfo *info = query(bit);
 		if (info == nullptr)
 			return empty_result_set;
@@ -193,6 +202,14 @@ struct ModWalker
 				return port < other.port;
 			return offset < other.offset;
 		}
+
+		bool operator==(const PortBit &other) const {
+			return cell == other.cell && port == other.port && offset == other.offset;
+		}
+
+		unsigned int hash() const {
+			return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+		}
 	};
 
 	RTLIL::Design *design;
@@ -201,11 +218,11 @@ struct ModWalker
 	CellTypes ct;
 	SigMap sigmap;
 
-	std::map<RTLIL::SigBit, std::set<PortBit>> signal_drivers;
-	std::map<RTLIL::SigBit, std::set<PortBit>> signal_consumers;
-	std::set<RTLIL::SigBit> signal_inputs, signal_outputs;
+	dict<RTLIL::SigBit, pool<PortBit>> signal_drivers;
+	dict<RTLIL::SigBit, pool<PortBit>> signal_consumers;
+	pool<RTLIL::SigBit> signal_inputs, signal_outputs;
 
-	std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_outputs, cell_inputs;
+	dict<RTLIL::Cell*, pool<RTLIL::SigBit>, hash_obj_ops> cell_outputs, cell_inputs;
 
 	void add_wire(RTLIL::Wire *wire)
 	{
@@ -286,11 +303,11 @@ struct ModWalker
 	// get_* methods -- single RTLIL::SigBit
 
 	template<typename T>
-	inline bool get_drivers(std::set<PortBit> &result, RTLIL::SigBit bit) const
+	inline bool get_drivers(pool<PortBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
 		if (signal_drivers.count(bit)) {
-			const std::set<PortBit> &r = signal_drivers.at(bit);
+			const pool<PortBit> &r = signal_drivers.at(bit);
 			result.insert(r.begin(), r.end());
 			found = true;
 		}
@@ -298,11 +315,11 @@ struct ModWalker
 	}
 
 	template<typename T>
-	inline bool get_consumers(std::set<PortBit> &result, RTLIL::SigBit bit) const
+	inline bool get_consumers(pool<PortBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
 		if (signal_consumers.count(bit)) {
-			const std::set<PortBit> &r = signal_consumers.at(bit);
+			const pool<PortBit> &r = signal_consumers.at(bit);
 			result.insert(r.begin(), r.end());
 			found = true;
 		}
@@ -310,7 +327,7 @@ struct ModWalker
 	}
 
 	template<typename T>
-	inline bool get_inputs(std::set<RTLIL::SigBit> &result, RTLIL::SigBit bit) const
+	inline bool get_inputs(pool<RTLIL::SigBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
 		if (signal_inputs.count(bit))
@@ -319,7 +336,7 @@ struct ModWalker
 	}
 
 	template<typename T>
-	inline bool get_outputs(std::set<RTLIL::SigBit> &result, RTLIL::SigBit bit) const
+	inline bool get_outputs(pool<RTLIL::SigBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
 		if (signal_outputs.count(bit))
@@ -330,12 +347,12 @@ struct ModWalker
 	// get_* methods -- container of RTLIL::SigBit's (always by reference)
 
 	template<typename T>
-	inline bool get_drivers(std::set<PortBit> &result, const T &bits) const
+	inline bool get_drivers(pool<PortBit> &result, const T &bits) const
 	{
 		bool found = false;
 		for (RTLIL::SigBit bit : bits)
 			if (signal_drivers.count(bit)) {
-				const std::set<PortBit> &r = signal_drivers.at(bit);
+				const pool<PortBit> &r = signal_drivers.at(bit);
 				result.insert(r.begin(), r.end());
 				found = true;
 			}
@@ -343,12 +360,12 @@ struct ModWalker
 	}
 
 	template<typename T>
-	inline bool get_consumers(std::set<PortBit> &result, const T &bits) const
+	inline bool get_consumers(pool<PortBit> &result, const T &bits) const
 	{
 		bool found = false;
 		for (RTLIL::SigBit bit : bits)
 			if (signal_consumers.count(bit)) {
-				const std::set<PortBit> &r = signal_consumers.at(bit);
+				const pool<PortBit> &r = signal_consumers.at(bit);
 				result.insert(r.begin(), r.end());
 				found = true;
 			}
@@ -356,7 +373,7 @@ struct ModWalker
 	}
 
 	template<typename T>
-	inline bool get_inputs(std::set<RTLIL::SigBit> &result, const T &bits) const
+	inline bool get_inputs(pool<RTLIL::SigBit> &result, const T &bits) const
 	{
 		bool found = false;
 		for (RTLIL::SigBit bit : bits)
@@ -366,7 +383,7 @@ struct ModWalker
 	}
 
 	template<typename T>
-	inline bool get_outputs(std::set<RTLIL::SigBit> &result, const T &bits) const
+	inline bool get_outputs(pool<RTLIL::SigBit> &result, const T &bits) const
 	{
 		bool found = false;
 		for (RTLIL::SigBit bit : bits)
@@ -377,25 +394,25 @@ struct ModWalker
 
 	// get_* methods -- call by RTLIL::SigSpec (always by value)
 
-	bool get_drivers(std::set<PortBit> &result, RTLIL::SigSpec signal) const
+	bool get_drivers(pool<PortBit> &result, RTLIL::SigSpec signal) const
 	{
 		std::vector<RTLIL::SigBit> bits = sigmap(signal);
 		return get_drivers(result, bits);
 	}
 
-	bool get_consumers(std::set<PortBit> &result, RTLIL::SigSpec signal) const
+	bool get_consumers(pool<PortBit> &result, RTLIL::SigSpec signal) const
 	{
 		std::vector<RTLIL::SigBit> bits = sigmap(signal);
 		return get_consumers(result, bits);
 	}
 
-	bool get_inputs(std::set<RTLIL::SigBit> &result, RTLIL::SigSpec signal) const
+	bool get_inputs(pool<RTLIL::SigBit> &result, RTLIL::SigSpec signal) const
 	{
 		std::vector<RTLIL::SigBit> bits = sigmap(signal);
 		return get_inputs(result, bits);
 	}
 
-	bool get_outputs(std::set<RTLIL::SigBit> &result, RTLIL::SigSpec signal) const
+	bool get_outputs(pool<RTLIL::SigBit> &result, RTLIL::SigSpec signal) const
 	{
 		std::vector<RTLIL::SigBit> bits = sigmap(signal);
 		return get_outputs(result, bits);
@@ -405,47 +422,47 @@ struct ModWalker
 
 	template<typename T>
 	inline bool has_drivers(const T &sig) const {
-		std::set<PortBit> result;
+		pool<PortBit> result;
 		return get_drivers(result, sig);
 	}
 
 	template<typename T>
 	inline bool has_consumers(const T &sig) const {
-		std::set<PortBit> result;
+		pool<PortBit> result;
 		return get_consumers(result, sig);
 	}
 
 	template<typename T>
 	inline bool has_inputs(const T &sig) const {
-		std::set<RTLIL::SigBit> result;
+		pool<RTLIL::SigBit> result;
 		return get_inputs(result, sig);
 	}
 
 	template<typename T>
 	inline bool has_outputs(const T &sig) const {
-		std::set<RTLIL::SigBit> result;
+		pool<RTLIL::SigBit> result;
 		return get_outputs(result, sig);
 	}
 
 	// has_* methods -- call by value
 
 	inline bool has_drivers(RTLIL::SigSpec sig) const {
-		std::set<PortBit> result;
+		pool<PortBit> result;
 		return get_drivers(result, sig);
 	}
 
 	inline bool has_consumers(RTLIL::SigSpec sig) const {
-		std::set<PortBit> result;
+		pool<PortBit> result;
 		return get_consumers(result, sig);
 	}
 
 	inline bool has_inputs(RTLIL::SigSpec sig) const {
-		std::set<RTLIL::SigBit> result;
+		pool<RTLIL::SigBit> result;
 		return get_inputs(result, sig);
 	}
 
 	inline bool has_outputs(RTLIL::SigSpec sig) const {
-		std::set<RTLIL::SigBit> result;
+		pool<RTLIL::SigBit> result;
 		return get_outputs(result, sig);
 	}
 };

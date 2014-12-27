@@ -75,7 +75,7 @@ struct ShareWorker
 
 		for (auto &it : module->cells_)
 			if (!fwd_ct.cell_known(it.second->type)) {
-				std::set<RTLIL::SigBit> &bits = modwalker.cell_inputs[it.second];
+				pool<RTLIL::SigBit> &bits = modwalker.cell_inputs[it.second];
 				queue_bits.insert(bits.begin(), bits.end());
 			}
 
@@ -83,19 +83,19 @@ struct ShareWorker
 
 		while (!queue_bits.empty())
 		{
-			std::set<ModWalker::PortBit> portbits;
+			pool<ModWalker::PortBit> portbits;
 			modwalker.get_drivers(portbits, queue_bits);
 			queue_bits.clear();
 
 			for (auto &pbit : portbits) {
 				if (pbit.cell->type == "$mux" || pbit.cell->type == "$pmux") {
-					std::set<RTLIL::SigBit> bits = modwalker.sigmap(pbit.cell->getPort("\\S")).to_sigbit_set();
+					pool<RTLIL::SigBit> bits = modwalker.sigmap(pbit.cell->getPort("\\S")).to_sigbit_pool();
 					terminal_bits.insert(bits.begin(), bits.end());
 					queue_bits.insert(bits.begin(), bits.end());
 					visited_cells.insert(pbit.cell);
 				}
 				if (fwd_ct.cell_known(pbit.cell->type) && visited_cells.count(pbit.cell) == 0) {
-					std::set<RTLIL::SigBit> &bits = modwalker.cell_inputs[pbit.cell];
+					pool<RTLIL::SigBit> &bits = modwalker.cell_inputs[pbit.cell];
 					terminal_bits.insert(bits.begin(), bits.end());
 					queue_bits.insert(bits.begin(), bits.end());
 					visited_cells.insert(pbit.cell);
@@ -730,8 +730,8 @@ struct ShareWorker
 		if (forbidden_controls_cache.count(cell))
 			return forbidden_controls_cache.at(cell);
 
-		std::set<ModWalker::PortBit> pbits;
-		std::set<RTLIL::Cell*> consumer_cells;
+		pool<ModWalker::PortBit> pbits;
+		pool<RTLIL::Cell*, hash_obj_ops> consumer_cells;
 
 		modwalker.get_consumers(pbits, modwalker.cell_outputs[cell]);
 
@@ -802,8 +802,8 @@ struct ShareWorker
 		if (activation_patterns_cache.count(cell))
 			return activation_patterns_cache.at(cell);
 
-		const std::set<RTLIL::SigBit> &cell_out_bits = modwalker.cell_outputs[cell];
-		std::set<RTLIL::Cell*> driven_cells, driven_data_muxes;
+		const pool<RTLIL::SigBit> &cell_out_bits = modwalker.cell_outputs[cell];
+		pool<RTLIL::Cell*, hash_obj_ops> driven_cells, driven_data_muxes;
 
 		for (auto &bit : cell_out_bits)
 		{
@@ -1196,7 +1196,7 @@ struct ShareWorker
 
 				while (!bits_queue.empty())
 				{
-					std::set<ModWalker::PortBit> portbits;
+					pool<ModWalker::PortBit> portbits;
 					modwalker.get_drivers(portbits, bits_queue);
 					bits_queue.clear();
 
