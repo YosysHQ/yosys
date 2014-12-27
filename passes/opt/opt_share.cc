@@ -41,7 +41,7 @@ struct OptShareWorker
 	CellTypes ct;
 	int total_count;
 #ifdef USE_CELL_HASH_CACHE
-	dict<const RTLIL::Cell*, std::string, hash_ptr_ops> cell_hash_cache;
+	dict<const RTLIL::Cell*, std::string, hash_obj_ops> cell_hash_cache;
 #endif
 
 #ifdef USE_CELL_HASH_CACHE

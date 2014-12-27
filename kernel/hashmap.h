@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#define YOSYS_HASHTABLE_SIZE_FACTOR 3
+
 inline unsigned int mkhash(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) ^ b;
 }
@@ -81,8 +83,19 @@ struct hash_ptr_ops {
 	}
 };
 
+struct hash_obj_ops {
+	bool cmp(const void *a, const void *b) const {
+		return a == b;
+	}
+	template<typename T>
+	unsigned int hash(const T *a) const {
+		return a->name.hash();
+	}
+};
+
 inline int hashtable_size(int old_size)
 {
+	// prime numbers, approx. in powers of two
 	if (old_size <         53) return         53;
 	if (old_size <        113) return        113;
 	if (old_size <        251) return        251;
@@ -144,7 +157,9 @@ class dict
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(counter);
+		int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * counter);
+		hashtable.resize(new_size);
+		new_size = new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1;
 		entries.reserve(new_size);
 
 		for (auto &it : other)
@@ -165,7 +180,6 @@ class dict
 	{
 		free_list = -1;
 
-		hashtable.resize(entries.size());
 		for (auto &h : hashtable)
 			h = -1;
 
@@ -221,7 +235,9 @@ class dict
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			entries.resize(hashtable_size(i));
+			int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * entries.size());
+			hashtable.resize(new_size);
+			entries.resize(new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1);
 			entries[i].udata = value;
 			entries[i].set_next_used(0);
 			counter++;
@@ -473,7 +489,9 @@ class pool
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(counter);
+		int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * counter);
+		hashtable.resize(new_size);
+		new_size = new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1;
 		entries.reserve(new_size);
 
 		for (auto &it : other)
@@ -494,7 +512,6 @@ class pool
 	{
 		free_list = -1;
 
-		hashtable.resize(entries.size());
 		for (auto &h : hashtable)
 			h = -1;
 
@@ -550,7 +567,9 @@ class pool
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			entries.resize(hashtable_size(i));
+			int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * entries.size());
+			hashtable.resize(new_size);
+			entries.resize(new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1);
 			entries[i].key = key;
 			entries[i].set_next_used(0);
 			counter++;

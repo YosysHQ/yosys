@@ -199,7 +199,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
 	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-	dict<RTLIL::Cell*, std::set<RTLIL::SigBit>, hash_ptr_ops> cell_to_inbit;
+	dict<RTLIL::Cell*, std::set<RTLIL::SigBit>, hash_obj_ops> cell_to_inbit;
 	dict<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
 
 	for (auto cell : module->cells())

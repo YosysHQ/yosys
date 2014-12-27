@@ -708,6 +708,8 @@ struct RTLIL::Selection
 
 struct RTLIL::Monitor
 {
+	RTLIL::IdString name;
+	Monitor() { name = stringf("$%d", autoidx++); }
 	virtual ~Monitor() { }
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
@@ -719,7 +721,7 @@ struct RTLIL::Monitor
 
 struct RTLIL::Design
 {
-	pool<RTLIL::Monitor*, hash_ptr_ops> monitors;
+	pool<RTLIL::Monitor*, hash_obj_ops> monitors;
 	dict<std::string, std::string> scratchpad;
 
 	int refcount_modules_;
@@ -806,7 +808,7 @@ protected:
 
 public:
 	RTLIL::Design *design;
-	pool<RTLIL::Monitor*, hash_ptr_ops> monitors;
+	pool<RTLIL::Monitor*, hash_obj_ops> monitors;
 
 	int refcount_wires_;
 	int refcount_cells_;
@@ -860,7 +862,7 @@ public:
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
-	void remove(const pool<RTLIL::Wire*, hash_ptr_ops> &wires);
+	void remove(const pool<RTLIL::Wire*, hash_obj_ops> &wires);
 	void remove(RTLIL::Cell *cell);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);

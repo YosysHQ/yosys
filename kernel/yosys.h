@@ -149,6 +149,8 @@ void remove_directory(std::string dirname);
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 int GetSize(RTLIL::Wire *wire);
 
+extern int autoidx;
+
 YOSYS_NAMESPACE_END
 
 #include "kernel/log.h"
@@ -164,7 +166,6 @@ void yosys_shutdown();
 Tcl_Interp *yosys_get_tcl_interp();
 #endif
 
-extern int autoidx;
 extern RTLIL::Design *yosys_design;
 
 RTLIL::IdString new_id(std::string file, int line, std::string func);

@@ -1132,7 +1132,7 @@ namespace {
 	struct DeleteWireWorker
 	{
 		RTLIL::Module *module;
-		const pool<RTLIL::Wire*, hash_ptr_ops> *wires_p;
+		const pool<RTLIL::Wire*, hash_obj_ops> *wires_p;
 
 		void operator()(RTLIL::SigSpec &sig) {
 			std::vector<RTLIL::SigChunk> chunks = sig;
@@ -1146,7 +1146,7 @@ namespace {
 	};
 }
 
-void RTLIL::Module::remove(const pool<RTLIL::Wire*, hash_ptr_ops> &wires)
+void RTLIL::Module::remove(const pool<RTLIL::Wire*, hash_obj_ops> &wires)
 {
 	log_assert(refcount_wires_ == 0);
 

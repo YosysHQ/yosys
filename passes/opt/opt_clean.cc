@@ -262,7 +262,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	}
 
 
-	pool<RTLIL::Wire*, hash_ptr_ops> del_wires;
+	pool<RTLIL::Wire*, hash_obj_ops> del_wires;
 
 	int del_wires_count = 0;
 	for (auto wire : maybe_del_wires)

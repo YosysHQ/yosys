@@ -176,7 +176,7 @@ struct SplitnetsPass : public Pass {
 
 			module->rewrite_sigspecs(worker);
 
-			pool<RTLIL::Wire*, hash_ptr_ops> delete_wires;
+			pool<RTLIL::Wire*, hash_obj_ops> delete_wires;
 			for (auto &it : worker.splitmap)
 				delete_wires.insert(it.first);
 			module->remove(delete_wires);
