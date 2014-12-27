@@ -102,13 +102,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			verbose_activate:
 				if (mem2reg_set.count(mem) == 0) {
-					log_warning("Replacing memory %s with list of registers.", mem->str.c_str());
+					std::string message = stringf("Replacing memory %s with list of registers.", mem->str.c_str());
 					bool first_element = true;
 					for (auto &place : mem2reg_places[it.first]) {
-						log("%s%s", first_element ? " See " : ", ", place.c_str());
+						message += stringf("%s%s", first_element ? " See " : ", ", place.c_str());
 						first_element = false;
 					}
-					log("\n");
+					log_warning("%s\n", message.c_str());
 				}
 
 			silent_activate:
