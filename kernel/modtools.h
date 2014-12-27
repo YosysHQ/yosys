@@ -59,6 +59,13 @@ struct ModIndex : public RTLIL::Monitor
 		pool<PortInfo> ports;
 
 		SigBitInfo() : is_input(false), is_output(false) { }
+
+		void merge(const SigBitInfo &other)
+		{
+			is_input = is_input || other.is_input;
+			is_output = is_output || other.is_output;
+			ports.insert(other.ports.begin(), other.ports.end());
+		}
 	};
 
 	SigMap sigmap;
@@ -109,30 +116,71 @@ struct ModIndex : public RTLIL::Monitor
 				port_add(cell, conn.first, conn.second);
 
 		auto_reload_module = false;
+		// log("Auto-reload in ModIndex -- possible performance bug!\n");
 	}
 
 	virtual void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) YS_OVERRIDE
 	{
+		log_assert(module == cell->module);
+
 		if (auto_reload_module)
-			reload_module();
+			return;
 
 		port_del(cell, port, old_sig);
 		port_add(cell, port, sig);
 	}
 
-	virtual void notify_connect(RTLIL::Module *mod, const RTLIL::SigSig&)
+	virtual void notify_connect(RTLIL::Module *mod, const RTLIL::SigSig &sigsig) YS_OVERRIDE
+	{
+		log_assert(module == mod);
+
+		if (auto_reload_module)
+			return;
+
+		for (int i = 0; i < GetSize(sigsig.first); i++)
+		{
+			RTLIL::SigBit lhs = sigmap(sigsig.first[i]);
+			RTLIL::SigBit rhs = sigmap(sigsig.second[i]);
+			bool has_lhs = database.count(lhs);
+			bool has_rhs = database.count(rhs);
+
+			if (!has_lhs && !has_rhs) {
+				sigmap.add(lhs, rhs);
+			} else
+			if (!has_rhs) {
+				SigBitInfo new_info = database.at(lhs);
+				database.erase(lhs);
+				sigmap.add(lhs, rhs);
+				database[sigmap(lhs)] = new_info;
+			} else
+			if (!has_lhs) {
+				SigBitInfo new_info = database.at(rhs);
+				database.erase(rhs);
+				sigmap.add(lhs, rhs);
+				database[sigmap(rhs)] = new_info;
+			} else {
+		#if 1
+				auto_reload_module = true;
+				return;
+		#else
+				SigBitInfo new_info = database.at(lhs);
+				new_info.merge(database.at(rhs));
+				database.erase(lhs);
+				database.erase(rhs);
+				sigmap.add(lhs, rhs);
+				database[sigmap(rhs)] = new_info;
+		#endif
+			}
+		}
+	}
+
+	virtual void notify_connect(RTLIL::Module *mod, const std::vector<RTLIL::SigSig>&) YS_OVERRIDE
 	{
 		log_assert(module == mod);
 		auto_reload_module = true;
 	}
 
-	virtual void notify_connect(RTLIL::Module *mod, const std::vector<RTLIL::SigSig>&)
-	{
-		log_assert(module == mod);
-		auto_reload_module = true;
-	}
-
-	virtual void notify_blackout(RTLIL::Module *mod)
+	virtual void notify_blackout(RTLIL::Module *mod) YS_OVERRIDE
 	{
 		log_assert(module == mod);
 		auto_reload_module = true;
