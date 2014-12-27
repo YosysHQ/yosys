@@ -254,8 +254,12 @@ supply1 { return TOK_SUPPLY1; }
 }
 
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {
-	log_warning("Found one of those horrible `(synopsys|synthesis) translate_off' comments.\n"
-			"It is strongly suggested to use `ifdef constructs instead!\n");
+	static bool printed_warning = false;
+	if (!printed_warning) {
+		log_warning("Found one of those horrible `(synopsys|synthesis) translate_off' comments.\n"
+				"Yosys does support them but it is recommended to use `ifdef constructs instead!\n");
+		printed_warning = true;
+	}
 	BEGIN(SYNOPSYS_TRANSLATE_OFF);
 }
 <SYNOPSYS_TRANSLATE_OFF>.    /* ignore synopsys translate_off body */
@@ -266,13 +270,21 @@ supply1 { return TOK_SUPPLY1; }
 	BEGIN(SYNOPSYS_FLAGS);
 }
 <SYNOPSYS_FLAGS>full_case {
-	log_warning("Found one of those horrible `(synopsys|synthesis) full_case' comments.\n"
-			"It is strongly suggested to use verilog x-values and default branches instead!\n");
+	static bool printed_warning = false;
+	if (!printed_warning) {
+		log_warning("Found one of those horrible `(synopsys|synthesis) full_case' comments.\n"
+				"Yosys does support them but it is recommended to use verilog `full_case' attributes instead!\n");
+		printed_warning = true;
+	}
 	return TOK_SYNOPSYS_FULL_CASE;
 }
 <SYNOPSYS_FLAGS>parallel_case {
-	log_warning("Found one of those horrible `(synopsys|synthesis) parallel_case' comments.\n"
-			"It is strongly suggested to use verilog `parallel_case' attributes instead!\n");
+	static bool printed_warning = false;
+	if (!printed_warning) {
+		log_warning("Found one of those horrible `(synopsys|synthesis) parallel_case' comments.\n"
+				"Yosys does support them but it is recommended to use verilog `parallel_case' attributes instead!\n");
+		printed_warning = true;
+	}
 	return TOK_SYNOPSYS_PARALLEL_CASE;
 }
 <SYNOPSYS_FLAGS>. /* ignore everything else */
