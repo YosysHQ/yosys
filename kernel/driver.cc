@@ -30,6 +30,11 @@
 #include <limits.h>
 #include <errno.h>
 
+#ifdef __linux__
+#  include <sys/types.h>
+#  include <unistd.h>
+#endif
+
 #if !defined(_WIN32) || defined(__MINGW32__)
 #  include <unistd.h>
 #else
@@ -320,11 +325,26 @@ int main(int argc, char **argv)
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash.c_str());
 #else
+		std::string meminfo;
+		std::string stats_divider = ", ";
+#  ifdef __linux__
+		std::ifstream statm;
+		statm.open(stringf("/proc/%lld/statm", (long long)getpid()));
+		if (statm.is_open()) {
+			int sz_total, sz_resident;
+			statm >> sz_total >> sz_resident;
+			meminfo = stringf(", MEM: %.2f MB total, %.2f MB resident",
+					sz_total * (getpagesize() / 1024.0 / 1024.0),
+					sz_resident * (getpagesize() / 1024.0 / 1024.0));
+			stats_divider = "\n";
+		}
+#  endif
+
 		struct rusage ru_buffer;
 		getrusage(RUSAGE_SELF, &ru_buffer);
-		log("End of script. Logfile hash: %s, CPU: user %.2fs system %.2fs\n", hash.c_str(),
-				ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
-				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec);
+		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash.c_str(),
+				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
 #endif
 		log("%s\n", yosys_version_str);
 
