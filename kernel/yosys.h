@@ -169,6 +169,13 @@ template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
 template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
 template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
 
+void memhasher_on();
+void memhasher_off();
+void memhasher_do();
+
+extern bool memhasher_active;
+inline void memhasher() { if (memhasher_active) memhasher_do(); }
+
 std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);
 int readsome(std::istream &f, char *s, int n);

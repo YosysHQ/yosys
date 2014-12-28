@@ -55,6 +55,43 @@ RTLIL::Design *yosys_design = NULL;
 Tcl_Interp *yosys_tcl_interp = NULL;
 #endif
 
+bool memhasher_active = false;
+uint32_t memhasher_rng;
+std::vector<void*> memhasher_store;
+
+void memhasher_on()
+{
+	memhasher_rng += time(NULL) << 16 ^ getpid();
+	memhasher_store.resize(0x10000);
+	memhasher_active = true;
+}
+
+void memhasher_off()
+{
+	for (auto p : memhasher_store)
+		if (p) free(p);
+	memhasher_store.clear();
+	memhasher_active = false;
+}
+
+void memhasher_do()
+{
+	memhasher_rng ^= memhasher_rng << 13;
+	memhasher_rng ^= memhasher_rng >> 17;
+	memhasher_rng ^= memhasher_rng << 5;
+
+	int size, index = (memhasher_rng >> 4) & 0xffff;
+	switch (memhasher_rng & 7) {
+		case 0: size =   16; break;
+		case 1: size =  256; break;
+		case 2: size = 1024; break;
+		case 3: size = 4096; break;
+		default: size = 0;
+	}
+	if (index < 16) size *= 16;
+	memhasher_store[index] = realloc(memhasher_store[index], size);
+}
+
 std::string stringf(const char *fmt, ...)
 {
 	std::string string;

@@ -1766,6 +1766,9 @@ RTLIL::Cell::Cell() : module(nullptr)
 {
 	static unsigned int hashidx_count = 0;
 	hashidx_ = hashidx_count++;
+
+	// log("#memtrace# %p\n", this);
+	memhasher();
 }
 
 bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const

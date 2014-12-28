@@ -151,8 +151,11 @@ int main(int argc, char **argv)
 		printf("    -m module_file\n");
 		printf("        load the specified module (aka plugin)\n");
 		printf("\n");
+		printf("    -M\n");
+		printf("        will slightly randomize allocated pointer addresses. for debugging\n");
+		printf("\n");
 		printf("    -A\n");
-		printf("        will call abort() at the end of the script. useful for debugging\n");
+		printf("        will call abort() at the end of the script. for debugging\n");
 		printf("\n");
 		printf("    -V\n");
 		printf("        print version information and exit\n");
@@ -174,10 +177,13 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "AQTVSm:f:Hh:b:o:p:l:qv:tds:c:")) != -1)
+	while ((opt = getopt(argc, argv, "MAQTVSm:f:Hh:b:o:p:l:qv:tds:c:")) != -1)
 	{
 		switch (opt)
 		{
+		case 'M':
+			memhasher_on();
+			break;
 		case 'A':
 			call_abort = true;
 			break;
@@ -407,6 +413,7 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	memhasher_off();
 	if (call_abort)
 		abort();
 
