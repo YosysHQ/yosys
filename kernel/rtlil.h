@@ -712,7 +712,7 @@ struct RTLIL::Monitor
 	unsigned int hash() const { return hashidx_; }
 
 	Monitor() {
-		unsigned int hashidx_count = 0;
+		static unsigned int hashidx_count = 0;
 		hashidx_ = hashidx_count++;
 	}
 

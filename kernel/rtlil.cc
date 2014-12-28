@@ -236,7 +236,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 RTLIL::Design::Design()
 {
-	unsigned int hashidx_count = 0;
+	static unsigned int hashidx_count = 0;
 	hashidx_ = hashidx_count++;
 
 	refcount_modules_ = 0;
@@ -450,7 +450,7 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
 
 RTLIL::Module::Module()
 {
-	unsigned int hashidx_count = 0;
+	static unsigned int hashidx_count = 0;
 	hashidx_ = hashidx_count++;
 
 	design = nullptr;
@@ -1741,7 +1741,7 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec
 
 RTLIL::Wire::Wire()
 {
-	unsigned int hashidx_count = 0;
+	static unsigned int hashidx_count = 0;
 	hashidx_ = hashidx_count++;
 
 	module = nullptr;
@@ -1755,7 +1755,7 @@ RTLIL::Wire::Wire()
 
 RTLIL::Memory::Memory()
 {
-	unsigned int hashidx_count = 0;
+	static unsigned int hashidx_count = 0;
 	hashidx_ = hashidx_count++;
 
 	width = 1;
@@ -1764,7 +1764,7 @@ RTLIL::Memory::Memory()
 
 RTLIL::Cell::Cell() : module(nullptr)
 {
-	unsigned int hashidx_count = 0;
+	static unsigned int hashidx_count = 0;
 	hashidx_ = hashidx_count++;
 }
 
