@@ -231,7 +231,7 @@ namespace AST
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
 		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
-		RTLIL::SigSpec genWidthRTLIL(int width, const std::map<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
+		RTLIL::SigSpec genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
 
 		// compare AST nodes
 		bool operator==(const AstNode &other) const;
@@ -293,7 +293,7 @@ namespace AST_INTERNAL
 	extern bool flag_dump_ast1, flag_dump_ast2, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;
-	extern const std::map<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;
+	extern const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;
 	extern RTLIL::SigSpec ignoreThisSignalsInInitial;
 	extern AST::AstNode *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;

@@ -27,13 +27,13 @@ YOSYS_NAMESPACE_BEGIN
 struct CellType
 {
 	RTLIL::IdString type;
-	std::set<RTLIL::IdString> inputs, outputs;
+	pool<RTLIL::IdString> inputs, outputs;
 	bool is_evaluable;
 };
 
 struct CellTypes
 {
-	std::map<RTLIL::IdString, CellType> cell_types;
+	dict<RTLIL::IdString, CellType> cell_types;
 
 	CellTypes()
 	{
@@ -55,7 +55,7 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const std::set<RTLIL::IdString> &inputs, const std::set<RTLIL::IdString> &outputs, bool is_evaluable = false)
+	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false)
 	{
 		CellType ct = {type, inputs, outputs, is_evaluable};
 		cell_types[ct.type] = ct;
@@ -63,7 +63,7 @@ struct CellTypes
 
 	void setup_module(RTLIL::Module *module)
 	{
-		std::set<RTLIL::IdString> inputs, outputs;
+		pool<RTLIL::IdString> inputs, outputs;
 		for (RTLIL::IdString wire_name : module->ports) {
 			RTLIL::Wire *wire = module->wire(wire_name);
 			if (wire->port_input)
@@ -109,7 +109,7 @@ struct CellTypes
 		setup_type("$alu", {"\\A", "\\B", "\\CI", "\\BI"}, {"\\X", "\\Y", "\\CO"}, true);
 		setup_type("$fa", {"\\A", "\\B", "\\C"}, {"\\X", "\\Y"}, true);
 
-		setup_type("$assert", {"\\A", "\\EN"}, std::set<RTLIL::IdString>(), true);
+		setup_type("$assert", {"\\A", "\\EN"}, pool<RTLIL::IdString>(), true);
 	}
 
 	void setup_internals_mem()
@@ -123,7 +123,7 @@ struct CellTypes
 		setup_type("$dlatchsr", {"\\EN", "\\SET", "\\CLR", "\\D"}, {"\\Q"});
 
 		setup_type("$memrd", {"\\CLK", "\\ADDR"}, {"\\DATA"});
-		setup_type("$memwr", {"\\CLK", "\\EN", "\\ADDR", "\\DATA"}, std::set<RTLIL::IdString>());
+		setup_type("$memwr", {"\\CLK", "\\EN", "\\ADDR", "\\DATA"}, pool<RTLIL::IdString>());
 		setup_type("$mem", {"\\RD_CLK", "\\RD_ADDR", "\\WR_CLK", "\\WR_EN", "\\WR_ADDR", "\\WR_DATA"}, {"\\RD_DATA"});
 
 		setup_type("$fsm", {"\\CLK", "\\ARST", "\\CTRL_IN"}, {"\\CTRL_OUT"});

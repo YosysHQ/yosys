@@ -31,17 +31,17 @@ YOSYS_NAMESPACE_BEGIN
 // A map-like container, but you can save and restore the state
 // ------------------------------------------------
 
-template<typename Key, typename T, typename Compare = std::less<Key>>
+template<typename Key, typename T, typename OPS = hash_ops<Key>>
 struct stackmap
 {
 private:
-	std::vector<std::map<Key, T*, Compare>> backup_state;
-	std::map<Key, T, Compare> current_state;
+	std::vector<dict<Key, T*, OPS>> backup_state;
+	dict<Key, T, OPS> current_state;
 	static T empty_tuple;
 
 public:
 	stackmap() { }
-	stackmap(const std::map<Key, T, Compare> &other) : current_state(other) { }
+	stackmap(const dict<Key, T, OPS> &other) : current_state(other) { }
 
 	template<typename Other>
 	void operator=(const Other &other)
@@ -94,7 +94,7 @@ public:
 		current_state.erase(k);
 	}
 
-	const std::map<Key, T, Compare> &stdmap()
+	const dict<Key, T, OPS> &stdmap()
 	{
 		return current_state;
 	}

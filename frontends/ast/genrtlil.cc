@@ -254,7 +254,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		// create initial assignments for the temporary signals
 		if ((flag_nolatches || always->get_bool_attribute("\\nolatches") || current_module->get_bool_attribute("\\nolatches")) && !found_clocked_sync) {
-			subst_rvalue_map = subst_lvalue_from.to_sigbit_map(RTLIL::SigSpec(RTLIL::State::Sx, GetSize(subst_lvalue_from)));
+			subst_rvalue_map = subst_lvalue_from.to_sigbit_dict(RTLIL::SigSpec(RTLIL::State::Sx, GetSize(subst_lvalue_from)));
 		} else {
 			addChunkActions(current_case->actions, subst_lvalue_to, subst_lvalue_from);
 		}
@@ -1391,9 +1391,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 // this is a wrapper for AstNode::genRTLIL() when a specific signal width is requested and/or
 // signals must be substituted before beeing used as input values (used by ProcessGenerator)
 // note that this is using some global variables to communicate this special settings to AstNode::genRTLIL().
-RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const std::map<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
+RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
 {
-	const std::map<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
+	const dict<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
 
 	if (new_subst_ptr)
 		genRTLIL_subst_ptr = new_subst_ptr;
