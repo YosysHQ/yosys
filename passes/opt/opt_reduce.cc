@@ -37,14 +37,14 @@ struct OptReduceWorker
 	int total_count;
 	bool did_something;
 
-	void opt_reduce(std::set<RTLIL::Cell*> &cells, SigSet<RTLIL::Cell*> &drivers, RTLIL::Cell *cell)
+	void opt_reduce(pool<RTLIL::Cell*> &cells, SigSet<RTLIL::Cell*> &drivers, RTLIL::Cell *cell)
 	{
 		if (cells.count(cell) == 0)
 			return;
 		cells.erase(cell);
 
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
-		std::set<RTLIL::SigBit> new_sig_a_bits;
+		pool<RTLIL::SigBit> new_sig_a_bits;
 
 		for (auto &bit : sig_a.to_sigbit_set())
 		{
@@ -74,7 +74,7 @@ struct OptReduceWorker
 				if (child_cell->type == cell->type) {
 					opt_reduce(cells, drivers, child_cell);
 					if (child_cell->getPort("\\Y")[0] == bit) {
-						std::set<RTLIL::SigBit> child_sig_a_bits = assign_map(child_cell->getPort("\\A")).to_sigbit_set();
+						pool<RTLIL::SigBit> child_sig_a_bits = assign_map(child_cell->getPort("\\A")).to_sigbit_pool();
 						new_sig_a_bits.insert(child_sig_a_bits.begin(), child_sig_a_bits.end());
 					} else
 						new_sig_a_bits.insert(RTLIL::State::S0);
@@ -105,7 +105,7 @@ struct OptReduceWorker
 		RTLIL::SigSpec sig_s = assign_map(cell->getPort("\\S"));
 
 		RTLIL::SigSpec new_sig_b, new_sig_s;
-		std::set<RTLIL::SigSpec> handled_sig;
+		pool<RTLIL::SigSpec> handled_sig;
 
 		handled_sig.insert(sig_a);
 		for (int i = 0; i < sig_s.size(); i++)
@@ -290,7 +290,7 @@ struct OptReduceWorker
 			for (auto type : type_list)
 			{
 				SigSet<RTLIL::Cell*> drivers;
-				std::set<RTLIL::Cell*> cells;
+				pool<RTLIL::Cell*> cells;
 
 				for (auto &cell_it : module->cells_) {
 					RTLIL::Cell *cell = cell_it.second;
