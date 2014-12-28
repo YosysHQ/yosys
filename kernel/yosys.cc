@@ -56,12 +56,14 @@ Tcl_Interp *yosys_tcl_interp = NULL;
 #endif
 
 bool memhasher_active = false;
-uint32_t memhasher_rng;
+uint32_t memhasher_rng = 123456;
 std::vector<void*> memhasher_store;
 
 void memhasher_on()
 {
+#ifdef __linux__
 	memhasher_rng += time(NULL) << 16 ^ getpid();
+#endif
 	memhasher_store.resize(0x10000);
 	memhasher_active = true;
 }

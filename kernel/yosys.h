@@ -124,7 +124,14 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#include "kernel/hashlib.h"
+#ifdef HASHLIB_H
+#  undef HASHLIB_H
+#  include "kernel/hashlib.h"
+#else
+#  include "kernel/hashlib.h"
+#  undef HASHLIB_H
+#endif
+
 using std::vector;
 using std::string;
 using hashlib::mkhash;

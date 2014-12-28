@@ -17,7 +17,7 @@
 
 namespace hashlib {
 
-#define HASHLIB_SIZE_FACTOR 3
+const int config_size_factor = 3;
 
 // The XOR version of DJB2
 // (traditionally 5381 is used as starting value for the djb2 hash)
@@ -161,9 +161,9 @@ class dict
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * counter);
+		int new_size = hashtable_size(config_size_factor * counter);
 		hashtable.resize(new_size);
-		new_size = new_size / HASHLIB_SIZE_FACTOR + 1;
+		new_size = new_size / config_size_factor + 1;
 		entries.reserve(new_size);
 
 		for (auto &it : other)
@@ -243,9 +243,9 @@ class dict
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * entries.size());
+			int new_size = hashtable_size(config_size_factor * entries.size());
 			hashtable.resize(new_size);
-			entries.resize(new_size / HASHLIB_SIZE_FACTOR + 1);
+			entries.resize(new_size / config_size_factor + 1);
 			entries[i].udata = value;
 			entries[i].set_next_used(0);
 			counter++;
@@ -499,9 +499,9 @@ class pool
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * counter);
+		int new_size = hashtable_size(config_size_factor * counter);
 		hashtable.resize(new_size);
-		new_size = new_size / HASHLIB_SIZE_FACTOR + 1;
+		new_size = new_size / config_size_factor + 1;
 		entries.reserve(new_size);
 
 		for (auto &it : other)
@@ -581,9 +581,9 @@ class pool
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * entries.size());
+			int new_size = hashtable_size(config_size_factor * entries.size());
 			hashtable.resize(new_size);
-			entries.resize(new_size / HASHLIB_SIZE_FACTOR + 1);
+			entries.resize(new_size / config_size_factor + 1);
 			entries[i].key = key;
 			entries[i].set_next_used(0);
 			counter++;
