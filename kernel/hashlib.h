@@ -145,13 +145,14 @@ class dict
 
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
-	int free_list, counter;
+	int free_list, counter, begin_n;
 	OPS ops;
 
 	void init()
 	{
 		free_list = -1;
 		counter = 0;
+		begin_n = -1;
 	}
 
 	void init_from(const dict<K, T, OPS> &other)
@@ -182,6 +183,7 @@ class dict
 	void rehash()
 	{
 		free_list = -1;
+		begin_n = -1;
 
 		for (auto &h : hashtable)
 			h = -1;
@@ -194,6 +196,7 @@ class dict
 				int hash = mkhash(entries[i].udata.first);
 				entries[i].set_next_used(hashtable[hash]);
 				hashtable[hash] = i;
+				begin_n = i;
 			}
 	}
 
@@ -213,7 +216,9 @@ class dict
 				entries[index].set_next_free(free_list);
 				free_list = index;
 				if (--counter == 0)
-					init();
+					clear();
+				else if (index == begin_n)
+					do begin_n--; while (begin_n >= 0 && entries[begin_n].is_free());
 				return;
 			}
 			last_index = index;
@@ -253,6 +258,8 @@ class dict
 		entries[i].udata = value;
 		entries[i].set_next_used(hashtable[hash]);
 		hashtable[hash] = i;
+		if (begin_n < i)
+			begin_n = i;
 		counter++;
 		return i;
 	}
@@ -265,8 +272,7 @@ public:
 	public:
 		iterator() { }
 		iterator(dict<K, T, OPS> *ptr, int index) : ptr(ptr), index(index) { }
-		iterator operator++() { do index++; while (index != int(ptr->entries.size()) && ptr->entries[index].is_free()); return *this; }
-		iterator operator--() { do index--; while (index != 0 && ptr->entries[index].is_free()); return *this; }
+		iterator operator++() { do index--; while (index >= 0 && ptr->entries[index].is_free()); return *this; }
 		bool operator==(const iterator &other) const { return index == other.index; }
 		bool operator!=(const iterator &other) const { return index != other.index; }
 		std::pair<K, T> &operator*() { return ptr->entries[index].udata; }
@@ -282,8 +288,7 @@ public:
 	public:
 		const_iterator() { }
 		const_iterator(const dict<K, T, OPS> *ptr, int index) : ptr(ptr), index(index) { }
-		const_iterator operator++() { do index++; while (index != int(ptr->entries.size()) && ptr->entries[index].is_free()); return *this; }
-		const_iterator operator--() { do index--; while (index != 0 && ptr->entries[index].is_free()); return *this; }
+		const_iterator operator++() { do index--; while (index >= 0 && ptr->entries[index].is_free()); return *this; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
 		bool operator!=(const const_iterator &other) const { return index != other.index; }
 		const std::pair<K, T> &operator*() const { return ptr->entries[index].udata; }
@@ -308,8 +313,8 @@ public:
 	}
 
 	dict<K, T, OPS> &operator=(const dict<K, T, OPS> &other) {
-		clear();
-		init_from(other);
+		if (this != &other)
+			init_from(other);
 		return *this;
 	}
 
@@ -420,6 +425,7 @@ public:
 		entries.swap(other.entries);
 		std::swap(free_list, other.free_list);
 		std::swap(counter, other.counter);
+		std::swap(begin_n, other.begin_n);
 	}
 
 	bool operator==(const dict<K, T, OPS> &other) const {
@@ -450,11 +456,11 @@ public:
 	bool empty() const { return counter == 0; }
 	void clear() { hashtable.clear(); entries.clear(); init(); }
 
-	iterator begin() { int index = 0; while (index != int(entries.size()) && entries[index].is_free()) index++; return iterator(this, index); }
-	iterator end() { return iterator(this, entries.size()); }
+	iterator begin() { return iterator(this, begin_n); }
+	iterator end() { return iterator(this, -1); }
 
-	const_iterator begin() const { int index = 0; while (index != int(entries.size()) && entries[index].is_free()) index++; return const_iterator(this, index); }
-	const_iterator end() const { return const_iterator(this, entries.size()); }
+	const_iterator begin() const { return const_iterator(this, begin_n); }
+	const_iterator end() const { return const_iterator(this, -1); }
 };
 
 template<typename K, typename OPS = hash_ops<K>>
@@ -477,13 +483,14 @@ class pool
 
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
-	int free_list, counter;
+	int free_list, counter, begin_n;
 	OPS ops;
 
 	void init()
 	{
 		free_list = -1;
 		counter = 0;
+		begin_n = -1;
 	}
 
 	void init_from(const pool<K, OPS> &other)
@@ -514,6 +521,7 @@ class pool
 	void rehash()
 	{
 		free_list = -1;
+		begin_n = -1;
 
 		for (auto &h : hashtable)
 			h = -1;
@@ -526,6 +534,7 @@ class pool
 				int hash = mkhash(entries[i].key);
 				entries[i].set_next_used(hashtable[hash]);
 				hashtable[hash] = i;
+				begin_n = i;
 			}
 	}
 
@@ -545,7 +554,9 @@ class pool
 				entries[index].set_next_free(free_list);
 				free_list = index;
 				if (--counter == 0)
-					init();
+					clear();
+				else if (index == begin_n)
+					do begin_n--; while (begin_n >= 0 && entries[begin_n].is_free());
 				return;
 			}
 			last_index = index;
@@ -585,6 +596,8 @@ class pool
 		entries[i].key = key;
 		entries[i].set_next_used(hashtable[hash]);
 		hashtable[hash] = i;
+		if (begin_n < i)
+			begin_n = i;
 		counter++;
 		return i;
 	}
@@ -597,8 +610,7 @@ public:
 	public:
 		iterator() { }
 		iterator(pool<K, OPS> *ptr, int index) : ptr(ptr), index(index) { }
-		iterator operator++() { do index++; while (index != int(ptr->entries.size()) && ptr->entries[index].is_free()); return *this; }
-		iterator operator--() { do index--; while (index != 0 && ptr->entries[index].is_free()); return *this; }
+		iterator operator++() { do index--; while (index >= 0 && ptr->entries[index].is_free()); return *this; }
 		bool operator==(const iterator &other) const { return index == other.index; }
 		bool operator!=(const iterator &other) const { return index != other.index; }
 		K &operator*() { return ptr->entries[index].key; }
@@ -614,8 +626,7 @@ public:
 	public:
 		const_iterator() { }
 		const_iterator(const pool<K, OPS> *ptr, int index) : ptr(ptr), index(index) { }
-		const_iterator operator++() { do index++; while (index != int(ptr->entries.size()) && ptr->entries[index].is_free()); return *this; }
-		const_iterator operator--() { do index--; while (index != 0 && ptr->entries[index].is_free()); return *this; }
+		const_iterator operator++() { do index--; while (index >= 0 && ptr->entries[index].is_free()); return *this; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
 		bool operator!=(const const_iterator &other) const { return index != other.index; }
 		const K &operator*() const { return ptr->entries[index].key; }
@@ -640,8 +651,8 @@ public:
 	}
 
 	pool<K, OPS> &operator=(const pool<K, OPS> &other) {
-		clear();
-		init_from(other);
+		if (this != &other)
+			init_from(other);
 		return *this;
 	}
 
@@ -732,6 +743,7 @@ public:
 		entries.swap(other.entries);
 		std::swap(free_list, other.free_list);
 		std::swap(counter, other.counter);
+		std::swap(begin_n, other.begin_n);
 	}
 
 	bool operator==(const pool<K, OPS> &other) const {
@@ -762,11 +774,11 @@ public:
 	bool empty() const { return counter == 0; }
 	void clear() { hashtable.clear(); entries.clear(); init(); }
 
-	iterator begin() { int index = 0; while (index != int(entries.size()) && entries[index].is_free()) index++; return iterator(this, index); }
-	iterator end() { return iterator(this, entries.size()); }
+	iterator begin() { return iterator(this, begin_n); }
+	iterator end() { return iterator(this, -1); }
 
-	const_iterator begin() const { int index = 0; while (index != int(entries.size()) && entries[index].is_free()) index++; return const_iterator(this, index); }
-	const_iterator end() const { return const_iterator(this, entries.size()); }
+	const_iterator begin() const { return const_iterator(this, begin_n); }
+	const_iterator end() const { return const_iterator(this, -1); }
 };
 
 } /* namespace hashlib */
