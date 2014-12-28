@@ -236,6 +236,9 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 RTLIL::Design::Design()
 {
+	unsigned int hashidx_count = 0;
+	hashidx_ = hashidx_count++;
+
 	refcount_modules_ = 0;
 	selection_stack.push_back(RTLIL::Selection());
 }
@@ -447,6 +450,9 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
 
 RTLIL::Module::Module()
 {
+	unsigned int hashidx_count = 0;
+	hashidx_ = hashidx_count++;
+
 	design = nullptr;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
@@ -1132,7 +1138,7 @@ namespace {
 	struct DeleteWireWorker
 	{
 		RTLIL::Module *module;
-		const pool<RTLIL::Wire*, hash_obj_ops> *wires_p;
+		const pool<RTLIL::Wire*> *wires_p;
 
 		void operator()(RTLIL::SigSpec &sig) {
 			std::vector<RTLIL::SigChunk> chunks = sig;
@@ -1146,7 +1152,7 @@ namespace {
 	};
 }
 
-void RTLIL::Module::remove(const pool<RTLIL::Wire*, hash_obj_ops> &wires)
+void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 {
 	log_assert(refcount_wires_ == 0);
 
@@ -1735,6 +1741,9 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec
 
 RTLIL::Wire::Wire()
 {
+	unsigned int hashidx_count = 0;
+	hashidx_ = hashidx_count++;
+
 	module = nullptr;
 	width = 1;
 	start_offset = 0;
@@ -1746,12 +1755,17 @@ RTLIL::Wire::Wire()
 
 RTLIL::Memory::Memory()
 {
+	unsigned int hashidx_count = 0;
+	hashidx_ = hashidx_count++;
+
 	width = 1;
 	size = 0;
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
 {
+	unsigned int hashidx_count = 0;
+	hashidx_ = hashidx_count++;
 }
 
 bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const

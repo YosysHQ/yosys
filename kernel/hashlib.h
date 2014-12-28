@@ -1,29 +1,23 @@
-/*
- *  yosys -- Yosys Open SYnthesis Suite
- *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
- *  Permission to use, copy, modify, and/or distribute this software for any
- *  purpose with or without fee is hereby granted, provided that the above
- *  copyright notice and this permission notice appear in all copies.
- *  
- *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- */
+// This is free and unencumbered software released into the public domain.
+// 
+// Anyone is free to copy, modify, publish, use, compile, sell, or
+// distribute this software, either in source code form or as a compiled
+// binary, for any purpose, commercial or non-commercial, and by any
+// means.
 
-#ifndef YOSYS_HASHMAP_H
+// -------------------------------------------------------
+// Written by Clifford Wolf <clifford@clifford.at> in 2014
+// -------------------------------------------------------
+
+#ifndef HASHLIB_H
 
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-#define YOSYS_HASHTABLE_SIZE_FACTOR 3
+namespace hashlib {
+
+#define HASHLIB_SIZE_FACTOR 3
 
 // The XOR version of DJB2
 // (traditionally 5381 is used as starting value for the djb2 hash)
@@ -32,7 +26,7 @@ inline unsigned int mkhash(unsigned int a, unsigned int b) {
 }
 
 // The ADD version of DJB2
-// (use this version as last call for cache locality in b)
+// (use this version for cache locality in b)
 inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) + b;
 }
@@ -47,10 +41,11 @@ template<typename T> struct hash_ops {
 };
 
 template<> struct hash_ops<int> {
-	bool cmp(int a, int b) const {
+	template<typename T>
+	bool cmp(T a, T b) const {
 		return a == b;
 	}
-	unsigned int hash(int a) const {
+	unsigned int hash(unsigned int a) const {
 		return a;
 	}
 };
@@ -97,7 +92,7 @@ struct hash_obj_ops {
 	}
 	template<typename T>
 	unsigned int hash(const T *a) const {
-		return a->name.hash();
+		return a->hash();
 	}
 };
 
@@ -165,9 +160,9 @@ class dict
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * counter);
+		int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * counter);
 		hashtable.resize(new_size);
-		new_size = new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1;
+		new_size = new_size / HASHLIB_SIZE_FACTOR + 1;
 		entries.reserve(new_size);
 
 		for (auto &it : other)
@@ -243,9 +238,9 @@ class dict
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * entries.size());
+			int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * entries.size());
 			hashtable.resize(new_size);
-			entries.resize(new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1);
+			entries.resize(new_size / HASHLIB_SIZE_FACTOR + 1);
 			entries[i].udata = value;
 			entries[i].set_next_used(0);
 			counter++;
@@ -345,14 +340,14 @@ public:
 			insert(*first);
 	}
 
-	iterator insert(const std::pair<K, T> &value)
+	std::pair<iterator, bool> insert(const std::pair<K, T> &value)
 	{
 		int hash = mkhash(value.first);
 		int i = lookup_index(value.first, hash);
 		if (i >= 0)
-			return iterator(this, i);
+			return std::pair<iterator, bool>(iterator(this, i), false);
 		i = insert_at(value, hash);
-		return iterator(this, i);
+		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
 	void erase(const K &key)
@@ -497,9 +492,9 @@ class pool
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * counter);
+		int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * counter);
 		hashtable.resize(new_size);
-		new_size = new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1;
+		new_size = new_size / HASHLIB_SIZE_FACTOR + 1;
 		entries.reserve(new_size);
 
 		for (auto &it : other)
@@ -575,9 +570,9 @@ class pool
 		if (free_list < 0)
 		{
 			int i = entries.size();
-			int new_size = hashtable_size(YOSYS_HASHTABLE_SIZE_FACTOR * entries.size());
+			int new_size = hashtable_size(HASHLIB_SIZE_FACTOR * entries.size());
 			hashtable.resize(new_size);
-			entries.resize(new_size / YOSYS_HASHTABLE_SIZE_FACTOR + 1);
+			entries.resize(new_size / HASHLIB_SIZE_FACTOR + 1);
 			entries[i].key = key;
 			entries[i].set_next_used(0);
 			counter++;
@@ -677,14 +672,14 @@ public:
 			insert(*first);
 	}
 
-	iterator insert(const K &key)
+	std::pair<iterator, bool> insert(const K &key)
 	{
 		int hash = mkhash(key);
 		int i = lookup_index(key, hash);
 		if (i >= 0)
-			return iterator(this, i);
+			return std::pair<iterator, bool>(iterator(this, i), false);
 		i = insert_at(key, hash);
-		return iterator(this, i);
+		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
 	void erase(const K &key)
@@ -695,8 +690,8 @@ public:
 
 	void erase(const iterator it)
 	{
-		int hash = mkhash(it->first);
-		do_erase(it->first, hash);
+		int hash = mkhash(*it);
+		do_erase(*it, hash);
 	}
 
 	int count(const K &key) const
@@ -773,5 +768,7 @@ public:
 	const_iterator begin() const { int index = 0; while (index != int(entries.size()) && entries[index].is_free()) index++; return const_iterator(this, index); }
 	const_iterator end() const { return const_iterator(this, entries.size()); }
 };
+
+} /* namespace hashlib */
 
 #endif

@@ -91,8 +91,8 @@ struct DeletePass : public Pass {
 				continue;
 			}
 
-			pool<RTLIL::Wire*, hash_obj_ops> delete_wires;
-			pool<RTLIL::Cell*, hash_obj_ops> delete_cells;
+			pool<RTLIL::Wire*> delete_wires;
+			pool<RTLIL::Cell*> delete_cells;
 			pool<RTLIL::IdString> delete_procs;
 			pool<RTLIL::IdString> delete_mems;
 

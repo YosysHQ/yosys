@@ -124,16 +124,50 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#include "kernel/hashmap.h"
+#include "kernel/hashlib.h"
 using std::vector;
+using std::string;
+using hashlib::mkhash;
+using hashlib::mkhash_add;
+using hashlib::hash_ops;
+using hashlib::hash_cstr_ops;
+using hashlib::hash_ptr_ops;
+using hashlib::hash_obj_ops;
+using hashlib::dict;
+using hashlib::pool;
 
 namespace RTLIL {
 	struct IdString;
+	struct Const;
 	struct SigBit;
 	struct SigSpec;
 	struct Wire;
 	struct Cell;
+	struct Module;
+	struct Design;
+	struct Monitor;
 }
+
+using RTLIL::IdString;
+using RTLIL::Const;
+using RTLIL::SigBit;
+using RTLIL::SigSpec;
+using RTLIL::Wire;
+using RTLIL::Cell;
+using RTLIL::Module;
+using RTLIL::Design;
+
+template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
+template<> struct hash_ops<RTLIL::Cell*> : hash_obj_ops {};
+template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
+template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
+template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
+
+template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
+template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
+template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
+template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
+template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
 
 std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);

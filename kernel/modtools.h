@@ -270,7 +270,7 @@ struct ModWalker
 	dict<RTLIL::SigBit, pool<PortBit>> signal_consumers;
 	pool<RTLIL::SigBit> signal_inputs, signal_outputs;
 
-	dict<RTLIL::Cell*, pool<RTLIL::SigBit>, hash_obj_ops> cell_outputs, cell_inputs;
+	dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_outputs, cell_inputs;
 
 	void add_wire(RTLIL::Wire *wire)
 	{

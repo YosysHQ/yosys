@@ -731,7 +731,7 @@ struct ShareWorker
 			return forbidden_controls_cache.at(cell);
 
 		pool<ModWalker::PortBit> pbits;
-		pool<RTLIL::Cell*, hash_obj_ops> consumer_cells;
+		pool<RTLIL::Cell*> consumer_cells;
 
 		modwalker.get_consumers(pbits, modwalker.cell_outputs[cell]);
 
@@ -803,7 +803,7 @@ struct ShareWorker
 			return activation_patterns_cache.at(cell);
 
 		const pool<RTLIL::SigBit> &cell_out_bits = modwalker.cell_outputs[cell];
-		pool<RTLIL::Cell*, hash_obj_ops> driven_cells, driven_data_muxes;
+		pool<RTLIL::Cell*> driven_cells, driven_data_muxes;
 
 		for (auto &bit : cell_out_bits)
 		{

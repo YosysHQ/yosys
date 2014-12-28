@@ -708,8 +708,14 @@ struct RTLIL::Selection
 
 struct RTLIL::Monitor
 {
-	RTLIL::IdString name;
-	Monitor() { name = stringf("$%d", autoidx++); }
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
+	Monitor() {
+		unsigned int hashidx_count = 0;
+		hashidx_ = hashidx_count++;
+	}
+
 	virtual ~Monitor() { }
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
@@ -721,7 +727,10 @@ struct RTLIL::Monitor
 
 struct RTLIL::Design
 {
-	pool<RTLIL::Monitor*, hash_obj_ops> monitors;
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
+	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
 
 	int refcount_modules_;
@@ -802,13 +811,16 @@ struct RTLIL::Design
 
 struct RTLIL::Module
 {
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
 protected:
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
 
 public:
 	RTLIL::Design *design;
-	pool<RTLIL::Monitor*, hash_obj_ops> monitors;
+	pool<RTLIL::Monitor*> monitors;
 
 	int refcount_wires_;
 	int refcount_cells_;
@@ -862,7 +874,7 @@ public:
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
-	void remove(const pool<RTLIL::Wire*, hash_obj_ops> &wires);
+	void remove(const pool<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
@@ -1031,6 +1043,9 @@ public:
 
 struct RTLIL::Wire
 {
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
@@ -1051,6 +1066,9 @@ public:
 
 struct RTLIL::Memory
 {
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
 	Memory();
 
 	RTLIL::IdString name;
@@ -1060,6 +1078,9 @@ struct RTLIL::Memory
 
 struct RTLIL::Cell
 {
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
