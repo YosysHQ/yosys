@@ -712,8 +712,9 @@ struct RTLIL::Monitor
 	unsigned int hash() const { return hashidx_; }
 
 	Monitor() {
-		static unsigned int hashidx_count = 0;
-		hashidx_ = hashidx_count++;
+		static unsigned int hashidx_count = 123456789;
+		hashidx_count = mkhash_xorshift(hashidx_count);
+		hashidx_ = hashidx_count;
 	}
 
 	virtual ~Monitor() { }

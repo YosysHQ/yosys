@@ -31,6 +31,20 @@ inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) + b;
 }
 
+inline unsigned int mkhash_xorshift(unsigned int a) {
+	if (sizeof(a) == 4) {
+		a ^= a << 13;
+		a ^= a >> 17;
+		a ^= a << 5;
+	} else if (sizeof(a) == 8) {
+		a ^= a << 13;
+		a ^= a >> 7;
+		a ^= a << 17;
+	} else
+		throw std::runtime_error("mkhash_xorshift() only implemented for 32 bit and 64 bit ints");
+	return a;
+}
+
 template<typename T> struct hash_ops {
 	bool cmp(const T &a, const T &b) const {
 		return a == b;
@@ -122,7 +136,11 @@ inline int hashtable_size(int old_size)
 	if (old_size <  250999999) return  250999999;
 	if (old_size <  503000009) return  503000009;
 	if (old_size < 1129999999) return 1129999999;
-	throw std::length_error("hash table exceeded maximum size");
+
+	if (sizeof(old_size) == 4)
+		throw std::length_error("hash table exceeded maximum size. recompile with -mint64.");
+
+	return old_size * 2;
 }
 
 template<typename K, typename T, typename OPS = hash_ops<K>>

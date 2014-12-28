@@ -136,6 +136,7 @@ using std::vector;
 using std::string;
 using hashlib::mkhash;
 using hashlib::mkhash_add;
+using hashlib::mkhash_xorshift;
 using hashlib::hash_ops;
 using hashlib::hash_cstr_ops;
 using hashlib::hash_ptr_ops;

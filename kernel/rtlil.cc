@@ -236,8 +236,9 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 RTLIL::Design::Design()
 {
-	static unsigned int hashidx_count = 0;
-	hashidx_ = hashidx_count++;
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
 
 	refcount_modules_ = 0;
 	selection_stack.push_back(RTLIL::Selection());
@@ -450,8 +451,9 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
 
 RTLIL::Module::Module()
 {
-	static unsigned int hashidx_count = 0;
-	hashidx_ = hashidx_count++;
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
 
 	design = nullptr;
 	refcount_wires_ = 0;
@@ -1741,8 +1743,9 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec
 
 RTLIL::Wire::Wire()
 {
-	static unsigned int hashidx_count = 0;
-	hashidx_ = hashidx_count++;
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
 
 	module = nullptr;
 	width = 1;
@@ -1755,8 +1758,9 @@ RTLIL::Wire::Wire()
 
 RTLIL::Memory::Memory()
 {
-	static unsigned int hashidx_count = 0;
-	hashidx_ = hashidx_count++;
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
 
 	width = 1;
 	size = 0;
@@ -1764,8 +1768,9 @@ RTLIL::Memory::Memory()
 
 RTLIL::Cell::Cell() : module(nullptr)
 {
-	static unsigned int hashidx_count = 0;
-	hashidx_ = hashidx_count++;
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
 
 	// log("#memtrace# %p\n", this);
 	memhasher();
