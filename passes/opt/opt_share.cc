@@ -270,6 +270,7 @@ struct OptShareWorker
 						}
 					}
 					log("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+					cell_hash_cache.erase(cell);
 					module->remove(cell);
 					total_count++;
 				} else {
