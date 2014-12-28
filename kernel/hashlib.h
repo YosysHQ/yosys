@@ -200,13 +200,13 @@ class dict
 			}
 	}
 
-	void do_erase(const K &key, int hash)
+	int do_erase(const K &key, int hash)
 	{
 		int last_index = -1;
 		int index = hashtable.empty() ? -1 : hashtable[hash];
 		while (1) {
 			if (index < 0)
-				return;
+				return 0;
 			if (ops.cmp(entries[index].udata.first, key)) {
 				if (last_index < 0)
 					hashtable[hash] = entries[index].get_next();
@@ -219,7 +219,7 @@ class dict
 					clear();
 				else if (index == begin_n)
 					do begin_n--; while (begin_n >= 0 && entries[begin_n].is_free());
-				return;
+				return 1;
 			}
 			last_index = index;
 			index = entries[index].get_next();
@@ -355,16 +355,17 @@ public:
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
-	void erase(const K &key)
+	int erase(const K &key)
 	{
 		int hash = mkhash(key);
-		do_erase(key, hash);
+		return do_erase(key, hash);
 	}
 
-	void erase(const iterator it)
+	iterator erase(iterator it)
 	{
 		int hash = mkhash(it->first);
 		do_erase(it->first, hash);
+		return ++it;
 	}
 
 	int count(const K &key) const
@@ -538,13 +539,13 @@ class pool
 			}
 	}
 
-	void do_erase(const K &key, int hash)
+	int do_erase(const K &key, int hash)
 	{
 		int last_index = -1;
 		int index = hashtable.empty() ? -1 : hashtable[hash];
 		while (1) {
 			if (index < 0)
-				return;
+				return 0;
 			if (ops.cmp(entries[index].key, key)) {
 				if (last_index < 0)
 					hashtable[hash] = entries[index].get_next();
@@ -557,7 +558,7 @@ class pool
 					clear();
 				else if (index == begin_n)
 					do begin_n--; while (begin_n >= 0 && entries[begin_n].is_free());
-				return;
+				return 1;
 			}
 			last_index = index;
 			index = entries[index].get_next();
@@ -693,16 +694,17 @@ public:
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
-	void erase(const K &key)
+	int erase(const K &key)
 	{
 		int hash = mkhash(key);
-		do_erase(key, hash);
+		return do_erase(key, hash);
 	}
 
-	void erase(const iterator it)
+	iterator erase(iterator it)
 	{
 		int hash = mkhash(*it);
 		do_erase(*it, hash);
+		return ++it;
 	}
 
 	int count(const K &key) const
