@@ -182,11 +182,13 @@ struct SpliceWorker
 				if (design->selected(module, it.second))
 					selected_bits.add(sigmap(it.second));
 
-		for (auto &it : module->cells_) {
-			if (!sel_by_wire && !design->selected(module, it.second))
+		std::vector<Cell*> mod_cells = module->cells();
+
+		for (auto cell : mod_cells) {
+			if (!sel_by_wire && !design->selected(module, cell))
 				continue;
-			for (auto &conn : it.second->connections_)
-				if (ct.cell_input(it.second->type, conn.first)) {
+			for (auto &conn : cell->connections_)
+				if (ct.cell_input(cell->type, conn.first)) {
 					if (ports.size() > 0 && !ports.count(conn.first))
 						continue;
 					if (no_ports.size() > 0 && no_ports.count(conn.first))
@@ -205,24 +207,25 @@ struct SpliceWorker
 		}
 
 		std::vector<std::pair<RTLIL::Wire*, RTLIL::SigSpec>> rework_wires;
+		std::vector<Wire*> mod_wires = module->wires();
 
-		for (auto &it : module->wires_)
-			if (!no_outputs && it.second->port_output) {
-				if (!design->selected(module, it.second))
+		for (auto mod : mod_wires)
+			if (!no_outputs && mod->port_output) {
+				if (!design->selected(module, mod))
 					continue;
-				RTLIL::SigSpec sig = sigmap(it.second);
+				RTLIL::SigSpec sig = sigmap(mod);
 				if (driven_chunks.count(sig) > 0)
 					continue;
 				RTLIL::SigSpec new_sig = get_spliced_signal(sig);
 				if (new_sig != sig)
-					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(it.second, new_sig));
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(mod, new_sig));
 			} else
-			if (!it.second->port_input) {
-				RTLIL::SigSpec sig = sigmap(it.second);
+			if (!mod->port_input) {
+				RTLIL::SigSpec sig = sigmap(mod);
 				if (spliced_signals_cache.count(sig) && spliced_signals_cache.at(sig) != sig)
-					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(it.second, spliced_signals_cache.at(sig)));
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(mod, spliced_signals_cache.at(sig)));
 				else if (sliced_signals_cache.count(sig) && sliced_signals_cache.at(sig) != sig)
-					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(it.second, sliced_signals_cache.at(sig)));
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(mod, sliced_signals_cache.at(sig)));
 			}
 
 		for (auto &it : rework_wires)
