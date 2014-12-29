@@ -219,8 +219,8 @@ namespace RTLIL
 			return index_;
 		}
 
-		// The following is a helper key_compare class. Instead of for example pool<Cell*>
-		// use pool<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
+		// The following is a helper key_compare class. Instead of for example std::set<Cell*>
+		// use std::set<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
 		// set has an influence on the algorithm.
 
 		template<typename T> struct compare_ptr_by_name {
@@ -450,6 +450,13 @@ struct RTLIL::Const
 	std::string decode_string() const;
 
 	inline int size() const { return bits.size(); }
+
+	inline unsigned int hash() const {
+		unsigned int h = 5381;
+		for (auto b : bits)
+			mkhash(h, b);
+		return h;
+	}
 };
 
 struct RTLIL::SigChunk

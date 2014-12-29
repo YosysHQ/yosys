@@ -76,6 +76,17 @@ template<> struct hash_ops<std::string> {
 	}
 };
 
+template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
+	bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) const {
+		return a == b;
+	}
+	unsigned int hash(std::pair<P, Q> a) const {
+		hash_ops<P> p_ops;
+		hash_ops<Q> q_ops;
+		return mkhash(p_ops.hash(a.first), q_ops.hash(a.second));
+	}
+};
+
 struct hash_cstr_ops {
 	bool cmp(const char *a, const char *b) const {
 		for (int i = 0; a[i] || b[i]; i++)
