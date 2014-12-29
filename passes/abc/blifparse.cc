@@ -129,7 +129,8 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				if (p == NULL)
 					goto error;
 
-				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(p));
+				IdString celltype = RTLIL::escape_id(p);
+				RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
 
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					char *q = strchr(p, '=');

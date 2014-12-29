@@ -29,15 +29,15 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; scorr -v; ifraig -v; retime -v {D}; strash; dch -vf; map -v {D}"
-#define ABC_COMMAND_CTR "strash; scorr -v; ifraig -v; retime -v {D}; strash; dch -vf; map -v {D}; buffer -v; upsize -v {D}; dnsize -v {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; if -v"
-#define ABC_COMMAND_DFL "strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; map -v"
+#define ABC_COMMAND_LIB "strash; scorr; ifraig; retime {D}; strash; dchf; map {D}"
+#define ABC_COMMAND_CTR "strash; scorr; ifraig; retime {D}; strash; dchf; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_LUT "strash; scorr; ifraig; retime; strash; dch -f; if"
+#define ABC_COMMAND_DFL "strash; scorr; ifraig; retime; strash; dch -f; map"
 
-#define ABC_FAST_COMMAND_LIB "retime -v {D}; map -v {D}"
-#define ABC_FAST_COMMAND_CTR "retime -v {D}; map -v {D}; buffer -v; upsize -v {D}; dnsize -v {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "retime -v; if -v"
-#define ABC_FAST_COMMAND_DFL "retime -v; map -v"
+#define ABC_FAST_COMMAND_LIB "retime {D}; map {D}"
+#define ABC_FAST_COMMAND_CTR "retime {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_FAST_COMMAND_LUT "retime; if"
+#define ABC_FAST_COMMAND_DFL "retime; map"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -479,8 +479,6 @@ std::string add_echos_to_abc_cmd(std::string str)
 		if (str[i] == ';') {
 			while (i+1 < str.size() && str[i+1] == ' ')
 				i++;
-			if (!new_str.empty())
-				new_str += "echo; ";
 			new_str += "echo + " + token + " " + token + " ";
 			token.clear();
 		}
@@ -488,7 +486,7 @@ std::string add_echos_to_abc_cmd(std::string str)
 
 	if (!token.empty()) {
 		if (!new_str.empty())
-			new_str += "echo; echo + " + token + "; ";
+			new_str += "echo + " + token + "; ";
 		new_str += token;
 	}
 
@@ -514,13 +512,38 @@ std::string fold_abc_cmd(std::string str)
 	return new_str;
 }
 
+std::string replace_tempdir(std::string text, std::string tempdir_name, bool show_tempdir)
+{
+	if (show_tempdir)
+		return text;
+
+	while (1) {
+		size_t pos = text.find(tempdir_name);
+		if (pos == std::string::npos)
+			break;
+		text = text.substr(0, pos) + "<abc-temp-dir>" + text.substr(pos + GetSize(tempdir_name));
+	}
+
+	std::string  selfdir_name = proc_self_dirname();
+	while (1) {
+		size_t pos = text.find(selfdir_name);
+		if (pos == std::string::npos)
+			break;
+		text = text.substr(0, pos) + "<yosys-exe-dir>/" + text.substr(pos + GetSize(selfdir_name));
+	}
+
+	return text;
+}
+
 struct abc_output_filter
 {
 	bool got_cr;
 	int escape_seq_state;
 	std::string linebuf;
+	std::string tempdir_name;
+	bool show_tempdir;
 
-	abc_output_filter()
+	abc_output_filter(std::string tempdir_name, bool show_tempdir) : tempdir_name(tempdir_name), show_tempdir(show_tempdir)
 	{
 		got_cr = false;
 		escape_seq_state = 0;
@@ -547,7 +570,7 @@ struct abc_output_filter
 			return;
 		}
 		if (ch == '\n') {
-			log("ABC: %s\n", linebuf.c_str());
+			log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir).c_str());
 			got_cr = false, linebuf.clear();
 			return;
 		}
@@ -565,7 +588,7 @@ struct abc_output_filter
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, int lut_mode, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, bool fast_mode, const std::vector<RTLIL::Cell*> &cells)
+		bool keepff, std::string delay_target, bool fast_mode, const std::vector<RTLIL::Cell*> &cells, bool show_tempdir)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -588,7 +611,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	tempdir_name = make_temp_dir(tempdir_name);
-	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n", module->name.c_str(), tempdir_name.c_str());
+	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
+			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
 	std::string abc_script = stringf("read_blif %s/input.blif; ", tempdir_name.c_str());
 
@@ -833,9 +857,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		}
 
 		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
-		log("Running ABC command: %s\n", buffer.c_str());
+		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
-		abc_output_filter filt;
+		abc_output_filter filt(tempdir_name, show_tempdir);
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
@@ -1036,7 +1060,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	if (cleanup)
 	{
-		log_header("Removing temp directory `%s':\n", tempdir_name.c_str());
+		log("Removing temp directory.\n");
 		remove_directory(tempdir_name);
 	}
 
@@ -1135,6 +1159,10 @@ struct AbcPass : public Pass {
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
 		log("\n");
+		log("    -showtmp\n");
+		log("        print the temp dir name in log. usually this is suppressed so that the\n");
+		log("        command output is identical across runs.\n");
+		log("\n");
 		log("    -markgroups\n");
 		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
 		log("        this attribute is a unique integer for each ABC process started. This\n");
@@ -1157,6 +1185,7 @@ struct AbcPass : public Pass {
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 		std::string script_file, liberty_file, constr_file, clk_str, delay_target;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
+		bool show_tempdir = false;
 		int lut_mode = 0;
 		markgroups = false;
 
@@ -1224,6 +1253,10 @@ struct AbcPass : public Pass {
 				cleanup = false;
 				continue;
 			}
+			if (arg == "-showtmp") {
+				show_tempdir = true;
+				continue;
+			}
 			if (arg == "-markgroups") {
 				markgroups = true;
 				continue;
@@ -1241,7 +1274,7 @@ struct AbcPass : public Pass {
 			if (mod->processes.size() > 0)
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 			else if (!dff_mode || !clk_str.empty())
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff, delay_target, fast_mode, mod->selected_cells());
+				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode, dff_mode, clk_str, keepff, delay_target, fast_mode, mod->selected_cells(), show_tempdir);
 			else
 			{
 				assign_map.set(mod);
@@ -1386,7 +1419,7 @@ struct AbcPass : public Pass {
 					en_polarity = std::get<2>(it.first);
 					en_sig = assign_map(std::get<3>(it.first));
 					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_mode,
-							!clk_sig.empty(), "$", keepff, delay_target, fast_mode, it.second);
+							!clk_sig.empty(), "$", keepff, delay_target, fast_mode, it.second, show_tempdir);
 					assign_map.set(mod);
 				}
 			}

@@ -360,7 +360,6 @@ void remove_directory(std::string dirname)
 		if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
 			std::string buffer = stringf("%s/%s", dirname.c_str(), namelist[i]->d_name);
 			if (!stat(buffer.c_str(), &stbuf) && S_ISREG(stbuf.st_mode)) {
-				log("Removing `%s'.\n", buffer.c_str());
 				remove(buffer.c_str());
 			} else
 				remove_directory(buffer);
@@ -368,7 +367,6 @@ void remove_directory(std::string dirname)
 		free(namelist[i]);
 	}
 	free(namelist);
-	log("Removing `%s'.\n", dirname.c_str());
 	rmdir(dirname.c_str());
 #endif
 }
