@@ -83,6 +83,9 @@ public:
 	ezSAT();
 	virtual ~ezSAT();
 
+	unsigned int statehash;
+	void addhash(unsigned int);
+
 	void keep_cnf() { flag_keep_cnf = true; }
 	void non_incremental() { flag_non_incremental = true; }
 

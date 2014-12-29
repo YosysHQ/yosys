@@ -1226,7 +1226,9 @@ struct ShareWorker
 				for (auto it : exclusive_ctrls)
 					if (satgen.importedSigBit(it.first) && satgen.importedSigBit(it.second)) {
 						log("      Adding exclusive control bits: %s vs. %s\n", log_signal(it.first), log_signal(it.second));
-						ez.assume(ez.NOT(ez.AND(satgen.importSigBit(it.first), satgen.importSigBit(it.second))));
+						int sub1 = satgen.importSigBit(it.first);
+						int sub2 = satgen.importSigBit(it.second);
+						ez.assume(ez.NOT(ez.AND(sub1, sub2)));
 					}
 
 				if (!ez.solve(ez.expression(ez.OpOr, cell_active))) {
@@ -1248,7 +1250,9 @@ struct ShareWorker
 				std::vector<int> sat_model = satgen.importSigSpec(all_ctrl_signals);
 				std::vector<bool> sat_model_values;
 
-				ez.assume(ez.AND(ez.expression(ez.OpOr, cell_active), ez.expression(ez.OpOr, other_cell_active)));
+				int sub1 = ez.expression(ez.OpOr, cell_active);
+				int sub2 = ez.expression(ez.OpOr, other_cell_active);
+				ez.assume(ez.AND(sub1, sub2));
 
 				log("      Size of SAT problem: %d cells, %d variables, %d clauses\n",
 						GetSize(sat_cells), ez.numCnfVariables(), ez.numCnfClauses());

@@ -42,6 +42,8 @@ static std::string my_int_to_string(int i)
 
 ezSAT::ezSAT()
 {
+	statehash = 5381;
+
 	flag_keep_cnf = false;
 	flag_non_incremental = false;
 
@@ -63,6 +65,11 @@ ezSAT::ezSAT()
 
 ezSAT::~ezSAT()
 {
+}
+
+void ezSAT::addhash(unsigned int h)
+{
+	statehash = ((statehash << 5) + statehash) ^ h;
 }
 
 int ezSAT::value(bool val)
@@ -113,8 +120,14 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 	myArgs.reserve(args.size());
 	bool xorRemovedOddTrues = false;
 
+	addhash(__LINE__);
+	addhash(op);
+
 	for (auto arg : args)
 	{
+		addhash(__LINE__);
+		addhash(arg);
+
 		if (arg == 0)
 			continue;
 		if (op == OpAnd && arg == CONST_TRUE)
@@ -200,7 +213,13 @@ int ezSAT::expression(OpId op, const std::vector<int> &args)
 		expressions.push_back(myExpr);
 	}
 
-	return xorRemovedOddTrues ? NOT(id) : id;
+	if (xorRemovedOddTrues)
+		id = NOT(id);
+
+	addhash(__LINE__);
+	addhash(id);
+
+	return id;
 }
 
 void ezSAT::lookup_literal(int id, std::string &name) const
@@ -387,6 +406,9 @@ bool ezSAT::eliminated(int)
 
 void ezSAT::assume(int id)
 {
+	addhash(__LINE__);
+	addhash(id);
+
 	if (id < 0)
 	{
 		assert(0 < -id && -id <= int(expressions.size()));
@@ -429,6 +451,10 @@ void ezSAT::assume(int id)
 
 void ezSAT::add_clause(const std::vector<int> &args)
 {
+	addhash(__LINE__);
+	for (auto arg : args)
+		addhash(arg);
+
 	cnfClauses.push_back(args);
 	cnfClausesCount++;
 }
@@ -519,6 +545,10 @@ std::string ezSAT::cnfLiteralInfo(int idx) const
 
 int ezSAT::bind(int id, bool auto_freeze)
 {
+	addhash(__LINE__);
+	addhash(id);
+	addhash(auto_freeze);
+
 	if (id >= 0) {
 		assert(0 < id && id <= int(literals.size()));
 		cnfLiteralVariables.resize(literals.size());
@@ -561,10 +591,13 @@ int ezSAT::bind(int id, bool auto_freeze)
 			while (args.size() > 1) {
 				std::vector<int> newArgs;
 				for (int i = 0; i < int(args.size()); i += 2)
-					if (i+1 == int(args.size()))
+					if (i+1 == int(args.size())) {
 						newArgs.push_back(args[i]);
-					else
-						newArgs.push_back(OR(AND(args[i], NOT(args[i+1])), AND(NOT(args[i]), args[i+1])));
+					} else {
+						int sub1 = AND(args[i], NOT(args[i+1]));
+						int sub2 = AND(NOT(args[i]), args[i+1]);
+						newArgs.push_back(OR(sub1, sub2));
+					}
 				args.swap(newArgs);
 			}
 			idx = bind(args.at(0), false);
@@ -575,12 +608,16 @@ int ezSAT::bind(int id, bool auto_freeze)
 			std::vector<int> invArgs;
 			for (auto arg : args)
 				invArgs.push_back(NOT(arg));
-			idx = bind(OR(expression(OpAnd, args), expression(OpAnd, invArgs)), false);
+			int sub1 = expression(OpAnd, args);
+			int sub2 = expression(OpAnd, invArgs);
+			idx = bind(OR(sub1, sub2), false);
 			goto assign_idx;
 		}
 
 		if (op == OpITE) {
-			idx = bind(OR(AND(args[0], args[1]), AND(NOT(args[0]), args[2])), false);
+			int sub1 = AND(args[0], args[1]);
+			int sub2 = AND(NOT(args[0]), args[2]);
+			idx = bind(OR(sub1, sub2), false);
 			goto assign_idx;
 		}
 
