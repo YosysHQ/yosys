@@ -25,6 +25,10 @@
 #  include <sys/time.h>
 #endif
 
+#ifdef __linux__
+#  include <dlfcn.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -241,6 +245,97 @@ void log_pop()
 	string_buf.clear();
 	string_buf_size = 0;
 	log_flush();
+}
+
+void log_backtrace(const char *prefix, int levels)
+{
+#ifdef __linux__
+	if (levels <= 0) return;
+
+	Dl_info dli;
+	void *p;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(0))) && dladdr(p, &dli)) {
+		log("%sframe #1: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #1: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 1) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(1))) && dladdr(p, &dli)) {
+		log("%sframe #2: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #2: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 2) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(2))) && dladdr(p, &dli)) {
+		log("%sframe #3: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #3: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 3) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(3))) && dladdr(p, &dli)) {
+		log("%sframe #4: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #4: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 4) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(4))) && dladdr(p, &dli)) {
+		log("%sframe #5: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #5: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 5) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(5))) && dladdr(p, &dli)) {
+		log("%sframe #6: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #6: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 6) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(6))) && dladdr(p, &dli)) {
+		log("%sframe #7: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #7: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 7) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(7))) && dladdr(p, &dli)) {
+		log("%sframe #8: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #8: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 8) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(8))) && dladdr(p, &dli)) {
+		log("%sframe #9: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #9: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 9) return;
+#endif
 }
 
 void log_reset_stack()

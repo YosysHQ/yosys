@@ -269,6 +269,11 @@ void RTLIL::Design::add(RTLIL::Module *module)
 
 	for (auto mon : monitors)
 		mon->notify_module_add(module);
+
+	if (yosys_xtrace) {
+		log("#X# New Module: %s\n", log_id(module));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
 }
 
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
@@ -283,6 +288,11 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 
 	for (auto mon : monitors)
 		mon->notify_module_add(module);
+
+	if (yosys_xtrace) {
+		log("#X# New Module: %s\n", log_id(module));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
 
 	return module;
 }
@@ -352,6 +362,11 @@ void RTLIL::Design::remove(RTLIL::Module *module)
 {
 	for (auto mon : monitors)
 		mon->notify_module_del(module);
+
+	if (yosys_xtrace) {
+		log("#X# Remove Module: %s\n", log_id(module));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
 
 	log_assert(modules_.at(module->name) == module);
 	modules_.erase(module->name);
@@ -1283,6 +1298,11 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 		for (auto mon : design->monitors)
 			mon->notify_connect(this, conn);
 
+	if (yosys_xtrace) {
+		log("#X# Connect (SigSig) in %s: %s = %s (%d bits)\n", log_id(this), log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
 	connections_.push_back(conn);
 }
 
@@ -1299,6 +1319,13 @@ void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
 	if (design)
 		for (auto mon : design->monitors)
 			mon->notify_connect(this, new_conn);
+
+	if (yosys_xtrace) {
+		log("#X# New connections vector in %s:\n", log_id(this));
+		for (auto &conn: new_conn)
+			log("#X#    %s = %s (%d bits)\n", log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
 
 	connections_ = new_conn;
 }
@@ -1795,6 +1822,11 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 			for (auto mon : module->design->monitors)
 				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
+		if (yosys_xtrace) {
+			log("#X# Unconnect %s.%s.%s\n", log_id(this->module), log_id(this), log_id(portname));
+			log_backtrace("-X- ", yosys_xtrace-1);
+		}
+
 		connections_.erase(conn_it);
 	}
 }
@@ -1815,6 +1847,11 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	if (module->design)
 		for (auto mon : module->design->monitors)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
+
+	if (yosys_xtrace) {
+		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
 
 	conn_it->second = signal;
 }

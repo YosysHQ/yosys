@@ -120,6 +120,12 @@ namespace RTLIL
 			global_id_storage_.at(idx) = strdup(p);
 			global_id_index_[global_id_storage_.at(idx)] = idx;
 			global_refcount_storage_.at(idx)++;
+
+			if (yosys_xtrace) {
+				log("#X# New IdString '%s' with index %d.\n", p, idx);
+				log_backtrace("-X- ", yosys_xtrace-1);
+			}
+
 			return idx;
 		}
 
@@ -134,6 +140,11 @@ namespace RTLIL
 
 			if (--global_refcount_storage_.at(idx) != 0)
 				return;
+
+			if (yosys_xtrace) {
+				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
+				log_backtrace("-X- ", yosys_xtrace-1);
+			}
 
 			global_id_index_.erase(global_id_storage_.at(idx));
 			free(global_id_storage_.at(idx));

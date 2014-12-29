@@ -210,6 +210,7 @@ template<typename T> int GetSize(const T &obj) { return obj.size(); }
 int GetSize(RTLIL::Wire *wire);
 
 extern int autoidx;
+extern int yosys_xtrace;
 
 YOSYS_NAMESPACE_END
 

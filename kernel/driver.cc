@@ -151,6 +151,9 @@ int main(int argc, char **argv)
 		printf("    -m module_file\n");
 		printf("        load the specified module (aka plugin)\n");
 		printf("\n");
+		printf("    -X\n");
+		printf("        enable tracing of core data structure changes. for debugging\n");
+		printf("\n");
 		printf("    -M\n");
 		printf("        will slightly randomize allocated pointer addresses. for debugging\n");
 		printf("\n");
@@ -177,12 +180,15 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MAQTVSm:f:Hh:b:o:p:l:qv:tds:c:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:qv:tds:c:")) != -1)
 	{
 		switch (opt)
 		{
 		case 'M':
 			memhasher_on();
+			break;
+		case 'X':
+			yosys_xtrace++;
 			break;
 		case 'A':
 			call_abort = true;

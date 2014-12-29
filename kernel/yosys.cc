@@ -49,6 +49,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
+int yosys_xtrace = 0;
 RTLIL::Design *yosys_design = NULL;
 
 #ifdef YOSYS_ENABLE_TCL
