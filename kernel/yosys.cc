@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/celltypes.h"
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
@@ -51,6 +52,7 @@ YOSYS_NAMESPACE_BEGIN
 int autoidx = 1;
 int yosys_xtrace = 0;
 RTLIL::Design *yosys_design = NULL;
+CellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
@@ -378,8 +380,14 @@ int GetSize(RTLIL::Wire *wire)
 
 void yosys_setup()
 {
+	// if there are already IdString objects then we have a global initialization order bug
+	IdString empty_id;
+	log_assert(empty_id.index_ == 0);
+	IdString::get_reference(empty_id.index_);
+
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
+	yosys_celltypes.setup();
 	log_push();
 }
 
@@ -397,6 +405,7 @@ void yosys_shutdown()
 	log_files.clear();
 
 	Pass::done_register();
+	yosys_celltypes.clear();
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {

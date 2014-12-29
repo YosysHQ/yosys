@@ -26,7 +26,7 @@
  *
  */
 
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
 
