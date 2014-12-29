@@ -48,6 +48,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <initializer_list>
+#include <stdexcept>
 
 #include <sstream>
 #include <fstream>
@@ -124,6 +125,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+// Note: All headers included in hashlib.h must be included
+// outside of YOSYS_NAMESPACE before this or bad things will happen.
 #ifdef HASHLIB_H
 #  undef HASHLIB_H
 #  include "kernel/hashlib.h"
@@ -165,17 +168,19 @@ using RTLIL::Cell;
 using RTLIL::Module;
 using RTLIL::Design;
 
-template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
-template<> struct hash_ops<RTLIL::Cell*> : hash_obj_ops {};
-template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
-template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
-template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
+namespace hashlib {
+	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Cell*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
 
-template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
-template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
-template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
-template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
-template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
+}
 
 void memhasher_on();
 void memhasher_off();
