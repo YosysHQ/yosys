@@ -175,6 +175,7 @@ class dict
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
 	int free_list, counter, begin_n;
+	int begin_seek_count;
 	OPS ops;
 
 	void init()
@@ -182,6 +183,7 @@ class dict
 		free_list = -1;
 		counter = 0;
 		begin_n = -1;
+		begin_seek_count = 0;
 	}
 
 	void init_from(const dict<K, T, OPS> &other)
@@ -209,6 +211,43 @@ class dict
 		return hash;
 	}
 
+	void upd_begin_n()
+	{
+		if (begin_n < -1) {
+			begin_n = -(begin_n+2);
+			if (begin_n > int(entries.size()))
+				begin_n = int(entries.size());
+			do {
+				if (begin_seek_count++ > int(entries.size()))
+					refree();
+				else
+					begin_n--;
+			} while (begin_n >= 0 && entries[begin_n].is_free());
+		}
+	}
+
+	void refree()
+	{
+		free_list = -1;
+		begin_n = -1;
+
+		int last_free = -1;
+		for (int i = 0; i < int(entries.size()); i++)
+			if (entries[i].is_free()) {
+				if (last_free != -1)
+					entries[last_free].set_next_free(i);
+				else
+					free_list = i;
+				last_free = i;
+			} else
+				begin_n = i;
+
+		if (last_free != -1)
+			entries[last_free].set_next_free(-1);
+
+		begin_seek_count = 0;
+	}
+
 	void rehash()
 	{
 		free_list = -1;
@@ -217,16 +256,25 @@ class dict
 		for (auto &h : hashtable)
 			h = -1;
 
+		int last_free = -1;
 		for (int i = 0; i < int(entries.size()); i++)
 			if (entries[i].is_free()) {
-				entries[i].set_next_free(free_list);
-				free_list = i;
+				if (last_free != -1)
+					entries[last_free].set_next_free(i);
+				else
+					free_list = i;
+				last_free = i;
 			} else {
 				int hash = mkhash(entries[i].udata.first);
 				entries[i].set_next_used(hashtable[hash]);
 				hashtable[hash] = i;
 				begin_n = i;
 			}
+
+		if (last_free != -1)
+			entries[last_free].set_next_free(-1);
+
+		begin_seek_count = 0;
 	}
 
 	int do_erase(const K &key, int hash)
@@ -247,7 +295,7 @@ class dict
 				if (--counter == 0)
 					clear();
 				else if (index == begin_n)
-					do begin_n--; while (begin_n >= 0 && entries[begin_n].is_free());
+					begin_n = -(begin_n+2);
 				return 1;
 			}
 			last_index = index;
@@ -287,7 +335,7 @@ class dict
 		entries[i].udata = value;
 		entries[i].set_next_used(hashtable[hash]);
 		hashtable[hash] = i;
-		if (begin_n < i)
+		if ((begin_n < -1 && -(begin_n+2) <= i) || (begin_n >= -1 && begin_n <= i))
 			begin_n = i;
 		counter++;
 		return i;
@@ -486,10 +534,10 @@ public:
 	bool empty() const { return counter == 0; }
 	void clear() { hashtable.clear(); entries.clear(); init(); }
 
-	iterator begin() { return iterator(this, begin_n); }
+	iterator begin() { upd_begin_n(); return iterator(this, begin_n); }
 	iterator end() { return iterator(this, -1); }
 
-	const_iterator begin() const { return const_iterator(this, begin_n); }
+	const_iterator begin() const { ((dict*)this)->upd_begin_n(); return const_iterator(this, begin_n); }
 	const_iterator end() const { return const_iterator(this, -1); }
 };
 
@@ -514,6 +562,7 @@ class pool
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
 	int free_list, counter, begin_n;
+	int begin_seek_count;
 	OPS ops;
 
 	void init()
@@ -521,6 +570,7 @@ class pool
 		free_list = -1;
 		counter = 0;
 		begin_n = -1;
+		begin_seek_count = 0;
 	}
 
 	void init_from(const pool<K, OPS> &other)
@@ -548,6 +598,43 @@ class pool
 		return hash;
 	}
 
+	void upd_begin_n()
+	{
+		if (begin_n < -1) {
+			begin_n = -(begin_n+2);
+			if (begin_n > int(entries.size()))
+				begin_n = int(entries.size());
+			do {
+				if (begin_seek_count++ > int(entries.size()))
+					refree();
+				else
+					begin_n--;
+			} while (begin_n >= 0 && entries[begin_n].is_free());
+		}
+	}
+
+	void refree()
+	{
+		free_list = -1;
+		begin_n = -1;
+
+		int last_free = -1;
+		for (int i = 0; i < int(entries.size()); i++)
+			if (entries[i].is_free()) {
+				if (last_free != -1)
+					entries[last_free].set_next_free(i);
+				else
+					free_list = i;
+				last_free = i;
+			} else
+				begin_n = i;
+
+		if (last_free != -1)
+			entries[last_free].set_next_free(-1);
+
+		begin_seek_count = 0;
+	}
+
 	void rehash()
 	{
 		free_list = -1;
@@ -556,16 +643,25 @@ class pool
 		for (auto &h : hashtable)
 			h = -1;
 
+		int last_free = -1;
 		for (int i = 0; i < int(entries.size()); i++)
 			if (entries[i].is_free()) {
-				entries[i].set_next_free(free_list);
-				free_list = i;
+				if (last_free != -1)
+					entries[last_free].set_next_free(i);
+				else
+					free_list = i;
+				last_free = i;
 			} else {
 				int hash = mkhash(entries[i].key);
 				entries[i].set_next_used(hashtable[hash]);
 				hashtable[hash] = i;
 				begin_n = i;
 			}
+
+		if (last_free != -1)
+			entries[last_free].set_next_free(-1);
+
+		begin_seek_count = 0;
 	}
 
 	int do_erase(const K &key, int hash)
@@ -586,7 +682,7 @@ class pool
 				if (--counter == 0)
 					clear();
 				else if (index == begin_n)
-					do begin_n--; while (begin_n >= 0 && entries[begin_n].is_free());
+					begin_n = -(begin_n+2);
 				return 1;
 			}
 			last_index = index;
@@ -626,7 +722,7 @@ class pool
 		entries[i].key = key;
 		entries[i].set_next_used(hashtable[hash]);
 		hashtable[hash] = i;
-		if (begin_n < i)
+		if ((begin_n < -1 && -(begin_n+2) <= i) || (begin_n >= -1 && begin_n <= i))
 			begin_n = i;
 		counter++;
 		return i;
@@ -805,10 +901,10 @@ public:
 	bool empty() const { return counter == 0; }
 	void clear() { hashtable.clear(); entries.clear(); init(); }
 
-	iterator begin() { return iterator(this, begin_n); }
+	iterator begin() { upd_begin_n(); return iterator(this, begin_n); }
 	iterator end() { return iterator(this, -1); }
 
-	const_iterator begin() const { return const_iterator(this, begin_n); }
+	const_iterator begin() const { ((pool*)this)->upd_begin_n(); return const_iterator(this, begin_n); }
 	const_iterator end() const { return const_iterator(this, -1); }
 };
 
