@@ -67,12 +67,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		if (!flag_nomem2reg && !get_bool_attribute("\\nomem2reg"))
 		{
-			std::map<AstNode*, std::set<std::string>> mem2reg_places;
-			std::map<AstNode*, uint32_t> mem2reg_candidates, dummy_proc_flags;
+			dict<AstNode*, pool<std::string>> mem2reg_places;
+			dict<AstNode*, uint32_t> mem2reg_candidates, dummy_proc_flags;
 			uint32_t flags = flag_mem2reg ? AstNode::MEM2REG_FL_ALL : 0;
 			mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, dummy_proc_flags, flags);
 
-			std::set<AstNode*> mem2reg_set;
+			pool<AstNode*> mem2reg_set;
 			for (auto &it : mem2reg_candidates)
 			{
 				AstNode *mem = it.first;
@@ -2184,8 +2184,8 @@ void AstNode::replace_ids(const std::string &prefix, const std::map<std::string,
 }
 
 // helper function for mem2reg_as_needed_pass1
-static void mark_memories_assign_lhs_complex(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
-		std::map<AstNode*, uint32_t> &mem2reg_candidates, AstNode *that)
+static void mark_memories_assign_lhs_complex(dict<AstNode*, pool<std::string>> &mem2reg_places,
+		dict<AstNode*, uint32_t> &mem2reg_candidates, AstNode *that)
 {
 	for (auto &child : that->children)
 		mark_memories_assign_lhs_complex(mem2reg_places, mem2reg_candidates, child);
@@ -2199,8 +2199,8 @@ static void mark_memories_assign_lhs_complex(std::map<AstNode*, std::set<std::st
 }
 
 // find memories that should be replaced by registers
-void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
-		std::map<AstNode*, uint32_t> &mem2reg_candidates, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
+void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg_places,
+		dict<AstNode*, uint32_t> &mem2reg_candidates, dict<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
 {
 	uint32_t children_flags = 0;
 	int ignore_children_counter = 0;
@@ -2262,7 +2262,7 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 	if (type == AST_MODULE && get_bool_attribute("\\mem2reg"))
 		children_flags |= AstNode::MEM2REG_FL_ALL;
 
-	std::map<AstNode*, uint32_t> *proc_flags_p = NULL;
+	dict<AstNode*, uint32_t> *proc_flags_p = NULL;
 
 	if (type == AST_ALWAYS) {
 		int count_edge_events = 0;
@@ -2271,12 +2271,12 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 				count_edge_events++;
 		if (count_edge_events != 1)
 			children_flags |= AstNode::MEM2REG_FL_ASYNC;
-		proc_flags_p = new std::map<AstNode*, uint32_t>;
+		proc_flags_p = new dict<AstNode*, uint32_t>;
 	}
 
 	if (type == AST_INITIAL) {
 		children_flags |= AstNode::MEM2REG_FL_INIT;
-		proc_flags_p = new std::map<AstNode*, uint32_t>;
+		proc_flags_p = new dict<AstNode*, uint32_t>;
 	}
 
 	uint32_t backup_flags = flags;
@@ -2300,7 +2300,7 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 	}
 }
 
-bool AstNode::mem2reg_check(std::set<AstNode*> &mem2reg_set)
+bool AstNode::mem2reg_check(pool<AstNode*> &mem2reg_set)
 {
 	if (type != AST_IDENTIFIER || !id2ast || !mem2reg_set.count(id2ast))
 		return false;
@@ -2312,7 +2312,7 @@ bool AstNode::mem2reg_check(std::set<AstNode*> &mem2reg_set)
 }
 
 // actually replace memories with registers
-void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
+void AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
 {
 	if (type == AST_BLOCK)
 		block = this;

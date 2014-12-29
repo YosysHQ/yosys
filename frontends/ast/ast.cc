@@ -180,6 +180,10 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 // (the optional child arguments make it easier to create AST trees)
 AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 {
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
+
 	this->type = type;
 	filename = current_filename;
 	linenum = get_line_num();

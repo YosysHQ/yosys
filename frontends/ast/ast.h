@@ -142,6 +142,10 @@ namespace AST
 	// The AST is built using instances of this struct
 	struct AstNode
 	{
+		// for dict<> and pool<>
+		unsigned int hashidx_;
+		unsigned int hash() const { return hashidx_; }
+
 		// this nodes type
 		AstNodeType type;
 
@@ -207,10 +211,10 @@ namespace AST
 		AstNode *readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map);
 		void replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules);
-		void mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
-				std::map<AstNode*, uint32_t> &mem2reg_flags, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
-		void mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);
-		bool mem2reg_check(std::set<AstNode*> &mem2reg_set);
+		void mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg_places,
+				dict<AstNode*, uint32_t> &mem2reg_flags, dict<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
+		void mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block);
+		bool mem2reg_check(pool<AstNode*> &mem2reg_set);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 
 		// additional functionality for evaluating constant functions

@@ -159,6 +159,10 @@ namespace RTLIL {
 	struct Monitor;
 }
 
+namespace AST {
+	struct AstNode;
+}
+
 using RTLIL::IdString;
 using RTLIL::Const;
 using RTLIL::SigBit;
@@ -174,12 +178,14 @@ namespace hashlib {
 	template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
 	template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
 	template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
+	template<> struct hash_ops<AST::AstNode*> : hash_obj_ops {};
 
 	template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
+	template<> struct hash_ops<const AST::AstNode*> : hash_obj_ops {};
 }
 
 void memhasher_on();
