@@ -182,6 +182,18 @@ void Pass::call(RTLIL::Design *design, std::string command)
 				call(design, "clean -purge");
 		} else
 			args.push_back(tok);
+		bool found_nl = false;
+		for (auto c : cmd_buf) {
+			if (c == ' ' || c == '\t')
+				continue;
+			if (c == '\r' || c == '\n')
+				found_nl = true;
+			break;
+		}
+		if (found_nl) {
+			call(design, args);
+			args.clear();
+		}
 		tok = next_token(cmd_buf, " \t\r\n");
 	}
 
