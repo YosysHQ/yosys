@@ -420,6 +420,9 @@ void yosys_shutdown()
 	loaded_plugins.clear();
 	loaded_plugin_aliases.clear();
 #endif
+
+	IdString empty_id;
+	IdString::put_reference(empty_id.index_);
 }
 
 RTLIL::IdString new_id(std::string file, int line, std::string func)
