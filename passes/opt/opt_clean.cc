@@ -53,7 +53,7 @@ void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_output || wire->get_bool_attribute("\\keep")) {
-			std::set<RTLIL::Cell*> cell_list;
+			pool<RTLIL::Cell*> cell_list;
 			wire2driver.find(sigmap(wire), cell_list);
 			for (auto cell : cell_list)
 				queue.insert(cell);
@@ -68,7 +68,7 @@ void rmunused_module_cells(RTLIL::Module *module, bool verbose)
 		for (auto cell : queue) {
 			for (auto &it : cell->connections()) {
 				if (!ct.cell_output(cell->type, it.first)) {
-					std::set<RTLIL::Cell*> cell_list;
+					pool<RTLIL::Cell*> cell_list;
 					wire2driver.find(sigmap(it.second), cell_list);
 					for (auto c : cell_list) {
 						if (unused.count(c))
@@ -97,7 +97,7 @@ int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	return count;
 }
 
-bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPool &conns, std::set<RTLIL::Wire*> &direct_wires)
+bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPool &conns, pool<RTLIL::Wire*> &direct_wires)
 {
 	RTLIL::Wire *w1 = s1.wire;
 	RTLIL::Wire *w2 = s2.wire;
@@ -161,8 +161,8 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		}
 	
 	SigMap assign_map(module);
-	std::set<RTLIL::SigSpec> direct_sigs;
-	std::set<RTLIL::Wire*> direct_wires;
+	pool<RTLIL::SigSpec> direct_sigs;
+	pool<RTLIL::Wire*> direct_wires;
 	for (auto &it : module->cells_) {
 		RTLIL::Cell *cell = it.second;
 		if (ct_all.cell_known(cell->type))

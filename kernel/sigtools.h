@@ -195,6 +195,15 @@ struct SigSet
 			}
 	}
 
+	void find(RTLIL::SigSpec sig, pool<T> &result)
+	{
+		for (auto &bit : sig)
+			if (bit.wire != NULL) {
+				auto &data = bits[bit];
+				result.insert(data.begin(), data.end());
+			}
+	}
+
 	std::set<T> find(RTLIL::SigSpec sig)
 	{
 		std::set<T> result;
