@@ -62,7 +62,8 @@ template<> struct hash_ops<int> {
 	bool cmp(T a, T b) const {
 		return a == b;
 	}
-	unsigned int hash(unsigned int a) const {
+	template<typename T>
+	unsigned int hash(T a) const {
 		return a;
 	}
 };
@@ -87,6 +88,19 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 		hash_ops<P> p_ops;
 		hash_ops<Q> q_ops;
 		return mkhash(p_ops.hash(a.first), q_ops.hash(a.second));
+	}
+};
+
+template<typename T> struct hash_ops<std::vector<T>> {
+	bool cmp(std::vector<T> a, std::vector<T> b) const {
+		return a == b;
+	}
+	unsigned int hash(std::vector<T> a) const {
+		hash_ops<T> t_ops;
+		unsigned int h = mkhash_init;
+		for (auto k : a)
+			h = mkhash(h, t_ops.hash(k));
+		return h;
 	}
 };
 

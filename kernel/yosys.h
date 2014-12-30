@@ -221,6 +221,10 @@ YOSYS_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
 
+namespace hashlib {
+	template<> struct hash_ops<RTLIL::State> : hash_ops<int> {};
+}
+
 void yosys_setup();
 void yosys_shutdown();
 

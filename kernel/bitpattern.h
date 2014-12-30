@@ -29,7 +29,7 @@ struct BitPatternPool
 {
 	int width;
 	typedef std::vector<RTLIL::State> bits_t;
-	std::set<bits_t> pool;
+	pool<bits_t> database;
 
 	BitPatternPool(RTLIL::SigSpec sig)
 	{
@@ -42,7 +42,7 @@ struct BitPatternPool
 				else
 					pattern[i] = RTLIL::State::Sa;
 			}
-			pool.insert(pattern);
+			database.insert(pattern);
 		}
 	}
 
@@ -53,7 +53,7 @@ struct BitPatternPool
 			std::vector<RTLIL::State> pattern(width);
 			for (int i = 0; i < width; i++)
 				pattern[i] = RTLIL::State::Sa;
-			pool.insert(pattern);
+			database.insert(pattern);
 		}
 	}
 
@@ -79,7 +79,7 @@ struct BitPatternPool
 	bool has_any(RTLIL::SigSpec sig)
 	{
 		bits_t bits = sig2bits(sig);
-		for (auto &it : pool)
+		for (auto &it : database)
 			if (match(it, bits))
 				return true;
 		return false;
@@ -88,13 +88,13 @@ struct BitPatternPool
 	bool has_all(RTLIL::SigSpec sig)
 	{
 		bits_t bits = sig2bits(sig);
-		for (auto &it : pool)
+		for (auto &it : database)
 			if (match(it, bits)) {
 				for (int i = 0; i < width; i++)
 					if (bits[i] > RTLIL::State::S1 && it[i] <= RTLIL::State::S1)
-						goto next_pool_entry;
+						goto next_database_entry;
 				return true;
-	next_pool_entry:;
+	next_database_entry:;
 			}
 		return false;
 	}
@@ -104,17 +104,17 @@ struct BitPatternPool
 		bool status = false;
 		bits_t bits = sig2bits(sig);
 		std::vector<bits_t> pattern_list;
-		for (auto &it : pool)
+		for (auto &it : database)
 			if (match(it, bits))
 				pattern_list.push_back(it);
 		for (auto pattern : pattern_list) {
-			pool.erase(pattern);
+			database.erase(pattern);
 			for (int i = 0; i < width; i++) {
 				if (pattern[i] != RTLIL::State::Sa || bits[i] == RTLIL::State::Sa)
 					continue;
 				bits_t new_pattern = pattern;
 				new_pattern[i] = bits[i] == RTLIL::State::S1 ? RTLIL::State::S0 : RTLIL::State::S1;
-				pool.insert(new_pattern);
+				database.insert(new_pattern);
 			}
 			status = true;
 		}
@@ -123,15 +123,15 @@ struct BitPatternPool
 
 	bool take_all()
 	{
-		if (pool.empty())
+		if (database.empty())
 			return false;
-		pool.clear();
+		database.clear();
 		return true;
 	}
 
 	bool empty()
 	{
-		return pool.empty();
+		return database.empty();
 	}
 }; 
 
