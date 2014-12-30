@@ -1449,6 +1449,7 @@ parameter WIDTH = 8;
 
 parameter CLK_ENABLE = 0;
 parameter CLK_POLARITY = 0;
+parameter TRANSPARENT = 0;
 
 input CLK;
 input [ABITS-1:0] ADDR;
@@ -1473,6 +1474,7 @@ parameter WIDTH = 8;
 
 parameter CLK_ENABLE = 0;
 parameter CLK_POLARITY = 0;
+parameter PRIORITY = 0;
 
 input CLK;
 input [WIDTH-1:0] EN;
