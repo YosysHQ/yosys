@@ -463,7 +463,7 @@ struct RTLIL::Const
 	inline int size() const { return bits.size(); }
 
 	inline unsigned int hash() const {
-		unsigned int h = 5381;
+		unsigned int h = mkhash_init;
 		for (auto b : bits)
 			mkhash(h, b);
 		return h;

@@ -21,13 +21,15 @@ const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
 // The XOR version of DJB2
-// (traditionally 5381 is used as starting value for the djb2 hash)
 inline unsigned int mkhash(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) ^ b;
 }
 
+// traditionally 5381 is used as starting value for the djb2 hash
+const unsigned int mkhash_init = 5381;
+
 // The ADD version of DJB2
-// (use this version for cache locality in b)
+// (usunsigned int mkhashe this version for cache locality in b)
 inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) + b;
 }
@@ -96,7 +98,7 @@ struct hash_cstr_ops {
 		return true;
 	}
 	unsigned int hash(const char *a) const {
-		unsigned int hash = 5381;
+		unsigned int hash = mkhash_init;
 		while (*a)
 			 hash = mkhash(hash, *(a++));
 		 return hash;

@@ -2325,7 +2325,7 @@ void RTLIL::SigSpec::updhash() const
 	cover("kernel.rtlil.sigspec.hash");
 	that->pack();
 
-	that->hash_ = 5381;
+	that->hash_ = mkhash_init;
 	for (auto &c : that->chunks_)
 		if (c.wire == NULL) {
 			for (auto &v : c.data)

@@ -138,6 +138,7 @@ YOSYS_NAMESPACE_BEGIN
 using std::vector;
 using std::string;
 using hashlib::mkhash;
+using hashlib::mkhash_init;
 using hashlib::mkhash_add;
 using hashlib::mkhash_xorshift;
 using hashlib::hash_ops;
