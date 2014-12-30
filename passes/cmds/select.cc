@@ -376,6 +376,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 
 		RTLIL::Module *mod = mod_it.second;
 		std::set<RTLIL::Wire*> selected_wires;
+		auto selected_members = lhs.selected_members[mod->name];
 
 		for (auto &it : mod->wires_)
 			if (lhs.selected_member(mod_it.first, it.first) && limits.count(it.first) == 0)
@@ -389,9 +390,9 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			for (size_t i = 0; i < conn_lhs.size(); i++) {
 				if (conn_lhs[i].wire == NULL || conn_rhs[i].wire == NULL)
 					continue;
-				if (mode != 'i' && selected_wires.count(conn_rhs[i].wire) && lhs.selected_members[mod->name].count(conn_lhs[i].wire->name) == 0)
+				if (mode != 'i' && selected_wires.count(conn_rhs[i].wire) && selected_members.count(conn_lhs[i].wire->name) == 0)
 					lhs.selected_members[mod->name].insert(conn_lhs[i].wire->name), sel_objects++, max_objects--;
-				if (mode != 'o' && selected_wires.count(conn_lhs[i].wire) && lhs.selected_members[mod->name].count(conn_rhs[i].wire->name) == 0)
+				if (mode != 'o' && selected_wires.count(conn_lhs[i].wire) && selected_members.count(conn_rhs[i].wire->name) == 0)
 					lhs.selected_members[mod->name].insert(conn_rhs[i].wire->name), sel_objects++, max_objects--;
 			}
 		}
@@ -418,10 +419,10 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			is_output = mode == 'x' || ct.cell_output(cell.second->type, conn.first);
 			for (auto &chunk : conn.second.chunks())
 				if (chunk.wire != NULL) {
-					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && lhs.selected_members[mod->name].count(cell.first) == 0)
+					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && selected_members.count(cell.first) == 0)
 						if (mode == 'x' || (mode == 'i' && is_output) || (mode == 'o' && is_input))
 							lhs.selected_members[mod->name].insert(cell.first), sel_objects++, max_objects--;
-					if (max_objects != 0 && lhs.selected_members[mod->name].count(cell.first) > 0 && limits.count(cell.first) == 0 && lhs.selected_members[mod->name].count(chunk.wire->name) == 0)
+					if (max_objects != 0 && selected_members.count(cell.first) > 0 && limits.count(cell.first) == 0 && selected_members.count(chunk.wire->name) == 0)
 						if (mode == 'x' || (mode == 'i' && is_input) || (mode == 'o' && is_output))
 							lhs.selected_members[mod->name].insert(chunk.wire->name), sel_objects++, max_objects--;
 				}
