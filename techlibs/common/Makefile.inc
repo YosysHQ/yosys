@@ -1,5 +1,7 @@
 
+ifneq ($(SMALL),1)
 OBJS += techlibs/common/synth.o
+endif
 
 EXTRA_TARGETS += techlibs/common/blackbox.v
 

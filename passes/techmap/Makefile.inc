@@ -2,13 +2,13 @@
 OBJS += passes/techmap/techmap.o
 OBJS += passes/techmap/simplemap.o
 OBJS += passes/techmap/dfflibmap.o
+OBJS += passes/techmap/maccmap.o
 OBJS += passes/techmap/libparse.o
 
 ifneq ($(SMALL),1)
 OBJS += passes/techmap/iopadmap.o
 OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/extract.o
-OBJS += passes/techmap/maccmap.o
 OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/dff2dffe.o
 endif
