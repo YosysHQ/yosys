@@ -4,19 +4,123 @@ Getting Started
 ===============
 
 
-Reading List
-------------
+Outline of a Yosys command
+--------------------------
 
-To write Yosys C++ code you need to know at least the following classes in kernel/rtlil.h:
+Here is a the C++ code for a "hello_world" Yosys command (hello.cc):
+
+	#include "kernel/yosys.h"
+
+	USING_YOSYS_NAMESPACE
+	PRIVATE_NAMESPACE_BEGIN
+
+	struct HelloWorldPass : public Pass {
+		HelloWorldPass() : Pass("hello_world") { }
+		virtual void execute(vector<string>, Design*) {
+			log("Hello World!\n");
+		}
+	} HelloWorldPass;
+
+	PRIVATE_NAMESPACE_END
+
+This can be built into a Yosys module using the following command:
+
+	yosys-config --exec --cxx --cxxflags --ldflags -o hello.so -shared hello.cc --ldlibs
+
+And then executed using the following command:
+
+	yosys -m hello.so -p hello_world
+
+
+Yosys Data Structures
+---------------------
+
+Here is a short list of data structures that you should make yourself familiar
+with before you write C++ code for Yosys. The following data structures are all
+defined when "kernel/yosys.h" is included and USING_YOSYS_NAMESPACE is used.
+
+  1. Yosys Container Classes
+
+Yosys uses dict<K, T> and pool<T> as main container classes. dict<K, T> is
+essentially a replacement for std::unordered_map<K, T> and pool<T> is
+essentially a replacement for std::unordered_set<T>. The main differences are:
+
+	- dict<K, T> and pool<T> are about 2x faster than the std containers
+
+	- references to elements in a dict<K, T> or pool<T> are invalidated by
+	  insert operations (just like you are used from std::vector<T>).
+
+	- dict<K, T> and pool<T> will have the same order of iteration across
+	  all compilers and architectures.
+
+  2. Standard STL data types
+
+In Yosys we use std::vector<T> and std::string whenever applicable. When
+dict<K, T> and pool<T> are not suitable then std::map<K, T> and std::set<T>
+are used instead.
+
+The types std::vector<T> and std::string are also available as vector<T>
+and string in the Yosys namespace.
+
+  3. RTLIL objects
+
+The current design (essentially a collection of modules, each defined by a
+netlist) is stored in memory using RTLIL object (declared in kernel/rtlil.h,
+automatically included by kernel/yosys.h). You should glance over at least
+the declarations for the following types in kernel/rtlil.h:
+
+	RTLIL::IdString
+		This is a handle for an identifier (e.g. cell or wire name).
+		It feels a lot like a std::string, but is only a single int
+		in size. (The actual string is stored in a global lookup
+		table.)
+
+	RTLIL::SigBit
+		A single signal bit. I.e. either a constant (0, 1, x, z) or
+		a single bit from a wire.
+
+	RTLIL::SigSpec
+		Essentially a vector of SigBits.
 
 	RTLIL::Wire
 	RTLIL::Cell
+		The building blocks of the netlist in a module.
+
 	RTLIL::Module
-	RTLIL::SigSpec
+	RTLIL::Design
+		The module is a container with connected cells and wires
+		in it. The design is a container with modules in it.
+
+All this types are also available without the RTLIL:: prefix in the Yosys
+namespace.
+
+  4. SigMap and other Helper Classes
+
+There are a couple of additional helper classes that are in wide use
+in Yosys. Most importantly there is SigMap (declared in kernel.sigtools.h).
+
+When a design has many wires in it that are connected to each other, then
+a single signal bit can have multiple valid names. The SigMap object can
+be used to map SigSpecs or SigBits to unique SigSpecs and SigBits that
+consitently only uses one wire from a group of connected wires. For example:
+
+	SigBit a = module->addWire(NEW_ID);
+	SigBit b = module->addWire(NEW_ID);
+	module->connect(a, b);
+
+	log("%d\n", a == b); // will print 0
+
+	SigMap sigmap(module);
+	log("%d\n", sigmap(a) == sigmap(b)); // will print 1
+
+
+Example Code
+------------
 
 The following yosys commands are a good starting point if you are looking for examples
 of how to use the Yosys API:
 
+	manual/CHAPTER_Prog/stubnets.cc
 	passes/opt/wreduce.cc
 	passes/techmap/maccmap.cc
 
@@ -25,7 +129,7 @@ Notes on the existing codebase
 ------------------------------
 
 For historical reasons not all parts of Yosys adhere to the current coding
-styles.  When adding code to existing parts of the system, adhere to this guide
+style. When adding code to existing parts of the system, adhere to this guide
 for the new code instead of trying to mimic the style of the surrounding code.
 
 
@@ -62,7 +166,7 @@ gcc 4.6 is allowed in Yosys code. This will change in future releases.
 
 In general Yosys uses "int" instead of "size_t". To avoid compiler
 warnings for implicit type casts, always use "GetSize(foobar)" instead
-of "foobar.size()". (GetSize() is defined by kernel/yosys.h)
+of "foobar.size()". (GetSize() is defined in kernel/yosys.h)
 
 Use range-based for loops whenever applicable.
 
