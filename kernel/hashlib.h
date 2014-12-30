@@ -17,7 +17,8 @@
 
 namespace hashlib {
 
-const int config_size_factor = 3;
+const int hashtable_size_trigger = 2;
+const int hashtable_size_factor = 3;
 
 // The XOR version of DJB2
 // (traditionally 5381 is used as starting value for the djb2 hash)
@@ -121,37 +122,29 @@ struct hash_obj_ops {
 	}
 };
 
-inline int hashtable_size(int old_size)
+inline int hashtable_size(int min_size)
 {
-	// prime numbers, approx. in powers of two
-	if (old_size <         53) return         53;
-	if (old_size <        113) return        113;
-	if (old_size <        251) return        251;
-	if (old_size <        503) return        503;
-	if (old_size <       1129) return       1129;
-	if (old_size <       2503) return       2503;
-	if (old_size <       5023) return       5023;
-	if (old_size <      11299) return      11299;
-	if (old_size <      25097) return      25097;
-	if (old_size <      50291) return      50291;
-	if (old_size <     112997) return     112997;
-	if (old_size <     251003) return     251003;
-	if (old_size <     503003) return     503003;
-	if (old_size <    1129991) return    1129991;
-	if (old_size <    2509993) return    2509993;
-	if (old_size <    5029991) return    5029991;
-	if (old_size <   11299997) return   11299997;
-	if (old_size <   25099999) return   25099999;
-	if (old_size <   50299999) return   50299999;
-	if (old_size <  113000009) return  113000009;
-	if (old_size <  250999999) return  250999999;
-	if (old_size <  503000009) return  503000009;
-	if (old_size < 1129999999) return 1129999999;
+	static std::vector<int> primes = {
+		23, 29, 37, 47, 59, 79, 101, 127, 163, 211, 269, 337, 431, 541, 677,
+		853, 1069, 1361, 1709, 2137, 2677, 3347, 4201, 5261, 6577, 8231, 10289,
+		12889, 16127, 20161, 25219, 31531, 39419, 49277, 61603, 77017, 96281,
+		120371, 150473, 188107, 235159, 293957, 367453, 459317, 574157, 717697,
+		897133, 1121423, 1401791, 1752239, 2190299, 2737937, 3422429, 4278037,
+		5347553, 6684443, 8355563, 10444457, 13055587, 16319519, 20399411,
+		25499291, 31874149, 39842687, 49803361, 62254207, 77817767, 97272239,
+		121590311, 151987889, 189984863, 237481091, 296851369, 371064217
+	};
 
-	if (sizeof(old_size) == 4)
-		throw std::length_error("hash table exceeded maximum size. recompile with -mint64.");
+	for (auto p : primes)
+		if (p > min_size) return p;
 
-	return old_size * 2;
+	if (sizeof(int) == 4)
+		throw std::length_error("hash table exceeded maximum size. use a ILP64 abi for larger tables.");
+
+	for (auto p : primes)
+		if (100129 * p > min_size) return 100129 * p;
+
+	throw std::length_error("hash table exceeded maximum size.");
 }
 
 template<typename K, typename T, typename OPS = hash_ops<K>>
@@ -192,14 +185,12 @@ class dict
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(config_size_factor * counter);
-		hashtable.resize(new_size);
-		new_size = new_size / config_size_factor + 1;
-		entries.reserve(new_size);
+		begin_n = counter - 1;
+		entries.reserve(counter);
 
 		for (auto &it : other)
 			entries.push_back(entry_t(it));
-		entries.resize(new_size);
+
 		rehash();
 	}
 
@@ -211,18 +202,12 @@ class dict
 		return hash;
 	}
 
-	void upd_begin_n()
+	void upd_begin_n(bool do_refree = true)
 	{
 		if (begin_n < -1) {
 			begin_n = -(begin_n+2);
-			if (begin_n > int(entries.size()))
-				begin_n = int(entries.size());
-			do {
-				if (begin_seek_count++ > int(entries.size()))
-					refree();
-				else
-					begin_n--;
-			} while (begin_n >= 0 && entries[begin_n].is_free());
+			while (begin_n >= 0 && entries[begin_n].is_free()) { begin_seek_count++; begin_n--; }
+			if (do_refree && begin_seek_count > int(entries.size() / 2)) refree();
 		}
 	}
 
@@ -250,11 +235,14 @@ class dict
 
 	void rehash()
 	{
+		upd_begin_n(false);
+		entries.resize(begin_n + 1);
+
 		free_list = -1;
 		begin_n = -1;
 
-		for (auto &h : hashtable)
-			h = -1;
+		hashtable.clear();
+		hashtable.resize(hashtable_size(entries.size() * hashtable_size_factor), -1);
 
 		int last_free = -1;
 		for (int i = 0; i < int(entries.size()); i++)
@@ -319,15 +307,18 @@ class dict
 	{
 		if (free_list < 0)
 		{
-			int i = entries.size();
-			int new_size = hashtable_size(config_size_factor * entries.size());
-			hashtable.resize(new_size);
-			entries.resize(new_size / config_size_factor + 1);
-			entries[i].udata = value;
-			entries[i].set_next_used(0);
-			counter++;
-			rehash();
-			return i;
+			free_list = entries.size();
+			entries.push_back(entry_t());
+
+			if (entries.size() * hashtable_size_trigger > hashtable.size()) {
+				int i = free_list;
+				entries[i].udata = value;
+				entries[i].set_next_used(0);
+				begin_n = i;
+				counter++;
+				rehash();
+				return i;
+			}
 		}
 
 		int i = free_list;
@@ -384,8 +375,7 @@ public:
 
 	dict(dict<K, T, OPS> &&other)
 	{
-		free_list = -1;
-		counter = 0;
+		init();
 		swap(other);
 	}
 
@@ -504,6 +494,7 @@ public:
 		std::swap(free_list, other.free_list);
 		std::swap(counter, other.counter);
 		std::swap(begin_n, other.begin_n);
+		std::swap(begin_seek_count, other.begin_seek_count);
 	}
 
 	bool operator==(const dict<K, T, OPS> &other) const {
@@ -579,14 +570,12 @@ class pool
 		entries.clear();
 
 		counter = other.size();
-		int new_size = hashtable_size(config_size_factor * counter);
-		hashtable.resize(new_size);
-		new_size = new_size / config_size_factor + 1;
-		entries.reserve(new_size);
+		begin_n = counter - 1;
+		entries.reserve(counter);
 
 		for (auto &it : other)
 			entries.push_back(entry_t(it));
-		entries.resize(new_size);
+
 		rehash();
 	}
 
@@ -598,18 +587,12 @@ class pool
 		return hash;
 	}
 
-	void upd_begin_n()
+	void upd_begin_n(bool do_refree = true)
 	{
 		if (begin_n < -1) {
 			begin_n = -(begin_n+2);
-			if (begin_n > int(entries.size()))
-				begin_n = int(entries.size());
-			do {
-				if (begin_seek_count++ > int(entries.size()))
-					refree();
-				else
-					begin_n--;
-			} while (begin_n >= 0 && entries[begin_n].is_free());
+			while (begin_n >= 0 && entries[begin_n].is_free()) { begin_seek_count++; begin_n--; }
+			if (do_refree && begin_seek_count > int(entries.size() / 2)) refree();
 		}
 	}
 
@@ -637,11 +620,14 @@ class pool
 
 	void rehash()
 	{
+		upd_begin_n(false);
+		entries.resize(begin_n + 1);
+
 		free_list = -1;
 		begin_n = -1;
 
-		for (auto &h : hashtable)
-			h = -1;
+		hashtable.clear();
+		hashtable.resize(hashtable_size(entries.size() * hashtable_size_factor), -1);
 
 		int last_free = -1;
 		for (int i = 0; i < int(entries.size()); i++)
@@ -706,15 +692,18 @@ class pool
 	{
 		if (free_list < 0)
 		{
-			int i = entries.size();
-			int new_size = hashtable_size(config_size_factor * entries.size());
-			hashtable.resize(new_size);
-			entries.resize(new_size / config_size_factor + 1);
-			entries[i].key = key;
-			entries[i].set_next_used(0);
-			counter++;
-			rehash();
-			return i;
+			free_list = entries.size();
+			entries.push_back(entry_t());
+
+			if (entries.size() * hashtable_size_trigger > hashtable.size()) {
+				int i = free_list;
+				entries[i].key = key;
+				entries[i].set_next_used(0);
+				begin_n = i;
+				counter++;
+				rehash();
+				return i;
+			}
 		}
 
 		int i = free_list;
@@ -771,8 +760,7 @@ public:
 
 	pool(pool<K, OPS> &&other)
 	{
-		free_list = -1;
-		counter = 0;
+		init();
 		swap(other);
 	}
 
@@ -871,6 +859,7 @@ public:
 		std::swap(free_list, other.free_list);
 		std::swap(counter, other.counter);
 		std::swap(begin_n, other.begin_n);
+		std::swap(begin_seek_count, other.begin_seek_count);
 	}
 
 	bool operator==(const pool<K, OPS> &other) const {
