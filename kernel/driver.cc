@@ -334,6 +334,10 @@ int main(int argc, char **argv)
 		log_hasher = nullptr;
 
 		log_spacer();
+
+		if (log_errfile != NULL && timing_details)
+			log_files.push_back(stderr);
+
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash.c_str());
 #else
