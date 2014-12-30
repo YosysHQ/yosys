@@ -526,10 +526,10 @@ public:
 	void clear() { hashtable.clear(); entries.clear(); init(); }
 
 	iterator begin() { upd_begin_n(); return iterator(this, begin_n); }
-	iterator end() { return iterator(this, -1); }
+	iterator end() { return iterator(nullptr, -1); }
 
 	const_iterator begin() const { ((dict*)this)->upd_begin_n(); return const_iterator(this, begin_n); }
-	const_iterator end() const { return const_iterator(this, -1); }
+	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
 
 template<typename K, typename OPS = hash_ops<K>>
@@ -891,10 +891,10 @@ public:
 	void clear() { hashtable.clear(); entries.clear(); init(); }
 
 	iterator begin() { upd_begin_n(); return iterator(this, begin_n); }
-	iterator end() { return iterator(this, -1); }
+	iterator end() { return iterator(nullptr, -1); }
 
 	const_iterator begin() const { ((pool*)this)->upd_begin_n(); return const_iterator(this, begin_n); }
-	const_iterator end() const { return const_iterator(this, -1); }
+	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
 
 } /* namespace hashlib */
