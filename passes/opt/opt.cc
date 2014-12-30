@@ -145,7 +145,7 @@ struct OptPass : public Pass {
 			}
 		}
 
-		log_header(fast_mode ? "Finished fast OPT passes." : "Finished OPT passes. (There is nothing left to do.)\n");
+		log_header(fast_mode ? "Finished fast OPT passes.\n" : "Finished OPT passes. (There is nothing left to do.)\n");
 		log_pop();
 	}
 } OptPass;
