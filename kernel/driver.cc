@@ -86,6 +86,8 @@ int main(int argc, char **argv)
 	bool print_stats = true;
 	bool call_abort = false;
 	bool timing_details = false;
+	bool mode_v = false;
+	bool mode_q = false;
 
 #ifdef YOSYS_ENABLE_READLINE
 	int history_offset = 0;
@@ -113,7 +115,8 @@ int main(int argc, char **argv)
 		printf("        use this option twice to also quiet warning messages\n");
 		printf("\n");
 		printf("    -v <level>\n");
-		printf("        print log headers up to level <level> to the console. (implies -q)\n");
+		printf("        print log headers up to level <level> to the console. (this\n");
+		printf("        implies -q for everything except the 'End of script.' message.)\n");
 		printf("\n");
 		printf("    -t\n");
 		printf("        annotate all log messages with a time stamp\n");
@@ -235,11 +238,13 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'q':
+			mode_q = true;
 			if (log_errfile == stderr)
 				log_quiet_warnings = true;
 			log_errfile = stderr;
 			break;
 		case 'v':
+			mode_v = true;
 			log_errfile = stderr;
 			log_verbose_level = atoi(optarg);
 			break;
@@ -333,9 +338,11 @@ int main(int argc, char **argv)
 		delete log_hasher;
 		log_hasher = nullptr;
 
+		log_time = false;
+		yosys_xtrace = 0;
 		log_spacer();
 
-		if (log_errfile != NULL && timing_details)
+		if (mode_v && !mode_q)
 			log_files.push_back(stderr);
 
 #ifdef _WIN32
