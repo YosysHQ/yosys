@@ -287,38 +287,41 @@ class dict
 	}
 
 public:
-	class iterator
-	{
-		friend class dict;
-	protected:
-		dict *ptr;
-		int index;
-	public:
-		iterator() { }
-		iterator(dict *ptr, int index) : ptr(ptr), index(index) { }
-		iterator operator++() { index--; return *this; }
-		bool operator==(const iterator &other) const { return index == other.index; }
-		bool operator!=(const iterator &other) const { return index != other.index; }
-		std::pair<K, T> &operator*() { return ptr->entries[index].udata; }
-		std::pair<K, T> *operator->() { return &ptr->entries[index].udata; }
-		const std::pair<K, T> &operator*() const { return ptr->entries[index].udata; }
-		const std::pair<K, T> *operator->() const { return &ptr->entries[index].udata; }
-	};
-
 	class const_iterator
 	{
 		friend class dict;
 	protected:
 		const dict *ptr;
 		int index;
+		const_iterator(const dict *ptr, int index) : ptr(ptr), index(index) { }
 	public:
 		const_iterator() { }
-		const_iterator(const dict *ptr, int index) : ptr(ptr), index(index) { }
 		const_iterator operator++() { index--; return *this; }
+		bool operator<(const const_iterator &other) const { return index > other.index; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
 		bool operator!=(const const_iterator &other) const { return index != other.index; }
 		const std::pair<K, T> &operator*() const { return ptr->entries[index].udata; }
 		const std::pair<K, T> *operator->() const { return &ptr->entries[index].udata; }
+	};
+
+	class iterator
+	{
+		friend class dict;
+	protected:
+		dict *ptr;
+		int index;
+		iterator(dict *ptr, int index) : ptr(ptr), index(index) { }
+	public:
+		iterator() { }
+		iterator operator++() { index--; return *this; }
+		bool operator<(const iterator &other) const { return index > other.index; }
+		bool operator==(const iterator &other) const { return index == other.index; }
+		bool operator!=(const iterator &other) const { return index != other.index; }
+		std::pair<K, T> &operator*() { return ptr->entries[index].udata; }
+		std::pair<K, T> *operator->() { return &ptr->entries[index].udata; }
+		const std::pair<K, T> &operator*() const { return ptr->entries[index].udata; }
+		const std::pair<K, T> *operator->() const { return &ptr->entries[index].udata; }
+		operator const_iterator() const { return const_iterator(ptr, index); }
 	};
 
 	dict()
@@ -398,6 +401,13 @@ public:
 		return i < 0 ? 0 : 1;
 	}
 
+	int count(const K &key, const_iterator it) const
+	{
+		int hash = do_hash(key);
+		int i = do_lookup(key, hash);
+		return i < 0 || i > it.index ? 0 : 1;
+	}
+
 	iterator find(const K &key)
 	{
 		int hash = do_hash(key);
@@ -474,13 +484,6 @@ public:
 	const_iterator begin() const { return const_iterator(this, int(entries.size())-1); }
 	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
-
-// ********************************************************************************
-// ********************************************************************************
-// ********************************************************************************
-// ********************************************************************************
-// ********************************************************************************
-
 
 template<typename K, typename OPS = hash_ops<K>>
 class pool
@@ -606,36 +609,39 @@ class pool
 	}
 
 public:
-	class iterator
-	{
-		friend class pool;
-	protected:
-		pool *ptr;
-		int index;
-	public:
-		iterator() { }
-		iterator(pool *ptr, int index) : ptr(ptr), index(index) { }
-		iterator operator++() { index--; return *this; }
-		bool operator==(const iterator &other) const { return index == other.index; }
-		bool operator!=(const iterator &other) const { return index != other.index; }
-		const K &operator*() const { return ptr->entries[index].udata; }
-		const K *operator->() const { return &ptr->entries[index].udata; }
-	};
-
 	class const_iterator
 	{
 		friend class pool;
 	protected:
 		const pool *ptr;
 		int index;
+		const_iterator(const pool *ptr, int index) : ptr(ptr), index(index) { }
 	public:
 		const_iterator() { }
-		const_iterator(const pool *ptr, int index) : ptr(ptr), index(index) { }
 		const_iterator operator++() { index--; return *this; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
 		bool operator!=(const const_iterator &other) const { return index != other.index; }
 		const K &operator*() const { return ptr->entries[index].udata; }
 		const K *operator->() const { return &ptr->entries[index].udata; }
+	};
+
+	class iterator
+	{
+		friend class pool;
+	protected:
+		pool *ptr;
+		int index;
+		iterator(pool *ptr, int index) : ptr(ptr), index(index) { }
+	public:
+		iterator() { }
+		iterator operator++() { index--; return *this; }
+		bool operator==(const iterator &other) const { return index == other.index; }
+		bool operator!=(const iterator &other) const { return index != other.index; }
+		K &operator*() { return ptr->entries[index].udata; }
+		K *operator->() { return &ptr->entries[index].udata; }
+		const K &operator*() const { return ptr->entries[index].udata; }
+		const K *operator->() const { return &ptr->entries[index].udata; }
+		operator const_iterator() const { return const_iterator(ptr, index); }
 	};
 
 	pool()
@@ -713,6 +719,13 @@ public:
 		int hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		return i < 0 ? 0 : 1;
+	}
+
+	int count(const K &key, const_iterator it) const
+	{
+		int hash = do_hash(key);
+		int i = do_lookup(key, hash);
+		return i < 0 || i > it.index ? 0 : 1;
 	}
 
 	iterator find(const K &key)

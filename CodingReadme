@@ -63,8 +63,14 @@ replacement for std::unordered_set<T>. The main characteristics are:
 	  begin(). i.e. only a new iterator that starts at begin() will see the
 	  inserted elements.
 
+	- the method .count(key, iterator) is like .count(key) but only
+	  considers elements that can be reached via the iterator.
+
+	- iterators can be compared. it1 < it2 means that the position of t2
+	  can be reached via t1 but not vice versa.
+
 	- dict<K, T> and pool<T> will have the same order of iteration across
-	  all compilers and architectures.
+	  all compilers, standard libraries and architectures.
 
   2. Standard STL data types
 
