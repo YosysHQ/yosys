@@ -49,30 +49,30 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 }
 
 template<typename T> struct hash_ops {
-	bool cmp(const T &a, const T &b) const {
+	static inline bool cmp(const T &a, const T &b) {
 		return a == b;
 	}
-	unsigned int hash(const T &a) const {
+	static inline unsigned int hash(const T &a) {
 		return a.hash();
 	}
 };
 
 template<> struct hash_ops<int> {
 	template<typename T>
-	bool cmp(T a, T b) const {
+	static inline bool cmp(T a, T b) {
 		return a == b;
 	}
 	template<typename T>
-	unsigned int hash(T a) const {
+	static inline unsigned int hash(T a) {
 		return a;
 	}
 };
 
 template<> struct hash_ops<std::string> {
-	bool cmp(const std::string &a, const std::string &b) const {
+	static inline bool cmp(const std::string &a, const std::string &b) {
 		return a == b;
 	}
-	unsigned int hash(const std::string &a) const {
+	static inline unsigned int hash(const std::string &a) {
 		unsigned int v = 0;
 		for (auto c : a)
 			v = mkhash(v, c);
@@ -81,10 +81,10 @@ template<> struct hash_ops<std::string> {
 };
 
 template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
-	bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) const {
+	static inline bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) {
 		return a == b;
 	}
-	unsigned int hash(std::pair<P, Q> a) const {
+	static inline unsigned int hash(std::pair<P, Q> a) {
 		hash_ops<P> p_ops;
 		hash_ops<Q> q_ops;
 		return mkhash(p_ops.hash(a.first), q_ops.hash(a.second));
@@ -92,10 +92,10 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 };
 
 template<typename T> struct hash_ops<std::vector<T>> {
-	bool cmp(std::vector<T> a, std::vector<T> b) const {
+	static inline bool cmp(std::vector<T> a, std::vector<T> b) {
 		return a == b;
 	}
-	unsigned int hash(std::vector<T> a) const {
+	static inline unsigned int hash(std::vector<T> a) {
 		hash_ops<T> t_ops;
 		unsigned int h = mkhash_init;
 		for (auto k : a)
@@ -105,13 +105,13 @@ template<typename T> struct hash_ops<std::vector<T>> {
 };
 
 struct hash_cstr_ops {
-	bool cmp(const char *a, const char *b) const {
+	static inline bool cmp(const char *a, const char *b) {
 		for (int i = 0; a[i] || b[i]; i++)
 			if (a[i] != b[i])
 				return false;
 		return true;
 	}
-	unsigned int hash(const char *a) const {
+	static inline unsigned int hash(const char *a) {
 		unsigned int hash = mkhash_init;
 		while (*a)
 			 hash = mkhash(hash, *(a++));
@@ -120,20 +120,20 @@ struct hash_cstr_ops {
 };
 
 struct hash_ptr_ops {
-	bool cmp(const void *a, const void *b) const {
+	static inline bool cmp(const void *a, const void *b) {
 		return a == b;
 	}
-	unsigned int hash(const void *a) const {
+	static inline unsigned int hash(const void *a) {
 		return (unsigned long)a;
 	}
 };
 
 struct hash_obj_ops {
-	bool cmp(const void *a, const void *b) const {
+	static inline bool cmp(const void *a, const void *b) {
 		return a == b;
 	}
 	template<typename T>
-	unsigned int hash(const T *a) const {
+	static inline unsigned int hash(const T *a) {
 		return a->hash();
 	}
 };
@@ -703,7 +703,7 @@ public:
 
 	iterator erase(iterator it)
 	{
-		int hash = do_hash(it->first);
+		int hash = do_hash(*it);
 		do_erase(it.index, hash);
 		return ++it;
 	}
