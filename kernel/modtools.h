@@ -70,7 +70,7 @@ struct ModIndex : public RTLIL::Monitor
 
 	SigMap sigmap;
 	RTLIL::Module *module;
-	dict<RTLIL::SigBit, SigBitInfo> database;
+	std::map<RTLIL::SigBit, SigBitInfo> database;
 	bool auto_reload_module;
 
 	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
