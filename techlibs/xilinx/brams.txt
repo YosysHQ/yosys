@@ -1,0 +1,20 @@
+
+# This is a very simplified description of the capabilities of
+# the Xilinx RAMB36 core. But it is a start..
+#
+bram XILINX_RAMB36_SDP32
+  init 1
+  abits 10
+  dbits 32
+  groups 2
+  wports 1 0
+  rports 0 1
+  wenabl 2 0
+  transp 0 2
+  clocks 1 2
+endbram
+
+match XILINX_RAMB36_SDP32
+  min bits 1024
+endmatch
+
