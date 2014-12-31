@@ -289,7 +289,7 @@ class dict
 public:
 	class iterator
 	{
-		friend dict;
+		friend class dict;
 	protected:
 		dict *ptr;
 		int index;
@@ -307,7 +307,7 @@ public:
 
 	class const_iterator
 	{
-		friend dict;
+		friend class dict;
 	protected:
 		const dict *ptr;
 		int index;
@@ -608,7 +608,7 @@ class pool
 public:
 	class iterator
 	{
-		friend pool;
+		friend class pool;
 	protected:
 		pool *ptr;
 		int index;
@@ -624,7 +624,7 @@ public:
 
 	class const_iterator
 	{
-		friend pool;
+		friend class pool;
 	protected:
 		const pool *ptr;
 		int index;
