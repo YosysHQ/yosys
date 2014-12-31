@@ -1,5 +1,10 @@
 
+This file contains some very brief documentation on things like programming APIs.
+Also consult the Yosys manual and the section about programming in the presentation.
+(Both can be downloaded as PDF from the yosys webpage.)
 
+
+--snip-- only the lines below this mark are included in the yosys manual --snip--
 Getting Started
 ===============
 
@@ -42,13 +47,21 @@ defined when "kernel/yosys.h" is included and USING_YOSYS_NAMESPACE is used.
   1. Yosys Container Classes
 
 Yosys uses dict<K, T> and pool<T> as main container classes. dict<K, T> is
-essentially a replacement for std::unordered_map<K, T> and pool<T> is
-essentially a replacement for std::unordered_set<T>. The main differences are:
+essentially a replacement for std::unordered_map<K, T> and pool<T> is a
+replacement for std::unordered_set<T>. The main characteristics are:
 
 	- dict<K, T> and pool<T> are about 2x faster than the std containers
 
 	- references to elements in a dict<K, T> or pool<T> are invalidated by
-	  insert operations (just like you are used from std::vector<T>).
+	  insert and remove operations (similar to std::vector<T> on push_back()).
+
+	- some iterators are invalidated by erase(). specifically, iterators
+	  that have not passed the erased element yet are invalidated. (erase()
+	  itself returns valid iterator to the next element.)
+
+	- no iterators are invalidated by insert(). elements are inserted at
+	  begin(). i.e. only a new iterator that starts at begin() will see the
+	  inserted elements.
 
 	- dict<K, T> and pool<T> will have the same order of iteration across
 	  all compilers and architectures.
@@ -97,12 +110,12 @@ namespace.
   4. SigMap and other Helper Classes
 
 There are a couple of additional helper classes that are in wide use
-in Yosys. Most importantly there is SigMap (declared in kernel.sigtools.h).
+in Yosys. Most importantly there is SigMap (declared in kernel/sigtools.h).
 
-When a design has many wires in it that are connected to each other, then
-a single signal bit can have multiple valid names. The SigMap object can
-be used to map SigSpecs or SigBits to unique SigSpecs and SigBits that
-consitently only uses one wire from a group of connected wires. For example:
+When a design has many wires in it that are connected to each other, then a
+single signal bit can have multiple valid names. The SigMap object can be used
+to map SigSpecs or SigBits to unique SigSpecs and SigBits that consitently
+only use one wire from such a group of connected wires. For example:
 
 	SigBit a = module->addWire(NEW_ID);
 	SigBit b = module->addWire(NEW_ID);
@@ -162,7 +175,7 @@ C++ Langugage
 -------------
 
 Yosys is written in C++11. At the moment only constructs supported by
-gcc 4.6 is allowed in Yosys code. This will change in future releases.
+gcc 4.6 are allowed in Yosys code. This will change in future releases.
 
 In general Yosys uses "int" instead of "size_t". To avoid compiler
 warnings for implicit type casts, always use "GetSize(foobar)" instead
@@ -170,6 +183,8 @@ of "foobar.size()". (GetSize() is defined in kernel/yosys.h)
 
 Use range-based for loops whenever applicable.
 
+
+--snap-- only the lines above this mark are included in the yosys manual --snap--
 
 
 Creating the Visual Studio Template Project
