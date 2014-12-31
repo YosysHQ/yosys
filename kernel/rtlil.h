@@ -250,14 +250,14 @@ namespace RTLIL
 		// of cell types). the following functions helps with that.
 
 		template<typename T, typename... Args>
-		bool in(T first, Args... rest) {
+		bool in(T first, Args... rest) const {
 			return in(first) || in(rest...);
 		}
 
-		bool in(IdString rhs) { return *this == rhs; }
-		bool in(const char *rhs) { return *this == rhs; }
-		bool in(const std::string &rhs) { return *this == rhs; }
-		bool in(const pool<IdString> &rhs) { return rhs.count(*this) != 0; }
+		bool in(IdString rhs) const { return *this == rhs; }
+		bool in(const char *rhs) const { return *this == rhs; }
+		bool in(const std::string &rhs) const { return *this == rhs; }
+		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
 	};
 
 	static inline std::string escape_id(std::string str) {

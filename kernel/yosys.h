@@ -137,6 +137,8 @@ YOSYS_NAMESPACE_BEGIN
 
 using std::vector;
 using std::string;
+using std::pair;
+
 using hashlib::mkhash;
 using hashlib::mkhash_init;
 using hashlib::mkhash_add;
@@ -220,6 +222,8 @@ YOSYS_NAMESPACE_END
 #include "kernel/register.h"
 
 YOSYS_NAMESPACE_BEGIN
+
+using RTLIL::State;
 
 namespace hashlib {
 	template<> struct hash_ops<RTLIL::State> : hash_ops<int> {};

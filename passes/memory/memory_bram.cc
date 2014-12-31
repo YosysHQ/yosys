@@ -24,10 +24,33 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct rules_t
 {
+	struct portinfo_t {
+		int group, index;
+		int wrmode, enable, transp, clocks, clkpol;
+	};
+
 	struct bram_t {
 		IdString name;
 		int groups, abits, dbits, init;
-		vector<int> wports, rports, wenabl, transp, clocks, clkpol;
+		vector<int> ports, wrmode, enable, transp, clocks, clkpol;
+
+		vector<portinfo_t> make_portinfos() const
+		{
+			vector<portinfo_t> portinfos;
+			for (int i = 0; i < groups && i < GetSize(ports); i++)
+			for (int j = 0; j < ports[i]; j++) {
+				portinfo_t pi;
+				pi.group = i;
+				pi.index = j;
+				pi.wrmode = i < GetSize(wrmode) ? wrmode[i] : 0;
+				pi.enable = i < GetSize(enable) ? enable[i] : 0;
+				pi.transp = i < GetSize(transp) ? transp[i] : 0;
+				pi.clocks = i < GetSize(clocks) ? clocks[i] : 0;
+				pi.clkpol = i < GetSize(clkpol) ? clkpol[i] : 0;
+				portinfos.push_back(pi);
+			}
+			return portinfos;
+		}
 	};
 
 	struct match_t {
@@ -80,7 +103,7 @@ struct rules_t
 		if (GetSize(tokens) >= 2 && tokens[0] == stmt) {
 			value.resize(GetSize(tokens)-1);
 			for (int i = 1; i < GetSize(tokens); i++)
-				value[i] = atoi(tokens[i].c_str());
+				value[i-1] = atoi(tokens[i].c_str());
 			return true;
 		}
 		return false;
@@ -113,13 +136,13 @@ struct rules_t
 			if (parse_single_int("init", data.init))
 				continue;
 
-			if (parse_int_vect("wports", data.wports))
+			if (parse_int_vect("ports", data.ports))
 				continue;
 
-			if (parse_int_vect("rports", data.rports))
+			if (parse_int_vect("wrmode", data.wrmode))
 				continue;
 
-			if (parse_int_vect("wenabl", data.wenabl))
+			if (parse_int_vect("enable", data.enable))
 				continue;
 
 			if (parse_int_vect("transp", data.transp))
@@ -187,9 +210,85 @@ struct rules_t
 	}
 };
 
-void replace_cell(Cell*, const rules_t::bram_t&, const rules_t::match_t&)
+bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_t&)
 {
+	auto portinfos = bram.make_portinfos();
+	dict<int, pair<SigBit, bool>> clock_domains;
+	vector<int> mapped_wr_ports;
+
+	log("  Mapping to bram type %s:\n", log_id(bram.name));
+
+	int wr_ports_n = cell->getParam("\\WR_PORTS").as_int();
+	auto wr_clken = SigSpec(cell->getParam("\\WR_CLK_ENABLE"));
+	auto wr_clkpol = SigSpec(cell->getParam("\\WR_CLK_POLARITY"));
+	wr_clken.extend_u0(wr_ports_n);
+	wr_clkpol.extend_u0(wr_ports_n);
+
+	SigSpec wr_clk = cell->getPort("\\WR_CLK");
+	SigSpec wr_en = cell->getPort("\\WR_EN");
+
+	for (int cell_port_i = 0, bram_port_i = 0; cell_port_i < wr_ports_n; cell_port_i++)
+	{
+		bool clken = wr_clken[cell_port_i] == State::S1;
+		auto clkpol = wr_clkpol[cell_port_i] == State::S1;
+		auto clksig = wr_clk[cell_port_i];
+
+		pair<SigBit, bool> clkdom(clksig, clkpol);
+		if (!clken)
+			clkdom = pair<SigBit, bool>(State::S1, false);
+
+		log("    Write port #%d is in clock domain %s%s.\n",
+				cell_port_i, clkdom.second ? "" : "!",
+				clken ? log_signal(clkdom.first) : "~async~");
+
+		for (; bram_port_i < GetSize(portinfos); bram_port_i++)
+		{
+			auto &pi = portinfos[bram_port_i];
+
+			if (pi.wrmode != 1)
+		skip_bram_wport:
+				continue;
+
+			if (clken) {
+				if (pi.clocks == 0) {
+					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_wport;
+				}
+				if (clock_domains.count(pi.clocks) && clock_domains.at(pi.clocks) != clkdom) {
+					log("      Bram port %c%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_wport;
+				}
+			} else {
+				if (pi.clocks != 0) {
+					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_wport;
+				}
+			}
+
+			SigBit last_en_bit = State::S1;
+			for (int i = 0; i < bram.dbits; i++) {
+				if (pi.enable && i % (bram.dbits / pi.enable) == 0)
+					last_en_bit = wr_en[i];
+				if (last_en_bit != wr_en[i]) {
+					log("      Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_wport;
+				}
+			}
+
+			log("      Mapped to bram port %c%d.\n", pi.group + 'A', pi.index + 1);
+			if (clken)
+				clock_domains[pi.clocks] = clkdom;
+			mapped_wr_ports.push_back(bram_port_i);
+			goto mapped_port;
+		}
+
+		log("    Failed to map write port #%d.\n", cell_port_i);
+		return false;
+	mapped_port:;
+	}
+
 	log("  FIXME: The core of memory_bram is not implemented yet.\n");
+	return false;
 }
 
 void handle_cell(Cell *cell, const rules_t &rules)
@@ -210,8 +309,13 @@ void handle_cell(Cell *cell, const rules_t &rules)
 		log(" %s=%d", it.first.c_str(), it.second);
 	log("\n");
 
+	pool<IdString> failed_brams;
+
 	for (int i = 0; i < GetSize(rules.matches); i++)
 	{
+		if (rules.matches[i].name.in(failed_brams))
+			continue;
+
 		for (auto it : rules.matches[i].min_limits) {
 			if (!mem_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
@@ -237,7 +341,11 @@ void handle_cell(Cell *cell, const rules_t &rules)
 		if (!rules.brams.count(rules.matches[i].name))
 			log_error("No bram description for resource %s found!\n", log_id(rules.matches[i].name));
 
-		replace_cell(cell, rules.brams.at(rules.matches[i].name), rules.matches[i]);
+		if (!replace_cell(cell, rules.brams.at(rules.matches[i].name), rules.matches[i])) {
+			log("  Mapping to bram type %s failed.\n", log_id(rules.matches[i].name));
+			failed_brams.insert(rules.matches[i].name);
+			goto next_match_rule;
+		}
 		return;
 
 	next_match_rule:;

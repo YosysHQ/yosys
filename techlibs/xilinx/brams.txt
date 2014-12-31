@@ -7,9 +7,9 @@ bram XILINX_RAMB36_SDP32
   abits 10
   dbits 32
   groups 2
-  wports 1 0
-  rports 0 1
-  wenabl 2 0
+  ports  1 1
+  wrmode 1 0
+  enable 4 0
   transp 0 2
   clocks 1 2
 endbram
