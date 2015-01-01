@@ -2673,24 +2673,6 @@ void RTLIL::SigSpec::append_bit(const RTLIL::SigBit &bit)
 	check();
 }
 
-void RTLIL::SigSpec::extend_xx(int width, bool is_signed)
-{
-	cover("kernel.rtlil.sigspec.extend_xx");
-
-	pack();
-
-	if (width_ > width)
-		remove(width, width_ - width);
-	
-	if (width_ < width) {
-		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::S0;
-		if (!is_signed && (padding == RTLIL::State::S1 || padding.wire))
-			padding = RTLIL::State::S0;
-		while (width_ < width)
-			append(padding);
-	}
-}
-
 void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 {
 	cover("kernel.rtlil.sigspec.extend_u0");
