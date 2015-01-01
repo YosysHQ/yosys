@@ -214,20 +214,41 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 {
 	auto portinfos = bram.make_portinfos();
 	dict<int, pair<SigBit, bool>> clock_domains;
-	vector<int> mapped_wr_ports;
+	vector<int> mapped_wr_ports, mapped_rd_ports;
+	dict<int, int> used_rd_ports;
+	int rd_port_dups = 1;
 
 	log("  Mapping to bram type %s:\n", log_id(bram.name));
 
-	int wr_ports_n = cell->getParam("\\WR_PORTS").as_int();
+	int mem_size = cell->getParam("\\SIZE").as_int();
+	int mem_abits = cell->getParam("\\ABITS").as_int();
+	int mem_width = cell->getParam("\\WIDTH").as_int();
+	int mem_offset = cell->getParam("\\OFFSET").as_int();
+
+	int wr_ports = cell->getParam("\\WR_PORTS").as_int();
 	auto wr_clken = SigSpec(cell->getParam("\\WR_CLK_ENABLE"));
 	auto wr_clkpol = SigSpec(cell->getParam("\\WR_CLK_POLARITY"));
-	wr_clken.extend_u0(wr_ports_n);
-	wr_clkpol.extend_u0(wr_ports_n);
+	wr_clken.extend_u0(wr_ports);
+	wr_clkpol.extend_u0(wr_ports);
 
-	SigSpec wr_clk = cell->getPort("\\WR_CLK");
 	SigSpec wr_en = cell->getPort("\\WR_EN");
+	SigSpec wr_clk = cell->getPort("\\WR_CLK");
+	SigSpec wr_data = cell->getPort("\\WR_DATA");
+	SigSpec wr_addr = cell->getPort("\\WR_ADDR");
 
-	for (int cell_port_i = 0, bram_port_i = 0; cell_port_i < wr_ports_n; cell_port_i++)
+	int rd_ports = cell->getParam("\\RD_PORTS").as_int();
+	auto rd_clken = SigSpec(cell->getParam("\\RD_CLK_ENABLE"));
+	auto rd_clkpol = SigSpec(cell->getParam("\\RD_CLK_POLARITY"));
+	auto rd_transp = SigSpec(cell->getParam("\\RD_TRANSPARENT"));
+	rd_clken.extend_u0(rd_ports);
+	rd_clkpol.extend_u0(rd_ports);
+	rd_transp.extend_u0(rd_ports);
+
+	SigSpec rd_clk = cell->getPort("\\RD_CLK");
+	SigSpec rd_data = cell->getPort("\\RD_DATA");
+	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
+
+	for (int cell_port_i = 0, bram_port_i = 0; cell_port_i < wr_ports; cell_port_i++)
 	{
 		bool clken = wr_clken[cell_port_i] == State::S1;
 		auto clkpol = wr_clkpol[cell_port_i] == State::S1;
@@ -279,15 +300,84 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			if (clken)
 				clock_domains[pi.clocks] = clkdom;
 			mapped_wr_ports.push_back(bram_port_i);
-			goto mapped_port;
+			goto mapped_wr_port;
 		}
 
-		log("    Failed to map write port #%d.\n", cell_port_i);
+		log("      Failed to map write port #%d.\n", cell_port_i);
 		return false;
-	mapped_port:;
+	mapped_wr_port:;
 	}
 
-	log("  FIXME: The core of memory_bram is not implemented yet.\n");
+	int grow_read_ports_cursor = -1;
+	bool try_growing_more_read_ports = false;
+
+	if (0) {
+grow_read_ports:;
+		rd_port_dups++;
+		mapped_rd_ports.clear();
+		used_rd_ports.clear();
+	}
+
+	for (int cell_port_i = 0; cell_port_i < rd_ports; cell_port_i++)
+	{
+		bool clken = rd_clken[cell_port_i] == State::S1;
+		auto clkpol = rd_clkpol[cell_port_i] == State::S1;
+		auto clksig = rd_clk[cell_port_i];
+
+		pair<SigBit, bool> clkdom(clksig, clkpol);
+		if (!clken)
+			clkdom = pair<SigBit, bool>(State::S1, false);
+
+		log("    Read port #%d is in clock domain %s%s.\n",
+				cell_port_i, clkdom.second ? "" : "!",
+				clken ? log_signal(clkdom.first) : "~async~");
+
+		for (int bram_port_i = 0; bram_port_i < GetSize(portinfos); bram_port_i++)
+		{
+			auto &pi = portinfos[bram_port_i];
+
+			if (pi.wrmode != 0 || used_rd_ports[bram_port_i] >= rd_port_dups)
+		skip_bram_rport:
+				continue;
+
+			if (clken) {
+				if (pi.clocks == 0) {
+					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_rport;
+				}
+				if (clock_domains.count(pi.clocks) && clock_domains.at(pi.clocks) != clkdom) {
+					log("      Bram port %c%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_rport;
+				}
+			} else {
+				if (pi.clocks != 0) {
+					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_rport;
+				}
+			}
+
+			log("      Mapped to bram port %c%d.%d.\n", pi.group + 'A', pi.index + 1, used_rd_ports[bram_port_i] + 1);
+			if (clken)
+				clock_domains[pi.clocks] = clkdom;
+			if (grow_read_ports_cursor < bram_port_i) {
+				grow_read_ports_cursor = bram_port_i;
+				try_growing_more_read_ports = true;
+			}
+			mapped_rd_ports.push_back(bram_port_i);
+			used_rd_ports[bram_port_i]++;
+			goto mapped_rd_port;
+		}
+
+		log("      Failed to map read port #%d.\n", cell_port_i);
+		if (try_growing_more_read_ports) {
+			log("    Growing more read ports by duplicating bram cells.\n");
+			goto grow_read_ports;
+		}
+		return false;
+	mapped_rd_port:;
+	}
+
+	log("    FIXME: The core of memory_bram is not implemented yet.\n");
 	return false;
 }
 
@@ -295,17 +385,17 @@ void handle_cell(Cell *cell, const rules_t &rules)
 {
 	log("Processing %s.%s:\n", log_id(cell->module), log_id(cell));
 
-	dict<string, int> mem_properties;
-	mem_properties["words"]  = cell->getParam("\\SIZE").as_int();
-	mem_properties["abits"]  = cell->getParam("\\ABITS").as_int();
-	mem_properties["dbits"]  = cell->getParam("\\WIDTH").as_int();
-	mem_properties["wports"] = cell->getParam("\\WR_PORTS").as_int();
-	mem_properties["rports"] = cell->getParam("\\RD_PORTS").as_int();
-	mem_properties["bits"]   = mem_properties["words"] * mem_properties["dbits"];
-	mem_properties["ports"]  = mem_properties["wports"] + mem_properties["rports"];
+	dict<string, int> match_properties;
+	match_properties["words"]  = cell->getParam("\\SIZE").as_int();
+	match_properties["abits"]  = cell->getParam("\\ABITS").as_int();
+	match_properties["dbits"]  = cell->getParam("\\WIDTH").as_int();
+	match_properties["wports"] = cell->getParam("\\WR_PORTS").as_int();
+	match_properties["rports"] = cell->getParam("\\RD_PORTS").as_int();
+	match_properties["bits"]   = match_properties["words"] * match_properties["dbits"];
+	match_properties["ports"]  = match_properties["wports"] + match_properties["rports"];
 
 	log("  Properties:");
-	for (auto &it : mem_properties)
+	for (auto &it : match_properties)
 		log(" %s=%d", it.first.c_str(), it.second);
 	log("\n");
 
@@ -313,37 +403,55 @@ void handle_cell(Cell *cell, const rules_t &rules)
 
 	for (int i = 0; i < GetSize(rules.matches); i++)
 	{
-		if (rules.matches[i].name.in(failed_brams))
-			continue;
-
-		for (auto it : rules.matches[i].min_limits) {
-			if (!mem_properties.count(it.first))
-				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), log_id(rules.matches[i].name));
-			if (mem_properties[it.first] >= it.second)
-				continue;
-			log("  Rule #%d for bram type %s rejected: requirement 'min %s %d' not met.\n",
-					i, log_id(rules.matches[i].name), it.first.c_str(), it.second);
-			goto next_match_rule;
-		}
-		for (auto it : rules.matches[i].max_limits) {
-			if (!mem_properties.count(it.first))
-				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), log_id(rules.matches[i].name));
-			if (mem_properties[it.first] <= it.second)
-				continue;
-			log("  Rule #%d for bram type %s rejected: requirement 'max %s %d' not met.\n",
-					i, log_id(rules.matches[i].name), it.first.c_str(), it.second);
-			goto next_match_rule;
-		}
-
-		log("  Rule #%d for bram type %s accepted.\n", i, log_id(rules.matches[i].name));
 		if (!rules.brams.count(rules.matches[i].name))
 			log_error("No bram description for resource %s found!\n", log_id(rules.matches[i].name));
 
-		if (!replace_cell(cell, rules.brams.at(rules.matches[i].name), rules.matches[i])) {
-			log("  Mapping to bram type %s failed.\n", log_id(rules.matches[i].name));
-			failed_brams.insert(rules.matches[i].name);
+		auto &match = rules.matches.at(i);
+		auto &bram = rules.brams.at(match.name);
+
+		if (match.name.in(failed_brams))
+			continue;
+
+		int aover = match_properties["words"] % (1 << bram.abits);
+		int awaste = aover ? (1 << bram.abits) - aover : 0;
+		match_properties["awaste"] = awaste;
+
+		int dover = match_properties["dbits"] % bram.dbits;
+		int dwaste = dover ? bram.dbits - dover : 0;
+		match_properties["dwaste"] = dwaste;
+
+		int waste = awaste * bram.dbits + dwaste * (1 << bram.abits) - awaste * dwaste;
+		match_properties["waste"] = waste;
+
+		log("  Wasted bits for bram type %s: awaste=%d dwaste=%d waste=%d\n",
+				log_id(match.name), awaste, dwaste, waste);
+
+		for (auto it : match.min_limits) {
+			if (!match_properties.count(it.first))
+				log_error("Unknown property '%s' in match rule for bram type %s.\n",
+						it.first.c_str(), log_id(match.name));
+			if (match_properties[it.first] >= it.second)
+				continue;
+			log("  Rule #%d for bram type %s rejected: requirement 'min %s %d' not met.\n",
+					i, log_id(match.name), it.first.c_str(), it.second);
+			goto next_match_rule;
+		}
+		for (auto it : match.max_limits) {
+			if (!match_properties.count(it.first))
+				log_error("Unknown property '%s' in match rule for bram type %s.\n",
+						it.first.c_str(), log_id(match.name));
+			if (match_properties[it.first] <= it.second)
+				continue;
+			log("  Rule #%d for bram type %s rejected: requirement 'max %s %d' not met.\n",
+					i, log_id(match.name), it.first.c_str(), it.second);
+			goto next_match_rule;
+		}
+
+		log("  Rule #%d for bram type %s accepted.\n", i, log_id(match.name));
+
+		if (!replace_cell(cell, bram, match)) {
+			log("  Mapping to bram type %s failed.\n", log_id(match.name));
+			failed_brams.insert(match.name);
 			goto next_match_rule;
 		}
 		return;
