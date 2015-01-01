@@ -14,14 +14,14 @@ python generate.py
 	echo -n "all:"
 	for i in $( ls temp/brams_*.txt | sed 's,.*_,,; s,\..*,,;' ); do
 	for j in $( ls temp/brams_*.txt | sed 's,.*_,,; s,\..*,,;' | grep -v $i ); do
-		echo -n " temp/job_$i$j.ok"
+		echo -n " temp/job_${i}_${j}.ok"
 	done; done
 	echo
 	for i in $( ls temp/brams_*.txt | sed 's,.*_,,; s,\..*,,;' ); do
 	for j in $( ls temp/brams_*.txt | sed 's,.*_,,; s,\..*,,;' | grep -v $i ); do
-		echo "temp/job_$i$j.ok:"
-		echo "	@bash run-single.sh $i $j"
-		echo "	@echo 'Passed test $i vs $j.'"
+		echo "temp/job_${i}_${j}.ok:"
+		echo "	@bash run-single.sh ${i} ${j}"
+		echo "	@echo 'Passed test ${i}_${j}.'"
 		echo "	@touch \$@"
 	done; done
 } > temp/makefile

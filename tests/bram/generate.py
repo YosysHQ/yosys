@@ -13,7 +13,11 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         init = random.randrange(2)
         abits  = random.randrange(1, 8)
         dbits  = random.randrange(1, 8)
-        groups = random.randrange(5)
+        groups = random.randrange(1, 5)
+
+        # XXX
+        init = 0
+        groups = 2
 
         if random.randrange(2):
             abits = 2 ** random.randrange(1, 4)
@@ -28,10 +32,12 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         clkpol = [ random.randrange(4) for i in range(groups) ]
 
         # XXX
-        init = 0
+        ports  = [ 1 for i in range(groups) ]
+        wrmode = [ 1 for i in range(groups) ]
         transp = [ 0 for i in range(groups) ]
-        clocks = [ random.randrange(1, 4) for i in range(groups) ]
+        clocks = [ 1 for i in range(groups) ]
         clkpol = [ 1 for i in range(groups) ]
+        wrmode[0] = 0
 
         for p1 in range(groups):
             if wrmode[p1] == 0:
@@ -72,7 +78,6 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     tb_din = list()
     tb_dout = list()
     tb_addrlist = list()
-    tb_delay = 0
 
     for i in range(10):
         tb_addrlist.append(random.randrange(1048576))
@@ -133,20 +138,22 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
                 always_hdr = "always @(posedge CLK%d_CLKPOL%d) begin" % (clocks[p1], clkpol[p1])
 
             if not always_hdr in v_always:
-                v_always[always_hdr] = list()
+                v_always[always_hdr] = [list(), list(), list()]
 
             if wrmode[p1]:
-                tb_delay += 1
-                assign_op += " #%d" % tb_delay
                 for i in range(enable[p1]):
                     enrange = "[%d:%d]" % ((i+1)*dbits/enable[p1]-1, i*dbits/enable[p1])
-                    v_always[always_hdr].append("if (%sEN[%d]) memory[%sADDR]%s %s %sDATA%s;" % (pf, i, pf, enrange, assign_op, pf, enrange))
+                    v_always[always_hdr][1].append("if (%sEN[%d]) memory[%sADDR]%s = %sDATA%s;" % (pf, i, pf, enrange, pf, enrange))
             else:
-                v_always[always_hdr].append("%sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
+                v_always[always_hdr][2 if transp[p1] else 0].append("%sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
 
     for a in v_always:
         v_stmts.append(a)
-        for l in v_always[a]:
+        for l in v_always[a][0]:
+            v_stmts.append("  " + l)
+        for l in v_always[a][1]:
+            v_stmts.append("  " + l)
+        for l in v_always[a][2]:
             v_stmts.append("  " + l)
         v_stmts.append("end")
 
@@ -179,8 +186,8 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     print("  initial begin", file=tb_f)
 
     if debug_mode:
-        print("    $dumpfile(\"temp/bram_%02d_%02d_tb.vcd\");" % (k1, k2), file=tb_f)
-        print("    $dumpvars(1, bram_%02d_%02d_tb);" % (k1, k2), file=tb_f)
+        print("    $dumpfile(`vcd_file);", file=tb_f)
+        print("    $dumpvars(2, bram_%02d_%02d_tb);" % (k1, k2), file=tb_f)
 
     for p in (tb_clocks + tb_addr + tb_din):
         if p[-2:] == "EN":
@@ -195,14 +202,14 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         print("    #1000;", file=tb_f)
 
     for i in range(100):
-        for p in tb_din:
-            print("    %s = %d;" % (p, random.randrange(1048576)), file=tb_f)
-        for p in tb_addr:
-            print("    %s = %d;" % (p, random.choice(tb_addrlist)), file=tb_f)
         if len(tb_clocks):
             c = random.choice(tb_clocks)
             print("    %s = !%s;" % (c, c), file=tb_f)
-        print("    #1;", file=tb_f)
+        for p in tb_din:
+            print("    %s <= %d;" % (p, random.randrange(1048576)), file=tb_f)
+        for p in tb_addr:
+            print("    %s <= %d;" % (p, random.choice(tb_addrlist)), file=tb_f)
+        print("    #1000;", file=tb_f)
         print("    $display(\"bram_%02d_%02d %3d: %%b %%b %%s\", %s, %s, error ? \"ERROR\" : \"OK\");" %
                 (k1, k2, i, expr_dout, expr_dout_ref), file=tb_f)
 
@@ -214,6 +221,9 @@ for k1 in range(5):
     sim_f = file("temp/brams_%02d.v" % k1, "w");
     ref_f = file("temp/brams_%02d_ref.v" % k1, "w");
     tb_f = file("temp/brams_%02d_tb.v" % k1, "w");
+
+    for f in [sim_f, ref_f, tb_f]:
+        print("`timescale 1 ns / 1 ns", file=f)
 
     for k2 in range(1 if debug_mode else 10):
         create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2)

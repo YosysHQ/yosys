@@ -30,6 +30,7 @@ struct rules_t
 
 		SigBit sig_clock;
 		SigSpec sig_addr, sig_data, sig_en;
+		bool effective_clkpol;
 		int mapped_port;
 	};
 
@@ -320,6 +321,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
 				pi.sig_clock = clkdom.first;
+				pi.effective_clkpol = clkdom.second;
 			}
 
 			pi.sig_en = sig_en;
@@ -405,6 +407,7 @@ grow_read_ports:;
 			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
 				pi.sig_clock = clkdom.first;
+				pi.effective_clkpol = clkdom.second;
 			}
 
 			pi.sig_addr = rd_addr.extract(cell_port_i*mem_abits, mem_abits);
@@ -483,7 +486,13 @@ grow_read_ports:;
 						bram_dout.remove(i);
 					}
 
-				dout_cache[sig_data].first.append(addr_ok);
+				SigSpec addr_ok_q = addr_ok;
+				if (pi.clocks && !addr_ok.empty()) {
+					addr_ok_q = module->addWire(NEW_ID);
+					module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
+				}
+
+				dout_cache[sig_data].first.append(addr_ok_q);
 				dout_cache[sig_data].second.append(bram_dout);
 			}
 
