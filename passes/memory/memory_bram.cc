@@ -25,8 +25,12 @@ PRIVATE_NAMESPACE_BEGIN
 struct rules_t
 {
 	struct portinfo_t {
-		int group, index;
+		int group, index, dupidx;
 		int wrmode, enable, transp, clocks, clkpol;
+
+		SigBit sig_clock;
+		SigSpec sig_addr, sig_data, sig_en;
+		int mapped_port;
 	};
 
 	struct bram_t {
@@ -42,11 +46,13 @@ struct rules_t
 				portinfo_t pi;
 				pi.group = i;
 				pi.index = j;
+				pi.dupidx = 0;
 				pi.wrmode = i < GetSize(wrmode) ? wrmode[i] : 0;
 				pi.enable = i < GetSize(enable) ? enable[i] : 0;
 				pi.transp = i < GetSize(transp) ? transp[i] : 0;
 				pi.clocks = i < GetSize(clocks) ? clocks[i] : 0;
 				pi.clkpol = i < GetSize(clkpol) ? clkpol[i] : 0;
+				pi.mapped_port = -1;
 				portinfos.push_back(pi);
 			}
 			return portinfos;
@@ -191,7 +197,7 @@ struct rules_t
 		syntax_error();
 	}
 
-	void parse(std::string filename)
+	void parse(string filename)
 	{
 		infile.open(filename);
 		linecount = 0;
@@ -212,18 +218,27 @@ struct rules_t
 
 bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_t&)
 {
+	Module *module = cell->module;
+
 	auto portinfos = bram.make_portinfos();
+	int dup_count = 1;
+
 	dict<int, pair<SigBit, bool>> clock_domains;
-	vector<int> mapped_wr_ports, mapped_rd_ports;
-	dict<int, int> used_rd_ports;
-	int rd_port_dups = 1;
+	pool<int> clocks_wr_ports;
+	int clocks_max = 0;
+
+	for (auto &pi : portinfos) {
+		if (pi.wrmode)
+			clocks_wr_ports.insert(pi.clocks);
+		clocks_max = std::max(clocks_max, pi.clocks);
+	}
 
 	log("  Mapping to bram type %s:\n", log_id(bram.name));
 
 	int mem_size = cell->getParam("\\SIZE").as_int();
 	int mem_abits = cell->getParam("\\ABITS").as_int();
 	int mem_width = cell->getParam("\\WIDTH").as_int();
-	int mem_offset = cell->getParam("\\OFFSET").as_int();
+	// int mem_offset = cell->getParam("\\OFFSET").as_int();
 
 	int wr_ports = cell->getParam("\\WR_PORTS").as_int();
 	auto wr_clken = SigSpec(cell->getParam("\\WR_CLK_ENABLE"));
@@ -286,10 +301,13 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 				}
 			}
 
+			SigSpec sig_en;
 			SigBit last_en_bit = State::S1;
-			for (int i = 0; i < bram.dbits; i++) {
-				if (pi.enable && i % (bram.dbits / pi.enable) == 0)
+			for (int i = 0; i < mem_width; i++) {
+				if (pi.enable && i % (bram.dbits / pi.enable) == 0) {
 					last_en_bit = wr_en[i];
+					sig_en.append(last_en_bit);
+				}
 				if (last_en_bit != wr_en[i]) {
 					log("      Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
@@ -297,9 +315,17 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			}
 
 			log("      Mapped to bram port %c%d.\n", pi.group + 'A', pi.index + 1);
-			if (clken)
+			pi.mapped_port = cell_port_i;
+
+			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
-			mapped_wr_ports.push_back(bram_port_i);
+				pi.sig_clock = clkdom.first;
+			}
+
+			pi.sig_en = sig_en;
+			pi.sig_addr = wr_addr.extract(cell_port_i*mem_abits, mem_abits);
+			pi.sig_data = wr_data.extract(cell_port_i*mem_width, mem_width);
+
 			goto mapped_wr_port;
 		}
 
@@ -313,9 +339,26 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 
 	if (0) {
 grow_read_ports:;
-		rd_port_dups++;
-		mapped_rd_ports.clear();
-		used_rd_ports.clear();
+		vector<rules_t::portinfo_t> new_portinfos;
+		for (auto &pi : portinfos) {
+			if (pi.wrmode == 0) {
+				pi.mapped_port = -1;
+				pi.sig_clock = SigBit();
+				pi.sig_addr = SigSpec();
+				pi.sig_data = SigSpec();
+				pi.sig_en = SigSpec();
+			}
+			new_portinfos.push_back(pi);
+			if (pi.dupidx == dup_count-1) {
+				if (pi.clocks && !clocks_wr_ports[pi.clocks])
+					pi.clocks += clocks_max;
+				pi.dupidx++;
+				new_portinfos.push_back(pi);
+			}
+		}
+		try_growing_more_read_ports = false;
+		portinfos.swap(new_portinfos);
+		dup_count++;
 	}
 
 	for (int cell_port_i = 0; cell_port_i < rd_ports; cell_port_i++)
@@ -336,7 +379,7 @@ grow_read_ports:;
 		{
 			auto &pi = portinfos[bram_port_i];
 
-			if (pi.wrmode != 0 || used_rd_ports[bram_port_i] >= rd_port_dups)
+			if (pi.wrmode != 0 || pi.mapped_port >= 0)
 		skip_bram_rport:
 				continue;
 
@@ -356,15 +399,21 @@ grow_read_ports:;
 				}
 			}
 
-			log("      Mapped to bram port %c%d.%d.\n", pi.group + 'A', pi.index + 1, used_rd_ports[bram_port_i] + 1);
-			if (clken)
+			log("      Mapped to bram port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+			pi.mapped_port = cell_port_i;
+
+			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
-			if (grow_read_ports_cursor < bram_port_i) {
-				grow_read_ports_cursor = bram_port_i;
+				pi.sig_clock = clkdom.first;
+			}
+
+			pi.sig_addr = rd_addr.extract(cell_port_i*mem_abits, mem_abits);
+			pi.sig_data = rd_data.extract(cell_port_i*mem_width, mem_width);
+
+			if (grow_read_ports_cursor < cell_port_i) {
+				grow_read_ports_cursor = cell_port_i;
 				try_growing_more_read_ports = true;
 			}
-			mapped_rd_ports.push_back(bram_port_i);
-			used_rd_ports[bram_port_i]++;
 			goto mapped_rd_port;
 		}
 
@@ -377,8 +426,92 @@ grow_read_ports:;
 	mapped_rd_port:;
 	}
 
-	log("    FIXME: The core of memory_bram is not implemented yet.\n");
-	return false;
+	dict<SigSpec, pair<SigSpec, SigSpec>> dout_cache;
+
+	for (int grid_d = 0; grid_d*bram.dbits < mem_width; grid_d++)
+	for (int grid_a = 0; grid_a*(1 << bram.abits) < mem_size; grid_a++)
+	for (int dupidx = 0; dupidx < dup_count; dupidx++)
+	{
+		Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", cell->name.c_str(), grid_d, grid_a, dupidx)), bram.name);
+		log("    Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
+
+		dict<int, SigBit> clocks;
+
+		for (auto &pi : portinfos)
+		{
+			if (pi.dupidx != dupidx)
+				continue;
+
+			string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
+			const char *pf = prefix.c_str();
+
+			if (pi.clocks)
+				clocks[pi.clocks] = pi.sig_clock;
+
+			SigSpec addr_ok;
+			if (GetSize(pi.sig_addr) > bram.abits) {
+				SigSpec extra_addr = pi.sig_addr.extract(bram.abits, GetSize(pi.sig_addr) - bram.abits);
+				SigSpec extra_addr_sel = SigSpec(grid_a, GetSize(extra_addr));
+				addr_ok = module->Eq(NEW_ID, extra_addr, extra_addr_sel);
+			}
+
+			if (pi.enable)
+			{
+				SigSpec sig_en = pi.sig_en;
+				sig_en.extend_u0((grid_d+1) * pi.enable);
+				sig_en = sig_en.extract(grid_d * pi.enable, pi.enable);
+
+				if (!addr_ok.empty())
+					sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
+
+				c->setPort(stringf("\\%sEN", pf), sig_en);
+			}
+
+			SigSpec sig_data = pi.sig_data;
+			sig_data.extend_u0((grid_d+1) * bram.dbits);
+			sig_data = sig_data.extract(grid_d * bram.dbits, bram.dbits);
+
+			if (pi.wrmode == 1) {
+				c->setPort(stringf("\\%sDATA", pf), sig_data);
+			} else {
+				SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
+				c->setPort(stringf("\\%sDATA", pf), bram_dout);
+
+				for (int i = bram.dbits-1; i >= 0; i--)
+					if (sig_data[i].wire == nullptr) {
+						sig_data.remove(i);
+						bram_dout.remove(i);
+					}
+
+				dout_cache[sig_data].first.append(addr_ok);
+				dout_cache[sig_data].second.append(bram_dout);
+			}
+
+			SigSpec sig_addr = pi.sig_addr;
+			sig_addr.extend_u0(bram.abits);
+			c->setPort(stringf("\\%sADDR", pf), sig_addr);
+		}
+
+		for (auto &it : clocks)
+			c->setPort(stringf("\\CLK%d", (it.first-1) % clocks_max + 1), it.second);
+	}
+
+	for (auto &it : dout_cache)
+	{
+		if (it.second.first.empty())
+		{
+			log_assert(GetSize(it.first) == GetSize(it.second.second));
+			module->connect(it.first, it.second.second);
+		}
+		else
+		{
+			log_assert(GetSize(it.first)*GetSize(it.second.first) == GetSize(it.second.second));
+			module->addPmux(NEW_ID, SigSpec(State::Sx, GetSize(it.first)), it.second.second, it.second.first, it.first);
+		}
+	}
+
+	module->remove(cell);
+	return true;
 }
 
 void handle_cell(Cell *cell, const rules_t &rules)
@@ -473,6 +606,58 @@ struct MemoryBramPass : public Pass {
 		log("This pass converts the multi-port $mem memory cells into block ram instances.\n");
 		log("The given rules file describes the available resources and how they should be\n");
 		log("used.\n");
+		log("\n");
+		log("The rules file contains a set of block ram description and a sequence of match\n");
+		log("rules. A block ram description looks like this:\n");
+		log("\n");
+		log("    bram RAMB1024X32     # name of BRAM cell\n");
+		log("      init 1             # set to '1' if BRAM can be initialized\n");
+		log("      abits 10           # number of address bits\n");
+		log("      dbits 32           # number of data bits\n");
+		log("      groups 2           # number of port groups\n");
+		log("      ports  1 1         # number of ports in each group\n");
+		log("      wrmode 1 0         # set to '1' if this groups is write ports\n");
+		log("      enable 4 0         # number of enable bits (for write ports)\n");
+		log("      transp 0 2         # transparatent (for read ports)\n");
+		log("      clocks 1 2         # clock configuration\n");
+		log("      clkpol 2 2         # clock polarity configuration\n");
+		log("    endbram\n");
+		log("\n");
+		log("For the option 'transp' the value 0 means non-transparent, 1 means transparent\n");
+		log("and a value greater than 1 means configurable. All groups with the same\n");
+		log("value greater than 1 share the same configuration bit.\n");
+		log("\n");
+		log("For the option 'clocks' the value 0 means non-clocked, and a value greater\n");
+		log("than 0 means clocked. All groups with the same value share the same clock\n");
+		log("signal.\n");
+		log("\n");
+		log("For the option 'clkpol' the value 0 means negative edge, 1 means positive edge\n");
+		log("and a value greater than 1 means configurable. All groups with the same value\n");
+		log("greater than 1 share the same configuration bit.\n");
+		log("\n");
+		log("A match rule looks like this:\n");
+		log("\n");
+		log("    match RAMB1024X32\n");
+		log("      max waste 16384    # only use this if <= 16384 bram bits are unused\n");
+		log("    endmatch\n");
+		log("\n");
+		log("It is possible to match against the following values with min/max rules:\n");
+		log("\n");
+		log("    words  ....  number of words in memory in design\n");
+		log("    abits  ....  number of adress bits on memory in design\n");
+		log("    dbits  ....  number of data bits on memory in design\n");
+		log("    wports  ...  number of write ports on memory in design\n");
+		log("    rports  ...  number of read ports on memory in design\n");
+		log("    ports  ....  number of ports on memory in design\n");
+		log("    bits  .....  number of bits in memory in design\n");
+		log("\n");
+		log("    awaste  ...  number of unused address slots for this match\n");
+		log("    dwaste  ...  number of unused data bits for this match\n");
+		log("    waste  ....  total number of unused bram bits for this match\n");
+		log("\n");
+		log("The interface for the created bram instances is dervived from the bram\n");
+		log("description. Use 'techmap' to convert the created bram instances into\n");
+		log("instances of the actual bram cells of your target architecture.\n");
 		log("\n");
 	}
 	virtual void execute(vector<string> args, Design *design)
