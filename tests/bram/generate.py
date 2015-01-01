@@ -6,11 +6,13 @@ from __future__ import print_function
 import sys
 import random
 
-def create_bram(dsc_f, sim_f, k1, k2):
+debug_mode = False
+
+def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     while True:
         init = random.randrange(2)
-        abits  = random.randrange(1, 16)
-        dbits  = random.randrange(1, 16)
+        abits  = random.randrange(1, 8)
+        dbits  = random.randrange(1, 8)
         groups = random.randrange(5)
 
         if random.randrange(2):
@@ -25,6 +27,12 @@ def create_bram(dsc_f, sim_f, k1, k2):
         clocks = [ random.randrange(4) for i in range(groups) ]
         clkpol = [ random.randrange(4) for i in range(groups) ]
 
+        # XXX
+        init = 0
+        transp = [ 0 for i in range(groups) ]
+        clocks = [ random.randrange(1, 4) for i in range(groups) ]
+        clkpol = [ 1 for i in range(groups) ]
+
         for p1 in range(groups):
             if wrmode[p1] == 0:
                 enable[p1] = 0
@@ -38,82 +46,175 @@ def create_bram(dsc_f, sim_f, k1, k2):
         if wrmode.count(0) <= ports.count(0): config_ok = False
         if config_ok: break
 
-    print('bram bram_%03d_%03d' % (k1, k2), file=dsc_f)
-    print('  init %d' % init, file=dsc_f)
-    print('  abits %d' % abits, file=dsc_f)
-    print('  dbits %d' % dbits, file=dsc_f)
-    print('  groups %d' % groups, file=dsc_f)
-    print('  ports  %s' % " ".join(["%d" % i for i in ports]), file=dsc_f)
-    print('  wrmode %s' % " ".join(["%d" % i for i in wrmode]), file=dsc_f)
-    print('  enable %s' % " ".join(["%d" % i for i in enable]), file=dsc_f)
-    print('  transp %s' % " ".join(["%d" % i for i in transp]), file=dsc_f)
-    print('  clocks %s' % " ".join(["%d" % i for i in clocks]), file=dsc_f)
-    print('  clkpol %s' % " ".join(["%d" % i for i in clkpol]), file=dsc_f)
-    print('endbram', file=dsc_f)
-    print('match bram_%03d_%03d' % (k1, k2), file=dsc_f)
-    print('endmatch', file=dsc_f)
+    print("bram bram_%02d_%02d" % (k1, k2), file=dsc_f)
+    print("  init %d" % init, file=dsc_f)
+    print("  abits %d" % abits, file=dsc_f)
+    print("  dbits %d" % dbits, file=dsc_f)
+    print("  groups %d" % groups, file=dsc_f)
+    print("  ports  %s" % " ".join(["%d" % i for i in ports]), file=dsc_f)
+    print("  wrmode %s" % " ".join(["%d" % i for i in wrmode]), file=dsc_f)
+    print("  enable %s" % " ".join(["%d" % i for i in enable]), file=dsc_f)
+    print("  transp %s" % " ".join(["%d" % i for i in transp]), file=dsc_f)
+    print("  clocks %s" % " ".join(["%d" % i for i in clocks]), file=dsc_f)
+    print("  clkpol %s" % " ".join(["%d" % i for i in clkpol]), file=dsc_f)
+    print("endbram", file=dsc_f)
+    print("match bram_%02d_%02d" % (k1, k2), file=dsc_f)
+    print("endmatch", file=dsc_f)
 
     states = set()
     v_ports = set()
     v_stmts = list()
+    v_always = dict()
 
-    v_stmts.append("reg [%d:0] memory [0:%d];" % (dbits-1, 2**abits-1))
+    tb_decls = list()
+    tb_clocks = list()
+    tb_addr = list()
+    tb_din = list()
+    tb_dout = list()
+    tb_addrlist = list()
+    tb_delay = 0
+
+    for i in range(10):
+        tb_addrlist.append(random.randrange(1048576))
+
+    t = random.randrange(1048576)
+    for i in range(10):
+        tb_addrlist.append(t ^ (1 << i))
+
+    v_stmts.append("(* nomem2reg *) reg [%d:0] memory [0:%d];" % (dbits-1, 2**abits-1))
 
     for p1 in range(groups):
         for p2 in range(ports[p1]):
-            pf = "%c%d" % (chr(ord('A') + p1), p2 + 1)
+            pf = "%c%d" % (chr(ord("A") + p1), p2 + 1)
 
             if clocks[p1] and not ("CLK%d" % clocks[p1]) in v_ports:
                 v_ports.add("CLK%d" % clocks[p1])
                 v_stmts.append("input CLK%d;" % clocks[p1])
+                tb_decls.append("reg CLK%d;" % clocks[p1])
+                tb_clocks.append("CLK%d" % clocks[p1])
 
             v_ports.add("%sADDR" % pf)
             v_stmts.append("input [%d:0] %sADDR;" % (abits-1, pf))
+            tb_decls.append("reg [%d:0] %sADDR;" % (abits-1, pf))
+            tb_addr.append("%sADDR" % pf)
 
             v_ports.add("%sDATA" % pf)
             v_stmts.append("%s [%d:0] %sDATA;" % ("input" if wrmode[p1] else "output reg", dbits-1, pf))
 
+            if wrmode[p1]:
+                tb_decls.append("reg [%d:0] %sDATA;" % (dbits-1, pf))
+                tb_din.append("%sDATA" % pf)
+            else:
+                tb_decls.append("wire [%d:0] %sDATA;" % (dbits-1, pf))
+                tb_decls.append("wire [%d:0] %sDATA_R;" % (dbits-1, pf))
+                tb_dout.append("%sDATA" % pf)
+
             if wrmode[p1] and enable[p1]:
                 v_ports.add("%sEN" % pf)
                 v_stmts.append("input [%d:0] %sEN;" % (enable[p1]-1, pf))
+                tb_decls.append("reg [%d:0] %sEN;" % (enable[p1]-1, pf))
+                tb_din.append("%sEN" % pf)
 
             assign_op = "<="
             if clocks[p1] == 0:
-                v_stmts.append("always @* begin")
+                always_hdr = "always @* begin"
                 assign_op = "="
             elif clkpol[p1] == 0:
-                v_stmts.append("always @(negedge CLK%d) begin" % clocks[p1])
+                always_hdr = "always @(negedge CLK%d) begin" % clocks[p1]
             elif clkpol[p1] == 1:
-                v_stmts.append("always @(posedge CLK%d) begin" % clocks[p1])
+                always_hdr = "always @(posedge CLK%d) begin" % clocks[p1]
             else:
-                if not ('CP', clkpol[p1]) in states:
+                if not ("CP", clkpol[p1]) in states:
                     v_stmts.append("parameter CLKPOL%d = 0;" % clkpol[p1])
-                    states.add(('CP', clkpol[p1]))
-                if not ('CPW', clocks[p1], clkpol[p1]) in states:
+                    states.add(("CP", clkpol[p1]))
+                if not ("CPW", clocks[p1], clkpol[p1]) in states:
                     v_stmts.append("wire CLK%d_CLKPOL%d = CLK%d == CLKPOL%d;" % (clocks[p1], clkpol[p1], clocks[p1], clkpol[p1]))
-                    states.add(('CPW', clocks[p1], clkpol[p1]))
-                v_stmts.append("always @(posedge CLK%d_CLKPOL%d) begin" % (clocks[p1], clkpol[p1]))
+                    states.add(("CPW", clocks[p1], clkpol[p1]))
+                always_hdr = "always @(posedge CLK%d_CLKPOL%d) begin" % (clocks[p1], clkpol[p1])
+
+            if not always_hdr in v_always:
+                v_always[always_hdr] = list()
 
             if wrmode[p1]:
+                tb_delay += 1
+                assign_op += " #%d" % tb_delay
                 for i in range(enable[p1]):
                     enrange = "[%d:%d]" % ((i+1)*dbits/enable[p1]-1, i*dbits/enable[p1])
-                    v_stmts.append("  if (%sEN[%d]) memory[%sADDR]%s %s %sDATA%s;" % (pf, i, pf, enrange, assign_op, pf, enrange))
+                    v_always[always_hdr].append("if (%sEN[%d]) memory[%sADDR]%s %s %sDATA%s;" % (pf, i, pf, enrange, assign_op, pf, enrange))
             else:
-                v_stmts.append("  %sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
-            v_stmts.append("end")
+                v_always[always_hdr].append("%sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
 
-    print('module bram_%03d_%03d(%s);' % (k1, k2, ", ".join(v_ports)), file=sim_f)
+    for a in v_always:
+        v_stmts.append(a)
+        for l in v_always[a]:
+            v_stmts.append("  " + l)
+        v_stmts.append("end")
+
+    print("module bram_%02d_%02d(%s);" % (k1, k2, ", ".join(v_ports)), file=sim_f)
     for stmt in v_stmts:
-        print('  %s' % stmt, file=sim_f)
-    print('endmodule', file=sim_f)
+        print("  %s" % stmt, file=sim_f)
+    print("endmodule", file=sim_f)
 
-for k1 in range(10):
-    dsc_f = file('temp/brams_%03d.txt' % k1, 'w');
-    sim_f = file('temp/brams_%03d.v' % k1, 'w');
+    print("module bram_%02d_%02d_ref(%s);" % (k1, k2, ", ".join(v_ports)), file=ref_f)
+    for stmt in v_stmts:
+        print("  %s" % stmt, file=ref_f)
+    print("endmodule", file=ref_f)
 
-    for k2 in range(10):
-        create_bram(dsc_f, sim_f, k1, k2)
+    print("module bram_%02d_%02d_tb;" % (k1, k2), file=tb_f)
+    for stmt in tb_decls:
+        print("  %s" % stmt, file=tb_f)
+    print("  bram_%02d_%02d uut (" % (k1, k2), file=tb_f)
+    print("    " + ",\n    ".join([".%s(%s)" % (p, p) for p in (tb_clocks + tb_addr + tb_din + tb_dout)]), file=tb_f)
+    print("  );", file=tb_f)
+    print("  bram_%02d_%02d_ref ref (" % (k1, k2), file=tb_f)
+    print("    " + ",\n    ".join([".%s(%s)" % (p, p) for p in (tb_clocks + tb_addr + tb_din)]) + ",", file=tb_f)
+    print("    " + ",\n    ".join([".%s(%s_R)" % (p, p) for p in tb_dout]), file=tb_f)
+    print("  );", file=tb_f)
 
-    dsc_f.close()
-    sim_f.close()
+    expr_dout = "{%s}" % ", ".join(tb_dout)
+    expr_dout_ref = "{%s}" % ", ".join(i + "_R" for i in tb_dout)
+
+    print("  wire error = %s !== %s;" % (expr_dout, expr_dout_ref), file=tb_f)
+
+    print("  initial begin", file=tb_f)
+
+    if debug_mode:
+        print("    $dumpfile(\"temp/bram_%02d_%02d_tb.vcd\");" % (k1, k2), file=tb_f)
+        print("    $dumpvars(1, bram_%02d_%02d_tb);" % (k1, k2), file=tb_f)
+
+    for p in (tb_clocks + tb_addr + tb_din):
+        if p[-2:] == "EN":
+            print("    %s <= ~0;" % p, file=tb_f)
+        else:
+            print("    %s <= 0;" % p, file=tb_f)
+    print("    #%d;" % (1000 + k2), file=tb_f)
+
+    for v in [1, 0, 1, 0]:
+        for p in tb_clocks:
+            print("    %s = %d;" % (p, v), file=tb_f)
+        print("    #1000;", file=tb_f)
+
+    for i in range(100):
+        for p in tb_din:
+            print("    %s = %d;" % (p, random.randrange(1048576)), file=tb_f)
+        for p in tb_addr:
+            print("    %s = %d;" % (p, random.choice(tb_addrlist)), file=tb_f)
+        if len(tb_clocks):
+            c = random.choice(tb_clocks)
+            print("    %s = !%s;" % (c, c), file=tb_f)
+        print("    #1;", file=tb_f)
+        print("    $display(\"bram_%02d_%02d %3d: %%b %%b %%s\", %s, %s, error ? \"ERROR\" : \"OK\");" %
+                (k1, k2, i, expr_dout, expr_dout_ref), file=tb_f)
+
+    print("  end", file=tb_f)
+    print("endmodule", file=tb_f)
+
+for k1 in range(5):
+    dsc_f = file("temp/brams_%02d.txt" % k1, "w");
+    sim_f = file("temp/brams_%02d.v" % k1, "w");
+    ref_f = file("temp/brams_%02d_ref.v" % k1, "w");
+    tb_f = file("temp/brams_%02d_tb.v" % k1, "w");
+
+    for k2 in range(1 if debug_mode else 10):
+        create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2)
 
