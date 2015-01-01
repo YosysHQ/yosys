@@ -839,13 +839,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			memory->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 			memory->name = str;
 			memory->width = children[0]->range_left - children[0]->range_right + 1;
-			memory->start_offset = children[0]->range_right;
-			memory->size = children[1]->range_left - children[1]->range_right;
+			if (children[1]->range_right < children[1]->range_left) {
+				memory->start_offset = children[1]->range_right;
+				memory->size = children[1]->range_left - children[1]->range_right + 1;
+			} else {
+				memory->start_offset = children[1]->range_left;
+				memory->size = children[1]->range_right - children[1]->range_left + 1;
+			}
 			current_module->memories[memory->name] = memory;
-
-			if (memory->size < 0)
-				memory->size *= -1;
-			memory->size += std::min(children[1]->range_left, children[1]->range_right) + 1;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)

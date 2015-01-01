@@ -150,6 +150,8 @@ void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL
 		f << stringf("width %d ", memory->width);
 	if (memory->size != 0)
 		f << stringf("size %d ", memory->size);
+	if (memory->start_offset != 0)
+		f << stringf("offset %d ", memory->start_offset);
 	f << stringf("%s\n", memory->name.c_str());
 }
 

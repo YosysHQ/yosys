@@ -183,6 +183,9 @@ memory_options:
 	memory_options TOK_SIZE TOK_INT {
 		current_memory->size = $3;
 	} |
+	memory_options TOK_OFFSET TOK_INT {
+		current_memory->start_offset = $3;
+	} |
 	/* empty */;
 
 cell_stmt:
