@@ -221,7 +221,8 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 	input_buffer_charp = 0;
 
 	input_file(f, filename);
-	defines_map["__YOSYS__"] = "1";
+	defines_map["YOSYS"] = "1";
+	defines_map["SYNTHESIS"] = "1";
 
 	while (!input_buffer.empty())
 	{
