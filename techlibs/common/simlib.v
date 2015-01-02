@@ -1518,107 +1518,48 @@ input [WR_PORTS*WIDTH-1:0] WR_EN;
 input [WR_PORTS*ABITS-1:0] WR_ADDR;
 input [WR_PORTS*WIDTH-1:0] WR_DATA;
 
-reg [WIDTH-1:0] data [SIZE-1:0];
-reg update_async_rd;
+reg [WIDTH-1:0] memory [SIZE-1:0];
 
-genvar i;
-generate
+integer i, j;
+reg [WR_PORTS-1:0] LAST_WR_CLK;
+reg [RD_PORTS-1:0] LAST_RD_CLK;
 
-	for (i = 0; i < RD_PORTS; i = i+1) begin:rd
-		if (RD_CLK_ENABLE[i] == 0) begin:rd_noclk
-			always @(RD_ADDR or update_async_rd)
-				RD_DATA[i*WIDTH +: WIDTH] <= data[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
-		end else
-		if (RD_TRANSPARENT[i] == 1) begin:rd_transparent
-			reg [ABITS-1:0] addr_buf;
-			if (RD_CLK_POLARITY[i] == 1) begin:rd_trans_posclk
-				always @(posedge RD_CLK[i])
-					addr_buf <= RD_ADDR[i*ABITS +: ABITS];
-			end else begin:rd_trans_negclk
-				always @(negedge RD_CLK[i])
-					addr_buf <= RD_ADDR[i*ABITS +: ABITS];
-			end
-			always @(addr_buf or update_async_rd)
-				RD_DATA[i*WIDTH +: WIDTH] <= data[addr_buf - OFFSET];
-		end else begin:rd_notransparent
-			if (RD_CLK_POLARITY[i] == 1) begin:rd_notrans_posclk
-				always @(posedge RD_CLK[i])
-					RD_DATA[i*WIDTH +: WIDTH] <= data[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
-			end else begin:rd_notrans_negclk
-				always @(negedge RD_CLK[i])
-					RD_DATA[i*WIDTH +: WIDTH] <= data[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
-			end
-		end
+function port_active;
+	input clk_enable;
+	input clk_polarity;
+	input last_clk;
+	input this_clk;
+	begin
+		casez ({clk_enable, clk_polarity, last_clk, this_clk})
+			4'b0???: port_active = 1;
+			4'b1101: port_active = 1;
+			4'b1010: port_active = 1;
+			default: port_active = 0;
+		endcase
+	end
+endfunction
+
+always @* begin
+	for (i = 0; i < RD_PORTS; i = i+1) begin
+		if ((!RD_TRANSPARENT[i] && RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i]))
+			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
 	end
 
-	for (i = 0; i < WR_PORTS; i = i+1) begin:wr
-		integer k, n;
-		reg found_collision, run_update;
-		if (WR_CLK_ENABLE[i] == 0) begin:wr_noclk
-			always @(WR_ADDR or WR_DATA or WR_EN) begin
-				run_update = 0;
-				for (n = 0; n < WIDTH; n = n+1) begin
-					if (WR_EN[i*WIDTH + n]) begin
-						found_collision = 0;
-						for (k = i+1; k < WR_PORTS; k = k+1)
-							if (WR_EN[k*WIDTH + n] && WR_ADDR[i*ABITS +: ABITS] == WR_ADDR[k*ABITS +: ABITS])
-								found_collision = 1;
-						if (!found_collision) begin
-							data[WR_ADDR[i*ABITS +: ABITS] - OFFSET][n] <= WR_DATA[i*WIDTH + n];
-							run_update = 1;
-						end
-					end
-				end
-				if (run_update) begin
-					update_async_rd <= 1;
-					update_async_rd <= 0;
-				end
-			end
-		end else
-		if (WR_CLK_POLARITY[i] == 1) begin:rd_posclk
-			always @(posedge WR_CLK[i]) begin
-				run_update = 0;
-				for (n = 0; n < WIDTH; n = n+1) begin
-					if (WR_EN[i*WIDTH + n]) begin
-						found_collision = 0;
-						for (k = i+1; k < WR_PORTS; k = k+1)
-							if (WR_EN[k*WIDTH + n] && WR_ADDR[i*ABITS +: ABITS] == WR_ADDR[k*ABITS +: ABITS])
-								found_collision = 1;
-						if (!found_collision) begin
-							data[WR_ADDR[i*ABITS +: ABITS] - OFFSET][n] <= WR_DATA[i*WIDTH + n];
-							run_update = 1;
-						end
-					end
-				end
-				if (run_update) begin
-					update_async_rd <= 1;
-					update_async_rd <= 0;
-				end
-			end
-		end else begin:rd_negclk
-			always @(negedge WR_CLK[i]) begin
-				run_update = 0;
-				for (n = 0; n < WIDTH; n = n+1) begin
-					if (WR_EN[i*WIDTH + n]) begin
-						found_collision = 0;
-						for (k = i+1; k < WR_PORTS; k = k+1)
-							if (WR_EN[k*WIDTH + n] && WR_ADDR[i*ABITS +: ABITS] == WR_ADDR[k*ABITS +: ABITS])
-								found_collision = 1;
-						if (!found_collision) begin
-							data[WR_ADDR[i*ABITS +: ABITS] - OFFSET][n] <= WR_DATA[i*WIDTH + n];
-							run_update = 1;
-						end
-					end
-				end
-				if (run_update) begin
-					update_async_rd <= 1;
-					update_async_rd <= 0;
-				end
-			end
-		end
+	for (i = 0; i < WR_PORTS; i = i+1) begin
+		if (port_active(WR_CLK_ENABLE[i], WR_CLK_POLARITY[i], LAST_WR_CLK[i], WR_CLK[i]))
+			for (j = 0; j < WIDTH; j = j+1)
+				if (WR_EN[i*WIDTH+j])
+					memory[WR_ADDR[i*ABITS +: ABITS] - OFFSET][j] = WR_DATA[i*WIDTH+j];
 	end
 
-endgenerate
+	for (i = 0; i < RD_PORTS; i = i+1) begin
+		if ((RD_TRANSPARENT[i] || !RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i]))
+			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
+	end
+
+	LAST_RD_CLK <= RD_CLK;
+	LAST_WR_CLK <= WR_CLK;
+end
 
 endmodule
 
