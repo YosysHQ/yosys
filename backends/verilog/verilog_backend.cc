@@ -167,7 +167,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
-			f << stringf("32'%sd%d", set_signed ? "s" : "", val);
+			f << stringf("32'%sd %d", set_signed ? "s" : "", val);
 		} else {
 	dump_bits:
 			f << stringf("%d'%sb", width, set_signed ? "s" : "");
@@ -246,14 +246,19 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 	}
 }
 
-void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n')
+void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, char term = '\n', bool modattr = false)
 {
 	if (noattr)
 		return;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 		f << stringf("%s" "%s %s", indent.c_str(), attr2comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
-		dump_const(f, it->second);
+		if (modattr && (it->second == Const(0, 1) || it->second == Const(0)))
+			f << stringf(" 0 ");
+		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
+			f << stringf(" 1 ");
+		else
+			dump_const(f, it->second);
 		f << stringf(" %s%c", attr2comment ? "*/" : "*)", term);
 	}
 }
@@ -749,7 +754,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				f << stringf(",");
 			f << stringf("\n%s  .%s(", indent.c_str(), id(it->first).c_str());
 			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
-			dump_const(f, it->second, -1, 0, !is_signed, is_signed);
+			dump_const(f, it->second, -1, 0, false, is_signed);
 			f << stringf(")");
 		}
 		f << stringf("\n%s" ")", indent.c_str());
@@ -991,7 +996,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		}
 	}
 
-	dump_attributes(f, indent, module->attributes);
+	dump_attributes(f, indent, module->attributes, '\n', true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
 	bool keep_running = true;
 	for (int port_id = 1; keep_running; port_id++) {
