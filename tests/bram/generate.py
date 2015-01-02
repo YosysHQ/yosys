@@ -8,7 +8,7 @@ import sys
 import random
 
 debug_mode = False
-seed = os.getpid()
+seed = (int(os.times()[4]*100) + os.getpid()) % 900000 + 100000
 
 def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     while True:
@@ -43,7 +43,6 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
                     enable[p1] //= 2
 
         config_ok = True
-        if sum(ports) > 3: config_ok = False # XXX
         if wrmode.count(1) == 0: config_ok = False
         if wrmode.count(0) == 0: config_ok = False
         if config_ok: break
@@ -66,7 +65,6 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     states = set()
     v_ports = set()
     v_stmts = list()
-    v_always = dict()
 
     tb_decls = list()
     tb_clocks = list()
@@ -136,27 +134,17 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
                     states.add(("CPW", clocks[p1], clkpol[p1]))
                 always_hdr = "always @(posedge CLK%d_CLKPOL%d) begin" % (clocks[p1], clkpol[p1])
 
-            if not always_hdr in v_always:
-                v_always[always_hdr] = [list(), list(), list()]
-                v_always[always_hdr][1].append("`delay(%d)" % portindex);
-                v_always[always_hdr][2].append("`delay(%d)" % (sum(ports)-portindex+1));
-
+            v_stmts.append(always_hdr)
             if wrmode[p1]:
+                v_stmts.append("  `delay(%d)" % portindex);
                 for i in range(enable[p1]):
                     enrange = "[%d:%d]" % ((i+1)*dbits/enable[p1]-1, i*dbits/enable[p1])
-                    v_always[always_hdr][1].append("if (%sEN[%d]) memory[%sADDR]%s = %sDATA%s;" % (pf, i, pf, enrange, pf, enrange))
+                    v_stmts.append("  if (%sEN[%d]) memory[%sADDR]%s = %sDATA%s;" % (pf, i, pf, enrange, pf, enrange))
             else:
-                v_always[always_hdr][2 if transp[p1] else 0].append("%sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
-
-    for a in v_always:
-        v_stmts.append(a)
-        for l in v_always[a][0]:
-            v_stmts.append("  " + l)
-        for l in v_always[a][1]:
-            v_stmts.append("  " + l)
-        for l in v_always[a][2]:
-            v_stmts.append("  " + l)
-        v_stmts.append("end")
+                if transp[p1]:
+                    v_stmts.append("  `delay(%d)" % (sum(ports)+1))
+                v_stmts.append("  %sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
+            v_stmts.append("end")
 
     print("module bram_%02d_%02d(%s);" % (k1, k2, ", ".join(v_ports)), file=sim_f)
     for stmt in v_stmts:
