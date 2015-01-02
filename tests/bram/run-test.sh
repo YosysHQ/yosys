@@ -21,7 +21,7 @@ python generate.py
 	for j in $( ls temp/brams_*.txt | sed 's,.*_,,; s,\..*,,;' | grep -v $i ); do
 		echo "temp/job_${i}_${j}.ok:"
 		echo "	@bash run-single.sh ${i} ${j}"
-		echo "	@echo 'Passed test ${i}_${j}.'"
+		echo "	@echo 'Passed memory_bram test ${i}_${j}.'"
 		echo "	@touch \$@"
 	done; done
 } > temp/makefile

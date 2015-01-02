@@ -306,10 +306,10 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			SigBit last_en_bit = State::S1;
 			for (int i = 0; i < mem_width; i++) {
 				if (pi.enable && i % (bram.dbits / pi.enable) == 0) {
-					last_en_bit = wr_en[i];
+					last_en_bit = wr_en[i + cell_port_i*mem_width];
 					sig_en.append(last_en_bit);
 				}
-				if (last_en_bit != wr_en[i]) {
+				if (last_en_bit != wr_en[i + cell_port_i*mem_width]) {
 					log("      Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
@@ -328,6 +328,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			pi.sig_addr = wr_addr.extract(cell_port_i*mem_abits, mem_abits);
 			pi.sig_data = wr_data.extract(cell_port_i*mem_width, mem_width);
 
+			bram_port_i++;
 			goto mapped_wr_port;
 		}
 
@@ -338,6 +339,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 
 	int grow_read_ports_cursor = -1;
 	bool try_growing_more_read_ports = false;
+	auto backup_clock_domains = clock_domains;
 
 	if (0) {
 grow_read_ports:;
@@ -360,6 +362,7 @@ grow_read_ports:;
 		}
 		try_growing_more_read_ports = false;
 		portinfos.swap(new_portinfos);
+		clock_domains = backup_clock_domains;
 		dup_count++;
 	}
 
@@ -448,7 +451,7 @@ grow_read_ports:;
 			string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
 			const char *pf = prefix.c_str();
 
-			if (pi.clocks)
+			if (pi.clocks && (!clocks.count(pi.clocks) || pi.sig_clock.wire))
 				clocks[pi.clocks] = pi.sig_clock;
 
 			SigSpec addr_ok;

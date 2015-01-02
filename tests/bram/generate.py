@@ -15,10 +15,6 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         dbits  = random.randrange(1, 8)
         groups = random.randrange(1, 5)
 
-        # XXX
-        init = 0
-        groups = 2
-
         if random.randrange(2):
             abits = 2 ** random.randrange(1, 4)
         if random.randrange(2):
@@ -32,12 +28,10 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         clkpol = [ random.randrange(4) for i in range(groups) ]
 
         # XXX
-        ports  = [ 1 for i in range(groups) ]
-        wrmode = [ 1 for i in range(groups) ]
+        init = 0
         transp = [ 0 for i in range(groups) ]
         clocks = [ 1 for i in range(groups) ]
         clkpol = [ 1 for i in range(groups) ]
-        wrmode[0] = 0
 
         for p1 in range(groups):
             if wrmode[p1] == 0:
@@ -187,7 +181,7 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
 
     if debug_mode:
         print("    $dumpfile(`vcd_file);", file=tb_f)
-        print("    $dumpvars(2, bram_%02d_%02d_tb);" % (k1, k2), file=tb_f)
+        print("    $dumpvars(0, bram_%02d_%02d_tb);" % (k1, k2), file=tb_f)
 
     for p in (tb_clocks + tb_addr + tb_din):
         if p[-2:] == "EN":
@@ -205,13 +199,14 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         if len(tb_clocks):
             c = random.choice(tb_clocks)
             print("    %s = !%s;" % (c, c), file=tb_f)
+        print("    #100;", file=tb_f)
+        print("    $display(\"bram_%02d_%02d %3d: %%b %%b %%s\", %s, %s, error ? \"ERROR\" : \"OK\");" %
+                (k1, k2, i, expr_dout, expr_dout_ref), file=tb_f)
         for p in tb_din:
             print("    %s <= %d;" % (p, random.randrange(1048576)), file=tb_f)
         for p in tb_addr:
             print("    %s <= %d;" % (p, random.choice(tb_addrlist)), file=tb_f)
-        print("    #1000;", file=tb_f)
-        print("    $display(\"bram_%02d_%02d %3d: %%b %%b %%s\", %s, %s, error ? \"ERROR\" : \"OK\");" %
-                (k1, k2, i, expr_dout, expr_dout_ref), file=tb_f)
+        print("    #900;", file=tb_f)
 
     print("  end", file=tb_f)
     print("endmodule", file=tb_f)
