@@ -3,34 +3,35 @@
 from __future__ import division
 from __future__ import print_function
 
+import os
 import sys
 import random
 
 debug_mode = False
+seed = os.getpid()
 
 def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     while True:
         init = random.randrange(2)
         abits  = random.randrange(1, 8)
         dbits  = random.randrange(1, 8)
-        groups = random.randrange(1, 5)
+        groups = random.randrange(2, 5)
 
         if random.randrange(2):
             abits = 2 ** random.randrange(1, 4)
         if random.randrange(2):
             dbits = 2 ** random.randrange(1, 4)
 
-        ports  = [ random.randrange(3) for i in range(groups) ]
-        wrmode = [ random.randrange(2) for i in range(groups) ]
-        enable = [ random.randrange(4) for i in range(groups) ]
-        transp = [ random.randrange(4) for i in range(groups) ]
-        clocks = [ random.randrange(4) for i in range(groups) ]
-        clkpol = [ random.randrange(4) for i in range(groups) ]
+        ports  = [ random.randrange(1, 3) for i in range(groups) ]
+        wrmode = [ random.randrange(0, 2) for i in range(groups) ]
+        enable = [ random.randrange(0, 4) for i in range(groups) ]
+        transp = [ random.randrange(0, 4) for i in range(groups) ]
+        clocks = [ random.randrange(1, 4) for i in range(groups) ]
+        clkpol = [ random.randrange(0, 4) for i in range(groups) ]
 
         # XXX
         init = 0
         transp = [ 0 for i in range(groups) ]
-        clocks = [ 1 for i in range(groups) ]
         clkpol = [ 1 for i in range(groups) ]
 
         for p1 in range(groups):
@@ -42,8 +43,9 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
                     enable[p1] //= 2
 
         config_ok = True
-        if wrmode.count(1) <= ports.count(0): config_ok = False
-        if wrmode.count(0) <= ports.count(0): config_ok = False
+        if sum(ports) > 3: config_ok = False # XXX
+        if wrmode.count(1) == 0: config_ok = False
+        if wrmode.count(0) == 0: config_ok = False
         if config_ok: break
 
     print("bram bram_%02d_%02d" % (k1, k2), file=dsc_f)
@@ -82,9 +84,12 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
 
     v_stmts.append("(* nomem2reg *) reg [%d:0] memory [0:%d];" % (dbits-1, 2**abits-1))
 
+    portindex = 0
+
     for p1 in range(groups):
         for p2 in range(ports[p1]):
             pf = "%c%d" % (chr(ord("A") + p1), p2 + 1)
+            portindex += 1
 
             if clocks[p1] and not ("CLK%d" % clocks[p1]) in v_ports:
                 v_ports.add("CLK%d" % clocks[p1])
@@ -133,6 +138,8 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
 
             if not always_hdr in v_always:
                 v_always[always_hdr] = [list(), list(), list()]
+                v_always[always_hdr][1].append("`delay(%d)" % portindex);
+                v_always[always_hdr][2].append("`delay(%d)" % (sum(ports)-portindex+1));
 
             if wrmode[p1]:
                 for i in range(enable[p1]):
@@ -195,7 +202,7 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
             print("    %s = %d;" % (p, v), file=tb_f)
         print("    #1000;", file=tb_f)
 
-    for i in range(100):
+    for i in range(20 if debug_mode else 100):
         if len(tb_clocks):
             c = random.choice(tb_clocks)
             print("    %s = !%s;" % (c, c), file=tb_f)
@@ -211,6 +218,9 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     print("  end", file=tb_f)
     print("endmodule", file=tb_f)
 
+print("Rng seed: %d" % seed)
+random.seed(seed)
+
 for k1 in range(5):
     dsc_f = file("temp/brams_%02d.txt" % k1, "w");
     sim_f = file("temp/brams_%02d.v" % k1, "w");
@@ -219,6 +229,13 @@ for k1 in range(5):
 
     for f in [sim_f, ref_f, tb_f]:
         print("`timescale 1 ns / 1 ns", file=f)
+
+    for f in [sim_f, ref_f]:
+        print("`ifdef SYNTHESIS", file=f)
+        print("  `define delay(n)", file=f)
+        print("`else", file=f)
+        print("  `define delay(n) #n;", file=f)
+        print("`endif", file=f)
 
     for k2 in range(1 if debug_mode else 10):
         create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2)
