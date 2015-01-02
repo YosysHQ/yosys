@@ -1539,7 +1539,7 @@ function port_active;
 	end
 endfunction
 
-always @* begin
+always @(RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
 	for (i = 0; i < RD_PORTS; i = i+1) begin
 		if ((!RD_TRANSPARENT[i] && RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i]))
 			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];

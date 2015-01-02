@@ -225,13 +225,23 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 	int dup_count = 1;
 
 	dict<int, pair<SigBit, bool>> clock_domains;
+	dict<int, bool> clock_polarities;
 	pool<int> clocks_wr_ports;
+	pool<int> clkpol_wr_ports;
 	int clocks_max = 0;
+	int clkpol_max = 0;
+
+	clock_polarities[0] = false;
+	clock_polarities[1] = true;
 
 	for (auto &pi : portinfos) {
-		if (pi.wrmode)
+		if (pi.wrmode) {
 			clocks_wr_ports.insert(pi.clocks);
+			if (pi.clkpol > 1)
+				clkpol_wr_ports.insert(pi.clkpol);
+		}
 		clocks_max = std::max(clocks_max, pi.clocks);
+		clkpol_max = std::max(clkpol_max, pi.clkpol);
 	}
 
 	log("  Mapping to bram type %s:\n", log_id(bram.name));
@@ -295,6 +305,10 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 					log("      Bram port %c%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
+				if (clock_polarities.count(pi.clkpol) && clock_polarities.at(pi.clkpol) != clkpol) {
+					log("      Bram port %c%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1);
+					goto skip_bram_wport;
+				}
 			} else {
 				if (pi.clocks != 0) {
 					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
@@ -320,6 +334,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 
 			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
+				clock_polarities[pi.clkpol] = clkdom.second;
 				pi.sig_clock = clkdom.first;
 				pi.effective_clkpol = clkdom.second;
 			}
@@ -340,6 +355,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 	int grow_read_ports_cursor = -1;
 	bool try_growing_more_read_ports = false;
 	auto backup_clock_domains = clock_domains;
+	auto backup_clock_polarities = clock_polarities;
 
 	if (0) {
 grow_read_ports:;
@@ -356,6 +372,8 @@ grow_read_ports:;
 			if (pi.dupidx == dup_count-1) {
 				if (pi.clocks && !clocks_wr_ports[pi.clocks])
 					pi.clocks += clocks_max;
+				if (pi.clkpol > 1 && !clkpol_wr_ports[pi.clkpol])
+					pi.clkpol += clkpol_max;
 				pi.dupidx++;
 				new_portinfos.push_back(pi);
 			}
@@ -363,6 +381,7 @@ grow_read_ports:;
 		try_growing_more_read_ports = false;
 		portinfos.swap(new_portinfos);
 		clock_domains = backup_clock_domains;
+		clock_polarities = backup_clock_polarities;
 		dup_count++;
 	}
 
@@ -390,16 +409,20 @@ grow_read_ports:;
 
 			if (clken) {
 				if (pi.clocks == 0) {
-					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					log("      Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 				if (clock_domains.count(pi.clocks) && clock_domains.at(pi.clocks) != clkdom) {
-					log("      Bram port %c%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1);
+					log("      Bram port %c%d.%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					goto skip_bram_rport;
+				}
+				if (clock_polarities.count(pi.clkpol) && clock_polarities.at(pi.clkpol) != clkpol) {
+					log("      Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 			} else {
 				if (pi.clocks != 0) {
-					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					log("      Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 			}
@@ -409,6 +432,7 @@ grow_read_ports:;
 
 			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
+				clock_polarities[pi.clkpol] = clkdom.second;
 				pi.sig_clock = clkdom.first;
 				pi.effective_clkpol = clkdom.second;
 			}
@@ -506,6 +530,10 @@ grow_read_ports:;
 
 		for (auto &it : clocks)
 			c->setPort(stringf("\\CLK%d", (it.first-1) % clocks_max + 1), it.second);
+
+		for (auto &it : clock_polarities)
+			if (it.first > 1)
+				c->setParam(stringf("\\CLKPOL%d", (it.first-1) % clkpol_max + 1), it.second);
 	}
 
 	for (auto &it : dout_cache)

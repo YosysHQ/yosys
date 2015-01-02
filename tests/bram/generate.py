@@ -32,7 +32,7 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         # XXX
         init = 0
         transp = [ 0 for i in range(groups) ]
-        clkpol = [ 1 for i in range(groups) ]
+        clkpol = [ random.randrange(0, 2) for i in range(groups) ]
 
         for p1 in range(groups):
             if wrmode[p1] == 0:
