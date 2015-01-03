@@ -63,6 +63,7 @@ struct rules_t
 	struct match_t {
 		IdString name;
 		dict<string, int> min_limits, max_limits;
+		bool or_next_if_better;
 	};
 
 	dict<IdString, bram_t> brams;
@@ -174,6 +175,7 @@ struct rules_t
 
 		match_t data;
 		data.name = RTLIL::escape_id(tokens[1]);
+		data.or_next_if_better = false;
 
 		while (next_line())
 		{
@@ -189,6 +191,11 @@ struct rules_t
 
 			if (GetSize(tokens) == 3 && tokens[0] == "max") {
 				data.max_limits[tokens[1]] = atoi(tokens[2].c_str());
+				continue;
+			}
+
+			if (GetSize(tokens) == 1 && tokens[0] == "or_next_if_better") {
+				data.or_next_if_better = true;
 				continue;
 			}
 
@@ -217,7 +224,7 @@ struct rules_t
 	}
 };
 
-bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_t&)
+bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
 {
 	Module *module = cell->module;
 
@@ -247,7 +254,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 		transp_max = std::max(transp_max, pi.transp);
 	}
 
-	log("  Mapping to bram type %s:\n", log_id(bram.name));
+	log("    Mapping to bram type %s:\n", log_id(bram.name));
 
 	int mem_size = cell->getParam("\\SIZE").as_int();
 	int mem_abits = cell->getParam("\\ABITS").as_int();
@@ -287,7 +294,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 		if (!clken)
 			clkdom = pair<SigBit, bool>(State::S1, false);
 
-		log("    Write port #%d is in clock domain %s%s.\n",
+		log("      Write port #%d is in clock domain %s%s.\n",
 				cell_port_i, clkdom.second ? "" : "!",
 				clken ? log_signal(clkdom.first) : "~async~");
 
@@ -301,20 +308,20 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 
 			if (clken) {
 				if (pi.clocks == 0) {
-					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					log("        Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
 				if (clock_domains.count(pi.clocks) && clock_domains.at(pi.clocks) != clkdom) {
-					log("      Bram port %c%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1);
+					log("        Bram port %c%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
 				if (clock_polarities.count(pi.clkpol) && clock_polarities.at(pi.clkpol) != clkpol) {
-					log("      Bram port %c%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1);
+					log("        Bram port %c%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
 			} else {
 				if (pi.clocks != 0) {
-					log("      Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
+					log("        Bram port %c%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
 			}
@@ -327,12 +334,12 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 					sig_en.append(last_en_bit);
 				}
 				if (last_en_bit != wr_en[i + cell_port_i*mem_width]) {
-					log("      Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
+					log("        Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
 			}
 
-			log("      Mapped to bram port %c%d.\n", pi.group + 'A', pi.index + 1);
+			log("        Mapped to bram port %c%d.\n", pi.group + 'A', pi.index + 1);
 			pi.mapped_port = cell_port_i;
 
 			if (clken) {
@@ -350,7 +357,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			goto mapped_wr_port;
 		}
 
-		log("      Failed to map write port #%d.\n", cell_port_i);
+		log("        Failed to map write port #%d.\n", cell_port_i);
 		return false;
 	mapped_wr_port:;
 	}
@@ -405,7 +412,7 @@ grow_read_ports:;
 		if (!clken)
 			clkdom = pair<SigBit, bool>(State::S1, false);
 
-		log("    Read port #%d is in clock domain %s%s.\n",
+		log("      Read port #%d is in clock domain %s%s.\n",
 				cell_port_i, clkdom.second ? "" : "!",
 				clken ? log_signal(clkdom.first) : "~async~");
 
@@ -419,29 +426,29 @@ grow_read_ports:;
 
 			if (clken) {
 				if (pi.clocks == 0) {
-					log("      Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					log("        Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 				if (clock_domains.count(pi.clocks) && clock_domains.at(pi.clocks) != clkdom) {
-					log("      Bram port %c%d.%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					log("        Bram port %c%d.%d is in a different clock domain.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 				if (clock_polarities.count(pi.clkpol) && clock_polarities.at(pi.clkpol) != clkpol) {
-					log("      Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					log("        Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
-					log("      Bram port %c%d.%d has incompatible read transparancy.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					log("        Bram port %c%d.%d has incompatible read transparancy.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 			} else {
 				if (pi.clocks != 0) {
-					log("      Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					log("        Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
 			}
 
-			log("      Mapped to bram port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+			log("        Mapped to bram port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 			pi.mapped_port = cell_port_i;
 
 			if (clken) {
@@ -463,13 +470,49 @@ grow_read_ports:;
 			goto mapped_rd_port;
 		}
 
-		log("      Failed to map read port #%d.\n", cell_port_i);
+		log("        Failed to map read port #%d.\n", cell_port_i);
 		if (try_growing_more_read_ports) {
-			log("    Growing more read ports by duplicating bram cells.\n");
+			log("      Growing more read ports by duplicating bram cells.\n");
 			goto grow_read_ports;
 		}
 		return false;
 	mapped_rd_port:;
+	}
+
+	if (mode <= 1)
+	{
+		match_properties["dups"] = dup_count;
+		match_properties["waste"] = match_properties["dups"] * match_properties["bwaste"];
+
+		int cells = ((match_properties["dbits"] + bram.dbits - 1) / bram.dbits) * ((match_properties["words"] + (1 << bram.abits) - 1) / (1 << bram.abits));
+		match_properties["efficiency"] = (100 * match_properties["bits"]) / (dup_count * cells * bram.dbits * (1 << bram.abits));
+
+		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
+				match_properties["dups"], match_properties["waste"], match_properties["efficiency"]);
+
+		for (auto it : match.min_limits) {
+			if (!match_properties.count(it.first))
+				log_error("Unknown property '%s' in match rule for bram type %s.\n",
+						it.first.c_str(), log_id(match.name));
+			if (match_properties[it.first] >= it.second)
+				continue;
+			log("    Rule for bram type %s rejected: requirement 'min %s %d' not met.\n",
+					log_id(match.name), it.first.c_str(), it.second);
+			return false;
+		}
+		for (auto it : match.max_limits) {
+			if (!match_properties.count(it.first))
+				log_error("Unknown property '%s' in match rule for bram type %s.\n",
+						it.first.c_str(), log_id(match.name));
+			if (match_properties[it.first] <= it.second)
+				continue;
+			log("    Rule for bram type %s rejected: requirement 'max %s %d' not met.\n",
+					log_id(match.name), it.first.c_str(), it.second);
+			return false;
+		}
+
+		if (mode == 1)
+			return true;
 	}
 
 	dict<SigSpec, pair<SigSpec, SigSpec>> dout_cache;
@@ -479,7 +522,7 @@ grow_read_ports:;
 	for (int dupidx = 0; dupidx < dup_count; dupidx++)
 	{
 		Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", cell->name.c_str(), grid_d, grid_a, dupidx)), bram.name);
-		log("    Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
+		log("      Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
 
 		for (auto &pi : portinfos)
 		{
@@ -585,6 +628,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 	log("\n");
 
 	pool<IdString> failed_brams;
+	dict<int, int> best_rule_cache;
 
 	for (int i = 0; i < GetSize(rules.matches); i++)
 	{
@@ -597,6 +641,23 @@ void handle_cell(Cell *cell, const rules_t &rules)
 		if (match.name.in(failed_brams))
 			continue;
 
+		int avail_rd_ports = 0;
+		int avail_wr_ports = 0;
+		for (int j = 0; j < bram.groups; j++) {
+			if (GetSize(bram.wrmode) < j || bram.wrmode.at(j) == 0)
+				avail_rd_ports += GetSize(bram.ports) < j ? bram.ports.at(j) : 0;
+			if (GetSize(bram.wrmode) < j || bram.wrmode.at(j) != 0)
+				avail_wr_ports += GetSize(bram.ports) < j ? bram.ports.at(j) : 0;
+		}
+
+		log("  Checking rule #%d for bram type %s:\n", i, log_id(match.name));
+		log("    Bram geometry: abits=%d dbits=%d wports=%d rports=%d\n", bram.abits, bram.dbits, avail_wr_ports, avail_rd_ports);
+
+		int dups = avail_rd_ports ? (match_properties["rports"] + avail_rd_ports - 1) / avail_rd_ports : 1;
+		match_properties["dups"] = dups;
+
+		log("    Estimated number of duplicates for more read ports: dups=%d\n", match_properties["dups"]);
+
 		int aover = match_properties["words"] % (1 << bram.abits);
 		int awaste = aover ? (1 << bram.abits) - aover : 0;
 		match_properties["awaste"] = awaste;
@@ -605,19 +666,28 @@ void handle_cell(Cell *cell, const rules_t &rules)
 		int dwaste = dover ? bram.dbits - dover : 0;
 		match_properties["dwaste"] = dwaste;
 
-		int waste = awaste * bram.dbits + dwaste * (1 << bram.abits) - awaste * dwaste;
+		int bwaste = awaste * bram.dbits + dwaste * (1 << bram.abits) - awaste * dwaste;
+		match_properties["bwaste"] = bwaste;
+
+		int waste = match_properties["dups"] * bwaste;
 		match_properties["waste"] = waste;
 
-		log("  Wasted bits for bram type %s: awaste=%d dwaste=%d waste=%d\n",
-				log_id(match.name), awaste, dwaste, waste);
+		int cells = ((match_properties["dbits"] + bram.dbits - 1) / bram.dbits) * ((match_properties["words"] + (1 << bram.abits) - 1) / (1 << bram.abits));
+		int efficiency = (100 * match_properties["bits"]) / (dups * cells * bram.dbits * (1 << bram.abits));
+		match_properties["efficiency"] = efficiency;
+
+		log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d %d\n",
+				log_id(match.name), awaste, dwaste, bwaste, waste, efficiency, cells);
 
 		for (auto it : match.min_limits) {
+			if (it.first == "waste" || it.first == "dups")
+				continue;
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
 						it.first.c_str(), log_id(match.name));
 			if (match_properties[it.first] >= it.second)
 				continue;
-			log("  Rule #%d for bram type %s rejected: requirement 'min %s %d' not met.\n",
+			log("    Rule #%d for bram type %s rejected: requirement 'min %s %d' not met.\n",
 					i, log_id(match.name), it.first.c_str(), it.second);
 			goto next_match_rule;
 		}
@@ -627,21 +697,57 @@ void handle_cell(Cell *cell, const rules_t &rules)
 						it.first.c_str(), log_id(match.name));
 			if (match_properties[it.first] <= it.second)
 				continue;
-			log("  Rule #%d for bram type %s rejected: requirement 'max %s %d' not met.\n",
+			log("    Rule #%d for bram type %s rejected: requirement 'max %s %d' not met.\n",
 					i, log_id(match.name), it.first.c_str(), it.second);
 			goto next_match_rule;
 		}
 
-		log("  Rule #%d for bram type %s accepted.\n", i, log_id(match.name));
+		log("    Rule #%d for bram type %s accepted.\n", i, log_id(match.name));
 
-		if (!replace_cell(cell, bram, match)) {
-			log("  Mapping to bram type %s failed.\n", log_id(match.name));
+		if (match.or_next_if_better || !best_rule_cache.empty())
+		{
+			if (match.or_next_if_better && i+1 == GetSize(rules.matches))
+				log_error("Found 'or_next_if_better' in last match rule.\n");
+
+			if (!replace_cell(cell, bram, match, match_properties, 1)) {
+				log("    Mapping to bram type %s failed.\n", log_id(match.name));
+				failed_brams.insert(match.name);
+				goto next_match_rule;
+			}
+
+			log("      Storing for later selection.\n");
+			best_rule_cache[i] = match_properties["efficiency"];
+
+			if (match.or_next_if_better)
+				goto next_match_rule;
+
+	next_match_rule:
+			if (match.or_next_if_better || best_rule_cache.empty())
+				continue;
+
+			log("  Selecting best of %d rules:\n", GetSize(best_rule_cache));
+			int best_rule = best_rule_cache.begin()->first;
+
+			for (auto &it : best_rule_cache) {
+				if (it.second > best_rule_cache[best_rule])
+					best_rule = it.first;
+				log("    Efficiency for rule %d: %d\n", it.first, it.second);
+			}
+
+			log("    Selected rule %d with efficiency %d.\n", best_rule, best_rule_cache[best_rule]);
+			best_rule_cache.clear();
+
+			if (!replace_cell(cell, rules.brams.at(rules.matches.at(best_rule).name), rules.matches.at(best_rule), match_properties, 2))
+				log_error("Mapping to bram type %s after pre-selection failed.\n", log_id(rules.matches.at(best_rule).name));
+			return;
+		}
+
+		if (!replace_cell(cell, bram, match, match_properties, 0)) {
+			log("    Mapping to bram type %s failed.\n", log_id(match.name));
 			failed_brams.insert(match.name);
 			goto next_match_rule;
 		}
 		return;
-
-	next_match_rule:;
 	}
 
 	log("  No acceptable bram resources found.\n");
@@ -663,7 +769,7 @@ struct MemoryBramPass : public Pass {
 		log("rules. A block ram description looks like this:\n");
 		log("\n");
 		log("    bram RAMB1024X32     # name of BRAM cell\n");
-		log("      init 1             # set to '1' if BRAM can be initialized\n");
+		// log("      init 1             # set to '1' if BRAM can be initialized\n");
 		log("      abits 10           # number of address bits\n");
 		log("      dbits 32           # number of data bits\n");
 		log("      groups 2           # number of port groups\n");
@@ -690,26 +796,34 @@ struct MemoryBramPass : public Pass {
 		log("A match rule looks like this:\n");
 		log("\n");
 		log("    match RAMB1024X32\n");
-		log("      max waste 16384    # only use this if <= 16384 bram bits are unused\n");
+		log("      max waste 16384    # only use this bram if <= 16k ram bits are unused\n");
+		log("      min efficiency 80  # only use this bram if efficiency is at least 80%%\n");
 		log("    endmatch\n");
 		log("\n");
 		log("It is possible to match against the following values with min/max rules:\n");
 		log("\n");
-		log("    words  ....  number of words in memory in design\n");
-		log("    abits  ....  number of adress bits on memory in design\n");
-		log("    dbits  ....  number of data bits on memory in design\n");
-		log("    wports  ...  number of write ports on memory in design\n");
-		log("    rports  ...  number of read ports on memory in design\n");
-		log("    ports  ....  number of ports on memory in design\n");
-		log("    bits  .....  number of bits in memory in design\n");
+		log("    words  ........  number of words in memory in design\n");
+		log("    abits  ........  number of adress bits on memory in design\n");
+		log("    dbits  ........  number of data bits on memory in design\n");
+		log("    wports  .......  number of write ports on memory in design\n");
+		log("    rports  .......  number of read ports on memory in design\n");
+		log("    ports  ........  number of ports on memory in design\n");
+		log("    bits  .........  number of bits in memory in design\n");
+		log("    dups ..........  number of duplications for more read ports\n");
 		log("\n");
-		log("    awaste  ...  number of unused address slots for this match\n");
-		log("    dwaste  ...  number of unused data bits for this match\n");
-		log("    waste  ....  total number of unused bram bits for this match\n");
+		log("    awaste  .......  number of unused address slots for this match\n");
+		log("    dwaste  .......  number of unused data bits for this match\n");
+		log("    bwaste  .......  number of unused bram bits for this match\n");
+		log("    waste  ........  total number of unused bram bits (bwaste*dups)\n");
+		log("    efficiency  ...  total percentage of used and non-duplicated bits\n");
 		log("\n");
 		log("The interface for the created bram instances is dervived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");
 		log("instances of the actual bram cells of your target architecture.\n");
+		log("\n");
+		log("A match containing the command 'or_next_if_better' is only used if it\n");
+		log("has a higher efficiency than the next match (and the one after that if\n");
+		log("the next also has 'or_next_if_better' set, and so forth).\n");
 		log("\n");
 	}
 	virtual void execute(vector<string> args, Design *design)

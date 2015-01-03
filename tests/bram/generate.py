@@ -10,7 +10,7 @@ import random
 debug_mode = False
 seed = (int(os.times()[4]*100) + os.getpid()) % 900000 + 100000
 
-def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
+def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
     while True:
         init = 0 # random.randrange(2)
         abits  = random.randrange(1, 8)
@@ -68,6 +68,8 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     print("  clkpol %s" % " ".join(["%d" % i for i in clkpol]), file=dsc_f)
     print("endbram", file=dsc_f)
     print("match bram_%02d_%02d" % (k1, k2), file=dsc_f)
+    if or_next:
+        print("  or_next_if_better", file=dsc_f)
     print("endmatch", file=dsc_f)
 
     states = set()
@@ -252,6 +254,7 @@ for k1 in range(5):
     for f in [sim_f, ref_f, tb_f]:
         print("`timescale 1 ns / 1 ns", file=f)
 
-    for k2 in range(1 if debug_mode else 10):
-        create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2)
+    lenk2 = 1 if debug_mode else 10
+    for k2 in range(lenk2):
+        create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, random.randrange(2 if k2+1 < lenk2 else 1))
 
