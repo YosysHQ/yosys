@@ -12,7 +12,7 @@ seed = (int(os.times()[4]*100) + os.getpid()) % 900000 + 100000
 
 def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     while True:
-        init = random.randrange(2)
+        init = 0 # random.randrange(2)
         abits  = random.randrange(1, 8)
         dbits  = random.randrange(1, 8)
         groups = random.randrange(2, 5)
@@ -22,29 +22,38 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         if random.randrange(2):
             dbits = 2 ** random.randrange(1, 4)
 
-        ports  = [ random.randrange(1, 3) for i in range(groups) ]
-        wrmode = [ random.randrange(0, 2) for i in range(groups) ]
-        enable = [ random.randrange(0, 4) for i in range(groups) ]
-        transp = [ random.randrange(0, 4) for i in range(groups) ]
-        clocks = [ random.randrange(1, 4) for i in range(groups) ]
-        clkpol = [ random.randrange(0, 4) for i in range(groups) ]
+        while True:
+            wrmode = [ random.randrange(0, 2) for i in range(groups) ]
+            if wrmode.count(1) == 0: continue
+            if wrmode.count(0) == 0: continue
+            break
 
-        # XXX
-        init = 0
-        transp = [ 0 for i in range(groups) ]
+        if random.randrange(2) or True:
+            maxpol = 4
+            maxtransp = 1
+        else:
+            maxpol = 2
+            maxtransp = 2
 
-        for p1 in range(groups):
-            if wrmode[p1] == 0:
-                enable[p1] = 0
-            else:
-                enable[p1] = 2**enable[p1]
-                while dbits < enable[p1] or dbits % enable[p1] != 0:
-                    enable[p1] //= 2
+        def generate_enable(i):
+            if wrmode[i]:
+                v = 2 ** random.randrange(0, 4)
+                while dbits < v or dbits % v != 0:
+                    v //= 2
+                return v
+            return 0
 
-        config_ok = True
-        if wrmode.count(1) == 0: config_ok = False
-        if wrmode.count(0) == 0: config_ok = False
-        if config_ok: break
+        def generate_transp(i):
+            if wrmode[i] == 0:
+                return random.randrange(maxtransp)
+            return 0
+
+        ports  = [ random.randrange(1, 3)   for i in range(groups) ]
+        enable = [ generate_enable(i)       for i in range(groups) ]
+        transp = [ generate_transp(i)       for i in range(groups) ]
+        clocks = [ random.randrange(1, 4)   for i in range(groups) ]
+        clkpol = [ random.randrange(maxpol) for i in range(groups) ]
+        break
 
     print("bram bram_%02d_%02d" % (k1, k2), file=dsc_f)
     print("  init %d" % init, file=dsc_f)
@@ -64,6 +73,7 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     states = set()
     v_ports = set()
     v_stmts = list()
+    v_always = dict()
 
     tb_decls = list()
     tb_clocks = list()
@@ -82,11 +92,16 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     v_stmts.append("(* nomem2reg *) reg [%d:0] memory [0:%d];" % (dbits-1, 2**abits-1))
 
     portindex = 0
+    last_always_hdr = (-1, "")
 
     for p1 in range(groups):
         for p2 in range(ports[p1]):
             pf = "%c%d" % (chr(ord("A") + p1), p2 + 1)
             portindex += 1
+
+            v_stmts.append("`ifndef SYNTHESIS")
+            v_stmts.append("  event UPDATE_%s;" % pf)
+            v_stmts.append("`endif")
 
             if clocks[p1] and not ("CLK%d" % clocks[p1]) in v_ports:
                 v_ports.add("CLK%d" % clocks[p1])
@@ -133,27 +148,36 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
                     states.add(("CPW", clocks[p1], clkpol[p1]))
                 always_hdr = "always @(posedge CLK%d_CLKPOL%d) begin" % (clocks[p1], clkpol[p1])
 
-            v_stmts.append("`ifndef SYNTHESIS")
-            v_stmts.append("event UPDATE_%s;" % pf)
-            v_stmts.append("`endif")
+            if last_always_hdr[1] != always_hdr:
+                last_always_hdr = (portindex, always_hdr)
+                v_always[last_always_hdr] = list()
 
-            v_stmts.append(always_hdr)
             if wrmode[p1]:
-                v_stmts.append("  `ifndef SYNTHESIS");
-                v_stmts.append("    #%d;" % portindex);
-                v_stmts.append("    -> UPDATE_%s;" % pf)
-                v_stmts.append("  `endif")
                 for i in range(enable[p1]):
                     enrange = "[%d:%d]" % ((i+1)*dbits/enable[p1]-1, i*dbits/enable[p1])
-                    v_stmts.append("  if (%sEN[%d]) memory[%sADDR]%s = %sDATA%s;" % (pf, i, pf, enrange, pf, enrange))
+                    v_always[last_always_hdr].append((portindex, pf, "if (%sEN[%d]) memory[%sADDR]%s = %sDATA%s;" % (pf, i, pf, enrange, pf, enrange)))
             else:
-                v_stmts.append("  `ifndef SYNTHESIS");
-                if transp[p1]:
-                    v_stmts.append("    #%d;" % sum(ports));
-                v_stmts.append("    -> UPDATE_%s;" % pf)
+                v_always[last_always_hdr].append((sum(ports)+1 if transp[p1] else 0, pf, "%sDATA %s memory[%sADDR];" % (pf, assign_op, pf)))
+
+    for always_hdr in sorted(v_always):
+        v_stmts.append(always_hdr[1])
+        triggered_events = set()
+        time_cursor = 0
+        v_always[always_hdr].sort()
+        for t, p, s in v_always[always_hdr]:
+            if time_cursor != t or not p in triggered_events:
+                v_stmts.append("  `ifndef SYNTHESIS")
+                stmt = ""
+                if time_cursor != t:
+                    stmt += " #%d;" % (t-time_cursor)
+                    time_cursor = t
+                if not p in triggered_events:
+                    stmt += (" -> UPDATE_%s;" % p)
+                    triggered_events.add(p)
+                v_stmts.append("   %s" % stmt)
                 v_stmts.append("  `endif")
-                v_stmts.append("  %sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
-            v_stmts.append("end")
+            v_stmts.append("  %s" % s)
+        v_stmts.append("end")
 
     print("module bram_%02d_%02d(%s);" % (k1, k2, ", ".join(v_ports)), file=sim_f)
     for stmt in v_stmts:
@@ -220,10 +244,10 @@ print("Rng seed: %d" % seed)
 random.seed(seed)
 
 for k1 in range(5):
-    dsc_f = file("temp/brams_%02d.txt" % k1, "w");
-    sim_f = file("temp/brams_%02d.v" % k1, "w");
-    ref_f = file("temp/brams_%02d_ref.v" % k1, "w");
-    tb_f = file("temp/brams_%02d_tb.v" % k1, "w");
+    dsc_f = file("temp/brams_%02d.txt" % k1, "w")
+    sim_f = file("temp/brams_%02d.v" % k1, "w")
+    ref_f = file("temp/brams_%02d_ref.v" % k1, "w")
+    tb_f = file("temp/brams_%02d_tb.v" % k1, "w")
 
     for f in [sim_f, ref_f, tb_f]:
         print("`timescale 1 ns / 1 ns", file=f)

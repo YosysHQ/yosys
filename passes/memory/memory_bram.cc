@@ -226,10 +226,12 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 
 	dict<int, pair<SigBit, bool>> clock_domains;
 	dict<int, bool> clock_polarities;
+	dict<int, bool> read_transp;
 	pool<int> clocks_wr_ports;
 	pool<int> clkpol_wr_ports;
 	int clocks_max = 0;
 	int clkpol_max = 0;
+	int transp_max = 0;
 
 	clock_polarities[0] = false;
 	clock_polarities[1] = true;
@@ -242,6 +244,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 		}
 		clocks_max = std::max(clocks_max, pi.clocks);
 		clkpol_max = std::max(clkpol_max, pi.clkpol);
+		transp_max = std::max(transp_max, pi.transp);
 	}
 
 	log("  Mapping to bram type %s:\n", log_id(bram.name));
@@ -277,8 +280,8 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 	for (int cell_port_i = 0, bram_port_i = 0; cell_port_i < wr_ports; cell_port_i++)
 	{
 		bool clken = wr_clken[cell_port_i] == State::S1;
-		auto clkpol = wr_clkpol[cell_port_i] == State::S1;
-		auto clksig = wr_clk[cell_port_i];
+		bool clkpol = wr_clkpol[cell_port_i] == State::S1;
+		SigBit clksig = wr_clk[cell_port_i];
 
 		pair<SigBit, bool> clkdom(clksig, clkpol);
 		if (!clken)
@@ -374,6 +377,8 @@ grow_read_ports:;
 					pi.clocks += clocks_max;
 				if (pi.clkpol > 1 && !clkpol_wr_ports[pi.clkpol])
 					pi.clkpol += clkpol_max;
+				if (pi.transp > 1)
+					pi.transp += transp_max;
 				pi.dupidx++;
 				new_portinfos.push_back(pi);
 			}
@@ -385,11 +390,16 @@ grow_read_ports:;
 		dup_count++;
 	}
 
+	read_transp.clear();
+	read_transp[0] = false;
+	read_transp[1] = true;
+
 	for (int cell_port_i = 0; cell_port_i < rd_ports; cell_port_i++)
 	{
 		bool clken = rd_clken[cell_port_i] == State::S1;
-		auto clkpol = rd_clkpol[cell_port_i] == State::S1;
-		auto clksig = rd_clk[cell_port_i];
+		bool clkpol = rd_clkpol[cell_port_i] == State::S1;
+		bool transp = rd_transp[cell_port_i] == State::S1;
+		SigBit clksig = rd_clk[cell_port_i];
 
 		pair<SigBit, bool> clkdom(clksig, clkpol);
 		if (!clken)
@@ -420,6 +430,10 @@ grow_read_ports:;
 					log("      Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
+				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
+					log("      Bram port %c%d.%d has incompatible read transparancy.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					goto skip_bram_rport;
+				}
 			} else {
 				if (pi.clocks != 0) {
 					log("      Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
@@ -433,6 +447,7 @@ grow_read_ports:;
 			if (clken) {
 				clock_domains[pi.clocks] = clkdom;
 				clock_polarities[pi.clkpol] = clkdom.second;
+				read_transp[pi.transp] = transp;
 				pi.sig_clock = clkdom.first;
 				pi.effective_clkpol = clkdom.second;
 			}
@@ -444,6 +459,7 @@ grow_read_ports:;
 				grow_read_ports_cursor = cell_port_i;
 				try_growing_more_read_ports = true;
 			}
+
 			goto mapped_rd_port;
 		}
 
@@ -477,6 +493,8 @@ grow_read_ports:;
 				c->setPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1), pi.sig_clock);
 				if (pi.clkpol > 1 && pi.sig_clock.wire)
 					c->setParam(stringf("\\CLKPOL%d", (pi.clkpol-1) % clkpol_max + 1), clock_polarities.at(pi.clkpol));
+				if (pi.transp > 1 && pi.sig_clock.wire)
+					c->setParam(stringf("\\TRANSP%d", (pi.transp-1) % transp_max + 1), read_transp.at(pi.transp));
 			}
 
 			SigSpec addr_ok;
