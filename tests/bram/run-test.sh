@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # run this test many times:
-# time bash -c 'for ((i=0; i<100; i++)); do echo "-- $i --"; bash run-test.sh || exit 1; done'
+# MAKE="make -j8" time bash -c 'for ((i=0; i<100; i++)); do echo "-- $i --"; bash run-test.sh || exit 1; done'
 
 set -e
 rm -rf temp

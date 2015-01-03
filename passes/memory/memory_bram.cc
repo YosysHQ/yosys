@@ -465,8 +465,6 @@ grow_read_ports:;
 		Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", cell->name.c_str(), grid_d, grid_a, dupidx)), bram.name);
 		log("    Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
 
-		dict<int, SigBit> clocks;
-
 		for (auto &pi : portinfos)
 		{
 			if (pi.dupidx != dupidx)
@@ -475,8 +473,11 @@ grow_read_ports:;
 			string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
 			const char *pf = prefix.c_str();
 
-			if (pi.clocks && (!clocks.count(pi.clocks) || pi.sig_clock.wire))
-				clocks[pi.clocks] = pi.sig_clock;
+			if (pi.clocks && (!c->hasPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1)) || pi.sig_clock.wire)) {
+				c->setPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1), pi.sig_clock);
+				if (pi.clkpol > 1 && pi.sig_clock.wire)
+					c->setParam(stringf("\\CLKPOL%d", (pi.clkpol-1) % clkpol_max + 1), clock_polarities.at(pi.clkpol));
+			}
 
 			SigSpec addr_ok;
 			if (GetSize(pi.sig_addr) > bram.abits) {
@@ -527,13 +528,6 @@ grow_read_ports:;
 			sig_addr.extend_u0(bram.abits);
 			c->setPort(stringf("\\%sADDR", pf), sig_addr);
 		}
-
-		for (auto &it : clocks)
-			c->setPort(stringf("\\CLK%d", (it.first-1) % clocks_max + 1), it.second);
-
-		for (auto &it : clock_polarities)
-			if (it.first > 1)
-				c->setParam(stringf("\\CLKPOL%d", (it.first-1) % clkpol_max + 1), it.second);
 	}
 
 	for (auto &it : dout_cache)

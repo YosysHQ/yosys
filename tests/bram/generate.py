@@ -32,7 +32,6 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
         # XXX
         init = 0
         transp = [ 0 for i in range(groups) ]
-        clkpol = [ random.randrange(0, 2) for i in range(groups) ]
 
         for p1 in range(groups):
             if wrmode[p1] == 0:
@@ -134,15 +133,25 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
                     states.add(("CPW", clocks[p1], clkpol[p1]))
                 always_hdr = "always @(posedge CLK%d_CLKPOL%d) begin" % (clocks[p1], clkpol[p1])
 
+            v_stmts.append("`ifndef SYNTHESIS")
+            v_stmts.append("event UPDATE_%s;" % pf)
+            v_stmts.append("`endif")
+
             v_stmts.append(always_hdr)
             if wrmode[p1]:
-                v_stmts.append("  `delay(%d)" % portindex);
+                v_stmts.append("  `ifndef SYNTHESIS");
+                v_stmts.append("    #%d;" % portindex);
+                v_stmts.append("    -> UPDATE_%s;" % pf)
+                v_stmts.append("  `endif")
                 for i in range(enable[p1]):
                     enrange = "[%d:%d]" % ((i+1)*dbits/enable[p1]-1, i*dbits/enable[p1])
                     v_stmts.append("  if (%sEN[%d]) memory[%sADDR]%s = %sDATA%s;" % (pf, i, pf, enrange, pf, enrange))
             else:
+                v_stmts.append("  `ifndef SYNTHESIS");
                 if transp[p1]:
-                    v_stmts.append("  `delay(%d)" % (sum(ports)+1))
+                    v_stmts.append("    #%d;" % sum(ports));
+                v_stmts.append("    -> UPDATE_%s;" % pf)
+                v_stmts.append("  `endif")
                 v_stmts.append("  %sDATA %s memory[%sADDR];" % (pf, assign_op, pf))
             v_stmts.append("end")
 
@@ -177,13 +186,14 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2):
     if debug_mode:
         print("    $dumpfile(`vcd_file);", file=tb_f)
         print("    $dumpvars(0, bram_%02d_%02d_tb);" % (k1, k2), file=tb_f)
+    print("    #%d;" % (1000 + k2), file=tb_f)
 
     for p in (tb_clocks + tb_addr + tb_din):
         if p[-2:] == "EN":
             print("    %s <= ~0;" % p, file=tb_f)
         else:
             print("    %s <= 0;" % p, file=tb_f)
-    print("    #%d;" % (1000 + k2), file=tb_f)
+    print("    #1000;", file=tb_f)
 
     for v in [1, 0, 1, 0]:
         for p in tb_clocks:
@@ -217,13 +227,6 @@ for k1 in range(5):
 
     for f in [sim_f, ref_f, tb_f]:
         print("`timescale 1 ns / 1 ns", file=f)
-
-    for f in [sim_f, ref_f]:
-        print("`ifdef SYNTHESIS", file=f)
-        print("  `define delay(n)", file=f)
-        print("`else", file=f)
-        print("  `define delay(n) #n;", file=f)
-        print("`endif", file=f)
 
     for k2 in range(1 if debug_mode else 10):
         create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2)
