@@ -44,6 +44,7 @@ FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
 
 bool log_time = false;
+bool log_error_stderr = false;
 bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
 int log_verbose_level;
@@ -174,6 +175,11 @@ void logv_error(const char *format, va_list ap)
 {
 	if (log_errfile != NULL)
 		log_files.push_back(log_errfile);
+
+	if (log_error_stderr)
+		for (auto &f : log_files)
+			if (f == stdout)
+				f = stderr;
 
 	log("ERROR: ");
 	logv(format, ap);

@@ -46,6 +46,7 @@ extern FILE *log_errfile;
 extern SHA1 *log_hasher;
 
 extern bool log_time;
+extern bool log_error_stderr;
 extern bool log_cmd_error_throw;
 extern bool log_quiet_warnings;
 extern int log_verbose_level;
