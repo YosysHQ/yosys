@@ -64,6 +64,7 @@ struct rules_t
 		IdString name;
 		dict<string, int> min_limits, max_limits;
 		bool or_next_if_better;
+		int shuffle_enable;
 	};
 
 	dict<IdString, bram_t> brams;
@@ -176,6 +177,7 @@ struct rules_t
 		match_t data;
 		data.name = RTLIL::escape_id(tokens[1]);
 		data.or_next_if_better = false;
+		data.shuffle_enable = 0;
 
 		while (next_line())
 		{
@@ -191,6 +193,11 @@ struct rules_t
 
 			if (GetSize(tokens) == 3 && tokens[0] == "max") {
 				data.max_limits[tokens[1]] = atoi(tokens[2].c_str());
+				continue;
+			}
+
+			if (GetSize(tokens) == 2 && tokens[0] == "shuffle_enable") {
+				data.shuffle_enable = atoi(tokens[1].c_str());
 				continue;
 			}
 
@@ -284,6 +291,98 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 	SigSpec rd_data = cell->getPort("\\RD_DATA");
 	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
 
+	if (match.shuffle_enable)
+	{
+		int bucket_size = bram.dbits / match.shuffle_enable;
+		log("      Shuffle enable and data bit to accommodate enable buckets of size %d..\n", bucket_size);
+
+		// extract unshuffled data/enable bits
+
+		std::vector<SigSpec> old_wr_en;
+		std::vector<SigSpec> old_wr_data;
+		std::vector<SigSpec> old_rd_data;
+
+		for (int i = 0; i < wr_ports; i++) {
+			old_wr_en.push_back(wr_en.extract(i*mem_width, mem_width));
+			old_wr_data.push_back(wr_data.extract(i*mem_width, mem_width));
+		}
+
+		for (int i = 0; i < rd_ports; i++)
+			old_rd_data.push_back(rd_data.extract(i*mem_width, mem_width));
+
+		// analyze enable structure
+
+		std::vector<SigSpec> en_order;
+		dict<SigSpec, vector<int>> bits_wr_en;
+
+		for (int i = 0; i < mem_width; i++) {
+			SigSpec sig;
+			for (int j = 0; j < wr_ports; j++)
+				sig.append(old_wr_en[j][i]);
+			if (bits_wr_en.count(sig) == 0)
+				en_order.push_back(sig);
+			bits_wr_en[sig].push_back(i);
+		}
+
+		// re-create memory ports
+
+		std::vector<SigSpec> new_wr_en(GetSize(old_wr_en));
+		std::vector<SigSpec> new_wr_data(GetSize(old_wr_data));
+		std::vector<SigSpec> new_rd_data(GetSize(old_rd_data));
+		std::vector<int> shuffle_map;
+
+		for (auto &it : en_order)
+		{
+			auto &bits = bits_wr_en.at(it);
+			int buckets = (GetSize(bits) + bucket_size - 1) / bucket_size;
+			int fillbits = buckets*bucket_size - GetSize(bits);
+			SigBit fillbit;
+
+			for (int i = 0; i < GetSize(bits); i++) {
+				for (int j = 0; j < wr_ports; j++) {
+					new_wr_en[j].append(old_wr_en[j][bits[i]]);
+					new_wr_data[j].append(old_wr_data[j][bits[i]]);
+					fillbit = old_wr_en[j][bits[i]];
+				}
+				for (int j = 0; j < rd_ports; j++)
+					new_rd_data[j].append(old_rd_data[j][bits[i]]);
+				shuffle_map.push_back(bits[i]);
+			}
+
+			for (int i = 0; i < fillbits; i++) {
+				for (int j = 0; j < wr_ports; j++) {
+					new_wr_en[j].append(fillbit);
+					new_wr_data[j].append(State::Sx);
+				}
+				for (int j = 0; j < rd_ports; j++)
+					new_rd_data[j].append(State::Sx);
+				shuffle_map.push_back(-1);
+			}
+		}
+
+		log("      Results of enable shuffling:");
+		for (int v : shuffle_map)
+			log(" %d", v);
+		log("\n");
+
+		// update mem_*, wr_*, and rd_* variables
+
+		mem_width = GetSize(new_wr_en.front());
+		wr_en = SigSpec(0, wr_ports * mem_width);
+		wr_data = SigSpec(0, wr_ports * mem_width);
+		rd_data = SigSpec(0, rd_ports * mem_width);
+
+		for (int i = 0; i < wr_ports; i++) {
+			wr_en.replace(i*mem_width, new_wr_en[i]);
+			wr_data.replace(i*mem_width, new_wr_data[i]);
+		}
+
+		for (int i = 0; i < rd_ports; i++)
+			rd_data.replace(i*mem_width, new_rd_data[i]);
+	}
+
+	// assign write ports
+
 	for (int cell_port_i = 0, bram_port_i = 0; cell_port_i < wr_ports; cell_port_i++)
 	{
 		bool clken = wr_clken[cell_port_i] == State::S1;
@@ -334,6 +433,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 					sig_en.append(last_en_bit);
 				}
 				if (last_en_bit != wr_en[i + cell_port_i*mem_width]) {
+					log_dump(last_en_bit, wr_en[i + cell_port_i*mem_width]);
 					log("        Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
@@ -361,6 +461,8 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 		return false;
 	mapped_wr_port:;
 	}
+
+	// houskeeping stuff for growing more read ports and restarting read port assignments
 
 	int grow_read_ports_cursor = -1;
 	bool try_growing_more_read_ports = false;
@@ -400,6 +502,8 @@ grow_read_ports:;
 	read_transp.clear();
 	read_transp[0] = false;
 	read_transp[1] = true;
+
+	// assign read ports
 
 	for (int cell_port_i = 0; cell_port_i < rd_ports; cell_port_i++)
 	{
@@ -479,12 +583,14 @@ grow_read_ports:;
 	mapped_rd_port:;
 	}
 
+	// update properties and re-check conditions
+
 	if (mode <= 1)
 	{
 		match_properties["dups"] = dup_count;
 		match_properties["waste"] = match_properties["dups"] * match_properties["bwaste"];
 
-		int cells = ((match_properties["dbits"] + bram.dbits - 1) / bram.dbits) * ((match_properties["words"] + (1 << bram.abits) - 1) / (1 << bram.abits));
+		int cells = ((mem_width + bram.dbits - 1) / bram.dbits) * ((mem_size + (1 << bram.abits) - 1) / (1 << bram.abits));
 		match_properties["efficiency"] = (100 * match_properties["bits"]) / (dup_count * cells * bram.dbits * (1 << bram.abits));
 
 		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
@@ -514,6 +620,8 @@ grow_read_ports:;
 		if (mode == 1)
 			return true;
 	}
+
+	// actually replace that memory cell
 
 	dict<SigSpec, pair<SigSpec, SigSpec>> dout_cache;
 
@@ -824,6 +932,10 @@ struct MemoryBramPass : public Pass {
 		log("A match containing the command 'or_next_if_better' is only used if it\n");
 		log("has a higher efficiency than the next match (and the one after that if\n");
 		log("the next also has 'or_next_if_better' set, and so forth).\n");
+		log("\n");
+		log("A match containing the command 'shuffle_enable <N>' will re-organize\n");
+		log("the data bits to accommodate bram ports with <N> enable bits before\n");
+		log("mapping to the bram.\n");
 		log("\n");
 	}
 	virtual void execute(vector<string> args, Design *design)
