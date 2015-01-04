@@ -676,8 +676,8 @@ void handle_cell(Cell *cell, const rules_t &rules)
 		int efficiency = (100 * match_properties["bits"]) / (dups * cells * bram.dbits * (1 << bram.abits));
 		match_properties["efficiency"] = efficiency;
 
-		log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d %d\n",
-				log_id(match.name), awaste, dwaste, bwaste, waste, efficiency, cells);
+		log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d\n",
+				log_id(match.name), awaste, dwaste, bwaste, waste, efficiency);
 
 		for (auto it : match.min_limits) {
 			if (it.first == "waste" || it.first == "dups")
