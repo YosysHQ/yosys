@@ -1,20 +1,122 @@
 
-# This is a very simplified description of the capabilities of
-# the Xilinx RAMB36 core. But it is a start..
-#
-bram XILINX_RAMB36_SDP32
-  init 1
-  abits 10
-  dbits 32
+bram $__XILINX_RAMB36_SDP72
+  abits 9
+  dbits 72
   groups 2
   ports  1 1
-  wrmode 1 0
-  enable 4 0
-  transp 0 2
-  clocks 1 2
+  wrmode 0 1
+  enable 0 8
+  transp 2 0
+  clocks 2 3
+  clkpol 2 3
 endbram
 
-match XILINX_RAMB36_SDP32
-  min bits 1024
+bram $__XILINX_RAMB36_SDP36
+  abits 10
+  dbits 36
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 4
+  transp 2 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB36_SDP18
+  abits 11
+  dbits 18
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 2
+  transp 2 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB36_SDP9
+  abits 12
+  dbits 9
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 2 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB36_SDP4
+  abits 13
+  dbits 4
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 2 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB36_SDP2
+  abits 14
+  dbits 2
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 2 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB36_SDP1
+  abits 15
+  dbits 1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 2 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+match $__XILINX_RAMB36_SDP72
+  shuffle_enable 8
+  min efficiency 20
+  # or_next_if_better
 endmatch
+
+# match $__XILINX_RAMB36_SDP36
+#   shuffle_enable 4
+#   min efficiency 20
+#   or_next_if_better
+# endmatch
+#
+# match $__XILINX_RAMB36_SDP18
+#   shuffle_enable 2
+#   min efficiency 20
+#   or_next_if_better
+# endmatch
+#
+# match $__XILINX_RAMB36_SDP9
+#   min efficiency 20
+#   or_next_if_better
+# endmatch
+#
+# match $__XILINX_RAMB36_SDP4
+#   min efficiency 20
+#   or_next_if_better
+# endmatch
+#
+# match $__XILINX_RAMB36_SDP2
+#   min efficiency 20
+#   or_next_if_better
+# endmatch
+#
+# match $__XILINX_RAMB36_SDP1
+#   min efficiency 20
+# endmatch
 

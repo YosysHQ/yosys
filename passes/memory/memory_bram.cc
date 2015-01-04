@@ -73,20 +73,21 @@ struct rules_t
 	std::ifstream infile;
 	vector<string> tokens;
 	int linecount;
-	string line;
 
 	void syntax_error()
 	{
-		if (line.empty())
+		if (tokens.empty())
 			log_error("Unexpected end of rules file in line %d.\n", linecount);
-		log_error("Syntax error in rules file line %d: %s\n", linecount, line.c_str());
+		log_error("Syntax error in rules file line %d.\n", linecount);
 	}
 
 	bool next_line()
 	{
 		linecount++;
 		tokens.clear();
+		string line;
 		while (std::getline(infile, line)) {
+			log("> %s\n", line.c_str());
 			for (string tok = next_token(line); !tok.empty(); tok = next_token(line)) {
 				if (tok[0] == '#')
 					break;
