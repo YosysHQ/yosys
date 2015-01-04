@@ -32,7 +32,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct generate_port_decl_t {
 	bool input, output;
-	RTLIL::IdString portname;
+	string portname;
 	int index;
 };
 
@@ -101,7 +101,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 			for (auto &decl : portdecls)
 				if (decl.index == 0 && patmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str())) {
 					generate_port_decl_t d = decl;
-					d.portname = portname;
+					d.portname = portname.str();
 					d.index = *indices.begin();
 					log_assert(!indices.empty());
 					indices.erase(d.index);
