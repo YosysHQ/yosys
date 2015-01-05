@@ -69,24 +69,25 @@ struct SynthXilinxPass : public Pass {
 		log("        hierarchy -check -top <top>\n");
 		log("\n");
 		log("    coarse:\n");
-		log("        proc\n");
-		log("        opt\n");
-		log("        memory\n");
-		log("        clean\n");
-		log("        fsm\n");
-		log("        opt\n");
+		log("        synth -run coarse\n");
+		log("        memory_bram -rules +/xilinx/brams.txt\n");
+		log("        techmap -map +/xilinx/brams.v\n");
 		log("\n");
 		log("    fine:\n");
 		log("        techmap\n");
-		log("        opt\n");
+		log("        opt -fast -full\n");
 		log("\n");
 		log("    map_luts:\n");
 		log("        abc -lut 6\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
-		log("        techmap -share_map xilinx/cells.v\n");
+		log("        techmap -map +/xilinx/cells.v\n");
 		log("        clean\n");
+		log("\n");
+		log("    flatten:\n");
+		log("        flatten\n");
+		log("        opt -fast -full\n");
 		log("\n");
 		log("    clkbuf:\n");
 		log("        select -set xilinx_clocks <top>/t:FDRE %%x:+FDRE[C] <top>/t:FDRE %%d\n");
@@ -163,18 +164,15 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
-			Pass::call(design, "proc");
-			Pass::call(design, "opt");
-			Pass::call(design, "memory");
-			Pass::call(design, "clean");
-			Pass::call(design, "fsm");
-			Pass::call(design, "opt");
+			Pass::call(design, "synth -run coarse");
+			Pass::call(design, "memory_bram -rules +/xilinx/brams.txt");
+			Pass::call(design, "techmap -map +/xilinx/brams.v");
 		}
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
 			Pass::call(design, "techmap");
-			Pass::call(design, "opt");
+			Pass::call(design, "opt -fast -full");
 		}
 
 		if (check_label(active, run_from, run_to, "map_luts"))
@@ -185,8 +183,14 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
-			Pass::call(design, "techmap -share_map xilinx/cells.v");
+			Pass::call(design, "techmap -map +/xilinx/cells.v");
 			Pass::call(design, "clean");
+		}
+
+		if (check_label(active, run_from, run_to, "flatten"))
+		{
+			Pass::call(design, "flatten");
+			Pass::call(design, "opt -fast -full");
 		}
 
 		if (check_label(active, run_from, run_to, "clkbuf"))

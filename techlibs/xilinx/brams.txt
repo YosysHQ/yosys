@@ -85,7 +85,7 @@ endbram
 
 match $__XILINX_RAMB36_SDP72
   shuffle_enable 8
-  min efficiency 20
+  # min efficiency 20
   # or_next_if_better
 endmatch
 
