@@ -101,21 +101,33 @@ match $__XILINX_RAMB18_TDP18
   min bits 4096
   min efficiency 5
   shuffle_enable 2
-  # or_next_if_better
+  or_next_if_better
 endmatch
  
-# match $__XILINX_RAMB18_TDP9
-#   or_next_if_better
-# endmatch
-#
-# match $__XILINX_RAMB18_TDP4
-#   or_next_if_better
-# endmatch
-#
-# match $__XILINX_RAMB18_TDP2
-#   or_next_if_better
-# endmatch
-#
-# match $__XILINX_RAMB18_TDP1
-# endmatch
+match $__XILINX_RAMB18_TDP9
+  min bits 4096
+  min efficiency 5
+  shuffle_enable 2
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_TDP4
+  min bits 4096
+  min efficiency 5
+  shuffle_enable 2
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_TDP2
+  min bits 4096
+  min efficiency 5
+  shuffle_enable 2
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_TDP1
+  min bits 4096
+  min efficiency 5
+  shuffle_enable 2
+endmatch
 

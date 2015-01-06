@@ -21,7 +21,7 @@ module bram1_tb #(
 		.RD_DATA(RD_DATA)
 	);
 
-	reg [63:0] xorshift64_state = 64'd88172645463325252;
+	reg [63:0] xorshift64_state = 64'd88172645463325252 ^ (ABITS << 24) ^ (DBITS << 16) ^ (TRANSP << 8);
 
 	task xorshift64_next;
 		begin

@@ -231,3 +231,295 @@ module \$__XILINX_RAMB18_TDP18 (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN
 	);
 endmodule
 
+// ------------------------------------------------------------------------
+
+module \$__XILINX_RAMB18_TDP9 (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+	parameter TRANSP2 = 1;
+	parameter CLKPOL2 = 1;
+	parameter CLKPOL3 = 1;
+
+	input CLK2;
+	input CLK3;
+
+	input [10:0] A1ADDR;
+	output [8:0] A1DATA;
+
+	input [10:0] B1ADDR;
+	input [8:0] B1DATA;
+	input B1EN;
+
+	wire [13:0] A1ADDR_14 = {A1ADDR, 3'b0};
+	wire [13:0] B1ADDR_14 = {B1ADDR, 3'b0};
+
+	wire DIP, DOP;
+	wire [7:0] DI, DO;
+
+	wire [8:0] A1DATA_BUF;
+	reg [8:0] B1DATA_Q;
+	reg transparent_cycle;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
+
+	generate if (CLKPOL2)
+		always @(posedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	else
+		always @(negedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	endgenerate
+
+	assign A1DATA = transparent_cycle ? B1DATA_Q : A1DATA_BUF;
+
+	assign A1DATA_BUF = { DOP, DO };
+	assign { DIP, DI } = B1DATA;
+
+	RAMB18E1 #(
+		.RAM_MODE("TDP"),
+		.READ_WIDTH_A(9),
+		.READ_WIDTH_B(9),
+		.WRITE_WIDTH_A(9),
+		.WRITE_WIDTH_B(9),
+		.WRITE_MODE_A(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST"),
+		.WRITE_MODE_B(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST")
+	) _TECHMAP_REPLACE_ (
+		.DIADI(16'b0),
+		.DIPADIP(2'b0),
+		.DOADO(DO[7:0]),
+		.DOPADOP(DOP),
+		.ADDRARDADDR(A1ADDR_14),
+		.CLKARDCLK(CLKPOL2 ? CLK2 : ~CLK2),
+		.ENARDEN(|1),
+		.REGCEAREGCE(|1),
+		.RSTRAMARSTRAM(|0),
+		.RSTREGARSTREG(|0),
+		.WEA(2'b0),
+
+		.DIBDI({8'b0, DI}),
+		.DIPBDIP({1'b0, DIP}),
+		.ADDRBWRADDR(B1ADDR_14),
+		.CLKBWRCLK(CLKPOL3 ? CLK3 : ~CLK3),
+		.ENBWREN(|1),
+		.REGCEB(|0),
+		.RSTRAMB(|0),
+		.RSTREGB(|0),
+		.WEBWE({3'b00, B1EN})
+	);
+endmodule
+
+// ------------------------------------------------------------------------
+
+module \$__XILINX_RAMB18_TDP4 (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+	parameter TRANSP2 = 1;
+	parameter CLKPOL2 = 1;
+	parameter CLKPOL3 = 1;
+
+	input CLK2;
+	input CLK3;
+
+	input [11:0] A1ADDR;
+	output [3:0] A1DATA;
+
+	input [11:0] B1ADDR;
+	input [3:0] B1DATA;
+	input B1EN;
+
+	wire [13:0] A1ADDR_14 = {A1ADDR, 2'b0};
+	wire [13:0] B1ADDR_14 = {B1ADDR, 2'b0};
+
+	wire DIP, DOP;
+	wire [7:0] DI, DO;
+
+	wire [3:0] A1DATA_BUF;
+	reg [3:0] B1DATA_Q;
+	reg transparent_cycle;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
+
+	generate if (CLKPOL2)
+		always @(posedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	else
+		always @(negedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	endgenerate
+
+	assign A1DATA = transparent_cycle ? B1DATA_Q : A1DATA_BUF;
+
+	assign A1DATA_BUF = { DOP, DO };
+	assign { DIP, DI } = B1DATA;
+
+	RAMB18E1 #(
+		.RAM_MODE("TDP"),
+		.READ_WIDTH_A(4),
+		.READ_WIDTH_B(4),
+		.WRITE_WIDTH_A(4),
+		.WRITE_WIDTH_B(4),
+		.WRITE_MODE_A(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST"),
+		.WRITE_MODE_B(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST")
+	) _TECHMAP_REPLACE_ (
+		.DIADI(16'b0),
+		.DIPADIP(2'b0),
+		.DOADO(DO[7:0]),
+		.DOPADOP(DOP),
+		.ADDRARDADDR(A1ADDR_14),
+		.CLKARDCLK(CLKPOL2 ? CLK2 : ~CLK2),
+		.ENARDEN(|1),
+		.REGCEAREGCE(|1),
+		.RSTRAMARSTRAM(|0),
+		.RSTREGARSTREG(|0),
+		.WEA(2'b0),
+
+		.DIBDI({8'b0, DI}),
+		.DIPBDIP({1'b0, DIP}),
+		.ADDRBWRADDR(B1ADDR_14),
+		.CLKBWRCLK(CLKPOL3 ? CLK3 : ~CLK3),
+		.ENBWREN(|1),
+		.REGCEB(|0),
+		.RSTRAMB(|0),
+		.RSTREGB(|0),
+		.WEBWE({3'b00, B1EN})
+	);
+endmodule
+
+// ------------------------------------------------------------------------
+
+module \$__XILINX_RAMB18_TDP2 (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+	parameter TRANSP2 = 1;
+	parameter CLKPOL2 = 1;
+	parameter CLKPOL3 = 1;
+
+	input CLK2;
+	input CLK3;
+
+	input [12:0] A1ADDR;
+	output [1:0] A1DATA;
+
+	input [12:0] B1ADDR;
+	input [1:0] B1DATA;
+	input B1EN;
+
+	wire [13:0] A1ADDR_14 = {A1ADDR, 1'b0};
+	wire [13:0] B1ADDR_14 = {B1ADDR, 1'b0};
+
+	wire DIP, DOP;
+	wire [7:0] DI, DO;
+
+	wire [3:0] A1DATA_BUF;
+	reg [3:0] B1DATA_Q;
+	reg transparent_cycle;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
+
+	generate if (CLKPOL2)
+		always @(posedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	else
+		always @(negedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	endgenerate
+
+	assign A1DATA = transparent_cycle ? B1DATA_Q : A1DATA_BUF;
+
+	assign A1DATA_BUF = { DOP, DO };
+	assign { DIP, DI } = B1DATA;
+
+	RAMB18E1 #(
+		.RAM_MODE("TDP"),
+		.READ_WIDTH_A(2),
+		.READ_WIDTH_B(2),
+		.WRITE_WIDTH_A(2),
+		.WRITE_WIDTH_B(2),
+		.WRITE_MODE_A(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST"),
+		.WRITE_MODE_B(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST")
+	) _TECHMAP_REPLACE_ (
+		.DIADI(16'b0),
+		.DIPADIP(2'b0),
+		.DOADO(DO[7:0]),
+		.DOPADOP(DOP),
+		.ADDRARDADDR(A1ADDR_14),
+		.CLKARDCLK(CLKPOL2 ? CLK2 : ~CLK2),
+		.ENARDEN(|1),
+		.REGCEAREGCE(|1),
+		.RSTRAMARSTRAM(|0),
+		.RSTREGARSTREG(|0),
+		.WEA(2'b0),
+
+		.DIBDI({8'b0, DI}),
+		.DIPBDIP({1'b0, DIP}),
+		.ADDRBWRADDR(B1ADDR_14),
+		.CLKBWRCLK(CLKPOL3 ? CLK3 : ~CLK3),
+		.ENBWREN(|1),
+		.REGCEB(|0),
+		.RSTRAMB(|0),
+		.RSTREGB(|0),
+		.WEBWE({3'b00, B1EN})
+	);
+endmodule
+
+// ------------------------------------------------------------------------
+
+module \$__XILINX_RAMB18_TDP1 (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+	parameter TRANSP2 = 1;
+	parameter CLKPOL2 = 1;
+	parameter CLKPOL3 = 1;
+
+	input CLK2;
+	input CLK3;
+
+	input [13:0] A1ADDR;
+	output A1DATA;
+
+	input [13:0] B1ADDR;
+	input B1DATA;
+	input B1EN;
+
+	wire [13:0] A1ADDR_14 = A1ADDR;
+	wire [13:0] B1ADDR_14 = B1ADDR;
+
+	wire DIP, DOP;
+	wire [7:0] DI, DO;
+
+	wire [3:0] A1DATA_BUF;
+	reg [3:0] B1DATA_Q;
+	reg transparent_cycle;
+
+	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
+
+	generate if (CLKPOL2)
+		always @(posedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	else
+		always @(negedge CLK2) begin transparent_cycle <= TRANSP2 && A1ADDR == B1ADDR ? B1EN : 0; B1DATA_Q <= B1DATA; end
+	endgenerate
+
+	assign A1DATA = transparent_cycle ? B1DATA_Q : A1DATA_BUF;
+
+	assign A1DATA_BUF = { DOP, DO };
+	assign { DIP, DI } = B1DATA;
+
+	RAMB18E1 #(
+		.RAM_MODE("TDP"),
+		.READ_WIDTH_A(1),
+		.READ_WIDTH_B(1),
+		.WRITE_WIDTH_A(1),
+		.WRITE_WIDTH_B(1),
+		.WRITE_MODE_A(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST"),
+		.WRITE_MODE_B(TRANSP2 ? "WRITE_FIRST" : "READ_FIRST")
+	) _TECHMAP_REPLACE_ (
+		.DIADI(16'b0),
+		.DIPADIP(2'b0),
+		.DOADO(DO[7:0]),
+		.DOPADOP(DOP),
+		.ADDRARDADDR(A1ADDR_14),
+		.CLKARDCLK(CLKPOL2 ? CLK2 : ~CLK2),
+		.ENARDEN(|1),
+		.REGCEAREGCE(|1),
+		.RSTRAMARSTRAM(|0),
+		.RSTREGARSTREG(|0),
+		.WEA(2'b0),
+
+		.DIBDI({8'b0, DI}),
+		.DIPBDIP({1'b0, DIP}),
+		.ADDRBWRADDR(B1ADDR_14),
+		.CLKBWRCLK(CLKPOL3 ? CLK3 : ~CLK3),
+		.ENBWREN(|1),
+		.REGCEB(|0),
+		.RSTRAMB(|0),
+		.RSTREGB(|0),
+		.WEBWE({3'b00, B1EN})
+	);
+endmodule
+
