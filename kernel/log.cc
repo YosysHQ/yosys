@@ -253,9 +253,9 @@ void log_pop()
 	log_flush();
 }
 
+#ifdef __linux__
 void log_backtrace(const char *prefix, int levels)
 {
-#ifdef __linux__
 	if (levels <= 0) return;
 
 	Dl_info dli;
@@ -341,8 +341,10 @@ void log_backtrace(const char *prefix, int levels)
 	}
 
 	if (levels <= 9) return;
-#endif
 }
+#else
+void log_backtrace(const char*, int) { }
+#endif
 
 void log_reset_stack()
 {
