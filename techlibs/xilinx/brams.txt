@@ -11,7 +11,7 @@ bram $__XILINX_RAMB36_SDP72
   clkpol 2 3
 endbram
 
-bram $__XILINX_RAMB36_SDP36
+bram $__XILINX_RAMB18_SDP36
   abits 10
   dbits 36
   groups 2
@@ -23,7 +23,7 @@ bram $__XILINX_RAMB36_SDP36
   clkpol 2 3
 endbram
 
-bram $__XILINX_RAMB36_SDP18
+bram $__XILINX_RAMB18_TDP18
   abits 11
   dbits 18
   groups 2
@@ -35,7 +35,7 @@ bram $__XILINX_RAMB36_SDP18
   clkpol 2 3
 endbram
 
-bram $__XILINX_RAMB36_SDP9
+bram $__XILINX_RAMB18_TDP9
   abits 12
   dbits 9
   groups 2
@@ -47,7 +47,7 @@ bram $__XILINX_RAMB36_SDP9
   clkpol 2 3
 endbram
 
-bram $__XILINX_RAMB36_SDP4
+bram $__XILINX_RAMB18_TDP4
   abits 13
   dbits 4
   groups 2
@@ -59,7 +59,7 @@ bram $__XILINX_RAMB36_SDP4
   clkpol 2 3
 endbram
 
-bram $__XILINX_RAMB36_SDP2
+bram $__XILINX_RAMB18_TDP2
   abits 14
   dbits 2
   groups 2
@@ -71,7 +71,7 @@ bram $__XILINX_RAMB36_SDP2
   clkpol 2 3
 endbram
 
-bram $__XILINX_RAMB36_SDP1
+bram $__XILINX_RAMB18_TDP1
   abits 15
   dbits 1
   groups 2
@@ -84,39 +84,36 @@ bram $__XILINX_RAMB36_SDP1
 endbram
 
 match $__XILINX_RAMB36_SDP72
+  min bits 4096
+  min efficiency 5
   shuffle_enable 8
-  # min efficiency 20
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_SDP36
+  min bits 4096
+  min efficiency 5
+  shuffle_enable 4
   # or_next_if_better
 endmatch
 
-# match $__XILINX_RAMB36_SDP36
-#   shuffle_enable 4
-#   min efficiency 20
-#   or_next_if_better
-# endmatch
-#
-# match $__XILINX_RAMB36_SDP18
+# match $__XILINX_RAMB18_TDP18
 #   shuffle_enable 2
-#   min efficiency 20
+#   or_next_if_better
+# endmatch
+# 
+# match $__XILINX_RAMB18_TDP9
 #   or_next_if_better
 # endmatch
 #
-# match $__XILINX_RAMB36_SDP9
-#   min efficiency 20
+# match $__XILINX_RAMB18_TDP4
 #   or_next_if_better
 # endmatch
 #
-# match $__XILINX_RAMB36_SDP4
-#   min efficiency 20
+# match $__XILINX_RAMB18_TDP2
 #   or_next_if_better
 # endmatch
 #
-# match $__XILINX_RAMB36_SDP2
-#   min efficiency 20
-#   or_next_if_better
-# endmatch
-#
-# match $__XILINX_RAMB36_SDP1
-#   min efficiency 20
+# match $__XILINX_RAMB18_TDP1
 # endmatch
 

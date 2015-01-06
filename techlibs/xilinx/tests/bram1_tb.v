@@ -70,7 +70,7 @@ module bram1_tb #(
 					expected_rd[j] = RD_DATA[j];
 			end
 
-			$display("#OUT# | WA=%x WD=%x WE=%x | RA=%x RD=%x | %s", WR_ADDR, WR_DATA, WR_EN, RD_ADDR, RD_DATA, expected_rd === RD_DATA ? "ok" : "ERROR");
+			$display("#OUT# %3d | WA=%x WD=%x WE=%x | RA=%x RD=%x | %s", i, WR_ADDR, WR_DATA, WR_EN, RD_ADDR, RD_DATA, expected_rd === RD_DATA ? "ok" : "ERROR");
 			if (expected_rd !== RD_DATA) begin -> error; error_ind = ~error_ind; end
 		end
 	end

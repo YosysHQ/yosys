@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 use_xsim=false
 unisims=/opt/Xilinx/Vivado/2014.4/data/verilog/src/unisims
 

@@ -87,7 +87,6 @@ struct rules_t
 		tokens.clear();
 		string line;
 		while (std::getline(infile, line)) {
-			log("> %s\n", line.c_str());
 			for (string tok = next_token(line); !tok.empty(); tok = next_token(line)) {
 				if (tok[0] == '#')
 					break;
