@@ -436,7 +436,6 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 					sig_en.append(last_en_bit);
 				}
 				if (last_en_bit != wr_en[i + cell_port_i*mem_width]) {
-					log_dump(last_en_bit, wr_en[i + cell_port_i*mem_width]);
 					log("        Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
 					goto skip_bram_wport;
 				}
