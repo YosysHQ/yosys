@@ -40,10 +40,13 @@ module bram1_tb #(
 	reg [DBITS-1:0] memory [0:2**ABITS-1];
 	reg [DBITS-1:0] expected_rd;
 
+	event error;
+	reg error_ind = 0;
+
 	integer i, j;
 	initial begin
-		$dumpfile("testbench.vcd");
-		$dumpvars(0, bram1_tb);
+		// $dumpfile("testbench.vcd");
+		// $dumpvars(0, bram1_tb);
 		clk <= 0;
 		for (i = 0; i < 256; i = i+1) begin
 			WR_DATA <= i;
@@ -68,6 +71,7 @@ module bram1_tb #(
 			end
 
 			$display("#OUT# | WA=%x WD=%x WE=%x | RA=%x RD=%x | %s", WR_ADDR, WR_DATA, WR_EN, RD_ADDR, RD_DATA, expected_rd === RD_DATA ? "ok" : "ERROR");
+			if (expected_rd !== RD_DATA) begin -> error; error_ind = ~error_ind; end
 		end
 	end
 endmodule

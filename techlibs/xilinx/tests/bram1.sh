@@ -22,9 +22,9 @@ for dbits in 1 2 4 8 10 16 20 24 30 32 40 48 50 56 60 64 70 72 80; do
 		echo "xvlog --work gold bram1_tb.v bram1.v > gold.txt"
 		echo "xvlog --work gate bram1_tb.v synth.v > gate.txt"
 		echo "xelab -R gold.bram1_tb >> gold.txt"
-		echo "mv testbench.vcd gold.vcd"
+		# echo "mv testbench.vcd gold.vcd"
 		echo "xelab -L unisim -R gate.bram1_tb >> gate.txt"
-		echo "mv testbench.vcd gate.vcd"
+		# echo "mv testbench.vcd gate.vcd"
 		echo "../bram1_cmp <( grep '#OUT#' gold.txt; ) <( grep '#OUT#' gate.txt; )"
 	} > bram1_$id/run.sh
 	{

@@ -13,8 +13,8 @@ module \$__XILINX_RAMB36_SDP72 (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN
 	input [71:0] B1DATA;
 	input [7:0] B1EN;
 
-	wire [15:0] A1ADDR_16 = A1ADDR;
-	wire [15:0] B1ADDR_16 = B1ADDR;
+	wire [15:0] A1ADDR_16 = {A1ADDR, 6'b0};
+	wire [15:0] B1ADDR_16 = {B1ADDR, 6'b0};
 
 	wire [7:0] DIP, DOP;
 	wire [63:0] DI, DO;
