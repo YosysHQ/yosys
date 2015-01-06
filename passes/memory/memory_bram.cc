@@ -356,7 +356,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			for (int i = 0; i < fillbits; i++) {
 				for (int j = 0; j < wr_ports; j++) {
 					new_wr_en[j].append(fillbit);
-					new_wr_data[j].append(State::Sx);
+					new_wr_data[j].append(State::S0);
 				}
 				for (int j = 0; j < rd_ports; j++)
 					new_rd_data[j].append(State::Sx);
