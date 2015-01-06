@@ -12,7 +12,7 @@ bram $__XILINX_RAMB36_SDP72
 endbram
 
 bram $__XILINX_RAMB18_SDP36
-  abits 10
+  abits 9
   dbits 36
   groups 2
   ports  1 1
@@ -24,7 +24,7 @@ bram $__XILINX_RAMB18_SDP36
 endbram
 
 bram $__XILINX_RAMB18_TDP18
-  abits 11
+  abits 10
   dbits 18
   groups 2
   ports  1 1
@@ -36,7 +36,7 @@ bram $__XILINX_RAMB18_TDP18
 endbram
 
 bram $__XILINX_RAMB18_TDP9
-  abits 12
+  abits 11
   dbits 9
   groups 2
   ports  1 1
@@ -48,7 +48,7 @@ bram $__XILINX_RAMB18_TDP9
 endbram
 
 bram $__XILINX_RAMB18_TDP4
-  abits 13
+  abits 12
   dbits 4
   groups 2
   ports  1 1
@@ -60,7 +60,7 @@ bram $__XILINX_RAMB18_TDP4
 endbram
 
 bram $__XILINX_RAMB18_TDP2
-  abits 14
+  abits 13
   dbits 2
   groups 2
   ports  1 1
@@ -72,7 +72,7 @@ bram $__XILINX_RAMB18_TDP2
 endbram
 
 bram $__XILINX_RAMB18_TDP1
-  abits 15
+  abits 14
   dbits 1
   groups 2
   ports  1 1
@@ -94,14 +94,16 @@ match $__XILINX_RAMB18_SDP36
   min bits 4096
   min efficiency 5
   shuffle_enable 4
-  # or_next_if_better
+  or_next_if_better
 endmatch
 
-# match $__XILINX_RAMB18_TDP18
-#   shuffle_enable 2
-#   or_next_if_better
-# endmatch
-# 
+match $__XILINX_RAMB18_TDP18
+  min bits 4096
+  min efficiency 5
+  shuffle_enable 2
+  # or_next_if_better
+endmatch
+ 
 # match $__XILINX_RAMB18_TDP9
 #   or_next_if_better
 # endmatch

@@ -167,10 +167,10 @@ module \$__XILINX_RAMB18_TDP18 (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN
 	input CLK2;
 	input CLK3;
 
-	input [8:0] A1ADDR;
+	input [9:0] A1ADDR;
 	output [17:0] A1DATA;
 
-	input [8:0] B1ADDR;
+	input [9:0] B1ADDR;
 	input [17:0] B1DATA;
 	input [1:0] B1EN;
 

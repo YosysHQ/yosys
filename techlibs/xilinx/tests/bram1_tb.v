@@ -21,6 +21,21 @@ module bram1_tb #(
 		.RD_DATA(RD_DATA)
 	);
 
+	reg [63:0] xorshift64_state = 64'd88172645463325252;
+
+	task xorshift64_next;
+		begin
+		// see page 4 of Marsaglia, George (July 2003). "Xorshift RNGs". Journal of Statistical Software 8 (14).
+		xorshift64_state = xorshift64_state ^ (xorshift64_state << 13);
+		xorshift64_state = xorshift64_state ^ (xorshift64_state >>  7);
+		xorshift64_state = xorshift64_state ^ (xorshift64_state << 17);
+		end
+	endtask
+
+	reg [ABITS-1:0] randaddr1;
+	reg [ABITS-1:0] randaddr2;
+	reg [ABITS-1:0] randaddr3;
+
 	function [31:0] getaddr(input [3:0] n);
 		begin
 			case (n)
@@ -31,14 +46,19 @@ module bram1_tb #(
 				4: getaddr = 'b11011 << (ABITS / 4);
 				5: getaddr = 'b11011 << (2*ABITS / 4);
 				6: getaddr = 'b11011 << (3*ABITS / 4);
-				7: getaddr = 123456789;
-				default: getaddr = 1 << (2*n-16);
+				7: getaddr = randaddr1;
+				8: getaddr = randaddr2;
+				9: getaddr = randaddr3;
+				default: begin
+					getaddr = 1 << (2*n-16);
+					if (!getaddr) getaddr = xorshift64_state;
+				end
 			endcase
 		end
 	endfunction
 
 	reg [DBITS-1:0] memory [0:2**ABITS-1];
-	reg [DBITS-1:0] expected_rd;
+	reg [DBITS-1:0] expected_rd, expected_rd_masked;
 
 	event error;
 	reg error_ind = 0;
@@ -47,12 +67,33 @@ module bram1_tb #(
 	initial begin
 		// $dumpfile("testbench.vcd");
 		// $dumpvars(0, bram1_tb);
+
+		xorshift64_next;
+		xorshift64_next;
+		xorshift64_next;
+		xorshift64_next;
+
+		randaddr1 = xorshift64_state;
+		xorshift64_next;
+
+		randaddr2 = xorshift64_state;
+		xorshift64_next;
+
+		randaddr3 = xorshift64_state;
+		xorshift64_next;
+
 		clk <= 0;
 		for (i = 0; i < 256; i = i+1) begin
-			WR_DATA <= i;
+			if (DBITS > 64)
+				WR_DATA <= (xorshift64_state << (DBITS-64)) ^ xorshift64_state;
+			else
+				WR_DATA <= xorshift64_state;
+			xorshift64_next;
 			WR_ADDR <= getaddr(i[7:4]);
+			xorshift64_next;
 			RD_ADDR <= getaddr(i[3:0]);
 			WR_EN <= ^i;
+			xorshift64_next;
 
 			#1; clk <= 1;
 			#1; clk <= 0;
@@ -65,13 +106,11 @@ module bram1_tb #(
 				if (WR_EN) memory[WR_ADDR] = WR_DATA;
 			end
 
-			for (j = 0; j < DBITS; j = j+1) begin
-				if (expected_rd[j] === 1'bx)
-					expected_rd[j] = RD_DATA[j];
-			end
+			for (j = 0; j < DBITS; j = j+1)
+				expected_rd_masked[j] = expected_rd[j] !== 1'bx ? expected_rd[j] : RD_DATA[j];
 
-			$display("#OUT# %3d | WA=%x WD=%x WE=%x | RA=%x RD=%x | %s", i, WR_ADDR, WR_DATA, WR_EN, RD_ADDR, RD_DATA, expected_rd === RD_DATA ? "ok" : "ERROR");
-			if (expected_rd !== RD_DATA) begin -> error; error_ind = ~error_ind; end
+			$display("#OUT# %3d | WA=%x WD=%x WE=%x | RA=%x RD=%x (%x) | %s", i, WR_ADDR, WR_DATA, WR_EN, RD_ADDR, RD_DATA, expected_rd, expected_rd_masked === RD_DATA ? "ok" : "ERROR");
+			if (expected_rd_masked !== RD_DATA) begin -> error; error_ind = ~error_ind; end
 		end
 	end
 endmodule
