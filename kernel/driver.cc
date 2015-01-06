@@ -409,21 +409,22 @@ int main(int argc, char **argv)
 #ifdef YOSYS_ENABLE_COVER
 	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
 	{
-		char filename_buffer[4096];
+		string filename;
 		FILE *f;
 
 		if (getenv("YOSYS_COVER_DIR")) {
-			snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", getenv("YOSYS_COVER_DIR"), getpid());
-			f = fdopen(mkstemps(filename_buffer, 4), "w");
+			filename = stringf("%s/yosys_cover_%d_XXXXXX.txt", getenv("YOSYS_COVER_DIR"), getpid());
+			filename = make_temp_file(filename);
 		} else {
-			snprintf(filename_buffer, 4096, "%s", getenv("YOSYS_COVER_FILE"));
-			f = fopen(filename_buffer, "a+");
+			filename = getenv("YOSYS_COVER_FILE");
 		}
 
-		if (f == NULL)
-			log_error("Can't create coverage file `%s'.\n", filename_buffer);
+		f = fopen(filename.c_str(), "a+");
 
-		log("<writing coverage file \"%s\">\n", filename_buffer);
+		if (f == NULL)
+			log_error("Can't create coverage file `%s'.\n", filename.c_str());
+
+		log("<writing coverage file \"%s\">\n", filename.c_str());
 
 		for (auto &it : get_coverage_data())
 			fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
