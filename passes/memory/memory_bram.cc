@@ -294,10 +294,10 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 	SigSpec rd_data = cell->getPort("\\RD_DATA");
 	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
 
-	if (match.shuffle_enable)
+	if (match.shuffle_enable && bram.dbits >= match.shuffle_enable*2)
 	{
 		int bucket_size = bram.dbits / match.shuffle_enable;
-		log("      Shuffle enable and data bit to accommodate enable buckets of size %d..\n", bucket_size);
+		log("      Shuffle bit order to accommodate enable buckets of size %d..\n", bucket_size);
 
 		// extract unshuffled data/enable bits
 
@@ -363,7 +363,7 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 			}
 		}
 
-		log("      Results of enable shuffling:");
+		log("      Results of bit order shuffling:");
 		for (int v : shuffle_map)
 			log(" %d", v);
 		log("\n");
