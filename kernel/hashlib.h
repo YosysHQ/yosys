@@ -287,7 +287,7 @@ class dict
 	}
 
 public:
-	class const_iterator
+	class const_iterator : public std::iterator<std::forward_iterator_tag, std::pair<K, T>>
 	{
 		friend class dict;
 	protected:
@@ -304,7 +304,7 @@ public:
 		const std::pair<K, T> *operator->() const { return &ptr->entries[index].udata; }
 	};
 
-	class iterator
+	class iterator : public std::iterator<std::forward_iterator_tag, std::pair<K, T>>
 	{
 		friend class dict;
 	protected:
@@ -609,7 +609,7 @@ class pool
 	}
 
 public:
-	class const_iterator
+	class const_iterator : public std::iterator<std::forward_iterator_tag, K>
 	{
 		friend class pool;
 	protected:
@@ -625,7 +625,7 @@ public:
 		const K *operator->() const { return &ptr->entries[index].udata; }
 	};
 
-	class iterator
+	class iterator : public std::iterator<std::forward_iterator_tag, K>
 	{
 		friend class pool;
 	protected:
