@@ -62,8 +62,8 @@ struct IopadmapPass : public Pass {
 		log("\n");
 		log("    -bits\n");
 		log("        create individual bit-wide buffers even for ports that\n");
-		log("        are wider. (the default behavio is to create word-wide\n");
-		log("        buffers use -widthparam to set the word size on the cell.)\n");
+		log("        are wider. (the default behavior is to create word-wide\n");
+		log("        buffers using -widthparam to set the word size on the cell.)\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

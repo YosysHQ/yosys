@@ -74,8 +74,7 @@ struct SynthXilinxPass : public Pass {
 		log("        techmap -map +/xilinx/brams.v\n");
 		log("\n");
 		log("    fine:\n");
-		log("        techmap\n");
-		log("        opt -fast -full\n");
+		log("        synth -run fine\n");
 		log("\n");
 		log("    map_luts:\n");
 		log("        abc -lut 6\n");
@@ -91,11 +90,11 @@ struct SynthXilinxPass : public Pass {
 		log("\n");
 		log("    clkbuf:\n");
 		log("        select -set xilinx_clocks <top>/t:FDRE %%x:+FDRE[C] <top>/t:FDRE %%d\n");
-		log("        iopadmap -inpad BUFGP O:I @xilinx_clocks\n");
+		log("        iopadmap -bits -inpad BUFGP O:I @xilinx_clocks\n");
 		log("\n");
 		log("    iobuf:\n");
 		log("        select -set xilinx_nonclocks <top>/w:* <top>/t:BUFGP %%x:+BUFGP[I] %%d\n");
-		log("        iopadmap -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks\n");
+		log("        iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks\n");
 		log("\n");
 		log("    edif:\n");
 		log("        write_edif synth.edif\n");
@@ -171,8 +170,7 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
-			Pass::call(design, "techmap");
-			Pass::call(design, "opt -fast -full");
+			Pass::call(design, "synth -run fine");
 		}
 
 		if (check_label(active, run_from, run_to, "map_luts"))
@@ -196,13 +194,13 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "clkbuf"))
 		{
 			Pass::call(design, stringf("select -set xilinx_clocks %s/t:FDRE %%x:+FDRE[C] %s/t:FDRE %%d", top_module.c_str(), top_module.c_str()));
-			Pass::call(design, "iopadmap -inpad BUFGP O:I @xilinx_clocks");
+			Pass::call(design, "iopadmap -bits -inpad BUFGP O:I @xilinx_clocks");
 		}
 
 		if (check_label(active, run_from, run_to, "iobuf"))
 		{
 			Pass::call(design, stringf("select -set xilinx_nonclocks %s/w:* %s/t:BUFGP %%x:+BUFGP[I] %%d", top_module.c_str(), top_module.c_str()));
-			Pass::call(design, "iopadmap -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks");
+			Pass::call(design, "iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks");
 		}
 
 		if (check_label(active, run_from, run_to, "edif"))
