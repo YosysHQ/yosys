@@ -83,16 +83,16 @@ module bram1_tb #(
 		xorshift64_next;
 
 		clk <= 0;
-		for (i = 0; i < 256; i = i+1) begin
+		for (i = 0; i < 512; i = i+1) begin
 			if (DBITS > 64)
 				WR_DATA <= (xorshift64_state << (DBITS-64)) ^ xorshift64_state;
 			else
 				WR_DATA <= xorshift64_state;
 			xorshift64_next;
-			WR_ADDR <= getaddr(i[7:4]);
+			WR_ADDR <= getaddr(i < 256 ? i[7:4] : xorshift64_state[63:60]);
 			xorshift64_next;
-			RD_ADDR <= getaddr(i[3:0]);
-			WR_EN <= ^i;
+			RD_ADDR <= getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
+			WR_EN <= xorshift64_state[55];
 			xorshift64_next;
 
 			#1; clk <= 1;
