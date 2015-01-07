@@ -681,13 +681,17 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			goto next_cell;
 		}
 
+	#if 0
+		// disabled because replacing muxes with and/or gates sometimes causes probems with
+		// simulating undefs (e.g. lm32 from yosys-bigsim vs. icarus verilog init problems)
+
 		if (consume_x && mux_bool && (cell->type == "$mux" || cell->type == "$_MUX_") && cell->getPort("\\A") == RTLIL::SigSpec(0, 1)) {
 			cover_list("opt.opt_const.mux_and", "$mux", "$_MUX_", cell->type.str());
 			log("Replacing %s cell `%s' in module `%s' with and-gate.\n", log_id(cell->type), log_id(cell), log_id(module));
 			cell->setPort("\\A", cell->getPort("\\S"));
 			cell->unsetPort("\\S");
 			if (cell->type == "$mux") {
-				auto width = cell->parameters["\\WIDTH"];
+				Const width = cell->parameters["\\WIDTH"];
 				cell->parameters["\\A_WIDTH"] = width;
 				cell->parameters["\\B_WIDTH"] = width;
 				cell->parameters["\\Y_WIDTH"] = width;
@@ -707,7 +711,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			cell->setPort("\\B", cell->getPort("\\S"));
 			cell->unsetPort("\\S");
 			if (cell->type == "$mux") {
-				auto width = cell->parameters["\\WIDTH"];
+				Const width = cell->parameters["\\WIDTH"];
 				cell->parameters["\\A_WIDTH"] = width;
 				cell->parameters["\\B_WIDTH"] = width;
 				cell->parameters["\\Y_WIDTH"] = width;
@@ -720,6 +724,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			did_something = true;
 			goto next_cell;
 		}
+	#endif
 
 		if (mux_undef && (cell->type == "$mux" || cell->type == "$pmux")) {
 			RTLIL::SigSpec new_a, new_b, new_s;
