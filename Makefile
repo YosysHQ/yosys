@@ -35,11 +35,17 @@ CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"'
 LDFLAGS = -L${DESTDIR}/lib
 LDLIBS = -lstdc++ -lm
 SED = sed
+BISON = bison
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
-	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
-	CXXFLAGS += -I/opt/local/include
-	LDFLAGS += -L/opt/local/lib
+	# add macports/homebrew include and library path to search directories, don't use '-rdynamic' and '-lrt':
+	CXXFLAGS += -I/opt/local/include -I/usr/local/opt/readline/include
+	LDFLAGS += -L/opt/local/lib -L/usr/local/opt/readline/lib
+	# add homebrew's libffi include and library path
+	CXXFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --cflags libffi)
+	LDFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --libs libffi)
+	# use bison installed by homebrew if available
+	BISON = $(shell (brew list bison | grep -m1 "bin/bison") || echo bison)
 	SED = gsed
 else
 	LDFLAGS += -rdynamic
