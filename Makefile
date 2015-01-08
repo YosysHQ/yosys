@@ -35,6 +35,7 @@ CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"'
 LDFLAGS = -L${DESTDIR}/lib
 LDLIBS = -lstdc++ -lm
 SED = sed
+BISON = bison
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	# add macports/homebrew include and library path to search directories, don't use '-rdynamic' and '-lrt':

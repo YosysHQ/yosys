@@ -5,7 +5,7 @@ GENFILES += frontends/verilog/verilog_parser.output
 GENFILES += frontends/verilog/verilog_lexer.cc
 
 frontends/verilog/verilog_parser.tab.cc: frontends/verilog/verilog_parser.y
-	$(P) bison -d -r all -b frontends/verilog/verilog_parser frontends/verilog/verilog_parser.y
+	$(P) $(BISON) -d -r all -b frontends/verilog/verilog_parser frontends/verilog/verilog_parser.y
 	$(Q) mv frontends/verilog/verilog_parser.tab.c frontends/verilog/verilog_parser.tab.cc
 
 frontends/verilog/verilog_parser.tab.h: frontends/verilog/verilog_parser.tab.cc
