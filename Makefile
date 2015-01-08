@@ -37,9 +37,9 @@ LDLIBS = -lstdc++ -lm
 SED = sed
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
-	# add macports include and library path to search directories, don't use '-rdynamic' and '-lrt':
-	CXXFLAGS += -I/opt/local/include
-	LDFLAGS += -L/opt/local/lib
+	# add macports/homebrew include and library path to search directories, don't use '-rdynamic' and '-lrt':
+	CXXFLAGS += -I/opt/local/include -I/usr/local/opt/readline/include
+	LDFLAGS += -L/opt/local/lib -L/usr/local/opt/readline/lib
 	SED = gsed
 else
 	LDFLAGS += -rdynamic
