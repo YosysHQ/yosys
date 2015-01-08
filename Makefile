@@ -44,6 +44,8 @@ ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	# add homebrew's libffi include and library path
 	CXXFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --cflags libffi)
 	LDFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --libs libffi)
+	# use bison installed by homebrew if available
+	BISON = $(shell (brew list bison | grep -m1 "bin/bison") || echo bison)
 	SED = gsed
 else
 	LDFLAGS += -rdynamic
