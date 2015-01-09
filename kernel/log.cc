@@ -402,7 +402,7 @@ void log_cell(RTLIL::Cell *cell, std::string indent)
 // ---------------------------------------------------
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
-#ifdef YOSYS_ENABLE_COVER
+#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
 
 dict<std::string, std::pair<std::string, int>> extra_coverage_data;
 

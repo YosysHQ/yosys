@@ -80,7 +80,7 @@ struct CoverPass : public Pass {
 		log("      printf \"%%-60s %%10d %%s\\n\", p[i], c[i], i; }' {files} | sort -k3\n");
 		log("\n");
 		log("\n");
-		log("Coverage counters are only available in debug builds of Yosys for Linux.\n");
+		log("Coverage counters are only available in Yosys for Linux.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -128,7 +128,7 @@ struct CoverPass : public Pass {
 			log("\n");
 		}
 
-#ifdef YOSYS_ENABLE_COVER
+#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
 		for (auto &it : get_coverage_data()) {
 			if (!patterns.empty()) {
 				for (auto &p : patterns)

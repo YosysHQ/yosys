@@ -406,7 +406,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-#ifdef YOSYS_ENABLE_COVER
+#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
 	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
 	{
 		string filename;
