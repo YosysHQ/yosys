@@ -31,8 +31,8 @@ SMALL = 0
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I${DESTDIR}/include
-LDFLAGS = -L${DESTDIR}/lib
+CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I$(DESTDIR)/include
+LDFLAGS = -L$(DESTDIR)/lib
 LDLIBS = -lstdc++ -lm
 SED = sed
 BISON = bison
