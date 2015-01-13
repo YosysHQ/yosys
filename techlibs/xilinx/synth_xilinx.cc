@@ -43,15 +43,11 @@ struct SynthXilinxPass : public Pass {
 		log("    synth_xilinx [options]\n");
 		log("\n");
 		log("This command runs synthesis for Xilinx FPGAs. This command does not operate on\n");
-		log("partly selected designs.\n");
+		log("partly selected designs. At the moment this command creates netlists that are\n");
+		log("compatible with 7-series and 6-series Xilinx devices.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
-		log("\n");
-		log("    -arch <arch>\n");
-		log("        select architecture. the following architectures are supported:\n");
-		log("            spartan6 (default), artix7, kintex7, virtex7, zynq7000\n");
-		log("            (this parameter is not used by the command at the moment)\n");
 		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
@@ -70,6 +66,8 @@ struct SynthXilinxPass : public Pass {
 		log("\n");
 		log("    coarse:\n");
 		log("        synth -run coarse\n");
+		log("\n");
+		log("    bram:\n");
 		log("        memory_bram -rules +/xilinx/brams.txt\n");
 		log("        techmap -map +/xilinx/brams.v\n");
 		log("\n");
@@ -83,18 +81,6 @@ struct SynthXilinxPass : public Pass {
 		log("    map_cells:\n");
 		log("        techmap -map +/xilinx/cells.v\n");
 		log("        clean\n");
-		log("\n");
-		log("    flatten:\n");
-		log("        flatten\n");
-		log("        opt -fast -full\n");
-		log("\n");
-		log("    clkbuf:\n");
-		log("        select -set xilinx_clocks <top>/t:FDRE %%x:+FDRE[C] <top>/t:FDRE %%d\n");
-		log("        iopadmap -bits -inpad BUFGP O:I @xilinx_clocks\n");
-		log("\n");
-		log("    iobuf:\n");
-		log("        select -set xilinx_nonclocks <top>/w:* <top>/t:BUFGP %%x:+BUFGP[I] %%d\n");
-		log("        iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks\n");
 		log("\n");
 		log("    edif:\n");
 		log("        write_edif synth.edif\n");
@@ -112,10 +98,6 @@ struct SynthXilinxPass : public Pass {
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-arch" && argidx+1 < args.size()) {
-				arch_name = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -137,20 +119,6 @@ struct SynthXilinxPass : public Pass {
 		if (!design->full_selection())
 			log_cmd_error("This comannd only operates on fully selected designs!\n");
 
-		if (arch_name == "spartan6") {
-			/* set flags */
-		} else
-		if (arch_name == "artix7") {
-			/* set flags */
-		} else
-		if (arch_name == "kintex7") {
-			/* set flags */
-		} else
-		if (arch_name == "zynq7000") {
-			/* set flags */
-		} else
-			log_cmd_error("Architecture '%s' is not supported!\n", arch_name.c_str());
-
 		bool active = run_from.empty();
 
 		log_header("Executing SYNTH_XILINX pass.\n");
@@ -164,6 +132,10 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
 			Pass::call(design, "synth -run coarse");
+		}
+
+		if (check_label(active, run_from, run_to, "bram"))
+		{
 			Pass::call(design, "memory_bram -rules +/xilinx/brams.txt");
 			Pass::call(design, "techmap -map +/xilinx/brams.v");
 		}
@@ -183,24 +155,6 @@ struct SynthXilinxPass : public Pass {
 		{
 			Pass::call(design, "techmap -map +/xilinx/cells.v");
 			Pass::call(design, "clean");
-		}
-
-		if (check_label(active, run_from, run_to, "flatten"))
-		{
-			Pass::call(design, "flatten");
-			Pass::call(design, "opt -fast -full");
-		}
-
-		if (check_label(active, run_from, run_to, "clkbuf"))
-		{
-			Pass::call(design, stringf("select -set xilinx_clocks %s/t:FDRE %%x:+FDRE[C] %s/t:FDRE %%d", top_module.c_str(), top_module.c_str()));
-			Pass::call(design, "iopadmap -bits -inpad BUFGP O:I @xilinx_clocks");
-		}
-
-		if (check_label(active, run_from, run_to, "iobuf"))
-		{
-			Pass::call(design, stringf("select -set xilinx_nonclocks %s/w:* %s/t:BUFGP %%x:+BUFGP[I] %%d", top_module.c_str(), top_module.c_str()));
-			Pass::call(design, "iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks");
 		}
 
 		if (check_label(active, run_from, run_to, "edif"))
