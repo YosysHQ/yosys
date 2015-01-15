@@ -129,7 +129,7 @@ struct TechmapWorker
 				continue;
 
 			const char *q = strrchr(p+1, '.');
-			p = q ? q : p+1;
+			p = q ? q+1 : p+1;
 
 			if (!strncmp(p, "_TECHMAP_", 9)) {
 				TechmapWireData record;
