@@ -186,6 +186,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					AstNode *first_node = this_wire_scope[node->str];
 					if (!node->is_input && !node->is_output && node->is_reg && node->children.size() == 0)
 						goto wires_are_compatible;
+					if (first_node->children.size() == 0 && node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
+						AstNode *r = node->children[0];
+						if (r->range_valid && r->range_left == 0 && r->range_right == 0) {
+							delete r;
+							node->children.pop_back();
+						}
+					}
 					if (first_node->children.size() != node->children.size())
 						goto wires_are_incompatible;
 					for (size_t j = 0; j < node->children.size(); j++) {
