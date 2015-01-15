@@ -51,6 +51,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 {
 	AstNode *newNode = NULL;
 	bool did_something = false;
+	static pair<string, int> last_blocking_assignment_warn;
 
 #if 0
 	log("-------------\n");
@@ -62,6 +63,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (stage == 0)
 	{
 		log_assert(type == AST_MODULE);
+		last_blocking_assignment_warn = pair<string, int>();
 
 		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
 
@@ -1259,9 +1261,13 @@ skip_dynamic_range_lvalue_expansion:;
 		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
-		if (type == AST_ASSIGN_EQ)
-			log_warning("Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
-					filename.c_str(), linenum);
+		if (type == AST_ASSIGN_EQ) {
+			pair<string, int> this_blocking_assignment_warn(filename, linenum);
+			if (this_blocking_assignment_warn != last_blocking_assignment_warn)
+				log_warning("Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
+						filename.c_str(), linenum);
+			last_blocking_assignment_warn = this_blocking_assignment_warn;
+		}
 
 		int mem_width, mem_size, addr_bits;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
