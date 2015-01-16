@@ -66,6 +66,7 @@ struct SynthXilinxPass : public Pass {
 		log("\n");
 		log("    coarse:\n");
 		log("        synth -run coarse\n");
+		log("        dff2dffe\n");
 		log("\n");
 		log("    bram:\n");
 		log("        memory_bram -rules +/xilinx/brams.txt\n");
@@ -132,6 +133,7 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
 			Pass::call(design, "synth -run coarse");
+			Pass::call(design, "dff2dffe");
 		}
 
 		if (check_label(active, run_from, run_to, "bram"))
