@@ -173,7 +173,7 @@ struct Dff2dffeWorker
 			return or_input;
 
 		RTLIL::SigSpec y = module->addWire(NEW_ID);
-		RTLIL::Cell *c = module->addReduceOr(NEW_ID, or_input, y);
+		RTLIL::Cell *c = module->addReduceAnd(NEW_ID, or_input, y);
 
 		if (make_gates) {
 			simplemap(module, c);
