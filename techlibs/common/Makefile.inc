@@ -15,4 +15,5 @@ $(eval $(call add_share_file,share,techlibs/common/techmap.v))
 $(eval $(call add_share_file,share,techlibs/common/blackbox.v))
 $(eval $(call add_share_file,share,techlibs/common/pmux2mux.v))
 $(eval $(call add_share_file,share,techlibs/common/adff2dff.v))
+$(eval $(call add_share_file,share,techlibs/common/cells.lib))
 
