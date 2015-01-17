@@ -153,9 +153,6 @@ struct TechmapWorker
 
 	void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
 	{
-		if (tpl->memories.size() != 0)
-			log_error("Technology map yielded memories -> this is not supported.\n");
-
 		if (tpl->processes.size() != 0) {
 			log("Technology map yielded processes:\n");
 			for (auto &it : tpl->processes)
@@ -175,6 +172,22 @@ struct TechmapWorker
 					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 					break;
 				}
+
+		dict<IdString, IdString> memory_renames;
+
+		for (auto &it : tpl->memories) {
+			std::string m_name = it.first.str();
+			apply_prefix(cell->name.str(), m_name);
+			RTLIL::Memory *m = new RTLIL::Memory;
+			m->name = m_name;
+			m->width = it.second->width;
+			m->start_offset = it.second->start_offset;
+			m->size = it.second->size;
+			m->attributes = it.second->attributes;
+			module->memories[m->name] = m;
+			memory_renames[it.first] = m->name;
+			design->select(module, m);
+		}
 
 		std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
 
@@ -251,6 +264,12 @@ struct TechmapWorker
 			for (auto &it2 : c->connections_) {
 				apply_prefix(cell->name.str(), it2.second, module);
 				port_signal_map.apply(it2.second);
+			}
+
+			if (c->type == "$memrd" || c->type == "$memwr") {
+				IdString memid = c->getParam("\\MEMID").decode_string();
+				log_assert(memory_renames.count(memid));
+				c->setParam("\\MEMID", Const(memory_renames[memid].str()));
 			}
 		}
 
