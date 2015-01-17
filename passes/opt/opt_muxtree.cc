@@ -69,6 +69,8 @@ struct OptMuxtreeWorker
 
 	std::vector<muxinfo_t> mux2info;
 
+	std::set<int> root_muxes;
+
 	OptMuxtreeWorker(RTLIL::Design *design, RTLIL::Module *module) :
 			design(design), module(module), assign_map(module), removed_count(0)
 	{
@@ -159,15 +161,26 @@ struct OptMuxtreeWorker
 
 		log("  Evaluating internal representation of mux trees.\n");
 
-		std::set<int> root_muxes;
+		dict<int, pool<int>> mux_to_users;
+
 		for (auto &bi : bit2info) {
+			for (int i : bi.mux_drivers)
+				for (int j : bi.mux_users)
+					mux_to_users[i].insert(j);
 			if (!bi.seen_non_mux)
 				continue;
 			for (int mux_idx : bi.mux_drivers)
 				root_muxes.insert(mux_idx);
 		}
-		for (int mux_idx : root_muxes)
+
+		for (auto &it : mux_to_users)
+			if (GetSize(it.second) > 1)
+				root_muxes.insert(it.first);
+
+		for (int mux_idx : root_muxes) {
+			log("    Root of a mux tree: %s\n", log_id(mux2info[mux_idx].cell));
 			eval_root_mux(mux_idx);
+		}
 
 		log("  Analyzing evaluation results.\n");
 
@@ -317,7 +330,8 @@ struct OptMuxtreeWorker
 			parent_muxes.push_back(m);
 		}
 		for (int m : parent_muxes)
-			eval_mux(knowledge, m);
+			if (!root_muxes.count(m))
+				eval_mux(knowledge, m);
 		for (int m : parent_muxes)
 			knowledge.visited_muxes.erase(m);
 
@@ -355,7 +369,7 @@ struct OptMuxtreeWorker
 		}
 
 		if (did_something) {
-			log("    Replacing known input bits on port %s of cell %s: %s -> %s\n", log_id(portname),
+			log("      Replacing known input bits on port %s of cell %s: %s -> %s\n", log_id(portname),
 					log_id(muxinfo.cell), log_signal(muxinfo.cell->getPort(portname)), log_signal(sig));
 			muxinfo.cell->setPort(portname, sig);
 		}
