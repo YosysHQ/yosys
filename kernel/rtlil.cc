@@ -1839,7 +1839,9 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 		connections_[portname] = RTLIL::SigSpec();
 		conn_it = connections_.find(portname);
 		log_assert(conn_it != connections_.end());
-	}
+	} else
+	if (conn_it->second == signal)
+		return;
 
 	for (auto mon : module->monitors)
 		mon->notify_connect(this, conn_it->first, conn_it->second, signal);
