@@ -256,7 +256,7 @@ struct OptMuxtreeWorker
 			list.push_back(value);
 	}
 
-	std::vector<int> sig2bits(RTLIL::SigSpec sig)
+	std::vector<int> sig2bits(RTLIL::SigSpec sig, bool skip_non_wires = true)
 	{
 		std::vector<int> results;
 		assign_map.apply(sig);
@@ -271,7 +271,8 @@ struct OptMuxtreeWorker
 					bit2num[info.bit] = info.num;
 				}
 				results.push_back(bit2num[bit]);
-			}
+			} else if (!skip_non_wires)
+				results.push_back(-1);
 		return results;
 	}
 
@@ -285,7 +286,7 @@ struct OptMuxtreeWorker
 		// database of known active signals
 		// the 2nd dimension is the list of or-ed signals. so we know that
 		// for each i there is a j so that known_active[i][j] points to an
-		// inactive control signal.
+		// active control signal.
 		std::vector<std::vector<int>> known_active;
 
 		// this is just used to keep track of visited muxes in order to prohibit
@@ -331,9 +332,42 @@ struct OptMuxtreeWorker
 		}
 	}
 
+	void replace_known(knowledge_t &knowledge, muxinfo_t &muxinfo, IdString portname)
+	{
+		SigSpec sig = muxinfo.cell->getPort(portname);
+		bool did_something = false;
+
+		std::vector<int> bits = sig2bits(sig, false);
+		for (int i = 0; i < GetSize(bits); i++) {
+			if (bits[i] < 0)
+				continue;
+			if (knowledge.known_inactive[bits[i]]) {
+				sig[i] = State::S0;
+				did_something = true;
+			} else {
+				for (auto &it : knowledge.known_active)
+					if (GetSize(it) == 1 && it.front() == bits[i]) {
+						sig[i] = State::S1;
+						did_something = true;
+						break;
+					}
+			}
+		}
+
+		if (did_something) {
+			log("    Replacing known input bits on port %s of cell %s: %s -> %s\n", log_id(portname),
+					log_id(muxinfo.cell), log_signal(muxinfo.cell->getPort(portname)), log_signal(sig));
+			muxinfo.cell->setPort(portname, sig);
+		}
+	}
+
 	void eval_mux(knowledge_t &knowledge, int mux_idx)
 	{
 		muxinfo_t &muxinfo = mux2info[mux_idx];
+
+		// set input ports to constants if we find known active or inactive signals
+		replace_known(knowledge, muxinfo, "\\A");
+		replace_known(knowledge, muxinfo, "\\B");
 
 		// if there is a constant activated port we just use it
 		for (size_t port_idx = 0; port_idx < muxinfo.ports.size()-1; port_idx++)
@@ -360,7 +394,7 @@ struct OptMuxtreeWorker
 		}
 
 		// compare ports with known_inactive and known_active signals. If all control
-		// signals of the port are know_inactive or if the control signals of all other
+		// signals of the port are known_inactive or if the control signals of all other
 		// ports are known_active this port can't be activated. this loop includes the
 		// default port but no known_inactive match is performed on the default port.
 		for (size_t port_idx = 0; port_idx < muxinfo.ports.size(); port_idx++)
