@@ -1,4 +1,8 @@
 
+// See Xilinx UG953 and UG474 for a description of the cell types below.
+// http://www.xilinx.com/support/documentation/user_guides/ug474_7Series_CLB.pdf
+// http://www.xilinx.com/support/documentation/sw_manuals/xilinx2014_4/ug953-vivado-7series-libraries.pdf
+
 module VCC(output P);
   assign P = 1;
 endmodule
