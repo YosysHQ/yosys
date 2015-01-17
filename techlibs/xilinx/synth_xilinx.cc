@@ -58,11 +58,21 @@ struct SynthXilinxPass : public Pass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -flatten\n");
+		log("        flatten design before synthesis\n");
+		log("\n");
+		log("    -retime\n");
+		log("        run 'abc' with -dff option\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		log("\n");
 		log("    begin:\n");
 		log("        hierarchy -check -top <top>\n");
+		log("\n");
+		log("    flatten:     (only if -flatten)\n");
+		log("        proc\n");
+		log("        flatten\n");
 		log("\n");
 		log("    coarse:\n");
 		log("        synth -run coarse\n");
@@ -80,7 +90,7 @@ struct SynthXilinxPass : public Pass {
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
-		log("        abc -lut 6:8\n");
+		log("        abc -lut 5:8 [-dff]\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
@@ -97,6 +107,8 @@ struct SynthXilinxPass : public Pass {
 		std::string arch_name = "spartan6";
 		std::string edif_file;
 		std::string run_from, run_to;
+		bool flatten = false;
+		bool retime = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -117,6 +129,14 @@ struct SynthXilinxPass : public Pass {
 				run_to = args[argidx].substr(pos+1);
 				continue;
 			}
+			if (args[argidx] == "-flatten") {
+				flatten = true;
+				continue;
+			}
+			if (args[argidx] == "-retime") {
+				retime = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -132,6 +152,12 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "begin"))
 		{
 			Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
+		}
+
+		if (flatten && check_label(active, run_from, run_to, "flatten"))
+		{
+			Pass::call(design, "proc");
+			Pass::call(design, "flatten");
 		}
 
 		if (check_label(active, run_from, run_to, "coarse"))
@@ -157,7 +183,7 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "abc -lut 6:8");
+			Pass::call(design, "abc -lut 5:8" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 		}
 
