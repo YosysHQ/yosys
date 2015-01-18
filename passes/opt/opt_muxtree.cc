@@ -38,20 +38,18 @@ struct OptMuxtreeWorker
 	int removed_count;
 
 	struct bitinfo_t {
-		int num;
-		SigBit bit;
 		bool seen_non_mux;
-		vector<int> mux_users;
-		vector<int> mux_drivers;
+		pool<int> mux_users;
+		pool<int> mux_drivers;
 	};
 
-	dict<SigBit, int> bit2num;
+	idict<SigBit> bit2num;
 	vector<bitinfo_t> bit2info;
 
 	struct portinfo_t {
 		int ctrl_sig;
-		vector<int> input_sigs;
-		vector<int> input_muxes;
+		pool<int> input_sigs;
+		pool<int> input_muxes;
 		bool const_activated;
 		bool const_deactivated;
 		bool enabled;
@@ -93,14 +91,14 @@ struct OptMuxtreeWorker
 				muxinfo_t muxinfo;
 				muxinfo.cell = cell;
 
-				for (int i = 0; i < sig_s.size(); i++) {
-					RTLIL::SigSpec sig = sig_b.extract(i*sig_a.size(), sig_a.size());
+				for (int i = 0; i < GetSize(sig_s); i++) {
+					RTLIL::SigSpec sig = sig_b.extract(i*GetSize(sig_a), GetSize(sig_a));
 					RTLIL::SigSpec ctrl_sig = assign_map(sig_s.extract(i, 1));
 					portinfo_t portinfo;
 					portinfo.ctrl_sig = sig2bits(ctrl_sig, false).front();
 					for (int idx : sig2bits(sig)) {
-						add_to_list(bit2info[idx].mux_users, mux2info.size());
-						add_to_list(portinfo.input_sigs, idx);
+						bit2info[idx].mux_users.insert(GetSize(mux2info));
+						portinfo.input_sigs.insert(idx);
 					}
 					portinfo.const_activated = ctrl_sig.is_fully_const() && ctrl_sig.as_bool();
 					portinfo.const_deactivated = ctrl_sig.is_fully_const() && !ctrl_sig.as_bool();
@@ -110,8 +108,8 @@ struct OptMuxtreeWorker
 
 				portinfo_t portinfo;
 				for (int idx : sig2bits(sig_a)) {
-					add_to_list(bit2info[idx].mux_users, mux2info.size());
-					add_to_list(portinfo.input_sigs, idx);
+					bit2info[idx].mux_users.insert(GetSize(mux2info));
+					portinfo.input_sigs.insert(idx);
 				}
 				portinfo.ctrl_sig = -1;
 				portinfo.const_activated = false;
@@ -120,7 +118,7 @@ struct OptMuxtreeWorker
 				muxinfo.ports.push_back(portinfo);
 
 				for (int idx : sig2bits(sig_y))
-					add_to_list(bit2info[idx].mux_drivers, mux2info.size());
+					bit2info[idx].mux_drivers.insert(GetSize(mux2info));
 
 				for (int idx : sig2bits(sig_s))
 					bit2info[idx].seen_non_mux = true;
@@ -141,25 +139,25 @@ struct OptMuxtreeWorker
 					bit2info[idx].seen_non_mux = true;
 		}
 
-		if (mux2info.size() == 0) {
+		if (mux2info.empty()) {
 			log("  No muxes found in this module.\n");
 			return;
 		}
 
 		// Populate mux2info[].ports[]:
 		//	.input_muxes
-		for (size_t i = 0; i < bit2info.size(); i++)
+		for (int i = 0; i < GetSize(bit2info); i++)
 		for (int j : bit2info[i].mux_users)
 		for (auto &p : mux2info[j].ports) {
-			if (is_in_list(p.input_sigs, i))
+			if (p.input_sigs.count(i))
 				for (int k : bit2info[i].mux_drivers)
-					add_to_list(p.input_muxes, k);
+					p.input_muxes.insert(k);
 		}
 
 		log("  Evaluating internal representation of mux trees.\n");
 
 		dict<int, pool<int>> mux_to_users;
-		root_muxes.resize(mux2info.size());
+		root_muxes.resize(GetSize(mux2info));
 
 		for (auto &bi : bit2info) {
 			for (int i : bi.mux_drivers)
@@ -197,10 +195,10 @@ struct OptMuxtreeWorker
 				}
 			}
 
-			if (live_ports.size() == mi.ports.size())
+			if (GetSize(live_ports) == GetSize(mi.ports))
 				continue;
 
-			if (live_ports.size() == 0) {
+			if (live_ports.empty()) {
 				module->remove(mi.cell);
 				continue;
 			}
@@ -213,9 +211,9 @@ struct OptMuxtreeWorker
 			RTLIL::SigSpec sig_ports = sig_b;
 			sig_ports.append(sig_a);
 
-			if (live_ports.size() == 1)
+			if (GetSize(live_ports) == 1)
 			{
-				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*sig_a.size(), sig_a.size());
+				RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[0]*GetSize(sig_a), GetSize(sig_a));
 				module->connect(RTLIL::SigSig(sig_y, sig_in));
 				module->remove(mi.cell);
 			}
@@ -223,9 +221,9 @@ struct OptMuxtreeWorker
 			{
 				RTLIL::SigSpec new_sig_a, new_sig_b, new_sig_s;
 
-				for (size_t i = 0; i < live_ports.size(); i++) {
-					RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[i]*sig_a.size(), sig_a.size());
-					if (i == live_ports.size()-1) {
+				for (int i = 0; i < GetSize(live_ports); i++) {
+					RTLIL::SigSpec sig_in = sig_ports.extract(live_ports[i]*GetSize(sig_a), GetSize(sig_a));
+					if (i == GetSize(live_ports)-1) {
 						new_sig_a = sig_in;
 					} else {
 						new_sig_b.append(sig_in);
@@ -236,28 +234,14 @@ struct OptMuxtreeWorker
 				mi.cell->setPort("\\A", new_sig_a);
 				mi.cell->setPort("\\B", new_sig_b);
 				mi.cell->setPort("\\S", new_sig_s);
-				if (new_sig_s.size() == 1) {
+				if (GetSize(new_sig_s) == 1) {
 					mi.cell->type = "$mux";
 					mi.cell->parameters.erase("\\S_WIDTH");
 				} else {
-					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(new_sig_s.size());
+					mi.cell->parameters["\\S_WIDTH"] = RTLIL::Const(GetSize(new_sig_s));
 				}
 			}
 		}
-	}
-
-	bool is_in_list(const vector<int> &list, int value)
-	{
-		for (int v : list)
-			if (v == value)
-				return true;
-		return false;
-	}
-
-	void add_to_list(vector<int> &list, int value)
-	{
-		if (!is_in_list(list, value))
-			list.push_back(value);
 	}
 
 	vector<int> sig2bits(RTLIL::SigSpec sig, bool skip_non_wires = true)
@@ -268,13 +252,11 @@ struct OptMuxtreeWorker
 			if (bit.wire != NULL) {
 				if (bit2num.count(bit) == 0) {
 					bitinfo_t info;
-					info.num = bit2info.size();
-					info.bit = bit;
 					info.seen_non_mux = false;
+					bit2num.expect(bit, GetSize(bit2info));
 					bit2info.push_back(info);
-					bit2num[info.bit] = info.num;
 				}
-				results.push_back(bit2num[bit]);
+				results.push_back(bit2num.at(bit));
 			} else if (!skip_non_wires)
 				results.push_back(-1);
 		return results;
@@ -311,7 +293,7 @@ struct OptMuxtreeWorker
 				knowledge.known_inactive.at(muxinfo.ports[i].ctrl_sig)++;
 		}
 
-		if (port_idx < int(muxinfo.ports.size())-1 && !muxinfo.ports[port_idx].const_activated)
+		if (port_idx < GetSize(muxinfo.ports)-1 && !muxinfo.ports[port_idx].const_activated)
 			knowledge.known_active.at(muxinfo.ports[port_idx].ctrl_sig)++;
 
 		vector<int> parent_muxes;
@@ -327,11 +309,11 @@ struct OptMuxtreeWorker
 		for (int m : parent_muxes)
 			knowledge.visited_muxes[m] = false;
 
-		if (port_idx < int(muxinfo.ports.size())-1 && !muxinfo.ports[port_idx].const_activated)
+		if (port_idx < GetSize(muxinfo.ports)-1 && !muxinfo.ports[port_idx].const_activated)
 			knowledge.known_active.at(muxinfo.ports[port_idx].ctrl_sig)--;
 
-		for (size_t i = 0; i < muxinfo.ports.size(); i++) {
-			if (int(i) == port_idx)
+		for (int i = 0; i < GetSize(muxinfo.ports); i++) {
+			if (i == port_idx)
 				continue;
 			if (muxinfo.ports[i].ctrl_sig >= 0)
 				knowledge.known_inactive.at(muxinfo.ports[i].ctrl_sig)--;
@@ -373,7 +355,7 @@ struct OptMuxtreeWorker
 		replace_known(knowledge, muxinfo, "\\B");
 
 		// if there is a constant activated port we just use it
-		for (size_t port_idx = 0; port_idx < muxinfo.ports.size()-1; port_idx++)
+		for (int port_idx = 0; port_idx < GetSize(muxinfo.ports); port_idx++)
 		{
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
 			if (portinfo.const_activated) {
@@ -385,7 +367,7 @@ struct OptMuxtreeWorker
 		// compare ports with known_active signals. if we find a match, only this
 		// port can be active. do not include the last port (its the default port
 		// that has no control signals).
-		for (size_t port_idx = 0; port_idx < muxinfo.ports.size()-1; port_idx++)
+		for (int port_idx = 0; port_idx < GetSize(muxinfo.ports)-1; port_idx++)
 		{
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
 			if (knowledge.known_active.at(portinfo.ctrl_sig)) {
@@ -398,11 +380,11 @@ struct OptMuxtreeWorker
 		// signal of the port is known_inactive or if the control signals of all other
 		// ports are known_active this port can't be activated. this loop includes the
 		// default port but no known_inactive match is performed on the default port.
-		for (size_t port_idx = 0; port_idx < muxinfo.ports.size(); port_idx++)
+		for (int port_idx = 0; port_idx < GetSize(muxinfo.ports); port_idx++)
 		{
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
 
-			if (port_idx < muxinfo.ports.size()-1) {
+			if (port_idx < GetSize(muxinfo.ports)-1) {
 				bool found_non_known_inactive = false;
 				if (knowledge.known_inactive.at(portinfo.ctrl_sig) == 0)
 					found_non_known_inactive = true;
@@ -411,7 +393,7 @@ struct OptMuxtreeWorker
 			}
 
 			bool port_active = true;
-			for (size_t i = 0; i < muxinfo.ports.size()-1; i++) {
+			for (int i = 0; i < GetSize(muxinfo.ports)-1; i++) {
 				if (i == port_idx)
 					continue;
 				if (knowledge.known_active.at(muxinfo.ports[i].ctrl_sig))
@@ -425,9 +407,9 @@ struct OptMuxtreeWorker
 	void eval_root_mux(int mux_idx)
 	{
 		knowledge_t knowledge;
-		knowledge.known_inactive.resize(bit2info.size());
-		knowledge.known_active.resize(bit2info.size());
-		knowledge.visited_muxes.resize(mux2info.size());
+		knowledge.known_inactive.resize(GetSize(bit2info));
+		knowledge.known_active.resize(GetSize(bit2info));
+		knowledge.visited_muxes.resize(GetSize(mux2info));
 		knowledge.visited_muxes[mux_idx] = true;
 		eval_mux(knowledge, mux_idx);
 	}
@@ -460,12 +442,10 @@ struct OptMuxtreePass : public Pass {
 					log("Skipping module %s as it is only partially selected.\n", log_id(mod));
 				continue;
 			}
-			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
-			} else {
-				OptMuxtreeWorker worker(design, mod);
-				total_count += worker.removed_count;
-			}
+			if (mod->has_processes_warn())
+				continue;
+			OptMuxtreeWorker worker(design, mod);
+			total_count += worker.removed_count;
 		}
 		if (total_count)
 			design->scratchpad_set_bool("opt.did_something", true);
