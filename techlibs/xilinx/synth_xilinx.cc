@@ -80,13 +80,13 @@ struct SynthXilinxPass : public Pass {
 		log("\n");
 		log("    bram:\n");
 		log("        memory_bram -rules +/xilinx/brams.txt\n");
-		log("        techmap -map +/xilinx/brams.v\n");
+		log("        techmap -map +/xilinx/brams_map.v\n");
 		log("\n");
 		log("    fine:\n");
 		log("        opt -fast -full\n");
 		log("        memory_map\n");
 		log("        opt -full\n");
-		log("        techmap -map +/techmap.v -map +/xilinx/arith.v\n");
+		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
@@ -94,7 +94,7 @@ struct SynthXilinxPass : public Pass {
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
-		log("        techmap -map +/xilinx/cells.v\n");
+		log("        techmap -map +/xilinx/cells_map.v\n");
 		log("        clean\n");
 		log("\n");
 		log("    edif:\n");
@@ -169,7 +169,7 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "bram"))
 		{
 			Pass::call(design, "memory_bram -rules +/xilinx/brams.txt");
-			Pass::call(design, "techmap -map +/xilinx/brams.v");
+			Pass::call(design, "techmap -map +/xilinx/brams_map.v");
 		}
 
 		if (check_label(active, run_from, run_to, "fine"))
@@ -177,7 +177,7 @@ struct SynthXilinxPass : public Pass {
 			Pass::call(design, "opt -fast -full");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "opt -full");
-			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith.v");
+			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
 			Pass::call(design, "opt -fast");
 		}
 
@@ -189,7 +189,7 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
-			Pass::call(design, "techmap -map +/xilinx/cells.v");
+			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			Pass::call(design, "clean");
 		}
 
