@@ -70,3 +70,11 @@ end
 
 endmodule
 
+
+// test case for muxtree with select on leaves
+
+module select_leaves(input C, D, output reg Q);
+	always @(posedge C)
+		Q <= Q ? Q : D ? 1'b1 : Q;
+endmodule
+

@@ -62,6 +62,7 @@ struct OptMuxtreeWorker
 
 	vector<muxinfo_t> mux2info;
 	vector<bool> root_muxes;
+	vector<bool> root_enable_muxes;
 
 	OptMuxtreeWorker(RTLIL::Design *design, RTLIL::Module *module) :
 			design(design), module(module), assign_map(module), removed_count(0)
@@ -158,6 +159,7 @@ struct OptMuxtreeWorker
 
 		dict<int, pool<int>> mux_to_users;
 		root_muxes.resize(GetSize(mux2info));
+		root_enable_muxes.resize(GetSize(mux2info));
 
 		for (auto &bi : bit2info) {
 			for (int i : bi.mux_drivers)
@@ -165,8 +167,10 @@ struct OptMuxtreeWorker
 					mux_to_users[i].insert(j);
 			if (!bi.seen_non_mux)
 				continue;
-			for (int mux_idx : bi.mux_drivers)
+			for (int mux_idx : bi.mux_drivers) {
 				root_muxes.at(mux_idx) = true;
+				root_enable_muxes.at(mux_idx) = true;
+			}
 		}
 
 		for (auto &it : mux_to_users)
@@ -277,14 +281,12 @@ struct OptMuxtreeWorker
 		vector<bool> visited_muxes;
 	};
 
-	void eval_mux_port(knowledge_t &knowledge, int mux_idx, int port_idx)
+	void eval_mux_port(knowledge_t &knowledge, int mux_idx, int port_idx, bool do_replace_known, bool do_enable_ports)
 	{
 		muxinfo_t &muxinfo = mux2info[mux_idx];
 
-		if (muxinfo.ports[port_idx].const_deactivated)
-			return;
-
-		muxinfo.ports[port_idx].enabled = true;
+		if (do_enable_ports)
+			muxinfo.ports[port_idx].enabled = true;
 
 		for (int i = 0; i < GetSize(muxinfo.ports); i++) {
 			if (i == port_idx)
@@ -304,8 +306,10 @@ struct OptMuxtreeWorker
 			parent_muxes.push_back(m);
 		}
 		for (int m : parent_muxes)
-			if (!root_muxes.at(m))
-				eval_mux(knowledge, m);
+			if (root_muxes.at(m))
+				eval_mux(knowledge, m, false, do_enable_ports);
+			else
+				eval_mux(knowledge, m, do_replace_known, do_enable_ports);
 		for (int m : parent_muxes)
 			knowledge.visited_muxes[m] = false;
 
@@ -325,6 +329,14 @@ struct OptMuxtreeWorker
 		SigSpec sig = muxinfo.cell->getPort(portname);
 		bool did_something = false;
 
+		int width = 0;
+		idict<int> ctrl_bits;
+		if (portname == "\\B")
+			width = GetSize(muxinfo.cell->getPort("\\A"));
+		for (int bit : sig2bits(muxinfo.cell->getPort("\\S"), false))
+			ctrl_bits(bit);
+
+		int port_idx = 0, port_off = 0;
 		vector<int> bits = sig2bits(sig, false);
 		for (int i = 0; i < GetSize(bits); i++) {
 			if (bits[i] < 0)
@@ -337,6 +349,19 @@ struct OptMuxtreeWorker
 				sig[i] = State::S1;
 				did_something = true;
 			}
+			if (width) {
+				if (ctrl_bits.count(bits[i])) {
+					sig[i] = ctrl_bits.at(bits[i]) == port_idx ? State::S1 : State::S0;
+					did_something = true;
+				}
+				if (++port_off == width)
+					port_idx++, port_off=0;
+			} else {
+				if (ctrl_bits.count(bits[i])) {
+					sig[i] = State::S0;
+					did_something = true;
+				}
+			}
 		}
 
 		if (did_something) {
@@ -346,20 +371,22 @@ struct OptMuxtreeWorker
 		}
 	}
 
-	void eval_mux(knowledge_t &knowledge, int mux_idx)
+	void eval_mux(knowledge_t &knowledge, int mux_idx, bool do_replace_known, bool do_enable_ports)
 	{
 		muxinfo_t &muxinfo = mux2info[mux_idx];
 
 		// set input ports to constants if we find known active or inactive signals
-		replace_known(knowledge, muxinfo, "\\A");
-		replace_known(knowledge, muxinfo, "\\B");
+		if (do_replace_known) {
+			replace_known(knowledge, muxinfo, "\\A");
+			replace_known(knowledge, muxinfo, "\\B");
+		}
 
 		// if there is a constant activated port we just use it
 		for (int port_idx = 0; port_idx < GetSize(muxinfo.ports); port_idx++)
 		{
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
 			if (portinfo.const_activated) {
-				eval_mux_port(knowledge, mux_idx, port_idx);
+				eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports);
 				return;
 			}
 		}
@@ -370,37 +397,25 @@ struct OptMuxtreeWorker
 		for (int port_idx = 0; port_idx < GetSize(muxinfo.ports)-1; port_idx++)
 		{
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
+			if (portinfo.const_deactivated)
+				continue;
 			if (knowledge.known_active.at(portinfo.ctrl_sig)) {
-				eval_mux_port(knowledge, mux_idx, port_idx);
+				eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports);
 				return;
 			}
 		}
 
-		// compare ports with known_inactive and known_active signals. If the control
-		// signal of the port is known_inactive or if the control signals of all other
-		// ports are known_active this port can't be activated. this loop includes the
-		// default port but no known_inactive match is performed on the default port.
+		// eval all ports that could be activated (control signal is not in
+		// known_inactive or const_deactivated).
 		for (int port_idx = 0; port_idx < GetSize(muxinfo.ports); port_idx++)
 		{
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
-
-			if (port_idx < GetSize(muxinfo.ports)-1) {
-				bool found_non_known_inactive = false;
-				if (knowledge.known_inactive.at(portinfo.ctrl_sig) == 0)
-					found_non_known_inactive = true;
-				if (!found_non_known_inactive)
+			if (portinfo.const_deactivated)
+				continue;
+			if (port_idx < GetSize(muxinfo.ports)-1)
+				if (knowledge.known_inactive.at(portinfo.ctrl_sig))
 					continue;
-			}
-
-			bool port_active = true;
-			for (int i = 0; i < GetSize(muxinfo.ports)-1; i++) {
-				if (i == port_idx)
-					continue;
-				if (knowledge.known_active.at(muxinfo.ports[i].ctrl_sig))
-					port_active = false;
-			}
-			if (port_active)
-				eval_mux_port(knowledge, mux_idx, port_idx);
+			eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports);
 		}
 	}
 
@@ -411,7 +426,7 @@ struct OptMuxtreeWorker
 		knowledge.known_active.resize(GetSize(bit2info));
 		knowledge.visited_muxes.resize(GetSize(mux2info));
 		knowledge.visited_muxes[mux_idx] = true;
-		eval_mux(knowledge, mux_idx);
+		eval_mux(knowledge, mux_idx, true, root_enable_muxes.at(mux_idx));
 	}
 };
 
