@@ -72,6 +72,20 @@ replacement for std::unordered_set<T>. The main characteristics are:
 	- dict<K, T> and pool<T> will have the same order of iteration across
 	  all compilers, standard libraries and architectures.
 
+In addition to dict<K, T> and pool<T> there is also an idict<K> that
+creates a bijective map from K to the integers. For example:
+
+	idict<string, 42> si;
+	log("%d\n", si("hello"));      // will print 42
+	log("%d\n", si("world"));      // will print 43
+	log("%d\n", si.at("world"));   // will print 43
+	log("%d\n", si.at("dummy"));   // will throw exception
+	log("%s\n", si[42].c_str()));  // will print hello
+	log("%s\n", si[43].c_str()));  // will print world
+	log("%s\n", si[44].c_str()));  // will throw exception
+
+It is not possible to remove elements from an idict.
+
   2. Standard STL data types
 
 In Yosys we use std::vector<T> and std::string whenever applicable. When

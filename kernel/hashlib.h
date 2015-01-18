@@ -163,7 +163,11 @@ inline int hashtable_size(int min_size)
 	throw std::length_error("hash table exceeded maximum size.");
 }
 
-template<typename K, typename T, typename OPS = hash_ops<K>>
+template<typename K, typename T, typename OPS = hash_ops<K>> class dict;
+template<typename K, int offset = 0, typename OPS = hash_ops<K>> class idict;
+template<typename K, typename OPS = hash_ops<K>> class pool;
+
+template<typename K, typename T, typename OPS>
 class dict
 {
 	struct entry_t
@@ -485,9 +489,12 @@ public:
 	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
 
-template<typename K, typename OPS = hash_ops<K>>
+template<typename K, typename OPS>
 class pool
 {
+	template<typename, int, typename> friend class idict;
+
+protected:
 	struct entry_t
 	{
 		K udata;
@@ -781,6 +788,55 @@ public:
 
 	const_iterator begin() const { return const_iterator(this, int(entries.size())-1); }
 	const_iterator end() const { return const_iterator(nullptr, -1); }
+};
+
+template<typename K, int offset, typename OPS>
+class idict
+{
+	pool<K, OPS> database;
+
+public:
+	typedef typename pool<K, OPS>::const_iterator const_iterator;
+
+	int operator()(const K &key)
+	{
+		int hash = database.do_hash(key);
+		int i = database.do_lookup(key, hash);
+		if (i < 0)
+			i = database.do_insert(key, hash);
+		return i + offset;
+	}
+
+	int at(const K &key) const
+	{
+		int hash = database.do_hash(key);
+		int i = database.do_lookup(key, hash);
+		if (i < 0)
+			throw std::out_of_range("idict::at()");
+		return i + offset;
+	}
+
+	int count(const K &key) const
+	{
+		int hash = database.do_hash(key);
+		int i = database.do_lookup(key, hash);
+		return i < 0 ? 0 : 1;
+	}
+
+	void expect(const K &key, int i)
+	{
+		int j = (*this)(key);
+		if (i != j)
+			throw std::out_of_range("idict::expect()");
+	}
+
+	const K &operator[](int index) const
+	{
+		return database.entries.at(index - offset).udata;
+	}
+
+	const_iterator begin() const { return database.begin(); }
+	const_iterator end() const { return database.end(); }
 };
 
 } /* namespace hashlib */

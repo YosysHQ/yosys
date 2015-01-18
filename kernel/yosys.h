@@ -148,6 +148,7 @@ using hashlib::hash_cstr_ops;
 using hashlib::hash_ptr_ops;
 using hashlib::hash_obj_ops;
 using hashlib::dict;
+using hashlib::idict;
 using hashlib::pool;
 
 namespace RTLIL {
