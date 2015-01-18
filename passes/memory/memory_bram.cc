@@ -31,47 +31,111 @@ struct rules_t
 		SigBit sig_clock;
 		SigSpec sig_addr, sig_data, sig_en;
 		bool effective_clkpol;
+		bool make_transp;
 		int mapped_port;
 	};
 
 	struct bram_t {
 		IdString name;
+		int variant;
+
 		int groups, abits, dbits, init;
 		vector<int> ports, wrmode, enable, transp, clocks, clkpol;
+
+		void dump_config() const
+		{
+			log("      bram %s # variant %d\n", log_id(name), variant);
+			log("        init %d\n", init);
+			log("        abits %d\n", abits);
+			log("        dbits %d\n", dbits);
+			log("        groups %d\n", groups);
+
+			log("        ports "); for (int v : ports)  log("%4d", v); log("\n");
+			log("        wrmode"); for (int v : wrmode) log("%4d", v); log("\n");
+			log("        enable"); for (int v : enable) log("%4d", v); log("\n");
+			log("        transp"); for (int v : transp) log("%4d", v); log("\n");
+			log("        clocks"); for (int v : clocks) log("%4d", v); log("\n");
+			log("        clkpol"); for (int v : clkpol) log("%4d", v); log("\n");
+			log("      endbram\n");
+		}
+
+		void check_vectors() const
+		{
+			if (groups != GetSize(ports))  log_error("Bram %s variant %d has %d groups but only %d entries in 'ports'.\n",  log_id(name), variant, groups, GetSize(ports));
+			if (groups != GetSize(wrmode)) log_error("Bram %s variant %d has %d groups but only %d entries in 'wrmode'.\n", log_id(name), variant, groups, GetSize(wrmode));
+			if (groups != GetSize(enable)) log_error("Bram %s variant %d has %d groups but only %d entries in 'enable'.\n", log_id(name), variant, groups, GetSize(enable));
+			if (groups != GetSize(transp)) log_error("Bram %s variant %d has %d groups but only %d entries in 'transp'.\n", log_id(name), variant, groups, GetSize(transp));
+			if (groups != GetSize(clocks)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clocks'.\n", log_id(name), variant, groups, GetSize(clocks));
+			if (groups != GetSize(clkpol)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clkpol'.\n", log_id(name), variant, groups, GetSize(clkpol));
+		}
 
 		vector<portinfo_t> make_portinfos() const
 		{
 			vector<portinfo_t> portinfos;
-			for (int i = 0; i < groups && i < GetSize(ports); i++)
+			for (int i = 0; i < groups; i++)
 			for (int j = 0; j < ports[i]; j++) {
 				portinfo_t pi;
 				pi.group = i;
 				pi.index = j;
 				pi.dupidx = 0;
-				pi.wrmode = i < GetSize(wrmode) ? wrmode[i] : 0;
-				pi.enable = i < GetSize(enable) ? enable[i] : 0;
-				pi.transp = i < GetSize(transp) ? transp[i] : 0;
-				pi.clocks = i < GetSize(clocks) ? clocks[i] : 0;
-				pi.clkpol = i < GetSize(clkpol) ? clkpol[i] : 0;
+				pi.wrmode = wrmode[i];
+				pi.enable = enable[i];
+				pi.transp = transp[i];
+				pi.clocks = clocks[i];
+				pi.clkpol = clkpol[i];
 				pi.mapped_port = -1;
+				pi.make_transp = false;
+				pi.effective_clkpol = false;
 				portinfos.push_back(pi);
 			}
 			return portinfos;
+		}
+
+		void find_variant_params(dict<IdString, Const> &variant_params, const bram_t &other) const
+		{
+			log_assert(name == other.name);
+
+			if (groups != other.groups)
+				log_error("Bram %s variants %d and %d have different values for 'groups'.\n", log_id(name), variant, other.variant);
+
+			if (abits != other.abits)
+				variant_params["\\CFG_ABITS"] = abits;
+			if (dbits != other.dbits)
+				variant_params["\\CFG_DBITS"] = dbits;
+			if (init != other.init)
+				variant_params["\\CFG_INIT"] = init;
+
+			for (int i = 0; i < groups; i++)
+			{
+				if (ports[i] != other.ports[i])
+					log_error("Bram %s variants %d and %d have different number of %c-ports.\n", log_id(name), variant, other.variant, 'A'+i);
+				if (wrmode[i] != other.wrmode[i])
+					variant_params[stringf("\\CFG_WRMODE_%c", 'A' + i)] = wrmode[1];
+				if (enable[i] != other.enable[i])
+					variant_params[stringf("\\CFG_ENABLE_%c", 'A' + i)] = enable[1];
+				if (transp[i] != other.transp[i])
+					variant_params[stringf("\\CFG_TRANSP_%c", 'A' + i)] = transp[1];
+				if (clocks[i] != other.clocks[i])
+					variant_params[stringf("\\CFG_CLOCKS_%c", 'A' + i)] = clocks[1];
+				if (clkpol[i] != other.clkpol[i])
+					variant_params[stringf("\\CFG_CLKPOL_%c", 'A' + i)] = clkpol[1];
+			}
 		}
 	};
 
 	struct match_t {
 		IdString name;
 		dict<string, int> min_limits, max_limits;
-		bool or_next_if_better;
-		int shuffle_enable;
+		bool or_next_if_better, make_transp;
+		char shuffle_enable;
 	};
 
-	dict<IdString, bram_t> brams;
+	dict<IdString, vector<bram_t>> brams;
 	vector<match_t> matches;
 
 	std::ifstream infile;
 	vector<string> tokens;
+	vector<string> labels;
 	int linecount;
 
 	void syntax_error()
@@ -83,11 +147,16 @@ struct rules_t
 
 	bool next_line()
 	{
-		linecount++;
-		tokens.clear();
 		string line;
 		while (std::getline(infile, line)) {
+			tokens.clear();
+			labels.clear();
+			linecount++;
 			for (string tok = next_token(line); !tok.empty(); tok = next_token(line)) {
+				if (tok[0] == '@') {
+					labels.push_back(tok.substr(1));
+					continue;
+				}
 				if (tok[0] == '#')
 					break;
 				tokens.push_back(tok);
@@ -120,53 +189,83 @@ struct rules_t
 
 	void parse_bram()
 	{
+		IdString bram_name = RTLIL::escape_id(tokens[1]);
+
 		if (GetSize(tokens) != 2)
 			syntax_error();
 
-		bram_t data;
-		data.name = RTLIL::escape_id(tokens[1]);
+		vector<vector<string>> lines_nolabels;
+		std::map<string, vector<vector<string>>> lines_labels;
 
 		while (next_line())
 		{
-			if (GetSize(tokens) == 1 && tokens[0] == "endbram") {
-				brams[data.name] = data;
-				return;
-			}
-
-			if (parse_single_int("groups", data.groups))
-				continue;
-
-			if (parse_single_int("abits", data.abits))
-				continue;
-
-			if (parse_single_int("dbits", data.dbits))
-				continue;
-
-			if (parse_single_int("init", data.init))
-				continue;
-
-			if (parse_int_vect("ports", data.ports))
-				continue;
-
-			if (parse_int_vect("wrmode", data.wrmode))
-				continue;
-
-			if (parse_int_vect("enable", data.enable))
-				continue;
-
-			if (parse_int_vect("transp", data.transp))
-				continue;
-
-			if (parse_int_vect("clocks", data.clocks))
-				continue;
-
-			if (parse_int_vect("clkpol", data.clkpol))
-				continue;
-
-			break;
+			if (GetSize(tokens) == 1 && tokens[0] == "endbram")
+				break;
+			if (labels.empty())
+				lines_nolabels.push_back(tokens);
+			for (auto lab : labels)
+				lines_labels[lab].push_back(tokens);
 		}
 
-		syntax_error();
+		std::map<string, vector<vector<string>>> variant_lines;
+
+		if (lines_labels.empty())
+			variant_lines[""] = lines_nolabels;
+		for (auto &it : lines_labels) {
+			variant_lines[it.first] = lines_nolabels;
+			variant_lines[it.first].insert(variant_lines[it.first].end(), it.second.begin(), it.second.end());
+		}
+
+		for (auto &it : variant_lines)
+		{
+			bram_t data;
+			data.name = bram_name;
+			data.variant = GetSize(brams[data.name]) + 1;
+			data.groups = 0;
+			data.abits = 0;
+			data.dbits = 0;
+			data.init = 0;
+
+			for (auto &line_tokens : it.second)
+			{
+				tokens = line_tokens;
+
+				if (parse_single_int("groups", data.groups))
+					continue;
+
+				if (parse_single_int("abits", data.abits))
+					continue;
+
+				if (parse_single_int("dbits", data.dbits))
+					continue;
+
+				if (parse_single_int("init", data.init))
+					continue;
+
+				if (parse_int_vect("ports", data.ports))
+					continue;
+
+				if (parse_int_vect("wrmode", data.wrmode))
+					continue;
+
+				if (parse_int_vect("enable", data.enable))
+					continue;
+
+				if (parse_int_vect("transp", data.transp))
+					continue;
+
+				if (parse_int_vect("clocks", data.clocks))
+					continue;
+
+				if (parse_int_vect("clkpol", data.clkpol))
+					continue;
+
+				syntax_error();
+			}
+
+			data.check_vectors();
+			brams[data.name].push_back(data);
+		}
 	}
 
 	void parse_match()
@@ -177,13 +276,17 @@ struct rules_t
 		match_t data;
 		data.name = RTLIL::escape_id(tokens[1]);
 		data.or_next_if_better = false;
+		data.make_transp = false;
 		data.shuffle_enable = 0;
 
 		while (next_line())
 		{
+			if (!labels.empty())
+				syntax_error();
+
 			if (GetSize(tokens) == 1 && tokens[0] == "endmatch") {
 				matches.push_back(data);
-				return;
+				break;
 			}
 
 			if (GetSize(tokens) == 3 && tokens[0] == "min") {
@@ -196,8 +299,13 @@ struct rules_t
 				continue;
 			}
 
-			if (GetSize(tokens) == 2 && tokens[0] == "shuffle_enable") {
-				data.shuffle_enable = atoi(tokens[1].c_str());
+			if (GetSize(tokens) == 2 && tokens[0] == "shuffle_enable" && GetSize(tokens[1]) == 1 && 'A' <= tokens[1][0] && tokens[1][0] <= 'Z') {
+				data.shuffle_enable = tokens[1][0];
+				continue;
+			}
+
+			if (GetSize(tokens) == 1 && tokens[0] == "make_transp") {
+				data.make_transp = true;
 				continue;
 			}
 
@@ -206,10 +314,8 @@ struct rules_t
 				continue;
 			}
 
-			break;
+			syntax_error();
 		}
-
-		syntax_error();
 	}
 
 	void parse(string filename)
@@ -225,21 +331,36 @@ struct rules_t
 
 		while (next_line())
 		{
-			if (tokens[0] == "bram") parse_bram();
-			else if (tokens[0] == "match") parse_match();
-			else syntax_error();
+			if (!labels.empty())
+				syntax_error();
+
+			if (tokens[0] == "bram") {
+				parse_bram();
+				continue;
+			}
+
+			if (tokens[0] == "match") {
+				parse_match();
+				continue;
+			}
+
+			syntax_error();
 		}
 
 		infile.close();
 	}
 };
 
-bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
+bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
 {
 	Module *module = cell->module;
 
 	auto portinfos = bram.make_portinfos();
 	int dup_count = 1;
+
+	pair<SigBit, bool> make_transp_clk;
+	bool enable_make_transp = false;
+	int make_transp_enbits = 0;
 
 	dict<int, pair<SigBit, bool>> clock_domains;
 	dict<int, bool> clock_polarities;
@@ -264,7 +385,8 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 		transp_max = std::max(transp_max, pi.transp);
 	}
 
-	log("    Mapping to bram type %s:\n", log_id(bram.name));
+	log("    Mapping to bram type %s (variant %d):\n", log_id(bram.name), bram.variant);
+	// bram.dump_config();
 
 	int mem_size = cell->getParam("\\SIZE").as_int();
 	int mem_abits = cell->getParam("\\ABITS").as_int();
@@ -294,9 +416,9 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 	SigSpec rd_data = cell->getPort("\\RD_DATA");
 	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
 
-	if (match.shuffle_enable && bram.dbits >= match.shuffle_enable*2)
+	if (match.shuffle_enable && bram.dbits >= portinfos.at(match.shuffle_enable - 'A').enable*2 && portinfos.at(match.shuffle_enable - 'A').enable > 0)
 	{
-		int bucket_size = bram.dbits / match.shuffle_enable;
+		int bucket_size = bram.dbits / portinfos.at(match.shuffle_enable - 'A').enable;
 		log("      Shuffle bit order to accommodate enable buckets of size %d..\n", bucket_size);
 
 		// extract unshuffled data/enable bits
@@ -403,6 +525,8 @@ bool replace_cell(Cell *cell, const rules_t::bram_t &bram, const rules_t::match_
 		for (; bram_port_i < GetSize(portinfos); bram_port_i++)
 		{
 			auto &pi = portinfos[bram_port_i];
+			make_transp_enbits = pi.enable;
+			make_transp_clk = clkdom;
 
 			if (pi.wrmode != 1)
 		skip_bram_wport:
@@ -544,8 +668,13 @@ grow_read_ports:;
 					goto skip_bram_rport;
 				}
 				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
-					log("        Bram port %c%d.%d has incompatible read transparancy.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-					goto skip_bram_rport;
+					if (match.make_transp && wr_ports <= 1) {
+						pi.make_transp = true;
+						enable_make_transp = true;
+					} else {
+						log("        Bram port %c%d.%d has incompatible read transparancy.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+						goto skip_bram_rport;
+					}
 				}
 			} else {
 				if (pi.clocks != 0) {
@@ -595,6 +724,10 @@ grow_read_ports:;
 		int cells = ((mem_width + bram.dbits - 1) / bram.dbits) * ((mem_size + (1 << bram.abits) - 1) / (1 << bram.abits));
 		match_properties["efficiency"] = (100 * match_properties["bits"]) / (dup_count * cells * bram.dbits * (1 << bram.abits));
 
+		match_properties["dcells"] = ((mem_width + bram.dbits - 1) / bram.dbits);
+		match_properties["acells"] = ((mem_size + (1 << bram.abits) - 1) / (1 << bram.abits));
+		match_properties["cells"] = match_properties["dcells"] *  match_properties["acells"] * match_properties["dups"];
+
 		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
 				match_properties["dups"], match_properties["waste"], match_properties["efficiency"]);
 
@@ -623,81 +756,130 @@ grow_read_ports:;
 			return true;
 	}
 
+	// prepare variant parameters
+
+	dict<IdString, Const> variant_params;
+	for (auto &other_bram : rules.brams.at(bram.name))
+		bram.find_variant_params(variant_params, other_bram);
+
 	// actually replace that memory cell
 
 	dict<SigSpec, pair<SigSpec, SigSpec>> dout_cache;
 
 	for (int grid_d = 0; grid_d*bram.dbits < mem_width; grid_d++)
-	for (int grid_a = 0; grid_a*(1 << bram.abits) < mem_size; grid_a++)
-	for (int dupidx = 0; dupidx < dup_count; dupidx++)
 	{
-		Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", cell->name.c_str(), grid_d, grid_a, dupidx)), bram.name);
-		log("      Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
+		SigSpec mktr_wraddr, mktr_wrdata, mktr_wrdata_q;
+		vector<SigSpec> mktr_wren;
 
-		for (auto &pi : portinfos)
+		if (enable_make_transp) {
+			mktr_wraddr = module->addWire(NEW_ID, bram.abits);
+			mktr_wrdata = module->addWire(NEW_ID, bram.dbits);
+			mktr_wrdata_q = module->addWire(NEW_ID, bram.dbits);
+			module->addDff(NEW_ID, make_transp_clk.first, mktr_wrdata, mktr_wrdata_q, make_transp_clk.second);
+			for (int grid_a = 0; grid_a*(1 << bram.abits) < mem_size; grid_a++)
+				mktr_wren.push_back(module->addWire(NEW_ID, make_transp_enbits));
+		}
+
+		for (int grid_a = 0; grid_a*(1 << bram.abits) < mem_size; grid_a++)
+		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
-			if (pi.dupidx != dupidx)
-				continue;
+			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", cell->name.c_str(), grid_d, grid_a, dupidx)), bram.name);
+			log("      Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
 
-			string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
-			const char *pf = prefix.c_str();
+			for (auto &vp : variant_params)
+				c->setParam(vp.first, vp.second);
 
-			if (pi.clocks && (!c->hasPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1)) || pi.sig_clock.wire)) {
-				c->setPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1), pi.sig_clock);
-				if (pi.clkpol > 1 && pi.sig_clock.wire)
-					c->setParam(stringf("\\CLKPOL%d", (pi.clkpol-1) % clkpol_max + 1), clock_polarities.at(pi.clkpol));
-				if (pi.transp > 1 && pi.sig_clock.wire)
-					c->setParam(stringf("\\TRANSP%d", (pi.transp-1) % transp_max + 1), read_transp.at(pi.transp));
-			}
-
-			SigSpec addr_ok;
-			if (GetSize(pi.sig_addr) > bram.abits) {
-				SigSpec extra_addr = pi.sig_addr.extract(bram.abits, GetSize(pi.sig_addr) - bram.abits);
-				SigSpec extra_addr_sel = SigSpec(grid_a, GetSize(extra_addr));
-				addr_ok = module->Eq(NEW_ID, extra_addr, extra_addr_sel);
-			}
-
-			if (pi.enable)
+			for (auto &pi : portinfos)
 			{
-				SigSpec sig_en = pi.sig_en;
-				sig_en.extend_u0((grid_d+1) * pi.enable);
-				sig_en = sig_en.extract(grid_d * pi.enable, pi.enable);
+				if (pi.dupidx != dupidx)
+					continue;
 
-				if (!addr_ok.empty())
-					sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
+				string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
+				const char *pf = prefix.c_str();
 
-				c->setPort(stringf("\\%sEN", pf), sig_en);
-			}
-
-			SigSpec sig_data = pi.sig_data;
-			sig_data.extend_u0((grid_d+1) * bram.dbits);
-			sig_data = sig_data.extract(grid_d * bram.dbits, bram.dbits);
-
-			if (pi.wrmode == 1) {
-				c->setPort(stringf("\\%sDATA", pf), sig_data);
-			} else {
-				SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
-				c->setPort(stringf("\\%sDATA", pf), bram_dout);
-
-				for (int i = bram.dbits-1; i >= 0; i--)
-					if (sig_data[i].wire == nullptr) {
-						sig_data.remove(i);
-						bram_dout.remove(i);
-					}
-
-				SigSpec addr_ok_q = addr_ok;
-				if (pi.clocks && !addr_ok.empty()) {
-					addr_ok_q = module->addWire(NEW_ID);
-					module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
+				if (pi.clocks && (!c->hasPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1)) || pi.sig_clock.wire)) {
+					c->setPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1), pi.sig_clock);
+					if (pi.clkpol > 1 && pi.sig_clock.wire)
+						c->setParam(stringf("\\CLKPOL%d", (pi.clkpol-1) % clkpol_max + 1), clock_polarities.at(pi.clkpol));
+					if (pi.transp > 1 && pi.sig_clock.wire)
+						c->setParam(stringf("\\TRANSP%d", (pi.transp-1) % transp_max + 1), read_transp.at(pi.transp));
 				}
 
-				dout_cache[sig_data].first.append(addr_ok_q);
-				dout_cache[sig_data].second.append(bram_dout);
-			}
+				SigSpec addr_ok;
+				if (GetSize(pi.sig_addr) > bram.abits) {
+					SigSpec extra_addr = pi.sig_addr.extract(bram.abits, GetSize(pi.sig_addr) - bram.abits);
+					SigSpec extra_addr_sel = SigSpec(grid_a, GetSize(extra_addr));
+					addr_ok = module->Eq(NEW_ID, extra_addr, extra_addr_sel);
+				}
 
-			SigSpec sig_addr = pi.sig_addr;
-			sig_addr.extend_u0(bram.abits);
-			c->setPort(stringf("\\%sADDR", pf), sig_addr);
+				if (pi.enable)
+				{
+					SigSpec sig_en = pi.sig_en;
+					sig_en.extend_u0((grid_d+1) * pi.enable);
+					sig_en = sig_en.extract(grid_d * pi.enable, pi.enable);
+
+					if (!addr_ok.empty())
+						sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
+
+					c->setPort(stringf("\\%sEN", pf), sig_en);
+
+					if (pi.wrmode == 1 && enable_make_transp)
+						module->connect(mktr_wren[grid_a], sig_en);
+				}
+
+				SigSpec sig_addr = pi.sig_addr;
+				sig_addr.extend_u0(bram.abits);
+				c->setPort(stringf("\\%sADDR", pf), sig_addr);
+
+				if (pi.wrmode == 1 && enable_make_transp && grid_a == 0)
+					module->connect(mktr_wraddr, sig_addr);
+
+				SigSpec sig_data = pi.sig_data;
+				sig_data.extend_u0((grid_d+1) * bram.dbits);
+				sig_data = sig_data.extract(grid_d * bram.dbits, bram.dbits);
+
+				if (pi.wrmode == 1) {
+					c->setPort(stringf("\\%sDATA", pf), sig_data);
+					if (enable_make_transp && grid_a == 0)
+						module->connect(mktr_wrdata, sig_data);
+				} else {
+					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
+					c->setPort(stringf("\\%sDATA", pf), bram_dout);
+
+					if (pi.make_transp)
+					{
+						log("        Adding extra logic for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+
+						SigSpec transp_en_d = module->Mux(NEW_ID, SigSpec(0, make_transp_enbits),
+								mktr_wren[grid_a], module->Eq(NEW_ID, mktr_wraddr, sig_addr));
+
+						SigSpec transp_en_q = module->addWire(NEW_ID, make_transp_enbits);
+						module->addDff(NEW_ID, make_transp_clk.first, transp_en_d, transp_en_q, make_transp_clk.second);
+
+						for (int i = 0; i < make_transp_enbits; i++) {
+							int en_width = bram.dbits / make_transp_enbits;
+							SigSpec orig_bram_dout = bram_dout.extract(i * en_width, en_width);
+							SigSpec bypass_dout = mktr_wrdata_q.extract(i * en_width, en_width);
+							bram_dout.replace(i * en_width, module->Mux(NEW_ID, orig_bram_dout, bypass_dout, transp_en_q[i]));
+						}
+					}
+
+					for (int i = bram.dbits-1; i >= 0; i--)
+						if (sig_data[i].wire == nullptr) {
+							sig_data.remove(i);
+							bram_dout.remove(i);
+						}
+
+					SigSpec addr_ok_q = addr_ok;
+					if (pi.clocks && !addr_ok.empty()) {
+						addr_ok_q = module->addWire(NEW_ID);
+						module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
+					}
+
+					dout_cache[sig_data].first.append(addr_ok_q);
+					dout_cache[sig_data].second.append(bram_dout);
+				}
+			}
 		}
 	}
 
@@ -737,127 +919,136 @@ void handle_cell(Cell *cell, const rules_t &rules)
 		log(" %s=%d", it.first.c_str(), it.second);
 	log("\n");
 
-	pool<IdString> failed_brams;
-	dict<int, int> best_rule_cache;
+	pool<pair<IdString, int>> failed_brams;
+	dict<pair<int, int>, std::tuple<int, int, int>> best_rule_cache;
 
 	for (int i = 0; i < GetSize(rules.matches); i++)
 	{
+		auto &match = rules.matches.at(i);
+
 		if (!rules.brams.count(rules.matches[i].name))
 			log_error("No bram description for resource %s found!\n", log_id(rules.matches[i].name));
 
-		auto &match = rules.matches.at(i);
-		auto &bram = rules.brams.at(match.name);
-
-		if (match.name.in(failed_brams))
-			continue;
-
-		int avail_rd_ports = 0;
-		int avail_wr_ports = 0;
-		for (int j = 0; j < bram.groups; j++) {
-			if (GetSize(bram.wrmode) < j || bram.wrmode.at(j) == 0)
-				avail_rd_ports += GetSize(bram.ports) < j ? bram.ports.at(j) : 0;
-			if (GetSize(bram.wrmode) < j || bram.wrmode.at(j) != 0)
-				avail_wr_ports += GetSize(bram.ports) < j ? bram.ports.at(j) : 0;
-		}
-
-		log("  Checking rule #%d for bram type %s:\n", i, log_id(match.name));
-		log("    Bram geometry: abits=%d dbits=%d wports=%d rports=%d\n", bram.abits, bram.dbits, avail_wr_ports, avail_rd_ports);
-
-		int dups = avail_rd_ports ? (match_properties["rports"] + avail_rd_ports - 1) / avail_rd_ports : 1;
-		match_properties["dups"] = dups;
-
-		log("    Estimated number of duplicates for more read ports: dups=%d\n", match_properties["dups"]);
-
-		int aover = match_properties["words"] % (1 << bram.abits);
-		int awaste = aover ? (1 << bram.abits) - aover : 0;
-		match_properties["awaste"] = awaste;
-
-		int dover = match_properties["dbits"] % bram.dbits;
-		int dwaste = dover ? bram.dbits - dover : 0;
-		match_properties["dwaste"] = dwaste;
-
-		int bwaste = awaste * bram.dbits + dwaste * (1 << bram.abits) - awaste * dwaste;
-		match_properties["bwaste"] = bwaste;
-
-		int waste = match_properties["dups"] * bwaste;
-		match_properties["waste"] = waste;
-
-		int cells = ((match_properties["dbits"] + bram.dbits - 1) / bram.dbits) * ((match_properties["words"] + (1 << bram.abits) - 1) / (1 << bram.abits));
-		int efficiency = (100 * match_properties["bits"]) / (dups * cells * bram.dbits * (1 << bram.abits));
-		match_properties["efficiency"] = efficiency;
-
-		log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d\n",
-				log_id(match.name), awaste, dwaste, bwaste, waste, efficiency);
-
-		for (auto it : match.min_limits) {
-			if (it.first == "waste" || it.first == "dups")
-				continue;
-			if (!match_properties.count(it.first))
-				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), log_id(match.name));
-			if (match_properties[it.first] >= it.second)
-				continue;
-			log("    Rule #%d for bram type %s rejected: requirement 'min %s %d' not met.\n",
-					i, log_id(match.name), it.first.c_str(), it.second);
-			goto next_match_rule;
-		}
-		for (auto it : match.max_limits) {
-			if (!match_properties.count(it.first))
-				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), log_id(match.name));
-			if (match_properties[it.first] <= it.second)
-				continue;
-			log("    Rule #%d for bram type %s rejected: requirement 'max %s %d' not met.\n",
-					i, log_id(match.name), it.first.c_str(), it.second);
-			goto next_match_rule;
-		}
-
-		log("    Rule #%d for bram type %s accepted.\n", i, log_id(match.name));
-
-		if (match.or_next_if_better || !best_rule_cache.empty())
+		for (int vi = 0; vi < GetSize(rules.brams.at(match.name)); vi++)
 		{
-			if (match.or_next_if_better && i+1 == GetSize(rules.matches))
-				log_error("Found 'or_next_if_better' in last match rule.\n");
+			auto &bram = rules.brams.at(match.name).at(vi);
+			bool or_next_if_better = match.or_next_if_better || vi+1 < GetSize(rules.brams.at(match.name));
 
-			if (!replace_cell(cell, bram, match, match_properties, 1)) {
-				log("    Mapping to bram type %s failed.\n", log_id(match.name));
-				failed_brams.insert(match.name);
-				goto next_match_rule;
-			}
-
-			log("      Storing for later selection.\n");
-			best_rule_cache[i] = match_properties["efficiency"];
-
-			if (match.or_next_if_better)
-				goto next_match_rule;
-
-	next_match_rule:
-			if (match.or_next_if_better || best_rule_cache.empty())
+			if (failed_brams.count(pair<IdString, int>(bram.name, bram.variant)))
 				continue;
 
-			log("  Selecting best of %d rules:\n", GetSize(best_rule_cache));
-			int best_rule = best_rule_cache.begin()->first;
-
-			for (auto &it : best_rule_cache) {
-				if (it.second > best_rule_cache[best_rule])
-					best_rule = it.first;
-				log("    Efficiency for rule %d: %d\n", it.first, it.second);
+			int avail_rd_ports = 0;
+			int avail_wr_ports = 0;
+			for (int j = 0; j < bram.groups; j++) {
+				if (GetSize(bram.wrmode) < j || bram.wrmode.at(j) == 0)
+					avail_rd_ports += GetSize(bram.ports) < j ? bram.ports.at(j) : 0;
+				if (GetSize(bram.wrmode) < j || bram.wrmode.at(j) != 0)
+					avail_wr_ports += GetSize(bram.ports) < j ? bram.ports.at(j) : 0;
 			}
 
-			log("    Selected rule %d with efficiency %d.\n", best_rule, best_rule_cache[best_rule]);
-			best_rule_cache.clear();
+			log("  Checking rule #%d for bram type %s (variant %d):\n", i+1, log_id(bram.name), bram.variant);
+			log("    Bram geometry: abits=%d dbits=%d wports=%d rports=%d\n", bram.abits, bram.dbits, avail_wr_ports, avail_rd_ports);
 
-			if (!replace_cell(cell, rules.brams.at(rules.matches.at(best_rule).name), rules.matches.at(best_rule), match_properties, 2))
-				log_error("Mapping to bram type %s after pre-selection failed.\n", log_id(rules.matches.at(best_rule).name));
+			int dups = avail_rd_ports ? (match_properties["rports"] + avail_rd_ports - 1) / avail_rd_ports : 1;
+			match_properties["dups"] = dups;
+
+			log("    Estimated number of duplicates for more read ports: dups=%d\n", match_properties["dups"]);
+
+			int aover = match_properties["words"] % (1 << bram.abits);
+			int awaste = aover ? (1 << bram.abits) - aover : 0;
+			match_properties["awaste"] = awaste;
+
+			int dover = match_properties["dbits"] % bram.dbits;
+			int dwaste = dover ? bram.dbits - dover : 0;
+			match_properties["dwaste"] = dwaste;
+
+			int bwaste = awaste * bram.dbits + dwaste * (1 << bram.abits) - awaste * dwaste;
+			match_properties["bwaste"] = bwaste;
+
+			int waste = match_properties["dups"] * bwaste;
+			match_properties["waste"] = waste;
+
+			int cells = ((match_properties["dbits"] + bram.dbits - 1) / bram.dbits) * ((match_properties["words"] + (1 << bram.abits) - 1) / (1 << bram.abits));
+			int efficiency = (100 * match_properties["bits"]) / (dups * cells * bram.dbits * (1 << bram.abits));
+			match_properties["efficiency"] = efficiency;
+
+			log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d\n",
+					log_id(match.name), awaste, dwaste, bwaste, waste, efficiency);
+
+			for (auto it : match.min_limits) {
+				if (it.first == "waste" || it.first == "dups" || it.first == "acells" || it.first == "dcells" || it.first == "cells")
+					continue;
+				if (!match_properties.count(it.first))
+					log_error("Unknown property '%s' in match rule for bram type %s.\n",
+							it.first.c_str(), log_id(match.name));
+				if (match_properties[it.first] >= it.second)
+					continue;
+				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'min %s %d' not met.\n",
+						i+1, log_id(bram.name), bram.variant, it.first.c_str(), it.second);
+				goto next_match_rule;
+			}
+			for (auto it : match.max_limits) {
+				if (it.first == "acells" || it.first == "dcells" || it.first == "cells")
+					continue;
+				if (!match_properties.count(it.first))
+					log_error("Unknown property '%s' in match rule for bram type %s.\n",
+							it.first.c_str(), log_id(match.name));
+				if (match_properties[it.first] <= it.second)
+					continue;
+				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'max %s %d' not met.\n",
+						i+1, log_id(bram.name), bram.variant, it.first.c_str(), it.second);
+				goto next_match_rule;
+			}
+
+			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, log_id(bram.name), bram.variant);
+
+			if (or_next_if_better || !best_rule_cache.empty())
+			{
+				if (or_next_if_better && i+1 == GetSize(rules.matches) && vi+1 == GetSize(rules.brams.at(match.name)))
+					log_error("Found 'or_next_if_better' in last match rule.\n");
+
+				if (!replace_cell(cell, rules, bram, match, match_properties, 1)) {
+					log("    Mapping to bram type %s failed.\n", log_id(match.name));
+					failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
+					goto next_match_rule;
+				}
+
+				log("      Storing for later selection.\n");
+				best_rule_cache[pair<int, int>(i, vi)] = std::tuple<int, int, int>(match_properties["efficiency"], -match_properties["cells"], -match_properties["acells"]);
+
+				if (or_next_if_better)
+					goto next_match_rule;
+
+		next_match_rule:
+				if (or_next_if_better || best_rule_cache.empty())
+					continue;
+
+				log("  Selecting best of %d rules:\n", GetSize(best_rule_cache));
+				pair<int, int> best_rule = best_rule_cache.begin()->first;
+
+				for (auto &it : best_rule_cache) {
+					if (it.second > best_rule_cache[best_rule])
+						best_rule = it.first;
+					log("    Efficiency for rule %d.%d: efficiency=%d, cells=%d, acells=%d\n", it.first.first+1, it.first.second+1,
+							std::get<0>(it.second), -std::get<1>(it.second), -std::get<2>(it.second));
+				}
+
+				log("    Selected rule %d.%d with efficiency %d.\n", best_rule.first+1, best_rule.second+1, std::get<0>(best_rule_cache[best_rule]));
+				best_rule_cache.clear();
+
+				auto &best_bram = rules.brams.at(rules.matches.at(best_rule.first).name).at(best_rule.second);
+				if (!replace_cell(cell, rules, best_bram, rules.matches.at(best_rule.first), match_properties, 2))
+					log_error("Mapping to bram type %s (variant %d) after pre-selection failed.\n", log_id(best_bram.name), best_bram.variant);
+				return;
+			}
+
+			if (!replace_cell(cell, rules, bram, match, match_properties, 0)) {
+				log("    Mapping to bram type %s failed.\n", log_id(match.name));
+				failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
+				goto next_match_rule;
+			}
 			return;
 		}
-
-		if (!replace_cell(cell, bram, match, match_properties, 0)) {
-			log("    Mapping to bram type %s failed.\n", log_id(match.name));
-			failed_brams.insert(match.name);
-			goto next_match_rule;
-		}
-		return;
 	}
 
 	log("  No acceptable bram resources found.\n");
@@ -903,6 +1094,12 @@ struct MemoryBramPass : public Pass {
 		log("and a value greater than 1 means configurable. All groups with the same value\n");
 		log("greater than 1 share the same configuration bit.\n");
 		log("\n");
+		log("Using the same bram name in different bram blocks will create different variants\n");
+		log("of the bram. Verilog configration parameters for the bram are created as needed.\n");
+		log("\n");
+		log("It is also possible to create variants by repeating statements in the bram block\n");
+		log("and appending '@<label>' to the individual statements.\n");
+		log("\n");
 		log("A match rule looks like this:\n");
 		log("\n");
 		log("    match RAMB1024X32\n");
@@ -927,6 +1124,10 @@ struct MemoryBramPass : public Pass {
 		log("    waste  ........  total number of unused bram bits (bwaste*dups)\n");
 		log("    efficiency  ...  total percentage of used and non-duplicated bits\n");
 		log("\n");
+		log("    acells  .......  number of cells in 'address-direction'\n");
+		log("    dcells  .......  number of cells in 'data-direction'\n");
+		log("    cells  ........  total number of cells (acells*dcells*dups)\n");
+		log("\n");
 		log("The interface for the created bram instances is dervived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");
 		log("instances of the actual bram cells of your target architecture.\n");
@@ -935,9 +1136,11 @@ struct MemoryBramPass : public Pass {
 		log("has a higher efficiency than the next match (and the one after that if\n");
 		log("the next also has 'or_next_if_better' set, and so forth).\n");
 		log("\n");
-		log("A match containing the command 'shuffle_enable <N>' will re-organize\n");
-		log("the data bits to accommodate bram ports with <N> enable bits before\n");
-		log("mapping to the bram.\n");
+		log("A match containing the command 'make_transp' will add external circuitry\n");
+		log("to simulate 'transparent read', if neccessary.\n");
+		log("\n");
+		log("A match containing the command 'shuffle_enable A' will re-organize\n");
+		log("the data bits to accommodate the enable pattern of port A.\n");
 		log("\n");
 	}
 	virtual void execute(vector<string> args, Design *design)

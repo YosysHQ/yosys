@@ -69,9 +69,9 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
     print("endbram", file=dsc_f)
     print("match bram_%02d_%02d" % (k1, k2), file=dsc_f)
     if random.randrange(2):
-        non_zero_enables = [i for i in enable if i]
+        non_zero_enables = [chr(ord('A') + i) for i in range(len(enable)) if enable[i]]
         if len(non_zero_enables):
-            print("  shuffle_enable %d" % random.choice(non_zero_enables), file=dsc_f)
+            print("  shuffle_enable %c" % random.choice(non_zero_enables), file=dsc_f)
     if or_next:
         print("  or_next_if_better", file=dsc_f)
     print("endmatch", file=dsc_f)

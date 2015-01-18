@@ -2,15 +2,19 @@
 
 set -e
 
+transp_list="0 1"
+abits_list="1 2 4 8 10 16 20"
+dbits_list="1 2 4 8 10 16 20 24 30 32 40 48 50 56 60 64 70 72 80"
+
 use_xsim=false
 unisims=/opt/Xilinx/Vivado/2014.4/data/verilog/src/unisims
 
 echo "all: all_list" > bram1.mk
 all_list=""
 
-for transp in 0 1; do
-for abits in 1 2 4 8 10 16 20; do
-for dbits in 1 2 4 8 10 16 20 24 30 32 40 48 50 56 60 64 70 72 80; do
+for transp in $transp_list; do
+for abits in $abits_list; do
+for dbits in $dbits_list; do
 	if [ $(( (1 << $abits) * $dbits )) -gt 1000000 ]; then continue; fi
 	id=`printf "%d%02d%02d" $transp $abits $dbits`
 	echo "Creating bram1_$id.."

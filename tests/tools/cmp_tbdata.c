@@ -53,6 +53,8 @@ int main(int argc, char **argv)
 			// here means we don't care about the result.
 			if (buffer1[i] == 'z' || buffer1[i] == 'x')
 				continue;
+			if (buffer1[i] == 'Z' || buffer1[i] == 'X')
+				continue;
 
 			check(buffer1[i] == buffer2[i]);
 		}
