@@ -385,6 +385,12 @@ config-gprof: clean
 config-sudo:
 	echo "INSTALL_SUDO := sudo" >> Makefile.conf
 
+echo-yosys-ver:
+	@echo "$(YOSYS_VER)"
+
+echo-git-rev:
+	@echo "$(GIT_REV)"
+
 -include libs/*/*.d
 -include frontends/*/*.d
 -include passes/*/*.d
