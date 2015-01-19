@@ -1618,6 +1618,15 @@ RTLIL::Cell* RTLIL::Module::addAssert(RTLIL::IdString name, RTLIL::SigSpec sig_a
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addEquiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y)
+{
+	RTLIL::Cell *cell = addCell(name, "$equiv");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\B", sig_b);
+	cell->setPort("\\Y", sig_y);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, RTLIL::SigSpec sig_q, bool set_polarity, bool clr_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, "$sr");
