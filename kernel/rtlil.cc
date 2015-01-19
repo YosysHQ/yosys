@@ -905,6 +905,14 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$equiv") {
+				port("\\A", 1);
+				port("\\B", 1);
+				port("\\Y", 1);
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$_BUF_")  { check_gate("AY"); return; }
 			if (cell->type == "$_NOT_")  { check_gate("AY"); return; }
 			if (cell->type == "$_AND_")  { check_gate("ABY"); return; }

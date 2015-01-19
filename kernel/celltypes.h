@@ -114,6 +114,7 @@ struct CellTypes
 		setup_type("$fa", {A, B, C}, {X, Y}, true);
 
 		setup_type("$assert", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$equiv", {A, B}, {Y}, true);
 	}
 
 	void setup_internals_mem()
