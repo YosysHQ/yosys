@@ -255,7 +255,7 @@ ifneq ($(ABCREV),default)
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from bitbucket.org:"; set -x; \
 		test -d abc || hg clone https://bitbucket.org/alanmi/abc abc; \
-		cd abc && $(MAKE) clean && hg pull && hg update -r $(ABCREV); \
+		cd abc && $(MAKE) DEP= clean && hg pull && hg update -r $(ABCREV); \
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
@@ -317,7 +317,7 @@ clean:
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 
 clean-abc:
-	$(MAKE) -C abc clean
+	$(MAKE) -C abc DEP= clean
 	rm -f yosys-abc$(EXE) abc/abc-[0-9a-f]*
 
 mrproper: clean
