@@ -59,8 +59,9 @@ prerequisites for building yosys:
 	       tcl8.5-dev libffi-dev git mercurial graphviz xdot pkg-config"
 	$ sudo apt-get install $yosys_deps
 
-There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys
-download page to learn more about this:
+There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
+as a source distribution for Visual Studio. Visit the Yosys download page for
+more information:
 
 	http://www.clifford.at/yosys/download.html 
 
