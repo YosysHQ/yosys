@@ -33,14 +33,15 @@ struct EquivSimpleWorker
 
 	ezDefaultSAT ez;
 	SatGen satgen;
+	int max_seq;
 
-	EquivSimpleWorker(Cell *equiv_cell, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver) :
+	EquivSimpleWorker(Cell *equiv_cell, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq) :
 			module(equiv_cell->module), equiv_cell(equiv_cell), sigmap(sigmap),
-			bit2driver(bit2driver), satgen(&ez, &sigmap)
+			bit2driver(bit2driver), satgen(&ez, &sigmap), max_seq(max_seq)
 	{
 	}
 
-	void find_input_cone(pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, Cell *cell)
+	void find_input_cone(pool<SigBit> &next_seed, pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, Cell *cell)
 	{
 		if (cells_cone.count(cell))
 			return;
@@ -52,11 +53,16 @@ struct EquivSimpleWorker
 
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
-				for (auto bit : sigmap(conn.second))
-					find_input_cone(cells_cone, bits_cone, cells_stop, bits_stop, bit);
+				for (auto bit : sigmap(conn.second)) {
+					if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_")) {
+						if (!conn.first.in("\\CLK", "\\C"))
+							next_seed.insert(bit);
+					} else
+						find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, bit);
+				}
 	}
 
-	void find_input_cone(pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, SigBit bit)
+	void find_input_cone(pool<SigBit> &next_seed, pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, SigBit bit)
 	{
 		if (bits_cone.count(bit))
 			return;
@@ -69,7 +75,7 @@ struct EquivSimpleWorker
 		if (!bit2driver.count(bit))
 			return;
 
-		find_input_cone(cells_cone, bits_cone, cells_stop, bits_stop, bit2driver.at(bit));
+		find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, bit2driver.at(bit));
 	}
 
 	bool run()
@@ -77,42 +83,98 @@ struct EquivSimpleWorker
 		SigBit bit_a = sigmap(equiv_cell->getPort("\\A")).to_single_sigbit();
 		SigBit bit_b = sigmap(equiv_cell->getPort("\\B")).to_single_sigbit();
 
+		int ez_a = satgen.importSigBit(bit_a, max_seq+1);
+		int ez_b = satgen.importSigBit(bit_b, max_seq+1);
+		ez.assume(ez.XOR(ez_a, ez_b));
+
+		pool<SigBit> seed_a = { bit_a };
+		pool<SigBit> seed_b = { bit_b };
+
 		log("  Trying to prove $equiv cell %s:\n", log_id(equiv_cell));
 		log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(equiv_cell->getPort("\\Y")));
 
-		pool<Cell*> no_stop_cells;
-		pool<SigBit> no_stop_bits;
+		int step = max_seq;
+		while (1)
+		{
+			pool<Cell*> no_stop_cells;
+			pool<SigBit> no_stop_bits;
 
-		pool<Cell*> full_cells_cone_a, full_cells_cone_b;
-		pool<SigBit> full_bits_cone_a, full_bits_cone_b;
+			pool<Cell*> full_cells_cone_a, full_cells_cone_b;
+			pool<SigBit> full_bits_cone_a, full_bits_cone_b;
 
-		find_input_cone(full_cells_cone_a, full_bits_cone_a, no_stop_cells, no_stop_bits, bit_a);
-		find_input_cone(full_cells_cone_b, full_bits_cone_b, no_stop_cells, no_stop_bits, bit_b);
+			pool<SigBit> next_seed_a, next_seed_b;
 
-		pool<Cell*> short_cells_cone_a, short_cells_cone_b;
-		pool<SigBit> short_bits_cone_a, short_bits_cone_b;
+			for (auto bit_a : seed_a)
+				find_input_cone(next_seed_a, full_cells_cone_a, full_bits_cone_a, no_stop_cells, no_stop_bits, bit_a);
+			next_seed_a.clear();
 
-		find_input_cone(short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, bit_a);
-		find_input_cone(short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, bit_b);
+			for (auto bit_b : seed_b)
+				find_input_cone(next_seed_b, full_cells_cone_b, full_bits_cone_b, no_stop_cells, no_stop_bits, bit_b);
+			next_seed_b.clear();
 
-		pool<Cell*> problem_cells;
-		problem_cells.insert(short_cells_cone_a.begin(), short_cells_cone_a.end());
-		problem_cells.insert(short_cells_cone_b.begin(), short_cells_cone_b.end());
-		for (auto cell : problem_cells) satgen.importCell(cell);
+			pool<Cell*> short_cells_cone_a, short_cells_cone_b;
+			pool<SigBit> short_bits_cone_a, short_bits_cone_b;
 
-		int ez_a = satgen.importSigBit(bit_a);
-		int ez_b = satgen.importSigBit(bit_b);
-		ez.assume(ez.XOR(ez_a, ez_b));
+			for (auto bit_a : seed_a)
+				find_input_cone(next_seed_a, short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, bit_a);
+			next_seed_a.swap(seed_a);
 
-		log("    Created SAT problem from %d cells.\n", GetSize(problem_cells));
+			for (auto bit_b : seed_b)
+				find_input_cone(next_seed_b, short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, bit_b);
+			next_seed_b.swap(seed_b);
 
-		if (!ez.solve()) {
-			log("    Proved equivalence! Marking $equiv cell as proven.\n");
-			equiv_cell->setPort("\\B", equiv_cell->getPort("\\A"));
-			return true;
+			pool<Cell*> problem_cells;
+			problem_cells.insert(short_cells_cone_a.begin(), short_cells_cone_a.end());
+			problem_cells.insert(short_cells_cone_b.begin(), short_cells_cone_b.end());
+
+			log("    Adding %d new cells to the problem (%d A, %d B, %d shared).\n",
+					GetSize(problem_cells), GetSize(short_cells_cone_a), GetSize(short_cells_cone_b),
+					(GetSize(short_cells_cone_a) + GetSize(short_cells_cone_b)) - GetSize(problem_cells));
+
+			for (auto cell : problem_cells)
+				satgen.importCell(cell, step+1);
+
+			log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez.numCnfVariables(), ez.numCnfClauses());
+
+			if (!ez.solve()) {
+				log("    Proved equivalence! Marking $equiv cell as proven.\n");
+				equiv_cell->setPort("\\B", equiv_cell->getPort("\\A"));
+				return true;
+			}
+
+			log("    Failed to prove equivalence with sequence length %d.\n", max_seq - step);
+
+			if (--step < 0) {
+				log("    Reached sequence limit.\n");
+				break;
+			}
+
+			if (seed_a.empty() && seed_b.empty()) {
+				log("    No nets to continue in previous time step.\n");
+				break;
+			}
+
+			if (seed_a.empty()) {
+				log("    No nets on A-side to continue in previous time step.\n");
+				break;
+			}
+
+			if (seed_b.empty()) {
+				log("    No nets on B-side to continue in previous time step.\n");
+				break;
+			}
+
+		#if 0
+			log("    Continuing analysis in previous time step with the following nets:\n");
+			for (auto bit : seed_a)
+				log("      A: %s\n", log_signal(bit));
+			for (auto bit : seed_b)
+				log("      B: %s\n", log_signal(bit));
+		#else
+			log("    Continuing analysis in previous time step with %d A- and %d B-nets.\n", GetSize(seed_a), GetSize(seed_b));
+		#endif
 		}
 
-		log("    Failed to prove equivalence.\n");
 		return false;
 	}
 };
@@ -127,19 +189,23 @@ struct EquivSimplePass : public Pass {
 		log("\n");
 		log("This command tries to prove $equiv cells using a simple direct SAT approach.\n");
 		log("\n");
+		log("    -seq <N>\n");
+		log("        the max. number of time steps to be considered (default = 1)\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
 		int success_counter = 0;
+		int max_seq = 1;
 
 		log_header("Executing EQUIV_SIMPLE pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			// if (args[argidx] == "-assert") {
-			// 	assert_mode = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
+				max_seq = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -164,23 +230,23 @@ struct EquivSimplePass : public Pass {
 			SigMap sigmap(module);
 			dict<SigBit, Cell*> bit2driver;
 
-			for (auto cell : module->selected_cells()) {
-				if (!ct.cell_known(cell->type))
+			for (auto cell : module->cells()) {
+				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_"))
 					continue;
 				for (auto &conn : cell->connections())
-					if (ct.cell_output(cell->type, conn.first))
+					if (yosys_celltypes.cell_output(cell->type, conn.first))
 						for (auto bit : sigmap(conn.second))
 							bit2driver[bit] = cell;
 			}
 
 			for (auto cell : unproven_equiv_cells) {
-				EquivSimpleWorker worker(cell, sigmap, bit2driver);
+				EquivSimpleWorker worker(cell, sigmap, bit2driver, max_seq);
 				if (worker.run())
 					success_counter++;
 			}
 		}
 
-		log("Successfully proved %d previously unproven $equiv cells.\n", success_counter);
+		log("Proved %d previously unproven $equiv cells.\n", success_counter);
 	}
 } EquivSimplePass;
 

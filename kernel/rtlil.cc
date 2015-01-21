@@ -1055,8 +1055,11 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	log_assert(new_mod->refcount_wires_ == 0);
 	log_assert(new_mod->refcount_cells_ == 0);
 
-	new_mod->connections_ = connections_;
-	new_mod->attributes = attributes;
+	for (auto &conn : connections_)
+		new_mod->connect(conn);
+
+	for (auto &attr : attributes)
+		new_mod->attributes[attr.first] = attr.second;
 
 	for (auto &it : wires_)
 		new_mod->addWire(it.first, it.second);
