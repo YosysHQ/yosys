@@ -63,6 +63,7 @@ struct OptMuxtreeWorker
 	vector<muxinfo_t> mux2info;
 	vector<bool> root_muxes;
 	vector<bool> root_enable_muxes;
+	pool<int> root_mux_rerun;
 
 	OptMuxtreeWorker(RTLIL::Design *design, RTLIL::Module *module) :
 			design(design), module(module), assign_map(module), removed_count(0)
@@ -179,9 +180,18 @@ struct OptMuxtreeWorker
 
 		for (int mux_idx = 0; mux_idx < GetSize(root_muxes); mux_idx++)
 			if (root_muxes.at(mux_idx)) {
-				log("    Root of a mux tree: %s\n", log_id(mux2info[mux_idx].cell));
+				log("    Root of a mux tree: %s%s\n", log_id(mux2info[mux_idx].cell), root_enable_muxes.at(mux_idx) ? " (pure)" : "");
+				root_mux_rerun.erase(mux_idx);
 				eval_root_mux(mux_idx);
 			}
+
+		while (!root_mux_rerun.empty()) {
+			int mux_idx = *root_mux_rerun.begin();
+			log("    Root of a mux tree: %s (rerun as non-pure)\n", log_id(mux2info[mux_idx].cell));
+			log_assert(root_enable_muxes.at(mux_idx));
+			root_mux_rerun.erase(mux_idx);
+			eval_root_mux(mux_idx);
+		}
 
 		log("  Analyzing evaluation results.\n");
 
@@ -281,7 +291,7 @@ struct OptMuxtreeWorker
 		vector<bool> visited_muxes;
 	};
 
-	void eval_mux_port(knowledge_t &knowledge, int mux_idx, int port_idx, bool do_replace_known, bool do_enable_ports)
+	void eval_mux_port(knowledge_t &knowledge, int mux_idx, int port_idx, bool do_replace_known, bool do_enable_ports, int abort_count)
 	{
 		muxinfo_t &muxinfo = mux2info[mux_idx];
 
@@ -306,10 +316,17 @@ struct OptMuxtreeWorker
 			parent_muxes.push_back(m);
 		}
 		for (int m : parent_muxes)
-			if (root_muxes.at(m))
-				eval_mux(knowledge, m, false, do_enable_ports);
-			else
-				eval_mux(knowledge, m, do_replace_known, do_enable_ports);
+			if (root_enable_muxes.at(m))
+				continue;
+			else if (root_muxes.at(m)) {
+				if (abort_count == 0) {
+					root_mux_rerun.insert(m);
+					root_enable_muxes.at(m) = true;
+					log("      Removing pure flag from root mux %s.\n", log_id(mux2info[m].cell));
+				} else
+					eval_mux(knowledge, m, false, do_enable_ports, abort_count - 1);
+			} else
+				eval_mux(knowledge, m, do_replace_known, do_enable_ports, abort_count);
 		for (int m : parent_muxes)
 			knowledge.visited_muxes[m] = false;
 
@@ -371,7 +388,7 @@ struct OptMuxtreeWorker
 		}
 	}
 
-	void eval_mux(knowledge_t &knowledge, int mux_idx, bool do_replace_known, bool do_enable_ports)
+	void eval_mux(knowledge_t &knowledge, int mux_idx, bool do_replace_known, bool do_enable_ports, int abort_count)
 	{
 		muxinfo_t &muxinfo = mux2info[mux_idx];
 
@@ -386,7 +403,7 @@ struct OptMuxtreeWorker
 		{
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
 			if (portinfo.const_activated) {
-				eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports);
+				eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports, abort_count);
 				return;
 			}
 		}
@@ -400,7 +417,7 @@ struct OptMuxtreeWorker
 			if (portinfo.const_deactivated)
 				continue;
 			if (knowledge.known_active.at(portinfo.ctrl_sig)) {
-				eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports);
+				eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports, abort_count);
 				return;
 			}
 		}
@@ -415,7 +432,7 @@ struct OptMuxtreeWorker
 			if (port_idx < GetSize(muxinfo.ports)-1)
 				if (knowledge.known_inactive.at(portinfo.ctrl_sig))
 					continue;
-			eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports);
+			eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports, abort_count);
 		}
 	}
 
@@ -426,7 +443,7 @@ struct OptMuxtreeWorker
 		knowledge.known_active.resize(GetSize(bit2info));
 		knowledge.visited_muxes.resize(GetSize(mux2info));
 		knowledge.visited_muxes[mux_idx] = true;
-		eval_mux(knowledge, mux_idx, true, root_enable_muxes.at(mux_idx));
+		eval_mux(knowledge, mux_idx, true, root_enable_muxes.at(mux_idx), 3);
 	}
 };
 
