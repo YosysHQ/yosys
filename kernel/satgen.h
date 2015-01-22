@@ -1163,6 +1163,25 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$_BUF_" || cell->type == "$equiv")
+		{
+			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
+			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
+			extendSignalWidthUnary(a, y, cell);
+
+			std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+			ez->assume(ez->vec_eq(a, yy));
+
+			if (model_undef) {
+				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
+				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
+				extendSignalWidthUnary(undef_a, undef_y, cell, false);
+				ez->assume(ez->vec_eq(undef_a, undef_y));
+				undefGating(y, yy, undef_y);
+			}
+			return true;
+		}
+
 		if (cell->type == "$assert")
 		{
 			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));

@@ -34,10 +34,11 @@ struct EquivSimpleWorker
 	ezDefaultSAT ez;
 	SatGen satgen;
 	int max_seq;
+	bool verbose;
 
-	EquivSimpleWorker(Cell *equiv_cell, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq) :
+	EquivSimpleWorker(Cell *equiv_cell, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool verbose) :
 			module(equiv_cell->module), equiv_cell(equiv_cell), sigmap(sigmap),
-			bit2driver(bit2driver), satgen(&ez, &sigmap), max_seq(max_seq)
+			bit2driver(bit2driver), satgen(&ez, &sigmap), max_seq(max_seq), verbose(verbose)
 	{
 	}
 
@@ -90,8 +91,12 @@ struct EquivSimpleWorker
 		pool<SigBit> seed_a = { bit_a };
 		pool<SigBit> seed_b = { bit_b };
 
-		log("  Trying to prove $equiv cell %s:\n", log_id(equiv_cell));
-		log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(equiv_cell->getPort("\\Y")));
+		if (verbose) {
+			log("  Trying to prove $equiv cell %s:\n", log_id(equiv_cell));
+			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(equiv_cell->getPort("\\Y")));
+		} else {
+			log("  Trying to prove $equiv for %s:", log_signal(equiv_cell->getPort("\\Y")));
+		}
 
 		int step = max_seq;
 		while (1)
@@ -127,54 +132,66 @@ struct EquivSimpleWorker
 			problem_cells.insert(short_cells_cone_a.begin(), short_cells_cone_a.end());
 			problem_cells.insert(short_cells_cone_b.begin(), short_cells_cone_b.end());
 
-			log("    Adding %d new cells to the problem (%d A, %d B, %d shared).\n",
-					GetSize(problem_cells), GetSize(short_cells_cone_a), GetSize(short_cells_cone_b),
-					(GetSize(short_cells_cone_a) + GetSize(short_cells_cone_b)) - GetSize(problem_cells));
+			if (verbose)
+				log("    Adding %d new cells to the problem (%d A, %d B, %d shared).\n",
+						GetSize(problem_cells), GetSize(short_cells_cone_a), GetSize(short_cells_cone_b),
+						(GetSize(short_cells_cone_a) + GetSize(short_cells_cone_b)) - GetSize(problem_cells));
 
 			for (auto cell : problem_cells)
-				satgen.importCell(cell, step+1);
+				if (!satgen.importCell(cell, step+1))
+					log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
 
-			log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez.numCnfVariables(), ez.numCnfClauses());
+			if (verbose)
+				log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez.numCnfVariables(), ez.numCnfClauses());
 
 			if (!ez.solve()) {
-				log("    Proved equivalence! Marking $equiv cell as proven.\n");
+				log(verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
 				equiv_cell->setPort("\\B", equiv_cell->getPort("\\A"));
 				return true;
 			}
 
-			log("    Failed to prove equivalence with sequence length %d.\n", max_seq - step);
+			if (verbose)
+				log("    Failed to prove equivalence with sequence length %d.\n", max_seq - step);
 
 			if (--step < 0) {
-				log("    Reached sequence limit.\n");
+				if (verbose)
+					log("    Reached sequence limit.\n");
 				break;
 			}
 
 			if (seed_a.empty() && seed_b.empty()) {
-				log("    No nets to continue in previous time step.\n");
+				if (verbose)
+					log("    No nets to continue in previous time step.\n");
 				break;
 			}
 
 			if (seed_a.empty()) {
-				log("    No nets on A-side to continue in previous time step.\n");
+				if (verbose)
+					log("    No nets on A-side to continue in previous time step.\n");
 				break;
 			}
 
 			if (seed_b.empty()) {
-				log("    No nets on B-side to continue in previous time step.\n");
+				if (verbose)
+					log("    No nets on B-side to continue in previous time step.\n");
 				break;
 			}
 
-		#if 0
-			log("    Continuing analysis in previous time step with the following nets:\n");
-			for (auto bit : seed_a)
-				log("      A: %s\n", log_signal(bit));
-			for (auto bit : seed_b)
-				log("      B: %s\n", log_signal(bit));
-		#else
-			log("    Continuing analysis in previous time step with %d A- and %d B-nets.\n", GetSize(seed_a), GetSize(seed_b));
-		#endif
+			if (verbose) {
+			#if 0
+				log("    Continuing analysis in previous time step with the following nets:\n");
+				for (auto bit : seed_a)
+					log("      A: %s\n", log_signal(bit));
+				for (auto bit : seed_b)
+					log("      B: %s\n", log_signal(bit));
+			#else
+				log("    Continuing analysis in previous time step with %d A- and %d B-nets.\n", GetSize(seed_a), GetSize(seed_b));
+			#endif
+			}
 		}
 
+		if (!verbose)
+			log(" failed.\n");
 		return false;
 	}
 };
@@ -189,12 +206,16 @@ struct EquivSimplePass : public Pass {
 		log("\n");
 		log("This command tries to prove $equiv cells using a simple direct SAT approach.\n");
 		log("\n");
+		log("    -v\n");
+		log("        verbose output\n");
+		log("\n");
 		log("    -seq <N>\n");
 		log("        the max. number of time steps to be considered (default = 1)\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
+		bool verbose = false;
 		int success_counter = 0;
 		int max_seq = 1;
 
@@ -202,6 +223,10 @@ struct EquivSimplePass : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-v") {
+				verbose = true;
+				continue;
+			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
 				max_seq = atoi(args[++argidx].c_str());
 				continue;
@@ -240,7 +265,7 @@ struct EquivSimplePass : public Pass {
 			}
 
 			for (auto cell : unproven_equiv_cells) {
-				EquivSimpleWorker worker(cell, sigmap, bit2driver, max_seq);
+				EquivSimpleWorker worker(cell, sigmap, bit2driver, max_seq, verbose);
 				if (worker.run())
 					success_counter++;
 			}
