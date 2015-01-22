@@ -794,7 +794,7 @@ struct ShowPass : public Pass {
 			log_cmd_error("Nothing there to show.\n");
 
 		if (format != "dot" && !format.empty()) {
-			std::string cmd = stringf("dot -T%s -o '%s' '%s'", format.c_str(), out_file.c_str(), dot_file.c_str());
+			std::string cmd = stringf("dot -T%s -o '%s.new' '%s' && mv '%s.new' '%s'", format.c_str(), out_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
@@ -807,7 +807,7 @@ struct ShowPass : public Pass {
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
-			std::string cmd = stringf("fuser -s '%s' || xdot '%s' < '%s' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
+			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid'; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
