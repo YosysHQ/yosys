@@ -136,6 +136,18 @@ struct EquivInductPass : public Pass {
 		log("    -seq <N>\n");
 		log("        the max. number of time steps to be considered (default = 4)\n");
 		log("\n");
+		log("This command is very effective in proving complex sequential circuits, when\n");
+		log("the internal state of the circuit quickly propagates to $equiv cells.\n");
+		log("\n");
+		log("However, this command uses a weak definition of 'equivalence': This command\n");
+		log("proves that the two circuits will not diverge after they produce equal\n");
+		log("outputs (observable points via $equiv) for at least <N> cycles (the <N>\n");
+		log("specified via -seq).\n");
+		log("\n");
+		log("Combined with simulation this is very powerful because simulation can give\n");
+		log("you confidence that the circuits start out synced for at least <N> cycles\n");
+		log("after reset.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{

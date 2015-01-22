@@ -176,11 +176,45 @@ struct EquivMakeWorker
 		}
 	}
 
+	void find_undriven_nets()
+	{
+		pool<SigBit> undriven_bits;
+		SigMap assign_map(equiv_mod);
+
+		for (auto wire : equiv_mod->wires()) {
+			for (auto bit : assign_map(wire))
+				if (bit.wire)
+					undriven_bits.insert(bit);
+		}
+
+		for (auto wire : equiv_mod->wires()) {
+			if (wire->port_input)
+				for (auto bit : assign_map(wire))
+					undriven_bits.erase(bit);
+		}
+
+		for (auto cell : equiv_mod->cells()) {
+			for (auto &conn : cell->connections())
+				if (!ct.cell_known(cell->type) || ct.cell_output(cell->type, conn.first))
+					for (auto bit : assign_map(conn.second))
+						undriven_bits.erase(bit);
+		}
+
+		SigSpec undriven_sig(undriven_bits);
+		undriven_sig.sort_and_unify();
+
+		for (auto chunk : undriven_sig.chunks()) {
+			log("Setting undriven nets to undef: %s\n", log_signal(chunk));
+			equiv_mod->connect(chunk, SigSpec(State::Sx, chunk.width));
+		}
+	}
+
 	void run()
 	{
 		copy_to_equiv();
 		find_same_wires();
 		find_same_cells();
+		find_undriven_nets();
 	}
 };
 
