@@ -81,7 +81,7 @@ struct EquivInductWorker
 			log("  Proving existence of base case for step %d. (%d clauses over %d variables)\n", step, ez.numCnfClauses(), ez.numCnfVariables());
 			if (!ez.solve()) {
 				log("  Proof for base case failed. Circuit inherently diverges!\n");
-				break;
+				return;
 			}
 
 			create_timestep(step+1);

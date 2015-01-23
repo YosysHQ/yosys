@@ -29,16 +29,17 @@ struct EquivMakeWorker
 	Module *gold_mod, *gate_mod, *equiv_mod;
 	pool<IdString> wire_names, cell_names;
 	CellTypes ct;
+	bool inames;
 
 	void copy_to_equiv()
 	{
 		Module *gold_clone = gold_mod->clone();
 		Module *gate_clone = gate_mod->clone();
 
-		for (auto it : gold_clone->wires().to_vector()) { if (it->name[0] == '\\') wire_names.insert(it->name); gold_clone->rename(it, it->name.str() + "_gold"); }
-		for (auto it : gold_clone->cells().to_vector()) { if (it->name[0] == '\\') cell_names.insert(it->name); gold_clone->rename(it, it->name.str() + "_gold"); }
-		for (auto it : gate_clone->wires().to_vector()) { if (it->name[0] == '\\') wire_names.insert(it->name); gate_clone->rename(it, it->name.str() + "_gate"); }
-		for (auto it : gate_clone->cells().to_vector()) { if (it->name[0] == '\\') cell_names.insert(it->name); gate_clone->rename(it, it->name.str() + "_gate"); }
+		for (auto it : gold_clone->wires().to_vector()) { if (it->name[0] == '\\' || inames) wire_names.insert(it->name); gold_clone->rename(it, it->name.str() + "_gold"); }
+		for (auto it : gold_clone->cells().to_vector()) { if (it->name[0] == '\\' || inames) cell_names.insert(it->name); gold_clone->rename(it, it->name.str() + "_gold"); }
+		for (auto it : gate_clone->wires().to_vector()) { if (it->name[0] == '\\' || inames) wire_names.insert(it->name); gate_clone->rename(it, it->name.str() + "_gate"); }
+		for (auto it : gate_clone->cells().to_vector()) { if (it->name[0] == '\\' || inames) cell_names.insert(it->name); gate_clone->rename(it, it->name.str() + "_gate"); }
 
 		gold_clone->cloneInto(equiv_mod);
 		gate_clone->cloneInto(equiv_mod);
@@ -230,6 +231,9 @@ struct EquivMakePass : public Pass {
 		log("equivalent modules. Use commands such as 'equiv_simple' and 'equiv_status'\n");
 		log("to work with the created equivalent checking module.\n");
 		log("\n");
+		log("    -inames\n");
+		log("        Also match cells and wires with $... names.\n");
+		log("\n");
 		log("Note: The circuit created by this command is not a miter (with something like\n");
 		log("a trigger output), but instead uses $equiv cells to encode the equivalence\n");
 		log("checking problem. Use 'miter -equiv' if you want to create a miter circuit.\n");
@@ -239,14 +243,15 @@ struct EquivMakePass : public Pass {
 	{
 		EquivMakeWorker worker;
 		worker.ct.setup(design);
+		worker.inames = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-foo" && argidx+1 < args.size()) {
-			// 	log("foo> %s\n", args[++argidx].c_str());
-			// 	continue;
-			// }
+			if (args[argidx] == "-inames") {
+				worker.inames = true;
+				continue;
+			}
 			break;
 		}
 

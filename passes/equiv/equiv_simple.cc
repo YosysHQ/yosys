@@ -241,11 +241,11 @@ struct EquivSimplePass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			vector<Cell*> unproven_equiv_cells;
+			vector<pair<SigBit, Cell*>> unproven_equiv_cells;
 
 			for (auto cell : module->selected_cells())
 				if (cell->type == "$equiv" && cell->getPort("\\A") != cell->getPort("\\B"))
-						unproven_equiv_cells.push_back(cell);
+						unproven_equiv_cells.push_back(pair<SigBit, Cell*>(cell->getPort("\\Y").to_single_sigbit(), cell));
 
 			if (unproven_equiv_cells.empty())
 				continue;
@@ -264,8 +264,9 @@ struct EquivSimplePass : public Pass {
 							bit2driver[bit] = cell;
 			}
 
-			for (auto cell : unproven_equiv_cells) {
-				EquivSimpleWorker worker(cell, sigmap, bit2driver, max_seq, verbose);
+			std::sort(unproven_equiv_cells.begin(), unproven_equiv_cells.end());
+			for (auto it : unproven_equiv_cells) {
+				EquivSimpleWorker worker(it.second, sigmap, bit2driver, max_seq, verbose);
 				if (worker.run())
 					success_counter++;
 			}

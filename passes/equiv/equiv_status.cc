@@ -71,7 +71,7 @@ struct EquivStatusPass : public Pass {
 				continue;
 			}
 
-			log("Found %d $equiv cells found in %s:\n", GetSize(unproven_equiv_cells) + proven_equiv_cells, log_id(module));
+			log("Found %d $equiv cells in %s:\n", GetSize(unproven_equiv_cells) + proven_equiv_cells, log_id(module));
 			log("  Of those cells %d are proven and %d are unproven.\n", proven_equiv_cells, GetSize(unproven_equiv_cells));
 			if (unproven_equiv_cells.empty()) {
 				log("  Equivalence successfully proven!\n");
