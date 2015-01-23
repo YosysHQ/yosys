@@ -457,6 +457,13 @@ public:
 		return entries[i].udata.second;
 	}
 
+	template<typename Compare = std::less<K>>
+	void sort(Compare comp = Compare())
+	{
+		std::sort(entries.begin(), entries.end(), [comp](const entry_t &a, const entry_t &b){ return comp(b.udata.first, a.udata.first); });
+		do_rehash();
+	}
+
 	void swap(dict &other)
 	{
 		hashtable.swap(other.hashtable);
@@ -758,6 +765,13 @@ public:
 		int hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		return i >= 0;
+	}
+
+	template<typename Compare = std::less<K>>
+	void sort(Compare comp = Compare())
+	{
+		std::sort(entries.begin(), entries.end(), [comp](const entry_t &a, const entry_t &b){ return comp(b.udata, a.udata); });
+		do_rehash();
 	}
 
 	void swap(pool &other)

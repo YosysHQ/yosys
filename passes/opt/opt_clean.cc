@@ -422,6 +422,10 @@ struct CleanPass : public Pass {
 		if (count_rm_cells > 0 || count_rm_wires > 0)
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 
+		design->optimize();
+		design->sort();
+		design->check();
+
 		ct.clear();
 		ct_reg.clear();
 		ct_all.clear();

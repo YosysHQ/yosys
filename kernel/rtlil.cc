@@ -373,6 +373,14 @@ void RTLIL::Design::remove(RTLIL::Module *module)
 	delete module;
 }
 
+void RTLIL::Design::sort()
+{
+	scratchpad.sort();
+	modules_.sort(sort_by_id_str());
+	for (auto &it : modules_)
+		it.second->sort();
+}
+
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
@@ -975,6 +983,21 @@ namespace {
 	};
 }
 #endif
+
+void RTLIL::Module::sort()
+{
+	wires_.sort(sort_by_id_str());
+	cells_.sort(sort_by_id_str());
+	avail_parameters.sort(sort_by_id_str());
+	memories.sort(sort_by_id_str());
+	processes.sort(sort_by_id_str());
+	for (auto &it : cells_)
+		it.second->sort();
+	for (auto &it : wires_)
+		it.second->attributes.sort(sort_by_id_str());
+	for (auto &it : memories)
+		it.second->attributes.sort(sort_by_id_str());
+}
 
 void RTLIL::Module::check()
 {
@@ -1906,6 +1929,13 @@ void RTLIL::Cell::setParam(RTLIL::IdString paramname, RTLIL::Const value)
 const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
 {
 	return parameters.at(paramname);
+}
+
+void RTLIL::Cell::sort()
+{
+	connections_.sort(sort_by_id_str());
+	parameters.sort(sort_by_id_str());
+	attributes.sort(sort_by_id_str());
 }
 
 void RTLIL::Cell::check()

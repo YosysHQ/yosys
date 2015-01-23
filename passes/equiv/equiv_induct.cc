@@ -100,6 +100,8 @@ struct EquivInductWorker
 			log("  Proof for induction step failed. %s\n", step != max_seq ? "Extending to next time step." : "Trying to prove individual $equiv from workset.");
 		}
 
+		workset.sort();
+
 		for (auto cell : workset)
 		{
 			SigBit bit_a = sigmap(cell->getPort("\\A")).to_single_sigbit();

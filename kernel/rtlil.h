@@ -788,6 +788,7 @@ struct RTLIL::Design
 	bool scratchpad_get_bool(std::string varname, bool default_value = false) const;
 	std::string scratchpad_get_string(std::string varname, std::string default_value = std::string()) const;
 
+	void sort();
 	void check();
 	void optimize();
 
@@ -863,6 +864,8 @@ public:
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters);
 	virtual size_t count_id(RTLIL::IdString id);
+
+	virtual void sort();
 	virtual void check();
 	virtual void optimize();
 
@@ -1136,6 +1139,7 @@ public:
 	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
 	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
+	void sort();
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
