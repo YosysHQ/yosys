@@ -1096,7 +1096,7 @@ std::vector<int> ezSAT::vec_shift_right(const std::vector<int> &vec1, const std:
 std::vector<int> ezSAT::vec_shift_left(const std::vector<int> &vec1, const std::vector<int> &vec2, bool vec2_signed, int extend_left, int extend_right)
 {
 	// vec2_signed is not implemented in vec_shift_left() yet
-	assert(vec2_signed == false);
+	if (vec2_signed) assert(vec2_signed == false);
 
 	int vec2_bits = std::min(my_clog2(vec1.size()), int(vec2.size()));
 

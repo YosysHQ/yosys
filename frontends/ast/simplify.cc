@@ -2309,8 +2309,10 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 	flags &= ~children_flags | backup_flags;
 
 	if (proc_flags_p) {
+#ifndef NDEBUG
 		for (auto it : *proc_flags_p)
 			log_assert((it.second & ~0xff000000) == 0);
+#endif
 		delete proc_flags_p;
 	}
 }

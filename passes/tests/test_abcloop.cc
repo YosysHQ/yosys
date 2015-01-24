@@ -132,7 +132,7 @@ static void test_abcloop()
 		SatGen satgen(&ez, &sigmap);
 
 		for (auto c : module->cells()) {
-			bool ok = satgen.importCell(c);
+			bool ok YS_ATTRIBUTE(unused) = satgen.importCell(c);
 			log_assert(ok);
 		}
 
@@ -182,7 +182,7 @@ static void test_abcloop()
 	SatGen satgen(&ez, &sigmap);
 
 	for (auto c : module->cells()) {
-		bool ok = satgen.importCell(c);
+		bool ok YS_ATTRIBUTE(unused) = satgen.importCell(c);
 		log_assert(ok);
 	}
 

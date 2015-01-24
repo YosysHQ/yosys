@@ -365,8 +365,12 @@ static void map_sr_to_arst(const char *from, const char *to)
 	if (!cell_mappings.count(from) || cell_mappings.count(to) > 0)
 		return;
 
-	char from_clk_pol = from[8], from_set_pol = from[9], from_clr_pol = from[10];
-	char to_clk_pol = to[6], to_rst_pol = to[7], to_rst_val = to[8];
+	char from_clk_pol YS_ATTRIBUTE(unused) = from[8];
+	char from_set_pol = from[9];
+	char from_clr_pol = from[10];
+	char to_clk_pol YS_ATTRIBUTE(unused) = to[6];
+	char to_rst_pol YS_ATTRIBUTE(unused) = to[7];
+	char to_rst_val = to[8];
 
 	log_assert(from_clk_pol == to_clk_pol);
 	log_assert(to_rst_pol == from_set_pol && to_rst_pol == from_clr_pol);

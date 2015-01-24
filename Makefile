@@ -15,6 +15,7 @@ ENABLE_COVER := 1
 
 # other configuration flags
 ENABLE_GPROF := 0
+ENABLE_NDEBUG := 0
 
 DESTDIR := /usr/local
 INSTALL_SUDO :=
@@ -131,6 +132,10 @@ endif
 ifeq ($(ENABLE_GPROF),1)
 CXXFLAGS += -pg
 LDFLAGS += -pg
+endif
+
+ifeq ($(ENABLE_NDEBUG),1)
+CXXFLAGS := -O3 -DNDEBUG $(filter-out -Os,$(CXXFLAGS))
 endif
 
 ifeq ($(ENABLE_ABC),1)

@@ -105,10 +105,12 @@ struct Macc
 		bit_ports = cell->getPort("\\B");
 
 		std::vector<RTLIL::State> config_bits = cell->getParam("\\CONFIG").bits;
-		int config_width = cell->getParam("\\CONFIG_WIDTH").as_int();
 		int config_cursor = 0;
 
+#ifndef NDEBUG
+		int config_width = cell->getParam("\\CONFIG_WIDTH").as_int();
 		log_assert(GetSize(config_bits) >= config_width);
+#endif
 
 		int num_bits = 0;
 		if (config_bits[config_cursor++] == RTLIL::S1) num_bits |= 1;

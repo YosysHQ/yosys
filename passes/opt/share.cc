@@ -1061,7 +1061,9 @@ struct ShareWorker
 	ShareWorker(ShareWorkerConfig config, RTLIL::Design *design, RTLIL::Module *module) :
 			config(config), design(design), module(module), mi(module)
 	{
+	#ifndef NDEBUG
 		bool before_scc = module_has_scc();
+	#endif
 
 		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
 		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
@@ -1355,8 +1357,10 @@ struct ShareWorker
 
 		log_assert(recursion_state.empty());
 
+	#ifndef NDEBUG
 		bool after_scc = before_scc || module_has_scc();
 		log_assert(before_scc == after_scc);
+	#endif
 	}
 };
 

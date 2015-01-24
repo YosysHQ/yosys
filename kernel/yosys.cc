@@ -319,11 +319,13 @@ std::string make_temp_dir(std::string template_str)
 	mkdir(template_str.c_str());
 	return template_str;
 #else
+#  ifndef NDEBUG
 	size_t pos = template_str.rfind("XXXXXX");
 	log_assert(pos != std::string::npos);
 
 	int suffixlen = GetSize(template_str) - pos - 6;
 	log_assert(suffixlen == 0);
+#  endif
 
 	char *p = strdup(template_str.c_str());
 	p = mkdtemp(p);
