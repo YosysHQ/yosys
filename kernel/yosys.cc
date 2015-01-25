@@ -720,9 +720,9 @@ void run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 					Pass::call(design, command);
 			}
 		}
-		catch (log_cmd_error_exception) {
+		catch (...) {
 			Frontend::current_script_file = backup_script_file;
-			throw log_cmd_error_exception();
+			throw;
 		}
 
 		Frontend::current_script_file = backup_script_file;
