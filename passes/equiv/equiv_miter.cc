@@ -218,9 +218,9 @@ struct EquivMiterWorker
 
 		for (auto c : equiv_cells)
 		{
-			SigSpec trigger = mode_undef ?
-					miter_module->Mux(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort("\\A"), c->getPort("\\B")),
-							State::S1, miter_module->Eqx(NEW_ID, c->getPort("\\A"), State::Sx)) :
+			SigSpec cmp = mode_undef ?
+					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort("\\A"), State::Sx),
+							miter_module->Eqx(NEW_ID, c->getPort("\\A"), c->getPort("\\B"))) :
 					miter_module->Eq(NEW_ID, c->getPort("\\A"), c->getPort("\\B"));
 
 			if (mode_cmp) {
@@ -232,13 +232,13 @@ struct EquivMiterWorker
 						cmp_name = cmp_name.substr(0, i) + cmp_name.substr(i+1);
 				auto w = miter_module->addWire(cmp_name);
 				w->port_output = true;
-				miter_module->connect(w, trigger);
+				miter_module->connect(w, cmp);
 			}
 
 			if (mode_assert)
-				miter_module->addAssert(NEW_ID, miter_module->Not(NEW_ID, trigger), State::S1);
+				miter_module->addAssert(NEW_ID, cmp, State::S1);
 
-			trigger_signals.append(trigger);
+			trigger_signals.append(miter_module->Not(NEW_ID, cmp));
 		}
 
 		if (mode_trigger) {
