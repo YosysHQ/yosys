@@ -850,8 +850,8 @@ struct SatPass : public Pass {
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
-		log("    -show-inputs, -show-outputs\n");
-		log("        add all module input (output) ports to the list of shown signals\n");
+		log("    -show-inputs, -show-outputs, -show-ports\n");
+		log("        add all module (input/output) ports to the list of shown signals\n");
 		log("\n");
 		log("    -ignore_div_by_zero\n");
 		log("        ignore all solutions that involve a division by zero\n");
@@ -1127,6 +1127,11 @@ struct SatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-show-outputs") {
+				show_outputs = true;
+				continue;
+			}
+			if (args[argidx] == "-show-ports") {
+				show_inputs = true;
 				show_outputs = true;
 				continue;
 			}
