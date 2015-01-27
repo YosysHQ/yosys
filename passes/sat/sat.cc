@@ -1166,7 +1166,7 @@ struct SatPass : public Pass {
 			log_cmd_error("Got -tempinduct but nothing to prove!\n");
 
 		if (prove_skip && tempinduct)
-			log_cmd_error("Options -prove-skip and -tempinduct don't work with each other.\n");
+			log_cmd_error("Options -prove-skip and -tempinduct don't work with each other. Use -seq instead of -prove-skip.\n");
 
 		if (prove_skip >= seq_len && prove_skip > 0)
 			log_cmd_error("The value of -prove-skip must be smaller than the one of -seq.\n");
