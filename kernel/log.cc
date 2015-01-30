@@ -389,9 +389,13 @@ const char *log_id(RTLIL::IdString str)
 {
 	log_id_cache.insert(str);
 	const char *p = str.c_str();
-	if (p[0] == '\\' && p[1] != '$' && p[1] != '\\' && p[1] != 0)
-		return p+1;
-	return p;
+	if (p[0] != '\\')
+		return p;
+	if (p[1] == '$' || p[1] == '\\' || p[1] == 0)
+		return p;
+	if (p[1] >= '0' && p[1] <= '9')
+		return p;
+	return p+1;
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
