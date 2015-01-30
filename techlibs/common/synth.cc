@@ -52,6 +52,9 @@ struct SynthPass : public Pass {
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
 		log("\n");
+		log("    -encfile <file>\n");
+		log("        passed to 'fsm_recode' via 'fsm'\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -91,7 +94,7 @@ struct SynthPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::string top_module;
+		std::string top_module, fsm_opts;
 		std::string run_from, run_to;
 
 		size_t argidx;
@@ -99,6 +102,10 @@ struct SynthPass : public Pass {
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-encfile" && argidx+1 < args.size()) {
+				fsm_opts = " -encfile " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -140,7 +147,7 @@ struct SynthPass : public Pass {
 			Pass::call(design, "alumacc");
 			Pass::call(design, "share");
 			Pass::call(design, "opt");
-			Pass::call(design, "fsm");
+			Pass::call(design, "fsm" + fsm_opts);
 			Pass::call(design, "opt -fast");
 			Pass::call(design, "memory -nomap");
 			Pass::call(design, "opt_clean");
