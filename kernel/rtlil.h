@@ -267,9 +267,15 @@ namespace RTLIL
 	}
 
 	static inline std::string unescape_id(std::string str) {
-		if (str.size() > 1 && str[0] == '\\' && str[1] != '$')
-			return str.substr(1);
-		return str;
+		if (str.size() < 2)
+			return str;
+		if (str[0] != '\\')
+			return str;
+		if (str[1] == '$' || str[1] == '\\')
+			return str;
+		if (str[1] >= '0' && str[1] <= '9')
+			return str;
+		return str.substr(1);
 	}
 
 	static inline std::string unescape_id(RTLIL::IdString str) {
