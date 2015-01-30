@@ -49,10 +49,10 @@ bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
 int log_verbose_level;
 
-std::vector<int> header_count;
-std::set<RTLIL::IdString> log_id_cache;
-std::list<std::string> string_buf;
-int string_buf_size = 0;
+vector<int> header_count;
+pool<RTLIL::IdString> log_id_cache;
+vector<string> string_buf;
+int string_buf_index = -1;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
@@ -249,7 +249,7 @@ void log_pop()
 	header_count.pop_back();
 	log_id_cache.clear();
 	string_buf.clear();
-	string_buf_size = 0;
+	string_buf_index = -1;
 	log_flush();
 }
 
@@ -352,7 +352,7 @@ void log_reset_stack()
 		header_count.pop_back();
 	log_id_cache.clear();
 	string_buf.clear();
-	string_buf_size = 0;
+	string_buf_index = -1;
 	log_flush();
 }
 
@@ -374,20 +374,22 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 	std::stringstream buf;
 	ILANG_BACKEND::dump_sigspec(buf, sig, autoint);
 
-	if (string_buf_size < 100)
-		string_buf_size++;
-	else
-		string_buf.pop_front();
-	string_buf.push_back(buf.str());
-
-	return string_buf.back().c_str();
+	if (string_buf.size() < 100) {
+		string_buf.push_back(buf.str());
+		return string_buf.back().c_str();
+	} else {
+		if (++string_buf_index == 100)
+			string_buf_index = 0;
+		string_buf[string_buf_index] = buf.str();
+		return string_buf[string_buf_index].c_str();
+	}
 }
 
 const char *log_id(RTLIL::IdString str)
 {
 	log_id_cache.insert(str);
 	const char *p = str.c_str();
-	if (p[0] == '\\' && p[1] != '$' && p[1] != 0)
+	if (p[0] == '\\' && p[1] != '$' && p[1] != '\\' && p[1] != 0)
 		return p+1;
 	return p;
 }
