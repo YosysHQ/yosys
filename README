@@ -295,7 +295,7 @@ Verilog Attributes and non-standard features
   by adding an empty {* *} statement.)
 
 - Modules can be declared with "module mod_name(...);" (with three dots
-  instead of a list of moudle ports). With this syntax it is sufficient
+  instead of a list of module ports). With this syntax it is sufficient
   to simply declare a module port as 'input' or 'output' in the module
   body.
 
@@ -360,8 +360,7 @@ from SystemVerilog:
 
 - The "assert" statement from SystemVerilog is supported in its most basic
   form. In module context: "assert property (<expression>);" and within an
-  always block: "assert(<expression>);". It is transformed to a $assert cell
-  that is supported by the "sat" and "write_btor" commands.
+  always block: "assert(<expression>);". It is transformed to a $assert cell.
 
 - The keywords "always_comb", "always_ff" and "always_latch", "logic" and
   "bit" are supported.
