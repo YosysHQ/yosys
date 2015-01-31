@@ -37,6 +37,9 @@ struct EquivMakeWorker
 	pool<IdString> blacklist_names;
 	dict<IdString, dict<Const, Const>> encdata;
 
+	pool<SigBit> undriven_bits;
+	SigMap assign_map;
+
 	void read_blacklists()
 	{
 		for (auto fn : blacklists)
@@ -253,12 +256,25 @@ struct EquivMakeWorker
 			else
 			{
 				Wire *wire = equiv_mod->addWire(id, gold_wire->width);
+				SigSpec rdmap_gold, rdmap_gate, rdmap_equiv;
 
-				for (int i = 0; i < wire->width; i++)
+				for (int i = 0; i < wire->width; i++) {
+					if (undriven_bits.count(assign_map(SigBit(gold_wire, i)))) {
+						log("  Skipping signal bit %d: undriven on gold side.\n", i);
+						continue;
+					}
+					if (undriven_bits.count(assign_map(SigBit(gate_wire, i)))) {
+						log("  Skipping signal bit %d: undriven on gate side.\n", i);
+						continue;
+					}
 					equiv_mod->addEquiv(NEW_ID, SigSpec(gold_wire, i), SigSpec(gate_wire, i), SigSpec(wire, i));
+					rdmap_gold.append(SigBit(gold_wire, i));
+					rdmap_gate.append(SigBit(gate_wire, i));
+					rdmap_equiv.append(SigBit(wire, i));
+				}
 
-				rd_signal_map.add(assign_map(gold_wire), wire);
-				rd_signal_map.add(assign_map(gate_wire), wire);
+				rd_signal_map.add(rdmap_gold, rdmap_equiv);
+				rd_signal_map.add(rdmap_gate, rdmap_equiv);
 			}
 		}
 
@@ -327,10 +343,10 @@ struct EquivMakeWorker
 		}
 	}
 
-	void find_undriven_nets()
+	void find_undriven_nets(bool mark)
 	{
-		pool<SigBit> undriven_bits;
-		SigMap assign_map(equiv_mod);
+		undriven_bits.clear();
+		assign_map.set(equiv_mod);
 
 		for (auto wire : equiv_mod->wires()) {
 			for (auto bit : assign_map(wire))
@@ -351,21 +367,24 @@ struct EquivMakeWorker
 						undriven_bits.erase(bit);
 		}
 
-		SigSpec undriven_sig(undriven_bits);
-		undriven_sig.sort_and_unify();
+		if (mark) {
+			SigSpec undriven_sig(undriven_bits);
+			undriven_sig.sort_and_unify();
 
-		for (auto chunk : undriven_sig.chunks()) {
-			log("Setting undriven nets to undef: %s\n", log_signal(chunk));
-			equiv_mod->connect(chunk, SigSpec(State::Sx, chunk.width));
+			for (auto chunk : undriven_sig.chunks()) {
+				log("Setting undriven nets to undef: %s\n", log_signal(chunk));
+				equiv_mod->connect(chunk, SigSpec(State::Sx, chunk.width));
+			}
 		}
 	}
 
 	void run()
 	{
 		copy_to_equiv();
+		find_undriven_nets(false);
 		find_same_wires();
 		find_same_cells();
-		find_undriven_nets();
+		find_undriven_nets(true);
 	}
 };
 
