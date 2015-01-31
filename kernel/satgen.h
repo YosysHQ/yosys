@@ -103,6 +103,20 @@ struct SatGen
 		return importSigSpecWorker(bit, pf, false, false).front();
 	}
 
+	int importDefSigBit(RTLIL::SigBit bit, int timestep = -1)
+	{
+		log_assert(timestep != 0);
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		return importSigSpecWorker(bit, pf, false, true).front();
+	}
+
+	int importUndefSigBit(RTLIL::SigBit bit, int timestep = -1)
+	{
+		log_assert(timestep != 0);
+		std::string pf = "undef:" + prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		return importSigSpecWorker(bit, pf, true, false).front();
+	}
+
 	bool importedSigBit(RTLIL::SigBit bit, int timestep = -1)
 	{
 		log_assert(timestep != 0);

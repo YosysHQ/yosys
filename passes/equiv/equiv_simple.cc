@@ -36,21 +36,22 @@ struct EquivSimpleWorker
 	int max_seq;
 	bool verbose;
 
-	EquivSimpleWorker(Cell *equiv_cell, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool verbose) :
+	EquivSimpleWorker(Cell *equiv_cell, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool verbose, bool model_undef) :
 			module(equiv_cell->module), equiv_cell(equiv_cell), sigmap(sigmap),
 			bit2driver(bit2driver), satgen(&ez, &sigmap), max_seq(max_seq), verbose(verbose)
 	{
+		satgen.model_undef = model_undef;
 	}
 
-	void find_input_cone(pool<SigBit> &next_seed, pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, Cell *cell)
+	bool find_input_cone(pool<SigBit> &next_seed, pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, pool<SigBit> *input_bits, Cell *cell)
 	{
 		if (cells_cone.count(cell))
-			return;
+			return false;
 
 		cells_cone.insert(cell);
 
 		if (cells_stop.count(cell))
-			return;
+			return true;
 
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
@@ -59,24 +60,28 @@ struct EquivSimpleWorker
 						if (!conn.first.in("\\CLK", "\\C"))
 							next_seed.insert(bit);
 					} else
-						find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, bit);
+						find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, input_bits, bit);
 				}
+		return false;
 	}
 
-	void find_input_cone(pool<SigBit> &next_seed, pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, SigBit bit)
+	void find_input_cone(pool<SigBit> &next_seed, pool<Cell*> &cells_cone, pool<SigBit> &bits_cone, const pool<Cell*> &cells_stop, const pool<SigBit> &bits_stop, pool<SigBit> *input_bits, SigBit bit)
 	{
 		if (bits_cone.count(bit))
 			return;
 
 		bits_cone.insert(bit);
 
-		if (bits_stop.count(bit))
+		if (bits_stop.count(bit)) {
+			if (input_bits != nullptr) input_bits->insert(bit);
 			return;
+		}
 
 		if (!bit2driver.count(bit))
 			return;
 
-		find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, bit2driver.at(bit));
+		if (find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, input_bits, bit2driver.at(bit)))
+			if (input_bits != nullptr) input_bits->insert(bit);
 	}
 
 	bool run()
@@ -84,9 +89,21 @@ struct EquivSimpleWorker
 		SigBit bit_a = sigmap(equiv_cell->getPort("\\A")).to_single_sigbit();
 		SigBit bit_b = sigmap(equiv_cell->getPort("\\B")).to_single_sigbit();
 
-		int ez_a = satgen.importSigBit(bit_a, max_seq+1);
-		int ez_b = satgen.importSigBit(bit_b, max_seq+1);
-		ez.assume(ez.XOR(ez_a, ez_b));
+		if (satgen.model_undef)
+		{
+			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
+			int ez_b = satgen.importDefSigBit(bit_b, max_seq+1);
+			int ez_undef_a = satgen.importUndefSigBit(bit_a, max_seq+1);
+
+			ez.assume(ez.XOR(ez_a, ez_b));
+			ez.assume(ez.NOT(ez_undef_a));
+		}
+		else
+		{
+			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
+			int ez_b = satgen.importSigBit(bit_b, max_seq+1);
+			ez.assume(ez.XOR(ez_a, ez_b));
+		}
 
 		pool<SigBit> seed_a = { bit_a };
 		pool<SigBit> seed_b = { bit_b };
@@ -110,22 +127,23 @@ struct EquivSimpleWorker
 			pool<SigBit> next_seed_a, next_seed_b;
 
 			for (auto bit_a : seed_a)
-				find_input_cone(next_seed_a, full_cells_cone_a, full_bits_cone_a, no_stop_cells, no_stop_bits, bit_a);
+				find_input_cone(next_seed_a, full_cells_cone_a, full_bits_cone_a, no_stop_cells, no_stop_bits, nullptr, bit_a);
 			next_seed_a.clear();
 
 			for (auto bit_b : seed_b)
-				find_input_cone(next_seed_b, full_cells_cone_b, full_bits_cone_b, no_stop_cells, no_stop_bits, bit_b);
+				find_input_cone(next_seed_b, full_cells_cone_b, full_bits_cone_b, no_stop_cells, no_stop_bits, nullptr, bit_b);
 			next_seed_b.clear();
 
 			pool<Cell*> short_cells_cone_a, short_cells_cone_b;
 			pool<SigBit> short_bits_cone_a, short_bits_cone_b;
+			pool<SigBit> input_bits;
 
 			for (auto bit_a : seed_a)
-				find_input_cone(next_seed_a, short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, bit_a);
+				find_input_cone(next_seed_a, short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, &input_bits, bit_a);
 			next_seed_a.swap(seed_a);
 
 			for (auto bit_b : seed_b)
-				find_input_cone(next_seed_b, short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, bit_b);
+				find_input_cone(next_seed_b, short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, &input_bits, bit_b);
 			next_seed_b.swap(seed_b);
 
 			pool<Cell*> problem_cells;
@@ -140,6 +158,11 @@ struct EquivSimpleWorker
 			for (auto cell : problem_cells)
 				if (!satgen.importCell(cell, step+1))
 					log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
+
+			if (satgen.model_undef) {
+				for (auto bit : input_bits)
+					ez.assume(ez.NOT(satgen.importUndefSigBit(bit, step+1)));
+			}
 
 			if (verbose)
 				log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez.numCnfVariables(), ez.numCnfClauses());
@@ -209,13 +232,16 @@ struct EquivSimplePass : public Pass {
 		log("    -v\n");
 		log("        verbose output\n");
 		log("\n");
+		log("    -undef\n");
+		log("        enable modelling of undef states\n");
+		log("\n");
 		log("    -seq <N>\n");
 		log("        the max. number of time steps to be considered (default = 1)\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
-		bool verbose = false;
+		bool verbose = false, model_undef = false;
 		int success_counter = 0;
 		int max_seq = 1;
 
@@ -225,6 +251,10 @@ struct EquivSimplePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-v") {
 				verbose = true;
+				continue;
+			}
+			if (args[argidx] == "-undef") {
+				model_undef = true;
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
@@ -266,7 +296,7 @@ struct EquivSimplePass : public Pass {
 
 			std::sort(unproven_equiv_cells.begin(), unproven_equiv_cells.end());
 			for (auto it : unproven_equiv_cells) {
-				EquivSimpleWorker worker(it.second, sigmap, bit2driver, max_seq, verbose);
+				EquivSimpleWorker worker(it.second, sigmap, bit2driver, max_seq, verbose, model_undef);
 				if (worker.run())
 					success_counter++;
 			}
