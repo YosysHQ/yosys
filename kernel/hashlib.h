@@ -12,6 +12,7 @@
 #ifndef HASHLIB_H
 
 #include <stdexcept>
+#include <algorithm>
 #include <string>
 #include <vector>
 
