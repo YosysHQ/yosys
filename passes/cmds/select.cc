@@ -1328,21 +1328,20 @@ struct CdPass : public Pass {
 } CdPass;
 
 template<typename T>
-static int log_matches(const char *title, std::string pattern, T list)
+static void log_matches(const char *title, Module *module, T list)
 {
-	std::vector<RTLIL::IdString> matches;
+	std::vector<IdString> matches;
 
 	for (auto &it : list)
-		if (pattern.empty() || match_ids(it.first, pattern))
+		if (module->selected(it.second))
 			matches.push_back(it.first);
 
-	if (matches.empty())
-		return 0;
-
-	log("\n%d %s:\n", int(matches.size()), title);
-	for (auto &id : matches)
-		log("  %s\n", RTLIL::id2cstr(id));
-	return matches.size();
+	if (!matches.empty()) {
+		log("\n%d %s:\n", int(matches.size()), title);
+		std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
+		for (auto id : matches)
+			log("  %s\n", RTLIL::id2cstr(id));
+	}
 }
  
 struct LsPass : public Pass {
@@ -1351,44 +1350,41 @@ struct LsPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    ls [pattern]\n");
+		log("    ls [selection]\n");
 		log("\n");
-		log("When no active module is selected, this prints a list of all modules.\n");
+		log("When no active module is selected, this prints a list of modules.\n");
 		log("\n");
 		log("When an active module is selected, this prints a list of objects in the module.\n");
-		log("\n");
-		log("If a pattern is given, the objects matching the pattern are printed\n");
-		log("\n");
-		log("Note that this command does not use the selection mechanism and always operates\n");
-		log("on the whole design or whole active module. Use 'select -list' to show a list\n");
-		log("of currently selected objects.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::string pattern;
-		int counter = 0;
-
-		if (args.size() != 1 && args.size() != 2)
-			log_cmd_error("Invalid number of arguments.\n");
-		if (args.size() == 2)
-			pattern = args.at(1);
+		size_t argidx = 1;
+		extra_args(args, argidx, design);
 
 		if (design->selected_active_module.empty())
 		{
-			counter += log_matches("modules", pattern, design->modules_);
+			std::vector<IdString> matches;
+
+			for (auto mod : design->selected_modules())
+				matches.push_back(mod->name);
+
+			if (!matches.empty()) {
+				log("\n%d %s:\n", int(matches.size()), "modules");
+				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
+				for (auto id : matches)
+					log("  %s%s\n", log_id(id), design->selected_whole_module(design->module(id)) ? "" : "*");
+			}
 		}
 		else
-		if (design->modules_.count(design->selected_active_module) > 0)
+		if (design->module(design->selected_active_module) != nullptr)
 		{
-			RTLIL::Module *module = design->modules_.at(design->selected_active_module);
-			counter += log_matches("wires", pattern, module->wires_);
-			counter += log_matches("memories", pattern, module->memories);
-			counter += log_matches("cells", pattern, module->cells_);
-			counter += log_matches("processes", pattern, module->processes);
+			RTLIL::Module *module = design->module(design->selected_active_module);
+			log_matches("wires", module, module->wires_);
+			log_matches("memories", module, module->memories);
+			log_matches("cells", module, module->cells_);
+			log_matches("processes", module, module->processes);
 		}
-
-		// log("\nfound %d item%s.\n", counter, counter == 1 ? "" : "s");
 	}
 } LsPass;
  
