@@ -747,7 +747,7 @@ void run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 
 void run_pass(std::string command, RTLIL::Design *design)
 {
-	log("\n-- Running pass `%s' --\n", command.c_str());
+	log("\n-- Running command `%s' --\n", command.c_str());
 
 	Pass::call(design, command);
 }
