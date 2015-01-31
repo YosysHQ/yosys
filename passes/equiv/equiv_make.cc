@@ -29,17 +29,100 @@ struct EquivMakeWorker
 	Module *gold_mod, *gate_mod, *equiv_mod;
 	pool<IdString> wire_names, cell_names;
 	CellTypes ct;
+
 	bool inames;
+	vector<string> blacklists;
+	vector<string> encfiles;
+
+	pool<IdString> blacklist_names;
+	dict<IdString, dict<Const, Const>> encdata;
+
+	void read_blacklists()
+	{
+		for (auto fn : blacklists)
+		{
+			std::ifstream f(fn);
+			if (f.fail())
+				log_cmd_error("Can't open blacklist file '%s'!\n", fn.c_str());
+
+			string line, token;
+			while (std::getline(f, line)) {
+				while (1) {
+					token = next_token(line);
+					if (token.empty())
+						break;
+					blacklist_names.insert(RTLIL::escape_id(token));
+				}
+			}
+		}
+	}
+
+	void read_encfiles()
+	{
+		for (auto fn : encfiles)
+		{
+			std::ifstream f(fn);
+			if (f.fail())
+				log_cmd_error("Can't open encfile '%s'!\n", fn.c_str());
+
+			dict<Const, Const> *ed = nullptr;
+			string line, token;
+			while (std::getline(f, line))
+			{
+				token = next_token(line);
+				if (token.empty() || token[0] == '#')
+					continue;
+
+				if (token == ".fsm") {
+					IdString modname = RTLIL::escape_id(next_token(line));
+					IdString signame = RTLIL::escape_id(next_token(line));
+					if (encdata.count(signame))
+						log_cmd_error("Re-definition of signal '%s' in encfile '%s'!\n", signame.c_str(), fn.c_str());
+					encdata[signame] = dict<Const, Const>();
+					ed = &encdata[signame];
+					continue;
+				}
+
+				if (token == ".map") {
+					Const gold_bits = Const::from_string(next_token(line));
+					Const gate_bits = Const::from_string(next_token(line));
+					(*ed)[gold_bits] = gate_bits;
+					continue;
+				}
+
+				log_cmd_error("Syntax error in encfile '%s'!\n", fn.c_str());
+			}
+		}
+	}
 
 	void copy_to_equiv()
 	{
 		Module *gold_clone = gold_mod->clone();
 		Module *gate_clone = gate_mod->clone();
 
-		for (auto it : gold_clone->wires().to_vector()) { if (it->name[0] == '\\' || inames) wire_names.insert(it->name); gold_clone->rename(it, it->name.str() + "_gold"); }
-		for (auto it : gold_clone->cells().to_vector()) { if (it->name[0] == '\\' || inames) cell_names.insert(it->name); gold_clone->rename(it, it->name.str() + "_gold"); }
-		for (auto it : gate_clone->wires().to_vector()) { if (it->name[0] == '\\' || inames) wire_names.insert(it->name); gate_clone->rename(it, it->name.str() + "_gate"); }
-		for (auto it : gate_clone->cells().to_vector()) { if (it->name[0] == '\\' || inames) cell_names.insert(it->name); gate_clone->rename(it, it->name.str() + "_gate"); }
+		for (auto it : gold_clone->wires().to_vector()) {
+			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+				wire_names.insert(it->name);
+			gold_clone->rename(it, it->name.str() + "_gold");
+		}
+
+		for (auto it : gold_clone->cells().to_vector()) {
+			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+				cell_names.insert(it->name);
+			gold_clone->rename(it, it->name.str() + "_gold");
+		}
+
+		for (auto it : gate_clone->wires().to_vector()) {
+			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+				wire_names.insert(it->name);
+			gate_clone->rename(it, it->name.str() + "_gate");
+		}
+
+		for (auto it : gate_clone->cells().to_vector()) {
+			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+				cell_names.insert(it->name);
+			gate_clone->rename(it, it->name.str() + "_gate");
+		}
 
 		gold_clone->cloneInto(equiv_mod);
 		gate_clone->cloneInto(equiv_mod);
@@ -62,6 +145,73 @@ struct EquivMakeWorker
 
 			Wire *gold_wire = equiv_mod->wire(gold_id);
 			Wire *gate_wire = equiv_mod->wire(gate_id);
+
+			if (encdata.count(id))
+			{
+				log("Creating encoder/decoder for signal %s.\n", log_id(id));
+
+				Wire *dec_wire = equiv_mod->addWire(id.str() + "_decoded", gold_wire->width);
+				Wire *enc_wire = equiv_mod->addWire(id.str() + "_encoded", gate_wire->width);
+
+				SigSpec dec_a, dec_b, dec_s;
+				SigSpec enc_a, enc_b, enc_s;
+
+				dec_a = SigSpec(State::Sx, dec_wire->width);
+				enc_a = SigSpec(State::Sx, enc_wire->width);
+
+				for (auto &it : encdata.at(id))
+				{
+					SigSpec dec_sig = gate_wire, dec_pat = it.second;
+					SigSpec enc_sig = dec_wire, enc_pat = it.first;
+
+					if (GetSize(dec_sig) != GetSize(dec_pat))
+						log_error("Invalid pattern %s for signal %s of size %d!\n",
+								log_signal(dec_pat), log_signal(dec_sig), GetSize(dec_sig));
+
+					if (GetSize(enc_sig) != GetSize(enc_pat))
+						log_error("Invalid pattern %s for signal %s of size %d!\n",
+								log_signal(enc_pat), log_signal(enc_sig), GetSize(enc_sig));
+
+					SigSpec reduced_dec_sig, reduced_dec_pat;
+					for (int i = 0; i < GetSize(dec_sig); i++)
+						if (dec_pat[i] == State::S0 || dec_pat[i] == State::S1) {
+							reduced_dec_sig.append(dec_sig[i]);
+							reduced_dec_pat.append(dec_pat[i]);
+						}
+
+					SigSpec reduced_enc_sig, reduced_enc_pat;
+					for (int i = 0; i < GetSize(enc_sig); i++)
+						if (enc_pat[i] == State::S0 || enc_pat[i] == State::S1) {
+							reduced_enc_sig.append(enc_sig[i]);
+							reduced_enc_pat.append(enc_pat[i]);
+						}
+
+					SigSpec dec_result = it.first;
+					for (auto &bit : dec_result)
+						if (bit != State::S1) bit = State::S0;
+
+					SigSpec enc_result = it.second;
+					for (auto &bit : enc_result)
+						if (bit != State::S1) bit = State::S0;
+
+					SigSpec dec_eq = equiv_mod->addWire(NEW_ID);
+					SigSpec enc_eq = equiv_mod->addWire(NEW_ID);
+
+					equiv_mod->addEq(NEW_ID, reduced_dec_sig, reduced_dec_pat, dec_eq);
+					cells_list.push_back(equiv_mod->addEq(NEW_ID, reduced_enc_sig, reduced_enc_pat, enc_eq));
+
+					dec_s.append(dec_eq);
+					enc_s.append(enc_eq);
+					dec_b.append(dec_result);
+					enc_b.append(enc_result);
+				}
+
+				equiv_mod->addPmux(NEW_ID, dec_a, dec_b, dec_s, dec_wire);
+				equiv_mod->addPmux(NEW_ID, enc_a, enc_b, enc_s, enc_wire);
+
+				rd_signal_map.add(assign_map(gate_wire), enc_wire);
+				gate_wire = dec_wire;
+			}
 
 			if (gold_wire == nullptr || gate_wire == nullptr || gold_wire->width != gate_wire->width) {
 				if (gold_wire && gold_wire->port_id)
@@ -234,6 +384,13 @@ struct EquivMakePass : public Pass {
 		log("    -inames\n");
 		log("        Also match cells and wires with $... names.\n");
 		log("\n");
+		log("    -blacklist <file>\n");
+		log("        Do not match cells or signals that match the names in the file.\n");
+		log("\n");
+		log("    -encfile <file>\n");
+		log("        Match FSM encodings using the desiption from the file.\n");
+		log("        See 'help fsm_recode' for details.\n");
+		log("\n");
 		log("Note: The circuit created by this command is not a miter (with something like\n");
 		log("a trigger output), but instead uses $equiv cells to encode the equivalence\n");
 		log("checking problem. Use 'miter -equiv' if you want to create a miter circuit.\n");
@@ -250,6 +407,14 @@ struct EquivMakePass : public Pass {
 		{
 			if (args[argidx] == "-inames") {
 				worker.inames = true;
+				continue;
+			}
+			if (args[argidx] == "-blacklist" && argidx+1 < args.size()) {
+				worker.blacklists.push_back(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-encfile" && argidx+1 < args.size()) {
+				worker.encfiles.push_back(args[++argidx]);
 				continue;
 			}
 			break;
@@ -276,6 +441,9 @@ struct EquivMakePass : public Pass {
 
 		if (worker.gate_mod->has_memories() || worker.gate_mod->has_processes())
 			log_cmd_error("Gate module contains memories or procresses. Run 'memory' or 'proc' respectively.\n");
+
+		worker.read_blacklists();
+		worker.read_encfiles();
 
 		log_header("Executing EQUIV_MAKE pass (creating equiv checking module).\n");
 

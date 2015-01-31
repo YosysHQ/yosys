@@ -128,6 +128,21 @@ std::string RTLIL::Const::as_string() const
 	return ret;
 }
 
+RTLIL::Const RTLIL::Const::from_string(std::string str)
+{
+	Const c;
+	for (auto it = str.rbegin(); it != str.rend(); it++)
+		switch (*it) {
+			case '0': c.bits.push_back(State::S0); break;
+			case '1': c.bits.push_back(State::S1); break;
+			case 'x': c.bits.push_back(State::Sx); break;
+			case 'z': c.bits.push_back(State::Sz); break;
+			case 'm': c.bits.push_back(State::Sm); break;
+			default: c.bits.push_back(State::Sa);
+		}
+	return c;
+}
+
 std::string RTLIL::Const::decode_string() const
 {
 	std::string string;

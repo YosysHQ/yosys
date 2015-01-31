@@ -313,7 +313,7 @@ struct EquivMiterPass : public Pass {
 			break;
 		}
 
-		if (argidx+1 >= args.size())
+		if (argidx >= args.size())
 			log_cmd_error("Invalid number of arguments.\n");
 
 		worker.miter_name = RTLIL::escape_id(args[argidx++]);
