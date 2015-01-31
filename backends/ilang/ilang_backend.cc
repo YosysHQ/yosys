@@ -430,10 +430,10 @@ struct DumpPass : public Pass {
 		log("    -n\n");
 		log("        only dump the module headers if the entire module is selected\n");
 		log("\n");
-		log("    -outfile <filename>\n");
+		log("    -o <filename>\n");
 		log("        write to the specified file.\n");
 		log("\n");
-		log("    -append <filename>\n");
+		log("    -a <filename>\n");
 		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
 	}
@@ -446,12 +446,12 @@ struct DumpPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			if (arg == "-outfile" && argidx+1 < args.size()) {
+			if ((arg == "-o" || arg == "-outfile") && argidx+1 < args.size()) {
 				filename = args[++argidx];
 				append = false;
 				continue;
 			}
-			if (arg == "-append" && argidx+1 < args.size()) {
+			if ((arg == "-a" || arg == "-append") && argidx+1 < args.size()) {
 				filename = args[++argidx];
 				append = true;
 				continue;
