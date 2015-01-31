@@ -524,11 +524,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			RTLIL::SigSpec a = assign_map(cell->getPort("\\A"));
 			RTLIL::SigSpec b = assign_map(cell->getPort("\\B"));
 
-			if (a.is_fully_const()) {
+			if (a.is_fully_const() && !b.is_fully_const()) {
 				cover_list("opt.opt_const.eqneq.swapconst", "$eq", "$ne", cell->type.str());
-				RTLIL::SigSpec tmp = cell->getPort("\\A");
-				cell->setPort("\\A", cell->getPort("\\B"));
-				cell->setPort("\\B", tmp);
+				cell->setPort("\\A", b);
+				cell->setPort("\\B", a);
+				std::swap(a, b);
 			}
 
 			if (b.is_fully_const()) {
