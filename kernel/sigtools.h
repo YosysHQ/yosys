@@ -129,7 +129,7 @@ struct SigPool
 		return sig;
 	}
 
-	size_t size()
+	size_t size() const
 	{
 		return bits.size();
 	}

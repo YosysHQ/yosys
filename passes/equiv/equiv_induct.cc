@@ -40,15 +40,18 @@ struct EquivInductWorker
 
 	dict<int, int> ez_step_is_consistent;
 	pool<Cell*> cell_warn_cache;
+	SigPool undriven_signals;
 
-	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, int max_seq) : module(module), sigmap(module),
+	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, bool model_undef, int max_seq) : module(module), sigmap(module),
 			cells(module->selected_cells()), workset(unproven_equiv_cells), satgen(&ez, &sigmap), max_seq(max_seq), success_counter(0)
 	{
+		satgen.model_undef = model_undef;
 	}
 
 	void create_timestep(int step)
 	{
 		vector<int> ez_equal_terms;
+
 		for (auto cell : cells) {
 			if (!satgen.importCell(cell, step) && !cell_warn_cache.count(cell)) {
 				log_warning("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
@@ -60,9 +63,17 @@ struct EquivInductWorker
 				if (bit_a != bit_b) {
 					int ez_a = satgen.importSigBit(bit_a, step);
 					int ez_b = satgen.importSigBit(bit_b, step);
-					ez_equal_terms.push_back(ez.IFF(ez_a, ez_b));
+					int cond = ez.IFF(ez_a, ez_b);
+					if (satgen.model_undef)
+						cond = ez.OR(cond, satgen.importUndefSigBit(bit_a, step));
+					ez_equal_terms.push_back(cond);
 				}
 			}
+		}
+
+		if (satgen.model_undef) {
+			for (auto bit : undriven_signals.export_all())
+				ez.assume(ez.NOT(satgen.importUndefSigBit(bit, step)));
 		}
 
 		log_assert(!ez_step_is_consistent.count(step));
@@ -73,7 +84,28 @@ struct EquivInductWorker
 	{
 		log("Found %d unproven $equiv cells in module %s:\n", GetSize(workset), log_id(module));
 
+		if (satgen.model_undef) {
+			for (auto cell : cells)
+				if (yosys_celltypes.cell_known(cell->type))
+					for (auto &conn : cell->connections())
+						if (yosys_celltypes.cell_input(cell->type, conn.first))
+							undriven_signals.add(sigmap(conn.second));
+			for (auto cell : cells)
+				if (yosys_celltypes.cell_known(cell->type))
+					for (auto &conn : cell->connections())
+						if (yosys_celltypes.cell_output(cell->type, conn.first))
+							undriven_signals.del(sigmap(conn.second));
+		}
+
 		create_timestep(1);
+
+		if (satgen.model_undef) {
+			for (auto bit : satgen.initial_state.export_all())
+				ez.assume(ez.NOT(satgen.importUndefSigBit(bit, 1)));
+			log("  Undef modelling: force def on %d initial reg values and %d inputs.\n",
+				GetSize(satgen.initial_state), GetSize(undriven_signals));
+		}
+
 		for (int step = 1; step <= max_seq; step++)
 		{
 			ez.assume(ez_step_is_consistent[step]);
@@ -107,11 +139,16 @@ struct EquivInductWorker
 			SigBit bit_a = sigmap(cell->getPort("\\A")).to_single_sigbit();
 			SigBit bit_b = sigmap(cell->getPort("\\B")).to_single_sigbit();
 
+			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort("\\Y"))));
+
 			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
 			int ez_b = satgen.importSigBit(bit_b, max_seq+1);
+			int cond = ez.XOR(ez_a, ez_b);
 
-			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort("\\Y"))));
-			if (!ez.solve(ez.XOR(ez_a, ez_b))) {
+			if (satgen.model_undef)
+				cond = ez.AND(cond, ez.NOT(satgen.importUndefSigBit(bit_a, max_seq+1)));
+
+			if (!ez.solve(cond)) {
 				log(" success!\n");
 				cell->setPort("\\B", cell->getPort("\\A"));
 				success_counter++;
@@ -135,6 +172,9 @@ struct EquivInductPass : public Pass {
 		log("Only selected $equiv cells are proven and only selected cells are used to\n");
 		log("perform the proof.\n");
 		log("\n");
+		log("    -undef\n");
+		log("        enable modelling of undef states\n");
+		log("\n");
 		log("    -seq <N>\n");
 		log("        the max. number of time steps to be considered (default = 4)\n");
 		log("\n");
@@ -154,12 +194,17 @@ struct EquivInductPass : public Pass {
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
 		int success_counter = 0;
+		bool model_undef = false;
 		int max_seq = 4;
 
 		log_header("Executing EQUIV_INDUCT pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-undef") {
+				model_undef = true;
+				continue;
+			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
 				max_seq = atoi(args[++argidx].c_str());
 				continue;
@@ -183,7 +228,7 @@ struct EquivInductPass : public Pass {
 				continue;
 			}
 
-			EquivInductWorker worker(module, unproven_equiv_cells, max_seq);
+			EquivInductWorker worker(module, unproven_equiv_cells, model_undef, max_seq);
 			worker.run();
 			success_counter += worker.success_counter;
 		}
