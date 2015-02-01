@@ -111,7 +111,7 @@ struct EdifBackend : public Backend {
 		log_header("Executing EDIF backend.\n");
 
 		std::string top_module_name;
-		std::map<RTLIL::IdString, std::set<RTLIL::IdString>> lib_cell_ports;
+		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
 		CellTypes ct(design);
 		EdifNames edif_names;
 
@@ -150,12 +150,8 @@ struct EdifBackend : public Backend {
 				RTLIL::Cell *cell = cell_it.second;
 				if (!design->modules_.count(cell->type) || design->modules_.at(cell->type)->get_bool_attribute("\\blackbox")) {
 					lib_cell_ports[cell->type];
-					for (auto p : cell->connections()) {
-						if (p.second.size() > 1)
-							log_error("Found multi-bit port %s on library cell %s.%s (%s): not supported in EDIF backend!\n",
-									RTLIL::id2cstr(p.first), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
-						lib_cell_ports[cell->type].insert(p.first);
-					}
+					for (auto p : cell->connections())
+						lib_cell_ports[cell->type][p.first] = GetSize(p.second);
 				}
 			}
 		}
@@ -198,12 +194,15 @@ struct EdifBackend : public Backend {
 			for (auto &port_it : cell_it.second) {
 				const char *dir = "INOUT";
 				if (ct.cell_known(cell_it.first)) {
-					if (!ct.cell_output(cell_it.first, port_it))
+					if (!ct.cell_output(cell_it.first, port_it.first))
 						dir = "INPUT";
-					else if (!ct.cell_input(cell_it.first, port_it))
+					else if (!ct.cell_input(cell_it.first, port_it.first))
 						dir = "OUTPUT";
 				}
-				*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it), dir);
+				if (port_it.second == 1)
+					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
+				else
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEF(port_it.first), port_it.second, dir);
 			}
 			*f << stringf("        )\n");
 			*f << stringf("      )\n");
@@ -303,7 +302,7 @@ struct EdifBackend : public Backend {
 							char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
 							hex_string = std::string(digit_str) + hex_string;
 						}
-						*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(p.first), hex_string.c_str());
+						*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(p.first), GetSize(p.second.bits), hex_string.c_str());
 					}
 				*f << stringf(")\n");
 				for (auto &p : cell->connections()) {
