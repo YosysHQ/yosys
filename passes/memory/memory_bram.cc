@@ -1110,7 +1110,7 @@ struct MemoryBramPass : public Pass {
 		log("It is possible to match against the following values with min/max rules:\n");
 		log("\n");
 		log("    words  ........  number of words in memory in design\n");
-		log("    abits  ........  number of adress bits on memory in design\n");
+		log("    abits  ........  number of address bits on memory in design\n");
 		log("    dbits  ........  number of data bits on memory in design\n");
 		log("    wports  .......  number of write ports on memory in design\n");
 		log("    rports  .......  number of read ports on memory in design\n");
@@ -1137,7 +1137,7 @@ struct MemoryBramPass : public Pass {
 		log("the next also has 'or_next_if_better' set, and so forth).\n");
 		log("\n");
 		log("A match containing the command 'make_transp' will add external circuitry\n");
-		log("to simulate 'transparent read', if neccessary.\n");
+		log("to simulate 'transparent read', if necessary.\n");
 		log("\n");
 		log("A match containing the command 'shuffle_enable A' will re-organize\n");
 		log("the data bits to accommodate the enable pattern of port A.\n");
