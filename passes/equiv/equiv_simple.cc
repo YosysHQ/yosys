@@ -26,6 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct EquivSimpleWorker
 {
 	Module *module;
+	const vector<Cell*> &equiv_cells;
 	Cell *equiv_cell;
 
 	SigMap &sigmap;
@@ -36,9 +37,11 @@ struct EquivSimpleWorker
 	int max_seq;
 	bool verbose;
 
-	EquivSimpleWorker(Cell *equiv_cell, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool verbose, bool model_undef) :
-			module(equiv_cell->module), equiv_cell(equiv_cell), sigmap(sigmap),
-			bit2driver(bit2driver), satgen(&ez, &sigmap), max_seq(max_seq), verbose(verbose)
+	pool<pair<Cell*, int>> imported_cells_cache;
+
+	EquivSimpleWorker(const vector<Cell*> &equiv_cells, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool verbose, bool model_undef) :
+			module(equiv_cells.front()->module), equiv_cells(equiv_cells), equiv_cell(nullptr),
+			sigmap(sigmap), bit2driver(bit2driver), satgen(&ez, &sigmap), max_seq(max_seq), verbose(verbose)
 	{
 		satgen.model_undef = model_undef;
 	}
@@ -84,10 +87,11 @@ struct EquivSimpleWorker
 			if (input_bits != nullptr) input_bits->insert(bit);
 	}
 
-	bool run()
+	bool run_cell()
 	{
 		SigBit bit_a = sigmap(equiv_cell->getPort("\\A")).to_single_sigbit();
 		SigBit bit_b = sigmap(equiv_cell->getPort("\\B")).to_single_sigbit();
+		int ez_context = ez.frozen_literal();
 
 		if (satgen.model_undef)
 		{
@@ -95,14 +99,14 @@ struct EquivSimpleWorker
 			int ez_b = satgen.importDefSigBit(bit_b, max_seq+1);
 			int ez_undef_a = satgen.importUndefSigBit(bit_a, max_seq+1);
 
-			ez.assume(ez.XOR(ez_a, ez_b));
-			ez.assume(ez.NOT(ez_undef_a));
+			ez.assume(ez.XOR(ez_a, ez_b), ez_context);
+			ez.assume(ez.NOT(ez_undef_a), ez_context);
 		}
 		else
 		{
 			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
 			int ez_b = satgen.importSigBit(bit_b, max_seq+1);
-			ez.assume(ez.XOR(ez_a, ez_b));
+			ez.assume(ez.XOR(ez_a, ez_b), ez_context);
 		}
 
 		pool<SigBit> seed_a = { bit_a };
@@ -155,9 +159,12 @@ struct EquivSimpleWorker
 						GetSize(problem_cells), GetSize(short_cells_cone_a), GetSize(short_cells_cone_b),
 						(GetSize(short_cells_cone_a) + GetSize(short_cells_cone_b)) - GetSize(problem_cells));
 
-			for (auto cell : problem_cells)
-				if (!satgen.importCell(cell, step+1))
+			for (auto cell : problem_cells) {
+				auto key = pair<Cell*, int>(cell, step+1);
+				if (!imported_cells_cache.count(key) && !satgen.importCell(cell, step+1))
 					log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
+				imported_cells_cache.insert(key);
+			}
 
 			if (satgen.model_undef) {
 				for (auto bit : input_bits)
@@ -167,9 +174,10 @@ struct EquivSimpleWorker
 			if (verbose)
 				log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez.numCnfVariables(), ez.numCnfClauses());
 
-			if (!ez.solve()) {
+			if (!ez.solve(ez_context)) {
 				log(verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
 				equiv_cell->setPort("\\B", equiv_cell->getPort("\\A"));
+				ez.assume(ez.NOT(ez_context));
 				return true;
 			}
 
@@ -215,8 +223,29 @@ struct EquivSimpleWorker
 
 		if (!verbose)
 			log(" failed.\n");
+
+		ez.assume(ez.NOT(ez_context));
 		return false;
 	}
+
+	int run()
+	{
+		if (GetSize(equiv_cells) > 1) {
+			SigSpec sig;
+			for (auto c : equiv_cells)
+				sig.append(sigmap(c->getPort("\\Y")));
+			log(" Grouping SAT models for %s:\n", log_signal(sig));
+		}
+
+		int counter = 0;
+		for (auto c : equiv_cells) {
+			equiv_cell = c;
+			if (run_cell())
+				counter++;
+		}
+		return counter;
+	}
+
 };
 
 struct EquivSimplePass : public Pass {
@@ -235,13 +264,16 @@ struct EquivSimplePass : public Pass {
 		log("    -undef\n");
 		log("        enable modelling of undef states\n");
 		log("\n");
+		log("    -nogroup\n");
+		log("        disabling grouping of $equiv cells by output wire\n");
+		log("\n");
 		log("    -seq <N>\n");
 		log("        the max. number of time steps to be considered (default = 1)\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
-		bool verbose = false, model_undef = false;
+		bool verbose = false, model_undef = false, nogroup = false;
 		int success_counter = 0;
 		int max_seq = 1;
 
@@ -255,6 +287,10 @@ struct EquivSimplePass : public Pass {
 			}
 			if (args[argidx] == "-undef") {
 				model_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-nogroup") {
+				nogroup = true;
 				continue;
 			}
 			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
@@ -271,19 +307,26 @@ struct EquivSimplePass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			vector<pair<SigBit, Cell*>> unproven_equiv_cells;
+			SigMap sigmap(module);
+			dict<SigBit, Cell*> bit2driver;
+			dict<SigBit, dict<SigBit, Cell*>> unproven_equiv_cells;
+			int unproven_cells_counter = 0;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv" && cell->getPort("\\A") != cell->getPort("\\B"))
-						unproven_equiv_cells.push_back(pair<SigBit, Cell*>(cell->getPort("\\Y").to_single_sigbit(), cell));
+				if (cell->type == "$equiv" && cell->getPort("\\A") != cell->getPort("\\B")) {
+					auto bit = sigmap(cell->getPort("\\Y").to_single_sigbit());
+					auto bit_group = bit;
+					if (!nogroup && bit_group.wire)
+						bit_group.offset = 0;
+					unproven_equiv_cells[bit_group][bit] = cell;
+					unproven_cells_counter++;
+				}
 
 			if (unproven_equiv_cells.empty())
 				continue;
 
-			log("Found %d unproven $equiv cells in %s:\n", GetSize(unproven_equiv_cells), log_id(module));
-
-			SigMap sigmap(module);
-			dict<SigBit, Cell*> bit2driver;
+			log("Found %d unproven $equiv cells (%d groups) in %s:\n",
+					unproven_cells_counter, GetSize(unproven_equiv_cells), log_id(module));
 
 			for (auto cell : module->cells()) {
 				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_"))
@@ -294,11 +337,17 @@ struct EquivSimplePass : public Pass {
 							bit2driver[bit] = cell;
 			}
 
-			std::sort(unproven_equiv_cells.begin(), unproven_equiv_cells.end());
-			for (auto it : unproven_equiv_cells) {
-				EquivSimpleWorker worker(it.second, sigmap, bit2driver, max_seq, verbose, model_undef);
-				if (worker.run())
-					success_counter++;
+			unproven_equiv_cells.sort();
+			for (auto it : unproven_equiv_cells)
+			{
+				it.second.sort();
+
+				vector<Cell*> cells;
+				for (auto it2 : it.second)
+					cells.push_back(it2.second);
+
+				EquivSimpleWorker worker(cells, sigmap, bit2driver, max_seq, verbose, model_undef);
+				success_counter += worker.run();
 			}
 		}
 

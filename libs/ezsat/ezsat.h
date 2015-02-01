@@ -163,6 +163,7 @@ public:
 	virtual void freeze(int id);
 	virtual bool eliminated(int idx);
 	void assume(int id);
+	void assume(int id, int context_id) { assume(OR(id, NOT(context_id))); }
 	int bind(int id, bool auto_freeze = true);
 	int bound(int id) const;
 
