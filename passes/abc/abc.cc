@@ -1174,7 +1174,7 @@ struct AbcPass : public Pass {
 		log("    -markgroups\n");
 		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
 		log("        this attribute is a unique integer for each ABC process started. This\n");
-		log("        is usefull for debugging the partitioning of clock domains.\n");
+		log("        is useful for debugging the partitioning of clock domains.\n");
 		log("\n");
 		log("When neither -liberty nor -lut is used, the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
