@@ -68,6 +68,7 @@ struct SynthXilinxPass : public Pass {
 		log("The following commands are executed by this synthesis command:\n");
 		log("\n");
 		log("    begin:\n");
+		log("        read_verilog -lib +/xilinx/cells_sim.v\n");
 		log("        hierarchy -check -top <top>\n");
 		log("\n");
 		log("    flatten:     (only if -flatten)\n");
@@ -151,6 +152,7 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "begin"))
 		{
+			Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
 			Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
 		}
 

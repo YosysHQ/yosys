@@ -1,0 +1,2 @@
+read_verilog example.v
+synth_xilinx -edif example.edif -top example
