@@ -44,7 +44,7 @@ struct SynthXilinxPass : public Pass {
 		log("\n");
 		log("This command runs synthesis for Xilinx FPGAs. This command does not operate on\n");
 		log("partly selected designs. At the moment this command creates netlists that are\n");
-		log("compatible with 7-series and 6-series Xilinx devices.\n");
+		log("compatible with 7-Series Xilinx devices.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
