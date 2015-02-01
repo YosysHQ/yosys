@@ -291,7 +291,7 @@ int main(int argc, char **argv)
 	}
 
 	while (optind < argc)
-		run_frontend(argv[optind++], frontend_command, yosys_design, output_filename == "-" ? &backend_command : NULL, NULL);
+		run_frontend(argv[optind++], frontend_command, output_filename == "-" ? &backend_command : NULL);
 
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
@@ -302,14 +302,14 @@ int main(int argc, char **argv)
 			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
 		} else
-			run_frontend(scriptfile, "script", yosys_design, output_filename == "-" ? &backend_command : NULL, NULL);
+			run_frontend(scriptfile, "script", output_filename == "-" ? &backend_command : NULL);
 	}
 
 	for (auto it = passes_commands.begin(); it != passes_commands.end(); it++)
-		run_pass(*it, yosys_design);
+		run_pass(*it);
 
 	if (!backend_command.empty())
-		run_backend(output_filename, backend_command, yosys_design);
+		run_backend(output_filename, backend_command);
 
 	if (print_stats)
 	{

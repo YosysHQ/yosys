@@ -253,9 +253,10 @@ std::string proc_self_dirname();
 std::string proc_share_dirname();
 const char *create_prompt(RTLIL::Design *design, int recursion_counter);
 
-void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command, std::string *from_to_label);
-void run_pass(std::string command, RTLIL::Design *design);
-void run_backend(std::string filename, std::string command, RTLIL::Design *design);
+void run_pass(std::string command, RTLIL::Design *design = nullptr);
+void run_frontend(std::string filename, std::string command, std::string *backend_command, std::string *from_to_label = nullptr, RTLIL::Design *design = nullptr);
+void run_frontend(std::string filename, std::string command, RTLIL::Design *design = nullptr);
+void run_backend(std::string filename, std::string command, RTLIL::Design *design = nullptr);
 void shell(RTLIL::Design *design);
 
 // from kernel/version_*.o (cc source generated from Makefile)

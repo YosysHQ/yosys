@@ -679,8 +679,11 @@ static void handle_label(std::string &command, bool &from_to_active, const std::
 	}
 }
 
-void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command, std::string *from_to_label)
+void run_frontend(std::string filename, std::string command, std::string *backend_command, std::string *from_to_label, RTLIL::Design *design)
 {
+	if (design == nullptr)
+		design = yosys_design;
+
 	if (command == "auto") {
 		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
 			command = "verilog";
@@ -772,8 +775,16 @@ void run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	Frontend::frontend_call(design, NULL, filename, command);
 }
 
+void run_frontend(std::string filename, std::string command, RTLIL::Design *design)
+{
+	run_frontend(filename, command, nullptr, nullptr, design);
+}
+
 void run_pass(std::string command, RTLIL::Design *design)
 {
+	if (design == nullptr)
+		design = yosys_design;
+
 	log("\n-- Running command `%s' --\n", command.c_str());
 
 	Pass::call(design, command);
@@ -781,6 +792,9 @@ void run_pass(std::string command, RTLIL::Design *design)
 
 void run_backend(std::string filename, std::string command, RTLIL::Design *design)
 {
+	if (design == nullptr)
+		design = yosys_design;
+
 	if (command == "auto") {
 		if (filename.size() > 2 && filename.substr(filename.size()-2) == ".v")
 			command = "verilog";
@@ -1025,9 +1039,9 @@ struct ScriptPass : public Pass {
 		if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 		else if (args.size() == 2)
-			run_frontend(args[1], "script", design, NULL, NULL);
+			run_frontend(args[1], "script", design);
 		else if (args.size() == 3)
-			run_frontend(args[1], "script", design, NULL, &args[2]);
+			run_frontend(args[1], "script", NULL, &args[2], design);
 		else
 			extra_args(args, 2, design, false);
 	}

@@ -22,5 +22,6 @@
 /yosys-filterlib.html
 /kernel/version_*.cc
 /share
+/libyosys
 /yosys-win32-mxebin-*
 /yosys-win32-vcxsrc-*

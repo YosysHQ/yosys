@@ -335,6 +335,20 @@ qtcreator:
 	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
 	touch qtcreator.config qtcreator.creator
 
+mklibyosys: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
+	rm -rf libyosys
+	mkdir -p libyosys/include libyosys/objs
+	set -e; for f in $(wildcard $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2>/dev/null); do \
+		echo "Analyse: $$f" >&2; cpp -std=gnu++0x -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | \
+		grep '^[^/]' | sort -u | grep -v kernel/version_ | grep '\.\(h\|hh\)$$' | xargs cp -t libyosys/include/
+	sed -i 's/^\(# *include *"\)[^"]*\//\1/' libyosys/include/*
+	{ echo "#ifndef YOSYS_CONFIG_H"; echo "#define YOSYS_CONFIG_H"; for opt in $(CXXFLAGS); do [[ "$$opt" == -D* ]] || continue; V="$${opt#-D}"; N="$${V%=*}"; \
+		V="$${V#*=}"; [ "$$V" = "$$N" ] && echo "#define $$N" || echo "#define $$N $$V"; done; echo "#endif"; } > libyosys/include/config.h
+	sed -i '/^#define YOSYS_H/ { p; s/.*/#include "config.h"/; };' libyosys/include/yosys.h
+	cp $(filter-out kernel/driver.o,$(OBJS)) libyosys/objs/
+	cp tests/simple/fiedler-cooley.v libyosys/example.v
+	cp misc/example.cc libyosys/example.cc
+
 vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
 	set -e; for f in $(wildcard $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2>/dev/null); do \
