@@ -127,6 +127,9 @@ int main(int argc, char **argv)
 		printf("    -l logfile\n");
 		printf("        write log messages to the specified file\n");
 		printf("\n");
+		printf("    -L logfile\n");
+		printf("        like -l but open log file in line buffered mode\n");
+		printf("\n");
 		printf("    -o outfile\n");
 		printf("        write the design to the specified file on exit\n");
 		printf("\n");
@@ -183,7 +186,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:qv:tds:c:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -231,11 +234,14 @@ int main(int argc, char **argv)
 			got_output_filename = true;
 			break;
 		case 'l':
+		case 'L':
 			log_files.push_back(fopen(optarg, "wt"));
 			if (log_files.back() == NULL) {
 				fprintf(stderr, "Can't open log file `%s' for writing!\n", optarg);
 				exit(1);
 			}
+			if (opt == 'L')
+				setvbuf(log_files.back(), NULL, _IOLBF, 0);
 			break;
 		case 'q':
 			mode_q = true;
