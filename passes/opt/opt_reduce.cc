@@ -371,16 +371,13 @@ struct OptReducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules_) {
-			if (!design->selected(mod_it.second))
-				continue;
-			do {
-				OptReduceWorker worker(design, mod_it.second, do_fine);
+		for (auto module : design->selected_modules())
+			while (1) {
+				OptReduceWorker worker(design, module, do_fine);
 				total_count += worker.total_count;
 				if (worker.total_count == 0)
 					break;
-			} while (1);
-		}
+			}
 
 		if (total_count)
 			design->scratchpad_set_bool("opt.did_something", true);

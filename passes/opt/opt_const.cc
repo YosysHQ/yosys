@@ -1002,7 +1002,7 @@ struct OptConstPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->modules())
+		for (auto module : design->selected_modules())
 		{
 			if (undriven)
 				replace_undriven(design, module);

@@ -468,15 +468,10 @@ struct OptMuxtreePass : public Pass {
 		extra_args(args, 1, design);
 
 		int total_count = 0;
-		for (auto mod : design->modules()) {
-			if (!design->selected_whole_module(mod)) {
-				if (design->selected(mod))
-					log("Skipping module %s as it is only partially selected.\n", log_id(mod));
+		for (auto module : design->selected_whole_modules_warn()) {
+			if (module->has_processes_warn())
 				continue;
-			}
-			if (mod->has_processes_warn())
-				continue;
-			OptMuxtreeWorker worker(design, mod);
+			OptMuxtreeWorker worker(design, module);
 			total_count += worker.removed_count;
 		}
 		if (total_count)

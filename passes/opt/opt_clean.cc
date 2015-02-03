@@ -347,17 +347,10 @@ struct OptCleanPass : public Pass {
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
 
-		for (auto mod : design->modules()) {
-			if (!design->selected_whole_module(mod->name)) {
-				if (design->selected(mod))
-					log("Skipping module %s as it is only partially selected.\n", id2cstr(mod->name));
+		for (auto module : design->selected_whole_modules_warn()) {
+			if (module->has_processes_warn())
 				continue;
-			}
-			if (!mod->processes.empty()) {
-				log("Skipping module %s as it contains processes.\n", mod->name.c_str());
-			} else {
-				rmunused_module(mod, purge_mode, true);
-			}
+			rmunused_module(module, purge_mode, true);
 		}
 
 		ct.clear();
@@ -411,12 +404,13 @@ struct CleanPass : public Pass {
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
-		for (auto mod : design->modules()) {
-			if (design->selected_whole_module(mod->name) && mod->processes.empty())
-				do {
-					design->scratchpad_unset("opt.did_something");
-					rmunused_module(mod, purge_mode, false);
-				} while (design->scratchpad_get_bool("opt.did_something"));
+		for (auto mod : design->selected_whole_modules()) {
+			if (mod->has_processes())
+				continue;
+			do {
+				design->scratchpad_unset("opt.did_something");
+				rmunused_module(mod, purge_mode, false);
+			} while (design->scratchpad_get_bool("opt.did_something"));
 		}
 
 		if (count_rm_cells > 0 || count_rm_wires > 0)
