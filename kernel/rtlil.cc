@@ -460,7 +460,7 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules() const
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_module(it.first))
+		if (selected_module(it.first) && !it.second->get_bool_attribute("\\blackbox"))
 			result.push_back(it.second);
 	return result;
 }
@@ -470,7 +470,7 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_whole_module(it.first))
+		if (selected_whole_module(it.first) && !it.second->get_bool_attribute("\\blackbox"))
 			result.push_back(it.second);
 	return result;
 }
@@ -480,7 +480,9 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_whole_module(it.first))
+		if (it.second->get_bool_attribute("\\blackbox"))
+			continue;
+		else if (selected_whole_module(it.first))
 			result.push_back(it.second);
 		else if (selected_module(it.first))
 			log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
