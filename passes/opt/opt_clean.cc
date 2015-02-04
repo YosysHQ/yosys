@@ -33,52 +33,52 @@ using RTLIL::id2cstr;
 CellTypes ct, ct_reg, ct_all;
 int count_rm_cells, count_rm_wires;
 
-void rmunused_module_cells(RTLIL::Module *module, bool verbose)
+void rmunused_module_cells(Module *module, bool verbose)
 {
 	SigMap sigmap(module);
-	std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> queue, unused;
+	pool<Cell*> queue, unused;
+	dict<SigBit, pool<Cell*>> wire2driver;
 
-	SigSet<RTLIL::Cell*> wire2driver;
 	for (auto &it : module->cells_) {
-		RTLIL::Cell *cell = it.second;
+		Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
 			if (!ct.cell_input(cell->type, it2.first))
-				wire2driver.insert(sigmap(it2.second), cell);
+				for (auto bit : sigmap(it2.second))
+					if (bit.wire != nullptr)
+						wire2driver[bit].insert(cell);
 		}
 		if (cell->type == "$memwr" || cell->type == "$assert" || cell->has_keep_attr())
 			queue.insert(cell);
-		unused.insert(cell);
+		else
+			unused.insert(cell);
 	}
 
 	for (auto &it : module->wires_) {
-		RTLIL::Wire *wire = it.second;
+		Wire *wire = it.second;
 		if (wire->port_output || wire->get_bool_attribute("\\keep")) {
-			pool<RTLIL::Cell*> cell_list;
-			wire2driver.find(sigmap(wire), cell_list);
-			for (auto cell : cell_list)
-				queue.insert(cell);
+			for (auto bit : sigmap(wire))
+			for (auto c : wire2driver[bit])
+				queue.insert(c), unused.erase(c);
 		}
 	}
 
 	while (!queue.empty())
 	{
-		std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> new_queue;
+		pool<SigBit> bits;
 		for (auto cell : queue)
-			unused.erase(cell);
-		for (auto cell : queue) {
-			for (auto &it : cell->connections()) {
-				if (!ct.cell_output(cell->type, it.first)) {
-					pool<RTLIL::Cell*> cell_list;
-					wire2driver.find(sigmap(it.second), cell_list);
-					for (auto c : cell_list) {
-						if (unused.count(c))
-							new_queue.insert(c);
-					}
-				}
-			}
-		}
-		queue.swap(new_queue);
+		for (auto &it : cell->connections())
+			if (!ct.cell_output(cell->type, it.first))
+				for (auto bit : sigmap(it.second))
+					bits.insert(bit);
+
+		queue.clear();
+		for (auto bit : bits)
+		for (auto c : wire2driver[bit])
+			if (unused.count(c))
+				queue.insert(c), unused.erase(c);
 	}
+
+	unused.sort(RTLIL::sort_by_name_id<RTLIL::Cell>());
 
 	for (auto cell : unused) {
 		if (verbose)
