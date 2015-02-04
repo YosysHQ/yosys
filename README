@@ -268,6 +268,9 @@ Verilog Attributes and non-standard features
   temporary variable within an always block. This is mostly used internally
   by yosys to synthesize verilog functions and access arrays.
 
+- The "onehot" attribute on wires mark them as onehot state register. This
+  is used for example for memory port sharing and set by the fsm_map pass.
+
 - The "blackbox" attribute on modules is used to mark empty stub modules
   that have the same ports as the real thing but do not contain information
   on the internal configuration. This modules are only used by the synthesis

@@ -224,6 +224,9 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		}
 	}
 
+	if (encoding_is_onehot)
+		state_wire->set_bool_attribute("\\onehot");
+
 	// generate next_state signal
 
 	if (GetSize(fsm_data.state_table) == 1)

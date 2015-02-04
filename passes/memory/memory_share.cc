@@ -544,6 +544,7 @@ struct MemoryShareWorker
 
 		// create SAT representation of common input cone of all considered EN signals
 
+		pool<Wire*> one_hot_wires;
 		std::set<RTLIL::Cell*> sat_cells;
 		std::set<RTLIL::SigBit> bits_queue;
 		std::map<int, int> port_to_sat_variable;
@@ -560,6 +561,10 @@ struct MemoryShareWorker
 
 		while (!bits_queue.empty())
 		{
+			for (auto bit : bits_queue)
+				if (bit.wire && bit.wire->get_bool_attribute("\\onehot"))
+					one_hot_wires.insert(bit.wire);
+
 			pool<ModWalker::PortBit> portbits;
 			modwalker.get_drivers(portbits, bits_queue);
 			bits_queue.clear();
@@ -570,6 +575,14 @@ struct MemoryShareWorker
 					bits_queue.insert(cell_inputs.begin(), cell_inputs.end());
 					sat_cells.insert(pbit.cell);
 				}
+		}
+
+		for (auto wire : one_hot_wires) {
+			log("  Adding one-hot constraint for wire %s.\n", log_id(wire));
+			vector<int> ez_wire_bits = satgen.importSigSpec(wire);
+			for (int i : ez_wire_bits)
+			for (int j : ez_wire_bits)
+				if (i != j) ez.assume(ez.NOT(i), j);
 		}
 
 		log("  Common input cone for all EN signals: %d cells.\n", int(sat_cells.size()));
