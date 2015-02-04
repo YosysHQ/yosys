@@ -23,13 +23,13 @@ module BUFG(output O, input I);
   assign O = I;
 endmodule
 
-module OBUFT(output O, input I, T);
-  assign O = T ? 1'bz : I;
-endmodule
+// module OBUFT(output O, input I, T);
+//   assign O = T ? 1'bz : I;
+// endmodule
 
-module IOBUF(inout IO, output O, input I, T);
-  assign O = IO, IO = T ? 1'bz : I;
-endmodule
+// module IOBUF(inout IO, output O, input I, T);
+//   assign O = IO, IO = T ? 1'bz : I;
+// endmodule
 
 module INV(output O, input I);
   assign O = !I;
