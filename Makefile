@@ -123,7 +123,7 @@ LDLIBS += $(shell pkg-config --silence-errors --libs libffi || echo -lffi) -ldl
 endif
 
 ifeq ($(ENABLE_TCL),1)
-TCL_VERSION ?= tcl8.5
+TCL_VERSION ?= tcl$(shell echo 'puts [info tclversion]' | tclsh)
 TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
 CXXFLAGS += -I$(TCL_INCLUDE) -DYOSYS_ENABLE_TCL
 LDLIBS += -l$(TCL_VERSION)
