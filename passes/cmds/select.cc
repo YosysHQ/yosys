@@ -832,8 +832,8 @@ struct SelectPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    select [ -add | -del | -set <name> ] <selection>\n");
-		log("    select [ -assert-none | -assert-any ] <selection>\n");
+		log("    select [ -add | -del | -set <name> ] {-read <filename> | <selection>}\n");
+		log("    select [ -assert-none | -assert-any ] {-read <filename> | <selection>}\n");
 		log("    select [ -list | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
 		log("\n");
@@ -874,6 +874,9 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    -write <filename>\n");
 		log("        like -list but write the output to the specified file\n");
+		log("\n");
+		log("    -read <filename>\n");
+		log("        read the specified file (written by -write)\n");
 		log("\n");
 		log("    -count\n");
 		log("        count all objects in the current selection\n");
@@ -1034,9 +1037,8 @@ struct SelectPass : public Pass {
 		bool assert_none = false;
 		bool assert_any = false;
 		int assert_count = -1;
-		std::string write_file;
-		std::string set_name;
-		std::string sel_str;
+		std::string write_file, read_file;
+		std::string set_name, sel_str;
 
 		work_stack.clear();
 
@@ -1080,6 +1082,10 @@ struct SelectPass : public Pass {
 				write_file = args[++argidx];
 				continue;
 			}
+			if (arg == "-read" && argidx+1 < args.size()) {
+				read_file = args[++argidx];
+				continue;
+			}
 			if (arg == "-count") {
 				count_mode = true;
 				continue;
@@ -1100,6 +1106,34 @@ struct SelectPass : public Pass {
 				log_cmd_error("Unknown option %s.\n", arg.c_str());
 			select_stmt(design, arg);
 			sel_str += " " + arg;
+		}
+
+		if (!read_file.empty())
+		{
+			if (!sel_str.empty())
+				log_cmd_error("Option -read can not be combined with a selection expression.\n");
+
+			std::ifstream f(read_file);
+			if (f.fail())
+				log_error("Can't open '%s' for reading: %s\n", read_file.c_str(), strerror(errno));
+
+			RTLIL::Selection sel(false);
+			string line;
+
+			while (std::getline(f, line)) {
+				size_t slash_pos = line.find('/');
+				if (slash_pos == string::npos) {
+					log_warning("Ignoring line without slash in 'select -read': %s\n", line.c_str());
+					continue;
+				}
+				IdString mod_name = RTLIL::escape_id(line.substr(0, slash_pos));
+				IdString obj_name = RTLIL::escape_id(line.substr(slash_pos+1));
+				sel.selected_members[mod_name].insert(obj_name);
+			}
+
+			select_filter_active_mod(design, sel);
+			sel.optimize(design);
+			work_stack.push_back(sel);
 		}
 
 		if (clear_mode && args.size() != 2)
