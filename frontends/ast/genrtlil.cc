@@ -1296,6 +1296,20 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		{
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
+			if (left.has_const()) {
+				RTLIL::SigSpec new_left, new_right;
+				for (int i = 0; i < GetSize(left); i++)
+					if (left[i].wire) {
+						new_left.append(left[i]);
+						new_right.append(right[i]);
+					}
+				log_warning("Ignoring assignment to constant bits at %s:%d:\n"
+						"    old assignment: %s = %s\n    new assignment: %s = %s.\n",
+						filename.c_str(), linenum, log_signal(left), log_signal(right),
+						log_signal(new_left), log_signal(new_right));
+				left = new_left;
+				right = new_right;
+			}
 			current_module->connect(RTLIL::SigSig(left, right));
 		}
 		break;
