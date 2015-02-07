@@ -1140,6 +1140,11 @@ public:
 	const RTLIL::SigSpec &getPort(RTLIL::IdString portname) const;
 	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
+	// information about cell ports
+	bool known() const;
+	bool input(RTLIL::IdString portname) const;
+	bool output(RTLIL::IdString portname) const;
+
 	// access cell parameters
 	bool hasParam(RTLIL::IdString paramname) const;
 	void unsetParam(RTLIL::IdString paramname);

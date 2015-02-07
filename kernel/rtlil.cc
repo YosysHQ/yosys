@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
+#include "kernel/celltypes.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "backends/ilang/ilang_backend.h"
 
@@ -1926,6 +1927,39 @@ const RTLIL::SigSpec &RTLIL::Cell::getPort(RTLIL::IdString portname) const
 const dict<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections() const
 {
 	return connections_;
+}
+
+bool RTLIL::Cell::known() const
+{
+	if (yosys_celltypes.cell_known(type))
+		return true;
+	if (module && module->design && module->design->module(type))
+		return true;
+	return false;
+}
+
+bool RTLIL::Cell::input(RTLIL::IdString portname) const
+{
+	if (yosys_celltypes.cell_known(type))
+		return yosys_celltypes.cell_input(type, portname);
+	if (module && module->design) {
+		RTLIL::Module *m = module->design->module(type);
+		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
+		return w && w->port_input;
+	}
+	return false;
+}
+
+bool RTLIL::Cell::output(RTLIL::IdString portname) const
+{
+	if (yosys_celltypes.cell_known(type))
+		return yosys_celltypes.cell_output(type, portname);
+	if (module && module->design) {
+		RTLIL::Module *m = module->design->module(type);
+		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
+		return w && w->port_output;
+	}
+	return false;
 }
 
 bool RTLIL::Cell::hasParam(RTLIL::IdString paramname) const
