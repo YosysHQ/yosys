@@ -159,10 +159,10 @@ CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
 
 define add_share_file
-EXTRA_TARGETS += $(1)/$(notdir $(2))
-$(1)/$(notdir $(2)): $(2)
+EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
+$(subst //,/,$(1)/$(notdir $(2))): $(2)
 	$$(P) mkdir -p $(1)
-	$$(Q) cp $(2) $(1)/$(notdir $(2))
+	$$(Q) cp $(2) $(subst //,/,$(1)/$(notdir $(2)))
 endef
 
 define add_include_file
