@@ -1294,15 +1294,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// add entries to current_module->connections for assignments (outside of always blocks)
 	case AST_ASSIGN:
 		{
-			if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_AUTOWIRE) {
-				RTLIL::SigSpec right = children[1]->genRTLIL();
-				RTLIL::SigSpec left = children[0]->genWidthRTLIL(right.size());
-				current_module->connect(RTLIL::SigSig(left, right));
-			} else {
-				RTLIL::SigSpec left = children[0]->genRTLIL();
-				RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
-				current_module->connect(RTLIL::SigSig(left, right));
-			}
+			RTLIL::SigSpec left = children[0]->genRTLIL();
+			RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
+			current_module->connect(RTLIL::SigSig(left, right));
 		}
 		break;
 
