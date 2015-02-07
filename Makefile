@@ -20,6 +20,9 @@ ENABLE_NDEBUG := 0
 DESTDIR := /usr/local
 INSTALL_SUDO :=
 
+TARGET_BINDIR := $(DESTDIR)/bin
+TARGET_DATDIR := $(DESTDIR)/share/yosys
+
 EXE =
 OBJS =
 GENFILES =
@@ -32,7 +35,8 @@ SMALL = 0
 
 all: top-all
 
-CXXFLAGS = -Wall -Wextra -ggdb -I"$(shell pwd)" -MD -DYOSYS_SRC='"$(shell pwd)"' -D_YOSYS_ -fPIC -I$(DESTDIR)/include
+YOSYS_SRC := $(shell pwd)
+CXXFLAGS = -Wall -Wextra -ggdb -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(DESTDIR)/include
 LDFLAGS = -L$(DESTDIR)/lib
 LDLIBS = -lstdc++ -lm
 SED = sed
@@ -161,6 +165,10 @@ $(1)/$(notdir $(2)): $(2)
 	$$(Q) cp $(2) $(1)/$(notdir $(2))
 endef
 
+define add_include_file
+$(eval $(call add_share_file,$(dir share/include/$(1)),$(1)))
+endef
+
 ifeq ($(PRETTY), 1)
 P_STATUS = 0
 P_OFFSET = 0
@@ -176,7 +184,26 @@ Q =
 S =
 endif
 
+$(eval $(call add_include_file,kernel/yosys.h))
+$(eval $(call add_include_file,kernel/hashlib.h))
+$(eval $(call add_include_file,kernel/log.h))
+$(eval $(call add_include_file,kernel/rtlil.h))
+$(eval $(call add_include_file,kernel/register.h))
+$(eval $(call add_include_file,kernel/celltypes.h))
+$(eval $(call add_include_file,kernel/consteval.h))
+$(eval $(call add_include_file,kernel/sigtools.h))
+$(eval $(call add_include_file,kernel/modtools.h))
+$(eval $(call add_include_file,kernel/macc.h))
+$(eval $(call add_include_file,kernel/utils.h))
+$(eval $(call add_include_file,kernel/satgen.h))
+$(eval $(call add_include_file,libs/ezsat/ezsat.h))
+$(eval $(call add_include_file,libs/ezsat/ezminisat.h))
+$(eval $(call add_include_file,libs/sha1/sha1.h))
+$(eval $(call add_include_file,passes/fsm/fsmdata.h))
+$(eval $(call add_include_file,backends/ilang/ilang_backend.h))
+
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
+kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
@@ -246,8 +273,9 @@ kernel/version_$(GIT_REV).cc: Makefile
 			$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1` $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))\"; }" > kernel/version_$(GIT_REV).cc
 
 yosys-config: misc/yosys-config.in
-	$(P) $(SED) -e 's,@CXX@,$(CXX),;' -e 's,@CXXFLAGS@,$(CXXFLAGS),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
-			-e 's,@BINDIR@,$(DESTDIR)/bin,;' -e 's,@DATDIR@,$(DESTDIR)/share/yosys,;' < misc/yosys-config.in > yosys-config
+	$(P) $(SED) -e 's,@CXXFLAGS@,$(subst -I"$(YOSYS_SRC)",-I"$(TARGET_DATDIR)/include",$(CXXFLAGS)),;' \
+			-e 's,@CXX@,$(CXX),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
+			-e 's,@BINDIR@,$(TARGET_BINDIR),;' -e 's,@DATDIR@,$(TARGET_DATDIR),;' < misc/yosys-config.in > yosys-config
 	$(Q) chmod +x yosys-config
 
 abc/abc-$(ABCREV)$(EXE):

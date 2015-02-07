@@ -319,6 +319,11 @@ Also with default config setting:
 	bash example.sh
 
 
+Test building plugins with various of the standard passes:
+
+	yosys-config --build test.so equiv_simple.cc
+
+
 Finally if a current verific library is available:
 
 	cd ~yosys
