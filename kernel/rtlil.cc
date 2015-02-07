@@ -1078,6 +1078,7 @@ void RTLIL::Module::check()
 
 	for (auto &it : connections_) {
 		log_assert(it.first.size() == it.second.size());
+		log_assert(!it.first.has_const());
 		it.first.check();
 		it.second.check();
 	}
@@ -2966,6 +2967,17 @@ bool RTLIL::SigSpec::is_fully_undef() const
 				return false;
 	}
 	return true;
+}
+
+bool RTLIL::SigSpec::has_const() const
+{
+	cover("kernel.rtlil.sigspec.has_const");
+
+	pack();
+	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
+		if (it->width > 0 && it->wire == NULL)
+			return true;
+	return false;
 }
 
 bool RTLIL::SigSpec::has_marked_bits() const
