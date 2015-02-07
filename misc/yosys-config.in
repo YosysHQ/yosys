@@ -3,7 +3,8 @@
 help() {
 	{
 		echo ""
-		echo "Usage: $0 [-exec] [--prefix pf] args.."
+		echo "Usage: $0 [--exec] [--prefix pf] args.."
+		echo "       $0 --build modname.so cppsources.."
 		echo ""
 		echo "Replecement args:"
 		echo "    --cxx         @CXX@"
@@ -15,9 +16,13 @@ help() {
 		echo ""
 		echo "All other args are passed trhough as they are."
 		echo ""
-		echo "Use -exec to call a command instead of generating output. Example usage:"
+		echo "Use --exec to call a command instead of generating output. Example usage:"
 		echo ""
 		echo "  yosys-config --exec --cxx --cxxflags --ldflags -o plugin.so -shared plugin.cc --ldlibs"
+		echo ""
+		echo "The above command can be abbreviated as:"
+		echo ""
+		echo "  yosys-config --build plugin.so plugin.cc"
 		echo ""
 		echo "Use --prefix to change the prefix for the special args from '--' to"
 		echo "something else. Example:"
@@ -35,6 +40,11 @@ help() {
 
 if [ $# -eq 0 ]; then
 	help
+fi
+
+if [ "$1" == "--build" ]; then
+	modname="$2"; shift 2
+	set -- --exec --cxx --cxxflags --ldflags -o "$modname" -shared "$@" --ldlibs
 fi
 
 prefix="--"
