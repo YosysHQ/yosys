@@ -14,7 +14,7 @@ help() {
 		echo "    --bindir      @BINDIR@"
 		echo "    --datdir      @DATDIR@"
 		echo ""
-		echo "All other args are passed trhough as they are."
+		echo "All other args are passed through as they are."
 		echo ""
 		echo "Use --exec to call a command instead of generating output. Example usage:"
 		echo ""
