@@ -309,6 +309,10 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/share/yosys
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)/share/yosys/.
 
+uninstall:
+	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)/bin/,$(notdir $(TARGETS)))
+	$(INSTALL_SUDO) rm -rvf $(DESTDIR)/share/yosys/
+
 manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && bash appnotes.sh
 	cd manual && bash presentation.sh
