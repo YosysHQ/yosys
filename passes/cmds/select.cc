@@ -839,7 +839,7 @@ RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *des
 }
 
 // extern decl. in register.h
-void eval_select_op(vector<RTLIL::Selection> &work, string &op, RTLIL::Design *design)
+void eval_select_op(vector<RTLIL::Selection> &work, const string &op, RTLIL::Design *design)
 {
 	work_stack.swap(work);
 	select_stmt(design, op);
