@@ -34,9 +34,10 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 
 	for (auto &it : module->wires_)
 		if (it.first == from_name) {
-			log("Renaming wire %s to %s in module %s.\n", log_id(it.second), log_id(to_name), log_id(module));
-			module->rename(it.second, to_name);
-			if (it.second->port_id)
+			Wire *w = it.second;
+			log("Renaming wire %s to %s in module %s.\n", log_id(w), log_id(to_name), log_id(module));
+			module->rename(w, to_name);
+			if (w->port_id)
 				module->fixup_ports();
 			return;
 		}
