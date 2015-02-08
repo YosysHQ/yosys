@@ -60,6 +60,10 @@ struct ModIndex : public RTLIL::Monitor
 
 		SigBitInfo() : is_input(false), is_output(false) { }
 
+		bool operator==(const SigBitInfo &other) const {
+			return is_input == other.is_input && is_output == other.is_output && ports == other.ports;
+		}
+
 		void merge(const SigBitInfo &other)
 		{
 			is_input = is_input || other.is_input;
@@ -71,6 +75,7 @@ struct ModIndex : public RTLIL::Monitor
 	SigMap sigmap;
 	RTLIL::Module *module;
 	std::map<RTLIL::SigBit, SigBitInfo> database;
+	int auto_reload_counter;
 	bool auto_reload_module;
 
 	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
@@ -96,10 +101,12 @@ struct ModIndex : public RTLIL::Monitor
 		return database[sigmap(bit)];
 	}
 
-	void reload_module()
+	void reload_module(bool reset_sigmap = true)
 	{
-		sigmap.clear();
-		sigmap.set(module);
+		if (reset_sigmap) {
+			sigmap.clear();
+			sigmap.set(module);
+		}
 
 		database.clear();
 		for (auto wire : module->wires())
@@ -115,8 +122,40 @@ struct ModIndex : public RTLIL::Monitor
 			for (auto &conn : cell->connections())
 				port_add(cell, conn.first, conn.second);
 
-		auto_reload_module = false;
-		// log("Auto-reload in ModIndex -- possible performance bug!\n");
+		if (auto_reload_module) {
+			if (++auto_reload_counter > 2)
+				log_warning("Auto-reload in ModIndex -- possible performance bug!\n");
+			auto_reload_module = false;
+		}
+	}
+
+	void check()
+	{
+#ifndef NDEBUG
+		if (auto_reload_module)
+			return;
+
+		for (auto it : database)
+			log_assert(it.first == sigmap(it.first));
+
+		auto database_bak = std::move(database);
+		reload_module(false);
+
+		if (!(database == database_bak))
+		{
+			for (auto &it : database_bak)
+				if (!database.count(it.first))
+					log("ModuleIndex::check(): Only in database_bak, not database: %s\n", log_signal(it.first));
+
+			for (auto &it : database)
+				if (!database_bak.count(it.first))
+					log("ModuleIndex::check(): Only in database, not database_bak: %s\n", log_signal(it.first));
+				else if (!(it.second == database_bak.at(it.first)))
+					log("ModuleIndex::check(): Different content for database[%s].\n", log_signal(it.first));
+
+			log_assert(database == database_bak);
+		}
+#endif
 	}
 
 	virtual void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) YS_OVERRIDE
@@ -151,25 +190,26 @@ struct ModIndex : public RTLIL::Monitor
 				SigBitInfo new_info = database.at(lhs);
 				database.erase(lhs);
 				sigmap.add(lhs, rhs);
-				database[sigmap(lhs)] = new_info;
+				lhs = sigmap(lhs);
+				if (lhs.wire)
+					database[lhs] = new_info;
 			} else
 			if (!has_lhs) {
 				SigBitInfo new_info = database.at(rhs);
 				database.erase(rhs);
 				sigmap.add(lhs, rhs);
-				database[sigmap(rhs)] = new_info;
+				rhs = sigmap(rhs);
+				if (rhs.wire)
+					database[rhs] = new_info;
 			} else {
-		#if 1
-				auto_reload_module = true;
-				return;
-		#else
 				SigBitInfo new_info = database.at(lhs);
 				new_info.merge(database.at(rhs));
 				database.erase(lhs);
 				database.erase(rhs);
 				sigmap.add(lhs, rhs);
-				database[sigmap(rhs)] = new_info;
-		#endif
+				rhs = sigmap(rhs);
+				if (rhs.wire)
+					database[rhs] = new_info;
 			}
 		}
 	}
@@ -188,6 +228,7 @@ struct ModIndex : public RTLIL::Monitor
 
 	ModIndex(RTLIL::Module *_m) : module(_m)
 	{
+		auto_reload_counter = 0;
 		auto_reload_module = true;
 		module->monitors.insert(this);
 	}
