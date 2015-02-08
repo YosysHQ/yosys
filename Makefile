@@ -320,7 +320,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 VALGRIND ?= valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 
 vgtest: $(TARGETS) $(EXTRA_TARGETS)
-	$(VALGRIND) ./yosys -p 'setattr -mod -unset top; hierarchy; proc; opt; memory -nomap; opt -fine; techmap; opt' $$( ls tests/simple/*.v | grep -v repwhile.v )
+	$(VALGRIND) ./yosys -p 'setattr -mod -unset top; synth' $$( ls tests/simple/*.v | grep -v repwhile.v )
 	@echo ""
 	@echo "  Passed \"make vgtest\"."
 	@echo ""

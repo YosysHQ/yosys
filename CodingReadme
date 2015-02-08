@@ -286,7 +286,8 @@ Run all tests with "make config-{clang,gcc,gcc-4.6}":
 
 	cd ~yosys
 	make clean
-	make test vloghtb
+	make test
+	make vloghtb
 	make install
 
 	cd ~yosys-bigsim
@@ -300,6 +301,9 @@ Run all tests with "make config-{clang,gcc,gcc-4.6}":
 
 
 Then with default config setting:
+
+	cd ~yosys
+	make vgtest
 
 	cd ~yosys
 	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
