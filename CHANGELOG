@@ -8,6 +8,7 @@ Yosys 0.4 .. Yosys 0.5
 
  * API changes
      - Added log_warning()
+     - Added eval_select_args() and eval_select_op()
      - Added cell->known(), cell->input(portname), cell->output(portname)
      - Skip blackbox modules in design->selected_modules()
      - Replaced std::map<> and std::set<> with dict<> and pool<>
