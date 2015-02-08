@@ -3,10 +3,52 @@ List of major changes and improvements between releases
 =======================================================
 
 
-Yosys 0.4 .. Yosys 0.4+
------------------------
+Yosys 0.4 .. Yosys 0.5
+----------------------
 
- ... TBD ...
+ * API changes
+     - Added log_warning()
+     - Added cell->known(), cell->input(portname), cell->output(portname)
+     - Skip blackbox modules in design->selected_modules()
+     - Replaced std::map<> and std::set<> with dict<> and pool<>
+     - New SigSpec::extend() is what used to be SigSpec::extend_u0()
+     - Added YS_OVERRIDE, YS_FINAL, YS_ATTRIBUTE, YS_NORETURN
+
+ * Cell library changes
+     - Added flip-flops with enable ($dffe etc.)
+     - Added $equiv cells for equivalence checking framework
+
+ * Various
+     - Updated ABC to hg rev 61ad5f908c03
+     - Added clock domain partitioning to ABC pass
+     - Improved plugin building (see "yosys-config --build")
+     - Added ENABLE_NDEBUG Makefile flag for high-performance builds
+     - Added "yosys -d", "yosys -L" and other driver improvements
+     - Added support for multi-bit (array) cell ports to "write_edif"
+     - Now printing most output to stdout, not stderr
+     - Added "onehot" attribute (set by "fsm_map")
+     - Various performance improvements
+     - Vastly improved Xilinx flow
+     - Added "make unsintall"
+
+ * Equivalence checking
+     - Added equivalence checking commands:
+         equiv_make equiv_simple equiv_status
+	 equiv_induct equiv_miter
+	 equiv_add equiv_remove
+
+ * Block RAM support:
+     - Added "memory_bram" command
+     - Added BRAM support to Xilinx flow
+
+ * Other New Commands and Options
+     - Added "dff2dffe"
+     - Added "fsm -encfile"
+     - Added "dfflibmap -prepare"
+     - Added "write_blid -unbuf -undef -blackbox"
+     - Added "write_smt2" for writing SMT-LIBv2 files
+     - Added "test_cell -w -muxdiv"
+     - Added "select -read"
 
 
 Yosys 0.3.0 .. Yosys 0.4
