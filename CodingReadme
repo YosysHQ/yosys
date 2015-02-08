@@ -309,6 +309,7 @@ Then with default config setting:
 	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
 	./yosys -p 'proc; opt; show' tests/simple/fiedler-cooley.v
 	./yosys -p 'synth; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'synth_xilinx -top up3down5; show' tests/simple/fiedler-cooley.v
 
 	cd ~yosys
 	make manual
