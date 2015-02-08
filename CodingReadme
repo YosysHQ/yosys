@@ -32,6 +32,10 @@ This can be built into a Yosys module using the following command:
 
 	yosys-config --exec --cxx --cxxflags --ldflags -o hello.so -shared hello.cc --ldlibs
 
+Or short:
+
+	yosys-config --build hello.so hello.cc
+
 And then executed using the following command:
 
 	yosys -m hello.so -p hello_world
@@ -68,6 +72,9 @@ replacement for std::unordered_set<T>. The main characteristics are:
 
 	- iterators can be compared. it1 < it2 means that the position of t2
 	  can be reached via t1 but not vice versa.
+
+	- the method .sort() can be used to sort the elements in the container
+	  the container stays sorted until elements are added or removed.
 
 	- dict<K, T> and pool<T> will have the same order of iteration across
 	  all compilers, standard libraries and architectures.
@@ -109,8 +116,8 @@ the declarations for the following types in kernel/rtlil.h:
 		table.)
 
 	RTLIL::SigBit
-		A single signal bit. I.e. either a constant (0, 1, x, z) or
-		a single bit from a wire.
+		A single signal bit. I.e. either a constant state (0, 1,
+		x, z) or a single bit from a wire.
 
 	RTLIL::SigSpec
 		Essentially a vector of SigBits.
@@ -134,7 +141,7 @@ in Yosys. Most importantly there is SigMap (declared in kernel/sigtools.h).
 
 When a design has many wires in it that are connected to each other, then a
 single signal bit can have multiple valid names. The SigMap object can be used
-to map SigSpecs or SigBits to unique SigSpecs and SigBits that consitently
+to map SigSpecs or SigBits to unique SigSpecs and SigBits that consistently
 only use one wire from such a group of connected wires. For example:
 
 	SigBit a = module->addWire(NEW_ID);
@@ -154,8 +161,7 @@ The following yosys commands are a good starting point if you are looking for ex
 of how to use the Yosys API:
 
 	manual/CHAPTER_Prog/stubnets.cc
-	passes/opt/wreduce.cc
-	passes/techmap/maccmap.cc
+	manual/PRESENTATION_Prog/my_cmd.cc
 
 
 Notes on the existing codebase
@@ -312,11 +318,8 @@ Also with default config setting:
 	cd ~yosys/techlibs/cmos
 	bash testbench.sh
 
-	cd ~yosys/techlibs/xilinx/example_sim_counter
-	bash run_sim.sh
-
-	cd ~yosys/techlibs/xilinx/example_mojo_counter
-	bash example.sh
+	cd ~yosys/techlibs/xilinx/example_basys3
+	bash run.sh
 
 
 Test building plugins with various of the standard passes:
