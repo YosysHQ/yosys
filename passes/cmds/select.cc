@@ -801,7 +801,7 @@ PRIVATE_NAMESPACE_END
 YOSYS_NAMESPACE_BEGIN
 
 // used in kernel/register.cc and maybe other locations, extern decl. in register.h
-void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design)
+void handle_extra_select_args(Pass *pass, vector<string> args, size_t argidx, size_t args_size, RTLIL::Design *design)
 {
 	work_stack.clear();
 	for (; argidx < args_size; argidx++) {
@@ -817,10 +817,33 @@ void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t 
 		select_op_union(design, work_stack.front(), work_stack.back());
 		work_stack.pop_back();
 	}
-	if (work_stack.size() > 0)
-		design->selection_stack.push_back(work_stack.back());
-	else
+	if (work_stack.empty())
 		design->selection_stack.push_back(RTLIL::Selection(false));
+	else
+		design->selection_stack.push_back(work_stack.back());
+}
+
+// extern decl. in register.h
+RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *design)
+{
+	work_stack.clear();
+	for (auto &arg : args)
+		select_stmt(design, arg);
+	while (work_stack.size() > 1) {
+		select_op_union(design, work_stack.front(), work_stack.back());
+		work_stack.pop_back();
+	}
+	if (work_stack.empty())
+		return RTLIL::Selection(false);
+	return work_stack.back();
+}
+
+// extern decl. in register.h
+void eval_select_op(vector<RTLIL::Selection> &work, string &op, RTLIL::Design *design)
+{
+	work_stack.swap(work);
+	select_stmt(design, op);
+	work_stack.swap(work);
 }
 
 YOSYS_NAMESPACE_END
