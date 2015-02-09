@@ -341,6 +341,9 @@ uninstall:
 	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)/bin/,$(notdir $(TARGETS)))
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)/share/yosys/
 
+update-manual: $(TARGETS) $(EXTRA_TARGETS)
+	cd manual && ../yosys -p 'help -write-tex-command-reference-manual'
+
 manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && bash appnotes.sh
 	cd manual && bash presentation.sh

@@ -282,15 +282,55 @@ Update the CHANGELOG file:
 	vi CHANGELOG
 
 
-Update command reference in manual:
+Update and check documentation:
 
 	cd ~yosys
-	make
-	cd manual
-	../yosys -p 'help -write-tex-command-reference-manual'
+	make update-manual
+	make manual
+	- sanity check the figures in the appnotes and presentation
+	    - if there are any odd things -> investigate
+	    - make cosmetic changes to the .tex files if necessary
+
+	cd ~yosys
+	vi README CodingReadme
+	- is the information provided in those file still up to date
 
 
-Run all tests with "make config-{clang,gcc,gcc-4.6}":
+Then with default config setting:
+
+	cd ~yosys
+	make vgtest
+
+	cd ~yosys
+	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'proc; opt; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'synth; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'synth_xilinx -top up3down5; show' tests/simple/fiedler-cooley.v
+
+	cd ~yosys/techlibs/cmos
+	bash testbench.sh
+
+	cd ~yosys/techlibs/xilinx/example_basys3
+	bash run.sh
+
+
+Test building plugins with various of the standard passes:
+
+	yosys-config --build test.so equiv_simple.cc
+	- also check the code examples in CodingReadme
+
+
+And if a version of the verific library is currently available:
+
+	cd ~yosys
+	cat frontends/verific/build_amd64.txt
+	- follow instructions
+
+	cd frontends/verific
+	../../yosys test_navre.ys
+
+
+Finally run all tests with "make config-{clang,gcc,gcc-4.6}":
 
 	cd ~yosys
 	make clean
@@ -308,56 +348,6 @@ Run all tests with "make config-{clang,gcc,gcc-4.6}":
 	chromium-browser report.html
 
 
-Then with default config setting:
-
-	cd ~yosys
-	make vgtest
-
-	cd ~yosys
-	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
-	./yosys -p 'proc; opt; show' tests/simple/fiedler-cooley.v
-	./yosys -p 'synth; show' tests/simple/fiedler-cooley.v
-	./yosys -p 'synth_xilinx -top up3down5; show' tests/simple/fiedler-cooley.v
-
-	cd ~yosys
-	make manual
-	- sanity check the figures in the appnotes and presentation
-	    - if there are any odd things -> investigate
-	    - make cosmetic changes to the .tex files if necessary
-
-
-Also with default config setting:
-
-	cd ~yosys/techlibs/cmos
-	bash testbench.sh
-
-	cd ~yosys/techlibs/xilinx/example_basys3
-	bash run.sh
-
-
-Test building plugins with various of the standard passes:
-
-	yosys-config --build test.so equiv_simple.cc
-
-
-Finally if a current verific library is available:
-
-	cd ~yosys
-	cat frontends/verific/build_amd64.txt
-	- follow instructions
-
-	cd frontends/verific
-	../../yosys test_navre.ys
-
-
-Release candiate:
-
-	- create branch yosys-x.y.z-rc and push to github
-	- contact the usual suspects per mail and ask them to test
-	- post on the reddit and ask people to test
-	- commit KISS fixes to the -rc branch if necessary
-
-
 Release:
 
 	- set YOSYS_VER to x.y.z in Makefile
@@ -367,7 +357,6 @@ Release:
 	- push tag to github
 	- post changelog on github
 	- post short release note on reddit
-	- delete -rc branch from github
 
 
 Updating the website:
@@ -383,13 +372,4 @@ Updating the website:
 	make update_show
 	git commit -am update
 	make push
-
-
-In master branch:
-
-	git merge {release-tag}
-	- set version to x.y.z+ in Makefile
-	- add section "Yosys x.y.z .. x.y.z+" to CHANGELOG
-	git commit --amend -am "Yosys x.y.z+"
-
 
