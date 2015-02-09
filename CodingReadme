@@ -282,6 +282,14 @@ Update the CHANGELOG file:
 	vi CHANGELOG
 
 
+Update command reference in manual:
+
+	cd ~yosys
+	make
+	cd manual
+	../yosys -p 'help -write-tex-command-reference-manual'
+
+
 Run all tests with "make config-{clang,gcc,gcc-4.6}":
 
 	cd ~yosys

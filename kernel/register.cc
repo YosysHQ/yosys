@@ -545,11 +545,10 @@ struct HelpPass : public Pass {
 	}
 	void escape_tex(std::string &tex)
 	{
-		size_t pos = 0;
-		while ((pos = tex.find('_', pos)) != std::string::npos) {
+		for (size_t pos = 0; (pos = tex.find('_', pos)) != std::string::npos; pos += 2)
 			tex.replace(pos, 1, "\\_");
-			pos += 2;
-		}
+		for (size_t pos = 0; (pos = tex.find('$', pos)) != std::string::npos; pos += 2)
+			tex.replace(pos, 1, "\\$");
 	}
 	void write_tex(FILE *f, std::string cmd, std::string title, std::string text)
 	{
