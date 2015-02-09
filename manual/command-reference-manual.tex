@@ -23,36 +23,33 @@ library to a target architecture.
         if no -script parameter is given, the following scripts are used:
 
         for -liberty without -constr:
-          strash; scorr -v; ifraig -v; retime -v {D}; strash; dch -vf;
-               map -v {D}
+          strash; scorr; ifraig; retime {D}; strash; dch -f; map {D}
 
         for -liberty with -constr:
-          strash; scorr -v; ifraig -v; retime -v {D}; strash; dch -vf;
-               map -v {D}; buffer -v; upsize -v {D}; dnsize -v {D};
-               stime -p
+          strash; scorr; ifraig; retime {D}; strash; dch -f; map {D};
+               buffer; upsize {D}; dnsize {D}; stime -p
 
         for -lut:
-          strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; if -v
+          strash; scorr; ifraig; retime; strash; dch -f; if
 
         otherwise:
-          strash; scorr -v; ifraig -v; retime -v; strash; dch -vf; map -v
+          strash; scorr; ifraig; retime; strash; dch -f; map
 
     -fast
         use different default scripts that are slightly faster (at the cost
         of output quality):
 
         for -liberty without -constr:
-          retime -v {D}; map -v {D}
+          retime {D}; map {D}
 
         for -liberty with -constr:
-          retime -v {D}; map -v {D}; buffer -v; upsize -v {D};
-               dnsize -v {D}; stime -p
+          retime {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p
 
         for -lut:
-          retime -v; if -v
+          retime; if
 
         otherwise:
-          retime -v; map -v
+          retime; map
 
     -liberty <file>
         generate netlists for the specified cell library (using the liberty
@@ -76,15 +73,20 @@ library to a target architecture.
     -lut <width>
         generate netlist using luts of (max) the specified width.
 
-    -dff
-        also pass $_DFF_?_ cells through ABC (only one clock domain, if many
-        clock domains are present in a module, the one with the largest number
-        of $_DFF_?_ cells in it is used)
+    -lut <w1>:<w2>
+        generate netlist using luts of (max) the specified width <w2>. All
+        luts with width <= <w1> have constant cost. for luts larger than <w1>
+        the area cost doubles with each additional input bit. the delay cost
+        is still constant for all lut widths.
 
-    -clk [!]<signal-name>
-        use the specified clock domain. (when this option is used in combination
-        with -dff, then it falls back to the automatic dection of clock domain
-        if the specified clock is not found in a module.)
+    -dff
+        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many
+        clock domains are automatically partitioned in clock domains and each
+        domain is passed through ABC independently.
+
+    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>]
+        use only the specified clock domain. this is like -dff, but only FF
+        cells that belong to the specified clock domain are used.
 
     -keepff
         set the "keep" attribute on flip-flop output wires. (and thus preserve
@@ -93,6 +95,15 @@ library to a target architecture.
     -nocleanup
         when this option is used, the temporary files created by this pass
         are not removed. this is useful for debugging.
+
+    -showtmp
+        print the temp dir name in log. usually this is suppressed so that the
+        command output is identical across runs.
+
+    -markgroups
+        set a 'abcgroup' attribute on all objects created by ABC. The value of
+        this attribute is a unique integer for each ABC process started. This
+        is useful for debugging the partitioning of clock domains.
 
 When neither -liberty nor -lut is used, the Yosys standard cell library is
 loaded into ABC before the ABC script is executed.
@@ -130,8 +141,8 @@ selected modules.
 \begin{lstlisting}[numbers=left,frame=single]
     alumacc [selection]
 
-This pass translates arithmetic operations $add, $mul, $lt, etc. to $alu and
-$macc cells.
+This pass translates arithmetic operations like $add, $mul, $lt, etc. to $alu
+and $macc cells.
 \end{lstlisting}
 
 \section{cd -- a shortcut for 'select -module <name>'}
@@ -272,7 +283,7 @@ Hint: Use the following AWK command to consolidate Yosys coverage files:
       printf "%-60s %10d %s\n", p[i], c[i], i; }' {files} | sort -k3
 
 
-Coverage counters are only available in debug builds of Yosys for Linux.
+Coverage counters are only available in Yosys for Linux.
 \end{lstlisting}
 
 \section{delete -- delete objects in the design}
@@ -335,16 +346,43 @@ evaluated in the other design.
 Copy modules from the current design into the soecified one.
 \end{lstlisting}
 
+\section{dff2dffe -- transform $dff cells to $dffe cells}
+\label{cmd:dff2dffe}
+\begin{lstlisting}[numbers=left,frame=single]
+    dff2dffe [selection]
+
+This pass transforms $dff cells driven by a tree of multiplexers with one or
+more feedback paths to $dffe cells. It also works on gate-level cells such as
+$_DFF_P_, $_DFF_N_ and $_MUX_.
+
+    -unmap
+        operate in the opposite direction: replace $dffe cells with combinations
+        of $dff and $mux cells. the options below are ignore in unmap mode.
+
+    -direct <internal_gate_type> <external_gate_type>
+        map directly to external gate type. <internal_gate_type> can
+        be any internal gate-level FF cell (except $_DFFE_??_). the
+        <external_gate_type> is the cell type name for a cell with an
+        identical interface to the <internal_gate_type>, except it
+        also has an high-active enable port 'E'.
+          Usually <external_gate_type> is an intemediate cell type
+        that is then translated to the final type using 'techmap'.
+\end{lstlisting}
+
 \section{dfflibmap -- technology mapping of flip-flops}
 \label{cmd:dfflibmap}
 \begin{lstlisting}[numbers=left,frame=single]
-    dfflibmap -liberty <file> [selection]
+    dfflibmap [-prepare] -liberty <file> [selection]
 
 Map internal flip-flop cells to the flip-flop cells in the technology
 library specified in the given liberty file.
 
 This pass may add inverters as needed. Therefore it is recommended to
 first run this pass and then map the logic paths to the target technology.
+
+When called with -prepare, this command will convert the internal FF cells
+to the internal cell types that best match the cells found in the given
+liberty file.
 \end{lstlisting}
 
 \section{dump -- print parts of the design in ilang format}
@@ -362,10 +400,10 @@ ilang format.
     -n
         only dump the module headers if the entire module is selected
 
-    -outfile <filename>
+    -o <filename>
         write to the specified file.
 
-    -append <filename>
+    -a <filename>
         like -outfile but append instead of overwrite
 \end{lstlisting}
 
@@ -380,6 +418,133 @@ Print all commands to log before executing them.
     echo off
 
 Do not print all commands to log before executing them. (default)
+\end{lstlisting}
+
+\section{equiv\_add -- add a $equiv cell}
+\label{cmd:equiv_add}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_add gold_sig gate_sig
+
+This command adds an $equiv cell for the specified signals.
+\end{lstlisting}
+
+\section{equiv\_induct -- proving $equiv cells using temporal induction}
+\label{cmd:equiv_induct}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_induct [options] [selection]
+
+Uses a version of temporal induction to prove $equiv cells.
+
+Only selected $equiv cells are proven and only selected cells are used to
+perform the proof.
+
+    -undef
+        enable modelling of undef states
+
+    -seq <N>
+        the max. number of time steps to be considered (default = 4)
+
+This command is very effective in proving complex sequential circuits, when
+the internal state of the circuit quickly propagates to $equiv cells.
+
+However, this command uses a weak definition of 'equivalence': This command
+proves that the two circuits will not diverge after they produce equal
+outputs (observable points via $equiv) for at least <N> cycles (the <N>
+specified via -seq).
+
+Combined with simulation this is very powerful because simulation can give
+you confidence that the circuits start out synced for at least <N> cycles
+after reset.
+\end{lstlisting}
+
+\section{equiv\_make -- prepare a circuit for equivalence checking}
+\label{cmd:equiv_make}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_make [options] gold_module gate_module equiv_module
+
+This creates a module annotated with $equiv cells from two presumably
+equivalent modules. Use commands such as 'equiv_simple' and 'equiv_status'
+to work with the created equivalent checking module.
+
+    -inames
+        Also match cells and wires with $... names.
+
+    -blacklist <file>
+        Do not match cells or signals that match the names in the file.
+
+    -encfile <file>
+        Match FSM encodings using the desiption from the file.
+        See 'help fsm_recode' for details.
+
+Note: The circuit created by this command is not a miter (with something like
+a trigger output), but instead uses $equiv cells to encode the equivalence
+checking problem. Use 'miter -equiv' if you want to create a miter circuit.
+\end{lstlisting}
+
+\section{equiv\_miter -- extract miter from equiv circuit}
+\label{cmd:equiv_miter}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_miter [options] miter_module [selection]
+
+This creates a miter module for further analysis of the selected $equiv cells.
+
+    -trigger
+        Create a trigger output
+
+    -cmp
+        Create cmp_* outputs for individual unproven $equiv cells
+
+    -assert
+        Create a $assert cell for each unproven $equiv cell
+
+    -undef
+        Create compare logic that handles undefs correctly
+\end{lstlisting}
+
+\section{equiv\_remove -- remove $equiv cells}
+\label{cmd:equiv_remove}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_remove [options] [selection]
+
+This command removes the selected $equiv cells. If neither -gold nor -gate is
+used then only proven cells are removed.
+
+    -gold
+        keep gold circuit
+
+    -gate
+        keep gate circuit
+\end{lstlisting}
+
+\section{equiv\_simple -- try proving simple $equiv instances}
+\label{cmd:equiv_simple}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_simple [options] [selection]
+
+This command tries to prove $equiv cells using a simple direct SAT approach.
+
+    -v
+        verbose output
+
+    -undef
+        enable modelling of undef states
+
+    -nogroup
+        disabling grouping of $equiv cells by output wire
+
+    -seq <N>
+        the max. number of time steps to be considered (default = 1)
+\end{lstlisting}
+
+\section{equiv\_status -- print status of equivalent checking module}
+\label{cmd:equiv_status}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_status [options] [selection]
+
+This command prints status information for all selected $equiv cells.
+
+    -assert
+        produce an error if any unproven $equiv cell is found
 \end{lstlisting}
 
 \section{eval -- evaluate the circuit given an input}
@@ -596,6 +761,7 @@ Options:
 
     -encoding tye
     -fm_set_fsm_file file
+    -encfile file
         passed through to fsm_recode pass
 \end{lstlisting}
 
@@ -692,16 +858,24 @@ combination with the 'opt_clean' pass (see also 'help fsm').
 \section{fsm\_recode -- recoding finite state machines}
 \label{cmd:fsm_recode}
 \begin{lstlisting}[numbers=left,frame=single]
-    fsm_recode [-encoding type] [-fm_set_fsm_file file] [selection]
+    fsm_recode [options] [selection]
 
 This pass reassign the state encodings for FSM cells. At the moment only
-one-hot encoding and binary encoding is supported. The option -encoding
-can be used to specify the encoding scheme used for FSMs without the
-`fsm_encoding' attribute (or with the attribute set to `auto'.
+one-hot encoding and binary encoding is supported.
+    -encoding <type>
+        specify the encoding scheme used for FSMs without the
+        'fsm_encoding' attribute or with the attribute set to `auto'.
 
-The option -fm_set_fsm_file can be used to generate a file containing the
-mapping from old to new FSM encoding in form of Synopsys Formality set_fsm_*
-commands.
+    -fm_set_fsm_file <file>
+        generate a file containing the mapping from old to new FSM encoding
+        in form of Synopsys Formality set_fsm_* commands.
+
+    -encfile <file>
+        write the mappings from old to new FSM encoding to a file in the
+        following format:
+
+            .fsm <module_name> <state_signal>
+            .map <old_bitpattern> <new_bitpattern>
 \end{lstlisting}
 
 \section{help -- display help messages}
@@ -826,8 +1000,8 @@ the resulting cells to more sophisticated PAD cells.
 
     -bits
         create individual bit-wide buffers even for ports that
-        are wider. (the default behavio is to create word-wide
-        buffers use -widthparam to set the word size on the cell.)
+        are wider. (the default behavior is to create word-wide
+        buffers using -widthparam to set the word size on the cell.)
 \end{lstlisting}
 
 \section{log -- print text and log files}
@@ -857,17 +1031,11 @@ logfiles.
 \section{ls -- list modules or objects in modules}
 \label{cmd:ls}
 \begin{lstlisting}[numbers=left,frame=single]
-    ls [pattern]
+    ls [selection]
 
-When no active module is selected, this prints a list of all modules.
+When no active module is selected, this prints a list of modules.
 
 When an active module is selected, this prints a list of objects in the module.
-
-If a pattern is given, the objects matching the pattern are printed
-
-Note that this command does not use the selection mechanism and always operates
-on the whole design or whole active module. Use 'select -list' to show a list
-of currently selected objects.
 \end{lstlisting}
 
 \section{maccmap -- mapping macc cells}
@@ -882,7 +1050,7 @@ used then the $macc cell is mapped to $and, $sub, etc. cells instead.
 \section{memory -- translate memories to basic cells}
 \label{cmd:memory}
 \begin{lstlisting}[numbers=left,frame=single]
-    memory [-nomap] [selection]
+    memory [-nomap] [-bram <bram_rules>] [selection]
 
 This pass calls all the other memory_* passes in a useful order:
 
@@ -891,10 +1059,96 @@ This pass calls all the other memory_* passes in a useful order:
     memory_share
     opt_clean
     memory_collect
-    memory_map          (skipped if called with -nomap)
+    memory_bram -rules <bram_rules>     (when called with -bram)
+    memory_map                          (skipped if called with -nomap)
 
 This converts memories to word-wide DFFs and address decoders
 or multiport memory blocks if called with the -nomap option.
+\end{lstlisting}
+
+\section{memory\_bram -- map memories to block rams}
+\label{cmd:memory_bram}
+\begin{lstlisting}[numbers=left,frame=single]
+    memory_bram -rules <rule_file> [selection]
+
+This pass converts the multi-port $mem memory cells into block ram instances.
+The given rules file describes the available resources and how they should be
+used.
+
+The rules file contains a set of block ram description and a sequence of match
+rules. A block ram description looks like this:
+
+    bram RAMB1024X32     # name of BRAM cell
+      abits 10           # number of address bits
+      dbits 32           # number of data bits
+      groups 2           # number of port groups
+      ports  1 1         # number of ports in each group
+      wrmode 1 0         # set to '1' if this groups is write ports
+      enable 4 0         # number of enable bits (for write ports)
+      transp 0 2         # transparatent (for read ports)
+      clocks 1 2         # clock configuration
+      clkpol 2 2         # clock polarity configuration
+    endbram
+
+For the option 'transp' the value 0 means non-transparent, 1 means transparent
+and a value greater than 1 means configurable. All groups with the same
+value greater than 1 share the same configuration bit.
+
+For the option 'clocks' the value 0 means non-clocked, and a value greater
+than 0 means clocked. All groups with the same value share the same clock
+signal.
+
+For the option 'clkpol' the value 0 means negative edge, 1 means positive edge
+and a value greater than 1 means configurable. All groups with the same value
+greater than 1 share the same configuration bit.
+
+Using the same bram name in different bram blocks will create different variants
+of the bram. Verilog configration parameters for the bram are created as needed.
+
+It is also possible to create variants by repeating statements in the bram block
+and appending '@<label>' to the individual statements.
+
+A match rule looks like this:
+
+    match RAMB1024X32
+      max waste 16384    # only use this bram if <= 16k ram bits are unused
+      min efficiency 80  # only use this bram if efficiency is at least 80%
+    endmatch
+
+It is possible to match against the following values with min/max rules:
+
+    words  ........  number of words in memory in design
+    abits  ........  number of address bits on memory in design
+    dbits  ........  number of data bits on memory in design
+    wports  .......  number of write ports on memory in design
+    rports  .......  number of read ports on memory in design
+    ports  ........  number of ports on memory in design
+    bits  .........  number of bits in memory in design
+    dups ..........  number of duplications for more read ports
+
+    awaste  .......  number of unused address slots for this match
+    dwaste  .......  number of unused data bits for this match
+    bwaste  .......  number of unused bram bits for this match
+    waste  ........  total number of unused bram bits (bwaste*dups)
+    efficiency  ...  total percentage of used and non-duplicated bits
+
+    acells  .......  number of cells in 'address-direction'
+    dcells  .......  number of cells in 'data-direction'
+    cells  ........  total number of cells (acells*dcells*dups)
+
+The interface for the created bram instances is dervived from the bram
+description. Use 'techmap' to convert the created bram instances into
+instances of the actual bram cells of your target architecture.
+
+A match containing the command 'or_next_if_better' is only used if it
+has a higher efficiency than the next match (and the one after that if
+the next also has 'or_next_if_better' set, and so forth).
+
+A match containing the command 'make_transp' will add external circuitry
+to simulate 'transparent read', if necessary.
+
+A match containing the command 'shuffle_enable A' will re-organize
+the data bits to accommodate the enable pattern of port A.
 \end{lstlisting}
 
 \section{memory\_collect -- creating multi-port memory cells}
@@ -1414,8 +1668,8 @@ and additional constraints passed as parameters.
         show the model for the specified signal. if no -show option is
         passed then a set of signals to be shown is automatically selected.
 
-    -show-inputs, -show-outputs
-        add all module input (output) ports to the list of shown signals
+    -show-inputs, -show-outputs, -show-ports
+        add all module (input/output) ports to the list of shown signals
 
     -ignore_div_by_zero
         ignore all solutions that involve a division by zero
@@ -1567,8 +1821,8 @@ marked with that label (until the next label) is executed.
 \section{select -- modify and view the list of selected objects}
 \label{cmd:select}
 \begin{lstlisting}[numbers=left,frame=single]
-    select [ -add | -del | -set <name> ] <selection>
-    select [ -assert-none | -assert-any ] <selection>
+    select [ -add | -del | -set <name> ] {-read <filename> | <selection>}
+    select [ -assert-none | -assert-any ] {-read <filename> | <selection>}
     select [ -list | -write <filename> | -count | -clear ]
     select -module <modname>
 
@@ -1609,6 +1863,9 @@ described here.
 
     -write <filename>
         like -list but write the output to the specified file
+
+    -read <filename>
+        read the specified file (written by -write)
 
     -count
         count all objects in the current selection
@@ -1901,6 +2158,10 @@ to a graphics file (usually SVG or PostScript).
         for the random number generator. Change the seed value if the colored
         graph still is ambigous. A seed of zero deactivates the coloring.
 
+    -colorattr <attribute_name>
+        Use the specified attribute to assign colors. A unique color is
+        assigned to each unique value of this attribute.
+
     -width
         annotate busses with a label indicating the width of the bus.
 
@@ -2055,6 +2316,12 @@ on partly selected designs.
     -top <module>
         use the specified module as top module (default='top')
 
+    -encfile <file>
+        passed to 'fsm_recode' via 'fsm'
+
+    -noabc
+        do not run abc (as if yosys was compiled without ABC support)
+
     -run <from_label>[:<to_label>]
         only run the commands between the labels (see below). an empty
         from label is synonymous to 'begin', and empty to label is
@@ -2096,15 +2363,11 @@ The following commands are executed by this synthesis command:
     synth_xilinx [options]
 
 This command runs synthesis for Xilinx FPGAs. This command does not operate on
-partly selected designs.
+partly selected designs. At the moment this command creates netlists that are
+compatible with 7-Series Xilinx devices.
 
     -top <module>
         use the specified module as top module (default='top')
-
-    -arch <arch>
-        select architecture. the following architectures are supported:
-            spartan6 (default), artix7, kintex7, virtex7, zynq7000
-            (this parameter is not used by the command at the moment)
 
     -edif <file>
         write the design to the specified edif file. writing of an output file
@@ -2115,39 +2378,45 @@ partly selected designs.
         from label is synonymous to 'begin', and empty to label is
         synonymous to the end of the command list.
 
+    -flatten
+        flatten design before synthesis
+
+    -retime
+        run 'abc' with -dff option
+
 
 The following commands are executed by this synthesis command:
 
     begin:
+        read_verilog -lib +/xilinx/cells_sim.v
         hierarchy -check -top <top>
 
-    coarse:
+    flatten:     (only if -flatten)
         proc
-        opt
-        memory
-        clean
-        fsm
-        opt
+        flatten
+
+    coarse:
+        synth -run coarse
+        dff2dffe
+
+    bram:
+        memory_bram -rules +/xilinx/brams.txt
+        techmap -map +/xilinx/brams_map.v
 
     fine:
-        techmap
-        opt
+        opt -fast -full
+        memory_map
+        opt -full
+        techmap -map +/techmap.v -map +/xilinx/arith_map.v
+        opt -fast
 
     map_luts:
-        abc -lut 6
+        abc -lut 5:8 [-dff]
         clean
 
     map_cells:
-        techmap -share_map xilinx/cells.v
+        techmap -map +/xilinx/cells_map.v
         clean
-
-    clkbuf:
-        select -set xilinx_clocks <top>/t:FDRE %x:+FDRE[C] <top>/t:FDRE %d
-        iopadmap -inpad BUFGP O:I @xilinx_clocks
-
-    iobuf:
-        select -set xilinx_nonclocks <top>/w:* <top>/t:BUFGP %x:+BUFGP[I] %d
-        iopadmap -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks
 
     edif:
         write_edif synth.edif
@@ -2367,7 +2636,7 @@ Tests the internal implementation of the given cell type (for example '$add')
 by comparing SAT solver, EVAL and TECHMAP implementations of the cell types..
 
 Run with 'all' instead of a cell type to run the test on all supported
-cell types.
+cell types. Use for example 'all /$add' for all cell types except $add.
 
     -n {integer}
         create this number of cell instances and test them (default = 100).
@@ -2378,11 +2647,19 @@ cell types.
     -f {ilang_file}
         don't generate circuits. instead load the specified ilang file.
 
+    -w {filename_prefix}
+        don't test anything. just generate the circuits and write them
+        to ilang files with the specified prefix
+
     -map {filename}
         pass this option to techmap.
 
     -simlib
         use "techmap -map +/simlib.v -max_iter 2 -autoproc"
+
+    -muxdiv
+        when creating test benches with dividers, create an additional mux
+        to mask out the division-by-zero case
 
     -script {script_file}
         instead of calling "techmap", call "script {script_file}".
@@ -2510,9 +2787,17 @@ Write the current design to an BLIF file.
     -buf <cell-type> <in-port> <out-port>
         use cells of type <cell-type> with the specified port names for buffers
 
+    -unbuf <cell-type> <in-port> <out-port>
+        replace buffer cells with the specified name and port names with
+        a .names statement that models a buffer
+
     -true <cell-type> <out-port>
     -false <cell-type> <out-port>
-        use the specified cell types to drive nets that are constant 1 or 0
+    -undef <cell-type> <out-port>
+        use the specified cell types to drive nets that are constant 1, 0, or
+        undefined. when '-' is used as <cell-type>, then <out-port> specifies
+        the wire name to be used for the constant signal and no cell driving
+        that wire is generated.
 
 The following options can be useful when the generated file is not going to be
 read by a BLIF parser but a custom tool. It is recommended to not name the output
@@ -2533,8 +2818,11 @@ file *.blif when any of this options is used.
     -param
         use the non-standard .param statement to write module parameters
 
+    -blackbox
+        write blackbox cells with .blackbox statement.
+
     -impltf
-        do not write definitions for the $true and $false wires.
+        do not write definitions for the $true, $false and $undef wires.
 \end{lstlisting}
 
 \section{write\_btor -- write design to BTOR file}
@@ -2613,6 +2901,83 @@ a tool for Coarse-Grain Example-Driven Interconnect Synthesis.
         not at all.
 
 http://www.clifford.at/intersynth/
+\end{lstlisting}
+
+\section{write\_smt2 -- write design to SMT-LIBv2 file}
+\label{cmd:write_smt2}
+\begin{lstlisting}[numbers=left,frame=single]
+    write_smt2 [options] [filename]
+
+Write a SMT-LIBv2 [1] description of the current design. For a module with name
+'<mod>' this will declare the sort '<mod>_s' (state of the module) and the the
+function '<mod>_t' (state transition function).
+
+The '<mod>_s' sort represents a module state. Additional '<mod>_n' functions
+are provided that can be used to access the values of the signals in the module.
+Only ports, and signals with the 'keep' attribute set are made available via
+such functions. Without the -bv option, multi-bit wires are exported as
+separate functions of type Bool for the individual bits. With the -bv option
+multi-bit wires are exported as single functions of type BitVec.
+
+The '<mod>_t' function evaluates to 'true' when the given pair of states
+describes a valid state transition.
+
+    -bv
+        enable support for BitVec (FixedSizeBitVectors theory). with this
+        option set multi-bit wires are represented using the BitVec sort and
+        support for coarse grain cells (incl. arithmetic) is enabled.
+
+    -tpl <template_file>
+        use the given template file. the line containing only the token '%%'
+        is replaced with the regular output of this command.
+
+[1] For more information on SMT-LIBv2 visit http://smt-lib.org/ or read David
+R. Cok's tutorial: http://www.grammatech.com/resources/smt/SMTLIBTutorial.pdf
+
+---------------------------------------------------------------------------
+
+Example:
+
+Consider the following module (test.v). We want to prove that the output can
+never transition from a non-zero value to a zero value.
+
+        module test(input clk, output reg [3:0] y);
+          always @(posedge clk)
+            y <= (y << 1) | ^y;
+        endmodule
+
+For this proof we create the following template (test.tpl).
+
+        ; we need QF_UFBV for this poof
+        (set-logic QF_UFBV)
+
+        ; insert the auto-generated code here
+        %%
+
+        ; declare two state variables s1 and s2
+        (declare-fun s1 () test_s)
+        (declare-fun s2 () test_s)
+
+        ; state s2 is the successor of state s1
+        (assert (test_t s1 s2))
+
+        ; we are looking for a model with y non-zero in s1
+        (assert (distinct (|test_n y| s1) #b0000))
+
+        ; we are looking for a model with y zero in s2
+        (assert (= (|test_n y| s2) #b0000))
+
+        ; is there such a model?
+        (check-sat)
+
+The following yosys script will create a 'test.smt2' file for our proof:
+
+        read_verilog test.v
+        hierarchy; proc; techmap; opt -fast
+        write_smt2 -bv -tpl test.tpl test.smt2
+
+Running 'cvc4 test.smt2' will print 'unsat' because y can never transition
+from non-zero to zero in the test design.
 \end{lstlisting}
 
 \section{write\_spice -- write design to SPICE netlist file}
