@@ -123,8 +123,9 @@ has been executed.
 \subsection{The RTLIL Data Structures}
 
 \begin{frame}{\subsecname}
-The RTLIL data structures are simple structs utilizing C++ {\tt std::}
-containers.
+The RTLIL data structures are simple structs utilizing {\tt pool<>} and
+{\tt dict<>} containers (drop-in replacementments for {\tt
+std::unordered\_set<>} and {\tt std::unordered\_map<>}).
 
 \bigskip
 \begin{itemize}
@@ -176,14 +177,14 @@ data structures. Yosys always operates on one active design, but can hold many d
 \bigskip
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
 struct RTLIL::Design {
-    std::map<RTLIL::IdString, RTLIL::Module*> modules_;
+    dict<RTLIL::IdString, RTLIL::Module*> modules_;
     ...
 };
 
 struct RTLIL::Module {
     RTLIL::IdString name;
-    std::map<RTLIL::IdString, RTLIL::Wire*> wires_;
-    std::map<RTLIL::IdString, RTLIL::Cell*> cells_;
+    dict<RTLIL::IdString, RTLIL::Wire*> wires_;
+    dict<RTLIL::IdString, RTLIL::Cell*> cells_;
     std::vector<RTLIL::SigSig> connections_;
     ...
 };
@@ -293,8 +294,8 @@ instances:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
 struct RTLIL::Cell {
     RTLIL::IdString name, type;
-    std::map<RTLIL::IdString, RTLIL::SigSpec> connections_;
-    std::map<RTLIL::IdString, RTLIL::Const> parameters;
+    dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
+    dict<RTLIL::IdString, RTLIL::Const> parameters;
     ...
 };
 \end{lstlisting}
@@ -552,6 +553,12 @@ Use the following command to compile a Yosys plugin:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
 yosys-config --exec --cxx --cxxflags --ldflags \
              -o my_cmd.so -shared my_cmd.cc --ldlibs
+\end{lstlisting}
+
+\bigskip
+Or shorter:
+\begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont]
+yosys-config --build my_cmd.so my_cmd.cc
 \end{lstlisting}
 
 \bigskip
