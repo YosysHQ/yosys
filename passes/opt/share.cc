@@ -369,7 +369,9 @@ struct ShareWorker
 			}
 
 			if (cell->type == "$memrd") {
-				if (!cell->parameters.at("\\CLK_ENABLE").as_bool())
+				if (cell->parameters.at("\\CLK_ENABLE").as_bool())
+					continue;
+				if (config.opt_aggressive || !modwalker.sigmap(cell->getPort("\\ADDR")).is_fully_const())
 					shareable_cells.insert(cell);
 				continue;
 			}
@@ -387,7 +389,7 @@ struct ShareWorker
 			}
 
 			if (generic_ops.count(cell->type)) {
-				if (config.opt_aggressive || cell->parameters.at("\\Y_WIDTH").as_int() >= 10)
+				if (config.opt_aggressive)
 					shareable_cells.insert(cell);
 				continue;
 			}
@@ -1105,7 +1107,7 @@ struct ShareWorker
 			RTLIL::Cell *cell = *shareable_cells.begin();
 			shareable_cells.erase(cell);
 
-			log("  Analyzing resource sharing options for %s:\n", log_id(cell));
+			log("  Analyzing resource sharing options for %s (%s):\n", log_id(cell), log_id(cell->type));
 
 			const pool<ssc_pair_t> &cell_activation_patterns = find_cell_activation_patterns(cell, "    ");
 			RTLIL::SigSpec cell_activation_signals = bits_from_activation_patterns(cell_activation_patterns);
@@ -1138,7 +1140,7 @@ struct ShareWorker
 
 			for (auto other_cell : candidates)
 			{
-				log("    Analyzing resource sharing with %s:\n", log_id(other_cell));
+				log("    Analyzing resource sharing with %s (%s):\n", log_id(other_cell), log_id(other_cell->type));
 
 				const pool<ssc_pair_t> &other_cell_activation_patterns = find_cell_activation_patterns(other_cell, "      ");
 				RTLIL::SigSpec other_cell_activation_signals = bits_from_activation_patterns(other_cell_activation_patterns);
