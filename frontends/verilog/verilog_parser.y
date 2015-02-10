@@ -946,7 +946,7 @@ simple_behavioral_stmt:
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
 	defattr | assert | wire_decl |
-	simple_behavioral_stmt ';' |
+	simple_behavioral_stmt ';' | ';' |
 	hierarchical_id attr {
 		AstNode *node = new AstNode(AST_TCALL);
 		node->str = *$1;
@@ -1060,10 +1060,6 @@ opt_synopsys_attr:
 	} |
 	/* empty */;
 
-behavioral_stmt_opt:
-	behavioral_stmt |
-	';' ;
-
 behavioral_stmt_list:
 	behavioral_stmt_list behavioral_stmt |
 	/* empty */;
@@ -1092,7 +1088,7 @@ case_item:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 		case_type_stack.push_back(0);
-	} behavioral_stmt_opt {
+	} behavioral_stmt {
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 		ast_stack.pop_back();
