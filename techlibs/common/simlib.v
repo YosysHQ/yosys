@@ -1328,7 +1328,7 @@ output reg [WIDTH-1:0] Q;
 
 always @* begin
 	if (EN == EN_POLARITY)
-		Q <= D;
+		Q = D;
 end
 
 endmodule
@@ -1356,11 +1356,11 @@ generate
 	for (i = 0; i < WIDTH; i = i+1) begin:bit
 		always @*
 			if (pos_clr[i])
-				Q[i] <= 0;
+				Q[i] = 0;
 			else if (pos_set[i])
-				Q[i] <= 1;
+				Q[i] = 1;
 			else if (pos_en)
-				Q[i] <= D[i];
+				Q[i] = D[i];
 	end
 endgenerate
 
