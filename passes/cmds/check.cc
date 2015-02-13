@@ -91,7 +91,8 @@ struct CheckPass : public Pass {
 						wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", log_id(wire), i));
 				}
 				if (wire->port_output)
-					for (auto bit : sigmap(wire)) used_wires.insert(bit);
+					for (auto bit : sigmap(wire))
+						if (bit.wire) used_wires.insert(bit);
 			}
 
 			for (auto it : wire_drivers)
