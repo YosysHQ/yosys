@@ -151,7 +151,7 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 	return true;
 }
 
-void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false)
+void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false, bool escape_comment = false)
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
@@ -199,6 +199,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				f << stringf("\\\"");
 			else if (str[i] == '\\')
 				f << stringf("\\\\");
+			else if (str[i] == '/' && escape_comment && i > 0 && str[i-1] == '*')
+				f << stringf("\\/");
 			else
 				f << str[i];
 		}
@@ -258,7 +260,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 		else if (modattr && (it->second == Const(1, 1) || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else
-			dump_const(f, it->second);
+			dump_const(f, it->second, -1, 0, false, false, attr2comment);
 		f << stringf(" %s%c", attr2comment ? "*/" : "*)", term);
 	}
 }
