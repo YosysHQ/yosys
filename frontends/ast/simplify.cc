@@ -49,12 +49,16 @@ using namespace AST_INTERNAL;
 // nodes that link to a different node using names and lexical scoping.
 bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param)
 {
+	static int recursion_counter = 0;
+	static pair<string, int> last_blocking_assignment_warn;
+	recursion_counter++;
+
 	AstNode *newNode = NULL;
 	bool did_something = false;
-	static pair<string, int> last_blocking_assignment_warn;
 
 #if 0
 	log("-------------\n");
+	log("AST simplify[%d] depth %d at %s:%d,\n", stage, recursion_counter, filename.c_str(), linenum);
 	log("const_fold=%d, at_zero=%d, in_lvalue=%d, stage=%d, width_hint=%d, sign_hint=%d, in_param=%d\n",
 			int(const_fold), int(at_zero), int(in_lvalue), int(stage), int(width_hint), int(sign_hint), int(in_param));
 	dumpAst(NULL, "> ");
@@ -145,6 +149,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 
 		while (simplify(const_fold, at_zero, in_lvalue, 2, width_hint, sign_hint, in_param)) { }
+		recursion_counter--;
 		return false;
 	}
 
@@ -153,8 +158,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	// we do not look inside a task or function
 	// (but as soon as a task of function is instanciated we process the generated AST as usual)
-	if (type == AST_FUNCTION || type == AST_TASK)
+	if (type == AST_FUNCTION || type == AST_TASK) {
+		recursion_counter--;
 		return false;
+	}
 
 	// deactivate all calls to non-synthesis system taks
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$display" || str == "$strobe" || str == "$monitor" || str == "$time" || str == "$stop" || str == "$finish" ||
@@ -2036,6 +2043,7 @@ apply_newNode:
 	if (!did_something)
 		basic_prep = true;
 
+	recursion_counter--;
 	return did_something;
 }
 
