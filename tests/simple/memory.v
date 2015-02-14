@@ -205,3 +205,33 @@ module memtest08(input clk, input [3:0] a, b, c, output reg [3:0] y);
 	end
 endmodule
 
+// ----------------------------------------------------------
+
+module memtest09 (
+    input clk,
+    input [1:0] a_addr, a_din, b_addr, b_din,
+    input a_wen, b_wen,
+    output reg [1:0] a_dout, b_dout
+);
+    reg [1:0] memory [0:3];
+
+    initial begin
+        memory[0] <= 0;
+        memory[1] <= 1;
+        memory[2] <= 2;
+        memory[3] <= 3;
+    end
+
+    always @(posedge clk) begin
+        if (a_wen)
+            memory[a_addr] <= a_din;
+        a_dout <= memory[a_addr];
+    end
+
+    always @(posedge clk) begin
+        if (b_wen)
+            memory[b_addr] <= b_din;
+        b_dout <= memory[b_addr];
+    end
+endmodule
+
