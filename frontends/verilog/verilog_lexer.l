@@ -85,6 +85,10 @@ YOSYS_NAMESPACE_END
 	fn_stack.push_back(current_filename);
 	ln_stack.push_back(frontend_verilog_yyget_lineno());
 	current_filename = yytext+11;
+	if (!current_filename.empty() && current_filename.front() == '"')
+		current_filename = current_filename.substr(1);
+	if (!current_filename.empty() && current_filename.back() == '"')
+		current_filename = current_filename.substr(0, current_filename.size()-1);
 	frontend_verilog_yyset_lineno(0);
 }
 
