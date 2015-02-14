@@ -1514,6 +1514,28 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$meminit (ADDR, DATA);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+
+parameter PRIORITY = 0;
+
+input [ABITS-1:0] ADDR;
+input [WIDTH-1:0] DATA;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $meminit!");
+		$finish;
+	end
+end
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 parameter MEMID = "";

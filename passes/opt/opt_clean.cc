@@ -47,7 +47,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 					if (bit.wire != nullptr)
 						wire2driver[bit].insert(cell);
 		}
-		if (cell->type == "$memwr" || cell->type == "$assert" || cell->has_keep_attr())
+		if (cell->type.in("$memwr", "$meminit", "$assert") || cell->has_keep_attr())
 			queue.insert(cell);
 		else
 			unused.insert(cell);

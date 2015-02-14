@@ -904,6 +904,15 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$meminit") {
+				param("\\MEMID");
+				param("\\PRIORITY");
+				port("\\ADDR", param("\\ABITS"));
+				port("\\DATA", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$mem") {
 				param("\\MEMID");
 				param("\\SIZE");

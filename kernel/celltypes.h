@@ -135,6 +135,7 @@ struct CellTypes
 
 		setup_type("$memrd", {CLK, ADDR}, {DATA});
 		setup_type("$memwr", {CLK, EN, ADDR, DATA}, pool<RTLIL::IdString>());
+		setup_type("$meminit", {ADDR, DATA}, pool<RTLIL::IdString>());
 		setup_type("$mem", {RD_CLK, RD_ADDR, WR_CLK, WR_EN, WR_ADDR, WR_DATA}, {RD_DATA});
 
 		setup_type("$fsm", {CLK, ARST, CTRL_IN}, {CTRL_OUT});
