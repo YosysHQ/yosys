@@ -905,6 +905,11 @@ void handle_cell(Cell *cell, const rules_t &rules)
 {
 	log("Processing %s.%s:\n", log_id(cell->module), log_id(cell));
 
+	if (!SigSpec(cell->getParam("\\INIT")).is_fully_undef()) {
+		log("  initialized memories are not supported yet.");
+		return;
+	}
+
 	dict<string, int> match_properties;
 	match_properties["words"]  = cell->getParam("\\SIZE").as_int();
 	match_properties["abits"]  = cell->getParam("\\ABITS").as_int();

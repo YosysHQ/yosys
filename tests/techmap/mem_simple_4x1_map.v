@@ -5,6 +5,7 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	parameter OFFSET = 0;
 	parameter ABITS = 8;
 	parameter WIDTH = 8;
+	parameter signed INIT = 1'bx;
 
 	parameter RD_PORTS = 1;
 	parameter RD_CLK_ENABLE = 1'b1;
@@ -36,6 +37,10 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	integer k;
 	initial begin
 		_TECHMAP_FAIL_ <= 0;
+
+		// no initialized memories
+		if (INIT !== 1'bx)
+			_TECHMAP_FAIL_ <= 1;
 
 		// only map cells with only one read and one write port
 		if (RD_PORTS > 1 || WR_PORTS > 1)

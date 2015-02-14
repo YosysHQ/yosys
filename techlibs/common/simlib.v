@@ -1543,6 +1543,7 @@ parameter SIZE = 256;
 parameter OFFSET = 0;
 parameter ABITS = 8;
 parameter WIDTH = 8;
+parameter signed INIT = 1'bx;
 
 parameter RD_PORTS = 1;
 parameter RD_CLK_ENABLE = 1'b1;
@@ -1583,25 +1584,36 @@ function port_active;
 	end
 endfunction
 
+initial begin
+	for (i = 0; i < SIZE; i = i+1)
+		memory[i] = INIT >>> (i*WIDTH);
+end
+
 always @(RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
 `ifdef SIMLIB_MEMDELAY
 	#`SIMLIB_MEMDELAY;
 `endif
 	for (i = 0; i < RD_PORTS; i = i+1) begin
-		if ((!RD_TRANSPARENT[i] && RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i]))
+		if ((!RD_TRANSPARENT[i] && RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i])) begin
+			// $display("Read from %s: addr=%b data=%b", MEMID, RD_ADDR[i*ABITS +: ABITS],  memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET]);
 			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
+		end
 	end
 
 	for (i = 0; i < WR_PORTS; i = i+1) begin
 		if (port_active(WR_CLK_ENABLE[i], WR_CLK_POLARITY[i], LAST_WR_CLK[i], WR_CLK[i]))
 			for (j = 0; j < WIDTH; j = j+1)
-				if (WR_EN[i*WIDTH+j])
+				if (WR_EN[i*WIDTH+j]) begin
+					// $display("Write to %s: addr=%b data=%b", MEMID, WR_ADDR[i*ABITS +: ABITS], WR_DATA[i*WIDTH+j]);
 					memory[WR_ADDR[i*ABITS +: ABITS] - OFFSET][j] = WR_DATA[i*WIDTH+j];
+				end
 	end
 
 	for (i = 0; i < RD_PORTS; i = i+1) begin
-		if ((RD_TRANSPARENT[i] || !RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i]))
+		if ((RD_TRANSPARENT[i] || !RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i])) begin
+			// $display("Transparent read from %s: addr=%b data=%b", MEMID, RD_ADDR[i*ABITS +: ABITS],  memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET]);
 			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
+		end
 	end
 
 	LAST_RD_CLK <= RD_CLK;

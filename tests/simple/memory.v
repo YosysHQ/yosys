@@ -209,29 +209,22 @@ endmodule
 
 module memtest09 (
     input clk,
-    input [1:0] a_addr, a_din, b_addr, b_din,
+    input [3:0] a_addr, a_din, b_addr, b_din,
     input a_wen, b_wen,
-    output reg [1:0] a_dout, b_dout
+    output reg [3:0] a_dout, b_dout
 );
-    reg [1:0] memory [0:3];
-
-    initial begin
-        memory[0] <= 0;
-        memory[1] <= 1;
-        memory[2] <= 2;
-        memory[3] <= 3;
-    end
+    reg [3:0] memory [0:35];
 
     always @(posedge clk) begin
         if (a_wen)
-            memory[a_addr] <= a_din;
-        a_dout <= memory[a_addr];
+            memory[10 + a_addr] <= a_din;
+        a_dout <= memory[10 + a_addr];
     end
 
     always @(posedge clk) begin
-        if (b_wen)
-            memory[b_addr] <= b_din;
-        b_dout <= memory[b_addr];
+        if (b_wen && (10 + a_addr != 20 + b_addr))
+            memory[20 + b_addr] <= b_din;
+        b_dout <= memory[20 + b_addr];
     end
 endmodule
 

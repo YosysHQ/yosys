@@ -80,10 +80,14 @@ struct MemoryMapWorker
 	{
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
+
 		int mem_size = cell->parameters["\\SIZE"].as_int();
 		int mem_width = cell->parameters["\\WIDTH"].as_int();
-		int mem_offset = cell->parameters["\\OFFSET"].as_int();
+		// int mem_offset = cell->parameters["\\OFFSET"].as_int();
 		int mem_abits = cell->parameters["\\ABITS"].as_int();
+
+		SigSpec init_data = cell->getParam("\\INIT");
+		init_data.extend_u0(mem_size*mem_width, true);
 
 		// delete unused memory cell
 		if (cell->parameters["\\RD_PORTS"].as_int() == 0 && cell->parameters["\\WR_PORTS"].as_int() == 0) {
@@ -165,7 +169,10 @@ struct MemoryMapWorker
 					w_out_name = genid(cell->name, "", i, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem_width);
-				w_out->start_offset = mem_offset;
+				SigSpec w_init = init_data.extract(i*mem_width, mem_width);
+
+				if (!w_init.is_fully_undef())
+					w_out->attributes["\\init"] = w_init.as_const();
 
 				data_reg_out.push_back(RTLIL::SigSpec(w_out));
 				c->setPort("\\Q", data_reg_out.back());

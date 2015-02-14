@@ -917,6 +917,7 @@ namespace {
 				param("\\MEMID");
 				param("\\SIZE");
 				param("\\OFFSET");
+				param("\\INIT");
 				param_bits("\\RD_CLK_ENABLE", param("\\RD_PORTS"));
 				param_bits("\\RD_CLK_POLARITY", param("\\RD_PORTS"));
 				param_bits("\\RD_TRANSPARENT", param("\\RD_PORTS"));

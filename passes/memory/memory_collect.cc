@@ -17,11 +17,8 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
-#include <sstream>
-#include <algorithm>
-#include <stdlib.h>
+#include "kernel/yosys.h"
+#include "kernel/sigtools.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -37,12 +34,15 @@ bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 
 void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 {
-	log("Collecting $memrd and $memwr for memory `%s' in module `%s':\n",
+	log("Collecting $memrd, $memwr and $meminit for memory `%s' in module `%s':\n",
 			memory->name.c_str(), module->name.c_str());
 
 	int addr_bits = 0;
 	while ((1 << addr_bits) < memory->size)
 		addr_bits++;
+
+	Const init_data(State::Sx, memory->size * memory->width);
+	SigMap sigmap(module);
 
 	int wr_ports = 0;
 	RTLIL::SigSpec sig_wr_clk;
@@ -60,12 +60,11 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	RTLIL::SigSpec sig_rd_addr;
 	RTLIL::SigSpec sig_rd_data;
 
-	std::vector<RTLIL::Cell*> del_cells;
 	std::vector<RTLIL::Cell*> memcells;
 
 	for (auto &cell_it : module->cells_) {
 		RTLIL::Cell *cell = cell_it.second;
-		if ((cell->type == "$memwr" || cell->type == "$memrd") && memory->name == cell->parameters["\\MEMID"].decode_string())
+		if (cell->type.in("$memrd", "$memwr", "$meminit") && memory->name == cell->parameters["\\MEMID"].decode_string())
 			memcells.push_back(cell);
 	}
 
@@ -73,17 +72,38 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	for (auto cell : memcells)
 	{
-		if (cell->type == "$memwr" && memory->name == cell->parameters["\\MEMID"].decode_string())
-		{
-			wr_ports++;
-			del_cells.push_back(cell);
+		log("  %s (%s)\n", log_id(cell), log_id(cell->type));
 
-			RTLIL::SigSpec clk = cell->getPort("\\CLK");
-			RTLIL::SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
-			RTLIL::SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
-			RTLIL::SigSpec addr = cell->getPort("\\ADDR");
-			RTLIL::SigSpec data = cell->getPort("\\DATA");
-			RTLIL::SigSpec en = cell->getPort("\\EN");
+		if (cell->type == "$meminit")
+		{
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
+			SigSpec data = sigmap(cell->getPort("\\DATA"));
+
+			if (!addr.is_fully_const())
+				log_error("Non-constant address %s in memory initialization %s.\n", log_signal(addr), log_id(cell));
+			if (!data.is_fully_const())
+				log_error("Non-constant data %s in memory initialization %s.\n", log_signal(data), log_id(cell));
+
+			int offset = (addr.as_int() - memory->start_offset) * memory->width;
+
+			if (offset < 0 || offset + GetSize(data) > GetSize(init_data))
+				log_warning("Address %s in memory initialization %s is out-of-bounds.\n", log_signal(addr), log_id(cell));
+
+			for (int i = 0; i < GetSize(data); i++)
+				if (0 <= i+offset && i+offset < GetSize(init_data))
+					init_data.bits[i+offset] = data[i].data;
+
+			continue;
+		}
+
+		if (cell->type == "$memwr")
+		{
+			SigSpec clk = sigmap(cell->getPort("\\CLK"));
+			SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
+			SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
+			SigSpec data = sigmap(cell->getPort("\\DATA"));
+			SigSpec en = sigmap(cell->getPort("\\EN"));
 
 			clk.extend_u0(1, false);
 			clk_enable.extend_u0(1, false);
@@ -98,19 +118,19 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			sig_wr_addr.append(addr);
 			sig_wr_data.append(data);
 			sig_wr_en.append(en);
+
+			wr_ports++;
+			continue;
 		}
 
-		if (cell->type == "$memrd" && memory->name == cell->parameters["\\MEMID"].decode_string())
+		if (cell->type == "$memrd")
 		{
-			rd_ports++;
-			del_cells.push_back(cell);
-
-			RTLIL::SigSpec clk = cell->getPort("\\CLK");
-			RTLIL::SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
-			RTLIL::SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
-			RTLIL::SigSpec transparent = RTLIL::SigSpec(cell->parameters["\\TRANSPARENT"]);
-			RTLIL::SigSpec addr = cell->getPort("\\ADDR");
-			RTLIL::SigSpec data = cell->getPort("\\DATA");
+			SigSpec clk = sigmap(cell->getPort("\\CLK"));
+			SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
+			SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
+			SigSpec transparent = RTLIL::SigSpec(cell->parameters["\\TRANSPARENT"]);
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
+			SigSpec data = sigmap(cell->getPort("\\DATA"));
 
 			clk.extend_u0(1, false);
 			clk_enable.extend_u0(1, false);
@@ -125,6 +145,9 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			sig_rd_transparent.append(transparent);
 			sig_rd_addr.append(addr);
 			sig_rd_data.append(data);
+
+			rd_ports++;
+			continue;
 		}
 	}
 
@@ -137,6 +160,10 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	mem->parameters["\\OFFSET"] = RTLIL::Const(memory->start_offset);
 	mem->parameters["\\SIZE"] = RTLIL::Const(memory->size);
 	mem->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
+
+	while (GetSize(init_data) > 1 && init_data.bits.back() == State::Sx && init_data.bits[GetSize(init_data)-2] == State::Sx)
+		init_data.bits.pop_back();
+	mem->parameters["\\INIT"] = init_data;
 
 	log_assert(sig_wr_clk.size() == wr_ports);
 	log_assert(sig_wr_clk_enable.size() == wr_ports && sig_wr_clk_enable.is_fully_const());
@@ -169,7 +196,7 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	mem->setPort("\\RD_ADDR", sig_rd_addr);
 	mem->setPort("\\RD_DATA", sig_rd_data);
 
-	for (auto c : del_cells)
+	for (auto c : memcells)
 		module->remove(c);
 }
 
