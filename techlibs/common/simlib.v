@@ -1539,9 +1539,9 @@ endmodule
 module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 parameter MEMID = "";
-parameter SIZE = 256;
+parameter SIZE = 4;
 parameter OFFSET = 0;
-parameter ABITS = 8;
+parameter ABITS = 2;
 parameter WIDTH = 8;
 parameter signed INIT = 1'bx;
 
