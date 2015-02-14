@@ -83,10 +83,14 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			{
 				AstNode *mem = it.first;
 				uint32_t memflags = it.second;
+				bool this_nomeminit = flag_nomeminit;
 				log_assert((memflags & ~0x00ffff00) == 0);
 
 				if (mem->get_bool_attribute("\\nomem2reg"))
 					continue;
+
+				if (mem->get_bool_attribute("\\nomeminit") || get_bool_attribute("\\nomeminit"))
+					this_nomeminit = true;
 
 				if (memflags & AstNode::MEM2REG_FL_FORCED)
 					goto silent_activate;
@@ -97,7 +101,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (memflags & AstNode::MEM2REG_FL_SET_ASYNC)
 					goto verbose_activate;
 
-				if ((memflags & AstNode::MEM2REG_FL_SET_INIT) && (memflags & AstNode::MEM2REG_FL_SET_ELSE))
+				if ((memflags & AstNode::MEM2REG_FL_SET_INIT) && (memflags & AstNode::MEM2REG_FL_SET_ELSE) && this_nomeminit)
 					goto verbose_activate;
 
 				if (memflags & AstNode::MEM2REG_FL_CMPLX_LHS)

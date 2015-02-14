@@ -83,10 +83,19 @@ struct VerilogFrontend : public Frontend {
 		log("        this can also be achieved by setting the 'nomem2reg'\n");
 		log("        attribute on the respective module or register.\n");
 		log("\n");
+		log("        This is potentially dangerous. Usually the front-end has good\n");
+		log("        reasons for converting an array to a list of registers.\n");
+		log("        Prohibiting this step will likely result in incorrect synthesis\n");
+		log("        results.\n");
+		log("\n");
 		log("    -mem2reg\n");
 		log("        always convert memories to registers. this can also be\n");
 		log("        achieved by setting the 'mem2reg' attribute on the respective\n");
 		log("        module or register.\n");
+		log("\n");
+		log("    -nomeminit\n");
+		log("        do not infer $meminit cells and instead convert initialized\n");
+		log("        memories to registers directly in the front-end.\n");
 		log("\n");
 		log("    -ppdump\n");
 		log("        dump verilog code after pre-processor\n");
@@ -139,6 +148,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_dump_ast2 = false;
 		bool flag_dump_vlog = false;
 		bool flag_nolatches = false;
+		bool flag_nomeminit = false;
 		bool flag_nomem2reg = false;
 		bool flag_mem2reg = false;
 		bool flag_ppdump = false;
@@ -184,6 +194,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-nolatches") {
 				flag_nolatches = true;
+				continue;
+			}
+			if (arg == "-nomeminit") {
+				flag_nomeminit = true;
 				continue;
 			}
 			if (arg == "-nomem2reg") {
@@ -288,7 +302,7 @@ struct VerilogFrontend : public Frontend {
 						child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
 		}
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;

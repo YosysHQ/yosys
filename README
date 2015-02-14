@@ -257,6 +257,11 @@ Verilog Attributes and non-standard features
 - The "mem2reg" attribute on modules or arrays forces the early
   conversion of arrays to separate registers.
 
+- The "nomeminit" attribute on modules or arrays prohibits the
+  creation of initialized memories. This effectively puts "mem2reg"
+  on all memories that are written to in an "initial" block and
+  are not ROMs.
+
 - The "nolatches" attribute on modules or always-blocks
   prohibits the generation of logic-loops for latches. Instead
   all not explicitly assigned values default to x-bits. This does

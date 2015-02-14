@@ -53,7 +53,7 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
+	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
@@ -958,6 +958,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
+	current_module->nomeminit = flag_nomeminit;
 	current_module->nomem2reg = flag_nomem2reg;
 	current_module->mem2reg = flag_mem2reg;
 	current_module->lib = flag_lib;
@@ -969,13 +970,14 @@ static AstModule* process_module(AstNode *ast, bool defer)
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
 	flag_dump_vlog = dump_vlog;
 	flag_nolatches = nolatches;
+	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
@@ -1037,6 +1039,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	flag_dump_ast2 = false;
 	flag_dump_vlog = false;
 	flag_nolatches = nolatches;
+	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
@@ -1103,6 +1106,7 @@ RTLIL::Module *AstModule::clone() const
 
 	new_mod->ast = ast->clone();
 	new_mod->nolatches = nolatches;
+	new_mod->nomeminit = nomeminit;
 	new_mod->nomem2reg = nomem2reg;
 	new_mod->mem2reg = mem2reg;
 	new_mod->lib = lib;
