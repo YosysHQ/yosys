@@ -58,7 +58,7 @@ namespace AST_INTERNAL {
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
-	AstNode *current_top_block, *current_block, *current_block_child;
+	AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
 }
 
@@ -132,6 +132,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_TERNARY)
 	X(AST_MEMRD)
 	X(AST_MEMWR)
+	X(AST_MEMINIT)
 	X(AST_TCALL)
 	X(AST_ASSIGN)
 	X(AST_CELL)

@@ -107,6 +107,7 @@ namespace AST
 		AST_TERNARY,
 		AST_MEMRD,
 		AST_MEMWR,
+		AST_MEMINIT,
 
 		AST_TCALL,
 		AST_ASSIGN,
@@ -299,7 +300,7 @@ namespace AST_INTERNAL
 	extern std::map<std::string, AST::AstNode*> current_scope;
 	extern const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;
 	extern RTLIL::SigSpec ignoreThisSignalsInInitial;
-	extern AST::AstNode *current_top_block, *current_block, *current_block_child;
+	extern AST::AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;
 	struct ProcessGenerator;
 }

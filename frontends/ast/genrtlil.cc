@@ -1235,28 +1235,31 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// generate $memwr cells for memory write ports
 	case AST_MEMWR:
+	case AST_MEMINIT:
 		{
 			std::stringstream sstr;
-			sstr << "$memwr$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
+			sstr << (type == AST_MEMWR ? "$memwr$" : "$meminit$") << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$memwr");
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), type == AST_MEMWR ? "$memwr" : "$meminit");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			int addr_bits = 1;
 			while ((1 << addr_bits) < current_module->memories[str]->size)
 				addr_bits++;
 
-			cell->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
 			cell->setPort("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
 			cell->setPort("\\DATA", children[1]->genWidthRTLIL(current_module->memories[str]->width));
-			cell->setPort("\\EN", children[2]->genRTLIL());
 
 			cell->parameters["\\MEMID"] = RTLIL::Const(str);
 			cell->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
 			cell->parameters["\\WIDTH"] = RTLIL::Const(current_module->memories[str]->width);
 
-			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(0);
-			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
+			if (type == AST_MEMWR) {
+				cell->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
+				cell->setPort("\\EN", children[2]->genRTLIL());
+				cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(0);
+				cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
+			}
 
 			cell->parameters["\\PRIORITY"] = RTLIL::Const(autoidx-1);
 		}
