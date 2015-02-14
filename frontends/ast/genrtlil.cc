@@ -1214,9 +1214,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_DATA", current_module->memories[str]->width);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
-			int addr_bits = 1;
-			while ((1 << addr_bits) < current_module->memories[str]->size)
-				addr_bits++;
+			int mem_width, mem_size, addr_bits;
+			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 			cell->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
 			cell->setPort("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
@@ -1243,9 +1242,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), type == AST_MEMWR ? "$memwr" : "$meminit");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
-			int addr_bits = 1;
-			while ((1 << addr_bits) < current_module->memories[str]->size)
-				addr_bits++;
+			int mem_width, mem_size, addr_bits;
+			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 			cell->setPort("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
 			cell->setPort("\\DATA", children[1]->genWidthRTLIL(current_module->memories[str]->width));

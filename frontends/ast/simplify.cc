@@ -1421,6 +1421,7 @@ skip_dynamic_range_lvalue_expansion:;
 		if (current_always->type != AST_INITIAL)
 			wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
 		wrnode->str = children[0]->str;
+		wrnode->id2ast = children[0]->id2ast;
 		wrnode->children[0]->str = id_addr;
 		wrnode->children[1]->str = id_data;
 		if (current_always->type != AST_INITIAL)

@@ -83,7 +83,7 @@ struct MemoryMapWorker
 
 		int mem_size = cell->parameters["\\SIZE"].as_int();
 		int mem_width = cell->parameters["\\WIDTH"].as_int();
-		// int mem_offset = cell->parameters["\\OFFSET"].as_int();
+		int mem_offset = cell->parameters["\\OFFSET"].as_int();
 		int mem_abits = cell->parameters["\\ABITS"].as_int();
 
 		SigSpec init_data = cell->getParam("\\INIT");
@@ -114,7 +114,7 @@ struct MemoryMapWorker
 					// FIXME: Actually we should check for wr_en.is_fully_const() also and
 					// create a $adff cell with this ports wr_en input as reset pin when wr_en
 					// is not a simple static 1.
-					static_cells_map[wr_addr.as_int()] = wr_data;
+					static_cells_map[wr_addr.as_int() - mem_offset] = wr_data;
 					static_ports.insert(i);
 					continue;
 				}
@@ -186,6 +186,9 @@ struct MemoryMapWorker
 		for (int i = 0; i < cell->parameters["\\RD_PORTS"].as_int(); i++)
 		{
 			RTLIL::SigSpec rd_addr = cell->getPort("\\RD_ADDR").extract(i*mem_abits, mem_abits);
+
+			if (mem_offset)
+				rd_addr = module->Sub(NEW_ID, rd_addr, SigSpec(mem_offset, GetSize(rd_addr)));
 
 			std::vector<RTLIL::SigSpec> rd_signals;
 			rd_signals.push_back(cell->getPort("\\RD_DATA").extract(i*mem_width, mem_width));
@@ -263,6 +266,10 @@ struct MemoryMapWorker
 				RTLIL::SigSpec wr_addr = cell->getPort("\\WR_ADDR").extract(j*mem_abits, mem_abits);
 				RTLIL::SigSpec wr_data = cell->getPort("\\WR_DATA").extract(j*mem_width, mem_width);
 				RTLIL::SigSpec wr_en = cell->getPort("\\WR_EN").extract(j*mem_width, mem_width);
+
+				if (mem_offset)
+					wr_addr = module->Sub(NEW_ID, wr_addr, SigSpec(mem_offset, GetSize(wr_addr)));
+
 				RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(i, mem_abits));
 
 				int wr_offset = 0;

@@ -213,7 +213,7 @@ module memtest09 (
     input a_wen, b_wen,
     output reg [3:0] a_dout, b_dout
 );
-    reg [3:0] memory [0:35];
+    reg [3:0] memory [10:35];
 
     always @(posedge clk) begin
         if (a_wen)
@@ -222,7 +222,7 @@ module memtest09 (
     end
 
     always @(posedge clk) begin
-        if (b_wen && (10 + a_addr != 20 + b_addr))
+        if (b_wen && (10 + a_addr != 20 + b_addr || !a_wen))
             memory[20 + b_addr] <= b_din;
         b_dout <= memory[20 + b_addr];
     end

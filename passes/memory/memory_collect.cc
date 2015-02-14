@@ -38,8 +38,6 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			memory->name.c_str(), module->name.c_str());
 
 	int addr_bits = 0;
-	while ((1 << addr_bits) < memory->size)
-		addr_bits++;
 
 	Const init_data(State::Sx, memory->size * memory->width);
 	SigMap sigmap(module);
@@ -64,8 +62,15 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	for (auto &cell_it : module->cells_) {
 		RTLIL::Cell *cell = cell_it.second;
-		if (cell->type.in("$memrd", "$memwr", "$meminit") && memory->name == cell->parameters["\\MEMID"].decode_string())
+		if (cell->type.in("$memrd", "$memwr", "$meminit") && memory->name == cell->parameters["\\MEMID"].decode_string()) {
+			addr_bits = std::max(addr_bits, cell->getParam("\\ABITS").as_int());
 			memcells.push_back(cell);
+		}
+	}
+
+	if (memcells.empty()) {
+		log("  no cells found. removing memory.\n");
+		return;
 	}
 
 	std::sort(memcells.begin(), memcells.end(), memcells_cmp);
