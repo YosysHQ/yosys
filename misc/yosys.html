@@ -2,6 +2,7 @@
 	<title>yosys.js example application</title>
 </head><body onload="document.getElementById('command').focus()">
 	<h1>yosys.js example application</h1>
+	<div id="tabs"></div>
 	<div><textarea id="output" style="width: 100%" rows="30" cols="100"></textarea></div>
 	<div id="wait" style="display: block"><br/><b><span id="waitmsg">Loading...</span></b></div>
 	<div id="input" style="display: none"><form onsubmit="window.setTimeout(run_command); return false"><tt><span id="prompt">
@@ -39,12 +40,67 @@
 			})(),
 		};
 
+		var current_file = "";
+		var console_messages = "";
+
+		function update_tabs() {
+			var f, html = "", flist = FS.readdir('.');
+			if (current_file == "") {
+				html += '<tt>[ <b>Console</b>';
+			} else {
+				html += '<tt>[ <span onclick="open_file(\'\')">Console</span>';
+			}
+			for (i in flist) {
+				f = flist[i]
+				if (f == "." || f == "..")
+					continue;
+				if (current_file == f) {
+					html += ' | <b>' + f + '</b>';
+				} else {
+					html += ' | <span onclick="open_file(\'' + f + '\')">' + f + '</span>';
+				}
+			}
+			html += ' | <span onclick="open_file(prompt(\'Filename:\'))">new file</span> ]</tt>';
+			document.getElementById('tabs').innerHTML = html;
+			if (current_file == "") {
+				document.getElementById('output').readOnly = true;
+				document.getElementById('command').focus();
+			} else {
+				document.getElementById('output').readOnly = false;
+				document.getElementById('output').focus();
+			}
+		}
+
+		function open_file(filename)
+		{
+			if (current_file == "")
+				console_messages = document.getElementById('output').value;
+			else
+				FS.writeFile(current_file, document.getElementById('output').value, {encoding: 'utf8'});
+
+			if (filename == "") {
+				document.getElementById('output').value = console_messages;
+			} else {
+				try {
+					document.getElementById('output').value = FS.readFile(filename, {encoding: 'utf8'});
+				} catch (e) {
+					document.getElementById('output').value = "";
+					FS.writeFile(filename, document.getElementById('output').value, {encoding: 'utf8'});
+				}
+			}
+
+			current_file = filename;
+			update_tabs()
+		}
+
 		function startup() {
 			document.getElementById('wait').style.display = 'none';
 			document.getElementById('input').style.display = 'block';
 			document.getElementById('waitmsg').innerText = 'Waiting for yosys.js...';
 			document.getElementById('prompt').innerText = yosys_prompt();
-			document.getElementById('command').focus();
+			FS.mkdir('/work')
+			FS.chdir('/work')
+			update_tabs();
 			console.log('yosys.js loaded.');
 		}
 
@@ -59,7 +115,10 @@
 		function run_command() {
 			var cmd = document.getElementById('command').value;
 			document.getElementById('command').value = '';
+
+			open_file('');
 			Module.print(yosys_prompt() + cmd);
+
 			document.getElementById('wait').style.display = 'block';
 			document.getElementById('input').style.display = 'none';
 
@@ -73,7 +132,7 @@
 				document.getElementById('wait').style.display = 'none';
 				document.getElementById('input').style.display = 'block';
 				document.getElementById('prompt').innerText = yosys_prompt();
-				document.getElementById('command').focus();
+				update_tabs();
 			}
 
 			window.setTimeout(run_command_bh, 50);
