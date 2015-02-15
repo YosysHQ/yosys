@@ -31,7 +31,7 @@ struct CheckPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    check [selection]\n");
+		log("    check [options] [selection]\n");
 		log("\n");
 		log("This pass identifies the following problems in the current design:\n");
 		log("\n");
@@ -41,14 +41,26 @@ struct CheckPass : public Pass {
 		log("\n");
 		log(" - used wires that do not have a driver\n");
 		log("\n");
+		log("When called with -noinit then this command also checks for wires which have\n");
+		log("the 'init' attribute set.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		int counter = 0;
+		bool noinit = false;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-noinit") {
+				noinit = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		log_header("Executing CHECK pass (checking for obvious problems).\n");
-
-		extra_args(args, 1, design);
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
@@ -93,6 +105,10 @@ struct CheckPass : public Pass {
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
 						if (bit.wire) used_wires.insert(bit);
+				if (noinit && wire->attributes.count("\\init")) {
+					log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", log_id(module), log_id(wire));
+					counter++;
+				}
 			}
 
 			for (auto it : wire_drivers)
