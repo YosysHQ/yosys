@@ -268,7 +268,7 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTL
 
 	if (indent == 0)
 		log("Top module:  %s\n", mod->name.c_str());
-	else
+	else if (!mod->get_bool_attribute("\\blackbox"))
 		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
 	used.insert(mod);
 
@@ -295,6 +295,7 @@ void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool f
 		if (used.count(it.second) == 0)
 			del_modules.push_back(it.second);
 
+	int del_counter = 0;
 	for (auto mod : del_modules) {
 		if (first_pass && mod->name.substr(0, 9) == "$abstract")
 			continue;
@@ -302,10 +303,11 @@ void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool f
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
 		design->modules_.erase(mod->name);
+		del_counter++;
 		delete mod;
 	}
 
-	log("Removed %d unused modules.\n", GetSize(del_modules));
+	log("Removed %d unused modules.\n", del_counter);
 }
 
 bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
