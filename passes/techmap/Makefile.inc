@@ -24,9 +24,11 @@ passes/techmap/techmap.inc: techlibs/common/techmap.v
 
 passes/techmap/techmap.o: passes/techmap/techmap.inc
 
+ifneq ($(CONFIG),emcc)
 TARGETS += yosys-filterlib$(EXE)
 EXTRA_OBJS += passes/techmap/filterlib.o
 
 yosys-filterlib$(EXE): passes/techmap/filterlib.o
 	$(P) $(CXX) -o yosys-filterlib$(EXE) $(LDFLAGS) $^ $(LDLIBS)
+endif
 

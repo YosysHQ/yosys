@@ -1,0 +1,60 @@
+<html>
+  <head>
+    <title>yosys.js example application</title>
+  </head>
+  <body onload="document.getElementById('command').focus()">
+    <h1>yosys.js example application</h1>
+    <div><textarea id="output" style="width: 100%" rows="30" cols="100">Loading...</textarea></div>
+    <div><form onsubmit="return run_command()"><tt><span id="prompt"><br/>yosys&gt; </span></tt><input id="command" type="text" size="100"></form></div>
+    <script type='text/javascript'>
+      var got_log_messages = false;
+      var Module = {
+        print: (function() {
+          var element = document.getElementById('output');
+          if (element) element.value = ''; // clear browser cache
+          return function(text) {
+	    got_log_messages = true;
+            if (element && typeof(text) != "number") {
+              element.value += text + "\n";
+              element.scrollTop = element.scrollHeight; // focus on bottom
+            }
+          };
+	})(),
+        printErr: (function() {
+          var element = document.getElementById('output');
+          if (element) element.value = ''; // clear browser cache
+          return function(text) {
+            if (element && typeof(text) != "number") {
+	      console.log(text);
+	      if (got_log_messages) {
+                element.value += text + "\n";
+                element.scrollTop = element.scrollHeight; // focus on bottom
+	      }
+            }
+          };
+	})(),
+	command: (function(cmd) {
+	  Module.ccall('run', '', ['string'], [cmd])
+	}),
+	prompt: (function(cmd) {
+	  return Module.ccall('prompt', 'string', [], [])
+	})
+      };
+      function run_command() {
+        var cmd = document.getElementById('command').value;
+	document.getElementById('command').value = '';
+        Module.print(Module.prompt() + cmd);
+	try {
+		Module.command(cmd);
+	} catch (e) {
+		Module.print('Caught JavaScript exception. (see JavaScript console for details.)');
+		console.log(e);
+	}
+	document.getElementById('command').focus();
+	document.getElementById('prompt').innerText = Module.prompt();
+	return false;
+      }
+    </script>
+    <script async type="text/javascript" src="yosys.js"></script>
+  </body>
+</html>

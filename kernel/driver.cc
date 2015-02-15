@@ -72,6 +72,32 @@ int getopt(int argc, char **argv, const char *optstring)
 
 USING_YOSYS_NAMESPACE
 
+#ifdef EMSCRIPTEN
+
+extern "C" int main(int, char**);
+extern "C" void run(const char*);
+extern "C" const char *prompt();
+
+int main(int, char**)
+{
+	log_files.push_back(stdout);
+	log_error_stderr = true;
+	yosys_banner();
+	yosys_setup();
+}
+
+void run(const char *command)
+{
+	run_pass(command);
+}
+
+const char *prompt()
+{
+	return create_prompt(yosys_get_design(), 0);
+}
+
+#else /* EMSCRIPTEN */
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
@@ -439,4 +465,6 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
+#endif /* EMSCRIPTEN */
 

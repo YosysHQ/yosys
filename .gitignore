@@ -13,13 +13,13 @@
 /abc
 /yosys
 /yosys.exe
+/yosys.js
 /yosys.html
 /yosys-abc
 /yosys-abc.exe
 /yosys-config
 /yosys-filterlib
 /yosys-filterlib.exe
-/yosys-filterlib.html
 /kernel/version_*.cc
 /share
 /libyosys
