@@ -96,6 +96,7 @@ struct SynthPass : public Pass {
 		log("\n");
 		log("    check:\n");
 		log("        hierarchy -check\n");
+		log("        stat\n");
 		log("        check\n");
 		log("\n");
 	}
@@ -186,6 +187,7 @@ struct SynthPass : public Pass {
 		if (check_label(active, run_from, run_to, "check"))
 		{
 			Pass::call(design, "hierarchy -check");
+			Pass::call(design, "stat");
 			Pass::call(design, "check");
 		}
 
