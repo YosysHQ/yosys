@@ -8,9 +8,31 @@
 	<div><textarea id="output" style="width: 100%" rows="30" cols="100"></textarea></div>
 	<div id="wait" style="display: block"><br/><b><span id="waitmsg">Loading...</span></b></div>
 	<div id="input" style="display: none"><form onsubmit="window.setTimeout(run_command); return false"><tt><span id="prompt">
-			</span></tt><input id="command" type="text" style="font-family: monospace; font-weight: bold;" size="100"></form></div>
+			</span></tt><input id="command" type="text" onkeydown="history(event)" style="font-family: monospace; font-weight: bold;" size="100"></form></div>
 	<script type='text/javascript'>
 		var got_log_messages = false;
+		var history_log = [];
+		var history_index = 0;
+		var history_bak = "";
+
+		function history(ev) {
+			if (ev.keyCode == 38) {
+				el = document.getElementById('command');
+				if (history_index == history_log.length)
+					history_bak = el.value
+				if (history_index > 0)
+					el.value = history_log[--history_index];
+			}
+			if (ev.keyCode == 40) {
+				if (history_index < history_log.length) {
+					el = document.getElementById('command');
+					if (++history_index < history_log.length)
+						el.value = history_log[history_index];
+					else
+						el.value = history_bak;
+				}
+			}
+		}
 
 		var Module = {
 			print: (function() {
@@ -120,8 +142,8 @@
 
 			document.getElementById('wait').style.display = 'none';
 			document.getElementById('input').style.display = 'block';
-			document.getElementById('waitmsg').innerText = 'Waiting for yosys.js...';
-			document.getElementById('prompt').innerText = yosys_prompt();
+			document.getElementById('waitmsg').textContent = 'Waiting for yosys.js...';
+			document.getElementById('prompt').textContent = yosys_prompt();
 
 			try { FS.mkdir('/work'); } catch (e) { }
 			FS.chdir('/work');
@@ -173,6 +195,9 @@
 		function run_command() {
 			var cmd = document.getElementById('command').value;
 			document.getElementById('command').value = '';
+			if (history_log.length == 0 || history_log[history_log.length-1] != cmd)
+				history_log.push(cmd);
+			history_index = history_log.length;
 
 			var show_dot_before = "";
 			try { show_dot_before = FS.readFile('show.dot', { encoding: 'utf8' }); } catch (e) { }
@@ -193,7 +218,7 @@
 
 				document.getElementById('wait').style.display = 'none';
 				document.getElementById('input').style.display = 'block';
-				document.getElementById('prompt').innerText = yosys_prompt();
+				document.getElementById('prompt').textContent = yosys_prompt();
 
 				var show_dot_after = "";
 				try { show_dot_after = FS.readFile('show.dot', { encoding: 'utf8' }); } catch (e) { }
