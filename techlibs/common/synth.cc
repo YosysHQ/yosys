@@ -90,11 +90,13 @@ struct SynthPass : public Pass {
 		log("        techmap\n");
 		log("        opt -fast\n");
 	#ifdef YOSYS_ENABLE_ABC
-		log("\n");
-		log("    abc:\n");
 		log("        abc -fast\n");
 		log("        opt -fast\n");
 	#endif
+		log("\n");
+		log("    check:\n");
+		log("        hierarchy -check\n");
+		log("        check\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -172,15 +174,20 @@ struct SynthPass : public Pass {
 			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap");
 			Pass::call(design, "opt -fast");
+
+			if (!noabc) {
+		#ifdef YOSYS_ENABLE_ABC
+				Pass::call(design, "abc -fast");
+				Pass::call(design, "opt -fast");
+		#endif
+			}
 		}
 
-	#ifdef YOSYS_ENABLE_ABC
-		if (check_label(active, run_from, run_to, "abc") && !noabc)
+		if (check_label(active, run_from, run_to, "check"))
 		{
-			Pass::call(design, "abc -fast");
-			Pass::call(design, "opt -fast");
+			Pass::call(design, "hierarchy -check");
+			Pass::call(design, "check");
 		}
-	#endif
 
 		log_pop();
 	}

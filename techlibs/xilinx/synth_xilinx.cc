@@ -98,6 +98,10 @@ struct SynthXilinxPass : public Pass {
 		log("        techmap -map +/xilinx/cells_map.v\n");
 		log("        clean\n");
 		log("\n");
+		log("    check:\n");
+		log("        hierarchy -check\n");
+		log("        check -noinit\n");
+		log("\n");
 		log("    edif:\n");
 		log("        write_edif synth.edif\n");
 		log("\n");
@@ -193,6 +197,12 @@ struct SynthXilinxPass : public Pass {
 		{
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			Pass::call(design, "clean");
+		}
+
+		if (check_label(active, run_from, run_to, "check"))
+		{
+			Pass::call(design, "hierarchy -check");
+			Pass::call(design, "check -noinit");
 		}
 
 		if (check_label(active, run_from, run_to, "edif"))
