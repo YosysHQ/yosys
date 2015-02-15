@@ -650,9 +650,14 @@ struct ShowPass : public Pass {
 		std::vector<std::pair<std::string, RTLIL::Selection>> color_selections;
 		std::vector<std::pair<std::string, RTLIL::Selection>> label_selections;
 
+#ifdef EMSCRIPTEN
+		std::string format = "dot";
+		std::string prefix = "show";
+#else
 		std::string format;
-		std::string viewer_exe;
 		std::string prefix = stringf("%s/.yosys_show", getenv("HOME") ? getenv("HOME") : ".");
+#endif
+		std::string viewer_exe;
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
