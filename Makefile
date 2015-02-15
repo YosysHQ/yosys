@@ -95,10 +95,11 @@ CXXFLAGS += -std=gnu++0x -Os
 
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
-CXXFLAGS := -std=c++11 $(filter-out -fPIC,$(filter-out -ggdb,$(CXXFLAGS)))
+CXXFLAGS := -std=c++11 $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 -s NO_EXIT_RUNTIME=1
 EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt']"
+EMCCFLAGS += --embed-file share
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
 # EMCCFLAGS += -s ALLOW_MEMORY_GROWTH=1
 # EMCCFLAGS += -s DISABLE_EXCEPTION_CATCHING=0
@@ -111,7 +112,9 @@ LDFLAGS += $(EMCCFLAGS)
 LDLIBS =
 EXE = .js
 
+TARGETS := $(filter-out yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosys.html
+
 yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
 

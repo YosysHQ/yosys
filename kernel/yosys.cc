@@ -619,26 +619,33 @@ std::string proc_self_dirname()
 	#error Dont know how to determine process executable base path!
 #endif
 
+#ifdef EMSCRIPTEN
+std::string proc_share_dirname()
+{
+	return "/share";
+}
+#else
 std::string proc_share_dirname()
 {
 	std::string proc_self_path = proc_self_dirname();
-#ifdef _WIN32
+#  ifdef _WIN32
 	std::string proc_share_path = proc_self_path + "share\\";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 	proc_share_path = proc_self_path + "..\\share\\";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
-#else
+#  else
 	std::string proc_share_path = proc_self_path + "share/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 	proc_share_path = proc_self_path + "../share/yosys/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
-#endif
+#  endif
 	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }
+#endif
 
 bool fgetline(FILE *f, std::string &buffer)
 {
