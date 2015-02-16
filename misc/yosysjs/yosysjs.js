@@ -22,6 +22,8 @@ var YosysJS = new function() {
 	}
 
 	this.dot_into_svg = function(dot_text, svg_element) {
+		if (typeof(svg_element) == 'string')
+			svg_element = document.getElementById(svg_element);
 		svg_element.innerHTML = this.dot_to_svg(dot_text);
 		c = svg_element.firstChild;
 		while (c) {
@@ -62,49 +64,61 @@ var YosysJS = new function() {
 			}
 		} else {
 			ys.iframe_element = document.createElement('iframe');
+			ys.iframe_element.style.display = 'none';
 			document.body.appendChild(ys.iframe_element);
 		}
 
-		var return_buffer = "";
-		var last_line_empty = false;
+		ys.print_buffer = "";
+		ys.last_line_empty = false;
+		ys.got_normal_log_message = false;
+		ys.window = ys.iframe_element.contentWindow;
 
-		var win = ys.iframe_element.contentWindow;
-		var doc = ys.iframe_element.contentWindow.document;
-		var mod = ys.iframe_element.contentWindow.Module = {
+		var doc = ys.window.document;
+		var mod = ys.window.Module = {
 			print: function(text) {
-				return_buffer += text + "\n";
+				if (typeof(text) == 'number')
+					return;
+				ys.print_buffer += text + "\n";
+				ys.got_normal_log_message = true;
 				if (ys.verbose) {
-					last_line_empty = text == "";
+					ys.last_line_empty = text == "";
 					span = doc.createElement('span');
 					span.textContent = text + "\n";
 					span.style.fontFamily = 'monospace';
 					span.style.whiteSpace = 'pre';
 					doc.body.appendChild(span);
-					win.scrollTo(0, doc.body.scrollHeight)
+					ys.window.scrollTo(0, doc.body.scrollHeight)
 				}
 				ys.ready = true;
 			},
 			printErr: function(text) {
-				return_buffer += text + "\n";
-				last_line_empty = text == "";
-				span = doc.createElement('span');
-				span.textContent = text + "\n";
-				span.style.fontFamily = 'monospace';
-				span.style.whiteSpace = 'pre';
-				span.style.color = 'red';
-				doc.body.appendChild(span);
-				win.scrollTo(0, doc.body.scrollHeight)
+				if (typeof(text) == 'number')
+					return;
+				if (ys.got_normal_log_message) {
+					ys.print_buffer += text + "\n";
+					ys.last_line_empty = text == "";
+					span = doc.createElement('span');
+					span.textContent = text + "\n";
+					span.style.fontFamily = 'monospace';
+					span.style.whiteSpace = 'pre';
+					span.style.color = 'red';
+					doc.body.appendChild(span);
+					ys.window.scrollTo(0, doc.body.scrollHeight)
+				} else {
+					console.log(text);
+				}
 			},
 		};
 
 		ys.write = function(text) {
-			last_line_empty = text == "";
+			ys.print_buffer += text + "\n";
+			ys.last_line_empty = text == "";
 			span = doc.createElement('span');
 			span.textContent = text + "\n";
 			span.style.fontFamily = 'monospace';
 			span.style.whiteSpace = 'pre';
 			doc.body.appendChild(span);
-			win.scrollTo(0, doc.body.scrollHeight)
+			ys.window.scrollTo(0, doc.body.scrollHeight)
 		}
 
 		ys.prompt = function() {
@@ -112,26 +126,26 @@ var YosysJS = new function() {
 		}
 
 		ys.run = function(cmd) {
-			return_buffer = "";
+			ys.print_buffer = "";
 			if (ys.echo) {
-				if (!last_line_empty)
+				if (!ys.last_line_empty)
 					ys.write("");
 				ys.write(ys.prompt() + cmd);
 			}
 			mod.ccall('run', '', ['string'], [cmd]);
-			return return_buffer;
+			return ys.print_buffer;
 		}
 
 		ys.read_file = function(filename) {
-			return win.FS.readFile(filename, {encoding: 'utf8'});
+			return ys.window.FS.readFile(filename, {encoding: 'utf8'});
 		}
 
 		ys.write_file = function(filename, text) {
-			return win.FS.writeFile(filename, text, {encoding: 'utf8'});
+			return ys.window.FS.writeFile(filename, text, {encoding: 'utf8'});
 		}
 
 		ys.read_dir = function(dirname) {
-			return win.FS.readdir(dirname);
+			return ys.window.FS.readdir(dirname);
 		}
 
 		el = doc.createElement('script');

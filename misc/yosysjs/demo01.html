@@ -1,16 +1,34 @@
 <html><head>
 	<title>YosysJS Example Application #01</title>
+	<script type="text/javascript" src="yosysjs.js"></script>
 </head><body onload="document.getElementById('command').focus()">
 	<h1>YosysJS Example Application #01</h1>
 	<table width="100%"><tr><td><div id="tabs"></div></td><td align="right"><tt>[ <span onclick="load_example()">load example</span> ]</tt></td></tr></table>
-	<iframe id="viz" style="display: none"><script type="text/javascript" src="viz.js"></script></iframe>
-	<svg id="svg" style="display: none; position: absolute; padding: 10px; width: 100%; height: 80%;"></svg>
+	<svg id="svg" style="display: none; position: absolute; padding: 10px; width: calc(100% - 40px);"></svg>
 	<div><textarea id="output" style="width: 100%" rows="30" cols="100"></textarea></div>
 	<div id="wait" style="display: block"><br/><b><span id="waitmsg">Loading...</span></b></div>
-	<div id="input" style="display: none"><form onsubmit="window.setTimeout(run_command); return false"><tt><span id="prompt">
+	<div id="input" style="display: none"><form onsubmit="window.setTimeout(run_command); return false"><br/><tt><span id="prompt">
 			</span></tt><input id="command" type="text" onkeydown="history(event)" style="font-family: monospace; font-weight: bold;" size="100"></form></div>
 	<script type='text/javascript'>
-		var got_log_messages = false;
+		function print_output(text) {
+			var el = document.getElementById('output');
+			el.value += text + "\n";
+		}
+
+		YosysJS.load_viz();
+		var ys = YosysJS.create("", function() {
+			print_output(ys.print_buffer);
+
+			document.getElementById('wait').style.display = 'none';
+			document.getElementById('input').style.display = 'block';
+			document.getElementById('waitmsg').textContent = 'Waiting for yosys.js...';
+			document.getElementById('prompt').textContent = ys.prompt();
+
+			update_tabs();
+		});
+
+		ys.echo = true;
+
 		var history_log = [];
 		var history_index = 0;
 		var history_bak = "";
@@ -34,42 +52,12 @@
 			}
 		}
 
-		var Module = {
-			print: (function() {
-				var element = document.getElementById('output');
-				if (element) element.value = ''; // clear browser cache
-				return function(text) {
-					if (!got_log_messages) {
-						window.setTimeout(startup, 50);
-						got_log_messages = true;
-					}
-					if (element && typeof(text) != "number") {
-						element.value += text + "\n";
-						element.scrollTop = element.scrollHeight; // focus on bottom
-					}
-				};
-			})(),
-			printErr: (function() {
-				var element = document.getElementById('output');
-				if (element) element.value = ''; // clear browser cache
-				return function(text) {
-					if (element && typeof(text) != "number") {
-						console.log(text);
-						if (got_log_messages) {
-							element.value += text + "\n";
-							element.scrollTop = element.scrollHeight; // focus on bottom
-						}
-					}
-				};
-			})(),
-		};
-
 		var current_file = "";
 		var console_messages = "";
 		var svg_cache = { };
 
 		function update_tabs() {
-			var f, html = "", flist = FS.readdir('.');
+			var f, html = "", flist = ys.read_dir('.');
 			if (current_file == "") {
 				html += '<tt>[ <b>Console</b>';
 			} else {
@@ -103,26 +91,22 @@
 			if (current_file == "")
 				console_messages = document.getElementById('output').value;
 			else if (!/\.dot$/.test(current_file))
-				FS.writeFile(current_file, document.getElementById('output').value, {encoding: 'utf8'});
+				ys.write_file(current_file, document.getElementById('output').value);
 
 			if (filename == "") {
 				document.getElementById('output').value = console_messages;
 			} else {
 				try {
-					document.getElementById('output').value = FS.readFile(filename, {encoding: 'utf8'});
+					document.getElementById('output').value = ys.read_file(filename);
 				} catch (e) {
 					document.getElementById('output').value = "";
-					FS.writeFile(filename, document.getElementById('output').value, {encoding: 'utf8'});
+					ys.write_file(filename, document.getElementById('output').value);
 				}
 			}
 
 			if (/\.dot$/.test(filename)) {
 				dot = document.getElementById('output').value;
-				if (!(dot in svg_cache)) {
-					el = document.getElementById('viz');
-					svg_cache[dot] = el.contentWindow.Viz(dot, "svg");
-				}
-				document.getElementById('svg').innerHTML = svg_cache[dot];
+				YosysJS.dot_into_svg(dot, 'svg');
 				document.getElementById('svg').style.display = 'block';
 				document.getElementById('output').value = '';
 			} else {
@@ -135,21 +119,6 @@
 		}
 
 		function startup() {
-			el = document.getElementById('viz');
-			el.contentWindow.document.open();
-			el.contentWindow.document.write('<script type="text/javascript" src="viz.js"></' + 'script>');
-			el.contentWindow.document.close();
-
-			document.getElementById('wait').style.display = 'none';
-			document.getElementById('input').style.display = 'block';
-			document.getElementById('waitmsg').textContent = 'Waiting for yosys.js...';
-			document.getElementById('prompt').textContent = yosys_prompt();
-
-			try { FS.mkdir('/work'); } catch (e) { }
-			FS.chdir('/work');
-
-			update_tabs();
-			console.log('yosys.js loaded.');
 		}
 
 		function load_example() {
@@ -167,7 +136,7 @@
 			txt += "  end\n";
 			txt += "endmodule\n";
 			txt += "\n";
-			FS.writeFile('example.v', txt, {encoding: 'utf8'});
+			ys.write_file('example.v', txt);
 
 			var txt = "";
 			txt += "# a simple yosys.js example. run \"script example.ys\".\n";
@@ -178,18 +147,10 @@
 			txt += "opt\n";
 			txt += "show\n";
 			txt += "\n";
-			FS.writeFile('example.ys', txt, {encoding: 'utf8'});
+			ys.write_file('example.ys', txt);
 
 			open_file('example.ys')
 			document.getElementById('command').focus();
-		}
-
-		function yosys_command(cmd) {
-			Module.ccall('run', '', ['string'], [cmd])
-		}
-
-		function yosys_prompt() {
-			return Module.ccall('prompt', 'string', [], [])
 		}
 
 		function run_command() {
@@ -200,28 +161,28 @@
 			history_index = history_log.length;
 
 			var show_dot_before = "";
-			try { show_dot_before = FS.readFile('show.dot', { encoding: 'utf8' }); } catch (e) { }
+			try { show_dot_before = ys.read_file('show.dot'); } catch (e) { }
 
 			open_file('');
-			Module.print(yosys_prompt() + cmd);
 
 			document.getElementById('wait').style.display = 'block';
 			document.getElementById('input').style.display = 'none';
 
 			function run_command_bh() {
 				try {
-					yosys_command(cmd);
+					ys.run(cmd);
 				} catch (e) {
-					Module.print('Caught JavaScript exception. (see JavaScript console for details.)');
+					ys.write('Caught JavaScript exception. (see JavaScript console for details.)');
 					console.log(e);
 				}
+				print_output(ys.print_buffer);
 
 				document.getElementById('wait').style.display = 'none';
 				document.getElementById('input').style.display = 'block';
-				document.getElementById('prompt').textContent = yosys_prompt();
+				document.getElementById('prompt').textContent = ys.prompt();
 
 				var show_dot_after = "";
-				try { show_dot_after = FS.readFile('show.dot', { encoding: 'utf8' }); } catch (e) { }
+				try { show_dot_after = ys.read_file('show.dot'); } catch (e) { }
 
 				if (show_dot_before != show_dot_after)
 					open_file('show.dot');
@@ -233,5 +194,4 @@
 			return false;
 		}
 	</script>
-	<script async type="text/javascript" src="yosys.js"></script>
 </body></html>

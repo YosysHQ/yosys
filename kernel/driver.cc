@@ -73,6 +73,8 @@ int getopt(int argc, char **argv, const char *optstring)
 USING_YOSYS_NAMESPACE
 
 #ifdef EMSCRIPTEN
+#  include <sys/stat.h>
+#  include <sys/types.h>
 
 extern "C" int main(int, char**);
 extern "C" void run(const char*);
@@ -80,6 +82,8 @@ extern "C" const char *prompt();
 
 int main(int, char**)
 {
+	mkdir("/work", 0777);
+	chdir("/work");
 	log_files.push_back(stdout);
 	log_error_stderr = true;
 	yosys_banner();
