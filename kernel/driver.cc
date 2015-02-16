@@ -93,7 +93,9 @@ void run(const char *command)
 
 const char *prompt()
 {
-	return create_prompt(yosys_get_design(), 0);
+	const char *p = create_prompt(yosys_get_design(), 0);
+	while (*p == '\n') p++;
+	return p;
 }
 
 #else /* EMSCRIPTEN */

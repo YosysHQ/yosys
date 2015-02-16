@@ -113,11 +113,17 @@ LDLIBS =
 EXE = .js
 
 TARGETS := $(filter-out yosys-config,$(TARGETS))
-EXTRA_TARGETS += yosys.html viz.js
+EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
 
 viz.js:
 	wget -O viz.js.part https://github.com/mdaines/viz.js/releases/download/0.0.3/viz.js
 	mv viz.js.part viz.js
+
+yosysjs-$(YOSYS_VER).zip: yosys.js viz.js misc/yosysjs/*
+	rm -rf yosysjs-$(YOSYS_VER) yosysjs-$(YOSYS_VER).zip
+	mkdir -p yosysjs-$(YOSYS_VER)
+	cp viz.js misc/yosysjs/* yosys.js yosysjs-$(YOSYS_VER)/
+	zip -r yosysjs-$(YOSYS_VER).zip yosysjs-$(YOSYS_VER)
 
 yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
