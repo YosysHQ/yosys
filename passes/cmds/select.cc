@@ -365,7 +365,7 @@ static int parse_comma_list(std::set<RTLIL::IdString> &tokens, std::string str, 
 	}
 }
 
-static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, CellTypes &ct)
+static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, CellTypes &ct, bool eval_only)
 {
 	int sel_objects = 0;
 	bool is_input, is_output;
@@ -401,6 +401,8 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 		for (auto &conn : cell.second->connections())
 		{
 			char last_mode = '-';
+			if (eval_only && !yosys_celltypes.cell_evaluable(cell.second->type))
+				goto exclude_match;
 			for (auto &rule : rules) {
 				last_mode = rule.mode;
 				if (rule.cell_types.size() > 0 && rule.cell_types.count(cell.second->type) == 0)
@@ -433,9 +435,10 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 	return sel_objects;
 }
 
-static void select_op_expand(RTLIL::Design *design, std::string arg, char mode)
+static void select_op_expand(RTLIL::Design *design, std::string arg, char mode, bool eval_only)
 {
-	int pos = mode == 'x' ? 2 : 3, levels = 1, rem_objects = -1;
+	int pos = (mode == 'x' ? 2 : 3) + (eval_only ? 1 : 0);
+	int levels = 1, rem_objects = -1;
 	std::vector<expand_rule_t> rules;
 	std::set<RTLIL::IdString> limits;
 
@@ -526,7 +529,7 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode)
 #endif
 
 	while (levels-- > 0 && rem_objects != 0) {
-		int num_objects = select_op_expand(design, work_stack.back(), rules, limits, rem_objects, mode, ct);
+		int num_objects = select_op_expand(design, work_stack.back(), rules, limits, rem_objects, mode, ct, eval_only);
 		if (num_objects == 0)
 			break;
 		rem_objects -= num_objects;
@@ -633,17 +636,32 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		if (arg == "%x" || (arg.size() > 2 && arg.substr(0, 2) == "%x" && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%x.\n");
-			select_op_expand(design, arg, 'x');
+			select_op_expand(design, arg, 'x', false);
 		} else
 		if (arg == "%ci" || (arg.size() > 3 && arg.substr(0, 3) == "%ci" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%ci.\n");
-			select_op_expand(design, arg, 'i');
+			select_op_expand(design, arg, 'i', false);
 		} else
 		if (arg == "%co" || (arg.size() > 3 && arg.substr(0, 3) == "%co" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%co.\n");
-			select_op_expand(design, arg, 'o');
+			select_op_expand(design, arg, 'o', false);
+		} else
+		if (arg == "%xe" || (arg.size() > 3 && arg.substr(0, 3) == "%x" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%xe.\n");
+			select_op_expand(design, arg, 'x', true);
+		} else
+		if (arg == "%cie" || (arg.size() > 4 && arg.substr(0, 4) == "%cie" && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%cie.\n");
+			select_op_expand(design, arg, 'i', true);
+		} else
+		if (arg == "%coe" || (arg.size() > 4 && arg.substr(0, 4) == "%coe" && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%coe.\n");
+			select_op_expand(design, arg, 'o', true);
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg.c_str());
 		if (work_stack.size() >= 1)
@@ -1030,6 +1048,9 @@ struct SelectPass : public Pass {
 		log("    %%ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("    %%co[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("        simmilar to %%x, but only select input (%%ci) or output cones (%%co)\n");
+		log("\n");
+		log("    %%xe[...] %%cie[...] %%coe\n");
+		log("        like %%x, %%ci, and %%co but only consider combinatorial cells\n");
 		log("\n");
 		log("    %%a\n");
 		log("        expand top set by selecting all wires that are (at least in part)\n");
