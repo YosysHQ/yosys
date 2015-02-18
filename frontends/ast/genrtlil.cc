@@ -1336,16 +1336,19 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					continue;
 				}
 				if (child->type == AST_PARASET) {
-					if (child->children[0]->type != AST_CONSTANT)
-						log_error("Parameter `%s' with non-constant value at %s:%d!\n",
-								child->str.c_str(), filename.c_str(), linenum);
-					if (child->str.size() == 0) {
-						char buf[100];
-						snprintf(buf, 100, "$%d", ++para_counter);
-						cell->parameters[buf] = child->children[0]->asParaConst();
-					} else {
-						cell->parameters[child->str] = child->children[0]->asParaConst();
+					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
+					if (child->children[0]->type == AST_REALVALUE) {
+						log_warning("Replacing floating point parameter %s.%s = %f with string at %s:%d.\n",
+							log_id(cell), log_id(paraname), child->children[0]->realvalue,
+							filename.c_str(), linenum);
+						auto strnode = AstNode::mkconst_str(stringf("%f", child->children[0]->realvalue));
+						strnode->cloneInto(child->children[0]);
+						delete strnode;
 					}
+					if (child->children[0]->type != AST_CONSTANT)
+						log_error("Parameter %s.%s with non-constant value at %s:%d!\n",
+								log_id(cell), log_id(paraname), filename.c_str(), linenum);
+					cell->parameters[paraname] = child->children[0]->asParaConst();
 					continue;
 				}
 				if (child->type == AST_ARGUMENT) {
