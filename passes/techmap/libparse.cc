@@ -43,8 +43,6 @@ LibertyAst::~LibertyAst()
 
 LibertyAst *LibertyAst::find(std::string name)
 {
-	if (this == NULL)
-		return NULL;
 	for (auto child : children)
 		if (child->id == name)
 			return child;
