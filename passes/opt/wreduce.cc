@@ -315,7 +315,7 @@ struct WreduceWorker
 };
 
 struct WreducePass : public Pass {
-	WreducePass() : Pass("wreduce", "reduce the word size of operations is possible") { }
+	WreducePass() : Pass("wreduce", "reduce the word size of operations if possible") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

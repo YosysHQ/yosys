@@ -154,6 +154,41 @@ only use one wire from such a group of connected wires. For example:
 	log("%d\n", sigmap(a) == sigmap(b)); // will print 1
 
 
+Using the RTLIL Netlist Format
+------------------------------
+
+In the RTLIL netlist format the cell ports contain SigSpecs that point to the
+Wires. There are no references in the other direction. This has two direct
+consequences:
+
+(1) It is very easy to go from cells to wires but hard to go in the other way.
+
+(2) There is no danger in removing cells from the netlists, but removing wires
+can break the netlist format when there are still references to the wire
+somewhere in the netlist.
+
+The solution to (1) is easy: Create custom indexes that allow you to make fast
+lookups for the wire-to-cell direction. You can either use existing generic
+index structures to do that (such as the ModIndex class) or write your own
+index. For many application it is simplest to construct a custom index. For
+example:
+
+	SigMap sigmap(module);
+	dict<SigBit, Cell*> sigbit_to_driver_index;
+
+	for (auto cell : module->cells())
+		for (auto &conn : cell->connections())
+			if (cell->output(conn.first))
+				for (auto bit : sigmap(conn.second))
+					sigbit_to_driver_index[bit] = cell;
+
+Regarding (2): There is a general theme in Yosys that you don't remove wires
+from the design. You can rename them, unconnect them, but you do not actually remove
+the Wire object from the module. Instead you let the "clean" command take care
+of the dangling wires. On the other hand it is safe to remove cells (as long as
+you make sure this does not invalidate a custom index you are using in your code).
+
+
 Example Code
 ------------
 
