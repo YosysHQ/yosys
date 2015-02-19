@@ -50,6 +50,7 @@ extern bool log_error_stderr;
 extern bool log_cmd_error_throw;
 extern bool log_quiet_warnings;
 extern int log_verbose_level;
+extern string log_last_error;
 
 void logv(const char *format, va_list ap);
 void logv_header(const char *format, va_list ap);

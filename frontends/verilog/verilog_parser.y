@@ -139,6 +139,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %%
 
 input: {
+	ast_stack.clear();
 	ast_stack.push_back(current_ast);
 } design {
 	ast_stack.pop_back();

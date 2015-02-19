@@ -48,6 +48,7 @@ bool log_error_stderr = false;
 bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
 int log_verbose_level;
+string log_last_error;
 
 vector<int> header_count;
 pool<RTLIL::IdString> log_id_cache;
@@ -173,6 +174,10 @@ void logv_warning(const char *format, va_list ap)
 
 void logv_error(const char *format, va_list ap)
 {
+#ifdef EMSCRIPTEN
+	auto backup_log_files = log_files;
+#endif
+
 	if (log_errfile != NULL)
 		log_files.push_back(log_errfile);
 
@@ -181,10 +186,16 @@ void logv_error(const char *format, va_list ap)
 			if (f == stdout)
 				f = stderr;
 
-	log("ERROR: ");
-	logv(format, ap);
+	log_last_error = vstringf(format, ap);
+	log("ERROR: %s", log_last_error.c_str());
 	log_flush();
+
+#ifdef EMSCRIPTEN
+	log_files = backup_log_files;
+	throw 0;
+#else
 	exit(1);
+#endif
 }
 
 void log(const char *format, ...)
@@ -224,8 +235,8 @@ void log_cmd_error(const char *format, ...)
 	va_start(ap, format);
 
 	if (log_cmd_error_throw) {
-		log("ERROR: ");
-		logv(format, ap);
+		log_last_error = vstringf(format, ap);
+		log("ERROR: %s", log_last_error.c_str());
 		log_flush();
 		throw log_cmd_error_exception();
 	}

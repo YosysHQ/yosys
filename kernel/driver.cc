@@ -78,6 +78,7 @@ USING_YOSYS_NAMESPACE
 
 extern "C" int main(int, char**);
 extern "C" void run(const char*);
+extern "C" const char *errmsg();
 extern "C" const char *prompt();
 
 int main(int, char**)
@@ -92,7 +93,21 @@ int main(int, char**)
 
 void run(const char *command)
 {
-	run_pass(command);
+	int selSize = GetSize(yosys_get_design()->selection_stack);
+	try {
+		log_last_error = "Internal error (see JavaScript console for details)";
+		run_pass(command);
+		log_last_error = "";
+	} catch (...) {
+		while (GetSize(yosys_get_design()->selection_stack) > selSize)
+			yosys_get_design()->selection_stack.pop_back();
+		throw;
+	}
+}
+
+const char *errmsg()
+{
+	return log_last_error.c_str();
 }
 
 const char *prompt()

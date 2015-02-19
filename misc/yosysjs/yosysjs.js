@@ -45,6 +45,7 @@ var YosysJS = new function() {
 		ys.verbose = false;
 		ys.logprint = false;
 		ys.echo = false;
+		ys.errmsg = "";
 
 		if (typeof(reference_element) == 'string' && reference_element != "")
 			reference_element = document.getElementById(reference_element);
@@ -151,12 +152,20 @@ var YosysJS = new function() {
 					ys.write("");
 				ys.write(ys.prompt() + cmd);
 			}
-			mod.ccall('run', '', ['string'], [cmd]);
+			try {
+				mod.ccall('run', '', ['string'], [cmd]);
+			} catch (e) {
+				ys.errmsg = mod.ccall('errmsg', 'string', [], []);;
+			}
 			return ys.print_buffer;
 		}
 
 		ys.read_file = function(filename) {
-			return ys.window.FS.readFile(filename, {encoding: 'utf8'});
+			try {
+				return ys.window.FS.readFile(filename, {encoding: 'utf8'});
+			} catch (e) {
+				return "";
+			}
 		}
 
 		ys.write_file = function(filename, text) {
@@ -165,6 +174,12 @@ var YosysJS = new function() {
 
 		ys.read_dir = function(dirname) {
 			return ys.window.FS.readdir(dirname);
+		}
+
+		ys.remove_file = function(filename) {
+			try {
+				ys.window.FS.unlink(filename);
+			} catch (e) { }
 		}
 
 		doc.open()

@@ -97,16 +97,10 @@ else ifeq ($(CONFIG),emcc)
 CXX = emcc
 CXXFLAGS := -std=c++11 $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
-EMCCFLAGS += --memory-init-file 0 -s NO_EXIT_RUNTIME=1
-EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt']"
-EMCCFLAGS += --embed-file share
+EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
+EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg']"
+EMCCFLAGS += -s DISABLE_EXCEPTION_CATCHING=0 -s ALLOW_MEMORY_GROWTH=1
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
-# EMCCFLAGS += -s ALLOW_MEMORY_GROWTH=1
-# EMCCFLAGS += -s DISABLE_EXCEPTION_CATCHING=0
-# EMCCFLAGS += -s AGGRESSIVE_VARIABLE_ELIMINATION=1
-# EMCCFLAGS += -s ASSERTIONS=2
-# EMCCFLAGS += -s SAFE_HEAP=1
-# EMCCFLAGS += -s RELOOP=0
 CXXFLAGS += $(EMCCFLAGS)
 LDFLAGS += $(EMCCFLAGS)
 LDLIBS =
