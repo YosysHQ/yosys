@@ -641,6 +641,9 @@ struct ShowPass : public Pass {
 		log("The generated output files are '~/.yosys_show.dot' and '~/.yosys_show.<format>',\n");
 		log("unless another prefix is specified using -prefix <prefix>.\n");
 		log("\n");
+		log("Yosys on Windows and YosysJS use different defaults: The output is written\n");
+		log("to 'show.dot' in the current directory and new viewer is launched.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -650,7 +653,7 @@ struct ShowPass : public Pass {
 		std::vector<std::pair<std::string, RTLIL::Selection>> color_selections;
 		std::vector<std::pair<std::string, RTLIL::Selection>> label_selections;
 
-#ifdef EMSCRIPTEN
+#if defined(EMSCRIPTEN) || defined(_WIN32)
 		std::string format = "dot";
 		std::string prefix = "show";
 #else
