@@ -137,8 +137,11 @@ var YosysJS = new function() {
 			span.textContent = text + "\n";
 			span.style.fontFamily = 'monospace';
 			span.style.whiteSpace = 'pre';
-			doc.body.appendChild(span);
-			ys.window.scrollTo(0, doc.body.scrollHeight)
+			doc.firstChild.appendChild(span);
+			if (doc.body)
+				ys.window.scrollTo(0, doc.body.scrollHeight);
+			else
+				ys.window.scrollBy(0, 100);
 		}
 
 		ys.prompt = function() {

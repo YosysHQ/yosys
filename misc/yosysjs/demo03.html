@@ -58,7 +58,6 @@ endmodule</span></pre><p/>
 				} else {
 					wdata = ys.read_file('wave.json');
 					if (wdata) {
-						console.log(wdata)
 						wdata = JSON.parse(wdata);
 						function wsignal(signame, newname) {
 							for (i = 0; i < wdata["signal"].length; i++)
@@ -81,7 +80,6 @@ endmodule</span></pre><p/>
 							"config" : wdata["config"]
 						};
 						wdata2 = JSON.stringify(wdata2)
-						console.log(wdata2)
 						w.innerHTML = '<b>The model did not pass verification:</b><p/>' +
 								'<script type="WaveDrom">' + wdata2 + '<\/script>';
 						WaveDrom.ProcessAll();
@@ -98,6 +96,5 @@ endmodule</span></pre><p/>
 		YosysJS.load_viz();
 		var ys = YosysJS.create('', on_ys_ready);
 		ys.logprint = true;
-		ys.echo = true;
 	</script>
 </body></html>
