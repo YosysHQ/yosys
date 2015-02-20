@@ -61,7 +61,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	log("AST simplify[%d] depth %d at %s:%d,\n", stage, recursion_counter, filename.c_str(), linenum);
 	log("const_fold=%d, at_zero=%d, in_lvalue=%d, stage=%d, width_hint=%d, sign_hint=%d, in_param=%d\n",
 			int(const_fold), int(at_zero), int(in_lvalue), int(stage), int(width_hint), int(sign_hint), int(in_param));
-	dumpAst(NULL, "> ");
+	// dumpAst(NULL, "> ");
 #endif
 
 	if (stage == 0)

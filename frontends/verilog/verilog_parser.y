@@ -310,10 +310,17 @@ module_arg:
 		do_not_require_port_stubs = true;
 	};
 
+non_opt_delay:
+	'#' '(' expr ')' { delete $3; } |
+	'#' '(' expr ':' expr ':' expr ')' { delete $3; delete $5; delete $7; };
+
+delay:
+	non_opt_delay | /* empty */;
+
 wire_type:
 	{
 		astbuf3 = new AstNode(AST_WIRE);
-	} wire_type_token_list {
+	} wire_type_token_list delay {
 		$$ = astbuf3;
 	};
 
@@ -742,7 +749,7 @@ wire_name:
 	};
 
 assign_stmt:
-	TOK_ASSIGN assign_expr_list ';';
+	TOK_ASSIGN delay assign_expr_list ';';
 
 assign_expr_list:
 	assign_expr | assign_expr_list ',' assign_expr;
@@ -762,7 +769,7 @@ cell_stmt:
 	} cell_parameter_list_opt cell_list ';' {
 		delete astbuf1;
 	} |
-	attr tok_prim_wrapper {
+	attr tok_prim_wrapper delay {
 		astbuf1 = new AstNode(AST_PRIMITIVE);
 		astbuf1->str = *$2;
 		append_attr(astbuf1, $1);
@@ -935,18 +942,19 @@ assert_property:
 	};
 
 simple_behavioral_stmt:
-	lvalue '=' expr {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $3);
+	lvalue '=' delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
 		ast_stack.back()->children.push_back(node);
 	} |
-	lvalue OP_LE expr {
-		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $3);
+	lvalue OP_LE delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $4);
 		ast_stack.back()->children.push_back(node);
 	};
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
 	defattr | assert | wire_decl |
+	non_opt_delay behavioral_stmt |
 	simple_behavioral_stmt ';' | ';' |
 	hierarchical_id attr {
 		AstNode *node = new AstNode(AST_TCALL);
@@ -1326,6 +1334,11 @@ basic_expr:
 	} |
 	'(' expr ')' {
 		$$ = $2;
+	} |
+	'(' expr ':' expr ':' expr ')' {
+		delete $2;
+		$$ = $4;
+		delete $6;
 	} |
 	'{' concat_list '}' {
 		$$ = $2;
