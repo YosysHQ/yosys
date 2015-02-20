@@ -51,7 +51,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 {
 	static int recursion_counter = 0;
 	static pair<string, int> last_blocking_assignment_warn;
-	recursion_counter++;
+	static bool deep_recursion_warning = false;
+
+	if (recursion_counter++ == 1000 && deep_recursion_warning) {
+		log_warning("Deep recursion in AST simplifier.\nDoes this design contain insanely long expressions?\n");
+		deep_recursion_warning = false;
+	}
 
 	AstNode *newNode = NULL;
 	bool did_something = false;
@@ -69,6 +74,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		log_assert(type == AST_MODULE);
 		last_blocking_assignment_warn = pair<string, int>();
 
+		deep_recursion_warning = true;
 		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
 
 		if (!flag_nomem2reg && !get_bool_attribute("\\nomem2reg"))
