@@ -1088,7 +1088,7 @@ struct FlattenPass : public Pass {
 				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap, false))
 					did_something = true;
 			} else {
-				for (auto mod : design->modules())
+				for (auto mod : vector<Module*>(design->modules()))
 					if (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false))
 						did_something = true;
 			}
@@ -1098,7 +1098,7 @@ struct FlattenPass : public Pass {
 
 		if (top_mod != NULL) {
 			dict<RTLIL::IdString, RTLIL::Module*> new_modules;
-			for (auto mod : design->modules())
+			for (auto mod : vector<Module*>(design->modules()))
 				if (mod == top_mod || mod->get_bool_attribute("\\blackbox")) {
 					new_modules[mod->name] = mod;
 				} else {
