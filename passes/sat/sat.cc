@@ -993,6 +993,14 @@ struct SatPass : public Pass {
 		log("    -tempinduct-inductonly\n");
 		log("        Run only the induction half of temporal induction\n");
 		log("\n");
+		log("    -tempinduct-skip <N>\n");
+		log("        Skip the first <N> steps of the induction proof.\n");
+		log("\n");
+		log("        note: this will assume that the base case holds for <N> steps.\n");
+		log("        this must be proven independently with \"-tempinduct-baseonly\n");
+		log("        -maxsteps <N>\". Use -initsteps if you just want to set a\n");
+		log("        minimal induction length.\n");
+		log("\n");
 		log("    -prove <signal> <value>\n");
 		log("        Attempt to proof that <signal> is always <value>.\n");
 		log("\n");
@@ -1011,6 +1019,13 @@ struct SatPass : public Pass {
 		log("\n");
 		log("    -initsteps <N>\n");
 		log("        Set initial length for the induction.\n");
+		log("        This will speed up the search of the right induction length\n");
+		log("        for deep induction proofs.\n");
+		log("\n");
+		log("    -stepsize <N>\n");
+		log("        Increase the size of the induction proof in steps of <N>.\n");
+		log("        This will speed up the search of the right induction length\n");
+		log("        for deep induction proofs.\n");
 		log("\n");
 		log("    -timeout <N>\n");
 		log("        Maximum number of seconds a single SAT instance may take.\n");
@@ -1040,6 +1055,7 @@ struct SatPass : public Pass {
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
 		bool tempinduct_baseonly = false, tempinduct_inductonly = false;
+		int tempinduct_skip = 0, stepsize = 1;
 		std::string vcd_file_name, json_file_name, cnf_file_name;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
@@ -1082,6 +1098,10 @@ struct SatPass : public Pass {
 			}
 			if (args[argidx] == "-initsteps" && argidx+1 < args.size()) {
 				initsteps = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-stepsize" && argidx+1 < args.size()) {
+				stepsize = std::max(1, atoi(args[++argidx].c_str()));
 				continue;
 			}
 			if (args[argidx] == "-ignore_div_by_zero") {
@@ -1140,6 +1160,10 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-tempinduct-inductonly") {
 				tempinduct = true;
 				tempinduct_inductonly = true;
+				continue;
+			}
+			if (args[argidx] == "-tempinduct-skip" && argidx+1 < args.size()) {
+				tempinduct_skip = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
@@ -1370,24 +1394,34 @@ struct SatPass : public Pass {
 					if (inductlen > 1)
 						basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
 
-					log("\n[base case] Solving problem with %d variables and %d clauses..\n",
-							basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
+					if (tempinduct_skip < inductlen)
+					{
+						log("\n[base case %d] Solving problem with %d variables and %d clauses..\n",
+								inductlen, basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
 
-					if (basecase.solve(basecase.ez->NOT(property))) {
-						log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
-						print_proof_failed();
-						basecase.print_model();
-						if(!vcd_file_name.empty())
-							basecase.dump_model_to_vcd(vcd_file_name);
-						if(!json_file_name.empty())
-							basecase.dump_model_to_json(json_file_name);
-						goto tip_failed;
+						if (basecase.solve(basecase.ez->NOT(property))) {
+							log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
+							print_proof_failed();
+							basecase.print_model();
+							if(!vcd_file_name.empty())
+								basecase.dump_model_to_vcd(vcd_file_name);
+							if(!json_file_name.empty())
+								basecase.dump_model_to_json(json_file_name);
+							goto tip_failed;
+						}
+
+						if (basecase.gotTimeout)
+							goto timeout;
+
+						log("Base case for induction length %d proven.\n", inductlen);
 					}
-
-					if (basecase.gotTimeout)
-						goto timeout;
-
-					log("Base case for induction length %d proven.\n", inductlen);
+					else
+					{
+						log("\n[base case %d] Skipping prove for this step (-tempinduct-skip %d).",
+								inductlen, tempinduct_skip);
+						log("\n[base case %d] Problem size so far: %d variables and %d clauses.\n",
+								inductlen, basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
+					}
 					basecase.ez->assume(property);
 				}
 
@@ -1402,10 +1436,19 @@ struct SatPass : public Pass {
 					if (inductlen > 1)
 						inductstep.force_unique_state(1, inductlen + 1);
 
-					if (inductlen < initsteps)
+					if (inductlen < tempinduct_skip || inductlen < initsteps || inductlen % stepsize != 0)
 					{
-						log("\n[induction step] Skipping problem with %d variables and %d clauses (below initsteps).\n",
-								inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+						if (inductlen < tempinduct_skip)
+							log("\n[induction step %d] Skipping prove for this step (-tempinduct-skip %d).",
+									inductlen, tempinduct_skip);
+						if (inductlen < initsteps)
+							log("\n[induction step %d] Skipping prove for this step (-initsteps %d).",
+									inductlen, tempinduct_skip);
+						if (inductlen % stepsize != 0)
+							log("\n[induction step %d] Skipping prove for this step (-stepsize %d).",
+									inductlen, stepsize);
+						log("\n[induction step %d] Problem size so far: %d variables and %d clauses.\n",
+								inductlen, inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
 						inductstep.ez->assume(property);
 					}
 					else
@@ -1423,8 +1466,8 @@ struct SatPass : public Pass {
 							fclose(f);
 						}
 
-						log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
-								inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+						log("\n[induction step %d] Solving problem with %d variables and %d clauses..\n",
+								inductlen, inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
 
 						if (!inductstep.solve(inductstep.ez->NOT(property))) {
 							if (inductstep.gotTimeout)
