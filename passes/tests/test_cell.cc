@@ -278,10 +278,10 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 	RTLIL::Module *gate_mod = design->module("\\gate");
 	ConstEval gold_ce(gold_mod), gate_ce(gate_mod);
 
-	ezDefaultSAT ez1, ez2;
+	ezSatPtr ez1, ez2;
 	SigMap sigmap(gold_mod);
-	SatGen satgen1(&ez1, &sigmap);
-	SatGen satgen2(&ez2, &sigmap);
+	SatGen satgen1(ez1.get(), &sigmap);
+	SatGen satgen2(ez2.get(), &sigmap);
 	satgen2.model_undef = true;
 
 	if (!nosat)
@@ -433,7 +433,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			std::vector<int> sat1_model = satgen1.importSigSpec(out_sig);
 			std::vector<bool> sat1_model_value;
 
-			if (!ez1.solve(sat1_model, sat1_model_value, ez1.vec_eq(sat1_in_sig, sat1_in_val)))
+			if (!ez1->solve(sat1_model, sat1_model_value, ez1->vec_eq(sat1_in_sig, sat1_in_val)))
 				log_error("Evaluating sat model 1 (no undef modeling) failed!\n");
 
 			if (verbose) {
@@ -468,7 +468,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			std::vector<bool> sat2_model_value;
 
-			if (!ez2.solve(sat2_model, sat2_model_value, ez2.vec_eq(sat2_in_def_sig, sat2_in_def_val), ez2.vec_eq(sat2_in_undef_sig, sat2_in_undef_val)))
+			if (!ez2->solve(sat2_model, sat2_model_value, ez2->vec_eq(sat2_in_def_sig, sat2_in_def_val), ez2->vec_eq(sat2_in_undef_sig, sat2_in_undef_val)))
 				log_error("Evaluating sat model 2 (undef modeling) failed!\n");
 
 			if (verbose) {

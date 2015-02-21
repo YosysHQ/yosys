@@ -49,6 +49,7 @@
 #include <unordered_set>
 #include <initializer_list>
 #include <stdexcept>
+#include <memory>
 
 #include <sstream>
 #include <fstream>

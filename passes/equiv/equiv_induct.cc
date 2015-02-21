@@ -32,7 +32,7 @@ struct EquivInductWorker
 	vector<Cell*> cells;
 	pool<Cell*> workset;
 
-	ezDefaultSAT ez;
+	ezSatPtr ez;
 	SatGen satgen;
 
 	int max_seq;
@@ -43,7 +43,8 @@ struct EquivInductWorker
 	SigPool undriven_signals;
 
 	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, bool model_undef, int max_seq) : module(module), sigmap(module),
-			cells(module->selected_cells()), workset(unproven_equiv_cells), satgen(&ez, &sigmap), max_seq(max_seq), success_counter(0)
+			cells(module->selected_cells()), workset(unproven_equiv_cells),
+			satgen(ez.get(), &sigmap), max_seq(max_seq), success_counter(0)
 	{
 		satgen.model_undef = model_undef;
 	}
@@ -63,9 +64,9 @@ struct EquivInductWorker
 				if (bit_a != bit_b) {
 					int ez_a = satgen.importSigBit(bit_a, step);
 					int ez_b = satgen.importSigBit(bit_b, step);
-					int cond = ez.IFF(ez_a, ez_b);
+					int cond = ez->IFF(ez_a, ez_b);
 					if (satgen.model_undef)
-						cond = ez.OR(cond, satgen.importUndefSigBit(bit_a, step));
+						cond = ez->OR(cond, satgen.importUndefSigBit(bit_a, step));
 					ez_equal_terms.push_back(cond);
 				}
 			}
@@ -73,11 +74,11 @@ struct EquivInductWorker
 
 		if (satgen.model_undef) {
 			for (auto bit : undriven_signals.export_all())
-				ez.assume(ez.NOT(satgen.importUndefSigBit(bit, step)));
+				ez->assume(ez->NOT(satgen.importUndefSigBit(bit, step)));
 		}
 
 		log_assert(!ez_step_is_consistent.count(step));
-		ez_step_is_consistent[step] = ez.expression(ez.OpAnd, ez_equal_terms);
+		ez_step_is_consistent[step] = ez->expression(ez->OpAnd, ez_equal_terms);
 	}
 
 	void run()
@@ -101,27 +102,27 @@ struct EquivInductWorker
 
 		if (satgen.model_undef) {
 			for (auto bit : satgen.initial_state.export_all())
-				ez.assume(ez.NOT(satgen.importUndefSigBit(bit, 1)));
+				ez->assume(ez->NOT(satgen.importUndefSigBit(bit, 1)));
 			log("  Undef modelling: force def on %d initial reg values and %d inputs.\n",
 				GetSize(satgen.initial_state), GetSize(undriven_signals));
 		}
 
 		for (int step = 1; step <= max_seq; step++)
 		{
-			ez.assume(ez_step_is_consistent[step]);
+			ez->assume(ez_step_is_consistent[step]);
 
-			log("  Proving existence of base case for step %d. (%d clauses over %d variables)\n", step, ez.numCnfClauses(), ez.numCnfVariables());
-			if (!ez.solve()) {
+			log("  Proving existence of base case for step %d. (%d clauses over %d variables)\n", step, ez->numCnfClauses(), ez->numCnfVariables());
+			if (!ez->solve()) {
 				log("  Proof for base case failed. Circuit inherently diverges!\n");
 				return;
 			}
 
 			create_timestep(step+1);
-			int new_step_not_consistent = ez.NOT(ez_step_is_consistent[step+1]);
-			ez.bind(new_step_not_consistent);
+			int new_step_not_consistent = ez->NOT(ez_step_is_consistent[step+1]);
+			ez->bind(new_step_not_consistent);
 
-			log("  Proving induction step %d. (%d clauses over %d variables)\n", step, ez.numCnfClauses(), ez.numCnfVariables());
-			if (!ez.solve(new_step_not_consistent)) {
+			log("  Proving induction step %d. (%d clauses over %d variables)\n", step, ez->numCnfClauses(), ez->numCnfVariables());
+			if (!ez->solve(new_step_not_consistent)) {
 				log("  Proof for induction step holds. Entire workset of %d cells proven!\n", GetSize(workset));
 				for (auto cell : workset)
 					cell->setPort("\\B", cell->getPort("\\A"));
@@ -143,12 +144,12 @@ struct EquivInductWorker
 
 			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
 			int ez_b = satgen.importSigBit(bit_b, max_seq+1);
-			int cond = ez.XOR(ez_a, ez_b);
+			int cond = ez->XOR(ez_a, ez_b);
 
 			if (satgen.model_undef)
-				cond = ez.AND(cond, ez.NOT(satgen.importUndefSigBit(bit_a, max_seq+1)));
+				cond = ez->AND(cond, ez->NOT(satgen.importUndefSigBit(bit_a, max_seq+1)));
 
-			if (!ez.solve(cond)) {
+			if (!ez->solve(cond)) {
 				log(" success!\n");
 				cell->setPort("\\B", cell->getPort("\\A"));
 				success_counter++;

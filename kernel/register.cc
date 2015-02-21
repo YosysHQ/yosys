@@ -18,6 +18,8 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/satgen.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -691,6 +693,18 @@ struct EchoPass : public Pass {
 		log("echo %s\n", echo_mode ? "on" : "off");
 	}
 } EchoPass;
+
+SatSolver *yosys_satsolver_list;
+SatSolver *yosys_satsolver;
+
+struct MinisatSatSolver : public SatSolver {
+	MinisatSatSolver() : SatSolver("minisat") {
+		yosys_satsolver = this;
+	}
+	virtual ezSAT *create() YS_OVERRIDE {
+		return new ezMiniSAT();
+	}
+} MinisatSatSolver;
  
 YOSYS_NAMESPACE_END
 

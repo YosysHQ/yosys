@@ -29,7 +29,37 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-typedef ezMiniSAT ezDefaultSAT;
+// defined in kernel/register.cc
+extern struct SatSolver *yosys_satsolver_list;
+extern struct SatSolver *yosys_satsolver;
+
+struct SatSolver
+{
+	string name;
+	SatSolver *next;
+	virtual ezSAT *create() = 0;
+
+	SatSolver(string name) : name(name) {
+		next = yosys_satsolver_list;
+		yosys_satsolver_list = this;
+	}
+
+	virtual ~SatSolver() {
+		auto p = &yosys_satsolver_list;
+		while (*p) {
+			if (*p == this)
+				*p = next;
+			else
+				p = &(*p)->next;
+		}
+		if (yosys_satsolver == this)
+			yosys_satsolver = yosys_satsolver_list;
+	}
+};
+
+struct ezSatPtr : public std::unique_ptr<ezSAT> {
+	ezSatPtr() : unique_ptr<ezSAT>(yosys_satsolver->create()) { }
+};
 
 struct SatGen
 {

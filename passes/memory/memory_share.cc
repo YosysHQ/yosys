@@ -489,8 +489,8 @@ struct MemoryShareWorker
 		if (wr_ports.size() <= 1)
 			return;
 
-		ezDefaultSAT ez;
-		SatGen satgen(&ez, &modwalker.sigmap);
+		ezSatPtr ez;
+		SatGen satgen(ez.get(), &modwalker.sigmap);
 
 		// find list of considered ports and port pairs
 
@@ -553,7 +553,7 @@ struct MemoryShareWorker
 			if (considered_port_pairs.count(i) || considered_port_pairs.count(i+1))
 			{
 				RTLIL::SigSpec sig = modwalker.sigmap(wr_ports[i]->getPort("\\EN"));
-				port_to_sat_variable[i] = ez.expression(ez.OpOr, satgen.importSigSpec(sig));
+				port_to_sat_variable[i] = ez->expression(ez->OpOr, satgen.importSigSpec(sig));
 
 				std::vector<RTLIL::SigBit> bits = sig;
 				bits_queue.insert(bits.begin(), bits.end());
@@ -582,7 +582,7 @@ struct MemoryShareWorker
 			vector<int> ez_wire_bits = satgen.importSigSpec(wire);
 			for (int i : ez_wire_bits)
 			for (int j : ez_wire_bits)
-				if (i != j) ez.assume(ez.NOT(i), j);
+				if (i != j) ez->assume(ez->NOT(i), j);
 		}
 
 		log("  Common input cone for all EN signals: %d cells.\n", int(sat_cells.size()));
@@ -590,7 +590,7 @@ struct MemoryShareWorker
 		for (auto cell : sat_cells)
 			satgen.importCell(cell);
 
-		log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", ez.numCnfVariables(), ez.numCnfClauses());
+		log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", ez->numCnfVariables(), ez->numCnfClauses());
 
 		// merge subsequent ports if possible
 
@@ -599,13 +599,13 @@ struct MemoryShareWorker
 			if (!considered_port_pairs.count(i))
 				continue;
 
-			if (ez.solve(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i))) {
+			if (ez->solve(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i))) {
 				log("  According to SAT solver sharing of port %d with port %d is not possible.\n", i-1, i);
 				continue;
 			}
 
 			log("  Merging port %d into port %d.\n", i-1, i);
-			port_to_sat_variable.at(i) = ez.OR(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i));
+			port_to_sat_variable.at(i) = ez->OR(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i));
 
 			RTLIL::SigSpec last_addr = wr_ports[i-1]->getPort("\\ADDR");
 			RTLIL::SigSpec last_data = wr_ports[i-1]->getPort("\\DATA");

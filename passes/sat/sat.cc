@@ -41,9 +41,10 @@ struct SatHelper
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
-	ezDefaultSAT ez;
 	SigMap sigmap;
 	CellTypes ct;
+
+	ezSatPtr ez;
 	SatGen satgen;
 
 	// additional constraints
@@ -65,7 +66,7 @@ struct SatHelper
 	bool gotTimeout;
 
 	SatHelper(RTLIL::Design *design, RTLIL::Module *module, bool enable_undef) :
-		design(design), module(module), sigmap(module), ct(design), satgen(&ez, &sigmap)
+		design(design), module(module), sigmap(module), ct(design), satgen(ez.get(), &sigmap)
 	{
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
@@ -155,7 +156,7 @@ struct SatHelper
 		if (set_init_def) {
 			RTLIL::SigSpec rem = satgen.initial_state.export_all();
 			std::vector<int> undef_rem = satgen.importUndefSigSpec(rem, 1);
-			ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, undef_rem)));
+			ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_rem)));
 		}
 
 		if (set_init_undef) {
@@ -179,7 +180,7 @@ struct SatHelper
 
 		log("Final constraint equation: %s = %s\n\n", log_signal(big_lhs), log_signal(big_rhs));
 		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
-		ez.assume(satgen.signals_eq(big_lhs, big_rhs, 1));
+		ez->assume(satgen.signals_eq(big_lhs, big_rhs, 1));
 	}
 
 	void setup(int timestep = -1)
@@ -250,7 +251,7 @@ struct SatHelper
 
 		log("Final constraint equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
 		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
-		ez.assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
+		ez->assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
 
 		// 0 = sets_def
 		// 1 = sets_any_undef
@@ -310,11 +311,11 @@ struct SatHelper
 			log("Import %s constraint for this timestep: %s\n", t == 0 ? "def" : t == 1 ? "any_undef" : "all_undef", log_signal(sig));
 			std::vector<int> undef_sig = satgen.importUndefSigSpec(sig, timestep);
 			if (t == 0)
-				ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, undef_sig)));
+				ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_sig)));
 			if (t == 1)
-				ez.assume(ez.expression(ezSAT::OpOr, undef_sig));
+				ez->assume(ez->expression(ezSAT::OpOr, undef_sig));
 			if (t == 2)
-				ez.assume(ez.expression(ezSAT::OpAnd, undef_sig));
+				ez->assume(ez->expression(ezSAT::OpAnd, undef_sig));
 		}
 
 		int import_cell_counter = 0;
@@ -401,7 +402,7 @@ struct SatHelper
 			std::vector<int> undef_rhs = satgen.importUndefSigSpec(big_rhs, timestep);
 
 			for (size_t i = 0; i < value_lhs.size(); i++)
-				prove_bits.push_back(ez.OR(undef_lhs.at(i), ez.AND(ez.NOT(undef_rhs.at(i)), ez.NOT(ez.XOR(value_lhs.at(i), value_rhs.at(i))))));
+				prove_bits.push_back(ez->OR(undef_lhs.at(i), ez->AND(ez->NOT(undef_rhs.at(i)), ez->NOT(ez->XOR(value_lhs.at(i), value_rhs.at(i))))));
 		}
 
 		if (prove_asserts) {
@@ -412,22 +413,22 @@ struct SatHelper
 			prove_bits.push_back(satgen.importAsserts(timestep));
 		}
 
-		return ez.expression(ezSAT::OpAnd, prove_bits);
+		return ez->expression(ezSAT::OpAnd, prove_bits);
 	}
 
 	void force_unique_state(int timestep_from, int timestep_to)
 	{
 		RTLIL::SigSpec state_signals = satgen.initial_state.export_all();
 		for (int i = timestep_from; i < timestep_to; i++)
-			ez.assume(ez.NOT(satgen.signals_eq(state_signals, state_signals, i, timestep_to)));
+			ez->assume(ez->NOT(satgen.signals_eq(state_signals, state_signals, i, timestep_to)));
 	}
 
 	bool solve(const std::vector<int> &assumptions)
 	{
 		log_assert(gotTimeout == false);
-		ez.setSolverTimeout(timeout);
-		bool success = ez.solve(modelExpressions, modelValues, assumptions);
-		if (ez.getSolverTimoutStatus())
+		ez->setSolverTimeout(timeout);
+		bool success = ez->solve(modelExpressions, modelValues, assumptions);
+		if (ez->getSolverTimoutStatus())
 			gotTimeout = true;
 		return success;
 	}
@@ -435,9 +436,9 @@ struct SatHelper
 	bool solve(int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
 	{
 		log_assert(gotTimeout == false);
-		ez.setSolverTimeout(timeout);
-		bool success = ez.solve(modelExpressions, modelValues, a, b, c, d, e, f);
-		if (ez.getSolverTimoutStatus())
+		ez->setSolverTimeout(timeout);
+		bool success = ez->solve(modelExpressions, modelValues, a, b, c, d, e, f);
+		if (ez->getSolverTimoutStatus())
 			gotTimeout = true;
 		return success;
 	}
@@ -478,7 +479,7 @@ struct SatHelper
 					maybe_undef.push_back(modelExpressions.at(modelExpressions.size()/2 + i));
 
 			backupValues.swap(modelValues);
-			if (!solve(ez.expression(ezSAT::OpAnd, must_undef), ez.expression(ezSAT::OpOr, maybe_undef)))
+			if (!solve(ez->expression(ezSAT::OpAnd, must_undef), ez->expression(ezSAT::OpOr, maybe_undef)))
 				break;
 		}
 
@@ -832,12 +833,12 @@ struct SatHelper
 				int bit = modelExpressions.at(i), bit_undef = modelExpressions.at(modelExpressions.size()/2 + i);
 				bool val = modelValues.at(i), val_undef = modelValues.at(modelExpressions.size()/2 + i);
 				if (!max_undef || !val_undef)
-					clause.push_back(val_undef ? ez.NOT(bit_undef) : val ? ez.NOT(bit) : bit);
+					clause.push_back(val_undef ? ez->NOT(bit_undef) : val ? ez->NOT(bit) : bit);
 			}
 		} else
 			for (size_t i = 0; i < modelExpressions.size(); i++)
-				clause.push_back(modelValues.at(i) ? ez.NOT(modelExpressions.at(i)) : modelExpressions.at(i));
-		ez.assume(ez.expression(ezSAT::OpOr, clause));
+				clause.push_back(modelValues.at(i) ? ez->NOT(modelExpressions.at(i)) : modelExpressions.at(i));
+		ez->assume(ez->expression(ezSAT::OpOr, clause));
 	}
 };
 
@@ -1319,11 +1320,11 @@ struct SatPass : public Pass {
 			inductstep.ignore_unknown_cells = ignore_unknown_cells;
 
 			inductstep.setup(1);
-			inductstep.ez.assume(inductstep.setup_proof(1));
+			inductstep.ez->assume(inductstep.setup_proof(1));
 
 			if (tempinduct_def) {
 				std::vector<int> undef_state = inductstep.satgen.importUndefSigSpec(inductstep.satgen.initial_state.export_all(), 1);
-				inductstep.ez.assume(inductstep.ez.NOT(inductstep.ez.expression(ezSAT::OpOr, undef_state)));
+				inductstep.ez->assume(inductstep.ez->NOT(inductstep.ez->expression(ezSAT::OpOr, undef_state)));
 			}
 
 			for (int inductlen = 1; inductlen <= maxsteps || maxsteps == 0; inductlen++)
@@ -1340,9 +1341,9 @@ struct SatPass : public Pass {
 					basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
 
 				log("\n[base case] Solving problem with %d variables and %d clauses..\n",
-						basecase.ez.numCnfVariables(), basecase.ez.numCnfClauses());
+						basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
 
-				if (basecase.solve(basecase.ez.NOT(property))) {
+				if (basecase.solve(basecase.ez->NOT(property))) {
 					log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
 					print_proof_failed();
 					basecase.print_model();
@@ -1357,7 +1358,7 @@ struct SatPass : public Pass {
 					goto timeout;
 
 				log("Base case for induction length %d proven.\n", inductlen);
-				basecase.ez.assume(property);
+				basecase.ez->assume(property);
 
 				// phase 2: proving induction step
 
@@ -1371,8 +1372,8 @@ struct SatPass : public Pass {
 				if (inductlen < initsteps)
 				{
 					log("\n[induction step] Skipping problem with %d variables and %d clauses (below initsteps).\n",
-							inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
-					inductstep.ez.assume(property);
+							inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+					inductstep.ez->assume(property);
 				}
 				else
 				{
@@ -1385,14 +1386,14 @@ struct SatPass : public Pass {
 						log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
 						cnf_file_name.clear();
 
-						inductstep.ez.printDIMACS(f, false);
+						inductstep.ez->printDIMACS(f, false);
 						fclose(f);
 					}
 
 					log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
-							inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
+							inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
 
-					if (!inductstep.solve(inductstep.ez.NOT(property))) {
+					if (!inductstep.solve(inductstep.ez->NOT(property))) {
 						if (inductstep.gotTimeout)
 							goto timeout;
 						log("Induction step proven: SUCCESS!\n");
@@ -1401,7 +1402,7 @@ struct SatPass : public Pass {
 					}
 
 					log("Induction step failed. Incrementing induction length.\n");
-					inductstep.ez.assume(property);
+					inductstep.ez->assume(property);
 					inductstep.print_model();
 				}
 			}
@@ -1457,7 +1458,7 @@ struct SatPass : public Pass {
 			if (seq_len == 0) {
 				sathelper.setup();
 				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
-					sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof()));
+					sathelper.ez->assume(sathelper.ez->NOT(sathelper.setup_proof()));
 			} else {
 				std::vector<int> prove_bits;
 				for (int timestep = 1; timestep <= seq_len; timestep++) {
@@ -1467,7 +1468,7 @@ struct SatPass : public Pass {
 							prove_bits.push_back(sathelper.setup_proof(timestep));
 				}
 				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
-					sathelper.ez.assume(sathelper.ez.NOT(sathelper.ez.expression(ezSAT::OpAnd, prove_bits)));
+					sathelper.ez->assume(sathelper.ez->NOT(sathelper.ez->expression(ezSAT::OpAnd, prove_bits)));
 				sathelper.setup_init();
 			}
 			sathelper.generate_model();
@@ -1481,7 +1482,7 @@ struct SatPass : public Pass {
 				log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
 				cnf_file_name.clear();
 
-				sathelper.ez.printDIMACS(f, false);
+				sathelper.ez->printDIMACS(f, false);
 				fclose(f);
 			}
 
@@ -1489,7 +1490,7 @@ struct SatPass : public Pass {
 
 		rerun_solver:
 			log("\nSolving problem with %d variables and %d clauses..\n",
-					sathelper.ez.numCnfVariables(), sathelper.ez.numCnfClauses());
+					sathelper.ez->numCnfVariables(), sathelper.ez->numCnfClauses());
 
 			if (sathelper.solve())
 			{

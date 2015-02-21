@@ -127,9 +127,9 @@ static void test_abcloop()
 		module->fixup_ports();
 		Pass::call(design, "clean");
 
-		ezDefaultSAT ez;
+		ezSatPtr ez;
 		SigMap sigmap(module);
-		SatGen satgen(&ez, &sigmap);
+		SatGen satgen(ez.get(), &sigmap);
 
 		for (auto c : module->cells()) {
 			bool ok YS_ATTRIBUTE(unused) = satgen.importCell(c);
@@ -137,7 +137,7 @@ static void test_abcloop()
 		}
 
 		std::vector<int> in_vec = satgen.importSigSpec(in_sig);
-		std::vector<int> inverse_in_vec = ez.vec_not(in_vec);
+		std::vector<int> inverse_in_vec = ez->vec_not(in_vec);
 
 		std::vector<int> out_vec = satgen.importSigSpec(out_sig);
 
@@ -148,7 +148,7 @@ static void test_abcloop()
 				assumptions.push_back((i & (1 << j)) ? in_vec.at(j) : inverse_in_vec.at(j));
 
 			std::vector<bool> results;
-			if (!ez.solve(out_vec, results, assumptions)) {
+			if (!ez->solve(out_vec, results, assumptions)) {
 				log("No stable solution for input %d found -> recreate module.\n", i);
 				goto recreate_module;
 			}
@@ -156,10 +156,10 @@ static void test_abcloop()
 			for (int j = 0; j < 4; j++)
 				truthtab[i][j] = results[j];
 
-			assumptions.push_back(ez.vec_ne(out_vec, ez.vec_const(results)));
+			assumptions.push_back(ez->vec_ne(out_vec, ez->vec_const(results)));
 
 			std::vector<bool> results2;
-			if (ez.solve(out_vec, results2, assumptions)) {
+			if (ez->solve(out_vec, results2, assumptions)) {
 				log("Two stable solutions for input %d found -> recreate module.\n", i);
 				goto recreate_module;
 			}
@@ -177,9 +177,9 @@ static void test_abcloop()
 	log("\n");
 	log("Pre- and post-abc truth table:\n");
 
-	ezDefaultSAT ez;
+	ezSatPtr ez;
 	SigMap sigmap(module);
-	SatGen satgen(&ez, &sigmap);
+	SatGen satgen(ez.get(), &sigmap);
 
 	for (auto c : module->cells()) {
 		bool ok YS_ATTRIBUTE(unused) = satgen.importCell(c);
@@ -187,7 +187,7 @@ static void test_abcloop()
 	}
 
 	std::vector<int> in_vec = satgen.importSigSpec(in_sig);
-	std::vector<int> inverse_in_vec = ez.vec_not(in_vec);
+	std::vector<int> inverse_in_vec = ez->vec_not(in_vec);
 
 	std::vector<int> out_vec = satgen.importSigSpec(out_sig);
 
@@ -204,7 +204,7 @@ static void test_abcloop()
 			truthtab2[i][j] = truthtab[i][j];
 
 		std::vector<bool> results;
-		if (!ez.solve(out_vec, results, assumptions)) {
+		if (!ez->solve(out_vec, results, assumptions)) {
 			log("No stable solution for input %d found.\n", i);
 			found_error = true;
 			continue;
@@ -213,10 +213,10 @@ static void test_abcloop()
 		for (int j = 0; j < 4; j++)
 			truthtab2[i][j] = results[j];
 
-		assumptions.push_back(ez.vec_ne(out_vec, ez.vec_const(results)));
+		assumptions.push_back(ez->vec_ne(out_vec, ez->vec_const(results)));
 
 		std::vector<bool> results2;
-		if (ez.solve(out_vec, results2, assumptions)) {
+		if (ez->solve(out_vec, results2, assumptions)) {
 			log("Two stable solutions for input %d found -> recreate module.\n", i);
 			found_error = true;
 		}

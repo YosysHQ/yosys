@@ -32,7 +32,7 @@ struct EquivSimpleWorker
 	SigMap &sigmap;
 	dict<SigBit, Cell*> &bit2driver;
 
-	ezDefaultSAT ez;
+	ezSatPtr ez;
 	SatGen satgen;
 	int max_seq;
 	bool verbose;
@@ -41,7 +41,7 @@ struct EquivSimpleWorker
 
 	EquivSimpleWorker(const vector<Cell*> &equiv_cells, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool verbose, bool model_undef) :
 			module(equiv_cells.front()->module), equiv_cells(equiv_cells), equiv_cell(nullptr),
-			sigmap(sigmap), bit2driver(bit2driver), satgen(&ez, &sigmap), max_seq(max_seq), verbose(verbose)
+			sigmap(sigmap), bit2driver(bit2driver), satgen(ez.get(), &sigmap), max_seq(max_seq), verbose(verbose)
 	{
 		satgen.model_undef = model_undef;
 	}
@@ -91,7 +91,7 @@ struct EquivSimpleWorker
 	{
 		SigBit bit_a = sigmap(equiv_cell->getPort("\\A")).to_single_sigbit();
 		SigBit bit_b = sigmap(equiv_cell->getPort("\\B")).to_single_sigbit();
-		int ez_context = ez.frozen_literal();
+		int ez_context = ez->frozen_literal();
 
 		if (satgen.model_undef)
 		{
@@ -99,14 +99,14 @@ struct EquivSimpleWorker
 			int ez_b = satgen.importDefSigBit(bit_b, max_seq+1);
 			int ez_undef_a = satgen.importUndefSigBit(bit_a, max_seq+1);
 
-			ez.assume(ez.XOR(ez_a, ez_b), ez_context);
-			ez.assume(ez.NOT(ez_undef_a), ez_context);
+			ez->assume(ez->XOR(ez_a, ez_b), ez_context);
+			ez->assume(ez->NOT(ez_undef_a), ez_context);
 		}
 		else
 		{
 			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
 			int ez_b = satgen.importSigBit(bit_b, max_seq+1);
-			ez.assume(ez.XOR(ez_a, ez_b), ez_context);
+			ez->assume(ez->XOR(ez_a, ez_b), ez_context);
 		}
 
 		pool<SigBit> seed_a = { bit_a };
@@ -168,16 +168,16 @@ struct EquivSimpleWorker
 
 			if (satgen.model_undef) {
 				for (auto bit : input_bits)
-					ez.assume(ez.NOT(satgen.importUndefSigBit(bit, step+1)));
+					ez->assume(ez->NOT(satgen.importUndefSigBit(bit, step+1)));
 			}
 
 			if (verbose)
-				log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez.numCnfVariables(), ez.numCnfClauses());
+				log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez->numCnfVariables(), ez->numCnfClauses());
 
-			if (!ez.solve(ez_context)) {
+			if (!ez->solve(ez_context)) {
 				log(verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
 				equiv_cell->setPort("\\B", equiv_cell->getPort("\\A"));
-				ez.assume(ez.NOT(ez_context));
+				ez->assume(ez->NOT(ez_context));
 				return true;
 			}
 
@@ -224,7 +224,7 @@ struct EquivSimpleWorker
 		if (!verbose)
 			log(" failed.\n");
 
-		ez.assume(ez.NOT(ez_context));
+		ez->assume(ez->NOT(ez_context));
 		return false;
 	}
 

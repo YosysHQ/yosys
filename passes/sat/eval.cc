@@ -143,16 +143,16 @@ struct VlogHammerReporter
 	{
 		log("Verifying SAT model (%s)..\n", model_undef ? "with undef" : "without undef");
 
-		ezDefaultSAT ez;
+		ezSatPtr ez;
 		SigMap sigmap(module);
-		SatGen satgen(&ez, &sigmap);
+		SatGen satgen(ez.get(), &sigmap);
 		satgen.model_undef = model_undef;
 
 		for (auto &c : module->cells_)
 			if (!satgen.importCell(c.second))
 				log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 
-		ez.assume(satgen.signals_eq(recorded_set_vars, recorded_set_vals));
+		ez->assume(satgen.signals_eq(recorded_set_vars, recorded_set_vals));
 
 		std::vector<int> y_vec = satgen.importDefSigSpec(module->wires_.at("\\y"));
 		std::vector<bool> y_values;
@@ -163,9 +163,9 @@ struct VlogHammerReporter
 		}
 
 		log("  Created SAT problem with %d variables and %d clauses.\n",
-				ez.numCnfVariables(), ez.numCnfClauses());
+				ez->numCnfVariables(), ez->numCnfClauses());
 
-		if (!ez.solve(y_vec, y_values))
+		if (!ez->solve(y_vec, y_values))
 			log_error("Failed to find solution to SAT problem.\n");
 
 		for (int i = 0; i < expected_y.size(); i++) {
@@ -204,7 +204,7 @@ struct VlogHammerReporter
 				if (y_undef.at(i))
 				{
 					log("    Toggling undef bit %d to test undef gating.\n", i);
-					if (!ez.solve(y_vec, y_values, ez.IFF(y_vec.at(i), y_values.at(i) ? ez.CONST_FALSE : ez.CONST_TRUE)))
+					if (!ez->solve(y_vec, y_values, ez->IFF(y_vec.at(i), y_values.at(i) ? ez->CONST_FALSE : ez->CONST_TRUE)))
 						log_error("Failed to find solution with toggled bit!\n");
 
 					cmp_vars.push_back(y_vec.at(expected_y.size() + i));
@@ -220,15 +220,15 @@ struct VlogHammerReporter
 				}
 
 			log("    Testing if SAT solution is unique.\n");
-			ez.assume(ez.vec_ne(cmp_vars, ez.vec_const(cmp_vals)));
-			if (ez.solve(y_vec, y_values))
+			ez->assume(ez->vec_ne(cmp_vars, ez->vec_const(cmp_vals)));
+			if (ez->solve(y_vec, y_values))
 				log_error("Found two distinct solutions to SAT problem.\n");
 		}
 		else
 		{
 			log("    Testing if SAT solution is unique.\n");
-			ez.assume(ez.vec_ne(y_vec, ez.vec_const(y_values)));
-			if (ez.solve(y_vec, y_values))
+			ez->assume(ez->vec_ne(y_vec, ez->vec_const(y_values)));
+			if (ez->solve(y_vec, y_values))
 				log_error("Found two distinct solutions to SAT problem.\n");
 		}
 
