@@ -984,6 +984,12 @@ struct SatPass : public Pass {
 		log("        Perform a temporal induction proof. Assume an initial state with all\n");
 		log("        registers set to defined values for the induction step.\n");
 		log("\n");
+		log("    -tempinduct-baseonly\n");
+		log("        Run only the basecase half of temporal induction (requires -maxsteps)\n");
+		log("\n");
+		log("    -tempinduct-inductonly\n");
+		log("        Run only the induction half of temporal induction\n");
+		log("\n");
 		log("    -prove <signal> <value>\n");
 		log("        Attempt to proof that <signal> is always <value>.\n");
 		log("\n");
@@ -1030,6 +1036,7 @@ struct SatPass : public Pass {
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
+		bool tempinduct_baseonly = false, tempinduct_inductonly = false;
 		std::string vcd_file_name, json_file_name, cnf_file_name;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
@@ -1120,6 +1127,16 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-tempinduct-def") {
 				tempinduct = true;
 				tempinduct_def = true;
+				continue;
+			}
+			if (args[argidx] == "-tempinduct-baseonly") {
+				tempinduct = true;
+				tempinduct_baseonly = true;
+				continue;
+			}
+			if (args[argidx] == "-tempinduct-inductonly") {
+				tempinduct = true;
+				tempinduct_inductonly = true;
 				continue;
 			}
 			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
@@ -1305,7 +1322,8 @@ struct SatPass : public Pass {
 			basecase.ignore_unknown_cells = ignore_unknown_cells;
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
-				basecase.setup(timestep);
+				if (!tempinduct_inductonly)
+					basecase.setup(timestep);
 
 			inductstep.sets = sets;
 			inductstep.prove = prove;
@@ -1319,8 +1337,10 @@ struct SatPass : public Pass {
 			inductstep.satgen.ignore_div_by_zero = ignore_div_by_zero;
 			inductstep.ignore_unknown_cells = ignore_unknown_cells;
 
-			inductstep.setup(1);
-			inductstep.ez->assume(inductstep.setup_proof(1));
+			if (!tempinduct_baseonly) {
+				inductstep.setup(1);
+				inductstep.ez->assume(inductstep.setup_proof(1));
+			}
 
 			if (tempinduct_def) {
 				std::vector<int> undef_state = inductstep.satgen.importUndefSigSpec(inductstep.satgen.initial_state.export_all(), 1);
@@ -1333,82 +1353,88 @@ struct SatPass : public Pass {
 
 				// phase 1: proving base case
 
-				basecase.setup(seq_len + inductlen);
-				int property = basecase.setup_proof(seq_len + inductlen);
-				basecase.generate_model();
+				if (!tempinduct_inductonly)
+				{
+					basecase.setup(seq_len + inductlen);
+					int property = basecase.setup_proof(seq_len + inductlen);
+					basecase.generate_model();
 
-				if (basecase_setup_init) {
-					basecase.setup_init();
-					basecase_setup_init = false;
+					if (basecase_setup_init) {
+						basecase.setup_init();
+						basecase_setup_init = false;
+					}
+
+					if (inductlen > 1)
+						basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
+
+					log("\n[base case] Solving problem with %d variables and %d clauses..\n",
+							basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
+
+					if (basecase.solve(basecase.ez->NOT(property))) {
+						log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
+						print_proof_failed();
+						basecase.print_model();
+						if(!vcd_file_name.empty())
+							basecase.dump_model_to_vcd(vcd_file_name);
+						if(!json_file_name.empty())
+							basecase.dump_model_to_json(json_file_name);
+						goto tip_failed;
+					}
+
+					if (basecase.gotTimeout)
+						goto timeout;
+
+					log("Base case for induction length %d proven.\n", inductlen);
+					basecase.ez->assume(property);
 				}
-
-				if (inductlen > 1)
-					basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
-
-				log("\n[base case] Solving problem with %d variables and %d clauses..\n",
-						basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
-
-				if (basecase.solve(basecase.ez->NOT(property))) {
-					log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
-					print_proof_failed();
-					basecase.print_model();
-					if(!vcd_file_name.empty())
-						basecase.dump_model_to_vcd(vcd_file_name);
-					if(!json_file_name.empty())
-						basecase.dump_model_to_json(json_file_name);
-					goto tip_failed;
-				}
-
-				if (basecase.gotTimeout)
-					goto timeout;
-
-				log("Base case for induction length %d proven.\n", inductlen);
-				basecase.ez->assume(property);
 
 				// phase 2: proving induction step
 
-				inductstep.setup(inductlen + 1);
-				property = inductstep.setup_proof(inductlen + 1);
-				inductstep.generate_model();
-
-				if (inductlen > 1)
-					inductstep.force_unique_state(1, inductlen + 1);
-
-				if (inductlen < initsteps)
+				if (!tempinduct_baseonly)
 				{
-					log("\n[induction step] Skipping problem with %d variables and %d clauses (below initsteps).\n",
-							inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
-					inductstep.ez->assume(property);
-				}
-				else
-				{
-					if (!cnf_file_name.empty())
+					inductstep.setup(inductlen + 1);
+					int property = inductstep.setup_proof(inductlen + 1);
+					inductstep.generate_model();
+
+					if (inductlen > 1)
+						inductstep.force_unique_state(1, inductlen + 1);
+
+					if (inductlen < initsteps)
 					{
-						FILE *f = fopen(cnf_file_name.c_str(), "w");
-						if (!f)
-							log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
-
-						log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
-						cnf_file_name.clear();
-
-						inductstep.ez->printDIMACS(f, false);
-						fclose(f);
+						log("\n[induction step] Skipping problem with %d variables and %d clauses (below initsteps).\n",
+								inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+						inductstep.ez->assume(property);
 					}
+					else
+					{
+						if (!cnf_file_name.empty())
+						{
+							FILE *f = fopen(cnf_file_name.c_str(), "w");
+							if (!f)
+								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
 
-					log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
-							inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+							log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+							cnf_file_name.clear();
 
-					if (!inductstep.solve(inductstep.ez->NOT(property))) {
-						if (inductstep.gotTimeout)
-							goto timeout;
-						log("Induction step proven: SUCCESS!\n");
-						print_qed();
-						goto tip_success;
+							inductstep.ez->printDIMACS(f, false);
+							fclose(f);
+						}
+
+						log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
+								inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+
+						if (!inductstep.solve(inductstep.ez->NOT(property))) {
+							if (inductstep.gotTimeout)
+								goto timeout;
+							log("Induction step proven: SUCCESS!\n");
+							print_qed();
+							goto tip_success;
+						}
+
+						log("Induction step failed. Incrementing induction length.\n");
+						inductstep.ez->assume(property);
+						inductstep.print_model();
 					}
-
-					log("Induction step failed. Incrementing induction length.\n");
-					inductstep.ez->assume(property);
-					inductstep.print_model();
 				}
 			}
 
