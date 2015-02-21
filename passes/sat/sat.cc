@@ -1438,6 +1438,11 @@ struct SatPass : public Pass {
 				}
 			}
 
+			if (tempinduct_baseonly) {
+				log("\nReached maximum number of time steps -> proved base case for %d steps: SUCCESS!\n", maxsteps);
+				goto tip_success;
+			}
+
 			log("\nReached maximum number of time steps -> proof failed.\n");
 			if(!vcd_file_name.empty())
 				inductstep.dump_model_to_vcd(vcd_file_name);
