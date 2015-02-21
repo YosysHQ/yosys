@@ -1,6 +1,7 @@
 var YosysJS = new function() {
 	this.script_element = document.currentScript;
 	this.viz_element = undefined;
+	this.viz_ready = true;
 
 	this.url_prefix = this.script_element.src.replace(/[^/]+$/, '')
 
@@ -12,9 +13,21 @@ var YosysJS = new function() {
 		this.viz_element.style.display = 'none'
 		document.body.appendChild(this.viz_element);
 
-		this.viz_element.contentWindow.document.open()
-		this.viz_element.contentWindow.document.write('<script type="text/javascript" src="' + this.url_prefix + 'viz.js"></' + 'script>');
-		this.viz_element.contentWindow.document.close()
+		this.viz_element.contentWindow.document.open();
+		this.viz_element.contentWindow.document.write('<script type="text/javascript" onload="viz_ready = true;" src="' + this.url_prefix + 'viz.js"></' + 'script>');
+		this.viz_element.contentWindow.document.close();
+
+		var that = this;
+		function check_viz_ready() {
+			if (that.viz_element.contentWindow.viz_ready) {
+				console.log("YosysJS: Successfully loaded Viz.");
+				that.viz_ready = true;
+			} else
+				window.setTimeout(check_viz_ready, 100);
+		}
+
+		this.viz_ready = false;
+		window.setTimeout(check_viz_ready, 100);
 	}
 
 	this.dot_to_svg = function(dot_text) {
@@ -40,6 +53,7 @@ var YosysJS = new function() {
 
 	this.create = function(reference_element, on_ready) {
 		var ys = new Object();
+		ys.YosysJS = this;
 		ys.init_script = "";
 		ys.ready = false;
 		ys.verbose = false;
@@ -185,13 +199,13 @@ var YosysJS = new function() {
 			} catch (e) { }
 		}
 
-		doc.open()
+		doc.open();
 		doc.write('<script type="text/javascript" src="' + this.url_prefix + 'yosys.js"></' + 'script>');
-		doc.close()
+		doc.close();
 
 		if (on_ready || ys.init_script) {
 			function check_ready() {
-				if (ys.ready) {
+				if (ys.ready && ys.YosysJS.viz_ready) {
 					if (ys.init_script) {
 						ys.write_file("/script.ys", ys.init_script);
 						ys.run("script /script.ys");

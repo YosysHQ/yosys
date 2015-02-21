@@ -24,16 +24,18 @@ endmodule
 	<h1>YosysJS Example Application #03</h1>
 	<b>Your mission:</b> Create a behavioral Verilog model for the following circuit:
 	<p/>
-	<svg id="schem" width="800"></svg>
-	<p/>
-	<pre id="code" style="width: 800px; border:2px solid #000; padding: 0.5em;"><span class="noedit">module top(input clk, reset, input [7:0] A, output reg [7:0] Y);
-  always @(posedge clock) begin</span><span class="edit" contenteditable="true">
-    Y &lt;= A | {4{reset}};
-  </span><span class="noedit">end
-endmodule</span></pre><p/>
-	<input type="button" value="Check Model" onclick="check_model()"> <span id="checkmessage"></span>
-	<p/>
-	<p id="wave">&nbsp;</p>
+	<div id="main" style="visibility: hidden">
+		<svg id="schem" width="800"></svg>
+		<p/>
+		<pre id="code" style="width: 800px; border:2px solid #000; padding: 0.5em;"><span class="noedit">module top(input clk, reset, input [7:0] A, output reg [7:0] Y);
+	  always @(posedge clock) begin</span><span class="edit" contenteditable="true">
+	    Y &lt;= A | {4{reset}};
+	  </span><span class="noedit">end
+	endmodule</span></pre><p/>
+		<input type="button" value="Check Model" onclick="check_model()"> <span id="checkmessage"></span>
+		<p/>
+		<p id="wave">&nbsp;</p>
+	</div>
 	<script type="text/javascript">
 		function on_ys_ready() {
 			ys.write_file('golden.v', document.getElementById('golden_verilog').textContent);
@@ -42,6 +44,7 @@ endmodule</span></pre><p/>
 			YosysJS.dot_into_svg(ys.read_file('show.dot'), 'schem');
 			document.getElementById('popup').style.visibility = 'hidden';
 			document.getElementById('popupmsg').textContent = 'Please wait..';
+			document.getElementById('main').style.visibility = 'visible';
 		}
 		function check_model() {
 			function work() {
