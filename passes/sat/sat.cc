@@ -1281,6 +1281,7 @@ struct SatPass : public Pass {
 
 			SatHelper basecase(design, module, enable_undef);
 			SatHelper inductstep(design, module, enable_undef);
+			bool basecase_setup_init = true;
 
 			basecase.sets = sets;
 			basecase.prove = prove;
@@ -1305,7 +1306,6 @@ struct SatPass : public Pass {
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
 				basecase.setup(timestep);
-			basecase.setup_init();
 
 			inductstep.sets = sets;
 			inductstep.prove = prove;
@@ -1336,6 +1336,11 @@ struct SatPass : public Pass {
 				basecase.setup(seq_len + inductlen);
 				int property = basecase.setup_proof(seq_len + inductlen);
 				basecase.generate_model();
+
+				if (basecase_setup_init) {
+					basecase.setup_init();
+					basecase_setup_init = false;
+				}
 
 				if (inductlen > 1)
 					basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
