@@ -940,6 +940,9 @@ struct SatPass : public Pass {
 		log("        set up a sequential problem with <N> time steps. The steps will\n");
 		log("        be numbered from 1 to N.\n");
 		log("\n");
+		log("        note: for large <N> it can be significantly faster to use\n");
+		log("        -tempinduct-baseonly -maxsteps <N> instead of -seq <N>.\n");
+		log("\n");
 		log("    -set-at <N> <signal> <value>\n");
 		log("    -unset-at <N> <signal>\n");
 		log("        set or unset the specified signal to the specified value in the\n");
