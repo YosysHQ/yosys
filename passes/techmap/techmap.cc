@@ -66,6 +66,7 @@ struct TechmapWorker
 	std::map<std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	std::map<RTLIL::Module*, bool> techmap_do_cache;
 	std::set<RTLIL::Module*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Module>> module_queue;
+	dict<Module*, SigMap> sigmaps;
 
 	struct TechmapWireData {
 		RTLIL::Wire *wire;
@@ -235,6 +236,11 @@ struct TechmapWorker
 			if (flatten_mode) {
 				// more conservative approach:
 				// connect internal and external wires
+				if (sigmaps.count(module) == 0)
+					sigmaps[module].set(module);
+				if (sigmaps.at(module)(c.first).has_const())
+					log_error("Mismatch in directionality for cell port %s.%s.%s: %s <= %s\n",
+						log_id(module), log_id(cell), log_id(it.first), log_signal(c.first), log_signal(c.second));
 				module->connect(c);
 			} else {
 				// approach that yields nicer outputs:
