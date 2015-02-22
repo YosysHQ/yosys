@@ -146,7 +146,7 @@ struct CheckPass : public Pass {
 
 		log("found and reported %d problems.\n", counter);
 
-		if (assert_mode)
+		if (assert_mode && counter > 0)
 			log_error("Found %d problems in 'check -assert'.\n", counter);
 	}
 } CheckPass;
