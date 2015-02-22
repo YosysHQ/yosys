@@ -1436,7 +1436,7 @@ struct SatPass : public Pass {
 					if (inductlen > 1)
 						inductstep.force_unique_state(1, inductlen + 1);
 
-					if (inductlen < tempinduct_skip || inductlen < initsteps || inductlen % stepsize != 0)
+					if (inductlen <= tempinduct_skip || inductlen <= initsteps || inductlen % stepsize != 0)
 					{
 						if (inductlen < tempinduct_skip)
 							log("\n[induction step %d] Skipping prove for this step (-tempinduct-skip %d).",
