@@ -49,11 +49,16 @@ struct CheckPass : public Pass {
 	{
 		int counter = 0;
 		bool noinit = false;
+		bool assert_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-noinit") {
 				noinit = true;
+				continue;
+			}
+			if (args[argidx] == "-assert") {
+				assert_mode = true;
 				continue;
 			}
 			break;
@@ -137,6 +142,9 @@ struct CheckPass : public Pass {
 		}
 
 		log("found and reported %d problems.\n", counter);
+
+		if (assert_mode)
+			log_error("Found %d problems in 'check -assert'.\n", counter);
 	}
 } CheckPass;
  
