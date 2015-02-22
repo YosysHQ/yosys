@@ -622,7 +622,7 @@ struct Smt2Backend : public Backend {
 		log("The following yosys script will create a 'test.smt2' file for our proof:\n");
 		log("\n");
 		log("        read_verilog test.v\n");
-		log("        hierarchy; proc; techmap; opt -fast\n");
+		log("        hierarchy -check; proc; opt; check -assert\n");
 		log("        write_smt2 -bv -tpl test.tpl test.smt2\n");
 		log("\n");
 		log("Running 'cvc4 test.smt2' will print 'unsat' because y can never transition\n");
