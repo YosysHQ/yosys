@@ -44,6 +44,9 @@ struct CheckPass : public Pass {
 		log("When called with -noinit then this command also checks for wires which have\n");
 		log("the 'init' attribute set.\n");
 		log("\n");
+		log("When called with -assert then the command will produce an error if any\n");
+		log("problems are found in the current design.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
