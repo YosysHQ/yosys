@@ -807,6 +807,14 @@ struct RTLIL::Design
 	bool selected_module(RTLIL::Module *mod) const;
 	bool selected_whole_module(RTLIL::Module *mod) const;
 
+	RTLIL::Selection &selection() {
+		return selection_stack.back();
+	}
+
+	const RTLIL::Selection &selection() const {
+		return selection_stack.back();
+	}
+
 	bool full_selection() const {
 		return selection_stack.back().full_selection;
 	}

@@ -296,8 +296,14 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose)
 			module->connect(y, a);
 			delcells.push_back(cell);
 		}
-	for (auto cell : delcells)
+	for (auto cell : delcells) {
+		if (verbose)
+			log("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
+					log_signal(cell->getPort("\\Y")), log_signal(cell->getPort("\\A")));
 		module->remove(cell);
+	}
+	if (!delcells.empty())
+		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	rmunused_module_cells(module, verbose);
 	rmunused_module_signals(module, purge_mode, verbose);
@@ -353,6 +359,10 @@ struct OptCleanPass : public Pass {
 			rmunused_module(module, purge_mode, true);
 		}
 
+		design->optimize();
+		design->sort();
+		design->check();
+
 		ct.clear();
 		ct_reg.clear();
 		log_pop();
@@ -404,13 +414,10 @@ struct CleanPass : public Pass {
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
-		for (auto mod : design->selected_whole_modules()) {
-			if (mod->has_processes())
+		for (auto module : design->selected_whole_modules()) {
+			if (module->has_processes())
 				continue;
-			do {
-				design->scratchpad_unset("opt.did_something");
-				rmunused_module(mod, purge_mode, false);
-			} while (design->scratchpad_get_bool("opt.did_something"));
+			rmunused_module(module, purge_mode, false);
 		}
 
 		if (count_rm_cells > 0 || count_rm_wires > 0)
