@@ -78,8 +78,10 @@ struct proc_dlatch_db_t
 		}
 	};
 
-	const int true_node = 1;
-	const int false_node = 2;
+	enum tf_node_types_t : int {
+		true_node = 1,
+		false_node = 2
+	};
 
 	idict<rule_node_t, 3> rules_db;
 	dict<int, SigBit> rules_sig;
