@@ -68,6 +68,10 @@ struct TechmapWorker
 	std::set<RTLIL::Module*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Module>> module_queue;
 	dict<Module*, SigMap> sigmaps;
 
+	pool<IdString> flatten_do_list;
+	pool<IdString> flatten_done_list;
+	pool<Cell*> flatten_keep_list;
+
 	struct TechmapWireData {
 		RTLIL::Wire *wire;
 		RTLIL::SigSpec value;
@@ -321,6 +325,22 @@ struct TechmapWorker
 				if (assert_mode && cell_type.back() != '_')
 					log_error("(ASSERT MODE) No matching template cell for type %s found.\n", log_id(cell_type));
 				continue;
+			}
+
+			if (flatten_mode) {
+				bool keepit = cell->get_bool_attribute("\\keep_hierarchy");
+				for (auto &tpl_name : celltypeMap.at(cell_type))
+					if (map->modules_[tpl_name]->get_bool_attribute("\\keep_hierarchy"))
+						keepit = true;
+				if (keepit) {
+					if (!flatten_keep_list[cell]) {
+						log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
+						flatten_keep_list.insert(cell);
+					}
+					if (!flatten_done_list[cell->type])
+						flatten_do_list.insert(cell->type);
+					continue;
+				}
 			}
 
 			for (auto &conn : cell->connections())
@@ -1059,6 +1079,9 @@ struct FlattenPass : public Pass {
 		log("pass is very simmilar to the 'techmap' pass. The only difference is that this\n");
 		log("pass is using the current design as mapping library.\n");
 		log("\n");
+		log("Cells and/or modules with the 'keep_hiearchy' attribute set will not be\n");
+		log("flattened by this command.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -1071,8 +1094,8 @@ struct FlattenPass : public Pass {
 		worker.flatten_mode = true;
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
-		for (auto &it : design->modules_)
-			celltypeMap[it.first].insert(it.first);
+		for (auto module : design->modules())
+			celltypeMap[module->name].insert(module->name);
 
 		RTLIL::Module *top_mod = NULL;
 		if (design->full_selection())
@@ -1080,26 +1103,40 @@ struct FlattenPass : public Pass {
 				if (mod->get_bool_attribute("\\top"))
 					top_mod = mod;
 
-		bool did_something = true;
 		std::set<RTLIL::Cell*> handled_cells;
-		while (did_something) {
-			did_something = false;
-			if (top_mod != NULL) {
-				if (worker.techmap_module(design, top_mod, design, handled_cells, celltypeMap, false))
-					did_something = true;
-			} else {
-				for (auto mod : vector<Module*>(design->modules()))
-					if (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false))
-						did_something = true;
+		if (top_mod != NULL) {
+			worker.flatten_do_list.insert(top_mod->name);
+			while (!worker.flatten_do_list.empty()) {
+				auto mod = design->module(*worker.flatten_do_list.begin());
+				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+				worker.flatten_done_list.insert(mod->name);
+				worker.flatten_do_list.erase(mod->name);
 			}
+		} else {
+			for (auto mod : vector<Module*>(design->modules()))
+				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
 		}
 
 		log("No more expansions possible.\n");
 
-		if (top_mod != NULL) {
+		if (top_mod != NULL)
+		{
+			pool<RTLIL::IdString> used_modules, new_used_modules;
+			new_used_modules.insert(top_mod->name);
+			while (!new_used_modules.empty()) {
+				pool<RTLIL::IdString> queue;
+				queue.swap(new_used_modules);
+				for (auto modname : queue)
+					used_modules.insert(modname);
+				for (auto modname : queue)
+					for (auto cell : design->module(modname)->cells())
+						if (design->module(cell->type) && !used_modules[cell->type])
+							new_used_modules.insert(cell->type);
+			}
+
 			dict<RTLIL::IdString, RTLIL::Module*> new_modules;
 			for (auto mod : vector<Module*>(design->modules()))
-				if (mod == top_mod || mod->get_bool_attribute("\\blackbox")) {
+				if (used_modules[mod->name] || mod->get_bool_attribute("\\blackbox")) {
 					new_modules[mod->name] = mod;
 				} else {
 					log("Deleting now unused module %s.\n", log_id(mod));
