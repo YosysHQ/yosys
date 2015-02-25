@@ -114,18 +114,11 @@ struct IopadmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			RTLIL::Module *module = it.second;
-
-			if (!design->selected(module) || module->get_bool_attribute("\\blackbox"))
-				continue;
-
-			for (auto &it2 : module->wires_)
+			for (auto wire : module->selected_wires())
 			{
-				RTLIL::Wire *wire = it2.second;
-
-				if (!wire->port_id || !design->selected(module, wire))
+				if (!wire->port_id)
 					continue;
 
 				std::string celltype, portname, portname2;
