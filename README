@@ -288,6 +288,9 @@ Verilog Attributes and non-standard features
   Setting the "keep" attribute on a module has the same effect as setting it
   on all instances of the module.
 
+- The "keep_hierarchy" attribute on cells and modules keeps the "flatten"
+  command from flattening the indicated cells and modules.
+
 - The "init" attribute on wires is set by the frontend when a register is
   initialized "FPGA-style" with 'reg foo = val'. It can be used during synthesis
   to add the necessary reset logic.
