@@ -68,6 +68,7 @@ struct SatGen
 	std::string prefix;
 	SigPool initial_state;
 	std::map<std::string, RTLIL::SigSpec> asserts_a, asserts_en;
+	std::map<std::string, RTLIL::SigSpec> assumes_a, assumes_en;
 	std::map<std::string, std::map<RTLIL::SigBit, int>> imported_signals;
 	bool ignore_div_by_zero;
 	bool model_undef;
@@ -161,6 +162,13 @@ struct SatGen
 		sig_en = asserts_en[pf];
 	}
 
+	void getAssumes(RTLIL::SigSpec &sig_a, RTLIL::SigSpec &sig_en, int timestep = -1)
+	{
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		sig_a = assumes_a[pf];
+		sig_en = assumes_en[pf];
+	}
+
 	int importAsserts(int timestep = -1)
 	{
 		std::vector<int> check_bits, enable_bits;
@@ -171,6 +179,20 @@ struct SatGen
 		} else {
 			check_bits = importDefSigSpec(asserts_a[pf], timestep);
 			enable_bits = importDefSigSpec(asserts_en[pf], timestep);
+		}
+		return ez->vec_reduce_and(ez->vec_or(check_bits, ez->vec_not(enable_bits)));
+	}
+
+	int importAssumes(int timestep = -1)
+	{
+		std::vector<int> check_bits, enable_bits;
+		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+		if (model_undef) {
+			check_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(assumes_a[pf], timestep)), importDefSigSpec(assumes_a[pf], timestep));
+			enable_bits = ez->vec_and(ez->vec_not(importUndefSigSpec(assumes_en[pf], timestep)), importDefSigSpec(assumes_en[pf], timestep));
+		} else {
+			check_bits = importDefSigSpec(assumes_a[pf], timestep);
+			enable_bits = importDefSigSpec(assumes_en[pf], timestep);
 		}
 		return ez->vec_reduce_and(ez->vec_or(check_bits, ez->vec_not(enable_bits)));
 	}
@@ -1231,6 +1253,14 @@ struct SatGen
 			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
 			asserts_a[pf].append((*sigmap)(cell->getPort("\\A")));
 			asserts_en[pf].append((*sigmap)(cell->getPort("\\EN")));
+			return true;
+		}
+
+		if (cell->type == "$assume")
+		{
+			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+			assumes_a[pf].append((*sigmap)(cell->getPort("\\A")));
+			assumes_en[pf].append((*sigmap)(cell->getPort("\\EN")));
 			return true;
 		}
 
