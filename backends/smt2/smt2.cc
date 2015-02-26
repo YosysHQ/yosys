@@ -470,14 +470,17 @@ struct Smt2Worker
 
 		if (verbose) log("=> export logic driving asserts\n");
 
-		vector<int> assert_list;
+		vector<int> assert_list, assume_list;
 		for (auto cell : module->cells())
-			if (cell->type == "$assert") {
+			if (cell->type.in("$assert", "$assume")) {
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
 				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
 					log_id(module), idcounter, log_id(module), name_a.c_str(), name_en.c_str(), log_id(cell)));
-				assert_list.push_back(idcounter++);
+				if (cell->type == "$assert")
+					assert_list.push_back(idcounter++);
+				else
+					assume_list.push_back(idcounter++);
 			}
 
 		for (int iter = 1; !registers.empty(); iter++)
@@ -509,6 +512,15 @@ struct Smt2Worker
 		}
 		decls.push_back(stringf("(define-fun |%s_a| ((state |%s_s|)) Bool %s)\n",
 				log_id(module), log_id(module), assert_expr.c_str()));
+
+		string assume_expr = assume_list.empty() ? "true" : "(and";
+		if (!assume_list.empty()) {
+			for (int i : assume_list)
+				assume_expr += stringf(" (|%s#%d| state)", log_id(module), i);
+			assume_expr += ")";
+		}
+		decls.push_back(stringf("(define-fun |%s_u| ((state |%s_s|)) Bool %s)\n",
+				log_id(module), log_id(module), assume_expr.c_str()));
 
 		string init_expr = init_list.empty() ? "true" : "(and";
 		if (!init_list.empty()) {
@@ -550,7 +562,7 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("Write a SMT-LIBv2 [1] description of the current design. For a module with name\n");
 		log("'<mod>' this will declare the sort '<mod>_s' (state of the module) and the\n");
-		log("functions '<mod>_t' (transition), '<mod>_a' (asserts), and '<mod>_i' (init).\n");
+		log("functions operating on that state.\n");
 		log("\n");
 		log("The '<mod>_s' sort represents a module state. Additional '<mod>_n' functions\n");
 		log("are provided that can be used to access the values of the signals in the module.\n");
@@ -564,6 +576,9 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("The '<mod>_a' function evaluates to 'true' when the given state satisfies\n");
 		log("the asserts in the module.\n");
+		log("\n");
+		log("The '<mod>_u' function evaluates to 'true' when the given state satisfies\n");
+		log("the assumptions in the module.\n");
 		log("\n");
 		log("The '<mod>_i' function evaluates to 'true' when the given state conforms\n");
 		log("to the initial state.\n");
