@@ -57,7 +57,7 @@ namespace VERILOG_FRONTEND {
 	std::vector<char> case_type_stack;
 	bool do_not_require_port_stubs;
 	bool default_nettype_wire;
-	bool sv_mode;
+	bool sv_mode, formal_mode;
 	std::istream *lexin;
 }
 YOSYS_NAMESPACE_END
@@ -111,7 +111,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
-%token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_PROPERTY
+%token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME TOK_PROPERTY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -934,11 +934,17 @@ opt_label:
 assert:
 	TOK_ASSERT '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSERT, $3));
+	} |
+	TOK_ASSUME '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
 	};
 
 assert_property:
 	TOK_ASSERT TOK_PROPERTY '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSERT, $4));
+	} |
+	TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
 	};
 
 simple_behavioral_stmt:

@@ -1211,7 +1211,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 skip_dynamic_range_lvalue_expansion:;
 
-	if (stage > 1 && type == AST_ASSERT && current_block != NULL)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME) && current_block != NULL)
 	{
 		std::stringstream sstr;
 		sstr << "$assert$" << filename << ":" << linenum << "$" << (autoidx++);
@@ -1255,7 +1255,7 @@ skip_dynamic_range_lvalue_expansion:;
 		newNode->children.push_back(assign_check);
 		newNode->children.push_back(assign_en);
 
-		AstNode *assertnode = new AstNode(AST_ASSERT);
+		AstNode *assertnode = new AstNode(type);
 		assertnode->children.push_back(new AstNode(AST_IDENTIFIER));
 		assertnode->children.push_back(new AstNode(AST_IDENTIFIER));
 		assertnode->children[0]->str = id_check;
@@ -1266,9 +1266,8 @@ skip_dynamic_range_lvalue_expansion:;
 		goto apply_newNode;
 	}
 
-	if (stage > 1 && type == AST_ASSERT && children.size() == 1)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME) && children.size() == 1)
 	{
-		children[0] = new AstNode(AST_REDUCE_BOOL, children[0]->clone());
 		children.push_back(mkconst_int(1, false, 1));
 		did_something = true;
 	}

@@ -166,8 +166,9 @@ YOSYS_NAMESPACE_END
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
 
-"assert"   { SV_KEYWORD(TOK_ASSERT); }
-"property" { SV_KEYWORD(TOK_PROPERTY); }
+"assert"   { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
+"assume"   { if (formal_mode) return TOK_ASSUME; return TOK_ID; }
+"property" { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
 "logic"    { SV_KEYWORD(TOK_REG); }
 "bit"      { SV_KEYWORD(TOK_REG); }
 

@@ -54,6 +54,10 @@ struct VerilogFrontend : public Frontend {
 		log("        enable support for SystemVerilog features. (only a small subset\n");
 		log("        of SystemVerilog is supported)\n");
 		log("\n");
+		log("    -formal\n");
+		log("        enable support for assert() and assume() statements\n");
+		log("        (assert support is also enabled with -sv)\n");
+		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
 		log("\n");
@@ -164,6 +168,7 @@ struct VerilogFrontend : public Frontend {
 
 		frontend_verilog_yydebug = false;
 		sv_mode = false;
+		formal_mode = false;
 
 		log_header("Executing Verilog-2005 frontend.\n");
 
@@ -174,6 +179,10 @@ struct VerilogFrontend : public Frontend {
 			std::string arg = args[argidx];
 			if (arg == "-sv") {
 				sv_mode = true;
+				continue;
+			}
+			if (arg == "-formal") {
+				formal_mode = true;
 				continue;
 			}
 			if (arg == "-dump_ast1") {
@@ -271,7 +280,8 @@ struct VerilogFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		log("Parsing %s input from `%s' to AST representation.\n", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());
+		log("Parsing %s%s input from `%s' to AST representation.\n",
+				formal_mode ? "formal " : "", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());
 
 		AST::current_filename = filename;
 		AST::set_line_num = &frontend_verilog_yyset_lineno;

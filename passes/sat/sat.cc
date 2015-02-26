@@ -51,7 +51,7 @@ struct SatHelper
 	std::vector<std::pair<std::string, std::string>> sets, prove, prove_x, sets_init;
 	std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 	std::map<int, std::vector<std::string>> unsets_at;
-	bool prove_asserts;
+	bool prove_asserts, set_assumes;
 
 	// undef constraints
 	bool enable_undef, set_init_def, set_init_undef, set_init_zero, ignore_unknown_cells;
@@ -319,20 +319,28 @@ struct SatHelper
 		}
 
 		int import_cell_counter = 0;
-		for (auto &c : module->cells_)
-			if (design->selected(module, c.second)) {
-				// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
-				if (satgen.importCell(c.second, timestep)) {
-					for (auto &p : c.second->connections())
-						if (ct.cell_output(c.second->type, p.first))
-							show_drivers.insert(sigmap(p.second), c.second);
+		for (auto cell : module->cells())
+			if (design->selected(module, cell)) {
+				// log("Import cell: %s\n", RTLIL::id2cstr(cell->name));
+				if (satgen.importCell(cell, timestep)) {
+					for (auto &p : cell->connections())
+						if (ct.cell_output(cell->type, p.first))
+							show_drivers.insert(sigmap(p.second), cell);
 					import_cell_counter++;
 				} else if (ignore_unknown_cells)
-					log_warning("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+					log_warning("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				else
-					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 		}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
+
+		if (set_assumes) {
+			RTLIL::SigSpec assumes_a, assumes_en;
+			satgen.getAssumes(assumes_a, assumes_en, timestep);
+			for (int i = 0; i < GetSize(assumes_a); i++)
+				log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
+			ez->assume(satgen.importAssumes(timestep));
+		}
 	}
 
 	int setup_proof(int timestep = -1)
@@ -948,6 +956,9 @@ struct SatPass : public Pass {
 		log("        set or unset the specified signal to the specified value in the\n");
 		log("        given timestep. this has priority over a -set for the same signal.\n");
 		log("\n");
+		log("    -set-assumes\n");
+		log("        set all assumptions provided via $assume cells\n");
+		log("\n");
 		log("    -set-def-at <N> <signal>\n");
 		log("    -set-any-undef-at <N> <signal>\n");
 		log("    -set-all-undef-at <N> <signal>\n");
@@ -1054,7 +1065,7 @@ struct SatPass : public Pass {
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
-		bool tempinduct_baseonly = false, tempinduct_inductonly = false;
+		bool tempinduct_baseonly = false, tempinduct_inductonly = false, set_assumes = false;
 		int tempinduct_skip = 0, stepsize = 1;
 		std::string vcd_file_name, json_file_name, cnf_file_name;
 
@@ -1141,6 +1152,10 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-set-all-undef" && argidx+1 < args.size()) {
 				sets_all_undef.push_back(args[++argidx]);
 				enable_undef = true;
+				continue;
+			}
+			if (args[argidx] == "-set-assumes") {
+				set_assumes = true;
 				continue;
 			}
 			if (args[argidx] == "-tempinduct") {
@@ -1328,6 +1343,7 @@ struct SatPass : public Pass {
 			bool basecase_setup_init = true;
 
 			basecase.sets = sets;
+			basecase.set_assumes = set_assumes;
 			basecase.prove = prove;
 			basecase.prove_x = prove_x;
 			basecase.prove_asserts = prove_asserts;
@@ -1353,6 +1369,7 @@ struct SatPass : public Pass {
 					basecase.setup(timestep);
 
 			inductstep.sets = sets;
+			inductstep.set_assumes = set_assumes;
 			inductstep.prove = prove;
 			inductstep.prove_x = prove_x;
 			inductstep.prove_asserts = prove_asserts;
@@ -1517,6 +1534,7 @@ struct SatPass : public Pass {
 			SatHelper sathelper(design, module, enable_undef);
 
 			sathelper.sets = sets;
+			sathelper.set_assumes = set_assumes;
 			sathelper.prove = prove;
 			sathelper.prove_x = prove_x;
 			sathelper.prove_asserts = prove_asserts;
