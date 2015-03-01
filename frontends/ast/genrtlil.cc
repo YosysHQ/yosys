@@ -567,9 +567,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
 			} else
-			if (id_ast->children[0]->type == AST_CONSTANT) {
+			if (id_ast->children[0]->type != AST_CONSTANT)
+				while (id_ast->simplify(true, false, false, 1, -1, false, true)) { }
+			if (id_ast->children[0]->type == AST_CONSTANT)
 				this_width = id_ast->children[0]->bits.size();
-			} else
+			else
 				log_error("Failed to detect width for parameter %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 			if (children.size() != 0)
 				range = children[0];
