@@ -38,13 +38,14 @@ struct BlifDumperConfig
 	bool impltf_mode;
 	bool gates_mode;
 	bool param_mode;
+	bool attr_mode;
 	bool blackbox_mode;
 
 	std::string buf_type, buf_in, buf_out;
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
 	std::string true_type, true_out, false_type, false_out, undef_type, undef_out;
 
-	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false), blackbox_mode(false) { }
+	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false), attr_mode(false), blackbox_mode(false) { }
 };
 
 struct BlifDumper
@@ -101,6 +102,26 @@ struct BlifDumper
 		if (design->modules_.at(RTLIL::escape_id(cell_type))->get_bool_attribute("\\blackbox"))
 			return "gate";
 		return "subckt";
+	}
+
+	void dump_params(const char *command, dict<IdString, Const> &params)
+	{
+		for (auto &param : params) {
+			f << stringf("%s %s ", command, RTLIL::id2cstr(param.first));
+			if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
+				std::string str = param.second.decode_string();
+				f << stringf("\"");
+				for (char ch : str)
+					if (ch == '"' || ch == '\\')
+						f << stringf("\\%c", ch);
+					else if (ch < 32 || ch >= 127)
+						f << stringf("\\%03o", ch);
+					else
+						f << stringf("%c", ch);
+				f << stringf("\"\n");
+			} else
+				f << stringf("%s\n", param.second.as_string().c_str());
+		}
 	}
 
 	void dump()
@@ -249,23 +270,10 @@ struct BlifDumper
 			}
 			f << stringf("\n");
 
+			if (config->attr_mode)
+				dump_params(".attr", cell->attributes);
 			if (config->param_mode)
-				for (auto &param : cell->parameters) {
-					f << stringf(".param %s ", RTLIL::id2cstr(param.first));
-					if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
-						std::string str = param.second.decode_string();
-						f << stringf("\"");
-						for (char ch : str)
-							if (ch == '"' || ch == '\\')
-								f << stringf("\\%c", ch);
-							else if (ch < 32 || ch >= 127)
-								f << stringf("\\%03o", ch);
-							else
-								f << stringf("%c", ch);
-						f << stringf("\"\n");
-					} else
-						f << stringf("%s\n", param.second.as_string().c_str());
-				}
+				dump_params(".param", cell->parameters);
 		}
 
 		for (auto &conn : module->connections())
@@ -333,8 +341,11 @@ struct BlifBackend : public Backend {
 		log("        do not generate buffers for connected wires. instead use the\n");
 		log("        non-standard .conn statement.\n");
 		log("\n");
+		log("    -attr\n");
+		log("        use the non-standard .attr statement to write cell attributes\n");
+		log("\n");
 		log("    -param\n");
-		log("        use the non-standard .param statement to write module parameters\n");
+		log("        use the non-standard .param statement to write cell parameters\n");
 		log("\n");
 		log("    -blackbox\n");
 		log("        write blackbox cells with .blackbox statement.\n");
@@ -402,6 +413,10 @@ struct BlifBackend : public Backend {
 			}
 			if (args[argidx] == "-param") {
 				config.param_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-attr") {
+				config.attr_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-blackbox") {
