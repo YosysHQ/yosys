@@ -43,8 +43,13 @@ struct JsonWriter
 
 	string get_string(string str)
 	{
-		// FIXME: proper string escaping
-		return stringf("\"%s\"", str.c_str());
+		string newstr = "\"";
+		for (char c : str) {
+			if (c == '\\')
+				newstr += c;
+			newstr += c;
+		}
+		return newstr + "\"";
 	}
 
 	string get_name(IdString name)
@@ -157,7 +162,9 @@ struct JsonWriter
 	void write_design(Design *design_)
 	{
 		design = design_;
-		f << stringf("{\n  \"modules\": {\n");
+		f << stringf("{\n");
+		f << stringf("  \"creator\": %s,\n", get_string(yosys_version_str).c_str());
+		f << stringf("  \"modules\": {\n");
 		vector<Module*> modules = use_selection ? design->selected_modules() : design->modules();
 		bool first_module = true;
 		for (auto mod : modules) {
@@ -166,7 +173,8 @@ struct JsonWriter
 			write_module(mod);
 			first_module = false;
 		}
-		f << stringf("\n  }\n}\n");
+		f << stringf("\n  }\n");
+		f << stringf("}\n");
 	}
 };
 
