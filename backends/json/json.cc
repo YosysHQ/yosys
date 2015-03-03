@@ -68,7 +68,7 @@ struct JsonWriter
 				string &s = sigids[bit];
 				if (bit.wire == nullptr) {
 					if (bit == State::S0) s = "\"0\"";
-					else if (bit == State::S1) s = "\"0\"";
+					else if (bit == State::S1) s = "\"1\"";
 					else if (bit == State::Sz) s = "\"z\"";
 					else s = "\"x\"";
 				} else
