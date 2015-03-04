@@ -285,7 +285,7 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTL
 	}
 }
 
-void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool first_pass)
+void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 {
 	std::set<RTLIL::Module*> used;
 	hierarchy_worker(design, used, top, 0);
@@ -297,7 +297,7 @@ void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool f
 
 	int del_counter = 0;
 	for (auto mod : del_modules) {
-		if (first_pass && mod->name.substr(0, 9) == "$abstract")
+		if (mod->name.substr(0, 9) == "$abstract")
 			continue;
 		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
 			continue;
@@ -488,30 +488,29 @@ struct HierarchyPass : public Pass {
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
 
-		if (top_mod != NULL)
-			hierarchy(design, top_mod, purge_lib, true);
-
 		bool did_something = true;
-		bool did_something_once = false;
-		while (did_something) {
+		while (did_something)
+		{
 			did_something = false;
-			std::vector<RTLIL::IdString> modnames;
-			modnames.reserve(design->modules_.size());
-			for (auto &mod_it : design->modules_)
-				modnames.push_back(mod_it.first);
-			for (auto &modname : modnames) {
-				if (design->modules_.count(modname) == 0)
-					continue;
-				if (expand_module(design, design->modules_[modname], flag_check, libdirs))
+
+			std::set<RTLIL::Module*> used_modules;
+			if (top_mod != NULL) {
+				log_header("Analyzing design hierarchy..\n");
+				hierarchy_worker(design, used_modules, top_mod, 0);
+			} else {
+				for (auto mod : design->modules())
+					used_modules.insert(mod);
+			}
+
+			for (auto module : used_modules) {
+				if (expand_module(design, module, flag_check, libdirs))
 					did_something = true;
 			}
-			if (did_something)
-				did_something_once = true;
 		}
 
-		if (top_mod != NULL && did_something_once) {
-			log_header("Re-running hierarchy analysis..\n");
-			hierarchy(design, top_mod, purge_lib, false);
+		if (top_mod != NULL) {
+			log_header("Analyzing design hierarchy..\n");
+			hierarchy_clean(design, top_mod, purge_lib);
 		}
 
 		if (top_mod != NULL) {
