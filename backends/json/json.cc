@@ -79,6 +79,22 @@ struct JsonWriter
 		return str + " ]";
 	}
 
+	void write_parameters(const dict<IdString, Const> &parameters)
+	{
+		bool first = true;
+		for (auto &param : parameters) {
+			f << stringf("%s\n", first ? "" : ",");
+			f << stringf("            %s: ", get_name(param.first).c_str());
+			if ((param.second.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) != 0)
+				f << get_string(param.second.decode_string());
+			else if (GetSize(param.second.bits) > 32)
+				f << get_string(param.second.as_string());
+			else
+				f << stringf("%d", param.second.as_int());
+			first = false;
+		}
+	}
+
 	void write_module(Module *module_)
 	{
 		module = module_;
@@ -116,21 +132,13 @@ struct JsonWriter
 			f << stringf("          \"hide_name\": %s,\n", c->name[0] == '$' ? "1" : "0");
 			f << stringf("          \"type\": %s,\n", get_name(c->type).c_str());
 			f << stringf("          \"parameters\": {");
-			bool first2 = true;
-			for (auto &param : c->parameters) {
-				f << stringf("%s\n", first2 ? "" : ",");
-				f << stringf("            %s: ", get_name(param.first).c_str());
-				if ((param.second.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) != 0)
-					f << get_string(param.second.decode_string());
-				else if (GetSize(param.second.bits) > 32)
-					f << get_string(param.second.as_string());
-				else
-					f << stringf("%d", param.second.as_int());
-				first2 = false;
-			}
+			write_parameters(c->parameters);
+			f << stringf("\n          },\n");
+			f << stringf("          \"attributes\": {");
+			write_parameters(c->attributes);
 			f << stringf("\n          },\n");
 			f << stringf("          \"connections\": {");
-			first2 = true;
+			bool first2 = true;
 			for (auto &conn : c->connections()) {
 				f << stringf("%s\n", first2 ? "" : ",");
 				f << stringf("            %s: %s", get_name(conn.first).c_str(), get_bits(conn.second).c_str());
@@ -150,7 +158,10 @@ struct JsonWriter
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(w->name).c_str());
 			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
-			f << stringf("          \"bits\": %s\n", get_bits(w).c_str());
+			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
+			f << stringf("          \"attributes\": {");
+			write_parameters(w->attributes);
+			f << stringf("\n          }\n");
 			f << stringf("        }");
 			first = false;
 		}
@@ -188,6 +199,133 @@ struct JsonBackend : public Backend {
 		log("\n");
 		log("Write a JSON netlist of the current design.\n");
 		log("\n");
+		log("The general syntax of the JSON output created by this command is as follows:\n");
+		log("\n");
+		log("    {\n");
+		log("      \"modules\": {\n");
+		log("        <module_name>: {\n");
+		log("          \"ports\": {\n");
+		log("            <port_name>: <port_details>,\n");
+		log("            ...\n");
+		log("          },\n");
+		log("          \"cells\": {\n");
+		log("            <cell_name>: <cell_details>,\n");
+		log("            ...\n");
+		log("          },\n");
+		log("          \"netnames\": {\n");
+		log("            <net_name>: <net_details>,\n");
+		log("            ...\n");
+		log("          }\n");
+		log("        }\n");
+		log("      }\n");
+		log("    }\n");
+		log("\n");
+		log("Where <port_details> is:\n");
+		log("\n");
+		log("    {\n");
+		log("      \"direction\": <\"input\" | \"output\" | \"inout\">,\n");
+		log("      \"bits\": <bit_vector>\n");
+		log("    }\n");
+		log("\n");
+		log("And <cell_details> is:\n");
+		log("\n");
+		log("    {\n");
+		log("      \"hide_name\": <1 | 0>,\n");
+		log("      \"type\": <cell_type>,\n");
+		log("      \"parameters\": {\n");
+		log("        <parameter_name>: <parameter_value>,\n");
+		log("        ...\n");
+		log("      },\n");
+		log("      \"attributes\": {\n");
+		log("        <attribute_name>: <attribute_value>,\n");
+		log("        ...\n");
+		log("      },\n");
+		log("      \"connections\": {\n");
+		log("        <port_name>: <bit_vector>,\n");
+		log("        ...\n");
+		log("      },\n");
+		log("    }\n");
+		log("\n");
+		log("And <net_details> is:\n");
+		log("\n");
+		log("    {\n");
+		log("      \"hide_name\": <1 | 0>,\n");
+		log("      \"bits\": <bit_vector>\n");
+		log("    }\n");
+		log("\n");
+		log("The \"hide_name\" fields are set to 1 when the name of this cell or net is\n");
+		log("automatically created and is likely not of interest for a regular user.\n");
+		log("\n");
+		log("Module and cell ports and nets can be single bit wide or vectors of multiple\n");
+		log("bits. Each individual signal bit is assigned a unique integer. The <bit_vector>\n");
+		log("values referenced above are vectors of this integers. Signal bits that are\n");
+		log("connected to a constant driver are denoted as string \"0\" or \"1\" instead of\n");
+		log("a number.\n");
+		log("\n");
+		log("For example the following verilog code:\n");
+		log("\n");
+		log("    module test(input x, y);\n");
+		log("      (* keep *) foo #(.P(42), .Q(1337))\n");
+		log("          foo_inst (.A({x, y}), .B({y, x}), .C({4'd10, {4{x}}}));\n");
+		log("    endmodule\n");
+		log("\n");
+		log("Translates to the following JSON output:\n");
+		log("\n");
+		log("    {\n");
+		log("      \"modules\": {\n");
+		log("        \"test\": {\n");
+		log("          \"ports\": {\n");
+		log("            \"x\": {\n");
+		log("              \"direction\": \"input\",\n");
+		log("              \"bits\": [ 2 ]\n");
+		log("            },\n");
+		log("            \"y\": {\n");
+		log("              \"direction\": \"input\",\n");
+		log("              \"bits\": [ 3 ]\n");
+		log("            }\n");
+		log("          },\n");
+		log("          \"cells\": {\n");
+		log("            \"foo_inst\": {\n");
+		log("              \"hide_name\": 0,\n");
+		log("              \"type\": \"foo\",\n");
+		log("              \"parameters\": {\n");
+		log("                \"Q\": 1337,\n");
+		log("                \"P\": 42\n");
+		log("              },\n");
+		log("              \"attributes\": {\n");
+		log("                \"keep\": 1,\n");
+		log("                \"src\": \"test.v:2\"\n");
+		log("              },\n");
+		log("              \"connections\": {\n");
+		log("                \"C\": [ 2, 2, 2, 2, \"0\", \"1\", \"0\", \"1\" ],\n");
+		log("                \"B\": [ 2, 3 ],\n");
+		log("                \"A\": [ 3, 2 ]\n");
+		log("              }\n");
+		log("            }\n");
+		log("          },\n");
+		log("          \"netnames\": {\n");
+		log("            \"y\": {\n");
+		log("              \"hide_name\": 0,\n");
+		log("              \"bits\": [ 3 ],\n");
+		log("              \"attributes\": {\n");
+		log("                \"src\": \"test.v:1\"\n");
+		log("              }\n");
+		log("            },\n");
+		log("            \"x\": {\n");
+		log("              \"hide_name\": 0,\n");
+		log("              \"bits\": [ 2 ],\n");
+		log("              \"attributes\": {\n");
+		log("                \"src\": \"test.v:1\"\n");
+		log("              }\n");
+		log("            }\n");
+		log("          }\n");
+		log("        }\n");
+		log("      }\n");
+		log("    }\n");
+		log("\n");
+		log("Future version of Yosys might add support for additional fields in the JSON\n");
+		log("format. A program processing this format must ignore all unkown fields.\n");
+		log("\n");
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -210,17 +348,19 @@ struct JsonBackend : public Backend {
 } JsonBackend;
 
 struct JsonPass : public Pass {
-	JsonPass() : Pass("json", "write design to a JSON file") { }
+	JsonPass() : Pass("json", "write design in JSON format") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    write_json [options] [selection]\n");
+		log("    json [options] [selection]\n");
 		log("\n");
 		log("Write a JSON netlist of all selected objects.\n");
 		log("\n");
 		log("    -o <filename>\n");
 		log("        write to the specified file.\n");
+		log("\n");
+		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
