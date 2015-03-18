@@ -321,6 +321,17 @@ bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 	return cache[mod];
 }
 
+int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
+{
+	if (db.count(module) == 0) {
+		db[module] = 0;
+		for (auto cell : module->cells())
+			if (design->module(cell->type))
+				db[module] = std::max(db[module], find_top_mod_score(design, design->module(cell->type), db) + 1);
+	}
+	return db.at(module);
+}
+
 struct HierarchyPass : public Pass {
 	HierarchyPass() : Pass("hierarchy", "check, expand and clean up design hierarchy") { }
 	virtual void help()
@@ -365,6 +376,9 @@ struct HierarchyPass : public Pass {
 		log("        specified top module. otherwise a module with the 'top' attribute set\n");
 		log("        will implicitly be used as top module, if such a module exists.\n");
 		log("\n");
+		log("    -auto-top\n");
+		log("        automatically determine the top of the design hierarchy and mark it.\n");
+		log("\n");
 		log("In -generate mode this pass generates blackbox modules for the given cell\n");
 		log("types (wildcards supported). For this the design is searched for cells that\n");
 		log("match the given types and then the given port declarations are used to\n");
@@ -391,6 +405,7 @@ struct HierarchyPass : public Pass {
 		RTLIL::Module *top_mod = NULL;
 		std::vector<std::string> libdirs;
 
+		bool auto_top_mode = false;
 		bool generate_mode = false;
 		bool keep_positionals = false;
 		bool nokeep_asserts = false;
@@ -472,6 +487,10 @@ struct HierarchyPass : public Pass {
 					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-auto-top") {
+				auto_top_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design, false);
@@ -483,10 +502,23 @@ struct HierarchyPass : public Pass {
 
 		log_push();
 
-		if (top_mod == NULL)
+		if (top_mod == nullptr)
 			for (auto &mod_it : design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
+
+		if (top_mod == nullptr && auto_top_mode) {
+			log_header("Finding top of design hierarchy..\n");
+			dict<Module*, int> db;
+			for (Module *mod : design->modules()) {
+				int score = find_top_mod_score(design, mod, db);
+				log("root of %3d design levels: %-20s\n", score, log_id(mod));
+				if (!top_mod || score > db[top_mod])
+					top_mod = mod;
+			}
+			if (top_mod != nullptr)
+				log("Automatically selected %s as design top module.\n", log_id(top_mod));
+		}
 
 		bool did_something = true;
 		while (did_something)
