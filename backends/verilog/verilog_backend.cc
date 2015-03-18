@@ -671,6 +671,56 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$dffsr")
+	{
+		SigSpec sig_clk = cell->getPort("\\CLK");
+		SigSpec sig_set = cell->getPort("\\SET");
+		SigSpec sig_clr = cell->getPort("\\CLR");
+		SigSpec sig_d = cell->getPort("\\D");
+		SigSpec sig_q = cell->getPort("\\Q");
+
+		int width = cell->parameters["\\WIDTH"].as_int();
+		bool pol_clk = cell->parameters["\\CLK_POLARITY"].as_bool();
+		bool pol_set = cell->parameters["\\SET_POLARITY"].as_bool();
+		bool pol_clr = cell->parameters["\\CLR_POLARITY"].as_bool();
+
+		std::string reg_name = cellname(cell);
+		bool out_is_reg_wire = is_reg_wire(sig_q, reg_name);
+
+		if (!out_is_reg_wire)
+			f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), width-1, reg_name.c_str());
+
+		for (int i = 0; i < width; i++) {
+			f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
+			dump_sigspec(f, sig_clk);
+			f << stringf(", %sedge ", pol_set ? "pos" : "neg");
+			dump_sigspec(f, sig_set);
+			f << stringf(", %sedge ", pol_clr ? "pos" : "neg");
+			dump_sigspec(f, sig_clr);
+			f << stringf(")\n");
+
+			f << stringf("%s" "  if (%s", indent.c_str(), pol_clr ? "" : "!");
+			dump_sigspec(f, sig_clr);
+			f << stringf(") %s[%d] <= 1'b0;\n", reg_name.c_str(), i);
+
+			f << stringf("%s" "  else if (%s", indent.c_str(), pol_set ? "" : "!");
+			dump_sigspec(f, sig_set);
+			f << stringf(") %s[%d] <= 1'b1;\n", reg_name.c_str(), i);
+
+			f << stringf("%s" "  else  %s[%d] <= ", indent.c_str(), reg_name.c_str(), i);
+			dump_sigspec(f, sig_d[i]);
+			f << stringf(";\n");
+		}
+
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "assign ", indent.c_str());
+			dump_sigspec(f, sig_q);
+			f << stringf(" = %s;\n", reg_name.c_str());
+		}
+
+		return true;
+	}
+
 	if (cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffe")
 	{
 		RTLIL::SigSpec sig_clk, sig_arst, sig_en, val_arst;
@@ -734,7 +784,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 
 	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_, $_DLATCHSR_[PN][PN][PN]_
-	// FIXME: $sr, $dffsr, $dlatch, $memrd, $memwr, $mem, $fsm
+	// FIXME: $sr, $dlatch, $memrd, $memwr, $mem, $fsm
 
 	return false;
 }
