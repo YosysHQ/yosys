@@ -105,14 +105,14 @@ int LibertyParser::lexer(std::string &str)
 	}
 
 	if (c == '"') {
-		str = c;
+		str = "";
 		while (1) {
 			c = f.get();
 			if (c == '\n')
 				line++;
-			str += c;
 			if (c == '"')
 				break;
+			str += c;
 		}
 		// fprintf(stderr, "LEX: string >>%s<<\n", str.c_str());
 		return 'v';
