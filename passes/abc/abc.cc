@@ -1216,19 +1216,19 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-script" && argidx+1 < args.size()) {
 				script_file = args[++argidx];
-				if (!script_file.empty() && script_file[0] != '/' && script_file[0] != '+')
+				if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
 					script_file = std::string(pwd) + "/" + script_file;
 				continue;
 			}
 			if (arg == "-liberty" && argidx+1 < args.size()) {
 				liberty_file = args[++argidx];
-				if (!liberty_file.empty() && liberty_file[0] != '/')
+				if (!liberty_file.empty() && !is_absolute_path(liberty_file))
 					liberty_file = std::string(pwd) + "/" + liberty_file;
 				continue;
 			}
 			if (arg == "-constr" && argidx+1 < args.size()) {
 				constr_file = args[++argidx];
-				if (!constr_file.empty() && constr_file[0] != '/')
+				if (!constr_file.empty() && !is_absolute_path(constr_file))
 					constr_file = std::string(pwd) + "/" + constr_file;
 				continue;
 			}

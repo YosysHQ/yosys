@@ -376,6 +376,15 @@ bool check_file_exists(std::string filename, bool is_exec)
 }
 #endif
 
+bool is_absolute_path(std::string filename)
+{
+#ifdef _WIN32
+	return filename[0] == '/' || filename[0] == '\\' || (filename[0] != 0 && filename[1] == ':');
+#else
+	return filename[0] == '/';
+#endif
+}
+
 void remove_directory(std::string dirname)
 {
 #ifdef _WIN32

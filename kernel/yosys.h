@@ -210,6 +210,7 @@ int run_command(const std::string &command, std::function<void(const std::string
 std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
 std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
 bool check_file_exists(std::string filename, bool is_exec = false);
+bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
