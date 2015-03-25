@@ -116,6 +116,9 @@ YOSYS_NAMESPACE_END
 
 "`timescale"[ \t]+[^ \t\r\n/]+[ \t]*"/"[ \t]*[^ \t\r\n]* /* ignore timescale directive */
 
+"`celldefine"[^\n]* /* ignore `celldefine */
+"`endcelldefine"[^\n]* /* ignore `endcelldefine */
+
 "`default_nettype"[ \t]+[^ \t\r\n/]+ {
 	char *p = yytext;
 	while (*p != 0 && *p != ' ' && *p != '\t') p++;
