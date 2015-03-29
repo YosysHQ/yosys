@@ -352,7 +352,7 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -purge_lib\n");
 		log("        by default the hierarchy command will not remove library (blackbox)\n");
-		log("        module. use this options to also remove unused blackbox modules.\n");
+		log("        modules. use this option to also remove unused blackbox modules.\n");
 		log("\n");
 		log("    -libdir <directory>\n");
 		log("        search for files named <module_name>.v in the specified directory\n");

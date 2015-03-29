@@ -590,6 +590,10 @@ struct ShowPass : public Pass {
 		log("        inputs or outputs. This option can be used multiple times to specify\n");
 		log("        more than one library.\n");
 		log("\n");
+		log("        note: in most cases it is better to load the library before calling\n");
+		log("        show with 'read_verilog -lib <filename>'. it is also possible to\n");
+		log("        load liberty files with 'read_liberty -lib <filename>'.\n");
+		log("\n");
 		log("    -prefix <prefix>\n");
 		log("        generate <prefix>.* instead of ~/.yosys_show.*\n");
 		log("\n");
