@@ -78,7 +78,7 @@ struct BtorDumper
 	std::map<RTLIL::IdString, bool> basic_wires;//input wires and registers	
 	RTLIL::IdString curr_cell; //current cell being dumped
 	std::map<std::string, std::string> cell_type_translation, s_cell_type_translation; //RTLIL to BTOR translation
-	std::set<int> mem_next; //if memory (line_number) already has next
+        std::map<int, std::set<std::pair<int,int>>> mem_next; // memory (line_number)'s set of condition and write 
     	BtorDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BtorDumperConfig *config) :
     		f(f), module(module), design(design), config(config), ct(design), sigmap(module)
 	{
@@ -267,6 +267,45 @@ struct BtorDumper
 			return line_num;
 		}
 		else return it->second;
+	}
+
+        int dump_memory_next(const RTLIL::Memory* memory)
+        {
+	  auto mem_it = line_ref.find(memory->name);
+	  int address_bits = ceil(log(memory->size)/log(2));
+	  if(mem_it==std::end(line_ref))
+	    {
+	      log("can not write next of a memory that is not dumped yet\n");
+	      log_abort();
+	    }
+	  else
+	    {
+	      auto acond_list_it = mem_next.find(mem_it->second);
+	      if(acond_list_it!=std::end(mem_next))
+		{
+		  std::set<std::pair<int,int>>& cond_list = acond_list_it->second;
+		  if(cond_list.empty())
+		    {
+		      return 0;
+		    }
+		  auto it=cond_list.begin();
+		  ++line_num;
+		  str = stringf("%d acond %d %d %d %d %d", line_num, memory->width, address_bits, it->first, it->second, mem_it->second);
+		  f << stringf("%s\n", str.c_str());
+		  ++it;
+		  for(; it!=cond_list.end(); ++it)
+		    {
+		      ++line_num;
+		      str = stringf("%d acond %d %d %d %d %d", line_num, memory->width, address_bits, it->first, it->second, line_num-1);
+		      f << stringf("%s\n", str.c_str());
+		    }
+		  ++line_num;
+		  str = stringf("%d anext %d %d %d %d", line_num, memory->width, address_bits, mem_it->second, line_num-1);                                                                                                                 
+		  f << stringf("%s\n", str.c_str());
+		  return 1;
+		}
+	      return 0;
+	    }
 	}
 
 	int dump_const(const RTLIL::Const* data, int width, int offset)
@@ -775,7 +814,8 @@ struct BtorDumper
 				str = cell->parameters.at(RTLIL::IdString("\\MEMID")).decode_string();
 				int mem = dump_memory(module->memories.at(RTLIL::IdString(str.c_str())));
 				//check if the memory has already next
-                                auto it = mem_next.find(mem);
+                                /*
+				auto it = mem_next.find(mem);
                                 if(it != std::end(mem_next))
                                 {
                                         ++line_num;
@@ -785,10 +825,11 @@ struct BtorDumper
                                         str = stringf("%d array %d %d", line_num, memory->width, address_bits);
                                         f << stringf("%s\n", str.c_str());
                                         ++line_num;
-                                        str = stringf("%d eq 1 %d %d", line_num, mem, line_num - 1);
+                                        str = stringf("%d eq 1 %d %d; mem invar", line_num, mem, line_num - 1);
                                         f << stringf("%s\n", str.c_str());
                                         mem = line_num - 1;
-                                }
+				}
+				*/			       
                 		++line_num;
 				if(polarity)
 					str = stringf("%d one 1", line_num);
@@ -804,14 +845,15 @@ struct BtorDumper
 				++line_num;
 				str = stringf("%d write %d %d %d %d %d", line_num, data_width, address_width, mem, address, data);	
 				f << stringf("%s\n", str.c_str());
+				/*
 				++line_num;
-				str = stringf("%d acond %d %d %d %d %d", line_num, data_width, address_width, line_num-2/*enable*/, line_num-1, mem);	
+				str = stringf("%d acond %d %d %d %d %d", line_num, data_width, address_width, line_num-2, line_num-1, mem);	
 				f << stringf("%s\n", str.c_str());				
 				++line_num;
 				str = stringf("%d anext %d %d %d %d", line_num, data_width, address_width, mem, line_num-1);	
 				f << stringf("%s\n", str.c_str());				
-				mem_next.insert(mem);
-				line_ref[cell->name]=line_num;
+				*/
+				mem_next[mem].insert(std::make_pair(line_num-1, line_num));
 			}
 			else if(cell->type == "$slice")
 			{
@@ -975,6 +1017,12 @@ struct BtorDumper
 			dump_cell(cell_it->second);	
 		}
 		
+		log("writing memory next");
+		for(auto mem_it = module->memories.begin(); mem_it != module->memories.end(); ++mem_it)
+		  {
+		    dump_memory_next(mem_it->second);
+		  }
+
 		for(auto it: safety)
 			dump_property(it);
 
