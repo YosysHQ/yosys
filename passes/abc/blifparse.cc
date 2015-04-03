@@ -18,9 +18,8 @@
  */
 
 #include "blifparse.h"
-#include "kernel/log.h"
-#include <stdio.h>
-#include <string.h>
+
+YOSYS_NAMESPACE_BEGIN
 
 static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, FILE *f)
 {
@@ -130,7 +129,8 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				if (p == NULL)
 					goto error;
 
-				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(p));
+				IdString celltype = RTLIL::escape_id(p);
+				RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
 
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					char *q = strchr(p, '=');
@@ -239,4 +239,6 @@ error:
 	// delete design;
 	// return NULL;
 }
+
+YOSYS_NAMESPACE_END
 

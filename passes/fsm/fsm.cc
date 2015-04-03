@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct FsmPass : public Pass {
 	FsmPass() : Pass("fsm", "extract and optimize finite state machines") { }
 	virtual void help()
@@ -58,6 +61,7 @@ struct FsmPass : public Pass {
 		log("\n");
 		log("    -encoding tye\n");
 		log("    -fm_set_fsm_file file\n");
+		log("    -encfile file\n");
 		log("        passed through to fsm_recode pass\n");
 		log("\n");
 	}
@@ -69,6 +73,7 @@ struct FsmPass : public Pass {
 		bool flag_expand = false;
 		bool flag_export = false;
 		std::string fm_set_fsm_file_opt;
+		std::string encfile_opt;
 		std::string encoding_opt;
 
 		log_header("Executing FSM pass (extract and optimize FSM).\n");
@@ -81,7 +86,11 @@ struct FsmPass : public Pass {
 				fm_set_fsm_file_opt = " -fm_set_fsm_file " + args[++argidx];
 				continue;
 			}
-			if (arg == "-encoding" && argidx+1 < args.size() && fm_set_fsm_file_opt.empty()) {
+			if (arg == "-encfile" && argidx+1 < args.size() && encfile_opt.empty()) {
+				encfile_opt = " -encfile " + args[++argidx];
+				continue;
+			}
+			if (arg == "-encoding" && argidx+1 < args.size() && encoding_opt.empty()) {
 				encoding_opt = " -encoding " + args[++argidx];
 				continue;
 			}
@@ -124,7 +133,7 @@ struct FsmPass : public Pass {
 		}
 
 		if (!flag_norecode)
-			Pass::call(design, "fsm_recode" + fm_set_fsm_file_opt + encoding_opt);
+			Pass::call(design, "fsm_recode" + fm_set_fsm_file_opt + encfile_opt + encoding_opt);
 		Pass::call(design, "fsm_info");
 
 		if (flag_export)
@@ -137,3 +146,4 @@ struct FsmPass : public Pass {
 	}
 } FsmPass;
  
+PRIVATE_NAMESPACE_END

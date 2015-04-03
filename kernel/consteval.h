@@ -25,6 +25,8 @@
 #include "kernel/celltypes.h"
 #include "kernel/macc.h"
 
+YOSYS_NAMESPACE_BEGIN
+
 struct ConstEval
 {
 	RTLIL::Module *module;
@@ -72,7 +74,7 @@ struct ConstEval
 		assign_map.apply(sig);
 #ifndef NDEBUG
 		RTLIL::SigSpec current_val = values_map(sig);
-		for (int i = 0; i < SIZE(current_val); i++)
+		for (int i = 0; i < GetSize(current_val); i++)
 			log_assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
 #endif
 		values_map.add(sig, RTLIL::SigSpec(value));
@@ -107,10 +109,10 @@ struct ConstEval
 
 			if (sig_p.is_fully_def() && sig_g.is_fully_def() && sig_ci.is_fully_def())
 			{
-				RTLIL::Const coval(RTLIL::Sx, SIZE(sig_co));
+				RTLIL::Const coval(RTLIL::Sx, GetSize(sig_co));
 				bool carry = sig_ci.as_bool();
 
-				for (int i = 0; i < SIZE(coval); i++) {
+				for (int i = 0; i < GetSize(coval); i++) {
 					carry = (sig_g[i] == RTLIL::S1) || (sig_p[i] == RTLIL::S1 && carry);
 					coval.bits[i] = carry ? RTLIL::S1 : RTLIL::S0;
 				}
@@ -118,7 +120,7 @@ struct ConstEval
 				set(sig_co, coval);
 			}
 			else
-				set(sig_co, RTLIL::Const(RTLIL::Sx, SIZE(sig_co)));
+				set(sig_co, RTLIL::Const(RTLIL::Sx, GetSize(sig_co)));
 
 			return true;
 		}
@@ -196,7 +198,7 @@ struct ConstEval
 		{
 			RTLIL::SigSpec sig_c = cell->getPort("\\C");
 			RTLIL::SigSpec sig_x = cell->getPort("\\X");
-			int width = SIZE(sig_c);
+			int width = GetSize(sig_c);
 
 			if (!eval(sig_a, undef, cell))
 				return false;
@@ -214,7 +216,7 @@ struct ConstEval
 			RTLIL::Const t3 = const_and(sig_c.as_const(), t1, false, false, width);
 			RTLIL::Const val_x = const_or(t2, t3, false, false, width);
 
-			for (int i = 0; i < SIZE(val_y); i++)
+			for (int i = 0; i < GetSize(val_y); i++)
 				if (val_y.bits[i] == RTLIL::Sx)
 					val_x.bits[i] = RTLIL::Sx;
 
@@ -245,13 +247,13 @@ struct ConstEval
 			RTLIL::SigSpec sig_co = cell->getPort("\\CO");
 
 			bool any_input_undef = !(sig_a.is_fully_def() && sig_b.is_fully_def() && sig_ci.is_fully_def() && sig_bi.is_fully_def());
-			sig_a.extend_u0(SIZE(sig_y), signed_a);
-			sig_b.extend_u0(SIZE(sig_y), signed_b);
+			sig_a.extend_u0(GetSize(sig_y), signed_a);
+			sig_b.extend_u0(GetSize(sig_y), signed_b);
 
 			bool carry = sig_ci[0] == RTLIL::S1;
 			bool b_inv = sig_bi[0] == RTLIL::S1;
 
-			for (int i = 0; i < SIZE(sig_y); i++)
+			for (int i = 0; i < GetSize(sig_y); i++)
 			{
 				RTLIL::SigSpec x_inputs = { sig_a[i], sig_b[i], sig_bi[0] };
 
@@ -292,7 +294,7 @@ struct ConstEval
 					return false;
 			}
 
-			RTLIL::Const result(0, SIZE(cell->getPort("\\Y")));
+			RTLIL::Const result(0, GetSize(cell->getPort("\\Y")));
 			if (!macc.eval(result))
 				log_abort();
 
@@ -375,5 +377,7 @@ struct ConstEval
 		return eval(sig, undef);
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

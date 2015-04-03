@@ -21,7 +21,14 @@
 #include "libs/sha1/sha1.h"
 #include "backends/ilang/ilang_backend.h"
 
-#include <sys/time.h>
+#if !defined(_WIN32) || defined(__MINGW32__)
+#  include <sys/time.h>
+#endif
+
+#ifdef __linux__
+#  include <dlfcn.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,16 +44,40 @@ FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
 
 bool log_time = false;
+bool log_error_stderr = false;
 bool log_cmd_error_throw = false;
+bool log_quiet_warnings = false;
 int log_verbose_level;
+string log_last_error;
 
-std::vector<int> header_count;
-std::list<std::string> string_buf;
-int string_buf_size = 0;
+vector<int> header_count;
+pool<RTLIL::IdString> log_id_cache;
+vector<string> string_buf;
+int string_buf_index = -1;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
+
+#if defined(_WIN32) && !defined(__MINGW32__)
+// this will get time information and return it in timeval, simulating gettimeofday()
+int gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	LARGE_INTEGER counter;
+	LARGE_INTEGER freq;
+
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&counter);
+
+	counter.QuadPart *= 1000000;
+	counter.QuadPart /= freq.QuadPart;
+
+	tv->tv_sec = long(counter.QuadPart / 1000000);
+	tv->tv_usec = counter.QuadPart % 1000000;
+
+	return 0;
+}
+#endif
 
 void logv(const char *format, va_list ap)
 {
@@ -62,9 +93,9 @@ void logv(const char *format, va_list ap)
 
 	size_t nnl_pos = str.find_last_not_of('\n');
 	if (nnl_pos == std::string::npos)
-		log_newline_count += SIZE(str);
+		log_newline_count += GetSize(str);
 	else
-		log_newline_count = SIZE(str) - nnl_pos - 1;
+		log_newline_count = GetSize(str) - nnl_pos - 1;
 
 	if (log_hasher)
 		log_hasher->update(str);
@@ -128,15 +159,43 @@ void logv_header(const char *format, va_list ap)
 		log_files.pop_back();
 }
 
+void logv_warning(const char *format, va_list ap)
+{
+	if (log_errfile != NULL && !log_quiet_warnings)
+		log_files.push_back(log_errfile);
+
+	log("Warning: ");
+	logv(format, ap);
+	log_flush();
+
+	if (log_errfile != NULL && !log_quiet_warnings)
+		log_files.pop_back();
+}
+
 void logv_error(const char *format, va_list ap)
 {
+#ifdef EMSCRIPTEN
+	auto backup_log_files = log_files;
+#endif
+
 	if (log_errfile != NULL)
 		log_files.push_back(log_errfile);
 
-	log("ERROR: ");
-	logv(format, ap);
+	if (log_error_stderr)
+		for (auto &f : log_files)
+			if (f == stdout)
+				f = stderr;
+
+	log_last_error = vstringf(format, ap);
+	log("ERROR: %s", log_last_error.c_str());
 	log_flush();
+
+#ifdef EMSCRIPTEN
+	log_files = backup_log_files;
+	throw 0;
+#else
 	exit(1);
+#endif
 }
 
 void log(const char *format, ...)
@@ -155,6 +214,14 @@ void log_header(const char *format, ...)
 	va_end(ap);
 }
 
+void log_warning(const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	logv_warning(format, ap);
+	va_end(ap);
+}
+
 void log_error(const char *format, ...)
 {
 	va_list ap;
@@ -168,10 +235,10 @@ void log_cmd_error(const char *format, ...)
 	va_start(ap, format);
 
 	if (log_cmd_error_throw) {
-		log("ERROR: ");
-		logv(format, ap);
+		log_last_error = vstringf(format, ap);
+		log("ERROR: %s", log_last_error.c_str());
 		log_flush();
-		throw log_cmd_error_expection();
+		throw log_cmd_error_exception();
 	}
 
 	logv_error(format, ap);
@@ -191,17 +258,112 @@ void log_push()
 void log_pop()
 {
 	header_count.pop_back();
+	log_id_cache.clear();
 	string_buf.clear();
-	string_buf_size = 0;
+	string_buf_index = -1;
 	log_flush();
 }
+
+#ifdef __linux__
+void log_backtrace(const char *prefix, int levels)
+{
+	if (levels <= 0) return;
+
+	Dl_info dli;
+	void *p;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(0))) && dladdr(p, &dli)) {
+		log("%sframe #1: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #1: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 1) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(1))) && dladdr(p, &dli)) {
+		log("%sframe #2: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #2: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 2) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(2))) && dladdr(p, &dli)) {
+		log("%sframe #3: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #3: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 3) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(3))) && dladdr(p, &dli)) {
+		log("%sframe #4: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #4: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 4) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(4))) && dladdr(p, &dli)) {
+		log("%sframe #5: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #5: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 5) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(5))) && dladdr(p, &dli)) {
+		log("%sframe #6: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #6: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 6) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(6))) && dladdr(p, &dli)) {
+		log("%sframe #7: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #7: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 7) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(7))) && dladdr(p, &dli)) {
+		log("%sframe #8: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #8: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 8) return;
+
+	if ((p = __builtin_extract_return_addr(__builtin_return_address(8))) && dladdr(p, &dli)) {
+		log("%sframe #9: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
+	} else {
+		log("%sframe #9: ---\n", prefix);
+		return;
+	}
+
+	if (levels <= 9) return;
+}
+#else
+void log_backtrace(const char*, int) { }
+#endif
 
 void log_reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
+	log_id_cache.clear();
 	string_buf.clear();
-	string_buf_size = 0;
+	string_buf_index = -1;
 	log_flush();
 }
 
@@ -223,22 +385,28 @@ const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 	std::stringstream buf;
 	ILANG_BACKEND::dump_sigspec(buf, sig, autoint);
 
-	if (string_buf_size < 100)
-		string_buf_size++;
-	else
-		string_buf.pop_front();
-	string_buf.push_back(buf.str());
-
-	return string_buf.back().c_str();
+	if (string_buf.size() < 100) {
+		string_buf.push_back(buf.str());
+		return string_buf.back().c_str();
+	} else {
+		if (++string_buf_index == 100)
+			string_buf_index = 0;
+		string_buf[string_buf_index] = buf.str();
+		return string_buf[string_buf_index].c_str();
+	}
 }
 
 const char *log_id(RTLIL::IdString str)
 {
+	log_id_cache.insert(str);
 	const char *p = str.c_str();
-	log_assert(RTLIL::IdString::global_refcount_storage_[str.index_] > 1);
-	if (p[0] == '\\' && p[1] != '$' && p[1] != 0)
-		return p+1;
-	return p;
+	if (p[0] != '\\')
+		return p;
+	if (p[1] == '$' || p[1] == '\\' || p[1] == 0)
+		return p;
+	if (p[1] >= '0' && p[1] <= '9')
+		return p;
+	return p+1;
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
@@ -251,9 +419,9 @@ void log_cell(RTLIL::Cell *cell, std::string indent)
 // ---------------------------------------------------
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
-#ifdef COVER_ACTIVE
+#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
 
-std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
+dict<std::string, std::pair<std::string, int>> extra_coverage_data;
 
 void cover_extra(std::string parent, std::string id, bool increment) {
 	if (extra_coverage_data.count(id) == 0) {
@@ -266,9 +434,9 @@ void cover_extra(std::string parent, std::string id, bool increment) {
 		extra_coverage_data[id].second++;
 }
 
-std::map<std::string, std::pair<std::string, int>> get_coverage_data()
+dict<std::string, std::pair<std::string, int>> get_coverage_data()
 {
-	std::map<std::string, std::pair<std::string, int>> coverage_data;
+	dict<std::string, std::pair<std::string, int>> coverage_data;
 
 	for (auto &it : pass_register) {
 		std::string key = stringf("passes.%s", it.first.c_str());
@@ -278,14 +446,14 @@ std::map<std::string, std::pair<std::string, int>> get_coverage_data()
 
 	for (auto &it : extra_coverage_data) {
 		if (coverage_data.count(it.first))
-			log("WARNING: found duplicate coverage id \"%s\".\n", it.first.c_str());
+			log_warning("found duplicate coverage id \"%s\".\n", it.first.c_str());
 		coverage_data[it.first].first = it.second.first;
 		coverage_data[it.first].second += it.second.second;
 	}
 
 	for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
 		if (coverage_data.count(p->id))
-			log("WARNING: found duplicate coverage id \"%s\".\n", p->id);
+			log_warning("found duplicate coverage id \"%s\".\n", p->id);
 		coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
 		coverage_data[p->id].second += p->counter;
 	}

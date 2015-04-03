@@ -132,8 +132,16 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 }
 
 // convert the verilog code for a constant to an AST node
-AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
+AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn_z)
 {
+	if (warn_z) {
+		AstNode *ret = const2ast(code, case_type);
+		if (std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
+			log_warning("Yosys does not support tri-state logic at the moment. (%s:%d)\n",
+				current_filename.c_str(), frontend_verilog_yyget_lineno());
+		return ret;
+	}
+
 	const char *str = code.c_str();
 
 	// Strings
@@ -174,7 +182,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 	if (str == endptr)
 		len_in_bits = -1;
 
-	// The "<bits>'s?[bodh]<digits>" syntax
+	// The "<bits>'s?[bodhBODH]<digits>" syntax
 	if (*endptr == '\'')
 	{
 		std::vector<RTLIL::State> data;
@@ -186,15 +194,19 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type)
 		switch (*(endptr+1))
 		{
 		case 'b':
+		case 'B':
 			my_strtobin(data, endptr+2, len_in_bits, 2, case_type);
 			break;
 		case 'o':
+		case 'O':
 			my_strtobin(data, endptr+2, len_in_bits, 8, case_type);
 			break;
 		case 'd':
+		case 'D':
 			my_strtobin(data, endptr+2, len_in_bits, 10, case_type);
 			break;
 		case 'h':
+		case 'H':
 			my_strtobin(data, endptr+2, len_in_bits, 16, case_type);
 			break;
 		default:

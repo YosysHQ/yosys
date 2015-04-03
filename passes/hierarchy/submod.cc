@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct SubmodWorker
 {
 	CellTypes ct;
@@ -82,7 +85,7 @@ struct SubmodWorker
 				for (auto &conn : cell->connections())
 					flag_signal(conn.second, true, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first), false, false);
 			} else {
-				log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
+				log_warning("Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
 				for (auto &conn : cell->connections())
 					flag_signal(conn.second, true, true, true, false, false);
 			}
@@ -99,7 +102,7 @@ struct SubmodWorker
 				for (auto &conn : cell->connections())
 					flag_signal(conn.second, false, false, false, true, true);
 				if (flag_found_something)
-					log("WARNING: Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
+					log_warning("Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name.c_str(), cell->type.c_str());
 			}
 		}
 
@@ -347,3 +350,4 @@ struct SubmodPass : public Pass {
 	}
 } SubmodPass;
  
+PRIVATE_NAMESPACE_END

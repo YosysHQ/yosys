@@ -1,31 +1,209 @@
 
+This file contains some very brief documentation on things like programming APIs.
+Also consult the Yosys manual and the section about programming in the presentation.
+(Both can be downloaded as PDF from the yosys webpage.)
 
+
+--snip-- only the lines below this mark are included in the yosys manual --snip--
 Getting Started
 ===============
 
 
-Reading List
-------------
+Outline of a Yosys command
+--------------------------
 
-To write Yosys C++ code you need to know at least the following classes in kernel/rtlil.h:
+Here is a the C++ code for a "hello_world" Yosys command (hello.cc):
+
+	#include "kernel/yosys.h"
+
+	USING_YOSYS_NAMESPACE
+	PRIVATE_NAMESPACE_BEGIN
+
+	struct HelloWorldPass : public Pass {
+		HelloWorldPass() : Pass("hello_world") { }
+		virtual void execute(vector<string>, Design*) {
+			log("Hello World!\n");
+		}
+	} HelloWorldPass;
+
+	PRIVATE_NAMESPACE_END
+
+This can be built into a Yosys module using the following command:
+
+	yosys-config --exec --cxx --cxxflags --ldflags -o hello.so -shared hello.cc --ldlibs
+
+Or short:
+
+	yosys-config --build hello.so hello.cc
+
+And then executed using the following command:
+
+	yosys -m hello.so -p hello_world
+
+
+Yosys Data Structures
+---------------------
+
+Here is a short list of data structures that you should make yourself familiar
+with before you write C++ code for Yosys. The following data structures are all
+defined when "kernel/yosys.h" is included and USING_YOSYS_NAMESPACE is used.
+
+  1. Yosys Container Classes
+
+Yosys uses dict<K, T> and pool<T> as main container classes. dict<K, T> is
+essentially a replacement for std::unordered_map<K, T> and pool<T> is a
+replacement for std::unordered_set<T>. The main characteristics are:
+
+	- dict<K, T> and pool<T> are about 2x faster than the std containers
+
+	- references to elements in a dict<K, T> or pool<T> are invalidated by
+	  insert and remove operations (similar to std::vector<T> on push_back()).
+
+	- some iterators are invalidated by erase(). specifically, iterators
+	  that have not passed the erased element yet are invalidated. (erase()
+	  itself returns valid iterator to the next element.)
+
+	- no iterators are invalidated by insert(). elements are inserted at
+	  begin(). i.e. only a new iterator that starts at begin() will see the
+	  inserted elements.
+
+	- the method .count(key, iterator) is like .count(key) but only
+	  considers elements that can be reached via the iterator.
+
+	- iterators can be compared. it1 < it2 means that the position of t2
+	  can be reached via t1 but not vice versa.
+
+	- the method .sort() can be used to sort the elements in the container
+	  the container stays sorted until elements are added or removed.
+
+	- dict<K, T> and pool<T> will have the same order of iteration across
+	  all compilers, standard libraries and architectures.
+
+In addition to dict<K, T> and pool<T> there is also an idict<K> that
+creates a bijective map from K to the integers. For example:
+
+	idict<string, 42> si;
+	log("%d\n", si("hello"));      // will print 42
+	log("%d\n", si("world"));      // will print 43
+	log("%d\n", si.at("world"));   // will print 43
+	log("%d\n", si.at("dummy"));   // will throw exception
+	log("%s\n", si[42].c_str()));  // will print hello
+	log("%s\n", si[43].c_str()));  // will print world
+	log("%s\n", si[44].c_str()));  // will throw exception
+
+It is not possible to remove elements from an idict.
+
+  2. Standard STL data types
+
+In Yosys we use std::vector<T> and std::string whenever applicable. When
+dict<K, T> and pool<T> are not suitable then std::map<K, T> and std::set<T>
+are used instead.
+
+The types std::vector<T> and std::string are also available as vector<T>
+and string in the Yosys namespace.
+
+  3. RTLIL objects
+
+The current design (essentially a collection of modules, each defined by a
+netlist) is stored in memory using RTLIL object (declared in kernel/rtlil.h,
+automatically included by kernel/yosys.h). You should glance over at least
+the declarations for the following types in kernel/rtlil.h:
+
+	RTLIL::IdString
+		This is a handle for an identifier (e.g. cell or wire name).
+		It feels a lot like a std::string, but is only a single int
+		in size. (The actual string is stored in a global lookup
+		table.)
+
+	RTLIL::SigBit
+		A single signal bit. I.e. either a constant state (0, 1,
+		x, z) or a single bit from a wire.
+
+	RTLIL::SigSpec
+		Essentially a vector of SigBits.
 
 	RTLIL::Wire
 	RTLIL::Cell
+		The building blocks of the netlist in a module.
+
 	RTLIL::Module
-	RTLIL::SigSpec
+	RTLIL::Design
+		The module is a container with connected cells and wires
+		in it. The design is a container with modules in it.
+
+All this types are also available without the RTLIL:: prefix in the Yosys
+namespace.
+
+  4. SigMap and other Helper Classes
+
+There are a couple of additional helper classes that are in wide use
+in Yosys. Most importantly there is SigMap (declared in kernel/sigtools.h).
+
+When a design has many wires in it that are connected to each other, then a
+single signal bit can have multiple valid names. The SigMap object can be used
+to map SigSpecs or SigBits to unique SigSpecs and SigBits that consistently
+only use one wire from such a group of connected wires. For example:
+
+	SigBit a = module->addWire(NEW_ID);
+	SigBit b = module->addWire(NEW_ID);
+	module->connect(a, b);
+
+	log("%d\n", a == b); // will print 0
+
+	SigMap sigmap(module);
+	log("%d\n", sigmap(a) == sigmap(b)); // will print 1
+
+
+Using the RTLIL Netlist Format
+------------------------------
+
+In the RTLIL netlist format the cell ports contain SigSpecs that point to the
+Wires. There are no references in the other direction. This has two direct
+consequences:
+
+(1) It is very easy to go from cells to wires but hard to go in the other way.
+
+(2) There is no danger in removing cells from the netlists, but removing wires
+can break the netlist format when there are still references to the wire
+somewhere in the netlist.
+
+The solution to (1) is easy: Create custom indexes that allow you to make fast
+lookups for the wire-to-cell direction. You can either use existing generic
+index structures to do that (such as the ModIndex class) or write your own
+index. For many application it is simplest to construct a custom index. For
+example:
+
+	SigMap sigmap(module);
+	dict<SigBit, Cell*> sigbit_to_driver_index;
+
+	for (auto cell : module->cells())
+		for (auto &conn : cell->connections())
+			if (cell->output(conn.first))
+				for (auto bit : sigmap(conn.second))
+					sigbit_to_driver_index[bit] = cell;
+
+Regarding (2): There is a general theme in Yosys that you don't remove wires
+from the design. You can rename them, unconnect them, but you do not actually remove
+the Wire object from the module. Instead you let the "clean" command take care
+of the dangling wires. On the other hand it is safe to remove cells (as long as
+you make sure this does not invalidate a custom index you are using in your code).
+
+
+Example Code
+------------
 
 The following yosys commands are a good starting point if you are looking for examples
 of how to use the Yosys API:
 
-	passes/opt/wreduce.cc
-	passes/techmap/maccmap.cc
+	manual/CHAPTER_Prog/stubnets.cc
+	manual/PRESENTATION_Prog/my_cmd.cc
 
 
 Notes on the existing codebase
 ------------------------------
 
 For historical reasons not all parts of Yosys adhere to the current coding
-styles.  When adding code to existing parts of the system, adhere to this guide
+style. When adding code to existing parts of the system, adhere to this guide
 for the new code instead of trying to mimic the style of the surrounding code.
 
 
@@ -58,13 +236,56 @@ C++ Langugage
 -------------
 
 Yosys is written in C++11. At the moment only constructs supported by
-gcc 4.6 is allowed in Yosys code. This will change in future releases.
+gcc 4.6 are allowed in Yosys code. This will change in future releases.
 
 In general Yosys uses "int" instead of "size_t". To avoid compiler
-warnings for implicit type casts, always use "SIZE(foobar)" instead
-of "foobar.size()". (the macro SIZE() is defined by kernel/yosys.h)
+warnings for implicit type casts, always use "GetSize(foobar)" instead
+of "foobar.size()". (GetSize() is defined in kernel/yosys.h)
 
 Use range-based for loops whenever applicable.
+
+
+--snap-- only the lines above this mark are included in the yosys manual --snap--
+
+
+Creating the Visual Studio Template Project
+===========================================
+
+1. Create an empty Visual C++ Win32 Console App project
+
+	Microsoft Visual Studio Express 2013 for Windows Desktop
+	Open New Project Wizard (File -> New Project..)
+
+	Project Name: YosysVS
+	Solution Name: YosysVS
+	[X] Create directory for solution
+	[ ] Add to source control
+
+	[X] Console applications
+	[X] Empty Projcect
+	[ ] SDL checks
+
+2. Open YosysVS Project Properties
+
+	Select Configuration: All Configurations
+
+	C/C++ -> General -> Additional Include Directories
+		Add: ..\yosys
+
+	C/C++ -> Preprocessor -> Preprocessor Definitions
+		Add: _YOSYS_;_CRT_SECURE_NO_WARNINGS
+
+3. Resulting file system tree:
+
+	YosysVS/
+	YosysVS/YosysVS
+	YosysVS/YosysVS/YosysVS.vcxproj
+	YosysVS/YosysVS/YosysVS.vcxproj.filters
+	YosysVS/YosysVS.sdf
+	YosysVS/YosysVS.sln
+	YosysVS/YosysVS.v12.suo
+
+4. Zip YosysVS as YosysVS-Tpl-v1.zip
 
 
 
@@ -96,50 +317,45 @@ Update the CHANGELOG file:
 	vi CHANGELOG
 
 
-Run all tests with "make config-{clang-debug,gcc-debug,gcc-4.6,release}":
+Update and check documentation:
 
 	cd ~yosys
-	make clean
-	make test vloghtb
-	make install
-
-	cd ~yosys-bigsim
-	make clean
-	make full
-
-	cd ~vloghammer
-	make purge
-	make gen_issues gen_samples
-	make SYN_LIST="yosys" SIM_LIST="icarus yosim verilator" FULL=1 world
-	chromium-browser report.html
-
-
-Then with default config setting:
-
-	cd ~yosys
-	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
-	./yosys -p 'proc; opt; show' tests/simple/fiedler-cooley.v
-
-	cd ~yosys
+	make update-manual
 	make manual
 	- sanity check the figures in the appnotes and presentation
 	    - if there are any odd things -> investigate
 	    - make cosmetic changes to the .tex files if necessary
 
+	cd ~yosys
+	vi README CodingReadme
+	- is the information provided in those file still up to date
 
-Also with default config setting:
+
+Then with default config setting:
+
+	cd ~yosys
+	make vgtest
+
+	cd ~yosys
+	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'proc; opt; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'synth; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'synth_xilinx -top up3down5; show' tests/simple/fiedler-cooley.v
 
 	cd ~yosys/techlibs/cmos
 	bash testbench.sh
 
-	cd ~yosys/techlibs/xilinx/example_sim_counter
-	bash run_sim.sh
-
-	cd ~yosys/techlibs/xilinx/example_mojo_counter
-	bash example.sh
+	cd ~yosys/techlibs/xilinx/example_basys3
+	bash run.sh
 
 
-Finally if a current verific library is available:
+Test building plugins with various of the standard passes:
+
+	yosys-config --build test.so equiv_simple.cc
+	- also check the code examples in CodingReadme
+
+
+And if a version of the verific library is currently available:
 
 	cd ~yosys
 	cat frontends/verific/build_amd64.txt
@@ -149,12 +365,22 @@ Finally if a current verific library is available:
 	../../yosys test_navre.ys
 
 
-Release candiate:
+Finally run all tests with "make config-{clang,gcc,gcc-4.6}":
 
-	- create branch yosys-x.y.z-rc and push to github
-	- contact the usual suspects per mail and ask them to test
-	- post on the reddit and ask people to test
-	- commit KISS fixes to the -rc branch if necessary
+	cd ~yosys
+	make clean
+	make test
+	make vloghtb
+	make install
+
+	cd ~yosys-bigsim
+	make clean
+	make full
+
+	cd ~vloghammer
+	make purge gen_issues gen_samples
+	make SYN_LIST="yosys" SIM_LIST="icarus yosim verilator" REPORT_FULL=1 world
+	chromium-browser report.html
 
 
 Release:
@@ -166,7 +392,6 @@ Release:
 	- push tag to github
 	- post changelog on github
 	- post short release note on reddit
-	- delete -rc branch from github
 
 
 Updating the website:
@@ -182,13 +407,4 @@ Updating the website:
 	make update_show
 	git commit -am update
 	make push
-
-
-In master branch:
-
-	git merge {release-tag}
-	- set version to x.y.z+ in Makefile
-	- add section "Yosys x.y.z .. x.y.z+" to CHANGELOG
-	git commit --amend -am "Yosys x.y.z+"
-
 

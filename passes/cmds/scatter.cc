@@ -22,6 +22,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct ScatterPass : public Pass {
 	ScatterPass() : Pass("scatter", "add additional intermediate nets") { }
 	virtual void help()
@@ -67,3 +70,4 @@ struct ScatterPass : public Pass {
 	}
 } ScatterPass;
  
+PRIVATE_NAMESPACE_END

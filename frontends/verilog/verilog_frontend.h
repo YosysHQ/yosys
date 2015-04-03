@@ -43,13 +43,16 @@ namespace VERILOG_FRONTEND
 	extern struct AST::AstNode *current_ast;
 
 	// this function converts a Verilog constant to an AST_CONSTANT node
-	AST::AstNode *const2ast(std::string code, char case_type = 0);
+	AST::AstNode *const2ast(std::string code, char case_type = 0, bool warn_z = false);
 
 	// state of `default_nettype
 	extern bool default_nettype_wire;
 
 	// running in SystemVerilog mode
 	extern bool sv_mode;
+
+	// running in -formal mode
+	extern bool formal_mode;
 
 	// lexer input stream
 	extern std::istream *lexin;

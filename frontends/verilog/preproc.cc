@@ -201,8 +201,8 @@ static void input_file(std::istream &f, std::string filename)
 	insert_input("");
 	auto it = input_buffer.begin();
 
-	input_buffer.insert(it, "`file_push " + filename + "\n");
-	while ((rc = f.readsome(buffer, sizeof(buffer)-1)) > 0) {
+	input_buffer.insert(it, "`file_push \"" + filename + "\"\n");
+	while ((rc = readsome(f, buffer, sizeof(buffer)-1)) > 0) {
 		buffer[rc] = 0;
 		input_buffer.insert(it, buffer);
 	}
@@ -221,7 +221,8 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 	input_buffer_charp = 0;
 
 	input_file(f, filename);
-	defines_map["__YOSYS__"] = "1";
+	defines_map["YOSYS"] = "1";
+	defines_map["SYNTHESIS"] = "1";
 
 	while (!input_buffer.empty())
 	{
@@ -422,7 +423,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 					if (tok == "(" || tok == "{" || tok == "[")
 						level++;
 				}
-				for (size_t i = 0; i < args.size(); i++)
+				for (int i = 0; i < GetSize(args); i++)
 					defines_map[stringf("macro_%s_arg%d", name.c_str(), i+1)] = args[i];
 			} else {
 				insert_input(tok);

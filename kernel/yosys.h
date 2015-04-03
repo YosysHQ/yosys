@@ -45,7 +45,11 @@
 #include <string>
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
+#include <unordered_set>
 #include <initializer_list>
+#include <stdexcept>
+#include <memory>
 
 #include <sstream>
 #include <fstream>
@@ -56,44 +60,164 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdio.h>
+
+#ifndef _YOSYS_
+#  error It looks like you are trying to build Yosys without the config defines set. \
+         When building Yosys with a custom make system, make sure you set all the \
+         defines the Yosys Makefile would set for your build configuration.
+#endif
+
+#ifdef YOSYS_ENABLE_TCL
+#  include <tcl.h>
+#endif
+
+#ifdef _WIN32
+#  undef NOMINMAX
+#  define NOMINMAX 1
+#  undef YY_NO_UNISTD_H
+#  define YY_NO_UNISTD_H 1
+
+#  include <windows.h>
+#  include <io.h>
+#  include <direct.h>
+
+#  define strtok_r strtok_s
+#  define strdup _strdup
+#  define snprintf _snprintf
+#  define getcwd _getcwd
+#  define mkdir _mkdir
+#  define popen _popen
+#  define pclose _pclose
+#  define PATH_MAX MAX_PATH
+
+#  ifndef __MINGW32__
+#    define isatty _isatty
+#    define fileno _fileno
+#  endif
+#endif
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
 #define PRIVATE_NAMESPACE_END    }
-
-#if 0
-#  define YOSYS_NAMESPACE_BEGIN  namespace Yosys {
-#  define YOSYS_NAMESPACE_END    }
-#  define YOSYS_NAMESPACE_PREFIX Yosys::
-#  define USING_YOSYS_NAMESPACE  using namespace Yosys;
-#else
-#  define YOSYS_NAMESPACE_BEGIN
-#  define YOSYS_NAMESPACE_END
-#  define YOSYS_NAMESPACE_PREFIX
-#  define USING_YOSYS_NAMESPACE
-#endif
+#define YOSYS_NAMESPACE_BEGIN    namespace Yosys {
+#define YOSYS_NAMESPACE_END      }
+#define YOSYS_NAMESPACE_PREFIX   Yosys::
+#define USING_YOSYS_NAMESPACE    using namespace Yosys;
 
 #if __cplusplus >= 201103L
-#  define OVERRIDE override
-#  define FINAL final
+#  define YS_OVERRIDE override
+#  define YS_FINAL final
 #else
-#  define OVERRIDE
-#  define FINAL
+#  define YS_OVERRIDE
+#  define YS_FINAL
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#  define YS_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
+#  define YS_NORETURN
+#elif defined(_MSC_VER)
+#  define YS_ATTRIBUTE(...)
+#  define YS_NORETURN __declspec(noreturn)
+#else
+#  define YS_ATTRIBUTE(...)
+#  define YS_NORETURN
 #endif
 
 YOSYS_NAMESPACE_BEGIN
 
+// Note: All headers included in hashlib.h must be included
+// outside of YOSYS_NAMESPACE before this or bad things will happen.
+#ifdef HASHLIB_H
+#  undef HASHLIB_H
+#  include "kernel/hashlib.h"
+#else
+#  include "kernel/hashlib.h"
+#  undef HASHLIB_H
+#endif
+
+using std::vector;
+using std::string;
+using std::pair;
+
+using hashlib::mkhash;
+using hashlib::mkhash_init;
+using hashlib::mkhash_add;
+using hashlib::mkhash_xorshift;
+using hashlib::hash_ops;
+using hashlib::hash_cstr_ops;
+using hashlib::hash_ptr_ops;
+using hashlib::hash_obj_ops;
+using hashlib::dict;
+using hashlib::idict;
+using hashlib::pool;
+
 namespace RTLIL {
 	struct IdString;
+	struct Const;
+	struct SigBit;
 	struct SigSpec;
 	struct Wire;
 	struct Cell;
+	struct Module;
+	struct Design;
+	struct Monitor;
 }
 
-std::string stringf(const char *fmt, ...);
+namespace AST {
+	struct AstNode;
+}
+
+using RTLIL::IdString;
+using RTLIL::Const;
+using RTLIL::SigBit;
+using RTLIL::SigSpec;
+using RTLIL::Wire;
+using RTLIL::Cell;
+using RTLIL::Module;
+using RTLIL::Design;
+
+namespace hashlib {
+	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Cell*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
+	template<> struct hash_ops<AST::AstNode*> : hash_obj_ops {};
+
+	template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
+	template<> struct hash_ops<const AST::AstNode*> : hash_obj_ops {};
+}
+
+void memhasher_on();
+void memhasher_off();
+void memhasher_do();
+
+extern bool memhasher_active;
+inline void memhasher() { if (memhasher_active) memhasher_do(); }
+
+void yosys_banner();
+std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);
-template<typename T> int SIZE(const T &obj) { return obj.size(); }
-int SIZE(RTLIL::Wire *wire);
+int readsome(std::istream &f, char *s, int n);
+std::string next_token(std::string &text, const char *sep = " \t\r\n");
+bool patmatch(const char *pattern, const char *string);
+int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
+std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
+std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
+bool check_file_exists(std::string filename, bool is_exec = false);
+bool is_absolute_path(std::string filename);
+void remove_directory(std::string dirname);
+
+template<typename T> int GetSize(const T &obj) { return obj.size(); }
+int GetSize(RTLIL::Wire *wire);
+
+extern int autoidx;
+extern int yosys_xtrace;
 
 YOSYS_NAMESPACE_END
 
@@ -103,15 +227,19 @@ YOSYS_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
 
+using RTLIL::State;
+
+namespace hashlib {
+	template<> struct hash_ops<RTLIL::State> : hash_ops<int> {};
+}
+
 void yosys_setup();
 void yosys_shutdown();
 
 #ifdef YOSYS_ENABLE_TCL
-#include <tcl.h>
 Tcl_Interp *yosys_get_tcl_interp();
 #endif
 
-extern int autoidx;
 extern RTLIL::Design *yosys_design;
 
 RTLIL::IdString new_id(std::string file, int line, std::string func);
@@ -127,9 +255,10 @@ std::string proc_self_dirname();
 std::string proc_share_dirname();
 const char *create_prompt(RTLIL::Design *design, int recursion_counter);
 
-void run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *backend_command, std::string *from_to_label);
-void run_pass(std::string command, RTLIL::Design *design);
-void run_backend(std::string filename, std::string command, RTLIL::Design *design);
+void run_pass(std::string command, RTLIL::Design *design = nullptr);
+void run_frontend(std::string filename, std::string command, std::string *backend_command, std::string *from_to_label = nullptr, RTLIL::Design *design = nullptr);
+void run_frontend(std::string filename, std::string command, RTLIL::Design *design = nullptr);
+void run_backend(std::string filename, std::string command, RTLIL::Design *design = nullptr);
 void shell(RTLIL::Design *design);
 
 // from kernel/version_*.o (cc source generated from Makefile)

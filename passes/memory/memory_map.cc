@@ -23,6 +23,9 @@
 #include <set>
 #include <stdlib.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct MemoryMapWorker
 {
 	RTLIL::Design *design;
@@ -55,21 +58,21 @@ struct MemoryMapWorker
 	RTLIL::Wire *addr_decode(RTLIL::SigSpec addr_sig, RTLIL::SigSpec addr_val)
 	{
 		std::pair<RTLIL::SigSpec, RTLIL::SigSpec> key(addr_sig, addr_val);
-		log_assert(SIZE(addr_sig) == SIZE(addr_val));
+		log_assert(GetSize(addr_sig) == GetSize(addr_val));
 
 		if (decoder_cache.count(key) == 0) {
-			if (SIZE(addr_sig) < 2) {
+			if (GetSize(addr_sig) < 2) {
 				decoder_cache[key] = module->Eq(NEW_ID, addr_sig, addr_val);
 			} else {
-				int split_at = SIZE(addr_sig) / 2;
+				int split_at = GetSize(addr_sig) / 2;
 				RTLIL::SigBit left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at));
-				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, SIZE(addr_sig) - split_at), addr_val.extract(split_at, SIZE(addr_val) - split_at));
+				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at));
 				decoder_cache[key] = module->And(NEW_ID, left_eq, right_eq);
 			}
 		}
 
 		RTLIL::SigBit bit = decoder_cache.at(key);
-		log_assert(bit.wire != nullptr && SIZE(bit.wire) == 1);
+		log_assert(bit.wire != nullptr && GetSize(bit.wire) == 1);
 		return bit.wire;
 	}
 
@@ -77,10 +80,14 @@ struct MemoryMapWorker
 	{
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
+
 		int mem_size = cell->parameters["\\SIZE"].as_int();
 		int mem_width = cell->parameters["\\WIDTH"].as_int();
 		int mem_offset = cell->parameters["\\OFFSET"].as_int();
 		int mem_abits = cell->parameters["\\ABITS"].as_int();
+
+		SigSpec init_data = cell->getParam("\\INIT");
+		init_data.extend_u0(mem_size*mem_width, true);
 
 		// delete unused memory cell
 		if (cell->parameters["\\RD_PORTS"].as_int() == 0 && cell->parameters["\\WR_PORTS"].as_int() == 0) {
@@ -107,7 +114,7 @@ struct MemoryMapWorker
 					// FIXME: Actually we should check for wr_en.is_fully_const() also and
 					// create a $adff cell with this ports wr_en input as reset pin when wr_en
 					// is not a simple static 1.
-					static_cells_map[wr_addr.as_int()] = wr_data;
+					static_cells_map[wr_addr.as_int() - mem_offset] = wr_data;
 					static_ports.insert(i);
 					continue;
 				}
@@ -162,7 +169,10 @@ struct MemoryMapWorker
 					w_out_name = genid(cell->name, "", i, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem_width);
-				w_out->start_offset = mem_offset;
+				SigSpec w_init = init_data.extract(i*mem_width, mem_width);
+
+				if (!w_init.is_fully_undef())
+					w_out->attributes["\\init"] = w_init.as_const();
 
 				data_reg_out.push_back(RTLIL::SigSpec(w_out));
 				c->setPort("\\Q", data_reg_out.back());
@@ -176,6 +186,9 @@ struct MemoryMapWorker
 		for (int i = 0; i < cell->parameters["\\RD_PORTS"].as_int(); i++)
 		{
 			RTLIL::SigSpec rd_addr = cell->getPort("\\RD_ADDR").extract(i*mem_abits, mem_abits);
+
+			if (mem_offset)
+				rd_addr = module->Sub(NEW_ID, rd_addr, SigSpec(mem_offset, GetSize(rd_addr)));
 
 			std::vector<RTLIL::SigSpec> rd_signals;
 			rd_signals.push_back(cell->getPort("\\RD_DATA").extract(i*mem_width, mem_width));
@@ -253,6 +266,10 @@ struct MemoryMapWorker
 				RTLIL::SigSpec wr_addr = cell->getPort("\\WR_ADDR").extract(j*mem_abits, mem_abits);
 				RTLIL::SigSpec wr_data = cell->getPort("\\WR_DATA").extract(j*mem_width, mem_width);
 				RTLIL::SigSpec wr_en = cell->getPort("\\WR_EN").extract(j*mem_width, mem_width);
+
+				if (mem_offset)
+					wr_addr = module->Sub(NEW_ID, wr_addr, SigSpec(mem_offset, GetSize(wr_addr)));
+
 				RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(i, mem_abits));
 
 				int wr_offset = 0;
@@ -339,3 +356,4 @@ struct MemoryMapPass : public Pass {
 	}
 } MemoryMapPass;
  
+PRIVATE_NAMESPACE_END

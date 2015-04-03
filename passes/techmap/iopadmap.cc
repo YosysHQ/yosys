@@ -21,7 +21,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static void split_portname_pair(std::string &port1, std::string &port2)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void split_portname_pair(std::string &port1, std::string &port2)
 {
 	size_t pos = port1.find_first_of(':');
 	if (pos != std::string::npos) {
@@ -59,8 +62,8 @@ struct IopadmapPass : public Pass {
 		log("\n");
 		log("    -bits\n");
 		log("        create individual bit-wide buffers even for ports that\n");
-		log("        are wider. (the default behavio is to create word-wide\n");
-		log("        buffers use -widthparam to set the word size on the cell.)\n");
+		log("        are wider. (the default behavior is to create word-wide\n");
+		log("        buffers using -widthparam to set the word size on the cell.)\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -111,18 +114,11 @@ struct IopadmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &it : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			RTLIL::Module *module = it.second;
-
-			if (!design->selected(module) || module->get_bool_attribute("\\blackbox"))
-				continue;
-
-			for (auto &it2 : module->wires_)
+			for (auto wire : module->selected_wires())
 			{
-				RTLIL::Wire *wire = it2.second;
-
-				if (!wire->port_id || !design->selected(module, wire))
+				if (!wire->port_id)
 					continue;
 
 				std::string celltype, portname, portname2;
@@ -207,3 +203,4 @@ struct IopadmapPass : public Pass {
 	}
 } IopadmapPass;
  
+PRIVATE_NAMESPACE_END

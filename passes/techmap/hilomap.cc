@@ -21,6 +21,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static std::string hicell_celltype, hicell_portname;
 static std::string locell_celltype, locell_portname;
 static bool singleton_mode;
@@ -57,9 +60,7 @@ struct HilomapPass : public Pass {
 		log("\n");
 		log("    hilomap [options] [selection]\n");
 		log("\n");
-		log("Map module inputs/outputs to PAD cells from a library. This pass\n");
-		log("can only map to very simple PAD cells. Use 'techmap' to further map\n");
-		log("the resulting cells to more sophisticated PAD cells.\n");
+		log("Map constants to 'tielo' and 'tiehi' driver cells.\n");
 		log("\n");
 		log("    -hicell <celltype> <portname>\n");
 		log("        Replace constant hi bits with this cell.\n");
@@ -75,7 +76,7 @@ struct HilomapPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing HILOPAD pass (mapping to constant drivers).\n");
+		log_header("Executing HILOMAP pass (mapping to constant drivers).\n");
 
 		hicell_celltype = std::string();
 		hicell_portname = std::string();
@@ -119,3 +120,4 @@ struct HilomapPass : public Pass {
 	}
 } HilomapPass;
  
+PRIVATE_NAMESPACE_END

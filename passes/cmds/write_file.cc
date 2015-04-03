@@ -20,6 +20,9 @@
 
 #include "kernel/yosys.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct WriteFileFrontend : public Frontend {
 	WriteFileFrontend() : Frontend("=write_file", "write a text to a file") { }
 	virtual void help()
@@ -65,12 +68,13 @@ struct WriteFileFrontend : public Frontend {
 
 		FILE *of = fopen(output_filename.c_str(), append_mode ? "a" : "w");
 		char buffer[64 * 1024];
-		size_t bytes;
+		int bytes;
 
-		while (0 < (bytes = f->readsome(buffer, sizeof(buffer))))
+		while (0 < (bytes = readsome(*f, buffer, sizeof(buffer))))
 			fwrite(buffer, bytes, 1, of);
 
 		fclose(of);
 	}
 } WriteFileFrontend;
 
+PRIVATE_NAMESPACE_END

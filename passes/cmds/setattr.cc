@@ -21,6 +21,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct setunset_t
 {
 	RTLIL::IdString name;
@@ -47,7 +50,7 @@ struct setunset_t
 	}
 };
 
-static void do_setunset(std::map<RTLIL::IdString, RTLIL::Const> &attrs, std::vector<setunset_t> &list)
+static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
 		if (item.unset)
@@ -178,3 +181,4 @@ struct SetparamPass : public Pass {
 	}
 } SetparamPass;
  
+PRIVATE_NAMESPACE_END

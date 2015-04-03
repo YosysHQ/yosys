@@ -29,6 +29,9 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct SccWorker
 {
 	RTLIL::Design *design;
@@ -97,7 +100,8 @@ struct SccWorker
 		}
 	}
 
-	SccWorker(RTLIL::Design *design, RTLIL::Module *module, bool allCellTypes, int maxDepth) : design(design), module(module), sigmap(module)
+	SccWorker(RTLIL::Design *design, RTLIL::Module *module, bool nofeedbackMode, bool allCellTypes, int maxDepth) :
+			design(design), module(module), sigmap(module)
 	{
 		if (module->processes.size() > 0) {
 			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name.c_str());
@@ -164,11 +168,23 @@ struct SccWorker
 		labelCounter = 0;
 		cellLabels.clear();
 
-		while (workQueue.size() > 0) {
+		while (workQueue.size() > 0)
+		{
 			RTLIL::Cell *cell = *workQueue.begin();
 			log_assert(cellStack.size() == 0);
 			cellDepth.clear();
-			run(cell, 0, maxDepth);
+
+			if (!nofeedbackMode && cellToNextCell[cell].count(cell)) {
+				log("Found an SCC:");
+				std::set<RTLIL::Cell*> scc;
+				log(" %s", RTLIL::id2cstr(cell->name));
+				cell2scc[cell] = sccList.size();
+				scc.insert(cell);
+				sccList.push_back(scc);
+				workQueue.erase(cell);
+				log("\n");
+			} else
+				run(cell, 0, maxDepth);
 		}
 
 		log("Found %d SCCs in module %s.\n", int(sccList.size()), RTLIL::id2cstr(module->name));
@@ -209,10 +225,18 @@ struct SccPass : public Pass {
 		log("This command identifies strongly connected components (aka logic loops) in the\n");
 		log("design.\n");
 		log("\n");
+		log("    -expect <num>\n");
+		log("        expect to find exactly <num> SSCs. A different number of SSCs will\n");
+		log("        produce an error.\n");
+		log("\n");
 		log("    -max_depth <num>\n");
-		log("        limit to loops not longer than the specified number of cells. This can\n");
-		log("        e.g. be useful in identifying local loops in a module that turns out\n");
-		log("        to be one gigantic SCC.\n");
+		log("        limit to loops not longer than the specified number of cells. This\n");
+		log("        can e.g. be useful in identifying small local loops in a module that\n");
+		log("        implements one large SCC.\n");
+		log("\n");
+		log("    -nofeedback\n");
+		log("        do not count cells that have their output fed back into one of their\n");
+		log("        inputs as single-cell scc.\n");
 		log("\n");
 		log("    -all_cell_types\n");
 		log("        Usually this command only considers internal non-memory cells. With\n");
@@ -236,7 +260,9 @@ struct SccPass : public Pass {
 		std::map<std::string, std::string> setCellAttr, setWireAttr;
 		bool allCellTypes = false;
 		bool selectMode = false;
+		bool nofeedbackMode = false;
 		int maxDepth = -1;
+		int expect = -1;
 
 		log_header("Executing SCC pass (detecting logic loops).\n");
 
@@ -244,6 +270,14 @@ struct SccPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-max_depth" && argidx+1 < args.size()) {
 				maxDepth = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-expect" && argidx+1 < args.size()) {
+				expect = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-nofeedback") {
+				nofeedbackMode = true;
 				continue;
 			}
 			if (args[argidx] == "-all_cell_types") {
@@ -279,15 +313,25 @@ struct SccPass : public Pass {
 			log_cmd_error("The -set*_attr options are not implemented at the moment!\n");
 
 		RTLIL::Selection newSelection(false);
+		int scc_counter = 0;
 
 		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))
 			{
-				SccWorker worker(design, mod_it.second, allCellTypes, maxDepth);
+				SccWorker worker(design, mod_it.second, nofeedbackMode, allCellTypes, maxDepth);
+				scc_counter += GetSize(worker.sccList);
 
 				if (selectMode)
 					worker.select(newSelection);
 			}
+
+		if (expect >= 0) {
+			if (scc_counter == expect)
+				log("Found and expected %d SCCs.\n", scc_counter);
+			else
+				log_error("Found %d SCCs but expected %d.\n", scc_counter, expect);
+		} else
+			log("Found %d SCCs.\n", scc_counter);
 
 		if (selectMode) {
 			log_assert(origSelectPos >= 0);
@@ -297,3 +341,4 @@ struct SccPass : public Pass {
 	}
 } SccPass;
  
+PRIVATE_NAMESPACE_END

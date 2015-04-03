@@ -25,13 +25,16 @@
 #include <stdio.h>
 #include <set>
 
-static void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)
 {
 	BitPatternPool pool(sw->signal);
 
 	for (size_t i = 0; i < sw->cases.size(); i++)
 	{
-		bool is_default = SIZE(sw->cases[i]->compare) == 0 && (!pool.empty() || SIZE(sw->signal) == 0);
+		bool is_default = GetSize(sw->cases[i]->compare) == 0 && (!pool.empty() || GetSize(sw->signal) == 0);
 
 		for (size_t j = 0; j < sw->cases[i]->compare.size(); j++) {
 			RTLIL::SigSpec sig = sw->cases[i]->compare[j];
@@ -98,3 +101,4 @@ struct ProcRmdeadPass : public Pass {
 	}
 } ProcRmdeadPass;
  
+PRIVATE_NAMESPACE_END

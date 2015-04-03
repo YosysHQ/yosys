@@ -20,8 +20,9 @@
 #ifndef FSMDATA_H
 #define FSMDATA_H
 
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+
+YOSYS_NAMESPACE_BEGIN
 
 struct FsmData
 {
@@ -142,24 +143,24 @@ struct FsmData
 		log("\n");
 		log("  Input signals:\n");
 		RTLIL::SigSpec sig_in = cell->getPort("\\CTRL_IN");
-		for (int i = 0; i < SIZE(sig_in); i++)
+		for (int i = 0; i < GetSize(sig_in); i++)
 			log("  %3d: %s\n", i, log_signal(sig_in[i]));
 
 		log("\n");
 		log("  Output signals:\n");
 		RTLIL::SigSpec sig_out = cell->getPort("\\CTRL_OUT");
-		for (int i = 0; i < SIZE(sig_out); i++)
+		for (int i = 0; i < GetSize(sig_out); i++)
 			log("  %3d: %s\n", i, log_signal(sig_out[i]));
 
 		log("\n");
 		log("  State encoding:\n");
-		for (int i = 0; i < SIZE(state_table); i++)
+		for (int i = 0; i < GetSize(state_table); i++)
 			log("  %3d: %10s%s\n", i, log_signal(state_table[i], false),
 					int(i) == reset_state ? "  <RESET STATE>" : "");
 
 		log("\n");
 		log("  Transition Table (state_in, ctrl_in, state_out, ctrl_out):\n");
-		for (int i = 0; i < SIZE(transition_table); i++) {
+		for (int i = 0; i < GetSize(transition_table); i++) {
 			transition_t &tr = transition_table[i];
 			log("  %5d: %5d %s   -> %5d %s\n", i, tr.state_in, log_signal(tr.ctrl_in), tr.state_out, log_signal(tr.ctrl_out));
 		}
@@ -171,5 +172,7 @@ struct FsmData
 	// implemented in fsm_opt.cc
 	static void optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module);
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

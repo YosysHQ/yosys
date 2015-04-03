@@ -28,7 +28,8 @@
 #include <string.h>
 #include <algorithm>
 
-namespace {
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 bool inv_mode;
 int verbose_level, reduce_counter, reduce_stop_at;
@@ -72,7 +73,7 @@ struct FindReducedInputs
 	SigMap &sigmap;
 	drivers_t &drivers;
 
-	ezDefaultSAT ez;
+	ezSatPtr ez;
 	std::set<RTLIL::Cell*> ez_cells;
 	SatGen satgen;
 
@@ -80,7 +81,7 @@ struct FindReducedInputs
 	std::vector<int> sat_pi_uniq_bitvec;
 
 	FindReducedInputs(SigMap &sigmap, drivers_t &drivers) :
-			sigmap(sigmap), drivers(drivers), satgen(&ez, &sigmap)
+			sigmap(sigmap), drivers(drivers), satgen(ez.get(), &sigmap)
 	{
 		satgen.model_undef = true;
 	}
@@ -103,30 +104,30 @@ struct FindReducedInputs
 
 		satgen.setContext(&sigmap, "A");
 		int sat_a = satgen.importSigSpec(bit).front();
-		ez.assume(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+		ez->assume(ez->NOT(satgen.importUndefSigSpec(bit).front()));
 
 		satgen.setContext(&sigmap, "B");
 		int sat_b = satgen.importSigSpec(bit).front();
-		ez.assume(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+		ez->assume(ez->NOT(satgen.importUndefSigSpec(bit).front()));
 
 		int idx = sat_pi.size();
 		size_t idx_bits = get_bits(idx);
 
 		if (sat_pi_uniq_bitvec.size() != idx_bits) {
-			sat_pi_uniq_bitvec.push_back(ez.frozen_literal(stringf("uniq_%d", int(idx_bits)-1)));
+			sat_pi_uniq_bitvec.push_back(ez->frozen_literal(stringf("uniq_%d", int(idx_bits)-1)));
 			for (auto &it : sat_pi)
-				ez.assume(ez.OR(ez.NOT(it.second), ez.NOT(sat_pi_uniq_bitvec.back())));
+				ez->assume(ez->OR(ez->NOT(it.second), ez->NOT(sat_pi_uniq_bitvec.back())));
 		}
 		log_assert(sat_pi_uniq_bitvec.size() == idx_bits);
 
-		sat_pi[bit] = ez.frozen_literal(stringf("p, falsei_%s", log_signal(bit)));
-		ez.assume(ez.IFF(ez.XOR(sat_a, sat_b), sat_pi[bit]));
+		sat_pi[bit] = ez->frozen_literal(stringf("p, falsei_%s", log_signal(bit)));
+		ez->assume(ez->IFF(ez->XOR(sat_a, sat_b), sat_pi[bit]));
 
 		for (size_t i = 0; i < idx_bits; i++)
 			if ((idx & (1 << i)) == 0)
-				ez.assume(ez.OR(ez.NOT(sat_pi[bit]), ez.NOT(sat_pi_uniq_bitvec[i])));
+				ez->assume(ez->OR(ez->NOT(sat_pi[bit]), ez->NOT(sat_pi_uniq_bitvec[i])));
 			else
-				ez.assume(ez.OR(ez.NOT(sat_pi[bit]), sat_pi_uniq_bitvec[i]));
+				ez->assume(ez->OR(ez->NOT(sat_pi[bit]), sat_pi_uniq_bitvec[i]));
 	}
 
 	void register_cone_worker(std::set<RTLIL::SigBit> &pi, std::set<RTLIL::SigBit> &sigdone, RTLIL::SigBit out)
@@ -200,7 +201,7 @@ struct FindReducedInputs
 					model_expr.push_back(sat_pi.at(pi[i]));
 				}
 
-			if (!ez.solve(model_expr, model, ez.expression(ezSAT::OpOr, model_expr), ez.XOR(output_a, output_b), ez.NOT(output_undef_a), ez.NOT(output_undef_b)))
+			if (!ez->solve(model_expr, model, ez->expression(ezSAT::OpOr, model_expr), ez->XOR(output_a, output_b), ez->NOT(output_undef_a), ez->NOT(output_undef_b)))
 				break;
 
 			int found_count = 0;
@@ -229,7 +230,7 @@ struct PerformReduction
 	drivers_t &drivers;
 	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs;
 
-	ezDefaultSAT ez;
+	ezSatPtr ez;
 	SatGen satgen;
 
 	std::vector<int> sat_pi, sat_out, sat_def;
@@ -259,7 +260,7 @@ struct PerformReduction
 		} else {
 			pi_bits.push_back(out);
 			sat_pi.push_back(satgen.importSigSpec(out).front());
-			ez.assume(ez.NOT(satgen.importUndefSigSpec(out).front()));
+			ez->assume(ez->NOT(satgen.importUndefSigSpec(out).front()));
 			sigdepth[out] = 0;
 		}
 
@@ -267,7 +268,7 @@ struct PerformReduction
 	}
 
 	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits, int cone_size) :
-			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(&ez, &sigmap), out_bits(bits), cone_size(cone_size)
+			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(ez.get(), &sigmap), out_bits(bits), cone_size(cone_size)
 	{
 		satgen.model_undef = true;
 
@@ -277,15 +278,15 @@ struct PerformReduction
 		for (auto &bit : bits) {
 			out_depth.push_back(register_cone_worker(celldone, sigdepth, bit));
 			sat_out.push_back(satgen.importSigSpec(bit).front());
-			sat_def.push_back(ez.NOT(satgen.importUndefSigSpec(bit).front()));
+			sat_def.push_back(ez->NOT(satgen.importUndefSigSpec(bit).front()));
 		}
 
 		if (inv_mode && cone_size > 0) {
-			if (!ez.solve(sat_out, out_inverted, ez.expression(ezSAT::OpAnd, sat_def)))
+			if (!ez->solve(sat_out, out_inverted, ez->expression(ezSAT::OpAnd, sat_def)))
 				log_error("Solving for initial model failed!\n");
 			for (size_t i = 0; i < sat_out.size(); i++)
 				if (out_inverted.at(i))
-					sat_out[i] = ez.NOT(sat_out[i]);
+					sat_out[i] = ez->NOT(sat_out[i]);
 		} else
 			out_inverted = std::vector<bool>(sat_out.size(), false);
 	}
@@ -295,8 +296,8 @@ struct PerformReduction
 		if (verbose_level == 1)
 			log("    Finding const value for %s.\n", log_signal(out_bits[idx]));
 
-		bool can_be_set = ez.solve(ez.AND(sat_out[idx], sat_def[idx]));
-		bool can_be_clr = ez.solve(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+		bool can_be_set = ez->solve(ez->AND(sat_out[idx], sat_def[idx]));
+		bool can_be_clr = ez->solve(ez->AND(ez->NOT(sat_out[idx]), sat_def[idx]));
 		log_assert(!can_be_set || !can_be_clr);
 
 		RTLIL::SigBit value(RTLIL::State::Sx);
@@ -354,8 +355,8 @@ struct PerformReduction
 
 		std::vector<int> sat_set_list, sat_clr_list;
 		for (int idx : bucket) {
-			sat_set_list.push_back(ez.AND(sat_out[idx], sat_def[idx]));
-			sat_clr_list.push_back(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+			sat_set_list.push_back(ez->AND(sat_out[idx], sat_def[idx]));
+			sat_clr_list.push_back(ez->AND(ez->NOT(sat_out[idx]), sat_def[idx]));
 		}
 
 		std::vector<int> modelVars = sat_out;
@@ -365,7 +366,7 @@ struct PerformReduction
 		if (verbose_level >= 2)
 			modelVars.insert(modelVars.end(), sat_pi.begin(), sat_pi.end());
 
-		if (ez.solve(modelVars, model, ez.expression(ezSAT::OpOr, sat_set_list), ez.expression(ezSAT::OpOr, sat_clr_list)))
+		if (ez->solve(modelVars, model, ez->expression(ezSAT::OpOr, sat_set_list), ez->expression(ezSAT::OpOr, sat_clr_list)))
 		{
 			int iter_count = 1;
 
@@ -378,13 +379,13 @@ struct PerformReduction
 
 				for (int idx : bucket)
 					if (!model[sat_out.size() + idx]) {
-						sat_set_list.push_back(ez.AND(sat_out[idx], sat_def[idx]));
-						sat_clr_list.push_back(ez.AND(ez.NOT(sat_out[idx]), sat_def[idx]));
+						sat_set_list.push_back(ez->AND(sat_out[idx], sat_def[idx]));
+						sat_clr_list.push_back(ez->AND(ez->NOT(sat_out[idx]), sat_def[idx]));
 					} else {
 						sat_def_list.push_back(sat_def[idx]);
 					}
 
-				if (!ez.solve(modelVars, model, ez.expression(ezSAT::OpOr, sat_set_list), ez.expression(ezSAT::OpOr, sat_clr_list), ez.expression(ezSAT::OpAnd, sat_def_list)))
+				if (!ez->solve(modelVars, model, ez->expression(ezSAT::OpOr, sat_set_list), ez->expression(ezSAT::OpOr, sat_clr_list), ez->expression(ezSAT::OpAnd, sat_def_list)))
 					break;
 				iter_count++;
 			}
@@ -430,7 +431,7 @@ struct PerformReduction
 				for (int idx2 : bucket)
 					if (idx != idx2)
 						sat_def_list.push_back(sat_def[idx2]);
-				if (ez.solve(ez.NOT(sat_def[idx]), ez.expression(ezSAT::OpOr, sat_def_list)))
+				if (ez->solve(ez->NOT(sat_def[idx]), ez->expression(ezSAT::OpOr, sat_def_list)))
 					undef_slaves.push_back(idx);
 			}
 
@@ -504,7 +505,7 @@ struct PerformReduction
 				for (int idx2 : r)
 					if (idx != idx2)
 						sat_def_list.push_back(sat_def[idx2]);
-				if (ez.solve(ez.NOT(sat_def[idx]), ez.expression(ezSAT::OpOr, sat_def_list)))
+				if (ez->solve(ez->NOT(sat_def[idx]), ez->expression(ezSAT::OpOr, sat_def_list)))
 					undef_slaves.push_back(idx);
 			}
 
@@ -745,8 +746,6 @@ struct FreduceWorker
 	}
 };
 
-} /* namespace */
-
 struct FreducePass : public Pass {
 	FreducePass() : Pass("freduce", "perform functional reduction") { }
 	virtual void help()
@@ -827,3 +826,4 @@ struct FreducePass : public Pass {
 	}
 } FreducePass;
  
+PRIVATE_NAMESPACE_END

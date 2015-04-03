@@ -25,21 +25,23 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+YOSYS_NAMESPACE_BEGIN
+
 // ------------------------------------------------
 // A map-like container, but you can save and restore the state
 // ------------------------------------------------
 
-template<typename Key, typename T, typename Compare = std::less<Key>>
+template<typename Key, typename T, typename OPS = hash_ops<Key>>
 struct stackmap
 {
 private:
-	std::vector<std::map<Key, T*, Compare>> backup_state;
-	std::map<Key, T, Compare> current_state;
+	std::vector<dict<Key, T*, OPS>> backup_state;
+	dict<Key, T, OPS> current_state;
 	static T empty_tuple;
 
 public:
 	stackmap() { }
-	stackmap(const std::map<Key, T, Compare> &other) : current_state(other) { }
+	stackmap(const dict<Key, T, OPS> &other) : current_state(other) { }
 
 	template<typename Other>
 	void operator=(const Other &other)
@@ -81,7 +83,7 @@ public:
 
 	void reset(const Key &k)
 	{
-		for (int i = SIZE(backup_state)-1; i >= 0; i--)
+		for (int i = GetSize(backup_state)-1; i >= 0; i--)
 			if (backup_state[i].count(k) != 0) {
 				if (backup_state[i].at(k) == nullptr)
 					current_state.erase(k);
@@ -92,7 +94,7 @@ public:
 		current_state.erase(k);
 	}
 
-	const std::map<Key, T, Compare> &stdmap()
+	const dict<Key, T, OPS> &stdmap()
 	{
 		return current_state;
 	}
@@ -126,12 +128,12 @@ public:
 // A simple class for topological sorting
 // ------------------------------------------------
 
-template<typename T>
+template<typename T, typename C = std::less<T>>
 struct TopoSort
 {
 	bool analyze_loops, found_loops;
-	std::map<T, std::set<T>> database;
-	std::set<std::set<T>> loops;
+	std::map<T, std::set<T, C>, C> database;
+	std::set<std::set<T, C>> loops;
 	std::vector<T> sorted;
 
 	TopoSort()
@@ -143,7 +145,7 @@ struct TopoSort
 	void node(T n)
 	{
 		if (database.count(n) == 0)
-			database[n] = std::set<T>();
+			database[n] = std::set<T, C>();
 	}
 
 	void edge(T left, T right)
@@ -152,13 +154,13 @@ struct TopoSort
 		database[right].insert(left);
 	}
 
-	void sort_worker(const T &n, std::set<T> &marked_cells, std::set<T> &active_cells, std::vector<T> &active_stack)
+	void sort_worker(const T &n, std::set<T, C> &marked_cells, std::set<T, C> &active_cells, std::vector<T> &active_stack)
 	{
 		if (active_cells.count(n)) {
 			found_loops = true;
 			if (analyze_loops) {
-				std::set<T> loop;
-				for (int i = SIZE(active_stack)-1; i >= 0; i--) {
+				std::set<T, C> loop;
+				for (int i = GetSize(active_stack)-1; i >= 0; i--) {
 					loop.insert(active_stack[i]);
 					if (active_stack[i] == n)
 						break;
@@ -195,16 +197,18 @@ struct TopoSort
 		sorted.clear();
 		found_loops = false;
 
-		std::set<T> marked_cells;
-		std::set<T> active_cells;
+		std::set<T, C> marked_cells;
+		std::set<T, C> active_cells;
 		std::vector<T> active_stack;
 
 		for (auto &it : database)
 			sort_worker(it.first, marked_cells, active_cells, active_stack);
 
-		log_assert(SIZE(sorted) == SIZE(database));
+		log_assert(GetSize(sorted) == GetSize(database));
 		return !found_loops;
 	}
 };
+
+YOSYS_NAMESPACE_END
 
 #endif

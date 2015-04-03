@@ -1,4 +1,4 @@
-lexer.cc
-parser.output
-parser.tab.cc
-parser.tab.h
+verilog_lexer.cc
+verilog_parser.output
+verilog_parser.tab.cc
+verilog_parser.tab.h

@@ -71,9 +71,9 @@ struct Frontend : Pass
 
 	std::string frontend_name;
 	Frontend(std::string name, std::string short_help = "** document me **");
-	virtual void run_register();
+	virtual void run_register() YS_OVERRIDE;
 	virtual ~Frontend();
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) OVERRIDE FINAL;
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	static std::vector<std::string> next_args;
@@ -87,9 +87,9 @@ struct Backend : Pass
 {
 	std::string backend_name;
 	Backend(std::string name, std::string short_help = "** document me **");
-	virtual void run_register();
+	virtual void run_register() YS_OVERRIDE;
 	virtual ~Backend();
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) OVERRIDE FINAL;
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
 	virtual void execute(std::ostream *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	void extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx);
@@ -100,6 +100,8 @@ struct Backend : Pass
 
 // implemented in passes/cmds/select.cc
 extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design);
+extern RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *design);
+extern void eval_select_op(vector<RTLIL::Selection> &work, const string &op, RTLIL::Design *design);
 
 extern std::map<std::string, Pass*> pass_register;
 extern std::map<std::string, Frontend*> frontend_register;

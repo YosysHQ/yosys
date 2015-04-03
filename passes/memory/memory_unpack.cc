@@ -23,7 +23,10 @@
 #include <algorithm>
 #include <stdlib.h>
 
-static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 {
 	log("Creating $memrd and $memwr for memory `%s' in module `%s':\n",
 			memory->name.c_str(), module->name.c_str());
@@ -76,7 +79,7 @@ static void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 	module->remove(memory);
 }
 
-static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
+void handle_module(RTLIL::Design *design, RTLIL::Module *module)
 {
 	std::vector<RTLIL::IdString> memcells;
 	for (auto &cell_it : module->cells_)
@@ -107,3 +110,4 @@ struct MemoryUnpackPass : public Pass {
 	}
 } MemoryUnpackPass;
  
+PRIVATE_NAMESPACE_END

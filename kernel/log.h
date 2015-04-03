@@ -23,8 +23,14 @@
 #define LOG_H
 
 #include <time.h>
-#include <sys/time.h>
-#include <sys/resource.h>
+
+#ifndef _WIN32
+#  include <sys/time.h>
+#  include <sys/resource.h>
+#endif
+
+// from libs/sha1/sha1.h
+class SHA1;
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -32,30 +38,36 @@ YOSYS_NAMESPACE_BEGIN
 #define S__LINE__sub1(x) S__LINE__sub2(x)
 #define S__LINE__ S__LINE__sub1(__LINE__)
 
-struct log_cmd_error_expection { };
+struct log_cmd_error_exception { };
 
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern FILE *log_errfile;
-extern class SHA1 *log_hasher;
+extern SHA1 *log_hasher;
 
 extern bool log_time;
+extern bool log_error_stderr;
 extern bool log_cmd_error_throw;
+extern bool log_quiet_warnings;
 extern int log_verbose_level;
+extern string log_last_error;
 
 void logv(const char *format, va_list ap);
 void logv_header(const char *format, va_list ap);
-void logv_error(const char *format, va_list ap) __attribute__ ((noreturn));
+void logv_warning(const char *format, va_list ap);
+YS_NORETURN void logv_error(const char *format, va_list ap) YS_ATTRIBUTE(noreturn);
 
-void log(const char *format, ...)  __attribute__ ((format (printf, 1, 2)));
-void log_header(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
-void log_error(const char *format, ...) __attribute__ ((format (printf, 1, 2))) __attribute__ ((noreturn));
-void log_cmd_error(const char *format, ...) __attribute__ ((format (printf, 1, 2))) __attribute__ ((noreturn));
+void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
+void log_header(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
+YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
 void log_spacer();
 void log_push();
 void log_pop();
 
+void log_backtrace(const char *prefix, int levels);
 void log_reset_stack();
 void log_flush();
 
@@ -68,36 +80,43 @@ template<typename T> static inline const char *log_id(T *obj) {
 
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
 
-#define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
-#define log_assert(_assert_expr_) do { if (_assert_expr_) break; log_error("Assert `%s' failed in %s:%d.\n", #_assert_expr_, __FILE__, __LINE__); } while (0)
-#define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+#ifndef NDEBUG
+static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line) {
+	if (!cond) log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
+}
+#  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
+#else
+#  define log_assert(_assert_expr_)
+#endif
+
+#define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
+#define log_ping() YOSYS_NAMESPACE_PREFIX log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 
 // ---------------------------------------------------
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
 
-#if defined(__linux__) && !defined(NDEBUG)
-#define COVER_ACTIVE
+#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
 
 #define cover(_id) do { \
-    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1))) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
+    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1), used)) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
     __d.counter++; \
 } while (0)
 
 struct CoverData {
 	const char *file, *func, *id;
 	int line, counter;
-} __attribute__ ((packed));
+} YS_ATTRIBUTE(packed);
 
 // this two symbols are created by the linker for the "yosys_cover_list" ELF section
 extern "C" struct CoverData __start_yosys_cover_list[];
 extern "C" struct CoverData __stop_yosys_cover_list[];
 
-extern std::map<std::string, std::pair<std::string, int>> extra_coverage_data;
+extern dict<std::string, std::pair<std::string, int>> extra_coverage_data;
 
 void cover_extra(std::string parent, std::string id, bool increment = true);
-std::map<std::string, std::pair<std::string, int>> get_coverage_data();
+dict<std::string, std::pair<std::string, int>> get_coverage_data();
 
 #define cover_list(_id, ...) do { cover(_id); \
 	std::string r = cover_list_worker(_id, __VA_ARGS__); \
@@ -151,6 +170,8 @@ struct PerformanceTimer
 		t = 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
 		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		return t;
+#elif _WIN32
+		return 0;
 #else
 	#error Dont know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?).
 #endif
@@ -169,7 +190,7 @@ struct PerformanceTimer
 	}
 
 	float sec() const {
-		return total_ns * 1e-9;
+		return total_ns * 1e-9f;
 	}
 #else
 	static int64_t query() { return 0; }
@@ -188,8 +209,10 @@ static inline void log_dump_val_worker(int v) { log("%d", v); }
 static inline void log_dump_val_worker(unsigned int v) { log("%u", v); }
 static inline void log_dump_val_worker(long int v) { log("%ld", v); }
 static inline void log_dump_val_worker(unsigned long int v) { log("%lu", v); }
+#ifndef _WIN32
 static inline void log_dump_val_worker(long long int v) { log("%lld", v); }
 static inline void log_dump_val_worker(unsigned long long int v) { log("%lld", v); }
+#endif
 static inline void log_dump_val_worker(char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
 static inline void log_dump_val_worker(unsigned char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
 static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false"); }
@@ -198,7 +221,7 @@ static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
-static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
+static inline void log_dump_args_worker(const char *p YS_ATTRIBUTE(unused)) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::SigSpec v);
 
 template<typename T>

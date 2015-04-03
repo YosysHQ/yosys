@@ -17,23 +17,26 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <fnmatch.h>
 #include <set>
-#include <unistd.h>
 
-namespace {
-	struct generate_port_decl_t {
-		bool input, output;
-		RTLIL::IdString portname;
-		int index;
-	};
-}
+#ifndef _WIN32
+#  include <unistd.h>
+#endif
 
-static void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+struct generate_port_decl_t {
+	bool input, output;
+	string portname;
+	int index;
+};
+
+void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
 {
 	std::set<RTLIL::IdString> found_celltypes;
 
@@ -46,7 +49,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		if (cell->type.substr(0, 1) == "$" && cell->type.substr(0, 3) != "$__")
 			continue;
 		for (auto &pattern : celltypes)
-			if (!fnmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str(), FNM_NOESCAPE))
+			if (patmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str()))
 				found_celltypes.insert(cell->type);
 	}
 
@@ -96,9 +99,9 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 		while (portnames.size() > 0) {
 			RTLIL::IdString portname = *portnames.begin();
 			for (auto &decl : portdecls)
-				if (decl.index == 0 && !fnmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str(), FNM_NOESCAPE)) {
+				if (decl.index == 0 && patmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str())) {
 					generate_port_decl_t d = decl;
-					d.portname = portname;
+					d.portname = portname.str();
 					d.index = *indices.begin();
 					log_assert(!indices.empty());
 					indices.erase(d.index);
@@ -135,7 +138,7 @@ static void generate(RTLIL::Design *design, const std::vector<std::string> &cell
 	}
 }
 
-static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
 	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
@@ -171,7 +174,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 			for (auto &dir : libdirs)
 			{
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".v";
-				if (access(filename.c_str(), F_OK) == 0) {
+				if (check_file_exists(filename)) {
 					std::vector<std::string> args;
 					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "verilog");
@@ -179,7 +182,7 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 				}
 
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
-				if (access(filename.c_str(), F_OK) == 0) {
+				if (check_file_exists(filename)) {
 					std::vector<std::string> args;
 					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "ilang");
@@ -196,6 +199,19 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 			if (design->modules_.count(cell->type) == 0)
 				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
 			did_something = true;
+		} else
+		if (flag_check)
+		{
+			RTLIL::Module *mod = design->module(cell->type);
+			for (auto &conn : cell->connections())
+				if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
+					int id = atoi(conn.first.c_str()+1);
+					if (id <= 0 || id > GetSize(mod->ports))
+						log_error("Module `%s' referenced in module `%s' in cell `%s' has only %d ports, requested port %d.\n",
+								log_id(cell->type), log_id(module), log_id(cell), GetSize(mod->ports), id);
+				} else if (mod->wire(conn.first) == nullptr || mod->wire(conn.first)->port_id == 0)
+					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a port named '%s'.\n",
+							log_id(cell->type), log_id(module), log_id(cell), log_id(conn.first));
 		}
 
 		if (cell->parameters.size() == 0)
@@ -245,24 +261,31 @@ static bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool fla
 	return did_something;
 }
 
-static void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTLIL::Module *mod, int indent)
+void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTLIL::Module *mod, int indent)
 {
 	if (used.count(mod) > 0)
 		return;
 
 	if (indent == 0)
 		log("Top module:  %s\n", mod->name.c_str());
-	else
+	else if (!mod->get_bool_attribute("\\blackbox"))
 		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
 	used.insert(mod);
 
-	for (auto &it : mod->cells_) {
-		if (design->modules_.count(it.second->type) > 0)
-			hierarchy_worker(design, used, design->modules_[it.second->type], indent+4);
+	for (auto cell : mod->cells()) {
+		std::string celltype = cell->type.str();
+		if (celltype.substr(0, 7) == "$array:") {
+			int pos_idx = celltype.find_first_of(':');
+			int pos_num = celltype.find_first_of(':', pos_idx + 1);
+			int pos_type = celltype.find_first_of(':', pos_num + 1);
+			celltype = celltype.substr(pos_type + 1);
+		}
+		if (design->module(celltype))
+			hierarchy_worker(design, used, design->module(celltype), indent+4);
 	}
 }
 
-static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib, bool first_pass)
+void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 {
 	std::set<RTLIL::Module*> used;
 	hierarchy_worker(design, used, top, 0);
@@ -272,17 +295,41 @@ static void hierarchy(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib,
 		if (used.count(it.second) == 0)
 			del_modules.push_back(it.second);
 
+	int del_counter = 0;
 	for (auto mod : del_modules) {
-		if (first_pass && mod->name.substr(0, 9) == "$abstract")
+		if (mod->name.substr(0, 9) == "$abstract")
 			continue;
 		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
 		design->modules_.erase(mod->name);
+		del_counter++;
 		delete mod;
 	}
 
-	log("Removed %zd unused modules.\n", del_modules.size());
+	log("Removed %d unused modules.\n", del_counter);
+}
+
+bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
+{
+	if (cache.count(mod) == 0)
+		for (auto c : mod->cells()) {
+			RTLIL::Module *m = mod->design->module(c->type);
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type == "$assert")
+				return cache[mod] = true;
+		}
+	return cache[mod];
+}
+
+int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
+{
+	if (db.count(module) == 0) {
+		db[module] = 0;
+		for (auto cell : module->cells())
+			if (design->module(cell->type))
+				db[module] = std::max(db[module], find_top_mod_score(design, design->module(cell->type), db) + 1);
+	}
+	return db.at(module);
 }
 
 struct HierarchyPass : public Pass {
@@ -305,7 +352,7 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -purge_lib\n");
 		log("        by default the hierarchy command will not remove library (blackbox)\n");
-		log("        module. use this options to also remove unused blackbox modules.\n");
+		log("        modules. use this option to also remove unused blackbox modules.\n");
 		log("\n");
 		log("    -libdir <directory>\n");
 		log("        search for files named <module_name>.v in the specified directory\n");
@@ -316,6 +363,11 @@ struct HierarchyPass : public Pass {
 		log("        per default this pass also converts positional arguments in cells\n");
 		log("        to arguments using port names. this option disables this behavior.\n");
 		log("\n");
+		log("    -nokeep_asserts\n");
+		log("        per default this pass sets the \"keep\" attribute on all modules\n");
+		log("        that directly or indirectly contain one or more $assert cells. this\n");
+		log("        option disables this behavior.\n");
+		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified top module to built a design hierarchy. modules\n");
 		log("        outside this tree (unused modules) are removed.\n");
@@ -323,6 +375,9 @@ struct HierarchyPass : public Pass {
 		log("        when the -top option is used, the 'top' attribute will be set on the\n");
 		log("        specified top module. otherwise a module with the 'top' attribute set\n");
 		log("        will implicitly be used as top module, if such a module exists.\n");
+		log("\n");
+		log("    -auto-top\n");
+		log("        automatically determine the top of the design hierarchy and mark it.\n");
 		log("\n");
 		log("In -generate mode this pass generates blackbox modules for the given cell\n");
 		log("types (wildcards supported). For this the design is searched for cells that\n");
@@ -350,8 +405,10 @@ struct HierarchyPass : public Pass {
 		RTLIL::Module *top_mod = NULL;
 		std::vector<std::string> libdirs;
 
+		bool auto_top_mode = false;
 		bool generate_mode = false;
 		bool keep_positionals = false;
+		bool nokeep_asserts = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
 
@@ -409,6 +466,10 @@ struct HierarchyPass : public Pass {
 				keep_positionals = true;
 				continue;
 			}
+			if (args[argidx] == "-nokeep_asserts") {
+				nokeep_asserts = true;
+				continue;
+			}
 			if (args[argidx] == "-libdir" && argidx+1 < args.size()) {
 				libdirs.push_back(args[++argidx]);
 				continue;
@@ -418,12 +479,16 @@ struct HierarchyPass : public Pass {
 					log_cmd_error("Option -top requires an additional argument!\n");
 				top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
 				if (top_mod == NULL && design->modules_.count("$abstract" + RTLIL::escape_id(args[argidx]))) {
-					std::map<RTLIL::IdString, RTLIL::Const> empty_parameters;
+					dict<RTLIL::IdString, RTLIL::Const> empty_parameters;
 					design->modules_.at("$abstract" + RTLIL::escape_id(args[argidx]))->derive(design, empty_parameters);
 					top_mod = design->modules_.count(RTLIL::escape_id(args[argidx])) ? design->modules_.at(RTLIL::escape_id(args[argidx])) : NULL;
 				}
 				if (top_mod == NULL)
 					log_cmd_error("Module `%s' not found!\n", args[argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-auto-top") {
+				auto_top_mode = true;
 				continue;
 			}
 			break;
@@ -437,35 +502,47 @@ struct HierarchyPass : public Pass {
 
 		log_push();
 
-		if (top_mod == NULL)
+		if (top_mod == nullptr)
 			for (auto &mod_it : design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
 					top_mod = mod_it.second;
 
-		if (top_mod != NULL)
-			hierarchy(design, top_mod, purge_lib, true);
-
-		bool did_something = true;
-		bool did_something_once = false;
-		while (did_something) {
-			did_something = false;
-			std::vector<RTLIL::IdString> modnames;
-			modnames.reserve(design->modules_.size());
-			for (auto &mod_it : design->modules_)
-				modnames.push_back(mod_it.first);
-			for (auto &modname : modnames) {
-				if (design->modules_.count(modname) == 0)
-					continue;
-				if (expand_module(design, design->modules_[modname], flag_check, libdirs))
-					did_something = true;
+		if (top_mod == nullptr && auto_top_mode) {
+			log_header("Finding top of design hierarchy..\n");
+			dict<Module*, int> db;
+			for (Module *mod : design->modules()) {
+				int score = find_top_mod_score(design, mod, db);
+				log("root of %3d design levels: %-20s\n", score, log_id(mod));
+				if (!top_mod || score > db[top_mod])
+					top_mod = mod;
 			}
-			if (did_something)
-				did_something_once = true;
+			if (top_mod != nullptr)
+				log("Automatically selected %s as design top module.\n", log_id(top_mod));
 		}
 
-		if (top_mod != NULL && did_something_once) {
-			log_header("Re-running hierarchy analysis..\n");
-			hierarchy(design, top_mod, purge_lib, false);
+		bool did_something = true;
+		while (did_something)
+		{
+			did_something = false;
+
+			std::set<RTLIL::Module*> used_modules;
+			if (top_mod != NULL) {
+				log_header("Analyzing design hierarchy..\n");
+				hierarchy_worker(design, used_modules, top_mod, 0);
+			} else {
+				for (auto mod : design->modules())
+					used_modules.insert(mod);
+			}
+
+			for (auto module : used_modules) {
+				if (expand_module(design, module, flag_check, libdirs))
+					did_something = true;
+			}
+		}
+
+		if (top_mod != NULL) {
+			log_header("Analyzing design hierarchy..\n");
+			hierarchy_clean(design, top_mod, purge_lib);
 		}
 
 		if (top_mod != NULL) {
@@ -474,6 +551,15 @@ struct HierarchyPass : public Pass {
 					mod_it.second->attributes["\\top"] = RTLIL::Const(1);
 				else
 					mod_it.second->attributes.erase("\\top");
+		}
+
+		if (!nokeep_asserts) {
+			std::map<RTLIL::Module*, bool> cache;
+			for (auto mod : design->modules())
+				if (set_keep_assert(cache, mod)) {
+					log("Module %s directly or indirectly contains $assert cells -> setting \"keep\" attribute.\n", log_id(mod));
+					mod->set_bool_attribute("\\keep");
+				}
 		}
 
 		if (!keep_positionals)
@@ -507,7 +593,7 @@ struct HierarchyPass : public Pass {
 				RTLIL::Cell *cell = work.second;
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
 						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
-				std::map<RTLIL::IdString, RTLIL::SigSpec> new_connections;
+				dict<RTLIL::IdString, RTLIL::SigSpec> new_connections;
 				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
 						int id = atoi(conn.first.c_str()+1);
@@ -528,3 +614,4 @@ struct HierarchyPass : public Pass {
 	}
 } HierarchyPass;
  
+PRIVATE_NAMESPACE_END

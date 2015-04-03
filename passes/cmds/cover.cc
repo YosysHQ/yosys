@@ -17,13 +17,21 @@
  *
  */
 
+#include "kernel/yosys.h"
 #include <sys/types.h>
-#include <unistd.h>
-#include <fnmatch.h>
+
+#ifndef _WIN32
+#  include <unistd.h>
+#else
+#  include <io.h>
+#endif
 
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 struct CoverPass : public Pass {
 	CoverPass() : Pass("cover", "print code coverage counters") { }
@@ -72,7 +80,7 @@ struct CoverPass : public Pass {
 		log("      printf \"%%-60s %%10d %%s\\n\", p[i], c[i], i; }' {files} | sort -k3\n");
 		log("\n");
 		log("\n");
-		log("Coverage counters are only available in debug builds of Yosys for Linux.\n");
+		log("Coverage counters are only available in Yosys for Linux.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -92,9 +100,13 @@ struct CoverPass : public Pass {
 				const char *open_mode = args[argidx] == "-a" ? "a+" : "w";
 				std::string filename = args[++argidx];
 				if (args[argidx-1] == "-d") {
+			#ifdef _WIN32
+					log_cmd_error("The 'cover -d' option is not supported on win32.\n");
+			#else
 					char filename_buffer[4096];
 					snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", filename.c_str(), getpid());
 					filename = mkstemps(filename_buffer, 4);
+			#endif
 				}
 				FILE *f = fopen(filename.c_str(), open_mode);
 				if (f == NULL) {
@@ -116,11 +128,11 @@ struct CoverPass : public Pass {
 			log("\n");
 		}
 
-#ifdef COVER_ACTIVE
+#if defined(YOSYS_ENABLE_COVER) && defined(__linux__)
 		for (auto &it : get_coverage_data()) {
 			if (!patterns.empty()) {
 				for (auto &p : patterns)
-					if (!fnmatch(p.c_str(), it.first.c_str(), 0))
+					if (patmatch(p.c_str(), it.first.c_str()))
 						goto pattern_match;
 				continue;
 			}
@@ -134,7 +146,7 @@ struct CoverPass : public Pass {
 		for (auto f : out_files)
 			fclose(f);
 
-		log_cmd_error("Coverage counters are only available in debug builds of Yosys for Linux.\n");
+		log_cmd_error("This version of Yosys was not built with support for code coverage counters.\n");
 #endif
 
 		for (auto f : out_files)
@@ -142,3 +154,4 @@ struct CoverPass : public Pass {
 	}
 } CoverPass;
 
+PRIVATE_NAMESPACE_END

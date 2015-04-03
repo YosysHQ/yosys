@@ -25,6 +25,9 @@
 #include <stdio.h>
 #include <set>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct OptReduceWorker
 {
 	RTLIL::Design *design;
@@ -34,14 +37,14 @@ struct OptReduceWorker
 	int total_count;
 	bool did_something;
 
-	void opt_reduce(std::set<RTLIL::Cell*> &cells, SigSet<RTLIL::Cell*> &drivers, RTLIL::Cell *cell)
+	void opt_reduce(pool<RTLIL::Cell*> &cells, SigSet<RTLIL::Cell*> &drivers, RTLIL::Cell *cell)
 	{
 		if (cells.count(cell) == 0)
 			return;
 		cells.erase(cell);
 
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
-		std::set<RTLIL::SigBit> new_sig_a_bits;
+		pool<RTLIL::SigBit> new_sig_a_bits;
 
 		for (auto &bit : sig_a.to_sigbit_set())
 		{
@@ -71,7 +74,7 @@ struct OptReduceWorker
 				if (child_cell->type == cell->type) {
 					opt_reduce(cells, drivers, child_cell);
 					if (child_cell->getPort("\\Y")[0] == bit) {
-						std::set<RTLIL::SigBit> child_sig_a_bits = assign_map(child_cell->getPort("\\A")).to_sigbit_set();
+						pool<RTLIL::SigBit> child_sig_a_bits = assign_map(child_cell->getPort("\\A")).to_sigbit_pool();
 						new_sig_a_bits.insert(child_sig_a_bits.begin(), child_sig_a_bits.end());
 					} else
 						new_sig_a_bits.insert(RTLIL::State::S0);
@@ -102,7 +105,7 @@ struct OptReduceWorker
 		RTLIL::SigSpec sig_s = assign_map(cell->getPort("\\S"));
 
 		RTLIL::SigSpec new_sig_b, new_sig_s;
-		std::set<RTLIL::SigSpec> handled_sig;
+		pool<RTLIL::SigSpec> handled_sig;
 
 		handled_sig.insert(sig_a);
 		for (int i = 0; i < sig_s.size(); i++)
@@ -287,7 +290,7 @@ struct OptReduceWorker
 			for (auto type : type_list)
 			{
 				SigSet<RTLIL::Cell*> drivers;
-				std::set<RTLIL::Cell*> cells;
+				pool<RTLIL::Cell*> cells;
 
 				for (auto &cell_it : module->cells_) {
 					RTLIL::Cell *cell = cell_it.second;
@@ -343,6 +346,9 @@ struct OptReducePass : public Pass {
 		log("    -fine\n");
 		log("      perform fine-grain optimizations\n");
 		log("\n");
+		log("    -full\n");
+		log("      alias for -fine\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -356,21 +362,22 @@ struct OptReducePass : public Pass {
 				do_fine = true;
 				continue;
 			}
+			if (args[argidx] == "-full") {
+				do_fine = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules_) {
-			if (!design->selected(mod_it.second))
-				continue;
-			do {
-				OptReduceWorker worker(design, mod_it.second, do_fine);
+		for (auto module : design->selected_modules())
+			while (1) {
+				OptReduceWorker worker(design, module, do_fine);
 				total_count += worker.total_count;
 				if (worker.total_count == 0)
 					break;
-			} while (1);
-		}
+			}
 
 		if (total_count)
 			design->scratchpad_set_bool("opt.did_something", true);
@@ -378,3 +385,4 @@ struct OptReducePass : public Pass {
 	}
 } OptReducePass;
  
+PRIVATE_NAMESPACE_END

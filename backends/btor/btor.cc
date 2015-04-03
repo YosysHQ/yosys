@@ -30,6 +30,9 @@
 #include <string>
 #include <math.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct BtorDumperConfig
 {
 	bool subckt_mode;
@@ -476,7 +479,7 @@ struct BtorDumper
 				log_assert(!(cell->type == "$eq" || cell->type == "$ne" || cell->type == "$eqx" || cell->type == "$nex" ||
 					cell->type == "$ge" || cell->type == "$gt") || output_width == 1);
 				bool l1_signed = cell->parameters.at(RTLIL::IdString("\\A_SIGNED")).as_bool();
-				bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
+				bool l2_signed YS_ATTRIBUTE(unused) = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
 				
@@ -817,7 +820,7 @@ struct BtorDumper
 				int input_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				log_assert(input->size() == input_width);
 				int input_line = dump_sigspec(input, input_width);
-				const RTLIL::SigSpec* output = &cell->getPort(RTLIL::IdString("\\Y"));
+				const RTLIL::SigSpec* output YS_ATTRIBUTE(unused) = &cell->getPort(RTLIL::IdString("\\Y"));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
 				log_assert(output->size() == output_width);
 				int offset = cell->parameters.at(RTLIL::IdString("\\OFFSET")).as_int();	
@@ -1057,3 +1060,4 @@ struct BtorBackend : public Backend {
 	}
 } BtorBackend;
 
+PRIVATE_NAMESPACE_END

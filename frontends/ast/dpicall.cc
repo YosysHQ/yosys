@@ -24,6 +24,8 @@
 #include <dlfcn.h>
 #include <ffi.h>
 
+YOSYS_NAMESPACE_BEGIN
+
 typedef void (*ffi_fptr) ();
 
 static ffi_fptr resolve_fn (std::string symbol_name)
@@ -73,8 +75,8 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 
 	log("Calling DPI function `%s' and returning `%s':\n", fname.c_str(), rtype.c_str());
 
-	log_assert(SIZE(args) == SIZE(argtypes));
-	for (int i = 0; i < SIZE(args); i++) {
+	log_assert(GetSize(args) == GetSize(argtypes));
+	for (int i = 0; i < GetSize(args); i++) {
 		if (argtypes[i] == "real") {
 			log("  arg %d (%s): %f\n", i, argtypes[i].c_str(), args[i]->asReal(args[i]->is_signed));
 			value_store[i].f64 = args[i]->asReal(args[i]->is_signed);
@@ -129,12 +131,18 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 	return newNode;
 }
 
+YOSYS_NAMESPACE_END
+
 #else /* YOSYS_ENABLE_PLUGINS */
+
+YOSYS_NAMESPACE_BEGIN
 
 AST::AstNode *AST::dpi_call(const std::string&, const std::string &fname, const std::vector<std::string>&, const std::vector<AstNode*>&)
 {
 	log_error("Can't call DPI function `%s': this version of yosys is built without plugin support\n", fname.c_str());
 }
+
+YOSYS_NAMESPACE_END
 
 #endif /* YOSYS_ENABLE_PLUGINS */
 

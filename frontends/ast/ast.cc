@@ -26,13 +26,18 @@
  *
  */
 
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
 
 #include <sstream>
 #include <stdarg.h>
-#include <math.h>
+
+#if defined(__APPLE__)
+#  include <cmath>
+#else
+#  include <math.h>
+#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -48,12 +53,12 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
+	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
-	const std::map<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
+	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
-	AstNode *current_top_block, *current_block, *current_block_child;
+	AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
 }
 
@@ -85,6 +90,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_IDENTIFIER)
 	X(AST_PREFIX)
 	X(AST_ASSERT)
+	X(AST_ASSUME)
 	X(AST_FCALL)
 	X(AST_TO_BITS)
 	X(AST_TO_SIGNED)
@@ -127,6 +133,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_TERNARY)
 	X(AST_MEMRD)
 	X(AST_MEMWR)
+	X(AST_MEMINIT)
 	X(AST_TCALL)
 	X(AST_ASSIGN)
 	X(AST_CELL)
@@ -175,6 +182,10 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 // (the optional child arguments make it easier to create AST trees)
 AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 {
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
+
 	this->type = type;
 	filename = current_filename;
 	linenum = get_line_num();
@@ -267,7 +278,7 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 					bits[i-1] == RTLIL::S1 ? '1' :
 					bits[i-1] == RTLIL::Sx ? 'x' :
 					bits[i-1] == RTLIL::Sz ? 'z' : '?');
-		fprintf(f, "'(%zd)", bits.size());
+		fprintf(f, "'(%d)", GetSize(bits));
 	}
 	if (is_input)
 		fprintf(f, " input");
@@ -471,7 +482,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		else if (bits.size() == 32)
 			fprintf(f, "%d", RTLIL::Const(bits).as_int());
 		else
-			fprintf(f, "%zd'b %s", bits.size(), RTLIL::Const(bits).as_string().c_str());
+			fprintf(f, "%d'b %s", GetSize(bits), RTLIL::Const(bits).as_string().c_str());
 		break;
 
 	case AST_REALVALUE:
@@ -701,6 +712,8 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 AstNode *AstNode::mkconst_str(const std::vector<RTLIL::State> &v)
 {
 	AstNode *node = mkconst_str(RTLIL::Const(v).decode_string());
+	while (GetSize(node->bits) < GetSize(v))
+		node->bits.push_back(RTLIL::State::S0);
 	log_assert(node->bits == v);
 	return node;
 }
@@ -946,6 +959,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 
 	current_module->ast = ast_before_simplify;
 	current_module->nolatches = flag_nolatches;
+	current_module->nomeminit = flag_nomeminit;
 	current_module->nomem2reg = flag_nomem2reg;
 	current_module->mem2reg = flag_mem2reg;
 	current_module->lib = flag_lib;
@@ -957,13 +971,14 @@ static AstModule* process_module(AstNode *ast, bool defer)
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
 	flag_dump_vlog = dump_vlog;
 	flag_nolatches = nolatches;
+	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
@@ -1011,7 +1026,7 @@ AstModule::~AstModule()
 }
 
 // create a new parametric module (when needed) and return the name of the generated module
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdString, RTLIL::Const> parameters)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, RTLIL::Const> parameters)
 {
 	std::string stripped_name = name.str();
 
@@ -1025,6 +1040,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, std::map<RTLIL::IdStrin
 	flag_dump_ast2 = false;
 	flag_dump_vlog = false;
 	flag_nolatches = nolatches;
+	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
 	flag_mem2reg = mem2reg;
 	flag_lib = lib;
@@ -1091,6 +1107,7 @@ RTLIL::Module *AstModule::clone() const
 
 	new_mod->ast = ast->clone();
 	new_mod->nolatches = nolatches;
+	new_mod->nomeminit = nomeminit;
 	new_mod->nomem2reg = nomem2reg;
 	new_mod->mem2reg = mem2reg;
 	new_mod->lib = lib;

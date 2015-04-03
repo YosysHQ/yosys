@@ -17,4 +17,4 @@ n5:e -> c17:p16:w [color="black", label=""];
 n6:e -> c15:p12:w [color="black", label=""];
 c15:p14:e -> n7:w [color="black", style="setlinewidth(3)", label=""];
 n7:e -> c17:p8:w [color="black", style="setlinewidth(3)", label=""];
-};
+}

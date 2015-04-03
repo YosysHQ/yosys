@@ -22,7 +22,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
 {
 	if (!run_from.empty() && run_from == run_to) {
 		active = (label == run_from);
@@ -49,6 +52,12 @@ struct SynthPass : public Pass {
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
 		log("\n");
+		log("    -encfile <file>\n");
+		log("        passed to 'fsm_recode' via 'fsm'\n");
+		log("\n");
+		log("    -noabc\n");
+		log("        do not run abc (as if yosys was compiled without ABC support)\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -62,6 +71,8 @@ struct SynthPass : public Pass {
 		log("\n");
 		log("    coarse:\n");
 		log("        proc\n");
+		log("        opt_clean\n");
+		log("        check\n");
 		log("        opt\n");
 		log("        wreduce\n");
 		log("        alumacc\n");
@@ -73,25 +84,37 @@ struct SynthPass : public Pass {
 		log("        opt_clean\n");
 		log("\n");
 		log("    fine:\n");
+		log("        opt -fast -full\n");
 		log("        memory_map\n");
+		log("        opt -full\n");
 		log("        techmap\n");
 		log("        opt -fast\n");
 	#ifdef YOSYS_ENABLE_ABC
 		log("        abc -fast\n");
-		log("        opt_clean\n");
+		log("        opt -fast\n");
 	#endif
+		log("\n");
+		log("    check:\n");
+		log("        hierarchy -check\n");
+		log("        stat\n");
+		log("        check\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::string top_module;
+		std::string top_module, fsm_opts;
 		std::string run_from, run_to;
+		bool noabc = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-encfile" && argidx+1 < args.size()) {
+				fsm_opts = " -encfile " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -103,6 +126,10 @@ struct SynthPass : public Pass {
 					run_from = args[++argidx].substr(0, pos);
 					run_to = args[argidx].substr(pos+1);
 				}
+				continue;
+			}
+			if (args[argidx] == "-noabc") {
+				noabc = true;
 				continue;
 			}
 			break;
@@ -128,12 +155,14 @@ struct SynthPass : public Pass {
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
 			Pass::call(design, "proc");
+			Pass::call(design, "opt_clean");
+			Pass::call(design, "check");
 			Pass::call(design, "opt");
 			Pass::call(design, "wreduce");
 			Pass::call(design, "alumacc");
 			Pass::call(design, "share");
 			Pass::call(design, "opt");
-			Pass::call(design, "fsm");
+			Pass::call(design, "fsm" + fsm_opts);
 			Pass::call(design, "opt -fast");
 			Pass::call(design, "memory -nomap");
 			Pass::call(design, "opt_clean");
@@ -141,16 +170,29 @@ struct SynthPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
+			Pass::call(design, "opt -fast -full");
 			Pass::call(design, "memory_map");
+			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap");
 			Pass::call(design, "opt -fast");
+
+			if (!noabc) {
 		#ifdef YOSYS_ENABLE_ABC
-			Pass::call(design, "abc -fast");
-			Pass::call(design, "opt_clean");
+				Pass::call(design, "abc -fast");
+				Pass::call(design, "opt -fast");
 		#endif
+			}
+		}
+
+		if (check_label(active, run_from, run_to, "check"))
+		{
+			Pass::call(design, "hierarchy -check");
+			Pass::call(design, "stat");
+			Pass::call(design, "check");
 		}
 
 		log_pop();
 	}
 } SynthPass;
  
+PRIVATE_NAMESPACE_END

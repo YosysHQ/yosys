@@ -28,10 +28,12 @@
 
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"
+#include "frontends/verilog/verilog_frontend.h"
 #include "ast.h"
 
 #include <sstream>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <math.h>
 
 YOSYS_NAMESPACE_BEGIN
@@ -47,38 +49,54 @@ using namespace AST_INTERNAL;
 // nodes that link to a different node using names and lexical scoping.
 bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param)
 {
+	static int recursion_counter = 0;
+	static pair<string, int> last_blocking_assignment_warn;
+	static bool deep_recursion_warning = false;
+
+	if (recursion_counter++ == 1000 && deep_recursion_warning) {
+		log_warning("Deep recursion in AST simplifier.\nDoes this design contain insanely long expressions?\n");
+		deep_recursion_warning = false;
+	}
+
 	AstNode *newNode = NULL;
 	bool did_something = false;
 
 #if 0
 	log("-------------\n");
+	log("AST simplify[%d] depth %d at %s:%d,\n", stage, recursion_counter, filename.c_str(), linenum);
 	log("const_fold=%d, at_zero=%d, in_lvalue=%d, stage=%d, width_hint=%d, sign_hint=%d, in_param=%d\n",
 			int(const_fold), int(at_zero), int(in_lvalue), int(stage), int(width_hint), int(sign_hint), int(in_param));
-	dumpAst(NULL, "> ");
+	// dumpAst(NULL, "> ");
 #endif
 
 	if (stage == 0)
 	{
 		log_assert(type == AST_MODULE);
+		last_blocking_assignment_warn = pair<string, int>();
 
+		deep_recursion_warning = true;
 		while (simplify(const_fold, at_zero, in_lvalue, 1, width_hint, sign_hint, in_param)) { }
 
 		if (!flag_nomem2reg && !get_bool_attribute("\\nomem2reg"))
 		{
-			std::map<AstNode*, std::set<std::string>> mem2reg_places;
-			std::map<AstNode*, uint32_t> mem2reg_candidates, dummy_proc_flags;
+			dict<AstNode*, pool<std::string>> mem2reg_places;
+			dict<AstNode*, uint32_t> mem2reg_candidates, dummy_proc_flags;
 			uint32_t flags = flag_mem2reg ? AstNode::MEM2REG_FL_ALL : 0;
 			mem2reg_as_needed_pass1(mem2reg_places, mem2reg_candidates, dummy_proc_flags, flags);
 
-			std::set<AstNode*> mem2reg_set;
+			pool<AstNode*> mem2reg_set;
 			for (auto &it : mem2reg_candidates)
 			{
 				AstNode *mem = it.first;
 				uint32_t memflags = it.second;
+				bool this_nomeminit = flag_nomeminit;
 				log_assert((memflags & ~0x00ffff00) == 0);
 
 				if (mem->get_bool_attribute("\\nomem2reg"))
 					continue;
+
+				if (mem->get_bool_attribute("\\nomeminit") || get_bool_attribute("\\nomeminit"))
+					this_nomeminit = true;
 
 				if (memflags & AstNode::MEM2REG_FL_FORCED)
 					goto silent_activate;
@@ -89,7 +107,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (memflags & AstNode::MEM2REG_FL_SET_ASYNC)
 					goto verbose_activate;
 
-				if ((memflags & AstNode::MEM2REG_FL_SET_INIT) && (memflags & AstNode::MEM2REG_FL_SET_ELSE))
+				if ((memflags & AstNode::MEM2REG_FL_SET_INIT) && (memflags & AstNode::MEM2REG_FL_SET_ELSE) && this_nomeminit)
 					goto verbose_activate;
 
 				if (memflags & AstNode::MEM2REG_FL_CMPLX_LHS)
@@ -100,13 +118,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			verbose_activate:
 				if (mem2reg_set.count(mem) == 0) {
-					log("Warning: Replacing memory %s with list of registers.", mem->str.c_str());
+					std::string message = stringf("Replacing memory %s with list of registers.", mem->str.c_str());
 					bool first_element = true;
 					for (auto &place : mem2reg_places[it.first]) {
-						log("%s%s", first_element ? " See " : ", ", place.c_str());
+						message += stringf("%s%s", first_element ? " See " : ", ", place.c_str());
 						first_element = false;
 					}
-					log("\n");
+					log_warning("%s\n", message.c_str());
 				}
 
 			silent_activate:
@@ -141,6 +159,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 
 		while (simplify(const_fold, at_zero, in_lvalue, 2, width_hint, sign_hint, in_param)) { }
+		recursion_counter--;
 		return false;
 	}
 
@@ -149,11 +168,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	// we do not look inside a task or function
 	// (but as soon as a task of function is instanciated we process the generated AST as usual)
-	if (type == AST_FUNCTION || type == AST_TASK)
+	if (type == AST_FUNCTION || type == AST_TASK) {
+		recursion_counter--;
 		return false;
+	}
 
 	// deactivate all calls to non-synthesis system taks
-	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$display" || str == "$stop" || str == "$finish")) {
+	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$display" || str == "$strobe" || str == "$monitor" || str == "$time" || str == "$stop" || str == "$finish" ||
+			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
+		log_warning("Ignoring call to system %s %s at %s:%d.\n", type == AST_FCALL ? "function" : "task", str.c_str(), filename.c_str(), linenum);
 		delete_children();
 		str = std::string();
 	}
@@ -182,6 +205,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					AstNode *first_node = this_wire_scope[node->str];
 					if (!node->is_input && !node->is_output && node->is_reg && node->children.size() == 0)
 						goto wires_are_compatible;
+					if (first_node->children.size() == 0 && node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
+						AstNode *r = node->children[0];
+						if (r->range_valid && r->range_left == 0 && r->range_right == 0) {
+							delete r;
+							node->children.pop_back();
+						}
+					}
 					if (first_node->children.size() != node->children.size())
 						goto wires_are_incompatible;
 					for (size_t j = 0; j < node->children.size(); j++) {
@@ -242,6 +272,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	auto backup_current_block = current_block;
 	auto backup_current_block_child = current_block_child;
 	auto backup_current_top_block = current_top_block;
+	auto backup_current_always = current_always;
+
+	if (type == AST_ALWAYS || type == AST_INITIAL)
+		current_always = this;
 
 	int backup_width_hint = width_hint;
 	bool backup_sign_hint = sign_hint;
@@ -382,6 +416,41 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 	}
 
+	if (const_fold && type == AST_CASE)
+	{
+		while (children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) { }
+		if (children[0]->type == AST_CONSTANT && children[0]->bits_only_01()) {
+			std::vector<AstNode*> new_children;
+			new_children.push_back(children[0]);
+			for (int i = 1; i < GetSize(children); i++) {
+				AstNode *child = children[i];
+				log_assert(child->type == AST_COND);
+				for (auto v : child->children) {
+					if (v->type == AST_DEFAULT)
+						goto keep_const_cond;
+					if (v->type == AST_BLOCK)
+						continue;
+					while (v->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) { }
+					if (v->type == AST_CONSTANT && v->bits_only_01()) {
+						if (v->bits == children[0]->bits) {
+							while (i+1 < GetSize(children))
+								delete children[++i];
+							goto keep_const_cond;
+						}
+						continue;
+					}
+					goto keep_const_cond;
+				}
+				if (0)
+			keep_const_cond:
+					new_children.push_back(child);
+				else
+					delete child;
+			}
+			new_children.swap(children);
+		}
+	}
+
 	// simplify all children first
 	// (iterate by index as e.g. auto wires can add new children in the process)
 	for (size_t i = 0; i < children.size(); i++) {
@@ -446,6 +515,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	current_block = backup_current_block;
 	current_block_child = backup_current_block_child;
 	current_top_block = backup_current_top_block;
+	current_always = backup_current_always;
 
 	for (auto it = backup_scope.begin(); it != backup_scope.end(); it++) {
 		if (it->second == NULL)
@@ -575,9 +645,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		AstNode *index_expr = nullptr;
 
-		for (int i = 0; 2*i < SIZE(id2ast->multirange_dimensions); i++)
+		for (int i = 0; 2*i < GetSize(id2ast->multirange_dimensions); i++)
 		{
-			if (SIZE(children[0]->children) < i)
+			if (GetSize(children[0]->children) < i)
 				log_error("Insufficient number of array indices for %s at %s:%d.\n", log_id(str), filename.c_str(), linenum);
 
 			AstNode *new_index_expr = children[0]->children[i]->children.at(0)->clone();
@@ -591,7 +661,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				index_expr = new AstNode(AST_ADD, new AstNode(AST_MUL, index_expr, AstNode::mkconst_int(id2ast->multirange_dimensions[2*i-1], true)), new_index_expr);
 		}
 
-		for (int i = SIZE(id2ast->multirange_dimensions)/1; i < SIZE(children[0]->children); i++)
+		for (int i = GetSize(id2ast->multirange_dimensions)/1; i < GetSize(children[0]->children); i++)
 			children.push_back(children[0]->children[i]->clone());
 
 		delete children[0];
@@ -611,7 +681,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			int width = children[1]->range_left - children[1]->range_right + 1;
 			if (children[0]->type == AST_REALVALUE) {
 				RTLIL::Const constvalue = children[0]->realAsConst(width);
-				log("Warning: converting real value %e to binary %s at %s:%d.\n",
+				log_warning("converting real value %e to binary %s at %s:%d.\n",
 						children[0]->realvalue, log_signal(constvalue), filename.c_str(), linenum);
 				delete children[0];
 				children[0] = mkconst_bits(constvalue.bits, sign_hint);
@@ -653,7 +723,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 		if (current_scope.count(str) == 0) {
-			// log("Warning: Creating auto-wire `%s' in module `%s'.\n", str.c_str(), current_ast_mod->str.c_str());
+			// log_warning("Creating auto-wire `%s' in module `%s'.\n", str.c_str(), current_ast_mod->str.c_str());
 			AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
 			auto_wire->str = str;
 			current_ast_mod->children.push_back(auto_wire);
@@ -1123,7 +1193,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 				log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n",
 						str.c_str(), filename.c_str(), linenum);
-			result_width = abs(left_at_zero_ast->integer - right_at_zero_ast->integer) + 1;
+			result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 		}
 		did_something = true;
 		newNode = new AstNode(AST_CASE, shift_expr);
@@ -1141,7 +1211,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 skip_dynamic_range_lvalue_expansion:;
 
-	if (stage > 1 && type == AST_ASSERT && current_block != NULL)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME) && current_block != NULL)
 	{
 		std::stringstream sstr;
 		sstr << "$assert$" << filename << ":" << linenum << "$" << (autoidx++);
@@ -1185,7 +1255,7 @@ skip_dynamic_range_lvalue_expansion:;
 		newNode->children.push_back(assign_check);
 		newNode->children.push_back(assign_en);
 
-		AstNode *assertnode = new AstNode(AST_ASSERT);
+		AstNode *assertnode = new AstNode(type);
 		assertnode->children.push_back(new AstNode(AST_IDENTIFIER));
 		assertnode->children.push_back(new AstNode(AST_IDENTIFIER));
 		assertnode->children[0]->str = id_check;
@@ -1196,9 +1266,8 @@ skip_dynamic_range_lvalue_expansion:;
 		goto apply_newNode;
 	}
 
-	if (stage > 1 && type == AST_ASSERT && children.size() == 1)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME) && children.size() == 1)
 	{
-		children[0] = new AstNode(AST_REDUCE_BOOL, children[0]->clone());
 		children.push_back(mkconst_int(1, false, 1));
 		did_something = true;
 	}
@@ -1222,9 +1291,13 @@ skip_dynamic_range_lvalue_expansion:;
 		sstr << "$memwr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
-		if (type == AST_ASSIGN_EQ)
-			log("Warning: Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
-					filename.c_str(), linenum);
+		if (type == AST_ASSIGN_EQ) {
+			pair<string, int> this_blocking_assignment_warn(filename, linenum);
+			if (this_blocking_assignment_warn != last_blocking_assignment_warn)
+				log_warning("Blocking assignment to memory in line %s:%d is handled like a non-blocking assignment.\n",
+						filename.c_str(), linenum);
+			last_blocking_assignment_warn = this_blocking_assignment_warn;
+		}
 
 		int mem_width, mem_size, addr_bits;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
@@ -1241,11 +1314,14 @@ skip_dynamic_range_lvalue_expansion:;
 		current_scope[wire_data->str] = wire_data;
 		while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
-		AstNode *wire_en = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
-		wire_en->str = id_en;
-		current_ast_mod->children.push_back(wire_en);
-		current_scope[wire_en->str] = wire_en;
-		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
+		AstNode *wire_en = nullptr;
+		if (current_always->type != AST_INITIAL) {
+			wire_en = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+			wire_en->str = id_en;
+			current_ast_mod->children.push_back(wire_en);
+			current_scope[wire_en->str] = wire_en;
+			while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
+		}
 
 		std::vector<RTLIL::State> x_bits_addr, x_bits_data, set_bits_en;
 		for (int i = 0; i < addr_bits; i++)
@@ -1261,13 +1337,17 @@ skip_dynamic_range_lvalue_expansion:;
 		AstNode *assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
 		assign_data->children[0]->str = id_data;
 
-		AstNode *assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
-		assign_en->children[0]->str = id_en;
+		AstNode *assign_en = nullptr;
+		if (current_always->type != AST_INITIAL) {
+			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
+			assign_en->children[0]->str = id_en;
+		}
 
 		AstNode *default_signals = new AstNode(AST_BLOCK);
 		default_signals->children.push_back(assign_addr);
 		default_signals->children.push_back(assign_data);
-		default_signals->children.push_back(assign_en);
+		if (current_always->type != AST_INITIAL)
+			default_signals->children.push_back(assign_en);
 		current_top_block->children.insert(current_top_block->children.begin(), default_signals);
 
 		assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
@@ -1282,15 +1362,16 @@ skip_dynamic_range_lvalue_expansion:;
 
 				std::vector<RTLIL::State> padding_x(offset, RTLIL::State::Sx);
 
-				for (int i = 0; i < mem_width; i++)
-					set_bits_en[i] = offset <= i && i < offset+width ? RTLIL::State::S1 : RTLIL::State::S0;
-
 				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
 						new AstNode(AST_CONCAT, mkconst_bits(padding_x, false), children[1]->clone()));
 				assign_data->children[0]->str = id_data;
 
-				assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
-				assign_en->children[0]->str = id_en;
+				if (current_always->type != AST_INITIAL) {
+					for (int i = 0; i < mem_width; i++)
+						set_bits_en[i] = offset <= i && i < offset+width ? RTLIL::State::S1 : RTLIL::State::S0;
+					assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+					assign_en->children[0]->str = id_en;
+				}
 			}
 			else
 			{
@@ -1305,16 +1386,17 @@ skip_dynamic_range_lvalue_expansion:;
 					log_error("Unsupported expression on dynamic range select on signal `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 				int width = left_at_zero_ast->integer - right_at_zero_ast->integer + 1;
 
-				for (int i = 0; i < mem_width; i++)
-					set_bits_en[i] = i < width ? RTLIL::State::S1 : RTLIL::State::S0;
-
 				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
 						new AstNode(AST_SHIFT_LEFT, children[1]->clone(), offset_ast->clone()));
 				assign_data->children[0]->str = id_data;
 
-				assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
-						new AstNode(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
-				assign_en->children[0]->str = id_en;
+				if (current_always->type != AST_INITIAL) {
+					for (int i = 0; i < mem_width; i++)
+						set_bits_en[i] = i < width ? RTLIL::State::S1 : RTLIL::State::S0;
+					assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
+							new AstNode(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
+					assign_en->children[0]->str = id_en;
+				}
 
 				delete left_at_zero_ast;
 				delete right_at_zero_ast;
@@ -1326,23 +1408,29 @@ skip_dynamic_range_lvalue_expansion:;
 			assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[1]->clone());
 			assign_data->children[0]->str = id_data;
 
-			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
-			assign_en->children[0]->str = id_en;
+			if (current_always->type != AST_INITIAL) {
+				assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+				assign_en->children[0]->str = id_en;
+			}
 		}
 
 		newNode = new AstNode(AST_BLOCK);
 		newNode->children.push_back(assign_addr);
 		newNode->children.push_back(assign_data);
-		newNode->children.push_back(assign_en);
+		if (current_always->type != AST_INITIAL)
+			newNode->children.push_back(assign_en);
 
-		AstNode *wrnode = new AstNode(AST_MEMWR);
+		AstNode *wrnode = new AstNode(current_always->type == AST_INITIAL ? AST_MEMINIT : AST_MEMWR);
 		wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
 		wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
-		wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
+		if (current_always->type != AST_INITIAL)
+			wrnode->children.push_back(new AstNode(AST_IDENTIFIER));
 		wrnode->str = children[0]->str;
+		wrnode->id2ast = children[0]->id2ast;
 		wrnode->children[0]->str = id_addr;
 		wrnode->children[1]->str = id_data;
-		wrnode->children[2]->str = id_en;
+		if (current_always->type != AST_INITIAL)
+			wrnode->children[2]->str = id_en;
 		current_ast_mod->children.push_back(wrnode);
 
 		goto apply_newNode;
@@ -1366,7 +1454,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 				RTLIL::Const arg_value = buf->bitsAsConst();
 				if (arg_value.as_bool())
-					arg_value = const_sub(arg_value, 1, false, false, SIZE(arg_value));
+					arg_value = const_sub(arg_value, 1, false, false, GetSize(arg_value));
 				delete buf;
 
 				uint32_t result = 0;
@@ -1455,9 +1543,9 @@ skip_dynamic_range_lvalue_expansion:;
 				rtype = RTLIL::unescape_id(dpi_decl->children.at(0)->str);
 				fname = RTLIL::unescape_id(dpi_decl->children.at(1)->str);
 
-				for (int i = 2; i < SIZE(dpi_decl->children); i++)
+				for (int i = 2; i < GetSize(dpi_decl->children); i++)
 				{
-					if (i-2 >= SIZE(children))
+					if (i-2 >= GetSize(children))
 						log_error("Insufficient number of arguments in DPI function call at %s:%d.\n", filename.c_str(), linenum);
 
 					argtypes.push_back(RTLIL::unescape_id(dpi_decl->children.at(i)->str));
@@ -1480,6 +1568,44 @@ skip_dynamic_range_lvalue_expansion:;
 				log_error("Can't resolve function name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
 		if (type == AST_TCALL) {
+			if (str == "\\$readmemh" || str == "\\$readmemb")
+			{
+				if (GetSize(children) < 2 || GetSize(children) > 4)
+					log_error("System function %s got %d arguments, expected 2-4 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
+
+				AstNode *node_filename = children[0]->clone();
+				while (node_filename->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+				if (node_filename->type != AST_CONSTANT)
+					log_error("Failed to evaluate system function `%s' with non-constant 1st argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+
+				AstNode *node_memory = children[1]->clone();
+				while (node_memory->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+				if (node_memory->type != AST_IDENTIFIER || node_memory->id2ast == nullptr || node_memory->id2ast->type != AST_MEMORY)
+					log_error("Failed to evaluate system function `%s' with non-memory 2nd argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+
+				int start_addr = -1, finish_addr = -1;
+
+				if (GetSize(children) > 2) {
+					AstNode *node_addr = children[2]->clone();
+					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (node_addr->type != AST_CONSTANT)
+						log_error("Failed to evaluate system function `%s' with non-constant 3rd argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					start_addr = node_addr->asInt(false);
+				}
+
+				if (GetSize(children) > 3) {
+					AstNode *node_addr = children[3]->clone();
+					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (node_addr->type != AST_CONSTANT)
+						log_error("Failed to evaluate system function `%s' with non-constant 4th argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					finish_addr = node_addr->asInt(false);
+				}
+
+				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr);
+				goto apply_newNode;
+			}
+
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_TASK)
 				log_error("Can't resolve task name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
@@ -1558,7 +1684,7 @@ skip_dynamic_range_lvalue_expansion:;
 				celltype = RTLIL::escape_id(celltype);
 
 			AstNode *cell = new AstNode(AST_CELL, new AstNode(AST_CELLTYPE));
-			cell->str = prefix.substr(0, SIZE(prefix)-1);
+			cell->str = prefix.substr(0, GetSize(prefix)-1);
 			cell->children[0]->str = celltype;
 
 			for (auto attr : decl->attributes)
@@ -1681,7 +1807,7 @@ skip_dynamic_range_lvalue_expansion:;
 						bool param_upto = current_scope[str]->range_valid && current_scope[str]->range_swapped;
 						int param_offset = current_scope[str]->range_valid ? current_scope[str]->range_right : 0;
 						int param_width = current_scope[str]->range_valid ? current_scope[str]->range_left - current_scope[str]->range_right + 1 :
-								SIZE(current_scope[str]->children[0]->bits);
+								GetSize(current_scope[str]->children[0]->bits);
 						int tmp_range_left = children[0]->range_left, tmp_range_right = children[0]->range_right;
 						if (param_upto) {
 							tmp_range_left = (param_width + 2*param_offset) - children[0]->range_right - 1;
@@ -1843,37 +1969,6 @@ skip_dynamic_range_lvalue_expansion:;
 					newNode->realvalue = -children[0]->asReal(sign_hint);
 			}
 			break;
-		case AST_CASE:
-			if (children[0]->type == AST_CONSTANT && children[0]->bits_only_01()) {
-				std::vector<AstNode*> new_children;
-				new_children.push_back(children[0]);
-				for (int i = 1; i < SIZE(children); i++) {
-					AstNode *child = children[i];
-					log_assert(child->type == AST_COND);
-					for (auto v : child->children) {
-						if (v->type == AST_DEFAULT)
-							goto keep_const_cond;
-						if (v->type == AST_BLOCK)
-							continue;
-						if (v->type == AST_CONSTANT && v->bits_only_01()) {
-							if (v->bits == children[0]->bits) {
-								while (i+1 < SIZE(children))
-									delete children[++i];
-								goto keep_const_cond;
-							}
-							continue;
-						}
-						goto keep_const_cond;
-					}
-					if (0)
-				keep_const_cond:
-						new_children.push_back(child);
-					else
-						delete child;
-				}
-				new_children.swap(children);
-			}
-			break;
 		case AST_TERNARY:
 			if (children[0]->isConst())
 			{
@@ -1977,6 +2072,7 @@ apply_newNode:
 	if (!did_something)
 		basic_prep = true;
 
+	recursion_counter--;
 	return did_something;
 }
 
@@ -1986,6 +2082,83 @@ static void replace_result_wire_name_in_function(AstNode *node, std::string &fro
 		replace_result_wire_name_in_function(it, from, to);
 	if (node->str == from)
 		node->str = to;
+}
+
+// replace a readmem[bh] TCALL ast node with a block of memory assignments
+AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr)
+{
+	AstNode *block = new AstNode(AST_BLOCK);
+
+	std::ifstream f;
+	f.open(mem_filename.c_str());
+
+	if (f.fail())
+		log_error("Can not open file `%s` for %s at %s:%d.\n", mem_filename.c_str(), str.c_str(), filename.c_str(), linenum);
+
+	log_assert(GetSize(memory->children) == 2 && memory->children[1]->type == AST_RANGE && memory->children[1]->range_valid);
+	int range_left =  memory->children[1]->range_left, range_right =  memory->children[1]->range_right;
+	int range_min = std::min(range_left, range_right), range_max = std::max(range_left, range_right);
+
+	if (start_addr < 0)
+		start_addr = range_min;
+
+	if (finish_addr < 0)
+		finish_addr = range_max;
+
+	bool in_comment = false;
+	int increment = start_addr <= finish_addr ? +1 : -1;
+	int cursor = start_addr;
+
+	while (!f.eof())
+	{
+		std::string line, token;
+		std::getline(f, line);
+
+		for (int i = 0; i < GetSize(line); i++) {
+			if (in_comment && line.substr(i, 2) == "*/") {
+				line[i] = ' ';
+				line[i+1] = ' ';
+				in_comment = false;
+				continue;
+			}
+			if (!in_comment && line.substr(i, 2) == "/*")
+				in_comment = true;
+			if (in_comment)
+				line[i] = ' ';
+		}
+
+		while (1)
+		{
+			token = next_token(line, " \t\r\n");
+			if (token.empty() || token.substr(0, 2) == "//")
+				break;
+
+			if (token[0] == '@') {
+				token = token.substr(1);
+				const char *nptr = token.c_str();
+				char *endptr;
+				cursor = strtol(nptr, &endptr, 16);
+				if (!*nptr || *endptr)
+					log_error("Can not parse address `%s` for %s at %s:%d.\n", nptr, str.c_str(), filename.c_str(), linenum);
+				continue;
+			}
+
+			AstNode *value = VERILOG_FRONTEND::const2ast((is_readmemh ? "'h" : "'b") + token);
+
+			block->children.push_back(new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER, new AstNode(AST_RANGE, AstNode::mkconst_int(cursor, false))), value));
+			block->children.back()->children[0]->str = memory->str;
+			block->children.back()->children[0]->id2ast = memory;
+
+			if ((cursor == finish_addr) || (increment > 0 && cursor >= range_max) || (increment < 0 && cursor <= range_min))
+				break;
+			cursor += increment;
+		}
+
+		if ((cursor == finish_addr) || (increment > 0 && cursor >= range_max) || (increment < 0 && cursor <= range_min))
+			break;
+	}
+
+	return block;
 }
 
 // annotate the names of all wires and other named objects in a generate block
@@ -2063,8 +2236,8 @@ void AstNode::replace_ids(const std::string &prefix, const std::map<std::string,
 }
 
 // helper function for mem2reg_as_needed_pass1
-static void mark_memories_assign_lhs_complex(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
-		std::map<AstNode*, uint32_t> &mem2reg_candidates, AstNode *that)
+static void mark_memories_assign_lhs_complex(dict<AstNode*, pool<std::string>> &mem2reg_places,
+		dict<AstNode*, uint32_t> &mem2reg_candidates, AstNode *that)
 {
 	for (auto &child : that->children)
 		mark_memories_assign_lhs_complex(mem2reg_places, mem2reg_candidates, child);
@@ -2078,8 +2251,8 @@ static void mark_memories_assign_lhs_complex(std::map<AstNode*, std::set<std::st
 }
 
 // find memories that should be replaced by registers
-void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> &mem2reg_places,
-		std::map<AstNode*, uint32_t> &mem2reg_candidates, std::map<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
+void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg_places,
+		dict<AstNode*, uint32_t> &mem2reg_candidates, dict<AstNode*, uint32_t> &proc_flags, uint32_t &flags)
 {
 	uint32_t children_flags = 0;
 	int ignore_children_counter = 0;
@@ -2141,7 +2314,7 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 	if (type == AST_MODULE && get_bool_attribute("\\mem2reg"))
 		children_flags |= AstNode::MEM2REG_FL_ALL;
 
-	std::map<AstNode*, uint32_t> *proc_flags_p = NULL;
+	dict<AstNode*, uint32_t> *proc_flags_p = NULL;
 
 	if (type == AST_ALWAYS) {
 		int count_edge_events = 0;
@@ -2150,12 +2323,12 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 				count_edge_events++;
 		if (count_edge_events != 1)
 			children_flags |= AstNode::MEM2REG_FL_ASYNC;
-		proc_flags_p = new std::map<AstNode*, uint32_t>;
+		proc_flags_p = new dict<AstNode*, uint32_t>;
 	}
 
 	if (type == AST_INITIAL) {
 		children_flags |= AstNode::MEM2REG_FL_INIT;
-		proc_flags_p = new std::map<AstNode*, uint32_t>;
+		proc_flags_p = new dict<AstNode*, uint32_t>;
 	}
 
 	uint32_t backup_flags = flags;
@@ -2173,20 +2346,33 @@ void AstNode::mem2reg_as_needed_pass1(std::map<AstNode*, std::set<std::string>> 
 	flags &= ~children_flags | backup_flags;
 
 	if (proc_flags_p) {
+#ifndef NDEBUG
 		for (auto it : *proc_flags_p)
 			log_assert((it.second & ~0xff000000) == 0);
+#endif
 		delete proc_flags_p;
 	}
 }
 
+bool AstNode::mem2reg_check(pool<AstNode*> &mem2reg_set)
+{
+	if (type != AST_IDENTIFIER || !id2ast || !mem2reg_set.count(id2ast))
+		return false;
+
+	if (children.empty() || children[0]->type != AST_RANGE || GetSize(children[0]->children) != 1)
+		log_error("Invalid array access at %s:%d.\n", filename.c_str(), linenum);
+
+	return true;
+}
+
 // actually replace memories with registers
-void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
+void AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
 {
 	if (type == AST_BLOCK)
 		block = this;
 
-	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && block != NULL && children[0]->id2ast &&
-			mem2reg_set.count(children[0]->id2ast) > 0 && children[0]->children[0]->children[0]->type != AST_CONSTANT)
+	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && block != NULL &&
+			children[0]->mem2reg_check(mem2reg_set) && children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
 		sstr << "$mem2reg_wr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
@@ -2242,7 +2428,7 @@ void AstNode::mem2reg_as_needed_pass2(std::set<AstNode*> &mem2reg_set, AstNode *
 		type = AST_ASSIGN_EQ;
 	}
 
-	if (type == AST_IDENTIFIER && id2ast && mem2reg_set.count(id2ast) > 0)
+	if (mem2reg_check(mem2reg_set))
 	{
 		AstNode *bit_part_sel = NULL;
 		if (children.size() == 2)
@@ -2446,7 +2632,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 	}
 
 	log_assert(block != NULL);
-	log_assert(variables.count(str));
+	log_assert(variables.count(str) != 0);
 
 	while (!block->children.empty())
 	{

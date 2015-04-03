@@ -11,9 +11,17 @@
 /qtcreator.creator.user
 /Makefile.conf
 /abc
+/viz.js
 /yosys
+/yosys.exe
+/yosys.js
 /yosys-abc
+/yosys-abc.exe
 /yosys-config
 /yosys-filterlib
+/yosys-filterlib.exe
 /kernel/version_*.cc
 /share
+/yosys-win32-mxebin-*
+/yosys-win32-vcxsrc-*
+/yosysjs-*

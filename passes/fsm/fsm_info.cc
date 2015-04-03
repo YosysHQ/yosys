@@ -25,6 +25,9 @@
 #include "fsmdata.h"
 #include <string.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct FsmInfoPass : public Pass {
 	FsmInfoPass() : Pass("fsm_info", "print information on finite state machines") { }
 	virtual void help()
@@ -56,3 +59,4 @@ struct FsmInfoPass : public Pass {
 	}
 } FsmInfoPass;
  
+PRIVATE_NAMESPACE_END

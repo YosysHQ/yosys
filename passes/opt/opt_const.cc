@@ -26,9 +26,12 @@
 #include <stdio.h>
 #include <algorithm>
 
-static bool did_something;
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
-static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
+bool did_something;
+
+void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 {
 	CellTypes ct(design);
 	SigMap sigmap(module);
@@ -70,7 +73,7 @@ static void replace_undriven(RTLIL::Design *design, RTLIL::Module *module)
 	}
 }
 
-static void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
+void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, std::string info, std::string out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->getPort(out_port);
 	out_val.extend_u0(Y.size(), false);
@@ -85,7 +88,7 @@ static void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell 
 	did_something = true;
 }
 
-static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap)
+bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap)
 {
 	std::string b_name = cell->hasPort("\\B") ? "\\B" : "\\A";
 
@@ -104,7 +107,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	enum { GRP_DYN, GRP_CONST_A, GRP_CONST_B, GRP_CONST_AB, GRP_N };
 	std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, std::set<RTLIL::SigBit>> grouped_bits[GRP_N];
 
-	for (int i = 0; i < SIZE(bits_y); i++)
+	for (int i = 0; i < GetSize(bits_y); i++)
 	{
 		int group_idx = GRP_DYN;
 		RTLIL::SigBit bit_a = bits_a[i], bit_b = bits_b[i];
@@ -128,7 +131,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	}
 
 	for (int i = 0; i < GRP_N; i++)
-		if (SIZE(grouped_bits[i]) == SIZE(bits_y))
+		if (GetSize(grouped_bits[i]) == GetSize(bits_y))
 			return false;
 
 	log("Replacing %s cell `%s' in module `%s' with cells using grouped bits:\n",
@@ -139,7 +142,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 		if (grouped_bits[i].empty())
 			continue;
 
-		RTLIL::Wire *new_y = module->addWire(NEW_ID, SIZE(grouped_bits[i]));
+		RTLIL::Wire *new_y = module->addWire(NEW_ID, GetSize(grouped_bits[i]));
 		RTLIL::SigSpec new_a, new_b;
 		RTLIL::SigSig new_conn;
 
@@ -183,7 +186,7 @@ static bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool com
 	return true;
 }
 
-static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc)
 {
 	if (!design->selected(module))
 		return;
@@ -193,11 +196,11 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 	ct_combinational.setup_stdcells();
 
 	SigMap assign_map(module);
-	std::map<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
-	TopoSort<RTLIL::Cell*> cells;
-	std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
-	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
+	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
+	dict<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
+	dict<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
 
 	for (auto cell : module->cells())
 		if (design->selected(module, cell) && cell->type[0] == '$') {
@@ -483,12 +486,12 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 			RTLIL::SigSpec new_a, new_b;
 
-			log_assert(SIZE(a) == SIZE(b));
-			for (int i = 0; i < SIZE(a); i++) {
+			log_assert(GetSize(a) == GetSize(b));
+			for (int i = 0; i < GetSize(a); i++) {
 				if (a[i].wire == NULL && b[i].wire == NULL && a[i] != b[i] && a[i].data <= RTLIL::State::S1 && b[i].data <= RTLIL::State::S1) {
 					cover_list("opt.opt_const.eqneq.isneq", "$eq", "$ne", "$eqx", "$nex", cell->type.str());
 					RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S0 : RTLIL::State::S1);
-					new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
+					new_y.extend_u0(cell->parameters["\\Y_WIDTH"].as_int(), false);
 					replace_cell(assign_map, module, cell, "isneq", "\\Y", new_y);
 					goto next_cell;
 				}
@@ -501,7 +504,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			if (new_a.size() == 0) {
 				cover_list("opt.opt_const.eqneq.empty", "$eq", "$ne", "$eqx", "$nex", cell->type.str());
 				RTLIL::SigSpec new_y = RTLIL::SigSpec((cell->type == "$eq" || cell->type == "$eqx") ?  RTLIL::State::S1 : RTLIL::State::S0);
-				new_y.extend(cell->parameters["\\Y_WIDTH"].as_int(), false);
+				new_y.extend_u0(cell->parameters["\\Y_WIDTH"].as_int(), false);
 				replace_cell(assign_map, module, cell, "empty", "\\Y", new_y);
 				goto next_cell;
 			}
@@ -521,11 +524,11 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			RTLIL::SigSpec a = assign_map(cell->getPort("\\A"));
 			RTLIL::SigSpec b = assign_map(cell->getPort("\\B"));
 
-			if (a.is_fully_const()) {
+			if (a.is_fully_const() && !b.is_fully_const()) {
 				cover_list("opt.opt_const.eqneq.swapconst", "$eq", "$ne", cell->type.str());
-				RTLIL::SigSpec tmp = cell->getPort("\\A");
-				cell->setPort("\\A", cell->getPort("\\B"));
-				cell->setPort("\\B", tmp);
+				cell->setPort("\\A", b);
+				cell->setPort("\\B", a);
+				std::swap(a, b);
 			}
 
 			if (b.is_fully_const()) {
@@ -556,15 +559,15 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
 			RTLIL::SigSpec sig_y(cell->type == "$shiftx" ? RTLIL::State::Sx : RTLIL::State::S0, cell->getParam("\\Y_WIDTH").as_int());
 
-			if (SIZE(sig_a) < SIZE(sig_y))
-				sig_a.extend(SIZE(sig_y), cell->getParam("\\A_SIGNED").as_bool());
+			if (GetSize(sig_a) < GetSize(sig_y))
+				sig_a.extend_u0(GetSize(sig_y), cell->getParam("\\A_SIGNED").as_bool());
 
-			for (int i = 0; i < SIZE(sig_y); i++) {
+			for (int i = 0; i < GetSize(sig_y); i++) {
 				int idx = i + shift_bits;
-				if (0 <= idx && idx < SIZE(sig_a))
+				if (0 <= idx && idx < GetSize(sig_a))
 					sig_y[i] = sig_a[idx];
-				else if (SIZE(sig_a) <= idx && sign_ext)
-					sig_y[i] = sig_a[SIZE(sig_a)-1];
+				else if (GetSize(sig_a) <= idx && sign_ext)
+					sig_y[i] = sig_a[GetSize(sig_a)-1];
 			}
 
 			cover_list("opt.opt_const.constshift", "$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx", cell->type.str());
@@ -666,8 +669,9 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			cell->unsetPort("\\B");
 			cell->unsetPort("\\S");
 			if (cell->type == "$mux") {
-				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
-				cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
+				Const width = cell->parameters["\\WIDTH"];
+				cell->parameters["\\A_WIDTH"] = width;
+				cell->parameters["\\Y_WIDTH"] = width;
 				cell->parameters["\\A_SIGNED"] = 0;
 				cell->parameters.erase("\\WIDTH");
 				cell->type = "$not";
@@ -683,9 +687,10 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			cell->setPort("\\A", cell->getPort("\\S"));
 			cell->unsetPort("\\S");
 			if (cell->type == "$mux") {
-				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
-				cell->parameters["\\B_WIDTH"] = cell->parameters["\\WIDTH"];
-				cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
+				Const width = cell->parameters["\\WIDTH"];
+				cell->parameters["\\A_WIDTH"] = width;
+				cell->parameters["\\B_WIDTH"] = width;
+				cell->parameters["\\Y_WIDTH"] = width;
 				cell->parameters["\\A_SIGNED"] = 0;
 				cell->parameters["\\B_SIGNED"] = 0;
 				cell->parameters.erase("\\WIDTH");
@@ -702,9 +707,10 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			cell->setPort("\\B", cell->getPort("\\S"));
 			cell->unsetPort("\\S");
 			if (cell->type == "$mux") {
-				cell->parameters["\\A_WIDTH"] = cell->parameters["\\WIDTH"];
-				cell->parameters["\\B_WIDTH"] = cell->parameters["\\WIDTH"];
-				cell->parameters["\\Y_WIDTH"] = cell->parameters["\\WIDTH"];
+				Const width = cell->parameters["\\WIDTH"];
+				cell->parameters["\\A_WIDTH"] = width;
+				cell->parameters["\\B_WIDTH"] = width;
+				cell->parameters["\\Y_WIDTH"] = width;
 				cell->parameters["\\A_SIGNED"] = 0;
 				cell->parameters["\\B_SIGNED"] = 0;
 				cell->parameters.erase("\\WIDTH");
@@ -751,7 +757,7 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 			if (cell->getPort("\\S").size() != new_s.size()) {
 				cover_list("opt.opt_const.mux_reduce", "$mux", "$pmux", cell->type.str());
 				log("Optimized away %d select inputs of %s cell `%s' in module `%s'.\n",
-						SIZE(cell->getPort("\\S")) - SIZE(new_s), log_id(cell->type), log_id(cell), log_id(module));
+						GetSize(cell->getPort("\\S")) - GetSize(new_s), log_id(cell->type), log_id(cell), log_id(module));
 				cell->setPort("\\A", new_a);
 				cell->setPort("\\B", new_b);
 				cell->setPort("\\S", new_s);
@@ -891,17 +897,17 @@ static void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bo
 
 						if (!swapped_ab) {
 							cell->setPort("\\A", cell->getPort("\\B"));
-							cell->parameters["\\A_WIDTH"] = cell->parameters["\\B_WIDTH"];
-							cell->parameters["\\A_SIGNED"] = cell->parameters["\\B_SIGNED"];
+							cell->parameters.at("\\A_WIDTH") = cell->parameters.at("\\B_WIDTH");
+							cell->parameters.at("\\A_SIGNED") = cell->parameters.at("\\B_SIGNED");
 						}
 
 						std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(i, 6);
 
-						while (SIZE(new_b) > 1 && new_b.back() == RTLIL::State::S0)
+						while (GetSize(new_b) > 1 && new_b.back() == RTLIL::State::S0)
 							new_b.pop_back();
 
 						cell->type = "$shl";
-						cell->parameters["\\B_WIDTH"] = SIZE(new_b);
+						cell->parameters["\\B_WIDTH"] = GetSize(new_b);
 						cell->parameters["\\B_SIGNED"] = false;
 						cell->setPort("\\B", new_b);
 						cell->check();
@@ -939,14 +945,17 @@ struct OptConstPass : public Pass {
 		log("    -undriven\n");
 		log("        replace undriven nets with undef (x) constants\n");
 		log("\n");
+		log("    -fine\n");
+		log("        perform fine-grain optimizations\n");
+		log("\n");
+		log("    -full\n");
+		log("        alias for -mux_undef -mux_bool -undriven -fine\n");
+		log("\n");
 		log("    -keepdc\n");
 		log("        some optimizations change the behavior of the circuit with respect to\n");
 		log("        don't-care bits. for example in 'a+0' a single x-bit in 'a' will cause\n");
 		log("        all result bits to be set to x. this behavior changes when 'a+0' is\n");
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
-		log("\n");
-		log("    -fine\n");
-		log("        perform fine-grain optimizations\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -978,6 +987,13 @@ struct OptConstPass : public Pass {
 				do_fine = true;
 				continue;
 			}
+			if (args[argidx] == "-full") {
+				mux_undef = true;
+				mux_bool = true;
+				undriven = true;
+				do_fine = true;
+				continue;
+			}
 			if (args[argidx] == "-keepdc") {
 				keepdc = true;
 				continue;
@@ -986,7 +1002,7 @@ struct OptConstPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->modules())
+		for (auto module : design->selected_modules())
 		{
 			if (undriven)
 				replace_undriven(design, module);
@@ -1006,3 +1022,4 @@ struct OptConstPass : public Pass {
 	}
 } OptConstPass;
 
+PRIVATE_NAMESPACE_END

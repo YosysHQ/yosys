@@ -80,8 +80,8 @@ for my $net (sort keys %gold_signals_hash) {
 	for my $fullname (keys $gate_signals_hash{$net}) {
 		$orig_net_names{$fullname} = 1;
 	}
-	for my $_ (sort keys %orig_net_names) {
-		push @signals, $_;
+	for my $net (sort keys %orig_net_names) {
+		push @signals, $net;
 		print " $1" if /(\[([0-9]+|[0-9]+:[0-9]+)\])$/;
 	}
 	print "\n";

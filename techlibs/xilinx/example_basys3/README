@@ -1,0 +1,16 @@
+
+A simple example design, based on the Digilent BASYS3 board
+===========================================================
+
+Running Yosys:
+  yosys run_yosys.ys
+
+Running Vivado:
+  vivado -nolog -nojournal -mode batch -source run_vivado.tcl
+
+Programming board:
+  vivado -nolog -nojournal -mode batch -source run_prog.tcl
+
+All of the above:
+  bash run.sh
+

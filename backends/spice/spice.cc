@@ -24,6 +24,9 @@
 #include "kernel/log.h"
 #include <string>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
 {
 	if (s.wire) {
@@ -55,7 +58,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 
 		if (design->modules_.count(cell->type) == 0)
 		{
-			log("Warning: no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
+			log_warning("no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
 					RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name));
 			for (auto &conn : cell->connections()) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
@@ -81,7 +84,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 				RTLIL::SigSpec sig(RTLIL::State::Sz, wire->width);
 				if (cell->hasPort(wire->name)) {
 					sig = sigmap(cell->getPort(wire->name));
-					sig.extend(wire->width, false);
+					sig.extend_u0(wire->width, false);
 				}
 				port_sigs.push_back(sig);
 			}
@@ -231,3 +234,4 @@ struct SpiceBackend : public Backend {
 	}
 } SpiceBackend;
 
+PRIVATE_NAMESPACE_END

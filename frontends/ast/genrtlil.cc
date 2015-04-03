@@ -73,7 +73,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, std::string type, int result_wi
 static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_signed)
 {
 	if (width <= sig.size()) {
-		sig.extend(width, is_signed);
+		sig.extend_u0(width, is_signed);
 		return;
 	}
 
@@ -254,7 +254,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		// create initial assignments for the temporary signals
 		if ((flag_nolatches || always->get_bool_attribute("\\nolatches") || current_module->get_bool_attribute("\\nolatches")) && !found_clocked_sync) {
-			subst_rvalue_map = subst_lvalue_from.to_sigbit_map(RTLIL::SigSpec(RTLIL::State::Sx, SIZE(subst_lvalue_from)));
+			subst_rvalue_map = subst_lvalue_from.to_sigbit_dict(RTLIL::SigSpec(RTLIL::State::Sx, GetSize(subst_lvalue_from)));
 		} else {
 			addChunkActions(current_case->actions, subst_lvalue_to, subst_lvalue_from);
 		}
@@ -289,8 +289,8 @@ struct AST_INTERNAL::ProcessGenerator
 	{
 		RTLIL::SigSpec new_lhs, new_rhs;
 
-		log_assert(SIZE(lhs) == SIZE(rhs));
-		for (int i = 0; i < SIZE(lhs); i++) {
+		log_assert(GetSize(lhs) == GetSize(rhs));
+		for (int i = 0; i < GetSize(lhs); i++) {
 			if (lhs[i].wire == nullptr)
 				continue;
 			new_lhs.append(lhs[i]);
@@ -306,7 +306,7 @@ struct AST_INTERNAL::ProcessGenerator
 	{
 		std::vector<RTLIL::SigChunk> chunks = sig.chunks();
 
-		for (int i = 0; i < SIZE(chunks); i++)
+		for (int i = 0; i < GetSize(chunks); i++)
 		{
 			RTLIL::SigChunk &chunk = chunks[i];
 			if (chunk.wire == NULL)
@@ -430,7 +430,7 @@ struct AST_INTERNAL::ProcessGenerator
 				lvalue.replace(subst_lvalue_map.stdmap());
 
 				if (ast->type == AST_ASSIGN_EQ) {
-					for (int i = 0; i < SIZE(unmapped_lvalue); i++)
+					for (int i = 0; i < GetSize(unmapped_lvalue); i++)
 						subst_rvalue_map.set(unmapped_lvalue[i], rvalue[i]);
 				}
 
@@ -472,7 +472,7 @@ struct AST_INTERNAL::ProcessGenerator
 					subst_lvalue_map.save();
 					subst_rvalue_map.save();
 
-					for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
+					for (int i = 0; i < GetSize(this_case_eq_lvalue); i++)
 						subst_lvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 					RTLIL::CaseRule *backup_case = current_case;
@@ -507,7 +507,7 @@ struct AST_INTERNAL::ProcessGenerator
 					sw->cases.push_back(default_case);
 				}
 
-				for (int i = 0; i < SIZE(this_case_eq_lvalue); i++)
+				for (int i = 0; i < GetSize(this_case_eq_lvalue); i++)
 					subst_rvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 				this_case_eq_lvalue.replace(subst_lvalue_map.stdmap());
@@ -567,9 +567,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
 			} else
-			if (id_ast->children[0]->type == AST_CONSTANT) {
+			if (id_ast->children[0]->type != AST_CONSTANT)
+				while (id_ast->simplify(true, false, false, 1, -1, false, true)) { }
+			if (id_ast->children[0]->type == AST_CONSTANT)
 				this_width = id_ast->children[0]->bits.size();
-			} else
+			else
 				log_error("Failed to detect width for parameter %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 			if (children.size() != 0)
 				range = children[0];
@@ -839,13 +841,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			memory->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 			memory->name = str;
 			memory->width = children[0]->range_left - children[0]->range_right + 1;
-			memory->start_offset = children[0]->range_right;
-			memory->size = children[1]->range_left - children[1]->range_right;
+			if (children[1]->range_right < children[1]->range_left) {
+				memory->start_offset = children[1]->range_right;
+				memory->size = children[1]->range_left - children[1]->range_right + 1;
+			} else {
+				memory->start_offset = children[1]->range_left;
+				memory->size = children[1]->range_right - children[1]->range_left + 1;
+			}
 			current_module->memories[memory->name] = memory;
-
-			if (memory->size < 0)
-				memory->size *= -1;
-			memory->size += std::min(children[1]->range_left, children[1]->range_right) + 1;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
@@ -869,7 +872,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_REALVALUE:
 		{
 			RTLIL::SigSpec sig = realAsConst(width_hint);
-			log("Warning: converting real value %e to binary %s at %s:%d.\n",
+			log_warning("converting real value %e to binary %s at %s:%d.\n",
 					realvalue, log_signal(sig), filename.c_str(), linenum);
 			return sig;
 		}
@@ -890,7 +893,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				wire->name = str;
 				if (flag_autowire)
-					log("Warning: Identifier `%s' is implicitly declared at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					log_warning("Identifier `%s' is implicitly declared at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 				else
 					log_error("Identifier `%s' is implicitly declared at %s:%d and `default_nettype is set to none.\n", str.c_str(), filename.c_str(), linenum);
 			}
@@ -941,7 +944,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast->children[1]->is_signed);
 						fake_ast->children[1]->is_signed = true;
 					}
-					if (SIZE(shift_val) >= 32)
+					if (GetSize(shift_val) >= 32)
 						fake_ast->children[1]->is_signed = true;
 					RTLIL::SigSpec sig = binop2rtlil(fake_ast, "$shiftx", width, fake_ast->children[0]->genRTLIL(), shift_val);
 					delete left_at_zero_ast;
@@ -955,10 +958,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						chunk.offset = (id2ast->range_left - id2ast->range_right + 1) - (chunk.offset + chunk.width);
 					if (chunk.offset >= source_width || chunk.offset + chunk.width < 0) {
 						if (chunk.width == 1)
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting result bit to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting result bit to undef.\n",
 									str.c_str(), filename.c_str(), linenum);
 						else
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting all %d result bits to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting all %d result bits to undef.\n",
 									str.c_str(), filename.c_str(), linenum, chunk.width);
 						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
 					} else {
@@ -972,10 +975,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							chunk.offset += add_undef_bits_lsb;
 						}
 						if (add_undef_bits_lsb)
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting %d LSB bits to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting %d LSB bits to undef.\n",
 									str.c_str(), filename.c_str(), linenum, add_undef_bits_lsb);
 						if (add_undef_bits_msb)
-							log("Warning: Range select out of bounds on signal `%s' at %s:%d: Setting %d MSB bits to undef.\n",
+							log_warning("Range select out of bounds on signal `%s' at %s:%d: Setting %d MSB bits to undef.\n",
 									str.c_str(), filename.c_str(), linenum, add_undef_bits_msb);
 					}
 				}
@@ -1213,9 +1216,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_DATA", current_module->memories[str]->width);
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
-			int addr_bits = 1;
-			while ((1 << addr_bits) < current_module->memories[str]->size)
-				addr_bits++;
+			int mem_width, mem_size, addr_bits;
+			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 			cell->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
 			cell->setPort("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
@@ -1234,28 +1236,30 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// generate $memwr cells for memory write ports
 	case AST_MEMWR:
+	case AST_MEMINIT:
 		{
 			std::stringstream sstr;
-			sstr << "$memwr$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
+			sstr << (type == AST_MEMWR ? "$memwr$" : "$meminit$") << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$memwr");
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), type == AST_MEMWR ? "$memwr" : "$meminit");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
-			int addr_bits = 1;
-			while ((1 << addr_bits) < current_module->memories[str]->size)
-				addr_bits++;
+			int mem_width, mem_size, addr_bits;
+			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
-			cell->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
 			cell->setPort("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
 			cell->setPort("\\DATA", children[1]->genWidthRTLIL(current_module->memories[str]->width));
-			cell->setPort("\\EN", children[2]->genRTLIL());
 
 			cell->parameters["\\MEMID"] = RTLIL::Const(str);
 			cell->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
 			cell->parameters["\\WIDTH"] = RTLIL::Const(current_module->memories[str]->width);
 
-			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(0);
-			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
+			if (type == AST_MEMWR) {
+				cell->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
+				cell->setPort("\\EN", children[2]->genRTLIL());
+				cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(0);
+				cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(0);
+			}
 
 			cell->parameters["\\PRIORITY"] = RTLIL::Const(autoidx-1);
 		}
@@ -1263,19 +1267,22 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// generate $assert cells
 	case AST_ASSERT:
+	case AST_ASSUME:
 		{
 			log_assert(children.size() == 2);
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
-			log_assert(check.size() == 1);
+			if (GetSize(check) != 1)
+				check = current_module->ReduceBool(NEW_ID, check);
 
 			RTLIL::SigSpec en = children[1]->genRTLIL();
-			log_assert(en.size() == 1);
+			if (GetSize(en) != 1)
+				en = current_module->ReduceBool(NEW_ID, en);
 
 			std::stringstream sstr;
-			sstr << "$assert$" << filename << ":" << linenum << "$" << (autoidx++);
+			sstr << (type == AST_ASSERT ? "$assert$" : "$assume$") << filename << ":" << linenum << "$" << (autoidx++);
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), "$assert");
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), type == AST_ASSERT ? "$assert" : "$assume");
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			for (auto &attr : attributes) {
@@ -1293,15 +1300,23 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// add entries to current_module->connections for assignments (outside of always blocks)
 	case AST_ASSIGN:
 		{
-			if (children[0]->type == AST_IDENTIFIER && children[0]->id2ast && children[0]->id2ast->type == AST_AUTOWIRE) {
-				RTLIL::SigSpec right = children[1]->genRTLIL();
-				RTLIL::SigSpec left = children[0]->genWidthRTLIL(right.size());
-				current_module->connect(RTLIL::SigSig(left, right));
-			} else {
-				RTLIL::SigSpec left = children[0]->genRTLIL();
-				RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
-				current_module->connect(RTLIL::SigSig(left, right));
+			RTLIL::SigSpec left = children[0]->genRTLIL();
+			RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
+			if (left.has_const()) {
+				RTLIL::SigSpec new_left, new_right;
+				for (int i = 0; i < GetSize(left); i++)
+					if (left[i].wire) {
+						new_left.append(left[i]);
+						new_right.append(right[i]);
+					}
+				log_warning("Ignoring assignment to constant bits at %s:%d:\n"
+						"    old assignment: %s = %s\n    new assignment: %s = %s.\n",
+						filename.c_str(), linenum, log_signal(left), log_signal(right),
+						log_signal(new_left), log_signal(new_right));
+				left = new_left;
+				right = new_right;
 			}
+			current_module->connect(RTLIL::SigSig(left, right));
 		}
 		break;
 
@@ -1326,16 +1341,19 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					continue;
 				}
 				if (child->type == AST_PARASET) {
-					if (child->children[0]->type != AST_CONSTANT)
-						log_error("Parameter `%s' with non-constant value at %s:%d!\n",
-								child->str.c_str(), filename.c_str(), linenum);
-					if (child->str.size() == 0) {
-						char buf[100];
-						snprintf(buf, 100, "$%d", ++para_counter);
-						cell->parameters[buf] = child->children[0]->asParaConst();
-					} else {
-						cell->parameters[child->str] = child->children[0]->asParaConst();
+					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
+					if (child->children[0]->type == AST_REALVALUE) {
+						log_warning("Replacing floating point parameter %s.%s = %f with string at %s:%d.\n",
+							log_id(cell), log_id(paraname), child->children[0]->realvalue,
+							filename.c_str(), linenum);
+						auto strnode = AstNode::mkconst_str(stringf("%f", child->children[0]->realvalue));
+						strnode->cloneInto(child->children[0]);
+						delete strnode;
 					}
+					if (child->children[0]->type != AST_CONSTANT)
+						log_error("Parameter %s.%s with non-constant value at %s:%d!\n",
+								log_id(cell), log_id(paraname), filename.c_str(), linenum);
+					cell->parameters[paraname] = child->children[0]->asParaConst();
 					continue;
 				}
 				if (child->type == AST_ARGUMENT) {
@@ -1391,9 +1409,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 // this is a wrapper for AstNode::genRTLIL() when a specific signal width is requested and/or
 // signals must be substituted before beeing used as input values (used by ProcessGenerator)
 // note that this is using some global variables to communicate this special settings to AstNode::genRTLIL().
-RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const std::map<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
+RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
 {
-	const std::map<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
+	const dict<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
 
 	if (new_subst_ptr)
 		genRTLIL_subst_ptr = new_subst_ptr;

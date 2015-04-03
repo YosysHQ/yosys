@@ -21,6 +21,9 @@
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static uint32_t xorshift32_state = 123456789;
 
 static uint32_t xorshift32(uint32_t limit) {
@@ -33,7 +36,7 @@ static uint32_t xorshift32(uint32_t limit) {
 static RTLIL::Wire *getw(std::vector<RTLIL::Wire*> &wires, RTLIL::Wire *w)
 {
 	while (1) {
-		int idx = xorshift32(SIZE(wires));
+		int idx = xorshift32(GetSize(wires));
 		if (wires[idx] != w && !wires[idx]->port_output)
 			return wires[idx];
 	}
@@ -124,28 +127,28 @@ static void test_abcloop()
 		module->fixup_ports();
 		Pass::call(design, "clean");
 
-		ezDefaultSAT ez;
+		ezSatPtr ez;
 		SigMap sigmap(module);
-		SatGen satgen(&ez, &sigmap);
+		SatGen satgen(ez.get(), &sigmap);
 
 		for (auto c : module->cells()) {
-			bool ok = satgen.importCell(c);
+			bool ok YS_ATTRIBUTE(unused) = satgen.importCell(c);
 			log_assert(ok);
 		}
 
 		std::vector<int> in_vec = satgen.importSigSpec(in_sig);
-		std::vector<int> inverse_in_vec = ez.vec_not(in_vec);
+		std::vector<int> inverse_in_vec = ez->vec_not(in_vec);
 
 		std::vector<int> out_vec = satgen.importSigSpec(out_sig);
 
 		for (int i = 0; i < 16; i++)
 		{
 			std::vector<int> assumptions;
-			for (int j = 0; j < SIZE(in_vec); j++)
+			for (int j = 0; j < GetSize(in_vec); j++)
 				assumptions.push_back((i & (1 << j)) ? in_vec.at(j) : inverse_in_vec.at(j));
 
 			std::vector<bool> results;
-			if (!ez.solve(out_vec, results, assumptions)) {
+			if (!ez->solve(out_vec, results, assumptions)) {
 				log("No stable solution for input %d found -> recreate module.\n", i);
 				goto recreate_module;
 			}
@@ -153,10 +156,10 @@ static void test_abcloop()
 			for (int j = 0; j < 4; j++)
 				truthtab[i][j] = results[j];
 
-			assumptions.push_back(ez.vec_ne(out_vec, ez.vec_const(results)));
+			assumptions.push_back(ez->vec_ne(out_vec, ez->vec_const(results)));
 
 			std::vector<bool> results2;
-			if (ez.solve(out_vec, results2, assumptions)) {
+			if (ez->solve(out_vec, results2, assumptions)) {
 				log("Two stable solutions for input %d found -> recreate module.\n", i);
 				goto recreate_module;
 			}
@@ -174,17 +177,17 @@ static void test_abcloop()
 	log("\n");
 	log("Pre- and post-abc truth table:\n");
 
-	ezDefaultSAT ez;
+	ezSatPtr ez;
 	SigMap sigmap(module);
-	SatGen satgen(&ez, &sigmap);
+	SatGen satgen(ez.get(), &sigmap);
 
 	for (auto c : module->cells()) {
-		bool ok = satgen.importCell(c);
+		bool ok YS_ATTRIBUTE(unused) = satgen.importCell(c);
 		log_assert(ok);
 	}
 
 	std::vector<int> in_vec = satgen.importSigSpec(in_sig);
-	std::vector<int> inverse_in_vec = ez.vec_not(in_vec);
+	std::vector<int> inverse_in_vec = ez->vec_not(in_vec);
 
 	std::vector<int> out_vec = satgen.importSigSpec(out_sig);
 
@@ -194,14 +197,14 @@ static void test_abcloop()
 	for (int i = 0; i < 16; i++)
 	{
 		std::vector<int> assumptions;
-		for (int j = 0; j < SIZE(in_vec); j++)
+		for (int j = 0; j < GetSize(in_vec); j++)
 			assumptions.push_back((i & (1 << j)) ? in_vec.at(j) : inverse_in_vec.at(j));
 
 		for (int j = 0; j < 4; j++)
 			truthtab2[i][j] = truthtab[i][j];
 
 		std::vector<bool> results;
-		if (!ez.solve(out_vec, results, assumptions)) {
+		if (!ez->solve(out_vec, results, assumptions)) {
 			log("No stable solution for input %d found.\n", i);
 			found_error = true;
 			continue;
@@ -210,10 +213,10 @@ static void test_abcloop()
 		for (int j = 0; j < 4; j++)
 			truthtab2[i][j] = results[j];
 
-		assumptions.push_back(ez.vec_ne(out_vec, ez.vec_const(results)));
+		assumptions.push_back(ez->vec_ne(out_vec, ez->vec_const(results)));
 
 		std::vector<bool> results2;
-		if (ez.solve(out_vec, results2, assumptions)) {
+		if (ez->solve(out_vec, results2, assumptions)) {
 			log("Two stable solutions for input %d found -> recreate module.\n", i);
 			found_error = true;
 		}
@@ -262,13 +265,13 @@ struct TestAbcloopPass : public Pass {
 		xorshift32_state = 0;
 
 		int argidx;
-		for (argidx = 1; argidx < SIZE(args); argidx++)
+		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
-			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-n" && argidx+1 < GetSize(args)) {
 				num_iter = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-s" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-s" && argidx+1 < GetSize(args)) {
 				xorshift32_state = atoi(args[++argidx].c_str());
 				continue;
 			}
@@ -283,3 +286,4 @@ struct TestAbcloopPass : public Pass {
 	}
 } TestAbcloopPass;
 
+PRIVATE_NAMESPACE_END

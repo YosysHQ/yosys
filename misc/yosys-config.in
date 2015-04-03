@@ -1,0 +1,107 @@
+#!/bin/bash
+
+help() {
+	{
+		echo ""
+		echo "Usage: $0 [--exec] [--prefix pf] args.."
+		echo "       $0 --build modname.so cppsources.."
+		echo ""
+		echo "Replecement args:"
+		echo "    --cxx         @CXX@"
+		echo "    --cxxflags    $( echo '@CXXFLAGS@' | fmt -w60 | sed ':a;N;$!ba;s/\n/ \\\n                      /g' )"
+		echo "    --ldflags     @LDFLAGS@"
+		echo "    --ldlibs      @LDLIBS@"
+		echo "    --bindir      @BINDIR@"
+		echo "    --datdir      @DATDIR@"
+		echo ""
+		echo "All other args are passed through as they are."
+		echo ""
+		echo "Use --exec to call a command instead of generating output. Example usage:"
+		echo ""
+		echo "  yosys-config --exec --cxx --cxxflags --ldflags -o plugin.so -shared plugin.cc --ldlibs"
+		echo ""
+		echo "The above command can be abbreviated as:"
+		echo ""
+		echo "  yosys-config --build plugin.so plugin.cc"
+		echo ""
+		echo "Use --prefix to change the prefix for the special args from '--' to"
+		echo "something else. Example:"
+		echo ""
+		echo "  yosys-config --prefix @ bindir: @bindir"
+		echo ""
+		echo "The args --bindir and --datdir can be directly followed by a slash and"
+		echo "additional text. Example:"
+		echo ""
+		echo "  yosys-config --datdir/simlib.v"
+		echo ""
+	} >&2
+	exit 1
+}
+
+if [ $# -eq 0 ]; then
+	help
+fi
+
+if [ "$1" == "--build" ]; then
+	modname="$2"; shift 2
+	set -- --exec --cxx --cxxflags --ldflags -o "$modname" -shared "$@" --ldlibs
+fi
+
+prefix="--"
+get_prefix=false
+exec_mode=false
+declare -a tokens=()
+
+for opt; do
+	if $get_prefix; then
+		prefix="$opt"
+		get_prefix=false
+		continue
+	fi
+	case "$opt" in
+		"$prefix"cxx)
+			tokens=( "${tokens[@]}"  @CXX@       ) ;;
+		"$prefix"cxxflags)
+			tokens=( "${tokens[@]}"  @CXXFLAGS@  ) ;;
+		"$prefix"ldflags)
+			tokens=( "${tokens[@]}"  @LDFLAGS@   ) ;;
+		"$prefix"ldlibs)
+			tokens=( "${tokens[@]}"  @LDLIBS@    ) ;;
+		"$prefix"bindir)
+			tokens=( "${tokens[@]}" '@BINDIR@'   ) ;;
+		"$prefix"datdir)
+			tokens=( "${tokens[@]}" '@DATDIR@'   ) ;;
+		"$prefix"bindir/*)
+			tokens=( "${tokens[@]}" '@BINDIR@'"${opt#${prefix}bindir}" ) ;;
+		"$prefix"datdir/*)
+			tokens=( "${tokens[@]}" '@DATDIR@'"${opt#${prefix}datdir}" ) ;;
+		--help|-\?|-h)
+			if [ ${#tokens[@]} -eq 0 ]; then
+				help
+			else
+				tokens=( "${tokens[@]}" "$opt" )
+			fi ;;
+		--exec)
+			if [ ${#tokens[@]} -eq 0 ]; then
+				exec_mode=true
+			else
+				tokens=( "${tokens[@]}" "$opt" )
+			fi ;;
+		--prefix)
+			if [ ${#tokens[@]} -eq 0 ]; then
+				get_prefix=true
+			else
+				tokens=( "${tokens[@]}" "$opt" )
+			fi ;;
+		*)
+			tokens=( "${tokens[@]}" "$opt" )
+	esac
+done
+
+if $exec_mode; then
+	exec "${tokens[@]}"
+fi
+
+echo "${tokens[@]}"
+exit 0
+

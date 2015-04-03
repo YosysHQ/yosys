@@ -28,6 +28,9 @@
 #include <iostream>
 #include <fstream>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 /**
  * Convert a signal into a KISS-compatible textual representation.
  */
@@ -47,7 +50,7 @@ std::string kiss_convert_signal(const RTLIL::SigSpec &sig) {
  * @param cell pointer to the FSM cell which should be exported.
  */
 void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::string filename, bool origenc) {
-	std::map<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
+	dict<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
 	FsmData fsm_data;
 	FsmData::transition_t tr;
 	std::ofstream kiss_file;
@@ -142,7 +145,7 @@ struct FsmExportPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::map<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
+		dict<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
 		std::string arg;
 		bool flag_noauto = false;
 		std::string filename;
@@ -182,3 +185,5 @@ struct FsmExportPass : public Pass {
 					}
 	}
 } FsmExportPass;
+
+PRIVATE_NAMESPACE_END

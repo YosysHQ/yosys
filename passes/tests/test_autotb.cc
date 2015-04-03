@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <time.h>
 
+USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 static std::string id(std::string internal_id)
@@ -91,7 +92,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 	f << stringf("end\n");
 	f << stringf("endtask\n\n");
 
-	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++)
+	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it)
 	{
 		std::map<std::string, int> signal_in;
 		std::map<std::string, std::string> signal_const;
@@ -105,7 +106,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 
 		int count_ports = 0;
 		log("Generating test bench for module `%s'.\n", it->first.c_str());
-		for (auto it2 = mod->wires_.begin(); it2 != mod->wires_.end(); it2++) {
+		for (auto it2 = mod->wires_.begin(); it2 != mod->wires_.end(); ++it2) {
 			RTLIL::Wire *wire = it2->second;
 			if (wire->port_output) {
 				count_ports++;
@@ -114,8 +115,8 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 			} else if (wire->port_input) {
 				count_ports++;
 				bool is_clksignal = wire->get_bool_attribute("\\gentb_clock");
-				for (auto it3 = mod->processes.begin(); it3 != mod->processes.end(); it3++)
-				for (auto it4 = it3->second->syncs.begin(); it4 != it3->second->syncs.end(); it4++) {
+				for (auto it3 = mod->processes.begin(); it3 != mod->processes.end(); ++it3)
+				for (auto it4 = it3->second->syncs.begin(); it4 != it3->second->syncs.end(); ++it4) {
 					if ((*it4)->type == RTLIL::ST0 || (*it4)->type == RTLIL::ST1)
 						continue;
 					RTLIL::SigSpec &signal = (*it4)->signal;
@@ -134,7 +135,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 			}
 		}
 		f << stringf("%s %s(\n", id(mod->name.str()).c_str(), idy("uut", mod->name.str()).c_str());
-		for (auto it2 = mod->wires_.begin(); it2 != mod->wires_.end(); it2++) {
+		for (auto it2 = mod->wires_.begin(); it2 != mod->wires_.end(); ++it2) {
 			RTLIL::Wire *wire = it2->second;
 			if (wire->port_output || wire->port_input)
 				f << stringf("\t.%s(%s)%s\n", id(wire->name.str()).c_str(),
@@ -145,23 +146,23 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 		f << stringf("task %s;\n", idy(mod->name.str(), "reset").c_str());
 		f << stringf("begin\n");
 		int delay_counter = 0;
-		for (auto it = signal_in.begin(); it != signal_in.end(); it++)
+		for (auto it = signal_in.begin(); it != signal_in.end(); ++it)
 			f << stringf("\t%s <= #%d 0;\n", it->first.c_str(), ++delay_counter*2);
-		for (auto it = signal_clk.begin(); it != signal_clk.end(); it++)
+		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it)
 			f << stringf("\t%s <= #%d 0;\n", it->first.c_str(), ++delay_counter*2);
-		for (auto it = signal_clk.begin(); it != signal_clk.end(); it++) {
+		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it) {
 			f << stringf("\t#100; %s <= 1;\n", it->first.c_str());
 			f << stringf("\t#100; %s <= 0;\n", it->first.c_str());
 		}
 		delay_counter = 0;
-		for (auto it = signal_in.begin(); it != signal_in.end(); it++)
+		for (auto it = signal_in.begin(); it != signal_in.end(); ++it)
 			f << stringf("\t%s <= #%d ~0;\n", it->first.c_str(), ++delay_counter*2);
-		for (auto it = signal_clk.begin(); it != signal_clk.end(); it++) {
+		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it) {
 			f << stringf("\t#100; %s <= 1;\n", it->first.c_str());
 			f << stringf("\t#100; %s <= 0;\n", it->first.c_str());
 		}
 		delay_counter = 0;
-		for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
+		for (auto it = signal_in.begin(); it != signal_in.end(); ++it) {
 			if (signal_const.count(it->first) == 0)
 				continue;
 			f << stringf("\t%s <= #%d 'b%s;\n", it->first.c_str(), ++delay_counter*2, signal_const[it->first].c_str());
@@ -194,7 +195,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 			f << stringf(" } = {");
 			for (auto it = signal_clk.begin(); it != signal_clk.end(); it++)
 				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first.c_str());
-			f << stringf(" } ^ (%d'b1 << (xorshift128_w %% %d));\n", total_clock_bits, total_clock_bits);
+			f << stringf(" } ^ (%d'b1 << (xorshift128_w %% %d));\n", total_clock_bits, total_clock_bits + 1);
 		}
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
@@ -292,7 +293,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 	f << stringf("initial begin\n");
 	f << stringf("\t// $dumpfile(\"testbench.vcd\");\n");
 	f << stringf("\t// $dumpvars(0, testbench);\n");
-	for (auto it = design->modules_.begin(); it != design->modules_.end(); it++)
+	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it)
 		if (!it->second->get_bool_attribute("\\gentb_skip"))
 			f << stringf("\t%s;\n", idy(it->first.str(), "test").c_str());
 	f << stringf("\t$finish;\n");
@@ -335,9 +336,9 @@ struct TestAutotbBackend : public Backend {
 		log_header("Executing TEST_AUTOTB backend (auto-generate pseudo-random test benches).\n");
 
 		int argidx;
-		for (argidx = 1; argidx < SIZE(args); argidx++)
+		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
-			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-n" && argidx+1 < GetSize(args)) {
 				num_iter = atoi(args[++argidx].c_str());
 				continue;
 			}

@@ -23,6 +23,9 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, RTLIL::SigSpec &sig)
 {
 	CellTypes ct(design);
@@ -183,3 +186,4 @@ struct ConnectPass : public Pass {
 	}
 } ConnectPass;
  
+PRIVATE_NAMESPACE_END

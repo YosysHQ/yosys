@@ -25,6 +25,7 @@
 #include <vector>
 #include <string>
 #include <stdio.h>
+#include <stdint.h>
 
 class ezSAT
 {
@@ -34,7 +35,7 @@ class ezSAT
 	// the number zero is not used as valid token number and is used to encode
 	// unused parameters for the functions.
 	//
-	// positive numbers are literals, with 1 = TRUE and 2 = FALSE;
+	// positive numbers are literals, with 1 = CONST_TRUE and 2 = CONST_FALSE;
 	//
 	// negative numbers are non-literal expressions. each expression is represented
 	// by an operator id and a list of expressions (literals or non-literals).
@@ -44,8 +45,8 @@ public:
 		OpNot, OpAnd, OpOr, OpXor, OpIFF, OpITE
 	};
 
-	static const int TRUE;
-	static const int FALSE;
+	static const int CONST_TRUE;
+	static const int CONST_FALSE;
 
 private:
 	bool flag_keep_cnf;
@@ -81,6 +82,9 @@ public:
 
 	ezSAT();
 	virtual ~ezSAT();
+
+	unsigned int statehash;
+	void addhash(unsigned int);
 
 	void keep_cnf() { flag_keep_cnf = true; }
 	void non_incremental() { flag_non_incremental = true; }
@@ -159,6 +163,7 @@ public:
 	virtual void freeze(int id);
 	virtual bool eliminated(int idx);
 	void assume(int id);
+	void assume(int id, int context_id) { assume(OR(id, NOT(context_id))); }
 	int bind(int id, bool auto_freeze = true);
 	int bound(int id) const;
 

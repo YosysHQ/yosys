@@ -20,9 +20,12 @@
 #ifndef ABC_BLIFPARSE
 #define ABC_BLIFPARSE
 
-#include "kernel/rtlil.h"
+#include "kernel/yosys.h"
+
+YOSYS_NAMESPACE_BEGIN
 
 extern RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name);
 
-#endif
+YOSYS_NAMESPACE_END
 
+#endif

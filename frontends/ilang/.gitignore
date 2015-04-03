@@ -1,4 +1,4 @@
-lexer.cc
-parser.output
-parser.tab.cc
-parser.tab.h
+ilang_lexer.cc
+ilang_parser.output
+ilang_parser.tab.cc
+ilang_parser.tab.h

@@ -18,6 +18,8 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/satgen.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -146,35 +148,39 @@ void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Desig
 void Pass::call(RTLIL::Design *design, std::string command)
 {
 	std::vector<std::string> args;
-	char *s = strdup(command.c_str()), *sstart = s, *saveptr;
-	s += strspn(s, " \t\r\n");
-	if (*s == 0 || *s == '#') {
-		free(sstart);
+
+	std::string cmd_buf = command;
+	std::string tok = next_token(cmd_buf, " \t\r\n");
+
+	if (tok.empty())
 		return;
-	}
-	if (*s == '!') {
-		for (s++; *s == ' ' || *s == '\t'; s++) { }
-		char *p = s + strlen(s) - 1;
-		while (p >= s && (*p == '\r' || *p == '\n'))
-			*(p--) = 0;
-		log_header("Shell command: %s\n", s);
-		int retCode = system(s);
+
+	if (tok[0] == '!') {
+		cmd_buf = command.substr(command.find('!') + 1);
+		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
+				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
+			cmd_buf.resize(cmd_buf.size()-1);
+		log_header("Shell command: %s\n", cmd_buf.c_str());
+		int retCode = run_command(cmd_buf);
 		if (retCode != 0)
 			log_cmd_error("Shell command returned error code %d.\n", retCode);
-		free(sstart);
 		return;
 	}
-	for (char *p = strtok_r(s, " \t\r\n", &saveptr); p; p = strtok_r(NULL, " \t\r\n", &saveptr)) {
-		std::string str = p;
-		int strsz = str.size();
-		if (str == "#")
-			break;
-		if (strsz > 0 && str[strsz-1] == ';') {
+
+	while (!tok.empty()) {
+		if (tok == "#") {
+			int stop;
+			for (stop = 0; stop < GetSize(cmd_buf); stop++)
+				if (cmd_buf[stop] == '\r' || cmd_buf[stop] == '\n')
+					break;
+			cmd_buf = cmd_buf.substr(stop);
+		} else
+		if (tok.back() == ';') {
 			int num_semikolon = 0;
-			while (strsz > 0 && str[strsz-1] == ';')
-				strsz--, num_semikolon++;
-			if (strsz > 0)
-				args.push_back(str.substr(0, strsz));
+			while (!tok.empty() && tok.back() == ';')
+				tok.resize(tok.size()-1), num_semikolon++;
+			if (!tok.empty())
+				args.push_back(tok);
 			call(design, args);
 			args.clear();
 			if (num_semikolon == 2)
@@ -182,9 +188,22 @@ void Pass::call(RTLIL::Design *design, std::string command)
 			if (num_semikolon == 3)
 				call(design, "clean -purge");
 		} else
-			args.push_back(str);
+			args.push_back(tok);
+		bool found_nl = false;
+		for (auto c : cmd_buf) {
+			if (c == ' ' || c == '\t')
+				continue;
+			if (c == '\r' || c == '\n')
+				found_nl = true;
+			break;
+		}
+		if (found_nl) {
+			call(design, args);
+			args.clear();
+		}
+		tok = next_token(cmd_buf, " \t\r\n");
 	}
-	free(sstart);
+
 	call(design, args);
 }
 
@@ -333,8 +352,8 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
 						break;
 				}
-				int indent = buffer.find_first_not_of(" \t\r\n");
-				if (buffer.substr(indent, eot_marker.size()) == eot_marker)
+				size_t indent = buffer.find_first_not_of(" \t\r\n");
+				if (indent != std::string::npos && buffer.substr(indent, eot_marker.size()) == eot_marker)
 					break;
 				last_here_document += buffer;
 			}
@@ -528,11 +547,10 @@ struct HelpPass : public Pass {
 	}
 	void escape_tex(std::string &tex)
 	{
-		size_t pos = 0;
-		while ((pos = tex.find('_', pos)) != std::string::npos) {
+		for (size_t pos = 0; (pos = tex.find('_', pos)) != std::string::npos; pos += 2)
 			tex.replace(pos, 1, "\\_");
-			pos += 2;
-		}
+		for (size_t pos = 0; (pos = tex.find('$', pos)) != std::string::npos; pos += 2)
+			tex.replace(pos, 1, "\\$");
 	}
 	void write_tex(FILE *f, std::string cmd, std::string title, std::string text)
 	{
@@ -675,6 +693,18 @@ struct EchoPass : public Pass {
 		log("echo %s\n", echo_mode ? "on" : "off");
 	}
 } EchoPass;
+
+SatSolver *yosys_satsolver_list;
+SatSolver *yosys_satsolver;
+
+struct MinisatSatSolver : public SatSolver {
+	MinisatSatSolver() : SatSolver("minisat") {
+		yosys_satsolver = this;
+	}
+	virtual ezSAT *create() YS_OVERRIDE {
+		return new ezMiniSAT();
+	}
+} MinisatSatSolver;
  
 YOSYS_NAMESPACE_END
 

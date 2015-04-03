@@ -23,10 +23,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static SigMap assign_map, dff_init_map;
-static SigSet<RTLIL::Cell*> mux_drivers;
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
-static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
+SigMap assign_map, dff_init_map;
+SigSet<RTLIL::Cell*> mux_drivers;
+
+bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 {
 	RTLIL::SigSpec sig_d, sig_q, sig_c, sig_r;
 	RTLIL::Const val_cp, val_rp, val_rv;
@@ -80,7 +83,7 @@ static bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
 	}
 
-	if (dff->type == "$dff" && mux_drivers.has(sig_d)) {
+	if (dff->type == "$dff" && mux_drivers.has(sig_d) && !has_init) {
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
 		for (auto mux : muxes) {
@@ -215,3 +218,4 @@ struct OptRmdffPass : public Pass {
 	}
 } OptRmdffPass;
  
+PRIVATE_NAMESPACE_END

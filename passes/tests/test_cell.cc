@@ -24,6 +24,9 @@
 #include "kernel/macc.h"
 #include <algorithm>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static uint32_t xorshift32_state = 123456789;
 
 static uint32_t xorshift32(uint32_t limit) {
@@ -33,7 +36,7 @@ static uint32_t xorshift32(uint32_t limit) {
 	return xorshift32_state % limit;
 }
 
-static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode)
+static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
 {
 	RTLIL::Module *module = design->addModule("\\gold");
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
@@ -199,6 +202,13 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort("\\Y", wire);
 	}
 
+	if (muxdiv && (cell_type == "$div" || cell_type == "$mod")) {
+		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort("\\B"));
+		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort("\\Y")));
+		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort("\\Y"));
+		cell->setPort("\\Y", div_out);
+	}
+
 	if (cell_type == "$alu")
 	{
 		wire = module->addWire("\\CI");
@@ -210,12 +220,12 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort("\\BI", wire);
 
 		wire = module->addWire("\\X");
-		wire->width = SIZE(cell->getPort("\\Y"));
+		wire->width = GetSize(cell->getPort("\\Y"));
 		wire->port_output = true;
 		cell->setPort("\\X", wire);
 
 		wire = module->addWire("\\CO");
-		wire->width = SIZE(cell->getPort("\\Y"));
+		wire->width = GetSize(cell->getPort("\\Y"));
 		wire->port_output = true;
 		cell->setPort("\\CO", wire);
 	}
@@ -227,25 +237,25 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		{
 			RTLIL::SigSpec sig = conn.second;
 
-			if (SIZE(sig) == 0 || sig[0].wire == nullptr || sig[0].wire->port_output)
+			if (GetSize(sig) == 0 || sig[0].wire == nullptr || sig[0].wire->port_output)
 				continue;
 
 			int n, m;
 			switch (xorshift32(5))
 			{
 			case 0:
-				n = xorshift32(SIZE(sig) + 1);
+				n = xorshift32(GetSize(sig) + 1);
 				for (int i = 0; i < n; i++)
 					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
 				break;
 			case 1:
-				n = xorshift32(SIZE(sig) + 1);
-				for (int i = n; i < SIZE(sig); i++)
+				n = xorshift32(GetSize(sig) + 1);
+				for (int i = n; i < GetSize(sig); i++)
 					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
 				break;
 			case 2:
-				n = xorshift32(SIZE(sig));
-				m = xorshift32(SIZE(sig));
+				n = xorshift32(GetSize(sig));
+				m = xorshift32(GetSize(sig));
 				for (int i = std::min(n, m); i < std::max(n, m); i++)
 					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
 				break;
@@ -268,10 +278,10 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 	RTLIL::Module *gate_mod = design->module("\\gate");
 	ConstEval gold_ce(gold_mod), gate_ce(gate_mod);
 
-	ezDefaultSAT ez1, ez2;
+	ezSatPtr ez1, ez2;
 	SigMap sigmap(gold_mod);
-	SatGen satgen1(&ez1, &sigmap);
-	SatGen satgen2(&ez2, &sigmap);
+	SatGen satgen1(ez1.get(), &sigmap);
+	SatGen satgen2(ez2.get(), &sigmap);
 	satgen2.model_undef = true;
 
 	if (!nosat)
@@ -287,19 +297,19 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 		for (auto port : gold_mod->ports) {
 			RTLIL::Wire *wire = gold_mod->wire(port);
 			if (wire->port_input)
-				vlog_file << stringf("  reg [%d:0] %s;\n", SIZE(wire)-1, log_id(wire));
+				vlog_file << stringf("  reg [%d:0] %s;\n", GetSize(wire)-1, log_id(wire));
 			else
-				vlog_file << stringf("  wire [%d:0] %s_expr, %s_noexpr;\n", SIZE(wire)-1, log_id(wire), log_id(wire));
+				vlog_file << stringf("  wire [%d:0] %s_expr, %s_noexpr;\n", GetSize(wire)-1, log_id(wire), log_id(wire));
 		}
 
 		vlog_file << stringf("  %s_expr uut_expr(", uut_name.c_str());
-		for (int i = 0; i < SIZE(gold_mod->ports); i++)
+		for (int i = 0; i < GetSize(gold_mod->ports); i++)
 			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_expr");
 		vlog_file << stringf(");\n");
 
 		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name.c_str());
-		for (int i = 0; i < SIZE(gold_mod->ports); i++)
+		for (int i = 0; i < GetSize(gold_mod->ports); i++)
 			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_noexpr");
 		vlog_file << stringf(");\n");
@@ -327,18 +337,18 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			log_assert(gold_wire != nullptr);
 			log_assert(gate_wire != nullptr);
 			log_assert(gold_wire->port_input == gate_wire->port_input);
-			log_assert(SIZE(gold_wire) == SIZE(gate_wire));
+			log_assert(GetSize(gold_wire) == GetSize(gate_wire));
 
 			if (!gold_wire->port_input)
 				continue;
 
 			RTLIL::Const in_value;
-			for (int i = 0; i < SIZE(gold_wire); i++)
+			for (int i = 0; i < GetSize(gold_wire); i++)
 				in_value.bits.push_back(xorshift32(2) ? RTLIL::S1 : RTLIL::S0);
 
 			if (xorshift32(4) == 0) {
 				int inv_chance = 1 + xorshift32(8);
-				for (int i = 0; i < SIZE(gold_wire); i++)
+				for (int i = 0; i < GetSize(gold_wire); i++)
 					if (xorshift32(inv_chance) == 0)
 						in_value.bits[i] = RTLIL::Sx;
 			}
@@ -352,7 +362,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			gold_ce.set(gold_wire, in_value);
 			gate_ce.set(gate_wire, in_value);
 
-			if (vlog_file.is_open() && SIZE(in_value) > 0) {
+			if (vlog_file.is_open() && GetSize(in_value) > 0) {
 				vlog_file << stringf("      %s = 'b%s;\n", log_id(gold_wire), in_value.as_string().c_str());
 				if (!vlog_pattern_info.empty())
 					vlog_pattern_info += " ";
@@ -371,7 +381,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			log_assert(gold_wire != nullptr);
 			log_assert(gate_wire != nullptr);
 			log_assert(gold_wire->port_output == gate_wire->port_output);
-			log_assert(SIZE(gold_wire) == SIZE(gate_wire));
+			log_assert(GetSize(gold_wire) == GetSize(gate_wire));
 
 			if (!gold_wire->port_output)
 				continue;
@@ -386,7 +396,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 				log_error("Failed to eval %s in gate module.\n", log_id(gate_wire));
 
 			bool gold_gate_mismatch = false;
-			for (int i = 0; i < SIZE(gold_wire); i++) {
+			for (int i = 0; i < GetSize(gold_wire); i++) {
 				if (gold_outval[i] == RTLIL::Sx)
 					continue;
 				if (gold_outval[i] == gate_outval[i])
@@ -406,9 +416,9 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			if (vlog_file.is_open()) {
 				vlog_file << stringf("      $display(\"[%s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
-						vlog_pattern_info.c_str(), log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str(), log_id(gold_wire), log_id(gold_wire));
-				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str());
-				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), SIZE(gold_outval), gold_outval.as_string().c_str());
+						vlog_pattern_info.c_str(), log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string().c_str(), log_id(gold_wire), log_id(gold_wire));
+				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string().c_str());
+				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string().c_str());
 			}
 		}
 
@@ -423,17 +433,17 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			std::vector<int> sat1_model = satgen1.importSigSpec(out_sig);
 			std::vector<bool> sat1_model_value;
 
-			if (!ez1.solve(sat1_model, sat1_model_value, ez1.vec_eq(sat1_in_sig, sat1_in_val)))
+			if (!ez1->solve(sat1_model, sat1_model_value, ez1->vec_eq(sat1_in_sig, sat1_in_val)))
 				log_error("Evaluating sat model 1 (no undef modeling) failed!\n");
 
 			if (verbose) {
 				log("SAT 1: ");
-				for (int i = SIZE(out_sig)-1; i >= 0; i--)
+				for (int i = GetSize(out_sig)-1; i >= 0; i--)
 					log("%c", sat1_model_value.at(i) ? '1' : '0');
 				log("\n");
 			}
 
-			for (int i = 0; i < SIZE(out_sig); i++) {
+			for (int i = 0; i < GetSize(out_sig); i++) {
 				if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
 					continue;
 				if (out_val[i] == RTLIL::S0 && sat1_model_value.at(i) == false)
@@ -458,18 +468,18 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			std::vector<bool> sat2_model_value;
 
-			if (!ez2.solve(sat2_model, sat2_model_value, ez2.vec_eq(sat2_in_def_sig, sat2_in_def_val), ez2.vec_eq(sat2_in_undef_sig, sat2_in_undef_val)))
+			if (!ez2->solve(sat2_model, sat2_model_value, ez2->vec_eq(sat2_in_def_sig, sat2_in_def_val), ez2->vec_eq(sat2_in_undef_sig, sat2_in_undef_val)))
 				log_error("Evaluating sat model 2 (undef modeling) failed!\n");
 
 			if (verbose) {
 				log("SAT 2: ");
-				for (int i = SIZE(out_sig)-1; i >= 0; i--)
-					log("%c", sat2_model_value.at(SIZE(out_sig) + i) ? 'x' : sat2_model_value.at(i) ? '1' : '0');
+				for (int i = GetSize(out_sig)-1; i >= 0; i--)
+					log("%c", sat2_model_value.at(GetSize(out_sig) + i) ? 'x' : sat2_model_value.at(i) ? '1' : '0');
 				log("\n");
 			}
 
-			for (int i = 0; i < SIZE(out_sig); i++) {
-				if (sat2_model_value.at(SIZE(out_sig) + i)) {
+			for (int i = 0; i < GetSize(out_sig); i++) {
+				if (sat2_model_value.at(GetSize(out_sig) + i)) {
 					if (out_val[i] != RTLIL::S0 && out_val[i] != RTLIL::S1)
 						continue;
 				} else {
@@ -505,7 +515,7 @@ struct TestCellPass : public Pass {
 		log("by comparing SAT solver, EVAL and TECHMAP implementations of the cell types..\n");
 		log("\n");
 		log("Run with 'all' instead of a cell type to run the test on all supported\n");
-		log("cell types.\n");
+		log("cell types. Use for example 'all /$add' for all cell types except $add.\n");
 		log("\n");
 		log("    -n {integer}\n");
 		log("        create this number of cell instances and test them (default = 100).\n");
@@ -516,11 +526,19 @@ struct TestCellPass : public Pass {
 		log("    -f {ilang_file}\n");
 		log("        don't generate circuits. instead load the specified ilang file.\n");
 		log("\n");
+		log("    -w {filename_prefix}\n");
+		log("        don't test anything. just generate the circuits and write them\n");
+		log("        to ilang files with the specified prefix\n");
+		log("\n");
 		log("    -map {filename}\n");
 		log("        pass this option to techmap.\n");
 		log("\n");
-		log("    -simplib\n");
+		log("    -simlib\n");
 		log("        use \"techmap -map +/simlib.v -max_iter 2 -autoproc\"\n");
+		log("\n");
+		log("    -muxdiv\n");
+		log("        when creating test benches with dividers, create an additional mux\n");
+		log("        to mask out the division-by-zero case\n");
 		log("\n");
 		log("    -script {script_file}\n");
 		log("        instead of calling \"techmap\", call \"script {script_file}\".\n");
@@ -542,39 +560,48 @@ struct TestCellPass : public Pass {
 	{
 		int num_iter = 100;
 		std::string techmap_cmd = "techmap -assert";
-		std::string ilang_file;
+		std::string ilang_file, write_prefix;
 		xorshift32_state = 0;
 		std::ofstream vlog_file;
+		bool muxdiv = false;
 		bool verbose = false;
 		bool constmode = false;
 		bool nosat = false;
 
 		int argidx;
-		for (argidx = 1; argidx < SIZE(args); argidx++)
+		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
-			if (args[argidx] == "-n" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-n" && argidx+1 < GetSize(args)) {
 				num_iter = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-s" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-s" && argidx+1 < GetSize(args)) {
 				xorshift32_state = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-map" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-map" && argidx+1 < GetSize(args)) {
 				techmap_cmd += " -map " + args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-f" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-f" && argidx+1 < GetSize(args)) {
 				ilang_file = args[++argidx];
 				num_iter = 1;
 				continue;
 			}
-			if (args[argidx] == "-script" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-w" && argidx+1 < GetSize(args)) {
+				write_prefix = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-script" && argidx+1 < GetSize(args)) {
 				techmap_cmd = "script " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-simlib") {
 				techmap_cmd = "techmap -map +/simlib.v -max_iter 2 -autoproc";
+				continue;
+			}
+			if (args[argidx] == "-muxdiv") {
+				muxdiv = true;
 				continue;
 			}
 			if (args[argidx] == "-const") {
@@ -589,7 +616,7 @@ struct TestCellPass : public Pass {
 				verbose = true;
 				continue;
 			}
-			if (args[argidx] == "-vlog" && argidx+1 < SIZE(args)) {
+			if (args[argidx] == "-vlog" && argidx+1 < GetSize(args)) {
 				vlog_file.open(args[++argidx], std::ios_base::trunc);
 				if (!vlog_file.is_open())
 					log_cmd_error("Failed to open output file `%s'.\n", args[argidx].c_str());
@@ -660,7 +687,7 @@ struct TestCellPass : public Pass {
 		cell_types["$macc"] = "*";
 		cell_types["$fa"] = "*";
 
-		for (; argidx < SIZE(args); argidx++)
+		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx].rfind("-", 0) == 0)
 				log_cmd_error("Unexpected option: %s\n", args[argidx].c_str());
@@ -669,6 +696,15 @@ struct TestCellPass : public Pass {
 				for (auto &it : cell_types)
 					if (std::count(selected_cell_types.begin(), selected_cell_types.end(), it.first) == 0)
 						selected_cell_types.push_back(it.first);
+				continue;
+			}
+
+			if (args[argidx].substr(0, 1) == "/") {
+				std::vector<std::string> new_selected_cell_types;
+				for (auto it : selected_cell_types)
+					if (it != args[argidx].substr(1))
+						new_selected_cell_types.push_back(it);
+				new_selected_cell_types.swap(selected_cell_types);
 				continue;
 			}
 
@@ -681,7 +717,7 @@ struct TestCellPass : public Pass {
 						charcount = 0;
 					} else
 						cell_type_list += " " + it.first;
-					charcount += SIZE(it.first);
+					charcount += GetSize(it.first);
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",
 						args[argidx].c_str(), cell_type_list.c_str());
@@ -709,24 +745,28 @@ struct TestCellPass : public Pass {
 				if (cell_type == "ilang")
 					Frontend::frontend_call(design, NULL, std::string(), "ilang " + ilang_file);
 				else
-					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode);
-				Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
-				if (!nosat)
-					Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
-				if (verbose)
-					Pass::call(design, "dump gate");
-				Pass::call(design, "dump gold");
-				if (!nosat)
-					Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
-				std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1).c_str(), i);
-				if (vlog_file.is_open()) {
-					Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name.c_str(), uut_name.c_str()));
-					Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected");
-					Pass::call(design, stringf("copy gold %s_noexpr; select %s_noexpr", uut_name.c_str(), uut_name.c_str()));
-					Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected -noexpr");
-					uut_names.push_back(uut_name);
+					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
+				if (!write_prefix.empty()) {
+					Pass::call(design, stringf("write_ilang %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
+				} else {
+					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
+					if (!nosat)
+						Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
+					if (verbose)
+						Pass::call(design, "dump gate");
+					Pass::call(design, "dump gold");
+					if (!nosat)
+						Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
+					std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1).c_str(), i);
+					if (vlog_file.is_open()) {
+						Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name.c_str(), uut_name.c_str()));
+						Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected");
+						Pass::call(design, stringf("copy gold %s_noexpr; select %s_noexpr", uut_name.c_str(), uut_name.c_str()));
+						Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected -noexpr");
+						uut_names.push_back(uut_name);
+					}
+					run_eval_test(design, verbose, nosat, uut_name, vlog_file);
 				}
-				run_eval_test(design, verbose, nosat, uut_name, vlog_file);
 				delete design;
 			}
 
@@ -743,3 +783,4 @@ struct TestCellPass : public Pass {
 	}
 } TestCellPass;
 
+PRIVATE_NAMESPACE_END

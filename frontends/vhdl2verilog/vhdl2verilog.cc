@@ -20,13 +20,16 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <dirent.h>
 #include <errno.h>
 #include <limits.h>
+
+#ifndef _WIN32
+#  include <unistd.h>
+#  include <dirent.h>
+#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -120,11 +123,8 @@ struct Vhdl2verilogPass : public Pass {
 		if (top_entity.empty())
 			log_cmd_error("Missing -top option.\n");
 
-		char tempdir_name[] = "/tmp/yosys-vhdl2verilog-XXXXXX";
-		char *p = mkdtemp(tempdir_name);
-		log("Using temp directory %s.\n", tempdir_name);
-		if (p == NULL)
-			log_error("For some reason mkdtemp() failed!\n");
+		std::string tempdir_name = make_temp_dir("/tmp/yosys-vhdl2verilog-XXXXXX");
+		log("Using temp directory %s.\n", tempdir_name.c_str());
 
 		if (!out_file.empty() && out_file[0] != '/') {
 			char pwd[PATH_MAX];
@@ -135,7 +135,7 @@ struct Vhdl2verilogPass : public Pass {
 			out_file = pwd + ("/" + out_file);
 		}
 
-		FILE *f = fopen(stringf("%s/files.list", tempdir_name).c_str(), "wt");
+		FILE *f = fopen(stringf("%s/files.list", tempdir_name.c_str()).c_str(), "wt");
 		while (argidx < args.size()) {
 			std::string file = args[argidx++];
 			if (file.empty())
@@ -156,38 +156,25 @@ struct Vhdl2verilogPass : public Pass {
 		std::string command = "exec 2>&1; ";
 		if (!vhdl2verilog_dir.empty())
 			command += stringf("cd '%s'; . ./setup_env.sh; ", vhdl2verilog_dir.c_str());
-		command += stringf("cd '%s'; vhdl2verilog -out '%s' -filelist files.list -top '%s'%s", tempdir_name,
+		command += stringf("cd '%s'; vhdl2verilog -out '%s' -filelist files.list -top '%s'%s", tempdir_name.c_str(),
 				out_file.empty() ? "vhdl2verilog_output.v" : out_file.c_str(), top_entity.c_str(), extra_opts.c_str());
 
 		log("Running '%s'..\n", command.c_str());
 
-                errno = ENOMEM;  // popen does not set errno if memory allocation fails, therefore set it by hand
-		f = popen(command.c_str(), "r");
-		if (f == NULL)
-			log_error("Opening pipe to `%s' for reading failed: %s\n", command.c_str(), strerror(errno));
-
-		char logbuf[1024];
-		while (fgets(logbuf, 1024, f) != NULL)
-			log("%s", logbuf);
-
-		int ret = pclose(f);
-		if (ret < 0)
-			log_error("Closing pipe to `%s' failed: %s\n", command.c_str(), strerror(errno));
-		if (WEXITSTATUS(ret) != 0)
-			log_error("Execution of command \"%s\" failed: the shell returned %d\n", command.c_str(), WEXITSTATUS(ret));
+		int ret = run_command(command, [](const std::string &line) { log("%s", line.c_str()); });
+		if (ret != 0)
+			log_error("Execution of command \"%s\" failed: return code %d.\n", command.c_str(), ret);
 
 		if (out_file.empty()) {
 			std::ifstream ff;
-			ff.open(stringf("%s/vhdl2verilog_output.v", tempdir_name).c_str());
+			ff.open(stringf("%s/vhdl2verilog_output.v", tempdir_name.c_str()).c_str());
 			if (ff.fail())
 				log_error("Can't open vhdl2verilog output file `vhdl2verilog_output.v'.\n");
-			Frontend::frontend_call(design, &ff, stringf("%s/vhdl2verilog_output.v", tempdir_name), "verilog");
+			Frontend::frontend_call(design, &ff, stringf("%s/vhdl2verilog_output.v", tempdir_name.c_str()), "verilog");
 		}
 
-		log_header("Removing temp directory `%s':\n", tempdir_name);
-		if (system(stringf("rm -rf '%s'", tempdir_name).c_str()) != 0)
-			log_error("Execution of \"rm -rf '%s'\" failed!\n", tempdir_name);
-
+		log_header("Removing temp directory `%s':\n", tempdir_name.c_str());
+		remove_directory(tempdir_name);
 		log_pop();
 	}
 } Vhdl2verilogPass;

@@ -28,6 +28,9 @@
 
 #define USE_CELL_HASH_CACHE
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct OptShareWorker
 {
 	RTLIL::Design *design;
@@ -38,7 +41,7 @@ struct OptShareWorker
 	CellTypes ct;
 	int total_count;
 #ifdef USE_CELL_HASH_CACHE
-	std::map<const RTLIL::Cell*, std::string> cell_hash_cache;
+	dict<const RTLIL::Cell*, std::string> cell_hash_cache;
 #endif
 
 #ifdef USE_CELL_HASH_CACHE
@@ -64,8 +67,8 @@ struct OptShareWorker
 		for (auto &it : cell->parameters)
 			hash_string += "P " + it.first.str() + "=" + it.second.as_string() + "\n";
 
-		const std::map<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
-		std::map<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
+		const dict<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
+		dict<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
 
 		if (cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" || cell->type == "$add" || cell->type == "$mul" ||
 				cell->type == "$logic_and" || cell->type == "$logic_or" || cell->type == "$_AND_" || cell->type == "$_OR_" || cell->type == "$_XOR_") {
@@ -124,12 +127,14 @@ struct OptShareWorker
 #endif
 
 		if (cell1->parameters != cell2->parameters) {
-			lt = cell1->parameters < cell2->parameters;
+			std::map<RTLIL::IdString, RTLIL::Const> p1(cell1->parameters.begin(), cell1->parameters.end());
+			std::map<RTLIL::IdString, RTLIL::Const> p2(cell2->parameters.begin(), cell2->parameters.end());
+			lt = p1 < p2;
 			return true;
 		}
 
-		std::map<RTLIL::IdString, RTLIL::SigSpec> conn1 = cell1->connections();
-		std::map<RTLIL::IdString, RTLIL::SigSpec> conn2 = cell2->connections();
+		dict<RTLIL::IdString, RTLIL::SigSpec> conn1 = cell1->connections();
+		dict<RTLIL::IdString, RTLIL::SigSpec> conn2 = cell2->connections();
 
 		for (auto &it : conn1) {
 			if (ct.cell_output(cell1->type, it.first))
@@ -168,7 +173,9 @@ struct OptShareWorker
 		}
 
 		if (conn1 != conn2) {
-			lt = conn1 < conn2;
+			std::map<RTLIL::IdString, RTLIL::SigSpec> c1(conn1.begin(), conn1.end());
+			std::map<RTLIL::IdString, RTLIL::SigSpec> c2(conn2.begin(), conn2.end());
+			lt = c1 < c2;
 			return true;
 		}
 
@@ -193,7 +200,7 @@ struct OptShareWorker
 		if (!ct.cell_known(cell1->type))
 			return cell1 < cell2;
 
-		if (cell1->get_bool_attribute("\\keep") || cell2->get_bool_attribute("\\keep"))
+		if (cell1->has_keep_attr() || cell2->has_keep_attr())
 			return cell1 < cell2;
 
 		bool lt;
@@ -263,6 +270,7 @@ struct OptShareWorker
 						}
 					}
 					log("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+					cell_hash_cache.erase(cell);
 					module->remove(cell);
 					total_count++;
 				} else {
@@ -306,10 +314,8 @@ struct OptSharePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
-		for (auto &mod_it : design->modules_) {
-			if (!design->selected(mod_it.second))
-				continue;
-			OptShareWorker worker(design, mod_it.second, mode_nomux);
+		for (auto module : design->selected_modules()) {
+			OptShareWorker worker(design, module, mode_nomux);
 			total_count += worker.total_count;
 		}
 
@@ -319,3 +325,4 @@ struct OptSharePass : public Pass {
 	}
 } OptSharePass;
  
+PRIVATE_NAMESPACE_END

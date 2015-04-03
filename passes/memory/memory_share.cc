@@ -22,9 +22,10 @@
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 
+USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
+bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 {
 	if (a->type == "$memrd" && b->type == "$memrd")
 		return a->name < b->name;
@@ -488,8 +489,8 @@ struct MemoryShareWorker
 		if (wr_ports.size() <= 1)
 			return;
 
-		ezDefaultSAT ez;
-		SatGen satgen(&ez, &modwalker.sigmap);
+		ezSatPtr ez;
+		SatGen satgen(ez.get(), &modwalker.sigmap);
 
 		// find list of considered ports and port pairs
 
@@ -543,6 +544,7 @@ struct MemoryShareWorker
 
 		// create SAT representation of common input cone of all considered EN signals
 
+		pool<Wire*> one_hot_wires;
 		std::set<RTLIL::Cell*> sat_cells;
 		std::set<RTLIL::SigBit> bits_queue;
 		std::map<int, int> port_to_sat_variable;
@@ -551,7 +553,7 @@ struct MemoryShareWorker
 			if (considered_port_pairs.count(i) || considered_port_pairs.count(i+1))
 			{
 				RTLIL::SigSpec sig = modwalker.sigmap(wr_ports[i]->getPort("\\EN"));
-				port_to_sat_variable[i] = ez.expression(ez.OpOr, satgen.importSigSpec(sig));
+				port_to_sat_variable[i] = ez->expression(ez->OpOr, satgen.importSigSpec(sig));
 
 				std::vector<RTLIL::SigBit> bits = sig;
 				bits_queue.insert(bits.begin(), bits.end());
@@ -559,16 +561,28 @@ struct MemoryShareWorker
 
 		while (!bits_queue.empty())
 		{
-			std::set<ModWalker::PortBit> portbits;
+			for (auto bit : bits_queue)
+				if (bit.wire && bit.wire->get_bool_attribute("\\onehot"))
+					one_hot_wires.insert(bit.wire);
+
+			pool<ModWalker::PortBit> portbits;
 			modwalker.get_drivers(portbits, bits_queue);
 			bits_queue.clear();
 
 			for (auto &pbit : portbits)
 				if (sat_cells.count(pbit.cell) == 0 && cone_ct.cell_known(pbit.cell->type)) {
-					std::set<RTLIL::SigBit> &cell_inputs = modwalker.cell_inputs[pbit.cell];
+					pool<RTLIL::SigBit> &cell_inputs = modwalker.cell_inputs[pbit.cell];
 					bits_queue.insert(cell_inputs.begin(), cell_inputs.end());
 					sat_cells.insert(pbit.cell);
 				}
+		}
+
+		for (auto wire : one_hot_wires) {
+			log("  Adding one-hot constraint for wire %s.\n", log_id(wire));
+			vector<int> ez_wire_bits = satgen.importSigSpec(wire);
+			for (int i : ez_wire_bits)
+			for (int j : ez_wire_bits)
+				if (i != j) ez->assume(ez->NOT(i), j);
 		}
 
 		log("  Common input cone for all EN signals: %d cells.\n", int(sat_cells.size()));
@@ -576,7 +590,7 @@ struct MemoryShareWorker
 		for (auto cell : sat_cells)
 			satgen.importCell(cell);
 
-		log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", ez.numCnfVariables(), ez.numCnfClauses());
+		log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", ez->numCnfVariables(), ez->numCnfClauses());
 
 		// merge subsequent ports if possible
 
@@ -585,13 +599,13 @@ struct MemoryShareWorker
 			if (!considered_port_pairs.count(i))
 				continue;
 
-			if (ez.solve(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i))) {
+			if (ez->solve(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i))) {
 				log("  According to SAT solver sharing of port %d with port %d is not possible.\n", i-1, i);
 				continue;
 			}
 
 			log("  Merging port %d into port %d.\n", i-1, i);
-			port_to_sat_variable.at(i) = ez.OR(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i));
+			port_to_sat_variable.at(i) = ez->OR(port_to_sat_variable.at(i-1), port_to_sat_variable.at(i));
 
 			RTLIL::SigSpec last_addr = wr_ports[i-1]->getPort("\\ADDR");
 			RTLIL::SigSpec last_data = wr_ports[i-1]->getPort("\\DATA");
@@ -741,4 +755,3 @@ struct MemorySharePass : public Pass {
 } MemorySharePass;
 
 PRIVATE_NAMESPACE_END
-

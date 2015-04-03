@@ -34,6 +34,7 @@
 
 using namespace SubCircuit;
 
+#ifndef _YOSYS_
 static std::string my_stringf(const char *fmt, ...)
 {
 	std::string string;
@@ -52,6 +53,9 @@ static std::string my_stringf(const char *fmt, ...)
 
 	return string;
 }
+#else
+#  define my_stringf YOSYS_NAMESPACE_PREFIX stringf
+#endif
 
 SubCircuit::Graph::Graph(const Graph &other, const std::vector<std::string> &otherNodes)
 {

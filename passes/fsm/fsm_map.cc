@@ -25,10 +25,13 @@
 #include "fsmdata.h"
 #include <string.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static bool pattern_is_subset(const RTLIL::Const &super_pattern, const RTLIL::Const &sub_pattern)
 {
-	log_assert(SIZE(super_pattern.bits) == SIZE(sub_pattern.bits));
-	for (int i = 0; i < SIZE(super_pattern.bits); i++)
+	log_assert(GetSize(super_pattern.bits) == GetSize(sub_pattern.bits));
+	for (int i = 0; i < GetSize(super_pattern.bits); i++)
 		if (sub_pattern.bits[i] == RTLIL::State::S0 || sub_pattern.bits[i] == RTLIL::State::S1) {
 			if (super_pattern.bits[i] == RTLIL::State::S0 || super_pattern.bits[i] == RTLIL::State::S1) {
 					if (super_pattern.bits[i] != sub_pattern.bits[i])
@@ -88,7 +91,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			if (pattern_is_subset(pattern, it2.first))
 				complete_in_state_cache.insert(it2.second.begin(), it2.second.end());
 
-		if (SIZE(complete_in_state_cache) < num_states)
+		if (GetSize(complete_in_state_cache) < num_states)
 		{
 			if (or_sig.size() == 1)
 			{
@@ -221,9 +224,12 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		}
 	}
 
+	if (encoding_is_onehot)
+		state_wire->set_bool_attribute("\\onehot");
+
 	// generate next_state signal
 
-	if (SIZE(fsm_data.state_table) == 1)
+	if (GetSize(fsm_data.state_table) == 1)
 	{
 		module->connect(next_state_wire, fsm_data.state_table.front());
 	}
@@ -345,3 +351,4 @@ struct FsmMapPass : public Pass {
 	}
 } FsmMapPass;
  
+PRIVATE_NAMESPACE_END

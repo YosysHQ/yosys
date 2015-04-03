@@ -26,12 +26,12 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 
-YOSYS_NAMESPACE_BEGIN
-
 void rtlil_frontend_ilang_yyerror(char const *s)
 {
-	log_error("Parser error in line %d: %s\n", rtlil_frontend_ilang_yyget_lineno(), s);
+	YOSYS_NAMESPACE_PREFIX log_error("Parser error in line %d: %s\n", rtlil_frontend_ilang_yyget_lineno(), s);
 }
+
+YOSYS_NAMESPACE_BEGIN
 
 struct IlangFrontend : public Frontend {
 	IlangFrontend() : Frontend("ilang", "read modules from ilang file") { }

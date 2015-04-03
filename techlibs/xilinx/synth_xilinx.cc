@@ -22,7 +22,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
-static bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
 {
 	if (label == run_from)
 		active = true;
@@ -40,15 +43,11 @@ struct SynthXilinxPass : public Pass {
 		log("    synth_xilinx [options]\n");
 		log("\n");
 		log("This command runs synthesis for Xilinx FPGAs. This command does not operate on\n");
-		log("partly selected designs.\n");
+		log("partly selected designs. At the moment this command creates netlists that are\n");
+		log("compatible with 7-Series Xilinx devices.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
-		log("\n");
-		log("    -arch <arch>\n");
-		log("        select architecture. the following architectures are supported:\n");
-		log("            spartan6 (default), artix7, kintex7, virtex7, zynq7000\n");
-		log("            (this parameter is not used by the command at the moment)\n");
 		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
@@ -59,39 +58,50 @@ struct SynthXilinxPass : public Pass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -flatten\n");
+		log("        flatten design before synthesis\n");
+		log("\n");
+		log("    -retime\n");
+		log("        run 'abc' with -dff option\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		log("\n");
 		log("    begin:\n");
+		log("        read_verilog -lib +/xilinx/cells_sim.v\n");
 		log("        hierarchy -check -top <top>\n");
 		log("\n");
-		log("    coarse:\n");
+		log("    flatten:     (only if -flatten)\n");
 		log("        proc\n");
-		log("        opt\n");
-		log("        memory\n");
-		log("        clean\n");
-		log("        fsm\n");
-		log("        opt\n");
+		log("        flatten\n");
+		log("\n");
+		log("    coarse:\n");
+		log("        synth -run coarse\n");
+		log("        dff2dffe\n");
+		log("\n");
+		log("    bram:\n");
+		log("        memory_bram -rules +/xilinx/brams.txt\n");
+		log("        techmap -map +/xilinx/brams_map.v\n");
 		log("\n");
 		log("    fine:\n");
-		log("        techmap\n");
-		log("        opt\n");
+		log("        opt -fast -full\n");
+		log("        memory_map\n");
+		log("        opt -full\n");
+		log("        techmap -map +/techmap.v -map +/xilinx/arith_map.v\n");
+		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
-		log("        abc -lut 6\n");
+		log("        abc -lut 5:8 [-dff]\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
-		log("        techmap -share_map xilinx/cells.v\n");
+		log("        techmap -map +/xilinx/cells_map.v\n");
 		log("        clean\n");
 		log("\n");
-		log("    clkbuf:\n");
-		log("        select -set xilinx_clocks <top>/t:FDRE %%x:+FDRE[C] <top>/t:FDRE %%d\n");
-		log("        iopadmap -inpad BUFGP O:I @xilinx_clocks\n");
-		log("\n");
-		log("    iobuf:\n");
-		log("        select -set xilinx_nonclocks <top>/w:* <top>/t:BUFGP %%x:+BUFGP[I] %%d\n");
-		log("        iopadmap -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks\n");
+		log("    check:\n");
+		log("        hierarchy -check\n");
+		log("        stat\n");
+		log("        check -noinit\n");
 		log("\n");
 		log("    edif:\n");
 		log("        write_edif synth.edif\n");
@@ -103,16 +113,14 @@ struct SynthXilinxPass : public Pass {
 		std::string arch_name = "spartan6";
 		std::string edif_file;
 		std::string run_from, run_to;
+		bool flatten = false;
+		bool retime = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-arch" && argidx+1 < args.size()) {
-				arch_name = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -127,26 +135,20 @@ struct SynthXilinxPass : public Pass {
 				run_to = args[argidx].substr(pos+1);
 				continue;
 			}
+			if (args[argidx] == "-flatten") {
+				flatten = true;
+				continue;
+			}
+			if (args[argidx] == "-retime") {
+				retime = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This comannd only operates on fully selected designs!\n");
-
-		if (arch_name == "spartan6") {
-			/* set flags */
-		} else
-		if (arch_name == "artix7") {
-			/* set flags */
-		} else
-		if (arch_name == "kintex7") {
-			/* set flags */
-		} else
-		if (arch_name == "zynq7000") {
-			/* set flags */
-		} else
-			log_cmd_error("Architecture '%s' is not supported!\n", arch_name.c_str());
 
 		bool active = run_from.empty();
 
@@ -155,47 +157,54 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "begin"))
 		{
+			Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
 			Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
+		}
+
+		if (flatten && check_label(active, run_from, run_to, "flatten"))
+		{
+			Pass::call(design, "proc");
+			Pass::call(design, "flatten");
 		}
 
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
-			Pass::call(design, "proc");
-			Pass::call(design, "opt");
-			Pass::call(design, "memory");
-			Pass::call(design, "clean");
-			Pass::call(design, "fsm");
-			Pass::call(design, "opt");
+			Pass::call(design, "synth -run coarse");
+			Pass::call(design, "dff2dffe");
+		}
+
+		if (check_label(active, run_from, run_to, "bram"))
+		{
+			Pass::call(design, "memory_bram -rules +/xilinx/brams.txt");
+			Pass::call(design, "techmap -map +/xilinx/brams_map.v");
 		}
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
-			Pass::call(design, "techmap");
-			Pass::call(design, "opt");
+			Pass::call(design, "opt -fast -full");
+			Pass::call(design, "memory_map");
+			Pass::call(design, "opt -full");
+			Pass::call(design, "techmap -map +/techmap.v -map +/xilinx/arith_map.v");
+			Pass::call(design, "opt -fast");
 		}
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "abc -lut 6");
+			Pass::call(design, "abc -lut 5:8" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 		}
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
-			Pass::call(design, "techmap -share_map xilinx/cells.v");
+			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
 			Pass::call(design, "clean");
 		}
 
-		if (check_label(active, run_from, run_to, "clkbuf"))
+		if (check_label(active, run_from, run_to, "check"))
 		{
-			Pass::call(design, stringf("select -set xilinx_clocks %s/t:FDRE %%x:+FDRE[C] %s/t:FDRE %%d", top_module.c_str(), top_module.c_str()));
-			Pass::call(design, "iopadmap -inpad BUFGP O:I @xilinx_clocks");
-		}
-
-		if (check_label(active, run_from, run_to, "iobuf"))
-		{
-			Pass::call(design, stringf("select -set xilinx_nonclocks %s/w:* %s/t:BUFGP %%x:+BUFGP[I] %%d", top_module.c_str(), top_module.c_str()));
-			Pass::call(design, "iopadmap -outpad OBUF I:O -inpad IBUF O:I @xilinx_nonclocks");
+			Pass::call(design, "hierarchy -check");
+			Pass::call(design, "stat");
+			Pass::call(design, "check -noinit");
 		}
 
 		if (check_label(active, run_from, run_to, "edif"))
@@ -208,3 +217,4 @@ struct SynthXilinxPass : public Pass {
 	}
 } SynthXilinxPass;
  
+PRIVATE_NAMESPACE_END

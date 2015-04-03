@@ -29,6 +29,9 @@
 #include "kernel/celltypes.h"
 #include "fsmdata.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 static RTLIL::Module *module;
 static SigMap assign_map;
 typedef std::pair<RTLIL::IdString, RTLIL::IdString> sig2driver_entry_t;
@@ -37,7 +40,7 @@ static std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> exclusive_ctrls;
 
 static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL::SigSpec &ctrl, std::map<RTLIL::Const, int> &states, RTLIL::Const *reset_state = NULL)
 {
-	sig.extend(dff_out.size(), false);
+	sig.extend_u0(dff_out.size(), false);
 
 	if (sig == dff_out)
 		return true;
@@ -70,9 +73,9 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 		sig_aa.replace(sig_y, sig_a);
 
 		RTLIL::SigSpec sig_bb;
-		for (int i = 0; i < SIZE(sig_b)/SIZE(sig_a); i++) {
+		for (int i = 0; i < GetSize(sig_b)/GetSize(sig_a); i++) {
 			RTLIL::SigSpec s = sig;
-			s.replace(sig_y, sig_b.extract(i*SIZE(sig_a), SIZE(sig_a)));
+			s.replace(sig_y, sig_b.extract(i*GetSize(sig_a), GetSize(sig_a)));
 			sig_bb.append(s);
 		}
 
@@ -95,8 +98,8 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 		if (!find_states(sig_aa, dff_out, ctrl, states))
 			return false;
 
-		for (int i = 0; i < SIZE(sig_bb)/SIZE(sig_aa); i++) {
-			if (!find_states(sig_bb.extract(i*SIZE(sig_aa), SIZE(sig_aa)), dff_out, ctrl, states))
+		for (int i = 0; i < GetSize(sig_bb)/GetSize(sig_aa); i++) {
+			if (!find_states(sig_bb.extract(i*GetSize(sig_aa), GetSize(sig_aa)), dff_out, ctrl, states))
 				return false;
 		}
 	}
@@ -107,7 +110,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 static RTLIL::Const sig2const(ConstEval &ce, RTLIL::SigSpec sig, RTLIL::State noconst_state, RTLIL::SigSpec dont_care = RTLIL::SigSpec())
 {
 	if (dont_care.size() > 0) {
-		for (int i = 0; i < SIZE(sig); i++)
+		for (int i = 0; i < GetSize(sig); i++)
 			if (dont_care.extract(sig[i]).size() > 0)
 				sig[i] = noconst_state;
 	}
@@ -115,7 +118,7 @@ static RTLIL::Const sig2const(ConstEval &ce, RTLIL::SigSpec sig, RTLIL::State no
 	ce.assign_map.apply(sig);
 	ce.values_map.apply(sig);
 
-	for (int i = 0; i < SIZE(sig); i++)
+	for (int i = 0; i < GetSize(sig); i++)
 		if (sig[i].wire != NULL)
 			sig[i] = noconst_state;
 
@@ -145,7 +148,7 @@ undef_bit_in_next_state:
 		tr.ctrl_out = sig2const(ce, ctrl_out, RTLIL::State::Sx);
 
 		std::map<RTLIL::SigBit, int> ctrl_in_bit_indices;
-		for (int i = 0; i < SIZE(ctrl_in); i++)
+		for (int i = 0; i < GetSize(ctrl_in); i++)
 			ctrl_in_bit_indices[ctrl_in[i]] = i;
 
 		for (auto &it : ctrl_in_bit_indices)
@@ -287,7 +290,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 		log("  fsm extraction failed: state selection tree is not closed.\n");
 		return;
 	}
-	if (SIZE(states) <= 1) {
+	if (GetSize(states) <= 1) {
 		log("  fsm extraction failed: at least two states are required.\n");
 		return;
 	}
@@ -456,3 +459,4 @@ struct FsmExtractPass : public Pass {
 	}
 } FsmExtractPass;
  
+PRIVATE_NAMESPACE_END

@@ -25,6 +25,9 @@
 #include "fsmdata.h"
 #include <string.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct FsmOpt
 {
 	FsmData fsm_data;
@@ -40,7 +43,7 @@ struct FsmOpt
 			std::vector<RTLIL::Const> new_state_table;
 			std::map<int, int> old_to_new_state;
 
-			for (int i = 0; i < SIZE(fsm_data.state_table); i++)
+			for (int i = 0; i < GetSize(fsm_data.state_table); i++)
 				if (i != fsm_data.reset_state)
 					unreachable_states.insert(i);
 
@@ -50,12 +53,12 @@ struct FsmOpt
 			if (unreachable_states.empty())
 				break;
 
-			for (int i = 0; i < SIZE(fsm_data.state_table); i++) {
+			for (int i = 0; i < GetSize(fsm_data.state_table); i++) {
 				if (unreachable_states.count(i)) {
 					log("  Removing unreachable state %s.\n", log_signal(fsm_data.state_table[i]));
 					continue;
 				}
-				old_to_new_state[i] = SIZE(new_state_table);
+				old_to_new_state[i] = GetSize(new_state_table);
 				new_state_table.push_back(fsm_data.state_table[i]);
 			}
 
@@ -309,10 +312,14 @@ struct FsmOpt
 	}
 };
 
-void FsmData::optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module)
+PRIVATE_NAMESPACE_END
+
+void YOSYS_NAMESPACE_PREFIX FsmData::optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module)
 {
 	FsmOpt fsmopt(cell, module);
 }
+
+PRIVATE_NAMESPACE_BEGIN
 
 struct FsmOptPass : public Pass {
 	FsmOptPass() : Pass("fsm_opt", "optimize finite state machines") { }
@@ -335,9 +342,10 @@ struct FsmOptPass : public Pass {
 		for (auto &mod_it : design->modules_) {
 			if (design->selected(mod_it.second))
 				for (auto &cell_it : mod_it.second->cells_)
-					if (cell_it.second->type == "$fsm" and design->selected(mod_it.second, cell_it.second))
+					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
 						FsmData::optimize_fsm(cell_it.second, mod_it.second);
 		}
 	}
 } FsmOptPass;
  
+PRIVATE_NAMESPACE_END

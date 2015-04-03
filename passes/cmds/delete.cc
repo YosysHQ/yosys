@@ -17,9 +17,10 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 struct DeletePass : public Pass {
 	DeletePass() : Pass("delete", "delete objects in the design") { }
@@ -90,10 +91,10 @@ struct DeletePass : public Pass {
 				continue;
 			}
 
-			std::set<RTLIL::Wire*> delete_wires;
-			std::set<RTLIL::Cell*> delete_cells;
-			std::set<RTLIL::IdString> delete_procs;
-			std::set<RTLIL::IdString> delete_mems;
+			pool<RTLIL::Wire*> delete_wires;
+			pool<RTLIL::Cell*> delete_cells;
+			pool<RTLIL::IdString> delete_procs;
+			pool<RTLIL::IdString> delete_mems;
 
 			for (auto &it : module->wires_)
 				if (design->selected(module, it.second))
@@ -140,3 +141,4 @@ struct DeletePass : public Pass {
 	}
 } DeletePass;
  
+PRIVATE_NAMESPACE_END

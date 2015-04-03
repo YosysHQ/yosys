@@ -28,9 +28,9 @@ YOSYS_NAMESPACE_BEGIN
 std::map<std::string, void*> loaded_plugins;
 std::map<std::string, std::string> loaded_plugin_aliases;
 
+#ifdef YOSYS_ENABLE_PLUGINS
 void load_plugin(std::string filename, std::vector<std::string> aliases)
 {
-#ifdef YOSYS_ENABLE_PLUGINS
 	if (filename.find('/') == std::string::npos)
 		filename = "./" + filename;
 
@@ -44,10 +44,13 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 
 	for (auto &alias : aliases)
 		loaded_plugin_aliases[alias] = filename;
-#else
-	log_error("This version of yosys is built without plugin support.\n");
-#endif
 }
+#else
+void load_plugin(std::string, std::vector<std::string>)
+{
+	log_error("This version of yosys is built without plugin support.\n");
+}
+#endif
 
 struct PluginPass : public Pass {
 	PluginPass() : Pass("plugin", "load and list loaded plugins") { }
@@ -112,7 +115,7 @@ struct PluginPass : public Pass {
 				log("\n");
 				int max_alias_len = 1;
 				for (auto &it : loaded_plugin_aliases)
-					max_alias_len = std::max(max_alias_len, SIZE(it.first));
+					max_alias_len = std::max(max_alias_len, GetSize(it.first));
 				for (auto &it : loaded_plugin_aliases)
 					log("Alias: %-*s %s\n", max_alias_len, it.first.c_str(), it.second.c_str());
 			}

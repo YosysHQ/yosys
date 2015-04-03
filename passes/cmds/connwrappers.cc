@@ -22,6 +22,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct ConnwrappersWorker
 {
 	struct portdecl_t {
@@ -203,3 +206,4 @@ struct ConnwrappersPass : public Pass {
 	}
 } ConnwrappersPass;
  
+PRIVATE_NAMESPACE_END

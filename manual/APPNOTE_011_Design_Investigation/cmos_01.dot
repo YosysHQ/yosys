@@ -20,4 +20,4 @@ n5:e -> c12:p8:w [color="black", label=""];
 c15:p10:e -> n6:w [color="black", label=""];
 c14:p10:e -> n7:w [color="black", label=""];
 n7:e -> c15:p9:w [color="black", label=""];
-};
+}

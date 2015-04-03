@@ -13,7 +13,7 @@ module axis_master(aclk, aresetn, tvalid, tready, tdata);
 	    if (tvalid && tready)
 	    	tvalid <= 0;
 	    if (!tvalid || !tready) begin
-	    //             ^- should be not inverted!
+	    //             ^- should not be inverted!
                 state = state ^ state << 13;
                 state = state ^ state >> 7;
                 state = state ^ state << 17;

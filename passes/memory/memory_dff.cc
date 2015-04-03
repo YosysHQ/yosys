@@ -22,13 +22,16 @@
 #include <stdlib.h>
 #include <sstream>
 
-static void normalize_sig(RTLIL::Module *module, RTLIL::SigSpec &sig)
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+void normalize_sig(RTLIL::Module *module, RTLIL::SigSpec &sig)
 {
 	for (auto &conn : module->connections())
 		sig.replace(conn.first, conn.second);
 }
 
-static bool find_sig_before_dff(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false)
+bool find_sig_before_dff(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, bool after = false)
 {
 	normalize_sig(module, sig);
 
@@ -66,7 +69,7 @@ static bool find_sig_before_dff(RTLIL::Module *module, std::vector<RTLIL::Cell*>
 	return true;
 }
 
-static void handle_wr_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::Cell *cell)
+void handle_wr_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::Cell *cell)
 {
 	log("Checking cell `%s' in module `%s': ", cell->name.c_str(), module->name.c_str());
 
@@ -105,7 +108,7 @@ static void handle_wr_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff
 	log("no (compatible) $dff found.\n");
 }
 
-static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
+void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 {
 	normalize_sig(module, sig);
 	sig.sort_and_unify();
@@ -123,7 +126,7 @@ static void disconnect_dff(RTLIL::Module *module, RTLIL::SigSpec sig)
 		}
 }
 
-static void handle_rd_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::Cell *cell)
+void handle_rd_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff_cells, RTLIL::Cell *cell)
 {
 	log("Checking cell `%s' in module `%s': ", cell->name.c_str(), module->name.c_str());
 
@@ -161,7 +164,7 @@ static void handle_rd_cell(RTLIL::Module *module, std::vector<RTLIL::Cell*> &dff
 	log("no (compatible) $dff found.\n");
 }
 
-static void handle_module(RTLIL::Module *module, bool flag_wr_only)
+void handle_module(RTLIL::Module *module, bool flag_wr_only)
 {
 	std::vector<RTLIL::Cell*> dff_cells;
 
@@ -216,3 +219,4 @@ struct MemoryDffPass : public Pass {
 	}
 } MemoryDffPass;
  
+PRIVATE_NAMESPACE_END

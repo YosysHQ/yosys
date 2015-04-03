@@ -3,7 +3,7 @@
  |                                                                             |
  |  yosys -- Yosys Open SYnthesis Suite                                        |
  |                                                                             |
- |  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>                   |
+ |  Copyright (C) 2012 - 2015  Clifford Wolf <clifford@clifford.at>            |
  |                                                                             |
  |  Permission to use, copy, modify, and/or distribute this software for any   |
  |  purpose with or without fee is hereby granted, provided that the above     |
@@ -55,12 +55,13 @@ Xdot (graphviz) is used by the "show" command in yosys to display schematics.
 For example on Ubuntu Linux 14.04 LTS the following commands will install all
 prerequisites for building yosys:
 
-	$ yosys_deps="build-essential clang bison flex libreadline-dev
-	              tcl8.5-dev libffi-dev git mercurial graphviz xdot"
+	$ yosys_deps="build-essential clang bison flex libreadline-dev gawk
+	       tcl-dev libffi-dev git mercurial graphviz xdot pkg-config"
 	$ sudo apt-get install $yosys_deps
 
-There are also pre-compiled packages for Yosys on Ubuntu. Visit the Yosys
-download page to learn more about this:
+There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
+as a source distribution for Visual Studio. Visit the Yosys download page for
+more information:
 
 	http://www.clifford.at/yosys/download.html 
 
@@ -248,10 +249,18 @@ Verilog Attributes and non-standard features
   is strongly recommended instead).
 
 - The "nomem2reg" attribute on modules or arrays prohibits the
-  automatic early conversion of arrays to separate registers.
+  automatic early conversion of arrays to separate registers. This
+  is potentially dangerous. Usually the front-end has good reasons
+  for converting an array to a list of registers. Prohibiting this
+  step will likely result in incorrect synthesis results.
 
 - The "mem2reg" attribute on modules or arrays forces the early
   conversion of arrays to separate registers.
+
+- The "nomeminit" attribute on modules or arrays prohibits the
+  creation of initialized memories. This effectively puts "mem2reg"
+  on all memories that are written to in an "initial" block and
+  are not ROMs.
 
 - The "nolatches" attribute on modules or always-blocks
   prohibits the generation of logic-loops for latches. Instead
@@ -264,6 +273,9 @@ Verilog Attributes and non-standard features
   temporary variable within an always block. This is mostly used internally
   by yosys to synthesize verilog functions and access arrays.
 
+- The "onehot" attribute on wires mark them as onehot state register. This
+  is used for example for memory port sharing and set by the fsm_map pass.
+
 - The "blackbox" attribute on modules is used to mark empty stub modules
   that have the same ports as the real thing but do not contain information
   on the internal configuration. This modules are only used by the synthesis
@@ -273,6 +285,11 @@ Verilog Attributes and non-standard features
 - The "keep" attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
   have hidden connections that are not part of the netlist, such as IO pads.
+  Setting the "keep" attribute on a module has the same effect as setting it
+  on all instances of the module.
+
+- The "keep_hierarchy" attribute on cells and modules keeps the "flatten"
+  command from flattening the indicated cells and modules.
 
 - The "init" attribute on wires is set by the frontend when a register is
   initialized "FPGA-style" with 'reg foo = val'. It can be used during synthesis
@@ -289,7 +306,7 @@ Verilog Attributes and non-standard features
   by adding an empty {* *} statement.)
 
 - Modules can be declared with "module mod_name(...);" (with three dots
-  instead of a list of moudle ports). With this syntax it is sufficient
+  instead of a list of module ports). With this syntax it is sufficient
   to simply declare a module port as 'input' or 'output' in the module
   body.
 
@@ -354,40 +371,8 @@ from SystemVerilog:
 
 - The "assert" statement from SystemVerilog is supported in its most basic
   form. In module context: "assert property (<expression>);" and within an
-  always block: "assert(<expression>);". It is transformed to a $assert cell
-  that is supported by the "sat" and "write_btor" commands.
+  always block: "assert(<expression>);". It is transformed to a $assert cell.
 
 - The keywords "always_comb", "always_ff" and "always_latch", "logic" and
   "bit" are supported.
-
-
-Roadmap / Large-scale TODOs
-===========================
-
-- Technology mapping for real-world applications
-   - Improve Xilinx FGPA synthesis (RAMB, CARRY4, SLR, etc.)
-
-- Implement SAT-based formal equivialence checker
-   - Write equiv pass based on hint-based register mapping
-
-- Re-implement Verilog frontend (far future)
-   - cleaner (easier to use, harder to use wrong) AST format
-   - pipeline of well structured AST transformations
-   - true contextual name lookup
-
-
-Other Unsorted TODOs
-====================
-
-- Implement missing Verilog 2005 features:
-
-  - Support for real (float) const. expressions and parameters
-  - ROM modeling using $readmemh/$readmemb in "initial" blocks
-  - Ignore what needs to be ignored (e.g. drive and charge strengths)
-  - Check standard vs. implementation to identify missing features
-
-- Miscellaneous TODO items: 
-
-  - Add brief source code documentation to most passes and kernel code
-  - Implement mux-to-tribuf pass and rebalance mixed mux/tribuf trees
 

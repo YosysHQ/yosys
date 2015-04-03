@@ -25,6 +25,9 @@
 #include "fsmdata.h"
 #include <string.h>
 
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
 struct FsmExpand
 {
 	RTLIL::Module *module;
@@ -236,7 +239,7 @@ struct FsmExpand
 		if (merged_set.size() > 0 && !already_optimized)
 			FsmData::optimize_fsm(fsm_cell, module);
 
-		log("  merged %zd cells into FSM.\n", merged_set.size());
+		log("  merged %d cells into FSM.\n", GetSize(merged_set));
 	}
 };
 
@@ -273,3 +276,4 @@ struct FsmExpandPass : public Pass {
 	}
 } FsmExpandPass;
  
+PRIVATE_NAMESPACE_END

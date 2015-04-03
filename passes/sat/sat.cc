@@ -33,23 +33,25 @@
 #include <errno.h>
 #include <string.h>
 
-namespace {
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 struct SatHelper
 {
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
-	ezDefaultSAT ez;
 	SigMap sigmap;
 	CellTypes ct;
+
+	ezSatPtr ez;
 	SatGen satgen;
 
 	// additional constraints
 	std::vector<std::pair<std::string, std::string>> sets, prove, prove_x, sets_init;
 	std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 	std::map<int, std::vector<std::string>> unsets_at;
-	bool prove_asserts;
+	bool prove_asserts, set_assumes;
 
 	// undef constraints
 	bool enable_undef, set_init_def, set_init_undef, set_init_zero, ignore_unknown_cells;
@@ -64,7 +66,7 @@ struct SatHelper
 	bool gotTimeout;
 
 	SatHelper(RTLIL::Design *design, RTLIL::Module *module, bool enable_undef) :
-		design(design), module(module), sigmap(module), ct(design), satgen(&ez, &sigmap)
+		design(design), module(module), sigmap(module), ct(design), satgen(ez.get(), &sigmap)
 	{
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
@@ -115,7 +117,7 @@ struct SatHelper
 			}
 
 			if (removed_bits.size())
-				log("Warning: ignoring initial value on non-register: %s\n", log_signal(removed_bits));
+				log_warning("ignoring initial value on non-register: %s\n", log_signal(removed_bits));
 
 			if (lhs.size()) {
 				log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
@@ -154,7 +156,7 @@ struct SatHelper
 		if (set_init_def) {
 			RTLIL::SigSpec rem = satgen.initial_state.export_all();
 			std::vector<int> undef_rem = satgen.importUndefSigSpec(rem, 1);
-			ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, undef_rem)));
+			ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_rem)));
 		}
 
 		if (set_init_undef) {
@@ -178,7 +180,7 @@ struct SatHelper
 
 		log("Final constraint equation: %s = %s\n\n", log_signal(big_lhs), log_signal(big_rhs));
 		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
-		ez.assume(satgen.signals_eq(big_lhs, big_rhs, 1));
+		ez->assume(satgen.signals_eq(big_lhs, big_rhs, 1));
 	}
 
 	void setup(int timestep = -1)
@@ -249,7 +251,7 @@ struct SatHelper
 
 		log("Final constraint equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
 		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
-		ez.assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
+		ez->assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
 
 		// 0 = sets_def
 		// 1 = sets_any_undef
@@ -309,28 +311,36 @@ struct SatHelper
 			log("Import %s constraint for this timestep: %s\n", t == 0 ? "def" : t == 1 ? "any_undef" : "all_undef", log_signal(sig));
 			std::vector<int> undef_sig = satgen.importUndefSigSpec(sig, timestep);
 			if (t == 0)
-				ez.assume(ez.NOT(ez.expression(ezSAT::OpOr, undef_sig)));
+				ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_sig)));
 			if (t == 1)
-				ez.assume(ez.expression(ezSAT::OpOr, undef_sig));
+				ez->assume(ez->expression(ezSAT::OpOr, undef_sig));
 			if (t == 2)
-				ez.assume(ez.expression(ezSAT::OpAnd, undef_sig));
+				ez->assume(ez->expression(ezSAT::OpAnd, undef_sig));
 		}
 
 		int import_cell_counter = 0;
-		for (auto &c : module->cells_)
-			if (design->selected(module, c.second)) {
-				// log("Import cell: %s\n", RTLIL::id2cstr(c.first));
-				if (satgen.importCell(c.second, timestep)) {
-					for (auto &p : c.second->connections())
-						if (ct.cell_output(c.second->type, p.first))
-							show_drivers.insert(sigmap(p.second), c.second);
+		for (auto cell : module->cells())
+			if (design->selected(module, cell)) {
+				// log("Import cell: %s\n", RTLIL::id2cstr(cell->name));
+				if (satgen.importCell(cell, timestep)) {
+					for (auto &p : cell->connections())
+						if (ct.cell_output(cell->type, p.first))
+							show_drivers.insert(sigmap(p.second), cell);
 					import_cell_counter++;
 				} else if (ignore_unknown_cells)
-					log("Warning: Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+					log_warning("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				else
-					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
+					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 		}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
+
+		if (set_assumes) {
+			RTLIL::SigSpec assumes_a, assumes_en;
+			satgen.getAssumes(assumes_a, assumes_en, timestep);
+			for (int i = 0; i < GetSize(assumes_a); i++)
+				log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
+			ez->assume(satgen.importAssumes(timestep));
+		}
 	}
 
 	int setup_proof(int timestep = -1)
@@ -400,33 +410,33 @@ struct SatHelper
 			std::vector<int> undef_rhs = satgen.importUndefSigSpec(big_rhs, timestep);
 
 			for (size_t i = 0; i < value_lhs.size(); i++)
-				prove_bits.push_back(ez.OR(undef_lhs.at(i), ez.AND(ez.NOT(undef_rhs.at(i)), ez.NOT(ez.XOR(value_lhs.at(i), value_rhs.at(i))))));
+				prove_bits.push_back(ez->OR(undef_lhs.at(i), ez->AND(ez->NOT(undef_rhs.at(i)), ez->NOT(ez->XOR(value_lhs.at(i), value_rhs.at(i))))));
 		}
 
 		if (prove_asserts) {
 			RTLIL::SigSpec asserts_a, asserts_en;
 			satgen.getAsserts(asserts_a, asserts_en, timestep);
-			for (int i = 0; i < SIZE(asserts_a); i++)
+			for (int i = 0; i < GetSize(asserts_a); i++)
 				log("Import proof for assert: %s when %s.\n", log_signal(asserts_a[i]), log_signal(asserts_en[i]));
 			prove_bits.push_back(satgen.importAsserts(timestep));
 		}
 
-		return ez.expression(ezSAT::OpAnd, prove_bits);
+		return ez->expression(ezSAT::OpAnd, prove_bits);
 	}
 
 	void force_unique_state(int timestep_from, int timestep_to)
 	{
 		RTLIL::SigSpec state_signals = satgen.initial_state.export_all();
 		for (int i = timestep_from; i < timestep_to; i++)
-			ez.assume(ez.NOT(satgen.signals_eq(state_signals, state_signals, i, timestep_to)));
+			ez->assume(ez->NOT(satgen.signals_eq(state_signals, state_signals, i, timestep_to)));
 	}
 
 	bool solve(const std::vector<int> &assumptions)
 	{
 		log_assert(gotTimeout == false);
-		ez.setSolverTimeout(timeout);
-		bool success = ez.solve(modelExpressions, modelValues, assumptions);
-		if (ez.getSolverTimoutStatus())
+		ez->setSolverTimeout(timeout);
+		bool success = ez->solve(modelExpressions, modelValues, assumptions);
+		if (ez->getSolverTimoutStatus())
 			gotTimeout = true;
 		return success;
 	}
@@ -434,9 +444,9 @@ struct SatHelper
 	bool solve(int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
 	{
 		log_assert(gotTimeout == false);
-		ez.setSolverTimeout(timeout);
-		bool success = ez.solve(modelExpressions, modelValues, a, b, c, d, e, f);
-		if (ez.getSolverTimoutStatus())
+		ez->setSolverTimeout(timeout);
+		bool success = ez->solve(modelExpressions, modelValues, a, b, c, d, e, f);
+		if (ez->getSolverTimoutStatus())
 			gotTimeout = true;
 		return success;
 	}
@@ -477,7 +487,7 @@ struct SatHelper
 					maybe_undef.push_back(modelExpressions.at(modelExpressions.size()/2 + i));
 
 			backupValues.swap(modelValues);
-			if (!solve(ez.expression(ezSAT::OpAnd, must_undef), ez.expression(ezSAT::OpOr, maybe_undef)))
+			if (!solve(ez->expression(ezSAT::OpAnd, must_undef), ez->expression(ezSAT::OpOr, maybe_undef)))
 				break;
 		}
 
@@ -670,7 +680,7 @@ struct SatHelper
 		fprintf(f, "    %s\n", stime);
 		fprintf(f, "$end\n");
 		fprintf(f, "$version\n");
-		fprintf(f, "    Generated by %s\n", yosys_version_str); 
+		fprintf(f, "    Generated by %s\n", yosys_version_str);
 		fprintf(f, "$end\n");
 		fprintf(f, "$comment\n");
 		fprintf(f, "    Generated from SAT problem in module %s (declared at %s)\n",
@@ -749,6 +759,80 @@ struct SatHelper
 		fclose(f);
 	}
 
+	void dump_model_to_json(std::string json_file_name)
+	{
+		FILE *f = fopen(json_file_name.c_str(), "w");
+		if (!f)
+			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name.c_str(), strerror(errno));
+
+		log("Dumping SAT model to WaveJSON file '%s'.\n", json_file_name.c_str());
+
+		int mintime = 1, maxtime = 0, maxwidth = 0;;
+		dict<string, pair<int, dict<int, Const>>> wavedata;
+
+		for (auto &info : modelInfo)
+		{
+			Const value;
+			for (int i = 0; i < info.width; i++) {
+				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
+					value.bits.back() = RTLIL::State::Sx;
+			}
+
+			wavedata[info.description].first = info.width;
+			wavedata[info.description].second[info.timestep] = value;
+			mintime = std::min(mintime, info.timestep);
+			maxtime = std::max(maxtime, info.timestep);
+			maxwidth = std::max(maxwidth, info.width);
+		}
+
+		fprintf(f, "{ \"signal\": [");
+		bool fist_wavedata = true;
+		for (auto &wd : wavedata)
+		{
+			fprintf(f, "%s", fist_wavedata ? "\n" : ",\n");
+			fist_wavedata = false;
+
+			vector<string> data;
+			string name = wd.first.c_str();
+			while (name.substr(0, 1) == "\\")
+				name = name.substr(1);
+
+			fprintf(f, "    { \"name\": \"%s\", \"wave\": \"", name.c_str());
+			for (int i = mintime; i <= maxtime; i++) {
+				if (wd.second.second.count(i)) {
+					string this_data = wd.second.second[i].as_string();
+					char ch = '=';
+					if (wd.second.first == 1)
+						ch = this_data[0];
+					if (!data.empty() && data.back() == this_data) {
+						fprintf(f, ".");
+					} else {
+						data.push_back(this_data);
+						fprintf(f, "%c", ch);
+					}
+				} else {
+					data.push_back("");
+					fprintf(f, "4");
+				}
+			}
+			if (wd.second.first != 1) {
+				fprintf(f, "\", \"data\": [");
+				for (int i = 0; i < GetSize(data); i++)
+					 fprintf(f, "%s\"%s\"", i ? ", " : "", data[i].c_str());
+				fprintf(f, "] }");
+			} else {
+				fprintf(f, "\" }");
+			}
+		}
+		fprintf(f, "\n  ],\n");
+		fprintf(f, "  \"config\": {\n");
+		fprintf(f, "    \"hscale\": %.2f\n", maxwidth / 4.0);
+		fprintf(f, "  }\n");
+		fprintf(f, "}\n");
+		fclose(f);
+	}
+
 	void invalidate_model(bool max_undef)
 	{
 		std::vector<int> clause;
@@ -757,18 +841,16 @@ struct SatHelper
 				int bit = modelExpressions.at(i), bit_undef = modelExpressions.at(modelExpressions.size()/2 + i);
 				bool val = modelValues.at(i), val_undef = modelValues.at(modelExpressions.size()/2 + i);
 				if (!max_undef || !val_undef)
-					clause.push_back(val_undef ? ez.NOT(bit_undef) : val ? ez.NOT(bit) : bit);
+					clause.push_back(val_undef ? ez->NOT(bit_undef) : val ? ez->NOT(bit) : bit);
 			}
 		} else
 			for (size_t i = 0; i < modelExpressions.size(); i++)
-				clause.push_back(modelValues.at(i) ? ez.NOT(modelExpressions.at(i)) : modelExpressions.at(i));
-		ez.assume(ez.expression(ezSAT::OpOr, clause));
+				clause.push_back(modelValues.at(i) ? ez->NOT(modelExpressions.at(i)) : modelExpressions.at(i));
+		ez->assume(ez->expression(ezSAT::OpOr, clause));
 	}
 };
 
-} /* namespace */
-
-static void print_proof_failed()
+void print_proof_failed()
 {
 	log("\n");
 	log("   ______                   ___       ___       _ _            _ _ \n");
@@ -780,7 +862,7 @@ static void print_proof_failed()
 	log("\n");
 }
 
-static void print_timeout()
+void print_timeout()
 {
 	log("\n");
 	log("        _____  _  _      _____ ____  _     _____\n");
@@ -791,7 +873,7 @@ static void print_timeout()
 	log("\n");
 }
 
-static void print_qed()
+void print_qed()
 {
 	log("\n");
 	log("                  /$$$$$$      /$$$$$$$$     /$$$$$$$    \n");
@@ -851,8 +933,8 @@ struct SatPass : public Pass {
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
 		log("\n");
-		log("    -show-inputs, -show-outputs\n");
-		log("        add all module input (output) ports to the list of shown signals\n");
+		log("    -show-inputs, -show-outputs, -show-ports\n");
+		log("        add all module (input/output) ports to the list of shown signals\n");
 		log("\n");
 		log("    -ignore_div_by_zero\n");
 		log("        ignore all solutions that involve a division by zero\n");
@@ -866,10 +948,16 @@ struct SatPass : public Pass {
 		log("        set up a sequential problem with <N> time steps. The steps will\n");
 		log("        be numbered from 1 to N.\n");
 		log("\n");
+		log("        note: for large <N> it can be significantly faster to use\n");
+		log("        -tempinduct-baseonly -maxsteps <N> instead of -seq <N>.\n");
+		log("\n");
 		log("    -set-at <N> <signal> <value>\n");
 		log("    -unset-at <N> <signal>\n");
 		log("        set or unset the specified signal to the specified value in the\n");
 		log("        given timestep. this has priority over a -set for the same signal.\n");
+		log("\n");
+		log("    -set-assumes\n");
+		log("        set all assumptions provided via $assume cells\n");
 		log("\n");
 		log("    -set-def-at <N> <signal>\n");
 		log("    -set-any-undef-at <N> <signal>\n");
@@ -891,6 +979,9 @@ struct SatPass : public Pass {
 		log("    -dump_vcd <vcd-file-name>\n");
 		log("        dump SAT model (counter example in proof) to VCD file\n");
 		log("\n");
+		log("    -dump_json <json-file-name>\n");
+		log("        dump SAT model (counter example in proof) to a WaveJSON file.\n");
+		log("\n");
 		log("    -dump_cnf <cnf-file-name>\n");
 		log("        dump CNF of SAT problem (in DIMACS format). in temporal induction\n");
 		log("        proofs this is the CNF of the first induction step.\n");
@@ -906,6 +997,20 @@ struct SatPass : public Pass {
 		log("    -tempinduct-def\n");
 		log("        Perform a temporal induction proof. Assume an initial state with all\n");
 		log("        registers set to defined values for the induction step.\n");
+		log("\n");
+		log("    -tempinduct-baseonly\n");
+		log("        Run only the basecase half of temporal induction (requires -maxsteps)\n");
+		log("\n");
+		log("    -tempinduct-inductonly\n");
+		log("        Run only the induction half of temporal induction\n");
+		log("\n");
+		log("    -tempinduct-skip <N>\n");
+		log("        Skip the first <N> steps of the induction proof.\n");
+		log("\n");
+		log("        note: this will assume that the base case holds for <N> steps.\n");
+		log("        this must be proven independently with \"-tempinduct-baseonly\n");
+		log("        -maxsteps <N>\". Use -initsteps if you just want to set a\n");
+		log("        minimal induction length.\n");
 		log("\n");
 		log("    -prove <signal> <value>\n");
 		log("        Attempt to proof that <signal> is always <value>.\n");
@@ -925,6 +1030,13 @@ struct SatPass : public Pass {
 		log("\n");
 		log("    -initsteps <N>\n");
 		log("        Set initial length for the induction.\n");
+		log("        This will speed up the search of the right induction length\n");
+		log("        for deep induction proofs.\n");
+		log("\n");
+		log("    -stepsize <N>\n");
+		log("        Increase the size of the induction proof in steps of <N>.\n");
+		log("        This will speed up the search of the right induction length\n");
+		log("        for deep induction proofs.\n");
 		log("\n");
 		log("    -timeout <N>\n");
 		log("        Maximum number of seconds a single SAT instance may take.\n");
@@ -953,7 +1065,9 @@ struct SatPass : public Pass {
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
-		std::string vcd_file_name, cnf_file_name;
+		bool tempinduct_baseonly = false, tempinduct_inductonly = false, set_assumes = false;
+		int tempinduct_skip = 0, stepsize = 1;
+		std::string vcd_file_name, json_file_name, cnf_file_name;
 
 		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
 
@@ -997,6 +1111,10 @@ struct SatPass : public Pass {
 				initsteps = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-stepsize" && argidx+1 < args.size()) {
+				stepsize = std::max(1, atoi(args[++argidx].c_str()));
+				continue;
+			}
 			if (args[argidx] == "-ignore_div_by_zero") {
 				ignore_div_by_zero = true;
 				continue;
@@ -1036,6 +1154,10 @@ struct SatPass : public Pass {
 				enable_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-set-assumes") {
+				set_assumes = true;
+				continue;
+			}
 			if (args[argidx] == "-tempinduct") {
 				tempinduct = true;
 				continue;
@@ -1043,6 +1165,20 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-tempinduct-def") {
 				tempinduct = true;
 				tempinduct_def = true;
+				continue;
+			}
+			if (args[argidx] == "-tempinduct-baseonly") {
+				tempinduct = true;
+				tempinduct_baseonly = true;
+				continue;
+			}
+			if (args[argidx] == "-tempinduct-inductonly") {
+				tempinduct = true;
+				tempinduct_inductonly = true;
+				continue;
+			}
+			if (args[argidx] == "-tempinduct-skip" && argidx+1 < args.size()) {
+				tempinduct_skip = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-prove" && argidx+2 < args.size()) {
@@ -1131,12 +1267,21 @@ struct SatPass : public Pass {
 				show_outputs = true;
 				continue;
 			}
+			if (args[argidx] == "-show-ports") {
+				show_inputs = true;
+				show_outputs = true;
+				continue;
+			}
 			if (args[argidx] == "-ignore_unknown_cells") {
 				ignore_unknown_cells = true;
 				continue;
 			}
 			if (args[argidx] == "-dump_vcd" && argidx+1 < args.size()) {
 				vcd_file_name = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-dump_json" && argidx+1 < args.size()) {
+				json_file_name = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-dump_cnf" && argidx+1 < args.size()) {
@@ -1155,14 +1300,14 @@ struct SatPass : public Pass {
 							RTLIL::id2cstr(module->name), RTLIL::id2cstr(mod_it.first));
 				module = mod_it.second;
 			}
-		if (module == NULL) 
+		if (module == NULL)
 			log_cmd_error("Can't perform SAT on an empty selection!\n");
 
 		if (!prove.size() && !prove_x.size() && !prove_asserts && tempinduct)
 			log_cmd_error("Got -tempinduct but nothing to prove!\n");
 
 		if (prove_skip && tempinduct)
-			log_cmd_error("Options -prove-skip and -tempinduct don't work with each other.\n");
+			log_cmd_error("Options -prove-skip and -tempinduct don't work with each other. Use -seq instead of -prove-skip.\n");
 
 		if (prove_skip >= seq_len && prove_skip > 0)
 			log_cmd_error("The value of -prove-skip must be smaller than the one of -seq.\n");
@@ -1195,8 +1340,10 @@ struct SatPass : public Pass {
 
 			SatHelper basecase(design, module, enable_undef);
 			SatHelper inductstep(design, module, enable_undef);
+			bool basecase_setup_init = true;
 
 			basecase.sets = sets;
+			basecase.set_assumes = set_assumes;
 			basecase.prove = prove;
 			basecase.prove_x = prove_x;
 			basecase.prove_asserts = prove_asserts;
@@ -1218,10 +1365,11 @@ struct SatPass : public Pass {
 			basecase.ignore_unknown_cells = ignore_unknown_cells;
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
-				basecase.setup(timestep);
-			basecase.setup_init();
+				if (!tempinduct_inductonly)
+					basecase.setup(timestep);
 
 			inductstep.sets = sets;
+			inductstep.set_assumes = set_assumes;
 			inductstep.prove = prove;
 			inductstep.prove_x = prove_x;
 			inductstep.prove_asserts = prove_asserts;
@@ -1233,12 +1381,14 @@ struct SatPass : public Pass {
 			inductstep.satgen.ignore_div_by_zero = ignore_div_by_zero;
 			inductstep.ignore_unknown_cells = ignore_unknown_cells;
 
-			inductstep.setup(1);
-			inductstep.ez.assume(inductstep.setup_proof(1));
+			if (!tempinduct_baseonly) {
+				inductstep.setup(1);
+				inductstep.ez->assume(inductstep.setup_proof(1));
+			}
 
 			if (tempinduct_def) {
 				std::vector<int> undef_state = inductstep.satgen.importUndefSigSpec(inductstep.satgen.initial_state.export_all(), 1);
-				inductstep.ez.assume(inductstep.ez.NOT(inductstep.ez.expression(ezSAT::OpOr, undef_state)));
+				inductstep.ez->assume(inductstep.ez->NOT(inductstep.ez->expression(ezSAT::OpOr, undef_state)));
 			}
 
 			for (int inductlen = 1; inductlen <= maxsteps || maxsteps == 0; inductlen++)
@@ -1247,81 +1397,120 @@ struct SatPass : public Pass {
 
 				// phase 1: proving base case
 
-				basecase.setup(seq_len + inductlen);
-				int property = basecase.setup_proof(seq_len + inductlen);
-				basecase.generate_model();
+				if (!tempinduct_inductonly)
+				{
+					basecase.setup(seq_len + inductlen);
+					int property = basecase.setup_proof(seq_len + inductlen);
+					basecase.generate_model();
 
-				if (inductlen > 1)
-					basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
+					if (basecase_setup_init) {
+						basecase.setup_init();
+						basecase_setup_init = false;
+					}
 
-				log("\n[base case] Solving problem with %d variables and %d clauses..\n",
-						basecase.ez.numCnfVariables(), basecase.ez.numCnfClauses());
+					if (inductlen > 1)
+						basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
 
-				if (basecase.solve(basecase.ez.NOT(property))) {
-					log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
-					print_proof_failed();
-					basecase.print_model();
-					if(!vcd_file_name.empty())
-						basecase.dump_model_to_vcd(vcd_file_name);
-					goto tip_failed;
+					if (tempinduct_skip < inductlen)
+					{
+						log("\n[base case %d] Solving problem with %d variables and %d clauses..\n",
+								inductlen, basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
+
+						if (basecase.solve(basecase.ez->NOT(property))) {
+							log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
+							print_proof_failed();
+							basecase.print_model();
+							if(!vcd_file_name.empty())
+								basecase.dump_model_to_vcd(vcd_file_name);
+							if(!json_file_name.empty())
+								basecase.dump_model_to_json(json_file_name);
+							goto tip_failed;
+						}
+
+						if (basecase.gotTimeout)
+							goto timeout;
+
+						log("Base case for induction length %d proven.\n", inductlen);
+					}
+					else
+					{
+						log("\n[base case %d] Skipping prove for this step (-tempinduct-skip %d).",
+								inductlen, tempinduct_skip);
+						log("\n[base case %d] Problem size so far: %d variables and %d clauses.\n",
+								inductlen, basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
+					}
+					basecase.ez->assume(property);
 				}
-
-				if (basecase.gotTimeout)
-					goto timeout;
-
-				log("Base case for induction length %d proven.\n", inductlen);
-				basecase.ez.assume(property);
 
 				// phase 2: proving induction step
 
-				inductstep.setup(inductlen + 1);
-				property = inductstep.setup_proof(inductlen + 1);
-				inductstep.generate_model();
-
-				if (inductlen > 1)
-					inductstep.force_unique_state(1, inductlen + 1);
-
-				if (inductlen < initsteps)
+				if (!tempinduct_baseonly)
 				{
-					log("\n[induction step] Skipping problem with %d variables and %d clauses (below initsteps).\n",
-							inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
-					inductstep.ez.assume(property);
-				}
-				else
-				{
-					if (!cnf_file_name.empty())
+					inductstep.setup(inductlen + 1);
+					int property = inductstep.setup_proof(inductlen + 1);
+					inductstep.generate_model();
+
+					if (inductlen > 1)
+						inductstep.force_unique_state(1, inductlen + 1);
+
+					if (inductlen <= tempinduct_skip || inductlen <= initsteps || inductlen % stepsize != 0)
 					{
-						FILE *f = fopen(cnf_file_name.c_str(), "w");
-						if (!f)
-							log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
-
-						log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
-						cnf_file_name.clear();
-
-						inductstep.ez.printDIMACS(f, false);
-						fclose(f);
+						if (inductlen < tempinduct_skip)
+							log("\n[induction step %d] Skipping prove for this step (-tempinduct-skip %d).",
+									inductlen, tempinduct_skip);
+						if (inductlen < initsteps)
+							log("\n[induction step %d] Skipping prove for this step (-initsteps %d).",
+									inductlen, tempinduct_skip);
+						if (inductlen % stepsize != 0)
+							log("\n[induction step %d] Skipping prove for this step (-stepsize %d).",
+									inductlen, stepsize);
+						log("\n[induction step %d] Problem size so far: %d variables and %d clauses.\n",
+								inductlen, inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+						inductstep.ez->assume(property);
 					}
+					else
+					{
+						if (!cnf_file_name.empty())
+						{
+							FILE *f = fopen(cnf_file_name.c_str(), "w");
+							if (!f)
+								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
 
-					log("\n[induction step] Solving problem with %d variables and %d clauses..\n",
-							inductstep.ez.numCnfVariables(), inductstep.ez.numCnfClauses());
+							log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+							cnf_file_name.clear();
 
-					if (!inductstep.solve(inductstep.ez.NOT(property))) {
-						if (inductstep.gotTimeout)
-							goto timeout;
-						log("Induction step proven: SUCCESS!\n");
-						print_qed();
-						goto tip_success;
+							inductstep.ez->printDIMACS(f, false);
+							fclose(f);
+						}
+
+						log("\n[induction step %d] Solving problem with %d variables and %d clauses..\n",
+								inductlen, inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+
+						if (!inductstep.solve(inductstep.ez->NOT(property))) {
+							if (inductstep.gotTimeout)
+								goto timeout;
+							log("Induction step proven: SUCCESS!\n");
+							print_qed();
+							goto tip_success;
+						}
+
+						log("Induction step failed. Incrementing induction length.\n");
+						inductstep.ez->assume(property);
+						inductstep.print_model();
 					}
-
-					log("Induction step failed. Incrementing induction length.\n");
-					inductstep.ez.assume(property);
-					inductstep.print_model();
 				}
+			}
+
+			if (tempinduct_baseonly) {
+				log("\nReached maximum number of time steps -> proved base case for %d steps: SUCCESS!\n", maxsteps);
+				goto tip_success;
 			}
 
 			log("\nReached maximum number of time steps -> proof failed.\n");
 			if(!vcd_file_name.empty())
 				inductstep.dump_model_to_vcd(vcd_file_name);
+			if(!json_file_name.empty())
+				inductstep.dump_model_to_json(json_file_name);
 			print_proof_failed();
 
 		tip_failed:
@@ -1345,6 +1534,7 @@ struct SatPass : public Pass {
 			SatHelper sathelper(design, module, enable_undef);
 
 			sathelper.sets = sets;
+			sathelper.set_assumes = set_assumes;
 			sathelper.prove = prove;
 			sathelper.prove_x = prove_x;
 			sathelper.prove_asserts = prove_asserts;
@@ -1368,7 +1558,7 @@ struct SatPass : public Pass {
 			if (seq_len == 0) {
 				sathelper.setup();
 				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
-					sathelper.ez.assume(sathelper.ez.NOT(sathelper.setup_proof()));
+					sathelper.ez->assume(sathelper.ez->NOT(sathelper.setup_proof()));
 			} else {
 				std::vector<int> prove_bits;
 				for (int timestep = 1; timestep <= seq_len; timestep++) {
@@ -1378,7 +1568,7 @@ struct SatPass : public Pass {
 							prove_bits.push_back(sathelper.setup_proof(timestep));
 				}
 				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
-					sathelper.ez.assume(sathelper.ez.NOT(sathelper.ez.expression(ezSAT::OpAnd, prove_bits)));
+					sathelper.ez->assume(sathelper.ez->NOT(sathelper.ez->expression(ezSAT::OpAnd, prove_bits)));
 				sathelper.setup_init();
 			}
 			sathelper.generate_model();
@@ -1392,7 +1582,7 @@ struct SatPass : public Pass {
 				log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
 				cnf_file_name.clear();
 
-				sathelper.ez.printDIMACS(f, false);
+				sathelper.ez->printDIMACS(f, false);
 				fclose(f);
 			}
 
@@ -1400,7 +1590,7 @@ struct SatPass : public Pass {
 
 		rerun_solver:
 			log("\nSolving problem with %d variables and %d clauses..\n",
-					sathelper.ez.numCnfVariables(), sathelper.ez.numCnfClauses());
+					sathelper.ez->numCnfVariables(), sathelper.ez->numCnfClauses());
 
 			if (sathelper.solve())
 			{
@@ -1420,6 +1610,8 @@ struct SatPass : public Pass {
 
 				if(!vcd_file_name.empty())
 					sathelper.dump_model_to_vcd(vcd_file_name);
+				if(!json_file_name.empty())
+					sathelper.dump_model_to_json(json_file_name);
 
 				if (loopcount != 0) {
 					loopcount--, rerun_counter++;
@@ -1483,4 +1675,5 @@ struct SatPass : public Pass {
 		}
 	}
 } SatPass;
- 
+
+PRIVATE_NAMESPACE_END
