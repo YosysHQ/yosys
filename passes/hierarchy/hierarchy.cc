@@ -510,7 +510,7 @@ struct HierarchyPass : public Pass {
 		if (top_mod == nullptr && auto_top_mode) {
 			log_header("Finding top of design hierarchy..\n");
 			dict<Module*, int> db;
-			for (Module *mod : design->modules()) {
+			for (Module *mod : design->selected_modules()) {
 				int score = find_top_mod_score(design, mod, db);
 				log("root of %3d design levels: %-20s\n", score, log_id(mod));
 				if (!top_mod || score > db[top_mod])
@@ -613,5 +613,5 @@ struct HierarchyPass : public Pass {
 		log_pop();
 	}
 } HierarchyPass;
- 
+
 PRIVATE_NAMESPACE_END

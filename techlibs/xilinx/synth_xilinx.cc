@@ -47,7 +47,7 @@ struct SynthXilinxPass : public Pass {
 		log("compatible with 7-Series Xilinx devices.\n");
 		log("\n");
 		log("    -top <module>\n");
-		log("        use the specified module as top module (default='top')\n");
+		log("        use the specified module as top module\n");
 		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
@@ -96,6 +96,7 @@ struct SynthXilinxPass : public Pass {
 		log("\n");
 		log("    map_cells:\n");
 		log("        techmap -map +/xilinx/cells_map.v\n");
+		log("        dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT\n");
 		log("        clean\n");
 		log("\n");
 		log("    check:\n");
@@ -109,8 +110,7 @@ struct SynthXilinxPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::string top_module = "top";
-		std::string arch_name = "spartan6";
+		std::string top_opt = "-auto-top";
 		std::string edif_file;
 		std::string run_from, run_to;
 		bool flatten = false;
@@ -120,7 +120,7 @@ struct SynthXilinxPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
-				top_module = args[++argidx];
+				top_opt = "-top " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -158,7 +158,7 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "begin"))
 		{
 			Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
-			Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
+			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
 		if (flatten && check_label(active, run_from, run_to, "flatten"))
@@ -197,6 +197,7 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
 			Pass::call(design, "techmap -map +/xilinx/cells_map.v");
+			Pass::call(design, "dffinit -ff FDRE Q INIT -ff FDCE Q INIT -ff FDPE Q INIT");
 			Pass::call(design, "clean");
 		}
 

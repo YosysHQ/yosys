@@ -474,6 +474,7 @@ struct RTLIL::Const
 	std::string decode_string() const;
 
 	inline int size() const { return bits.size(); }
+	inline RTLIL::State operator[](int index) { return bits.at(index); }
 
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;

@@ -255,7 +255,7 @@ struct Dff2dffePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    dff2dffe [selection]\n");
+		log("    dff2dffe [options] [selection]\n");
 		log("\n");
 		log("This pass transforms $dff cells driven by a tree of multiplexers with one or\n");
 		log("more feedback paths to $dffe cells. It also works on gate-level cells such as\n");
