@@ -52,17 +52,17 @@
 \begin{document}
 
 \title{Yosys Application Note 012: \\ Converting Verilog to BTOR}
-\author{Ahmed Irfan and Clifford Wolf \\ November 2014}
+\author{Ahmed Irfan and Clifford Wolf \\ April 2015}
 \maketitle
 
 \begin{abstract}
 Verilog-2005 is a powerful Hardware Description Language (HDL) that
 can be used to easily create complex designs from small HDL code.
 BTOR~\cite{btor} is a bit-precise word-level format for model
-checking.  It is simple format and easy to parse.  It allows to model
-the model checking problem over theory of bit-vectors with
-one-dimensional arrays, thus enabling to model verilog designs with
-registers and memories.  Yosys \cite{yosys} is an Open-Source Verilog
+checking.  It is a simple format and easy to parse. It allows to model
+the model checking problem over the theory of bit-vectors with
+one-dimensional arrays, thus enabling to model Verilog designs with
+registers and memories.  Yosys~\cite{yosys} is an Open-Source Verilog
 synthesis tool that can be used to convert Verilog designs with simple
 assertions to BTOR format.
 
@@ -76,33 +76,29 @@ C++11 compiler. The README file contains useful information on
 building Yosys and its prerequisites.
 
 Yosys is a large and feature-rich program with some dependencies. For
-this work, we may deactivate other extra features that are {\tt TCL},
-{\tt Qt}, {\tt MiniSAT}, and {\tt yosys-abc} support in the {\tt
-  Makefile}.
+this work, we may deactivate other extra features such as {\tt TCL}
+and {\tt ABC} support in the {\tt Makefile}.
 
 \bigskip
 
-This Application Note is based on GIT Rev. {\tt d3c67ad} from
-2014-09-22 of Yosys \cite{yosys}.
-%The Verilog sources used for the examples are taken from
-%yosys-bigsim \cite{bigsim}, a collection of real-world designs used for
-%regression testing Yosys.
+This Application Note is based on GIT Rev. {\tt 082550f} from
+2015-04-04 of Yosys~\cite{yosys}.
 
 \section{Quick Start}
 
 We assume that the Verilog design is synthesizable and we also assume
 that the design does not have multi-dimensional memories.  As BTOR
 implicitly initializes registers to zero value and memories stay
-uninitilized, we assume that the the Verilog design does
-not contain initial block. For more details about the BTOR format,
+uninitilized, we assume that the Verilog design does
+not contain initial blocks. For more details about the BTOR format,
 please refer to~\cite{btor}.
 
 We provide a shell script {\tt verilog2btor.sh} which can be used to
-convert a Verilog design to BTOR.  The script can be found in {\tt
-  backends/btor} directory.  Following example shows its usage:
+convert a Verilog design to BTOR. The script can be found in the
+{\tt backends/btor} directory. The following example shows its usage:
 
 \begin{figure}[H]
-\begin{lstlisting}[language=sh]
+\begin{lstlisting}[language=sh,numbers=none]
 verilog2btor.sh fsm.v fsm.btor test
 \end{lstlisting}
  \renewcommand{\figurename}{Listing}
@@ -110,37 +106,42 @@ verilog2btor.sh fsm.v fsm.btor test
 \end{figure}
 
 The script {\tt verilog2btor.sh} takes three parameters.  In the above
-example, first parameter {\tt fsm.v} is the input design, second
-parameter {\tt fsm.btor} is the file name of BTOR output, and third
+example, the first parameter {\tt fsm.v} is the input design, the second
+parameter {\tt fsm.btor} is the file name of BTOR output, and the third
 parameter {\tt test} is the name of top module in the design.
 
 To specify the properties (that need to be checked), we have two
 options:
 \begin{itemize}
-\item We can use simple {\tt assert} command in the procedural block
-  or continuous block of the Verilog design, as shown in
-  Listing~\ref{specifying_property_assert}. This is preferred option.
-\item We can use a output wire (single bit), whose name starts with
-  {\tt safety}.  The value of this output wire needs to be handled in
-  the Verilog code, as shown in
+\item We can use the Verilog {\tt assert} statement in the procedural block
+  or module body of the Verilog design, as shown in
+  Listing~\ref{specifying_property_assert}. This is the preferred option.
+\item We can use a single-bit output wire, whose name starts with
+  {\tt safety}.  The value of this output wire needs to be driven low
+  when the property is met, i.e. the solver will try to find a model
+  that makes the safety pin go high. This is demonstrated in
   Listing~\ref{specifying_property_output}.
 \end{itemize}
 
 \begin{figure}[H]
-\begin{lstlisting}[language=Verilog]
+\begin{lstlisting}[language=Verilog,numbers=none]
 module test(input clk, input rst, output y);
-reg [2:0] state;
-output safety1;
-always @(posedge clk) begin
-  if (rst || state == 3) begin
-    state <= 0;
-  end else begin
-    assert(state < 3);
-    state <= state + 1;
+
+  reg [2:0] state;
+
+  always @(posedge clk) begin
+    if (rst || state == 3) begin
+      state <= 0;
+    end else begin
+      assert(state < 3);
+      state <= state + 1;
+    end
   end
-end
-assign y = state[2];
-assert property (y !== 1'b1);
+
+  assign y = state[2];
+
+  assert property (y !== 1'b1);
+
 endmodule
 \end{lstlisting}
 \renewcommand{\figurename}{Listing}
@@ -149,25 +150,23 @@ endmodule
 \end{figure}
 
 \begin{figure}[H]
-\begin{lstlisting}[language=Verilog]
-module test(input clk, input rst, output y, 
-  output safety1);
-reg [2:0] state;
-output safety1;
-always @(posedge clk) begin
-  if (rst || state == 3)
-    state <= 0;
-  else
-    state <= state + 1;
-end
-assign y = state[2];
-always @(*)
-begin
-  if (y !== 1'b1)
-    safety1 <= 1;
-  else
-    safety1 <= 0;
-end
+\begin{lstlisting}[language=Verilog,numbers=none]
+module test(input clk, input rst,
+    output y, output safety1);
+
+  reg [2:0] state;
+
+  always @(posedge clk) begin
+    if (rst || state == 3)
+      state <= 0;
+    else
+      state <= state + 1;
+  end
+
+  assign y = state[2];
+
+  assign safety1 = !(y !== 1'b1);
+
 endmodule
 \end{lstlisting}
 \renewcommand{\figurename}{Listing}
@@ -175,22 +174,33 @@ endmodule
 \label{specifying_property_output}
 \end{figure}
 
-We can run Boolector~$1.4$~\cite{boolector} on the generated BTOR
-file.  The url for boolector provided in the references, contains
-installation and usage guide.
+We can run Boolector~\cite{boolector}~$1.4.1$\footnote{
+Newer version of Boolector do not support sequential models.
+Boolector 1.4.1 can be built with picosat-951. Newer versions
+of picosat have an incompatible API.} on the generated BTOR
+file:
 
-We can also run nuXmv~\cite{nuxmv} but on the BTOR designs that does
-not have memories. With the next release of nuXmv, we will be also
-able to verify the designs with memories.
+\begin{figure}[H]
+\begin{lstlisting}[language=sh,numbers=none]
+$ boolector fsm.btor 
+unsat
+\end{lstlisting}
+ \renewcommand{\figurename}{Listing}
+\caption{Running boolector on BTOR file}
+\end{figure}
+
+We can also use nuXmv~\cite{nuxmv}, but on BTOR designs it does
+support memories. With the next release of nuXmv, we will be also
+able to verify designs with memories.
 
 \section{Detailed Flow}
 
-Yosys is able to synthesize the Verilog designs up to the gate level.
+Yosys is able to synthesize Verilog designs up to the gate level.
 We are interested in keeping registers and memories when synthesizing
 the design. For this purpose, we describe a customized Yosys synthesis
-flow, that is also provided as a script {\tt verilog2btor.sh} in Yosys
-distribution. The following script shows the operations that are
-performed in {\tt verilog2btor.sh}:
+flow, that is also provided by the {\tt verilog2btor.sh} script.
+Listing~\ref{btor_script_memory} shows the Yosys commands that are
+executed by {\tt verilog2btor.sh}.
 
 \begin{figure}[H]
 \begin{lstlisting}[language=sh]
@@ -222,14 +232,14 @@ line:
 \item Setting the top module in the hierarchy and trying to read
   automatically the files which are given as {\tt include} in the file
   read in first line.
-\item Checking the design heirarchy.
+\item Checking the design hierarchy.
 \item Converting processes to multiplexers (muxs) and flip-flops.
 \item Removing undef signals from muxs.
-\item Hiding the signals that are not used.
+\item Hiding all signal names that are not used as module ports.
 \item Explicit type conversion, by introducing slice and concat cells
   in the circuit.
-\item Converting write memories to synchronuos memories, and
-  collecting the memories to multiport memories.
+\item Converting write memories to synchronous memories, and
+  collecting the memories to multi-port memories.
 \item Flattening the design to get only one module.
 \item Separating read and write memories.
 \item Splitting the signals that are partially assigned 
@@ -239,15 +249,16 @@ line:
 \end{enumerate}
 
 For detailed description of the commands mentioned above, please refer
-to documentation of Yosys~\cite{yosys}.
+to the Yosys documentation, or run {\tt yosys -h \it command\_name}.
 
 The script presented earlier can be easily modified to have a BTOR
 file that does not contain memories. This is done by removing the line
 number~8 and 10, and introduces a new command {\tt memory} at line
-number~8.  Following is the modified yosys script file:
+number~8. Listing~\ref{btor_script_without_memory} shows the
+modified Yosys script file:
 
 \begin{figure}[H]
-\begin{lstlisting}[language=sh]
+\begin{lstlisting}[language=sh,numbers=none]
 read_verilog -sv $1; 
 hierarchy -top $3; hierarchy -libdir $DIR; 
 hierarchy -check; 
@@ -269,19 +280,23 @@ write_btor $2;
 
 \section{Example}
 
-Here is an example verilog design that we want to convert to BTOR:
+Here is an example Verilog design that we want to convert to BTOR:
 
 \begin{figure}[H]
-\begin{lstlisting}[language=Verilog]
+\begin{lstlisting}[language=Verilog,numbers=none]
 module array(input clk);
-reg [7:0] counter;
-reg [7:0] mem [7:0];
-always @(posedge clk) begin
-  counter <= counter + 8'd1;
-  mem[counter] <= counter;
-end
-assert property (!(counter > 8'd0) || 
-  mem[counter - 8'd1] == counter - 8'd1);
+
+  reg [7:0] counter;
+  reg [7:0] mem [7:0];
+
+  always @(posedge clk) begin
+    counter <= counter + 8'd1;
+    mem[counter] <= counter;
+  end
+
+  assert property (!(counter > 8'd0) || 
+    mem[counter - 8'd1] == counter - 8'd1);
+
 endmodule
 \end{lstlisting}
 \renewcommand{\figurename}{Listing}
@@ -328,11 +343,11 @@ in Listing~\ref{btor_script_memory}:
 \label{example_btor}
 \end{figure}
 
-Here is the BTOR file obtained by the script shown in
-Listing~\ref{btor_script_without_memory} which expands the memory
+And the BTOR file obtained by the script shown in
+Listing~\ref{btor_script_without_memory}, which expands the memory
 into individual elements:
 \begin{figure}[H]
-\begin{lstlisting}[numbers=none]
+\begin{lstlisting}[numbers=none,escapechar=@]
 1 var 1 clk
 2 var 8 mem[0]
 3 var 8 $auto$rename.cc:150:execute$20
@@ -360,14 +375,12 @@ into individual elements:
 25 cond 8 1 24 21
 26 next 8 21 25
 27 sub 8 3 16
-.
-.
-.
+
+@\vbox to 0pt{\vss\vdots\vskip3pt}@
 54 cond 1 53 50 52
 55 root 1 -54
-.
-.
-.
+
+@\vbox to 0pt{\vss\vdots\vskip3pt}@
 77 cond 8 76 3 44
 78 cond 8 1 77 44
 79 next 8 44 78
@@ -379,39 +392,26 @@ into individual elements:
 
 \section{Limitations}
 
-BTOR does not support initialization of memories and registers are
+BTOR does not support initialization of memories and registers, i.e. they are
 implicitly initialized to value zero, so the initial block for
-memories need to be removed when converting to BTOR. This should be
-also kept in consideration that BTOR does not handle multi-dimensional
-memories, and does not support {\tt x} or {\tt z} value of Verilog.
+memories need to be removed when converting to BTOR. It should
+also be kept in consideration that BTOR does not support the {\tt x} or {\tt z}
+values of Verilog.
 
+Another thing to bear in mind is that Yosys will convert multi-dimensional
+memories to one-dimensional memories and address decoders. Therefore
+out-of-bounds memory accesses can yield unexpected results.
 
 \section{Conclusion}
 
 Using the described flow, we can use Yosys to generate word-level
-verification benchmarks with or without memories from Verilog design.
+verification benchmarks with or without memories from Verilog designs.
 
 \begin{thebibliography}{9}
 
 \bibitem{yosys}
 Clifford Wolf. The Yosys Open SYnthesis Suite. \\
 \url{http://www.clifford.at/yosys/}
-
-%\bibitem{bigsim}
-%yosys-bigsim, a collection of real-world Verilog designs for regression testing purposes. \\
-%\url{https://github.com/cliffordwolf/yosys-bigsim}
-
-%\bibitem{navre}
-%Sebastien Bourdeauducq. Navré AVR clone (8-bit RISC). \\
-%\url{http://opencores.org/project,navre}
-
-%\bibitem{amber}
-%Conor Santifort. Amber ARM-compatible core. \\
-%\url{http://opencores.org/project,amber}
-
-%\bibitem{ABC}
-%Berkeley Logic Synthesis and Verification Group. ABC: A System for Sequential Synthesis and Verification. \\
-%\url{http://www.eecs.berkeley.edu/~alanmi/abc/}
 
 \bibitem{boolector}
 Robert Brummayer and Armin Biere, Boolector: An Efficient SMT Solver for Bit-Vectors and Arrays\\

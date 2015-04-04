@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -ex
-for job in APPNOTE_010_Verilog_to_BLIF APPNOTE_011_Design_Investigation
+for job in APPNOTE_010_Verilog_to_BLIF APPNOTE_011_Design_Investigation APPNOTE_012_Verilog_to_BTOR
 do
 	[ -f $job.ok -a $job.ok -nt $job.tex ] && continue
 	if [ -f $job/make.sh ]; then
