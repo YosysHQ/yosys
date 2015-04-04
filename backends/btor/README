@@ -3,7 +3,7 @@ This is the Yosys BTOR backend.
 It is developed by Ahmed Irfan <irfan@fbk.eu> - Fondazione Bruno Kessler, Trento, Italy
 
 Master git repository for the BTOR backend:
-https://github.com/ahmedirfan1983/yosys/tree/btor
+https://github.com/ahmedirfan1983/yosys
 
 
 [[CITE]] BTOR: Bit-Precise Modelling of Word-Level Problems for Model Checking 
@@ -19,5 +19,5 @@ Todos:
     - async resets
     - etc..
 
-- Add support for $pmux and $lut cells
+- Add support for $lut cells
 
