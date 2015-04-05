@@ -137,6 +137,19 @@ struct JsonWriter
 			f << stringf("          \"attributes\": {");
 			write_parameters(c->attributes);
 			f << stringf("\n          },\n");
+			if (c->known()) {
+				f << stringf("          \"port_directions\": {");
+				bool first2 = true;
+				for (auto &conn : c->connections()) {
+					string direction = "output";
+					if (c->input(conn.first))
+						direction = c->output(conn.first) ? "inout" : "input";
+					f << stringf("%s\n", first2 ? "" : ",");
+					f << stringf("            %s: \"%s\"", get_name(conn.first).c_str(), direction.c_str());
+					first2 = false;
+				}
+				f << stringf("\n          },\n");
+			}
 			f << stringf("          \"connections\": {");
 			bool first2 = true;
 			for (auto &conn : c->connections()) {
@@ -240,6 +253,10 @@ struct JsonBackend : public Backend {
 		log("        <attribute_name>: <attribute_value>,\n");
 		log("        ...\n");
 		log("      },\n");
+		log("      \"port_directions\": {\n");
+		log("        <port_name>: <\"input\" | \"output\" | \"inout\">,\n");
+		log("        ...\n");
+		log("      },\n");
 		log("      \"connections\": {\n");
 		log("        <port_name>: <bit_vector>,\n");
 		log("        ...\n");
@@ -255,6 +272,9 @@ struct JsonBackend : public Backend {
 		log("\n");
 		log("The \"hide_name\" fields are set to 1 when the name of this cell or net is\n");
 		log("automatically created and is likely not of interest for a regular user.\n");
+		log("\n");
+		log("The \"port_directions\" section is only included for cells for which the\n");
+		log("interface is known.\n");
 		log("\n");
 		log("Module and cell ports and nets can be single bit wide or vectors of multiple\n");
 		log("bits. Each individual signal bit is assigned a unique integer. The <bit_vector>\n");
