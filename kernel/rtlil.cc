@@ -918,11 +918,11 @@ namespace {
 				param("\\SIZE");
 				param("\\OFFSET");
 				param("\\INIT");
-				param_bits("\\RD_CLK_ENABLE", param("\\RD_PORTS"));
-				param_bits("\\RD_CLK_POLARITY", param("\\RD_PORTS"));
-				param_bits("\\RD_TRANSPARENT", param("\\RD_PORTS"));
-				param_bits("\\WR_CLK_ENABLE", param("\\WR_PORTS"));
-				param_bits("\\WR_CLK_POLARITY", param("\\WR_PORTS"));
+				param_bits("\\RD_CLK_ENABLE", std::max(1, param("\\RD_PORTS")));
+				param_bits("\\RD_CLK_POLARITY", std::max(1, param("\\RD_PORTS")));
+				param_bits("\\RD_TRANSPARENT", std::max(1, param("\\RD_PORTS")));
+				param_bits("\\WR_CLK_ENABLE", std::max(1, param("\\WR_PORTS")));
+				param_bits("\\WR_CLK_POLARITY", std::max(1, param("\\WR_PORTS")));
 				port("\\RD_CLK", param("\\RD_PORTS"));
 				port("\\RD_ADDR", param("\\RD_PORTS") * param("\\ABITS"));
 				port("\\RD_DATA", param("\\RD_PORTS") * param("\\WIDTH"));

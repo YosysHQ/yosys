@@ -81,6 +81,9 @@ struct MemoryMapWorker
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
 
+		int wr_ports = cell->parameters["\\WR_PORTS"].as_int();
+		int rd_ports = cell->parameters["\\RD_PORTS"].as_int();
+
 		int mem_size = cell->parameters["\\SIZE"].as_int();
 		int mem_width = cell->parameters["\\WIDTH"].as_int();
 		int mem_offset = cell->parameters["\\OFFSET"].as_int();
@@ -90,7 +93,7 @@ struct MemoryMapWorker
 		init_data.extend_u0(mem_size*mem_width, true);
 
 		// delete unused memory cell
-		if (cell->parameters["\\RD_PORTS"].as_int() == 0 && cell->parameters["\\WR_PORTS"].as_int() == 0) {
+		if (wr_ports == 0 && rd_ports == 0) {
 			module->remove(cell);
 			return;
 		}
@@ -99,6 +102,8 @@ struct MemoryMapWorker
 		RTLIL::SigSpec clocks = cell->getPort("\\WR_CLK");
 		RTLIL::Const clocks_pol = cell->parameters["\\WR_CLK_POLARITY"];
 		RTLIL::Const clocks_en = cell->parameters["\\WR_CLK_ENABLE"];
+		clocks_pol.bits.resize(wr_ports);
+		clocks_en.bits.resize(wr_ports);
 		RTLIL::SigSpec refclock;
 		RTLIL::State refclock_pol = RTLIL::State::Sx;
 		for (int i = 0; i < clocks.size(); i++) {
