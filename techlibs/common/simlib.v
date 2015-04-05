@@ -1556,18 +1556,18 @@ endmodule
 module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 parameter MEMID = "";
-parameter SIZE = 4;
-parameter OFFSET = 0;
-parameter ABITS = 2;
-parameter WIDTH = 8;
+parameter signed SIZE = 4;
+parameter signed OFFSET = 0;
+parameter signed ABITS = 2;
+parameter signed WIDTH = 8;
 parameter signed INIT = 1'bx;
 
-parameter RD_PORTS = 1;
+parameter signed RD_PORTS = 1;
 parameter RD_CLK_ENABLE = 1'b1;
 parameter RD_CLK_POLARITY = 1'b1;
 parameter RD_TRANSPARENT = 1'b1;
 
-parameter WR_PORTS = 1;
+parameter signed WR_PORTS = 1;
 parameter WR_CLK_ENABLE = 1'b1;
 parameter WR_CLK_POLARITY = 1'b1;
 
