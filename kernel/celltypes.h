@@ -95,7 +95,6 @@ struct CellTypes
 			"$add", "$sub", "$mul", "$div", "$mod", "$pow",
 			"$logic_and", "$logic_or", "$concat", "$macc"
 		};
-
 		IdString A = "\\A", B = "\\B", S = "\\S", Y = "\\Y";
 		IdString P = "\\P", G = "\\G", C = "\\C", X = "\\X";
 		IdString BI = "\\BI", CI = "\\CI", CO = "\\CO", EN = "\\EN";
@@ -144,7 +143,13 @@ struct CellTypes
 
 	void setup_stdcells()
 	{
-		IdString A = "\\A", B = "\\B", C = "\\C", D = "\\D", S = "\\S", Y = "\\Y";
+		IdString A = "\\A", B = "\\B", C = "\\C", D = "\\D";
+		IdString E = "\\E", F = "\\F", G = "\\G", H = "\\H";
+		IdString I = "\\I", J = "\\J", K = "\\K", L = "\\L";
+		IdString M = "\\I", N = "\\N", O = "\\O", P = "\\P";
+		IdString S = "\\S", T = "\\T", U = "\\U", V = "\\V";
+		IdString Y = "\\Y";
+
 		setup_type("$_BUF_", {A}, {Y}, true);
 		setup_type("$_NOT_", {A}, {Y}, true);
 		setup_type("$_AND_", {A, B}, {Y}, true);
@@ -154,6 +159,9 @@ struct CellTypes
 		setup_type("$_XOR_", {A, B}, {Y}, true);
 		setup_type("$_XNOR_", {A, B}, {Y}, true);
 		setup_type("$_MUX_", {A, B, S}, {Y}, true);
+		setup_type("$_MUX4_", {A, B, C, D, S, T}, {Y}, true);
+		setup_type("$_MUX8_", {A, B, C, D, E, F, G, H, S, T, U}, {Y}, true);
+		setup_type("$_MUX16_", {A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V}, {Y}, true);
 		setup_type("$_AOI3_", {A, B, C}, {Y}, true);
 		setup_type("$_OAI3_", {A, B, C}, {Y}, true);
 		setup_type("$_AOI4_", {A, B, C, D}, {Y}, true);

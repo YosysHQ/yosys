@@ -970,6 +970,10 @@ namespace {
 			if (cell->type == "$_AOI4_") { check_gate("ABCDY"); return; }
 			if (cell->type == "$_OAI4_") { check_gate("ABCDY"); return; }
 
+			if (cell->type == "$_MUX4_")  { check_gate("ABCDSTY"); return; }
+			if (cell->type == "$_MUX8_")  { check_gate("ABCDEFGHSTUY"); return; }
+			if (cell->type == "$_MUX16_") { check_gate("ABCDEFGHIJKLMNOPSTUVY"); return; }
+
 			if (cell->type == "$_SR_NN_") { check_gate("SRQ"); return; }
 			if (cell->type == "$_SR_NP_") { check_gate("SRQ"); return; }
 			if (cell->type == "$_SR_PN_") { check_gate("SRQ"); return; }
