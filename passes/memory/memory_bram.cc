@@ -393,6 +393,16 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 	int mem_width = cell->getParam("\\WIDTH").as_int();
 	// int mem_offset = cell->getParam("\\OFFSET").as_int();
 
+	bool cell_init = !SigSpec(cell->getParam("\\INIT")).is_fully_undef();
+	vector<Const> initdata;
+
+	if (cell_init) {
+		Const initparam = cell->getParam("\\INIT");
+		initdata.reserve(mem_size);
+		for (int i=0; i < mem_size; i++)
+			initdata.push_back(initparam.extract(mem_width*i, mem_width, State::Sx));
+	}
+
 	int wr_ports = cell->getParam("\\WR_PORTS").as_int();
 	auto wr_clken = SigSpec(cell->getParam("\\WR_CLK_ENABLE"));
 	auto wr_clkpol = SigSpec(cell->getParam("\\WR_CLK_POLARITY"));
@@ -789,6 +799,22 @@ grow_read_ports:;
 			for (auto &vp : variant_params)
 				c->setParam(vp.first, vp.second);
 
+			if (cell_init) {
+				int init_offset = grid_a*(1 << bram.abits);
+				int init_shift = grid_d*bram.dbits;
+				int init_size = (1 << bram.abits);
+				Const initparam(State::Sx, init_size*bram.dbits);
+				for (int i = 0; i < init_size; i++) {
+					State padding = State::Sx;
+					for (int j = 0; j < bram.dbits; j++)
+						if (init_offset+i < GetSize(initdata) && init_shift+j < GetSize(initdata[init_offset+i]))
+							padding = initparam[i*bram.dbits+j] = initdata[init_offset+i][init_shift+j];
+						else
+							initparam[i*bram.dbits+j] = padding;
+				}
+				c->setParam("\\INIT", initparam);
+			}
+
 			for (auto &pi : portinfos)
 			{
 				if (pi.dupidx != dupidx)
@@ -905,10 +931,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 {
 	log("Processing %s.%s:\n", log_id(cell->module), log_id(cell));
 
-	if (!SigSpec(cell->getParam("\\INIT")).is_fully_undef()) {
-		log("  initialized memories are not supported yet.");
-		return;
-	}
+	bool cell_init = !SigSpec(cell->getParam("\\INIT")).is_fully_undef();
 
 	dict<string, int> match_properties;
 	match_properties["words"]  = cell->getParam("\\SIZE").as_int();
@@ -980,6 +1003,12 @@ void handle_cell(Cell *cell, const rules_t &rules)
 			log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d\n",
 					log_id(match.name), awaste, dwaste, bwaste, waste, efficiency);
 
+			if (cell_init && bram.init == 0) {
+				log("    Rule #%d for bram type %s (variant %d) rejected: cannot be initialized.\n",
+						i+1, log_id(bram.name), bram.variant);
+				goto next_match_rule;
+			}
+
 			for (auto it : match.min_limits) {
 				if (it.first == "waste" || it.first == "dups" || it.first == "acells" || it.first == "dcells" || it.first == "cells")
 					continue;
@@ -992,6 +1021,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 						i+1, log_id(bram.name), bram.variant, it.first.c_str(), it.second);
 				goto next_match_rule;
 			}
+
 			for (auto it : match.max_limits) {
 				if (it.first == "acells" || it.first == "dcells" || it.first == "cells")
 					continue;
@@ -1020,9 +1050,6 @@ void handle_cell(Cell *cell, const rules_t &rules)
 
 				log("      Storing for later selection.\n");
 				best_rule_cache[pair<int, int>(i, vi)] = std::tuple<int, int, int>(match_properties["efficiency"], -match_properties["cells"], -match_properties["acells"]);
-
-				if (or_next_if_better)
-					goto next_match_rule;
 
 		next_match_rule:
 				if (or_next_if_better || best_rule_cache.empty())
@@ -1075,7 +1102,7 @@ struct MemoryBramPass : public Pass {
 		log("rules. A block ram description looks like this:\n");
 		log("\n");
 		log("    bram RAMB1024X32     # name of BRAM cell\n");
-		// log("      init 1             # set to '1' if BRAM can be initialized\n");
+		log("      init 1             # set to '1' if BRAM can be initialized\n");
 		log("      abits 10           # number of address bits\n");
 		log("      dbits 32           # number of data bits\n");
 		log("      groups 2           # number of port groups\n");
