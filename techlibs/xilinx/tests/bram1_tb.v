@@ -8,6 +8,16 @@ module bram1_tb #(
 	reg [ABITS-1:0] RD_ADDR;
 	wire [DBITS-1:0] RD_DATA;
 
+	localparam [ABITS-1:0] INIT_ADDR_0 = 1234;
+	localparam [ABITS-1:0] INIT_ADDR_1 = 4321;
+	localparam [ABITS-1:0] INIT_ADDR_2 = 2**ABITS-1;
+	localparam [ABITS-1:0] INIT_ADDR_3 = (2**ABITS-1) / 2;
+
+	localparam [DBITS-1:0] INIT_DATA_0 = 128'h 51e152a7300e309ccb8cd06d34558f49;
+	localparam [DBITS-1:0] INIT_DATA_1 = 128'h 07b1fe94a530ddf3027520f9d23ab43e;
+	localparam [DBITS-1:0] INIT_DATA_2 = 128'h 3cedc6de43ef3f607af3193658d0eb0b;
+	localparam [DBITS-1:0] INIT_DATA_3 = 128'h f6bc5514a8abf1e2810df966bcc13b46;
+
 	bram1 #(
 		// .ABITS(ABITS),
 		// .DBITS(DBITS),
@@ -68,6 +78,11 @@ module bram1_tb #(
 		// $dumpfile("testbench.vcd");
 		// $dumpvars(0, bram1_tb);
 
+		memory[INIT_ADDR_0] = INIT_DATA_0;
+		memory[INIT_ADDR_1] = INIT_DATA_1;
+		memory[INIT_ADDR_2] = INIT_DATA_2;
+		memory[INIT_ADDR_3] = INIT_DATA_3;
+
 		xorshift64_next;
 		xorshift64_next;
 		xorshift64_next;
@@ -84,16 +99,33 @@ module bram1_tb #(
 
 		clk <= 0;
 		for (i = 0; i < 512; i = i+1) begin
-			if (DBITS > 64)
-				WR_DATA <= (xorshift64_state << (DBITS-64)) ^ xorshift64_state;
-			else
-				WR_DATA <= xorshift64_state;
-			xorshift64_next;
-			WR_ADDR <= getaddr(i < 256 ? i[7:4] : xorshift64_state[63:60]);
-			xorshift64_next;
-			RD_ADDR <= getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
-			WR_EN <= xorshift64_state[55];
-			xorshift64_next;
+			if (i == 0) begin
+				WR_EN <= 0;
+				RD_ADDR <= INIT_ADDR_0;
+			end else
+			if (i == 1) begin
+				WR_EN <= 0;
+				RD_ADDR <= INIT_ADDR_1;
+			end else
+			if (i == 2) begin
+				WR_EN <= 0;
+				RD_ADDR <= INIT_ADDR_2;
+			end else
+			if (i == 3) begin
+				WR_EN <= 0;
+				RD_ADDR <= INIT_ADDR_3;
+			end else begin
+				if (DBITS > 64)
+					WR_DATA <= (xorshift64_state << (DBITS-64)) ^ xorshift64_state;
+				else
+					WR_DATA <= xorshift64_state;
+				xorshift64_next;
+				WR_ADDR <= getaddr(i < 256 ? i[7:4] : xorshift64_state[63:60]);
+				xorshift64_next;
+				RD_ADDR <= getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
+				WR_EN <= xorshift64_state[55];
+				xorshift64_next;
+			end
 
 			#1; clk <= 1;
 			#1; clk <= 0;

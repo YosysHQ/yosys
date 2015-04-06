@@ -1,5 +1,6 @@
 
 bram $__XILINX_RAMB36_SDP
+  init 1
   abits 9
   dbits 72
   groups 2
@@ -12,6 +13,7 @@ bram $__XILINX_RAMB36_SDP
 endbram
 
 bram $__XILINX_RAMB18_SDP
+  init 1
   abits 9
   dbits 36
   groups 2
@@ -24,6 +26,7 @@ bram $__XILINX_RAMB18_SDP
 endbram
 
 bram $__XILINX_RAMB36_TDP
+  init 1
   abits 10     @a10d36
   dbits 36     @a10d36
   abits 11     @a11d18
@@ -48,6 +51,7 @@ bram $__XILINX_RAMB36_TDP
 endbram
 
 bram $__XILINX_RAMB18_TDP
+  init 1
   abits 10     @a10d18
   dbits 18     @a10d18
   abits 11     @a11d9
