@@ -1,3 +1,6 @@
 bram1_cmp
 bram1.mk
 bram1_[0-9]*/
+bram2.log
+bram2_syn.v
+bram2_tb
