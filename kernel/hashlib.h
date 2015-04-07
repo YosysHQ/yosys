@@ -803,6 +803,14 @@ public:
 		do_rehash();
 	}
 
+	K pop()
+	{
+		iterator it = begin();
+		K ret = *it;
+		erase(it);
+		return ret;
+	}
+
 	void swap(pool &other)
 	{
 		hashtable.swap(other.hashtable);
