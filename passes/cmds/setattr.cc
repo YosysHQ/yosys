@@ -218,7 +218,7 @@ struct ChparamPass : public Pass {
 			if (design->selected_whole_module(module))
 				modnames.insert(module->name);
 			else
-				log_warning("Ignoring partially selecedted module %s.\n", log_id(module));
+				log_warning("Ignoring partially selected module %s.\n", log_id(module));
 			old_modnames.insert(module->name);
 		}
 		modnames.sort();
