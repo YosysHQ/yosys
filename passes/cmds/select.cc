@@ -196,6 +196,27 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 	}
 }
 
+static void select_op_cells_to_modules(RTLIL::Design *design, RTLIL::Selection &lhs)
+{
+	RTLIL::Selection new_sel(false);
+	for (auto &mod_it : design->modules_)
+		if (lhs.selected_module(mod_it.first))
+			for (auto &cell_it : mod_it.second->cells_)
+				if (lhs.selected_member(mod_it.first, cell_it.first) && design->modules_.count(cell_it.second->type))
+					new_sel.selected_modules.insert(cell_it.second->type);
+	lhs = new_sel;
+}
+
+static void select_op_module_to_cells(RTLIL::Design *design, RTLIL::Selection &lhs)
+{
+	RTLIL::Selection new_sel(false);
+	for (auto &mod_it : design->modules_)
+		for (auto &cell_it : mod_it.second->cells_)
+			if (design->modules_.count(cell_it.second->type) && lhs.selected_whole_module(cell_it.second->type))
+				new_sel.selected_members[mod_it.first].insert(cell_it.first);
+	lhs = new_sel;
+}
+
 static void select_op_fullmod(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	lhs.optimize(design);
@@ -617,6 +638,16 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%s.\n");
 			select_op_submod(design, work_stack[work_stack.size()-1]);
+		} else
+		if (arg == "%M") {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%M.\n");
+			select_op_cells_to_modules(design, work_stack[work_stack.size()-1]);
+		} else
+		if (arg == "%C") {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%M.\n");
+			select_op_module_to_cells(design, work_stack[work_stack.size()-1]);
 		} else
 		if (arg == "%c") {
 			if (work_stack.size() < 1)
@@ -1057,11 +1088,17 @@ struct SelectPass : public Pass {
 		log("        aliases for selected wires.\n");
 		log("\n");
 		log("    %%s\n");
-		log("        expand top set by adding all modules of instantiated cells in selected\n");
+		log("        expand top set by adding all modules that implement cells in selected\n");
 		log("        modules\n");
 		log("\n");
 		log("    %%m\n");
 		log("        expand top set by selecting all modules that contain selected objects\n");
+		log("\n");
+		log("    %%M\n");
+		log("        select modules that implement selected cells\n");
+		log("\n");
+		log("    %%C\n");
+		log("        select cells that implement selected modules\n");
 		log("\n");
 		log("Example: the following command selects all wires that are connected to a\n");
 		log("'GATE' input of a 'SWITCH' cell:\n");
