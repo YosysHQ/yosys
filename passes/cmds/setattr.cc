@@ -181,4 +181,61 @@ struct SetparamPass : public Pass {
 	}
 } SetparamPass;
  
+struct ChparamPass : public Pass {
+	ChparamPass() : Pass("chparam", "re-evaluate modules with new parameters") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    chparam [ -set name value ]... [selection]\n");
+		log("\n");
+		log("Re-evaluate the selected modules with new parameters. String values must be\n");
+		log("passed in double quotes (\").\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		std::vector<setunset_t> setunset_list;
+		dict<RTLIL::IdString, RTLIL::Const> new_parameters;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			std::string arg = args[argidx];
+			if (arg == "-set" && argidx+2 < args.size()) {
+				argidx += 2;
+				setunset_t new_param(args[argidx-1], args, argidx);
+				new_parameters[new_param.name] = new_param.value;
+				argidx--;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		pool<IdString> modnames, old_modnames;
+		for (auto module : design->selected_modules()) {
+			if (design->selected_whole_module(module))
+				modnames.insert(module->name);
+			else
+				log_warning("Ignoring partially selecedted module %s.\n", log_id(module));
+			old_modnames.insert(module->name);
+		}
+		modnames.sort();
+
+		for (auto modname : modnames) {
+			Module *module = design->module(modname);
+			Module *new_module = design->module(module->derive(design, new_parameters));
+			if (module != new_module) {
+				Module *m = new_module->clone();
+				m->name = module->name;
+				design->remove(module);
+				design->add(m);
+			}
+			if (old_modnames.count(new_module->name) == 0)
+				design->remove(new_module);
+		}
+	}
+} ChparamPass;
+ 
 PRIVATE_NAMESPACE_END
