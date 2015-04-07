@@ -1,0 +1,51 @@
+
+read_verilog -formal <<EOT
+    module gate (input [2:0] A, B, C, D, X, output reg [2:0] Y);
+        always @*
+            (* parallel_case *)
+            casez (X)
+                3'b??1: Y = A;
+                3'b?1?: Y = B;
+                3'b1??: Y = C;
+                3'b000: Y = D;
+            endcase
+    endmodule
+EOT
+
+
+## Examle usage for "pmuxtree" and "muxcover"
+
+proc
+pmuxtree
+techmap
+muxcover -mux4
+
+splitnets -ports
+clean
+# show
+
+
+## Equivalence checking
+
+read_verilog -formal <<EOT
+    module gold (input [2:0] A, B, C, D, X, output reg [2:0] Y);
+        always @*
+            casez (X)
+                3'b001: Y = A;
+                3'b010: Y = B;
+                3'b100: Y = C;
+                3'b000: Y = D;
+		default: Y = 'bx;
+            endcase
+    endmodule
+EOT
+
+proc
+splitnets -ports
+techmap -map +/simcells.v t:$_MUX4_
+
+equiv_make gold gate equiv
+hierarchy -top equiv
+equiv_simple -undef
+equiv_status -assert
+
