@@ -192,11 +192,17 @@ struct ChparamPass : public Pass {
 		log("Re-evaluate the selected modules with new parameters. String values must be\n");
 		log("passed in double quotes (\").\n");
 		log("\n");
+		log("\n");
+		log("    chparam -list [selection]\n");
+		log("\n");
+		log("List the available parameters of the selected modules.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::vector<setunset_t> setunset_list;
 		dict<RTLIL::IdString, RTLIL::Const> new_parameters;
+		bool list_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -209,9 +215,24 @@ struct ChparamPass : public Pass {
 				argidx--;
 				continue;
 			}
+			if (arg == "-list") {
+				list_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (list_mode) {
+			if (!new_parameters.empty())
+				log_cmd_error("The options -set and -list cannot be used together.\n");
+			for (auto module : design->selected_modules()) {
+				log("%s:\n", log_id(module));
+				for (auto param : module->avail_parameters)
+					log("  %s\n", log_id(param));
+			}
+			return;
+		}
 
 		pool<IdString> modnames, old_modnames;
 		for (auto module : design->selected_modules()) {
