@@ -150,7 +150,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 	std::vector<std::string> args;
 
 	std::string cmd_buf = command;
-	std::string tok = next_token(cmd_buf, " \t\r\n");
+	std::string tok = next_token(cmd_buf, " \t\r\n", true);
 
 	if (tok.empty())
 		return;
@@ -201,7 +201,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 			call(design, args);
 			args.clear();
 		}
-		tok = next_token(cmd_buf, " \t\r\n");
+		tok = next_token(cmd_buf, " \t\r\n", true);
 	}
 
 	call(design, args);
@@ -359,8 +359,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			}
 			f = new std::istringstream(last_here_document);
 		} else {
-			if (filename.substr(0, 2) == "+/")
-				filename = proc_share_dirname() + filename.substr(1);
+			rewrite_filename(filename);
 			std::ifstream *ff = new std::ifstream;
 			ff->open(filename.c_str());
 			if (ff->fail())

@@ -951,10 +951,7 @@ struct TechmapPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
-				if (args[argidx+1].substr(0, 2) == "+/")
-					map_files.push_back(proc_share_dirname() + args[++argidx].substr(2));
-				else
-					map_files.push_back(args[++argidx]);
+				map_files.push_back(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-max_iter" && argidx+1 < args.size()) {
@@ -1005,6 +1002,7 @@ struct TechmapPass : public Pass {
 							map->add(mod->clone());
 				} else {
 					std::ifstream f;
+					rewrite_filename(fn);
 					f.open(fn.c_str());
 					if (f.fail())
 						log_cmd_error("Can't open map file `%s'\n", fn.c_str());

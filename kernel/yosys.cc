@@ -182,12 +182,22 @@ int readsome(std::istream &f, char *s, int n)
 	return rc;
 }
 
-std::string next_token(std::string &text, const char *sep)
+std::string next_token(std::string &text, const char *sep, bool long_strings)
 {
 	size_t pos_begin = text.find_first_not_of(sep);
 
 	if (pos_begin == std::string::npos)
 		pos_begin = text.size();
+
+	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
+		string sep_string = sep;
+		for (size_t i = pos_begin+1; i < text.size(); i++)
+			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
+				std::string token = text.substr(pos_begin, i-pos_begin+1);
+				text = text.substr(i+1);
+				return token;
+			}
+	}
 
 	size_t pos_end = text.find_first_of(sep, pos_begin);
 
@@ -503,6 +513,14 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	}
 	snprintf(buffer, 100, "%s> ", str.c_str());
 	return buffer;
+}
+
+void rewrite_filename(std::string &filename)
+{
+	if (filename.substr(0, 1) == "\"" && filename.substr(GetSize(filename)-1) == "\"")
+		filename = filename.substr(1, GetSize(filename)-2);
+	if (filename.substr(0, 2) == "+/")
+		filename = proc_share_dirname() + filename.substr(2);
 }
 
 #ifdef YOSYS_ENABLE_TCL

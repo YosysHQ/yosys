@@ -32,19 +32,14 @@ struct setunset_t
 
 	setunset_t(std::string unset_name) : name(RTLIL::escape_id(unset_name)), value(), unset(true) { }
 
-	setunset_t(std::string set_name, std::vector<std::string> args, size_t &argidx) : name(RTLIL::escape_id(set_name)), value(), unset(false)
+	setunset_t(std::string set_name, std::string set_value) : name(RTLIL::escape_id(set_name)), value(), unset(false)
 	{
-		if (!args[argidx].empty() && args[argidx][0] == '"') {
-			std::string str = args[argidx++].substr(1);
-			while (str.size() != 0 && str[str.size()-1] != '"' && argidx < args.size())
-				str += args[argidx++];
-			if (str.size() != 0 && str[str.size()-1] == '"')
-				str = str.substr(0, str.size()-1);
-			value = RTLIL::Const(str);
+		if (set_value.substr(0, 1) == "\"" && set_value.substr(GetSize(set_value)-1) == "\"") {
+			value = RTLIL::Const(set_value.substr(1, GetSize(set_value)-2));
 		} else {
 			RTLIL::SigSpec sig_value;
-			if (!RTLIL::SigSpec::parse(sig_value, NULL, args[argidx++]))
-				log_cmd_error("Can't decode value '%s'!\n", args[argidx-1].c_str());
+			if (!RTLIL::SigSpec::parse(sig_value, NULL, set_value))
+				log_cmd_error("Can't decode value '%s'!\n", set_value.c_str());
 			value = sig_value.as_const();
 		}
 	}
@@ -84,9 +79,9 @@ struct SetattrPass : public Pass {
 		{
 			std::string arg = args[argidx];
 			if (arg == "-set" && argidx+2 < args.size()) {
-				argidx += 2;
-				setunset_list.push_back(setunset_t(args[argidx-1], args, argidx));
-				argidx--;
+				string set_key = args[++argidx];
+				string set_val = args[++argidx];
+				setunset_list.push_back(setunset_t(set_key, set_val));
 				continue;
 			}
 			if (arg == "-unset" && argidx+1 < args.size()) {
@@ -154,9 +149,9 @@ struct SetparamPass : public Pass {
 		{
 			std::string arg = args[argidx];
 			if (arg == "-set" && argidx+2 < args.size()) {
-				argidx += 2;
-				setunset_list.push_back(setunset_t(args[argidx-1], args, argidx));
-				argidx--;
+				string set_key = args[++argidx];
+				string set_val = args[++argidx];
+				setunset_list.push_back(setunset_t(set_key, set_val));
 				continue;
 			}
 			if (arg == "-unset" && argidx+1 < args.size()) {
@@ -209,10 +204,9 @@ struct ChparamPass : public Pass {
 		{
 			std::string arg = args[argidx];
 			if (arg == "-set" && argidx+2 < args.size()) {
-				argidx += 2;
-				setunset_t new_param(args[argidx-1], args, argidx);
-				new_parameters[new_param.name] = new_param.value;
-				argidx--;
+				string set_key = args[++argidx];
+				string set_val = args[++argidx];
+				setunset_list.push_back(setunset_t(set_key, set_val));
 				continue;
 			}
 			if (arg == "-list") {

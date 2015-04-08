@@ -607,6 +607,7 @@ struct ExtractPass : public Pass {
 				else
 				{
 					std::ifstream f;
+					rewrite_filename(filename);
 					f.open(filename.c_str());
 					if (f.fail()) {
 						delete map;
@@ -746,6 +747,7 @@ struct ExtractPass : public Pass {
 			}
 
 			std::ofstream f;
+			rewrite_filename(mine_outfile);
 			f.open(mine_outfile.c_str(), std::ofstream::trunc);
 			if (f.fail())
 				log_error("Can't open output file `%s'.\n", mine_outfile.c_str());

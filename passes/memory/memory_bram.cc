@@ -320,9 +320,7 @@ struct rules_t
 
 	void parse(string filename)
 	{
-		if (filename.substr(0, 2) == "+/")
-			filename = proc_share_dirname() + filename.substr(1);
-
+		rewrite_filename(filename);
 		infile.open(filename);
 		linecount = 0;
 

@@ -204,7 +204,7 @@ void yosys_banner();
 std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);
 int readsome(std::istream &f, char *s, int n);
-std::string next_token(std::string &text, const char *sep = " \t\r\n");
+std::string next_token(std::string &text, const char *sep = " \t\r\n", bool long_strings = false);
 bool patmatch(const char *pattern, const char *string);
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
 std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
@@ -254,6 +254,7 @@ RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();
 std::string proc_share_dirname();
 const char *create_prompt(RTLIL::Design *design, int recursion_counter);
+void rewrite_filename(std::string &filename);
 
 void run_pass(std::string command, RTLIL::Design *design = nullptr);
 void run_frontend(std::string filename, std::string command, std::string *backend_command, std::string *from_to_label = nullptr, RTLIL::Design *design = nullptr);
