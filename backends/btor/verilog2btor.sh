@@ -24,7 +24,7 @@ hierarchy -check;
 proc; 
 opt; opt_const -mux_undef; opt;
 rename -hide;;;
-#techmap -share_map pmux2mux.v;;
+#techmap -map +/pmux2mux.v;;
 splice; opt;
 memory_dff -wr_only;
 memory_collect;;

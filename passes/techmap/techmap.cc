@@ -824,11 +824,6 @@ struct TechmapPass : public Pass {
 		log("    -map %%<design-name>\n");
 		log("        like -map above, but with an in-memory design instead of a file.\n");
 		log("\n");
-		log("    -share_map filename\n");
-		log("        like -map, but look for the file in the share directory (where the\n");
-		log("        yosys data files are). this is mainly used internally when techmap\n");
-		log("        is called from other commands.\n");
-		log("\n");
 		log("    -extern\n");
 		log("        load the cell implementations as separate modules into the design\n");
 		log("        instead of inlining them.\n");
@@ -960,10 +955,6 @@ struct TechmapPass : public Pass {
 					map_files.push_back(proc_share_dirname() + args[++argidx].substr(2));
 				else
 					map_files.push_back(args[++argidx]);
-				continue;
-			}
-			if (args[argidx] == "-share_map" && argidx+1 < args.size()) {
-				map_files.push_back(proc_share_dirname() + args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-max_iter" && argidx+1 < args.size()) {
