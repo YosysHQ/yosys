@@ -295,15 +295,15 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 		f << stringf("%s" "output%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 	if (wire->port_input && wire->port_output)
 		f << stringf("%s" "inout%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
-	if (reg_wires.count(wire->name))
+	if (reg_wires.count(wire->name)) {
 		f << stringf("%s" "reg%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
-	else if (!wire->port_input && !wire->port_output)
+		if (wire->attributes.count("\\init")) {
+			f << stringf("%s" "initial %s = ", indent.c_str(), id(wire->name).c_str());
+			dump_const(f, wire->attributes.at("\\init"));
+			f << stringf(";\n");
+		}
+	} else if (!wire->port_input && !wire->port_output)
 		f << stringf("%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
-	if (wire->attributes.count("\\init")) {
-		f << stringf("%s" "initial %s = ", indent.c_str(), id(wire->name).c_str());
-		dump_const(f, wire->attributes.at("\\init"));
-		f << stringf(";\n");
-	}
 #endif
 }
 

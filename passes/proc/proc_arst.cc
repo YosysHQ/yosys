@@ -244,6 +244,7 @@ struct ProcArstPass : public Pass {
 		}
 
 		extra_args(args, argidx, design);
+		pool<Wire*> delete_initattr_wires;
 
 		for (auto mod : design->modules())
 			if (design->selected(mod)) {
@@ -265,6 +266,7 @@ struct ProcArstPass : public Pass {
 										value.extend_u0(chunk.wire->width, false);
 										arst_sig.append(chunk);
 										arst_val.append(value.extract(chunk.offset, chunk.width));
+										delete_initattr_wires.insert(chunk.wire);
 									}
 								if (arst_sig.size()) {
 									log("Added global reset to process %s: %s <- %s\n",
@@ -281,6 +283,9 @@ struct ProcArstPass : public Pass {
 					}
 				}
 			}
+
+		for (auto wire : delete_initattr_wires)
+			wire->attributes.erase("\\init");
 	}
 } ProcArstPass;
  
