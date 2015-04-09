@@ -26,9 +26,11 @@ bram $__XILINX_RAM128X1D
 endbram
 
 match $__XILINX_RAM64X1D
+  make_outreg
   or_next_if_better
 endmatch
 
 match $__XILINX_RAM128X1D
+  make_outreg
 endmatch
 

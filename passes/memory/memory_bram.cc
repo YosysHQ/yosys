@@ -32,6 +32,7 @@ struct rules_t
 		SigSpec sig_addr, sig_data, sig_en;
 		bool effective_clkpol;
 		bool make_transp;
+		bool make_outreg;
 		int mapped_port;
 	};
 
@@ -85,6 +86,7 @@ struct rules_t
 				pi.clkpol = clkpol[i];
 				pi.mapped_port = -1;
 				pi.make_transp = false;
+				pi.make_outreg = false;
 				pi.effective_clkpol = false;
 				portinfos.push_back(pi);
 			}
@@ -126,7 +128,7 @@ struct rules_t
 	struct match_t {
 		IdString name;
 		dict<string, int> min_limits, max_limits;
-		bool or_next_if_better, make_transp;
+		bool or_next_if_better, make_transp, make_outreg;
 		char shuffle_enable;
 	};
 
@@ -277,6 +279,7 @@ struct rules_t
 		data.name = RTLIL::escape_id(tokens[1]);
 		data.or_next_if_better = false;
 		data.make_transp = false;
+		data.make_outreg = false;
 		data.shuffle_enable = 0;
 
 		while (next_line())
@@ -306,6 +309,12 @@ struct rules_t
 
 			if (GetSize(tokens) == 1 && tokens[0] == "make_transp") {
 				data.make_transp = true;
+				continue;
+			}
+
+			if (GetSize(tokens) == 1 && tokens[0] == "make_outreg") {
+				data.make_transp = true;
+				data.make_outreg = true;
 				continue;
 			}
 
@@ -664,6 +673,10 @@ grow_read_ports:;
 
 			if (clken) {
 				if (pi.clocks == 0) {
+					if (match.make_outreg) {
+						pi.make_outreg = true;
+						goto skip_bram_rport_clkcheck;
+					}
 					log("        Bram port %c%d.%d has incompatible clock type.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
@@ -675,6 +688,7 @@ grow_read_ports:;
 					log("        Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
+			skip_bram_rport_clkcheck:
 				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
 					if (match.make_transp && wr_ports <= 1) {
 						pi.make_transp = true;
@@ -870,6 +884,12 @@ grow_read_ports:;
 					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
 					c->setPort(stringf("\\%sDATA", pf), bram_dout);
 
+					if (pi.make_outreg) {
+						SigSpec bram_dout_q = module->addWire(NEW_ID, bram.dbits);
+						module->addDff(NEW_ID, pi.sig_clock, bram_dout, bram_dout_q, pi.effective_clkpol);
+						bram_dout = bram_dout_q;
+					}
+
 					if (pi.make_transp)
 					{
 						log("        Adding extra logic for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
@@ -895,7 +915,7 @@ grow_read_ports:;
 						}
 
 					SigSpec addr_ok_q = addr_ok;
-					if (pi.clocks && !addr_ok.empty()) {
+					if ((pi.clocks || pi.make_outreg) && !addr_ok.empty()) {
 						addr_ok_q = module->addWire(NEW_ID);
 						module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
 					}
@@ -1168,6 +1188,9 @@ struct MemoryBramPass : public Pass {
 		log("\n");
 		log("A match containing the command 'make_transp' will add external circuitry\n");
 		log("to simulate 'transparent read', if necessary.\n");
+		log("\n");
+		log("A match containing the command 'make_outreg' will add external flip-flops\n");
+		log("to implement synchronous read ports, if necessary.\n");
 		log("\n");
 		log("A match containing the command 'shuffle_enable A' will re-organize\n");
 		log("the data bits to accommodate the enable pattern of port A.\n");
