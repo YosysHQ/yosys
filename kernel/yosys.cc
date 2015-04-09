@@ -836,6 +836,10 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 			command = "ilang";
 		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".blif")
 			command = "blif";
+		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".edif")
+			command = "edif";
+		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".json")
+			command = "json";
 		else if (filename == "-")
 			command = "ilang";
 		else if (filename.empty())
