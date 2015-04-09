@@ -56,7 +56,8 @@ echo "Testing..."
 ${MAKE:-make} -f bram1.mk
 echo
 
-echo "Used rules:" $(grep -h 'Selected rule.*with efficiency' bram1_*/synth.log | gawk '{ print $3; }' | sort -u)
+echo "Used bram types:"
+grep -h 'Mapping to bram type' bram1_*/synth.log | sort | uniq -c
 
 echo "Cleaning up..."
 rm -rf bram1_cmp bram1.mk bram1_[0-9]*/
