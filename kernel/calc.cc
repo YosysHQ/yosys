@@ -41,21 +41,28 @@ static void extend_u0(RTLIL::Const &arg, int width, bool is_signed)
 
 static BigInteger const2big(const RTLIL::Const &val, bool as_signed, int &undef_bit_pos)
 {
-	BigInteger result = 0, this_bit = 1;
-	for (size_t i = 0; i < val.bits.size(); i++) {
-		if (val.bits[i] == RTLIL::State::S1) {
-			if (as_signed && i+1 == val.bits.size())
-				result -= this_bit;
-			else
-				result += this_bit;
-		}
-		else if (val.bits[i] != RTLIL::State::S0) {
-			if (undef_bit_pos < 0)
-				undef_bit_pos = i;
-		}
-		this_bit *= 2;
+	BigUnsigned mag;
+
+	BigInteger::Sign sign = BigInteger::positive;
+	State inv_sign_bit = RTLIL::State::S1;
+	size_t num_bits = val.bits.size();
+
+	if (as_signed && num_bits && val.bits[num_bits-1] == RTLIL::State::S1) {
+		inv_sign_bit = RTLIL::State::S0;
+		sign = BigInteger::negative;
+		num_bits--;
 	}
-	return result;
+
+	for (size_t i = 0; i < num_bits; i++)
+		if (val.bits[i] == RTLIL::State::S0 || val.bits[i] == RTLIL::State::S1)
+			mag.setBit(i, val.bits[i] == inv_sign_bit);
+		else if (undef_bit_pos < 0)
+			undef_bit_pos = i;
+
+	if (sign == BigInteger::negative)
+		mag += 1;
+
+	return BigInteger(mag, sign);
 }
 
 static RTLIL::Const big2const(const BigInteger &val, int result_len, int undef_bit_pos)
