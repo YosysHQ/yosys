@@ -1009,14 +1009,6 @@ struct TechmapPass : public Pass {
 					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);
 				}
 
-		dict<RTLIL::IdString, RTLIL::Module*> modules_new;
-		for (auto &it : map->modules_) {
-			if (it.first.substr(0, 2) == "\\$")
-				it.second->name = it.first.substr(1);
-			modules_new[it.second->name] = it.second;
-		}
-		map->modules_.swap(modules_new);
-
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto &it : map->modules_) {
 			if (it.second->attributes.count("\\techmap_celltype") && !it.second->attributes.at("\\techmap_celltype").bits.empty()) {
@@ -1024,8 +1016,12 @@ struct TechmapPass : public Pass {
 				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(NULL, " \t\r\n"))
 					celltypeMap[RTLIL::escape_id(q)].insert(it.first);
 				free(p);
-			} else
-				celltypeMap[it.first].insert(it.first);
+			} else {
+				string module_name = it.first.str();
+				if (module_name.substr(0, 2) == "\\$")
+					module_name = module_name.substr(1);
+				celltypeMap[module_name].insert(it.first);
+			}
 		}
 
 		for (auto module : design->modules())
