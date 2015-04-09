@@ -27,5 +27,8 @@ $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/brams_init_32.vh))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/brams_init_18.vh))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/brams_init_16.vh))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/brams_bb.v))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/drams.txt))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/drams_map.v))
+$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/drams_bb.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/arith_map.v))
 

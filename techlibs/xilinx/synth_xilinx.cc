@@ -70,6 +70,7 @@ struct SynthXilinxPass : public Pass {
 		log("    begin:\n");
 		log("        read_verilog -lib +/xilinx/cells_sim.v\n");
 		log("        read_verilog -lib +/xilinx/brams_bb.v\n");
+		log("        read_verilog -lib +/xilinx/drams_bb.v\n");
 		log("        hierarchy -check -top <top>\n");
 		log("\n");
 		log("    flatten:     (only if -flatten)\n");
@@ -83,6 +84,10 @@ struct SynthXilinxPass : public Pass {
 		log("    bram:\n");
 		log("        memory_bram -rules +/xilinx/brams.txt\n");
 		log("        techmap -map +/xilinx/brams_map.v\n");
+		log("\n");
+		log("    dram:\n");
+		log("        memory_bram -rules +/xilinx/drams.txt\n");
+		log("        techmap -map +/xilinx/drams_map.v\n");
 		log("\n");
 		log("    fine:\n");
 		log("        opt -fast -full\n");
@@ -160,6 +165,7 @@ struct SynthXilinxPass : public Pass {
 		{
 			Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
 			Pass::call(design, "read_verilog -lib +/xilinx/brams_bb.v");
+			Pass::call(design, "read_verilog -lib +/xilinx/drams_bb.v");
 			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
@@ -179,6 +185,12 @@ struct SynthXilinxPass : public Pass {
 		{
 			Pass::call(design, "memory_bram -rules +/xilinx/brams.txt");
 			Pass::call(design, "techmap -map +/xilinx/brams_map.v");
+		}
+
+		if (check_label(active, run_from, run_to, "dram"))
+		{
+			Pass::call(design, "memory_bram -rules +/xilinx/drams.txt");
+			Pass::call(design, "techmap -map +/xilinx/drams_map.v");
 		}
 
 		if (check_label(active, run_from, run_to, "fine"))
