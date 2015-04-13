@@ -347,6 +347,17 @@ struct WreducePass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
+			for (auto c : module->selected_cells())
+				if (c->type.in({"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
+						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
+						"$logic_not", "$logic_and", "$logic_or"}) && GetSize(c->getPort("\\Y")) > 1) {
+					SigSpec sig = c->getPort("\\Y");
+					c->setPort("\\Y", sig[0]);
+					c->setParam("\\Y_WIDTH", 1);
+					sig.remove(0);
+					module->connect(sig, Const(0, GetSize(sig)));
+				}
+
 			WreduceWorker worker(&config, module);
 			worker.run();
 		}
