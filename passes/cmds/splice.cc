@@ -36,6 +36,8 @@ struct SpliceWorker
 	bool sel_by_wire;
 	bool sel_any_bit;
 	bool no_outputs;
+	bool do_wires;
+
 	std::set<RTLIL::IdString> ports;
 	std::set<RTLIL::IdString> no_ports;
 
@@ -209,23 +211,23 @@ struct SpliceWorker
 		std::vector<std::pair<RTLIL::Wire*, RTLIL::SigSpec>> rework_wires;
 		std::vector<Wire*> mod_wires = module->wires();
 
-		for (auto mod : mod_wires)
-			if (!no_outputs && mod->port_output) {
-				if (!design->selected(module, mod))
+		for (auto wire : mod_wires)
+			if ((!no_outputs && wire->port_output) || (do_wires && wire->name[0] == '\\')) {
+				if (!design->selected(module, wire))
 					continue;
-				RTLIL::SigSpec sig = sigmap(mod);
+				RTLIL::SigSpec sig = sigmap(wire);
 				if (driven_chunks.count(sig) > 0)
 					continue;
 				RTLIL::SigSpec new_sig = get_spliced_signal(sig);
 				if (new_sig != sig)
-					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(mod, new_sig));
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(wire, new_sig));
 			} else
-			if (!mod->port_input) {
-				RTLIL::SigSpec sig = sigmap(mod);
+			if (!wire->port_input) {
+				RTLIL::SigSpec sig = sigmap(wire);
 				if (spliced_signals_cache.count(sig) && spliced_signals_cache.at(sig) != sig)
-					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(mod, spliced_signals_cache.at(sig)));
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(wire, spliced_signals_cache.at(sig)));
 				else if (sliced_signals_cache.count(sig) && sliced_signals_cache.at(sig) != sig)
-					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(mod, sliced_signals_cache.at(sig)));
+					rework_wires.push_back(std::pair<RTLIL::Wire*, RTLIL::SigSpec>(wire, sliced_signals_cache.at(sig)));
 			}
 
 		for (auto &it : rework_wires)
@@ -268,6 +270,9 @@ struct SplicePass : public Pass {
 		log("        it is sufficient if the driver of any bit of a cell port is selected.\n");
 		log("        by default all bits must be selected.\n");
 		log("\n");
+		log("    -wires\n");
+		log("        also add $slice and $concat cells to drive otherwise unused wires.\n");
+		log("\n");
 		log("    -no_outputs\n");
 		log("        do not rewire selected module outputs.\n");
 		log("\n");
@@ -289,6 +294,7 @@ struct SplicePass : public Pass {
 		bool sel_by_wire = false;
 		bool sel_any_bit = false;
 		bool no_outputs = false;
+		bool do_wires = false;
 		std::set<RTLIL::IdString> ports, no_ports;
 
 		size_t argidx;
@@ -303,6 +309,10 @@ struct SplicePass : public Pass {
 			}
 			if (args[argidx] == "-sel_any_bit") {
 				sel_any_bit = true;
+				continue;
+			}
+			if (args[argidx] == "-wires") {
+				do_wires = true;
 				continue;
 			}
 			if (args[argidx] == "-no_outputs") {
@@ -348,6 +358,7 @@ struct SplicePass : public Pass {
 			worker.sel_by_wire = sel_by_wire;
 			worker.sel_any_bit = sel_any_bit;
 			worker.no_outputs = no_outputs;
+			worker.do_wires = do_wires;
 			worker.ports = ports;
 			worker.no_ports = no_ports;
 			worker.run();
