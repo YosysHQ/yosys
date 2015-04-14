@@ -85,14 +85,14 @@ struct SynthIce40Pass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::string top_module = "top";
+		std::string top_opt = "-auto-top";
 		std::string run_from, run_to;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
-				top_module = args[++argidx];
+				top_opt = "-top " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -118,7 +118,7 @@ struct SynthIce40Pass : public Pass {
 		if (check_label(active, run_from, run_to, "begin"))
 		{
 			Pass::call(design, "read_verilog -lib +/ice40/cells_sim.v");
-			Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
+			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
 		if (check_label(active, run_from, run_to, "coarse"))
