@@ -72,6 +72,7 @@ struct SynthIce40Pass : public Pass {
 		log("    map_ffs:\n");
 		log("        dff2dffe -direct-match $_DFF_*\n");
 		log("        techmap -map +/ice40/cells_map.v\n");
+		log("        opt_const -mux_undef\n");
 		log("        simplemap\n");
 		log("        clean\n");
 		log("\n");
@@ -145,6 +146,7 @@ struct SynthIce40Pass : public Pass {
 		{
 			Pass::call(design, "dff2dffe -direct-match $_DFF_*");
 			Pass::call(design, "techmap -map +/ice40/cells_map.v");
+			Pass::call(design, "opt_const -mux_undef");
 			Pass::call(design, "simplemap");
 			Pass::call(design, "clean");
 		}

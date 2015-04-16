@@ -243,9 +243,11 @@ struct Dff2dffeWorker
 
 	void run()
 	{
-		log("Transforming $dff to $dffe cells in module %s:\n", log_id(module));
-		for (auto dff_cell : dff_cells)
+		log("Transforming FF to FF+Enable cells in module %s:\n", log_id(module));
+		for (auto dff_cell : dff_cells) {
+			// log("Handling candidate %s:\n", log_id(dff_cell));
 			handle_dff_cell(dff_cell);
+		}
 	}
 };
 
@@ -301,22 +303,31 @@ struct Dff2dffePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-direct-match" && argidx + 1 < args.size()) {
+				bool found_match = false;
 				const char *pattern = args[++argidx].c_str();
-				if (patmatch(pattern, "$_DFF_P_"  ))  direct_dict["$_DFF_P_" ] = "$_DFFE_P_";
-				if (patmatch(pattern, "$_DFF_N_"  ))  direct_dict["$_DFF_N_" ] = "$_DFFE_N_";
-				if (patmatch(pattern, "$_DFF_NN0_")) direct_dict["$_DFF_NN0"] = "$__DFFE_NN0";
-				if (patmatch(pattern, "$_DFF_NN1_")) direct_dict["$_DFF_NN1"] = "$__DFFE_NN1";
-				if (patmatch(pattern, "$_DFF_NP0_")) direct_dict["$_DFF_NP0"] = "$__DFFE_NP0";
-				if (patmatch(pattern, "$_DFF_NP1_")) direct_dict["$_DFF_NP1"] = "$__DFFE_NP1";
-				if (patmatch(pattern, "$_DFF_PN0_")) direct_dict["$_DFF_PN0"] = "$__DFFE_PN0";
-				if (patmatch(pattern, "$_DFF_PN1_")) direct_dict["$_DFF_PN1"] = "$__DFFE_PN1";
-				if (patmatch(pattern, "$_DFF_PP0_")) direct_dict["$_DFF_PP0"] = "$__DFFE_PP0";
-				if (patmatch(pattern, "$_DFF_PP1_")) direct_dict["$_DFF_PP1"] = "$__DFFE_PP1";
+				if (patmatch(pattern, "$_DFF_P_"  )) found_match = true, direct_dict["$_DFF_P_"  ] = "$_DFFE_P_";
+				if (patmatch(pattern, "$_DFF_N_"  )) found_match = true, direct_dict["$_DFF_N_"  ] = "$_DFFE_N_";
+				if (patmatch(pattern, "$_DFF_NN0_")) found_match = true, direct_dict["$_DFF_NN0_"] = "$__DFFE_NN0";
+				if (patmatch(pattern, "$_DFF_NN1_")) found_match = true, direct_dict["$_DFF_NN1_"] = "$__DFFE_NN1";
+				if (patmatch(pattern, "$_DFF_NP0_")) found_match = true, direct_dict["$_DFF_NP0_"] = "$__DFFE_NP0";
+				if (patmatch(pattern, "$_DFF_NP1_")) found_match = true, direct_dict["$_DFF_NP1_"] = "$__DFFE_NP1";
+				if (patmatch(pattern, "$_DFF_PN0_")) found_match = true, direct_dict["$_DFF_PN0_"] = "$__DFFE_PN0";
+				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict["$_DFF_PN1_"] = "$__DFFE_PN1";
+				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict["$_DFF_PP0_"] = "$__DFFE_PP0";
+				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict["$_DFF_PP1_"] = "$__DFFE_PP1";
+				if (!found_match)
+					log_cmd_error("No cell types matched pattern '%s'.\n", pattern);
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (!direct_dict.empty()) {
+			log("Selected cell types for direct conversion:\n");
+			for (auto &it : direct_dict)
+				log("  %s -> %s\n", log_id(it.first), log_id(it.second));
+		}
 
 		for (auto mod : design->selected_modules())
 			if (!mod->has_processes_warn())
