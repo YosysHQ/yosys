@@ -698,6 +698,9 @@ static void handle_label(std::string &command, bool &from_to_active, const std::
 	while (pos < GetSize(command) && (command[pos] == ' ' || command[pos] == '\t'))
 		pos++;
 
+	if (pos < GetSize(command) && command[pos] == '#')
+		return;
+
 	while (pos < GetSize(command) && command[pos] != ' ' && command[pos] != '\t' && command[pos] != '\r' && command[pos] != '\n')
 		label += command[pos++];
 
