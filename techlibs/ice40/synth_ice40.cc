@@ -69,6 +69,12 @@ struct SynthIce40Pass : public Pass {
 		log("        techmap\n");
 		log("        opt -fast\n");
 		log("\n");
+		log("    map_ffs:\n");
+		log("        dff2dffe -direct-match $_DFF_*\n");
+		log("        techmap -map +/ice40/cells_map.v\n");
+		log("        simplemap\n");
+		log("        clean\n");
+		log("\n");
 		log("    map_luts:\n");
 		log("        abc -lut 4\n");
 		log("        clean\n");
@@ -133,6 +139,14 @@ struct SynthIce40Pass : public Pass {
 			Pass::call(design, "opt -full");
 			Pass::call(design, "techmap");
 			Pass::call(design, "opt -fast");
+		}
+
+		if (check_label(active, run_from, run_to, "map_ffs"))
+		{
+			Pass::call(design, "dff2dffe -direct-match $_DFF_*");
+			Pass::call(design, "techmap -map +/ice40/cells_map.v");
+			Pass::call(design, "simplemap");
+			Pass::call(design, "clean");
 		}
 
 		if (check_label(active, run_from, run_to, "map_luts"))
