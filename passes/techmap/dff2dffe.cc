@@ -27,11 +27,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Dff2dffeWorker
 {
+	const dict<IdString, IdString> &direct_dict;
+
 	RTLIL::Module *module;
 	SigMap sigmap;
 	CellTypes ct;
-
-	RTLIL::IdString direct_to;
 
 	typedef std::pair<RTLIL::Cell*, int> cell_int_t;
 	std::map<RTLIL::SigBit, cell_int_t> bit2mux;
@@ -42,8 +42,8 @@ struct Dff2dffeWorker
 	typedef std::set<pattern_t> patterns_t;
 
 
-	Dff2dffeWorker(RTLIL::Module *module, RTLIL::IdString direct_from, RTLIL::IdString direct_to) :
-			module(module), sigmap(module), ct(module->design), direct_to(direct_to)
+	Dff2dffeWorker(RTLIL::Module *module, const dict<IdString, IdString> &direct_dict) :
+			direct_dict(direct_dict), module(module), sigmap(module), ct(module->design)
 	{
 		for (auto wire : module->wires()) {
 			if (wire->port_output)
@@ -57,11 +57,11 @@ struct Dff2dffeWorker
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
-			if (direct_to.empty()) {
+			if (direct_dict.empty()) {
 				if (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
 					dff_cells.push_back(cell);
 			} else {
-				if (cell->type == direct_from)
+				if (direct_dict.count(cell->type))
 					dff_cells.push_back(cell);
 			}
 			for (auto conn : cell->connections()) {
@@ -206,10 +206,10 @@ struct Dff2dffeWorker
 				new_sig_d.append(sig_d[i]);
 				new_sig_q.append(sig_q[i]);
 			}
-			if (!direct_to.empty()) {
-				log("  converting %s cell %s to %s for %s -> %s.\n", log_id(dff_cell->type), log_id(dff_cell), log_id(direct_to), log_signal(new_sig_d), log_signal(new_sig_q));
+			if (!direct_dict.empty()) {
+				log("  converting %s cell %s to %s for %s -> %s.\n", log_id(dff_cell->type), log_id(dff_cell), log_id(direct_dict.at(dff_cell->type)), log_signal(new_sig_d), log_signal(new_sig_q));
 				dff_cell->setPort("\\E", make_patterns_logic(it.first, true));
-				dff_cell->type = direct_to;
+				dff_cell->type = direct_dict.at(dff_cell->type);
 			} else
 			if (dff_cell->type == "$dff") {
 				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort("\\CLK"), make_patterns_logic(it.first, false),
@@ -222,7 +222,7 @@ struct Dff2dffeWorker
 			}
 		}
 
-		if (!direct_to.empty())
+		if (!direct_dict.empty())
 			return;
 
 		if (remaining_indices.empty()) {
@@ -274,13 +274,19 @@ struct Dff2dffePass : public Pass {
 		log("          Usually <external_gate_type> is an intemediate cell type\n");
 		log("        that is then translated to the final type using 'techmap'.\n");
 		log("\n");
+		log("    -direct-match <pattern>\n");
+		log("        like -direct for all DFF cell types matching the expression.\n");
+		log("        this will use $__DFFE_* as <external_gate_type> matching the\n");
+		log("        internal gate type $_DFF_*_, except for $_DFF_[NP]_, which is\n");
+		log("        converted to $_DFFE_[NP]_.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
 		bool unmap_mode = false;
-		RTLIL::IdString direct_from, direct_to;
+		dict<IdString, IdString> direct_dict;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -289,8 +295,23 @@ struct Dff2dffePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-direct" && argidx + 2 < args.size()) {
-				direct_from = RTLIL::escape_id(args[++argidx]);
-				direct_to = RTLIL::escape_id(args[++argidx]);
+				string direct_from = RTLIL::escape_id(args[++argidx]);
+				string direct_to = RTLIL::escape_id(args[++argidx]);
+				direct_dict[direct_from] = direct_to;
+				continue;
+			}
+			if (args[argidx] == "-direct-match" && argidx + 1 < args.size()) {
+				const char *pattern = args[++argidx].c_str();
+				if (patmatch(pattern, "$_DFF_P_"  ))  direct_dict["$_DFF_P_" ] = "$_DFFE_P_";
+				if (patmatch(pattern, "$_DFF_N_"  ))  direct_dict["$_DFF_N_" ] = "$_DFFE_N_";
+				if (patmatch(pattern, "$_DFF_NN0_")) direct_dict["$_DFF_NN0"] = "$__DFFE_NN0";
+				if (patmatch(pattern, "$_DFF_NN1_")) direct_dict["$_DFF_NN1"] = "$__DFFE_NN1";
+				if (patmatch(pattern, "$_DFF_NP0_")) direct_dict["$_DFF_NP0"] = "$__DFFE_NP0";
+				if (patmatch(pattern, "$_DFF_NP1_")) direct_dict["$_DFF_NP1"] = "$__DFFE_NP1";
+				if (patmatch(pattern, "$_DFF_PN0_")) direct_dict["$_DFF_PN0"] = "$__DFFE_PN0";
+				if (patmatch(pattern, "$_DFF_PN1_")) direct_dict["$_DFF_PN1"] = "$__DFFE_PN1";
+				if (patmatch(pattern, "$_DFF_PP0_")) direct_dict["$_DFF_PP0"] = "$__DFFE_PP0";
+				if (patmatch(pattern, "$_DFF_PP1_")) direct_dict["$_DFF_PP1"] = "$__DFFE_PP1";
 				continue;
 			}
 			break;
@@ -328,7 +349,7 @@ struct Dff2dffePass : public Pass {
 					continue;
 				}
 
-				Dff2dffeWorker worker(mod, direct_from, direct_to);
+				Dff2dffeWorker worker(mod, direct_dict);
 				worker.run();
 			}
 	}
