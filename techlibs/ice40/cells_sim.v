@@ -245,9 +245,9 @@ endmodule
 
 // Packed IceStorm Logic Cells
 
-module ICESTORM_CARRYCONST (output O);
+module ICESTORM_CARRYCONST (output COUT);
 	parameter [0:0] CARRYCONST = 0;
-	assign O = CARRYCONST;
+	assign COUT = CARRYCONST;
 endmodule
 
 module ICESTORM_LC (
