@@ -83,26 +83,24 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
 	}
 
-	if (dff->type == "$dff" && mux_drivers.has(sig_d) && !has_init) {
+	if (dff->type == "$dff" && mux_drivers.has(sig_d)) {
 		std::set<RTLIL::Cell*> muxes;
 		mux_drivers.find(sig_d, muxes);
 		for (auto mux : muxes) {
 			RTLIL::SigSpec sig_a = assign_map(mux->getPort("\\A"));
 			RTLIL::SigSpec sig_b = assign_map(mux->getPort("\\B"));
-			if (sig_a == sig_q && sig_b.is_fully_const()) {
-				RTLIL::SigSig conn(sig_q, sig_b);
-				mod->connect(conn);
+			if (sig_a == sig_q && sig_b.is_fully_const() && (!has_init || val_init == sig_b.as_const())) {
+				mod->connect(sig_q, sig_b);
 				goto delete_dff;
 			}
-			if (sig_b == sig_q && sig_a.is_fully_const()) {
-				RTLIL::SigSig conn(sig_q, sig_a);
-				mod->connect(conn);
+			if (sig_b == sig_q && sig_a.is_fully_const() && (!has_init || val_init == sig_a.as_const())) {
+				mod->connect(sig_q, sig_a);
 				goto delete_dff;
 			}
 		}
 	}
 
-	if (sig_c.is_fully_const() && (!sig_r.size() || !has_init)) {
+	if (sig_c.is_fully_const() && (!sig_r.size() || !has_init || val_init == val_rv)) {
 		if (val_rv.bits.size() == 0)
 			val_rv = val_init;
 		RTLIL::SigSig conn(sig_q, val_rv);
@@ -110,7 +108,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_undef() && sig_r.size() && !has_init) {
+	if (sig_d.is_fully_undef() && sig_r.size() && (!has_init || val_init == val_rv)) {
 		RTLIL::SigSig conn(sig_q, val_rv);
 		mod->connect(conn);
 		goto delete_dff;
@@ -122,13 +120,13 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_const() && !sig_r.size() && !has_init) {
+	if (sig_d.is_fully_const() && !sig_r.size() && (!has_init || val_init == sig_d.as_const())) {
 		RTLIL::SigSig conn(sig_q, sig_d);
 		mod->connect(conn);
 		goto delete_dff;
 	}
 
-	if (sig_d == sig_q && !(sig_r.size() && has_init)) {
+	if (sig_d == sig_q && (!sig_r.size() || !has_init || val_init == val_rv)) {
 		if (sig_r.size()) {
 			RTLIL::SigSig conn(sig_q, val_rv);
 			mod->connect(conn);
