@@ -66,7 +66,7 @@ struct SynthIce40Pass : public Pass {
 		log("        opt -fast -mux_undef -undriven -fine\n");
 		log("        memory_map\n");
 		log("        opt -undriven -fine\n");
-		log("        techmap\n");
+		log("        techmap -map +/techmap.v -map +/ice40/arith_map.v\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_ffs:\n");
@@ -95,6 +95,7 @@ struct SynthIce40Pass : public Pass {
 	{
 		std::string top_opt = "-auto-top";
 		std::string run_from, run_to;
+		bool nocarry = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -109,6 +110,10 @@ struct SynthIce40Pass : public Pass {
 					break;
 				run_from = args[++argidx].substr(0, pos);
 				run_to = args[argidx].substr(pos+1);
+				continue;
+			}
+			if (args[argidx] == "-nocarry") {
+				nocarry = true;
 				continue;
 			}
 			break;
@@ -139,7 +144,10 @@ struct SynthIce40Pass : public Pass {
 			Pass::call(design, "opt -fast -mux_undef -undriven -fine");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "opt -undriven -fine");
-			Pass::call(design, "techmap");
+			if (nocarry)
+				Pass::call(design, "techmap");
+			else
+				Pass::call(design, "techmap -map +/techmap.v -map +/ice40/arith_map.v");
 			Pass::call(design, "opt -fast");
 		}
 
