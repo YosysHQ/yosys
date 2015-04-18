@@ -1,0 +1,10 @@
+read_verilog test_arith.v
+synth_ice40
+techmap -map ../cells_sim.v
+rename test gate
+
+read_verilog test_arith.v
+rename test gold
+
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 -show-ports miter
