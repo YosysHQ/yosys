@@ -1293,13 +1293,11 @@ struct SatPass : public Pass {
 		extra_args(args, argidx, design);
 
 		RTLIL::Module *module = NULL;
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second)) {
-				if (module)
-					log_cmd_error("Only one module must be selected for the SAT pass! (selected: %s and %s)\n",
-							RTLIL::id2cstr(module->name), RTLIL::id2cstr(mod_it.first));
-				module = mod_it.second;
-			}
+		for (auto mod : design->selected_modules()) {
+			if (module)
+				log_cmd_error("Only one module must be selected for the SAT pass! (selected: %s and %s)\n", log_id(module), log_id(mod));
+			module = mod;
+		}
 		if (module == NULL)
 			log_cmd_error("Can't perform SAT on an empty selection!\n");
 
