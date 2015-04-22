@@ -125,6 +125,9 @@ struct MemoryShareWorker
 			created_conditions++;
 		}
 
+		if (terms.size() == 0)
+			terms = State::S1;
+
 		if (terms.size() > 1)
 			terms = module->ReduceAnd(NEW_ID, terms);
 
