@@ -52,6 +52,18 @@ struct SynthIce40Pass : public Pass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -flatten\n");
+		log("        flatten design before synthesis\n");
+		log("\n");
+		log("    -retime\n");
+		log("        run 'abc' with -dff option\n");
+		log("\n");
+		log("    -nocarry\n");
+		log("        do not use SB_CARRY cells in output netlist\n");
+		log("\n");
+		log("    -nobram\n");
+		log("        do not use SB_RAM40_4K* cells in output netlist\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		log("\n");
@@ -59,14 +71,23 @@ struct SynthIce40Pass : public Pass {
 		log("        read_verilog -lib +/ice40/cells_sim.v\n");
 		log("        hierarchy -check -top <top>\n");
 		log("\n");
+		log("    flatten:         (only if -flatten)\n");
+		log("        proc\n");
+		log("        flatten\n");
+		log("\n");
 		log("    coarse:\n");
 		log("        synth -run coarse\n");
+		log("\n");
+		log("    bram:            (skip if -nobram)\n");
+		log("        memory_bram -rules +/ice40/brams.txt\n");
+		log("        techmap -map +/ice40/brams_map.v\n");
 		log("\n");
 		log("    fine:\n");
 		log("        opt -fast -mux_undef -undriven -fine\n");
 		log("        memory_map\n");
 		log("        opt -undriven -fine\n");
-		log("        techmap -map +/techmap.v -map +/ice40/arith_map.v\n");
+		log("        techmap -map +/techmap.v [-map +/ice40/arith_map.v]\n");
+		log("        abc -dff     (only if -retime)\n");
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_ffs:\n");
@@ -96,6 +117,9 @@ struct SynthIce40Pass : public Pass {
 		std::string top_opt = "-auto-top";
 		std::string run_from, run_to;
 		bool nocarry = false;
+		bool nobram = false;
+		bool flatten = false;
+		bool retime = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -112,8 +136,20 @@ struct SynthIce40Pass : public Pass {
 				run_to = args[argidx].substr(pos+1);
 				continue;
 			}
+			if (args[argidx] == "-flatten") {
+				flatten = true;
+				continue;
+			}
+			if (args[argidx] == "-retime") {
+				retime = true;
+				continue;
+			}
 			if (args[argidx] == "-nocarry") {
 				nocarry = true;
+				continue;
+			}
+			if (args[argidx] == "-nobram") {
+				nobram = true;
 				continue;
 			}
 			break;
@@ -134,9 +170,21 @@ struct SynthIce40Pass : public Pass {
 			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
+		if (flatten && check_label(active, run_from, run_to, "flatten"))
+		{
+			Pass::call(design, "proc");
+			Pass::call(design, "flatten");
+		}
+
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
 			Pass::call(design, "synth -run coarse");
+		}
+
+		if (!nobram && check_label(active, run_from, run_to, "bram"))
+		{
+			Pass::call(design, "memory_bram -rules +/ice40/brams.txt");
+			Pass::call(design, "techmap -map +/ice40/brams_map.v");
 		}
 
 		if (check_label(active, run_from, run_to, "fine"))
@@ -148,6 +196,8 @@ struct SynthIce40Pass : public Pass {
 				Pass::call(design, "techmap");
 			else
 				Pass::call(design, "techmap -map +/techmap.v -map +/ice40/arith_map.v");
+			if (retime)
+				Pass::call(design, "abc -dff");
 			Pass::call(design, "opt -fast");
 		}
 
