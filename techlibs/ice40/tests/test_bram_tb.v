@@ -79,14 +79,14 @@ module bram_tb #(
 
 		clk <= 0;
 		for (i = 0; i < 512; i = i+1) begin
-			WR_DATA <= xorshift64_state;
+			WR_DATA = xorshift64_state;
 			xorshift64_next;
 
-			WR_ADDR <= getaddr(i < 256 ? i[7:4] : xorshift64_state[63:60]);
+			WR_ADDR = getaddr(i < 256 ? i[7:4] : xorshift64_state[63:60]);
 			xorshift64_next;
 
-			RD_ADDR <= getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
-			WR_EN <= xorshift64_state[55];
+			RD_ADDR = getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
+			WR_EN = xorshift64_state[55] && (WR_ADDR != RD_ADDR);
 			xorshift64_next;
 
 			#1; clk <= 1;
@@ -98,7 +98,9 @@ module bram_tb #(
 			for (j = 0; j < DBITS; j = j+1)
 				expected_rd_masked[j] = expected_rd[j] !== 1'bx ? expected_rd[j] : RD_DATA[j];
 
-			$display("#OUT# %3d | WA=%x WD=%x WE=%x | RA=%x RD=%x (%x) | %s", i, WR_ADDR, WR_DATA, WR_EN, RD_ADDR, RD_DATA, expected_rd, expected_rd_masked === RD_DATA ? "ok" : "ERROR");
+			$display("#OUT# %3d | WA=%x WD=%x WE=%x | RA=%x RD=%x (%x) | %s",
+					i, WR_ADDR, WR_DATA, WR_EN, RD_ADDR, RD_DATA, expected_rd,
+					expected_rd_masked === RD_DATA ? "ok" : "ERROR");
 			if (expected_rd_masked !== RD_DATA) begin -> error; end
 		end
 	end
