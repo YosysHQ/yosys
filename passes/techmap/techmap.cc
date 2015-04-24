@@ -170,13 +170,19 @@ struct TechmapWorker
 		}
 
 		std::string orig_cell_name;
+		pool<string> extra_src_attrs;
+
 		if (!flatten_mode)
+		{
 			for (auto &it : tpl->cells_)
 				if (it.first == "\\_TECHMAP_REPLACE_") {
 					orig_cell_name = cell->name.str();
 					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 					break;
 				}
+
+			extra_src_attrs = cell->get_strpool_attribute("\\src");
+		}
 
 		dict<IdString, IdString> memory_renames;
 
@@ -189,6 +195,8 @@ struct TechmapWorker
 			m->start_offset = it.second->start_offset;
 			m->size = it.second->size;
 			m->attributes = it.second->attributes;
+			if (m->attributes.count("\\src"))
+				m->add_strpool_attribute("\\src", extra_src_attrs);
 			module->memories[m->name] = m;
 			memory_renames[it.first] = m->name;
 			design->select(module, m);
@@ -207,6 +215,8 @@ struct TechmapWorker
 			w->port_id = 0;
 			if (it.second->get_bool_attribute("\\_techmap_special_"))
 				w->attributes.clear();
+			if (w->attributes.count("\\src"))
+				w->add_strpool_attribute("\\src", extra_src_attrs);
 			design->select(module, w);
 		}
 
@@ -281,6 +291,9 @@ struct TechmapWorker
 				log_assert(memory_renames.count(memid));
 				c->setParam("\\MEMID", Const(memory_renames[memid].str()));
 			}
+
+			if (c->attributes.count("\\src"))
+				c->add_strpool_attribute("\\src", extra_src_attrs);
 		}
 
 		for (auto &it : tpl->connections()) {

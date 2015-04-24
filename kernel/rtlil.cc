@@ -161,6 +161,46 @@ std::string RTLIL::Const::decode_string() const
 	return string;
 }
 
+void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id)
+{
+	attributes[id] = RTLIL::Const(1);
+}
+
+bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
+{
+	if (attributes.count(id) == 0)
+		return false;
+	return attributes.at(id).as_bool();
+}
+
+void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
+{
+	string attrval;
+	for (auto &s : data) {
+		if (!attrval.empty())
+			attrval += "|";
+		attrval += s;
+	}
+	attributes[id] = RTLIL::Const(attrval);
+}
+
+void RTLIL::AttrObject::add_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
+{
+	pool<string> union_data = get_strpool_attribute(id);
+	union_data.insert(data.begin(), data.end());
+	if (!union_data.empty())
+		set_strpool_attribute(id, union_data);
+}
+
+pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
+{
+	pool<string> data;
+	if (attributes.count(id) != 0)
+		for (auto s : split_tokens(attributes.at(id).decode_string(), "|"))
+			data.insert(s);
+	return data;
+}
+
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
 {
 	if (full_selection)

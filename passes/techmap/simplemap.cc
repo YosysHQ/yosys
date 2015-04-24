@@ -35,6 +35,7 @@ void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, "$_NOT_");
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\A", sig_a[i]);
 		gate->setPort("\\Y", sig_y[i]);
 	}
@@ -65,6 +66,7 @@ void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 
 		for (int i = 0; i < GetSize(sig_y); i++) {
 			RTLIL::Cell *gate = module->addCell(NEW_ID, "$_NOT_");
+			gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 			gate->setPort("\\A", sig_t[i]);
 			gate->setPort("\\Y", sig_y[i]);
 		}
@@ -81,6 +83,7 @@ void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\A", sig_a[i]);
 		gate->setPort("\\B", sig_b[i]);
 		gate->setPort("\\Y", sig_y[i]);
@@ -131,6 +134,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 			}
 
 			RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+			gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 			gate->setPort("\\A", sig_a[i]);
 			gate->setPort("\\B", sig_a[i+1]);
 			gate->setPort("\\Y", sig_t[i/2]);
@@ -143,6 +147,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 	if (cell->type == "$reduce_xnor") {
 		RTLIL::SigSpec sig_t = module->addWire(NEW_ID);
 		RTLIL::Cell *gate = module->addCell(NEW_ID, "$_NOT_");
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\A", sig_a);
 		gate->setPort("\\Y", sig_t);
 		last_output_cell = gate;
@@ -156,7 +161,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
-static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig)
+static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::Cell *cell)
 {
 	while (sig.size() > 1)
 	{
@@ -170,6 +175,7 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig)
 			}
 
 			RTLIL::Cell *gate = module->addCell(NEW_ID, "$_OR_");
+			gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 			gate->setPort("\\A", sig[i]);
 			gate->setPort("\\B", sig[i+1]);
 			gate->setPort("\\Y", sig_t[i/2]);
@@ -185,7 +191,7 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig)
 void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	RTLIL::SigSpec sig_a = cell->getPort("\\A");
-	logic_reduce(module, sig_a);
+	logic_reduce(module, sig_a, cell);
 
 	RTLIL::SigSpec sig_y = cell->getPort("\\Y");
 
@@ -198,6 +204,7 @@ void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 
 	RTLIL::Cell *gate = module->addCell(NEW_ID, "$_NOT_");
+	gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 	gate->setPort("\\A", sig_a);
 	gate->setPort("\\Y", sig_y);
 }
@@ -205,10 +212,10 @@ void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)
 void simplemap_logbin(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	RTLIL::SigSpec sig_a = cell->getPort("\\A");
-	logic_reduce(module, sig_a);
+	logic_reduce(module, sig_a, cell);
 
 	RTLIL::SigSpec sig_b = cell->getPort("\\B");
-	logic_reduce(module, sig_b);
+	logic_reduce(module, sig_b, cell);
 
 	RTLIL::SigSpec sig_y = cell->getPort("\\Y");
 
@@ -226,6 +233,7 @@ void simplemap_logbin(RTLIL::Module *module, RTLIL::Cell *cell)
 	log_assert(!gate_type.empty());
 
 	RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+	gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 	gate->setPort("\\A", sig_a);
 	gate->setPort("\\B", sig_b);
 	gate->setPort("\\Y", sig_y);
@@ -241,16 +249,19 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec xor_out = module->addWire(NEW_ID, std::max(GetSize(sig_a), GetSize(sig_b)));
 	RTLIL::Cell *xor_cell = module->addXor(NEW_ID, sig_a, sig_b, xor_out, is_signed);
+	xor_cell->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 	simplemap_bitop(module, xor_cell);
 	module->remove(xor_cell);
 
 	RTLIL::SigSpec reduce_out = is_ne ? sig_y : module->addWire(NEW_ID);
 	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_ID, xor_out, reduce_out);
+	reduce_cell->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 	simplemap_reduce(module, reduce_cell);
 	module->remove(reduce_cell);
 
 	if (!is_ne) {
 		RTLIL::Cell *not_cell = module->addLogicNot(NEW_ID, reduce_out, sig_y);
+		not_cell->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		simplemap_lognot(module, not_cell);
 		module->remove(not_cell);
 	}
@@ -264,6 +275,7 @@ void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, "$_MUX_");
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\A", sig_a[i]);
 		gate->setPort("\\B", sig_b[i]);
 		gate->setPort("\\S", cell->getPort("\\S"));
@@ -301,6 +313,7 @@ void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < width; i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\S", sig_s[i]);
 		gate->setPort("\\R", sig_r[i]);
 		gate->setPort("\\Q", sig_q[i]);
@@ -320,6 +333,7 @@ void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < width; i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\C", sig_clk);
 		gate->setPort("\\D", sig_d[i]);
 		gate->setPort("\\Q", sig_q[i]);
@@ -341,6 +355,7 @@ void simplemap_dffe(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < width; i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\C", sig_clk);
 		gate->setPort("\\E", sig_en);
 		gate->setPort("\\D", sig_d[i]);
@@ -365,6 +380,7 @@ void simplemap_dffsr(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < width; i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\C", sig_clk);
 		gate->setPort("\\S", sig_s[i]);
 		gate->setPort("\\R", sig_r[i]);
@@ -393,6 +409,7 @@ void simplemap_adff(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < width; i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, rst_val.at(i) == RTLIL::State::S1 ? gate_type_1 : gate_type_0);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\C", sig_clk);
 		gate->setPort("\\R", sig_rst);
 		gate->setPort("\\D", sig_d[i]);
@@ -413,6 +430,7 @@ void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < width; i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\E", sig_en);
 		gate->setPort("\\D", sig_d[i]);
 		gate->setPort("\\Q", sig_q[i]);

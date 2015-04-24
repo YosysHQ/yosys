@@ -209,6 +209,26 @@ std::string next_token(std::string &text, const char *sep, bool long_strings)
 	return token;
 }
 
+std::vector<std::string> split_tokens(const std::string &text, const char *sep)
+{
+	std::vector<std::string> tokens;
+	std::string current_token;
+	for (char c : text) {
+		if (strchr(sep, c)) {
+			if (!current_token.empty()) {
+				tokens.push_back(current_token);
+				current_token.clear();
+			}
+		} else
+			current_token += c;
+	}
+	if (!current_token.empty()) {
+		tokens.push_back(current_token);
+		current_token.clear();
+	}
+	return tokens;
+}
+
 // this is very similar to fnmatch(). the exact rules used by this
 // function are:
 //

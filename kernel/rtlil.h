@@ -53,6 +53,7 @@ namespace RTLIL
 	};
 
 	struct Const;
+	struct AttrObject;
 	struct Selection;
 	struct Monitor;
 	struct Design;
@@ -493,6 +494,17 @@ struct RTLIL::Const
 	}
 };
 
+struct RTLIL::AttrObject
+{
+	dict<RTLIL::IdString, RTLIL::Const> attributes;
+
+	void set_bool_attribute(RTLIL::IdString id);
+	bool get_bool_attribute(RTLIL::IdString id) const;
+	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
+	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
+	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
+};
+
 struct RTLIL::SigChunk
 {
 	RTLIL::Wire *wire;
@@ -849,18 +861,7 @@ struct RTLIL::Design
 	std::vector<RTLIL::Module*> selected_whole_modules_warn() const;
 };
 
-#define RTLIL_ATTRIBUTE_MEMBERS                                \
-	dict<RTLIL::IdString, RTLIL::Const> attributes;    \
-	void set_bool_attribute(RTLIL::IdString id) {          \
-		attributes[id] = RTLIL::Const(1);              \
-	}                                                      \
-	bool get_bool_attribute(RTLIL::IdString id) const {    \
-		if (attributes.count(id) == 0)                 \
-			return false;                          \
-		return attributes.at(id).as_bool();            \
-	}
-
-struct RTLIL::Module
+struct RTLIL::Module : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
@@ -884,7 +885,6 @@ public:
 	pool<RTLIL::IdString> avail_parameters;
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
 	dict<RTLIL::IdString, RTLIL::Process*> processes;
-	RTLIL_ATTRIBUTE_MEMBERS
 
 	Module();
 	virtual ~Module();
@@ -1095,7 +1095,7 @@ public:
 	RTLIL::SigBit Oai4Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d);
 };
 
-struct RTLIL::Wire
+struct RTLIL::Wire : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
@@ -1115,10 +1115,9 @@ public:
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto;
-	RTLIL_ATTRIBUTE_MEMBERS
 };
 
-struct RTLIL::Memory
+struct RTLIL::Memory : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
@@ -1127,10 +1126,9 @@ struct RTLIL::Memory
 
 	RTLIL::IdString name;
 	int width, start_offset, size;
-	RTLIL_ATTRIBUTE_MEMBERS
 };
 
-struct RTLIL::Cell
+struct RTLIL::Cell : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
@@ -1150,7 +1148,6 @@ public:
 	RTLIL::IdString type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
-	RTLIL_ATTRIBUTE_MEMBERS
 
 	// access cell ports
 	bool hasPort(RTLIL::IdString portname) const;
@@ -1195,10 +1192,9 @@ struct RTLIL::CaseRule
 	RTLIL::CaseRule *clone() const;
 };
 
-struct RTLIL::SwitchRule
+struct RTLIL::SwitchRule : public RTLIL::AttrObject
 {
 	RTLIL::SigSpec signal;
-	RTLIL_ATTRIBUTE_MEMBERS
 	std::vector<RTLIL::CaseRule*> cases;
 
 	~SwitchRule();
@@ -1217,10 +1213,9 @@ struct RTLIL::SyncRule
 	RTLIL::SyncRule *clone() const;
 };
 
-struct RTLIL::Process
+struct RTLIL::Process : public RTLIL::AttrObject
 {
 	RTLIL::IdString name;
-	RTLIL_ATTRIBUTE_MEMBERS
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
 
