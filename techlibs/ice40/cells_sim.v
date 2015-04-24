@@ -305,20 +305,43 @@ module SB_RAM40_4K (
 	always @(posedge WCLK) begin
 		if (WE && WCLKE) begin
 			if (WRITE_MODE == 0) begin
-				for (i=0; i<16; i=i+1)
-					if (MASK[i]) memory[WADDR[7:0]][i] <= WDATA[i];
+				if (MASK[ 0]) memory[WADDR[7:0]][ 0] <= WDATA[ 0];
+				if (MASK[ 1]) memory[WADDR[7:0]][ 1] <= WDATA[ 1];
+				if (MASK[ 2]) memory[WADDR[7:0]][ 2] <= WDATA[ 2];
+				if (MASK[ 3]) memory[WADDR[7:0]][ 3] <= WDATA[ 3];
+				if (MASK[ 4]) memory[WADDR[7:0]][ 4] <= WDATA[ 4];
+				if (MASK[ 5]) memory[WADDR[7:0]][ 5] <= WDATA[ 5];
+				if (MASK[ 6]) memory[WADDR[7:0]][ 6] <= WDATA[ 6];
+				if (MASK[ 7]) memory[WADDR[7:0]][ 7] <= WDATA[ 7];
+				if (MASK[ 8]) memory[WADDR[7:0]][ 8] <= WDATA[ 8];
+				if (MASK[ 9]) memory[WADDR[7:0]][ 9] <= WDATA[ 9];
+				if (MASK[10]) memory[WADDR[7:0]][10] <= WDATA[10];
+				if (MASK[11]) memory[WADDR[7:0]][11] <= WDATA[11];
+				if (MASK[12]) memory[WADDR[7:0]][12] <= WDATA[12];
+				if (MASK[13]) memory[WADDR[7:0]][13] <= WDATA[13];
+				if (MASK[14]) memory[WADDR[7:0]][14] <= WDATA[14];
+				if (MASK[15]) memory[WADDR[7:0]][15] <= WDATA[15];
+				if (MASK[16]) memory[WADDR[7:0]][16] <= WDATA[16];
 			end
 			if (WRITE_MODE == 1) begin
-				for (i=0; i<2; i=i+1)
-					if (WADDR[0] == i) memory[WADDR[8:1]][i*8 +: 8] <= WDATA[i][7:0];
+				if (WADDR[0] == 0) memory[WADDR[8:1]][0*8 +: 8] <= WDATA[7:0];
+				if (WADDR[0] == 1) memory[WADDR[8:1]][1*8 +: 8] <= WDATA[7:0];
 			end
 			if (WRITE_MODE == 2) begin
-				for (i=0; i<4; i=i+1)
-					if (WADDR[1:0] == i) memory[WADDR[9:2]][i*4 +: 4] <= WDATA[i][3:0];
+				if (WADDR[1:0] == 0) memory[WADDR[9:2]][0*4 +: 4] <= WDATA[3:0];
+				if (WADDR[1:0] == 1) memory[WADDR[9:2]][1*4 +: 4] <= WDATA[3:0];
+				if (WADDR[1:0] == 2) memory[WADDR[9:2]][2*4 +: 4] <= WDATA[3:0];
+				if (WADDR[1:0] == 3) memory[WADDR[9:2]][3*4 +: 4] <= WDATA[3:0];
 			end
 			if (WRITE_MODE == 3) begin
-				for (i=0; i<8; i=i+1)
-					if (WADDR[2:0] == i) memory[WADDR[10:3]][i*2 +: 2] <= WDATA[i][1:0];
+				if (WADDR[2:0] == 0) memory[WADDR[10:3]][0*2 +: 2] <= WDATA[1:0];
+				if (WADDR[2:0] == 1) memory[WADDR[10:3]][1*2 +: 2] <= WDATA[1:0];
+				if (WADDR[2:0] == 2) memory[WADDR[10:3]][2*2 +: 2] <= WDATA[1:0];
+				if (WADDR[2:0] == 3) memory[WADDR[10:3]][3*2 +: 2] <= WDATA[1:0];
+				if (WADDR[2:0] == 4) memory[WADDR[10:3]][4*2 +: 2] <= WDATA[1:0];
+				if (WADDR[2:0] == 5) memory[WADDR[10:3]][5*2 +: 2] <= WDATA[1:0];
+				if (WADDR[2:0] == 6) memory[WADDR[10:3]][6*2 +: 2] <= WDATA[1:0];
+				if (WADDR[2:0] == 7) memory[WADDR[10:3]][7*2 +: 2] <= WDATA[1:0];
 			end
 		end
 	end
