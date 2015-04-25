@@ -86,7 +86,7 @@ module bram_tb #(
 			xorshift64_next;
 
 			RD_ADDR = getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
-			WR_EN = xorshift64_state[55] && (WR_ADDR != RD_ADDR);
+			WR_EN = xorshift64_state[55] && ((WR_ADDR & 'hff) != (RD_ADDR & 'hff));
 			xorshift64_next;
 
 			#1; clk <= 1;
