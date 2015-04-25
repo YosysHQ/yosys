@@ -1,5 +1,6 @@
 module bram_tb #(
-	parameter ABITS = 8, DBITS = 8
+	parameter ABITS = 8, DBITS = 8,
+	parameter INIT_ADDR = 0, INIT_DATA = 0
 );
 	reg clk;
 	reg [ABITS-1:0] WR_ADDR;
@@ -63,6 +64,9 @@ module bram_tb #(
 		// $dumpfile("testbench.vcd");
 		// $dumpvars(0, bram_tb);
 
+		if (INIT_ADDR || INIT_DATA)
+			memory[INIT_ADDR] <= INIT_DATA;
+
 		xorshift64_next;
 		xorshift64_next;
 		xorshift64_next;
@@ -85,7 +89,7 @@ module bram_tb #(
 			WR_ADDR = getaddr(i < 256 ? i[7:4] : xorshift64_state[63:60]);
 			xorshift64_next;
 
-			RD_ADDR = getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
+			RD_ADDR = i == 0 ? INIT_ADDR : getaddr(i < 256 ? i[3:0] : xorshift64_state[59:56]);
 			WR_EN = xorshift64_state[55] && ((WR_ADDR & 'hff) != (RD_ADDR & 'hff));
 			xorshift64_next;
 

@@ -1,5 +1,6 @@
 module bram #(
-	parameter ABITS = 8, DBITS = 8
+	parameter ABITS = 8, DBITS = 8,
+	parameter INIT_ADDR = 0, INIT_DATA = 0
 ) (
 	input clk,
 
@@ -11,6 +12,11 @@ module bram #(
 	output reg [DBITS-1:0] RD_DATA
 );
 	reg [DBITS-1:0] memory [0:2**ABITS-1];
+
+	initial begin
+		if (INIT_ADDR || INIT_DATA)
+			memory[INIT_ADDR] <= INIT_DATA;
+	end
 
 	always @(posedge clk) begin
 		if (WR_EN) memory[WR_ADDR] <= WR_DATA;
