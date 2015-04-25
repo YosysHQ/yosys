@@ -278,23 +278,80 @@ module SB_RAM40_4K (
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
 `ifndef BLACKBOX
+	wire [15:0] WMASK_I;
+	wire [15:0] RMASK_I;
+
 	reg  [15:0] RDATA_I;
 	wire [15:0] WDATA_I;
 
 	generate
 		case (WRITE_MODE)
-			0: assign WDATA_I = WDATA;
-			1: assign WDATA_I = {WDATA[14], WDATA[12], WDATA[10], WDATA[ 8],
-			                     WDATA[ 6], WDATA[ 4], WDATA[ 2], WDATA[ 0]};
-			2: assign WDATA_I = {WDATA[13], WDATA[9], WDATA[5], WDATA[1]};
-			3: assign WDATA_I = {WDATA[11], WDATA[3]};
+			0: assign WMASK_I = MASK;
+
+			1: assign WMASK_I = WADDR[   8] == 0 ? 16'b 1010_1010_1010_1010 :
+			                    WADDR[   8] == 1 ? 16'b 0101_0101_0101_0101 : 16'bx;
+
+			2: assign WMASK_I = WADDR[ 9:8] == 0 ? 16'b 1110_1110_1110_1110 :
+			                    WADDR[ 9:8] == 1 ? 16'b 1101_1101_1101_1101 :
+			                    WADDR[ 9:8] == 2 ? 16'b 1011_1011_1011_1011 :
+			                    WADDR[ 9:8] == 3 ? 16'b 0111_0111_0111_0111 : 16'bx;
+
+			3: assign WMASK_I = WADDR[10:8] == 0 ? 16'b 1111_1110_1111_1110 :
+			                    WADDR[10:8] == 1 ? 16'b 1111_1101_1111_1101 :
+			                    WADDR[10:8] == 2 ? 16'b 1111_1011_1111_1011 :
+			                    WADDR[10:8] == 3 ? 16'b 1111_0111_1111_0111 :
+			                    WADDR[10:8] == 4 ? 16'b 1110_1111_1110_1111 :
+			                    WADDR[10:8] == 5 ? 16'b 1101_1111_1101_1111 :
+			                    WADDR[10:8] == 6 ? 16'b 1011_1111_1011_1111 :
+			                    WADDR[10:8] == 7 ? 16'b 0111_1111_0111_1111 : 16'bx;
 		endcase
+
+		case (READ_MODE)
+			0: assign RMASK_I = 16'b 0000_0000_0000_0000;
+
+			1: assign RMASK_I = RADDR[   8] == 0 ? 16'b 1010_1010_1010_1010 :
+			                    RADDR[   8] == 1 ? 16'b 0101_0101_0101_0101 : 16'bx;
+
+			2: assign RMASK_I = RADDR[ 9:8] == 0 ? 16'b 1110_1110_1110_1110 :
+			                    RADDR[ 9:8] == 1 ? 16'b 1101_1101_1101_1101 :
+			                    RADDR[ 9:8] == 2 ? 16'b 1011_1011_1011_1011 :
+			                    RADDR[ 9:8] == 3 ? 16'b 0111_0111_0111_0111 : 16'bx;
+
+			3: assign RMASK_I = RADDR[10:8] == 0 ? 16'b 1111_1110_1111_1110 :
+			                    RADDR[10:8] == 1 ? 16'b 1111_1101_1111_1101 :
+			                    RADDR[10:8] == 2 ? 16'b 1111_1011_1111_1011 :
+			                    RADDR[10:8] == 3 ? 16'b 1111_0111_1111_0111 :
+			                    RADDR[10:8] == 4 ? 16'b 1110_1111_1110_1111 :
+			                    RADDR[10:8] == 5 ? 16'b 1101_1111_1101_1111 :
+			                    RADDR[10:8] == 6 ? 16'b 1011_1111_1011_1111 :
+			                    RADDR[10:8] == 7 ? 16'b 0111_1111_0111_1111 : 16'bx;
+		endcase
+
+		case (WRITE_MODE)
+			0: assign WDATA_I = WDATA;
+
+			1: assign WDATA_I = {WDATA[14], WDATA[14], WDATA[12], WDATA[12],
+			                     WDATA[10], WDATA[10], WDATA[ 8], WDATA[ 8],
+			                     WDATA[ 6], WDATA[ 6], WDATA[ 4], WDATA[ 4],
+			                     WDATA[ 2], WDATA[ 2], WDATA[ 0], WDATA[ 0]};
+
+			2: assign WDATA_I = {WDATA[13], WDATA[13], WDATA[13], WDATA[13],
+			                     WDATA[ 9], WDATA[ 9], WDATA[ 9], WDATA[ 9],
+			                     WDATA[ 5], WDATA[ 5], WDATA[ 5], WDATA[ 5],
+			                     WDATA[ 1], WDATA[ 1], WDATA[ 1], WDATA[ 1]};
+
+			3: assign WDATA_I = {WDATA[11], WDATA[11], WDATA[11], WDATA[11],
+			                     WDATA[11], WDATA[11], WDATA[11], WDATA[11],
+			                     WDATA[ 3], WDATA[ 3], WDATA[ 3], WDATA[ 3],
+			                     WDATA[ 3], WDATA[ 3], WDATA[ 3], WDATA[ 3]};
+		endcase
+
 		case (READ_MODE)
 			0: assign RDATA = RDATA_I;
-			1: assign RDATA = {1'b0, RDATA_I[7], 1'b0, RDATA_I[6], 1'b0, RDATA_I[5], 1'b0, RDATA_I[4],
-			                   1'b0, RDATA_I[3], 1'b0, RDATA_I[2], 1'b0, RDATA_I[1], 1'b0, RDATA_I[0]};
-			2: assign RDATA = {2'b00, RDATA_I[3], 3'b000, RDATA_I[2], 3'b000, RDATA_I[1], 3'b000, RDATA_I[0], 1'b0};
-			3: assign RDATA = {4'b0000, RDATA_I[1], 7'b0000000, RDATA_I[0], 3'b000};
+			1: assign RDATA = {1'b0, |RDATA_I[15:14], 1'b0, |RDATA_I[13:12], 1'b0, |RDATA_I[11:10], 1'b0, |RDATA_I[ 9: 8],
+			                   1'b0, |RDATA_I[ 7: 6], 1'b0, |RDATA_I[ 5: 4], 1'b0, |RDATA_I[ 3: 2], 1'b0, |RDATA_I[ 1: 0]};
+			2: assign RDATA = {2'b0, |RDATA_I[15:12], 3'b0, |RDATA_I[11: 8], 3'b0, |RDATA_I[ 7: 4], 3'b0, |RDATA_I[ 3: 0], 1'b0};
+			3: assign RDATA = {4'b0, |RDATA_I[15: 8], 7'b0, |RDATA_I[ 7: 0], 3'b0};
 		endcase
 	endgenerate
 
@@ -324,62 +381,29 @@ module SB_RAM40_4K (
 
 	always @(posedge WCLK) begin
 		if (WE && WCLKE) begin
-			if (WRITE_MODE == 0) begin
-				if (!MASK[ 0]) memory[WADDR[7:0]][ 0] <= WDATA_I[ 0];
-				if (!MASK[ 1]) memory[WADDR[7:0]][ 1] <= WDATA_I[ 1];
-				if (!MASK[ 2]) memory[WADDR[7:0]][ 2] <= WDATA_I[ 2];
-				if (!MASK[ 3]) memory[WADDR[7:0]][ 3] <= WDATA_I[ 3];
-				if (!MASK[ 4]) memory[WADDR[7:0]][ 4] <= WDATA_I[ 4];
-				if (!MASK[ 5]) memory[WADDR[7:0]][ 5] <= WDATA_I[ 5];
-				if (!MASK[ 6]) memory[WADDR[7:0]][ 6] <= WDATA_I[ 6];
-				if (!MASK[ 7]) memory[WADDR[7:0]][ 7] <= WDATA_I[ 7];
-				if (!MASK[ 8]) memory[WADDR[7:0]][ 8] <= WDATA_I[ 8];
-				if (!MASK[ 9]) memory[WADDR[7:0]][ 9] <= WDATA_I[ 9];
-				if (!MASK[10]) memory[WADDR[7:0]][10] <= WDATA_I[10];
-				if (!MASK[11]) memory[WADDR[7:0]][11] <= WDATA_I[11];
-				if (!MASK[12]) memory[WADDR[7:0]][12] <= WDATA_I[12];
-				if (!MASK[13]) memory[WADDR[7:0]][13] <= WDATA_I[13];
-				if (!MASK[14]) memory[WADDR[7:0]][14] <= WDATA_I[14];
-				if (!MASK[15]) memory[WADDR[7:0]][15] <= WDATA_I[15];
-				if (!MASK[16]) memory[WADDR[7:0]][16] <= WDATA_I[16];
-			end
-			if (WRITE_MODE == 1) begin
-				if (WADDR[0] == 0) memory[WADDR[8:1]][0*8 +: 8] <= WDATA_I[7:0];
-				if (WADDR[0] == 1) memory[WADDR[8:1]][1*8 +: 8] <= WDATA_I[7:0];
-			end
-			if (WRITE_MODE == 2) begin
-				if (WADDR[1:0] == 0) memory[WADDR[9:2]][0*4 +: 4] <= WDATA_I[3:0];
-				if (WADDR[1:0] == 1) memory[WADDR[9:2]][1*4 +: 4] <= WDATA_I[3:0];
-				if (WADDR[1:0] == 2) memory[WADDR[9:2]][2*4 +: 4] <= WDATA_I[3:0];
-				if (WADDR[1:0] == 3) memory[WADDR[9:2]][3*4 +: 4] <= WDATA_I[3:0];
-			end
-			if (WRITE_MODE == 3) begin
-				if (WADDR[2:0] == 0) memory[WADDR[10:3]][0*2 +: 2] <= WDATA_I[1:0];
-				if (WADDR[2:0] == 1) memory[WADDR[10:3]][1*2 +: 2] <= WDATA_I[1:0];
-				if (WADDR[2:0] == 2) memory[WADDR[10:3]][2*2 +: 2] <= WDATA_I[1:0];
-				if (WADDR[2:0] == 3) memory[WADDR[10:3]][3*2 +: 2] <= WDATA_I[1:0];
-				if (WADDR[2:0] == 4) memory[WADDR[10:3]][4*2 +: 2] <= WDATA_I[1:0];
-				if (WADDR[2:0] == 5) memory[WADDR[10:3]][5*2 +: 2] <= WDATA_I[1:0];
-				if (WADDR[2:0] == 6) memory[WADDR[10:3]][6*2 +: 2] <= WDATA_I[1:0];
-				if (WADDR[2:0] == 7) memory[WADDR[10:3]][7*2 +: 2] <= WDATA_I[1:0];
-			end
+			if (!WMASK_I[ 0]) memory[WADDR[7:0]][ 0] <= WDATA_I[ 0];
+			if (!WMASK_I[ 1]) memory[WADDR[7:0]][ 1] <= WDATA_I[ 1];
+			if (!WMASK_I[ 2]) memory[WADDR[7:0]][ 2] <= WDATA_I[ 2];
+			if (!WMASK_I[ 3]) memory[WADDR[7:0]][ 3] <= WDATA_I[ 3];
+			if (!WMASK_I[ 4]) memory[WADDR[7:0]][ 4] <= WDATA_I[ 4];
+			if (!WMASK_I[ 5]) memory[WADDR[7:0]][ 5] <= WDATA_I[ 5];
+			if (!WMASK_I[ 6]) memory[WADDR[7:0]][ 6] <= WDATA_I[ 6];
+			if (!WMASK_I[ 7]) memory[WADDR[7:0]][ 7] <= WDATA_I[ 7];
+			if (!WMASK_I[ 8]) memory[WADDR[7:0]][ 8] <= WDATA_I[ 8];
+			if (!WMASK_I[ 9]) memory[WADDR[7:0]][ 9] <= WDATA_I[ 9];
+			if (!WMASK_I[10]) memory[WADDR[7:0]][10] <= WDATA_I[10];
+			if (!WMASK_I[11]) memory[WADDR[7:0]][11] <= WDATA_I[11];
+			if (!WMASK_I[12]) memory[WADDR[7:0]][12] <= WDATA_I[12];
+			if (!WMASK_I[13]) memory[WADDR[7:0]][13] <= WDATA_I[13];
+			if (!WMASK_I[14]) memory[WADDR[7:0]][14] <= WDATA_I[14];
+			if (!WMASK_I[15]) memory[WADDR[7:0]][15] <= WDATA_I[15];
+			if (!WMASK_I[16]) memory[WADDR[7:0]][16] <= WDATA_I[16];
 		end
 	end
 
 	always @(posedge RCLK) begin
 		if (RE && RCLKE) begin
-			if (READ_MODE == 0) begin
-				RDATA_I <= memory[RADDR[7:0]];
-			end
-			if (READ_MODE == 1) begin
-				RDATA_I <= memory[RADDR[8:1]][RADDR[0]*8 +: 8];
-			end
-			if (READ_MODE == 2) begin
-				RDATA_I <= memory[RADDR[9:2]][RADDR[1:0]*4 +: 4];
-			end
-			if (READ_MODE == 3) begin
-				RDATA_I <= memory[RADDR[10:3]][RADDR[2:0]*2 +: 2];
-			end
+			RDATA_I <= memory[RADDR[7:0]] & ~RMASK_I;
 		end
 	end
 `endif
