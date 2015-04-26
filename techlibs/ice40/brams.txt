@@ -12,7 +12,7 @@ bram $__ICE40_RAM4K_M0
 endbram
 
 bram $__ICE40_RAM4K_M123
-  init 0
+  init 1
   abits  9 @M1
   dbits  8 @M1
   abits 10 @M2

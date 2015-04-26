@@ -64,8 +64,7 @@ module bram_tb #(
 		// $dumpfile("testbench.vcd");
 		// $dumpvars(0, bram_tb);
 
-		if (INIT_ADDR || INIT_DATA)
-			memory[INIT_ADDR] <= INIT_DATA;
+		memory[INIT_ADDR] <= INIT_DATA;
 
 		xorshift64_next;
 		xorshift64_next;

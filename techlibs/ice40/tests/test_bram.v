@@ -14,8 +14,7 @@ module bram #(
 	reg [DBITS-1:0] memory [0:2**ABITS-1];
 
 	initial begin
-		if (INIT_ADDR || INIT_DATA)
-			memory[INIT_ADDR] <= INIT_DATA;
+		memory[INIT_ADDR] <= INIT_DATA;
 	end
 
 	always @(posedge clk) begin
