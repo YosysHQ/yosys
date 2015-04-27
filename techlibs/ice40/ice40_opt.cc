@@ -57,11 +57,9 @@ static void run_ice40_opts(Module *module)
 
 			if (count_zeros >= 2)
 				replacement_output = State::S0;
-
-			if (count_ones >= 2)
+			else if (count_ones >= 2)
 				replacement_output = State::S1;
-
-			if (GetSize(non_const_inputs) == 1)
+			else if (GetSize(non_const_inputs) == 1)
 				replacement_output = non_const_inputs;
 
 			if (GetSize(replacement_output)) {

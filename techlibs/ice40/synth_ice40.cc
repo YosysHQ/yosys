@@ -88,7 +88,7 @@ struct SynthIce40Pass : public Pass {
 		log("        opt -undriven -fine\n");
 		log("        techmap -map +/techmap.v [-map +/ice40/arith_map.v]\n");
 		log("        abc -dff     (only if -retime)\n");
-		log("        opt -fast\n");
+		log("        ice40_opt\n");
 		log("\n");
 		log("    map_ffs:\n");
 		log("        dff2dffe -direct-match $_DFF_*\n");
@@ -96,7 +96,7 @@ struct SynthIce40Pass : public Pass {
 		log("        opt_const -mux_undef\n");
 		log("        simplemap\n");
 		log("        ice40_ffssr\n");
-		log("        clean\n");
+		log("        ice40_opt -full\n");
 		log("\n");
 		log("    map_luts:\n");
 		log("        abc -lut 4\n");
