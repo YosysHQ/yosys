@@ -1,0 +1,131 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *  
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#include "kernel/register.h"
+#include "kernel/log.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+static void run_ice40_opts(Module *module)
+{
+	for (auto cell : module->selected_cells())
+	{
+		if (cell->type == "\\SB_CARRY")
+		{
+			SigSpec non_const_inputs, replacement_output;
+			int count_zeros = 0, count_ones = 0;
+
+			SigBit inbit[3] = {cell->getPort("\\I0"), cell->getPort("\\I1"), cell->getPort("\\CI")};
+			for (int i = 0; i < 3; i++)
+				if (inbit[i].wire == nullptr) {
+					if (inbit[i] == State::S1)
+						count_ones++;
+					else
+						count_zeros++;
+				} else
+					non_const_inputs.append(inbit[i]);
+
+			if (count_zeros >= 2)
+				replacement_output = State::S0;
+
+			if (count_ones >= 2)
+				replacement_output = State::S1;
+
+			if (GetSize(non_const_inputs) == 1)
+				replacement_output = non_const_inputs;
+
+			if (GetSize(replacement_output)) {
+				module->connect(cell->getPort("\\CO"), replacement_output);
+				module->design->scratchpad_set_bool("opt.did_something", true);
+				log("Optimized away SB_CARRY cell %s.%s: CO=%s\n",
+						log_id(module), log_id(cell), log_signal(replacement_output));
+				module->remove(cell);
+				continue;
+			}
+		}
+	}
+}
+
+struct Ice40OptPass : public Pass {
+	Ice40OptPass() : Pass("ice40_opt", "iCE40: perform simple optimizations") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    ice40_opt [options] [selection]\n");
+		log("\n");
+		log("This command executes the following script:\n");
+		log("\n");
+		log("    do\n");
+		log("        <ice40 specific optimizations>\n");
+		log("        opt_const -mux_undef -undriven [-full]\n");
+		log("        opt_share\n");
+		log("        opt_rmdff\n");
+		log("        opt_clean\n");
+		log("    while <changed design>\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		string opt_const_args = "-mux_undef -undriven";
+		log_header("Executing ICE40_OPT pass (performing simple optimizations).\n");
+		log_push();
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-full") {
+				opt_const_args += " -full";
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		while (1)
+		{
+			design->scratchpad_unset("opt.did_something");
+
+			log_header("Running ICE40 specific optimizations.\n");
+			for (auto module : design->selected_modules())
+				run_ice40_opts(module);
+
+			Pass::call(design, "opt_const " + opt_const_args);
+			Pass::call(design, "opt_share");
+			Pass::call(design, "opt_rmdff");
+			Pass::call(design, "opt_clean");
+
+			if (design->scratchpad_get_bool("opt.did_something") == false)
+				break;
+
+			log_header("Rerunning OPT passes. (Removed registers in this run.)\n");
+		}
+
+		design->optimize();
+		design->sort();
+		design->check();
+
+		log_header("Finished OPT passes. (There is nothing left to do.)\n");
+		log_pop();
+	}
+} Ice40OptPass;
+ 
+PRIVATE_NAMESPACE_END
