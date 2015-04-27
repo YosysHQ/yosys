@@ -451,15 +451,9 @@ endmodule
 // --------------------------------------------------------
 
 `ifndef NOLUT
+(* techmap_simplemap *)
 (* techmap_celltype = "$lut" *)
-module _90_lut (A, Y);
-	parameter WIDTH = 1;
-	parameter LUT = 0;
-
-	input [WIDTH-1:0] A;
-	output Y;
-
-	assign Y = LUT[A];
+module _90_lut;
 endmodule
 `endif
 
