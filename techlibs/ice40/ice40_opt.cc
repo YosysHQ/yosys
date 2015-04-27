@@ -17,8 +17,9 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/sigtools.h"
+#include "passes/techmap/simplemap.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -27,8 +28,18 @@ PRIVATE_NAMESPACE_BEGIN
 
 static void run_ice40_opts(Module *module)
 {
+	pool<SigBit> optimized_co;
+	vector<Cell*> sb_lut_cells;
+	SigMap sigmap(module);
+
 	for (auto cell : module->selected_cells())
 	{
+		if (cell->type == "\\SB_LUT4")
+		{
+			sb_lut_cells.push_back(cell);
+			continue;
+		}
+
 		if (cell->type == "\\SB_CARRY")
 		{
 			SigSpec non_const_inputs, replacement_output;
@@ -54,14 +65,44 @@ static void run_ice40_opts(Module *module)
 				replacement_output = non_const_inputs;
 
 			if (GetSize(replacement_output)) {
+				optimized_co.insert(sigmap(cell->getPort("\\CO")));
 				module->connect(cell->getPort("\\CO"), replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized away SB_CARRY cell %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				module->remove(cell);
-				continue;
 			}
+			continue;
 		}
+	}
+
+	for (auto cell : sb_lut_cells)
+	{
+		if (optimized_co.count(sigmap(cell->getPort("\\I0")))) goto remap_lut;
+		if (optimized_co.count(sigmap(cell->getPort("\\I1")))) goto remap_lut;
+		if (optimized_co.count(sigmap(cell->getPort("\\I2")))) goto remap_lut;
+		if (optimized_co.count(sigmap(cell->getPort("\\I3")))) goto remap_lut;
+		continue;
+
+	remap_lut:
+		log("Mapping SB_LUT4 cell %s.%s back to logic.\n", log_id(module), log_id(cell));
+
+		cell->type ="$lut";
+		cell->setParam("\\WIDTH", 4);
+		cell->setParam("\\LUT", cell->getParam("\\LUT_INIT"));
+		cell->unsetParam("\\LUT_INIT");
+
+		cell->setPort("\\A", SigSpec({cell->getPort("\\I0"), cell->getPort("\\I1"), cell->getPort("\\I2"), cell->getPort("\\I3")}));
+		cell->setPort("\\Y", cell->getPort("\\O"));
+		cell->unsetPort("\\I0");
+		cell->unsetPort("\\I1");
+		cell->unsetPort("\\I2");
+		cell->unsetPort("\\I3");
+		cell->unsetPort("\\O");
+
+		cell->check();
+		simplemap_lut(module, cell);
+		module->remove(cell);
 	}
 }
 
