@@ -145,18 +145,24 @@ struct BlifDumper
 				if (config->false_type != "-")
 					f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_type),
 							config->false_type.c_str(), config->false_out.c_str());
+				else
+					f << stringf(".names %s\n", config->false_out.c_str());
 			} else
 				f << stringf(".names $false\n");
 			if (!config->true_type.empty()) {
 				if (config->true_type != "-")
 					f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_type),
 							config->true_type.c_str(), config->true_out.c_str());
+				else
+					f << stringf(".names %s\n1\n", config->true_out.c_str());
 			} else
 				f << stringf(".names $true\n1\n");
 			if (!config->undef_type.empty()) {
 				if (config->undef_type != "-")
 					f << stringf(".%s %s %s=$undef\n", subckt_or_gate(config->undef_type),
 							config->undef_type.c_str(), config->undef_out.c_str());
+				else
+					f << stringf(".names %s\n", config->undef_out.c_str());
 			} else
 				f << stringf(".names $undef\n");
 		}
