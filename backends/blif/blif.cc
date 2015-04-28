@@ -66,7 +66,7 @@ struct BlifDumper
 	{
 		std::string str = RTLIL::unescape_id(id);
 		for (size_t i = 0; i < str.size(); i++)
-			if (str[i] == '#' || str[i] == '=')
+			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
