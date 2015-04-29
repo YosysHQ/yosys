@@ -305,7 +305,9 @@ static void extract_fsm(RTLIL::Wire *wire)
 	for (auto &cellport : cellport_list) {
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
-		RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
+		RTLIL::SigSpec sig_b;
+		if (cell->hasPort("\\B"))
+			sig_b = assign_map(cell->getPort("\\B"));
 		RTLIL::SigSpec sig_y = assign_map(cell->getPort("\\Y"));
 		if (cellport.second == "\\A" && !sig_b.is_fully_const())
 			continue;

@@ -692,6 +692,7 @@ public:
 	bool is_chunk() const;
 
 	bool is_fully_const() const;
+	bool is_fully_zero() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
 	bool has_const() const;

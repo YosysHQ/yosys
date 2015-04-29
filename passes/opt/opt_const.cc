@@ -548,6 +548,25 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if ((cell->type == "$eq" || cell->type == "$ne") &&
+				(assign_map(cell->getPort("\\A")).is_fully_zero() || assign_map(cell->getPort("\\B")).is_fully_zero()))
+		{
+			cover_list("opt.opt_const.eqneq.cmpzero", "$eq", "$ne", cell->type.str());
+			log("Replacing %s cell `%s' in module `%s' with %s.\n", log_id(cell->type), log_id(cell),
+					log_id(module), "$eq" ? "$logic_not" : "$reduce_bool");
+			cell->type = cell->type == "$eq" ? "$logic_not" : "$reduce_bool";
+			if (assign_map(cell->getPort("\\A")).is_fully_zero()) {
+				cell->setPort("\\A", cell->getPort("\\B"));
+				cell->setParam("\\A_SIGNED", cell->getParam("\\B_SIGNED"));
+				cell->setParam("\\A_WIDTH", cell->getParam("\\B_WIDTH"));
+			}
+			cell->unsetPort("\\B");
+			cell->unsetParam("\\B_SIGNED");
+			cell->unsetParam("\\B_WIDTH");
+			did_something = true;
+			goto next_cell;
+		}
+
 		if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx") && assign_map(cell->getPort("\\B")).is_fully_const())
 		{
 			bool sign_ext = cell->type == "$sshr" && cell->getParam("\\A_SIGNED").as_bool();

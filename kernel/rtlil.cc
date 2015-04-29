@@ -3000,6 +3000,21 @@ bool RTLIL::SigSpec::is_fully_const() const
 	return true;
 }
 
+bool RTLIL::SigSpec::is_fully_zero() const
+{
+	cover("kernel.rtlil.sigspec.is_fully_zero");
+
+	pack();
+	for (auto it = chunks_.begin(); it != chunks_.end(); it++) {
+		if (it->width > 0 && it->wire != NULL)
+			return false;
+		for (size_t i = 0; i < it->data.size(); i++)
+			if (it->data[i] != RTLIL::State::S0)
+				return false;
+	}
+	return true;
+}
+
 bool RTLIL::SigSpec::is_fully_def() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_def");
