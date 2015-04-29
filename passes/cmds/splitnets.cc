@@ -54,6 +54,19 @@ struct SplitnetsWorker
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
 
+		if (wire->attributes.count("\\src"))
+			new_wire->attributes["\\src"] = wire->attributes.at("\\src");
+
+		if (wire->attributes.count("\\keep"))
+			new_wire->attributes["\\keep"] = wire->attributes.at("\\keep");
+
+		if (wire->attributes.count("\\init")) {
+			Const old_init = wire->attributes.at("\\init"), new_init;
+			for (int i = offset; i < offset+width; i++)
+				new_init.bits.push_back(i < GetSize(old_init) ? old_init.bits.at(i) : State::Sx);
+			new_wire->attributes["\\init"] = new_init;
+		}
+
 		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
 		splitmap[wire].insert(splitmap[wire].end(), sigvec.begin(), sigvec.end());
 	}
