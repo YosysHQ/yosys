@@ -76,6 +76,23 @@ void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->setPort("\\DATA", memory->getPort("\\WR_DATA").extract(i*mem->width, mem->width));
 	}
 
+	Const initval = memory->parameters.at("\\INIT");
+	for (int i = 0; i < GetSize(initval) && i/mem->width < (1 << abits); i += mem->width) {
+		Const val = initval.extract(i, mem->width, State::Sx);
+		for (auto bit : val.bits)
+			if (bit != State::Sx)
+				goto found_non_undef_initval;
+		continue;
+	found_non_undef_initval:
+		RTLIL::Cell *cell = module->addCell(NEW_ID, "$meminit");
+		cell->parameters["\\MEMID"] = mem_name.str();
+		cell->parameters["\\ABITS"] = memory->parameters.at("\\ABITS");
+		cell->parameters["\\WIDTH"] = memory->parameters.at("\\WIDTH");
+		cell->parameters["\\PRIORITY"] = i/mem->width;
+		 cell->setPort("\\ADDR", SigSpec(i/mem->width, abits));
+		cell->setPort("\\DATA", val);
+	}
+
 	module->remove(memory);
 }
 
