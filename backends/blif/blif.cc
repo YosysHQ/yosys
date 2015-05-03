@@ -234,13 +234,24 @@ struct BlifDumper
 				f << stringf(" %s", cstr(output));
 				f << stringf("\n");
 				RTLIL::SigSpec mask = cell->parameters.at("\\LUT");
+				bool one = false;
 				for (int i = 0; i < (1 << width); i++)
 					if (mask[i] == RTLIL::S1) {
 						for (int j = width-1; j >= 0; j--) {
 							f << ((i>>j)&1 ? '1' : '0');
 						}
 						f << " 1\n";
+						one = true;
 					}
+				/* For some reason, sometimes we get LUTs with
+				 * an all zero mask, which won't give any
+				 * .names entries, so write one entry with
+				 * all don't cares */
+				if (!one) {
+					for (int j = width-1; j >= 0; j--)
+						f << '-';
+					f << " 0\n";
+				}
 				continue;
 			}
 
