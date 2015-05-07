@@ -788,8 +788,127 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == "$mem")
+	{
+		std::ostringstream os;
+		RTLIL::IdString memid = cell->parameters["\\MEMID"].decode_string();
+		std::string mem_id = id( cell->parameters["\\MEMID"].decode_string() );
+		int abits = cell->parameters["\\ABITS"].as_int();
+		int size = cell->parameters["\\SIZE"].as_int();
+		int width = cell->parameters["\\WIDTH"].as_int();
+		int offset = cell->parameters["\\OFFSET"].as_int();
+		bool use_init = !(RTLIL::SigSpec( cell->parameters["\\INIT"] ).is_fully_undef());
+
+		// for memory block make something like:
+		//  reg [7:0] memid [3:0];
+		//  initial begin
+		//    memid[0] <= ...
+		//  end
+		int mem_val;
+		RTLIL::Memory memory;
+		memory.name = memid;
+		memory.width = width;
+		memory.start_offset = offset;
+		memory.size = size;
+		dump_memory(os, indent.c_str(), &memory);
+		if (use_init)
+		{
+			os << stringf("%s" "initial begin\n", indent.c_str());
+			for (int i=0; i<size; i++)
+			{
+				mem_val = cell->parameters["\\INIT"].extract(i*width, width).as_int();
+				os << stringf("%s" "  %s[%d] <= %d'd%d;\n", indent.c_str(), mem_id.c_str(), i, width, mem_val);
+			}
+			os << stringf("%s" "end\n", indent.c_str());
+		}
+
+
+		int nread_ports = cell->parameters["\\RD_PORTS"].as_int();
+		RTLIL::SigSpec sig_rd_clk, sig_rd_data, sig_rd_addr;
+		bool use_rd_clk, rd_clk_posedge;
+		// read ports
+		for (int i=0; i < nread_ports; i++)
+		{
+			sig_rd_clk = cell->getPort("\\RD_CLK").extract(i);
+			sig_rd_data = cell->getPort("\\RD_DATA").extract(i*width, width);
+			sig_rd_addr = cell->getPort("\\RD_ADDR").extract(i*abits, abits);
+			use_rd_clk = cell->parameters["\\RD_CLK_ENABLE"].extract(i).as_bool();
+			rd_clk_posedge = cell->parameters["\\RD_CLK_POLARITY"].extract(i).as_bool();
+			if (use_rd_clk)
+			{
+				// for clocked read ports make something like:
+				//   always @(posedge clk)
+				//      r_data <= array_reg[r_addr];
+				os << stringf("%s" "always @(%sedge ", indent.c_str(), rd_clk_posedge ? "pos" : "neg");
+				dump_sigspec(os, sig_rd_clk);
+				os << stringf(")\n");
+				os << stringf("%s" "  ", indent.c_str());
+				dump_sigspec(os, sig_rd_data);
+				os << stringf(" <= %s[", mem_id.c_str());
+				dump_sigspec(os, sig_rd_addr);
+				os << stringf("];\n");
+			}else{
+				// for non-clocked read-ports make something like:
+				//   assign r_data = array_reg[r_addr];
+				os << stringf("%s" "assign ", indent.c_str());
+				dump_sigspec(os, sig_rd_data);
+				os << stringf(" = %s[", mem_id.c_str());
+    		    dump_sigspec(os, sig_rd_addr);
+    		    os << stringf("];\n");
+			}
+		}
+
+		int nwrite_ports = cell->parameters["\\WR_PORTS"].as_int();
+		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en, sig_wr_en_bit, temp_wire;
+		bool wr_clk_posedge, use_wen;
+		// write ports
+		for (int i=0; i < nwrite_ports; i++)
+		{
+			// for write-ports make something like:
+			//   always @(posedge clk)
+			//      if (wr_en)
+			//         memid[w_addr] <= w_data;
+			sig_wr_clk = cell->getPort("\\WR_CLK").extract(i);
+			sig_wr_data = cell->getPort("\\WR_DATA").extract(i*width, width);
+			sig_wr_addr = cell->getPort("\\WR_ADDR").extract(i*abits, abits);
+			sig_wr_en = cell->getPort("\\WR_EN").extract(i*width, width);
+			sig_wr_en_bit = sig_wr_en.extract(0);
+			wr_clk_posedge = cell->parameters["\\WR_CLK_POLARITY"].extract(i).as_bool();
+			use_wen = !(sig_wr_en.is_fully_const() && (sig_wr_en.as_int() == ((1 << width) - 1)));
+			// if we're using wen, make sure every bit is the same wire, otherwise this verilog description won't be correct
+			// question: when would WR_EN have different wires for each bit?
+			if (sig_wr_en_bit.size() != 1)
+				return false;
+			if (use_wen)
+			{
+				for(int j=0; j<width; j++)
+				{
+					temp_wire = sig_wr_en.extract(j);
+					if ( (temp_wire.size() != 1) || !(temp_wire.is_chunk() && (temp_wire.as_chunk().wire->name == sig_wr_en_bit.as_chunk().wire->name)) )
+                        return false;
+				}
+			}
+			os << stringf("%s" "always @(%sedge ", indent.c_str(), wr_clk_posedge ? "pos" : "neg");
+			dump_sigspec(os, sig_wr_clk);
+			os << stringf(")\n");
+			if (use_wen)
+			{
+				os << stringf("%s" "  if (", indent.c_str());
+				dump_sigspec(os, sig_wr_en_bit);
+				os << stringf(")\n  ");
+			}
+			os << stringf("%s" "  %s[", indent.c_str(), mem_id.c_str());
+			dump_sigspec(os, sig_wr_addr);
+			os << stringf("] <= ");
+			dump_sigspec(os, sig_wr_data);
+			os << stringf(";\n");
+		}
+		f << os.str();
+		return true;
+	}
+	
 	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_, $_DLATCHSR_[PN][PN][PN]_
-	// FIXME: $sr, $dlatch, $memrd, $memwr, $mem, $fsm
+	// FIXME: $sr, $dlatch, $memrd, $memwr, $fsm
 
 	return false;
 }
