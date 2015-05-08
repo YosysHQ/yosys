@@ -29,10 +29,12 @@
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include "kernel/sigtools.h"
 #include <string>
 #include <sstream>
 #include <set>
 #include <map>
+#include <ctime>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -149,6 +151,17 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 	}
 
 	return true;
+}
+
+bool bit_check_equal(SigMap &sigmap, RTLIL::SigSpec &a, RTLIL::SigSpec &b)
+{
+	if (a.is_fully_const() && b.is_fully_const()){
+		return (a.as_bool() == b.as_bool());
+	}else if (!a.is_fully_const() && !b.is_fully_const()){
+		return (sigmap(a) == sigmap(b));
+	}else{
+		return false;
+	}
 }
 
 void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false, bool escape_comment = false)
@@ -790,7 +803,6 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type == "$mem")
 	{
-		std::ostringstream os;
 		RTLIL::IdString memid = cell->parameters["\\MEMID"].decode_string();
 		std::string mem_id = id( cell->parameters["\\MEMID"].decode_string() );
 		int abits = cell->parameters["\\ABITS"].as_int();
@@ -810,22 +822,22 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		memory.width = width;
 		memory.start_offset = offset;
 		memory.size = size;
-		dump_memory(os, indent.c_str(), &memory);
+		dump_memory(f, indent.c_str(), &memory);
 		if (use_init)
 		{
-			os << stringf("%s" "initial begin\n", indent.c_str());
+			f << stringf("%s" "initial begin\n", indent.c_str());
 			for (int i=0; i<size; i++)
 			{
 				mem_val = cell->parameters["\\INIT"].extract(i*width, width).as_int();
-				os << stringf("%s" "  %s[%d] <= %d'd%d;\n", indent.c_str(), mem_id.c_str(), i, width, mem_val);
+				f << stringf("%s" "  %s[%d] <= %d'd%d;\n", indent.c_str(), mem_id.c_str(), i, width, mem_val);
 			}
-			os << stringf("%s" "end\n", indent.c_str());
+			f << stringf("%s" "end\n", indent.c_str());
 		}
-
 
 		int nread_ports = cell->parameters["\\RD_PORTS"].as_int();
 		RTLIL::SigSpec sig_rd_clk, sig_rd_data, sig_rd_addr;
-		bool use_rd_clk, rd_clk_posedge;
+		bool use_rd_clk, rd_clk_posedge, rd_transparent;
+		RTLIL::IdString new_id;
 		// read ports
 		for (int i=0; i < nread_ports; i++)
 		{
@@ -834,33 +846,58 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			sig_rd_addr = cell->getPort("\\RD_ADDR").extract(i*abits, abits);
 			use_rd_clk = cell->parameters["\\RD_CLK_ENABLE"].extract(i).as_bool();
 			rd_clk_posedge = cell->parameters["\\RD_CLK_POLARITY"].extract(i).as_bool();
-			if (use_rd_clk)
+			rd_transparent = cell->parameters["\\RD_TRANSPARENT"].extract(i).as_bool();
+			if (use_rd_clk && !rd_transparent)
 			{
 				// for clocked read ports make something like:
 				//   always @(posedge clk)
 				//      r_data <= array_reg[r_addr];
-				os << stringf("%s" "always @(%sedge ", indent.c_str(), rd_clk_posedge ? "pos" : "neg");
-				dump_sigspec(os, sig_rd_clk);
-				os << stringf(")\n");
-				os << stringf("%s" "  ", indent.c_str());
-				dump_sigspec(os, sig_rd_data);
-				os << stringf(" <= %s[", mem_id.c_str());
-				dump_sigspec(os, sig_rd_addr);
-				os << stringf("];\n");
+				f << stringf("%s" "always @(%sedge ", indent.c_str(), rd_clk_posedge ? "pos" : "neg");
+				dump_sigspec(f, sig_rd_clk);
+				f << stringf(")\n");
+				f << stringf("%s" "  ", indent.c_str());
+				dump_sigspec(f, sig_rd_data);
+				f << stringf(" <= %s[", mem_id.c_str());
+				dump_sigspec(f, sig_rd_addr);
+				f << stringf("];\n");
 			}else{
-				// for non-clocked read-ports make something like:
-				//   assign r_data = array_reg[r_addr];
-				os << stringf("%s" "assign ", indent.c_str());
-				dump_sigspec(os, sig_rd_data);
-				os << stringf(" = %s[", mem_id.c_str());
-    		    dump_sigspec(os, sig_rd_addr);
-    		    os << stringf("];\n");
+				if (rd_transparent){
+					// for rd-transparent read-ports make something like:
+					//   reg [..] new-id;
+					//   always @(posedge clk)
+					//     new-id <= r_addr;
+					//   assign r_data = array_reg[new-id];
+					new_id = RTLIL::IdString(stringf("$%d", (int)time(NULL)));
+					reset_auto_counter_id(new_id, true);
+					f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), sig_rd_addr.size() - 1, id(new_id).c_str());
+					f << stringf("%s" "always @(%sedge ", indent.c_str(), rd_clk_posedge ? "pos" : "neg");
+					dump_sigspec(f, sig_rd_clk);
+					f << stringf(")\n");
+					f << stringf("%s" "  %s <= ", indent.c_str(), id(new_id).c_str());
+					dump_sigspec(f, sig_rd_addr);
+					f << stringf(";\n");
+					f << stringf("%s" "assign ", indent.c_str());
+					dump_sigspec(f, sig_rd_data);
+					f << stringf(" = %s[%s];\n", mem_id.c_str(), id(new_id).c_str());
+				}else{
+					// for non-clocked read-ports make something like:
+					//   assign r_data = array_reg[r_addr];
+					f << stringf("%s" "assign ", indent.c_str());
+					dump_sigspec(f, sig_rd_data);
+					f << stringf(" = %s[", mem_id.c_str());
+					dump_sigspec(f, sig_rd_addr);
+					f << stringf("];\n");
+				}
 			}
 		}
 
 		int nwrite_ports = cell->parameters["\\WR_PORTS"].as_int();
-		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en, sig_wr_en_bit, temp_wire;
-		bool wr_clk_posedge, use_wen;
+		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en, sig_wr_en_bit, last_bit, current_bit;
+		bool wr_clk_posedge; //, use_wen; //, use_individual_wen_bits;
+		std::vector<RTLIL::SigSpec> lof_wen;
+		std::map<RTLIL::SigSpec, int> wen_to_width;
+		SigMap sigmap(active_module);
+		int n, wen_width;
 		// write ports
 		for (int i=0; i < nwrite_ports; i++)
 		{
@@ -874,36 +911,54 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			sig_wr_en = cell->getPort("\\WR_EN").extract(i*width, width);
 			sig_wr_en_bit = sig_wr_en.extract(0);
 			wr_clk_posedge = cell->parameters["\\WR_CLK_POLARITY"].extract(i).as_bool();
-			use_wen = !(sig_wr_en.is_fully_const() && (sig_wr_en.as_int() == ((1 << width) - 1)));
-			// if we're using wen, make sure every bit is the same wire, otherwise this verilog description won't be correct
-			// question: when would WR_EN have different wires for each bit?
-			if (sig_wr_en_bit.size() != 1)
-				return false;
-			if (use_wen)
+			// group the wen bits
+			last_bit = sig_wr_en.extract(0);
+			lof_wen.push_back(last_bit);
+			wen_to_width[last_bit] = 0;
+			for(int j=0; j<width; j++)
 			{
-				for(int j=0; j<width; j++)
-				{
-					temp_wire = sig_wr_en.extract(j);
-					if ( (temp_wire.size() != 1) || !(temp_wire.is_chunk() && (temp_wire.as_chunk().wire->name == sig_wr_en_bit.as_chunk().wire->name)) )
-                        return false;
+				current_bit = sig_wr_en.extract(j);
+				if ( bit_check_equal(sigmap, current_bit, last_bit) ){
+					wen_to_width[lof_wen.back()] += 1;
+				}else{
+					lof_wen.push_back(current_bit);
+					wen_to_width[current_bit] = 1;
 				}
+				last_bit = current_bit;
 			}
-			os << stringf("%s" "always @(%sedge ", indent.c_str(), wr_clk_posedge ? "pos" : "neg");
-			dump_sigspec(os, sig_wr_clk);
-			os << stringf(")\n");
-			if (use_wen)
-			{
-				os << stringf("%s" "  if (", indent.c_str());
-				dump_sigspec(os, sig_wr_en_bit);
-				os << stringf(")\n  ");
+			//   make something like:
+			//   always @(posedge clk)
+			//      if (wr_en_bit)
+			//         memid[w_addr][??] <= w_data[??];			
+			//   ...
+			n = 0;
+			for (auto &wen_bit : lof_wen) {
+				wen_width = wen_to_width[wen_bit];
+				if (!wen_bit.is_fully_zero())
+				{
+					f << stringf("%s" "always @(%sedge ", indent.c_str(), wr_clk_posedge ? "pos" : "neg");
+					dump_sigspec(f, sig_wr_clk);
+					f << stringf(")\n");
+					//if (wen_bit.is_wire())  // why doesn't wen_bit.is_wire() work here?
+					if (!wen_bit.has_const())
+					{
+						f << stringf("%s" "  if (", indent.c_str());
+						dump_sigspec(f, wen_bit);
+						f << stringf(")\n  ");
+					}
+					f << stringf("%s" "  %s[", indent.c_str(), mem_id.c_str());
+					dump_sigspec(f, sig_wr_addr);
+					if (wen_width == width)
+						f << stringf("] <= ");
+					else
+						f << stringf("][%d:%d] <= ", n+wen_width-1, n);
+					dump_sigspec(f, sig_wr_data.extract(n, wen_width));
+					f << stringf(";\n");
+				}
+				n += wen_width;
 			}
-			os << stringf("%s" "  %s[", indent.c_str(), mem_id.c_str());
-			dump_sigspec(os, sig_wr_addr);
-			os << stringf("] <= ");
-			dump_sigspec(os, sig_wr_data);
-			os << stringf(";\n");
 		}
-		f << os.str();
+
 		return true;
 	}
 	
