@@ -153,17 +153,6 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 	return true;
 }
 
-bool bit_check_equal(SigMap &sigmap, RTLIL::SigSpec &a, RTLIL::SigSpec &b)
-{
-	if (a.is_fully_const() && b.is_fully_const()){
-		return (a.as_bool() == b.as_bool());
-	}else if (!a.is_fully_const() && !b.is_fully_const()){
-		return (sigmap(a) == sigmap(b));
-	}else{
-		return false;
-	}
-}
-
 void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool set_signed = false, bool escape_comment = false)
 {
 	if (width < 0)
@@ -892,10 +881,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 
 		int nwrite_ports = cell->parameters["\\WR_PORTS"].as_int();
-		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en, sig_wr_en_bit, last_bit, current_bit;
-		bool wr_clk_posedge; //, use_wen; //, use_individual_wen_bits;
-		std::vector<RTLIL::SigSpec> lof_wen;
-		std::map<RTLIL::SigSpec, int> wen_to_width;
+		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en, sig_wr_en_bit;
+		RTLIL::SigBit last_bit, current_bit;
+		bool wr_clk_posedge;
+		RTLIL::SigSpec lof_wen;
+		dict<RTLIL::SigSpec, int> wen_to_width;
 		SigMap sigmap(active_module);
 		int n, wen_width;
 		// write ports
@@ -913,15 +903,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			wr_clk_posedge = cell->parameters["\\WR_CLK_POLARITY"].extract(i).as_bool();
 			// group the wen bits
 			last_bit = sig_wr_en.extract(0);
-			lof_wen.push_back(last_bit);
+			lof_wen.append_bit(last_bit);
 			wen_to_width[last_bit] = 0;
 			for(int j=0; j<width; j++)
 			{
 				current_bit = sig_wr_en.extract(j);
-				if ( bit_check_equal(sigmap, current_bit, last_bit) ){
-					wen_to_width[lof_wen.back()] += 1;
+				if ( sigmap(current_bit) == sigmap(last_bit) ){
+					wen_to_width[current_bit] += 1;
 				}else{
-					lof_wen.push_back(current_bit);
+					lof_wen.append_bit(current_bit);
 					wen_to_width[current_bit] = 1;
 				}
 				last_bit = current_bit;
@@ -934,13 +924,12 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			n = 0;
 			for (auto &wen_bit : lof_wen) {
 				wen_width = wen_to_width[wen_bit];
-				if (!wen_bit.is_fully_zero())
+				if ( !(wen_bit == RTLIL::SigBit(false)) )
 				{
 					f << stringf("%s" "always @(%sedge ", indent.c_str(), wr_clk_posedge ? "pos" : "neg");
 					dump_sigspec(f, sig_wr_clk);
 					f << stringf(")\n");
-					//if (wen_bit.is_wire())  // why doesn't wen_bit.is_wire() work here?
-					if (!wen_bit.has_const())
+					if ( !(wen_bit == RTLIL::SigBit(true)) )
 					{
 						f << stringf("%s" "  if (", indent.c_str());
 						dump_sigspec(f, wen_bit);
