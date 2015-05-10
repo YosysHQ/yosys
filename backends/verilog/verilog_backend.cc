@@ -790,15 +790,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$mem")
+	if (cell->type == "$mem" && false) // FIXME!
 	{
 		RTLIL::IdString memid = cell->parameters["\\MEMID"].decode_string();
-		std::string mem_id = id( cell->parameters["\\MEMID"].decode_string() );
+		std::string mem_id = id(cell->parameters["\\MEMID"].decode_string());
 		int abits = cell->parameters["\\ABITS"].as_int();
 		int size = cell->parameters["\\SIZE"].as_int();
 		int width = cell->parameters["\\WIDTH"].as_int();
 		int offset = cell->parameters["\\OFFSET"].as_int();
-		bool use_init = !(RTLIL::SigSpec( cell->parameters["\\INIT"] ).is_fully_undef());
+		bool use_init = !(RTLIL::SigSpec(cell->parameters["\\INIT"]).is_fully_undef());
 
 		// for memory block make something like:
 		//  reg [7:0] memid [3:0];
@@ -849,8 +849,8 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				f << stringf(" <= %s[", mem_id.c_str());
 				dump_sigspec(f, sig_rd_addr);
 				f << stringf("];\n");
-			}else{
-				if (rd_transparent){
+			} else {
+				if (rd_transparent) {
 					// for rd-transparent read-ports make something like:
 					//   reg [..] new-id;
 					//   always @(posedge clk)
@@ -868,7 +868,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 					f << stringf("%s" "assign ", indent.c_str());
 					dump_sigspec(f, sig_rd_data);
 					f << stringf(" = %s[%s];\n", mem_id.c_str(), id(new_id).c_str());
-				}else{
+				} else {
 					// for non-clocked read-ports make something like:
 					//   assign r_data = array_reg[r_addr];
 					f << stringf("%s" "assign ", indent.c_str());
@@ -905,12 +905,12 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			last_bit = sig_wr_en.extract(0);
 			lof_wen.append_bit(last_bit);
 			wen_to_width[last_bit] = 0;
-			for(int j=0; j<width; j++)
+			for (int j=0; j<width; j++)
 			{
 				current_bit = sig_wr_en.extract(j);
-				if ( sigmap(current_bit) == sigmap(last_bit) ){
+				if (sigmap(current_bit) == sigmap(last_bit)){
 					wen_to_width[current_bit] += 1;
-				}else{
+				} else {
 					lof_wen.append_bit(current_bit);
 					wen_to_width[current_bit] = 1;
 				}
@@ -924,12 +924,12 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			n = 0;
 			for (auto &wen_bit : lof_wen) {
 				wen_width = wen_to_width[wen_bit];
-				if ( !(wen_bit == RTLIL::SigBit(false)) )
+				if (!(wen_bit == RTLIL::SigBit(false)))
 				{
 					f << stringf("%s" "always @(%sedge ", indent.c_str(), wr_clk_posedge ? "pos" : "neg");
 					dump_sigspec(f, sig_wr_clk);
 					f << stringf(")\n");
-					if ( !(wen_bit == RTLIL::SigBit(true)) )
+					if (!(wen_bit == RTLIL::SigBit(true)))
 					{
 						f << stringf("%s" "  if (", indent.c_str());
 						dump_sigspec(f, wen_bit);
