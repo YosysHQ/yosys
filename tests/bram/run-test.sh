@@ -8,7 +8,7 @@ rm -rf temp
 mkdir -p temp
 
 echo "generating tests.."
-python generate.py
+python2 generate.py
 
 {
 	echo -n "all:"
