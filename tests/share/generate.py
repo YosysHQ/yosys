@@ -25,7 +25,7 @@ def maybe_plus_x(expr):
         return expr
 
 for idx in range(100):
-    with file('temp/uut_%05d.v' % idx, 'w') as f:
+    with open('temp/uut_%05d.v' % idx, 'w') as f:
         with redirect_stdout(f):
             if random.choice(['bin', 'uni']) == 'bin':
                 print('module uut_%05d(a, b, c, d, x, s, y);' % (idx))
@@ -60,7 +60,7 @@ for idx in range(100):
                          random.choice(['', '$signed', '$unsigned']), op, maybe_plus_x('b'),
                          random_plus_x() if random.randint(0, 4) == 0 else ''))
                 print('endmodule')
-    with file('temp/uut_%05d.ys' % idx, 'w') as f:
+    with open('temp/uut_%05d.ys' % idx, 'w') as f:
         with redirect_stdout(f):
             print('read_verilog temp/uut_%05d.v' % idx)
             print('proc;;')

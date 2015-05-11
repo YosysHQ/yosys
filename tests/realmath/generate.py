@@ -40,7 +40,7 @@ def random_expression(depth = 3, maxparam = 0):
     raise
 
 for idx in range(100): 
-    with file('temp/uut_%05d.v' % idx, 'w') as f:
+    with open('temp/uut_%05d.v' % idx, 'w') as f:
         with redirect_stdout(f):
             print('module uut_%05d(output [63:0] %s);\n' % (idx, ', '.join(['y%02d' % i for i in range(100)])))
             for i in range(30):
@@ -56,12 +56,12 @@ for idx in range(100):
             for i in range(100):
                 print('assign y%02d = 65536 * (%s);' % (i, random_expression(maxparam = 60)))
             print('endmodule')
-    with file('temp/uut_%05d.ys' % idx, 'w') as f:
+    with open('temp/uut_%05d.ys' % idx, 'w') as f:
         with redirect_stdout(f):
             print('read_verilog uut_%05d.v' % idx)
             print('rename uut_%05d uut_%05d_syn' % (idx, idx))
             print('write_verilog uut_%05d_syn.v' % idx)
-    with file('temp/uut_%05d_tb.v' % idx, 'w') as f:
+    with open('temp/uut_%05d_tb.v' % idx, 'w') as f:
         with redirect_stdout(f):
             print('module uut_%05d_tb;\n' % idx)
             print('wire [63:0] %s;' % (', '.join(['r%02d' % i for i in range(100)])))

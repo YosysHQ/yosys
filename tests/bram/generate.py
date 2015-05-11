@@ -250,10 +250,10 @@ print("Rng seed: %d" % seed)
 random.seed(seed)
 
 for k1 in range(5):
-    dsc_f = file("temp/brams_%02d.txt" % k1, "w")
-    sim_f = file("temp/brams_%02d.v" % k1, "w")
-    ref_f = file("temp/brams_%02d_ref.v" % k1, "w")
-    tb_f = file("temp/brams_%02d_tb.v" % k1, "w")
+    dsc_f = open("temp/brams_%02d.txt" % k1, "w")
+    sim_f = open("temp/brams_%02d.v" % k1, "w")
+    ref_f = open("temp/brams_%02d_ref.v" % k1, "w")
+    tb_f = open("temp/brams_%02d_tb.v" % k1, "w")
 
     for f in [sim_f, ref_f, tb_f]:
         print("`timescale 1 ns / 1 ns", file=f)

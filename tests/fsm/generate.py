@@ -34,7 +34,7 @@ def random_expr(variables):
     raise AssertionError
 
 for idx in range(50):
-    with file('temp/uut_%05d.v' % idx, 'w') as f:
+    with open('temp/uut_%05d.v' % idx, 'w') as f:
         with redirect_stdout(f):
             rst2 = random.choice([False, True])
             if rst2:
@@ -90,7 +90,7 @@ for idx in range(50):
             print('    end')
             print('  end')
             print('endmodule')
-    with file('temp/uut_%05d.ys' % idx, 'w') as f:
+    with open('temp/uut_%05d.ys' % idx, 'w') as f:
         with redirect_stdout(f):
             if test_verific:
                 print('read_verilog temp/uut_%05d.v' % idx)
