@@ -903,7 +903,8 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			wr_clk_posedge = cell->parameters["\\WR_CLK_POLARITY"].extract(i).as_bool();
 			// group the wen bits
 			last_bit = sig_wr_en.extract(0);
-			lof_wen.append_bit(last_bit);
+			lof_wen = RTLIL::SigSpec(last_bit);
+			wen_to_width.clear();
 			wen_to_width[last_bit] = 0;
 			for (int j=0; j<width; j++)
 			{
