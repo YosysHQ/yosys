@@ -144,6 +144,26 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 				continue;
 			}
 
+			if (!strcmp(cmd, ".barbuf"))
+			{
+				char *p = strtok(NULL, " \t\r\n");
+				if (p == NULL)
+					goto error;
+
+				char *q = strtok(NULL, " \t\r\n");
+				if (q == NULL)
+					goto error;
+
+				if (module->wires_.count(RTLIL::escape_id(p)) == 0)
+					module->addWire(RTLIL::escape_id(p));
+
+				if (module->wires_.count(RTLIL::escape_id(q)) == 0)
+					module->addWire(RTLIL::escape_id(q));
+
+				module->connect(module->wires_.at(RTLIL::escape_id(q)), module->wires_.at(RTLIL::escape_id(p)));
+				continue;
+			}
+
 			if (!strcmp(cmd, ".names"))
 			{
 				char *p;
