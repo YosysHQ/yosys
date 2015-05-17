@@ -56,7 +56,7 @@
 #  include <dirent.h>
 #endif
 
-#include "blifparse.h"
+#include "frontends/blif/blifparse.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

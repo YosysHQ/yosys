@@ -5,6 +5,10 @@ OBJS += passes/techmap/dfflibmap.o
 OBJS += passes/techmap/maccmap.o
 OBJS += passes/techmap/libparse.o
 
+ifeq ($(ENABLE_ABC),1)
+OBJS += passes/techmap/abc.o
+endif
+
 ifneq ($(SMALL),1)
 OBJS += passes/techmap/iopadmap.o
 OBJS += passes/techmap/hilomap.o

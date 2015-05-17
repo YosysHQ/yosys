@@ -255,6 +255,7 @@ else
 include frontends/verilog/Makefile.inc
 include frontends/ilang/Makefile.inc
 include frontends/ast/Makefile.inc
+include frontends/blif/Makefile.inc
 
 OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
@@ -267,7 +268,6 @@ OBJS += passes/cmds/plugin.o
 include passes/proc/Makefile.inc
 include passes/opt/Makefile.inc
 include passes/techmap/Makefile.inc
-include passes/abc/Makefile.inc
 
 include backends/verilog/Makefile.inc
 include backends/ilang/Makefile.inc
