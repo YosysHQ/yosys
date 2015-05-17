@@ -120,6 +120,9 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 			{
 				char *d = strtok(NULL, " \t\r\n");
 				char *q = strtok(NULL, " \t\r\n");
+				char *edge = strtok(NULL, " \t\r\n");
+				char *clock = strtok(NULL, " \t\r\n");
+				char *init = strtok(NULL, " \t\r\n");
 
 				if (module->wires_.count(RTLIL::escape_id(d)) == 0)
 					module->addWire(RTLIL::escape_id(d));
@@ -127,9 +130,33 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 				if (module->wires_.count(RTLIL::escape_id(q)) == 0)
 					module->addWire(RTLIL::escape_id(q));
 
-				RTLIL::Cell *cell = module->addCell(NEW_ID, dff_name);
-				cell->setPort("\\D", module->wires_.at(RTLIL::escape_id(d)));
-				cell->setPort("\\Q", module->wires_.at(RTLIL::escape_id(q)));
+				if (clock == nullptr && edge != nullptr) {
+					init = edge;
+					edge = nullptr;
+				}
+
+				if (init != nullptr && (init[0] == '0' || init[0] == '1'))
+					module->wire(RTLIL::escape_id(d))->attributes["\\init"] = Const(init[0] == '1' ? 1 : 0, 1);
+
+				if (clock == nullptr)
+					goto no_latch_clock;
+
+				if (module->wires_.count(RTLIL::escape_id(clock)) == 0)
+					module->addWire(RTLIL::escape_id(clock));
+
+				if (!strcmp(edge, "re"))
+					module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
+							module->wire(RTLIL::escape_id(d)), module->wire(RTLIL::escape_id(q)));
+				else if (!strcmp(edge, "fe"))
+					module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
+							module->wire(RTLIL::escape_id(d)), module->wire(RTLIL::escape_id(q)), false);
+				else {
+			no_latch_clock:
+					RTLIL::Cell *cell = module->addCell(NEW_ID, dff_name);
+					cell->setPort("\\D", module->wires_.at(RTLIL::escape_id(d)));
+					cell->setPort("\\Q", module->wires_.at(RTLIL::escape_id(q)));
+				}
+
 				continue;
 			}
 
