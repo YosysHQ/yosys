@@ -133,7 +133,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 				continue;
 			}
 
-			if (!strcmp(cmd, ".gate"))
+			if (!strcmp(cmd, ".gate") || !strcmp(cmd, ".subckt"))
 			{
 				char *p = strtok(NULL, " \t\r\n");
 				if (p == NULL)
@@ -267,6 +267,36 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 error:
 	log_error("Syntax error in line %d!\n", line_count);
 }
+
+struct BlifFrontend : public Frontend {
+	BlifFrontend() : Frontend("blif", "read BLIF file") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    read_blif [filename]\n");
+		log("\n");
+		log("Load modules from a BLIF file into the current design.\n");
+		log("\n");
+	}
+	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	{
+		log_header("Executing BLIF frontend.\n");
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			// if (arg == "-lib") {
+			// 	flag_lib = true;
+			// 	continue;
+			// }
+			break;
+		}
+		extra_args(f, filename, args, argidx);
+
+		parse_blif(design, *f, "\\DFF");
+	}
+} BlifFrontend;
 
 YOSYS_NAMESPACE_END
 
