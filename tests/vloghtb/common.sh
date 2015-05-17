@@ -68,3 +68,39 @@ test_equiv()
 	log_pass test_$1 $4
 	mv log_test_$1/$4.out log_test_$1/$4.txt
 }
+
+test_febe()
+{
+	# Usage:
+	# test_febe <test_name> <synth_script> <extension> <backend> <frontend> <sat_options> <mod_name> <vlog_file>
+	#           $1          $2             $3          $4        $5         $6            $7         $8
+
+	mkdir -p log_test_$1
+	rm -f log_test_$1/$7.txt
+	rm -f log_test_$1/$7.err
+
+	if ! ../../yosys -q -l log_test_$1/$7.out - 2> /dev/null <<- EOT
+		echo on
+		read_verilog $8
+		$2
+		design -save gold
+		dump
+		$4 log_test_$1/$7$3
+		design -reset
+		$5 log_test_$1/$7$3
+
+		design -copy-from gold -as gold $7
+		rename $7 gate
+
+		miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter
+		sat $6 -verify -prove trigger 0 -show-inputs -show-outputs miter
+	EOT
+	then
+		log_fail test_$1 $7
+		mv log_test_$1/$7.out log_test_$1/$7.err
+		exit 1
+	fi
+
+	log_pass test_$1 $7
+	mv log_test_$1/$7.out log_test_$1/$7.txt
+}
