@@ -21,7 +21,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, FILE *f)
+static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, std::istream &f)
 {
 	int buffer_len = 0;
 	buffer[0] = 0;
@@ -42,23 +42,18 @@ static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, 
 			if (buffer_len > 0 && buffer[buffer_len-1] == '\\')
 				buffer[--buffer_len] = 0;
 			line_count++;
-			if (fgets(buffer+buffer_len, buffer_size-buffer_len, f) == NULL)
+			if (!f.getline(buffer+buffer_len, buffer_size-buffer_len))
 				return false;
 		} else
 			return true;
 	}
 }
 
-RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
+void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 {
-	RTLIL::Design *design = new RTLIL::Design;
-	RTLIL::Module *module = new RTLIL::Module;
-
+	RTLIL::Module *module = nullptr;
 	RTLIL::Const *lutptr = NULL;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
-
-	module->name = "\\netlist";
-	design->add(module);
 
 	size_t buffer_size = 4096;
 	char *buffer = (char*)malloc(buffer_size);
@@ -66,8 +61,12 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 
 	while (1)
 	{
-		if (!read_next_line(buffer, buffer_size, line_count, f))
-			goto error;
+		if (!read_next_line(buffer, buffer_size, line_count, f)) {
+			if (module != nullptr)
+				goto error;
+			free(buffer);
+			return;
+		}
 
 	continue_without_read:
 		if (buffer[0] == '#')
@@ -85,13 +84,24 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 
 			char *cmd = strtok(buffer, " \t\r\n");
 
-			if (!strcmp(cmd, ".model"))
+			if (!strcmp(cmd, ".model")) {
+				if (module != nullptr)
+					goto error;
+				module = new RTLIL::Module;
+				module->name = RTLIL::escape_id(strtok(NULL, " \t\r\n"));
+				if (design->module(module->name))
+					log_error("Duplicate definition of module %s in line %d!\n", log_id(module->name), line_count);
+				design->add(module);
 				continue;
+			}
+
+			if (module == nullptr)
+				goto error;
 
 			if (!strcmp(cmd, ".end")) {
 				module->fixup_ports();
-				free(buffer);
-				return design;
+				module = nullptr;
+				continue;
 			}
 
 			if (!strcmp(cmd, ".inputs") || !strcmp(cmd, ".outputs")) {
@@ -256,8 +266,6 @@ RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name)
 
 error:
 	log_error("Syntax error in line %d!\n", line_count);
-	// delete design;
-	// return NULL;
 }
 
 YOSYS_NAMESPACE_END

@@ -877,14 +877,16 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
 		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.blif");
-		f = fopen(buffer.c_str(), "rt");
-		if (f == NULL)
+		std::ifstream ifs;
+		ifs.open(buffer);
+		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
 		bool builtin_lib = liberty_file.empty() && script_file.empty() && !lut_mode;
-		RTLIL::Design *mapped_design = abc_parse_blif(f, builtin_lib ? "\\DFF" : "\\_dff_");
+		RTLIL::Design *mapped_design = new RTLIL::Design;
+		parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_");
 
-		fclose(f);
+		ifs.close();
 
 		log_header("Re-integrating ABC results.\n");
 		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];

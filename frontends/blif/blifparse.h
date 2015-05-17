@@ -24,7 +24,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-extern RTLIL::Design *abc_parse_blif(FILE *f, std::string dff_name);
+extern void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name);
 
 YOSYS_NAMESPACE_END
 
