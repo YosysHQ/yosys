@@ -11,8 +11,8 @@ EXTRA_OBJS += techlibs/ice40/brams_init.mk
 .SECONDARY: techlibs/ice40/brams_init.mk
 
 techlibs/ice40/brams_init.mk: techlibs/ice40/brams_init.py
-	cd techlibs/ice40 && python brams_init.py
-	touch techlibs/ice40/brams_init.mk
+	$(P) cd techlibs/ice40 && python brams_init.py
+	$(Q) touch techlibs/ice40/brams_init.mk
 
 techlibs/ice40/brams_init1.vh: techlibs/ice40/brams_init.mk
 techlibs/ice40/brams_init2.vh: techlibs/ice40/brams_init.mk

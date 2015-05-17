@@ -10,8 +10,8 @@ EXTRA_OBJS += techlibs/xilinx/brams_init.mk
 .SECONDARY: techlibs/xilinx/brams_init.mk
 
 techlibs/xilinx/brams_init.mk: techlibs/xilinx/brams_init.py
-	cd techlibs/xilinx && python brams_init.py
-	touch techlibs/xilinx/brams_init.mk
+	$(P) cd techlibs/xilinx && python brams_init.py
+	$(Q) touch techlibs/xilinx/brams_init.mk
 
 techlibs/xilinx/brams_init_36.vh: techlibs/xilinx/brams_init.mk
 techlibs/xilinx/brams_init_32.vh: techlibs/xilinx/brams_init.mk

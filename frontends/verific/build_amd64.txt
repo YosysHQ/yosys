@@ -21,7 +21,7 @@ VERIFIC_DIR = /usr/local/src/verific_lib_eval
 2.) Install the necessary multilib packages
 
 Hint: On debian/ubuntu the multilib packages have names such as
-libreadline-dev:amd64 or lib32readline6-dev, depending on the
+libreadline-dev:i386 or lib32readline6-dev, depending on the
 exact version of debian/ubuntu you are working with.
 
 

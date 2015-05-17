@@ -264,7 +264,7 @@ void log_pop()
 	log_flush();
 }
 
-#ifdef __linux__
+#if defined(__linux__) && defined(YOSYS_ENABLE_PLUGINS)
 void log_backtrace(const char *prefix, int levels)
 {
 	if (levels <= 0) return;

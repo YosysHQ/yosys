@@ -65,7 +65,7 @@ static void msg_func(msg_type_t msg_type, const char *message_id, linefile_type 
 	log("\n");
 }
 
-static void import_attributes(std::map<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj)
+static void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj)
 {
 	MapIter mi;
 	Att *attr;
