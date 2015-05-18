@@ -207,10 +207,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 				RTLIL::SigSpec input_sig, output_sig;
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					RTLIL::Wire *wire;
-					if (module->wires_.count(stringf("\\%s", p)) > 0) {
-						wire = module->wires_.at(stringf("\\%s", p));
+					if (module->wires_.count(RTLIL::escape_id(p)) > 0) {
+						wire = module->wires_.at(RTLIL::escape_id(p));
 					} else {
-						wire = module->addWire(stringf("\\%s", p));
+						wire = module->addWire(RTLIL::escape_id(p));
 					}
 					input_sig.append(wire);
 				}
