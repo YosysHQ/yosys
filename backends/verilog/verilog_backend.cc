@@ -34,7 +34,6 @@
 #include <sstream>
 #include <set>
 #include <map>
-#include <ctime>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -95,16 +94,18 @@ void reset_auto_counter(RTLIL::Module *module)
 		log("  renaming `%s' to `_%0*d_'.\n", it->first.c_str(), auto_name_digits, auto_name_offset + it->second);
 }
 
+std::string next_auto_id()
+{
+	return stringf("_%0*d_", auto_name_digits, auto_name_offset + auto_name_counter++);
+}
+
 std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 {
 	const char *str = internal_id.c_str();
 	bool do_escape = false;
 
-	if (may_rename && auto_name_map.count(internal_id) != 0) {
-		char buffer[100];
-		snprintf(buffer, 100, "_%0*d_", auto_name_digits, auto_name_offset + auto_name_map[internal_id]);
-		return std::string(buffer);
-	}
+	if (may_rename && auto_name_map.count(internal_id) != 0)
+		return stringf("_%0*d_", auto_name_digits, auto_name_offset + auto_name_map[internal_id]);
 
 	if (*str == '\\')
 		str++;
@@ -826,7 +827,6 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		int nread_ports = cell->parameters["\\RD_PORTS"].as_int();
 		RTLIL::SigSpec sig_rd_clk, sig_rd_data, sig_rd_addr;
 		bool use_rd_clk, rd_clk_posedge, rd_transparent;
-		RTLIL::IdString new_id;
 		// read ports
 		for (int i=0; i < nread_ports; i++)
 		{
@@ -839,35 +839,39 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (use_rd_clk && !rd_transparent)
 			{
 				// for clocked read ports make something like:
+				//   reg [..] temp_id;
 				//   always @(posedge clk)
-				//      r_data <= array_reg[r_addr];
+				//      temp_id <= array_reg[r_addr];
+				//   assign r_data = temp_id;
+				std::string temp_id = next_auto_id();
+				f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), sig_rd_addr.size() - 1, temp_id.c_str());
 				f << stringf("%s" "always @(%sedge ", indent.c_str(), rd_clk_posedge ? "pos" : "neg");
 				dump_sigspec(f, sig_rd_clk);
 				f << stringf(")\n");
-				f << stringf("%s" "  ", indent.c_str());
-				dump_sigspec(f, sig_rd_data);
-				f << stringf(" <= %s[", mem_id.c_str());
+				f << stringf("%s" "  %s <= %s[", indent.c_str(), temp_id.c_str(), mem_id.c_str());
 				dump_sigspec(f, sig_rd_addr);
 				f << stringf("];\n");
+				f << stringf("%s" "assign ", indent.c_str());
+				dump_sigspec(f, sig_rd_data);
+				f << stringf(" = %s;\n", temp_id.c_str());
 			} else {
 				if (rd_transparent) {
 					// for rd-transparent read-ports make something like:
-					//   reg [..] new-id;
+					//   reg [..] temp_id;
 					//   always @(posedge clk)
-					//     new-id <= r_addr;
-					//   assign r_data = array_reg[new-id];
-					new_id = RTLIL::IdString(stringf("$%d", (int)time(NULL)));
-					reset_auto_counter_id(new_id, true);
-					f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), sig_rd_addr.size() - 1, id(new_id).c_str());
+					//     temp_id <= r_addr;
+					//   assign r_data = array_reg[temp_id];
+					std::string temp_id = next_auto_id();
+					f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), sig_rd_addr.size() - 1, temp_id.c_str());
 					f << stringf("%s" "always @(%sedge ", indent.c_str(), rd_clk_posedge ? "pos" : "neg");
 					dump_sigspec(f, sig_rd_clk);
 					f << stringf(")\n");
-					f << stringf("%s" "  %s <= ", indent.c_str(), id(new_id).c_str());
+					f << stringf("%s" "  %s <= ", indent.c_str(), temp_id.c_str());
 					dump_sigspec(f, sig_rd_addr);
 					f << stringf(";\n");
 					f << stringf("%s" "assign ", indent.c_str());
 					dump_sigspec(f, sig_rd_data);
-					f << stringf(" = %s[%s];\n", mem_id.c_str(), id(new_id).c_str());
+					f << stringf(" = %s[%s];\n", mem_id.c_str(), temp_id.c_str());
 				} else {
 					// for non-clocked read-ports make something like:
 					//   assign r_data = array_reg[r_addr];
