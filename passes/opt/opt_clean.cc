@@ -216,7 +216,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	std::vector<RTLIL::Wire*> maybe_del_wires;
 	for (auto wire : module->wires())
 	{
-		if ((!purge_mode && check_public_name(wire->name)) || wire->port_id != 0 || wire->get_bool_attribute("\\keep")) {
+		if ((!purge_mode && check_public_name(wire->name)) || wire->port_id != 0 || wire->get_bool_attribute("\\keep") || wire->attributes.count("\\init")) {
 			RTLIL::SigSpec s1 = RTLIL::SigSpec(wire), s2 = s1;
 			assign_map.apply(s2);
 			if (!used_signals.check_any(s2) && wire->port_id == 0 && !wire->get_bool_attribute("\\keep")) {
