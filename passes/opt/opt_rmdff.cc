@@ -29,6 +29,33 @@ PRIVATE_NAMESPACE_BEGIN
 SigMap assign_map, dff_init_map;
 SigSet<RTLIL::Cell*> mux_drivers;
 
+bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
+{
+	SigSpec sig_e = dlatch->getPort("\\EN");
+
+	if (sig_e == State::S0)
+	{
+		RTLIL::Const val_init;
+		for (auto bit : dff_init_map(dlatch->getPort("\\Q")))
+			val_init.bits.push_back(bit.wire == NULL ? bit.data : State::Sx);
+		mod->connect(dlatch->getPort("\\Q"), val_init);
+		goto delete_dlatch;
+	}
+
+	if (sig_e == State::S1)
+	{
+		mod->connect(dlatch->getPort("\\Q"), dlatch->getPort("\\D"));
+		goto delete_dlatch;
+	}
+
+	return false;
+
+delete_dlatch:
+	log("Removing %s (%s) from module %s.\n", dlatch->name.c_str(), dlatch->type.c_str(), mod->name.c_str());
+	mod->remove(dlatch);
+	return true;
+}
+
 bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 {
 	RTLIL::SigSpec sig_d, sig_q, sig_c, sig_r;
@@ -178,6 +205,7 @@ struct OptRmdffPass : public Pass {
 			mux_drivers.clear();
 
 			std::vector<RTLIL::IdString> dff_list;
+			std::vector<RTLIL::IdString> dlatch_list;
 			for (auto &it : mod_it.second->cells_) {
 				if (it.second->type == "$mux" || it.second->type == "$pmux") {
 					if (it.second->getPort("\\A").size() == it.second->getPort("\\B").size())
@@ -198,11 +226,18 @@ struct OptRmdffPass : public Pass {
 				if (it.second->type == "$_DFF_PP1_") dff_list.push_back(it.first);
 				if (it.second->type == "$dff") dff_list.push_back(it.first);
 				if (it.second->type == "$adff") dff_list.push_back(it.first);
+				if (it.second->type == "$dlatch") dlatch_list.push_back(it.first);
 			}
 
 			for (auto &id : dff_list) {
 				if (mod_it.second->cells_.count(id) > 0 &&
 						handle_dff(mod_it.second, mod_it.second->cells_[id]))
+					total_count++;
+			}
+
+			for (auto &id : dlatch_list) {
+				if (mod_it.second->cells_.count(id) > 0 &&
+						handle_dlatch(mod_it.second, mod_it.second->cells_[id]))
 					total_count++;
 			}
 		}
