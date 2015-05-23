@@ -220,6 +220,18 @@ struct TechmapWorker
 			design->select(module, w);
 		}
 
+		SigMap tpl_sigmap(tpl);
+		pool<SigBit> tpl_written_bits;
+
+		for (auto &it1 : tpl->cells_)
+		for (auto &it2 : it1.second->connections_)
+			if (it1.second->output(it2.first))
+				for (auto bit : tpl_sigmap(it2.second))
+					tpl_written_bits.insert(bit);
+		for (auto &it1 : tpl->connections_)
+			for (auto bit : tpl_sigmap(it1.first))
+				tpl_written_bits.insert(bit);
+
 		SigMap port_signal_map;
 
 		for (auto &it : cell->connections()) {
@@ -233,14 +245,26 @@ struct TechmapWorker
 			}
 			RTLIL::Wire *w = tpl->wires_.at(portname);
 			RTLIL::SigSig c;
-			if (w->port_output) {
+			if (w->port_output && !w->port_input) {
 				c.first = it.second;
 				c.second = RTLIL::SigSpec(w);
 				apply_prefix(cell->name.str(), c.second, module);
-			} else {
+			} else if (!w->port_output && w->port_input) {
 				c.first = RTLIL::SigSpec(w);
 				c.second = it.second;
 				apply_prefix(cell->name.str(), c.first, module);
+			} else {
+				SigSpec sig_tpl = w, sig_tpl_pf = w, sig_mod = it.second;
+				apply_prefix(cell->name.str(), sig_tpl_pf, module);
+				for (int i = 0; i < GetSize(sig_tpl); i++) {
+					if (tpl_written_bits.count(tpl_sigmap(sig_tpl[i]))) {
+						c.first.append(sig_mod[i]);
+						c.second.append(sig_tpl_pf[i]);
+					} else {
+						c.first.append(sig_tpl_pf[i]);
+						c.second.append(sig_mod[i]);
+					}
+				}
 			}
 			if (c.second.size() > c.first.size())
 				c.second.remove(c.first.size(), c.second.size() - c.first.size());
