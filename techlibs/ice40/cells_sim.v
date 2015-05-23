@@ -18,10 +18,9 @@ module SB_IO (
 	parameter [0:0] NEG_TRIGGER = 1'b0; 
 	parameter IO_STANDARD = "SB_LVCMOS";
 
-	reg din_q_0;
-	reg din_q_1;
-	reg dout_q_0;
-	reg dout_q_1;
+	reg dout, din_0, din_1;
+	reg din_q_0, din_q_1;
+	reg dout_q_0, dout_q_1;
 	reg outena_q;
 
 	generate if (!NEG_TRIGGER) begin
@@ -38,8 +37,6 @@ module SB_IO (
 		always @(negedge OUTPUT_CLK) if (CLOCK_ENABLE) outena_q <= OUTPUT_ENABLE;
 	end endgenerate
 
-	reg outena, dout, din_0, din_1;
-
 	always @* begin
 		if (!PIN_TYPE[1] || !LATCH_INPUT_VALUE)
 			din_0 = PIN_TYPE[0] ? PACKAGE_PIN : din_q_0;
@@ -53,17 +50,13 @@ module SB_IO (
 			dout = (OUTPUT_CLK ^ NEG_TRIGGER) || PIN_TYPE[2] ? dout_q_0 : dout_q_1;
 	end
 
-	always @* begin
-		case (PIN_TYPE[5:4])
-			2'b00: outena = 0;
-			2'b01: outena = 1;
-			2'b10: outena = outena_q;
-			2'b11: outena = OUTPUT_ENABLE;
-		endcase
-	end
-
 	assign D_IN_0 = din_0, D_IN_1 = din_1;
-	assign PACKAGE_PIN = outena ? dout : 1'bz;
+
+	generate
+		if (PIN_TYPE[5:4] == 2'b01) assign PACKAGE_PIN = dout;
+		if (PIN_TYPE[5:4] == 2'b10) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
+		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = OUTPUT_ENABLE ? dout : 1'bz;
+	endgenerate
 endmodule
 
 module SB_GB_IO (
