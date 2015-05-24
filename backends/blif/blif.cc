@@ -440,6 +440,7 @@ struct BlifBackend : public Backend {
 
 		std::vector<RTLIL::Module*> mod_list;
 
+		design->sort();
 		for (auto module_it : design->modules_)
 		{
 			RTLIL::Module *module = module_it.second;

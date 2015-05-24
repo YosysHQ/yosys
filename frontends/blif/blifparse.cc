@@ -55,6 +55,9 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 	RTLIL::Const *lutptr = NULL;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
 
+	dict<RTLIL::IdString, RTLIL::Const> *obj_attributes = nullptr;
+	dict<RTLIL::IdString, RTLIL::Const> *obj_parameters = nullptr;
+
 	size_t buffer_size = 4096;
 	char *buffer = (char*)malloc(buffer_size);
 	int line_count = 0;
@@ -89,6 +92,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 					goto error;
 				module = new RTLIL::Module;
 				module->name = RTLIL::escape_id(strtok(NULL, " \t\r\n"));
+				obj_attributes = &module->attributes;
+				obj_parameters = nullptr;
 				if (design->module(module->name))
 					log_error("Duplicate definition of module %s in line %d!\n", log_id(module->name), line_count);
 				design->add(module);
@@ -101,6 +106,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 			if (!strcmp(cmd, ".end")) {
 				module->fixup_ports();
 				module = nullptr;
+				obj_attributes = nullptr;
+				obj_parameters = nullptr;
 				continue;
 			}
 
@@ -113,6 +120,36 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 					else
 						wire->port_output = true;
 				}
+				obj_attributes = nullptr;
+				obj_parameters = nullptr;
+				continue;
+			}
+
+			if (!strcmp(cmd, ".attr") || !strcmp(cmd, ".param")) {
+				char *n = strtok(NULL, " \t\r\n");
+				char *v = strtok(NULL, "\r\n");
+				IdString id_n = RTLIL::escape_id(n);
+				Const const_v;
+				if (v[0] == '"') {
+					std::string str(v+1);
+					if (str.back() == '"')
+						str.pop_back();
+					const_v = Const(str);
+				} else {
+					int n = strlen(v);
+					const_v.bits.resize(n);
+					for (int i = 0; i < n; i++)
+						const_v.bits[i] = v[n-i-1] != '0' ? State::S1 : State::S0;
+				}
+				if (!strcmp(cmd, ".attr")) {
+					if (obj_attributes == nullptr)
+						goto error;
+					(*obj_attributes)[id_n] = const_v;
+				} else {
+					if (obj_parameters == nullptr)
+						goto error;
+					(*obj_parameters)[id_n] = const_v;
+				}
 				continue;
 			}
 
@@ -123,6 +160,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 				char *edge = strtok(NULL, " \t\r\n");
 				char *clock = strtok(NULL, " \t\r\n");
 				char *init = strtok(NULL, " \t\r\n");
+				RTLIL::Cell *cell = nullptr;
 
 				if (module->wires_.count(RTLIL::escape_id(d)) == 0)
 					module->addWire(RTLIL::escape_id(d));
@@ -145,18 +183,20 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 					module->addWire(RTLIL::escape_id(clock));
 
 				if (!strcmp(edge, "re"))
-					module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
+					cell = module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
 							module->wire(RTLIL::escape_id(d)), module->wire(RTLIL::escape_id(q)));
 				else if (!strcmp(edge, "fe"))
-					module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
+					cell = module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
 							module->wire(RTLIL::escape_id(d)), module->wire(RTLIL::escape_id(q)), false);
 				else {
 			no_latch_clock:
-					RTLIL::Cell *cell = module->addCell(NEW_ID, dff_name);
+					cell = module->addCell(NEW_ID, dff_name);
 					cell->setPort("\\D", module->wires_.at(RTLIL::escape_id(d)));
 					cell->setPort("\\Q", module->wires_.at(RTLIL::escape_id(q)));
 				}
 
+				obj_attributes = &cell->attributes;
+				obj_parameters = &cell->parameters;
 				continue;
 			}
 
@@ -178,8 +218,14 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 						module->addWire(RTLIL::escape_id(q));
 					cell->setPort(RTLIL::escape_id(p), module->wires_.at(RTLIL::escape_id(q)));
 				}
+
+				obj_attributes = &cell->attributes;
+				obj_parameters = &cell->parameters;
 				continue;
 			}
+
+			obj_attributes = nullptr;
+			obj_parameters = nullptr;
 
 			if (!strcmp(cmd, ".barbuf"))
 			{
@@ -244,7 +290,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 					}
 				finished_parsing_constval:
 					if (state == RTLIL::State::Sa)
-						state = RTLIL::State::S1;
+						state = RTLIL::State::S0;
 					module->connect(RTLIL::SigSig(output_sig, state));
 					goto continue_without_read;
 				}
