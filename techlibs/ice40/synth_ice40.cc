@@ -47,6 +47,14 @@ struct SynthIce40Pass : public Pass {
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
 		log("\n");
+		log("    -blif <file>\n");
+		log("        write the design to the specified BLIF file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
+		log("    -edif <file>\n");
+		log("        write the design to the specified edif file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -111,11 +119,18 @@ struct SynthIce40Pass : public Pass {
 		log("        stat\n");
 		log("        check -noinit\n");
 		log("\n");
+		log("    blif:\n");
+		log("        write_blif -gates -attr -param <file-name>\n");
+		log("\n");
+		log("    edif:\n");
+		log("        write_edif <file-name>\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string top_opt = "-auto-top";
 		std::string run_from, run_to;
+		std::string blif_file, edif_file;
 		bool nocarry = false;
 		bool nobram = false;
 		bool flatten = false;
@@ -126,6 +141,14 @@ struct SynthIce40Pass : public Pass {
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_opt = "-top " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
+				blif_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
+				edif_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -228,6 +251,18 @@ struct SynthIce40Pass : public Pass {
 			Pass::call(design, "hierarchy -check");
 			Pass::call(design, "stat");
 			Pass::call(design, "check -noinit");
+		}
+
+		if (check_label(active, run_from, run_to, "blif"))
+		{
+			if (!blif_file.empty())
+				Pass::call(design, stringf("write_blif -gates -attr -param %s", blif_file.c_str()));
+		}
+
+		if (check_label(active, run_from, run_to, "edif"))
+		{
+			if (!edif_file.empty())
+				Pass::call(design, stringf("write_edif %s", edif_file.c_str()));
 		}
 
 		log_pop();

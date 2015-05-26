@@ -110,8 +110,8 @@ struct SynthXilinxPass : public Pass {
 		log("        stat\n");
 		log("        check -noinit\n");
 		log("\n");
-		log("    edif:\n");
-		log("        write_edif synth.edif\n");
+		log("    edif:     (only if -edif)\n");
+		log("        write_edif <file-name>\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
