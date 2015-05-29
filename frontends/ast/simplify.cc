@@ -825,7 +825,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		// eval 1st expression
 		AstNode *varbuf = init_ast->children[1]->clone();
-		while (varbuf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+		while (varbuf->simplify(true, false, false, stage, 32, true, false)) { }
 
 		if (varbuf->type != AST_CONSTANT)
 			log_error("Right hand side of 1st expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
@@ -888,7 +888,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			// eval 3rd expression
 			buf = next_ast->children[1]->clone();
-			while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+			while (buf->simplify(true, false, false, stage, 32, true, false)) { }
 
 			if (buf->type != AST_CONSTANT)
 				log_error("Right hand side of 3rd expression of generate for-loop at %s:%d is not constant!\n", filename.c_str(), linenum);
