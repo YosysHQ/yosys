@@ -37,6 +37,7 @@ struct OptShareWorker
 	RTLIL::Module *module;
 	SigMap assign_map;
 	SigMap dff_init_map;
+	bool mode_share_all;
 
 	CellTypes ct;
 	int total_count;
@@ -93,7 +94,7 @@ struct OptShareWorker
 		}
 
 		for (auto &it : *conn) {
-			if (ct.cell_output(cell->type, it.first))
+			if (cell->output(it.first))
 				continue;
 			RTLIL::SigSpec sig = it.second;
 			assign_map.apply(sig);
@@ -137,14 +138,14 @@ struct OptShareWorker
 		dict<RTLIL::IdString, RTLIL::SigSpec> conn2 = cell2->connections();
 
 		for (auto &it : conn1) {
-			if (ct.cell_output(cell1->type, it.first))
+			if (cell1->output(it.first))
 				it.second = RTLIL::SigSpec();
 			else
 				assign_map.apply(it.second);
 		}
 
 		for (auto &it : conn2) {
-			if (ct.cell_output(cell2->type, it.first))
+			if (cell2->output(it.first))
 				it.second = RTLIL::SigSpec();
 			else
 				assign_map.apply(it.second);
@@ -197,7 +198,7 @@ struct OptShareWorker
 		if (cell1->type != cell2->type)
 			return cell1->type < cell2->type;
 
-		if (!ct.cell_known(cell1->type))
+		if ((!mode_share_all && !ct.cell_known(cell1->type)) || !cell1->known())
 			return cell1 < cell2;
 
 		if (cell1->has_keep_attr() || cell2->has_keep_attr())
@@ -218,8 +219,8 @@ struct OptShareWorker
 		}
 	};
 
-	OptShareWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux) :
-		design(design), module(module), assign_map(module)
+	OptShareWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all) :
+		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
 		ct.setup_internals();
@@ -249,7 +250,9 @@ struct OptShareWorker
 			std::vector<RTLIL::Cell*> cells;
 			cells.reserve(module->cells_.size());
 			for (auto &it : module->cells_) {
-				if (ct.cell_known(it.second->type) && design->selected(module, it.second))
+				if (!design->selected(module, it.second))
+					continue;
+				if (ct.cell_known(it.second->type) || (mode_share_all && it.second->known()))
 					cells.push_back(it.second);
 			}
 
@@ -261,7 +264,7 @@ struct OptShareWorker
 					did_something = true;
 					log("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), sharemap[cell]->name.c_str());
 					for (auto &it : cell->connections()) {
-						if (ct.cell_output(cell->type, it.first)) {
+						if (cell->output(it.first)) {
 							RTLIL::SigSpec other_sig = sharemap[cell]->getPort(it.first);
 							log("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 									log_signal(it.second), log_signal(other_sig));
@@ -287,7 +290,7 @@ struct OptSharePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_share [-nomux] [selection]\n");
+		log("    opt_share [options] [selection]\n");
 		log("\n");
 		log("This pass identifies cells with identical type and input signals. Such cells\n");
 		log("are then merged to one cell.\n");
@@ -295,12 +298,16 @@ struct OptSharePass : public Pass {
 		log("    -nomux\n");
 		log("        Do not merge MUX cells.\n");
 		log("\n");
+		log("    -share_all\n");
+		log("        Operate on all cell types, not just built-in types.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header("Executing OPT_SHARE pass (detect identical cells).\n");
 
 		bool mode_nomux = false;
+		bool mode_share_all = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -309,13 +316,17 @@ struct OptSharePass : public Pass {
 				mode_nomux = true;
 				continue;
 			}
+			if (arg == "-share_all") {
+				mode_share_all = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
-			OptShareWorker worker(design, module, mode_nomux);
+			OptShareWorker worker(design, module, mode_nomux, mode_share_all);
 			total_count += worker.total_count;
 		}
 

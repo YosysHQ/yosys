@@ -38,12 +38,12 @@ struct OptPass : public Pass {
 		log("passes in the following order:\n");
 		log("\n");
 		log("    opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine] [-full] [-keepdc]\n");
-		log("    opt_share -nomux\n");
+		log("    opt_share [-share_all] -nomux\n");
 		log("\n");
 		log("    do\n");
 		log("        opt_muxtree\n");
 		log("        opt_reduce [-fine] [-full]\n");
-		log("        opt_share\n");
+		log("        opt_share [-share_all]\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean [-purge]\n");
 		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine] [-full] [-keepdc]\n");
@@ -53,7 +53,7 @@ struct OptPass : public Pass {
 		log("\n");
 		log("    do\n");
 		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine] [-full] [-keepdc]\n");
-		log("        opt_share\n");
+		log("        opt_share [-share_all]\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean [-purge]\n");
 		log("    while <changed design in opt_rmdff>\n");
@@ -68,6 +68,7 @@ struct OptPass : public Pass {
 		std::string opt_clean_args;
 		std::string opt_const_args;
 		std::string opt_reduce_args;
+		std::string opt_share_args;
 		bool fast_mode = false;
 
 		log_header("Executing OPT pass (performing simple optimizations).\n");
@@ -105,6 +106,10 @@ struct OptPass : public Pass {
 				opt_const_args += " -keepdc";
 				continue;
 			}
+			if (args[argidx] == "-share_all") {
+				opt_share_args += " -share_all";
+				continue;
+			}
 			if (args[argidx] == "-fast") {
 				fast_mode = true;
 				continue;
@@ -117,7 +122,7 @@ struct OptPass : public Pass {
 		{
 			while (1) {
 				Pass::call(design, "opt_const" + opt_const_args);
-				Pass::call(design, "opt_share");
+				Pass::call(design, "opt_share" + opt_share_args);
 				design->scratchpad_unset("opt.did_something");
 				Pass::call(design, "opt_rmdff");
 				if (design->scratchpad_get_bool("opt.did_something") == false)
@@ -130,12 +135,12 @@ struct OptPass : public Pass {
 		else
 		{
 			Pass::call(design, "opt_const" + opt_const_args);
-			Pass::call(design, "opt_share -nomux");
+			Pass::call(design, "opt_share -nomux" + opt_share_args);
 			while (1) {
 				design->scratchpad_unset("opt.did_something");
 				Pass::call(design, "opt_muxtree");
 				Pass::call(design, "opt_reduce" + opt_reduce_args);
-				Pass::call(design, "opt_share");
+				Pass::call(design, "opt_share" + opt_share_args);
 				Pass::call(design, "opt_rmdff");
 				Pass::call(design, "opt_clean" + opt_clean_args);
 				Pass::call(design, "opt_const" + opt_const_args);
