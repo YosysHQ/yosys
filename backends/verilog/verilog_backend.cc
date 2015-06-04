@@ -38,7 +38,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool norename, noattr, attr2comment, noexpr;
+bool norename, noattr, attr2comment, noexpr, nomem;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -791,14 +791,13 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == "$mem" && false) // FIXME!
+	if (cell->type == "$mem" && nomem == false)
 	{
 		RTLIL::IdString memid = cell->parameters["\\MEMID"].decode_string();
 		std::string mem_id = id(cell->parameters["\\MEMID"].decode_string());
 		int abits = cell->parameters["\\ABITS"].as_int();
 		int size = cell->parameters["\\SIZE"].as_int();
 		int width = cell->parameters["\\WIDTH"].as_int();
-		int offset = cell->parameters["\\OFFSET"].as_int();
 		bool use_init = !(RTLIL::SigSpec(cell->parameters["\\INIT"]).is_fully_undef());
 
 		// for memory block make something like:
@@ -807,12 +806,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		//    memid[0] <= ...
 		//  end
 		int mem_val;
-		RTLIL::Memory memory;
-		memory.name = memid;
-		memory.width = width;
-		memory.start_offset = offset;
-		memory.size = size;
-		dump_memory(f, indent.c_str(), &memory);
+		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size-1, 0);
 		if (use_init)
 		{
 			f << stringf("%s" "initial begin\n", indent.c_str());
@@ -844,7 +838,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				//      temp_id <= array_reg[r_addr];
 				//   assign r_data = temp_id;
 				std::string temp_id = next_auto_id();
-				f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), sig_rd_addr.size() - 1, temp_id.c_str());
+				f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), sig_rd_data.size() - 1, temp_id.c_str());
 				f << stringf("%s" "always @(%sedge ", indent.c_str(), rd_clk_posedge ? "pos" : "neg");
 				dump_sigspec(f, sig_rd_clk);
 				f << stringf(")\n");
@@ -886,7 +880,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 		int nwrite_ports = cell->parameters["\\WR_PORTS"].as_int();
 		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en, sig_wr_en_bit;
-		RTLIL::SigBit last_bit, current_bit;
+		RTLIL::SigBit last_bit;
 		bool wr_clk_posedge;
 		RTLIL::SigSpec lof_wen;
 		dict<RTLIL::SigSpec, int> wen_to_width;
@@ -910,9 +904,8 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			lof_wen = RTLIL::SigSpec(last_bit);
 			wen_to_width.clear();
 			wen_to_width[last_bit] = 0;
-			for (int j=0; j<width; j++)
+			for (auto &current_bit : sig_wr_en.bits())
 			{
-				current_bit = sig_wr_en.extract(j);
 				if (sigmap(current_bit) == sigmap(last_bit)){
 					wen_to_width[current_bit] += 1;
 				} else {
@@ -924,7 +917,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			//   make something like:
 			//   always @(posedge clk)
 			//      if (wr_en_bit)
-			//         memid[w_addr][??] <= w_data[??];			
+			//         memid[w_addr][??] <= w_data[??];
 			//   ...
 			n = 0;
 			for (auto &wen_bit : lof_wen) {
@@ -1292,6 +1285,10 @@ struct VerilogBackend : public Backend {
 		log("        only write selected modules. modules must be selected entirely or\n");
 		log("        not at all.\n");
 		log("\n");
+		log("    -nomem\n");
+		log("        do not create verilog code for $mem cells. This is only used for\n");
+		log("        testing.\n");
+		log("\n");
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -1301,6 +1298,7 @@ struct VerilogBackend : public Backend {
 		noattr = false;
 		attr2comment = false;
 		noexpr = false;
+		nomem = false;
 
 		bool blackboxes = false;
 		bool selected = false;
@@ -1356,6 +1354,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-selected") {
 				selected = true;
+				continue;
+			}
+			if (arg == "-nomem") {
+				nomem = true;
 				continue;
 			}
 			break;
