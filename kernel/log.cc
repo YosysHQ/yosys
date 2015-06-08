@@ -376,6 +376,10 @@ void log_flush()
 		f->flush();
 }
 
+void log_dump_val_worker(RTLIL::IdString v) {
+	log("%s", log_id(v));
+}
+
 void log_dump_val_worker(RTLIL::SigSpec v) {
 	log("%s", log_signal(v));
 }
