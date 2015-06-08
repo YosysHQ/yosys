@@ -1158,6 +1158,8 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	log_assert(new_mod->refcount_wires_ == 0);
 	log_assert(new_mod->refcount_cells_ == 0);
 
+	new_mod->avail_parameters = avail_parameters;
+
 	for (auto &conn : connections_)
 		new_mod->connect(conn);
 
