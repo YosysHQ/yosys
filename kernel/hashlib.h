@@ -30,7 +30,7 @@ inline unsigned int mkhash(unsigned int a, unsigned int b) {
 const unsigned int mkhash_init = 5381;
 
 // The ADD version of DJB2
-// (usunsigned int mkhashe this version for cache locality in b)
+// (use this version for cache locality in b)
 inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) + b;
 }
