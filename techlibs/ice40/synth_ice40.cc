@@ -60,8 +60,8 @@ struct SynthIce40Pass : public Pass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
-		log("    -flatten\n");
-		log("        flatten design before synthesis\n");
+		log("    -noflatten\n");
+		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with -dff option\n");
@@ -79,7 +79,7 @@ struct SynthIce40Pass : public Pass {
 		log("        read_verilog -lib +/ice40/cells_sim.v\n");
 		log("        hierarchy -check -top <top>\n");
 		log("\n");
-		log("    flatten:         (only if -flatten)\n");
+		log("    flatten:         (unless -noflatten)\n");
 		log("        proc\n");
 		log("        flatten\n");
 		log("\n");
@@ -133,7 +133,7 @@ struct SynthIce40Pass : public Pass {
 		std::string blif_file, edif_file;
 		bool nocarry = false;
 		bool nobram = false;
-		bool flatten = false;
+		bool flatten = true;
 		bool retime = false;
 
 		size_t argidx;
@@ -161,6 +161,10 @@ struct SynthIce40Pass : public Pass {
 			}
 			if (args[argidx] == "-flatten") {
 				flatten = true;
+				continue;
+			}
+			if (args[argidx] == "-noflatten") {
+				flatten = false;
 				continue;
 			}
 			if (args[argidx] == "-retime") {
