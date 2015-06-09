@@ -44,12 +44,42 @@ unsigned int AigNode::hash() const
 struct AigMaker
 {
 	Aig *aig;
+	Cell *cell;
 	idict<AigNode> aig_indices;
 
-	AigMaker(Aig *aig) : aig(aig) { }
+	int the_true_node;
+	int the_false_node;
 
-	int inport(IdString portname, int portbit, bool inverter = false)
+	AigMaker(Aig *aig, Cell *cell) : aig(aig), cell(cell)
 	{
+		the_true_node = -1;
+		the_false_node = -1;
+	}
+
+	int bool_node(bool value)
+	{
+		AigNode node;
+		node.portbit = -1;
+		node.inverter = !value;
+		node.left_parent = -1;
+		node.right_parent = -1;
+
+		if (!aig_indices.count(node)) {
+			aig_indices.expect(node, GetSize(aig->nodes));
+			aig->nodes.push_back(node);
+		}
+
+		return aig_indices.at(node);
+	}
+
+	int inport(IdString portname, int portbit = 0, bool inverter = false)
+	{
+		if (portbit >= GetSize(cell->getPort(portname))) {
+			if (cell->parameters.count(portname.str() + "_SIGNED") && cell->getParam(portname.str() + "_SIGNED").as_bool())
+				return inport(portname, GetSize(cell->getPort(portname))-1, inverter);
+			return bool_node(!inverter);
+		}
+
 		AigNode node;
 		node.portname = portname;
 		node.portbit = portbit;
@@ -65,8 +95,16 @@ struct AigMaker
 		return aig_indices.at(node);
 	}
 
-	int gate(int left_parent, int right_parent, bool inverter = false)
+	int not_inport(IdString portname, int portbit = 0)
 	{
+		return inport(portname, portbit, true);
+	}
+
+	int and_gate(int left_parent, int right_parent, bool inverter = false)
+	{
+		if (left_parent > right_parent)
+			std::swap(left_parent, right_parent);
+
 		AigNode node;
 		node.portbit = -1;
 		node.inverter = inverter;
@@ -81,9 +119,15 @@ struct AigMaker
 		return aig_indices.at(node);
 	}
 
-	void outport(int node, IdString portname, int portbit)
+	int nand_gate(int left_parent, int right_parent)
 	{
-		aig->nodes.at(node).outports.push_back(pair<IdString, int>(portname, portbit));
+		return and_gate(left_parent, right_parent, true);
+	}
+
+	void outport(int node, IdString portname, int portbit = 0)
+	{
+		if (portbit < GetSize(cell->getPort(portname)))
+			aig->nodes.at(node).outports.push_back(pair<IdString, int>(portname, portbit));
 	}
 };
 
@@ -92,28 +136,110 @@ Aig::Aig(Cell *cell)
 	if (cell->type[0] != '$')
 		return;
 
-	AigMaker mk(this);
+	AigMaker mk(this, cell);
 	name = cell->type.str();
 
 	cell->parameters.sort();
 	for (auto p : cell->parameters)
 		name += stringf(":%d", p.second.as_int());
 
-	if (cell->type == "$_AND_" || cell->type == "$_NAND_")
+	if (cell->type.in("$and", "$_AND_", "$_NAND_"))
 	{
-		int A = mk.inport("A", 0);
-		int B = mk.inport("B", 0);
-		int Y = mk.gate(A, B, cell->type == "$_NAND_");
-		mk.outport(Y, "Y", 0);
+		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
+			int A = mk.inport("\\A", i);
+			int B = mk.inport("\\B", i);
+			int Y = mk.and_gate(A, B, cell->type == "$_NAND_");
+			mk.outport(Y, "\\Y", i);
+		}
 		return;
 	}
 
-	if (cell->type == "$_OR_" || cell->type == "$_NOR_")
+	if (cell->type.in("$or", "$_OR_", "$_NOR_"))
 	{
-		int A = mk.inport("A", 0, true);
-		int B = mk.inport("B", 0, true);
-		int Y = mk.gate(A, B, cell->type == "$_OR_");
-		mk.outport(Y, "Y", 0);
+		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
+			int A = mk.not_inport("\\A", i);
+			int B = mk.not_inport("\\B", i);
+			int Y = mk.and_gate(A, B, cell->type != "$_NOR_");
+			mk.outport(Y, "\\Y", i);
+		}
+		return;
+	}
+
+	if (cell->type.in("$xor", "$xnor", "$_XOR_", "$_XNOR_"))
+	{
+		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
+			int A = mk.inport("\\A", i);
+			int B = mk.inport("\\B", i);
+			int NA = mk.not_inport("\\A", i);
+			int NB = mk.not_inport("\\B", i);
+			int NOT_AB = mk.nand_gate(A, B);
+			int NOT_NAB = mk.nand_gate(NA, NB);
+			int Y = mk.and_gate(NOT_AB, NOT_NAB, !cell->type.in("$xor", "$_XOR_"));
+			mk.outport(Y, "\\Y", i);
+		}
+		return;
+	}
+
+	if (cell->type.in("$mux", "$_MUX_"))
+	{
+		int S = mk.inport("\\S");
+		int NS = mk.not_inport("\\S");
+		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
+			int A = mk.inport("\\A", i);
+			int B = mk.inport("\\B", i);
+			int NOT_SB = mk.nand_gate(S, B);
+			int NOT_NSA = mk.nand_gate(NS, A);
+			int Y = mk.nand_gate(NOT_SB, NOT_NSA);
+			mk.outport(Y, "\\Y", i);
+		}
+		return;
+	}
+
+	if (cell->type == "$_AOI3_")
+	{
+		int A = mk.inport("\\A");
+		int B = mk.inport("\\B");
+		int NC = mk.not_inport("\\C");
+		int NOT_AB = mk.nand_gate(A, B);
+		int Y = mk.and_gate(NOT_AB, NC);
+		mk.outport(Y, "\\Y");
+		return;
+	}
+
+	if (cell->type == "$_OAI3_")
+	{
+		int NA = mk.not_inport("\\A");
+		int NB = mk.not_inport("\\B");
+		int C = mk.inport("\\C");
+		int NOT_NAB = mk.nand_gate(NA, NB);
+		int Y = mk.nand_gate(NOT_NAB, C);
+		mk.outport(Y, "\\Y");
+		return;
+	}
+
+	if (cell->type == "$_AOI4_")
+	{
+		int A = mk.inport("\\A");
+		int B = mk.inport("\\B");
+		int C = mk.inport("\\C");
+		int D = mk.inport("\\D");
+		int NOT_AB = mk.nand_gate(A, B);
+		int NOT_CD = mk.nand_gate(C, D);
+		int Y = mk.and_gate(NOT_AB, NOT_CD);
+		mk.outport(Y, "\\Y");
+		return;
+	}
+
+	if (cell->type == "$_OAI4_")
+	{
+		int NA = mk.not_inport("\\A");
+		int NB = mk.not_inport("\\B");
+		int NC = mk.not_inport("\\C");
+		int ND = mk.not_inport("\\D");
+		int NOT_NAB = mk.nand_gate(NA, NB);
+		int NOT_NCD = mk.nand_gate(NC, ND);
+		int Y = mk.nand_gate(NOT_NAB, NOT_NCD);
+		mk.outport(Y, "\\Y");
 		return;
 	}
 
