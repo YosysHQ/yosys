@@ -536,8 +536,8 @@ struct TestCellPass : public Pass {
 		log("    -simlib\n");
 		log("        use \"techmap -map +/simlib.v -max_iter 2 -autoproc\"\n");
 		log("\n");
-		log("    -aig\n");
-		log("        instead of calling \"techmap\", call \"aig\"\n");
+		log("    -aigmap\n");
+		log("        instead of calling \"techmap\", call \"aigmap\"\n");
 		log("\n");
 		log("    -muxdiv\n");
 		log("        when creating test benches with dividers, create an additional mux\n");
@@ -603,8 +603,8 @@ struct TestCellPass : public Pass {
 				techmap_cmd = "techmap -map +/simlib.v -max_iter 2 -autoproc";
 				continue;
 			}
-			if (args[argidx] == "-aig") {
-				techmap_cmd = "aig";
+			if (args[argidx] == "-aigmap") {
+				techmap_cmd = "aigmap";
 				continue;
 			}
 			if (args[argidx] == "-muxdiv") {

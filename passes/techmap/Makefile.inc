@@ -18,7 +18,7 @@ OBJS += passes/techmap/dff2dffe.o
 OBJS += passes/techmap/dffinit.o
 OBJS += passes/techmap/pmuxtree.o
 OBJS += passes/techmap/muxcover.o
-OBJS += passes/techmap/aig.o
+OBJS += passes/techmap/aigmap.o
 endif
 
 GENFILES += passes/techmap/techmap.inc

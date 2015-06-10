@@ -23,12 +23,12 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct AigPass : public Pass {
-	AigPass() : Pass("aig", "convert logic to and-inverter circuit") { }
+struct AigmapPass : public Pass {
+	AigmapPass() : Pass("aigmap", "map logic to and-inverter-graph circuit") { }
 	virtual void help()
 	{
 		log("\n");
-		log("    aig [options] [selection]\n");
+		log("    aigmap [options] [selection]\n");
 		log("\n");
 		log("Replace all logic cells with circuits made of only $_AND_ and\n");
 		log("$_NOT_ cells.\n");
@@ -41,7 +41,7 @@ struct AigPass : public Pass {
 	{
 		bool nand_mode = false;
 
-		log_header("Executing AIG pass (converting logic to AIG).\n");
+		log_header("Executing AIGMAP pass (map logic to AIG).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -144,6 +144,6 @@ struct AigPass : public Pass {
 				module->remove(cell);
 		}
 	}
-} AigPass;
+} AigmapPass;
  
 PRIVATE_NAMESPACE_END
