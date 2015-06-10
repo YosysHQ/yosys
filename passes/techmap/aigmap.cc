@@ -89,7 +89,7 @@ struct AigmapPass : public Pass {
 					if (node.portbit >= 0) {
 						bit = cell->getPort(node.portname)[node.portbit];
 					} else if (node.left_parent < 0 && node.right_parent < 0) {
-						bit = node.inverter ? State::S0 : State::S1;
+						bit = node.inverter ? State::S1 : State::S0;
 						goto skip_inverter;
 					} else {
 						SigBit A = sigs.at(node.left_parent);

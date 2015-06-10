@@ -32,6 +32,7 @@ struct AigNode
 	int left_parent, right_parent;
 	vector<pair<IdString, int>> outports;
 
+	AigNode();
 	bool operator==(const AigNode &other) const;
 	unsigned int hash() const;
 };

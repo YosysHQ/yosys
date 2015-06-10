@@ -21,6 +21,14 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+AigNode::AigNode()
+{
+	portbit = -1;
+	inverter = false;
+	left_parent = -1;
+	right_parent = -1;
+}
+
 bool AigNode::operator==(const AigNode &other) const
 {
 	if (portname != other.portname) return false;
@@ -66,13 +74,13 @@ struct AigMaker
 		the_false_node = -1;
 	}
 
-	int bool_node(bool value)
+	int node2index(const AigNode &node)
 	{
-		AigNode node;
-		node.portbit = -1;
-		node.inverter = !value;
-		node.left_parent = -1;
-		node.right_parent = -1;
+		if (node.left_parent > node.right_parent) {
+			AigNode n(node);
+			std::swap(n.left_parent, n.right_parent);
+			return node2index(n);
+		}
 
 		if (!aig_indices.count(node)) {
 			aig_indices.expect(node, GetSize(aig->nodes));
@@ -80,6 +88,13 @@ struct AigMaker
 		}
 
 		return aig_indices.at(node);
+	}
+
+	int bool_node(bool value)
+	{
+		AigNode node;
+		node.inverter = value;
+		return node2index(node);
 	}
 
 	int inport(IdString portname, int portbit = 0, bool inverter = false)
@@ -94,15 +109,7 @@ struct AigMaker
 		node.portname = portname;
 		node.portbit = portbit;
 		node.inverter = inverter;
-		node.left_parent = -1;
-		node.right_parent = -1;
-
-		if (!aig_indices.count(node)) {
-			aig_indices.expect(node, GetSize(aig->nodes));
-			aig->nodes.push_back(node);
-		}
-
-		return aig_indices.at(node);
+		return node2index(node);
 	}
 
 	int not_inport(IdString portname, int portbit = 0)
@@ -110,28 +117,86 @@ struct AigMaker
 		return inport(portname, portbit, true);
 	}
 
-	int and_gate(int left_parent, int right_parent, bool inverter = false)
+	int not_gate(int A)
 	{
-		if (left_parent > right_parent)
-			std::swap(left_parent, right_parent);
-
-		AigNode node;
-		node.portbit = -1;
-		node.inverter = inverter;
-		node.left_parent = left_parent;
-		node.right_parent = right_parent;
-
-		if (!aig_indices.count(node)) {
-			aig_indices.expect(node, GetSize(aig->nodes));
-			aig->nodes.push_back(node);
-		}
-
-		return aig_indices.at(node);
+		AigNode node(aig_indices[A]);
+		node.outports.clear();
+		node.inverter = !node.inverter;
+		return node2index(node);
 	}
 
-	int nand_gate(int left_parent, int right_parent)
+	int and_gate(int A, int B, bool inverter = false)
 	{
-		return and_gate(left_parent, right_parent, true);
+		if (A == B)
+			return A;
+
+		const AigNode &nA = aig_indices[A];
+		const AigNode &nB = aig_indices[B];
+
+		AigNode nB_inv(nB);
+		nB_inv.inverter = !nB_inv.inverter;
+
+		if (nA == nB_inv)
+			return bool_node(inverter);
+
+		bool nA_bool = nA.portbit < 0 && nA.left_parent < 0 && nA.right_parent < 0;
+		bool nB_bool = nB.portbit < 0 && nB.left_parent < 0 && nB.right_parent < 0;
+
+		if (nA_bool && nB_bool) {
+			bool bA = nA.inverter;
+			bool bB = nB.inverter;
+			return bool_node(inverter != (bA && bB));
+		}
+
+		if (nA_bool) {
+			bool bA = nA.inverter;
+			if (inverter)
+				return bA ? not_gate(B) : bool_node(true);
+			return bA ? B : bool_node(false);
+		}
+
+		if (nB_bool) {
+			bool bB = nB.inverter;
+			if (inverter)
+				return bB ? not_gate(A) : bool_node(true);
+			return bB ? A : bool_node(false);
+		}
+
+		AigNode node;
+		node.inverter = inverter;
+		node.left_parent = A;
+		node.right_parent = B;
+		return node2index(node);
+	}
+
+	int nand_gate(int A, int B)
+	{
+		return and_gate(A, B, true);
+	}
+
+	int or_gate(int A, int B)
+	{
+		return nand_gate(not_gate(A), not_gate(B));
+	}
+
+	int nor_gate(int A, int B)
+	{
+		return and_gate(not_gate(A), not_gate(B));
+	}
+
+	int xor_gate(int A, int B)
+	{
+		return nor_gate(and_gate(A, B), nor_gate(A, B));
+	}
+
+	int xnor_gate(int A, int B)
+	{
+		return or_gate(and_gate(A, B), nor_gate(A, B));
+	}
+
+	int mux_gate(int A, int B, int S)
+	{
+		return or_gate(and_gate(A, not_gate(S)), and_gate(B, S));
 	}
 
 	void outport(int node, IdString portname, int portbit = 0)
@@ -153,78 +218,62 @@ Aig::Aig(Cell *cell)
 	for (auto p : cell->parameters)
 		name += stringf(":%d", p.second.as_int());
 
-	if (cell->type.in("$and", "$_AND_", "$_NAND_"))
+	if (cell->type.in("$not", "$_NOT_"))
+	{
+		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
+			int A = mk.inport("\\A", i);
+			int Y = mk.not_gate(A);
+			mk.outport(Y, "\\Y", i);
+		}
+		goto optimize;
+	}
+
+	if (cell->type.in("$and", "$_AND_", "$_NAND_", "$or", "$_OR_", "$_NOR_", "$xor", "$xnor", "$_XOR_", "$_XNOR_"))
 	{
 		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
 			int A = mk.inport("\\A", i);
 			int B = mk.inport("\\B", i);
-			int Y = mk.and_gate(A, B, cell->type == "$_NAND_");
+			int Y = cell->type.in("$and", "$_AND_")   ? mk.and_gate(A, B) :
+			        cell->type.in("$_NAND_")          ? mk.nand_gate(A, B) :
+			        cell->type.in("$or", "$_OR_")     ? mk.or_gate(A, B) :
+			        cell->type.in("$_NOR_")           ? mk.nor_gate(A, B) :
+			        cell->type.in("$xor", "$_XOR_")   ? mk.xor_gate(A, B) :
+			        cell->type.in("$xnor", "$_XNOR_") ? mk.xnor_gate(A, B) : -1;
 			mk.outport(Y, "\\Y", i);
 		}
-		return;
-	}
-
-	if (cell->type.in("$or", "$_OR_", "$_NOR_"))
-	{
-		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
-			int A = mk.not_inport("\\A", i);
-			int B = mk.not_inport("\\B", i);
-			int Y = mk.and_gate(A, B, cell->type != "$_NOR_");
-			mk.outport(Y, "\\Y", i);
-		}
-		return;
-	}
-
-	if (cell->type.in("$xor", "$xnor", "$_XOR_", "$_XNOR_"))
-	{
-		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
-			int A = mk.inport("\\A", i);
-			int B = mk.inport("\\B", i);
-			int NA = mk.not_inport("\\A", i);
-			int NB = mk.not_inport("\\B", i);
-			int NOT_AB = mk.nand_gate(A, B);
-			int NOT_NAB = mk.nand_gate(NA, NB);
-			int Y = mk.and_gate(NOT_AB, NOT_NAB, !cell->type.in("$xor", "$_XOR_"));
-			mk.outport(Y, "\\Y", i);
-		}
-		return;
+		goto optimize;
 	}
 
 	if (cell->type.in("$mux", "$_MUX_"))
 	{
 		int S = mk.inport("\\S");
-		int NS = mk.not_inport("\\S");
 		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
 			int A = mk.inport("\\A", i);
 			int B = mk.inport("\\B", i);
-			int NOT_SB = mk.nand_gate(S, B);
-			int NOT_NSA = mk.nand_gate(NS, A);
-			int Y = mk.nand_gate(NOT_SB, NOT_NSA);
+			int Y = mk.mux_gate(A, B, S);
 			mk.outport(Y, "\\Y", i);
 		}
-		return;
+		goto optimize;
 	}
 
 	if (cell->type == "$_AOI3_")
 	{
 		int A = mk.inport("\\A");
 		int B = mk.inport("\\B");
-		int NC = mk.not_inport("\\C");
-		int NOT_AB = mk.nand_gate(A, B);
-		int Y = mk.and_gate(NOT_AB, NC);
+		int C = mk.inport("\\C");
+		int Y = mk.nor_gate(mk.and_gate(A, B), C);
 		mk.outport(Y, "\\Y");
-		return;
+		goto optimize;
 	}
 
 	if (cell->type == "$_OAI3_")
 	{
-		int NA = mk.not_inport("\\A");
-		int NB = mk.not_inport("\\B");
+		int A = mk.inport("\\A");
+		int B = mk.inport("\\B");
 		int C = mk.inport("\\C");
-		int NOT_NAB = mk.nand_gate(NA, NB);
-		int Y = mk.nand_gate(NOT_NAB, C);
+		int Y = mk.nand_gate(mk.or_gate(A, B), C);
 		mk.outport(Y, "\\Y");
-		return;
+		goto optimize;
 	}
 
 	if (cell->type == "$_AOI4_")
@@ -233,27 +282,52 @@ Aig::Aig(Cell *cell)
 		int B = mk.inport("\\B");
 		int C = mk.inport("\\C");
 		int D = mk.inport("\\D");
-		int NOT_AB = mk.nand_gate(A, B);
-		int NOT_CD = mk.nand_gate(C, D);
-		int Y = mk.and_gate(NOT_AB, NOT_CD);
+		int Y = mk.nor_gate(mk.and_gate(A, B), mk.and_gate(C, D));
 		mk.outport(Y, "\\Y");
-		return;
+		goto optimize;
 	}
 
 	if (cell->type == "$_OAI4_")
 	{
-		int NA = mk.not_inport("\\A");
-		int NB = mk.not_inport("\\B");
-		int NC = mk.not_inport("\\C");
-		int ND = mk.not_inport("\\D");
-		int NOT_NAB = mk.nand_gate(NA, NB);
-		int NOT_NCD = mk.nand_gate(NC, ND);
-		int Y = mk.nand_gate(NOT_NAB, NOT_NCD);
+		int A = mk.inport("\\A");
+		int B = mk.inport("\\B");
+		int C = mk.inport("\\C");
+		int D = mk.inport("\\D");
+		int Y = mk.nand_gate(mk.nor_gate(A, B), mk.nor_gate(C, D));
 		mk.outport(Y, "\\Y");
-		return;
+		goto optimize;
 	}
 
 	name.clear();
+	return;
+
+optimize:;
+	pool<int> used_old_ids;
+	vector<AigNode> new_nodes;
+	dict<int, int> old_to_new_ids;
+	old_to_new_ids[-1] = -1;
+
+	for (int i = GetSize(nodes)-1; i >= 0; i--) {
+		if (!nodes[i].outports.empty())
+			used_old_ids.insert(i);
+		if (!used_old_ids.count(i))
+			continue;
+		if (nodes[i].left_parent >= 0)
+			used_old_ids.insert(nodes[i].left_parent);
+		if (nodes[i].right_parent >= 0)
+			used_old_ids.insert(nodes[i].right_parent);
+	}
+
+	for (int i = 0; i < GetSize(nodes); i++) {
+		if (!used_old_ids.count(i))
+			continue;
+		nodes[i].left_parent = old_to_new_ids.at(nodes[i].left_parent);
+		nodes[i].right_parent = old_to_new_ids.at(nodes[i].right_parent);
+		old_to_new_ids[i] = GetSize(new_nodes);
+		new_nodes.push_back(nodes[i]);
+	}
+
+	new_nodes.swap(nodes);
 }
 
 YOSYS_NAMESPACE_END

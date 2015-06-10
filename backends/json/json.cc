@@ -225,7 +225,7 @@ struct JsonWriter
 						f << stringf("\"%sport\", \"%s\", %d", node.inverter ? "n" : "",
 								log_id(node.portname), node.portbit);
 					else if (node.left_parent < 0 && node.right_parent < 0)
-						f << stringf("\"%s\"", node.inverter ? "false" : "true");
+						f << stringf("\"%s\"", node.inverter ? "true" : "false");
 					else
 						f << stringf("\"%s\", %d, %d", node.inverter ? "nand" : "and", node.left_parent, node.right_parent);
 					for (auto &op : node.outports)
