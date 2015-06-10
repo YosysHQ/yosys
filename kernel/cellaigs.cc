@@ -41,6 +41,16 @@ unsigned int AigNode::hash() const
 	return h;
 }
 
+bool Aig::operator==(const Aig &other) const
+{
+	return name == other.name;
+}
+
+unsigned int Aig::hash() const
+{
+	return hash_ops<std::string>::hash(name);
+}
+
 struct AigMaker
 {
 	Aig *aig;

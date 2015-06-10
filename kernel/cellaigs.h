@@ -41,6 +41,9 @@ struct Aig
 	string name;
 	vector<AigNode> nodes;
 	Aig(Cell *cell);
+
+	bool operator==(const Aig &other) const;
+	unsigned int hash() const;
 };
 
 YOSYS_NAMESPACE_END

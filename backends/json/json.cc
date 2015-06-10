@@ -21,6 +21,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/cellaigs.h"
 #include "kernel/log.h"
 #include <string>
 
@@ -31,6 +32,7 @@ struct JsonWriter
 {
 	std::ostream &f;
 	bool use_selection;
+	bool aig_mode;
 
 	Design *design;
 	Module *module;
@@ -38,8 +40,10 @@ struct JsonWriter
 	SigMap sigmap;
 	int sigidcounter;
 	dict<SigBit, string> sigids;
+	pool<Aig> aig_models;
 
-	JsonWriter(std::ostream &f, bool use_selection) : f(f), use_selection(use_selection) { }
+	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode) :
+			f(f), use_selection(use_selection), aig_mode(aig_mode) { }
 
 	string get_string(string str)
 	{
@@ -131,6 +135,13 @@ struct JsonWriter
 			f << stringf("        %s: {\n", get_name(c->name).c_str());
 			f << stringf("          \"hide_name\": %s,\n", c->name[0] == '$' ? "1" : "0");
 			f << stringf("          \"type\": %s,\n", get_name(c->type).c_str());
+			if (aig_mode) {
+				Aig aig(c);
+				if (!aig.name.empty()) {
+					f << stringf("          \"model\": \"%s\",\n", aig.name.c_str());
+					aig_models.insert(aig);
+				}
+			}
 			f << stringf("          \"parameters\": {");
 			write_parameters(c->parameters);
 			f << stringf("\n          },\n");
@@ -197,8 +208,37 @@ struct JsonWriter
 			write_module(mod);
 			first_module = false;
 		}
-		f << stringf("\n  }\n");
-		f << stringf("}\n");
+		f << stringf("\n  }");
+		if (!aig_models.empty()) {
+			f << stringf(",\n  \"models\": {\n");
+			bool first_model = true;
+			for (auto &aig : aig_models) {
+				if (!first_model)
+					f << stringf(",\n");
+				f << stringf("    \"%s\": [\n", aig.name.c_str());
+				bool first_node = true;
+				for (auto &node : aig.nodes) {
+					if (!first_node)
+						f << stringf(",\n");
+					f << stringf("      [ ");
+					if (node.portbit >= 0)
+						f << stringf("\"%sport\", \"%s\", %d", node.inverter ? "n" : "",
+								log_id(node.portname), node.portbit);
+					else if (node.left_parent < 0 && node.right_parent < 0)
+						f << stringf("\"%s\"", node.inverter ? "false" : "true");
+					else
+						f << stringf("\"%s\", %d, %d", node.inverter ? "nand" : "and", node.left_parent, node.right_parent);
+					for (auto &op : node.outports)
+						f << stringf(", \"%s\", %d", log_id(op.first), op.second);
+					f << stringf(" ]");
+					first_node = false;
+				}
+				f << stringf("\n    ]");
+				first_model = false;
+			}
+			f << stringf("\n  }");
+		}
+		f << stringf("\n}\n");
 	}
 };
 
@@ -211,6 +251,10 @@ struct JsonBackend : public Backend {
 		log("    write_json [options] [filename]\n");
 		log("\n");
 		log("Write a JSON netlist of the current design.\n");
+		log("\n");
+		log("    -aig\n");
+		log("        also include AIG models for the different gate types\n");
+		log("\n");
 		log("\n");
 		log("The general syntax of the JSON output created by this command is as follows:\n");
 		log("\n");
@@ -349,20 +393,22 @@ struct JsonBackend : public Backend {
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool aig_mode = false;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-verbose") {
-			// 	verbose = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-aig") {
+				aig_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
 		log_header("Executing JSON backend.\n");
 
-		JsonWriter json_writer(*f, false);
+		JsonWriter json_writer(*f, false, aig_mode);
 		json_writer.write_design(design);
 	}
 } JsonBackend;
@@ -380,18 +426,26 @@ struct JsonPass : public Pass {
 		log("    -o <filename>\n");
 		log("        write to the specified file.\n");
 		log("\n");
+		log("    -aig\n");
+		log("        also include AIG models for the different gate types\n");
+		log("\n");
 		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string filename;
+		bool aig_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-o" && argidx+1 < args.size()) {
 				filename = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-aig") {
+				aig_mode = true;
 				continue;
 			}
 			break;
@@ -413,7 +467,7 @@ struct JsonPass : public Pass {
 			f = &buf;
 		}
 
-		JsonWriter json_writer(*f, true);
+		JsonWriter json_writer(*f, true, aig_mode);
 		json_writer.write_design(design);
 
 		if (!filename.empty()) {
