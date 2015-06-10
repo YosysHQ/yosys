@@ -77,7 +77,7 @@ struct AigMaker
 		if (portbit >= GetSize(cell->getPort(portname))) {
 			if (cell->parameters.count(portname.str() + "_SIGNED") && cell->getParam(portname.str() + "_SIGNED").as_bool())
 				return inport(portname, GetSize(cell->getPort(portname))-1, inverter);
-			return bool_node(!inverter);
+			return bool_node(inverter);
 		}
 
 		AigNode node;

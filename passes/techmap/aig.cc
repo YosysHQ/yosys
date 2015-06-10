@@ -90,12 +90,13 @@ struct AigPass : public Pass {
 						bit = cell->getPort(node.portname)[node.portbit];
 					} else if (node.left_parent < 0 && node.right_parent < 0) {
 						bit = node.inverter ? State::S0 : State::S1;
+						goto skip_inverter;
 					} else {
 						SigBit A = sigs.at(node.left_parent);
 						SigBit B = sigs.at(node.right_parent);
 						if (nand_mode && node.inverter) {
 							bit = module->NandGate(NEW_ID, A, B);
-							goto nand_inverter;
+							goto skip_inverter;
 						} else {
 							pair<int, int> key(node.left_parent, node.right_parent);
 							if (and_cache.count(key))
@@ -108,7 +109,7 @@ struct AigPass : public Pass {
 					if (node.inverter)
 						bit = module->NotGate(NEW_ID, bit);
 				
-				nand_inverter:
+				skip_inverter:
 					for (auto &op : node.outports)
 						module->connect(cell->getPort(op.first)[op.second], bit);
 
