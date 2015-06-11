@@ -41,7 +41,7 @@ struct ShowWorker
 {
 	CellTypes ct;
 
-	std::vector<std::string> dot_escape_store;
+	vector<shared_str> dot_escape_store;
 	std::map<RTLIL::IdString, int> dot_id2num_store;
 	std::map<RTLIL::IdString, int> autonames;
 	int single_idx_count;

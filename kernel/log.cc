@@ -52,7 +52,7 @@ string log_last_error;
 
 vector<int> header_count;
 pool<RTLIL::IdString> log_id_cache;
-vector<string> string_buf;
+vector<shared_str> string_buf;
 int string_buf_index = -1;
 
 static struct timeval initial_tv = { 0, 0 };

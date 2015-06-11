@@ -147,7 +147,7 @@ RTLIL::Const RTLIL::Const::from_string(std::string str)
 std::string RTLIL::Const::decode_string() const
 {
 	std::string string;
-	std::vector <char> string_chars;
+	std::vector<char> string_chars;
 	for (int i = 0; i < int (bits.size()); i += 8) {
 		char ch = 0;
 		for (int j = 0; j < 8 && i + j < int (bits.size()); j++)

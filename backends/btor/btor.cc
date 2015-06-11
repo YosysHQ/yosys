@@ -155,7 +155,7 @@ struct BtorDumper
 		 
 	}
 	
-	std::vector<std::string> cstr_buf;
+	vector<shared_str> cstr_buf;
 
 	const char *cstr(const RTLIL::IdString id)
 	{

@@ -140,6 +140,17 @@ using std::vector;
 using std::string;
 using std::pair;
 
+// A primitive shared string implementation that does not
+// move its .c_str() when the object is copied or moved.
+struct shared_str {
+	std::shared_ptr<string> content;
+	shared_str() { }
+	shared_str(string s) { content = std::shared_ptr<string>(new string(s)); }
+	shared_str(const char *s) { content = std::shared_ptr<string>(new string(s)); }
+	const char *c_str() { return content->c_str(); }
+	const string &str() { return *content; }
+};
+
 using hashlib::mkhash;
 using hashlib::mkhash_init;
 using hashlib::mkhash_add;
