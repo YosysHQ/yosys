@@ -216,11 +216,11 @@ struct JsonWriter
 				if (!first_model)
 					f << stringf(",\n");
 				f << stringf("    \"%s\": [\n", aig.name.c_str());
-				bool first_node = true;
+				int node_idx = 0;
 				for (auto &node : aig.nodes) {
-					if (!first_node)
+					if (node_idx != 0)
 						f << stringf(",\n");
-					f << stringf("      [ ");
+					f << stringf("      /* %3d */ [ ", node_idx);
 					if (node.portbit >= 0)
 						f << stringf("\"%sport\", \"%s\", %d", node.inverter ? "n" : "",
 								log_id(node.portname), node.portbit);
@@ -231,7 +231,7 @@ struct JsonWriter
 					for (auto &op : node.outports)
 						f << stringf(", \"%s\", %d", log_id(op.first), op.second);
 					f << stringf(" ]");
-					first_node = false;
+					node_idx++;
 				}
 				f << stringf("\n    ]");
 				first_model = false;
@@ -253,7 +253,7 @@ struct JsonBackend : public Backend {
 		log("Write a JSON netlist of the current design.\n");
 		log("\n");
 		log("    -aig\n");
-		log("        also include AIG models for the different gate types\n");
+		log("        include AIG models for the different gate types\n");
 		log("\n");
 		log("\n");
 		log("The general syntax of the JSON output created by this command is as follows:\n");
@@ -274,7 +274,10 @@ struct JsonBackend : public Backend {
 		log("            ...\n");
 		log("          }\n");
 		log("        }\n");
-		log("      }\n");
+		log("      },\n");
+		log("      \"models\": {\n");
+		log("        ...\n");
+		log("      },\n");
 		log("    }\n");
 		log("\n");
 		log("Where <port_details> is:\n");
@@ -386,6 +389,60 @@ struct JsonBackend : public Backend {
 		log("        }\n");
 		log("      }\n");
 		log("    }\n");
+		log("\n");
+		log("The models are given as And-Inverter-Graphs (AIGs) in the following form:\n");
+		log("\n");
+		log("    \"models\": {\n");
+		log("      <model_name>: [\n");
+		log("        /*   0 */ [ <node-spec> ],\n");
+		log("        /*   1 */ [ <node-spec> ],\n");
+		log("        /*   2 */ [ <node-spec> ],\n");
+		log("        ...\n");
+		log("      ],\n");
+		log("      ...\n");
+		log("    },\n");
+		log("\n");
+		log("The following node-types may be used:\n");
+		log("\n");
+		log("    [ \"port\", <portname>, <bitindex>, <out-list> ]\n");
+		log("      - the value of the specified input port bit\n");
+		log("\n");
+		log("    [ \"nport\", <portname>, <bitindex>, <out-list> ]\n");
+		log("      - the inverted value of the specified input port bit\n");
+		log("\n");
+		log("    [ \"and\", <node-index>, <node-index>, <out-list> ]\n");
+		log("      - the ANDed value of the speciefied nodes\n");
+		log("\n");
+		log("    [ \"nand\", <node-index>, <node-index>, <out-list> ]\n");
+		log("      - the inverted ANDed value of the speciefied nodes\n");
+		log("\n");
+		log("    [ \"true\", <out-list> ]\n");
+		log("      - the constant value 1\n");
+		log("\n");
+		log("    [ \"false\", <out-list> ]\n");
+		log("      - the constant value 0\n");
+		log("\n");
+		log("All nodes appear in topological order. I.e. only nodes with smaller indices\n");
+		log("are referenced by \"and\" and \"nand\" nodes.\n");
+		log("\n");
+		log("The optional <out-list> at the end of a node specification is a list of\n");
+		log("output portname and bitindex pairs, specifying the outputs driven by this node.\n");
+		log("\n");
+		log("For example, the following is the model for a 3-input 3-output $reduce_and cell\n");
+		log("inferred by the following code:\n");
+		log("\n");
+		log("    module test(input [2:0] in, output [2:0] out);\n");
+		log("      assign in = &out;\n");
+		log("    endmodule\n");
+		log("\n");
+		log("    \"$reduce_and:3U:3\": [\n");
+		log("      /*   0 */ [ \"port\", \"A\", 0 ],\n");
+		log("      /*   1 */ [ \"port\", \"A\", 1 ],\n");
+		log("      /*   2 */ [ \"and\", 0, 1 ],\n");
+		log("      /*   3 */ [ \"port\", \"A\", 2 ],\n");
+		log("      /*   4 */ [ \"and\", 2, 3, \"Y\", 0 ],\n");
+		log("      /*   5 */ [ \"false\", \"Y\", 1, \"Y\", 2 ]\n");
+		log("    ]\n");
 		log("\n");
 		log("Future version of Yosys might add support for additional fields in the JSON\n");
 		log("format. A program processing this format must ignore all unkown fields.\n");
