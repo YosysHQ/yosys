@@ -32,7 +32,7 @@ struct Smt2Worker
 	CellTypes ct;
 	SigMap sigmap;
 	RTLIL::Module *module;
-	bool bvmode, verbose;
+	bool bvmode, memmode, verbose;
 	int idcounter;
 
 	std::vector<std::string> decls, trans;
@@ -41,10 +41,11 @@ struct Smt2Worker
 	pool<Cell*> recursive_cells, registers;
 
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
+	std::map<Cell*, int> memarrays;
 	std::map<int, int> bvsizes;
 
-	Smt2Worker(RTLIL::Module *module, bool bvmode, bool verbose) :
-			ct(module->design), sigmap(module), module(module), bvmode(bvmode), verbose(verbose), idcounter(0)
+	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool verbose) :
+			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), verbose(verbose), idcounter(0)
 	{
 		decls.push_back(stringf("(declare-sort |%s_s| 0)\n", log_id(module)));
 
@@ -316,6 +317,7 @@ struct Smt2Worker
 
 		if (exported_cells.count(cell))
 			return;
+
 		exported_cells.insert(cell);
 		recursive_cells.insert(cell);
 
@@ -345,89 +347,121 @@ struct Smt2Worker
 
 		// FIXME: $lut
 
-		if (!bvmode)
-			log_error("Unsupported cell type %s for cell %s.%s. (Maybe this cell type would be supported in -bv mode?)\n",
-					log_id(cell->type), log_id(module), log_id(cell));
-
-		if (cell->type == "$dff")
+		if (bvmode)
 		{
+			if (cell->type == "$dff")
+			{
+				registers.insert(cell);
+				decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) (_ BitVec %d)) ; %s\n",
+						log_id(module), idcounter, log_id(module), GetSize(cell->getPort("\\Q")), log_signal(cell->getPort("\\Q"))));
+				register_bv(cell->getPort("\\Q"), idcounter++);
+				recursive_cells.erase(cell);
+				return;
+			}
+
+			if (cell->type == "$and") return export_bvop(cell, "(bvand A B)");
+			if (cell->type == "$or") return export_bvop(cell, "(bvor A B)");
+			if (cell->type == "$xor") return export_bvop(cell, "(bvxor A B)");
+			if (cell->type == "$xnor") return export_bvop(cell, "(bvxnor A B)");
+
+			if (cell->type == "$shl") return export_bvop(cell, "(bvshl A B)", 's');
+			if (cell->type == "$shr") return export_bvop(cell, "(bvlshr A B)", 's');
+			if (cell->type == "$sshl") return export_bvop(cell, "(bvshl A B)", 's');
+			if (cell->type == "$sshr") return export_bvop(cell, "(bvLshr A B)", 's');
+
+			// FIXME: $shift $shiftx
+
+			if (cell->type == "$lt") return export_bvop(cell, "(bvUlt A B)", 'b');
+			if (cell->type == "$le") return export_bvop(cell, "(bvUle A B)", 'b');
+			if (cell->type == "$ge") return export_bvop(cell, "(bvUge A B)", 'b');
+			if (cell->type == "$gt") return export_bvop(cell, "(bvUgt A B)", 'b');
+
+			if (cell->type == "$ne") return export_bvop(cell, "(distinct A B)", 'b');
+			if (cell->type == "$nex") return export_bvop(cell, "(distinct A B)", 'b');
+			if (cell->type == "$eq") return export_bvop(cell, "(= A B)", 'b');
+			if (cell->type == "$eqx") return export_bvop(cell, "(= A B)", 'b');
+
+			if (cell->type == "$not") return export_bvop(cell, "(bvnot A)");
+			if (cell->type == "$pos") return export_bvop(cell, "A");
+			if (cell->type == "$neg") return export_bvop(cell, "(bvneg A)");
+
+			if (cell->type == "$add") return export_bvop(cell, "(bvadd A B)");
+			if (cell->type == "$sub") return export_bvop(cell, "(bvsub A B)");
+			if (cell->type == "$mul") return export_bvop(cell, "(bvmul A B)");
+			if (cell->type == "$div") return export_bvop(cell, "(bvUdiv A B)", 'd');
+			if (cell->type == "$mod") return export_bvop(cell, "(bvUrem A B)", 'd');
+
+			if (cell->type == "$reduce_and") return export_reduce(cell, "(and A)", true);
+			if (cell->type == "$reduce_or") return export_reduce(cell, "(or A)", false);
+			if (cell->type == "$reduce_xor") return export_reduce(cell, "(xor A)", false);
+			if (cell->type == "$reduce_xnor") return export_reduce(cell, "(not (xor A))", false);
+			if (cell->type == "$reduce_bool") return export_reduce(cell, "(or A)", false);
+
+			if (cell->type == "$logic_not") return export_reduce(cell, "(not (or A))", false);
+			if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))", false);
+			if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)", false);
+
+			if (cell->type == "$mux" || cell->type == "$pmux")
+			{
+				int width = GetSize(cell->getPort("\\Y"));
+				std::string processed_expr = get_bv(cell->getPort("\\A"));
+
+				RTLIL::SigSpec sig_b = cell->getPort("\\B");
+				RTLIL::SigSpec sig_s = cell->getPort("\\S");
+				get_bv(sig_b);
+				get_bv(sig_s);
+
+				for (int i = 0; i < GetSize(sig_s); i++)
+					processed_expr = stringf("(ite %s %s %s)", get_bool(sig_s[i]).c_str(),
+							get_bv(sig_b.extract(i*width, width)).c_str(), processed_expr.c_str());
+
+				if (verbose) log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "",
+						log_id(cell));
+				RTLIL::SigSpec sig = sigmap(cell->getPort("\\Y"));
+				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+						log_id(module), idcounter, log_id(module), width, processed_expr.c_str(), log_signal(sig)));
+				register_bv(sig, idcounter++);
+				recursive_cells.erase(cell);
+				return;
+			}
+
+			// FIXME: $slice $concat
+		}
+
+		if (memmode && cell->type == "$mem")
+		{
+			int arrayid = idcounter++;
+			memarrays[cell] = arrayid;
+
+			int abits = cell->getParam("\\ABITS").as_int();
+			int width = cell->getParam("\\WIDTH").as_int();
+			int rd_ports = cell->getParam("\\RD_PORTS").as_int();
+
+			decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+					log_id(module), arrayid, log_id(module), abits, width, log_id(cell)));
+
+			log_cell(cell);
+
+			for (int i = 0; i < rd_ports; i++)
+			{
+				std::string addr = get_bv(cell->getPort("\\RD_ADDR").extract(abits*i, abits));
+				SigSpec data_sig = cell->getPort("\\RD_DATA").extract(width*i, width);
+
+				if (cell->getParam("\\RD_CLK_ENABLE").extract(i).as_bool())
+					log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
+							"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(data_sig), log_id(cell), log_id(module));
+
+				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s#%d#0| state) %s)) ; %s\n",
+						log_id(module), idcounter, log_id(module), width, log_id(module), arrayid, addr.c_str(), log_signal(data_sig)));
+				register_bv(data_sig, idcounter++);
+			}
+
 			registers.insert(cell);
-			decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) (_ BitVec %d)) ; %s\n",
-					log_id(module), idcounter, log_id(module), GetSize(cell->getPort("\\Q")), log_signal(cell->getPort("\\Q"))));
-			register_bv(cell->getPort("\\Q"), idcounter++);
 			recursive_cells.erase(cell);
 			return;
 		}
 
-		if (cell->type == "$and") return export_bvop(cell, "(bvand A B)");
-		if (cell->type == "$or") return export_bvop(cell, "(bvor A B)");
-		if (cell->type == "$xor") return export_bvop(cell, "(bvxor A B)");
-		if (cell->type == "$xnor") return export_bvop(cell, "(bvxnor A B)");
-
-		if (cell->type == "$shl") return export_bvop(cell, "(bvshl A B)", 's');
-		if (cell->type == "$shr") return export_bvop(cell, "(bvlshr A B)", 's');
-		if (cell->type == "$sshl") return export_bvop(cell, "(bvshl A B)", 's');
-		if (cell->type == "$sshr") return export_bvop(cell, "(bvLshr A B)", 's');
-
-		// FIXME: $shift $shiftx
-
-		if (cell->type == "$lt") return export_bvop(cell, "(bvUlt A B)", 'b');
-		if (cell->type == "$le") return export_bvop(cell, "(bvUle A B)", 'b');
-		if (cell->type == "$ge") return export_bvop(cell, "(bvUge A B)", 'b');
-		if (cell->type == "$gt") return export_bvop(cell, "(bvUgt A B)", 'b');
-
-		if (cell->type == "$ne") return export_bvop(cell, "(distinct A B)", 'b');
-		if (cell->type == "$nex") return export_bvop(cell, "(distinct A B)", 'b');
-		if (cell->type == "$eq") return export_bvop(cell, "(= A B)", 'b');
-		if (cell->type == "$eqx") return export_bvop(cell, "(= A B)", 'b');
-
-		if (cell->type == "$not") return export_bvop(cell, "(bvnot A)");
-		if (cell->type == "$pos") return export_bvop(cell, "A");
-		if (cell->type == "$neg") return export_bvop(cell, "(bvneg A)");
-
-		if (cell->type == "$add") return export_bvop(cell, "(bvadd A B)");
-		if (cell->type == "$sub") return export_bvop(cell, "(bvsub A B)");
-		if (cell->type == "$mul") return export_bvop(cell, "(bvmul A B)");
-		if (cell->type == "$div") return export_bvop(cell, "(bvUdiv A B)", 'd');
-		if (cell->type == "$mod") return export_bvop(cell, "(bvUrem A B)", 'd');
-
-		if (cell->type == "$reduce_and") return export_reduce(cell, "(and A)", true);
-		if (cell->type == "$reduce_or") return export_reduce(cell, "(or A)", false);
-		if (cell->type == "$reduce_xor") return export_reduce(cell, "(xor A)", false);
-		if (cell->type == "$reduce_xnor") return export_reduce(cell, "(not (xor A))", false);
-		if (cell->type == "$reduce_bool") return export_reduce(cell, "(or A)", false);
-
-		if (cell->type == "$logic_not") return export_reduce(cell, "(not (or A))", false);
-		if (cell->type == "$logic_and") return export_reduce(cell, "(and (or A) (or B))", false);
-		if (cell->type == "$logic_or") return export_reduce(cell, "(or A B)", false);
-
-		if (cell->type == "$mux" || cell->type == "$pmux")
-		{
-			int width = GetSize(cell->getPort("\\Y"));
-			std::string processed_expr = get_bv(cell->getPort("\\A"));
-
-			RTLIL::SigSpec sig_b = cell->getPort("\\B");
-			RTLIL::SigSpec sig_s = cell->getPort("\\S");
-			get_bv(sig_b);
-			get_bv(sig_s);
-
-			for (int i = 0; i < GetSize(sig_s); i++)
-				processed_expr = stringf("(ite %s %s %s)", get_bool(sig_s[i]).c_str(),
-						get_bv(sig_b.extract(i*width, width)).c_str(), processed_expr.c_str());
-
-			if (verbose) log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "",
-					log_id(cell));
-			RTLIL::SigSpec sig = sigmap(cell->getPort("\\Y"));
-			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-					log_id(module), idcounter, log_id(module), width, processed_expr.c_str(), log_signal(sig)));
-			register_bv(sig, idcounter++);
-			recursive_cells.erase(cell);
-			return;
-		}
-
-		// FIXME: $slice $concat
-
-		log_error("Unsupported cell type %s for cell %s.%s.\n",
+		log_error("Unsupported cell type %s for cell %s.%s. (Maybe this cell type would be supported in -bv or -mem mode?)\n",
 				log_id(cell->type), log_id(module), log_id(cell));
 	}
 
@@ -490,16 +524,48 @@ struct Smt2Worker
 
 			if (verbose) log("=> export logic driving registers [iteration %d]\n", iter);
 
-			for (auto cell : this_regs) {
-				if (cell->type == "$_DFF_P_" || cell->type == "$_DFF_N_") {
+			for (auto cell : this_regs)
+			{
+				if (cell->type == "$_DFF_P_" || cell->type == "$_DFF_N_")
+				{
 					std::string expr_d = get_bool(cell->getPort("\\D"));
 					std::string expr_q = get_bool(cell->getPort("\\Q"), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), log_id(cell), log_signal(cell->getPort("\\Q"))));
 				}
-				if (cell->type == "$dff") {
+
+				if (cell->type == "$dff")
+				{
 					std::string expr_d = get_bv(cell->getPort("\\D"));
 					std::string expr_q = get_bv(cell->getPort("\\Q"), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), log_id(cell), log_signal(cell->getPort("\\Q"))));
+				}
+
+				if (cell->type == "$mem")
+				{
+					int arrayid = memarrays.at(cell);
+
+					int abits = cell->getParam("\\ABITS").as_int();
+					int width = cell->getParam("\\WIDTH").as_int();
+					int wr_ports = cell->getParam("\\WR_PORTS").as_int();
+
+					for (int i = 0; i < wr_ports; i++)
+					{
+						std::string addr = get_bv(cell->getPort("\\WR_ADDR").extract(abits*i, abits));
+						std::string data = get_bv(cell->getPort("\\WR_DATA").extract(width*i, width));
+						std::string mask = get_bv(cell->getPort("\\WR_EN").extract(width*i, width));
+
+						data = stringf("(bvor (bvand %s %s) (bvand (select (|%s#%d#%d| state) %s) (bvnot %s)))",
+								data.c_str(), mask.c_str(), log_id(module), arrayid, i, addr.c_str(), mask.c_str());
+
+						decls.push_back(stringf("(define-fun |%s#%d#%d| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) "
+								"(store (|%s#%d#%d| state) %s %s)) ; %s\n",
+								log_id(module), arrayid, i+1, log_id(module), abits, width,
+								log_id(module), arrayid, i, addr.c_str(), data.c_str(), log_id(cell)));
+					}
+
+					std::string expr_d = stringf("(|%s#%d#%d| state)", log_id(module), arrayid, wr_ports);
+					std::string expr_q = stringf("(|%s#%d#0| next_state)", log_id(module), arrayid);
+					trans.push_back(stringf("  (= %s %s) ; %s\n", expr_d.c_str(), expr_q.c_str(), log_id(cell)));
 				}
 			}
 		}
@@ -591,6 +657,12 @@ struct Smt2Backend : public Backend {
 		log("        option set multi-bit wires are represented using the BitVec sort and\n");
 		log("        support for coarse grain cells (incl. arithmetic) is enabled.\n");
 		log("\n");
+		log("    -mem\n");
+		log("        enable support for memories (via ArraysEx theory). this option\n");
+		log("        also implies -bv. only $mem cells without merged registers in\n");
+		log("        read ports are supported. call \"memory\" with -nordff to make sure\n");
+		log("        that no registers are merged into $mem read ports.\n");
+		log("\n");
 		log("    -tpl <template_file>\n");
 		log("        use the given template file. the line containing only the token '%%%%'\n");
 		log("        is replaced with the regular output of this command.\n");
@@ -647,7 +719,7 @@ struct Smt2Backend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::ifstream template_f;
-		bool bvmode = false, verbose = false;
+		bool bvmode = false, memmode = false, verbose = false;
 
 		log_header("Executing SMT2 backend.\n");
 
@@ -662,6 +734,11 @@ struct Smt2Backend : public Backend {
 			}
 			if (args[argidx] == "-bv") {
 				bvmode = true;
+				continue;
+			}
+			if (args[argidx] == "-mem") {
+				bvmode = true;
+				memmode = true;
 				continue;
 			}
 			if (args[argidx] == "-verbose") {
@@ -693,7 +770,7 @@ struct Smt2Backend : public Backend {
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
 
-			Smt2Worker worker(module, bvmode, verbose);
+			Smt2Worker worker(module, bvmode, memmode, verbose);
 			worker.run();
 			worker.write(*f);
 		}
