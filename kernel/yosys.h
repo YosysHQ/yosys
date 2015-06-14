@@ -147,8 +147,10 @@ struct shared_str {
 	shared_str() { }
 	shared_str(string s) { content = std::shared_ptr<string>(new string(s)); }
 	shared_str(const char *s) { content = std::shared_ptr<string>(new string(s)); }
-	const char *c_str() { return content->c_str(); }
-	const string &str() { return *content; }
+	const char *c_str() const { return content->c_str(); }
+	const string &str() const { return *content; }
+	bool operator==(const shared_str &other) const { return *content == *other.content; }
+	unsigned int hash() const { return hashlib::hash_ops<std::string>::hash(*content); }
 };
 
 using hashlib::mkhash;
