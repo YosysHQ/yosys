@@ -440,8 +440,6 @@ struct Smt2Worker
 			decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
 					log_id(module), arrayid, log_id(module), abits, width, log_id(cell)));
 
-			log_cell(cell);
-
 			for (int i = 0; i < rd_ports; i++)
 			{
 				std::string addr = get_bv(cell->getPort("\\RD_ADDR").extract(abits*i, abits));
