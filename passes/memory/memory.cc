@@ -35,15 +35,13 @@ struct MemoryPass : public Pass {
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
-		log("    memory_dff\n");
+		log("    memory_dff [-nordff]\n");
 		log("    opt_clean\n");
 		log("    memory_share\n");
 		log("    opt_clean\n");
 		log("    memory_collect\n");
 		log("    memory_bram -rules <bram_rules>     (when called with -bram)\n");
 		log("    memory_map                          (skipped if called with -nomap)\n");
-		log("\n");
-		log("when called with -nordff, memory_dff will be called with -wr_only.\n");
 		log("\n");
 		log("This converts memories to word-wide DFFs and address decoders\n");
 		log("or multiport memory blocks if called with the -nomap option.\n");
@@ -76,7 +74,7 @@ struct MemoryPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		Pass::call(design, flag_nordff ? "memory_dff -wr_only" : "memory_dff");
+		Pass::call(design, flag_nordff ? "memory_dff -nordff" : "memory_dff");
 		Pass::call(design, "opt_clean");
 		Pass::call(design, "memory_share");
 		Pass::call(design, "opt_clean");
