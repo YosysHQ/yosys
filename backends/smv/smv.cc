@@ -38,6 +38,7 @@ struct SmvWorker
 	int idcounter;
 	dict<IdString, shared_str> idcache;
 	pool<shared_str> used_names;
+	vector<shared_str> strbuf;
 
 	const char *cid()
 	{
@@ -54,15 +55,22 @@ struct SmvWorker
 	{
 		if (!idcache.count(id))
 		{
-			string name = log_id(id);
+			string name = stringf("_%s", id.c_str());
+
+			if (name.substr(0, 2) == "_\\")
+				name = "_" + name.substr(2);
 
 			for (auto &c : name) {
+				if (c == '|' || c == '$' || c == '_') continue;
 				if (c >= 'a' && c <='z') continue;
 				if (c >= 'A' && c <='Z') continue;
 				if (c >= '0' && c <='9') continue;
 				if (precache) return nullptr;
-				c = '_';
+				c = '#';
 			}
+
+			if (name == "_main")
+				name = "main";
 
 			while (used_names.count(name))
 				name += "_";
@@ -92,7 +100,7 @@ struct SmvWorker
 		}
 	}
 
-	string rvalue(SigSpec sig)
+	const char *rvalue(SigSpec sig)
 	{
 		string s;
 		sigmap.apply(sig);
@@ -109,11 +117,15 @@ struct SmvWorker
 					s += c.data.at(i) == State::S1 ? '1' : '0';
 			}
 		}
-		return s;
+
+		strbuf.push_back(s);
+		return strbuf.back().c_str();
 	}
 
-	string lvalue(SigSpec sig)
+	const char *lvalue(SigSpec sig)
 	{
+		sigmap.apply(sig);
+
 		if (sig.is_wire())
 			return rvalue(sig);
 
@@ -132,13 +144,79 @@ struct SmvWorker
 
 		for (auto cell : module->cells())
 		{
+			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$and", "$or", "$xor", "$xnor"))
+			{
+				int width = GetSize(cell->getPort("\\Y"));
+				string expr_a, expr_b, op;
+
+				if (cell->type == "$add")  op = "+";
+				if (cell->type == "$sub")  op = "-";
+				if (cell->type == "$mul")  op = "*";
+				if (cell->type == "$div")  op = "/";
+				if (cell->type == "$mod")  op = "%";
+				if (cell->type == "$and")  op = "&";
+				if (cell->type == "$or")   op = "|";
+				if (cell->type == "$xor")  op = "xor";
+				if (cell->type == "$xnor") op = "xnor";
+
+				if (cell->getParam("\\A_SIGNED").as_bool())
+				{
+					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\A")), width);
+					expr_b = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\B")), width);
+					assignments.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort("\\Y")), expr_a.c_str(), op.c_str(), expr_b.c_str()));
+				}
+				else
+				{
+					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort("\\A")), width);
+					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort("\\B")), width);
+					assignments.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")), expr_a.c_str(), op.c_str(), expr_b.c_str()));
+				}
+
+				continue;
+			}
+
+			if (cell->type.in("$eq", "$ne", "$lt", "$le", "$ge", "$gt"))
+			{
+				int width = std::max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
+				string expr_a, expr_b, op;
+
+				if (cell->type == "$eq")  op = "=";
+				if (cell->type == "$ne")  op = "!=";
+				if (cell->type == "$lt")  op = "<";
+				if (cell->type == "$le")  op = "<=";
+				if (cell->type == "$ge")  op = ">=";
+				if (cell->type == "$gt")  op = ">";
+
+				if (cell->getParam("\\A_SIGNED").as_bool())
+				{
+					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\A")), width);
+					expr_b = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\B")), width);
+				}
+				else
+				{
+					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort("\\A")), width);
+					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort("\\B")), width);
+				}
+
+				assignments.push_back(stringf("%s := resize(word1(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
+						expr_a.c_str(), op.c_str(), expr_b.c_str(), GetSize(cell->getPort("\\Y"))));
+
+				continue;
+			}
+
+			if (cell->type == "$dff")
+			{
+				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort("\\Q")), rvalue(cell->getPort("\\D"))));
+				continue;
+			}
+
 			f << stringf("    %s : %s;\n", cid(cell->name), cid(cell->type));
 
 			for (auto &conn : cell->connections())
 				if (cell->output(conn.first))
-					assignments.push_back(stringf("%s := %s.%s;", lvalue(conn.second).c_str(), cid(cell->name), cid(conn.first)));
+					assignments.push_back(stringf("%s := %s.%s;", lvalue(conn.second), cid(cell->name), cid(conn.first)));
 				else
-					assignments.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(conn.first), rvalue(conn.second).c_str()));
+					assignments.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(conn.first), rvalue(conn.second)));
 		}
 
 		f << stringf("  ASSIGN\n");
