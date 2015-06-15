@@ -129,7 +129,7 @@ struct SmvWorker
 		if (sig.is_wire())
 			return rvalue(sig);
 
-		log_error("Can not generate lvalue for singal %s. Try running 'splice'.\n", log_signal(sig));
+		log_error("Can not generate lvalue for signal %s. Try running 'splice'.\n", log_signal(sig));
 	}
 
 	void run()
@@ -144,6 +144,9 @@ struct SmvWorker
 
 		for (auto cell : module->cells())
 		{
+			// FIXME: $not, $pos, $neg, $slice, $concat,
+			// $shl, $shr, $sshl, $sshr, $shift, $shiftx, $mem
+
 			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$and", "$or", "$xor", "$xnor"))
 			{
 				int width = GetSize(cell->getPort("\\Y"));
@@ -175,13 +178,15 @@ struct SmvWorker
 				continue;
 			}
 
-			if (cell->type.in("$eq", "$ne", "$lt", "$le", "$ge", "$gt"))
+			if (cell->type.in("$eq", "$ne", "$eqx", "$nex", "$lt", "$le", "$ge", "$gt"))
 			{
 				int width = std::max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
 				string expr_a, expr_b, op;
 
 				if (cell->type == "$eq")  op = "=";
 				if (cell->type == "$ne")  op = "!=";
+				if (cell->type == "$eqx") op = "=";
+				if (cell->type == "$nex") op = "!=";
 				if (cell->type == "$lt")  op = "<";
 				if (cell->type == "$le")  op = "<=";
 				if (cell->type == "$ge")  op = ">=";
@@ -204,11 +209,99 @@ struct SmvWorker
 				continue;
 			}
 
+			if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_bool"))
+			{
+				int width_a = GetSize(cell->getPort("\\A"));
+				int width_y = GetSize(cell->getPort("\\Y"));
+				const char *expr_a = rvalue(cell->getPort("\\A"));
+				const char *expr_y = lvalue(cell->getPort("\\Y"));
+				string expr;
+
+				if (cell->type == "$reduce_and")  expr = stringf("%s == !0ub%d_0", expr_a, width_a);
+				if (cell->type == "$reduce_or")   expr = stringf("%s != 0ub%d_0", expr_a, width_a);
+				if (cell->type == "$reduce_bool") expr = stringf("%s != 0ub%d_0", expr_a, width_a);
+
+				assignments.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
+				continue;
+			}
+
+			if (cell->type.in("$reduce_xor", "$reduce_xnor"))
+			{
+				int width_y = GetSize(cell->getPort("\\Y"));
+				const char *expr_y = lvalue(cell->getPort("\\Y"));
+				string expr;
+
+				for (auto bit : cell->getPort("\\A")) {
+					if (!expr.empty())
+						expr += " xor ";
+					expr += rvalue(bit);
+				}
+
+				if (cell->type == "$reduce_xnor")
+					expr = "!(" + expr + ")";
+
+				assignments.push_back(stringf("%s := resize(%s, %d);", expr_y, expr.c_str(), width_y));
+				continue;
+			}
+
+			if (cell->type.in("$logic_and", "$logic_or"))
+			{
+				int width_a = GetSize(cell->getPort("\\A"));
+				int width_b = GetSize(cell->getPort("\\B"));
+				int width_y = GetSize(cell->getPort("\\Y"));
+
+				string expr_a = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort("\\A")), width_a);
+				string expr_b = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort("\\B")), width_b);
+				const char *expr_y = lvalue(cell->getPort("\\Y"));
+
+				string expr;
+				if (cell->type == "$logic_and") expr = expr_a + " & " + expr_b;
+				if (cell->type == "$logic_or")  expr = expr_a + " | " + expr_b;
+
+				assignments.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
+				continue;
+			}
+
+			if (cell->type.in("$logic_not"))
+			{
+				int width_a = GetSize(cell->getPort("\\A"));
+				int width_y = GetSize(cell->getPort("\\Y"));
+
+				string expr_a = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort("\\A")), width_a);
+				const char *expr_y = lvalue(cell->getPort("\\Y"));
+
+				assignments.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a.c_str(), width_y));
+				continue;
+			}
+
+			if (cell->type.in("$mux", "$pmux"))
+			{
+				int width = GetSize(cell->getPort("\\Y"));
+				SigSpec sig_a = cell->getPort("\\A");
+				SigSpec sig_b = cell->getPort("\\B");
+				SigSpec sig_s = cell->getPort("\\S");
+
+				string expr;
+				for (int i = 0; i < GetSize(sig_s); i++)
+					expr += stringf("bool(%s) ? %s : ", rvalue(sig_s[i]), rvalue(sig_b.extract(i*width, width)));
+				expr += rvalue(sig_a);
+
+				assignments.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
+				continue;
+			}
+
 			if (cell->type == "$dff")
 			{
+				// FIXME: use init property
 				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort("\\Q")), rvalue(cell->getPort("\\D"))));
 				continue;
 			}
+
+			// FIXME: $_BUF_, $_NOT_, $_AND_, $_NAND_, $_OR_, $_NOR_,
+			// $_XOR_, $_XNOR_, $_MUX_, $_AOI3_, $_OAI3_, $_AOI4_, $_OAI4_ 
+
+			if (cell->type[0] == '$')
+				log_error("Found currently unsupported cell type %s (%s.%s).\n", log_id(cell->type), log_id(module), log_id(cell));
 
 			f << stringf("    %s : %s;\n", cid(cell->name), cid(cell->type));
 
