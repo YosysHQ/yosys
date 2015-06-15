@@ -58,6 +58,13 @@ struct SynthPass : public Pass {
 		log("    -noabc\n");
 		log("        do not run abc (as if yosys was compiled without ABC support)\n");
 		log("\n");
+		log("    -noalumacc\n");
+		log("        do not run 'alumacc' pass. i.e. keep arithmetic operators in\n");
+		log("        their direct form ($add, $sub, etc.).\n");
+		log("\n");
+		log("    -nordff\n");
+		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -102,8 +109,9 @@ struct SynthPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::string top_module, fsm_opts;
+		std::string top_module, fsm_opts, memory_opts;
 		std::string run_from, run_to;
+		bool noalumacc = false;
 		bool noabc = false;
 
 		size_t argidx;
@@ -130,6 +138,14 @@ struct SynthPass : public Pass {
 			}
 			if (args[argidx] == "-noabc") {
 				noabc = true;
+				continue;
+			}
+			if (args[argidx] == "-noalumacc") {
+				noalumacc = true;
+				continue;
+			}
+			if (args[argidx] == "-nordff") {
+				memory_opts += " -nordff";
 				continue;
 			}
 			break;
@@ -159,12 +175,13 @@ struct SynthPass : public Pass {
 			Pass::call(design, "check");
 			Pass::call(design, "opt");
 			Pass::call(design, "wreduce");
-			Pass::call(design, "alumacc");
+			if (!noalumacc)
+				Pass::call(design, "alumacc");
 			Pass::call(design, "share");
 			Pass::call(design, "opt");
 			Pass::call(design, "fsm" + fsm_opts);
 			Pass::call(design, "opt -fast");
-			Pass::call(design, "memory -nomap");
+			Pass::call(design, "memory -nomap" + memory_opts);
 			Pass::call(design, "opt_clean");
 		}
 
