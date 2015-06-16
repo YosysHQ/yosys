@@ -40,6 +40,15 @@ struct SmvWorker
 	pool<shared_str> used_names;
 	vector<shared_str> strbuf;
 
+	struct assign_rhs_chunk {
+		string rhs_expr;
+		int offset, width;
+		bool operator<(const assign_rhs_chunk &other) const { return offset < other.offset; }
+	};
+
+	dict<Wire*, vector<assign_rhs_chunk>> partial_assignments;
+	vector<string> assignments;
+
 	const char *cid()
 	{
 		while (true) {
@@ -129,13 +138,28 @@ struct SmvWorker
 		if (sig.is_wire())
 			return rvalue(sig);
 
-		log_error("Can not generate lvalue for signal %s. Try running 'splice'.\n", log_signal(sig));
+		const char *temp_id = cid();
+		f << stringf("    %s : unsigned word[%d];\n", temp_id, GetSize(sig));
+
+		int offset = 0;
+		for (auto &c : sig.chunks())
+		{
+			log_assert(c.wire != nullptr);
+
+			assign_rhs_chunk rhs;
+			rhs.rhs_expr = stringf("%s[%d:%d]", temp_id, offset+c.width-1, offset);
+			rhs.offset = c.offset;
+			rhs.width = c.width;
+
+			partial_assignments[c.wire].push_back(rhs);
+			offset += c.width;
+		}
+
+		return temp_id;
 	}
 
 	void run()
 	{
-		vector<string> assignments;
-
 		f << stringf("MODULE %s\n", cid(module->name));
 		f << stringf("  VAR\n");
 
@@ -310,6 +334,25 @@ struct SmvWorker
 					assignments.push_back(stringf("%s := %s.%s;", lvalue(conn.second), cid(cell->name), cid(conn.first)));
 				else
 					assignments.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(conn.first), rvalue(conn.second)));
+		}
+
+		for (auto &it : partial_assignments)
+		{
+			std::sort(it.second.begin(), it.second.end());
+
+			string expr;
+			int offset = 0;
+			for (auto rhs : it.second) {
+				if (!expr.empty())
+					expr += " :: ";
+				if (offset < rhs.offset)
+					expr += stringf(" 0ub%d_0 :: ", rhs.offset - offset);
+				expr += rhs.rhs_expr;
+				offset = rhs.offset + rhs.width;
+			}
+			if (offset < it.first->width)
+				expr += stringf(" :: 0ub%d_0", it.first->width - offset);
+			assignments.push_back(stringf("%s := %s;", cid(it.first->name), expr.c_str()));
 		}
 
 		f << stringf("  ASSIGN\n");
