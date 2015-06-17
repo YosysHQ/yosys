@@ -800,6 +800,7 @@ struct RTLIL::Design
 
 	RTLIL::ObjRange<RTLIL::Module*> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
+	RTLIL::Module *top_module();
 
 	bool has(RTLIL::IdString id) const {
 		return modules_.count(id) != 0;

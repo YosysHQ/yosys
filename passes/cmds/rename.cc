@@ -76,12 +76,17 @@ struct RenamePass : public Pass {
 		log("Assign private names (the ones with $-prefix) to all selected wires and cells\n");
 		log("with public names. This ignores all selected ports.\n");
 		log("\n");
+		log("    rename -top new_name\n");
+		log("\n");
+		log("Rename top module.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string pattern_prefix = "_", pattern_suffix = "_";
 		bool flag_enumerate = false;
 		bool flag_hide = false;
+		bool flag_top = false;
 		bool got_mode = false;
 
 		size_t argidx;
@@ -95,6 +100,11 @@ struct RenamePass : public Pass {
 			}
 			if (arg == "-hide" && !got_mode) {
 				flag_hide = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-top" && !got_mode) {
+				flag_top = true;
 				got_mode = true;
 				continue;
 			}
@@ -169,6 +179,23 @@ struct RenamePass : public Pass {
 				}
 				module->cells_.swap(new_cells);
 			}
+		}
+		else
+		if (flag_top)
+		{
+			if (argidx+1 != args.size())
+				log_cmd_error("Invalid number of arguments!\n");
+
+			IdString new_name = RTLIL::escape_id(args[argidx]);
+			RTLIL::Module *module = design->top_module();
+
+			if (module == NULL)
+				log_cmd_error("No top module found!\n");
+
+			log("Renaming module %s to %s.\n", log_id(module), log_id(new_name));
+			design->modules_.erase(module->name);
+			module->name = new_name;
+			design->modules_[module->name] = module;
 		}
 		else
 		{

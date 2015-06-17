@@ -316,6 +316,21 @@ RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name)
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
 
+RTLIL::Module *RTLIL::Design::top_module()
+{
+	RTLIL::Module *module = nullptr;
+	int module_count = 0;
+
+	for (auto mod : selected_modules()) {
+		if (mod->get_bool_attribute("\\top"))
+			return mod;
+		module_count++;
+		module = mod;
+	}
+
+	return module_count == 1 ? module : nullptr;
+}
+
 void RTLIL::Design::add(RTLIL::Module *module)
 {
 	log_assert(modules_.count(module->name) == 0);
