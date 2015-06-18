@@ -109,10 +109,12 @@ struct SmvWorker
 		}
 	}
 
-	const char *rvalue(SigSpec sig)
+	const char *rvalue(SigSpec sig, bool skip_sigmap = false, int width = -1, bool is_signed = false)
 	{
+		if (!skip_sigmap)
+			sigmap.apply(sig);
+
 		string s;
-		sigmap.apply(sig);
 		for (auto &c : sig.chunks()) {
 			if (!s.empty())
 				s = " :: " + s;
@@ -129,19 +131,41 @@ struct SmvWorker
 			}
 		}
 
+		if (width >= 0) {
+			if (is_signed) {
+				if (GetSize(sig) > width)
+					s = stringf("signed(resize(%s, %d))", s.c_str(), width);
+				else
+					s = stringf("resize(signed(%s), %d)", s.c_str(), width);
+			} else
+				s = stringf("resize(%s, %d)", s.c_str(), width);
+		} else if (is_signed)
+			s = stringf("signed(%s)", s.c_str());
+
 		strbuf.push_back(s);
 		return strbuf.back().c_str();
 	}
 
-	const char *lvalue(SigSpec sig)
+	const char *rvalue_u(SigSpec sig, int width = -1)
 	{
-		sigmap.apply(sig);
+		return rvalue(sig, false, width, false);
+	}
+
+	const char *rvalue_s(SigSpec sig, int width = -1, bool is_signed = true)
+	{
+		return rvalue(sig, false, width, is_signed);
+	}
+
+	const char *lvalue(SigSpec sig, bool skip_sigmap = false)
+	{
+		if (!skip_sigmap)
+			sigmap.apply(sig);
 
 		if (sig.is_wire())
-			return rvalue(sig);
+			return rvalue(sig, true);
 
 		const char *temp_id = cid();
-		f << stringf("    %s : unsigned word[%d];\n", temp_id, GetSize(sig));
+		f << stringf("    %s : unsigned word[%d]; -- %s\n", temp_id, GetSize(sig), log_signal(sig));
 
 		int offset = 0;
 		for (auto &c : sig.chunks())
@@ -149,7 +173,10 @@ struct SmvWorker
 			log_assert(c.wire != nullptr);
 
 			assign_rhs_chunk rhs;
-			rhs.rhs_expr = stringf("%s[%d:%d]", temp_id, offset+c.width-1, offset);
+			if (offset != 0 || c.width != GetSize(sig))
+				rhs.rhs_expr = stringf("%s[%d:%d]", temp_id, offset+c.width-1, offset);
+			else
+				rhs.rhs_expr = temp_id;
 			rhs.offset = c.offset;
 			rhs.width = c.width;
 
@@ -166,7 +193,30 @@ struct SmvWorker
 		f << stringf("  VAR\n");
 
 		for (auto wire : module->wires())
-			f << stringf("    %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
+		{
+			SigSpec this_sig = wire, driver_sig = sigmap(wire);
+			SigSpec unused_bits_in_this_sig;
+			SigSpec driver_for_unused_bits;
+
+			for (int i = 0; i < GetSize(this_sig); i++)
+				if (this_sig[i] != driver_sig[i]) {
+					unused_bits_in_this_sig.append(this_sig[i]);
+					driver_for_unused_bits.append(driver_sig[i]);
+				}
+
+			if (GetSize(unused_bits_in_this_sig) == GetSize(this_sig))
+			{
+				f << stringf("    -- unused -- %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
+			}
+			else
+			{
+				f << stringf("    %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
+
+				if (!unused_bits_in_this_sig.empty())
+					assignments.push_back(stringf("%s := 0ub%d_0; -- unused %s -- using %s instead", lvalue(unused_bits_in_this_sig, true),
+							GetSize(unused_bits_in_this_sig), log_signal(unused_bits_in_this_sig), log_signal(driver_for_unused_bits)));
+			}
+		}
 
 		for (auto cell : module->cells())
 		{
@@ -212,19 +262,19 @@ struct SmvWorker
 
 				if (cell->getParam("\\A_SIGNED").as_bool())
 				{
-					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\A")), width);
-					assignments.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort("\\Y")), op.c_str(), expr_a.c_str()));
+					assignments.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort("\\Y")),
+							op.c_str(), rvalue_s(cell->getPort("\\A"), width)));
 				}
 				else
 				{
-					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort("\\A")), width);
-					assignments.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")), op.c_str(), expr_a.c_str()));
+					assignments.push_back(stringf("%s := %s%s;", lvalue(cell->getPort("\\Y")),
+							op.c_str(), rvalue_u(cell->getPort("\\A"), width)));
 				}
 
 				continue;
 			}
 
-			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$and", "$or", "$xor", "$xnor"))
+			if (cell->type.in("$add", "$sub", "$mul", "$and", "$or", "$xor", "$xnor"))
 			{
 				int width = GetSize(cell->getPort("\\Y"));
 				string expr_a, expr_b, op;
@@ -232,8 +282,6 @@ struct SmvWorker
 				if (cell->type == "$add")  op = "+";
 				if (cell->type == "$sub")  op = "-";
 				if (cell->type == "$mul")  op = "*";
-				if (cell->type == "$div")  op = "/";
-				if (cell->type == "$mod")  op = "%";
 				if (cell->type == "$and")  op = "&";
 				if (cell->type == "$or")   op = "|";
 				if (cell->type == "$xor")  op = "xor";
@@ -241,15 +289,37 @@ struct SmvWorker
 
 				if (cell->getParam("\\A_SIGNED").as_bool())
 				{
-					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\A")), width);
-					expr_b = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\B")), width);
-					assignments.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort("\\Y")), expr_a.c_str(), op.c_str(), expr_b.c_str()));
+					assignments.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort("\\Y")),
+							rvalue_s(cell->getPort("\\A"), width), op.c_str(), rvalue_s(cell->getPort("\\B"), width)));
 				}
 				else
 				{
-					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort("\\A")), width);
-					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort("\\B")), width);
-					assignments.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")), expr_a.c_str(), op.c_str(), expr_b.c_str()));
+					assignments.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort("\\Y")),
+							rvalue_u(cell->getPort("\\A"), width), op.c_str(), rvalue_u(cell->getPort("\\B"), width)));
+				}
+
+				continue;
+			}
+
+			if (cell->type.in("$div", "$mod"))
+			{
+				int width_y = GetSize(cell->getPort("\\Y"));
+				int width = std::max(width_y, GetSize(cell->getPort("\\A")));
+				width = std::max(width, GetSize(cell->getPort("\\B")));
+				string expr_a, expr_b, op;
+
+				if (cell->type == "$div")  op = "/";
+				if (cell->type == "$mod")  op = "mod";
+
+				if (cell->getParam("\\A_SIGNED").as_bool())
+				{
+					assignments.push_back(stringf("%s := resize(unsigned(%s %s %s), %d);", lvalue(cell->getPort("\\Y")),
+							rvalue_s(cell->getPort("\\A"), width), op.c_str(), rvalue_s(cell->getPort("\\B"), width), width_y));
+				}
+				else
+				{
+					assignments.push_back(stringf("%s := resize(%s %s %s, %d);", lvalue(cell->getPort("\\Y")),
+							rvalue_u(cell->getPort("\\A"), width), op.c_str(), rvalue_u(cell->getPort("\\B"), width), width_y));
 				}
 
 				continue;
@@ -294,7 +364,7 @@ struct SmvWorker
 				const char *expr_y = lvalue(cell->getPort("\\Y"));
 				string expr;
 
-				if (cell->type == "$reduce_and")  expr = stringf("%s == !0ub%d_0", expr_a, width_a);
+				if (cell->type == "$reduce_and")  expr = stringf("%s = !0ub%d_0", expr_a, width_a);
 				if (cell->type == "$reduce_or")   expr = stringf("%s != 0ub%d_0", expr_a, width_a);
 				if (cell->type == "$reduce_bool") expr = stringf("%s != 0ub%d_0", expr_a, width_a);
 
@@ -344,7 +414,7 @@ struct SmvWorker
 				int width_a = GetSize(cell->getPort("\\A"));
 				int width_y = GetSize(cell->getPort("\\Y"));
 
-				string expr_a = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort("\\A")), width_a);
+				string expr_a = stringf("(%s = 0ub%d_0)", rvalue(cell->getPort("\\A")), width_a);
 				const char *expr_y = lvalue(cell->getPort("\\Y"));
 
 				assignments.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a.c_str(), width_y));
@@ -401,7 +471,7 @@ struct SmvWorker
 
 			if (cell->type == "$_MUX_")
 			{
-				assignments.push_back(stringf("%s := %s ? %s : %s;", lvalue(cell->getPort("\\Y")),
+				assignments.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort("\\Y")),
 						rvalue(cell->getPort("\\S")), rvalue(cell->getPort("\\B")), rvalue(cell->getPort("\\A"))));
 				continue;
 			}
