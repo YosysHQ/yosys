@@ -40,13 +40,8 @@ struct SmvWorker
 	pool<shared_str> used_names;
 	vector<shared_str> strbuf;
 
-	struct assign_rhs_chunk {
-		string rhs_expr;
-		int offset, width;
-		bool operator<(const assign_rhs_chunk &other) const { return offset < other.offset; }
-	};
-
-	dict<Wire*, vector<assign_rhs_chunk>> partial_assignments;
+	pool<Wire*> partial_assignment_wires;
+	dict<SigBit, std::pair<const char*, int>> partial_assignment_bits;
 	vector<string> assignments;
 
 	const char *cid()
@@ -109,13 +104,44 @@ struct SmvWorker
 		}
 	}
 
-	const char *rvalue(SigSpec sig, bool skip_sigmap = false, int width = -1, bool is_signed = false)
+	const char *rvalue(SigSpec sig, int width = -1, bool is_signed = false)
 	{
-		if (!skip_sigmap)
-			sigmap.apply(sig);
-
 		string s;
 		int count_chunks = 0;
+		sigmap.apply(sig);
+
+		for (int i = 0; i < GetSize(sig); i++)
+			if (partial_assignment_bits.count(sig[i]))
+			{
+				int width = 1;
+				const auto &bit_a = partial_assignment_bits.at(sig[i]);
+
+				while (i+width < GetSize(sig))
+				{
+					if (!partial_assignment_bits.count(sig[i+width]))
+						break;
+
+					const auto &bit_b = partial_assignment_bits.at(sig[i+width]);
+					if (strcmp(bit_a.first, bit_b.first))
+						break;
+					if (bit_a.second+width != bit_b.second)
+						break;
+
+					width++;
+				}
+
+				if (i+width < GetSize(sig))
+					s = stringf("%s :: ", rvalue(sig.extract(i+width, GetSize(sig)-(width+i))));
+
+				s += stringf("%s[%d:%d]", bit_a.first, bit_a.second+width-1, bit_a.second);
+
+				if (i > 0)
+					s += stringf(" :: %s", rvalue(sig.extract(0, i)));
+
+				count_chunks = 3;
+				goto continue_with_resize;
+			}
+
 		for (auto &c : sig.chunks()) {
 			count_chunks++;
 			if (!s.empty())
@@ -133,6 +159,7 @@ struct SmvWorker
 			}
 		}
 
+	continue_with_resize:;
 		if (width >= 0) {
 			if (is_signed) {
 				if (GetSize(sig) > width)
@@ -152,40 +179,29 @@ struct SmvWorker
 
 	const char *rvalue_u(SigSpec sig, int width = -1)
 	{
-		return rvalue(sig, false, width, false);
+		return rvalue(sig, width, false);
 	}
 
 	const char *rvalue_s(SigSpec sig, int width = -1, bool is_signed = true)
 	{
-		return rvalue(sig, false, width, is_signed);
+		return rvalue(sig, width, is_signed);
 	}
 
-	const char *lvalue(SigSpec sig, bool skip_sigmap = false)
+	const char *lvalue(SigSpec sig)
 	{
-		if (!skip_sigmap)
-			sigmap.apply(sig);
+		sigmap.apply(sig);
 
 		if (sig.is_wire())
-			return rvalue(sig, true);
+			return rvalue(sig);
 
 		const char *temp_id = cid();
 		f << stringf("    %s : unsigned word[%d]; -- %s\n", temp_id, GetSize(sig), log_signal(sig));
 
 		int offset = 0;
-		for (auto &c : sig.chunks())
-		{
-			log_assert(c.wire != nullptr);
-
-			assign_rhs_chunk rhs;
-			if (offset != 0 || c.width != GetSize(sig))
-				rhs.rhs_expr = stringf("%s[%d:%d]", temp_id, offset+c.width-1, offset);
-			else
-				rhs.rhs_expr = temp_id;
-			rhs.offset = c.offset;
-			rhs.width = c.width;
-
-			partial_assignments[c.wire].push_back(rhs);
-			offset += c.width;
+		for (auto bit : sig) {
+			log_assert(bit.wire != nullptr);
+			partial_assignment_wires.insert(bit.wire);
+			partial_assignment_bits[bit] = std::pair<const char*, int>(temp_id, offset++);
 		}
 
 		return temp_id;
@@ -198,28 +214,10 @@ struct SmvWorker
 
 		for (auto wire : module->wires())
 		{
-			SigSpec this_sig = wire, driver_sig = sigmap(wire);
-			SigSpec unused_bits_in_this_sig;
-			SigSpec driver_for_unused_bits;
+			if (SigSpec(wire) != sigmap(wire))
+				partial_assignment_wires.insert(wire);
 
-			for (int i = 0; i < GetSize(this_sig); i++)
-				if (this_sig[i] != driver_sig[i]) {
-					unused_bits_in_this_sig.append(this_sig[i]);
-					driver_for_unused_bits.append(driver_sig[i]);
-				}
-
-			if (GetSize(unused_bits_in_this_sig) == GetSize(this_sig))
-			{
-				f << stringf("    -- unused -- %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
-			}
-			else
-			{
-				f << stringf("    %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
-
-				if (!unused_bits_in_this_sig.empty())
-					assignments.push_back(stringf("%s := 0ub%d_0; -- unused %s -- using %s instead", lvalue(unused_bits_in_this_sig, true),
-							GetSize(unused_bits_in_this_sig), log_signal(unused_bits_in_this_sig), log_signal(driver_for_unused_bits)));
-			}
+			f << stringf("    %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
 		}
 
 		for (auto cell : module->cells())
@@ -562,23 +560,76 @@ struct SmvWorker
 					assignments.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(conn.first), rvalue(conn.second)));
 		}
 
-		for (auto &it : partial_assignments)
+		for (Wire *wire : partial_assignment_wires)
 		{
-			std::sort(it.second.begin(), it.second.end());
-
 			string expr;
-			int offset = 0;
-			for (auto rhs : it.second) {
+
+			for (int i = 0; i < wire->width; i++)
+			{
+				SigBit bit = sigmap(SigBit(wire, i));
+
 				if (!expr.empty())
 					expr = " :: " + expr;
-				if (offset < rhs.offset)
-					expr = stringf(" :: 0ub%d_0 ", rhs.offset - offset) + expr;
-				expr = rhs.rhs_expr + expr;
-				offset = rhs.offset + rhs.width;
+
+				if (partial_assignment_bits.count(bit))
+				{
+					int width = 1;
+					const auto &bit_a = partial_assignment_bits.at(bit);
+
+					while (i+1 < wire->width)
+					{
+						SigBit next_bit = sigmap(SigBit(wire, i+1));
+
+						if (!partial_assignment_bits.count(next_bit))
+							break;
+
+						const auto &bit_b = partial_assignment_bits.at(next_bit);
+						if (strcmp(bit_a.first, bit_b.first))
+							break;
+						if (bit_a.second+width != bit_b.second)
+							break;
+
+						width++, i++;
+					}
+
+					expr = stringf("%s[%d:%d]", bit_a.first, bit_a.second+width-1, bit_a.second) + expr;
+				}
+				else if (sigmap(SigBit(wire, i)).wire == nullptr)
+				{
+					string bits;
+					SigSpec sig = sigmap(SigSpec(wire, i));
+
+					while (i+1 < wire->width) {
+						SigBit next_bit = sigmap(SigBit(wire, i+1));
+						if (next_bit.wire != nullptr)
+							break;
+						sig.append(next_bit);
+						i++;
+					}
+
+					for (int k = GetSize(sig)-1; k >= 0; k--)
+						bits += sig[k] == State::S1 ? '1' : '0';
+
+					expr = stringf("0ub%d_%s", GetSize(bits), bits.c_str()) + expr;
+				}
+				else
+				{
+					string bits;
+					SigSpec sig = sigmap(SigSpec(wire, i));
+
+					while (i+1 < wire->width) {
+						SigBit next_bit = sigmap(SigBit(wire, i+1));
+						if (next_bit.wire == nullptr || partial_assignment_bits.count(next_bit))
+							break;
+						sig.append(next_bit);
+						i++;
+					}
+
+					expr = rvalue(sig) + expr;
+				}
 			}
-			if (offset < it.first->width)
-				expr = stringf("0ub%d_0 :: ", it.first->width - offset) + expr;
-			assignments.push_back(stringf("%s := %s;", cid(it.first->name), expr.c_str()));
+
+			assignments.push_back(stringf("%s := %s;", cid(wire->name), expr.c_str()));
 		}
 
 		f << stringf("  ASSIGN\n");
