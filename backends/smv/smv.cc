@@ -115,7 +115,9 @@ struct SmvWorker
 			sigmap.apply(sig);
 
 		string s;
+		int count_chunks = 0;
 		for (auto &c : sig.chunks()) {
+			count_chunks++;
 			if (!s.empty())
 				s = " :: " + s;
 			if (c.wire) {
@@ -141,6 +143,8 @@ struct SmvWorker
 				s = stringf("resize(%s, %d)", s.c_str(), width);
 		} else if (is_signed)
 			s = stringf("signed(%s)", s.c_str());
+		else if (count_chunks > 1)
+			s = stringf("(%s)", s.c_str());
 
 		strbuf.push_back(s);
 		return strbuf.back().c_str();
@@ -224,26 +228,68 @@ struct SmvWorker
 
 			if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx"))
 			{
+				SigSpec sig_a = cell->getPort("\\A");
+				SigSpec sig_b = cell->getPort("\\B");
+
 				int width_y = GetSize(cell->getPort("\\Y"));
-				int width = std::max(GetSize(cell->getPort("\\A")), width_y);
+				int shift_b_width = GetSize(sig_b);
+				int width_ay = std::max(GetSize(sig_a), width_y);
+				int width = width_ay;
+
+				for (int i = 1, j = 0;; i <<= 1, j++)
+					if (width_ay < i) {
+						width = i-1;
+						shift_b_width = std::min(shift_b_width, j);
+						break;
+					}
+
 				bool signed_a = cell->getParam("\\A_SIGNED").as_bool();
+				bool signed_b = cell->getParam("\\B_SIGNED").as_bool();
 				string op = cell->type.in("$shl", "$sshl") ? "<<" : ">>";
 				string expr, expr_a;
 
-				if (signed_a) {
-					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort("\\A")), width);
-				} else
-					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort("\\A")), width);
+				if (cell->type == "$sshr" && signed_a)
+				{
+					expr_a = rvalue_s(sig_a, width);
+					expr = stringf("resize(unsigned(%s %s %s), %d)", expr_a.c_str(), op.c_str(), rvalue(sig_b.extract(0, shift_b_width)), width_y);
+					if (shift_b_width < GetSize(sig_b))
+						expr = stringf("%s != 0ud%d_0 ? (bool(%s) ? !0ud%d_0 : 0ud%d_0) : %s",
+								rvalue(sig_b.extract(shift_b_width, GetSize(sig_b) - shift_b_width)), GetSize(sig_b) - shift_b_width,
+								rvalue(sig_a[GetSize(sig_a)-1]), width_y, width_y, expr.c_str());
+				}
+				else if (cell->type.in("$shift", "$shiftx") && signed_b)
+				{
+					expr_a = rvalue_u(sig_a, width);
 
-				if (cell->type == "$sshr" && signed_a) {
-					expr = stringf("resize(%s %s %s, %d)", expr_a.c_str(), op.c_str(), rvalue(cell->getPort("\\B")), width_y);
-				} else {
-					if (signed_a)
-						expr_a = "unsigned(" + expr_a + ")";
-					if (cell->type.in("$shift", "$shiftx") && cell->getParam("\\B_SIGNED").as_bool())
-						expr = stringf("resize(%s %s signed(%s), %d)", expr_a.c_str(), op.c_str(), rvalue(cell->getPort("\\B")), width_y);
+					const char *b_shr = rvalue_u(sig_b);
+					const char *b_shl = cid();
+
+					f << stringf("    %s : unsigned word[%d]; -- neg(%s)\n", b_shl, GetSize(sig_b), log_signal(sig_b));
+					assignments.push_back(stringf("%s := unsigned(-%s);", b_shl, rvalue_s(sig_b)));
+
+					string expr_shl = stringf("resize(%s << %s[%d:0], %d)", expr_a.c_str(), b_shl, shift_b_width-1, width_y);
+					string expr_shr = stringf("resize(%s >> %s[%d:0], %d)", expr_a.c_str(), b_shr, shift_b_width-1, width_y);
+
+					if (shift_b_width < GetSize(sig_b)) {
+						expr_shl = stringf("%s[%d:%d] != 0ud%d_0 ? 0ud%d_0 : %s", b_shl, GetSize(sig_b)-1, shift_b_width,
+								GetSize(sig_b)-shift_b_width, width_y, expr_shl.c_str());
+						expr_shr = stringf("%s[%d:%d] != 0ud%d_0 ? 0ud%d_0 : %s", b_shr, GetSize(sig_b)-1, shift_b_width,
+								GetSize(sig_b)-shift_b_width, width_y, expr_shr.c_str());
+					}
+
+					expr = stringf("bool(%s) ? %s : %s", rvalue(sig_b[GetSize(sig_b)-1]), expr_shl.c_str(), expr_shr.c_str());
+				}
+				else
+				{
+					if (cell->type.in("$shift", "$shiftx") || !signed_a)
+						expr_a = rvalue_u(sig_a, width);
 					else
-						expr = stringf("resize(%s %s %s, %d)", expr_a.c_str(), op.c_str(), rvalue(cell->getPort("\\B")), width_y);
+						expr_a = stringf("resize(unsigned(%s), %d)", rvalue_s(sig_a, width_ay), width);
+
+					expr = stringf("resize(%s %s %s[%d:0], %d)", expr_a.c_str(), op.c_str(), rvalue_u(sig_b), shift_b_width-1, width_y);
+					if (shift_b_width < GetSize(sig_b))
+						expr = stringf("%s[%d:%d] != 0ud%d_0 ? 0ud%d_0 : %s", rvalue_u(sig_b), GetSize(sig_b)-1, shift_b_width,
+								GetSize(sig_b)-shift_b_width, width_y, expr.c_str());
 				}
 
 				assignments.push_back(stringf("%s := %s;", lvalue(cell->getPort("\\Y")), expr.c_str()));
