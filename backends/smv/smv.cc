@@ -218,6 +218,9 @@ struct SmvWorker
 				partial_assignment_wires.insert(wire);
 
 			f << stringf("    %s : unsigned word[%d]; -- %s\n", cid(wire->name), wire->width, log_id(wire));
+
+			if (wire->attributes.count("\\init"))
+				assignments.push_back(stringf("init(%s) := %s;", lvalue(wire), rvalue(wire->attributes.at("\\init"))));
 		}
 
 		for (auto cell : module->cells())
@@ -483,7 +486,6 @@ struct SmvWorker
 
 			if (cell->type == "$dff")
 			{
-				// FIXME: use init property
 				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort("\\Q")), rvalue(cell->getPort("\\D"))));
 				continue;
 			}
