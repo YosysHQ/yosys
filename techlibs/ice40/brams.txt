@@ -29,12 +29,12 @@ bram $__ICE40_RAM4K_M123
 endbram
 
 match $__ICE40_RAM4K_M0
-  min efficiency 10
+  min efficiency 2
   make_transp
   or_next_if_better
 endmatch
 
 match $__ICE40_RAM4K_M123
-  min efficiency 10
+  min efficiency 2
   make_transp
 endmatch
