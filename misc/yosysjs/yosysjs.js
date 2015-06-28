@@ -172,7 +172,7 @@ var YosysJS = new function() {
 			try {
 				mod.ccall('run', '', ['string'], [cmd]);
 			} catch (e) {
-				ys.errmsg = mod.ccall('errmsg', 'string', [], []);;
+				ys.errmsg = mod.ccall('errmsg', 'string', [], []);
 			}
 			return ys.print_buffer;
 		}
@@ -216,6 +216,82 @@ var YosysJS = new function() {
 					window.setTimeout(check_ready, 100);
 			}
 			window.setTimeout(check_ready, 100);
+		}
+
+		return ys;
+	}
+
+	this.create_worker = function(on_ready) {
+		var ys = new Object();
+		ys.YosysJS = this;
+		ys.worker = new Worker('yosyswrk.js');
+		ys.callback_idx = 1;
+		ys.callback_cache = {};
+
+		ys.callback_cache[0] = on_ready;
+		on_ready = null;
+
+		ys.worker.onmessage = function(e) {
+			var response = e.data[0];
+			var callback = ys.callback_cache[response.idx];
+			delete ys.callback_cache[response.idx];
+			if (callback) callback.apply(null, response.args);
+		}
+
+		ys.run = function(cmd, callback) {
+			var request = {
+				"idx": ys.callback_idx,
+				"mode": "run",
+				"cmd": cmd
+			};
+
+			ys.callback_cache[ys.callback_idx++] = callback;
+			ys.worker.postMessage([request]);
+		}
+
+		ys.read_file = function(filename, callback) {
+			var request = {
+				"idx": ys.callback_idx,
+				"mode": "read_file",
+				"filename": filename
+			};
+
+			ys.callback_cache[ys.callback_idx++] = callback;
+			ys.worker.postMessage([request]);
+		}
+
+		ys.write_file = function(filename, text, callback) {
+			var request = {
+				"idx": ys.callback_idx,
+				"mode": "write_file",
+				"filename": filename,
+				"text": text
+			};
+
+			ys.callback_cache[ys.callback_idx++] = callback;
+			ys.worker.postMessage([request]);
+		}
+
+		ys.read_dir = function(dirname, callback) {
+			var request = {
+				"idx": ys.callback_idx,
+				"mode": "read_dir",
+				"dirname": dirname
+			};
+
+			ys.callback_cache[ys.callback_idx++] = callback;
+			ys.worker.postMessage([request]);
+		}
+
+		ys.remove_file = function(filename, callback) {
+			var request = {
+				"idx": ys.callback_idx,
+				"mode": "remove_file",
+				"filename": filename
+			};
+
+			ys.callback_cache[ys.callback_idx++] = callback;
+			ys.worker.postMessage([request]);
 		}
 
 		return ys;
