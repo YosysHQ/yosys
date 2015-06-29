@@ -7,7 +7,6 @@
 		padding:15px; text-align:center;"><span id="popupmsg">Loading...</span></div>
 	</div>
 	<h1>YosysJS Example Application #02</h1>
-	<iframe id="ys" style="width: 800px; height: 100px;"></iframe><p/>
 	<textarea id="code" style="width: 800px; height: 300px;">
 // borrowed with some modifications from
 // http://www.ee.ed.ac.uk/~gerard/Teach/Verilog/manual/Example/lrgeEx2/cooley.html
@@ -56,47 +55,41 @@ endmodule
 			document.getElementById('popupmsg').textContent = 'Please wait..';
 		}
 		function synth1() {
-			function work() {
-				ys.write_file("input.v", document.getElementById('code').value);
-				ys.run('design -reset; read_verilog input.v; show -stretch');
-				YosysJS.dot_into_svg(ys.read_file('show.dot'), 'svg');
-				document.getElementById('popup').style.visibility = 'hidden';
-			}
 			document.getElementById('popup').style.visibility = 'visible';
-			window.setTimeout(work, 100);
+			ys.write_file("input.v", document.getElementById('code').value);
+			ys.run('design -reset; read_verilog input.v; show -stretch');
+			ys.read_file('show.dot', (function(text){
+				YosysJS.dot_into_svg(text, 'svg');
+				document.getElementById('popup').style.visibility = 'hidden';
+			}));
 		}
 		function synth2() {
-			function work() {
-				ys.write_file("input.v", document.getElementById('code').value);
-				ys.run('design -reset; read_verilog input.v; proc; opt_clean; show -stretch');
-				YosysJS.dot_into_svg(ys.read_file('show.dot'), 'svg');
-				document.getElementById('popup').style.visibility = 'hidden';
-			}
 			document.getElementById('popup').style.visibility = 'visible';
-			window.setTimeout(work, 100);
+			ys.write_file("input.v", document.getElementById('code').value);
+			ys.run('design -reset; read_verilog input.v; proc; opt_clean; show -stretch');
+			ys.read_file('show.dot', (function(text){
+				YosysJS.dot_into_svg(text, 'svg');
+				document.getElementById('popup').style.visibility = 'hidden';
+			}));
 		}
 		function synth3() {
-			function work() {
-				ys.write_file("input.v", document.getElementById('code').value);
-				ys.run('design -reset; read_verilog input.v; synth -run coarse; show -stretch');
-				YosysJS.dot_into_svg(ys.read_file('show.dot'), 'svg');
-				document.getElementById('popup').style.visibility = 'hidden';
-			}
 			document.getElementById('popup').style.visibility = 'visible';
-			window.setTimeout(work, 100);
+			ys.write_file("input.v", document.getElementById('code').value);
+			ys.run('design -reset; read_verilog input.v; synth -run coarse; show -stretch');
+			ys.read_file('show.dot', (function(text){
+				YosysJS.dot_into_svg(text, 'svg');
+				document.getElementById('popup').style.visibility = 'hidden';
+			}));
 		}
 		function synth4() {
-			function work() {
-				ys.write_file("input.v", document.getElementById('code').value);
-				ys.run('design -reset; read_verilog input.v; synth -run coarse; synth -run fine; show -stretch');
-				YosysJS.dot_into_svg(ys.read_file('show.dot'), 'svg');
-				document.getElementById('popup').style.visibility = 'hidden';
-			}
 			document.getElementById('popup').style.visibility = 'visible';
-			window.setTimeout(work, 100);
+			ys.write_file("input.v", document.getElementById('code').value);
+			ys.run('design -reset; read_verilog input.v; synth -run coarse; synth -run fine; show -stretch');
+			ys.read_file('show.dot', (function(text){
+				YosysJS.dot_into_svg(text, 'svg');
+				document.getElementById('popup').style.visibility = 'hidden';
+			}));
 		}
-		var ys = YosysJS.create('ys', on_ys_ready);
-		ys.verbose = true;
-		ys.echo = true;
+		var ys = YosysJS.create_worker(on_ys_ready);
 	</script>
 </body></html>
