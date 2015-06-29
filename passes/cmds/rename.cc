@@ -193,9 +193,7 @@ struct RenamePass : public Pass {
 				log_cmd_error("No top module found!\n");
 
 			log("Renaming module %s to %s.\n", log_id(module), log_id(new_name));
-			design->modules_.erase(module->name);
-			module->name = new_name;
-			design->modules_[module->name] = module;
+			design->rename(module, new_name);
 		}
 		else
 		{

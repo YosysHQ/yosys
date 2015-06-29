@@ -809,6 +809,7 @@ struct RTLIL::Design
 	void add(RTLIL::Module *module);
 	RTLIL::Module *addModule(RTLIL::IdString name);
 	void remove(RTLIL::Module *module);
+	void rename(RTLIL::Module *module, RTLIL::IdString new_name);
 
 	void scratchpad_unset(std::string varname);
 

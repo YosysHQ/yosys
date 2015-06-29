@@ -444,6 +444,13 @@ void RTLIL::Design::remove(RTLIL::Module *module)
 	delete module;
 }
 
+void RTLIL::Design::rename(RTLIL::Module *module, RTLIL::IdString new_name)
+{
+	modules_.erase(module->name);
+	module->name = new_name;
+	add(module);
+}
+
 void RTLIL::Design::sort()
 {
 	scratchpad.sort();
