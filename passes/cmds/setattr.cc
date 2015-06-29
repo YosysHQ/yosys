@@ -45,7 +45,7 @@ struct setunset_t
 	}
 };
 
-static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, std::vector<setunset_t> &list)
+static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
 		if (item.unset)
@@ -217,6 +217,8 @@ struct ChparamPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		do_setunset(new_parameters, setunset_list);
+
 		if (list_mode) {
 			if (!new_parameters.empty())
 				log_cmd_error("The options -set and -list cannot be used together.\n");
@@ -229,11 +231,8 @@ struct ChparamPass : public Pass {
 		}
 
 		pool<IdString> modnames, old_modnames;
-		for (auto module : design->selected_modules()) {
-			if (design->selected_whole_module(module))
-				modnames.insert(module->name);
-			else
-				log_warning("Ignoring partially selected module %s.\n", log_id(module));
+		for (auto module : design->selected_whole_modules_warn()) {
+			modnames.insert(module->name);
 			old_modnames.insert(module->name);
 		}
 		modnames.sort();
