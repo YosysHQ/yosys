@@ -229,6 +229,7 @@ struct PerformReduction
 	SigMap &sigmap;
 	drivers_t &drivers;
 	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs;
+	pool<SigBit> recursion_guard;
 
 	ezSatPtr ez;
 	SatGen satgen;
@@ -245,6 +246,15 @@ struct PerformReduction
 			return 0;
 		if (sigdepth.count(out) != 0)
 			return sigdepth.at(out);
+
+		if (recursion_guard.count(out)) {
+			string loop_signals;
+			for (auto loop_bit : recursion_guard)
+				loop_signals += string(" ") + log_signal(loop_bit);
+			log_error("Found logic loop:%s\n", loop_signals.c_str());
+		}
+
+		recursion_guard.insert(out);
 
 		if (drivers.count(out) != 0) {
 			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
@@ -264,6 +274,7 @@ struct PerformReduction
 			sigdepth[out] = 0;
 		}
 
+		recursion_guard.erase(out);
 		return sigdepth.at(out);
 	}
 
