@@ -37,7 +37,7 @@ struct OptPass : public Pass {
 		log("a series of trivial optimizations and cleanups. This pass executes the other\n");
 		log("passes in the following order:\n");
 		log("\n");
-		log("    opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine] [-full] [-keepdc]\n");
+		log("    opt_const [-mux_undef] [-mux_bool] [-undriven] [-clkinv] [-fine] [-full] [-keepdc]\n");
 		log("    opt_share [-share_all] -nomux\n");
 		log("\n");
 		log("    do\n");
@@ -46,13 +46,13 @@ struct OptPass : public Pass {
 		log("        opt_share [-share_all]\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean [-purge]\n");
-		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine] [-full] [-keepdc]\n");
+		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-clkinv] [-fine] [-full] [-keepdc]\n");
 		log("    while <changed design>\n");
 		log("\n");
 		log("When called with -fast the following script is used instead:\n");
 		log("\n");
 		log("    do\n");
-		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-fine] [-full] [-keepdc]\n");
+		log("        opt_const [-mux_undef] [-mux_bool] [-undriven] [-clkinv] [-fine] [-full] [-keepdc]\n");
 		log("        opt_share [-share_all]\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean [-purge]\n");
@@ -90,6 +90,10 @@ struct OptPass : public Pass {
 			}
 			if (args[argidx] == "-undriven") {
 				opt_const_args += " -undriven";
+				continue;
+			}
+			if (args[argidx] == "-clkinv") {
+				opt_const_args += " -clkinv";
 				continue;
 			}
 			if (args[argidx] == "-fine") {
