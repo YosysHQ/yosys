@@ -1,4 +1,4 @@
-/* 
+/*
 Copyright (C) 2009-2010 Parvez Ahmad
 Written by Parvez Ahmad <parvez_ahmad@yahoo.co.uk>.
 
@@ -45,7 +45,7 @@ module AND3 #(parameter SIZE = 3) (input [SIZE-1:0] in, output out);
 assign out = &in;
 
 endmodule
-    
+
 module AND4 #(parameter SIZE = 4) (input [SIZE-1:0] in, output out);
 
 assign out = &in;
@@ -63,7 +63,7 @@ module OR3 #(parameter SIZE = 3) (input [SIZE-1:0] in, output out);
 assign out = |in;
 
 endmodule
-    
+
 module OR4 #(parameter SIZE = 4) (input [SIZE-1:0] in, output out);
 
 assign out = |in;
@@ -82,7 +82,7 @@ module NAND3 #(parameter SIZE = 3) (input [SIZE-1:0] in, output out);
 assign out = ~&in;
 
 endmodule
-    
+
 module NAND4 #(parameter SIZE = 4) (input [SIZE-1:0] in, output out);
 
 assign out = ~&in;
@@ -100,7 +100,7 @@ module NOR3 #(parameter SIZE = 3) (input [SIZE-1:0] in, output out);
 assign out = ~|in;
 
 endmodule
-    
+
 module NOR4 #(parameter SIZE = 4) (input [SIZE-1:0] in, output out);
 
 assign out = ~|in;
@@ -119,7 +119,7 @@ module XOR3 #(parameter SIZE = 3) (input [SIZE-1:0] in, output out);
 assign out = ^in;
 
 endmodule
-    
+
 module XOR4 #(parameter SIZE = 4) (input [SIZE-1:0] in, output out);
 
 assign out = ^in;
@@ -138,7 +138,7 @@ module XNOR3 #(parameter SIZE = 3) (input [SIZE-1:0] in, output out);
 assign out = ~^in;
 
 endmodule
-    
+
 module XNOR4 #(parameter SIZE = 4) (input [SIZE-1:0] in, output out);
 
 assign out = ~^in;
@@ -156,7 +156,7 @@ always @(in or enable)
 	       1'b1 : out = 2'b10;
 	    endcase
 	end
-endmodule	
+endmodule
 
 module DEC2 (input [1:0] in, input enable, output reg [3:0] out);
 
@@ -171,7 +171,7 @@ always @(in or enable)
 	       2'b11 : out = 4'b1000;
 	    endcase
 	end
-endmodule	
+endmodule
 
 module DEC3 (input [2:0] in, input enable, output reg [7:0] out);
 
@@ -190,7 +190,7 @@ always @(in or enable)
 	       3'b111 : out = 8'b10000000;
 	    endcase
 	end
-endmodule	
+endmodule
 
 module DEC4 (input [3:0] in, input enable, output reg [15:0] out);
 
@@ -217,7 +217,7 @@ always @(in or enable)
 	       4'b1111 : out = 16'b1000000000000000;
 	    endcase
 	end
-endmodule	
+endmodule
 module DEC5 (input [4:0] in, input enable, output reg [31:0] out);
 
 always @(in or enable)
@@ -259,7 +259,7 @@ always @(in or enable)
 	       5'b11111 : out = 32'b10000000000000000000000000000000;
 	    endcase
 	end
-endmodule	
+endmodule
 
 module DEC6 (input [5:0] in, input enable, output reg [63:0] out);
 
@@ -335,7 +335,7 @@ always @(in or enable)
 	       6'b111111 : out = 64'b1000000000000000000000000000000000000000000000000000000000000000;
 	    endcase
 	end
-endmodule	
+endmodule
 
 
 module MUX2(input [1:0] in, input select, output reg out);
@@ -345,7 +345,7 @@ always @( in or select)
 	    0: out = in[0];
 	    1: out = in[1];
 	endcase
-endmodule	
+endmodule
 
 
 module MUX4(input [3:0] in, input [1:0] select, output reg out);
@@ -357,7 +357,7 @@ always @( in or select)
 	    2: out = in[2];
 	    3: out = in[3];
 	endcase
-endmodule	
+endmodule
 
 
 module MUX8(input [7:0] in, input [2:0] select, output reg out);
@@ -373,7 +373,7 @@ always @( in or select)
 	    6: out = in[6];
 	    7: out = in[7];
 	endcase
-endmodule	
+endmodule
 
 module MUX16(input [15:0] in, input [3:0] select, output reg out);
 
@@ -396,7 +396,7 @@ always @( in or select)
 	    14: out = in[14];
 	    15: out = in[15];
 	endcase
-endmodule	
+endmodule
 
 module MUX32(input [31:0] in, input [4:0] select, output reg out);
 
@@ -435,7 +435,7 @@ always @( in or select)
 	    30: out = in[30];
 	    31: out = in[31];
 	endcase
-endmodule	
+endmodule
 
 module MUX64(input [63:0] in, input [5:0] select, output reg out);
 
@@ -506,7 +506,7 @@ always @( in or select)
 	    62: out = in[62];
 	    63: out = in[63];
 	endcase
-endmodule	
+endmodule
 
 module ADD1(input in1, in2, cin, output out, cout);
 
@@ -514,41 +514,41 @@ assign {cout, out} = in1 + in2 + cin;
 
 endmodule
 
-module ADD2 #(parameter SIZE = 2)(input [SIZE-1:0] in1, in2, 
+module ADD2 #(parameter SIZE = 2)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 + in2 + cin;
 
 endmodule
 
-module ADD4 #(parameter SIZE = 4)(input [SIZE-1:0] in1, in2, 
+module ADD4 #(parameter SIZE = 4)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 + in2 + cin;
 
 endmodule
 
-module ADD8 #(parameter SIZE = 8)(input [SIZE-1:0] in1, in2, 
+module ADD8 #(parameter SIZE = 8)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 + in2 + cin;
 
 endmodule
 
-module ADD16 #(parameter SIZE = 16)(input [SIZE-1:0] in1, in2, 
+module ADD16 #(parameter SIZE = 16)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 + in2 + cin;
 
 endmodule
 
-module ADD32 #(parameter SIZE = 32)(input [SIZE-1:0] in1, in2, 
+module ADD32 #(parameter SIZE = 32)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 + in2 + cin;
 
 endmodule
-module ADD64 #(parameter SIZE = 64)(input [SIZE-1:0] in1, in2, 
+module ADD64 #(parameter SIZE = 64)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 + in2 + cin;
@@ -561,41 +561,41 @@ assign {cout, out} = in1 - in2 - cin;
 
 endmodule
 
-module SUB2 #(parameter SIZE = 2)(input [SIZE-1:0] in1, in2, 
+module SUB2 #(parameter SIZE = 2)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 - in2 - cin;
 
 endmodule
 
-module SUB4 #(parameter SIZE = 4)(input [SIZE-1:0] in1, in2, 
+module SUB4 #(parameter SIZE = 4)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 - in2 - cin;
 
 endmodule
 
-module SUB8 #(parameter SIZE = 8)(input [SIZE-1:0] in1, in2, 
+module SUB8 #(parameter SIZE = 8)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 - in2 - cin;
 
 endmodule
 
-module SUB16 #(parameter SIZE = 16)(input [SIZE-1:0] in1, in2, 
+module SUB16 #(parameter SIZE = 16)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 - in2 - cin;
 
 endmodule
 
-module SUB32 #(parameter SIZE = 32)(input [SIZE-1:0] in1, in2, 
+module SUB32 #(parameter SIZE = 32)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 - in2 - cin;
 
 endmodule
-module SUB64 #(parameter SIZE = 64)(input [SIZE-1:0] in1, in2, 
+module SUB64 #(parameter SIZE = 64)(input [SIZE-1:0] in1, in2,
     input cin, output [SIZE-1:0] out, output cout);
 
 assign {cout, out} = in1 - in2 - cin;
@@ -651,7 +651,7 @@ assign rem = in1%in2;
 
 endmodule
 
-module DIV2 #(parameter SIZE = 2)(input [SIZE-1:0] in1, in2, 
+module DIV2 #(parameter SIZE = 2)(input [SIZE-1:0] in1, in2,
     output [SIZE-1:0] out, rem);
 
 assign out = in1/in2;
@@ -659,7 +659,7 @@ assign rem = in1%in2;
 
 endmodule
 
-module DIV4 #(parameter SIZE = 4)(input [SIZE-1:0] in1, in2, 
+module DIV4 #(parameter SIZE = 4)(input [SIZE-1:0] in1, in2,
     output [SIZE-1:0] out, rem);
 
 assign out = in1/in2;
@@ -667,7 +667,7 @@ assign rem = in1%in2;
 
 endmodule
 
-module DIV8 #(parameter SIZE = 8)(input [SIZE-1:0] in1, in2, 
+module DIV8 #(parameter SIZE = 8)(input [SIZE-1:0] in1, in2,
     output [SIZE-1:0] out, rem);
 
 assign out = in1/in2;
@@ -675,7 +675,7 @@ assign rem = in1%in2;
 
 endmodule
 
-module DIV16 #(parameter SIZE = 16)(input [SIZE-1:0] in1, in2, 
+module DIV16 #(parameter SIZE = 16)(input [SIZE-1:0] in1, in2,
     output [SIZE-1:0] out, rem);
 
 assign out = in1/in2;
@@ -683,7 +683,7 @@ assign rem = in1%in2;
 
 endmodule
 
-module DIV32 #(parameter SIZE = 32)(input [SIZE-1:0] in1, in2, 
+module DIV32 #(parameter SIZE = 32)(input [SIZE-1:0] in1, in2,
     output [SIZE-1:0] out, rem);
 
 assign out = in1/in2;
@@ -691,7 +691,7 @@ assign rem = in1%in2;
 
 endmodule
 
-module DIV64 #(parameter SIZE = 64)(input [SIZE-1:0] in1, in2, 
+module DIV64 #(parameter SIZE = 64)(input [SIZE-1:0] in1, in2,
     output [SIZE-1:0] out, rem);
 
 assign out = in1/in2;
@@ -711,7 +711,7 @@ always @(posedge clk or posedge reset)
 	    q <= 0;
 	else
 	    q <= d;
-endmodule		
+endmodule
 
 module SFF(input d, clk, set, output reg q);
 always @(posedge clk or posedge set)
@@ -719,7 +719,7 @@ always @(posedge clk or posedge set)
 	    q <= 1;
 	else
 	    q <= d;
-endmodule		
+endmodule
 
 module RSFF(input d, clk, set, reset, output reg q);
 always @(posedge clk or posedge reset or posedge set)
@@ -745,30 +745,30 @@ module LATCH(input d, enable, output reg q);
 always @( d or enable)
     if(enable)
 	    q <= d;
-endmodule		
+endmodule
 
 module RLATCH(input d, reset, enable, output reg q);
 always @( d or enable or reset)
     if(enable)
 	    if(reset)
 		    q <= 0;
-		else	
+		else
 	        q <= d;
-endmodule		
+endmodule
 
 module LSHIFT1 #(parameter SIZE = 1)(input in, shift, val, output reg out);
 
 always @ (in, shift, val) begin
     if(shift)
 	    out = val;
-	else 
+	else
 	    out = in;
 end
 
 endmodule
 
 
-module LSHIFT2 #(parameter SIZE = 2)(input [SIZE-1:0] in, 
+module LSHIFT2 #(parameter SIZE = 2)(input [SIZE-1:0] in,
     input [SIZE-1:0] shift, input val,
     output reg [SIZE-1:0] out);
 
@@ -776,58 +776,58 @@ always @(in or shift or val) begin
     out = in << shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } >> (SIZE-1-shift));
-end	
+end
 endmodule
 
-module LSHIFT4 #(parameter SIZE = 4)(input [SIZE-1:0] in, 
+module LSHIFT4 #(parameter SIZE = 4)(input [SIZE-1:0] in,
     input [2:0] shift, input val, output reg [SIZE-1:0] out);
 
 always @(in or shift or val) begin
     out = in << shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } >> (SIZE-1-shift));
-end	
+end
 endmodule
 
 
-module LSHIFT8 #(parameter SIZE = 8)(input [SIZE-1:0] in, 
+module LSHIFT8 #(parameter SIZE = 8)(input [SIZE-1:0] in,
     input [3:0] shift, input val, output reg [SIZE-1:0] out);
 
 always @(in or shift or val) begin
     out = in << shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } >> (SIZE-1-shift));
-end	
+end
 endmodule
 
-module LSHIFT16 #(parameter SIZE = 16)(input [SIZE-1:0] in, 
+module LSHIFT16 #(parameter SIZE = 16)(input [SIZE-1:0] in,
     input [4:0] shift, input val, output reg [SIZE-1:0] out);
 
 always @(in or shift or val) begin
     out = in << shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } >> (SIZE-1-shift));
-end	
+end
 endmodule
 
-module LSHIFT32 #(parameter SIZE = 32)(input [SIZE-1:0] in, 
+module LSHIFT32 #(parameter SIZE = 32)(input [SIZE-1:0] in,
     input [5:0] shift, input val, output reg [SIZE-1:0] out);
 
 always @(in or shift or val) begin
     out = in << shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } >> (SIZE-1-shift));
-end	
+end
 endmodule
 
-module LSHIFT64 #(parameter SIZE = 64)(input [SIZE-1:0] in, 
+module LSHIFT64 #(parameter SIZE = 64)(input [SIZE-1:0] in,
     input [6:0] shift, input val, output reg [SIZE-1:0] out);
 
 always @(in or shift or val) begin
     out = in << shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } >> (SIZE-1-shift));
-end	
+end
 endmodule
 
 module RSHIFT1 #(parameter SIZE = 1)(input in, shift, val, output reg out);
@@ -841,7 +841,7 @@ end
 
 endmodule
 
-module RSHIFT2 #(parameter SIZE = 2)(input [SIZE-1:0] in, 
+module RSHIFT2 #(parameter SIZE = 2)(input [SIZE-1:0] in,
     input [SIZE-1:0] shift, input val,
     output reg [SIZE-1:0] out);
 
@@ -849,12 +849,12 @@ always @(in or shift or val) begin
     out = in >> shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } << (SIZE-1-shift));
-end	
+end
 
 endmodule
 
 
-module RSHIFT4 #(parameter SIZE = 4)(input [SIZE-1:0] in, 
+module RSHIFT4 #(parameter SIZE = 4)(input [SIZE-1:0] in,
     input [2:0] shift, input val,
     output reg [SIZE-1:0] out);
 
@@ -862,10 +862,10 @@ always @(in or shift or val) begin
     out = in >> shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } << (SIZE-1-shift));
-end	
+end
 endmodule
 
-module RSHIFT8 #(parameter SIZE = 8)(input [SIZE-1:0] in, 
+module RSHIFT8 #(parameter SIZE = 8)(input [SIZE-1:0] in,
     input [3:0] shift, input val,
     output reg [SIZE-1:0] out);
 
@@ -873,11 +873,11 @@ always @(in or shift or val) begin
     out = in >> shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } << (SIZE-1-shift));
-end	
+end
 
 endmodule
 
-module RSHIFT16 #(parameter SIZE = 16)(input [SIZE-1:0] in, 
+module RSHIFT16 #(parameter SIZE = 16)(input [SIZE-1:0] in,
     input [4:0] shift, input val,
     output reg [SIZE-1:0] out);
 
@@ -885,11 +885,11 @@ always @(in or shift or val) begin
     out = in >> shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } << (SIZE-1-shift));
-end	
+end
 endmodule
 
 
-module RSHIFT32 #(parameter SIZE = 32)(input [SIZE-1:0] in, 
+module RSHIFT32 #(parameter SIZE = 32)(input [SIZE-1:0] in,
     input [5:0] shift, input val,
     output reg [SIZE-1:0] out);
 
@@ -897,10 +897,10 @@ always @(in or shift or val) begin
     out = in >> shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } << (SIZE-1-shift));
-end	
+end
 endmodule
 
-module RSHIFT64 #(parameter SIZE = 64)(input [SIZE-1:0] in, 
+module RSHIFT64 #(parameter SIZE = 64)(input [SIZE-1:0] in,
     input [6:0] shift, input val,
     output reg [SIZE-1:0] out);
 
@@ -908,10 +908,10 @@ always @(in or shift or val) begin
     out = in >> shift;
 	if(val)
 	    out = out | ({SIZE-1 {1'b1} } << (SIZE-1-shift));
-end	
+end
 endmodule
 
-module CMP1 #(parameter SIZE = 1) (input in1, in2, 
+module CMP1 #(parameter SIZE = 1) (input in1, in2,
     output reg equal, unequal, greater, lesser);
 
 always @ (in1 or in2) begin
@@ -920,7 +920,7 @@ always @ (in1 or in2) begin
 		unequal = 0;
 		greater = 0;
 		lesser = 0;
-	end	
+	end
 	else begin
 	    equal = 0;
 		unequal = 1;
@@ -928,17 +928,17 @@ always @ (in1 or in2) begin
 	    if(in1 < in2) begin
 		    greater = 0;
 		    lesser = 1;
-	    end	
+	    end
 	    else begin
 		    greater = 1;
 		    lesser = 0;
-	    end	
-	end	
+	    end
+	end
 end
 endmodule
 
 
-module CMP2 #(parameter SIZE = 2) (input [SIZE-1:0] in1, in2, 
+module CMP2 #(parameter SIZE = 2) (input [SIZE-1:0] in1, in2,
     output reg equal, unequal, greater, lesser);
 
 always @ (in1 or in2) begin
@@ -947,7 +947,7 @@ always @ (in1 or in2) begin
 		unequal = 0;
 		greater = 0;
 		lesser = 0;
-	end	
+	end
 	else begin
 	    equal = 0;
 		unequal = 1;
@@ -955,16 +955,16 @@ always @ (in1 or in2) begin
 	    if(in1 < in2) begin
 		    greater = 0;
 		    lesser = 1;
-	    end	
+	    end
 	    else begin
 		    greater = 1;
 		    lesser = 0;
-	    end	
-	end	
+	    end
+	end
 end
 endmodule
 
-module CMP4 #(parameter SIZE = 4) (input [SIZE-1:0] in1, in2, 
+module CMP4 #(parameter SIZE = 4) (input [SIZE-1:0] in1, in2,
     output reg equal, unequal, greater, lesser);
 
 always @ (in1 or in2) begin
@@ -973,7 +973,7 @@ always @ (in1 or in2) begin
 		unequal = 0;
 		greater = 0;
 		lesser = 0;
-	end	
+	end
 	else begin
 	    equal = 0;
 		unequal = 1;
@@ -981,16 +981,16 @@ always @ (in1 or in2) begin
 	    if(in1 < in2) begin
 		    greater = 0;
 		    lesser = 1;
-	    end	
+	    end
 	    else begin
 		    greater = 1;
 		    lesser = 0;
-	    end	
-	end	
+	    end
+	end
 end
 endmodule
 
-module CMP8 #(parameter SIZE = 8) (input [SIZE-1:0] in1, in2, 
+module CMP8 #(parameter SIZE = 8) (input [SIZE-1:0] in1, in2,
     output reg equal, unequal, greater, lesser);
 
 always @ (in1 or in2) begin
@@ -999,7 +999,7 @@ always @ (in1 or in2) begin
 		unequal = 0;
 		greater = 0;
 		lesser = 0;
-	end	
+	end
 	else begin
 	    equal = 0;
 		unequal = 1;
@@ -1007,16 +1007,16 @@ always @ (in1 or in2) begin
 	    if(in1 < in2) begin
 		    greater = 0;
 		    lesser = 1;
-	    end	
+	    end
 	    else begin
 		    greater = 1;
 		    lesser = 0;
-	    end	
-	end	
+	    end
+	end
 end
 endmodule
 
-module CMP16 #(parameter SIZE = 16) (input [SIZE-1:0] in1, in2, 
+module CMP16 #(parameter SIZE = 16) (input [SIZE-1:0] in1, in2,
     output reg equal, unequal, greater, lesser);
 
 always @ (in1 or in2) begin
@@ -1025,7 +1025,7 @@ always @ (in1 or in2) begin
 		unequal = 0;
 		greater = 0;
 		lesser = 0;
-	end	
+	end
 	else begin
 	    equal = 0;
 		unequal = 1;
@@ -1033,16 +1033,16 @@ always @ (in1 or in2) begin
 	    if(in1 < in2) begin
 		    greater = 0;
 		    lesser = 1;
-	    end	
+	    end
 	    else begin
 		    greater = 1;
 		    lesser = 0;
-	    end	
-	end	
+	    end
+	end
 end
 endmodule
 
-module CMP32 #(parameter SIZE = 32) (input [SIZE-1:0] in1, in2, 
+module CMP32 #(parameter SIZE = 32) (input [SIZE-1:0] in1, in2,
     output reg equal, unequal, greater, lesser);
 
 always @ (in1 or in2) begin
@@ -1051,7 +1051,7 @@ always @ (in1 or in2) begin
 		unequal = 0;
 		greater = 0;
 		lesser = 0;
-	end	
+	end
 	else begin
 	    equal = 0;
 		unequal = 1;
@@ -1059,16 +1059,16 @@ always @ (in1 or in2) begin
 	    if(in1 < in2) begin
 		    greater = 0;
 		    lesser = 1;
-	    end	
+	    end
 	    else begin
 		    greater = 1;
 		    lesser = 0;
-	    end	
-	end	
+	    end
+	end
 end
 endmodule
 
-module CMP64 #(parameter SIZE = 64) (input [SIZE-1:0] in1, in2, 
+module CMP64 #(parameter SIZE = 64) (input [SIZE-1:0] in1, in2,
     output reg equal, unequal, greater, lesser);
 
 always @ (in1 or in2) begin
@@ -1077,7 +1077,7 @@ always @ (in1 or in2) begin
 		unequal = 0;
 		greater = 0;
 		lesser = 0;
-	end	
+	end
 	else begin
 	    equal = 0;
 		unequal = 1;
@@ -1085,12 +1085,12 @@ always @ (in1 or in2) begin
 	    if(in1 < in2) begin
 		    greater = 0;
 		    lesser = 1;
-	    end	
+	    end
 	    else begin
 		    greater = 1;
 		    lesser = 0;
-	    end	
-	end	
+	    end
+	end
 end
 endmodule
 

@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -75,14 +75,14 @@ struct FsmOpt
 			fsm_data.reset_state = old_to_new_state.at(fsm_data.reset_state);
 		}
 	}
-	
+
 	bool signal_is_unused(RTLIL::SigSpec sig)
 	{
 		RTLIL::SigBit bit = sig.to_single_sigbit();
 
 		if (bit.wire == NULL || bit.wire->attributes.count("\\unused_bits") == 0)
 			return false;
-		
+
 		char *str = strdup(bit.wire->attributes["\\unused_bits"].decode_string().c_str());
 		for (char *tok = strtok(str, " "); tok != NULL; tok = strtok(NULL, " ")) {
 			if (tok[0] && bit.offset == atoi(tok)) {
@@ -347,5 +347,5 @@ struct FsmOptPass : public Pass {
 		}
 	}
 } FsmOptPass;
- 
+
 PRIVATE_NAMESPACE_END

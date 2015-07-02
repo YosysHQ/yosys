@@ -3,11 +3,11 @@
  *                algorithm for coarse grain logic networks
  *
  *  Copyright (C) 2013  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -115,7 +115,7 @@ namespace SubCircuit
 
 	private:
 		SolverWorker *worker;
-	
+
 	protected:
 		virtual bool userCompareNodes(const std::string &needleGraphId, const std::string &needleNodeId, void *needleUserData,
 				const std::string &haystackGraphId, const std::string &haystackNodeId, void *haystackUserData, const std::map<std::string, std::string> &portMapping);

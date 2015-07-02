@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -20,7 +20,7 @@
  *  The internal logic cell technology mapper.
  *
  *  This verilog library contains the mapping of internal cells (e.g. $not with
- *  variable bit width) to the internal logic cells (such as the single bit $_NOT_ 
+ *  variable bit width) to the internal logic cells (such as the single bit $_NOT_
  *  gate). Usually this logic network is then mapped to the actual technology
  *  using e.g. the "abc" pass.
  *

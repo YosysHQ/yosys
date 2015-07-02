@@ -241,7 +241,7 @@ by identifying the driver for the state signal.
 
 From there the {\tt \$mux}-tree driving the state register inputs is
 recursively traversed. All select inputs are control signals and the leaves of the
-{\tt \$mux}-tree are the states. The algorithm fails if a non-constant leaf 
+{\tt \$mux}-tree are the states. The algorithm fails if a non-constant leaf
 that is not the state signal itself is found.
 
 The list of control outputs is initialized with the bits from the state signal.

@@ -102,4 +102,4 @@ match $__XILINX_RAMB18_TDP
   shuffle_enable B
   make_transp
 endmatch
- 
+

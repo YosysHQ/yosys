@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -564,7 +564,7 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 {
 	if (design->selected_active_module.empty())
 		return;
-	
+
 	if (sel.full_selection) {
 		sel.full_selection = false;
 		sel.selected_modules.clear();
@@ -733,7 +733,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 		select_filter_active_mod(design, work_stack.back());
 		return;
 	}
-	
+
 	sel.full_selection = false;
 	for (auto &mod_it : design->modules_)
 	{
@@ -1386,7 +1386,7 @@ struct SelectPass : public Pass {
 		design->selection_stack.back().optimize(design);
 	}
 } SelectPass;
- 
+
 struct CdPass : public Pass {
 	CdPass() : Pass("cd", "a shortcut for 'select -module <name>'") { }
 	virtual void help()
@@ -1458,7 +1458,7 @@ static void log_matches(const char *title, Module *module, T list)
 			log("  %s\n", RTLIL::id2cstr(id));
 	}
 }
- 
+
 struct LsPass : public Pass {
 	LsPass() : Pass("ls", "list modules or objects in modules") { }
 	virtual void help()
@@ -1502,5 +1502,5 @@ struct LsPass : public Pass {
 		}
 	}
 } LsPass;
- 
+
 PRIVATE_NAMESPACE_END

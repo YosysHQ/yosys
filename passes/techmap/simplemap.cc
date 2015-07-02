@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -97,7 +97,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	if (sig_y.size() == 0)
 		return;
-	
+
 	if (sig_a.size() == 0) {
 		if (cell->type == "$reduce_and")  module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(1, sig_y.size())));
 		if (cell->type == "$reduce_or")   module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
@@ -197,7 +197,7 @@ void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	if (sig_y.size() == 0)
 		return;
-	
+
 	if (sig_y.size() > 1) {
 		module->connect(RTLIL::SigSig(sig_y.extract(1, sig_y.size()-1), RTLIL::SigSpec(0, sig_y.size()-1)));
 		sig_y = sig_y.extract(0, 1);
@@ -221,7 +221,7 @@ void simplemap_logbin(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	if (sig_y.size() == 0)
 		return;
-	
+
 	if (sig_y.size() > 1) {
 		module->connect(RTLIL::SigSig(sig_y.extract(1, sig_y.size()-1), RTLIL::SigSpec(0, sig_y.size()-1)));
 		sig_y = sig_y.extract(0, 1);
@@ -549,5 +549,5 @@ struct SimplemapPass : public Pass {
 		}
 	}
 } SimplemapPass;
- 
+
 PRIVATE_NAMESPACE_END

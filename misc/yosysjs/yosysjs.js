@@ -67,7 +67,7 @@ var YosysJS = new function() {
 		if (reference_element) {
 			if (reference_element.tagName == 'textarea')
 				ys.init_script = reference_element.value;
-		
+
 			if (reference_element.tagName == 'iframe') {
 				ys.iframe_element = reference_element;
 			} else {

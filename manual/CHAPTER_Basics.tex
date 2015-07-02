@@ -56,8 +56,8 @@ and how they relate to different kinds of synthesis.
 Regardless of the way a lower level representation of a circuit is
 obtained (synthesis or manual design), the lower level representation is usually
 verified by comparing simulation results of the lower level and the higher level
-representation \footnote{In recent years formal equivalence 
-checking also became an important verification method for validating RTL and 
+representation \footnote{In recent years formal equivalence
+checking also became an important verification method for validating RTL and
 lower abstraction representation of the design.}.
 Therefore even if no synthesis is used, there must still be a simulatable
 representation of the circuit in all levels to allow for verification of the
@@ -270,7 +270,7 @@ signals.
 
 \subsection{Expressions in Verilog}
 
-In all situations where Verilog accepts a constant value or signal name, 
+In all situations where Verilog accepts a constant value or signal name,
 expressions using arithmetic operations such as
 \lstinline[language=Verilog]{+}, \lstinline[language=Verilog]{-} and \lstinline[language=Verilog]{*},
 boolean operations such as
@@ -470,7 +470,7 @@ optimizes the design. First of all because not all optimizations are applicable 
 designs and all synthesis tasks. Some optimizations work (best) on a coarse-grained level
 (with complex cells such as adders or multipliers) and others work (best) on a fine-grained
 level (single bit gates). Some optimizations target area and others target speed.
-Some work well on large designs while others don't scale well and can only be applied 
+Some work well on large designs while others don't scale well and can only be applied
 to small designs.
 
 A good tool is capable of applying a wide range of optimizations at different

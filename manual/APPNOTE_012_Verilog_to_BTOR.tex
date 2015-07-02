@@ -182,7 +182,7 @@ file:
 
 \begin{figure}[H]
 \begin{lstlisting}[language=sh,numbers=none]
-$ boolector fsm.btor 
+$ boolector fsm.btor
 unsat
 \end{lstlisting}
  \renewcommand{\figurename}{Listing}
@@ -204,16 +204,16 @@ executed by {\tt verilog2btor.sh}.
 
 \begin{figure}[H]
 \begin{lstlisting}[language=sh]
-read_verilog -sv $1; 
-hierarchy -top $3; hierarchy -libdir $DIR; 
-hierarchy -check; 
-proc; opt; 
+read_verilog -sv $1;
+hierarchy -top $3; hierarchy -libdir $DIR;
+hierarchy -check;
+proc; opt;
 opt_const -mux_undef; opt;
 rename -hide;;;
 splice; opt;
 memory_dff -wr_only; memory_collect;;
 flatten;;
-memory_unpack; 
+memory_unpack;
 splitnets -driver;
 setundef -zero -undriven;
 opt;;;
@@ -242,7 +242,7 @@ line:
   collecting the memories to multi-port memories.
 \item Flattening the design to get only one module.
 \item Separating read and write memories.
-\item Splitting the signals that are partially assigned 
+\item Splitting the signals that are partially assigned
 \item Setting undef to zero value.
 \item Final optimization pass.
 \item Writing BTOR file.
@@ -259,10 +259,10 @@ modified Yosys script file:
 
 \begin{figure}[H]
 \begin{lstlisting}[language=sh,numbers=none]
-read_verilog -sv $1; 
-hierarchy -top $3; hierarchy -libdir $DIR; 
-hierarchy -check; 
-proc; opt; 
+read_verilog -sv $1;
+hierarchy -top $3; hierarchy -libdir $DIR;
+hierarchy -check;
+proc; opt;
 opt_const -mux_undef; opt;
 rename -hide;;;
 splice; opt;
@@ -294,7 +294,7 @@ module array(input clk);
     mem[counter] <= counter;
   end
 
-  assert property (!(counter > 8'd0) || 
+  assert property (!(counter > 8'd0) ||
     mem[counter - 8'd1] == counter - 8'd1);
 
 endmodule
@@ -422,7 +422,7 @@ Robert Brummayer and Armin Biere and Florian Lonsing, BTOR:
 Bit-Precise Modelling of Word-Level Problems for Model Checking\\
 \url{http://fmv.jku.at/papers/BrummayerBiereLonsing-BPR08.pdf}
 
-\bibitem{nuxmv} 
+\bibitem{nuxmv}
 Roberto Cavada and Alessandro Cimatti and Michele Dorigatti and
 Alberto Griggio and Alessandro Mariotti and Andrea Micheli and Sergio
 Mover and Marco Roveri and Stefano Tonetta, The nuXmv Symbolic Model

@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -650,7 +650,7 @@ struct ExtractPass : public Pass {
 				haystack_map[graph_name] = mod_it.second;
 			}
 		}
-		
+
 		if (!mine_mode)
 		{
 			std::vector<SubCircuit::Solver::Result> results;
@@ -759,5 +759,5 @@ struct ExtractPass : public Pass {
 		log_pop();
 	}
 } ExtractPass;
- 
+
 PRIVATE_NAMESPACE_END

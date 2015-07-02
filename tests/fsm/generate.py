@@ -108,4 +108,4 @@ for idx in range(50):
                 print('cd ..')
             print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
             print('sat -verify-no-timeout -timeout 20 -seq 5 -set-at 1 %s_rst 1 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter' % ('gold' if rst2 else 'in'))
- 
+

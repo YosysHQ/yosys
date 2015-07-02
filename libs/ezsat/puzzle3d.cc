@@ -2,11 +2,11 @@
  *  ezSAT -- A simple and easy to use CNF generator for SAT solvers
  *
  *  Copyright (C) 2013  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -253,7 +253,7 @@ int main()
 	}
 	for (size_t i = 1; i < vecvec.size(); i++)
 		ez.assume(ez.ordered(vecvec[0], vecvec[1]));
-	
+
 	printf("Found and eliminated %d spatial symmetries.\n", int(symmetries.size()));
 	printf("Generated %d clauses over %d variables.\n", ez.numCnfClauses(), ez.numCnfVariables());
 

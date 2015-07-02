@@ -3,11 +3,11 @@
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
  *  Copyright (C) 2014  Ahmed Irfan <irfan@fbk.eu>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -18,7 +18,7 @@
  *
  */
 
-// [[CITE]] BTOR: Bit-Precise Modelling of Word-Level Problems for Model Checking 
+// [[CITE]] BTOR: Bit-Precise Modelling of Word-Level Problems for Model Checking
 // Johannes Kepler University, Linz, Austria
 // http://fmv.jku.at/papers/BrummayerBiereLonsing-BPR08.pdf
 
@@ -75,10 +75,10 @@ struct BtorDumper
 	std::map<RTLIL::SigSpec, int> sig_ref;//mapping of sigspec to the line_num of the btor file
 	int line_num;//last line number of btor file
 	std::string str;//temp string for writing file
-	std::map<RTLIL::IdString, bool> basic_wires;//input wires and registers	
+	std::map<RTLIL::IdString, bool> basic_wires;//input wires and registers
 	RTLIL::IdString curr_cell; //current cell being dumped
 	std::map<std::string, std::string> cell_type_translation, s_cell_type_translation; //RTLIL to BTOR translation
-        std::map<int, std::set<std::pair<int,int>>> mem_next; // memory (line_number)'s set of condition and write 
+        std::map<int, std::set<std::pair<int,int>>> mem_next; // memory (line_number)'s set of condition and write
     	BtorDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BtorDumperConfig *config) :
     		f(f), module(module), design(design), config(config), ct(design), sigmap(module)
 	{
@@ -143,7 +143,7 @@ struct BtorDumper
 		//concat
 		cell_type_translation["$concat"] = "concat";
 
-		//signed cell type translation 
+		//signed cell type translation
 		//binary
 		s_cell_type_translation["$modx"] = "srem";
 		s_cell_type_translation["$mody"] = "smod";
@@ -152,9 +152,9 @@ struct BtorDumper
 		s_cell_type_translation["$le"] = "slte";
 		s_cell_type_translation["$gt"] = "sgt";
 		s_cell_type_translation["$ge"] = "sgte";
-		 
+
 	}
-	
+
 	vector<shared_str> cstr_buf;
 
 	const char *cstr(const RTLIL::IdString id)
@@ -166,17 +166,17 @@ struct BtorDumper
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
 	}
-	
+
 	int dump_wire(RTLIL::Wire* wire)
 	{
 		if(basic_wires[wire->name])
-		{	
+		{
 			log("writing wire %s\n", cstr(wire->name));
 			auto it = line_ref.find(wire->name);
 			if(it==std::end(line_ref))
 			{
 				++line_num;
-				line_ref[wire->name]=line_num;			
+				line_ref[wire->name]=line_num;
 				str = stringf("%d var %d %s", line_num, wire->width, cstr(wire->name));
 				f << stringf("%s\n", str.c_str());
 				return line_num;
@@ -200,7 +200,7 @@ struct BtorDumper
 					log(" -- found cell %s\n", cstr(cell_id));
 					RTLIL::Cell* cell = module->cells_.at(cell_id);
 					const RTLIL::SigSpec* cell_output = get_cell_output(cell);
-					int cell_line = dump_cell(cell);				
+					int cell_line = dump_cell(cell);
 
 					if(dep_set.size()==1 && wire->width == cell_output->size())
 					{
@@ -235,7 +235,7 @@ struct BtorDumper
 				}
 				if(dep_set.size()==0)
 				{
-					log(" - checking sigmap\n");						
+					log(" - checking sigmap\n");
 					RTLIL::SigSpec s = RTLIL::SigSpec(wire);
 					wire_line = dump_sigspec(&s, s.size());
 					line_ref[wire->name]=wire_line;
@@ -243,16 +243,16 @@ struct BtorDumper
 				line_ref[wire->name]=wire_line;
 				return wire_line;
 			}
-			else 
+			else
 			{
-				log(" -- already processed wire\n");			
+				log(" -- already processed wire\n");
 				return it->second;
 			}
 		}
 		log_abort();
 		return -1;
 	}
-	
+
 	int dump_memory(const RTLIL::Memory* memory)
 	{
 		log("writing memory %s\n", cstr(memory->name));
@@ -262,7 +262,7 @@ struct BtorDumper
 			++line_num;
 			int address_bits = ceil(log(memory->size)/log(2));
 			str = stringf("%d array %d %d", line_num, memory->width, address_bits);
-			line_ref[memory->name]=line_num;			
+			line_ref[memory->name]=line_num;
 			f << stringf("%s\n", str.c_str());
 			return line_num;
 		}
@@ -300,7 +300,7 @@ struct BtorDumper
 		      f << stringf("%s\n", str.c_str());
 		    }
 		  ++line_num;
-		  str = stringf("%d anext %d %d %d %d", line_num, memory->width, address_bits, mem_it->second, line_num-1);                                                                                                                 
+		  str = stringf("%d anext %d %d %d %d", line_num, memory->width, address_bits, mem_it->second, line_num-1);
 		  f << stringf("%s\n", str.c_str());
 		  return 1;
 		}
@@ -326,11 +326,11 @@ struct BtorDumper
 			return line_num;
 		}
 		else
-			log("writing const error\n");		
+			log("writing const error\n");
 		log_abort();
 		return -1;
 	}
-	
+
 	int dump_sigchunk(const RTLIL::SigChunk* chunk)
 	{
 		log("writing sigchunk\n");
@@ -338,21 +338,21 @@ struct BtorDumper
 		if(chunk->wire == NULL)
 		{
 			RTLIL::Const data_const(chunk->data);
-			l=dump_const(&data_const, chunk->width, chunk->offset);			
+			l=dump_const(&data_const, chunk->width, chunk->offset);
 		}
 		else
 		{
 			if (chunk->width == chunk->wire->width && chunk->offset == 0)
 				l = dump_wire(chunk->wire);
-			else 
+			else
 			{
 				int wire_line_num = dump_wire(chunk->wire);
 				log_assert(wire_line_num>0);
 				++line_num;
-				str = stringf("%d slice %d %d %d %d;2", line_num, chunk->width, wire_line_num, 
+				str = stringf("%d slice %d %d %d %d;2", line_num, chunk->width, wire_line_num,
 					chunk->width + chunk->offset - 1, chunk->offset);
 				f << stringf("%s\n", str.c_str());
-				l = line_num;				 
+				l = line_num;
 			}
 		}
 		return l;
@@ -369,8 +369,8 @@ struct BtorDumper
 			if (s.is_chunk())
 			{
 				l = dump_sigchunk(&s.chunks().front());
-			} 
-			else 
+			}
+			else
 			{
 				int l1, l2, w1, w2;
 				l1 = dump_sigchunk(&s.chunks().front());
@@ -395,7 +395,7 @@ struct BtorDumper
 		{
 			l = it->second;
 		}
-		
+
 		if (expected_width != s.size())
 		{
 			log(" - changing width of sigspec\n");
@@ -422,7 +422,7 @@ struct BtorDumper
 		log_assert(l>0);
 		return l;
 	}
-	
+
 	int dump_cell(const RTLIL::Cell* cell)
 	{
 		auto it = line_ref.find(cell->name);
@@ -466,10 +466,10 @@ struct BtorDumper
 				int w = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
 				w = w>output_width ? w:output_width; //padding of w
-				int l = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), w);				
+				int l = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), w);
 				int cell_line = l;
 				if(cell->type != "$pos")
-				{	
+				{
 					cell_line = ++line_num;
 					bool reduced = (cell->type == "$not" || cell->type == "$neg") ? false : true;
 					str = stringf ("%d %s %d %d", cell_line, cell_type_translation.at(cell->type.str()).c_str(), reduced?output_width:w, l);
@@ -481,7 +481,7 @@ struct BtorDumper
 					str = stringf ("%d slice %d %d %d %d;4", line_num, output_width, cell_line, output_width-1, 0);
 					f << stringf("%s\n", str.c_str());
 					cell_line = line_num;
-				}				
+				}
 				line_ref[cell->name]=cell_line;
 			}
 			else if(cell->type == "$reduce_xnor" || cell->type == "$logic_not")//no direct translation in btor
@@ -502,7 +502,7 @@ struct BtorDumper
 					++line_num;
 					str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$reduce_xor").c_str(), output_width, l);
 					f << stringf("%s\n", str.c_str());
-				}		
+				}
 				++line_num;
 				str = stringf ("%d %s %d %d", line_num, cell_type_translation.at("$not").c_str(), output_width, l);
 				f << stringf("%s\n", str.c_str());
@@ -510,7 +510,7 @@ struct BtorDumper
 			}
 			//binary cells
 			else if(cell->type == "$and" || cell->type == "$or" || cell->type == "$xor" || cell->type == "$xnor" ||
-				 cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" || 
+				 cell->type == "$lt" || cell->type == "$le" || cell->type == "$eq" || cell->type == "$ne" ||
 				 cell->type == "$eqx" || cell->type == "$nex" || cell->type == "$ge" || cell->type == "$gt" )
 			{
 				log("writing binary cell - %s\n", cstr(cell->type));
@@ -521,15 +521,15 @@ struct BtorDumper
 				bool l2_signed YS_ATTRIBUTE(unused) = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
-				
+
 				log_assert(l1_signed == l2_signed);
-				l1_width = l1_width > output_width ? l1_width : output_width;					
+				l1_width = l1_width > output_width ? l1_width : output_width;
 				l1_width = l1_width > l2_width ? l1_width : l2_width;
 				l2_width = l2_width > l1_width ? l2_width : l1_width;
 
 				int l1 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), l1_width);
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), l2_width);
-				
+
 				++line_num;
 				std::string op = cell_type_translation.at(cell->type.str());
 				if(cell->type == "$lt" || cell->type == "$le" ||
@@ -539,13 +539,13 @@ struct BtorDumper
 					if(l1_signed)
 						op = s_cell_type_translation.at(cell->type.str());
 				}
-				
+
 				str = stringf ("%d %s %d %d %d", line_num, op.c_str(), output_width, l1, l2);
 				f << stringf("%s\n", str.c_str());
 
 				line_ref[cell->name]=line_num;
 			}
-			else if(cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" || 
+			else if(cell->type == "$add" || cell->type == "$sub" || cell->type == "$mul" || cell->type == "$div" ||
 				 cell->type == "$mod" )
 			{
 				//TODO: division by zero case
@@ -555,15 +555,15 @@ struct BtorDumper
 				bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
-				
+
 				log_assert(l1_signed == l2_signed);
-				l1_width = l1_width > output_width ? l1_width : output_width;					
+				l1_width = l1_width > output_width ? l1_width : output_width;
 				l1_width = l1_width > l2_width ? l1_width : l2_width;
 				l2_width = l2_width > l1_width ? l2_width : l1_width;
 
 				int l1 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), l1_width);
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), l2_width);
-				
+
 				++line_num;
 				std::string op = cell_type_translation.at(cell->type.str());
 				if(cell->type == "$div" && l1_signed)
@@ -631,7 +631,7 @@ struct BtorDumper
 					f << stringf("%s\n", str.c_str());
 					cell_output = line_num;
 				}
-				line_ref[cell->name] = cell_output;	
+				line_ref[cell->name] = cell_output;
 			}
 			else if(cell->type == "$logic_and" || cell->type == "$logic_or")//no direct translation in btor
 			{
@@ -678,7 +678,7 @@ struct BtorDumper
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), output_width);
 				int s = dump_sigspec(&cell->getPort(RTLIL::IdString("\\S")), 1);
 				++line_num;
-				str = stringf ("%d %s %d %d %d %d", 
+				str = stringf ("%d %s %d %d %d %d",
 					line_num, cell_type_translation.at(cell->type.str()).c_str(), output_width, s, l2, l1);
 				//if s is 0 then l1, if s is 1 then l2 //according to the implementation of mux cell
 				f << stringf("%s\n", str.c_str());
@@ -693,7 +693,7 @@ struct BtorDumper
                           int cases = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), output_width*select_width);
                           int select = dump_sigspec(&cell->getPort(RTLIL::IdString("\\S")), select_width);
                           int *c = new int[select_width];
-                          
+
                           for (int i=0; i<select_width; ++i)
                           {
                             ++line_num;
@@ -701,15 +701,15 @@ struct BtorDumper
                             f << stringf("%s\n", str.c_str());
                             c[i] = line_num;
                             ++line_num;
-                            str = stringf ("%d slice %d %d %d %d", line_num, output_width, cases, i*output_width+output_width-1, 
+                            str = stringf ("%d slice %d %d %d %d", line_num, output_width, cases, i*output_width+output_width-1,
                                            i*output_width);
                             f << stringf("%s\n", str.c_str());
                           }
-                          
+
                           ++line_num;
                           str = stringf ("%d cond %d %d %d %d", line_num, output_width, c[select_width-1], c[select_width-1]+1, default_case);
                           f << stringf("%s\n", str.c_str());
-                          
+
                           for (int i=select_width-2; i>=0; --i)
                           {
                             ++line_num;
@@ -741,7 +741,7 @@ struct BtorDumper
 					{
 						start_bit+=output_width;
 						slice = ++line_num;
-						str = stringf ("%d slice %d %d %d %d;", line_num, output_width, value, start_bit-1, 
+						str = stringf ("%d slice %d %d %d %d;", line_num, output_width, value, start_bit-1,
 							start_bit-output_width);
 						f << stringf("%s\n", str.c_str());
 					}
@@ -753,16 +753,16 @@ struct BtorDumper
 							output_width);
 						bool sync_reset_value_pol = cell->parameters.at(RTLIL::IdString("\\SET_POLARITY")).as_bool();
 						++line_num;
-						str = stringf ("%d %s %d %s%d %s%d %d", line_num, cell_type_translation.at("$mux").c_str(), 
-							output_width, sync_reset_pol ? "":"-", sync_reset, sync_reset_value_pol? "":"-", 
+						str = stringf ("%d %s %d %s%d %s%d %d", line_num, cell_type_translation.at("$mux").c_str(),
+							output_width, sync_reset_pol ? "":"-", sync_reset, sync_reset_value_pol? "":"-",
 							sync_reset_value, slice);
 						f << stringf("%s\n", str.c_str());
 						slice = line_num;
 					}
 					++line_num;
-					str = stringf ("%d %s %d %s%d %d %d", line_num, cell_type_translation.at("$mux").c_str(), 
+					str = stringf ("%d %s %d %s%d %d %d", line_num, cell_type_translation.at("$mux").c_str(),
 						output_width, polarity?"":"-", cond, slice, reg);
-				
+
 					f << stringf("%s\n", str.c_str());
 					int next = line_num;
 					if(cell->type == "$adff")
@@ -772,12 +772,12 @@ struct BtorDumper
 						int async_reset_value = dump_const(&cell->parameters.at(RTLIL::IdString("\\ARST_VALUE")),
 							output_width, 0);
 						++line_num;
-						str = stringf ("%d %s %d %s%d %d %d", line_num, cell_type_translation.at("$mux").c_str(), 
+						str = stringf ("%d %s %d %s%d %d %d", line_num, cell_type_translation.at("$mux").c_str(),
 							output_width, async_reset_pol ? "":"-", async_reset, async_reset_value, next);
 						f << stringf("%s\n", str.c_str());
 					}
 					++line_num;
-					str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), 
+					str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(),
 						output_width, reg, next);
 					f << stringf("%s\n", str.c_str());
 				}
@@ -795,7 +795,7 @@ struct BtorDumper
 				int address = dump_sigspec(&cell->getPort(RTLIL::IdString("\\ADDR")), address_width);
 				int data_width = cell->parameters.at(RTLIL::IdString("\\WIDTH")).as_int();
 				++line_num;
-				str = stringf("%d read %d %d %d", line_num, data_width, mem, address);	
+				str = stringf("%d read %d %d %d", line_num, data_width, mem, address);
 				f << stringf("%s\n", str.c_str());
 				line_ref[cell->name]=line_num;
 			}
@@ -829,7 +829,7 @@ struct BtorDumper
                                         f << stringf("%s\n", str.c_str());
                                         mem = line_num - 1;
 				}
-				*/			       
+				*/
                 		++line_num;
 				if(polarity)
 					str = stringf("%d one 1", line_num);
@@ -837,21 +837,21 @@ struct BtorDumper
 					str = stringf("%d zero 1", line_num);
 				f << stringf("%s\n", str.c_str());
 				++line_num;
-				str = stringf("%d eq 1 %d %d", line_num, clk, line_num-1);	
+				str = stringf("%d eq 1 %d %d", line_num, clk, line_num-1);
 				f << stringf("%s\n", str.c_str());
 				++line_num;
-				str = stringf("%d and 1 %d %d", line_num, line_num-1, enable);	
+				str = stringf("%d and 1 %d %d", line_num, line_num-1, enable);
 				f << stringf("%s\n", str.c_str());
 				++line_num;
-				str = stringf("%d write %d %d %d %d %d", line_num, data_width, address_width, mem, address, data);	
+				str = stringf("%d write %d %d %d %d %d", line_num, data_width, address_width, mem, address, data);
 				f << stringf("%s\n", str.c_str());
 				/*
 				++line_num;
-				str = stringf("%d acond %d %d %d %d %d", line_num, data_width, address_width, line_num-2, line_num-1, mem);	
-				f << stringf("%s\n", str.c_str());				
+				str = stringf("%d acond %d %d %d %d %d", line_num, data_width, address_width, line_num-2, line_num-1, mem);
+				f << stringf("%s\n", str.c_str());
 				++line_num;
-				str = stringf("%d anext %d %d %d %d", line_num, data_width, address_width, mem, line_num-1);	
-				f << stringf("%s\n", str.c_str());				
+				str = stringf("%d anext %d %d %d %d", line_num, data_width, address_width, mem, line_num-1);
+				f << stringf("%s\n", str.c_str());
 				*/
 				mem_next[mem].insert(std::make_pair(line_num-1, line_num));
 			}
@@ -865,11 +865,11 @@ struct BtorDumper
 				const RTLIL::SigSpec* output YS_ATTRIBUTE(unused) = &cell->getPort(RTLIL::IdString("\\Y"));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\Y_WIDTH")).as_int();
 				log_assert(output->size() == output_width);
-				int offset = cell->parameters.at(RTLIL::IdString("\\OFFSET")).as_int();	
+				int offset = cell->parameters.at(RTLIL::IdString("\\OFFSET")).as_int();
 				++line_num;
 				str = stringf("%d %s %d %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), output_width, input_line, output_width+offset-1, offset);
-				f << stringf("%s\n", str.c_str());				
-				line_ref[cell->name]=line_num;	
+				f << stringf("%s\n", str.c_str());
+				line_ref[cell->name]=line_num;
 			}
 			else if(cell->type == "$concat")
 			{
@@ -883,10 +883,10 @@ struct BtorDumper
 				log_assert(input_b->size() == input_b_width);
 				int input_b_line = dump_sigspec(input_b, input_b_width);
 				++line_num;
-				str = stringf("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), input_a_width+input_b_width, 
-					input_a_line, input_b_line);	
-				f << stringf("%s\n", str.c_str());				
-				line_ref[cell->name]=line_num;				
+				str = stringf("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), input_a_width+input_b_width,
+					input_a_line, input_b_line);
+				f << stringf("%s\n", str.c_str());
+				line_ref[cell->name]=line_num;
 			}
 			curr_cell.clear();
 			return line_num;
@@ -912,7 +912,7 @@ struct BtorDumper
 		{
 			output_sig = &cell->getPort(RTLIL::IdString("\\Q"));
 		}
-		else 
+		else
 		{
 			output_sig = &cell->getPort(RTLIL::IdString("\\Y"));
 		}
@@ -930,7 +930,7 @@ struct BtorDumper
 	void dump()
 	{
 		f << stringf(";module %s\n", cstr(module->name));
-		
+
 		log("creating intermediate wires map\n");
 		//creating map of intermediate wires as output of some cell
 		for (auto it = module->cells_.begin(); it != module->cells_.end(); ++it)
@@ -966,7 +966,7 @@ struct BtorDumper
 					basic_wires[wire_id] = true;
 				}
 			}
-			else 
+			else
 			{
 				for(unsigned i=0; i<output_sig->chunks().size(); ++i)
 				{
@@ -976,11 +976,11 @@ struct BtorDumper
 				}
 			}
 		}
-		
+
 		log("writing input\n");
 		std::map<int, RTLIL::Wire*> inputs, outputs;
 		std::vector<RTLIL::Wire*> safety;
-		
+
 		for (auto &wire_it : module->wires_) {
 			RTLIL::Wire *wire = wire_it.second;
 			if (wire->port_input)
@@ -998,7 +998,7 @@ struct BtorDumper
 			dump_wire(wire);
 		}
 		f << stringf("\n");
-		
+
 		log("writing memories\n");
 		for(auto mem_it = module->memories.begin(); mem_it != module->memories.end(); ++mem_it)
 		{
@@ -1014,9 +1014,9 @@ struct BtorDumper
 		log("writing cells\n");
 		for(auto cell_it = module->cells_.begin(); cell_it != module->cells_.end(); ++cell_it)
 		{
-			dump_cell(cell_it->second);	
+			dump_cell(cell_it->second);
 		}
-		
+
 		log("writing memory next");
 		for(auto mem_it = module->memories.begin(); mem_it != module->memories.end(); ++mem_it)
 		  {
@@ -1027,7 +1027,7 @@ struct BtorDumper
 			dump_property(it);
 
 		f << stringf("\n");
-		
+
 		log("writing outputs info\n");
 		f << stringf(";outputs\n");
 		for (auto &it : outputs) {
@@ -1047,7 +1047,7 @@ struct BtorDumper
 
 struct BtorBackend : public Backend {
 	BtorBackend() : Backend("btor", "write design to BTOR file") { }
-	
+
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -1069,7 +1069,7 @@ struct BtorBackend : public Backend {
 
 		size_t argidx=1;
 		extra_args(f, filename, args, argidx);
-		
+
 		if (top_module_name.empty())
 			for (auto & mod_it:design->modules_)
 				if (mod_it.second->get_bool_attribute("\\top"))
@@ -1079,7 +1079,7 @@ struct BtorBackend : public Backend {
 		*f << stringf(";  %s developed and maintained by Clifford Wolf <clifford@clifford.at>\n", yosys_version_str);
 		*f << stringf("; BTOR Backend developed by Ahmed Irfan <irfan@fbk.eu> - Fondazione Bruno Kessler, Trento, Italy\n");
 		*f << stringf(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n");
-		
+
 		std::vector<RTLIL::Module*> mod_list;
 
 		for (auto module_it : design->modules_)

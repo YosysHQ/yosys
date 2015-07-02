@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -241,7 +241,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 {
 	log("Extracting FSM `%s' from module `%s'.\n", wire->name.c_str(), module->name.c_str());
 
-	// get input and output signals for state ff 
+	// get input and output signals for state ff
 
 	RTLIL::SigSpec dff_out = assign_map(RTLIL::SigSpec(wire));
 	RTLIL::SigSpec dff_in(RTLIL::State::Sm, wire->width);
@@ -460,5 +460,5 @@ struct FsmExtractPass : public Pass {
 		sig2trigger.clear();
 	}
 } FsmExtractPass;
- 
+
 PRIVATE_NAMESPACE_END

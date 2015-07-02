@@ -150,11 +150,11 @@ write_blif softusb_navre.blif
 \end{figure}
 
 The first and last line obviously read the Verilog file and write the BLIF
-file. 
+file.
 
 \medskip
 
-The 2nd line checks the design hierarchy and instantiates parametrized 
+The 2nd line checks the design hierarchy and instantiates parametrized
 versions of the modules in the design, if necessary. In the case of this
 simple design this is a no-op. However, as a general rule a synthesis script
 should always contain this command as first command after reading the input
@@ -174,7 +174,7 @@ instead of {\tt opt}.
 \item The command {\tt proc} converts {\it processes} (Yosys' internal
 representation of Verilog {\tt always}- and {\tt initial}-blocks) to circuits
 of multiplexers and storage elements (various types of flip-flops).
-\item The command {\tt memory} converts Yosys' internal representations of 
+\item The command {\tt memory} converts Yosys' internal representations of
 arrays and array accesses to multi-port block memories, and then maps this
 block memories to address decoders and flip-flops, unless the option {\tt -nomap}
 is used, in which case the multi-port block memories stay in the design

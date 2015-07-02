@@ -1,4 +1,4 @@
-# read design 
+# read design
 read_verilog counter.v
 hierarchy -check -top counter
 

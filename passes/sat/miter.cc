@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -61,7 +61,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	}
 	if (argidx+3 != args.size() || args[argidx].substr(0, 1) == "-")
 		that->cmd_error(args, argidx, "command argument error");
-	
+
 	RTLIL::IdString gold_name = RTLIL::escape_id(args[argidx++]);
 	RTLIL::IdString gate_name = RTLIL::escape_id(args[argidx++]);
 	RTLIL::IdString miter_name = RTLIL::escape_id(args[argidx++]);
@@ -301,5 +301,5 @@ struct MiterPass : public Pass {
 		log_cmd_error("Missing mode parameter!\n");
 	}
 } MiterPass;
- 
+
 PRIVATE_NAMESPACE_END

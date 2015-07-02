@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -93,7 +93,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		fsm_data.state_bits = new_num_state_bits;
 	} else
 		log_error("FSM encoding `%s' is not supported!\n", encoding.c_str());
-	
+
 	if (encfile)
 		fprintf(encfile, ".fsm %s %s\n", log_id(module), RTLIL::unescape_id(cell->parameters["\\NAME"].decode_string()).c_str());
 
@@ -134,7 +134,7 @@ struct FsmRecodePass : public Pass {
 		log("\n");
 		log("This pass reassign the state encodings for FSM cells. At the moment only\n");
 		log("one-hot encoding and binary encoding is supported.\n");
-		
+
 		log("    -encoding <type>\n");
 		log("        specify the encoding scheme used for FSMs without the\n");
 		log("        'fsm_encoding' attribute or with the attribute set to `auto'.\n");
@@ -193,5 +193,5 @@ struct FsmRecodePass : public Pass {
 			fclose(encfile);
 	}
 } FsmRecodePass;
- 
+
 PRIVATE_NAMESPACE_END

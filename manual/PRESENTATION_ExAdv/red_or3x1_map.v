@@ -3,10 +3,10 @@ module \$reduce_or (A, Y);
     parameter A_SIGNED = 0;
     parameter A_WIDTH = 0;
     parameter Y_WIDTH = 0;
-    
+
     input [A_WIDTH-1:0] A;
     output [Y_WIDTH-1:0] Y;
-    
+
     function integer min;
         input integer a, b;
         begin
@@ -16,7 +16,7 @@ module \$reduce_or (A, Y);
                 min = b;
         end
     endfunction
-    
+
     genvar i;
     generate begin
         if (A_WIDTH == 0) begin

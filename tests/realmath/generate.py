@@ -39,7 +39,7 @@ def random_expression(depth = 3, maxparam = 0):
         return op + '(' + recursion() + ', ' + recursion() + ')'
     raise
 
-for idx in range(100): 
+for idx in range(100):
     with open('temp/uut_%05d.v' % idx, 'w') as f:
         with redirect_stdout(f):
             print('module uut_%05d(output [63:0] %s);\n' % (idx, ', '.join(['y%02d' % i for i in range(100)])))
@@ -91,4 +91,4 @@ for idx in range(100):
                 print('  compare_ref_syn(%2d, r%02d, s%02d);' % (i, i, i))
             print('end')
             print('endmodule')
- 
+

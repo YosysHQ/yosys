@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -80,7 +80,7 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 {
 	if (cell == NULL || attr == NULL || attr->value.empty())
 		return false;
-	
+
 	std::string value = attr->value;
 
 	for (size_t pos = value.find_first_of("\" \t()"); pos != std::string::npos; pos = value.find_first_of("\" \t()"))
@@ -562,7 +562,7 @@ struct DfflibmapPass : public Pass {
 		map_sr_to_arst("$_DFFSR_PNN_", "$_DFF_PN1_");
 		map_sr_to_arst("$_DFFSR_PPP_", "$_DFF_PP0_");
 		map_sr_to_arst("$_DFFSR_PPP_", "$_DFF_PP1_");
- 
+
  		log("  final dff cell mappings:\n");
  		logmap_all();
 
@@ -573,5 +573,5 @@ struct DfflibmapPass : public Pass {
 		cell_mappings.clear();
 	}
 } DfflibmapPass;
- 
+
 PRIVATE_NAMESPACE_END

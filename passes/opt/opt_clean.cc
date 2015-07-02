@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -159,7 +159,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			for (auto &it2 : cell->connections())
 				connected_signals.add(it2.second);
 		}
-	
+
 	SigMap assign_map(module);
 	pool<RTLIL::SigSpec> direct_sigs;
 	pool<RTLIL::Wire*> direct_wires;
@@ -368,7 +368,7 @@ struct OptCleanPass : public Pass {
 		log_pop();
 	}
 } OptCleanPass;
- 
+
 struct CleanPass : public Pass {
 	CleanPass() : Pass("clean", "remove unused cells and wires") { }
 	virtual void help()
@@ -432,5 +432,5 @@ struct CleanPass : public Pass {
 		ct_all.clear();
 	}
 } CleanPass;
- 
+
 PRIVATE_NAMESPACE_END

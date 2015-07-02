@@ -22,13 +22,13 @@ always @(uart_state or mem_burst)
     RX_DATA : uart_state_nxt =  RX_SYNC;
     default  : uart_state_nxt =  RX_CMD;
   endcase
-   
+
 always @(posedge dbg_clk or posedge dbg_rst)
   if (dbg_rst) uart_state <= RX_SYNC;
   else if (xfer_done | mem_burst) uart_state <= uart_state_nxt;
 
 assign cmd_valid = (uart_state==RX_CMD) & xfer_done;
 assign xfer_done = uart_state!=RX_SYNC;
-   
+
 endmodule
 

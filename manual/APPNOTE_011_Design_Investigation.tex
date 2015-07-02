@@ -256,7 +256,7 @@ Verilog file containing blackbox modules. There are two ways to load cell
 descriptions into Yosys: First the Verilog file for the cell library can be
 passed directly to the {\tt show} command using the {\tt -lib <filename>}
 option. Secondly it is possible to load cell libraries into the design with
-the {\tt read\_verilog -lib <filename>} command. The 2nd method has the great 
+the {\tt read\_verilog -lib <filename>} command. The 2nd method has the great
 advantage that the library only needs to be loaded once and can then be used
 in all subsequent calls to the {\tt show} command.
 
@@ -296,7 +296,7 @@ In addition to {\it what\/} to display one also needs to carefully decide
 {\it when\/} to display it, with respect to the synthesis flow. In general
 it is a good idea to troubleshoot a circuit in the earliest state in which
 a problem can be reproduced. So if, for example, the internal state before calling
-the {\tt techmap} command already fails to verify, it is better to troubleshoot 
+the {\tt techmap} command already fails to verify, it is better to troubleshoot
 the coarse-grain version of the circuit before {\tt techmap} than the gate-level
 circuit after {\tt techmap}.
 
@@ -316,7 +316,7 @@ yosys> ls
 1 modules:
   example
 
-yosys> cd example 
+yosys> cd example
 
 yosys [example]> ls
 
@@ -708,7 +708,7 @@ For example (see Fig.~\ref{submod} for the circuit diagram of {\tt selstage}):
 {\scriptsize
 \begin{verbatim}
    yosys [selstage]> eval -set s2,s1 4'b1001 -set d 4'hc -show n2 -show n1
-   
+
    9. Executing EVAL pass (evaluate the circuit given an input).
    Full command line: eval -set s2,s1 4'b1001 -set d 4'hc -show n2 -show n1
    Eval result: \n2 = 2'10.
@@ -729,10 +729,10 @@ The {\tt -table} option can be used to create a truth table. For example:
 {\scriptsize
 \begin{verbatim}
    yosys [selstage]> eval -set-undef -set d[3:1] 0 -table s1,d[0]
-   
+
    10. Executing EVAL pass (evaluate the circuit given an input).
    Full command line: eval -set-undef -set d[3:1] 0 -table s1,d[0]
-   
+
      \s1 \d [0] |  \n1  \n2
     ---- ------ | ---- ----
     2'00    1'0 | 2'00 2'00
@@ -743,7 +743,7 @@ The {\tt -table} option can be used to create a truth table. For example:
     2'10    1'1 | 2'xx 2'10
     2'11    1'0 | 2'00 2'00
     2'11    1'1 | 2'xx 2'11
-   
+
    Assumend undef (x) value for the following singals: \s2
 \end{verbatim}
 }
@@ -780,11 +780,11 @@ Final proof equation: \ok = 1'1
 Solving problem with 2790 variables and 8241 clauses..
 SAT proof finished - model found: FAIL!
 
-   ______                   ___       ___       _ _            _ _ 
+   ______                   ___       ___       _ _            _ _
   (_____ \                 / __)     / __)     (_) |          | | |
    _____) )___ ___   ___ _| |__    _| |__ _____ _| | _____  __| | |
   |  ____/ ___) _ \ / _ (_   __)  (_   __|____ | | || ___ |/ _  |_|
-  | |   | |  | |_| | |_| || |       | |  / ___ | | || ____( (_| |_ 
+  | |   | |  | |_| | |_| || |       | |  / ___ | | || ____( (_| |_
   |_|   |_|   \___/ \___/ |_|       |_|  \_____|_|\_)_____)\____|_|
 
 
@@ -811,15 +811,15 @@ Final proof equation: \ok = 1'1
 Solving problem with 2790 variables and 8257 clauses..
 SAT proof finished - no model found: SUCCESS!
 
-                  /$$$$$$      /$$$$$$$$     /$$$$$$$    
-                 /$$__  $$    | $$_____/    | $$__  $$   
-                | $$  \ $$    | $$          | $$  \ $$   
-                | $$  | $$    | $$$$$       | $$  | $$   
-                | $$  | $$    | $$__/       | $$  | $$   
-                | $$/$$ $$    | $$          | $$  | $$   
+                  /$$$$$$      /$$$$$$$$     /$$$$$$$
+                 /$$__  $$    | $$_____/    | $$__  $$
+                | $$  \ $$    | $$          | $$  \ $$
+                | $$  | $$    | $$$$$       | $$  | $$
+                | $$  | $$    | $$__/       | $$  | $$
+                | $$/$$ $$    | $$          | $$  | $$
                 |  $$$$$$/ /$$| $$$$$$$$ /$$| $$$$$$$//$$
                  \____ $$$|__/|________/|__/|_______/|__/
-                       \__/                              
+                       \__/
 \end{lstlisting}
 \caption{Experiments with the miter circuit from Fig.~\ref{primetest}. The first attempt of proving that 31
 is prime failed because the SAT solver found a creative way of factorizing 31 using integer overflow.}
@@ -840,20 +840,20 @@ corresponding input values. For Example:
 {\scriptsize
 \begin{verbatim}
    yosys [selstage]> sat -show s1,s2,d -set s1 s2 -set n2,n1 4'b1001
-   
+
    11. Executing SAT pass (solving SAT problems in the circuit).
    Full command line: sat -show s1,s2,d -set s1 s2 -set n2,n1 4'b1001
-   
+
    Setting up SAT problem:
    Import set-constraint: \s1 = \s2
    Import set-constraint: { \n2 \n1 } = 4'1001
    Final constraint equation: { \n2 \n1 \s1 } = { 4'1001 \s2 }
    Imported 3 cells to SAT database.
    Import show expression: { \s1 \s2 \d }
-   
+
    Solving problem with 81 variables and 207 clauses..
    SAT solving finished - model found:
-   
+
      Signal Name                 Dec        Hex             Bin
      -------------------- ---------- ---------- ---------------
      \d                            9          9            1001

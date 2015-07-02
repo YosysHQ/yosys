@@ -330,7 +330,7 @@ Mining for frequent SubCircuits
 
 The solver also contains a miner for frequent subcircuits. The following code
 fragment will find all frequent subcircuits with at least minNodes nodes and
-at most maxNodes nodes that occurs at least minMatches times: 
+at most maxNodes nodes that occurs at least minMatches times:
 
 	std::vector<SubCircuit::Solver::MineResult> results;
 	mySolver.mine(results, minNodes, maxNodes, minMatches);
@@ -370,7 +370,7 @@ This package also contains a small command-line tool called "scshell" that can
 be used for experimentation with the algorithm. This program reads a series of
 commands from stdin and reports its findings to stdout on exit.
 
-	$ ./scshell < test_macc22.txt 
+	$ ./scshell < test_macc22.txt
 
 	...
 

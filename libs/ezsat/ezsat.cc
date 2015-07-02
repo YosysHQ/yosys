@@ -2,11 +2,11 @@
  *  ezSAT -- A simple and easy to use CNF generator for SAT solvers
  *
  *  Copyright (C) 2013  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -1373,7 +1373,7 @@ int ezSAT::manyhot(const std::vector<int> &vec, int min_hot, int max_hot)
 
 	if (max_hot < 0)
 		max_hot = min_hot;
-	
+
 	std::vector<int> formula;
 	int M = max_hot+1, N = vec.size();
 	std::map<std::pair<int,int>, int> x;

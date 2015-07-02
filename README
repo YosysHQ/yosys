@@ -63,7 +63,7 @@ There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for
 more information:
 
-	http://www.clifford.at/yosys/download.html 
+	http://www.clifford.at/yosys/download.html
 
 To configure the build system to use a specific compiler, use one of
 

@@ -99,7 +99,7 @@ function makeGraph(seed, gates, primaryInputs, primaryOutputs)
 
 	foreach netDecl (unusedOutpus)
 		push primaryOutputs, netDecl;
-	
+
 	return code;
 }
 

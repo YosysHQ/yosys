@@ -550,23 +550,23 @@ process $proc$<input>:1$1
   switch \in2
     case 1'1
       assign $1\out1[0:0] $logic_not$<input>:4$2_Y
-    case 
+    case
       assign $1\out1[0:0] \in1
   end
   switch \in3
     case 1'1
       assign $0\out2[0:0] \out2
-    case 
+    case
   end
   switch \in4
     case 1'1
       switch \in5
         case 1'1
           assign $0\out3[0:0] \in6
-        case 
+        case
           assign $0\out3[0:0] \in7
       end
-    case 
+    case
   end
   sync posedge \clock
     update \out1 $0\out1[0:0]

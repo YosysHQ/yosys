@@ -72,4 +72,4 @@ for idx in range(100):
             print('tee -a temp/all_share_log.txt share -aggressive gate')
             print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
             print('sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter')
- 
+

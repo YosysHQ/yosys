@@ -15,7 +15,7 @@ module SB_IO (
 );
 	parameter [5:0] PIN_TYPE = 6'b000000;
 	parameter [0:0] PULLUP = 1'b0;
-	parameter [0:0] NEG_TRIGGER = 1'b0; 
+	parameter [0:0] NEG_TRIGGER = 1'b0;
 	parameter IO_STANDARD = "SB_LVCMOS";
 
 	reg dout, din_0, din_1;
@@ -74,7 +74,7 @@ module SB_GB_IO (
 );
 	parameter [5:0] PIN_TYPE = 6'b000000;
 	parameter [0:0] PULLUP = 1'b0;
-	parameter [0:0] NEG_TRIGGER = 1'b0; 
+	parameter [0:0] NEG_TRIGGER = 1'b0;
 	parameter IO_STANDARD = "SB_LVCMOS";
 
 	assign GLOBAL_BUFFER_OUTPUT = PACKAGE_PIN;

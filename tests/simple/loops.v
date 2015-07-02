@@ -41,10 +41,10 @@ begin
 		keysched_last_key_i = key_i;
 	else
 		keysched_last_key_i = keysched_new_key_o;
-	
+
 	if (round == 0 && addroundkey_start_i)
 	begin
-		data_var = addroundkey_data_i;	
+		data_var = addroundkey_data_i;
 		round_key_var = key_i;
 		round_data_var = round_key_var ^ data_var;
 		next_addroundkey_data_reg = round_data_var;
@@ -66,7 +66,7 @@ begin
 	end
 	else if (addroundkey_round == round && keysched_ready_o)
 	begin
-		data_var = addroundkey_data_i;	
+		data_var = addroundkey_data_i;
 		round_key_var = keysched_new_key_o;
 		round_data_var = round_key_var ^ data_var;
 		next_addroundkey_data_reg = round_data_var;

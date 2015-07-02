@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -56,7 +56,7 @@ static SigSpec recursive_mux_generator(Module *module, const SigSpec &sig_data, 
 	SigSpec right_sel = sig_sel.extract(left_size, right_size);
 
 	SigSpec left_or, left_result, right_result;
-	
+
 	left_result = recursive_mux_generator(module, left_data, left_sel, left_or);
 	right_result = recursive_mux_generator(module, right_data, right_sel, sig_or);
 	left_or = or_generator(module, left_or);

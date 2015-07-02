@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -530,7 +530,7 @@ struct MuxcoverWorker
 		int count_muxes_by_type[4] = {0, 0, 0, 0};
 		find_best_cover(tree, tree.root);
 		implement_best_cover(tree, tree.root, count_muxes_by_type);
-		log("    Replaced tree at %s: %d MUX2, %d MUX4, %d MUX8, %d MUX16\n", log_signal(tree.root), 
+		log("    Replaced tree at %s: %d MUX2, %d MUX4, %d MUX8, %d MUX16\n", log_signal(tree.root),
 				count_muxes_by_type[0], count_muxes_by_type[1], count_muxes_by_type[2], count_muxes_by_type[3]);
 		for (auto &it : tree.muxes)
 			module->remove(it.second);
@@ -628,5 +628,5 @@ struct MuxcoverPass : public Pass {
 		}
 	}
 } MuxcoverPass;
- 
+
 PRIVATE_NAMESPACE_END

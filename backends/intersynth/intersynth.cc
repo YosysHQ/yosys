@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -159,7 +159,7 @@ struct IntersynthBackend : public Backend {
 				}
 			}
 
-			// Submodules: "std::set<string> celltypes_code" prevents duplicate cell types 
+			// Submodules: "std::set<string> celltypes_code" prevents duplicate cell types
 			for (auto cell_it : module->cells_)
 			{
 				RTLIL::Cell *cell = cell_it.second;

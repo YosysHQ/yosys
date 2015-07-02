@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -2870,7 +2870,7 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 
 	if (width_ > width)
 		remove(width, width_ - width);
-	
+
 	if (width_ < width) {
 		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::S0;
 		if (!is_signed)
@@ -3439,7 +3439,7 @@ RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
 	for (auto &it : cases)
 		new_switchrule->cases.push_back(it->clone());
 	return new_switchrule;
-	
+
 }
 
 RTLIL::SyncRule *RTLIL::SyncRule::clone() const
@@ -3471,7 +3471,7 @@ RTLIL::Process *RTLIL::Process::clone() const
 
 	for (auto &it : syncs)
 		new_proc->syncs.push_back(it->clone());
-	
+
 	return new_proc;
 }
 

@@ -307,11 +307,11 @@ process $proc$ff_with_en_and_async_reset.v:4$1
 	switch \reset
 		case 1'1
 			assign $0\q[0:0] 1'0
-		case 
+		case
 			switch \enable
 				case 1'1
 					assign $0\q[0:0] \d
-				case 
+				case
 			end
 	end
 	sync posedge \clock
@@ -338,7 +338,7 @@ An RTLIL::CaseRule is a container for zero or more assignments (RTLIL::SigSig)
 and zero or more RTLIL::SwitchRule objects. An RTLIL::SwitchRule objects is a
 container for zero or more RTLIL::CaseRule objects.
 
-In the above example the lines $2 \dots 12$ are the root case. Here {\tt \$0\textbackslash{}q[0:0]} is first 
+In the above example the lines $2 \dots 12$ are the root case. Here {\tt \$0\textbackslash{}q[0:0]} is first
 assigned the old value {\tt \textbackslash{}q} as default value (line 2). The root case
 also contains an RTLIL::SwitchRule object (lines $3 \dots 12$). Such an object is very similar to the C {\tt switch}
 statement as it uses a control signal ({\tt \textbackslash{}reset} in this case) to determine
@@ -371,7 +371,7 @@ process $proc$ff_with_en_and_async_reset.v:4$1
 	switch \enable
 		case 1'1
 			assign $0\q[0:0] \d
-		case 
+		case
 	end
 	sync posedge \clock
 		update \q $0\q[0:0]
@@ -449,7 +449,7 @@ See Sec.~\ref{sec:memcells} for details about the memory cell types.
 Yosys reads and processes commands from synthesis scripts, command line arguments and
 an interactive command prompt. Yosys commands consist of a command name and an optional
 whitespace separated list of arguments. Commands are terminated using the newline character
-or a semicolon ({\tt ;}). Empty lines and lines starting with the hash sign ({\tt \#}) are ignored. 
+or a semicolon ({\tt ;}). Empty lines and lines starting with the hash sign ({\tt \#}) are ignored.
 See Sec.~\ref{sec:typusecase} for an example synthesis script.
 
 The command {\tt help} can be used to access the command reference manual.

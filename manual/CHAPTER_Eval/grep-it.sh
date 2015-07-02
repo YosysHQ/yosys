@@ -79,6 +79,6 @@ done
 # 	if [ $luts -gt 0 -a $luts_ys -gt 0 ]; then luts_p=$(( 100*luts_ys / luts )); else luts_p=NaN; fi
 # 	if [ $freq -gt 0 -a $freq_ys -gt 0 ]; then freq_p=$(( 100*freq_ys / freq )); else freq_p=NaN; fi
 # 	printf '%-30s %3s %3s %3s\n' $mod $regs_p $luts_p $freq_p
-# 
+#
 # done
 

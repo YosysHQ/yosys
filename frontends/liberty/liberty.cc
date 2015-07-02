@@ -2,11 +2,11 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  
+ *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
- *  
+ *
  *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -40,7 +40,7 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 
 	if (id_len == 0)
 		log_error("Expected identifier at `%s'.\n", expr);
-	
+
 	if (id_len == 1 && (*expr == '0' || *expr == '1'))
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 

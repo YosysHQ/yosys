@@ -17,11 +17,11 @@ FULL_PATH=$(readlink -f $1)
 DIR=$(dirname $FULL_PATH)
 
 ./yosys -q -p "
-read_verilog -sv $1; 
-hierarchy -top $3; 
-hierarchy -libdir $DIR; 
-hierarchy -check; 
-proc; 
+read_verilog -sv $1;
+hierarchy -top $3;
+hierarchy -libdir $DIR;
+hierarchy -check;
+proc;
 opt; opt_const -mux_undef; opt;
 rename -hide;;;
 #techmap -map +/pmux2mux.v;;
@@ -29,7 +29,7 @@ splice; opt;
 memory_dff -wr_only;
 memory_collect;;
 flatten;;
-memory_unpack; 
+memory_unpack;
 splitnets -driver;
 setundef -zero -undriven;
 opt;;;
