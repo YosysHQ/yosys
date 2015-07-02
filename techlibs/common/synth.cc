@@ -55,6 +55,9 @@ struct SynthPass : public Pass {
 		log("    -encfile <file>\n");
 		log("        passed to 'fsm_recode' via 'fsm'\n");
 		log("\n");
+		log("    -nofsm\n");
+		log("        do not run FSM optimization\n");
+		log("\n");
 		log("    -noabc\n");
 		log("        do not run abc (as if yosys was compiled without ABC support)\n");
 		log("\n");
@@ -112,6 +115,7 @@ struct SynthPass : public Pass {
 		std::string top_module, fsm_opts, memory_opts;
 		std::string run_from, run_to;
 		bool noalumacc = false;
+		bool nofsm = false;
 		bool noabc = false;
 
 		size_t argidx;
@@ -134,6 +138,10 @@ struct SynthPass : public Pass {
 					run_from = args[++argidx].substr(0, pos);
 					run_to = args[argidx].substr(pos+1);
 				}
+				continue;
+			}
+			if (args[argidx] == "-nofsm") {
+				nofsm = true;
 				continue;
 			}
 			if (args[argidx] == "-noabc") {
@@ -179,7 +187,8 @@ struct SynthPass : public Pass {
 				Pass::call(design, "alumacc");
 			Pass::call(design, "share");
 			Pass::call(design, "opt");
-			Pass::call(design, "fsm" + fsm_opts);
+			if (!nofsm)
+				Pass::call(design, "fsm" + fsm_opts);
 			Pass::call(design, "opt -fast");
 			Pass::call(design, "memory -nomap" + memory_opts);
 			Pass::call(design, "opt_clean");
