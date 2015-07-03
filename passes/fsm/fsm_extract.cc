@@ -56,6 +56,17 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(sig, cellport_list);
+
+	if (GetSize(cellport_list) > 1) {
+		log("  found %d combined drivers for state signal %s.\n", GetSize(cellport_list), log_signal(sig));
+		return false;
+	}
+
+	if (GetSize(cellport_list) < 1) {
+		log("  found no driver for state signal %s.\n", log_signal(sig));
+		return false;
+	}
+
 	for (auto &cellport : cellport_list)
 	{
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
@@ -90,9 +101,11 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 				log("  found reset state: %s (guessed from mux tree)\n", log_signal(*reset_state));
 			} while (0);
 
-		if (ctrl.extract(sig_s).size() == 0) {
-			log("  found ctrl input: %s\n", log_signal(sig_s));
-			ctrl.append(sig_s);
+		for (auto sig_s_bit : sig_s) {
+			if (ctrl.extract(sig_s_bit).empty()) {
+				log("  found ctrl input: %s\n", log_signal(sig_s_bit));
+				ctrl.append(sig_s_bit);
+			}
 		}
 
 		if (!find_states(sig_aa, dff_out, ctrl, states))
