@@ -54,42 +54,50 @@ endmodule
 			document.getElementById('popup').style.visibility = 'hidden';
 			document.getElementById('popupmsg').textContent = 'Please wait..';
 		}
+		function handle_run_errors(logmsg, errmsg) {
+			if (errmsg != "") {
+				window.alert(errmsg);
+				document.getElementById('popup').style.visibility = 'hidden';
+			}
+		}
 		function synth1() {
 			document.getElementById('popup').style.visibility = 'visible';
 			ys.write_file("input.v", document.getElementById('code').value);
-			ys.run('design -reset; read_verilog input.v; show -stretch');
+			ys.run('design -reset; read_verilog input.v; show -stretch', handle_run_errors);
 			ys.read_file('show.dot', (function(text){
-				YosysJS.dot_into_svg(text, 'svg');
+				console.log(ys.errmsg);
+				if (ys.errmsg == "") YosysJS.dot_into_svg(text, 'svg');
 				document.getElementById('popup').style.visibility = 'hidden';
 			}));
 		}
 		function synth2() {
 			document.getElementById('popup').style.visibility = 'visible';
 			ys.write_file("input.v", document.getElementById('code').value);
-			ys.run('design -reset; read_verilog input.v; proc; opt_clean; show -stretch');
+			ys.run('design -reset; read_verilog input.v; proc; opt_clean; show -stretch', handle_run_errors);
 			ys.read_file('show.dot', (function(text){
-				YosysJS.dot_into_svg(text, 'svg');
+				if (ys.errmsg == "") YosysJS.dot_into_svg(text, 'svg');
 				document.getElementById('popup').style.visibility = 'hidden';
 			}));
 		}
 		function synth3() {
 			document.getElementById('popup').style.visibility = 'visible';
 			ys.write_file("input.v", document.getElementById('code').value);
-			ys.run('design -reset; read_verilog input.v; synth -run coarse; show -stretch');
+			ys.run('design -reset; read_verilog input.v; synth -run coarse; show -stretch', handle_run_errors);
 			ys.read_file('show.dot', (function(text){
-				YosysJS.dot_into_svg(text, 'svg');
+				if (ys.errmsg == "") YosysJS.dot_into_svg(text, 'svg');
 				document.getElementById('popup').style.visibility = 'hidden';
 			}));
 		}
 		function synth4() {
 			document.getElementById('popup').style.visibility = 'visible';
 			ys.write_file("input.v", document.getElementById('code').value);
-			ys.run('design -reset; read_verilog input.v; synth -run coarse; synth -run fine; show -stretch');
+			ys.run('design -reset; read_verilog input.v; synth -run coarse; synth -run fine; show -stretch', handle_run_errors);
 			ys.read_file('show.dot', (function(text){
-				YosysJS.dot_into_svg(text, 'svg');
+				if (ys.errmsg == "") YosysJS.dot_into_svg(text, 'svg');
 				document.getElementById('popup').style.visibility = 'hidden';
 			}));
 		}
 		var ys = YosysJS.create_worker(on_ys_ready);
+		ys.verbose(true);
 	</script>
 </body></html>

@@ -1,3 +1,13 @@
+var Module = {};
+var verbose_mode = false;
+var text_buffer = "";
+
+Module["printErr"] = Module["print"] = function(text) {
+	if (verbose_mode)
+		console.log(text);
+	text_buffer += text + "\n";
+}
+
 importScripts('yosys.js');
 
 onmessage = function(e) {
@@ -5,12 +15,16 @@ onmessage = function(e) {
 	var response = { "idx": request.idx, "args": [] };
 
 	if (request.mode == "run") {
+		response["errmsg"] = "";
 		try {
+			text_buffer = "";
 			Module.ccall('run', '', ['string'], [request.cmd]);
-			response.args.push("");
 		} catch (e) {
-			response.args.push(mod.ccall('errmsg', 'string', [], []));
+			response.errmsg = Module.ccall('errmsg', 'string', [], []);
 		}
+		response.args.push(text_buffer);
+		response.args.push(response.errmsg);
+		text_buffer = "";
 	}
 
 	if (request.mode == "read_file") {
@@ -35,6 +49,12 @@ onmessage = function(e) {
 		try {
 			FS.unlink(request.filename);
 		} catch (e) { }
+	}
+
+	if (request.mode == "verbose") {
+		if (request.value)
+			console.log(text_buffer);
+		verbose_mode = request.value;
 	}
 
 	postMessage([response]);

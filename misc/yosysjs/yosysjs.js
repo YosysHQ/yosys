@@ -227,6 +227,7 @@ var YosysJS = new function() {
 		ys.worker = new Worker('yosyswrk.js');
 		ys.callback_idx = 1;
 		ys.callback_cache = {};
+		ys.errmsg = "";
 
 		ys.callback_cache[0] = on_ready;
 		on_ready = null;
@@ -235,6 +236,7 @@ var YosysJS = new function() {
 			var response = e.data[0];
 			var callback = ys.callback_cache[response.idx];
 			delete ys.callback_cache[response.idx];
+			if ("errmsg" in response) ys.errmsg = response.errmsg;
 			if (callback) callback.apply(null, response.args);
 		}
 
@@ -288,6 +290,17 @@ var YosysJS = new function() {
 				"idx": ys.callback_idx,
 				"mode": "remove_file",
 				"filename": filename
+			};
+
+			ys.callback_cache[ys.callback_idx++] = callback;
+			ys.worker.postMessage([request]);
+		}
+
+		ys.verbose = function(value, callback) {
+			var request = {
+				"idx": ys.callback_idx,
+				"mode": "verbose",
+				"value": value
 			};
 
 			ys.callback_cache[ys.callback_idx++] = callback;
