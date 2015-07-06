@@ -39,7 +39,7 @@ library(demo) {
   }
   cell(DFFSR) {
     area: 18;
-    ff(IQ, IQN) { clocked_on: C;
+    ff("IQ", "IQN") { clocked_on: C;
                   next_state: D;
                       preset: S;
                        clear: R; }
@@ -50,5 +50,6 @@ library(demo) {
               function: "IQ"; }
     pin(S) { direction: input; }
     pin(R) { direction: input; }
+    ; // empty statement
   }
 }
