@@ -110,21 +110,24 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 			SigSpec data = sigmap(cell->getPort("\\DATA"));
 			SigSpec en = sigmap(cell->getPort("\\EN"));
 
-			clk.extend_u0(1, false);
-			clk_enable.extend_u0(1, false);
-			clk_polarity.extend_u0(1, false);
-			addr.extend_u0(addr_bits, false);
-			data.extend_u0(memory->width, false);
-			en.extend_u0(memory->width, false);
+			if (!en.is_fully_zero())
+			{
+				clk.extend_u0(1, false);
+				clk_enable.extend_u0(1, false);
+				clk_polarity.extend_u0(1, false);
+				addr.extend_u0(addr_bits, false);
+				data.extend_u0(memory->width, false);
+				en.extend_u0(memory->width, false);
 
-			sig_wr_clk.append(clk);
-			sig_wr_clk_enable.append(clk_enable);
-			sig_wr_clk_polarity.append(clk_polarity);
-			sig_wr_addr.append(addr);
-			sig_wr_data.append(data);
-			sig_wr_en.append(en);
+				sig_wr_clk.append(clk);
+				sig_wr_clk_enable.append(clk_enable);
+				sig_wr_clk_polarity.append(clk_polarity);
+				sig_wr_addr.append(addr);
+				sig_wr_data.append(data);
+				sig_wr_en.append(en);
 
-			wr_ports++;
+				wr_ports++;
+			}
 			continue;
 		}
 
