@@ -679,7 +679,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least one element on the stack for operator %%co.\n");
 			select_op_expand(design, arg, 'o', false);
 		} else
-		if (arg == "%xe" || (arg.size() > 3 && arg.substr(0, 3) == "%x" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
+		if (arg == "%xe" || (arg.size() > 3 && arg.substr(0, 3) == "%xe" && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%xe.\n");
 			select_op_expand(design, arg, 'x', true);
@@ -1319,6 +1319,7 @@ struct SelectPass : public Pass {
 		{
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
+			work_stack.back().optimize(design);
 			if (!work_stack.back().empty())
 				log_error("Assertation failed: selection is not empty:%s\n", sel_str.c_str());
 			return;
@@ -1328,6 +1329,7 @@ struct SelectPass : public Pass {
 		{
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
+			work_stack.back().optimize(design);
 			if (work_stack.back().empty())
 				log_error("Assertation failed: selection is empty:%s\n", sel_str.c_str());
 			return;
