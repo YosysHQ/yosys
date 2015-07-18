@@ -159,9 +159,10 @@ struct TechmapWorker
 	void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
 	{
 		if (tpl->processes.size() != 0) {
-			log("Technology map yielded processes:\n");
+			log("Technology map yielded processes:");
 			for (auto &it : tpl->processes)
-				log("  %s",RTLIL::id2cstr(it.first));
+				log(" %s",RTLIL::id2cstr(it.first));
+			log("\n");
 			if (autoproc_mode) {
 				Pass::call_on_module(tpl->design, tpl, "proc");
 				log_assert(GetSize(tpl->processes) == 0);
