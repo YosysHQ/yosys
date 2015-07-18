@@ -18,6 +18,7 @@ module SB_IO (
 	parameter [0:0] NEG_TRIGGER = 1'b0;
 	parameter IO_STANDARD = "SB_LVCMOS";
 
+`ifndef BLACKBOX
 	reg dout, din_0, din_1;
 	reg din_q_0, din_q_1;
 	reg dout_q_0, dout_q_1;
@@ -57,6 +58,7 @@ module SB_IO (
 		if (PIN_TYPE[5:4] == 2'b10) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
 		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = OUTPUT_ENABLE ? dout : 1'bz;
 	endgenerate
+`endif
 endmodule
 
 module SB_GB_IO (
