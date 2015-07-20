@@ -1,4 +1,7 @@
 
+`define SB_DFF_REG reg Q = 0;
+// `define SB_DFF_REG reg Q;
+
 // SiliconBlue IO Cells
 
 module SB_IO (
@@ -123,18 +126,21 @@ endmodule
 
 // Positive Edge SiliconBlue FF Cells
 
-module SB_DFF (output reg Q, input C, D);
+module SB_DFF (output Q, input C, D);
+	`SB_DFF_REG
 	always @(posedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFE (output reg Q, input C, E, D);
+module SB_DFFE (output Q, input C, E, D);
+	`SB_DFF_REG
 	always @(posedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFSR (output reg Q, input C, R, D);
+module SB_DFFSR (output Q, input C, R, D);
+	`SB_DFF_REG
 	always @(posedge C)
 		if (R)
 			Q <= 0;
@@ -142,7 +148,8 @@ module SB_DFFSR (output reg Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFR (output reg Q, input C, R, D);
+module SB_DFFR (output Q, input C, R, D);
+	`SB_DFF_REG
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -150,7 +157,8 @@ module SB_DFFR (output reg Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFSS (output reg Q, input C, S, D);
+module SB_DFFSS (output Q, input C, S, D);
+	`SB_DFF_REG
 	always @(posedge C)
 		if (S)
 			Q <= 1;
@@ -158,7 +166,8 @@ module SB_DFFSS (output reg Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFS (output reg Q, input C, S, D);
+module SB_DFFS (output Q, input C, S, D);
+	`SB_DFF_REG
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -166,7 +175,8 @@ module SB_DFFS (output reg Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESR (output reg Q, input C, E, R, D);
+module SB_DFFESR (output Q, input C, E, R, D);
+	`SB_DFF_REG
 	always @(posedge C)
 		if (E) begin
 			if (R)
@@ -176,7 +186,8 @@ module SB_DFFESR (output reg Q, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFER (output reg Q, input C, E, R, D);
+module SB_DFFER (output Q, input C, E, R, D);
+	`SB_DFF_REG
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -184,7 +195,8 @@ module SB_DFFER (output reg Q, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFESS (output reg Q, input C, E, S, D);
+module SB_DFFESS (output Q, input C, E, S, D);
+	`SB_DFF_REG
 	always @(posedge C)
 		if (E) begin
 			if (S)
@@ -194,7 +206,8 @@ module SB_DFFESS (output reg Q, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFES (output reg Q, input C, E, S, D);
+module SB_DFFES (output Q, input C, E, S, D);
+	`SB_DFF_REG
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -204,18 +217,21 @@ endmodule
 
 // Negative Edge SiliconBlue FF Cells
 
-module SB_DFFN (output reg Q, input C, D);
+module SB_DFFN (output Q, input C, D);
+	`SB_DFF_REG
 	always @(negedge C)
 		Q <= D;
 endmodule
 
-module SB_DFFNE (output reg Q, input C, E, D);
+module SB_DFFNE (output Q, input C, E, D);
+	`SB_DFF_REG
 	always @(negedge C)
 		if (E)
 			Q <= D;
 endmodule
 
-module SB_DFFNSR (output reg Q, input C, R, D);
+module SB_DFFNSR (output Q, input C, R, D);
+	`SB_DFF_REG
 	always @(negedge C)
 		if (R)
 			Q <= 0;
@@ -223,7 +239,8 @@ module SB_DFFNSR (output reg Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNR (output reg Q, input C, R, D);
+module SB_DFFNR (output Q, input C, R, D);
+	`SB_DFF_REG
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -231,7 +248,8 @@ module SB_DFFNR (output reg Q, input C, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNSS (output reg Q, input C, S, D);
+module SB_DFFNSS (output Q, input C, S, D);
+	`SB_DFF_REG
 	always @(negedge C)
 		if (S)
 			Q <= 1;
@@ -239,7 +257,8 @@ module SB_DFFNSS (output reg Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNS (output reg Q, input C, S, D);
+module SB_DFFNS (output Q, input C, S, D);
+	`SB_DFF_REG
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
@@ -247,7 +266,8 @@ module SB_DFFNS (output reg Q, input C, S, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESR (output reg Q, input C, E, R, D);
+module SB_DFFNESR (output Q, input C, E, R, D);
+	`SB_DFF_REG
 	always @(negedge C)
 		if (E) begin
 			if (R)
@@ -257,7 +277,8 @@ module SB_DFFNESR (output reg Q, input C, E, R, D);
 		end
 endmodule
 
-module SB_DFFNER (output reg Q, input C, E, R, D);
+module SB_DFFNER (output Q, input C, E, R, D);
+	`SB_DFF_REG
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
@@ -265,7 +286,8 @@ module SB_DFFNER (output reg Q, input C, E, R, D);
 			Q <= D;
 endmodule
 
-module SB_DFFNESS (output reg Q, input C, E, S, D);
+module SB_DFFNESS (output Q, input C, E, S, D);
+	`SB_DFF_REG
 	always @(negedge C)
 		if (E) begin
 			if (S)
@@ -275,7 +297,8 @@ module SB_DFFNESS (output reg Q, input C, E, S, D);
 		end
 endmodule
 
-module SB_DFFNES (output reg Q, input C, E, S, D);
+module SB_DFFNES (output Q, input C, E, S, D);
+	`SB_DFF_REG
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
