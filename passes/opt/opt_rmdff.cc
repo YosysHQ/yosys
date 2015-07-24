@@ -147,7 +147,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		goto delete_dff;
 	}
 
-	if (sig_d.is_fully_const() && !sig_r.size() && (!has_init || val_init == sig_d.as_const())) {
+	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const())) {
 		RTLIL::SigSig conn(sig_q, sig_d);
 		mod->connect(conn);
 		goto delete_dff;
