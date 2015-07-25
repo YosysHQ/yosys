@@ -71,7 +71,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	if (design->modules_.count(gate_name) == 0)
 		log_cmd_error("Can't find gate module %s!\n", gate_name.c_str());
 	if (design->modules_.count(miter_name) != 0)
-		log_cmd_error("There is already a module %s!\n", gate_name.c_str());
+		log_cmd_error("There is already a module %s!\n", miter_name.c_str());
 
 	RTLIL::Module *gold_module = design->modules_.at(gold_name);
 	RTLIL::Module *gate_module = design->modules_.at(gate_name);
@@ -259,6 +259,79 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	}
 }
 
+void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL::Design *design)
+{
+	bool flag_make_outputs = false;
+	bool flag_flatten = false;
+
+	log_header("Executing MITER pass (creating miter circuit).\n");
+
+	size_t argidx;
+	for (argidx = 2; argidx < args.size(); argidx++)
+	{
+		if (args[argidx] == "-make_outputs") {
+			flag_make_outputs = true;
+			continue;
+		}
+		if (args[argidx] == "-flatten") {
+			flag_flatten = true;
+			continue;
+		}
+		break;
+	}
+	if ((argidx+1 != args.size() && argidx+2 != args.size()) || args[argidx].substr(0, 1) == "-")
+		that->cmd_error(args, argidx, "command argument error");
+
+	IdString module_name = RTLIL::escape_id(args[argidx++]);
+	IdString miter_name = argidx < args.size() ? RTLIL::escape_id(args[argidx++]) : "";
+
+	if (design->modules_.count(module_name) == 0)
+		log_cmd_error("Can't find module %s!\n", module_name.c_str());
+	if (!miter_name.empty() && design->modules_.count(miter_name) != 0)
+		log_cmd_error("There is already a module %s!\n", miter_name.c_str());
+
+	Module *module = design->module(module_name);
+
+	if (!miter_name.empty()) {
+		module = module->clone();
+		module->name = miter_name;
+		design->add(module);
+	}
+
+	if (!flag_make_outputs)
+		for (auto wire : module->wires())
+			wire->port_output = false;
+
+	Wire *trigger = module->addWire("\\trigger");
+	trigger->port_output = true;
+	module->fixup_ports();
+
+	if (flag_flatten) {
+		log_push();
+		Pass::call_on_module(design, module, "flatten;;");
+		log_pop();
+	}
+
+	SigSpec or_signals;
+	vector<Cell*> cell_list = module->cells();
+	for (auto cell : cell_list) {
+		if (cell->type == "$assert") {
+			SigBit is_active = module->Nex(NEW_ID, cell->getPort("\\A"), State::S1);
+			SigBit is_enabled = module->Eqx(NEW_ID, cell->getPort("\\EN"), State::S1);
+			or_signals.append(module->And(NEW_ID, is_active, is_enabled));
+			module->remove(cell);
+		}
+	}
+
+	module->addReduceOr(NEW_ID, or_signals, trigger);
+
+	if (flag_flatten) {
+		log_push();
+		Pass::call_on_module(design, module, "opt_const -keepdc -undriven;;");
+		log_pop();
+	}
+}
+
 struct MiterPass : public Pass {
 	MiterPass() : Pass("miter", "automatically create a miter circuit") { }
 	virtual void help()
@@ -290,11 +363,30 @@ struct MiterPass : public Pass {
 		log("    -flatten\n");
 		log("        call 'flatten; opt_const -keepdc -undriven;;' on the miter circuit.\n");
 		log("\n");
+		log("\n");
+		log("    miter -assert [options] module [miter_name]\n");
+		log("\n");
+		log("Creates a miter circuit for property checking. All input ports are kept,\n");
+		log("output ports are discarded. An additional output 'trigger' is created that\n");
+		log("goes high when an assert is violated. Without a miter_name, the existing\n");
+		log("module is modified.\n");
+		log("\n");
+		log("    -make_outputs\n");
+		log("        keep module output ports.\n");
+		log("\n");
+		log("    -flatten\n");
+		log("        call 'flatten; opt_const -keepdc -undriven;;' on the miter circuit.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		if (args.size() > 1 && args[1] == "-equiv") {
 			create_miter_equiv(this, args, design);
+			return;
+		}
+
+		if (args.size() > 1 && args[1] == "-assert") {
+			create_miter_assert(this, args, design);
 			return;
 		}
 
