@@ -130,38 +130,31 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	if (sig_c.is_fully_const() && (!sig_r.size() || !has_init || val_init == val_rv)) {
 		if (val_rv.bits.size() == 0)
 			val_rv = val_init;
-		RTLIL::SigSig conn(sig_q, val_rv);
-		mod->connect(conn);
+		mod->connect(sig_q, val_rv);
 		goto delete_dff;
 	}
 
 	if (sig_d.is_fully_undef() && sig_r.size() && (!has_init || val_init == val_rv)) {
-		RTLIL::SigSig conn(sig_q, val_rv);
-		mod->connect(conn);
+		mod->connect(sig_q, val_rv);
 		goto delete_dff;
 	}
 
 	if (sig_d.is_fully_undef() && !sig_r.size() && has_init) {
-		RTLIL::SigSig conn(sig_q, val_init);
-		mod->connect(conn);
+		mod->connect(sig_q, val_init);
 		goto delete_dff;
 	}
 
 	if (sig_d.is_fully_const() && (!sig_r.size() || val_rv == sig_d.as_const()) && (!has_init || val_init == sig_d.as_const())) {
-		RTLIL::SigSig conn(sig_q, sig_d);
-		mod->connect(conn);
+		log_dump(sig_q, sig_d);
+		mod->connect(sig_q, sig_d);
 		goto delete_dff;
 	}
 
 	if (sig_d == sig_q && (!sig_r.size() || !has_init || val_init == val_rv)) {
-		if (sig_r.size()) {
-			RTLIL::SigSig conn(sig_q, val_rv);
-			mod->connect(conn);
-		}
-		if (has_init) {
-			RTLIL::SigSig conn(sig_q, val_init);
-			mod->connect(conn);
-		}
+		if (sig_r.size())
+			mod->connect(sig_q, val_rv);
+		if (has_init)
+			mod->connect(sig_q, val_init);
 		goto delete_dff;
 	}
 
