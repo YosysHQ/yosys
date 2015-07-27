@@ -460,7 +460,6 @@ module SB_RAM40_4K (
 			if (!WMASK_I[13]) memory[WADDR[7:0]][13] <= WDATA_I[13];
 			if (!WMASK_I[14]) memory[WADDR[7:0]][14] <= WDATA_I[14];
 			if (!WMASK_I[15]) memory[WADDR[7:0]][15] <= WDATA_I[15];
-			if (!WMASK_I[16]) memory[WADDR[7:0]][16] <= WDATA_I[16];
 		end
 	end
 
