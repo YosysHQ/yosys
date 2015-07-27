@@ -79,6 +79,7 @@ struct CheckPass : public Pass {
 
 			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
+			dict<SigBit, int> wire_drivers_count;
 			pool<SigBit> used_wires;
 			TopoSort<string> topo;
 
@@ -99,9 +100,13 @@ struct CheckPass : public Pass {
 						if (logic_cell)
 							topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
 									stringf("wire %s", log_signal(sig[i])));
-						wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
-								log_id(conn.first), i, log_id(cell), log_id(cell->type)));
+						if (sig[i].wire)
+							wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
+									log_id(conn.first), i, log_id(cell), log_id(cell->type)));
 					}
+				if (!cell->input(conn.first) && cell->output(conn.first))
+					for (auto bit : sig)
+						if (bit.wire) wire_drivers_count[bit]++;
 			}
 
 			for (auto wire : module->wires()) {
@@ -113,6 +118,9 @@ struct CheckPass : public Pass {
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
 						if (bit.wire) used_wires.insert(bit);
+				if (wire->port_input && !wire->port_output)
+					for (auto bit : sigmap(wire))
+						if (bit.wire) wire_drivers_count[bit]++;
 				if (noinit && wire->attributes.count("\\init")) {
 					log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", log_id(module), log_id(wire));
 					counter++;
@@ -120,7 +128,7 @@ struct CheckPass : public Pass {
 			}
 
 			for (auto it : wire_drivers)
-				if (GetSize(it.second) > 1) {
+				if (wire_drivers_count[it.first] > 1) {
 					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
 					for (auto str : it.second)
 						message += stringf("    %s\n", str.c_str());
