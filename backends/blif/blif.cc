@@ -56,9 +56,31 @@ struct BlifDumper
 	BlifDumperConfig *config;
 	CellTypes ct;
 
+	SigMap sigmap;
+	dict<SigBit, int> init_bits;
+
 	BlifDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig *config) :
-			f(f), module(module), design(design), config(config), ct(design)
+			f(f), module(module), design(design), config(config), ct(design), sigmap(module)
 	{
+		for (Wire *wire : module->wires())
+			if (wire->attributes.count("\\init")) {
+				SigSpec initsig = sigmap(wire);
+				Const initval = wire->attributes.at("\\init");
+				for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
+					switch (initval[i]) {
+						case State::S0:
+							init_bits[initsig[i]] = 0;
+							break;
+						case State::S1:
+							init_bits[initsig[i]] = 1;
+							break;
+						case State::Sx:
+							init_bits[initsig[i]] = 2;
+							break;
+						default:
+							break;
+					}
+			}
 	}
 
 	vector<shared_str> cstr_buf;
@@ -88,6 +110,19 @@ struct BlifDumper
 
 		if (sig.wire->width != 1)
 			str += stringf("[%d]", sig.offset);
+
+		cstr_buf.push_back(str);
+		return cstr_buf.back().c_str();
+	}
+
+	const char *cstr_init(RTLIL::SigBit sig)
+	{
+		sigmap.apply(sig);
+
+		if (init_bits.count(sig) == 0)
+			return "";
+
+		string str = stringf(" %d", init_bits.at(sig));
 
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
@@ -217,6 +252,50 @@ struct BlifDumper
 				continue;
 			}
 
+			if (!config->icells_mode && cell->type == "$_NAND_") {
+				f << stringf(".names %s %s %s\n0- 1\n-0 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_NOR_") {
+				f << stringf(".names %s %s %s\n00 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_XNOR_") {
+				f << stringf(".names %s %s %s\n11 1\n00 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_AOI3_") {
+				f << stringf(".names %s %s %s %s\n-00 1\n0-0 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\C")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_OAI3_") {
+				f << stringf(".names %s %s %s %s\n00- 1\n--0 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\C")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_AOI4_") {
+				f << stringf(".names %s %s %s %s %s\n-0-0 1\n-00- 1\n0--0 1\n0-0- 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
+						cstr(cell->getPort("\\C")), cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_OAI4_") {
+				f << stringf(".names %s %s %s %s %s\n00-- 1\n--00 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
+						cstr(cell->getPort("\\C")), cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
 			if (!config->icells_mode && cell->type == "$_MUX_") {
 				f << stringf(".names %s %s %s %s\n1-0 1\n-11 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
@@ -225,14 +304,14 @@ struct BlifDumper
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_N_") {
-				f << stringf(".latch %s %s fe %s\n",
-						cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")), cstr(cell->getPort("\\C")));
+				f << stringf(".latch %s %s fe %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
+						cstr(cell->getPort("\\C")), cstr_init(cell->getPort("\\Q")));
 				continue;
 			}
 
 			if (!config->icells_mode && cell->type == "$_DFF_P_") {
-				f << stringf(".latch %s %s re %s\n",
-						cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")), cstr(cell->getPort("\\C")));
+				f << stringf(".latch %s %s re %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
+						cstr(cell->getPort("\\C")), cstr_init(cell->getPort("\\Q")));
 				continue;
 			}
 
