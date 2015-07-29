@@ -148,7 +148,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				}
 			}
 
-			mem2reg_as_needed_pass2(mem2reg_set, this, NULL);
+			while (mem2reg_as_needed_pass2(mem2reg_set, this, NULL)) { }
 
 			for (size_t i = 0; i < children.size(); i++) {
 				if (mem2reg_set.count(children[i]) > 0) {
@@ -2366,8 +2366,10 @@ bool AstNode::mem2reg_check(pool<AstNode*> &mem2reg_set)
 }
 
 // actually replace memories with registers
-void AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
+bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
 {
+	bool did_something = false;
+
 	if (type == AST_BLOCK)
 		block = this;
 
@@ -2426,6 +2428,8 @@ void AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		children[0]->id2ast = NULL;
 		children[0]->str = id_data;
 		type = AST_ASSIGN_EQ;
+
+		did_something = true;
 	}
 
 	if (mem2reg_check(mem2reg_set))
@@ -2526,7 +2530,10 @@ void AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 	auto children_list = children;
 	for (size_t i = 0; i < children_list.size(); i++)
-		children_list[i]->mem2reg_as_needed_pass2(mem2reg_set, mod, block);
+		if (children_list[i]->mem2reg_as_needed_pass2(mem2reg_set, mod, block))
+			did_something = true;
+
+	return did_something;
 }
 
 // calulate memory dimensions
