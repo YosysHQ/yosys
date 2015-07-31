@@ -970,7 +970,7 @@ namespace {
 				param("\\MEMID");
 				param("\\PRIORITY");
 				port("\\ADDR", param("\\ABITS"));
-				port("\\DATA", param("\\WIDTH"));
+				port("\\DATA", param("\\WIDTH") * param("\\WORDS"));
 				check_expected();
 				return;
 			}

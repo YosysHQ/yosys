@@ -1247,8 +1247,16 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int mem_width, mem_size, addr_bits;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
+			int num_words = 1;
+			if (type == AST_MEMINIT) {
+				if (children[2]->type != AST_CONSTANT)
+					log_error("Memory init with non-constant word count at %s:%d!\n", filename.c_str(), linenum);
+				num_words = children[2]->asInt(false);
+				cell->parameters["\\WORDS"] = RTLIL::Const(num_words);
+			}
+
 			cell->setPort("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
-			cell->setPort("\\DATA", children[1]->genWidthRTLIL(current_module->memories[str]->width));
+			cell->setPort("\\DATA", children[1]->genWidthRTLIL(current_module->memories[str]->width * num_words));
 
 			cell->parameters["\\MEMID"] = RTLIL::Const(str);
 			cell->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
