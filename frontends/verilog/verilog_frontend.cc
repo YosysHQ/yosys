@@ -126,6 +126,9 @@ struct VerilogFrontend : public Frontend {
 		log("        to a later 'hierarchy' command. Useful in cases where the default\n");
 		log("        parameters of modules yield invalid or not synthesizable code.\n");
 		log("\n");
+		log("    -noautowire\n");
+		log("        make the default of `default_nettype be \"none\" instead of \"wire\".\n");
+		log("\n");
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
@@ -169,6 +172,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yydebug = false;
 		sv_mode = false;
 		formal_mode = false;
+		default_nettype_wire = true;
 
 		log_header("Executing Verilog-2005 frontend.\n");
 
@@ -246,6 +250,10 @@ struct VerilogFrontend : public Frontend {
 				flag_defer = true;
 				continue;
 			}
+			if (arg == "-noautowire") {
+				default_nettype_wire = false;
+				continue;
+			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
 				attributes.push_back(RTLIL::escape_id(args[++argidx]));
 				continue;
@@ -289,7 +297,6 @@ struct VerilogFrontend : public Frontend {
 		AST::get_line_num = &frontend_verilog_yyget_lineno;
 
 		current_ast = new AST::AstNode(AST::AST_DESIGN);
-		default_nettype_wire = true;
 
 		lexin = f;
 		std::string code_after_preproc;
