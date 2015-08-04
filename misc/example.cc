@@ -1,6 +1,6 @@
-// clang -o example -std=c++11 -I/usr/include/tcl8.5 -I include/ example.cc objs/*.o -lstdc++ -lm -lrt -lreadline -lffi -ldl -ltcl8.5
+// yosys-config --exec --cxx -o example --cxxflags --ldflags example.cc -lyosys -lstdc++
 
-#include <yosys.h>
+#include <kernel/yosys.h>
 
 int main()
 {

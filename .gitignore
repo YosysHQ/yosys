@@ -25,3 +25,4 @@
 /yosys-win32-mxebin-*
 /yosys-win32-vcxsrc-*
 /yosysjs-*
+/libyosys.so
