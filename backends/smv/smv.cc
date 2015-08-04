@@ -42,7 +42,7 @@ struct SmvWorker
 
 	pool<Wire*> partial_assignment_wires;
 	dict<SigBit, std::pair<const char*, int>> partial_assignment_bits;
-	vector<string> assignments;
+	vector<string> assignments, invarspecs;
 
 	const char *cid()
 	{
@@ -226,6 +226,16 @@ struct SmvWorker
 		for (auto cell : module->cells())
 		{
 			// FIXME: $slice, $concat, $mem
+
+			if (cell->type.in("$assert"))
+			{
+				SigSpec sig_a = cell->getPort("\\A");
+				SigSpec sig_en = cell->getPort("\\EN");
+
+				invarspecs.push_back(stringf("!bool(%s) | bool(%s);", rvalue(sig_en), rvalue(sig_a)));
+
+				continue;
+			}
 
 			if (cell->type.in("$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx"))
 			{
@@ -634,9 +644,16 @@ struct SmvWorker
 			assignments.push_back(stringf("%s := %s;", cid(wire->name), expr.c_str()));
 		}
 
-		f << stringf("  ASSIGN\n");
-		for (const string &line : assignments)
-			f << stringf("    %s\n", line.c_str());
+		if (!assignments.empty()) {
+			f << stringf("  ASSIGN\n");
+			for (const string &line : assignments)
+				f << stringf("    %s\n", line.c_str());
+		}
+
+		if (!invarspecs.empty()) {
+			for (const string &line : invarspecs)
+				f << stringf("  INVARSPEC %s\n", line.c_str());
+		}
 	}
 };
 
