@@ -12,6 +12,7 @@ ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
 ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
+ENABLE_LIBYOSYS := 0
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -24,7 +25,6 @@ TARGET_BINDIR := $(DESTDIR)/bin
 TARGET_DATDIR := $(DESTDIR)/share/yosys
 
 EXE =
-LIB =
 OBJS =
 GENFILES =
 EXTRA_OBJS =
@@ -56,7 +56,6 @@ ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 else
 	LDFLAGS += -rdynamic
 	LDLIBS += -lrt
-	LIB = .so
 endif
 
 YOSYS_VER := 0.5+$(shell test -d .git && { git log --author=clifford@clifford.at --oneline c3c9fbfb8c678.. | wc -l; })
@@ -107,7 +106,6 @@ CXXFLAGS += $(EMCCFLAGS)
 LDFLAGS += $(EMCCFLAGS)
 LDLIBS =
 EXE = .js
-LIB =
 
 TARGETS := $(filter-out yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
@@ -134,14 +132,13 @@ LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -x c++ -fpermissive -w"
 ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" READLINE=0 CC="$(CXX)" CXX="$(CXX)"
 EXE = .exe
-LIB =
 
 else ifneq ($(CONFIG),none)
 $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.6, emcc, none)
 endif
 
-ifneq ($(LIB),)
-TARGETS += libyosys$(LIB)
+ifeq ($(ENABLE_LIBYOSYS),1)
+TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_READLINE),1)
@@ -296,10 +293,8 @@ endif
 yosys$(EXE): $(OBJS)
 	$(P) $(CXX) -o yosys$(EXE) $(LDFLAGS) $^ $(LDLIBS)
 
-ifneq ($(LIB),)
-libyosys$(LIB): $(filter-out kernel/driver.o,$(OBJS))
-	$(P) $(CXX) -o libyosys$(LIB) -shared -Wl,-soname,libyosys$(LIB) $(LDFLAGS) $^ $(LDLIBS)
-endif
+libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
+	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
 
 %.o: %.cc
 	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
@@ -376,16 +371,16 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)/bin/
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/share/yosys
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)/share/yosys/.
-ifneq ($(LIB),)
-	$(INSTALL_SUDO) cp libyosys$(LIB) $(DESTDIR)/lib/
+ifeq ($(ENABLE_LIBYOSYS),1)
+	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)/lib/
 	$(INSTALL_SUDO) ldconfig
 endif
 
 uninstall:
 	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)/bin/,$(notdir $(TARGETS)))
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)/share/yosys/
-ifneq ($(LIB),)
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)/lib/libyosys$(LIB)
+ifeq ($(ENABLE_LIBYOSYS),1)
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)/lib/libyosys.so
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
