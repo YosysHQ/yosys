@@ -79,8 +79,8 @@ struct BtorDumper
 	RTLIL::IdString curr_cell; //current cell being dumped
 	std::map<std::string, std::string> cell_type_translation, s_cell_type_translation; //RTLIL to BTOR translation
         std::map<int, std::set<std::pair<int,int>>> mem_next; // memory (line_number)'s set of condition and write
-    	BtorDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BtorDumperConfig *config) :
-    		f(f), module(module), design(design), config(config), ct(design), sigmap(module)
+	BtorDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BtorDumperConfig *config) :
+		f(f), module(module), design(design), config(config), ct(design), sigmap(module)
 	{
 		line_num=0;
 		str.clear();
@@ -520,7 +520,7 @@ struct BtorDumper
 				bool l1_signed = cell->parameters.at(RTLIL::IdString("\\A_SIGNED")).as_bool();
 				bool l2_signed YS_ATTRIBUTE(unused) = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
-				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
+				int l2_width = cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
 
 				log_assert(l1_signed == l2_signed);
 				l1_width = l1_width > output_width ? l1_width : output_width;
@@ -554,7 +554,7 @@ struct BtorDumper
 				bool l1_signed = cell->parameters.at(RTLIL::IdString("\\A_SIGNED")).as_bool();
 				bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
-				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
+				int l2_width = cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
 
 				log_assert(l1_signed == l2_signed);
 				l1_width = l1_width > output_width ? l1_width : output_width;
@@ -594,7 +594,7 @@ struct BtorDumper
 				//bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
 				l1_width = pow(2, ceil(log(l1_width)/log(2)));
-				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
+				int l2_width = cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
 				//log_assert(l2_width <= ceil(log(l1_width)/log(2)) );
 				int l1 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), l1_width);
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), ceil(log(l1_width)/log(2)));
@@ -641,7 +641,7 @@ struct BtorDumper
 				int l1 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), output_width);
 				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), output_width);
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
-				int l2_width = 	cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
+				int l2_width = cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
 				if(l1_width >1)
 				{
 					++line_num;
@@ -830,7 +830,7 @@ struct BtorDumper
                                         mem = line_num - 1;
 				}
 				*/
-                		++line_num;
+				++line_num;
 				if(polarity)
 					str = stringf("%d one 1", line_num);
 				else
