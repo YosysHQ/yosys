@@ -578,15 +578,13 @@ struct SmvWorker
 
 			for (int i = 0; i < wire->width; i++)
 			{
-				SigBit bit = sigmap(SigBit(wire, i));
-
 				if (!expr.empty())
 					expr = " :: " + expr;
 
-				if (partial_assignment_bits.count(bit))
+				if (partial_assignment_bits.count(sigmap(SigBit(wire, i))))
 				{
 					int width = 1;
-					const auto &bit_a = partial_assignment_bits.at(bit);
+					const auto &bit_a = partial_assignment_bits.at(sigmap(SigBit(wire, i)));
 
 					while (i+1 < wire->width)
 					{
@@ -623,6 +621,20 @@ struct SmvWorker
 						bits += sig[k] == State::S1 ? '1' : '0';
 
 					expr = stringf("0ub%d_%s", GetSize(bits), bits.c_str()) + expr;
+				}
+				else if (sigmap(SigBit(wire, i)) == SigBit(wire, i))
+				{
+					int length = 1;
+
+					while (i+1 < wire->width) {
+						if (partial_assignment_bits.count(sigmap(SigBit(wire, i+1))))
+							break;
+						if (sigmap(SigBit(wire, i+1)) != SigBit(wire, i+1))
+							break;
+						i++, length++;
+					}
+
+					expr = stringf("0ub%d_0", length) + expr;
 				}
 				else
 				{
