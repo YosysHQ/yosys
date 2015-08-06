@@ -864,3 +864,13 @@ module SB_PLL40_2F_PAD (
 	parameter EXTERNAL_DIVIDE_FACTOR = 1;
 endmodule
 
+// SiliconBlue Device Configuration Cells
+
+(* blackbox *)
+(* keep *)
+module SB_WARMBOOT (
+	input BOOT,
+	input S1,
+	input S0
+);
+endmodule
