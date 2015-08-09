@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
+bool memcells_cmp(Cell *a, Cell *b)
 {
 	if (a->type == "$memrd" && b->type == "$memrd")
 		return a->name < b->name;
@@ -32,7 +32,7 @@ bool memcells_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
 	return a->parameters.at("\\PRIORITY").as_int() < b->parameters.at("\\PRIORITY").as_int();
 }
 
-void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
+Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 {
 	log("Collecting $memrd, $memwr and $meminit for memory `%s' in module `%s':\n",
 			memory->name.c_str(), module->name.c_str());
@@ -43,25 +43,25 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	SigMap sigmap(module);
 
 	int wr_ports = 0;
-	RTLIL::SigSpec sig_wr_clk;
-	RTLIL::SigSpec sig_wr_clk_enable;
-	RTLIL::SigSpec sig_wr_clk_polarity;
-	RTLIL::SigSpec sig_wr_addr;
-	RTLIL::SigSpec sig_wr_data;
-	RTLIL::SigSpec sig_wr_en;
+	SigSpec sig_wr_clk;
+	SigSpec sig_wr_clk_enable;
+	SigSpec sig_wr_clk_polarity;
+	SigSpec sig_wr_addr;
+	SigSpec sig_wr_data;
+	SigSpec sig_wr_en;
 
 	int rd_ports = 0;
-	RTLIL::SigSpec sig_rd_clk;
-	RTLIL::SigSpec sig_rd_clk_enable;
-	RTLIL::SigSpec sig_rd_clk_polarity;
-	RTLIL::SigSpec sig_rd_transparent;
-	RTLIL::SigSpec sig_rd_addr;
-	RTLIL::SigSpec sig_rd_data;
+	SigSpec sig_rd_clk;
+	SigSpec sig_rd_clk_enable;
+	SigSpec sig_rd_clk_polarity;
+	SigSpec sig_rd_transparent;
+	SigSpec sig_rd_addr;
+	SigSpec sig_rd_data;
 
-	std::vector<RTLIL::Cell*> memcells;
+	std::vector<Cell*> memcells;
 
 	for (auto &cell_it : module->cells_) {
-		RTLIL::Cell *cell = cell_it.second;
+		Cell *cell = cell_it.second;
 		if (cell->type.in("$memrd", "$memwr", "$meminit") && memory->name == cell->parameters["\\MEMID"].decode_string()) {
 			addr_bits = std::max(addr_bits, cell->getParam("\\ABITS").as_int());
 			memcells.push_back(cell);
@@ -70,7 +70,7 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	if (memcells.empty()) {
 		log("  no cells found. removing memory.\n");
-		return;
+		return nullptr;
 	}
 
 	std::sort(memcells.begin(), memcells.end(), memcells_cmp);
@@ -104,8 +104,8 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 		if (cell->type == "$memwr")
 		{
 			SigSpec clk = sigmap(cell->getPort("\\CLK"));
-			SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
-			SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
+			SigSpec clk_enable = SigSpec(cell->parameters["\\CLK_ENABLE"]);
+			SigSpec clk_polarity = SigSpec(cell->parameters["\\CLK_POLARITY"]);
 			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
 			SigSpec data = sigmap(cell->getPort("\\DATA"));
 			SigSpec en = sigmap(cell->getPort("\\EN"));
@@ -134,9 +134,9 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 		if (cell->type == "$memrd")
 		{
 			SigSpec clk = sigmap(cell->getPort("\\CLK"));
-			SigSpec clk_enable = RTLIL::SigSpec(cell->parameters["\\CLK_ENABLE"]);
-			SigSpec clk_polarity = RTLIL::SigSpec(cell->parameters["\\CLK_POLARITY"]);
-			SigSpec transparent = RTLIL::SigSpec(cell->parameters["\\TRANSPARENT"]);
+			SigSpec clk_enable = SigSpec(cell->parameters["\\CLK_ENABLE"]);
+			SigSpec clk_polarity = SigSpec(cell->parameters["\\CLK_POLARITY"]);
+			SigSpec transparent = SigSpec(cell->parameters["\\TRANSPARENT"]);
 			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
 			SigSpec data = sigmap(cell->getPort("\\DATA"));
 
@@ -162,12 +162,12 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	std::stringstream sstr;
 	sstr << "$mem$" << memory->name.str() << "$" << (autoidx++);
 
-	RTLIL::Cell *mem = module->addCell(sstr.str(), "$mem");
-	mem->parameters["\\MEMID"] = RTLIL::Const(memory->name.str());
-	mem->parameters["\\WIDTH"] = RTLIL::Const(memory->width);
-	mem->parameters["\\OFFSET"] = RTLIL::Const(memory->start_offset);
-	mem->parameters["\\SIZE"] = RTLIL::Const(memory->size);
-	mem->parameters["\\ABITS"] = RTLIL::Const(addr_bits);
+	Cell *mem = module->addCell(sstr.str(), "$mem");
+	mem->parameters["\\MEMID"] = Const(memory->name.str());
+	mem->parameters["\\WIDTH"] = Const(memory->width);
+	mem->parameters["\\OFFSET"] = Const(memory->start_offset);
+	mem->parameters["\\SIZE"] = Const(memory->size);
+	mem->parameters["\\ABITS"] = Const(addr_bits);
 
 	while (GetSize(init_data) > 1 && init_data.bits.back() == State::Sx && init_data.bits[GetSize(init_data)-2] == State::Sx)
 		init_data.bits.pop_back();
@@ -180,9 +180,9 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	log_assert(sig_wr_data.size() == wr_ports * memory->width);
 	log_assert(sig_wr_en.size() == wr_ports * memory->width);
 
-	mem->parameters["\\WR_PORTS"] = RTLIL::Const(wr_ports);
-	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.as_const() : RTLIL::Const(0, 1);
-	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.as_const() : RTLIL::Const(0, 1);
+	mem->parameters["\\WR_PORTS"] = Const(wr_ports);
+	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.as_const() : Const(0, 1);
+	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.as_const() : Const(0, 1);
 
 	mem->setPort("\\WR_CLK", sig_wr_clk);
 	mem->setPort("\\WR_ADDR", sig_wr_addr);
@@ -195,10 +195,10 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 	log_assert(sig_rd_addr.size() == rd_ports * addr_bits);
 	log_assert(sig_rd_data.size() == rd_ports * memory->width);
 
-	mem->parameters["\\RD_PORTS"] = RTLIL::Const(rd_ports);
-	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.as_const() : RTLIL::Const(0, 1);
-	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.as_const() : RTLIL::Const(0, 1);
-	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.as_const() : RTLIL::Const(0, 1);
+	mem->parameters["\\RD_PORTS"] = Const(rd_ports);
+	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.as_const() : Const(0, 1);
+	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.as_const() : Const(0, 1);
+	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.as_const() : Const(0, 1);
 
 	mem->setPort("\\RD_CLK", sig_rd_clk);
 	mem->setPort("\\RD_ADDR", sig_rd_addr);
@@ -206,19 +206,24 @@ void handle_memory(RTLIL::Module *module, RTLIL::Memory *memory)
 
 	for (auto c : memcells)
 		module->remove(c);
+
+	return mem;
 }
 
-static void handle_module(RTLIL::Design *design, RTLIL::Module *module)
+static void handle_module(Design *design, Module *module)
 {
-	std::vector<RTLIL::IdString> delme;
+	std::vector<pair<Cell*, IdString>> finqueue;
+
 	for (auto &mem_it : module->memories)
 		if (design->selected(module, mem_it.second)) {
-			handle_memory(module, mem_it.second);
-			delme.push_back(mem_it.first);
+			Cell *c = handle_memory(module, mem_it.second);
+			finqueue.push_back(pair<Cell*, IdString>(c, mem_it.first));
 		}
-	for (auto &it : delme) {
-		delete module->memories.at(it);
-		module->memories.erase(it);
+	for (auto &it : finqueue) {
+		delete module->memories.at(it.second);
+		module->memories.erase(it.second);
+		if (it.first)
+			module->rename(it.first, it.second);
 	}
 }
 

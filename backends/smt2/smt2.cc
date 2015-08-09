@@ -440,6 +440,9 @@ struct Smt2Worker
 			decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
 					log_id(module), arrayid, log_id(module), abits, width, log_id(cell)));
 
+			decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s#%d#0| state))\n",
+					log_id(module), log_id(cell), log_id(module), abits, width, log_id(module), arrayid));
+
 			for (int i = 0; i < rd_ports; i++)
 			{
 				std::string addr = get_bv(cell->getPort("\\RD_ADDR").extract(abits*i, abits));
@@ -659,7 +662,9 @@ struct Smt2Backend : public Backend {
 		log("        enable support for memories (via ArraysEx theory). this option\n");
 		log("        also implies -bv. only $mem cells without merged registers in\n");
 		log("        read ports are supported. call \"memory\" with -nordff to make sure\n");
-		log("        that no registers are merged into $mem read ports.\n");
+		log("        that no registers are merged into $mem read ports. '<mod>_m' functions\n");
+		log("        will be generated for accessing the arrays that are used to represent\n");
+		log("        memories.\n");
 		log("\n");
 		log("    -tpl <template_file>\n");
 		log("        use the given template file. the line containing only the token '%%%%'\n");
