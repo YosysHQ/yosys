@@ -353,6 +353,8 @@ struct OptCleanPass : public Pass {
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
 
+		ct_all.setup(design);
+
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
 				continue;
@@ -365,6 +367,7 @@ struct OptCleanPass : public Pass {
 
 		ct.clear();
 		ct_reg.clear();
+		ct_all.clear();
 		log_pop();
 	}
 } OptCleanPass;
