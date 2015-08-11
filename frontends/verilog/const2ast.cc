@@ -48,7 +48,9 @@ static int my_decimal_div_by_two(std::vector<uint8_t> &digits)
 {
 	int carry = 0;
 	for (size_t i = 0; i < digits.size(); i++) {
-		log_assert(digits[i] < 10);
+		if (digits[i] >= 10)
+			log_error("Invalid use of [a-fxz?] in decimal constant at %s:%d.\n",
+				current_filename.c_str(), get_line_num());
 		digits[i] += carry * 10;
 		carry = digits[i] % 2;
 		digits[i] /= 2;
@@ -90,6 +92,9 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 			digits.push_back(0xf2);
 		str++;
 	}
+
+	if (base == 10 && GetSize(digits) == 1 && digits.front() >= 0xf0)
+		base = 2;
 
 	if (base == 10) {
 		data.clear();
@@ -138,7 +143,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 		AstNode *ret = const2ast(code, case_type);
 		if (std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
 			log_warning("Yosys does not support tri-state logic at the moment. (%s:%d)\n",
-				current_filename.c_str(), frontend_verilog_yyget_lineno());
+				current_filename.c_str(), get_line_num());
 		return ret;
 	}
 
