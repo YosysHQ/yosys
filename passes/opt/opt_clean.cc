@@ -350,6 +350,11 @@ struct OptCleanPass : public Pass {
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 
+		for (auto module : design->modules()) {
+			if (module->get_bool_attribute("\\blackbox"))
+				ct.setup_module(module);
+		}
+
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
 
@@ -408,6 +413,11 @@ struct CleanPass : public Pass {
 		ct.setup_internals_mem();
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
+
+		for (auto module : design->modules()) {
+			if (module->get_bool_attribute("\\blackbox"))
+				ct.setup_module(module);
+		}
 
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
