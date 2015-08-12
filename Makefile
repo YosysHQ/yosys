@@ -397,7 +397,7 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 
 clean:
 	rm -rf share
-	cd manual && bash clean.sh
+	if test -d manual; then cd manual && sh clean.sh; fi
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
