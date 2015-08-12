@@ -36,8 +36,10 @@ SMALL = 0
 
 all: top-all
 
-YOSYS_SRC := $(shell pwd)
-CXXFLAGS = -Wall -Wextra -ggdb -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(DESTDIR)/include
+YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
+VPATH := $(YOSYS_SRC)
+
+CXXFLAGS = -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(DESTDIR)/include
 LDFLAGS = -L$(DESTDIR)/lib
 LDLIBS = -lstdc++ -lm
 SED = sed
@@ -190,7 +192,7 @@ define add_share_file
 EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
 $(subst //,/,$(1)/$(notdir $(2))): $(2)
 	$$(P) mkdir -p $(1)
-	$$(Q) cp $(2) $(subst //,/,$(1)/$(notdir $(2)))
+	$$(Q) cp "$(YOSYS_SRC)"/$(2) $(subst //,/,$(1)/$(notdir $(2)))
 endef
 
 define add_include_file
@@ -250,10 +252,10 @@ OBJS += libs/minisat/SimpSolver.o
 OBJS += libs/minisat/Solver.o
 OBJS += libs/minisat/System.o
 
-include frontends/*/Makefile.inc
-include passes/*/Makefile.inc
-include backends/*/Makefile.inc
-include techlibs/*/Makefile.inc
+include $(YOSYS_SRC)/frontends/*/Makefile.inc
+include $(YOSYS_SRC)/passes/*/Makefile.inc
+include $(YOSYS_SRC)/backends/*/Makefile.inc
+include $(YOSYS_SRC)/techlibs/*/Makefile.inc
 
 else
 
@@ -297,20 +299,22 @@ libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
 
 %.o: %.cc
+	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
 
 %.o: %.cpp
+	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
 
-kernel/version_$(GIT_REV).cc: Makefile
+kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
-	$(Q) echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV), $(notdir $(CXX)) ` \
+	$(Q) mkdir -p kernel && echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys $(YOSYS_VER) (git sha1 $(GIT_REV), $(notdir $(CXX)) ` \
 			$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1` $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))\"; }" > kernel/version_$(GIT_REV).cc
 
 yosys-config: misc/yosys-config.in
-	$(P) $(SED) -e 's,@CXXFLAGS@,$(subst -I"$(YOSYS_SRC)",-I"$(TARGET_DATDIR)/include",$(CXXFLAGS)),;' \
+	$(P) $(SED) -e 's,@CXXFLAGS@,$(subst -I. -I"$(YOSYS_SRC)",-I"$(TARGET_DATDIR)/include",$(CXXFLAGS)),;' \
 			-e 's,@CXX@,$(CXX),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
-			-e 's,@BINDIR@,$(TARGET_BINDIR),;' -e 's,@DATDIR@,$(TARGET_DATDIR),;' < misc/yosys-config.in > yosys-config
+			-e 's,@BINDIR@,$(TARGET_BINDIR),;' -e 's,@DATDIR@,$(TARGET_DATDIR),;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
 abc/abc-$(ABCREV)$(EXE):

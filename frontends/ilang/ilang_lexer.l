@@ -29,7 +29,7 @@
 #pragma clang diagnostic ignored "-Wdeprecated-register"
 #endif
 
-#include "ilang_frontend.h"
+#include "frontends/ilang/ilang_frontend.h"
 #include "ilang_parser.tab.h"
 
 USING_YOSYS_NAMESPACE

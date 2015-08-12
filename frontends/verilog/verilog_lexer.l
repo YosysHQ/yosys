@@ -40,7 +40,7 @@
 #endif
 
 #include "kernel/log.h"
-#include "verilog_frontend.h"
+#include "frontends/verilog/verilog_frontend.h"
 #include "frontends/ast/ast.h"
 #include "verilog_parser.tab.h"
 
