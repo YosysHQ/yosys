@@ -83,7 +83,7 @@ Yosys 0.3.0 .. Yosys 0.4
      - There is now a "synth" command with a recommended default script
      - Many improvements in synthesis of arithmetic functions to gates
 	 - Multiplieres and adders with many operands are using carry-save adder trees
-         - Remaining adders are now implemented using Brent–Kung carry look-ahead adders
+         - Remaining adders are now implemented using Brent-Kung carry look-ahead adders
      - Various new high-level optimizations on RTL netlist
      - Various improvements in FSM optimization
      - Updated ABC to hg 5b5af75f1dda (from 2014-11-07)
