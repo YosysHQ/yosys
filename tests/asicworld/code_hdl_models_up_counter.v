@@ -2,7 +2,7 @@
 // Design Name : up_counter
 // File Name   : up_counter.v
 // Function    : Up counter
-// Coder      : Deepak
+// Coder       : Deepak
 //-----------------------------------------------------
 module up_counter    (
 out     ,  // Output of the counter

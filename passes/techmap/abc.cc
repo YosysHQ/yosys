@@ -26,7 +26,7 @@
 // http://www.ece.cmu.edu/~ee760/760docs/blif.pdf
 
 // [[CITE]] Kahn's Topological sorting algorithm
-// Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558–562, doi:10.1145/368996.369025
+// Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
 #define ABC_COMMAND_LIB "strash; scorr; ifraig; retime {D}; strash; dch -f; map {D}"

@@ -18,7 +18,7 @@
  */
 
 // [[CITE]] Tarjan's strongly connected components algorithm
-// Tarjan, R. E. (1972), "Depth-first search and linear graph algorithms", SIAM Journal on Computing 1 (2): 146–160, doi:10.1137/0201010
+// Tarjan, R. E. (1972), "Depth-first search and linear graph algorithms", SIAM Journal on Computing 1 (2): 146-160, doi:10.1137/0201010
 // http://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
 
 #include "kernel/register.h"
