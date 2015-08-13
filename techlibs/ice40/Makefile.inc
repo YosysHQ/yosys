@@ -11,7 +11,7 @@ EXTRA_OBJS += techlibs/ice40/brams_init.mk
 .SECONDARY: techlibs/ice40/brams_init.mk
 
 techlibs/ice40/brams_init.mk: techlibs/ice40/brams_init.py
-	$(P) cd techlibs/ice40 && python brams_init.py
+	$(P) cd share/ice40 && python $<
 	$(Q) touch techlibs/ice40/brams_init.mk
 
 techlibs/ice40/brams_init1.vh: techlibs/ice40/brams_init.mk
@@ -23,7 +23,4 @@ $(eval $(call add_share_file,share/ice40,techlibs/ice40/cells_map.v))
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/cells_sim.v))
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/brams.txt))
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/brams_map.v))
-$(eval $(call add_share_file,share/ice40,techlibs/ice40/brams_init1.vh))
-$(eval $(call add_share_file,share/ice40,techlibs/ice40/brams_init2.vh))
-$(eval $(call add_share_file,share/ice40,techlibs/ice40/brams_init3.vh))
 

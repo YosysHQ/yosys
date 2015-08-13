@@ -24,7 +24,7 @@
 
 %{
 #include <list>
-#include "ilang_frontend.h"
+#include "frontends/ilang/ilang_frontend.h"
 YOSYS_NAMESPACE_BEGIN
 namespace ILANG_FRONTEND {
 	std::istream *lexin;

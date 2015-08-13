@@ -30,7 +30,55 @@ PRIVATE_NAMESPACE_BEGIN
 
 using RTLIL::id2cstr;
 
-CellTypes ct, ct_reg, ct_all;
+struct keep_cache_t
+{
+	Design *design;
+	dict<Module*, bool> cache;
+
+	void reset(Design *design = nullptr)
+	{
+		this->design = design;
+		cache.clear();
+	}
+
+	bool query(Module *module)
+	{
+		log_assert(design != nullptr);
+
+		if (module == nullptr)
+			return false;
+
+		if (cache.count(module))
+			return cache.at(module);
+
+		cache[module] = true;
+		if (!module->get_bool_attribute("\\keep")) {
+			bool found_keep = false;
+			for (auto cell : module->cells())
+				if (query(cell)) found_keep = true;
+			cache[module] = found_keep;
+		}
+
+		return cache[module];
+	}
+
+	bool query(Cell *cell)
+	{
+		if (cell->type.in("$memwr", "$meminit", "$assert", "$assume"))
+			return true;
+
+		if (cell->has_keep_attr())
+			return true;
+
+		if (cell->module && cell->module->design)
+			return query(cell->module->design->module(cell->type));
+
+		return false;
+	}
+};
+
+keep_cache_t keep_cache;
+CellTypes ct_reg, ct_all;
 int count_rm_cells, count_rm_wires;
 
 void rmunused_module_cells(Module *module, bool verbose)
@@ -42,12 +90,12 @@ void rmunused_module_cells(Module *module, bool verbose)
 	for (auto &it : module->cells_) {
 		Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
-			if (!ct.cell_input(cell->type, it2.first))
+			if (!ct_all.cell_input(cell->type, it2.first))
 				for (auto bit : sigmap(it2.second))
 					if (bit.wire != nullptr)
 						wire2driver[bit].insert(cell);
 		}
-		if (cell->type.in("$memwr", "$meminit", "$assert", "$assume") || cell->has_keep_attr())
+		if (keep_cache.query(cell))
 			queue.insert(cell);
 		else
 			unused.insert(cell);
@@ -67,7 +115,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 		pool<SigBit> bits;
 		for (auto cell : queue)
 		for (auto &it : cell->connections())
-			if (!ct.cell_output(cell->type, it.first))
+			if (!ct_all.cell_output(cell->type, it.first))
 				for (auto bit : sigmap(it.second))
 					bits.insert(bit);
 
@@ -193,7 +241,7 @@ void rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		for (auto &it2 : cell->connections_) {
 			assign_map.apply(it2.second);
 			used_signals.add(it2.second);
-			if (!ct.cell_output(cell->type, it2.first))
+			if (!ct_all.cell_output(cell->type, it2.first))
 				used_signals_nodrivers.add(it2.second);
 		}
 	}
@@ -345,15 +393,7 @@ struct OptCleanPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		ct.setup_internals();
-		ct.setup_internals_mem();
-		ct.setup_stdcells();
-		ct.setup_stdcells_mem();
-
-		for (auto module : design->modules()) {
-			if (module->get_bool_attribute("\\blackbox"))
-				ct.setup_module(module);
-		}
+		keep_cache.reset(design);
 
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
@@ -370,7 +410,7 @@ struct OptCleanPass : public Pass {
 		design->sort();
 		design->check();
 
-		ct.clear();
+		keep_cache.reset();
 		ct_reg.clear();
 		ct_all.clear();
 		log_pop();
@@ -409,15 +449,7 @@ struct CleanPass : public Pass {
 		if (argidx < args.size())
 			extra_args(args, argidx, design);
 
-		ct.setup_internals();
-		ct.setup_internals_mem();
-		ct.setup_stdcells();
-		ct.setup_stdcells_mem();
-
-		for (auto module : design->modules()) {
-			if (module->get_bool_attribute("\\blackbox"))
-				ct.setup_module(module);
-		}
+		keep_cache.reset(design);
 
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_stdcells_mem();
@@ -440,7 +472,7 @@ struct CleanPass : public Pass {
 		design->sort();
 		design->check();
 
-		ct.clear();
+		keep_cache.reset();
 		ct_reg.clear();
 		ct_all.clear();
 	}

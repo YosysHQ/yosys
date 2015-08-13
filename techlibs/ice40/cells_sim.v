@@ -866,8 +866,7 @@ endmodule
 
 // SiliconBlue Device Configuration Cells
 
-(* blackbox *)
-(* keep *)
+(* blackbox, keep *)
 module SB_WARMBOOT (
 	input BOOT,
 	input S1,

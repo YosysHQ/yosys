@@ -36,7 +36,7 @@
 %{
 #include <list>
 #include <string.h>
-#include "verilog_frontend.h"
+#include "frontends/verilog/verilog_frontend.h"
 #include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
