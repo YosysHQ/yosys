@@ -1315,14 +1315,14 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 }
 
 struct VerilogBackend : public Backend {
-	VerilogBackend() : Backend("verilog", "write design to verilog file") { }
+	VerilogBackend() : Backend("verilog", "write design to Verilog file") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    write_verilog [options] [filename]\n");
 		log("\n");
-		log("Write the current design to a verilog file.\n");
+		log("Write the current design to a Verilog file.\n");
 		log("\n");
 		log("    -norename\n");
 		log("        without this option all internal object names (the ones with a dollar\n");
@@ -1336,7 +1336,7 @@ struct VerilogBackend : public Backend {
 		log("        with this option attributes are included as comments in the output\n");
 		log("\n");
 		log("    -noexpr\n");
-		log("        without this option all internal cells are converted to verilog\n");
+		log("        without this option all internal cells are converted to Verilog\n");
 		log("        expressions.\n");
 		log("\n");
 		log("    -blackboxes\n");

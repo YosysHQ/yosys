@@ -50,7 +50,7 @@ struct ConnectPass : public Pass {
 		log("    connect [-nomap] [-nounset] -set <lhs-expr> <rhs-expr>\n");
 		log("\n");
 		log("Create a connection. This is equivalent to adding the statement 'assign\n");
-		log("<lhs-expr> = <rhs-expr>;' to the verilog input. Per default, all existing\n");
+		log("<lhs-expr> = <rhs-expr>;' to the Verilog input. Per default, all existing\n");
 		log("drivers for <lhs-expr> are unconnected. This can be overwritten by using\n");
 		log("the -nounset option.\n");
 		log("\n");

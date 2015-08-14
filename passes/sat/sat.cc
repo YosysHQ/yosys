@@ -990,7 +990,7 @@ struct SatPass : public Pass {
 		log("is passed, a temporal induction proof is performed.\n");
 		log("\n");
 		log("    -tempinduct\n");
-		log("        Perform a temporal induction proof. In a temporalinduction proof it is\n");
+		log("        Perform a temporal induction proof. In a temporal induction proof it is\n");
 		log("        proven that the condition holds forever after the number of time steps\n");
 		log("        specified using -seq.\n");
 		log("\n");

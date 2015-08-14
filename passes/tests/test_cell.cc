@@ -556,7 +556,7 @@ struct TestCellPass : public Pass {
 		log("        print additional debug information to the console\n");
 		log("\n");
 		log("    -vlog {filename}\n");
-		log("        create a verilog test bench to test simlib and write_verilog\n");
+		log("        create a Verilog test bench to test simlib and write_verilog\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)

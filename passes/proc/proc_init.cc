@@ -93,7 +93,7 @@ struct ProcInitPass : public Pass {
 		log("\n");
 		log("    proc_init [selection]\n");
 		log("\n");
-		log("This pass extracts the 'init' actions from processes (generated from verilog\n");
+		log("This pass extracts the 'init' actions from processes (generated from Verilog\n");
 		log("'initial' blocks) and sets the initial value to the 'init' attribute on the\n");
 		log("respective wire.\n");
 		log("\n");

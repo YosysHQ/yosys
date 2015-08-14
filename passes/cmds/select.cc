@@ -1061,7 +1061,7 @@ struct SelectPass : public Pass {
 		log("        like %%d but swap the roles of two top sets on the stack\n");
 		log("\n");
 		log("    %%c\n");
-		log("        create a copy of the top set rom the stack and push it\n");
+		log("        create a copy of the top set from the stack and push it\n");
 		log("\n");
 		log("    %%x[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("        expand top set <num1> num times according to the specified rules.\n");

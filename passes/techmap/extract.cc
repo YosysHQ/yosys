@@ -361,7 +361,7 @@ struct ExtractPass : public Pass {
 		log("\n");
 		log("This pass looks for subcircuits that are isomorphic to any of the modules\n");
 		log("in the given map file and replaces them with instances of this modules. The\n");
-		log("map file can be a verilog source file (*.v) or an ilang file (*.il).\n");
+		log("map file can be a Verilog source file (*.v) or an ilang file (*.il).\n");
 		log("\n");
 		log("    -map <map_file>\n");
 		log("        use the modules in this file as reference. This option can be used\n");

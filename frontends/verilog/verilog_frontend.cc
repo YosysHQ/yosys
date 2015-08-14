@@ -40,14 +40,14 @@ static std::vector<std::string> verilog_defaults;
 static std::list<std::vector<std::string>> verilog_defaults_stack;
 
 struct VerilogFrontend : public Frontend {
-	VerilogFrontend() : Frontend("verilog", "read modules from verilog file") { }
+	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    read_verilog [options] [filename]\n");
 		log("\n");
-		log("Load modules from a verilog file to the current design. A large subset of\n");
+		log("Load modules from a Verilog file to the current design. A large subset of\n");
 		log("Verilog-2005 is supported.\n");
 		log("\n");
 		log("    -sv\n");
@@ -65,7 +65,7 @@ struct VerilogFrontend : public Frontend {
 		log("        dump abstract syntax tree (after simplification)\n");
 		log("\n");
 		log("    -dump_vlog\n");
-		log("        dump ast as verilog code (after simplification)\n");
+		log("        dump ast as Verilog code (after simplification)\n");
 		log("\n");
 		log("    -yydebug\n");
 		log("        enable parser debug output\n");
@@ -102,7 +102,7 @@ struct VerilogFrontend : public Frontend {
 		log("        memories to registers directly in the front-end.\n");
 		log("\n");
 		log("    -ppdump\n");
-		log("        dump verilog code after pre-processor\n");
+		log("        dump Verilog code after pre-processor\n");
 		log("\n");
 		log("    -nopp\n");
 		log("        do not run the pre-processor\n");
@@ -145,7 +145,7 @@ struct VerilogFrontend : public Frontend {
 		log("\n");
 		log("Note that the Verilog frontend does a pretty good job of processing valid\n");
 		log("verilog input, but has not very good error reporting. It generally is\n");
-		log("recommended to use a simulator (for example icarus verilog) for checking\n");
+		log("recommended to use a simulator (for example Icarus Verilog) for checking\n");
 		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
 		log("\n");
 	}
@@ -345,7 +345,7 @@ struct VerilogDefaults : public Pass {
 		log("\n");
 		log("    verilog_defaults -clear");
 		log("\n");
-		log("Clear the list of verilog default options.\n");
+		log("Clear the list of Verilog default options.\n");
 		log("\n");
 		log("\n");
 		log("    verilog_defaults -push");
