@@ -762,7 +762,7 @@ This pass flattens the design by replacing cells by their implementation. This
 pass is very similar to the 'techmap' pass. The only difference is that this
 pass is using the current design as mapping library.
 
-Cells and/or modules with the 'keep_hiearchy' attribute set will not be
+Cells and/or modules with the 'keep_hierarchy' attribute set will not be
 flattened by this command.
 \end{lstlisting}
 
@@ -3360,7 +3360,7 @@ values referenced above are vectors of this integers. Signal bits that are
 connected to a constant driver are denoted as string "0" or "1" instead of
 a number.
 
-For example the following verilog code:
+For example the following Verilog code:
 
     module test(input x, y);
       (* keep *) foo #(.P(42), .Q(1337))

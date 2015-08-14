@@ -329,7 +329,7 @@ static std::string id2vl(std::string txt)
 	return txt;
 }
 
-// dump AST node as verilog pseudo-code
+// dump AST node as Verilog pseudo-code
 void AstNode::dumpVlog(FILE *f, std::string indent)
 {
 	bool first = true;
@@ -894,7 +894,7 @@ static AstModule* process_module(AstNode *ast, bool defer)
 	AstNode *ast_before_simplify = ast->clone();
 
 	if (flag_dump_ast1) {
-		log("Dumping verilog AST before simplification:\n");
+		log("Dumping Verilog AST before simplification:\n");
 		ast->dumpAst(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
 	}
@@ -904,13 +904,13 @@ static AstModule* process_module(AstNode *ast, bool defer)
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
-			log("Dumping verilog AST after simplification:\n");
+			log("Dumping Verilog AST after simplification:\n");
 			ast->dumpAst(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}
 
 		if (flag_dump_vlog) {
-			log("Dumping verilog AST (as requested by dump_vlog option):\n");
+			log("Dumping Verilog AST (as requested by dump_vlog option):\n");
 			ast->dumpVlog(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
 		}

@@ -1,5 +1,5 @@
 
-// test case taken from amber23 verilog code
+// test case taken from amber23 Verilog code
 module a23_barrel_shift_fpga_rotate(i_in, direction, shift_amount, rot_prod);
 
 input  [31:0] i_in;

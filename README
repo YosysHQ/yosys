@@ -84,7 +84,7 @@ To build Yosys simply type 'make' in this directory.
 	$ sudo make install
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
-as executeable name).
+as executable name).
 
 Yosys can be used with the interactive command shell, with
 synthesis scripts or with command line arguments. Let's perform
@@ -98,7 +98,7 @@ commands and "help <command>" to print details on the specified command:
 
 	yosys> help help
 
-reading the design using the verilog frontend:
+reading the design using the Verilog frontend:
 
 	yosys> read_verilog tests/simple/fiedler-cooley.v
 
@@ -127,7 +127,7 @@ translating netlist to gate logic and perform some simple optimizations:
 
 	yosys> techmap; opt
 
-write design netlist to a new verilog file:
+write design netlist to a new Verilog file:
 
 	yosys> write_verilog synth.v
 
@@ -223,7 +223,7 @@ The following Verilog-2005 features are not supported by
 yosys and there are currently no plans to add support
 for them:
 
-- Non-sythesizable language features as defined in
+- Non-synthesizable language features as defined in
 	IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002
 
 - The "tri", "triand", "trior", "wand" and "wor" net types
@@ -271,7 +271,7 @@ Verilog Attributes and non-standard features
   storage element. The register itself will always have all bits set
   to 'x' (undefined). The variable may only be used as blocking assigned
   temporary variable within an always block. This is mostly used internally
-  by yosys to synthesize verilog functions and access arrays.
+  by yosys to synthesize Verilog functions and access arrays.
 
 - The "onehot" attribute on wires mark them as onehot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
@@ -279,7 +279,7 @@ Verilog Attributes and non-standard features
 - The "blackbox" attribute on modules is used to mark empty stub modules
   that have the same ports as the real thing but do not contain information
   on the internal configuration. This modules are only used by the synthesis
-  passes to identify input and output ports of cells. The verilog backend
+  passes to identify input and output ports of cells. The Verilog backend
   also does not output blackbox modules on default.
 
 - The "keep" attribute on cells and wires is used to mark objects that should
@@ -315,16 +315,16 @@ Verilog Attributes and non-standard features
   to simply declare a module port as 'input' or 'output' in the module
   body.
 
-- When defining a macro with `define, all text between tripple double quotes
+- When defining a macro with `define, all text between triple double quotes
   is interpreted as macro body, even if it contains unescaped newlines. The
-  tripple double quotes are removed from the macro body. For example:
+  tipple double quotes are removed from the macro body. For example:
 
       `define MY_MACRO(a, b) """
          assign a = 23;
          assign b = 42;
       """
 
-- The attribute "via_celltype" can be used to implement a verilog task or
+- The attribute "via_celltype" can be used to implement a Verilog task or
   function by instantiating the specified cell type. The value is the name
   of the cell type to use. For functions the name of the output port can
   be specified by appending it to the cell type separated by a whitespace.
@@ -364,7 +364,7 @@ Verilog Attributes and non-standard features
       $ yosys -p 'plugin -a foo -i /lib/libm.so; read_verilog dpitest.v'
 
 - Sized constants (the syntax <size>'s?[bodh]<value>) support constant
-  expressions as <size>. If the expresion is not a simple identifier, it
+  expressions as <size>. If the expression is not a simple identifier, it
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
 
 

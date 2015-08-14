@@ -329,7 +329,7 @@ struct JsonBackend : public Backend {
 		log("connected to a constant driver are denoted as string \"0\" or \"1\" instead of\n");
 		log("a number.\n");
 		log("\n");
-		log("For example the following verilog code:\n");
+		log("For example the following Verilog code:\n");
 		log("\n");
 		log("    module test(input x, y);\n");
 		log("      (* keep *) foo #(.P(42), .Q(1337))\n");

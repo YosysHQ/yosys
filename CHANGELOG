@@ -82,7 +82,7 @@ Yosys 0.3.0 .. Yosys 0.4
  * Changes for simple synthesis flows
      - There is now a "synth" command with a recommended default script
      - Many improvements in synthesis of arithmetic functions to gates
-	 - Multiplieres and adders with many operands are using carry-save adder trees
+	 - Multipliers and adders with many operands are using carry-save adder trees
          - Remaining adders are now implemented using Brent-Kung carry look-ahead adders
      - Various new high-level optimizations on RTL netlist
      - Various improvements in FSM optimization
@@ -98,7 +98,7 @@ Yosys 0.3.0 .. Yosys 0.4
      - Added macros for code coverage counters
      - Added some Makefile magic for pretty make logs
      - Added "kernel/yosys.h" with all the core definitions
-     - Chanded a lot of code from FILE* to c++ streams
+     - Changed a lot of code from FILE* to c++ streams
      - Added RTLIL::Monitor API and "trace" command
      - Added "Yosys" C++ namespace
 
@@ -167,7 +167,7 @@ Yosys 0.2.0 .. Yosys 0.3.0
      - Added "sat -dump_cnf" feature
      - Added "sat -initsteps <N>" feature
      - Added "freduce -stop <N>" feature
-     - Added "fredure -dump <prefix>" feature
+     - Added "freduce -dump <prefix>" feature
 
  * Integration with ABC:
      - Updated ABC rev to 7600ffb9340c
@@ -254,13 +254,13 @@ Yosys 0.1.0 .. Yosys 0.2.0
      - Added "expose" command
      - Added support for @<sel_name> to sat and eval signal expressions
 
- * Changes in the 'make test' framework and auxilary test tools:
+ * Changes in the 'make test' framework and auxiliary test tools:
      - Added autotest.sh -p and -f options
      - Replaced autotest.sh ISIM support with XSIM support
      - Added test cases for SAT framework
 
  * Added "abbreviated IDs":
-     - Now $<something>$foo can be abbriviated as $foo.
+     - Now $<something>$foo can be abbreviated as $foo.
      - Usually this last part is a unique id (from RTLIL::autoidx)
      - This abbreviated IDs are now also used in "show" output
 

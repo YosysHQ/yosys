@@ -136,7 +136,7 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 	}
 }
 
-// convert the verilog code for a constant to an AST node
+// convert the Verilog code for a constant to an AST node
 AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn_z)
 {
 	if (warn_z) {

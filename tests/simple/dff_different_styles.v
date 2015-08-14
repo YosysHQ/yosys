@@ -65,7 +65,7 @@ always @(posedge clk, posedge arst1, posedge arst2, negedge arst3) begin
 end
 endmodule
 
-// SR-Flip-Flops are on the edge of well defined vewrilog constructs in terms of
+// SR-Flip-Flops are on the edge of well defined Verilog constructs in terms of
 // simulation-implementation mismatches. The following testcases try to cover the
 // part that is defined and avoid the undefined cases.
 

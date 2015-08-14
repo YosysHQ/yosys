@@ -228,11 +228,11 @@ Formatting of code
   on its own line for larger blocks, especially blocks that contains
   blank lines.
 
-- Otherwise stick to the Linux Kernel Coding Stlye:
+- Otherwise stick to the Linux Kernel Coding Style:
     https://www.kernel.org/doc/Documentation/CodingStyle
 
 
-C++ Langugage
+C++ Language
 -------------
 
 Yosys is written in C++11. At the moment only constructs supported by
@@ -262,7 +262,7 @@ Creating the Visual Studio Template Project
 	[ ] Add to source control
 
 	[X] Console applications
-	[X] Empty Projcect
+	[X] Empty Project
 	[ ] SDL checks
 
 2. Open YosysVS Project Properties
@@ -303,7 +303,7 @@ Things to do after finalizing the cell interface:
 
 	- Add support to kernel/satgen.h for the new cell type
 	- Add to manual/CHAPTER_CellLib.tex (or just add a fixme to the bottom)
-	- Maybe add support to the verilog backend for dumping such cells as expression
+	- Maybe add support to the Verilog backend for dumping such cells as expression
 
 
 

@@ -27,14 +27,14 @@ module test04(a, y);
   assign y = ~(a - 1'b0);
 endmodule
 
-// .. this test triggers a bug in xilinx isim.
+// .. this test triggers a bug in Xilinx ISIM.
 // module test05(a, y);
 //   input a;
 //   output y;
 //   assign y = 12345 >> {a, 32'd0};
 // endmodule
 
-// .. this test triggers a bug in icarus verilog.
+// .. this test triggers a bug in Icarus Verilog.
 // module test06(a, b, c, y);
 //   input signed [3:0] a;
 //   input signed [1:0] b;

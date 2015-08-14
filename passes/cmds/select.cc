@@ -1321,7 +1321,7 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			work_stack.back().optimize(design);
 			if (!work_stack.back().empty())
-				log_error("Assertation failed: selection is not empty:%s\n", sel_str.c_str());
+				log_error("Assertion failed: selection is not empty:%s\n", sel_str.c_str());
 			return;
 		}
 
@@ -1331,7 +1331,7 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			work_stack.back().optimize(design);
 			if (work_stack.back().empty())
-				log_error("Assertation failed: selection is empty:%s\n", sel_str.c_str());
+				log_error("Assertion failed: selection is empty:%s\n", sel_str.c_str());
 			return;
 		}
 
@@ -1358,7 +1358,7 @@ struct SelectPass : public Pass {
 							total_count++;
 				}
 			if (assert_count != total_count)
-				log_error("Assertation failed: selection contains %d elements instead of the asserted %d:%s\n",
+				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n",
 						total_count, assert_count, sel_str.c_str());
 			return;
 		}

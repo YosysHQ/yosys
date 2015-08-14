@@ -17,7 +17,7 @@
  *
  *  ---
  *
- *  A simple and straightforward verilog backend.
+ *  A simple and straightforward Verilog backend.
  *
  *  Note that RTLIL processes can't always be mapped easily to a Verilog
  *  process. Therefore this frontend should only be used to export a
@@ -966,7 +966,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				n += wen_width;
 			}
 		}
-		// Output verilog that looks something like this:
+		// Output Verilog that looks something like this:
 		// reg [..] _3_;
 		// always @(posedge CLK2) begin
 		//   _3_ <= memory[D1ADDR];

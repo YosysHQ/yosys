@@ -281,7 +281,7 @@ supply1 { return TOK_SUPPLY1; }
 	static bool printed_warning = false;
 	if (!printed_warning) {
 		log_warning("Found one of those horrible `(synopsys|synthesis) full_case' comments.\n"
-				"Yosys does support them but it is recommended to use verilog `full_case' attributes instead!\n");
+				"Yosys does support them but it is recommended to use Verilog `full_case' attributes instead!\n");
 		printed_warning = true;
 	}
 	return TOK_SYNOPSYS_FULL_CASE;
@@ -290,7 +290,7 @@ supply1 { return TOK_SUPPLY1; }
 	static bool printed_warning = false;
 	if (!printed_warning) {
 		log_warning("Found one of those horrible `(synopsys|synthesis) parallel_case' comments.\n"
-				"Yosys does support them but it is recommended to use verilog `parallel_case' attributes instead!\n");
+				"Yosys does support them but it is recommended to use Verilog `parallel_case' attributes instead!\n");
 		printed_warning = true;
 	}
 	return TOK_SYNOPSYS_PARALLEL_CASE;

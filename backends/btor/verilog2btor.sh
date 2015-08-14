@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# Script to writing btor from verilog design
+# Script to write BTOR from Verilog design
 #
 
 if [ "$#" -ne 3 ]; then

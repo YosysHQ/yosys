@@ -168,7 +168,7 @@ do
 	else
 		echo "${status_prefix}-> ERROR!"
 		if $warn_iverilog_git; then
-			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of icarus verilog."
+			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
 		fi
 		$keeprunning || exit 1
 	fi

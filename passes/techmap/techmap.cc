@@ -1102,7 +1102,7 @@ struct FlattenPass : public Pass {
 		log("pass is very similar to the 'techmap' pass. The only difference is that this\n");
 		log("pass is using the current design as mapping library.\n");
 		log("\n");
-		log("Cells and/or modules with the 'keep_hiearchy' attribute set will not be\n");
+		log("Cells and/or modules with the 'keep_hierarchy' attribute set will not be\n");
 		log("flattened by this command.\n");
 		log("\n");
 	}

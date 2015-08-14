@@ -5,10 +5,10 @@ input [3:0] a;
 input signed [3:0] b;
 output [7:0] y1, y2, y3, y4;
 
-// this version triggers a bug in icarus verilog
+// this version triggers a bug in Icarus Verilog
 // submod #(-3'sd1, 3'b111 + 3'b001) foo (a, b, y1, y2, y3, y4);
 
-// this version is handled correctly by icarus verilog
+// this version is handled correctly by Icarus Verilog
 submod #(-3'sd1, -3'sd1) foo (a, b, y1, y2, y3, y4);
 
 endmodule
