@@ -69,7 +69,7 @@ These are the only three cases in which it is allowed to propagate an undef
 according to Sec.~5.1.10 of IEEE Std. 1364-2005 \cite{Verilog2005}.
 
 The next two lines assume the value 0 for undef states. These two rules are only
-used if no other subsitutions are possible in the current module. If other substitutions
+used if no other substitutions are possible in the current module. If other substitutions
 are possible they are performed first, in the hope that the `any' will change to
 an undef value or a 1 and therefore the output can be set to undef.
 
@@ -296,7 +296,7 @@ table altered to give the same performance without the external feedback path.
 \item Entries in the transition table that yield the same output and only
 differ in the value of a single control input bit are merged and the different bit is removed
 from the sensitivity list (turned into a don't-care bit).
-\item Constant inputs are removed and the transition table is alterered to give an unchanged behaviour.
+\item Constant inputs are removed and the transition table is altered to give an unchanged behaviour.
 \item Unused inputs are removed.
 \end{itemize}
 

@@ -29,7 +29,7 @@
 
 class ezSAT
 {
-	// each token (terminal or non-terminal) is represented by an interger number
+	// each token (terminal or non-terminal) is represented by an integer number
 	//
 	// the zero token:
 	// the number zero is not used as valid token number and is used to encode

@@ -457,7 +457,7 @@ struct PerformReduction
 				out_depth[idx] = std::numeric_limits<int>::max();
 
 			if (verbose_level >= 1) {
-				log("%s    Found %d equivialent signals:", indt, int(bucket.size()));
+				log("%s    Found %d equivalent signals:", indt, int(bucket.size()));
 				for (int idx : bucket)
 					log("%s%s%s", idx == bucket.front() ? " " : ", ", out_inverted[idx] ? "~" : "", log_signal(out_bits[idx]));
 				log("\n");
@@ -506,7 +506,7 @@ struct PerformReduction
 				std::vector<RTLIL::SigBit> r_sigbits;
 				for (int idx : r)
 					r_sigbits.push_back(out_bits[idx]);
-				log("  Found group of %d equivialent signals: %s\n", int(r.size()), log_signal(r_sigbits));
+				log("  Found group of %d equivalent signals: %s\n", int(r.size()), log_signal(r_sigbits));
 			}
 
 			std::vector<int> undef_slaves;
@@ -692,7 +692,7 @@ struct FreduceWorker
 		if (!dump_prefix.empty())
 			dump();
 
-		log("  Rewiring %d equivialent groups:\n", int(equiv.size()));
+		log("  Rewiring %d equivalent groups:\n", int(equiv.size()));
 		int rewired_sigbits = 0;
 		for (auto &grp : equiv)
 		{
@@ -766,7 +766,7 @@ struct FreducePass : public Pass {
 		log("    freduce [options] [selection]\n");
 		log("\n");
 		log("This pass performs functional reduction in the circuit. I.e. if two nodes are\n");
-		log("equivialent, they are merged to one node and one of the redundant drivers is\n");
+		log("equivalent, they are merged to one node and one of the redundant drivers is\n");
 		log("disconnected. A subsequent call to 'clean' will remove the redundant drivers.\n");
 		log("\n");
 		log("    -v, -vv\n");
@@ -784,7 +784,7 @@ struct FreducePass : public Pass {
 		log("        operation. this is mostly used for debugging the freduce command.\n");
 		log("\n");
 		log("This pass is undef-aware, i.e. it considers don't-care values for detecting\n");
-		log("equivialent nodes.\n");
+		log("equivalent nodes.\n");
 		log("\n");
 		log("All selected wires are considered for rewiring. The selected cells cover the\n");
 		log("circuit that is analyzed.\n");

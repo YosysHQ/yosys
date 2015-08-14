@@ -24,7 +24,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 	// count how many times a single-bit signal is used
 	std::map<RTLIL::SigBit, int> bit_usage_count;
 
-	// count ouput lines for this module (needed only for summary output at the end)
+	// count output lines for this module (needed only for summary output at the end)
 	int line_count = 0;
 
 	log("Looking for stub wires in module %s:\n", RTLIL::id2cstr(module->name));

@@ -284,7 +284,7 @@ struct OptReduceWorker
 			did_something = false;
 
 			// merge trees of reduce_* cells to one single cell and unify input vectors
-			// (only handle recduce_and and reduce_or for various reasons)
+			// (only handle reduce_and and reduce_or for various reasons)
 
 			const char *type_list[] = { "$reduce_or", "$reduce_and" };
 			for (auto type : type_list)

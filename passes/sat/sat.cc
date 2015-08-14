@@ -1017,7 +1017,7 @@ struct SatPass : public Pass {
 		log("\n");
 		log("    -prove-x <signal> <value>\n");
 		log("        Like -prove, but an undef (x) bit in the lhs matches any value on\n");
-		log("        the right hand side. Useful for equivialence checking.\n");
+		log("        the right hand side. Useful for equivalence checking.\n");
 		log("\n");
 		log("    -prove-asserts\n");
 		log("        Prove that all asserts in the design hold.\n");

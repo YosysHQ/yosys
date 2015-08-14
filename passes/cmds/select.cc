@@ -1078,7 +1078,7 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    %%ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
 		log("    %%co[<num1>|*][.<num2>][:<rule>[:<rule>..]]\n");
-		log("        simmilar to %%x, but only select input (%%ci) or output cones (%%co)\n");
+		log("        similar to %%x, but only select input (%%ci) or output cones (%%co)\n");
 		log("\n");
 		log("    %%xe[...] %%cie[...] %%coe\n");
 		log("        like %%x, %%ci, and %%co but only consider combinatorial cells\n");
@@ -1403,7 +1403,7 @@ struct CdPass : public Pass {
 		log("    cd <cellname>\n");
 		log("\n");
 		log("When no module with the specified name is found, but there is a cell\n");
-		log("with the specified name in the current module, then this is equivialent\n");
+		log("with the specified name in the current module, then this is equivalent\n");
 		log("to 'cd <celltype>'.\n");
 		log("\n");
 		log("    cd ..\n");

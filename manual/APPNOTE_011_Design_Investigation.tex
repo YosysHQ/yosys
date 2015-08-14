@@ -54,7 +54,7 @@
 \begin{document}
 
 \title{Yosys Application Note 011: \\ Interactive Design Investigation}
-\author{Clifford Wolf \\ Original Verision December 2013}
+\author{Clifford Wolf \\ Original Version December 2013}
 \maketitle
 
 \begin{abstract}
@@ -497,7 +497,7 @@ using them will get its own net label.
 In this case however we would like to see the cells connected properly. This
 can be achieved using the {\tt \%x} action, that broadens the selection, i.e.
 for each selected wire it selects all cells connected to the wire and vice
-versa. So {\tt show a:sumstuff \%x} yields the diagram schon in Fig.~\ref{sumprod_01}.
+versa. So {\tt show a:sumstuff \%x} yields the diagram shown in Fig.~\ref{sumprod_01}.
 
 \begin{figure}[t]
 \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/sumprod_01.pdf}
@@ -744,7 +744,7 @@ The {\tt -table} option can be used to create a truth table. For example:
     2'11    1'0 | 2'00 2'00
     2'11    1'1 | 2'xx 2'11
 
-   Assumend undef (x) value for the following singals: \s2
+   Assumed undef (x) value for the following signals: \s2
 \end{verbatim}
 }
 

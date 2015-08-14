@@ -87,7 +87,7 @@ struct BruteForceEquivChecker
 	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2, bool ignore_x_mod1) :
 			mod1(mod1), mod2(mod2), counter(0), errors(0), ignore_x_mod1(ignore_x_mod1)
 	{
-		log("Checking for equivialence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
+		log("Checking for equivalence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
 		for (auto &w : mod1->wires_)
 		{
 			RTLIL::Wire *wire1 = w.second;
@@ -421,7 +421,7 @@ struct EvalPass : public Pass {
 					log_error("Can't find module `%s'!\n", mod2_name.c_str());
 				BruteForceEquivChecker checker(design->modules_.at(mod1_name), design->modules_.at(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
 				if (checker.errors > 0)
-					log_cmd_error("Modules are not equivialent!\n");
+					log_cmd_error("Modules are not equivalent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",
 						mod1_name.c_str(), mod2_name.c_str(), checker.counter);
 				return;
@@ -594,7 +594,7 @@ struct EvalPass : public Pass {
 			log("\n");
 			if (undef.size() > 0) {
 				undef.sort_and_unify();
-				log("Assumend undef (x) value for the following singals: %s\n\n", log_signal(undef));
+				log("Assumed undef (x) value for the following signals: %s\n\n", log_signal(undef));
 			}
 		}
 	}

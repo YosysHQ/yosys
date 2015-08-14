@@ -596,7 +596,7 @@ struct TclPass : public Pass {
 		log("The tcl command 'yosys -import' can be used to import all yosys\n");
 		log("commands directly as tcl commands to the tcl shell. The yosys\n");
 		log("command 'proc' is wrapped using the tcl command 'procs' in order\n");
-		log("to avoid a name collision with the tcl builting command 'proc'.\n");
+		log("to avoid a name collision with the tcl builtin command 'proc'.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {

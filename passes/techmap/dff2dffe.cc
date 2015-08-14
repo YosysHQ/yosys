@@ -273,7 +273,7 @@ struct Dff2dffePass : public Pass {
 		log("        <external_gate_type> is the cell type name for a cell with an\n");
 		log("        identical interface to the <internal_gate_type>, except it\n");
 		log("        also has an high-active enable port 'E'.\n");
-		log("          Usually <external_gate_type> is an intemediate cell type\n");
+		log("          Usually <external_gate_type> is an intermediate cell type\n");
 		log("        that is then translated to the final type using 'techmap'.\n");
 		log("\n");
 		log("    -direct-match <pattern>\n");

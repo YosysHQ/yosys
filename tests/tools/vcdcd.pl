@@ -35,7 +35,7 @@ if ($#ARGV != 1) {
 	print STDERR "Usage: $0 [-w N] [-d N] gold.vcd gate.vcd\n";
 	print STDERR "\n";
 	print STDERR "  -w N\n";
-	print STDERR "    reserve N characters for bitmap in text ouput (default: auto)\n";
+	print STDERR "    reserve N characters for bitmap in text output (default: auto)\n";
 	print STDERR "\n";
 	print STDERR "  -d N\n";
 	print STDERR "    allow for N timesteps delay between gate and gold (default: 0)\n";

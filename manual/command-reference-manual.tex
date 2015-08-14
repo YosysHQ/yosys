@@ -16,7 +16,7 @@ library to a target architecture.
         use the specified ABC script file instead of the default script.
 
         if <file> starts with a plus sign (+), then the rest of the filename
-        string is interprated as the command string to be passed to ABC. the
+        string is interpreted as the command string to be passed to ABC. The
         leading plus sign is removed and all commas (,) in the string are
         replaced with blanks before the string is passed to ABC.
 
@@ -90,7 +90,7 @@ library to a target architecture.
 
     -keepff
         set the "keep" attribute on flip-flop output wires. (and thus preserve
-        them, for example for equivialence checking.)
+        them, for example for equivalence checking.)
 
     -nocleanup
         when this option is used, the temporary files created by this pass
@@ -156,7 +156,7 @@ This is just a shortcut for 'select -module <modname>'.
     cd <cellname>
 
 When no module with the specified name is found, but there is a cell
-with the specified name in the current module, then this is equivialent
+with the specified name in the current module, then this is equivalent
 to 'cd <celltype>'.
 
     cd ..
@@ -183,8 +183,8 @@ in -purge mode between the commands.
 \begin{lstlisting}[numbers=left,frame=single]
     connect [-nomap] [-nounset] -set <lhs-expr> <rhs-expr>
 
-Create a connection. This is equivialent to adding the statement 'assign
-<lhs-expr> = <rhs-expr>;' to the verilog input. Per default, all existing
+Create a connection. This is equivalent to adding the statement 'assign
+<lhs-expr> = <rhs-expr>;' to the Verilog input. Per default, all existing
 drivers for <lhs-expr> are unconnected. This can be overwritten by using
 the -nounset option.
 
@@ -216,8 +216,8 @@ This command does not operate on module with processes.
 
 Wrappers are used in coarse-grain synthesis to wrap cells with smaller ports
 in wrapper cells with a (larger) constant port size. I.e. the upper bits
-of the wrapper outut are signed/unsigned bit extended. This command uses this
-knowlege to rewire the inputs of the driven cells to match the output of
+of the wrapper output are signed/unsigned bit extended. This command uses this
+knowledge to rewire the inputs of the driven cells to match the output of
 the driving cell.
 
     -signed <cell_type> <port_name> <width_param>
@@ -343,7 +343,7 @@ evaluated in the other design.
 
     design -copy-to <name> [-as <new_mod_name>] [selection]
 
-Copy modules from the current design into the soecified one.
+Copy modules from the current design into the specified one.
 \end{lstlisting}
 
 \section{dff2dffe -- transform \$dff cells to \$dffe cells}
@@ -365,7 +365,7 @@ $_DFF_P_, $_DFF_N_ and $_MUX_.
         <external_gate_type> is the cell type name for a cell with an
         identical interface to the <internal_gate_type>, except it
         also has an high-active enable port 'E'.
-          Usually <external_gate_type> is an intemediate cell type
+          Usually <external_gate_type> is an intermediate cell type
         that is then translated to the final type using 'techmap'.
 \end{lstlisting}
 
@@ -473,7 +473,7 @@ to work with the created equivalent checking module.
         Do not match cells or signals that match the names in the file.
 
     -encfile <file>
-        Match FSM encodings using the desiption from the file.
+        Match FSM encodings using the description from the file.
         See 'help fsm_recode' for details.
 
 Note: The circuit created by this command is not a miter (with something like
@@ -585,8 +585,8 @@ outputs.
         signal path at that wire.
 
     -shared
-        only expose those signals that are shared ammong the selected modules.
-        this is useful for preparing modules for equivialence checking.
+        only expose those signals that are shared among the selected modules.
+        this is useful for preparing modules for equivalence checking.
 
     -evert
         also turn connections to instances of other modules to additional
@@ -609,7 +609,7 @@ outputs.
 
 This pass looks for subcircuits that are isomorphic to any of the modules
 in the given map file and replaces them with instances of this modules. The
-map file can be a verilog source file (*.v) or an ilang file (*.il).
+map file can be a Verilog source file (*.v) or an ilang file (*.il).
 
     -map <map_file>
         use the modules in this file as reference. This option can be used
@@ -638,11 +638,11 @@ map file can be a verilog source file (*.v) or an ilang file (*.il).
         match. This option can be used multiple times.
 
     -swap <needle_type> <port1>,<port2>[,...]
-        Register a set of swapable ports for a needle cell type.
+        Register a set of swappable ports for a needle cell type.
         This option can be used multiple times.
 
     -perm <needle_type> <port1>,<port2>[,...] <portA>,<portB>[,...]
-        Register a valid permutation of swapable ports for a needle
+        Register a valid permutation of swappable ports for a needle
         cell type. This option can be used multiple times.
 
     -cell_attr <attribute_name>
@@ -657,7 +657,7 @@ map file can be a verilog source file (*.v) or an ilang file (*.il).
     -ignore_param <cell_type> <parameter_name>
         Do not use this parameter when matching cells.
 
-This pass does not operate on modules with uprocessed processes in it.
+This pass does not operate on modules with unprocessed processes in it.
 (I.e. the 'proc' pass should be used first to convert processes to netlists.)
 
 This pass can also be used for mining for frequent subcircuits. In this mode
@@ -694,7 +694,7 @@ See 'help techmap' for a pass that does the opposite thing.
     flatten [selection]
 
 This pass flattens the design by replacing cells by their implementation. This
-pass is very simmilar to the 'techmap' pass. The only difference is that this
+pass is very similar to the 'techmap' pass. The only difference is that this
 pass is using the current design as mapping library.
 \end{lstlisting}
 
@@ -704,7 +704,7 @@ pass is using the current design as mapping library.
     freduce [options] [selection]
 
 This pass performs functional reduction in the circuit. I.e. if two nodes are
-equivialent, they are merged to one node and one of the redundant drivers is
+equivalent, they are merged to one node and one of the redundant drivers is
 disconnected. A subsequent call to 'clean' will remove the redundant drivers.
 
     -v, -vv
@@ -722,7 +722,7 @@ disconnected. A subsequent call to 'clean' will remove the redundant drivers.
         operation. this is mostly used for debugging the freduce command.
 
 This pass is undef-aware, i.e. it considers don't-care values for detecting
-equivialent nodes.
+equivalent nodes.
 
 All selected wires are considered for rewiring. The selected cells cover the
 circuit that is analyzed.
@@ -734,7 +734,7 @@ circuit that is analyzed.
     fsm [options] [selection]
 
 This pass calls all the other fsm_* passes in a useful order. This performs
-FSM extraction and optimiziation. It also calls opt_clean as needed:
+FSM extraction and optimization. It also calls opt_clean as needed:
 
     fsm_detect          unless got option -nodetect
     fsm_extract
@@ -759,7 +759,7 @@ Options:
     -expand, -norecode, -export, -nomap
         enable or disable passes as indicated above
 
-    -encoding tye
+    -encoding type
     -fm_set_fsm_file file
     -encfile file
         passed through to fsm_recode pass
@@ -787,7 +787,7 @@ Signals can be protected from being detected by this pass by setting the
 
 The fsm_extract pass is conservative about the cells that belong to a finite
 state machine. This pass can be used to merge additional auxiliary gates into
-the finate state machine.
+the finite state machine.
 \end{lstlisting}
 
 \section{fsm\_export -- exporting FSMs to KISS2 files}
@@ -936,7 +936,7 @@ determine the direction of the ports. The syntax for a port declaration is:
 
 Input ports are specified with the 'i' prefix, output ports with the 'o'
 prefix and inout ports with the 'io' prefix. The optional <num> specifies
-the position of the port in the parameter list (needed when instanciated
+the position of the port in the parameter list (needed when instantiated
 using positional arguments). When <num> is not specified, the <portname> can
 also contain wildcard characters.
 
@@ -1085,7 +1085,7 @@ rules. A block ram description looks like this:
       ports  1 1         # number of ports in each group
       wrmode 1 0         # set to '1' if this groups is write ports
       enable 4 0         # number of enable bits (for write ports)
-      transp 0 2         # transparatent (for read ports)
+      transp 0 2         # transparent (for read ports)
       clocks 1 2         # clock configuration
       clkpol 2 2         # clock polarity configuration
     endbram
@@ -1103,7 +1103,7 @@ and a value greater than 1 means configurable. All groups with the same value
 greater than 1 share the same configuration bit.
 
 Using the same bram name in different bram blocks will create different variants
-of the bram. Verilog configration parameters for the bram are created as needed.
+of the bram. Verilog configuration parameters for the bram are created as needed.
 
 It is also possible to create variants by repeating statements in the bram block
 and appending '@<label>' to the individual statements.
@@ -1136,7 +1136,7 @@ It is possible to match against the following values with min/max rules:
     dcells  .......  number of cells in 'data-direction'
     cells  ........  total number of cells (acells*dcells*dups)
 
-The interface for the created bram instances is dervived from the bram
+The interface for the created bram instances is derived from the bram
 description. Use 'techmap' to convert the created bram instances into
 instances of the actual bram cells of your target architecture.
 
@@ -1221,7 +1221,7 @@ $memwr cells. It is the counterpart to the memory_collect pass.
 \begin{lstlisting}[numbers=left,frame=single]
     miter -equiv [options] gold_name gate_name miter_name
 
-Creates a miter circuit for equivialence checking. The gold- and gate- modules
+Creates a miter circuit for equivalence checking. The gold- and gate- modules
 must have the same interfaces. The miter circuit will have all inputs of the
 two source modules, prefixed with 'in_'. The miter circuit has a 'trigger'
 output that goes high if an output mismatch between the two source modules is
@@ -1457,7 +1457,7 @@ d-type flip-flop cells.
 \begin{lstlisting}[numbers=left,frame=single]
     proc_init [selection]
 
-This pass extracts the 'init' actions from processes (generated from verilog
+This pass extracts the 'init' actions from processes (generated from Verilog
 'initial' blocks) and sets the initial value to the 'init' attribute on the
 respective wire.
 \end{lstlisting}
@@ -1513,12 +1513,12 @@ Read cells from liberty file as modules into current design.
         set the specified attribute (to the value 1) on all loaded modules
 \end{lstlisting}
 
-\section{read\_verilog -- read modules from verilog file}
+\section{read\_verilog -- read modules from Verilog file}
 \label{cmd:read_verilog}
 \begin{lstlisting}[numbers=left,frame=single]
     read_verilog [options] [filename]
 
-Load modules from a verilog file to the current design. A large subset of
+Load modules from a Verilog file to the current design. A large subset of
 Verilog-2005 is supported.
 
     -sv
@@ -1532,7 +1532,7 @@ Verilog-2005 is supported.
         dump abstract syntax tree (after simplification)
 
     -dump_vlog
-        dump ast as verilog code (after simplification)
+        dump ast as Verilog code (after simplification)
 
     -yydebug
         enable parser debug output
@@ -1560,7 +1560,7 @@ Verilog-2005 is supported.
         module or register.
 
     -ppdump
-        dump verilog code after pre-processor
+        dump Verilog code after pre-processor
 
     -nopp
         do not run the pre-processor
@@ -1600,7 +1600,7 @@ subsequent calls to 'read_verilog'.
 
 Note that the Verilog frontend does a pretty good job of processing valid
 verilog input, but has not very good error reporting. It generally is
-recommended to use a simulator (for example icarus verilog) for checking
+recommended to use a simulator (for example Icarus Verilog) for checking
 the syntax of the code, rather than to rely on read_verilog for that.
 \end{lstlisting}
 
@@ -1716,7 +1716,7 @@ The following additional options can be used to set up a proof. If also -seq
 is passed, a temporal induction proof is performed.
 
     -tempinduct
-        Perform a temporal induction proof. In a temporalinduction proof it is
+        Perform a temporal induction proof. In a temporal induction proof it is
         proven that the condition holds forever after the number of time steps
         specified using -seq.
 
@@ -1729,7 +1729,7 @@ is passed, a temporal induction proof is performed.
 
     -prove-x <signal> <value>
         Like -prove, but an undef (x) bit in the lhs matches any value on
-        the right hand side. Useful for equivialence checking.
+        the right hand side. Useful for equivalence checking.
 
     -prove-asserts
         Prove that all asserts in the design hold.
@@ -1978,7 +1978,7 @@ The following actions can be performed on the top sets on the stack:
         like %d but swap the roles of two top sets on the stack
 
     %c
-        create a copy of the top set rom the stack and push it
+        create a copy of the top set from the stack and push it
 
     %x[<num1>|*][.<num2>][:<rule>[:<rule>..]]
         expand top set <num1> num times according to the specified rules.
@@ -1995,7 +1995,7 @@ The following actions can be performed on the top sets on the stack:
 
     %ci[<num1>|*][.<num2>][:<rule>[:<rule>..]]
     %co[<num1>|*][.<num2>][:<rule>[:<rule>..]]
-        simmilar to %x, but only select input (%ci) or output cones (%co)
+        similar to %x, but only select input (%ci) or output cones (%co)
 
     %a
         expand top set by selecting all wires that are (at least in part)
@@ -2061,7 +2061,7 @@ This command replaced undef (x) constants with defined (0/1) constants.
 \begin{lstlisting}[numbers=left,frame=single]
     share [options] [selection]
 
-This pass merges shareable resources into a single resource. A SAT solver
+This pass merges sharable resources into a single resource. A SAT solver
 is used to determine if two resources are share-able.
 
   -force
@@ -2080,7 +2080,7 @@ is used to determine if two resources are share-able.
 
   -fast
     Only consider the simple part of the control logic in SAT solving, resulting
-    in much easier SAT problems at the cost of maybe missing some oportunities
+    in much easier SAT problems at the cost of maybe missing some opportunities
     for resource sharing.
 
   -limit N
@@ -2156,7 +2156,7 @@ to a graphics file (usually SVG or PostScript).
     -colors <seed>
         Randomly assign colors to the wires. The integer argument is the seed
         for the random number generator. Change the seed value if the colored
-        graph still is ambigous. A seed of zero deactivates the coloring.
+        graph still is ambiguous. A seed of zero deactivates the coloring.
 
     -colorattr <attribute_name>
         Use the specified attribute to assign colors. A unique color is
@@ -2166,7 +2166,7 @@ to a graphics file (usually SVG or PostScript).
         annotate busses with a label indicating the width of the bus.
 
     -signed
-        mark ports (A, B) that are declarted as signed (using the [AB]_SIGNED
+        mark ports (A, B) that are declared as signed (using the [AB]_SIGNED
         cell parameter) with an asterisk next to the port name.
 
     -stretch
@@ -2180,7 +2180,7 @@ to a graphics file (usually SVG or PostScript).
         enumerate objects with internal ($-prefixed) names
 
     -long
-        do not abbeviate objects with internal ($-prefixed) names
+        do not abbreviate objects with internal ($-prefixed) names
 
     -notitle
         do not add the module name as graph title to the dot file
@@ -2213,7 +2213,7 @@ primitives. The following internal cell types are mapped by this pass:
 
 This command adds $slice and $concat cells to the design to make the splicing
 of multi-bit signals explicit. This for example is useful for coarse grain
-synthesis, where dedidacted hardware is needed to splice signals.
+synthesis, where dedicated hardware is needed to splice signals.
 
     -sel_by_cell
         only select the cell ports to rewire by the cell. if the selection
@@ -2433,7 +2433,7 @@ Use 'yosys cmd' to run the yosys command 'cmd' from tcl.
 The tcl command 'yosys -import' can be used to import all yosys
 commands directly as tcl commands to the tcl shell. The yosys
 command 'proc' is wrapped using the tcl command 'procs' in order
-to avoid a name collision with the tcl builting command 'proc'.
+to avoid a name collision with the tcl builtin command 'proc'.
 \end{lstlisting}
 
 \section{techmap -- generic technology mapper}
@@ -2442,7 +2442,7 @@ to avoid a name collision with the tcl builting command 'proc'.
     techmap [-map filename] [selection]
 
 This pass implements a very simple technology mapper that replaces cells in
-the design with implementations given in form of a verilog or ilang source
+the design with implementations given in form of a Verilog or ilang source
 file.
 
     -map filename
@@ -2468,7 +2468,7 @@ file.
 
     -recursive
         instead of the iterative breadth-first algorithm use a recursive
-        depth-first algorithm. both methods should yield equivialent results,
+        depth-first algorithm. both methods should yield equivalent results,
         but may differ in performance.
 
     -autoproc
@@ -2480,8 +2480,8 @@ file.
         as final cell types by this mode.
 
     -D <define>, -I <incdir>
-        this options are passed as-is to the verilog frontend for loading the
-        map file. Note that the verilog frontend is also called with the
+        this options are passed as-is to the Verilog frontend for loading the
+        map file. Note that the Verilog frontend is also called with the
         '-ignore_redef' option set.
 
 When a module in the map file has the 'techmap_celltype' attribute set, it will
@@ -2527,7 +2527,7 @@ wires are supported:
         of constant inputs and shorted inputs at this point and import the
         constant and connected bits into the map module. All further commands
         are executed in this copy. This is a very convenient way of creating
-        optimizied specializations of techmap modules without using the special
+        optimized specializations of techmap modules without using the special
         parameters described below.
 
         A _TECHMAP_DO_* command may start with the special token 'RECURSION; '.
@@ -2563,12 +2563,12 @@ the design is connected to a constant value. The parameter is then set to the
 constant value.
 
 A cell with the name _TECHMAP_REPLACE_ in the map file will inherit the name
-of the cell that is beeing replaced.
+of the cell that is being replaced.
 
 See 'help extract' for a pass that does the opposite thing.
 
 See 'help flatten' for a pass that does flatten the design (which is
-esentially techmap but using the design itself as map library).
+essentially techmap but using the design itself as map library).
 \end{lstlisting}
 
 \section{tee -- redirect command output to file}
@@ -2608,7 +2608,7 @@ Test handling of logic loops in ABC.
 \begin{lstlisting}[numbers=left,frame=single]
     test_autotb [options] [filename]
 
-Automatically create primitive verilog test benches for all modules in the
+Automatically create primitive Verilog test benches for all modules in the
 design. The generated testbenches toggle the input pins of the module in
 a semi-random manner and dumps the resulting output signals.
 
@@ -2624,7 +2624,7 @@ value after initialization. This can e.g. be used to force a reset signal
 low in order to explore more inner states in a state machine.
 
     -n <int>
-        number of iterations the test bench shuld run (default = 1000)
+        number of iterations the test bench should run (default = 1000)
 \end{lstlisting}
 
 \section{test\_cell -- automatically test the implementation of a cell type}
@@ -2674,7 +2674,7 @@ cell types. Use for example 'all /$add' for all cell types except $add.
         print additional debug information to the console
 
     -vlog {filename}
-        create a verilog test bench to test simlib and write_verilog
+        create a Verilog test bench to test simlib and write_verilog
 \end{lstlisting}
 
 \section{trace -- redirect command output to file}
@@ -2701,7 +2701,7 @@ Load the specified VHDL files into Verific.
 
     verific -import [-gates] {-all | <top-module>..}
 
-Elaborate the design for the sepcified top modules, import to Yosys and
+Elaborate the design for the specified top modules, import to Yosys and
 reset the internal state of Verific. A gate-level netlist is created
 when called with -gates.
 
@@ -2713,11 +2713,11 @@ Visit http://verific.com/ for more information on Verific.
 \begin{lstlisting}[numbers=left,frame=single]
     verilog_defaults -add [options]
 
-Add the sepcified options to the list of default options to read_verilog.
+Add the specified options to the list of default options to read_verilog.
 
 
     verilog_defaults -clear
-Clear the list of verilog default options.
+Clear the list of Verilog default options.
 
 
     verilog_defaults -push    verilog_defaults -pop
@@ -2854,7 +2854,7 @@ is targeted.
 \begin{lstlisting}[numbers=left,frame=single]
     write_file [options] output_file [input_file]
 
-Write the text fron the input file to the output file.
+Write the text from the input file to the output file.
 
     -a
         Append to output file (instead of overwriting)
@@ -3004,12 +3004,12 @@ Write the current design to an SPICE netlist file.
         set the specified module as design top module
 \end{lstlisting}
 
-\section{write\_verilog -- write design to verilog file}
+\section{write\_verilog -- write design to Verilog file}
 \label{cmd:write_verilog}
 \begin{lstlisting}[numbers=left,frame=single]
     write_verilog [options] [filename]
 
-Write the current design to a verilog file.
+Write the current design to a Verilog file.
 
     -norename
         without this option all internal object names (the ones with a dollar
@@ -3023,7 +3023,7 @@ Write the current design to a verilog file.
         with this option attributes are included as comments in the output
 
     -noexpr
-        without this option all internal cells are converted to verilog
+        without this option all internal cells are converted to Verilog
         expressions.
 
     -blackboxes

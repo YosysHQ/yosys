@@ -340,7 +340,7 @@ struct VerilogDefaults : public Pass {
 		log("\n");
 		log("    verilog_defaults -add [options]\n");
 		log("\n");
-		log("Add the sepcified options to the list of default options to read_verilog.\n");
+		log("Add the specified options to the list of default options to read_verilog.\n");
 		log("\n");
 		log("\n");
 		log("    verilog_defaults -clear");

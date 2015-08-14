@@ -850,7 +850,7 @@ struct TechmapPass : public Pass {
 		log("    techmap [-map filename] [selection]\n");
 		log("\n");
 		log("This pass implements a very simple technology mapper that replaces cells in\n");
-		log("the design with implementations given in form of a verilog or ilang source\n");
+		log("the design with implementations given in form of a Verilog or ilang source\n");
 		log("file.\n");
 		log("\n");
 		log("    -map filename\n");
@@ -871,7 +871,7 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("    -recursive\n");
 		log("        instead of the iterative breadth-first algorithm use a recursive\n");
-		log("        depth-first algorithm. both methods should yield equivialent results,\n");
+		log("        depth-first algorithm. both methods should yield equivalent results,\n");
 		log("        but may differ in performance.\n");
 		log("\n");
 		log("    -autoproc\n");
@@ -883,8 +883,8 @@ struct TechmapPass : public Pass {
 		log("        as final cell types by this mode.\n");
 		log("\n");
 		log("    -D <define>, -I <incdir>\n");
-		log("        this options are passed as-is to the verilog frontend for loading the\n");
-		log("        map file. Note that the verilog frontend is also called with the\n");
+		log("        this options are passed as-is to the Verilog frontend for loading the\n");
+		log("        map file. Note that the Verilog frontend is also called with the\n");
 		log("        '-ignore_redef' option set.\n");
 		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
@@ -930,7 +930,7 @@ struct TechmapPass : public Pass {
 		log("        of constant inputs and shorted inputs at this point and import the\n");
 		log("        constant and connected bits into the map module. All further commands\n");
 		log("        are executed in this copy. This is a very convenient way of creating\n");
-		log("        optimizied specializations of techmap modules without using the special\n");
+		log("        optimized specializations of techmap modules without using the special\n");
 		log("        parameters described below.\n");
 		log("\n");
 		log("        A _TECHMAP_DO_* command may start with the special token 'RECURSION; '.\n");
@@ -966,12 +966,12 @@ struct TechmapPass : public Pass {
 		log("constant value.\n");
 		log("\n");
 		log("A cell with the name _TECHMAP_REPLACE_ in the map file will inherit the name\n");
-		log("of the cell that is beeing replaced.\n");
+		log("of the cell that is being replaced.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
 		log("See 'help flatten' for a pass that does flatten the design (which is\n");
-		log("esentially techmap but using the design itself as map library).\n");
+		log("essentially techmap but using the design itself as map library).\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -1099,7 +1099,7 @@ struct FlattenPass : public Pass {
 		log("    flatten [selection]\n");
 		log("\n");
 		log("This pass flattens the design by replacing cells by their implementation. This\n");
-		log("pass is very simmilar to the 'techmap' pass. The only difference is that this\n");
+		log("pass is very similar to the 'techmap' pass. The only difference is that this\n");
 		log("pass is using the current design as mapping library.\n");
 		log("\n");
 		log("Cells and/or modules with the 'keep_hiearchy' attribute set will not be\n");

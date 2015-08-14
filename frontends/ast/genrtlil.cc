@@ -176,13 +176,13 @@ struct AST_INTERNAL::ProcessGenerator
 	RTLIL::Process *proc;
 	RTLIL::SigSpec outputSignals;
 
-	// This always points to the RTLIL::CaseRule beeing filled at the moment
+	// This always points to the RTLIL::CaseRule being filled at the moment
 	RTLIL::CaseRule *current_case;
 
 	// This map contains the replacement pattern to be used in the right hand side
 	// of an assignment. E.g. in the code "foo = bar; foo = func(foo);" the foo in the right
 	// hand side of the 2nd assignment needs to be replace with the temporary signal holding
-	// the value assigned in the first assignment. So when the first assignement is processed
+	// the value assigned in the first assignment. So when the first assignment is processed
 	// the according information is appended to subst_rvalue_from and subst_rvalue_to.
 	stackmap<RTLIL::SigBit, RTLIL::SigBit> subst_rvalue_map;
 
@@ -192,7 +192,7 @@ struct AST_INTERNAL::ProcessGenerator
 	// signal that is used as input for the register that drives the signal foo.
 	stackmap<RTLIL::SigBit, RTLIL::SigBit> subst_lvalue_map;
 
-	// The code here generates a number of temprorary signal for each output register. This
+	// The code here generates a number of temporary signal for each output register. This
 	// map helps generating nice numbered names for all this temporary signals.
 	std::map<RTLIL::Wire*, int> new_temp_count;
 
@@ -766,7 +766,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// in the following big switch() statement there are some uses of
 	// Clifford's Device (http://www.clifford.at/cfun/cliffdev/). In this
 	// cases this variable is used to hold the type of the cell that should
-	// be instanciated for this type of AST node.
+	// be instantiated for this type of AST node.
 	std::string type_name;
 
 	current_filename = filename;
@@ -775,7 +775,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	switch (type)
 	{
 	// simply ignore this nodes.
-	// they are eighter leftovers from simplify() or are referenced by other nodes
+	// they are either leftovers from simplify() or are referenced by other nodes
 	// and are only accessed here thru this references
 	case AST_TASK:
 	case AST_FUNCTION:
@@ -1073,7 +1073,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		}
 
 	// generate cells for unary operations: $reduce_bool
-	// (this is actually just an $reduce_or, but for clearity a different cell type is used)
+	// (this is actually just an $reduce_or, but for clarity a different cell type is used)
 	if (0) { case AST_REDUCE_BOOL:  type_name = "$reduce_bool"; }
 		{
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
@@ -1415,7 +1415,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 }
 
 // this is a wrapper for AstNode::genRTLIL() when a specific signal width is requested and/or
-// signals must be substituted before beeing used as input values (used by ProcessGenerator)
+// signals must be substituted before being used as input values (used by ProcessGenerator)
 // note that this is using some global variables to communicate this special settings to AstNode::genRTLIL().
 RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
 {

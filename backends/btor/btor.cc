@@ -70,7 +70,7 @@ struct BtorDumper
 	CellTypes ct;
 
 	SigMap sigmap;
-	std::map<RTLIL::IdString, std::set<WireInfo,WireInfoOrder>> inter_wire_map;//<wire, dependency list> for maping the intermediate wires that are output of some cell
+	std::map<RTLIL::IdString, std::set<WireInfo,WireInfoOrder>> inter_wire_map;//<wire, dependency list> for mapping the intermediate wires that are output of some cell
 	std::map<RTLIL::IdString, int> line_ref;//mapping of ids to line_num of the btor file
 	std::map<RTLIL::SigSpec, int> sig_ref;//mapping of sigspec to the line_num of the btor file
 	int line_num;//last line number of btor file
@@ -722,7 +722,7 @@ struct BtorDumper
             //registers
 			else if(cell->type == "$dff" || cell->type == "$adff" || cell->type == "$dffsr")
 			{
-				//TODO: remodelling fo adff cells
+				//TODO: remodelling of adff cells
 				log("writing cell - %s\n", cstr(cell->type));
 				int output_width = cell->parameters.at(RTLIL::IdString("\\WIDTH")).as_int();
 				log(" - width is %d\n", output_width);

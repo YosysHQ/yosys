@@ -98,7 +98,7 @@ The lexer does little more than identifying all keywords and literals
 recognised by the Yosys Verilog frontend.
 \end{sloppypar}
 
-The lexer keeps track of the current location in the verilog source code using
+The lexer keeps track of the current location in the Verilog source code using
 some global variables. These variables are used by the constructor of AST nodes
 to annotate each node with the source code location it originated from.
 
@@ -168,11 +168,11 @@ Created by the simplifier when an undeclared signal name is used. \\
 \hline
 %
 {\tt AST\_PARASET} &
-Parameter set in cell instanciation \\
+Parameter set in cell instantiation \\
 \hline
 %
 {\tt AST\_ARGUMENT} &
-Port connection in cell instanciation \\
+Port connection in cell instantiation \\
 \hline
 %
 {\tt AST\_RANGE} &
@@ -184,7 +184,7 @@ A literal value \\
 \hline
 %
 {\tt AST\_CELLTYPE} &
-The type of cell in cell instanciation \\
+The type of cell in cell instantiation \\
 \hline
 %
 {\tt AST\_IDENTIFIER} &
@@ -251,8 +251,8 @@ The unary reduction operators \break
 \hline
 %
 {\tt AST\_REDUCE\_BOOL} &
-Conversion from multi-bit value to boolian value
-(equivialent to {\tt AST\_REDUCE\_OR}) \\
+Conversion from multi-bit value to boolean value
+(equivalent to {\tt AST\_REDUCE\_OR}) \\
 \hline
 %
 {\tt AST\_SHIFT\_LEFT},
@@ -327,7 +327,7 @@ An \lstinline[language=Verilog];assign; statement \\
 \hline
 %
 {\tt AST\_CELL} &
-A cell instanciation \\
+A cell instantiation \\
 \hline
 %
 {\tt AST\_PRIMITIVE} &
@@ -359,7 +359,7 @@ and the default case respectively \\
 \hline
 %
 {\tt AST\_FOR} &
-A \lstinline[language=Verilog];for;-loop witn an
+A \lstinline[language=Verilog];for;-loop with an
 \lstinline[language=Verilog];always;- or
 \lstinline[language=Verilog];initial;-block \\
 \hline
@@ -470,7 +470,7 @@ This produces an AST that is fairly easy to convert to the RTLIL format.
 \subsection{Generating RTLIL}
 
 After AST simplification, the \lstinline[language=C++]{AST::AstNode::genRTLIL()} method of each {\tt AST\_MODULE} node
-in the AST is called. This initiates a recursive process that generates equivialent RTLIL data for the AST data.
+in the AST is called. This initiates a recursive process that generates equivalent RTLIL data for the AST data.
 
 The \lstinline[language=C++]{AST::AstNode::genRTLIL()} method returns an \lstinline[language=C++]{RTLIL::SigSpec} structure.
 For nodes that represent expressions (operators, constants, signals, etc.), the cells needed to implement the calculation
@@ -641,7 +641,7 @@ A pointer to a \lstinline[language=C++]{RTLIL::CaseRule} object. Initially this 
 generated \lstinline[language=C++]{RTLIL::Process}.
 \end{itemize}
 
-As the algorithm runs these variables are continously modified as well as pushed
+As the algorithm runs these variables are continuously modified as well as pushed
 to the stack and later restored to their earlier values by popping from the stack.
 
 On startup the ProcessGenerator generates a new
@@ -703,7 +703,7 @@ the ProcessGenerator:
 \item A new \lstinline[language=C++]{RTLIL::SwitchRule} object is generated, the selection expression is evaluated using
 \lstinline[language=C++]{AST::AstNode::genRTLIL()} (with the use of \lstinline[language=C++]{subst_rvalue_from} and
 \lstinline[language=C++]{subst_rvalue_to}) and added to the \lstinline[language=C++]{RTLIL::SwitchRule} object and the
-obect is added to the \lstinline[language=C++]{current_case}.
+object is added to the \lstinline[language=C++]{current_case}.
 %
 \item All lvalues assigned to within the {\tt AST\_CASE} node using blocking assignments are collected and
 saved in the local variable \lstinline[language=C++]{this_case_eq_lvalue}.
@@ -837,7 +837,7 @@ as sr-latches or d-latches, without having to extend the actual Verilog frontend
 
 \begin{fixme}
 Add some information on the generation of {\tt \$memrd} and {\tt \$memwr} cells
-and how they are processsed in the {\tt memory} pass.
+and how they are processed in the {\tt memory} pass.
 \end{fixme}
 
 \section{Synthesizing Parametric Designs}

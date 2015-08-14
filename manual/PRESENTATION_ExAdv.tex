@@ -245,7 +245,7 @@ show -color red @cone_ab -color magenta @cone_a -color blue @cone_b
 \begin{itemize}
 \item
 The {\tt techmap} command replaces cells in the design with implementations given
-as verilog code (called ``map files''). It can replace Yosys' internal cell
+as Verilog code (called ``map files''). It can replace Yosys' internal cell
 types (such as {\tt \$or}) as well as user-defined cell types.
 \medskip\item
 Verilog parameters are used extensively to customize the internal cell types.
@@ -480,7 +480,7 @@ cells in ASICS or dedicated carry logic in FPGAs.
 \subsubsection{Intro to coarse-grain synthesis}
 
 \begin{frame}[fragile]{\subsubsecname}
-In coarse-grain synthesis the target architecure has cells of the same
+In coarse-grain synthesis the target architecture has cells of the same
 complexity or larger complexity than the internal RTL representation.
 
 For example:
@@ -558,7 +558,7 @@ $\downarrow$ & $\downarrow$ \\
 \begin{frame}{\subsubsecname}
 \scriptsize
 Often a coarse-grain element has a constant bit-width, but can be used to
-implement oprations with a smaller bit-width. For example, a 18x25-bit multiplier
+implement operations with a smaller bit-width. For example, a 18x25-bit multiplier
 can also be used to implement 16x20-bit multiplication.
 
 \bigskip
@@ -821,7 +821,7 @@ scripts as well as in reverse engineering and analysis.
 
 \item {\bf Behavioral changes} \\
 Commands such as {\tt techmap} can be used to make behavioral changes to the design, for example
-changing asynchonous resets to synchronous resets. This has applications in design space exploration
+changing asynchronous resets to synchronous resets. This has applications in design space exploration
 (evaluation of various architectures for one circuit).
 \end{itemize}
 \end{frame}
@@ -877,7 +877,7 @@ endmodule
 
 \begin{frame}{\subsecname}
 \begin{itemize}
-\item A lot can be achived in Yosys just with the standard set of commands.
+\item A lot can be achieved in Yosys just with the standard set of commands.
 \item The commands {\tt techmap} and {\tt extract} can be used to prototype many complex synthesis tasks.
 \end{itemize}
 

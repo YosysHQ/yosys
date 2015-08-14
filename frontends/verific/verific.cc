@@ -789,7 +789,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("    verific -import [-gates] {-all | <top-module>..}\n");
 		log("\n");
-		log("Elaborate the design for the sepcified top modules, import to Yosys and\n");
+		log("Elaborate the design for the specified top modules, import to Yosys and\n");
 		log("reset the internal state of Verific. A gate-level netlist is created\n");
 		log("when called with -gates.\n");
 		log("\n");

@@ -145,7 +145,7 @@ std::string cover_list_worker(std::string prefix, std::string first, T... rest) 
 // ------------------------------------------------------------
 
 // simple timer for performance measurements
-// toggle the '#if 1' to get a baseline for the perormance penalty added by the measurement
+// toggle the '#if 1' to get a baseline for the performance penalty added by the measurement
 struct PerformanceTimer
 {
 #if 1

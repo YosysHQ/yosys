@@ -124,7 +124,7 @@ has been executed.
 
 \begin{frame}{\subsecname}
 The RTLIL data structures are simple structs utilizing {\tt pool<>} and
-{\tt dict<>} containers (drop-in replacementments for {\tt
+{\tt dict<>} containers (drop-in replacements for {\tt
 std::unordered\_set<>} and {\tt std::unordered\_map<>}).
 
 \bigskip
@@ -413,7 +413,7 @@ When modifying existing modules, stick to the following DOs and DON'Ts:
 
 \item Use {\tt module->fixup\_ports()} after changing the {\tt port\_*} properties of wires.
 
-\item You can safely remove cells or change the {\tt connetions} property of a cell, but be careful when
+\item You can safely remove cells or change the {\tt connections} property of a cell, but be careful when
 changing the size of the {\tt SigSpec} connected to a cell port.
 
 \item Use the {\tt SigMap} helper class (see next slide) when you need a unique handle for each signal bit.

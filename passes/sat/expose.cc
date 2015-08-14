@@ -237,8 +237,8 @@ struct ExposePass : public Pass {
 		log("        signal path at that wire.\n");
 		log("\n");
 		log("    -shared\n");
-		log("        only expose those signals that are shared ammong the selected modules.\n");
-		log("        this is useful for preparing modules for equivialence checking.\n");
+		log("        only expose those signals that are shared among the selected modules.\n");
+		log("        this is useful for preparing modules for equivalence checking.\n");
 		log("\n");
 		log("    -evert\n");
 		log("        also turn connections to instances of other modules to additional\n");

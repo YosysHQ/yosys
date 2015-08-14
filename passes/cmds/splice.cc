@@ -255,7 +255,7 @@ struct SplicePass : public Pass {
 		log("\n");
 		log("This command adds $slice and $concat cells to the design to make the splicing\n");
 		log("of multi-bit signals explicit. This for example is useful for coarse grain\n");
-		log("synthesis, where dedidacted hardware is needed to splice signals.\n");
+		log("synthesis, where dedicated hardware is needed to splice signals.\n");
 		log("\n");
 		log("    -sel_by_cell\n");
 		log("        only select the cell ports to rewire by the cell. if the selection\n");

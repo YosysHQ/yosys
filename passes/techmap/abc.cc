@@ -1158,7 +1158,7 @@ struct AbcPass : public Pass {
 		log("        use the specified ABC script file instead of the default script.\n");
 		log("\n");
 		log("        if <file> starts with a plus sign (+), then the rest of the filename\n");
-		log("        string is interprated as the command string to be passed to ABC. the\n");
+		log("        string is interpreted as the command string to be passed to ABC. The\n");
 		log("        leading plus sign is removed and all commas (,) in the string are\n");
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
@@ -1235,7 +1235,7 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -keepff\n");
 		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
-		log("        them, for example for equivialence checking.)\n");
+		log("        them, for example for equivalence checking.)\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");

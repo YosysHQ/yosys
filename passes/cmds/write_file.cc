@@ -31,7 +31,7 @@ struct WriteFileFrontend : public Frontend {
 		log("\n");
 		log("    write_file [options] output_file [input_file]\n");
 		log("\n");
-		log("Write the text fron the input file to the output file.\n");
+		log("Write the text from the input file to the output file.\n");
 		log("\n");
 		log("    -a\n");
 		log("        Append to output file (instead of overwriting)\n");

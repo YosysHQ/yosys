@@ -326,7 +326,7 @@ struct TestAutotbBackend : public Backend {
 		log("low in order to explore more inner states in a state machine.\n");
 		log("\n");
 		log("    -n <int>\n");
-		log("        number of iterations the test bench shuld run (default = 1000)\n");
+		log("        number of iterations the test bench should run (default = 1000)\n");
 		log("\n");
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)

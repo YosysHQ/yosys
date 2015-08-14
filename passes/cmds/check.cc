@@ -35,7 +35,7 @@ struct CheckPass : public Pass {
 		log("\n");
 		log("This pass identifies the following problems in the current design:\n");
 		log("\n");
-		log(" - combinatorical loops\n");
+		log(" - combinatorial loops\n");
 		log("\n");
 		log(" - two or more conflicting drivers for one wire\n");
 		log("\n");

@@ -1393,7 +1393,7 @@ struct SharePass : public Pass {
 		log("\n");
 		log("  -fast\n");
 		log("    Only consider the simple part of the control logic in SAT solving, resulting\n");
-		log("    in much easier SAT problems at the cost of maybe missing some oportunities\n");
+		log("    in much easier SAT problems at the cost of maybe missing some opportunities\n");
 		log("    for resource sharing.\n");
 		log("\n");
 		log("  -limit N\n");

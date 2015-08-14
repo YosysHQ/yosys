@@ -80,7 +80,7 @@ struct DesignPass : public Pass {
 		log("\n");
 		log("    design -copy-to <name> [-as <new_mod_name>] [selection]\n");
 		log("\n");
-		log("Copy modules from the current design into the soecified one.\n");
+		log("Copy modules from the current design into the specified one.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

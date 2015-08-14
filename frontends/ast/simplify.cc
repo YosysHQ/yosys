@@ -41,7 +41,7 @@ YOSYS_NAMESPACE_BEGIN
 using namespace AST;
 using namespace AST_INTERNAL;
 
-// convert the AST into a simpler AST that has all parameters subsitited by their
+// convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
 //
@@ -167,13 +167,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	set_line_num(linenum);
 
 	// we do not look inside a task or function
-	// (but as soon as a task of function is instanciated we process the generated AST as usual)
+	// (but as soon as a task or function is instantiated we process the generated AST as usual)
 	if (type == AST_FUNCTION || type == AST_TASK) {
 		recursion_counter--;
 		return false;
 	}
 
-	// deactivate all calls to non-synthesis system taks
+	// deactivate all calls to non-synthesis system tasks
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$display" || str == "$strobe" || str == "$monitor" || str == "$time" || str == "$stop" || str == "$finish" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
 		log_warning("Ignoring call to system %s %s at %s:%d.\n", type == AST_FCALL ? "function" : "task", str.c_str(), filename.c_str(), linenum);
@@ -1085,7 +1085,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		goto apply_newNode;
 	}
 
-	// replace primitives with assignmens
+	// replace primitives with assignments
 	if (type == AST_PRIMITIVE)
 	{
 		if (children.size() < 2)
@@ -2260,7 +2260,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 		name_map.swap(backup_name_map);
 }
 
-// rename stuff (used when tasks of functions are instanciated)
+// rename stuff (used when tasks of functions are instantiated)
 void AstNode::replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules)
 {
 	if (type == AST_BLOCK)
@@ -2588,7 +2588,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 	return did_something;
 }
 
-// calulate memory dimensions
+// calculate memory dimensions
 void AstNode::meminfo(int &mem_width, int &mem_size, int &addr_bits)
 {
 	log_assert(type == AST_MEMORY);

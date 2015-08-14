@@ -605,7 +605,7 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 	mapped_wr_port:;
 	}
 
-	// houskeeping stuff for growing more read ports and restarting read port assignments
+	// housekeeping stuff for growing more read ports and restarting read port assignments
 
 	int grow_read_ports_cursor = -1;
 	bool try_growing_more_read_ports = false;
@@ -694,7 +694,7 @@ grow_read_ports:;
 						pi.make_transp = true;
 						enable_make_transp = true;
 					} else {
-						log("        Bram port %c%d.%d has incompatible read transparancy.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+						log("        Bram port %c%d.%d has incompatible read transparency.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 						goto skip_bram_rport;
 					}
 				}
@@ -1127,7 +1127,7 @@ struct MemoryBramPass : public Pass {
 		log("      ports  1 1         # number of ports in each group\n");
 		log("      wrmode 1 0         # set to '1' if this groups is write ports\n");
 		log("      enable 4 0         # number of enable bits (for write ports)\n");
-		log("      transp 0 2         # transparatent (for read ports)\n");
+		log("      transp 0 2         # transparent (for read ports)\n");
 		log("      clocks 1 2         # clock configuration\n");
 		log("      clkpol 2 2         # clock polarity configuration\n");
 		log("    endbram\n");
@@ -1145,7 +1145,7 @@ struct MemoryBramPass : public Pass {
 		log("greater than 1 share the same configuration bit.\n");
 		log("\n");
 		log("Using the same bram name in different bram blocks will create different variants\n");
-		log("of the bram. Verilog configration parameters for the bram are created as needed.\n");
+		log("of the bram. Verilog configuration parameters for the bram are created as needed.\n");
 		log("\n");
 		log("It is also possible to create variants by repeating statements in the bram block\n");
 		log("and appending '@<label>' to the individual statements.\n");
@@ -1178,7 +1178,7 @@ struct MemoryBramPass : public Pass {
 		log("    dcells  .......  number of cells in 'data-direction'\n");
 		log("    cells  ........  total number of cells (acells*dcells*dups)\n");
 		log("\n");
-		log("The interface for the created bram instances is dervived from the bram\n");
+		log("The interface for the created bram instances is derived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");
 		log("instances of the actual bram cells of your target architecture.\n");
 		log("\n");

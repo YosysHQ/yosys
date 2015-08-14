@@ -388,7 +388,7 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("Input ports are specified with the 'i' prefix, output ports with the 'o'\n");
 		log("prefix and inout ports with the 'io' prefix. The optional <num> specifies\n");
-		log("the position of the port in the parameter list (needed when instanciated\n");
+		log("the position of the port in the parameter list (needed when instantiated\n");
 		log("using positional arguments). When <num> is not specified, the <portname> can\n");
 		log("also contain wildcard characters.\n");
 		log("\n");

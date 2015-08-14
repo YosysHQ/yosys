@@ -284,7 +284,7 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 		f << stringf("[%d:%d] ", wire->width - 1 + wire->start_offset, wire->start_offset);
 	f << stringf("%s;\n", id(wire->name).c_str());
 #else
-	// do not use Verilog-2k "outut reg" syntax in verilog export
+	// do not use Verilog-2k "output reg" syntax in Verilog export
 	std::string range = "";
 	if (wire->width != 1) {
 		if (wire->upto)

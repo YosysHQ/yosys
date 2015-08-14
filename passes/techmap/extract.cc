@@ -390,11 +390,11 @@ struct ExtractPass : public Pass {
 		log("        match. This option can be used multiple times.\n");
 		log("\n");
 		log("    -swap <needle_type> <port1>,<port2>[,...]\n");
-		log("        Register a set of swapable ports for a needle cell type.\n");
+		log("        Register a set of swappable ports for a needle cell type.\n");
 		log("        This option can be used multiple times.\n");
 		log("\n");
 		log("    -perm <needle_type> <port1>,<port2>[,...] <portA>,<portB>[,...]\n");
-		log("        Register a valid permutation of swapable ports for a needle\n");
+		log("        Register a valid permutation of swappable ports for a needle\n");
 		log("        cell type. This option can be used multiple times.\n");
 		log("\n");
 		log("    -cell_attr <attribute_name>\n");
@@ -409,7 +409,7 @@ struct ExtractPass : public Pass {
 		log("    -ignore_param <cell_type> <parameter_name>\n");
 		log("        Do not use this parameter when matching cells.\n");
 		log("\n");
-		log("This pass does not operate on modules with uprocessed processes in it.\n");
+		log("This pass does not operate on modules with unprocessed processes in it.\n");
 		log("(I.e. the 'proc' pass should be used first to convert processes to netlists.)\n");
 		log("\n");
 		log("This pass can also be used for mining for frequent subcircuits. In this mode\n");

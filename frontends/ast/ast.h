@@ -269,7 +269,7 @@ namespace AST
 	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire);
 
 	// parametric modules are supported directly by the AST library
-	// therfore we need our own derivate of RTLIL::Module with overloaded virtual functions
+	// therefore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
 		bool nolatches, nomeminit, nomem2reg, mem2reg, lib, noopt, icells, autowire;

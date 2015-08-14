@@ -116,7 +116,7 @@ value or a condition in the sensitivity list is triggered. A synthesis tool
 must be able to transfer this representation into an appropriate datapath followed
 by the appropriate types of register.
 
-For example consider the following verilog code fragment:
+For example consider the following Verilog code fragment:
 
 \begin{lstlisting}[numbers=left,frame=single,language=Verilog]
 always @(posedge clk)
@@ -141,8 +141,8 @@ App.~\ref{chapter:sota}).
 \subsection{Register-Transfer Level (RTL)}
 
 On the Register-Transfer Level the design is represented by combinatorial data
-paths and registers (usually d-type flip flops). The following verilog code fragment
-is equivalent to the previous verilog example, but is in RTL representation:
+paths and registers (usually d-type flip flops). The following Verilog code fragment
+is equivalent to the previous Verilog example, but is in RTL representation:
 
 \begin{lstlisting}[numbers=left,frame=single,language=Verilog]
 assign tmp = a + b;       // combinatorial data path
@@ -162,7 +162,7 @@ detection and optimization, identification of memories or other larger building 
 and identification of shareable resources.
 
 Note that RTL is the first abstraction level in which the circuit is represented as a
-graph of circuit elements (registers and combinatorical cells) and signals. Such a graph,
+graph of circuit elements (registers and combinatorial cells) and signals. Such a graph,
 when encoded as list of cells and connections, is called a netlist.
 
 RTL synthesis is easy as each circuit node element in the netlist can simply be replaced
@@ -262,10 +262,10 @@ Verilog syntax. Only the following language constructs are used in this case:
 \end{itemize}
 
 Many tools (especially at the back end of the synthesis chain) only support
-structural verilog as input. ABC is an example of such a tool. Unfortunately
+structural Verilog as input. ABC is an example of such a tool. Unfortunately
 there is no standard specifying what {\it Structural Verilog} actually is,
 leading to some confusion about what syntax constructs are supported in
-structural verilog when it comes to features such as attributes or multi-bit
+structural Verilog when it comes to features such as attributes or multi-bit
 signals.
 
 \subsection{Expressions in Verilog}
@@ -280,8 +280,8 @@ and many others (comparison operations, unary operator, etc.) can also be used.
 During synthesis these operators are replaced by cells that implement the respective function.
 
 Many FOSS tools that claim to be able to process Verilog in fact only support
-basic structural verilog and simple expressions. Yosys can be used to convert
-full featured synthesizable verilog to this simpler subset, thus enabling such
+basic structural Verilog and simple expressions. Yosys can be used to convert
+full featured synthesizable Verilog to this simpler subset, thus enabling such
 applications to be used with a richer set of Verilog features.
 
 \subsection{Behavioural Modelling}
@@ -561,7 +561,7 @@ In order to guarantee reproducibility it is important to be able to re-run all
 automatic steps in a design project with a fixed set of settings easily.
 Because of this, usually all programs used in a synthesis flow can be
 controlled using scripts. This means that all functions are available via
-text commands. When such a tool provides a gui, this is complementary to,
+text commands. When such a tool provides a GUI, this is complementary to,
 and not instead of, a command line interface.
 
 Usually a synthesis flow in an UNIX/Linux environment would be controlled by a

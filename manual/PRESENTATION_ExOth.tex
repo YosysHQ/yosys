@@ -34,7 +34,7 @@ are connected.
 
 \item
 Commands such as {\tt submod}, {\tt expose}, {\tt splice}, \dots can be used
-to transform the design into an equivialent design that is easier to analyse.
+to transform the design into an equivalent design that is easier to analyse.
 
 \item
 Commands such as {\tt eval} and {\tt sat} can be used to investigate the
@@ -102,7 +102,7 @@ Symbolic Model Checking (SMC) is used to formally prove that a circuit has
 (or has not) a given property.
 
 \bigskip
-One appliction is Formal Equivalence Checking: Proving that two circuits
+One application is Formal Equivalence Checking: Proving that two circuits
 are identical. For example this is a very useful feature when debugging custom
 passes in Yosys.
 
@@ -143,11 +143,11 @@ rename test test_mapped
 # apply the techmap only to test_mapped
 techmap -map techmap_01_map.v test_mapped
 
-# create a miter circuit to test equivialence
+# create a miter circuit to test equivalence
 miter -equiv -make_assert -make_outputs test_orig test_mapped miter
 flatten miter
 
-# run equivialence check
+# run equivalence check
 sat -verify -prove-asserts -show-inputs -show-outputs miter
 \end{lstlisting}
 

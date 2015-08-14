@@ -610,7 +610,7 @@ struct ShowPass : public Pass {
 		log("    -colors <seed>\n");
 		log("        Randomly assign colors to the wires. The integer argument is the seed\n");
 		log("        for the random number generator. Change the seed value if the colored\n");
-		log("        graph still is ambigous. A seed of zero deactivates the coloring.\n");
+		log("        graph still is ambiguous. A seed of zero deactivates the coloring.\n");
 		log("\n");
 		log("    -colorattr <attribute_name>\n");
 		log("        Use the specified attribute to assign colors. A unique color is\n");
@@ -620,7 +620,7 @@ struct ShowPass : public Pass {
 		log("        annotate busses with a label indicating the width of the bus.\n");
 		log("\n");
 		log("    -signed\n");
-		log("        mark ports (A, B) that are declarted as signed (using the [AB]_SIGNED\n");
+		log("        mark ports (A, B) that are declared as signed (using the [AB]_SIGNED\n");
 		log("        cell parameter) with an asterisk next to the port name.\n");
 		log("\n");
 		log("    -stretch\n");
@@ -634,7 +634,7 @@ struct ShowPass : public Pass {
 		log("        enumerate objects with internal ($-prefixed) names\n");
 		log("\n");
 		log("    -long\n");
-		log("        do not abbeviate objects with internal ($-prefixed) names\n");
+		log("        do not abbreviate objects with internal ($-prefixed) names\n");
 		log("\n");
 		log("    -notitle\n");
 		log("        do not add the module name as graph title to the dot file\n");
@@ -673,7 +673,7 @@ struct ShowPass : public Pass {
 		bool flag_stretch = false;
 		bool flag_pause = false;
 		bool flag_enum = false;
-		bool flag_abbeviate = true;
+		bool flag_abbreviate = true;
 		bool flag_notitle = false;
 		RTLIL::IdString colorattr;
 
@@ -743,12 +743,12 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-enum") {
 				flag_enum = true;
-				flag_abbeviate = false;
+				flag_abbreviate = false;
 				continue;
 			}
 			if (arg == "-long") {
 				flag_enum = false;
-				flag_abbeviate = false;
+				flag_abbreviate = false;
 				continue;
 			}
 			if (arg == "-notitle") {
@@ -796,7 +796,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbeviate, flag_notitle, color_selections, label_selections, colorattr);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, color_selections, label_selections, colorattr);
 		fclose(f);
 
 		for (auto lib : libs)

@@ -340,7 +340,7 @@ struct MiterPass : public Pass {
 		log("\n");
 		log("    miter -equiv [options] gold_name gate_name miter_name\n");
 		log("\n");
-		log("Creates a miter circuit for equivialence checking. The gold- and gate- modules\n");
+		log("Creates a miter circuit for equivalence checking. The gold- and gate- modules\n");
 		log("must have the same interfaces. The miter circuit will have all inputs of the\n");
 		log("two source modules, prefixed with 'in_'. The miter circuit has a 'trigger'\n");
 		log("output that goes high if an output mismatch between the two source modules is\n");

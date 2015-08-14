@@ -199,7 +199,7 @@ namespace RTLIL
 		bool operator==(IdString rhs) const { return index_ == rhs.index_; }
 		bool operator!=(IdString rhs) const { return index_ != rhs.index_; }
 
-		// The methods below are just convinience functions for better compatibility with std::string.
+		// The methods below are just convenience functions for better compatibility with std::string.
 
 		bool operator==(const std::string &rhs) const { return str() == rhs; }
 		bool operator!=(const std::string &rhs) const { return str() != rhs; }

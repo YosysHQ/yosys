@@ -34,7 +34,7 @@ struct FsmPass : public Pass {
 		log("    fsm [options] [selection]\n");
 		log("\n");
 		log("This pass calls all the other fsm_* passes in a useful order. This performs\n");
-		log("FSM extraction and optimiziation. It also calls opt_clean as needed:\n");
+		log("FSM extraction and optimization. It also calls opt_clean as needed:\n");
 		log("\n");
 		log("    fsm_detect          unless got option -nodetect\n");
 		log("    fsm_extract\n");
@@ -59,7 +59,7 @@ struct FsmPass : public Pass {
 		log("    -expand, -norecode, -export, -nomap\n");
 		log("        enable or disable passes as indicated above\n");
 		log("\n");
-		log("    -encoding tye\n");
+		log("    -encoding type\n");
 		log("    -fm_set_fsm_file file\n");
 		log("    -encfile file\n");
 		log("        passed through to fsm_recode pass\n");

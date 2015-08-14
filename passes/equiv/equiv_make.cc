@@ -407,7 +407,7 @@ struct EquivMakePass : public Pass {
 		log("        Do not match cells or signals that match the names in the file.\n");
 		log("\n");
 		log("    -encfile <file>\n");
-		log("        Match FSM encodings using the desiption from the file.\n");
+		log("        Match FSM encodings using the description from the file.\n");
 		log("        See 'help fsm_recode' for details.\n");
 		log("\n");
 		log("Note: The circuit created by this command is not a miter (with something like\n");

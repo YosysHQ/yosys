@@ -238,7 +238,7 @@ An RTLIL::Wire object has the following properties:
 \end{itemize}
 
 As with modules, the attributes can be Verilog attributes imported by the
-Verilog frontend or attributes assigned by passees.
+Verilog frontend or attributes assigned by passes.
 
 In Yosys, busses (signal vectors) are represented using a single wire object
 with a width > 1. So Yosys does not convert signal vectors to individual signals.
@@ -412,7 +412,7 @@ Some passes refuse to operate on modules that still contain RTLIL::Process objec
 presence of these objects in a module increases the complexity. Therefore the passes to translate
 processes to a netlist of cells are usually called early in a synthesis script. The {\tt proc}
 pass calls a series of other passes that together perform this conversion in a way that is suitable
-for most synthesis taks.
+for most synthesis tasks.
 
 \subsection{RTLIL::Memory}
 

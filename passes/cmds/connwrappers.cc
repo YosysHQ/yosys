@@ -158,8 +158,8 @@ struct ConnwrappersPass : public Pass {
 		log("\n");
 		log("Wrappers are used in coarse-grain synthesis to wrap cells with smaller ports\n");
 		log("in wrapper cells with a (larger) constant port size. I.e. the upper bits\n");
-		log("of the wrapper outut are signed/unsigned bit extended. This command uses this\n");
-		log("knowlege to rewire the inputs of the driven cells to match the output of\n");
+		log("of the wrapper output are signed/unsigned bit extended. This command uses this\n");
+		log("knowledge to rewire the inputs of the driven cells to match the output of\n");
 		log("the driving cell.\n");
 		log("\n");
 		log("    -signed <cell_type> <port_name> <width_param>\n");
