@@ -79,7 +79,7 @@ void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 	Const initval = memory->parameters.at("\\INIT");
 	RTLIL::Cell *last_init_cell = nullptr;
 	SigSpec last_init_data;
-	int last_init_addr;
+	int last_init_addr=0;
 
 	for (int i = 0; i < GetSize(initval) && i/mem->width < (1 << abits); i += mem->width) {
 		Const val = initval.extract(i, mem->width, State::Sx);

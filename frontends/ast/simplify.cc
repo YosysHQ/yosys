@@ -2102,9 +2102,9 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 	AstNode *block = new AstNode(AST_BLOCK);
 
 	AstNode *meminit = nullptr;
-	int next_meminit_cursor;
+	int next_meminit_cursor=0;
 	vector<State> meminit_bits;
-	int meminit_size;
+	int meminit_size=0;
 
 	std::ifstream f;
 	f.open(mem_filename.c_str());
