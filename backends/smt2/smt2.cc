@@ -201,10 +201,12 @@ struct Smt2Worker
 		}
 
 		if (GetSize(subexpr) > 1) {
-			std::string expr = "(concat";
-			for (int i = GetSize(subexpr)-1; i >= 0; i--)
+			std::string expr = "", end_str = "";
+			for (int i = GetSize(subexpr)-1; i >= 0; i--) {
+				if (i > 0) expr += " (concat", end_str += ")";
 				expr += " " + subexpr[i];
-			return expr + ")";
+			}
+			return expr.substr(1) + end_str;
 		} else {
 			log_assert(GetSize(subexpr) == 1);
 			return subexpr[0];
