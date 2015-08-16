@@ -59,7 +59,7 @@ module _90_simplemap_compare_ops;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$pos $slice $concat $mux" *)
+(* techmap_celltype = "$pos $slice $concat $mux $tribuf" *)
 module _90_simplemap_various;
 endmodule
 

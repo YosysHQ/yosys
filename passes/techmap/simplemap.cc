@@ -283,6 +283,21 @@ void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_tribuf(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	RTLIL::SigSpec sig_a = cell->getPort("\\A");
+	RTLIL::SigSpec sig_e = cell->getPort("\\EN");
+	RTLIL::SigSpec sig_y = cell->getPort("\\Y");
+
+	for (int i = 0; i < GetSize(sig_y); i++) {
+		RTLIL::Cell *gate = module->addCell(NEW_ID, "$_TBUF_");
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
+		gate->setPort("\\A", sig_a[i]);
+		gate->setPort("\\E", sig_e[i]);
+		gate->setPort("\\Y", sig_y[i]);
+	}
+}
+
 void simplemap_lut(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	SigSpec lut_ctrl = cell->getPort("\\A");
@@ -481,6 +496,7 @@ void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTL
 	mappers["$ne"]          = simplemap_eqne;
 	mappers["$nex"]         = simplemap_eqne;
 	mappers["$mux"]         = simplemap_mux;
+	mappers["$tribuf"]      = simplemap_tribuf;
 	mappers["$lut"]         = simplemap_lut;
 	mappers["$slice"]       = simplemap_slice;
 	mappers["$concat"]      = simplemap_concat;
@@ -521,7 +537,7 @@ struct SimplemapPass : public Pass {
 		log("\n");
 		log("  $not, $pos, $and, $or, $xor, $xnor\n");
 		log("  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool\n");
-		log("  $logic_not, $logic_and, $logic_or, $mux\n");
+		log("  $logic_not, $logic_and, $logic_or, $mux, $tribuf\n");
 		log("  $sr, $dff, $dffsr, $adff, $dlatch\n");
 		log("\n");
 	}

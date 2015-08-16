@@ -112,6 +112,8 @@ struct CellTypes
 		setup_type("$alu", {A, B, CI, BI}, {X, Y, CO}, true);
 		setup_type("$fa", {A, B, C}, {X, Y}, true);
 
+		setup_type("$tribuf", {A, EN}, {Y}, true);
+
 		setup_type("$assert", {A, EN}, pool<RTLIL::IdString>(), true);
 		setup_type("$assume", {A, EN}, pool<RTLIL::IdString>(), true);
 		setup_type("$equiv", {A, B}, {Y}, true);
@@ -166,6 +168,7 @@ struct CellTypes
 		setup_type("$_OAI3_", {A, B, C}, {Y}, true);
 		setup_type("$_AOI4_", {A, B, C, D}, {Y}, true);
 		setup_type("$_OAI4_", {A, B, C, D}, {Y}, true);
+		setup_type("$_TBUF_", {A, E}, {Y}, true);
 	}
 
 	void setup_stdcells_mem()

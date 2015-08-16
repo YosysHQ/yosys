@@ -996,6 +996,14 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$tribuf") {
+				port("\\A", param("\\WIDTH"));
+				port("\\Y", param("\\WIDTH"));
+				port("\\EN", 1);
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$assert") {
 				port("\\A", 1);
 				port("\\EN", 1);
@@ -1031,6 +1039,8 @@ namespace {
 			if (cell->type == "$_OAI3_") { check_gate("ABCY"); return; }
 			if (cell->type == "$_AOI4_") { check_gate("ABCDY"); return; }
 			if (cell->type == "$_OAI4_") { check_gate("ABCDY"); return; }
+
+			if (cell->type == "$_TBUF_")  { check_gate("AYE"); return; }
 
 			if (cell->type == "$_MUX4_")  { check_gate("ABCDSTY"); return; }
 			if (cell->type == "$_MUX8_")  { check_gate("ABCDEFGHSTUY"); return; }
@@ -1737,6 +1747,16 @@ RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, RTLIL::SigSpec sig_i, R
 	cell->parameters["\\WIDTH"] = sig_i.size();
 	cell->setPort("\\A", sig_i);
 	cell->setPort("\\Y", sig_o);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addTribuf(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_y)
+{
+	RTLIL::Cell *cell = addCell(name, "$tribuf");
+	cell->parameters["\\WIDTH"] = sig_a.size();
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	cell->setPort("\\Y", sig_y);
 	return cell;
 }
 
