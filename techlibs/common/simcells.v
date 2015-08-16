@@ -132,6 +132,12 @@ output Y;
 assign Y = ~((A | B) & (C | D));
 endmodule
 
+module \$_TBUF_ (A, E, Y);
+input A, E;
+output Y;
+assign Y = E ? A : 1'bz;
+endmodule
+
 module  \$_SR_NN_ (S, R, Q);
 input S, R;
 output reg Q;
