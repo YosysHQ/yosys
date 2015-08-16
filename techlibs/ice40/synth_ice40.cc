@@ -82,6 +82,7 @@ struct SynthIce40Pass : public Pass {
 		log("    flatten:         (unless -noflatten)\n");
 		log("        proc\n");
 		log("        flatten\n");
+		log("        tribuf -logic\n");
 		log("\n");
 		log("    coarse:\n");
 		log("        synth -run coarse\n");
@@ -201,6 +202,7 @@ struct SynthIce40Pass : public Pass {
 		{
 			Pass::call(design, "proc");
 			Pass::call(design, "flatten");
+			Pass::call(design, "tribuf -logic");
 		}
 
 		if (check_label(active, run_from, run_to, "coarse"))
