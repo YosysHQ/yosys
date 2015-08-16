@@ -90,7 +90,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	for (auto &it : module->cells_) {
 		Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
-			if (!ct_all.cell_input(cell->type, it2.first))
+			if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, it2.first))
 				for (auto bit : sigmap(it2.second))
 					if (bit.wire != nullptr)
 						wire2driver[bit].insert(cell);
@@ -115,7 +115,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 		pool<SigBit> bits;
 		for (auto cell : queue)
 		for (auto &it : cell->connections())
-			if (!ct_all.cell_output(cell->type, it.first))
+			if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it.first))
 				for (auto bit : sigmap(it.second))
 					bits.insert(bit);
 
