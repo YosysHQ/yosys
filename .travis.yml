@@ -1,0 +1,34 @@
+sudo: false
+script: make && make test
+language: cpp
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gperf
+    - build-essential
+    - clang
+    - bison
+    - flex
+    - libreadline-dev
+    - gawk
+    - tcl-dev
+    - libffi-dev
+    - git
+    - mercurial
+    - graphviz
+    - xdot
+    - pkg-config
+    - python
+    - g++-4.8
+before_install:
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+  - git clone git://github.com/steveicarus/iverilog.git
+  - (cd iverilog && autoconf && ./configure --prefix=$HOME/iverilog && make && make install)
+  - export PATH=$PATH:$HOME/iverilog/bin
+compiler:
+#  - clang
+  - gcc
+os:
+  - linux
