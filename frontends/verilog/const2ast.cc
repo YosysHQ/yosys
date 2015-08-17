@@ -142,7 +142,7 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 	}
 
 	if (len > len_in_bits)
-		log_warning("(Literal has a width of %d bit, but value requires %d bit. (%s:%d)\n",
+		log_warning("Literal has a width of %d bit, but value requires %d bit. (%s:%d)\n",
 			len_in_bits, len, current_filename.c_str(), get_line_num());
 }
 
@@ -152,7 +152,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 	if (warn_z) {
 		AstNode *ret = const2ast(code, case_type);
 		if (std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
-			log_warning("Yosys does not support tri-state logic at the moment. (%s:%d)\n",
+			log_warning("Yosys has only limited support for tri-state logic at the moment. (%s:%d)\n",
 				current_filename.c_str(), get_line_num());
 		return ret;
 	}
