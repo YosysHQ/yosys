@@ -104,6 +104,9 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 	} else {
 		int bits_per_digit = my_ilog2(base-1);
 		for (auto it = digits.rbegin(), e = digits.rend(); it != e; it++) {
+			if (*it > (base-1) && *it < 0xf0)
+				log_error("Digit larger than %d used in in base-%d constant at %s:%d.\n",
+					base-1, base, current_filename.c_str(), get_line_num());
 			for (int i = 0; i < bits_per_digit; i++) {
 				int bitmask = 1 << i;
 				if (*it == 0xf0)
