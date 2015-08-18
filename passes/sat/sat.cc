@@ -936,6 +936,9 @@ struct SatPass : public Pass {
 		log("    -show-inputs, -show-outputs, -show-ports\n");
 		log("        add all module (input/output) ports to the list of shown signals\n");
 		log("\n");
+		log("    -show-regs, -show-public, -show-all\n");
+		log("        show all registers, show signals with 'public' names, show all signals\n");
+		log("\n");
 		log("    -ignore_div_by_zero\n");
 		log("        ignore all solutions that involve a division by zero\n");
 		log("\n");
@@ -1064,6 +1067,7 @@ struct SatPass : public Pass {
 		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
+		bool show_regs = false, show_public = false, show_all = false;
 		bool ignore_unknown_cells = false, falsify = false, tempinduct_def = false, set_init_def = false;
 		bool tempinduct_baseonly = false, tempinduct_inductonly = false, set_assumes = false;
 		int tempinduct_skip = 0, stepsize = 1;
@@ -1272,6 +1276,18 @@ struct SatPass : public Pass {
 				show_outputs = true;
 				continue;
 			}
+			if (args[argidx] == "-show-regs") {
+				show_regs = true;
+				continue;
+			}
+			if (args[argidx] == "-show-public") {
+				show_public = true;
+				continue;
+			}
+			if (args[argidx] == "-show-all") {
+				show_all = true;
+				continue;
+			}
 			if (args[argidx] == "-ignore_unknown_cells") {
 				ignore_unknown_cells = true;
 				continue;
@@ -1329,6 +1345,29 @@ struct SatPass : public Pass {
 			for (auto &it : module->wires_)
 				if (it.second->port_output)
 					shows.push_back(it.second->name.str());
+		}
+
+		if (show_regs) {
+			pool<Wire*> reg_wires;
+			for (auto cell : module->cells()) {
+				if (cell->type == "$dff" || cell->type.substr(0, 6) == "$_DFF_")
+					for (auto bit : cell->getPort("\\Q"))
+						if (bit.wire)
+							reg_wires.insert(bit.wire);
+			}
+			for (auto wire : reg_wires)
+				shows.push_back(wire->name.str());
+		}
+
+		if (show_public) {
+			for (auto wire : module->wires())
+				if (wire->name[0] == '\\')
+					shows.push_back(wire->name.str());
+		}
+
+		if (show_all) {
+			for (auto wire : module->wires())
+				shows.push_back(wire->name.str());
 		}
 
 		if (tempinduct)
