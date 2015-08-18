@@ -63,16 +63,26 @@ struct DffinitPass : public Pass {
 			SigMap sigmap(module);
 			dict<SigBit, State> init_bits;
 			pool<SigBit> cleanup_bits;
+			pool<SigBit> used_bits;
 
-			for (auto wire : module->selected_wires())
+			for (auto wire : module->selected_wires()) {
 				if (wire->attributes.count("\\init")) {
 					Const value = wire->attributes.at("\\init");
 					for (int i = 0; i < std::min(GetSize(value), GetSize(wire)); i++)
 						init_bits[sigmap(SigBit(wire, i))] = value[i];
 				}
+				if (wire->port_output)
+					for (auto bit : sigmap(wire))
+						used_bits.insert(bit);
+			}
 
 			for (auto cell : module->selected_cells())
 			{
+				for (auto it : cell->connections())
+					if (!cell->known() || cell->input(it.first))
+						for (auto bit : sigmap(it.second))
+							used_bits.insert(bit);
+
 				if (ff_types.count(cell->type) == 0)
 					continue;
 
@@ -104,11 +114,15 @@ struct DffinitPass : public Pass {
 
 			for (auto wire : module->selected_wires())
 				if (wire->attributes.count("\\init")) {
-					Const value = wire->attributes.at("\\init");
+					Const &value = wire->attributes.at("\\init");
 					bool do_cleanup = true;
-					for (int i = 0; i < std::min(GetSize(value), GetSize(wire)); i++)
-						if (cleanup_bits.count(sigmap(SigBit(wire, i))) == 0)
+					for (int i = 0; i < std::min(GetSize(value), GetSize(wire)); i++) {
+						SigBit bit = sigmap(SigBit(wire, i));
+						if (cleanup_bits.count(bit) || !used_bits.count(bit))
+							value[i] = State::Sx;
+						else if (value[i] != State::Sx)
 							do_cleanup = false;
+					}
 					if (do_cleanup) {
 						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
 						wire->attributes.erase("\\init");
