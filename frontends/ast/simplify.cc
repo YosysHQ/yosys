@@ -1274,7 +1274,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 	// found right-hand side identifier for memory -> replace with memory read port
 	if (stage > 1 && type == AST_IDENTIFIER && id2ast != NULL && id2ast->type == AST_MEMORY && !in_lvalue &&
-			children[0]->type == AST_RANGE && children[0]->children.size() == 1) {
+			children.size() == 1 && children[0]->type == AST_RANGE && children[0]->children.size() == 1) {
 		newNode = new AstNode(AST_MEMRD, children[0]->children[0]->clone());
 		newNode->str = str;
 		newNode->id2ast = id2ast;
