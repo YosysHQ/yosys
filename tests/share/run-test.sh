@@ -8,7 +8,7 @@ set -e
 rm -rf temp
 mkdir -p temp
 echo "generating tests.."
-python generate.py
+python3 generate.py
 
 echo "running tests.."
 for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do

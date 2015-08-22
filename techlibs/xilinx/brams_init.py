@@ -1,7 +1,4 @@
-#!/usr/bin/python
-
-from __future__ import division
-from __future__ import print_function
+#!/usr/bin/env python3
 
 with open("techlibs/xilinx/brams_init_18.vh", "w") as f:
     for i in range(8):

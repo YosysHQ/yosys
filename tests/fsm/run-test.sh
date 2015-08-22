@@ -8,7 +8,7 @@ set -e
 rm -rf temp
 mkdir -p temp
 echo "generating tests.."
-python generate.py
+python3 generate.py
 
 {
 	all_targets="all_targets:"
