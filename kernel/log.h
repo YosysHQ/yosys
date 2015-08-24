@@ -29,6 +29,11 @@
 #  include <sys/resource.h>
 #endif
 
+#if defined(_MSC_VER)
+// At least this is not in MSVC++ 2013.
+#  define __PRETTY_FUNCTION__ __FUNCTION__
+#endif
+
 // from libs/sha1/sha1.h
 class SHA1;
 
