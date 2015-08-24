@@ -30,7 +30,7 @@ struct BitPatternPool
 	int width;
 	struct bits_t {
 		std::vector<RTLIL::State> bitdata;
-		unsigned int cached_hash;
+		mutable unsigned int cached_hash;
 		bits_t(int width = 0) : bitdata(width), cached_hash(0) { }
 		RTLIL::State &operator[](int index) {
 			return bitdata[index];
@@ -45,7 +45,7 @@ struct BitPatternPool
 		}
 		unsigned int hash() const {
 			if (!cached_hash)
-				((bits_t*)this)->cached_hash = hash_ops<std::vector<RTLIL::State>>::hash(bitdata);
+				cached_hash = hash_ops<std::vector<RTLIL::State>>::hash(bitdata);
 			return cached_hash;
 		}
 	};
