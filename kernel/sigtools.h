@@ -421,6 +421,14 @@ struct SigMap
 		apply(sig);
 		return sig;
 	}
+
+	RTLIL::SigSpec allbits() const
+	{
+		RTLIL::SigSpec sig;
+		for (auto &it : bits)
+			sig.append(SigBit(it.first.first, it.first.second));
+		return sig;
+	}
 };
 
 YOSYS_NAMESPACE_END
