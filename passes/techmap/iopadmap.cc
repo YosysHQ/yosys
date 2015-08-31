@@ -45,10 +45,10 @@ struct IopadmapPass : public Pass {
 		log("the resulting cells to more sophisticated PAD cells.\n");
 		log("\n");
 		log("    -inpad <celltype> <portname>[:<portname>]\n");
-		log("        Map module input ports to the given cell type with\n");
-		log("        the given port name. if a 2nd portname is given, the\n");
+		log("        Map module input ports to the given cell type with the\n");
+		log("        given output port name. if a 2nd portname is given, the\n");
 		log("        signal is passed through the pad call, using the 2nd\n");
-		log("        portname as output.\n");
+		log("        portname as input.\n");
 		log("\n");
 		log("    -outpad <celltype> <portname>[:<portname>]\n");
 		log("    -inoutpad <celltype> <portname>[:<portname>]\n");
