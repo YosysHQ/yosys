@@ -496,6 +496,8 @@ struct Smt2Worker
 					decls.push_back(stringf("; yosys-smt2-output %s %d\n", log_id(wire), wire->width));
 				if (is_register)
 					decls.push_back(stringf("; yosys-smt2-register %s %d\n", log_id(wire), wire->width));
+				if (wire->get_bool_attribute("\\keep"))
+					decls.push_back(stringf("; yosys-smt2-wire %s %d\n", log_id(wire), wire->width));
 				if (bvmode && GetSize(sig) > 1) {
 					decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
 							log_id(module), log_id(wire), log_id(module), GetSize(sig), get_bv(sig).c_str()));
