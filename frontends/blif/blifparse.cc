@@ -133,7 +133,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 				if (v[0] == '"') {
 					std::string str(v+1);
 					if (str.back() == '"')
-						str.pop_back();
+						str.resize(str.size()-1);
 					const_v = Const(str);
 				} else {
 					int n = strlen(v);
