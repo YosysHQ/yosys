@@ -50,7 +50,7 @@ struct SplitnetsWorker
 			new_wire_name += format.substr(1, 1);
 
 		RTLIL::Wire *new_wire = module->addWire(module->uniquify(new_wire_name), width);
-		new_wire->port_id = wire->port_id;
+		new_wire->port_id = wire->port_id ? wire->port_id + offset : 0;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
 
@@ -130,13 +130,23 @@ struct SplitnetsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto &mod_it : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			RTLIL::Module *module = mod_it.second;
-			if (!design->selected(module))
-				continue;
-
 			SplitnetsWorker worker;
+
+			if (flag_ports)
+			{
+				int normalized_port_factor = 0;
+
+				for (auto wire : module->wires())
+					if (wire->port_id != 0) {
+						normalized_port_factor = std::max(normalized_port_factor, wire->port_id+1);
+						normalized_port_factor = std::max(normalized_port_factor, GetSize(wire)+1);
+					}
+
+				for (auto wire : module->wires())
+					wire->port_id *= normalized_port_factor;
+			}
 
 			if (flag_driver)
 			{
@@ -194,7 +204,8 @@ struct SplitnetsPass : public Pass {
 				delete_wires.insert(it.first);
 			module->remove(delete_wires);
 
-			module->fixup_ports();
+			if (flag_ports)
+				module->fixup_ports();
 		}
 	}
 } SplitnetsPass;
