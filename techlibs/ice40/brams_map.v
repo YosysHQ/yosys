@@ -90,7 +90,7 @@ module \$__ICE40_RAM4K (
 					.RCLKE(RCLKE),
 					.RE   (RE   ),
 					.RADDR(RADDR),
-					.WCLK (WCLK ),
+					.WCLKN(WCLK ),
 					.WCLKE(WCLKE),
 					.WE   (WE   ),
 					.WADDR(WADDR),
@@ -119,7 +119,7 @@ module \$__ICE40_RAM4K (
 					.INIT_F(INIT_F)
 				) _TECHMAP_REPLACE_ (
 					.RDATA(RDATA),
-					.RCLK (RCLK ),
+					.RCLKN(RCLK ),
 					.RCLKE(RCLKE),
 					.RE   (RE   ),
 					.RADDR(RADDR),
@@ -152,11 +152,11 @@ module \$__ICE40_RAM4K (
 					.INIT_F(INIT_F)
 				) _TECHMAP_REPLACE_ (
 					.RDATA(RDATA),
-					.RCLK (RCLK ),
+					.RCLKN(RCLK ),
 					.RCLKE(RCLKE),
 					.RE   (RE   ),
 					.RADDR(RADDR),
-					.WCLK (WCLK ),
+					.WCLKN(WCLK ),
 					.WCLKE(WCLKE),
 					.WE   (WE   ),
 					.WADDR(WADDR),

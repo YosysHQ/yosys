@@ -473,7 +473,7 @@ endmodule
 
 module SB_RAM40_4KNR (
 	output [15:0] RDATA,
-	input         RCLK, RCLKE, RE,
+	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
 	input         WCLK, WCLKE, WE,
 	input  [10:0] WADDR,
@@ -520,7 +520,7 @@ module SB_RAM40_4KNR (
 		.INIT_F    (INIT_F    )
 	) RAM (
 		.RDATA(RDATA),
-		.RCLK (~RCLK),
+		.RCLK (~RCLKN),
 		.RCLKE(RCLKE),
 		.RE   (RE   ),
 		.RADDR(RADDR),
@@ -537,7 +537,7 @@ module SB_RAM40_4KNW (
 	output [15:0] RDATA,
 	input         RCLK, RCLKE, RE,
 	input  [10:0] RADDR,
-	input         WCLK, WCLKE, WE,
+	input         WCLKN, WCLKE, WE,
 	input  [10:0] WADDR,
 	input  [15:0] MASK, WDATA
 );
@@ -586,7 +586,7 @@ module SB_RAM40_4KNW (
 		.RCLKE(RCLKE),
 		.RE   (RE   ),
 		.RADDR(RADDR),
-		.WCLK (~WCLK),
+		.WCLK (~WCLKN),
 		.WCLKE(WCLKE),
 		.WE   (WE   ),
 		.WADDR(WADDR),
@@ -597,9 +597,9 @@ endmodule
 
 module SB_RAM40_4KNRNW (
 	output [15:0] RDATA,
-	input         RCLK, RCLKE, RE,
+	input         RCLKN, RCLKE, RE,
 	input  [10:0] RADDR,
-	input         WCLK, WCLKE, WE,
+	input         WCLKN, WCLKE, WE,
 	input  [10:0] WADDR,
 	input  [15:0] MASK, WDATA
 );
@@ -644,11 +644,11 @@ module SB_RAM40_4KNRNW (
 		.INIT_F    (INIT_F    )
 	) RAM (
 		.RDATA(RDATA),
-		.RCLK (~RCLK),
+		.RCLK (~RCLKN),
 		.RCLKE(RCLKE),
 		.RE   (RE   ),
 		.RADDR(RADDR),
-		.WCLK (~WCLK),
+		.WCLK (~WCLKN),
 		.WCLKE(WCLKE),
 		.WE   (WE   ),
 		.WADDR(WADDR),
