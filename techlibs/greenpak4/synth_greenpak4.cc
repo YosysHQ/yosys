@@ -34,8 +34,8 @@ bool check_label(bool &active, std::string run_from, std::string run_to, std::st
 	return active;
 }
 
-struct SynthIce40Pass : public Pass {
-	SynthIce40Pass() : Pass("synth_greenpak4", "synthesis for GreenPAK4 FPGAs") { }
+struct SynthGreenPAK4Pass : public Pass {
+	SynthGreenPAK4Pass() : Pass("synth_greenpak4", "synthesis for GreenPAK4 FPGAs") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -224,6 +224,6 @@ struct SynthIce40Pass : public Pass {
 
 		log_pop();
 	}
-} SynthIce40Pass;
+} SynthGreenPAK4Pass;
 
 PRIVATE_NAMESPACE_END
