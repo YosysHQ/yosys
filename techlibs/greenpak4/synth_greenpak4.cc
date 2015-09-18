@@ -91,7 +91,7 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        abc -dff     (only if -retime)\n");
 		log("\n");
 		log("    map_luts:\n");
-		log("        abc -lut 4\n");
+		log("        nlutmap -luts 0,8,16,2\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
@@ -197,7 +197,7 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "abc -lut 4");
+			Pass::call(design, "nlutmap -luts 0,8,16,2");
 			Pass::call(design, "clean");
 		}
 

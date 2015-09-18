@@ -21,6 +21,7 @@ OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/tribuf.o
 OBJS += passes/techmap/lut2mux.o
+OBJS += passes/techmap/nlutmap.o
 endif
 
 GENFILES += passes/techmap/techmap.inc
