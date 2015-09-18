@@ -187,10 +187,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// but should be good enough for most uses
 	if ((type == AST_TCALL) && ((str == "$display") || (str == "$write")))
 	{
+		if (!current_always || current_always->type != AST_INITIAL)
+			log_error("System task `$display' outside initial block is unsupported at %s:%d.\n", filename.c_str(), linenum);
+
 		size_t nargs = GetSize(children);
 		if(nargs < 1)
 		{
-			log_error("System task ``$display\" got %d arguments, expected >= 1 at %s:%d.\n",
+			log_error("System task `$display' got %d arguments, expected >= 1 at %s:%d.\n",
 				int(children.size()), filename.c_str(), linenum);
 		}
 
@@ -1652,11 +1655,15 @@ skip_dynamic_range_lvalue_expansion:;
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_FUNCTION)
 				log_error("Can't resolve function name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
+
 		if (type == AST_TCALL)
 		{
 			if (str == "$finish")
 			{
-				log_error("System task `$finish() executed in `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+				if (!current_always || current_always->type != AST_INITIAL)
+					log_error("System task `$finish' outside initial block is unsupported at %s:%d.\n", filename.c_str(), linenum);
+
+				log_error("System task `$finish' executed at %s:%d.\n", filename.c_str(), linenum);
 			}
 
 			if (str == "\\$readmemh" || str == "\\$readmemb")
