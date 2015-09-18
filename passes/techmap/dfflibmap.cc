@@ -491,6 +491,7 @@ struct DfflibmapPass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-liberty" && argidx+1 < args.size()) {
 				liberty_file = args[++argidx];
+				rewrite_filename(liberty_file);
 				continue;
 			}
 			if (arg == "-prepare") {
