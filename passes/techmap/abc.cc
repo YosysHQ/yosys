@@ -1075,6 +1075,12 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
+				if (c->type == "$lut" && GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
+					SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
+					SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
+					module->connect(my_y, my_a);
+					continue;
+				}
 				RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
 				if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 				cell->parameters = c->parameters;
