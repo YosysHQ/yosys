@@ -249,6 +249,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if ((cell->type == "$_NOT_" || cell->type == "$not" || cell->type == "$logic_not") &&
 					cell->getPort("\\A").size() == 1 && cell->getPort("\\Y").size() == 1)
 				invert_map[assign_map(cell->getPort("\\Y"))] = assign_map(cell->getPort("\\A"));
+			if ((cell->type == "$mux" || cell->type == "$_MUX_") && cell->getPort("\\A") == SigSpec(State::S1) && cell->getPort("\\B") == SigSpec(State::S0))
+				invert_map[assign_map(cell->getPort("\\Y"))] = assign_map(cell->getPort("\\S"));
 			if (ct_combinational.cell_known(cell->type))
 				for (auto &conn : cell->connections()) {
 					RTLIL::SigSpec sig = assign_map(conn.second);
