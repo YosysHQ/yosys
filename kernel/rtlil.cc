@@ -1740,13 +1740,13 @@ RTLIL::Cell* RTLIL::Module::addConcat(RTLIL::IdString name, RTLIL::SigSpec sig_a
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, RTLIL::SigSpec sig_i, RTLIL::SigSpec sig_o, RTLIL::Const lut)
+RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, RTLIL::Const lut)
 {
 	RTLIL::Cell *cell = addCell(name, "$lut");
 	cell->parameters["\\LUT"] = lut;
-	cell->parameters["\\WIDTH"] = sig_i.size();
-	cell->setPort("\\A", sig_i);
-	cell->setPort("\\Y", sig_o);
+	cell->parameters["\\WIDTH"] = sig_a.size();
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\Y", sig_y);
 	return cell;
 }
 
