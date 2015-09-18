@@ -174,7 +174,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// deactivate all calls to non-synthesis system tasks
-	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$display" || str == "$strobe" || str == "$monitor" || str == "$time" || str == "$stop" || str == "$finish" ||
+       if ((type == AST_FCALL || type == AST_TCALL) && (str == "$display" || str == "$strobe" || str == "$monitor" || str == "$time" || str == "$stop"  ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
 		log_warning("Ignoring call to system %s %s at %s:%d.\n", type == AST_FCALL ? "function" : "task", str.c_str(), filename.c_str(), linenum);
 		delete_children();
@@ -1569,7 +1569,13 @@ skip_dynamic_range_lvalue_expansion:;
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_FUNCTION)
 				log_error("Can't resolve function name `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 		}
-		if (type == AST_TCALL) {
+		if (type == AST_TCALL)
+		{
+			if (str == "$finish")
+			{
+				log_error("System task `$finish() executed in `%s' at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+			}
+
 			if (str == "\\$readmemh" || str == "\\$readmemb")
 			{
 				if (GetSize(children) < 2 || GetSize(children) > 4)
