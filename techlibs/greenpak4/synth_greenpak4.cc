@@ -86,6 +86,8 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        memory_map\n");
 		log("        opt -undriven -fine\n");
 		log("        techmap\n");
+		log("        dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib\n");
+		log("        opt -fast\n");
 		log("        abc -dff     (only if -retime)\n");
 		log("\n");
 		log("    map_luts:\n");
@@ -187,6 +189,8 @@ struct SynthGreenPAK4Pass : public Pass {
 			Pass::call(design, "memory_map");
 			Pass::call(design, "opt -undriven -fine");
 			Pass::call(design, "techmap");
+			Pass::call(design, "dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
+			Pass::call(design, "opt -fast");
 			if (retime)
 				Pass::call(design, "abc -dff");
 		}
