@@ -212,6 +212,19 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// format specifier
 			if(sformat[i] == '%')
 			{
+				// If there's no next character, that's a problem
+				if(i+1 >= sformat.length())
+					log_error("System task `%s' called with `%%' at end of string at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+
+				char cformat = sformat[++i];
+
+				// %% is special, does not need a matching argument
+				if(cformat == '%')
+				{
+					sout += '%';
+					continue;
+				}
+
 				// If we're out of arguments, that's a problem!
 				if(next_arg >= nargs)
 					log_error("System task `%s' called with more format specifiers than arguments at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
@@ -222,18 +235,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (node_arg->type != AST_CONSTANT)
 					log_error("Failed to evaluate system task `%s' with non-constant argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 
-				// If there's no next character, that's a problem
-				if(i+1 >= sformat.length())
-					log_error("System task `%s' called with `%%' at end of string at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
-
 				// Everything from here on depends on the format specifier
-				char cformat = sformat[++i];
 				switch(cformat)
 				{
-					case '%':
-						sout += '%';
-						break;
-
 					case 's':
 					case 'S':
 						sout += node_arg->bitsAsConst().decode_string();
@@ -244,6 +248,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						{
 							char tmp[128];
 							snprintf(tmp, sizeof(tmp), "%d", node_arg->bitsAsConst().as_int());
+							sout += tmp;
+						}
+						break;
+
+					case 'x':
+					case 'X':
+						{
+							char tmp[128];
+							snprintf(tmp, sizeof(tmp), "%x", node_arg->bitsAsConst().as_int());
 							sout += tmp;
 						}
 						break;
