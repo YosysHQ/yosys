@@ -42,6 +42,8 @@ struct QwpConfig
 	bool alpha;
 	double grid;
 
+	std::ofstream dump_file;
+
 	QwpConfig() {
 		ltr = false;
 		alpha = false;
@@ -51,7 +53,7 @@ struct QwpConfig
 
 struct QwpWorker
 {
-	const QwpConfig &config;
+	QwpConfig &config;
 	Module *module;
 	char direction;
 
@@ -101,7 +103,13 @@ struct QwpWorker
 	dict<pair<int, int>, double> edges;
 	dict<Cell*, int> cell_to_node;
 
-	QwpWorker(const QwpConfig &config, Module *module, char direction = 'x') : config(config), module(module), direction(direction)
+	// worker state variables
+	double midpos;
+	double radius;
+	double alt_midpos;
+	double alt_radius;
+
+	QwpWorker(QwpConfig &config, Module *module, char direction = 'x') : config(config), module(module), direction(direction)
 	{
 		log_assert(direction == 'x' || direction == 'y');
 	}
@@ -344,7 +352,60 @@ struct QwpWorker
 		}
 	}
 
-	void run_worker(int indent, double midpos, double radius, double alt_midpos, double alt_radius)
+	void dump_svg(const pool<int> *green_nodes = nullptr)
+	{
+		config.dump_file << stringf("<svg height=\"200\" width=\"200\">\n");
+		config.dump_file << stringf("<rect width=\"200\" height=\"200\" style=\"fill:rgb(200,200,200);\" />\n");
+
+		double x_center = direction == 'x' ? midpos : alt_midpos;
+		double y_center = direction == 'y' ? midpos : alt_midpos;
+
+		double x_radius = direction == 'x' ? radius : alt_radius;
+		double y_radius = direction == 'y' ? radius : alt_radius;
+
+		for (auto &edge : edges)
+		{
+			auto &node1 = nodes[edge.first.first];
+			auto &node2 = nodes[edge.first.second];
+
+			double x1 = direction == 'x' ? node1.pos : node1.alt_pos;
+			double y1 = direction == 'y' ? node1.pos : node1.alt_pos;
+
+			double x2 = direction == 'x' ? node2.pos : node2.alt_pos;
+			double y2 = direction == 'y' ? node2.pos : node2.alt_pos;
+
+			x1 = 100 + 100 * (x1 - x_center) / x_radius;
+			y1 = 100 + 100 * (y1 - y_center) / y_radius;
+
+			x2 = 100 + 100 * (x2 - x_center) / x_radius;
+			y2 = 100 + 100 * (y2 - y_center) / y_radius;
+
+			config.dump_file << stringf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" "
+					"style=\"stroke:rgb(0,0,0);stroke-width:1\" />\n", x1, y1, x2, y2);
+		}
+
+		for (int i = 0; i < GetSize(nodes); i++)
+		{
+			auto &node = nodes[i];
+
+			double x = direction == 'x' ? node.pos : node.alt_pos;
+			double y = direction == 'y' ? node.pos : node.alt_pos;
+
+			x = 100 + 100 * (x - x_center) / x_radius;
+			y = 100 + 100 * (y - y_center) / y_radius;
+
+			const char *color = node.cell == nullptr ? "blue" : "red";
+
+			if (green_nodes != nullptr && green_nodes->count(i))
+				color = "green";
+
+			config.dump_file << stringf("<circle cx=\"%.2f\" cy=\"%.2f\" r=\"3\" fill=\"%s\"/>\n", x, y, color);
+		}
+
+		config.dump_file << stringf("</svg>\n");
+	}
+
+	void run_worker(int indent)
 	{
 		int count_cells = 0;
 
@@ -355,14 +416,19 @@ struct QwpWorker
 		for (int i = 0; i < indent; i++)
 			log("  ");
 
+		string range_str;
+
 		if (direction == 'x')
-			log("x-qwp on X=%.2f:%.2f, Y=%.2f:%.2f with %d cells, %d nodes, and %d edges.\n",
-					midpos - radius, midpos + radius, alt_midpos - alt_radius, alt_midpos + alt_radius,
-					count_cells, GetSize(nodes), GetSize(edges));
+			range_str = stringf("X=%.2f:%.2f, Y=%.2f:%.2f",
+					midpos - radius, midpos + radius,
+					alt_midpos - alt_radius, alt_midpos + alt_radius);
 		else
-			log("y-qwp on X=%.2f:%.2f, Y=%.2f:%.2f with %d cells, %d nodes, and %d edges.\n",
-					alt_midpos - alt_radius, alt_midpos + alt_radius, midpos - radius, midpos + radius,
-					count_cells, GetSize(nodes), GetSize(edges));
+			range_str = stringf("X=%.2f:%.2f, Y=%.2f:%.2f",
+					alt_midpos - alt_radius, alt_midpos + alt_radius,
+					midpos - radius, midpos + radius);
+
+		log("%c-qwp on %s with %d cells, %d nodes, and %d edges.\n", direction,
+				range_str.c_str(), count_cells, GetSize(nodes), GetSize(edges));
 
 		solve();
 
@@ -373,24 +439,30 @@ struct QwpWorker
 			log_assert(node.alt_pos - 0.1 <= alt_midpos + alt_radius);
 		}
 
-		if (2*radius <= config.grid && 2*alt_radius <= config.grid) {
-			log_cell_coordinates(indent + 1);
-			return;
-		}
-
-		// detect median position
+		// detect median position and check for break condition
 
 		vector<pair<double, int>> sorted_pos;
 		for (int i = 0; i < GetSize(nodes); i++)
 			if (nodes[i].cell != nullptr)
 				sorted_pos.push_back(pair<double, int>(nodes[i].pos, i));
 
-		if (GetSize(sorted_pos) < 2) {
+		std::sort(sorted_pos.begin(), sorted_pos.end());
+
+		if (config.dump_file.is_open())
+		{
+			config.dump_file << stringf("<h4>LSQ %c-Solution for %s:</h4>\n", direction, range_str.c_str());
+
+			pool<int> green_nodes;
+			for (int i = 0; i < GetSize(sorted_pos)/2; i++)
+				green_nodes.insert(sorted_pos[i].second);
+
+			dump_svg(&green_nodes);
+		}
+
+		if (GetSize(sorted_pos) < 2 || (2*radius <= config.grid && 2*alt_radius <= config.grid)) {
 			log_cell_coordinates(indent + 1);
 			return;
 		}
-
-		std::sort(sorted_pos.begin(), sorted_pos.end());
 
 		// create child workers
 
@@ -474,8 +546,15 @@ struct QwpWorker
 
 		// run child workers
 
-		left_worker.run_worker(indent+1, alt_midpos, alt_radius, midpos - radius/2, radius/2);
-		right_worker.run_worker(indent+1, alt_midpos, alt_radius, midpos + radius/2, radius/2);
+		left_worker.midpos = right_worker.midpos = alt_midpos;
+		left_worker.radius = right_worker.radius = alt_radius;
+
+		left_worker.alt_midpos = midpos - radius/2;
+		right_worker.alt_midpos = midpos + radius/2;
+		left_worker.alt_radius = right_worker.alt_radius = radius/2;
+
+		left_worker.run_worker(indent+1);
+		right_worker.run_worker(indent+1);
 
 		// re-integrate results
 
@@ -496,8 +575,16 @@ struct QwpWorker
 	{
 		log("Running qwp on module %s..\n", log_id(module));
 
+		if (config.dump_file.is_open())
+			config.dump_file << stringf("<h3>QWP protocol for module %s:</h3>\n", log_id(module));
+
 		load_module();
-		run_worker(1, 0.5, 0.5, 0.5, 0.5);
+
+		midpos = 0.5;
+		radius = 0.5;
+		alt_midpos = 0.5;
+		alt_radius = 0.5;
+		run_worker(1);
 
 		for (auto &node : nodes)
 			if (node.cell != nullptr)
@@ -527,6 +614,9 @@ struct QwpPass : public Pass {
 		log("    -grid N\n");
 		log("        Number of grid divisions in x- and y-direction. (default=16)\n");
 		log("\n");
+		log("    -dump <html_file_name>\n");
+		log("        Dump a protocol of the placement algorithm to the html file.\n");
+		log("\n");
 		log("Note: This implementation of a quadratic wirelength placer uses unoptimized\n");
 		log("dense matrix operations. It is only a toy-placer for small circuits.\n");
 		log("\n");
@@ -550,6 +640,10 @@ struct QwpPass : public Pass {
 			}
 			if (args[argidx] == "-grid" && argidx+1 < args.size()) {
 				config.grid = 1.0 / atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-dump" && argidx+1 < args.size()) {
+				config.dump_file.open(args[++argidx], std::ofstream::trunc);
 				continue;
 			}
 			break;
