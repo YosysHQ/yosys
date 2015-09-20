@@ -201,7 +201,7 @@ struct QwpWorker
 		}
 	}
 
-	void solve()
+	void solve(bool alt_mode = false)
 	{
 		int observation_matrix_m = GetSize(edges) + GetSize(nodes);
 		int observation_matrix_n = GetSize(nodes);
@@ -223,10 +223,10 @@ struct QwpWorker
 		int j = 0;
 		for (auto &node : nodes) {
 			double weight = 1e-6;
-			if (node.tied) weight = 1e3;
+			if (alt_mode ? node.alt_tied : node.tied) weight = 1e3;
 			weight *= (1.0 + xorshift32() * 1e-3);
 			observation_matrix[i + observation_matrix_m*j] = weight;
-			observation_rhs_vector[i] = node.pos * weight;
+			observation_rhs_vector[i] = (alt_mode ? node.alt_pos : node.pos) * weight;
 			i++, j++;
 		}
 
@@ -318,8 +318,13 @@ struct QwpWorker
 
 		// update node positions
 		for (int i = 0; i < N; i++)
-			if (!nodes[i].tied)
-				nodes[i].pos = M[(N+1)*i + N];
+			if (alt_mode) {
+				if (!nodes[i].alt_tied)
+					nodes[i].alt_pos = M[(N+1)*i + N];
+			} else {
+				if (!nodes[i].tied)
+					nodes[i].pos = M[(N+1)*i + N];
+			}
 	}
 
 	void log_cell_coordinates(int indent, bool log_all_nodes = false)
@@ -352,16 +357,40 @@ struct QwpWorker
 		}
 	}
 
-	void dump_svg(const pool<int> *green_nodes = nullptr)
+	void dump_svg(const pool<int> *green_nodes = nullptr, double median = -1)
 	{
-		config.dump_file << stringf("<svg height=\"200\" width=\"200\">\n");
-		config.dump_file << stringf("<rect width=\"200\" height=\"200\" style=\"fill:rgb(200,200,200);\" />\n");
-
 		double x_center = direction == 'x' ? midpos : alt_midpos;
 		double y_center = direction == 'y' ? midpos : alt_midpos;
 
 		double x_radius = direction == 'x' ? radius : alt_radius;
 		double y_radius = direction == 'y' ? radius : alt_radius;
+
+		config.dump_file << stringf("<svg height=\"240\" width=\"470\">\n");
+		config.dump_file << stringf("<rect x=\"0\" y=\"0\" width=\"470\" height=\"240\" style=\"fill:rgb(250,250,200);\" />\n");
+		config.dump_file << stringf("<rect x=\"20\" y=\"20\" width=\"200\" height=\"200\" style=\"fill:rgb(200,200,200);\" />\n");
+		config.dump_file << stringf("<rect x=\"250\" y=\"20\" width=\"200\" height=\"200\" style=\"fill:rgb(200,200,200);\" />\n");
+
+		double win_x = 250 + 200 * (direction == 'x' ? midpos - radius : alt_midpos - alt_radius);
+		double win_y =  20 + 200 * (direction == 'y' ? midpos - radius : alt_midpos - alt_radius);
+
+		double win_w = 200 * (direction == 'x' ? 2*radius : 2*alt_radius);
+		double win_h = 200 * (direction == 'y' ? 2*radius : 2*alt_radius);
+
+		config.dump_file << stringf("<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" "
+				"style=\"stroke:rgb(0,0,0);stroke-width:1;fill:none\" />\n", win_x, win_y, win_w, win_h);
+
+		if (median >= 0)
+		{
+			double x1 = 20.0, x2 = 220.0, y1 = 20.0, y2 = 220.0;
+
+			if (direction == 'x')
+				x1 = x2 = 120 + 100 * (median - x_center) / x_radius;
+			else
+				y1 = y2 = 120 + 100 * (median - y_center) / y_radius;
+
+			config.dump_file << stringf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" "
+					"style=\"stroke:rgb(150,0,150);stroke-width:1\" />\n", x1, y1, x2, y2);
+		}
 
 		for (auto &edge : edges)
 		{
@@ -374,11 +403,11 @@ struct QwpWorker
 			double x2 = direction == 'x' ? node2.pos : node2.alt_pos;
 			double y2 = direction == 'y' ? node2.pos : node2.alt_pos;
 
-			x1 = 100 + 100 * (x1 - x_center) / x_radius;
-			y1 = 100 + 100 * (y1 - y_center) / y_radius;
+			x1 = 120 + 100 * (x1 - x_center) / x_radius;
+			y1 = 120 + 100 * (y1 - y_center) / y_radius;
 
-			x2 = 100 + 100 * (x2 - x_center) / x_radius;
-			y2 = 100 + 100 * (y2 - y_center) / y_radius;
+			x2 = 120 + 100 * (x2 - x_center) / x_radius;
+			y2 = 120 + 100 * (y2 - y_center) / y_radius;
 
 			config.dump_file << stringf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" "
 					"style=\"stroke:rgb(0,0,0);stroke-width:1\" />\n", x1, y1, x2, y2);
@@ -391,8 +420,8 @@ struct QwpWorker
 			double x = direction == 'x' ? node.pos : node.alt_pos;
 			double y = direction == 'y' ? node.pos : node.alt_pos;
 
-			x = 100 + 100 * (x - x_center) / x_radius;
-			y = 100 + 100 * (y - y_center) / y_radius;
+			x = 120 + 100 * (x - x_center) / x_radius;
+			y = 120 + 100 * (y - y_center) / y_radius;
 
 			const char *color = node.cell == nullptr ? "blue" : "red";
 
@@ -405,7 +434,7 @@ struct QwpWorker
 		config.dump_file << stringf("</svg>\n");
 	}
 
-	void run_worker(int indent)
+	void run_worker(int indent, bool return_after_solve = false)
 	{
 		int count_cells = 0;
 
@@ -431,13 +460,10 @@ struct QwpWorker
 				range_str.c_str(), count_cells, GetSize(nodes), GetSize(edges));
 
 		solve();
+		solve(true);
 
-		for (auto &node : nodes) {
-			log_assert(node.pos + 0.1 >= midpos - radius);
-			log_assert(node.pos - 0.1 <= midpos + radius);
-			log_assert(node.alt_pos + 0.1 >= alt_midpos - alt_radius);
-			log_assert(node.alt_pos - 0.1 <= alt_midpos + alt_radius);
-		}
+		if (return_after_solve)
+			return;
 
 		// detect median position and check for break condition
 
@@ -447,16 +473,30 @@ struct QwpWorker
 				sorted_pos.push_back(pair<double, int>(nodes[i].pos, i));
 
 		std::sort(sorted_pos.begin(), sorted_pos.end());
+		int median_sidx = GetSize(sorted_pos)/2;
+		double median = sorted_pos[median_sidx].first;
+
+		double left_scale = radius / (median - (midpos - radius));
+		double right_scale = radius / ((midpos + radius) - median);
 
 		if (config.dump_file.is_open())
 		{
 			config.dump_file << stringf("<h4>LSQ %c-Solution for %s:</h4>\n", direction, range_str.c_str());
 
 			pool<int> green_nodes;
-			for (int i = 0; i < GetSize(sorted_pos)/2; i++)
+			for (int i = 0; i < median_sidx; i++)
 				green_nodes.insert(sorted_pos[i].second);
 
-			dump_svg(&green_nodes);
+			dump_svg(&green_nodes, median);
+		}
+
+		for (auto &node : nodes)
+		{
+			double rel_pos = node.pos - median;
+			if (rel_pos < 0)
+				node.pos = midpos + left_scale*rel_pos;
+			else
+				node.pos = midpos + right_scale*rel_pos;
 		}
 
 		if (GetSize(sorted_pos) < 2 || (2*radius <= config.grid && 2*alt_radius <= config.grid)) {
@@ -479,7 +519,7 @@ struct QwpWorker
 		{
 			int i = sorted_pos[k].second;
 
-			if (k < GetSize(sorted_pos) / 2) {
+			if (k < median_sidx) {
 				left_nodes[i] = GetSize(left_worker.nodes);
 				left_worker.nodes.push_back(nodes[i]);
 				if (left_worker.nodes.back().pos > midpos)
@@ -511,26 +551,26 @@ struct QwpWorker
 			int right_idx1 = right_nodes.count(idx1) ? right_nodes.at(idx1) : -1;
 			int right_idx2 = right_nodes.count(idx2) ? right_nodes.at(idx2) : -1;
 
-			if (nodes[idx1].cell && left_idx1 >= 0 && left_idx2 < 0) {
+			if (left_idx1 >= 0 && left_worker.nodes[left_idx1].cell && left_idx2 < 0) {
 				left_idx2 = left_nodes[idx2] = GetSize(left_worker.nodes);
 				left_worker.nodes.push_back(nodes[idx2]);
 				left_worker.nodes.back().proj_left(midpos);
 				left_worker.nodes.back().swap_alt();
 			} else
-			if (nodes[idx2].cell && left_idx2 >= 0 && left_idx1 < 0) {
+			if (left_idx2 >= 0 && left_worker.nodes[left_idx2].cell && left_idx1 < 0) {
 				left_idx1 = left_nodes[idx1] = GetSize(left_worker.nodes);
 				left_worker.nodes.push_back(nodes[idx1]);
 				left_worker.nodes.back().proj_left(midpos);
 				left_worker.nodes.back().swap_alt();
 			}
 
-			if (nodes[idx1].cell && right_idx1 >= 0 && right_idx2 < 0) {
+			if (right_idx1 >= 0 && right_worker.nodes[right_idx1].cell && right_idx2 < 0) {
 				right_idx2 = right_nodes[idx2] = GetSize(right_worker.nodes);
 				right_worker.nodes.push_back(nodes[idx2]);
 				right_worker.nodes.back().proj_right(midpos);
 				right_worker.nodes.back().swap_alt();
 			} else
-			if (nodes[idx2].cell && right_idx2 >= 0 && right_idx1 < 0) {
+			if (right_idx2 >= 0 && right_worker.nodes[right_idx2].cell && right_idx1 < 0) {
 				right_idx1 = right_nodes[idx1] = GetSize(right_worker.nodes);
 				right_worker.nodes.push_back(nodes[idx1]);
 				right_worker.nodes.back().proj_right(midpos);
@@ -569,6 +609,11 @@ struct QwpWorker
 				nodes[it.first].pos = right_worker.nodes[it.second].alt_pos;
 				nodes[it.first].alt_pos = right_worker.nodes[it.second].pos;
 			}
+
+		if (config.dump_file.is_open()) {
+			config.dump_file << stringf("<h4>Final %c-Solution for %s:</h4>\n", direction, range_str.c_str());
+			dump_svg();
+		}
 	}
 
 	void run()
