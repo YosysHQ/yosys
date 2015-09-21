@@ -222,7 +222,7 @@ struct QwpWorker
 
 		int j = 0;
 		for (auto &node : nodes) {
-			double weight = 1e-6;
+			double weight = 1e-3;
 			if (alt_mode ? node.alt_tied : node.tied) weight = 1e3;
 			weight *= (1.0 + xorshift32() * 1e-3);
 			observation_matrix[i + observation_matrix_m*j] = weight;
@@ -278,7 +278,8 @@ struct QwpWorker
 		// Solve "AA*x = Ay"
 		// (least squares fit for "A*x = y")
 		//
-		// Using gaussian elimination (no pivoting) to get M := [Id x]
+		// Using gaussian elimination to get M := [Id x]
+		// (no pivoting, so let's hope for the best..)
 
 		// eliminate to upper triangular matrix
 		for (int i = 0; i < N; i++)
@@ -318,13 +319,26 @@ struct QwpWorker
 
 		// update node positions
 		for (int i = 0; i < N; i++)
+		{
+			double v = M[(N+1)*i + N];
+			double c = alt_mode ? alt_midpos : midpos;
+			double r = alt_mode ? alt_radius : radius;
+
+			if (std::isfinite(v)) {
+				v = std::min(v, c+r);
+				v = std::max(v, c-r);
+			} else {
+				v = c;
+			}
+
 			if (alt_mode) {
 				if (!nodes[i].alt_tied)
-					nodes[i].alt_pos = M[(N+1)*i + N];
+					nodes[i].alt_pos = v;
 			} else {
 				if (!nodes[i].tied)
-					nodes[i].pos = M[(N+1)*i + N];
+					nodes[i].pos = v;
 			}
+		}
 	}
 
 	void log_cell_coordinates(int indent, bool log_all_nodes = false)
@@ -493,10 +507,21 @@ struct QwpWorker
 		for (auto &node : nodes)
 		{
 			double rel_pos = node.pos - median;
-			if (rel_pos < 0)
+			if (rel_pos < 0) {
 				node.pos = midpos + left_scale*rel_pos;
-			else
+				if (std::isfinite(node.pos)) {
+					node.pos = std::min(node.pos, midpos);
+					node.pos = std::max(node.pos, midpos - radius);
+				} else
+					node.pos = midpos - radius/2;
+			} else {
 				node.pos = midpos + right_scale*rel_pos;
+				if (std::isfinite(node.pos)) {
+					node.pos = std::max(node.pos, midpos);
+					node.pos = std::min(node.pos, midpos + radius);
+				} else
+					node.pos = midpos + radius/2;
+			}
 		}
 
 		if (GetSize(sorted_pos) < 2 || (2*radius <= config.grid && 2*alt_radius <= config.grid)) {
