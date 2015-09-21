@@ -300,7 +300,7 @@ yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
 yosys$(EXE): $(OBJS)
-	$(P) $(CXX) -o yosys$(EXE) $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(CXX) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
