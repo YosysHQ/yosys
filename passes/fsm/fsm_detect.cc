@@ -110,6 +110,8 @@ static bool check_state_users(RTLIL::SigSpec sig)
 
 static void detect_fsm(RTLIL::Wire *wire)
 {
+	if (wire->attributes.count("\\init") > 0)
+		return;
 	if (wire->attributes.count("\\fsm_encoding") > 0 || wire->width <= 1)
 		return;
 	if (sig_at_port.check_any(assign_map(RTLIL::SigSpec(wire))))
