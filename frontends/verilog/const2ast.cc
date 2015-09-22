@@ -122,7 +122,7 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 	}
 
 	int len = GetSize(data);
-	RTLIL::State msb = data.back();
+	RTLIL::State msb = data.empty() ? RTLIL::S0 : data.back();
 
 	if (len_in_bits < 0) {
 		if (len < 32)
