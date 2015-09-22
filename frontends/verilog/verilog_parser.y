@@ -708,6 +708,8 @@ wire_name_and_opt_assign:
 
 wire_name:
 	TOK_ID range_or_multirange {
+		if (astbuf1 == nullptr)
+			frontend_verilog_yyerror("Syntax error.");
 		AstNode *node = astbuf1->clone();
 		node->str = *$1;
 		append_attr_clone(node, albuf);
