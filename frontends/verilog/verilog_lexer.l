@@ -248,7 +248,7 @@ and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1 {
 supply0 { return TOK_SUPPLY0; }
 supply1 { return TOK_SUPPLY1; }
 
-"$"(display|strobe|monitor|time|stop|finish|dumpfile|dumpvars|dumpon|dumpoff|dumpall) {
+"$"(display|write|strobe|monitor|time|stop|finish|dumpfile|dumpvars|dumpon|dumpoff|dumpall) {
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_ID;
 }
