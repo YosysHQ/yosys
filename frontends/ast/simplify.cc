@@ -760,10 +760,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (i == 0)
 				index_expr = new_index_expr;
 			else
-				index_expr = new AstNode(AST_ADD, new AstNode(AST_MUL, index_expr, AstNode::mkconst_int(id2ast->multirange_dimensions[2*i-1], true)), new_index_expr);
+				index_expr = new AstNode(AST_ADD, new AstNode(AST_MUL, index_expr, AstNode::mkconst_int(id2ast->multirange_dimensions[2*i+1], true)), new_index_expr);
 		}
 
-		for (int i = GetSize(id2ast->multirange_dimensions)/1; i < GetSize(children[0]->children); i++)
+		for (int i = GetSize(id2ast->multirange_dimensions)/2; i < GetSize(children[0]->children); i++)
 			children.push_back(children[0]->children[i]->clone());
 
 		delete children[0];
