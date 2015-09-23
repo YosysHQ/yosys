@@ -182,20 +182,21 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		str = std::string();
 	}
 
+	if ((type == AST_TCALL) && (str == "$display" || str == "$write") && (!current_always || current_always->type != AST_INITIAL)) {
+		log_warning("System task `%s' outside initial block is unsupported at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+		delete_children();
+		str = std::string();
+	}
+
 	// print messages if this a call to $display() or $write()
 	// This code implements only a small subset of Verilog-2005 $display() format specifiers,
 	// but should be good enough for most uses
 	if ((type == AST_TCALL) && ((str == "$display") || (str == "$write")))
 	{
-		if (!current_always || current_always->type != AST_INITIAL)
-			log_error("System task `$display' outside initial block is unsupported at %s:%d.\n", filename.c_str(), linenum);
-
 		size_t nargs = GetSize(children);
 		if(nargs < 1)
-		{
-			log_error("System task `$display' got %d arguments, expected >= 1 at %s:%d.\n",
-				int(children.size()), filename.c_str(), linenum);
-		}
+			log_error("System task `%s' got %d arguments, expected >= 1 at %s:%d.\n",
+					str.c_str(), int(children.size()), filename.c_str(), linenum);
 
 		// First argument is the format string
 		AstNode *node_string = children[0]->clone();
