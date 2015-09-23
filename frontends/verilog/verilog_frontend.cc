@@ -39,6 +39,14 @@ using namespace VERILOG_FRONTEND;
 static std::vector<std::string> verilog_defaults;
 static std::list<std::vector<std::string>> verilog_defaults_stack;
 
+static void error_on_dpi_function(AST::AstNode *node)
+{
+	if (node->type == AST::AST_DPI_FUNCTION)
+		log_error("Found DPI function %s at %s:%d.\n", node->str.c_str(), node->filename.c_str(), node->linenum);
+	for (auto child : node->children)
+		error_on_dpi_function(child);
+}
+
 struct VerilogFrontend : public Frontend {
 	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
 	virtual void help()
@@ -107,6 +115,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -nopp\n");
 		log("        do not run the pre-processor\n");
 		log("\n");
+		log("    -nodpi\n");
+		log("        disable DPI-C support\n");
+		log("\n");
 		log("    -lib\n");
 		log("        only create empty blackbox modules. This implies -DBLACKBOX.\n");
 		log("\n");
@@ -160,6 +171,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_mem2reg = false;
 		bool flag_ppdump = false;
 		bool flag_nopp = false;
+		bool flag_nodpi = false;
 		bool flag_lib = false;
 		bool flag_noopt = false;
 		bool flag_icells = false;
@@ -227,6 +239,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-nopp") {
 				flag_nopp = true;
+				continue;
+			}
+			if (arg == "-nodpi") {
+				flag_nodpi = true;
 				continue;
 			}
 			if (arg == "-lib") {
@@ -319,6 +335,9 @@ struct VerilogFrontend : public Frontend {
 					if (child->attributes.count(attr) == 0)
 						child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
 		}
+
+		if (flag_nodpi)
+			error_on_dpi_function(current_ast);
 
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
 
