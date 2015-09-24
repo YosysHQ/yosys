@@ -433,7 +433,7 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 	SigSpec rd_data = cell->getPort("\\RD_DATA");
 	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
 
-	if (match.shuffle_enable && bram.dbits >= portinfos.at(match.shuffle_enable - 'A').enable*2 && portinfos.at(match.shuffle_enable - 'A').enable > 0)
+	if (match.shuffle_enable && bram.dbits >= portinfos.at(match.shuffle_enable - 'A').enable*2 && portinfos.at(match.shuffle_enable - 'A').enable > 0 && wr_ports > 0)
 	{
 		int bucket_size = bram.dbits / portinfos.at(match.shuffle_enable - 'A').enable;
 		log("      Shuffle bit order to accommodate enable buckets of size %d..\n", bucket_size);
