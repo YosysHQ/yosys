@@ -641,8 +641,50 @@ struct QwpWorker
 		}
 	}
 
+	void histogram(const vector<double> &values)
+	{
+		if (values.empty()) {
+			log("no data\n");
+			return;
+		}
+
+		double min_value = values.front();
+		double max_value = values.front();
+
+		for (auto &v : values) {
+			min_value = std::min(min_value, v);
+			max_value = std::max(max_value, v);
+		}
+
+		if (fabs(max_value - min_value) < 0.001) {
+			log("all values in range %f .. %f\n", min_value, max_value);
+			return;
+		}
+
+		vector<int> buckets(60);
+		int max_bucket_val = 0;
+
+		for (auto &v : values) {
+			int idx = std::min(int(GetSize(buckets) * (v - min_value) / (max_value - min_value)), GetSize(buckets)-1);
+			max_bucket_val = std::max(max_bucket_val, ++buckets.at(idx));
+		}
+
+		for (int i = 4; i >= 0; i--) {
+			for (int k = 0; k < GetSize(buckets); k++) {
+				int v = 10 * buckets[k] / max_bucket_val;
+				if (v >= 2*i+1)
+					log(v == 2*i+1 ? "." : ":");
+				else
+					log(i == 0 ? (buckets[k] > 0 ? "," : "_") : " ");
+			}
+			log("\n");
+		}
+		log("%-30f%30f\n", min_value, max_value);
+	}
+
 	void run()
 	{
+		log("\n");
 		log("Running qwp on module %s..\n", log_id(module));
 
 		if (config.dump_file.is_open())
@@ -659,6 +701,41 @@ struct QwpWorker
 		for (auto &node : nodes)
 			if (node.cell != nullptr)
 				node.cell->attributes["\\qwp_position"] = stringf("%f %f", node.pos, node.alt_pos);
+
+		vector<double> edge_lengths;
+		vector<double> weighted_edge_lengths;
+
+		double total_edge_length = 0;
+		double total_weighted_edge_length = 0;
+
+		for (auto &edge : edges)
+		{
+			auto &node1 = nodes[edge.first.first];
+			auto &node2 = nodes[edge.first.second];
+
+			double distance = sqrt(pow(node1.pos - node2.pos, 2) + pow(node1.alt_pos - node2.alt_pos, 2));
+			double weighted_distance = distance * edge.second;
+
+			edge_lengths.push_back(distance);
+			weighted_edge_lengths.push_back(weighted_distance);
+
+			total_edge_length += distance;
+			total_weighted_edge_length += weighted_distance;
+		}
+
+		log("\n");
+		log("Summary for module %s:\n", log_id(module));
+		log("Number of edges: %d\n", GetSize(edges));
+		log("Total edge length: %f\n", total_edge_length);
+		log("Total weighted edge length: %f\n", total_weighted_edge_length);
+
+		log("\n");
+		log("Histogram over edge lengths:\n");
+		histogram(edge_lengths);
+
+		log("\n");
+		log("Histogram over weighted edge lengths:\n");
+		histogram(weighted_edge_lengths);
 	}
 };
 
