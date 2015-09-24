@@ -699,7 +699,7 @@ AstNode *AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signe
 	for (size_t i = 0; i < 32; i++) {
 		if (i < node->bits.size())
 			node->integer |= (node->bits[i] == RTLIL::S1) << i;
-		else if (is_signed)
+		else if (is_signed && !node->bits.empty())
 			node->integer |= (node->bits.back() == RTLIL::S1) << i;
 	}
 	node->range_valid = true;
