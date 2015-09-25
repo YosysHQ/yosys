@@ -2211,6 +2211,9 @@ static void replace_result_wire_name_in_function(AstNode *node, std::string &fro
 // replace a readmem[bh] TCALL ast node with a block of memory assignments
 AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init)
 {
+	int mem_width, mem_size, addr_bits;
+	memory->meminfo(mem_width, mem_size, addr_bits);
+
 	AstNode *block = new AstNode(AST_BLOCK);
 
 	AstNode *meminit = nullptr;
@@ -2232,7 +2235,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 		start_addr = range_min;
 
 	if (finish_addr < 0)
-		finish_addr = range_max;
+		finish_addr = range_max + 1;
 
 	bool in_comment = false;
 	int increment = start_addr <= finish_addr ? +1 : -1;
@@ -2272,7 +2275,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 				continue;
 			}
 
-			AstNode *value = VERILOG_FRONTEND::const2ast((is_readmemh ? "'h" : "'b") + token);
+			AstNode *value = VERILOG_FRONTEND::const2ast(stringf("%d'%c", mem_width, is_readmemh ? 'h' : 'b') + token);
 
 			if (unconditional_init)
 			{
@@ -2308,12 +2311,12 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 				block->children.back()->children[0]->id2ast = memory;
 			}
 
-			if ((cursor == finish_addr) || (increment > 0 && cursor >= range_max) || (increment < 0 && cursor <= range_min))
+			if ((cursor == finish_addr) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
 				break;
 			cursor += increment;
 		}
 
-		if ((cursor == finish_addr) || (increment > 0 && cursor >= range_max) || (increment < 0 && cursor <= range_min))
+		if ((cursor == finish_addr) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
 			break;
 	}
 
