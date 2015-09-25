@@ -831,7 +831,7 @@ double AstNode::asReal(bool is_signed)
 	{
 		RTLIL::Const val(bits);
 
-		bool is_negative = is_signed && val.bits.back() == RTLIL::State::S1;
+		bool is_negative = is_signed && !val.bits.empty() && val.bits.back() == RTLIL::State::S1;
 		if (is_negative)
 			val = const_neg(val, val, false, false, val.bits.size());
 
