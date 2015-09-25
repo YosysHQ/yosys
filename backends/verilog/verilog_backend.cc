@@ -165,12 +165,13 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				log_assert(i < (int)data.bits.size());
 				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
 					goto dump_bits;
-				if (data.bits[i] == RTLIL::S1 && (i - offset) == 31)
-					goto dump_bits;
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
-			f << stringf("32'%sd %d", set_signed ? "s" : "", val);
+			if (set_signed && val < 0)
+				f << stringf("-32'sd %u", -val);
+			else
+				f << stringf("32'%sd %u", set_signed ? "s" : "", val);
 		} else {
 	dump_bits:
 			f << stringf("%d'%sb", width, set_signed ? "s" : "");
@@ -805,15 +806,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		//  initial begin
 		//    memid[0] <= ...
 		//  end
-		int mem_val;
 		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size-1, 0);
 		if (use_init)
 		{
 			f << stringf("%s" "initial begin\n", indent.c_str());
 			for (int i=0; i<size; i++)
 			{
-				mem_val = cell->parameters["\\INIT"].extract(i*width, width).as_int();
-				f << stringf("%s" "  %s[%d] <= %d'd%d;\n", indent.c_str(), mem_id.c_str(), i, width, mem_val);
+				f << stringf("%s" "  %s[%d] <= ", indent.c_str(), mem_id.c_str(), i);
+				dump_const(f, cell->parameters["\\INIT"].extract(i*width, width));
+				f << stringf(";\n");
 			}
 			f << stringf("%s" "end\n", indent.c_str());
 		}
@@ -884,7 +885,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 						std::ostringstream os;
 						dump_sigspec(os, sig_rd_data);
 						std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), temp_id.c_str());
-						clk_to_lof_body[clk_domain_str].push_back(line);
+						clk_to_lof_body[""].push_back(line);
 					}
 				} else {
 					// for non-clocked read-ports make something like:
