@@ -859,8 +859,11 @@ grow_read_ports:;
 				if (pi.enable)
 				{
 					SigSpec sig_en = pi.sig_en;
-					sig_en.extend_u0((grid_d+1) * pi.enable);
-					sig_en = sig_en.extract(grid_d * pi.enable, pi.enable);
+
+					if (pi.wrmode == 1) {
+						sig_en.extend_u0((grid_d+1) * pi.enable);
+						sig_en = sig_en.extract(grid_d * pi.enable, pi.enable);
+					}
 
 					if (!addr_ok.empty())
 						sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
