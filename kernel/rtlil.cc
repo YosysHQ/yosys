@@ -947,6 +947,7 @@ namespace {
 				param_bool("\\CLK_POLARITY");
 				param_bool("\\TRANSPARENT");
 				port("\\CLK", 1);
+				port("\\EN", 1);
 				port("\\ADDR", param("\\ABITS"));
 				port("\\DATA", param("\\WIDTH"));
 				check_expected();
@@ -986,6 +987,7 @@ namespace {
 				param_bits("\\WR_CLK_ENABLE", std::max(1, param("\\WR_PORTS")));
 				param_bits("\\WR_CLK_POLARITY", std::max(1, param("\\WR_PORTS")));
 				port("\\RD_CLK", param("\\RD_PORTS"));
+				port("\\RD_EN", param("\\RD_PORTS"));
 				port("\\RD_ADDR", param("\\RD_PORTS") * param("\\ABITS"));
 				port("\\RD_DATA", param("\\RD_PORTS") * param("\\WIDTH"));
 				port("\\WR_CLK", param("\\WR_PORTS"));

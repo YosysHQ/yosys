@@ -200,34 +200,43 @@ struct MemoryMapWorker
 
 			if (cell->parameters["\\RD_CLK_ENABLE"].bits[i] == RTLIL::State::S1)
 			{
+				RTLIL::Cell *dff_cell = nullptr;
+
 				if (cell->parameters["\\RD_TRANSPARENT"].bits[i] == RTLIL::State::S1)
 				{
-					RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
-					c->parameters["\\WIDTH"] = RTLIL::Const(mem_abits);
-					c->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
-					c->setPort("\\CLK", cell->getPort("\\RD_CLK").extract(i, 1));
-					c->setPort("\\D", rd_addr);
+					dff_cell = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
+					dff_cell->parameters["\\WIDTH"] = RTLIL::Const(mem_abits);
+					dff_cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
+					dff_cell->setPort("\\CLK", cell->getPort("\\RD_CLK").extract(i, 1));
+					dff_cell->setPort("\\D", rd_addr);
 					count_dff++;
 
 					RTLIL::Wire *w = module->addWire(genid(cell->name, "$rdreg", i, "$q"), mem_abits);
 
-					c->setPort("\\Q", RTLIL::SigSpec(w));
+					dff_cell->setPort("\\Q", RTLIL::SigSpec(w));
 					rd_addr = RTLIL::SigSpec(w);
 				}
 				else
 				{
-					RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
-					c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
-					c->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
-					c->setPort("\\CLK", cell->getPort("\\RD_CLK").extract(i, 1));
-					c->setPort("\\Q", rd_signals.back());
+					dff_cell = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
+					dff_cell->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
+					dff_cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
+					dff_cell->setPort("\\CLK", cell->getPort("\\RD_CLK").extract(i, 1));
+					dff_cell->setPort("\\Q", rd_signals.back());
 					count_dff++;
 
 					RTLIL::Wire *w = module->addWire(genid(cell->name, "$rdreg", i, "$d"), mem_width);
 
 					rd_signals.clear();
 					rd_signals.push_back(RTLIL::SigSpec(w));
-					c->setPort("\\D", rd_signals.back());
+					dff_cell->setPort("\\D", rd_signals.back());
+				}
+
+				SigBit en_bit = cell->getPort("\\RD_EN").extract(i);
+				if (en_bit != State::S1) {
+					SigSpec new_d = module->Mux(genid(cell->name, "$rdenmux", i),
+							dff_cell->getPort("\\Q"), dff_cell->getPort("\\D"), en_bit);
+					dff_cell->setPort("\\D", new_d);
 				}
 			}
 

@@ -692,7 +692,8 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			cell->parameters["\\TRANSPARENT"] = false;
 			cell->parameters["\\ABITS"] = GetSize(addr);
 			cell->parameters["\\WIDTH"] = GetSize(data);
-			cell->setPort("\\CLK", RTLIL::State::S0);
+			cell->setPort("\\CLK", RTLIL::State::Sx);
+			cell->setPort("\\EN", RTLIL::State::Sx);
 			cell->setPort("\\ADDR", addr);
 			cell->setPort("\\DATA", data);
 			continue;

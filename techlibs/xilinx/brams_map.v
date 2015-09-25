@@ -1,4 +1,4 @@
-module \$__XILINX_RAMB36_SDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+module \$__XILINX_RAMB36_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	parameter CLKPOL2 = 1;
 	parameter CLKPOL3 = 1;
 	parameter [36863:0] INIT = 36864'bx;
@@ -8,6 +8,7 @@ module \$__XILINX_RAMB36_SDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 
 	input [8:0] A1ADDR;
 	output [71:0] A1DATA;
+	input A1EN;
 
 	input [8:0] B1ADDR;
 	input [71:0] B1DATA;
@@ -47,7 +48,7 @@ module \$__XILINX_RAMB36_SDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 
 		.ADDRARDADDR(A1ADDR_16),
 		.CLKARDCLK(CLK2),
-		.ENARDEN(|1),
+		.ENARDEN(A1EN),
 		.REGCEAREGCE(|1),
 		.RSTRAMARSTRAM(|0),
 		.RSTREGARSTREG(|0),
@@ -65,7 +66,7 @@ endmodule
 
 // ------------------------------------------------------------------------
 
-module \$__XILINX_RAMB18_SDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+module \$__XILINX_RAMB18_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	parameter CLKPOL2 = 1;
 	parameter CLKPOL3 = 1;
 	parameter [18431:0] INIT = 18432'bx;
@@ -75,6 +76,7 @@ module \$__XILINX_RAMB18_SDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 
 	input [8:0] A1ADDR;
 	output [35:0] A1DATA;
+	input A1EN;
 
 	input [8:0] B1ADDR;
 	input [35:0] B1DATA;
@@ -111,7 +113,7 @@ module \$__XILINX_RAMB18_SDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 
 		.ADDRARDADDR(A1ADDR_14),
 		.CLKARDCLK(CLK2),
-		.ENARDEN(|1),
+		.ENARDEN(A1EN),
 		.REGCEAREGCE(|1),
 		.RSTRAMARSTRAM(|0),
 		.RSTREGARSTREG(|0),
@@ -129,7 +131,7 @@ endmodule
 
 // ------------------------------------------------------------------------
 
-module \$__XILINX_RAMB36_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+module \$__XILINX_RAMB36_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	parameter CFG_ABITS = 10;
 	parameter CFG_DBITS = 36;
 	parameter CFG_ENABLE_B = 4;
@@ -143,6 +145,7 @@ module \$__XILINX_RAMB36_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 
 	input [CFG_ABITS-1:0] A1ADDR;
 	output [CFG_DBITS-1:0] A1DATA;
+	input A1EN;
 
 	input [CFG_ABITS-1:0] B1ADDR;
 	input [CFG_DBITS-1:0] B1DATA;
@@ -181,7 +184,7 @@ module \$__XILINX_RAMB36_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 			.DOPADOP(DOP[3:0]),
 			.ADDRARDADDR(A1ADDR_16),
 			.CLKARDCLK(CLK2),
-			.ENARDEN(|1),
+			.ENARDEN(A1EN),
 			.REGCEAREGCE(|1),
 			.RSTRAMARSTRAM(|0),
 			.RSTREGARSTREG(|0),
@@ -219,7 +222,7 @@ module \$__XILINX_RAMB36_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 			.DOPADOP(DOP[3:0]),
 			.ADDRARDADDR(A1ADDR_16),
 			.CLKARDCLK(CLK2),
-			.ENARDEN(|1),
+			.ENARDEN(A1EN),
 			.REGCEAREGCE(|1),
 			.RSTRAMARSTRAM(|0),
 			.RSTREGARSTREG(|0),
@@ -242,7 +245,7 @@ endmodule
 
 // ------------------------------------------------------------------------
 
-module \$__XILINX_RAMB18_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
+module \$__XILINX_RAMB18_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 	parameter CFG_ABITS = 10;
 	parameter CFG_DBITS = 18;
 	parameter CFG_ENABLE_B = 2;
@@ -256,6 +259,7 @@ module \$__XILINX_RAMB18_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 
 	input [CFG_ABITS-1:0] A1ADDR;
 	output [CFG_DBITS-1:0] A1DATA;
+	input A1EN;
 
 	input [CFG_ABITS-1:0] B1ADDR;
 	input [CFG_DBITS-1:0] B1DATA;
@@ -294,7 +298,7 @@ module \$__XILINX_RAMB18_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 			.DOPADOP(DOP),
 			.ADDRARDADDR(A1ADDR_14),
 			.CLKARDCLK(CLK2),
-			.ENARDEN(|1),
+			.ENARDEN(A1EN),
 			.REGCEAREGCE(|1),
 			.RSTRAMARSTRAM(|0),
 			.RSTREGARSTREG(|0),
@@ -332,7 +336,7 @@ module \$__XILINX_RAMB18_TDP (CLK2, CLK3, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
 			.DOPADOP(DOP),
 			.ADDRARDADDR(A1ADDR_14),
 			.CLKARDCLK(CLK2),
-			.ENARDEN(|1),
+			.ENARDEN(A1EN),
 			.REGCEAREGCE(|1),
 			.RSTRAMARSTRAM(|0),
 			.RSTREGARSTREG(|0),

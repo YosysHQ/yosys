@@ -112,15 +112,15 @@ struct rules_t
 				if (ports[i] != other.ports[i])
 					log_error("Bram %s variants %d and %d have different number of %c-ports.\n", log_id(name), variant, other.variant, 'A'+i);
 				if (wrmode[i] != other.wrmode[i])
-					variant_params[stringf("\\CFG_WRMODE_%c", 'A' + i)] = wrmode[1];
+					variant_params[stringf("\\CFG_WRMODE_%c", 'A' + i)] = wrmode[i];
 				if (enable[i] != other.enable[i])
-					variant_params[stringf("\\CFG_ENABLE_%c", 'A' + i)] = enable[1];
+					variant_params[stringf("\\CFG_ENABLE_%c", 'A' + i)] = enable[i];
 				if (transp[i] != other.transp[i])
-					variant_params[stringf("\\CFG_TRANSP_%c", 'A' + i)] = transp[1];
+					variant_params[stringf("\\CFG_TRANSP_%c", 'A' + i)] = transp[i];
 				if (clocks[i] != other.clocks[i])
-					variant_params[stringf("\\CFG_CLOCKS_%c", 'A' + i)] = clocks[1];
+					variant_params[stringf("\\CFG_CLOCKS_%c", 'A' + i)] = clocks[i];
 				if (clkpol[i] != other.clkpol[i])
-					variant_params[stringf("\\CFG_CLKPOL_%c", 'A' + i)] = clkpol[1];
+					variant_params[stringf("\\CFG_CLKPOL_%c", 'A' + i)] = clkpol[i];
 			}
 		}
 	};
@@ -429,6 +429,7 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 	rd_clkpol.extend_u0(rd_ports);
 	rd_transp.extend_u0(rd_ports);
 
+	SigSpec rd_en = cell->getPort("\\RD_EN");
 	SigSpec rd_clk = cell->getPort("\\RD_CLK");
 	SigSpec rd_data = cell->getPort("\\RD_DATA");
 	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
@@ -688,6 +689,10 @@ grow_read_ports:;
 					log("        Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
+				if (rd_en[cell_port_i] != State::S1 && pi.enable == 0) {
+					log("        Bram port %c%d.%d has no read enable input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					goto skip_bram_rport;
+				}
 			skip_bram_rport_clkcheck:
 				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
 					if (match.make_transp && wr_ports <= 1) {
@@ -713,6 +718,7 @@ grow_read_ports:;
 				clock_polarities[pi.clkpol] = clkdom.second;
 				read_transp[pi.transp] = transp;
 				pi.sig_clock = clkdom.first;
+				pi.sig_en = rd_en[cell_port_i];
 				pi.effective_clkpol = clkdom.second;
 			}
 
@@ -886,6 +892,8 @@ grow_read_ports:;
 
 					if (pi.make_outreg) {
 						SigSpec bram_dout_q = module->addWire(NEW_ID, bram.dbits);
+						if (!pi.sig_en.empty())
+							bram_dout = module->Mux(NEW_ID, bram_dout_q, bram_dout, pi.sig_en);
 						module->addDff(NEW_ID, pi.sig_clock, bram_dout, bram_dout_q, pi.effective_clkpol);
 						bram_dout = bram_dout_q;
 					}
@@ -1126,7 +1134,7 @@ struct MemoryBramPass : public Pass {
 		log("      groups 2           # number of port groups\n");
 		log("      ports  1 1         # number of ports in each group\n");
 		log("      wrmode 1 0         # set to '1' if this groups is write ports\n");
-		log("      enable 4 0         # number of enable bits (for write ports)\n");
+		log("      enable 4 1         # number of enable bits\n");
 		log("      transp 0 2         # transparent (for read ports)\n");
 		log("      clocks 1 2         # clock configuration\n");
 		log("      clkpol 2 2         # clock polarity configuration\n");

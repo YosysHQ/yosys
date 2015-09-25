@@ -57,6 +57,7 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	SigSpec sig_rd_transparent;
 	SigSpec sig_rd_addr;
 	SigSpec sig_rd_data;
+	SigSpec sig_rd_en;
 
 	std::vector<Cell*> memcells;
 
@@ -139,22 +140,27 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 			SigSpec transparent = SigSpec(cell->parameters["\\TRANSPARENT"]);
 			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
 			SigSpec data = sigmap(cell->getPort("\\DATA"));
+			SigSpec en = sigmap(cell->getPort("\\EN"));
 
-			clk.extend_u0(1, false);
-			clk_enable.extend_u0(1, false);
-			clk_polarity.extend_u0(1, false);
-			transparent.extend_u0(1, false);
-			addr.extend_u0(addr_bits, false);
-			data.extend_u0(memory->width, false);
+			if (!en.is_fully_zero())
+			{
+				clk.extend_u0(1, false);
+				clk_enable.extend_u0(1, false);
+				clk_polarity.extend_u0(1, false);
+				transparent.extend_u0(1, false);
+				addr.extend_u0(addr_bits, false);
+				data.extend_u0(memory->width, false);
 
-			sig_rd_clk.append(clk);
-			sig_rd_clk_enable.append(clk_enable);
-			sig_rd_clk_polarity.append(clk_polarity);
-			sig_rd_transparent.append(transparent);
-			sig_rd_addr.append(addr);
-			sig_rd_data.append(data);
+				sig_rd_clk.append(clk);
+				sig_rd_clk_enable.append(clk_enable);
+				sig_rd_clk_polarity.append(clk_polarity);
+				sig_rd_transparent.append(transparent);
+				sig_rd_addr.append(addr);
+				sig_rd_data.append(data);
+				sig_rd_en.append(en);
 
-			rd_ports++;
+				rd_ports++;
+			}
 			continue;
 		}
 	}
@@ -203,6 +209,7 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	mem->setPort("\\RD_CLK", sig_rd_clk);
 	mem->setPort("\\RD_ADDR", sig_rd_addr);
 	mem->setPort("\\RD_DATA", sig_rd_data);
+	mem->setPort("\\RD_EN", sig_rd_en);
 
 	for (auto c : memcells)
 		module->remove(c);

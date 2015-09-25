@@ -31,6 +31,7 @@ struct MemoryDffWorker
 	vector<Cell*> dff_cells;
 	dict<SigBit, SigBit> invbits;
 	dict<SigBit, int> sigbit_users_count;
+	dict<SigSpec, Cell*> mux_cells_a, mux_cells_b;
 
 	MemoryDffWorker(Module *module) : module(module), sigmap(module) { }
 
@@ -150,16 +151,44 @@ struct MemoryDffWorker
 			if (sigbit_users_count[bit] > 1)
 				goto skip_ff_after_read_merging;
 
-		if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
+		if (mux_cells_a.count(sig_data) || mux_cells_b.count(sig_data))
 		{
-			disconnect_dff(sig_data);
-			cell->setPort("\\CLK", clk_data);
-			cell->setPort("\\DATA", sig_data);
-			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
-			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
-			cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
-			log("merged data $dff to cell.\n");
-			return;
+			bool enable_invert = mux_cells_a.count(sig_data);
+			Cell *mux = enable_invert ? mux_cells_a.at(sig_data) : mux_cells_b.at(sig_data);
+			SigSpec check_q = sigmap(mux->getPort(enable_invert ? "\\B" : "\\A"));
+
+			sig_data = sigmap(mux->getPort("\\Y"));
+			for (auto bit : sig_data)
+				if (sigbit_users_count[bit] > 1)
+					goto skip_ff_after_read_merging;
+
+			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx) && sig_data == check_q)
+			{
+				disconnect_dff(sig_data);
+				cell->setPort("\\CLK", clk_data);
+				cell->setPort("\\EN", enable_invert ? module->LogicNot(NEW_ID, mux->getPort("\\S")) : mux->getPort("\\S"));
+				cell->setPort("\\DATA", sig_data);
+				cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
+				cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
+				cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
+				log("merged data $dff with rd enable to cell.\n");
+				return;
+			}
+		}
+		else
+		{
+			if (find_sig_before_dff(sig_data, clk_data, clk_polarity, true) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
+			{
+				disconnect_dff(sig_data);
+				cell->setPort("\\CLK", clk_data);
+				cell->setPort("\\EN", State::S1);
+				cell->setPort("\\DATA", sig_data);
+				cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
+				cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
+				cell->parameters["\\TRANSPARENT"] = RTLIL::Const(0);
+				log("merged data $dff to cell.\n");
+				return;
+			}
 		}
 
 	skip_ff_after_read_merging:;
@@ -169,6 +198,7 @@ struct MemoryDffWorker
 				clk_addr != RTLIL::SigSpec(RTLIL::State::Sx))
 		{
 			cell->setPort("\\CLK", clk_addr);
+			cell->setPort("\\EN", State::S1);
 			cell->setPort("\\ADDR", sig_addr);
 			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
@@ -191,6 +221,10 @@ struct MemoryDffWorker
 		for (auto cell : module->cells()) {
 			if (cell->type == "$dff")
 				dff_cells.push_back(cell);
+			if (cell->type == "$mux") {
+				mux_cells_a[sigmap(cell->getPort("\\A"))] = cell;
+				mux_cells_b[sigmap(cell->getPort("\\B"))] = cell;
+			}
 			if (cell->type == "$not" || cell->type == "$_NOT_" || (cell->type == "$logic_not" && GetSize(cell->getPort("\\A")) == 1)) {
 				SigSpec sig_a = cell->getPort("\\A");
 				SigSpec sig_y = cell->getPort("\\Y");

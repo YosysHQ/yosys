@@ -1220,6 +1220,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 			cell->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::Sx, 1));
+			cell->setPort("\\EN", RTLIL::SigSpec(RTLIL::State::Sx, 1));
 			cell->setPort("\\ADDR", children[0]->genWidthRTLIL(addr_bits));
 			cell->setPort("\\DATA", RTLIL::SigSpec(wire));
 

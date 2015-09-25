@@ -57,6 +57,7 @@ void handle_memory(RTLIL::Module *module, RTLIL::Cell *memory)
 		cell->parameters["\\CLK_POLARITY"] = RTLIL::SigSpec(memory->parameters.at("\\RD_CLK_POLARITY")).extract(i, 1).as_const();
 		cell->parameters["\\TRANSPARENT"] = RTLIL::SigSpec(memory->parameters.at("\\RD_TRANSPARENT")).extract(i, 1).as_const();
 		cell->setPort("\\CLK", memory->getPort("\\RD_CLK").extract(i, 1));
+		cell->setPort("\\EN", memory->getPort("\\RD_EN").extract(i, 1));
 		cell->setPort("\\ADDR", memory->getPort("\\RD_ADDR").extract(i*abits, abits));
 		cell->setPort("\\DATA", memory->getPort("\\RD_DATA").extract(i*mem->width, mem->width));
 	}

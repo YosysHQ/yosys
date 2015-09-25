@@ -1,5 +1,5 @@
 
-module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
+module \$mem (RD_CLK, RD_EN, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	parameter MEMID = "";
 	parameter SIZE = 256;
 	parameter OFFSET = 0;
@@ -17,6 +17,7 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 	parameter WR_CLK_POLARITY = 1'b1;
 
 	input [RD_PORTS-1:0] RD_CLK;
+	input [RD_PORTS-1:0] RD_EN;
 	input [RD_PORTS*ABITS-1:0] RD_ADDR;
 	output reg [RD_PORTS*WIDTH-1:0] RD_DATA;
 
@@ -29,6 +30,8 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 	parameter _TECHMAP_CONNMAP_RD_CLK_ = 0;
 	parameter _TECHMAP_CONNMAP_WR_CLK_ = 0;
+
+	parameter _TECHMAP_CONSTVAL_RD_EN_ = 0;
 
 	parameter _TECHMAP_BITS_CONNMAP_ = 0;
 	parameter _TECHMAP_CONNMAP_WR_EN_ = 0;
@@ -44,6 +47,10 @@ module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 		// only map cells with only one read and one write port
 		if (RD_PORTS > 1 || WR_PORTS > 1)
+			_TECHMAP_FAIL_ <= 1;
+
+		// read enable must be constant high
+		if (_TECHMAP_CONSTVAL_RD_EN_[0] !== 1'b1)
 			_TECHMAP_FAIL_ <= 1;
 
 		// we expect positive read clock and non-transparent reads

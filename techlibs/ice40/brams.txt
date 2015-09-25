@@ -5,7 +5,7 @@ bram $__ICE40_RAM4K_M0
   groups 2
   ports  1  1
   wrmode 0  1
-  enable 0 16
+  enable 1 16
   transp 0  0
   clocks 2  3
   clkpol 2  3
@@ -22,7 +22,7 @@ bram $__ICE40_RAM4K_M123
   groups 2
   ports  1 1
   wrmode 0 1
-  enable 0 1
+  enable 1 1
   transp 0 0
   clocks 2 3
   clkpol 2 3

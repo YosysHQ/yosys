@@ -1494,7 +1494,7 @@ endmodule
 // --------------------------------------------------------
 `ifndef SIMLIB_NOMEM
 
-module \$memrd (CLK, ADDR, DATA);
+module \$memrd (CLK, EN, ADDR, DATA);
 
 parameter MEMID = "";
 parameter ABITS = 8;
@@ -1504,7 +1504,7 @@ parameter CLK_ENABLE = 0;
 parameter CLK_POLARITY = 0;
 parameter TRANSPARENT = 0;
 
-input CLK;
+input CLK, EN;
 input [ABITS-1:0] ADDR;
 output [WIDTH-1:0] DATA;
 
@@ -1568,7 +1568,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$mem (RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
+module \$mem (RD_CLK, RD_EN, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 parameter MEMID = "";
 parameter signed SIZE = 4;
@@ -1587,6 +1587,7 @@ parameter WR_CLK_ENABLE = 1'b1;
 parameter WR_CLK_POLARITY = 1'b1;
 
 input [RD_PORTS-1:0] RD_CLK;
+input [RD_PORTS-1:0] RD_EN;
 input [RD_PORTS*ABITS-1:0] RD_ADDR;
 output reg [RD_PORTS*WIDTH-1:0] RD_DATA;
 
@@ -1626,7 +1627,7 @@ always @(RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
 	#`SIMLIB_MEMDELAY;
 `endif
 	for (i = 0; i < RD_PORTS; i = i+1) begin
-		if ((!RD_TRANSPARENT[i] && RD_CLK_ENABLE[i]) && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i])) begin
+		if (!RD_TRANSPARENT[i] && RD_CLK_ENABLE[i] && RD_EN[i] && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i])) begin
 			// $display("Read from %s: addr=%b data=%b", MEMID, RD_ADDR[i*ABITS +: ABITS],  memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET]);
 			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
 		end
