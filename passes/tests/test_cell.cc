@@ -552,6 +552,9 @@ struct TestCellPass : public Pass {
 		log("    -nosat\n");
 		log("        do not check SAT model or run SAT equivalence checking\n");
 		log("\n");
+		log("    -noeval\n");
+		log("        do not check const-eval models\n");
+		log("\n");
 		log("    -v\n");
 		log("        print additional debug information to the console\n");
 		log("\n");
@@ -570,6 +573,7 @@ struct TestCellPass : public Pass {
 		bool verbose = false;
 		bool constmode = false;
 		bool nosat = false;
+		bool noeval = false;
 
 		int argidx;
 		for (argidx = 1; argidx < GetSize(args); argidx++)
@@ -617,6 +621,10 @@ struct TestCellPass : public Pass {
 			}
 			if (args[argidx] == "-nosat") {
 				nosat = true;
+				continue;
+			}
+			if (args[argidx] == "-noeval") {
+				noeval = true;
 				continue;
 			}
 			if (args[argidx] == "-v") {
@@ -772,7 +780,8 @@ struct TestCellPass : public Pass {
 						Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected -noexpr");
 						uut_names.push_back(uut_name);
 					}
-					run_eval_test(design, verbose, nosat, uut_name, vlog_file);
+					if (!noeval)
+						run_eval_test(design, verbose, nosat, uut_name, vlog_file);
 				}
 				delete design;
 			}
