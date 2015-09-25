@@ -37,7 +37,7 @@ struct WreduceConfig
 			"$and", "$or", "$xor", "$xnor",
 			"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 			"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
-			"$add", "$sub", // "$mul", "$div", "$mod", "$pow",
+			"$add", "$sub", "$mul", // "$div", "$mod", "$pow",
 			"$mux", "$pmux"
 		});
 	}

@@ -228,6 +228,37 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdStrin
 	}
 }
 
+bool is_one_or_minus_one(const Const &value, bool is_signed, bool &is_negative)
+{
+	bool all_bits_one = true;
+	bool last_bit_one = true;
+
+	if (GetSize(value.bits) < 1)
+		return false;
+
+	if (GetSize(value.bits) == 1) {
+		if (value.bits[0] != State::S1)
+			return false;
+		if (is_signed)
+			is_negative = true;
+		return true;
+	}
+
+	for (int i = 0; i < GetSize(value.bits); i++) {
+		if (value.bits[i] != State::S1)
+			all_bits_one = false;
+		if (value.bits[i] != (i ? State::S0 : State::S1))
+			last_bit_one = false;
+	}
+
+	if (all_bits_one && is_signed) {
+		is_negative = true;
+		return true;
+	}
+
+	return last_bit_one;
+}
+
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool clkinv)
 {
 	if (!design->selected(module))
@@ -684,6 +715,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		{
 			bool identity_wrt_a = false;
 			bool identity_wrt_b = false;
+			bool arith_inverse = false;
 
 			if (cell->type == "$add" || cell->type == "$sub" || cell->type == "$or" || cell->type == "$xor")
 			{
@@ -710,10 +742,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec a = assign_map(cell->getPort("\\A"));
 				RTLIL::SigSpec b = assign_map(cell->getPort("\\B"));
 
-				if (a.is_fully_const() && a.size() <= 32 && a.as_int() == 1)
+				if (a.is_fully_const() && is_one_or_minus_one(a.as_const(), cell->getParam("\\A_SIGNED").as_bool(), arith_inverse))
 					identity_wrt_b = true;
-
-				if (b.is_fully_const() && b.size() <= 32 && b.as_int() == 1)
+				else
+				if (b.is_fully_const() && is_one_or_minus_one(b.as_const(), cell->getParam("\\B_SIGNED").as_bool(), arith_inverse))
 					identity_wrt_a = true;
 			}
 
@@ -741,7 +773,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					cell->parameters.at("\\A_SIGNED") = cell->parameters.at("\\B_SIGNED");
 				}
 
-				cell->type = "$pos";
+				cell->type = arith_inverse ? "$neg" : "$pos";
 				cell->unsetPort("\\B");
 				cell->parameters.erase("\\B_WIDTH");
 				cell->parameters.erase("\\B_SIGNED");
