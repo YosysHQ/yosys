@@ -203,8 +203,8 @@ struct QwpWorker
 
 	void solve(bool alt_mode = false)
 	{
-		// A := observation_matrix
-		// y := observation_rhs_vector
+		// A := constraint_matrix
+		// y := constraint_rhs_vector
 		//
 		// AA = A' * A
 		// Ay = A' * y
@@ -215,6 +215,10 @@ struct QwpWorker
 		int N = GetSize(nodes), N1 = N+1;
 		vector<double> M(N * N1);
 
+		// Edge constraints:
+		//   A[i,:] := [ 0 0 .... 0 weight 0 ... 0 -weight 0 ... 0 0], y[i] := 0
+		//
+		// i.e. nonzero columns in A[i,:] at the two node indices.
 		for (auto &edge : edges)
 		{
 			int idx1 = edge.first.first;
@@ -228,6 +232,14 @@ struct QwpWorker
 			M[idx2 + idx1*N1] += -weight * weight;
 		}
 
+		// Node constraints:
+		//   A[i,:] := [ 0 0 .... 0 weight 0 ... 0 0], y[i] := weight * pos
+		//
+		// i.e. nonzero column in A[i,:] at the node index
+		//
+		// "tied" nodes have a large weight, pinning them in position. Untied
+		// nodes have a small weight, giving then a tiny preference to stay at
+		// the current position, making sure that AA never is singular.
 		for (int idx = 0; idx < GetSize(nodes); idx++)
 		{
 			auto &node = nodes[idx];
@@ -453,7 +465,7 @@ struct QwpWorker
 		config.dump_file << stringf("</svg>\n");
 	}
 
-	void run_worker(int indent, bool return_after_solve = false)
+	void run_worker(int indent)
 	{
 		int count_cells = 0;
 
@@ -480,9 +492,6 @@ struct QwpWorker
 
 		solve();
 		solve(true);
-
-		if (return_after_solve)
-			return;
 
 		// detect median position and check for break condition
 
@@ -769,7 +778,7 @@ struct QwpPass : public Pass {
 		log("    -dump <html_file_name>\n");
 		log("        Dump a protocol of the placement algorithm to the html file.\n");
 		log("\n");
-		log("Note: This implementation of a quadratic wirelength placer uses unoptimized\n");
+		log("Note: This implementation of a quadratic wirelength placer uses exact\n");
 		log("dense matrix operations. It is only a toy-placer for small circuits.\n");
 		log("\n");
 	}
