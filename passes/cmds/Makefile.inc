@@ -23,4 +23,5 @@ OBJS += passes/cmds/trace.o
 OBJS += passes/cmds/plugin.o
 OBJS += passes/cmds/check.o
 OBJS += passes/cmds/qwp.o
+OBJS += passes/cmds/edgetypes.o
 
