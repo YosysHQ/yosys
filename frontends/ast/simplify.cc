@@ -1718,12 +1718,19 @@ skip_dynamic_range_lvalue_expansion:;
 
 				bool unconditional_init = false;
 				if (current_always->type == AST_INITIAL) {
+					pool<AstNode*> queue;
 					log_assert(current_always->children[0]->type == AST_BLOCK);
-					for (auto n : current_always->children[0]->children)
-						if (n == this) {
-							unconditional_init = true;
-							break;
+					queue.insert(current_always->children[0]);
+					while (!unconditional_init && !queue.empty()) {
+						pool<AstNode*> next_queue;
+						for (auto n : queue)
+						for (auto c : n->children) {
+							if (c == this)
+								unconditional_init = true;
+							next_queue.insert(c);
 						}
+						next_queue.swap(queue);
+					}
 				}
 
 				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr, unconditional_init);
