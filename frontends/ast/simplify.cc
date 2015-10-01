@@ -2828,6 +2828,9 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 		if (stmt->type == AST_ASSIGN_EQ)
 		{
+			if (stmt->children.at(0)->type == AST_IDENTIFIER && stmt->children.at(0)->children.size() != 0 &&
+					stmt->children.at(0)->children.at(0)->type == AST_RANGE)
+				stmt->children.at(0)->children.at(0)->replace_variables(variables, fcall);
 			stmt->children.at(1)->replace_variables(variables, fcall);
 			while (stmt->simplify(true, false, false, 1, -1, false, true)) { }
 
