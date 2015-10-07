@@ -153,6 +153,8 @@ design:
 	module design |
 	defattr design |
 	task_func_decl design |
+	param_decl design |
+	localparam_decl design |
 	/* empty */;
 
 attr:
