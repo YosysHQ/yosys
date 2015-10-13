@@ -6,7 +6,7 @@ ifneq ($(CONFIG),emcc)
 TARGETS += yosys-smtbmc
 
 yosys-smtbmc: backends/smt2/smtbmc.py
-	$(P) sed '3 { p; s|.*|sys.path += [os.path.dirname(__file__) + p for p in ["/share/python3", "/../share/yosys/python3"]]|; }' < $< > $@.new
+	$(P) sed 's|##yosys-sys-path##|sys.path += [os.path.dirname(__file__) + p for p in ["/share/python3", "/../share/yosys/python3"]]|;' < $< > $@.new
 	$(Q) chmod +x $@.new
 	$(Q) mv $@.new $@
 
