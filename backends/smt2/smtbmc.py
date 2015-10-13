@@ -3,23 +3,25 @@
 import os, sys, getopt, re
 from smtio import smtio, smtopts, mkvcd
 
-steps = 20
+max_steps = 20
+min_steps = None
 vcdfile = None
 tempind = False
 topmod = "main"
 so = smtopts()
 
+
 def usage():
     print("""
 python3 smtbmc.py [options] <yosys_smt2_output>
 
-    -t <steps>
+    -t <max_steps>
         default: 20
 
     -c <vcd_filename>
         write counter-example to this VCD file
 
-    -i
+    -i <min_steps>
         instead of BMC run temporal induction
 
     -m <module_name>
@@ -27,20 +29,20 @@ python3 smtbmc.py [options] <yosys_smt2_output>
 """ + so.helpmsg())
     sys.exit(1)
 
+
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.optstr + "t:c:im:")
+    opts, args = getopt.getopt(sys.argv[1:], so.optstr + "t:c:i:m:")
 except:
     usage()
 
 for o, a in opts:
     if o == "-t":
-        steps = int(a)
+        max_steps = int(a)
     elif o == "-c":
         vcdfile = a
     elif o == "-i":
         tempind = True
-        print("FIXME: temporal induction not yet implemented!")
-        assert False
+        min_steps = int(a)
     elif so.handle(o, a):
         pass
     else:
@@ -48,6 +50,7 @@ for o, a in opts:
 
 if len(args) != 1:
     usage()
+
 
 smt = smtio(opts=so)
 
@@ -64,6 +67,7 @@ with open(args[0], "r") as f:
             debug_nets.add(match.group(2))
         smt.write(line)
 
+
 def write_vcd_model():
     print("%s Writing model to VCD file." % smt.timestamp())
 
@@ -79,30 +83,61 @@ def write_vcd_model():
 
     vcd.set_time(step+1)
 
-for step in range(steps):
-    smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
-    smt.write("(assert (%s_u s0))" % (topmod))
 
-    if step == 0:
-        smt.write("(assert (%s_i s0))" % (topmod))
+if tempind:
+    for step in range(max_steps, -1, -1):
+        smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
+        smt.write("(assert (%s_u s%d))" % (topmod, step))
 
-    else:
-        smt.write("(assert (%s_t s%d s%d))" % (topmod, step-1, step))
+        if step == max_steps:
+            smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
 
-    print("%s Checking sequence of length %d.." % (smt.timestamp(), step))
-    smt.write("(push 1)")
+        else:
+            smt.write("(assert (%s_t s%d s%d))" % (topmod, step, step+1))
+            smt.write("(assert (%s_a s%d))" % (topmod, step))
 
-    smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
+        if step > max_steps-min_steps:
+            print("%s Skipping induction in step %d.." % (smt.timestamp(), step))
+            continue
 
-    if smt.check_sat() == "sat":
-        print("%s BMC failed!" % smt.timestamp())
-        if vcdfile is not None:
-            write_vcd_model()
-        break
+        print("%s Trying induction in step %d.." % (smt.timestamp(), step))
 
-    else: # unsat
-        smt.write("(pop 1)")
-        smt.write("(assert (%s_a s%d))" % (topmod, step))
+        if smt.check_sat() == "sat":
+            if step == 0:
+                print("%s temporal induction failed!" % smt.timestamp())
+                if vcdfile is not None:
+                    write_vcd_model()
+
+        else:
+            print("%s PASSED." % smt.timestamp())
+            break
+
+else: # not tempind
+    for step in range(max_steps+1):
+        smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
+        smt.write("(assert (%s_u s%d))" % (topmod, step))
+
+        if step == 0:
+            smt.write("(assert (%s_i s0))" % (topmod))
+
+        else:
+            smt.write("(assert (%s_t s%d s%d))" % (topmod, step-1, step))
+
+        print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
+        smt.write("(push 1)")
+
+        smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
+
+        if smt.check_sat() == "sat":
+            print("%s BMC failed!" % smt.timestamp())
+            if vcdfile is not None:
+                write_vcd_model()
+            break
+
+        else: # unsat
+            smt.write("(pop 1)")
+            smt.write("(assert (%s_a s%d))" % (topmod, step))
+
 
 print("%s Done." % smt.timestamp())
 smt.write("(exit)")
