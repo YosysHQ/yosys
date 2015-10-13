@@ -18,11 +18,11 @@ ENABLE_LIBYOSYS := 0
 ENABLE_GPROF := 0
 ENABLE_NDEBUG := 0
 
-DESTDIR := /usr/local
+PREFIX ?= /usr/local
 INSTALL_SUDO :=
 
-TARGET_BINDIR := $(DESTDIR)/bin
-TARGET_DATDIR := $(DESTDIR)/share/yosys
+TARGET_BINDIR := $(DESTDIR)$(PREFIX)/bin
+TARGET_DATDIR := $(DESTDIR)$(PREFIX)/share/yosys
 
 EXE =
 OBJS =
@@ -39,8 +39,8 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXFLAGS = -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(DESTDIR)/include
-LDFLAGS = -L$(DESTDIR)/lib
+CXXFLAGS += -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(DESTDIR)$(PREFIX)/include
+LDFLAGS += -L$(DESTDIR)$(PREFIX)/lib
 LDLIBS = -lstdc++ -lm
 SED = sed
 BISON = bison
@@ -307,11 +307,11 @@ libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
+	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 %.o: %.cpp
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(CXX) -o $@ -c $(CXXFLAGS) $<
+	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
@@ -319,9 +319,9 @@ kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 			$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1` $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))\"; }" > kernel/version_$(GIT_REV).cc
 
 yosys-config: misc/yosys-config.in
-	$(P) $(SED) -e 's,@CXXFLAGS@,$(subst -I. -I"$(YOSYS_SRC)",-I"$(TARGET_DATDIR)/include",$(CXXFLAGS)),;' \
-			-e 's,@CXX@,$(CXX),;' -e 's,@LDFLAGS@,$(LDFLAGS),;' -e 's,@LDLIBS@,$(LDLIBS),;' \
-			-e 's,@BINDIR@,$(TARGET_BINDIR),;' -e 's,@DATDIR@,$(TARGET_DATDIR),;' < $< > yosys-config
+	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(TARGET_DATDIR)/include",$(CXXFLAGS))#;' \
+			-e 's#@CXX@#$(CXX)#;' -e 's#@LDFLAGS@#$(LDFLAGS)#;' -e 's#@LDLIBS@#$(LDLIBS)#;' \
+			-e 's#@BINDIR@#$(TARGET_BINDIR)#;' -e 's#@DATDIR@#$(TARGET_DATDIR)#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
 abc/abc-$(ABCREV)$(EXE):
@@ -378,20 +378,20 @@ vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 
 install: $(TARGETS) $(EXTRA_TARGETS)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/bin
-	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)/bin/
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)/share/yosys
-	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)/share/yosys/.
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PREFIX)/bin
+	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PREFIX)/share/yosys
+	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(PREFIX)/share/yosys/.
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)/lib/
+	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PREFIX)/lib/
 	$(INSTALL_SUDO) ldconfig
 endif
 
 uninstall:
-	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)/bin/,$(notdir $(TARGETS)))
-	$(INSTALL_SUDO) rm -rvf $(DESTDIR)/share/yosys/
+	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(PREFIX)/bin/,$(notdir $(TARGETS)))
+	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(PREFIX)/share/yosys/
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)/lib/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PREFIX)/lib/libyosys.so
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
