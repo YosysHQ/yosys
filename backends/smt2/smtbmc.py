@@ -13,13 +13,15 @@ so = smtopts()
 
 def usage():
     print("""
-python3 smtbmc.py [options] <yosys_smt2_output>
+yosys-smtbmc [options] <yosys_smt2_output>
 
     -t <max_steps>
         default: 20
 
     -c <vcd_filename>
         write counter-example to this VCD file
+        (hint: use 'write_smt2 -wires' for maximum
+        coverage of signals in generated VCD file)
 
     -i <min_steps>
         instead of BMC run temporal induction
@@ -43,6 +45,8 @@ for o, a in opts:
     elif o == "-i":
         tempind = True
         min_steps = int(a)
+    elif o == "-m":
+        topmod = a
     elif so.handle(o, a):
         pass
     else:
@@ -111,6 +115,7 @@ if tempind:
         else:
             print("%s PASSED." % smt.timestamp())
             break
+
 
 else: # not tempind
     for step in range(max_steps+1):
