@@ -50,12 +50,12 @@ class smtio:
         self.write("(set-logic %s)" % logic)
         if info is not None:
             self.write("(set-info :source |%s|)" % info)
-        self.write("(set-info :smt-lib-version 2.5)")
-        self.write("(set-info :category \"industrial\")")
+            self.write("(set-info :smt-lib-version 2.5)")
+            self.write("(set-info :category \"industrial\")")
 
     def timestamp(self):
         secs = int(time() - self.start_time)
-        return "+ %6d %3d:%02d:%02d " % (secs, secs // (60*60), (secs // 60) % 60, secs % 60)
+        return "## %6d %3d:%02d:%02d " % (secs, secs // (60*60), (secs // 60) % 60, secs % 60)
 
     def write(self, stmt):
         stmt = stmt.strip()

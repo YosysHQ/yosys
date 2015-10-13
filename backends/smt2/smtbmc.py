@@ -3,10 +3,11 @@
 import os, sys, getopt, re
 from smtio import smtio, smtopts, mkvcd
 
-max_steps = 20
-min_steps = None
+skip_steps = 0
+num_steps = 20
 vcdfile = None
 tempind = False
+assume_skipped = None
 topmod = "main"
 so = smtopts()
 
@@ -15,15 +16,18 @@ def usage():
     print("""
 yosys-smtbmc [options] <yosys_smt2_output>
 
-    -t <max_steps>
-        default: 20
+    -t <num_steps>, -t <skip_steps>:<num_steps>
+        default: skip_steps=0, num_steps=20
+
+    -u <start_step>
+        assume asserts in skipped steps in BMC
 
     -c <vcd_filename>
         write counter-example to this VCD file
         (hint: use 'write_smt2 -wires' for maximum
         coverage of signals in generated VCD file)
 
-    -i <min_steps>
+    -i
         instead of BMC run temporal induction
 
     -m <module_name>
@@ -33,18 +37,24 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.optstr + "t:c:i:m:")
+    opts, args = getopt.getopt(sys.argv[1:], so.optstr + "t:u:c:im:")
 except:
     usage()
 
 for o, a in opts:
     if o == "-t":
-        max_steps = int(a)
+        match = re.match(r"(\d+):(.*)", a)
+        if match:
+            skip_steps = int(match.group(1))
+            num_steps = int(match.group(2))
+        else:
+            num_steps = int(a)
+    elif o == "-u":
+        assume_skipped = int(a)
     elif o == "-c":
         vcdfile = a
     elif o == "-i":
         tempind = True
-        min_steps = int(a)
     elif o == "-m":
         topmod = a
     elif so.handle(o, a):
@@ -58,7 +68,7 @@ if len(args) != 1:
 
 smt = smtio(opts=so)
 
-print("Solver: %s" % so.solver)
+print("%s Solver: %s" % (smt.timestamp(), so.solver))
 smt.setup("QF_AUFBV")
 
 debug_nets = set()
@@ -89,18 +99,18 @@ def write_vcd_model():
 
 
 if tempind:
-    for step in range(max_steps, -1, -1):
+    for step in range(num_steps, -1, -1):
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
 
-        if step == max_steps:
+        if step == num_steps:
             smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
 
         else:
             smt.write("(assert (%s_t s%d s%d))" % (topmod, step, step+1))
             smt.write("(assert (%s_a s%d))" % (topmod, step))
 
-        if step > max_steps-min_steps:
+        if step > num_steps-skip_steps:
             print("%s Skipping induction in step %d.." % (smt.timestamp(), step))
             continue
 
@@ -118,7 +128,7 @@ if tempind:
 
 
 else: # not tempind
-    for step in range(max_steps+1):
+    for step in range(num_steps+1):
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
 
@@ -127,6 +137,14 @@ else: # not tempind
 
         else:
             smt.write("(assert (%s_t s%d s%d))" % (topmod, step-1, step))
+
+        if step < skip_steps:
+            if assume_skipped is not None and step >= assume_skipped:
+                print("%s Skipping step %d (and assuming pass).." % (smt.timestamp(), step))
+                smt.write("(assert (%s_a s%d))" % (topmod, step))
+            else:
+                print("%s Skipping step %d.." % (smt.timestamp(), step))
+            continue
 
         print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
         smt.write("(push 1)")
