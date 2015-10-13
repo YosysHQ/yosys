@@ -39,6 +39,7 @@
 #include <string.h>
 
 YOSYS_NAMESPACE_BEGIN
+using namespace VERILOG_FRONTEND;
 
 static std::list<std::string> output_code;
 static std::list<std::string> input_buffer;
@@ -222,7 +223,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 
 	input_file(f, filename);
 	defines_map["YOSYS"] = "1";
-	defines_map["SYNTHESIS"] = "1";
+	defines_map[formal_mode ? "FORMAL" : "SYNTHESIS"] = "1";
 
 	while (!input_buffer.empty())
 	{

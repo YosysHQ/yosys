@@ -63,8 +63,8 @@ struct VerilogFrontend : public Frontend {
 		log("        of SystemVerilog is supported)\n");
 		log("\n");
 		log("    -formal\n");
-		log("        enable support for assert() and assume() statements\n");
-		log("        (assert support is also enabled with -sv)\n");
+		log("        enable support for assert() and assume() from SystemVerilog\n");
+		log("        replace the implicit -D SYNTHESIS with -D FORMAL\n");
 		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
