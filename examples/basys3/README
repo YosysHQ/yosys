@@ -2,6 +2,9 @@
 A simple example design, based on the Digilent BASYS3 board
 ===========================================================
 
+This example uses Yosys for synthesis and Xilinx Vivado
+for place&route and bit-stream creation.
+
 Running Yosys:
   yosys run_yosys.ys
 

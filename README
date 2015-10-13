@@ -190,7 +190,7 @@ for the given cell library:
 	clean
 
 If you do not have a liberty file but want to test this synthesis script,
-you can use the file techlibs/cmos/cmos_cells.lib from the yosys sources.
+you can use the file examples/cmos/cmos_cells.lib from the yosys sources.
 
 Various more complex liberty files (for testing) can be found here:
 

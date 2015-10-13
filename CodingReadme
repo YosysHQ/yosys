@@ -342,10 +342,10 @@ Then with default config setting:
 	./yosys -p 'synth; show' tests/simple/fiedler-cooley.v
 	./yosys -p 'synth_xilinx -top up3down5; show' tests/simple/fiedler-cooley.v
 
-	cd ~yosys/techlibs/cmos
+	cd ~yosys/examples/cmos
 	bash testbench.sh
 
-	cd ~yosys/techlibs/xilinx/example_basys3
+	cd ~yosys/examples/basys3
 	bash run.sh
 
 
