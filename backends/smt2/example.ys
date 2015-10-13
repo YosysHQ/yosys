@@ -1,0 +1,3 @@
+read_verilog -formal example.v
+hierarchy; proc; opt; memory -nordff -nomap; opt -fast
+write_smt2 -bv -mem -wires example.smt2
