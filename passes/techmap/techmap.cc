@@ -257,7 +257,7 @@ struct TechmapWorker
 			} else {
 				SigSpec sig_tpl = w, sig_tpl_pf = w, sig_mod = it.second;
 				apply_prefix(cell->name.str(), sig_tpl_pf, module);
-				for (int i = 0; i < GetSize(sig_tpl); i++) {
+				for (int i = 0; i < GetSize(sig_tpl) && i < GetSize(sig_mod); i++) {
 					if (tpl_written_bits.count(tpl_sigmap(sig_tpl[i]))) {
 						c.first.append(sig_mod[i]);
 						c.second.append(sig_tpl_pf[i]);
