@@ -100,7 +100,7 @@ with open(args[0], "r") as f:
         smt.write(line)
 
 
-def write_vcd_model():
+def write_vcd_model(steps):
     print("%s Writing model to VCD file." % smt.timestamp())
 
     vcd = mkvcd(open(vcdfile, "w"))
@@ -108,12 +108,12 @@ def write_vcd_model():
         width = len(smt.get_net_bin(topmod, netname, "s0"))
         vcd.add_net(netname, width)
 
-    for i in range(step+1):
+    for i in range(steps):
         vcd.set_time(i)
         for netname in debug_nets:
             vcd.set_net(netname, smt.get_net_bin(topmod, netname, "s%d" % i))
 
-    vcd.set_time(step+1)
+    vcd.set_time(steps)
 
 
 if tempind:
@@ -138,7 +138,7 @@ if tempind:
             if step == 0:
                 print("%s temporal induction failed!" % smt.timestamp())
                 if vcdfile is not None:
-                    write_vcd_model()
+                    write_vcd_model(num_steps+1)
 
         else:
             print("%s PASSED." % smt.timestamp())
@@ -172,7 +172,7 @@ else: # not tempind
         if smt.check_sat() == "sat":
             print("%s BMC failed!" % smt.timestamp())
             if vcdfile is not None:
-                write_vcd_model()
+                write_vcd_model(steps+1)
             break
 
         else: # unsat

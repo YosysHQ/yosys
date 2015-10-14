@@ -193,10 +193,9 @@ class smtio:
         return worker(stmt)[0]
 
     def bv2hex(self, v):
-        if v == "true": return "1"
-        if v == "false": return "0"
         h = ""
-        while len(v) > 2:
+        v = bv2bin(v)
+        while len(v) > 0:
             d = 0
             if len(v) > 0 and v[-1] == "1": d += 1
             if len(v) > 1 and v[-2] == "1": d += 2
@@ -210,7 +209,29 @@ class smtio:
     def bv2bin(self, v):
         if v == "true": return "1"
         if v == "false": return "0"
-        return v[2:]
+        if v.startswith("#b"):
+            return v[2:]
+        if v.startswith("#x"):
+            digits = []
+            for d in v[2:]:
+                if d == "0": digits.append("0000")
+                if d == "1": digits.append("0001")
+                if d == "2": digits.append("0010")
+                if d == "3": digits.append("0011")
+                if d == "4": digits.append("0100")
+                if d == "5": digits.append("0101")
+                if d == "6": digits.append("0110")
+                if d == "7": digits.append("0111")
+                if d == "8": digits.append("1000")
+                if d == "9": digits.append("1001")
+                if d in ("a", "A"): digits.append("1010")
+                if d in ("b", "B"): digits.append("1011")
+                if d in ("c", "C"): digits.append("1100")
+                if d in ("d", "D"): digits.append("1101")
+                if d in ("e", "E"): digits.append("1110")
+                if d in ("f", "F"): digits.append("1111")
+            return "".join(digits)
+        assert False
 
     def get(self, expr):
         self.write("(get-value (%s))" % (expr))
