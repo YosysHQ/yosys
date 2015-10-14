@@ -382,12 +382,36 @@ output Y;
 assign Y = ~((A | B) & (C | D));
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_TBUF_ (A, E, Y)
+//-
+//- A tri-state buffer.
+//-
+//- Truth table:    A E | Y
+//-                -----+---
+//-                 a 1 | a
+//-                 - 0 | z
+//-
 module \$_TBUF_ (A, E, Y);
 input A, E;
 output Y;
 assign Y = E ? A : 1'bz;
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_SR_NN_ (S, R, Q)
+//-
+//- A set-reset latch with negative polarity SET and RESET.
+//-
+//- Truth table:    S R | Y
+//-                -----+---
+//-                 0 0 | x
+//-                 0 1 | 1
+//-                 1 0 | 0
+//-                 1 1 | y
+//-
 module  \$_SR_NN_ (S, R, Q);
 input S, R;
 output reg Q;
@@ -399,6 +423,19 @@ always @(negedge S, negedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_SR_NP_ (S, R, Q)
+//-
+//- A set-reset latch with negative polarity SET and positive polarioty RESET.
+//-
+//- Truth table:    S R | Y
+//-                -----+---
+//-                 0 1 | x
+//-                 0 0 | 1
+//-                 1 1 | 0
+//-                 1 0 | y
+//-
 module  \$_SR_NP_ (S, R, Q);
 input S, R;
 output reg Q;
@@ -410,6 +447,19 @@ always @(negedge S, posedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_SR_PN_ (S, R, Q)
+//-
+//- A set-reset latch with positive polarity SET and negative polarioty RESET.
+//-
+//- Truth table:    S R | Y
+//-                -----+---
+//-                 1 0 | x
+//-                 1 1 | 1
+//-                 0 0 | 0
+//-                 0 1 | y
+//-
 module  \$_SR_PN_ (S, R, Q);
 input S, R;
 output reg Q;
@@ -421,6 +471,19 @@ always @(posedge S, negedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_SR_PP_ (S, R, Q)
+//-
+//- A set-reset latch with positive polarity SET and RESET.
+//-
+//- Truth table:    S R | Y
+//-                -----+---
+//-                 1 1 | x
+//-                 1 0 | 1
+//-                 0 1 | 0
+//-                 0 0 | y
+//-
 module  \$_SR_PP_ (S, R, Q);
 input S, R;
 output reg Q;
@@ -432,6 +495,17 @@ always @(posedge S, posedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_N_ (D, C, Q)
+//-
+//- A negative edge D-type flip-flop.
+//-
+//- Truth table:    D C | Q
+//-                -----+---
+//-                 d \ | d
+//-                 - = | q
+//-
 module  \$_DFF_N_ (D, Q, C);
 input D, C;
 output reg Q;
@@ -440,6 +514,17 @@ always @(negedge C) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_P_ (D, C, Q)
+//-
+//- A positive edge D-type flip-flop.
+//-
+//- Truth table:    D C | Q
+//-                -----+---
+//-                 d / | d
+//-                 - = | q
+//-
 module  \$_DFF_P_ (D, Q, C);
 input D, C;
 output reg Q;
