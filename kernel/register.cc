@@ -534,14 +534,28 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 	design->check();
 }
 
+static struct CellHelpMessages {
+	dict<string, string> cell_help, cell_code;
+	CellHelpMessages() {
+#include "techlibs/common/simlib_help.inc"
+#include "techlibs/common/simcells_help.inc"
+		cell_help.sort();
+		cell_code.sort();
+	}
+} cell_help_messages;
+
 struct HelpPass : public Pass {
 	HelpPass() : Pass("help", "display help messages") { }
 	virtual void help()
 	{
 		log("\n");
-		log("    help  .............  list all commands\n");
-		log("    help <command>  ...  print help message for given command\n");
-		log("    help -all  ........  print complete command reference\n");
+		log("    help  ................  list all commands\n");
+		log("    help <command>  ......  print help message for given command\n");
+		log("    help -all  ...........  print complete command reference\n");
+		log("\n");
+		log("    help -cells ..........  list all cell types\n");
+		log("    help <celltype>  .....  print help message for given cell type\n");
+		log("    help <celltype>+  ....  print verilog code for given cell type\n");
 		log("\n");
 	}
 	void escape_tex(std::string &tex)
@@ -609,6 +623,7 @@ struct HelpPass : public Pass {
 				log("    %-20s %s\n", it.first.c_str(), it.second->short_help.c_str());
 			log("\n");
 			log("Type 'help <command>' for more information on a command.\n");
+			log("Type 'help -cells' for a list of all cell types.\n");
 			log("\n");
 			return;
 		}
@@ -623,6 +638,18 @@ struct HelpPass : public Pass {
 					log("\n");
 					it.second->help();
 				}
+			}
+			else if (args[1] == "-cells") {
+				log("\n");
+				for (auto &it : cell_help_messages.cell_help) {
+					string line = split_tokens(it.second, "\n").at(0);
+					string cell_name = next_token(line);
+					log("    %-10s %s\n", cell_name.c_str(), line.c_str());
+				}
+				log("\n");
+				log("Type 'help <cell_type>' for more information on a cell type.\n");
+				log("\n");
+				return;
 			}
 			// this option is undocumented as it is for internal use only
 			else if (args[1] == "-write-tex-command-reference-manual") {
@@ -649,10 +676,20 @@ struct HelpPass : public Pass {
 				}
 				fclose(f);
 			}
-			else if (pass_register.count(args[1]) == 0)
-				log("No such command: %s\n", args[1].c_str());
-			else
+			else if (pass_register.count(args[1])) {
 				pass_register.at(args[1])->help();
+			}
+			else if (cell_help_messages.cell_help.count(args[1])) {
+				log("%s", cell_help_messages.cell_help.at(args[1]).c_str());
+				log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
+				log("\n");
+			}
+			else if (cell_help_messages.cell_code.count(args[1])) {
+				log("\n");
+				log("%s", cell_help_messages.cell_code.at(args[1]).c_str());
+			}
+			else
+				log("No such command or cell type: %s\n", args[1].c_str());
 			return;
 		}
 

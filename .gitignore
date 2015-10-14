@@ -18,6 +18,7 @@
 /yosys-abc
 /yosys-abc.exe
 /yosys-config
+/yosys-smtbmc
 /yosys-filterlib
 /yosys-filterlib.exe
 /kernel/version_*.cc

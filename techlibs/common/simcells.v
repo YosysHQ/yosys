@@ -25,60 +25,184 @@
  *
  */
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_BUF_ (A, Y)
+//-
+//- A buffer. This cell type is always optimized away by the opt_clean pass.
+//-
+//- Truth table:    A | Y
+//-                ---+---
+//-                 0 | 0
+//-                 1 | 1
+//-
 module  \$_BUF_ (A, Y);
 input A;
 output Y;
 assign Y = A;
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_NOT_ (A, Y)
+//-
+//- An inverter gate.
+//-
+//- Truth table:    A | Y
+//-                ---+---
+//-                 0 | 1
+//-                 1 | 0
+//-
 module  \$_NOT_ (A, Y);
 input A;
 output Y;
 assign Y = ~A;
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_AND_ (A, B, Y)
+//-
+//- A 2-input AND gate.
+//-
+//- Truth table:    A B | Y
+//-                -----+---
+//-                 0 0 | 0
+//-                 0 1 | 0
+//-                 1 0 | 0
+//-                 1 1 | 1
+//-
 module  \$_AND_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = A & B;
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_NAND_ (A, B, Y)
+//-
+//- A 2-input NAND gate.
+//-
+//- Truth table:    A B | Y
+//-                -----+---
+//-                 0 0 | 1
+//-                 0 1 | 1
+//-                 1 0 | 1
+//-                 1 1 | 0
+//-
 module  \$_NAND_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = ~(A & B);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_OR_ (A, B, Y)
+//-
+//- A 2-input OR gate.
+//-
+//- Truth table:    A B | Y
+//-                -----+---
+//-                 0 0 | 0
+//-                 0 1 | 1
+//-                 1 0 | 1
+//-                 1 1 | 1
+//-
 module  \$_OR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = A | B;
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_NOR_ (A, B, Y)
+//-
+//- A 2-input NOR gate.
+//-
+//- Truth table:    A B | Y
+//-                -----+---
+//-                 0 0 | 1
+//-                 0 1 | 0
+//-                 1 0 | 0
+//-                 1 1 | 0
+//-
 module  \$_NOR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = ~(A | B);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_XOR_ (A, B, Y)
+//-
+//- A 2-input XOR gate.
+//-
+//- Truth table:    A B | Y
+//-                -----+---
+//-                 0 0 | 0
+//-                 0 1 | 1
+//-                 1 0 | 1
+//-                 1 1 | 0
+//-
 module  \$_XOR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = A ^ B;
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_XNOR_ (A, B, Y)
+//-
+//- A 2-input XNOR gate.
+//-
+//- Truth table:    A B | Y
+//-                -----+---
+//-                 0 0 | 1
+//-                 0 1 | 0
+//-                 1 0 | 0
+//-                 1 1 | 1
+//-
 module  \$_XNOR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = ~(A ^ B);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_MUX_ (A, B, S, Y)
+//-
+//- A 2-input MUX gate.
+//-
+//- Truth table:    A B S | Y
+//-                -------+---
+//-                 a - 0 | a
+//-                 - b 1 | b
+//-
 module \$_MUX_ (A, B, S, Y);
 input A, B, S;
 output Y;
 assign Y = S ? B : A;
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_MUX4_ (A, B, C, D, S, T, Y)
+//-
+//- A 4-input MUX gate.
+//-
+//- Truth table:    A B C D S T | Y
+//-                -------------+---
+//-                 a - - - 0 0 | a
+//-                 - b - - 1 0 | b
+//-                 - - c - 0 1 | c
+//-                 - - - d 1 1 | d
+//-
 module \$_MUX4_ (A, B, C, D, S, T, Y);
 input A, B, C, D, S, T;
 output Y;
@@ -86,6 +210,23 @@ assign Y = T ? (S ? D : C) :
                (S ? B : A);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y)
+//-
+//- An 8-input MUX gate.
+//-
+//- Truth table:    A B C D E F G H S T U | Y
+//-                -----------------------+---
+//-                 a - - - - - - - 0 0 0 | a
+//-                 - b - - - - - - 1 0 0 | b
+//-                 - - c - - - - - 0 1 0 | c
+//-                 - - - d - - - - 1 1 0 | d
+//-                 - - - - e - - - 0 0 1 | e
+//-                 - - - - - f - - 1 0 1 | f
+//-                 - - - - - - g - 0 1 1 | g
+//-                 - - - - - - - h 1 1 1 | h
+//-
 module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
 input A, B, C, D, E, F, G, H, S, T, U;
 output Y;
@@ -95,6 +236,31 @@ assign Y = U ? T ? (S ? H : G) :
                    (S ? B : A);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y)
+//-
+//- A 16-input MUX gate.
+//-
+//- Truth table:    A B C D E F G H I J K L M N O P S T U V | Y
+//-                -----------------------------------------+---
+//-                 a - - - - - - - - - - - - - - - 0 0 0 0 | a
+//-                 - b - - - - - - - - - - - - - - 1 0 0 0 | b
+//-                 - - c - - - - - - - - - - - - - 0 1 0 0 | c
+//-                 - - - d - - - - - - - - - - - - 1 1 0 0 | d
+//-                 - - - - e - - - - - - - - - - - 0 0 1 0 | e
+//-                 - - - - - f - - - - - - - - - - 1 0 1 0 | f
+//-                 - - - - - - g - - - - - - - - - 0 1 1 0 | g
+//-                 - - - - - - - h - - - - - - - - 1 1 1 0 | h
+//-                 - - - - - - - - i - - - - - - - 0 0 0 1 | i
+//-                 - - - - - - - - - j - - - - - - 1 0 0 1 | j
+//-                 - - - - - - - - - - k - - - - - 0 1 0 1 | k
+//-                 - - - - - - - - - - - l - - - - 1 1 0 1 | l
+//-                 - - - - - - - - - - - - m - - - 0 0 1 1 | m
+//-                 - - - - - - - - - - - - - n - - 1 0 1 1 | n
+//-                 - - - - - - - - - - - - - - o - 0 1 1 1 | o
+//-                 - - - - - - - - - - - - - - - p 1 1 1 1 | p
+//-
 module \$_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y);
 input A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V;
 output Y;
@@ -108,24 +274,108 @@ assign Y = V ? U ? T ? (S ? P : O) :
                        (S ? B : A);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_AOI3_ (A, B, C, Y)
+//-
+//- A 3-input And-Or-Invert gate.
+//-
+//- Truth table:    A B C | Y
+//-                -------+---
+//-                 0 0 0 | 1
+//-                 0 0 1 | 0
+//-                 0 1 0 | 1
+//-                 0 1 1 | 0
+//-                 1 0 0 | 1
+//-                 1 0 1 | 0
+//-                 1 1 0 | 0
+//-                 1 1 1 | 0
+//-
 module  \$_AOI3_ (A, B, C, Y);
 input A, B, C;
 output Y;
 assign Y = ~((A & B) | C);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_OAI3_ (A, B, C, Y)
+//-
+//- A 3-input Or-And-Invert gate.
+//-
+//- Truth table:    A B C | Y
+//-                -------+---
+//-                 0 0 0 | 1
+//-                 0 0 1 | 1
+//-                 0 1 0 | 1
+//-                 0 1 1 | 0
+//-                 1 0 0 | 1
+//-                 1 0 1 | 0
+//-                 1 1 0 | 1
+//-                 1 1 1 | 0
+//-
 module  \$_OAI3_ (A, B, C, Y);
 input A, B, C;
 output Y;
 assign Y = ~((A | B) & C);
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_AOI4_ (A, B, C, Y)
+//-
+//- A 4-input And-Or-Invert gate.
+//-
+//- Truth table:    A B C D | Y
+//-                ---------+---
+//-                 0 0 0 0 | 1
+//-                 0 0 0 1 | 1
+//-                 0 0 1 0 | 1
+//-                 0 0 1 1 | 0
+//-                 0 1 0 0 | 1
+//-                 0 1 0 1 | 1
+//-                 0 1 1 0 | 1
+//-                 0 1 1 1 | 0
+//-                 1 0 0 0 | 1
+//-                 1 0 0 1 | 1
+//-                 1 0 1 0 | 1
+//-                 1 0 1 1 | 0
+//-                 1 1 0 0 | 0
+//-                 1 1 0 1 | 0
+//-                 1 1 1 0 | 0
+//-                 1 1 1 1 | 0
+//-
 module  \$_AOI4_ (A, B, C, D, Y);
 input A, B, C, D;
 output Y;
 assign Y = ~((A & B) | (C & D));
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_OAI4_ (A, B, C, Y)
+//-
+//- A 4-input Or-And-Invert gate.
+//-
+//- Truth table:    A B C D | Y
+//-                ---------+---
+//-                 0 0 0 0 | 1
+//-                 0 0 0 1 | 1
+//-                 0 0 1 0 | 1
+//-                 0 0 1 1 | 1
+//-                 0 1 0 0 | 1
+//-                 0 1 0 1 | 0
+//-                 0 1 1 0 | 0
+//-                 0 1 1 1 | 0
+//-                 1 0 0 0 | 1
+//-                 1 0 0 1 | 0
+//-                 1 0 1 0 | 0
+//-                 1 0 1 1 | 0
+//-                 1 1 0 0 | 1
+//-                 1 1 0 1 | 0
+//-                 1 1 1 0 | 0
+//-                 1 1 1 1 | 0
+//-
 module  \$_OAI4_ (A, B, C, D, Y);
 input A, B, C, D;
 output Y;
