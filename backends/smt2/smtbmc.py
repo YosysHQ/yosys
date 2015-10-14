@@ -105,13 +105,13 @@ def write_vcd_model():
 
     vcd = mkvcd(open(vcdfile, "w"))
     for netname in sorted(debug_nets):
-        width = len(smt.get_net_bin("main", netname, "s0"))
+        width = len(smt.get_net_bin(topmod, netname, "s0"))
         vcd.add_net(netname, width)
 
     for i in range(step+1):
         vcd.set_time(i)
         for netname in debug_nets:
-            vcd.set_net(netname, smt.get_net_bin("main", netname, "s%d" % i))
+            vcd.set_net(netname, smt.get_net_bin(topmod, netname, "s%d" % i))
 
     vcd.set_time(step+1)
 
