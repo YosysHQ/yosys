@@ -51,6 +51,7 @@ struct WreduceWorker
 
 	std::set<Cell*, IdString::compare_ptr_by_name<Cell>> work_queue_cells;
 	std::set<SigBit> work_queue_bits;
+	pool<SigBit> keep_bits;
 
 	WreduceWorker(WreduceConfig *config, Module *module) :
 			config(config), module(module), mi(module) { }
@@ -68,7 +69,7 @@ struct WreduceWorker
 		for (int i = GetSize(sig_y)-1; i >= 0; i--)
 		{
 			auto info = mi.query(sig_y[i]);
-			if (!info->is_output && GetSize(info->ports) <= 1) {
+			if (!info->is_output && GetSize(info->ports) <= 1 && !keep_bits.count(mi.sigmap(sig_y[i]))) {
 				bits_removed.push_back(Sx);
 				continue;
 			}
@@ -265,6 +266,11 @@ struct WreduceWorker
 
 	void run()
 	{
+		for (auto w : module->wires())
+			if (w->get_bool_attribute("\\keep"))
+				for (auto bit : mi.sigmap(w))
+					keep_bits.insert(bit);
+
 		for (auto c : module->selected_cells())
 			work_queue_cells.insert(c);
 
