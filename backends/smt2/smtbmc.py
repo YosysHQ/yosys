@@ -121,6 +121,7 @@ def write_vcd_model(steps):
 
 
 if tempind:
+    retstatus = False
     for step in range(num_steps, -1, -1):
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
@@ -140,16 +141,18 @@ if tempind:
 
         if smt.check_sat() == "sat":
             if step == 0:
-                print("%s temporal induction failed!" % smt.timestamp())
+                print("%s Temporal induction failed!" % smt.timestamp())
                 if vcdfile is not None:
                     write_vcd_model(num_steps+1)
 
         else:
-            print("%s PASSED." % smt.timestamp())
+            print("%s Temporal induction successful." % smt.timestamp())
+            retstatus = True
             break
 
 
 else: # not tempind
+    retstatus = True
     for step in range(num_steps+1):
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
@@ -176,7 +179,8 @@ else: # not tempind
         if smt.check_sat() == "sat":
             print("%s BMC failed!" % smt.timestamp())
             if vcdfile is not None:
-                write_vcd_model(steps+1)
+                write_vcd_model(step+1)
+            retstatus = False
             break
 
         else: # unsat
@@ -184,7 +188,9 @@ else: # not tempind
             smt.write("(assert (%s_a s%d))" % (topmod, step))
 
 
-print("%s Done." % smt.timestamp())
 smt.write("(exit)")
 smt.wait()
+
+print("%s Status: %s" % (smt.timestamp(), "PASSED" if retstatus else "FAILED (!)"))
+sys.exit(0 if retstatus else 1)
 
