@@ -26,7 +26,7 @@ num_steps = 20
 vcdfile = None
 tempind = False
 assume_skipped = None
-topmod = "main"
+topmod = None
 so = smtopts()
 
 
@@ -49,7 +49,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
         instead of BMC run temporal induction
 
     -m <module_name>
-        name of the top module, default: main
+        name of the top module
 """ + so.helpmsg())
     sys.exit(1)
 
@@ -97,7 +97,11 @@ with open(args[0], "r") as f:
         match = debug_nets_re.match(line)
         if match:
             debug_nets.add(match.group(2))
+        if line.startswith("; yosys-smt2-module") and topmod is None:
+            topmod = line.split()[2]
         smt.write(line)
+
+assert topmod is not None
 
 
 def write_vcd_model(steps):

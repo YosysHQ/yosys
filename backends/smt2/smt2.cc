@@ -631,6 +631,7 @@ struct Smt2Worker
 		for (auto it : decls)
 			f << it;
 
+		f << stringf("; yosys-smt2-module %s\n", log_id(module));
 		f << stringf("(define-fun |%s_t| ((state |%s_s|) (next_state |%s_s|)) Bool ", log_id(module), log_id(module), log_id(module));
 		if (GetSize(trans) > 1) {
 			f << "(and\n";

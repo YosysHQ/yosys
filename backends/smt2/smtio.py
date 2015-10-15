@@ -313,6 +313,7 @@ class mkvcd:
         assert t >= self.t
         if t != self.t:
             if self.t == -1:
+                print("$var event 1 ! smt_clock $end", file=self.f)
                 for name in sorted(self.nets):
                     key, width = self.nets[name]
                     print("$var wire %d %s %s $end" % (width, key, name), file=self.f)
@@ -320,4 +321,5 @@ class mkvcd:
             self.t = t
             assert self.t >= 0
             print("#%d" % self.t, file=self.f)
+            print("1!", file=self.f)
 
