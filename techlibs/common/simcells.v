@@ -36,7 +36,7 @@
 //-                 0 | 0
 //-                 1 | 1
 //-
-module  \$_BUF_ (A, Y);
+module \$_BUF_ (A, Y);
 input A;
 output Y;
 assign Y = A;
@@ -53,7 +53,7 @@ endmodule
 //-                 0 | 1
 //-                 1 | 0
 //-
-module  \$_NOT_ (A, Y);
+module \$_NOT_ (A, Y);
 input A;
 output Y;
 assign Y = ~A;
@@ -72,7 +72,7 @@ endmodule
 //-                 1 0 | 0
 //-                 1 1 | 1
 //-
-module  \$_AND_ (A, B, Y);
+module \$_AND_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = A & B;
@@ -91,7 +91,7 @@ endmodule
 //-                 1 0 | 1
 //-                 1 1 | 0
 //-
-module  \$_NAND_ (A, B, Y);
+module \$_NAND_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = ~(A & B);
@@ -110,7 +110,7 @@ endmodule
 //-                 1 0 | 1
 //-                 1 1 | 1
 //-
-module  \$_OR_ (A, B, Y);
+module \$_OR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = A | B;
@@ -129,7 +129,7 @@ endmodule
 //-                 1 0 | 0
 //-                 1 1 | 0
 //-
-module  \$_NOR_ (A, B, Y);
+module \$_NOR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = ~(A | B);
@@ -148,7 +148,7 @@ endmodule
 //-                 1 0 | 1
 //-                 1 1 | 0
 //-
-module  \$_XOR_ (A, B, Y);
+module \$_XOR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = A ^ B;
@@ -167,7 +167,7 @@ endmodule
 //-                 1 0 | 0
 //-                 1 1 | 1
 //-
-module  \$_XNOR_ (A, B, Y);
+module \$_XNOR_ (A, B, Y);
 input A, B;
 output Y;
 assign Y = ~(A ^ B);
@@ -291,7 +291,7 @@ endmodule
 //-                 1 1 0 | 0
 //-                 1 1 1 | 0
 //-
-module  \$_AOI3_ (A, B, C, Y);
+module \$_AOI3_ (A, B, C, Y);
 input A, B, C;
 output Y;
 assign Y = ~((A & B) | C);
@@ -314,7 +314,7 @@ endmodule
 //-                 1 1 0 | 1
 //-                 1 1 1 | 0
 //-
-module  \$_OAI3_ (A, B, C, Y);
+module \$_OAI3_ (A, B, C, Y);
 input A, B, C;
 output Y;
 assign Y = ~((A | B) & C);
@@ -345,7 +345,7 @@ endmodule
 //-                 1 1 1 0 | 0
 //-                 1 1 1 1 | 0
 //-
-module  \$_AOI4_ (A, B, C, D, Y);
+module \$_AOI4_ (A, B, C, D, Y);
 input A, B, C, D;
 output Y;
 assign Y = ~((A & B) | (C & D));
@@ -376,7 +376,7 @@ endmodule
 //-                 1 1 1 0 | 0
 //-                 1 1 1 1 | 0
 //-
-module  \$_OAI4_ (A, B, C, D, Y);
+module \$_OAI4_ (A, B, C, D, Y);
 input A, B, C, D;
 output Y;
 assign Y = ~((A | B) & (C | D));
@@ -412,7 +412,7 @@ endmodule
 //-                 1 0 | 0
 //-                 1 1 | y
 //-
-module  \$_SR_NN_ (S, R, Q);
+module \$_SR_NN_ (S, R, Q);
 input S, R;
 output reg Q;
 always @(negedge S, negedge R) begin
@@ -436,7 +436,7 @@ endmodule
 //-                 1 1 | 0
 //-                 1 0 | y
 //-
-module  \$_SR_NP_ (S, R, Q);
+module \$_SR_NP_ (S, R, Q);
 input S, R;
 output reg Q;
 always @(negedge S, posedge R) begin
@@ -460,7 +460,7 @@ endmodule
 //-                 0 0 | 0
 //-                 0 1 | y
 //-
-module  \$_SR_PN_ (S, R, Q);
+module \$_SR_PN_ (S, R, Q);
 input S, R;
 output reg Q;
 always @(posedge S, negedge R) begin
@@ -484,7 +484,7 @@ endmodule
 //-                 0 1 | 0
 //-                 0 0 | y
 //-
-module  \$_SR_PP_ (S, R, Q);
+module \$_SR_PP_ (S, R, Q);
 input S, R;
 output reg Q;
 always @(posedge S, posedge R) begin
@@ -504,9 +504,9 @@ endmodule
 //- Truth table:    D C | Q
 //-                -----+---
 //-                 d \ | d
-//-                 - = | q
+//-                 - - | q
 //-
-module  \$_DFF_N_ (D, Q, C);
+module \$_DFF_N_ (D, Q, C);
 input D, C;
 output reg Q;
 always @(negedge C) begin
@@ -523,9 +523,9 @@ endmodule
 //- Truth table:    D C | Q
 //-                -----+---
 //-                 d / | d
-//-                 - = | q
+//-                 - - | q
 //-
-module  \$_DFF_P_ (D, Q, C);
+module \$_DFF_P_ (D, Q, C);
 input D, C;
 output reg Q;
 always @(posedge C) begin
@@ -533,7 +533,18 @@ always @(posedge C) begin
 end
 endmodule
 
-module  \$_DFFE_NN_ (D, Q, C, E);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFE_NN_ (D, C, E, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity enable.
+//-
+//- Truth table:    D C E | Q
+//-                -------+---
+//-                 d \ 0 | d
+//-                 - - - | q
+//-
+module \$_DFFE_NN_ (D, Q, C, E);
 input D, C, E;
 output reg Q;
 always @(negedge C) begin
@@ -541,7 +552,18 @@ always @(negedge C) begin
 end
 endmodule
 
-module  \$_DFFE_NP_ (D, Q, C, E);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFE_NP_ (D, C, E, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity enable.
+//-
+//- Truth table:    D C E | Q
+//-                -------+---
+//-                 d \ 1 | d
+//-                 - - - | q
+//-
+module \$_DFFE_NP_ (D, Q, C, E);
 input D, C, E;
 output reg Q;
 always @(negedge C) begin
@@ -549,7 +571,18 @@ always @(negedge C) begin
 end
 endmodule
 
-module  \$_DFFE_PN_ (D, Q, C, E);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFE_PN_ (D, C, E, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity enable.
+//-
+//- Truth table:    D C E | Q
+//-                -------+---
+//-                 d / 0 | d
+//-                 - - - | q
+//-
+module \$_DFFE_PN_ (D, Q, C, E);
 input D, C, E;
 output reg Q;
 always @(posedge C) begin
@@ -557,7 +590,18 @@ always @(posedge C) begin
 end
 endmodule
 
-module  \$_DFFE_PP_ (D, Q, C, E);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFE_PP_ (D, C, E, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity enable.
+//-
+//- Truth table:    D C E | Q
+//-                -------+---
+//-                 d / 1 | d
+//-                 - - - | q
+//-
+module \$_DFFE_PP_ (D, Q, C, E);
 input D, C, E;
 output reg Q;
 always @(posedge C) begin
@@ -565,7 +609,7 @@ always @(posedge C) begin
 end
 endmodule
 
-module  \$_DFF_NN0_ (D, Q, C, R);
+module \$_DFF_NN0_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(negedge C or negedge R) begin
@@ -576,7 +620,7 @@ always @(negedge C or negedge R) begin
 end
 endmodule
 
-module  \$_DFF_NN1_ (D, Q, C, R);
+module \$_DFF_NN1_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(negedge C or negedge R) begin
@@ -587,7 +631,7 @@ always @(negedge C or negedge R) begin
 end
 endmodule
 
-module  \$_DFF_NP0_ (D, Q, C, R);
+module \$_DFF_NP0_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(negedge C or posedge R) begin
@@ -598,7 +642,7 @@ always @(negedge C or posedge R) begin
 end
 endmodule
 
-module  \$_DFF_NP1_ (D, Q, C, R);
+module \$_DFF_NP1_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(negedge C or posedge R) begin
@@ -609,7 +653,7 @@ always @(negedge C or posedge R) begin
 end
 endmodule
 
-module  \$_DFF_PN0_ (D, Q, C, R);
+module \$_DFF_PN0_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(posedge C or negedge R) begin
@@ -620,7 +664,7 @@ always @(posedge C or negedge R) begin
 end
 endmodule
 
-module  \$_DFF_PN1_ (D, Q, C, R);
+module \$_DFF_PN1_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(posedge C or negedge R) begin
@@ -631,7 +675,7 @@ always @(posedge C or negedge R) begin
 end
 endmodule
 
-module  \$_DFF_PP0_ (D, Q, C, R);
+module \$_DFF_PP0_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(posedge C or posedge R) begin
@@ -642,7 +686,7 @@ always @(posedge C or posedge R) begin
 end
 endmodule
 
-module  \$_DFF_PP1_ (D, Q, C, R);
+module \$_DFF_PP1_ (D, Q, C, R);
 input D, C, R;
 output reg Q;
 always @(posedge C or posedge R) begin
@@ -653,7 +697,7 @@ always @(posedge C or posedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_NNN_ (C, S, R, D, Q);
+module \$_DFFSR_NNN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(negedge C, negedge S, negedge R) begin
@@ -666,7 +710,7 @@ always @(negedge C, negedge S, negedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_NNP_ (C, S, R, D, Q);
+module \$_DFFSR_NNP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(negedge C, negedge S, posedge R) begin
@@ -679,7 +723,7 @@ always @(negedge C, negedge S, posedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_NPN_ (C, S, R, D, Q);
+module \$_DFFSR_NPN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(negedge C, posedge S, negedge R) begin
@@ -692,7 +736,7 @@ always @(negedge C, posedge S, negedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_NPP_ (C, S, R, D, Q);
+module \$_DFFSR_NPP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(negedge C, posedge S, posedge R) begin
@@ -705,7 +749,7 @@ always @(negedge C, posedge S, posedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_PNN_ (C, S, R, D, Q);
+module \$_DFFSR_PNN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(posedge C, negedge S, negedge R) begin
@@ -718,7 +762,7 @@ always @(posedge C, negedge S, negedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_PNP_ (C, S, R, D, Q);
+module \$_DFFSR_PNP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(posedge C, negedge S, posedge R) begin
@@ -731,7 +775,7 @@ always @(posedge C, negedge S, posedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_PPN_ (C, S, R, D, Q);
+module \$_DFFSR_PPN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(posedge C, posedge S, negedge R) begin
@@ -744,7 +788,7 @@ always @(posedge C, posedge S, negedge R) begin
 end
 endmodule
 
-module  \$_DFFSR_PPP_ (C, S, R, D, Q);
+module \$_DFFSR_PPP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
 always @(posedge C, posedge S, posedge R) begin
@@ -757,7 +801,7 @@ always @(posedge C, posedge S, posedge R) begin
 end
 endmodule
 
-module  \$_DLATCH_N_ (E, D, Q);
+module \$_DLATCH_N_ (E, D, Q);
 input E, D;
 output reg Q;
 always @* begin
@@ -766,7 +810,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCH_P_ (E, D, Q);
+module \$_DLATCH_P_ (E, D, Q);
 input E, D;
 output reg Q;
 always @* begin
@@ -775,7 +819,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_NNN_ (E, S, R, D, Q);
+module \$_DLATCHSR_NNN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin
@@ -788,7 +832,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_NNP_ (E, S, R, D, Q);
+module \$_DLATCHSR_NNP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin
@@ -801,7 +845,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_NPN_ (E, S, R, D, Q);
+module \$_DLATCHSR_NPN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin
@@ -814,7 +858,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_NPP_ (E, S, R, D, Q);
+module \$_DLATCHSR_NPP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin
@@ -827,7 +871,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_PNN_ (E, S, R, D, Q);
+module \$_DLATCHSR_PNN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin
@@ -840,7 +884,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_PNP_ (E, S, R, D, Q);
+module \$_DLATCHSR_PNP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin
@@ -853,7 +897,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_PPN_ (E, S, R, D, Q);
+module \$_DLATCHSR_PPN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin
@@ -866,7 +910,7 @@ always @* begin
 end
 endmodule
 
-module  \$_DLATCHSR_PPP_ (E, S, R, D, Q);
+module \$_DLATCHSR_PPP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
 always @* begin

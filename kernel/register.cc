@@ -644,7 +644,7 @@ struct HelpPass : public Pass {
 				for (auto &it : cell_help_messages.cell_help) {
 					string line = split_tokens(it.second, "\n").at(0);
 					string cell_name = next_token(line);
-					log("    %-10s %s\n", cell_name.c_str(), line.c_str());
+					log("    %-15s %s\n", cell_name.c_str(), line.c_str());
 				}
 				log("\n");
 				log("Type 'help <cell_type>' for more information on a cell type.\n");
