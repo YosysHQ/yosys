@@ -405,7 +405,7 @@ endmodule
 //-
 //- A set-reset latch with negative polarity SET and RESET.
 //-
-//- Truth table:    S R | Y
+//- Truth table:    S R | Q
 //-                -----+---
 //-                 0 0 | x
 //-                 0 1 | 1
@@ -429,7 +429,7 @@ endmodule
 //-
 //- A set-reset latch with negative polarity SET and positive polarioty RESET.
 //-
-//- Truth table:    S R | Y
+//- Truth table:    S R | Q
 //-                -----+---
 //-                 0 1 | x
 //-                 0 0 | 1
@@ -453,7 +453,7 @@ endmodule
 //-
 //- A set-reset latch with positive polarity SET and negative polarioty RESET.
 //-
-//- Truth table:    S R | Y
+//- Truth table:    S R | Q
 //-                -----+---
 //-                 1 0 | x
 //-                 1 1 | 1
@@ -477,7 +477,7 @@ endmodule
 //-
 //- A set-reset latch with positive polarity SET and RESET.
 //-
-//- Truth table:    S R | Y
+//- Truth table:    S R | Q
 //-                -----+---
 //-                 1 1 | x
 //-                 1 0 | 1
@@ -506,7 +506,7 @@ endmodule
 //-                 d \ | d
 //-                 - - | q
 //-
-module \$_DFF_N_ (D, Q, C);
+module \$_DFF_N_ (D, C, Q);
 input D, C;
 output reg Q;
 always @(negedge C) begin
@@ -525,7 +525,7 @@ endmodule
 //-                 d / | d
 //-                 - - | q
 //-
-module \$_DFF_P_ (D, Q, C);
+module \$_DFF_P_ (D, C, Q);
 input D, C;
 output reg Q;
 always @(posedge C) begin
@@ -544,7 +544,7 @@ endmodule
 //-                 d \ 0 | d
 //-                 - - - | q
 //-
-module \$_DFFE_NN_ (D, Q, C, E);
+module \$_DFFE_NN_ (D, C, E, Q);
 input D, C, E;
 output reg Q;
 always @(negedge C) begin
@@ -563,7 +563,7 @@ endmodule
 //-                 d \ 1 | d
 //-                 - - - | q
 //-
-module \$_DFFE_NP_ (D, Q, C, E);
+module \$_DFFE_NP_ (D, C, E, Q);
 input D, C, E;
 output reg Q;
 always @(negedge C) begin
@@ -582,7 +582,7 @@ endmodule
 //-                 d / 0 | d
 //-                 - - - | q
 //-
-module \$_DFFE_PN_ (D, Q, C, E);
+module \$_DFFE_PN_ (D, C, E, Q);
 input D, C, E;
 output reg Q;
 always @(posedge C) begin
@@ -601,7 +601,7 @@ endmodule
 //-                 d / 1 | d
 //-                 - - - | q
 //-
-module \$_DFFE_PP_ (D, Q, C, E);
+module \$_DFFE_PP_ (D, C, E, Q);
 input D, C, E;
 output reg Q;
 always @(posedge C) begin
@@ -609,7 +609,19 @@ always @(posedge C) begin
 end
 endmodule
 
-module \$_DFF_NN0_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_NN0_ (D, C, R, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity reset.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 0 | 0
+//-                 d \ - | d
+//-                 - - - | q
+//-
+module \$_DFF_NN0_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(negedge C or negedge R) begin
@@ -620,7 +632,19 @@ always @(negedge C or negedge R) begin
 end
 endmodule
 
-module \$_DFF_NN1_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_NN1_ (D, C, R, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity set.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 0 | 1
+//-                 d \ - | d
+//-                 - - - | q
+//-
+module \$_DFF_NN1_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(negedge C or negedge R) begin
@@ -631,7 +655,19 @@ always @(negedge C or negedge R) begin
 end
 endmodule
 
-module \$_DFF_NP0_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_NP0_ (D, C, R, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity reset.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 1 | 0
+//-                 d \ - | d
+//-                 - - - | q
+//-
+module \$_DFF_NP0_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(negedge C or posedge R) begin
@@ -642,7 +678,19 @@ always @(negedge C or posedge R) begin
 end
 endmodule
 
-module \$_DFF_NP1_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_NP1_ (D, C, R, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity set.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 1 | 1
+//-                 d \ - | d
+//-                 - - - | q
+//-
+module \$_DFF_NP1_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(negedge C or posedge R) begin
@@ -653,7 +701,19 @@ always @(negedge C or posedge R) begin
 end
 endmodule
 
-module \$_DFF_PN0_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_PN0_ (D, C, R, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity reset.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 0 | 0
+//-                 d / - | d
+//-                 - - - | q
+//-
+module \$_DFF_PN0_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(posedge C or negedge R) begin
@@ -664,7 +724,19 @@ always @(posedge C or negedge R) begin
 end
 endmodule
 
-module \$_DFF_PN1_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_PN1_ (D, C, R, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity set.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 0 | 1
+//-                 d / - | d
+//-                 - - - | q
+//-
+module \$_DFF_PN1_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(posedge C or negedge R) begin
@@ -675,7 +747,19 @@ always @(posedge C or negedge R) begin
 end
 endmodule
 
-module \$_DFF_PP0_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_PP0_ (D, C, R, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity reset.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 1 | 0
+//-                 d / - | d
+//-                 - - - | q
+//-
+module \$_DFF_PP0_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(posedge C or posedge R) begin
@@ -686,7 +770,19 @@ always @(posedge C or posedge R) begin
 end
 endmodule
 
-module \$_DFF_PP1_ (D, Q, C, R);
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFF_PP1_ (D, C, R, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity set.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - - 1 | 1
+//-                 d / - | d
+//-                 - - - | q
+//-
+module \$_DFF_PP1_ (D, C, R, Q);
 input D, C, R;
 output reg Q;
 always @(posedge C or posedge R) begin
