@@ -280,7 +280,7 @@ struct EquivMakeWorker
 
 		for (auto c : cells_list)
 		for (auto &conn : c->connections())
-			if (ct.cell_input(c->type, conn.first)) {
+			if (!ct.cell_output(c->type, conn.first)) {
 				SigSpec old_sig = assign_map(conn.second);
 				SigSpec new_sig = rd_signal_map(old_sig);
 				if (old_sig != new_sig) {
