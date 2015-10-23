@@ -87,7 +87,7 @@ struct EquivPurgeWorker
 
 	void run()
 	{
-		log("Running equiv_purge on module %s:", log_id(module));
+		log("Running equiv_purge on module %s:\n", log_id(module));
 
 		for (auto wire : module->wires()) {
 			wire->port_input = false;

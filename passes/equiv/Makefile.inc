@@ -8,4 +8,5 @@ OBJS += passes/equiv/equiv_remove.o
 OBJS += passes/equiv/equiv_induct.o
 OBJS += passes/equiv/equiv_struct.o
 OBJS += passes/equiv/equiv_purge.o
+OBJS += passes/equiv/equiv_mark.o
 
