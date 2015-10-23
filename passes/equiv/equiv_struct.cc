@@ -28,7 +28,7 @@ struct EquivStructWorker
 	Module *module;
 	SigMap sigmap;
 	SigMap equiv_bits;
-	bool mode_nortl;
+	bool mode_icells;
 	int merge_count;
 
 	dict<IdString, pool<IdString>> cells_by_type;
@@ -39,6 +39,7 @@ struct EquivStructWorker
 			return;
 
 		bool merge_this_cells = false;
+		bool found_diff_inputs = false;
 		vector<SigSpec> inputs_a, inputs_b;
 
 		for (auto &port_a : cell_a->connections())
@@ -63,9 +64,13 @@ struct EquivStructWorker
 				if (!diff_bits_a.empty()) {
 					inputs_a.push_back(diff_bits_a);
 					inputs_b.push_back(diff_bits_b);
+					found_diff_inputs = true;
 				}
 			}
 		}
+
+		if (!found_diff_inputs)
+			merge_this_cells = true;
 
 		if (merge_this_cells)
 		{
@@ -106,8 +111,8 @@ struct EquivStructWorker
 		}
 	}
 
-	EquivStructWorker(Module *module, bool mode_nortl) :
-			module(module), sigmap(module), equiv_bits(module), mode_nortl(mode_nortl), merge_count(0)
+	EquivStructWorker(Module *module, bool mode_icells) :
+			module(module), sigmap(module), equiv_bits(module), mode_icells(mode_icells), merge_count(0)
 	{
 		log("  Starting new iteration.\n");
 
@@ -116,7 +121,7 @@ struct EquivStructWorker
 				equiv_bits.add(sigmap(cell->getPort("\\A")), sigmap(cell->getPort("\\B")));
 			} else
 			if (module->design->selected(module, cell)) {
-				if (!mode_nortl || module->design->module(cell->type))
+				if (mode_icells || module->design->module(cell->type))
 					cells_by_type[cell->type].insert(cell->name);
 			}
 
@@ -151,22 +156,24 @@ struct EquivStructPass : public Pass {
 		log("This command adds additional $equiv cells based on the assumption that the\n");
 		log("gold and gate circuit are structurally equivalent. Note that this can introduce\n");
 		log("bad $equiv cells in cases where the netlists are not structurally equivalent,\n");
-		log("for example when analyzing circuits with cells with commutative inputs.\n");
+		log("for example when analyzing circuits with cells with commutative inputs. This\n");
+		log("command will also de-duplicate gates.\n");
 		log("\n");
-		log("    -nortl\n");
-		log("        only operate on 'blackbox' cells and hierarchical module instantiations\n");
+		log("    -icells\n");
+		log("        by default, the internal RTL and gate cell types are ignored. add\n");
+		log("        this option to also process those cell types with this command.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
-		bool mode_nortl = false;
+		bool mode_icells = false;
 
 		log_header("Executing EQUIV_STRUCT pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-bb") {
-				mode_nortl = true;
+			if (args[argidx] == "-icells") {
+				mode_icells = true;
 				continue;
 			}
 			break;
@@ -176,7 +183,7 @@ struct EquivStructPass : public Pass {
 		for (auto module : design->selected_modules()) {
 			log("Running equiv_struct on module %s:", log_id(module));
 			while (1) {
-				EquivStructWorker worker(module, mode_nortl);
+				EquivStructWorker worker(module, mode_icells);
 				if (worker.merge_count == 0)
 					break;
 			}
