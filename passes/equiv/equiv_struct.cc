@@ -119,6 +119,7 @@ struct EquivStructWorker
 		for (auto cell : module->selected_cells())
 			if (cell->type == "$equiv") {
 				equiv_bits.add(sigmap(cell->getPort("\\A")), sigmap(cell->getPort("\\B")));
+				cells_by_type[cell->type].insert(cell->name);
 			} else
 			if (module->design->selected(module, cell)) {
 				if (mode_icells || module->design->module(cell->type))
