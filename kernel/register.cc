@@ -209,7 +209,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 
 void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 {
-	if (args.size() == 0 || args[0][0] == '#')
+	if (args.size() == 0 || args[0][0] == '#' || args[0][0] == ':')
 		return;
 
 	if (echo_mode) {
