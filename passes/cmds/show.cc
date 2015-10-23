@@ -552,7 +552,7 @@ struct ShowWorker
 				continue;
 			if (design->selected_whole_module(module->name)) {
 				if (module->get_bool_attribute("\\blackbox")) {
-					log("Skipping blackbox module %s.\n", id2cstr(module->name));
+					// log("Skipping blackbox module %s.\n", id2cstr(module->name));
 					continue;
 				} else
 				if (module->cells_.empty() && module->connections().empty() && module->processes.empty()) {
