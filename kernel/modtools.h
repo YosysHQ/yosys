@@ -226,7 +226,7 @@ struct ModIndex : public RTLIL::Monitor
 		auto_reload_module = true;
 	}
 
-	ModIndex(RTLIL::Module *_m) : module(_m)
+	ModIndex(RTLIL::Module *_m) : sigmap(_m), module(_m)
 	{
 		auto_reload_counter = 0;
 		auto_reload_module = true;
@@ -273,6 +273,27 @@ struct ModIndex : public RTLIL::Monitor
 		if (info == nullptr)
 			return empty_result_set;
 		return info->ports;
+	}
+
+	void dump_db()
+	{
+		log("--- ModIndex Dump ---\n");
+
+		if (auto_reload_module) {
+			log("AUTO-RELOAD\n");
+			reload_module();
+		}
+
+		for (auto &it : database) {
+			log("BIT %s:\n", log_signal(it.first));
+			if (it.second.is_input)
+				log("  PRIMARY INPUT\n");
+			if (it.second.is_output)
+				log("  PRIMARY OUTPUT\n");
+			for (auto &port : it.second.ports)
+				log("  PORT: %s.%s[%d] (%s)\n", log_id(port.cell),
+						log_id(port.port), port.offset, log_id(port.cell->type));
+		}
 	}
 };
 

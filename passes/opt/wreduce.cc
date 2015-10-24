@@ -66,6 +66,9 @@ struct WreduceWorker
 		SigSpec sig_y = mi.sigmap(cell->getPort("\\Y"));
 		std::vector<SigBit> bits_removed;
 
+		if (sig_y.has_const())
+			return;
+
 		for (int i = GetSize(sig_y)-1; i >= 0; i--)
 		{
 			auto info = mi.query(sig_y[i]);
@@ -173,6 +176,11 @@ struct WreduceWorker
 		if (cell->type.in("$mux", "$pmux"))
 			return run_cell_mux(cell);
 
+		SigSpec sig = mi.sigmap(cell->getPort("\\Y"));
+
+		if (sig.has_const())
+			return;
+
 
 		// Reduce size of ports A and B based on constant input bits and size of output port
 
@@ -180,8 +188,8 @@ struct WreduceWorker
 		int max_port_b_size = cell->hasPort("\\B") ? GetSize(cell->getPort("\\B")) : -1;
 
 		if (cell->type.in("$not", "$pos", "$neg", "$and", "$or", "$xor", "$add", "$sub")) {
-			max_port_a_size = std::min(max_port_a_size, GetSize(cell->getPort("\\Y")));
-			max_port_b_size = std::min(max_port_b_size, GetSize(cell->getPort("\\Y")));
+			max_port_a_size = std::min(max_port_a_size, GetSize(sig));
+			max_port_b_size = std::min(max_port_b_size, GetSize(sig));
 		}
 
 		bool port_a_signed = false;
@@ -195,8 +203,6 @@ struct WreduceWorker
 
 
 		// Reduce size of port Y based on sizes for A and B and unused bits in Y
-
-		SigSpec sig = mi.sigmap(cell->getPort("\\Y"));
 
 		int bits_removed = 0;
 		if (port_a_signed && cell->type == "$shr") {
@@ -358,10 +364,12 @@ struct WreducePass : public Pass {
 						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 						"$logic_not", "$logic_and", "$logic_or") && GetSize(c->getPort("\\Y")) > 1) {
 					SigSpec sig = c->getPort("\\Y");
-					c->setPort("\\Y", sig[0]);
-					c->setParam("\\Y_WIDTH", 1);
-					sig.remove(0);
-					module->connect(sig, Const(0, GetSize(sig)));
+					if (!sig.has_const()) {
+						c->setPort("\\Y", sig[0]);
+						c->setParam("\\Y_WIDTH", 1);
+						sig.remove(0);
+						module->connect(sig, Const(0, GetSize(sig)));
+					}
 				}
 
 			WreduceWorker worker(&config, module);

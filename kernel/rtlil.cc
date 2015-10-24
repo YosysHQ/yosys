@@ -1448,6 +1448,10 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 		for (auto mon : design->monitors)
 			mon->notify_connect(this, conn);
 
+#ifndef NDEBUG
+	log_assert(!conn.first.has_const());
+#endif
+
 	if (yosys_xtrace) {
 		log("#X# Connect (SigSig) in %s: %s = %s (%d bits)\n", log_id(this), log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
 		log_backtrace("-X- ", yosys_xtrace-1);
