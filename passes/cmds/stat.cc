@@ -223,7 +223,7 @@ struct StatPass : public Pass {
 			data.log_data();
 		}
 
-		if (top_mod != NULL)
+		if (top_mod != NULL && GetSize(mod_stat) > 1)
 		{
 			log("\n");
 			log("=== design hierarchy ===\n");
