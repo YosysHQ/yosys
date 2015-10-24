@@ -1448,9 +1448,18 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 		for (auto mon : design->monitors)
 			mon->notify_connect(this, conn);
 
-#ifndef NDEBUG
-	log_assert(!conn.first.has_const());
-#endif
+	// ignore all attempts to assign constants to other constants
+	if (conn.first.has_const()) {
+		RTLIL::SigSig new_conn;
+		for (int i = 0; i < GetSize(conn.first); i++)
+			if (conn.first[i].wire) {
+				new_conn.first.append(conn.first[i]);
+				new_conn.second.append(conn.second[i]);
+			}
+		if (GetSize(new_conn.first))
+			connect(new_conn);
+		return;
+	}
 
 	if (yosys_xtrace) {
 		log("#X# Connect (SigSig) in %s: %s = %s (%d bits)\n", log_id(this), log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
