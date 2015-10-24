@@ -156,7 +156,7 @@ struct EquivMiterWorker
 		struct RewriteSigSpecWorker {
 			RTLIL::Module * mod;
 			void operator()(SigSpec &sig) {
-				vector<RTLIL::SigChunk> chunks = sig.chunks();
+				vector<SigChunk> chunks = sig.chunks();
 				for (auto &c : chunks)
 					if (c.wire != NULL)
 						c.wire = mod->wires_.at(c.wire->name);

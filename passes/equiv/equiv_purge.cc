@@ -162,8 +162,9 @@ struct EquivPurgeWorker
 
 		srcsig.sort_and_unify();
 
-		for (SigSpec sig : srcsig.chunks())
-			rewrite_sigmap.add(sig, make_input(sig));
+		for (SigChunk chunk : srcsig.chunks())
+			if (chunk.wire != nullptr)
+				rewrite_sigmap.add(chunk, make_input(chunk));
 
 		for (auto cell : module->cells())
 			if (cell->type == "$equiv")

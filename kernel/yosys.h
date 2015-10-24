@@ -169,6 +169,7 @@ namespace RTLIL {
 	struct IdString;
 	struct Const;
 	struct SigBit;
+	struct SigChunk;
 	struct SigSpec;
 	struct Wire;
 	struct Cell;
@@ -184,6 +185,7 @@ namespace AST {
 using RTLIL::IdString;
 using RTLIL::Const;
 using RTLIL::SigBit;
+using RTLIL::SigChunk;
 using RTLIL::SigSpec;
 using RTLIL::Wire;
 using RTLIL::Cell;

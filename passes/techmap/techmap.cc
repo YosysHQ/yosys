@@ -49,7 +49,7 @@ void apply_prefix(std::string prefix, std::string &id)
 
 void apply_prefix(std::string prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 {
-	std::vector<RTLIL::SigChunk> chunks = sig;
+	vector<SigChunk> chunks = sig;
 	for (auto &chunk : chunks)
 		if (chunk.wire != NULL) {
 			std::string wire_name = chunk.wire->name.str();

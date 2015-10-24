@@ -737,7 +737,7 @@ struct ExtractPass : public Pass {
 					RTLIL::Cell *newCell = newMod->addCell(cell->name, cell->type);
 					newCell->parameters = cell->parameters;
 					for (auto &conn : cell->connections()) {
-						std::vector<RTLIL::SigChunk> chunks = sigmap(conn.second);
+						std::vector<SigChunk> chunks = sigmap(conn.second);
 						for (auto &chunk : chunks)
 							if (chunk.wire != NULL)
 								chunk.wire = newMod->wires_.at(chunk.wire->name);
