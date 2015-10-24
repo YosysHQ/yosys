@@ -116,15 +116,36 @@ struct EquivStructWorker
 	{
 		log("  Starting new iteration.\n");
 
+		pool<SigBit> equiv_inputs;
+
 		for (auto cell : module->selected_cells())
 			if (cell->type == "$equiv") {
-				equiv_bits.add(sigmap(cell->getPort("\\A")), sigmap(cell->getPort("\\B")));
+				SigBit sig_a = sigmap(cell->getPort("\\A").as_bit());
+				SigBit sig_b = sigmap(cell->getPort("\\B").as_bit());
+				equiv_bits.add(sig_b, sig_a);
+				equiv_inputs.insert(sig_a);
+				equiv_inputs.insert(sig_b);
 				cells_by_type[cell->type].insert(cell->name);
 			} else
 			if (module->design->selected(module, cell)) {
 				if (mode_icells || module->design->module(cell->type))
 					cells_by_type[cell->type].insert(cell->name);
 			}
+
+		for (auto cell_name : cells_by_type["$equiv"]) {
+			Cell *cell = module->cell(cell_name);
+			SigBit sig_a = sigmap(cell->getPort("\\A").as_bit());
+			SigBit sig_b = sigmap(cell->getPort("\\B").as_bit());
+			SigBit sig_y = sigmap(cell->getPort("\\Y").as_bit());
+			if (sig_a == sig_b && equiv_inputs.count(sig_y)) {
+				log("    Purging redundant $equiv cell %s.\n", log_id(cell));
+				module->remove(cell);
+				merge_count++;
+			}
+		}
+
+		if (merge_count > 0)
+			return;
 
 		for (auto &it : cells_by_type)
 		{
