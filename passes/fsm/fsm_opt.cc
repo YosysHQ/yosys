@@ -78,7 +78,7 @@ struct FsmOpt
 
 	bool signal_is_unused(RTLIL::SigSpec sig)
 	{
-		RTLIL::SigBit bit = sig.to_single_sigbit();
+		RTLIL::SigBit bit = sig.as_bit();
 
 		if (bit.wire == NULL || bit.wire->attributes.count("\\unused_bits") == 0)
 			return false;

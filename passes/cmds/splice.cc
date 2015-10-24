@@ -64,7 +64,7 @@ struct SpliceWorker
 			return sliced_signals_cache.at(sig);
 
 		int offset = 0;
-		int p = driven_bits_map.at(sig.extract(0, 1).to_single_sigbit()) - 1;
+		int p = driven_bits_map.at(sig.extract(0, 1).as_bit()) - 1;
 		while (driven_bits.at(p) != RTLIL::State::Sm)
 			p--, offset++;
 

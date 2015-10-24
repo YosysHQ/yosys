@@ -690,6 +690,7 @@ public:
 
 	bool is_wire() const;
 	bool is_chunk() const;
+	inline bool is_bit() const { return width_ == 1; }
 
 	bool is_fully_const() const;
 	bool is_fully_zero() const;
@@ -704,6 +705,7 @@ public:
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
 	RTLIL::SigChunk as_chunk() const;
+	RTLIL::SigBit as_bit() const;
 
 	bool match(std::string pattern) const;
 
@@ -712,7 +714,6 @@ public:
 	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
 	std::map<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_map(const RTLIL::SigSpec &other) const;
 	dict<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_dict(const RTLIL::SigSpec &other) const;
-	RTLIL::SigBit to_single_sigbit() const;
 
 	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);

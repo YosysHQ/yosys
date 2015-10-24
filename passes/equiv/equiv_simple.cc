@@ -89,8 +89,8 @@ struct EquivSimpleWorker
 
 	bool run_cell()
 	{
-		SigBit bit_a = sigmap(equiv_cell->getPort("\\A")).to_single_sigbit();
-		SigBit bit_b = sigmap(equiv_cell->getPort("\\B")).to_single_sigbit();
+		SigBit bit_a = sigmap(equiv_cell->getPort("\\A")).as_bit();
+		SigBit bit_b = sigmap(equiv_cell->getPort("\\B")).as_bit();
 		int ez_context = ez->frozen_literal();
 
 		if (satgen.model_undef)
@@ -314,7 +314,7 @@ struct EquivSimplePass : public Pass {
 
 			for (auto cell : module->selected_cells())
 				if (cell->type == "$equiv" && cell->getPort("\\A") != cell->getPort("\\B")) {
-					auto bit = sigmap(cell->getPort("\\Y").to_single_sigbit());
+					auto bit = sigmap(cell->getPort("\\Y").as_bit());
 					auto bit_group = bit;
 					if (!nogroup && bit_group.wire)
 						bit_group.offset = 0;

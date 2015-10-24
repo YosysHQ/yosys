@@ -133,7 +133,7 @@ struct Smt2Worker
 
 	std::string get_bool(RTLIL::SigSpec sig, const char *state_name = "state")
 	{
-		return get_bool(sig.to_single_sigbit(), state_name);
+		return get_bool(sig.as_bit(), state_name);
 	}
 
 	std::string get_bv(RTLIL::SigSpec sig, const char *state_name = "state")
@@ -216,7 +216,7 @@ struct Smt2Worker
 
 	void export_gate(RTLIL::Cell *cell, std::string expr)
 	{
-		RTLIL::SigBit bit = sigmap(cell->getPort("\\Y").to_single_sigbit());
+		RTLIL::SigBit bit = sigmap(cell->getPort("\\Y").as_bit());
 		std::string processed_expr;
 
 		for (char ch : expr) {

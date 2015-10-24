@@ -3197,6 +3197,17 @@ RTLIL::SigChunk RTLIL::SigSpec::as_chunk() const
 	return chunks_[0];
 }
 
+RTLIL::SigBit RTLIL::SigSpec::as_bit() const
+{
+	cover("kernel.rtlil.sigspec.as_bit");
+
+	log_assert(width_ == 1);
+	if (packed())
+		return RTLIL::SigBit(*chunks_.begin());
+	else
+		return bits_[0];
+}
+
 bool RTLIL::SigSpec::match(std::string pattern) const
 {
 	cover("kernel.rtlil.sigspec.match");
@@ -3282,18 +3293,6 @@ dict<RTLIL::SigBit, RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_dict(const RTLIL::S
 		new_map[bits_[i]] = other.bits_[i];
 
 	return new_map;
-}
-
-RTLIL::SigBit RTLIL::SigSpec::to_single_sigbit() const
-{
-	cover("kernel.rtlil.sigspec.to_single_sigbit");
-
-	pack();
-	log_assert(width_ == 1);
-	for (auto &c : chunks_)
-		if (c.width)
-			return RTLIL::SigBit(c);
-	log_abort();
 }
 
 static void sigspec_parse_split(std::vector<std::string> &tokens, const std::string &text, char sep)

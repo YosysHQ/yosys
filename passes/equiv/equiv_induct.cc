@@ -59,8 +59,8 @@ struct EquivInductWorker
 				cell_warn_cache.insert(cell);
 			}
 			if (cell->type == "$equiv") {
-				SigBit bit_a = sigmap(cell->getPort("\\A")).to_single_sigbit();
-				SigBit bit_b = sigmap(cell->getPort("\\B")).to_single_sigbit();
+				SigBit bit_a = sigmap(cell->getPort("\\A")).as_bit();
+				SigBit bit_b = sigmap(cell->getPort("\\B")).as_bit();
 				if (bit_a != bit_b) {
 					int ez_a = satgen.importSigBit(bit_a, step);
 					int ez_b = satgen.importSigBit(bit_b, step);
@@ -137,8 +137,8 @@ struct EquivInductWorker
 
 		for (auto cell : workset)
 		{
-			SigBit bit_a = sigmap(cell->getPort("\\A")).to_single_sigbit();
-			SigBit bit_b = sigmap(cell->getPort("\\B")).to_single_sigbit();
+			SigBit bit_a = sigmap(cell->getPort("\\A")).as_bit();
+			SigBit bit_b = sigmap(cell->getPort("\\B")).as_bit();
 
 			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort("\\Y"))));
 

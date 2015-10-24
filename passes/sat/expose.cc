@@ -116,7 +116,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::De
 		info.cell = it.second;
 
 		if (info.cell->type == "$dff") {
-			info.bit_clk = sigmap(info.cell->getPort("\\CLK")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\CLK")).as_bit();
 			info.clk_polarity = info.cell->parameters.at("\\CLK_POLARITY").as_bool();
 			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->getPort("\\D")).to_sigbit_vector();
 			std::vector<RTLIL::SigBit> sig_q = sigmap(info.cell->getPort("\\Q")).to_sigbit_vector();
@@ -128,8 +128,8 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::De
 		}
 
 		if (info.cell->type == "$adff") {
-			info.bit_clk = sigmap(info.cell->getPort("\\CLK")).to_single_sigbit();
-			info.bit_arst = sigmap(info.cell->getPort("\\ARST")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\CLK")).as_bit();
+			info.bit_arst = sigmap(info.cell->getPort("\\ARST")).as_bit();
 			info.clk_polarity = info.cell->parameters.at("\\CLK_POLARITY").as_bool();
 			info.arst_polarity = info.cell->parameters.at("\\ARST_POLARITY").as_bool();
 			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->getPort("\\D")).to_sigbit_vector();
@@ -144,21 +144,21 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::De
 		}
 
 		if (info.cell->type == "$_DFF_N_" || info.cell->type == "$_DFF_P_") {
-			info.bit_clk = sigmap(info.cell->getPort("\\C")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\C")).as_bit();
 			info.clk_polarity = info.cell->type == "$_DFF_P_";
-			info.bit_d = sigmap(info.cell->getPort("\\D")).to_single_sigbit();
-			bit_info[sigmap(info.cell->getPort("\\Q")).to_single_sigbit()] = info;
+			info.bit_d = sigmap(info.cell->getPort("\\D")).as_bit();
+			bit_info[sigmap(info.cell->getPort("\\Q")).as_bit()] = info;
 			continue;
 		}
 
 		if (info.cell->type.size() == 10 && info.cell->type.substr(0, 6) == "$_DFF_") {
-			info.bit_clk = sigmap(info.cell->getPort("\\C")).to_single_sigbit();
-			info.bit_arst = sigmap(info.cell->getPort("\\R")).to_single_sigbit();
+			info.bit_clk = sigmap(info.cell->getPort("\\C")).as_bit();
+			info.bit_arst = sigmap(info.cell->getPort("\\R")).as_bit();
 			info.clk_polarity = info.cell->type[6] == 'P';
 			info.arst_polarity = info.cell->type[7] == 'P';
 			info.arst_value = info.cell->type[0] == '1' ? RTLIL::State::S1 : RTLIL::State::S0;
-			info.bit_d = sigmap(info.cell->getPort("\\D")).to_single_sigbit();
-			bit_info[sigmap(info.cell->getPort("\\Q")).to_single_sigbit()] = info;
+			info.bit_d = sigmap(info.cell->getPort("\\D")).as_bit();
+			bit_info[sigmap(info.cell->getPort("\\Q")).as_bit()] = info;
 			continue;
 		}
 	}
