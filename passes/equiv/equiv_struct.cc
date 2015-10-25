@@ -84,7 +84,7 @@ struct EquivStructWorker
 		for (int i = 0; i < GetSize(inputs_a); i++) {
 			SigBit bit_a = inputs_a[i], bit_b = inputs_b[i];
 			SigBit bit_y = module->addWire(NEW_ID);
-			log("      New $equiv for input %s: A: %s, B: %s, Y: %s\n",
+			log("        New $equiv for input %s: A: %s, B: %s, Y: %s\n",
 					input_names[i].c_str(), log_signal(bit_a), log_signal(bit_b), log_signal(bit_y));
 			module->addEquiv(NEW_ID, bit_a, bit_b, bit_y);
 			merged_map.add(bit_a, bit_y);
@@ -169,13 +169,14 @@ struct EquivStructWorker
 
 			for (auto &conn : cell->connections())
 			{
-				SigSpec sig = equiv_bits(conn.second);
-
-				if (cell->input(conn.first))
+				if (cell->input(conn.first)) {
+					SigSpec sig = sigmap(conn.second);
 					for (int i = 0; i < GetSize(sig); i++)
 						fwd_connections.push_back(make_tuple(conn.first, i, sig[i]));
+				}
 
-				if (cell->output(conn.first))
+				if (cell->output(conn.first)) {
+					SigSpec sig = equiv_bits(conn.second);
 					for (int i = 0; i < GetSize(sig); i++) {
 						key.connections.clear();
 						key.connections.push_back(make_tuple(conn.first, i, sig[i]));
@@ -184,6 +185,7 @@ struct EquivStructWorker
 							bwd_merge_cache.insert(key);
 						merge_cache[key].insert(cell_name);
 					}
+				}
 			}
 
 			std::sort(fwd_connections.begin(), fwd_connections.end());
@@ -200,27 +202,66 @@ struct EquivStructWorker
 
 			for (auto &key : queue)
 			{
-				Cell *gold_cell = nullptr;
-				pool<Cell*> cells;
+				const char *strategy = nullptr;
+				vector<Cell*> gold_cells, gate_cells, other_cells;
+				vector<pair<Cell*, Cell*>> cell_pairs;
 
 				for (auto cell_name : merge_cache[key]) {
 					Cell *c = module->cell(cell_name);
 					if (c != nullptr) {
 						string n = cell_name.str();
-						if (gold_cell == nullptr || (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gold"))
-							gold_cell = c;
-						cells.insert(c);
+						if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gold")
+							gold_cells.push_back(c);
+						else if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gate")
+							gate_cells.push_back(c);
+						else
+							other_cells.push_back(c);
 					}
 				}
 
-				if (GetSize(cells) < 2)
-					continue;
+				if (GetSize(gold_cells) > 1 || GetSize(gate_cells) > 1 || GetSize(other_cells) > 1)
+				{
+					strategy = "deduplicate";
+					for (int i = 0; i+1 < GetSize(gold_cells); i += 2)
+						cell_pairs.push_back(make_pair(gold_cells[i], gold_cells[i+1]));
+					for (int i = 0; i+1 < GetSize(gate_cells); i += 2)
+						cell_pairs.push_back(make_pair(gate_cells[i], gate_cells[i+1]));
+					for (int i = 0; i+1 < GetSize(other_cells); i += 2)
+						cell_pairs.push_back(make_pair(other_cells[i], other_cells[i+1]));
+					goto run_strategy;
+				}
 
-				for (auto gate_cell : cells)
-					if (gate_cell != gold_cell) {
-						log("    %s merging cells %s and %s.\n", phase ? "Bwd" : "Fwd", log_id(gold_cell),  log_id(gate_cell));
-						merge_cell_pair(gold_cell, gate_cell);
-					}
+				if (GetSize(gold_cells) == 1 && GetSize(gate_cells) == 1)
+				{
+					strategy = "gold-gate-pairs";
+					cell_pairs.push_back(make_pair(gold_cells[0], gate_cells[0]));
+					goto run_strategy;
+				}
+
+				if (GetSize(gold_cells) == 1 && GetSize(other_cells) == 1)
+				{
+					strategy = "gold-guess";
+					cell_pairs.push_back(make_pair(gold_cells[0], other_cells[0]));
+					goto run_strategy;
+				}
+
+				if (GetSize(other_cells) == 1 && GetSize(gate_cells) == 1)
+				{
+					strategy = "gate-guess";
+					cell_pairs.push_back(make_pair(other_cells[0], gate_cells[0]));
+					goto run_strategy;
+				}
+
+				log_assert(GetSize(gold_cells) + GetSize(gate_cells) + GetSize(other_cells) < 2);
+				continue;
+
+			run_strategy:
+				log("    %s merging %d cells (from group of %d) using strategy %s:\n", phase ? "Bwd" : "Fwd",
+						2*GetSize(cell_pairs), GetSize(gold_cells) + GetSize(gate_cells) + GetSize(other_cells), strategy);
+				for (auto it : cell_pairs) {
+					log("      Merging cells %s and %s.\n", log_id(it.first),  log_id(it.second));
+					merge_cell_pair(it.first, it.second);
+				}
 			}
 
 			if (merge_count > 0)
@@ -278,12 +319,16 @@ struct EquivStructPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
+			int module_merge_count = 0;
 			log("Running equiv_struct on module %s:\n", log_id(module));
 			while (1) {
 				EquivStructWorker worker(module, mode_fwd, mode_icells);
 				if (worker.merge_count == 0)
 					break;
+				module_merge_count += worker.merge_count;
 			}
+			if (module_merge_count)
+				log("  Performed a total of %d merges in module %s.\n", module_merge_count, log_id(module));
 		}
 	}
 } EquivStructPass;
