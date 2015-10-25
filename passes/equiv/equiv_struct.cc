@@ -107,6 +107,9 @@ struct EquivStructWorker
 				equiv_bits.add(sig_b, sig_a);
 			}
 
+			auto merged_attr = cell_b->get_strpool_attribute("\\equiv_merged");
+			merged_attr.insert(log_id(cell_b));
+			cell_a->add_strpool_attribute("\\equiv_merged", merged_attr);
 			module->remove(cell_b);
 		}
 	}
