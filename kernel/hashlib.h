@@ -162,6 +162,11 @@ struct hash_obj_ops {
 	}
 };
 
+template<typename T>
+inline unsigned int mkhash(const T &v) {
+	return hash_ops<T>().hash(v);
+}
+
 inline int hashtable_size(int min_size)
 {
 	static std::vector<int> zero_and_some_primes = {
