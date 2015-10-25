@@ -169,7 +169,6 @@ namespace RTLIL {
 	struct IdString;
 	struct Const;
 	struct SigBit;
-	struct SigChunk;
 	struct SigSpec;
 	struct Wire;
 	struct Cell;
@@ -185,7 +184,6 @@ namespace AST {
 using RTLIL::IdString;
 using RTLIL::Const;
 using RTLIL::SigBit;
-using RTLIL::SigChunk;
 using RTLIL::SigSpec;
 using RTLIL::Wire;
 using RTLIL::Cell;
@@ -244,6 +242,8 @@ YOSYS_NAMESPACE_END
 YOSYS_NAMESPACE_BEGIN
 
 using RTLIL::State;
+using RTLIL::SigChunk;
+using RTLIL::SigSig;
 
 namespace hashlib {
 	template<> struct hash_ops<RTLIL::State> : hash_ops<int> {};
