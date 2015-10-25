@@ -568,7 +568,7 @@ struct EvalPass : public Pass {
 				if (tab_column_width.size() < row.size())
 					tab_column_width.resize(row.size());
 				for (size_t i = 0; i < row.size(); i++)
-					tab_column_width[i] = std::max(tab_column_width[i], int(row[i].size()));
+					tab_column_width[i] = max(tab_column_width[i], int(row[i].size()));
 			}
 
 			log("\n");

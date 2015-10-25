@@ -49,8 +49,8 @@ struct MuxcoverWorker
 
 	vector<tree_t> tree_list;
 
-	dict<std::tuple<SigBit, SigBit, SigBit>, std::tuple<SigBit, pool<SigBit>, bool>> decode_mux_cache;
-	dict<SigBit, std::tuple<SigBit, SigBit, SigBit>> decode_mux_reverse_cache;
+	dict<tuple<SigBit, SigBit, SigBit>, tuple<SigBit, pool<SigBit>, bool>> decode_mux_cache;
+	dict<SigBit, tuple<SigBit, SigBit, SigBit>> decode_mux_reverse_cache;
 	int decode_mux_counter;
 
 	bool use_mux4;
@@ -142,7 +142,7 @@ struct MuxcoverWorker
 		if (A == B)
 			return 0;
 
-		std::tuple<SigBit, SigBit, SigBit> key(A, B, sel);
+		tuple<SigBit, SigBit, SigBit> key(A, B, sel);
 		if (decode_mux_cache.count(key) == 0) {
 			auto &entry = decode_mux_cache[key];
 			std::get<0>(entry) = module->addWire(NEW_ID);

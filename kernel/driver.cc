@@ -404,7 +404,7 @@ int main(int argc, char **argv)
 		log("%s\n", yosys_version_str);
 
 		int64_t total_ns = 0;
-		std::set<std::tuple<int64_t, int, std::string>> timedat;
+		std::set<tuple<int64_t, int, std::string>> timedat;
 
 		for (auto &it : pass_register)
 			if (it.second->call_counter) {

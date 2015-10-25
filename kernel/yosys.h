@@ -41,6 +41,7 @@
 
 #include <map>
 #include <set>
+#include <tuple>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -138,7 +139,13 @@ YOSYS_NAMESPACE_BEGIN
 
 using std::vector;
 using std::string;
+using std::tuple;
 using std::pair;
+
+using std::make_tuple;
+using std::make_pair;
+using std::min;
+using std::max;
 
 // A primitive shared string implementation that does not
 // move its .c_str() when the object is copied or moved.

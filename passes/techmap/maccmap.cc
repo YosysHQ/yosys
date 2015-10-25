@@ -134,7 +134,7 @@ struct MaccmapWorker
 		}
 		return retval;
 	#else
-		return std::max(n - 1, 0);
+		return max(n - 1, 0);
 	#endif
 	}
 

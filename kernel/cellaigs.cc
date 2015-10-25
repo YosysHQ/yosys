@@ -392,7 +392,7 @@ Aig::Aig(Cell *cell)
 
 	if (cell->type.in("$eq", "$ne"))
 	{
-		int width = std::max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
+		int width = max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
 		vector<int> A = mk.inport_vec("\\A", width);
 		vector<int> B = mk.inport_vec("\\B", width);
 		int Y = mk.bool_node(false);

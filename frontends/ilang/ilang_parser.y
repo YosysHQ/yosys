@@ -121,7 +121,7 @@ attr_stmt:
 
 autoidx_stmt:
 	TOK_AUTOIDX TOK_INT EOL {
-		autoidx = std::max(autoidx, $2);
+		autoidx = max(autoidx, $2);
 	};
 
 wire_stmt:

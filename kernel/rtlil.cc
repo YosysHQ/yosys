@@ -981,11 +981,11 @@ namespace {
 				param("\\SIZE");
 				param("\\OFFSET");
 				param("\\INIT");
-				param_bits("\\RD_CLK_ENABLE", std::max(1, param("\\RD_PORTS")));
-				param_bits("\\RD_CLK_POLARITY", std::max(1, param("\\RD_PORTS")));
-				param_bits("\\RD_TRANSPARENT", std::max(1, param("\\RD_PORTS")));
-				param_bits("\\WR_CLK_ENABLE", std::max(1, param("\\WR_PORTS")));
-				param_bits("\\WR_CLK_POLARITY", std::max(1, param("\\WR_PORTS")));
+				param_bits("\\RD_CLK_ENABLE", max(1, param("\\RD_PORTS")));
+				param_bits("\\RD_CLK_POLARITY", max(1, param("\\RD_PORTS")));
+				param_bits("\\RD_TRANSPARENT", max(1, param("\\RD_PORTS")));
+				param_bits("\\WR_CLK_ENABLE", max(1, param("\\WR_PORTS")));
+				param_bits("\\WR_CLK_POLARITY", max(1, param("\\WR_PORTS")));
 				port("\\RD_CLK", param("\\RD_PORTS"));
 				port("\\RD_EN", param("\\RD_PORTS"));
 				port("\\RD_ADDR", param("\\RD_PORTS") * param("\\ABITS"));
@@ -1601,10 +1601,10 @@ DEF_METHOD(LogicNot,   1, "$logic_not")
 		add ## _func(name, sig_a, sig_b, sig_y, is_signed); \
 		return sig_y;                                       \
 	}
-DEF_METHOD(And,      std::max(sig_a.size(), sig_b.size()), "$and")
-DEF_METHOD(Or,       std::max(sig_a.size(), sig_b.size()), "$or")
-DEF_METHOD(Xor,      std::max(sig_a.size(), sig_b.size()), "$xor")
-DEF_METHOD(Xnor,     std::max(sig_a.size(), sig_b.size()), "$xnor")
+DEF_METHOD(And,      max(sig_a.size(), sig_b.size()), "$and")
+DEF_METHOD(Or,       max(sig_a.size(), sig_b.size()), "$or")
+DEF_METHOD(Xor,      max(sig_a.size(), sig_b.size()), "$xor")
+DEF_METHOD(Xnor,     max(sig_a.size(), sig_b.size()), "$xnor")
 DEF_METHOD(Shl,      sig_a.size(), "$shl")
 DEF_METHOD(Shr,      sig_a.size(), "$shr")
 DEF_METHOD(Sshl,     sig_a.size(), "$sshl")
@@ -1619,11 +1619,11 @@ DEF_METHOD(Eqx,      1, "$eqx")
 DEF_METHOD(Nex,      1, "$nex")
 DEF_METHOD(Ge,       1, "$ge")
 DEF_METHOD(Gt,       1, "$gt")
-DEF_METHOD(Add,      std::max(sig_a.size(), sig_b.size()), "$add")
-DEF_METHOD(Sub,      std::max(sig_a.size(), sig_b.size()), "$sub")
-DEF_METHOD(Mul,      std::max(sig_a.size(), sig_b.size()), "$mul")
-DEF_METHOD(Div,      std::max(sig_a.size(), sig_b.size()), "$div")
-DEF_METHOD(Mod,      std::max(sig_a.size(), sig_b.size()), "$mod")
+DEF_METHOD(Add,      max(sig_a.size(), sig_b.size()), "$add")
+DEF_METHOD(Sub,      max(sig_a.size(), sig_b.size()), "$sub")
+DEF_METHOD(Mul,      max(sig_a.size(), sig_b.size()), "$mul")
+DEF_METHOD(Div,      max(sig_a.size(), sig_b.size()), "$div")
+DEF_METHOD(Mod,      max(sig_a.size(), sig_b.size()), "$mod")
 DEF_METHOD(LogicAnd, 1, "$logic_and")
 DEF_METHOD(LogicOr,  1, "$logic_or")
 #undef DEF_METHOD

@@ -606,8 +606,8 @@ struct SatHelper
 		int maxModelWidth = 10;
 
 		for (auto &info : modelInfo) {
-			maxModelName = std::max(maxModelName, int(info.description.size()));
-			maxModelWidth = std::max(maxModelWidth, info.width);
+			maxModelName = max(maxModelName, int(info.description.size()));
+			maxModelWidth = max(maxModelWidth, info.width);
 		}
 
 		log("\n");
@@ -781,9 +781,9 @@ struct SatHelper
 
 			wavedata[info.description].first = info.width;
 			wavedata[info.description].second[info.timestep] = value;
-			mintime = std::min(mintime, info.timestep);
-			maxtime = std::max(maxtime, info.timestep);
-			maxwidth = std::max(maxwidth, info.width);
+			mintime = min(mintime, info.timestep);
+			maxtime = max(maxtime, info.timestep);
+			maxwidth = max(maxwidth, info.width);
 		}
 
 		fprintf(f, "{ \"signal\": [");
@@ -1116,7 +1116,7 @@ struct SatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-stepsize" && argidx+1 < args.size()) {
-				stepsize = std::max(1, atoi(args[++argidx].c_str()));
+				stepsize = max(1, atoi(args[++argidx].c_str()));
 				continue;
 			}
 			if (args[argidx] == "-ignore_div_by_zero") {

@@ -398,7 +398,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			did_something = true;
 		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
 		children[1]->detectSignWidth(width_hint, sign_hint);
-		width_hint = std::max(width_hint, backup_width_hint);
+		width_hint = max(width_hint, backup_width_hint);
 		child_0_is_self_determined = true;
 		break;
 
@@ -412,7 +412,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				did_something = true;
 			if (!children[1]->range_valid)
 				log_error("Non-constant width range on parameter decl at %s:%d.\n", filename.c_str(), linenum);
-			width_hint = std::max(width_hint, children[1]->range_left - children[1]->range_right + 1);
+			width_hint = max(width_hint, children[1]->range_left - children[1]->range_right + 1);
 		}
 		break;
 
@@ -733,8 +733,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		for (auto range : children[1]->children) {
 			if (!range->range_valid)
 				log_error("Non-constant range on memory decl at %s:%d.\n", filename.c_str(), linenum);
-			multirange_dimensions.push_back(std::min(range->range_left, range->range_right));
-			multirange_dimensions.push_back(std::max(range->range_left, range->range_right) - std::min(range->range_left, range->range_right) + 1);
+			multirange_dimensions.push_back(min(range->range_left, range->range_right));
+			multirange_dimensions.push_back(max(range->range_left, range->range_right) - min(range->range_left, range->range_right) + 1);
 			total_size *= multirange_dimensions.back();
 		}
 		delete children[1];
@@ -1169,7 +1169,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			log_error("Non-constant array range on cell array at %s:%d.\n", filename.c_str(), linenum);
 
 		newNode = new AstNode(AST_GENBLOCK);
-		int num = std::max(children.at(0)->range_left, children.at(0)->range_right) - std::min(children.at(0)->range_left, children.at(0)->range_right) + 1;
+		int num = max(children.at(0)->range_left, children.at(0)->range_right) - min(children.at(0)->range_left, children.at(0)->range_right) + 1;
 
 		for (int i = 0; i < num; i++) {
 			int idx = children.at(0)->range_left > children.at(0)->range_right ? children.at(0)->range_right + i : children.at(0)->range_right - i;
@@ -2043,7 +2043,7 @@ skip_dynamic_range_lvalue_expansion:;
 		if (0) { case AST_GE:  const_func = RTLIL::const_ge; }
 		if (0) { case AST_GT:  const_func = RTLIL::const_gt; }
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
-				int cmp_width = std::max(children[0]->bits.size(), children[1]->bits.size());
+				int cmp_width = max(children[0]->bits.size(), children[1]->bits.size());
 				bool cmp_signed = children[0]->is_signed && children[1]->is_signed;
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(cmp_width, cmp_signed),
 						children[1]->bitsAsConst(cmp_width, cmp_signed), cmp_signed, cmp_signed, 1);
@@ -2236,7 +2236,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 
 	log_assert(GetSize(memory->children) == 2 && memory->children[1]->type == AST_RANGE && memory->children[1]->range_valid);
 	int range_left =  memory->children[1]->range_left, range_right =  memory->children[1]->range_right;
-	int range_min = std::min(range_left, range_right), range_max = std::max(range_left, range_right);
+	int range_min = min(range_left, range_right), range_max = max(range_left, range_right);
 
 	if (start_addr < 0)
 		start_addr = range_min;
@@ -2720,7 +2720,7 @@ void AstNode::meminfo(int &mem_width, int &mem_size, int &addr_bits)
 
 	if (mem_size < 0)
 		mem_size *= -1;
-	mem_size += std::min(children[1]->range_left, children[1]->range_right) + 1;
+	mem_size += min(children[1]->range_left, children[1]->range_right) + 1;
 
 	addr_bits = 1;
 	while ((1 << addr_bits) < mem_size)
@@ -2756,8 +2756,8 @@ void AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 			if (!children.at(0)->range_valid)
 				log_error("Non-constant range in %s:%d (called from %s:%d).\n",
 						filename.c_str(), linenum, fcall->filename.c_str(), fcall->linenum);
-			offset = std::min(children.at(0)->range_left, children.at(0)->range_right);
-			width = std::min(std::abs(children.at(0)->range_left - children.at(0)->range_right) + 1, width);
+			offset = min(children.at(0)->range_left, children.at(0)->range_right);
+			width = min(std::abs(children.at(0)->range_left - children.at(0)->range_right) + 1, width);
 		}
 		offset -= variables.at(str).offset;
 		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits;
@@ -2797,7 +2797,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 				log_error("Can't determine size of variable %s in %s:%d (called from %s:%d).\n",
 						child->str.c_str(), child->filename.c_str(), child->linenum, fcall->filename.c_str(), fcall->linenum);
 			variables[child->str].val = RTLIL::Const(RTLIL::State::Sx, abs(child->range_left - child->range_right)+1);
-			variables[child->str].offset = std::min(child->range_left, child->range_right);
+			variables[child->str].offset = min(child->range_left, child->range_right);
 			variables[child->str].is_signed = child->is_signed;
 			if (child->is_input && argidx < fcall->children.size())
 				variables[child->str].val = fcall->children.at(argidx++)->bitsAsConst(variables[child->str].val.bits.size());
@@ -2856,7 +2856,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 				if (!range->range_valid)
 					log_error("Non-constant range in %s:%d (called from %s:%d).\n",
 							range->filename.c_str(), range->linenum, fcall->filename.c_str(), fcall->linenum);
-				int offset = std::min(range->range_left, range->range_right);
+				int offset = min(range->range_left, range->range_right);
 				int width = std::abs(range->range_left - range->range_right) + 1;
 				varinfo_t &v = variables[stmt->children.at(0)->str];
 				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.bits.size());

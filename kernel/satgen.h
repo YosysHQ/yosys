@@ -980,7 +980,7 @@ struct SatGen
 						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), ez->CONST_FALSE);
 					}
 				} else {
-					int copy_a_bits = std::min(cell->getPort("\\A").size(), cell->getPort("\\B").size());
+					int copy_a_bits = min(cell->getPort("\\A").size(), cell->getPort("\\B").size());
 					div_zero_result.insert(div_zero_result.end(), a.begin(), a.begin() + copy_a_bits);
 					if (cell->parameters["\\A_SIGNED"].as_bool() && cell->parameters["\\B_SIGNED"].as_bool())
 						div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), div_zero_result.back());

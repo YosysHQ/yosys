@@ -547,14 +547,14 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	switch (type)
 	{
 	case AST_CONSTANT:
-		width_hint = std::max(width_hint, int(bits.size()));
+		width_hint = max(width_hint, int(bits.size()));
 		if (!is_signed)
 			sign_hint = false;
 		break;
 
 	case AST_REALVALUE:
 		*found_real = true;
-		width_hint = std::max(width_hint, 32);
+		width_hint = max(width_hint, 32);
 		break;
 
 	case AST_IDENTIFIER:
@@ -617,7 +617,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				this_width = range->range_left - range->range_right + 1;
 			sign_hint = false;
 		}
-		width_hint = std::max(width_hint, this_width);
+		width_hint = max(width_hint, this_width);
 		if (!id_ast->is_signed)
 			sign_hint = false;
 		break;
@@ -627,7 +627,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (children[0]->type != AST_CONSTANT)
 			log_error("Left operand of tobits expression is not constant at %s:%d!\n", filename.c_str(), linenum);
 		children[1]->detectSignWidthWorker(sub_width_hint, sign_hint);
-		width_hint = std::max(width_hint, children[0]->bitsAsConst().as_int());
+		width_hint = max(width_hint, children[0]->bitsAsConst().as_int());
 		break;
 
 	case AST_TO_SIGNED:
@@ -646,7 +646,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			child->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
 			this_width += sub_width_hint;
 		}
-		width_hint = std::max(width_hint, this_width);
+		width_hint = max(width_hint, this_width);
 		sign_hint = false;
 		break;
 
@@ -655,7 +655,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (children[0]->type != AST_CONSTANT)
 			log_error("Left operand of replicate expression is not constant at %s:%d!\n", filename.c_str(), linenum);
 		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
-		width_hint = std::max(width_hint, children[0]->bitsAsConst().as_int() * sub_width_hint);
+		width_hint = max(width_hint, children[0]->bitsAsConst().as_int() * sub_width_hint);
 		sign_hint = false;
 		break;
 
@@ -678,7 +678,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_REDUCE_XOR:
 	case AST_REDUCE_XNOR:
 	case AST_REDUCE_BOOL:
-		width_hint = std::max(width_hint, 1);
+		width_hint = max(width_hint, 1);
 		sign_hint = false;
 		break;
 
@@ -698,7 +698,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_NEX:
 	case AST_GE:
 	case AST_GT:
-		width_hint = std::max(width_hint, 1);
+		width_hint = max(width_hint, 1);
 		sign_hint = false;
 		break;
 
@@ -714,7 +714,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_LOGIC_AND:
 	case AST_LOGIC_OR:
 	case AST_LOGIC_NOT:
-		width_hint = std::max(width_hint, 1);
+		width_hint = max(width_hint, 1);
 		sign_hint = false;
 		break;
 
@@ -729,7 +729,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (!id2ast->children[0]->range_valid)
 			log_error("Failed to detect with of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 		this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
-		width_hint = std::max(width_hint, this_width);
+		width_hint = max(width_hint, this_width);
 		break;
 
 	// everything should have been handled above -> print error if not.
@@ -1054,7 +1054,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
 			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
-			int width = std::max(left.size(), right.size());
+			int width = max(left.size(), right.size());
 			if (width_hint > 0)
 				width = width_hint;
 			is_signed = children[0]->is_signed && children[1]->is_signed;
@@ -1068,7 +1068,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_REDUCE_XNOR: type_name = "$reduce_xnor"; }
 		{
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
-			RTLIL::SigSpec sig = uniop2rtlil(this, type_name, std::max(width_hint, 1), arg);
+			RTLIL::SigSpec sig = uniop2rtlil(this, type_name, max(width_hint, 1), arg);
 			return sig;
 		}
 
@@ -1077,7 +1077,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_REDUCE_BOOL:  type_name = "$reduce_bool"; }
 		{
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
-			RTLIL::SigSpec sig = arg.size() > 1 ? uniop2rtlil(this, type_name, std::max(width_hint, 1), arg) : arg;
+			RTLIL::SigSpec sig = arg.size() > 1 ? uniop2rtlil(this, type_name, max(width_hint, 1), arg) : arg;
 			return sig;
 		}
 
@@ -1123,7 +1123,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_GE:  type_name = "$ge"; }
 	if (0) { case AST_GT:  type_name = "$gt"; }
 		{
-			int width = std::max(width_hint, 1);
+			int width = max(width_hint, 1);
 			width_hint = -1, sign_hint = true;
 			children[0]->detectSignWidthWorker(width_hint, sign_hint);
 			children[1]->detectSignWidthWorker(width_hint, sign_hint);
@@ -1145,7 +1145,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
 			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
 		#if 0
-			int width = std::max(left.size(), right.size());
+			int width = max(left.size(), right.size());
 			if (width > width_hint && width_hint > 0)
 				width = width_hint;
 			if (width < width_hint) {
@@ -1154,10 +1154,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (type == AST_SUB && (!children[0]->is_signed || !children[1]->is_signed))
 					width = width_hint;
 				if (type == AST_MUL)
-					width = std::min(left.size() + right.size(), width_hint);
+					width = min(left.size() + right.size(), width_hint);
 			}
 		#else
-			int width = std::max(std::max(left.size(), right.size()), width_hint);
+			int width = max(max(left.size(), right.size()), width_hint);
 		#endif
 			is_signed = children[0]->is_signed && children[1]->is_signed;
 			return binop2rtlil(this, type_name, width, left, right);
@@ -1169,14 +1169,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		{
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genRTLIL();
-			return binop2rtlil(this, type_name, std::max(width_hint, 1), left, right);
+			return binop2rtlil(this, type_name, max(width_hint, 1), left, right);
 		}
 
 	// generate cells for unary operations: $logic_not
 	case AST_LOGIC_NOT:
 		{
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
-			return uniop2rtlil(this, "$logic_not", std::max(width_hint, 1), arg);
+			return uniop2rtlil(this, "$logic_not", max(width_hint, 1), arg);
 		}
 
 	// generate multiplexer for ternary operator (aka ?:-operator)
@@ -1192,7 +1192,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (cond.size() > 1)
 				cond = uniop2rtlil(this, "$reduce_bool", 1, cond, false);
 
-			int width = std::max(val1.size(), val2.size());
+			int width = max(val1.size(), val2.size());
 			is_signed = children[1]->is_signed && children[2]->is_signed;
 			widthExtend(this, val1, width, is_signed);
 			widthExtend(this, val2, width, is_signed);

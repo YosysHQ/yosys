@@ -64,7 +64,7 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	for (auto &cell_it : module->cells_) {
 		Cell *cell = cell_it.second;
 		if (cell->type.in("$memrd", "$memwr", "$meminit") && memory->name == cell->parameters["\\MEMID"].decode_string()) {
-			addr_bits = std::max(addr_bits, cell->getParam("\\ABITS").as_int());
+			addr_bits = max(addr_bits, cell->getParam("\\ABITS").as_int());
 			memcells.push_back(cell);
 		}
 	}

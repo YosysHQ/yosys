@@ -69,10 +69,10 @@ struct SccWorker
 		for (auto nextCell : cellToNextCell[cell])
 			if (cellLabels.count(nextCell) == 0) {
 				run(nextCell, depth+1, maxDepth);
-				cellLabels[cell].second = std::min(cellLabels[cell].second, cellLabels[nextCell].second);
+				cellLabels[cell].second = min(cellLabels[cell].second, cellLabels[nextCell].second);
 			} else
 			if (cellsOnStack.count(nextCell) > 0 && (maxDepth < 0 || cellDepth[nextCell] + maxDepth > depth)) {
-					cellLabels[cell].second = std::min(cellLabels[cell].second, cellLabels[nextCell].second);
+					cellLabels[cell].second = min(cellLabels[cell].second, cellLabels[nextCell].second);
 			}
 
 		if (cellLabels[cell].first == cellLabels[cell].second)

@@ -1399,7 +1399,7 @@ struct AbcPass : public Pass {
 				std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
 				std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
-				typedef std::tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
+				typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
 				std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
 				std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 

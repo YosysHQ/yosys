@@ -113,8 +113,8 @@ struct ShareWorker
 	static int bits_macc_port(const Macc::port_t &p, int width)
 	{
 		if (GetSize(p.in_a) == 0 || GetSize(p.in_b) == 0)
-			return std::min(std::max(GetSize(p.in_a), GetSize(p.in_b)), width);
-		return std::min(GetSize(p.in_a), width) * std::min(GetSize(p.in_b), width) / 2;
+			return min(max(GetSize(p.in_a), GetSize(p.in_b)), width);
+		return min(GetSize(p.in_a), width) * min(GetSize(p.in_b), width) / 2;
 	}
 
 	static int bits_macc(const Macc &m, int width)
@@ -224,13 +224,13 @@ struct ShareWorker
 			supermacc->ports.push_back(p);
 		}
 
-		int score = 1000 + abs(GetSize(p1.in_a) - GetSize(p2.in_a)) * std::max(abs(GetSize(p1.in_b) - GetSize(p2.in_b)), 1);
+		int score = 1000 + abs(GetSize(p1.in_a) - GetSize(p2.in_a)) * max(abs(GetSize(p1.in_b) - GetSize(p2.in_b)), 1);
 
-		for (int i = 0; i < std::min(GetSize(p1.in_a), GetSize(p2.in_a)); i++)
+		for (int i = 0; i < min(GetSize(p1.in_a), GetSize(p2.in_a)); i++)
 			if (p1.in_a[i] == p2.in_a[i] && score > 0)
 				score--;
 
-		for (int i = 0; i < std::min(GetSize(p1.in_b), GetSize(p2.in_b)); i++)
+		for (int i = 0; i < min(GetSize(p1.in_b), GetSize(p2.in_b)); i++)
 			if (p1.in_b[i] == p2.in_b[i] && score > 0)
 				score--;
 
@@ -243,7 +243,7 @@ struct ShareWorker
 		Macc m1(c1), m2(c2), supermacc;
 
 		int w1 = GetSize(c1->getPort("\\Y")), w2 = GetSize(c2->getPort("\\Y"));
-		int width = std::max(w1, w2);
+		int width = max(w1, w2);
 
 		m1.optimize(w1);
 		m2.optimize(w2);
@@ -419,8 +419,8 @@ struct ShareWorker
 				int a2_width = c2->parameters.at("\\A_WIDTH").as_int();
 				int y2_width = c2->parameters.at("\\Y_WIDTH").as_int();
 
-				if (std::max(a1_width, a2_width) > 2 * std::min(a1_width, a2_width)) return false;
-				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
+				if (max(a1_width, a2_width) > 2 * min(a1_width, a2_width)) return false;
+				if (max(y1_width, y2_width) > 2 * min(y1_width, y2_width)) return false;
 			}
 
 			return true;
@@ -438,9 +438,9 @@ struct ShareWorker
 				int b2_width = c2->parameters.at("\\B_WIDTH").as_int();
 				int y2_width = c2->parameters.at("\\Y_WIDTH").as_int();
 
-				if (std::max(a1_width, a2_width) > 2 * std::min(a1_width, a2_width)) return false;
-				if (std::max(b1_width, b2_width) > 2 * std::min(b1_width, b2_width)) return false;
-				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
+				if (max(a1_width, a2_width) > 2 * min(a1_width, a2_width)) return false;
+				if (max(b1_width, b2_width) > 2 * min(b1_width, b2_width)) return false;
+				if (max(y1_width, y2_width) > 2 * min(y1_width, y2_width)) return false;
 			}
 
 			return true;
@@ -458,15 +458,15 @@ struct ShareWorker
 				int b2_width = c2->parameters.at("\\B_WIDTH").as_int();
 				int y2_width = c2->parameters.at("\\Y_WIDTH").as_int();
 
-				int min1_width = std::min(a1_width, b1_width);
-				int max1_width = std::max(a1_width, b1_width);
+				int min1_width = min(a1_width, b1_width);
+				int max1_width = max(a1_width, b1_width);
 
-				int min2_width = std::min(a2_width, b2_width);
-				int max2_width = std::max(a2_width, b2_width);
+				int min2_width = min(a2_width, b2_width);
+				int max2_width = max(a2_width, b2_width);
 
-				if (std::max(min1_width, min2_width) > 2 * std::min(min1_width, min2_width)) return false;
-				if (std::max(max1_width, max2_width) > 2 * std::min(max1_width, max2_width)) return false;
-				if (std::max(y1_width, y2_width) > 2 * std::min(y1_width, y2_width)) return false;
+				if (max(min1_width, min2_width) > 2 * min(min1_width, min2_width)) return false;
+				if (max(max1_width, max2_width) > 2 * min(max1_width, max2_width)) return false;
+				if (max(y1_width, y2_width) > 2 * min(y1_width, y2_width)) return false;
 			}
 
 			return true;
@@ -475,7 +475,7 @@ struct ShareWorker
 		if (c1->type == "$macc")
 		{
 			if (!config.opt_aggressive)
-				if (share_macc(c1, c2) > 2 * std::min(bits_macc(c1), bits_macc(c2))) return false;
+				if (share_macc(c1, c2) > 2 * min(bits_macc(c1), bits_macc(c2))) return false;
 
 			return true;
 		}
@@ -532,8 +532,8 @@ struct ShareWorker
 			RTLIL::SigSpec a2 = c2->getPort("\\A");
 			RTLIL::SigSpec y2 = c2->getPort("\\Y");
 
-			int a_width = std::max(a1.size(), a2.size());
-			int y_width = std::max(y1.size(), y2.size());
+			int a_width = max(a1.size(), a2.size());
+			int y_width = max(y1.size(), y2.size());
 
 			a1.extend_u0(a_width, a_signed);
 			a2.extend_u0(a_width, a_signed);
@@ -563,11 +563,11 @@ struct ShareWorker
 
 			if (config.generic_cbin_ops.count(c1->type))
 			{
-				int score_unflipped = std::max(c1->parameters.at("\\A_WIDTH").as_int(), c2->parameters.at("\\A_WIDTH").as_int()) +
-						std::max(c1->parameters.at("\\B_WIDTH").as_int(), c2->parameters.at("\\B_WIDTH").as_int());
+				int score_unflipped = max(c1->parameters.at("\\A_WIDTH").as_int(), c2->parameters.at("\\A_WIDTH").as_int()) +
+						max(c1->parameters.at("\\B_WIDTH").as_int(), c2->parameters.at("\\B_WIDTH").as_int());
 
-				int score_flipped = std::max(c1->parameters.at("\\A_WIDTH").as_int(), c2->parameters.at("\\B_WIDTH").as_int()) +
-						std::max(c1->parameters.at("\\B_WIDTH").as_int(), c2->parameters.at("\\A_WIDTH").as_int());
+				int score_flipped = max(c1->parameters.at("\\A_WIDTH").as_int(), c2->parameters.at("\\B_WIDTH").as_int()) +
+						max(c1->parameters.at("\\B_WIDTH").as_int(), c2->parameters.at("\\A_WIDTH").as_int());
 
 				if (score_flipped < score_unflipped)
 				{
@@ -630,13 +630,13 @@ struct ShareWorker
 			RTLIL::SigSpec b2 = c2->getPort("\\B");
 			RTLIL::SigSpec y2 = c2->getPort("\\Y");
 
-			int a_width = std::max(a1.size(), a2.size());
-			int b_width = std::max(b1.size(), b2.size());
-			int y_width = std::max(y1.size(), y2.size());
+			int a_width = max(a1.size(), a2.size());
+			int b_width = max(b1.size(), b2.size());
+			int y_width = max(y1.size(), y2.size());
 
 			if (c1->type == "$shr" && a_signed)
 			{
-				a_width = std::max(y_width, a_width);
+				a_width = max(y_width, a_width);
 
 				if (a1.size() < y1.size()) a1.extend_u0(y1.size(), true);
 				if (a2.size() < y2.size()) a2.extend_u0(y2.size(), true);

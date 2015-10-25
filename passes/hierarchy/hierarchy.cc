@@ -66,7 +66,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 				for (auto &conn : i2.second->connections()) {
 					if (conn.first[0] != '$')
 						portnames.insert(conn.first);
-					portwidths[conn.first] = std::max(portwidths[conn.first], conn.second.size());
+					portwidths[conn.first] = max(portwidths[conn.first], conn.second.size());
 				}
 				for (auto &para : i2.second->parameters)
 					parameters.insert(para.first);
@@ -84,8 +84,8 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 
 		for (auto &decl : portdecls)
 			if (decl.index > 0) {
-				portwidths[decl.portname] = std::max(portwidths[decl.portname], 1);
-				portwidths[decl.portname] = std::max(portwidths[decl.portname], portwidths[stringf("$%d", decl.index)]);
+				portwidths[decl.portname] = max(portwidths[decl.portname], 1);
+				portwidths[decl.portname] = max(portwidths[decl.portname], portwidths[stringf("$%d", decl.index)]);
 				log("  port %d: %s [%d:0] %s\n", decl.index, decl.input ? decl.output ? "inout" : "input" : "output", portwidths[decl.portname]-1, RTLIL::id2cstr(decl.portname));
 				if (indices.count(decl.index) > ports.size())
 					log_error("Port index (%d) exceeds number of found ports (%d).\n", decl.index, int(ports.size()));
@@ -106,7 +106,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 					log_assert(!indices.empty());
 					indices.erase(d.index);
 					ports[d.index-1] = d;
-					portwidths[d.portname] = std::max(portwidths[d.portname], 1);
+					portwidths[d.portname] = max(portwidths[d.portname], 1);
 					log("  port %d: %s [%d:0] %s\n", d.index, d.input ? d.output ? "inout" : "input" : "output", portwidths[d.portname]-1, RTLIL::id2cstr(d.portname));
 					goto found_matching_decl;
 				}
@@ -327,7 +327,7 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 		db[module] = 0;
 		for (auto cell : module->cells())
 			if (design->module(cell->type))
-				db[module] = std::max(db[module], find_top_mod_score(design, design->module(cell->type), db) + 1);
+				db[module] = max(db[module], find_top_mod_score(design, design->module(cell->type), db) + 1);
 	}
 	return db.at(module);
 }

@@ -110,7 +110,7 @@ struct statdata_t
 					int width_a = it.second->hasPort("\\A") ? GetSize(it.second->getPort("\\A")) : 0;
 					int width_b = it.second->hasPort("\\B") ? GetSize(it.second->getPort("\\B")) : 0;
 					int width_y = it.second->hasPort("\\Y") ? GetSize(it.second->getPort("\\Y")) : 0;
-					cell_type = stringf("%s_%d", cell_type.c_str(), std::max<int>({width_a, width_b, width_y}));
+					cell_type = stringf("%s_%d", cell_type.c_str(), max<int>({width_a, width_b, width_y}));
 				}
 				else if (cell_type.in("$mux", "$pmux"))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Y")));

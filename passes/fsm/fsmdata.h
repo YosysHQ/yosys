@@ -39,7 +39,7 @@ struct FsmData
 		int state_num_log2 = 0;
 		for (int i = state_table.size(); i > 0; i = i >> 1)
 			state_num_log2++;
-		state_num_log2 = std::max(state_num_log2, 1);
+		state_num_log2 = max(state_num_log2, 1);
 
 		cell->parameters["\\STATE_BITS"] = RTLIL::Const(state_bits);
 		cell->parameters["\\STATE_NUM"] = RTLIL::Const(state_table.size());

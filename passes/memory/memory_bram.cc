@@ -387,9 +387,9 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 			if (pi.clkpol > 1)
 				clkpol_wr_ports.insert(pi.clkpol);
 		}
-		clocks_max = std::max(clocks_max, pi.clocks);
-		clkpol_max = std::max(clkpol_max, pi.clkpol);
-		transp_max = std::max(transp_max, pi.transp);
+		clocks_max = max(clocks_max, pi.clocks);
+		clkpol_max = max(clkpol_max, pi.clkpol);
+		transp_max = max(transp_max, pi.transp);
 	}
 
 	log("    Mapping to bram type %s (variant %d):\n", log_id(bram.name), bram.variant);
@@ -977,7 +977,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 	log("\n");
 
 	pool<pair<IdString, int>> failed_brams;
-	dict<pair<int, int>, std::tuple<int, int, int>> best_rule_cache;
+	dict<pair<int, int>, tuple<int, int, int>> best_rule_cache;
 
 	for (int i = 0; i < GetSize(rules.matches); i++)
 	{
@@ -1078,7 +1078,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				}
 
 				log("      Storing for later selection.\n");
-				best_rule_cache[pair<int, int>(i, vi)] = std::tuple<int, int, int>(match_properties["efficiency"], -match_properties["cells"], -match_properties["acells"]);
+				best_rule_cache[pair<int, int>(i, vi)] = tuple<int, int, int>(match_properties["efficiency"], -match_properties["cells"], -match_properties["acells"]);
 
 		next_match_rule:
 				if (or_next_if_better || best_rule_cache.empty())

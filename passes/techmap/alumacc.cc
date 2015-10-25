@@ -40,7 +40,7 @@ struct AlumaccWorker
 	{
 		std::vector<RTLIL::Cell*> cells;
 		RTLIL::SigSpec a, b, c, y;
-		std::vector<std::tuple<bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
+		std::vector<tuple<bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
 		bool is_signed, invert_b;
 
 		RTLIL::Cell *alu_cell;
@@ -138,7 +138,7 @@ struct AlumaccWorker
 			n->users = 0;
 
 			for (auto bit : n->y)
-				n->users = std::max(n->users, bit_users.at(bit) - 1);
+				n->users = max(n->users, bit_users.at(bit) - 1);
 
 			if (cell->type.in("$pos", "$neg"))
 			{
@@ -409,7 +409,7 @@ struct AlumaccWorker
 				n->a = A;
 				n->b = B;
 				n->c = RTLIL::S1;
-				n->y = module->addWire(NEW_ID, std::max(GetSize(A), GetSize(B)));
+				n->y = module->addWire(NEW_ID, max(GetSize(A), GetSize(B)));
 				n->is_signed = is_signed;
 				n->invert_b = true;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);

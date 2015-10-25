@@ -256,7 +256,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 			case 2:
 				n = xorshift32(GetSize(sig));
 				m = xorshift32(GetSize(sig));
-				for (int i = std::min(n, m); i < std::max(n, m); i++)
+				for (int i = min(n, m); i < max(n, m); i++)
 					sig[i] = xorshift32(2) == 1 ? RTLIL::S1 : RTLIL::S0;
 				break;
 			}

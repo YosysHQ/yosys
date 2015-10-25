@@ -342,8 +342,8 @@ struct QwpWorker
 			double r = alt_mode ? alt_radius : radius;
 
 			if (std::isfinite(v)) {
-				v = std::min(v, c+r);
-				v = std::max(v, c-r);
+				v = min(v, c+r);
+				v = max(v, c-r);
 			} else {
 				v = c;
 			}
@@ -524,15 +524,15 @@ struct QwpWorker
 			if (rel_pos < 0) {
 				node.pos = midpos + left_scale*rel_pos;
 				if (std::isfinite(node.pos)) {
-					node.pos = std::min(node.pos, midpos);
-					node.pos = std::max(node.pos, midpos - radius);
+					node.pos = min(node.pos, midpos);
+					node.pos = max(node.pos, midpos - radius);
 				} else
 					node.pos = midpos - radius/2;
 			} else {
 				node.pos = midpos + right_scale*rel_pos;
 				if (std::isfinite(node.pos)) {
-					node.pos = std::max(node.pos, midpos);
-					node.pos = std::min(node.pos, midpos + radius);
+					node.pos = max(node.pos, midpos);
+					node.pos = min(node.pos, midpos + radius);
 				} else
 					node.pos = midpos + radius/2;
 			}
@@ -666,8 +666,8 @@ struct QwpWorker
 		double max_value = values.front();
 
 		for (auto &v : values) {
-			min_value = std::min(min_value, v);
-			max_value = std::max(max_value, v);
+			min_value = min(min_value, v);
+			max_value = max(max_value, v);
 		}
 
 		if (fabs(max_value - min_value) < 0.001) {
@@ -679,8 +679,8 @@ struct QwpWorker
 		int max_bucket_val = 0;
 
 		for (auto &v : values) {
-			int idx = std::min(int(GetSize(buckets) * (v - min_value) / (max_value - min_value)), GetSize(buckets)-1);
-			max_bucket_val = std::max(max_bucket_val, ++buckets.at(idx));
+			int idx = min(int(GetSize(buckets) * (v - min_value) / (max_value - min_value)), GetSize(buckets)-1);
+			max_bucket_val = max(max_bucket_val, ++buckets.at(idx));
 		}
 
 		for (int i = 4; i >= 0; i--) {

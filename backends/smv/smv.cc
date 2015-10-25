@@ -244,13 +244,13 @@ struct SmvWorker
 
 				int width_y = GetSize(cell->getPort("\\Y"));
 				int shift_b_width = GetSize(sig_b);
-				int width_ay = std::max(GetSize(sig_a), width_y);
+				int width_ay = max(GetSize(sig_a), width_y);
 				int width = width_ay;
 
 				for (int i = 1, j = 0;; i <<= 1, j++)
 					if (width_ay < i) {
 						width = i-1;
-						shift_b_width = std::min(shift_b_width, j);
+						shift_b_width = min(shift_b_width, j);
 						break;
 					}
 
@@ -361,8 +361,8 @@ struct SmvWorker
 			if (cell->type.in("$div", "$mod"))
 			{
 				int width_y = GetSize(cell->getPort("\\Y"));
-				int width = std::max(width_y, GetSize(cell->getPort("\\A")));
-				width = std::max(width, GetSize(cell->getPort("\\B")));
+				int width = max(width_y, GetSize(cell->getPort("\\A")));
+				width = max(width, GetSize(cell->getPort("\\B")));
 				string expr_a, expr_b, op;
 
 				if (cell->type == "$div")  op = "/";
@@ -384,7 +384,7 @@ struct SmvWorker
 
 			if (cell->type.in("$eq", "$ne", "$eqx", "$nex", "$lt", "$le", "$ge", "$gt"))
 			{
-				int width = std::max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
+				int width = max(GetSize(cell->getPort("\\A")), GetSize(cell->getPort("\\B")));
 				string expr_a, expr_b, op;
 
 				if (cell->type == "$eq")  op = "=";

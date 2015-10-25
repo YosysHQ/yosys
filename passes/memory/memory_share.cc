@@ -210,7 +210,7 @@ struct MemoryShareWorker
 				if (non_feedback_nets.count(sig_data[i]))
 					goto not_pure_feedback_port;
 
-			async_rd_bits[sig_addr].resize(std::max(async_rd_bits.size(), sig_data.size()));
+			async_rd_bits[sig_addr].resize(max(async_rd_bits.size(), sig_data.size()));
 			for (int i = 0; i < int(sig_data.size()); i++)
 				async_rd_bits[sig_addr][i].insert(sig_data[i]);
 

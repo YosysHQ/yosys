@@ -52,7 +52,7 @@ struct EdgetypePass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
-			dict<SigBit, pool<std::tuple<IdString, IdString, int>>> bit_sources, bit_sinks;
+			dict<SigBit, pool<tuple<IdString, IdString, int>>> bit_sources, bit_sinks;
 			pool<std::pair<IdString, IdString>> multibit_ports;
 
 			for (auto cell : module->selected_cells())
@@ -67,9 +67,9 @@ struct EdgetypePass : public Pass {
 
 				for (int i = 0; i < GetSize(sig); i++) {
 					if (cell->output(port_name))
-						bit_sources[sig[i]].insert(std::tuple<IdString, IdString, int>(cell_type, port_name, i));
+						bit_sources[sig[i]].insert(tuple<IdString, IdString, int>(cell_type, port_name, i));
 					if (cell->input(port_name))
-						bit_sinks[sig[i]].insert(std::tuple<IdString, IdString, int>(cell_type, port_name, i));
+						bit_sinks[sig[i]].insert(tuple<IdString, IdString, int>(cell_type, port_name, i));
 				}
 			}
 

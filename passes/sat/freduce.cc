@@ -265,7 +265,7 @@ struct PerformReduction
 			}
 			int max_child_depth = 0;
 			for (auto &bit : drv.second)
-				max_child_depth = std::max(register_cone_worker(celldone, sigdepth, bit), max_child_depth);
+				max_child_depth = max(register_cone_worker(celldone, sigdepth, bit), max_child_depth);
 			sigdepth[out] = max_child_depth + 1;
 		} else {
 			pi_bits.push_back(out);

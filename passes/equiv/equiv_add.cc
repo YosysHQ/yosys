@@ -63,7 +63,7 @@ struct EquivAddPass : public Pass {
 				auto port = conn.first;
 				SigSpec gold_sig = gold_cell->getPort(port);
 				SigSpec gate_sig = gate_cell->getPort(port);
-				int width = std::min(GetSize(gold_sig), GetSize(gate_sig));
+				int width = min(GetSize(gold_sig), GetSize(gate_sig));
 
 				if (gold_cell->input(port) && gate_cell->input(port))
 				{

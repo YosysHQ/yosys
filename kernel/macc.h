@@ -158,8 +158,8 @@ struct Macc
 		int max_size = 0, num_bits = 0;
 
 		for (auto &port : ports) {
-			max_size = std::max(max_size, GetSize(port.in_a));
-			max_size = std::max(max_size, GetSize(port.in_b));
+			max_size = max(max_size, GetSize(port.in_a));
+			max_size = max(max_size, GetSize(port.in_b));
 		}
 
 		while (max_size)

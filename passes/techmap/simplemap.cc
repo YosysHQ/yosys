@@ -247,7 +247,7 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 	bool is_signed = cell->parameters.at("\\A_SIGNED").as_bool();
 	bool is_ne = cell->type == "$ne" || cell->type == "$nex";
 
-	RTLIL::SigSpec xor_out = module->addWire(NEW_ID, std::max(GetSize(sig_a), GetSize(sig_b)));
+	RTLIL::SigSpec xor_out = module->addWire(NEW_ID, max(GetSize(sig_a), GetSize(sig_b)));
 	RTLIL::Cell *xor_cell = module->addXor(NEW_ID, sig_a, sig_b, xor_out, is_signed);
 	xor_cell->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 	simplemap_bitop(module, xor_cell);

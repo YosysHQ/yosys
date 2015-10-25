@@ -115,7 +115,7 @@ struct PluginPass : public Pass {
 				log("\n");
 				int max_alias_len = 1;
 				for (auto &it : loaded_plugin_aliases)
-					max_alias_len = std::max(max_alias_len, GetSize(it.first));
+					max_alias_len = max(max_alias_len, GetSize(it.first));
 				for (auto &it : loaded_plugin_aliases)
 					log("Alias: %-*s %s\n", max_alias_len, it.first.c_str(), it.second.c_str());
 			}

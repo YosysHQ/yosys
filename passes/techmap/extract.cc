@@ -130,7 +130,7 @@ public:
 				RTLIL::SigSpec needleSig = conn.second;
 				RTLIL::SigSpec haystackSig = haystackCell->getPort(portMapping.at(conn.first.str()));
 
-				for (int i = 0; i < std::min(needleSig.size(), haystackSig.size()); i++) {
+				for (int i = 0; i < min(needleSig.size(), haystackSig.size()); i++) {
 					RTLIL::Wire *needleWire = needleSig[i].wire, *haystackWire = haystackSig[i].wire;
 					if (needleWire != lastNeedleWire || haystackWire != lastHaystackWire)
 						if (!compareAttributes(wire_attr, needleWire ? needleWire->attributes : emptyAttr, haystackWire ? haystackWire->attributes : emptyAttr))

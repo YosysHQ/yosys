@@ -244,8 +244,8 @@ struct Smt2Worker
 		int width = GetSize(sig_y);
 
 		if (type == 's' || type == 'd' || type == 'b') {
-			width = std::max(width, GetSize(cell->getPort("\\A")));
-			width = std::max(width, GetSize(cell->getPort("\\B")));
+			width = max(width, GetSize(cell->getPort("\\A")));
+			width = max(width, GetSize(cell->getPort("\\B")));
 		}
 
 		if (cell->hasPort("\\A")) {

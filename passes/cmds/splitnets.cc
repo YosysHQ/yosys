@@ -140,8 +140,8 @@ struct SplitnetsPass : public Pass {
 
 				for (auto wire : module->wires())
 					if (wire->port_id != 0) {
-						normalized_port_factor = std::max(normalized_port_factor, wire->port_id+1);
-						normalized_port_factor = std::max(normalized_port_factor, GetSize(wire)+1);
+						normalized_port_factor = max(normalized_port_factor, wire->port_id+1);
+						normalized_port_factor = max(normalized_port_factor, GetSize(wire)+1);
 					}
 
 				for (auto wire : module->wires())

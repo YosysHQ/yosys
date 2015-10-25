@@ -541,7 +541,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		// log("  importing portbus %s.\n", portbus->Name());
 
 		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
-		wire->start_offset = std::min(portbus->LeftIndex(), portbus->RightIndex());
+		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
 		import_attributes(wire->attributes, portbus);
 
 		if (portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN)
@@ -580,11 +580,11 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			int bits_in_word = number_of_bits;
 			FOREACH_PORTREF_OF_NET(net, si, pr) {
 				if (pr->GetInst()->Type() == OPER_READ_PORT) {
-					bits_in_word = std::min<int>(bits_in_word, pr->GetInst()->OutputSize());
+					bits_in_word = min<int>(bits_in_word, pr->GetInst()->OutputSize());
 					continue;
 				}
 				if (pr->GetInst()->Type() == OPER_WRITE_PORT || pr->GetInst()->Type() == OPER_CLOCKED_WRITE_PORT) {
-					bits_in_word = std::min<int>(bits_in_word, pr->GetInst()->Input2Size());
+					bits_in_word = min<int>(bits_in_word, pr->GetInst()->Input2Size());
 					continue;
 				}
 				log_error("Verific RamNet %s is connected to unsupported instance type %s (%s).\n",
@@ -630,7 +630,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 
 			RTLIL::IdString wire_name = module->uniquify(RTLIL::escape_id(netbus->Name()));
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
-			wire->start_offset = std::min(netbus->LeftIndex(), netbus->RightIndex());
+			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 			import_attributes(wire->attributes, netbus);
 
 			for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1) {
@@ -752,7 +752,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			if (pr->GetPort()->Bus()) {
 				port_name = pr->GetPort()->Bus()->Name();
 				port_offset = pr->GetPort()->Bus()->IndexOf(pr->GetPort()) -
-						std::min(pr->GetPort()->Bus()->LeftIndex(), pr->GetPort()->Bus()->RightIndex());
+						min(pr->GetPort()->Bus()->LeftIndex(), pr->GetPort()->Bus()->RightIndex());
 			}
 			RTLIL::SigSpec conn;
 			if (cell->hasPort(RTLIL::escape_id(port_name)))

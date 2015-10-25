@@ -188,8 +188,8 @@ struct WreduceWorker
 		int max_port_b_size = cell->hasPort("\\B") ? GetSize(cell->getPort("\\B")) : -1;
 
 		if (cell->type.in("$not", "$pos", "$neg", "$and", "$or", "$xor", "$add", "$sub")) {
-			max_port_a_size = std::min(max_port_a_size, GetSize(sig));
-			max_port_b_size = std::min(max_port_b_size, GetSize(sig));
+			max_port_a_size = min(max_port_a_size, GetSize(sig));
+			max_port_b_size = min(max_port_b_size, GetSize(sig));
 		}
 
 		bool port_a_signed = false;
@@ -228,7 +228,7 @@ struct WreduceWorker
 			if (cell->hasPort("\\A")) a_size = GetSize(cell->getPort("\\A"));
 			if (cell->hasPort("\\B")) b_size = GetSize(cell->getPort("\\B"));
 
-			int max_y_size = std::max(a_size, b_size);
+			int max_y_size = max(a_size, b_size);
 
 			if (cell->type == "$add")
 				max_y_size++;
