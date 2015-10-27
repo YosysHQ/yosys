@@ -220,6 +220,96 @@ struct SigSet
 	}
 };
 
+#if 1
+struct SigMap
+{
+	mfp<SigBit> database;
+
+	SigMap(RTLIL::Module *module = NULL)
+	{
+		if (module != NULL)
+			set(module);
+	}
+
+	// SigMap(const SigMap &other)
+	// {
+	// 	copy(other);
+	// }
+
+	// const SigMap &operator=(const SigMap &other)
+	// {
+	// 	copy(other);
+	// 	return *this;
+	// }
+
+	void swap(SigMap &other)
+	{
+		database.swap(other.database);
+	}
+
+	void clear()
+	{
+		database.clear();
+	}
+
+	void set(RTLIL::Module *module)
+	{
+		clear();
+		for (auto &it : module->connections())
+			add(it.first, it.second);
+	}
+
+	void add(RTLIL::SigSpec from, RTLIL::SigSpec to)
+	{
+		log_assert(GetSize(from) == GetSize(to));
+
+		for (int i = 0; i < GetSize(from); i++)
+		{
+			RTLIL::SigBit &bf = from[i];
+			RTLIL::SigBit &bt = to[i];
+
+			if (bf.wire != nullptr)
+				database.merge(bf, bt);
+		}
+	}
+
+	void add(RTLIL::SigSpec sig)
+	{
+		for (auto &bit : sig)
+			database.promote(bit);
+	}
+
+	void apply(RTLIL::SigBit &bit) const
+	{
+		bit = database.find(bit);
+	}
+
+	void apply(RTLIL::SigSpec &sig) const
+	{
+		for (auto &bit : sig)
+			apply(bit);
+	}
+
+	RTLIL::SigBit operator()(RTLIL::SigBit bit) const
+	{
+		apply(bit);
+		return bit;
+	}
+
+	RTLIL::SigSpec operator()(RTLIL::SigSpec sig) const
+	{
+		apply(sig);
+		return sig;
+	}
+
+	RTLIL::SigSpec operator()(RTLIL::Wire *wire) const
+	{
+		SigSpec sig(wire);
+		apply(sig);
+		return sig;
+	}
+};
+#else
 struct SigMap
 {
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
@@ -430,6 +520,7 @@ struct SigMap
 		return sig;
 	}
 };
+#endif
 
 YOSYS_NAMESPACE_END
 

@@ -195,6 +195,7 @@ inline int hashtable_size(int min_size)
 template<typename K, typename T, typename OPS = hash_ops<K>> class dict;
 template<typename K, int offset = 0, typename OPS = hash_ops<K>> class idict;
 template<typename K, typename OPS = hash_ops<K>> class pool;
+template<typename K, typename OPS = hash_ops<K>> class mfp;
 
 template<typename K, typename T, typename OPS>
 class dict
@@ -914,8 +915,100 @@ public:
 		return database.entries.at(index - offset).udata;
 	}
 
+	void swap(idict &other)
+	{
+		database.swap(other.database);
+	}
+
+	size_t size() const { return database.size(); }
+	bool empty() const { return database.empty(); }
+	void clear() { database.clear(); }
+
 	const_iterator begin() const { return database.begin(); }
 	const_iterator end() const { return database.end(); }
+};
+
+template<typename K, typename OPS>
+class mfp
+{
+	mutable idict<K, 0, OPS> database;
+	mutable std::vector<int> parents;
+
+public:
+	int operator()(const K &key) const
+	{
+		int i = database(key);
+		parents.resize(database.size(), -1);
+		return i;
+	}
+
+	const K &operator[](int index) const
+	{
+		return database[index];
+	}
+
+	int ifind(int i) const
+	{
+		int p = i, k = i;
+
+		while (parents[p] != -1)
+			p = parents[p];
+
+		while (k != p) {
+			int next_k = parents[k];
+			parents[k] = p;
+			k = next_k;
+		}
+
+		return p;
+	}
+
+	void imerge(int i, int j)
+	{
+		i = ifind(i);
+		j = ifind(j);
+
+		if (i != j)
+			parents[i] = j;
+	}
+
+	void ipromote(int i)
+	{
+		int k = i;
+
+		while (k != -1) {
+			int next_k = parents[k];
+			parents[k] = i;
+			k = next_k;
+		}
+
+		parents[i] = -1;
+	}
+
+	const K &find(const K &a) const
+	{
+		return (*this)[ifind((*this)(a))];
+	}
+
+	void merge(const K &a, const K &b)
+	{
+		imerge((*this)(a), (*this)(b));
+	}
+
+	void promote(const K &a)
+	{
+		ipromote((*this)(a));
+	}
+
+	void swap(mfp &other)
+	{
+		database.swap(other.database);
+		parents.swap(other.parents);
+	}
+
+	size_t size() const { return database.size(); }
+	bool empty() const { return database.empty(); }
+	void clear() { database.clear(); parents.clear(); }
 };
 
 } /* namespace hashlib */

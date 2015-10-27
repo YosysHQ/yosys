@@ -171,6 +171,7 @@ using hashlib::hash_obj_ops;
 using hashlib::dict;
 using hashlib::idict;
 using hashlib::pool;
+using hashlib::mfp;
 
 namespace RTLIL {
 	struct IdString;
