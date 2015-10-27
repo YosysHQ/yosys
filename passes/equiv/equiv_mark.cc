@@ -42,31 +42,7 @@ struct EquivMarkWorker
 	int next_region;
 
 	// merge-find
-	dict<int, int> region_mf;
-
-	int region_find(int r)
-	{
-		vector<int> backlog;
-
-		while (region_mf.count(r)) {
-			backlog.push_back(r);
-			r = region_mf.at(r);
-		}
-
-		for (int q : backlog)
-			region_mf[q] = r;
-
-		return r;
-	}
-
-	void region_merge(int r, int q)
-	{
-		r = region_find(r);
-		q = region_find(q);
-
-		if (r != q)
-			region_mf[r] = q;
-	}
+	mfp<int> region_mf;
 
 	EquivMarkWorker(Module *module) : module(module), sigmap(module)
 	{
@@ -116,7 +92,7 @@ struct EquivMarkWorker
 
 				if (cell_regions.count(cell)) {
 					if (cell_regions.at(cell) != 0)
-						region_merge(cell_regions.at(cell), next_region);
+						region_mf.merge(cell_regions.at(cell), next_region);
 					continue;
 				}
 
@@ -190,7 +166,7 @@ struct EquivMarkWorker
 		dict<int, int> region_wire_count;
 
 		for (int i = 0; i < next_region; i++) {
-			int r = region_find(i);
+			int r = region_mf.find(i);
 			if (final_region_map.count(r) == 0)
 				final_region_map[r] = next_final_region++;
 			final_region_map[i] = final_region_map[r];
@@ -211,7 +187,7 @@ struct EquivMarkWorker
 			pool<int> regions;
 			for (auto bit : sigmap(wire))
 				if (bit_regions.count(bit))
-					regions.insert(region_find(bit_regions.at(bit)));
+					regions.insert(region_mf.find(bit_regions.at(bit)));
 
 			if (GetSize(regions) == 1) {
 				int r = final_region_map.at(*regions.begin());
