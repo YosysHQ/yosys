@@ -253,18 +253,21 @@ struct SigMap
 
 		for (int i = 0; i < GetSize(from); i++)
 		{
-			RTLIL::SigBit bf = database.find(from[i]);
-			RTLIL::SigBit bt = database.find(to[i]);
+			int bfi = database.lookup(from[i]);
+			int bti = database.lookup(to[i]);
+
+			const RTLIL::SigBit &bf = database[bfi];
+			const RTLIL::SigBit &bt = database[bti];
 
 			if (bf.wire || bt.wire)
 			{
-				database.merge(bf, bt);
+				database.imerge(bfi, bti);
 
 				if (bf.wire == nullptr)
-					database.promote(bf);
+					database.ipromote(bfi);
 
 				if (bt.wire == nullptr)
-					database.promote(bt);
+					database.ipromote(bti);
 			}
 		}
 	}

@@ -985,6 +985,11 @@ public:
 		parents[i] = -1;
 	}
 
+	int lookup(const K &a) const
+	{
+		return ifind((*this)(a));
+	}
+
 	const K &find(const K &a) const
 	{
 		return (*this)[ifind((*this)(a))];
