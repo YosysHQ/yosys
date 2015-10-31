@@ -32,6 +32,7 @@ struct MemoryDffWorker
 	dict<SigBit, SigBit> invbits;
 	dict<SigBit, int> sigbit_users_count;
 	dict<SigSpec, Cell*> mux_cells_a, mux_cells_b;
+	pool<Cell*> forward_merged_dffs, candidate_dffs;
 
 	MemoryDffWorker(Module *module) : module(module), sigmap(module) { }
 
@@ -46,6 +47,9 @@ struct MemoryDffWorker
 
 			for (auto cell : dff_cells)
 			{
+				if (after && forward_merged_dffs.count(cell))
+					continue;
+
 				SigSpec this_clk = cell->getPort("\\CLK");
 				bool this_clk_polarity = cell->parameters["\\CLK_POLARITY"].as_bool();
 
@@ -71,6 +75,7 @@ struct MemoryDffWorker
 				bit = d;
 				clk = this_clk;
 				clk_polarity = this_clk_polarity;
+				candidate_dffs.insert(cell);
 				goto replaced_this_bit;
 			}
 
@@ -87,6 +92,7 @@ struct MemoryDffWorker
 
 		RTLIL::SigSpec clk = RTLIL::SigSpec(RTLIL::State::Sx);
 		bool clk_polarity = 0;
+		candidate_dffs.clear();
 
 		RTLIL::SigSpec sig_addr = cell->getPort("\\ADDR");
 		if (!find_sig_before_dff(sig_addr, clk, clk_polarity)) {
@@ -106,13 +112,18 @@ struct MemoryDffWorker
 			return;
 		}
 
-		if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
+		if (clk != RTLIL::SigSpec(RTLIL::State::Sx))
+		{
+			for (auto cell : candidate_dffs)
+				forward_merged_dffs.insert(cell);
+
 			cell->setPort("\\CLK", clk);
 			cell->setPort("\\ADDR", sig_addr);
 			cell->setPort("\\DATA", sig_data);
 			cell->setPort("\\EN", sig_en);
 			cell->parameters["\\CLK_ENABLE"] = RTLIL::Const(1);
 			cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity);
+
 			log("merged $dff to cell.\n");
 			return;
 		}
