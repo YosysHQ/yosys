@@ -201,6 +201,31 @@ struct WreduceWorker
 		if (max_port_b_size >= 0)
 			run_reduce_inport(cell, 'B', max_port_b_size, port_b_signed, did_something);
 
+		if (cell->hasPort("\\A") && cell->hasPort("\\B") && port_a_signed && port_b_signed) {
+			SigSpec sig_a = mi.sigmap(cell->getPort("\\A")), sig_b = mi.sigmap(cell->getPort("\\B"));
+			if (GetSize(sig_a) > 0 && sig_a[GetSize(sig_a)-1] == State::S0 &&
+					GetSize(sig_b) > 0 && sig_b[GetSize(sig_b)-1] == State::S0) {
+				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
+						log_id(module), log_id(cell), log_id(cell->type));
+				cell->setParam("\\A_SIGNED", 0);
+				cell->setParam("\\B_SIGNED", 0);
+				port_a_signed = false;
+				port_b_signed = false;
+				did_something = true;
+			}
+		}
+
+		if (cell->hasPort("\\A") && !cell->hasPort("\\B") && port_a_signed) {
+			SigSpec sig_a = mi.sigmap(cell->getPort("\\A"));
+			if (GetSize(sig_a) > 0 && sig_a[GetSize(sig_a)-1] == State::S0) {
+				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
+						log_id(module), log_id(cell), log_id(cell->type));
+				cell->setParam("\\A_SIGNED", 0);
+				port_a_signed = false;
+				did_something = true;
+			}
+		}
+
 
 		// Reduce size of port Y based on sizes for A and B and unused bits in Y
 
