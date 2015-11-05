@@ -293,7 +293,7 @@ void simplemap_tribuf(RTLIL::Module *module, RTLIL::Cell *cell)
 		RTLIL::Cell *gate = module->addCell(NEW_ID, "$_TBUF_");
 		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
 		gate->setPort("\\A", sig_a[i]);
-		gate->setPort("\\E", sig_e[i]);
+		gate->setPort("\\E", sig_e);
 		gate->setPort("\\Y", sig_y[i]);
 	}
 }
