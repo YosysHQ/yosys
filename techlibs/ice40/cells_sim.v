@@ -58,8 +58,8 @@ module SB_IO (
 
 	generate
 		if (PIN_TYPE[5:4] == 2'b01) assign PACKAGE_PIN = dout;
-		if (PIN_TYPE[5:4] == 2'b10) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
-		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = OUTPUT_ENABLE ? dout : 1'bz;
+		if (PIN_TYPE[5:4] == 2'b10) assign PACKAGE_PIN = OUTPUT_ENABLE ? dout : 1'bz;
+		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
 	endgenerate
 `endif
 endmodule
