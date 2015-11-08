@@ -100,7 +100,7 @@ struct DffinitPass : public Pass {
 					for (int i = 0; i < GetSize(sig); i++) {
 						if (init_bits.count(sig[i]) == 0)
 							continue;
-						while (GetSize(value.bits) < i)
+						while (GetSize(value.bits) <= i)
 							value.bits.push_back(State::S0);
 						value.bits[i] = init_bits.at(sig[i]);
 						cleanup_bits.insert(sig[i]);
