@@ -100,6 +100,7 @@ SigMap assign_map;
 RTLIL::Module *module;
 std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
+pool<std::string> enabled_gates;
 
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
@@ -837,17 +838,28 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		fprintf(f, "GATE ONE   1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF  %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_BUF_"));
 		fprintf(f, "GATE NOT  %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOT_"));
-		fprintf(f, "GATE AND  %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
-		fprintf(f, "GATE NAND %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
-		fprintf(f, "GATE OR   %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
-		fprintf(f, "GATE NOR  %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
-		fprintf(f, "GATE XOR  %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
-		fprintf(f, "GATE XNOR %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
-		fprintf(f, "GATE AOI3 %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
-		fprintf(f, "GATE OAI3 %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
-		fprintf(f, "GATE AOI4 %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
-		fprintf(f, "GATE OAI4 %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
-		fprintf(f, "GATE MUX  %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
+		if (enabled_gates.empty() || enabled_gates.count("AND"))
+			fprintf(f, "GATE AND  %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
+		if (enabled_gates.empty() || enabled_gates.count("NAND"))
+			fprintf(f, "GATE NAND %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
+		if (enabled_gates.empty() || enabled_gates.count("OR"))
+			fprintf(f, "GATE OR   %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
+		if (enabled_gates.empty() || enabled_gates.count("NOR"))
+			fprintf(f, "GATE NOR  %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
+		if (enabled_gates.empty() || enabled_gates.count("XOR"))
+			fprintf(f, "GATE XOR  %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
+		if (enabled_gates.empty() || enabled_gates.count("XNOR"))
+			fprintf(f, "GATE XNOR %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
+		if (enabled_gates.empty() || enabled_gates.count("AOI3"))
+			fprintf(f, "GATE AOI3 %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
+		if (enabled_gates.empty() || enabled_gates.count("OAI3"))
+			fprintf(f, "GATE OAI3 %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
+		if (enabled_gates.empty() || enabled_gates.count("AOI4"))
+			fprintf(f, "GATE AOI4 %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
+		if (enabled_gates.empty() || enabled_gates.count("OAI4"))
+			fprintf(f, "GATE OAI4 %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
+		if (enabled_gates.empty() || enabled_gates.count("MUX"))
+			fprintf(f, "GATE MUX  %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
 		if (map_mux4)
 			fprintf(f, "GATE MUX4 %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*get_cell_cost("$_MUX_"));
 		if (map_mux8)
@@ -1230,6 +1242,11 @@ struct AbcPass : public Pass {
 		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
 		// log("        (ignored when used with -liberty or -lut)\n");
 		// log("\n");
+		log("    -g type1,type2,...\n");
+		log("        Map the the specified list of gate types. Supported gates types are:\n");
+		log("        AND, NAND, OR, NOR, XOR, XNOR, MUX, AOI3, OAI3, AOI4, OAI4.\n");
+		log("        (The NOT gate is always added to this list automatically.)\n");
+		log("\n");
 		log("    -dff\n");
 		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
 		log("        clock domains are automatically partitioned in clock domains and each\n");
@@ -1280,6 +1297,7 @@ struct AbcPass : public Pass {
 		map_mux4 = false;
 		map_mux8 = false;
 		map_mux16 = false;
+		enabled_gates.clear();
 
 #ifdef _WIN32
 		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\yosys-abc.exe"))
@@ -1342,6 +1360,25 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-mux16") {
 				map_mux16 = true;
+				continue;
+			}
+			if (arg == "-g" && argidx+1 < args.size()) {
+				for (auto g : split_tokens(args[++argidx], ",")) {
+					if (g == "AND") goto ok_gate;
+					if (g == "NAND") goto ok_gate;
+					if (g == "OR") goto ok_gate;
+					if (g == "NOR") goto ok_gate;
+					if (g == "XOR") goto ok_gate;
+					if (g == "XNOR") goto ok_gate;
+					if (g == "MUX") goto ok_gate;
+					if (g == "AOI3") goto ok_gate;
+					if (g == "OAI3") goto ok_gate;
+					if (g == "AOI4") goto ok_gate;
+					if (g == "OAI4") goto ok_gate;
+					cmd_error(args, argidx, stringf("Unsupported gate type: %s", g.c_str()));
+				ok_gate:
+					enabled_gates.insert(g);
+				}
 				continue;
 			}
 			if (arg == "-fast") {
