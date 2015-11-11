@@ -1013,7 +1013,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
-			if (children[i]->type == AST_WIRE) {
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM) {
 				children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(children[i]);
 				current_scope[children[i]->str] = children[i];
@@ -1865,7 +1865,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		for (auto child : decl->children)
-			if (child->type == AST_WIRE)
+			if (child->type == AST_WIRE || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
 			{
 				AstNode *wire = child->clone();
 				wire->str = prefix + wire->str;
@@ -1896,7 +1896,7 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 		for (auto child : decl->children)
-			if (child->type != AST_WIRE)
+			if (child->type != AST_WIRE && child->type != AST_PARAMETER && child->type != AST_LOCALPARAM)
 			{
 				AstNode *stmt = child->clone();
 				stmt->replace_ids(prefix, replace_rules);
