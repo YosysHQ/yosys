@@ -841,7 +841,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (args.size() > 1 && args[1] == "-vhdl87") {
-			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_87))
 					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
@@ -918,10 +918,12 @@ struct VerificPass : public Pass {
 
 			for (; argidx < args.size(); argidx++) {
 				if (veri_file::GetModule(args[argidx].c_str())) {
+					log("Running veri_file::Elaborate(\"%s\").\n", args[argidx].c_str());
 					if (!veri_file::Elaborate(args[argidx].c_str()))
 						log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
 					nl_todo.insert(Netlist::PresentDesign());
 				} else {
+					log("Running vhdl_file::Elaborate(\"%s\").\n", args[argidx].c_str());
 					if (!vhdl_file::Elaborate(args[argidx].c_str()))
 						log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
 					nl_todo.insert(Netlist::PresentDesign());
