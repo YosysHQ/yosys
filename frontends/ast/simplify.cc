@@ -1773,6 +1773,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 		size_t arg_count = 0;
 		std::map<std::string, std::string> replace_rules;
+		vector<AstNode*> added_mod_children;
 
 		if (current_block == NULL)
 		{
@@ -1873,9 +1874,13 @@ skip_dynamic_range_lvalue_expansion:;
 				wire->is_input = false;
 				wire->is_output = false;
 				current_ast_mod->children.push_back(wire);
-				while (wire->simplify(true, false, false, 1, -1, false, false)) { }
+				added_mod_children.push_back(wire);
+
+				if (child->type == AST_WIRE)
+					while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 
 				replace_rules[child->str] = wire->str;
+				current_scope[wire->str] = wire;
 
 				if ((child->is_input || child->is_output) && arg_count < children.size())
 				{
@@ -1894,6 +1899,11 @@ skip_dynamic_range_lvalue_expansion:;
 					}
 				}
 			}
+
+		for (auto child : added_mod_children) {
+			child->replace_ids(prefix, replace_rules);
+			while (child->simplify(true, false, false, 1, -1, false, false)) { }
+		}
 
 		for (auto child : decl->children)
 			if (child->type != AST_WIRE && child->type != AST_PARAMETER && child->type != AST_LOCALPARAM)
