@@ -745,6 +745,8 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		RTLIL::Cell *cell = module->addCell(RTLIL::escape_id(inst->Name()), inst->IsOperator() ?
 				std::string("$verific$") + inst->View()->Owner()->Name() : RTLIL::escape_id(inst->View()->Owner()->Name()));
 
+		dict<IdString, vector<SigBit>> cell_port_conns;
+
 		FOREACH_PORTREF_OF_INST(inst, mi2, pr) {
 			// log("      .%s(%s)\n", pr->GetPort()->Name(), pr->GetNet()->Name());
 			const char *port_name = pr->GetPort()->Name();
@@ -754,16 +756,16 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 				port_offset = pr->GetPort()->Bus()->IndexOf(pr->GetPort()) -
 						min(pr->GetPort()->Bus()->LeftIndex(), pr->GetPort()->Bus()->RightIndex());
 			}
-			RTLIL::SigSpec conn;
-			if (cell->hasPort(RTLIL::escape_id(port_name)))
-				conn = cell->getPort(RTLIL::escape_id(port_name));
-			while (GetSize(conn) <= port_offset) {
-				if (pr->GetPort()->GetDir() != DIR_IN)
-					conn.append(module->addWire(NEW_ID, port_offset - GetSize(conn)));
-				conn.append(RTLIL::State::Sz);
-			}
-			conn.replace(port_offset, net_map.at(pr->GetNet()));
-			cell->setPort(RTLIL::escape_id(port_name), conn);
+			IdString port_name_id = RTLIL::escape_id(port_name);
+			auto &sigvec = cell_port_conns[port_name_id];
+			if (GetSize(sigvec) <= port_offset)
+				sigvec.resize(port_offset+1, State::Sz);
+			sigvec[port_offset] = net_map.at(pr->GetNet());
+		}
+
+		for (auto &it : cell_port_conns) {
+			// log("      .%s(%s)\n", log_id(it.first), log_signal(it.second));
+			cell->setPort(it.first, it.second);
 		}
 	}
 }
