@@ -1774,6 +1774,7 @@ skip_dynamic_range_lvalue_expansion:;
 		size_t arg_count = 0;
 		std::map<std::string, std::string> replace_rules;
 		vector<AstNode*> added_mod_children;
+		dict<std::string, AstNode*> wire_cache;
 
 		if (current_block == NULL)
 		{
@@ -1868,13 +1869,31 @@ skip_dynamic_range_lvalue_expansion:;
 		for (auto child : decl->children)
 			if (child->type == AST_WIRE || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
 			{
-				AstNode *wire = child->clone();
-				wire->str = prefix + wire->str;
-				wire->port_id = 0;
-				wire->is_input = false;
-				wire->is_output = false;
-				current_ast_mod->children.push_back(wire);
-				added_mod_children.push_back(wire);
+				AstNode *wire = nullptr;
+
+				if (wire_cache.count(child->str))
+				{
+					wire = wire_cache.at(child->str);
+					if (wire->children.empty()) {
+						for (auto c : child->children)
+							wire->children.push_back(c->clone());
+					} else {
+						if (!child->children.empty())
+							log_error("Incompatible re-declaration of wire %s at %s:%d.\n", child->str.c_str(), filename.c_str(), linenum);
+					}
+				}
+				else
+				{
+					wire = child->clone();
+					wire->str = prefix + wire->str;
+					wire->port_id = 0;
+					wire->is_input = false;
+					wire->is_output = false;
+					wire_cache[child->str] = wire;
+
+					current_ast_mod->children.push_back(wire);
+					added_mod_children.push_back(wire);
+				}
 
 				if (child->type == AST_WIRE)
 					while (wire->simplify(true, false, false, 1, -1, false, false)) { }
