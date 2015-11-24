@@ -213,14 +213,14 @@ module \$__ICE40_RAM4K_M0 (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1E
 		.RDATA(A1DATA),
 		.RADDR(A1ADDR_11),
 		.RCLK(CLK2),
-		.RCLKE(1'b1),
-		.RE(A1EN),
+		.RCLKE(A1EN),
+		.RE(1'b1),
 		.WDATA(B1DATA),
 		.WADDR(B1ADDR_11),
 		.MASK(~B1EN),
 		.WCLK(CLK3),
-		.WCLKE(1'b1),
-		.WE(|B1EN)
+		.WCLKE(|B1EN),
+		.WE(1'b1)
 	);
 endmodule
 
@@ -299,13 +299,13 @@ module \$__ICE40_RAM4K_M123 (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B
 		.RDATA(A1DATA_16),
 		.RADDR(A1ADDR_11),
 		.RCLK(CLK2),
-		.RCLKE(1'b1),
-		.RE(A1EN),
+		.RCLKE(A1EN),
+		.RE(1'b1),
 		.WDATA(B1DATA_16),
 		.WADDR(B1ADDR_11),
 		.WCLK(CLK3),
-		.WCLKE(1'b1),
-		.WE(|B1EN)
+		.WCLKE(|B1EN),
+		.WE(1'b1)
 	);
 endmodule
 
