@@ -104,6 +104,7 @@ struct SynthIce40Pass : public Pass {
 		log("        techmap -map +/ice40/cells_map.v\n");
 		log("        opt_const -mux_undef\n");
 		log("        simplemap\n");
+		log("        ice40_ffinit\n");
 		log("        ice40_ffssr\n");
 		log("        ice40_opt -full\n");
 		log("\n");
@@ -236,6 +237,7 @@ struct SynthIce40Pass : public Pass {
 			Pass::call(design, "techmap -map +/ice40/cells_map.v");
 			Pass::call(design, "opt_const -mux_undef");
 			Pass::call(design, "simplemap");
+			Pass::call(design, "ice40_ffinit");
 			Pass::call(design, "ice40_ffssr");
 			Pass::call(design, "ice40_opt -full");
 		}
