@@ -460,7 +460,7 @@ struct RTLIL::Const
 	Const(std::string str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; };
+	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
 
 	bool operator <(const RTLIL::Const &other) const;
@@ -476,7 +476,7 @@ struct RTLIL::Const
 
 	inline int size() const { return bits.size(); }
 	inline RTLIL::State &operator[](int index) { return bits.at(index); }
-	inline const RTLIL::State &operator[](int index) const { return bits.at(index); };
+	inline const RTLIL::State &operator[](int index) const { return bits.at(index); }
 
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
 		RTLIL::Const ret;
