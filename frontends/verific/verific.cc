@@ -314,6 +314,16 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+	if (inst->Type() == PRIM_DLATCHRS)
+	{
+		if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
+			module->addDlatch(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetControl()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+		else
+			module->addDlatchsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetControl()), net_map.at(inst->GetSet()), net_map.at(inst->GetReset()),
+					net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+		return true;
+	}
+
 	#define IN  operatorInput(inst, net_map)
 	#define IN1 operatorInput1(inst, net_map)
 	#define IN2 operatorInput2(inst, net_map)
