@@ -50,6 +50,7 @@ USING_YOSYS_NAMESPACE
 	int integer;
 	YOSYS_NAMESPACE_PREFIX RTLIL::Const *data;
 	YOSYS_NAMESPACE_PREFIX RTLIL::SigSpec *sigspec;
+	std::vector<YOSYS_NAMESPACE_PREFIX RTLIL::SigSpec> *rsigspec;
 }
 
 %token <string> TOK_ID TOK_VALUE TOK_STRING
@@ -60,6 +61,7 @@ USING_YOSYS_NAMESPACE
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
 %token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED TOK_UPTO
 
+%type <rsigspec> sigspec_list_reversed
 %type <sigspec> sigspec sigspec_list
 %type <integer> sync_type
 %type <data> constant
@@ -389,16 +391,20 @@ sigspec:
 		$$ = $2;
 	};
 
-sigspec_list:
-	sigspec_list sigspec {
-		$$ = new RTLIL::SigSpec;
-		$$->append(*$2);
-		$$->append(*$1);
-		delete $1;
+sigspec_list_reversed:
+	sigspec_list_reversed sigspec {
+		$$->push_back(*$2);
 		delete $2;
 	} |
 	/* empty */ {
+		$$ = new std::vector<RTLIL::SigSpec>;
+	};
+
+sigspec_list: sigspec_list_reversed {
 		$$ = new RTLIL::SigSpec;
+		for (auto it = $1->rbegin(); it != $1->rend(); it++)
+			$$->append(*it);
+		delete $1;
 	};
 
 conn_stmt:
