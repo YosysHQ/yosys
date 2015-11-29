@@ -276,8 +276,8 @@ compare_list:
 	/* empty */;
 
 case_body:
-	switch_stmt case_body |
-	assign_stmt case_body |
+	case_body switch_stmt |
+	case_body assign_stmt |
 	/* empty */;
 
 assign_stmt:
