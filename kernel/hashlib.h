@@ -935,6 +935,8 @@ class mfp
 	mutable std::vector<int> parents;
 
 public:
+	typedef typename idict<K, 0, OPS>::const_iterator const_iterator;
+
 	int operator()(const K &key) const
 	{
 		int i = database(key);
@@ -1014,6 +1016,9 @@ public:
 	size_t size() const { return database.size(); }
 	bool empty() const { return database.empty(); }
 	void clear() { database.clear(); parents.clear(); }
+
+	const_iterator begin() const { return database.begin(); }
+	const_iterator end() const { return database.end(); }
 };
 
 } /* namespace hashlib */

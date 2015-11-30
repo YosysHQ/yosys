@@ -310,6 +310,15 @@ struct SigMap
 		apply(sig);
 		return sig;
 	}
+
+	RTLIL::SigSpec allbits() const
+	{
+		RTLIL::SigSpec sig;
+		for (auto &bit : database)
+			if (bit.wire != nullptr)
+				sig.append(bit);
+		return sig;
+	}
 };
 
 YOSYS_NAMESPACE_END
