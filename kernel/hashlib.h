@@ -506,6 +506,15 @@ public:
 		return entries[i].udata.second;
 	}
 
+	T at(const K &key, const T &defval) const
+	{
+		int hash = do_hash(key);
+		int i = do_lookup(key, hash);
+		if (i < 0)
+			return defval;
+		return entries[i].udata.second;
+	}
+
 	T& operator[](const K &key)
 	{
 		int hash = do_hash(key);
@@ -893,6 +902,15 @@ public:
 		int i = database.do_lookup(key, hash);
 		if (i < 0)
 			throw std::out_of_range("idict::at()");
+		return i + offset;
+	}
+
+	int at(const K &key, int defval) const
+	{
+		int hash = database.do_hash(key);
+		int i = database.do_lookup(key, hash);
+		if (i < 0)
+			return defval;
 		return i + offset;
 	}
 
