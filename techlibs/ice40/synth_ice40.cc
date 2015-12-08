@@ -72,6 +72,9 @@ struct SynthIce40Pass : public Pass {
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
 		log("\n");
+		log("    -abc2\n");
+		log("        run two passes of 'abc' for slightly improved logic density\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		log("\n");
@@ -109,6 +112,7 @@ struct SynthIce40Pass : public Pass {
 		log("        ice40_opt -full\n");
 		log("\n");
 		log("    map_luts:\n");
+		log("        abc          (only if -abc2)\n");
 		log("        abc -lut 4\n");
 		log("        clean\n");
 		log("\n");
@@ -137,6 +141,7 @@ struct SynthIce40Pass : public Pass {
 		bool nobram = false;
 		bool flatten = true;
 		bool retime = false;
+		bool abc2 = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -179,6 +184,10 @@ struct SynthIce40Pass : public Pass {
 			}
 			if (args[argidx] == "-nobram") {
 				nobram = true;
+				continue;
+			}
+			if (args[argidx] == "-abc2") {
+				abc2 = true;
 				continue;
 			}
 			break;
@@ -244,6 +253,8 @@ struct SynthIce40Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
+			if (abc2)
+				Pass::call(design, "abc");
 			Pass::call(design, "abc -lut 4");
 			Pass::call(design, "clean");
 		}
