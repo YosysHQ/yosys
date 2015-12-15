@@ -54,7 +54,7 @@ ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	LDFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --libs libffi)
 	# use bison installed by homebrew if available
 	BISON = $(shell (brew list bison | grep -m1 "bin/bison") || echo bison)
-	SED = gsed
+	SED = sed
 else
 	LDFLAGS += -rdynamic
 	LDLIBS += -lrt
