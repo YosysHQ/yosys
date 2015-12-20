@@ -22,6 +22,7 @@ import os, sys, getopt, re
 from smtio import smtio, smtopts, mkvcd
 
 skip_steps = 0
+step_size = 1
 num_steps = 20
 vcdfile = None
 tempind = False
@@ -40,6 +41,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
     -u <start_step>
         assume asserts in skipped steps in BMC
 
+    -S <step_size>
+        proof <step_size> time steps at once
+
     -c <vcd_filename>
         write counter-example to this VCD file
         (hint: use 'write_smt2 -wires' for maximum
@@ -55,7 +59,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.optstr + "t:u:c:im:")
+    opts, args = getopt.getopt(sys.argv[1:], so.optstr + "t:u:S:c:im:")
 except:
     usage()
 
@@ -69,6 +73,8 @@ for o, a in opts:
             num_steps = int(a)
     elif o == "-u":
         assume_skipped = int(a)
+    elif o == "-S":
+        step_size = int(a)
     elif o == "-c":
         vcdfile = a
     elif o == "-i":
@@ -122,6 +128,7 @@ def write_vcd_model(steps):
 
 if tempind:
     retstatus = False
+    skip_counter = step_size
     for step in range(num_steps, -1, -1):
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
@@ -137,6 +144,12 @@ if tempind:
             print("%s Skipping induction in step %d.." % (smt.timestamp(), step))
             continue
 
+        skip_counter += 1
+        if skip_counter < step_size:
+            print("%s Skipping induction in step %d.." % (smt.timestamp(), step))
+            continue
+
+        skip_counter = 0
         print("%s Trying induction in step %d.." % (smt.timestamp(), step))
 
         if smt.check_sat() == "sat":
@@ -152,8 +165,9 @@ if tempind:
 
 
 else: # not tempind
+    step = 0
     retstatus = True
-    for step in range(num_steps+1):
+    while step < num_steps:
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
 
@@ -169,23 +183,38 @@ else: # not tempind
                 smt.write("(assert (%s_a s%d))" % (topmod, step))
             else:
                 print("%s Skipping step %d.." % (smt.timestamp(), step))
+            step += 1
             continue
 
-        print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
+        last_check_step = step
+        for i in range(1, step_size):
+            if step+i < num_steps:
+                smt.write("(declare-fun s%d () %s_s)" % (step+i, topmod))
+                smt.write("(assert (%s_u s%d))" % (topmod, step+i))
+                smt.write("(assert (%s_t s%d s%d))" % (topmod, step+i-1, step+i))
+                last_check_step = step+i
+
+        if last_check_step == step:
+            print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
+        else:
+            print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
         smt.write("(push 1)")
 
-        smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
+        smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)]))
 
         if smt.check_sat() == "sat":
             print("%s BMC failed!" % smt.timestamp())
             if vcdfile is not None:
-                write_vcd_model(step+1)
+                write_vcd_model(step+step_size)
             retstatus = False
             break
 
         else: # unsat
             smt.write("(pop 1)")
-            smt.write("(assert (%s_a s%d))" % (topmod, step))
+            for i in range(step, last_check_step+1):
+                smt.write("(assert (%s_a s%d))" % (topmod, i))
+
+        step += step_size
 
 
 smt.write("(exit)")
