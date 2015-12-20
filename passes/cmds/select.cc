@@ -180,6 +180,47 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 	lhs.selected_members.swap(new_sel.selected_members);
 }
 
+static int my_xorshift32_rng() {
+	static uint32_t x32 = 314159265;
+	x32 ^= x32 << 13;
+	x32 ^= x32 >> 17;
+	x32 ^= x32 << 5;
+	return x32 & 0x0fffffff;
+}
+
+static void select_op_random(RTLIL::Design *design, RTLIL::Selection &lhs, int count)
+{
+	vector<pair<IdString, IdString>> objects;
+
+	for (auto mod : design->modules())
+	{
+		if (!lhs.selected_module(mod->name))
+			continue;
+
+		for (auto cell : mod->cells()) {
+			if (lhs.selected_member(mod->name, cell->name))
+				objects.push_back(make_pair(mod->name, cell->name));
+		}
+
+		for (auto wire : mod->wires()) {
+			if (lhs.selected_member(mod->name, wire->name))
+				objects.push_back(make_pair(mod->name, wire->name));
+		}
+	}
+
+	lhs = RTLIL::Selection(false);
+
+	while (!objects.empty() && count-- > 0)
+	{
+		int idx = my_xorshift32_rng() % GetSize(objects);
+		lhs.selected_members[objects[idx].first].insert(objects[idx].second);
+		objects[idx] = objects.back();
+		objects.pop_back();
+	}
+
+	lhs.optimize(design);
+}
+
 static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	for (auto &mod_it : design->modules_)
@@ -633,6 +674,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				log_cmd_error("Must have at least two elements on the stack for operator %%i.\n");
 			select_op_intersect(design, work_stack[work_stack.size()-2], work_stack[work_stack.size()-1]);
 			work_stack.pop_back();
+		} else
+		if (arg.size() >= 2 && arg[0] == '%' && arg[1] == 'R') {
+			if (work_stack.size() < 1)
+				log_cmd_error("Must have at least one element on the stack for operator %%R.\n");
+			int count = arg.size() > 2 ? atoi(arg.c_str() + 2) : 1;
+			select_op_random(design, work_stack[work_stack.size()-1], count);
 		} else
 		if (arg == "%s") {
 			if (work_stack.size() < 1)
@@ -1099,6 +1146,9 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    %%C\n");
 		log("        select cells that implement selected modules\n");
+		log("\n");
+		log("    %%R[<num>]\n");
+		log("        select <num> random objects from top selection (default 1)\n");
 		log("\n");
 		log("Example: the following command selects all wires that are connected to a\n");
 		log("'GATE' input of a 'SWITCH' cell:\n");
