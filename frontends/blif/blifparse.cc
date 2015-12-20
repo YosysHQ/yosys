@@ -49,11 +49,42 @@ static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, 
 	}
 }
 
-void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
+void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bool run_clean)
 {
 	RTLIL::Module *module = nullptr;
 	RTLIL::Const *lutptr = NULL;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
+	int blif_maxnum = 0;
+
+	auto blif_wire = [&](const std::string &wire_name) -> Wire*
+	{
+		if (wire_name[0] == '$')
+		{
+			for (int i = 0; i+1 < GetSize(wire_name); i++)
+			{
+				if (wire_name[i] != '$')
+					continue;
+
+				int len = 0;
+				while (i+len+1 < GetSize(wire_name) && '0' <= wire_name[i+len+1] && wire_name[i+len+1] <= '9')
+					len++;
+
+				if (len > 0) {
+					string num_str = wire_name.substr(i+1, len);
+					int num = atoi(num_str.c_str()) & 0x0fffffff;
+					blif_maxnum = std::max(blif_maxnum, num);
+				}
+			}
+		}
+
+		IdString wire_id = RTLIL::escape_id(wire_name);
+		Wire *wire = module->wire(wire_id);
+
+		if (wire == nullptr)
+			wire = module->addWire(wire_id);
+
+		return wire;
+	};
 
 	dict<RTLIL::IdString, RTLIL::Const> *obj_attributes = nullptr;
 	dict<RTLIL::IdString, RTLIL::Const> *obj_parameters = nullptr;
@@ -103,8 +134,41 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 			if (module == nullptr)
 				goto error;
 
-			if (!strcmp(cmd, ".end")) {
+			if (!strcmp(cmd, ".end"))
+			{
 				module->fixup_ports();
+
+				if (run_clean)
+				{
+					Const buffer_lut(vector<RTLIL::State>({State::S0, State::S1}));
+					vector<Cell*> remove_cells;
+
+					for (auto cell : module->cells())
+						if (cell->type == "$lut" && cell->getParam("\\LUT") == buffer_lut) {
+							module->connect(cell->getPort("\\Y"), cell->getPort("\\A"));
+							remove_cells.push_back(cell);
+						}
+
+					for (auto cell : remove_cells)
+						module->remove(cell);
+
+					Wire *true_wire = module->wire("$true");
+					Wire *false_wire = module->wire("$false");
+					Wire *undef_wire = module->wire("$undef");
+
+					if (true_wire != nullptr)
+						module->rename(true_wire, stringf("$true$%d", ++blif_maxnum));
+
+					if (false_wire != nullptr)
+						module->rename(false_wire, stringf("$false$%d", ++blif_maxnum));
+
+					if (undef_wire != nullptr)
+						module->rename(undef_wire, stringf("$undef$%d", ++blif_maxnum));
+
+					autoidx = std::max(autoidx, blif_maxnum+1);
+					blif_maxnum = 0;
+				}
+
 				module = nullptr;
 				obj_attributes = nullptr;
 				obj_parameters = nullptr;
@@ -114,7 +178,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 			if (!strcmp(cmd, ".inputs") || !strcmp(cmd, ".outputs")) {
 				char *p;
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
-					RTLIL::Wire *wire = module->addWire(stringf("\\%s", p));
+					RTLIL::IdString wire_name(stringf("\\%s", p));
+					RTLIL::Wire *wire = module->wire(wire_name);
+					if (wire == nullptr)
+						wire = module->addWire(wire_name);
 					if (!strcmp(cmd, ".inputs"))
 						wire->port_input = true;
 					else
@@ -162,37 +229,26 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 				char *init = strtok(NULL, " \t\r\n");
 				RTLIL::Cell *cell = nullptr;
 
-				if (module->wires_.count(RTLIL::escape_id(d)) == 0)
-					module->addWire(RTLIL::escape_id(d));
-
-				if (module->wires_.count(RTLIL::escape_id(q)) == 0)
-					module->addWire(RTLIL::escape_id(q));
-
 				if (clock == nullptr && edge != nullptr) {
 					init = edge;
 					edge = nullptr;
 				}
 
 				if (init != nullptr && (init[0] == '0' || init[0] == '1'))
-					module->wire(RTLIL::escape_id(d))->attributes["\\init"] = Const(init[0] == '1' ? 1 : 0, 1);
+					blif_wire(d)->attributes["\\init"] = Const(init[0] == '1' ? 1 : 0, 1);
 
 				if (clock == nullptr)
 					goto no_latch_clock;
 
-				if (module->wires_.count(RTLIL::escape_id(clock)) == 0)
-					module->addWire(RTLIL::escape_id(clock));
-
 				if (!strcmp(edge, "re"))
-					cell = module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
-							module->wire(RTLIL::escape_id(d)), module->wire(RTLIL::escape_id(q)));
+					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "fe"))
-					cell = module->addDff(NEW_ID, module->wire(RTLIL::escape_id(clock)),
-							module->wire(RTLIL::escape_id(d)), module->wire(RTLIL::escape_id(q)), false);
+					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else {
 			no_latch_clock:
 					cell = module->addCell(NEW_ID, dff_name);
-					cell->setPort("\\D", module->wires_.at(RTLIL::escape_id(d)));
-					cell->setPort("\\Q", module->wires_.at(RTLIL::escape_id(q)));
+					cell->setPort("\\D", blif_wire(d));
+					cell->setPort("\\Q", blif_wire(q));
 				}
 
 				obj_attributes = &cell->attributes;
@@ -214,9 +270,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 					if (q == NULL || !q[0] || !q[1])
 						goto error;
 					*(q++) = 0;
-					if (module->wires_.count(RTLIL::escape_id(q)) == 0)
-						module->addWire(RTLIL::escape_id(q));
-					cell->setPort(RTLIL::escape_id(p), module->wires_.at(RTLIL::escape_id(q)));
+					cell->setPort(RTLIL::escape_id(p), blif_wire(q));
 				}
 
 				obj_attributes = &cell->attributes;
@@ -237,13 +291,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 				if (q == NULL)
 					goto error;
 
-				if (module->wires_.count(RTLIL::escape_id(p)) == 0)
-					module->addWire(RTLIL::escape_id(p));
-
-				if (module->wires_.count(RTLIL::escape_id(q)) == 0)
-					module->addWire(RTLIL::escape_id(q));
-
-				module->connect(module->wires_.at(RTLIL::escape_id(q)), module->wires_.at(RTLIL::escape_id(p)));
+				module->connect(blif_wire(q), blif_wire(p));
 				continue;
 			}
 
@@ -251,19 +299,13 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 			{
 				char *p;
 				RTLIL::SigSpec input_sig, output_sig;
-				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
-					RTLIL::Wire *wire;
-					if (module->wires_.count(RTLIL::escape_id(p)) > 0) {
-						wire = module->wires_.at(RTLIL::escape_id(p));
-					} else {
-						wire = module->addWire(RTLIL::escape_id(p));
-					}
-					input_sig.append(wire);
-				}
+				while ((p = strtok(NULL, " \t\r\n")) != NULL)
+					input_sig.append(blif_wire(p));
 				output_sig = input_sig.extract(input_sig.size()-1, 1);
 				input_sig = input_sig.extract(0, input_sig.size()-1);
 
-				if (input_sig.size() == 0) {
+				if (input_sig.size() == 0)
+				{
 					RTLIL::State state = RTLIL::State::Sa;
 					while (1) {
 						if (!read_next_line(buffer, buffer_size, line_count, f))
@@ -288,9 +330,12 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name)
 							goto error;
 						}
 					}
+
 				finished_parsing_constval:
 					if (state == RTLIL::State::Sa)
 						state = RTLIL::State::S0;
+					if (output_sig.as_wire()->name == "$undef")
+						state = RTLIL::State::Sx;
 					module->connect(RTLIL::SigSig(output_sig, state));
 					goto continue_without_read;
 				}
@@ -367,7 +412,7 @@ struct BlifFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		parse_blif(design, *f, "\\DFF");
+		parse_blif(design, *f, "\\DFF", true);
 	}
 } BlifFrontend;
 
