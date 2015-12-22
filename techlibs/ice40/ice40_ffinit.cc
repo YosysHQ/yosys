@@ -148,8 +148,8 @@ struct Ice40FfinitPass : public Pass {
 
 				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++) {
 					if (handled_initbits.count(wirebits[i]))
-						wirebits[i] = State::Sx;
-					else
+						initval[i] = State::Sx;
+					else if (initval[i] != State::Sx)
 						remove_attribute = false;
 				}
 
