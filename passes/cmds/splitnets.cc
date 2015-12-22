@@ -130,6 +130,9 @@ struct SplitnetsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// module_ports_db[module_name][old_port_name] = new_port_name_list
+		dict<IdString, dict<IdString, vector<IdString>>> module_ports_db;
+
 		for (auto module : design->selected_modules())
 		{
 			SplitnetsWorker worker;
@@ -199,6 +202,26 @@ struct SplitnetsPass : public Pass {
 
 			module->rewrite_sigspecs(worker);
 
+			if (flag_ports)
+			{
+				for (auto wire : module->wires())
+				{
+					if (wire->port_id == 0)
+						continue;
+
+					SigSpec sig(wire);
+					worker(sig);
+
+					if (sig == wire)
+						continue;
+
+					vector<IdString> &new_ports = module_ports_db[module->name][wire->name];
+
+					for (SigSpec c : sig.chunks())
+						new_ports.push_back(c.as_wire()->name);
+				}
+			}
+
 			pool<RTLIL::Wire*> delete_wires;
 			for (auto &it : worker.splitmap)
 				delete_wires.insert(it.first);
@@ -206,6 +229,40 @@ struct SplitnetsPass : public Pass {
 
 			if (flag_ports)
 				module->fixup_ports();
+		}
+
+		if (!module_ports_db.empty())
+		{
+			for (auto module : design->modules())
+			for (auto cell : module->cells())
+			{
+				if (module_ports_db.count(cell->type) == 0)
+					continue;
+
+				for (auto &it : module_ports_db.at(cell->type))
+				{
+					IdString port_id = it.first;
+					const auto &new_port_ids = it.second;
+
+					if (!cell->hasPort(port_id))
+						continue;
+
+					int offset = 0;
+					SigSpec sig = cell->getPort(port_id);
+
+					for (auto nid : new_port_ids)
+					{
+						int nlen = GetSize(design->module(cell->type)->wire(nid));
+						if (offset + nlen > GetSize(sig))
+							nlen = GetSize(sig) - offset;
+						if (nlen > 0)
+							cell->setPort(nid, sig.extract(offset, nlen));
+						offset += nlen;
+					}
+
+					cell->unsetPort(port_id);
+				}
+			}
 		}
 	}
 } SplitnetsPass;
