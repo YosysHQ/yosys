@@ -76,13 +76,24 @@ static void run_ice40_opts(Module *module)
 
 	for (auto cell : sb_lut_cells)
 	{
-		if (optimized_co.count(sigmap(cell->getPort("\\I0")))) goto remap_lut;
-		if (optimized_co.count(sigmap(cell->getPort("\\I1")))) goto remap_lut;
-		if (optimized_co.count(sigmap(cell->getPort("\\I2")))) goto remap_lut;
-		if (optimized_co.count(sigmap(cell->getPort("\\I3")))) goto remap_lut;
-		continue;
+		SigSpec inbits;
+
+		inbits.append(cell->getPort("\\I0"));
+		inbits.append(cell->getPort("\\I1"));
+		inbits.append(cell->getPort("\\I2"));
+		inbits.append(cell->getPort("\\I3"));
+		sigmap.apply(inbits);
+
+		if (optimized_co.count(inbits[0])) goto remap_lut;
+		if (optimized_co.count(inbits[1])) goto remap_lut;
+		if (optimized_co.count(inbits[2])) goto remap_lut;
+		if (optimized_co.count(inbits[3])) goto remap_lut;
+
+		if (!sigmap(inbits).is_fully_const())
+			continue;
 
 	remap_lut:
+		module->design->scratchpad_set_bool("opt.did_something", true);
 		log("Mapping SB_LUT4 cell %s.%s back to logic.\n", log_id(module), log_id(cell));
 
 		cell->type ="$lut";
