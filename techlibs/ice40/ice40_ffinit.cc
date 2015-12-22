@@ -86,9 +86,15 @@ struct Ice40FfinitPass : public Pass {
 				}
 			}
 
+			pool<IdString> sb_dff_types = {
+				"\\SB_DFF",    "\\SB_DFFE",   "\\SB_DFFSR",   "\\SB_DFFR",   "\\SB_DFFSS",   "\\SB_DFFS",   "\\SB_DFFESR",
+				"\\SB_DFFER",  "\\SB_DFFESS", "\\SB_DFFES",   "\\SB_DFFN",   "\\SB_DFFNE",   "\\SB_DFFNSR", "\\SB_DFFNR",
+				"\\SB_DFFNSS", "\\SB_DFFNS",  "\\SB_DFFNESR", "\\SB_DFFNER", "\\SB_DFFNESS", "\\SB_DFFNES"
+			};
+
 			for (auto cell : module->selected_cells())
 			{
-				if (!cell->type.in("\\SB_DFF", "\\SB_DFFE", "\\SB_DFFN", "\\SB_DFFNE"))
+				if (!sb_dff_types.count(cell->type))
 					continue;
 
 				SigBit sig_d = sigmap(cell->getPort("\\D"));
@@ -105,6 +111,21 @@ struct Ice40FfinitPass : public Pass {
 
 				if (val == State::S0)
 					continue;
+
+				string type_str = cell->type.str();
+
+				if (type_str.back() == 'S') {
+					type_str.back() = 'R';
+					cell->type = type_str;
+					cell->setPort("\\R", cell->getPort("\\S"));
+					cell->unsetPort("\\S");
+				} else
+				if (type_str.back() == 'R') {
+					type_str.back() = 'S';
+					cell->type = type_str;
+					cell->setPort("\\S", cell->getPort("\\R"));
+					cell->unsetPort("\\R");
+				}
 
 				Wire *new_sig_d = module->addWire(NEW_ID);
 				Wire *new_sig_q = module->addWire(NEW_ID);
