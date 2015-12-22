@@ -113,6 +113,7 @@ struct SynthIce40Pass : public Pass {
 		log("\n");
 		log("    map_luts:\n");
 		log("        abc          (only if -abc2)\n");
+		log("        ice40_opt    (only if -abc2)\n");
 		log("        abc -lut 4\n");
 		log("        clean\n");
 		log("\n");
@@ -253,8 +254,10 @@ struct SynthIce40Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			if (abc2)
+			if (abc2) {
 				Pass::call(design, "abc");
+				Pass::call(design, "ice40_opt");
+			}
 			Pass::call(design, "abc -lut 4");
 			Pass::call(design, "clean");
 		}
