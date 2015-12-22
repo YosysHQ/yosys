@@ -81,6 +81,7 @@ struct SynthPass : public Pass {
 		log("\n");
 		log("    coarse:\n");
 		log("        proc\n");
+		log("        opt_const\n");
 		log("        opt_clean\n");
 		log("        check\n");
 		log("        opt\n");
@@ -179,6 +180,7 @@ struct SynthPass : public Pass {
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
 			Pass::call(design, "proc");
+			Pass::call(design, "opt_const");
 			Pass::call(design, "opt_clean");
 			Pass::call(design, "check");
 			Pass::call(design, "opt");
