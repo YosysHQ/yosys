@@ -29,34 +29,51 @@ struct EquivAddPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    equiv_add gold_sig gate_sig\n");
+		log("    equiv_add [-try] gold_sig gate_sig\n");
 		log("\n");
 		log("This command adds an $equiv cell for the specified signals.\n");
 		log("\n");
 		log("\n");
-		log("    equiv_add -cell gold_cell gate_cell\n");
+		log("    equiv_add [-try] -cell gold_cell gate_cell\n");
 		log("\n");
 		log("This command adds $equiv cells for the ports of the specified cells.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
+		bool try_mode = false;
+
 		if (design->selected_active_module.empty())
 			log_cmd_error("This command must be executed in module context!\n");
 
 		Module *module = design->module(design->selected_active_module);
 		log_assert(module != nullptr);
 
+		if (GetSize(args) > 1 && args[1] == "-try") {
+			args.erase(args.begin() + 1);
+			try_mode = true;
+		}
+
 		if (GetSize(args) == 4 && args[1] == "-cell")
 		{
 			Cell *gold_cell = module->cell(RTLIL::escape_id(args[2]));
 			Cell *gate_cell = module->cell(RTLIL::escape_id(args[3]));
 
-			if (gold_cell == nullptr)
+			if (gold_cell == nullptr) {
+				if (try_mode) {
+					log_warning("Can't find gold cell '%s'.\n", args[2].c_str());
+					return;
+				}
 				log_cmd_error("Can't find gold cell '%s'.\n", args[2].c_str());
+			}
 
-			if (gate_cell == nullptr)
+			if (gate_cell == nullptr) {
+				if (try_mode) {
+					log_warning("Can't find gate cell '%s'.\n", args[3].c_str());
+					return;
+				}
 				log_cmd_error("Can't find gate cell '%s'.\n", args[3].c_str());
+			}
 
 			for (auto conn : gold_cell->connections())
 			{
@@ -107,11 +124,21 @@ struct EquivAddPass : public Pass {
 
 			SigSpec gold_signal, gate_signal;
 
-			if (!SigSpec::parse(gate_signal, module, args[2]))
+			if (!SigSpec::parse(gate_signal, module, args[2])) {
+				if (try_mode) {
+					log_warning("Error in gate signal: %s\n", args[2].c_str());
+					return;
+				}
 				log_cmd_error("Error in gate signal: %s\n", args[2].c_str());
+			}
 
-			if (!SigSpec::parse_rhs(gate_signal, gold_signal, module, args[1]))
+			if (!SigSpec::parse_rhs(gate_signal, gold_signal, module, args[1])) {
+				if (try_mode) {
+					log_warning("Error in gold signal: %s\n", args[1].c_str());
+					return;
+				}
 				log_cmd_error("Error in gold signal: %s\n", args[1].c_str());
+			}
 
 			log_assert(GetSize(gold_signal) == GetSize(gate_signal));
 			SigSpec equiv_signal = module->addWire(NEW_ID, GetSize(gold_signal));
