@@ -114,11 +114,11 @@ struct EquivStructWorker
 		module->remove(cell_b);
 	}
 
-	EquivStructWorker(Module *module, bool mode_fwd, bool mode_icells) :
+	EquivStructWorker(Module *module, bool mode_fwd, bool mode_icells, int iter_num) :
 			module(module), sigmap(module), equiv_bits(module),
 			mode_fwd(mode_fwd), mode_icells(mode_icells), merge_count(0)
 	{
-		log("  Starting new iteration.\n");
+		log("  Starting iteration %d.\n", iter_num);
 
 		pool<SigBit> equiv_inputs;
 		pool<IdString> cells;
@@ -296,11 +296,15 @@ struct EquivStructPass : public Pass {
 		log("        by default, the internal RTL and gate cell types are ignored. add\n");
 		log("        this option to also process those cell types with this command.\n");
 		log("\n");
+		log("    -maxiter <N>\n");
+		log("        maximum number of iterations to run before aborting\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
 		bool mode_icells = false;
 		bool mode_fwd = false;
+		int max_iter = -1;
 
 		log_header("Executing EQUIV_STRUCT pass.\n");
 
@@ -314,6 +318,10 @@ struct EquivStructPass : public Pass {
 				mode_icells = true;
 				continue;
 			}
+			if (args[argidx] == "-maxiter" && argidx+1 < args.size()) {
+				max_iter = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -321,8 +329,12 @@ struct EquivStructPass : public Pass {
 		for (auto module : design->selected_modules()) {
 			int module_merge_count = 0;
 			log("Running equiv_struct on module %s:\n", log_id(module));
-			while (1) {
-				EquivStructWorker worker(module, mode_fwd, mode_icells);
+			for (int iter = 0;; iter++) {
+				if (iter == max_iter) {
+					log("  Reached iteration limit of %d.\n", iter);
+					break;
+				}
+				EquivStructWorker worker(module, mode_fwd, mode_icells, iter+1);
 				if (worker.merge_count == 0)
 					break;
 				module_merge_count += worker.merge_count;
