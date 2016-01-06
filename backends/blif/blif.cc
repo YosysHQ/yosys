@@ -37,6 +37,7 @@ struct BlifDumperConfig
 	bool conn_mode;
 	bool impltf_mode;
 	bool gates_mode;
+	bool cname_mode;
 	bool param_mode;
 	bool attr_mode;
 	bool blackbox_mode;
@@ -45,7 +46,8 @@ struct BlifDumperConfig
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
 	std::string true_type, true_out, false_type, false_out, undef_type, undef_out;
 
-	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false), param_mode(false), attr_mode(false), blackbox_mode(false) { }
+	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false),
+			cname_mode(false), param_mode(false), attr_mode(false), blackbox_mode(false) { }
 };
 
 struct BlifDumper
@@ -349,6 +351,8 @@ struct BlifDumper
 			}
 			f << stringf("\n");
 
+			if (config->cname_mode)
+				f << stringf(".cname %s\n", cstr(cell->name));
 			if (config->attr_mode)
 				dump_params(".attr", cell->attributes);
 			if (config->param_mode)
@@ -426,6 +430,9 @@ struct BlifBackend : public Backend {
 		log("    -param\n");
 		log("        use the non-standard .param statement to write cell parameters\n");
 		log("\n");
+		log("    -cname\n");
+		log("        use the non-standard .cname statement to write cell names\n");
+		log("\n");
 		log("    -blackbox\n");
 		log("        write blackbox cells with .blackbox statement.\n");
 		log("\n");
@@ -488,6 +495,10 @@ struct BlifBackend : public Backend {
 			}
 			if (args[argidx] == "-conn") {
 				config.conn_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-cname") {
+				config.cname_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-param") {
