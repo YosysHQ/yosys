@@ -143,6 +143,7 @@ struct EquivStructWorker
 				SigBit sig_y = sigmap(cell->getPort("\\Y").as_bit());
 				if (sig_a == sig_b && equiv_inputs.count(sig_y)) {
 					log("    Purging redundant $equiv cell %s.\n", log_id(cell));
+					module->connect(sig_y, sig_a);
 					module->remove(cell);
 					merge_count++;
 				}
@@ -205,11 +206,13 @@ struct EquivStructWorker
 				const char *strategy = nullptr;
 				vector<Cell*> gold_cells, gate_cells, other_cells;
 				vector<pair<Cell*, Cell*>> cell_pairs;
+				IdString cells_type;
 
 				for (auto cell_name : merge_cache[key]) {
 					Cell *c = module->cell(cell_name);
 					if (c != nullptr) {
 						string n = cell_name.str();
+						cells_type = c->type;
 						if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gold")
 							gold_cells.push_back(c);
 						else if (GetSize(n) > 5 && n.substr(GetSize(n)-5) == "_gate")
@@ -218,6 +221,9 @@ struct EquivStructWorker
 							other_cells.push_back(c);
 					}
 				}
+
+				if (phase && cells_type == "$equiv")
+					continue;
 
 				if (GetSize(gold_cells) > 1 || GetSize(gate_cells) > 1 || GetSize(other_cells) > 1)
 				{
@@ -256,8 +262,9 @@ struct EquivStructWorker
 				continue;
 
 			run_strategy:
-				log("    %s merging %d cells (from group of %d) using strategy %s:\n", phase ? "Bwd" : "Fwd",
-						2*GetSize(cell_pairs), GetSize(gold_cells) + GetSize(gate_cells) + GetSize(other_cells), strategy);
+				int total_group_size = GetSize(gold_cells) + GetSize(gate_cells) + GetSize(other_cells);
+				log("    %s merging %d %s cells (from group of %d) using strategy %s:\n", phase ? "Bwd" : "Fwd",
+						2*GetSize(cell_pairs), log_id(cells_type), total_group_size, strategy);
 				for (auto it : cell_pairs) {
 					log("      Merging cells %s and %s.\n", log_id(it.first),  log_id(it.second));
 					merge_cell_pair(it.first, it.second);
