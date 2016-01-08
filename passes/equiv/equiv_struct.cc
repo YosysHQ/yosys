@@ -32,6 +32,8 @@ struct EquivStructWorker
 	bool mode_icells;
 	int merge_count;
 
+	const pool<IdString> &fwonly_cells;
+
 	struct merge_key_t
 	{
 		IdString type;
@@ -114,9 +116,9 @@ struct EquivStructWorker
 		module->remove(cell_b);
 	}
 
-	EquivStructWorker(Module *module, bool mode_fwd, bool mode_icells, int iter_num) :
+	EquivStructWorker(Module *module, bool mode_fwd, bool mode_icells, const pool<IdString> &fwonly_cells, int iter_num) :
 			module(module), sigmap(module), equiv_bits(module),
-			mode_fwd(mode_fwd), mode_icells(mode_icells), merge_count(0)
+			mode_fwd(mode_fwd), mode_icells(mode_icells), merge_count(0), fwonly_cells(fwonly_cells)
 	{
 		log("  Starting iteration %d.\n", iter_num);
 
@@ -222,7 +224,7 @@ struct EquivStructWorker
 					}
 				}
 
-				if (phase && cells_type == "$equiv")
+				if (phase && fwonly_cells.count(cells_type))
 					continue;
 
 				if (GetSize(gold_cells) > 1 || GetSize(gate_cells) > 1 || GetSize(other_cells) > 1)
@@ -295,9 +297,14 @@ struct EquivStructPass : public Pass {
 		log("\n");
 		log("    -fwd\n");
 		log("        by default this command performans forward sweeps until nothing can\n");
-		log("        be merged by forwards sweeps, the backward sweeps until forward\n");
+		log("        be merged by forwards sweeps, then backward sweeps until forward\n");
 		log("        sweeps are effective again. with this option set only forward sweeps\n");
 		log("        are performed.\n");
+		log("\n");
+		log("    -fwonly <cell_type>\n");
+		log("        add the specified cell type to the list of cell types that are only\n");
+		log("        merged in forward sweeps and never in backward sweeps. $equiv is in\n");
+		log("        this list automatically.\n");
 		log("\n");
 		log("    -icells\n");
 		log("        by default, the internal RTL and gate cell types are ignored. add\n");
@@ -309,6 +316,7 @@ struct EquivStructPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
+		pool<IdString> fwonly_cells({ "$equiv" });
 		bool mode_icells = false;
 		bool mode_fwd = false;
 		int max_iter = -1;
@@ -323,6 +331,10 @@ struct EquivStructPass : public Pass {
 			}
 			if (args[argidx] == "-icells") {
 				mode_icells = true;
+				continue;
+			}
+			if (args[argidx] == "-fwonly" && argidx+1 < args.size()) {
+				fwonly_cells.insert(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-maxiter" && argidx+1 < args.size()) {
@@ -341,7 +353,7 @@ struct EquivStructPass : public Pass {
 					log("  Reached iteration limit of %d.\n", iter);
 					break;
 				}
-				EquivStructWorker worker(module, mode_fwd, mode_icells, iter+1);
+				EquivStructWorker worker(module, mode_fwd, mode_icells, fwonly_cells, iter+1);
 				if (worker.merge_count == 0)
 					break;
 				module_merge_count += worker.merge_count;
