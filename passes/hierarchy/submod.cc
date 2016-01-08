@@ -32,6 +32,8 @@ struct SubmodWorker
 	CellTypes ct;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
+
+	bool copy_mode;
 	std::string opt_name;
 
 	struct SubModule
@@ -177,21 +179,25 @@ struct SubmodWorker
 						bit.wire = wire_flags[bit.wire].new_wire;
 					}
 			log("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
-			module->remove(cell);
+			if (!copy_mode)
+				module->remove(cell);
 		}
 		submod.cells.clear();
 
-		RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod.full_name);
-		for (auto &it : wire_flags)
-		{
-			RTLIL::Wire *old_wire = it.first;
-			RTLIL::Wire *new_wire = it.second.new_wire;
-			if (new_wire->port_id > 0)
-				new_cell->setPort(new_wire->name, RTLIL::SigSpec(old_wire));
+		if (!copy_mode) {
+			RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod.full_name);
+			for (auto &it : wire_flags)
+			{
+				RTLIL::Wire *old_wire = it.first;
+				RTLIL::Wire *new_wire = it.second.new_wire;
+				if (new_wire->port_id > 0)
+					new_cell->setPort(new_wire->name, RTLIL::SigSpec(old_wire));
+			}
 		}
 	}
 
-	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, std::string opt_name = std::string()) : design(design), module(module), opt_name(opt_name)
+	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, std::string opt_name = std::string()) :
+			design(design), module(module), copy_mode(copy_mode), opt_name(opt_name)
 	{
 		if (!design->selected_whole_module(module->name) && opt_name.empty())
 			return;
@@ -266,7 +272,7 @@ struct SubmodPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    submod [selection]\n");
+		log("    submod [-copy] [selection]\n");
 		log("\n");
 		log("This pass identifies all cells with the 'submod' attribute and moves them to\n");
 		log("a newly created module. The value of the attribute is used as name for the\n");
@@ -279,11 +285,15 @@ struct SubmodPass : public Pass {
 		log("or memories.\n");
 		log("\n");
 		log("\n");
-		log("    submod -name <name> [selection]\n");
+		log("    submod -name <name> [-copy] [selection]\n");
 		log("\n");
 		log("As above, but don't use the 'submod' attribute but instead use the selection.\n");
 		log("Only objects from one module might be selected. The value of the -name option\n");
 		log("is used as the value of the 'submod' attribute above.\n");
+		log("\n");
+		log("By default the cells are 'moved' from the source module and the source module\n");
+		log("will use an instance of the new module after this command is finished. Call\n");
+		log("with -copy to not modify the source module.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -292,11 +302,16 @@ struct SubmodPass : public Pass {
 		log_push();
 
 		std::string opt_name;
+		bool copy_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-name" && argidx+1 < args.size()) {
 				opt_name = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-copy") {
+				copy_mode = true;
 				continue;
 			}
 			break;
@@ -319,7 +334,7 @@ struct SubmodPass : public Pass {
 						queued_modules.push_back(mod_it.first);
 				for (auto &modname : queued_modules)
 					if (design->modules_.count(modname) != 0) {
-						SubmodWorker worker(design, design->modules_[modname]);
+						SubmodWorker worker(design, design->modules_[modname], copy_mode);
 						handled_modules.insert(modname);
 						did_something = true;
 					}
@@ -342,7 +357,7 @@ struct SubmodPass : public Pass {
 			else {
 				Pass::call_on_module(design, module, "opt_clean");
 				log_header("Continuing SUBMOD pass.\n");
-				SubmodWorker worker(design, module, opt_name);
+				SubmodWorker worker(design, module, copy_mode, opt_name);
 			}
 		}
 
