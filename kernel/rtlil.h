@@ -670,6 +670,8 @@ public:
 	void remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const;
 	void remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
 
+	void remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
+
 	void remove(int offset, int length = 1);
 	void remove_const();
 
