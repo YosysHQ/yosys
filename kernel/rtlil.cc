@@ -2688,31 +2688,15 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec 
 		other->unpack();
 	}
 
-	std::vector<RTLIL::SigBit> new_bits, new_other_bits;
-
-	new_bits.resize(GetSize(bits_));
-	if (other != NULL)
-		new_other_bits.resize(GetSize(bits_));
-
-	int k = 0;
-	for (int i = 0; i < GetSize(bits_); i++) {
-		if (bits_[i].wire != NULL && pattern.count(bits_[i]))
-			continue;
-		if (other != NULL)
-			new_other_bits[k] = other->bits_[i];
-		new_bits[k++] = bits_[i];
-	}
-
-	new_bits.resize(k);
-	if (other != NULL)
-		new_other_bits.resize(k);
-
-	bits_.swap(new_bits);
-	width_ = GetSize(bits_);
-
-	if (other != NULL) {
-		other->bits_.swap(new_other_bits);
-		other->width_ = GetSize(other->bits_);
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			bits_.erase(bits_.begin() + i);
+			width_--;
+			if (other != NULL) {
+				other->bits_.erase(other->bits_.begin() + i);
+				other->width_--;
+			}
+		}
 	}
 
 	check();
@@ -2732,26 +2716,15 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 		other->unpack();
 	}
 
-	std::vector<RTLIL::SigBit> new_bits, new_other_bits;
-
-	new_bits.reserve(GetSize(bits_));
-	if (other != NULL)
-		new_other_bits.reserve(GetSize(bits_));
-
-	for (int i = 0; i < GetSize(bits_); i++) {
-		if (bits_[i].wire != NULL && pattern.count(bits_[i]))
-			continue;
-		if (other != NULL)
-			new_other_bits.push_back(other->bits_[i]);
-		new_bits.push_back(bits_[i]);
-	}
-
-	bits_.swap(new_bits);
-	width_ = GetSize(bits_);
-
-	if (other != NULL) {
-		other->bits_.swap(new_other_bits);
-		other->width_ = GetSize(other->bits_);
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			bits_.erase(bits_.begin() + i);
+			width_--;
+			if (other != NULL) {
+				other->bits_.erase(other->bits_.begin() + i);
+				other->width_--;
+			}
+		}
 	}
 
 	check();
