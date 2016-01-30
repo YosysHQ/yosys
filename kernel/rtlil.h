@@ -192,12 +192,12 @@ namespace RTLIL
 			return std::string(global_id_storage_.at(index_));
 		}
 
-		bool operator<(IdString rhs) const {
+		bool operator<(const IdString &rhs) const {
 			return index_ < rhs.index_;
 		}
 
-		bool operator==(IdString rhs) const { return index_ == rhs.index_; }
-		bool operator!=(IdString rhs) const { return index_ != rhs.index_; }
+		bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
+		bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
 
 		// The methods below are just convenience functions for better compatibility with std::string.
 
