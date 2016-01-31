@@ -2659,8 +2659,35 @@ void RTLIL::SigSpec::remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other
 
 void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other)
 {
-	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_pool();
-	remove2(pattern_bits, other);
+	if (other)
+		cover("kernel.rtlil.sigspec.remove_other");
+	else
+		cover("kernel.rtlil.sigspec.remove");
+
+	unpack();
+	if (other != NULL) {
+		log_assert(width_ == other->width_);
+		other->unpack();
+	}
+
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire == NULL) continue;
+
+		for (auto &pattern_chunk : pattern.chunks()) {
+			if (bits_[i].wire == pattern_chunk.wire &&
+				bits_[i].offset >= pattern_chunk.offset &&
+				bits_[i].offset < pattern_chunk.offset + pattern_chunk.width) {
+				bits_.erase(bits_.begin() + i);
+				width_--;
+				if (other != NULL) {
+					other->bits_.erase(other->bits_.begin() + i);
+					other->width_--;
+				}
+			}
+		}
+	}
+
+	check();
 }
 
 void RTLIL::SigSpec::remove(const pool<RTLIL::SigBit> &pattern)
