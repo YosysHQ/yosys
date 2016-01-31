@@ -2573,8 +2573,18 @@ void RTLIL::SigSpec::sort()
 
 void RTLIL::SigSpec::sort_and_unify()
 {
+	unpack();
 	cover("kernel.rtlil.sigspec.sort_and_unify");
-	*this = this->to_sigbit_set();
+
+	// A copy of the bits vector is used to prevent duplicating the logic from
+	// SigSpec::SigSpec(std::vector<SigBit>).  This incurrs an extra copy but
+	// that isn't showing up as significant in profiles.
+	std::vector<SigBit> unique_bits = bits_;
+	std::sort(unique_bits.begin(), unique_bits.end());
+	auto last = std::unique(unique_bits.begin(), unique_bits.end());
+	unique_bits.erase(last, unique_bits.end());
+
+	*this = unique_bits;
 }
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with)
@@ -2584,18 +2594,26 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const
 {
+	log_assert(other != NULL);
+	log_assert(width_ == other->width_);
 	log_assert(pattern.width_ == with.width_);
 
 	pattern.unpack();
 	with.unpack();
+	unpack();
+	other->unpack();
 
-	dict<RTLIL::SigBit, RTLIL::SigBit> rules;
+	for (int i = 0; i < GetSize(pattern.bits_); i++) {
+		if (pattern.bits_[i].wire != NULL) {
+			for (int j = 0; j < GetSize(bits_); j++) {
+				if (bits_[j] == pattern.bits_[i]) {
+					other->bits_[j] = with.bits_[i];
+				}
+			}
+		}
+	}
 
-	for (int i = 0; i < GetSize(pattern.bits_); i++)
-		if (pattern.bits_[i].wire != NULL)
-			rules[pattern.bits_[i]] = with.bits_[i];
-
-	replace(rules, other);
+	other->check();
 }
 
 void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules)
@@ -2659,8 +2677,35 @@ void RTLIL::SigSpec::remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other
 
 void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other)
 {
-	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_pool();
-	remove2(pattern_bits, other);
+	if (other)
+		cover("kernel.rtlil.sigspec.remove_other");
+	else
+		cover("kernel.rtlil.sigspec.remove");
+
+	unpack();
+	if (other != NULL) {
+		log_assert(width_ == other->width_);
+		other->unpack();
+	}
+
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire == NULL) continue;
+
+		for (auto &pattern_chunk : pattern.chunks()) {
+			if (bits_[i].wire == pattern_chunk.wire &&
+				bits_[i].offset >= pattern_chunk.offset &&
+				bits_[i].offset < pattern_chunk.offset + pattern_chunk.width) {
+				bits_.erase(bits_.begin() + i);
+				width_--;
+				if (other != NULL) {
+					other->bits_.erase(other->bits_.begin() + i);
+					other->width_--;
+				}
+			}
+		}
+	}
+
+	check();
 }
 
 void RTLIL::SigSpec::remove(const pool<RTLIL::SigBit> &pattern)
@@ -2732,8 +2777,37 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other) const
 {
-	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_pool();
-	return extract(pattern_bits, other);
+	if (other)
+		cover("kernel.rtlil.sigspec.extract_other");
+	else
+		cover("kernel.rtlil.sigspec.extract");
+
+	log_assert(other == NULL || width_ == other->width_);
+
+	RTLIL::SigSpec ret;
+	std::vector<RTLIL::SigBit> bits_match = to_sigbit_vector();
+
+	for (auto& pattern_chunk : pattern.chunks()) {
+		if (other) {
+			std::vector<RTLIL::SigBit> bits_other = other->to_sigbit_vector();
+			for (int i = 0; i < width_; i++)
+				if (bits_match[i].wire &&
+					bits_match[i].wire == pattern_chunk.wire &&
+					bits_match[i].offset >= pattern_chunk.offset &&
+					bits_match[i].offset < pattern_chunk.offset + pattern_chunk.width)
+					ret.append_bit(bits_other[i]);
+		} else {
+			for (int i = 0; i < width_; i++)
+				if (bits_match[i].wire &&
+					bits_match[i].wire == pattern_chunk.wire &&
+					bits_match[i].offset >= pattern_chunk.offset &&
+					bits_match[i].offset < pattern_chunk.offset + pattern_chunk.width)
+					ret.append_bit(bits_match[i]);
+		}
+	}
+
+	ret.check();
+	return ret;
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other) const
