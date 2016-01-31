@@ -2584,18 +2584,26 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const
 {
+	log_assert(other != NULL);
+	log_assert(width_ == other->width_);
 	log_assert(pattern.width_ == with.width_);
 
 	pattern.unpack();
 	with.unpack();
+	unpack();
+	other->unpack();
 
-	dict<RTLIL::SigBit, RTLIL::SigBit> rules;
+	for (int i = 0; i < GetSize(pattern.bits_); i++) {
+		if (pattern.bits_[i].wire != NULL) {
+			for (int j = 0; j < GetSize(bits_); j++) {
+				if (bits_[j] == pattern.bits_[i]) {
+					other->bits_[j] = with.bits_[i];
+				}
+			}
+		}
+	}
 
-	for (int i = 0; i < GetSize(pattern.bits_); i++)
-		if (pattern.bits_[i].wire != NULL)
-			rules[pattern.bits_[i]] = with.bits_[i];
-
-	replace(rules, other);
+	other->check();
 }
 
 void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules)
