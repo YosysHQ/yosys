@@ -18,6 +18,14 @@ ENABLE_LIBYOSYS := 0
 ENABLE_GPROF := 0
 ENABLE_NDEBUG := 0
 
+# clang sanitizers
+SANITIZER =
+# SANITIZER = address
+# SANITIZER = memory
+# SANITIZER = undefined
+# SANITIZER = cfi
+
+
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
 
@@ -87,6 +95,19 @@ endif
 ifeq ($(CONFIG),clang)
 CXX = clang
 CXXFLAGS += -std=c++11 -Os
+
+ifneq ($(SANITIZER),)
+$(info [Clang Sanitizer] $(SANITIZER))
+CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
+LDFLAGS += -g -fsanitize=$(SANITIZER)
+ifeq ($(SANITIZER),address)
+ENABLE_COVER := 0
+endif
+ifeq ($(SANITIZER),cfi)
+CXXFLAGS += -flto
+LDFLAGS += -flto
+endif
+endif
 
 else ifeq ($(CONFIG),gcc)
 CXX = gcc
