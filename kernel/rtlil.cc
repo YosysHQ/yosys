@@ -2688,31 +2688,43 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec 
 		other->unpack();
 	}
 
-	std::vector<RTLIL::SigBit> new_bits, new_other_bits;
-
-	new_bits.resize(GetSize(bits_));
-	if (other != NULL)
-		new_other_bits.resize(GetSize(bits_));
-
-	int k = 0;
-	for (int i = 0; i < GetSize(bits_); i++) {
-		if (bits_[i].wire != NULL && pattern.count(bits_[i]))
-			continue;
-		if (other != NULL)
-			new_other_bits[k] = other->bits_[i];
-		new_bits[k++] = bits_[i];
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			bits_.erase(bits_.begin() + i);
+			width_--;
+			if (other != NULL) {
+				other->bits_.erase(other->bits_.begin() + i);
+				other->width_--;
+			}
+		}
 	}
 
-	new_bits.resize(k);
-	if (other != NULL)
-		new_other_bits.resize(k);
+	check();
+}
 
-	bits_.swap(new_bits);
-	width_ = GetSize(bits_);
+void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other)
+{
+	if (other)
+		cover("kernel.rtlil.sigspec.remove_other");
+	else
+		cover("kernel.rtlil.sigspec.remove");
+
+	unpack();
 
 	if (other != NULL) {
-		other->bits_.swap(new_other_bits);
-		other->width_ = GetSize(other->bits_);
+		log_assert(width_ == other->width_);
+		other->unpack();
+	}
+
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			bits_.erase(bits_.begin() + i);
+			width_--;
+			if (other != NULL) {
+				other->bits_.erase(other->bits_.begin() + i);
+				other->width_--;
+			}
+		}
 	}
 
 	check();
