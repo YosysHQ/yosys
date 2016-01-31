@@ -2777,8 +2777,37 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other) const
 {
-	pool<RTLIL::SigBit> pattern_bits = pattern.to_sigbit_pool();
-	return extract(pattern_bits, other);
+	if (other)
+		cover("kernel.rtlil.sigspec.extract_other");
+	else
+		cover("kernel.rtlil.sigspec.extract");
+
+	log_assert(other == NULL || width_ == other->width_);
+
+	RTLIL::SigSpec ret;
+	std::vector<RTLIL::SigBit> bits_match = to_sigbit_vector();
+
+	for (auto& pattern_chunk : pattern.chunks()) {
+		if (other) {
+			std::vector<RTLIL::SigBit> bits_other = other->to_sigbit_vector();
+			for (int i = 0; i < width_; i++)
+				if (bits_match[i].wire &&
+					bits_match[i].wire == pattern_chunk.wire &&
+					bits_match[i].offset >= pattern_chunk.offset &&
+					bits_match[i].offset < pattern_chunk.offset + pattern_chunk.width)
+					ret.append_bit(bits_other[i]);
+		} else {
+			for (int i = 0; i < width_; i++)
+				if (bits_match[i].wire &&
+					bits_match[i].wire == pattern_chunk.wire &&
+					bits_match[i].offset >= pattern_chunk.offset &&
+					bits_match[i].offset < pattern_chunk.offset + pattern_chunk.width)
+					ret.append_bit(bits_match[i]);
+		}
+	}
+
+	ret.check();
+	return ret;
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other) const
