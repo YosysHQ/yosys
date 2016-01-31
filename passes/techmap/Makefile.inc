@@ -42,6 +42,6 @@ EXTRA_OBJS += passes/techmap/filterlib.o
 
 yosys-filterlib$(EXE): passes/techmap/filterlib.o
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(CXX) -o yosys-filterlib$(EXE) $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o yosys-filterlib$(EXE) $(LDFLAGS) $^ $(LDLIBS)
 endif
 

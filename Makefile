@@ -94,6 +94,7 @@ endif
 
 ifeq ($(CONFIG),clang)
 CXX = clang
+LD = clang++
 CXXFLAGS += -std=c++11 -Os
 
 ifneq ($(SANITIZER),)
@@ -103,6 +104,10 @@ LDFLAGS += -g -fsanitize=$(SANITIZER)
 ifeq ($(SANITIZER),address)
 ENABLE_COVER := 0
 endif
+ifeq ($(SANITIZER),memory)
+CXXFLAGS += -fPIE
+LDFLAGS += -fPIE
+endif
 ifeq ($(SANITIZER),cfi)
 CXXFLAGS += -flto
 LDFLAGS += -flto
@@ -111,14 +116,17 @@ endif
 
 else ifeq ($(CONFIG),gcc)
 CXX = gcc
+LD = gcc
 CXXFLAGS += -std=gnu++0x -Os
 
 else ifeq ($(CONFIG),gcc-4.6)
 CXX = gcc-4.6
+LD = gcc-4.6
 CXXFLAGS += -std=gnu++0x -Os
 
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
+LD = emcc
 CXXFLAGS := -std=c++11 $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
@@ -148,6 +156,7 @@ yosys.html: misc/yosys.html
 
 else ifeq ($(CONFIG),mxe)
 CXX = /usr/local/src/mxe/usr/bin/i686-pc-mingw32-gcc
+LD = /usr/local/src/mxe/usr/bin/i686-pc-mingw32-gcc
 CXXFLAGS += -std=gnu++0x -Os -D_POSIX_SOURCE
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
@@ -321,10 +330,10 @@ yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
 yosys$(EXE): $(OBJS)
-	$(P) $(CXX) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
+	$(P) $(LD) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
-	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
 
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
