@@ -233,7 +233,7 @@ class dict
 	void do_rehash()
 	{
 		hashtable.clear();
-		hashtable.resize(hashtable_size(entries.size() * hashtable_size_factor), -1);
+		hashtable.resize(hashtable_size(entries.capacity() * hashtable_size_factor), -1);
 
 		for (int i = 0; i < int(entries.size()); i++) {
 			do_assert(-1 <= entries[i].next && entries[i].next < int(entries.size()));
@@ -552,6 +552,7 @@ public:
 		return !operator==(other);
 	}
 
+	void reserve(size_t n) { entries.reserve(n); }
 	size_t size() const { return entries.size(); }
 	bool empty() const { return entries.empty(); }
 	void clear() { hashtable.clear(); entries.clear(); }
@@ -601,7 +602,7 @@ protected:
 	void do_rehash()
 	{
 		hashtable.clear();
-		hashtable.resize(hashtable_size(entries.size() * hashtable_size_factor), -1);
+		hashtable.resize(hashtable_size(entries.capacity() * hashtable_size_factor), -1);
 
 		for (int i = 0; i < int(entries.size()); i++) {
 			do_assert(-1 <= entries[i].next && entries[i].next < int(entries.size()));
@@ -868,6 +869,7 @@ public:
 		return !operator==(other);
 	}
 
+	void reserve(size_t n) { entries.reserve(n); }
 	size_t size() const { return entries.size(); }
 	bool empty() const { return entries.empty(); }
 	void clear() { hashtable.clear(); entries.clear(); }
@@ -938,6 +940,7 @@ public:
 		database.swap(other.database);
 	}
 
+	void reserve(size_t n) { database.reserve(n); }
 	size_t size() const { return database.size(); }
 	bool empty() const { return database.empty(); }
 	void clear() { database.clear(); }
@@ -1031,6 +1034,7 @@ public:
 		parents.swap(other.parents);
 	}
 
+	void reserve(size_t n) { database.reserve(n); }
 	size_t size() const { return database.size(); }
 	bool empty() const { return database.empty(); }
 	void clear() { database.clear(); parents.clear(); }
