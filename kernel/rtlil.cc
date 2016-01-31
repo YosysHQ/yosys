@@ -2573,8 +2573,18 @@ void RTLIL::SigSpec::sort()
 
 void RTLIL::SigSpec::sort_and_unify()
 {
+	unpack();
 	cover("kernel.rtlil.sigspec.sort_and_unify");
-	*this = this->to_sigbit_set();
+
+	// A copy of the bits vector is used to prevent duplicating the logic from
+	// SigSpec::SigSpec(std::vector<SigBit>).  This incurrs an extra copy but
+	// that isn't showing up as significant in profiles.
+	std::vector<SigBit> unique_bits = bits_;
+	std::sort(unique_bits.begin(), unique_bits.end());
+	auto last = std::unique(unique_bits.begin(), unique_bits.end());
+	unique_bits.erase(last, unique_bits.end());
+
+	*this = unique_bits;
 }
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with)
