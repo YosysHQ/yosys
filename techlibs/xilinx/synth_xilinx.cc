@@ -97,7 +97,7 @@ struct SynthXilinxPass : public Pass {
 		log("        opt -fast\n");
 		log("\n");
 		log("    map_luts:\n");
-		log("        abc -lut 5:8 [-dff]\n");
+		log("        abc -luts 2:2,3,6:5,10,20 [-dff]\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
@@ -204,7 +204,7 @@ struct SynthXilinxPass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "abc -lut 6:8" + string(retime ? " -dff" : ""));
+			Pass::call(design, "abc -luts 2:2,3,6:5,10,20" + string(retime ? " -dff" : ""));
 			Pass::call(design, "clean");
 		}
 
