@@ -242,7 +242,13 @@ struct SigMap
 
 	void set(RTLIL::Module *module)
 	{
-		clear();
+		int bitcount = 0;
+		for (auto &it : module->connections())
+			bitcount += it.first.size();
+
+		database.clear();
+		database.reserve(bitcount);
+
 		for (auto &it : module->connections())
 			add(it.first, it.second);
 	}
