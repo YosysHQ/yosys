@@ -1015,7 +1015,10 @@ public:
 
 	const K &find(const K &a) const
 	{
-		return (*this)[ifind((*this)(a))];
+		int i = database.at(a, -1);
+		if (i < 0)
+			return a;
+		return (*this)[ifind(i)];
 	}
 
 	void merge(const K &a, const K &b)
@@ -1025,7 +1028,9 @@ public:
 
 	void promote(const K &a)
 	{
-		ipromote((*this)(a));
+		int i = database.at(a, -1);
+		if (i >= 0)
+			ipromote(i);
 	}
 
 	void swap(mfp &other)
