@@ -17,8 +17,8 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/sigtools.h"
 #include "libparse.h"
 #include <string.h>
 #include <errno.h>
@@ -173,8 +173,12 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 				std::string value = func->value;
 				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
 					value.erase(pos, 1);
-				if ((cell_next_pol == true && value == ff->args[0]) || (cell_next_pol == false && value == ff->args[1])) {
-					this_cell_ports[pin->args[0]] = 'Q';
+				if (value == ff->args[0]) {
+					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
+					found_output = true;
+				} else
+				if (value == ff->args[1]) {
+					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
 					found_output = true;
 				}
 			}
@@ -274,8 +278,12 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 				std::string value = func->value;
 				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
 					value.erase(pos, 1);
-				if ((cell_next_pol == true && value == ff->args[0]) || (cell_next_pol == false && value == ff->args[1])) {
-					this_cell_ports[pin->args[0]] = 'Q';
+				if (value == ff->args[0]) {
+					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
+					found_output = true;
+				} else
+				if (value == ff->args[1]) {
+					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
 					found_output = true;
 				}
 			}
@@ -410,14 +418,42 @@ static void map_sr_to_arst(const char *from, const char *to)
 	}
 }
 
+static void map_adff_to_dff(const char *from, const char *to)
+{
+	if (!cell_mappings.count(from) || cell_mappings.count(to) > 0)
+		return;
+
+	char from_clk_pol YS_ATTRIBUTE(unused) = from[6];
+	char from_rst_pol = from[7];
+	char to_clk_pol YS_ATTRIBUTE(unused) = to[6];
+
+	log_assert(from_clk_pol == to_clk_pol);
+
+	log("  create mapping for %s from mapping for %s.\n", to, from);
+	cell_mappings[to].cell_name = cell_mappings[from].cell_name;
+	cell_mappings[to].ports = cell_mappings[from].ports;
+
+	for (auto &it : cell_mappings[to].ports) {
+		if (it.second == 'S' || it.second == 'R')
+			it.second = from_rst_pol == 'P' ? '0' : '1';
+		if (it.second == 's' || it.second == 'r')
+			it.second = from_rst_pol == 'P' ? '1' : '0';
+	}
+}
+
 static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare_mode)
 {
 	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
+
+	dict<SigBit, pool<Cell*>> notmap;
+	SigMap sigmap(module);
 
 	std::vector<RTLIL::Cell*> cell_list;
 	for (auto &it : module->cells_) {
 		if (design->selected(module, it.second) && cell_mappings.count(it.second->type) > 0)
 			cell_list.push_back(it.second);
+		if (it.second->type == "$_NOT_")
+			notmap[sigmap(it.second->getPort("\\A"))].insert(it.second);
 	}
 
 	std::map<std::string, int> stats;
@@ -431,6 +467,12 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 		cell_mapping &cm = cell_mappings[cell_type];
 		RTLIL::Cell *new_cell = module->addCell(cell_name, prepare_mode ? cm.cell_name : "\\" + cm.cell_name);
 
+		bool has_q = false, has_qn = false;
+		for (auto &port : cm.ports) {
+			if (port.second == 'Q') has_q = true;
+			if (port.second == 'q') has_qn = true;
+		}
+
 		for (auto &port : cm.ports) {
 			RTLIL::SigSpec sig;
 			if ('A' <= port.second && port.second <= 'Z') {
@@ -439,7 +481,14 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 			if (port.second == 'q') {
 				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
 				sig = module->addWire(NEW_ID, GetSize(old_sig));
-				module->addNotGate(NEW_ID, sig, old_sig);
+				if (has_q && has_qn) {
+					for (auto &it : notmap[sigmap(old_sig)]) {
+						module->connect(it->getPort("\\Y"), sig);
+						it->setPort("\\Y", module->addWire(NEW_ID, GetSize(old_sig)));
+					}
+				} else {
+					module->addNotGate(NEW_ID, sig, old_sig);
+				}
 			} else
 			if ('a' <= port.second && port.second <= 'z') {
 				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
@@ -448,7 +497,9 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 			if (port.second == '0' || port.second == '1') {
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);
 			} else
-			if (port.second != 0)
+			if (port.second == 0) {
+				sig = module->addWire(NEW_ID);
+			} else
 				log_abort();
 			new_cell->setPort("\\" + port.first, sig);
 		}
@@ -563,6 +614,15 @@ struct DfflibmapPass : public Pass {
 		map_sr_to_arst("$_DFFSR_PNN_", "$_DFF_PN1_");
 		map_sr_to_arst("$_DFFSR_PPP_", "$_DFF_PP0_");
 		map_sr_to_arst("$_DFFSR_PPP_", "$_DFF_PP1_");
+
+		map_adff_to_dff("$_DFF_NN0_", "$_DFF_N_");
+		map_adff_to_dff("$_DFF_NN1_", "$_DFF_N_");
+		map_adff_to_dff("$_DFF_NP0_", "$_DFF_N_");
+		map_adff_to_dff("$_DFF_NP1_", "$_DFF_N_");
+		map_adff_to_dff("$_DFF_PN0_", "$_DFF_P_");
+		map_adff_to_dff("$_DFF_PN1_", "$_DFF_P_");
+		map_adff_to_dff("$_DFF_PP0_", "$_DFF_P_");
+		map_adff_to_dff("$_DFF_PP1_", "$_DFF_P_");
 
  		log("  final dff cell mappings:\n");
  		logmap_all();
