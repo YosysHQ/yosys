@@ -793,6 +793,19 @@ always @(posedge C or posedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_NNN_ (C, S, R, D, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity set and reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 0 - - | 1
+//-                 \ - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_NNN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -806,6 +819,20 @@ always @(negedge C, negedge S, negedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_NNP_ (C, S, R, D, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity set and positive
+//- polarity reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 0 - - | 1
+//-                 \ - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_NNP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -819,6 +846,20 @@ always @(negedge C, negedge S, posedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_NPN_ (C, S, R, D, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity set and negative
+//- polarity reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 1 - - | 1
+//-                 \ - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_NPN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -832,6 +873,19 @@ always @(negedge C, posedge S, negedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_NPP_ (C, S, R, D, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity set and reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 1 - - | 1
+//-                 \ - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_NPP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -845,6 +899,19 @@ always @(negedge C, posedge S, posedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_PNN_ (C, S, R, D, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity set and reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 0 - - | 1
+//-                 / - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_PNN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -858,6 +925,20 @@ always @(posedge C, negedge S, negedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_PNP_ (C, S, R, D, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity set and positive
+//- polarity reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 0 - - | 1
+//-                 / - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_PNP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -871,6 +952,20 @@ always @(posedge C, negedge S, posedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_PPN_ (C, S, R, D, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity set and negative
+//- polarity reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 1 - - | 1
+//-                 / - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_PPN_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -884,6 +979,19 @@ always @(posedge C, posedge S, negedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DFFSR_PPP_ (C, S, R, D, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity set and reset.
+//-
+//- Truth table:    C S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 1 - - | 1
+//-                 / - - d | d
+//-                 - - - - | q
+//-
 module \$_DFFSR_PPP_ (C, S, R, D, Q);
 input C, S, R, D;
 output reg Q;
@@ -897,6 +1005,17 @@ always @(posedge C, posedge S, posedge R) begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCH_N_ (E, D, Q)
+//-
+//- A negative enable D-type latch.
+//-
+//- Truth table:    E D | Q
+//-                -----+---
+//-                 0 d | d
+//-                 - - | q
+//-
 module \$_DLATCH_N_ (E, D, Q);
 input E, D;
 output reg Q;
@@ -906,6 +1025,17 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCH_P_ (E, D, Q)
+//-
+//- A positive enable D-type latch.
+//-
+//- Truth table:    E D | Q
+//-                -----+---
+//-                 1 d | d
+//-                 - - | q
+//-
 module \$_DLATCH_P_ (E, D, Q);
 input E, D;
 output reg Q;
@@ -915,6 +1045,19 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_NNN_ (E, S, R, D, Q)
+//-
+//- A negative enable D-type latch with negative polarity set and reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 0 - - | 1
+//-                 0 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_NNN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
@@ -928,6 +1071,20 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_NNP_ (E, S, R, D, Q)
+//-
+//- A negative enable D-type latch with negative polarity set and positive polarity
+//- reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 0 - - | 1
+//-                 0 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_NNP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
@@ -941,6 +1098,20 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_NPN_ (E, S, R, D, Q)
+//-
+//- A negative enable D-type latch with positive polarity set and negative polarity
+//- reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 1 - - | 1
+//-                 0 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_NPN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
@@ -954,6 +1125,19 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_NPP_ (E, S, R, D, Q)
+//-
+//- A negative enable D-type latch with positive polarity set and reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 1 - - | 1
+//-                 0 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_NPP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
@@ -967,6 +1151,19 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_PNN_ (E, S, R, D, Q)
+//-
+//- A positive enable D-type latch with negative polarity set and reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 0 - - | 1
+//-                 1 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_PNN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
@@ -980,6 +1177,20 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_PNP_ (E, S, R, D, Q)
+//-
+//- A positive enable D-type latch with negative polarity set and positive polarity
+//- reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 0 - - | 1
+//-                 1 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_PNP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
@@ -993,6 +1204,20 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_PPN_ (E, S, R, D, Q)
+//-
+//- A positive enable D-type latch with positive polarity set and negative polarity
+//- reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 0 - | 0
+//-                 - 1 - - | 1
+//-                 1 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_PPN_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
@@ -1006,6 +1231,19 @@ always @* begin
 end
 endmodule
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCHSR_PPP_ (E, S, R, D, Q)
+//-
+//- A positive enable D-type latch with positive polarity set and reset.
+//-
+//- Truth table:    E S R D | Q
+//-                ---------+---
+//-                 - - 1 - | 0
+//-                 - 1 - - | 1
+//-                 1 - - d | d
+//-                 - - - - | q
+//-
 module \$_DLATCHSR_PPP_ (E, S, R, D, Q);
 input E, S, R, D;
 output reg Q;
