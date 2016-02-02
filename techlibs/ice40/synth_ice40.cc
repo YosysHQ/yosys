@@ -103,6 +103,7 @@ struct SynthIce40Pass : public Pass {
 		log("        ice40_opt\n");
 		log("\n");
 		log("    map_ffs:\n");
+		log("        dffsr2dff\n");
 		log("        dff2dffe -direct-match $_DFF_*\n");
 		log("        techmap -map +/ice40/cells_map.v\n");
 		log("        opt_const -mux_undef\n");
@@ -243,6 +244,7 @@ struct SynthIce40Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_ffs"))
 		{
+			Pass::call(design, "dffsr2dff");
 			Pass::call(design, "dff2dffe -direct-match $_DFF_*");
 			Pass::call(design, "techmap -map +/ice40/cells_map.v");
 			Pass::call(design, "opt_const -mux_undef");
