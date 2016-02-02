@@ -8,8 +8,6 @@ only have the i386 eval version of Verific:
 --snip--
 CONFIG := clang
 ENABLE_TCL := 0
-ENABLE_QT4 := 0
-ENABLE_ABC := 0
 ENABLE_PLUGINS := 0
 ENABLE_VERIFIC := 1
 CXXFLAGS += -m32
