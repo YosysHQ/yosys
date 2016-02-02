@@ -1702,6 +1702,7 @@ DEF_METHOD(Pmux,     "$pmux",       1)
 		add ## _func(name, sig1, sig2, sig3, sig4, sig5); \
 		return sig5;                                      \
 	}
+DEF_METHOD_2(BufGate,  "$_BUF_",  A, Y)
 DEF_METHOD_2(NotGate,  "$_NOT_",  A, Y)
 DEF_METHOD_3(AndGate,  "$_AND_",  A, B, Y)
 DEF_METHOD_3(NandGate, "$_NAND_", A, B, Y)

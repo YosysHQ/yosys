@@ -186,6 +186,11 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+	if (inst->Type() == PRIM_BUF) {
+		module->addBufGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+		return true;
+	}
+
 	if (inst->Type() == PRIM_INV) {
 		module->addNotGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
 		return true;
