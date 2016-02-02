@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void dffsr2dff_worker(SigMap &sigmap, Module *module, Cell *cell)
+void dffsr_worker(SigMap &sigmap, Module *module, Cell *cell)
 {
 	if (cell->type == "$dffsr")
 	{
@@ -131,6 +131,49 @@ void dffsr2dff_worker(SigMap &sigmap, Module *module, Cell *cell)
 	}
 }
 
+void adff_worker(SigMap &sigmap, Module *module, Cell *cell)
+{
+	if (cell->type == "$adff")
+	{
+		bool rstpol = cell->getParam("\\ARST_POLARITY").as_bool();
+		SigBit rstunused = rstpol ? State::S0 : State::S1;
+		SigSpec rstsig = sigmap(cell->getPort("\\ARST"));
+
+		if (rstsig != rstunused)
+			return;
+
+		log("Converting %s cell %s.%s to $dff.\n", log_id(cell->type), log_id(module), log_id(cell));
+
+		cell->type = "$dff";
+		cell->unsetPort("\\ARST");
+		cell->unsetParam("\\ARST_VALUE");
+		cell->unsetParam("\\ARST_POLARITY");
+
+		return;
+	}
+
+	if (cell->type.in("$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
+			"$_DFF_PN0_", "$_DFF_PN1_", "$_DFF_PP0_", "$_DFF_PP1_"))
+	{
+		char clkpol = cell->type.c_str()[6];
+		char rstpol = cell->type.c_str()[7];
+
+		SigBit rstbit = sigmap(cell->getPort("\\R"));
+		SigBit rstunused = rstpol == 'P' ? State::S0 : State::S1;
+
+		if (rstbit != rstunused)
+			return;
+
+		IdString newtype = stringf("$_DFF_%c_", clkpol);
+		log("Converting %s cell %s.%s to %s.\n", log_id(cell->type), log_id(module), log_id(cell), log_id(newtype));
+
+		cell->type = newtype;
+		cell->unsetPort("\\R");
+
+		return;
+	}
+}
+
 struct Dffsr2dffPass : public Pass {
 	Dffsr2dffPass() : Pass("dffsr2dff", "convert DFFSR cells to simpler FF cell types") { }
 	virtual void help()
@@ -139,8 +182,8 @@ struct Dffsr2dffPass : public Pass {
 		log("\n");
 		log("    dffsr2dff [options] [selection]\n");
 		log("\n");
-		log("This pass converts DFFSR cells ($dffsr, $_DFFSR_???_) to simpler FF cell types\n");
-		log("when one or both of the set/reset inputs is unused.\n");
+		log("This pass converts DFFSR cells ($dffsr, $_DFFSR_???_) and ADFF cells ($adff,\n");
+		log("$_DFF_???_) to simpler FF cell types when any of the set/reset inputs is unused.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -159,8 +202,10 @@ struct Dffsr2dffPass : public Pass {
 
 		for (auto module : design->selected_modules()) {
 			SigMap sigmap(module);
-			for (auto cell : module->selected_cells())
-				dffsr2dff_worker(sigmap, module, cell);
+			for (auto cell : module->selected_cells()) {
+				dffsr_worker(sigmap, module, cell);
+				adff_worker(sigmap, module, cell);
+			}
 		}
 	}
 } Dffsr2dffPass;
