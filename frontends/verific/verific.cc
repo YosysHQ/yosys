@@ -773,8 +773,11 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			}
 			IdString port_name_id = RTLIL::escape_id(port_name);
 			auto &sigvec = cell_port_conns[port_name_id];
-			if (GetSize(sigvec) <= port_offset)
-				sigvec.resize(port_offset+1, State::Sz);
+			if (GetSize(sigvec) <= port_offset) {
+				SigSpec zwires = module->addWire(NEW_ID, port_offset+1-GetSize(sigvec));
+				for (auto bit : zwires)
+					sigvec.push_back(bit);
+			}
 			sigvec[port_offset] = net_map.at(pr->GetNet());
 		}
 
