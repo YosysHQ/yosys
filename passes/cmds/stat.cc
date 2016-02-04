@@ -19,6 +19,8 @@
 
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
+#include "passes/techmap/libparse.h"
+
 #include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
@@ -29,17 +31,21 @@ struct statdata_t
 	#define STAT_INT_MEMBERS X(num_wires) X(num_wire_bits) X(num_pub_wires) X(num_pub_wire_bits) \
 			X(num_memories) X(num_memory_bits) X(num_cells) X(num_processes)
 
+	#define STAT_NUMERIC_MEMBERS STAT_INT_MEMBERS X(area)
+
 	#define X(_name) int _name;
 	STAT_INT_MEMBERS
 	#undef X
+	double area;
 
 	std::map<RTLIL::IdString, int, RTLIL::sort_by_id_str> num_cells_by_type;
+	std::set<RTLIL::IdString> unknown_cell_area;
 
 	statdata_t operator+(const statdata_t &other) const
 	{
 		statdata_t sum = other;
 	#define X(_name) sum._name += _name;
-		STAT_INT_MEMBERS
+		STAT_NUMERIC_MEMBERS
 	#undef X
 		for (auto &it : num_cells_by_type)
 			sum.num_cells_by_type[it.first] += it.second;
@@ -50,7 +56,7 @@ struct statdata_t
 	{
 		statdata_t sum = *this;
 	#define X(_name) sum._name *= other;
-		STAT_INT_MEMBERS
+		STAT_NUMERIC_MEMBERS
 	#undef X
 		for (auto &it : sum.num_cells_by_type)
 			it.second *= other;
@@ -60,14 +66,14 @@ struct statdata_t
 	statdata_t()
 	{
 	#define X(_name) _name = 0;
-		STAT_INT_MEMBERS
+		STAT_NUMERIC_MEMBERS
 	#undef X
 	}
 
-	statdata_t(RTLIL::Design *design, RTLIL::Module *mod, bool width_mode)
+	statdata_t(RTLIL::Design *design, RTLIL::Module *mod, bool width_mode, const dict<IdString, double> &cell_area)
 	{
 	#define X(_name) _name = 0;
-		STAT_INT_MEMBERS
+		STAT_NUMERIC_MEMBERS
 	#undef X
 
 		for (auto &it : mod->wires_)
@@ -118,6 +124,13 @@ struct statdata_t
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Q")));
 			}
 
+			if (!cell_area.empty()) {
+				if (cell_area.count(cell_type))
+					area += cell_area.at(cell_type);
+				else
+					unknown_cell_area.insert(cell_type);
+			}
+
 			num_cells++;
 			num_cells_by_type[cell_type]++;
 		}
@@ -141,6 +154,17 @@ struct statdata_t
 		log("   Number of cells:             %6d\n", num_cells);
 		for (auto &it : num_cells_by_type)
 			log("     %-26s %6d\n", RTLIL::id2cstr(it.first), it.second);
+
+		if (!unknown_cell_area.empty()) {
+			log("\n");
+			for (auto cell_type : unknown_cell_area)
+				log("   Area for cell type %s is unknown!\n", cell_type.c_str());
+		}
+
+		if (area != 0) {
+			log("\n");
+			log("   Chip area for this module: %f\n", area);
+		}
 	}
 };
 
@@ -162,6 +186,26 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 	return mod_data;
 }
 
+void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_file)
+{
+	std::ifstream f;
+	f.open(liberty_file.c_str());
+	if (f.fail())
+		log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
+	LibertyParser libparser(f);
+	f.close();
+
+	for (auto cell : libparser.ast->children)
+	{
+		if (cell->id != "cell" || cell->args.size() != 1)
+			continue;
+
+		LibertyAst *ar = cell->find("area");
+		if (ar != NULL && !ar->value.empty())
+			cell_area["\\" + cell->args[0]] = atof(ar->value.c_str());
+	}
+}
+
 struct StatPass : public Pass {
 	StatPass() : Pass("stat", "print some statistics") { }
 	virtual void help()
@@ -178,6 +222,9 @@ struct StatPass : public Pass {
 		log("        selected and a module has the 'top' attribute set, this module is used\n");
 		log("        default value for this option.\n");
 		log("\n");
+		log("    -liberty <liberty_file>\n");
+		log("        use cell area information from the provided liberty file\n");
+		log("\n");
 		log("    -width\n");
 		log("        annotate internal cell types with their word width.\n");
 		log("        e.g. $add_8 for an 8 bit wide $add cell.\n");
@@ -190,12 +237,19 @@ struct StatPass : public Pass {
 		bool width_mode = false;
 		RTLIL::Module *top_mod = NULL;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
+		dict<IdString, double> cell_area;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-width") {
 				width_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
+				string liberty_file = args[++argidx];
+				rewrite_filename(liberty_file);
+				read_liberty_cellarea(cell_area, liberty_file);
 				continue;
 			}
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
@@ -214,7 +268,7 @@ struct StatPass : public Pass {
 				if (mod->get_bool_attribute("\\top"))
 					top_mod = mod;
 
-			statdata_t data(design, mod, width_mode);
+			statdata_t data(design, mod, width_mode, cell_area);
 			mod_stat[mod->name] = data;
 
 			log("\n");
