@@ -47,11 +47,17 @@ module SB_IO (
 		din_1 = din_q_1;
 	end
 
+	// work around simulation glitches on dout in DDR mode
+	reg outclk_delayed_1;
+	reg outclk_delayed_2;
+	always @* outclk_delayed_1 <= OUTPUT_CLK;
+	always @* outclk_delayed_2 <= outclk_delayed_1;
+
 	always @* begin
 		if (PIN_TYPE[3])
 			dout = PIN_TYPE[2] ? !dout_q_0 : D_OUT_0;
 		else
-			dout = (OUTPUT_CLK ^ NEG_TRIGGER) || PIN_TYPE[2] ? dout_q_0 : dout_q_1;
+			dout = (outclk_delayed_2 ^ NEG_TRIGGER) || PIN_TYPE[2] ? dout_q_0 : dout_q_1;
 	end
 
 	assign D_IN_0 = din_0, D_IN_1 = din_1;
