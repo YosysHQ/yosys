@@ -260,7 +260,7 @@ struct BtorDumper
 		if(it==std::end(line_ref))
 		{
 			++line_num;
-			int address_bits = ceil(log(memory->size)/log(2));
+			int address_bits = ceil_log2(memory->size);
 			str = stringf("%d array %d %d", line_num, memory->width, address_bits);
 			line_ref[memory->name]=line_num;
 			f << stringf("%s\n", str.c_str());
@@ -272,7 +272,7 @@ struct BtorDumper
         int dump_memory_next(const RTLIL::Memory* memory)
         {
 	  auto mem_it = line_ref.find(memory->name);
-	  int address_bits = ceil(log(memory->size)/log(2));
+	  int address_bits = ceil_log2(memory->size);
 	  if(mem_it==std::end(line_ref))
 	    {
 	      log("can not write next of a memory that is not dumped yet\n");
@@ -593,18 +593,18 @@ struct BtorDumper
 				bool l1_signed = cell->parameters.at(RTLIL::IdString("\\A_SIGNED")).as_bool();
 				//bool l2_signed = cell->parameters.at(RTLIL::IdString("\\B_SIGNED")).as_bool();
 				int l1_width = cell->parameters.at(RTLIL::IdString("\\A_WIDTH")).as_int();
-				l1_width = pow(2, ceil(log(l1_width)/log(2)));
+				l1_width = 1 << ceil_log2(l1_width);
 				int l2_width = cell->parameters.at(RTLIL::IdString("\\B_WIDTH")).as_int();
-				//log_assert(l2_width <= ceil(log(l1_width)/log(2)) );
+				//log_assert(l2_width <= ceil_log2(l1_width)) );
 				int l1 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\A")), l1_width);
-				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), ceil(log(l1_width)/log(2)));
+				int l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), ceil_log2(l1_width));
 				int cell_output = ++line_num;
 				str = stringf ("%d %s %d %d %d", line_num, cell_type_translation.at(cell->type.str()).c_str(), l1_width, l1, l2);
 				f << stringf("%s\n", str.c_str());
 
-				if(l2_width > ceil(log(l1_width)/log(2)))
+				if(l2_width > ceil_log2(l1_width))
 				{
-					int extra_width = l2_width - ceil(log(l1_width)/log(2));
+					int extra_width = l2_width - ceil_log2(l1_width);
 					l2 = dump_sigspec(&cell->getPort(RTLIL::IdString("\\B")), l2_width);
 					++line_num;
 					str = stringf ("%d slice %d %d %d %d;6", line_num, extra_width, l2, l2_width-1, l2_width-extra_width);
@@ -821,7 +821,7 @@ struct BtorDumper
                                         ++line_num;
                                         str = cell->parameters.at(RTLIL::IdString("\\MEMID")).decode_string();
                                         RTLIL::Memory *memory = module->memories.at(RTLIL::IdString(str.c_str()));
-                                        int address_bits = ceil(log(memory->size)/log(2));
+                                        int address_bits = ceil_log2(memory->size);
                                         str = stringf("%d array %d %d", line_num, memory->width, address_bits);
                                         f << stringf("%s\n", str.c_str());
                                         ++line_num;

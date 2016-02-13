@@ -222,6 +222,7 @@ extern bool memhasher_active;
 inline void memhasher() { if (memhasher_active) memhasher_do(); }
 
 void yosys_banner();
+int ceil_log2(int x);
 std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 std::string vstringf(const char *fmt, va_list ap);
 int readsome(std::istream &f, char *s, int n);

@@ -1337,6 +1337,28 @@ void ezSAT::printInternalState(FILE *f) const
 	fprintf(f, "--8<-- snap --8<--\n");
 }
 
+static int clog2(int x)
+{
+	int y = (x & (x - 1));
+	y = (y | -y) >> 31;
+
+	x |= (x >> 1);
+	x |= (x >> 2);
+	x |= (x >> 4);
+	x |= (x >> 8);
+	x |= (x >> 16);
+
+	x >>= 1;
+	x -= ((x >> 1) & 0x55555555);
+	x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
+	x = (((x >> 4) + x) & 0x0f0f0f0f);
+	x += (x >> 8);
+	x += (x >> 16);
+	x = x & 0x0000003f;
+
+	return x - y;
+}
+
 int ezSAT::onehot(const std::vector<int> &vec, bool max_only)
 {
 	// Mixed one-hot/binary encoding as described by Claessen in Sec. 4.2 of
@@ -1350,7 +1372,7 @@ int ezSAT::onehot(const std::vector<int> &vec, bool max_only)
 		formula.push_back(expression(OpOr, vec));
 
 	// create binary vector
-	int num_bits = ceil(log2(vec.size()));
+	int num_bits = clog2(vec.size());
 	std::vector<int> bits;
 	for (int k = 0; k < num_bits; k++)
 		bits.push_back(literal());

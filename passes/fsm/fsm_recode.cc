@@ -85,7 +85,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		fsm_data.state_bits = fsm_data.state_table.size();
 	} else
 	if (encoding == "binary") {
-		int new_num_state_bits = ceil(log2(fsm_data.state_table.size()));
+		int new_num_state_bits = ceil_log2(fsm_data.state_table.size());
 		if (fsm_data.state_bits == new_num_state_bits) {
 			log("  existing encoding is already a packed binary encoding.\n");
 			return;
