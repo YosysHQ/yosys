@@ -1257,7 +1257,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (type == AST_MEMINIT) {
 				if (children[2]->type != AST_CONSTANT)
 					log_error("Memory init with non-constant word count at %s:%d!\n", filename.c_str(), linenum);
-				num_words = children[2]->asInt(false);
+				num_words = int(children[2]->asInt(false));
 				cell->parameters["\\WORDS"] = RTLIL::Const(num_words);
 			}
 

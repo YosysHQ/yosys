@@ -820,7 +820,7 @@ uint64_t AstNode::asInt(bool is_signed)
 	}
 
 	if (type == AST_REALVALUE)
-		return realvalue;
+		return uint64_t(realvalue);
 
 	log_abort();
 }

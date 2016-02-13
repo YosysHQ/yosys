@@ -193,7 +193,7 @@ std::string vstringf(const char *fmt, va_list ap)
 
 int readsome(std::istream &f, char *s, int n)
 {
-	int rc = f.readsome(s, n);
+	int rc = int(f.readsome(s, n));
 
 	// f.readsome() sometimes returns 0 on a non-empty stream..
 	if (rc == 0) {

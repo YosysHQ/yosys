@@ -74,7 +74,7 @@ template<> struct hash_ops<int32_t> : hash_int_ops
 template<> struct hash_ops<int64_t> : hash_int_ops
 {
 	static inline unsigned int hash(int64_t a) {
-		return mkhash(a, a >> 32);
+		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
 	}
 };
 

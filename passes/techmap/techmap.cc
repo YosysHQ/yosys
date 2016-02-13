@@ -313,7 +313,7 @@ struct TechmapWorker
 
 			if (c->type == "$memrd" || c->type == "$memwr" || c->type == "$meminit") {
 				IdString memid = c->getParam("\\MEMID").decode_string();
-				log_assert(memory_renames.count(memid));
+				log_assert(memory_renames.count(memid) != 0);
 				c->setParam("\\MEMID", Const(memory_renames[memid].str()));
 			}
 

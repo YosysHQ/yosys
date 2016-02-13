@@ -180,8 +180,8 @@ struct ModIndex : public RTLIL::Monitor
 		{
 			RTLIL::SigBit lhs = sigmap(sigsig.first[i]);
 			RTLIL::SigBit rhs = sigmap(sigsig.second[i]);
-			bool has_lhs = database.count(lhs);
-			bool has_rhs = database.count(rhs);
+			bool has_lhs = database.count(lhs) != 0;
+			bool has_rhs = database.count(rhs) != 0;
 
 			if (!has_lhs && !has_rhs) {
 				sigmap.add(lhs, rhs);

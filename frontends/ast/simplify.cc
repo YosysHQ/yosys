@@ -1705,7 +1705,7 @@ skip_dynamic_range_lvalue_expansion:;
 					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (node_addr->type != AST_CONSTANT)
 						log_error("Failed to evaluate system function `%s' with non-constant 3rd argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
-					start_addr = node_addr->asInt(false);
+					start_addr = int(node_addr->asInt(false));
 				}
 
 				if (GetSize(children) > 3) {
@@ -1713,7 +1713,7 @@ skip_dynamic_range_lvalue_expansion:;
 					while (node_addr->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					if (node_addr->type != AST_CONSTANT)
 						log_error("Failed to evaluate system function `%s' with non-constant 4th argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
-					finish_addr = node_addr->asInt(false);
+					finish_addr = int(node_addr->asInt(false));
 				}
 
 				bool unconditional_init = false;

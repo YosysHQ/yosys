@@ -164,7 +164,7 @@ struct MemoryDffWorker
 
 		if (mux_cells_a.count(sig_data) || mux_cells_b.count(sig_data))
 		{
-			bool enable_invert = mux_cells_a.count(sig_data);
+			bool enable_invert = mux_cells_a.count(sig_data) != 0;
 			Cell *mux = enable_invert ? mux_cells_a.at(sig_data) : mux_cells_b.at(sig_data);
 			SigSpec check_q = sigmap(mux->getPort(enable_invert ? "\\B" : "\\A"));
 
