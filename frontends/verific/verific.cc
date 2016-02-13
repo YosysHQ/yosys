@@ -186,6 +186,11 @@ static bool import_netlist_instance_gates(RTLIL::Module *module, std::map<Net*, 
 		return true;
 	}
 
+	if (inst->Type() == PRIM_XNOR) {
+		module->addXnorGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+		return true;
+	}
+
 	if (inst->Type() == PRIM_BUF) {
 		module->addBufGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
 		return true;
@@ -371,6 +376,26 @@ static bool import_netlist_instance_cells(RTLIL::Module *module, std::map<Net*, 
 
 	if (inst->Type() == OPER_SHIFT_LEFT) {
 		module->addShl(RTLIL::escape_id(inst->Name()), IN1, IN2, OUT, false);
+		return true;
+	}
+
+	if (inst->Type() == OPER_ENABLED_DECODER) {
+		RTLIL::SigSpec vec;
+		vec.append(net_map.at(inst->GetControl()));
+		for (unsigned i = 1; i < inst->OutputSize(); i++) {
+			vec.append(RTLIL::State::S0);
+		}
+		module->addShl(RTLIL::escape_id(inst->Name()), vec, IN, OUT, false);
+		return true;
+	}
+
+	if (inst->Type() == OPER_DECODER) {
+		RTLIL::SigSpec vec;
+		vec.append(RTLIL::State::S1);
+		for (unsigned i = 1; i < inst->OutputSize(); i++) {
+			vec.append(RTLIL::State::S0);
+		}
+		module->addShl(RTLIL::escape_id(inst->Name()), vec, IN, OUT, false);
 		return true;
 	}
 
@@ -681,6 +706,11 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 			continue;
 		}
 
+		if (inst->Type() == PRIM_BUF) {
+			module->addBufGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+			continue;
+		}
+
 		if (inst->Type() == PRIM_X) {
 			module->connect(net_map.at(inst->GetOutput()), RTLIL::State::Sx);
 			continue;
@@ -753,7 +783,7 @@ static void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*
 		}
 
 		if (inst->IsPrimitive())
-			log_error("Unsupported Verific primitive: %s\n", inst->View()->Owner()->Name());
+			log_error("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
 
 		nl_todo.insert(inst->View());
 
