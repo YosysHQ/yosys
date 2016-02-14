@@ -79,6 +79,15 @@ library to a target architecture.
         the area cost doubles with each additional input bit. the delay cost
         is still constant for all lut widths.
 
+    -luts <cost1>,<cost2>,<cost3>,<sizeN>:<cost4-N>,..
+        generate netlist using luts. Use the specified costs for luts with 1,
+        2, 3, .. inputs.
+
+    -g type1,type2,...
+        Map the the specified list of gate types. Supported gates types are:
+        AND, NAND, OR, NOR, XOR, XNOR, MUX, AOI3, OAI3, AOI4, OAI4.
+        (The NOT gate is always added to this list automatically.)
+
     -dff
         also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many
         clock domains are automatically partitioned in clock domains and each
@@ -450,6 +459,15 @@ to the internal cell types that best match the cells found in the given
 liberty file.
 \end{lstlisting}
 
+\section{dffsr2dff -- convert DFFSR cells to simpler FF cell types}
+\label{cmd:dffsr2dff}
+\begin{lstlisting}[numbers=left,frame=single]
+    dffsr2dff [options] [selection]
+
+This pass converts DFFSR cells ($dffsr, $_DFFSR_???_) and ADFF cells ($adff,
+$_DFF_???_) to simpler FF cell types when any of the set/reset inputs is unused.
+\end{lstlisting}
+
 \section{dump -- print parts of the design in ilang format}
 \label{cmd:dump}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -485,12 +503,26 @@ Print all commands to log before executing them.
 Do not print all commands to log before executing them. (default)
 \end{lstlisting}
 
+\section{edgetypes -- list all types of edges in selection}
+\label{cmd:edgetypes}
+\begin{lstlisting}[numbers=left,frame=single]
+    edgetypes [options] [selection]
+
+This command lists all unique types of 'edges' found in the selection. An 'edge'
+is a 4-tuple of source and sink cell type and port name.
+\end{lstlisting}
+
 \section{equiv\_add -- add a \$equiv cell}
 \label{cmd:equiv_add}
 \begin{lstlisting}[numbers=left,frame=single]
-    equiv_add gold_sig gate_sig
+    equiv_add [-try] gold_sig gate_sig
 
 This command adds an $equiv cell for the specified signals.
+
+
+    equiv_add [-try] -cell gold_cell gate_cell
+
+This command adds $equiv cells for the ports of the specified cells.
 \end{lstlisting}
 
 \section{equiv\_induct -- proving \$equiv cells using temporal induction}
@@ -546,6 +578,17 @@ a trigger output), but instead uses $equiv cells to encode the equivalence
 checking problem. Use 'miter -equiv' if you want to create a miter circuit.
 \end{lstlisting}
 
+\section{equiv\_mark -- mark equivalence checking regions}
+\label{cmd:equiv_mark}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_mark [options] [selection]
+
+This command marks the regions in an equivalence checking module. Region 0 is
+the proven part of the circuit. Regions with higher numbers are connected
+unproven subcricuits. The integer attribute 'equiv_region' is set on all
+wires and cells.
+\end{lstlisting}
+
 \section{equiv\_miter -- extract miter from equiv circuit}
 \label{cmd:equiv_miter}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -564,6 +607,16 @@ This creates a miter module for further analysis of the selected $equiv cells.
 
     -undef
         Create compare logic that handles undefs correctly
+\end{lstlisting}
+
+\section{equiv\_purge -- purge equivalence checking module}
+\label{cmd:equiv_purge}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_purge [options] [selection]
+
+This command removes the proven part of an equivalence checking module, leaving
+only the unproven segments in the design. This will also remove and add module
+ports as needed.
 \end{lstlisting}
 
 \section{equiv\_remove -- remove \$equiv cells}
@@ -610,6 +663,36 @@ This command prints status information for all selected $equiv cells.
 
     -assert
         produce an error if any unproven $equiv cell is found
+\end{lstlisting}
+
+\section{equiv\_struct -- structural equivalence checking}
+\label{cmd:equiv_struct}
+\begin{lstlisting}[numbers=left,frame=single]
+    equiv_struct [options] [selection]
+
+This command adds additional $equiv cells based on the assumption that the
+gold and gate circuit are structurally equivalent. Note that this can introduce
+bad $equiv cells in cases where the netlists are not structurally equivalent,
+for example when analyzing circuits with cells with commutative inputs. This
+command will also de-duplicate gates.
+
+    -fwd
+        by default this command performans forward sweeps until nothing can
+        be merged by forwards sweeps, then backward sweeps until forward
+        sweeps are effective again. with this option set only forward sweeps
+        are performed.
+
+    -fwonly <cell_type>
+        add the specified cell type to the list of cell types that are only
+        merged in forward sweeps and never in backward sweeps. $equiv is in
+        this list automatically.
+
+    -icells
+        by default, the internal RTL and gate cell types are ignored. add
+        this option to also process those cell types with this command.
+
+    -maxiter <N>
+        maximum number of iterations to run before aborting
 \end{lstlisting}
 
 \section{eval -- evaluate the circuit given an input}
@@ -949,9 +1032,13 @@ one-hot encoding and binary encoding is supported.
 \section{help -- display help messages}
 \label{cmd:help}
 \begin{lstlisting}[numbers=left,frame=single]
-    help  .............  list all commands
-    help <command>  ...  print help message for given command
-    help -all  ........  print complete command reference
+    help  ................  list all commands
+    help <command>  ......  print help message for given command
+    help -all  ...........  print complete command reference
+
+    help -cells ..........  list all cell types
+    help <celltype>  .....  print help message for given cell type
+    help <celltype>+  ....  print verilog code for given cell type
 \end{lstlisting}
 
 \section{hierarchy -- check, expand and clean up design hierarchy}
@@ -1044,6 +1131,15 @@ all commands executed in an interactive session, but not the commands
 from executed scripts.
 \end{lstlisting}
 
+\section{ice40\_ffinit -- iCE40: handle FF init values}
+\label{cmd:ice40_ffinit}
+\begin{lstlisting}[numbers=left,frame=single]
+    ice40_ffinit [options] [selection]
+
+Remove zero init values for FF output signals. Add inverters to implement
+nonzero init values.
+\end{lstlisting}
+
 \section{ice40\_ffssr -- iCE40: merge synchronous set/reset into FF cells}
 \label{cmd:ice40_ffssr}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -1078,10 +1174,10 @@ can only map to very simple PAD cells. Use 'techmap' to further map
 the resulting cells to more sophisticated PAD cells.
 
     -inpad <celltype> <portname>[:<portname>]
-        Map module input ports to the given cell type with
-        the given port name. if a 2nd portname is given, the
+        Map module input ports to the given cell type with the
+        given output port name. if a 2nd portname is given, the
         signal is passed through the pad call, using the 2nd
-        portname as output.
+        portname as input.
 
     -outpad <celltype> <portname>[:<portname>]
     -inoutpad <celltype> <portname>[:<portname>]
@@ -1149,6 +1245,14 @@ When no active module is selected, this prints a list of modules.
 When an active module is selected, this prints a list of objects in the module.
 \end{lstlisting}
 
+\section{lut2mux -- convert \$lut to \$\_MUX\_}
+\label{cmd:lut2mux}
+\begin{lstlisting}[numbers=left,frame=single]
+    lut2mux [options] [selection]
+
+This pass converts $lut cells to $_MUX_ gates.
+\end{lstlisting}
+
 \section{maccmap -- mapping macc cells}
 \label{cmd:maccmap}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -1196,7 +1300,7 @@ rules. A block ram description looks like this:
       groups 2           # number of port groups
       ports  1 1         # number of ports in each group
       wrmode 1 0         # set to '1' if this groups is write ports
-      enable 4 0         # number of enable bits (for write ports)
+      enable 4 1         # number of enable bits
       transp 0 2         # transparent (for read ports)
       clocks 1 2         # clock configuration
       clkpol 2 2         # clock polarity configuration
@@ -1391,6 +1495,22 @@ Cover trees of $_MUX_ cells with $_MUX{4,8,16}_ cells
         less efficient than the original circuit.
 \end{lstlisting}
 
+\section{nlutmap -- map to LUTs of different sizes}
+\label{cmd:nlutmap}
+\begin{lstlisting}[numbers=left,frame=single]
+    nlutmap [options] [selection]
+
+This pass uses successive calls to 'abc' to map to an architecture. That
+provides a small number of differently sized LUTs.
+
+    -luts N_1,N_2,N_3,...
+        The number of LUTs with 1, 2, 3, ... inputs that are
+        available in the target architecture.
+
+Excess logic that does not fit into the specified LUTs is mapped back
+to generic logic gates ($_AND_, etc.).
+\end{lstlisting}
+
 \section{opt -- perform simple optimizations}
 \label{cmd:opt}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -1554,6 +1674,49 @@ Load and list loaded plugins.
 This pass transforms $pmux cells to a trees of $mux cells.
 \end{lstlisting}
 
+\section{prep -- generic synthesis script}
+\label{cmd:prep}
+\begin{lstlisting}[numbers=left,frame=single]
+    prep [options]
+
+This command runs a conservative RTL synthesis. A typical application for this
+is the preparation stage of a verification flow. This command does not operate
+on partly selected designs.
+
+    -top <module>
+        use the specified module as top module (default='top')
+
+    -nordff
+        passed to 'memory_dff'. prohibits merging of FFs into memory read ports
+
+    -run <from_label>[:<to_label>]
+        only run the commands between the labels (see below). an empty
+        from label is synonymous to 'begin', and empty to label is
+        synonymous to the end of the command list.
+
+
+The following commands are executed by this synthesis command:
+
+    begin:
+        hierarchy -check [-top <top>]
+
+    prep:
+        proc
+        opt_const
+        opt_clean
+        check
+        opt -keepdc
+        wreduce
+        memory_dff [-nordff]
+        opt_clean
+        memory_collect
+        opt -keepdc -fast
+
+    check:
+        stat
+        check
+\end{lstlisting}
+
 \section{proc -- translate processes to netlists}
 \label{cmd:proc}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -1650,6 +1813,32 @@ and case statements) to trees of multiplexer cells.
 This pass identifies unreachable branches in decision trees and removes them.
 \end{lstlisting}
 
+\section{qwp -- quadratic wirelength placer}
+\label{cmd:qwp}
+\begin{lstlisting}[numbers=left,frame=single]
+    qwp [options] [selection]
+
+This command runs quadratic wirelength placement on the selected modules and
+annotates the cells in the design with 'qwp_position' attributes.
+
+    -ltr
+        Add left-to-right constraints: constrain all inputs on the left border
+        outputs to the right border.
+
+    -alpha
+        Add constraints for inputs/outputs to be placed in alphanumerical
+        order along the y-axis (top-to-bottom).
+
+    -grid N
+        Number of grid divisions in x- and y-direction. (default=16)
+
+    -dump <html_file_name>
+        Dump a protocol of the placement algorithm to the html file.
+
+Note: This implementation of a quadratic wirelength placer uses exact
+dense matrix operations. It is only a toy-placer for small circuits.
+\end{lstlisting}
+
 \section{read\_blif -- read BLIF file}
 \label{cmd:read_blif}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -1705,8 +1894,8 @@ Verilog-2005 is supported.
         of SystemVerilog is supported)
 
     -formal
-        enable support for assert() and assume() statements
-        (assert support is also enabled with -sv)
+        enable support for assert() and assume() from SystemVerilog
+        replace the implicit -D SYNTHESIS with -D FORMAL
 
     -dump_ast1
         dump abstract syntax tree (before simplification)
@@ -1756,6 +1945,9 @@ Verilog-2005 is supported.
 
     -nopp
         do not run the pre-processor
+
+    -nodpi
+        disable DPI-C support
 
     -lib
         only create empty blackbox modules. This implies -DBLACKBOX.
@@ -1869,6 +2061,9 @@ and additional constraints passed as parameters.
 
     -show-inputs, -show-outputs, -show-ports
         add all module (input/output) ports to the list of shown signals
+
+    -show-regs, -show-public, -show-all
+        show all registers, show signals with 'public' names, show all signals
 
     -ignore_div_by_zero
         ignore all solutions that involve a division by zero
@@ -2254,6 +2449,9 @@ The following actions can be performed on the top sets on the stack:
     %C
         select cells that implement selected modules
 
+    %R[<num>]
+        select <num> random objects from top selection (default 1)
+
 Example: the following command selects all wires that are connected to a
 'GATE' input of a 'SWITCH' cell:
 
@@ -2455,8 +2653,24 @@ primitives. The following internal cell types are mapped by this pass:
 
   $not, $pos, $and, $or, $xor, $xnor
   $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool
-  $logic_not, $logic_and, $logic_or, $mux
+  $logic_not, $logic_and, $logic_or, $mux, $tribuf
   $sr, $dff, $dffsr, $adff, $dlatch
+\end{lstlisting}
+
+\section{singleton -- create singleton modules}
+\label{cmd:singleton}
+\begin{lstlisting}[numbers=left,frame=single]
+    singleton [selection]
+
+By default, a module that is instantiated by several other modules is only
+kept once in the design. This preserves the original modularity of the design
+and reduces the overall size of the design in memory. But it prevents certain
+optimizations and other operations on the design. This pass creates singleton
+modules for all selected cells. The created modules are marked with the
+'singleton' attribute.
+
+This commands only operates on modules that by themself have the 'singleton'
+attribute set (the 'top' module is a singleton implicitly).
 \end{lstlisting}
 
 \section{splice -- create explicit splicing cells}
@@ -2533,6 +2747,9 @@ design.
         selected and a module has the 'top' attribute set, this module is used
         default value for this option.
 
+    -liberty <liberty_file>
+        use cell area information from the provided liberty file
+
     -width
         annotate internal cell types with their word width.
         e.g. $add_8 for an 8 bit wide $add cell.
@@ -2541,7 +2758,7 @@ design.
 \section{submod -- moving part of a module to a new submodule}
 \label{cmd:submod}
 \begin{lstlisting}[numbers=left,frame=single]
-    submod [selection]
+    submod [-copy] [selection]
 
 This pass identifies all cells with the 'submod' attribute and moves them to
 a newly created module. The value of the attribute is used as name for the
@@ -2554,11 +2771,15 @@ This pass only operates on completely selected modules with no processes
 or memories.
 
 
-    submod -name <name> [selection]
+    submod -name <name> [-copy] [selection]
 
 As above, but don't use the 'submod' attribute but instead use the selection.
 Only objects from one module might be selected. The value of the -name option
 is used as the value of the 'submod' attribute above.
+
+By default the cells are 'moved' from the source module and the source module
+will use an instance of the new module after this command is finished. Call
+with -copy to not modify the source module.
 \end{lstlisting}
 
 \section{synth -- generic synthesis script}
@@ -2601,6 +2822,7 @@ The following commands are executed by this synthesis command:
 
     coarse:
         proc
+        opt_const
         opt_clean
         check
         opt
@@ -2626,6 +2848,79 @@ The following commands are executed by this synthesis command:
         hierarchy -check
         stat
         check
+\end{lstlisting}
+
+\section{synth\_greenpak4 -- synthesis for GreenPAK4 FPGAs}
+\label{cmd:synth_greenpak4}
+\begin{lstlisting}[numbers=left,frame=single]
+    synth_greenpak4 [options]
+
+This command runs synthesis for GreenPAK4 FPGAs. This work is experimental.
+
+    -top <module>
+        use the specified module as top module (default='top')
+
+    -blif <file>
+        write the design to the specified BLIF file. writing of an output file
+        is omitted if this parameter is not specified.
+
+    -edif <file>
+        write the design to the specified edif file. writing of an output file
+        is omitted if this parameter is not specified.
+
+    -run <from_label>:<to_label>
+        only run the commands between the labels (see below). an empty
+        from label is synonymous to 'begin', and empty to label is
+        synonymous to the end of the command list.
+
+    -noflatten
+        do not flatten design before synthesis
+
+    -retime
+        run 'abc' with -dff option
+
+
+The following commands are executed by this synthesis command:
+
+    begin:
+        read_verilog -lib +/greenpak4/cells_sim.v
+        hierarchy -check -top <top>
+
+    flatten:         (unless -noflatten)
+        proc
+        flatten
+        tribuf -logic
+
+    coarse:
+        synth -run coarse
+
+    fine:
+        opt -fast -mux_undef -undriven -fine
+        memory_map
+        opt -undriven -fine
+        techmap
+        dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib
+        opt -fast
+        abc -dff     (only if -retime)
+
+    map_luts:
+        nlutmap -luts 0,8,16,2
+        clean
+
+    map_cells:
+        techmap -map +/greenpak4/cells_map.v
+        clean
+
+    check:
+        hierarchy -check
+        stat
+        check -noinit
+
+    blif:
+        write_blif -gates -attr -param <file-name>
+
+    edif:
+        write_edif <file-name>
 \end{lstlisting}
 
 \section{synth\_ice40 -- synthesis for iCE40 FPGAs}
@@ -2663,6 +2958,9 @@ This command runs synthesis for iCE40 FPGAs. This work is experimental.
     -nobram
         do not use SB_RAM40_4K* cells in output netlist
 
+    -abc2
+        run two passes of 'abc' for slightly improved logic density
+
 
 The following commands are executed by this synthesis command:
 
@@ -2673,6 +2971,7 @@ The following commands are executed by this synthesis command:
     flatten:         (unless -noflatten)
         proc
         flatten
+        tribuf -logic
 
     coarse:
         synth -run coarse
@@ -2690,14 +2989,18 @@ The following commands are executed by this synthesis command:
         ice40_opt
 
     map_ffs:
+        dffsr2dff
         dff2dffe -direct-match $_DFF_*
         techmap -map +/ice40/cells_map.v
         opt_const -mux_undef
         simplemap
+        ice40_ffinit
         ice40_ffssr
         ice40_opt -full
 
     map_luts:
+        abc          (only if -abc2)
+        ice40_opt    (only if -abc2)
         abc -lut 4
         clean
 
@@ -2759,7 +3062,6 @@ The following commands are executed by this synthesis command:
 
     coarse:
         synth -run coarse
-        dff2dffe
 
     bram:
         memory_bram -rules +/xilinx/brams.txt
@@ -2772,12 +3074,14 @@ The following commands are executed by this synthesis command:
     fine:
         opt -fast -full
         memory_map
+        dffsr2dff
+        dff2dffe
         opt -full
         techmap -map +/techmap.v -map +/xilinx/arith_map.v
         opt -fast
 
     map_luts:
-        abc -lut 5:8 [-dff]
+        abc -luts 2:2,3,6:5,10,20 [-dff]
         clean
 
     map_cells:
@@ -3040,11 +3344,29 @@ cell types. Use for example 'all /$add' for all cell types except $add.
     -nosat
         do not check SAT model or run SAT equivalence checking
 
+    -noeval
+        do not check const-eval models
+
     -v
         print additional debug information to the console
 
     -vlog {filename}
         create a Verilog test bench to test simlib and write_verilog
+\end{lstlisting}
+
+\section{torder -- print cells in topological order}
+\label{cmd:torder}
+\begin{lstlisting}[numbers=left,frame=single]
+    torder [options] [selection]
+
+This command prints the selected cells in topological order.
+
+    -stop <cell_type> <cell_port>
+        do not use the specified cell port in topological sorting
+
+    -noautostop
+        by default Q outputs of internal FF cells and memory read port outputs
+        are not used in topological sorting. this option deactivates that.
 \end{lstlisting}
 
 \section{trace -- redirect command output to file}
@@ -3054,6 +3376,22 @@ cell types. Use for example 'all /$add' for all cell types except $add.
 
 Execute the specified command, logging all changes the command performs on
 the design in real time.
+\end{lstlisting}
+
+\section{tribuf -- infer tri-state buffers}
+\label{cmd:tribuf}
+\begin{lstlisting}[numbers=left,frame=single]
+    tribuf [options] [selection]
+
+This pass transforms $mux cells with 'z' inputs to tristate buffers.
+
+    -merge
+        merge multiple tri-state buffers driving the same net
+        into a single buffer.
+
+    -logic
+        convert tri-state buffers that do not drive output ports
+        to non-tristate logic. this option implies -merge.
 \end{lstlisting}
 
 \section{verific -- load Verilog and VHDL designs using Verific}
@@ -3190,6 +3528,9 @@ file *.blif when any of this options is used.
 
     -param
         use the non-standard .param statement to write cell parameters
+
+    -cname
+        use the non-standard .cname statement to write cell names
 
     -blackbox
         write blackbox cells with .blackbox statement.
@@ -3525,6 +3866,9 @@ to the initial state.
 
     -regs
         also create '<mod>_n' functions for all registers.
+
+    -wires
+        also create '<mod>_n' functions for all public wires.
 
     -tpl <template_file>
         use the given template file. the line containing only the token '%%'

@@ -94,7 +94,7 @@ creates a bijective map from K to the integers. For example:
 It is not possible to remove elements from an idict.
 
 Finally mfp<K> implements a merge-find set data structure (aka. disjoint-set or
-union–find) over the type K ("mfp" = merge-find-promote).
+union-find) over the type K ("mfp" = merge-find-promote).
 
   2. Standard STL data types
 
