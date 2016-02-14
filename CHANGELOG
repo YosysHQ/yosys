@@ -3,6 +3,94 @@ List of major changes and improvements between releases
 =======================================================
 
 
+Yosys 0.5 .. Yosys 0.6
+----------------------
+
+ * Various
+     - Added Contributor Covenant Code of Conduct
+     - Various improvements in dict<> and pool<>
+     - Added hashlib::mfp and refactored SigMap
+     - Improved support for reals as module parameters
+     - Various improvements in SMT2 back-end
+     - Added "keep_hierarchy" attribute
+     - Verilog front-end: define `BLACKBOX in -lib mode
+     - Added API for converting internal cells to AIGs
+     - Added ENABLE_LIBYOSYS Makefile option
+     - Removed "techmap -share_map" (use "-map +/filename" instead)
+     - Switched all Python scripts to Python 3
+     - Added support for $display()/$write() and $finish() to Verilog front-end
+     - Added "yosys-smtbmc" formal verification flow
+     - Added options for clang sanitizers to Makefile
+
+ * New commands and options
+     - Added "scc -expect <N> -nofeedback"
+     - Added "proc_dlatch"
+     - Added "check"
+     - Added "select %xe %cie %coe %M %C %R"
+     - Added "sat -dump_json" (WaveJSON format)
+     - Added "sat -tempinduct-baseonly -tempinduct-inductonly"
+     - Added "sat -stepsize" and "sat -tempinduct-step"
+     - Added "sat -show-regs -show-public -show-all"
+     - Added "write_json" (Native Yosys JSON format)
+     - Added "write_blif -attr"
+     - Added "dffinit"
+     - Added "chparam"
+     - Added "muxcover"
+     - Added "pmuxtree"
+     - Added memory_bram "make_outreg" feature
+     - Added "splice -wires"
+     - Added "dff2dffe -direct-match"
+     - Added simplemap $lut support
+     - Added "read_blif"
+     - Added "opt_share -share_all"
+     - Added "aigmap"
+     - Added "write_smt2 -mem -regs -wires"
+     - Added "memory -nordff"
+     - Added "write_smv"
+     - Added "synth -nordff -noalumacc"
+     - Added "rename -top new_name"
+     - Added "opt_const -clkinv"
+     - Added "synth -nofsm"
+     - Added "miter -assert"
+     - Added "read_verilog -noautowire"
+     - Added "read_verilog -nodpi"
+     - Added "tribuf"
+     - Added "lut2mux"
+     - Added "nlutmap"
+     - Added "qwp"
+     - Added "test_cell -noeval"
+     - Added "edgetypes"
+     - Added "equiv_struct"
+     - Added "equiv_purge"
+     - Added "equiv_mark"
+     - Added "equiv_add -try -cell"
+     - Added "singleton"
+     - Added "abc -g -luts"
+     - Added "torder"
+     - Added "write_blif -cname"
+     - Added "submod -copy"
+     - Added "dffsr2dff"
+     - Added "stat -liberty"
+
+ * Synthesis metacommands
+     - Various improvements in synth_xilinx
+     - Added synth_ice40 and synth_greenpak4
+     - Added "prep" metacommand for "synthesis lite"
+
+ * Cell library changes
+     - Added cell types to "help" system
+     - Added $meminit cell type
+     - Added $assume cell type
+     - Added $_MUX4_, $_MUX8_, and $_MUX16_ cells
+     - Added $tribuf and $_TBUF_ cell types
+     - Added read-enable to memory model
+
+ * YosysJS
+     - Various improvements in emscripten build
+     - Added alternative webworker-based JS API
+     - Added a few example applications
+
+
 Yosys 0.4 .. Yosys 0.5
 ----------------------
 
