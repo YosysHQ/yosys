@@ -95,9 +95,7 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 		return a == b;
 	}
 	static inline unsigned int hash(std::pair<P, Q> a) {
-		hash_ops<P> p_ops;
-		hash_ops<Q> q_ops;
-		return mkhash(p_ops.hash(a.first), q_ops.hash(a.second));
+		return mkhash(hash_ops<P>::hash(a.first), hash_ops<Q>::hash(a.second));
 	}
 };
 
@@ -111,8 +109,8 @@ template<typename... T> struct hash_ops<std::tuple<T...>> {
 	}
 	template<size_t I = 0>
 	static inline typename std::enable_if<I != sizeof...(T), unsigned int>::type hash(std::tuple<T...> a) {
-		hash_ops<typename std::tuple_element<I, std::tuple<T...>>::type> element_ops;
-		return mkhash(hash<I+1>(a), element_ops.hash(std::get<I>(a)));
+		typedef hash_ops<typename std::tuple_element<I, std::tuple<T...>>::type> element_ops_t;
+		return mkhash(hash<I+1>(a), element_ops_t::hash(std::get<I>(a)));
 	}
 };
 
