@@ -129,24 +129,11 @@ int ceil_log2(int x)
 	if (x <= 0)
 		return 0;
 
-	int y = (x & (x - 1));
-	y = (y | -y) >> 31;
+	for (int i = 0; i < 32; i++)
+		if (((x-1) >> i) == 0)
+			return i;
 
-	x |= (x >> 1);
-	x |= (x >> 2);
-	x |= (x >> 4);
-	x |= (x >> 8);
-	x |= (x >> 16);
-
-	x >>= 1;
-	x -= ((x >> 1) & 0x55555555);
-	x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
-	x = (((x >> 4) + x) & 0x0f0f0f0f);
-	x += (x >> 8);
-	x += (x >> 16);
-	x = x & 0x0000003f;
-
-	return x - y;
+	log_abort();
 }
 
 std::string stringf(const char *fmt, ...)
