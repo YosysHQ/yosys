@@ -267,10 +267,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
 					char *q = strchr(p, '=');
-					if (q == NULL || !q[0] || !q[1])
+					if (q == NULL || !q[0])
 						goto error;
 					*(q++) = 0;
-					cell->setPort(RTLIL::escape_id(p), blif_wire(q));
+					cell->setPort(RTLIL::escape_id(p), *q ? blif_wire(q) : SigSpec());
 				}
 
 				obj_attributes = &cell->attributes;
