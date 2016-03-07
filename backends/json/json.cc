@@ -411,10 +411,10 @@ struct JsonBackend : public Backend {
 		log("      - the inverted value of the specified input port bit\n");
 		log("\n");
 		log("    [ \"and\", <node-index>, <node-index>, <out-list> ]\n");
-		log("      - the ANDed value of the speciefied nodes\n");
+		log("      - the ANDed value of the specified nodes\n");
 		log("\n");
 		log("    [ \"nand\", <node-index>, <node-index>, <out-list> ]\n");
-		log("      - the inverted ANDed value of the speciefied nodes\n");
+		log("      - the inverted ANDed value of the specified nodes\n");
 		log("\n");
 		log("    [ \"true\", <out-list> ]\n");
 		log("      - the constant value 1\n");
@@ -445,7 +445,7 @@ struct JsonBackend : public Backend {
 		log("    ]\n");
 		log("\n");
 		log("Future version of Yosys might add support for additional fields in the JSON\n");
-		log("format. A program processing this format must ignore all unkown fields.\n");
+		log("format. A program processing this format must ignore all unknown fields.\n");
 		log("\n");
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)

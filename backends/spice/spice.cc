@@ -27,13 +27,33 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter)
+static string spice_id2str(IdString id)
+{
+	static const char *escape_chars = "$\\[]()<>";
+	string s = RTLIL::unescape_id(id);
+
+	for (auto &ch : s)
+		if (strchr(escape_chars, ch) != nullptr) ch = '_';
+
+	return s;
+}
+
+static string spice_id2str(IdString id, bool use_inames, idict<IdString, 1> &inums)
+{
+	if (!use_inames && *id.c_str() == '$')
+		return stringf("%d", inums(id));
+	return spice_id2str(id);
+}
+
+static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, std::string &pos, std::string &ncpf, int &nc_counter, bool use_inames, idict<IdString, 1> &inums)
 {
 	if (s.wire) {
+		if (s.wire->port_id)
+			use_inames = true;
 		if (s.wire->width > 1)
-			f << stringf(" %s[%d]", RTLIL::id2cstr(s.wire->name), s.offset);
+			f << stringf(" %s.%d", spice_id2str(s.wire->name, use_inames, inums).c_str(), s.offset);
 		else
-			f << stringf(" %s", RTLIL::id2cstr(s.wire->name));
+			f << stringf(" %s", spice_id2str(s.wire->name, use_inames, inums).c_str());
 	} else {
 		if (s == RTLIL::State::S0)
 			f << stringf(" %s", neg.c_str());
@@ -44,9 +64,10 @@ static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, 
 	}
 }
 
-static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, std::string &neg, std::string &pos, std::string &ncpf, bool big_endian)
+static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, std::string &neg, std::string &pos, std::string &ncpf, bool big_endian, bool use_inames)
 {
 	SigMap sigmap(module);
+	idict<IdString, 1> inums;
 	int cell_counter = 0, conn_counter = 0, nc_counter = 0;
 
 	for (auto &cell_it : module->cells_)
@@ -59,7 +80,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 		if (design->modules_.count(cell->type) == 0)
 		{
 			log_warning("no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
-					RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name));
+					log_id(cell->type), log_id(module), log_id(cell));
 			for (auto &conn : cell->connections()) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				port_sigs.push_back(sig);
@@ -93,18 +114,18 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 		for (auto &sig : port_sigs) {
 			for (int i = 0; i < sig.size(); i++) {
 				RTLIL::SigSpec s = sig.extract(big_endian ? sig.size() - 1 - i : i, 1);
-				print_spice_net(f, s, neg, pos, ncpf, nc_counter);
+				print_spice_net(f, s, neg, pos, ncpf, nc_counter, use_inames, inums);
 			}
 		}
 
-		f << stringf(" %s\n", RTLIL::id2cstr(cell->type));
+		f << stringf(" %s\n", spice_id2str(cell->type).c_str());
 	}
 
 	for (auto &conn : module->connections())
 	for (int i = 0; i < conn.first.size(); i++) {
 		f << stringf("V%d", conn_counter++);
-		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter);
-		print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter);
+		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
+		print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
 		f << stringf(" DC 0\n");
 	}
 }
@@ -132,6 +153,10 @@ struct SpiceBackend : public Backend {
 		log("    -nc_prefix\n");
 		log("        prefix for not-connected nets (default: _NC)\n");
 		log("\n");
+		log("    -inames\n");
+		log("        include names of internal ($-prefixed) nets in outputs\n");
+		log("        (default is to use net numbers instead)\n");
+		log("\n");
 		log("    -top top_module\n");
 		log("        set the specified module as design top module\n");
 		log("\n");
@@ -140,7 +165,7 @@ struct SpiceBackend : public Backend {
 	{
 		std::string top_module_name;
 		RTLIL::Module *top_module = NULL;
-		bool big_endian = false;
+		bool big_endian = false, use_inames = false;
 		std::string neg = "Vss", pos = "Vdd", ncpf = "_NC";
 
 		log_header("Executing SPICE backend.\n");
@@ -150,6 +175,10 @@ struct SpiceBackend : public Backend {
 		{
 			if (args[argidx] == "-big_endian") {
 				big_endian = true;
+				continue;
+			}
+			if (args[argidx] == "-inames") {
+				use_inames = true;
 				continue;
 			}
 			if (args[argidx] == "-neg" && argidx+1 < args.size()) {
@@ -187,9 +216,9 @@ struct SpiceBackend : public Backend {
 				continue;
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in SPICE backend!\n", RTLIL::id2cstr(module->name));
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in SPICE backend!\n", log_id(module));
 			if (module->memories.size() != 0)
-				log_error("Found munmapped emories in module %s: unmapped memories are not supported in SPICE backend!\n", RTLIL::id2cstr(module->name));
+				log_error("Found munmapped emories in module %s: unmapped memories are not supported in SPICE backend!\n", log_id(module));
 
 			if (module->name == RTLIL::escape_id(top_module_name)) {
 				top_module = module;
@@ -206,24 +235,24 @@ struct SpiceBackend : public Backend {
 				ports.at(wire->port_id-1) = wire;
 			}
 
-			*f << stringf(".SUBCKT %s", RTLIL::id2cstr(module->name));
+			*f << stringf(".SUBCKT %s", spice_id2str(module->name).c_str());
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				if (wire->width > 1) {
 					for (int i = 0; i < wire->width; i++)
-						*f << stringf(" %s[%d]", RTLIL::id2cstr(wire->name), big_endian ? wire->width - 1 - i : i);
+						*f << stringf(" %s.%d", spice_id2str(wire->name).c_str(), big_endian ? wire->width - 1 - i : i);
 				} else
-					*f << stringf(" %s", RTLIL::id2cstr(wire->name));
+					*f << stringf(" %s", spice_id2str(wire->name).c_str());
 			}
 			*f << stringf("\n");
-			print_spice_module(*f, module, design, neg, pos, ncpf, big_endian);
-			*f << stringf(".ENDS %s\n\n", RTLIL::id2cstr(module->name));
+			print_spice_module(*f, module, design, neg, pos, ncpf, big_endian, use_inames);
+			*f << stringf(".ENDS %s\n\n", spice_id2str(module->name).c_str());
 		}
 
 		if (!top_module_name.empty()) {
 			if (top_module == NULL)
 				log_error("Can't find top module `%s'!\n", top_module_name.c_str());
-			print_spice_module(*f, top_module, design, neg, pos, ncpf, big_endian);
+			print_spice_module(*f, top_module, design, neg, pos, ncpf, big_endian, use_inames);
 			*f << stringf("\n");
 		}
 
