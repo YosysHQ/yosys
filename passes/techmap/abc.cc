@@ -31,7 +31,7 @@
 
 #define ABC_COMMAND_LIB "strash; scorr; ifraig; retime {D}; strash; dch -f; map {D}"
 #define ABC_COMMAND_CTR "strash; scorr; ifraig; retime {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; scorr; ifraig; retime; strash; dch -f; if"
+#define ABC_COMMAND_LUT "strash; scorr; ifraig; retime; strash; dch -f; if; mfs"
 #define ABC_COMMAND_DFL "strash; scorr; ifraig; retime; strash; dch -f; map"
 
 #define ABC_FAST_COMMAND_LIB "retime {D}; map {D}"
@@ -642,9 +642,15 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					abc_script += script_file[i];
 		} else
 			abc_script += stringf("source %s", script_file.c_str());
-	} else if (!lut_costs.empty())
+	} else if (!lut_costs.empty()) {
+		bool all_luts_cost_same = true;
+		for (int this_cost : lut_costs)
+			if (this_cost != lut_costs.front())
+				all_luts_cost_same = false;
 		abc_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
-	else if (!liberty_file.empty())
+		if (all_luts_cost_same && !fast_mode)
+			abc_script += "; lutpack";
+	} else if (!liberty_file.empty())
 		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else
 		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
@@ -1186,7 +1192,10 @@ struct AbcPass : public Pass {
 		log("        for -liberty with -constr:\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR).c_str());
 		log("\n");
-		log("        for -lut:\n");
+		log("        for -lut/-luts (only one LUT size):\n");
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack").c_str());
+		log("\n");
+		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT).c_str());
 		log("\n");
 		log("        otherwise:\n");
@@ -1202,7 +1211,7 @@ struct AbcPass : public Pass {
 		log("        for -liberty with -constr:\n");
 		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_CTR).c_str());
 		log("\n");
-		log("        for -lut:\n");
+		log("        for -lut/-luts:\n");
 		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT).c_str());
 		log("\n");
 		log("        otherwise:\n");
