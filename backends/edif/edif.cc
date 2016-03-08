@@ -100,6 +100,11 @@ struct EdifBackend : public Backend {
 		log("    -top top_module\n");
 		log("        set the specified module as design top module\n");
 		log("\n");
+		log("    -nogndvcc\n");
+		log("        do not create \"GND\" and \"VCC\" cells. (this will produce an error\n");
+		log("        if the design contains constant nets. use \"hilomap\" to map to custom\n");
+		log("        constant drivers first)\n");
+		log("\n");
 		log("Unfortunately there are different \"flavors\" of the EDIF file format. This\n");
 		log("command generates EDIF files for the Xilinx place&route tools. It might be\n");
 		log("necessary to make small modifications to this command when a different tool\n");
@@ -112,6 +117,7 @@ struct EdifBackend : public Backend {
 
 		std::string top_module_name;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
+		bool nogndvcc = false;
 		CellTypes ct(design);
 		EdifNames edif_names;
 
@@ -120,6 +126,10 @@ struct EdifBackend : public Backend {
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module_name = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-nogndvcc") {
+				nogndvcc = true;
 				continue;
 			}
 			break;
@@ -169,21 +179,24 @@ struct EdifBackend : public Backend {
 		*f << stringf("    (edifLevel 0)\n");
 		*f << stringf("    (technology (numberDefinition))\n");
 
-		*f << stringf("    (cell GND\n");
-		*f << stringf("      (cellType GENERIC)\n");
-		*f << stringf("      (view VIEW_NETLIST\n");
-		*f << stringf("        (viewType NETLIST)\n");
-		*f << stringf("        (interface (port G (direction OUTPUT)))\n");
-		*f << stringf("      )\n");
-		*f << stringf("    )\n");
+		if (!nogndvcc)
+		{
+			*f << stringf("    (cell GND\n");
+			*f << stringf("      (cellType GENERIC)\n");
+			*f << stringf("      (view VIEW_NETLIST\n");
+			*f << stringf("        (viewType NETLIST)\n");
+			*f << stringf("        (interface (port G (direction OUTPUT)))\n");
+			*f << stringf("      )\n");
+			*f << stringf("    )\n");
 
-		*f << stringf("    (cell VCC\n");
-		*f << stringf("      (cellType GENERIC)\n");
-		*f << stringf("      (view VIEW_NETLIST\n");
-		*f << stringf("        (viewType NETLIST)\n");
-		*f << stringf("        (interface (port P (direction OUTPUT)))\n");
-		*f << stringf("      )\n");
-		*f << stringf("    )\n");
+			*f << stringf("    (cell VCC\n");
+			*f << stringf("      (cellType GENERIC)\n");
+			*f << stringf("      (view VIEW_NETLIST\n");
+			*f << stringf("        (viewType NETLIST)\n");
+			*f << stringf("        (interface (port P (direction OUTPUT)))\n");
+			*f << stringf("      )\n");
+			*f << stringf("    )\n");
+		}
 
 		for (auto &cell_it : lib_cell_ports) {
 			*f << stringf("    (cell %s\n", EDIF_DEF(cell_it.first));
@@ -279,8 +292,10 @@ struct EdifBackend : public Backend {
 			}
 			*f << stringf("        )\n");
 			*f << stringf("        (contents\n");
-			*f << stringf("          (instance GND (viewRef VIEW_NETLIST (cellRef GND (libraryRef LIB))))\n");
-			*f << stringf("          (instance VCC (viewRef VIEW_NETLIST (cellRef VCC (libraryRef LIB))))\n");
+			if (!nogndvcc) {
+				*f << stringf("          (instance GND (viewRef VIEW_NETLIST (cellRef GND (libraryRef LIB))))\n");
+				*f << stringf("          (instance VCC (viewRef VIEW_NETLIST (cellRef VCC (libraryRef LIB))))\n");
+			}
 			for (auto &cell_it : module->cells_) {
 				RTLIL::Cell *cell = cell_it.second;
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
@@ -326,6 +341,8 @@ struct EdifBackend : public Backend {
 				for (auto &ref : it.second)
 					*f << stringf("            %s\n", ref.c_str());
 				if (sig.wire == NULL) {
+					if (nogndvcc)
+						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
 					if (sig == RTLIL::State::S0)
 						*f << stringf("            (portRef G (instanceRef GND))\n");
 					if (sig == RTLIL::State::S1)
