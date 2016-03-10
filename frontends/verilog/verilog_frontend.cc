@@ -362,13 +362,13 @@ struct VerilogDefaults : public Pass {
 		log("Add the specified options to the list of default options to read_verilog.\n");
 		log("\n");
 		log("\n");
-		log("    verilog_defaults -clear");
+		log("    verilog_defaults -clear\n");
 		log("\n");
 		log("Clear the list of Verilog default options.\n");
 		log("\n");
 		log("\n");
-		log("    verilog_defaults -push");
-		log("    verilog_defaults -pop");
+		log("    verilog_defaults -push\n");
+		log("    verilog_defaults -pop\n");
 		log("\n");
 		log("Push or pop the list of default options to a stack. Note that -push does\n");
 		log("not imply -clear.\n");
