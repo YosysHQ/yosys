@@ -1,0 +1,5 @@
+[dumpfile] "counter_tb.vcd"
+counter_tb.clk
+counter_tb.count[2:0]
+counter_tb.en
+counter_tb.reset
