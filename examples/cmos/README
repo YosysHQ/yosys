@@ -1,0 +1,12 @@
+
+In this directory you will find out, how to generate a spice output
+operating in two modes, analog or event-driven mode supported by ngspice
+xspice sub-module.
+
+Each test bench can be run separately by either running:
+
+- testbench.sh, to start analog simulation or
+- testbench_digital.sh for mixed-signal digital simulation.
+
+The later case also includes pure verilog simulation using the iverilog
+and gtkwave to represent the results.
