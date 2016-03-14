@@ -801,14 +801,14 @@ single_cell:
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(astbuf2);
-	} '(' cell_port_list ')' |
+	} '(' cell_port_list_opt ')' |
 	TOK_ID non_opt_range {
 		astbuf2 = astbuf1->clone();
 		if (astbuf2->type != AST_PRIMITIVE)
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(new AstNode(AST_CELLARRAY, $2, astbuf2));
-	} '(' cell_port_list ')';
+	} '(' cell_port_list_opt ')';
 
 prim_list:
 	single_prim |
@@ -819,7 +819,7 @@ single_prim:
 	/* no name */ {
 		astbuf2 = astbuf1->clone();
 		ast_stack.back()->children.push_back(astbuf2);
-	} '(' cell_port_list ')';
+	} '(' cell_port_list_opt ')';
 
 cell_parameter_list_opt:
 	'#' '(' cell_parameter_list ')' | /* empty */;
@@ -842,13 +842,17 @@ cell_parameter:
 		delete $2;
 	};
 
-cell_port_list:
-	/* empty */ | cell_port |
-	cell_port ',' cell_port_list |
+cell_port_list_opt:
+	/* empty */ |
+	cell_port_list |
 	/* empty */ ',' {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
 	} cell_port_list;
+
+cell_port_list:
+	cell_port |
+	cell_port_list ',' cell_port;
 
 cell_port:
 	expr {
