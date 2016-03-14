@@ -19,11 +19,6 @@
  *
  *  A simple and straightforward Verilog backend.
  *
- *  Note that RTLIL processes can't always be mapped easily to a Verilog
- *  process. Therefore this frontend should only be used to export a
- *  Verilog netlist (i.e. after the "proc" pass has converted all processes
- *  to logic networks and registers).
- *
  */
 
 #include "kernel/register.h"
@@ -1135,11 +1130,15 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 	dump_sigspec(f, sw->signal);
 	f << stringf(")\n");
 
+	bool got_default = false;
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
-		f << stringf("%s  ", indent.c_str());
-		if ((*it)->compare.size() == 0)
-			f << stringf("default");
-		else {
+		if ((*it)->compare.size() == 0) {
+			if (got_default)
+				continue;
+			f << stringf("%s  default", indent.c_str());
+			got_default = true;
+		} else {
+			f << stringf("%s  ", indent.c_str());
 			for (size_t i = 0; i < (*it)->compare.size(); i++) {
 				if (i > 0)
 					f << stringf(", ");
@@ -1243,6 +1242,12 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	reg_wires.clear();
 	reset_auto_counter(module);
 	active_module = module;
+
+	if (!module->processes.empty())
+		log_warning("Module %s contains unmapped RTLIL proccesses. RTLIL processes\n"
+				"can't always be mapped directly to Verilog always blocks. Unintended\n"
+				"changes in simulation behavior are possible! Use \"proc\" to convert\n"
+				"processes to logic networks and registers.", log_id(module));
 
 	f << stringf("\n");
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
@@ -1348,6 +1353,12 @@ struct VerilogBackend : public Backend {
 		log("    -selected\n");
 		log("        only write selected modules. modules must be selected entirely or\n");
 		log("        not at all.\n");
+		log("\n");
+		log("Note that RTLIL processes can't always be mapped directly to Verilog\n");
+		log("always blocks. This frontend should only be used to export an RTLIL\n");
+		log("netlist, i.e. after the \"proc\" pass has been used to convert all\n");
+		log("processes to logic networks and registers. A warning is generated when\n");
+		log("this command is called on a design with RTLIL processes.\n");
 		log("\n");
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
