@@ -794,7 +794,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					RTLIL::SigSpec sig(children[0]->bits);
 					sig.extend_u0(width, children[0]->is_signed);
 					AstNode *old_child_0 = children[0];
-					children[0] = mkconst_bits(sig.as_const().bits, children[0]->is_signed);
+					children[0] = mkconst_bits(sig.as_const().bits, is_signed);
 					delete old_child_0;
 				}
 				children[0]->is_signed = is_signed;
