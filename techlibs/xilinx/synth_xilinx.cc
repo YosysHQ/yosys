@@ -69,6 +69,7 @@ struct SynthXilinxPass : public Pass {
 		log("\n");
 		log("    begin:\n");
 		log("        read_verilog -lib +/xilinx/cells_sim.v\n");
+		log("        read_verilog -lib +/xilinx/cells_xtra.v\n");
 		log("        read_verilog -lib +/xilinx/brams_bb.v\n");
 		log("        read_verilog -lib +/xilinx/drams_bb.v\n");
 		log("        hierarchy -check -top <top>\n");
@@ -165,6 +166,7 @@ struct SynthXilinxPass : public Pass {
 		if (check_label(active, run_from, run_to, "begin"))
 		{
 			Pass::call(design, "read_verilog -lib +/xilinx/cells_sim.v");
+			Pass::call(design, "read_verilog -lib +/xilinx/cells_xtra.v");
 			Pass::call(design, "read_verilog -lib +/xilinx/brams_bb.v");
 			Pass::call(design, "read_verilog -lib +/xilinx/drams_bb.v");
 			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
