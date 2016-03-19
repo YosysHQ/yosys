@@ -29,10 +29,6 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#ifndef YOSYS_ABC_EXE
-#define YOSYS_ABC_EXE "yosys-abc" // uses in-tree ABC by default
-#endif
-
 #define ABC_COMMAND_LIB "strash; scorr; ifraig; retime {D}; strash; dch -f; map {D}"
 #define ABC_COMMAND_CTR "strash; scorr; ifraig; retime {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_COMMAND_LUT "strash; scorr; ifraig; retime; strash; dch -f; if; mfs"
@@ -1177,7 +1173,11 @@ struct AbcPass : public Pass {
 		log("library to a target architecture.\n");
 		log("\n");
 		log("    -exe <command>\n");
-		log("        use the specified command name instead of \"" YOSYS_ABC_EXE "\" to execute ABC.\n");
+#ifdef ABCEXTERNAL
+		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
+#else
+		log("        use the specified command instead of \"<yosys-bindir>/yosys-abc\" to execute ABC.\n");
+#endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
 		log("    -script <file>\n");
@@ -1302,7 +1302,11 @@ struct AbcPass : public Pass {
 		log_header("Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
 
-		std::string exe_file = proc_self_dirname() + YOSYS_ABC_EXE;
+#ifdef ABCEXTERNAL
+		std::string exe_file = ABCEXTERNAL;
+#else
+		std::string exe_file = proc_self_dirname() + "yosys-abc";
+#endif
 		std::string script_file, liberty_file, constr_file, clk_str, delay_target;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false;
@@ -1315,8 +1319,10 @@ struct AbcPass : public Pass {
 		enabled_gates.clear();
 
 #ifdef _WIN32
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\" YOSYS_ABC_EXE ".exe"))
-			exe_file = proc_self_dirname() + "..\\" YOSYS_ABC_EXE;
+#ifndef ABCEXTERNAL
+		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\yosys-abc.exe"))
+			exe_file = proc_self_dirname() + "..\\yosys-abc";
+#endif
 #endif
 
 		size_t argidx;

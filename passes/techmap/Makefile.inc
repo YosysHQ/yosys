@@ -7,6 +7,9 @@ OBJS += passes/techmap/libparse.o
 
 ifeq ($(ENABLE_ABC),1)
 OBJS += passes/techmap/abc.o
+ifneq ($(ABCEXTERNAL),)
+passes/techmap/abc.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
+endif
 endif
 
 ifneq ($(SMALL),1)

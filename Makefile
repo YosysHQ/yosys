@@ -82,7 +82,7 @@ ABCREV = ae7d65e71adc
 ABCPULL = 1
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)"
 
-# set ABCEXTERNAL = "abc-command" to use an external ABC instance
+# set ABCEXTERNAL = <abc-command> to use an external ABC instance
 # Note: The in-tree ABC (yosys-abc) will not be installed when ABCEXTERNAL is set.
 ABCEXTERNAL =
 
@@ -210,8 +210,6 @@ ifeq ($(ENABLE_ABC),1)
 CXXFLAGS += -DYOSYS_ENABLE_ABC
 ifeq ($(ABCEXTERNAL),)
 TARGETS += yosys-abc$(EXE)
-else
-CXXFLAGS += -DYOSYS_ABC_EXE=\"$(ABCEXTERNAL)\"
 endif
 endif
 
