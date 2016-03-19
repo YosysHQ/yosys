@@ -193,13 +193,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// but should be good enough for most uses
 	if ((type == AST_TCALL) && ((str == "$display") || (str == "$write")))
 	{
-		size_t nargs = GetSize(children);
-		if(nargs < 1)
+		int nargs = GetSize(children);
+		if (nargs < 1)
 			log_error("System task `%s' got %d arguments, expected >= 1 at %s:%d.\n",
 					str.c_str(), int(children.size()), filename.c_str(), linenum);
 
 		// First argument is the format string
-		AstNode *node_string = children[0]->clone();
+		AstNode *node_string = children[0];
 		while (node_string->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 		if (node_string->type != AST_CONSTANT)
 			log_error("Failed to evaluate system task `%s' with non-constant 1st argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
@@ -207,37 +207,57 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		// Other arguments are placeholders. Process the string as we go through it
 		std::string sout;
-		size_t next_arg = 1;
-		for(size_t i=0; i<sformat.length(); i++)
+		int next_arg = 1;
+		for (size_t i = 0; i < sformat.length(); i++)
 		{
 			// format specifier
-			if(sformat[i] == '%')
+			if (sformat[i] == '%')
 			{
 				// If there's no next character, that's a problem
-				if(i+1 >= sformat.length())
+				if (i+1 >= sformat.length())
 					log_error("System task `%s' called with `%%' at end of string at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 
 				char cformat = sformat[++i];
 
 				// %% is special, does not need a matching argument
-				if(cformat == '%')
+				if (cformat == '%')
 				{
 					sout += '%';
 					continue;
 				}
 
-				// If we're out of arguments, that's a problem!
-				if(next_arg >= nargs)
-					log_error("System task `%s' called with more format specifiers than arguments at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
-
 				// Simplify the argument
-				AstNode *node_arg = children[next_arg ++]->clone();
-				while (node_arg->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
-				if (node_arg->type != AST_CONSTANT)
-					log_error("Failed to evaluate system task `%s' with non-constant argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+				AstNode *node_arg = nullptr;
 
 				// Everything from here on depends on the format specifier
-				switch(cformat)
+				switch (cformat)
+				{
+					case 's':
+					case 'S':
+					case 'd':
+					case 'D':
+					case 'x':
+					case 'X':
+						if (next_arg >= GetSize(children))
+							log_error("Missing argument for %%%c format specifier in system task `%s' at %s:%d.\n",
+									cformat, str.c_str(), filename.c_str(), linenum);
+
+						node_arg = children[next_arg++];
+						while (node_arg->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+						if (node_arg->type != AST_CONSTANT)
+							log_error("Failed to evaluate system task `%s' with non-constant argument at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+						break;
+
+					case 'm':
+					case 'M':
+						break;
+
+					default:
+						log_error("System task `%s' called with invalid/unsupported format specifier at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+						break;
+				}
+
+				switch (cformat)
 				{
 					case 's':
 					case 'S':
@@ -262,9 +282,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						}
 						break;
 
-					default:
-						log_error("System task `%s' called with invalid format specifier at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+					case 'm':
+					case 'M':
+						sout += log_id(current_module->name);
 						break;
+
+					default:
+						log_abort();
 				}
 			}
 
@@ -275,7 +299,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		// Finally, print the message (only include a \n for $display, not for $write)
 		log("%s", sout.c_str());
-		if(str == "$display")
+		if (str == "$display")
 			log("\n");
 		delete_children();
 		str = std::string();
