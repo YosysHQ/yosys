@@ -297,8 +297,6 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 
 	int del_counter = 0;
 	for (auto mod : del_modules) {
-		if (mod->name.substr(0, 9) == "$abstract")
-			continue;
 		if (!purge_lib && mod->get_bool_attribute("\\blackbox"))
 			continue;
 		log("Removing unused module `%s'.\n", mod->name.c_str());
