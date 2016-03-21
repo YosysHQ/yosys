@@ -47,12 +47,12 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
 		log("\n");
-		log("    -blif <file>\n");
-		log("        write the design to the specified BLIF file. writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
+		log("    -part <part>\n");
+		log("        synthesize for the specified part. Valid values are SLG46140V,\n");
+		log("        SLG46620V, and SLG46621V (default).\n");
 		log("\n");
-		log("    -edif <file>\n");
-		log("        write the design to the specified edif file. writing of an output file\n");
+		log("    -json <file>\n");
+		log("        write the design to the specified JSON file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
@@ -91,7 +91,9 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        abc -dff     (only if -retime)\n");
 		log("\n");
 		log("    map_luts:\n");
-		log("        nlutmap -luts 0,8,16,2\n");
+		log("        nlutmap -luts 0,6,8,2        (for -part SLG46140V)\n");
+		log("        nlutmap -luts 0,8,16,2       (for -part SLG46620V)\n");
+		log("        nlutmap -luts 0,8,16,2       (for -part SLG46621V)\n");
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
@@ -103,18 +105,16 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        stat\n");
 		log("        check -noinit\n");
 		log("\n");
-		log("    blif:\n");
-		log("        write_blif -gates -attr -param <file-name>\n");
-		log("\n");
-		log("    edif:\n");
-		log("        write_edif <file-name>\n");
+		log("    json:\n");
+		log("        write_json <file-name>\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string top_opt = "-auto-top";
+		std::string part = "SLG46621V";
 		std::string run_from, run_to;
-		std::string blif_file, edif_file;
+		std::string json_file;
 		bool flatten = true;
 		bool retime = false;
 
@@ -125,12 +125,12 @@ struct SynthGreenPAK4Pass : public Pass {
 				top_opt = "-top " + args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
-				blif_file = args[++argidx];
+			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+				json_file = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
-				edif_file = args[++argidx];
+			if (args[argidx] == "-part" && argidx+1 < args.size()) {
+				part = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -139,10 +139,6 @@ struct SynthGreenPAK4Pass : public Pass {
 					break;
 				run_from = args[++argidx].substr(0, pos);
 				run_to = args[argidx].substr(pos+1);
-				continue;
-			}
-			if (args[argidx] == "-flatten") {
-				flatten = true;
 				continue;
 			}
 			if (args[argidx] == "-noflatten") {
@@ -159,6 +155,9 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (!design->full_selection())
 			log_cmd_error("This comannd only operates on fully selected designs!\n");
+
+		if (part != "SLG46140V" && part != "SLG46620V" && part != "SLG46621V")
+			log_cmd_error("Invalid part name: '%s'\n", part.c_str());
 
 		bool active = run_from.empty();
 
@@ -197,7 +196,9 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
-			Pass::call(design, "nlutmap -luts 0,8,16,2");
+			if (part == "SLG46140V") Pass::call(design, "nlutmap -luts 0,6,8,2");
+			if (part == "SLG46620V") Pass::call(design, "nlutmap -luts 0,8,16,2");
+			if (part == "SLG46621V") Pass::call(design, "nlutmap -luts 0,8,16,2");
 			Pass::call(design, "clean");
 		}
 
@@ -214,16 +215,10 @@ struct SynthGreenPAK4Pass : public Pass {
 			Pass::call(design, "check -noinit");
 		}
 
-		if (check_label(active, run_from, run_to, "blif"))
+		if (check_label(active, run_from, run_to, "json"))
 		{
-			if (!blif_file.empty())
-				Pass::call(design, stringf("write_blif -gates -attr -param %s", blif_file.c_str()));
-		}
-
-		if (check_label(active, run_from, run_to, "edif"))
-		{
-			if (!edif_file.empty())
-				Pass::call(design, stringf("write_edif %s", edif_file.c_str()));
+			if (!json_file.empty())
+				Pass::call(design, stringf("write_json %s", json_file.c_str()));
 		}
 
 		log_pop();
