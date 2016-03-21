@@ -215,6 +215,12 @@ struct ChparamPass : public Pass {
 			}
 			break;
 		}
+
+		for (int i = argidx; i < GetSize(args); i++)
+			if (design->module("$abstract\\" + args[i]) != nullptr &&
+					design->module(RTLIL::escape_id(args[i])) == nullptr)
+				args[i] = "$abstract\\" + args[i];
+
 		extra_args(args, argidx, design);
 
 		do_setunset(new_parameters, setunset_list);
