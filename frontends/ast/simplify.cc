@@ -174,8 +174,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// deactivate all calls to non-synthesis system tasks
-	// note that $display and $finish are used for synthesis-time DRC so they're not in this list
-	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" || str == "$stop"  ||
+	// note that $display, $finish, and $stop are used for synthesis-time DRC so they're not in this list
+	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
 		log_warning("Ignoring call to system %s %s at %s:%d.\n", type == AST_FCALL ? "function" : "task", str.c_str(), filename.c_str(), linenum);
 		delete_children();
@@ -1698,12 +1698,12 @@ skip_dynamic_range_lvalue_expansion:;
 
 		if (type == AST_TCALL)
 		{
-			if (str == "$finish")
+			if (str == "$finish" || str == "$stop")
 			{
 				if (!current_always || current_always->type != AST_INITIAL)
-					log_error("System task `$finish' outside initial block is unsupported at %s:%d.\n", filename.c_str(), linenum);
+					log_error("System task `%s' outside initial block is unsupported at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 
-				log_error("System task `$finish' executed at %s:%d.\n", filename.c_str(), linenum);
+				log_error("System task `%s' executed at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
 			}
 
 			if (str == "\\$readmemh" || str == "\\$readmemb")
