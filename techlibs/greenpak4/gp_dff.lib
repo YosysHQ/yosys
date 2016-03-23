@@ -1,5 +1,5 @@
 library(gp_dff) {
-  cell(GP_DFF_NOSR) {
+  cell(GP_DFF) {
     area: 1;
     ff("IQ", "IQN") { clocked_on: CLK;
                   next_state: D; }
@@ -9,18 +9,28 @@ library(gp_dff) {
     pin(Q) { direction: output;
               function: "IQ"; }
   }
-  cell(GP_DFF_SR) {
+  cell(GP_DFFS) {
     area: 1;
     ff("IQ", "IQN") { clocked_on: CLK;
                   next_state: D;
-                      preset: "nSETZ'";
-                       clear: "nRSTZ'"; }
+                      preset: "nSET'"; }
     pin(CLK) { direction: input;
                  clock: true; }
     pin(D) { direction: input; }
     pin(Q) { direction: output;
               function: "IQ"; }
-    pin(nRSTZ) { direction: input; }
-    pin(nSETZ) { direction: input; }
+    pin(nSET) { direction: input; }
+  }
+  cell(GP_DFFR) {
+    area: 1;
+    ff("IQ", "IQN") { clocked_on: CLK;
+                  next_state: D;
+                       clear: "nRST'"; }
+    pin(CLK) { direction: input;
+                 clock: true; }
+    pin(D) { direction: input; }
+    pin(Q) { direction: output;
+              function: "IQ"; }
+    pin(nRST) { direction: input; }
   }
 }

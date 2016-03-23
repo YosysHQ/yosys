@@ -97,6 +97,7 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        clean\n");
 		log("\n");
 		log("    map_cells:\n");
+		log("        dfflibmap -liberty +/greenpak4/gp_dff.lib\n");
 		log("        techmap -map +/greenpak4/cells_map.v\n");
 		log("        dffinit -ff GP_DFF Q INIT\n");
 		log("        clean\n");
@@ -205,6 +206,7 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "map_cells"))
 		{
+			Pass::call(design, "dfflibmap -liberty +/greenpak4/gp_dff.lib");
 			Pass::call(design, "techmap -map +/greenpak4/cells_map.v");
 			Pass::call(design, "dffinit -ff GP_DFF Q INIT");
 			Pass::call(design, "clean");

@@ -1,20 +1,26 @@
-module  \$_DFF_P_ (input D, C, output Q);
-	GP_DFF _TECHMAP_REPLACE_ (
+module GP_DFFS(input D, CLK, nSET, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	GP_DFFSR #(
+		.INIT(INIT),
+		.SRMODE(1'b1),
+	) _TECHMAP_REPLACE_ (
 		.D(D),
-		.Q(Q),
 		.CLK(C),
-		.nRSTZ(1'b1),
-		.nSETZ(1'b1)
+		.nSR(nSET),
+		.Q(Q)
 	);
 endmodule
 
-module  \$_DFFSR_PNN_ (input C, S, R, D, output Q);
-	GP_DFF _TECHMAP_REPLACE_ (
+module GP_DFFR(input D, CLK, nRST, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	GP_DFFSR #(
+		.INIT(INIT),
+		.SRMODE(1'b0),
+	) _TECHMAP_REPLACE_ (
 		.D(D),
-		.Q(Q),
 		.CLK(C),
-		.nRSTZ(R),
-		.nSETZ(S)
+		.nSR(nRST),
+		.Q(Q)
 	);
 endmodule
 
