@@ -64,7 +64,7 @@ struct NlutmapWorker
 	{
 		vector<int> available_luts = config.luts;
 
-		while (!available_luts.empty())
+		while (GetSize(available_luts) > 1)
 		{
 			int n_luts = available_luts.back();
 			int lut_size = GetSize(available_luts);
@@ -84,7 +84,7 @@ struct NlutmapWorker
 				if (cell->type != "$lut" || mapped_cells.count(cell))
 					continue;
 
-				if (GetSize(cell->getPort("\\A")) == lut_size)
+				if (GetSize(cell->getPort("\\A")) == lut_size || lut_size == 2)
 					candidate_ratings[cell] = 0;
 
 				for (auto &conn : cell->connections())
