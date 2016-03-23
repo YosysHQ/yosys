@@ -1,4 +1,6 @@
 module GP_DFF(input D, CLK, nRSTZ, nSETZ, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	initial Q = INIT;
 	always @(posedge CLK, negedge nRSTZ, negedge nSETZ) begin
 		if (!nRSTZ)
 			Q <= 1'b0;
