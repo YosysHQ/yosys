@@ -51,6 +51,8 @@ VPATH := $(YOSYS_SRC)
 CXXFLAGS += -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LDFLAGS += -L$(LIBDIR)
 LDLIBS = -lstdc++ -lm
+
+PKG_CONFIG = pkg-config
 SED = sed
 BISON = bison
 
@@ -187,8 +189,8 @@ endif
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
-CXXFLAGS += -DYOSYS_ENABLE_PLUGINS $(shell pkg-config --silence-errors --cflags libffi)
-LDLIBS += $(shell pkg-config --silence-errors --libs libffi || echo -lffi) -ldl
+CXXFLAGS += -DYOSYS_ENABLE_PLUGINS $(shell $(PKG_CONFIG) --silence-errors --cflags libffi)
+LDLIBS += $(shell $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi) -ldl
 endif
 
 ifeq ($(ENABLE_TCL),1)
