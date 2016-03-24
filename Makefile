@@ -29,8 +29,9 @@ SANITIZER =
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
 
-TARGET_BINDIR := $(DESTDIR)$(PREFIX)/bin
-TARGET_DATDIR := $(DESTDIR)$(PREFIX)/share/yosys
+BINDIR := $(PREFIX)/bin
+LIBDIR := $(PREFIX)/lib
+DATDIR := $(PREFIX)/share/yosys
 
 EXE =
 OBJS =
@@ -47,8 +48,8 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXFLAGS += -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(DESTDIR)$(PREFIX)/include
-LDFLAGS += -L$(DESTDIR)$(PREFIX)/lib
+CXXFLAGS += -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
+LDFLAGS += -L$(LIBDIR)
 LDLIBS = -lstdc++ -lm
 SED = sed
 BISON = bison
@@ -356,9 +357,9 @@ kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 			$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1` $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))\"; }" > kernel/version_$(GIT_REV).cc
 
 yosys-config: misc/yosys-config.in
-	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(TARGET_DATDIR)/include",$(CXXFLAGS))#;' \
+	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(CXXFLAGS))#;' \
 			-e 's#@CXX@#$(CXX)#;' -e 's#@LDFLAGS@#$(LDFLAGS)#;' -e 's#@LDLIBS@#$(LDLIBS)#;' \
-			-e 's#@BINDIR@#$(TARGET_BINDIR)#;' -e 's#@DATDIR@#$(TARGET_DATDIR)#;' < $< > yosys-config
+			-e 's#@BINDIR@#$(BINDIR)#;' -e 's#@DATDIR@#$(DATDIR)#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
 abc/abc-$(ABCREV)$(EXE):
@@ -415,20 +416,20 @@ vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 
 install: $(TARGETS) $(EXTRA_TARGETS)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PREFIX)/bin
-	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PREFIX)/share/yosys
-	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(PREFIX)/share/yosys/.
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
+	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PREFIX)/lib/
+	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) ldconfig
 endif
 
 uninstall:
-	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(PREFIX)/bin/,$(notdir $(TARGETS)))
-	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(PREFIX)/share/yosys/
+	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(BINDIR),$(notdir $(TARGETS)))
+	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PREFIX)/lib/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
