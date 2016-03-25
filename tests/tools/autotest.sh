@@ -16,7 +16,7 @@ toolsdir="$(cd $(dirname $0); pwd)"
 warn_iverilog_git=false
 
 if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
-	( set -ex;  gcc -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
+	( set -ex;  ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
 while getopts xmGl:wkjvref:s:p:n: opt; do
