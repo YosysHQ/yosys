@@ -183,8 +183,8 @@ int main(int argc, char **argv)
 		printf("    -b backend\n");
 		printf("        use this backend for the output file specified on the command line\n");
 		printf("\n");
-		printf("    -f backend\n");
-		printf("        use the specified front for the input files on the command line\n");
+		printf("    -f frontend\n");
+		printf("        use the specified frontend for the input files on the command line\n");
 		printf("\n");
 		printf("    -H\n");
 		printf("        print the command list\n");
