@@ -55,10 +55,11 @@ module GP_4LUT(input IN0, IN1, IN2, IN3, output OUT);
 	assign OUT = INIT[{IN3, IN2, IN1, IN0}];
 endmodule
 
-module GP4_VDD(output OUT);
+module GP_VDD(output OUT);
        assign OUT = 1;
 endmodule
 
-module GP4_VSS(output OUT);
+module GP_VSS(output OUT);
        assign OUT = 0;
 endmodule
+
