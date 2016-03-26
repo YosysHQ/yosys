@@ -64,8 +64,10 @@ module GP_VSS(output OUT);
 endmodule
 
 module GP_LFOSC(input PWRDN, output reg CLKOUT);
+	
 	parameter PWRDN_EN = 0;
-	parameter AUTO_ON = 0;
+	parameter AUTO_PWRDN = 0;
+	parameter OUT_DIV = 1;
 	
 	initial CLKOUT = 0;
 	
