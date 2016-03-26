@@ -63,3 +63,20 @@ module GP_VSS(output OUT);
        assign OUT = 0;
 endmodule
 
+module GP_LFOSC(input PWRDN, output reg CLKOUT);
+	parameter PWRDN_EN = 0;
+	parameter AUTO_ON = 0;
+	
+	initial CLKOUT = 0;
+	
+	always begin
+		if(PWRDN)
+			clkout = 0;
+		else begin
+			//half period of 1730 Hz
+			#289017;
+			clkout = ~clkout;
+		end
+	end
+	
+endmodule
