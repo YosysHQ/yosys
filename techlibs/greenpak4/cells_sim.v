@@ -82,3 +82,25 @@ module GP_LFOSC(input PWRDN, output reg CLKOUT);
 	end
 	
 endmodule
+
+module GP_COUNT8(input CLK, input wire RST, output reg OUT);
+
+	parameter RESET_MODE 	= "RISING";	
+	
+	parameter COUNT_TO		= 8'h1;
+	parameter CLKIN_DIVIDE	= 1;
+	
+	//more complex hard IP blocks are not supported for simulation yet
+
+endmodule
+
+module GP_COUNT14(input CLK, input wire RST, output reg OUT);
+
+	parameter RESET_MODE 	= "RISING";	
+	
+	parameter COUNT_TO		= 14'h1;
+	parameter CLKIN_DIVIDE	= 1;
+	
+	//more complex hard IP blocks are not supported for simulation yet
+
+endmodule
