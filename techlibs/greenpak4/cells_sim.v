@@ -55,10 +55,52 @@ module GP_4LUT(input IN0, IN1, IN2, IN3, output OUT);
 	assign OUT = INIT[{IN3, IN2, IN1, IN0}];
 endmodule
 
-module GP4_VDD(output OUT);
+module GP_VDD(output OUT);
        assign OUT = 1;
 endmodule
 
-module GP4_VSS(output OUT);
+module GP_VSS(output OUT);
        assign OUT = 0;
+endmodule
+
+module GP_LFOSC(input PWRDN, output reg CLKOUT);
+	
+	parameter PWRDN_EN = 0;
+	parameter AUTO_PWRDN = 0;
+	parameter OUT_DIV = 1;
+	
+	initial CLKOUT = 0;
+	
+	always begin
+		if(PWRDN)
+			clkout = 0;
+		else begin
+			//half period of 1730 Hz
+			#289017;
+			clkout = ~clkout;
+		end
+	end
+	
+endmodule
+
+module GP_COUNT8(input CLK, input wire RST, output reg OUT);
+
+	parameter RESET_MODE 	= "RISING";	
+	
+	parameter COUNT_TO		= 8'h1;
+	parameter CLKIN_DIVIDE	= 1;
+	
+	//more complex hard IP blocks are not supported for simulation yet
+
+endmodule
+
+module GP_COUNT14(input CLK, input wire RST, output reg OUT);
+
+	parameter RESET_MODE 	= "RISING";	
+	
+	parameter COUNT_TO		= 14'h1;
+	parameter CLKIN_DIVIDE	= 1;
+	
+	//more complex hard IP blocks are not supported for simulation yet
+
 endmodule
