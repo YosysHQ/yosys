@@ -701,6 +701,11 @@ std::string proc_share_dirname()
 	proc_share_path = proc_self_path + "../share/yosys/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
+#    ifdef YOSYS_DATDIR
+	proc_share_path = YOSYS_DATDIR "/";
+	if (check_file_exists(proc_share_path, true))
+		return proc_share_path;
+#    endif
 #  endif
 	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }
