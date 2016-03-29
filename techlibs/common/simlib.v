@@ -33,6 +33,12 @@
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $not (A, Y)
+//-
+//- A bit-wise inverter. This corresponds to the Verilog unary prefix '~' operator.
+//-
 module \$not (A, Y);
 
 parameter A_SIGNED = 0;
@@ -55,6 +61,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $pos (A, Y)
+//-
+//- A buffer. This corresponds to the Verilog unary prefix '+' operator.
+//-
 module \$pos (A, Y);
 
 parameter A_SIGNED = 0;
@@ -76,6 +88,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $neg (A, Y)
+//-
+//- An arithmetic inverter. This corresponds to the Verilog unary prefix '-' operator.
+//-
 module \$neg (A, Y);
 
 parameter A_SIGNED = 0;
@@ -97,6 +115,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $and (A, B, Y)
+//-
+//- A bit-wise AND. This corresponds to the Verilog '&' operator.
+//-
 module \$and (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -121,6 +145,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $or (A, B, Y)
+//-
+//- A bit-wise OR. This corresponds to the Verilog '|' operator.
+//-
 module \$or (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -145,6 +175,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $xor (A, B, Y)
+//-
+//- A bit-wise XOR. This corresponds to the Verilog '^' operator.
+//-
 module \$xor (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -169,6 +205,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $xnor (A, B, Y)
+//-
+//- A bit-wise XNOR. This corresponds to the Verilog '~^' operator.
+//-
 module \$xnor (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -193,6 +235,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $reduce_and (A, B, Y)
+//-
+//- An AND reduction. This corresponds to the Verilog unary prefix '&' operator.
+//-
 module \$reduce_and (A, Y);
 
 parameter A_SIGNED = 0;
@@ -214,6 +262,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $reduce_or (A, B, Y)
+//-
+//- An OR reduction. This corresponds to the Verilog unary prefix '|' operator.
+//-
 module \$reduce_or (A, Y);
 
 parameter A_SIGNED = 0;
@@ -235,6 +289,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $reduce_xor (A, B, Y)
+//-
+//- A XOR reduction. This corresponds to the Verilog unary prefix '^' operator.
+//-
 module \$reduce_xor (A, Y);
 
 parameter A_SIGNED = 0;
@@ -256,6 +316,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $reduce_xnor (A, B, Y)
+//-
+//- A XNOR reduction. This corresponds to the Verilog unary prefix '~^' operator.
+//-
 module \$reduce_xnor (A, Y);
 
 parameter A_SIGNED = 0;
@@ -277,6 +343,13 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $reduce_bool (A, B, Y)
+//-
+//- An OR reduction. This cell type is used instead of $reduce_or when a signal is
+//- implicitly converted to a boolean signal, e.g. for operands of '&&' and '||'.
+//-
 module \$reduce_bool (A, Y);
 
 parameter A_SIGNED = 0;
