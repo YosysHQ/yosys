@@ -104,3 +104,12 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 	//more complex hard IP blocks are not supported for simulation yet
 
 endmodule
+
+//keep constraint needed to prevent optimization since we have no outputs
+(* keep *)
+module GP_SYSRESET(input RST);
+	parameter RESET_MODE = "RISING";
+	
+	//cannot simulate whole system reset
+	
+endmodule
