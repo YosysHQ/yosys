@@ -105,6 +105,8 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 endmodule
 
+//keep constraint needed to prevent optimization since we have no outputs
+(* keep *)
 module GP_SYSRESET(input RST);
 	parameter RESET_MODE = "RISING";
 	
