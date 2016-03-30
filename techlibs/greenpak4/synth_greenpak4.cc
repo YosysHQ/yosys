@@ -108,6 +108,7 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        check -noinit\n");
 		log("\n");
 		log("    json:\n");
+		log("        splitnets                    (temporary workaround for gp4par parser limitation)\n");
 		log("        write_json <file-name>\n");
 		log("\n");
 	}
@@ -221,6 +222,7 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "json"))
 		{
+			Pass::call(design, "splitnets");
 			if (!json_file.empty())
 				Pass::call(design, stringf("write_json %s", json_file.c_str()));
 		}
