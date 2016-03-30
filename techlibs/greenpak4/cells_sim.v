@@ -91,6 +91,33 @@ module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 	parameter CLKIN_DIVIDE	= 1;
 	
 	//more complex hard IP blocks are not supported for simulation yet
+	
+	reg[7:0] count = COUNT_TO;
+	
+	//Combinatorially output whenever we wrap low
+	always @(*) begin
+		OUT <= (count == 8'h0);
+	end
+	
+	//datasheet is unclear but experimental testing confirms that POR value is COUNT_TO.
+	//Reset value is clearly 0 except in count/FSM cells where it's configurable.
+	//Datasheet seems to indicate that reset is asynchronous, but for now we model as sync due to Yosys issues...
+	always @(posedge CLK) begin
+		
+		count		<= count - 1'd1;
+		
+		if(count == 0)
+			count	<= COUNT_MAX;
+			
+		/*
+		if((RESET_MODE == "RISING") && RST)
+			count	<= 0;
+		if((RESET_MODE == "FALLING") && !RST)
+			count	<= 0;
+		if((RESET_MODE == "BITH") && RST)
+			count	<= 0;
+		*/			
+	end
 
 endmodule
 
