@@ -16,13 +16,13 @@ passes that each perform a simple optimization:
 \item Once at the beginning of {\tt opt}:
 \begin{itemize}
 \item {\tt opt\_expr}
-\item {\tt opt\_share -nomux}
+\item {\tt opt\_merge -nomux}
 \end{itemize}
 \item Repeat until result is stable:
 \begin{itemize}
 \item {\tt opt\_muxtree}
 \item {\tt opt\_reduce}
-\item {\tt opt\_share}
+\item {\tt opt\_merge}
 \item {\tt opt\_rmdff}
 \item {\tt opt\_clean}
 \item {\tt opt\_expr}
@@ -130,7 +130,7 @@ This pass identifies unused signals and cells and removes them from the design. 
 creates an \B{unused\_bits} attribute on wires with unused bits. This attribute can be
 used for debugging or by other optimization passes.
 
-\subsection{The opt\_share pass}
+\subsection{The opt\_merge pass}
 
 This pass performs trivial resource sharing. This means that this pass identifies cells
 with identical inputs and replaces them with a single instance of the cell.

@@ -31,7 +31,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct OptShareWorker
+struct OptMergeWorker
 {
 	RTLIL::Design *design;
 	RTLIL::Module *module;
@@ -212,14 +212,14 @@ struct OptShareWorker
 	}
 
 	struct CompareCells {
-		OptShareWorker *that;
-		CompareCells(OptShareWorker *that) : that(that) {}
+		OptMergeWorker *that;
+		CompareCells(OptMergeWorker *that) : that(that) {}
 		bool operator()(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2) const {
 			return that->compare_cells(cell1, cell2);
 		}
 	};
 
-	OptShareWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all) :
+	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all) :
 		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
@@ -286,13 +286,13 @@ struct OptShareWorker
 	}
 };
 
-struct OptSharePass : public Pass {
-	OptSharePass() : Pass("opt_share", "consolidate identical cells") { }
+struct OptMergePass : public Pass {
+	OptMergePass() : Pass("opt_merge", "consolidate identical cells") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_share [options] [selection]\n");
+		log("    opt_merge [options] [selection]\n");
 		log("\n");
 		log("This pass identifies cells with identical type and input signals. Such cells\n");
 		log("are then merged to one cell.\n");
@@ -328,7 +328,7 @@ struct OptSharePass : public Pass {
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
-			OptShareWorker worker(design, module, mode_nomux, mode_share_all);
+			OptMergeWorker worker(design, module, mode_nomux, mode_share_all);
 			total_count += worker.total_count;
 		}
 
@@ -336,6 +336,6 @@ struct OptSharePass : public Pass {
 			design->scratchpad_set_bool("opt.did_something", true);
 		log("Removed a total of %d cells.\n", total_count);
 	}
-} OptSharePass;
+} OptMergePass;
 
 PRIVATE_NAMESPACE_END

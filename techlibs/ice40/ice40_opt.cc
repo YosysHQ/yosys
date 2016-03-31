@@ -128,7 +128,7 @@ struct Ice40OptPass : public Pass {
 		log("    do\n");
 		log("        <ice40 specific optimizations>\n");
 		log("        opt_expr -mux_undef -undriven [-full]\n");
-		log("        opt_share\n");
+		log("        opt_merge\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean\n");
 		log("    while <changed design>\n");
@@ -159,7 +159,7 @@ struct Ice40OptPass : public Pass {
 				run_ice40_opts(module);
 
 			Pass::call(design, "opt_expr " + opt_expr_args);
-			Pass::call(design, "opt_share");
+			Pass::call(design, "opt_merge");
 			Pass::call(design, "opt_rmdff");
 			Pass::call(design, "opt_clean");
 
