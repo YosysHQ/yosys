@@ -99,8 +99,8 @@ module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 		OUT <= (count == 8'h0);
 	end
 	
-	//datasheet is unclear but experimental testing confirms that POR value is COUNT_TO.
-	//Reset value is clearly 0 except in count/FSM cells where it's configurable.
+	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
+	//Runtime reset value is clearly 0 except in count/FSM cells where it's configurable but we leave at 0 for now.
 	//Datasheet seems to indicate that reset is asynchronous, but for now we model as sync due to Yosys issues...
 	always @(posedge CLK) begin
 		
@@ -114,7 +114,7 @@ module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 			count	<= 0;
 		if((RESET_MODE == "FALLING") && !RST)
 			count	<= 0;
-		if((RESET_MODE == "BITH") && RST)
+		if((RESET_MODE == "BOTH") && RST)
 			count	<= 0;
 		*/			
 	end
