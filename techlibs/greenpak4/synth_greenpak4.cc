@@ -187,6 +187,8 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
+			Pass::call(design, "counters");
+			Pass::call(design, "clean");
 			Pass::call(design, "opt -fast -mux_undef -undriven -fine");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "opt -undriven -fine");

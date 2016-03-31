@@ -87,7 +87,7 @@ bool is_unconnected(const RTLIL::SigSpec& port, ModIndex& index)
 	return true;
 }
 
-void counters_worker(ModIndex& index, Module */*module*/, Cell *cell, unsigned int& total_counters)
+void counters_worker(ModIndex& index, Module *module, Cell *cell, unsigned int& total_counters)
 {
 	SigMap& sigmap = index.sigmap;
 	
@@ -143,11 +143,11 @@ void counters_worker(ModIndex& index, Module */*module*/, Cell *cell, unsigned i
 	if(!is_full_bus(aluy, index, cell, "\\Y", count_mux, "\\A"))
 		return;
 
-	//B connection of the mux is our overflow value
-	const RTLIL::SigSpec overflow = sigmap(count_mux->getPort("\\B"));
-	if(!overflow.is_fully_const())
+	//B connection of the mux is our underflow value
+	const RTLIL::SigSpec underflow = sigmap(count_mux->getPort("\\B"));
+	if(!underflow.is_fully_const())
 		return;
-	int count_value = overflow.as_int();
+	int count_value = underflow.as_int();
 	
 	//S connection of the mux must come from an inverter (need not be the only load)
 	const RTLIL::SigSpec muxsel = sigmap(count_mux->getPort("\\S"));
@@ -186,6 +186,9 @@ void counters_worker(ModIndex& index, Module */*module*/, Cell *cell, unsigned i
 		return;
 	if(!is_full_bus(cnout, index, count_reg, "\\Q", cell, "\\A", true))
 		return;
+		
+	//Look up the clock from the register
+	const RTLIL::SigSpec clk = sigmap(count_reg->getPort("\\CLK"));
 	
 	//Register output net must have an INIT attribute equal to the count value
 	auto rwire = cnout.as_wire();
@@ -208,27 +211,36 @@ void counters_worker(ModIndex& index, Module */*module*/, Cell *cell, unsigned i
 		count_value,
 		log_id(rwire->name),
 		count_reg_src.c_str());
+		
+	//Wipe all of the old connections to the ALU
+	cell->unsetPort("\\A");
+	cell->unsetPort("\\B");
+	cell->unsetPort("\\BI");
+	cell->unsetPort("\\CI");
+	cell->unsetPort("\\CO");
+	cell->unsetPort("\\X");
+	cell->unsetPort("\\Y");
+	cell->unsetParam("\\A_SIGNED");
+	cell->unsetParam("\\A_WIDTH");
+	cell->unsetParam("\\B_SIGNED");
+	cell->unsetParam("\\B_WIDTH");
+	cell->unsetParam("\\Y_WIDTH");
 	
-	/*
-	log("Converting %s cell %s.%s to $adff.\n", log_id(cell->type), log_id(module), log_id(cell));
-
-	if (GetSize(setctrl) == 1) {
-		cell->setPort("\\ARST", setctrl);
-		cell->setParam("\\ARST_POLARITY", setpol);
-	} else {
-		cell->setPort("\\ARST", clrctrl);
-		cell->setParam("\\ARST_POLARITY", clrpol);
-	}
-
-	cell->type = "$adff";
-	cell->unsetPort("\\SET");
-	cell->unsetPort("\\CLR");
-	cell->setParam("\\ARST_VALUE", reset_val);
-	cell->unsetParam("\\SET_POLARITY");
-	cell->unsetParam("\\CLR_POLARITY");
-
-	return;
-	*/
+	//Change the cell type
+	cell->type = celltype;
+	
+	//Hook it up to everything
+	cell->setParam("\\RESET_MODE", RTLIL::Const("RISING"));
+	cell->setParam("\\CLKIN_DIVIDE", RTLIL::Const(1));
+	cell->setParam("\\COUNT_TO", RTLIL::Const(count_value));
+	cell->setPort("\\CLK", clk);
+	cell->setPort("\\RST", RTLIL::SigSpec(false));
+	cell->setPort("\\OUT", muxsel);
+	
+	//Delete the cells we've replaced (let opt_clean handle deleting the now-redundant wires)
+	module->remove(count_mux);
+	module->remove(count_reg);
+	module->remove(underflow_inv);
 }
 
 struct CountersPass : public Pass {
