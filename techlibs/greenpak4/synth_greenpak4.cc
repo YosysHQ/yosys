@@ -82,6 +82,8 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        synth -run coarse\n");
 		log("\n");
 		log("    fine:\n");
+		log("        greenpak4_counters\n");
+		log("        clean\n");
 		log("        opt -fast -mux_undef -undriven -fine\n");
 		log("        memory_map\n");
 		log("        opt -undriven -fine\n");
@@ -187,7 +189,7 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
-			Pass::call(design, "counters");
+			Pass::call(design, "greenpak4_counters");
 			Pass::call(design, "clean");
 			Pass::call(design, "opt -fast -mux_undef -undriven -fine");
 			Pass::call(design, "memory_map");

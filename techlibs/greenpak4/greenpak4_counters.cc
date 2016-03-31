@@ -87,7 +87,7 @@ bool is_unconnected(const RTLIL::SigSpec& port, ModIndex& index)
 	return true;
 }
 
-void counters_worker(ModIndex& index, Module *module, Cell *cell, unsigned int& total_counters)
+void greenpak4_counters_worker(ModIndex& index, Module *module, Cell *cell, unsigned int& total_counters)
 {
 	SigMap& sigmap = index.sigmap;
 	
@@ -243,20 +243,21 @@ void counters_worker(ModIndex& index, Module *module, Cell *cell, unsigned int& 
 	module->remove(underflow_inv);
 }
 
-struct CountersPass : public Pass {
-	CountersPass() : Pass("counters", "Extract counter cells") { }
+struct Greenpak4CountersPass : public Pass {
+	Greenpak4CountersPass() : Pass("greenpak4_counters", "Extract GreenPak4 counter cells") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    counters [options] [selection]\n");
+		log("    greenpak4_counters [options] [selection]\n");
 		log("\n");
-		log("This pass converts resettable down counters to GreenPak4 counter cells\n");
+		log("This pass converts non-resettable down counters to GreenPak4 counter cells\n");
+		log("(All other GreenPak4 counter modes must be instantiated manually for now.)\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing COUNTERS pass (mapping counters to hard IP blocks).\n");
+		log_header("Executing GREENPAK4_COUNTERS pass (mapping counters to hard IP blocks).\n");
 		
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -273,7 +274,7 @@ struct CountersPass : public Pass {
 		{
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				counters_worker(index, module, cell, total_counters);
+				greenpak4_counters_worker(index, module, cell, total_counters);
 		}
 		
 		if(total_counters)
