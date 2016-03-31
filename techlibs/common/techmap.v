@@ -93,7 +93,7 @@ module _90_shift_ops_shr_shl_sshl_sshr (A, B, Y);
 	localparam BB_WIDTH = `MIN($clog2(shift_left ? Y_WIDTH : A_SIGNED ? WIDTH : A_WIDTH) + 1, B_WIDTH);
 
 	wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
-	wire [1023:0] _TECHMAP_DO_01_ = "RECURSION; CONSTMAP; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
+	wire [1023:0] _TECHMAP_DO_01_ = "RECURSION; CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
 
 	integer i;
 	reg [WIDTH-1:0] buffer;
@@ -136,7 +136,7 @@ module _90_shift_shiftx (A, B, Y);
 	localparam extbit = _TECHMAP_CELLTYPE_ == "$shift" ? 1'b0 : 1'bx;
 
 	wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
-	wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_const -mux_undef -mux_bool -fine;;;";
+	wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
 
 	integer i;
 	reg [WIDTH-1:0] buffer;

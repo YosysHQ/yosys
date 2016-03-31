@@ -127,7 +127,7 @@ struct Ice40OptPass : public Pass {
 		log("\n");
 		log("    do\n");
 		log("        <ice40 specific optimizations>\n");
-		log("        opt_const -mux_undef -undriven [-full]\n");
+		log("        opt_expr -mux_undef -undriven [-full]\n");
 		log("        opt_share\n");
 		log("        opt_rmdff\n");
 		log("        opt_clean\n");
@@ -136,14 +136,14 @@ struct Ice40OptPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		string opt_const_args = "-mux_undef -undriven";
+		string opt_expr_args = "-mux_undef -undriven";
 		log_header("Executing ICE40_OPT pass (performing simple optimizations).\n");
 		log_push();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-full") {
-				opt_const_args += " -full";
+				opt_expr_args += " -full";
 				continue;
 			}
 			break;
@@ -158,7 +158,7 @@ struct Ice40OptPass : public Pass {
 			for (auto module : design->selected_modules())
 				run_ice40_opts(module);
 
-			Pass::call(design, "opt_const " + opt_const_args);
+			Pass::call(design, "opt_expr " + opt_expr_args);
 			Pass::call(design, "opt_share");
 			Pass::call(design, "opt_rmdff");
 			Pass::call(design, "opt_clean");

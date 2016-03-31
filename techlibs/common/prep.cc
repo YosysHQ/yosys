@@ -69,7 +69,7 @@ struct PrepPass : public Pass {
 		log("\n");
 		log("    prep:\n");
 		log("        proc\n");
-		log("        opt_const\n");
+		log("        opt_expr -keepdc\n");
 		log("        opt_clean\n");
 		log("        check\n");
 		log("        opt -keepdc\n");
@@ -134,7 +134,7 @@ struct PrepPass : public Pass {
 		if (check_label(active, run_from, run_to, "coarse"))
 		{
 			Pass::call(design, "proc");
-			Pass::call(design, "opt_const");
+			Pass::call(design, "opt_expr -keepdc");
 			Pass::call(design, "opt_clean");
 			Pass::call(design, "check");
 			Pass::call(design, "opt -keepdc");
