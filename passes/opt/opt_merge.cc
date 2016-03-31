@@ -45,6 +45,29 @@ struct OptMergeWorker
 	dict<const RTLIL::Cell*, std::string> cell_hash_cache;
 #endif
 
+	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
+	{
+		SigSpec sig_s = conn.at("\\S");
+		SigSpec sig_b = conn.at("\\B");
+
+		int s_width = GetSize(sig_s);
+		int width = GetSize(sig_b) / s_width;
+
+		vector<pair<SigBit, SigSpec>> sb_pairs;
+		for (int i = 0; i < s_width; i++)
+			sb_pairs.push_back(pair<SigBit, SigSpec>(sig_s[i], sig_b.extract(i*width, width)));
+
+		std::sort(sb_pairs.begin(), sb_pairs.end());
+
+		conn["\\S"] = SigSpec();
+		conn["\\B"] = SigSpec();
+
+		for (auto &it : sb_pairs) {
+			conn["\\S"].append(it.first);
+			conn["\\B"].append(it.second);
+		}
+	}
+
 #ifdef USE_CELL_HASH_CACHE
 	std::string int_to_hash_string(unsigned int v)
 	{
@@ -91,24 +114,39 @@ struct OptMergeWorker
 			assign_map.apply(alt_conn.at("\\A"));
 			alt_conn.at("\\A").sort_and_unify();
 			conn = &alt_conn;
+		} else
+		if (cell->type == "$pmux") {
+			alt_conn = *conn;
+			assign_map.apply(alt_conn.at("\\A"));
+			assign_map.apply(alt_conn.at("\\B"));
+			assign_map.apply(alt_conn.at("\\S"));
+			sort_pmux_conn(alt_conn);
+			conn = &alt_conn;
 		}
+
+		vector<string> hash_conn_strings;
 
 		for (auto &it : *conn) {
 			if (cell->output(it.first))
 				continue;
 			RTLIL::SigSpec sig = it.second;
 			assign_map.apply(sig);
-			hash_string += "C " + it.first.str() + "=";
+			string s = "C " + it.first.str() + "=";
 			for (auto &chunk : sig.chunks()) {
 				if (chunk.wire)
-					hash_string += "{" + chunk.wire->name.str() + " " +
+					s += "{" + chunk.wire->name.str() + " " +
 							int_to_hash_string(chunk.offset) + " " +
 							int_to_hash_string(chunk.width) + "}";
 				else
-					hash_string += RTLIL::Const(chunk.data).as_string();
+					s += RTLIL::Const(chunk.data).as_string();
 			}
-			hash_string += "\n";
+			hash_conn_strings.push_back(s + "\n");
 		}
+
+		std::sort(hash_conn_strings.begin(), hash_conn_strings.end());
+
+		for (auto it : hash_conn_strings)
+			hash_string += it;
 
 		cell_hash_cache[cell] = sha1(hash_string);
 		return cell_hash_cache[cell];
@@ -171,6 +209,10 @@ struct OptMergeWorker
 		if (cell1->type == "$reduce_and" || cell1->type == "$reduce_or" || cell1->type == "$reduce_bool") {
 			conn1["\\A"].sort_and_unify();
 			conn2["\\A"].sort_and_unify();
+		} else
+		if (cell1->type == "$pmux") {
+			sort_pmux_conn(conn1);
+			sort_pmux_conn(conn2);
 		}
 
 		if (conn1 != conn2) {
