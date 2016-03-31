@@ -82,6 +82,8 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        synth -run coarse\n");
 		log("\n");
 		log("    fine:\n");
+		log("        greenpak4_counters\n");
+		log("        clean\n");
 		log("        opt -fast -mux_undef -undriven -fine\n");
 		log("        memory_map\n");
 		log("        opt -undriven -fine\n");
@@ -108,6 +110,7 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        check -noinit\n");
 		log("\n");
 		log("    json:\n");
+		log("        splitnets                    (temporary workaround for gp4par parser limitation)\n");
 		log("        write_json <file-name>\n");
 		log("\n");
 	}
@@ -186,6 +189,8 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "fine"))
 		{
+			Pass::call(design, "greenpak4_counters");
+			Pass::call(design, "clean");
 			Pass::call(design, "opt -fast -mux_undef -undriven -fine");
 			Pass::call(design, "memory_map");
 			Pass::call(design, "opt -undriven -fine");
@@ -221,6 +226,7 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		if (check_label(active, run_from, run_to, "json"))
 		{
+			Pass::call(design, "splitnets");
 			if (!json_file.empty())
 				Pass::call(design, stringf("write_json %s", json_file.c_str()));
 		}
