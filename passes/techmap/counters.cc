@@ -202,13 +202,12 @@ void counters_worker(ModIndex& index, Module */*module*/, Cell *cell, unsigned i
 	
 	//Log it
 	total_counters ++;
-	log("  Extracting %d-bit counter to %s hard macro\n", a_width, celltype.c_str());
-	log("    Decrementer: %s\n", cell->name.c_str());
-	log("    Output mux:  %s\n", count_mux->name.c_str());
-	log("    Register:    %s\n", count_reg->name.c_str());
-	log("    Comparator:  %s\n", underflow_inv->name.c_str());
-	log("    Count value: %d\n", count_value);
-	
+	string count_reg_src = rwire->attributes["\\src"].decode_string().c_str();
+	log("  Found %d-bit non-resettable down counter (from %d) for register %s declared at %s\n",
+		a_width,
+		count_value,
+		log_id(rwire->name),
+		count_reg_src.c_str());
 	
 	/*
 	log("Converting %s cell %s.%s to $adff.\n", log_id(cell->type), log_id(module), log_id(cell));
@@ -240,12 +239,12 @@ struct CountersPass : public Pass {
 		log("\n");
 		log("    counters [options] [selection]\n");
 		log("\n");
-		log("This pass converts resettable down counters to GreenPak counter cells\n");
+		log("This pass converts resettable down counters to GreenPak4 counter cells\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing COUNTERS pass (mapping counters to GP_COUNTx cells).\n");
+		log_header("Executing COUNTERS pass (mapping counters to hard IP blocks).\n");
 		
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
