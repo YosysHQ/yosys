@@ -31,19 +31,23 @@ std::map<std::string, std::string> loaded_plugin_aliases;
 #ifdef YOSYS_ENABLE_PLUGINS
 void load_plugin(std::string filename, std::vector<std::string> aliases)
 {
+	std::string orig_filename = filename;
+
 	if (filename.find('/') == std::string::npos)
 		filename = "./" + filename;
 
 	if (!loaded_plugins.count(filename)) {
 		void *hdl = dlopen(filename.c_str(), RTLD_LAZY|RTLD_LOCAL);
+		if (hdl == NULL && orig_filename.find('/') == std::string::npos)
+			hdl = dlopen((proc_share_dirname() + "plugins/" + orig_filename + ".so").c_str(), RTLD_LAZY|RTLD_LOCAL);
 		if (hdl == NULL)
 			log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), dlerror());
-		loaded_plugins[filename] = hdl;
+		loaded_plugins[orig_filename] = hdl;
 		Pass::init_register();
 	}
 
 	for (auto &alias : aliases)
-		loaded_plugin_aliases[alias] = filename;
+		loaded_plugin_aliases[alias] = orig_filename;
 }
 #else
 void load_plugin(std::string, std::vector<std::string>)

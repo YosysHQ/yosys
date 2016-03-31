@@ -104,7 +104,7 @@ void yosys_banner()
 	log(" |                                                                            |\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 	log(" |                                                                            |\n");
-	log(" |  Copyright (C) 2012 - 2015  Clifford Wolf <clifford@clifford.at>           |\n");
+	log(" |  Copyright (C) 2012 - 2016  Clifford Wolf <clifford@clifford.at>           |\n");
 	log(" |                                                                            |\n");
 	log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 	log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");
@@ -763,6 +763,8 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 			command = "verilog";
 		else if (filename.size() > 2 && filename.substr(filename.size()-3) == ".sv")
 			command = "verilog -sv";
+		else if (filename.size() > 2 && filename.substr(filename.size()-4) == ".vhd")
+			command = "vhdl";
 		else if (filename.size() > 4 && filename.substr(filename.size()-5) == ".blif")
 			command = "blif";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
