@@ -25,9 +25,9 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 //get the list of cells hooked up to at least one bit of a given net
-std::set<Cell*> get_other_cells(const RTLIL::SigSpec& port, ModIndex& index, Cell* src)
+pool<Cell*> get_other_cells(const RTLIL::SigSpec& port, ModIndex& index, Cell* src)
 {
-	std::set<Cell*> rval;
+	pool<Cell*> rval;
 	for(auto b : port)
 	{
 		pool<ModIndex::PortInfo> ports = index.query_ports(b);
@@ -41,8 +41,16 @@ std::set<Cell*> get_other_cells(const RTLIL::SigSpec& port, ModIndex& index, Cel
 	return rval;
 }
 
-//return true if there is a full-width bus connection between the two named module/port combos
-bool is_full_bus(const RTLIL::SigSpec& sig, ModIndex& index, Cell* a, RTLIL::IdString ap, Cell* b, RTLIL::IdString bp)
+//return true if there is a full-width bus connection from cell a port ap to cell b port bp
+//if other_conns_allowed is false, then we require a strict point to point connection (no other links)
+bool is_full_bus(
+	const RTLIL::SigSpec& sig,
+	ModIndex& index,
+	Cell* a,
+	RTLIL::IdString ap,
+	Cell* b,
+	RTLIL::IdString bp,
+	bool other_conns_allowed = false)
 {
 	for(auto s : sig)
 	{
@@ -55,7 +63,7 @@ bool is_full_bus(const RTLIL::SigSpec& sig, ModIndex& index, Cell* a, RTLIL::IdS
 				found_a = true;
 			else if( (x.cell == b) && (x.port == bp) )
 				found_b = true;
-			else
+			else if(!other_conns_allowed)
 				return false;
 		}
 		
@@ -79,108 +87,149 @@ bool is_unconnected(const RTLIL::SigSpec& port, ModIndex& index)
 	return true;
 }
 
-void counters_worker(SigMap &sigmap, Module *module, Cell *cell)
+void counters_worker(ModIndex& index, Module */*module*/, Cell *cell, unsigned int& total_counters)
 {
-	if (cell->type == "$alu")
-	{	
-		//GreenPak does not support counters larger than 14 bits so immediately skip anything bigger
-		int a_width = cell->getParam("\\A_WIDTH").as_int();
-		if(a_width > 14)
-			return;
-			
-		//Second input must be a single bit
-		int b_width = cell->getParam("\\B_WIDTH").as_int();
-		if(b_width != 1)
-			return;
-			
-		//Both inputs must be unsigned, so don't extract anything with a signed input
-		bool a_sign = cell->getParam("\\A_SIGNED").as_bool();
-		bool b_sign = cell->getParam("\\B_SIGNED").as_bool();
-		if(a_sign || b_sign)
-			return;
-
-		//To be a counter, one input of the ALU must be a constant 1
-		//TODO: can A or B be swapped in synthesized RTL or is B always the 1?
-		const RTLIL::SigSpec b_port = sigmap(cell->getPort("\\B"));
-		if(!b_port.is_fully_const() || (b_port.as_int() != 1) )
-			return;
-			
-		//BI and CI must be constant 1 as well
-		const RTLIL::SigSpec bi_port = sigmap(cell->getPort("\\BI"));
-		if(!bi_port.is_fully_const() || (bi_port.as_int() != 1) )
-			return;
-		const RTLIL::SigSpec ci_port = sigmap(cell->getPort("\\CI"));
-		if(!ci_port.is_fully_const() || (ci_port.as_int() != 1) )
-			return;
-		
-		//Index the module
-		ModIndex index(module);
-		
-		//We found a decrementer. Not sure if it's a counter yet but log for debugging
-		log("    Found candidate counter %s (width %d)\n", cell->name.c_str(), a_width);
-			
-		//CO and X must be unconnected (exactly one connection to each port)
-		if(!is_unconnected(sigmap(cell->getPort("\\CO")), index))
-			return;
-		if(!is_unconnected(sigmap(cell->getPort("\\X")), index))
-			return;
-			
-		//Y must have exactly one connection, and it has to be a $mux cell.
-		//We must have a direct bus connection from our Y to their A.
-		const RTLIL::SigSpec aluy = sigmap(cell->getPort("\\Y"));
-		std::set<Cell*> y_loads = get_other_cells(aluy, index, cell);
-		if(y_loads.size() != 1)
-			return;
-		Cell* count_mux = *y_loads.begin();
-		if(count_mux->type != "$mux")
-			return;
-		if(!is_full_bus(aluy, index, cell, "\\Y", count_mux, "\\A"))
-			return;
-		
-		//B connection of the mux is our overflow value
-		const RTLIL::SigSpec overflow = sigmap(count_mux->getPort("\\B"));
-		if(!overflow.is_fully_const())
-			return;
-		int count_value = overflow.as_int();
-		
-		//TODO: S connection of the mux must come from an inverter
-		
-		//Y connection of the mux must have exactly one load, the counter's internal register
-		const RTLIL::SigSpec muxy = sigmap(count_mux->getPort("\\Y"));
-		std::set<Cell*> muxy_loads = get_other_cells(muxy, index, count_mux);
-		if(muxy_loads.size() != 1)
-			return;
-		Cell* count_reg = *muxy_loads.begin();
-		if(count_reg->type != "$dff")			//TODO: support dffr/dffs?
-			return;
-		if(!is_full_bus(muxy, index, count_mux, "\\Y", count_reg, "\\D"))
-			return;
-		
-		log("        Looks like a counter so far (count value = %d, count_reg = %s)\n",
-			count_value, count_reg->name.c_str());
-		
-		
-		/*
-		log("Converting %s cell %s.%s to $adff.\n", log_id(cell->type), log_id(module), log_id(cell));
-
-		if (GetSize(setctrl) == 1) {
-			cell->setPort("\\ARST", setctrl);
-			cell->setParam("\\ARST_POLARITY", setpol);
-		} else {
-			cell->setPort("\\ARST", clrctrl);
-			cell->setParam("\\ARST_POLARITY", clrpol);
-		}
-
-		cell->type = "$adff";
-		cell->unsetPort("\\SET");
-		cell->unsetPort("\\CLR");
-		cell->setParam("\\ARST_VALUE", reset_val);
-		cell->unsetParam("\\SET_POLARITY");
-		cell->unsetParam("\\CLR_POLARITY");
-
+	SigMap& sigmap = index.sigmap;
+	
+	//Core of the counter must be an ALU
+	if (cell->type != "$alu")
 		return;
-		*/
+	
+	//GreenPak does not support counters larger than 14 bits so immediately skip anything bigger
+	int a_width = cell->getParam("\\A_WIDTH").as_int();
+	if(a_width > 14)
+		return;
+		
+	//Second input must be a single bit
+	int b_width = cell->getParam("\\B_WIDTH").as_int();
+	if(b_width != 1)
+		return;
+		
+	//Both inputs must be unsigned, so don't extract anything with a signed input
+	bool a_sign = cell->getParam("\\A_SIGNED").as_bool();
+	bool b_sign = cell->getParam("\\B_SIGNED").as_bool();
+	if(a_sign || b_sign)
+		return;
+
+	//To be a counter, one input of the ALU must be a constant 1
+	//TODO: can A or B be swapped in synthesized RTL or is B always the 1?
+	const RTLIL::SigSpec b_port = sigmap(cell->getPort("\\B"));
+	if(!b_port.is_fully_const() || (b_port.as_int() != 1) )
+		return;
+		
+	//BI and CI must be constant 1 as well
+	const RTLIL::SigSpec bi_port = sigmap(cell->getPort("\\BI"));
+	if(!bi_port.is_fully_const() || (bi_port.as_int() != 1) )
+		return;
+	const RTLIL::SigSpec ci_port = sigmap(cell->getPort("\\CI"));
+	if(!ci_port.is_fully_const() || (ci_port.as_int() != 1) )
+		return;
+				
+	//CO and X must be unconnected (exactly one connection to each port)
+	if(!is_unconnected(sigmap(cell->getPort("\\CO")), index))
+		return;
+	if(!is_unconnected(sigmap(cell->getPort("\\X")), index))
+		return;
+		
+	//Y must have exactly one connection, and it has to be a $mux cell.
+	//We must have a direct bus connection from our Y to their A.
+	const RTLIL::SigSpec aluy = sigmap(cell->getPort("\\Y"));
+	pool<Cell*> y_loads = get_other_cells(aluy, index, cell);
+	if(y_loads.size() != 1)
+		return;
+	Cell* count_mux = *y_loads.begin();
+	if(count_mux->type != "$mux")
+		return;
+	if(!is_full_bus(aluy, index, cell, "\\Y", count_mux, "\\A"))
+		return;
+
+	//B connection of the mux is our overflow value
+	const RTLIL::SigSpec overflow = sigmap(count_mux->getPort("\\B"));
+	if(!overflow.is_fully_const())
+		return;
+	int count_value = overflow.as_int();
+	
+	//S connection of the mux must come from an inverter (need not be the only load)
+	const RTLIL::SigSpec muxsel = sigmap(count_mux->getPort("\\S"));
+	pool<Cell*> muxsel_conns = get_other_cells(muxsel, index, count_mux);
+	Cell* underflow_inv = NULL;
+	for(auto c : muxsel_conns)
+	{		
+		if(c->type != "$logic_not")
+			continue;
+		if(!is_full_bus(muxsel, index, c, "\\Y", count_mux, "\\S", true))
+			continue;
+	
+		underflow_inv = c;
+		break;
 	}
+	if(underflow_inv == NULL)
+		return;
+	
+	//Y connection of the mux must have exactly one load, the counter's internal register
+	const RTLIL::SigSpec muxy = sigmap(count_mux->getPort("\\Y"));
+	pool<Cell*> muxy_loads = get_other_cells(muxy, index, count_mux);
+	if(muxy_loads.size() != 1)
+		return;
+	Cell* count_reg = *muxy_loads.begin();
+	if(count_reg->type != "$dff")			//TODO: support dffr/dffs?
+		return;
+	if(!is_full_bus(muxy, index, count_mux, "\\Y", count_reg, "\\D"))
+		return;
+		
+	//Register output must have exactly two loads, the inverter and ALU
+	const RTLIL::SigSpec cnout = sigmap(count_reg->getPort("\\Q"));
+	pool<Cell*> cnout_loads = get_other_cells(cnout, index, count_reg);
+	if(cnout_loads.size() != 2)
+		return;
+	if(!is_full_bus(cnout, index, count_reg, "\\Q", underflow_inv, "\\A", true))
+		return;
+	if(!is_full_bus(cnout, index, count_reg, "\\Q", cell, "\\A", true))
+		return;
+	
+	//Register output net must have an INIT attribute equal to the count value
+	auto rwire = cnout.as_wire();
+	if(rwire->attributes.find("\\init") == rwire->attributes.end())
+		return;
+	int rinit = rwire->attributes["\\init"].as_int();
+	if(rinit != count_value)
+		return;
+	
+	//Figure out the final cell type based on the counter size
+	string celltype = "\\GP_COUNT8";
+	if(a_width > 8)
+		celltype = "\\GP_COUNT14";
+	
+	//Log it
+	total_counters ++;
+	log("  Extracting %d-bit counter to %s hard macro\n", a_width, celltype.c_str());
+	log("    Decrementer: %s\n", cell->name.c_str());
+	log("    Output mux:  %s\n", count_mux->name.c_str());
+	log("    Register:    %s\n", count_reg->name.c_str());
+	log("    Comparator:  %s\n", underflow_inv->name.c_str());
+	log("    Count value: %d\n", count_value);
+	
+	
+	/*
+	log("Converting %s cell %s.%s to $adff.\n", log_id(cell->type), log_id(module), log_id(cell));
+
+	if (GetSize(setctrl) == 1) {
+		cell->setPort("\\ARST", setctrl);
+		cell->setParam("\\ARST_POLARITY", setpol);
+	} else {
+		cell->setPort("\\ARST", clrctrl);
+		cell->setParam("\\ARST_POLARITY", clrpol);
+	}
+
+	cell->type = "$adff";
+	cell->unsetPort("\\SET");
+	cell->unsetPort("\\CLR");
+	cell->setParam("\\ARST_VALUE", reset_val);
+	cell->unsetParam("\\SET_POLARITY");
+	cell->unsetParam("\\CLR_POLARITY");
+
+	return;
+	*/
 }
 
 struct CountersPass : public Pass {
@@ -208,11 +257,16 @@ struct CountersPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 		
-		for (auto module : design->selected_modules()) {
-			SigMap sigmap(module);
+		unsigned int total_counters = 0;
+		for (auto module : design->selected_modules())
+		{
+			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				counters_worker(sigmap, module, cell);
+				counters_worker(index, module, cell, total_counters);
 		}
+		
+		if(total_counters)
+			log("Extracted %u counters\n", total_counters);
 		
 	}
 } CountersPass;
