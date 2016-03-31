@@ -281,6 +281,6 @@ struct Greenpak4CountersPass : public Pass {
 			log("Extracted %u counters\n", total_counters);
 		
 	}
-} CountersPass;
+} Greenpak4CountersPass;
 
 PRIVATE_NAMESPACE_END
