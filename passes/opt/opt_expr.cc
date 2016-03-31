@@ -1101,7 +1101,7 @@ struct OptExprPass : public Pass {
 		bool do_fine = false;
 		bool keepdc = false;
 
-		log_header("Executing OPT_CONST pass (perform const folding).\n");
+		log_header("Executing OPT_EXPR pass (perform const folding).\n");
 		log_push();
 
 		size_t argidx;
