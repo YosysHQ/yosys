@@ -68,7 +68,7 @@ struct OptMuxtreeWorker
 	OptMuxtreeWorker(RTLIL::Design *design, RTLIL::Module *module) :
 			design(design), module(module), assign_map(module), removed_count(0)
 	{
-		log("Running muxtree optimizier on module %s..\n", module->name.c_str());
+		log("Running muxtree optimizer on module %s..\n", module->name.c_str());
 
 		log("  Creating internal representation of mux trees.\n");
 
