@@ -1100,8 +1100,8 @@ struct HistoryPass : public Pass {
 } HistoryPass;
 #endif
 
-struct ScriptPass : public Pass {
-	ScriptPass() : Pass("script", "execute commands from script file") { }
+struct ScriptCmdPass : public Pass {
+	ScriptCmdPass() : Pass("script", "execute commands from script file") { }
 	virtual void help() {
 		log("\n");
 		log("    script <filename> [<from_label>:<to_label>]\n");
@@ -1127,7 +1127,7 @@ struct ScriptPass : public Pass {
 		else
 			extra_args(args, 2, design, false);
 	}
-} ScriptPass;
+} ScriptCmdPass;
 
 YOSYS_NAMESPACE_END
 

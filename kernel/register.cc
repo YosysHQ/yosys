@@ -80,6 +80,7 @@ Pass::pre_post_exec_state_t Pass::pre_execute()
 	state.begin_ns = PerformanceTimer::query();
 	state.parent_pass = current_pass;
 	current_pass = this;
+	clear_flags();
 	return state;
 }
 
@@ -97,6 +98,10 @@ void Pass::help()
 	log("\n");
 	log("No help message for command `%s'.\n", pass_name.c_str());
 	log("\n");
+}
+
+void Pass::clear_flags()
+{
 }
 
 void Pass::cmd_log_args(const std::vector<std::string> &args)
@@ -280,6 +285,60 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vec
 
 	design->selection_stack.pop_back();
 	design->selected_active_module = backup_selected_active_module;
+}
+
+bool ScriptPass::check_label(std::string label, std::string info)
+{
+	if (active_design == nullptr) {
+		log("\n");
+		if (info.empty())
+			log("    %s:\n", label.c_str());
+		else
+			log("    %s:    %s\n", label.c_str(), info.c_str());
+		return true;
+	} else {
+		if (!active_run_from.empty() && active_run_from == active_run_to) {
+			block_active = (label == active_run_from);
+		} else {
+			if (label == active_run_from)
+				block_active = true;
+			if (label == active_run_to)
+				block_active = false;
+		}
+		return block_active;
+	}
+}
+
+void ScriptPass::run(std::string command, std::string info)
+{
+	if (active_design == nullptr) {
+		if (info.empty())
+			log("        %s\n", command.c_str());
+		else
+			log("        %s    %s\n", command.c_str(), info.c_str());
+	} else
+		Pass::call(active_design, command);
+}
+
+void ScriptPass::run_script(RTLIL::Design *design, std::string run_from, std::string run_to)
+{
+	help_mode = false;
+	active_design = design;
+	block_active = run_from.empty();
+	active_run_from = run_from;
+	active_run_to = run_to;
+	script();
+}
+
+void ScriptPass::help_script()
+{
+	clear_flags();
+	help_mode = true;
+	active_design = nullptr;
+	block_active = true;
+	active_run_from.clear();
+	active_run_to.clear();
+	script();
 }
 
 Frontend::Frontend(std::string name, std::string short_help) :
