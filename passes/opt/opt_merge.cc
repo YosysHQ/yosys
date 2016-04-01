@@ -31,7 +31,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct OptShareWorker
+struct OptMergeWorker
 {
 	RTLIL::Design *design;
 	RTLIL::Module *module;
@@ -44,6 +44,29 @@ struct OptShareWorker
 #ifdef USE_CELL_HASH_CACHE
 	dict<const RTLIL::Cell*, std::string> cell_hash_cache;
 #endif
+
+	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
+	{
+		SigSpec sig_s = conn.at("\\S");
+		SigSpec sig_b = conn.at("\\B");
+
+		int s_width = GetSize(sig_s);
+		int width = GetSize(sig_b) / s_width;
+
+		vector<pair<SigBit, SigSpec>> sb_pairs;
+		for (int i = 0; i < s_width; i++)
+			sb_pairs.push_back(pair<SigBit, SigSpec>(sig_s[i], sig_b.extract(i*width, width)));
+
+		std::sort(sb_pairs.begin(), sb_pairs.end());
+
+		conn["\\S"] = SigSpec();
+		conn["\\B"] = SigSpec();
+
+		for (auto &it : sb_pairs) {
+			conn["\\S"].append(it.first);
+			conn["\\B"].append(it.second);
+		}
+	}
 
 #ifdef USE_CELL_HASH_CACHE
 	std::string int_to_hash_string(unsigned int v)
@@ -91,24 +114,39 @@ struct OptShareWorker
 			assign_map.apply(alt_conn.at("\\A"));
 			alt_conn.at("\\A").sort_and_unify();
 			conn = &alt_conn;
+		} else
+		if (cell->type == "$pmux") {
+			alt_conn = *conn;
+			assign_map.apply(alt_conn.at("\\A"));
+			assign_map.apply(alt_conn.at("\\B"));
+			assign_map.apply(alt_conn.at("\\S"));
+			sort_pmux_conn(alt_conn);
+			conn = &alt_conn;
 		}
+
+		vector<string> hash_conn_strings;
 
 		for (auto &it : *conn) {
 			if (cell->output(it.first))
 				continue;
 			RTLIL::SigSpec sig = it.second;
 			assign_map.apply(sig);
-			hash_string += "C " + it.first.str() + "=";
+			string s = "C " + it.first.str() + "=";
 			for (auto &chunk : sig.chunks()) {
 				if (chunk.wire)
-					hash_string += "{" + chunk.wire->name.str() + " " +
+					s += "{" + chunk.wire->name.str() + " " +
 							int_to_hash_string(chunk.offset) + " " +
 							int_to_hash_string(chunk.width) + "}";
 				else
-					hash_string += RTLIL::Const(chunk.data).as_string();
+					s += RTLIL::Const(chunk.data).as_string();
 			}
-			hash_string += "\n";
+			hash_conn_strings.push_back(s + "\n");
 		}
+
+		std::sort(hash_conn_strings.begin(), hash_conn_strings.end());
+
+		for (auto it : hash_conn_strings)
+			hash_string += it;
 
 		cell_hash_cache[cell] = sha1(hash_string);
 		return cell_hash_cache[cell];
@@ -171,6 +209,10 @@ struct OptShareWorker
 		if (cell1->type == "$reduce_and" || cell1->type == "$reduce_or" || cell1->type == "$reduce_bool") {
 			conn1["\\A"].sort_and_unify();
 			conn2["\\A"].sort_and_unify();
+		} else
+		if (cell1->type == "$pmux") {
+			sort_pmux_conn(conn1);
+			sort_pmux_conn(conn2);
 		}
 
 		if (conn1 != conn2) {
@@ -212,14 +254,14 @@ struct OptShareWorker
 	}
 
 	struct CompareCells {
-		OptShareWorker *that;
-		CompareCells(OptShareWorker *that) : that(that) {}
+		OptMergeWorker *that;
+		CompareCells(OptMergeWorker *that) : that(that) {}
 		bool operator()(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2) const {
 			return that->compare_cells(cell1, cell2);
 		}
 	};
 
-	OptShareWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all) :
+	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all) :
 		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
@@ -286,13 +328,13 @@ struct OptShareWorker
 	}
 };
 
-struct OptSharePass : public Pass {
-	OptSharePass() : Pass("opt_share", "consolidate identical cells") { }
+struct OptMergePass : public Pass {
+	OptMergePass() : Pass("opt_merge", "consolidate identical cells") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_share [options] [selection]\n");
+		log("    opt_merge [options] [selection]\n");
 		log("\n");
 		log("This pass identifies cells with identical type and input signals. Such cells\n");
 		log("are then merged to one cell.\n");
@@ -306,7 +348,7 @@ struct OptSharePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing OPT_SHARE pass (detect identical cells).\n");
+		log_header("Executing OPT_MERGE pass (detect identical cells).\n");
 
 		bool mode_nomux = false;
 		bool mode_share_all = false;
@@ -328,7 +370,7 @@ struct OptSharePass : public Pass {
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
-			OptShareWorker worker(design, module, mode_nomux, mode_share_all);
+			OptMergeWorker worker(design, module, mode_nomux, mode_share_all);
 			total_count += worker.total_count;
 		}
 
@@ -336,6 +378,6 @@ struct OptSharePass : public Pass {
 			design->scratchpad_set_bool("opt.did_something", true);
 		log("Removed a total of %d cells.\n", total_count);
 	}
-} OptSharePass;
+} OptMergePass;
 
 PRIVATE_NAMESPACE_END

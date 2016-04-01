@@ -31,6 +31,7 @@ struct Pass
 	virtual ~Pass();
 
 	virtual void help();
+	virtual void clear_flags();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	int call_counter;
@@ -61,6 +62,22 @@ struct Pass
 	virtual void run_register();
 	static void init_register();
 	static void done_register();
+};
+
+struct ScriptPass : Pass
+{
+	bool block_active, help_mode;
+	RTLIL::Design *active_design;
+	std::string active_run_from, active_run_to;
+
+	ScriptPass(std::string name, std::string short_help = "** document me **") : Pass(name, short_help) { }
+
+	virtual void script() = 0;
+
+	bool check_label(std::string label, std::string info = std::string());
+	void run(std::string command, std::string info = std::string());
+	void run_script(RTLIL::Design *design, std::string run_from = std::string(), std::string run_to = std::string());
+	void help_script();
 };
 
 struct Frontend : Pass

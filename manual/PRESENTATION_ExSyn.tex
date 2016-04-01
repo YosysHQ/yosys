@@ -144,16 +144,16 @@ The {\tt opt} command implements a series of simple optimizations. It also
 is a macro command that calls other commands:
 
 \begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
-opt_const               # const folding
-opt_share -nomux        # merging identical cells
+opt_expr                # const folding and simple expression rewriting
+opt_merge -nomux        # merging identical cells
 
 do
     opt_muxtree         # remove never-active branches from multiplexer tree
     opt_reduce          # consolidate trees of boolean ops to reduce functions
-    opt_share           # merging identical cells
+    opt_merge           # merging identical cells
     opt_rmdff           # remove/simplify registers with constant inputs
     opt_clean           # remove unused objects (cells, wires) from design
-    opt_const           # const folding
+    opt_expr            # const folding and simple expression rewriting
 while [changed design]
 \end{lstlisting}
 
@@ -161,7 +161,7 @@ The command {\tt clean} can be used as alias for {\tt opt\_clean}. And {\tt ;;}
 can be used as shortcut for {\tt clean}. For example:
 
 \begin{lstlisting}[xleftmargin=0.5cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
-proc; opt; memory; opt_const;; fsm;;
+proc; opt; memory; opt_expr;; fsm;;
 \end{lstlisting}
 \end{frame}
 

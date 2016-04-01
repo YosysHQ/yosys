@@ -22,7 +22,7 @@ hierarchy -top $3;
 hierarchy -libdir $DIR;
 hierarchy -check;
 proc;
-opt; opt_const -mux_undef; opt;
+opt; opt_expr -mux_undef; opt;
 rename -hide;;;
 #techmap -map +/pmux2mux.v;;
 splice; opt;

@@ -746,7 +746,7 @@ struct MemorySharePass : public Pass {
 		log("\n");
 		log("Note that in addition to the algorithms implemented in this pass, the $memrd\n");
 		log("and $memwr cells are also subject to generic resource sharing passes (and other\n");
-		log("optimizations) such as opt_share.\n");
+		log("optimizations) such as \"share\" and \"opt_merge\".\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {

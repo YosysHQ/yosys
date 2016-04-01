@@ -51,8 +51,8 @@ void proc_rmdead(RTLIL::SwitchRule *sw, int &counter)
 				counter++;
 				continue;
 			}
-			if (pool.empty())
-				sw->cases[i]->compare.clear();
+			// if (pool.empty())
+			// 	sw->cases[i]->compare.clear();
 		}
 
 		for (auto switch_it : sw->cases[i]->switches)

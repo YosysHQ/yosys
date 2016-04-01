@@ -25,22 +25,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
+struct SynthPass : public ScriptPass
 {
-	if (!run_from.empty() && run_from == run_to) {
-		active = (label == run_from);
-	} else {
-		if (label == run_from)
-			active = true;
-		if (label == run_to)
-			active = false;
-	}
-	return active;
-}
+	SynthPass() : ScriptPass("synth", "generic synthesis script") { }
 
-struct SynthPass : public Pass {
-	SynthPass() : Pass("synth", "generic synthesis script") { }
-	virtual void help()
+	virtual void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -75,49 +64,28 @@ struct SynthPass : public Pass {
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
-		log("\n");
-		log("    begin:\n");
-		log("        hierarchy -check [-top <top>]\n");
-		log("\n");
-		log("    coarse:\n");
-		log("        proc\n");
-		log("        opt_const\n");
-		log("        opt_clean\n");
-		log("        check\n");
-		log("        opt\n");
-		log("        wreduce\n");
-		log("        alumacc\n");
-		log("        share\n");
-		log("        opt\n");
-		log("        fsm\n");
-		log("        opt -fast\n");
-		log("        memory -nomap\n");
-		log("        opt_clean\n");
-		log("\n");
-		log("    fine:\n");
-		log("        opt -fast -full\n");
-		log("        memory_map\n");
-		log("        opt -full\n");
-		log("        techmap\n");
-		log("        opt -fast\n");
-	#ifdef YOSYS_ENABLE_ABC
-		log("        abc -fast\n");
-		log("        opt -fast\n");
-	#endif
-		log("\n");
-		log("    check:\n");
-		log("        hierarchy -check\n");
-		log("        stat\n");
-		log("        check\n");
+		help_script();
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+
+	std::string top_module, fsm_opts, memory_opts;
+	bool noalumacc, nofsm, noabc;
+
+	virtual void clear_flags() YS_OVERRIDE
 	{
-		std::string top_module, fsm_opts, memory_opts;
-		std::string run_from, run_to;
-		bool noalumacc = false;
-		bool nofsm = false;
-		bool noabc = false;
+		top_module.clear();
+		fsm_opts.clear();
+		memory_opts.clear();
+
+		noalumacc = false;
+		nofsm = false;
+		noabc = false;
+	}
+
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		string run_from, run_to;
+		clear_flags();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -164,62 +132,69 @@ struct SynthPass : public Pass {
 		if (!design->full_selection())
 			log_cmd_error("This comannd only operates on fully selected designs!\n");
 
-		bool active = run_from.empty();
-
 		log_header("Executing SYNTH pass.\n");
 		log_push();
 
-		if (check_label(active, run_from, run_to, "begin"))
+		run_script(design, run_from, run_to);
+
+		log_pop();
+	}
+
+	virtual void script() YS_OVERRIDE
+	{
+		if (check_label("begin"))
 		{
-			if (top_module.empty())
-				Pass::call(design, stringf("hierarchy -check"));
-			else
-				Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
+			if (help_mode) {
+				run("hierarchy -check [-top <top>]");
+			} else {
+				if (top_module.empty())
+					run(stringf("hierarchy -check"));
+				else
+					run(stringf("hierarchy -check -top %s", top_module.c_str()));
+			}
 		}
 
-		if (check_label(active, run_from, run_to, "coarse"))
+		if (check_label("coarse"))
 		{
-			Pass::call(design, "proc");
-			Pass::call(design, "opt_const");
-			Pass::call(design, "opt_clean");
-			Pass::call(design, "check");
-			Pass::call(design, "opt");
-			Pass::call(design, "wreduce");
+			run("proc");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			run("wreduce");
 			if (!noalumacc)
-				Pass::call(design, "alumacc");
-			Pass::call(design, "share");
-			Pass::call(design, "opt");
+				run("alumacc");
+			run("share");
+			run("opt");
 			if (!nofsm)
-				Pass::call(design, "fsm" + fsm_opts);
-			Pass::call(design, "opt -fast");
-			Pass::call(design, "memory -nomap" + memory_opts);
-			Pass::call(design, "opt_clean");
+				run("fsm" + fsm_opts);
+			run("opt -fast");
+			run("memory -nomap" + memory_opts);
+			run("opt_clean");
 		}
 
-		if (check_label(active, run_from, run_to, "fine"))
+		if (check_label("fine"))
 		{
-			Pass::call(design, "opt -fast -full");
-			Pass::call(design, "memory_map");
-			Pass::call(design, "opt -full");
-			Pass::call(design, "techmap");
-			Pass::call(design, "opt -fast");
+			run("opt -fast -full");
+			run("memory_map");
+			run("opt -full");
+			run("techmap");
+			run("opt -fast");
 
 			if (!noabc) {
 		#ifdef YOSYS_ENABLE_ABC
-				Pass::call(design, "abc -fast");
-				Pass::call(design, "opt -fast");
+				run("abc -fast");
+				run("opt -fast");
 		#endif
 			}
 		}
 
-		if (check_label(active, run_from, run_to, "check"))
+		if (check_label("check"))
 		{
-			Pass::call(design, "hierarchy -check");
-			Pass::call(design, "stat");
-			Pass::call(design, "check");
+			run("hierarchy -check");
+			run("stat");
+			run("check");
 		}
-
-		log_pop();
 	}
 } SynthPass;
 

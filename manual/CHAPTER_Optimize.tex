@@ -15,23 +15,23 @@ passes that each perform a simple optimization:
 \begin{itemize}
 \item Once at the beginning of {\tt opt}:
 \begin{itemize}
-\item {\tt opt\_const}
-\item {\tt opt\_share -nomux}
+\item {\tt opt\_expr}
+\item {\tt opt\_merge -nomux}
 \end{itemize}
 \item Repeat until result is stable:
 \begin{itemize}
 \item {\tt opt\_muxtree}
 \item {\tt opt\_reduce}
-\item {\tt opt\_share}
+\item {\tt opt\_merge}
 \item {\tt opt\_rmdff}
 \item {\tt opt\_clean}
-\item {\tt opt\_const}
+\item {\tt opt\_expr}
 \end{itemize}
 \end{itemize}
 
 The following section describes each of the {\tt opt\_*} passes.
 
-\subsection{The opt\_const pass}
+\subsection{The opt\_expr pass}
 
 This pass performs const folding on the internal combinational cell types
 described in Chap.~\ref{chapter:celllib}. This means a cell with all constant
@@ -57,11 +57,11 @@ this pass can also optimize cells with some constant inputs.
 		$a$ &   1 & $a$ \\
 		  1 & $b$ & $b$ \\
 	\end{tabular}
-	\caption{Const folding rules for {\tt\$\_AND\_} cells as used in {\tt opt\_const}.}
-	\label{tab:opt_const_and}
+	\caption{Const folding rules for {\tt\$\_AND\_} cells as used in {\tt opt\_expr}.}
+	\label{tab:opt_expr_and}
 \end{table}
 
-Table~\ref{tab:opt_const_and} shows the replacement rules used for optimizing
+Table~\ref{tab:opt_expr_and} shows the replacement rules used for optimizing
 an {\tt\$\_AND\_} gate. The first three rules implement the obvious const folding
 rules. Note that `any' might include dynamic values calculated by other parts
 of the circuit. The following three lines propagate undef (X) states.
@@ -76,10 +76,10 @@ an undef value or a 1 and therefore the output can be set to undef.
 The last two lines simply replace an {\tt\$\_AND\_} gate with one constant-1
 input with a buffer.
 
-Besides this basic const folding the {\tt opt\_const} pass can replace 1-bit wide
+Besides this basic const folding the {\tt opt\_expr} pass can replace 1-bit wide
 {\tt \$eq} and {\tt \$ne} cells with buffers or not-gates if one input is constant.
 
-The {\tt opt\_const} pass is very conservative regarding optimizing {\tt \$mux} cells,
+The {\tt opt\_expr} pass is very conservative regarding optimizing {\tt \$mux} cells,
 as these cells are often used to model decision-trees and breaking these trees can
 interfere with other optimizations.
 
@@ -130,7 +130,7 @@ This pass identifies unused signals and cells and removes them from the design. 
 creates an \B{unused\_bits} attribute on wires with unused bits. This attribute can be
 used for debugging or by other optimization passes.
 
-\subsection{The opt\_share pass}
+\subsection{The opt\_merge pass}
 
 This pass performs trivial resource sharing. This means that this pass identifies cells
 with identical inputs and replaces them with a single instance of the cell.
