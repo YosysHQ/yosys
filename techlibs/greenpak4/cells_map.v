@@ -5,7 +5,7 @@ module GP_DFFS(input D, CLK, nSET, output reg Q);
 		.SRMODE(1'b1),
 	) _TECHMAP_REPLACE_ (
 		.D(D),
-		.CLK(C),
+		.CLK(CLK),
 		.nSR(nSET),
 		.Q(Q)
 	);
@@ -18,7 +18,7 @@ module GP_DFFR(input D, CLK, nRST, output reg Q);
 		.SRMODE(1'b0),
 	) _TECHMAP_REPLACE_ (
 		.D(D),
-		.CLK(C),
+		.CLK(CLK),
 		.nSR(nRST),
 		.Q(Q)
 	);
