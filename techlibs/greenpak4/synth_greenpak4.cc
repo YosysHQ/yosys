@@ -102,6 +102,9 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("        dfflibmap -liberty +/greenpak4/gp_dff.lib\n");
 		log("        techmap -map +/greenpak4/cells_map.v\n");
 		log("        dffinit -ff GP_DFF Q INIT\n");
+		log("        dffinit -ff GP_DFFR Q INIT\n");
+		log("        dffinit -ff GP_DFFS Q INIT\n");
+		log("        dffinit -ff GP_DFFSR Q INIT\n");
 		log("        clean\n");
 		log("\n");
 		log("    check:\n");
@@ -214,6 +217,9 @@ struct SynthGreenPAK4Pass : public Pass {
 			Pass::call(design, "dfflibmap -liberty +/greenpak4/gp_dff.lib");
 			Pass::call(design, "techmap -map +/greenpak4/cells_map.v");
 			Pass::call(design, "dffinit -ff GP_DFF Q INIT");
+			Pass::call(design, "dffinit -ff GP_DFFR Q INIT");
+			Pass::call(design, "dffinit -ff GP_DFFS Q INIT");
+			Pass::call(design, "dffinit -ff GP_DFFSR Q INIT");
 			Pass::call(design, "clean");
 		}
 
