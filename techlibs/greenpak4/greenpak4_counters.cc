@@ -347,8 +347,6 @@ void greenpak4_counters_worker(
 		log_id(extract.rwire->name),
 		count_reg_src.c_str());
 	
-	log("blah");
-	
 	//Wipe all of the old connections to the ALU
 	cell->unsetPort("\\A");
 	cell->unsetPort("\\B");
@@ -362,9 +360,7 @@ void greenpak4_counters_worker(
 	cell->unsetParam("\\B_SIGNED");
 	cell->unsetParam("\\B_WIDTH");
 	cell->unsetParam("\\Y_WIDTH");
-	
-	log("asdf");
-	
+
 	//Change the cell type
 	cell->type = celltype;
 	
@@ -381,8 +377,6 @@ void greenpak4_counters_worker(
 		cell->setParam("\\RESET_MODE", RTLIL::Const("RISING"));
 		cell->setPort("\\RST", RTLIL::SigSpec(false));
 	}
-	
-	log("world");
 	
 	//Hook up other stuff
 	cell->setParam("\\CLKIN_DIVIDE", RTLIL::Const(1));
