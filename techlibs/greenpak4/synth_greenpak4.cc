@@ -207,8 +207,8 @@ struct SynthGreenPAK4Pass : public Pass {
 		if (check_label(active, run_from, run_to, "map_luts"))
 		{
 			if (part == "SLG46140V") Pass::call(design, "nlutmap -luts 0,6,8,2");
-			if (part == "SLG46620V") Pass::call(design, "nlutmap -luts 0,8,16,2");
-			if (part == "SLG46621V") Pass::call(design, "nlutmap -luts 0,8,16,2");
+			if (part == "SLG46620V") Pass::call(design, "nlutmap -luts 2,8,16,2");
+			if (part == "SLG46621V") Pass::call(design, "nlutmap -luts 2,8,16,2");
 			Pass::call(design, "clean");
 		}
 
