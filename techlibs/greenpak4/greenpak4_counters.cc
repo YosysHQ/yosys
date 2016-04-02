@@ -367,7 +367,6 @@ void greenpak4_counters_worker(
 	//Hook up resets
 	if(extract.has_reset)
 	{
-		log("hello");
 		//TODO: support other kinds of reset
 		cell->setParam("\\RESET_MODE", RTLIL::Const("LEVEL"));
 		cell->setPort("\\RST", extract.rst);
