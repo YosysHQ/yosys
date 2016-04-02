@@ -40,6 +40,10 @@ module GP_DFFSR(input D, CLK, nSR, output reg Q);
 	end
 endmodule
 
+module GP_INV(input IN, output OUT);
+	assign OUT = ~IN;
+endmodule
+
 module GP_2LUT(input IN0, IN1, output OUT);
 	parameter [3:0] INIT = 0;
 	assign OUT = INIT[{IN1, IN0}];
