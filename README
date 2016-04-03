@@ -383,3 +383,32 @@ from SystemVerilog:
 - The keywords "always_comb", "always_ff" and "always_latch", "logic" and
   "bit" are supported.
 
+Building the documentation
+==========================
+
+On Ubuntu, texlive needs these packages to be able to build the manual:
+
+	sudo apt-get install texlive-binaries
+	sudo apt-get install texlive-science      # install algorithm2e.sty
+	sudo apt-get install texlive-bibtex-extra # gets multibib.sty
+	sudo apt-get install texlive-fonts-extra  # gets skull.sty and dsfont.sty
+	sudo apt-get install texlive-publishers   # IEEEtran.cls
+
+Also the non-free font luximono should be installed, there is unfortulately
+no Ubuntu package for this so it should be installed separately using
+`getnonfreefonts`:
+
+	wget https://tug.org/fonts/getnonfreefonts/install-getnonfreefonts
+	sudo texlua install-getnonfreefonts # will install to /usr/local by default, can be changed by editing BINDIR at MANDIR at the top of the script
+	getnonfreefonts luximono # installs to /home/user/texmf
+
+Then execute, from the root of the repository:
+
+	make manual
+
+Notes:
+
+- To run `make manual` you need to have installed yosys with `make install`,
+  otherwise it will fail on finding `kernel/yosys.h` while building
+  `PRESENTATION_Prog`.
+
