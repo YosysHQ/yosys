@@ -144,3 +144,12 @@ module GP_SYSRESET(input RST);
 	//cannot simulate whole system reset
 	
 endmodule
+
+module GP_BANDGAP(output reg OK, output reg VOUT);
+	parameter AUTO_PWRDN = 1;
+	parameter CHOPPER_EN = 1;
+	parameter OUT_DELAY = 100;
+	
+	//cannot simulate mixed signal IP
+	
+endmodule
