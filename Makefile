@@ -112,8 +112,8 @@ ifeq ($(SANITIZER),address)
 ENABLE_COVER := 0
 endif
 ifeq ($(SANITIZER),memory)
-CXXFLAGS += -fPIE
-LDFLAGS += -fPIE
+CXXFLAGS += -fPIE -fsanitize-memory-track-origins
+LDFLAGS += -fPIE -fsanitize-memory-track-origins
 endif
 ifeq ($(SANITIZER),cfi)
 CXXFLAGS += -flto
