@@ -153,7 +153,7 @@ struct EdifBackend : public Backend {
 			if (module->processes.size() != 0)
 				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
 			if (module->memories.size() != 0)
-				log_error("Found munmapped emories in module %s: unmapped memories are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", RTLIL::id2cstr(module->name));
 
 			for (auto cell_it : module->cells_)
 			{
