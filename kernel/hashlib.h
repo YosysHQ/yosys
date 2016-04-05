@@ -136,8 +136,8 @@ struct hash_cstr_ops {
 	static inline unsigned int hash(const char *a) {
 		unsigned int hash = mkhash_init;
 		while (*a)
-			 hash = mkhash(hash, *(a++));
-		 return hash;
+			hash = mkhash(hash, *(a++));
+		return hash;
 	}
 };
 
