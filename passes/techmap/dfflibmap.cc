@@ -108,6 +108,7 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 	LibertyAst *best_cell = NULL;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
+	bool best_cell_noninv = false;
 	double best_cell_area = 0;
 
 	if (ast->id != "library")
@@ -155,6 +156,7 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 
 		int num_pins = 0;
 		bool found_output = false;
+		bool found_noninv_output = false;
 		for (auto pin : cell->children)
 		{
 			if (pin->id != "pin" || pin->args.size() != 1)
@@ -175,10 +177,14 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 					value.erase(pos, 1);
 				if (value == ff->args[0]) {
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
+					if (cell_next_pol)
+						found_noninv_output = true;
 					found_output = true;
 				} else
 				if (value == ff->args[1]) {
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
+					if (!cell_next_pol)
+						found_noninv_output = true;
 					found_output = true;
 				}
 			}
@@ -187,7 +193,7 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 				this_cell_ports[pin->args[0]] = 0;
 		}
 
-		if (!found_output || (best_cell != NULL && num_pins > best_cell_pins))
+		if (!found_output || (best_cell != NULL && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
 			continue;
 
 		if (best_cell != NULL && num_pins == best_cell_pins && area > best_cell_area)
@@ -196,12 +202,14 @@ static void find_cell(LibertyAst *ast, std::string cell_type, bool clkpol, bool 
 		best_cell = cell;
 		best_cell_pins = num_pins;
 		best_cell_area = area;
+		best_cell_noninv = found_noninv_output;
 		best_cell_ports.swap(this_cell_ports);
 	continue_cell_loop:;
 	}
 
 	if (best_cell != NULL) {
-		log("  cell %s (pins=%d, area=%.2f) is a direct match for cell type %s.\n", best_cell->args[0].c_str(), best_cell_pins, best_cell_area, cell_type.c_str());
+		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
+				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
 		if (prepare_mode) {
 			cell_mappings[cell_type].cell_name = cell_type;
 			cell_mappings[cell_type].ports["C"] = 'C';
@@ -221,6 +229,7 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 	LibertyAst *best_cell = NULL;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
+	bool best_cell_noninv = false;
 	double best_cell_area = 0;
 
 	if (ast->id != "library")
@@ -260,6 +269,7 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 
 		int num_pins = 0;
 		bool found_output = false;
+		bool found_noninv_output = false;
 		for (auto pin : cell->children)
 		{
 			if (pin->id != "pin" || pin->args.size() != 1)
@@ -280,10 +290,14 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 					value.erase(pos, 1);
 				if (value == ff->args[0]) {
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
+					if (cell_next_pol)
+						found_noninv_output = true;
 					found_output = true;
 				} else
 				if (value == ff->args[1]) {
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
+					if (!cell_next_pol)
+						found_noninv_output = true;
 					found_output = true;
 				}
 			}
@@ -292,7 +306,7 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 				this_cell_ports[pin->args[0]] = 0;
 		}
 
-		if (!found_output || (best_cell != NULL && num_pins > best_cell_pins))
+		if (!found_output || (best_cell != NULL && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
 			continue;
 
 		if (best_cell != NULL && num_pins == best_cell_pins && area > best_cell_area)
@@ -301,12 +315,14 @@ static void find_cell_sr(LibertyAst *ast, std::string cell_type, bool clkpol, bo
 		best_cell = cell;
 		best_cell_pins = num_pins;
 		best_cell_area = area;
+		best_cell_noninv = found_noninv_output;
 		best_cell_ports.swap(this_cell_ports);
 	continue_cell_loop:;
 	}
 
 	if (best_cell != NULL) {
-		log("  cell %s (pins=%d, area=%.2f) is a direct match for cell type %s.\n", best_cell->args[0].c_str(), best_cell_pins, best_cell_area, cell_type.c_str());
+		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
+				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
 		if (prepare_mode) {
 			cell_mappings[cell_type].cell_name = cell_type;
 			cell_mappings[cell_type].ports["C"] = 'C';

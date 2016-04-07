@@ -630,11 +630,11 @@ struct SatHelper
 						    "---------------------------------------------------------------------------------------------------";
 				if (last_timestep == -2) {
 					log(max_timestep > 0 ? "  Time " : "  ");
-					log("%-*s %10s %10s %*s\n", maxModelName+10, "Signal Name", "Dec", "Hex", maxModelWidth+5, "Bin");
+					log("%-*s %11s %9s %*s\n", maxModelName+5, "Signal Name", "Dec", "Hex", maxModelWidth+3, "Bin");
 				}
 				log(max_timestep > 0 ? "  ---- " : "  ");
-				log("%*.*s %10.10s %10.10s %*.*s\n", maxModelName+10, maxModelName+10,
-						hline, hline, hline, maxModelWidth+5, maxModelWidth+5, hline);
+				log("%*.*s %11.11s %9.9s %*.*s\n", maxModelName+5, maxModelName+5,
+						hline, hline, hline, maxModelWidth+3, maxModelWidth+3, hline);
 				last_timestep = info.timestep;
 			}
 
@@ -647,9 +647,9 @@ struct SatHelper
 				log("  ");
 
 			if (info.width <= 32 && !found_undef)
-				log("%-*s %10d %10x %*s\n", maxModelName+10, info.description.c_str(), value.as_int(), value.as_int(), maxModelWidth+5, value.as_string().c_str());
+				log("%-*s %11d %9x %*s\n", maxModelName+5, info.description.c_str(), value.as_int(), value.as_int(), maxModelWidth+3, value.as_string().c_str());
 			else
-				log("%-*s %10s %10s %*s\n", maxModelName+10, info.description.c_str(), "--", "--", maxModelWidth+5, value.as_string().c_str());
+				log("%-*s %11s %9s %*s\n", maxModelName+5, info.description.c_str(), "--", "--", maxModelWidth+3, value.as_string().c_str());
 		}
 
 		if (last_timestep == -2)
