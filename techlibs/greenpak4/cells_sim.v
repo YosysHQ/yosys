@@ -80,34 +80,39 @@ module GP_LFOSC(input PWRDN, output reg CLKOUT);
 	
 	always begin
 		if(PWRDN)
-			clkout = 0;
+			CLKOUT = 0;
 		else begin
 			//half period of 1730 Hz
 			#289017;
-			clkout = ~clkout;
+			CLKOUT = ~CLKOUT;
 		end
 	end
 	
 endmodule
 
-module GP_RINGOSC(input PWRDN, output reg CLKOUT);
+module GP_RINGOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC);
 	
 	parameter PWRDN_EN = 0;
 	parameter AUTO_PWRDN = 0;
-	parameter OUT_DIV = 1;
+	parameter PRE_DIV = 1;
+	parameter FABRIC_DIV = 1;
 	
-	initial CLKOUT = 0;
+	initial CLKOUT_PREDIV = 0;
+	initial CLKOUT_FABRIC = 0;
 	
 	//output dividers not implemented for simulation
 	//auto powerdown not implemented for simulation
 	
 	always begin
-		if(PWRDN)
-			clkout = 0;
+		if(PWRDN) begin
+			CLKOUT_PREDIV = 0;
+			CLKOUT_FABRIC = 0;
+		end
 		else begin
 			//half period of 27 MHz
 			#18.518;
-			clkout = ~clkout;
+			CLKOUT_PREDIV = ~CLKOUT_PREDIV;
+			CLKOUT_FABRIC = ~CLKOUT_FABRIC;
 		end
 	end
 	
