@@ -75,13 +75,44 @@ module GP_LFOSC(input PWRDN, output reg CLKOUT);
 	
 	initial CLKOUT = 0;
 	
+	//auto powerdown not implemented for simulation
+	//output dividers not implemented for simulation
+	
 	always begin
 		if(PWRDN)
-			clkout = 0;
+			CLKOUT = 0;
 		else begin
 			//half period of 1730 Hz
 			#289017;
-			clkout = ~clkout;
+			CLKOUT = ~CLKOUT;
+		end
+	end
+	
+endmodule
+
+module GP_RINGOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC);
+	
+	parameter PWRDN_EN = 0;
+	parameter AUTO_PWRDN = 0;
+	parameter PRE_DIV = 1;
+	parameter FABRIC_DIV = 1;
+	
+	initial CLKOUT_PREDIV = 0;
+	initial CLKOUT_FABRIC = 0;
+	
+	//output dividers not implemented for simulation
+	//auto powerdown not implemented for simulation
+	
+	always begin
+		if(PWRDN) begin
+			CLKOUT_PREDIV = 0;
+			CLKOUT_FABRIC = 0;
+		end
+		else begin
+			//half period of 27 MHz
+			#18.518;
+			CLKOUT_PREDIV = ~CLKOUT_PREDIV;
+			CLKOUT_FABRIC = ~CLKOUT_FABRIC;
 		end
 	end
 	
@@ -142,5 +173,36 @@ module GP_SYSRESET(input RST);
 	parameter RESET_MODE = "RISING";
 	
 	//cannot simulate whole system reset
+	
+endmodule
+
+module GP_BANDGAP(output reg OK, output reg VOUT);
+	parameter AUTO_PWRDN = 1;
+	parameter CHOPPER_EN = 1;
+	parameter OUT_DELAY = 100;
+	
+	//cannot simulate mixed signal IP
+	
+endmodule
+
+
+module GP_POR(output reg RST_DONE);
+	parameter POR_TIME = 500;
+	
+	initial begin
+		RST_DONE = 0;
+		
+		if(POR_TIME == 4)
+			#4000;
+		else if(POR_TIME == 500)
+			#500000;
+		else begin
+			$display("ERROR: bad POR_TIME for GP_POR cell");
+			$finish;
+		end
+		
+		RST_DONE = 1;
+		
+	end
 	
 endmodule

@@ -248,8 +248,12 @@ void greenpak4_counters_worker(
 	if (cell->type != "$alu")
 		return;
 	
-	//A input is the count value. Check if it has COUNT_EXTRACT set
-	RTLIL::Wire* a_wire = sigmap(cell->getPort("\\A")).as_wire();
+	//A input is the count value. Check if it has COUNT_EXTRACT set.
+	//If it's not a wire, don't even try
+	auto port = sigmap(cell->getPort("\\A"));
+	if(!port.is_wire())
+		return;
+	RTLIL::Wire* a_wire = port.as_wire();
 	bool force_extract = false;
 	bool never_extract = false;
 	string count_reg_src = a_wire->attributes["\\src"].decode_string().c_str();
