@@ -124,7 +124,7 @@ module GP_RCOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC)
 	parameter AUTO_PWRDN = 0;
 	parameter PRE_DIV = 1;
 	parameter FABRIC_DIV = 1;
-	parameter OSC_FREQ = "25k"
+	parameter OSC_FREQ = "25k";
 	
 	initial CLKOUT_PREDIV = 0;
 	initial CLKOUT_FABRIC = 0;
