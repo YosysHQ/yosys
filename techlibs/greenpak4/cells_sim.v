@@ -118,6 +118,44 @@ module GP_RINGOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRI
 	
 endmodule
 
+module GP_RCOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC);
+	
+	parameter PWRDN_EN = 0;
+	parameter AUTO_PWRDN = 0;
+	parameter PRE_DIV = 1;
+	parameter FABRIC_DIV = 1;
+	parameter OSC_FREQ = "25k"
+	
+	initial CLKOUT_PREDIV = 0;
+	initial CLKOUT_FABRIC = 0;
+	
+	//output dividers not implemented for simulation
+	//auto powerdown not implemented for simulation
+	
+	always begin
+		if(PWRDN) begin
+			CLKOUT_PREDIV = 0;
+			CLKOUT_FABRIC = 0;
+		end
+		else begin
+		
+			if(OSC_FREQ == "25k") begin
+				//half period of 25 kHz
+				#20000;
+			end
+			
+			else begin
+				//half period of 2 MHz
+				#250;
+			end
+			
+			CLKOUT_PREDIV = ~CLKOUT_PREDIV;
+			CLKOUT_FABRIC = ~CLKOUT_FABRIC;
+		end
+	end
+	
+endmodule
+
 module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 
 	parameter RESET_MODE 	= "RISING";	
