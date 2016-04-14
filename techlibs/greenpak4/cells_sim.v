@@ -227,6 +227,29 @@ module GP_RINGOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRI
 	
 endmodule
 
+module GP_SHREG(input nRST, input CLK, input IN, output OUTA, output OUTB);
+
+	parameter OUTA_DELAY = 1;
+	parameter OUTA_INVERT = 0;
+	parameter OUTB_DELAY = 1;
+	
+	reg[15:0] shreg = 0;
+	
+	always @(posedge clk, negedge RSTN) begin
+		
+		if(!nRST)
+			shreg = 0;
+		
+		else
+			shreg <= {shreg[14:0], IN};
+		
+	end
+	
+	assign OUTA = (OUTA_INVERT) ? ~shreg[OUTA_DELAY - 1] : shreg[OUTA_DELAY - 1];
+	assign OUTB = shreg[OUTB_DELAY - 1];
+
+endmodule
+
 //keep constraint needed to prevent optimization since we have no outputs
 (* keep *)
 module GP_SYSRESET(input RST);
