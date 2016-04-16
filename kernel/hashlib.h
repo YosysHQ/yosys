@@ -156,7 +156,7 @@ struct hash_obj_ops {
 	}
 	template<typename T>
 	static inline unsigned int hash(const T *a) {
-		return a->hash();
+		return a ? a->hash() : 0;
 	}
 };
 
