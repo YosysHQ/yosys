@@ -67,7 +67,7 @@ struct Lut2muxPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing LUT2MUX pass (mapping to constant drivers).\n");
+		log_header("Executing LUT2MUX pass (convert $lut to $_MUX_).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
