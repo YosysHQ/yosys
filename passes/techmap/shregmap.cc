@@ -27,6 +27,7 @@ struct ShregmapOptions
 {
 	int minlen, maxlen;
 	int keep_before, keep_after;
+	bool zinit, init;
 	dict<IdString, pair<IdString, IdString>> ffcells;
 
 	ShregmapOptions()
@@ -35,6 +36,8 @@ struct ShregmapOptions
 		maxlen = 0;
 		keep_before = 0;
 		keep_after = 0;
+		zinit = false;
+		init = false;
 	}
 };
 
@@ -45,7 +48,9 @@ struct ShregmapWorker
 
 	const ShregmapOptions &opts;
 	int dff_count, shreg_count;
+
 	pool<Cell*> remove_cells;
+	pool<SigBit> remove_init;
 
 	dict<SigBit, bool> sigbit_init;
 	dict<SigBit, Cell*> sigbit_chain_next;
@@ -66,7 +71,7 @@ struct ShregmapWorker
 				SigSpec initsig = sigmap(wire);
 				Const initval = wire->attributes.at("\\init");
 				for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
-					if (initval[i] == State::S0)
+					if (initval[i] == State::S0 && !opts.zinit)
 						sigbit_init[initsig[i]] = false;
 					else if (initval[i] == State::S1)
 						sigbit_init[initsig[i]] = true;
@@ -83,7 +88,7 @@ struct ShregmapWorker
 				SigBit d_bit = sigmap(cell->getPort(d_port).as_bit());
 				SigBit q_bit = sigmap(cell->getPort(q_port).as_bit());
 
-				if (sigbit_init.count(q_bit) == 0) {
+				if (opts.init || sigbit_init.count(q_bit) == 0) {
 					if (sigbit_chain_next.count(d_bit)) {
 						sigbit_with_non_chain_users.insert(d_bit);
 					} else
@@ -195,6 +200,28 @@ struct ShregmapWorker
 			shreg_cell_type_str += first_cell->type.substr(1);
 
 			IdString q_port = opts.ffcells.at(first_cell->type).second;
+
+			if (opts.init) {
+				vector<State> initval;
+				for (int i = depth-1; i >= 0; i--) {
+					SigBit bit = sigmap(chain[cursor+i]->getPort(q_port).as_bit());
+					if (sigbit_init.count(bit) == 0)
+						initval.push_back(State::Sx);
+					else if (sigbit_init.at(bit))
+						initval.push_back(State::S1);
+					else
+						initval.push_back(State::S0);
+					remove_init.insert(bit);
+				}
+				first_cell->setParam("\\INIT", initval);
+			}
+
+			if (opts.zinit)
+				for (int i = depth-1; i >= 0; i--) {
+					SigBit bit = sigmap(chain[cursor+i]->getPort(q_port).as_bit());
+					remove_init.insert(bit);
+				}
+
 			first_cell->type = shreg_cell_type_str;
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam("\\DEPTH", depth);
@@ -209,6 +236,22 @@ struct ShregmapWorker
 	{
 		for (auto cell : remove_cells)
 			module->remove(cell);
+
+		for (auto wire : module->wires())
+		{
+			if (wire->attributes.count("\\init") == 0)
+				continue;
+
+			SigSpec initsig = sigmap(wire);
+			Const &initval = wire->attributes.at("\\init");
+
+			for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
+				if (remove_init.count(initsig[i]))
+					initval[i] = State::Sx;
+
+			if (SigSpec(initval).is_fully_undef())
+				wire->attributes.erase("\\init");
+		}
 
 		remove_cells.clear();
 		sigbit_chain_next.clear();
@@ -272,6 +315,15 @@ struct ShregmapPass : public Pass {
 		log("        by default. E.g. the option '-clkpol pos' is just an alias for\n");
 		log("        '-match $_DFF_P_', which is an alias for '-match $_DFF_P_:D:Q'.\n");
 		log("\n");
+		log("    -zinit\n");
+		log("        assume the shift register is automatically zero-initialized, so it\n");
+		log("        becomes legal to merge zero initialized FFs into the shift register.\n");
+		log("\n");
+		log("    -init\n");
+		log("        map initialized registers to the shift reg, add an INIT parameter to\n");
+		log("        generated cells with the initialization value. (first bit to shift out\n");
+		log("        in LSB position)\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -319,9 +371,20 @@ struct ShregmapPass : public Pass {
 				opts.keep_after = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-zinit") {
+				opts.zinit = true;
+				continue;
+			}
+			if (args[argidx] == "-init") {
+				opts.init = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (opts.zinit && opts.init)
+			log_cmd_error("Options -zinit and -init are exclusive!\n");
 
 		if (opts.ffcells.empty())
 		{
