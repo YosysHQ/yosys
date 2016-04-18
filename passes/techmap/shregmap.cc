@@ -27,7 +27,7 @@ struct ShregmapOptions
 {
 	int minlen, maxlen;
 	int keep_before, keep_after;
-	bool zinit, init;
+	bool zinit, init, params, ffe;
 	dict<IdString, pair<IdString, IdString>> ffcells;
 
 	ShregmapOptions()
@@ -38,6 +38,8 @@ struct ShregmapOptions
 		keep_after = 0;
 		zinit = false;
 		init = false;
+		params = false;
+		ffe = false;
 	}
 };
 
@@ -195,9 +197,13 @@ struct ShregmapWorker
 			shreg_count += 1;
 
 			string shreg_cell_type_str = "$__SHREG";
-			if (first_cell->type[1] != '_')
+			if (opts.params) {
 				shreg_cell_type_str += "_";
-			shreg_cell_type_str += first_cell->type.substr(1);
+			} else {
+				if (first_cell->type[1] != '_')
+					shreg_cell_type_str += "_";
+				shreg_cell_type_str += first_cell->type.substr(1);
+			}
 
 			IdString q_port = opts.ffcells.at(first_cell->type).second;
 
@@ -221,6 +227,24 @@ struct ShregmapWorker
 					SigBit bit = sigmap(chain[cursor+i]->getPort(q_port).as_bit());
 					remove_init.insert(bit);
 				}
+
+			if (opts.params)
+			{
+				int param_clkpol = -1;
+				int param_enpol = 2;
+
+				if (first_cell->type == "$_DFF_N_") param_clkpol = 0;
+				if (first_cell->type == "$_DFF_P_") param_clkpol = 1;
+
+				if (first_cell->type == "$_DFFE_NN_") param_clkpol = 0, param_enpol = 0;
+				if (first_cell->type == "$_DFFE_NP_") param_clkpol = 0, param_enpol = 1;
+				if (first_cell->type == "$_DFFE_PN_") param_clkpol = 1, param_enpol = 0;
+				if (first_cell->type == "$_DFFE_PP_") param_clkpol = 1, param_enpol = 1;
+
+				log_assert(param_clkpol >= 0);
+				first_cell->setParam("\\CLKPOL", param_clkpol);
+				if (opts.ffe) first_cell->setParam("\\ENPOL", param_enpol);
+			}
 
 			first_cell->type = shreg_cell_type_str;
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
@@ -263,7 +287,6 @@ struct ShregmapWorker
 			module(module), sigmap(module), opts(opts), dff_count(0), shreg_count(0)
 	{
 		make_sigbit_chain_next_prev();
-
 		find_chain_start_cells();
 
 		for (auto c : chain_start_cells) {
@@ -314,6 +337,13 @@ struct ShregmapPass : public Pass {
 		log("        ':<d_port_name>:<q_port_name>' is omitted then 'D' and 'Q' is used\n");
 		log("        by default. E.g. the option '-clkpol pos' is just an alias for\n");
 		log("        '-match $_DFF_P_', which is an alias for '-match $_DFF_P_:D:Q'.\n");
+		log("\n");
+		log("    -params\n");
+		log("        instead of encoding the clock and enable polarity in the cell name by\n");
+		log("        deriving from the original cell name, simply name all generated cells\n");
+		log("        $__SHREG_ and use CLKPOL and ENPOL parameters. An ENPOL value of 2 is\n");
+		log("        used to denote cells without enable input. The ENPOL parameter is\n");
+		log("        omitted when '-enpol none' (or no -enpol option) is passed.\n");
 		log("\n");
 		log("    -zinit\n");
 		log("        assume the shift register is automatically zero-initialized, so it\n");
@@ -379,6 +409,10 @@ struct ShregmapPass : public Pass {
 				opts.init = true;
 				continue;
 			}
+			if (args[argidx] == "-params") {
+				opts.params = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -409,6 +443,9 @@ struct ShregmapPass : public Pass {
 				opts.ffcells["$_DFFE_NP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 			if (clk_neg && en_neg)
 				opts.ffcells["$_DFFE_NN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+
+			if (en_pos || en_neg)
+				opts.ffe = true;
 		}
 		else
 		{
@@ -416,6 +453,8 @@ struct ShregmapPass : public Pass {
 				log_cmd_error("Options -clkpol and -match are exclusive!\n");
 			if (!enpol.empty())
 				log_cmd_error("Options -enpol and -match are exclusive!\n");
+			if (opts.params)
+				log_cmd_error("Options -params and -match are exclusive!\n");
 		}
 
 		int dff_count = 0;
