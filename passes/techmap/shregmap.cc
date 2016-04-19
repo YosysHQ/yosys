@@ -27,6 +27,7 @@ struct ShregmapOptions
 {
 	int minlen, maxlen;
 	int keep_before, keep_after;
+	bool zinit, init, params, ffe;
 	dict<IdString, pair<IdString, IdString>> ffcells;
 
 	ShregmapOptions()
@@ -35,6 +36,10 @@ struct ShregmapOptions
 		maxlen = 0;
 		keep_before = 0;
 		keep_after = 0;
+		zinit = false;
+		init = false;
+		params = false;
+		ffe = false;
 	}
 };
 
@@ -45,7 +50,9 @@ struct ShregmapWorker
 
 	const ShregmapOptions &opts;
 	int dff_count, shreg_count;
+
 	pool<Cell*> remove_cells;
+	pool<SigBit> remove_init;
 
 	dict<SigBit, bool> sigbit_init;
 	dict<SigBit, Cell*> sigbit_chain_next;
@@ -66,7 +73,7 @@ struct ShregmapWorker
 				SigSpec initsig = sigmap(wire);
 				Const initval = wire->attributes.at("\\init");
 				for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
-					if (initval[i] == State::S0)
+					if (initval[i] == State::S0 && !opts.zinit)
 						sigbit_init[initsig[i]] = false;
 					else if (initval[i] == State::S1)
 						sigbit_init[initsig[i]] = true;
@@ -83,7 +90,7 @@ struct ShregmapWorker
 				SigBit d_bit = sigmap(cell->getPort(d_port).as_bit());
 				SigBit q_bit = sigmap(cell->getPort(q_port).as_bit());
 
-				if (sigbit_init.count(q_bit) == 0) {
+				if (opts.init || sigbit_init.count(q_bit) == 0) {
 					if (sigbit_chain_next.count(d_bit)) {
 						sigbit_with_non_chain_users.insert(d_bit);
 					} else
@@ -190,11 +197,55 @@ struct ShregmapWorker
 			shreg_count += 1;
 
 			string shreg_cell_type_str = "$__SHREG";
-			if (first_cell->type[1] != '_')
+			if (opts.params) {
 				shreg_cell_type_str += "_";
-			shreg_cell_type_str += first_cell->type.substr(1);
+			} else {
+				if (first_cell->type[1] != '_')
+					shreg_cell_type_str += "_";
+				shreg_cell_type_str += first_cell->type.substr(1);
+			}
 
 			IdString q_port = opts.ffcells.at(first_cell->type).second;
+
+			if (opts.init) {
+				vector<State> initval;
+				for (int i = depth-1; i >= 0; i--) {
+					SigBit bit = sigmap(chain[cursor+i]->getPort(q_port).as_bit());
+					if (sigbit_init.count(bit) == 0)
+						initval.push_back(State::Sx);
+					else if (sigbit_init.at(bit))
+						initval.push_back(State::S1);
+					else
+						initval.push_back(State::S0);
+					remove_init.insert(bit);
+				}
+				first_cell->setParam("\\INIT", initval);
+			}
+
+			if (opts.zinit)
+				for (int i = depth-1; i >= 0; i--) {
+					SigBit bit = sigmap(chain[cursor+i]->getPort(q_port).as_bit());
+					remove_init.insert(bit);
+				}
+
+			if (opts.params)
+			{
+				int param_clkpol = -1;
+				int param_enpol = 2;
+
+				if (first_cell->type == "$_DFF_N_") param_clkpol = 0;
+				if (first_cell->type == "$_DFF_P_") param_clkpol = 1;
+
+				if (first_cell->type == "$_DFFE_NN_") param_clkpol = 0, param_enpol = 0;
+				if (first_cell->type == "$_DFFE_NP_") param_clkpol = 0, param_enpol = 1;
+				if (first_cell->type == "$_DFFE_PN_") param_clkpol = 1, param_enpol = 0;
+				if (first_cell->type == "$_DFFE_PP_") param_clkpol = 1, param_enpol = 1;
+
+				log_assert(param_clkpol >= 0);
+				first_cell->setParam("\\CLKPOL", param_clkpol);
+				if (opts.ffe) first_cell->setParam("\\ENPOL", param_enpol);
+			}
+
 			first_cell->type = shreg_cell_type_str;
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam("\\DEPTH", depth);
@@ -210,6 +261,22 @@ struct ShregmapWorker
 		for (auto cell : remove_cells)
 			module->remove(cell);
 
+		for (auto wire : module->wires())
+		{
+			if (wire->attributes.count("\\init") == 0)
+				continue;
+
+			SigSpec initsig = sigmap(wire);
+			Const &initval = wire->attributes.at("\\init");
+
+			for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
+				if (remove_init.count(initsig[i]))
+					initval[i] = State::Sx;
+
+			if (SigSpec(initval).is_fully_undef())
+				wire->attributes.erase("\\init");
+		}
+
 		remove_cells.clear();
 		sigbit_chain_next.clear();
 		sigbit_chain_prev.clear();
@@ -220,7 +287,6 @@ struct ShregmapWorker
 			module(module), sigmap(module), opts(opts), dff_count(0), shreg_count(0)
 	{
 		make_sigbit_chain_next_prev();
-
 		find_chain_start_cells();
 
 		for (auto c : chain_start_cells) {
@@ -272,6 +338,22 @@ struct ShregmapPass : public Pass {
 		log("        by default. E.g. the option '-clkpol pos' is just an alias for\n");
 		log("        '-match $_DFF_P_', which is an alias for '-match $_DFF_P_:D:Q'.\n");
 		log("\n");
+		log("    -params\n");
+		log("        instead of encoding the clock and enable polarity in the cell name by\n");
+		log("        deriving from the original cell name, simply name all generated cells\n");
+		log("        $__SHREG_ and use CLKPOL and ENPOL parameters. An ENPOL value of 2 is\n");
+		log("        used to denote cells without enable input. The ENPOL parameter is\n");
+		log("        omitted when '-enpol none' (or no -enpol option) is passed.\n");
+		log("\n");
+		log("    -zinit\n");
+		log("        assume the shift register is automatically zero-initialized, so it\n");
+		log("        becomes legal to merge zero initialized FFs into the shift register.\n");
+		log("\n");
+		log("    -init\n");
+		log("        map initialized registers to the shift reg, add an INIT parameter to\n");
+		log("        generated cells with the initialization value. (first bit to shift out\n");
+		log("        in LSB position)\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -319,9 +401,24 @@ struct ShregmapPass : public Pass {
 				opts.keep_after = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-zinit") {
+				opts.zinit = true;
+				continue;
+			}
+			if (args[argidx] == "-init") {
+				opts.init = true;
+				continue;
+			}
+			if (args[argidx] == "-params") {
+				opts.params = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (opts.zinit && opts.init)
+			log_cmd_error("Options -zinit and -init are exclusive!\n");
 
 		if (opts.ffcells.empty())
 		{
@@ -346,6 +443,9 @@ struct ShregmapPass : public Pass {
 				opts.ffcells["$_DFFE_NP_"] = make_pair(IdString("\\D"), IdString("\\Q"));
 			if (clk_neg && en_neg)
 				opts.ffcells["$_DFFE_NN_"] = make_pair(IdString("\\D"), IdString("\\Q"));
+
+			if (en_pos || en_neg)
+				opts.ffe = true;
 		}
 		else
 		{
@@ -353,6 +453,8 @@ struct ShregmapPass : public Pass {
 				log_cmd_error("Options -clkpol and -match are exclusive!\n");
 			if (!enpol.empty())
 				log_cmd_error("Options -enpol and -match are exclusive!\n");
+			if (opts.params)
+				log_cmd_error("Options -params and -match are exclusive!\n");
 		}
 
 		int dff_count = 0;
