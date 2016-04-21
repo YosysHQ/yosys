@@ -263,6 +263,12 @@ module GP_VDD(output OUT);
        assign OUT = 1;
 endmodule
 
+module GP_VREF(input VIN, output reg VOUT);
+	parameter VIN_DIV = 1;
+	parameter VREF = 0;
+	//cannot simulate mixed signal IP
+endmodule
+
 module GP_VSS(output OUT);
        assign OUT = 0;
 endmodule
