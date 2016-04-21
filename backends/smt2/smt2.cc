@@ -758,7 +758,7 @@ struct Smt2Backend : public Backend {
 		std::ifstream template_f;
 		bool bvmode = false, memmode = false, regsmode = false, wiresmode = false, verbose = false;
 
-		log_header("Executing SMT2 backend.\n");
+		log_header(design, "Executing SMT2 backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

@@ -73,7 +73,7 @@ struct IntersynthBackend : public Backend {
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing INTERSYNTH backend.\n");
+		log_header(design, "Executing INTERSYNTH backend.\n");
 		log_push();
 
 		std::vector<std::string> libfiles;
@@ -113,7 +113,7 @@ struct IntersynthBackend : public Backend {
 		}
 
 		if (libs.size() > 0)
-			log_header("Continuing INTERSYNTH backend.\n");
+			log_header(design, "Continuing INTERSYNTH backend.\n");
 
 		std::set<std::string> conntypes_code, celltypes_code;
 		std::string netlists_code;

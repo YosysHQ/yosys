@@ -391,7 +391,7 @@ struct ProcMuxPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing PROC_MUX pass (convert decision trees to multiplexers).\n");
+		log_header(design, "Executing PROC_MUX pass (convert decision trees to multiplexers).\n");
 
 		extra_args(args, 1, design);
 

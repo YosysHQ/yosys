@@ -226,7 +226,7 @@ struct ProcArstPass : public Pass {
 		std::string global_arst;
 		bool global_arst_neg = false;
 
-		log_header("Executing PROC_ARST pass (detect async resets in processes).\n");
+		log_header(design, "Executing PROC_ARST pass (detect async resets in processes).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

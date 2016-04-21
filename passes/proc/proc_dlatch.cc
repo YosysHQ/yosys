@@ -292,7 +292,7 @@ struct ProcDlatchPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing PROC_DLATCH pass (convert process syncs to latches).\n");
+		log_header(design, "Executing PROC_DLATCH pass (convert process syncs to latches).\n");
 
 		extra_args(args, 1, design);
 

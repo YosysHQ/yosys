@@ -348,7 +348,7 @@ struct OptMergePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing OPT_MERGE pass (detect identical cells).\n");
+		log_header(design, "Executing OPT_MERGE pass (detect identical cells).\n");
 
 		bool mode_nomux = false;
 		bool mode_share_all = false;

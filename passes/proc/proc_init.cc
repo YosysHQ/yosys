@@ -100,7 +100,7 @@ struct ProcInitPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing PROC_INIT pass (extract init attributes).\n");
+		log_header(design, "Executing PROC_INIT pass (extract init attributes).\n");
 
 		extra_args(args, 1, design);
 

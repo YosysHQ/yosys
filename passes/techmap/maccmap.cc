@@ -379,7 +379,7 @@ struct MaccmapPass : public Pass {
 	{
 		bool unmap_mode = false;
 
-		log_header("Executing MACCMAP pass (map $macc cells).\n");
+		log_header(design, "Executing MACCMAP pass (map $macc cells).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

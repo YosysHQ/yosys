@@ -747,7 +747,7 @@ struct MemorySharePass : public Pass {
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
-		log_header("Executing MEMORY_SHARE pass (consolidating $memrc/$memwr cells).\n");
+		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrc/$memwr cells).\n");
 		extra_args(args, 1, design);
 		for (auto module : design->selected_modules())
 			MemoryShareWorker(design, module);

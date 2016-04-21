@@ -169,7 +169,7 @@ struct SynthGreenPAK4Pass : public Pass {
 
 		bool active = run_from.empty();
 
-		log_header("Executing SYNTH_GREENPAK4 pass.\n");
+		log_header(design, "Executing SYNTH_GREENPAK4 pass.\n");
 		log_push();
 
 		if (check_label(active, run_from, run_to, "begin"))

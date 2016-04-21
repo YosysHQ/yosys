@@ -43,7 +43,7 @@ struct SingletonPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing SINGLETON pass (creating singleton modules).\n");
+		log_header(design, "Executing SINGLETON pass (creating singleton modules).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

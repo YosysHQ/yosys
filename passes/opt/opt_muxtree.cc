@@ -464,7 +464,7 @@ struct OptMuxtreePass : public Pass {
 	}
 	virtual void execute(vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing OPT_MUXTREE pass (detect dead branches in mux trees).\n");
+		log_header(design, "Executing OPT_MUXTREE pass (detect dead branches in mux trees).\n");
 		extra_args(args, 1, design);
 
 		int total_count = 0;

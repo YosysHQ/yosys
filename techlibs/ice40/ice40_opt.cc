@@ -137,7 +137,7 @@ struct Ice40OptPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		string opt_expr_args = "-mux_undef -undriven";
-		log_header("Executing ICE40_OPT pass (performing simple optimizations).\n");
+		log_header(design, "Executing ICE40_OPT pass (performing simple optimizations).\n");
 		log_push();
 
 		size_t argidx;
@@ -154,7 +154,7 @@ struct Ice40OptPass : public Pass {
 		{
 			design->scratchpad_unset("opt.did_something");
 
-			log_header("Running ICE40 specific optimizations.\n");
+			log_header(design, "Running ICE40 specific optimizations.\n");
 			for (auto module : design->selected_modules())
 				run_ice40_opts(module);
 
@@ -166,14 +166,14 @@ struct Ice40OptPass : public Pass {
 			if (design->scratchpad_get_bool("opt.did_something") == false)
 				break;
 
-			log_header("Rerunning OPT passes. (Removed registers in this run.)\n");
+			log_header(design, "Rerunning OPT passes. (Removed registers in this run.)\n");
 		}
 
 		design->optimize();
 		design->sort();
 		design->check();
 
-		log_header("Finished OPT passes. (There is nothing left to do.)\n");
+		log_header(design, "Finished OPT passes. (There is nothing left to do.)\n");
 		log_pop();
 	}
 } Ice40OptPass;

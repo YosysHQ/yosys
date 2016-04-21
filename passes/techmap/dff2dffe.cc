@@ -285,7 +285,7 @@ struct Dff2dffePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
+		log_header(design, "Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
 		bool unmap_mode = false;
 		dict<IdString, IdString> direct_dict;

@@ -113,7 +113,7 @@ struct EdifBackend : public Backend {
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing EDIF backend.\n");
+		log_header(design, "Executing EDIF backend.\n");
 
 		std::string top_module_name;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;

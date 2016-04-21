@@ -41,7 +41,7 @@ struct EquivStatusPass : public Pass {
 		bool assert_mode = false;
 		int unproven_count = 0;
 
-		log_header("Executing EQUIV_STATUS pass.\n");
+		log_header(design, "Executing EQUIV_STATUS pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

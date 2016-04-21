@@ -41,7 +41,7 @@ struct AigmapPass : public Pass {
 	{
 		bool nand_mode = false;
 
-		log_header("Executing AIGMAP pass (map logic to AIG).\n");
+		log_header(design, "Executing AIGMAP pass (map logic to AIG).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

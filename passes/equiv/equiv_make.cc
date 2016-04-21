@@ -464,7 +464,7 @@ struct EquivMakePass : public Pass {
 		worker.read_blacklists();
 		worker.read_encfiles();
 
-		log_header("Executing EQUIV_MAKE pass (creating equiv checking module).\n");
+		log_header(design, "Executing EQUIV_MAKE pass (creating equiv checking module).\n");
 
 		worker.equiv_mod = design->addModule(RTLIL::escape_id(args[argidx+2]));
 		worker.run();

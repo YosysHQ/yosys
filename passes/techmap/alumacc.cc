@@ -544,7 +544,7 @@ struct AlumaccPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing ALUMACC pass (create $alu and $macc cells).\n");
+		log_header(design, "Executing ALUMACC pass (create $alu and $macc cells).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

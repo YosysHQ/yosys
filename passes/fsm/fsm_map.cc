@@ -335,7 +335,7 @@ struct FsmMapPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing FSM_MAP pass (mapping FSMs to basic logic).\n");
+		log_header(design, "Executing FSM_MAP pass (mapping FSMs to basic logic).\n");
 		extra_args(args, 1, design);
 
 		for (auto &mod_it : design->modules_) {

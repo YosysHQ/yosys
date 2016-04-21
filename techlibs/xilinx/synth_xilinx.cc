@@ -160,7 +160,7 @@ struct SynthXilinxPass : public Pass {
 
 		bool active = run_from.empty();
 
-		log_header("Executing SYNTH_XILINX pass.\n");
+		log_header(design, "Executing SYNTH_XILINX pass.\n");
 		log_push();
 
 		if (check_label(active, run_from, run_to, "begin"))

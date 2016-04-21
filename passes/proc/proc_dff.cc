@@ -369,7 +369,7 @@ struct ProcDffPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing PROC_DFF pass (convert process syncs to FFs).\n");
+		log_header(design, "Executing PROC_DFF pass (convert process syncs to FFs).\n");
 
 		extra_args(args, 1, design);
 

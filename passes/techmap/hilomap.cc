@@ -76,7 +76,7 @@ struct HilomapPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing HILOMAP pass (mapping to constant drivers).\n");
+		log_header(design, "Executing HILOMAP pass (mapping to constant drivers).\n");
 
 		hicell_celltype = std::string();
 		hicell_portname = std::string();

@@ -186,7 +186,7 @@ struct VerilogFrontend : public Frontend {
 		formal_mode = false;
 		default_nettype_wire = true;
 
-		log_header("Executing Verilog-2005 frontend.\n");
+		log_header(design, "Executing Verilog-2005 frontend.\n");
 
 		args.insert(args.begin()+1, verilog_defaults.begin(), verilog_defaults.end());
 

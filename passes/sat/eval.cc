@@ -389,7 +389,7 @@ struct EvalPass : public Pass {
 		std::vector<std::string> shows, tables;
 		bool set_undef = false;
 
-		log_header("Executing EVAL pass (evaluate the circuit given an input).\n");
+		log_header(design, "Executing EVAL pass (evaluate the circuit given an input).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

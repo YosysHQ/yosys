@@ -71,7 +71,7 @@ struct OptPass : public Pass {
 		std::string opt_merge_args;
 		bool fast_mode = false;
 
-		log_header("Executing OPT pass (performing simple optimizations).\n");
+		log_header(design, "Executing OPT pass (performing simple optimizations).\n");
 		log_push();
 
 		size_t argidx;
@@ -132,7 +132,7 @@ struct OptPass : public Pass {
 				if (design->scratchpad_get_bool("opt.did_something") == false)
 					break;
 				Pass::call(design, "opt_clean" + opt_clean_args);
-				log_header("Rerunning OPT passes. (Removed registers in this run.)\n");
+				log_header(design, "Rerunning OPT passes. (Removed registers in this run.)\n");
 			}
 			Pass::call(design, "opt_clean" + opt_clean_args);
 		}
@@ -150,7 +150,7 @@ struct OptPass : public Pass {
 				Pass::call(design, "opt_expr" + opt_expr_args);
 				if (design->scratchpad_get_bool("opt.did_something") == false)
 					break;
-				log_header("Rerunning OPT passes. (Maybe there is more to do..)\n");
+				log_header(design, "Rerunning OPT passes. (Maybe there is more to do..)\n");
 			}
 		}
 
@@ -158,7 +158,7 @@ struct OptPass : public Pass {
 		design->sort();
 		design->check();
 
-		log_header(fast_mode ? "Finished fast OPT passes.\n" : "Finished OPT passes. (There is nothing left to do.)\n");
+		log_header(design, fast_mode ? "Finished fast OPT passes.\n" : "Finished OPT passes. (There is nothing left to do.)\n");
 		log_pop();
 	}
 } OptPass;

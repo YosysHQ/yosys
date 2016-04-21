@@ -74,7 +74,7 @@ struct Vhdl2verilogPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing VHDL2VERILOG (importing VHDL designs using vhdl2verilog).\n");
+		log_header(design, "Executing VHDL2VERILOG (importing VHDL designs using vhdl2verilog).\n");
 		log_push();
 
 		std::string out_file, top_entity;
@@ -173,7 +173,7 @@ struct Vhdl2verilogPass : public Pass {
 			Frontend::frontend_call(design, &ff, stringf("%s/vhdl2verilog_output.v", tempdir_name.c_str()), "verilog");
 		}
 
-		log_header("Removing temp directory `%s':\n", tempdir_name.c_str());
+		log_header(design, "Removing temp directory `%s':\n", tempdir_name.c_str());
 		remove_directory(tempdir_name);
 		log_pop();
 	}

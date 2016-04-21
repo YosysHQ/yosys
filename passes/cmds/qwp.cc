@@ -787,7 +787,7 @@ struct QwpPass : public Pass {
 		QwpConfig config;
 		xorshift32_state = 123456789;
 
-		log_header("Executing QWP pass (quadratic wirelength placer).\n");
+		log_header(design, "Executing QWP pass (quadratic wirelength placer).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

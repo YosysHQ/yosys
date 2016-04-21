@@ -1065,7 +1065,7 @@ struct BtorBackend : public Backend {
 		std::string false_type, false_out;
 		BtorDumperConfig config;
 
-		log_header("Executing BTOR backend.\n");
+		log_header(design, "Executing BTOR backend.\n");
 
 		size_t argidx=1;
 		extra_args(f, filename, args, argidx);

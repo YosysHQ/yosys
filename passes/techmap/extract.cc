@@ -442,7 +442,7 @@ struct ExtractPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing EXTRACT pass (map subcircuits to cells).\n");
+		log_header(design, "Executing EXTRACT pass (map subcircuits to cells).\n");
 		log_push();
 
 		SubCircuitSolver solver;
@@ -627,7 +627,7 @@ struct ExtractPass : public Pass {
 		std::map<std::string, RTLIL::Module*> needle_map, haystack_map;
 		std::vector<RTLIL::Module*> needle_list;
 
-		log_header("Creating graphs for SubCircuit library.\n");
+		log_header(design, "Creating graphs for SubCircuit library.\n");
 
 		if (!mine_mode)
 			for (auto &mod_it : map->modules_) {
@@ -654,7 +654,7 @@ struct ExtractPass : public Pass {
 		if (!mine_mode)
 		{
 			std::vector<SubCircuit::Solver::Result> results;
-			log_header("Running solver from SubCircuit library.\n");
+			log_header(design, "Running solver from SubCircuit library.\n");
 
 			std::sort(needle_list.begin(), needle_list.end(), compareSortNeedleList);
 
@@ -667,7 +667,7 @@ struct ExtractPass : public Pass {
 
 			if (results.size() > 0)
 			{
-				log_header("Substitute SubCircuits with cells.\n");
+				log_header(design, "Substitute SubCircuits with cells.\n");
 
 				for (int i = 0; i < int(results.size()); i++) {
 					auto &result = results[i];
@@ -688,7 +688,7 @@ struct ExtractPass : public Pass {
 		{
 			std::vector<SubCircuit::Solver::MineResult> results;
 
-			log_header("Running miner from SubCircuit library.\n");
+			log_header(design, "Running miner from SubCircuit library.\n");
 			solver.mine(results, mine_cells_min, mine_cells_max, mine_min_freq, mine_limit_mod);
 
 			map = new RTLIL::Design;

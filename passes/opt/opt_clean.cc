@@ -380,7 +380,7 @@ struct OptCleanPass : public Pass {
 	{
 		bool purge_mode = false;
 
-		log_header("Executing OPT_CLEAN pass (remove unused cells and wires).\n");
+		log_header(design, "Executing OPT_CLEAN pass (remove unused cells and wires).\n");
 		log_push();
 
 		size_t argidx;

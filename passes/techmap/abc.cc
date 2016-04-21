@@ -616,7 +616,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	tempdir_name = make_temp_dir(tempdir_name);
-	log_header("Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
+	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
 	std::string abc_script = stringf("read_blif %s/input.blif; ", tempdir_name.c_str());
@@ -834,7 +834,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	if (count_output > 0)
 	{
-		log_header("Executing ABC.\n");
+		log_header(design, "Executing ABC.\n");
 
 		buffer = stringf("%s/stdcells.genlib", tempdir_name.c_str());
 		f = fopen(buffer.c_str(), "wt");
@@ -904,7 +904,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 		ifs.close();
 
-		log_header("Re-integrating ABC results.\n");
+		log_header(design, "Re-integrating ABC results.\n");
 		RTLIL::Module *mapped_mod = mapped_design->modules_["\\netlist"];
 		if (mapped_mod == NULL)
 			log_error("ABC output file does not contain a module `netlist'.\n");
@@ -1299,7 +1299,7 @@ struct AbcPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing ABC pass (technology mapping using ABC).\n");
+		log_header(design, "Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
 
 #ifdef ABCEXTERNAL
@@ -1599,7 +1599,7 @@ struct AbcPass : public Pass {
 					assigned_cells_reverse[cell] = key;
 				}
 
-				log_header("Summary of detected clock domains:\n");
+				log_header(design, "Summary of detected clock domains:\n");
 				for (auto &it : assigned_cells)
 					log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
 							std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),

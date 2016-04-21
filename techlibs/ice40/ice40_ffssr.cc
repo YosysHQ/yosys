@@ -35,7 +35,7 @@ struct Ice40FfssrPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing ICE40_FFSSR pass (merge synchronous set/reset into FF cells).\n");
+		log_header(design, "Executing ICE40_FFSSR pass (merge synchronous set/reset into FF cells).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

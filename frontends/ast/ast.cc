@@ -1042,7 +1042,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	if (stripped_name.substr(0, 9) == "$abstract")
 		stripped_name = stripped_name.substr(9);
 
-	log_header("Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
+	log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
 
 	current_ast = NULL;
 	flag_dump_ast1 = false;

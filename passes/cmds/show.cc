@@ -651,7 +651,7 @@ struct ShowPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Generating Graphviz representation of design.\n");
+		log_header(design, "Generating Graphviz representation of design.\n");
 		log_push();
 
 		std::vector<std::pair<std::string, RTLIL::Selection>> color_selections;
@@ -784,7 +784,7 @@ struct ShowPass : public Pass {
 		}
 
 		if (libs.size() > 0)
-			log_header("Continuing show pass.\n");
+			log_header(design, "Continuing show pass.\n");
 
 		std::string dot_file = stringf("%s.dot", prefix.c_str());
 		std::string out_file = stringf("%s.%s", prefix.c_str(), format.empty() ? "svg" : format.c_str());

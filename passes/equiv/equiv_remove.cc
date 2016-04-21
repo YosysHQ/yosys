@@ -46,7 +46,7 @@ struct EquivRemovePass : public Pass {
 		bool mode_gate = false;
 		int remove_count = 0;
 
-		log_header("Executing EQUIV_REMOVE pass.\n");
+		log_header(design, "Executing EQUIV_REMOVE pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

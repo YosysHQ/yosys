@@ -798,7 +798,7 @@ struct FreducePass : public Pass {
 		inv_mode = false;
 		dump_prefix = std::string();
 
-		log_header("Executing FREDUCE pass (perform functional reduction).\n");
+		log_header(design, "Executing FREDUCE pass (perform functional reduction).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

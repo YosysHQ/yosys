@@ -336,7 +336,7 @@ struct FsmOptPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing FSM_OPT pass (simple optimizations of FSMs).\n");
+		log_header(design, "Executing FSM_OPT pass (simple optimizations of FSMs).\n");
 		extra_args(args, 1, design);
 
 		for (auto &mod_it : design->modules_) {

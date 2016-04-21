@@ -65,7 +65,7 @@ struct Test2Pass : public Pass {
 
         log("Mapped signal x: %s\n", log_signal(sigmap(x)));
 
-        log_header("Doing important stuff!\n");
+        log_header(design, "Doing important stuff!\n");
         log_push();
         for (int i = 0; i < 10; i++)
             log("Log message #%d.\n", i);

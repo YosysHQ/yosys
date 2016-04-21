@@ -258,7 +258,7 @@ struct FsmExpandPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing FSM_EXPAND pass (merging auxiliary logic into FSMs).\n");
+		log_header(design, "Executing FSM_EXPAND pass (merging auxiliary logic into FSMs).\n");
 		extra_args(args, 1, design);
 
 		for (auto &mod_it : design->modules_) {

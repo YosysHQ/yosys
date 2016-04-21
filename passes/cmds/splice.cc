@@ -341,7 +341,7 @@ struct SplicePass : public Pass {
 		if (!ports.empty() && !no_ports.empty())
 			log_cmd_error("The options -port and -no_port are exclusive!\n");
 
-		log_header("Executing SPLICE pass (creating cells for signal splicing).\n");
+		log_header(design, "Executing SPLICE pass (creating cells for signal splicing).\n");
 
 		for (auto &mod_it : design->modules_)
 		{

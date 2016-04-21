@@ -399,7 +399,7 @@ struct BlifFrontend : public Frontend {
 	}
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing BLIF frontend.\n");
+		log_header(design, "Executing BLIF frontend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

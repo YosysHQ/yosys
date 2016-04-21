@@ -76,7 +76,7 @@ struct FsmPass : public Pass {
 		std::string encfile_opt;
 		std::string encoding_opt;
 
-		log_header("Executing FSM pass (extract and optimize FSM).\n");
+		log_header(design, "Executing FSM pass (extract and optimize FSM).\n");
 		log_push();
 
 		size_t argidx;

@@ -124,7 +124,7 @@ struct CoverPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (do_log) {
-			log_header("Printing code coverage counters.\n");
+			log_header(design, "Printing code coverage counters.\n");
 			log("\n");
 		}
 

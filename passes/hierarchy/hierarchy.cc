@@ -396,7 +396,7 @@ struct HierarchyPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing HIERARCHY pass (managing design hierarchy).\n");
+		log_header(design, "Executing HIERARCHY pass (managing design hierarchy).\n");
 
 		bool flag_check = false;
 		bool purge_lib = false;
@@ -506,7 +506,7 @@ struct HierarchyPass : public Pass {
 					top_mod = mod_it.second;
 
 		if (top_mod == nullptr && auto_top_mode) {
-			log_header("Finding top of design hierarchy..\n");
+			log_header(design, "Finding top of design hierarchy..\n");
 			dict<Module*, int> db;
 			for (Module *mod : design->selected_modules()) {
 				int score = find_top_mod_score(design, mod, db);
@@ -525,7 +525,7 @@ struct HierarchyPass : public Pass {
 
 			std::set<RTLIL::Module*> used_modules;
 			if (top_mod != NULL) {
-				log_header("Analyzing design hierarchy..\n");
+				log_header(design, "Analyzing design hierarchy..\n");
 				hierarchy_worker(design, used_modules, top_mod, 0);
 			} else {
 				for (auto mod : design->modules())
@@ -539,7 +539,7 @@ struct HierarchyPass : public Pass {
 		}
 
 		if (top_mod != NULL) {
-			log_header("Analyzing design hierarchy..\n");
+			log_header(design, "Analyzing design hierarchy..\n");
 			hierarchy_clean(design, top_mod, purge_lib);
 		}
 

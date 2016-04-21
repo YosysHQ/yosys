@@ -32,7 +32,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	bool flag_make_assert = false;
 	bool flag_flatten = false;
 
-	log_header("Executing MITER pass (creating miter circuit).\n");
+	log_header(design, "Executing MITER pass (creating miter circuit).\n");
 
 	size_t argidx;
 	for (argidx = 2; argidx < args.size(); argidx++)
@@ -264,7 +264,7 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 	bool flag_make_outputs = false;
 	bool flag_flatten = false;
 
-	log_header("Executing MITER pass (creating miter circuit).\n");
+	log_header(design, "Executing MITER pass (creating miter circuit).\n");
 
 	size_t argidx;
 	for (argidx = 2; argidx < args.size(); argidx++)

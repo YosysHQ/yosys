@@ -157,7 +157,7 @@ struct FsmRecodePass : public Pass {
 		FILE *encfile = NULL;
 		std::string default_encoding;
 
-		log_header("Executing FSM_RECODE pass (re-assigning FSM state encoding).\n");
+		log_header(design, "Executing FSM_RECODE pass (re-assigning FSM state encoding).\n");
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];

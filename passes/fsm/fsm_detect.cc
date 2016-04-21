@@ -154,7 +154,7 @@ struct FsmDetectPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing FSM_DETECT pass (finding FSMs in design).\n");
+		log_header(design, "Executing FSM_DETECT pass (finding FSMs in design).\n");
 		extra_args(args, 1, design);
 
 		CellTypes ct;

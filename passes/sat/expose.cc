@@ -262,7 +262,7 @@ struct ExposePass : public Pass {
 		bool flag_evert_dff = false;
 		std::string sep = ".";
 
-		log_header("Executing EXPOSE pass (exposing internal signals as outputs).\n");
+		log_header(design, "Executing EXPOSE pass (exposing internal signals as outputs).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

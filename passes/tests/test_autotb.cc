@@ -333,7 +333,7 @@ struct TestAutotbBackend : public Backend {
 	{
 		int num_iter = 1000;
 
-		log_header("Executing TEST_AUTOTB backend (auto-generate pseudo-random test benches).\n");
+		log_header(design, "Executing TEST_AUTOTB backend (auto-generate pseudo-random test benches).\n");
 
 		int argidx;
 		for (argidx = 1; argidx < GetSize(args); argidx++)
