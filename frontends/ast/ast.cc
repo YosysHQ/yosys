@@ -146,6 +146,8 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_ASSIGN_LE)
 	X(AST_CASE)
 	X(AST_COND)
+	X(AST_CONDX)
+	X(AST_CONDZ)
 	X(AST_DEFAULT)
 	X(AST_FOR)
 	X(AST_WHILE)
@@ -501,7 +503,12 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		break;
 
 	case AST_CASE:
-		fprintf(f, "%s" "case (", indent.c_str());
+		if (!children.empty() && children[0]->type == AST_CONDX)
+			fprintf(f, "%s" "casex (", indent.c_str());
+		else if (!children.empty() && children[0]->type == AST_CONDZ)
+			fprintf(f, "%s" "casez (", indent.c_str());
+		else
+			fprintf(f, "%s" "case (", indent.c_str());
 		children[0]->dumpVlog(f, "");
 		fprintf(f, ")\n");
 		for (size_t i = 1; i < children.size(); i++) {
@@ -512,6 +519,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		break;
 
 	case AST_COND:
+	case AST_CONDX:
+	case AST_CONDZ:
 		for (auto child : children) {
 			if (child->type == AST_BLOCK) {
 				fprintf(f, ":\n");
