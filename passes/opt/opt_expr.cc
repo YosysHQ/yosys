@@ -342,6 +342,68 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", "\\R", assign_map, invert_map);
 		}
 
+		bool detect_const_and = false;
+		bool detect_const_or = false;
+
+		if (cell->type.in("$reduce_and", "$_AND_"))
+			detect_const_and = true;
+
+		if (cell->type.in("$and", "$logic_and") && GetSize(cell->getPort("\\A")) == 1 && GetSize(cell->getPort("\\B")) == 1)
+			detect_const_and = true;
+
+		if (cell->type.in("$reduce_or", "$reduce_bool", "$_OR_"))
+			detect_const_or = true;
+
+		if (cell->type.in("$or", "$logic_or") && GetSize(cell->getPort("\\A")) == 1 && GetSize(cell->getPort("\\B")) == 1)
+			detect_const_or = true;
+
+		if (detect_const_and || detect_const_or)
+		{
+			pool<SigBit> input_bits = assign_map(cell->getPort("\\A")).to_sigbit_pool();
+			bool found_zero = false, found_one = false, found_inv = false;
+
+			if (cell->hasPort("\\B")) {
+				vector<SigBit> more_bits = assign_map(cell->getPort("\\B")).to_sigbit_vector();
+				input_bits.insert(more_bits.begin(), more_bits.end());
+			}
+
+			for (auto bit : input_bits) {
+				if (bit == State::S0)
+					found_zero = true;
+				if (bit == State::S1)
+					found_one = true;
+				if (invert_map.count(bit) && input_bits.count(invert_map.at(bit)))
+					found_inv = true;
+			}
+
+			if (detect_const_and && (found_zero || found_inv)) {
+				cover("opt.opt_expr.const_and");
+				replace_cell(assign_map, module, cell, "const_and", "\\Y", RTLIL::State::S0);
+				goto next_cell;
+			}
+
+			if (detect_const_or && (found_one || found_inv)) {
+				cover("opt.opt_expr.const_or");
+				replace_cell(assign_map, module, cell, "const_or", "\\Y", RTLIL::State::S1);
+				goto next_cell;
+			}
+		}
+
+		if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_bool", "$reduce_xor", "$reduce_xnor", "$neg") &&
+				GetSize(cell->getPort("\\A")) == 1 && GetSize(cell->getPort("\\Y")) == 1)
+		{
+			if (cell->type == "$reduce_xnor") {
+				cover("opt.opt_expr.reduce_xnor_not");
+				log("Replacing %s cell `%s' in module `%s' with $not cell.\n",
+						log_id(cell->type), log_id(cell->name), log_id(module));
+				cell->type = "$not";
+			} else {
+				cover("opt.opt_expr.unary_buffer");
+				replace_cell(assign_map, module, cell, "unary_buffer", "\\Y", cell->getPort("\\A"));
+			}
+			goto next_cell;
+		}
+
 		if (do_fine)
 		{
 			if (cell->type == "$not" || cell->type == "$pos" ||
@@ -426,18 +488,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					did_something = true;
 				}
 			}
-		}
-
-		if (cell->type == "$logic_or" && (assign_map(cell->getPort("\\A")) == RTLIL::State::S1 || assign_map(cell->getPort("\\B")) == RTLIL::State::S1)) {
-			cover("opt.opt_expr.one_high");
-			replace_cell(assign_map, module, cell, "one high", "\\Y", RTLIL::State::S1);
-			goto next_cell;
-		}
-
-		if (cell->type == "$logic_and" && (assign_map(cell->getPort("\\A")) == RTLIL::State::S0 || assign_map(cell->getPort("\\B")) == RTLIL::State::S0)) {
-			cover("opt.opt_expr.one_low");
-			replace_cell(assign_map, module, cell, "one low", "\\Y", RTLIL::State::S0);
-			goto next_cell;
 		}
 
 		if (cell->type == "$reduce_xor" || cell->type == "$reduce_xnor" || cell->type == "$shift" || cell->type == "$shiftx" ||
