@@ -23,12 +23,20 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct ShregmapTech
+{
+	virtual ~ShregmapTech() { }
+	virtual bool check_taps(const dict<int, SigBit> &taps) = 0;
+	virtual bool fixup_shreg(Cell *cell, dict<int, SigBit> &taps) = 0;
+};
+
 struct ShregmapOptions
 {
 	int minlen, maxlen;
 	int keep_before, keep_after;
 	bool zinit, init, params, ffe;
 	dict<IdString, pair<IdString, IdString>> ffcells;
+	ShregmapTech *tech;
 
 	ShregmapOptions()
 	{
@@ -40,6 +48,42 @@ struct ShregmapOptions
 		init = false;
 		params = false;
 		ffe = false;
+		tech = nullptr;
+	}
+};
+
+struct ShregmapTechGreenpak4 : ShregmapTech
+{
+	bool check_taps(const dict<int, SigBit> &taps)
+	{
+		if (GetSize(taps) > 2)
+			return false;
+
+		for (auto tap : taps)
+			if (tap.first > 16) return false;
+
+		return true;
+	}
+
+	bool fixup_shreg(Cell *cell, dict<int, SigBit> &taps)
+	{
+		auto D = cell->getPort("\\D");
+		auto C = cell->getPort("\\C");
+
+		auto newcell = cell->module->addCell(NEW_ID, "\\GP_SHREG");
+		newcell->setPort("\\nRST", State::S1);
+		newcell->setPort("\\CLK", C);
+		newcell->setPort("\\IN", D);
+
+		int i = 0;
+		for (auto tap : taps) {
+			newcell->setPort(i ? "\\OUTB" : "\\OUTA", tap.second);
+			newcell->setParam(i ? "\\OUTB_DELAY" : "\\OUTA_DELAY", tap.first + 1);
+			i++;
+		}
+
+		cell->setParam("\\OUTA_INVERT", 0);
+		return false;
 	}
 };
 
@@ -90,7 +134,8 @@ struct ShregmapWorker
 				SigBit d_bit = sigmap(cell->getPort(d_port).as_bit());
 				SigBit q_bit = sigmap(cell->getPort(q_port).as_bit());
 
-				if (opts.init || sigbit_init.count(q_bit) == 0) {
+				if (opts.init || sigbit_init.count(q_bit) == 0)
+				{
 					if (sigbit_chain_next.count(d_bit)) {
 						sigbit_with_non_chain_users.insert(d_bit);
 					} else
@@ -112,8 +157,8 @@ struct ShregmapWorker
 	{
 		for (auto it : sigbit_chain_next)
 		{
-			if (sigbit_with_non_chain_users.count(it.first))
-				continue;
+			if (opts.tech == nullptr && sigbit_with_non_chain_users.count(it.first))
+				goto start_cell;
 
 			if (sigbit_chain_prev.count(it.first) != 0)
 			{
@@ -185,10 +230,35 @@ struct ShregmapWorker
 			if (opts.maxlen > 0)
 				depth = std::min(opts.maxlen, depth);
 
-			Cell *first_cell = chain[cursor], *last_cell = chain[cursor+depth-1];
+			Cell *first_cell = chain[cursor];
+			IdString q_port = opts.ffcells.at(first_cell->type).second;
+			dict<int, SigBit> taps;
+
+			if (opts.tech)
+			{
+				for (int i = 0; i < depth; i++)
+				{
+					Cell *cell = chain[cursor+i];
+					auto qbit = sigmap(cell->getPort(q_port));
+
+					if (sigbit_with_non_chain_users.count(qbit))
+						taps[i] = qbit;
+				}
+
+				while (depth > 0)
+				{
+					Cell *last_cell = chain[cursor+depth-1];
+					taps[depth-1] = sigmap(last_cell->getPort(q_port));
+					if (opts.tech->check_taps(taps))
+						break;
+					taps.erase(--depth);
+				}
+			}
 
 			if (depth < 2)
 				return;
+
+			Cell *last_cell = chain[cursor+depth-1];
 
 			log("Converting %s.%s ... %s.%s to a shift register with depth %d.\n",
 				log_id(module), log_id(first_cell), log_id(module), log_id(last_cell), depth);
@@ -204,8 +274,6 @@ struct ShregmapWorker
 					shreg_cell_type_str += "_";
 				shreg_cell_type_str += first_cell->type.substr(1);
 			}
-
-			IdString q_port = opts.ffcells.at(first_cell->type).second;
 
 			if (opts.init) {
 				vector<State> initval;
@@ -249,6 +317,9 @@ struct ShregmapWorker
 			first_cell->type = shreg_cell_type_str;
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam("\\DEPTH", depth);
+
+			if (opts.tech != nullptr && !opts.tech->fixup_shreg(first_cell, taps))
+				remove_cells.insert(first_cell);
 
 			for (int i = 1; i < depth; i++)
 				remove_cells.insert(chain[cursor+i]);
@@ -354,6 +425,9 @@ struct ShregmapPass : public Pass {
 		log("        generated cells with the initialization value. (first bit to shift out\n");
 		log("        in LSB position)\n");
 		log("\n");
+		log("    -tech greenpak4\n");
+		log("        map to greenpak4 shift registers.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -399,6 +473,18 @@ struct ShregmapPass : public Pass {
 			}
 			if (args[argidx] == "-keep_after" && argidx+1 < args.size()) {
 				opts.keep_after = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-tech" && argidx+1 < args.size() && opts.tech == nullptr) {
+				string tech = args[++argidx];
+				if (tech == "greenpak4") {
+					clkpol = "pos";
+					opts.maxlen = 16;
+					opts.tech = new ShregmapTechGreenpak4;
+				} else {
+					argidx--;
+					break;
+				}
 				continue;
 			}
 			if (args[argidx] == "-zinit") {
@@ -467,6 +553,11 @@ struct ShregmapPass : public Pass {
 		}
 
 		log("Converted %d dff cells into %d shift registers.\n", dff_count, shreg_count);
+
+		if (opts.tech != nullptr) {
+			delete opts.tech;
+			opts.tech = nullptr;
+		}
 	}
 } ShregmapPass;
 
