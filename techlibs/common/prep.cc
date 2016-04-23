@@ -42,6 +42,10 @@ struct PrepPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
 		log("\n");
+		log("    -flatten\n");
+		log("        flatten the design before synthesis. this will pass '-auto-top' to\n");
+		log("        'hierarchy' if no top module is specified.\n");
+		log("\n");
 		log("    -nordff\n");
 		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
@@ -57,11 +61,13 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts;
+	bool flatten;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
 		top_module.clear();
 		memory_opts.clear();
+		flatten = false;
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -84,6 +90,10 @@ struct PrepPass : public ScriptPass
 					run_from = args[++argidx].substr(0, pos);
 					run_to = args[argidx].substr(pos+1);
 				}
+				continue;
+			}
+			if (args[argidx] == "-flatten") {
+				flatten = true;
 				continue;
 			}
 			if (args[argidx] == "-nordff") {
@@ -113,9 +123,12 @@ struct PrepPass : public ScriptPass
 			if (help_mode) {
 				run("hierarchy -check [-top <top>]");
 			} else {
-				if (top_module.empty())
-					run("hierarchy -check");
-				else
+				if (top_module.empty()) {
+					if (flatten)
+						run("hierarchy -check -auto-top");
+					else
+						run("hierarchy -check");
+				} else
 					run(stringf("hierarchy -check -top %s", top_module.c_str()));
 			}
 		}
@@ -123,6 +136,8 @@ struct PrepPass : public ScriptPass
 		if (check_label("coarse"))
 		{
 			run("proc");
+			if (help_mode || flatten)
+				run("flatten", "(if -flatten)");
 			run("opt_expr -keepdc");
 			run("opt_clean");
 			run("check");
