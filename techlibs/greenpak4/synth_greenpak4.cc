@@ -175,6 +175,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 
 		if (check_label("map_cells"))
 		{
+			run("shregmap -tech greenpak4");
 			run("dfflibmap -liberty +/greenpak4/gp_dff.lib");
 			run("techmap -map +/greenpak4/cells_map.v");
 			run("dffinit -ff GP_DFF Q INIT");
