@@ -235,7 +235,7 @@ module GP_SHREG(input nRST, input CLK, input IN, output OUTA, output OUTB);
 	
 	reg[15:0] shreg = 0;
 	
-	always @(posedge clk, negedge RSTN) begin
+	always @(posedge clk, negedge nRST) begin
 		
 		if(!nRST)
 			shreg = 0;
