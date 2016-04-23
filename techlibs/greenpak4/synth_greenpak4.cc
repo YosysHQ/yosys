@@ -194,7 +194,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 
 		if (check_label("json"))
 		{
-			run("splitnets", "(temporary workaround for gp4par parser limitation)");
+			run("splitnets;;", "(temporary workaround for gp4par parser limitation)");
 			if (!json_file.empty() || help_mode)
 				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
