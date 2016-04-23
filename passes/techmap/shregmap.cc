@@ -377,7 +377,7 @@ struct ShregmapPass : public Pass {
 		log("\n");
 		log("    shregmap [options] [selection]\n");
 		log("\n");
-		log("This pass converts chains of $_DFF_[NP]_ gates to target specific shift register.\n");
+		log("This pass converts chains of $_DFF_[NP]_ gates to target specific shift register\n");
 		log("primitives. The generated shift register will be of type $__SHREG_DFF_[NP]_ and\n");
 		log("will use the same interface as the original $_DFF_*_ cells. The cell parameter\n");
 		log("'DEPTH' will contain the depth of the shift register. Use a target-specific\n");
