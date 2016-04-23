@@ -235,7 +235,7 @@ module GP_SHREG(input nRST, input CLK, input IN, output OUTA, output OUTB);
 	
 	reg[15:0] shreg = 0;
 	
-	always @(posedge clk, negedge RSTN) begin
+	always @(posedge clk, negedge nRST) begin
 		
 		if(!nRST)
 			shreg = 0;
@@ -261,6 +261,12 @@ endmodule
 
 module GP_VDD(output OUT);
        assign OUT = 1;
+endmodule
+
+module GP_VREF(input VIN, output reg VOUT);
+	parameter VIN_DIV = 1;
+	parameter VREF = 0;
+	//cannot simulate mixed signal IP
 endmodule
 
 module GP_VSS(output OUT);
