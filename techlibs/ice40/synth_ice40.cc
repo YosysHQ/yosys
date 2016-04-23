@@ -74,8 +74,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt = "-auto-top";
-	string blif_file, edif_file;
+	string top_opt, blif_file, edif_file;
 	bool nocarry, nobram, flatten, retime, abc2;
 
 	virtual void clear_flags() YS_OVERRIDE
@@ -92,7 +91,7 @@ struct SynthIce40Pass : public ScriptPass
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		std::string run_from, run_to;
+		string run_from, run_to;
 		clear_flags();
 
 		size_t argidx;

@@ -25,18 +25,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
+struct SynthGreenPAK4Pass : public ScriptPass
 {
-	if (label == run_from)
-		active = true;
-	if (label == run_to)
-		active = false;
-	return active;
-}
+	SynthGreenPAK4Pass() : ScriptPass("synth_greenpak4", "synthesis for GreenPAK4 FPGAs") { }
 
-struct SynthGreenPAK4Pass : public Pass {
-	SynthGreenPAK4Pass() : Pass("synth_greenpak4", "synthesis for GreenPAK4 FPGAs") { }
-	virtual void help()
+	virtual void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -68,63 +61,26 @@ struct SynthGreenPAK4Pass : public Pass {
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
-		log("\n");
-		log("    begin:\n");
-		log("        read_verilog -lib +/greenpak4/cells_sim.v\n");
-		log("        hierarchy -check -top <top>\n");
-		log("\n");
-		log("    flatten:         (unless -noflatten)\n");
-		log("        proc\n");
-		log("        flatten\n");
-		log("        tribuf -logic\n");
-		log("\n");
-		log("    coarse:\n");
-		log("        synth -run coarse\n");
-		log("\n");
-		log("    fine:\n");
-		log("        greenpak4_counters\n");
-		log("        clean\n");
-		log("        opt -fast -mux_undef -undriven -fine\n");
-		log("        memory_map\n");
-		log("        opt -undriven -fine\n");
-		log("        techmap\n");
-		log("        dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib\n");
-		log("        opt -fast\n");
-		log("        abc -dff     (only if -retime)\n");
-		log("\n");
-		log("    map_luts:\n");
-		log("        nlutmap -luts 0,6,8,2        (for -part SLG46140V)\n");
-		log("        nlutmap -luts 0,8,16,2       (for -part SLG46620V)\n");
-		log("        nlutmap -luts 0,8,16,2       (for -part SLG46621V)\n");
-		log("        clean\n");
-		log("\n");
-		log("    map_cells:\n");
-		log("        dfflibmap -liberty +/greenpak4/gp_dff.lib\n");
-		log("        techmap -map +/greenpak4/cells_map.v\n");
-		log("        dffinit -ff GP_DFF Q INIT\n");
-		log("        dffinit -ff GP_DFFR Q INIT\n");
-		log("        dffinit -ff GP_DFFS Q INIT\n");
-		log("        dffinit -ff GP_DFFSR Q INIT\n");
-		log("        clean\n");
-		log("\n");
-		log("    check:\n");
-		log("        hierarchy -check\n");
-		log("        stat\n");
-		log("        check -noinit\n");
-		log("\n");
-		log("    json:\n");
-		log("        splitnets                    (temporary workaround for gp4par parser limitation)\n");
-		log("        write_json <file-name>\n");
+		help_script();
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+
+	string top_opt, part, json_file;
+	bool flatten, retime;
+
+	virtual void clear_flags() YS_OVERRIDE
 	{
-		std::string top_opt = "-auto-top";
-		std::string part = "SLG46621V";
-		std::string run_from, run_to;
-		std::string json_file;
-		bool flatten = true;
-		bool retime = false;
+		top_opt = "-auto-top";
+		part = "SLG46621V";
+		json_file = "";
+		flatten = true;
+		retime = false;
+	}
+
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		string run_from, run_to;
+		clear_flags();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -167,74 +123,79 @@ struct SynthGreenPAK4Pass : public Pass {
 		if (part != "SLG46140V" && part != "SLG46620V" && part != "SLG46621V")
 			log_cmd_error("Invalid part name: '%s'\n", part.c_str());
 
-		bool active = run_from.empty();
-
 		log_header(design, "Executing SYNTH_GREENPAK4 pass.\n");
 		log_push();
 
-		if (check_label(active, run_from, run_to, "begin"))
+		run_script(design, run_from, run_to);
+
+		log_pop();
+	}
+
+	virtual void script() YS_OVERRIDE
+	{
+		if (check_label("begin"))
 		{
-			Pass::call(design, "read_verilog -lib +/greenpak4/cells_sim.v");
-			Pass::call(design, stringf("hierarchy -check %s", top_opt.c_str()));
+			run("read_verilog -lib +/greenpak4/cells_sim.v");
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (flatten && check_label(active, run_from, run_to, "flatten"))
+		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
-			Pass::call(design, "proc");
-			Pass::call(design, "flatten");
-			Pass::call(design, "tribuf -logic");
+			run("proc");
+			run("flatten");
+			run("tribuf -logic");
 		}
 
-		if (check_label(active, run_from, run_to, "coarse"))
+		if (check_label("coarse"))
 		{
-			Pass::call(design, "synth -run coarse");
+			run("synth -run coarse");
 		}
 
-		if (check_label(active, run_from, run_to, "fine"))
+		if (check_label("fine"))
 		{
-			Pass::call(design, "greenpak4_counters");
-			Pass::call(design, "clean");
-			Pass::call(design, "opt -fast -mux_undef -undriven -fine");
-			Pass::call(design, "memory_map");
-			Pass::call(design, "opt -undriven -fine");
-			Pass::call(design, "techmap");
-			Pass::call(design, "dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
-			Pass::call(design, "opt -fast");
-			if (retime)
-				Pass::call(design, "abc -dff");
+			run("greenpak4_counters");
+			run("clean");
+			run("opt -fast -mux_undef -undriven -fine");
+			run("memory_map");
+			run("opt -undriven -fine");
+			run("techmap");
+			run("dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
+			run("opt -fast");
+			if (retime || help_mode)
+				run("abc -dff", "(only if -retime)");
 		}
 
-		if (check_label(active, run_from, run_to, "map_luts"))
+		if (check_label("map_luts"))
 		{
-			if (part == "SLG46140V") Pass::call(design, "nlutmap -luts 0,6,8,2");
-			if (part == "SLG46620V") Pass::call(design, "nlutmap -luts 2,8,16,2");
-			if (part == "SLG46621V") Pass::call(design, "nlutmap -luts 2,8,16,2");
-			Pass::call(design, "clean");
+			if (help_mode || part == "SLG46140V") run("nlutmap -luts 0,6,8,2", " (for -part SLG46140V)");
+			if (help_mode || part == "SLG46620V") run("nlutmap -luts 2,8,16,2", "(for -part SLG46620V)");
+			if (help_mode || part == "SLG46621V") run("nlutmap -luts 2,8,16,2", "(for -part SLG46621V)");
+			run("clean");
 		}
 
-		if (check_label(active, run_from, run_to, "map_cells"))
+		if (check_label("map_cells"))
 		{
-			Pass::call(design, "dfflibmap -liberty +/greenpak4/gp_dff.lib");
-			Pass::call(design, "techmap -map +/greenpak4/cells_map.v");
-			Pass::call(design, "dffinit -ff GP_DFF Q INIT");
-			Pass::call(design, "dffinit -ff GP_DFFR Q INIT");
-			Pass::call(design, "dffinit -ff GP_DFFS Q INIT");
-			Pass::call(design, "dffinit -ff GP_DFFSR Q INIT");
-			Pass::call(design, "clean");
+			run("dfflibmap -liberty +/greenpak4/gp_dff.lib");
+			run("techmap -map +/greenpak4/cells_map.v");
+			run("dffinit -ff GP_DFF Q INIT");
+			run("dffinit -ff GP_DFFR Q INIT");
+			run("dffinit -ff GP_DFFS Q INIT");
+			run("dffinit -ff GP_DFFSR Q INIT");
+			run("clean");
 		}
 
-		if (check_label(active, run_from, run_to, "check"))
+		if (check_label("check"))
 		{
-			Pass::call(design, "hierarchy -check");
-			Pass::call(design, "stat");
-			Pass::call(design, "check -noinit");
+			run("hierarchy -check");
+			run("stat");
+			run("check -noinit");
 		}
 
-		if (check_label(active, run_from, run_to, "json"))
+		if (check_label("json"))
 		{
-			Pass::call(design, "splitnets");
-			if (!json_file.empty())
-				Pass::call(design, stringf("write_json %s", json_file.c_str()));
+			run("splitnets", "(temporary workaround for gp4par parser limitation)");
+			if (!json_file.empty() || help_mode)
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
 
 		log_pop();
