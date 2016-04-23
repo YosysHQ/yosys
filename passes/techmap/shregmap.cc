@@ -26,8 +26,8 @@ PRIVATE_NAMESPACE_BEGIN
 struct ShregmapTech
 {
 	virtual ~ShregmapTech() { }
-	virtual bool check_taps(const dict<int, SigBit> &taps) = 0;
-	virtual bool fixup_shreg(Cell *cell, dict<int, SigBit> &taps) = 0;
+	virtual bool analyze(vector<int> &taps) = 0;
+	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
 };
 
 struct ShregmapOptions
@@ -54,18 +54,22 @@ struct ShregmapOptions
 
 struct ShregmapTechGreenpak4 : ShregmapTech
 {
-	bool check_taps(const dict<int, SigBit> &taps)
+	bool analyze(vector<int> &taps)
 	{
+		if (GetSize(taps) > 2 && taps[0] == 0 && taps[2] < 17) {
+			taps.clear();
+			return true;
+		}
+
 		if (GetSize(taps) > 2)
 			return false;
 
-		for (auto tap : taps)
-			if (tap.first > 16) return false;
+		if (taps.back() > 16) return false;
 
 		return true;
 	}
 
-	bool fixup_shreg(Cell *cell, dict<int, SigBit> &taps)
+	bool fixup(Cell *cell, dict<int, SigBit> &taps)
 	{
 		auto D = cell->getPort("\\D");
 		auto C = cell->getPort("\\C");
@@ -232,31 +236,47 @@ struct ShregmapWorker
 
 			Cell *first_cell = chain[cursor];
 			IdString q_port = opts.ffcells.at(first_cell->type).second;
-			dict<int, SigBit> taps;
+			dict<int, SigBit> taps_dict;
 
 			if (opts.tech)
 			{
+				vector<SigBit> qbits;
+				vector<int> taps;
+
 				for (int i = 0; i < depth; i++)
 				{
 					Cell *cell = chain[cursor+i];
 					auto qbit = sigmap(cell->getPort(q_port));
+					qbits.push_back(qbit);
 
 					if (sigbit_with_non_chain_users.count(qbit))
-						taps[i] = qbit;
+						taps.push_back(i);
 				}
 
 				while (depth > 0)
 				{
-					Cell *last_cell = chain[cursor+depth-1];
-					taps[depth-1] = sigmap(last_cell->getPort(q_port));
-					if (opts.tech->check_taps(taps))
+					if (taps.empty() || taps.back() < depth-1)
+						taps.push_back(depth-1);
+
+					if (opts.tech->analyze(taps))
 						break;
-					taps.erase(--depth);
+
+					taps.pop_back();
+					depth--;
+				}
+
+				depth = 0;
+				for (auto tap : taps) {
+					taps_dict[tap] = qbits.at(tap);
+					log_assert(depth < tap+1);
+					depth = tap+1;
 				}
 			}
 
-			if (depth < 2)
-				return;
+			if (depth < 2) {
+				cursor++;
+				continue;
+			}
 
 			Cell *last_cell = chain[cursor+depth-1];
 
@@ -318,7 +338,7 @@ struct ShregmapWorker
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam("\\DEPTH", depth);
 
-			if (opts.tech != nullptr && !opts.tech->fixup_shreg(first_cell, taps))
+			if (opts.tech != nullptr && !opts.tech->fixup(first_cell, taps_dict))
 				remove_cells.insert(first_cell);
 
 			for (int i = 1; i < depth; i++)
@@ -479,7 +499,6 @@ struct ShregmapPass : public Pass {
 				string tech = args[++argidx];
 				if (tech == "greenpak4") {
 					clkpol = "pos";
-					opts.maxlen = 16;
 					opts.zinit = true;
 					opts.tech = new ShregmapTechGreenpak4;
 				} else {
