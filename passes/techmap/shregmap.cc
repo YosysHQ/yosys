@@ -480,6 +480,7 @@ struct ShregmapPass : public Pass {
 				if (tech == "greenpak4") {
 					clkpol = "pos";
 					opts.maxlen = 16;
+					opts.zinit = true;
 					opts.tech = new ShregmapTechGreenpak4;
 				} else {
 					argidx--;
