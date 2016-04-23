@@ -25,22 +25,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool check_label(bool &active, std::string run_from, std::string run_to, std::string label)
+struct PrepPass : public ScriptPass
 {
-	if (!run_from.empty() && run_from == run_to) {
-		active = (label == run_from);
-	} else {
-		if (label == run_from)
-			active = true;
-		if (label == run_to)
-			active = false;
-	}
-	return active;
-}
+	PrepPass() : ScriptPass("prep", "generic synthesis script") { }
 
-struct PrepPass : public Pass {
-	PrepPass() : Pass("prep", "generic synthesis script") { }
-	virtual void help()
+	virtual void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -63,31 +52,21 @@ struct PrepPass : public Pass {
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
-		log("\n");
-		log("    begin:\n");
-		log("        hierarchy -check [-top <top>]\n");
-		log("\n");
-		log("    prep:\n");
-		log("        proc\n");
-		log("        opt_expr -keepdc\n");
-		log("        opt_clean\n");
-		log("        check\n");
-		log("        opt -keepdc\n");
-		log("        wreduce\n");
-		log("        memory_dff [-nordff]\n");
-		log("        opt_clean\n");
-		log("        memory_collect\n");
-		log("        opt -keepdc -fast\n");
-		log("\n");
-		log("    check:\n");
-		log("        stat\n");
-		log("        check\n");
+		help_script();
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+
+	string top_module, fsm_opts, memory_opts;
+
+	virtual void clear_flags() YS_OVERRIDE
 	{
-		std::string top_module, memory_opts;
-		std::string run_from, run_to;
+		top_module.clear();
+		memory_opts.clear();
+	}
+
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		string run_from, run_to;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -118,40 +97,48 @@ struct PrepPass : public Pass {
 		if (!design->full_selection())
 			log_cmd_error("This comannd only operates on fully selected designs!\n");
 
-		bool active = run_from.empty();
-
 		log_header(design, "Executing PREP pass.\n");
 		log_push();
 
-		if (check_label(active, run_from, run_to, "begin"))
-		{
-			if (top_module.empty())
-				Pass::call(design, stringf("hierarchy -check"));
-			else
-				Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
-		}
-
-		if (check_label(active, run_from, run_to, "coarse"))
-		{
-			Pass::call(design, "proc");
-			Pass::call(design, "opt_expr -keepdc");
-			Pass::call(design, "opt_clean");
-			Pass::call(design, "check");
-			Pass::call(design, "opt -keepdc");
-			Pass::call(design, "wreduce");
-			Pass::call(design, "memory_dff" + memory_opts);
-			Pass::call(design, "opt_clean");
-			Pass::call(design, "memory_collect");
-			Pass::call(design, "opt -keepdc -fast");
-		}
-
-		if (check_label(active, run_from, run_to, "check"))
-		{
-			Pass::call(design, "stat");
-			Pass::call(design, "check");
-		}
+		run_script(design, run_from, run_to);
 
 		log_pop();
+	}
+
+	virtual void script() YS_OVERRIDE
+	{
+
+		if (check_label("begin"))
+		{
+			if (help_mode) {
+				run("hierarchy -check [-top <top>]");
+			} else {
+				if (top_module.empty())
+					run("hierarchy -check");
+				else
+					run(stringf("hierarchy -check -top %s", top_module.c_str()));
+			}
+		}
+
+		if (check_label("coarse"))
+		{
+			run("proc");
+			run("opt_expr -keepdc");
+			run("opt_clean");
+			run("check");
+			run("opt -keepdc");
+			run("wreduce");
+			run("memory_dff" + (help_mode ? " [-nordff]" : memory_opts));
+			run("opt_clean");
+			run("memory_collect");
+			run("opt -keepdc -fast");
+		}
+
+		if (check_label("check"))
+		{
+			run("stat");
+			run("check");
+		}
 	}
 } PrepPass;
 

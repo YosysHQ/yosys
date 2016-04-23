@@ -68,7 +68,7 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_module, fsm_opts, memory_opts;
+	string top_module, fsm_opts, memory_opts;
 	bool noalumacc, nofsm, noabc;
 
 	virtual void clear_flags() YS_OVERRIDE
