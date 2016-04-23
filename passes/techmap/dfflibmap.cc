@@ -547,7 +547,7 @@ struct DfflibmapPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).\n");
+		log_header(design, "Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).\n");
 
 		std::string liberty_file;
 		bool prepare_mode = false;

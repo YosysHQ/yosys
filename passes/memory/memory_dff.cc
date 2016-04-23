@@ -283,7 +283,7 @@ struct MemoryDffPass : public Pass {
 	{
 		bool flag_wr_only = false;
 
-		log_header("Executing MEMORY_DFF pass (merging $dff cells to $memrd and $memwr).\n");
+		log_header(design, "Executing MEMORY_DFF pass (merging $dff cells to $memrd and $memwr).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

@@ -277,7 +277,7 @@ struct EquivSimplePass : public Pass {
 		int success_counter = 0;
 		int max_seq = 1;
 
-		log_header("Executing EQUIV_SIMPLE pass.\n");
+		log_header(design, "Executing EQUIV_SIMPLE pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

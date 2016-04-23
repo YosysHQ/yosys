@@ -168,7 +168,7 @@ struct SpiceBackend : public Backend {
 		bool big_endian = false, use_inames = false;
 		std::string neg = "Vss", pos = "Vdd", ncpf = "_NC";
 
-		log_header("Executing SPICE backend.\n");
+		log_header(design, "Executing SPICE backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

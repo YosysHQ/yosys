@@ -191,7 +191,7 @@ struct OptRmdffPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		int total_count = 0;
-		log_header("Executing OPT_RMDFF pass (remove dff with constant values).\n");
+		log_header(design, "Executing OPT_RMDFF pass (remove dff with constant values).\n");
 
 		extra_args(args, 1, design);
 

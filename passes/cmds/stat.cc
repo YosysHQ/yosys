@@ -232,7 +232,7 @@ struct StatPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Printing statistics.\n");
+		log_header(design, "Printing statistics.\n");
 
 		bool width_mode = false;
 		RTLIL::Module *top_mod = NULL;

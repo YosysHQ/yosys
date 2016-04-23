@@ -543,7 +543,7 @@ struct SimplemapPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing SIMPLEMAP pass (map simple cells to gate primitives).\n");
+		log_header(design, "Executing SIMPLEMAP pass (map simple cells to gate primitives).\n");
 		extra_args(args, 1, design);
 
 		std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;

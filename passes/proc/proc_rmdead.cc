@@ -76,7 +76,7 @@ struct ProcRmdeadPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing PROC_RMDEAD pass (remove dead branches from decision trees).\n");
+		log_header(design, "Executing PROC_RMDEAD pass (remove dead branches from decision trees).\n");
 
 		extra_args(args, 1, design);
 

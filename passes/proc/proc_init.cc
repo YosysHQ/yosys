@@ -61,13 +61,28 @@ void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 					log_cmd_error("Failed to get a constant init value for %s: %s\n", log_signal(lhs), log_signal(rhs));
 
 				int offset = 0;
-				for (auto &lhs_c : lhs.chunks()) {
-					if (lhs_c.wire != NULL) {
-						RTLIL::SigSpec value = rhs.extract(offset, lhs_c.width);
-						if (value.size() != lhs_c.wire->width)
-							log_cmd_error("Init value is not for the entire wire: %s = %s\n", log_signal(lhs_c), log_signal(value));
-						log("  Setting init value: %s = %s\n", log_signal(lhs_c.wire), log_signal(value));
-						lhs_c.wire->attributes["\\init"] = value.as_const();
+				for (auto &lhs_c : lhs.chunks())
+				{
+					if (lhs_c.wire != nullptr)
+					{
+						SigSpec valuesig = rhs.extract(offset, lhs_c.width);
+						if (!valuesig.is_fully_const())
+							log_cmd_error("Non-const initialization value: %s = %s\n", log_signal(lhs_c), log_signal(valuesig));
+
+						Const value = valuesig.as_const();
+						Const &wireinit = lhs_c.wire->attributes["\\init"];
+
+						while (GetSize(wireinit.bits) < lhs_c.wire->width)
+							wireinit.bits.push_back(State::Sx);
+
+						for (int i = 0; i < lhs_c.width; i++) {
+							auto &initbit = wireinit.bits[i + lhs_c.offset];
+							if (initbit != State::Sx && initbit != value[i])
+								log_cmd_error("Conflicting initialization values for %s.\n", log_signal(lhs_c));
+							initbit = value[i];
+						}
+
+						log("  Set init value: %s = %s\n", log_signal(lhs_c.wire), log_signal(wireinit));
 					}
 					offset += lhs_c.width;
 				}
@@ -100,7 +115,7 @@ struct ProcInitPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing PROC_INIT pass (extract init attributes).\n");
+		log_header(design, "Executing PROC_INIT pass (extract init attributes).\n");
 
 		extra_args(args, 1, design);
 

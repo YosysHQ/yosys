@@ -244,6 +244,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "fe"))
 					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+				else if (!strcmp(edge, "ah"))
+					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+				else if (!strcmp(edge, "al"))
+					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else {
 			no_latch_clock:
 					cell = module->addCell(NEW_ID, dff_name);
@@ -399,7 +403,7 @@ struct BlifFrontend : public Frontend {
 	}
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing BLIF frontend.\n");
+		log_header(design, "Executing BLIF frontend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

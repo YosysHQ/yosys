@@ -317,6 +317,18 @@ struct BlifDumper
 				continue;
 			}
 
+			if (!config->icells_mode && cell->type == "$_DLATCH_N_") {
+				f << stringf(".latch %s %s al %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
+						cstr(cell->getPort("\\E")), cstr_init(cell->getPort("\\Q")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_DLATCH_P_") {
+				f << stringf(".latch %s %s ah %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
+						cstr(cell->getPort("\\E")), cstr_init(cell->getPort("\\Q")));
+				continue;
+			}
+
 			if (!config->icells_mode && cell->type == "$lut") {
 				f << stringf(".names");
 				auto &inputs = cell->getPort("\\A");
@@ -448,7 +460,7 @@ struct BlifBackend : public Backend {
 		std::string false_type, false_out;
 		BlifDumperConfig config;
 
-		log_header("Executing BLIF backend.\n");
+		log_header(design, "Executing BLIF backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

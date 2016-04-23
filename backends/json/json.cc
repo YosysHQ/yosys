@@ -463,7 +463,7 @@ struct JsonBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		log_header("Executing JSON backend.\n");
+		log_header(design, "Executing JSON backend.\n");
 
 		JsonWriter json_writer(*f, false, aig_mode);
 		json_writer.write_design(design);

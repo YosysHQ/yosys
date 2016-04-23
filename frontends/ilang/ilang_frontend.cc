@@ -47,7 +47,7 @@ struct IlangFrontend : public Frontend {
 	}
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing ILANG frontend.\n");
+		log_header(design, "Executing ILANG frontend.\n");
 		extra_args(f, filename, args, 1);
 		log("Input filename: %s\n", filename.c_str());
 

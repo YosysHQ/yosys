@@ -43,7 +43,7 @@ struct MemoryShareWorker
 	CellTypes cone_ct;
 
 	std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, int>> sig_to_mux;
-	std::map<std::set<std::map<RTLIL::SigBit, bool>>, RTLIL::SigBit> conditions_logic_cache;
+	std::map<pair<std::set<std::map<SigBit, bool>>, SigBit>, SigBit> conditions_logic_cache;
 
 
 	// -----------------------------------------------------------------
@@ -109,10 +109,12 @@ struct MemoryShareWorker
 		return false;
 	}
 
-	RTLIL::SigBit conditions_to_logic(std::set<std::map<RTLIL::SigBit, bool>> &conditions, int &created_conditions)
+	RTLIL::SigBit conditions_to_logic(std::set<std::map<RTLIL::SigBit, bool>> &conditions, SigBit olden, int &created_conditions)
 	{
-		if (conditions_logic_cache.count(conditions))
-			return conditions_logic_cache.at(conditions);
+		auto key = make_pair(conditions, olden);
+
+		if (conditions_logic_cache.count(key))
+			return conditions_logic_cache.at(key);
 
 		RTLIL::SigSpec terms;
 		for (auto &cond : conditions) {
@@ -125,13 +127,16 @@ struct MemoryShareWorker
 			created_conditions++;
 		}
 
-		if (terms.size() == 0)
+		if (olden.wire != nullptr || olden != State::S1)
+			terms.append(olden);
+
+		if (GetSize(terms) == 0)
 			terms = State::S1;
 
-		if (terms.size() > 1)
+		if (GetSize(terms) > 1)
 			terms = module->ReduceAnd(NEW_ID, terms);
 
-		return conditions_logic_cache[conditions] = terms;
+		return conditions_logic_cache[key] = terms;
 	}
 
 	void translate_rd_feedback_to_en(std::string memid, std::vector<RTLIL::Cell*> &rd_ports, std::vector<RTLIL::Cell*> &wr_ports)
@@ -140,15 +145,14 @@ struct MemoryShareWorker
 		std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> muxtree_upstream_map;
 		std::set<RTLIL::SigBit> non_feedback_nets;
 
-		for (auto wire_it : module->wires_)
-			if (wire_it.second->port_output) {
-				std::vector<RTLIL::SigBit> bits = RTLIL::SigSpec(wire_it.second);
+		for (auto wire : module->wires())
+			if (wire->port_output) {
+				std::vector<RTLIL::SigBit> bits = sigmap(wire);
 				non_feedback_nets.insert(bits.begin(), bits.end());
 			}
 
-		for (auto cell_it : module->cells_)
+		for (auto cell : module->cells())
 		{
-			RTLIL::Cell *cell = cell_it.second;
 			bool ignore_data_port = false;
 
 			if (cell->type == "$mux" || cell->type == "$pmux")
@@ -173,7 +177,7 @@ struct MemoryShareWorker
 					cell->parameters.at("\\MEMID").decode_string() == memid)
 				ignore_data_port = true;
 
-			for (auto conn : cell_it.second->connections())
+			for (auto conn : cell->connections())
 			{
 				if (ignore_data_port && conn.first == "\\DATA")
 					continue;
@@ -240,13 +244,8 @@ struct MemoryShareWorker
 					std::map<RTLIL::SigBit, bool> state;
 					std::set<std::map<RTLIL::SigBit, bool>> conditions;
 
-					if (cell_en[i].wire != NULL) {
-						state[cell_en[i]] = false;
-						conditions.insert(state);
-					}
-
 					find_data_feedback(async_rd_bits.at(sig_addr).at(i), cell_data[i], state, conditions);
-					cell_en[i] = conditions_to_logic(conditions, created_conditions);
+					cell_en[i] = conditions_to_logic(conditions, cell_en[i], created_conditions);
 				}
 
 			if (created_conditions) {
@@ -666,10 +665,8 @@ struct MemoryShareWorker
 		std::map<std::string, std::pair<std::vector<RTLIL::Cell*>, std::vector<RTLIL::Cell*>>> memindex;
 
 		sigmap_xmux = sigmap;
-		for (auto &it : module->cells_)
+		for (auto cell : module->cells())
 		{
-			RTLIL::Cell *cell = it.second;
-
 			if (cell->type == "$memrd")
 				memindex[cell->parameters.at("\\MEMID").decode_string()].first.push_back(cell);
 
@@ -750,7 +747,7 @@ struct MemorySharePass : public Pass {
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
-		log_header("Executing MEMORY_SHARE pass (consolidating $memrc/$memwr cells).\n");
+		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrc/$memwr cells).\n");
 		extra_args(args, 1, design);
 		for (auto module : design->selected_modules())
 			MemoryShareWorker(design, module);

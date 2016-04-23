@@ -581,7 +581,7 @@ struct MuxcoverPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing MUXCOVER pass (mapping to wider MUXes).\n");
+		log_header(design, "Executing MUXCOVER pass (mapping to wider MUXes).\n");
 
 		bool use_mux4 = false;
 		bool use_mux8 = false;

@@ -109,7 +109,7 @@ struct SplitnetsPass : public Pass {
 		bool flag_driver = false;
 		std::string format = "[]:";
 
-		log_header("Executing SPLITNETS pass (splitting up multi-bit signals).\n");
+		log_header(design, "Executing SPLITNETS pass (splitting up multi-bit signals).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

@@ -363,7 +363,7 @@ struct MemoryMapPass : public Pass {
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
-		log_header("Executing MEMORY_MAP pass (converting $mem cells to logic and flip-flops).\n");
+		log_header(design, "Executing MEMORY_MAP pass (converting $mem cells to logic and flip-flops).\n");
 		extra_args(args, 1, design);
 		for (auto mod : design->selected_modules())
 			MemoryMapWorker(design, mod);

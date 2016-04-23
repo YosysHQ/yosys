@@ -793,10 +793,59 @@ struct ShareWorker
 		return true;
 	}
 
-	void optimize_activation_patterns(pool<ssc_pair_t> & /* patterns */)
+	void optimize_activation_patterns(pool<ssc_pair_t> &patterns)
 	{
 		// TODO: Remove patterns that are contained in other patterns
-		// TODO: Consolidate pairs of patterns that only differ in the value for one signal bit
+
+		dict<SigSpec, pool<Const>> db;
+		bool did_something = false;
+
+		for (auto const &p : patterns)
+		{
+			auto &sig = p.first;
+			auto &val = p.second;
+			int len = GetSize(sig);
+
+			for (int i = 0; i < len; i++)
+			{
+				auto otherval = val;
+
+				if (otherval.bits[i] == State::S0)
+					otherval.bits[i] = State::S1;
+				else if (otherval.bits[i] == State::S1)
+					otherval.bits[i] = State::S0;
+				else
+					continue;
+
+				if (db[sig].count(otherval))
+				{
+					auto newsig = sig;
+					newsig.remove(i);
+
+					auto newval = val;
+					newval.bits.erase(newval.bits.begin() + i);
+
+					db[newsig].insert(newval);
+					db[sig].erase(otherval);
+
+					did_something = true;
+					goto next_pattern;
+				}
+			}
+
+			db[sig].insert(val);
+		next_pattern:;
+		}
+
+		if (!did_something)
+			return;
+
+		patterns.clear();
+		for (auto &it : db)
+		for (auto &val : it.second)
+			patterns.insert(make_pair(it.first, val));
+
+		optimize_activation_patterns(patterns);
 	}
 
 	const pool<ssc_pair_t> &find_cell_activation_patterns(RTLIL::Cell *cell, const char *indent)
@@ -1451,7 +1500,7 @@ struct SharePass : public Pass {
 		config.generic_other_ops.insert("$alu");
 		config.generic_other_ops.insert("$macc");
 
-		log_header("Executing SHARE pass (SAT-based resource sharing).\n");
+		log_header(design, "Executing SHARE pass (SAT-based resource sharing).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

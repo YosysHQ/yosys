@@ -188,7 +188,7 @@ struct Dffsr2dffPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing DFFSR2DFF pass (mapping DFFSR cells to simpler FFs).\n");
+		log_header(design, "Executing DFFSR2DFF pass (mapping DFFSR cells to simpler FFs).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

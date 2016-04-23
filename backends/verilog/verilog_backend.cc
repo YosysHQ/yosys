@@ -1363,7 +1363,7 @@ struct VerilogBackend : public Backend {
 	}
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing Verilog backend.\n");
+		log_header(design, "Executing Verilog backend.\n");
 
 		norename = false;
 		noattr = false;

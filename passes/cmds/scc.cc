@@ -264,7 +264,7 @@ struct SccPass : public Pass {
 		int maxDepth = -1;
 		int expect = -1;
 
-		log_header("Executing SCC pass (detecting logic loops).\n");
+		log_header(design, "Executing SCC pass (detecting logic loops).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

@@ -694,7 +694,7 @@ struct SmvBackend : public Backend {
 		std::ifstream template_f;
 		bool verbose = false;
 
-		log_header("Executing SMV backend.\n");
+		log_header(design, "Executing SMV backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

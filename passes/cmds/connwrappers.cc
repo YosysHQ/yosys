@@ -198,7 +198,7 @@ struct ConnwrappersPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		log_header("Executing CONNWRAPPERS pass (connect extended ports of wrapper cells).\n");
+		log_header(design, "Executing CONNWRAPPERS pass (connect extended ports of wrapper cells).\n");
 
 		for (auto &mod_it : design->modules_)
 			if (design->selected(mod_it.second))

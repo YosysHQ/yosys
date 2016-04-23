@@ -57,7 +57,7 @@ struct ProcPass : public Pass {
 	{
 		std::string global_arst;
 
-		log_header("Executing PROC pass (convert processes to netlists).\n");
+		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
 		log_push();
 
 		size_t argidx;

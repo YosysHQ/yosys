@@ -103,7 +103,7 @@ struct StubnetsPass : public Pass {
 		// variables to mirror information from passed options
 		bool report_bits = 0;
 
-		log_header("Executing STUBNETS pass (find stub nets).\n");
+		log_header(design, "Executing STUBNETS pass (find stub nets).\n");
 
 		// parse options
 		size_t argidx;

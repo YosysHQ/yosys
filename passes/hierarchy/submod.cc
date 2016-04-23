@@ -298,7 +298,7 @@ struct SubmodPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing SUBMOD pass (moving cells to submodules as requested).\n");
+		log_header(design, "Executing SUBMOD pass (moving cells to submodules as requested).\n");
 		log_push();
 
 		std::string opt_name;
@@ -321,7 +321,7 @@ struct SubmodPass : public Pass {
 		if (opt_name.empty())
 		{
 			Pass::call(design, "opt_clean");
-			log_header("Continuing SUBMOD pass.\n");
+			log_header(design, "Continuing SUBMOD pass.\n");
 
 			std::set<RTLIL::IdString> handled_modules;
 
@@ -356,7 +356,7 @@ struct SubmodPass : public Pass {
 				log("Nothing selected -> do nothing.\n");
 			else {
 				Pass::call_on_module(design, module, "opt_clean");
-				log_header("Continuing SUBMOD pass.\n");
+				log_header(design, "Continuing SUBMOD pass.\n");
 				SubmodWorker worker(design, module, copy_mode, opt_name);
 			}
 		}

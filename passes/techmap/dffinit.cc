@@ -41,7 +41,7 @@ struct DffinitPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing DFFINIT pass (set INIT param on FF cells).\n");
+		log_header(design, "Executing DFFINIT pass (set INIT param on FF cells).\n");
 
 		dict<IdString, dict<IdString, IdString>> ff_types;
 

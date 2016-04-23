@@ -354,7 +354,7 @@ struct OptReducePass : public Pass {
 	{
 		bool do_fine = false;
 
-		log_header("Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).\n");
+		log_header(design, "Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

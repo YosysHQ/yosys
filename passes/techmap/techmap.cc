@@ -779,7 +779,7 @@ struct TechmapWorker
 
 					if (recursive_mode) {
 						if (log_continue) {
-							log_header("Continuing TECHMAP pass.\n");
+							log_header(design, "Continuing TECHMAP pass.\n");
 							log_continue = false;
 						}
 						while (techmap_module(map, tpl, map, handled_cells, celltypeMap, true)) { }
@@ -790,7 +790,7 @@ struct TechmapWorker
 					continue;
 
 				if (log_continue) {
-					log_header("Continuing TECHMAP pass.\n");
+					log_header(design, "Continuing TECHMAP pass.\n");
 					log_continue = false;
 				}
 
@@ -833,7 +833,7 @@ struct TechmapWorker
 		}
 
 		if (log_continue) {
-			log_header("Continuing TECHMAP pass.\n");
+			log_header(design, "Continuing TECHMAP pass.\n");
 			log_continue = false;
 		}
 
@@ -976,7 +976,7 @@ struct TechmapPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing TECHMAP pass (map to technology primitives).\n");
+		log_header(design, "Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();
 
 		TechmapWorker worker;
@@ -1108,7 +1108,7 @@ struct FlattenPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing FLATTEN pass (flatten design).\n");
+		log_header(design, "Executing FLATTEN pass (flatten design).\n");
 		log_push();
 
 		extra_args(args, 1, design);

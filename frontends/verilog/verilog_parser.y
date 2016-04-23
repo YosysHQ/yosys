@@ -1094,7 +1094,9 @@ case_body:
 
 case_item:
 	{
-		AstNode *node = new AstNode(AST_COND);
+		AstNode *node = new AstNode(
+				case_type_stack.size() && case_type_stack.back() == 'x' ? AST_CONDX :
+				case_type_stack.size() && case_type_stack.back() == 'z' ? AST_CONDZ : AST_COND);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} case_select {
@@ -1114,7 +1116,9 @@ gen_case_body:
 
 gen_case_item:
 	{
-		AstNode *node = new AstNode(AST_COND);
+		AstNode *node = new AstNode(
+				case_type_stack.size() && case_type_stack.back() == 'x' ? AST_CONDX :
+				case_type_stack.size() && case_type_stack.back() == 'z' ? AST_CONDZ : AST_COND);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} case_select {

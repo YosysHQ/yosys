@@ -1073,7 +1073,7 @@ struct SatPass : public Pass {
 		int tempinduct_skip = 0, stepsize = 1;
 		std::string vcd_file_name, json_file_name, cnf_file_name;
 
-		log_header("Executing SAT pass (solving SAT problems in the circuit).\n");
+		log_header(design, "Executing SAT pass (solving SAT problems in the circuit).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

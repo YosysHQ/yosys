@@ -850,7 +850,7 @@ struct VerificPass : public Pass {
 #ifdef YOSYS_ENABLE_VERIFIC
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing VERIFIC (loading Verilog and VHDL designs using Verific).\n");
+		log_header(design, "Executing VERIFIC (loading Verilog and VHDL designs using Verific).\n");
 
 		Message::SetConsoleOutput(0);
 		Message::RegisterCallBackMsg(msg_func);

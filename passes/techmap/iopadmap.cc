@@ -68,7 +68,7 @@ struct IopadmapPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header("Executing IOPADMAP pass (mapping inputs/outputs to IO-PAD cells).\n");
+		log_header(design, "Executing IOPADMAP pass (mapping inputs/outputs to IO-PAD cells).\n");
 
 		std::string inpad_celltype, inpad_portname, inpad_portname2;
 		std::string outpad_celltype, outpad_portname, outpad_portname2;

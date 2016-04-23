@@ -53,7 +53,7 @@ struct MemoryPass : public Pass {
 		bool flag_nordff = false;
 		string memory_bram_opts;
 
-		log_header("Executing MEMORY pass.\n");
+		log_header(design, "Executing MEMORY pass.\n");
 		log_push();
 
 		size_t argidx;

@@ -477,7 +477,7 @@ log("Name of this module: %s\n", log_id(module->name));
 \medskip
 Use {\tt log\_header()} and {\tt log\_push()}/{\tt log\_pop()} to structure log messages:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=C++]
-log_header("Doing important stuff!\n");
+log_header(design, "Doing important stuff!\n");
 log_push();
 for (int i = 0; i < 10; i++)
     log("Log message #%d.\n", i);

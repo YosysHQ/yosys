@@ -156,7 +156,7 @@ struct ProcCleanPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		int total_count = 0;
-		log_header("Executing PROC_CLEAN pass (remove empty switches from decision trees).\n");
+		log_header(design, "Executing PROC_CLEAN pass (remove empty switches from decision trees).\n");
 
 		extra_args(args, 1, design);
 

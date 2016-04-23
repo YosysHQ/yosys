@@ -120,7 +120,7 @@ struct PrepPass : public Pass {
 
 		bool active = run_from.empty();
 
-		log_header("Executing PREP pass.\n");
+		log_header(design, "Executing PREP pass.\n");
 		log_push();
 
 		if (check_label(active, run_from, run_to, "begin"))

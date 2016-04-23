@@ -333,7 +333,7 @@ struct EquivMiterPass : public Pass {
 	found_two_modules:
 			log_cmd_error("Exactly one module must be selected for 'equiv_miter'!\n");
 
-		log_header("Executing EQUIV_MITER pass.\n");
+		log_header(design, "Executing EQUIV_MITER pass.\n");
 
 		worker.miter_module = design->addModule(worker.miter_name);
 		worker.run();

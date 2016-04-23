@@ -68,7 +68,7 @@ struct CheckPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		log_header("Executing CHECK pass (checking for obvious problems).\n");
+		log_header(design, "Executing CHECK pass (checking for obvious problems).\n");
 
 		for (auto module : design->selected_whole_modules_warn())
 		{

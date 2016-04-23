@@ -143,7 +143,7 @@ struct NlutmapPass : public Pass {
 	{
 		NlutmapConfig config;
 
-		log_header("Executing NLUTMAP pass (mapping to constant drivers).\n");
+		log_header(design, "Executing NLUTMAP pass (mapping to constant drivers).\n");
 		log_push();
 
 		size_t argidx;

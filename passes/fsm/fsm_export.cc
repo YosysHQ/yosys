@@ -152,7 +152,7 @@ struct FsmExportPass : public Pass {
 		bool flag_origenc = false;
 		size_t argidx;
 
-		log_header("Executing FSM_EXPORT pass (exporting FSMs in KISS2 file format).\n");
+		log_header(design, "Executing FSM_EXPORT pass (exporting FSMs in KISS2 file format).\n");
 
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			arg = args[argidx];

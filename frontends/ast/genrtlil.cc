@@ -338,12 +338,14 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_CASE:
 			for (auto child : ast->children)
 				if (child != ast->children[0]) {
-					log_assert(child->type == AST_COND);
+					log_assert(child->type == AST_COND || child->type == AST_CONDX || child->type == AST_CONDZ);
 					collect_lvalues(reg, child, type_eq, type_le, false);
 				}
 			break;
 
 		case AST_COND:
+		case AST_CONDX:
+		case AST_CONDZ:
 		case AST_ALWAYS:
 		case AST_INITIAL:
 			for (auto child : ast->children)
@@ -467,7 +469,7 @@ struct AST_INTERNAL::ProcessGenerator
 				{
 					if (child == ast->children[0])
 						continue;
-					log_assert(child->type == AST_COND);
+					log_assert(child->type == AST_COND || child->type == AST_CONDX || child->type == AST_CONDZ);
 
 					subst_lvalue_map.save();
 					subst_rvalue_map.save();

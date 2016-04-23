@@ -48,7 +48,7 @@ struct TorderPass : public Pass {
 		bool noautostop = false;
 		dict<IdString, pool<IdString>> stop_db;
 
-		log_header("Executing TORDER pass (print cells in topological order).\n");
+		log_header(design, "Executing TORDER pass (print cells in topological order).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
