@@ -48,6 +48,7 @@ struct log_cmd_error_exception { };
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern std::map<std::string, std::set<std::string>> log_hdump;
+extern bool log_hdump_all;
 extern FILE *log_errfile;
 extern SHA1 *log_hasher;
 

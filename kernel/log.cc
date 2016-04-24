@@ -41,6 +41,7 @@ YOSYS_NAMESPACE_BEGIN
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
+bool log_hdump_all = false;
 FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
 
@@ -158,6 +159,9 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 	log("%s. ", header_id.c_str());
 	logv(format, ap);
 	log_flush();
+
+	if (log_hdump_all)
+		log_hdump[header_id].insert("yosys_dump_" + header_id + ".il");
 
 	if (log_hdump.count(header_id) && design != nullptr)
 		for (auto &filename : log_hdump.at(header_id)) {
