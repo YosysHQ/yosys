@@ -218,7 +218,8 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 				if (len > 0)
 					header2 += shorthand, len--;
 				header1.push_back("    " + it->first);
-				header1.back()[0] = shorthand++;
+				header1.back()[0] = shorthand;
+				shorthand = shorthand == 'Z' ? 'A' : shorthand+1;
 			}
 		else {
 			f << stringf(" 1'bx");
@@ -237,7 +238,8 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 				if (len > 0)
 					header2 += shorthand, len--;
 				header1.push_back("    " + it->first);
-				header1.back()[0] = shorthand++;
+				header1.back()[0] = shorthand;
+				shorthand = shorthand == 'Z' ? 'A' : shorthand+1;
 			}
 		} else {
 			f << stringf(" 1'bx");
@@ -256,7 +258,8 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 				if (len > 0)
 					header2 += shorthand, len--;
 				header1.push_back("    " + it->first);
-				header1.back()[0] = shorthand++;
+				header1.back()[0] = shorthand;
+				shorthand = shorthand == 'Z' ? 'A' : shorthand+1;
 			}
 		} else {
 			f << stringf(" 1'bx");
