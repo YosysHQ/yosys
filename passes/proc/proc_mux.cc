@@ -250,6 +250,9 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 	log_assert(last_mux_cell != NULL);
 	log_assert(when_signal.size() == last_mux_cell->getPort("\\A").size());
 
+	if (when_signal == last_mux_cell->getPort("\\A"))
+		return;
+
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
 	log_assert(ctrl_sig.size() == 1);
 	last_mux_cell->type = "$pmux";
