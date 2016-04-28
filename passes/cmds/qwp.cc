@@ -40,6 +40,7 @@ struct QwpConfig
 {
 	bool ltr;
 	bool alpha;
+	bool verbose;
 	double grid;
 
 	std::ofstream dump_file;
@@ -47,6 +48,7 @@ struct QwpConfig
 	QwpConfig() {
 		ltr = false;
 		alpha = false;
+		verbose = false;
 		grid = 1.0 / 16;
 	}
 };
@@ -211,9 +213,15 @@ struct QwpWorker
 		//
 		// M := [AA Ay]
 
+		if (config.verbose)
+			log("> System size: %d^2\n", GetSize(nodes));
+
 		// Row major order
 		int N = GetSize(nodes), N1 = N+1;
 		vector<double> M(N * N1);
+
+		if (config.verbose)
+			log("> Edge constraints: %d\n", GetSize(edges));
 
 		// Edge constraints:
 		//   A[i,:] := [ 0 0 .... 0 weight 0 ... 0 -weight 0 ... 0 0], y[i] := 0
@@ -231,6 +239,9 @@ struct QwpWorker
 			M[idx1 + idx2*N1] += -weight * weight;
 			M[idx2 + idx1*N1] += -weight * weight;
 		}
+
+		if (config.verbose)
+			log("> Node constraints: %d\n", GetSize(nodes));
 
 		// Node constraints:
 		//   A[i,:] := [ 0 0 .... 0 weight 0 ... 0 0], y[i] := weight * pos
@@ -263,6 +274,9 @@ struct QwpWorker
 		}
 #endif
 
+		if (config.verbose)
+			log("> Solving\n");
+
 		// Solve "AA*x = Ay"
 		// (least squares fit for "A*x = y")
 		//
@@ -277,6 +291,9 @@ struct QwpWorker
 		// gaussian elimination
 		for (int i = 0; i < N; i++)
 		{
+			if (config.verbose && ((i+1) % (N/15)) == 0)
+				log("> Solved %d%%: %d/%d\n", (100*(i+1))/N, i+1, N);
+
 			// find best row
 			int best_row = queue.front();
 			int best_row_queue_idx = 0;
@@ -312,6 +329,9 @@ struct QwpWorker
 			}
 		}
 
+		if (config.verbose)
+			log("> Solved\n");
+
 		log_assert(queue.empty());
 		log_assert(GetSize(pivot_cache) == N);
 
@@ -333,6 +353,9 @@ struct QwpWorker
 			log("\n");
 		}
 #endif
+
+		if (config.verbose)
+			log("> Update nodes\n");
 
 		// update node positions
 		for (int i = 0; i < N; i++)
@@ -778,6 +801,9 @@ struct QwpPass : public Pass {
 		log("    -dump <html_file_name>\n");
 		log("        Dump a protocol of the placement algorithm to the html file.\n");
 		log("\n");
+		log("    -v\n");
+		log("        Verbose solver output for profiling or debugging\n");
+		log("\n");
 		log("Note: This implementation of a quadratic wirelength placer uses exact\n");
 		log("dense matrix operations. It is only a toy-placer for small circuits.\n");
 		log("\n");
@@ -797,6 +823,10 @@ struct QwpPass : public Pass {
 			}
 			if (args[argidx] == "-alpha") {
 				config.alpha = true;
+				continue;
+			}
+			if (args[argidx] == "-v") {
+				config.verbose = true;
 				continue;
 			}
 			if (args[argidx] == "-grid" && argidx+1 < args.size()) {
