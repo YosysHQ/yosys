@@ -194,7 +194,7 @@ LDLIBS += $(shell $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi) -l
 endif
 
 ifeq ($(ENABLE_TCL),1)
-TCL_VERSION ?= tcl$(shell echo 'puts [info tclversion]' | tclsh)
+TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
 CXXFLAGS += -I$(TCL_INCLUDE) -DYOSYS_ENABLE_TCL
 LDLIBS += -l$(TCL_VERSION)
