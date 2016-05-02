@@ -153,6 +153,17 @@ module GP_LFOSC(input PWRDN, output reg CLKOUT);
 	
 endmodule
 
+module GP_PGA(input wire VIN_P, input wire VIN_N, input wire VIN_SEL, output reg VOUT);
+
+	parameter GAIN = 1;
+	parameter INPUT_MODE = "SINGLE";
+
+	initial VOUT = 0;
+
+	//cannot simulate mixed signal IP
+
+endmodule
+
 module GP_POR(output reg RST_DONE);
 	parameter POR_TIME = 500;
 	
