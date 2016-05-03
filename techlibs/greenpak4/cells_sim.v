@@ -17,6 +17,8 @@ module GP_ABUF(input wire IN, output wire OUT);
 	
 	assign OUT = IN;
 	
+	//cannot simulate mixed signal IP
+	
 endmodule
 
 module GP_ACMP(input wire PWREN, input wire VIN, input wire VREF, output reg OUT);
