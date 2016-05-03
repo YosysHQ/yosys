@@ -13,6 +13,12 @@ module GP_4LUT(input IN0, IN1, IN2, IN3, output OUT);
 	assign OUT = INIT[{IN3, IN2, IN1, IN0}];
 endmodule
 
+module GP_ABUF(input wire IN, output wire OUT);
+	
+	assign OUT = IN;
+	
+endmodule
+
 module GP_ACMP(input wire PWREN, input wire VIN, input wire VREF, output reg OUT);
 
 	parameter BANDWIDTH = "HIGH";
