@@ -134,6 +134,15 @@ module GP_DFFSR(input D, CLK, nSR, output reg Q);
 	end
 endmodule
 
+module GP_IBUF(input IN, output OUT);
+	assign OUT = IN;
+endmodule
+
+module GP_IOBUF(input IN, input DIR, output OUT, inout IO);
+	assign IN = IO;
+	assign DIR = OE ? OUT : 1'bz;
+endmodule
+
 module GP_INV(input IN, output OUT);
 	assign OUT = ~IN;
 endmodule
@@ -159,6 +168,14 @@ module GP_LFOSC(input PWRDN, output reg CLKOUT);
 		end
 	end
 	
+endmodule
+
+module GP_OBUF(input IN, output OUT);
+	assign OUT = IN;
+endmodule
+
+module GP_OBUFT(input IN, input OE, output OUT);
+	assign OUT = OE ? IN : 1'bz;
 endmodule
 
 module GP_PGA(input wire VIN_P, input wire VIN_N, input wire VIN_SEL, output reg VOUT);
