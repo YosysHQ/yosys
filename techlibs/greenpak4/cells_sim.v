@@ -13,6 +13,14 @@ module GP_4LUT(input IN0, IN1, IN2, IN3, output OUT);
 	assign OUT = INIT[{IN3, IN2, IN1, IN0}];
 endmodule
 
+module GP_ABUF(input wire IN, output wire OUT);
+	
+	assign OUT = IN;
+	
+	//cannot simulate mixed signal IP
+	
+endmodule
+
 module GP_ACMP(input wire PWREN, input wire VIN, input wire VREF, output reg OUT);
 
 	parameter BANDWIDTH = "HIGH";
@@ -126,6 +134,15 @@ module GP_DFFSR(input D, CLK, nSR, output reg Q);
 	end
 endmodule
 
+module GP_IBUF(input IN, output OUT);
+	assign OUT = IN;
+endmodule
+
+module GP_IOBUF(input IN, input OE, output OUT, inout IO);
+	assign OUT = IO;
+	assign IO = OE ? IN : 1'bz;
+endmodule
+
 module GP_INV(input IN, output OUT);
 	assign OUT = ~IN;
 endmodule
@@ -151,6 +168,14 @@ module GP_LFOSC(input PWRDN, output reg CLKOUT);
 		end
 	end
 	
+endmodule
+
+module GP_OBUF(input IN, output OUT);
+	assign OUT = IN;
+endmodule
+
+module GP_OBUFT(input IN, input OE, output OUT);
+	assign OUT = OE ? IN : 1'bz;
 endmodule
 
 module GP_PGA(input wire VIN_P, input wire VIN_N, input wire VIN_SEL, output reg VOUT);

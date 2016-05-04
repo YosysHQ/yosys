@@ -24,6 +24,15 @@ module GP_DFFR(input D, CLK, nRST, output reg Q);
 	);
 endmodule
 
+module GP_OBUFT(input IN, input OE, output OUT);
+	GP_IOBUF _TECHMAP_REPLACE_ (
+		.IN(IN),
+		.OE(OE),
+		.IO(OUT),
+		.OUT()
+	);
+endmodule
+
 module \$lut (A, Y);
   parameter WIDTH = 0;
   parameter LUT = 0;
