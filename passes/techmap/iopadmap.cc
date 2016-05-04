@@ -163,6 +163,7 @@ struct IopadmapPass : public Pass {
 				if (!portname2.empty()) {
 					new_wire = module->addWire(NEW_ID, wire);
 					module->swap_names(new_wire, wire);
+					wire->attributes.clear();
 				}
 
 				if (flag_bits)
