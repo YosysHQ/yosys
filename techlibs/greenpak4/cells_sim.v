@@ -138,9 +138,9 @@ module GP_IBUF(input IN, output OUT);
 	assign OUT = IN;
 endmodule
 
-module GP_IOBUF(input IN, input DIR, output OUT, inout IO);
+module GP_IOBUF(input IN, input OE, output OUT, inout IO);
 	assign IN = IO;
-	assign DIR = OE ? OUT : 1'bz;
+	assign IO = OE ? OUT : 1'bz;
 endmodule
 
 module GP_INV(input IN, output OUT);
