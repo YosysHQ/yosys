@@ -82,7 +82,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		int i = 0;
 		for (auto tap : taps) {
 			newcell->setPort(i ? "\\OUTB" : "\\OUTA", tap.second);
-			newcell->setParam(i ? "\\OUTB_DELAY" : "\\OUTA_DELAY", tap.first + 1);
+			newcell->setParam(i ? "\\OUTB_TAP" : "\\OUTA_TAP", tap.first + 1);
 			i++;
 		}
 
