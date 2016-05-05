@@ -176,14 +176,13 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		if (check_label("map_cells"))
 		{
 			run("shregmap -tech greenpak4");
-			run("iopadmap -bits -inpad GP_IBUF OUT:IN -outpad GP_OBUF IN:OUT -inoutpad GP_IBUF OUT:IN");
-			run("extract -map +/greenpak4/cells_extract.v -verbose");
 			run("dfflibmap -liberty +/greenpak4/gp_dff.lib");
-			run("techmap -map +/greenpak4/cells_map.v");
 			run("dffinit -ff GP_DFF Q INIT");
 			run("dffinit -ff GP_DFFR Q INIT");
 			run("dffinit -ff GP_DFFS Q INIT");
 			run("dffinit -ff GP_DFFSR Q INIT");
+			run("iopadmap -bits -inpad GP_IBUF OUT:IN -outpad GP_OBUF IN:OUT -inoutpad GP_OBUF OUT:IN -toutpad GP_OBUFT OE:IN:OUT -tinoutpad GP_IOBUF OE:OUT:IN:IO");
+			run("techmap -map +/greenpak4/cells_map.v");
 			run("clean");
 		}
 
