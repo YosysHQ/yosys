@@ -234,8 +234,10 @@ struct TechmapWorker
 				tpl_written_bits.insert(bit);
 
 		SigMap port_signal_map;
+		SigSig port_signal_assign;
 
-		for (auto &it : cell->connections()) {
+		for (auto &it : cell->connections())
+		{
 			RTLIL::IdString portname = it.first;
 			if (positional_ports.count(portname) > 0)
 				portname = positional_ports.at(portname);
@@ -244,16 +246,22 @@ struct TechmapWorker
 					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname.c_str(), cell->name.c_str(), tpl->name.c_str());
 				continue;
 			}
+
 			RTLIL::Wire *w = tpl->wires_.at(portname);
-			RTLIL::SigSig c;
+			RTLIL::SigSig c, extra_connect;
+
 			if (w->port_output && !w->port_input) {
 				c.first = it.second;
 				c.second = RTLIL::SigSpec(w);
 				apply_prefix(cell->name.str(), c.second, module);
+				extra_connect.first = c.second;
+				extra_connect.second = c.first;
 			} else if (!w->port_output && w->port_input) {
 				c.first = RTLIL::SigSpec(w);
 				c.second = it.second;
 				apply_prefix(cell->name.str(), c.first, module);
+				extra_connect.first = c.first;
+				extra_connect.second = c.second;
 			} else {
 				SigSpec sig_tpl = w, sig_tpl_pf = w, sig_mod = it.second;
 				apply_prefix(cell->name.str(), sig_tpl_pf, module);
@@ -266,28 +274,48 @@ struct TechmapWorker
 						c.second.append(sig_mod[i]);
 					}
 				}
+				extra_connect.first = sig_tpl_pf;
+				extra_connect.second = sig_mod;
 			}
+
 			if (c.second.size() > c.first.size())
 				c.second.remove(c.first.size(), c.second.size() - c.first.size());
+
 			if (c.second.size() < c.first.size())
 				c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.size() - c.second.size()));
+
 			log_assert(c.first.size() == c.second.size());
-			if (flatten_mode) {
+
+			if (flatten_mode)
+			{
 				// more conservative approach:
 				// connect internal and external wires
+
 				if (sigmaps.count(module) == 0)
 					sigmaps[module].set(module);
+
 				if (sigmaps.at(module)(c.first).has_const())
 					log_error("Mismatch in directionality for cell port %s.%s.%s: %s <= %s\n",
 						log_id(module), log_id(cell), log_id(it.first), log_signal(c.first), log_signal(c.second));
+
 				module->connect(c);
-			} else {
+			}
+			else
+			{
 				// approach that yields nicer outputs:
 				// replace internal wires that are connected to external wires
+
 				if (w->port_output)
 					port_signal_map.add(c.second, c.first);
 				else
 					port_signal_map.add(c.first, c.second);
+
+				for (auto &attr : w->attributes) {
+					if (attr.first == "\\src")
+						continue;
+					module->connect(extra_connect);
+					break;
+				}
 			}
 		}
 
