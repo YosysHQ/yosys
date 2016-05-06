@@ -26,7 +26,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static void run_ice40_opts(Module *module)
+static void run_ice40_opts(Module *module, bool unlut_mode)
 {
 	pool<SigBit> optimized_co;
 	vector<Cell*> sb_lut_cells;
@@ -84,6 +84,9 @@ static void run_ice40_opts(Module *module)
 		inbits.append(cell->getPort("\\I3"));
 		sigmap.apply(inbits);
 
+		if (unlut_mode)
+			goto remap_lut;
+
 		if (optimized_co.count(inbits[0])) goto remap_lut;
 		if (optimized_co.count(inbits[1])) goto remap_lut;
 		if (optimized_co.count(inbits[2])) goto remap_lut;
@@ -101,7 +104,7 @@ static void run_ice40_opts(Module *module)
 		cell->setParam("\\LUT", cell->getParam("\\LUT_INIT"));
 		cell->unsetParam("\\LUT_INIT");
 
-		cell->setPort("\\A", SigSpec({cell->getPort("\\I0"), cell->getPort("\\I1"), cell->getPort("\\I2"), cell->getPort("\\I3")}));
+		cell->setPort("\\A", SigSpec({cell->getPort("\\I3"), cell->getPort("\\I2"), cell->getPort("\\I1"), cell->getPort("\\I0")}));
 		cell->setPort("\\Y", cell->getPort("\\O"));
 		cell->unsetPort("\\I0");
 		cell->unsetPort("\\I1");
@@ -133,10 +136,15 @@ struct Ice40OptPass : public Pass {
 		log("        opt_clean\n");
 		log("    while <changed design>\n");
 		log("\n");
+		log("When called with the option -unlut, this command will transform all already\n");
+		log("mapped SB_LUT4 cells back to logic.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		string opt_expr_args = "-mux_undef -undriven";
+		bool unlut_mode = false;
+
 		log_header(design, "Executing ICE40_OPT pass (performing simple optimizations).\n");
 		log_push();
 
@@ -144,6 +152,10 @@ struct Ice40OptPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-full") {
 				opt_expr_args += " -full";
+				continue;
+			}
+			if (args[argidx] == "-unlut") {
+				unlut_mode = true;
 				continue;
 			}
 			break;
@@ -156,7 +168,7 @@ struct Ice40OptPass : public Pass {
 
 			log_header(design, "Running ICE40 specific optimizations.\n");
 			for (auto module : design->selected_modules())
-				run_ice40_opts(module);
+				run_ice40_opts(module, unlut_mode);
 
 			Pass::call(design, "opt_expr " + opt_expr_args);
 			Pass::call(design, "opt_merge");
