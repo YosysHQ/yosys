@@ -41,13 +41,14 @@ struct BlifDumperConfig
 	bool param_mode;
 	bool attr_mode;
 	bool blackbox_mode;
+	bool noalias_mode;
 
 	std::string buf_type, buf_in, buf_out;
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
 	std::string true_type, true_out, false_type, false_out, undef_type, undef_out;
 
 	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false),
-			cname_mode(false), param_mode(false), attr_mode(false), blackbox_mode(false) { }
+			cname_mode(false), param_mode(false), attr_mode(false), blackbox_mode(false), noalias_mode(false) { }
 };
 
 struct BlifDumper
@@ -86,6 +87,7 @@ struct BlifDumper
 	}
 
 	vector<shared_str> cstr_buf;
+	pool<SigBit> cstr_bits_seen;
 
 	const char *cstr(RTLIL::IdString id)
 	{
@@ -99,6 +101,8 @@ struct BlifDumper
 
 	const char *cstr(RTLIL::SigBit sig)
 	{
+		cstr_bits_seen.insert(sig);
+
 		if (sig.wire == NULL) {
 			if (sig == RTLIL::State::S0) return config->false_type == "-" ? config->false_out.c_str() : "$false";
 			if (sig == RTLIL::State::S1) return config->true_type == "-" ? config->true_out.c_str() : "$true";
@@ -373,14 +377,21 @@ struct BlifDumper
 
 		for (auto &conn : module->connections())
 		for (int i = 0; i < conn.first.size(); i++)
-			if (config->conn_mode)
-				f << stringf(".conn %s %s\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
-			else if (!config->buf_type.empty())
-				f << stringf(".%s %s %s=%s %s=%s\n", subckt_or_gate(config->buf_type), config->buf_type.c_str(), config->buf_in.c_str(), cstr(conn.second.extract(i, 1)),
-						config->buf_out.c_str(), cstr(conn.first.extract(i, 1)));
-			else
-				f << stringf(".names %s %s\n1 1\n", cstr(conn.second.extract(i, 1)), cstr(conn.first.extract(i, 1)));
+		{
+			SigBit lhs_bit = conn.first[i];
+			SigBit rhs_bit = conn.second[i];
 
+			if (config->noalias_mode && cstr_bits_seen.count(lhs_bit) == 0)
+				continue;
+
+			if (config->conn_mode)
+				f << stringf(".conn %s %s\n", cstr(rhs_bit), cstr(lhs_bit));
+			else if (!config->buf_type.empty())
+				f << stringf(".%s %s %s=%s %s=%s\n", subckt_or_gate(config->buf_type), config->buf_type.c_str(),
+						config->buf_in.c_str(), cstr(rhs_bit), config->buf_out.c_str(), cstr(lhs_bit));
+			else
+				f << stringf(".names %s %s\n1 1\n", cstr(rhs_bit), cstr(lhs_bit));
+		}
 
 		f << stringf(".end\n");
 	}
@@ -419,6 +430,11 @@ struct BlifBackend : public Backend {
 		log("        undefined. when '-' is used as <cell-type>, then <out-port> specifies\n");
 		log("        the wire name to be used for the constant signal and no cell driving\n");
 		log("        that wire is generated.\n");
+		log("\n");
+		log("    -noalias\n");
+		log("        if a net name is aliasing another net name, then by default a net\n");
+		log("        without fanout is created that is driven by the other net. This option\n");
+		log("        suppresses the generation of this nets without fanout.\n");
 		log("\n");
 		log("The following options can be useful when the generated file is not going to be\n");
 		log("read by a BLIF parser but a custom tool. It is recommended to not name the output\n");
@@ -527,6 +543,10 @@ struct BlifBackend : public Backend {
 			}
 			if (args[argidx] == "-impltf") {
 				config.impltf_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-noalias") {
+				config.noalias_mode = true;
 				continue;
 			}
 			break;
