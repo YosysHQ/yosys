@@ -162,8 +162,8 @@ yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
 
 else ifeq ($(CONFIG),mxe)
-CXX = /usr/local/src/mxe/usr/bin/i686-pc-mingw32-gcc
-LD = /usr/local/src/mxe/usr/bin/i686-pc-mingw32-gcc
+CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
+LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
 CXXFLAGS += -std=gnu++0x -Os -D_POSIX_SOURCE
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
