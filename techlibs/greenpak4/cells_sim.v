@@ -69,7 +69,7 @@ module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 		count		<= count - 1'd1;
 		
 		if(count == 0)
-			count	<= COUNT_MAX;
+			count	<= COUNT_TO;
 			
 		/*
 		if((RESET_MODE == "RISING") && RST)
