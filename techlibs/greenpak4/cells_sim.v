@@ -94,6 +94,35 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 endmodule
 
+module GP_DELAY(input IN, output reg OUT);
+	
+	parameter DELAY_STEPS = 1;
+	
+	//TODO: additional delay/glitch filter mode
+	
+	initial OUT = 0;
+	
+	generate
+		
+		//TODO: These delays are PTV dependent! For now, hard code 3v3 timing
+		//Change simulation-mode delay depending on global Vdd range (how to specify this?)
+		always @(*) begin
+			case(DELAY_STEPS)
+				1: #166 OUT = IN;
+				2: #318 OUT = IN;
+				2: #471 OUT = IN;
+				3: #622 OUT = IN;
+				default: begin
+					$display("ERROR: GP_DELAY must have DELAY_STEPS in range [1,4]");
+					$finish;
+				end
+			endcase
+		end
+		
+	endgenerate
+	
+endmodule
+
 module GP_DFF(input D, CLK, output reg Q);
 	parameter [0:0] INIT = 1'bx;
 	initial Q = INIT;
