@@ -30,15 +30,6 @@
 #include "libs/sha1/sha1.h"
 #include "ast.h"
 
-#include <sstream>
-#include <stdarg.h>
-
-#if defined(__APPLE__)
-#  include <cmath>
-#else
-#  include <math.h>
-#endif
-
 YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;

@@ -51,6 +51,7 @@
 #include <initializer_list>
 #include <stdexcept>
 #include <memory>
+#include <cmath>
 
 #include <sstream>
 #include <fstream>
