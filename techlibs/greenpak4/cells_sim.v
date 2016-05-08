@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module GP_2LUT(input IN0, IN1, output OUT);
 	parameter [3:0] INIT = 0;
 	assign OUT = INIT[{IN1, IN0}];
@@ -67,7 +69,7 @@ module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 		count		<= count - 1'd1;
 		
 		if(count == 0)
-			count	<= COUNT_MAX;
+			count	<= COUNT_TO;
 			
 		/*
 		if((RESET_MODE == "RISING") && RST)
@@ -90,6 +92,35 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 	
 	//more complex hard IP blocks are not supported for simulation yet
 
+endmodule
+
+module GP_DELAY(input IN, output reg OUT);
+	
+	parameter DELAY_STEPS = 1;
+	
+	//TODO: additional delay/glitch filter mode
+	
+	initial OUT = 0;
+	
+	generate
+		
+		//TODO: These delays are PTV dependent! For now, hard code 3v3 timing
+		//Change simulation-mode delay depending on global Vdd range (how to specify this?)
+		always @(*) begin
+			case(DELAY_STEPS)
+				1: #166 OUT = IN;
+				2: #318 OUT = IN;
+				2: #471 OUT = IN;
+				3: #622 OUT = IN;
+				default: begin
+					$display("ERROR: GP_DELAY must have DELAY_STEPS in range [1,4]");
+					$finish;
+				end
+			endcase
+		end
+		
+	endgenerate
+	
 endmodule
 
 module GP_DFF(input D, CLK, output reg Q);
@@ -284,7 +315,7 @@ module GP_SHREG(input nRST, input CLK, input IN, output OUTA, output OUTB);
 	
 	reg[15:0] shreg = 0;
 	
-	always @(posedge clk, negedge nRST) begin
+	always @(posedge CLK, negedge nRST) begin
 		
 		if(!nRST)
 			shreg = 0;
