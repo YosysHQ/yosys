@@ -386,6 +386,10 @@ from SystemVerilog:
 Building the documentation
 ==========================
 
+Note that there is no need to build the manual if you just want to read it.
+Simply download the PDF from http://www.clifford.at/yosys/documentation.html
+instead.
+
 On Ubuntu, texlive needs these packages to be able to build the manual:
 
 	sudo apt-get install texlive-binaries
