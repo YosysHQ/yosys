@@ -239,7 +239,7 @@ C++ Language
 -------------
 
 Yosys is written in C++11. At the moment only constructs supported by
-gcc 4.6 are allowed in Yosys code. This will change in future releases.
+gcc 4.8 are allowed in Yosys code. This will change in future releases.
 
 In general Yosys uses "int" instead of "size_t". To avoid compiler
 warnings for implicit type casts, always use "GetSize(foobar)" instead
@@ -368,7 +368,7 @@ And if a version of the verific library is currently available:
 	../../yosys test_navre.ys
 
 
-Finally run all tests with "make config-{clang,gcc,gcc-4.6}":
+Finally run all tests with "make config-{clang,gcc,gcc-4.8}":
 
 	cd ~yosys
 	make clean

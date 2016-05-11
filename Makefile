@@ -1,7 +1,7 @@
 
 CONFIG := clang
 # CONFIG := gcc
-# CONFIG := gcc-4.6
+# CONFIG := gcc-4.8
 # CONFIG := emcc
 # CONFIG := mxe
 
@@ -124,12 +124,12 @@ endif
 else ifeq ($(CONFIG),gcc)
 CXX = gcc
 LD = gcc
-CXXFLAGS += -std=gnu++0x -Os
+CXXFLAGS += -std=c++11 -Os
 
-else ifeq ($(CONFIG),gcc-4.6)
-CXX = gcc-4.6
-LD = gcc-4.6
-CXXFLAGS += -std=gnu++0x -Os
+else ifeq ($(CONFIG),gcc-4.8)
+CXX = gcc-4.8
+LD = gcc-4.8
+CXXFLAGS += -std=c++11 -Os
 
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
@@ -164,7 +164,7 @@ yosys.html: misc/yosys.html
 else ifeq ($(CONFIG),mxe)
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
 LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
-CXXFLAGS += -std=gnu++0x -Os -D_POSIX_SOURCE
+CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
@@ -173,7 +173,7 @@ ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="$(CXX)" 
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.6, emcc, none)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, none)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -467,7 +467,7 @@ qtcreator:
 vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
-		echo "Analyse: $$f" >&2; cpp -std=gnu++0x -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
+		echo "Analyse: $$f" >&2; cpp -std=c++11 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
 	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
 	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
 	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc
@@ -496,8 +496,8 @@ config-clang: clean
 config-gcc: clean
 	echo 'CONFIG := gcc' > Makefile.conf
 
-config-gcc-4.6: clean
-	echo 'CONFIG := gcc-4.6' > Makefile.conf
+config-gcc-4.8: clean
+	echo 'CONFIG := gcc-4.8' > Makefile.conf
 
 config-emcc: clean
 	echo 'CONFIG := emcc' > Makefile.conf
@@ -533,5 +533,5 @@ echo-git-rev:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
-.PHONY: config-clean config-clang config-gcc config-gcc-4.6 config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-4.8 config-gprof config-sudo
 
