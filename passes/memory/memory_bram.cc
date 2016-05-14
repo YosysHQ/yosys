@@ -826,7 +826,7 @@ grow_read_ports:;
 					State padding = State::Sx;
 					for (int j = 0; j < bram.dbits; j++)
 						if (init_offset+i < GetSize(initdata) && init_shift+j < GetSize(initdata[init_offset+i]))
-							padding = initparam[i*bram.dbits+j] = initdata[init_offset+i][init_shift+j];
+							initparam[i*bram.dbits+j] = initdata[init_offset+i][init_shift+j];
 						else
 							initparam[i*bram.dbits+j] = padding;
 				}
