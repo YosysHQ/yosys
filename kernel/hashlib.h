@@ -10,6 +10,7 @@
 // -------------------------------------------------------
 
 #ifndef HASHLIB_H
+#define HASHLIB_H
 
 #include <stdexcept>
 #include <algorithm>
