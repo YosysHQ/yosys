@@ -305,6 +305,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it)
 		if (!it->second->get_bool_attribute("\\gentb_skip"))
 			f << stringf("\t%s;\n", idy(it->first.str(), "test").c_str());
+	f << stringf("\t$fclose(file);\n");
 	f << stringf("\t$finish;\n");
 	f << stringf("end\n\n");
 
