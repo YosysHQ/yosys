@@ -73,9 +73,14 @@ static std::string idy(std::string str1, std::string str2 = std::string(), std::
 
 static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 {
+	f << stringf("`ifndef dmp_name\n");
+	f << stringf("\t`define dmp_name \"not_defined.dmp\"\n");
+	f << stringf("`endif\n");
+
 	f << stringf("module testbench;\n\n");
 
-	f << stringf("integer i;\n\n");
+	f << stringf("integer i;\n");
+	f << stringf("integer file;\n\n");
 
 	f << stringf("reg [31:0] xorshift128_x = 123456789;\n");
 	f << stringf("reg [31:0] xorshift128_y = 362436069;\n");
@@ -206,7 +211,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 
 		f << stringf("task %s;\n", idy(mod->name.str(), "print_status").c_str());
 		f << stringf("begin\n");
-		f << stringf("\t$display(\"#OUT# %%b %%b %%b %%t %%d\", {");
+		f << stringf("\t$fdisplay(file, \"#OUT# %%b %%b %%b %%t %%d\", {");
 		if (signal_in.size())
 			for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
 				f << stringf("%s %s", it == signal_in.begin() ? "" : ",", it->first.c_str());
@@ -271,17 +276,17 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 
 		f << stringf("task %s;\n", idy(mod->name.str(), "print_header").c_str());
 		f << stringf("begin\n");
-		f << stringf("\t$display(\"#OUT#\");\n");
+		f << stringf("\t$fdisplay(file, \"#OUT#\");\n");
 		for (auto &hdr : header1)
-			f << stringf("\t$display(\"#OUT#   %s\");\n", hdr.c_str());
-		f << stringf("\t$display(\"#OUT#\");\n");
-		f << stringf("\t$display(\"#OUT# %s\");\n", header2.c_str());
+			f << stringf("\t$fdisplay(file, \"#OUT#   %s\");\n", hdr.c_str());
+		f << stringf("\t$fdisplay(file, \"#OUT#\");\n");
+		f << stringf("\t$fdisplay(file, \"#OUT# %s\");\n", header2.c_str());
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
 		f << stringf("task %s;\n", idy(mod->name.str(), "test").c_str());
 		f << stringf("begin\n");
-		f << stringf("\t$display(\"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name.str()).c_str());
+		f << stringf("\t$fdisplay(file, \"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name.str()).c_str());
 		f << stringf("\t%s;\n", idy(mod->name.str(), "reset").c_str());
 		f << stringf("\tfor (i=0; i<%d; i=i+1) begin\n", num_iter);
 		f << stringf("\t\tif (i %% 20 == 0) %s;\n", idy(mod->name.str(), "print_header").c_str());
@@ -296,6 +301,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 	f << stringf("initial begin\n");
 	f << stringf("\t// $dumpfile(\"testbench.vcd\");\n");
 	f << stringf("\t// $dumpvars(0, testbench);\n");
+	f << stringf("\tfile = $fopen(`dmp_name);\n");
 	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it)
 		if (!it->second->get_bool_attribute("\\gentb_skip"))
 			f << stringf("\t%s;\n", idy(it->first.str(), "test").c_str());
