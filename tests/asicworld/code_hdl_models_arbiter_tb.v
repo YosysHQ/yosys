@@ -1,11 +1,11 @@
 module testbench ();
 
-reg             clk;    
-reg             rst;    
-reg             req3;   
-reg             req2;   
-reg             req1;   
-reg             req0;   
+reg             clk = 0;
+reg             rst = 1;
+reg             req3 = 0;
+reg             req2 = 0;
+reg             req1 = 0;
+reg             req0 = 0;
 wire            gnt3;   
 wire            gnt2;   
 wire            gnt1;   
@@ -13,17 +13,15 @@ wire            gnt0;
 
 // Clock generator
 always #1 clk = ~clk;
+integer file;
+
+always @(posedge clk)
+  $fdisplay(file, "%b", {gnt3, gnt2, gnt1, gnt0});
 
 initial begin
-  $dumpfile ("arbiter.vcd");
-  $dumpvars();
-  clk = 0;
-  rst = 1;
-  req0 = 0;
-  req1 = 0;
-  req2 = 0;
-  req3 = 0;
-  #10 rst = 0;
+  file = $fopen(`outfile);
+  repeat (5) @ (posedge clk);
+  rst <= 0;
   repeat (1) @ (posedge clk);
   req0 <= 1;
   repeat (1) @ (posedge clk);

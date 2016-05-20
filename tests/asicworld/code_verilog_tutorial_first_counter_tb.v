@@ -1,22 +1,23 @@
 module testbench();
 // Declare inputs as regs and outputs as wires
-reg clock, reset, enable;
+reg clock = 1, reset = 0, enable = 0;
 wire [3:0] counter_out;
+integer file;
 
 // Initialize all variables
 initial begin        
-  $display ("time\t clk reset enable counter");	
-  $monitor ("%g\t %b   %b     %b      %b", 
-	  $time, clock, reset, enable, counter_out);	
-  clock = 1;       // initial value of clock
-  reset = 0;       // initial value of reset
-  enable = 0;      // initial value of enable
+  file = $fopen(`outfile);
+  $fdisplay (file, "time\t clk reset enable counter");	
   #5 reset = 1;    // Assert the reset
   #10 reset = 0;   // De-assert the reset
   #10 enable = 1;  // Assert enable
   #100 enable = 0; // De-assert enable
   #5 $finish;      // Terminate simulation
 end
+
+always @(negedge clock)
+  $fdisplay (file, "%g\t %b   %b     %b      %b", 
+	  $time, clock, reset, enable, counter_out);	
 
 // Clock generator
 initial begin

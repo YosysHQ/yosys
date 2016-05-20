@@ -15,9 +15,10 @@
 ///////////////////////////////////////////////////////////////////////////
 module testbench;
 
-reg clk, reset, enable;
+integer file;
+reg clk = 0, reset = 0, enable = 0;
 wire [3:0] count;
-reg dut_error;
+reg dut_error = 0;
 
 counter U0 (
 .clk    (clk),
@@ -30,34 +31,21 @@ event reset_enable;
 event terminate_sim;
 
 initial
-begin
- $display ("###################################################");
- clk = 0;
- reset = 0;
- enable = 0;
- dut_error = 0;
-end
+ file = $fopen(`outfile);
 
 always
   #5 clk = !clk;
 
 initial
-begin
-  $dumpfile ("counter.vcd");
-  $dumpvars;
-end
-
-
-initial
 @ (terminate_sim)  begin
- $display ("Terminating simulation");
+ $fdisplay (file, "Terminating simulation");
  if (dut_error == 0) begin
-   $display ("Simulation Result : PASSED");
+   $fdisplay (file, "Simulation Result : PASSED");
  end
  else begin
-   $display ("Simulation Result : FAILED");
+   $fdisplay (file, "Simulation Result : FAILED");
  end
- $display ("###################################################");
+ $fdisplay (file, "###################################################");
  #1 $finish;
 end
 
@@ -69,11 +57,11 @@ initial
 forever begin
  @ (reset_enable);
  @ (negedge clk)
- $display ("Applying reset");
+ $fdisplay (file, "Applying reset");
    reset = 1;
  @ (negedge clk)
    reset = 0;
- $display ("Came out of Reset");
+ $fdisplay (file, "Came out of Reset");
  -> reset_done;
 end
 
@@ -103,8 +91,8 @@ else if ( enable == 1'b1)
 
 always @ (negedge clk)
 if (count_compare != count) begin
-  $display ("DUT ERROR AT TIME%d",$time);
-  $display ("Expected value %d, Got Value %d", count_compare, count);
+  $fdisplay (file, "DUT ERROR AT TIME%d",$time);
+  $fdisplay (file, "Expected value %d, Got Value %d", count_compare, count);
   dut_error = 1;
   #5 -> terminate_sim;
 end
