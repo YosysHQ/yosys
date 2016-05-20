@@ -308,6 +308,10 @@ Verilog Attributes and non-standard features
   for everything that comes after the {* ... *} statement. (Reset
   by adding an empty {* *} statement.)
 
+- In module parameter and port declarations, and cell port and parameter
+  lists, a trailing comma is ignored. This simplifies writing verilog code
+  generators a bit in some cases.
+
 - Modules can be declared with "module mod_name(...);" (with three dots
   instead of a list of module ports). With this syntax it is sufficient
   to simply declare a module port as 'input' or 'output' in the module
@@ -382,6 +386,7 @@ from SystemVerilog:
 
 - The keywords "always_comb", "always_ff" and "always_latch", "logic" and
   "bit" are supported.
+
 
 Building the documentation
 ==========================
