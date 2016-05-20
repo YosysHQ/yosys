@@ -65,8 +65,8 @@ compile_and_run() {
 	if $use_modelsim; then
 		altver=$( ls -v /opt/altera/ | grep '^[0-9]' | tail -n1; )
 		/opt/altera/$altver/modelsim_ase/bin/vlib work
-		/opt/altera/$altver/modelsim_ase/bin/vlog "$@"
-		/opt/altera/$altver/modelsim_ase/bin/vsim -c -do 'run -all; exit;' testbench | grep '#OUT#' > "$output"
+		/opt/altera/$altver/modelsim_ase/bin/vlog +define+dmp_name=\"$output\" "$@"
+		/opt/altera/$altver/modelsim_ase/bin/vsim -c -do 'run -all; exit;' testbench
 	elif $use_xsim; then
 		(
 			set +x
@@ -76,8 +76,8 @@ compile_and_run() {
 			/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench | grep '#OUT#' > "$output"
 		)
 	else
-		iverilog -s testbench -o "$exe" "$@"
-		vvp -n "$exe" > "$output"
+		iverilog  -Ddmp_name=\"$output\" -s testbench -o "$exe" "$@" 
+		vvp -n "$exe"
 	fi
 }
 
