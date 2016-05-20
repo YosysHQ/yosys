@@ -73,8 +73,8 @@ static std::string idy(std::string str1, std::string str2 = std::string(), std::
 
 static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 {
-	f << stringf("`ifndef dmp_name\n");
-	f << stringf("\t`define dmp_name \"not_defined.dmp\"\n");
+	f << stringf("`ifndef outfile\n");
+	f << stringf("\t`define outfile \"/dev/stdout\"\n");
 	f << stringf("`endif\n");
 
 	f << stringf("module testbench;\n\n");
@@ -301,7 +301,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 	f << stringf("initial begin\n");
 	f << stringf("\t// $dumpfile(\"testbench.vcd\");\n");
 	f << stringf("\t// $dumpvars(0, testbench);\n");
-	f << stringf("\tfile = $fopen(`dmp_name);\n");
+	f << stringf("\tfile = $fopen(`outfile);\n");
 	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it)
 		if (!it->second->get_bool_attribute("\\gentb_skip"))
 			f << stringf("\t%s;\n", idy(it->first.str(), "test").c_str());

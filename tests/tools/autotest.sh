@@ -16,7 +16,7 @@ toolsdir="$(cd $(dirname $0); pwd)"
 warn_iverilog_git=false
 
 if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
-	( set -ex;  ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
+	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
 while getopts xmGl:wkjvref:s:p:n: opt; do
@@ -65,18 +65,18 @@ compile_and_run() {
 	if $use_modelsim; then
 		altver=$( ls -v /opt/altera/ | grep '^[0-9]' | tail -n1; )
 		/opt/altera/$altver/modelsim_ase/bin/vlib work
-		/opt/altera/$altver/modelsim_ase/bin/vlog +define+dmp_name=\"$output\" "$@"
+		/opt/altera/$altver/modelsim_ase/bin/vlog +define+outfile=\"$output\" "$@"
 		/opt/altera/$altver/modelsim_ase/bin/vsim -c -do 'run -all; exit;' testbench
 	elif $use_xsim; then
 		(
 			set +x
 			files=( "$@" )
 			xilver=$( ls -v /opt/Xilinx/Vivado/ | grep '^[0-9]' | tail -n1; )
-			/opt/Xilinx/Vivado/$xilver/bin/xvlog "${files[@]}"
-			/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench | grep '#OUT#' > "$output"
+			/opt/Xilinx/Vivado/$xilver/bin/xvlog -d outfile=\"$output\" "${files[@]}"
+			/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench
 		)
 	else
-		iverilog  -Ddmp_name=\"$output\" -s testbench -o "$exe" "$@" 
+		iverilog -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
 		vvp -n "$exe"
 	fi
 }
@@ -116,7 +116,7 @@ do
 		fi
 		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
 		create_ref $fn ${bn}_ref
-		compile_and_run  ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs
+		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.v $libs
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
 
 		test_count=0
