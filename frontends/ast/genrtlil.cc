@@ -429,6 +429,17 @@ struct AST_INTERNAL::ProcessGenerator
 			{
 				RTLIL::SigSpec unmapped_lvalue = ast->children[0]->genRTLIL(), lvalue = unmapped_lvalue;
 				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &subst_rvalue_map.stdmap());
+
+				pool<SigBit> lvalue_sigbits;
+				for (int i = 0; i < GetSize(lvalue); i++) {
+					if (lvalue_sigbits.count(lvalue[i]) > 0) {
+						unmapped_lvalue.remove(i);
+						lvalue.remove(i);
+						rvalue.remove(i--);
+					} else
+						lvalue_sigbits.insert(lvalue[i]);
+				}
+
 				lvalue.replace(subst_lvalue_map.stdmap());
 
 				if (ast->type == AST_ASSIGN_EQ) {
