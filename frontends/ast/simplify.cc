@@ -150,12 +150,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			while (mem2reg_as_needed_pass2(mem2reg_set, this, NULL)) { }
 
-			for (size_t i = 0; i < children.size(); i++) {
-				if (mem2reg_set.count(children[i]) > 0) {
-					delete children[i];
-					children.erase(children.begin() + (i--));
-				}
-			}
+			vector<AstNode*> delnodes;
+			mem2reg_remove(mem2reg_set, delnodes);
+
+			for (auto node : delnodes)
+				delete node;
 		}
 
 		while (simplify(const_fold, at_zero, in_lvalue, 2, width_hint, sign_hint, in_param)) { }
@@ -2604,6 +2603,23 @@ bool AstNode::mem2reg_check(pool<AstNode*> &mem2reg_set)
 		log_error("Invalid array access at %s:%d.\n", filename.c_str(), linenum);
 
 	return true;
+}
+
+void AstNode::mem2reg_remove(pool<AstNode*> &mem2reg_set, vector<AstNode*> &delnodes)
+{
+	log_assert(mem2reg_set.count(this) == 0);
+
+	if (mem2reg_set.count(id2ast))
+		id2ast = nullptr;
+
+	for (size_t i = 0; i < children.size(); i++) {
+		if (mem2reg_set.count(children[i]) > 0) {
+			delnodes.push_back(children[i]);
+			children.erase(children.begin() + (i--));
+		} else {
+			children[i]->mem2reg_remove(mem2reg_set, delnodes);
+		}
+	}
 }
 
 // actually replace memories with registers
