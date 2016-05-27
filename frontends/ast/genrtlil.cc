@@ -591,7 +591,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 					// log("---\n");
 					// id_ast->dumpAst(NULL, "decl> ");
 					// dumpAst(NULL, "ref> ");
-					log_error("Failed to detect with of signal access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+					log_error("Failed to detect width of signal access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 				}
 			} else {
 				this_width = id_ast->range_left - id_ast->range_right + 1;
@@ -602,7 +602,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			this_width = 32;
 		} else if (id_ast->type == AST_MEMORY) {
 			if (!id_ast->children[0]->range_valid)
-				log_error("Failed to detect with of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+				log_error("Failed to detect width of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
 		} else
 			log_error("Failed to detect width for identifier %s at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
@@ -734,7 +734,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (!id2ast->is_signed)
 			sign_hint = false;
 		if (!id2ast->children[0]->range_valid)
-			log_error("Failed to detect with of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
+			log_error("Failed to detect width of memory access `%s' at %s:%d!\n", str.c_str(), filename.c_str(), linenum);
 		this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
 		width_hint = max(width_hint, this_width);
 		break;
