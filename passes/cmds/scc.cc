@@ -181,10 +181,10 @@ struct SccWorker
 				cell2scc[cell] = sccList.size();
 				scc.insert(cell);
 				sccList.push_back(scc);
-				workQueue.erase(cell);
 				log("\n");
-			} else
-				run(cell, 0, maxDepth);
+			}
+
+			run(cell, 0, maxDepth);
 		}
 
 		log("Found %d SCCs in module %s.\n", int(sccList.size()), RTLIL::id2cstr(module->name));
