@@ -1098,6 +1098,75 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if (!keepdc && cell->type.in("$div", "$mod"))
+		{
+			bool b_signed = cell->parameters["\\B_SIGNED"].as_bool();
+			SigSpec sig_b = assign_map(cell->getPort("\\B"));
+			SigSpec sig_y = assign_map(cell->getPort("\\Y"));
+
+			if (sig_b.is_fully_def() && sig_b.size() <= 32)
+			{
+				int b_val = sig_b.as_int();
+
+				if (b_val == 0)
+				{
+					cover("opt.opt_expr.divmod_zero");
+
+					log("Replacing divide-by-zero cell `%s' in module `%s' with undef-driver.\n",
+							cell->name.c_str(), module->name.c_str());
+
+					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(State::Sx, sig_y.size())));
+					module->remove(cell);
+
+					did_something = true;
+					goto next_cell;
+				}
+
+				for (int i = 1; i < (b_signed ? sig_b.size()-1 : sig_b.size()); i++)
+					if (b_val == (1 << i))
+					{
+						if (cell->type == "$div")
+						{
+							cover("opt.opt_expr.div_shift");
+
+							log("Replacing divide-by-%d cell `%s' in module `%s' with shift-by-%d.\n",
+									b_val, cell->name.c_str(), module->name.c_str(), i);
+
+							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(i, 6);
+
+							while (GetSize(new_b) > 1 && new_b.back() == RTLIL::State::S0)
+								new_b.pop_back();
+
+							cell->type = "$shr";
+							cell->parameters["\\B_WIDTH"] = GetSize(new_b);
+							cell->parameters["\\B_SIGNED"] = false;
+							cell->setPort("\\B", new_b);
+							cell->check();
+						}
+						else
+						{
+							cover("opt.opt_expr.mod_mask");
+
+							log("Replacing modulo-by-%d cell `%s' in module `%s' with bitmask.\n",
+									b_val, cell->name.c_str(), module->name.c_str());
+
+							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(State::S1, i);
+
+							if (b_signed)
+								new_b.push_back(State::S0);
+
+							cell->type = "$and";
+							cell->parameters["\\B_WIDTH"] = GetSize(new_b);
+							cell->setPort("\\B", new_b);
+							cell->check();
+						}
+
+						did_something = true;
+						goto next_cell;
+					}
+			}
+		}
+
 	next_cell:;
 #undef ACTION_DO
 #undef ACTION_DO_Y
