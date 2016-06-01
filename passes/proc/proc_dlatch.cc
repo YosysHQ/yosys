@@ -33,6 +33,7 @@ struct proc_dlatch_db_t
 	Module *module;
 	SigMap sigmap;
 
+	pool<Cell*> rewritten_mux_cells;
 	dict<Cell*, vector<SigBit>> mux_srcbits;
 	dict<SigBit, pair<Cell*, int>> mux_drivers;
 	dict<SigBit, int> sigusers;
@@ -189,6 +190,7 @@ struct proc_dlatch_db_t
 		int n = find_mux_feedback(sig_a[index], needle, set_undef);
 		if (n != false_node) {
 			if (set_undef && sig_a[index] == needle) {
+				rewritten_mux_cells.insert(cell);
 				SigSpec sig = cell->getPort("\\A");
 				sig[index] = State::Sx;
 				cell->setPort("\\A", sig);
@@ -202,6 +204,7 @@ struct proc_dlatch_db_t
 			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
+					rewritten_mux_cells.insert(cell);
 					SigSpec sig = cell->getPort("\\B");
 					sig[i*width + index] = State::Sx;
 					cell->setPort("\\B", sig);
@@ -252,6 +255,46 @@ struct proc_dlatch_db_t
 
 		rules_sig[n] = and_bits[0];
 		return and_bits[0];
+	}
+
+	void fixup_rewritten_muxes()
+	{
+		for (auto cell : rewritten_mux_cells)
+		{
+			SigSpec sig_a = cell->getPort("\\A");
+			SigSpec sig_b = cell->getPort("\\B");
+			SigSpec sig_s = cell->getPort("\\S");
+			SigSpec sig_any_valid_b;
+
+			SigSpec sig_new_b, sig_new_s;
+			for (int i = 0; i < GetSize(sig_s); i++) {
+				SigSpec b = sig_b.extract(i*GetSize(sig_a), GetSize(sig_a));
+				if (!b.is_fully_undef()) {
+					sig_any_valid_b = b;
+					sig_new_b.append(b);
+					sig_new_s.append(sig_s[i]);
+				}
+			}
+
+			if (sig_new_s.empty()) {
+				sig_new_b = sig_a;
+				sig_new_s = State::S0;
+			}
+
+			if (sig_a.is_fully_undef() && !sig_any_valid_b.empty())
+				cell->setPort("\\A", sig_any_valid_b);
+
+			if (GetSize(sig_new_s) == 1) {
+				cell->type = "$mux";
+				cell->unsetParam("\\S_WIDTH");
+			} else {
+				cell->type = "$pmux";
+				cell->setParam("\\S_WIDTH", GetSize(sig_new_s));
+			}
+
+			cell->setPort("\\B", sig_new_b);
+			cell->setPort("\\S", sig_new_s);
+		}
 	}
 };
 
@@ -360,6 +403,7 @@ struct ProcDlatchPass : public Pass {
 			for (auto &proc_it : module->processes)
 				if (design->selected(module, proc_it.second))
 					proc_dlatch(db, proc_it.second);
+			db.fixup_rewritten_muxes();
 		}
 	}
 } ProcDlatchPass;
