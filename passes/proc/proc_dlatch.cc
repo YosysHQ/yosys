@@ -33,7 +33,7 @@ struct proc_dlatch_db_t
 	Module *module;
 	SigMap sigmap;
 
-	pool<Cell*> rewritten_mux_cells;
+	pool<Cell*> generated_dlatches;
 	dict<Cell*, vector<SigBit>> mux_srcbits;
 	dict<SigBit, pair<Cell*, int>> mux_drivers;
 	dict<SigBit, int> sigusers;
@@ -190,7 +190,6 @@ struct proc_dlatch_db_t
 		int n = find_mux_feedback(sig_a[index], needle, set_undef);
 		if (n != false_node) {
 			if (set_undef && sig_a[index] == needle) {
-				rewritten_mux_cells.insert(cell);
 				SigSpec sig = cell->getPort("\\A");
 				sig[index] = State::Sx;
 				cell->setPort("\\A", sig);
@@ -204,7 +203,6 @@ struct proc_dlatch_db_t
 			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
-					rewritten_mux_cells.insert(cell);
 					SigSpec sig = cell->getPort("\\B");
 					sig[i*width + index] = State::Sx;
 					cell->setPort("\\B", sig);
@@ -257,43 +255,81 @@ struct proc_dlatch_db_t
 		return and_bits[0];
 	}
 
-	void fixup_rewritten_muxes()
+	void fixup_mux(Cell *cell)
 	{
-		for (auto cell : rewritten_mux_cells)
+		SigSpec sig_a = cell->getPort("\\A");
+		SigSpec sig_b = cell->getPort("\\B");
+		SigSpec sig_s = cell->getPort("\\S");
+		SigSpec sig_any_valid_b;
+
+		SigSpec sig_new_b, sig_new_s;
+		for (int i = 0; i < GetSize(sig_s); i++) {
+			SigSpec b = sig_b.extract(i*GetSize(sig_a), GetSize(sig_a));
+			if (!b.is_fully_undef()) {
+				sig_any_valid_b = b;
+				sig_new_b.append(b);
+				sig_new_s.append(sig_s[i]);
+			}
+		}
+
+		if (sig_new_s.empty()) {
+			sig_new_b = sig_a;
+			sig_new_s = State::S0;
+		}
+
+		if (sig_a.is_fully_undef() && !sig_any_valid_b.empty())
+			cell->setPort("\\A", sig_any_valid_b);
+
+		if (GetSize(sig_new_s) == 1) {
+			cell->type = "$mux";
+			cell->unsetParam("\\S_WIDTH");
+		} else {
+			cell->type = "$pmux";
+			cell->setParam("\\S_WIDTH", GetSize(sig_new_s));
+		}
+
+		cell->setPort("\\B", sig_new_b);
+		cell->setPort("\\S", sig_new_s);
+	}
+
+	void fixup_muxes()
+	{
+		pool<Cell*> visited, queue;
+		dict<Cell*, pool<SigBit>> upstream_cell2net;
+		dict<SigBit, pool<Cell*>> upstream_net2cell;
+
+		CellTypes ct;
+		ct.setup_internals();
+
+		for (auto cell : module->cells())
+		for (auto conn : cell->connections()) {
+			if (cell->input(conn.first))
+				for (auto bit : sigmap(conn.second))
+					upstream_cell2net[cell].insert(bit);
+			if (cell->output(conn.first))
+				for (auto bit : sigmap(conn.second))
+					upstream_net2cell[bit].insert(cell);
+		}
+
+		queue = generated_dlatches;
+		while (!queue.empty())
 		{
-			SigSpec sig_a = cell->getPort("\\A");
-			SigSpec sig_b = cell->getPort("\\B");
-			SigSpec sig_s = cell->getPort("\\S");
-			SigSpec sig_any_valid_b;
+			pool<Cell*> next_queue;
 
-			SigSpec sig_new_b, sig_new_s;
-			for (int i = 0; i < GetSize(sig_s); i++) {
-				SigSpec b = sig_b.extract(i*GetSize(sig_a), GetSize(sig_a));
-				if (!b.is_fully_undef()) {
-					sig_any_valid_b = b;
-					sig_new_b.append(b);
-					sig_new_s.append(sig_s[i]);
-				}
+			for (auto cell : queue) {
+				if (cell->type.in("$mux", "$pmux"))
+					fixup_mux(cell);
+				for (auto bit : upstream_cell2net[cell])
+					for (auto cell : upstream_net2cell[bit])
+						next_queue.insert(cell);
+				visited.insert(cell);
 			}
 
-			if (sig_new_s.empty()) {
-				sig_new_b = sig_a;
-				sig_new_s = State::S0;
+			queue.clear();
+			for (auto cell : next_queue) {
+				if (!visited.count(cell) && ct.cell_known(cell->type))
+					queue.insert(cell);
 			}
-
-			if (sig_a.is_fully_undef() && !sig_any_valid_b.empty())
-				cell->setPort("\\A", sig_any_valid_b);
-
-			if (GetSize(sig_new_s) == 1) {
-				cell->type = "$mux";
-				cell->unsetParam("\\S_WIDTH");
-			} else {
-				cell->type = "$pmux";
-				cell->setParam("\\S_WIDTH", GetSize(sig_new_s));
-			}
-
-			cell->setPort("\\B", sig_new_b);
-			cell->setPort("\\S", sig_new_s);
 		}
 	}
 };
@@ -370,6 +406,8 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			SigSpec rhs = latches_bits.second.extract(offset, width);
 
 			Cell *cell = db.module->addDlatch(NEW_ID, db.module->Not(NEW_ID, db.make_hold(n)), rhs, lhs);
+			db.generated_dlatches.insert(cell);
+
 			log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), log_id(cell));
 		}
@@ -403,7 +441,7 @@ struct ProcDlatchPass : public Pass {
 			for (auto &proc_it : module->processes)
 				if (design->selected(module, proc_it.second))
 					proc_dlatch(db, proc_it.second);
-			db.fixup_rewritten_muxes();
+			db.fixup_muxes();
 		}
 	}
 } ProcDlatchPass;
