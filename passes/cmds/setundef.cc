@@ -79,11 +79,15 @@ struct SetundefPass : public Pass {
 		log("        replace with random bits using the specified integer als seed\n");
 		log("        value for the random number generator.\n");
 		log("\n");
+		log("    -init\n");
+		log("        also create/update init values for flip-flops\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool got_value = false;
 		bool undriven_mode = false;
+		bool init_mode = false;
 		SetundefWorker worker;
 
 		size_t argidx;
@@ -103,6 +107,10 @@ struct SetundefPass : public Pass {
 				worker.next_bit_mode = 1;
 				continue;
 			}
+			if (args[argidx] == "-init") {
+				init_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
 				got_value = true;
 				worker.next_bit_mode = 2;
@@ -118,12 +126,8 @@ struct SetundefPass : public Pass {
 		if (!got_value)
 			log_cmd_error("One of the options -zero, -one, or -random <seed> must be specified.\n");
 
-		for (auto &mod_it : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			RTLIL::Module *module = mod_it.second;
-			if (!design->selected(module))
-				continue;
-
 			if (undriven_mode)
 			{
 				if (!module->processes.empty())
@@ -148,6 +152,86 @@ struct SetundefPass : public Pass {
 					for (int i = 0; i < c.width; i++)
 						bits.append(worker.next_bit());
 					module->connect(RTLIL::SigSig(c, bits));
+				}
+			}
+
+			if (init_mode)
+			{
+				SigMap sigmap(module);
+				pool<SigBit> ffbits;
+				pool<Wire*> initwires;
+
+				pool<IdString> fftypes;
+				fftypes.insert("$dff");
+				fftypes.insert("$dffe");
+				fftypes.insert("$dffsr");
+				fftypes.insert("$adff");
+
+				std::vector<char> list_np = {'N', 'P'}, list_01 = {'0', '1'};
+
+				for (auto c1 : list_np)
+					fftypes.insert(stringf("$_DFF_%c_", c1));
+
+				for (auto c1 : list_np)
+				for (auto c2 : list_np)
+					fftypes.insert(stringf("$_DFFE_%c%c_", c1, c2));
+
+				for (auto c1 : list_np)
+				for (auto c2 : list_np)
+				for (auto c3 : list_01)
+					fftypes.insert(stringf("$_DFF_%c%c%c_", c1, c2, c3));
+
+				for (auto c1 : list_np)
+				for (auto c2 : list_np)
+				for (auto c3 : list_np)
+					fftypes.insert(stringf("$_DFFSR_%c%c%c_", c1, c2, c3));
+
+				for (auto cell : module->cells())
+				{
+					if (!fftypes.count(cell->type))
+						continue;
+
+					for (auto bit : sigmap(cell->getPort("\\Q")))
+						ffbits.insert(bit);
+				}
+
+				for (auto wire : module->wires())
+				{
+					if (!wire->attributes.count("\\init"))
+						continue;
+
+					for (auto bit : sigmap(wire))
+						ffbits.erase(bit);
+
+					initwires.insert(wire);
+				}
+
+				for (int wire_types = 0; wire_types < 2; wire_types++)
+					for (auto wire : module->wires())
+					{
+						if (wire->name[0] == (wire_types ? '\\' : '$'))
+					next_wire:
+							continue;
+
+						for (auto bit : sigmap(wire))
+							if (!ffbits.count(bit))
+								goto next_wire;
+
+						for (auto bit : sigmap(wire))
+							ffbits.erase(bit);
+
+						initwires.insert(wire);
+					}
+
+				for (auto wire : initwires)
+				{
+					Const &initval = wire->attributes["\\init"];
+
+					for (int i = 0; i < GetSize(wire); i++)
+						if (GetSize(initval) <= i)
+							initval.bits.push_back(worker.next_bit());
+						else if (initval.bits[i] == State::Sx)
+							initval.bits[i] = worker.next_bit();
 				}
 			}
 
