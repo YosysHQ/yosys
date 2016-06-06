@@ -143,7 +143,7 @@ struct SnippetSwCache
 	}
 };
 
-RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw)
+RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw, bool ifxmode)
 {
 	std::stringstream sstr;
 	sstr << "$procmux$" << (autoidx++);
@@ -164,14 +164,14 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		if (comp.size() == 0)
 			return RTLIL::SigSpec();
 
-		if (sig.size() == 1 && comp == RTLIL::SigSpec(1,1))
+		if (sig.size() == 1 && comp == RTLIL::SigSpec(1,1) && !ifxmode)
 		{
 			mod->connect(RTLIL::SigSig(RTLIL::SigSpec(cmp_wire, cmp_wire->width++), sig));
 		}
 		else
 		{
 			// create compare cell
-			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str().c_str(), cmp_wire->width), "$eq");
+			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str().c_str(), cmp_wire->width), ifxmode ? "$eqx" : "$eq");
 			eq_cell->attributes = sw->attributes;
 
 			eq_cell->parameters["\\A_SIGNED"] = RTLIL::Const(0);
@@ -211,7 +211,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	return RTLIL::SigSpec(ctrl_wire);
 }
 
-RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw)
+RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::SigSpec else_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw, bool ifxmode)
 {
 	log_assert(when_signal.size() == else_signal.size());
 
@@ -223,7 +223,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		return when_signal;
 
 	// compare results
-	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
+	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, ifxmode);
 	if (ctrl_sig.size() == 0)
 		return when_signal;
 	log_assert(ctrl_sig.size() == 1);
@@ -245,7 +245,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	return RTLIL::SigSpec(result_wire);
 }
 
-void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw)
+void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw, bool ifxmode)
 {
 	log_assert(last_mux_cell != NULL);
 	log_assert(when_signal.size() == last_mux_cell->getPort("\\A").size());
@@ -253,7 +253,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 	if (when_signal == last_mux_cell->getPort("\\A"))
 		return;
 
-	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw);
+	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, ifxmode);
 	log_assert(ctrl_sig.size() == 1);
 	last_mux_cell->type = "$pmux";
 
@@ -269,7 +269,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 }
 
 RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool, hash_ptr_ops> &swpara,
-		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval)
+		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode)
 {
 	RTLIL::SigSpec result = defval;
 
@@ -332,7 +332,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 				for (auto pat : cs2->compare)
 					if (!pat.is_fully_const())
 						extra_group_for_next_case = true;
-					else
+					else if (!ifxmode)
 						pool.take(pat);
 			}
 		}
@@ -343,18 +343,18 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 		for (size_t i = 0; i < sw->cases.size(); i++) {
 			int case_idx = sw->cases.size() - i - 1;
 			RTLIL::CaseRule *cs2 = sw->cases[case_idx];
-			RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, cs2, sig, initial_val);
+			RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, cs2, sig, initial_val, ifxmode);
 			if (last_mux_cell && pgroups[case_idx] == pgroups[case_idx+1])
-				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw);
+				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw, ifxmode);
 			else
-				result = gen_mux(mod, sw->signal, cs2->compare, value, result, last_mux_cell, sw);
+				result = gen_mux(mod, sw->signal, cs2->compare, value, result, last_mux_cell, sw, ifxmode);
 		}
 	}
 
 	return result;
 }
 
-void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc)
+void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 {
 	log("Creating decoders for process `%s.%s'.\n", mod->name.c_str(), proc->name.c_str());
 
@@ -375,7 +375,7 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc)
 
 		log("%6d/%d: %s\n", ++cnt, GetSize(sigsnip.snippets), log_signal(sig));
 
-		RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.size()));
+		RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.size()), ifxmode);
 		mod->connect(RTLIL::SigSig(sig, value));
 	}
 }
@@ -386,23 +386,37 @@ struct ProcMuxPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    proc_mux [selection]\n");
+		log("    proc_mux [options] [selection]\n");
 		log("\n");
 		log("This pass converts the decision trees in processes (originating from if-else\n");
 		log("and case statements) to trees of multiplexer cells.\n");
 		log("\n");
+		log("    -ifx\n");
+		log("        Use Verilog simulation behavior with respect to undef values in\n");
+		log("        'case' expressions and 'if' conditions.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool ifxmode = false;
 		log_header(design, "Executing PROC_MUX pass (convert decision trees to multiplexers).\n");
 
-		extra_args(args, 1, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-ifx") {
+				ifxmode = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		for (auto mod : design->modules())
 			if (design->selected(mod))
 				for (auto &proc_it : mod->processes)
 					if (design->selected(mod, proc_it.second))
-						proc_mux(mod, proc_it.second);
+						proc_mux(mod, proc_it.second, ifxmode);
 	}
 } ProcMuxPass;
 

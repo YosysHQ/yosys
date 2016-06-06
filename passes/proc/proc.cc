@@ -52,10 +52,15 @@ struct ProcPass : public Pass {
 		log("    -global_arst [!]<netname>\n");
 		log("        This option is passed through to proc_arst.\n");
 		log("\n");
+		log("    -ifx\n");
+		log("        This option is passed through to proc_mux. proc_rmdead is not\n");
+		log("        executed in -ifx mode.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::string global_arst;
+		bool ifxmode = false;
 
 		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
 		log_push();
@@ -67,18 +72,23 @@ struct ProcPass : public Pass {
 				global_arst = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-ifx") {
+				ifxmode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		Pass::call(design, "proc_clean");
-		Pass::call(design, "proc_rmdead");
+		if (!ifxmode)
+			Pass::call(design, "proc_rmdead");
 		Pass::call(design, "proc_init");
 		if (global_arst.empty())
 			Pass::call(design, "proc_arst");
 		else
 			Pass::call(design, "proc_arst -global_arst " + global_arst);
-		Pass::call(design, "proc_mux");
+		Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
 		Pass::call(design, "proc_dlatch");
 		Pass::call(design, "proc_dff");
 		Pass::call(design, "proc_clean");

@@ -46,6 +46,10 @@ struct PrepPass : public ScriptPass
 		log("        flatten the design before synthesis. this will pass '-auto-top' to\n");
 		log("        'hierarchy' if no top module is specified.\n");
 		log("\n");
+		log("    -ifx\n");
+		log("        passed to 'proc'. uses verilog simulation behavior for verilog if/case\n");
+		log("        undef handling\n");
+		log("\n");
 		log("    -nordff\n");
 		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
@@ -61,13 +65,14 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts;
-	bool flatten;
+	bool flatten, ifxmode;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
 		top_module.clear();
 		memory_opts.clear();
 		flatten = false;
+		ifxmode = false;
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -94,6 +99,10 @@ struct PrepPass : public ScriptPass
 			}
 			if (args[argidx] == "-flatten") {
 				flatten = true;
+				continue;
+			}
+			if (args[argidx] == "-ifx") {
+				ifxmode = true;
 				continue;
 			}
 			if (args[argidx] == "-nordff") {
@@ -135,7 +144,7 @@ struct PrepPass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc");
+			run(ifxmode ? "proc -ifx" : "proc");
 			if (help_mode || flatten)
 				run("flatten", "(if -flatten)");
 			run("opt_expr -keepdc");
