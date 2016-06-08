@@ -48,7 +48,7 @@ struct PrepPass : public ScriptPass
 		log("\n");
 		log("    -ifx\n");
 		log("        passed to 'proc'. uses verilog simulation behavior for verilog if/case\n");
-		log("        undef handling\n");
+		log("        undef handling. this also prevents 'wreduce' from being run.\n");
 		log("\n");
 		log("    -nordff\n");
 		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
@@ -151,7 +151,8 @@ struct PrepPass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt -keepdc");
-			run("wreduce");
+			if (!ifxmode)
+				run("wreduce");
 			run("memory_dff" + (help_mode ? " [-nordff]" : memory_opts));
 			run("opt_clean");
 			run("memory_collect");
