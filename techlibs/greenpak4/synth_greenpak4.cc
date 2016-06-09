@@ -167,9 +167,9 @@ struct SynthGreenPAK4Pass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			if (help_mode || part == "SLG46140V") run("nlutmap -luts 0,6,8,2", " (for -part SLG46140V)");
-			if (help_mode || part == "SLG46620V") run("nlutmap -luts 2,8,16,2", "(for -part SLG46620V)");
-			if (help_mode || part == "SLG46621V") run("nlutmap -luts 2,8,16,2", "(for -part SLG46621V)");
+			if (help_mode || part == "SLG46140V") run("nlutmap -assert -luts 0,6,8,2", " (for -part SLG46140V)");
+			if (help_mode || part == "SLG46620V") run("nlutmap -assert -luts 2,8,16,2", "(for -part SLG46620V)");
+			if (help_mode || part == "SLG46621V") run("nlutmap -assert -luts 2,8,16,2", "(for -part SLG46621V)");
 			run("clean");
 		}
 

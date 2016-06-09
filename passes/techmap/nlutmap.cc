@@ -26,6 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct NlutmapConfig
 {
 	vector<int> luts;
+	bool assert_mode = false;
 };
 
 struct NlutmapWorker
@@ -116,6 +117,12 @@ struct NlutmapWorker
 				available_luts.back() += n_luts;
 		}
 
+		if (config.assert_mode) {
+			for (auto cell : module->cells())
+				if (cell->type == "$lut" && !mapped_cells.count(cell))
+					log_error("Insufficient number of LUTs to map all logic cells!\n");
+		}
+
 		run_abc(0);
 	}
 };
@@ -134,6 +141,9 @@ struct NlutmapPass : public Pass {
 		log("    -luts N_1,N_2,N_3,...\n");
 		log("        The number of LUTs with 1, 2, 3, ... inputs that are\n");
 		log("        available in the target architecture.\n");
+		log("\n");
+		log("    -assert\n");
+		log("        Create an error if not all logic can be mapped\n");
 		log("\n");
 		log("Excess logic that does not fit into the specified LUTs is mapped back\n");
 		log("to generic logic gates ($_AND_, etc.).\n");
@@ -154,6 +164,10 @@ struct NlutmapPass : public Pass {
 				config.luts.clear();
 				for (auto &token : tokens)
 					config.luts.push_back(atoi(token.c_str()));
+				continue;
+			}
+			if (args[argidx] == "-assert") {
+				config.assert_mode = true;
 				continue;
 			}
 			break;
