@@ -366,21 +366,33 @@ struct CellTypes
 			while (GetSize(t) < width*depth*2)
 				t.push_back(RTLIL::S0);
 
+			RTLIL::State default_ret = State::S0;
+
 			for (int i = 0; i < depth; i++)
 			{
 				bool match = true;
+				bool match_x = true;
 
 				for (int j = 0; j < width; j++) {
 					RTLIL::State a = arg1.bits.at(j);
-					if (t.at(2*width*i + 2*j + 0) == State::S1 && a == State::S1) match = false;
-					if (t.at(2*width*i + 2*j + 1) == State::S1 && a == State::S0) match = false;
+					if (t.at(2*width*i + 2*j + 0) == State::S1) {
+						if (a == State::S1) match_x = false;
+						if (a != State::S0) match = false;
+					}
+					if (t.at(2*width*i + 2*j + 1) == State::S1) {
+						if (a == State::S0) match_x = false;
+						if (a != State::S1) match = false;
+					}
 				}
 
 				if (match)
 					return State::S1;
+
+				if (match_x)
+					default_ret = State::Sx;
 			}
 
-			return State::S0;
+			return default_ret;
 		}
 
 		bool signed_a = cell->parameters.count("\\A_SIGNED") > 0 && cell->parameters["\\A_SIGNED"].as_bool();

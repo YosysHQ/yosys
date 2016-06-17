@@ -321,6 +321,36 @@ void simplemap_lut(RTLIL::Module *module, RTLIL::Cell *cell)
 	module->connect(cell->getPort("\\Y"), lut_data);
 }
 
+void simplemap_sop(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	SigSpec ctrl = cell->getPort("\\A");
+	SigSpec table = cell->getParam("\\TABLE");
+
+	int width = cell->getParam("\\WIDTH").as_int();
+	int depth = cell->getParam("\\DEPTH").as_int();
+	table.extend_u0(2 * width * depth);
+
+	SigSpec products;
+
+	for (int i = 0; i < depth; i++) {
+		SigSpec in, pat;
+		for (int j = 0; j < width; j++) {
+			if (table[2*i*width + 2*j + 0] == State::S1) {
+				in.append(ctrl[j]);
+				pat.append(State::S0);
+			}
+			if (table[2*i*width + 2*j + 1] == State::S1) {
+				in.append(ctrl[j]);
+				pat.append(State::S1);
+			}
+		}
+
+		products.append(GetSize(in) > 0 ? module->Eq(NEW_ID, in, pat) : State::S1);
+	}
+
+	module->connect(cell->getPort("\\Y"), module->ReduceOr(NEW_ID, products));
+}
+
 void simplemap_slice(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	int offset = cell->parameters.at("\\OFFSET").as_int();
@@ -498,6 +528,7 @@ void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTL
 	mappers["$mux"]         = simplemap_mux;
 	mappers["$tribuf"]      = simplemap_tribuf;
 	mappers["$lut"]         = simplemap_lut;
+	mappers["$sop"]         = simplemap_sop;
 	mappers["$slice"]       = simplemap_slice;
 	mappers["$concat"]      = simplemap_concat;
 	mappers["$sr"]          = simplemap_sr;

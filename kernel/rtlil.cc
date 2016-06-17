@@ -2142,7 +2142,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		return;
 	}
 
-	if (type == "$lut") {
+	if (type == "$lut" || type == "$sop") {
 		parameters["\\WIDTH"] = GetSize(connections_["\\A"]);
 		return;
 	}

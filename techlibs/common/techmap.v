@@ -452,7 +452,7 @@ endmodule
 
 `ifndef NOLUT
 (* techmap_simplemap *)
-(* techmap_celltype = "$lut" *)
+(* techmap_celltype = "$lut $sop" *)
 module _90_lut;
 endmodule
 `endif

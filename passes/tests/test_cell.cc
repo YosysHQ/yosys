@@ -164,6 +164,41 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setParam("\\LUT", config.as_const());
 	}
 
+	if (cell_type == "$sop")
+	{
+		int width = 1 + xorshift32(8);
+		int depth = 1 + xorshift32(8);
+
+		wire = module->addWire("\\A");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\A", wire);
+
+		wire = module->addWire("\\Y");
+		wire->port_output = true;
+		cell->setPort("\\Y", wire);
+
+		RTLIL::SigSpec config;
+		for (int i = 0; i < width*depth; i++)
+			switch (xorshift32(3)) {
+				case 0:
+					config.append(RTLIL::S1);
+					config.append(RTLIL::S0);
+					break;
+				case 1:
+					config.append(RTLIL::S0);
+					config.append(RTLIL::S1);
+					break;
+				case 2:
+					config.append(RTLIL::S0);
+					config.append(RTLIL::S0);
+					break;
+			}
+
+		cell->setParam("\\DEPTH", depth);
+		cell->setParam("\\TABLE", config.as_const());
+	}
+
 	if (cell_type_flags.find('A') != std::string::npos) {
 		wire = module->addWire("\\A");
 		wire->width = 1 + xorshift32(8);
@@ -534,7 +569,7 @@ struct TestCellPass : public Pass {
 		log("        pass this option to techmap.\n");
 		log("\n");
 		log("    -simlib\n");
-		log("        use \"techmap -map +/simlib.v -max_iter 2 -autoproc\"\n");
+		log("        use \"techmap -D SIMLIB_NOCHECKS -map +/simlib.v -max_iter 2 -autoproc\"\n");
 		log("\n");
 		log("    -aigmap\n");
 		log("        instead of calling \"techmap\", call \"aigmap\"\n");
@@ -604,7 +639,7 @@ struct TestCellPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-simlib") {
-				techmap_cmd = "techmap -map +/simlib.v -max_iter 2 -autoproc";
+				techmap_cmd = "techmap -D SIMLIB_NOCHECKS -map +/simlib.v -max_iter 2 -autoproc";
 				continue;
 			}
 			if (args[argidx] == "-aigmap") {
@@ -697,6 +732,7 @@ struct TestCellPass : public Pass {
 		// cell_types["$assert"] = "A";
 
 		cell_types["$lut"] = "*";
+		cell_types["$sop"] = "*";
 		cell_types["$alu"] = "ABSY";
 		cell_types["$lcu"] = "*";
 		cell_types["$macc"] = "*";
