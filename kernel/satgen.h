@@ -1048,6 +1048,88 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$sop")
+		{
+			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
+			int y = importDefSigSpec(cell->getPort("\\Y"), timestep).at(0);
+
+			int width = cell->getParam("\\WIDTH").as_int();
+			int depth = cell->getParam("\\DEPTH").as_int();
+
+			vector<State> table_raw = cell->getParam("\\TABLE").bits;
+			while (GetSize(table_raw) < 2*width*depth)
+				table_raw.push_back(State::S0);
+
+			vector<vector<int>> table(depth);
+
+			for (int i = 0; i < depth; i++)
+			for (int j = 0; j < width; j++)
+			{
+				bool pat0 = (table_raw[2*width*i + 2*j + 0] == State::S1);
+				bool pat1 = (table_raw[2*width*i + 2*j + 1] == State::S1);
+
+				if (pat0 && !pat1)
+					table.at(i).push_back(0);
+				else if (!pat0 && pat1)
+					table.at(i).push_back(1);
+				else
+					table.at(i).push_back(-1);
+			}
+
+			if (model_undef)
+			{
+				std::vector<int> products, undef_products;
+				std::vector<int> undef_a = importUndefSigSpec(cell->getPort("\\A"), timestep);
+				int undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep).at(0);
+
+				for (int i = 0; i < depth; i++)
+				{
+					std::vector<int> cmp_a, cmp_ua, cmp_b;
+
+					for (int j = 0; j < width; j++)
+						if (table.at(i).at(j) >= 0) {
+							cmp_a.push_back(a.at(j));
+							cmp_ua.push_back(undef_a.at(j));
+							cmp_b.push_back(table.at(i).at(j) ? ez->CONST_TRUE : ez->CONST_FALSE);
+						}
+
+					std::vector<int> masked_a = ez->vec_or(cmp_a, cmp_ua);
+					std::vector<int> masked_b = ez->vec_or(cmp_b, cmp_ua);
+
+					int masked_eq = ez->vec_eq(masked_a, masked_b);
+					int any_undef = ez->expression(ezSAT::OpOr, cmp_ua);
+
+					undef_products.push_back(ez->AND(any_undef, masked_eq));
+					products.push_back(ez->AND(ez->NOT(any_undef), masked_eq));
+				}
+
+				int yy = ez->expression(ezSAT::OpOr, products);
+				ez->SET(undef_y, ez->AND(ez->NOT(yy), ez->expression(ezSAT::OpOr, undef_products)));
+				undefGating(y, yy, undef_y);
+			}
+			else
+			{
+				std::vector<int> products;
+
+				for (int i = 0; i < depth; i++)
+				{
+					std::vector<int> cmp_a, cmp_b;
+
+					for (int j = 0; j < width; j++)
+						if (table.at(i).at(j) >= 0) {
+							cmp_a.push_back(a.at(j));
+							cmp_b.push_back(table.at(i).at(j) ? ez->CONST_TRUE : ez->CONST_FALSE);
+						}
+
+					products.push_back(ez->vec_eq(cmp_a, cmp_b));
+				}
+
+				ez->SET(y, ez->expression(ezSAT::OpOr, products));
+			}
+
+			return true;
+		}
+
 		if (cell->type == "$fa")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
