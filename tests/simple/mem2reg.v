@@ -19,9 +19,9 @@ endmodule
 
 // ------------------------------------------------------
 
-module mem2reg_test2(clk, mode, addr, data);
+module mem2reg_test2(clk, reset, mode, addr, data);
 
-input clk, mode;
+input clk, reset, mode;
 input [2:0] addr;
 output [3:0] data;
 
@@ -33,6 +33,10 @@ assign data = mem[addr];
 integer i;
 
 always @(posedge clk) begin
+	if (reset) begin
+		for (i=0; i<8; i=i+1)
+			mem[i] <= i;
+	end else
 	if (mode) begin
 		for (i=0; i<8; i=i+1)
 			mem[i] <= mem[i]+1;
