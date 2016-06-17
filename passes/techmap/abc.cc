@@ -32,13 +32,13 @@
 #define ABC_COMMAND_LIB "strash; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}"
 #define ABC_COMMAND_CTR "strash; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_COMMAND_LUT "strash; scorr; ifraig; retime -o; strash; dch -f; if; mfs"
-#define ABC_COMMAND_SOP "strash; scorr; ifraig; retime -o; strash; dch -f; cover"
+#define ABC_COMMAND_SOP "strash; scorr; ifraig; retime -o; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; scorr; ifraig; retime -o; strash; dch -f; map"
 
 #define ABC_FAST_COMMAND_LIB "retime -o {D}; map {D}"
 #define ABC_FAST_COMMAND_CTR "retime -o {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_FAST_COMMAND_LUT "retime -o; if"
-#define ABC_FAST_COMMAND_SOP "retime -o; cover"
+#define ABC_FAST_COMMAND_SOP "retime -o; cover -I {I} -P {P}"
 #define ABC_FAST_COMMAND_DFL "retime -o; map"
 
 #include "kernel/register.h"
@@ -595,7 +595,8 @@ struct abc_output_filter
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, bool fast_mode, const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
+		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, bool fast_mode,
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -661,6 +662,12 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
+
+	for (size_t pos = abc_script.find("{I}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
+		abc_script = abc_script.substr(0, pos) + sop_inputs + abc_script.substr(pos+3);
+
+	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
+		abc_script = abc_script.substr(0, pos) + sop_products + abc_script.substr(pos+3);
 
 	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
@@ -1250,6 +1257,14 @@ struct AbcPass : public Pass {
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise.\n");
 		log("\n");
+		log("    -I <num>\n");
+		log("        maximum number of SOP inputs.\n");
+		log("        (replaces {I} in the default scripts above)\n");
+		log("\n");
+		log("    -P <num>\n");
+		log("        maximum number of SOP products.\n");
+		log("        (replaces {P} in the default scripts above)\n");
+		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
 		log("\n");
@@ -1264,7 +1279,7 @@ struct AbcPass : public Pass {
 		log("        2, 3, .. inputs.\n");
 		log("\n");
 		log("    -sop\n");
-		log("        map to sum-of-product cells\n");
+		log("        map to sum-of-product cells and inverters\n");
 		log("\n");
 		// log("    -mux4, -mux8, -mux16\n");
 		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
@@ -1320,7 +1335,8 @@ struct AbcPass : public Pass {
 #else
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 #endif
-		std::string script_file, liberty_file, constr_file, clk_str, delay_target;
+		std::string script_file, liberty_file, constr_file, clk_str;
+		std::string delay_target, sop_inputs, sop_products;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
 		vector<int> lut_costs;
@@ -1370,6 +1386,14 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-D" && argidx+1 < args.size()) {
 				delay_target = "-D " + args[++argidx];
+				continue;
+			}
+			if (arg == "-I" && argidx+1 < args.size()) {
+				sop_inputs = "-I " + args[++argidx];
+				continue;
+			}
+			if (arg == "-P" && argidx+1 < args.size()) {
+				sop_products = "-P " + args[++argidx];
 				continue;
 			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
@@ -1483,7 +1507,8 @@ struct AbcPass : public Pass {
 			if (mod->processes.size() > 0)
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 			else if (!dff_mode || !clk_str.empty())
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff, delay_target, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
+				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+						delay_target, sop_inputs, sop_products, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
 			else
 			{
 				assign_map.set(mod);
@@ -1627,8 +1652,8 @@ struct AbcPass : public Pass {
 					clk_sig = assign_map(std::get<1>(it.first));
 					en_polarity = std::get<2>(it.first);
 					en_sig = assign_map(std::get<3>(it.first));
-					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs,
-							!clk_sig.empty(), "$", keepff, delay_target, fast_mode, it.second, show_tempdir, sop_mode);
+					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+							keepff, delay_target, sop_inputs, sop_products, fast_mode, it.second, show_tempdir, sop_mode);
 					assign_map.set(mod);
 				}
 			}
