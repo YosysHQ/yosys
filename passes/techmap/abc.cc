@@ -29,11 +29,11 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}"
-#define ABC_COMMAND_CTR "strash; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; scorr; ifraig; retime -o; strash; dch -f; if; mfs"
-#define ABC_COMMAND_SOP "strash; scorr; ifraig; retime -o; strash; dch -f; cover {I} {P}"
-#define ABC_COMMAND_DFL "strash; scorr; ifraig; retime -o; strash; dch -f; map"
+#define ABC_COMMAND_LIB "strash; dc2; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}"
+#define ABC_COMMAND_CTR "strash; dc2; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_LUT "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; if; mfs"
+#define ABC_COMMAND_SOP "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; cover {I} {P}"
+#define ABC_COMMAND_DFL "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; map"
 
 #define ABC_FAST_COMMAND_LIB "retime -o {D}; map {D}"
 #define ABC_FAST_COMMAND_CTR "retime -o {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
