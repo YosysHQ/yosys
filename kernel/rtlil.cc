@@ -845,6 +845,15 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$sop") {
+				param("\\DEPTH");
+				param("\\TABLE");
+				port("\\A", param("\\WIDTH"));
+				port("\\Y", 1);
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$sr") {
 				param_bool("\\SET_POLARITY");
 				param_bool("\\CLR_POLARITY");

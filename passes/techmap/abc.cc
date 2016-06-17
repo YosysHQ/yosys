@@ -32,11 +32,13 @@
 #define ABC_COMMAND_LIB "strash; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}"
 #define ABC_COMMAND_CTR "strash; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_COMMAND_LUT "strash; scorr; ifraig; retime -o; strash; dch -f; if; mfs"
+#define ABC_COMMAND_SOP "strash; scorr; ifraig; retime -o; strash; dch -f; cover"
 #define ABC_COMMAND_DFL "strash; scorr; ifraig; retime -o; strash; dch -f; map"
 
 #define ABC_FAST_COMMAND_LIB "retime -o {D}; map {D}"
 #define ABC_FAST_COMMAND_CTR "retime -o {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_FAST_COMMAND_LUT "retime -o; if"
+#define ABC_FAST_COMMAND_SOP "retime -o; cover"
 #define ABC_FAST_COMMAND_DFL "retime -o; map"
 
 #include "kernel/register.h"
@@ -593,7 +595,7 @@ struct abc_output_filter
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, bool fast_mode, const std::vector<RTLIL::Cell*> &cells, bool show_tempdir)
+		bool keepff, std::string delay_target, bool fast_mode, const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -652,6 +654,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			abc_script += "; lutpack";
 	} else if (!liberty_file.empty())
 		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
+	else if (sop_mode)
+		abc_script += fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
 	else
 		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
 
@@ -898,9 +902,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
-		bool builtin_lib = liberty_file.empty() && script_file.empty() && lut_costs.empty();
+		bool builtin_lib = liberty_file.empty() && script_file.empty() && lut_costs.empty() && !sop_mode;
 		RTLIL::Design *mapped_design = new RTLIL::Design;
-		parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_");
+		parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
 
 		ifs.close();
 
@@ -1202,6 +1206,9 @@ struct AbcPass : public Pass {
 		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT).c_str());
 		log("\n");
+		log("        for -sop:\n");
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_SOP).c_str());
+		log("\n");
 		log("        otherwise:\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL).c_str());
 		log("\n");
@@ -1217,6 +1224,9 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("        for -lut/-luts:\n");
 		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("\n");
+		log("        for -sop:\n");
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_SOP).c_str());
 		log("\n");
 		log("        otherwise:\n");
 		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_DFL).c_str());
@@ -1252,6 +1262,9 @@ struct AbcPass : public Pass {
 		log("    -luts <cost1>,<cost2>,<cost3>,<sizeN>:<cost4-N>,..\n");
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
+		log("\n");
+		log("    -sop\n");
+		log("        map to sum-of-product cells\n");
 		log("\n");
 		// log("    -mux4, -mux8, -mux16\n");
 		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
@@ -1309,7 +1322,7 @@ struct AbcPass : public Pass {
 #endif
 		std::string script_file, liberty_file, constr_file, clk_str, delay_target;
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
-		bool show_tempdir = false;
+		bool show_tempdir = false, sop_mode = false;
 		vector<int> lut_costs;
 		markgroups = false;
 
@@ -1393,6 +1406,10 @@ struct AbcPass : public Pass {
 				}
 				continue;
 			}
+			if (arg == "-sop") {
+				sop_mode = true;
+				continue;
+			}
 			if (arg == "-mux4") {
 				map_mux4 = true;
 				continue;
@@ -1466,7 +1483,7 @@ struct AbcPass : public Pass {
 			if (mod->processes.size() > 0)
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 			else if (!dff_mode || !clk_str.empty())
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff, delay_target, fast_mode, mod->selected_cells(), show_tempdir);
+				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff, delay_target, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
 			else
 			{
 				assign_map.set(mod);
@@ -1611,7 +1628,7 @@ struct AbcPass : public Pass {
 					en_polarity = std::get<2>(it.first);
 					en_sig = assign_map(std::get<3>(it.first));
 					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs,
-							!clk_sig.empty(), "$", keepff, delay_target, fast_mode, it.second, show_tempdir);
+							!clk_sig.empty(), "$", keepff, delay_target, fast_mode, it.second, show_tempdir, sop_mode);
 					assign_map.set(mod);
 				}
 			}

@@ -49,12 +49,13 @@ static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, 
 	}
 }
 
-void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bool run_clean)
+void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bool run_clean, bool sop_mode)
 {
 	RTLIL::Module *module = nullptr;
 	RTLIL::Const *lutptr = NULL;
+	RTLIL::Cell *sopcell = NULL;
 	RTLIL::State lut_default_state = RTLIL::State::Sx;
-	int blif_maxnum = 0;
+	int blif_maxnum = 0, sopmode = -1;
 
 	auto blif_wire = [&](const std::string &wire_name) -> Wire*
 	{
@@ -114,6 +115,11 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 						bit = lut_default_state;
 				lutptr = NULL;
 				lut_default_state = RTLIL::State::Sx;
+			}
+
+			if (sopcell) {
+				sopcell = NULL;
+				sopmode = -1;
 			}
 
 			char *cmd = strtok(buffer, " \t\r\n");
@@ -344,20 +350,33 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 					goto continue_without_read;
 				}
 
-				RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
-				cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
-				cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
-				cell->setPort("\\A", input_sig);
-				cell->setPort("\\Y", output_sig);
-				lutptr = &cell->parameters.at("\\LUT");
-				lut_default_state = RTLIL::State::Sx;
+				if (sop_mode)
+				{
+					sopcell = module->addCell(NEW_ID, "$sop");
+					sopcell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
+					sopcell->parameters["\\DEPTH"] = 0;
+					sopcell->parameters["\\TABLE"] = RTLIL::Const();
+					sopcell->setPort("\\A", input_sig);
+					sopcell->setPort("\\Y", output_sig);
+					sopmode = -1;
+				}
+				else
+				{
+					RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
+					cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
+					cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
+					cell->setPort("\\A", input_sig);
+					cell->setPort("\\Y", output_sig);
+					lutptr = &cell->parameters.at("\\LUT");
+					lut_default_state = RTLIL::State::Sx;
+				}
 				continue;
 			}
 
 			goto error;
 		}
 
-		if (lutptr == NULL)
+		if (lutptr == NULL && sopcell == NULL)
 			goto error;
 
 		char *input = strtok(buffer, " \t\r\n");
@@ -367,23 +386,60 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 			goto error;
 
 		int input_len = strlen(input);
-		if (input_len > 8)
-			goto error;
 
-		for (int i = 0; i < (1 << input_len); i++) {
-			for (int j = 0; j < input_len; j++) {
-				char c1 = input[j];
-				if (c1 != '-') {
-					char c2 = (i & (1 << j)) != 0 ? '1' : '0';
-					if (c1 != c2)
-						goto try_next_value;
+		if (sopcell)
+		{
+			log_assert(sopcell->parameters["\\WIDTH"].as_int() == input_len);
+			sopcell->parameters["\\DEPTH"] = sopcell->parameters["\\DEPTH"].as_int() + 1;
+
+			for (int i = 0; i < input_len; i++)
+				switch (input[i]) {
+					case '0':
+						sopcell->parameters["\\TABLE"].bits.push_back(State::S1);
+						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
+						break;
+					case '1':
+						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
+						sopcell->parameters["\\TABLE"].bits.push_back(State::S1);
+						break;
+					default:
+						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
+						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
+						break;
 				}
-			}
-			lutptr->bits.at(i) = !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1;
-		try_next_value:;
+
+			if (sopmode == -1) {
+				sopmode = (*output == '1');
+				if (!sopmode) {
+					SigSpec outnet = sopcell->getPort("\\Y");
+					SigSpec tempnet = module->addWire(NEW_ID);
+					module->addNotGate(NEW_ID, tempnet, outnet);
+					sopcell->setPort("\\Y", tempnet);
+				}
+			} else
+				log_assert(sopmode == (*output == '1'));
 		}
 
-		lut_default_state = !strcmp(output, "0") ? RTLIL::State::S1 : RTLIL::State::S0;
+		if (lutptr)
+		{
+			if (input_len > 8)
+				goto error;
+
+			for (int i = 0; i < (1 << input_len); i++) {
+				for (int j = 0; j < input_len; j++) {
+					char c1 = input[j];
+					if (c1 != '-') {
+						char c2 = (i & (1 << j)) != 0 ? '1' : '0';
+						if (c1 != c2)
+							goto try_next_value;
+					}
+				}
+				lutptr->bits.at(i) = !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1;
+			try_next_value:;
+			}
+
+			lut_default_state = !strcmp(output, "0") ? RTLIL::State::S1 : RTLIL::State::S0;
+		}
 	}
 
 error:
