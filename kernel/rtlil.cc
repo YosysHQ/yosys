@@ -304,7 +304,7 @@ RTLIL::Design::~Design()
 {
 	for (auto it = modules_.begin(); it != modules_.end(); ++it)
 		delete it->second;
-	for (auto n : packages)
+	for (auto n : verilog_packages)
 		delete n;
 }
 

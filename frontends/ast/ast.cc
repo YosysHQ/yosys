@@ -997,7 +997,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			for (auto n : global_decls)
 				(*it)->children.push_back(n->clone());
 
-			for (auto n : design->packages){
+			for (auto n : design->verilog_packages){
 				for (auto o : n->children) {
 					AstNode *cloned_node = o->clone();
 					cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
@@ -1023,7 +1023,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			design->add(process_module(*it, defer));
 		}
 		else if ((*it)->type == AST_PACKAGE){
-			design->packages.push_back((*it)->clone());
+			design->verilog_packages.push_back((*it)->clone());
 		}
 		else
 			global_decls.push_back(*it);

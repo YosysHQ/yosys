@@ -18,7 +18,6 @@
  */
 
 #include "kernel/yosys.h"
-#include "frontends/ast/ast.h"
 
 #ifndef RTLIL_H
 #define RTLIL_H
@@ -793,7 +792,7 @@ struct RTLIL::Design
 
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
-	std::vector<AST::AstNode*> packages;
+	std::vector<AST::AstNode*> verilog_packages;
 
 	std::vector<RTLIL::Selection> selection_stack;
 	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;
