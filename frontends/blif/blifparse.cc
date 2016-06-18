@@ -456,23 +456,28 @@ struct BlifFrontend : public Frontend {
 		log("\n");
 		log("Load modules from a BLIF file into the current design.\n");
 		log("\n");
+		log("    -sop\n");
+		log("        Create $sop cells instead of $lut cells\n");
+		log("\n");
 	}
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool sop_mode = false;
+
 		log_header(design, "Executing BLIF frontend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			// if (arg == "-lib") {
-			// 	flag_lib = true;
-			// 	continue;
-			// }
+			if (arg == "-sop") {
+				sop_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
-		parse_blif(design, *f, "\\DFF", true);
+		parse_blif(design, *f, "\\DFF", true, sop_mode);
 	}
 } BlifFrontend;
 
