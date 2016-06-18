@@ -338,9 +338,8 @@ struct BlifDumper
 				auto &inputs = cell->getPort("\\A");
 				auto width = cell->parameters.at("\\WIDTH").as_int();
 				log_assert(inputs.size() == width);
-				for (int i = width-1; i >= 0; i--) {
+				for (int i = width-1; i >= 0; i--)
 					f << stringf(" %s", cstr(inputs.extract(i, 1)));
-				}
 				auto &output = cell->getPort("\\Y");
 				log_assert(output.size() == 1);
 				f << stringf(" %s", cstr(output));
@@ -353,6 +352,34 @@ struct BlifDumper
 						}
 						f << " 1\n";
 					}
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$sop") {
+				f << stringf(".names");
+				auto &inputs = cell->getPort("\\A");
+				auto width = cell->parameters.at("\\WIDTH").as_int();
+				auto depth = cell->parameters.at("\\DEPTH").as_int();
+				vector<State> table = cell->parameters.at("\\TABLE").bits;
+				while (GetSize(table) < 2*width*depth)
+					table.push_back(State::S0);
+				log_assert(inputs.size() == width);
+				for (int i = 0; i < width; i++)
+					f << stringf(" %s", cstr(inputs.extract(i, 1)));
+				auto &output = cell->getPort("\\Y");
+				log_assert(output.size() == 1);
+				f << stringf(" %s", cstr(output));
+				f << stringf("\n");
+				for (int i = 0; i < depth; i++) {
+					for (int j = 0; j < width; j++) {
+						bool pat0 = table.at(2*width*i + 2*j + 0) == State::S1;
+						bool pat1 = table.at(2*width*i + 2*j + 1) == State::S1;
+						if (pat0 && !pat1) f << "0";
+						else if (!pat0 && pat1) f << "1";
+						else f << "-";
+					}
+					f << " 1\n";
+				}
 				continue;
 			}
 
