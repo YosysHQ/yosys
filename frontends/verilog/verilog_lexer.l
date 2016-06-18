@@ -141,6 +141,8 @@ YOSYS_NAMESPACE_END
 "endfunction"  { return TOK_ENDFUNCTION; }
 "task"         { return TOK_TASK; }
 "endtask"      { return TOK_ENDTASK; }
+"package"      { SV_KEYWORD(TOK_PACKAGE); }
+"endpackage"   { SV_KEYWORD(TOK_ENDPACKAGE); }
 "parameter"    { return TOK_PARAMETER; }
 "localparam"   { return TOK_LOCALPARAM; }
 "defparam"     { return TOK_DEFPARAM; }
@@ -350,6 +352,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 ">>"  { return OP_SHR; }
 "<<<" { return OP_SSHL; }
 ">>>" { return OP_SSHR; }
+
+"::"  { SV_KEYWORD(TOK_PACKAGESEP); }
 
 "+:" { return TOK_POS_INDEXED; }
 "-:" { return TOK_NEG_INDEXED; }

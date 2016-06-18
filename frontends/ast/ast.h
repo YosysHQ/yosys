@@ -137,7 +137,9 @@ namespace AST
 
 		AST_POSEDGE,
 		AST_NEGEDGE,
-		AST_EDGE
+		AST_EDGE,
+
+		AST_PACKAGE
 	};
 
 	// convert an node type to a string (e.g. for debug output)

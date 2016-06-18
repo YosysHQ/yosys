@@ -806,6 +806,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENBLOCK:
 	case AST_GENIF:
 	case AST_GENCASE:
+	case AST_PACKAGE:
 		break;
 
 	// remember the parameter, needed for example in techmap
