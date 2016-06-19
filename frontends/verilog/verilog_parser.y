@@ -102,6 +102,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token <string> TOK_STRING TOK_ID TOK_CONST TOK_REALVAL TOK_PRIMITIVE
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
+%token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
@@ -155,6 +156,7 @@ design:
 	task_func_decl design |
 	param_decl design |
 	localparam_decl design |
+	package design |
 	/* empty */;
 
 attr:
@@ -210,6 +212,14 @@ attr_assign:
 
 hierarchical_id:
 	TOK_ID {
+		$$ = $1;
+	} |
+	hierarchical_id TOK_PACKAGESEP TOK_ID {
+		if ($3->substr(0, 1) == "\\")
+			*$1 += "::" + $3->substr(1);
+		else
+			*$1 += "::" + *$3;
+		delete $3;
 		$$ = $1;
 	} |
 	hierarchical_id '.' TOK_ID {
@@ -310,6 +320,25 @@ module_arg:
 	'.' '.' '.' {
 		do_not_require_port_stubs = true;
 	};
+
+package:
+	attr TOK_PACKAGE TOK_ID {
+		AstNode *mod = new AstNode(AST_PACKAGE);
+		ast_stack.back()->children.push_back(mod);
+		ast_stack.push_back(mod);
+		current_ast_mod = mod;
+		mod->str = *$3;
+		append_attr(mod, $1);
+	} ';' package_body TOK_ENDPACKAGE {
+		ast_stack.pop_back();
+		current_ast_mod = NULL;
+	};
+
+package_body:
+	package_body package_body_stmt |;
+
+package_body_stmt:
+	localparam_decl;
 
 non_opt_delay:
 	'#' '(' expr ')' { delete $3; } |

@@ -151,6 +151,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_POSEDGE)
 	X(AST_NEGEDGE)
 	X(AST_EDGE)
+	X(AST_PACKAGE)
 #undef X
 	default:
 		log_abort();
@@ -996,6 +997,14 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			for (auto n : global_decls)
 				(*it)->children.push_back(n->clone());
 
+			for (auto n : design->verilog_packages){
+				for (auto o : n->children) {
+					AstNode *cloned_node = o->clone();
+					cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
+					(*it)->children.push_back(cloned_node);
+				}
+			}
+
 			if (flag_icells && (*it)->str.substr(0, 2) == "\\$")
 				(*it)->str = (*it)->str.substr(1);
 
@@ -1012,6 +1021,9 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			}
 
 			design->add(process_module(*it, defer));
+		}
+		else if ((*it)->type == AST_PACKAGE){
+			design->verilog_packages.push_back((*it)->clone());
 		}
 		else
 			global_decls.push_back(*it);

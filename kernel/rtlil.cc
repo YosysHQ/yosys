@@ -304,6 +304,8 @@ RTLIL::Design::~Design()
 {
 	for (auto it = modules_.begin(); it != modules_.end(); ++it)
 		delete it->second;
+	for (auto n : verilog_packages)
+		delete n;
 }
 
 RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
