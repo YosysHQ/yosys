@@ -909,7 +909,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
-		bool builtin_lib = liberty_file.empty() && script_file.empty() && lut_costs.empty() && !sop_mode;
+		bool builtin_lib = liberty_file.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		parse_blif(mapped_design, ifs, builtin_lib ? "\\DFF" : "\\_dff_", false, sop_mode);
 
@@ -927,10 +927,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		}
 
 		std::map<std::string, int> cell_stats;
-		if (builtin_lib)
+		for (auto c : mapped_mod->cells())
 		{
-			for (auto &it : mapped_mod->cells_) {
-				RTLIL::Cell *c = it.second;
+			if (builtin_lib)
+			{
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 				if (c->type == "\\ZERO" || c->type == "\\ONE") {
 					RTLIL::SigSig conn;
@@ -1069,60 +1069,57 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				log_abort();
 			}
-		}
-		else
-		{
-			for (auto &it : mapped_mod->cells_)
-			{
-				RTLIL::Cell *c = it.second;
-				cell_stats[RTLIL::unescape_id(c->type)]++;
-				if (c->type == "\\_const0_" || c->type == "\\_const1_") {
-					RTLIL::SigSig conn;
-					conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->connections().begin()->second.as_wire()->name)]);
-					conn.second = RTLIL::SigSpec(c->type == "\\_const0_" ? 0 : 1, 1);
-					module->connect(conn);
-					continue;
+
+			cell_stats[RTLIL::unescape_id(c->type)]++;
+
+			if (c->type == "\\_const0_" || c->type == "\\_const1_") {
+				RTLIL::SigSig conn;
+				conn.first = RTLIL::SigSpec(module->wires_[remap_name(c->connections().begin()->second.as_wire()->name)]);
+				conn.second = RTLIL::SigSpec(c->type == "\\_const0_" ? 0 : 1, 1);
+				module->connect(conn);
+				continue;
+			}
+
+			if (c->type == "\\_dff_") {
+				log_assert(clk_sig.size() == 1);
+				RTLIL::Cell *cell;
+				if (en_sig.size() == 0) {
+					cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
+				} else {
+					log_assert(en_sig.size() == 1);
+					cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+					cell->setPort("\\E", en_sig);
 				}
-				if (c->type == "\\_dff_") {
-					log_assert(clk_sig.size() == 1);
-					RTLIL::Cell *cell;
-					if (en_sig.size() == 0) {
-						cell = module->addCell(remap_name(c->name), clk_polarity ? "$_DFF_P_" : "$_DFF_N_");
-					} else {
-						log_assert(en_sig.size() == 1);
-						cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
-						cell->setPort("\\E", en_sig);
-					}
-					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
-					cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
-					cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
-					cell->setPort("\\C", clk_sig);
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type == "$lut" && GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
-					SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
-					SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
-					module->connect(my_y, my_a);
-					continue;
-				}
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
 				if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
-				cell->parameters = c->parameters;
-				for (auto &conn : c->connections()) {
-					RTLIL::SigSpec newsig;
-					for (auto &c : conn.second.chunks()) {
-						if (c.width == 0)
-							continue;
-						log_assert(c.width == 1);
-						newsig.append(module->wires_[remap_name(c.wire->name)]);
-					}
-					cell->setPort(conn.first, newsig);
-				}
+				cell->setPort("\\D", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\D").as_wire()->name)]));
+				cell->setPort("\\Q", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\Q").as_wire()->name)]));
+				cell->setPort("\\C", clk_sig);
 				design->select(module, cell);
+				continue;
 			}
+
+			if (c->type == "$lut" && GetSize(c->getPort("\\A")) == 1 && c->getParam("\\LUT").as_int() == 2) {
+				SigSpec my_a = module->wires_[remap_name(c->getPort("\\A").as_wire()->name)];
+				SigSpec my_y = module->wires_[remap_name(c->getPort("\\Y").as_wire()->name)];
+				module->connect(my_y, my_a);
+				continue;
+			}
+
+			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
+			if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
+			cell->parameters = c->parameters;
+			for (auto &conn : c->connections()) {
+				RTLIL::SigSpec newsig;
+				for (auto &c : conn.second.chunks()) {
+					if (c.width == 0)
+						continue;
+					log_assert(c.width == 1);
+					newsig.append(module->wires_[remap_name(c.wire->name)]);
+				}
+				cell->setPort(conn.first, newsig);
+			}
+			design->select(module, cell);
 		}
 
 		for (auto conn : mapped_mod->connections()) {
