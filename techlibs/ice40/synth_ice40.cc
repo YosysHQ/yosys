@@ -169,6 +169,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("proc");
 			run("flatten");
 			run("tribuf -logic");
+			run("deminout");
 		}
 
 		if (check_label("coarse"))
