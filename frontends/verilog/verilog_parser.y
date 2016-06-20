@@ -311,7 +311,7 @@ module_arg:
 			node->children.push_back($3);
 		if (!node->is_input && !node->is_output)
 			frontend_verilog_yyerror("Module port `%s' is neither input nor output.", $4->c_str());
-		if (node->is_reg && node->is_input && !node->is_output)
+		if (node->is_reg && node->is_input && !node->is_output && !sv_mode)
 			frontend_verilog_yyerror("Input port `%s' is declared as register.", $4->c_str());
 		ast_stack.back()->children.push_back(node);
 		append_attr(node, $1);
@@ -764,7 +764,7 @@ wire_name:
 			if (port_stubs.count(*$1) != 0) {
 				if (!node->is_input && !node->is_output)
 					frontend_verilog_yyerror("Module port `%s' is neither input nor output.", $1->c_str());
-				if (node->is_reg && node->is_input && !node->is_output)
+				if (node->is_reg && node->is_input && !node->is_output && !sv_mode)
 					frontend_verilog_yyerror("Input port `%s' is declared as register.", $1->c_str());
 				node->port_id = port_stubs[*$1];
 				port_stubs.erase(*$1);
