@@ -57,6 +57,7 @@ struct Ice40FfinitPass : public Pass {
 			SigMap sigmap(module);
 			pool<Wire*> init_wires;
 			dict<SigBit, State> initbits;
+			dict<SigBit, SigBit> initbit_to_wire;
 			pool<SigBit> handled_initbits;
 
 			for (auto wire : module->selected_wires())
@@ -78,11 +79,14 @@ struct Ice40FfinitPass : public Pass {
 
 					if (initbits.count(bit)) {
 						if (initbits.at(bit) != val)
-							log_error("Conflicting init values for signal %s.\n", log_signal(bit));
+							log_error("Conflicting init values for signal %s (%s = %s, %s = %s).\n",
+									log_signal(bit), log_signal(SigBit(wire, i)), log_signal(val),
+									log_signal(initbit_to_wire[bit]), log_signal(initbits.at(bit)));
 						continue;
 					}
 
 					initbits[bit] = val;
+					initbit_to_wire[bit] = SigBit(wire, i);
 				}
 			}
 
