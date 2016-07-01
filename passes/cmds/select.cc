@@ -952,7 +952,7 @@ struct SelectPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    select [ -add | -del | -set <name> ] {-read <filename> | <selection>}\n");
-		log("    select [ -assert-none | -assert-any ] {-read <filename> | <selection>}\n");
+		log("    select [ <assert_option> ] {-read <filename> | <selection>}\n");
 		log("    select [ -list | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
 		log("\n");
@@ -987,6 +987,14 @@ struct SelectPass : public Pass {
 		log("    -assert-count N\n");
 		log("        do not modify the current selection. instead assert that the given\n");
 		log("        selection contains exactly N objects.\n");
+		log("\n");
+		log("    -assert-max N\n");
+		log("        do not modify the current selection. instead assert that the given\n");
+		log("        selection contains less than or exactly N objects.\n");
+		log("\n");
+		log("    -assert-min N\n");
+		log("        do not modify the current selection. instead assert that the given\n");
+		log("        selection contains at least N objects.\n");
 		log("\n");
 		log("    -list\n");
 		log("        list all objects in the current selection\n");
@@ -1168,6 +1176,8 @@ struct SelectPass : public Pass {
 		bool assert_none = false;
 		bool assert_any = false;
 		int assert_count = -1;
+		int assert_max = -1;
+		int assert_min = -1;
 		std::string write_file, read_file;
 		std::string set_name, sel_str;
 
@@ -1195,6 +1205,14 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-assert-count" && argidx+1 < args.size()) {
 				assert_count = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (arg == "-assert-max" && argidx+1 < args.size()) {
+				assert_max = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (arg == "-assert-min" && argidx+1 < args.size()) {
+				assert_min = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (arg == "-clear") {
@@ -1273,14 +1291,14 @@ struct SelectPass : public Pass {
 		if (none_mode && args.size() != 2)
 			log_cmd_error("Option -none can not be combined with any other options.\n");
 
-		if (add_mode + del_mode + assert_none + assert_any + (assert_count >= 0) > 1)
-			log_cmd_error("Options -add, -del, -assert-none, -assert-any or -assert-count can not be combined.\n");
+		if (add_mode + del_mode + assert_none + assert_any + (assert_count >= 0) + (assert_max >= 0) + (assert_min >= 0) > 1)
+			log_cmd_error("Options -add, -del, -assert-none, -assert-any, assert-count, -assert-max or -assert-min can not be combined.\n");
 
-		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any || assert_count >= 0))
-			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none, -assert-any or -assert-count.\n");
+		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
+			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none, -assert-any, assert-count, -assert-max, or -assert-min.\n");
 
-		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode || assert_none || assert_any || assert_count >= 0))
-			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -assert-none, -assert-any or -assert-count.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -1385,7 +1403,7 @@ struct SelectPass : public Pass {
 			return;
 		}
 
-		if (assert_count >= 0)
+		if (assert_count >= 0 || assert_max >= 0 || assert_min >= 0)
 		{
 			int total_count = 0;
 			if (work_stack.size() == 0)
@@ -1407,9 +1425,15 @@ struct SelectPass : public Pass {
 						if (sel->selected_member(mod_it.first, it.first))
 							total_count++;
 				}
-			if (assert_count != total_count)
+			if (assert_count >= 0 && assert_count != total_count)
 				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n",
 						total_count, assert_count, sel_str.c_str());
+			if (assert_max >= 0 && assert_max < total_count)
+				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n",
+						total_count, assert_max, sel_str.c_str());
+			if (assert_min >= 0 && assert_min > total_count)
+				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n",
+						total_count, assert_min, sel_str.c_str());
 			return;
 		}
 
