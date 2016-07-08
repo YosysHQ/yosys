@@ -93,7 +93,7 @@ struct BlifDumper
 	{
 		std::string str = RTLIL::unescape_id(id);
 		for (size_t i = 0; i < str.size(); i++)
-			if (str[i] == '#' || str[i] == '=')
+			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
@@ -111,7 +111,7 @@ struct BlifDumper
 
 		std::string str = RTLIL::unescape_id(sig.wire->name);
 		for (size_t i = 0; i < str.size(); i++)
-			if (str[i] == '#' || str[i] == '=')
+			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
 
 		if (sig.wire->width != 1)
@@ -207,18 +207,24 @@ struct BlifDumper
 				if (config->false_type != "-")
 					f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_type),
 							config->false_type.c_str(), config->false_out.c_str());
+				else
+					f << stringf(".names %s\n", config->false_out.c_str());
 			} else
 				f << stringf(".names $false\n");
 			if (!config->true_type.empty()) {
 				if (config->true_type != "-")
 					f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_type),
 							config->true_type.c_str(), config->true_out.c_str());
+				else
+					f << stringf(".names %s\n1\n", config->true_out.c_str());
 			} else
 				f << stringf(".names $true\n1\n");
 			if (!config->undef_type.empty()) {
 				if (config->undef_type != "-")
 					f << stringf(".%s %s %s=$undef\n", subckt_or_gate(config->undef_type),
 							config->undef_type.c_str(), config->undef_out.c_str());
+				else
+					f << stringf(".names %s\n", config->undef_out.c_str());
 			} else
 				f << stringf(".names $undef\n");
 		}
@@ -345,13 +351,24 @@ struct BlifDumper
 				f << stringf(" %s", cstr(output));
 				f << stringf("\n");
 				RTLIL::SigSpec mask = cell->parameters.at("\\LUT");
+				bool one = false;
 				for (int i = 0; i < (1 << width); i++)
 					if (mask[i] == RTLIL::S1) {
 						for (int j = width-1; j >= 0; j--) {
 							f << ((i>>j)&1 ? '1' : '0');
 						}
 						f << " 1\n";
+						one = true;
 					}
+				/* For some reason, sometimes we get LUTs with
+				 * an all zero mask, which won't give any
+				 * .names entries, so write one entry with
+				 * all don't cares */
+				if (!one) {
+					for (int j = width-1; j >= 0; j--)
+						f << '-';
+					f << " 0\n";
+				}
 				continue;
 			}
 

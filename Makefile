@@ -1,5 +1,5 @@
 
-CONFIG := clang
+CONFIG := icc
 # CONFIG := gcc
 # CONFIG := gcc-4.8
 # CONFIG := emcc
@@ -171,6 +171,10 @@ LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -x c++ -fpermissive -w"
 ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="$(CXX)" CXX="$(CXX)"
 EXE = .exe
+
+else ifeq ($(CONFIG),icc)
+CXX = icpc
+CXXFLAGS += -std=gnu++0x -Os
 
 else ifneq ($(CONFIG),none)
 $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, none)
