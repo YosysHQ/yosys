@@ -93,7 +93,7 @@ struct BlifDumper
 	{
 		std::string str = RTLIL::unescape_id(id);
 		for (size_t i = 0; i < str.size(); i++)
-			if (str[i] == '#' || str[i] == '=')
+			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
@@ -104,14 +104,14 @@ struct BlifDumper
 		cstr_bits_seen.insert(sig);
 
 		if (sig.wire == NULL) {
-			if (sig == RTLIL::State::S0) return config->false_type == "-" ? config->false_out.c_str() : "$false";
-			if (sig == RTLIL::State::S1) return config->true_type == "-" ? config->true_out.c_str() : "$true";
-			return config->undef_type == "-" ? config->undef_out.c_str() : "$undef";
+			if (sig == RTLIL::State::S0) return config->false_type == "-" || config->false_type == "+" ? config->false_out.c_str() : "$false";
+			if (sig == RTLIL::State::S1) return config->true_type == "-" || config->true_type == "+" ? config->true_out.c_str() : "$true";
+			return config->undef_type == "-" || config->undef_type == "+" ? config->undef_out.c_str() : "$undef";
 		}
 
 		std::string str = RTLIL::unescape_id(sig.wire->name);
 		for (size_t i = 0; i < str.size(); i++)
-			if (str[i] == '#' || str[i] == '=')
+			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
 
 		if (sig.wire->width != 1)
@@ -204,19 +204,25 @@ struct BlifDumper
 
 		if (!config->impltf_mode) {
 			if (!config->false_type.empty()) {
-				if (config->false_type != "-")
+				if (config->false_type == "+")
+					f << stringf(".names %s\n", config->false_out.c_str());
+				else if (config->false_type != "-")
 					f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_type),
 							config->false_type.c_str(), config->false_out.c_str());
 			} else
 				f << stringf(".names $false\n");
 			if (!config->true_type.empty()) {
-				if (config->true_type != "-")
+				if (config->true_type == "+")
+					f << stringf(".names %s\n1\n", config->true_out.c_str());
+				else if (config->true_type != "-")
 					f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_type),
 							config->true_type.c_str(), config->true_out.c_str());
 			} else
 				f << stringf(".names $true\n1\n");
 			if (!config->undef_type.empty()) {
-				if (config->undef_type != "-")
+				if (config->undef_type == "+")
+					f << stringf(".names %s\n", config->undef_out.c_str());
+				else if (config->undef_type != "-")
 					f << stringf(".%s %s %s=$undef\n", subckt_or_gate(config->undef_type),
 							config->undef_type.c_str(), config->undef_out.c_str());
 			} else
@@ -456,7 +462,9 @@ struct BlifBackend : public Backend {
 		log("        use the specified cell types to drive nets that are constant 1, 0, or\n");
 		log("        undefined. when '-' is used as <cell-type>, then <out-port> specifies\n");
 		log("        the wire name to be used for the constant signal and no cell driving\n");
-		log("        that wire is generated.\n");
+		log("        that wire is generated. when '+' is used as <cell-type>, then <out-port>\n");
+		log("        specifies the wire name to be used for the constant signal and a .names\n");
+		log("        statement is generated to drive the wire.\n");
 		log("\n");
 		log("    -noalias\n");
 		log("        if a net name is aliasing another net name, then by default a net\n");
