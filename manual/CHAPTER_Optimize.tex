@@ -222,6 +222,10 @@ This heuristic has proven to work very well. It is possible to overwrite it by s
 and setting \B{fsm\_encoding}{\tt = "none"} on registers that match the above criteria
 but should not be considered FSM state registers.
 
+Note however that marking state registers with \B{fsm\_encoding} that are not
+suitable for FSM recoding can cause synthesis to fail or produce invalid
+results.
+
 \subsection{FSM Extraction}
 
 The {\tt fsm\_extract} pass operates on all state signals marked with the
