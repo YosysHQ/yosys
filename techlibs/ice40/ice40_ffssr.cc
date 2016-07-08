@@ -81,7 +81,12 @@ struct Ice40FfssrPass : public Pass {
 
 			for (auto cell : ff_cells)
 			{
-				SigBit bit_d = sigmap(cell->getPort("\\D"));
+				SigSpec sig_d = cell->getPort("\\D");
+
+				if (GetSize(sig_d) < 1)
+					continue;
+
+				SigBit bit_d = sigmap(sig_d[0]);
 
 				if (sr_muxes.count(bit_d) == 0)
 					continue;

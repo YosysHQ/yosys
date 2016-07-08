@@ -101,17 +101,23 @@ struct Ice40FfinitPass : public Pass {
 				if (!sb_dff_types.count(cell->type))
 					continue;
 
-				SigBit sig_d = sigmap(cell->getPort("\\D"));
-				SigBit sig_q = sigmap(cell->getPort("\\Q"));
+				SigSpec sig_d = cell->getPort("\\D");
+				SigSpec sig_q = cell->getPort("\\Q");
 
-				if (!initbits.count(sig_q))
+				if (GetSize(sig_d) < 1 || GetSize(sig_q) < 1)
 					continue;
 
-				State val = initbits.at(sig_q);
-				handled_initbits.insert(sig_q);
+				SigBit bit_d = sigmap(sig_d[0]);
+				SigBit bit_q = sigmap(sig_q[0]);
+
+				if (!initbits.count(bit_q))
+					continue;
+
+				State val = initbits.at(bit_q);
+				handled_initbits.insert(bit_q);
 
 				log("FF init value for cell %s (%s): %s = %c\n", log_id(cell), log_id(cell->type),
-						log_signal(sig_q), val != State::S0 ? '1' : '0');
+						log_signal(bit_q), val != State::S0 ? '1' : '0');
 
 				if (val == State::S0)
 					continue;
@@ -131,14 +137,14 @@ struct Ice40FfinitPass : public Pass {
 					cell->unsetPort("\\R");
 				}
 
-				Wire *new_sig_d = module->addWire(NEW_ID);
-				Wire *new_sig_q = module->addWire(NEW_ID);
+				Wire *new_bit_d = module->addWire(NEW_ID);
+				Wire *new_bit_q = module->addWire(NEW_ID);
 
-				module->addNotGate(NEW_ID, sig_d, new_sig_d);
-				module->addNotGate(NEW_ID, new_sig_q, sig_q);
+				module->addNotGate(NEW_ID, bit_d, new_bit_d);
+				module->addNotGate(NEW_ID, new_bit_q, bit_q);
 
-				cell->setPort("\\D", new_sig_d);
-				cell->setPort("\\Q", new_sig_q);
+				cell->setPort("\\D", new_bit_d);
+				cell->setPort("\\Q", new_bit_q);
 			}
 
 			for (auto wire : init_wires)
