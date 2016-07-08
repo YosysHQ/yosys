@@ -1418,6 +1418,50 @@ skip_dynamic_range_lvalue_expansion:;
 		goto apply_newNode;
 	}
 
+	// assignment with nontrivial member in left-hand concat expression -> split assignment
+	if ((type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE) && children[0]->type == AST_CONCAT && width_hint > 0)
+	{
+		bool found_nontrivial_member = false;
+
+		for (auto child : children[0]->children) {
+			if (child->type == AST_IDENTIFIER && child->id2ast != NULL && child->id2ast->type == AST_MEMORY)
+				found_nontrivial_member = true;
+		}
+
+		if (found_nontrivial_member)
+		{
+			newNode = new AstNode(AST_BLOCK);
+
+			AstNode *wire_tmp = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(width_hint-1, true), mkconst_int(0, true)));
+			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", filename.c_str(), linenum, autoidx++);
+			current_ast_mod->children.push_back(wire_tmp);
+			current_scope[wire_tmp->str] = wire_tmp;
+			wire_tmp->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			while (wire_tmp->simplify(true, false, false, 1, -1, false, false)) { }
+
+			AstNode *wire_tmp_id = new AstNode(AST_IDENTIFIER);
+			wire_tmp_id->str = wire_tmp->str;
+
+			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, wire_tmp_id, children[1]->clone()));
+
+			int cursor = 0;
+			for (auto child : children[0]->children)
+			{
+				int child_width_hint = -1;
+				bool child_sign_hint = true;
+				child->detectSignWidth(child_width_hint, child_sign_hint);
+
+				AstNode *rhs = wire_tmp_id->clone();
+				rhs->children.push_back(new AstNode(AST_RANGE, AstNode::mkconst_int(cursor+child_width_hint-1, true), AstNode::mkconst_int(cursor, true)));
+				newNode->children.push_back(new AstNode(type, child->clone(), rhs));
+
+				cursor += child_width_hint;
+			}
+
+			goto apply_newNode;
+		}
+	}
+
 	// assignment with memory in left-hand side expression -> replace with memory write port
 	if (stage > 1 && (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE) && children[0]->type == AST_IDENTIFIER &&
 			children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY && children[0]->id2ast->children.size() >= 2 &&
