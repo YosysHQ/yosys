@@ -118,6 +118,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 	bool has_init_attr = wire->attributes.count("\\init") > 0;
 	bool is_module_port = sig_at_port.check_any(assign_map(RTLIL::SigSpec(wire)));
 	bool looks_like_state_reg = false, looks_like_good_state_reg = false;
+	bool is_self_resetting = false;
 
 	if (has_fsm_encoding_none)
 		return;
@@ -142,11 +143,52 @@ static void detect_fsm(RTLIL::Wire *wire)
 		pool<Cell*> recursion_monitor;
 		RTLIL::SigSpec sig_q = assign_map(cellport.first->getPort("\\Q"));
 		RTLIL::SigSpec sig_d = assign_map(cellport.first->getPort("\\D"));
-		if (sig_q == RTLIL::SigSpec(wire)) {
-			looks_like_state_reg = check_state_mux_tree(sig_q, sig_d, recursion_monitor);
-			looks_like_good_state_reg = check_state_users(sig_q);
+
+		if (sig_q != assign_map(wire))
+			continue;
+
+		looks_like_state_reg = check_state_mux_tree(sig_q, sig_d, recursion_monitor);
+		looks_like_good_state_reg = check_state_users(sig_q);
+
+		if (!looks_like_state_reg)
 			break;
+
+		ConstEval ce(wire->module);
+
+		std::set<sig2driver_entry_t> cellport_list;
+		sig2user.find(sig_q, cellport_list);
+
+		for (auto &cellport : cellport_list)
+		{
+			RTLIL::Cell *cell = cellport.first;
+			bool set_output = false, clr_output = false;
+
+			if (cell->type == "$ne")
+				set_output = true;
+
+			if (cell->type == "$eq")
+				clr_output = true;
+
+			if (!set_output && !clr_output) {
+				clr_output = true;
+				for (auto &port_it : cell->connections())
+					if (port_it.first != "\\A" || port_it.first != "\\Y")
+						clr_output = false;
+			}
+
+			if (set_output || clr_output) {
+				for (auto &port_it : cell->connections())
+					if (cell->output(port_it.first)) {
+						SigSpec sig = assign_map(port_it.second);
+						Const val(set_output ? State::S1 : State::S0, GetSize(sig)); 
+						ce.set(sig, val);
+					}
+			}
 		}
+
+		SigSpec sig_y = sig_d, sig_undef;
+		if (ce.eval(sig_y, sig_undef))
+			is_self_resetting = true;
 	}
 
 	if (has_fsm_encoding_attr)
@@ -165,19 +207,39 @@ static void detect_fsm(RTLIL::Wire *wire)
 		if (!looks_like_state_reg)
 			warnings.push_back("Doesn't look like a proper FSM. Possible simulation-synthesis mismatch!\n");
 
+		if (is_self_resetting)
+			warnings.push_back("FSM seems to be self-resetting. Possible simulation-synthesis mismatch!\n");
+
 		if (!warnings.empty()) {
 			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", log_id(wire->module), log_id(wire));
 			for (auto w : warnings) warnmsg += "    " + w;
 			log_warning("%s", warnmsg.c_str());
 		} else {
-			log("FSM state register %s in module %s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire)); 
+			log("FSM state register %s.%s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire)); 
 		}
 	}
 	else
-	if (looks_like_state_reg && looks_like_good_state_reg && !has_init_attr && !is_module_port)
+	if (looks_like_state_reg && looks_like_good_state_reg && !has_init_attr && !is_module_port && !is_self_resetting)
 	{
-		log("Found FSM state register %s in module %s.\n", wire->name.c_str(), module->name.c_str());
+		log("Found FSM state register %s.%s.\n", log_id(wire->module), log_id(wire));
 		wire->attributes["\\fsm_encoding"] = RTLIL::Const("auto");
+	}
+	else
+	if (looks_like_state_reg)
+	{
+		log("Not marking %s.%s as FSM state register:\n", log_id(wire->module), log_id(wire));
+
+		if (is_module_port)
+			log("    Register is connected to module port.\n");
+
+		if (!looks_like_good_state_reg)
+			log("    Users of register don't seem to benefit from recoding.\n");
+
+		if (has_init_attr)
+			log("    Register has an initialization value.");
+
+		if (is_self_resetting)
+			log("    Circuit seems to be self-resetting.\n");
 	}
 }
 
