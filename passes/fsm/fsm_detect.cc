@@ -36,18 +36,21 @@ static SigPool sig_at_port;
 
 static bool check_state_mux_tree(RTLIL::SigSpec old_sig, RTLIL::SigSpec sig, pool<Cell*> &recursion_monitor)
 {
-	if (sig_at_port.check_any(assign_map(sig)))
-		return false;
-
-	if (sig.is_fully_const() || old_sig == sig)
+	if (sig.is_fully_const() || old_sig == sig) {
 		return true;
+	}
+
+	if (sig_at_port.check_any(assign_map(sig))) {
+		return false;
+	}
 
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(sig, cellport_list);
 	for (auto &cellport : cellport_list)
 	{
-		if ((cellport.first->type != "$mux" && cellport.first->type != "$pmux") || cellport.second != "\\Y")
+		if ((cellport.first->type != "$mux" && cellport.first->type != "$pmux") || cellport.second != "\\Y") {
 			return false;
+		}
 
 		if (recursion_monitor.count(cellport.first)) {
 			log_warning("logic loop in mux tree at signal %s in module %s.\n",
@@ -110,27 +113,71 @@ static bool check_state_users(RTLIL::SigSpec sig)
 
 static void detect_fsm(RTLIL::Wire *wire)
 {
-	if (wire->attributes.count("\\init") > 0)
+	bool has_fsm_encoding_attr = wire->attributes.count("\\fsm_encoding") > 0 && wire->attributes.at("\\fsm_encoding").decode_string() != "none";
+	bool has_fsm_encoding_none = wire->attributes.count("\\fsm_encoding") > 0 && wire->attributes.at("\\fsm_encoding").decode_string() == "none";
+	bool has_init_attr = wire->attributes.count("\\init") > 0;
+	bool is_module_port = sig_at_port.check_any(assign_map(RTLIL::SigSpec(wire)));
+	bool looks_like_state_reg = false, looks_like_good_state_reg = false;
+
+	if (has_fsm_encoding_none)
 		return;
-	if (wire->attributes.count("\\fsm_encoding") > 0 || wire->width <= 1)
+
+	if (wire->width <= 1) {
+		if (has_fsm_encoding_attr) {
+			log_warning("Removing fsm_encoding attribute from 1-bit net: %s.%s\n", log_id(wire->module), log_id(wire));
+			wire->attributes.erase("\\fsm_encoding");
+		}
 		return;
-	if (sig_at_port.check_any(assign_map(RTLIL::SigSpec(wire))))
-		return;
+	}
 
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(RTLIL::SigSpec(wire), cellport_list);
-	for (auto &cellport : cellport_list) {
+
+	for (auto &cellport : cellport_list)
+	{
 		if ((cellport.first->type != "$dff" && cellport.first->type != "$adff") || cellport.second != "\\Q")
 			continue;
+
 		muxtree_cells.clear();
 		pool<Cell*> recursion_monitor;
 		RTLIL::SigSpec sig_q = assign_map(cellport.first->getPort("\\Q"));
 		RTLIL::SigSpec sig_d = assign_map(cellport.first->getPort("\\D"));
-		if (sig_q == RTLIL::SigSpec(wire) && check_state_mux_tree(sig_q, sig_d, recursion_monitor) && check_state_users(sig_q)) {
-			log("Found FSM state register %s in module %s.\n", wire->name.c_str(), module->name.c_str());
-			wire->attributes["\\fsm_encoding"] = RTLIL::Const("auto");
-			return;
+		if (sig_q == RTLIL::SigSpec(wire)) {
+			looks_like_state_reg = check_state_mux_tree(sig_q, sig_d, recursion_monitor);
+			looks_like_good_state_reg = check_state_users(sig_q);
+			break;
 		}
+	}
+
+	if (has_fsm_encoding_attr)
+	{
+		vector<string> warnings;
+
+		if (is_module_port)
+			warnings.push_back("Forcing fsm recoding on module port might result in larger circuit.\n");
+
+		if (!looks_like_good_state_reg)
+			warnings.push_back("Users of state reg look like fsm recoding might result in larger circuit.\n");
+
+		if (has_init_attr)
+			warnings.push_back("Init value on fsm state registers are ignored. Possible simulation-synthesis mismatch!");
+
+		if (!looks_like_state_reg)
+			warnings.push_back("Doesn't look like a proper FSM. Possible simulation-synthesis mismatch!\n");
+
+		if (!warnings.empty()) {
+			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", log_id(wire->module), log_id(wire));
+			for (auto w : warnings) warnmsg += "    " + w;
+			log_warning("%s", warnmsg.c_str());
+		} else {
+			log("FSM state register %s in module %s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire)); 
+		}
+	}
+	else
+	if (looks_like_state_reg && looks_like_good_state_reg && !has_init_attr && !is_module_port)
+	{
+		log("Found FSM state register %s in module %s.\n", wire->name.c_str(), module->name.c_str());
+		wire->attributes["\\fsm_encoding"] = RTLIL::Const("auto");
 	}
 }
 
