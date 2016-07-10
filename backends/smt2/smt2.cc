@@ -35,9 +35,9 @@ struct Smt2Worker
 	bool bvmode, memmode, regsmode, wiresmode, verbose;
 	int idcounter;
 
-	std::vector<std::string> decls, trans;
+	std::vector<std::string> decls, trans, hier;
 	std::map<RTLIL::SigBit, RTLIL::Cell*> bit_driver;
-	std::set<RTLIL::Cell*> exported_cells;
+	std::set<RTLIL::Cell*> exported_cells, hiercells;
 	pool<Cell*> recursive_cells, registers;
 
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
@@ -465,6 +465,63 @@ struct Smt2Worker
 			return;
 		}
 
+		Module *m = module->design->module(cell->type);
+
+		if (m != nullptr)
+		{
+			decls.push_back(stringf("; yosys-smt2-cell %s %s\n", log_id(cell->type), log_id(cell->name)));
+			string cell_state = stringf("(|%s_h %s| state)", log_id(module), log_id(cell->name));
+
+			for (auto &conn : cell->connections())
+			{
+				Wire *w = m->wire(conn.first);
+				SigSpec sig = sigmap(conn.second);
+
+				if (w->port_output && !w->port_input) {
+					if (GetSize(w) > 1) {
+						if (bvmode) {
+							decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) (_ BitVec %d)) ; %s\n",
+									log_id(module), idcounter, log_id(module), GetSize(w), log_signal(sig)));
+							register_bv(sig, idcounter++);
+						} else {
+							for (int i = 0; i < GetSize(w); i++) {
+								decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) Bool) ; %s\n",
+										log_id(module), idcounter, log_id(module), log_signal(sig[i])));
+								register_bool(sig[i], idcounter++);
+							}
+						}
+					} else {
+						decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) Bool) ; %s\n",
+								log_id(module), idcounter, log_id(module), log_signal(sig)));
+						register_bool(sig, idcounter++);
+					}
+				}
+			}
+
+			decls.push_back(stringf("(declare-fun |%s_h %s| (|%s_s|) |%s_s|)\n",
+					log_id(module), log_id(cell->name), log_id(module), log_id(cell->type)));
+
+			hiercells.insert(cell);
+			recursive_cells.erase(cell);
+
+			for (auto &conn : cell->connections())
+			{
+				Wire *w = m->wire(conn.first);
+				SigSpec sig = sigmap(conn.second);
+
+				if (bvmode || GetSize(w) == 1) {
+					hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)).c_str(),
+							log_id(cell->type), log_id(w), cell_state.c_str(), log_id(cell->type), log_id(w)));
+				} else {
+					for (int i = 0; i < GetSize(w); i++)
+						hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]).c_str(),
+								log_id(cell->type), log_id(w), i, cell_state.c_str(), log_id(cell->type), log_id(w), i));
+				}
+			}
+
+			return;
+		}
+
 		log_error("Unsupported cell type %s for cell %s.%s. (Maybe this cell type would be supported in -bv or -mem mode?)\n",
 				log_id(cell->type), log_id(module), log_id(cell));
 	}
@@ -532,7 +589,7 @@ struct Smt2Worker
 
 		if (verbose) log("=> export logic driving asserts\n");
 
-		vector<int> assert_list, assume_list;
+		vector<string> assert_list, assume_list;
 		for (auto cell : module->cells())
 			if (cell->type.in("$assert", "$assume")) {
 				string name_a = get_bool(cell->getPort("\\A"));
@@ -540,9 +597,9 @@ struct Smt2Worker
 				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
 					log_id(module), idcounter, log_id(module), name_a.c_str(), name_en.c_str(), log_id(cell)));
 				if (cell->type == "$assert")
-					assert_list.push_back(idcounter++);
+					assert_list.push_back(stringf("(|%s#%d| state)", log_id(module), idcounter++));
 				else
-					assume_list.push_back(idcounter++);
+					assume_list.push_back(stringf("(|%s#%d| state)", log_id(module), idcounter++));
 			}
 
 		for (int iter = 1; !registers.empty(); iter++)
@@ -598,20 +655,29 @@ struct Smt2Worker
 			}
 		}
 
+		for (auto c : hiercells)
+			assert_list.push_back(stringf("(|%s_a| (|%s_h %s| state))", log_id(c->type), log_id(module), log_id(c->name)));
+
+		for (auto c : hiercells)
+			assume_list.push_back(stringf("(|%s_u| (|%s_h %s| state))", log_id(c->type), log_id(module), log_id(c->name)));
+
+		for (auto c : hiercells)
+			init_list.push_back(stringf("(|%s_i| (|%s_h %s| state))", log_id(c->type), log_id(module), log_id(c->name)));
+
 		string assert_expr = assert_list.empty() ? "true" : "(and";
 		if (!assert_list.empty()) {
-			for (int i : assert_list)
-				assert_expr += stringf(" (|%s#%d| state)", log_id(module), i);
-			assert_expr += ")";
+			for (auto &str : assert_list)
+				assert_expr += stringf("\n  %s", str.c_str());
+			assert_expr += "\n)";
 		}
 		decls.push_back(stringf("(define-fun |%s_a| ((state |%s_s|)) Bool %s)\n",
 				log_id(module), log_id(module), assert_expr.c_str()));
 
 		string assume_expr = assume_list.empty() ? "true" : "(and";
 		if (!assume_list.empty()) {
-			for (int i : assume_list)
-				assume_expr += stringf(" (|%s#%d| state)", log_id(module), i);
-			assume_expr += ")";
+			for (auto &str : assume_list)
+				assume_expr += stringf("\n  %s", str.c_str());
+			assume_expr += "\n)";
 		}
 		decls.push_back(stringf("(define-fun |%s_u| ((state |%s_s|)) Bool %s)\n",
 				log_id(module), log_id(module), assume_expr.c_str()));
@@ -619,7 +685,7 @@ struct Smt2Worker
 		string init_expr = init_list.empty() ? "true" : "(and";
 		if (!init_list.empty()) {
 			for (auto &str : init_list)
-				init_expr += stringf("\n\t%s", str.c_str());
+				init_expr += stringf("\n  %s", str.c_str());
 			init_expr += "\n)";
 		}
 		decls.push_back(stringf("(define-fun |%s_i| ((state |%s_s|)) Bool %s)\n",
@@ -628,10 +694,23 @@ struct Smt2Worker
 
 	void write(std::ostream &f)
 	{
+		f << stringf("; yosys-smt2-module %s\n", log_id(module));
+
 		for (auto it : decls)
 			f << it;
 
-		f << stringf("; yosys-smt2-module %s\n", log_id(module));
+		f << stringf("(define-fun |%s_h| ((state |%s_s|)) Bool ", log_id(module), log_id(module));
+		if (GetSize(hier) > 1) {
+			f << "(and\n";
+			for (auto it : hier)
+				f << it;
+			f << "))\n";
+		} else
+		if (GetSize(hier) == 1)
+			f << "\n" + hier.front() + ")\n";
+		else
+			f << "true)\n";
+
 		f << stringf("(define-fun |%s_t| ((state |%s_s|) (next_state |%s_s|)) Bool ", log_id(module), log_id(module), log_id(module));
 		if (GetSize(trans) > 1) {
 			f << "(and\n";
@@ -661,10 +740,10 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("The '<mod>_s' sort represents a module state. Additional '<mod>_n' functions\n");
 		log("are provided that can be used to access the values of the signals in the module.\n");
-		log("Only ports, and signals with the 'keep' attribute set are made available via\n");
-		log("such functions. Without the -bv option, multi-bit wires are exported as\n");
-		log("separate functions of type Bool for the individual bits. With the -bv option\n");
-		log("multi-bit wires are exported as single functions of type BitVec.\n");
+		log("By default only ports, and signals with the 'keep' attribute set are made\n");
+		log("available via such functions. Without the -bv option, multi-bit wires are\n");
+		log("exported as separate functions of type Bool for the individual bits. With the\n");
+		log("-bv option multi-bit wires are exported as single functions of type BitVec.\n");
 		log("\n");
 		log("The '<mod>_t' function evaluates to 'true' when the given pair of states\n");
 		log("describes a valid state transition.\n");
@@ -677,6 +756,10 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("The '<mod>_i' function evaluates to 'true' when the given state conforms\n");
 		log("to the initial state.\n");
+		log("\n");
+		log("For hierarchical designs, the '<mod>_h' function must be asserted for each\n");
+		log("state to establish the design hierarchy. The '<mod>_h <cellname>' function\n");
+		log("evaluates to the state corresponding to the given cell within <mod>.\n");
 		log("\n");
 		log("    -verbose\n");
 		log("        this will print the recursive walk used to export the modules.\n");
@@ -808,7 +891,36 @@ struct Smt2Backend : public Backend {
 
 		*f << stringf("; SMT-LIBv2 description generated by %s\n", yosys_version_str);
 
-		for (auto module : design->modules())
+		std::vector<RTLIL::Module*> sorted_modules;
+
+		// extract module dependencies
+		std::map<RTLIL::Module*, std::set<RTLIL::Module*>> module_deps;
+		for (auto &mod_it : design->modules_) {
+			module_deps[mod_it.second] = std::set<RTLIL::Module*>();
+			for (auto &cell_it : mod_it.second->cells_)
+				if (design->modules_.count(cell_it.second->type) > 0)
+					module_deps[mod_it.second].insert(design->modules_.at(cell_it.second->type));
+		}
+
+		// simple good-enough topological sort
+		// (O(n*m) on n elements and depth m)
+		while (module_deps.size() > 0) {
+			size_t sorted_modules_idx = sorted_modules.size();
+			for (auto &it : module_deps) {
+				for (auto &dep : it.second)
+					if (module_deps.count(dep) > 0)
+						goto not_ready_yet;
+				// log("Next in topological sort: %s\n", RTLIL::id2cstr(it.first->name));
+				sorted_modules.push_back(it.first);
+			not_ready_yet:;
+			}
+			if (sorted_modules_idx == sorted_modules.size())
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", RTLIL::id2cstr(module_deps.begin()->first->name));
+			while (sorted_modules_idx < sorted_modules.size())
+				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
+		}
+
+		for (auto module : sorted_modules)
 		{
 			if (module->get_bool_attribute("\\blackbox") || module->has_memories_warn() || module->has_processes_warn())
 				continue;

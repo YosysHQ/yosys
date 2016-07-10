@@ -95,32 +95,37 @@ smt = smtio(opts=so)
 print("%s Solver: %s" % (smt.timestamp(), so.solver))
 smt.setup("QF_AUFBV")
 
-debug_nets = set()
+debug_nets = dict()
 debug_nets_re = re.compile(r"^; yosys-smt2-(input|output|register|wire) (\S+) (\d+)")
+current_module = None
 
 with open(args[0], "r") as f:
     for line in f:
         match = debug_nets_re.match(line)
         if match:
-            debug_nets.add(match.group(2))
-        if line.startswith("; yosys-smt2-module") and topmod is None:
-            topmod = line.split()[2]
+            debug_nets[current_module].add(match.group(2))
+        if line.startswith("; yosys-smt2-module"):
+            current_module = line.split()[2]
+            debug_nets[current_module] = set()
         smt.write(line)
+    if topmod is None:
+        topmod = current_module
 
 assert topmod is not None
+assert topmod in debug_nets
 
 
 def write_vcd_model(steps):
     print("%s Writing model to VCD file." % smt.timestamp())
 
     vcd = mkvcd(open(vcdfile, "w"))
-    for netname in sorted(debug_nets):
+    for netname in sorted(debug_nets[topmod]):
         width = len(smt.get_net_bin(topmod, netname, "s0"))
         vcd.add_net(netname, width)
 
     for i in range(steps):
         vcd.set_time(i)
-        for netname in debug_nets:
+        for netname in debug_nets[topmod]:
             vcd.set_net(netname, smt.get_net_bin(topmod, netname, "s%d" % i))
 
     vcd.set_time(steps)
@@ -132,6 +137,7 @@ if tempind:
     for step in range(num_steps, -1, -1):
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
+        smt.write("(assert (%s_h s%d))" % (topmod, step))
 
         if step == num_steps:
             smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
@@ -170,6 +176,7 @@ else: # not tempind
     while step < num_steps:
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
+        smt.write("(assert (%s_h s%d))" % (topmod, step))
 
         if step == 0:
             smt.write("(assert (%s_i s0))" % (topmod))
@@ -191,6 +198,7 @@ else: # not tempind
             if step+i < num_steps:
                 smt.write("(declare-fun s%d () %s_s)" % (step+i, topmod))
                 smt.write("(assert (%s_u s%d))" % (topmod, step+i))
+                smt.write("(assert (%s_h s%d))" % (topmod, step+i))
                 smt.write("(assert (%s_t s%d s%d))" % (topmod, step+i-1, step+i))
                 last_check_step = step+i
 
