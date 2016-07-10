@@ -94,6 +94,32 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 endmodule
 
+module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
+                     input UP, input KEEP);
+
+	parameter RESET_MODE 	= "RISING";
+	parameter RESET_VALUE   = "ZERO";
+
+	parameter COUNT_TO		= 8'h1;
+	parameter CLKIN_DIVIDE	= 1;
+
+	//more complex hard IP blocks are not supported for simulation yet
+
+endmodule
+
+module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
+                      input UP, input KEEP);
+
+	parameter RESET_MODE 	= "RISING";
+	parameter RESET_VALUE   = "ZERO";
+
+	parameter COUNT_TO		= 14'h1;
+	parameter CLKIN_DIVIDE	= 1;
+
+	//more complex hard IP blocks are not supported for simulation yet
+
+endmodule
+
 module GP_DELAY(input IN, output reg OUT);
 	
 	parameter DELAY_STEPS = 1;
