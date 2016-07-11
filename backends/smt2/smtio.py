@@ -22,6 +22,15 @@ import subprocess
 from select import select
 from time import time
 
+class smtmodinfo:
+    def __init__(self):
+        self.inputs = set()
+        self.outputs = set()
+        self.registers = set()
+        self.wires = set()
+        self.wsize = dict()
+        self.cells = dict()
+
 class smtio:
     def __init__(self, solver=None, debug_print=None, debug_file=None, timeinfo=None, opts=None):
         if opts is not None:
@@ -63,6 +72,10 @@ class smtio:
         self.p = subprocess.Popen(popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         self.start_time = time()
 
+        self.modinfo = dict()
+        self.curmod = None
+        self.topmod = None
+
     def setup(self, logic="ALL", info=None):
         self.write("(set-logic %s)" % logic)
         if info is not None:
@@ -83,6 +96,38 @@ class smtio:
             self.debug_file.flush()
         self.p.stdin.write(bytes(stmt + "\n", "ascii"))
         self.p.stdin.flush()
+
+    def getinfo(self, stmt):
+        if not stmt.startswith("; yosys-smt2-"):
+            return
+
+        fields = stmt.split()
+
+        if fields[1] == "yosys-smt2-module":
+            self.curmod = fields[2]
+            self.modinfo[self.curmod] = smtmodinfo()
+
+        if fields[1] == "yosys-smt2-cell":
+            self.modinfo[self.curmod].cells[fields[3]] = fields[2]
+
+        if fields[1] == "yosys-smt2-topmod":
+            self.topmod = fields[2]
+
+        if fields[1] == "yosys-smt2-input":
+            self.modinfo[self.curmod].inputs.add(fields[2])
+            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-output":
+            self.modinfo[self.curmod].outputs.add(fields[2])
+            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-register":
+            self.modinfo[self.curmod].registers.add(fields[2])
+            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-wire":
+            self.modinfo[self.curmod].wires.add(fields[2])
+            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
     def read(self):
         stmt = []

@@ -932,6 +932,10 @@ struct Smt2Backend : public Backend {
 			worker.write(*f);
 		}
 
+		Module *topmod = design->top_module();
+		if (topmod)
+			*f << stringf("; yosys-smt2-topmod %s\n", log_id(topmod));
+
 		*f << stringf("; end of yosys output\n");
 
 		if (template_f.is_open()) {
