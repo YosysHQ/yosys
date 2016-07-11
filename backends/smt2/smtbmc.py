@@ -98,7 +98,7 @@ smt.setup("QF_AUFBV")
 with open(args[0], "r") as f:
     for line in f:
         smt.write(line)
-        smt.getinfo(line)
+        smt.info(line)
 
 if topmod is None:
     topmod = smt.topmod
@@ -106,18 +106,19 @@ if topmod is None:
 assert topmod is not None
 assert topmod in smt.modinfo
 
+
 def write_vcd_model(steps):
     print("%s Writing model to VCD file." % smt.timestamp())
 
     vcd = mkvcd(open(vcdfile, "w"))
-    for netname in sorted(smt.modinfo[topmod].wsize.keys()):
-        width = len(smt.get_net_bin(topmod, netname, "s0"))
-        vcd.add_net(netname, width)
+    for netpath in sorted(smt.hiernets(topmod)):
+        width = len(smt.get_net_bin(topmod, netpath, "s0"))
+        vcd.add_net([topmod] + netpath, width)
 
     for i in range(steps):
         vcd.set_time(i)
-        for netname in smt.modinfo[topmod].wsize.keys():
-            vcd.set_net(netname, smt.get_net_bin(topmod, netname, "s%d" % i))
+        for netpath in sorted(smt.hiernets(topmod)):
+            vcd.set_net([topmod] + netpath, smt.get_net_bin(topmod, netpath, "s%d" % i))
 
     vcd.set_time(steps)
 
