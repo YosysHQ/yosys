@@ -41,6 +41,9 @@ struct SynthPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
 		log("\n");
+		log("    -auto-top\n");
+		log("        automatically determine the top of the design hierarchy\n");
+		log("\n");
 		log("    -flatten\n");
 		log("        flatten the design before synthesis. this will pass '-auto-top' to\n");
 		log("        'hierarchy' if no top module is specified.\n");
@@ -73,7 +76,7 @@ struct SynthPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts;
-	bool flatten, noalumacc, nofsm, noabc;
+	bool autotop, flatten, noalumacc, nofsm, noabc;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
@@ -81,6 +84,7 @@ struct SynthPass : public ScriptPass
 		fsm_opts.clear();
 		memory_opts.clear();
 
+		autotop = false;
 		flatten = false;
 		noalumacc = false;
 		nofsm = false;
@@ -112,6 +116,10 @@ struct SynthPass : public ScriptPass
 					run_from = args[++argidx].substr(0, pos);
 					run_to = args[argidx].substr(pos+1);
 				}
+				continue;
+			}
+			if (args[argidx] == "-auto-top") {
+				autotop = true;
 				continue;
 			}
 			if (args[argidx] == "-flatten") {
@@ -154,10 +162,10 @@ struct SynthPass : public ScriptPass
 		if (check_label("begin"))
 		{
 			if (help_mode) {
-				run("hierarchy -check [-top <top>]");
+				run("hierarchy -check [-top <top> | -auto-top]");
 			} else {
 				if (top_module.empty()) {
-					if (flatten)
+					if (flatten || autotop)
 						run("hierarchy -check -auto-top");
 					else
 						run("hierarchy -check");
