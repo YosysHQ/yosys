@@ -92,12 +92,15 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 
 		if (reset_state && RTLIL::SigSpec(*reset_state).is_fully_undef())
 			do {
+				SigSpec new_reset_state;
 				if (sig_aa.is_fully_def())
-					*reset_state = sig_aa.as_const();
+					new_reset_state = sig_aa.as_const();
 				else if (sig_bb.is_fully_def())
-					*reset_state = sig_bb.as_const();
+					new_reset_state = sig_bb.as_const();
 				else
 					break;
+				new_reset_state.extend_u0(GetSize(*reset_state));
+				*reset_state = new_reset_state.as_const();
 				log("  found reset state: %s (guessed from mux tree)\n", log_signal(*reset_state));
 			} while (0);
 
