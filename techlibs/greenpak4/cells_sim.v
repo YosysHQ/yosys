@@ -120,6 +120,14 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 
 endmodule
 
+module GP_DAC(input[7:0] DIN, input wire VREF, output reg VOUT);
+
+	initial VOUT = 0;
+
+	//analog hard IP is not supported for simulation
+
+endmodule
+
 module GP_DELAY(input IN, output reg OUT);
 	
 	parameter DELAY_STEPS = 1;
