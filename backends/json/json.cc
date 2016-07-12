@@ -83,12 +83,12 @@ struct JsonWriter
 		return str + " ]";
 	}
 
-	void write_parameters(const dict<IdString, Const> &parameters)
+	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false)
 	{
 		bool first = true;
 		for (auto &param : parameters) {
 			f << stringf("%s\n", first ? "" : ",");
-			f << stringf("            %s: ", get_name(param.first).c_str());
+			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first).c_str());
 			if ((param.second.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) != 0)
 				f << get_string(param.second.decode_string());
 			else if (GetSize(param.second.bits) > 32)
@@ -110,6 +110,10 @@ struct JsonWriter
 		sigidcounter = 2;
 
 		f << stringf("    %s: {\n", get_name(module->name).c_str());
+
+		f << stringf("      \"attributes\": {");
+		write_parameters(module->attributes, /*for_module=*/true);
+		f << stringf("\n      },\n");
 
 		f << stringf("      \"ports\": {");
 		bool first = true;
