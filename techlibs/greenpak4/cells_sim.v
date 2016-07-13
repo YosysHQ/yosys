@@ -36,7 +36,7 @@ module GP_ACMP(input wire PWREN, input wire VIN, input wire VREF, output reg OUT
 
 endmodule
 
-module GP_BANDGAP(output reg OK, output reg VOUT);
+module GP_BANDGAP(output reg OK);
 	parameter AUTO_PWRDN = 1;
 	parameter CHOPPER_EN = 1;
 	parameter OUT_DELAY = 100;
@@ -117,6 +117,14 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 	parameter CLKIN_DIVIDE	= 1;
 
 	//more complex hard IP blocks are not supported for simulation yet
+
+endmodule
+
+module GP_DAC(input[7:0] DIN, input wire VREF, output reg VOUT);
+
+	initial VOUT = 0;
+
+	//analog hard IP is not supported for simulation
 
 endmodule
 
