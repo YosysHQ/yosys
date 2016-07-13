@@ -1017,14 +1017,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$assert") {
-				port("\\A", 1);
-				port("\\EN", 1);
-				check_expected();
-				return;
-			}
-
-			if (cell->type == "$assume") {
+			if (cell->type.in("$assert", "$assume", "$expect")) {
 				port("\\A", 1);
 				port("\\EN", 1);
 				check_expected();
@@ -1790,6 +1783,22 @@ RTLIL::Cell* RTLIL::Module::addTribuf(RTLIL::IdString name, RTLIL::SigSpec sig_a
 RTLIL::Cell* RTLIL::Module::addAssert(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
 {
 	RTLIL::Cell *cell = addCell(name, "$assert");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addAssume(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
+{
+	RTLIL::Cell *cell = addCell(name, "$assume");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addExpect(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
+{
+	RTLIL::Cell *cell = addCell(name, "$expect");
 	cell->setPort("\\A", sig_a);
 	cell->setPort("\\EN", sig_en);
 	return cell;

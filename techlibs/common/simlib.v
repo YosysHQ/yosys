@@ -1305,6 +1305,22 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$expect (A, EN);
+
+input A, EN;
+
+`ifndef SIMLIB_NOCHECKS
+always @* begin
+	if (A === 1'b1 && EN === 1'b1) begin
+		$display("Expectation %m passed.");
+	end
+end
+`endif
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$equiv (A, B, Y);
 
 input A, B;

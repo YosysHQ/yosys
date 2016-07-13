@@ -1296,7 +1296,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $assert cells
 	case AST_ASSERT:
 	case AST_ASSUME:
+	case AST_EXPECT:
 		{
+			const char *celltype = "$assert";
+			if (type == AST_ASSUME) celltype = "$assume";
+			if (type == AST_EXPECT) celltype = "$expect";
+
 			log_assert(children.size() == 2);
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
@@ -1308,9 +1313,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				en = current_module->ReduceBool(NEW_ID, en);
 
 			std::stringstream sstr;
-			sstr << (type == AST_ASSERT ? "$assert$" : "$assume$") << filename << ":" << linenum << "$" << (autoidx++);
+			sstr << celltype << "$" << filename << ":" << linenum << "$" << (autoidx++);
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), type == AST_ASSERT ? "$assert" : "$assume");
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), celltype);
 			cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			for (auto &attr : attributes) {

@@ -69,6 +69,7 @@ struct SatGen
 	SigPool initial_state;
 	std::map<std::string, RTLIL::SigSpec> asserts_a, asserts_en;
 	std::map<std::string, RTLIL::SigSpec> assumes_a, assumes_en;
+	std::map<std::string, RTLIL::SigSpec> expects_a, expects_en;
 	std::map<std::string, std::map<RTLIL::SigBit, int>> imported_signals;
 	bool ignore_div_by_zero;
 	bool model_undef;
@@ -1343,6 +1344,14 @@ struct SatGen
 			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
 			assumes_a[pf].append((*sigmap)(cell->getPort("\\A")));
 			assumes_en[pf].append((*sigmap)(cell->getPort("\\EN")));
+			return true;
+		}
+
+		if (cell->type == "$expect")
+		{
+			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
+			expects_a[pf].append((*sigmap)(cell->getPort("\\A")));
+			expects_en[pf].append((*sigmap)(cell->getPort("\\EN")));
 			return true;
 		}
 

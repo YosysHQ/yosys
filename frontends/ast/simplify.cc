@@ -1348,10 +1348,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 skip_dynamic_range_lvalue_expansion:;
 
-	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME) && current_block != NULL)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_EXPECT) && current_block != NULL)
 	{
 		std::stringstream sstr;
-		sstr << "$assert$" << filename << ":" << linenum << "$" << (autoidx++);
+		sstr << "$formal$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string id_check = sstr.str() + "_CHECK", id_en = sstr.str() + "_EN";
 
 		AstNode *wire_check = new AstNode(AST_WIRE);
@@ -1363,8 +1363,10 @@ skip_dynamic_range_lvalue_expansion:;
 		AstNode *wire_en = new AstNode(AST_WIRE);
 		wire_en->str = id_en;
 		current_ast_mod->children.push_back(wire_en);
-		current_ast_mod->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)))));
-		current_ast_mod->children.back()->children[0]->children[0]->children[0]->str = id_en;
+		if (current_always == nullptr || current_always->type != AST_INITIAL) {
+			current_ast_mod->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)))));
+			current_ast_mod->children.back()->children[0]->children[0]->children[0]->str = id_en;
+		}
 		current_scope[wire_en->str] = wire_en;
 		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
@@ -1403,7 +1405,7 @@ skip_dynamic_range_lvalue_expansion:;
 		goto apply_newNode;
 	}
 
-	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME) && children.size() == 1)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_EXPECT) && children.size() == 1)
 	{
 		children.push_back(mkconst_int(1, false, 1));
 		did_something = true;
