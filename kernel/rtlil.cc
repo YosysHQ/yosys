@@ -1024,6 +1024,12 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$initstate") {
+				port("\\Y", 1);
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$equiv") {
 				port("\\A", 1);
 				port("\\B", 1);

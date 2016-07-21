@@ -117,6 +117,7 @@ struct CellTypes
 		setup_type("$assert", {A, EN}, pool<RTLIL::IdString>(), true);
 		setup_type("$assume", {A, EN}, pool<RTLIL::IdString>(), true);
 		setup_type("$predict", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$initstate", pool<RTLIL::IdString>(), {Y}, true);
 		setup_type("$equiv", {A, B}, {Y}, true);
 	}
 

@@ -1626,6 +1626,30 @@ skip_dynamic_range_lvalue_expansion:;
 	{
 		if (type == AST_FCALL)
 		{
+			if (str == "\\$initstate")
+			{
+				int myidx = autoidx++;
+
+				AstNode *wire = new AstNode(AST_WIRE);
+				wire->str = stringf("$initstate$%d_wire", myidx);
+				current_ast_mod->children.push_back(wire);
+				while (wire->simplify(true, false, false, 1, -1, false, false)) { }
+
+				AstNode *cell = new AstNode(AST_CELL, new AstNode(AST_CELLTYPE), new AstNode(AST_ARGUMENT, new AstNode(AST_IDENTIFIER)));
+				cell->str = stringf("$initstate$%d", myidx);
+				cell->children[0]->str = "$initstate";
+				cell->children[1]->str = "\\Y";
+				cell->children[1]->children[0]->str = wire->str;
+				cell->children[1]->children[0]->id2ast = wire;
+				current_ast_mod->children.push_back(cell);
+				while (cell->simplify(true, false, false, 1, -1, false, false)) { }
+
+				newNode = new AstNode(AST_IDENTIFIER);
+				newNode->str = wire->str;
+				newNode->id2ast = wire;
+				goto apply_newNode;
+			}
+
 			if (str == "\\$clog2")
 			{
 				if (children.size() != 1)
