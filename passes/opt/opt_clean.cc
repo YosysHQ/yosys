@@ -64,7 +64,7 @@ struct keep_cache_t
 
 	bool query(Cell *cell)
 	{
-		if (cell->type.in("$memwr", "$meminit", "$assert", "$assume", "$expect"))
+		if (cell->type.in("$memwr", "$meminit", "$assert", "$assume", "$predict"))
 			return true;
 
 		if (cell->has_keep_attr())

@@ -1296,11 +1296,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $assert cells
 	case AST_ASSERT:
 	case AST_ASSUME:
-	case AST_EXPECT:
+	case AST_PREDICT:
 		{
 			const char *celltype = "$assert";
 			if (type == AST_ASSUME) celltype = "$assume";
-			if (type == AST_EXPECT) celltype = "$expect";
+			if (type == AST_PREDICT) celltype = "$predict";
 
 			log_assert(children.size() == 2);
 

@@ -384,8 +384,8 @@ from SystemVerilog:
   form. In module context: "assert property (<expression>);" and within an
   always block: "assert(<expression>);". It is transformed to a $assert cell.
 
-- The "assume" and "expect" statements from SystemVerilog are also
-  supported. The same limitations as with the "assert" statement apply.
+- The "assume" statements from SystemVerilog are also supported. The same
+  limitations as with the "assert" statement apply.
 
 - The keywords "always_comb", "always_ff" and "always_latch", "logic" and
   "bit" are supported.

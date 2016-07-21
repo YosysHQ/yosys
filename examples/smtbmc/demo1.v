@@ -8,7 +8,7 @@ module demo1(input clk, input addtwo, output iseven);
 		cnt = (iseven ? cnt == 10 : cnt == 11) ? 0 : next_cnt;
 	
 	assert property (cnt != 15);
-	// initial expect ((iseven && addtwo) || cnt == 9);
+	// initial predict ((iseven && addtwo) || cnt == 9);
 endmodule
 
 module inc(input addtwo, output iseven, input [3:0] a, output [3:0] y);

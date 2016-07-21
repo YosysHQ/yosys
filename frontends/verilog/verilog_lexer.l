@@ -63,6 +63,10 @@ YOSYS_NAMESPACE_END
 	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext); \
 	return TOK_ID;
 
+#define NON_KEYWORD() \
+	frontend_verilog_yylval.string = new std::string(std::string("\\") + yytext); \
+	return TOK_ID;
+
 #define YY_INPUT(buf,result,max_size) \
 	result = readsome(*VERILOG_FRONTEND::lexin, buf, max_size)
 
@@ -173,7 +177,7 @@ YOSYS_NAMESPACE_END
 
 "assert"   { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
 "assume"   { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
-"expect"   { if (formal_mode) return TOK_EXPECT; SV_KEYWORD(TOK_EXPECT); }
+"predict"   { if (formal_mode) return TOK_PREDICT; NON_KEYWORD(); }
 "property" { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
 "logic"    { SV_KEYWORD(TOK_REG); }
 "bit"      { SV_KEYWORD(TOK_REG); }

@@ -113,7 +113,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME
-%token TOK_EXPECT TOK_PROPERTY
+%token TOK_PREDICT TOK_PROPERTY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -967,8 +967,8 @@ assert:
 	TOK_ASSUME '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
 	} |
-	TOK_EXPECT '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_EXPECT, $3));
+	TOK_PREDICT '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_PREDICT, $3));
 	};
 
 assert_property:
@@ -978,8 +978,8 @@ assert_property:
 	TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
 	} |
-	TOK_EXPECT TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_EXPECT, $4));
+	TOK_PREDICT TOK_PROPERTY '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_PREDICT, $4));
 	};
 
 simple_behavioral_stmt:

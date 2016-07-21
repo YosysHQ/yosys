@@ -1347,7 +1347,7 @@ struct SatGen
 			return true;
 		}
 
-		if (cell->type == "$expect")
+		if (cell->type == "$predict")
 		{
 			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
 			expects_a[pf].append((*sigmap)(cell->getPort("\\A")));
