@@ -71,6 +71,7 @@ struct SatGen
 	std::map<std::string, RTLIL::SigSpec> assumes_a, assumes_en;
 	std::map<std::string, RTLIL::SigSpec> predict_a, predict_en;
 	std::map<std::string, std::map<RTLIL::SigBit, int>> imported_signals;
+	std::map<std::pair<std::string, int>, bool> initstates;
 	bool ignore_div_by_zero;
 	bool model_undef;
 
@@ -265,6 +266,13 @@ struct SatGen
 	void undefGating(int y, int yy, int undef)
 	{
 		ez->assume(ez->OR(undef, ez->IFF(y, yy)));
+	}
+
+	void setInitState(int timestep)
+	{
+		auto key = make_pair(prefix, timestep);
+		log_assert(initstates.count(key) == 0 || initstates.at(key) == true);
+		initstates[key] = true;
 	}
 
 	bool importCell(RTLIL::Cell *cell, int timestep = -1)
@@ -1328,6 +1336,25 @@ struct SatGen
 				ez->assume(ez->vec_eq(undef_a, undef_y));
 				undefGating(y, yy, undef_y);
 			}
+			return true;
+		}
+
+		if (cell->type == "$initstate")
+		{
+			auto key = make_pair(prefix, timestep);
+			if (initstates.count(key) == 0)
+				initstates[key] = false;
+
+			std::vector<int> y = importDefSigSpec(cell->getPort("\\Y"), timestep);
+			log_assert(GetSize(y) == 1);
+			ez->SET(y[0], initstates[key] ? ez->CONST_TRUE : ez->CONST_FALSE);
+
+			if (model_undef) {
+				std::vector<int> undef_y = importUndefSigSpec(cell->getPort("\\Y"), timestep);
+				log_assert(GetSize(undef_y) == 1);
+				ez->SET(undef_y[0], ez->CONST_FALSE);
+			}
+
 			return true;
 		}
 
