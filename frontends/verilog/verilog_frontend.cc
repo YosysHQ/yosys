@@ -175,7 +175,6 @@ struct VerilogFrontend : public Frontend {
 		bool flag_ppdump = false;
 		bool flag_nopp = false;
 		bool flag_nodpi = false;
-		bool flag_lib = false;
 		bool flag_noopt = false;
 		bool flag_icells = false;
 		bool flag_ignore_redef = false;
@@ -187,6 +186,7 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yydebug = false;
 		sv_mode = false;
 		formal_mode = false;
+		lib_mode = false;
 		default_nettype_wire = true;
 
 		log_header(design, "Executing Verilog-2005 frontend.\n");
@@ -249,7 +249,7 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-lib") {
-				flag_lib = true;
+				lib_mode = true;
 				defines_map["BLACKBOX"] = string();
 				continue;
 			}
@@ -342,7 +342,7 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;

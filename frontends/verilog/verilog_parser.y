@@ -57,7 +57,7 @@ namespace VERILOG_FRONTEND {
 	std::vector<char> case_type_stack;
 	bool do_not_require_port_stubs;
 	bool default_nettype_wire;
-	bool sv_mode, formal_mode;
+	bool sv_mode, formal_mode, lib_mode;
 	std::istream *lexin;
 }
 YOSYS_NAMESPACE_END
@@ -1315,7 +1315,7 @@ basic_expr:
 		if ($4->substr(0, 1) != "'")
 			frontend_verilog_yyerror("Syntax error.");
 		AstNode *bits = $2;
-		AstNode *val = const2ast(*$4, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), true);
+		AstNode *val = const2ast(*$4, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $4->c_str());
 		$$ = new AstNode(AST_TO_BITS, bits, val);
@@ -1326,7 +1326,7 @@ basic_expr:
 			frontend_verilog_yyerror("Syntax error.");
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
 		bits->str = *$1;
-		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), true);
+		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $2->c_str());
 		$$ = new AstNode(AST_TO_BITS, bits, val);
@@ -1334,14 +1334,14 @@ basic_expr:
 		delete $2;
 	} |
 	TOK_CONST TOK_CONST {
-		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), true);
+		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL || (*$2)[0] != '\'')
 			log_error("Value conversion failed: `%s%s'\n", $1->c_str(), $2->c_str());
 		delete $1;
 		delete $2;
 	} |
 	TOK_CONST {
-		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), true);
+		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;

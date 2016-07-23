@@ -54,6 +54,9 @@ namespace VERILOG_FRONTEND
 	// running in -formal mode
 	extern bool formal_mode;
 
+	// running in -lib mode
+	extern bool lib_mode;
+
 	// lexer input stream
 	extern std::istream *lexin;
 }
