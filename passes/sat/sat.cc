@@ -90,7 +90,7 @@ struct SatHelper
 				log_cmd_error("Bit %d of %s is undef but option -enable_undef is missing!\n", int(i), log_signal(sig));
 	}
 
-	void setup_init()
+	void setup_init(int timestep)
 	{
 		log ("\nSetting up initial state:\n");
 
@@ -180,11 +180,14 @@ struct SatHelper
 
 		log("Final constraint equation: %s = %s\n\n", log_signal(big_lhs), log_signal(big_rhs));
 		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
-		ez->assume(satgen.signals_eq(big_lhs, big_rhs, 1));
+		ez->assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
 	}
 
-	void setup(int timestep = -1)
+	void setup(int timestep = -1, bool initstate = false)
 	{
+		if (initstate)
+			satgen.setInitState(timestep);
+
 		if (timestep > 0)
 			log ("\nSetting up time step %d:\n", timestep);
 		else
@@ -341,6 +344,9 @@ struct SatHelper
 				log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
 			ez->assume(satgen.importAssumes(timestep));
 		}
+
+		if (initstate)
+			setup_init(timestep);
 	}
 
 	int setup_proof(int timestep = -1)
@@ -1377,7 +1383,6 @@ struct SatPass : public Pass {
 
 			SatHelper basecase(design, module, enable_undef);
 			SatHelper inductstep(design, module, enable_undef);
-			bool basecase_setup_init = true;
 
 			basecase.sets = sets;
 			basecase.set_assumes = set_assumes;
@@ -1403,7 +1408,7 @@ struct SatPass : public Pass {
 
 			for (int timestep = 1; timestep <= seq_len; timestep++)
 				if (!tempinduct_inductonly)
-					basecase.setup(timestep);
+					basecase.setup(timestep, timestep == 1);
 
 			inductstep.sets = sets;
 			inductstep.set_assumes = set_assumes;
@@ -1436,14 +1441,9 @@ struct SatPass : public Pass {
 
 				if (!tempinduct_inductonly)
 				{
-					basecase.setup(seq_len + inductlen);
+					basecase.setup(seq_len + inductlen, seq_len + inductlen == 1);
 					int property = basecase.setup_proof(seq_len + inductlen);
 					basecase.generate_model();
-
-					if (basecase_setup_init) {
-						basecase.setup_init();
-						basecase_setup_init = false;
-					}
 
 					if (inductlen > 1)
 						basecase.force_unique_state(seq_len + 1, seq_len + inductlen);
@@ -1599,14 +1599,13 @@ struct SatPass : public Pass {
 			} else {
 				std::vector<int> prove_bits;
 				for (int timestep = 1; timestep <= seq_len; timestep++) {
-					sathelper.setup(timestep);
+					sathelper.setup(timestep, timestep == 1);
 					if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
 						if (timestep > prove_skip)
 							prove_bits.push_back(sathelper.setup_proof(timestep));
 				}
 				if (sathelper.prove.size() || sathelper.prove_x.size() || sathelper.prove_asserts)
 					sathelper.ez->assume(sathelper.ez->NOT(sathelper.ez->expression(ezSAT::OpAnd, prove_bits)));
-				sathelper.setup_init();
 			}
 			sathelper.generate_model();
 
