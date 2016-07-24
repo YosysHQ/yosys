@@ -21,6 +21,7 @@
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
 #include "kernel/consteval.h"
+#include "kernel/celledges.h"
 #include "kernel/macc.h"
 #include <algorithm>
 
@@ -303,6 +304,90 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	module->fixup_ports();
 	cell->fixup_parameters();
 	cell->check();
+}
+
+static void run_edges_test(RTLIL::Design *design, bool verbose)
+{
+	Module *module = *design->modules().begin();
+	Cell *cell = *module->cells().begin();
+
+	ezSatPtr ezptr;
+	ezSAT &ez = *ezptr.get();
+
+	SigMap sigmap(module);
+	SatGen satgen(&ez, &sigmap);
+
+	FwdCellEdgesDatabase edges_db(sigmap);
+	edges_db.add_cell(cell);
+
+	dict<SigBit, pool<SigBit>> satgen_db;
+
+	satgen.setContext(&sigmap, "X:");
+	satgen.importCell(cell);
+
+	satgen.setContext(&sigmap, "Y:");
+	satgen.importCell(cell);
+
+	vector<tuple<SigBit, int, int>> input_db, output_db;
+
+	for (auto &conn : cell->connections())
+	{
+		SigSpec bits = sigmap(conn.second);
+
+		satgen.setContext(&sigmap, "X:");
+		std::vector<int> xbits = satgen.importSigSpec(bits);
+
+		satgen.setContext(&sigmap, "Y:");
+		std::vector<int> ybits = satgen.importSigSpec(bits);
+
+		for (int i = 0; i < GetSize(bits); i++)
+			if (cell->input(conn.first))
+				input_db.emplace_back(bits[i], xbits[i], ybits[i]);
+			else
+				output_db.emplace_back(bits[i], xbits[i], ybits[i]);
+	}
+
+	if (verbose)
+		log("\nSAT solving for all edges:\n");
+
+	for (int i = 0; i < GetSize(input_db); i++)
+	{
+		SigBit inbit = std::get<0>(input_db[i]);
+
+		if (verbose)
+			log("  Testing input signal %s:\n", log_signal(inbit));
+
+		vector<int> xinbits, yinbits;
+		for (int k = 0; k < GetSize(input_db); k++)
+			if (k != i) {
+				xinbits.push_back(std::get<1>(input_db[k]));
+				yinbits.push_back(std::get<2>(input_db[k]));
+			}
+
+		int xyinbit_ok = ez.vec_eq(xinbits, yinbits);
+
+		for (int k = 0; k < GetSize(output_db); k++)
+		{
+			SigBit outbit = std::get<0>(output_db[k]);
+			int xoutbit = std::get<1>(output_db[k]);
+			int youtbit = std::get<2>(output_db[k]);
+
+			bool is_edge = ez.solve(xyinbit_ok, ez.XOR(xoutbit, youtbit));
+
+			if (is_edge)
+				satgen_db[inbit].insert(outbit);
+
+			if (verbose) {
+				bool is_ref_edge = edges_db.db.count(inbit) && edges_db.db.at(inbit).count(outbit);
+				log("    %c %s %s\n", is_edge ? 'x' : 'o', log_signal(outbit), is_edge == is_ref_edge ? "OK" : "ERROR");
+			}
+		}
+	}
+
+	if (satgen_db == edges_db.db)
+		log("PASS.\n");
+	else
+		log_error("SAT-based edge table does not match the database!\n");
 }
 
 static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::string uut_name, std::ofstream &vlog_file)
@@ -590,6 +675,9 @@ struct TestCellPass : public Pass {
 		log("    -noeval\n");
 		log("        do not check const-eval models\n");
 		log("\n");
+		log("    -edges\n");
+		log("        test cell edges db creator against sat-based implementation\n");
+		log("\n");
 		log("    -v\n");
 		log("        print additional debug information to the console\n");
 		log("\n");
@@ -609,6 +697,7 @@ struct TestCellPass : public Pass {
 		bool constmode = false;
 		bool nosat = false;
 		bool noeval = false;
+		bool edges = false;
 
 		int argidx;
 		for (argidx = 1; argidx < GetSize(args); argidx++)
@@ -660,6 +749,10 @@ struct TestCellPass : public Pass {
 			}
 			if (args[argidx] == "-noeval") {
 				noeval = true;
+				continue;
+			}
+			if (args[argidx] == "-edges") {
+				edges = true;
 				continue;
 			}
 			if (args[argidx] == "-v") {
@@ -801,6 +894,9 @@ struct TestCellPass : public Pass {
 					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
 				if (!write_prefix.empty()) {
 					Pass::call(design, stringf("write_ilang %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
+				} else if (edges) {
+					Pass::call(design, "dump gold");
+					run_edges_test(design, verbose);
 				} else {
 					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
 					if (!nosat)
