@@ -90,108 +90,15 @@ struct SatHelper
 				log_cmd_error("Bit %d of %s is undef but option -enable_undef is missing!\n", int(i), log_signal(sig));
 	}
 
-	void setup_init(int timestep)
-	{
-		log ("\nSetting up initial state:\n");
-
-		RTLIL::SigSpec big_lhs, big_rhs;
-
-		for (auto &it : module->wires_)
-		{
-			if (it.second->attributes.count("\\init") == 0)
-				continue;
-
-			RTLIL::SigSpec lhs = sigmap(it.second);
-			RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
-			log_assert(lhs.size() == rhs.size());
-
-			RTLIL::SigSpec removed_bits;
-			for (int i = 0; i < lhs.size(); i++) {
-				RTLIL::SigSpec bit = lhs.extract(i, 1);
-				if (!satgen.initial_state.check_all(bit)) {
-					removed_bits.append(bit);
-					lhs.remove(i, 1);
-					rhs.remove(i, 1);
-					i--;
-				}
-			}
-
-			if (removed_bits.size())
-				log_warning("ignoring initial value on non-register: %s\n", log_signal(removed_bits));
-
-			if (lhs.size()) {
-				log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
-				big_lhs.remove2(lhs, &big_rhs);
-				big_lhs.append(lhs);
-				big_rhs.append(rhs);
-			}
-		}
-
-		for (auto &s : sets_init)
-		{
-			RTLIL::SigSpec lhs, rhs;
-
-			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
-			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
-			show_signal_pool.add(sigmap(lhs));
-			show_signal_pool.add(sigmap(rhs));
-
-			if (lhs.size() != rhs.size())
-				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.size(), s.second.c_str(), log_signal(rhs), rhs.size());
-
-			log("Import set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
-			big_lhs.remove2(lhs, &big_rhs);
-			big_lhs.append(lhs);
-			big_rhs.append(rhs);
-		}
-
-		if (!satgen.initial_state.check_all(big_lhs)) {
-			RTLIL::SigSpec rem = satgen.initial_state.remove(big_lhs);
-			log_cmd_error("Found -set-init bits that are not part of the initial_state: %s\n", log_signal(rem));
-		}
-
-		if (set_init_def) {
-			RTLIL::SigSpec rem = satgen.initial_state.export_all();
-			std::vector<int> undef_rem = satgen.importUndefSigSpec(rem, 1);
-			ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_rem)));
-		}
-
-		if (set_init_undef) {
-			RTLIL::SigSpec rem = satgen.initial_state.export_all();
-			rem.remove(big_lhs);
-			big_lhs.append(rem);
-			big_rhs.append(RTLIL::SigSpec(RTLIL::State::Sx, rem.size()));
-		}
-
-		if (set_init_zero) {
-			RTLIL::SigSpec rem = satgen.initial_state.export_all();
-			rem.remove(big_lhs);
-			big_lhs.append(rem);
-			big_rhs.append(RTLIL::SigSpec(RTLIL::State::S0, rem.size()));
-		}
-
-		if (big_lhs.size() == 0) {
-			log("No constraints for initial state found.\n\n");
-			return;
-		}
-
-		log("Final constraint equation: %s = %s\n\n", log_signal(big_lhs), log_signal(big_rhs));
-		check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
-		ez->assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
-	}
-
 	void setup(int timestep = -1, bool initstate = false)
 	{
-		if (initstate)
-			satgen.setInitState(timestep);
-
 		if (timestep > 0)
 			log ("\nSetting up time step %d:\n", timestep);
 		else
 			log ("\nSetting up SAT problem:\n");
+
+		if (initstate)
+			satgen.setInitState(timestep);
 
 		if (timestep > max_timestep)
 			max_timestep = timestep;
@@ -346,7 +253,95 @@ struct SatHelper
 		}
 
 		if (initstate)
-			setup_init(timestep);
+		{
+			RTLIL::SigSpec big_lhs, big_rhs;
+
+			for (auto &it : module->wires_)
+			{
+				if (it.second->attributes.count("\\init") == 0)
+					continue;
+
+				RTLIL::SigSpec lhs = sigmap(it.second);
+				RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
+				log_assert(lhs.size() == rhs.size());
+
+				RTLIL::SigSpec removed_bits;
+				for (int i = 0; i < lhs.size(); i++) {
+					RTLIL::SigSpec bit = lhs.extract(i, 1);
+					if (!satgen.initial_state.check_all(bit)) {
+						removed_bits.append(bit);
+						lhs.remove(i, 1);
+						rhs.remove(i, 1);
+						i--;
+					}
+				}
+
+				if (removed_bits.size())
+					log_warning("ignoring initial value on non-register: %s\n", log_signal(removed_bits));
+
+				if (lhs.size()) {
+					log("Import set-constraint from init attribute: %s = %s\n", log_signal(lhs), log_signal(rhs));
+					big_lhs.remove2(lhs, &big_rhs);
+					big_lhs.append(lhs);
+					big_rhs.append(rhs);
+				}
+			}
+
+			for (auto &s : sets_init)
+			{
+				RTLIL::SigSpec lhs, rhs;
+
+				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
+					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
+					log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+				show_signal_pool.add(sigmap(lhs));
+				show_signal_pool.add(sigmap(rhs));
+
+				if (lhs.size() != rhs.size())
+					log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
+						s.first.c_str(), log_signal(lhs), lhs.size(), s.second.c_str(), log_signal(rhs), rhs.size());
+
+				log("Import init set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
+				big_lhs.remove2(lhs, &big_rhs);
+				big_lhs.append(lhs);
+				big_rhs.append(rhs);
+			}
+
+			if (!satgen.initial_state.check_all(big_lhs)) {
+				RTLIL::SigSpec rem = satgen.initial_state.remove(big_lhs);
+				log_cmd_error("Found -set-init bits that are not part of the initial_state: %s\n", log_signal(rem));
+			}
+
+			if (set_init_def) {
+				RTLIL::SigSpec rem = satgen.initial_state.export_all();
+				std::vector<int> undef_rem = satgen.importUndefSigSpec(rem, 1);
+				ez->assume(ez->NOT(ez->expression(ezSAT::OpOr, undef_rem)));
+			}
+
+			if (set_init_undef) {
+				RTLIL::SigSpec rem = satgen.initial_state.export_all();
+				rem.remove(big_lhs);
+				big_lhs.append(rem);
+				big_rhs.append(RTLIL::SigSpec(RTLIL::State::Sx, rem.size()));
+			}
+
+			if (set_init_zero) {
+				RTLIL::SigSpec rem = satgen.initial_state.export_all();
+				rem.remove(big_lhs);
+				big_lhs.append(rem);
+				big_rhs.append(RTLIL::SigSpec(RTLIL::State::S0, rem.size()));
+			}
+
+			if (big_lhs.size() == 0) {
+				log("No constraints for initial state found.\n\n");
+				return;
+			}
+
+			log("Final init constraint equation: %s = %s\n", log_signal(big_lhs), log_signal(big_rhs));
+			check_undef_enabled(big_lhs), check_undef_enabled(big_rhs);
+			ez->assume(satgen.signals_eq(big_lhs, big_rhs, timestep));
+		}
 	}
 
 	int setup_proof(int timestep = -1)
