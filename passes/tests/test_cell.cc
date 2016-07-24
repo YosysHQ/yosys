@@ -43,6 +43,32 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
 	RTLIL::Wire *wire;
 
+	if (cell_type == "$mux" || cell_type == "$pmux")
+	{
+		int width = 1 + xorshift32(8);
+		int swidth = cell_type == "$mux" ? 1 : 1 + xorshift32(8);
+
+		wire = module->addWire("\\A");
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort("\\A", wire);
+
+		wire = module->addWire("\\B");
+		wire->width = width * swidth;
+		wire->port_input = true;
+		cell->setPort("\\B", wire);
+
+		wire = module->addWire("\\S");
+		wire->width = swidth;
+		wire->port_input = true;
+		cell->setPort("\\S", wire);
+
+		wire = module->addWire("\\Y");
+		wire->width = width;
+		wire->port_output = true;
+		cell->setPort("\\Y", wire);
+	}
+
 	if (cell_type == "$fa")
 	{
 		int width = 1 + xorshift32(8);
@@ -318,7 +344,8 @@ static void run_edges_test(RTLIL::Design *design, bool verbose)
 	SatGen satgen(&ez, &sigmap);
 
 	FwdCellEdgesDatabase edges_db(sigmap);
-	edges_db.add_cell(cell);
+	if (!edges_db.add_cell(cell))
+		log_error("Creating edge database failed for this cell!\n");
 
 	dict<SigBit, pool<SigBit>> satgen_db;
 
@@ -818,8 +845,11 @@ struct TestCellPass : public Pass {
 		cell_types["$logic_and"] = "ABSY";
 		cell_types["$logic_or"]  = "ABSY";
 
-		// cell_types["$mux"] = "A";
-		// cell_types["$pmux"] = "A";
+		if (edges) {
+			cell_types["$mux"] = "*";
+			cell_types["$pmux"] = "*";
+		}
+
 		// cell_types["$slice"] = "A";
 		// cell_types["$concat"] = "A";
 		// cell_types["$assert"] = "A";
