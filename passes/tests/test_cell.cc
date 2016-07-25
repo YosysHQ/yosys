@@ -344,7 +344,7 @@ static void run_edges_test(RTLIL::Design *design, bool verbose)
 	SatGen satgen(&ez, &sigmap);
 
 	FwdCellEdgesDatabase edges_db(sigmap);
-	if (!edges_db.add_cell(cell))
+	if (!edges_db.add_edges_from_cell(cell))
 		log_error("Creating edge database failed for this cell!\n");
 
 	dict<SigBit, pool<SigBit>> satgen_db;

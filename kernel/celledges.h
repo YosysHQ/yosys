@@ -29,7 +29,7 @@ struct AbstractCellEdgesDatabase
 {
 	virtual ~AbstractCellEdgesDatabase() { }
 	virtual void add_edge(RTLIL::Cell *cell, RTLIL::IdString from_port, int from_bit, RTLIL::IdString to_port, int to_bit, int delay) = 0;
-	bool add_cell(RTLIL::Cell *cell);
+	bool add_edges_from_cell(RTLIL::Cell *cell);
 };
 
 struct FwdCellEdgesDatabase : AbstractCellEdgesDatabase
