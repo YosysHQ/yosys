@@ -872,10 +872,39 @@ cell_parameter:
 	};
 
 cell_port_list:
-	cell_port | cell_port_list ',' cell_port;
+	cell_port_list_rules {
+		// remove empty args from end of list
+		while (!astbuf2->children.empty()) {
+			AstNode *node = astbuf2->children.back();
+			if (node->type != AST_ARGUMENT) break;
+			if (!node->children.empty()) break;
+			if (!node->str.empty()) break;
+			astbuf2->children.pop_back();
+		}
+
+		// check port types
+		bool has_positional_args = false;
+		bool has_named_args = false;
+		for (auto node : astbuf2->children) {
+			if (node->type != AST_ARGUMENT) continue;
+			if (node->str.empty())
+				has_positional_args = true;
+			else
+				has_named_args = true;
+		}
+
+		if (has_positional_args && has_named_args)
+			frontend_verilog_yyerror("Mix of positional and named cell ports.");
+	};
+
+cell_port_list_rules:
+	cell_port | cell_port_list_rules ',' cell_port;
 
 cell_port:
-	/* empty */ |
+	/* empty */ {
+		AstNode *node = new AstNode(AST_ARGUMENT);
+		astbuf2->children.push_back(node);
+	} |
 	expr {
 		AstNode *node = new AstNode(AST_ARGUMENT);
 		astbuf2->children.push_back(node);
