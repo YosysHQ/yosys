@@ -880,6 +880,7 @@ cell_port_list:
 			if (!node->children.empty()) break;
 			if (!node->str.empty()) break;
 			astbuf2->children.pop_back();
+			delete node;
 		}
 
 		// check port types
