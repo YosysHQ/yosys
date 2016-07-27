@@ -1319,6 +1319,28 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$anyconst")
+		{
+			if (timestep < 2)
+				return true;
+
+			std::vector<int> d = importDefSigSpec(cell->getPort("\\Y"), timestep-1);
+			std::vector<int> q = importDefSigSpec(cell->getPort("\\Y"), timestep);
+
+			std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
+			ez->assume(ez->vec_eq(d, qq));
+
+			if (model_undef)
+			{
+				std::vector<int> undef_d = importUndefSigSpec(cell->getPort("\\D"), timestep-1);
+				std::vector<int> undef_q = importUndefSigSpec(cell->getPort("\\Q"), timestep);
+
+				ez->assume(ez->vec_eq(undef_d, undef_q));
+				undefGating(q, qq, undef_q);
+			}
+			return true;
+		}
+
 		if (cell->type == "$_BUF_" || cell->type == "$equiv")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
