@@ -130,6 +130,7 @@ if tempind:
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
         smt.write("(assert (%s_h s%d))" % (topmod, step))
+        smt.write("(assert (not (%s_is s%d)))" % (topmod, step))
 
         if step == num_steps:
             smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
@@ -172,9 +173,11 @@ else: # not tempind
 
         if step == 0:
             smt.write("(assert (%s_i s0))" % (topmod))
+            smt.write("(assert (%s_is s0))" % (topmod))
 
         else:
             smt.write("(assert (%s_t s%d s%d))" % (topmod, step-1, step))
+            smt.write("(assert (not (%s_is s%d)))" % (topmod, step))
 
         if step < skip_steps:
             if assume_skipped is not None and step >= assume_skipped:

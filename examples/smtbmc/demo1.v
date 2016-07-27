@@ -1,5 +1,5 @@
 module demo1(input clk, input addtwo, output iseven);
-	reg [3:0] cnt = 0;
+	reg [3:0] cnt;
 	wire [3:0] next_cnt;
 
 	inc inc_inst (addtwo, iseven, cnt, next_cnt);
@@ -8,6 +8,7 @@ module demo1(input clk, input addtwo, output iseven);
 		cnt = (iseven ? cnt == 10 : cnt == 11) ? 0 : next_cnt;
 	
 	assert property (cnt != 15);
+	initial assume (!cnt[3] && !cnt[0]);
 	// initial predict ((iseven && addtwo) || cnt == 9);
 endmodule
 
