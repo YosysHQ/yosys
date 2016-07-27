@@ -750,6 +750,19 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		width_hint = max(width_hint, this_width);
 		break;
 
+	case AST_FCALL:
+		if (str == "\\$anyconst" || str == "\\$aconst") {
+			if (GetSize(children) == 1) {
+				while (children[0]->simplify(true, false, false, 1, -1, false, true) == true) { }
+				if (children[0]->type != AST_CONSTANT)
+					log_error("System function %s called with non-const argument at %s:%d!\n",
+							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
+				width_hint = max(width_hint, int(children[0]->asInt(true)));
+			}
+			break;
+		}
+		/* fall through */
+
 	// everything should have been handled above -> print error if not.
 	default:
 		for (auto f : log_files)
@@ -1426,6 +1439,38 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			ProcessGenerator generator(always, ignoreThisSignalsInInitial);
 			delete always;
 		} break;
+
+	case AST_FCALL: {
+			if (str == "\\$anyconst" || str == "\\$aconst")
+			{
+				string myid = stringf("%s$%d", RTLIL::unescape_id(str).c_str(), autoidx++);
+				int width = width_hint;
+
+				if (GetSize(children) > 1)
+					log_error("System function %s got %d arguments, expected 1 or 0 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), GetSize(children), filename.c_str(), linenum);
+
+				if (GetSize(children) == 1) {
+					if (children[0]->type != AST_CONSTANT)
+						log_error("System function %s called with non-const argument at %s:%d!\n",
+								RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
+					width = children[0]->asInt(true);
+				}
+
+				if (width <= 0)
+					log_error("Failed to detect width of %s at %s:%d!\n",
+							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
+
+				Cell *cell = current_module->addCell(myid, str.substr(1));
+				cell->parameters["\\WIDTH"] = width;
+
+				Wire *wire = current_module->addWire(myid + "_wire", width);
+				cell->setPort("\\Y", wire);
+
+				is_signed = sign_hint;
+				return SigSpec(wire);
+			}
+		} /* fall through */
 
 	// everything should have been handled above -> print error if not.
 	default:

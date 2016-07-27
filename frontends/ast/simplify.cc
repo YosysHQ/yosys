@@ -1655,6 +1655,10 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
+			// $anyconst and $aconst are mapped in AstNode::genRTLIL()
+			if (str == "\\$anyconst" || str == "\\$aconst")
+				return false;
+
 			if (str == "\\$clog2")
 			{
 				if (children.size() != 1)

@@ -1030,6 +1030,12 @@ namespace {
 				return;
 			}
 
+			if (cell->type.in("$aconst", "$anyconst")) {
+				port("\\Y", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$equiv") {
 				port("\\A", 1);
 				port("\\B", 1);
