@@ -44,7 +44,8 @@ namespace AST {
 
 // instanciate global variables (private API)
 namespace AST_INTERNAL {
-	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
+	bool flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
+	bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_autowire;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
@@ -175,7 +176,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 // create new node (AstNode constructor)
 // (the optional child arguments make it easier to create AST trees)
-AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
+AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *child3)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -203,6 +204,8 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2)
 		children.push_back(child1);
 	if (child2)
 		children.push_back(child2);
+	if (child3)
+		children.push_back(child3);
 }
 
 // create a (deep recursive) copy of a node
@@ -969,16 +972,25 @@ static AstModule* process_module(AstNode *ast, bool defer)
 	current_module->icells = flag_icells;
 	current_module->autowire = flag_autowire;
 	current_module->fixup_ports();
+
+	if (flag_dump_rtlil) {
+		log("Dumping generated RTLIL:\n");
+		log_module(current_module);
+		log("--- END OF RTLIL DUMP ---\n");
+	}
+
 	return current_module;
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
-void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
+void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool dump_vlog, bool dump_rtlil,
+		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool lib, bool noopt, bool icells, bool ignore_redef, bool defer, bool autowire)
 {
 	current_ast = ast;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
 	flag_dump_vlog = dump_vlog;
+	flag_dump_rtlil = dump_rtlil;
 	flag_nolatches = nolatches;
 	flag_nomeminit = nomeminit;
 	flag_nomem2reg = nomem2reg;
@@ -1023,9 +1035,8 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 
 			design->add(process_module(*it, defer));
 		}
-		else if ((*it)->type == AST_PACKAGE){
+		else if ((*it)->type == AST_PACKAGE)
 			design->verilog_packages.push_back((*it)->clone());
-		}
 		else
 			global_decls.push_back(*it);
 	}

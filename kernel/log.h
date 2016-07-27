@@ -85,6 +85,7 @@ template<typename T> static inline const char *log_id(T *obj) {
 	return log_id(obj->name);
 }
 
+void log_module(RTLIL::Module *module, std::string indent = "");
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
 
 #ifndef NDEBUG
