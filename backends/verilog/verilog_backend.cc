@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool norename, noattr, attr2comment, noexpr;
+bool norename, noattr, attr2comment, noexpr, nodec, nostr;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -153,8 +153,10 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
+	if (nostr)
+		goto dump_bits;
 	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
-		if (width == 32 && !no_decimal) {
+		if (width == 32 && !no_decimal && !nodec) {
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
@@ -164,9 +166,9 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 					val |= 1 << (i - offset);
 			}
 			if (set_signed && val < 0)
-				f << stringf("-32'sd %u", -val);
+				f << stringf("-32'sd%u", -val);
 			else
-				f << stringf("32'%sd %u", set_signed ? "s" : "", val);
+				f << stringf("32'%sd%u", set_signed ? "s" : "", val);
 		} else {
 	dump_bits:
 			f << stringf("%d'%sb", width, set_signed ? "s" : "");
@@ -1345,6 +1347,17 @@ struct VerilogBackend : public Backend {
 		log("        without this option all internal cells are converted to Verilog\n");
 		log("        expressions.\n");
 		log("\n");
+		log("    -nodec\n");
+		log("        32-bit constant values are by default dumped as decimal numbers,\n");
+		log("        not bit pattern. This option decativates this feature and instead\n");
+		log("        will write out all constants in binary.\n");
+		log("\n");
+		log("    -nostr\n");
+		log("        Parameters and attributes that are specified as strings in the\n");
+		log("        original input will be output as strings by this back-end. This\n");
+		log("        decativates this feature and instead will write string constants\n");
+		log("        as binary numbers.\n");
+		log("\n");
 		log("    -blackboxes\n");
 		log("        usually modules with the 'blackbox' attribute are ignored. with\n");
 		log("        this option set only the modules with the 'blackbox' attribute\n");
@@ -1369,6 +1382,8 @@ struct VerilogBackend : public Backend {
 		noattr = false;
 		attr2comment = false;
 		noexpr = false;
+		nodec = false;
+		nostr = false;
 
 		bool blackboxes = false;
 		bool selected = false;
@@ -1416,6 +1431,14 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-noexpr") {
 				noexpr = true;
+				continue;
+			}
+			if (arg == "-nodec") {
+				nodec = true;
+				continue;
+			}
+			if (arg == "-nostr") {
+				nostr = true;
 				continue;
 			}
 			if (arg == "-blackboxes") {
