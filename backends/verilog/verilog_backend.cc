@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool norename, noattr, attr2comment, noexpr, nodec, nostr;
+bool norename, noattr, attr2comment, noexpr, nodec, nostr, defparam;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -1026,7 +1026,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	dump_attributes(f, indent, cell->attributes);
 	f << stringf("%s" "%s", indent.c_str(), id(cell->type, false).c_str());
 
-	if (cell->parameters.size() > 0) {
+	if (!defparam && cell->parameters.size() > 0) {
 		f << stringf(" #(");
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			if (it != cell->parameters.begin())
@@ -1076,6 +1076,16 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(")");
 	}
 	f << stringf("\n%s" ");\n", indent.c_str());
+
+	if (defparam && cell->parameters.size() > 0) {
+		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
+			f << stringf("%sdefparam %s.%s = ", indent.c_str(), cell_name.c_str(), id(it->first).c_str());
+			bool is_signed = (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
+			dump_const(f, it->second, -1, 0, false, is_signed);
+			f << stringf(";\n");
+		}
+	}
+
 }
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
@@ -1358,6 +1368,10 @@ struct VerilogBackend : public Backend {
 		log("        decativates this feature and instead will write string constants\n");
 		log("        as binary numbers.\n");
 		log("\n");
+		log("    -defparam\n");
+		log("        Use 'defparam' statements instead of the Verilog-2001 syntax for\n");
+		log("        cell parameters.\n");
+		log("\n");
 		log("    -blackboxes\n");
 		log("        usually modules with the 'blackbox' attribute are ignored. with\n");
 		log("        this option set only the modules with the 'blackbox' attribute\n");
@@ -1384,6 +1398,7 @@ struct VerilogBackend : public Backend {
 		noexpr = false;
 		nodec = false;
 		nostr = false;
+		defparam = false;
 
 		bool blackboxes = false;
 		bool selected = false;
@@ -1439,6 +1454,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-nostr") {
 				nostr = true;
+				continue;
+			}
+			if (arg == "-defparam") {
+				defparam = true;
 				continue;
 			}
 			if (arg == "-blackboxes") {
