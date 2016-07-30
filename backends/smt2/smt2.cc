@@ -49,6 +49,7 @@ struct Smt2Worker
 			regsmode(regsmode), wiresmode(wiresmode), verbose(verbose), idcounter(0)
 	{
 		decls.push_back(stringf("(declare-sort |%s_s| 0)\n", log_id(module)));
+		decls.push_back(stringf("(declare-fun |%s_is| (|%s_s|) Bool)\n", log_id(module), log_id(module)));
 
 		for (auto cell : module->cells())
 		for (auto &conn : cell->connections()) {
@@ -323,6 +324,16 @@ struct Smt2Worker
 
 		exported_cells.insert(cell);
 		recursive_cells.insert(cell);
+
+		if (cell->type == "$initstate")
+		{
+			SigBit bit = sigmap(cell->getPort("\\Y").as_bit());
+			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (|%s_is| state)) ; %s\n",
+					log_id(module), idcounter, log_id(module), log_id(module), log_signal(bit)));
+			register_bool(bit, idcounter++);
+			recursive_cells.erase(cell);
+			return;
+		}
 
 		if (cell->type == "$_DFF_P_" || cell->type == "$_DFF_N_")
 		{
@@ -755,7 +766,9 @@ struct Smt2Backend : public Backend {
 		log("the assumptions in the module.\n");
 		log("\n");
 		log("The '<mod>_i' function evaluates to 'true' when the given state conforms\n");
-		log("to the initial state.\n");
+		log("to the initial state. Furthermore the '<mod>_is' function should be asserted\n");
+		log("to be true for initial states in addition to '<mod>_i', and should be\n");
+		log("asserted to be false for non-initial states.\n");
 		log("\n");
 		log("For hierarchical designs, the '<mod>_h' function must be asserted for each\n");
 		log("state to establish the design hierarchy. The '<mod>_h <cellname>' function\n");

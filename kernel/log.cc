@@ -427,6 +427,13 @@ const char *log_id(RTLIL::IdString str)
 	return p+1;
 }
 
+void log_module(RTLIL::Module *module, std::string indent)
+{
+	std::stringstream buf;
+	ILANG_BACKEND::dump_module(buf, indent, module, module->design, false);
+	log("%s", buf.str().c_str());
+}
+
 void log_cell(RTLIL::Cell *cell, std::string indent)
 {
 	std::stringstream buf;

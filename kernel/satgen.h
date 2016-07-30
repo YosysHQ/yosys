@@ -69,7 +69,6 @@ struct SatGen
 	SigPool initial_state;
 	std::map<std::string, RTLIL::SigSpec> asserts_a, asserts_en;
 	std::map<std::string, RTLIL::SigSpec> assumes_a, assumes_en;
-	std::map<std::string, RTLIL::SigSpec> predict_a, predict_en;
 	std::map<std::string, std::map<RTLIL::SigBit, int>> imported_signals;
 	std::map<std::pair<std::string, int>, bool> initstates;
 	bool ignore_div_by_zero;
@@ -1320,6 +1319,28 @@ struct SatGen
 			return true;
 		}
 
+		if (cell->type == "$anyconst")
+		{
+			if (timestep < 2)
+				return true;
+
+			std::vector<int> d = importDefSigSpec(cell->getPort("\\Y"), timestep-1);
+			std::vector<int> q = importDefSigSpec(cell->getPort("\\Y"), timestep);
+
+			std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
+			ez->assume(ez->vec_eq(d, qq));
+
+			if (model_undef)
+			{
+				std::vector<int> undef_d = importUndefSigSpec(cell->getPort("\\D"), timestep-1);
+				std::vector<int> undef_q = importUndefSigSpec(cell->getPort("\\Q"), timestep);
+
+				ez->assume(ez->vec_eq(undef_d, undef_q));
+				undefGating(q, qq, undef_q);
+			}
+			return true;
+		}
+
 		if (cell->type == "$_BUF_" || cell->type == "$equiv")
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
@@ -1371,14 +1392,6 @@ struct SatGen
 			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
 			assumes_a[pf].append((*sigmap)(cell->getPort("\\A")));
 			assumes_en[pf].append((*sigmap)(cell->getPort("\\EN")));
-			return true;
-		}
-
-		if (cell->type == "$predict")
-		{
-			std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
-			predict_a[pf].append((*sigmap)(cell->getPort("\\A")));
-			predict_en[pf].append((*sigmap)(cell->getPort("\\EN")));
 			return true;
 		}
 

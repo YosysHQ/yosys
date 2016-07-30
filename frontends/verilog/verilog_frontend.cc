@@ -75,6 +75,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -dump_vlog\n");
 		log("        dump ast as Verilog code (after simplification)\n");
 		log("\n");
+		log("    -dump_rtlil\n");
+		log("        dump generated RTLIL netlist\n");
+		log("\n");
 		log("    -yydebug\n");
 		log("        enable parser debug output\n");
 		log("\n");
@@ -168,6 +171,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
 		bool flag_dump_vlog = false;
+		bool flag_dump_rtlil = false;
 		bool flag_nolatches = false;
 		bool flag_nomeminit = false;
 		bool flag_nomem2reg = false;
@@ -214,6 +218,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-dump_vlog") {
 				flag_dump_vlog = true;
+				continue;
+			}
+			if (arg == "-dump_rtlil") {
+				flag_dump_rtlil = true;
 				continue;
 			}
 			if (arg == "-yydebug") {
@@ -342,7 +350,7 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
+		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_dump_vlog, flag_dump_rtlil, flag_nolatches, flag_nomeminit, flag_nomem2reg, flag_mem2reg, lib_mode, flag_noopt, flag_icells, flag_ignore_redef, flag_defer, default_nettype_wire);
 
 		if (!flag_nopp)
 			delete lexin;
