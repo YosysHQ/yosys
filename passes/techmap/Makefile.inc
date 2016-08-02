@@ -28,6 +28,7 @@ OBJS += passes/techmap/nlutmap.o
 OBJS += passes/techmap/dffsr2dff.o
 OBJS += passes/techmap/shregmap.o
 OBJS += passes/techmap/deminout.o
+OBJS += passes/techmap/insbuf.o
 endif
 
 GENFILES += passes/techmap/techmap.inc
