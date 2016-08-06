@@ -71,7 +71,7 @@ static std::string idy(std::string str1, std::string str2 = std::string(), std::
 	return id(str1);
 }
 
-static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
+static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int seed)
 {
 	f << stringf("`ifndef outfile\n");
 	f << stringf("\t`define outfile \"/dev/stdout\"\n");
@@ -85,7 +85,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter)
 	f << stringf("reg [31:0] xorshift128_x = 123456789;\n");
 	f << stringf("reg [31:0] xorshift128_y = 362436069;\n");
 	f << stringf("reg [31:0] xorshift128_z = 521288629;\n");
-	f << stringf("reg [31:0] xorshift128_w = %u; // <-- seed value\n", int(time(NULL)));
+	f << stringf("reg [31:0] xorshift128_w = %u; // <-- seed value\n", seed ? seed : int(time(NULL)));
 	f << stringf("reg [31:0] xorshift128_t;\n\n");
 	f << stringf("task xorshift128;\n");
 	f << stringf("begin\n");
@@ -342,6 +342,7 @@ struct TestAutotbBackend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		int num_iter = 1000;
+		int seed = 0;
 
 		log_header(design, "Executing TEST_AUTOTB backend (auto-generate pseudo-random test benches).\n");
 
@@ -352,11 +353,15 @@ struct TestAutotbBackend : public Backend {
 				num_iter = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-seed" && argidx+1 < GetSize(args)) {
+				seed = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 
 		extra_args(f, filename, args, argidx);
-		autotest(*f, design, num_iter);
+		autotest(*f, design, num_iter, seed);
 	}
 } TestAutotbBackend;
 

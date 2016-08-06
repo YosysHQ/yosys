@@ -19,7 +19,7 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkjvref:s:p:n: opt; do
+while getopts xmGl:wkjvref:s:p:n:S: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -50,8 +50,10 @@ while getopts xmGl:wkjvref:s:p:n: opt; do
 			scriptopt="$OPTARG" ;;
 		n)
 			autotb_opts="$autotb_opts -n $OPTARG" ;;
+		S)
+			autotb_opts="$autotb_opts -seed $OPTARG" ;;
 		*)
-			echo "Usage: $0 [-x|-m] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] verilog-files\n" >&2
+			echo "Usage: $0 [-x|-m] [-G] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] [-n iters] [-S seed] verilog-files\n" >&2
 			exit 1
 	esac
 done
