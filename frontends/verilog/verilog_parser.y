@@ -1378,10 +1378,10 @@ basic_expr:
 	} |
 	TOK_REALVAL {
 		$$ = new AstNode(AST_REALVALUE);
-		char *p = strdup($1->c_str()), *q;
-		for (int i = 0, j = 0; !p[j]; j++)
-			if (p[j] != '_')
-				p[i++] = p[j], p[i] = 0;
+		char *p = (char*)malloc(GetSize(*$1) + 1), *q;
+		for (int i = 0, j = 0; j < GetSize(*$1); j++)
+			if ((*$1)[j] != '_')
+				p[i++] = (*$1)[j], p[i] = 0;
 		$$->realvalue = strtod(p, &q);
 		log_assert(*q == 0);
 		delete $1;
