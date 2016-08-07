@@ -622,7 +622,7 @@ struct TclPass : public Pass {
 } TclPass;
 #endif
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__CYGWIN__)
 std::string proc_self_dirname()
 {
 	char path[PATH_MAX];
