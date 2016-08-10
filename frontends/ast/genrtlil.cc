@@ -241,6 +241,8 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 				syncrule->type = child->type == AST_POSEDGE ? RTLIL::STp : RTLIL::STn;
 				syncrule->signal = child->children[0]->genRTLIL();
+				if (GetSize(syncrule->signal) != 1)
+					log_error("Found posedge/negedge event on a signal that is not 1 bit wide at %s:%d!\n", always->filename.c_str(), always->linenum);
 				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
 				proc->syncs.push_back(syncrule);
 			}
