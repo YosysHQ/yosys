@@ -174,14 +174,14 @@ struct AttrmapPass : public Pass {
 			if (arg == "-tocase" && argidx+1 < args.size()) {
 				auto action = new AttrmapTocase;
 				action->name = args[++argidx];
-				actions.push_back(std::move(std::unique_ptr<AttrmapAction>(action)));
+				actions.push_back(std::unique_ptr<AttrmapAction>(action));
 				continue;
 			}
 			if (arg == "-rename" && argidx+2 < args.size()) {
 				auto action = new AttrmapRename;
 				action->old_name = args[++argidx];
 				action->new_name = args[++argidx];
-				actions.push_back(std::move(std::unique_ptr<AttrmapAction>(action)));
+				actions.push_back(std::unique_ptr<AttrmapAction>(action));
 				continue;
 			}
 			if ((arg == "-map" || arg == "-imap") && argidx+2 < args.size()) {
@@ -204,7 +204,7 @@ struct AttrmapPass : public Pass {
 				action->new_name = arg2;
 				action->old_value = val1;
 				action->new_value = val2;
-				actions.push_back(std::move(std::unique_ptr<AttrmapAction>(action)));
+				actions.push_back(std::unique_ptr<AttrmapAction>(action));
 				continue;
 			}
 			if (arg == "-remove" && argidx+1 < args.size()) {
@@ -217,7 +217,7 @@ struct AttrmapPass : public Pass {
 				auto action = new AttrmapRemove;
 				action->name = arg1;
 				action->value = val1;
-				actions.push_back(std::move(std::unique_ptr<AttrmapAction>(action)));
+				actions.push_back(std::unique_ptr<AttrmapAction>(action));
 				continue;
 			}
 			if (arg == "-modattr") {
