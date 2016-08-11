@@ -182,6 +182,8 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			run("dffinit -ff GP_DFFS Q INIT");
 			run("dffinit -ff GP_DFFSR Q INIT");
 			run("iopadmap -bits -inpad GP_IBUF OUT:IN -outpad GP_OBUF IN:OUT -inoutpad GP_OBUF OUT:IN -toutpad GP_OBUFT OE:IN:OUT -tinoutpad GP_IOBUF OE:OUT:IN:IO");
+			run("attrmvcp -attr src -attr LOC t:GP_OBUF t:GP_OBUFT t:GP_IOBUF n:*");
+			run("attrmvcp -attr src -attr LOC -driven t:GP_IBUF n:*");
 			run("techmap -map +/greenpak4/cells_map.v");
 			run("clean");
 		}
