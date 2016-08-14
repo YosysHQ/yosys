@@ -165,6 +165,14 @@ module GP_DFF(input D, CLK, output reg Q);
 	end
 endmodule
 
+module GP_DFFI(input D, CLK, output reg nQ);
+	parameter [0:0] INIT = 1'bx;
+	initial nQ = INIT;
+	always @(posedge CLK) begin
+		nQ <= ~D;
+	end
+endmodule
+
 module GP_DFFR(input D, CLK, nRST, output reg Q);
 	parameter [0:0] INIT = 1'bx;
 	initial Q = INIT;
@@ -173,6 +181,17 @@ module GP_DFFR(input D, CLK, nRST, output reg Q);
 			Q <= 1'b0;
 		else
 			Q <= D;
+	end
+endmodule
+
+module GP_DFFRI(input D, CLK, nRST, output reg nQ);
+	parameter [0:0] INIT = 1'bx;
+	initial nQ = INIT;
+	always @(posedge CLK, negedge nRST) begin
+		if (!nRST)
+			nQ <= 1'b1;
+		else
+			nQ <= ~D;
 	end
 endmodule
 
@@ -187,6 +206,17 @@ module GP_DFFS(input D, CLK, nSET, output reg Q);
 	end
 endmodule
 
+module GP_DFFSI(input D, CLK, nSET, output reg nQ);
+	parameter [0:0] INIT = 1'bx;
+	initial nQ = INIT;
+	always @(posedge CLK, negedge nSET) begin
+		if (!nSET)
+			nQ <= 1'b0;
+		else
+			nQ <= ~D;
+	end
+endmodule
+
 module GP_DFFSR(input D, CLK, nSR, output reg Q);
 	parameter [0:0] INIT = 1'bx;
 	parameter [0:0] SRMODE = 1'bx;
@@ -196,6 +226,18 @@ module GP_DFFSR(input D, CLK, nSR, output reg Q);
 			Q <= SRMODE;
 		else
 			Q <= D;
+	end
+endmodule
+
+module GP_DFFSRI(input D, CLK, nSR, output reg nQ);
+	parameter [0:0] INIT = 1'bx;
+	parameter [0:0] SRMODE = 1'bx;
+	initial nQ = INIT;
+	always @(posedge CLK, negedge nSR) begin
+		if (!nSR)
+			nQ <= ~SRMODE;
+		else
+			nQ <= ~D;
 	end
 endmodule
 
@@ -275,15 +317,15 @@ module GP_POR(output reg RST_DONE);
 	
 endmodule
 
-module GP_RCOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC);
+module GP_RCOSC(input PWRDN, output reg CLKOUT_HARDIP, output reg CLKOUT_FABRIC);
 	
 	parameter PWRDN_EN = 0;
 	parameter AUTO_PWRDN = 0;
-	parameter PRE_DIV = 1;
+	parameter HARDIP_DIV = 1;
 	parameter FABRIC_DIV = 1;
 	parameter OSC_FREQ = "25k";
 	
-	initial CLKOUT_PREDIV = 0;
+	initial CLKOUT_HARDIP = 0;
 	initial CLKOUT_FABRIC = 0;
 	
 	//output dividers not implemented for simulation
@@ -291,7 +333,7 @@ module GP_RCOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC)
 	
 	always begin
 		if(PWRDN) begin
-			CLKOUT_PREDIV = 0;
+			CLKOUT_HARDIP = 0;
 			CLKOUT_FABRIC = 0;
 		end
 		else begin
@@ -306,21 +348,21 @@ module GP_RCOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC)
 				#250;
 			end
 			
-			CLKOUT_PREDIV = ~CLKOUT_PREDIV;
+			CLKOUT_HARDIP = ~CLKOUT_HARDIP;
 			CLKOUT_FABRIC = ~CLKOUT_FABRIC;
 		end
 	end
 	
 endmodule
 
-module GP_RINGOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRIC);
+module GP_RINGOSC(input PWRDN, output reg CLKOUT_HARDIP, output reg CLKOUT_FABRIC);
 	
 	parameter PWRDN_EN = 0;
 	parameter AUTO_PWRDN = 0;
-	parameter PRE_DIV = 1;
+	parameter HARDIP_DIV = 1;
 	parameter FABRIC_DIV = 1;
 	
-	initial CLKOUT_PREDIV = 0;
+	initial CLKOUT_HARDIP = 0;
 	initial CLKOUT_FABRIC = 0;
 	
 	//output dividers not implemented for simulation
@@ -328,13 +370,13 @@ module GP_RINGOSC(input PWRDN, output reg CLKOUT_PREDIV, output reg CLKOUT_FABRI
 	
 	always begin
 		if(PWRDN) begin
-			CLKOUT_PREDIV = 0;
+			CLKOUT_HARDIP = 0;
 			CLKOUT_FABRIC = 0;
 		end
 		else begin
 			//half period of 27 MHz
 			#18.518;
-			CLKOUT_PREDIV = ~CLKOUT_PREDIV;
+			CLKOUT_HARDIP = ~CLKOUT_HARDIP;
 			CLKOUT_FABRIC = ~CLKOUT_FABRIC;
 		end
 	end
