@@ -24,7 +24,7 @@ module GP_DFFR(input D, CLK, nRST, output reg Q);
 	);
 endmodule
 
-module GP_DFFSI(input D, CLK, nSET, output reg Q);
+module GP_DFFSI(input D, CLK, nSET, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
 	GP_DFFSRI #(
 		.INIT(INIT),
@@ -33,11 +33,11 @@ module GP_DFFSI(input D, CLK, nSET, output reg Q);
 		.D(D),
 		.CLK(CLK),
 		.nSR(nSET),
-		.Q(Q)
+		.nQ(nQ)
 	);
 endmodule
 
-module GP_DFFRI(input D, CLK, nRST, output reg Q);
+module GP_DFFRI(input D, CLK, nRST, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
 	GP_DFFSRI #(
 		.INIT(INIT),
@@ -46,7 +46,7 @@ module GP_DFFRI(input D, CLK, nRST, output reg Q);
 		.D(D),
 		.CLK(CLK),
 		.nSR(nRST),
-		.Q(Q)
+		.nQ(nQ)
 	);
 endmodule
 

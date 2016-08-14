@@ -165,11 +165,11 @@ module GP_DFF(input D, CLK, output reg Q);
 	end
 endmodule
 
-module GP_DFFI(input D, CLK, output reg Q);
+module GP_DFFI(input D, CLK, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(posedge CLK) begin
-		Q <= ~D;
+		nQ <= ~D;
 	end
 endmodule
 
@@ -184,14 +184,14 @@ module GP_DFFR(input D, CLK, nRST, output reg Q);
 	end
 endmodule
 
-module GP_DFFRI(input D, CLK, nRST, output reg Q);
+module GP_DFFRI(input D, CLK, nRST, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(posedge CLK, negedge nRST) begin
 		if (!nRST)
-			Q <= 1'b1;
+			nQ <= 1'b1;
 		else
-			Q <= ~D;
+			nQ <= ~D;
 	end
 endmodule
 
@@ -206,14 +206,14 @@ module GP_DFFS(input D, CLK, nSET, output reg Q);
 	end
 endmodule
 
-module GP_DFFSI(input D, CLK, nSET, output reg Q);
+module GP_DFFSI(input D, CLK, nSET, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(posedge CLK, negedge nSET) begin
 		if (!nSET)
-			Q <= 1'b0;
+			nQ <= 1'b0;
 		else
-			Q <= ~D;
+			nQ <= ~D;
 	end
 endmodule
 
@@ -229,15 +229,15 @@ module GP_DFFSR(input D, CLK, nSR, output reg Q);
 	end
 endmodule
 
-module GP_DFFSRI(input D, CLK, nSR, output reg Q);
+module GP_DFFSRI(input D, CLK, nSR, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
 	parameter [0:0] SRMODE = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(posedge CLK, negedge nSR) begin
 		if (!nSR)
-			Q <= ~SRMODE;
+			nQ <= ~SRMODE;
 		else
-			Q <= ~D;
+			nQ <= ~D;
 	end
 endmodule
 
