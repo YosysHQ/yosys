@@ -12,7 +12,7 @@ ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
 ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
-ENABLE_LIBYOSYS := 0
+ENABLE_LIBYOSYS := 1
 
 # other configuration flags
 ENABLE_GPROF := 0
@@ -278,6 +278,7 @@ $(eval $(call add_include_file,libs/sha1/sha1.h))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,backends/ilang/ilang_backend.h))
+$(eval $(call add_include_file,backends/dot/dot.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/cellaigs.o kernel/celledges.o
