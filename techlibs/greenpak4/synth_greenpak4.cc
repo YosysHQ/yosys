@@ -185,6 +185,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			run("attrmvcp -attr src -attr LOC t:GP_OBUF t:GP_OBUFT t:GP_IOBUF n:*");
 			run("attrmvcp -attr src -attr LOC -driven t:GP_IBUF n:*");
 			run("techmap -map +/greenpak4/cells_map.v");
+			run("greenpak4_dffinv");
 			run("clean");
 		}
 
