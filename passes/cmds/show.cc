@@ -759,7 +759,7 @@ struct ShowPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (format != "ps") {
+		if (format != "ps" && format != "dot") {
 			int modcount = 0;
 			for (auto &mod_it : design->modules_) {
 				if (mod_it.second->get_bool_attribute("\\blackbox"))
@@ -770,7 +770,7 @@ struct ShowPass : public Pass {
 					modcount++;
 			}
 			if (modcount > 1)
-				log_cmd_error("For formats different than 'ps' only one module must be selected.\n");
+				log_cmd_error("For formats different than 'ps' or 'dot' only one module must be selected.\n");
 		}
 
 		for (auto filename : libfiles) {
@@ -806,7 +806,7 @@ struct ShowPass : public Pass {
 			log_cmd_error("Nothing there to show.\n");
 
 		if (format != "dot" && !format.empty()) {
-			std::string cmd = stringf("dot -T%s -o '%s.new' '%s' && mv '%s.new' '%s'", format.c_str(), out_file.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str());
+			std::string cmd = stringf("dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'", format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
