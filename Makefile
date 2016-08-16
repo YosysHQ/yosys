@@ -4,6 +4,7 @@ CONFIG := clang
 # CONFIG := gcc-4.8
 # CONFIG := emcc
 # CONFIG := mxe
+CONFIG := msys2
 
 # features (the more the better)
 ENABLE_TCL := 1
@@ -172,8 +173,19 @@ ABCMKARGS += ARCHFLAGS="-DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32
 ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=1 CC="$(CXX)" CXX="$(CXX)"
 EXE = .exe
 
+else ifeq ($(CONFIG),msys2)
+CXX = i686-w64-mingw32-gcc
+LD = i686-w64-mingw32-gcc
+CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
+CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
+LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+ABCMKARGS += ARCHFLAGS="-DSIZEOF_VOID_P=4 -DSIZEOF_LONG=4 -DSIZEOF_INT=4 -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -x c++ -fpermissive -w"
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" ABC_USE_NO_READLINE=0 CC="$(CXX)" CXX="$(CXX)"
+EXE = .exe
+
 else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, none)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -514,6 +526,9 @@ config-mxe: clean
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 
+config-msys2: clean
+	echo 'CONFIG := msys2' > Makefile.conf
+
 config-gprof: clean
 	echo 'CONFIG := gcc' > Makefile.conf
 	echo 'ENABLE_GPROF := 1' >> Makefile.conf
@@ -536,4 +551,3 @@ echo-git-rev:
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
 .PHONY: config-clean config-clang config-gcc config-gcc-4.8 config-gprof config-sudo
-
