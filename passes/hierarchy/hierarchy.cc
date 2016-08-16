@@ -322,10 +322,12 @@ bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 {
 	if (db.count(module) == 0) {
+		int score = 0;
 		db[module] = 0;
 		for (auto cell : module->cells())
 			if (design->module(cell->type))
-				db[module] = max(db[module], find_top_mod_score(design, design->module(cell->type), db) + 1);
+				score = max(score, find_top_mod_score(design, design->module(cell->type), db) + 1);
+		db[module] = score;
 	}
 	return db.at(module);
 }
