@@ -509,6 +509,11 @@ int main(int argc, char **argv)
 		free(hist_list);
 #endif
 
+	log_flush();
+#ifdef _WIN32
+	_Exit(0);
+#endif
+
 	yosys_shutdown();
 
 	return 0;

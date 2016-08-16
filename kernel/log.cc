@@ -208,7 +208,7 @@ void logv_error(const char *format, va_list ap)
 	log_files = backup_log_files;
 	throw 0;
 #else
-	exit(1);
+	_Exit(1);
 #endif
 }
 
