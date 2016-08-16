@@ -687,7 +687,7 @@ std::string proc_share_dirname()
 std::string proc_share_dirname()
 {
 	std::string proc_self_path = proc_self_dirname();
-#  ifdef _WIN32
+#  if defined(_WIN32) && !defined(YOSYS_WIN32_UNIX_DIR)
 	std::string proc_share_path = proc_self_path + "share\\";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
@@ -1130,4 +1130,3 @@ struct ScriptCmdPass : public Pass {
 } ScriptCmdPass;
 
 YOSYS_NAMESPACE_END
-
