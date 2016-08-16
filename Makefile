@@ -4,7 +4,7 @@ CONFIG := clang
 # CONFIG := gcc-4.8
 # CONFIG := emcc
 # CONFIG := mxe
-CONFIG := msys2
+# CONFIG := msys2
 
 # features (the more the better)
 ENABLE_TCL := 1
@@ -551,3 +551,4 @@ echo-git-rev:
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
 .PHONY: config-clean config-clang config-gcc config-gcc-4.8 config-gprof config-sudo
+
