@@ -605,8 +605,10 @@ struct Smt2Worker
 			if (cell->type.in("$assert", "$assume")) {
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
+				decls.push_back(stringf("; yosys-smt2-%s %s#%d %s\n", cell->type.c_str() + 1, log_id(module), idcounter,
+					cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : log_id(cell)));
 				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
-					log_id(module), idcounter, log_id(module), name_a.c_str(), name_en.c_str(), log_id(cell)));
+						log_id(module), idcounter, log_id(module), name_a.c_str(), name_en.c_str(), log_id(cell)));
 				if (cell->type == "$assert")
 					assert_list.push_back(stringf("(|%s#%d| state)", log_id(module), idcounter++));
 				else

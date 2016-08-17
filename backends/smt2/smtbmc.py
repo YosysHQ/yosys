@@ -123,6 +123,20 @@ def write_vcd_model(steps):
     vcd.set_time(steps)
 
 
+def print_failed_asserts(mod, state, path):
+    assert mod in smt.modinfo
+
+    if smt.get("(|%s_a| %s)" % (mod, state)) == "true":
+        return
+
+    for cellname, celltype in smt.modinfo[mod].cells.items():
+        print_failed_asserts(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
+
+    for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
+        if smt.get("(|%s| %s)" % (assertfun, state)) == "false":
+            print("%s Assert failed in %s: %s" % (smt.timestamp(), path, assertinfo))
+
+
 if tempind:
     retstatus = False
     skip_counter = step_size
@@ -154,6 +168,7 @@ if tempind:
         if smt.check_sat() == "sat":
             if step == 0:
                 print("%s Temporal induction failed!" % smt.timestamp())
+                print_failed_asserts(topmod, "s%d" % step, topmod)
                 if vcdfile is not None:
                     write_vcd_model(num_steps+1)
 
@@ -207,6 +222,7 @@ else: # not tempind
 
         if smt.check_sat() == "sat":
             print("%s BMC failed!" % smt.timestamp())
+            print_failed_asserts(topmod, "s%d" % step, topmod)
             if vcdfile is not None:
                 write_vcd_model(step+step_size)
             retstatus = False

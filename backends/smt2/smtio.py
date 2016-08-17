@@ -30,6 +30,7 @@ class smtmodinfo:
         self.wires = set()
         self.wsize = dict()
         self.cells = dict()
+        self.asserts = dict()
 
 class smtio:
     def __init__(self, solver=None, debug_print=None, debug_file=None, timeinfo=None, opts=None):
@@ -128,6 +129,9 @@ class smtio:
         if fields[1] == "yosys-smt2-wire":
             self.modinfo[self.curmod].wires.add(fields[2])
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-assert":
+            self.modinfo[self.curmod].asserts[fields[2]] = fields[3]
 
     def hiernets(self, top):
         def hiernets_worker(nets, mod, cursor):
