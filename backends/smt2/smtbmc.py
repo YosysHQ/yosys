@@ -111,14 +111,16 @@ def write_vcd_model(steps):
     print("%s Writing model to VCD file." % smt.timestamp())
 
     vcd = mkvcd(open(vcdfile, "w"))
+
     for netpath in sorted(smt.hiernets(topmod)):
-        width = len(smt.get_net_bin(topmod, netpath, "s0"))
-        vcd.add_net([topmod] + netpath, width)
+        vcd.add_net([topmod] + netpath, smt.net_width(topmod, netpath))
 
     for i in range(steps):
         vcd.set_time(i)
-        for netpath in sorted(smt.hiernets(topmod)):
-            vcd.set_net([topmod] + netpath, smt.get_net_bin(topmod, netpath, "s%d" % i))
+        path_list = sorted(smt.hiernets(topmod))
+        value_list = smt.get_net_bin_list(topmod, path_list, "s%d" % i)
+        for path, value in zip(path_list, value_list):
+            vcd.set_net([topmod] + path, value)
 
     vcd.set_time(steps)
 
