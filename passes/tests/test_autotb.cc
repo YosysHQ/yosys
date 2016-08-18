@@ -155,6 +155,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			f << stringf("\t%s <= #%d 0;\n", it->first.c_str(), ++delay_counter*2);
 		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it)
 			f << stringf("\t%s <= #%d 0;\n", it->first.c_str(), ++delay_counter*2);
+		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it) {
 			f << stringf("\t#100; %s <= 1;\n", it->first.c_str());
 			f << stringf("\t#100; %s <= 0;\n", it->first.c_str());
@@ -162,6 +163,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); ++it)
 			f << stringf("\t%s <= #%d ~0;\n", it->first.c_str(), ++delay_counter*2);
+		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it) {
 			f << stringf("\t#100; %s <= 1;\n", it->first.c_str());
 			f << stringf("\t#100; %s <= 0;\n", it->first.c_str());
@@ -172,6 +174,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 				continue;
 			f << stringf("\t%s <= #%d 'b%s;\n", it->first.c_str(), ++delay_counter*2, signal_const[it->first].c_str());
 		}
+		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
@@ -184,6 +187,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			f << stringf("\txorshift128;\n");
 			f << stringf("\t%s <= #%d { xorshift128_x, xorshift128_y, xorshift128_z, xorshift128_w };\n", it->first.c_str(), ++delay_counter*2);
 		}
+		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
