@@ -827,12 +827,13 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::vector<std::string> lof_reg_declarations;
 
 		int nread_ports = cell->parameters["\\RD_PORTS"].as_int();
-		RTLIL::SigSpec sig_rd_clk, sig_rd_data, sig_rd_addr;
+		RTLIL::SigSpec sig_rd_clk, sig_rd_en, sig_rd_data, sig_rd_addr;
 		bool use_rd_clk, rd_clk_posedge, rd_transparent;
 		// read ports
 		for (int i=0; i < nread_ports; i++)
 		{
 			sig_rd_clk = cell->getPort("\\RD_CLK").extract(i);
+			sig_rd_en = cell->getPort("\\RD_EN").extract(i);
 			sig_rd_data = cell->getPort("\\RD_DATA").extract(i*width, width);
 			sig_rd_addr = cell->getPort("\\RD_ADDR").extract(i*abits, abits);
 			use_rd_clk = cell->parameters["\\RD_CLK_ENABLE"].extract(i).as_bool();
@@ -850,15 +851,22 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				// for clocked read ports make something like:
 				//   reg [..] temp_id;
 				//   always @(posedge clk)
-				//      temp_id <= array_reg[r_addr];
+				//      if (rd_en) temp_id <= array_reg[r_addr];
 				//   assign r_data = temp_id;
 				std::string temp_id = next_auto_id();
 				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", sig_rd_data.size() - 1, temp_id.c_str()) );
 				{
 					std::ostringstream os;
+					if (sig_rd_en != RTLIL::SigBit(true))
+					{
+						os << stringf("if (");
+						dump_sigspec(os, sig_rd_en);
+						os << stringf(") ");
+					}
+					os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
 					dump_sigspec(os, sig_rd_addr);
-					std::string line = stringf("%s <= %s[%s];\n", temp_id.c_str(), mem_id.c_str(), os.str().c_str());
-					clk_to_lof_body[clk_domain_str].push_back(line);
+					os << stringf("];\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
 				}
 				{
 					std::ostringstream os;
@@ -945,10 +953,10 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			n = 0;
 			for (auto &wen_bit : lof_wen) {
 				wen_width = wen_to_width[wen_bit];
-				if (!(wen_bit == RTLIL::SigBit(false)))
+				if (wen_bit != RTLIL::SigBit(false))
 				{
 					std::ostringstream os;
-					if (!(wen_bit == RTLIL::SigBit(true)))
+					if (wen_bit != RTLIL::SigBit(true))
 					{
 						os << stringf("if (");
 						dump_sigspec(os, wen_bit);
