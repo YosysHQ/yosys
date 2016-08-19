@@ -53,6 +53,10 @@ struct PrepPass : public ScriptPass
 		log("        passed to 'proc'. uses verilog simulation behavior for verilog if/case\n");
 		log("        undef handling. this also prevents 'wreduce' from being run.\n");
 		log("\n");
+		log("    -memx\n");
+		log("        simulate verilog simulation behavior for out-of-bounds memory accesses\n");
+		log("        using the 'memory_memx' pass. This option implies -nordff.\n");
+		log("\n");
 		log("    -nordff\n");
 		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
@@ -68,7 +72,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts;
-	bool autotop, flatten, ifxmode;
+	bool autotop, flatten, ifxmode, memxmode;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
@@ -78,6 +82,7 @@ struct PrepPass : public ScriptPass
 		autotop = false;
 		flatten = false;
 		ifxmode = false;
+		memxmode = false;
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -112,6 +117,11 @@ struct PrepPass : public ScriptPass
 			}
 			if (args[argidx] == "-ifx") {
 				ifxmode = true;
+				continue;
+			}
+			if (args[argidx] == "-memx") {
+				memxmode = true;
+				memory_opts += " -nordff";
 				continue;
 			}
 			if (args[argidx] == "-nordff") {
@@ -153,7 +163,10 @@ struct PrepPass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run(ifxmode ? "proc -ifx" : "proc");
+			if (help_mode)
+				run("proc [-ifx]");
+			else
+				run(ifxmode ? "proc -ifx" : "proc");
 			if (help_mode || flatten)
 				run("flatten", "(if -flatten)");
 			run("opt_expr -keepdc");
@@ -163,6 +176,8 @@ struct PrepPass : public ScriptPass
 			if (!ifxmode)
 				run("wreduce");
 			run("memory_dff" + (help_mode ? " [-nordff]" : memory_opts));
+			if (help_mode || memxmode)
+				run("memory_memx", "(if -memx)");
 			run("opt_clean");
 			run("memory_collect");
 			run("opt -keepdc -fast");
