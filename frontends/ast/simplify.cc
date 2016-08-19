@@ -1490,6 +1490,11 @@ skip_dynamic_range_lvalue_expansion:;
 		int mem_width, mem_size, addr_bits;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
 
+		int addr_width_hint = -1;
+		bool addr_sign_hint = true;
+		children[0]->children[0]->children[0]->detectSignWidthWorker(addr_width_hint, addr_sign_hint);
+		addr_bits = std::max(addr_bits, addr_width_hint);
+
 		AstNode *wire_addr = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
 		wire_addr->str = id_addr;
 		current_ast_mod->children.push_back(wire_addr);

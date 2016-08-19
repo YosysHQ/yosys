@@ -385,6 +385,7 @@ struct WreducePass : public Pass {
 				continue;
 
 			for (auto c : module->selected_cells())
+			{
 				if (c->type.in("$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
 						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
 						"$logic_not", "$logic_and", "$logic_or") && GetSize(c->getPort("\\Y")) > 1) {
@@ -396,6 +397,23 @@ struct WreducePass : public Pass {
 						module->connect(sig, Const(0, GetSize(sig)));
 					}
 				}
+				if (c->type.in("$memrd", "$memwr", "$meminit")) {
+					IdString memid = c->getParam("\\MEMID").decode_string();
+					RTLIL::Memory *mem = module->memories.at(memid);
+					if (mem->start_offset == 0) {
+						int cur_addrbits = c->getParam("\\ABITS").as_int();
+						int max_addrbits = ceil_log2(mem->size);
+						if (cur_addrbits > max_addrbits) {
+							log("Removed top %d address bits (of %d) from memory %s port %s.%s (%s).\n",
+									cur_addrbits-max_addrbits, cur_addrbits,
+									c->type == "$memrd" ? "read" : c->type == "$memwr" ? "write" : "init",
+									log_id(module), log_id(c), log_id(memid));
+							c->setParam("\\ABITS", max_addrbits);
+							c->setPort("\\ADDR", c->getPort("\\ADDR").extract(0, max_addrbits));
+						}
+					}
+				}
+			}
 
 			WreduceWorker worker(&config, module);
 			worker.run();

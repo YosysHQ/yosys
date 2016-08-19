@@ -37,8 +37,6 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	log("Collecting $memrd, $memwr and $meminit for memory `%s' in module `%s':\n",
 			memory->name.c_str(), module->name.c_str());
 
-	int addr_bits = 0;
-
 	Const init_data(State::Sx, memory->size * memory->width);
 	SigMap sigmap(module);
 
@@ -59,15 +57,27 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	SigSpec sig_rd_data;
 	SigSpec sig_rd_en;
 
+	int addr_bits = 0;
 	std::vector<Cell*> memcells;
 
 	for (auto &cell_it : module->cells_) {
 		Cell *cell = cell_it.second;
 		if (cell->type.in("$memrd", "$memwr", "$meminit") && memory->name == cell->parameters["\\MEMID"].decode_string()) {
-			addr_bits = max(addr_bits, cell->getParam("\\ABITS").as_int());
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
+			for (int i = 0; i < GetSize(addr); i++)
+				if (addr[i] != State::S0)
+					addr_bits = std::max(addr_bits, i+1);
 			memcells.push_back(cell);
 		}
 	}
+
+	if (memory->start_offset == 0 && addr_bits < 30 && (1 << addr_bits) < memory->size)
+		memory->size = 1 << addr_bits;
+
+	if (memory->start_offset >= 0)
+		addr_bits = std::min(addr_bits, ceil_log2(memory->size + memory->start_offset));
+
+	addr_bits = std::max(addr_bits, 1);
 
 	if (memcells.empty()) {
 		log("  no cells found. removing memory.\n");
