@@ -25,6 +25,8 @@ skip_steps = 0
 step_size = 1
 num_steps = 20
 vcdfile = None
+vlogtbfile = None
+gentrace = False
 tempind = False
 assume_skipped = None
 topmod = None
@@ -44,6 +46,10 @@ yosys-smtbmc [options] <yosys_smt2_output>
     -S <step_size>
         prove <step_size> time steps at once
 
+    -g
+        generate an arbitrary trace that satisfies
+        all assertions and assumptions.
+
     -i
         instead of BMC run temporal induction
 
@@ -51,7 +57,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
         name of the top module
 
     --dump-vcd <vcd_filename>
-        write counter-example to this VCD file
+        write trace to this VCD file
         (hint: use 'write_smt2 -wires' for maximum
         coverage of signals in generated VCD file)
 """ + so.helpmsg())
@@ -59,7 +65,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:im:", so.longopts + ["dump-vcd="])
+    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:igm:", so.longopts + ["dump-vcd=", "dump-vlogtb="])
 except:
     usage()
 
@@ -79,6 +85,8 @@ for o, a in opts:
         vcdfile = a
     elif o == "-i":
         tempind = True
+    elif o == "-g":
+        gentrace = True
     elif o == "-m":
         topmod = a
     elif so.handle(o, a):
@@ -107,7 +115,7 @@ assert topmod is not None
 assert topmod in smt.modinfo
 
 
-def write_vcd_model(steps):
+def write_vcd_trace(steps):
     print("%s Writing model to VCD file." % smt.timestamp())
 
     vcd = mkvcd(open(vcdfile, "w"))
@@ -172,15 +180,41 @@ if tempind:
                 print("%s Temporal induction failed!" % smt.timestamp())
                 print_failed_asserts(topmod, "s%d" % step, topmod)
                 if vcdfile is not None:
-                    write_vcd_model(num_steps+1)
+                    write_vcd_trace(num_steps+1)
 
         else:
             print("%s Temporal induction successful." % smt.timestamp())
             retstatus = True
             break
 
+elif gentrace:
+    retstatus = True
+    for step in range(num_steps):
+        smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
+        smt.write("(assert (%s_u s%d))" % (topmod, step))
+        smt.write("(assert (%s_a s%d))" % (topmod, step))
+        smt.write("(assert (%s_h s%d))" % (topmod, step))
 
-else: # not tempind
+        if step == 0:
+            smt.write("(assert (%s_i s0))" % (topmod))
+            smt.write("(assert (%s_is s0))" % (topmod))
+
+        else:
+            smt.write("(assert (%s_t s%d s%d))" % (topmod, step-1, step))
+            smt.write("(assert (not (%s_is s%d)))" % (topmod, step))
+
+    print("%s Creating trace of length %d.." % (smt.timestamp(), num_steps))
+
+    if smt.check_sat() == "sat":
+        if vcdfile is not None:
+            write_vcd_trace(num_steps)
+
+    else:
+        print("%s Creating trace failed!" % smt.timestamp())
+        retstatus = False
+
+
+else: # not tempind, not gentrace
     step = 0
     retstatus = True
     while step < num_steps:
@@ -226,7 +260,7 @@ else: # not tempind
             print("%s BMC failed!" % smt.timestamp())
             print_failed_asserts(topmod, "s%d" % step, topmod)
             if vcdfile is not None:
-                write_vcd_model(step+step_size)
+                write_vcd_trace(step+step_size)
             retstatus = False
             break
 
