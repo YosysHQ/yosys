@@ -60,6 +60,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
         write trace to this VCD file
         (hint: use 'write_smt2 -wires' for maximum
         coverage of signals in generated VCD file)
+
+    --dump-vlogtb <verilog_filename>
+        write trace as Verilog test bench
 """ + so.helpmsg())
     sys.exit(1)
 
@@ -83,6 +86,8 @@ for o, a in opts:
         step_size = int(a)
     elif o == "--dump-vcd":
         vcdfile = a
+    elif o == "--dump-vlogtb":
+        vlogtbfile = a
     elif o == "-i":
         tempind = True
     elif o == "-g":
@@ -116,21 +121,118 @@ assert topmod in smt.modinfo
 
 
 def write_vcd_trace(steps):
-    print("%s Writing model to VCD file." % smt.timestamp())
+    print("%s Writing trace to VCD file." % smt.timestamp())
 
     vcd = mkvcd(open(vcdfile, "w"))
+    path_list = list()
 
     for netpath in sorted(smt.hiernets(topmod)):
-        vcd.add_net([topmod] + netpath, smt.net_width(topmod, netpath))
+        hidden_net = False
+        for n in netpath:
+            if n.startswith("$"):
+                hidden_net = True
+        if not hidden_net:
+            vcd.add_net([topmod] + netpath, smt.net_width(topmod, netpath))
+            path_list.append(netpath)
 
     for i in range(steps):
         vcd.set_time(i)
-        path_list = sorted(smt.hiernets(topmod))
         value_list = smt.get_net_bin_list(topmod, path_list, "s%d" % i)
         for path, value in zip(path_list, value_list):
             vcd.set_net([topmod] + path, value)
 
     vcd.set_time(steps)
+
+
+def write_vlogtb_trace(steps):
+    print("%s Writing trace to Verilog testbench." % smt.timestamp())
+
+    with open(vlogtbfile, "w") as f:
+        print("module testbench;", file=f)
+        print("  reg [4095:0] vcdfile;", file=f)
+        print("  reg clock = 0, genclock = 1;", file=f)
+
+        primary_inputs = list()
+        clock_inputs = set()
+
+        for name in smt.modinfo[topmod].inputs:
+            if name in ["clk", "clock", "CLK", "CLOCK"]:
+                clock_inputs.add(name)
+            width = smt.modinfo[topmod].wsize[name]
+            primary_inputs.append((name, width))
+
+        for name, width in primary_inputs:
+            if name in clock_inputs:
+                print("  wire [%d:0] PI_%s = clock;" % (width-1, name), file=f)
+            else:
+                print("  reg [%d:0] PI_%s;" % (width-1, name), file=f)
+
+        print("  %s UUT (" % topmod, file=f)
+        for i in range(len(primary_inputs)):
+            name, width = primary_inputs[i]
+            last_pi = i+1 == len(primary_inputs)
+            print("    .%s(PI_%s)%s" % (name, name, "" if last_pi else ","), file=f)
+        print("  );", file=f)
+
+        print("  initial begin", file=f)
+        print("    if ($value$plusargs(\"vcd=%s\", vcdfile)) begin", file=f)
+        print("      $dumpfile(vcdfile);", file=f)
+        print("      $dumpvars(0, testbench);", file=f)
+        print("    end", file=f)
+        print("    while (genclock) begin", file=f)
+        print("      #5; clock = 0;", file=f)
+        print("      #5; clock = 1;", file=f)
+        print("    end", file=f)
+        print("  end", file=f)
+
+        print("  initial begin", file=f)
+
+        regs = sorted(smt.hiernets(topmod, regs_only=True))
+        regvals = smt.get_net_bin_list(topmod, regs, "s0")
+
+        print("    #1;", file=f);
+        for reg, val in zip(regs, regvals):
+            hidden_net = False
+            for n in reg:
+                if n.startswith("$"):
+                    hidden_net = True
+            print("    %sUUT.%s = %d'b%s;" % ("// " if hidden_net else "", ".".join(reg), len(val), val), file=f)
+
+        mems = sorted(smt.hiermems(topmod))
+        for mempath in mems:
+            mem, abits, width = smt.mem_expr(topmod, "s0", mempath)
+
+            expr_list = list()
+            for i in range(2**abits):
+                expr_list.append("(select %s #b%s)" % (mem, format(i, "0%db" % abits)))
+
+            for i, val in enumerate(smt.get_list(expr_list)):
+                val = smt.bv2bin(val)
+                print("    UUT.%s[%d] = %d'b%s;" % (".".join(mempath), i, len(val), val), file=f)
+
+        for i in range(steps):
+            pi_names = [[name] for name, _ in primary_inputs if name not in clock_inputs]
+            pi_values = smt.get_net_bin_list(topmod, pi_names, "s%d" % i)
+
+            print("    #1;", file=f);
+            print("    // state %d" % i, file=f);
+            if i > 0:
+                print("    @(posedge clock);", file=f);
+            for name, val in zip(pi_names, pi_values):
+                print("    PI_%s <= %d'b%s;" % (".".join(name), len(val), val), file=f)
+
+        print("    genclock = 0;", file=f);
+        print("  end", file=f)
+
+        print("endmodule", file=f)
+
+
+def write_trace(steps):
+    if vcdfile is not None:
+        write_vcd_trace(steps)
+
+    if vlogtbfile is not None:
+        write_vlogtb_trace(steps)
 
 
 def print_failed_asserts(mod, state, path):
@@ -179,8 +281,7 @@ if tempind:
             if step == 0:
                 print("%s Temporal induction failed!" % smt.timestamp())
                 print_failed_asserts(topmod, "s%d" % step, topmod)
-                if vcdfile is not None:
-                    write_vcd_trace(num_steps+1)
+                write_trace(num_steps+1)
 
         else:
             print("%s Temporal induction successful." % smt.timestamp())
@@ -206,8 +307,7 @@ elif gentrace:
     print("%s Creating trace of length %d.." % (smt.timestamp(), num_steps))
 
     if smt.check_sat() == "sat":
-        if vcdfile is not None:
-            write_vcd_trace(num_steps)
+        write_trace(num_steps)
 
     else:
         print("%s Creating trace failed!" % smt.timestamp())
@@ -259,8 +359,7 @@ else: # not tempind, not gentrace
         if smt.check_sat() == "sat":
             print("%s BMC failed!" % smt.timestamp())
             print_failed_asserts(topmod, "s%d" % step, topmod)
-            if vcdfile is not None:
-                write_vcd_trace(step+step_size)
+            write_trace(step+step_size)
             retstatus = False
             break
 
