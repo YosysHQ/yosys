@@ -27,6 +27,7 @@ class smtmodinfo:
         self.inputs = set()
         self.outputs = set()
         self.registers = set()
+        self.memories = dict()
         self.wires = set()
         self.wsize = dict()
         self.cells = dict()
@@ -126,6 +127,9 @@ class smtio:
             self.modinfo[self.curmod].registers.add(fields[2])
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
+        if fields[1] == "yosys-smt2-memory":
+            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]))
+
         if fields[1] == "yosys-smt2-wire":
             self.modinfo[self.curmod].wires.add(fields[2])
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
@@ -133,16 +137,28 @@ class smtio:
         if fields[1] == "yosys-smt2-assert":
             self.modinfo[self.curmod].asserts[fields[2]] = fields[3]
 
-    def hiernets(self, top):
+    def hiernets(self, top, regs_only=False):
         def hiernets_worker(nets, mod, cursor):
             for netname in sorted(self.modinfo[mod].wsize.keys()):
-                nets.append(cursor + [netname])
+                if not regs_only or netname in self.modinfo[mod].registers:
+                    nets.append(cursor + [netname])
             for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
                 hiernets_worker(nets, celltype, cursor + [cellname])
 
         nets = list()
         hiernets_worker(nets, top, [])
         return nets
+
+    def hiermems(self, top):
+        def hiermems_worker(mems, mod, cursor):
+            for memname in sorted(self.modinfo[mod].memories.keys()):
+                mems.append(cursor + [memname])
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                hiermems_worker(mems, celltype, cursor + [cellname])
+
+        mems = list()
+        hiermems_worker(mems, top, [])
+        return mems
 
     def read(self):
         stmt = []
@@ -298,8 +314,10 @@ class smtio:
         return self.parse(self.read())[0][1]
 
     def get_list(self, expr_list):
-         self.write("(get-value (%s))" % " ".join(expr_list))
-         return [n[1] for n in self.parse(self.read())]
+        if len(expr_list) == 0:
+            return []
+        self.write("(get-value (%s))" % " ".join(expr_list))
+        return [n[1] for n in self.parse(self.read())]
 
     def net_expr(self, mod, base, path):
         if len(path) == 1:
@@ -323,6 +341,19 @@ class smtio:
         assert mod in self.modinfo
         assert net_path[-1] in self.modinfo[mod].wsize
         return self.modinfo[mod].wsize[net_path[-1]]
+
+    def mem_expr(self, mod, base, path):
+        if len(path) == 1:
+            assert mod in self.modinfo
+            assert path[0] in self.modinfo[mod].memories
+            return "(|%s_m %s| %s)" % (mod, path[0], base), self.modinfo[mod].memories[path[0]][0], self.modinfo[mod].memories[path[0]][1]
+
+        assert mod in self.modinfo
+        assert path[0] in self.modinfo[mod].cells
+
+        nextmod = self.modinfo[mod].cells[path[0]]
+        nextbase = "(|%s_h %s| %s)" % (mod, path[0], base)
+        return self.mem_expr(nextmod, nextbase, path[1:])
 
     def get_net(self, mod_name, net_path, state_name):
         return self.get(self.net_expr(mod_name, state_name, net_path))
