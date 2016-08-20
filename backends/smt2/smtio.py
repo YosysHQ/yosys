@@ -348,7 +348,8 @@ class smtio:
 
 class smtopts:
     def __init__(self):
-        self.optstr = "s:d:vp"
+        self.shortopts = "s:v"
+        self.longopts = ["no-progress", "dump-smt2="]
         self.solver = "z3"
         self.debug_print = False
         self.debug_file = None
@@ -359,9 +360,9 @@ class smtopts:
             self.solver = a
         elif o == "-v":
             self.debug_print = True
-        elif o == "-p":
+        elif o == "--no-progress":
             self.timeinfo = True
-        elif o == "-d":
+        elif o == "--dump-smt2":
             self.debug_file = open(a, "w")
         else:
             return False
@@ -376,10 +377,10 @@ class smtopts:
     -v
         enable debug output
 
-    -p
-        disable timer display during solving
+    --no-progress
+        disable running timer display during solving
 
-    -d <filename>
+    --dump-smt2 <filename>
         write smt2 statements to file
 """
 

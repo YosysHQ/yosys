@@ -42,24 +42,24 @@ yosys-smtbmc [options] <yosys_smt2_output>
         assume asserts in skipped steps in BMC
 
     -S <step_size>
-        proof <step_size> time steps at once
-
-    -c <vcd_filename>
-        write counter-example to this VCD file
-        (hint: use 'write_smt2 -wires' for maximum
-        coverage of signals in generated VCD file)
+        prove <step_size> time steps at once
 
     -i
         instead of BMC run temporal induction
 
     -m <module_name>
         name of the top module
+
+    --dump-vcd <vcd_filename>
+        write counter-example to this VCD file
+        (hint: use 'write_smt2 -wires' for maximum
+        coverage of signals in generated VCD file)
 """ + so.helpmsg())
     sys.exit(1)
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.optstr + "t:u:S:c:im:")
+    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:im:", so.longopts + ["dump-vcd="])
 except:
     usage()
 
@@ -75,7 +75,7 @@ for o, a in opts:
         assume_skipped = int(a)
     elif o == "-S":
         step_size = int(a)
-    elif o == "-c":
+    elif o == "--dump-vcd":
         vcdfile = a
     elif o == "-i":
         tempind = True
