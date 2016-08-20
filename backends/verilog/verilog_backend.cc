@@ -908,13 +908,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 
 		int nwrite_ports = cell->parameters["\\WR_PORTS"].as_int();
-		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en, sig_wr_en_bit;
-		RTLIL::SigBit last_bit;
+		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en;
 		bool wr_clk_posedge;
-		RTLIL::SigSpec lof_wen;
-		dict<RTLIL::SigSpec, int> wen_to_width;
 		SigMap sigmap(active_module);
-		int n, wen_width;
 		// write ports
 		for (int i=0; i < nwrite_ports; i++)
 		{
@@ -922,7 +918,6 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			sig_wr_data = cell->getPort("\\WR_DATA").extract(i*width, width);
 			sig_wr_addr = cell->getPort("\\WR_ADDR").extract(i*abits, abits);
 			sig_wr_en = cell->getPort("\\WR_EN").extract(i*width, width);
-			sig_wr_en_bit = sig_wr_en.extract(0);
 			wr_clk_posedge = cell->parameters["\\WR_CLK_POLARITY"].extract(i).as_bool();
 			{
 				std::ostringstream os;
@@ -931,48 +926,37 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				if( clk_to_lof_body.count(clk_domain_str) == 0 )
 					clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
 			}
-			// group the wen bits
-			last_bit = sig_wr_en.extract(0);
-			lof_wen = RTLIL::SigSpec(last_bit);
-			wen_to_width.clear();
-			wen_to_width[last_bit] = 0;
-			for (auto &current_bit : sig_wr_en.bits())
-			{
-				if (sigmap(current_bit) == sigmap(last_bit)){
-					wen_to_width[current_bit] += 1;
-				} else {
-					lof_wen.append_bit(current_bit);
-					wen_to_width[current_bit] = 1;
-				}
-				last_bit = current_bit;
-			}
 			//   make something like:
 			//   always @(posedge clk)
 			//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
 			//   ...
-			n = 0;
-			for (auto &wen_bit : lof_wen) {
-				wen_width = wen_to_width[wen_bit];
-				if (wen_bit != RTLIL::SigBit(false))
+			for (int i = 0; i < GetSize(sig_wr_en); i++)
+			{
+				int start_i = i, width = 1;
+				SigBit wen_bit = sig_wr_en[i];
+
+				while (i+1 < GetSize(sig_wr_en) && sigmap(sig_wr_en[i+1]) == sigmap(wen_bit))
+					i++, width++;
+
+				if (wen_bit == State::S0)
+					continue;
+
+				std::ostringstream os;
+				if (wen_bit != State::S1)
 				{
-					std::ostringstream os;
-					if (wen_bit != RTLIL::SigBit(true))
-					{
-						os << stringf("if (");
-						dump_sigspec(os, wen_bit);
-						os << stringf(") ");
-					}
-					os << stringf("%s[", mem_id.c_str());
-					dump_sigspec(os, sig_wr_addr);
-					if (wen_width == width)
-						os << stringf("] <= ");
-					else
-						os << stringf("][%d:%d] <= ", n+wen_width-1, n);
-					dump_sigspec(os, sig_wr_data.extract(n, wen_width));
-					os << stringf(";\n");
-					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					os << stringf("if (");
+					dump_sigspec(os, wen_bit);
+					os << stringf(") ");
 				}
-				n += wen_width;
+				os << stringf("%s[", mem_id.c_str());
+				dump_sigspec(os, sig_wr_addr);
+				if (width == GetSize(sig_wr_en))
+					os << stringf("] <= ");
+				else
+					os << stringf("][%d:%d] <= ", i, start_i);
+				dump_sigspec(os, sig_wr_data.extract(start_i, width));
+				os << stringf(";\n");
+				clk_to_lof_body[clk_domain_str].push_back(os.str());
 			}
 		}
 		// Output Verilog that looks something like this:
