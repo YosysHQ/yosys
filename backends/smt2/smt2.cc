@@ -32,7 +32,7 @@ struct Smt2Worker
 	CellTypes ct;
 	SigMap sigmap;
 	RTLIL::Module *module;
-	bool bvmode, memmode, regsmode, wiresmode, verbose;
+	bool bvmode, memmode, wiresmode, verbose;
 	int idcounter;
 
 	std::vector<std::string> decls, trans, hier;
@@ -44,9 +44,9 @@ struct Smt2Worker
 	std::map<Cell*, int> memarrays;
 	std::map<int, int> bvsizes;
 
-	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool regsmode, bool wiresmode, bool verbose) :
+	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose) :
 			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode),
-			regsmode(regsmode), wiresmode(wiresmode), verbose(verbose), idcounter(0)
+			wiresmode(wiresmode), verbose(verbose), idcounter(0)
 	{
 		decls.push_back(stringf("(declare-sort |%s_s| 0)\n", log_id(module)));
 		decls.push_back(stringf("(declare-fun |%s_is| (|%s_s|) Bool)\n", log_id(module), log_id(module)));
@@ -383,7 +383,13 @@ struct Smt2Worker
 			if (cell->type == "$sshl") return export_bvop(cell, "(bvshl A B)", 's');
 			if (cell->type == "$sshr") return export_bvop(cell, "(bvLshr A B)", 's');
 
-			// FIXME: $shift $shiftx
+			if (cell->type.in("$shift", "$shiftx")) {
+				if (cell->getParam("\\B_SIGNED").as_bool()) {
+					/* FIXME */
+				} else {
+					return export_bvop(cell, "(bvlshr A B)", 's');
+				}
+			}
 
 			if (cell->type == "$lt") return export_bvop(cell, "(bvUlt A B)", 'b');
 			if (cell->type == "$le") return export_bvop(cell, "(bvUle A B)", 'b');
@@ -454,6 +460,7 @@ struct Smt2Worker
 			decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
 					log_id(module), arrayid, log_id(module), abits, width, log_id(cell)));
 
+			decls.push_back(stringf("; yosys-smt2-memory %s %d %d\n", log_id(cell), abits, width));
 			decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s#%d#0| state))\n",
 					log_id(module), log_id(cell), log_id(module), abits, width, log_id(module), arrayid));
 
@@ -542,21 +549,18 @@ struct Smt2Worker
 		if (verbose) log("=> export logic driving outputs\n");
 
 		pool<SigBit> reg_bits;
-		if (regsmode) {
-			for (auto cell : module->cells())
-				if (cell->type.in("$_DFF_P_", "$_DFF_N_", "$dff")) {
-					// not using sigmap -- we want the net directly at the dff output
-					for (auto bit : cell->getPort("\\Q"))
-						reg_bits.insert(bit);
-				}
-		}
+		for (auto cell : module->cells())
+			if (cell->type.in("$_DFF_P_", "$_DFF_N_", "$dff")) {
+				// not using sigmap -- we want the net directly at the dff output
+				for (auto bit : cell->getPort("\\Q"))
+					reg_bits.insert(bit);
+			}
 
 		for (auto wire : module->wires()) {
 			bool is_register = false;
-			if (regsmode)
-				for (auto bit : SigSpec(wire))
-					if (reg_bits.count(bit))
-						is_register = true;
+			for (auto bit : SigSpec(wire))
+				if (reg_bits.count(bit))
+					is_register = true;
 			if (wire->port_id || is_register || wire->get_bool_attribute("\\keep") || (wiresmode && wire->name[0] == '\\')) {
 				RTLIL::SigSpec sig = sigmap(wire);
 				if (wire->port_input)
@@ -753,8 +757,8 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("The '<mod>_s' sort represents a module state. Additional '<mod>_n' functions\n");
 		log("are provided that can be used to access the values of the signals in the module.\n");
-		log("By default only ports, and signals with the 'keep' attribute set are made\n");
-		log("available via such functions. Without the -bv option, multi-bit wires are\n");
+		log("By default only ports, registers, and wires with the 'keep' attribute set are\n");
+		log("made available via such functions. Without the -bv option, multi-bit wires are\n");
 		log("exported as separate functions of type Bool for the individual bits. With the\n");
 		log("-bv option multi-bit wires are exported as single functions of type BitVec.\n");
 		log("\n");
@@ -792,11 +796,9 @@ struct Smt2Backend : public Backend {
 		log("        will be generated for accessing the arrays that are used to represent\n");
 		log("        memories.\n");
 		log("\n");
-		log("    -regs\n");
-		log("        also create '<mod>_n' functions for all registers.\n");
-		log("\n");
 		log("    -wires\n");
-		log("        also create '<mod>_n' functions for all public wires.\n");
+		log("        create '<mod>_n' functions for all public wires. by default only ports,\n");
+		log("        registers, and wires with the 'keep' attribute set are exported.\n");
 		log("\n");
 		log("    -tpl <template_file>\n");
 		log("        use the given template file. the line containing only the token '%%%%'\n");
@@ -854,7 +856,7 @@ struct Smt2Backend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::ifstream template_f;
-		bool bvmode = false, memmode = false, regsmode = false, wiresmode = false, verbose = false;
+		bool bvmode = false, memmode = false, wiresmode = false, verbose = false;
 
 		log_header(design, "Executing SMT2 backend.\n");
 
@@ -874,10 +876,6 @@ struct Smt2Backend : public Backend {
 			if (args[argidx] == "-mem") {
 				bvmode = true;
 				memmode = true;
-				continue;
-			}
-			if (args[argidx] == "-regs") {
-				regsmode = true;
 				continue;
 			}
 			if (args[argidx] == "-wires") {
@@ -942,7 +940,7 @@ struct Smt2Backend : public Backend {
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
 
-			Smt2Worker worker(module, bvmode, memmode, regsmode, wiresmode, verbose);
+			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose);
 			worker.run();
 			worker.write(*f);
 		}
