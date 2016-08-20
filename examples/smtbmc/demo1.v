@@ -6,10 +6,12 @@ module demo1(input clk, input addtwo, output iseven);
 
 	always @(posedge clk)
 		cnt = (iseven ? cnt == 10 : cnt == 11) ? 0 : next_cnt;
-	
+
+`ifdef FORMAL
 	assert property (cnt != 15);
 	initial assume (!cnt[3] && !cnt[0]);
 	// initial predict ((iseven && addtwo) || cnt == 9);
+`endif
 endmodule
 
 module inc(input addtwo, output iseven, input [3:0] a, output [3:0] y);
