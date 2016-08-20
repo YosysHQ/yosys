@@ -366,15 +366,26 @@ struct WreducePass : public Pass {
 		log("        assign y = a + b + c + 1;\n");
 		log("    endmodule\n");
 		log("\n");
+		log("Options:\n");
+		log("\n");
+		log("    -memx\n");
+		log("        Do not change the width of memory address ports. Use this options in\n");
+		log("        flows that use the 'memory_memx' pass.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
 		WreduceConfig config;
+		bool opt_memx = false;
 
 		log_header(design, "Executing WREDUCE pass (reducing word size of cells).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-memx") {
+				opt_memx = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -397,12 +408,12 @@ struct WreducePass : public Pass {
 						module->connect(sig, Const(0, GetSize(sig)));
 					}
 				}
-				if (c->type.in("$memrd", "$memwr", "$meminit")) {
+				if (!opt_memx && c->type.in("$memrd", "$memwr", "$meminit")) {
 					IdString memid = c->getParam("\\MEMID").decode_string();
 					RTLIL::Memory *mem = module->memories.at(memid);
-					if (mem->start_offset == 0) {
+					if (mem->start_offset >= 0) {
 						int cur_addrbits = c->getParam("\\ABITS").as_int();
-						int max_addrbits = ceil_log2(mem->size);
+						int max_addrbits = ceil_log2(mem->start_offset + mem->size);
 						if (cur_addrbits > max_addrbits) {
 							log("Removed top %d address bits (of %d) from memory %s port %s.%s (%s).\n",
 									cur_addrbits-max_addrbits, cur_addrbits,

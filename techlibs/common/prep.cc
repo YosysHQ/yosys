@@ -173,8 +173,12 @@ struct PrepPass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt -keepdc");
-			if (!ifxmode)
-				run("wreduce");
+			if (!ifxmode) {
+				if (help_mode)
+					run("wreduce [-memx]");
+				else
+					run(memxmode ? "wreduce -memx" : "wreduce");
+			}
 			run("memory_dff" + (help_mode ? " [-nordff]" : memory_opts));
 			if (help_mode || memxmode)
 				run("memory_memx", "(if -memx)");
