@@ -2468,12 +2468,12 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 				block->children.back()->children[0]->id2ast = memory;
 			}
 
-			if ((cursor == finish_addr) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
-				break;
 			cursor += increment;
+			if ((cursor == finish_addr+increment) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
+				break;
 		}
 
-		if ((cursor == finish_addr) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
+		if ((cursor == finish_addr+increment) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
 			break;
 	}
 
