@@ -460,18 +460,22 @@ struct Smt2Worker
 			decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
 					log_id(module), arrayid, log_id(module), abits, width, log_id(cell)));
 
-			decls.push_back(stringf("; yosys-smt2-memory %s %d %d\n", log_id(cell), abits, width));
+			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d\n", log_id(cell), abits, width, rd_ports));
 			decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s#%d#0| state))\n",
 					log_id(module), log_id(cell), log_id(module), abits, width, log_id(module), arrayid));
 
 			for (int i = 0; i < rd_ports; i++)
 			{
-				std::string addr = get_bv(cell->getPort("\\RD_ADDR").extract(abits*i, abits));
+				SigSpec addr_sig = cell->getPort("\\RD_ADDR").extract(abits*i, abits);
 				SigSpec data_sig = cell->getPort("\\RD_DATA").extract(width*i, width);
+				std::string addr = get_bv(addr_sig);
 
 				if (cell->getParam("\\RD_CLK_ENABLE").extract(i).as_bool())
 					log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
 							"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(data_sig), log_id(cell), log_id(module));
+
+				decls.push_back(stringf("(define-fun |%s_m:%d %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+						log_id(module), i, log_id(cell), log_id(module), abits, addr.c_str(), log_signal(addr_sig)));
 
 				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s#%d#0| state) %s)) ; %s\n",
 						log_id(module), idcounter, log_id(module), width, log_id(module), arrayid, addr.c_str(), log_signal(data_sig)));

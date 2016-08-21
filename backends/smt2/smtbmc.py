@@ -200,13 +200,23 @@ def write_vlogtb_trace(steps):
 
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
-            mem, abits, width = smt.mem_expr(topmod, "s0", mempath)
+            abits, width, ports = smt.mem_info(topmod, "s0", mempath)
+            mem = smt.mem_expr(topmod, "s0", mempath)
+
+            addr_expr_list = list()
+            for i in range(steps):
+                for j in range(ports):
+                    addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, j))
+
+            addr_list = set()
+            for val in smt.get_list(addr_expr_list):
+                addr_list.add(smt.bv2int(val))
 
             expr_list = list()
-            for i in range(2**abits):
+            for i in addr_list:
                 expr_list.append("(select %s #b%s)" % (mem, format(i, "0%db" % abits)))
 
-            for i, val in enumerate(smt.get_list(expr_list)):
+            for i, val in zip(addr_list, smt.get_list(expr_list)):
                 val = smt.bv2bin(val)
                 print("    UUT.%s[%d] = %d'b%s;" % (".".join(mempath), i, len(val), val), file=f)
 

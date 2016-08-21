@@ -128,7 +128,7 @@ class smtio:
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
         if fields[1] == "yosys-smt2-memory":
-            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]))
+            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]), int(fields[5]))
 
         if fields[1] == "yosys-smt2-wire":
             self.modinfo[self.curmod].wires.add(fields[2])
@@ -309,6 +309,9 @@ class smtio:
             return "".join(digits)
         assert False
 
+    def bv2int(self, v):
+        return int(self.bv2bin(v), 2)
+
     def get(self, expr):
         self.write("(get-value (%s))" % (expr))
         return self.parse(self.read())[0][1]
@@ -342,11 +345,13 @@ class smtio:
         assert net_path[-1] in self.modinfo[mod].wsize
         return self.modinfo[mod].wsize[net_path[-1]]
 
-    def mem_expr(self, mod, base, path):
+    def mem_expr(self, mod, base, path, portidx=None, infomode=False):
         if len(path) == 1:
             assert mod in self.modinfo
             assert path[0] in self.modinfo[mod].memories
-            return "(|%s_m %s| %s)" % (mod, path[0], base), self.modinfo[mod].memories[path[0]][0], self.modinfo[mod].memories[path[0]][1]
+            if infomode:
+                return self.modinfo[mod].memories[path[0]]
+            return "(|%s_m%s %s| %s)" % (mod, "" if portidx is None else ":%d" % portidx, path[0], base)
 
         assert mod in self.modinfo
         assert path[0] in self.modinfo[mod].cells
@@ -354,6 +359,9 @@ class smtio:
         nextmod = self.modinfo[mod].cells[path[0]]
         nextbase = "(|%s_h %s| %s)" % (mod, path[0], base)
         return self.mem_expr(nextmod, nextbase, path[1:])
+
+    def mem_info(self, mod, base, path):
+        return self.mem_expr(mod, base, path, infomode=True)
 
     def get_net(self, mod_name, net_path, state_name):
         return self.get(self.net_expr(mod_name, state_name, net_path))
