@@ -148,7 +148,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				}
 			}
 
-			while (mem2reg_as_needed_pass2(mem2reg_set, this, NULL)) { }
+			AstNode *async_block = NULL;
+			while (mem2reg_as_needed_pass2(mem2reg_set, this, NULL, async_block)) { }
 
 			vector<AstNode*> delnodes;
 			mem2reg_remove(mem2reg_set, delnodes);
@@ -2707,15 +2708,36 @@ void AstNode::mem2reg_remove(pool<AstNode*> &mem2reg_set, vector<AstNode*> &deln
 }
 
 // actually replace memories with registers
-bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block)
+bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block, AstNode *&async_block)
 {
 	bool did_something = false;
 
 	if (type == AST_BLOCK)
 		block = this;
 
-	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && block != NULL &&
-			children[0]->mem2reg_check(mem2reg_set) && children[0]->children[0]->children[0]->type != AST_CONSTANT)
+	if (type == AST_FUNCTION || type == AST_TASK)
+		return false;
+
+	if (type == AST_ASSIGN && block == NULL && children[0]->mem2reg_check(mem2reg_set))
+	{
+		if (async_block == NULL) {
+			async_block = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK));
+			mod->children.push_back(async_block);
+		}
+
+		AstNode *newNode = clone();
+		newNode->type = AST_ASSIGN_EQ;
+		async_block->children[0]->children.push_back(newNode);
+
+		newNode = new AstNode(AST_NONE);
+		newNode->cloneInto(this);
+		delete newNode;
+
+		did_something = true;
+	}
+
+	if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && children[0]->mem2reg_check(mem2reg_set) &&
+			children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
 		sstr << "$mem2reg_wr$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
@@ -2791,7 +2813,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		else
 		{
 			std::stringstream sstr;
-			sstr << "$mem2reg_rd$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
+			sstr << "$mem2reg_rd$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 			std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 			int mem_width, mem_size, addr_bits;
@@ -2871,7 +2893,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 	auto children_list = children;
 	for (size_t i = 0; i < children_list.size(); i++)
-		if (children_list[i]->mem2reg_as_needed_pass2(mem2reg_set, mod, block))
+		if (children_list[i]->mem2reg_as_needed_pass2(mem2reg_set, mod, block, async_block))
 			did_something = true;
 
 	return did_something;

@@ -540,6 +540,7 @@ struct AST_INTERNAL::ProcessGenerator
 			log_error("Found parameter declaration in block without label at at %s:%d!\n", ast->filename.c_str(), ast->linenum);
 			break;
 
+		case AST_NONE:
 		case AST_TCALL:
 		case AST_FOR:
 			break;
@@ -810,6 +811,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// simply ignore this nodes.
 	// they are either leftovers from simplify() or are referenced by other nodes
 	// and are only accessed here thru this references
+	case AST_NONE:
 	case AST_TASK:
 	case AST_FUNCTION:
 	case AST_DPI_FUNCTION:
