@@ -309,6 +309,8 @@ void AstNode::dumpAst(FILE *f, std::string indent)
 
 	for (size_t i = 0; i < children.size(); i++)
 		children[i]->dumpAst(f, indent + "  ");
+
+	fflush(f);
 }
 
 // helper function for AstNode::dumpVlog()
@@ -433,16 +435,15 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		break;
 
 	case AST_ALWAYS:
-		fprintf(f, "%s" "always @(", indent.c_str());
+		fprintf(f, "%s" "always @", indent.c_str());
 		for (auto child : children) {
 			if (child->type != AST_POSEDGE && child->type != AST_NEGEDGE && child->type != AST_EDGE)
 				continue;
-			if (!first)
-				fprintf(f, ", ");
+			fprintf(f, first ? "(" : ", ");
 			child->dumpVlog(f, "");
 			first = false;
 		}
-		fprintf(f, ")\n");
+		fprintf(f, first ? "*\n" : ")\n");
 		for (auto child : children) {
 			if (child->type != AST_POSEDGE && child->type != AST_NEGEDGE && child->type != AST_EDGE)
 				child->dumpVlog(f, indent + "  ");
@@ -533,6 +534,14 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		}
 		break;
 
+	case AST_ASSIGN:
+		fprintf(f, "%sassign ", indent.c_str());
+		children[0]->dumpVlog(f, "");
+		fprintf(f, " = ");
+		children[1]->dumpVlog(f, "");
+		fprintf(f, ";\n");
+		break;
+
 	case AST_ASSIGN_EQ:
 	case AST_ASSIGN_LE:
 		fprintf(f, "%s", indent.c_str());
@@ -621,6 +630,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 		fprintf(f, "%s" "/** %s **/%s", indent.c_str(), type_name.c_str(), indent.empty() ? "" : "\n");
 		// dumpAst(f, indent, NULL);
 	}
+
+	fflush(f);
 }
 
 // check if two AST nodes are identical
