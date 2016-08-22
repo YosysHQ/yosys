@@ -26,6 +26,7 @@ step_size = 1
 num_steps = 20
 vcdfile = None
 vlogtbfile = None
+inconstr = list()
 outconstr = None
 gentrace = False
 tempind = False
@@ -57,6 +58,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
     -m <module_name>
         name of the top module
 
+    --constr <constr_filename>
+        read constraints file
+
     --dump-vcd <vcd_filename>
         write trace to this VCD file
         (hint: use 'write_smt2 -wires' for maximum
@@ -72,7 +76,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:igm:", so.longopts + ["dump-vcd=", "dump-vlogtb=", "dump-constr="])
+    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:igm:", so.longopts + ["constr=", "dump-vcd=", "dump-vlogtb=", "dump-constr="])
 except:
     usage()
 
@@ -88,6 +92,8 @@ for o, a in opts:
         assume_skipped = int(a)
     elif o == "-S":
         step_size = int(a)
+    elif o == "--constr":
+        inconstr.append(a)
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
@@ -107,6 +113,65 @@ for o, a in opts:
 
 if len(args) != 1:
     usage()
+
+
+if tempind and len(inconstr) != 0:
+    print("Error: options -i and --constr are exclusive.");
+    sys.exit(1)
+
+
+constr_asserts = dict()
+constr_assumes = dict()
+
+for fn in inconstr:
+    current_state = None
+
+    with open(fn, "r") as f:
+        for line in f:
+            tokens = line.split()
+
+            if len(tokens) == 0:
+                continue
+
+            if tokens[0] == "initial":
+                current_state = 0
+                continue
+
+            if tokens[0] == "state":
+                current_state = int(tokens[1])
+                continue
+
+            if tokens[0] == "assert":
+                assert current_state is not None
+
+                if current_state not in constr_asserts:
+                    constr_asserts[current_state] = list()
+
+                constr_asserts[current_state].append(" ".join(tokens[1:]))
+                continue
+
+            if tokens[0] == "assume":
+                assert current_state is not None
+
+                if current_state not in constr_assumes:
+                    constr_assumes[current_state] = list()
+
+                constr_assumes[current_state].append(" ".join(tokens[1:]))
+                continue
+
+            assert 0
+
+
+def get_constr_expr(db, state):
+    if state not in db:
+        return "true"
+
+    expr_list = list()
+    for expr in db[state]:
+        expr = re.sub(r'\[([^\]]+)\]', lambda match: smt.net_expr(topmod, "s%d" % state, smt.get_path(topmod, match.group(1))), expr)
+        expr_list.append(expr)
+
+    return "(and %s)" % " ".join(expr_list)
 
 
 smt = smtio(opts=so)
@@ -358,6 +423,7 @@ if tempind:
             retstatus = True
             break
 
+
 elif gentrace:
     retstatus = True
     for step in range(num_steps):
@@ -365,6 +431,8 @@ elif gentrace:
         smt.write("(assert (%s_u s%d))" % (topmod, step))
         smt.write("(assert (%s_a s%d))" % (topmod, step))
         smt.write("(assert (%s_h s%d))" % (topmod, step))
+        smt.write("(assert %s)" % get_constr_expr(constr_asserts, step))
+        smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
 
         if step == 0:
             smt.write("(assert (%s_i s0))" % (topmod))
@@ -391,6 +459,7 @@ else: # not tempind, not gentrace
         smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
         smt.write("(assert (%s_u s%d))" % (topmod, step))
         smt.write("(assert (%s_h s%d))" % (topmod, step))
+        smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
 
         if step == 0:
             smt.write("(assert (%s_i s0))" % (topmod))
@@ -404,6 +473,7 @@ else: # not tempind, not gentrace
             if assume_skipped is not None and step >= assume_skipped:
                 print("%s Skipping step %d (and assuming pass).." % (smt.timestamp(), step))
                 smt.write("(assert (%s_a s%d))" % (topmod, step))
+                smt.write("(assert %s)" % get_constr_expr(constr_asserts, step))
             else:
                 print("%s Skipping step %d.." % (smt.timestamp(), step))
             step += 1
@@ -416,6 +486,7 @@ else: # not tempind, not gentrace
                 smt.write("(assert (%s_u s%d))" % (topmod, step+i))
                 smt.write("(assert (%s_h s%d))" % (topmod, step+i))
                 smt.write("(assert (%s_t s%d s%d))" % (topmod, step+i-1, step+i))
+                smt.write("(assert %s)" % get_constr_expr(constr_assumes, step+i))
                 last_check_step = step+i
 
         if last_check_step == step:
@@ -424,7 +495,8 @@ else: # not tempind, not gentrace
             print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
         smt.write("(push 1)")
 
-        smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)]))
+        smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
+                [get_constr_expr(constr_asserts, i) for i in range(step, last_check_step+1)]))
 
         if smt.check_sat() == "sat":
             print("%s BMC failed!" % smt.timestamp())
@@ -437,6 +509,7 @@ else: # not tempind, not gentrace
             smt.write("(pop 1)")
             for i in range(step, last_check_step+1):
                 smt.write("(assert (%s_a s%d))" % (topmod, i))
+                smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
         step += step_size
 

@@ -322,11 +322,28 @@ class smtio:
         self.write("(get-value (%s))" % " ".join(expr_list))
         return [n[1] for n in self.parse(self.read())]
 
+    def get_path(self, mod, path):
+        assert mod in self.modinfo
+        path = path.split(".")
+
+        for i in range(len(path)-1):
+            first = ".".join(path[0:i+1])
+            second = ".".join(path[i+1:])
+
+            if first in self.modinfo[mod].cells:
+                nextmod = self.modinfo[mod].cells[first]
+                return [first] + self.get_path(nextmod, second)
+
+        return [".".join(path)]
+
     def net_expr(self, mod, base, path):
         if len(path) == 1:
             assert mod in self.modinfo
-            assert path[0] in self.modinfo[mod].wsize
-            return "(|%s_n %s| %s)" % (mod, path[0], base)
+            if path[0] in self.modinfo[mod].wsize:
+                return "(|%s_n %s| %s)" % (mod, path[0], base)
+            if path[0] in self.modinfo[mod].memories:
+                return "(|%s_m %s| %s)" % (mod, path[0], base)
+            assert 0
 
         assert mod in self.modinfo
         assert path[0] in self.modinfo[mod].cells
