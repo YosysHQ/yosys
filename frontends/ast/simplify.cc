@@ -883,11 +883,14 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		int mem_width, mem_size, addr_bits;
 		id2ast->meminfo(mem_width, mem_size, addr_bits);
 
+		int data_range_left = id2ast->children[0]->range_left;
+		int data_range_right = id2ast->children[0]->range_right;
+
 		std::stringstream sstr;
-		sstr << "$mem2bits$" << children[0]->str << "$" << filename << ":" << linenum << "$" << (autoidx++);
+		sstr << "$mem2bits$" << str << "$" << filename << ":" << linenum << "$" << (autoidx++);
 		std::string wire_id = sstr.str();
 
-		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(data_range_left, true), mkconst_int(data_range_right, true)));
 		wire->str = wire_id;
 		if (current_block)
 			wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
@@ -1491,6 +1494,10 @@ skip_dynamic_range_lvalue_expansion:;
 		int mem_width, mem_size, addr_bits;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
 
+		int data_range_left = children[0]->id2ast->children[0]->range_left;
+		int data_range_right = children[0]->id2ast->children[0]->range_right;
+		int mem_data_range_offset = std::min(data_range_left, data_range_right);
+
 		int addr_width_hint = -1;
 		bool addr_sign_hint = true;
 		children[0]->children[0]->children[0]->detectSignWidthWorker(addr_width_hint, addr_sign_hint);
@@ -1553,6 +1560,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				int offset = children[0]->children[1]->range_right;
 				int width = children[0]->children[1]->range_left - offset + 1;
+				offset -= mem_data_range_offset;
 
 				std::vector<RTLIL::State> padding_x(offset, RTLIL::State::Sx);
 
@@ -1573,6 +1581,9 @@ skip_dynamic_range_lvalue_expansion:;
 				AstNode *left_at_zero_ast = the_range->children[0]->clone();
 				AstNode *right_at_zero_ast = the_range->children.size() >= 2 ? the_range->children[1]->clone() : left_at_zero_ast->clone();
 				AstNode *offset_ast = right_at_zero_ast->clone();
+
+				if (mem_data_range_offset)
+					offset_ast = new AstNode(AST_SUB, offset_ast, mkconst_int(mem_data_range_offset, true));
 
 				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
 				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
