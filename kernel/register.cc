@@ -382,7 +382,8 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 	bool called_with_fp = f != NULL;
 
 	next_args.clear();
-	for (; argidx < args.size(); argidx++)
+
+	if (argidx < args.size())
 	{
 		std::string arg = args[argidx];
 
@@ -419,6 +420,12 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			f = new std::istringstream(last_here_document);
 		} else {
 			rewrite_filename(filename);
+			vector<string> filenames = glob_filename(filename);
+			filename = filenames.front();
+			if (GetSize(filenames) > 1) {
+				next_args.insert(next_args.end(), args.begin(), args.begin()+argidx);
+				next_args.insert(next_args.end(), filenames.begin()+1, filenames.end());
+			}
 			std::ifstream *ff = new std::ifstream;
 			ff->open(filename.c_str());
 			if (ff->fail())
@@ -434,12 +441,13 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				cmd_error(args, i, "Found option, expected arguments.");
 
 		if (argidx+1 < args.size()) {
-			next_args.insert(next_args.begin(), args.begin(), args.begin()+argidx);
-			next_args.insert(next_args.begin()+argidx, args.begin()+argidx+1, args.end());
+			if (next_args.empty())
+				next_args.insert(next_args.end(), args.begin(), args.begin()+argidx);
+			next_args.insert(next_args.end(), args.begin()+argidx+1, args.end());
 			args.erase(args.begin()+argidx+1, args.end());
 		}
-		break;
 	}
+
 	if (f == NULL)
 		cmd_error(args, argidx, "No filename given.");
 

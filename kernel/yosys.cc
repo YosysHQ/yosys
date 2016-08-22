@@ -37,11 +37,13 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/stat.h>
+#  include <glob.h>
 #else
 #  include <unistd.h>
 #  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/stat.h>
+#  include <glob.h>
 #endif
 
 #include <limits.h>
@@ -545,6 +547,29 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	}
 	snprintf(buffer, 100, "%s> ", str.c_str());
 	return buffer;
+}
+
+std::vector<std::string> glob_filename(const std::string &filename_pattern)
+{
+	std::vector<std::string> results;
+
+#ifdef _WIN32
+	results.push_back(filename_pattern);
+#else
+	glob_t globbuf;
+
+	int err = glob(filename_pattern.c_str(), 0, NULL, &globbuf);
+
+	if(err == 0) {
+		for (size_t i = 0; i < globbuf.gl_pathc; i++)
+			results.push_back(globbuf.gl_pathv[i]);
+		globfree(&globbuf);
+	} else {
+		results.push_back(filename_pattern);
+	}
+#endif
+
+	return results;
 }
 
 void rewrite_filename(std::string &filename)

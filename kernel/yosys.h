@@ -280,6 +280,7 @@ RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();
 std::string proc_share_dirname();
 const char *create_prompt(RTLIL::Design *design, int recursion_counter);
+std::vector<std::string> glob_filename(const std::string &filename_pattern);
 void rewrite_filename(std::string &filename);
 
 void run_pass(std::string command, RTLIL::Design *design = nullptr);
