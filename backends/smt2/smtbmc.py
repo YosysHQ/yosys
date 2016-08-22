@@ -171,6 +171,12 @@ def get_constr_expr(db, state):
         expr = re.sub(r'\[([^\]]+)\]', lambda match: smt.net_expr(topmod, "s%d" % state, smt.get_path(topmod, match.group(1))), expr)
         expr_list.append(expr)
 
+    if len(expr_list) == 0:
+        return "true"
+
+    if len(expr_list) == 1:
+        return expr_list[0]
+
     return "(and %s)" % " ".join(expr_list)
 
 
