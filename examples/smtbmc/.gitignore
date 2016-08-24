@@ -1,9 +1,12 @@
 demo1.smt2
 demo1.yslog
 demo2.smt2
+demo2.smtc
 demo2.vcd
 demo2.yslog
 demo2_tb
-demo2_tb.smtc
 demo2_tb.v
 demo2_tb.vcd
+demo3.smt2
+demo3.vcd
+demo3.yslog

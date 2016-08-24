@@ -20,6 +20,7 @@
 import os, sys, getopt, re
 ##yosys-sys-path##
 from smtio import smtio, smtopts, mkvcd
+from collections import defaultdict
 
 skip_steps = 0
 step_size = 1
@@ -120,43 +121,70 @@ if tempind and len(inconstr) != 0:
     sys.exit(1)
 
 
-constr_asserts = dict()
-constr_assumes = dict()
+constr_asserts = defaultdict(list)
+constr_assumes = defaultdict(list)
 
 for fn in inconstr:
-    current_state = None
+    current_states = None
 
     with open(fn, "r") as f:
         for line in f:
+            if line.startswith("#"):
+                continue
+
             tokens = line.split()
 
             if len(tokens) == 0:
                 continue
 
             if tokens[0] == "initial":
-                current_state = 0
+                current_states = set()
+                current_states.add(0)
                 continue
 
             if tokens[0] == "state":
-                current_state = int(tokens[1])
+                current_states = set()
+                for token in tokens[1:]:
+                    tok = token.split(":")
+                    if len(tok) == 1:
+                        current_states.add(int(token))
+                    elif len(tok) == 2:
+                        lower = int(tok[0])
+                        if tok[1] == "*":
+                            upper = num_steps
+                        else:
+                            upper = int(tok[1])
+                        for i in range(lower, upper+1):
+                            current_states.add(i)
+                    else:
+                        assert 0
+                continue
+
+            if tokens[0] == "always":
+                if len(tokens) == 1:
+                    current_states = set(range(0, num_steps+1))
+                elif len(tokens) == 2:
+                    i = int(tokens[1])
+                    assert i < 0
+                    current_states = set(range(-i, num_steps+1))
+                else:
+                    assert 0
                 continue
 
             if tokens[0] == "assert":
-                assert current_state is not None
+                assert current_states is not None
 
-                if current_state not in constr_asserts:
-                    constr_asserts[current_state] = list()
+                for state in current_states:
+                    constr_asserts[state].append(" ".join(tokens[1:]))
 
-                constr_asserts[current_state].append(" ".join(tokens[1:]))
                 continue
 
             if tokens[0] == "assume":
-                assert current_state is not None
+                assert current_states is not None
 
-                if current_state not in constr_assumes:
-                    constr_assumes[current_state] = list()
+                for state in current_states:
+                    constr_assumes[state].append(" ".join(tokens[1:]))
 
-                constr_assumes[current_state].append(" ".join(tokens[1:]))
                 continue
 
             assert 0
@@ -166,9 +194,25 @@ def get_constr_expr(db, state):
     if state not in db:
         return "true"
 
+    netref_regex = re.compile(r'(^|[( ])\[(-?[0-9]+:|)([^\]]+)\](?=[ )]|$)')
+
+    def replace_netref(match):
+        state_sel = match.group(2)
+
+        if state_sel == "":
+            st = state
+        elif state_sel[0] == "-":
+            st = state + int(state_sel[:-1])
+        else:
+            st = int(state_sel[:-1])
+
+        expr = smt.net_expr(topmod, "s%d" % st, smt.get_path(topmod, match.group(3)))
+
+        return match.group(1) + expr
+
     expr_list = list()
     for expr in db[state]:
-        expr = re.sub(r'\[([^\]]+)\]', lambda match: smt.net_expr(topmod, "s%d" % state, smt.get_path(topmod, match.group(1))), expr)
+        expr = netref_regex.sub(replace_netref, expr)
         expr_list.append(expr)
 
     if len(expr_list) == 0:
@@ -430,7 +474,7 @@ if tempind:
             break
 
 
-else: # not tempind, not gentrace
+else: # not tempind
     step = 0
     retstatus = True
     while step < num_steps:

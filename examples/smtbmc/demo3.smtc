@@ -1,0 +1,5 @@
+initial
+assume [rst]
+
+always -1
+assert (= [-1:mem] [mem])
