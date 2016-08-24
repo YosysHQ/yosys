@@ -58,7 +58,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
     -m <module_name>
         name of the top module
 
-    --constr <constr_filename>
+    --smtc <constr_filename>
         read constraints file
 
     --dump-vcd <vcd_filename>
@@ -69,14 +69,14 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --dump-vlogtb <verilog_filename>
         write trace as Verilog test bench
 
-    --dump-constr <constr_filename>
+    --dump-smtc <constr_filename>
         write trace as constraints file
 """ + so.helpmsg())
     sys.exit(1)
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:igm:", so.longopts + ["constr=", "dump-vcd=", "dump-vlogtb=", "dump-constr="])
+    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:igm:", so.longopts + ["smtc=", "dump-vcd=", "dump-vlogtb=", "dump-smtc="])
 except:
     usage()
 
@@ -92,13 +92,13 @@ for o, a in opts:
         assume_skipped = int(a)
     elif o == "-S":
         step_size = int(a)
-    elif o == "--constr":
+    elif o == "--smtc":
         inconstr.append(a)
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
         vlogtbfile = a
-    elif o == "--dump-constr":
+    elif o == "--dump-smtc":
         outconstr = a
     elif o == "-i":
         tempind = True
@@ -116,7 +116,7 @@ if len(args) != 1:
 
 
 if tempind and len(inconstr) != 0:
-    print("Error: options -i and --constr are exclusive.");
+    print("Error: options -i and --smtc are exclusive.");
     sys.exit(1)
 
 
@@ -430,34 +430,6 @@ if tempind:
             break
 
 
-elif gentrace:
-    retstatus = True
-    for step in range(num_steps):
-        smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
-        smt.write("(assert (%s_u s%d))" % (topmod, step))
-        smt.write("(assert (%s_a s%d))" % (topmod, step))
-        smt.write("(assert (%s_h s%d))" % (topmod, step))
-        smt.write("(assert %s)" % get_constr_expr(constr_asserts, step))
-        smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
-
-        if step == 0:
-            smt.write("(assert (%s_i s0))" % (topmod))
-            smt.write("(assert (%s_is s0))" % (topmod))
-
-        else:
-            smt.write("(assert (%s_t s%d s%d))" % (topmod, step-1, step))
-            smt.write("(assert (not (%s_is s%d)))" % (topmod, step))
-
-    print("%s Creating trace of length %d.." % (smt.timestamp(), num_steps))
-
-    if smt.check_sat() == "sat":
-        write_trace(num_steps)
-
-    else:
-        print("%s Creating trace failed!" % smt.timestamp())
-        retstatus = False
-
-
 else: # not tempind, not gentrace
     step = 0
     retstatus = True
@@ -495,29 +467,40 @@ else: # not tempind, not gentrace
                 smt.write("(assert %s)" % get_constr_expr(constr_assumes, step+i))
                 last_check_step = step+i
 
-        if last_check_step == step:
-            print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
-        else:
-            print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
-        smt.write("(push 1)")
+        if not gentrace:
+            if last_check_step == step:
+                print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
+            else:
+                print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
+            smt.write("(push 1)")
 
-        smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
-                [get_constr_expr(constr_asserts, i) for i in range(step, last_check_step+1)]))
+            smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
+                    [get_constr_expr(constr_asserts, i) for i in range(step, last_check_step+1)]))
 
-        if smt.check_sat() == "sat":
-            print("%s BMC failed!" % smt.timestamp())
-            print_failed_asserts(topmod, "s%d" % step, topmod)
-            write_trace(step+step_size)
-            retstatus = False
-            break
+            if smt.check_sat() == "sat":
+                print("%s BMC failed!" % smt.timestamp())
+                print_failed_asserts(topmod, "s%d" % step, topmod)
+                write_trace(step+step_size)
+                retstatus = False
+                break
 
-        else: # unsat
             smt.write("(pop 1)")
-            for i in range(step, last_check_step+1):
-                smt.write("(assert (%s_a s%d))" % (topmod, i))
-                smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
+
+        for i in range(step, last_check_step+1):
+            smt.write("(assert (%s_a s%d))" % (topmod, i))
+            smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
+
+        if gentrace:
+            print("%s Solving for step %d.." % (smt.timestamp(), step))
+            if smt.check_sat() != "sat":
+                print("%s No solution found!" % smt.timestamp())
+                retstatus = False
+                break
 
         step += step_size
+
+    if gentrace:
+        write_trace(num_steps)
 
 
 smt.write("(exit)")
