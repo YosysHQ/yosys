@@ -135,6 +135,9 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %left OP_POW
 %right UNARY_OPS
 
+%define parse.error verbose
+%define parse.lac full
+
 %expect 2
 %debug
 
