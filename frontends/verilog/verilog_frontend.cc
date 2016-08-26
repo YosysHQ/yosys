@@ -63,8 +63,14 @@ struct VerilogFrontend : public Frontend {
 		log("        of SystemVerilog is supported)\n");
 		log("\n");
 		log("    -formal\n");
-		log("        enable support for assert() and assume() from SystemVerilog\n");
+		log("        enable support for SystemVerilog assertions and some Yosys extensions\n");
 		log("        replace the implicit -D SYNTHESIS with -D FORMAL\n");
+		log("\n");
+		log("    -norestrict\n");
+		log("        ignore restrict() assertions\n");
+		log("\n");
+		log("    -assume-asserts\n");
+		log("        treat all assert() statements like assume() statements\n");
 		log("\n");
 		log("    -dump_ast1\n");
 		log("        dump abstract syntax tree (before simplification)\n");
@@ -190,6 +196,8 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yydebug = false;
 		sv_mode = false;
 		formal_mode = false;
+		norestrict_mode = false;
+		assume_asserts_mode = false;
 		lib_mode = false;
 		default_nettype_wire = true;
 
@@ -206,6 +214,14 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-formal") {
 				formal_mode = true;
+				continue;
+			}
+			if (arg == "-norestrict") {
+				norestrict_mode = true;
+				continue;
+			}
+			if (arg == "-assume-asserts") {
+				assume_asserts_mode = true;
 				continue;
 			}
 			if (arg == "-dump_ast1") {

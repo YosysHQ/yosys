@@ -177,7 +177,7 @@ YOSYS_NAMESPACE_END
 
 "assert"   { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
 "assume"   { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
-"restrict" { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
+"restrict" { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
 "predict"  { if (formal_mode) return TOK_PREDICT; NON_KEYWORD(); }
 "property" { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
 "logic"    { SV_KEYWORD(TOK_REG); }
