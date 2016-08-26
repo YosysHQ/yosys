@@ -375,7 +375,7 @@ class smtio:
 
         nextmod = self.modinfo[mod].cells[path[0]]
         nextbase = "(|%s_h %s| %s)" % (mod, path[0], base)
-        return self.mem_expr(nextmod, nextbase, path[1:])
+        return self.mem_expr(nextmod, nextbase, path[1:], portidx=portidx, infomode=infomode)
 
     def mem_info(self, mod, base, path):
         return self.mem_expr(mod, base, path, infomode=True)
