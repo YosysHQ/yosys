@@ -1482,6 +1482,7 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
+	log_assert(GetSize(conn.first) == GetSize(conn.second));
 	connections_.push_back(conn);
 }
 

@@ -656,6 +656,9 @@ grow_read_ports:;
 		bool transp = rd_transp[cell_port_i] == State::S1;
 		SigBit clksig = rd_clk[cell_port_i];
 
+		if (wr_ports == 0)
+			transp = false;
+
 		pair<SigBit, bool> clkdom(clksig, clkpol);
 		if (!clken)
 			clkdom = pair<SigBit, bool>(State::S1, false);
