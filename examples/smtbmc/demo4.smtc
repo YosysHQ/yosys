@@ -1,0 +1,11 @@
+initial
+assume [rst]
+
+always -1
+assume (not [rst])
+assume (=> [-1:inv2] [inv2])
+
+final -2
+assume [-1:inv2]
+assume (not [-2:inv2])
+assert (= [r1] [r2])

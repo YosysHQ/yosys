@@ -121,6 +121,7 @@ if tempind and len(inconstr) != 0:
     sys.exit(1)
 
 
+constr_final_start = None
 constr_asserts = defaultdict(list)
 constr_assumes = defaultdict(list)
 
@@ -140,6 +141,21 @@ for fn in inconstr:
             if tokens[0] == "initial":
                 current_states = set()
                 current_states.add(0)
+                continue
+
+            if tokens[0] == "final":
+                constr_final = True
+                if len(tokens) == 1:
+                    current_states = set(["final-%d" % i for i in range(0, num_steps+1)])
+                    constr_final_start = 0
+                elif len(tokens) == 2:
+                    i = int(tokens[1])
+                    assert i < 0
+                    current_states = set(["final-%d" % i for i in range(-i, num_steps+1)])
+                    constr_final_start = -i if constr_final_start is None else min(constr_final_start, -i)
+                else:
+                    assert 0
+                continue
                 continue
 
             if tokens[0] == "state":
@@ -190,9 +206,13 @@ for fn in inconstr:
             assert 0
 
 
-def get_constr_expr(db, state):
-    if state not in db:
-        return "true"
+def get_constr_expr(db, state, final=False):
+    if final:
+        if ("final-%d" % state) not in db:
+            return "true"
+    else:
+        if state not in db:
+            return "true"
 
     netref_regex = re.compile(r'(^|[( ])\[(-?[0-9]+:|)([^\]]+)\](?=[ )]|$)')
 
@@ -211,7 +231,7 @@ def get_constr_expr(db, state):
         return match.group(1) + expr
 
     expr_list = list()
-    for expr in db[state]:
+    for expr in db[("final-%d" % state) if final else state]:
         expr = netref_regex.sub(replace_netref, expr)
         expr_list.append(expr)
 
@@ -530,9 +550,32 @@ else: # not tempind
 
             smt.write("(pop 1)")
 
-        for i in range(step, last_check_step+1):
-            smt.write("(assert (%s_a s%d))" % (topmod, i))
-            smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
+            if constr_final_start is not None:
+                for i in range(step, last_check_step+1):
+                    if i < constr_final_start:
+                        continue
+
+                    print("%s Checking final constraints in step %d.." % (smt.timestamp(), i))
+                    smt.write("(push 1)")
+
+                    smt.write("(assert %s)" % get_constr_expr(constr_assumes, i, final=True))
+                    smt.write("(assert (not %s))" % get_constr_expr(constr_asserts, i, final=True))
+
+                    if smt.check_sat() == "sat":
+                        print("%s BMC failed!" % smt.timestamp())
+                        print_failed_asserts(topmod, "s%d" % i, topmod)
+                        write_trace(i)
+                        retstatus = False
+                        break
+
+                    smt.write("(pop 1)")
+                if not retstatus:
+                    break
+
+        if constr_final_start is None:
+            for i in range(step, last_check_step+1):
+                smt.write("(assert (%s_a s%d))" % (topmod, i))
+                smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
         if gentrace:
             print("%s Solving for step %d.." % (smt.timestamp(), step))
