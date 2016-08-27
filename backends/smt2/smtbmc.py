@@ -32,6 +32,7 @@ outconstr = None
 gentrace = False
 tempind = False
 assume_skipped = None
+final_only = False
 topmod = None
 so = smtopts()
 
@@ -40,14 +41,10 @@ def usage():
     print("""
 yosys-smtbmc [options] <yosys_smt2_output>
 
-    -t <num_steps>, -t <skip_steps>:<num_steps>
-        default: skip_steps=0, num_steps=20
-
-    -u <start_step>
-        assume asserts in skipped steps in BMC
-
-    -S <step_size>
-        prove <step_size> time steps at once
+    -t <num_steps>
+    -t <skip_steps>:<num_steps>
+    -t <skip_steps>:<step_size>:<num_steps>
+        default: skip_steps=0, step_size=1, num_steps=20
 
     -g
         generate an arbitrary trace that satisfies
@@ -61,6 +58,14 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
     --smtc <constr_filename>
         read constraints file
+
+    --final-only
+        only check final constraints, assume base case
+
+    --assume-skipped <start_step>
+        assume asserts in skipped steps in BMC.
+        no assumptions are created for skipped steps
+        before <start_step>.
 
     --dump-vcd <vcd_filename>
         write trace to this VCD file
@@ -77,22 +82,29 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:u:S:igm:", so.longopts + ["smtc=", "dump-vcd=", "dump-vlogtb=", "dump-smtc="])
+    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igm:", so.longopts +
+            ["final-only", "assume-skipped=", "smtc=", "dump-vcd=", "dump-vlogtb=", "dump-smtc="])
 except:
     usage()
 
 for o, a in opts:
     if o == "-t":
-        match = re.match(r"(\d+):(.*)", a)
-        if match:
-            skip_steps = int(match.group(1))
-            num_steps = int(match.group(2))
+        a = a.split(":")
+        if len(a) == 1:
+            num_steps = int(a[1])
+        elif len(a) == 2:
+            skip_steps = int(a[0])
+            num_steps = int(a[1])
+        elif len(a) == 3:
+            skip_steps = int(a[0])
+            step_size = int(a[1])
+            num_steps = int(a[2])
         else:
-            num_steps = int(a)
-    elif o == "-u":
+            assert 0
+    elif o == "--assume-skipped":
         assume_skipped = int(a)
-    elif o == "-S":
-        step_size = int(a)
+    elif o == "--final-only":
+        final_only = True
     elif o == "--smtc":
         inconstr.append(a)
     elif o == "--dump-vcd":
@@ -532,23 +544,28 @@ else: # not tempind
                 last_check_step = step+i
 
         if not gentrace:
-            if last_check_step == step:
-                print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
-            else:
-                print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
-            smt.write("(push 1)")
+            if not final_only:
+                if last_check_step == step:
+                    print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
+                else:
+                    print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
+                smt.write("(push 1)")
 
-            smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
-                    [get_constr_expr(constr_asserts, i) for i in range(step, last_check_step+1)]))
+                smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
+                        [get_constr_expr(constr_asserts, i) for i in range(step, last_check_step+1)]))
 
-            if smt.check_sat() == "sat":
-                print("%s BMC failed!" % smt.timestamp())
-                print_failed_asserts(topmod, "s%d" % step, topmod)
-                write_trace(step+step_size)
-                retstatus = False
-                break
+                if smt.check_sat() == "sat":
+                    print("%s BMC failed!" % smt.timestamp())
+                    print_failed_asserts(topmod, "s%d" % step, topmod)
+                    write_trace(step+step_size)
+                    retstatus = False
+                    break
 
-            smt.write("(pop 1)")
+                smt.write("(pop 1)")
+
+            for i in range(step, last_check_step+1):
+                smt.write("(assert (%s_a s%d))" % (topmod, i))
+                smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
             if constr_final_start is not None:
                 for i in range(step, last_check_step+1):
@@ -572,12 +589,11 @@ else: # not tempind
                 if not retstatus:
                     break
 
-        if constr_final_start is None:
+        else: # gentrace
             for i in range(step, last_check_step+1):
                 smt.write("(assert (%s_a s%d))" % (topmod, i))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
-        if gentrace:
             print("%s Solving for step %d.." % (smt.timestamp(), step))
             if smt.check_sat() != "sat":
                 print("%s No solution found!" % smt.timestamp())
