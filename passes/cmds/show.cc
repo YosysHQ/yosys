@@ -582,8 +582,9 @@ struct ShowPass : public Pass {
 		log("        Run the specified command with the graphics file as parameter.\n");
 		log("\n");
 		log("    -format <format>\n");
-		log("        Generate a graphics file in the specified format.\n");
-		log("        Usually <format> is 'svg' or 'ps'.\n");
+		log("        Generate a graphics file in the specified format. Use 'dot' to just\n");
+		log("        generate a .dot file, or other <format> strings such as 'svg' or 'ps'\n");
+		log("        to generate files in other formats (this calls the 'dot' command).\n");
 		log("\n");
 		log("    -lib <verilog_or_ilang_file>\n");
 		log("        Use the specified library file for determining whether cell ports are\n");
@@ -646,7 +647,8 @@ struct ShowPass : public Pass {
 		log("unless another prefix is specified using -prefix <prefix>.\n");
 		log("\n");
 		log("Yosys on Windows and YosysJS use different defaults: The output is written\n");
-		log("to 'show.dot' in the current directory and new viewer is launched.\n");
+		log("to 'show.dot' in the current directory and new viewer is launched each time\n");
+		log("the 'show' command is executed.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
