@@ -854,7 +854,6 @@ struct TestCellPass : public Pass {
 		// cell_types["$concat"] = "A";
 		// cell_types["$assert"] = "A";
 		// cell_types["$assume"] = "A";
-		// cell_types["$predict"] = "A";
 
 		cell_types["$lut"] = "*";
 		cell_types["$sop"] = "*";
