@@ -584,6 +584,7 @@ struct ShowPass : public Pass {
 		log("    -format <format>\n");
 		log("        Generate a graphics file in the specified format.\n");
 		log("        Usually <format> is 'svg' or 'ps'.\n");
+		log("        To generate graph description instead of image, 'dot' can be used.\n");
 		log("\n");
 		log("    -lib <verilog_or_ilang_file>\n");
 		log("        Use the specified library file for determining whether cell ports are\n");
