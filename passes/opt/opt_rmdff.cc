@@ -60,7 +60,7 @@ bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
 	return false;
 
 delete_dlatch:
-	log("Removing %s (%s) from module %s.\n", dlatch->name.c_str(), dlatch->type.c_str(), mod->name.c_str());
+	log("Removing %s (%s) from module %s.\n", log_id(dlatch), log_id(dlatch->type), log_id(mod));
 	remove_init_attr(dlatch->getPort("\\Q"));
 	mod->remove(dlatch);
 	return true;
@@ -170,7 +170,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	return false;
 
 delete_dff:
-	log("Removing %s (%s) from module %s.\n", dff->name.c_str(), dff->type.c_str(), mod->name.c_str());
+	log("Removing %s (%s) from module %s.\n", log_id(dff), log_id(dff->type), log_id(mod));
 	remove_init_attr(dff->getPort("\\Q"));
 	mod->remove(dff);
 	return true;
@@ -190,73 +190,116 @@ struct OptRmdffPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		int total_count = 0;
+		int total_count = 0, total_initdrv = 0;
 		log_header(design, "Executing OPT_RMDFF pass (remove dff with constant values).\n");
 
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules_)
+		for (auto module : design->selected_modules())
 		{
-			if (!design->selected(mod_it.second))
-				continue;
+			pool<SigBit> driven_bits;
+			dict<SigBit, State> init_bits;
 
-			assign_map.set(mod_it.second);
-			dff_init_map.set(mod_it.second);
-			for (auto &it : mod_it.second->wires_)
-				if (it.second->attributes.count("\\init") != 0) {
-					dff_init_map.add(it.second, it.second->attributes.at("\\init"));
-					for (int i = 0; i < GetSize(it.second); i++) {
-						SigBit wire_bit(it.second, i), mapped_bit = assign_map(wire_bit);
-						if (mapped_bit.wire)
+			assign_map.set(module);
+			dff_init_map.set(module);
+
+			for (auto wire : module->wires())
+			{
+				if (wire->attributes.count("\\init") != 0) {
+					Const initval = wire->attributes.at("\\init");
+					dff_init_map.add(wire, initval);
+					for (int i = 0; i < GetSize(wire); i++) {
+						SigBit wire_bit(wire, i), mapped_bit = assign_map(wire_bit);
+						if (mapped_bit.wire) {
 							init_attributes[mapped_bit].insert(wire_bit);
+							if (i < GetSize(initval))
+								init_bits[mapped_bit] = initval[i];
+						}
 					}
 				}
+
+				if (wire->port_input) {
+					for (auto bit : assign_map(wire))
+						driven_bits.insert(bit);
+				}
+			}
 			mux_drivers.clear();
 
 			std::vector<RTLIL::IdString> dff_list;
 			std::vector<RTLIL::IdString> dlatch_list;
-			for (auto &it : mod_it.second->cells_) {
-				if (it.second->type == "$mux" || it.second->type == "$pmux") {
-					if (it.second->getPort("\\A").size() == it.second->getPort("\\B").size())
-						mux_drivers.insert(assign_map(it.second->getPort("\\Y")), it.second);
+			for (auto cell : module->cells())
+			{
+				for (auto &conn : cell->connections())
+					if (cell->output(conn.first) || !cell->known())
+						for (auto bit : assign_map(conn.second))
+							driven_bits.insert(bit);
+
+				if (cell->type == "$mux" || cell->type == "$pmux") {
+					if (cell->getPort("\\A").size() == cell->getPort("\\B").size())
+						mux_drivers.insert(assign_map(cell->getPort("\\Y")), cell);
 					continue;
 				}
-				if (!design->selected(mod_it.second, it.second))
+
+				if (!design->selected(module, cell))
 					continue;
-				if (it.second->type == "$_DFF_N_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_P_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_NN0_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_NN1_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_NP0_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_NP1_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_PN0_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_PN1_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_PP0_") dff_list.push_back(it.first);
-				if (it.second->type == "$_DFF_PP1_") dff_list.push_back(it.first);
-				if (it.second->type == "$dff") dff_list.push_back(it.first);
-				if (it.second->type == "$adff") dff_list.push_back(it.first);
-				if (it.second->type == "$dlatch") dlatch_list.push_back(it.first);
+
+				if (cell->type.in("$_DFF_N_", "$_DFF_P_",
+						"$_DFF_NN0_", "$_DFF_NN1_", "$_DFF_NP0_", "$_DFF_NP1_",
+						"$_DFF_PN0_", "$_DFF_PN1_", "$_DFF_PP0_", "$_DFF_PP1_",
+						"$dff", "$adff"))
+					dff_list.push_back(cell->name);
+
+				if (cell->type == "$dlatch")
+					dlatch_list.push_back(cell->name);
 			}
 
 			for (auto &id : dff_list) {
-				if (mod_it.second->cells_.count(id) > 0 &&
-						handle_dff(mod_it.second, mod_it.second->cells_[id]))
+				if (module->cell(id) != nullptr &&
+						handle_dff(module, module->cells_[id]))
 					total_count++;
 			}
 
 			for (auto &id : dlatch_list) {
-				if (mod_it.second->cells_.count(id) > 0 &&
-						handle_dlatch(mod_it.second, mod_it.second->cells_[id]))
+				if (module->cell(id) != nullptr &&
+						handle_dlatch(module, module->cells_[id]))
 					total_count++;
+			}
+
+			SigSpec const_init_sigs;
+
+			for (auto bit : init_bits)
+				if (!driven_bits.count(bit.first))
+					const_init_sigs.append(bit.first);
+
+			const_init_sigs.sort_and_unify();
+
+			for (SigSpec sig : const_init_sigs.chunks())
+			{
+				Const val;
+
+				for (auto bit : sig)
+					val.bits.push_back(init_bits.at(bit));
+
+				log("Promoting init spec %s = %s to constant driver in module %s.\n",
+						log_signal(sig), log_signal(val), log_id(module));
+
+				module->connect(sig, val);
+				remove_init_attr(sig);
+				total_initdrv++;
 			}
 		}
 
 		assign_map.clear();
 		mux_drivers.clear();
 
-		if (total_count)
+		if (total_count || total_initdrv)
 			design->scratchpad_set_bool("opt.did_something", true);
-		log("Replaced %d DFF cells.\n", total_count);
+
+		if (total_initdrv)
+			log("Promoted %d init specs to constant drivers.\n", total_initdrv);
+
+		if (total_count)
+			log("Replaced %d DFF cells.\n", total_count);
 	}
 } OptRmdffPass;
 
