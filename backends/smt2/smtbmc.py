@@ -224,10 +224,10 @@ for fn in inconstr:
 def get_constr_expr(db, state, final=False, getvalues=False):
     if final:
         if ("final-%d" % state) not in db:
-            return "true"
+            return ([], [], []) if getvalues else "true"
     else:
         if state not in db:
-            return "true"
+            return ([], [], []) if getvalues else "true"
 
     netref_regex = re.compile(r'(^|[( ])\[(-?[0-9]+:|)([^\]]+)\](?=[ )]|$)')
 
@@ -467,14 +467,14 @@ def write_trace(steps):
 def print_failed_asserts_worker(mod, state, path):
     assert mod in smt.modinfo
 
-    if smt.get("(|%s_a| s%d)" % (mod, state)) == "true":
+    if smt.get("(|%s_a| %s)" % (mod, state)) == "true":
         return
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
-        print_failed_asserts_worker(celltype, "(|%s_h %s| s%d)" % (mod, cellname, state), path + "." + cellname)
+        print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
 
     for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
-        if smt.get("(|%s| s%d)" % (assertfun, state)) == "false":
+        if smt.get("(|%s| %s)" % (assertfun, state)) == "false":
             print("%s Assert failed in %s: %s" % (smt.timestamp(), path, assertinfo))
 
 
@@ -486,7 +486,7 @@ def print_failed_asserts(state, final=False):
             print("%s Assert %s failed: %s" % (smt.timestamp(), loc, expr))
 
     if not final:
-        print_failed_asserts_worker(topmod, state, topmod)
+        print_failed_asserts_worker(topmod, "s%d" % state, topmod)
 
 
 if tempind:
