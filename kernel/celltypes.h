@@ -118,7 +118,6 @@ struct CellTypes
 		setup_type("$assume", {A, EN}, pool<RTLIL::IdString>(), true);
 		setup_type("$initstate", pool<RTLIL::IdString>(), {Y}, true);
 		setup_type("$anyconst", pool<RTLIL::IdString>(), {Y}, true);
-		setup_type("$aconst", pool<RTLIL::IdString>(), {Y}, true);
 		setup_type("$equiv", {A, B}, {Y}, true);
 	}
 

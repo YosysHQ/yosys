@@ -1030,7 +1030,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in("$aconst", "$anyconst")) {
+			if (cell->type == "$anyconst") {
 				port("\\Y", param("\\WIDTH"));
 				check_expected();
 				return;
