@@ -1468,9 +1468,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
 
 				Cell *cell = current_module->addCell(myid, str.substr(1));
+				cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				cell->parameters["\\WIDTH"] = width;
 
 				Wire *wire = current_module->addWire(myid + "_wire", width);
+				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				cell->setPort("\\Y", wire);
 
 				is_signed = sign_hint;

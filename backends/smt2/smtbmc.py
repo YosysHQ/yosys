@@ -504,6 +504,20 @@ def print_failed_asserts(state, final=False):
         print_failed_asserts_worker(topmod, "s%d" % state, topmod)
 
 
+def print_anyconsts_worker(mod, state, path):
+    assert mod in smt.modinfo
+
+    for cellname, celltype in smt.modinfo[mod].cells.items():
+        print_anyconsts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
+
+    for fun, info in smt.modinfo[mod].anyconsts.items():
+        print("%s Value for anyconst in %s (%s): %d" % (smt.timestamp(), path, info, smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+
+
+def print_anyconsts(state):
+    print_anyconsts_worker(topmod, "s%d" % state, topmod)
+
+
 if tempind:
     retstatus = False
     skip_counter = step_size
@@ -535,10 +549,12 @@ if tempind:
         if smt.check_sat() == "sat":
             if step == 0:
                 print("%s Temporal induction failed!" % smt.timestamp())
+                print_anyconsts(num_steps)
                 print_failed_asserts(num_steps)
                 write_trace(step, num_steps+1, '%')
 
             elif dumpall:
+                print_anyconsts(num_steps)
                 print_failed_asserts(num_steps)
                 write_trace(step, num_steps+1, "%d" % step)
 
@@ -598,6 +614,7 @@ else: # not tempind
 
                 if smt.check_sat() == "sat":
                     print("%s BMC failed!" % smt.timestamp())
+                    print_anyconsts(step)
                     for i in range(step, last_check_step+1):
                         print_failed_asserts(i)
                     write_trace(0, last_check_step+1, '%')
@@ -623,6 +640,7 @@ else: # not tempind
 
                     if smt.check_sat() == "sat":
                         print("%s BMC failed!" % smt.timestamp())
+                        print_anyconsts(i)
                         print_failed_asserts(i, final=True)
                         write_trace(0, i+1, '%')
                         retstatus = False
@@ -644,11 +662,13 @@ else: # not tempind
                 break
 
             elif dumpall:
+                print_anyconsts(0)
                 write_trace(0, last_check_step+1, "%d" % step)
 
         step += step_size
 
     if gentrace:
+        print_anyconsts(0)
         write_trace(0, num_steps, '%')
 
 
