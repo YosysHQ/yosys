@@ -43,7 +43,25 @@ struct Smt2Worker
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
 	std::map<Cell*, int> memarrays;
 	std::map<int, int> bvsizes;
-	std::vector<string> ids;
+	dict<IdString, char*> ids;
+
+	const char *get_id(IdString n)
+	{
+		if (ids.count(n) == 0) {
+			std::string str = log_id(n);
+			for (int i = 0; i < GetSize(str); i++) {
+				if (str[i] == '\\')
+					str[i] = '/';
+			}
+			ids[n] = strdup(str.c_str());
+		}
+		return ids[n];
+	}
+
+	template<typename T>
+	const char *get_id(T *obj) {
+		return get_id(obj->name);
+	}
 
 	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose) :
 			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode),
@@ -68,15 +86,11 @@ struct Smt2Worker
 		}
 	}
 
-	const char *get_id(IdString n)
+	~Smt2Worker()
 	{
-		std::string str = log_id(n);
-		for (int i = 0; i < GetSize(str); i++) {
-			if (str[i] == '\\')
-				str[i] = '/';
-		}
-		ids.push_back(str);
-		return ids.back().c_str();
+		for (auto &it : ids)
+			free(it.second);
+		ids.clear();
 	}
 
 	const char *get_id(Module *m)
