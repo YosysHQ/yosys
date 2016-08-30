@@ -57,6 +57,9 @@ struct PrepPass : public ScriptPass
 		log("        simulate verilog simulation behavior for out-of-bounds memory accesses\n");
 		log("        using the 'memory_memx' pass. This option implies -nordff.\n");
 		log("\n");
+		log("    -nomem\n");
+		log("        do not run any of the memory_* passes\n");
+		log("\n");
 		log("    -nordff\n");
 		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
@@ -72,7 +75,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts;
-	bool autotop, flatten, ifxmode, memxmode;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
@@ -83,6 +86,7 @@ struct PrepPass : public ScriptPass
 		flatten = false;
 		ifxmode = false;
 		memxmode = false;
+		nomemmode = false;
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -122,6 +126,10 @@ struct PrepPass : public ScriptPass
 			if (args[argidx] == "-memx") {
 				memxmode = true;
 				memory_opts += " -nordff";
+				continue;
+			}
+			if (args[argidx] == "-nomem") {
+				nomemmode = true;
 				continue;
 			}
 			if (args[argidx] == "-nordff") {
@@ -179,11 +187,13 @@ struct PrepPass : public ScriptPass
 				else
 					run(memxmode ? "wreduce -memx" : "wreduce");
 			}
-			run("memory_dff" + (help_mode ? " [-nordff]" : memory_opts));
-			if (help_mode || memxmode)
-				run("memory_memx", "(if -memx)");
-			run("opt_clean");
-			run("memory_collect");
+			if (!nomemmode) {
+				run("memory_dff" + (help_mode ? " [-nordff]" : memory_opts));
+				if (help_mode || memxmode)
+					run("memory_memx", "(if -memx)");
+				run("opt_clean");
+				run("memory_collect");
+			}
 			run("opt -keepdc -fast");
 		}
 
