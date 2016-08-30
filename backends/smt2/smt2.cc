@@ -403,6 +403,16 @@ struct Smt2Worker
 				return;
 			}
 
+			if (cell->type == "$anyconst")
+			{
+				registers.insert(cell);
+				decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) (_ BitVec %d)) ; %s\n",
+						get_id(module), idcounter, get_id(module), GetSize(cell->getPort("\\Y")), log_signal(cell->getPort("\\Y"))));
+				register_bv(cell->getPort("\\Y"), idcounter++);
+				recursive_cells.erase(cell);
+				return;
+			}
+
 			if (cell->type == "$and") return export_bvop(cell, "(bvand A B)");
 			if (cell->type == "$or") return export_bvop(cell, "(bvor A B)");
 			if (cell->type == "$xor") return export_bvop(cell, "(bvxor A B)");
@@ -675,6 +685,13 @@ struct Smt2Worker
 					std::string expr_d = get_bv(cell->getPort("\\D"));
 					std::string expr_q = get_bv(cell->getPort("\\Q"), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort("\\Q"))));
+				}
+
+				if (cell->type == "$anyconst")
+				{
+					std::string expr_d = get_bv(cell->getPort("\\Y"));
+					std::string expr_q = get_bv(cell->getPort("\\Y"), "next_state");
+					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort("\\Y"))));
 				}
 
 				if (cell->type == "$mem")
