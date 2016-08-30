@@ -810,9 +810,9 @@ struct Smt2Backend : public Backend {
 		log("The '<mod>_s' sort represents a module state. Additional '<mod>_n' functions\n");
 		log("are provided that can be used to access the values of the signals in the module.\n");
 		log("By default only ports, registers, and wires with the 'keep' attribute set are\n");
-		log("made available via such functions. Without the -bv option, multi-bit wires are\n");
-		log("exported as separate functions of type Bool for the individual bits. With the\n");
-		log("-bv option multi-bit wires are exported as single functions of type BitVec.\n");
+		log("made available via such functions. With the -nobv option, multi-bit wires are\n");
+		log("exported as separate functions of type Bool for the individual bits. Without\n");
+		log("-nobv multi-bit wires are exported as single functions of type BitVec.\n");
 		log("\n");
 		log("The '<mod>_t' function evaluates to 'true' when the given pair of states\n");
 		log("describes a valid state transition.\n");
@@ -835,14 +835,14 @@ struct Smt2Backend : public Backend {
 		log("    -verbose\n");
 		log("        this will print the recursive walk used to export the modules.\n");
 		log("\n");
-		log("    -bv\n");
-		log("        enable support for BitVec (FixedSizeBitVectors theory). with this\n");
+		log("    -nobv\n");
+		log("        disable support for BitVec (FixedSizeBitVectors theory). with this\n");
 		log("        option set multi-bit wires are represented using the BitVec sort and\n");
 		log("        support for coarse grain cells (incl. arithmetic) is enabled.\n");
 		log("\n");
-		log("    -mem\n");
-		log("        enable support for memories (via ArraysEx theory). this option\n");
-		log("        also implies -bv. only $mem cells without merged registers in\n");
+		log("    -nomem\n");
+		log("        disable support for memories (via ArraysEx theory). this option is\n");
+		log("        implied by -nobv. only $mem cells without merged registers in\n");
 		log("        read ports are supported. call \"memory\" with -nordff to make sure\n");
 		log("        that no registers are merged into $mem read ports. '<mod>_m' functions\n");
 		log("        will be generated for accessing the arrays that are used to represent\n");
@@ -908,7 +908,7 @@ struct Smt2Backend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::ifstream template_f;
-		bool bvmode = false, memmode = false, wiresmode = false, verbose = false;
+		bool bvmode = true, memmode = true, wiresmode = false, verbose = false;
 
 		log_header(design, "Executing SMT2 backend.\n");
 
@@ -921,13 +921,17 @@ struct Smt2Backend : public Backend {
 					log_error("Can't open template file `%s'.\n", args[argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-bv") {
-				bvmode = true;
+			if (args[argidx] == "-bv" || args[argidx] == "-mem") {
+				log_warning("Options -bv and -mem are now the default. Support for -bv and -mem will be removed in the future.\n");
 				continue;
 			}
-			if (args[argidx] == "-mem") {
-				bvmode = true;
-				memmode = true;
+			if (args[argidx] == "-nobv") {
+				bvmode = false;
+				memmode = false;
+				continue;
+			}
+			if (args[argidx] == "-nomem") {
+				bvmode = false;
 				continue;
 			}
 			if (args[argidx] == "-wires") {
