@@ -9,7 +9,7 @@ module demo1(input clk, input addtwo, output iseven);
 
 `ifdef FORMAL
 	assert property (cnt != 15);
-	initial assume (!cnt[3] && !cnt[0]);
+	initial assume (!cnt[2]);
 `endif
 endmodule
 

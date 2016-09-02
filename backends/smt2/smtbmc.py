@@ -19,7 +19,7 @@
 
 import os, sys, getopt, re
 ##yosys-sys-path##
-from smtio import smtio, smtopts, mkvcd
+from smtio import SmtIo, SmtOpts, MkVcd
 from collections import defaultdict
 
 skip_steps = 0
@@ -35,7 +35,7 @@ dumpall = False
 assume_skipped = None
 final_only = False
 topmod = None
-so = smtopts()
+so = SmtOpts()
 
 
 def usage():
@@ -137,7 +137,7 @@ if len(args) != 1:
 
 
 if tempind and len(inconstr) != 0:
-    print("Error: options -i and --smtc are exclusive.");
+    print("Error: options -i and --smtc are exclusive.")
     sys.exit(1)
 
 
@@ -178,7 +178,6 @@ for fn in inconstr:
                     constr_final_start = -i if constr_final_start is None else min(constr_final_start, -i)
                 else:
                     assert 0
-                continue
                 continue
 
             if tokens[0] == "state":
@@ -275,7 +274,7 @@ def get_constr_expr(db, state, final=False, getvalues=False):
     return "(and %s)" % " ".join(expr_list)
 
 
-smt = smtio(opts=so)
+smt = SmtIo(opts=so)
 
 print("%s Solver: %s" % (smt.timestamp(), so.solver))
 smt.setup("QF_AUFBV")
@@ -297,7 +296,7 @@ def write_vcd_trace(steps_start, steps_stop, index):
     print("%s Writing trace to VCD file: %s" % (smt.timestamp(), filename))
 
     with open(filename, "w") as vcd_file:
-        vcd = mkvcd(vcd_file)
+        vcd = MkVcd(vcd_file)
         path_list = list()
 
         for netpath in sorted(smt.hiernets(topmod)):
@@ -343,10 +342,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
                 print("  reg [%d:0] PI_%s;" % (width-1, name), file=f)
 
         print("  %s UUT (" % topmod, file=f)
-        for i in range(len(primary_inputs)):
-            name, width = primary_inputs[i]
-            last_pi = i+1 == len(primary_inputs)
-            print("    .%s(PI_%s)%s" % (name, name, "" if last_pi else ","), file=f)
+        print(",\n".join("    .{name}(PI_{name})".format(name=name) for name, _ in primary_inputs), file=f)
         print("  );", file=f)
 
         print("  initial begin", file=f)
@@ -365,7 +361,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
         regs = sorted(smt.hiernets(topmod, regs_only=True))
         regvals = smt.get_net_bin_list(topmod, regs, "s%d" % steps_start)
 
-        print("    #1;", file=f);
+        print("    #1;", file=f)
         for reg, val in zip(regs, regvals):
             hidden_net = False
             for n in reg:
@@ -399,14 +395,14 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             pi_names = [[name] for name, _ in primary_inputs if name not in clock_inputs]
             pi_values = smt.get_net_bin_list(topmod, pi_names, "s%d" % i)
 
-            print("    #1;", file=f);
-            print("    // state %d" % i, file=f);
+            print("    #1;", file=f)
+            print("    // state %d" % i, file=f)
             if i > 0:
-                print("    @(posedge clock);", file=f);
+                print("    @(posedge clock);", file=f)
             for name, val in zip(pi_names, pi_values):
                 print("    PI_%s <= %d'b%s;" % (".".join(name), len(val), val), file=f)
 
-        print("    genclock = 0;", file=f);
+        print("    genclock = 0;", file=f)
         print("  end", file=f)
 
         print("endmodule", file=f)
@@ -422,7 +418,6 @@ def write_constr_trace(steps_start, steps_stop, index):
         for name in smt.modinfo[topmod].inputs:
             width = smt.modinfo[topmod].wsize[name]
             primary_inputs.append((name, width))
-
 
         if steps_start == 0:
             print("initial", file=f)
@@ -445,9 +440,7 @@ def write_constr_trace(steps_start, steps_stop, index):
                 for j in range(ports):
                     addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, j))
 
-            addr_list = set()
-            for val in smt.get_list(addr_expr_list):
-                addr_list.add(smt.bv2int(val))
+            addr_list = set((smt.bv2int(val) for val in smt.get_list(addr_expr_list)))
 
             expr_list = list()
             for i in addr_list:
@@ -455,7 +448,6 @@ def write_constr_trace(steps_start, steps_stop, index):
 
             for i, val in zip(addr_list, smt.get_list(expr_list)):
                 print("assume (= (select [%s] #b%s) %s)" % (".".join(mempath), format(i, "0%db" % abits), val), file=f)
-
 
         for k in range(steps_start, steps_stop):
             print("", file=f)
@@ -564,7 +556,7 @@ if tempind:
             break
 
 
-else: # not tempind
+else:  # not tempind
     step = 0
     retstatus = True
     while step < num_steps:
@@ -650,7 +642,7 @@ else: # not tempind
                 if not retstatus:
                     break
 
-        else: # gentrace
+        else:  # gentrace
             for i in range(step, last_check_step+1):
                 smt.write("(assert (%s_a s%d))" % (topmod, i))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
@@ -677,4 +669,3 @@ smt.wait()
 
 print("%s Status: %s" % (smt.timestamp(), "PASSED" if retstatus else "FAILED (!)"))
 sys.exit(0 if retstatus else 1)
-
