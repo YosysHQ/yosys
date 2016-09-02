@@ -419,7 +419,6 @@ def write_constr_trace(steps_start, steps_stop, index):
             width = smt.modinfo[topmod].wsize[name]
             primary_inputs.append((name, width))
 
-
         if steps_start == 0:
             print("initial", file=f)
         else:
@@ -449,7 +448,6 @@ def write_constr_trace(steps_start, steps_stop, index):
 
             for i, val in zip(addr_list, smt.get_list(expr_list)):
                 print("assume (= (select [%s] #b%s) %s)" % (".".join(mempath), format(i, "0%db" % abits), val), file=f)
-
 
         for k in range(steps_start, steps_stop):
             print("", file=f)
@@ -558,7 +556,7 @@ if tempind:
             break
 
 
-else: # not tempind
+else:  # not tempind
     step = 0
     retstatus = True
     while step < num_steps:
@@ -644,7 +642,7 @@ else: # not tempind
                 if not retstatus:
                     break
 
-        else: # gentrace
+        else:  # gentrace
             for i in range(step, last_check_step+1):
                 smt.write("(assert (%s_a s%d))" % (topmod, i))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
@@ -671,4 +669,3 @@ smt.wait()
 
 print("%s Status: %s" % (smt.timestamp(), "PASSED" if retstatus else "FAILED (!)"))
 sys.exit(0 if retstatus else 1)
-

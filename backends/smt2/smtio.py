@@ -22,7 +22,8 @@ import subprocess
 from select import select
 from time import time
 
-class smtmodinfo:
+
+class SmtModInfo:
     def __init__(self):
         self.inputs = set()
         self.outputs = set()
@@ -33,6 +34,7 @@ class smtmodinfo:
         self.cells = dict()
         self.asserts = dict()
         self.anyconsts = dict()
+
 
 class SmtIo:
     def __init__(self, solver=None, debug_print=None, debug_file=None, timeinfo=None, opts=None):
@@ -108,7 +110,7 @@ class SmtIo:
 
         if fields[1] == "yosys-smt2-module":
             self.curmod = fields[2]
-            self.modinfo[self.curmod] = smtmodinfo()
+            self.modinfo[self.curmod] = SmtModInfo()
 
         if fields[1] == "yosys-smt2-cell":
             self.modinfo[self.curmod].cells[fields[3]] = fields[2]
