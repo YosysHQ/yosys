@@ -19,7 +19,7 @@
 
 import os, sys, getopt, re
 ##yosys-sys-path##
-from smtio import smtio, smtopts, mkvcd
+from smtio import SmtIo, SmtOpts, MkVcd
 from collections import defaultdict
 
 skip_steps = 0
@@ -35,7 +35,7 @@ dumpall = False
 assume_skipped = None
 final_only = False
 topmod = None
-so = smtopts()
+so = SmtOpts()
 
 
 def usage():
@@ -274,7 +274,7 @@ def get_constr_expr(db, state, final=False, getvalues=False):
     return "(and %s)" % " ".join(expr_list)
 
 
-smt = smtio(opts=so)
+smt = SmtIo(opts=so)
 
 print("%s Solver: %s" % (smt.timestamp(), so.solver))
 smt.setup("QF_AUFBV")
@@ -296,7 +296,7 @@ def write_vcd_trace(steps_start, steps_stop, index):
     print("%s Writing trace to VCD file: %s" % (smt.timestamp(), filename))
 
     with open(filename, "w") as vcd_file:
-        vcd = mkvcd(vcd_file)
+        vcd = MkVcd(vcd_file)
         path_list = list()
 
         for netpath in sorted(smt.hiernets(topmod)):

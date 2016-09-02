@@ -34,7 +34,7 @@ class smtmodinfo:
         self.asserts = dict()
         self.anyconsts = dict()
 
-class smtio:
+class SmtIo:
     def __init__(self, solver=None, debug_print=None, debug_file=None, timeinfo=None, opts=None):
         if opts is not None:
             self.solver = opts.solver
@@ -293,12 +293,12 @@ class smtio:
             return v[2:]
         if v.startswith("#x"):
             hex_dict = {
-            "0":"0000", "1":"0001", "2":"0010", "3":"0011",
-            "4":"0100", "5":"0101", "6":"0110", "7":"0111",
-            "8":"1000", "9":"1001", "A":"1010", "B":"1011",
-            "C":"1100", "D":"1101", "E":"1110", "F":"1111",
-            "a":"1010", "b":"1011", "c":"1100", "d":"1101",
-            "e":"1110", "f":"1111"}
+                "0": "0000", "1": "0001", "2": "0010", "3": "0011",
+                "4": "0100", "5": "0101", "6": "0110", "7": "0111",
+                "8": "1000", "9": "1001", "A": "1010", "B": "1011",
+                "C": "1100", "D": "1101", "E": "1110", "F": "1111",
+                "a": "1010", "b": "1011", "c": "1100", "d": "1101",
+                "e": "1110", "f": "1111"}
             return "".join(hex_dict.get(x) for x in v[2:])
         assert False
 
@@ -395,7 +395,7 @@ class smtio:
         self.p.wait()
 
 
-class smtopts:
+class SmtOpts:
     def __init__(self):
         self.shortopts = "s:v"
         self.longopts = ["no-progress", "dump-smt2="]
@@ -434,7 +434,7 @@ class smtopts:
 """
 
 
-class mkvcd:
+class MkVcd:
     def __init__(self, f):
         self.f = f
         self.t = -1
