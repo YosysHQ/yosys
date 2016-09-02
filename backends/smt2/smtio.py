@@ -274,7 +274,7 @@ class smtio:
 
     def bv2hex(self, v):
         h = ""
-        v = bv2bin(v)
+        v = self.bv2bin(v)
         while len(v) > 0:
             d = 0
             if len(v) > 0 and v[-1] == "1": d += 1
