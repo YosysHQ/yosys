@@ -292,25 +292,14 @@ class smtio:
         if v.startswith("#b"):
             return v[2:]
         if v.startswith("#x"):
-            digits = []
-            for d in v[2:]:
-                if d == "0": digits.append("0000")
-                if d == "1": digits.append("0001")
-                if d == "2": digits.append("0010")
-                if d == "3": digits.append("0011")
-                if d == "4": digits.append("0100")
-                if d == "5": digits.append("0101")
-                if d == "6": digits.append("0110")
-                if d == "7": digits.append("0111")
-                if d == "8": digits.append("1000")
-                if d == "9": digits.append("1001")
-                if d in ("a", "A"): digits.append("1010")
-                if d in ("b", "B"): digits.append("1011")
-                if d in ("c", "C"): digits.append("1100")
-                if d in ("d", "D"): digits.append("1101")
-                if d in ("e", "E"): digits.append("1110")
-                if d in ("f", "F"): digits.append("1111")
-            return "".join(digits)
+            hex_dict = {
+            "0":"0000", "1":"0001", "2":"0010", "3":"0011",
+            "4":"0100", "5":"0101", "6":"0110", "7":"0111",
+            "8":"1000", "9":"1001", "A":"1010", "B":"1011",
+            "C":"1100", "D":"1101", "E":"1110", "F":"1111",
+            "a":"1010", "b":"1011", "c":"1100", "d":"1101",
+            "e":"1110", "f":"1111"}
+            return "".join(hex_dict.get(x) for x in v[2:])
         assert False
 
     def bv2int(self, v):
