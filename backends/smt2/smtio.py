@@ -45,6 +45,46 @@ class SmtModInfo:
         self.asserts = dict()
         self.anyconsts = dict()
 
+    def primary_inputs(self):
+        for name in self.inputs:
+            yield (name, self.wsize[name])
+
+    def clock_inputs(self):
+        for name in self.inputs:
+            if name in ["clk", "clock", "CLK", "CLOCK"]:
+                yield name
+
+    def update(self, stmt):
+        fields = stmt.split()
+
+        if fields[1] == "yosys-smt2-cell":
+            self.cells[fields[3]] = fields[2]
+
+        if fields[1] == "yosys-smt2-input":
+            self.inputs.add(fields[2])
+            self.wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-output":
+            self.outputs.add(fields[2])
+            self.wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-register":
+            self.registers.add(fields[2])
+            self.wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-memory":
+            self.memories[fields[2]] = (int(fields[3]), int(fields[4]), int(fields[5]))
+
+        if fields[1] == "yosys-smt2-wire":
+            self.wires.add(fields[2])
+            self.wsize[fields[2]] = int(fields[3])
+
+        if fields[1] == "yosys-smt2-assert":
+            self.asserts[fields[2]] = fields[3]
+
+        if fields[1] == "yosys-smt2-anyconst":
+            self.anyconsts[fields[2]] = fields[3]
+
 
 class SmtIo:
     def __init__(self, solver=None, debug_print=None, debug_file=None, timeinfo=None, opts=None):
@@ -121,37 +161,10 @@ class SmtIo:
         if fields[1] == "yosys-smt2-module":
             self.curmod = fields[2]
             self.modinfo[self.curmod] = SmtModInfo()
-
-        if fields[1] == "yosys-smt2-cell":
-            self.modinfo[self.curmod].cells[fields[3]] = fields[2]
-
-        if fields[1] == "yosys-smt2-topmod":
+        elif fields[1] == "yosys-smt2-topmod":
             self.topmod = fields[2]
-
-        if fields[1] == "yosys-smt2-input":
-            self.modinfo[self.curmod].inputs.add(fields[2])
-            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
-
-        if fields[1] == "yosys-smt2-output":
-            self.modinfo[self.curmod].outputs.add(fields[2])
-            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
-
-        if fields[1] == "yosys-smt2-register":
-            self.modinfo[self.curmod].registers.add(fields[2])
-            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
-
-        if fields[1] == "yosys-smt2-memory":
-            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]), int(fields[5]))
-
-        if fields[1] == "yosys-smt2-wire":
-            self.modinfo[self.curmod].wires.add(fields[2])
-            self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
-
-        if fields[1] == "yosys-smt2-assert":
-            self.modinfo[self.curmod].asserts[fields[2]] = fields[3]
-
-        if fields[1] == "yosys-smt2-anyconst":
-            self.modinfo[self.curmod].anyconsts[fields[2]] = fields[3]
+        else:
+            self.modinfo[self.curmod].update(stmt)
 
     def hiernets(self, top, regs_only=False):
         def hiernets_worker(nets, mod, cursor):
