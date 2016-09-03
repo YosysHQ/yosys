@@ -17,8 +17,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import sys
-import subprocess
+import sys, subprocess, re
 from select import select
 from time import time
 
@@ -84,6 +83,10 @@ class SmtIo:
         if self.solver == "mathsat":
             popen_vargs = ['mathsat']
 
+        if self.solver == "boolector":
+            self.declared_sorts = list()
+            popen_vargs = ['boolector', '--smt2', '-i']
+
         self.p = subprocess.Popen(popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         self.start_time = time()
 
@@ -104,11 +107,21 @@ class SmtIo:
 
     def write(self, stmt):
         stmt = stmt.strip()
+
+        if self.solver == "boolector":
+            if stmt.startswith("(declare-sort"):
+                self.declared_sorts.append(stmt.split()[1])
+                return
+            for n in self.declared_sorts:
+                stmt = stmt.replace(n, "(_ BitVec 16)")
+
         if self.debug_print:
             print("> %s" % stmt)
+
         if self.debug_file:
             print(stmt, file=self.debug_file)
             self.debug_file.flush()
+
         self.p.stdin.write(bytes(stmt + "\n", "ascii"))
         self.p.stdin.flush()
 

@@ -751,27 +751,39 @@ struct Smt2Worker
 
 		string assert_expr = assert_list.empty() ? "true" : "(and";
 		if (!assert_list.empty()) {
-			for (auto &str : assert_list)
-				assert_expr += stringf("\n  %s", str.c_str());
-			assert_expr += "\n)";
+			if (GetSize(assert_list) == 1) {
+				assert_expr = assert_list.front();
+			} else {
+				for (auto &str : assert_list)
+					assert_expr += stringf("\n  %s", str.c_str());
+				assert_expr += "\n)";
+			}
 		}
 		decls.push_back(stringf("(define-fun |%s_a| ((state |%s_s|)) Bool %s)\n",
 				get_id(module), get_id(module), assert_expr.c_str()));
 
 		string assume_expr = assume_list.empty() ? "true" : "(and";
 		if (!assume_list.empty()) {
-			for (auto &str : assume_list)
-				assume_expr += stringf("\n  %s", str.c_str());
-			assume_expr += "\n)";
+			if (GetSize(assume_list) == 1) {
+				assume_expr = assume_list.front();
+			} else {
+				for (auto &str : assume_list)
+					assume_expr += stringf("\n  %s", str.c_str());
+				assume_expr += "\n)";
+			}
 		}
 		decls.push_back(stringf("(define-fun |%s_u| ((state |%s_s|)) Bool %s)\n",
 				get_id(module), get_id(module), assume_expr.c_str()));
 
 		string init_expr = init_list.empty() ? "true" : "(and";
 		if (!init_list.empty()) {
-			for (auto &str : init_list)
-				init_expr += stringf("\n  %s", str.c_str());
-			init_expr += "\n)";
+			if (GetSize(init_list) == 1) {
+				init_expr = init_list.front();
+			} else {
+				for (auto &str : init_list)
+					init_expr += stringf("\n  %s", str.c_str());
+				init_expr += "\n)";
+			}
 		}
 		decls.push_back(stringf("(define-fun |%s_i| ((state |%s_s|)) Bool %s)\n",
 				get_id(module), get_id(module), init_expr.c_str()));

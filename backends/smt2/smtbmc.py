@@ -514,17 +514,17 @@ if tempind:
     retstatus = False
     skip_counter = step_size
     for step in range(num_steps, -1, -1):
-        smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
-        smt.write("(assert (%s_u s%d))" % (topmod, step))
-        smt.write("(assert (%s_h s%d))" % (topmod, step))
-        smt.write("(assert (not (%s_is s%d)))" % (topmod, step))
+        smt.write("(declare-fun s%d () |%s_s|)" % (step, topmod))
+        smt.write("(assert (|%s_u| s%d))" % (topmod, step))
+        smt.write("(assert (|%s_h| s%d))" % (topmod, step))
+        smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
 
         if step == num_steps:
-            smt.write("(assert (not (%s_a s%d)))" % (topmod, step))
+            smt.write("(assert (not (|%s_a| s%d)))" % (topmod, step))
 
         else:
-            smt.write("(assert (%s_t s%d s%d))" % (topmod, step, step+1))
-            smt.write("(assert (%s_a s%d))" % (topmod, step))
+            smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step, step+1))
+            smt.write("(assert (|%s_a| s%d))" % (topmod, step))
 
         if step > num_steps-skip_steps:
             print("%s Skipping induction in step %d.." % (smt.timestamp(), step))
@@ -560,23 +560,23 @@ else:  # not tempind
     step = 0
     retstatus = True
     while step < num_steps:
-        smt.write("(declare-fun s%d () %s_s)" % (step, topmod))
-        smt.write("(assert (%s_u s%d))" % (topmod, step))
-        smt.write("(assert (%s_h s%d))" % (topmod, step))
+        smt.write("(declare-fun s%d () |%s_s|)" % (step, topmod))
+        smt.write("(assert (|%s_u| s%d))" % (topmod, step))
+        smt.write("(assert (|%s_h| s%d))" % (topmod, step))
         smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
 
         if step == 0:
-            smt.write("(assert (%s_i s0))" % (topmod))
-            smt.write("(assert (%s_is s0))" % (topmod))
+            smt.write("(assert (|%s_i| s0))" % (topmod))
+            smt.write("(assert (|%s_is| s0))" % (topmod))
 
         else:
-            smt.write("(assert (%s_t s%d s%d))" % (topmod, step-1, step))
-            smt.write("(assert (not (%s_is s%d)))" % (topmod, step))
+            smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step-1, step))
+            smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
 
         if step < skip_steps:
             if assume_skipped is not None and step >= assume_skipped:
                 print("%s Skipping step %d (and assuming pass).." % (smt.timestamp(), step))
-                smt.write("(assert (%s_a s%d))" % (topmod, step))
+                smt.write("(assert (|%s_a| s%d))" % (topmod, step))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, step))
             else:
                 print("%s Skipping step %d.." % (smt.timestamp(), step))
@@ -586,10 +586,10 @@ else:  # not tempind
         last_check_step = step
         for i in range(1, step_size):
             if step+i < num_steps:
-                smt.write("(declare-fun s%d () %s_s)" % (step+i, topmod))
-                smt.write("(assert (%s_u s%d))" % (topmod, step+i))
-                smt.write("(assert (%s_h s%d))" % (topmod, step+i))
-                smt.write("(assert (%s_t s%d s%d))" % (topmod, step+i-1, step+i))
+                smt.write("(declare-fun s%d () |%s_s|)" % (step+i, topmod))
+                smt.write("(assert (|%s_u| s%d))" % (topmod, step+i))
+                smt.write("(assert (|%s_h| s%d))" % (topmod, step+i))
+                smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step+i-1, step+i))
                 smt.write("(assert %s)" % get_constr_expr(constr_assumes, step+i))
                 last_check_step = step+i
 
@@ -601,7 +601,7 @@ else:  # not tempind
                     print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
                 smt.write("(push 1)")
 
-                smt.write("(assert (not (and %s)))" % " ".join(["(%s_a s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
+                smt.write("(assert (not (and %s)))" % " ".join(["(|%s_a| s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
                         [get_constr_expr(constr_asserts, i) for i in range(step, last_check_step+1)]))
 
                 if smt.check_sat() == "sat":
@@ -616,7 +616,7 @@ else:  # not tempind
                 smt.write("(pop 1)")
 
             for i in range(step, last_check_step+1):
-                smt.write("(assert (%s_a s%d))" % (topmod, i))
+                smt.write("(assert (|%s_a| s%d))" % (topmod, i))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
             if constr_final_start is not None:
@@ -644,7 +644,7 @@ else:  # not tempind
 
         else:  # gentrace
             for i in range(step, last_check_step+1):
-                smt.write("(assert (%s_a s%d))" % (topmod, i))
+                smt.write("(assert (|%s_a| s%d))" % (topmod, i))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
             print("%s Solving for step %d.." % (smt.timestamp(), last_check_step))
