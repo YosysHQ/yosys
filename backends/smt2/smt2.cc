@@ -752,7 +752,7 @@ struct Smt2Worker
 		string assert_expr = assert_list.empty() ? "true" : "(and";
 		if (!assert_list.empty()) {
 			if (GetSize(assert_list) == 1) {
-				assert_expr = assert_list.front();
+				assert_expr = "\n  " + assert_list.front() + "\n";
 			} else {
 				for (auto &str : assert_list)
 					assert_expr += stringf("\n  %s", str.c_str());
@@ -765,7 +765,7 @@ struct Smt2Worker
 		string assume_expr = assume_list.empty() ? "true" : "(and";
 		if (!assume_list.empty()) {
 			if (GetSize(assume_list) == 1) {
-				assume_expr = assume_list.front();
+				assume_expr = "\n  " + assume_list.front() + "\n";
 			} else {
 				for (auto &str : assume_list)
 					assume_expr += stringf("\n  %s", str.c_str());
@@ -778,7 +778,7 @@ struct Smt2Worker
 		string init_expr = init_list.empty() ? "true" : "(and";
 		if (!init_list.empty()) {
 			if (GetSize(init_list) == 1) {
-				init_expr = init_list.front();
+				init_expr = "\n  " + init_list.front() + "\n";
 			} else {
 				for (auto &str : init_list)
 					init_expr += stringf("\n  %s", str.c_str());
