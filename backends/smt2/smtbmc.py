@@ -276,7 +276,11 @@ def get_constr_expr(db, state, final=False, getvalues=False):
 
 smt = SmtIo(opts=so)
 
-print("%s Solver: %s" % (smt.timestamp(), so.solver))
+def print_msg(msg):
+    print("%s %s" % (smt.timestamp(), msg))
+    sys.stdout.flush()
+
+print_msg("Solver: %s" % (so.solver))
 smt.setup("QF_AUFBV")
 
 with open(args[0], "r") as f:
@@ -293,7 +297,7 @@ assert topmod in smt.modinfo
 
 def write_vcd_trace(steps_start, steps_stop, index):
     filename = vcdfile.replace("%", index)
-    print("%s Writing trace to VCD file: %s" % (smt.timestamp(), filename))
+    print_msg("Writing trace to VCD file: %s" % (filename))
 
     with open(filename, "w") as vcd_file:
         vcd = MkVcd(vcd_file)
@@ -319,7 +323,7 @@ def write_vcd_trace(steps_start, steps_stop, index):
 
 def write_vlogtb_trace(steps_start, steps_stop, index):
     filename = vlogtbfile.replace("%", index)
-    print("%s Writing trace to Verilog testbench: %s" % (smt.timestamp(), filename))
+    print_msg("Writing trace to Verilog testbench: %s" % (filename))
 
     with open(filename, "w") as f:
         print("module testbench;", file=f)
@@ -410,7 +414,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
 def write_constr_trace(steps_start, steps_stop, index):
     filename = outconstr.replace("%", index)
-    print("%s Writing trace to constraints file: %s" % (smt.timestamp(), filename))
+    print_msg("Writing trace to constraints file: %s" % (filename))
 
     with open(filename, "w") as f:
         primary_inputs = list()
@@ -482,7 +486,7 @@ def print_failed_asserts_worker(mod, state, path):
 
     for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
         if smt.get("(|%s| %s)" % (assertfun, state)) == "false":
-            print("%s Assert failed in %s: %s" % (smt.timestamp(), path, assertinfo))
+            print_msg("Assert failed in %s: %s" % (path, assertinfo))
 
 
 def print_failed_asserts(state, final=False):
@@ -490,7 +494,7 @@ def print_failed_asserts(state, final=False):
 
     for loc, expr, value in zip(loc_list, expr_list, value_list):
         if smt.bv2int(value) == 0:
-            print("%s Assert %s failed: %s" % (smt.timestamp(), loc, expr))
+            print_msg("Assert %s failed: %s" % (loc, expr))
 
     if not final:
         print_failed_asserts_worker(topmod, "s%d" % state, topmod)
@@ -503,7 +507,7 @@ def print_anyconsts_worker(mod, state, path):
         print_anyconsts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
 
     for fun, info in smt.modinfo[mod].anyconsts.items():
-        print("%s Value for anyconst in %s (%s): %d" % (smt.timestamp(), path, info, smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+        print_msg("Value for anyconst in %s (%s): %d" % (path, info, smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
 
 
 def print_anyconsts(state):
@@ -527,16 +531,16 @@ if tempind:
             smt.write("(assert (|%s_a| s%d))" % (topmod, step))
 
         if step > num_steps-skip_steps:
-            print("%s Skipping induction in step %d.." % (smt.timestamp(), step))
+            print_msg("Skipping induction in step %d.." % (step))
             continue
 
         skip_counter += 1
         if skip_counter < step_size:
-            print("%s Skipping induction in step %d.." % (smt.timestamp(), step))
+            print_msg("Skipping induction in step %d.." % (step))
             continue
 
         skip_counter = 0
-        print("%s Trying induction in step %d.." % (smt.timestamp(), step))
+        print_msg("Trying induction in step %d.." % (step))
 
         if smt.check_sat() == "sat":
             if step == 0:
@@ -575,11 +579,11 @@ else:  # not tempind
 
         if step < skip_steps:
             if assume_skipped is not None and step >= assume_skipped:
-                print("%s Skipping step %d (and assuming pass).." % (smt.timestamp(), step))
+                print_msg("Skipping step %d (and assuming pass).." % (step))
                 smt.write("(assert (|%s_a| s%d))" % (topmod, step))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, step))
             else:
-                print("%s Skipping step %d.." % (smt.timestamp(), step))
+                print_msg("Skipping step %d.." % (step))
             step += 1
             continue
 
@@ -596,9 +600,9 @@ else:  # not tempind
         if not gentrace:
             if not final_only:
                 if last_check_step == step:
-                    print("%s Checking asserts in step %d.." % (smt.timestamp(), step))
+                    print_msg("Checking asserts in step %d.." % (step))
                 else:
-                    print("%s Checking asserts in steps %d to %d.." % (smt.timestamp(), step, last_check_step))
+                    print_msg("Checking asserts in steps %d to %d.." % (step, last_check_step))
                 smt.write("(push 1)")
 
                 smt.write("(assert (not (and %s)))" % " ".join(["(|%s_a| s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
@@ -624,7 +628,7 @@ else:  # not tempind
                     if i < constr_final_start:
                         continue
 
-                    print("%s Checking final constraints in step %d.." % (smt.timestamp(), i))
+                    print_msg("Checking final constraints in step %d.." % (i))
                     smt.write("(push 1)")
 
                     smt.write("(assert %s)" % get_constr_expr(constr_assumes, i, final=True))
@@ -647,7 +651,7 @@ else:  # not tempind
                 smt.write("(assert (|%s_a| s%d))" % (topmod, i))
                 smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
-            print("%s Solving for step %d.." % (smt.timestamp(), last_check_step))
+            print_msg("Solving for step %d.." % (last_check_step))
             if smt.check_sat() != "sat":
                 print("%s No solution found!" % smt.timestamp())
                 retstatus = False
@@ -667,5 +671,5 @@ else:  # not tempind
 smt.write("(exit)")
 smt.wait()
 
-print("%s Status: %s" % (smt.timestamp(), "PASSED" if retstatus else "FAILED (!)"))
+print_msg("Status: %s" % ("PASSED" if retstatus else "FAILED (!)"))
 sys.exit(0 if retstatus else 1)
