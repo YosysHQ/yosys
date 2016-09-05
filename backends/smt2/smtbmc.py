@@ -326,8 +326,14 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
         print("  reg [4095:0] vcdfile;", file=f)
         print("  reg clock = 0, genclock = 1;", file=f)
 
-        primary_inputs = smt.modinfo[topmod].primary_inputs()
-        clock_inputs = smt.modinfo[topmod].clock_inputs()
+        primary_inputs = list()
+        clock_inputs = set()
+
+        for name in smt.modinfo[topmod].inputs:
+            if name in ["clk", "clock", "CLK", "CLOCK"]:
+                clock_inputs.add(name)
+            width = smt.modinfo[topmod].wsize[name]
+            primary_inputs.append((name, width))
 
         for name, width in primary_inputs:
             if name in clock_inputs:
@@ -407,7 +413,11 @@ def write_constr_trace(steps_start, steps_stop, index):
     print("%s Writing trace to constraints file: %s" % (smt.timestamp(), filename))
 
     with open(filename, "w") as f:
-        primary_inputs = smt.modinfo[topmod].primary_inputs()
+        primary_inputs = list()
+
+        for name in smt.modinfo[topmod].inputs:
+            width = smt.modinfo[topmod].wsize[name]
+            primary_inputs.append((name, width))
 
         if steps_start == 0:
             print("initial", file=f)
