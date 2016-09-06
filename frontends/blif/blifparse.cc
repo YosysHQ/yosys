@@ -241,7 +241,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 				}
 
 				if (init != nullptr && (init[0] == '0' || init[0] == '1'))
-					blif_wire(d)->attributes["\\init"] = Const(init[0] == '1' ? 1 : 0, 1);
+					blif_wire(q)->attributes["\\init"] = Const(init[0] == '1' ? 1 : 0, 1);
 
 				if (clock == nullptr)
 					goto no_latch_clock;
