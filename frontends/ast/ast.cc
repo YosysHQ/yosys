@@ -52,6 +52,7 @@ namespace AST_INTERNAL {
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
 	AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
+	bool current_always_clocked;
 }
 
 // convert node types to string
