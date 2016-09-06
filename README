@@ -354,8 +354,8 @@ Verilog Attributes and non-standard features
       endmodule
 
 - A limited subset of DPI-C functions is supported. The plugin mechanism
-  (see "help plugin") can be used load .so files with implementations of
-  DPI-C routines. As a non-standard extension it is possible to specify
+  (see "help plugin") can be used to load .so files with implementations
+  of DPI-C routines. As a non-standard extension it is possible to specify
   a plugin alias using the "<alias>:" syntax. for example:
 
       module dpitest;
@@ -370,7 +370,7 @@ Verilog Attributes and non-standard features
   must be put in parentheses. Examples: WIDTH'd42, (4+2)'b101010
 
 - The system tasks $finish and $display are supported in initial blocks
-  in and unconditional context (only if/case statements on parameters
+  in an unconditional context (only if/case statements on parameters
   and constant values). The intended use for this is synthesis-time DRC.
 
 
@@ -410,7 +410,7 @@ On Ubuntu, texlive needs these packages to be able to build the manual:
 	sudo apt-get install texlive-fonts-extra  # gets skull.sty and dsfont.sty
 	sudo apt-get install texlive-publishers   # IEEEtran.cls
 
-Also the non-free font luximono should be installed, there is unfortulately
+Also the non-free font luximono should be installed, there is unfortunately
 no Ubuntu package for this so it should be installed separately using
 `getnonfreefonts`:
 
