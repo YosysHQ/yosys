@@ -1447,6 +1447,7 @@ struct SatPass : public Pass {
 					{
 						log("\n[base case %d] Solving problem with %d variables and %d clauses..\n",
 								inductlen, basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
+						log_flush();
 
 						if (basecase.solve(basecase.ez->NOT(property))) {
 							log("SAT temporal induction proof finished - model found for base case: FAIL!\n");
@@ -1517,6 +1518,7 @@ struct SatPass : public Pass {
 
 						log("\n[induction step %d] Solving problem with %d variables and %d clauses..\n",
 								inductlen, inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
+						log_flush();
 
 						if (!inductstep.solve(inductstep.ez->NOT(property))) {
 							if (inductstep.gotTimeout)
@@ -1622,6 +1624,7 @@ struct SatPass : public Pass {
 		rerun_solver:
 			log("\nSolving problem with %d variables and %d clauses..\n",
 					sathelper.ez->numCnfVariables(), sathelper.ez->numCnfClauses());
+			log_flush();
 
 			if (sathelper.solve())
 			{
