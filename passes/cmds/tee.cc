@@ -45,10 +45,14 @@ struct TeePass : public Pass {
 		log("    -a logfile\n");
 		log("        Write output to this file, append if exists.\n");
 		log("\n");
+		log("    +INT, -INT\n");
+		log("        Add/subract INT from the -v setting for this command.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::vector<FILE*> backup_log_files, files_to_close;
+		int backup_log_verbose_level = log_verbose_level;
 		backup_log_files = log_files;
 
 		size_t argidx;
@@ -70,6 +74,10 @@ struct TeePass : public Pass {
 				files_to_close.push_back(f);
 				continue;
 			}
+			if (GetSize(args[argidx]) >= 2 && (args[argidx][0] == '-' || args[argidx][0] == '+') && args[argidx][1] >= '0' && args[argidx][1] <= '9') {
+				log_verbose_level += atoi(args[argidx].c_str());
+				continue;
+			}
 			break;
 		}
 
@@ -85,6 +93,8 @@ struct TeePass : public Pass {
 
 		for (auto cf : files_to_close)
 			fclose(cf);
+
+		log_verbose_level = backup_log_verbose_level;
 		log_files = backup_log_files;
 	}
 } TeePass;
