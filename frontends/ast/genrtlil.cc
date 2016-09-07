@@ -458,6 +458,7 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_CASE:
 			{
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
+				sw->attributes["\\src"] = stringf("%s:%d", ast->filename.c_str(), ast->linenum);
 				sw->signal = ast->children[0]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
 				current_case->switches.push_back(sw);
 

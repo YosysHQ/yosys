@@ -310,6 +310,7 @@ namespace AST_INTERNAL
 	extern RTLIL::SigSpec ignoreThisSignalsInInitial;
 	extern AST::AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;
+	extern bool current_always_clocked;
 	struct ProcessGenerator;
 }
 

@@ -82,7 +82,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = a86455b00da5
+ABCREV = 8e08604f8ad3
 ABCPULL = 1
 ABCURL ?= https://bitbucket.org/alanmi/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)"
@@ -279,6 +279,7 @@ $(eval $(call add_include_file,kernel/log.h))
 $(eval $(call add_include_file,kernel/rtlil.h))
 $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
+$(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/modtools.h))

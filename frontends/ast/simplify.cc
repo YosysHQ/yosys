@@ -397,9 +397,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	auto backup_current_block_child = current_block_child;
 	auto backup_current_top_block = current_top_block;
 	auto backup_current_always = current_always;
+	auto backup_current_always_clocked = current_always_clocked;
 
 	if (type == AST_ALWAYS || type == AST_INITIAL)
+	{
 		current_always = this;
+		current_always_clocked = false;
+
+		if (type == AST_ALWAYS)
+			for (auto child : children)
+				if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE)
+					current_always_clocked = true;
+	}
 
 	int backup_width_hint = width_hint;
 	bool backup_sign_hint = sign_hint;
@@ -652,6 +661,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	current_block_child = backup_current_block_child;
 	current_top_block = backup_current_top_block;
 	current_always = backup_current_always;
+	current_always_clocked = backup_current_always_clocked;
 
 	for (auto it = backup_scope.begin(); it != backup_scope.end(); it++) {
 		if (it->second == NULL)
@@ -1367,7 +1377,7 @@ skip_dynamic_range_lvalue_expansion:;
 		AstNode *wire_en = new AstNode(AST_WIRE);
 		wire_en->str = id_en;
 		current_ast_mod->children.push_back(wire_en);
-		if (current_always == nullptr || current_always->type != AST_INITIAL) {
+		if (current_always_clocked) {
 			current_ast_mod->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)))));
 			current_ast_mod->children.back()->children[0]->children[0]->children[0]->str = id_en;
 		}
