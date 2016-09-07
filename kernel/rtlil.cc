@@ -1975,6 +1975,22 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, RTLIL::SigSpec
 	return cell;
 }
 
+RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	Cell *cell = addCell(name, "$anyconst");
+	cell->setParam("\\WIDTH", width);
+	cell->setPort("\\Y", sig);
+	return sig;
+}
+
+RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID);
+	Cell *cell = addCell(name, "$initstate");
+	cell->setPort("\\Y", sig);
+	return sig;
+}
 
 RTLIL::Wire::Wire()
 {
