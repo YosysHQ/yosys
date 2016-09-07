@@ -533,7 +533,7 @@ class SmtOpts:
         self.solver = "z3"
         self.debug_print = False
         self.debug_file = None
-        self.unroll = True
+        self.unroll = False
         self.timeinfo = True
 
     def handle(self, o, a):
