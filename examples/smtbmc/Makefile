@@ -1,5 +1,5 @@
 
-all: demo1 demo2 demo3 demo4 demo5 demo6
+all: demo1 demo2 demo3 demo4 demo5 demo6 demo7
 
 demo1: demo1.smt2
 	yosys-smtbmc --dump-vcd demo1.vcd demo1.smt2
@@ -22,6 +22,9 @@ demo5: demo5.smt2
 demo6: demo6.smt2
 	yosys-smtbmc -t 1 demo6.smt2
 
+demo7: demo7.smt2
+	yosys-smtbmc -t 10 demo7.smt2
+
 demo1.smt2: demo1.v
 	yosys -ql demo1.yslog -p 'read_verilog -formal demo1.v; prep -top demo1 -nordff; write_smt2 -wires demo1.smt2'
 
@@ -40,6 +43,9 @@ demo5.smt2: demo5.v
 demo6.smt2: demo6.v
 	yosys -ql demo6.yslog -p 'read_verilog demo6.v; prep -top demo6 -nordff; assertpmux; opt -keepdc -fast; write_smt2 -wires demo6.smt2'
 
+demo7.smt2: demo7.v
+	yosys -ql demo7.yslog -p 'read_verilog -formal demo7.v; prep -top demo7 -nordff; write_smt2 -wires demo7.smt2'
+
 clean:
 	rm -f demo1.yslog demo1.smt2 demo1.vcd
 	rm -f demo2.yslog demo2.smt2 demo2.vcd demo2.smtc demo2_tb.v demo2_tb demo2_tb.vcd
@@ -47,6 +53,7 @@ clean:
 	rm -f demo4.yslog demo4.smt2 demo4.vcd
 	rm -f demo5.yslog demo5.smt2 demo5.vcd
 	rm -f demo6.yslog demo6.smt2
+	rm -f demo7.yslog demo7.smt2
 
-.PHONY: demo1 demo2 demo3 demo4 demo5 demo6 clean
+.PHONY: demo1 demo2 demo3 demo4 demo5 demo6 demo7 clean
 

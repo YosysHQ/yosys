@@ -736,6 +736,26 @@ struct Smt2Worker
 					std::string expr_d = stringf("(|%s#%d#%d| state)", get_id(module), arrayid, wr_ports);
 					std::string expr_q = stringf("(|%s#%d#0| next_state)", get_id(module), arrayid);
 					trans.push_back(stringf("  (= %s %s) ; %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell)));
+
+					Const init_data = cell->getParam("\\INIT");
+					int memsize = cell->getParam("\\SIZE").as_int();
+
+					for (int i = 0; i < memsize; i++)
+					{
+						if (GetSize(init_data) < i*width)
+							break;
+
+						Const initword = init_data.extract(i*width, width, State::Sx);
+						bool gen_init_constr = false;
+
+						for (auto bit : initword.bits)
+							if (bit == State::S0 || bit == State::S1)
+								gen_init_constr = true;
+
+						init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
+								get_id(module), arrayid, Const(i, abits).as_string().c_str(),
+								initword.as_string().c_str(), get_id(cell), i));
+					}
 				}
 			}
 		}
@@ -864,8 +884,8 @@ struct Smt2Backend : public Backend {
 		log("        this will print the recursive walk used to export the modules.\n");
 		log("\n");
 		log("    -nobv\n");
-		log("        disable support for BitVec (FixedSizeBitVectors theory). with this\n");
-		log("        option set multi-bit wires are represented using the BitVec sort and\n");
+		log("        disable support for BitVec (FixedSizeBitVectors theory). without this\n");
+		log("        option multi-bit wires are represented using the BitVec sort and\n");
 		log("        support for coarse grain cells (incl. arithmetic) is enabled.\n");
 		log("\n");
 		log("    -nomem\n");
@@ -878,7 +898,7 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("    -wires\n");
 		log("        create '<mod>_n' functions for all public wires. by default only ports,\n");
-		log("        registers, and wires with the 'keep' attribute set are exported.\n");
+		log("        registers, and wires with the 'keep' attribute are exported.\n");
 		log("\n");
 		log("    -tpl <template_file>\n");
 		log("        use the given template file. the line containing only the token '%%%%'\n");
