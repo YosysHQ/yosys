@@ -742,7 +742,7 @@ struct Smt2Worker
 
 					for (int i = 0; i < memsize; i++)
 					{
-						if (GetSize(init_data) < i*width)
+						if (i*width >= GetSize(init_data))
 							break;
 
 						Const initword = init_data.extract(i*width, width, State::Sx);
@@ -752,9 +752,11 @@ struct Smt2Worker
 							if (bit == State::S0 || bit == State::S1)
 								gen_init_constr = true;
 
-						init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
-								get_id(module), arrayid, Const(i, abits).as_string().c_str(),
-								initword.as_string().c_str(), get_id(cell), i));
+						if (gen_init_constr) {
+							init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
+									get_id(module), arrayid, Const(i, abits).as_string().c_str(),
+									initword.as_string().c_str(), get_id(cell), i));
+						}
 					}
 				}
 			}
