@@ -593,6 +593,7 @@ class MkVcd:
         assert t >= self.t
         if t != self.t:
             if self.t == -1:
+                print("$var integer 32 t smt_step $end", file=self.f)
                 print("$var event 1 ! smt_clock $end", file=self.f)
                 scope = []
                 for path in sorted(self.nets):
@@ -609,6 +610,7 @@ class MkVcd:
                 print("$enddefinitions $end", file=self.f)
             self.t = t
             assert self.t >= 0
-            print("#%d" % self.t, file=self.f)
+            print("#%d" % (10 * self.t), file=self.f)
             print("1!", file=self.f)
+            print("b%s t" % format(self.t, "032b"), file=self.f)
 
