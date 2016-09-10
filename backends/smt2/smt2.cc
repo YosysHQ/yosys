@@ -37,7 +37,7 @@ struct Smt2Worker
 
 	std::vector<std::string> decls, trans, hier;
 	std::map<RTLIL::SigBit, RTLIL::Cell*> bit_driver;
-	std::set<RTLIL::Cell*> exported_cells, hiercells;
+	std::set<RTLIL::Cell*> exported_cells, hiercells, hiercells_queue;
 	pool<Cell*> recursive_cells, registers;
 
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
@@ -581,23 +581,8 @@ struct Smt2Worker
 					get_id(module), get_id(cell->name), get_id(module), get_id(cell->type)));
 
 			hiercells.insert(cell);
+			hiercells_queue.insert(cell);
 			recursive_cells.erase(cell);
-
-			for (auto &conn : cell->connections())
-			{
-				Wire *w = m->wire(conn.first);
-				SigSpec sig = sigmap(conn.second);
-
-				if (bvmode || GetSize(w) == 1) {
-					hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)).c_str(),
-							get_id(cell->type), get_id(w), cell_state.c_str(), get_id(cell->type), get_id(w)));
-				} else {
-					for (int i = 0; i < GetSize(w); i++)
-						hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]).c_str(),
-								get_id(cell->type), get_id(w), i, cell_state.c_str(), get_id(cell->type), get_id(w), i));
-				}
-			}
-
 			return;
 		}
 
@@ -761,6 +746,38 @@ struct Smt2Worker
 				}
 			}
 		}
+
+		if (verbose) log("=> export logic driving hierarchical cells\n");
+
+		while (!hiercells_queue.empty())
+		{
+			std::set<RTLIL::Cell*> queue;
+			queue.swap(hiercells_queue);
+
+			for (auto cell : queue)
+			{
+				string cell_state = stringf("(|%s_h %s| state)", get_id(module), get_id(cell->name));
+				Module *m = module->design->module(cell->type);
+				log_assert(m != nullptr);
+
+				for (auto &conn : cell->connections())
+				{
+					Wire *w = m->wire(conn.first);
+					SigSpec sig = sigmap(conn.second);
+
+					if (bvmode || GetSize(w) == 1) {
+						hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)).c_str(),
+								get_id(cell->type), get_id(w), cell_state.c_str(), get_id(cell->type), get_id(w)));
+					} else {
+						for (int i = 0; i < GetSize(w); i++)
+							hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]).c_str(),
+									get_id(cell->type), get_id(w), i, cell_state.c_str(), get_id(cell->type), get_id(w), i));
+					}
+				}
+			}
+		}
+
+		if (verbose) log("=> finalizing SMT2 representation of %s.\n", log_id(module));
 
 		for (auto c : hiercells) {
 			assert_list.push_back(stringf("(|%s_a| (|%s_h %s| state))", get_id(c->type), get_id(module), get_id(c->name)));
