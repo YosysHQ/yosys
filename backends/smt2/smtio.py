@@ -90,7 +90,7 @@ class SmtIo:
             popen_vargs = ['mathsat']
 
         if self.solver == "boolector":
-            popen_vargs = ['boolector', '--smt2', '-i', '-m']
+            popen_vargs = ['boolector', '--smt2', '-i']
             self.unroll = True
 
         if self.unroll:
@@ -110,6 +110,7 @@ class SmtIo:
         self.topmod = None
 
     def setup(self, logic="ALL", info=None):
+        self.write("(set-option :produce-models true)")
         self.write("(set-logic %s)" % logic)
         if info is not None:
             self.write("(set-info :source |%s|)" % info)
