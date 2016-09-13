@@ -37,7 +37,7 @@ struct Smt2Worker
 
 	std::vector<std::string> decls, trans, hier;
 	std::map<RTLIL::SigBit, RTLIL::Cell*> bit_driver;
-	std::set<RTLIL::Cell*> exported_cells, hiercells;
+	std::set<RTLIL::Cell*> exported_cells, hiercells, hiercells_queue;
 	pool<Cell*> recursive_cells, registers;
 
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
@@ -581,23 +581,8 @@ struct Smt2Worker
 					get_id(module), get_id(cell->name), get_id(module), get_id(cell->type)));
 
 			hiercells.insert(cell);
+			hiercells_queue.insert(cell);
 			recursive_cells.erase(cell);
-
-			for (auto &conn : cell->connections())
-			{
-				Wire *w = m->wire(conn.first);
-				SigSpec sig = sigmap(conn.second);
-
-				if (bvmode || GetSize(w) == 1) {
-					hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)).c_str(),
-							get_id(cell->type), get_id(w), cell_state.c_str(), get_id(cell->type), get_id(w)));
-				} else {
-					for (int i = 0; i < GetSize(w); i++)
-						hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]).c_str(),
-								get_id(cell->type), get_id(w), i, cell_state.c_str(), get_id(cell->type), get_id(w), i));
-				}
-			}
-
 			return;
 		}
 
@@ -736,9 +721,63 @@ struct Smt2Worker
 					std::string expr_d = stringf("(|%s#%d#%d| state)", get_id(module), arrayid, wr_ports);
 					std::string expr_q = stringf("(|%s#%d#0| next_state)", get_id(module), arrayid);
 					trans.push_back(stringf("  (= %s %s) ; %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell)));
+
+					Const init_data = cell->getParam("\\INIT");
+					int memsize = cell->getParam("\\SIZE").as_int();
+
+					for (int i = 0; i < memsize; i++)
+					{
+						if (i*width >= GetSize(init_data))
+							break;
+
+						Const initword = init_data.extract(i*width, width, State::Sx);
+						bool gen_init_constr = false;
+
+						for (auto bit : initword.bits)
+							if (bit == State::S0 || bit == State::S1)
+								gen_init_constr = true;
+
+						if (gen_init_constr) {
+							init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
+									get_id(module), arrayid, Const(i, abits).as_string().c_str(),
+									initword.as_string().c_str(), get_id(cell), i));
+						}
+					}
 				}
 			}
 		}
+
+		if (verbose) log("=> export logic driving hierarchical cells\n");
+
+		while (!hiercells_queue.empty())
+		{
+			std::set<RTLIL::Cell*> queue;
+			queue.swap(hiercells_queue);
+
+			for (auto cell : queue)
+			{
+				string cell_state = stringf("(|%s_h %s| state)", get_id(module), get_id(cell->name));
+				Module *m = module->design->module(cell->type);
+				log_assert(m != nullptr);
+
+				for (auto &conn : cell->connections())
+				{
+					Wire *w = m->wire(conn.first);
+					SigSpec sig = sigmap(conn.second);
+
+					if (bvmode || GetSize(w) == 1) {
+						hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)).c_str(),
+								get_id(cell->type), get_id(w), cell_state.c_str(), get_id(cell->type), get_id(w)));
+					} else {
+						for (int i = 0; i < GetSize(w); i++)
+							hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]).c_str(),
+									get_id(cell->type), get_id(w), i, cell_state.c_str(), get_id(cell->type), get_id(w), i));
+					}
+				}
+			}
+		}
+
+		if (verbose) log("=> finalizing SMT2 representation of %s.\n", log_id(module));
 
 		for (auto c : hiercells) {
 			assert_list.push_back(stringf("(|%s_a| (|%s_h %s| state))", get_id(c->type), get_id(module), get_id(c->name)));
@@ -864,8 +903,8 @@ struct Smt2Backend : public Backend {
 		log("        this will print the recursive walk used to export the modules.\n");
 		log("\n");
 		log("    -nobv\n");
-		log("        disable support for BitVec (FixedSizeBitVectors theory). with this\n");
-		log("        option set multi-bit wires are represented using the BitVec sort and\n");
+		log("        disable support for BitVec (FixedSizeBitVectors theory). without this\n");
+		log("        option multi-bit wires are represented using the BitVec sort and\n");
 		log("        support for coarse grain cells (incl. arithmetic) is enabled.\n");
 		log("\n");
 		log("    -nomem\n");
@@ -878,7 +917,7 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("    -wires\n");
 		log("        create '<mod>_n' functions for all public wires. by default only ports,\n");
-		log("        registers, and wires with the 'keep' attribute set are exported.\n");
+		log("        registers, and wires with the 'keep' attribute are exported.\n");
 		log("\n");
 		log("    -tpl <template_file>\n");
 		log("        use the given template file. the line containing only the token '%%%%'\n");
