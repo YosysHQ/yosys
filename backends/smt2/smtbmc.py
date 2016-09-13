@@ -478,14 +478,14 @@ def write_trace(steps_start, steps_stop, index):
 def print_failed_asserts_worker(mod, state, path):
     assert mod in smt.modinfo
 
-    if smt.get("(|%s_a| %s)" % (mod, state)) == "true":
+    if smt.get("(|%s_a| %s)" % (mod, state)) in ["true", "#b1"]:
         return
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
         print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
 
     for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
-        if smt.get("(|%s| %s)" % (assertfun, state)) == "false":
+        if smt.get("(|%s| %s)" % (assertfun, state)) in ["false", "#b0"]:
             print_msg("Assert failed in %s: %s" % (path, assertinfo))
 
 
