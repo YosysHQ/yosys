@@ -404,16 +404,22 @@ endif
 yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
 	$(P) cp abc/abc-$(ABCREV)$(EXE) yosys-abc$(EXE)
 
+ifneq ($(SEED),)
+SEEDOPT="-S $(SEED)"
+else
+SEEDOPT=""
+endif
+
 test: $(TARGETS) $(EXTRA_TARGETS)
-	+cd tests/simple && bash run-test.sh
-	+cd tests/hana && bash run-test.sh
-	+cd tests/asicworld && bash run-test.sh
-	+cd tests/realmath && bash run-test.sh
-	+cd tests/share && bash run-test.sh
-	+cd tests/fsm && bash run-test.sh
+	+cd tests/simple && bash run-test.sh $(SEEDOPT)
+	+cd tests/hana && bash run-test.sh $(SEEDOPT)
+	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
+	+cd tests/realmath && bash run-test.sh $(SEEDOPT)
+	+cd tests/share && bash run-test.sh $(SEEDOPT)
+	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
-	+cd tests/memories && bash run-test.sh
-	+cd tests/bram && bash run-test.sh
+	+cd tests/memories && bash run-test.sh $(SEEDOPT)
+	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	@echo ""
