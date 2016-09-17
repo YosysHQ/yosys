@@ -136,11 +136,6 @@ if len(args) != 1:
     usage()
 
 
-if tempind and len(inconstr) != 0:
-    print("Error: options -i and --smtc are exclusive.")
-    sys.exit(1)
-
-
 constr_final_start = None
 constr_asserts = defaultdict(list)
 constr_assumes = defaultdict(list)
@@ -163,7 +158,8 @@ for fn in inconstr:
 
             if tokens[0] == "initial":
                 current_states = set()
-                current_states.add(0)
+                if not tempind:
+                    current_states.add(0)
                 continue
 
             if tokens[0] == "final":
@@ -182,20 +178,21 @@ for fn in inconstr:
 
             if tokens[0] == "state":
                 current_states = set()
-                for token in tokens[1:]:
-                    tok = token.split(":")
-                    if len(tok) == 1:
-                        current_states.add(int(token))
-                    elif len(tok) == 2:
-                        lower = int(tok[0])
-                        if tok[1] == "*":
-                            upper = num_steps
+                if not tempind:
+                    for token in tokens[1:]:
+                        tok = token.split(":")
+                        if len(tok) == 1:
+                            current_states.add(int(token))
+                        elif len(tok) == 2:
+                            lower = int(tok[0])
+                            if tok[1] == "*":
+                                upper = num_steps
+                            else:
+                                upper = int(tok[1])
+                            for i in range(lower, upper+1):
+                                current_states.add(i)
                         else:
-                            upper = int(tok[1])
-                        for i in range(lower, upper+1):
-                            current_states.add(i)
-                    else:
-                        assert 0
+                            assert 0
                 continue
 
             if tokens[0] == "always":
@@ -522,13 +519,15 @@ if tempind:
         smt.write("(assert (|%s_u| s%d))" % (topmod, step))
         smt.write("(assert (|%s_h| s%d))" % (topmod, step))
         smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
+        smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
 
         if step == num_steps:
-            smt.write("(assert (not (|%s_a| s%d)))" % (topmod, step))
+            smt.write("(assert (not (and (|%s_a| s%d) %s)))" % (topmod, step, get_constr_expr(constr_asserts, step)))
 
         else:
             smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step, step+1))
             smt.write("(assert (|%s_a| s%d))" % (topmod, step))
+            smt.write("(assert %s)" % get_constr_expr(constr_asserts, step))
 
         if step > num_steps-skip_steps:
             print_msg("Skipping induction in step %d.." % (step))
