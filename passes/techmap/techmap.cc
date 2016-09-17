@@ -639,7 +639,7 @@ struct TechmapWorker
 					if (techmap_cache.count(key) > 0) {
 						tpl = techmap_cache[key];
 					} else {
-						if (cell->parameters.size() != 0) {
+						if (parameters.size() != 0) {
 							derived_name = tpl->derive(map, dict<RTLIL::IdString, RTLIL::Const>(parameters.begin(), parameters.end()));
 							tpl = map->module(derived_name);
 							log_continue = true;
