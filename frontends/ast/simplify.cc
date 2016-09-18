@@ -63,7 +63,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 #if 0
 	log("-------------\n");
-	log("AST simplify[%d] depth %d at %s:%d,\n", stage, recursion_counter, filename.c_str(), linenum);
+	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, filename.c_str(), linenum, type2str(type).c_str(), this);
 	log("const_fold=%d, at_zero=%d, in_lvalue=%d, stage=%d, width_hint=%d, sign_hint=%d, in_param=%d\n",
 			int(const_fold), int(at_zero), int(in_lvalue), int(stage), int(width_hint), int(sign_hint), int(in_param));
 	// dumpAst(NULL, "> ");
@@ -522,6 +522,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		children_are_self_determined = true;
 		break;
 
+	case AST_FCALL:
+	case AST_TCALL:
+		children_are_self_determined = true;
+		break;
+
 	default:
 		width_hint = -1;
 		sign_hint = false;
@@ -536,6 +541,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				did_something = true;
 		detectSignWidth(width_hint, sign_hint);
 	}
+
+	if (type == AST_FCALL && str == "\\$past")
+		detectSignWidth(width_hint, sign_hint);
 
 	if (type == AST_TERNARY) {
 		int width_hint_left, width_hint_right;
@@ -1682,9 +1690,128 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
+			if (str == "\\$past")
+			{
+				if (width_hint <= 0)
+					goto replace_fcall_later;
+
+				int num_steps = 1;
+
+				if (GetSize(children) != 1 && GetSize(children) != 2)
+					log_error("System function %s got %d arguments, expected 1 or 2 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
+
+				if (!current_always_clocked)
+					log_error("System function %s is only allowed in clocked blocks at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
+
+				if (GetSize(children) == 2)
+				{
+					AstNode *buf = children[1]->clone();
+					while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+					if (buf->type != AST_CONSTANT)
+						log_error("Failed to evaluate system function `%s' with non-constant value at %s:%d.\n", str.c_str(), filename.c_str(), linenum);
+
+					num_steps = buf->asInt(true);
+					delete buf;
+				}
+
+				AstNode *block = nullptr;
+
+				for (auto child : current_always->children)
+					if (child->type == AST_BLOCK)
+						block = child;
+
+				log_assert(block != nullptr);
+
+				int myidx = autoidx++;
+				AstNode *outreg = nullptr;
+
+				for (int i = 0; i < num_steps; i++)
+				{
+					AstNode *reg = new AstNode(AST_WIRE, new AstNode(AST_RANGE,
+							mkconst_int(width_hint-1, true), mkconst_int(0, true)));
+
+					reg->str = stringf("$past$%s:%d$%d$%d", filename.c_str(), linenum, myidx, i);
+					reg->is_reg = true;
+
+					current_ast_mod->children.push_back(reg);
+
+					while (reg->simplify(true, false, false, 1, -1, false, false)) { }
+
+					AstNode *regid = new AstNode(AST_IDENTIFIER);
+					regid->str = reg->str;
+					regid->id2ast = reg;
+
+					AstNode *rhs = nullptr;
+
+					if (outreg == nullptr) {
+						rhs = children.at(0)->clone();
+					} else {
+						rhs = new AstNode(AST_IDENTIFIER);
+						rhs->str = outreg->str;
+						rhs->id2ast = outreg;
+					}
+
+					block->children.push_back(new AstNode(AST_ASSIGN_LE, regid, rhs));
+					outreg = reg;
+				}
+
+				newNode = new AstNode(AST_IDENTIFIER);
+				newNode->str = outreg->str;
+				newNode->id2ast = outreg;
+				goto apply_newNode;
+			}
+
+			if (str == "\\$stable" || str == "\\$rose" || str == "\\$fell")
+			{
+				if (GetSize(children) != 1)
+					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
+
+				if (!current_always_clocked)
+					log_error("System function %s is only allowed in clocked blocks at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
+
+				AstNode *present = children.at(0)->clone();
+				AstNode *past = clone();
+				past->str = "\\$past";
+
+				if (str == "\\$stable")
+					newNode = new AstNode(AST_EQ, past, present);
+
+				else if (str == "\\$rose")
+					newNode = new AstNode(AST_LOGIC_AND, new AstNode(AST_LOGIC_NOT, past), present);
+
+				else if (str == "\\$fell")
+					newNode = new AstNode(AST_LOGIC_AND, past, new AstNode(AST_LOGIC_NOT, present));
+
+				else
+					log_abort();
+
+				goto apply_newNode;
+			}
+
+			if (str == "\\$rose" || str == "\\$fell")
+			{
+				if (GetSize(children) != 1)
+					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
+
+				if (!current_always_clocked)
+					log_error("System function %s is only allowed in clocked blocks at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
+
+				newNode = new AstNode(AST_EQ, children.at(0)->clone(), clone());
+				newNode->children.at(1)->str = "\\$past";
+				goto apply_newNode;
+			}
+
 			// $anyconst is mapped in AstNode::genRTLIL()
-			if (str == "\\$anyconst")
+			if (str == "\\$anyconst") {
+				recursion_counter--;
 				return false;
+			}
 
 			if (str == "\\$clog2")
 			{
@@ -2091,6 +2218,8 @@ skip_dynamic_range_lvalue_expansion:;
 			str = "";
 		did_something = true;
 	}
+
+replace_fcall_later:;
 
 	// perform const folding when activated
 	if (const_fold)
