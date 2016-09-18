@@ -47,8 +47,15 @@ class SmtModInfo:
 
 
 class SmtIo:
-    def __init__(self, solver=None, debug_print=None, debug_file=None, timeinfo=None, unroll=None, opts=None):
+    def __init__(self, logic=None, solver=None, debug_print=None, debug_file=None, timeinfo=None, unroll=None, opts=None):
+        self.logic = None
+        self.logic_qf = True
+        self.logic_ax = True
+        self.logic_uf = True
+        self.logic_bv = True
+
         if opts is not None:
+            self.logic = opts.logic
             self.solver = opts.solver
             self.debug_print = opts.debug_print
             self.debug_file = opts.debug_file
@@ -61,6 +68,9 @@ class SmtIo:
             self.debug_file = None
             self.timeinfo = True
             self.unroll = False
+
+        if logic is not None:
+            self.logic = logic
 
         if solver is not None:
             self.solver = solver
@@ -94,6 +104,7 @@ class SmtIo:
             self.unroll = True
 
         if self.unroll:
+            self.logic_uf = False
             self.unroll_idcnt = 0
             self.unroll_buffer = ""
             self.unroll_sorts = set()
@@ -108,14 +119,21 @@ class SmtIo:
         self.modinfo = dict()
         self.curmod = None
         self.topmod = None
+        self.setup_done = False
 
-    def setup(self, logic="ALL", info=None):
+    def setup(self):
+        assert not self.setup_done
+
+        if self.logic is None:
+            self.logic = ""
+            if self.logic_qf: self.logic += "QF_"
+            if self.logic_ax: self.logic += "A"
+            if self.logic_uf: self.logic += "UF"
+            if self.logic_bv: self.logic += "BV"
+
+        self.setup_done = True
         self.write("(set-option :produce-models true)")
-        self.write("(set-logic %s)" % logic)
-        if info is not None:
-            self.write("(set-info :source |%s|)" % info)
-            self.write("(set-info :smt-lib-version 2.5)")
-            self.write("(set-info :category \"industrial\")")
+        self.write("(set-logic %s)" % self.logic)
 
     def timestamp(self):
         secs = int(time() - self.start_time)
@@ -171,6 +189,11 @@ class SmtIo:
         return stmt
 
     def write(self, stmt, unroll=True):
+        if stmt.startswith(";"):
+            self.info(stmt)
+        elif not self.setup_done:
+            self.setup()
+
         stmt = stmt.strip()
 
         if unroll and self.unroll:
@@ -239,6 +262,14 @@ class SmtIo:
             return
 
         fields = stmt.split()
+
+        if fields[1] == "yosys-smt2-nomem":
+            if self.logic is None:
+                self.logic_ax = False
+
+        if fields[1] == "yosys-smt2-nobv":
+            if self.logic is None:
+                self.logic_bv = False
 
         if fields[1] == "yosys-smt2-module":
             self.curmod = fields[2]
@@ -530,12 +561,13 @@ class SmtIo:
 class SmtOpts:
     def __init__(self):
         self.shortopts = "s:v"
-        self.longopts = ["unroll", "no-progress", "dump-smt2="]
+        self.longopts = ["unroll", "no-progress", "dump-smt2=", "logic="]
         self.solver = "z3"
         self.debug_print = False
         self.debug_file = None
         self.unroll = False
         self.timeinfo = True
+        self.logic = None
 
     def handle(self, o, a):
         if o == "-s":
@@ -548,6 +580,8 @@ class SmtOpts:
             self.timeinfo = True
         elif o == "--dump-smt2":
             self.debug_file = open(a, "w")
+        elif o == "--logic":
+            self.logic = a
         else:
             return False
         return True

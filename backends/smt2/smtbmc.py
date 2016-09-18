@@ -278,12 +278,10 @@ def print_msg(msg):
     sys.stdout.flush()
 
 print_msg("Solver: %s" % (so.solver))
-smt.setup("QF_AUFBV")
 
 with open(args[0], "r") as f:
     for line in f:
         smt.write(line)
-        smt.info(line)
 
 if topmod is None:
     topmod = smt.topmod
