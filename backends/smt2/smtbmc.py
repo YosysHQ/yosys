@@ -35,6 +35,7 @@ dumpall = False
 assume_skipped = None
 final_only = False
 topmod = None
+noinfo = False
 so = SmtOpts()
 
 
@@ -59,6 +60,10 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
     --smtc <constr_filename>
         read constraints file
+
+    --noinfo
+        only run the core proof, do not collect and print any
+        additional information (e.g. which assert failed)
 
     --final-only
         only check final constraints, assume base case
@@ -89,7 +94,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all"])
+            ["final-only", "assume-skipped=", "smtc=", "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo"])
 except:
     usage()
 
@@ -121,6 +126,8 @@ for o, a in opts:
         outconstr = a
     elif o == "--dump-all":
         dumpall = True
+    elif o == "--noinfo":
+        noinfo = True
     elif o == "-i":
         tempind = True
     elif o == "-g":
@@ -485,6 +492,7 @@ def print_failed_asserts_worker(mod, state, path):
 
 
 def print_failed_asserts(state, final=False):
+    if noinfo: return
     loc_list, expr_list, value_list = get_constr_expr(constr_asserts, state, final=final, getvalues=True)
 
     for loc, expr, value in zip(loc_list, expr_list, value_list):
@@ -506,6 +514,7 @@ def print_anyconsts_worker(mod, state, path):
 
 
 def print_anyconsts(state):
+    if noinfo: return
     print_anyconsts_worker(topmod, "s%d" % state, topmod)
 
 
