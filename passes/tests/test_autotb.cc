@@ -237,7 +237,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			header2 += ", \"#\"";
 		}
 		f << stringf(" }, {");
-		header2 += " ";
+		header2 += ", \" \"";
 		if (signal_clk.size()) {
 			for (auto it = signal_clk.begin(); it != signal_clk.end(); it++) {
 				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first.c_str());
@@ -259,7 +259,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			header2 += ", \"#\"";
 		}
 		f << stringf(" }, {");
-		header2 += " ";
+		header2 += ", \" \"";
 		if (signal_out.size()) {
 			for (auto it = signal_out.begin(); it != signal_out.end(); it++) {
 				f << stringf("%s %s", it == signal_out.begin() ? "" : ",", it->first.c_str());
