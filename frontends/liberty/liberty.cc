@@ -401,6 +401,47 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 	cell->setPort("\\E", enable_sig);
 }
 
+void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map, LibertyAst *ast)
+{
+	for (auto type_node : ast->children)
+	{
+		if (type_node->id != "type" || type_node->args.size() != 1)
+			continue;
+
+		std::string type_name = type_node->args.at(0);
+		int bit_width = -1, bit_from = -1, bit_to = -1;
+		bool upto = false;
+
+		for (auto child : type_node->children)
+		{
+			if (child->id == "base_type" && child->value != "array")
+				goto next_type;
+
+			if (child->id == "data_type" && child->value != "bit")
+				goto next_type;
+
+			if (child->id == "bit_width")
+				bit_width = atoi(child->value.c_str());
+
+			if (child->id == "bit_from")
+				bit_from = atoi(child->value.c_str());
+
+			if (child->id == "bit_to")
+				bit_to = atoi(child->value.c_str());
+
+			if (child->id == "downto" && (child->value == "0" || child->value == "false" || child->value == "FALSE"))
+				upto = true;
+		}
+
+		if (bit_width != (std::max(bit_from, bit_to) - std::min(bit_from, bit_to) + 1))
+			log_error("Incompatible array type '%s': bit_width=%d, bit_from=%d, bit_to=%d.\n",
+					type_name.c_str(), bit_width, bit_from, bit_to);
+
+		type_map[type_name] = std::tuple<int, int, bool>(bit_width, std::min(bit_from, bit_to), upto);
+	next_type:;
+	}
+}
+
 struct LibertyFrontend : public Frontend {
 	LibertyFrontend() : Frontend("liberty", "read cells from liberty file") { }
 	virtual void help()
@@ -469,45 +510,8 @@ struct LibertyFrontend : public Frontend {
 		LibertyParser parser(*f);
 		int cell_count = 0;
 
-		std::map<std::string, std::tuple<int, int, bool>> type_map;
-
-		for (auto type_node : parser.ast->children)
-		{
-			if (type_node->id != "type" || type_node->args.size() != 1)
-				continue;
-
-			std::string type_name = type_node->args.at(0);
-			int bit_width = -1, bit_from = -1, bit_to = -1;
-			bool upto = false;
-
-			for (auto child : type_node->children)
-			{
-				if (child->id == "base_type" && child->value != "array")
-					goto next_type;
-
-				if (child->id == "data_type" && child->value != "bit")
-					goto next_type;
-
-				if (child->id == "bit_width")
-					bit_width = atoi(child->value.c_str());
-
-				if (child->id == "bit_from")
-					bit_from = atoi(child->value.c_str());
-
-				if (child->id == "bit_to")
-					bit_to = atoi(child->value.c_str());
-
-				if (child->id == "downto" && (child->value == "0" || child->value == "false" || child->value == "FALSE"))
-					upto = true;
-			}
-
-			if (bit_width != (std::max(bit_from, bit_to) - std::min(bit_from, bit_to) + 1))
-				log_error("Incompatible array type '%s': bit_width=%d, bit_from=%d, bit_to=%d.\n",
-						type_name.c_str(), bit_width, bit_from, bit_to);
-
-			type_map[type_name] = std::tuple<int, int, bool>(bit_width, std::min(bit_from, bit_to), upto);
-		next_type:;
-		}
+		std::map<std::string, std::tuple<int, int, bool>> global_type_map;
+		parse_type_map(global_type_map, parser.ast);
 
 		for (auto cell : parser.ast->children)
 		{
@@ -523,6 +527,9 @@ struct LibertyFrontend : public Frontend {
 			}
 
 			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name).c_str());
+
+			std::map<std::string, std::tuple<int, int, bool>> type_map = global_type_map;
+			parse_type_map(type_map, cell);
 
 			RTLIL::Module *module = new RTLIL::Module;
 			module->name = cell_name;
