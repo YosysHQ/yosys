@@ -5,10 +5,22 @@
 
 set -e
 
+OPTIND=1
+count=100
+seed=""    # default to no seed specified
+while getopts "c:S:" opt
+do
+    case "$opt" in
+	c) count="$OPTARG" ;;
+	S) seed="-S $OPTARG" ;;
+    esac
+done
+shift "$((OPTIND-1))"
+
 rm -rf temp
 mkdir -p temp
 echo "generating tests.."
-python3 generate.py
+python3 generate.py -c $count $seed
 
 echo "running tests.."
 for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do

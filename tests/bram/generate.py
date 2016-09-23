@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import sys
 import random
 
 debug_mode = False
-seed = (int(os.times()[4]*100) + os.getpid()) % 900000 + 100000
 
 def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
     while True:
@@ -243,10 +243,23 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
     print("  end", file=tb_f)
     print("endmodule", file=tb_f)
 
-print("Rng seed: %d" % seed)
+parser = argparse.ArgumentParser(formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('-S', '--seed',  type = int, help = 'seed for PRNG')
+parser.add_argument('-c', '--count', type = int, default = 5, help = 'number of test cases to generate')
+parser.add_argument('-d', '--debug', action='store_true')
+args = parser.parse_args()
+
+debug_mode = args.debug
+
+if args.seed is not None:
+    seed = args.seed
+else:
+    seed = (int(os.times()[4]*100) + os.getpid()) % 900000 + 100000
+
+print("PRNG seed: %d" % seed)
 random.seed(seed)
 
-for k1 in range(5):
+for k1 in range(args.count):
     dsc_f = open("temp/brams_%02d.txt" % k1, "w")
     sim_f = open("temp/brams_%02d.v" % k1, "w")
     ref_f = open("temp/brams_%02d_ref.v" % k1, "w")
