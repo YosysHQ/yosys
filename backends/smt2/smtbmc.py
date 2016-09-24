@@ -146,6 +146,7 @@ if len(args) != 1:
 constr_final_start = None
 constr_asserts = defaultdict(list)
 constr_assumes = defaultdict(list)
+constr_write = list()
 
 for fn in inconstr:
     current_states = None
@@ -229,6 +230,14 @@ for fn in inconstr:
 
                 continue
 
+            if tokens[0] == "write":
+                constr_write.append(" ".join(tokens[1:]))
+                continue
+
+            if tokens[0] == "logic":
+                so.logic = " ".join(tokens[1:])
+                continue
+
             assert 0
 
 
@@ -280,6 +289,9 @@ def get_constr_expr(db, state, final=False, getvalues=False):
 
 smt = SmtIo(opts=so)
 
+if noinfo and vcdfile is None and vlogtbfile is None and outconstr is None:
+    smt.produce_models = False
+
 def print_msg(msg):
     print("%s %s" % (smt.timestamp(), msg))
     sys.stdout.flush()
@@ -289,6 +301,9 @@ print_msg("Solver: %s" % (so.solver))
 with open(args[0], "r") as f:
     for line in f:
         smt.write(line)
+
+for line in constr_write:
+    smt.write(line)
 
 if topmod is None:
     topmod = smt.topmod
@@ -625,9 +640,10 @@ else:  # not tempind
 
                 smt.write("(pop 1)")
 
-            for i in range(step, last_check_step+1):
-                smt.write("(assert (|%s_a| s%d))" % (topmod, i))
-                smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
+            if (constr_final_start is not None) or (last_check_step+1 != num_steps):
+                for i in range(step, last_check_step+1):
+                    smt.write("(assert (|%s_a| s%d))" % (topmod, i))
+                    smt.write("(assert %s)" % get_constr_expr(constr_asserts, i))
 
             if constr_final_start is not None:
                 for i in range(step, last_check_step+1):

@@ -53,6 +53,7 @@ class SmtIo:
         self.logic_ax = True
         self.logic_uf = True
         self.logic_bv = True
+        self.produce_models = True
 
         if opts is not None:
             self.logic = opts.logic
@@ -62,6 +63,8 @@ class SmtIo:
             self.dummy_file = opts.dummy_file
             self.timeinfo = opts.timeinfo
             self.unroll = opts.unroll
+            self.info_stmts = opts.info_stmts
+            self.nocomments = opts.nocomments
 
         else:
             self.solver = "z3"
@@ -70,6 +73,8 @@ class SmtIo:
             self.dummy_file = None
             self.timeinfo = True
             self.unroll = False
+            self.info_stmts = list()
+            self.nocomments = False
 
         if self.solver == "yices":
             popen_vargs = ['yices-smt2', '--incremental']
@@ -123,8 +128,14 @@ class SmtIo:
             if self.logic_bv: self.logic += "BV"
 
         self.setup_done = True
-        self.write("(set-option :produce-models true)")
+
+        if self.produce_models:
+            self.write("(set-option :produce-models true)")
+
         self.write("(set-logic %s)" % self.logic)
+
+        for stmt in self.info_stmts:
+            self.write(stmt)
 
     def timestamp(self):
         secs = int(time() - self.start_time)
@@ -187,11 +198,12 @@ class SmtIo:
 
         stmt = stmt.strip()
 
-        if unroll and self.unroll:
+        if self.nocomments or self.unroll:
             if stmt.startswith(";"):
                 return
-
             stmt = re.sub(r" ;.*", "", stmt)
+
+        if unroll and self.unroll:
             stmt = self.unroll_buffer + stmt
             self.unroll_buffer = ""
 
@@ -355,7 +367,7 @@ class SmtIo:
     def check_sat(self):
         if self.debug_print:
             print("> (check-sat)")
-        if self.debug_file:
+        if self.debug_file and not self.nocomments:
             print("; running check-sat..", file=self.debug_file)
             self.debug_file.flush()
 
@@ -562,7 +574,7 @@ class SmtIo:
 class SmtOpts:
     def __init__(self):
         self.shortopts = "s:v"
-        self.longopts = ["unroll", "no-progress", "dump-smt2=", "logic=", "dummy="]
+        self.longopts = ["unroll", "noprogress", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
         self.solver = "z3"
         self.debug_print = False
         self.debug_file = None
@@ -570,6 +582,8 @@ class SmtOpts:
         self.unroll = False
         self.timeinfo = True
         self.logic = None
+        self.info_stmts = list()
+        self.nocomments = False
 
     def handle(self, o, a):
         if o == "-s":
@@ -578,7 +592,7 @@ class SmtOpts:
             self.debug_print = True
         elif o == "--unroll":
             self.unroll = True
-        elif o == "--no-progress":
+        elif o == "--noprogress":
             self.timeinfo = True
         elif o == "--dump-smt2":
             self.debug_file = open(a, "w")
@@ -586,6 +600,10 @@ class SmtOpts:
             self.logic = a
         elif o == "--dummy":
             self.dummy_file = a
+        elif o == "--info":
+            self.info_stmts.append(a)
+        elif o == "--nocomments":
+            self.nocomments = True
         else:
             return False
         return True
@@ -609,11 +627,17 @@ class SmtOpts:
     --unroll
         unroll uninterpreted functions
 
-    --no-progress
+    --noprogress
         disable timer display during solving
 
     --dump-smt2 <filename>
         write smt2 statements to file
+
+    --info <smt2-info-stmt>
+        include the specified smt2 info statement in the smt2 output
+
+    --nocomments
+        strip all comments from the generated smt2 code
 """
 
 
