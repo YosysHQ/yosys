@@ -29,6 +29,7 @@ PRIVATE_NAMESPACE_BEGIN
 SigMap assign_map, dff_init_map;
 SigSet<RTLIL::Cell*> mux_drivers;
 dict<SigBit, pool<SigBit>> init_attributes;
+bool keepdc;
 
 void remove_init_attr(SigSpec sig)
 {
@@ -115,7 +116,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 	bool has_init = false;
 	RTLIL::Const val_init;
 	for (auto bit : dff_init_map(sig_q).to_sigbit_vector()) {
-		if (bit.wire == NULL)
+		if (bit.wire == NULL || keepdc)
 			has_init = true;
 		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
 	}
@@ -182,7 +183,7 @@ struct OptRmdffPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_rmdff [selection]\n");
+		log("    opt_rmdff [-keepdc] [selection]\n");
 		log("\n");
 		log("This pass identifies flip-flops with constant inputs and replaces them with\n");
 		log("a constant driver.\n");
@@ -193,7 +194,17 @@ struct OptRmdffPass : public Pass {
 		int total_count = 0, total_initdrv = 0;
 		log_header(design, "Executing OPT_RMDFF pass (remove dff with constant values).\n");
 
-		extra_args(args, 1, design);
+		keepdc = false;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-keepdc") {
+				keepdc = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
 		{
