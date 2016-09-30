@@ -63,6 +63,9 @@ struct PrepPass : public ScriptPass
 		log("    -nordff\n");
 		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
+		log("     -nokeepdc\n");
+		log("        do not call opt_* with -keepdc\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -75,7 +78,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc;
 
 	virtual void clear_flags() YS_OVERRIDE
 	{
@@ -87,6 +90,7 @@ struct PrepPass : public ScriptPass
 		ifxmode = false;
 		memxmode = false;
 		nomemmode = false;
+		nokeepdc = false;
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -136,6 +140,10 @@ struct PrepPass : public ScriptPass
 				memory_opts += " -nordff";
 				continue;
 			}
+			if (args[argidx] == "-nokeepdc") {
+				nokeepdc = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -177,10 +185,10 @@ struct PrepPass : public ScriptPass
 				run(ifxmode ? "proc -ifx" : "proc");
 			if (help_mode || flatten)
 				run("flatten", "(if -flatten)");
-			run("opt_expr -keepdc");
+			run(nokeepdc ? "opt_expr" : "opt_expr -keepdc");
 			run("opt_clean");
 			run("check");
-			run("opt -keepdc");
+			run(nokeepdc ? "opt" : "opt -keepdc");
 			if (!ifxmode) {
 				if (help_mode)
 					run("wreduce [-memx]");
@@ -194,7 +202,7 @@ struct PrepPass : public ScriptPass
 				run("opt_clean");
 				run("memory_collect");
 			}
-			run("opt -keepdc -fast");
+			run(nokeepdc ? "opt -fast" : "opt -keepdc -fast");
 		}
 
 		if (check_label("check"))
