@@ -92,6 +92,10 @@ class SmtIo:
             popen_vargs = ['boolector', '--smt2', '-i']
             self.unroll = True
 
+        if self.solver == "abc":
+            popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
+            self.unroll = True
+
         if self.solver == "dummy":
             assert self.dummy_file is not None
             self.dummy_fd = open(self.dummy_file, "r")
