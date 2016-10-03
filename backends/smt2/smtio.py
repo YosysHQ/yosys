@@ -54,6 +54,8 @@ class SmtIo:
         self.logic_uf = True
         self.logic_bv = True
         self.produce_models = True
+        self.smt2cache = [list()]
+        self.p = None
 
         if opts is not None:
             self.logic = opts.logic
@@ -63,6 +65,7 @@ class SmtIo:
             self.dummy_file = opts.dummy_file
             self.timeinfo = opts.timeinfo
             self.unroll = opts.unroll
+            self.noincr = opts.noincr
             self.info_stmts = opts.info_stmts
             self.nocomments = opts.nocomments
 
@@ -73,28 +76,30 @@ class SmtIo:
             self.dummy_file = None
             self.timeinfo = True
             self.unroll = False
+            self.noincr = False
             self.info_stmts = list()
             self.nocomments = False
 
         if self.solver == "yices":
-            popen_vargs = ['yices-smt2', '--incremental']
+            self.popen_vargs = ['yices-smt2', '--incremental']
 
         if self.solver == "z3":
-            popen_vargs = ['z3', '-smt2', '-in']
+            self.popen_vargs = ['z3', '-smt2', '-in']
 
         if self.solver == "cvc4":
-            popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2']
+            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2']
 
         if self.solver == "mathsat":
-            popen_vargs = ['mathsat']
+            self.popen_vargs = ['mathsat']
 
         if self.solver == "boolector":
-            popen_vargs = ['boolector', '--smt2', '-i']
+            self.popen_vargs = ['boolector', '--smt2', '-i']
             self.unroll = True
 
         if self.solver == "abc":
-            popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
+            self.popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
             self.unroll = True
+            self.noincr = True
 
         if self.solver == "dummy":
             assert self.dummy_file is not None
@@ -102,7 +107,8 @@ class SmtIo:
         else:
             if self.dummy_file is not None:
                 self.dummy_fd = open(self.dummy_file, "w")
-            self.p = subprocess.Popen(popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if not self.noincr:
+                self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         if self.unroll:
             self.logic_uf = False
@@ -262,8 +268,16 @@ class SmtIo:
             self.debug_file.flush()
 
         if self.solver != "dummy":
-            self.p.stdin.write(bytes(stmt + "\n", "ascii"))
-            self.p.stdin.flush()
+            if self.noincr:
+                if stmt == "(push 1)":
+                    self.smt2cache.append(list())
+                elif stmt == "(pop 1)":
+                    self.smt2cache.pop()
+                else:
+                    self.smt2cache[-1].append(stmt)
+            else:
+                self.p.stdin.write(bytes(stmt + "\n", "ascii"))
+                self.p.stdin.flush()
 
     def info(self, stmt):
         if not stmt.startswith("; yosys-smt2-"):
@@ -376,6 +390,14 @@ class SmtIo:
             self.debug_file.flush()
 
         if self.solver != "dummy":
+            if self.noincr:
+                if self.p is not None:
+                    self.p.stdin.close()
+                self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                for cache_ctx in self.smt2cache:
+                    for cache_stmt in cache_ctx:
+                        self.p.stdin.write(bytes(cache_stmt + "\n", "ascii"))
+
             self.p.stdin.write(bytes("(check-sat)\n", "ascii"))
             self.p.stdin.flush()
 
@@ -580,12 +602,13 @@ class SmtIo:
 class SmtOpts:
     def __init__(self):
         self.shortopts = "s:v"
-        self.longopts = ["unroll", "noprogress", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
+        self.longopts = ["unroll", "noincr", "noprogress", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
         self.solver = "z3"
         self.debug_print = False
         self.debug_file = None
         self.dummy_file = None
         self.unroll = False
+        self.noincr = False
         self.timeinfo = True
         self.logic = None
         self.info_stmts = list()
@@ -598,6 +621,8 @@ class SmtOpts:
             self.debug_print = True
         elif o == "--unroll":
             self.unroll = True
+        elif o == "--noincr":
+            self.noincr = True
         elif o == "--noprogress":
             self.timeinfo = True
         elif o == "--dump-smt2":
@@ -632,6 +657,10 @@ class SmtOpts:
 
     --unroll
         unroll uninterpreted functions
+
+    --noincr
+        don't use incremental solving, instead restart solver for
+        each (check-sat). This also avoids (push) and (pop).
 
     --noprogress
         disable timer display during solving
