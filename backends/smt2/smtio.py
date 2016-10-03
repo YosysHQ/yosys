@@ -98,6 +98,7 @@ class SmtIo:
 
         if self.solver == "abc":
             self.popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
+            self.logic_ax = False
             self.unroll = True
             self.noincr = True
 
