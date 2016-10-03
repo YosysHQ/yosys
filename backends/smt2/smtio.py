@@ -270,11 +270,17 @@ class SmtIo:
 
         if self.solver != "dummy":
             if self.noincr:
+                if self.p is not None and not stmt.startswith("(get-"):
+                    self.p.stdin.close()
+                    self.p = None
                 if stmt == "(push 1)":
                     self.smt2cache.append(list())
                 elif stmt == "(pop 1)":
                     self.smt2cache.pop()
                 else:
+                    if self.p is not None:
+                        self.p.stdin.write(bytes(stmt + "\n", "ascii"))
+                        self.p.stdin.flush()
                     self.smt2cache[-1].append(stmt)
             else:
                 self.p.stdin.write(bytes(stmt + "\n", "ascii"))
@@ -394,6 +400,7 @@ class SmtIo:
             if self.noincr:
                 if self.p is not None:
                     self.p.stdin.close()
+                    self.p = None
                 self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 for cache_ctx in self.smt2cache:
                     for cache_stmt in cache_ctx:
@@ -596,7 +603,7 @@ class SmtIo:
         return [self.bv2bin(v) for v in self.get_net_list(mod_name, net_path_list, state_name)]
 
     def wait(self):
-        if self.solver != "dummy":
+        if self.p is not None:
             self.p.wait()
 
 
