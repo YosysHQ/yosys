@@ -249,7 +249,7 @@ def get_constr_expr(db, state, final=False, getvalues=False):
         if state not in db:
             return ([], [], []) if getvalues else "true"
 
-    netref_regex = re.compile(r'(^|[( ])\[(-?[0-9]+:|)([^\]]+)\](?=[ )]|$)')
+    netref_regex = re.compile(r'(^|[( ])\[(-?[0-9]+:|)([^\]]*)\](?=[ )]|$)')
 
     def replace_netref(match):
         state_sel = match.group(2)
