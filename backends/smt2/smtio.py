@@ -541,6 +541,8 @@ class SmtIo:
     def net_expr(self, mod, base, path):
         if len(path) == 1:
             assert mod in self.modinfo
+            if path[0] == "":
+                return base
             if path[0] in self.modinfo[mod].cells:
                 return "(|%s_h %s| %s)" % (mod, path[0], base)
             if path[0] in self.modinfo[mod].wsize:
