@@ -64,6 +64,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <limits.h>
 
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
@@ -98,6 +99,10 @@
 #    define isatty _isatty
 #    define fileno _fileno
 #  endif
+#endif
+
+#ifndef PATH_MAX
+#  define PATH_MAX 4096
 #endif
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
