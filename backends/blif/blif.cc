@@ -315,6 +315,12 @@ struct BlifDumper
 				continue;
 			}
 
+			if (!config->icells_mode && cell->type == "$_FF_") {
+				f << stringf(".latch %s %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
+						cstr_init(cell->getPort("\\Q")));
+				continue;
+			}
+
 			if (!config->icells_mode && cell->type == "$_DFF_N_") {
 				f << stringf(".latch %s %s fe %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
 						cstr(cell->getPort("\\C")), cstr_init(cell->getPort("\\Q")));

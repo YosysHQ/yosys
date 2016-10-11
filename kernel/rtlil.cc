@@ -866,6 +866,13 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$ff") {
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$dff") {
 				param_bool("\\CLK_POLARITY");
 				port("\\CLK", 1);
@@ -1069,6 +1076,7 @@ namespace {
 			if (cell->type == "$_SR_PN_") { check_gate("SRQ"); return; }
 			if (cell->type == "$_SR_PP_") { check_gate("SRQ"); return; }
 
+			if (cell->type == "$_FF_")    { check_gate("DQ");  return; }
 			if (cell->type == "$_DFF_N_") { check_gate("DQC"); return; }
 			if (cell->type == "$_DFF_P_") { check_gate("DQC"); return; }
 
@@ -1830,6 +1838,15 @@ RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, 
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addFf(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q)
+{
+	RTLIL::Cell *cell = addCell(name, "$ff");
+	cell->parameters["\\WIDTH"] = sig_q.size();
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addDff(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, "$dff");
@@ -1907,6 +1924,14 @@ RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig
 	cell->setPort("\\EN", sig_en);
 	cell->setPort("\\SET", sig_set);
 	cell->setPort("\\CLR", sig_clr);
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addFfGate(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q)
+{
+	RTLIL::Cell *cell = addCell(name, "$_FF_");
 	cell->setPort("\\D", sig_d);
 	cell->setPort("\\Q", sig_q);
 	return cell;

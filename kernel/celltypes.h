@@ -130,6 +130,7 @@ struct CellTypes
 		IdString CTRL_IN = "\\CTRL_IN", CTRL_OUT = "\\CTRL_OUT";
 
 		setup_type("$sr", {SET, CLR}, {Q});
+		setup_type("$ff", {D}, {Q});
 		setup_type("$dff", {CLK, D}, {Q});
 		setup_type("$dffe", {CLK, EN, D}, {Q});
 		setup_type("$dffsr", {CLK, SET, CLR, D}, {Q});
@@ -183,6 +184,8 @@ struct CellTypes
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 			setup_type(stringf("$_SR_%c%c_", c1, c2), {S, R}, {Q});
+
+		setup_type("$_FF_", {D}, {Q});
 
 		for (auto c1 : list_np)
 			setup_type(stringf("$_DFF_%c_", c1), {C, D}, {Q});

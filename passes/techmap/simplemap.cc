@@ -388,6 +388,23 @@ void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_ff(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	int width = cell->parameters.at("\\WIDTH").as_int();
+
+	RTLIL::SigSpec sig_d = cell->getPort("\\D");
+	RTLIL::SigSpec sig_q = cell->getPort("\\Q");
+
+	std::string gate_type = "$_FF_";
+
+	for (int i = 0; i < width; i++) {
+		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
+		gate->add_strpool_attribute("\\src", cell->get_strpool_attribute("\\src"));
+		gate->setPort("\\D", sig_d[i]);
+		gate->setPort("\\Q", sig_q[i]);
+	}
+}
+
 void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	int width = cell->parameters.at("\\WIDTH").as_int();
@@ -532,6 +549,7 @@ void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTL
 	mappers["$slice"]       = simplemap_slice;
 	mappers["$concat"]      = simplemap_concat;
 	mappers["$sr"]          = simplemap_sr;
+	mappers["$ff"]          = simplemap_ff;
 	mappers["$dff"]         = simplemap_dff;
 	mappers["$dffe"]        = simplemap_dffe;
 	mappers["$dffsr"]       = simplemap_dffsr;
@@ -569,7 +587,7 @@ struct SimplemapPass : public Pass {
 		log("  $not, $pos, $and, $or, $xor, $xnor\n");
 		log("  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool\n");
 		log("  $logic_not, $logic_and, $logic_or, $mux, $tribuf\n");
-		log("  $sr, $dff, $dffsr, $adff, $dlatch\n");
+		log("  $sr, $ff, $dff, $dffsr, $adff, $dlatch\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)

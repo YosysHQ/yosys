@@ -1293,7 +1293,7 @@ struct SatGen
 			return true;
 		}
 
-		if (timestep > 0 && (cell->type == "$dff" || cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_"))
+		if (timestep > 0 && cell->type.in("$ff", "$dff", "$_FF_", "$_DFF_N_", "$_DFF_P_"))
 		{
 			if (timestep == 1)
 			{

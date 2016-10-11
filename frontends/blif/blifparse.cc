@@ -256,9 +256,13 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else {
 			no_latch_clock:
-					cell = module->addCell(NEW_ID, dff_name);
-					cell->setPort("\\D", blif_wire(d));
-					cell->setPort("\\Q", blif_wire(q));
+					if (dff_name.empty()) {
+						cell = module->addFf(NEW_ID, blif_wire(d), blif_wire(q));
+					} else {
+						cell = module->addCell(NEW_ID, dff_name);
+						cell->setPort("\\D", blif_wire(d));
+						cell->setPort("\\Q", blif_wire(q));
+					}
 				}
 
 				obj_attributes = &cell->attributes;
@@ -477,7 +481,7 @@ struct BlifFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		parse_blif(design, *f, "\\DFF", true, sop_mode);
+		parse_blif(design, *f, "", true, sop_mode);
 	}
 } BlifFrontend;
 

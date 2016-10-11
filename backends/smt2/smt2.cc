@@ -379,7 +379,7 @@ struct Smt2Worker
 			return;
 		}
 
-		if (cell->type == "$_DFF_P_" || cell->type == "$_DFF_N_")
+		if (cell->type.in("$_FF_", "$_DFF_P_", "$_DFF_N_"))
 		{
 			registers.insert(cell);
 			decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) Bool) ; %s\n",
@@ -407,7 +407,7 @@ struct Smt2Worker
 
 		if (bvmode)
 		{
-			if (cell->type == "$dff")
+			if (cell->type.in("$ff", "$dff"))
 			{
 				registers.insert(cell);
 				decls.push_back(stringf("(declare-fun |%s#%d| (|%s_s|) (_ BitVec %d)) ; %s\n",
@@ -596,7 +596,7 @@ struct Smt2Worker
 
 		pool<SigBit> reg_bits;
 		for (auto cell : module->cells())
-			if (cell->type.in("$_DFF_P_", "$_DFF_N_", "$dff")) {
+			if (cell->type.in("$ff", "$dff", "$_FF_", "$_DFF_P_", "$_DFF_N_")) {
 				// not using sigmap -- we want the net directly at the dff output
 				for (auto bit : cell->getPort("\\Q"))
 					reg_bits.insert(bit);
@@ -674,14 +674,14 @@ struct Smt2Worker
 
 			for (auto cell : this_regs)
 			{
-				if (cell->type == "$_DFF_P_" || cell->type == "$_DFF_N_")
+				if (cell->type.in("$_FF_", "$_DFF_P_", "$_DFF_N_"))
 				{
 					std::string expr_d = get_bool(cell->getPort("\\D"));
 					std::string expr_q = get_bool(cell->getPort("\\Q"), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell), log_signal(cell->getPort("\\Q"))));
 				}
 
-				if (cell->type == "$dff")
+				if (cell->type.in("$ff", "$dff"))
 				{
 					std::string expr_d = get_bv(cell->getPort("\\D"));
 					std::string expr_q = get_bv(cell->getPort("\\Q"), "next_state");

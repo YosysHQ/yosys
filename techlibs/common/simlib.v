@@ -1383,6 +1383,19 @@ endmodule
 `endif
 // --------------------------------------------------------
 
+module \$ff (D, Q);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] D;
+output [WIDTH-1:0] Q;
+
+assign D = Q;
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$dff (CLK, D, Q);
 
 parameter WIDTH = 0;
