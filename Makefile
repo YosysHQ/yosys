@@ -90,7 +90,7 @@ ABCMKARGS = CC="$(CXX)" CXX="$(CXX)"
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
 # Note: The in-tree ABC (yosys-abc) will not be installed when ABCEXTERNAL is set.
-ABCEXTERNAL =
+ABCEXTERNAL ?=
 
 define newline
 
