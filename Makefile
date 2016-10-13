@@ -410,7 +410,7 @@ else
 SEEDOPT=""
 endif
 
-test: $(TARGETS) $(EXTRA_TARGETS)
+test-all: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
 	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
@@ -557,6 +557,6 @@ echo-git-rev:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator
+.PHONY: all top-all abc test-all install install-abc manual clean mrproper qtcreator
 .PHONY: config-clean config-clang config-gcc config-gcc-4.8 config-gprof config-sudo
 
