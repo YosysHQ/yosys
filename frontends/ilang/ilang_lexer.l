@@ -74,6 +74,7 @@ USING_YOSYS_NAMESPACE
 "negedge"	{ return TOK_NEGEDGE; }
 "edge"		{ return TOK_EDGE; }
 "always"	{ return TOK_ALWAYS; }
+"global"	{ return TOK_GLOBAL; }
 "init"		{ return TOK_INIT; }
 "update"	{ return TOK_UPDATE; }
 "process"	{ return TOK_PROCESS; }

@@ -220,12 +220,19 @@ struct AST_INTERNAL::ProcessGenerator
 		subst_lvalue_to = new_temp_signal(subst_lvalue_from);
 		subst_lvalue_map = subst_lvalue_from.to_sigbit_map(subst_lvalue_to);
 
+		bool found_global_syncs = false;
 		bool found_anyedge_syncs = false;
 		for (auto child : always->children)
-			if (child->type == AST_EDGE)
-				found_anyedge_syncs = true;
+			if (child->type == AST_EDGE) {
+				if (GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER && child->children.at(0)->str == "\\$global_clock")
+					found_global_syncs = true;
+				else
+					found_anyedge_syncs = true;
+			}
 
 		if (found_anyedge_syncs) {
+			if (found_global_syncs)
+				log_error("Found non-synthesizable event list at %s:%d!\n", always->filename.c_str(), always->linenum);
 			log("Note: Assuming pure combinatorial block at %s:%d in\n", always->filename.c_str(), always->linenum);
 			log("compliance with IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002. Recommending\n");
 			log("use of @* instead of @(...) for better match of synthesis and simulation.\n");
@@ -236,7 +243,7 @@ struct AST_INTERNAL::ProcessGenerator
 		for (auto child : always->children)
 			if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE) {
 				found_clocked_sync = true;
-				if (found_anyedge_syncs)
+				if (found_global_syncs || found_anyedge_syncs)
 					log_error("Found non-synthesizable event list at %s:%d!\n", always->filename.c_str(), always->linenum);
 				RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 				syncrule->type = child->type == AST_POSEDGE ? RTLIL::STp : RTLIL::STn;
@@ -248,7 +255,7 @@ struct AST_INTERNAL::ProcessGenerator
 			}
 		if (proc->syncs.empty()) {
 			RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
-			syncrule->type = RTLIL::STa;
+			syncrule->type = found_global_syncs ? RTLIL::STg : RTLIL::STa;
 			syncrule->signal = RTLIL::SigSpec();
 			addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
 			proc->syncs.push_back(syncrule);

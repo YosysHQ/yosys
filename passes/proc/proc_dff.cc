@@ -196,7 +196,7 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 	std::stringstream sstr;
 	sstr << "$procdff$" << (autoidx++);
 
-	RTLIL::Cell *cell = mod->addCell(sstr.str(), arst ? "$adff" : "$dff");
+	RTLIL::Cell *cell = mod->addCell(sstr.str(), clk.empty() ? "$ff" : arst ? "$adff" : "$dff");
 	cell->attributes = proc->attributes;
 
 	cell->parameters["\\WIDTH"] = RTLIL::Const(sig_in.size());
@@ -204,15 +204,21 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 		cell->parameters["\\ARST_POLARITY"] = RTLIL::Const(arst_polarity, 1);
 		cell->parameters["\\ARST_VALUE"] = val_rst;
 	}
-	cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity, 1);
+	if (!clk.empty()) {
+		cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(clk_polarity, 1);
+	}
 
 	cell->setPort("\\D", sig_in);
 	cell->setPort("\\Q", sig_out);
 	if (arst)
 		cell->setPort("\\ARST", *arst);
-	cell->setPort("\\CLK", clk);
+	if (!clk.empty())
+		cell->setPort("\\CLK", clk);
 
-	log("  created %s cell `%s' with %s edge clock", cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
+	if (!clk.empty())
+		log("  created %s cell `%s' with %s edge clock", cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
+	else
+		log("  created %s cell `%s' with global clock", cell->type.c_str(), cell->name.c_str());
 	if (arst)
 		log(" and %s level reset", arst_polarity ? "positive" : "negative");
 	log(".\n");
@@ -236,6 +242,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		RTLIL::SyncRule *sync_level = NULL;
 		RTLIL::SyncRule *sync_edge = NULL;
 		RTLIL::SyncRule *sync_always = NULL;
+		bool global_clock = false;
 
 		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> many_async_rules;
 
@@ -266,6 +273,10 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 					log_error("Multiple always events found for this signal!\n");
 				sig.replace(action.first, action.second, &insig);
 				sync_always = sync;
+			}
+			else if (sync->type == RTLIL::SyncType::STg) {
+				sig.replace(action.first, action.second, &insig);
+				global_clock = true;
 			}
 			else {
 				log_error("Event with any-edge sensitivity found for this signal!\n");
@@ -328,7 +339,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			continue;
 		}
 
-		if (!sync_edge)
+		if (!sync_edge && !global_clock)
 			log_error("Missing edge-sensitive event for this signal!\n");
 
 		if (many_async_rules.size() > 0)
@@ -346,9 +357,10 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		}
 		else
 			gen_dff(mod, insig, rstval.as_const(), sig,
-					sync_edge->type == RTLIL::SyncType::STp,
+					sync_edge && sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
-					sync_edge->signal, sync_level ? &sync_level->signal : NULL, proc);
+					sync_edge ? sync_edge->signal : SigSpec(),
+					sync_level ? &sync_level->signal : NULL, proc);
 
 		if (free_sync_level)
 			delete sync_level;

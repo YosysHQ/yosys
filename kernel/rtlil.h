@@ -42,7 +42,8 @@ namespace RTLIL
 		STn = 3, // edge sensitive: negedge
 		STe = 4, // edge sensitive: both edges
 		STa = 5, // always active
-		STi = 6  // init
+		STg = 6, // global clock
+		STi = 7  // init
 	};
 
 	enum ConstFlags : unsigned char {

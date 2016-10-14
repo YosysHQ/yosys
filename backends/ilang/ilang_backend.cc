@@ -228,6 +228,7 @@ void ILANG_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 		f << stringf("\n");
 		break;
 	case RTLIL::STa: f << stringf("always\n"); break;
+	case RTLIL::STg: f << stringf("global\n"); break;
 	case RTLIL::STi: f << stringf("init\n"); break;
 	}
 

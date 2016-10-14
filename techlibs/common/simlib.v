@@ -1382,18 +1382,22 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+`ifdef SIMLIB_FF
 
 module \$ff (D, Q);
 
 parameter WIDTH = 0;
 
 input [WIDTH-1:0] D;
-output [WIDTH-1:0] Q;
+output reg [WIDTH-1:0] Q;
 
-assign D = Q;
+always @($global_clk) begin
+	Q <= D;
+end
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 
 module \$dff (CLK, D, Q);

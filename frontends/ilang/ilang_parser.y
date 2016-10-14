@@ -57,7 +57,7 @@ USING_YOSYS_NAMESPACE
 %token <integer> TOK_INT
 %token TOK_AUTOIDX TOK_MODULE TOK_WIRE TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
-%token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_INIT
+%token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_GLOBAL TOK_INIT
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
 %token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED TOK_UPTO
 
@@ -298,6 +298,12 @@ sync_list:
 	sync_list TOK_SYNC TOK_ALWAYS EOL {
 		RTLIL::SyncRule *rule = new RTLIL::SyncRule;
 		rule->type = RTLIL::SyncType::STa;
+		rule->signal = RTLIL::SigSpec();
+		current_process->syncs.push_back(rule);
+	} update_list |
+	sync_list TOK_SYNC TOK_GLOBAL EOL {
+		RTLIL::SyncRule *rule = new RTLIL::SyncRule;
+		rule->type = RTLIL::SyncType::STg;
 		rule->signal = RTLIL::SigSpec();
 		current_process->syncs.push_back(rule);
 	} update_list |
