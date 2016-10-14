@@ -510,7 +510,9 @@ int main(int argc, char **argv)
 #endif
 
 	log_flush();
-#ifdef _WIN32
+#if defined(_MSC_VER)
+	_exit(0);
+#elif defined(_WIN32)
 	_Exit(0);
 #endif
 

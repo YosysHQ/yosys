@@ -93,8 +93,17 @@ struct Clk2fflogicPass : public Pass {
 							log_signal(clk), log_signal(sig_d), log_signal(sig_q));
 					module->remove(cell);
 
-					SigSpec clock_edge = module->Eqx(NEW_ID, {past_clk, clk},
-							clkpol ? SigSpec({State::S0, State::S1}) : SigSpec({State::S1, State::S0}));
+					SigSpec clock_edge_pattern;
+
+					if (clkpol) {
+						clock_edge_pattern.append_bit(State::S0);
+						clock_edge_pattern.append_bit(State::S1);
+					} else {
+						clock_edge_pattern.append_bit(State::S1);
+						clock_edge_pattern.append_bit(State::S0);
+					}
+
+					SigSpec clock_edge = module->Eqx(NEW_ID, {past_clk, clk}, clock_edge_pattern);
 
 					Wire *past_d = module->addWire(NEW_ID, GetSize(sig_d));
 					Wire *past_q = module->addWire(NEW_ID, GetSize(sig_q));
