@@ -345,6 +345,12 @@ struct TechmapWorker
 				c->setParam("\\MEMID", Const(memory_renames[memid].str()));
 			}
 
+			if (c->type == "$mem") {
+				string memid = c->getParam("\\MEMID").decode_string();
+				apply_prefix(cell->name.str(), memid);
+				c->setParam("\\MEMID", Const(memid));
+			}
+
 			if (c->attributes.count("\\src"))
 				c->add_strpool_attribute("\\src", extra_src_attrs);
 		}
