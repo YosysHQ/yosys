@@ -73,7 +73,7 @@ else
 endif
 
 YOSYS_VER := 0.6+$(shell test -e .git && { git log --author=clifford@clifford.at --oneline 5869d26da021.. | wc -l; })
-GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
+GIT_REV ?= $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
 # set 'ABCREV = default' to use abc/ as it is
