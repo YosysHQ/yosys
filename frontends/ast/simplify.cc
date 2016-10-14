@@ -1807,8 +1807,8 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			// $anyconst is mapped in AstNode::genRTLIL()
-			if (str == "\\$anyconst") {
+			// $anyconst and $anyseq are mapped in AstNode::genRTLIL()
+			if (str == "\\$anyconst" || str == "\\$anyseq") {
 				recursion_counter--;
 				return false;
 			}

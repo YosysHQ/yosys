@@ -1,6 +1,7 @@
 // Demo for memory initialization
 
-module demo7 (input [2:0] addr);
+module demo7;
+	wire [2:0] addr = $anyseq;
 	reg [15:0] memory [0:7];
 
 	initial begin

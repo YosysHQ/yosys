@@ -1037,7 +1037,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$anyconst") {
+			if (cell->type.in("$anyconst", "$anyseq")) {
 				port("\\Y", param("\\WIDTH"));
 				check_expected();
 				return;
@@ -2004,6 +2004,15 @@ RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
 	Cell *cell = addCell(name, "$anyconst");
+	cell->setParam("\\WIDTH", width);
+	cell->setPort("\\Y", sig);
+	return sig;
+}
+
+RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	Cell *cell = addCell(name, "$anyseq");
 	cell->setParam("\\WIDTH", width);
 	cell->setPort("\\Y", sig);
 	return sig;

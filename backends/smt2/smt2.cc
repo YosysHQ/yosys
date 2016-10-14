@@ -417,7 +417,7 @@ struct Smt2Worker
 				return;
 			}
 
-			if (cell->type == "$anyconst")
+			if (cell->type.in("$anyconst", "$anyseq"))
 			{
 				registers.insert(cell);
 				decls.push_back(stringf("; yosys-smt2-%s %s#%d %s\n", cell->type.c_str() + 1, get_id(module), idcounter,

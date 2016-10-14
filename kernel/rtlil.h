@@ -1108,6 +1108,7 @@ public:
 	RTLIL::SigBit Oai4Gate (RTLIL::IdString name, RTLIL::SigBit sig_a, RTLIL::SigBit sig_b, RTLIL::SigBit sig_c, RTLIL::SigBit sig_d);
 
 	RTLIL::SigSpec Anyconst  (RTLIL::IdString name, int width = 1);
+	RTLIL::SigSpec Anyseq    (RTLIL::IdString name, int width = 1);
 	RTLIL::SigSpec Initstate (RTLIL::IdString name);
 };
 

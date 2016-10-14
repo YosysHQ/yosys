@@ -1332,12 +1332,17 @@ struct SatGen
 
 			if (model_undef)
 			{
-				std::vector<int> undef_d = importUndefSigSpec(cell->getPort("\\D"), timestep-1);
-				std::vector<int> undef_q = importUndefSigSpec(cell->getPort("\\Q"), timestep);
+				std::vector<int> undef_d = importUndefSigSpec(cell->getPort("\\Y"), timestep-1);
+				std::vector<int> undef_q = importUndefSigSpec(cell->getPort("\\Y"), timestep);
 
 				ez->assume(ez->vec_eq(undef_d, undef_q));
 				undefGating(q, qq, undef_q);
 			}
+			return true;
+		}
+
+		if (cell->type == "$anyseq")
+		{
 			return true;
 		}
 
