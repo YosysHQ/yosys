@@ -374,6 +374,27 @@ Verilog Attributes and non-standard features
   and constant values). The intended use for this is synthesis-time DRC.
 
 
+Non-standard or SystemVerilog features for formal verification
+==============================================================
+
+- Support for "assert", "assume", and "restrict" is enabled when
+  read_verilog is called with -formal.
+
+- The system task $initstate evaluates to 1 in the initial state and
+  to 0 otherwise.
+
+- The system task $anyconst evaluates to any constant value.
+
+- The system task $anyseq evaluates to any value, possibly a different
+  value in each cycle.
+
+- The SystemVerilog tasks $past, $stable, $rose and $fell are supported
+  in any clocked block.
+
+- The syntax @($global_clock) can be used to create FFs that have no
+  explicit clock input ($ff cells).
+
+
 Supported features from SystemVerilog
 =====================================
 
@@ -384,8 +405,8 @@ from SystemVerilog:
   form. In module context: "assert property (<expression>);" and within an
   always block: "assert(<expression>);". It is transformed to a $assert cell.
 
-- The "assume" statements from SystemVerilog are also supported. The same
-  limitations as with the "assert" statement apply.
+- The "assume" and "restrict" statements from SystemVerilog are also
+  supported. The same limitations as with the "assert" statement apply.
 
 - The keywords "always_comb", "always_ff" and "always_latch", "logic" and
   "bit" are supported.
