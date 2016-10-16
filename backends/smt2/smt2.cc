@@ -586,7 +586,7 @@ struct Smt2Worker
 			return;
 		}
 
-		log_error("Unsupported cell type %s for cell %s.%s. (Maybe this cell type would be supported in -bv or -mem mode?)\n",
+		log_error("Unsupported cell type %s for cell %s.%s.\n",
 				log_id(cell->type), log_id(module), log_id(cell));
 	}
 
