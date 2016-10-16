@@ -1170,8 +1170,9 @@ struct FlattenPass : public Pass {
 				worker.flatten_do_list.erase(mod->name);
 			}
 		} else {
-			for (auto mod : vector<Module*>(design->modules()))
+			for (auto mod : vector<Module*>(design->modules())) {
 				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+			}
 		}
 
 		log("No more expansions possible.\n");
