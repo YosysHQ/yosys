@@ -26,6 +26,7 @@ skip_steps = 0
 step_size = 1
 num_steps = 20
 vcdfile = None
+cexfile = None
 vlogtbfile = None
 inconstr = list()
 outconstr = None
@@ -61,6 +62,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --smtc <constr_filename>
         read constraints file
 
+    --cex <cex_filename>
+        read cex file as written by ABC's "write_cex -n"
+
     --noinfo
         only run the core proof, do not collect and print any
         additional information (e.g. which assert failed)
@@ -94,7 +98,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo"])
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo"])
 except:
     usage()
 
@@ -118,6 +122,8 @@ for o, a in opts:
         final_only = True
     elif o == "--smtc":
         inconstr.append(a)
+    elif o == "--cex":
+        cexfile = a
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
@@ -311,6 +317,34 @@ if topmod is None:
 assert topmod is not None
 assert topmod in smt.modinfo
 
+if cexfile is not None:
+    with open(cexfile, "r") as f:
+        cex_regex = re.compile(r'([^\[@=]+)(\[\d+\])?(@\d+)=([01])')
+        for entry in f.read().split():
+            match = cex_regex.match(entry)
+            assert match
+
+            name, bit, step, val = match.group(1), match.group(2), match.group(3), match.group(4)
+
+            if name not in smt.modinfo[topmod].inputs:
+                continue
+
+            if bit is None:
+                bit = 0
+            else:
+                bit = int(bit[1:-1])
+
+            step = int(step[1:])
+            val = int(val)
+
+            if smt.modinfo[topmod].wsize[name] == 1:
+                assert bit == 0
+                smtexpr = "(= [%s] %s)" % (name, "true" if val else "false")
+            else:
+                smtexpr = "(= ((_ extract %d %d) [%s]) #b%d)" % (bit, bit, name, val)
+
+            # print("cex@%d: %s" % (step, smtexpr))
+            constr_assumes[step].append((cexfile, smtexpr))
 
 def write_vcd_trace(steps_start, steps_stop, index):
     filename = vcdfile.replace("%", index)
