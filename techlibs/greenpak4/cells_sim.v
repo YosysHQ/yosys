@@ -409,7 +409,8 @@ endmodule
 //keep constraint needed to prevent optimization since we have no outputs
 (* keep *)
 module GP_SYSRESET(input RST);
-	parameter RESET_MODE = "RISING";
+	parameter RESET_MODE = "EDGE";
+	parameter EDGE_SPEED = 4;
 	
 	//cannot simulate whole system reset
 	
