@@ -72,7 +72,47 @@ struct Clk2fflogicPass : public Pass {
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
-				if (cell->type.in("$dff", "$adff"))
+				if (cell->type.in("$dlatch"))
+				{
+					bool enpol = cell->parameters["\\EN_POLARITY"].as_bool();
+
+					SigSpec sig_en = cell->getPort("\\EN");
+					SigSpec sig_d = cell->getPort("\\D");
+					SigSpec sig_q = cell->getPort("\\Q");
+
+					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
+							log_id(module), log_id(cell), log_id(cell->type),
+							log_signal(sig_en), log_signal(sig_d), log_signal(sig_q));
+
+					Wire *past_q = module->addWire(NEW_ID, GetSize(sig_q));
+					module->addFf(NEW_ID, sig_q, past_q);
+
+					if (enpol)
+						module->addMux(NEW_ID, past_q, sig_d, sig_en, sig_q);
+					else
+						module->addMux(NEW_ID, sig_d, past_q, sig_en, sig_q);
+
+					Const initval;
+					bool assign_initval = false;
+					for (int i = 0; i < GetSize(sig_d); i++) {
+						SigBit qbit = sigmap(sig_q[i]);
+						if (initbits.count(qbit)) {
+							initval.bits.push_back(initbits.at(qbit));
+							del_initbits.insert(qbit);
+						} else
+							initval.bits.push_back(State::Sx);
+						if (initval.bits.back() != State::Sx)
+							assign_initval = true;
+					}
+
+					if (assign_initval)
+						past_q->attributes["\\init"] = initval;
+
+					module->remove(cell);
+					continue;
+				}
+
+				if (cell->type.in("$dff", "$adff", "$dffsr"))
 				{
 					bool clkpol = cell->parameters["\\CLK_POLARITY"].as_bool();
 
@@ -115,6 +155,22 @@ struct Clk2fflogicPass : public Pass {
 							module->addMux(NEW_ID, qval, rstval, arst, sig_q);
 						else
 							module->addMux(NEW_ID, rstval, qval, arst, sig_q);
+					}
+					else
+					if (cell->type == "$dffsr")
+					{
+						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
+						SigSpec setval = cell->getPort("\\SET");
+						SigSpec clrval = cell->getPort("\\CLR");
+
+						if (!cell->parameters["\\SET_POLARITY"].as_bool())
+							setval = module->Not(NEW_ID, setval);
+
+						if (cell->parameters["\\CLR_POLARITY"].as_bool())
+							clrval = module->Not(NEW_ID, clrval);
+
+						qval = module->Or(NEW_ID, qval, setval);
+						module->addAnd(NEW_ID, qval, clrval, sig_q);
 					}
 					else
 					{
