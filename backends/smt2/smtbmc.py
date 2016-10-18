@@ -319,12 +319,15 @@ assert topmod in smt.modinfo
 
 if cexfile is not None:
     with open(cexfile, "r") as f:
-        cex_regex = re.compile(r'([^\[@=]+)(\[\d+\])?(@\d+)=([01])')
+        cex_regex = re.compile(r'([^\[@=]+)(\[\d+\])?([^@=]*)(@\d+)=([01])')
         for entry in f.read().split():
             match = cex_regex.match(entry)
             assert match
 
-            name, bit, step, val = match.group(1), match.group(2), match.group(3), match.group(4)
+            name, bit, extra_name, step, val = match.group(1), match.group(2), match.group(3), match.group(4), match.group(5)
+
+            if extra_name != "":
+                continue
 
             if name not in smt.modinfo[topmod].inputs:
                 continue
