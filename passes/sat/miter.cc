@@ -338,12 +338,12 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 	else
 	{
 		Wire *assume_q = module->addWire(NEW_ID);
-		assume_q->attributes["\\init"] = State::S1;
+		assume_q->attributes["\\init"] = State::S0;
 		assume_signals.append(assume_q);
 
 		SigSpec assume_nok = module->ReduceOr(NEW_ID, assume_signals);
 		SigSpec assume_ok = module->Not(NEW_ID, assume_nok);
-		module->addFf(NEW_ID, assume_ok, assume_q);
+		module->addFf(NEW_ID, assume_nok, assume_q);
 
 		SigSpec assert_fail = module->ReduceOr(NEW_ID, assert_signals);
 		module->addAnd(NEW_ID, assert_fail, assume_ok, trigger);

@@ -77,9 +77,6 @@ struct BlifDumper
 						case State::S1:
 							init_bits[initsig[i]] = 1;
 							break;
-						case State::Sx:
-							init_bits[initsig[i]] = 2;
-							break;
 						default:
 							break;
 					}
@@ -126,7 +123,7 @@ struct BlifDumper
 		sigmap.apply(sig);
 
 		if (init_bits.count(sig) == 0)
-			return "";
+			return " 2";
 
 		string str = stringf(" %d", init_bits.at(sig));
 
