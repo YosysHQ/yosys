@@ -131,9 +131,8 @@ endmodule
 module GP_DELAY(input IN, output reg OUT);
 	
 	parameter DELAY_STEPS = 1;
-	
-	//TODO: additional delay/glitch filter mode
-	
+	parameter GLITCH_FILTER = 0;
+		
 	initial OUT = 0;
 	
 	generate
