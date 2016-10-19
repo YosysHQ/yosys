@@ -241,6 +241,16 @@ module GP_DFFSRI(input D, CLK, nSR, output reg nQ);
 	end
 endmodule
 
+module GP_EDGEDET(input IN, output reg OUT);
+
+	parameter EDGE_DIRECTION = "RISING";
+	parameter DELAY_STEPS = 1;
+	parameter GLITCH_FILTER = 0;
+	
+	//not implemented for simulation
+	
+endmodule
+
 module GP_IBUF(input IN, output OUT);
 	assign OUT = IN;
 endmodule
