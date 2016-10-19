@@ -131,9 +131,8 @@ endmodule
 module GP_DELAY(input IN, output reg OUT);
 	
 	parameter DELAY_STEPS = 1;
-	
-	//TODO: additional delay/glitch filter mode
-	
+	parameter GLITCH_FILTER = 0;
+		
 	initial OUT = 0;
 	
 	generate
@@ -241,6 +240,16 @@ module GP_DFFSRI(input D, CLK, nSR, output reg nQ);
 	end
 endmodule
 
+module GP_EDGEDET(input IN, output reg OUT);
+
+	parameter EDGE_DIRECTION = "RISING";
+	parameter DELAY_STEPS = 1;
+	parameter GLITCH_FILTER = 0;
+	
+	//not implemented for simulation
+	
+endmodule
+
 module GP_IBUF(input IN, output OUT);
 	assign OUT = IN;
 endmodule
@@ -294,6 +303,27 @@ module GP_PGA(input wire VIN_P, input wire VIN_N, input wire VIN_SEL, output reg
 
 	//cannot simulate mixed signal IP
 
+endmodule
+
+module GP_PGEN(input wire nRST, input wire CLK, output reg OUT);
+	initial OUT = 0;
+	parameter PATTERN_DATA = 16'h0;
+	parameter PATTERN_LEN = 5'd16;
+
+	reg[3:0] count = 0;
+	always @(posedge CLK) begin
+		if(!nRST)
+			OUT <= PATTERN_DATA[0];
+
+		else begin
+			count <= count + 1;
+			OUT <= PATTERN_DATA[count];
+
+			if( (count + 1) == PATTERN_LEN)
+				count <= 0;			
+		end
+	end
+	
 endmodule
 
 module GP_POR(output reg RST_DONE);
@@ -409,7 +439,8 @@ endmodule
 //keep constraint needed to prevent optimization since we have no outputs
 (* keep *)
 module GP_SYSRESET(input RST);
-	parameter RESET_MODE = "RISING";
+	parameter RESET_MODE = "EDGE";
+	parameter EDGE_SPEED = 4;
 	
 	//cannot simulate whole system reset
 	
