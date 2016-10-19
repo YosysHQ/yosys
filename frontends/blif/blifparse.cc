@@ -23,6 +23,7 @@ YOSYS_NAMESPACE_BEGIN
 
 static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, std::istream &f)
 {
+	string strbuf;
 	int buffer_len = 0;
 	buffer[0] = 0;
 
@@ -42,8 +43,13 @@ static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, 
 			if (buffer_len > 0 && buffer[buffer_len-1] == '\\')
 				buffer[--buffer_len] = 0;
 			line_count++;
-			if (!f.getline(buffer+buffer_len, buffer_size-buffer_len))
+			if (!std::getline(f, strbuf))
 				return false;
+			while (buffer_size-buffer_len < strbuf.size()+1) {
+				buffer_size *= 2;
+				buffer = (char*)realloc(buffer, buffer_size);
+			}
+			strcpy(buffer+buffer_len, strbuf.c_str());
 		} else
 			return true;
 	}
