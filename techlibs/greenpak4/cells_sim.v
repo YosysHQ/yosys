@@ -305,6 +305,27 @@ module GP_PGA(input wire VIN_P, input wire VIN_N, input wire VIN_SEL, output reg
 
 endmodule
 
+module GP_PGEN(input wire nRST, input wire CLK, output reg OUT);
+	initial OUT = 0;
+	parameter PATTERN_DATA = 16'h0;
+	parameter PATTERN_LEN = 4'd16;
+
+	reg[3:0] count = 0;
+	always @(posedge CLK) begin
+		if(!nRST)
+			OUT <= PATTERN_DATA[0];
+
+		else begin
+			count <= count + 1;
+			OUT <= PATTERN_DATA[count];
+
+			if( (count + 1) == PATTERN_LEN)
+				count <= 0;			
+		end
+	end
+	
+endmodule
+
 module GP_POR(output reg RST_DONE);
 	parameter POR_TIME = 500;
 	
