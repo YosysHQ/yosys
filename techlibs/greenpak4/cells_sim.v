@@ -308,7 +308,7 @@ endmodule
 module GP_PGEN(input wire nRST, input wire CLK, output reg OUT);
 	initial OUT = 0;
 	parameter PATTERN_DATA = 16'h0;
-	parameter PATTERN_LEN = 4'd16;
+	parameter PATTERN_LEN = 5'd16;
 
 	reg[3:0] count = 0;
 	always @(posedge CLK) begin
