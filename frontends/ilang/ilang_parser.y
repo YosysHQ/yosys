@@ -55,7 +55,7 @@ USING_YOSYS_NAMESPACE
 
 %token <string> TOK_ID TOK_VALUE TOK_STRING
 %token <integer> TOK_INT
-%token TOK_AUTOIDX TOK_MODULE TOK_WIRE TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
+%token TOK_AUTOIDX TOK_MODULE TOK_WAND TOK_WIRE TOK_WOR TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
 %token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_GLOBAL TOK_INIT
 %token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
@@ -131,7 +131,18 @@ wire_stmt:
 		current_wire = current_module->addWire("$__ilang_frontend_tmp__");
 		current_wire->attributes = attrbuf;
 		attrbuf.clear();
-	} wire_options TOK_ID EOL {
+	} |
+	TOK_WAND {
+		current_wire = current_module->addWire("$__ilang_frontend_tmp__",1,RTLIL::CONST_WIRE_WAND);
+		current_wire->attributes = attrbuf;
+		attrbuf.clear();
+	} |
+	TOK_WOR {
+		current_wire = current_module->addWire("$__ilang_frontend_tmp__",1,RTLIL::CONST_WIRE_WOR);
+		current_wire->attributes = attrbuf;
+		attrbuf.clear();
+	}
+	wire_options TOK_ID EOL {
 		if (current_module->wires_.count($4) != 0)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of wire %s.", $4).c_str());
 		current_module->rename(current_wire, $4);

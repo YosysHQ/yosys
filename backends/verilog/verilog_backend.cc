@@ -306,8 +306,17 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 			dump_const(f, wire->attributes.at("\\init"));
 			f << stringf(";\n");
 		}
-	} else if (!wire->port_input && !wire->port_output)
-		f << stringf("%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+	} else if (!wire->port_input && !wire->port_output) {
+		if (RTLIL::CONST_WIRE_REGULAR==wire->netType())
+			f << stringf("%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+		else if (RTLIL::CONST_WIRE_WAND==wire->netType())
+			f << stringf("%s" "wand%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+		else if (RTLIL::CONST_WIRE_WOR==wire->netType())
+			f << stringf("%s" "wor%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+		else {
+			log_error("Unknown wire nettype: %d\n",wire->netType());
+		}
+	}
 #endif
 }
 

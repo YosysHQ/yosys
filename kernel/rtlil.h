@@ -53,6 +53,12 @@ namespace RTLIL
 		CONST_FLAG_REAL   = 4   // unused -- to be used for parameters
 	};
 
+	enum WireNetType : unsigned char {
+		CONST_WIRE_REGULAR = 0,
+		CONST_WIRE_WAND    = 1,
+		CONST_WIRE_WOR     = 2
+	};
+
 	struct Const;
 	struct AttrObject;
 	struct Selection;
@@ -947,7 +953,7 @@ public:
 	RTLIL::IdString uniquify(RTLIL::IdString name);
 	RTLIL::IdString uniquify(RTLIL::IdString name, int &index);
 
-	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
+	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1, WireNetType nt=CONST_WIRE_REGULAR);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
@@ -1116,6 +1122,8 @@ struct RTLIL::Wire : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
+	WireNetType netType_;
+	WireNetType netType() const { return netType_; }
 
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires

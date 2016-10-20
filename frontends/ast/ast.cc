@@ -199,6 +199,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	realvalue = 0;
 	id2ast = NULL;
 	basic_prep = false;
+	netType = WIRE_NETTYPE_REGULAR;
 
 	if (child1)
 		children.push_back(child1);
@@ -393,8 +394,17 @@ void AstNode::dumpVlog(FILE *f, std::string indent)
 			fprintf(f, "%s" "input", indent.c_str());
 		else if (is_output)
 			fprintf(f, "%s" "output", indent.c_str());
-		else if (!is_reg)
-			fprintf(f, "%s" "wire", indent.c_str());
+		else if (!is_reg) {
+			if (WIRE_NETTYPE_REGULAR == netType) {
+				fprintf(f, "%s" "wire", indent.c_str());
+			}
+			else if (WIRE_NETTYPE_WAND == netType) {
+				fprintf(f, "%s" "wand", indent.c_str());
+			}
+			else if (WIRE_NETTYPE_WOR == netType) {
+				fprintf(f, "%s" "wor", indent.c_str());
+			}
+		}
 		if (is_reg)
 			fprintf(f, "%s" "reg", (is_input || is_output) ? " " : indent.c_str());
 		if (is_signed)
