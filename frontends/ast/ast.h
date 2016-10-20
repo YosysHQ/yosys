@@ -211,6 +211,13 @@ namespace AST
 			MEM2REG_FL_EQ1       = 0x01000000,
 		};
 
+		enum wire_nettype
+		{
+			WIRE_NETTYPE_REGULAR = 0,
+			WIRE_NETTYPE_WAND    = 1,
+			WIRE_NETTYPE_WOR     = 2
+		} netType;
+
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
 		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);

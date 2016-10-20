@@ -118,7 +118,15 @@ void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 		dump_const(f, it.second);
 		f << stringf("\n");
 	}
-	f << stringf("%s" "wire ", indent.c_str());
+	if (RTLIL::CONST_WIRE_REGULAR == wire->netType())
+		f << stringf("%s" "wire ", indent.c_str());
+	else if (RTLIL::CONST_WIRE_WAND == wire->netType())
+		f << stringf("%s" "wand ", indent.c_str());
+	else if (RTLIL::CONST_WIRE_WOR == wire->netType())
+		f << stringf("%s" "wor ", indent.c_str());
+	else
+		log_error("Unknown wire nettype: %d\n",wire->netType());
+	
 	if (wire->width != 1)
 		f << stringf("width %d ", wire->width);
 	if (wire->upto)

@@ -1542,11 +1542,12 @@ void RTLIL::Module::fixup_ports()
 	}
 }
 
-RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
+RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width, WireNetType nt)
 {
-	RTLIL::Wire *wire = new RTLIL::Wire;
+	RTLIL::Wire *wire = new RTLIL::Wire();
 	wire->name = name;
 	wire->width = width;
+	wire->netType_ = nt;
 	add(wire);
 	return wire;
 }
@@ -1561,6 +1562,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	wire->port_output = other->port_output;
 	wire->upto = other->upto;
 	wire->attributes = other->attributes;
+	wire->netType_ = other->netType_;
 	return wire;
 }
 
@@ -2039,6 +2041,7 @@ RTLIL::Wire::Wire()
 	port_input = false;
 	port_output = false;
 	upto = false;
+	netType_ = CONST_WIRE_REGULAR;
 }
 
 RTLIL::Memory::Memory()
