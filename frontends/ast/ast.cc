@@ -934,10 +934,15 @@ static AstModule* process_module(AstNode *ast, bool defer)
 		if (flag_lib) {
 			std::vector<AstNode*> new_children;
 			for (auto child : ast->children) {
-				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+				if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
 					new_children.push_back(child);
-				else
+				} else if (child->type == AST_PARAMETER) {
+					child->delete_children();
+					child->children.push_back(AstNode::mkconst_int(0, false, 0));
+					new_children.push_back(child);
+				} else {
 					delete child;
+				}
 			}
 			ast->children.swap(new_children);
 			ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);

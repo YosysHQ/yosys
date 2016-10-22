@@ -112,7 +112,13 @@ module_body:
 	/* empty */;
 
 module_stmt:
-	attr_stmt | wire_stmt | memory_stmt | cell_stmt | proc_stmt | conn_stmt;
+	param_stmt | attr_stmt | wire_stmt | memory_stmt | cell_stmt | proc_stmt | conn_stmt;
+
+param_stmt:
+	TOK_PARAMETER TOK_ID EOL {
+		current_module->avail_parameters.insert($2);
+		free($2);
+	};
 
 attr_stmt:
 	TOK_ATTRIBUTE TOK_ID constant EOL {
