@@ -1271,6 +1271,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			int mem_width, mem_size, addr_bits;
+			is_signed = id2ast->is_signed;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 			RTLIL::SigSpec addr_sig = children[0]->genRTLIL();
