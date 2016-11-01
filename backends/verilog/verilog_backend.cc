@@ -33,10 +33,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool norename, noattr, attr2comment, noexpr, nodec, nostr, defparam;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nostr, defparam;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
+std::string auto_prefix;
 
 RTLIL::Module *active_module;
 
@@ -85,13 +86,14 @@ void reset_auto_counter(RTLIL::Module *module)
 	for (size_t i = 10; i < auto_name_offset + auto_name_map.size(); i = i*10)
 		auto_name_digits++;
 
-	for (auto it = auto_name_map.begin(); it != auto_name_map.end(); ++it)
-		log("  renaming `%s' to `_%0*d_'.\n", it->first.c_str(), auto_name_digits, auto_name_offset + it->second);
+	if (verbose)
+		for (auto it = auto_name_map.begin(); it != auto_name_map.end(); ++it)
+			log("  renaming `%s' to `%s_%0*d_'.\n", it->first.c_str(), auto_prefix.c_str(), auto_name_digits, auto_name_offset + it->second);
 }
 
 std::string next_auto_id()
 {
-	return stringf("_%0*d_", auto_name_digits, auto_name_offset + auto_name_counter++);
+	return stringf("%s_%0*d_", auto_prefix.c_str(), auto_name_digits, auto_name_offset + auto_name_counter++);
 }
 
 std::string id(RTLIL::IdString internal_id, bool may_rename = true)
@@ -100,7 +102,7 @@ std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 	bool do_escape = false;
 
 	if (may_rename && auto_name_map.count(internal_id) != 0)
-		return stringf("_%0*d_", auto_name_digits, auto_name_offset + auto_name_map[internal_id]);
+		return stringf("%s_%0*d_", auto_prefix.c_str(), auto_name_digits, auto_name_offset + auto_name_map[internal_id]);
 
 	if (*str == '\\')
 		str++;
@@ -1342,6 +1344,9 @@ struct VerilogBackend : public Backend {
 		log("        instead of a backslash prefix) are changed to short names in the\n");
 		log("        format '_<number>_'.\n");
 		log("\n");
+		log("    -renameprefix <prefix>\n");
+		log("        insert this prefix in front of auto-generated instance names\n");
+		log("\n");
 		log("    -noattr\n");
 		log("        with this option no attributes are included in the output\n");
 		log("\n");
@@ -1376,6 +1381,9 @@ struct VerilogBackend : public Backend {
 		log("        only write selected modules. modules must be selected entirely or\n");
 		log("        not at all.\n");
 		log("\n");
+		log("    -v\n");
+		log("        verbose output (print new names of all renamed wires and cells)\n");
+		log("\n");
 		log("Note that RTLIL processes can't always be mapped directly to Verilog\n");
 		log("always blocks. This frontend should only be used to export an RTLIL\n");
 		log("netlist, i.e. after the \"proc\" pass has been used to convert all\n");
@@ -1387,6 +1395,7 @@ struct VerilogBackend : public Backend {
 	{
 		log_header(design, "Executing Verilog backend.\n");
 
+		verbose = false;
 		norename = false;
 		noattr = false;
 		attr2comment = false;
@@ -1394,6 +1403,7 @@ struct VerilogBackend : public Backend {
 		nodec = false;
 		nostr = false;
 		defparam = false;
+		auto_prefix = "";
 
 		bool blackboxes = false;
 		bool selected = false;
@@ -1431,6 +1441,10 @@ struct VerilogBackend : public Backend {
 				norename = true;
 				continue;
 			}
+			if (arg == "-renameprefix" && argidx+1 < args.size()) {
+				auto_prefix = args[++argidx];
+				continue;
+			}
 			if (arg == "-noattr") {
 				noattr = true;
 				continue;
@@ -1461,6 +1475,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-selected") {
 				selected = true;
+				continue;
+			}
+			if (arg == "-v") {
+				verbose = true;
 				continue;
 			}
 			break;
