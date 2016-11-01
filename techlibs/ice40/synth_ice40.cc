@@ -35,7 +35,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("    synth_ice40 [options]\n");
 		log("\n");
-		log("This command runs synthesis for iCE40 FPGAs. This work is experimental.\n");
+		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
