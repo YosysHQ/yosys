@@ -25,12 +25,15 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
             if wrmode.count(0) == 0: continue
             break
 
-        if random.randrange(2) or True:
+        if random.randrange(2):
             maxpol = 4
             maxtransp = 1
+            maxclocks = 4
         else:
-            maxpol = 2
+            maxpol = None
+            clkpol = random.randrange(4)
             maxtransp = 2
+            maxclocks = 1
 
         def generate_enable(i):
             if wrmode[i]:
@@ -45,11 +48,16 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
                 return random.randrange(maxtransp)
             return 0
 
-        ports  = [ random.randrange(1, 3)   for i in range(groups) ]
-        enable = [ generate_enable(i)       for i in range(groups) ]
-        transp = [ generate_transp(i)       for i in range(groups) ]
-        clocks = [ random.randrange(1, 4)   for i in range(groups) ]
-        clkpol = [ random.randrange(maxpol) for i in range(groups) ]
+        def generate_clkpol(i):
+            if maxpol is None:
+                return clkpol
+            return random.randrange(maxpol)
+
+        ports  = [ random.randrange(1, 3)           for i in range(groups) ]
+        enable = [ generate_enable(i)               for i in range(groups) ]
+        transp = [ generate_transp(i)               for i in range(groups) ]
+        clocks = [ random.randrange(maxclocks)+1    for i in range(groups) ]
+        clkpol = [ generate_clkpol(i)               for i in range(groups) ]
         break
 
     print("bram bram_%02d_%02d" % (k1, k2), file=dsc_f)
@@ -109,11 +117,13 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
             if clocks[p1] and not ("CLK%d" % clocks[p1]) in v_ports:
                 v_ports.add("CLK%d" % clocks[p1])
                 v_stmts.append("input CLK%d;" % clocks[p1])
-                tb_decls.append("reg CLK%d;" % clocks[p1])
+                tb_decls.append("reg CLK%d = 0;" % clocks[p1])
                 tb_clocks.append("CLK%d" % clocks[p1])
 
             v_ports.add("%sADDR" % pf)
             v_stmts.append("input [%d:0] %sADDR;" % (abits-1, pf))
+            if transp[p1]:
+                v_stmts.append("reg [%d:0] %sADDR_Q;" % (abits-1, pf))
             tb_decls.append("reg [%d:0] %sADDR;" % (abits-1, pf))
             tb_addr.append("%sADDR" % pf)
 
@@ -159,8 +169,11 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
                 for i in range(enable[p1]):
                     enrange = "[%d:%d]" % ((i+1)*dbits/enable[p1]-1, i*dbits/enable[p1])
                     v_always[last_always_hdr].append((portindex, pf, "if (%sEN[%d]) memory[%sADDR]%s = %sDATA%s;" % (pf, i, pf, enrange, pf, enrange)))
+            elif transp[p1]:
+                v_always[last_always_hdr].append((sum(ports)+1, pf, "%sADDR_Q %s %sADDR;" % (pf, assign_op, pf)))
+                v_stmts.append("always @* %sDATA = memory[%sADDR_Q];" % (pf, pf))
             else:
-                v_always[last_always_hdr].append((sum(ports)+1 if transp[p1] else 0, pf, "%sDATA %s memory[%sADDR];" % (pf, assign_op, pf)))
+                v_always[last_always_hdr].append((0, pf, "%sDATA %s memory[%sADDR];" % (pf, assign_op, pf)))
 
     for always_hdr in sorted(v_always):
         v_stmts.append(always_hdr[1])

@@ -9,7 +9,7 @@ OPTIND=1
 count=5
 seed=""    # default to no seed specified
 debug=""
-while getopts "c:S:" opt
+while getopts "c:dS:" opt
 do
     case "$opt" in
 	c) count="$OPTARG" ;;
