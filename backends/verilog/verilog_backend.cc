@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nostr, defparam;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -159,14 +159,14 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	if (width < 0)
 		width = data.bits.size() - offset;
 	if (nostr)
-		goto dump_bits;
+		goto dump_hex;
 	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
 		if (width == 32 && !no_decimal && !nodec) {
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
 				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
-					goto dump_bits;
+					goto dump_hex;
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
@@ -175,7 +175,55 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			else
 				f << stringf("32'%sd%u", set_signed ? "s" : "", val);
 		} else {
-	dump_bits:
+	dump_hex:
+			if (nohex)
+				goto dump_bin;
+			vector<char> bin_digits, hex_digits;
+			for (int i = offset; i < offset+width; i++) {
+				log_assert(i < (int)data.bits.size());
+				switch (data.bits[i]) {
+				case RTLIL::S0: bin_digits.push_back('0'); break;
+				case RTLIL::S1: bin_digits.push_back('1'); break;
+				case RTLIL::Sx: bin_digits.push_back('x'); break;
+				case RTLIL::Sz: bin_digits.push_back('z'); break;
+				case RTLIL::Sa: bin_digits.push_back('z'); break;
+				case RTLIL::Sm: log_error("Found marker state in final netlist.");
+				}
+			}
+			if (GetSize(bin_digits) == 0)
+				goto dump_bin;
+			while (GetSize(bin_digits) % 4 != 0)
+				if (bin_digits.back() == '1')
+					bin_digits.push_back('0');
+				else
+					bin_digits.push_back(bin_digits.back());
+			for (int i = 0; i < GetSize(bin_digits); i += 4)
+			{
+				char bit_3 = bin_digits[i+3];
+				char bit_2 = bin_digits[i+2];
+				char bit_1 = bin_digits[i+1];
+				char bit_0 = bin_digits[i+0];
+				if (bit_3 == 'x' || bit_2 == 'x' || bit_1 == 'x' || bit_0 == 'x') {
+					if (bit_3 != 'x' || bit_2 != 'x' || bit_1 != 'x' || bit_0 != 'x')
+						goto dump_bin;
+					hex_digits.push_back('x');
+					continue;
+				}
+				if (bit_3 == 'z' || bit_2 == 'z' || bit_1 == 'z' || bit_0 == 'z') {
+					if (bit_3 != 'z' || bit_2 != 'z' || bit_1 != 'z' || bit_0 != 'z')
+						goto dump_bin;
+					hex_digits.push_back('z');
+					continue;
+				}
+				int val = 8*(bit_3 - '0') + 4*(bit_2 - '0') + 2*(bit_1 - '0') + (bit_0 - '0');
+				hex_digits.push_back(val < 10 ? '0' + val : 'a' + val - 10);
+			}
+			f << stringf("%d'%sh", width, set_signed ? "s" : "");
+			for (int i = GetSize(hex_digits)-1; i >= 0; i--)
+				f << hex_digits[i];
+		}
+		if (0) {
+	dump_bin:
 			f << stringf("%d'%sb", width, set_signed ? "s" : "");
 			if (width == 0)
 				f << stringf("0");
@@ -1362,6 +1410,11 @@ struct VerilogBackend : public Backend {
 		log("        not bit pattern. This option decativates this feature and instead\n");
 		log("        will write out all constants in binary.\n");
 		log("\n");
+		log("    -nohex\n");
+		log("        constant values that are compatible with hex output are usually\n");
+		log("        dumped as hex values. This option decativates this feature and\n");
+		log("        instead will write out all constants in binary.\n");
+		log("\n");
 		log("    -nostr\n");
 		log("        Parameters and attributes that are specified as strings in the\n");
 		log("        original input will be output as strings by this back-end. This\n");
@@ -1401,6 +1454,7 @@ struct VerilogBackend : public Backend {
 		attr2comment = false;
 		noexpr = false;
 		nodec = false;
+		nohex = false;
 		nostr = false;
 		defparam = false;
 		auto_prefix = "";
@@ -1459,6 +1513,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-nodec") {
 				nodec = true;
+				continue;
+			}
+			if (arg == "-nohex") {
+				nohex = true;
 				continue;
 			}
 			if (arg == "-nostr") {

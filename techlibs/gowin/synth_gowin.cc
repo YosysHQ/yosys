@@ -169,7 +169,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("vout"))
 		{
 			if (!vout_file.empty() || help_mode)
-				run(stringf("write_verilog -attr2comment -defparam -renameprefix gen %s",
+				run(stringf("write_verilog -nodec -attr2comment -defparam -renameprefix gen %s",
 						help_mode ? "<file-name>" : vout_file.c_str()));
 		}
 	}
