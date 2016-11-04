@@ -2660,7 +2660,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 			std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
 			size_t pos = child->str.rfind('.');
 			if (pos == std::string::npos)
-				pos = child->str[0] == '\\' ? 1 : 0;
+				pos = child->str[0] == '\\' && prefix[0] == '\\' ? 1 : 0;
 			else
 				pos = pos + 1;
 			new_name = child->str.substr(0, pos) + new_name + child->str.substr(pos);
