@@ -163,16 +163,8 @@ struct SccWorker
 		}
 
 		for (auto cell : workQueue)
-			cellToNextCell[cell] = sigToNextCells.find(cellToNextSig[cell]);
-
-		labelCounter = 0;
-		cellLabels.clear();
-
-		while (workQueue.size() > 0)
 		{
-			RTLIL::Cell *cell = *workQueue.begin();
-			log_assert(cellStack.size() == 0);
-			cellDepth.clear();
+			cellToNextCell[cell] = sigToNextCells.find(cellToNextSig[cell]);
 
 			if (!nofeedbackMode && cellToNextCell[cell].count(cell)) {
 				log("Found an SCC:");
@@ -183,6 +175,16 @@ struct SccWorker
 				sccList.push_back(scc);
 				log("\n");
 			}
+		}
+
+		labelCounter = 0;
+		cellLabels.clear();
+
+		while (!workQueue.empty())
+		{
+			RTLIL::Cell *cell = *workQueue.begin();
+			log_assert(cellStack.size() == 0);
+			cellDepth.clear();
 
 			run(cell, 0, maxDepth);
 		}
