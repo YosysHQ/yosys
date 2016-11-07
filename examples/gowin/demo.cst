@@ -1,0 +1,17 @@
+IO_LOC "clk"    D11;
+IO_LOC "led1"   D22;
+IO_LOC "led2"   E22;
+IO_LOC "led3"   G22;
+IO_LOC "led4"   J22;
+IO_LOC "led5"   L22;
+IO_LOC "led6"   L19;
+IO_LOC "led7"   L20;
+IO_LOC "led8"   M21;
+IO_LOC "led9"   N19;
+IO_LOC "led10"  R19;
+IO_LOC "led11"  T18;
+IO_LOC "led12"  AA22;
+IO_LOC "led13"  U18;
+IO_LOC "led14"  V20;
+IO_LOC "led15"  AA21;
+IO_LOC "led16"  AB21;
