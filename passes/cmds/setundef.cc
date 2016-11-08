@@ -90,6 +90,8 @@ struct SetundefPass : public Pass {
 		bool init_mode = false;
 		SetundefWorker worker;
 
+		log_header(design, "Executing SETUNDEF pass (replace undef values with defined constants).\n");
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -137,8 +139,11 @@ struct SetundefPass : public Pass {
 				SigPool undriven_signals;
 
 				for (auto &it : module->wires_)
-					if (!it.second->port_input)
-						undriven_signals.add(sigmap(it.second));
+					undriven_signals.add(sigmap(it.second));
+
+				for (auto &it : module->wires_)
+					if (it.second->port_input)
+						undriven_signals.del(sigmap(it.second));
 
 				CellTypes ct(design);
 				for (auto &it : module->cells_)
