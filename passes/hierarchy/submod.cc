@@ -169,6 +169,7 @@ struct SubmodWorker
 		}
 
 		new_mod->fixup_ports();
+		ct.setup_module(new_mod);
 
 		for (RTLIL::Cell *cell : submod.cells) {
 			RTLIL::Cell *new_cell = new_mod->addCell(cell->name, cell);
