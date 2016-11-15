@@ -793,7 +793,8 @@ struct RTLIL::Design
 
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
-	std::vector<AST::AstNode*> verilog_packages;
+	std::vector<AST::AstNode*> verilog_packages, verilog_globals;
+	dict<std::string, std::pair<std::string, bool>> verilog_defines;
 
 	std::vector<RTLIL::Selection> selection_stack;
 	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;

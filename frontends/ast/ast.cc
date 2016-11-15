@@ -1016,14 +1016,12 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_icells = icells;
 	flag_autowire = autowire;
 
-	std::vector<AstNode*> global_decls;
-
 	log_assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
 	{
 		if ((*it)->type == AST_MODULE)
 		{
-			for (auto n : global_decls)
+			for (auto n : design->verilog_globals)
 				(*it)->children.push_back(n->clone());
 
 			for (auto n : design->verilog_packages){
@@ -1054,7 +1052,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 		else if ((*it)->type == AST_PACKAGE)
 			design->verilog_packages.push_back((*it)->clone());
 		else
-			global_decls.push_back(*it);
+			design->verilog_globals.push_back((*it)->clone());
 	}
 }
 

@@ -210,7 +210,8 @@ static void input_file(std::istream &f, std::string filename)
 	input_buffer.insert(it, "\n`file_pop\n");
 }
 
-std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
+std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> &pre_defines_map,
+		dict<std::string, std::pair<std::string, bool>> &global_defines_cache, const std::list<std::string> &include_dirs)
 {
 	std::set<std::string> defines_with_args;
 	std::map<std::string, std::string> defines_map(pre_defines_map);
@@ -222,8 +223,18 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 	input_buffer_charp = 0;
 
 	input_file(f, filename);
+
 	defines_map["YOSYS"] = "1";
 	defines_map[formal_mode ? "FORMAL" : "SYNTHESIS"] = "1";
+
+	for (auto &it : pre_defines_map)
+		defines_map[it.first] = it.second;
+
+	for (auto &it : global_defines_cache) {
+		if (it.second.second)
+			defines_with_args.insert(it.first);
+		defines_map[it.first] = it.second.first;
+	}
 
 	while (!input_buffer.empty())
 	{
@@ -379,6 +390,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 				defines_with_args.insert(name);
 			else
 				defines_with_args.erase(name);
+			global_defines_cache[name] = std::pair<std::string, bool>(value, state == 2);
 			continue;
 		}
 
@@ -389,6 +401,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			// printf("undef: >>%s<<\n", name.c_str());
 			defines_map.erase(name);
 			defines_with_args.erase(name);
+			global_defines_cache.erase(name);
 			continue;
 		}
 
