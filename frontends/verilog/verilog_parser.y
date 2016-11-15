@@ -666,14 +666,13 @@ defparam_decl_list:
 	single_defparam_decl | defparam_decl_list ',' single_defparam_decl;
 
 single_defparam_decl:
-	range hierarchical_id '=' expr {
+	range rvalue '=' expr {
 		AstNode *node = new AstNode(AST_DEFPARAM);
-		node->str = *$2;
+		node->children.push_back($2);
 		node->children.push_back($4);
 		if ($1 != NULL)
 			node->children.push_back($1);
 		ast_stack.back()->children.push_back(node);
-		delete $2;
 	};
 
 wire_decl:

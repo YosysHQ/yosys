@@ -213,7 +213,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a port named '%s'.\n",
 							log_id(cell->type), log_id(module), log_id(cell), log_id(conn.first));
 			for (auto &param : cell->parameters)
-				if (mod->avail_parameters.count(param.first) == 0 && param.first[0] != '$')
+				if (mod->avail_parameters.count(param.first) == 0 && param.first[0] != '$' && strchr(param.first.c_str(), '.') == NULL)
 					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a parameter named '%s'.\n",
 							log_id(cell->type), log_id(module), log_id(cell), log_id(param.first));
 		}

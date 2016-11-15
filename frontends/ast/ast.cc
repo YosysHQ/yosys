@@ -1113,8 +1113,13 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 			goto rewrite_parameter;
 		}
 	}
-	if (parameters.size() > 0)
-		log_error("Requested parameter `%s' does not exist in module `%s'!\n", parameters.begin()->first.c_str(), stripped_name.c_str());
+
+	for (auto param : parameters) {
+		AstNode *defparam = new AstNode(AST_DEFPARAM, new AstNode(AST_IDENTIFIER));
+		defparam->children[0]->str = param.first.str();
+		defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
+		new_ast->children.push_back(defparam);
+	}
 
 	std::string modname;
 

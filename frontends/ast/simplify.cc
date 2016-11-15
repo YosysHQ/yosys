@@ -685,19 +685,40 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		current_scope.clear();
 
 	// convert defparam nodes to cell parameters
-	if (type == AST_DEFPARAM && !str.empty()) {
-		size_t pos = str.rfind('.');
+	if (type == AST_DEFPARAM && !children.empty())
+	{
+		if (children[0]->type != AST_IDENTIFIER)
+			log_error("Module name in defparam at %s:%d contains non-constant expressions!\n", filename.c_str(), linenum);
+
+		string modname, paramname = children[0]->str;
+
+		size_t pos = paramname.rfind('.');
+
+		while (pos != 0 && pos != std::string::npos)
+		{
+			modname = paramname.substr(0, pos);
+
+			if (current_scope.count(modname))
+				break;
+
+			pos = paramname.rfind('.', pos - 1);
+		}
+
 		if (pos == std::string::npos)
-			log_error("Defparam `%s' does not contain a dot (module/parameter separator) at %s:%d!\n",
-					RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
-		std::string modname = str.substr(0, pos), paraname = "\\" + str.substr(pos+1);
-		if (current_scope.count(modname) == 0 || current_scope.at(modname)->type != AST_CELL)
-			log_error("Can't find cell for defparam `%s . %s` at %s:%d!\n", RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paraname).c_str(), filename.c_str(), linenum);
-		AstNode *cell = current_scope.at(modname), *paraset = clone();
+			log_error("Can't find object for defparam `%s` at %s:%d!\n", RTLIL::unescape_id(paramname).c_str(), filename.c_str(), linenum);
+
+		paramname = "\\" + paramname.substr(pos+1);
+
+		if (current_scope.at(modname)->type != AST_CELL)
+			log_error("Defparam argument `%s . %s` does not match a cell at %s:%d!\n",
+					RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paramname).c_str(), filename.c_str(), linenum);
+
+		AstNode *paraset = new AstNode(AST_PARASET, children[1]->clone(), GetSize(children) > 2 ? children[2]->clone() : NULL);
+		paraset->str = paramname;
+
+		AstNode *cell = current_scope.at(modname);
 		cell->children.insert(cell->children.begin() + 1, paraset);
-		paraset->type = AST_PARASET;
-		paraset->str = paraname;
-		str.clear();
+		delete_children();
 	}
 
 	// resolve constant prefixes
