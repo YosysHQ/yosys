@@ -40,6 +40,8 @@ std::set<RTLIL::IdString> reg_wires, reg_ct;
 std::string auto_prefix;
 
 RTLIL::Module *active_module;
+dict<RTLIL::SigBit, RTLIL::State> active_initdata;
+SigMap active_sigmap;
 
 void reset_auto_counter_id(RTLIL::IdString id, bool may_rename)
 {
@@ -262,6 +264,26 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	}
 }
 
+void dump_reg_init(std::ostream &f, SigSpec sig)
+{
+	Const initval;
+	bool gotinit = false;
+
+	for (auto bit : active_sigmap(sig)) {
+		if (active_initdata.count(bit)) {
+			initval.bits.push_back(active_initdata.at(bit));
+			gotinit = true;
+		} else {
+			initval.bits.push_back(State::Sx);
+		}
+	}
+
+	if (gotinit) {
+		f << " = ";
+		dump_const(f, initval);
+	}
+}
+
 void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool no_decimal = false)
 {
 	if (chunk.wire == NULL) {
@@ -350,12 +372,12 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 	if (wire->port_input && wire->port_output)
 		f << stringf("%s" "inout%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 	if (reg_wires.count(wire->name)) {
-		f << stringf("%s" "reg%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+		f << stringf("%s" "reg%s %s", indent.c_str(), range.c_str(), id(wire->name).c_str());
 		if (wire->attributes.count("\\init")) {
-			f << stringf("%s" "initial %s = ", indent.c_str(), id(wire->name).c_str());
+			f << stringf(" = ");
 			dump_const(f, wire->attributes.at("\\init"));
-			f << stringf(";\n");
 		}
+		f << stringf(";\n");
 	} else if (!wire->port_input && !wire->port_output)
 		f << stringf("%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 #endif
@@ -522,8 +544,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg %s;\n", indent.c_str(), reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg %s", indent.c_str(), reg_name.c_str());
+			dump_reg_init(f, cell->getPort("\\Q"));
+			f << ";\n";
+		}
 
 		dump_attributes(f, indent, cell->attributes);
 		f << stringf("%s" "always @(%sedge ", indent.c_str(), cell->type[6] == 'P' ? "pos" : "neg");
@@ -562,8 +587,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg %s;\n", indent.c_str(), reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg %s", indent.c_str(), reg_name.c_str());
+			dump_reg_init(f, cell->getPort("\\Q"));
+			f << ";\n";
+		}
 
 		dump_attributes(f, indent, cell->attributes);
 		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_c == 'P' ? "pos" : "neg");
@@ -746,8 +774,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(sig_q, reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), width-1, reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg [%d:0] %s", indent.c_str(), width-1, reg_name.c_str());
+			dump_reg_init(f, sig_q);
+			f << ";\n";
+		}
 
 		for (int i = 0; i < width; i++) {
 			f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
@@ -802,8 +833,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), cell->parameters["\\WIDTH"].as_int()-1, reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg [%d:0] %s", indent.c_str(), cell->parameters["\\WIDTH"].as_int()-1, reg_name.c_str());
+			dump_reg_init(f, cell->getPort("\\Q"));
+			f << ";\n";
+		}
 
 		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
 		dump_sigspec(f, sig_clk);
@@ -854,7 +888,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		// for memory block make something like:
 		//  reg [7:0] memid [3:0];
 		//  initial begin
-		//    memid[0] <= ...
+		//    memid[0] = ...
 		//  end
 		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size-1, 0);
 		if (use_init)
@@ -862,7 +896,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << stringf("%s" "initial begin\n", indent.c_str());
 			for (int i=0; i<size; i++)
 			{
-				f << stringf("%s" "  %s[%d] <= ", indent.c_str(), mem_id.c_str(), i);
+				f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i);
 				dump_const(f, cell->parameters["\\INIT"].extract(i*width, width));
 				f << stringf(";\n");
 			}
@@ -960,7 +994,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		int nwrite_ports = cell->parameters["\\WR_PORTS"].as_int();
 		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en;
 		bool wr_clk_posedge;
-		SigMap sigmap(active_module);
+
 		// write ports
 		for (int i=0; i < nwrite_ports; i++)
 		{
@@ -985,7 +1019,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				int start_i = i, width = 1;
 				SigBit wen_bit = sig_wr_en[i];
 
-				while (i+1 < GetSize(sig_wr_en) && sigmap(sig_wr_en[i+1]) == sigmap(wen_bit))
+				while (i+1 < GetSize(sig_wr_en) && active_sigmap(sig_wr_en[i+1]) == active_sigmap(wen_bit))
 					i++, width++;
 
 				if (wen_bit == State::S0)
@@ -1299,6 +1333,16 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	reg_wires.clear();
 	reset_auto_counter(module);
 	active_module = module;
+	active_sigmap.set(module);
+	active_initdata.clear();
+
+	for (auto wire : module->wires())
+		if (wire->attributes.count("\\init")) {
+			SigSpec sig = active_sigmap(wire);
+			Const val = wire->attributes.at("\\init");
+			for (int i = 0; i < GetSize(sig) && i < GetSize(val); i++)
+				active_initdata[sig[i]] = val.bits.at(i);
+		}
 
 	if (!module->processes.empty())
 		log_warning("Module %s contains unmapped RTLIL proccesses. RTLIL processes\n"
@@ -1375,6 +1419,8 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	f << stringf("%s" "endmodule\n", indent.c_str());
 	active_module = NULL;
+	active_sigmap.clear();
+	active_initdata.clear();
 }
 
 struct VerilogBackend : public Backend {
