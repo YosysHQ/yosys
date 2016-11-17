@@ -157,7 +157,7 @@ struct FirrtlWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in("$add", "$sub"))
+			if (cell->type.in("$add", "$sub", "$xor"))
 			{
 				string y_id = make_id(cell->name);
 				bool is_signed = cell->parameters.at("\\A_SIGNED").as_bool();
@@ -171,14 +171,18 @@ struct FirrtlWorker
 					b_expr = "asSInt(" + b_expr + ")";
 				}
 
+				a_expr = stringf("pad(%s, %d)", a_expr.c_str(), y_width);
+				b_expr = stringf("pad(%s, %d)", b_expr.c_str(), y_width);
+
 				string primop;
 				if (cell->type == "$add") primop = "add";
 				if (cell->type == "$sub") primop = "sub";
+				if (cell->type == "$xor") primop = "xor";
 
 				string expr = stringf("%s(%s, %s)", primop.c_str(), a_expr.c_str(), b_expr.c_str());
 
-				if (is_signed)
-					expr = stringf("asUInt(pad(%s, %d))", expr.c_str(), y_width);
+				if ((is_signed && !cell->type.in("$xor")) || cell->type.in("$sub"))
+					expr = stringf("asUInt(%s)", expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
 				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
@@ -186,7 +190,26 @@ struct FirrtlWorker
 				continue;
 			}
 
-			log_error("Cell type not supported (yet?): %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			if (cell->type.in("$dff"))
+			{
+				bool clkpol = cell->parameters.at("\\CLK_POLARITY").as_bool();
+				if (clkpol == false)
+					log_error("Negative edge clock on FF %s.%s.\n", log_id(module), log_id(cell));
+
+				string q_id = make_id(cell->name);
+				int width = cell->parameters.at("\\WIDTH").as_int();
+				string expr = make_expr(cell->getPort("\\D"));
+				string clk_expr = "asClock(" + make_expr(cell->getPort("\\CLK")) + ")";
+
+				wire_decls.push_back(stringf("    reg %s: UInt<%d>, %s\n", q_id.c_str(), width, clk_expr.c_str()));
+
+				cell_exprs.push_back(stringf("    %s <= %s\n", q_id.c_str(), expr.c_str()));
+				register_reverse_wire_map(q_id, cell->getPort("\\Q"));
+
+				continue;
+			}
+
+			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 
 		for (auto conn : module->connections())
@@ -334,7 +357,7 @@ struct FirrtlBackend : public Backend {
 					make_id(wire->name);
 		}
 
-		*f << stringf("design %s:\n", make_id(top->name));
+		*f << stringf("circuit %s:\n", make_id(top->name));
 
 		for (auto module : design->modules())
 		{
