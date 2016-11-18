@@ -190,6 +190,102 @@ struct FirrtlWorker
 				continue;
 			}
 
+			if (cell->type.in("$mux"))
+			{
+				string y_id = make_id(cell->name);
+				int width = cell->parameters.at("\\WIDTH").as_int();
+				string a_expr = make_expr(cell->getPort("\\A"));
+				string b_expr = make_expr(cell->getPort("\\B"));
+				string s_expr = make_expr(cell->getPort("\\S"));
+				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), width));
+
+				string expr = stringf("mux(%s, %s, %s)", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
+
+				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+
+				continue;
+			}
+
+			if (cell->type.in("$mem"))
+			{
+				string mem_id = make_id(cell->name);
+				int abits = cell->parameters.at("\\ABITS").as_int();
+				int width = cell->parameters.at("\\WIDTH").as_int();
+				int size = cell->parameters.at("\\SIZE").as_int();
+				int rd_ports = cell->parameters.at("\\RD_PORTS").as_int();
+				int wr_ports = cell->parameters.at("\\WR_PORTS").as_int();
+
+				Const initdata = cell->parameters.at("\\INIT");
+				for (State bit : initdata.bits)
+					if (bit != State::Sx)
+						log_error("Memory with initialization data: %s.%s\n", log_id(module), log_id(cell));
+
+				Const rd_clk_enable = cell->parameters.at("\\RD_CLK_ENABLE");
+				Const wr_clk_enable = cell->parameters.at("\\WR_CLK_ENABLE");
+				Const wr_clk_polarity = cell->parameters.at("\\WR_CLK_POLARITY");
+
+				int offset = cell->parameters.at("\\OFFSET").as_int();
+				if (offset != 0)
+					log_error("Memory with nonzero offset: %s.%s\n", log_id(module), log_id(cell));
+
+				cell_exprs.push_back(stringf("    mem %s:\n", mem_id.c_str()));
+				cell_exprs.push_back(stringf("      data-type => UInt<%d>\n", width));
+				cell_exprs.push_back(stringf("      depth => %d\n", size));
+
+				for (int i = 0; i < rd_ports; i++)
+					cell_exprs.push_back(stringf("      reader => r%d\n", i));
+
+				for (int i = 0; i < wr_ports; i++)
+					cell_exprs.push_back(stringf("      writer => w%d\n", i));
+
+				cell_exprs.push_back(stringf("      read-latency => 0\n"));
+				cell_exprs.push_back(stringf("      write-latency => 1\n"));
+				cell_exprs.push_back(stringf("      read-under-write => undefined\n"));
+
+				for (int i = 0; i < rd_ports; i++)
+				{
+					if (rd_clk_enable[i] != State::S0)
+						log_error("Clocked read port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
+
+					SigSpec data_sig = cell->getPort("\\RD_DATA").extract(i*width, width);
+					string addr_expr = make_expr(cell->getPort("\\RD_ADDR").extract(i*abits, abits));
+
+					cell_exprs.push_back(stringf("    %s.r%d.addr <= %s\n", mem_id.c_str(), i, addr_expr.c_str()));
+					cell_exprs.push_back(stringf("    %s.r%d.en <= UInt<1>(1)\n", mem_id.c_str(), i));
+					cell_exprs.push_back(stringf("    %s.r%d.clk <= asClock(UInt<1>(0))\n", mem_id.c_str(), i));
+
+					register_reverse_wire_map(stringf("%s.r%d.data", mem_id.c_str(), i), data_sig);
+				}
+
+				for (int i = 0; i < wr_ports; i++)
+				{
+					if (wr_clk_enable[i] != State::S1)
+						log_error("Unclocked write port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
+
+					if (wr_clk_polarity[i] != State::S1)
+						log_error("Negedge write port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
+
+					string addr_expr = make_expr(cell->getPort("\\WR_ADDR").extract(i*abits, abits));
+					string data_expr = make_expr(cell->getPort("\\WR_DATA").extract(i*width, width));
+					string clk_expr = make_expr(cell->getPort("\\WR_CLK").extract(i));
+
+					SigSpec wen_sig = cell->getPort("\\WR_EN").extract(i*width, width);
+					string wen_expr = make_expr(wen_sig[0]);
+
+					for (int i = 1; i < GetSize(wen_sig); i++)
+						if (wen_sig[0] != wen_sig[i])
+							log_error("Complex write enable on port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
+
+					cell_exprs.push_back(stringf("    %s.w%d.addr <= %s\n", mem_id.c_str(), i, addr_expr.c_str()));
+					cell_exprs.push_back(stringf("    %s.w%d.data <= %s\n", mem_id.c_str(), i, data_expr.c_str()));
+					cell_exprs.push_back(stringf("    %s.w%d.en <= %s\n", mem_id.c_str(), i, wen_expr.c_str()));
+					cell_exprs.push_back(stringf("    %s.w%d.clk <= asClock(%s)\n", mem_id.c_str(), i, clk_expr.c_str()));
+				}
+
+				continue;
+			}
+
 			if (cell->type.in("$dff"))
 			{
 				bool clkpol = cell->parameters.at("\\CLK_POLARITY").as_bool();

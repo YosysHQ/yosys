@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-../../yosys -p 'prep; write_firrtl test.fir' test.v
+../../yosys -p 'prep -nordff; write_firrtl test.fir' test.v
 
 firrtl -i test.fir -o test_out.v
 
@@ -13,6 +13,7 @@ firrtl -i test.fir -o test_out.v
 	rename test gate
 
 	prep
+	memory_map
 	miter -equiv -flatten gold gate miter
 	hierarchy -top miter
 
