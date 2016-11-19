@@ -165,8 +165,8 @@ The following very basic synthesis script should work well with all designs:
 	techmap; opt
 
 If ABC is enabled in the Yosys build configuration and a cell library is given
-in the liberty file ``mycells.lib``, the following synthesis script will synthesize
-for the given cell library:
+in the liberty file ``mycells.lib``, the following synthesis script will
+synthesize for the given cell library:
 
 	# the high-level stuff
 	hierarchy; proc; fsm; opt; memory; opt
@@ -192,8 +192,9 @@ cell libraries can be found here:
 - http://www.vlsitechnology.org/html/libraries.html
 - http://www.vlsitechnology.org/synopsys/vsclib013.lib
 
-The command ``synth`` provides a good default synthesis script (see ``help synth``).
-If possible a synthesis script should borrow from ``synth``. For example:
+The command ``synth`` provides a good default synthesis script (see
+``help synth``).  If possible a synthesis script should borrow from ``synth``.
+For example:
 
 	# the high-level stuff
 	hierarchy
@@ -284,8 +285,8 @@ Verilog Attributes and non-standard features
   command from flattening the indicated cells and modules.
 
 - The ``init`` attribute on wires is set by the frontend when a register is
-  initialized "FPGA-style" with ``reg foo = val``. It can be used during synthesis
-  to add the necessary reset logic.
+  initialized "FPGA-style" with ``reg foo = val``. It can be used during
+  synthesis to add the necessary reset logic.
 
 - The ``top`` attribute on a module marks this module as the top of the
   design hierarchy. The ``hierarchy`` command sets this attribute when called
@@ -382,8 +383,8 @@ Non-standard or SystemVerilog features for formal verification
 - The system task ``$anyseq`` evaluates to any value, possibly a different
   value in each cycle.
 
-- The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are supported
-  in any clocked block.
+- The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are
+  supported in any clocked block.
 
 - The syntax ``@($global_clock)`` can be used to create FFs that have no
   explicit clock input ($ff cells).
@@ -402,8 +403,8 @@ from SystemVerilog:
 - The ``assume`` and ``restrict`` statements from SystemVerilog are also
   supported. The same limitations as with the ``assert`` statement apply.
 
-- The keywords ``always_comb``, ``always_ff`` and ``always_latch``, ``logic`` and
-  ``bit`` are supported.
+- The keywords ``always_comb``, ``always_ff`` and ``always_latch``, ``logic``
+  and ``bit`` are supported.
 
 - SystemVerilog packages are supported. Once a SystemVerilog file is read
   into a design with ``read_verilog``, all its packages are available to
