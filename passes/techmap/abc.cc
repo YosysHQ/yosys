@@ -29,17 +29,17 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; dc2; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}"
-#define ABC_COMMAND_CTR "strash; dc2; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; if; mfs"
-#define ABC_COMMAND_SOP "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; cover {I} {P}"
-#define ABC_COMMAND_DFL "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; map"
+#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; dch -f; map {D}"
+#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
+#define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
+#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; dch -f; map"
 
-#define ABC_FAST_COMMAND_LIB "retime -o {D}; map {D}"
-#define ABC_FAST_COMMAND_CTR "retime -o {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "retime -o; if"
-#define ABC_FAST_COMMAND_SOP "retime -o; cover -I {I} -P {P}"
-#define ABC_FAST_COMMAND_DFL "retime -o; map"
+#define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
+#define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_FAST_COMMAND_LUT "strash; dretime; if"
+#define ABC_FAST_COMMAND_SOP "strash; dretime; cover -I {I} -P {P}"
+#define ABC_FAST_COMMAND_DFL "strash; dretime; map"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -595,7 +595,7 @@ struct abc_output_filter
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, bool fast_mode,
+		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
 {
 	module = current_module;
@@ -652,13 +652,17 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				all_luts_cost_same = false;
 		abc_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		if (all_luts_cost_same && !fast_mode)
-			abc_script += "; lutpack";
+			abc_script += "; lutpack {S}";
 	} else if (!liberty_file.empty())
 		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else if (sop_mode)
 		abc_script += fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
 	else
 		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
+
+	if (script_file.empty() && !delay_target.empty())
+		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
+			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
 
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
@@ -668,6 +672,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + sop_products + abc_script.substr(pos+3);
+
+	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
+		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
 	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
@@ -1205,7 +1212,7 @@ struct AbcPass : public Pass {
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR).c_str());
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack").c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack {S}").c_str());
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT).c_str());
@@ -1253,6 +1260,8 @@ struct AbcPass : public Pass {
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise.\n");
+		log("        this also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
+		log("        default scripts above.\n");
 		log("\n");
 		log("    -I <num>\n");
 		log("        maximum number of SOP inputs.\n");
@@ -1261,6 +1270,10 @@ struct AbcPass : public Pass {
 		log("    -P <num>\n");
 		log("        maximum number of SOP products.\n");
 		log("        (replaces {P} in the default scripts above)\n");
+		log("\n");
+		log("    -S <num>\n");
+		log("        maximum number of LUT inputs shared.\n");
+		log("        (replaces {S} in the default scripts above, default: -S 1)\n");
 		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
@@ -1333,7 +1346,7 @@ struct AbcPass : public Pass {
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 #endif
 		std::string script_file, liberty_file, constr_file, clk_str;
-		std::string delay_target, sop_inputs, sop_products;
+		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
 		vector<int> lut_costs;
@@ -1391,6 +1404,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-P" && argidx+1 < args.size()) {
 				sop_products = "-P " + args[++argidx];
+				continue;
+			}
+			if (arg == "-S" && argidx+1 < args.size()) {
+				lutin_shared = "-S " + args[++argidx];
 				continue;
 			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
@@ -1505,7 +1522,7 @@ struct AbcPass : public Pass {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 			else if (!dff_mode || !clk_str.empty())
 				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
 			else
 			{
 				assign_map.set(mod);
@@ -1650,7 +1667,7 @@ struct AbcPass : public Pass {
 					en_polarity = std::get<2>(it.first);
 					en_sig = assign_map(std::get<3>(it.first));
 					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-							keepff, delay_target, sop_inputs, sop_products, fast_mode, it.second, show_tempdir, sop_mode);
+							keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode);
 					assign_map.set(mod);
 				}
 			}
