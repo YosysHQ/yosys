@@ -1,16 +1,20 @@
 #!/bin/bash
 set -ex
 
-../../yosys -p 'prep -nordff; write_firrtl test.fir' test.v
+cd ../../
+make
+cd backends/firrtl
 
-firrtl -i test.fir -o test_out.v
+../../yosys -q -p 'prep -nordff; write_firrtl test.fir' $1
 
-../../yosys -p '
-	read_verilog test.v
-	rename test gold
+firrtl -i test.fir -o test_out.v -ll Info
+
+../../yosys -p "
+	read_verilog $1
+	rename Top gold
 
 	read_verilog test_out.v
-	rename test gate
+	rename Top gate
 
 	prep
 	memory_map
@@ -18,5 +22,4 @@ firrtl -i test.fir -o test_out.v
 	hierarchy -top miter
 
 	sat -verify -prove trigger 0 -set-init-zero -seq 10 miter
-'
-
+"
