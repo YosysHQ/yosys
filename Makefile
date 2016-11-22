@@ -417,6 +417,21 @@ else
 SEEDOPT=""
 endif
 
+# Pre-require: Compile all '.cc'
+UNITESTPATH := tests/unit
+
+unit-test:
+	@$(MAKE) -C $(UNITESTPATH) OBJS="$(OBJS)" CXX="$(CXX)" \
+												CPPFLAGS="$(CPPFLAGS)" \
+												CXXFLAGS="$(CXXFLAGS)" LD="$(LD)" LDFLAGS="$(LDFLAGS)" \
+												LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)"
+
+run-all-unitest:
+	@$(MAKE) -C $(UNITESTPATH) run-tests
+
+clean-unit-test:
+	@$(MAKE) -C $(UNITESTPATH) clean
+
 test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
