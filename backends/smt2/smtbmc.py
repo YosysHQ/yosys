@@ -25,6 +25,7 @@ from collections import defaultdict
 skip_steps = 0
 step_size = 1
 num_steps = 20
+append_steps = 0
 vcdfile = None
 cexfile = None
 vlogtbfile = None
@@ -92,13 +93,18 @@ yosys-smtbmc [options] <yosys_smt2_output>
         when using -g or -i, create a dump file for each
         step. The character '%' is replaces in all dump
         filenames with the step number.
+
+    --append <num_steps>
+        add <num_steps> time steps at the end of the trace
+        when creating a counter example (this additional time
+        steps will still be constrained by assumtions)
 """ + so.helpmsg())
     sys.exit(1)
 
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "cex=", "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo"])
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo", "append="])
 except:
     usage()
 
@@ -134,6 +140,8 @@ for o, a in opts:
         dumpall = True
     elif o == "--noinfo":
         noinfo = True
+    elif o == "--append":
+        append_steps = int(a)
     elif o == "-i":
         tempind = True
     elif o == "-g":
@@ -668,10 +676,20 @@ else:  # not tempind
 
                 if smt.check_sat() == "sat":
                     print("%s BMC failed!" % smt.timestamp())
+                    if append_steps > 0:
+                        for i in range(last_check_step+1, last_check_step+1+append_steps):
+                            print_msg("Appending additional step %d." % i)
+                            smt.write("(declare-fun s%d () |%s_s|)" % (i, topmod))
+                            smt.write("(assert (|%s_u| s%d))" % (topmod, i))
+                            smt.write("(assert (|%s_h| s%d))" % (topmod, i))
+                            smt.write("(assert (|%s_t| s%d s%d))" % (topmod, i-1, i))
+                            smt.write("(assert %s)" % get_constr_expr(constr_assumes, i))
+                        print_msg("Re-solving with appended steps..")
+                        assert smt.check_sat() == "sat"
                     print_anyconsts(step)
                     for i in range(step, last_check_step+1):
                         print_failed_asserts(i)
-                    write_trace(0, last_check_step+1, '%')
+                    write_trace(0, last_check_step+1+append_steps, '%')
                     retstatus = False
                     break
 
