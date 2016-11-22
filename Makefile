@@ -18,6 +18,7 @@ ENABLE_LIBYOSYS := 0
 # other configuration flags
 ENABLE_GPROF := 0
 ENABLE_NDEBUG := 0
+LINK_CURSES := 0
 
 # clang sanitizers
 SANITIZER =
@@ -196,6 +197,10 @@ endif
 ifeq ($(ENABLE_READLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_READLINE
 LDLIBS += -lreadline
+ifeq ($(LINK_CURSES),1)
+LDLIBS += -lcurses
+ABCMKARGS += "ABC_READLINE_LIBRARIES=-lcurses -lreadline"
+endif
 ifeq ($(CONFIG),mxe)
 LDLIBS += -lpdcurses
 endif
