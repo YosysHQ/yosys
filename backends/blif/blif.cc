@@ -112,7 +112,7 @@ struct BlifDumper
 				str[i] = '?';
 
 		if (sig.wire->width != 1)
-			str += stringf("[%d]", sig.offset);
+			str += stringf("[%d]", sig.wire->upto ? sig.wire->start_offset+sig.wire->width-sig.offset-1 : sig.wire->start_offset+sig.offset);
 
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
