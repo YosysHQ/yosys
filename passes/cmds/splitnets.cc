@@ -37,14 +37,20 @@ struct SplitnetsWorker
 			new_wire_name += format.substr(0, 1);
 
 		if (width > 1) {
-			new_wire_name += stringf("%d", offset+width-1);
+			if (wire->upto)
+				new_wire_name += stringf("%d", wire->start_offset+wire->width-(offset+width)-1);
+			else
+				new_wire_name += stringf("%d", wire->start_offset+offset+width-1);
 			if (format.size() > 2)
 				new_wire_name += format.substr(2, 1);
 			else
 				new_wire_name += ":";
 		}
 
-		new_wire_name += stringf("%d", offset);
+		if (wire->upto)
+			new_wire_name += stringf("%d", wire->start_offset+wire->width-offset-1);
+		else
+			new_wire_name += stringf("%d", wire->start_offset+offset);
 
 		if (format.size() > 1)
 			new_wire_name += format.substr(1, 1);
