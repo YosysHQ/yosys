@@ -303,10 +303,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-D" && argidx+1 < args.size()) {
 				std::string name = args[++argidx], value;
-				size_t equal = name.find('=', 2);
+				size_t equal = name.find('=');
 				if (equal != std::string::npos) {
-					value = arg.substr(equal+1);
-					name = arg.substr(0, equal);
+					value = name.substr(equal+1);
+					name = name.substr(0, equal);
 				}
 				defines_map[name] = value;
 				continue;
