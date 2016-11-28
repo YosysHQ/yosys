@@ -292,6 +292,8 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 		if (tok == "`include") {
 			skip_spaces();
 			std::string fn = next_token(true);
+			while (fn.size() > 1 && fn[0] == '`' && defines_map.count(fn.substr(1)) > 0)
+				fn = defines_map.at(fn.substr(1));
 			while (1) {
 				size_t pos = fn.find('"');
 				if (pos == std::string::npos)
