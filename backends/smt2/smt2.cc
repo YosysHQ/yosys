@@ -749,6 +749,10 @@ struct Smt2Worker
 
 		if (verbose) log("=> export logic driving hierarchical cells\n");
 
+		for (auto cell : module->cells())
+			if (module->design->module(cell->type) != nullptr)
+				export_cell(cell);
+
 		while (!hiercells_queue.empty())
 		{
 			std::set<RTLIL::Cell*> queue;
