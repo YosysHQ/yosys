@@ -17,10 +17,8 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/celltypes.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "frontends/ast/ast.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -82,11 +80,18 @@ struct DesignPass : public Pass {
 		log("\n");
 		log("Copy modules from the current design into the specified one.\n");
 		log("\n");
+		log("\n");
+		log("    design -reset-vlog\n");
+		log("\n");
+		log("The Verilog front-end remembers defined macros and top-level declarations\n");
+		log("between calls to 'read_verilog'. This command resets this memory.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		bool got_mode = false;
 		bool reset_mode = false;
+		bool reset_vlog_mode = false;
 		bool push_mode = false;
 		bool pop_mode = false;
 		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
@@ -100,6 +105,11 @@ struct DesignPass : public Pass {
 			if (!got_mode && args[argidx] == "-reset") {
 				got_mode = true;
 				reset_mode = true;
+				continue;
+			}
+			if (!got_mode && args[argidx] == "-reset-vlog") {
+				got_mode = true;
+				reset_vlog_mode = true;
 				continue;
 			}
 			if (!got_mode && args[argidx] == "-push") {
@@ -235,12 +245,22 @@ struct DesignPass : public Pass {
 			design->selection_stack.push_back(RTLIL::Selection());
 		}
 
+		if (reset_mode || reset_vlog_mode || !load_name.empty() || push_mode || pop_mode)
+		{
+			for (auto node : design->verilog_packages)
+				delete node;
+			design->verilog_packages.clear();
+
+			for (auto node : design->verilog_globals)
+				delete node;
+			design->verilog_globals.clear();
+
+			design->verilog_defines.clear();
+		}
+
 		if (!load_name.empty() || pop_mode)
 		{
 			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
-
-			if (pop_mode)
-				pushed_designs.pop_back();
 
 			for (auto &it : saved_design->modules_)
 				design->add(it.second->clone());
@@ -248,6 +268,11 @@ struct DesignPass : public Pass {
 			design->selection_stack = saved_design->selection_stack;
 			design->selection_vars = saved_design->selection_vars;
 			design->selected_active_module = saved_design->selected_active_module;
+
+			if (pop_mode) {
+				delete saved_design;
+				pushed_designs.pop_back();
+			}
 		}
 	}
 } DesignPass;
