@@ -639,12 +639,24 @@ struct Smt2Worker
 			if (wire->attributes.count("\\init")) {
 				RTLIL::SigSpec sig = sigmap(wire);
 				Const val = wire->attributes.at("\\init");
-				val.bits.resize(GetSize(sig));
+				val.bits.resize(GetSize(sig), State::Sx);
 				if (bvmode && GetSize(sig) > 1) {
-					init_list.push_back(stringf("(= %s #b%s) ; %s", get_bv(sig).c_str(), val.as_string().c_str(), get_id(wire)));
+					Const mask(State::S1, GetSize(sig));
+					bool use_mask = false;
+					for (int i = 0; i < GetSize(sig); i++)
+						if (val[i] != State::S0 && val[i] != State::S1) {
+							val[i] = State::S0;
+							mask[i] = State::S0;
+							use_mask = true;
+						}
+					if (use_mask)
+						init_list.push_back(stringf("(= (bvand %s #b%s) #b%s) ; %s", get_bv(sig).c_str(), mask.as_string().c_str(), val.as_string().c_str(), get_id(wire)));
+					else
+						init_list.push_back(stringf("(= %s #b%s) ; %s", get_bv(sig).c_str(), val.as_string().c_str(), get_id(wire)));
 				} else {
 					for (int i = 0; i < GetSize(sig); i++)
-						init_list.push_back(stringf("(= %s %s) ; %s", get_bool(sig[i]).c_str(), val.bits[i] == State::S1 ? "true" : "false", get_id(wire)));
+						if (val[i] == State::S0 || val[i] == State::S1)
+							init_list.push_back(stringf("(= %s %s) ; %s", get_bool(sig[i]).c_str(), val[i] == State::S1 ? "true" : "false", get_id(wire)));
 				}
 			}
 
