@@ -337,6 +337,11 @@ assert topmod is not None
 assert topmod in smt.modinfo
 
 if cexfile is not None:
+    if not got_topt:
+        assume_skipped = 0
+        skip_steps = 0
+        num_steps = 0
+
     with open(cexfile, "r") as f:
         cex_regex = re.compile(r'([^\[@=]+)(\[\d+\])?([^@=]*)(@\d+)=([01])')
         for entry in f.read().split():
@@ -368,10 +373,19 @@ if cexfile is not None:
             # print("cex@%d: %s" % (step, smtexpr))
             constr_assumes[step].append((cexfile, smtexpr))
 
+            if not got_topt:
+                skip_steps = max(skip_steps, step)
+                num_steps = max(num_steps, step+1)
+
 if aigprefix is not None:
     input_map = dict()
     init_map = dict()
     latch_map = dict()
+
+    if not got_topt:
+        assume_skipped = 0
+        skip_steps = 0
+        num_steps = 0
 
     with open(aigprefix + ".aim", "r") as f:
         for entry in f.read().splitlines():
@@ -473,8 +487,7 @@ if aigprefix is not None:
                     constr_assumes[step].append((cexfile, smtexpr))
 
             if not got_topt:
-                skip_steps = step
-                assume_skipped = 0
+                skip_steps = max(skip_steps, step)
                 num_steps = max(num_steps, step+1)
             step += 1
 
