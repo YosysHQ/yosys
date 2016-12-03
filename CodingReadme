@@ -411,3 +411,83 @@ Updating the website:
 	git commit -am update
 	make push
 
+----
+# Adding unit test
+
+Unit test brings some advantages, briefly, we can list (reference
+[1](http://www.onjava.com/pub/a/onjava/2003/04/02/javaxpckbk.html)):
+
+* Tests Reduce Bugs in New Features;
+* Tests Reduce Bugs in Existing Features;
+* Tests Are Good Documentation;
+* Tests Reduce the Cost of Change;
+* Tests Allow Refactoring;
+
+With those advantages in mind, it was required to choose a Framework which fits
+well with C++ code.  Hence it was chosen (google test)
+[https://github.com/google/googletest], because of its large use and easy way
+to use.
+
+----
+## Install and configure google test (manually)
+
+In this section you will see a brief description of how to install google test
+library. However, it is strongly recommended that you take a look at
+https://github.com/google/googletest
+
+Follow the steps below:
+
+* You will need to install: cmake
+* Clone google repository from https://github.com/rodrigosiqueira/logbook.git
+  and enter on it.
+* Type:
+
+```
+cmake -DBUILD_SHARED_LIBS=ON .
+make
+```
+
+* After compilation, copy all "*.so" generated with the command below:
+
+```
+cp googlemock/libgmock_main.so googlemock/gtest/libgtest.so \
+  ./googlemock/gtest/libgtest_main.so ./googlemock/libgmock.so /usr/lib/
+```
+
+* Done! Now you can compile your tests.
+
+If you have any problem, go to the official repository to find help.
+
+----
+## Create new unit test
+
+If you want to add new unit tests for Yosys, you have to follow the steps
+below:
+
+* Go to:
+
+```
+cd yosys/test/unit/
+```
+
+* In this directory you can find something similar Yosys directory structure
+(if not, just create it). Produce your test file following this pattern:
+fileToImplementTest + Test.cc. E.g.: if you want to implement the unit test for
+kernel/celledges.cc, you will have this file
+tests/unit/kernel/celledgesTest.cc;
+* Implement your unit test;
+* If you want to compile your tests, just go to yosys root folder and type:
+
+```
+make unit-test
+```
+
+----
+## Run unit test
+
+To run all unit test, you need to compile it first and then run. Follow the
+steps below (from yosys root directory):
+```
+make unit-test
+make run-all-unitest
+```

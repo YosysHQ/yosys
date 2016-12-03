@@ -27,3 +27,6 @@
 /yosys-win32-vcxsrc-*
 /yosysjs-*
 /libyosys.so
+*/*.gch
+tests/unit/bintest/
+tests/unit/objtest/
