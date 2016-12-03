@@ -45,11 +45,12 @@ struct AigerWriter
 	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, ff_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
+	vector<pair<SigBit, SigBit>> asserts, assumes;
 	pool<SigBit> initstate_bits;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
-	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0;
+	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0, aig_b = 0, aig_c = 0;
 
 	dict<SigBit, int> aig_map;
 	dict<SigBit, int> ordered_outputs;
@@ -146,6 +147,22 @@ struct AigerWriter
 				continue;
 			}
 
+			if (cell->type == "$assert")
+			{
+				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				asserts.push_back(make_pair(A, EN));
+				continue;
+			}
+
+			if (cell->type == "$assume")
+			{
+				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				assumes.push_back(make_pair(A, EN));
+				continue;
+			}
+
 			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
@@ -225,6 +242,20 @@ struct AigerWriter
 			ordered_outputs[bit] = aig_o-1;
 			aig_outputs.push_back(bit2aig(bit));
 		}
+
+		for (auto it : asserts) {
+			aig_b++;
+			int bit_a = bit2aig(it.first);
+			int bit_en = bit2aig(it.second);
+			aig_outputs.push_back(mkgate(bit_a^1, bit_en));
+		}
+
+		for (auto it : assumes) {
+			aig_c++;
+			int bit_a = bit2aig(it.first);
+			int bit_en = bit2aig(it.second);
+			aig_outputs.push_back(mkgate(bit_a^1, bit_en)^1);
+		}
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode, bool miter_mode, bool symbols_mode)
@@ -232,12 +263,18 @@ struct AigerWriter
 		log_assert(aig_m == aig_i + aig_l + aig_a);
 		log_assert(aig_l == GetSize(aig_latchin));
 		log_assert(aig_l == GetSize(aig_latchinit));
-		log_assert(aig_o == GetSize(aig_outputs));
+		log_assert((aig_o + aig_b + aig_c) == GetSize(aig_outputs));
 
-		if (miter_mode)
-			f << stringf("%s %d %d %d 0 %d %d\n", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l,  aig_a, aig_o);
-		else
-			f << stringf("%s %d %d %d %d %d\n", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_o, aig_a);
+		if (miter_mode) {
+			if (aig_b || aig_c)
+				log_error("Running AIGER back-end in -miter mode, but design contains $assert and/or $assume cells!\n");
+			f << stringf("%s %d %d %d 0 %d %d\n", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_a, aig_o);
+		} else {
+			f << stringf("%s %d %d %d %d %d", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_o, aig_a);
+			if (aig_b || aig_c)
+				f << stringf(" %d %d", aig_b, aig_c);
+			f << stringf("\n");
+		}
 
 		if (ascii_mode)
 		{
@@ -253,7 +290,7 @@ struct AigerWriter
 					f << stringf("%d %d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i), 2*(aig_i+i)+2);
 			}
 
-			for (int i = 0; i < aig_o; i++)
+			for (int i = 0; i < aig_o + aig_b + aig_c; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
 
 			for (int i = 0; i < aig_a; i++)
@@ -270,7 +307,7 @@ struct AigerWriter
 					f << stringf("%d %d\n", aig_latchin.at(i), 2*(aig_i+i)+2);
 			}
 
-			for (int i = 0; i < aig_o; i++)
+			for (int i = 0; i < aig_o + aig_b + aig_c; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
 
 			for (int i = 0; i < aig_a; i++) {
@@ -418,7 +455,11 @@ struct AigerBackend : public Backend {
 		log("    write_aiger [options] [filename]\n");
 		log("\n");
 		log("Write the current design to an AIGER file. The design must be flattened and\n");
-		log("must not contain any cell types except $_AND_, $_NOT_, and simple FF types.\n");
+		log("must not contain any cell types except $_AND_, $_NOT_, simple FF types,\n");
+		log("$assert and $assume cells, and $initstate cells.\n");
+		log("\n");
+		log("$assert and $assume cells are converted to AIGER bad state properties and\n");
+		log("invariant constraints.\n");
 		log("\n");
 		log("    -ascii\n");
 		log("        write ASCII version of AGIER format\n");
