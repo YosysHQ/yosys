@@ -45,6 +45,9 @@ TARGETS = yosys$(EXE) yosys-config
 PRETTY = 1
 SMALL = 0
 
+# Unit test
+UNITESTPATH := tests/unit
+
 all: top-all
 
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
@@ -446,6 +449,17 @@ vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 	@echo "  Passed \"make vloghtb\"."
 	@echo ""
+
+# Unit test
+unit-test: libyosys.so
+	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
+		CXXFLAGS="$(CXXFLAGS)" LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)"
+
+run-all-unitest:
+	@$(MAKE) -C $(UNITESTPATH) run-tests
+
+clean-unit-test:
+	@$(MAKE) -C $(UNITESTPATH) clean
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
