@@ -36,6 +36,8 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		log("    synth_greenpak4 [options]\n");
 		log("\n");
 		log("This command runs synthesis for GreenPAK4 FPGAs. This work is experimental.\n");
+		log("It is intended to be used with https://github.com/azonenberg/openfpga as the\n");
+		log("place-and-route.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
