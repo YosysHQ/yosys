@@ -240,6 +240,74 @@ module GP_DFFSRI(input D, CLK, nSR, output reg nQ);
 	end
 endmodule
 
+module GP_DLATCHR(input D, input nCLK, input nRST, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	initial Q = INIT;
+	always @(*) begin
+		if(!nRST)
+			Q <= 1'b0;
+		else if(!nCLK)
+			Q <= D;
+	end
+endmodule
+
+module GP_DLATCHRI(input D, input nCLK, input nRST, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	initial Q = INIT;
+	always @(*) begin
+		if(!nRST)
+			Q <= 1'b1;
+		else if(!nCLK)
+			Q <= ~D;
+	end
+endmodule
+
+module GP_DLATCHS(input D, input nCLK, input nSET, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	initial Q = INIT;
+	always @(*) begin
+		if(!nSET)
+			Q <= 1'b1;
+		else if(!nCLK)
+			Q <= D;
+	end
+endmodule
+
+module GP_DLATCHSI(input D, input nCLK, input nSET, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	initial Q = INIT;
+	always @(*) begin
+		if(!nSET)
+			Q <= 1'b0;
+		else if(!nCLK)
+			Q <= ~D;
+	end
+endmodule
+
+module GP_DLATCHSR(input D, input nCLK, input nSR, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	parameter[0:0] SRMODE = 1'bx;
+	initial Q = INIT;
+	always @(*) begin
+		if(!nSR)
+			Q <= SRMODE;
+		else if(!nCLK)
+			Q <= D;
+	end
+endmodule
+
+module GP_DLATCHSRI(input D, input nCLK, input nSR, output reg Q);
+	parameter [0:0] INIT = 1'bx;
+	parameter[0:0] SRMODE = 1'bx;
+	initial Q = INIT;
+	always @(*) begin
+		if(!nSR)
+			Q <= ~SRMODE;
+		else if(!nCLK)
+			Q <= ~D;
+	end
+endmodule
+
 module GP_EDGEDET(input IN, output reg OUT);
 
 	parameter EDGE_DIRECTION = "RISING";
