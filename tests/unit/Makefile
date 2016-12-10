@@ -2,26 +2,33 @@ GTESTFLAG := -lgtest -lgtest_main
 RPATH := -Wl,-rpath
 EXTRAFLAGS := -lyosys
 
-ALLTESTFILE := $(wildcard ./**/*Test.cc)
 OBJTEST := objtest
 BINTEST := bintest
 
-all: prepare $(ALLTESTFILE:%Test.cc=%Test.o)
+ALLTESTFILE := $(shell find -name '*Test.cc' -printf '%P ')
+TESTDIRS := $(sort $(dir $(ALLTESTFILE)))
+TESTS := $(addprefix $(BINTEST)/, $(basename $(ALLTESTFILE:%Test.cc=%Test.o)))
 
-%Test.o: %Test.cc
-	$(CXX) -o $(OBJTEST)/$(notdir $@) -c -I$(ROOTPATH) $(CPPFLAGS) $(CXXFLAGS) $<
-	$(CXX) -L$(ROOTPATH) $(RPATH)=$(ROOTPATH) -o \
-		$(BINTEST)/$(basename $(notdir $@)) $(OBJTEST)/$(notdir $@) $(LDLIBS) \
+# Prevent make from removing our .o files
+.SECONDARY:
+
+all: prepare $(TESTS) run-tests
+
+$(BINTEST)/%: $(OBJTEST)/%.o
+	$(CXX) -L$(ROOTPATH) $(RPATH)=$(ROOTPATH) -o $@ $^ $(LDLIBS) \
 		$(GTESTFLAG) $(EXTRAFLAGS)
-	
+
+$(OBJTEST)/%.o: $(basename $(subst $(OBJTEST),.,%)).cc
+	$(CXX) -o $@ -c -I$(ROOTPATH) $(CPPFLAGS) $(CXXFLAGS) $^
+
 .PHONY: prepare run-tests clean
 
-run-tests:
-	$(CURDIR)/$(BINTEST)/*
+run-tests: $(TESTS)
+	$(subst Test ,Test; ,$^)
 
 prepare:
-	mkdir -p $(OBJTEST)
-	mkdir -p $(BINTEST)
+	mkdir -p $(addprefix $(BINTEST)/,$(TESTDIRS))
+	mkdir -p $(addprefix $(OBJTEST)/,$(TESTDIRS))
 
 clean:
 	rm -rf $(OBJTEST)

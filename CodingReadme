@@ -436,8 +436,8 @@ test. However, it is strongly recommended that you take a look to the official
 repository (https://github.com/google/googletest) and refers to that if you
 have any problem to install it. Follow the steps below:
 
-* Install: cmake
-* Clone google test project from: //github.com/rodrigosiqueira/logbook.git and
+* Install: cmake and pthread
+* Clone google test project from: https://github.com/google/googletest and
   enter in the project directory
 * Inside project directory, type:
 
