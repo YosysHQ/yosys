@@ -249,12 +249,12 @@ module GP_DLATCH(input D, input nCLK, output reg Q);
 	end
 endmodule
 
-module GP_DLATCHI(input D, input nCLK, output reg Q);
+module GP_DLATCHI(input D, input nCLK, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(*) begin
 		if(!nCLK)
-			Q <= ~D;
+			nQ <= ~D;
 	end
 endmodule
 
@@ -269,14 +269,14 @@ module GP_DLATCHR(input D, input nCLK, input nRST, output reg Q);
 	end
 endmodule
 
-module GP_DLATCHRI(input D, input nCLK, input nRST, output reg Q);
+module GP_DLATCHRI(input D, input nCLK, input nRST, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(*) begin
 		if(!nRST)
-			Q <= 1'b1;
+			nQ <= 1'b1;
 		else if(!nCLK)
-			Q <= ~D;
+			nQ <= ~D;
 	end
 endmodule
 
@@ -291,14 +291,14 @@ module GP_DLATCHS(input D, input nCLK, input nSET, output reg Q);
 	end
 endmodule
 
-module GP_DLATCHSI(input D, input nCLK, input nSET, output reg Q);
+module GP_DLATCHSI(input D, input nCLK, input nSET, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(*) begin
 		if(!nSET)
-			Q <= 1'b0;
+			nQ <= 1'b0;
 		else if(!nCLK)
-			Q <= ~D;
+			nQ <= ~D;
 	end
 endmodule
 
@@ -314,15 +314,15 @@ module GP_DLATCHSR(input D, input nCLK, input nSR, output reg Q);
 	end
 endmodule
 
-module GP_DLATCHSRI(input D, input nCLK, input nSR, output reg Q);
+module GP_DLATCHSRI(input D, input nCLK, input nSR, output reg nQ);
 	parameter [0:0] INIT = 1'bx;
 	parameter[0:0] SRMODE = 1'bx;
-	initial Q = INIT;
+	initial nQ = INIT;
 	always @(*) begin
 		if(!nSR)
-			Q <= ~SRMODE;
+			nQ <= ~SRMODE;
 		else if(!nCLK)
-			Q <= ~D;
+			nQ <= ~D;
 	end
 endmodule
 
