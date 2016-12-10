@@ -161,6 +161,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			run("memory_map");
 			run("opt -undriven -fine");
 			run("techmap");
+			run("techmap -map +/greenpak4/cells_latch.v");
 			run("dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
 			run("opt -fast");
 			if (retime || help_mode)
