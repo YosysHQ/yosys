@@ -18,7 +18,11 @@ endmodule
 module GP_ABUF(input wire IN, output wire OUT);
 	
 	assign OUT = IN;
-	
+
+	//must be 1, 5, 20, 50
+	//values >1 only available with Vdd > 2.7V
+	parameter BANDWIDTH_KHZ = 1;
+
 	//cannot simulate mixed signal IP
 	
 endmodule
@@ -410,6 +414,10 @@ module GP_PGEN(input wire nRST, input wire CLK, output reg OUT);
 		end
 	end
 	
+endmodule
+
+module GP_PWRDET(output reg VDD_LOW);
+	initial VDD_LOW = 0;
 endmodule
 
 module GP_POR(output reg RST_DONE);
