@@ -429,7 +429,7 @@ well with C/C++ code.  Hence, it was chosen (google test)
 relatively easy learn.
 
 Install and configure google test (manually)
-============================================
+--------------------------------------------
 
 In this section, you will see a brief description of how to install google
 test. However, it is strongly recommended that you take a look to the official
@@ -456,7 +456,7 @@ Ps.: Some distros already have googletest packed. If your distro supports it,
 you can use it instead of compile.
 
 Create new unit test
-=======================
+--------------------
 
 If you want to add new unit tests for Yosys, just follow the steps below:
 
@@ -467,19 +467,13 @@ If you want to add new unit tests for Yosys, just follow the steps below:
   unit test for kernel/celledges.cc, you will need to create a file like this:
   tests/unit/kernel/celledgesTest.cc;
 * Implement your unit test
-* If you want to compile your tests, just go to yosys root directory and type:
-```
-make unit-test
-```
 
 Run unit test
-=============
+-------------
 
-To run all unit tests, you need to compile it first and then run it. Follow the
-steps below (from the yosys root directory):
+To compile and run all unit tests, just go to yosys root directory and type:
 ```
 make unit-test
-make run-all-unitest
 ```
 
 If you want to remove all unit test files, type:
