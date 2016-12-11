@@ -163,6 +163,13 @@ struct AigerWriter
 				continue;
 			}
 
+			if (cell->type == "$anyconst")
+			{
+				for (auto bit : sigmap(cell->getPort("\\Y")))
+					ff_map[bit] = bit;
+				continue;
+			}
+
 			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
