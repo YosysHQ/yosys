@@ -1,6 +1,7 @@
 *.o
 *.d
 .*.swp
+*.gch
 /.cproject
 /.project
 /.settings
@@ -27,3 +28,5 @@
 /yosys-win32-vcxsrc-*
 /yosysjs-*
 /libyosys.so
+/tests/unit/bintest/
+/tests/unit/objtest/
