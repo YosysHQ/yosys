@@ -137,7 +137,7 @@ module GP_DCMPREF(output OUT);
 	wire[7:0] OUT = REF_VAL;
 endmodule
 
-module GP_DCMPMUX(input SEL, input IN0, input IN1, input IN2, input IN3, output OUT)
+module GP_DCMPMUX(input SEL, input IN0, input IN1, input IN2, input IN3, output OUT);
 	wire[1:0] SEL;
 	wire[7:0] IN0;
 	wire[7:0] IN1;
