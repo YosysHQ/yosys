@@ -132,18 +132,12 @@ module GP_DAC(input[7:0] DIN, input wire VREF, output reg VOUT);
 
 endmodule
 
-module GP_DCMPREF(output OUT);
+module GP_DCMPREF(output reg[7:0]OUT);
 	parameter[7:0] REF_VAL = 8'h00;
-	wire[7:0] OUT = REF_VAL;
+	initial OUT = REF_VAL;
 endmodule
 
-module GP_DCMPMUX(input SEL, input IN0, input IN1, input IN2, input IN3, output OUT);
-	wire[1:0] SEL;
-	wire[7:0] IN0;
-	wire[7:0] IN1;
-	wire[7:0] IN2;
-	wire[7:0] IN3;
-	reg[7:0] OUT;
+module GP_DCMPMUX(input[1:0] SEL, input[7:0] IN0, input[7:0] IN1, input[7:0] IN2, input[7:0] IN3, output reg[7:0] OUT);
 
 	always @(*) begin
 		case(SEL)
