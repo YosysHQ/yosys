@@ -132,7 +132,7 @@ module GP_DAC(input[7:0] DIN, input wire VREF, output reg VOUT);
 
 endmodule
 
-module GP_DCMPREF(output OUT)
+module GP_DCMPREF(output OUT);
 	parameter[7:0] REF_VAL = 8'h00;
 	wire[7:0] OUT = REF_VAL;
 endmodule
