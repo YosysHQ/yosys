@@ -151,7 +151,7 @@ module GP_DCMPMUX(input SEL, input IN0, input IN1, input IN2, input IN3, output 
 			2'b10: OUT <= IN1;
 			2'b01: OUT <= IN2;
 			2'b11: OUT <= IN3;
-		end
+		endcase
 	end
 endmodule
 
