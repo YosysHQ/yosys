@@ -16,7 +16,7 @@ module GP_4LUT(input IN0, IN1, IN2, IN3, output OUT);
 endmodule
 
 module GP_ABUF(input wire IN, output wire OUT);
-	
+
 	assign OUT = IN;
 
 	//must be 1, 5, 20, 50
@@ -24,7 +24,7 @@ module GP_ABUF(input wire IN, output wire OUT);
 	parameter BANDWIDTH_KHZ = 1;
 
 	//cannot simulate mixed signal IP
-	
+
 endmodule
 
 module GP_ACMP(input wire PWREN, input wire VIN, input wire VREF, output reg OUT);
@@ -33,9 +33,9 @@ module GP_ACMP(input wire PWREN, input wire VIN, input wire VREF, output reg OUT
 	parameter VIN_ATTEN = 1;
 	parameter VIN_ISRC_EN = 0;
 	parameter HYSTERESIS = 0;
-	
+
 	initial OUT = 0;
-	
+
 	//cannot simulate mixed signal IP
 
 endmodule
@@ -44,37 +44,37 @@ module GP_BANDGAP(output reg OK);
 	parameter AUTO_PWRDN = 1;
 	parameter CHOPPER_EN = 1;
 	parameter OUT_DELAY = 100;
-	
+
 	//cannot simulate mixed signal IP
-	
+
 endmodule
 
 module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 
-	parameter RESET_MODE 	= "RISING";	
-	
+	parameter RESET_MODE 	= "RISING";
+
 	parameter COUNT_TO		= 8'h1;
 	parameter CLKIN_DIVIDE	= 1;
-	
+
 	//more complex hard IP blocks are not supported for simulation yet
-	
+
 	reg[7:0] count = COUNT_TO;
-	
+
 	//Combinatorially output whenever we wrap low
 	always @(*) begin
 		OUT <= (count == 8'h0);
 	end
-	
+
 	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
 	//Runtime reset value is clearly 0 except in count/FSM cells where it's configurable but we leave at 0 for now.
 	//Datasheet seems to indicate that reset is asynchronous, but for now we model as sync due to Yosys issues...
 	always @(posedge CLK) begin
-		
+
 		count		<= count - 1'd1;
-		
+
 		if(count == 0)
 			count	<= COUNT_TO;
-			
+
 		/*
 		if((RESET_MODE == "RISING") && RST)
 			count	<= 0;
@@ -82,18 +82,18 @@ module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 			count	<= 0;
 		if((RESET_MODE == "BOTH") && RST)
 			count	<= 0;
-		*/			
+		*/
 	end
 
 endmodule
 
 module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
-	parameter RESET_MODE 	= "RISING";	
-	
+	parameter RESET_MODE 	= "RISING";
+
 	parameter COUNT_TO		= 14'h1;
 	parameter CLKIN_DIVIDE	= 1;
-	
+
 	//more complex hard IP blocks are not supported for simulation yet
 
 endmodule
@@ -156,14 +156,14 @@ module GP_DCMPMUX(input SEL, input IN0, input IN1, input IN2, input IN3, output 
 endmodule
 
 module GP_DELAY(input IN, output reg OUT);
-	
+
 	parameter DELAY_STEPS = 1;
 	parameter GLITCH_FILTER = 0;
-		
+
 	initial OUT = 0;
-	
+
 	generate
-		
+
 		//TODO: These delays are PTV dependent! For now, hard code 3v3 timing
 		//Change simulation-mode delay depending on global Vdd range (how to specify this?)
 		always @(*) begin
@@ -178,9 +178,9 @@ module GP_DELAY(input IN, output reg OUT);
 				end
 			endcase
 		end
-		
+
 	endgenerate
-	
+
 endmodule
 
 module GP_DFF(input D, CLK, output reg Q);
@@ -358,9 +358,9 @@ module GP_EDGEDET(input IN, output reg OUT);
 	parameter EDGE_DIRECTION = "RISING";
 	parameter DELAY_STEPS = 1;
 	parameter GLITCH_FILTER = 0;
-	
+
 	//not implemented for simulation
-	
+
 endmodule
 
 module GP_IBUF(input IN, output OUT);
@@ -377,16 +377,16 @@ module GP_INV(input IN, output OUT);
 endmodule
 
 module GP_LFOSC(input PWRDN, output reg CLKOUT);
-	
+
 	parameter PWRDN_EN = 0;
 	parameter AUTO_PWRDN = 0;
 	parameter OUT_DIV = 1;
-	
+
 	initial CLKOUT = 0;
-	
+
 	//auto powerdown not implemented for simulation
 	//output dividers not implemented for simulation
-	
+
 	always begin
 		if(PWRDN)
 			CLKOUT = 0;
@@ -396,7 +396,7 @@ module GP_LFOSC(input PWRDN, output reg CLKOUT);
 			CLKOUT = ~CLKOUT;
 		end
 	end
-	
+
 endmodule
 
 module GP_OBUF(input IN, output OUT);
@@ -433,10 +433,10 @@ module GP_PGEN(input wire nRST, input wire CLK, output reg OUT);
 			OUT <= PATTERN_DATA[count];
 
 			if( (count + 1) == PATTERN_LEN)
-				count <= 0;			
+				count <= 0;
 		end
 	end
-	
+
 endmodule
 
 module GP_PWRDET(output reg VDD_LOW);
@@ -445,10 +445,10 @@ endmodule
 
 module GP_POR(output reg RST_DONE);
 	parameter POR_TIME = 500;
-	
+
 	initial begin
 		RST_DONE = 0;
-		
+
 		if(POR_TIME == 4)
 			#4000;
 		else if(POR_TIME == 500)
@@ -457,64 +457,64 @@ module GP_POR(output reg RST_DONE);
 			$display("ERROR: bad POR_TIME for GP_POR cell");
 			$finish;
 		end
-		
+
 		RST_DONE = 1;
-		
+
 	end
-	
+
 endmodule
 
 module GP_RCOSC(input PWRDN, output reg CLKOUT_HARDIP, output reg CLKOUT_FABRIC);
-	
+
 	parameter PWRDN_EN = 0;
 	parameter AUTO_PWRDN = 0;
 	parameter HARDIP_DIV = 1;
 	parameter FABRIC_DIV = 1;
 	parameter OSC_FREQ = "25k";
-	
+
 	initial CLKOUT_HARDIP = 0;
 	initial CLKOUT_FABRIC = 0;
-	
+
 	//output dividers not implemented for simulation
 	//auto powerdown not implemented for simulation
-	
+
 	always begin
 		if(PWRDN) begin
 			CLKOUT_HARDIP = 0;
 			CLKOUT_FABRIC = 0;
 		end
 		else begin
-		
+
 			if(OSC_FREQ == "25k") begin
 				//half period of 25 kHz
 				#20000;
 			end
-			
+
 			else begin
 				//half period of 2 MHz
 				#250;
 			end
-			
+
 			CLKOUT_HARDIP = ~CLKOUT_HARDIP;
 			CLKOUT_FABRIC = ~CLKOUT_FABRIC;
 		end
 	end
-	
+
 endmodule
 
 module GP_RINGOSC(input PWRDN, output reg CLKOUT_HARDIP, output reg CLKOUT_FABRIC);
-	
+
 	parameter PWRDN_EN = 0;
 	parameter AUTO_PWRDN = 0;
 	parameter HARDIP_DIV = 1;
 	parameter FABRIC_DIV = 1;
-	
+
 	initial CLKOUT_HARDIP = 0;
 	initial CLKOUT_FABRIC = 0;
-	
+
 	//output dividers not implemented for simulation
 	//auto powerdown not implemented for simulation
-	
+
 	always begin
 		if(PWRDN) begin
 			CLKOUT_HARDIP = 0;
@@ -527,7 +527,7 @@ module GP_RINGOSC(input PWRDN, output reg CLKOUT_HARDIP, output reg CLKOUT_FABRI
 			CLKOUT_FABRIC = ~CLKOUT_FABRIC;
 		end
 	end
-	
+
 endmodule
 
 module GP_SHREG(input nRST, input CLK, input IN, output OUTA, output OUTB);
@@ -535,19 +535,19 @@ module GP_SHREG(input nRST, input CLK, input IN, output OUTA, output OUTB);
 	parameter OUTA_TAP = 1;
 	parameter OUTA_INVERT = 0;
 	parameter OUTB_TAP = 1;
-	
+
 	reg[15:0] shreg = 0;
-	
+
 	always @(posedge CLK, negedge nRST) begin
-		
+
 		if(!nRST)
 			shreg = 0;
-		
+
 		else
 			shreg <= {shreg[14:0], IN};
-		
+
 	end
-	
+
 	assign OUTA = (OUTA_INVERT) ? ~shreg[OUTA_TAP - 1] : shreg[OUTA_TAP - 1];
 	assign OUTB = shreg[OUTB_TAP - 1];
 
@@ -558,9 +558,9 @@ endmodule
 module GP_SYSRESET(input RST);
 	parameter RESET_MODE = "EDGE";
 	parameter EDGE_SPEED = 4;
-	
+
 	//cannot simulate whole system reset
-	
+
 endmodule
 
 module GP_VDD(output OUT);
