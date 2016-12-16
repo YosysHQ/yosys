@@ -49,6 +49,10 @@ module GP_BANDGAP(output reg OK);
 
 endmodule
 
+module GP_CLKBUF(input wire IN, output wire OUT);
+	assign OUT = IN;
+endmodule
+
 module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 
 	parameter RESET_MODE 	= "RISING";
@@ -132,7 +136,8 @@ module GP_DAC(input[7:0] DIN, input wire VREF, output reg VOUT);
 
 endmodule
 
-module GP_DCMP(input[7:0] INP, input[7:0] INN, input CLK, input PWRDN);
+module GP_DCMP(input[7:0] INP, input[7:0] INN, input CLK, input PWRDN, output reg OUTP, output reg OUTN);
+	//TODO finish implementing
 endmodule
 
 module GP_DCMPREF(output reg[7:0]OUT);
@@ -144,22 +149,22 @@ module GP_DCMPMUX(input[1:0] SEL, input[7:0] IN0, input[7:0] IN1, input[7:0] IN2
 
 	always @(*) begin
 		case(SEL)
-			2'b00: begin
+			2'd00: begin
 				OUTA <= IN0;
 				OUTB <= IN3;
 			end
 
-			2'b01: begin
+			2'd01: begin
 				OUTA <= IN1;
 				OUTB <= IN2;
 			end
 
-			2'b02: begin
+			2'd02: begin
 				OUTA <= IN2;
 				OUTB <= IN1;
 			end
 
-			2'b03: begin
+			2'd03: begin
 				OUTA <= IN3;
 				OUTB <= IN0;
 			end
