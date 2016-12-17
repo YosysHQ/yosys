@@ -136,8 +136,26 @@ module GP_DAC(input[7:0] DIN, input wire VREF, output reg VOUT);
 
 endmodule
 
-module GP_DCMP(input[7:0] INP, input[7:0] INN, input CLK, input PWRDN, output reg OUTP, output reg OUTN);
-	//TODO finish implementing
+module GP_DCMP(input[7:0] INP, input[7:0] INN, input CLK, input PWRDN, output reg GREATER, output reg EQUAL);
+	parameter PWRDN_SYNC = 1'b0;
+	parameter CLK_EDGE = "RISING";
+	parameter GREATER_OR_EQUAL = 1'b0;
+
+	//TODO implement power-down mode
+
+	initial GREATER = 0;
+	initial EQUAL = 0;
+
+	wire clk_minv = (CLK_EDGE == "RISING") ? CLK : ~CLK;
+	always @(posedge clk_minv) begin
+		if(GREATER_OR_EQUAL)
+			GREATER <= (INP >= INN);
+		else
+			GREATER <= (INP > INN);
+
+		EQUAL <= (INP == INN);
+	end
+
 endmodule
 
 module GP_DCMPREF(output reg[7:0]OUT);
