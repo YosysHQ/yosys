@@ -436,6 +436,66 @@ struct VerilogDefaults : public Pass {
 	}
 } VerilogDefaults;
 
+struct VerilogDefines : public Pass {
+	VerilogDefines() : Pass("verilog_defines", "define and undefine verilog defines") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    verilog_defines [options]\n");
+		log("\n");
+		log("Define and undefine verilog preprocessor macros.\n");
+		log("\n");
+		log("    -Dname[=definition]\n");
+		log("        define the preprocessor symbol 'name' and set its optional value\n");
+		log("        'definition'\n");
+		log("\n");
+		log("    -Uname[=definition]\n");
+		log("        undefine the preprocessor symbol 'name'\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-D" && argidx+1 < args.size()) {
+				std::string name = args[++argidx], value;
+				size_t equal = name.find('=');
+				if (equal != std::string::npos) {
+					value = name.substr(equal+1);
+					name = name.substr(0, equal);
+				}
+				design->verilog_defines[name] = std::pair<std::string, bool>(value, false);
+				continue;
+			}
+			if (arg.compare(0, 2, "-D") == 0) {
+				size_t equal = arg.find('=', 2);
+				std::string name = arg.substr(2, equal-2);
+				std::string value;
+				if (equal != std::string::npos)
+					value = arg.substr(equal+1);
+				design->verilog_defines[name] = std::pair<std::string, bool>(value, false);
+				continue;
+			}
+			if (arg == "-U" && argidx+1 < args.size()) {
+				std::string name = args[++argidx];
+				design->verilog_defines.erase(name);
+				continue;
+			}
+			if (arg.compare(0, 2, "-U") == 0) {
+				std::string name = arg.substr(2);
+				design->verilog_defines.erase(name);
+				continue;
+			}
+			break;
+		}
+
+		if (args.size() != argidx)
+			cmd_error(args, argidx, "Extra argument.");
+	}
+} VerilogDefines;
+
 YOSYS_NAMESPACE_END
 
 // the yyerror function used by bison to report parser errors
