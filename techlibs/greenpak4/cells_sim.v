@@ -594,10 +594,10 @@ module GP_SPI(
 	input MOSI,
 	input CSN,
 	output reg MISO,
-	input[7:0] DIN_HIGH,
-	input[7:0] DIN_LOW,
-	output reg[7:0] DOUT_HIGH,
-	output reg[7:0] DOUT_LOW);
+	input[7:0] TXD_HIGH,
+	input[7:0] TXD_LOW,
+	output reg[7:0] RXD_HIGH,
+	output reg[7:0] RXD_LOW);
 
 	initial MISO = 0;
 	initial DOUT_HIGH = 0;
