@@ -591,7 +591,7 @@ endmodule
 
 module GP_SPI(
 	input SCK,
-	input MOSI,
+	inout SDAT,
 	input CSN,
 	output reg MISO,
 	input[7:0] TXD_HIGH,
@@ -599,7 +599,6 @@ module GP_SPI(
 	output reg[7:0] RXD_HIGH,
 	output reg[7:0] RXD_LOW);
 
-	initial MISO = 0;
 	initial DOUT_HIGH = 0;
 	initial DOUT_LOW = 0;
 
