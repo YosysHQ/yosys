@@ -589,6 +589,33 @@ module GP_SHREG(input nRST, input CLK, input IN, output OUTA, output OUTB);
 
 endmodule
 
+module GP_SPI(
+	input SCK,
+	input MOSI,
+	input CSN,
+	output reg MISO,
+	input[7:0] DIN_HIGH,
+	input[7:0] DIN_LOW,
+	output reg[7:0] DOUT_HIGH,
+	output reg[7:0] DOUT_LOW);
+
+	initial MISO = 0;
+	initial DOUT_HIGH = 0;
+	initial DOUT_LOW = 0;
+
+	parameter ADC_BUFFER = 0;		//set true to use SPI data as ADC buffer... TODO
+	parameter DATA_WIDTH = 8;		//byte or word width
+	parameter SPI_CPHA = 0;			//SPI clock phase
+	parameter SPI_CPOL = 0;			//SPI clock polarity
+	parameter DIRECTION = "INPUT";	//SPI data direction (either input to chip or output to host)
+	//parallel output to fabric not yet implemented
+
+	//TODO: write sim model
+	//TODO: SPI SDIO control... can we use ADC output while SPI is input??
+	//TODO: clock sync
+
+endmodule
+
 //keep constraint needed to prevent optimization since we have no outputs
 (* keep *)
 module GP_SYSRESET(input RST);
