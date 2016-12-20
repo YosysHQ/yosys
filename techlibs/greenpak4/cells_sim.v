@@ -602,7 +602,6 @@ module GP_SPI(
 	initial DOUT_HIGH = 0;
 	initial DOUT_LOW = 0;
 
-	parameter ADC_BUFFER = 0;		//set true to use SPI data as ADC buffer... TODO
 	parameter DATA_WIDTH = 8;		//byte or word width
 	parameter SPI_CPHA = 0;			//SPI clock phase
 	parameter SPI_CPOL = 0;			//SPI clock polarity
