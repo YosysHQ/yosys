@@ -596,10 +596,12 @@ module GP_SPI(
 	input[7:0] TXD_HIGH,
 	input[7:0] TXD_LOW,
 	output reg[7:0] RXD_HIGH,
-	output reg[7:0] RXD_LOW);
+	output reg[7:0] RXD_LOW,
+	output reg INT);
 
 	initial DOUT_HIGH = 0;
 	initial DOUT_LOW = 0;
+	initial INT = 0;
 
 	parameter DATA_WIDTH = 8;		//byte or word width
 	parameter SPI_CPHA = 0;			//SPI clock phase
