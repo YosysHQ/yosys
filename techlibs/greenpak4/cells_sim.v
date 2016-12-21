@@ -593,7 +593,6 @@ module GP_SPI(
 	input SCK,
 	inout SDAT,
 	input CSN,
-	output reg MISO,
 	input[7:0] TXD_HIGH,
 	input[7:0] TXD_LOW,
 	output reg[7:0] RXD_HIGH,
