@@ -41,6 +41,7 @@ YOSYS_NAMESPACE_BEGIN
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
+std::vector<std::regex> log_warn_regexes;
 bool log_hdump_all = false;
 FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
@@ -136,6 +137,32 @@ void logv(const char *format, va_list ap)
 
 	for (auto f : log_streams)
 		*f << str;
+
+	static std::string linebuffer;
+	static bool log_warn_regex_recusion_guard = false;
+
+	if (!log_warn_regex_recusion_guard)
+	{
+		log_warn_regex_recusion_guard = true;
+
+		if (log_warn_regexes.empty())
+		{
+			linebuffer.clear();
+		}
+		else
+		{
+			linebuffer += str;
+
+			if (!linebuffer.empty() && linebuffer.back() == '\n') {
+				for (auto &re : log_warn_regexes)
+					if (std::regex_search(linebuffer, re))
+						log_warning("Found log message matching -W regex:\n%s", str.c_str());
+				linebuffer.clear();
+			}
+		}
+
+		log_warn_regex_recusion_guard = false;
+	}
 }
 
 void logv_header(RTLIL::Design *design, const char *format, va_list ap)
@@ -262,8 +289,12 @@ void log_cmd_error(const char *format, ...)
 
 void log_spacer()
 {
-	while (log_newline_count < 2)
+	while (log_newline_count < 2) {
+		int old_log_newline_count = log_newline_count;
 		log("\n");
+		if (old_log_newline_count >= log_newline_count)
+			break;
+	}
 }
 
 void log_push()
