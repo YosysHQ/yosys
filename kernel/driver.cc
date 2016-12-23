@@ -218,6 +218,9 @@ int main(int argc, char **argv)
 		printf("        yosys_dump_<header_id>.il is used as filename if none is specified.\n");
 		printf("        Use 'ALL' as <header_id> to dump at every header.\n");
 		printf("\n");
+		printf("    -W regex\n");
+		printf("        print a warning for all log messages matching the regex \n");
+		printf("\n");
 		printf("    -V\n");
 		printf("        print version information and exit\n");
 		printf("\n");
@@ -238,7 +241,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:D:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:D:")) != -1)
 	{
 		switch (opt)
 		{
@@ -319,6 +322,12 @@ int main(int argc, char **argv)
 		case 'c':
 			scriptfile = optarg;
 			scriptfile_tcl = true;
+			break;
+		case 'W':
+			log_warn_regexes.push_back(std::regex(optarg,
+					std::regex_constants::nosubs |
+					std::regex_constants::optimize |
+					std::regex_constants::egrep));
 			break;
 		case 'D':
 			{

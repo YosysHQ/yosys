@@ -45,6 +45,9 @@ TARGETS = yosys$(EXE) yosys-config
 PRETTY = 1
 SMALL = 0
 
+# Unit test
+UNITESTPATH := tests/unit
+
 all: top-all
 
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
@@ -83,7 +86,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 8b555d9e67cf
+ABCREV = a4872e22c646
 ABCPULL = 1
 ABCURL ?= https://bitbucket.org/alanmi/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)"
@@ -446,6 +449,14 @@ vloghtb: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 	@echo "  Passed \"make vloghtb\"."
 	@echo ""
+
+# Unit test
+unit-test: libyosys.so
+	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
+		CXXFLAGS="$(CXXFLAGS)" LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)"
+
+clean-unit-test:
+	@$(MAKE) -C $(UNITESTPATH) clean
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)

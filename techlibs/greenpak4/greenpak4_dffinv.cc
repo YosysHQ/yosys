@@ -26,6 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 void invert_gp_dff(Cell *cell, bool invert_input)
 {
 	string cell_type = cell->type.str();
+	bool cell_type_latch = cell_type.find("LATCH") != string::npos;
 	bool cell_type_i = cell_type.find('I') != string::npos;
 	bool cell_type_r = cell_type.find('R') != string::npos;
 	bool cell_type_s = cell_type.find('S') != string::npos;
@@ -79,25 +80,28 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 		cell_type_i = true;
 	}
 
-	cell->type = stringf("\\GP_DFF%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : "");
+	if(cell_type_latch)
+		cell->type = stringf("\\GP_DLATCH%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : "");
+	else
+		cell->type = stringf("\\GP_DFF%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : "");
 
 	log("Merged %s inverter into cell %s.%s: %s -> %s\n", invert_input ? "input" : "output",
 			log_id(cell->module), log_id(cell), cell_type.c_str()+1, log_id(cell->type));
 }
 
 struct Greenpak4DffInvPass : public Pass {
-	Greenpak4DffInvPass() : Pass("greenpak4_dffinv", "merge greenpak4 inverters and DFFs") { }
+	Greenpak4DffInvPass() : Pass("greenpak4_dffinv", "merge greenpak4 inverters and DFF/latches") { }
 	virtual void help()
 	{
 		log("\n");
 		log("    greenpak4_dffinv [options] [selection]\n");
 		log("\n");
-		log("Merge GP_INV cells with GP_DFF* cells.\n");
+		log("Merge GP_INV cells with GP_DFF* and GP_DLATCH* cells.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header(design, "Executing GREENPAK4_DFFINV pass (merge synchronous set/reset into FF cells).\n");
+		log_header(design, "Executing GREENPAK4_DFFINV pass (merge input/output inverters into FF/latch cells).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -119,6 +123,15 @@ struct Greenpak4DffInvPass : public Pass {
 		gp_dff_types.insert("\\GP_DFFSI");
 		gp_dff_types.insert("\\GP_DFFSR");
 		gp_dff_types.insert("\\GP_DFFSRI");
+
+		gp_dff_types.insert("\\GP_DLATCH");
+		gp_dff_types.insert("\\GP_DLATCHI");
+		gp_dff_types.insert("\\GP_DLATCHR");
+		gp_dff_types.insert("\\GP_DLATCHRI");
+		gp_dff_types.insert("\\GP_DLATCHS");
+		gp_dff_types.insert("\\GP_DLATCHSI");
+		gp_dff_types.insert("\\GP_DLATCHSR");
+		gp_dff_types.insert("\\GP_DLATCHSRI");
 
 		for (auto module : design->selected_modules())
 		{

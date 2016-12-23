@@ -903,6 +903,8 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 			command = "verilog";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".il")
 			command = "ilang";
+		else if (filename.size() > 4 && filename.substr(filename.size()-4) == ".aig")
+			command = "aiger";
 		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".blif")
 			command = "blif";
 		else if (filename.size() > 5 && filename.substr(filename.size()-5) == ".edif")
