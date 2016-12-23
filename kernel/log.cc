@@ -289,12 +289,8 @@ void log_cmd_error(const char *format, ...)
 
 void log_spacer()
 {
-	while (log_newline_count < 2) {
-		int old_log_newline_count = log_newline_count;
-		log("\n");
-		if (old_log_newline_count >= log_newline_count)
-			break;
-	}
+	if (log_newline_count < 2) log("\n");
+	if (log_newline_count < 2) log("\n");
 }
 
 void log_push()
