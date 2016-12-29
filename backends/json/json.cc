@@ -333,6 +333,10 @@ struct JsonBackend : public Backend {
 		log("connected to a constant driver are denoted as string \"0\" or \"1\" instead of\n");
 		log("a number.\n");
 		log("\n");
+		log("Numeric parameter and attribute values up to 32 bits are written as decimal\n");
+		log("values. Numbers larger than that are written as string holding the binary\n");
+		log("representation of the value.\n");
+		log("\n");
 		log("For example the following Verilog code:\n");
 		log("\n");
 		log("    module test(input x, y);\n");
