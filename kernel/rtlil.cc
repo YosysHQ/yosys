@@ -2766,10 +2766,11 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 		other->unpack();
 	}
 
-	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+	for (int i = GetSize(bits_) - 1; i >= 0; i--)
+	{
 		if (bits_[i].wire == NULL) continue;
 
-		for (auto &pattern_chunk : pattern.chunks()) {
+		for (auto &pattern_chunk : pattern.chunks())
 			if (bits_[i].wire == pattern_chunk.wire &&
 				bits_[i].offset >= pattern_chunk.offset &&
 				bits_[i].offset < pattern_chunk.offset + pattern_chunk.width) {
@@ -2779,8 +2780,8 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 					other->bits_.erase(other->bits_.begin() + i);
 					other->width_--;
 				}
+				break;
 			}
-		}
 	}
 
 	check();
