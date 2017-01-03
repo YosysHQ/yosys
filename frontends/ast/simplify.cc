@@ -1864,7 +1864,8 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "\\$ln" || str == "\\$log10" || str == "\\$exp" || str == "\\$sqrt" || str == "\\$pow" ||
 					str == "\\$floor" || str == "\\$ceil" || str == "\\$sin" || str == "\\$cos" || str == "\\$tan" ||
 					str == "\\$asin" || str == "\\$acos" || str == "\\$atan" || str == "\\$atan2" || str == "\\$hypot" ||
-					str == "\\$sinh" || str == "\\$cosh" || str == "\\$tanh" || str == "\\$asinh" || str == "\\$acosh" || str == "\\$atanh")
+					str == "\\$sinh" || str == "\\$cosh" || str == "\\$tanh" || str == "\\$asinh" || str == "\\$acosh" || str == "\\$atanh" ||
+					str == "\\$rtoi" || str == "\\$itor")
 			{
 				bool func_with_two_arguments = str == "\\$pow" || str == "\\$atan2" || str == "\\$hypot";
 				double x = 0, y = 0;
@@ -1901,29 +1902,34 @@ skip_dynamic_range_lvalue_expansion:;
 					y = children[1]->asReal(child_sign_hint);
 				}
 
-				newNode = new AstNode(AST_REALVALUE);
-				if (str == "\\$ln")         newNode->realvalue = ::log(x);
-				else if (str == "\\$log10") newNode->realvalue = ::log10(x);
-				else if (str == "\\$exp")   newNode->realvalue = ::exp(x);
-				else if (str == "\\$sqrt")  newNode->realvalue = ::sqrt(x);
-				else if (str == "\\$pow")   newNode->realvalue = ::pow(x, y);
-				else if (str == "\\$floor") newNode->realvalue = ::floor(x);
-				else if (str == "\\$ceil")  newNode->realvalue = ::ceil(x);
-				else if (str == "\\$sin")   newNode->realvalue = ::sin(x);
-				else if (str == "\\$cos")   newNode->realvalue = ::cos(x);
-				else if (str == "\\$tan")   newNode->realvalue = ::tan(x);
-				else if (str == "\\$asin")  newNode->realvalue = ::asin(x);
-				else if (str == "\\$acos")  newNode->realvalue = ::acos(x);
-				else if (str == "\\$atan")  newNode->realvalue = ::atan(x);
-				else if (str == "\\$atan2") newNode->realvalue = ::atan2(x, y);
-				else if (str == "\\$hypot") newNode->realvalue = ::hypot(x, y);
-				else if (str == "\\$sinh")  newNode->realvalue = ::sinh(x);
-				else if (str == "\\$cosh")  newNode->realvalue = ::cosh(x);
-				else if (str == "\\$tanh")  newNode->realvalue = ::tanh(x);
-				else if (str == "\\$asinh") newNode->realvalue = ::asinh(x);
-				else if (str == "\\$acosh") newNode->realvalue = ::acosh(x);
-				else if (str == "\\$atanh") newNode->realvalue = ::atanh(x);
-				else log_abort();
+				if (str == "\\$rtoi") {
+					newNode = AstNode::mkconst_int(x, true);
+				} else {
+					newNode = new AstNode(AST_REALVALUE);
+					if (str == "\\$ln")         newNode->realvalue = ::log(x);
+					else if (str == "\\$log10") newNode->realvalue = ::log10(x);
+					else if (str == "\\$exp")   newNode->realvalue = ::exp(x);
+					else if (str == "\\$sqrt")  newNode->realvalue = ::sqrt(x);
+					else if (str == "\\$pow")   newNode->realvalue = ::pow(x, y);
+					else if (str == "\\$floor") newNode->realvalue = ::floor(x);
+					else if (str == "\\$ceil")  newNode->realvalue = ::ceil(x);
+					else if (str == "\\$sin")   newNode->realvalue = ::sin(x);
+					else if (str == "\\$cos")   newNode->realvalue = ::cos(x);
+					else if (str == "\\$tan")   newNode->realvalue = ::tan(x);
+					else if (str == "\\$asin")  newNode->realvalue = ::asin(x);
+					else if (str == "\\$acos")  newNode->realvalue = ::acos(x);
+					else if (str == "\\$atan")  newNode->realvalue = ::atan(x);
+					else if (str == "\\$atan2") newNode->realvalue = ::atan2(x, y);
+					else if (str == "\\$hypot") newNode->realvalue = ::hypot(x, y);
+					else if (str == "\\$sinh")  newNode->realvalue = ::sinh(x);
+					else if (str == "\\$cosh")  newNode->realvalue = ::cosh(x);
+					else if (str == "\\$tanh")  newNode->realvalue = ::tanh(x);
+					else if (str == "\\$asinh") newNode->realvalue = ::asinh(x);
+					else if (str == "\\$acosh") newNode->realvalue = ::acosh(x);
+					else if (str == "\\$atanh") newNode->realvalue = ::atanh(x);
+					else if (str == "\\$itor")  newNode->realvalue = x;
+					else log_abort();
+				}
 				goto apply_newNode;
 			}
 
