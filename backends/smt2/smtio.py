@@ -633,7 +633,7 @@ class SmtOpts:
         elif o == "--noincr":
             self.noincr = True
         elif o == "--noprogress":
-            self.timeinfo = True
+            self.timeinfo = False
         elif o == "--dump-smt2":
             self.debug_file = open(a, "w")
         elif o == "--logic":
