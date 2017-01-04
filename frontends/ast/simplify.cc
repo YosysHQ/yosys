@@ -1083,6 +1083,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		did_something = true;
 	}
 
+	// check for local objects in unnamed block
+	if (type == AST_BLOCK && str.empty())
+	{
+		for (size_t i = 0; i < children.size(); i++)
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM)
+				log_error("Local declaration in unnamed block at %s:%d is an unsupported SystemVerilog feature!\n",
+						children[i]->filename.c_str(), children[i]->linenum);
+	}
+
 	// transform block with name
 	if (type == AST_BLOCK && !str.empty())
 	{
@@ -1091,7 +1100,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
-			if (children[i]->type == AST_WIRE || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM) {
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM) {
 				children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(children[i]);
 				current_scope[children[i]->str] = children[i];
