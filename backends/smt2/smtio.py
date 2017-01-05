@@ -16,7 +16,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import sys, subprocess, re
+import sys, subprocess, re, os
 from copy import deepcopy
 from select import select
 from time import time
@@ -73,7 +73,7 @@ class SmtIo:
             self.debug_print = False
             self.debug_file = None
             self.dummy_file = None
-            self.timeinfo = True
+            self.timeinfo = os.name != "nt"
             self.unroll = False
             self.noincr = False
             self.info_stmts = list()
@@ -618,7 +618,7 @@ class SmtOpts:
         self.dummy_file = None
         self.unroll = False
         self.noincr = False
-        self.timeinfo = True
+        self.timeinfo = os.name != "nt"
         self.logic = None
         self.info_stmts = list()
         self.nocomments = False
@@ -633,7 +633,7 @@ class SmtOpts:
         elif o == "--noincr":
             self.noincr = True
         elif o == "--noprogress":
-            self.timeinfo = True
+            self.timeinfo = False
         elif o == "--dump-smt2":
             self.debug_file = open(a, "w")
         elif o == "--logic":
@@ -673,6 +673,7 @@ class SmtOpts:
 
     --noprogress
         disable timer display during solving
+        (this option is set implicitly on Windows)
 
     --dump-smt2 <filename>
         write smt2 statements to file

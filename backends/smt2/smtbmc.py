@@ -201,10 +201,9 @@ for fn in inconstr:
                     current_states = set(["final-%d" % i for i in range(0, num_steps+1)])
                     constr_final_start = 0
                 elif len(tokens) == 2:
-                    i = int(tokens[1])
-                    assert i < 0
-                    current_states = set(["final-%d" % i for i in range(-i, num_steps+1)])
-                    constr_final_start = -i if constr_final_start is None else min(constr_final_start, -i)
+                    arg = abs(int(tokens[1]))
+                    current_states = set(["final-%d" % i for i in range(arg, num_steps+1)])
+                    constr_final_start = arg if constr_final_start is None else min(constr_final_start, arg)
                 else:
                     assert False
                 continue
@@ -232,9 +231,8 @@ for fn in inconstr:
                 if len(tokens) == 1:
                     current_states = set(range(0, num_steps+1))
                 elif len(tokens) == 2:
-                    i = int(tokens[1])
-                    assert i < 0
-                    current_states = set(range(-i, num_steps+1))
+                    arg = abs(int(tokens[1]))
+                    current_states = set(range(arg, num_steps+1))
                 else:
                     assert False
                 continue

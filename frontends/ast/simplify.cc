@@ -1083,6 +1083,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		did_something = true;
 	}
 
+	// check for local objects in unnamed block
+	if (type == AST_BLOCK && str.empty())
+	{
+		for (size_t i = 0; i < children.size(); i++)
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM)
+				log_error("Local declaration in unnamed block at %s:%d is an unsupported SystemVerilog feature!\n",
+						children[i]->filename.c_str(), children[i]->linenum);
+	}
+
 	// transform block with name
 	if (type == AST_BLOCK && !str.empty())
 	{
@@ -1091,7 +1100,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
-			if (children[i]->type == AST_WIRE || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM) {
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM) {
 				children[i]->simplify(false, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(children[i]);
 				current_scope[children[i]->str] = children[i];
@@ -1864,7 +1873,8 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "\\$ln" || str == "\\$log10" || str == "\\$exp" || str == "\\$sqrt" || str == "\\$pow" ||
 					str == "\\$floor" || str == "\\$ceil" || str == "\\$sin" || str == "\\$cos" || str == "\\$tan" ||
 					str == "\\$asin" || str == "\\$acos" || str == "\\$atan" || str == "\\$atan2" || str == "\\$hypot" ||
-					str == "\\$sinh" || str == "\\$cosh" || str == "\\$tanh" || str == "\\$asinh" || str == "\\$acosh" || str == "\\$atanh")
+					str == "\\$sinh" || str == "\\$cosh" || str == "\\$tanh" || str == "\\$asinh" || str == "\\$acosh" || str == "\\$atanh" ||
+					str == "\\$rtoi" || str == "\\$itor")
 			{
 				bool func_with_two_arguments = str == "\\$pow" || str == "\\$atan2" || str == "\\$hypot";
 				double x = 0, y = 0;
@@ -1901,29 +1911,34 @@ skip_dynamic_range_lvalue_expansion:;
 					y = children[1]->asReal(child_sign_hint);
 				}
 
-				newNode = new AstNode(AST_REALVALUE);
-				if (str == "\\$ln")         newNode->realvalue = ::log(x);
-				else if (str == "\\$log10") newNode->realvalue = ::log10(x);
-				else if (str == "\\$exp")   newNode->realvalue = ::exp(x);
-				else if (str == "\\$sqrt")  newNode->realvalue = ::sqrt(x);
-				else if (str == "\\$pow")   newNode->realvalue = ::pow(x, y);
-				else if (str == "\\$floor") newNode->realvalue = ::floor(x);
-				else if (str == "\\$ceil")  newNode->realvalue = ::ceil(x);
-				else if (str == "\\$sin")   newNode->realvalue = ::sin(x);
-				else if (str == "\\$cos")   newNode->realvalue = ::cos(x);
-				else if (str == "\\$tan")   newNode->realvalue = ::tan(x);
-				else if (str == "\\$asin")  newNode->realvalue = ::asin(x);
-				else if (str == "\\$acos")  newNode->realvalue = ::acos(x);
-				else if (str == "\\$atan")  newNode->realvalue = ::atan(x);
-				else if (str == "\\$atan2") newNode->realvalue = ::atan2(x, y);
-				else if (str == "\\$hypot") newNode->realvalue = ::hypot(x, y);
-				else if (str == "\\$sinh")  newNode->realvalue = ::sinh(x);
-				else if (str == "\\$cosh")  newNode->realvalue = ::cosh(x);
-				else if (str == "\\$tanh")  newNode->realvalue = ::tanh(x);
-				else if (str == "\\$asinh") newNode->realvalue = ::asinh(x);
-				else if (str == "\\$acosh") newNode->realvalue = ::acosh(x);
-				else if (str == "\\$atanh") newNode->realvalue = ::atanh(x);
-				else log_abort();
+				if (str == "\\$rtoi") {
+					newNode = AstNode::mkconst_int(x, true);
+				} else {
+					newNode = new AstNode(AST_REALVALUE);
+					if (str == "\\$ln")         newNode->realvalue = ::log(x);
+					else if (str == "\\$log10") newNode->realvalue = ::log10(x);
+					else if (str == "\\$exp")   newNode->realvalue = ::exp(x);
+					else if (str == "\\$sqrt")  newNode->realvalue = ::sqrt(x);
+					else if (str == "\\$pow")   newNode->realvalue = ::pow(x, y);
+					else if (str == "\\$floor") newNode->realvalue = ::floor(x);
+					else if (str == "\\$ceil")  newNode->realvalue = ::ceil(x);
+					else if (str == "\\$sin")   newNode->realvalue = ::sin(x);
+					else if (str == "\\$cos")   newNode->realvalue = ::cos(x);
+					else if (str == "\\$tan")   newNode->realvalue = ::tan(x);
+					else if (str == "\\$asin")  newNode->realvalue = ::asin(x);
+					else if (str == "\\$acos")  newNode->realvalue = ::acos(x);
+					else if (str == "\\$atan")  newNode->realvalue = ::atan(x);
+					else if (str == "\\$atan2") newNode->realvalue = ::atan2(x, y);
+					else if (str == "\\$hypot") newNode->realvalue = ::hypot(x, y);
+					else if (str == "\\$sinh")  newNode->realvalue = ::sinh(x);
+					else if (str == "\\$cosh")  newNode->realvalue = ::cosh(x);
+					else if (str == "\\$tanh")  newNode->realvalue = ::tanh(x);
+					else if (str == "\\$asinh") newNode->realvalue = ::asinh(x);
+					else if (str == "\\$acosh") newNode->realvalue = ::acosh(x);
+					else if (str == "\\$atanh") newNode->realvalue = ::atanh(x);
+					else if (str == "\\$itor")  newNode->realvalue = x;
+					else log_abort();
+				}
 				goto apply_newNode;
 			}
 
@@ -2158,7 +2173,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		for (auto child : decl->children)
-			if (child->type == AST_WIRE || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+			if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
 			{
 				AstNode *wire = nullptr;
 
@@ -2218,7 +2233,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		for (auto child : decl->children)
-			if (child->type != AST_WIRE && child->type != AST_PARAMETER && child->type != AST_LOCALPARAM)
+			if (child->type != AST_WIRE && child->type != AST_MEMORY && child->type != AST_PARAMETER && child->type != AST_LOCALPARAM)
 			{
 				AstNode *stmt = child->clone();
 				stmt->replace_ids(prefix, replace_rules);
