@@ -2173,7 +2173,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		for (auto child : decl->children)
-			if (child->type == AST_WIRE || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
+			if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM)
 			{
 				AstNode *wire = nullptr;
 
@@ -2233,7 +2233,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		for (auto child : decl->children)
-			if (child->type != AST_WIRE && child->type != AST_PARAMETER && child->type != AST_LOCALPARAM)
+			if (child->type != AST_WIRE && child->type != AST_MEMORY && child->type != AST_PARAMETER && child->type != AST_LOCALPARAM)
 			{
 				AstNode *stmt = child->clone();
 				stmt->replace_ids(prefix, replace_rules);
