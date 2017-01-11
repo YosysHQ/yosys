@@ -789,6 +789,7 @@ else:  # not tempind
         for i in range(1, step_size):
             if step+i < num_steps:
                 smt.write("(declare-fun s%d () |%s_s|)" % (step+i, topmod))
+                smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step+i))
                 smt.write("(assert (|%s_u| s%d))" % (topmod, step+i))
                 smt.write("(assert (|%s_h| s%d))" % (topmod, step+i))
                 smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step+i-1, step+i))
@@ -812,6 +813,7 @@ else:  # not tempind
                         for i in range(last_check_step+1, last_check_step+1+append_steps):
                             print_msg("Appending additional step %d." % i)
                             smt.write("(declare-fun s%d () |%s_s|)" % (i, topmod))
+                            smt.write("(assert (not (|%s_is| s%d)))" % (topmod, i))
                             smt.write("(assert (|%s_u| s%d))" % (topmod, i))
                             smt.write("(assert (|%s_h| s%d))" % (topmod, i))
                             smt.write("(assert (|%s_t| s%d s%d))" % (topmod, i-1, i))
