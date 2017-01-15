@@ -3079,6 +3079,8 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		if (bit_part_sel)
 			children.push_back(bit_part_sel);
+
+		did_something = true;
 	}
 
 	log_assert(id2ast == NULL || mem2reg_set.count(id2ast) == 0);
