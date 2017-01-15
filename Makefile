@@ -252,14 +252,14 @@ define add_share_file
 EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
 $(subst //,/,$(1)/$(notdir $(2))): $(2)
 	$$(P) mkdir -p $(1)
-	$$(Q) cp "$(YOSYS_SRC)"/$(2) $(subst //,/,$(1)/$(notdir $(2)))
+	$$(Q) cp -p "$(YOSYS_SRC)"/$(2) $(subst //,/,$(1)/$(notdir $(2)))
 endef
 
 define add_gen_share_file
 EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
 $(subst //,/,$(1)/$(notdir $(2))): $(2)
 	$$(P) mkdir -p $(1)
-	$$(Q) cp $(2) $(subst //,/,$(1)/$(notdir $(2)))
+	$$(Q) cp -p $(2) $(subst //,/,$(1)/$(notdir $(2)))
 endef
 
 define add_include_file
@@ -462,7 +462,7 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) install $(TARGETS) $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
-	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
+	$(INSTALL_SUDO) cp -p -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) ldconfig
