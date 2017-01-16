@@ -128,7 +128,6 @@ struct OptPass : public Pass {
 		{
 			while (1) {
 				Pass::call(design, "opt_expr" + opt_expr_args);
-				Pass::call(design, "opt_compare");
 				Pass::call(design, "opt_merge" + opt_merge_args);
 				design->scratchpad_unset("opt.did_something");
 				Pass::call(design, "opt_rmdff" + opt_rmdff_args);
@@ -142,7 +141,6 @@ struct OptPass : public Pass {
 		else
 		{
 			Pass::call(design, "opt_expr" + opt_expr_args);
-			Pass::call(design, "opt_compare");
 			Pass::call(design, "opt_merge -nomux" + opt_merge_args);
 			while (1) {
 				design->scratchpad_unset("opt.did_something");

@@ -1166,6 +1166,67 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 			}
 		}
+        //replace a <0  or a >=0 with the top bit of a
+        if(do_fine && (cell->type == "$lt" || cell->type == "$ge"))
+        {
+            bool is_lt = cell->type == "$lt" ? 1 : 0;
+            RTLIL::SigSpec a = cell->getPort("\\A");
+            RTLIL::SigSpec b = cell->getPort("\\B");
+            int a_width = cell->parameters["\\A_WIDTH"].as_int();
+            //replace a(signed) < 0 with the high bit of a
+            if(b.is_fully_const() && b.is_fully_zero() && cell->parameters["\\A_SIGNED"].as_bool() == true){
+                RTLIL::SigSpec a_prime(RTLIL::State::S0, cell->parameters["\\Y_WIDTH"].as_int());
+                a_prime[0] = a[a_width-1];
+                if(is_lt){
+                    log("Optimizing a < 0 with a[%d]\n",a_width - 1);
+                    module->connect(cell->getPort("\\Y"), a_prime);
+                    module->remove(cell);
+                }
+                else{
+                    log("Optimizing a >= 0 with ~a[%d]\n",a_width - 1);
+                    module->addNot("$not", a_prime, cell->getPort("\\Y"));
+                    module->remove(cell);
+                } 
+                did_something = true;
+                goto next_cell;
+            }
+            else if(b.is_fully_const() && b.is_fully_def() && cell->parameters["\\A_SIGNED"].as_bool() == false){
+                int b_value = b.as_int(false);
+                if(b_value == 0){
+                    RTLIL::SigSpec a_prime(RTLIL::State::S0,1);
+                    if(is_lt){
+                        log("replacing a(unsigned) < 0 with constant false\n");
+                        a_prime[0] = RTLIL::State::S0;
+                    }
+                    else{
+                        log("replacing a(unsigned) >= 0 with constant true\n");
+                        a_prime[0] = RTLIL::State::S1;
+                    }
+                    module->connect(cell->getPort("\\Y"), a_prime);
+                    module->remove(cell);
+                    did_something = true;
+                    goto next_cell;
+                }
+                else if((b_value & -b_value) == b_value){ //if b has only 1 bit set
+                    int bit_set = ceil_log2(b_value); 
+                    RTLIL::SigSpec a_prime(RTLIL::State::S0,a_width-bit_set);
+                    for(int i = bit_set; i < a_width; i++){
+                        a_prime[i-bit_set] = a[i];
+                    }
+                    if(is_lt){
+                        log("replacing a < %d with !a[%d:%d]\n",b_value,a_width-1,bit_set);
+                        module->addLogicNot("$logic_not", a_prime,cell->getPort("\\Y"));
+                    }
+                    else{
+                        log("replacing a >= %d with |a[%d:%d]\n",b_value,a_width-1,bit_set);
+                        module->addReduceOr("$reduce_or", a_prime,cell->getPort("\\Y")); 
+                    }
+                    module->remove(cell);
+                    did_something = true;
+                    goto next_cell;
+                }
+            }
+        }
 
 	next_cell:;
 #undef ACTION_DO
