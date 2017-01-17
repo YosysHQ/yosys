@@ -192,6 +192,9 @@ YOSYS_NAMESPACE_END
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
 
+"enum"    { SV_KEYWORD(TOK_ENUM); }
+"typedef" { SV_KEYWORD(TOK_TYPEDEF); }
+
 [0-9][0-9_]* {
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_CONST;
