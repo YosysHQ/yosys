@@ -258,7 +258,27 @@ bool is_one_or_minus_one(const Const &value, bool is_signed, bool &is_negative)
 
 	return last_bit_one;
 }
-
+int get_onehot_bit_index(RTLIL::SigSpec signal){
+    if(!signal.is_fully_const())
+        return -1;
+    bool bit_set = false;
+    int bit_index = 0;
+    int i = 0;
+    for(auto bit: signal.bits()){
+        if(bit == RTLIL::State::S1){
+            if(bit_set)
+                return -1;
+            bit_index = i;
+            bit_set = true;
+        }
+        i++;
+    }
+    if(bit_set){
+        return bit_index;
+    }else{
+        return -1;
+    }
+}
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool clkinv)
 {
 	if (!design->selected(module))
@@ -1190,9 +1210,9 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
                 did_something = true;
                 goto next_cell;
             }
-            else if(b.is_fully_const() && b.is_fully_def() && cell->parameters["\\A_SIGNED"].as_bool() == false){
-                int b_value = b.as_int(false);
-                if(b_value == 0){
+            else if(b.is_fully_const() && b.is_fully_def() && cell->parameters["\\A_SIGNED"].as_bool() == false){           
+                int b_bit_set = get_onehot_bit_index(b);
+                if(b.is_fully_zero()){
                     RTLIL::SigSpec a_prime(RTLIL::State::S0,1);
                     if(is_lt){
                         log("replacing a(unsigned) < 0 with constant false\n");
@@ -1207,18 +1227,19 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
                     did_something = true;
                     goto next_cell;
                 }
-                else if((b_value & -b_value) == b_value){ //if b has only 1 bit set
-                    int bit_set = ceil_log2(b_value); 
+               
+                else if(b_bit_set >= 0){ //if b has only 1 bit set
+                    int bit_set = b_bit_set;
                     RTLIL::SigSpec a_prime(RTLIL::State::S0,a_width-bit_set);
                     for(int i = bit_set; i < a_width; i++){
                         a_prime[i-bit_set] = a[i];
                     }
                     if(is_lt){
-                        log("replacing a < %d with !a[%d:%d]\n",b_value,a_width-1,bit_set);
+                        log("replacing a < %d with !a[%d:%d]\n",b.as_int(false),a_width-1,bit_set);
                         module->addLogicNot("$logic_not", a_prime,cell->getPort("\\Y"));
                     }
                     else{
-                        log("replacing a >= %d with |a[%d:%d]\n",b_value,a_width-1,bit_set);
+                        log("replacing a >= %d with |a[%d:%d]\n",b.as_int(false),a_width-1,bit_set);
                         module->addReduceOr("$reduce_or", a_prime,cell->getPort("\\Y")); 
                     }
                     module->remove(cell);
