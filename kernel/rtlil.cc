@@ -2050,6 +2050,7 @@ RTLIL::Memory::Memory()
 	hashidx_ = hashidx_count;
 
 	width = 1;
+	start_offset = 0;
 	size = 0;
 }
 
