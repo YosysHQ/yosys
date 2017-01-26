@@ -54,13 +54,27 @@ struct FsmExpand
 			if (cell->getPort("\\A").size() < 2)
 				return true;
 
+		int in_bits = 0;
 		RTLIL::SigSpec new_signals;
-		if (cell->hasPort("\\A"))
+
+		if (cell->hasPort("\\A")) {
+			in_bits += GetSize(cell->getPort("\\A"));
 			new_signals.append(assign_map(cell->getPort("\\A")));
-		if (cell->hasPort("\\B"))
+		}
+
+		if (cell->hasPort("\\B")) {
+			in_bits += GetSize(cell->getPort("\\B"));
 			new_signals.append(assign_map(cell->getPort("\\B")));
-		if (cell->hasPort("\\S"))
+		}
+
+		if (cell->hasPort("\\S")) {
+			in_bits += GetSize(cell->getPort("\\S"));
 			new_signals.append(assign_map(cell->getPort("\\S")));
+		}
+
+		if (in_bits > 8)
+			return false;
+
 		if (cell->hasPort("\\Y"))
 			new_signals.append(assign_map(cell->getPort("\\Y")));
 
