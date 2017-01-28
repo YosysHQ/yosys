@@ -30,6 +30,7 @@ append_steps = 0
 vcdfile = None
 cexfile = None
 aigprefix = None
+aigheader = True
 vlogtbfile = None
 inconstr = list()
 outconstr = None
@@ -73,6 +74,10 @@ yosys-smtbmc [options] <yosys_smt2_output>
         and AIGER witness file. The file names are <prefix>.aim for
         the map file and <prefix>.aiw for the witness file.
 
+    --aig-noheader
+        the AIGER witness file does not include the status and
+        properties lines.
+
     --noinfo
         only run the core proof, do not collect and print any
         additional information (e.g. which assert failed)
@@ -111,7 +116,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=",
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader",
              "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo", "append="])
 except:
     usage()
@@ -141,6 +146,8 @@ for o, a in opts:
         cexfile = a
     elif o == "--aig":
         aigprefix = a
+    elif o == "--aig-noheader":
+        aigheader = False
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
@@ -411,6 +418,9 @@ if aigprefix is not None:
         got_ffinit = False
         step = 0
 
+        if not aigheader:
+            got_state = True
+
         for entry in f.read().splitlines():
             if len(entry) == 0 or entry[0] in "bcjfu.":
                 continue
@@ -458,13 +468,30 @@ if aigprefix is not None:
                     bitidx = init_map[i][1]
 
                     path = smt.get_path(topmod, name)
-                    width = smt.net_width(topmod, path)
+
+                    if not smt.net_exists(topmod, path):
+                        match = re.match(r"(.*)\[(\d+)\]$", path[-1])
+                        if match:
+                            path[-1] = match.group(1)
+                            addr = int(match.group(2))
+
+                        if not match or not smt.mem_exists(topmod, path):
+                            print_msg("Ignoring init value for unknown net: %s" % (name))
+                            continue
+
+                        meminfo = smt.mem_info(topmod, path)
+                        smtexpr = "(select [%s] #b%s)" % (".".join(path), bin(addr)[2:].zfill(meminfo[0]))
+                        width = meminfo[1]
+
+                    else:
+                        smtexpr = "[%s]" % name
+                        width = smt.net_width(topmod, path)
 
                     if width == 1:
                         assert bitidx == 0
-                        smtexpr = "(= [%s] %s)" % (name, "true" if value else "false")
+                        smtexpr = "(= %s %s)" % (smtexpr, "true" if value else "false")
                     else:
-                        smtexpr = "(= ((_ extract %d %d) [%s]) #b%d)" % (bitidx, bitidx, name, value)
+                        smtexpr = "(= ((_ extract %d %d) %s) #b%d)" % (bitidx, bitidx, smtexpr, value)
 
                     constr_assumes[0].append((cexfile, smtexpr))
 
@@ -569,7 +596,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
-            abits, width, ports = smt.mem_info(topmod, "s%d" % steps_start, mempath)
+            abits, width, ports = smt.mem_info(topmod, mempath)
             mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()
@@ -630,7 +657,7 @@ def write_constr_trace(steps_start, steps_stop, index):
 
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
-            abits, width, ports = smt.mem_info(topmod, "s%d" % steps_start, mempath)
+            abits, width, ports = smt.mem_info(topmod, mempath)
             mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()

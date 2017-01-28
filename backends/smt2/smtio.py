@@ -567,6 +567,26 @@ class SmtIo:
         assert net_path[-1] in self.modinfo[mod].wsize
         return self.modinfo[mod].wsize[net_path[-1]]
 
+    def net_exists(self, mod, net_path):
+        for i in range(len(net_path)-1):
+            if mod not in self.modinfo: return False
+            if net_path[i] not in self.modinfo[mod].cells: return False
+            mod = self.modinfo[mod].cells[net_path[i]]
+
+        if mod not in self.modinfo: return False
+        if net_path[-1] not in self.modinfo[mod].wsize: return False
+        return True
+
+    def mem_exists(self, mod, mem_path):
+        for i in range(len(mem_path)-1):
+            if mod not in self.modinfo: return False
+            if mem_path[i] not in self.modinfo[mod].cells: return False
+            mod = self.modinfo[mod].cells[mem_path[i]]
+
+        if mod not in self.modinfo: return False
+        if mem_path[-1] not in self.modinfo[mod].memories: return False
+        return True
+
     def mem_expr(self, mod, base, path, portidx=None, infomode=False):
         if len(path) == 1:
             assert mod in self.modinfo
@@ -582,8 +602,8 @@ class SmtIo:
         nextbase = "(|%s_h %s| %s)" % (mod, path[0], base)
         return self.mem_expr(nextmod, nextbase, path[1:], portidx=portidx, infomode=infomode)
 
-    def mem_info(self, mod, base, path):
-        return self.mem_expr(mod, base, path, infomode=True)
+    def mem_info(self, mod, path):
+        return self.mem_expr(mod, "", path, infomode=True)
 
     def get_net(self, mod_name, net_path, state_name):
         return self.get(self.net_expr(mod_name, state_name, net_path))
