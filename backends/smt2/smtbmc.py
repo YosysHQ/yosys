@@ -29,7 +29,8 @@ num_steps = 20
 append_steps = 0
 vcdfile = None
 cexfile = None
-aigprefix = None
+aimfile = None
+aiwfile = None
 aigheader = True
 vlogtbfile = None
 inconstr = list()
@@ -73,6 +74,10 @@ yosys-smtbmc [options] <yosys_smt2_output>
         read AIGER map file (as written by Yosys' "write_aiger -map")
         and AIGER witness file. The file names are <prefix>.aim for
         the map file and <prefix>.aiw for the witness file.
+
+    --aig <aim_filename>:<aiw_filename>
+        like above, but for map files and witness files that do not
+        share a filename prefix (or use differen file extensions).
 
     --aig-noheader
         the AIGER witness file does not include the status and
@@ -145,7 +150,11 @@ for o, a in opts:
     elif o == "--cex":
         cexfile = a
     elif o == "--aig":
-        aigprefix = a
+        if ":" in a:
+            aimfile, aiwfile = a.split(":")
+        else:
+            aimfile = a + ".aim"
+            aiwfile = a + ".aiw"
     elif o == "--aig-noheader":
         aigheader = False
     elif o == "--dump-vcd":
@@ -382,7 +391,7 @@ if cexfile is not None:
                 skip_steps = max(skip_steps, step)
                 num_steps = max(num_steps, step+1)
 
-if aigprefix is not None:
+if aimfile is not None:
     input_map = dict()
     init_map = dict()
     latch_map = dict()
@@ -392,7 +401,7 @@ if aigprefix is not None:
         skip_steps = 0
         num_steps = 0
 
-    with open(aigprefix + ".aim", "r") as f:
+    with open(aimfile, "r") as f:
         for entry in f.read().splitlines():
             entry = entry.split()
 
@@ -413,7 +422,7 @@ if aigprefix is not None:
 
             assert False
 
-    with open(aigprefix + ".aiw", "r") as f:
+    with open(aiwfile, "r") as f:
         got_state = False
         got_ffinit = False
         step = 0
