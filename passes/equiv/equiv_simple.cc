@@ -59,7 +59,7 @@ struct EquivSimpleWorker
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
 				for (auto bit : sigmap(conn.second)) {
-					if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_")) {
+					if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_")) {
 						if (!conn.first.in("\\CLK", "\\C"))
 							next_seed.insert(bit);
 					} else
@@ -329,7 +329,7 @@ struct EquivSimplePass : public Pass {
 					unproven_cells_counter, GetSize(unproven_equiv_cells), log_id(module));
 
 			for (auto cell : module->cells()) {
-				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_"))
+				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_"))
 					continue;
 				for (auto &conn : cell->connections())
 					if (yosys_celltypes.cell_output(cell->type, conn.first))
