@@ -62,15 +62,17 @@ SED = sed
 BISON = bison
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
+	BREW := $(shell command -v brew 2> /dev/null)
+	ifdef BREW
+		export PKG_CONFIG_PATH = $(shell $(BREW) list libffi | grep pkgconfig | xargs dirname)
+		BISON = $(shell $(BREW) list bison | grep -m1 "bin/bison")
+	endif
 	# add macports/homebrew include and library path to search directories, don't use '-rdynamic' and '-lrt':
 	CXXFLAGS += -I/opt/local/include -I/usr/local/opt/readline/include
 	LDFLAGS += -L/opt/local/lib -L/usr/local/opt/readline/lib
-	# add homebrew's libffi include and library path
-	CXXFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --cflags libffi)
-	LDFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --libs libffi)
-	# use bison installed by homebrew if available
-	BISON = $(shell (brew list bison | grep -m1 "bin/bison") || echo bison)
-	SED = sed
+	# add macports/homebrew's libffi include and library path
+	CXXFLAGS += $(shell pkg-config --silence-errors --cflags libffi)
+	LDFLAGS += $(shell pkg-config --silence-errors --libs libffi)
 else
 	LDFLAGS += -rdynamic
 	LDLIBS += -lrt
