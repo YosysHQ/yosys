@@ -41,9 +41,27 @@ void remove_init_attr(SigSpec sig)
 
 bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
 {
-	SigSpec sig_e = dlatch->getPort("\\EN");
+	SigSpec sig_e;
+	State on_state, off_state;
 
-	if (sig_e == State::S0)
+	if (dlatch->type == "$dlatch") {
+		sig_e = assign_map(dlatch->getPort("\\EN"));
+		on_state = dlatch->getParam("\\EN_POLARITY").as_bool() ? State::S1 : State::S0;
+		off_state = dlatch->getParam("\\EN_POLARITY").as_bool() ? State::S0 : State::S1;
+	} else
+	if (dlatch->type == "$_DLATCH_P_") {
+		sig_e = assign_map(dlatch->getPort("\\E"));
+		on_state = State::S1;
+		off_state = State::S0;
+	} else
+	if (dlatch->type == "$_DLATCH_N_") {
+		sig_e = assign_map(dlatch->getPort("\\E"));
+		on_state = State::S0;
+		off_state = State::S1;
+	} else
+		log_abort();
+
+	if (sig_e == off_state)
 	{
 		RTLIL::Const val_init;
 		for (auto bit : dff_init_map(dlatch->getPort("\\Q")))
@@ -52,7 +70,7 @@ bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
 		goto delete_dlatch;
 	}
 
-	if (sig_e == State::S1)
+	if (sig_e == on_state)
 	{
 		mod->connect(dlatch->getPort("\\Q"), dlatch->getPort("\\D"));
 		goto delete_dlatch;
@@ -268,7 +286,7 @@ struct OptRmdffPass : public Pass {
 						"$ff", "$dff", "$adff"))
 					dff_list.push_back(cell->name);
 
-				if (cell->type == "$dlatch")
+				if (cell->type.in("$dlatch", "$_DLATCH_P_", "$_DLATCH_N_"))
 					dlatch_list.push_back(cell->name);
 			}
 
