@@ -36,6 +36,7 @@ vlogtbfile = None
 inconstr = list()
 outconstr = None
 gentrace = False
+covermode = False
 tempind = False
 dumpall = False
 assume_skipped = None
@@ -60,6 +61,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
     -i
         instead of BMC run temporal induction
+
+    -c
+        instead of regular BMC run cover analysis
 
     -m <module_name>
         name of the top module
@@ -120,7 +124,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igm:", so.longopts +
+    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader",
              "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo", "append="])
 except:
@@ -173,6 +177,8 @@ for o, a in opts:
         tempind = True
     elif o == "-g":
         gentrace = True
+    elif o == "-c":
+        covermode = True
     elif o == "-m":
         topmod = a
     elif so.handle(o, a):
@@ -183,6 +189,8 @@ for o, a in opts:
 if len(args) != 1:
     usage()
 
+if sum([tempind, gentrace, covermode]) > 1:
+    usage()
 
 constr_final_start = None
 constr_asserts = defaultdict(list)
@@ -746,6 +754,24 @@ def print_anyconsts(state):
     print_anyconsts_worker(topmod, "s%d" % state, topmod)
 
 
+def get_cover_list(mod, base):
+    assert mod in smt.modinfo
+
+    cover_expr = list()
+    cover_desc = list()
+
+    for expr, desc in smt.modinfo[mod].covers.items():
+        cover_expr.append("(ite (|%s| %s) #b1 #b0)" % (expr, base))
+        cover_desc.append(desc)
+
+    for cell, submod in smt.modinfo[mod].cells.items():
+        e, d = get_cover_list(submod, "(|%s_h %s| %s)" % (mod, cell, base))
+        cover_expr += e
+        cover_desc += d
+
+    return cover_expr, cover_desc
+
+
 if tempind:
     retstatus = False
     skip_counter = step_size
@@ -793,8 +819,67 @@ if tempind:
             retstatus = True
             break
 
+elif covermode:
+    cover_expr, cover_desc = get_cover_list(topmod, "state")
 
-else:  # not tempind
+    if len(cover_expr) > 1:
+        cover_expr = "(concat %s)" % " ".join(cover_expr)
+    elif len(cover_expr) == 1:
+        cover_expr = cover_expr[0]
+    else:
+        cover_expr = "#b0"
+
+    coveridx = 0
+    smt.write("(define-fun covers_0 ((state |%s_s|)) (_ BitVec %d) %s)" % (topmod, len(cover_desc), cover_expr))
+
+    step = 0
+    retstatus = False
+
+    assert step_size == 1
+
+    while step < num_steps:
+        smt.write("(declare-fun s%d () |%s_s|)" % (step, topmod))
+        smt.write("(assert (|%s_u| s%d))" % (topmod, step))
+        smt.write("(assert (|%s_h| s%d))" % (topmod, step))
+        smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
+
+        if step == 0:
+            smt.write("(assert (|%s_i| s0))" % (topmod))
+            smt.write("(assert (|%s_is| s0))" % (topmod))
+
+        else:
+            smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step-1, step))
+            smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
+
+        while True:
+            print_msg("Checking cover reachability in step %d.." % (step))
+            smt.write("(push 1)")
+            smt.write("(assert (distinct (covers_%d s%d) #b%s))" % (coveridx, step, "0" * len(cover_desc)))
+
+            if smt.check_sat() == "unsat":
+                smt.write("(pop 1)")
+                break
+
+            reached_covers = smt.bv2bin(smt.get("(covers_%d s%d)" % (coveridx, step)))
+
+            for i in range(len(reached_covers)):
+                if reached_covers[i] == "0":
+                    continue
+
+                print_msg("  reached cover statement %s." % cover_desc[i])
+
+            write_trace(0, step+1, "%d" % coveridx)
+
+            # TBD
+            assert False
+
+        if len(cover_desc) == 0:
+            retstatus = True
+            break
+
+        step += 1
+
+else:  # not tempind, covermode
     step = 0
     retstatus = True
     while step < num_steps:

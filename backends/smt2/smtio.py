@@ -42,6 +42,7 @@ class SmtModInfo:
         self.wsize = dict()
         self.cells = dict()
         self.asserts = dict()
+        self.covers = dict()
         self.anyconsts = dict()
 
 
@@ -330,6 +331,9 @@ class SmtIo:
 
         if fields[1] == "yosys-smt2-assert":
             self.modinfo[self.curmod].asserts[fields[2]] = fields[3]
+
+        if fields[1] == "yosys-smt2-cover":
+            self.modinfo[self.curmod].covers[fields[2]] = fields[3]
 
         if fields[1] == "yosys-smt2-anyconst":
             self.modinfo[self.curmod].anyconsts[fields[2]] = fields[3]
