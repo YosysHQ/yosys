@@ -1026,7 +1026,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in("$assert", "$assume")) {
+			if (cell->type.in("$assert", "$assume", "$cover")) {
 				port("\\A", 1);
 				port("\\EN", 1);
 				check_expected();
@@ -1814,6 +1814,14 @@ RTLIL::Cell* RTLIL::Module::addAssert(RTLIL::IdString name, RTLIL::SigSpec sig_a
 RTLIL::Cell* RTLIL::Module::addAssume(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
 {
 	RTLIL::Cell *cell = addCell(name, "$assume");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addCover(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
+{
+	RTLIL::Cell *cell = addCell(name, "$cover");
 	cell->setPort("\\A", sig_a);
 	cell->setPort("\\EN", sig_en);
 	return cell;

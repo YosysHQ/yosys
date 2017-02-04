@@ -752,8 +752,8 @@ struct VerificImporter
 			}
 
 			if (inst->Type() == PRIM_SVA_IMMEDIATE_COVER || inst->Type() == PRIM_SVA_COVER) {
-				// Net *in = inst->GetInput();
-				// module->addCover(NEW_ID, net_map.at(in), State::S1);
+				Net *in = inst->GetInput();
+				module->addCover(NEW_ID, net_map.at(in), State::S1);
 				continue;
 			}
 
