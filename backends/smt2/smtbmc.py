@@ -713,30 +713,40 @@ def write_trace(steps_start, steps_stop, index):
         write_constr_trace(steps_start, steps_stop, index)
 
 
-def print_failed_asserts_worker(mod, state, path):
+def print_failed_asserts_worker(mod, state, path, extrainfo):
     assert mod in smt.modinfo
+    found_failed_assert = False
 
     if smt.get("(|%s_a| %s)" % (mod, state)) in ["true", "#b1"]:
         return
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
-        print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
+        if print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname, extrainfo):
+            found_failed_assert = True
 
     for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
         if smt.get("(|%s| %s)" % (assertfun, state)) in ["false", "#b0"]:
-            print_msg("Assert failed in %s: %s" % (path, assertinfo))
+            print_msg("Assert failed in %s: %s%s" % (path, assertinfo, extrainfo))
+            found_failed_assert = True
+
+    return found_failed_assert
 
 
-def print_failed_asserts(state, final=False):
+def print_failed_asserts(state, final=False, extrainfo=""):
     if noinfo: return
     loc_list, expr_list, value_list = get_constr_expr(constr_asserts, state, final=final, getvalues=True)
+    found_failed_assert = False
 
     for loc, expr, value in zip(loc_list, expr_list, value_list):
         if smt.bv2int(value) == 0:
-            print_msg("Assert %s failed: %s" % (loc, expr))
+            print_msg("Assert %s failed: %s%s" % (loc, expr, extrainfo))
+            found_failed_assert = True
 
     if not final:
-        print_failed_asserts_worker(topmod, "s%d" % state, topmod)
+        if print_failed_asserts_worker(topmod, "s%d" % state, topmod, extrainfo):
+            found_failed_assert = True
+
+    return found_failed_assert
 
 
 def print_anyconsts_worker(mod, state, path):
@@ -835,6 +845,7 @@ elif covermode:
 
     step = 0
     retstatus = False
+    found_failed_assert = False
 
     assert step_size == 1
 
@@ -874,13 +885,23 @@ elif covermode:
                 print_msg("Reached cover statement at %s in step %d." % (cover_desc[i], step))
                 new_cover_mask.append("0")
 
+            cover_mask = "".join(new_cover_mask)
+
+            for i in range(step+1):
+                if print_failed_asserts(i, extrainfo=" (step %d)" % i):
+                    found_failed_assert = True
+
             write_trace(0, step+1, "%d" % coveridx)
 
-            cover_mask = "".join(new_cover_mask)
+            if found_failed_assert:
+                break
 
             coveridx += 1
             smt.write("(pop 1)")
             smt.write("(define-fun covers_%d ((state |%s_s|)) (_ BitVec %d) (bvand (covers_%d state) #b%s))" % (coveridx, topmod, len(cover_desc), coveridx-1, cover_mask))
+
+        if found_failed_assert:
+            break
 
         if "1" not in cover_mask:
             retstatus = True
