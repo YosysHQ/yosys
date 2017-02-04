@@ -1003,6 +1003,12 @@ assert:
 	TOK_COVER '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $3));
 	} |
+	TOK_COVER '(' ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
+	} |
+	TOK_COVER ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
+	} |
 	TOK_RESTRICT '(' expr ')' ';' {
 		if (norestrict_mode)
 			delete $3;

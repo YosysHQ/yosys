@@ -662,9 +662,9 @@ struct Smt2Worker
 
 		if (verbose) log("=> export logic driving asserts\n");
 
-		vector<string> assert_list, assume_list;
+		vector<string> assert_list, assume_list, cover_list;
 		for (auto cell : module->cells())
-			if (cell->type.in("$assert", "$assume")) {
+			if (cell->type.in("$assert", "$assume", "$cover")) {
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
 				decls.push_back(stringf("; yosys-smt2-%s %s#%d %s\n", cell->type.c_str() + 1, get_id(module), idcounter,
@@ -673,8 +673,10 @@ struct Smt2Worker
 						get_id(module), idcounter, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
 				if (cell->type == "$assert")
 					assert_list.push_back(stringf("(|%s#%d| state)", get_id(module), idcounter++));
-				else
+				else if (cell->type == "$assume")
 					assume_list.push_back(stringf("(|%s#%d| state)", get_id(module), idcounter++));
+				else if (cell->type == "$cover")
+					cover_list.push_back(stringf("(|%s#%d| state)", get_id(module), idcounter++));
 			}
 
 		for (int iter = 1; !registers.empty(); iter++)
