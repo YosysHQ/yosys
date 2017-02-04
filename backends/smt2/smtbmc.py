@@ -821,6 +821,7 @@ if tempind:
 
 elif covermode:
     cover_expr, cover_desc = get_cover_list(topmod, "state")
+    cover_mask = "1" * len(cover_desc)
 
     if len(cover_expr) > 1:
         cover_expr = "(concat %s)" % " ".join(cover_expr)
@@ -851,7 +852,7 @@ elif covermode:
             smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step-1, step))
             smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
 
-        while True:
+        while "1" in cover_mask:
             print_msg("Checking cover reachability in step %d.." % (step))
             smt.write("(push 1)")
             smt.write("(assert (distinct (covers_%d s%d) #b%s))" % (coveridx, step, "0" * len(cover_desc)))
@@ -861,23 +862,36 @@ elif covermode:
                 break
 
             reached_covers = smt.bv2bin(smt.get("(covers_%d s%d)" % (coveridx, step)))
+            assert len(reached_covers) == len(cover_desc)
+
+            new_cover_mask = []
 
             for i in range(len(reached_covers)):
                 if reached_covers[i] == "0":
+                    new_cover_mask.append(cover_mask[i])
                     continue
 
-                print_msg("  reached cover statement %s." % cover_desc[i])
+                print_msg("Reached cover statement at %s in step %d." % (cover_desc[i], step))
+                new_cover_mask.append("0")
 
             write_trace(0, step+1, "%d" % coveridx)
 
-            # TBD
-            assert False
+            cover_mask = "".join(new_cover_mask)
 
-        if len(cover_desc) == 0:
+            coveridx += 1
+            smt.write("(pop 1)")
+            smt.write("(define-fun covers_%d ((state |%s_s|)) (_ BitVec %d) (bvand (covers_%d state) #b%s))" % (coveridx, topmod, len(cover_desc), coveridx-1, cover_mask))
+
+        if "1" not in cover_mask:
             retstatus = True
             break
 
         step += 1
+
+    if "1" in cover_mask:
+        for i in range(len(cover_mask)):
+            if cover_mask[i] == "1":
+                print_msg("Unreached cover statement at %s." % cover_desc[i])
 
 else:  # not tempind, covermode
     step = 0
