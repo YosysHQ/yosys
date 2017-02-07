@@ -57,9 +57,9 @@ CXXFLAGS += -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PRE
 LDFLAGS += -L$(LIBDIR)
 LDLIBS = -lstdc++ -lm
 
-PKG_CONFIG = pkg-config
-SED = sed
-BISON = bison
+PKG_CONFIG ?= pkg-config
+SED ?= sed
+BISON ?= bison
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
 	BREW := $(shell command -v brew 2> /dev/null)
