@@ -888,12 +888,12 @@ struct VerificPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv} <verilog-file>..\n");
+		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv|-vlpsl} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008} <vhdl-file>..\n");
+		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdpsl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
@@ -950,6 +950,13 @@ struct VerificPass : public Pass {
 			return;
 		}
 
+		if (args.size() > 1 && args[1] == "-vlpsl") {
+			for (size_t argidx = 2; argidx < args.size(); argidx++)
+				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_PSL))
+					log_cmd_error("Reading `%s' in VERILOG_PSL mode failed.\n", args[argidx].c_str());
+			return;
+		}
+
 		if (args.size() > 1 && args[1] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
@@ -979,6 +986,14 @@ struct VerificPass : public Pass {
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2008))
 					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
+			return;
+		}
+
+		if (args.size() > 1 && args[1] == "-vhdpsl") {
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
+			for (size_t argidx = 2; argidx < args.size(); argidx++)
+				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_PSL))
+					log_cmd_error("Reading `%s' in VHDL_PSL mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
