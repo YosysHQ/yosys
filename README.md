@@ -378,10 +378,11 @@ Non-standard or SystemVerilog features for formal verification
 - The system task ``$initstate`` evaluates to 1 in the initial state and
   to 0 otherwise.
 
-- The system task ``$anyconst`` evaluates to any constant value.
+- The system task ``$anyconst`` evaluates to any constant value. This is
+  equivalent to declaring a reg as ``const rand``.
 
 - The system task ``$anyseq`` evaluates to any value, possibly a different
-  value in each cycle.
+  value in each cycle. This is equivalent to declaring a reg as ``rand``.
 
 - The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are
   supported in any clocked block.
@@ -405,6 +406,8 @@ from SystemVerilog:
 
 - The keywords ``always_comb``, ``always_ff`` and ``always_latch``, ``logic``
   and ``bit`` are supported.
+
+- Declaring free variables with ``rand`` and ``const rand`` is supported.
 
 - SystemVerilog packages are supported. Once a SystemVerilog file is read
   into a design with ``read_verilog``, all its packages are available to

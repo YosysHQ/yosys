@@ -59,6 +59,7 @@ namespace VERILOG_FRONTEND {
 	bool default_nettype_wire;
 	bool sv_mode, formal_mode, lib_mode;
 	bool norestrict_mode, assume_asserts_mode;
+	bool current_wire_rand, current_wire_const;
 	std::istream *lexin;
 }
 YOSYS_NAMESPACE_END
@@ -100,7 +101,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 	bool boolean;
 }
 
-%token <string> TOK_STRING TOK_ID TOK_CONST TOK_REALVAL TOK_PRIMITIVE
+%token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
@@ -115,6 +116,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME
 %token TOK_RESTRICT TOK_COVER TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
+%token TOK_RAND TOK_CONST
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -355,6 +357,8 @@ delay:
 wire_type:
 	{
 		astbuf3 = new AstNode(AST_WIRE);
+		current_wire_rand = false;
+		current_wire_const = false;
 	} wire_type_token_list delay {
 		$$ = astbuf3;
 	};
@@ -392,6 +396,12 @@ wire_type_token:
 	} |
 	TOK_SIGNED {
 		astbuf3->is_signed = true;
+	} |
+	TOK_RAND {
+		current_wire_rand = true;
+	} |
+	TOK_CONST {
+		current_wire_const = true;
 	};
 
 non_opt_range:
@@ -730,7 +740,15 @@ wire_name_list:
 	wire_name_and_opt_assign | wire_name_list ',' wire_name_and_opt_assign;
 
 wire_name_and_opt_assign:
-	wire_name |
+	wire_name {
+		if (current_wire_rand) {
+			AstNode *wire = new AstNode(AST_IDENTIFIER);
+			AstNode *fcall = new AstNode(AST_FCALL);
+			wire->str = ast_stack.back()->children.back()->str;
+			fcall->str = current_wire_const ? "\\$anyconst" : "\\$anyseq";
+			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
+		}
+	} |
 	wire_name '=' expr {
 		AstNode *wire = new AstNode(AST_IDENTIFIER);
 		wire->str = ast_stack.back()->children.back()->str;
@@ -1362,7 +1380,7 @@ basic_expr:
 	rvalue {
 		$$ = $1;
 	} |
-	'(' expr ')' TOK_CONST {
+	'(' expr ')' TOK_CONSTVAL {
 		if ($4->substr(0, 1) != "'")
 			frontend_verilog_yyerror("Syntax error.");
 		AstNode *bits = $2;
@@ -1372,7 +1390,7 @@ basic_expr:
 		$$ = new AstNode(AST_TO_BITS, bits, val);
 		delete $4;
 	} |
-	hierarchical_id TOK_CONST {
+	hierarchical_id TOK_CONSTVAL {
 		if ($2->substr(0, 1) != "'")
 			frontend_verilog_yyerror("Syntax error.");
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
@@ -1384,14 +1402,14 @@ basic_expr:
 		delete $1;
 		delete $2;
 	} |
-	TOK_CONST TOK_CONST {
+	TOK_CONSTVAL TOK_CONSTVAL {
 		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL || (*$2)[0] != '\'')
 			log_error("Value conversion failed: `%s%s'\n", $1->c_str(), $2->c_str());
 		delete $1;
 		delete $2;
 	} |
-	TOK_CONST {
+	TOK_CONSTVAL {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
