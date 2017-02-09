@@ -60,7 +60,7 @@ Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies
 	$ brew install bison flex gawk libffi \
 		git mercurial graphviz pkg-config python3
 	$ sudo port install bison flex readline gawk libffi \ 
-		git mercurial graphviz pkg-config python3
+		git mercurial graphviz pkgconfig python36
 
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for

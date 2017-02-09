@@ -70,7 +70,8 @@ BREW_PREFIX := $(shell brew --prefix)/opt
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LDFLAGS += -L$(BREW_PREFIX)/readline/lib
 
-export PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
+PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
+
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
 endif
 
@@ -81,7 +82,8 @@ PORT_PREFIX := $(patsubst %/bin/port,%,$(shell which port))
 CXXFLAGS += -I$(PORT_PREFIX)/include
 LDFLAGS += -L$(PORT_PREFIX)/lib
 
-export PKG_CONFIG_PATH := $(PORT_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
+PKG_CONFIG_PATH := $(PORT_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
+
 export PATH := $(PORT_PREFIX)/bin:$(PATH)
 endif
 
@@ -224,8 +226,8 @@ endif
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
-CXXFLAGS += -DYOSYS_ENABLE_PLUGINS $(shell $(PKG_CONFIG) --silence-errors --cflags libffi)
-LDLIBS += $(shell $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi) -ldl
+CXXFLAGS += -DYOSYS_ENABLE_PLUGINS $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags libffi)
+LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi) -ldl
 endif
 
 ifeq ($(ENABLE_TCL),1)
