@@ -617,6 +617,9 @@ struct VerificImporter
 
 		module->fixup_ports();
 
+		pool<Net*, hash_ptr_ops> anyconst_nets;
+		pool<Net*, hash_ptr_ops> anyseq_nets;
+
 		FOREACH_NET_OF_NETLIST(nl, mi, net)
 		{
 			if (net->IsRamNet())
@@ -645,6 +648,15 @@ struct VerificImporter
 				memory->size = number_of_bits / bits_in_word;
 				continue;
 			}
+
+			const char *rand_const_attr = net->GetAttValue(" rand_const");
+			const char *rand_attr = net->GetAttValue(" rand");
+
+			if (rand_const_attr != nullptr && !strcmp(rand_const_attr, "1"))
+				anyconst_nets.insert(net);
+
+			else if (rand_attr != nullptr && !strcmp(rand_attr, "1"))
+				anyseq_nets.insert(net);
 
 			if (net_map.count(net)) {
 				// log("  skipping net %s.\n", net->Name());
@@ -700,7 +712,36 @@ struct VerificImporter
 			{
 				// log("  skipping netbus %s.\n", netbus->Name());
 			}
+
+			SigSpec anyconst_sig;
+			SigSpec anyseq_sig;
+
+			for (int i = netbus->RightIndex();; i += netbus->IsUp() ? -1 : +1) {
+				net = netbus->ElementAtIndex(i);
+				if (net != nullptr && anyconst_nets.count(net)) {
+					anyconst_sig.append(net_map.at(net));
+					anyconst_nets.erase(net);
+				}
+				if (net != nullptr && anyseq_nets.count(net)) {
+					anyseq_sig.append(net_map.at(net));
+					anyseq_nets.erase(net);
+				}
+				if (i == netbus->LeftIndex())
+					break;
+			}
+
+			if (GetSize(anyconst_sig))
+				module->connect(anyconst_sig, module->Anyconst(NEW_ID, GetSize(anyconst_sig)));
+
+			if (GetSize(anyseq_sig))
+				module->connect(anyseq_sig, module->Anyseq(NEW_ID, GetSize(anyseq_sig)));
 		}
+
+		for (auto net : anyconst_nets)
+			module->connect(net_map.at(net), module->Anyconst(NEW_ID));
+
+		for (auto net : anyseq_nets)
+			module->connect(net_map.at(net), module->Anyseq(NEW_ID));
 
 		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 		{
