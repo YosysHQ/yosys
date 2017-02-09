@@ -244,7 +244,9 @@ struct OptRmdffPass : public Pass {
 			{
 				if (wire->attributes.count("\\init") != 0) {
 					Const initval = wire->attributes.at("\\init");
-					dff_init_map.add(wire, initval);
+					for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++)
+						if (initval[i] == State::S0 || initval[i] == State::S1)
+							dff_init_map.add(SigBit(wire, i), initval[i]);
 					for (int i = 0; i < GetSize(wire); i++) {
 						SigBit wire_bit(wire, i), mapped_bit = assign_map(wire_bit);
 						if (mapped_bit.wire) {
