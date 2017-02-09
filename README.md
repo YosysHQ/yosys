@@ -379,10 +379,13 @@ Non-standard or SystemVerilog features for formal verification
   to 0 otherwise.
 
 - The system task ``$anyconst`` evaluates to any constant value. This is
-  equivalent to declaring a reg as ``const rand``.
+  equivalent to declaring a reg as ``rand const``, but also works outside
+  of checkers. (Yosys also supports ``rand const`` outside checkers.)
 
 - The system task ``$anyseq`` evaluates to any value, possibly a different
-  value in each cycle. This is equivalent to declaring a reg as ``rand``.
+  value in each cycle. This is equivalent to declaring a reg as ``rand``,
+  but also works outside of checkers. (Yosys also supports ``rand``
+  variables outside checkers.)
 
 - The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are
   supported in any clocked block.
@@ -407,7 +410,10 @@ from SystemVerilog:
 - The keywords ``always_comb``, ``always_ff`` and ``always_latch``, ``logic``
   and ``bit`` are supported.
 
-- Declaring free variables with ``rand`` and ``const rand`` is supported.
+- Declaring free variables with ``rand`` and ``rand const`` is supported.
+
+- Checkers without a port list that do not need to be instantiated (but instead
+  behave like a named block) are supported.
 
 - SystemVerilog packages are supported. Once a SystemVerilog file is read
   into a design with ``read_verilog``, all its packages are available to
