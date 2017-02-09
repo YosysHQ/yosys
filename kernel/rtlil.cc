@@ -1026,7 +1026,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in("$assert", "$assume")) {
+			if (cell->type.in("$assert", "$assume", "$cover")) {
 				port("\\A", 1);
 				port("\\EN", 1);
 				check_expected();
@@ -1819,6 +1819,14 @@ RTLIL::Cell* RTLIL::Module::addAssume(RTLIL::IdString name, RTLIL::SigSpec sig_a
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addCover(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
+{
+	RTLIL::Cell *cell = addCell(name, "$cover");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addEquiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y)
 {
 	RTLIL::Cell *cell = addCell(name, "$equiv");
@@ -2050,6 +2058,7 @@ RTLIL::Memory::Memory()
 	hashidx_ = hashidx_count;
 
 	width = 1;
+	start_offset = 0;
 	size = 0;
 }
 

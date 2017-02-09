@@ -29,11 +29,14 @@ num_steps = 20
 append_steps = 0
 vcdfile = None
 cexfile = None
-aigprefix = None
+aimfile = None
+aiwfile = None
+aigheader = True
 vlogtbfile = None
 inconstr = list()
 outconstr = None
 gentrace = False
+covermode = False
 tempind = False
 dumpall = False
 assume_skipped = None
@@ -59,6 +62,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
     -i
         instead of BMC run temporal induction
 
+    -c
+        instead of regular BMC run cover analysis
+
     -m <module_name>
         name of the top module
 
@@ -72,6 +78,14 @@ yosys-smtbmc [options] <yosys_smt2_output>
         read AIGER map file (as written by Yosys' "write_aiger -map")
         and AIGER witness file. The file names are <prefix>.aim for
         the map file and <prefix>.aiw for the witness file.
+
+    --aig <aim_filename>:<aiw_filename>
+        like above, but for map files and witness files that do not
+        share a filename prefix (or use differen file extensions).
+
+    --aig-noheader
+        the AIGER witness file does not include the status and
+        properties lines.
 
     --noinfo
         only run the core proof, do not collect and print any
@@ -110,8 +124,8 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=",
+    opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader",
              "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo", "append="])
 except:
     usage()
@@ -140,7 +154,13 @@ for o, a in opts:
     elif o == "--cex":
         cexfile = a
     elif o == "--aig":
-        aigprefix = a
+        if ":" in a:
+            aimfile, aiwfile = a.split(":")
+        else:
+            aimfile = a + ".aim"
+            aiwfile = a + ".aiw"
+    elif o == "--aig-noheader":
+        aigheader = False
     elif o == "--dump-vcd":
         vcdfile = a
     elif o == "--dump-vlogtb":
@@ -157,6 +177,8 @@ for o, a in opts:
         tempind = True
     elif o == "-g":
         gentrace = True
+    elif o == "-c":
+        covermode = True
     elif o == "-m":
         topmod = a
     elif so.handle(o, a):
@@ -167,6 +189,8 @@ for o, a in opts:
 if len(args) != 1:
     usage()
 
+if sum([tempind, gentrace, covermode]) > 1:
+    usage()
 
 constr_final_start = None
 constr_asserts = defaultdict(list)
@@ -375,7 +399,7 @@ if cexfile is not None:
                 skip_steps = max(skip_steps, step)
                 num_steps = max(num_steps, step+1)
 
-if aigprefix is not None:
+if aimfile is not None:
     input_map = dict()
     init_map = dict()
     latch_map = dict()
@@ -385,7 +409,7 @@ if aigprefix is not None:
         skip_steps = 0
         num_steps = 0
 
-    with open(aigprefix + ".aim", "r") as f:
+    with open(aimfile, "r") as f:
         for entry in f.read().splitlines():
             entry = entry.split()
 
@@ -406,10 +430,13 @@ if aigprefix is not None:
 
             assert False
 
-    with open(aigprefix + ".aiw", "r") as f:
+    with open(aiwfile, "r") as f:
         got_state = False
         got_ffinit = False
         step = 0
+
+        if not aigheader:
+            got_state = True
 
         for entry in f.read().splitlines():
             if len(entry) == 0 or entry[0] in "bcjfu.":
@@ -458,13 +485,30 @@ if aigprefix is not None:
                     bitidx = init_map[i][1]
 
                     path = smt.get_path(topmod, name)
-                    width = smt.net_width(topmod, path)
+
+                    if not smt.net_exists(topmod, path):
+                        match = re.match(r"(.*)\[(\d+)\]$", path[-1])
+                        if match:
+                            path[-1] = match.group(1)
+                            addr = int(match.group(2))
+
+                        if not match or not smt.mem_exists(topmod, path):
+                            print_msg("Ignoring init value for unknown net: %s" % (name))
+                            continue
+
+                        meminfo = smt.mem_info(topmod, path)
+                        smtexpr = "(select [%s] #b%s)" % (".".join(path), bin(addr)[2:].zfill(meminfo[0]))
+                        width = meminfo[1]
+
+                    else:
+                        smtexpr = "[%s]" % name
+                        width = smt.net_width(topmod, path)
 
                     if width == 1:
                         assert bitidx == 0
-                        smtexpr = "(= [%s] %s)" % (name, "true" if value else "false")
+                        smtexpr = "(= %s %s)" % (smtexpr, "true" if value else "false")
                     else:
-                        smtexpr = "(= ((_ extract %d %d) [%s]) #b%d)" % (bitidx, bitidx, name, value)
+                        smtexpr = "(= ((_ extract %d %d) %s) #b%d)" % (bitidx, bitidx, smtexpr, value)
 
                     constr_assumes[0].append((cexfile, smtexpr))
 
@@ -569,7 +613,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
-            abits, width, ports = smt.mem_info(topmod, "s%d" % steps_start, mempath)
+            abits, width, ports = smt.mem_info(topmod, mempath)
             mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()
@@ -630,7 +674,7 @@ def write_constr_trace(steps_start, steps_stop, index):
 
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
-            abits, width, ports = smt.mem_info(topmod, "s%d" % steps_start, mempath)
+            abits, width, ports = smt.mem_info(topmod, mempath)
             mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()
@@ -669,30 +713,40 @@ def write_trace(steps_start, steps_stop, index):
         write_constr_trace(steps_start, steps_stop, index)
 
 
-def print_failed_asserts_worker(mod, state, path):
+def print_failed_asserts_worker(mod, state, path, extrainfo):
     assert mod in smt.modinfo
+    found_failed_assert = False
 
     if smt.get("(|%s_a| %s)" % (mod, state)) in ["true", "#b1"]:
         return
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
-        print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
+        if print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname, extrainfo):
+            found_failed_assert = True
 
     for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
         if smt.get("(|%s| %s)" % (assertfun, state)) in ["false", "#b0"]:
-            print_msg("Assert failed in %s: %s" % (path, assertinfo))
+            print_msg("Assert failed in %s: %s%s" % (path, assertinfo, extrainfo))
+            found_failed_assert = True
+
+    return found_failed_assert
 
 
-def print_failed_asserts(state, final=False):
+def print_failed_asserts(state, final=False, extrainfo=""):
     if noinfo: return
     loc_list, expr_list, value_list = get_constr_expr(constr_asserts, state, final=final, getvalues=True)
+    found_failed_assert = False
 
     for loc, expr, value in zip(loc_list, expr_list, value_list):
         if smt.bv2int(value) == 0:
-            print_msg("Assert %s failed: %s" % (loc, expr))
+            print_msg("Assert %s failed: %s%s" % (loc, expr, extrainfo))
+            found_failed_assert = True
 
     if not final:
-        print_failed_asserts_worker(topmod, "s%d" % state, topmod)
+        if print_failed_asserts_worker(topmod, "s%d" % state, topmod, extrainfo):
+            found_failed_assert = True
+
+    return found_failed_assert
 
 
 def print_anyconsts_worker(mod, state, path):
@@ -708,6 +762,24 @@ def print_anyconsts_worker(mod, state, path):
 def print_anyconsts(state):
     if noinfo: return
     print_anyconsts_worker(topmod, "s%d" % state, topmod)
+
+
+def get_cover_list(mod, base):
+    assert mod in smt.modinfo
+
+    cover_expr = list()
+    cover_desc = list()
+
+    for expr, desc in smt.modinfo[mod].covers.items():
+        cover_expr.append("(ite (|%s| %s) #b1 #b0)" % (expr, base))
+        cover_desc.append(desc)
+
+    for cell, submod in smt.modinfo[mod].cells.items():
+        e, d = get_cover_list(submod, "(|%s_h %s| %s)" % (mod, cell, base))
+        cover_expr += e
+        cover_desc += d
+
+    return cover_expr, cover_desc
 
 
 if tempind:
@@ -757,8 +829,92 @@ if tempind:
             retstatus = True
             break
 
+elif covermode:
+    cover_expr, cover_desc = get_cover_list(topmod, "state")
+    cover_mask = "1" * len(cover_desc)
 
-else:  # not tempind
+    if len(cover_expr) > 1:
+        cover_expr = "(concat %s)" % " ".join(cover_expr)
+    elif len(cover_expr) == 1:
+        cover_expr = cover_expr[0]
+    else:
+        cover_expr = "#b0"
+
+    coveridx = 0
+    smt.write("(define-fun covers_0 ((state |%s_s|)) (_ BitVec %d) %s)" % (topmod, len(cover_desc), cover_expr))
+
+    step = 0
+    retstatus = False
+    found_failed_assert = False
+
+    assert step_size == 1
+
+    while step < num_steps:
+        smt.write("(declare-fun s%d () |%s_s|)" % (step, topmod))
+        smt.write("(assert (|%s_u| s%d))" % (topmod, step))
+        smt.write("(assert (|%s_h| s%d))" % (topmod, step))
+        smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
+
+        if step == 0:
+            smt.write("(assert (|%s_i| s0))" % (topmod))
+            smt.write("(assert (|%s_is| s0))" % (topmod))
+
+        else:
+            smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step-1, step))
+            smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
+
+        while "1" in cover_mask:
+            print_msg("Checking cover reachability in step %d.." % (step))
+            smt.write("(push 1)")
+            smt.write("(assert (distinct (covers_%d s%d) #b%s))" % (coveridx, step, "0" * len(cover_desc)))
+
+            if smt.check_sat() == "unsat":
+                smt.write("(pop 1)")
+                break
+
+            reached_covers = smt.bv2bin(smt.get("(covers_%d s%d)" % (coveridx, step)))
+            assert len(reached_covers) == len(cover_desc)
+
+            new_cover_mask = []
+
+            for i in range(len(reached_covers)):
+                if reached_covers[i] == "0":
+                    new_cover_mask.append(cover_mask[i])
+                    continue
+
+                print_msg("Reached cover statement at %s in step %d." % (cover_desc[i], step))
+                new_cover_mask.append("0")
+
+            cover_mask = "".join(new_cover_mask)
+
+            for i in range(step+1):
+                if print_failed_asserts(i, extrainfo=" (step %d)" % i):
+                    found_failed_assert = True
+
+            write_trace(0, step+1, "%d" % coveridx)
+
+            if found_failed_assert:
+                break
+
+            coveridx += 1
+            smt.write("(pop 1)")
+            smt.write("(define-fun covers_%d ((state |%s_s|)) (_ BitVec %d) (bvand (covers_%d state) #b%s))" % (coveridx, topmod, len(cover_desc), coveridx-1, cover_mask))
+
+        if found_failed_assert:
+            break
+
+        if "1" not in cover_mask:
+            retstatus = True
+            break
+
+        step += 1
+
+    if "1" in cover_mask:
+        for i in range(len(cover_mask)):
+            if cover_mask[i] == "1":
+                print_msg("Unreached cover statement at %s." % cover_desc[i])
+
+else:  # not tempind, covermode
     step = 0
     retstatus = True
     while step < num_steps:

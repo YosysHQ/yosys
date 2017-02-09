@@ -65,6 +65,7 @@ namespace AST
 		AST_PREFIX,
 		AST_ASSERT,
 		AST_ASSUME,
+		AST_COVER,
 
 		AST_FCALL,
 		AST_TO_BITS,

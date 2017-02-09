@@ -54,13 +54,27 @@ struct FsmExpand
 			if (cell->getPort("\\A").size() < 2)
 				return true;
 
+		int in_bits = 0;
 		RTLIL::SigSpec new_signals;
-		if (cell->hasPort("\\A"))
+
+		if (cell->hasPort("\\A")) {
+			in_bits += GetSize(cell->getPort("\\A"));
 			new_signals.append(assign_map(cell->getPort("\\A")));
-		if (cell->hasPort("\\B"))
+		}
+
+		if (cell->hasPort("\\B")) {
+			in_bits += GetSize(cell->getPort("\\B"));
 			new_signals.append(assign_map(cell->getPort("\\B")));
-		if (cell->hasPort("\\S"))
+		}
+
+		if (cell->hasPort("\\S")) {
+			in_bits += GetSize(cell->getPort("\\S"));
 			new_signals.append(assign_map(cell->getPort("\\S")));
+		}
+
+		if (in_bits > 8)
+			return false;
+
 		if (cell->hasPort("\\Y"))
 			new_signals.append(assign_map(cell->getPort("\\Y")));
 
@@ -172,6 +186,16 @@ struct FsmExpand
 		RTLIL::SigSpec new_ctrl_out = fsm_cell->getPort("\\CTRL_OUT");
 		new_ctrl_out.append(output_sig);
 		fsm_cell->setPort("\\CTRL_OUT", new_ctrl_out);
+
+		if (GetSize(input_sig) > 10)
+			log_warning("Cell %s.%s (%s) has %d input bits, merging into FSM %s.%s might be problematic.\n",
+					log_id(cell->module), log_id(cell), log_id(cell->type),
+					GetSize(input_sig), log_id(fsm_cell->module), log_id(fsm_cell));
+
+		if (GetSize(fsm_data.transition_table) > 10000)
+			log_warning("Transition table for FSM %s.%s already has %d rows, merging more cells "
+					"into this FSM might be problematic.\n", log_id(fsm_cell->module), log_id(fsm_cell),
+					GetSize(fsm_data.transition_table));
 
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {

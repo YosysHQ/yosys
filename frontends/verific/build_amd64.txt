@@ -6,7 +6,7 @@ only have the i386 eval version of Verific:
 1.) Use a Makefile.conf like the following one:
 
 --snip--
-CONFIG := clang
+CONFIG := gcc
 ENABLE_TCL := 0
 ENABLE_PLUGINS := 0
 ENABLE_VERIFIC := 1

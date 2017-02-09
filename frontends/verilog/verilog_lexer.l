@@ -177,8 +177,11 @@ YOSYS_NAMESPACE_END
 
 "assert"   { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
 "assume"   { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
+"cover"    { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
 "restrict" { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
 "property" { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
+"rand"     { if (formal_mode) return TOK_RAND; SV_KEYWORD(TOK_RAND); }
+"const"    { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
 "logic"    { SV_KEYWORD(TOK_REG); }
 "bit"      { SV_KEYWORD(TOK_REG); }
 
@@ -192,14 +195,17 @@ YOSYS_NAMESPACE_END
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
 
+"enum"    { SV_KEYWORD(TOK_ENUM); }
+"typedef" { SV_KEYWORD(TOK_TYPEDEF); }
+
 [0-9][0-9_]* {
 	frontend_verilog_yylval.string = new std::string(yytext);
-	return TOK_CONST;
+	return TOK_CONSTVAL;
 }
 
 [0-9]*[ \t]*\'s?[bodhBODH][ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
-	return TOK_CONST;
+	return TOK_CONSTVAL;
 }
 
 [0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)? {

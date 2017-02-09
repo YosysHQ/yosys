@@ -175,16 +175,12 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			{
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".v";
 				if (check_file_exists(filename)) {
-					std::vector<std::string> args;
-					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "verilog");
 					goto loaded_module;
 				}
 
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
 				if (check_file_exists(filename)) {
-					std::vector<std::string> args;
-					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "ilang");
 					goto loaded_module;
 				}
@@ -317,7 +313,7 @@ bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 	if (cache.count(mod) == 0)
 		for (auto c : mod->cells()) {
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in("$assert", "$assume"))
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in("$assert", "$assume", "$cover"))
 				return cache[mod] = true;
 		}
 	return cache[mod];

@@ -46,7 +46,7 @@ Getting Started
 
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
-TCL, readline and libffi are optional (see ENABLE_* settings in Makefile).
+TCL, readline and libffi are optional (see ``ENABLE_*`` settings in Makefile).
 Xdot (graphviz) is used by the ``show`` command in yosys to display schematics.
 For example on Ubuntu Linux 16.04 LTS the following commands will install all
 prerequisites for building yosys:
@@ -372,16 +372,17 @@ Verilog Attributes and non-standard features
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
 
-- Support for ``assert``, ``assume``, and ``restrict`` is enabled when
-  ``read_verilog`` is called with ``-formal``.
+- Support for ``assert``, ``assume``, ``restrict``, and ``cover'' is enabled
+  when ``read_verilog`` is called with ``-formal``.
 
 - The system task ``$initstate`` evaluates to 1 in the initial state and
   to 0 otherwise.
 
-- The system task ``$anyconst`` evaluates to any constant value.
+- The system task ``$anyconst`` evaluates to any constant value. This is
+  equivalent to declaring a reg as ``const rand``.
 
 - The system task ``$anyseq`` evaluates to any value, possibly a different
-  value in each cycle.
+  value in each cycle. This is equivalent to declaring a reg as ``rand``.
 
 - The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are
   supported in any clocked block.
@@ -400,11 +401,13 @@ from SystemVerilog:
   form. In module context: ``assert property (<expression>);`` and within an
   always block: ``assert(<expression>);``. It is transformed to a $assert cell.
 
-- The ``assume`` and ``restrict`` statements from SystemVerilog are also
-  supported. The same limitations as with the ``assert`` statement apply.
+- The ``assume``, ``restrict``, and ``cover`` statements from SystemVerilog are
+  also supported. The same limitations as with the ``assert`` statement apply.
 
 - The keywords ``always_comb``, ``always_ff`` and ``always_latch``, ``logic``
   and ``bit`` are supported.
+
+- Declaring free variables with ``rand`` and ``const rand`` is supported.
 
 - SystemVerilog packages are supported. Once a SystemVerilog file is read
   into a design with ``read_verilog``, all its packages are available to

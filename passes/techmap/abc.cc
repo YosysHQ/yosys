@@ -29,11 +29,11 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; dch -f; map {D}"
-#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
+#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
 #define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
-#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; dch -f; map"
+#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
 #define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
 #define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
