@@ -73,10 +73,9 @@ LDFLAGS += -L$(BREW_PREFIX)/readline/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
 
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
-endif
 
 # macports search paths
-ifneq ($(shell which port),)
+else ifneq ($(shell which port),)
 PORT_PREFIX := $(patsubst %/bin/port,%,$(shell which port))
 
 CXXFLAGS += -I$(PORT_PREFIX)/include
