@@ -824,7 +824,7 @@ struct VerificImporter
 
 				SigBit outsig = net_map.at(out);
 				log_assert(outsig.wire && GetSize(outsig.wire) == 1);
-				outsig.wire->attributes["\\init"] = Const(0, 1);
+				outsig.wire->attributes["\\init"] = Const(1, 1);
 
 				module->addDff(NEW_ID, net_map.at(clk), net_map.at(in2), net_map.at(out));
 				continue;
