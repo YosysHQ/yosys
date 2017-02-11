@@ -1242,7 +1242,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				width = cell->parameters["\\B_WIDTH"].as_int();
 				const_width = cell->parameters["\\A_WIDTH"].as_int();
 				var_signed = cell->parameters["\\B_SIGNED"].as_bool();
-			}
+			} else
+				log_abort();
 
 			// replace a(signed) < 0 with the high bit of a
 			if (sigConst.is_fully_const() && sigConst.is_fully_zero() && var_signed == true)
