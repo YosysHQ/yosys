@@ -488,6 +488,13 @@ void log_cell(RTLIL::Cell *cell, std::string indent)
 	log("%s", buf.str().c_str());
 }
 
+void log_wire(RTLIL::Wire *wire, std::string indent)
+{
+	std::stringstream buf;
+	ILANG_BACKEND::dump_wire(buf, indent, wire);
+	log("%s", buf.str().c_str());
+}
+
 // ---------------------------------------------------
 // This is the magic behind the code coverage counters
 // ---------------------------------------------------
