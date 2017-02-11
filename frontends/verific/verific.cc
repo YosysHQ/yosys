@@ -623,6 +623,7 @@ struct VerificImporter
 
 		module->fixup_ports();
 
+		dict<Net*, char, hash_ptr_ops> init_nets;
 		pool<Net*, hash_ptr_ops> anyconst_nets;
 		pool<Net*, hash_ptr_ops> anyseq_nets;
 
@@ -654,6 +655,9 @@ struct VerificImporter
 				memory->size = number_of_bits / bits_in_word;
 				continue;
 			}
+
+			if (net->GetInitialValue())
+				init_nets[net] = net->GetInitialValue();
 
 			const char *rand_const_attr = net->GetAttValue(" rand_const");
 			const char *rand_attr = net->GetAttValue(" rand");
@@ -701,18 +705,38 @@ struct VerificImporter
 				wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 				import_attributes(wire->attributes, netbus);
 
-				for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1) {
-					if (netbus->ElementAtIndex(i)) {
+				RTLIL::Const initval = Const(State::Sx, GetSize(wire));
+				bool initval_valid = false;
+
+				for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1)
+				{
+					if (netbus->ElementAtIndex(i))
+					{
+						int bitidx = i - wire->start_offset;
 						net = netbus->ElementAtIndex(i);
-						RTLIL::SigBit bit(wire, i - wire->start_offset);
+						RTLIL::SigBit bit(wire, bitidx);
+
+						if (init_nets.count(net)) {
+							if (init_nets.at(net) == '0')
+								initval.bits.at(bitidx) = State::S0;
+							if (init_nets.at(net) == '1')
+								initval.bits.at(bitidx) = State::S1;
+							initval_valid = true;
+							init_nets.erase(net);
+						}
+
 						if (net_map.count(net) == 0)
 							net_map[net] = bit;
 						else
 							module->connect(bit, net_map.at(net));
 					}
+
 					if (i == netbus->RightIndex())
 						break;
 				}
+
+				if (initval_valid)
+					wire->attributes["\\init"] = initval;
 			}
 			else
 			{
@@ -741,6 +765,26 @@ struct VerificImporter
 
 			if (GetSize(anyseq_sig))
 				module->connect(anyseq_sig, module->Anyseq(NEW_ID, GetSize(anyseq_sig)));
+		}
+
+		for (auto it : init_nets)
+		{
+			Const initval;
+			SigBit bit = net_map.at(it.first);
+			log_assert(bit.wire);
+
+			if (bit.wire->attributes.count("\\init"))
+				initval = bit.wire->attributes.at("\\init");
+
+			while (GetSize(initval) < GetSize(bit.wire))
+				initval.bits.push_back(State::Sx);
+
+			if (it.second == '0')
+				initval.bits.at(bit.offset) = State::S0;
+			if (it.second == '1')
+				initval.bits.at(bit.offset) = State::S1;
+
+			bit.wire->attributes["\\init"] = initval;
 		}
 
 		for (auto net : anyconst_nets)
