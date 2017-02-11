@@ -53,9 +53,9 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXFLAGS += -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
-LDFLAGS += -L$(LIBDIR)
-LDLIBS = -lstdc++ -lm
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
+LDFLAGS := $(LDFLAGS) -L$(LIBDIR)
+LDLIBS := $(LDLIBS) -lstdc++ -lm
 
 PKG_CONFIG ?= pkg-config
 SED ?= sed
