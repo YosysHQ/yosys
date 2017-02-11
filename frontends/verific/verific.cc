@@ -57,7 +57,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
-	log("VERIFIC-%s [%s] ",
+	string message = stringf("VERIFIC-%s [%s] ",
 			msg_type == VERIFIC_NONE ? "NONE" :
 			msg_type == VERIFIC_ERROR ? "ERROR" :
 			msg_type == VERIFIC_WARNING ? "WARNING" :
@@ -65,10 +65,16 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 			msg_type == VERIFIC_INFO ? "INFO" :
 			msg_type == VERIFIC_COMMENT ? "COMMENT" :
 			msg_type == VERIFIC_PROGRAM_ERROR ? "PROGRAM_ERROR" : "UNKNOWN", message_id);
+
 	if (linefile)
-		log("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile));
-	logv(msg, args);
-	log("\n");
+		message += stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile));
+
+	message += vstringf(msg, args);
+
+	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
+		log_warning("%s\n", message.c_str());
+	else
+		log("%s\n", message.c_str());
 }
 
 struct VerificImporter
