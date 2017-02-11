@@ -383,7 +383,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (detect_const_and || detect_const_or)
 		{
 			pool<SigBit> input_bits = assign_map(cell->getPort("\\A")).to_sigbit_pool();
-			bool found_zero = false, found_one = false, found_inv = false;
+			bool found_zero = false, found_one = false, found_undef = false, found_inv = false, many_conconst = false;
+			SigBit non_const_input = State::Sm;
 
 			if (cell->hasPort("\\B")) {
 				vector<SigBit> more_bits = assign_map(cell->getPort("\\B")).to_sigbit_vector();
@@ -391,12 +392,20 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 
 			for (auto bit : input_bits) {
-				if (bit == State::S0)
-					found_zero = true;
-				if (bit == State::S1)
-					found_one = true;
-				if (invert_map.count(bit) && input_bits.count(invert_map.at(bit)))
-					found_inv = true;
+				if (bit.wire) {
+					if (invert_map.count(bit) && input_bits.count(invert_map.at(bit)))
+						found_inv = true;
+					if (non_const_input != State::Sm)
+						many_conconst = true;
+					non_const_input = many_conconst ? State::Sm : bit;
+				} else {
+					if (bit == State::S0)
+						found_zero = true;
+					else if (bit == State::S1)
+						found_one = true;
+					else
+						found_undef = true;
+				}
 			}
 
 			if (detect_const_and && (found_zero || found_inv)) {
@@ -408,6 +417,12 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (detect_const_or && (found_one || found_inv)) {
 				cover("opt.opt_expr.const_or");
 				replace_cell(assign_map, module, cell, "const_or", "\\Y", RTLIL::State::S1);
+				goto next_cell;
+			}
+
+			if (non_const_input != State::Sm && !found_undef) {
+				cover("opt.opt_expr.and_or_buffer");
+				replace_cell(assign_map, module, cell, "and_or_buffer", "\\Y", non_const_input);
 				goto next_cell;
 			}
 		}
@@ -1208,6 +1223,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 			//width of the variable port
 			int width;
+			int const_width;
 
 			bool var_signed;
 
@@ -1216,6 +1232,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				sigVar = cell->getPort("\\A");
 				sigConst = cell->getPort("\\B");
 				width = cell->parameters["\\A_WIDTH"].as_int();
+				const_width = cell->parameters["\\B_WIDTH"].as_int();
 				var_signed = cell->parameters["\\A_SIGNED"].as_bool();
 			} else
 			if (cell->type == "$gt" || cell->type == "$le") {
@@ -1223,8 +1240,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				sigVar = cell->getPort("\\B");
 				sigConst = cell->getPort("\\A");
 				width = cell->parameters["\\B_WIDTH"].as_int();
+				const_width = cell->parameters["\\A_WIDTH"].as_int();
 				var_signed = cell->parameters["\\B_SIGNED"].as_bool();
-			}
+			} else
+				log_abort();
 
 			// replace a(signed) < 0 with the high bit of a
 			if (sigConst.is_fully_const() && sigConst.is_fully_zero() && var_signed == true)
@@ -1265,7 +1284,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 
 				int const_bit_set = get_onehot_bit_index(sigConst);
-				if (const_bit_set >= 0) {
+				if (const_bit_set >= 0 && const_bit_set < width) {
 					int bit_set = const_bit_set;
 					RTLIL::SigSpec a_prime(RTLIL::State::S0, width - bit_set);
 					for (int i = bit_set; i < width; i++) {
@@ -1283,6 +1302,21 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					module->remove(cell);
 					did_something = true;
 					goto next_cell;
+				}
+				else if(const_bit_set >= width && const_bit_set >= 0){
+					RTLIL::SigSpec a_prime(RTLIL::State::S0, 1);
+					if(is_lt){
+						a_prime[0] = RTLIL::State::S1;
+						log("Replacing %s cell `%s' (implementing unsigned X[%d:0] < %s[%d:0]) with constant 0.\n", log_id(cell->type), log_id(cell), width-1, log_signal(sigConst),const_width-1); 
+					}
+					else{
+						log("Replacing %s cell `%s' (implementing unsigned X[%d:0]>= %s[%d:0]) with constant 1.\n", log_id(cell->type), log_id(cell), width-1, log_signal(sigConst),const_width-1); 
+					}
+					module->connect(cell->getPort("\\Y"), a_prime);
+					module->remove(cell);
+					did_something = true;
+					goto next_cell;
+
 				}
 			}
 		}

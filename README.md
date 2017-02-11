@@ -40,20 +40,27 @@ Web Site
 More information and documentation can be found on the Yosys web site:
 http://www.clifford.at/yosys/
 
-
-Getting Started
-===============
+Setup
+======
 
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
 TCL, readline and libffi are optional (see ``ENABLE_*`` settings in Makefile).
 Xdot (graphviz) is used by the ``show`` command in yosys to display schematics.
+
 For example on Ubuntu Linux 16.04 LTS the following commands will install all
 prerequisites for building yosys:
 
 	$ sudo apt-get install build-essential clang bison flex \
 		libreadline-dev gawk tcl-dev libffi-dev git mercurial \
 		graphviz xdot pkg-config python3
+
+Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
+
+	$ brew install bison flex gawk libffi \
+		git mercurial graphviz pkg-config python3
+	$ sudo port install bison flex readline gawk libffi \
+		git mercurial graphviz pkgconfig python36
 
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for
@@ -79,6 +86,9 @@ To build Yosys simply type 'make' in this directory.
 
 Note that this also downloads, builds and installs ABC (using yosys-abc
 as executable name).
+
+Getting Started
+===============
 
 Yosys can be used with the interactive command shell, with
 synthesis scripts or with command line arguments. Let's perform
@@ -379,10 +389,13 @@ Non-standard or SystemVerilog features for formal verification
   to 0 otherwise.
 
 - The system task ``$anyconst`` evaluates to any constant value. This is
-  equivalent to declaring a reg as ``const rand``.
+  equivalent to declaring a reg as ``rand const``, but also works outside
+  of checkers. (Yosys also supports ``rand const`` outside checkers.)
 
 - The system task ``$anyseq`` evaluates to any value, possibly a different
-  value in each cycle. This is equivalent to declaring a reg as ``rand``.
+  value in each cycle. This is equivalent to declaring a reg as ``rand``,
+  but also works outside of checkers. (Yosys also supports ``rand``
+  variables outside checkers.)
 
 - The SystemVerilog tasks ``$past``, ``$stable``, ``$rose`` and ``$fell`` are
   supported in any clocked block.
@@ -407,7 +420,10 @@ from SystemVerilog:
 - The keywords ``always_comb``, ``always_ff`` and ``always_latch``, ``logic``
   and ``bit`` are supported.
 
-- Declaring free variables with ``rand`` and ``const rand`` is supported.
+- Declaring free variables with ``rand`` and ``rand const`` is supported.
+
+- Checkers without a port list that do not need to be instantiated (but instead
+  behave like a named block) are supported.
 
 - SystemVerilog packages are supported. Once a SystemVerilog file is read
   into a design with ``read_verilog``, all its packages are available to

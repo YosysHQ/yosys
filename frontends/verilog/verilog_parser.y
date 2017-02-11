@@ -116,7 +116,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME
 %token TOK_RESTRICT TOK_COVER TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
-%token TOK_RAND TOK_CONST
+%token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -465,7 +465,18 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | param_decl | localparam_decl | defparam_decl | wire_decl | assign_stmt | cell_stmt |
-	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property;
+	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl;
+
+checker_decl:
+	TOK_CHECKER TOK_ID ';' {
+		AstNode *node = new AstNode(AST_GENBLOCK);
+		node->str = *$2;
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} module_body TOK_ENDCHECKER {
+		delete $2;
+		ast_stack.pop_back();
+	};
 
 task_func_decl:
 	attr TOK_DPI_FUNCTION TOK_ID TOK_ID {

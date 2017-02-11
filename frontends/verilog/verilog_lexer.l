@@ -175,15 +175,17 @@ YOSYS_NAMESPACE_END
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
 
-"assert"   { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
-"assume"   { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
-"cover"    { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
-"restrict" { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
-"property" { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
-"rand"     { if (formal_mode) return TOK_RAND; SV_KEYWORD(TOK_RAND); }
-"const"    { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
-"logic"    { SV_KEYWORD(TOK_REG); }
-"bit"      { SV_KEYWORD(TOK_REG); }
+"assert"     { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
+"assume"     { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
+"cover"      { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
+"restrict"   { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
+"property"   { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
+"rand"       { if (formal_mode) return TOK_RAND; SV_KEYWORD(TOK_RAND); }
+"const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
+"checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
+"endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
+"logic"      { SV_KEYWORD(TOK_REG); }
+"bit"        { SV_KEYWORD(TOK_REG); }
 
 "input"   { return TOK_INPUT; }
 "output"  { return TOK_OUTPUT; }

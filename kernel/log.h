@@ -90,6 +90,7 @@ template<typename T> static inline const char *log_id(T *obj) {
 
 void log_module(RTLIL::Module *module, std::string indent = "");
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
+void log_wire(RTLIL::Wire *wire, std::string indent = "");
 
 #ifndef NDEBUG
 static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line) {

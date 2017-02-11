@@ -57,7 +57,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
-	log("VERIFIC-%s [%s] ",
+	string message = stringf("VERIFIC-%s [%s] ",
 			msg_type == VERIFIC_NONE ? "NONE" :
 			msg_type == VERIFIC_ERROR ? "ERROR" :
 			msg_type == VERIFIC_WARNING ? "WARNING" :
@@ -65,10 +65,16 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 			msg_type == VERIFIC_INFO ? "INFO" :
 			msg_type == VERIFIC_COMMENT ? "COMMENT" :
 			msg_type == VERIFIC_PROGRAM_ERROR ? "PROGRAM_ERROR" : "UNKNOWN", message_id);
+
 	if (linefile)
-		log("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile));
-	logv(msg, args);
-	log("\n");
+		message += stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile));
+
+	message += vstringf(msg, args);
+
+	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
+		log_warning("%s\n", message.c_str());
+	else
+		log("%s\n", message.c_str());
 }
 
 struct VerificImporter
@@ -617,6 +623,10 @@ struct VerificImporter
 
 		module->fixup_ports();
 
+		dict<Net*, char, hash_ptr_ops> init_nets;
+		pool<Net*, hash_ptr_ops> anyconst_nets;
+		pool<Net*, hash_ptr_ops> anyseq_nets;
+
 		FOREACH_NET_OF_NETLIST(nl, mi, net)
 		{
 			if (net->IsRamNet())
@@ -643,8 +653,58 @@ struct VerificImporter
 
 				memory->width = bits_in_word;
 				memory->size = number_of_bits / bits_in_word;
+
+				const char *ascii_initdata = net->GetWideInitialValue();
+				if (ascii_initdata) {
+					while (*ascii_initdata != 0 && *ascii_initdata != '\'')
+						ascii_initdata++;
+					if (*ascii_initdata == '\'')
+						ascii_initdata++;
+					if (*ascii_initdata != 0) {
+						log_assert(*ascii_initdata == 'b');
+						ascii_initdata++;
+					}
+					for (int word_idx = 0; word_idx < memory->size; word_idx++) {
+						Const initval = Const(State::Sx, memory->width);
+						bool initval_valid = false;
+						for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
+							if (*ascii_initdata == 0)
+								break;
+							if (*ascii_initdata == '0' || *ascii_initdata == '1') {
+								initval[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
+								initval_valid = true;
+							}
+							ascii_initdata++;
+						}
+						if (initval_valid) {
+							RTLIL::Cell *cell = module->addCell(NEW_ID, "$meminit");
+							cell->parameters["\\WORDS"] = 1;
+							if (net->GetOrigTypeRange()->LeftRangeBound() < net->GetOrigTypeRange()->RightRangeBound())
+								cell->setPort("\\ADDR", word_idx);
+							else
+								cell->setPort("\\ADDR", memory->size - word_idx - 1);
+							cell->setPort("\\DATA", initval);
+							cell->parameters["\\MEMID"] = RTLIL::Const(memory->name.str());
+							cell->parameters["\\ABITS"] = 32;
+							cell->parameters["\\WIDTH"] = memory->width;
+							cell->parameters["\\PRIORITY"] = RTLIL::Const(autoidx-1);
+						}
+					}
+				}
 				continue;
 			}
+
+			if (net->GetInitialValue())
+				init_nets[net] = net->GetInitialValue();
+
+			const char *rand_const_attr = net->GetAttValue(" rand_const");
+			const char *rand_attr = net->GetAttValue(" rand");
+
+			if (rand_const_attr != nullptr && !strcmp(rand_const_attr, "1"))
+				anyconst_nets.insert(net);
+
+			else if (rand_attr != nullptr && !strcmp(rand_attr, "1"))
+				anyseq_nets.insert(net);
 
 			if (net_map.count(net)) {
 				// log("  skipping net %s.\n", net->Name());
@@ -683,24 +743,93 @@ struct VerificImporter
 				wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 				import_attributes(wire->attributes, netbus);
 
-				for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1) {
-					if (netbus->ElementAtIndex(i)) {
+				RTLIL::Const initval = Const(State::Sx, GetSize(wire));
+				bool initval_valid = false;
+
+				for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1)
+				{
+					if (netbus->ElementAtIndex(i))
+					{
+						int bitidx = i - wire->start_offset;
 						net = netbus->ElementAtIndex(i);
-						RTLIL::SigBit bit(wire, i - wire->start_offset);
+						RTLIL::SigBit bit(wire, bitidx);
+
+						if (init_nets.count(net)) {
+							if (init_nets.at(net) == '0')
+								initval.bits.at(bitidx) = State::S0;
+							if (init_nets.at(net) == '1')
+								initval.bits.at(bitidx) = State::S1;
+							initval_valid = true;
+							init_nets.erase(net);
+						}
+
 						if (net_map.count(net) == 0)
 							net_map[net] = bit;
 						else
 							module->connect(bit, net_map.at(net));
 					}
+
 					if (i == netbus->RightIndex())
 						break;
 				}
+
+				if (initval_valid)
+					wire->attributes["\\init"] = initval;
 			}
 			else
 			{
 				// log("  skipping netbus %s.\n", netbus->Name());
 			}
+
+			SigSpec anyconst_sig;
+			SigSpec anyseq_sig;
+
+			for (int i = netbus->RightIndex();; i += netbus->IsUp() ? -1 : +1) {
+				net = netbus->ElementAtIndex(i);
+				if (net != nullptr && anyconst_nets.count(net)) {
+					anyconst_sig.append(net_map.at(net));
+					anyconst_nets.erase(net);
+				}
+				if (net != nullptr && anyseq_nets.count(net)) {
+					anyseq_sig.append(net_map.at(net));
+					anyseq_nets.erase(net);
+				}
+				if (i == netbus->LeftIndex())
+					break;
+			}
+
+			if (GetSize(anyconst_sig))
+				module->connect(anyconst_sig, module->Anyconst(NEW_ID, GetSize(anyconst_sig)));
+
+			if (GetSize(anyseq_sig))
+				module->connect(anyseq_sig, module->Anyseq(NEW_ID, GetSize(anyseq_sig)));
 		}
+
+		for (auto it : init_nets)
+		{
+			Const initval;
+			SigBit bit = net_map.at(it.first);
+			log_assert(bit.wire);
+
+			if (bit.wire->attributes.count("\\init"))
+				initval = bit.wire->attributes.at("\\init");
+
+			while (GetSize(initval) < GetSize(bit.wire))
+				initval.bits.push_back(State::Sx);
+
+			if (it.second == '0')
+				initval.bits.at(bit.offset) = State::S0;
+			if (it.second == '1')
+				initval.bits.at(bit.offset) = State::S1;
+
+			bit.wire->attributes["\\init"] = initval;
+		}
+
+		for (auto net : anyconst_nets)
+			module->connect(net_map.at(net), module->Anyconst(NEW_ID));
+
+		for (auto net : anyseq_nets)
+			module->connect(net_map.at(net), module->Anyseq(NEW_ID));
 
 		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 		{
@@ -733,7 +862,7 @@ struct VerificImporter
 
 				SigBit outsig = net_map.at(out);
 				log_assert(outsig.wire && GetSize(outsig.wire) == 1);
-				outsig.wire->attributes["\\init"] == Const(0, 1);
+				outsig.wire->attributes["\\init"] = Const(1, 1);
 
 				module->addDff(NEW_ID, net_map.at(clk), net_map.at(in2), net_map.at(out));
 				continue;
