@@ -57,23 +57,39 @@ CXXFLAGS += -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PRE
 LDFLAGS += -L$(LIBDIR)
 LDLIBS = -lstdc++ -lm
 
-PKG_CONFIG = pkg-config
-SED = sed
-BISON = bison
+PKG_CONFIG ?= pkg-config
+SED ?= sed
+BISON ?= bison
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
-	# add macports/homebrew include and library path to search directories, don't use '-rdynamic' and '-lrt':
-	CXXFLAGS += -I/opt/local/include -I/usr/local/opt/readline/include
-	LDFLAGS += -L/opt/local/lib -L/usr/local/opt/readline/lib
-	# add homebrew's libffi include and library path
-	CXXFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --cflags libffi)
-	LDFLAGS += $(shell PKG_CONFIG_PATH=$$(brew list libffi | grep pkgconfig | xargs dirname) pkg-config --silence-errors --libs libffi)
-	# use bison installed by homebrew if available
-	BISON = $(shell (brew list bison | grep -m1 "bin/bison") || echo bison)
-	SED = sed
+
+# homebrew search paths
+ifneq ($(shell which brew),)
+BREW_PREFIX := $(shell brew --prefix)/opt
+
+CXXFLAGS += -I$(BREW_PREFIX)/readline/include
+LDFLAGS += -L$(BREW_PREFIX)/readline/lib
+
+PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
+PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk/lib/pkgconfig:$(PKG_CONFIG_PATH)
+
+export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
+
+# macports search paths
+else ifneq ($(shell which port),)
+PORT_PREFIX := $(patsubst %/bin/port,%,$(shell which port))
+
+CXXFLAGS += -I$(PORT_PREFIX)/include
+LDFLAGS += -L$(PORT_PREFIX)/lib
+
+PKG_CONFIG_PATH := $(PORT_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
+
+export PATH := $(PORT_PREFIX)/bin:$(PATH)
+endif
+
 else
-	LDFLAGS += -rdynamic
-	LDLIBS += -lrt
+LDFLAGS += -rdynamic
+LDLIBS += -lrt
 endif
 
 YOSYS_VER := 0.7+$(shell cd $(YOSYS_SRC) && test -e .git && { git log --author=clifford@clifford.at --oneline 61f6811.. | wc -l; })
@@ -210,15 +226,16 @@ endif
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
-CXXFLAGS += -DYOSYS_ENABLE_PLUGINS $(shell $(PKG_CONFIG) --silence-errors --cflags libffi)
-LDLIBS += $(shell $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi) -ldl
+CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags libffi) -DYOSYS_ENABLE_PLUGINS
+LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi) -ldl
 endif
 
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
-CXXFLAGS += -I$(TCL_INCLUDE) -DYOSYS_ENABLE_TCL
-LDLIBS += -l$(TCL_VERSION)
+
+CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
+LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION))
 endif
 
 ifeq ($(ENABLE_GPROF),1)
