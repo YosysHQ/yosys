@@ -653,6 +653,44 @@ struct VerificImporter
 
 				memory->width = bits_in_word;
 				memory->size = number_of_bits / bits_in_word;
+
+				const char *ascii_initdata = net->GetWideInitialValue();
+				if (ascii_initdata) {
+					while (*ascii_initdata != 0 && *ascii_initdata != '\'')
+						ascii_initdata++;
+					if (*ascii_initdata == '\'')
+						ascii_initdata++;
+					if (*ascii_initdata != 0) {
+						log_assert(*ascii_initdata == 'b');
+						ascii_initdata++;
+					}
+					for (int word_idx = 0; word_idx < memory->size; word_idx++) {
+						Const initval = Const(State::Sx, memory->width);
+						bool initval_valid = false;
+						for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
+							if (*ascii_initdata == 0)
+								break;
+							if (*ascii_initdata == '0' || *ascii_initdata == '1') {
+								initval[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
+								initval_valid = true;
+							}
+							ascii_initdata++;
+						}
+						if (initval_valid) {
+							RTLIL::Cell *cell = module->addCell(NEW_ID, "$meminit");
+							cell->parameters["\\WORDS"] = 1;
+							if (net->GetOrigTypeRange()->LeftRangeBound() < net->GetOrigTypeRange()->RightRangeBound())
+								cell->setPort("\\ADDR", word_idx);
+							else
+								cell->setPort("\\ADDR", memory->size - word_idx - 1);
+							cell->setPort("\\DATA", initval);
+							cell->parameters["\\MEMID"] = RTLIL::Const(memory->name.str());
+							cell->parameters["\\ABITS"] = 32;
+							cell->parameters["\\WIDTH"] = memory->width;
+							cell->parameters["\\PRIORITY"] = RTLIL::Const(autoidx-1);
+						}
+					}
+				}
 				continue;
 			}
 
