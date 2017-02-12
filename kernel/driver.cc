@@ -219,7 +219,11 @@ int main(int argc, char **argv)
 		printf("        Use 'ALL' as <header_id> to dump at every header.\n");
 		printf("\n");
 		printf("    -W regex\n");
-		printf("        print a warning for all log messages matching the regex \n");
+		printf("        print a warning for all log messages matching the regex.\n");
+		printf("\n");
+		printf("    -w regex\n");
+		printf("        if a warning message matches the regex, it is printes as regular\n");
+		printf("        message instead.\n");
 		printf("\n");
 		printf("    -V\n");
 		printf("        print version information and exit\n");
@@ -241,7 +245,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:D:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:D:")) != -1)
 	{
 		switch (opt)
 		{
@@ -325,6 +329,12 @@ int main(int argc, char **argv)
 			break;
 		case 'W':
 			log_warn_regexes.push_back(std::regex(optarg,
+					std::regex_constants::nosubs |
+					std::regex_constants::optimize |
+					std::regex_constants::egrep));
+			break;
+		case 'w':
+			log_nowarn_regexes.push_back(std::regex(optarg,
 					std::regex_constants::nosubs |
 					std::regex_constants::optimize |
 					std::regex_constants::egrep));
