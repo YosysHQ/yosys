@@ -305,10 +305,15 @@ struct TechmapWorker
 				// approach that yields nicer outputs:
 				// replace internal wires that are connected to external wires
 
-				if (w->port_output)
+				if (w->port_output && !w->port_input) {
 					port_signal_map.add(c.second, c.first);
-				else
+				} else
+				if (!w->port_output && w->port_input) {
 					port_signal_map.add(c.first, c.second);
+				} else {
+					module->connect(c);
+					extra_connect = SigSig();
+				}
 
 				for (auto &attr : w->attributes) {
 					if (attr.first == "\\src")
