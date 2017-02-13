@@ -630,7 +630,7 @@ struct HierarchyPass : public Pass {
 
 				Module *m = design->module(cell->type);
 
-				if (m == nullptr)
+				if (m == nullptr || m->get_bool_attribute("\\blackbox"))
 					continue;
 
 				for (auto &conn : cell->connections())
