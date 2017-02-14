@@ -157,7 +157,53 @@ struct FirrtlWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in("$add", "$sub", "$xor"))
+			if (cell->type.in("$not", "$logic_not", "$neg", "$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_bool", "$reduce_xnor"))
+			{
+				string y_id = make_id(cell->name);
+				bool is_signed = cell->parameters.at("\\A_SIGNED").as_bool();
+				int y_width =  cell->parameters.at("\\Y_WIDTH").as_int();
+				string a_expr = make_expr(cell->getPort("\\A"));
+				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
+
+				if (cell->parameters.at("\\A_SIGNED").as_bool()) {
+					a_expr = "asSInt(" + a_expr + ")";
+				}
+
+				a_expr = stringf("pad(%s, %d)", a_expr.c_str(), y_width);
+
+				string primop;
+                                bool always_uint = false;
+				if (cell->type == "$not") primop = "not";
+				if (cell->type == "$neg") primop = "neg";
+				if (cell->type == "$logic_not") {
+                                        primop = "eq";
+                                        a_expr = stringf("%s, UInt(0)", a_expr.c_str());
+                                }
+				if (cell->type == "$reduce_and") primop = "andr";
+				if (cell->type == "$reduce_or") primop = "orr";
+				if (cell->type == "$reduce_xor") primop = "xorr";
+				if (cell->type == "$reduce_xnor") {
+                                        primop = "not";
+                                        a_expr = stringf("xorr(%s)", a_expr.c_str());
+                                }
+				if (cell->type == "$reduce_bool") {
+                                        primop = "neq";
+                                        a_expr = stringf("%s, UInt(0)", a_expr.c_str());
+                                }
+
+				string expr = stringf("%s(%s)", primop.c_str(), a_expr.c_str());
+
+				if ((is_signed && !always_uint))
+					expr = stringf("asUInt(%s)", expr.c_str());
+
+				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));
+				register_reverse_wire_map(y_id, cell->getPort("\\Y"));
+
+				continue;
+			}
+			if (cell->type.in("$add", "$sub", "$mul", "$div", "$mod", "$xor", "$and", "$or", "$eq", "$eqx",
+                                        "$gt", "$ge", "$lt", "$le", "$ne", "$nex", "$shr", "$sshr", "$sshl", "$shl",
+                                        "$logic_and", "$logic_or"))
 			{
 				string y_id = make_id(cell->name);
 				bool is_signed = cell->parameters.at("\\A_SIGNED").as_bool();
@@ -166,22 +212,88 @@ struct FirrtlWorker
 				string b_expr = make_expr(cell->getPort("\\B"));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d>\n", y_id.c_str(), y_width));
 
-				if (is_signed) {
+				if (cell->parameters.at("\\A_SIGNED").as_bool()) {
 					a_expr = "asSInt(" + a_expr + ")";
+				}
+				if (cell->parameters.at("\\A_SIGNED").as_bool()  & (cell->type != "$shr")) {
 					b_expr = "asSInt(" + b_expr + ")";
 				}
 
 				a_expr = stringf("pad(%s, %d)", a_expr.c_str(), y_width);
-				b_expr = stringf("pad(%s, %d)", b_expr.c_str(), y_width);
+
+				if ((cell->type != "$shl") && (cell->type != "$sshl")) {
+				        b_expr = stringf("pad(%s, %d)", b_expr.c_str(), y_width);
+                                }
+
+				if (cell->parameters.at("\\A_SIGNED").as_bool()  & (cell->type == "$shr")) {
+					a_expr = "asUInt(" + a_expr + ")";
+				}
 
 				string primop;
+                                bool always_uint = false;
 				if (cell->type == "$add") primop = "add";
 				if (cell->type == "$sub") primop = "sub";
-				if (cell->type == "$xor") primop = "xor";
+				if (cell->type == "$mul") primop = "mul";
+				if (cell->type == "$div") primop = "div";
+				if (cell->type == "$mod") primop = "rem";
+				if (cell->type == "$and") {
+                                        primop = "and";
+                                        always_uint = true;
+                                }
+				if (cell->type == "$or" ) {
+                                        primop =  "or";
+                                        always_uint = true;
+                                }
+				if (cell->type == "$xor") {
+                                        primop = "xor";
+                                        always_uint = true;
+                                }
+				if ((cell->type == "$eq") | (cell->type == "$eqx")) {
+                                        primop = "eq";
+                                        always_uint = true;
+                                }
+				if ((cell->type == "$ne") | (cell->type == "$nex")) {
+                                        primop = "neq";
+                                        always_uint = true;
+                                }
+				if (cell->type == "$gt") {
+                                        primop = "gt";
+                                        always_uint = true;
+                                }
+				if (cell->type == "$ge") {
+                                        primop = "geq";
+                                        always_uint = true;
+                                }
+				if (cell->type == "$lt") {
+                                        primop = "lt";
+                                        always_uint = true;
+                                }
+				if (cell->type == "$le") {
+                                        primop = "leq";
+                                        always_uint = true;
+                                }
+				if ((cell->type == "$shl") | (cell->type == "$sshl")) primop = "dshl";
+				if ((cell->type == "$shr") | (cell->type == "$sshr")) primop = "dshr";
+				if ((cell->type == "$logic_and")) {
+                                        primop = "and";
+                                        a_expr = "neq(" + a_expr + ", UInt(0))";
+                                        b_expr = "neq(" + b_expr + ", UInt(0))";
+                                        always_uint = true;
+                                }
+				if ((cell->type == "$logic_or")) {
+                                        primop = "or";
+                                        a_expr = "neq(" + a_expr + ", UInt(0))";
+                                        b_expr = "neq(" + b_expr + ", UInt(0))";
+                                        always_uint = true;
+                                }
+
+				if (!cell->parameters.at("\\B_SIGNED").as_bool()) {
+					b_expr = "asUInt(" + b_expr + ")";
+				}
 
 				string expr = stringf("%s(%s, %s)", primop.c_str(), a_expr.c_str(), b_expr.c_str());
 
-				if ((is_signed && !cell->type.in("$xor")) || cell->type.in("$sub"))
+				if ((is_signed && !always_uint) || cell->type.in("$sub"))
 					expr = stringf("asUInt(%s)", expr.c_str());
 
 				cell_exprs.push_back(stringf("    %s <= %s\n", y_id.c_str(), expr.c_str()));

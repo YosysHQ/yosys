@@ -41,7 +41,7 @@ YOSYS_NAMESPACE_BEGIN
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
-std::vector<std::regex> log_warn_regexes;
+std::vector<std::regex> log_warn_regexes, log_nowarn_regexes;
 bool log_hdump_all = false;
 FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
@@ -202,15 +202,28 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 
 void logv_warning(const char *format, va_list ap)
 {
-	if (log_errfile != NULL && !log_quiet_warnings)
-		log_files.push_back(log_errfile);
+	std::string message = vstringf(format, ap);
+	bool suppressed = false;
 
-	log("Warning: ");
-	logv(format, ap);
-	log_flush();
+	for (auto &re : log_nowarn_regexes)
+		if (std::regex_search(message, re))
+			suppressed = true;
 
-	if (log_errfile != NULL && !log_quiet_warnings)
-		log_files.pop_back();
+	if (suppressed)
+	{
+		log("Suppressed warning: %s", message.c_str());
+	}
+	else
+	{
+		if (log_errfile != NULL && !log_quiet_warnings)
+			log_files.push_back(log_errfile);
+
+		log("Warning: %s", message.c_str());
+		log_flush();
+
+		if (log_errfile != NULL && !log_quiet_warnings)
+			log_files.pop_back();
+	}
 }
 
 void logv_error(const char *format, va_list ap)

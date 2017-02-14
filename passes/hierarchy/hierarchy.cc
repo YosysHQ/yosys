@@ -625,9 +625,12 @@ struct HierarchyPass : public Pass {
 			for (auto module : design->modules())
 			for (auto cell : module->cells())
 			{
+				if (GetSize(cell->parameters) != 0)
+					continue;
+
 				Module *m = design->module(cell->type);
 
-				if (m == nullptr)
+				if (m == nullptr || m->get_bool_attribute("\\blackbox"))
 					continue;
 
 				for (auto &conn : cell->connections())
