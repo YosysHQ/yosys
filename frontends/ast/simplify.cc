@@ -2183,9 +2183,16 @@ skip_dynamic_range_lvalue_expansion:;
 					if (wire->children.empty()) {
 						for (auto c : child->children)
 							wire->children.push_back(c->clone());
-					} else {
-						if (!child->children.empty())
+					} else if (!child->children.empty()) {
+						while (child->simplify(true, false, false, stage, -1, false, false)) { }
+						if (GetSize(child->children) == GetSize(wire->children)) {
+							for (int i = 0; i < GetSize(child->children); i++)
+								if (*child->children.at(i) != *wire->children.at(i))
+									goto tcall_incompatible_wires;
+						} else {
+					tcall_incompatible_wires:
 							log_error("Incompatible re-declaration of wire %s at %s:%d.\n", child->str.c_str(), filename.c_str(), linenum);
+						}
 					}
 				}
 				else
