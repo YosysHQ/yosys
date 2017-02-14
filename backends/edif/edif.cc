@@ -323,7 +323,10 @@ struct EdifBackend : public Backend {
 				for (auto &p : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(p.second);
 					for (int i = 0; i < GetSize(sig); i++)
-						if (sig.size() == 1)
+						if (sig[i].wire == NULL && sig[i] != RTLIL::State::S0 && sig[i] != RTLIL::State::S1)
+							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
+									i, log_id(module), log_id(cell), log_id(p.first), log_signal(sig[i]));
+						else if (sig.size() == 1)
 							net_join_db[sig[i]].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
 						else
 							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))", EDIF_REF(p.first), i, EDIF_REF(cell->name)));
@@ -332,7 +335,7 @@ struct EdifBackend : public Backend {
 			for (auto &it : net_join_db) {
 				RTLIL::SigBit sig = it.first;
 				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1)
-					continue;
+					log_abort();
 				std::string netname = log_signal(sig);
 				for (size_t i = 0; i < netname.size(); i++)
 					if (netname[i] == ' ' || netname[i] == '\\')
