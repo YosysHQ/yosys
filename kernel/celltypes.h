@@ -313,7 +313,7 @@ struct CellTypes
 		if (type == "$_OR_")
 			return const_or(arg1, arg2, false, false, 1);
 		if (type == "$_NOR_")
-			return eval_not(const_and(arg1, arg2, false, false, 1));
+			return eval_not(const_or(arg1, arg2, false, false, 1));
 		if (type == "$_XOR_")
 			return const_xor(arg1, arg2, false, false, 1);
 		if (type == "$_XNOR_")
