@@ -291,7 +291,7 @@ static RTLIL::Const const_shift_worker(const RTLIL::Const &arg1, const RTLIL::Co
 		BigInteger pos = BigInteger(i) + offset;
 		if (pos < 0)
 			result.bits[i] = RTLIL::State::S0;
-		else if (pos >= arg1.bits.size())
+		else if (pos.toUnsignedLong() >= arg1.bits.size())
 			result.bits[i] = sign_ext ? arg1.bits.back() : RTLIL::State::S0;
 		else
 			result.bits[i] = arg1.bits[pos.toInt()];
@@ -342,7 +342,7 @@ static RTLIL::Const const_shift_shiftx(const RTLIL::Const &arg1, const RTLIL::Co
 
 	for (int i = 0; i < result_len; i++) {
 		BigInteger pos = BigInteger(i) + offset;
-		if (pos < 0 || pos >= arg1.bits.size())
+		if (pos < 0 || pos.toUnsignedLong() >= arg1.bits.size())
 			result.bits[i] = other_bits;
 		else
 			result.bits[i] = arg1.bits[pos.toInt()];
@@ -583,4 +583,3 @@ RTLIL::Const RTLIL::const_neg(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 }
 
 YOSYS_NAMESPACE_END
-
