@@ -117,6 +117,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME
 %token TOK_RESTRICT TOK_COVER TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER
+%token TOK_INCREMENT TOK_DECREMENT
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -1065,6 +1066,14 @@ assert_property:
 simple_behavioral_stmt:
 	lvalue '=' delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
+		ast_stack.back()->children.push_back(node);
+	} |
+	lvalue TOK_INCREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_ADD, $1->clone(), AstNode::mkconst_int(1, true)));
+		ast_stack.back()->children.push_back(node);
+	} |
+	lvalue TOK_DECREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_SUB, $1->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
 	} |
 	lvalue OP_LE delay expr {
