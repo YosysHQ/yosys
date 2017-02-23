@@ -117,13 +117,13 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME
 %token TOK_RESTRICT TOK_COVER TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER
-%token TOK_INCREMENT TOK_DECREMENT
+%token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
-%type <boolean> opt_signed
-%type <al> attr
+%type <boolean> opt_signed unique_case_attr
+%type <al> attr case_attr
 
 // operator precedence from low to high
 %left OP_LOR
@@ -1167,7 +1167,7 @@ behavioral_stmt:
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	attr case_type '(' expr ')' {
+	case_attr case_type '(' expr ')' {
 		AstNode *node = new AstNode(AST_CASE, $4);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
@@ -1175,6 +1175,23 @@ behavioral_stmt:
 	} opt_synopsys_attr case_body TOK_ENDCASE {
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
+	};
+
+unique_case_attr:
+	/* empty */ {
+		$$ = false;
+	} |
+	TOK_PRIORITY case_attr {
+		$$ = $2;
+	} |
+	TOK_UNIQUE case_attr {
+		$$ = true;
+	};
+
+case_attr:
+	attr unique_case_attr {
+		if ($2) (*$1)["\\parallel_case"] = AstNode::mkconst_int(1, false);
+		$$ = $1;
 	};
 
 case_type:
