@@ -7,9 +7,9 @@ CONFIG := clang
 # CONFIG := msys2
 
 # features (the more the better)
-ENABLE_TCL := 1
-ENABLE_ABC := 1
-ENABLE_PLUGINS := 1
+ENABLE_TCL := 0
+ENABLE_ABC := 0
+ENABLE_PLUGINS := 0
 ENABLE_READLINE := 1
 ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
