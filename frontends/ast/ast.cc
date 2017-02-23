@@ -1104,7 +1104,10 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
-			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
+			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
+				child->children[0] = AstNode::mkconst_str(parameters[para_id].decode_string());
+			else
+				child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
 			parameters.erase(para_id);
 			continue;
 		}
@@ -1118,7 +1121,10 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	for (auto param : parameters) {
 		AstNode *defparam = new AstNode(AST_DEFPARAM, new AstNode(AST_IDENTIFIER));
 		defparam->children[0]->str = param.first.str();
-		defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
+		if ((param.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
+			defparam->children.push_back(AstNode::mkconst_str(param.second.decode_string()));
+		else
+			defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
 		new_ast->children.push_back(defparam);
 	}
 
