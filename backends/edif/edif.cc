@@ -31,28 +31,27 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 #define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true).c_str()
-#define EDIF_DEFR(_id, _ren, _del, _bd) edif_names(RTLIL::unescape_id(_id), true, _ren, _del, _bd).c_str()
+#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br).c_str()
 #define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false).c_str()
-
-static char const edf_defdel[2] = {'[',']'};
-static int const edf_defbd[2] = {0,1};
 
 namespace
 {
 	struct EdifNames
 	{
 		int counter;
+		char delim_left;
+		char delim_right;
 		std::set<std::string> generated_names, used_names;
 		std::map<std::string, std::string> name_map;
 
-		EdifNames() : counter(1) { }
+		EdifNames() : counter(1), delim_left('['), delim_right(']') { }
 
-		std::string operator()(std::string id, bool define, bool always_rename = false, char const delim[2] = edf_defdel, int const bounds[2] = edf_defbd)
+		std::string operator()(std::string id, bool define, bool port_rename = false, int range_left = 0, int range_right = 0)
 		{
 			if (define) {
 				std::string new_id = operator()(id, false);
-				if (always_rename)
-					return stringf("(rename %s \"%s%c%d:%d%c\")", new_id.c_str(), id.c_str(), delim[0], bounds[0], bounds[1], delim[1]);
+				if (port_rename)
+					return stringf("(rename %s \"%s%c%d:%d%c\")", new_id.c_str(), id.c_str(), delim_left, range_left, range_right, delim_right);
 				return new_id != id ? stringf("(rename %s \"%s\")", new_id.c_str(), id.c_str()) : id;
 			}
 
@@ -111,14 +110,7 @@ struct EdifBackend : public Backend {
 		log("        if the design contains constant nets. use \"hilomap\" to map to custom\n");
 		log("        constant drivers first)\n");
 		log("\n");
-		log("    -pidx {up|down}\n");
-		log("        adds rename clauses to all module ports to line up signal and member indices.\n");
-		log("        if it is up, a 24 bit port will be renamed as follows:\n");
-		log("                (rename mcu_addr \"mcu_addr[0:23]\")\n");
-		log("        if it is down, it will be:\n");
-		log("                (rename mcu_addr \"mcu_addr[23:0]\")\n");
-		log("\n");
-		log("    -parray {par|bra|ang}\n");
+		log("    -pvector {par|bra|ang}\n");
 		log("        sets the delimiting character for module port rename clauses.\n");
 		log("        if it is par, The example from above will be:\n");
 		log("                (rename mcu_addr \"mcu_addr(0:23)\")\n");
@@ -126,9 +118,6 @@ struct EdifBackend : public Backend {
 		log("                (rename mcu_addr \"mcu_addr<0:23>\")\n");
 		log("        otherwise:\n");
 		log("                (rename mcu_addr \"mcu_addr[0:23]\")\n");
-		log("\n");
-		log("    If neither -parray nor -pidx are given, there will be no port rename clauses.");
-		log("    If only one is given, -parray will default to bra and -pidx to up.");
 		log("\n");
 		log("Unfortunately there are different \"flavors\" of the EDIF file format. This\n");
 		log("command generates EDIF files for the Xilinx place&route tools. It might be\n");
@@ -140,9 +129,7 @@ struct EdifBackend : public Backend {
 	{
 		log_header(design, "Executing EDIF backend.\n");
 		std::string top_module_name;
-		bool always_rename = false;
-		char delim[2] = {'[',']'};
-		int bounds[2] = {0,1};
+		bool port_rename = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
 		bool nogndvcc = false;
 		CellTypes ct(design);
@@ -159,26 +146,16 @@ struct EdifBackend : public Backend {
 				nogndvcc = true;
 				continue;
 			}
-			if (args[argidx] == "-pidx" && argidx+1 < args.size()) {
-				always_rename = true;
-				if(args[++argidx] == "down") {
-					bounds[0]=1;bounds[1]=0;
-				}
-				else {
-					bounds[0]=0;bounds[1]=1;
-				}
-				continue;
-			}
-			if (args[argidx] == "-parray" && argidx+1 < args.size()) {
+			if (args[argidx] == "-pvector" && argidx+1 < args.size()) {
 				std::string parray;
-				always_rename = true;
+				port_rename = true;
 				parray = args[++argidx];
 				if (parray == "par") {
-					delim[0] = '(';delim[1] = ')';
+					edif_names.delim_left = '(';edif_names.delim_right = ')';
 				} else if (parray == "ang") {
-					delim[0] = '<';delim[1] = '>';
+					edif_names.delim_left = '<';edif_names.delim_right = '>';
 				} else {
-					delim[0] = '[';delim[1] = ']';
+					edif_names.delim_left = '[';edif_names.delim_right = ']';
 				}
 				continue;
 			}
@@ -264,11 +241,17 @@ struct EdifBackend : public Backend {
 				}
 				if (port_it.second == 1)
 					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
-				else
-				{
-					int bd[2]={0,port_it.second-1};
-					int b[2]={bd[bounds[0]],bd[bounds[1]]};
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, always_rename, delim, b), port_it.second, dir);
+				else {
+					int b[2] = {0,port_it.second-1};
+					auto m = design->module(cell_it.first);
+					if(m) {
+						auto w = m->wire(port_it.first);
+						if(w) {
+							b[!w->upto] = w->start_offset;
+							b[!!w->upto] = w->start_offset+GetSize(w)-1;
+						}
+					}
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, port_rename, b[0], b[1]), port_it.second, dir);
 				}
 			}
 			*f << stringf("        )\n");
@@ -337,9 +320,10 @@ struct EdifBackend : public Backend {
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
 					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_REF(wire->name)));
 				} else {
-					int bd[2]={0,wire->width-1};
-					int b[2]={bd[bounds[0]],bd[bounds[1]]};
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(wire->name, always_rename, delim, b), wire->width, dir);
+					int b[2] = {0,wire->width-1};
+					b[!wire->upto] = wire->start_offset;
+					b[!!wire->upto] = wire->start_offset+GetSize(wire)-1;
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
 						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), i));
