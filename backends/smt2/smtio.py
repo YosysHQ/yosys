@@ -60,6 +60,7 @@ class SmtIo:
         if opts is not None:
             self.logic = opts.logic
             self.solver = opts.solver
+            self.solver_opts = opts.solver_opts
             self.debug_print = opts.debug_print
             self.debug_file = opts.debug_file
             self.dummy_file = opts.dummy_file
@@ -71,6 +72,7 @@ class SmtIo:
 
         else:
             self.solver = "z3"
+            self.solver_opts = list()
             self.debug_print = False
             self.debug_file = None
             self.dummy_file = None
@@ -81,23 +83,26 @@ class SmtIo:
             self.nocomments = False
 
         if self.solver == "yices":
-            self.popen_vargs = ['yices-smt2', '--incremental']
+            self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
 
         if self.solver == "z3":
-            self.popen_vargs = ['z3', '-smt2', '-in']
+            self.popen_vargs = ['z3', '-smt2', '-in'] + self.solver_opts
 
         if self.solver == "cvc4":
-            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2']
+            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2'] + self.solver_opts
 
         if self.solver == "mathsat":
-            self.popen_vargs = ['mathsat']
+            self.popen_vargs = ['mathsat'] + self.solver_opts
 
         if self.solver == "boolector":
-            self.popen_vargs = ['boolector', '--smt2', '-i']
+            self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
             self.unroll = True
 
         if self.solver == "abc":
-            self.popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
+            if len(self.solver_opts) > 0:
+                self.popen_vargs = ['yosys-abc', '-S', '; '.join(self.solver_opts)]
+            else:
+                self.popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
             self.logic_ax = False
             self.unroll = True
             self.noincr = True
@@ -634,9 +639,10 @@ class SmtIo:
 
 class SmtOpts:
     def __init__(self):
-        self.shortopts = "s:v"
+        self.shortopts = "s:S:v"
         self.longopts = ["unroll", "noincr", "noprogress", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
         self.solver = "z3"
+        self.solver_opts = list()
         self.debug_print = False
         self.debug_file = None
         self.dummy_file = None
@@ -650,6 +656,8 @@ class SmtOpts:
     def handle(self, o, a):
         if o == "-s":
             self.solver = a
+        elif o == "-S":
+            self.solver_opts.append(a)
         elif o == "-v":
             self.debug_print = True
         elif o == "--unroll":
@@ -677,6 +685,9 @@ class SmtOpts:
     -s <solver>
         set SMT solver: z3, cvc4, yices, mathsat, boolector, dummy
         default: z3
+
+    -S <opt>
+        pass <opt> as command line argument to the solver
 
     --logic <smt2_logic>
         use the specified SMT2 logic (e.g. QF_AUFBV)

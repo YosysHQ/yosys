@@ -171,6 +171,10 @@ YOSYS_NAMESPACE_END
 "while"        { return TOK_WHILE; }
 "repeat"       { return TOK_REPEAT; }
 
+"unique"       { SV_KEYWORD(TOK_UNIQUE); }
+"unique0"      { SV_KEYWORD(TOK_UNIQUE); }
+"priority"     { SV_KEYWORD(TOK_PRIORITY); }
+
 "always_comb"  { SV_KEYWORD(TOK_ALWAYS); }
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
@@ -366,7 +370,9 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "<<<" { return OP_SSHL; }
 ">>>" { return OP_SSHR; }
 
-"::"  { SV_KEYWORD(TOK_PACKAGESEP); }
+"::"  { return TOK_PACKAGESEP; }
+"++"  { return TOK_INCREMENT; }
+"--"  { return TOK_DECREMENT; }
 
 "+:" { return TOK_POS_INDEXED; }
 "-:" { return TOK_NEG_INDEXED; }
