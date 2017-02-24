@@ -478,7 +478,7 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 endif
 
 uninstall:
-	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(BINDIR),$(notdir $(TARGETS)))
+	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(BINDIR)/,$(notdir $(TARGETS)))
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
