@@ -53,7 +53,7 @@ module GP_CLKBUF(input wire IN, output wire OUT);
 	assign OUT = IN;
 endmodule
 
-module GP_COUNT8(input CLK, input wire RST, output reg OUT);
+module GP_COUNT8(input CLK, input wire RST, output reg OUT, output reg[7:0] POUT);
 
 	parameter RESET_MODE 	= "RISING";
 
@@ -67,6 +67,7 @@ module GP_COUNT8(input CLK, input wire RST, output reg OUT);
 	//Combinatorially output whenever we wrap low
 	always @(*) begin
 		OUT <= (count == 8'h0);
+		OUT <= count;
 	end
 
 	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
@@ -103,7 +104,7 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 endmodule
 
 module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
-                     input UP, input KEEP);
+                     input UP, input KEEP, output reg[7:0] POUT);
 
 	parameter RESET_MODE 	= "RISING";
 	parameter RESET_VALUE   = "ZERO";
@@ -116,7 +117,7 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 endmodule
 
 module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
-                      input UP, input KEEP);
+                      input UP, input KEEP, output reg[7:0] POUT);
 
 	parameter RESET_MODE 	= "RISING";
 	parameter RESET_VALUE   = "ZERO";
