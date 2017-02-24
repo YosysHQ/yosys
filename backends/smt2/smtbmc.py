@@ -613,12 +613,12 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
-            abits, width, ports = smt.mem_info(topmod, mempath)
+            abits, width, rports, wports = smt.mem_info(topmod, mempath)
             mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()
             for i in range(steps_start, steps_stop):
-                for j in range(ports):
+                for j in range(rports):
                     addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, j))
 
             addr_list = set()
@@ -674,12 +674,12 @@ def write_constr_trace(steps_start, steps_stop, index):
 
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
-            abits, width, ports = smt.mem_info(topmod, mempath)
+            abits, width, rports, wports = smt.mem_info(topmod, mempath)
             mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()
             for i in range(steps_start, steps_stop):
-                for j in range(ports):
+                for j in range(rports):
                     addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, j))
 
             addr_list = set((smt.bv2int(val) for val in smt.get_list(addr_expr_list)))

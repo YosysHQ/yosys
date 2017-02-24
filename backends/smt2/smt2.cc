@@ -33,6 +33,7 @@ struct Smt2Worker
 	SigMap sigmap;
 	RTLIL::Module *module;
 	bool bvmode, memmode, wiresmode, verbose, statebv;
+	dict<IdString, int> &mod_stbv_width;
 	int idcounter, statebv_width;
 
 	std::vector<std::string> decls, trans, hier;
@@ -91,12 +92,10 @@ struct Smt2Worker
 		decls.push_back(decl_str + "\n");
 	}
 
-	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose) :
-			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode),
-			wiresmode(wiresmode), verbose(verbose), idcounter(0)
+	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, dict<IdString, int> &mod_stbv_width) :
+			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode),
+			verbose(verbose), statebv(statebv), mod_stbv_width(mod_stbv_width), idcounter(0), statebv_width(0)
 	{
-		statebv_width = 0;
-		statebv = bvmode && !memmode && false; // FIXME
 		makebits(stringf("%s_is", get_id(module)));
 
 		for (auto cell : module->cells())
@@ -537,30 +536,80 @@ struct Smt2Worker
 			int abits = cell->getParam("\\ABITS").as_int();
 			int width = cell->getParam("\\WIDTH").as_int();
 			int rd_ports = cell->getParam("\\RD_PORTS").as_int();
+			int wr_ports = cell->getParam("\\WR_PORTS").as_int();
 
-			decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-					get_id(module), arrayid, get_id(module), abits, width, get_id(cell)));
+			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d\n", get_id(cell), abits, width, rd_ports, wr_ports));
 
-			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d\n", get_id(cell), abits, width, rd_ports));
-			decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s#%d#0| state))\n",
-					get_id(module), get_id(cell), get_id(module), abits, width, get_id(module), arrayid));
-
-			for (int i = 0; i < rd_ports; i++)
+			if (statebv)
 			{
-				SigSpec addr_sig = cell->getPort("\\RD_ADDR").extract(abits*i, abits);
-				SigSpec data_sig = cell->getPort("\\RD_DATA").extract(width*i, width);
-				std::string addr = get_bv(addr_sig);
+				int mem_size = cell->getParam("\\SIZE").as_int();
+				int mem_offset = cell->getParam("\\OFFSET").as_int();
 
-				if (cell->getParam("\\RD_CLK_ENABLE").extract(i).as_bool())
-					log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
-							"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(data_sig), log_id(cell), log_id(module));
+				makebits(stringf("%s#%d#0", get_id(module), arrayid), width*mem_size, get_id(cell));
 
-				decls.push_back(stringf("(define-fun |%s_m:%d %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-						get_id(module), i, get_id(cell), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d#0| state))\n",
+						get_id(module), get_id(cell), get_id(module), width*mem_size, get_id(module), arrayid));
 
-				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s#%d#0| state) %s)) ; %s\n",
-						get_id(module), idcounter, get_id(module), width, get_id(module), arrayid, addr.c_str(), log_signal(data_sig)));
-				register_bv(data_sig, idcounter++);
+				for (int i = 0; i < rd_ports; i++)
+				{
+					SigSpec addr_sig = cell->getPort("\\RD_ADDR").extract(abits*i, abits);
+					SigSpec data_sig = cell->getPort("\\RD_DATA").extract(width*i, width);
+					std::string addr = get_bv(addr_sig);
+
+					if (cell->getParam("\\RD_CLK_ENABLE").extract(i).as_bool())
+						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(data_sig), log_id(cell), log_id(module));
+
+					decls.push_back(stringf("(define-fun |%s_m:%d %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+							get_id(module), i, get_id(cell), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+
+					std::string read_expr = "#b";
+					for (int k = 0; k < width; k++)
+						read_expr += "0";
+
+					for (int k = 0; k < mem_size; k++)
+						read_expr = stringf("(ite (= (|%s_m:%d %s| state) #b%s) ((_ extract %d %d) (|%s#%d#0| state))\n  %s)",
+								get_id(module), i, get_id(cell), Const(k+mem_offset, abits).as_string().c_str(),
+								width*(k+1)-1, width*k, get_id(module), arrayid, read_expr.c_str());
+
+					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d)\n  %s) ; %s\n",
+							get_id(module), idcounter, get_id(module), width, read_expr.c_str(), log_signal(data_sig)));
+
+					decls.push_back(stringf("(define-fun |%s_m:%dD %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d| state))\n",
+							get_id(module), i, get_id(cell), get_id(module), width, get_id(module), idcounter));
+
+					register_bv(data_sig, idcounter++);
+				}
+			}
+			else
+			{
+				decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+						get_id(module), arrayid, get_id(module), abits, width, get_id(cell)));
+
+				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s#%d#0| state))\n",
+						get_id(module), get_id(cell), get_id(module), abits, width, get_id(module), arrayid));
+
+				for (int i = 0; i < rd_ports; i++)
+				{
+					SigSpec addr_sig = cell->getPort("\\RD_ADDR").extract(abits*i, abits);
+					SigSpec data_sig = cell->getPort("\\RD_DATA").extract(width*i, width);
+					std::string addr = get_bv(addr_sig);
+
+					if (cell->getParam("\\RD_CLK_ENABLE").extract(i).as_bool())
+						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(data_sig), log_id(cell), log_id(module));
+
+					decls.push_back(stringf("(define-fun |%s_m:%d %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+							get_id(module), i, get_id(cell), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+
+					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s#%d#0| state) (|%s_m:%d %s| state))) ; %s\n",
+							get_id(module), idcounter, get_id(module), width, get_id(module), arrayid, get_id(module), i, get_id(cell), log_signal(data_sig)));
+
+					decls.push_back(stringf("(define-fun |%s_m:%dD %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d| state))\n",
+							get_id(module), i, get_id(cell), get_id(module), width, get_id(module), idcounter));
+
+					register_bv(data_sig, idcounter++);
+				}
 			}
 
 			registers.insert(cell);
@@ -598,9 +647,11 @@ struct Smt2Worker
 				}
 			}
 
-			// FIXME (statebv)
-			decls.push_back(stringf("(declare-fun |%s_h %s| (|%s_s|) |%s_s|)\n",
-					get_id(module), get_id(cell->name), get_id(module), get_id(cell->type)));
+			if (statebv)
+				makebits(stringf("%s_h %s", get_id(module), get_id(cell->name)), mod_stbv_width.at(cell->type));
+			else
+				decls.push_back(stringf("(declare-fun |%s_h %s| (|%s_s|) |%s_s|)\n",
+						get_id(module), get_id(cell->name), get_id(module), get_id(cell->type)));
 
 			hiercells.insert(cell);
 			hiercells_queue.insert(cell);
@@ -741,21 +792,82 @@ struct Smt2Worker
 
 					int abits = cell->getParam("\\ABITS").as_int();
 					int width = cell->getParam("\\WIDTH").as_int();
+					int rd_ports = cell->getParam("\\RD_PORTS").as_int();
 					int wr_ports = cell->getParam("\\WR_PORTS").as_int();
 
-					for (int i = 0; i < wr_ports; i++)
+					if (statebv)
 					{
-						std::string addr = get_bv(cell->getPort("\\WR_ADDR").extract(abits*i, abits));
-						std::string data = get_bv(cell->getPort("\\WR_DATA").extract(width*i, width));
-						std::string mask = get_bv(cell->getPort("\\WR_EN").extract(width*i, width));
+						int mem_size = cell->getParam("\\SIZE").as_int();
+						int mem_offset = cell->getParam("\\OFFSET").as_int();
 
-						data = stringf("(bvor (bvand %s %s) (bvand (select (|%s#%d#%d| state) %s) (bvnot %s)))",
-								data.c_str(), mask.c_str(), get_id(module), arrayid, i, addr.c_str(), mask.c_str());
+						for (int i = 0; i < wr_ports; i++)
+						{
+							SigSpec addr_sig = cell->getPort("\\WR_ADDR").extract(abits*i, abits);
+							SigSpec data_sig = cell->getPort("\\WR_DATA").extract(width*i, width);
+							SigSpec mask_sig = cell->getPort("\\WR_EN").extract(width*i, width);
 
-						decls.push_back(stringf("(define-fun |%s#%d#%d| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) "
-								"(store (|%s#%d#%d| state) %s %s)) ; %s\n",
-								get_id(module), arrayid, i+1, get_id(module), abits, width,
-								get_id(module), arrayid, i, addr.c_str(), data.c_str(), get_id(cell)));
+							std::string addr = get_bv(addr_sig);
+							std::string data = get_bv(data_sig);
+							std::string mask = get_bv(mask_sig);
+
+							decls.push_back(stringf("(define-fun |%s_m:%d %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+									get_id(module), rd_ports+i, get_id(cell), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+							addr = stringf("(|%s_m:%d %s| state)", get_id(module), rd_ports+i, get_id(cell));
+
+							decls.push_back(stringf("(define-fun |%s_m:%dD %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+									get_id(module), rd_ports+i, get_id(cell), get_id(module), width, data.c_str(), log_signal(data_sig)));
+							data = stringf("(|%s_m:%dD %s| state)", get_id(module), rd_ports+i, get_id(cell));
+
+							decls.push_back(stringf("(define-fun |%s_m:%dM %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+									get_id(module), rd_ports+i, get_id(cell), get_id(module), width, mask.c_str(), log_signal(mask_sig)));
+							mask = stringf("(|%s_m:%dM %s| state)", get_id(module), rd_ports+i, get_id(cell));
+
+							std::string data_expr;
+
+							for (int k = mem_size-1; k >= 0; k--) {
+								std::string new_data = stringf("(bvor (bvand %s %s) (bvand ((_ extract %d %d) (|%s#%d#%d| state)) (bvnot %s)))",
+										data.c_str(), mask.c_str(), width*(k+1)-1, width*k, get_id(module), arrayid, i, mask.c_str());
+								data_expr += stringf("\n  (ite (= %s #b%s) %s ((_ extract %d %d) (|%s#%d#%d| state)))",
+										addr.c_str(), Const(k+mem_offset, abits).as_string().c_str(), new_data.c_str(),
+										width*(k+1)-1, width*k, get_id(module), arrayid, i);
+							}
+
+							decls.push_back(stringf("(define-fun |%s#%d#%d| ((state |%s_s|)) (_ BitVec %d) (concat%s)) ; %s\n",
+									get_id(module), arrayid, i+1, get_id(module), width*mem_size, data_expr.c_str(), get_id(cell)));
+						}
+					}
+					else
+					{
+						for (int i = 0; i < wr_ports; i++)
+						{
+							SigSpec addr_sig = cell->getPort("\\WR_ADDR").extract(abits*i, abits);
+							SigSpec data_sig = cell->getPort("\\WR_DATA").extract(width*i, width);
+							SigSpec mask_sig = cell->getPort("\\WR_EN").extract(width*i, width);
+
+							std::string addr = get_bv(addr_sig);
+							std::string data = get_bv(data_sig);
+							std::string mask = get_bv(mask_sig);
+
+							decls.push_back(stringf("(define-fun |%s_m:%d %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+									get_id(module), rd_ports+i, get_id(cell), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+							addr = stringf("(|%s_m:%d %s| state)", get_id(module), rd_ports+i, get_id(cell));
+
+							decls.push_back(stringf("(define-fun |%s_m:%dD %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+									get_id(module), rd_ports+i, get_id(cell), get_id(module), width, data.c_str(), log_signal(data_sig)));
+							data = stringf("(|%s_m:%dD %s| state)", get_id(module), rd_ports+i, get_id(cell));
+
+							decls.push_back(stringf("(define-fun |%s_m:%dM %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+									get_id(module), rd_ports+i, get_id(cell), get_id(module), width, mask.c_str(), log_signal(mask_sig)));
+							mask = stringf("(|%s_m:%dM %s| state)", get_id(module), rd_ports+i, get_id(cell));
+
+							data = stringf("(bvor (bvand %s %s) (bvand (select (|%s#%d#%d| state) %s) (bvnot %s)))",
+									data.c_str(), mask.c_str(), get_id(module), arrayid, i, addr.c_str(), mask.c_str());
+
+							decls.push_back(stringf("(define-fun |%s#%d#%d| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) "
+									"(store (|%s#%d#%d| state) %s %s)) ; %s\n",
+									get_id(module), arrayid, i+1, get_id(module), abits, width,
+									get_id(module), arrayid, i, addr.c_str(), data.c_str(), get_id(cell)));
+						}
 					}
 
 					std::string expr_d = stringf("(|%s#%d#%d| state)", get_id(module), arrayid, wr_ports);
@@ -777,10 +889,14 @@ struct Smt2Worker
 							if (bit == State::S0 || bit == State::S1)
 								gen_init_constr = true;
 
-						if (gen_init_constr) {
-							init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
-									get_id(module), arrayid, Const(i, abits).as_string().c_str(),
-									initword.as_string().c_str(), get_id(cell), i));
+						if (gen_init_constr)
+						{
+							if (statebv)
+								/* FIXME */;
+							else
+								init_list.push_back(stringf("(= (select (|%s#%d#0| state) #b%s) #b%s) ; %s[%d]",
+										get_id(module), arrayid, Const(i, abits).as_string().c_str(),
+										initword.as_string().c_str(), get_id(cell), i));
 						}
 					}
 				}
@@ -876,9 +992,10 @@ struct Smt2Worker
 	{
 		f << stringf("; yosys-smt2-module %s\n", get_id(module));
 
-		if (statebv)
+		if (statebv) {
 			f << stringf("(define-sort |%s_s| () (_ BitVec %d))\n", get_id(module), statebv_width);
-		else
+			mod_stbv_width[module->name] = statebv_width;
+		} else
 			f << stringf("(declare-sort |%s_s| 0)\n", get_id(module));
 
 		for (auto it : decls)
@@ -950,6 +1067,11 @@ struct Smt2Backend : public Backend {
 		log("\n");
 		log("    -verbose\n");
 		log("        this will print the recursive walk used to export the modules.\n");
+		log("\n");
+		log("    -stbv\n");
+		log("        Use a BitVec sort to represent a state instead of an uninterpreted\n");
+		log("        sort. As a side-effect this will prevent use of arrays to model\n");
+		log("        memories.\n");
 		log("\n");
 		log("    -nobv\n");
 		log("        disable support for BitVec (FixedSizeBitVectors theory). without this\n");
@@ -1024,7 +1146,7 @@ struct Smt2Backend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::ifstream template_f;
-		bool bvmode = true, memmode = true, wiresmode = false, verbose = false;
+		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false;
 
 		log_header(design, "Executing SMT2 backend.\n");
 
@@ -1039,6 +1161,10 @@ struct Smt2Backend : public Backend {
 			}
 			if (args[argidx] == "-bv" || args[argidx] == "-mem") {
 				log_warning("Options -bv and -mem are now the default. Support for -bv and -mem will be removed in the future.\n");
+				continue;
+			}
+			if (args[argidx] == "-stbv") {
+				statebv = true;
 				continue;
 			}
 			if (args[argidx] == "-nobv") {
@@ -1082,6 +1208,9 @@ struct Smt2Backend : public Backend {
 		if (!memmode)
 			*f << stringf("; yosys-smt2-nomem\n");
 
+		if (statebv)
+			*f << stringf("; yosys-smt2-stbv\n");
+
 		std::vector<RTLIL::Module*> sorted_modules;
 
 		// extract module dependencies
@@ -1111,6 +1240,7 @@ struct Smt2Backend : public Backend {
 				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
 		}
 
+		dict<IdString, int> mod_stbv_width;
 		Module *topmod = design->top_module();
 		std::string topmod_id;
 
@@ -1121,7 +1251,7 @@ struct Smt2Backend : public Backend {
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
 
-			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose);
+			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, mod_stbv_width);
 			worker.run();
 			worker.write(*f);
 
