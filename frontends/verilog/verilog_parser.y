@@ -116,7 +116,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME
 %token TOK_RESTRICT TOK_COVER TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
-%token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER
+%token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
@@ -1030,6 +1030,12 @@ assert:
 	TOK_ASSUME '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
 	} |
+	TOK_ASSERT '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $4));
+	} |
+	TOK_ASSUME '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
+	} |
 	TOK_COVER '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $3));
 	} |
@@ -1044,6 +1050,12 @@ assert:
 			delete $3;
 		else
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
+	} |
+	TOK_RESTRICT '(' TOK_EVENTUALLY expr ')' ';' {
+		if (norestrict_mode)
+			delete $4;
+		else
+			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
 	};
 
 assert_property:
@@ -1053,6 +1065,12 @@ assert_property:
 	TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
 	} |
+	TOK_ASSERT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $5));
+	} |
+	TOK_ASSUME TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $5));
+	} |
 	TOK_COVER TOK_PROPERTY '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $4));
 	} |
@@ -1061,6 +1079,12 @@ assert_property:
 			delete $4;
 		else
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
+	} |
+	TOK_RESTRICT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+		if (norestrict_mode)
+			delete $5;
+		else
+			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $5));
 	};
 
 simple_behavioral_stmt:

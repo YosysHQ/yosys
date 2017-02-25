@@ -191,6 +191,9 @@ YOSYS_NAMESPACE_END
 "logic"      { SV_KEYWORD(TOK_REG); }
 "bit"        { SV_KEYWORD(TOK_REG); }
 
+"eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
+"s_eventually" { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
+
 "input"   { return TOK_INPUT; }
 "output"  { return TOK_OUTPUT; }
 "inout"   { return TOK_INOUT; }

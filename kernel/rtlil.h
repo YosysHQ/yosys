@@ -1007,6 +1007,8 @@ public:
 	RTLIL::Cell* addTribuf (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en, RTLIL::SigSpec sig_y);
 	RTLIL::Cell* addAssert (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en);
 	RTLIL::Cell* addAssume (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en);
+	RTLIL::Cell* addLive   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en);
+	RTLIL::Cell* addFair   (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en);
 	RTLIL::Cell* addCover  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en);
 	RTLIL::Cell* addEquiv  (RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y);
 

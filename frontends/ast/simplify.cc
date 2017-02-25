@@ -1400,7 +1400,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 skip_dynamic_range_lvalue_expansion:;
 
-	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_COVER) && current_block != NULL)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_LIVE || type == AST_FAIR || type == AST_COVER) && current_block != NULL)
 	{
 		std::stringstream sstr;
 		sstr << "$formal$" << filename << ":" << linenum << "$" << (autoidx++);
@@ -1462,7 +1462,7 @@ skip_dynamic_range_lvalue_expansion:;
 		goto apply_newNode;
 	}
 
-	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_COVER) && children.size() == 1)
+	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_LIVE || type == AST_FAIR || type == AST_COVER) && children.size() == 1)
 	{
 		children.push_back(mkconst_int(1, false, 1));
 		did_something = true;
