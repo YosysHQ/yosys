@@ -107,13 +107,8 @@ struct EdifBackend : public Backend {
 		log("        constant drivers first)\n");
 		log("\n");
 		log("    -pvector {par|bra|ang}\n");
-		log("        sets the delimiting character for module port rename clauses.\n");
-		log("        if it is par, The example from above will be:\n");
-		log("                (rename mcu_addr \"mcu_addr(0:23)\")\n");
-		log("        if it is ang, The example from above will be:\n");
-		log("                (rename mcu_addr \"mcu_addr<0:23>\")\n");
-		log("        otherwise:\n");
-		log("                (rename mcu_addr \"mcu_addr[0:23]\")\n");
+		log("        sets the delimiting character for module port rename clauses to\n");
+		log("        parentheses, square brackets, or angle brackets.\n");
 		log("\n");
 		log("Unfortunately there are different \"flavors\" of the EDIF file format. This\n");
 		log("command generates EDIF files for the Xilinx place&route tools. It might be\n");
