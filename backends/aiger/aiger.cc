@@ -46,11 +46,13 @@ struct AigerWriter
 	dict<SigBit, SigBit> not_map, ff_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<pair<SigBit, SigBit>> asserts, assumes;
+	vector<pair<SigBit, SigBit>> liveness, fairness;
 	pool<SigBit> initstate_bits;
 
 	vector<pair<int, int>> aig_gates;
 	vector<int> aig_latchin, aig_latchinit, aig_outputs;
-	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0, aig_b = 0, aig_c = 0;
+	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0;
+	int aig_b = 0, aig_c = 0, aig_j = 0, aig_f = 0;
 
 	dict<SigBit, int> aig_map;
 	dict<SigBit, int> ordered_outputs;
@@ -163,6 +165,22 @@ struct AigerWriter
 				continue;
 			}
 
+			if (cell->type == "$live")
+			{
+				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				liveness.push_back(make_pair(A, EN));
+				continue;
+			}
+
+			if (cell->type == "$fair")
+			{
+				SigBit A = sigmap(cell->getPort("\\A").as_bit());
+				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				fairness.push_back(make_pair(A, EN));
+				continue;
+			}
+
 			if (cell->type == "$anyconst")
 			{
 				for (auto bit : sigmap(cell->getPort("\\Y")))
@@ -198,6 +216,12 @@ struct AigerWriter
 			}
 		}
 
+		int fair_live_inputs_cnt = GetSize(liveness);
+		int fair_live_inputs_m = aig_m;
+
+		aig_m += fair_live_inputs_cnt;
+		aig_i += fair_live_inputs_cnt;
+
 		for (auto it : ff_map) {
 			aig_m++, aig_l++;
 			aig_map[it.first] = 2*aig_m;
@@ -213,6 +237,16 @@ struct AigerWriter
 			initstate_ff = 2*aig_m+1;
 			aig_latchinit.push_back(0);
 		}
+
+		int fair_live_latches_cnt = GetSize(fairness) + 2*GetSize(liveness);
+		int fair_live_latches_m = aig_m;
+		int fair_live_latches_l = aig_l;
+
+		aig_m += fair_live_latches_cnt;
+		aig_l += fair_live_latches_cnt;
+
+		for (int i = 0; i < fair_live_latches_cnt; i++)
+			aig_latchinit.push_back(0);
 
 		if (zinit_mode)
 		{
@@ -263,23 +297,67 @@ struct AigerWriter
 			int bit_en = bit2aig(it.second);
 			aig_outputs.push_back(mkgate(bit_a^1, bit_en)^1);
 		}
+
+		for (auto it : liveness)
+		{
+			int input_m = ++fair_live_inputs_m;
+			int latch_m1 = ++fair_live_latches_m;
+			int latch_m2 = ++fair_live_latches_m;
+
+			log_assert(GetSize(aig_latchin) == fair_live_latches_l);
+			fair_live_latches_l += 2;
+
+			int bit_a = bit2aig(it.first);
+			int bit_en = bit2aig(it.second);
+			int bit_s = 2*input_m;
+			int bit_q1 = 2*latch_m1;
+			int bit_q2 = 2*latch_m2;
+
+			int bit_d1 = mkgate(mkgate(bit_s, bit_en)^1, bit_q1^1)^1;
+			int bit_d2 = mkgate(mkgate(bit_d1, bit_a)^1, bit_q2^1)^1;
+
+			aig_j++;
+			aig_latchin.push_back(bit_d1);
+			aig_latchin.push_back(bit_d2);
+			aig_outputs.push_back(mkgate(bit_q1, bit_q2^1));
+		}
+
+		for (auto it : fairness)
+		{
+			int latch_m = ++fair_live_latches_m;
+
+			log_assert(GetSize(aig_latchin) == fair_live_latches_l);
+			fair_live_latches_l += 1;
+
+			int bit_a = bit2aig(it.first);
+			int bit_en = bit2aig(it.second);
+			int bit_q = 2*latch_m;
+
+			aig_f++;
+			aig_latchin.push_back(mkgate(mkgate(bit_q^1, bit_en^1)^1, bit_a^1));
+			aig_outputs.push_back(bit_q^1);
+		}
 	}
 
 	void write_aiger(std::ostream &f, bool ascii_mode, bool miter_mode, bool symbols_mode)
 	{
+		int aig_obc = aig_o + aig_b + aig_c;
+		int aig_obcj = aig_obc + aig_j;
+		int aig_obcjf = aig_obcj + aig_f;
+
 		log_assert(aig_m == aig_i + aig_l + aig_a);
 		log_assert(aig_l == GetSize(aig_latchin));
 		log_assert(aig_l == GetSize(aig_latchinit));
-		log_assert((aig_o + aig_b + aig_c) == GetSize(aig_outputs));
+		log_assert(aig_obcjf == GetSize(aig_outputs));
 
 		if (miter_mode) {
-			if (aig_b || aig_c)
-				log_error("Running AIGER back-end in -miter mode, but design contains $assert and/or $assume cells!\n");
+			if (aig_b || aig_c || aig_j || aig_f)
+				log_error("Running AIGER back-end in -miter mode, but design contains $assert, $assume, $live and/or $fair cells!\n");
 			f << stringf("%s %d %d %d 0 %d %d\n", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_a, aig_o);
 		} else {
 			f << stringf("%s %d %d %d %d %d", ascii_mode ? "aag" : "aig", aig_m, aig_i, aig_l, aig_o, aig_a);
-			if (aig_b || aig_c)
-				f << stringf(" %d %d", aig_b, aig_c);
+			if (aig_b || aig_c || aig_j || aig_f)
+				f << stringf(" %d %d %d %d", aig_b, aig_c, aig_j, aig_f);
 			f << stringf("\n");
 		}
 
@@ -297,7 +375,16 @@ struct AigerWriter
 					f << stringf("%d %d %d\n", 2*(aig_i+i)+2, aig_latchin.at(i), 2*(aig_i+i)+2);
 			}
 
-			for (int i = 0; i < aig_o + aig_b + aig_c; i++)
+			for (int i = 0; i < aig_obc; i++)
+				f << stringf("%d\n", aig_outputs.at(i));
+
+			for (int i = aig_obc; i < aig_obcj; i++)
+				f << stringf("1\n");
+
+			for (int i = aig_obc; i < aig_obcj; i++)
+				f << stringf("%d\n", aig_outputs.at(i));
+
+			for (int i = aig_obcj; i < aig_obcjf; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
 
 			for (int i = 0; i < aig_a; i++)
@@ -314,7 +401,16 @@ struct AigerWriter
 					f << stringf("%d %d\n", aig_latchin.at(i), 2*(aig_i+i)+2);
 			}
 
-			for (int i = 0; i < aig_o + aig_b + aig_c; i++)
+			for (int i = 0; i < aig_obc; i++)
+				f << stringf("%d\n", aig_outputs.at(i));
+
+			for (int i = aig_obc; i < aig_obcj; i++)
+				f << stringf("1\n");
+
+			for (int i = aig_obc; i < aig_obcj; i++)
+				f << stringf("%d\n", aig_outputs.at(i));
+
+			for (int i = aig_obcj; i < aig_obcjf; i++)
 				f << stringf("%d\n", aig_outputs.at(i));
 
 			for (int i = 0; i < aig_a; i++) {
