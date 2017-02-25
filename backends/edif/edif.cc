@@ -233,7 +233,7 @@ struct EdifBackend : public Backend {
 				if (port_it.second == 1)
 					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
 				else {
-					int b[2] = {port_it.second-1, 0};
+					int b[2] = {0, port_it.second-1};
 					auto m = design->module(cell_it.first);
 					if (m) {
 						auto w = m->wire(port_it.first);
@@ -318,9 +318,9 @@ struct EdifBackend : public Backend {
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
 						if (wire->upto)
-							net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
-						else
 							net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), i));
+						else
+							net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
 					}
 				}
 			}
@@ -367,7 +367,7 @@ struct EdifBackend : public Backend {
 							auto m = design->module(cell->type);
 							if (m) {
 								auto w = m->wire(p.first);
-								if (w && w->upto)
+								if (w && !w->upto)
 									member_idx = GetSize(w)-i-1;
 							}
 							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))",
