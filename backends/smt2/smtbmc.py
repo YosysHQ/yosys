@@ -872,6 +872,18 @@ elif covermode:
                 smt.write("(pop 1)")
                 break
 
+            if append_steps > 0:
+                for i in range(step+1, step+1+append_steps):
+                    print_msg("Appending additional step %d." % i)
+                    smt.write("(declare-fun s%d () |%s_s|)" % (i, topmod))
+                    smt.write("(assert (not (|%s_is| s%d)))" % (topmod, i))
+                    smt.write("(assert (|%s_u| s%d))" % (topmod, i))
+                    smt.write("(assert (|%s_h| s%d))" % (topmod, i))
+                    smt.write("(assert (|%s_t| s%d s%d))" % (topmod, i-1, i))
+                    smt.write("(assert %s)" % get_constr_expr(constr_assumes, i))
+                print_msg("Re-solving with appended steps..")
+                assert smt.check_sat() == "sat"
+
             reached_covers = smt.bv2bin(smt.get("(covers_%d s%d)" % (coveridx, step)))
             assert len(reached_covers) == len(cover_desc)
 
@@ -891,7 +903,7 @@ elif covermode:
                 if print_failed_asserts(i, extrainfo=" (step %d)" % i):
                     found_failed_assert = True
 
-            write_trace(0, step+1, "%d" % coveridx)
+            write_trace(0, step+1+append_steps, "%d" % coveridx)
 
             if found_failed_assert:
                 break
