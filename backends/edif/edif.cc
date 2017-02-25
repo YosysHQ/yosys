@@ -34,62 +34,59 @@ PRIVATE_NAMESPACE_BEGIN
 #define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br).c_str()
 #define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false).c_str()
 
-namespace
+struct EdifNames
 {
-	struct EdifNames
+	int counter;
+	char delim_left, delim_right;
+	std::set<std::string> generated_names, used_names;
+	std::map<std::string, std::string> name_map;
+
+	EdifNames() : counter(1), delim_left('['), delim_right(']') { }
+
+	std::string operator()(std::string id, bool define, bool port_rename = false, int range_left = 0, int range_right = 0)
 	{
-		int counter;
-		char delim_left, delim_right;
-		std::set<std::string> generated_names, used_names;
-		std::map<std::string, std::string> name_map;
-
-		EdifNames() : counter(1), delim_left('['), delim_right(']') { }
-
-		std::string operator()(std::string id, bool define, bool port_rename = false, int range_left = 0, int range_right = 0)
-		{
-			if (define) {
-				std::string new_id = operator()(id, false);
-				if (port_rename)
-					return stringf("(rename %s \"%s%c%d:%d%c\")", new_id.c_str(), id.c_str(), delim_left, range_left, range_right, delim_right);
-				return new_id != id ? stringf("(rename %s \"%s\")", new_id.c_str(), id.c_str()) : id;
-			}
-
-			if (name_map.count(id) > 0)
-				return name_map.at(id);
-			if (generated_names.count(id) > 0)
-				goto do_rename;
-			if (id == "GND" || id == "VCC")
-				goto do_rename;
-
-			for (size_t i = 0; i < id.size(); i++) {
-				if ('A' <= id[i] && id[i] <= 'Z')
-					continue;
-				if ('a' <= id[i] && id[i] <= 'z')
-					continue;
-				if ('0' <= id[i] && id[i] <= '9' && i > 0)
-					continue;
-				if (id[i] == '_' && i > 0 && i != id.size()-1)
-					continue;
-				goto do_rename;
-			}
-
-			used_names.insert(id);
-			return id;
-
-		do_rename:;
-			std::string gen_name;
-			while (1) {
-				gen_name = stringf("id%05d", counter++);
-				if (generated_names.count(gen_name) == 0 &&
-						used_names.count(gen_name) == 0)
-					break;
-			}
-			generated_names.insert(gen_name);
-			name_map[id] = gen_name;
-			return gen_name;
+		if (define) {
+			std::string new_id = operator()(id, false);
+			if (port_rename)
+				return stringf("(rename %s \"%s%c%d:%d%c\")", new_id.c_str(), id.c_str(), delim_left, range_left, range_right, delim_right);
+			return new_id != id ? stringf("(rename %s \"%s\")", new_id.c_str(), id.c_str()) : id;
 		}
-	};
-}
+
+		if (name_map.count(id) > 0)
+			return name_map.at(id);
+		if (generated_names.count(id) > 0)
+			goto do_rename;
+		if (id == "GND" || id == "VCC")
+			goto do_rename;
+
+		for (size_t i = 0; i < id.size(); i++) {
+			if ('A' <= id[i] && id[i] <= 'Z')
+				continue;
+			if ('a' <= id[i] && id[i] <= 'z')
+				continue;
+			if ('0' <= id[i] && id[i] <= '9' && i > 0)
+				continue;
+			if (id[i] == '_' && i > 0 && i != id.size()-1)
+				continue;
+			goto do_rename;
+		}
+
+		used_names.insert(id);
+		return id;
+
+	do_rename:;
+		std::string gen_name;
+		while (1) {
+			gen_name = stringf("id%05d", counter++);
+			if (generated_names.count(gen_name) == 0 &&
+					used_names.count(gen_name) == 0)
+				break;
+		}
+		generated_names.insert(gen_name);
+		name_map[id] = gen_name;
+		return gen_name;
+	}
+};
 
 struct EdifBackend : public Backend {
 	EdifBackend() : Backend("edif", "write design to EDIF netlist file") { }
