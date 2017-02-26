@@ -550,11 +550,109 @@ def write_vcd_trace(steps_start, steps_stop, index):
                 vcd.add_net([topmod] + netpath, smt.net_width(topmod, netpath))
                 path_list.append(netpath)
 
+        mem_trace_data = dict()
+        for mempath in sorted(smt.hiermems(topmod)):
+            abits, width, rports, wports = smt.mem_info(topmod, mempath)
+
+            expr_id = list()
+            expr_list = list()
+            for i in range(steps_start, steps_stop):
+                for j in range(rports):
+                    expr_id.append(('R', i-steps_start, j, 'A'))
+                    expr_id.append(('R', i-steps_start, j, 'D'))
+                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dA" % j))
+                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dD" % j))
+                for j in range(wports):
+                    expr_id.append(('W', i-steps_start, j, 'A'))
+                    expr_id.append(('W', i-steps_start, j, 'D'))
+                    expr_id.append(('W', i-steps_start, j, 'M'))
+                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dA" % j))
+                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dD" % j))
+                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dM" % j))
+
+            rdata = list()
+            wdata = list()
+            addrs = set()
+
+            for eid, edat in zip(expr_id, smt.get_list(expr_list)):
+                t, i, j, f = eid
+
+                if t == 'R':
+                    c = rdata
+                elif t == 'W':
+                    c = wdata
+                else:
+                    assert False
+
+                while len(c) <= i:
+                    c.append(list())
+                c = c[i]
+
+                while len(c) <= j:
+                    c.append(dict())
+                c = c[j]
+
+                c[f] = smt.bv2bin(edat)
+
+                if f == 'A':
+                    addrs.add(c[f])
+
+            for addr in addrs:
+                tdata = list()
+                data = ["x"] * width
+                gotread = False
+
+                assert len(rdata) == len(wdata)
+
+                for i in range(len(wdata)):
+                    if not gotread:
+                        for j_data in rdata[i]:
+                            if j_data["A"] == addr:
+                                data = list(j_data["D"])
+                                gotread = True
+                                break
+
+                        if gotread:
+                            buf = data[:]
+                            for i in reversed(range(len(tdata))):
+                                for k in range(width):
+                                    if tdata[i][k] == "x":
+                                        tdata[i][k] = buf[k]
+                                    else:
+                                        buf[k] = tdata[i][k]
+
+                    tdata.append(data[:])
+
+                    for j_data in wdata[i]:
+                        if j_data["A"] != addr:
+                            continue
+
+                        D = j_data["D"]
+                        M = j_data["M"]
+
+                        for k in range(width):
+                            if M[k] == "1":
+                                data[k] = D[k]
+
+                assert len(tdata) == len(rdata)
+
+                netpath = mempath[:]
+                netpath[-1] += "<%d>" % int(addr, 2)
+                vcd.add_net([topmod] + netpath, width)
+
+                for i in range(steps_start, steps_stop):
+                    if i not in mem_trace_data:
+                        mem_trace_data[i] = list()
+                    mem_trace_data[i].append((netpath, "".join(tdata[i-steps_start])))
+
         for i in range(steps_start, steps_stop):
             vcd.set_time(i)
             value_list = smt.get_net_bin_list(topmod, path_list, "s%d" % i)
             for path, value in zip(path_list, value_list):
                 vcd.set_net([topmod] + path, value)
+            if i in mem_trace_data:
+                for path, value in mem_trace_data[i]:
+                    vcd.set_net([topmod] + path, value)
 
         vcd.set_time(steps_stop)
 
