@@ -904,7 +904,7 @@ elif covermode:
 
             cover_mask = "".join(new_cover_mask)
 
-            for i in range(step+1):
+            for i in range(step+1+append_steps):
                 if print_failed_asserts(i, extrainfo=" (step %d)" % i):
                     found_failed_assert = True
 
