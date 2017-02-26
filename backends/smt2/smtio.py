@@ -215,9 +215,8 @@ class SmtIo:
         stmt = stmt.strip()
 
         if self.nocomments or self.unroll:
-            if stmt.startswith(";"):
-                return
-            stmt = re.sub(r" ;.*", "", stmt)
+            stmt = re.sub(r" *;.*", "", stmt)
+            if stmt == "": return
 
         if unroll and self.unroll:
             stmt = self.unroll_buffer + stmt
