@@ -614,24 +614,26 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
             abits, width, rports, wports = smt.mem_info(topmod, mempath)
-            mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()
+            data_expr_list = list()
             for i in range(steps_start, steps_stop):
                 for j in range(rports):
-                    addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, j))
+                    addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dA" % j))
+                    data_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dD" % j))
 
-            addr_list = set()
-            for val in smt.get_list(addr_expr_list):
-                addr_list.add(smt.bv2int(val))
+            addr_list = smt.get_list(addr_expr_list)
+            data_list = smt.get_list(data_expr_list)
 
-            expr_list = list()
-            for i in addr_list:
-                expr_list.append("(select %s #b%s)" % (mem, format(i, "0%db" % abits)))
+            addr_data = dict()
+            for addr, data in zip(addr_list, data_list):
+                addr = smt.bv2bin(addr)
+                data = smt.bv2bin(data)
+                if addr not in addr_data:
+                    addr_data[addr] = data
 
-            for i, val in zip(addr_list, smt.get_list(expr_list)):
-                val = smt.bv2bin(val)
-                print("    UUT.%s[%d] = %d'b%s;" % (".".join(mempath), i, len(val), val), file=f)
+            for addr, data in addr_data.items():
+                print("    UUT.%s[%d'b%s] = %d'b%s;" % (".".join(mempath), len(addr), addr, len(data), data), file=f)
 
         for i in range(steps_start, steps_stop):
             pi_names = [[name] for name, _ in primary_inputs if name not in clock_inputs]
@@ -675,21 +677,24 @@ def write_constr_trace(steps_start, steps_stop, index):
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
             abits, width, rports, wports = smt.mem_info(topmod, mempath)
-            mem = smt.mem_expr(topmod, "s%d" % steps_start, mempath)
 
             addr_expr_list = list()
+            data_expr_list = list()
             for i in range(steps_start, steps_stop):
                 for j in range(rports):
-                    addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, j))
+                    addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dA" % j))
+                    data_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dD" % j))
 
-            addr_list = set((smt.bv2int(val) for val in smt.get_list(addr_expr_list)))
+            addr_list = smt.get_list(addr_expr_list)
+            data_list = smt.get_list(data_expr_list)
 
-            expr_list = list()
-            for i in addr_list:
-                expr_list.append("(select %s #b%s)" % (mem, format(i, "0%db" % abits)))
+            addr_data = dict()
+            for addr, data in zip(addr_list, data_list):
+                if addr not in addr_data:
+                    addr_data[addr] = data
 
-            for i, val in zip(addr_list, smt.get_list(expr_list)):
-                print("assume (= (select [%s] #b%s) %s)" % (".".join(mempath), format(i, "0%db" % abits), val), file=f)
+            for addr, data in addr_data.items():
+                print("assume (= (select [%s] %s) %s)" % (".".join(mempath), addr, data), file=f)
 
         for k in range(steps_start, steps_stop):
             print("", file=f)

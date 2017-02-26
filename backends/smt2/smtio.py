@@ -596,20 +596,20 @@ class SmtIo:
         if mem_path[-1] not in self.modinfo[mod].memories: return False
         return True
 
-    def mem_expr(self, mod, base, path, portidx=None, infomode=False):
+    def mem_expr(self, mod, base, path, port=None, infomode=False):
         if len(path) == 1:
             assert mod in self.modinfo
             assert path[0] in self.modinfo[mod].memories
             if infomode:
                 return self.modinfo[mod].memories[path[0]]
-            return "(|%s_m%s %s| %s)" % (mod, "" if portidx is None else ":%d" % portidx, path[0], base)
+            return "(|%s_m%s %s| %s)" % (mod, "" if port is None else ":%s" % port, path[0], base)
 
         assert mod in self.modinfo
         assert path[0] in self.modinfo[mod].cells
 
         nextmod = self.modinfo[mod].cells[path[0]]
         nextbase = "(|%s_h %s| %s)" % (mod, path[0], base)
-        return self.mem_expr(nextmod, nextbase, path[1:], portidx=portidx, infomode=infomode)
+        return self.mem_expr(nextmod, nextbase, path[1:], port=port, infomode=infomode)
 
     def mem_info(self, mod, path):
         return self.mem_expr(mod, "", path, infomode=True)
