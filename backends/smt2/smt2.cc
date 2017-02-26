@@ -81,7 +81,7 @@ struct Smt2Worker
 		else
 		{
 			if (width == 0) {
-				decl_str = stringf("(declare-fun |%s| (|%s_s|) Bool)\n", name.c_str(), get_id(module));
+				decl_str = stringf("(declare-fun |%s| (|%s_s|) Bool)", name.c_str(), get_id(module));
 			} else {
 				decl_str = stringf("(declare-fun |%s| (|%s_s|) (_ BitVec %d))", name.c_str(), get_id(module), width);
 			}
