@@ -55,9 +55,20 @@ struct ChformalPass : public Pass {
 		log("    -skip <N>\n");
 		log("        ignore activation of the constraint in the first <N> clock cycles\n");
 		log("\n");
+		log("    -assert2assume\n");
+		log("    -assume2assert\n");
+		log("    -live2fair\n");
+		log("    -fair2live\n");
+		log("        change the roles of cells as indicated. this options can be combined\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool assert2assume = false;
+		bool assume2assert = false;
+		bool live2fair = false;
+		bool fair2live = false;
+
 		pool<IdString> constr_types;
 		char mode = 0;
 		int mode_arg;
@@ -101,6 +112,26 @@ struct ChformalPass : public Pass {
 			if (mode == 0 && args[argidx] == "-skip" && argidx+1 < args.size()) {
 				mode = 's';
 				mode_arg = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if ((mode == 0 || mode == 'c') && args[argidx] == "-assert2assume") {
+				assert2assume = true;
+				mode = 'c';
+				continue;
+			}
+			if ((mode == 0 || mode == 'c') && args[argidx] == "-assume2assert") {
+				assume2assert = true;
+				mode = 'c';
+				continue;
+			}
+			if ((mode == 0 || mode == 'c') && args[argidx] == "-live2fair") {
+				live2fair = true;
+				mode = 'c';
+				continue;
+			}
+			if ((mode == 0 || mode == 'c') && args[argidx] == "-fair2live") {
+				fair2live = true;
+				mode = 'c';
 				continue;
 			}
 			break;
@@ -230,6 +261,19 @@ struct ChformalPass : public Pass {
 
 				for (auto cell : constr_cells)
 					cell->setPort("\\EN", module->LogicAnd(NEW_ID, en, cell->getPort("\\EN")));
+			}
+			else
+			if (mode == 'c')
+			{
+				for (auto cell : constr_cells)
+					if (assert2assume && cell->type == "$assert")
+						cell->type = "$assume";
+					else if (assume2assert && cell->type == "$assume")
+						cell->type = "$assert";
+					else if (live2fair && cell->type == "$live")
+						cell->type = "$fair";
+					else if (fair2live && cell->type == "$fair")
+						cell->type = "$live";
 			}
 		}
 	}
