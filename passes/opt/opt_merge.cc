@@ -275,6 +275,9 @@ struct OptMergeWorker
 			ct.cell_types.erase("$pmux");
 		}
 
+		ct.cell_types.erase("$anyseq");
+		ct.cell_types.erase("$anyconst");
+
 		log("Finding identical cells in module `%s'.\n", module->name.c_str());
 		assign_map.set(module);
 
