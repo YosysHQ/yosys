@@ -637,7 +637,7 @@ def write_vcd_trace(steps_start, steps_stop, index):
                 assert len(tdata) == len(rdata)
 
                 netpath = mempath[:]
-                netpath[-1] += "<%d>" % int(addr, 2)
+                netpath[-1] += "<%0*x>" % ((len(addr)+3) // 4, int(addr, 2))
                 vcd.add_net([topmod] + netpath, width)
 
                 for i in range(steps_start, steps_stop):
