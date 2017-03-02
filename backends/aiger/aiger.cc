@@ -188,6 +188,13 @@ struct AigerWriter
 				continue;
 			}
 
+			if (cell->type == "$anyseq")
+			{
+				for (auto bit : sigmap(cell->getPort("\\Y")))
+					input_bits.insert(bit);
+				continue;
+			}
+
 			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
