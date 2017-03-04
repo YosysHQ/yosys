@@ -334,10 +334,10 @@ class SmtIo:
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
         if fields[1] == "yosys-smt2-assert":
-            self.modinfo[self.curmod].asserts[fields[2]] = fields[3]
+            self.modinfo[self.curmod].asserts["%s_a %s" % (self.curmod, fields[2])] = fields[3]
 
         if fields[1] == "yosys-smt2-cover":
-            self.modinfo[self.curmod].covers[fields[2]] = fields[3]
+            self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
 
         if fields[1] == "yosys-smt2-anyconst":
             self.modinfo[self.curmod].anyconsts[fields[2]] = fields[3]

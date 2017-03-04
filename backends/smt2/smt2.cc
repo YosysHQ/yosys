@@ -735,26 +735,41 @@ struct Smt2Worker
 
 		if (verbose) log("=> export logic driving asserts\n");
 
+		int assert_id = 0, assume_id = 0, cover_id = 0;
 		vector<string> assert_list, assume_list, cover_list;
+
 		for (auto cell : module->cells())
-			if (cell->type.in("$assert", "$assume", "$cover")) {
+		{
+			if (cell->type.in("$assert", "$assume", "$cover"))
+			{
+				int &id = cell->type == "$assert" ? assert_id :
+						cell->type == "$assume" ? assume_id :
+						cell->type == "$cover" ? cover_id : *(int*)nullptr;
+
+				char postfix = cell->type == "$assert" ? 'a' :
+						cell->type == "$assume" ? 'u' :
+						cell->type == "$cover" ? 'c' : 0;
+
 				string name_a = get_bool(cell->getPort("\\A"));
 				string name_en = get_bool(cell->getPort("\\EN"));
-				decls.push_back(stringf("; yosys-smt2-%s %s#%d %s\n", cell->type.c_str() + 1, get_id(module), idcounter,
+				decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id,
 						cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell)));
+
 				if (cell->type == "$cover")
-					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
-							get_id(module), idcounter, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
+					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
+							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
 				else
-					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
-							get_id(module), idcounter, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
+					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
+							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
+
 				if (cell->type == "$assert")
-					assert_list.push_back(stringf("(|%s#%d| state)", get_id(module), idcounter++));
+					assert_list.push_back(stringf("(|%s_a %d| state)", get_id(module), id));
 				else if (cell->type == "$assume")
-					assume_list.push_back(stringf("(|%s#%d| state)", get_id(module), idcounter++));
-				else if (cell->type == "$cover")
-					cover_list.push_back(stringf("(|%s#%d| state)", get_id(module), idcounter++));
+					assume_list.push_back(stringf("(|%s_u %d| state)", get_id(module), id));
+
+				id++;
 			}
+		}
 
 		for (int iter = 1; !registers.empty(); iter++)
 		{
@@ -1036,33 +1051,72 @@ struct Smt2Backend : public Backend {
 		log("    write_smt2 [options] [filename]\n");
 		log("\n");
 		log("Write a SMT-LIBv2 [1] description of the current design. For a module with name\n");
-		log("'<mod>' this will declare the sort '<mod>_s' (state of the module) and the\n");
-		log("functions operating on that state.\n");
+		log("'<mod>' this will declare the sort '<mod>_s' (state of the module) and will\n");
+		log("define and declare functions operating on that state.\n");
 		log("\n");
-		log("The '<mod>_s' sort represents a module state. Additional '<mod>_n' functions\n");
-		log("are provided that can be used to access the values of the signals in the module.\n");
-		log("By default only ports, registers, and wires with the 'keep' attribute set are\n");
-		log("made available via such functions. With the -nobv option, multi-bit wires are\n");
-		log("exported as separate functions of type Bool for the individual bits. Without\n");
-		log("-nobv multi-bit wires are exported as single functions of type BitVec.\n");
+		log("The following SMT2 functions are generated for a module with name '<mod>'.\n");
+		log("Some declarations/definitions are printed with a special comment. A prover\n");
+		log("using the SMT2 files can use those comments to collect all relevant metadata\n");
+		log("about the design.\n");
 		log("\n");
-		log("The '<mod>_t' function evaluates to 'true' when the given pair of states\n");
-		log("describes a valid state transition.\n");
+		log("    ; yosys-smt2-module <mod>\n");
+		log("    (declare-sort |<mod>_s| 0)\n");
+		log("        The sort representing a state of module <mod>.\n");
 		log("\n");
-		log("The '<mod>_a' function evaluates to 'true' when the given state satisfies\n");
-		log("the asserts in the module.\n");
+		log("    (define-fun |<mod>_h| ((state |<mod>_s|)) Bool (...))\n");
+		log("        This function must be asserted for each state to establish the\n");
+		log("        design hierarchy.\n");
 		log("\n");
-		log("The '<mod>_u' function evaluates to 'true' when the given state satisfies\n");
-		log("the assumptions in the module.\n");
+		log("    ; yosys-smt2-input <wirename> <width>\n");
+		log("    ; yosys-smt2-output <wirename> <width>\n");
+		log("    ; yosys-smt2-register <wirename> <width>\n");
+		log("    ; yosys-smt2-wire <wirename> <width>\n");
+		log("    (define-fun |<mod>_n <wirename>| (|<mod>_s|) (_ BitVec <width>))\n");
+		log("    (define-fun |<mod>_n <wirename>| (|<mod>_s|) Bool)\n");
+		log("        For each port, register, and wire with the 'keep' attribute set an\n");
+		log("        accessor function is generated. Single-bit wires are returned as Bool,\n");
+		log("        multi-bit wires as BitVec.\n");
 		log("\n");
-		log("The '<mod>_i' function evaluates to 'true' when the given state conforms\n");
-		log("to the initial state. Furthermore the '<mod>_is' function should be asserted\n");
-		log("to be true for initial states in addition to '<mod>_i', and should be\n");
-		log("asserted to be false for non-initial states.\n");
+		log("    ; yosys-smt2-cell <submod> <instancename>\n");
+		log("    (declare-fun |<mod>_h <instancename>| (|<mod>_s|) |<submod>_s|)\n");
+		log("        There is a function like that for each hierarchical instance. It\n");
+		log("        returns the sort that represents the state of the sub-module that\n");
+		log("        implements the instance.\n");
 		log("\n");
-		log("For hierarchical designs, the '<mod>_h' function must be asserted for each\n");
-		log("state to establish the design hierarchy. The '<mod>_h <cellname>' function\n");
-		log("evaluates to the state corresponding to the given cell within <mod>.\n");
+		log("    (declare-fun |<mod>_is| (|<mod>_s|) Bool)\n");
+		log("        This function must be asserted 'true' for initial states, and 'false'\n");
+		log("        otherwise.\n");
+		log("\n");
+		log("    (define-fun |<mod>_i| ((state |<mod>_s|)) Bool (...))\n");
+		log("        This function must be asserted 'true' for initial states. For\n");
+		log("        non-initial states it must be left unconstrained.\n");
+		log("\n");
+		log("    (define-fun |<mod>_t| ((state |<mod>_s|) (next_state |<mod>_s|)) Bool (...))\n");
+		log("        This function evaluates to 'true' if the states 'state' and\n");
+		log("        'next_state' form a valid state transition.\n");
+		log("\n");
+		log("    (define-fun |<mod>_a| ((state |<mod>_s|)) Bool (...))\n");
+		log("        This function evaluates to 'true' if all assertions hold in the state.\n");
+		log("\n");
+		log("    (define-fun |<mod>_u| ((state |<mod>_s|)) Bool (...))\n");
+		log("        This function evaluates to 'true' if all assumptions hold in the state.\n");
+		log("\n");
+		log("    ; yosys-smt2-assert <id> <filename:linenum>\n");
+		log("    (define-fun |<mod>_a <id>| ((state |<mod>_s|)) Bool (...))\n");
+		log("        Each $assert cell is converted into one of this functions. The function\n");
+		log("        evaluates to 'true' if the assert statement holds in the state.\n");
+		log("\n");
+		log("    ; yosys-smt2-assume <id> <filename:linenum>\n");
+		log("    (define-fun |<mod>_u <id>| ((state |<mod>_s|)) Bool (...))\n");
+		log("        Each $assume cell is converted into one of this functions. The function\n");
+		log("        evaluates to 'true' if the assume statement holds in the state.\n");
+		log("\n");
+		log("    ; yosys-smt2-cover <id> <filename:linenum>\n");
+		log("    (define-fun |<mod>_c <id>| ((state |<mod>_s|)) Bool (...))\n");
+		log("        Each $cover cell is converted into one of this functions. The function\n");
+		log("        evaluates to 'true' if the cover statement is activated in the state.\n");
+		log("\n");
+		log("Options:\n");
 		log("\n");
 		log("    -verbose\n");
 		log("        this will print the recursive walk used to export the modules.\n");
