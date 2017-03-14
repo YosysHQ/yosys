@@ -215,6 +215,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 {
 	std::set<std::string> defines_with_args;
 	std::map<std::string, std::string> defines_map(pre_defines_map);
+	std::vector<std::string> filename_stack;
 	int ifdef_fail_level = 0;
 	bool in_elseif = false;
 
@@ -305,26 +306,47 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			}
 			std::ifstream ff;
 			ff.clear();
-			ff.open(fn.c_str());
+			std::string fixed_fn = fn;
+			ff.open(fixed_fn.c_str());
 			if (ff.fail() && fn.size() > 0 && fn[0] != '/' && filename.find('/') != std::string::npos) {
 				// if the include file was not found, it is not given with an absolute path, and the
 				// currently read file is given with a path, then try again relative to its directory
 				ff.clear();
-				ff.open(filename.substr(0, filename.rfind('/')+1) + fn);
+				fixed_fn = filename.substr(0, filename.rfind('/')+1) + fn;
+				ff.open(fixed_fn);
 			}
 			if (ff.fail() && fn.size() > 0 && fn[0] != '/') {
 				// if the include file was not found and it is not given with an absolute path, then
 				// search it in the include path
 				for (auto incdir : include_dirs) {
 					ff.clear();
-					ff.open(incdir + '/' + fn);
+					fixed_fn = incdir + '/' + fn;
+					ff.open(fixed_fn);
 					if (!ff.fail()) break;
 				}
 			}
 			if (ff.fail())
 				output_code.push_back("`file_notfound " + fn);
 			else
-				input_file(ff, fn);
+				input_file(ff, fixed_fn);
+			continue;
+		}
+
+		if (tok == "`file_push") {
+			skip_spaces();
+			std::string fn = next_token(true);
+			if (!fn.empty() && fn.front() == '"' && fn.back() == '"')
+				fn = fn.substr(1, fn.size()-2);
+			output_code.push_back(tok + " \"" + fn + "\"");
+			filename_stack.push_back(filename);
+			filename = fn;
+			continue;
+		}
+
+		if (tok == "`file_pop") {
+			output_code.push_back(tok);
+			filename = filename_stack.back();
+			filename_stack.pop_back();
 			continue;
 		}
 
