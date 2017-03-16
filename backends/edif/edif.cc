@@ -364,7 +364,7 @@ struct EdifBackend : public Backend {
 							auto m = design->module(cell->type);
 							if (m) {
 								auto w = m->wire(p.first);
-								if (w && !w->upto)
+								if (w)
 									member_idx = GetSize(w)-i-1;
 							}
 							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))",
