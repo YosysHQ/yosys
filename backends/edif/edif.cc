@@ -317,10 +317,7 @@ struct EdifBackend : public Backend {
 					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
-						if (wire->upto)
-							net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), i));
-						else
-							net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
+						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
 					}
 				}
 			}
