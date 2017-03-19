@@ -5,6 +5,7 @@ import numpy as np
 
 enable_upto = True
 enable_offset = True
+enable_hierarchy = True
 
 def make_module(f, modname, width, subs):
     print("module %s (A, B, C, X, Y, Z);" % modname, file=f)
@@ -60,13 +61,16 @@ def make_module(f, modname, width, subs):
     print("endmodule", file=f)
 
 with open("test_top.v", "w") as f:
-    make_module(f, "sub1", 2, {})
-    make_module(f, "sub2", 3, {})
-    make_module(f, "sub3", 4, {})
-    make_module(f, "sub4", 8, {"sub1": 2, "sub2": 3, "sub3": 4})
-    make_module(f, "sub5", 8, {"sub1": 2, "sub2": 3, "sub3": 4})
-    make_module(f, "sub6", 8, {"sub1": 2, "sub2": 3, "sub3": 4})
-    make_module(f, "top", 32, {"sub4": 8, "sub5": 8, "sub6": 8})
+    if enable_hierarchy:
+        make_module(f, "sub1", 2, {})
+        make_module(f, "sub2", 3, {})
+        make_module(f, "sub3", 4, {})
+        make_module(f, "sub4", 8, {"sub1": 2, "sub2": 3, "sub3": 4})
+        make_module(f, "sub5", 8, {"sub1": 2, "sub2": 3, "sub3": 4})
+        make_module(f, "sub6", 8, {"sub1": 2, "sub2": 3, "sub3": 4})
+        make_module(f, "top", 32, {"sub4": 8, "sub5": 8, "sub6": 8})
+    else:
+        make_module(f, "top", 32, {})
 
 os.system("set -x; ../../yosys -p 'prep -top top; write_edif -pvector par test_syn.edif' test_top.v")
 
