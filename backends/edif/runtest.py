@@ -6,6 +6,7 @@ import numpy as np
 enable_upto = True
 enable_offset = True
 enable_hierarchy = True
+enable_logic = True
 
 def make_module(f, modname, width, subs):
     print("module %s (A, B, C, X, Y, Z);" % modname, file=f)
@@ -41,7 +42,10 @@ def make_module(f, modname, width, subs):
 
         if submod is None or 3*subs[submod] >= len(outbits):
             for bit in outbits:
-                print("  assign %s = %s;" % (bit,  np.random.choice(inbits)), file=f)
+                if enable_logic:
+                    print("  assign %s = %s & ~%s;" % (bit,  np.random.choice(inbits), np.random.choice(inbits)), file=f)
+                else:
+                    print("  assign %s = %s;" % (bit,  np.random.choice(inbits)), file=f)
             break
 
         instidx += 1
@@ -72,7 +76,7 @@ with open("test_top.v", "w") as f:
     else:
         make_module(f, "top", 32, {})
 
-os.system("set -x; ../../yosys -p 'prep -top top; write_edif -pvector par test_syn.edif' test_top.v")
+os.system("set -x; ../../yosys -p 'synth_xilinx -top top; write_edif -pvector par test_syn.edif' test_top.v")
 
 with open("test_syn.tcl", "w") as f:
     print("read_edif test_syn.edif", file=f)
