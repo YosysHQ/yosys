@@ -53,6 +53,7 @@ class SmtIo:
         self.logic_ax = True
         self.logic_uf = True
         self.logic_bv = True
+        self.logic_dt = False
         self.produce_models = True
         self.smt2cache = [list()]
         self.p = None
@@ -82,40 +83,6 @@ class SmtIo:
             self.info_stmts = list()
             self.nocomments = False
 
-        if self.solver == "yices":
-            self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
-
-        if self.solver == "z3":
-            self.popen_vargs = ['z3', '-smt2', '-in'] + self.solver_opts
-
-        if self.solver == "cvc4":
-            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2'] + self.solver_opts
-
-        if self.solver == "mathsat":
-            self.popen_vargs = ['mathsat'] + self.solver_opts
-
-        if self.solver == "boolector":
-            self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
-            self.unroll = True
-
-        if self.solver == "abc":
-            if len(self.solver_opts) > 0:
-                self.popen_vargs = ['yosys-abc', '-S', '; '.join(self.solver_opts)]
-            else:
-                self.popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
-            self.logic_ax = False
-            self.unroll = True
-            self.noincr = True
-
-        if self.solver == "dummy":
-            assert self.dummy_file is not None
-            self.dummy_fd = open(self.dummy_file, "r")
-        else:
-            if self.dummy_file is not None:
-                self.dummy_fd = open(self.dummy_file, "w")
-            if not self.noincr:
-                self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
         if self.unroll:
             self.logic_uf = False
             self.unroll_idcnt = 0
@@ -142,6 +109,41 @@ class SmtIo:
             if self.logic_ax: self.logic += "A"
             if self.logic_uf: self.logic += "UF"
             if self.logic_bv: self.logic += "BV"
+            if self.logic_dt: self.logic = "ALL"
+
+        if self.solver == "yices":
+            self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
+
+        if self.solver == "z3":
+            self.popen_vargs = ['z3', '-smt2', '-in'] + self.solver_opts
+
+        if self.solver == "cvc4":
+            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+
+        if self.solver == "mathsat":
+            self.popen_vargs = ['mathsat'] + self.solver_opts
+
+        if self.solver == "boolector":
+            self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
+            self.unroll = True
+
+        if self.solver == "abc":
+            if len(self.solver_opts) > 0:
+                self.popen_vargs = ['yosys-abc', '-S', '; '.join(self.solver_opts)]
+            else:
+                self.popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
+            self.logic_ax = False
+            self.unroll = True
+            self.noincr = True
+
+        if self.solver == "dummy":
+            assert self.dummy_file is not None
+            self.dummy_fd = open(self.dummy_file, "r")
+        else:
+            if self.dummy_file is not None:
+                self.dummy_fd = open(self.dummy_file, "w")
+            if not self.noincr:
+                self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         self.setup_done = True
 
@@ -209,6 +211,9 @@ class SmtIo:
     def write(self, stmt, unroll=True):
         if stmt.startswith(";"):
             self.info(stmt)
+            if not self.setup_done:
+                self.info_stmts.append(stmt)
+                return
         elif not self.setup_done:
             self.setup()
 
@@ -303,6 +308,10 @@ class SmtIo:
         if fields[1] == "yosys-smt2-nobv":
             if self.logic is None:
                 self.logic_bv = False
+
+        if fields[1] == "yosys-smt2-stdt":
+            if self.logic is None:
+                self.logic_dt = True
 
         if fields[1] == "yosys-smt2-module":
             self.curmod = fields[2]

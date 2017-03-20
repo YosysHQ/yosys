@@ -32,11 +32,11 @@ struct Smt2Worker
 	CellTypes ct;
 	SigMap sigmap;
 	RTLIL::Module *module;
-	bool bvmode, memmode, wiresmode, verbose, statebv;
+	bool bvmode, memmode, wiresmode, verbose, statebv, statedt;
 	dict<IdString, int> &mod_stbv_width;
 	int idcounter, statebv_width;
 
-	std::vector<std::string> decls, trans, hier;
+	std::vector<std::string> decls, trans, hier, dtmembers;
 	std::map<RTLIL::SigBit, RTLIL::Cell*> bit_driver;
 	std::set<RTLIL::Cell*> exported_cells, hiercells, hiercells_queue;
 	pool<Cell*> recursive_cells, registers;
@@ -78,6 +78,14 @@ struct Smt2Worker
 				statebv_width += width;
 			}
 		}
+		else if (statedt)
+		{
+			if (width == 0) {
+				decl_str = stringf("  (|%s| Bool)", name.c_str());
+			} else {
+				decl_str = stringf("  (|%s| (_ BitVec %d))", name.c_str(), width);
+			}
+		}
 		else
 		{
 			if (width == 0) {
@@ -89,12 +97,16 @@ struct Smt2Worker
 
 		if (!comment.empty())
 			decl_str += " ; " + comment;
-		decls.push_back(decl_str + "\n");
+
+		if (statedt)
+			dtmembers.push_back(decl_str + "\n");
+		else
+			decls.push_back(decl_str + "\n");
 	}
 
-	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, dict<IdString, int> &mod_stbv_width) :
+	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, bool statedt, dict<IdString, int> &mod_stbv_width) :
 			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode),
-			verbose(verbose), statebv(statebv), mod_stbv_width(mod_stbv_width), idcounter(0), statebv_width(0)
+			verbose(verbose), statebv(statebv), statedt(statedt), mod_stbv_width(mod_stbv_width), idcounter(0), statebv_width(0)
 	{
 		makebits(stringf("%s_is", get_id(module)));
 
@@ -583,8 +595,12 @@ struct Smt2Worker
 			}
 			else
 			{
-				decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-						get_id(module), arrayid, get_id(module), abits, width, get_id(cell)));
+				if (statedt)
+					dtmembers.push_back(stringf("  (|%s#%d#0| (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+							get_id(module), arrayid, abits, width, get_id(cell)));
+				else
+					decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+							get_id(module), arrayid, get_id(module), abits, width, get_id(cell)));
 
 				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s#%d#0| state))\n",
 						get_id(module), get_id(cell), get_id(module), abits, width, get_id(module), arrayid));
@@ -649,6 +665,9 @@ struct Smt2Worker
 
 			if (statebv)
 				makebits(stringf("%s_h %s", get_id(module), get_id(cell->name)), mod_stbv_width.at(cell->type));
+			if (statedt)
+				dtmembers.push_back(stringf("  (|%s_h %s| |%s_s|)\n",
+						get_id(module), get_id(cell->name), get_id(cell->type)));
 			else
 				decls.push_back(stringf("(declare-fun |%s_h %s| (|%s_s|) |%s_s|)\n",
 						get_id(module), get_id(cell->name), get_id(module), get_id(cell->type)));
@@ -1010,6 +1029,12 @@ struct Smt2Worker
 			f << stringf("(define-sort |%s_s| () (_ BitVec %d))\n", get_id(module), statebv_width);
 			mod_stbv_width[module->name] = statebv_width;
 		} else
+		if (statedt) {
+			f << stringf("(declare-datatype |%s_s| ((|%s_mk|\n", get_id(module), get_id(module));
+			for (auto it : dtmembers)
+				f << it;
+			f << stringf(")))\n");
+		} else
 			f << stringf("(declare-sort |%s_s| 0)\n", get_id(module));
 
 		for (auto it : decls)
@@ -1126,6 +1151,10 @@ struct Smt2Backend : public Backend {
 		log("        sort. As a side-effect this will prevent use of arrays to model\n");
 		log("        memories.\n");
 		log("\n");
+		log("    -stdt\n");
+		log("        Use SMT-LIB 2.6 style datatypes to represent a state instead of an\n");
+		log("        uninterpreted sort.\n");
+		log("\n");
 		log("    -nobv\n");
 		log("        disable support for BitVec (FixedSizeBitVectors theory). without this\n");
 		log("        option multi-bit wires are represented using the BitVec sort and\n");
@@ -1199,7 +1228,7 @@ struct Smt2Backend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		std::ifstream template_f;
-		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false;
+		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false, statedt = false;
 
 		log_header(design, "Executing SMT2 backend.\n");
 
@@ -1218,6 +1247,12 @@ struct Smt2Backend : public Backend {
 			}
 			if (args[argidx] == "-stbv") {
 				statebv = true;
+				statedt = false;
+				continue;
+			}
+			if (args[argidx] == "-stdt") {
+				statebv = false;
+				statedt = true;
 				continue;
 			}
 			if (args[argidx] == "-nobv") {
@@ -1264,6 +1299,9 @@ struct Smt2Backend : public Backend {
 		if (statebv)
 			*f << stringf("; yosys-smt2-stbv\n");
 
+		if (statedt)
+			*f << stringf("; yosys-smt2-stdt\n");
+
 		std::vector<RTLIL::Module*> sorted_modules;
 
 		// extract module dependencies
@@ -1304,7 +1342,7 @@ struct Smt2Backend : public Backend {
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
 
-			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, mod_stbv_width);
+			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, statedt, mod_stbv_width);
 			worker.run();
 			worker.write(*f);
 
