@@ -796,6 +796,8 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 			command = "ilang";
 		else if (filename.size() > 3 && filename.substr(filename.size()-3) == ".ys")
 			command = "script";
+		else if (filename.size() > 2 && filename.substr(filename.size()-4) == ".tcl")
+			command = "tcl";
 		else if (filename == "-")
 			command = "script";
 		else
@@ -875,7 +877,10 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		log("\n-- Parsing `%s' using frontend `%s' --\n", filename.c_str(), command.c_str());
 	}
 
-	Frontend::frontend_call(design, NULL, filename, command);
+	if (command == "tcl")
+		Pass::call(design, vector<string>({command, filename}));
+	else
+		Frontend::frontend_call(design, NULL, filename, command);
 }
 
 void run_frontend(std::string filename, std::string command, RTLIL::Design *design)
