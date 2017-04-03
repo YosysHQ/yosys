@@ -1,0 +1,1 @@
+yosys -p "synth_intel -family max10 -top lfsr_updown -vout top.vqm" lfsr_updown.v
