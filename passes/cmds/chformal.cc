@@ -71,7 +71,7 @@ struct ChformalPass : public Pass {
 
 		pool<IdString> constr_types;
 		char mode = 0;
-		int mode_arg;
+		int mode_arg = 0;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
