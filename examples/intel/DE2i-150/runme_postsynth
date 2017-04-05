@@ -1,0 +1,5 @@
+#!/bin/bash
+
+iverilog -D POST_IMPL -o verif_post -s tb_top tb_top.v top.vqm $(yosys-config --datdir/altera_intel/max10/cells_comb_max10.v)
+vvp -N verif_post
+
