@@ -1,0 +1,7 @@
+#!/bin/bash
+
+export REV="de2i"
+
+quartus_map -c $REV top && \
+    quartus_fit -c $REV top && \
+	    quartus_asm -c $REV top

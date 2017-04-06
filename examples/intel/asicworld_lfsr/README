@@ -1,0 +1,6 @@
+Source of the files:
+http://www.asic-world.com/examples/verilog/lfsr.html
+
+Run first: runme_presynth
+Generate output netlist with run_max10 or run_cycloneiv
+Then, check with: runme_postsynth
