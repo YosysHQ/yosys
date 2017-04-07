@@ -3,6 +3,19 @@ List of major changes and improvements between releases
 =======================================================
 
 
+Yosys 0.7 .. Yosys ???
+----------------------
+
+ * MAX10 and Cyclone IV Support
+    - Added initial version of metacommand "synth_intel".
+    - Improved write_verilog command to produce VQM netlist for Quartus Prime.
+    - Added support for MAX10 FPGA family synthesis.
+    - Added support for Cyclone IV family synthesis.
+    - Added example of implementation for DE2i-150 board.
+    - Added example of implementation for MAX10 development kit.
+    - Added LFSR example from Asic World.
+
+
 Yosys 0.6 .. Yosys 0.7
 ----------------------
 
