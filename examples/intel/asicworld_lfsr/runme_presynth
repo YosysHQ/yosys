@@ -1,0 +1,5 @@
+#!/bin/bash
+
+iverilog -o presynth lfsr_updown_tb.v lfsr_updown.v &&\
+
+vvp -N presynth

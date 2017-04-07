@@ -1,0 +1,1099 @@
+set_global_assignment -name FAMILY "Cyclone IV GX"
+set_global_assignment -name DEVICE EP4CGX150DF31C7
+set_global_assignment -name TOP_LEVEL_ENTITY "top"
+set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
+
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK2_50
+set_instance_assignment -name IO_STANDARD "2.5 V" -to CLOCK3_50
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK_50
+
+#============================================================
+# DRAM
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[10]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[11]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_ADDR[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_BA[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_BA[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CAS_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CKE
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_CS_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[10]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[11]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[13]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[14]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[15]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[16]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[17]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[18]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[19]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[20]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[21]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[22]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[23]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[24]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[25]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[26]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[27]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[28]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[29]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[30]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQ[31]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQM[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQM[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQM[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_DQM[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_RAS_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DRAM_WE_N
+
+#============================================================
+# EEP
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to EEP_I2C_SCLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to EEP_I2C_SDAT
+
+#============================================================
+# ENET
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_GTX_CLK
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_INT_N
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_LINK100
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_MDC
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_MDIO
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RST_N
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_CLK
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_COL
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_CRS
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_DATA[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_DATA[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_DATA[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_DATA[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_DV
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_RX_ER
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_TX_CLK
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_TX_DATA[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_TX_DATA[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_TX_DATA[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_TX_DATA[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_TX_EN
+set_instance_assignment -name IO_STANDARD "2.5 V" -to ENET_TX_ER
+
+#============================================================
+# FAN
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FAN_CTRL
+
+#============================================================
+# FLASH
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_RESET_N
+
+#============================================================
+# FS
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[10]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[11]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[13]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[14]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[15]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[16]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[17]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[18]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[19]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[20]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[21]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[22]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[23]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[24]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[25]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_ADDR[26]
+
+#============================================================
+# FL
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_CE_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_OE_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_RY
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_WE_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_WP_N
+
+#============================================================
+# FS
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[10]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[11]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[13]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[14]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[15]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[16]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[17]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[18]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[19]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[20]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[21]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[22]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[23]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[24]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[25]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[26]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[27]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[28]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[29]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[30]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FS_DQ[31]
+
+#============================================================
+# GPIO
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[10]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[11]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[13]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[14]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[15]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[16]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[17]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[18]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[19]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[20]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[21]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[22]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[23]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[24]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[25]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[26]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[27]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[28]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[29]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[30]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[31]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[32]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[33]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[34]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[35]
+
+#============================================================
+# G
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to G_SENSOR_INT1
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to G_SENSOR_SCLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to G_SENSOR_SDAT
+
+#============================================================
+# HEX0
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX0[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX0[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX0[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX0[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX0[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX0[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX0[6]
+
+#============================================================
+# HEX1
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX1[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX1[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX1[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX1[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX1[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX1[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX1[6]
+
+#============================================================
+# HEX2
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX2[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX2[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX2[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX2[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX2[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX2[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX2[6]
+
+#============================================================
+# HEX3
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX3[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX3[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX3[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX3[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX3[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX3[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX3[6]
+
+#============================================================
+# HEX4
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX4[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX4[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX4[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX4[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX4[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX4[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX4[6]
+
+#============================================================
+# HEX5
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX5[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX5[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX5[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX5[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX5[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX5[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX5[6]
+
+#============================================================
+# HEX6
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX6[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX6[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX6[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX6[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX6[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX6[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX6[6]
+
+#============================================================
+# HEX7
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX7[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX7[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX7[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX7[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX7[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX7[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HEX7[6]
+
+#============================================================
+# HSMC
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKIN0
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKIN_N1
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKIN_N2
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKIN_P1
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKIN_P2
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKOUT0
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKOUT_N1
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKOUT_N2
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKOUT_P1
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_CLKOUT_P2
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_D[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_D[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_D[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_D[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_I2C_SCLK
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_I2C_SDAT
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_N[16]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_RX_D_P[16]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_N[16]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to HSMC_TX_D_P[16]
+
+#============================================================
+# I2C
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to I2C_SCLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to I2C_SDAT
+
+#============================================================
+# IRDA
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to IRDA_RXD
+
+#============================================================
+# KEY
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to KEY[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to KEY[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to KEY[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to KEY[3]
+
+#============================================================
+# LCD
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_DATA[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_EN
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LCD_ON
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_RS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LCD_RW
+
+#============================================================
+# LEDG
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG[8]
+
+#============================================================
+# LEDR
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[16]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR[17]
+
+#============================================================
+# PCIE
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to PCIE_PERST_N
+set_instance_assignment -name IO_STANDARD HCSL -to PCIE_REFCLK_P
+set_instance_assignment -name IO_STANDARD "1.5-V PCML" -to PCIE_RX_P[0]
+set_instance_assignment -name IO_STANDARD "1.5-V PCML" -to PCIE_RX_P[1]
+set_instance_assignment -name IO_STANDARD "1.5-V PCML" -to PCIE_TX_P[0]
+set_instance_assignment -name IO_STANDARD "1.5-V PCML" -to PCIE_TX_P[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to PCIE_WAKE_N
+
+#============================================================
+# SD
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_CMD
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_DAT[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_DAT[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_DAT[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_DAT[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SD_WP_N
+
+#============================================================
+# SMA
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SMA_CLKIN
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SMA_CLKOUT
+
+#============================================================
+# SSRAM0
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM0_CE_N
+
+#============================================================
+# SSRAM1
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM1_CE_N
+
+#============================================================
+# SSRAM
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_ADSC_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_ADSP_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_ADV_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_BE[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_BE[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_BE[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_BE[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_GW_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_OE_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SSRAM_WE_N
+
+#============================================================
+# SW
+#============================================================
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[16]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SW[17]
+
+#============================================================
+# TD
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_CLK27
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_DATA[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_HS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_RESET_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TD_VS
+
+#============================================================
+# UART
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to UART_CTS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to UART_RTS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to UART_RXD
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to UART_TXD
+
+#============================================================
+# VGA
+#============================================================
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_BLANK_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_HS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_SYNC_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_VS
+
+#============================================================
+# End of pin assignments by Terasic System Builder
+#============================================================
+
+
+
+set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_location_assignment PIN_A15 -to CLOCK2_50
+set_location_assignment PIN_V11 -to CLOCK3_50
+set_location_assignment PIN_AJ16 -to CLOCK_50
+set_location_assignment PIN_AG7 -to DRAM_ADDR[0]
+set_location_assignment PIN_AJ7 -to DRAM_ADDR[1]
+set_location_assignment PIN_AG8 -to DRAM_ADDR[2]
+set_location_assignment PIN_AH8 -to DRAM_ADDR[3]
+set_location_assignment PIN_AE16 -to DRAM_ADDR[4]
+set_location_assignment PIN_AF16 -to DRAM_ADDR[5]
+set_location_assignment PIN_AE14 -to DRAM_ADDR[6]
+set_location_assignment PIN_AE15 -to DRAM_ADDR[7]
+set_location_assignment PIN_AE13 -to DRAM_ADDR[8]
+set_location_assignment PIN_AE12 -to DRAM_ADDR[9]
+set_location_assignment PIN_AH6 -to DRAM_ADDR[10]
+set_location_assignment PIN_AE11 -to DRAM_ADDR[11]
+set_location_assignment PIN_AE10 -to DRAM_ADDR[12]
+set_location_assignment PIN_AH5 -to DRAM_BA[0]
+set_location_assignment PIN_AG6 -to DRAM_BA[1]
+set_location_assignment PIN_AJ4 -to DRAM_CAS_N
+set_location_assignment PIN_AD6 -to DRAM_CKE
+set_location_assignment PIN_AE6 -to DRAM_CLK
+set_location_assignment PIN_AG5 -to DRAM_CS_N
+set_location_assignment PIN_AD10 -to DRAM_DQ[0]
+set_location_assignment PIN_AD9 -to DRAM_DQ[1]
+set_location_assignment PIN_AE9 -to DRAM_DQ[2]
+set_location_assignment PIN_AE8 -to DRAM_DQ[3]
+set_location_assignment PIN_AE7 -to DRAM_DQ[4]
+set_location_assignment PIN_AF7 -to DRAM_DQ[5]
+set_location_assignment PIN_AF6 -to DRAM_DQ[6]
+set_location_assignment PIN_AF9 -to DRAM_DQ[7]
+set_location_assignment PIN_AB13 -to DRAM_DQ[8]
+set_location_assignment PIN_AF13 -to DRAM_DQ[9]
+set_location_assignment PIN_AF12 -to DRAM_DQ[10]
+set_location_assignment PIN_AG9 -to DRAM_DQ[11]
+set_location_assignment PIN_AA13 -to DRAM_DQ[12]
+set_location_assignment PIN_AB11 -to DRAM_DQ[13]
+set_location_assignment PIN_AA12 -to DRAM_DQ[14]
+set_location_assignment PIN_AA15 -to DRAM_DQ[15]
+set_location_assignment PIN_AH11 -to DRAM_DQ[16]
+set_location_assignment PIN_AG11 -to DRAM_DQ[17]
+set_location_assignment PIN_AH12 -to DRAM_DQ[18]
+set_location_assignment PIN_AG12 -to DRAM_DQ[19]
+set_location_assignment PIN_AH13 -to DRAM_DQ[20]
+set_location_assignment PIN_AG13 -to DRAM_DQ[21]
+set_location_assignment PIN_AG14 -to DRAM_DQ[22]
+set_location_assignment PIN_AH14 -to DRAM_DQ[23]
+set_location_assignment PIN_AH9 -to DRAM_DQ[24]
+set_location_assignment PIN_AK8 -to DRAM_DQ[25]
+set_location_assignment PIN_AG10 -to DRAM_DQ[26]
+set_location_assignment PIN_AK7 -to DRAM_DQ[27]
+set_location_assignment PIN_AH7 -to DRAM_DQ[28]
+set_location_assignment PIN_AK6 -to DRAM_DQ[29]
+set_location_assignment PIN_AJ6 -to DRAM_DQ[30]
+set_location_assignment PIN_AK5 -to DRAM_DQ[31]
+set_location_assignment PIN_AF10 -to DRAM_DQM[0]
+set_location_assignment PIN_AB14 -to DRAM_DQM[1]
+set_location_assignment PIN_AH15 -to DRAM_DQM[2]
+set_location_assignment PIN_AH10 -to DRAM_DQM[3]
+set_location_assignment PIN_AK4 -to DRAM_RAS_N
+set_location_assignment PIN_AK3 -to DRAM_WE_N
+set_location_assignment PIN_AG27 -to EEP_I2C_SCLK
+set_location_assignment PIN_AG25 -to EEP_I2C_SDAT
+set_location_assignment PIN_A12 -to ENET_GTX_CLK
+set_location_assignment PIN_E16 -to ENET_INT_N
+set_location_assignment PIN_F5 -to ENET_LINK100
+set_location_assignment PIN_C16 -to ENET_MDC
+set_location_assignment PIN_C15 -to ENET_MDIO
+set_location_assignment PIN_C14 -to ENET_RST_N
+set_location_assignment PIN_L15 -to ENET_RX_CLK
+set_location_assignment PIN_G15 -to ENET_RX_COL
+set_location_assignment PIN_D6 -to ENET_RX_CRS
+set_location_assignment PIN_F15 -to ENET_RX_DATA[0]
+set_location_assignment PIN_E13 -to ENET_RX_DATA[1]
+set_location_assignment PIN_A5 -to ENET_RX_DATA[2]
+set_location_assignment PIN_B7 -to ENET_RX_DATA[3]
+set_location_assignment PIN_A8 -to ENET_RX_DV
+set_location_assignment PIN_D11 -to ENET_RX_ER
+set_location_assignment PIN_F13 -to ENET_TX_CLK
+set_location_assignment PIN_B12 -to ENET_TX_DATA[0]
+set_location_assignment PIN_E7 -to ENET_TX_DATA[1]
+set_location_assignment PIN_C13 -to ENET_TX_DATA[2]
+set_location_assignment PIN_D15 -to ENET_TX_DATA[3]
+set_location_assignment PIN_D14 -to ENET_TX_EN
+set_location_assignment PIN_D13 -to ENET_TX_ER
+set_location_assignment PIN_AF28 -to FAN_CTRL
+set_location_assignment PIN_AG18 -to FL_RESET_N
+set_location_assignment PIN_AB22 -to FS_ADDR[1]
+set_location_assignment PIN_AH19 -to FS_ADDR[2]
+set_location_assignment PIN_AK19 -to FS_ADDR[3]
+set_location_assignment PIN_AJ18 -to FS_ADDR[4]
+set_location_assignment PIN_AA18 -to FS_ADDR[5]
+set_location_assignment PIN_AH18 -to FS_ADDR[6]
+set_location_assignment PIN_AK17 -to FS_ADDR[7]
+set_location_assignment PIN_Y20 -to FS_ADDR[8]
+set_location_assignment PIN_AK21 -to FS_ADDR[9]
+set_location_assignment PIN_AH21 -to FS_ADDR[10]
+set_location_assignment PIN_AG21 -to FS_ADDR[11]
+set_location_assignment PIN_AG22 -to FS_ADDR[12]
+set_location_assignment PIN_AD22 -to FS_ADDR[13]
+set_location_assignment PIN_AE24 -to FS_ADDR[14]
+set_location_assignment PIN_AD23 -to FS_ADDR[15]
+set_location_assignment PIN_AB21 -to FS_ADDR[16]
+set_location_assignment PIN_AH17 -to FS_ADDR[17]
+set_location_assignment PIN_AE17 -to FS_ADDR[18]
+set_location_assignment PIN_AG20 -to FS_ADDR[19]
+set_location_assignment PIN_AK20 -to FS_ADDR[20]
+set_location_assignment PIN_AE19 -to FS_ADDR[21]
+set_location_assignment PIN_AA16 -to FS_ADDR[22]
+set_location_assignment PIN_AF15 -to FS_ADDR[23]
+set_location_assignment PIN_AG15 -to FS_ADDR[24]
+set_location_assignment PIN_Y17 -to FS_ADDR[25]
+set_location_assignment PIN_AB16 -to FS_ADDR[26]
+set_location_assignment PIN_AG19 -to FL_CE_N
+set_location_assignment PIN_AJ19 -to FL_OE_N
+set_location_assignment PIN_AF19 -to FL_RY
+set_location_assignment PIN_AG17 -to FL_WE_N
+set_location_assignment PIN_AK18 -to FL_WP_N
+set_location_assignment PIN_AK29 -to FS_DQ[0]
+set_location_assignment PIN_AE23 -to FS_DQ[1]
+set_location_assignment PIN_AH24 -to FS_DQ[2]
+set_location_assignment PIN_AH23 -to FS_DQ[3]
+set_location_assignment PIN_AA21 -to FS_DQ[4]
+set_location_assignment PIN_AE20 -to FS_DQ[5]
+set_location_assignment PIN_Y19 -to FS_DQ[6]
+set_location_assignment PIN_AA17 -to FS_DQ[7]
+set_location_assignment PIN_AB17 -to FS_DQ[8]
+set_location_assignment PIN_Y18 -to FS_DQ[9]
+set_location_assignment PIN_AA20 -to FS_DQ[10]
+set_location_assignment PIN_AE21 -to FS_DQ[11]
+set_location_assignment PIN_AH22 -to FS_DQ[12]
+set_location_assignment PIN_AJ24 -to FS_DQ[13]
+set_location_assignment PIN_AE22 -to FS_DQ[14]
+set_location_assignment PIN_AK28 -to FS_DQ[15]
+set_location_assignment PIN_AK9 -to FS_DQ[16]
+set_location_assignment PIN_AJ10 -to FS_DQ[17]
+set_location_assignment PIN_AK11 -to FS_DQ[18]
+set_location_assignment PIN_AK12 -to FS_DQ[19]
+set_location_assignment PIN_AJ13 -to FS_DQ[20]
+set_location_assignment PIN_AK15 -to FS_DQ[21]
+set_location_assignment PIN_AC16 -to FS_DQ[22]
+set_location_assignment PIN_AH16 -to FS_DQ[23]
+set_location_assignment PIN_AG16 -to FS_DQ[24]
+set_location_assignment PIN_AD16 -to FS_DQ[25]
+set_location_assignment PIN_AJ15 -to FS_DQ[26]
+set_location_assignment PIN_AK14 -to FS_DQ[27]
+set_location_assignment PIN_AK13 -to FS_DQ[28]
+set_location_assignment PIN_AJ12 -to FS_DQ[29]
+set_location_assignment PIN_AK10 -to FS_DQ[30]
+set_location_assignment PIN_AJ9 -to FS_DQ[31]
+set_location_assignment PIN_G16 -to GPIO[0]
+set_location_assignment PIN_F17 -to GPIO[1]
+set_location_assignment PIN_D18 -to GPIO[2]
+set_location_assignment PIN_F18 -to GPIO[3]
+set_location_assignment PIN_D19 -to GPIO[4]
+set_location_assignment PIN_K21 -to GPIO[5]
+set_location_assignment PIN_F19 -to GPIO[6]
+set_location_assignment PIN_K22 -to GPIO[7]
+set_location_assignment PIN_B21 -to GPIO[8]
+set_location_assignment PIN_C21 -to GPIO[9]
+set_location_assignment PIN_D22 -to GPIO[10]
+set_location_assignment PIN_D21 -to GPIO[11]
+set_location_assignment PIN_D23 -to GPIO[12]
+set_location_assignment PIN_D24 -to GPIO[13]
+set_location_assignment PIN_B28 -to GPIO[14]
+set_location_assignment PIN_C25 -to GPIO[15]
+set_location_assignment PIN_C26 -to GPIO[16]
+set_location_assignment PIN_D28 -to GPIO[17]
+set_location_assignment PIN_D25 -to GPIO[18]
+set_location_assignment PIN_F20 -to GPIO[19]
+set_location_assignment PIN_E21 -to GPIO[20]
+set_location_assignment PIN_F23 -to GPIO[21]
+set_location_assignment PIN_G20 -to GPIO[22]
+set_location_assignment PIN_F22 -to GPIO[23]
+set_location_assignment PIN_G22 -to GPIO[24]
+set_location_assignment PIN_G24 -to GPIO[25]
+set_location_assignment PIN_G23 -to GPIO[26]
+set_location_assignment PIN_A25 -to GPIO[27]
+set_location_assignment PIN_A26 -to GPIO[28]
+set_location_assignment PIN_A19 -to GPIO[29]
+set_location_assignment PIN_A28 -to GPIO[30]
+set_location_assignment PIN_A27 -to GPIO[31]
+set_location_assignment PIN_B30 -to GPIO[32]
+set_location_assignment PIN_AG28 -to GPIO[33]
+set_location_assignment PIN_AG26 -to GPIO[34]
+set_location_assignment PIN_Y21 -to GPIO[35]
+set_location_assignment PIN_AC30 -to G_SENSOR_INT1
+set_location_assignment PIN_AK27 -to G_SENSOR_SCLK
+set_location_assignment PIN_AK26 -to G_SENSOR_SDAT
+set_location_assignment PIN_E15 -to HEX0[0]
+set_location_assignment PIN_E12 -to HEX0[1]
+set_location_assignment PIN_G11 -to HEX0[2]
+set_location_assignment PIN_F11 -to HEX0[3]
+set_location_assignment PIN_F16 -to HEX0[4]
+set_location_assignment PIN_D16 -to HEX0[5]
+set_location_assignment PIN_F14 -to HEX0[6]
+set_location_assignment PIN_G14 -to HEX1[0]
+set_location_assignment PIN_B13 -to HEX1[1]
+set_location_assignment PIN_G13 -to HEX1[2]
+set_location_assignment PIN_F12 -to HEX1[3]
+set_location_assignment PIN_G12 -to HEX1[4]
+set_location_assignment PIN_J9 -to HEX1[5]
+set_location_assignment PIN_G10 -to HEX1[6]
+set_location_assignment PIN_G8 -to HEX2[0]
+set_location_assignment PIN_G7 -to HEX2[1]
+set_location_assignment PIN_F7 -to HEX2[2]
+set_location_assignment PIN_AG30 -to HEX2[3]
+set_location_assignment PIN_F6 -to HEX2[4]
+set_location_assignment PIN_F4 -to HEX2[5]
+set_location_assignment PIN_F10 -to HEX2[6]
+set_location_assignment PIN_D10 -to HEX3[0]
+set_location_assignment PIN_D7 -to HEX3[1]
+set_location_assignment PIN_E6 -to HEX3[2]
+set_location_assignment PIN_E4 -to HEX3[3]
+set_location_assignment PIN_E3 -to HEX3[4]
+set_location_assignment PIN_D5 -to HEX3[5]
+set_location_assignment PIN_D4 -to HEX3[6]
+set_location_assignment PIN_A14 -to HEX4[0]
+set_location_assignment PIN_A13 -to HEX4[1]
+set_location_assignment PIN_C7 -to HEX4[2]
+set_location_assignment PIN_C6 -to HEX4[3]
+set_location_assignment PIN_C5 -to HEX4[4]
+set_location_assignment PIN_C4 -to HEX4[5]
+set_location_assignment PIN_C3 -to HEX4[6]
+set_location_assignment PIN_D3 -to HEX5[0]
+set_location_assignment PIN_A10 -to HEX5[1]
+set_location_assignment PIN_A9 -to HEX5[2]
+set_location_assignment PIN_A7 -to HEX5[3]
+set_location_assignment PIN_A6 -to HEX5[4]
+set_location_assignment PIN_A11 -to HEX5[5]
+set_location_assignment PIN_B6 -to HEX5[6]
+set_location_assignment PIN_B9 -to HEX6[0]
+set_location_assignment PIN_B10 -to HEX6[1]
+set_location_assignment PIN_C8 -to HEX6[2]
+set_location_assignment PIN_C9 -to HEX6[3]
+set_location_assignment PIN_D8 -to HEX6[4]
+set_location_assignment PIN_D9 -to HEX6[5]
+set_location_assignment PIN_E9 -to HEX6[6]
+set_location_assignment PIN_E10 -to HEX7[0]
+set_location_assignment PIN_F8 -to HEX7[1]
+set_location_assignment PIN_F9 -to HEX7[2]
+set_location_assignment PIN_C10 -to HEX7[3]
+set_location_assignment PIN_C11 -to HEX7[4]
+set_location_assignment PIN_C12 -to HEX7[5]
+set_location_assignment PIN_D12 -to HEX7[6]
+set_location_assignment PIN_K15 -to HSMC_CLKIN0
+set_location_assignment PIN_V30 -to HSMC_CLKIN_N1
+set_location_assignment PIN_T30 -to HSMC_CLKIN_N2
+set_location_assignment PIN_V29 -to HSMC_CLKIN_P1
+set_location_assignment PIN_T29 -to HSMC_CLKIN_P2
+set_location_assignment PIN_G6 -to HSMC_CLKOUT0
+set_location_assignment PIN_AB28 -to HSMC_CLKOUT_N1
+set_location_assignment PIN_Y28 -to HSMC_CLKOUT_N2
+set_location_assignment PIN_AB27 -to HSMC_CLKOUT_P1
+set_location_assignment PIN_AA28 -to HSMC_CLKOUT_P2
+set_location_assignment PIN_AC25 -to HSMC_D[0]
+set_location_assignment PIN_E27 -to HSMC_D[1]
+set_location_assignment PIN_AB26 -to HSMC_D[2]
+set_location_assignment PIN_E28 -to HSMC_D[3]
+set_location_assignment PIN_AD26 -to HSMC_I2C_SCLK
+set_location_assignment PIN_AD25 -to HSMC_I2C_SDAT
+set_location_assignment PIN_G27 -to HSMC_RX_D_N[0]
+set_location_assignment PIN_G29 -to HSMC_RX_D_N[1]
+set_location_assignment PIN_H27 -to HSMC_RX_D_N[2]
+set_location_assignment PIN_K29 -to HSMC_RX_D_N[3]
+set_location_assignment PIN_L28 -to HSMC_RX_D_N[4]
+set_location_assignment PIN_M28 -to HSMC_RX_D_N[5]
+set_location_assignment PIN_N30 -to HSMC_RX_D_N[6]
+set_location_assignment PIN_P28 -to HSMC_RX_D_N[7]
+set_location_assignment PIN_R28 -to HSMC_RX_D_N[8]
+set_location_assignment PIN_U28 -to HSMC_RX_D_N[9]
+set_location_assignment PIN_W28 -to HSMC_RX_D_N[10]
+set_location_assignment PIN_W30 -to HSMC_RX_D_N[11]
+set_location_assignment PIN_M30 -to HSMC_RX_D_N[12]
+set_location_assignment PIN_Y27 -to HSMC_RX_D_N[13]
+set_location_assignment PIN_AA29 -to HSMC_RX_D_N[14]
+set_location_assignment PIN_AD28 -to HSMC_RX_D_N[15]
+set_location_assignment PIN_AE28 -to HSMC_RX_D_N[16]
+set_location_assignment PIN_G26 -to HSMC_RX_D_P[0]
+set_location_assignment PIN_G28 -to HSMC_RX_D_P[1]
+set_location_assignment PIN_J27 -to HSMC_RX_D_P[2]
+set_location_assignment PIN_K28 -to HSMC_RX_D_P[3]
+set_location_assignment PIN_L27 -to HSMC_RX_D_P[4]
+set_location_assignment PIN_M27 -to HSMC_RX_D_P[5]
+set_location_assignment PIN_N29 -to HSMC_RX_D_P[6]
+set_location_assignment PIN_P27 -to HSMC_RX_D_P[7]
+set_location_assignment PIN_R27 -to HSMC_RX_D_P[8]
+set_location_assignment PIN_U27 -to HSMC_RX_D_P[9]
+set_location_assignment PIN_W27 -to HSMC_RX_D_P[10]
+set_location_assignment PIN_W29 -to HSMC_RX_D_P[11]
+set_location_assignment PIN_M29 -to HSMC_RX_D_P[12]
+set_location_assignment PIN_AA27 -to HSMC_RX_D_P[13]
+set_location_assignment PIN_AB29 -to HSMC_RX_D_P[14]
+set_location_assignment PIN_AD27 -to HSMC_RX_D_P[15]
+set_location_assignment PIN_AE27 -to HSMC_RX_D_P[16]
+set_location_assignment PIN_H28 -to HSMC_TX_D_N[0]
+set_location_assignment PIN_F29 -to HSMC_TX_D_N[1]
+set_location_assignment PIN_D30 -to HSMC_TX_D_N[2]
+set_location_assignment PIN_E30 -to HSMC_TX_D_N[3]
+set_location_assignment PIN_G30 -to HSMC_TX_D_N[4]
+set_location_assignment PIN_J30 -to HSMC_TX_D_N[5]
+set_location_assignment PIN_K27 -to HSMC_TX_D_N[6]
+set_location_assignment PIN_K30 -to HSMC_TX_D_N[7]
+set_location_assignment PIN_T25 -to HSMC_TX_D_N[8]
+set_location_assignment PIN_N28 -to HSMC_TX_D_N[9]
+set_location_assignment PIN_V26 -to HSMC_TX_D_N[10]
+set_location_assignment PIN_Y30 -to HSMC_TX_D_N[11]
+set_location_assignment PIN_AC28 -to HSMC_TX_D_N[12]
+set_location_assignment PIN_AD30 -to HSMC_TX_D_N[13]
+set_location_assignment PIN_AE30 -to HSMC_TX_D_N[14]
+set_location_assignment PIN_AH30 -to HSMC_TX_D_N[15]
+set_location_assignment PIN_AG29 -to HSMC_TX_D_N[16]
+set_location_assignment PIN_J28 -to HSMC_TX_D_P[0]
+set_location_assignment PIN_F28 -to HSMC_TX_D_P[1]
+set_location_assignment PIN_D29 -to HSMC_TX_D_P[2]
+set_location_assignment PIN_F30 -to HSMC_TX_D_P[3]
+set_location_assignment PIN_H30 -to HSMC_TX_D_P[4]
+set_location_assignment PIN_J29 -to HSMC_TX_D_P[5]
+set_location_assignment PIN_K26 -to HSMC_TX_D_P[6]
+set_location_assignment PIN_L30 -to HSMC_TX_D_P[7]
+set_location_assignment PIN_U25 -to HSMC_TX_D_P[8]
+set_location_assignment PIN_N27 -to HSMC_TX_D_P[9]
+set_location_assignment PIN_V25 -to HSMC_TX_D_P[10]
+set_location_assignment PIN_AA30 -to HSMC_TX_D_P[11]
+set_location_assignment PIN_AC27 -to HSMC_TX_D_P[12]
+set_location_assignment PIN_AD29 -to HSMC_TX_D_P[13]
+set_location_assignment PIN_AE29 -to HSMC_TX_D_P[14]
+set_location_assignment PIN_AJ30 -to HSMC_TX_D_P[15]
+set_location_assignment PIN_AH29 -to HSMC_TX_D_P[16]
+set_location_assignment PIN_C27 -to I2C_SCLK
+set_location_assignment PIN_G21 -to I2C_SDAT
+set_location_assignment PIN_AH28 -to IRDA_RXD
+set_location_assignment PIN_AA26 -to KEY[0]
+set_location_assignment PIN_AE25 -to KEY[1]
+set_location_assignment PIN_AF30 -to KEY[2]
+set_location_assignment PIN_AE26 -to KEY[3]
+set_location_assignment PIN_AG4 -to LCD_DATA[0]
+set_location_assignment PIN_AF3 -to LCD_DATA[1]
+set_location_assignment PIN_AH3 -to LCD_DATA[2]
+set_location_assignment PIN_AE5 -to LCD_DATA[3]
+set_location_assignment PIN_AH2 -to LCD_DATA[4]
+set_location_assignment PIN_AE3 -to LCD_DATA[5]
+set_location_assignment PIN_AH4 -to LCD_DATA[6]
+set_location_assignment PIN_AE4 -to LCD_DATA[7]
+set_location_assignment PIN_AF4 -to LCD_EN
+set_location_assignment PIN_AF27 -to LCD_ON
+set_location_assignment PIN_AG3 -to LCD_RS
+set_location_assignment PIN_AJ3 -to LCD_RW
+set_location_assignment PIN_AA25 -to LEDG[0]
+set_location_assignment PIN_AB25 -to LEDG[1]
+set_location_assignment PIN_F27 -to LEDG[2]
+set_location_assignment PIN_F26 -to LEDG[3]
+set_location_assignment PIN_W26 -to LEDG[4]
+set_location_assignment PIN_Y22 -to LEDG[5]
+set_location_assignment PIN_Y25 -to LEDG[6]
+set_location_assignment PIN_AA22 -to LEDG[7]
+set_location_assignment PIN_J25 -to LEDG[8]
+set_location_assignment PIN_T23 -to LEDR[0]
+set_location_assignment PIN_T24 -to LEDR[1]
+set_location_assignment PIN_V27 -to LEDR[2]
+set_location_assignment PIN_W25 -to LEDR[3]
+set_location_assignment PIN_T21 -to LEDR[4]
+set_location_assignment PIN_T26 -to LEDR[5]
+set_location_assignment PIN_R25 -to LEDR[6]
+set_location_assignment PIN_T27 -to LEDR[7]
+set_location_assignment PIN_P25 -to LEDR[8]
+set_location_assignment PIN_R24 -to LEDR[9]
+set_location_assignment PIN_P21 -to LEDR[10]
+set_location_assignment PIN_N24 -to LEDR[11]
+set_location_assignment PIN_N21 -to LEDR[12]
+set_location_assignment PIN_M25 -to LEDR[13]
+set_location_assignment PIN_K24 -to LEDR[14]
+set_location_assignment PIN_L25 -to LEDR[15]
+set_location_assignment PIN_M21 -to LEDR[16]
+set_location_assignment PIN_M22 -to LEDR[17]
+set_location_assignment PIN_A4 -to PCIE_PERST_N
+set_location_assignment PIN_V15 -to PCIE_REFCLK_P
+set_location_assignment PIN_AC2 -to PCIE_RX_P[0]
+set_location_assignment PIN_AA2 -to PCIE_RX_P[1]
+set_location_assignment PIN_AB4 -to PCIE_TX_P[0]
+set_location_assignment PIN_Y4 -to PCIE_TX_P[1]
+set_location_assignment PIN_C29 -to PCIE_WAKE_N
+set_location_assignment PIN_AH25 -to SD_CLK
+set_location_assignment PIN_AF18 -to SD_CMD
+set_location_assignment PIN_AH27 -to SD_DAT[0]
+set_location_assignment PIN_AJ28 -to SD_DAT[1]
+set_location_assignment PIN_AD24 -to SD_DAT[2]
+set_location_assignment PIN_AE18 -to SD_DAT[3]
+set_location_assignment PIN_AJ27 -to SD_WP_N
+set_location_assignment PIN_AK16 -to SMA_CLKIN
+set_location_assignment PIN_AF25 -to SMA_CLKOUT
+set_location_assignment PIN_AJ21 -to SSRAM0_CE_N
+set_location_assignment PIN_AG23 -to SSRAM1_CE_N
+set_location_assignment PIN_AK25 -to SSRAM_ADSC_N
+set_location_assignment PIN_AJ25 -to SSRAM_ADSP_N
+set_location_assignment PIN_AH26 -to SSRAM_ADV_N
+set_location_assignment PIN_AF22 -to SSRAM_BE[0]
+set_location_assignment PIN_AK22 -to SSRAM_BE[1]
+set_location_assignment PIN_AJ22 -to SSRAM_BE[2]
+set_location_assignment PIN_AF21 -to SSRAM_BE[3]
+set_location_assignment PIN_AF24 -to SSRAM_CLK
+set_location_assignment PIN_AK23 -to SSRAM_GW_N
+set_location_assignment PIN_AG24 -to SSRAM_OE_N
+set_location_assignment PIN_AK24 -to SSRAM_WE_N
+set_location_assignment PIN_V28 -to SW[0]
+set_location_assignment PIN_U30 -to SW[1]
+set_location_assignment PIN_V21 -to SW[2]
+set_location_assignment PIN_C2 -to SW[3]
+set_location_assignment PIN_AB30 -to SW[4]
+set_location_assignment PIN_U21 -to SW[5]
+set_location_assignment PIN_T28 -to SW[6]
+set_location_assignment PIN_R30 -to SW[7]
+set_location_assignment PIN_P30 -to SW[8]
+set_location_assignment PIN_R29 -to SW[9]
+set_location_assignment PIN_R26 -to SW[10]
+set_location_assignment PIN_N26 -to SW[11]
+set_location_assignment PIN_M26 -to SW[12]
+set_location_assignment PIN_N25 -to SW[13]
+set_location_assignment PIN_J26 -to SW[14]
+set_location_assignment PIN_K25 -to SW[15]
+set_location_assignment PIN_C30 -to SW[16]
+set_location_assignment PIN_H25 -to SW[17]
+set_location_assignment PIN_B15 -to TD_CLK27
+set_location_assignment PIN_C17 -to TD_DATA[0]
+set_location_assignment PIN_D17 -to TD_DATA[1]
+set_location_assignment PIN_A16 -to TD_DATA[2]
+set_location_assignment PIN_B16 -to TD_DATA[3]
+set_location_assignment PIN_G18 -to TD_DATA[4]
+set_location_assignment PIN_G17 -to TD_DATA[5]
+set_location_assignment PIN_K18 -to TD_DATA[6]
+set_location_assignment PIN_K17 -to TD_DATA[7]
+set_location_assignment PIN_C28 -to TD_HS
+set_location_assignment PIN_E25 -to TD_RESET_N
+set_location_assignment PIN_E22 -to TD_VS
+set_location_assignment PIN_D26 -to UART_CTS
+set_location_assignment PIN_A29 -to UART_RTS
+set_location_assignment PIN_B27 -to UART_RXD
+set_location_assignment PIN_H24 -to UART_TXD
+set_location_assignment PIN_E24 -to VGA_B[0]
+set_location_assignment PIN_C24 -to VGA_B[1]
+set_location_assignment PIN_B25 -to VGA_B[2]
+set_location_assignment PIN_C23 -to VGA_B[3]
+set_location_assignment PIN_F24 -to VGA_B[4]
+set_location_assignment PIN_A23 -to VGA_B[5]
+set_location_assignment PIN_G25 -to VGA_B[6]
+set_location_assignment PIN_C22 -to VGA_B[7]
+set_location_assignment PIN_F25 -to VGA_BLANK_N
+set_location_assignment PIN_D27 -to VGA_CLK
+set_location_assignment PIN_D20 -to VGA_G[0]
+set_location_assignment PIN_C20 -to VGA_G[1]
+set_location_assignment PIN_A20 -to VGA_G[2]
+set_location_assignment PIN_K19 -to VGA_G[3]
+set_location_assignment PIN_A21 -to VGA_G[4]
+set_location_assignment PIN_F21 -to VGA_G[5]
+set_location_assignment PIN_A22 -to VGA_G[6]
+set_location_assignment PIN_B22 -to VGA_G[7]
+set_location_assignment PIN_B24 -to VGA_HS
+set_location_assignment PIN_A17 -to VGA_R[0]
+set_location_assignment PIN_C18 -to VGA_R[1]
+set_location_assignment PIN_B18 -to VGA_R[2]
+set_location_assignment PIN_A18 -to VGA_R[3]
+set_location_assignment PIN_E18 -to VGA_R[4]
+set_location_assignment PIN_E19 -to VGA_R[5]
+set_location_assignment PIN_B19 -to VGA_R[6]
+set_location_assignment PIN_C19 -to VGA_R[7]
+set_location_assignment PIN_AH20 -to VGA_SYNC_N
+set_location_assignment PIN_A24 -to VGA_VS
+set_instance_assignment -name VIRTUAL_PIN ON -to FS_ADDR[0]
+#============================================================
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "2.5 V"
+set_global_assignment -name VQM_FILE ../top.vqm
+set_global_assignment -name SDC_FILE de2i_150_golden_top.sdc
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
