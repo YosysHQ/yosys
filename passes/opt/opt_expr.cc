@@ -1217,7 +1217,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			//references the constant signal in the comparison
 			RTLIL::SigSpec sigConst;
 
-			// note that this signal must be constant for the optimization 
+			// note that this signal must be constant for the optimization
 			// to take place, but it is not checked beforehand.
 			// If new passes are added, this signal must be checked for const-ness
 
@@ -1307,10 +1307,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					RTLIL::SigSpec a_prime(RTLIL::State::S0, 1);
 					if(is_lt){
 						a_prime[0] = RTLIL::State::S1;
-						log("Replacing %s cell `%s' (implementing unsigned X[%d:0] < %s[%d:0]) with constant 0.\n", log_id(cell->type), log_id(cell), width-1, log_signal(sigConst),const_width-1); 
+						log("Replacing %s cell `%s' (implementing unsigned X[%d:0] < %s[%d:0]) with constant 0.\n", log_id(cell->type), log_id(cell), width-1, log_signal(sigConst),const_width-1);
 					}
 					else{
-						log("Replacing %s cell `%s' (implementing unsigned X[%d:0]>= %s[%d:0]) with constant 1.\n", log_id(cell->type), log_id(cell), width-1, log_signal(sigConst),const_width-1); 
+						log("Replacing %s cell `%s' (implementing unsigned X[%d:0]>= %s[%d:0]) with constant 1.\n", log_id(cell->type), log_id(cell), width-1, log_signal(sigConst),const_width-1);
 					}
 					module->connect(cell->getPort("\\Y"), a_prime);
 					module->remove(cell);

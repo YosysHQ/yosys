@@ -66,11 +66,11 @@ bool is_full_bus(
 			else if(!other_conns_allowed)
 				return false;
 		}
-		
+
 		if( (!found_a) || (!found_b) )
 			return false;
 	}
-	
+
 	return true;
 }
 
@@ -83,7 +83,7 @@ bool is_unconnected(const RTLIL::SigSpec& port, ModIndex& index)
 		if(ports.size() > 1)
 			return false;
 	}
-	
+
 	return true;
 }
 
@@ -105,18 +105,18 @@ struct CounterExtraction
 int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction& extract)
 {
 	SigMap& sigmap = index.sigmap;
-	
+
 	//GreenPak does not support counters larger than 14 bits so immediately skip anything bigger
 	int a_width = cell->getParam("\\A_WIDTH").as_int();
 	extract.width = a_width;
 	if(a_width > 14)
 		return 1;
-		
+
 	//Second input must be a single bit
 	int b_width = cell->getParam("\\B_WIDTH").as_int();
 	if(b_width != 1)
 		return 2;
-		
+
 	//Both inputs must be unsigned, so don't extract anything with a signed input
 	bool a_sign = cell->getParam("\\A_SIGNED").as_bool();
 	bool b_sign = cell->getParam("\\B_SIGNED").as_bool();
@@ -128,7 +128,7 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 	const RTLIL::SigSpec b_port = sigmap(cell->getPort("\\B"));
 	if(!b_port.is_fully_const() || (b_port.as_int() != 1) )
 		return 4;
-		
+
 	//BI and CI must be constant 1 as well
 	const RTLIL::SigSpec bi_port = sigmap(cell->getPort("\\BI"));
 	if(!bi_port.is_fully_const() || (bi_port.as_int() != 1) )
@@ -136,13 +136,13 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 	const RTLIL::SigSpec ci_port = sigmap(cell->getPort("\\CI"));
 	if(!ci_port.is_fully_const() || (ci_port.as_int() != 1) )
 		return 6;
-				
+
 	//CO and X must be unconnected (exactly one connection to each port)
 	if(!is_unconnected(sigmap(cell->getPort("\\CO")), index))
 		return 7;
 	if(!is_unconnected(sigmap(cell->getPort("\\X")), index))
 		return 8;
-		
+
 	//Y must have exactly one connection, and it has to be a $mux cell.
 	//We must have a direct bus connection from our Y to their A.
 	const RTLIL::SigSpec aluy = sigmap(cell->getPort("\\Y"));
@@ -161,26 +161,26 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 	if(!underflow.is_fully_const())
 		return 12;
 	extract.count_value = underflow.as_int();
-	
+
 	//S connection of the mux must come from an inverter (need not be the only load)
 	const RTLIL::SigSpec muxsel = sigmap(count_mux->getPort("\\S"));
 	extract.outsig = muxsel;
 	pool<Cell*> muxsel_conns = get_other_cells(muxsel, index, count_mux);
 	Cell* underflow_inv = NULL;
 	for(auto c : muxsel_conns)
-	{		
+	{
 		if(c->type != "$logic_not")
 			continue;
 		if(!is_full_bus(muxsel, index, c, "\\Y", count_mux, "\\S", true))
 			continue;
-	
+
 		underflow_inv = c;
 		break;
 	}
 	if(underflow_inv == NULL)
 		return 13;
 	extract.underflow_inv = underflow_inv;
-	
+
 	//Y connection of the mux must have exactly one load, the counter's internal register
 	const RTLIL::SigSpec muxy = sigmap(count_mux->getPort("\\Y"));
 	pool<Cell*> muxy_loads = get_other_cells(muxy, index, count_mux);
@@ -193,14 +193,14 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 	else if(count_reg->type == "$adff")
 	{
 		extract.has_reset = true;
-		
+
 		//Verify ARST_VALUE is zero and ARST_POLARITY is 1
 		//TODO: infer an inverter to make it 1 if necessary, so we can support negative level resets?
 		if(count_reg->getParam("\\ARST_POLARITY").as_int() != 1)
 			return 22;
 		if(count_reg->getParam("\\ARST_VALUE").as_int() != 0)
 			return 23;
-			
+
 		//Save the reset
 		extract.rst = sigmap(count_reg->getPort("\\ARST"));
 	}
@@ -209,9 +209,9 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 		return 15;
 	if(!is_full_bus(muxy, index, count_mux, "\\Y", count_reg, "\\D"))
 		return 16;
-		
+
 	//TODO: Verify count_reg CLK_POLARITY is 1
-		
+
 	//Register output must have exactly two loads, the inverter and ALU
 	const RTLIL::SigSpec cnout = sigmap(count_reg->getPort("\\Q"));
 	pool<Cell*> cnout_loads = get_other_cells(cnout, index, count_reg);
@@ -221,10 +221,10 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 		return 18;
 	if(!is_full_bus(cnout, index, count_reg, "\\Q", cell, "\\A", true))
 		return 19;
-		
+
 	//Look up the clock from the register
 	extract.clk = sigmap(count_reg->getPort("\\CLK"));
-	
+
 	//Register output net must have an INIT attribute equal to the count value
 	extract.rwire = cnout.as_wire();
 	if(extract.rwire->attributes.find("\\init") == extract.rwire->attributes.end())
@@ -232,7 +232,7 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 	int rinit = extract.rwire->attributes["\\init"].as_int();
 	if(rinit != extract.count_value)
 		return 21;
-		
+
 	return 0;
 }
 
@@ -243,11 +243,11 @@ void greenpak4_counters_worker(
 	pool<Cell*>& cells_to_remove)
 {
 	SigMap& sigmap = index.sigmap;
-	
+
 	//Core of the counter must be an ALU
 	if (cell->type != "$alu")
 		return;
-	
+
 	//A input is the count value. Check if it has COUNT_EXTRACT set.
 	//If it's not a wire, don't even try
 	auto port = sigmap(cell->getPort("\\A"));
@@ -268,7 +268,7 @@ void greenpak4_counters_worker(
 				log_id(a_wire),
 				count_reg_src.c_str(),
 				extract_value.c_str());
-				
+
 			if(extract_value == "FORCE")
 				force_extract = true;
 			else if(extract_value == "NO")
@@ -280,15 +280,15 @@ void greenpak4_counters_worker(
 					extract_value.c_str());
 		}
 	}
-	
+
 	//If we're explicitly told not to extract, don't infer a counter
 	if(never_extract)
 		return;
-	
+
 	//Attempt to extract a counter
 	CounterExtraction extract;
 	int reason = greenpak4_counters_tryextract(index, cell, extract);
-	
+
 	//Nonzero code - we could not find a matchable counter.
 	//Do nothing, unless extraction was forced in which case give an error
 	if(reason != 0)
@@ -320,7 +320,7 @@ void greenpak4_counters_worker(
 			"Reset polarity is not positive",				//22
 			"Reset is not to zero"							//23
 		};
-		
+
 		if(force_extract)
 		{
 			log_error(
@@ -330,12 +330,12 @@ void greenpak4_counters_worker(
 		}
 		return;
 	}
-	
+
 	//Figure out the final cell type based on the counter size
 	string celltype = "\\GP_COUNT8";
 	if(extract.width > 8)
 		celltype = "\\GP_COUNT14";
-	
+
 	//Log it
 	total_counters ++;
 	string reset_type = "non-resettable";
@@ -350,7 +350,7 @@ void greenpak4_counters_worker(
 		extract.count_value,
 		log_id(extract.rwire->name),
 		count_reg_src.c_str());
-	
+
 	//Wipe all of the old connections to the ALU
 	cell->unsetPort("\\A");
 	cell->unsetPort("\\B");
@@ -367,7 +367,7 @@ void greenpak4_counters_worker(
 
 	//Change the cell type
 	cell->type = celltype;
-	
+
 	//Hook up resets
 	if(extract.has_reset)
 	{
@@ -380,14 +380,14 @@ void greenpak4_counters_worker(
 		cell->setParam("\\RESET_MODE", RTLIL::Const("RISING"));
 		cell->setPort("\\RST", RTLIL::SigSpec(false));
 	}
-	
+
 	//Hook up other stuff
 	cell->setParam("\\CLKIN_DIVIDE", RTLIL::Const(1));
 	cell->setParam("\\COUNT_TO", RTLIL::Const(extract.count_value));
-	
+
 	cell->setPort("\\CLK", extract.clk);
 	cell->setPort("\\OUT", extract.outsig);
-	
+
 	//Delete the cells we've replaced (let opt_clean handle deleting the now-redundant wires)
 	cells_to_remove.insert(extract.count_mux);
 	cells_to_remove.insert(extract.count_reg);
@@ -409,7 +409,7 @@ struct Greenpak4CountersPass : public Pass {
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing GREENPAK4_COUNTERS pass (mapping counters to hard IP blocks).\n");
-		
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -419,21 +419,21 @@ struct Greenpak4CountersPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		
+
 		//Extract all of the counters we could find
 		unsigned int total_counters = 0;
 		for (auto module : design->selected_modules())
 		{
 			pool<Cell*> cells_to_remove;
-			
+
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
 				greenpak4_counters_worker(index, cell, total_counters, cells_to_remove);
-				
+
 			for(auto cell : cells_to_remove)
 				module->remove(cell);
 		}
-		
+
 		if(total_counters)
 			log("Extracted %u counters\n", total_counters);
 	}

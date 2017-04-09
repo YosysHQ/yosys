@@ -16,7 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
- 
+
 // Flip-flop D
 module  \$_DFF_P_ (input D, input C, output Q);
    parameter WYSIWYG="TRUE";
@@ -26,12 +26,12 @@ endmodule //
 // Input buffer map
 module \$__inpad (input I, output O);
     fiftyfivenm_io_ibuf _TECHMAP_REPLACE_ (.o(O), .i(I), .ibar(1'b0));
-endmodule 
+endmodule
 
-// Output buffer map   
+// Output buffer map
 module \$__outpad (input I, output O);
     fiftyfivenm_io_obuf _TECHMAP_REPLACE_ (.o(O), .i(I), .oe(1'b1));
-endmodule 
+endmodule
 
 // LUT Map
 /* 0 -> datac
@@ -41,14 +41,14 @@ module \$lut (A, Y);
    parameter LUT    = 0;
    input [WIDTH-1:0] A;
    output 	     Y;
-   generate 
+   generate
       if (WIDTH == 1) begin
 	   assign Y = ~A[0]; // Not need to spend 1 logic cell for such an easy function
       end else
       if (WIDTH == 2) begin
            fiftyfivenm_lcell_comb #(.lut_mask({4{LUT}}), .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), .dataa(A[0]), .datab(A[1]), .datac(1'b1),.datad(1'b1));
       end else
-      if(WIDTH == 3) begin 
+      if(WIDTH == 3) begin
 	   fiftyfivenm_lcell_comb #(.lut_mask({2{LUT}}), .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), .dataa(A[0]), .datab(A[1]), .datac(A[2]),.datad(1'b1));
       end else
       if(WIDTH == 4) begin
@@ -58,4 +58,4 @@ module \$lut (A, Y);
    endgenerate
 endmodule //
 
-	    
+

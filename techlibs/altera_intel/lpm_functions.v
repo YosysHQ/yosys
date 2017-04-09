@@ -16,48 +16,48 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
- 
+
 // NOTE: This is still WIP.
 (* techmap_celltype = "$altpll" *)
-module _80_altpll_altera  ( input [1:0] inclk, 
-			    input       fbin, 
-			    input       pllena, 
-			    input       clkswitch, 
-			    input       areset, 
-			    input       pfdena, 
-			    input       clkena, 
-			    input       extclkena, 
-			    input       scanclk, 
-			    input 	scanaclr, 
-			    input       scanclkena, 
-			    input       scanread, 
-			    input       scanwrite, 
-			    input       scandata, 
-			    input       phasecounterselect, 
+module _80_altpll_altera  ( input [1:0] inclk,
+			    input       fbin,
+			    input       pllena,
+			    input       clkswitch,
+			    input       areset,
+			    input       pfdena,
+			    input       clkena,
+			    input       extclkena,
+			    input       scanclk,
+			    input 	scanaclr,
+			    input       scanclkena,
+			    input       scanread,
+			    input       scanwrite,
+			    input       scandata,
+			    input       phasecounterselect,
 			    input       phaseupdown,
 			    input       phasestep,
 			    input       configupdate,
 			    inout       fbmimicbidir,
-			    
-			    output [width_clock-1:0] clk, 
-			    output [3:0]             extclk,     
-			    output [1:0]             clkbad,     
-			    output 	             enable0,     
-			    output 		     enable1,     
-			    output 		     activeclock, 
-			    output 		     clkloss,     
-			    output 		     locked,      
-			    output 		     scandataout, 
-			    output 		     scandone,    
-			    output 		     sclkout0,    
-			    output 		     sclkout1,    
+
+			    output [width_clock-1:0] clk,
+			    output [3:0]             extclk,
+			    output [1:0]             clkbad,
+			    output 	             enable0,
+			    output 		     enable1,
+			    output 		     activeclock,
+			    output 		     clkloss,
+			    output 		     locked,
+			    output 		     scandataout,
+			    output 		     scandone,
+			    output 		     sclkout0,
+			    output 		     sclkout1,
 			    output 	             phasedone,
 			    output 		     vcooverrange,
 			    output 		     vcounderrange,
 			    output 		     fbout,
 			    output 		     fref,
 			    output 		     icdrclk );
-			    
+
 			    parameter   intended_device_family    = "MAX 10";
 			    parameter   operation_mode            = "NORMAL";
 			    parameter   pll_type                  = "AUTO";
@@ -123,7 +123,7 @@ module _80_altpll_altera  ( input [1:0] inclk,
 			    parameter   clk2_phase_shift        = "0";
 			    parameter   clk1_phase_shift        = "0";
 			    parameter   clk0_phase_shift        = "0";
-			    
+
 			    parameter   clk9_duty_cycle         = 50;
 			    parameter   clk8_duty_cycle         = 50;
 			    parameter   clk7_duty_cycle         = 50;
@@ -166,7 +166,7 @@ module _80_altpll_altera  ( input [1:0] inclk,
 			    parameter   pfd_min             = 0;
 			    parameter   pfd_max             = 0;
 			    parameter   m_initial           = 1;
-			    parameter   m                   = 0; 
+			    parameter   m                   = 0;
 			    parameter   n                   = 1;
 			    parameter   m2                  = 1;
 			    parameter   n2                  = 1;

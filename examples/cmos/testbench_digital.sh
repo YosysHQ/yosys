@@ -4,7 +4,7 @@ set -ex
 
 # iverlog simulation
 echo "Doing Verilog simulation with iverilog"
-iverilog -o counter_tb counter.v counter_tb.v 
+iverilog -o counter_tb counter.v counter_tb.v
 ./counter_tb; gtkwave counter_tb.gtkw &
 
 # yosys synthesis

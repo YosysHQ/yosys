@@ -25,7 +25,7 @@ assign Z[7:4] = {1'b0, B[2:0]};          // Concat of CV and PI connect to PO
 always @* begin
   if (A == 4'b1111) begin                // All-Const at port (eq)
     X = B;
-  end 
+  end
   else begin
     X = 4'b0000;                         // All-Const at port (mux)
   end

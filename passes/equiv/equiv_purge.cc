@@ -142,7 +142,7 @@ struct EquivPurgeWorker
 
 			for (auto bit : queue)
 				visited.insert(bit);
-			
+
 			for (auto bit : queue)
 			{
 				auto &cells = up_bit2cells[bit];

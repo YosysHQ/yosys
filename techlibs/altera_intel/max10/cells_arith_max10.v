@@ -26,7 +26,7 @@ module _80_altera_max10_alu (A, B, CI, BI, X, Y, CO);
    parameter B_WIDTH  = 1;
    parameter Y_WIDTH  = 1;
    parameter LUT      = 0;
-   
+
    input [A_WIDTH-1:0] A;
    input [B_WIDTH-1:0] B;
    output [Y_WIDTH-1:0] X, Y;
@@ -44,19 +44,19 @@ module _80_altera_max10_alu (A, B, CI, BI, X, Y, CO);
    wire [Y_WIDTH-1:0] AA = A_buf;
    wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
    wire [Y_WIDTH-1:0] C = {CO, CI};
-   
+
    genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-	   fiftyfivenm_lcell_comb #(.lut_mask(LUT), .sum_lutc_input("cin")) _TECHMAP_REPLACE_ 
-	                                                                             ( .dataa(AA), 
-										       .datab(BB), 
-										       .datac(C), 
-										       .datad(1'b0), 
-										       .cin(C[i]), 
+	   fiftyfivenm_lcell_comb #(.lut_mask(LUT), .sum_lutc_input("cin")) _TECHMAP_REPLACE_
+	                                                                             ( .dataa(AA),
+										       .datab(BB),
+										       .datac(C),
+										       .datad(1'b0),
+										       .cin(C[i]),
 										       .cout(CO[i]),
 										       .combout(Y[i]) );
 	  end: slice
 	endgenerate
   assign X = C;
 endmodule
-   
+
