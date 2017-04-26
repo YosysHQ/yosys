@@ -438,6 +438,13 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			continue;
 		}
 
+		if (tok == "`resetall") {
+			defines_map.clear();
+			defines_with_args.clear();
+			global_defines_cache.clear();
+			continue;
+		}
+
 		if (tok.size() > 1 && tok[0] == '`' && defines_map.count(tok.substr(1)) > 0) {
 			std::string name = tok.substr(1);
 			// printf("expand: >>%s<< -> >>%s<<\n", name.c_str(), defines_map[name].c_str());
