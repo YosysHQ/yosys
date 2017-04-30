@@ -272,7 +272,13 @@ single_module_para:
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	} param_signed param_integer param_range single_param_decl | single_param_decl;
+	} param_signed param_integer param_range single_param_decl |
+	TOK_LOCALPARAM {
+		if (astbuf1) delete astbuf1;
+		astbuf1 = new AstNode(AST_LOCALPARAM);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	} param_signed param_integer param_range single_param_decl |
+	single_param_decl;
 
 module_args_opt:
 	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
