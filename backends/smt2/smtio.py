@@ -83,16 +83,6 @@ class SmtIo:
             self.info_stmts = list()
             self.nocomments = False
 
-        if self.unroll:
-            self.logic_uf = False
-            self.unroll_idcnt = 0
-            self.unroll_buffer = ""
-            self.unroll_sorts = set()
-            self.unroll_objs = set()
-            self.unroll_decls = dict()
-            self.unroll_cache = dict()
-            self.unroll_stack = list()
-
         self.start_time = time()
 
         self.modinfo = dict()
@@ -102,14 +92,6 @@ class SmtIo:
 
     def setup(self):
         assert not self.setup_done
-
-        if self.logic is None:
-            self.logic = ""
-            if self.logic_qf: self.logic += "QF_"
-            if self.logic_ax: self.logic += "A"
-            if self.logic_uf: self.logic += "UF"
-            if self.logic_bv: self.logic += "BV"
-            if self.logic_dt: self.logic = "ALL"
 
         if self.solver == "yices":
             self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
@@ -144,6 +126,24 @@ class SmtIo:
                 self.dummy_fd = open(self.dummy_file, "w")
             if not self.noincr:
                 self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        if self.unroll:
+            self.logic_uf = False
+            self.unroll_idcnt = 0
+            self.unroll_buffer = ""
+            self.unroll_sorts = set()
+            self.unroll_objs = set()
+            self.unroll_decls = dict()
+            self.unroll_cache = dict()
+            self.unroll_stack = list()
+
+        if self.logic is None:
+            self.logic = ""
+            if self.logic_qf: self.logic += "QF_"
+            if self.logic_ax: self.logic += "A"
+            if self.logic_uf: self.logic += "UF"
+            if self.logic_bv: self.logic += "BV"
+            if self.logic_dt: self.logic = "ALL"
 
         self.setup_done = True
 
