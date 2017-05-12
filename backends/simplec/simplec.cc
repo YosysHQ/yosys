@@ -305,7 +305,26 @@ struct SimplecWorker
 
 	void eval_cell(HierDirtyFlags *work, string &prefix, string &/* log_prefix */, Cell *cell)
 	{
-		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR"))
+		if (cell->type.in("$_BUF_", "$_NOT_"))
+		{
+			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
+			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+
+			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
+			string expr;
+
+			if (cell->type == "$_BUF_")  expr = a_expr;
+			if (cell->type == "$_NOT_")  expr = "!" + a_expr;
+
+			log_assert(y.wire);
+			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
+					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+
+			work->set_dirty(y);
+			return;
+		}
+
+		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
 		{
 			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
 			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
@@ -321,6 +340,74 @@ struct SimplecWorker
 			if (cell->type == "$_NOR_")  expr = stringf("!(%s | %s)", a_expr.c_str(), b_expr.c_str());
 			if (cell->type == "$_XOR_")  expr = stringf("%s ^ %s",    a_expr.c_str(), b_expr.c_str());
 			if (cell->type == "$_XNOR_") expr = stringf("!(%s ^ %s)", a_expr.c_str(), b_expr.c_str());
+
+			log_assert(y.wire);
+			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
+					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+
+			work->set_dirty(y);
+			return;
+		}
+
+		if (cell->type.in("$_AOI3_", "$_OAI3_"))
+		{
+			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
+			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
+			SigBit c = sigmaps.at(work->module)(cell->getPort("\\C"));
+			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+
+			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
+			string b_expr = b.wire ? stringf("%s(&%s)", util_get_bit(b.wire->width, b.offset).c_str(), (prefix + cid(b.wire->name)).c_str()) : b.data ? "1" : "0";
+			string c_expr = c.wire ? stringf("%s(&%s)", util_get_bit(c.wire->width, c.offset).c_str(), (prefix + cid(c.wire->name)).c_str()) : c.data ? "1" : "0";
+			string expr;
+
+			if (cell->type == "$_AOI3_") expr = stringf("!((%s & %s) | %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
+			if (cell->type == "$_OAI3_") expr = stringf("!((%s | %s) & %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
+
+			log_assert(y.wire);
+			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
+					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+
+			work->set_dirty(y);
+			return;
+		}
+
+		if (cell->type.in("$_AOI4_", "$_OAI4_"))
+		{
+			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
+			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
+			SigBit c = sigmaps.at(work->module)(cell->getPort("\\C"));
+			SigBit d = sigmaps.at(work->module)(cell->getPort("\\D"));
+			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+
+			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
+			string b_expr = b.wire ? stringf("%s(&%s)", util_get_bit(b.wire->width, b.offset).c_str(), (prefix + cid(b.wire->name)).c_str()) : b.data ? "1" : "0";
+			string c_expr = c.wire ? stringf("%s(&%s)", util_get_bit(c.wire->width, c.offset).c_str(), (prefix + cid(c.wire->name)).c_str()) : c.data ? "1" : "0";
+			string d_expr = d.wire ? stringf("%s(&%s)", util_get_bit(d.wire->width, d.offset).c_str(), (prefix + cid(d.wire->name)).c_str()) : d.data ? "1" : "0";
+			string expr;
+
+			if (cell->type == "$_AOI4_") expr = stringf("!((%s & %s) | (%s & %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
+			if (cell->type == "$_OAI4_") expr = stringf("!((%s | %s) & (%s | %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
+
+			log_assert(y.wire);
+			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
+					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+
+			work->set_dirty(y);
+			return;
+		}
+
+		if (cell->type == "$_MUX_")
+		{
+			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
+			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
+			SigBit s = sigmaps.at(work->module)(cell->getPort("\\S"));
+			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+
+			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
+			string b_expr = b.wire ? stringf("%s(&%s)", util_get_bit(b.wire->width, b.offset).c_str(), (prefix + cid(b.wire->name)).c_str()) : b.data ? "1" : "0";
+			string s_expr = s.wire ? stringf("%s(&%s)", util_get_bit(s.wire->width, s.offset).c_str(), (prefix + cid(s.wire->name)).c_str()) : s.data ? "1" : "0";
+			string expr = stringf("%s ? %s : %s", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
 
 			log_assert(y.wire);
 			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
