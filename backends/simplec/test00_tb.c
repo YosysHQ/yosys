@@ -16,7 +16,7 @@ int main()
 	struct test_state_t state;
 	uint32_t a, b, c, x, y, z;
 
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		a = xorshift32();
 		b = xorshift32();

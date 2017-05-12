@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -133,6 +134,8 @@ struct SimplecWorker
 
 	dict<Module*, dict<SigBit, pool<tuple<Cell*, IdString, int>>>> bit2cell;
 	dict<Module*, dict<SigBit, pool<SigBit>>> bit2output;
+
+	dict<Cell*, int> topoidx;
 
 	SimplecWorker(Design *design) : design(design)
 	{
@@ -290,11 +293,49 @@ struct SimplecWorker
 				create_module_struct(design->module(c->type));
 		}
 
-		struct_declarations.push_back("");
-		struct_declarations.push_back(stringf("struct %s_state_t {", cid(mod->name).c_str()));
+		TopoSort<IdString> topo;
 
+		for (Cell *c : mod->cells())
+		{
+			topo.node(c->name);
+
+			for (auto &conn : c->connections())
+			{
+				if (!c->input(conn.first))
+					continue;
+
+				for (auto bit : sigmaps.at(mod)(conn.second))
+				for (auto &it : bit2cell[mod][bit])
+					topo.edge(c->name, std::get<0>(it)->name);
+			}
+		}
+
+		topo.analyze_loops = false;
+		topo.sort();
+
+		for (int i = 0; i < GetSize(topo.sorted); i++)
+			topoidx[mod->cell(topo.sorted[i])] = i;
+
+		struct_declarations.push_back("");
+		struct_declarations.push_back(stringf("struct %s_state_t", cid(mod->name).c_str()));
+		struct_declarations.push_back("{");
+
+		struct_declarations.push_back("  // Input Ports");
 		for (Wire *w : mod->wires())
-			struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
+			if (w->port_input)
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
+
+		struct_declarations.push_back("");
+		struct_declarations.push_back("  // Output Ports");
+		for (Wire *w : mod->wires())
+			if (!w->port_input && w->port_output)
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
+
+		struct_declarations.push_back("");
+		struct_declarations.push_back("  // Internal Wires");
+		for (Wire *w : mod->wires())
+			if (!w->port_input && !w->port_output)
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
 
 		for (Cell *c : mod->cells())
 			if (design->module(c->type))
@@ -303,7 +344,7 @@ struct SimplecWorker
 		struct_declarations.push_back(stringf("};"));
 	}
 
-	void eval_cell(HierDirtyFlags *work, string &prefix, string &/* log_prefix */, Cell *cell)
+	void eval_cell(HierDirtyFlags *work, const string &prefix, const string &/* log_prefix */, Cell *cell)
 	{
 		if (cell->type.in("$_BUF_", "$_NOT_"))
 		{
@@ -420,10 +461,13 @@ struct SimplecWorker
 		log_error("No C model for %s available at the moment (FIXME).\n", log_id(cell->type));
 	}
 
-	void eval_dirty(HierDirtyFlags *work, string prefix, string log_prefix, string parent_prefix)
+	void eval_dirty(HierDirtyFlags *work, const string &prefix, const string &log_prefix, const string &parent_prefix, const string &parent_log_prefix)
 	{
 		while (work->dirty)
 		{
+			if (verbose && (!work->dirty_bits.empty() || !work->dirty_cells.empty()))
+				log("In %s:\n", log_prefix.c_str());
+
 			while (!work->dirty_bits.empty() || !work->dirty_cells.empty())
 			{
 				if (!work->dirty_bits.empty())
@@ -431,8 +475,11 @@ struct SimplecWorker
 					SigSpec dirtysig(work->dirty_bits);
 					dirtysig.sort_and_unify();
 
-					for (SigChunk chunk : dirtysig.chunks())
-						funct_declarations.push_back(stringf("  // New dirty bits in %s: %s", log_prefix.c_str(), log_signal(chunk)));
+					for (SigChunk chunk : dirtysig.chunks()) {
+						if (verbose)
+							log("  Propagating %s.%s[%d:%d].\n", log_prefix.c_str(), log_id(chunk.wire), chunk.offset+chunk.width-1, chunk.offset);
+						funct_declarations.push_back(stringf("  // Updated signal in %s: %s", log_prefix.c_str(), log_signal(chunk)));
+					}
 
 					for (SigBit bit : dirtysig)
 					{
@@ -453,21 +500,34 @@ struct SimplecWorker
 										util_get_bit(bit.wire->width, bit.offset).c_str(),
 										(prefix + cid(bit.wire->name)).c_str()));
 								work->parent->set_dirty(parent_bit);
+
+								if (verbose)
+									log("    Propagating %s.%s[%d] -> %s.%s[%d].\n", log_prefix.c_str(), log_id(bit.wire), bit.offset,
+											parent_log_prefix.c_str(), log_id(parent_bit.wire), parent_bit.offset);
 							}
 
 						for (auto &port : bit2cell[work->module][bit])
 						{
-							if (work->children.count(std::get<0>(port)->name)) {
+							if (work->children.count(std::get<0>(port)->name))
+							{
 								HierDirtyFlags *child = work->children.at(std::get<0>(port)->name);
 								SigBit child_bit = sigmaps.at(child->module)(SigBit(child->module->wire(std::get<1>(port)), std::get<2>(port)));
 								log_assert(bit.wire && child_bit.wire);
+
 								funct_declarations.push_back(stringf("  %s(&%s, %s(&%s));",
 										util_set_bit(child_bit.wire->width, child_bit.offset).c_str(),
 										(prefix + cid(child->hiername) + "." + cid(child_bit.wire->name)).c_str(),
 										util_get_bit(bit.wire->width, bit.offset).c_str(),
 										(prefix + cid(bit.wire->name)).c_str()));
 								child->set_dirty(child_bit);
+
+								if (verbose)
+									log("    Propagating %s.%s[%d] -> %s.%s.%s[%d].\n", log_prefix.c_str(), log_id(bit.wire), bit.offset,
+											log_prefix.c_str(), log_id(std::get<0>(port)), log_id(child_bit.wire), child_bit.offset);
 							} else {
+								if (verbose)
+									log("    Marking cell %s.%s (via %s.%s[%d]).\n", log_prefix.c_str(), log_id(std::get<0>(port)),
+											log_prefix.c_str(), log_id(bit.wire), bit.offset);
 								work->set_dirty(std::get<0>(port));
 							}
 						}
@@ -477,14 +537,20 @@ struct SimplecWorker
 
 				if (!work->dirty_cells.empty())
 				{
-					Cell *cell = *work->dirty_cells.begin();
+					Cell *cell = nullptr;
+					for (auto c : work->dirty_cells)
+						if (cell == nullptr || topoidx.at(cell) < topoidx.at(c))
+							cell = c;
+
+					if (verbose)
+						log("  Evaluating %s.%s (%s, best of %d).\n", log_prefix.c_str(), log_id(cell), log_id(cell->type), GetSize(work->dirty_cells));
 					eval_cell(work, prefix, log_prefix, cell);
 					work->unset_dirty(cell);
 				}
 			}
 
 			for (auto &child : work->children)
-				eval_dirty(child.second, prefix + cid(child.first) + ".", log_prefix + "." + cid(child.first), prefix);
+				eval_dirty(child.second, prefix + cid(child.first) + ".", log_prefix + "." + cid(child.first), prefix, log_prefix);
 		}
 	}
 
@@ -509,7 +575,7 @@ struct SimplecWorker
 					dirty_flags->set_dirty(bit);
 		}
 
-		eval_dirty(dirty_flags, "state->", log_id(mod), "");
+		eval_dirty(dirty_flags, "state->", log_id(mod), "", "");
 
 		funct_declarations.push_back("}");
 
