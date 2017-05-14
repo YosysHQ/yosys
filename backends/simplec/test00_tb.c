@@ -14,7 +14,7 @@ uint32_t xorshift32()
 int main()
 {
 	struct test_state_t state;
-	uint32_t a, b, c, x, y, z;
+	uint32_t a, b, c, x, y, z, w;
 
 	for (int i = 0; i < 10; i++)
 	{
@@ -25,6 +25,7 @@ int main()
 		x = (a & b) | c;
 		y = a & (b | c);
 		z = a ^ b ^ c;
+		w = z;
 
 		state.a.value_7_0   = a;
 		state.a.value_15_8  = a >> 8;
@@ -61,6 +62,12 @@ int main()
 		uut_z |= (uint32_t)state.z.value_23_16 << 16;
 		uut_z |= (uint32_t)state.z.value_31_24 << 24;
 
+		uint32_t uut_w = 0;
+		uut_w |= (uint32_t)state.w.value_7_0;
+		uut_w |= (uint32_t)state.w.value_15_8  << 8;
+		uut_w |= (uint32_t)state.w.value_23_16 << 16;
+		uut_w |= (uint32_t)state.w.value_31_24 << 24;
+
 		printf("---\n");
 		printf("A: 0x%08x\n", a);
 		printf("B: 0x%08x\n", b);
@@ -68,10 +75,12 @@ int main()
 		printf("X: 0x%08x 0x%08x\n", x, uut_x);
 		printf("Y: 0x%08x 0x%08x\n", y, uut_y);
 		printf("Z: 0x%08x 0x%08x\n", z, uut_z);
+		printf("W: 0x%08x 0x%08x\n", w, uut_w);
 
 		assert(x == uut_x);
 		assert(y == uut_y);
 		assert(z == uut_z);
+		assert(w == uut_w);
 	}
 
 	return 0;

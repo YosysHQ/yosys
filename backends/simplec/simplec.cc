@@ -34,6 +34,7 @@ struct HierDirtyFlags
 	HierDirtyFlags *parent;
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
+	pool<SigBit> sticky_dirty_bits;
 	dict<IdString, HierDirtyFlags*> children;
 
 	HierDirtyFlags(Module *module, IdString hiername, HierDirtyFlags *parent) : dirty(0), module(module), hiername(hiername), parent(parent)
@@ -56,6 +57,7 @@ struct HierDirtyFlags
 			return;
 
 		dirty_bits.insert(bit);
+		sticky_dirty_bits.insert(bit);
 
 		HierDirtyFlags *p = this;
 		while (p != nullptr) {
@@ -573,6 +575,40 @@ struct SimplecWorker
 		}
 	}
 
+	void eval_sticky_dirty(HierDirtyFlags *work, const string &prefix, const string &log_prefix)
+	{
+		Module *mod = work->module;
+
+		for (Wire *w : mod->wires())
+		for (SigBit bit : SigSpec(w))
+		{
+			SigBit canonical_bit = sigmaps.at(mod)(bit);
+
+			if (canonical_bit == bit)
+				continue;
+
+			if (work->sticky_dirty_bits.count(canonical_bit) == 0)
+				continue;
+
+			log_assert(bit.wire && canonical_bit.wire);
+			funct_declarations.push_back(stringf("  %s(&%s, %s(&%s));",
+					util_set_bit(bit.wire->width, bit.offset).c_str(),
+					(prefix + cid(bit.wire->name)).c_str(),
+					util_get_bit(canonical_bit.wire->width, canonical_bit.offset).c_str(),
+					(prefix + cid(canonical_bit.wire->name)).c_str()));
+
+			if (verbose)
+				log("  Propagating alias %s.%s[%d] -> %s.%s[%d].\n",
+						log_prefix.c_str(), log_id(canonical_bit.wire), canonical_bit.offset,
+						log_prefix.c_str(), log_id(bit.wire), bit.offset);
+		}
+
+		work->sticky_dirty_bits.clear();
+
+		for (auto &child : work->children)
+			eval_sticky_dirty(child.second, prefix + cid(child.first) + ".", log_prefix + "." + cid(child.first));
+	}
+
 	void make_func(HierDirtyFlags *work, const string &func_name)
 	{
 		log("Generating function %s():\n", func_name.c_str());
@@ -584,6 +620,7 @@ struct SimplecWorker
 		funct_declarations.push_back(stringf("static void %s(struct %s_state_t *state)", func_name.c_str(), cid(work->module->name).c_str()));
 		funct_declarations.push_back("{");
 		eval_dirty(work, "state->", log_id(work->module->name), "", "");
+		eval_sticky_dirty(work, "state->", log_id(work->module->name));
 		funct_declarations.push_back("}");
 
 		log("  Activated %d cells (%d activated more than once).\n", GetSize(activated_cells), GetSize(reactivated_cells));
