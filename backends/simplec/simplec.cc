@@ -187,8 +187,11 @@ struct SimplecWorker
 		util_declarations.push_back(stringf("#define %s", s.c_str()));
 	}
 
-	string util_get_bit(int n, int idx)
+	string util_get_bit(const string &signame, int n, int idx)
 	{
+		if (n == 1 && idx == 0)
+			return signame + ".value_0_0";
+
 		string util_name = stringf("yosys_simplec_get_bit_%d_of_%d", idx, n);
 
 		if (generated_utils.count(util_name) == 0)
@@ -207,11 +210,14 @@ struct SimplecWorker
 			generated_utils.insert(util_name);
 		}
 
-		return util_name;
+		return stringf("%s(&%s)", util_name.c_str(), signame.c_str());
 	}
 
-	string util_set_bit(int n, int idx)
+	string util_set_bit(const string &signame, int n, int idx, const string &expr)
 	{
+		if (n == 1 && idx == 0)
+			return stringf("  %s.value_0_0 = %s;", signame.c_str(), expr.c_str());
+
 		string util_name = stringf("yosys_simplec_set_bit_%d_of_%d", idx, n);
 
 		if (generated_utils.count(util_name) == 0)
@@ -223,17 +229,22 @@ struct SimplecWorker
 			int word_idx = idx / max_uintsize, word_offset = idx % max_uintsize;
 			string value_name = stringf("value_%d_%d", std::min(n-1, (word_idx+1)*max_uintsize-1), word_idx*max_uintsize);
 
+		#if 0
 			util_declarations.push_back(stringf("  if (value)"));
 			util_declarations.push_back(stringf("    sig->%s |= 1UL << %d;", value_name.c_str(), word_offset));
 			util_declarations.push_back(stringf("  else"));
 			util_declarations.push_back(stringf("    sig->%s &= ~(1UL << %d);", value_name.c_str(), word_offset));
+		#else
+			util_declarations.push_back(stringf("    sig->%s = (sig->%s | (uint%d_t)(value & 1) << %d) & ~((uint%d_t)((value & 1) ^ 1) << %d);",
+					value_name.c_str(), value_name.c_str(), max_uintsize, word_offset, max_uintsize, word_offset));
+		#endif
 
 			util_declarations.push_back(stringf("}"));
 			util_declarations.push_back(stringf("#endif"));
 			generated_utils.insert(util_name);
 		}
 
-		return util_name;
+		return stringf("  %s(&%s, %s);", util_name.c_str(), signame.c_str(), expr.c_str());
 	}
 
 	string cid(IdString id)
@@ -365,15 +376,15 @@ struct SimplecWorker
 			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
 			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
 
-			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
+			string a_expr = a.wire ? util_get_bit(prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string expr;
 
 			if (cell->type == "$_BUF_")  expr = a_expr;
 			if (cell->type == "$_NOT_")  expr = "!" + a_expr;
 
 			log_assert(y.wire);
-			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
-					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+			funct_declarations.push_back(util_set_bit(prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
+					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
 
 			work->set_dirty(y);
 			return;
@@ -385,8 +396,8 @@ struct SimplecWorker
 			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
 			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
 
-			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
-			string b_expr = b.wire ? stringf("%s(&%s)", util_get_bit(b.wire->width, b.offset).c_str(), (prefix + cid(b.wire->name)).c_str()) : b.data ? "1" : "0";
+			string a_expr = a.wire ? util_get_bit(prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
+			string b_expr = b.wire ? util_get_bit(prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
 			string expr;
 
 			if (cell->type == "$_AND_")  expr = stringf("%s & %s",    a_expr.c_str(), b_expr.c_str());
@@ -397,8 +408,8 @@ struct SimplecWorker
 			if (cell->type == "$_XNOR_") expr = stringf("!(%s ^ %s)", a_expr.c_str(), b_expr.c_str());
 
 			log_assert(y.wire);
-			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
-					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+			funct_declarations.push_back(util_set_bit(prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
+					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
 
 			work->set_dirty(y);
 			return;
@@ -411,17 +422,17 @@ struct SimplecWorker
 			SigBit c = sigmaps.at(work->module)(cell->getPort("\\C"));
 			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
 
-			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
-			string b_expr = b.wire ? stringf("%s(&%s)", util_get_bit(b.wire->width, b.offset).c_str(), (prefix + cid(b.wire->name)).c_str()) : b.data ? "1" : "0";
-			string c_expr = c.wire ? stringf("%s(&%s)", util_get_bit(c.wire->width, c.offset).c_str(), (prefix + cid(c.wire->name)).c_str()) : c.data ? "1" : "0";
+			string a_expr = a.wire ? util_get_bit(prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
+			string b_expr = b.wire ? util_get_bit(prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
+			string c_expr = c.wire ? util_get_bit(prefix + cid(c.wire->name), c.wire->width, c.offset) : c.data ? "1" : "0";
 			string expr;
 
 			if (cell->type == "$_AOI3_") expr = stringf("!((%s & %s) | %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
 			if (cell->type == "$_OAI3_") expr = stringf("!((%s | %s) & %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
 
 			log_assert(y.wire);
-			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
-					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+			funct_declarations.push_back(util_set_bit(prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
+					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
 
 			work->set_dirty(y);
 			return;
@@ -435,18 +446,18 @@ struct SimplecWorker
 			SigBit d = sigmaps.at(work->module)(cell->getPort("\\D"));
 			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
 
-			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
-			string b_expr = b.wire ? stringf("%s(&%s)", util_get_bit(b.wire->width, b.offset).c_str(), (prefix + cid(b.wire->name)).c_str()) : b.data ? "1" : "0";
-			string c_expr = c.wire ? stringf("%s(&%s)", util_get_bit(c.wire->width, c.offset).c_str(), (prefix + cid(c.wire->name)).c_str()) : c.data ? "1" : "0";
-			string d_expr = d.wire ? stringf("%s(&%s)", util_get_bit(d.wire->width, d.offset).c_str(), (prefix + cid(d.wire->name)).c_str()) : d.data ? "1" : "0";
+			string a_expr = a.wire ? util_get_bit(prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
+			string b_expr = b.wire ? util_get_bit(prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
+			string c_expr = c.wire ? util_get_bit(prefix + cid(c.wire->name), c.wire->width, c.offset) : c.data ? "1" : "0";
+			string d_expr = d.wire ? util_get_bit(prefix + cid(d.wire->name), d.wire->width, d.offset) : d.data ? "1" : "0";
 			string expr;
 
 			if (cell->type == "$_AOI4_") expr = stringf("!((%s & %s) | (%s & %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
 			if (cell->type == "$_OAI4_") expr = stringf("!((%s | %s) & (%s | %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
 
 			log_assert(y.wire);
-			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
-					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+			funct_declarations.push_back(util_set_bit(prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
+					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
 
 			work->set_dirty(y);
 			return;
@@ -459,14 +470,14 @@ struct SimplecWorker
 			SigBit s = sigmaps.at(work->module)(cell->getPort("\\S"));
 			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
 
-			string a_expr = a.wire ? stringf("%s(&%s)", util_get_bit(a.wire->width, a.offset).c_str(), (prefix + cid(a.wire->name)).c_str()) : a.data ? "1" : "0";
-			string b_expr = b.wire ? stringf("%s(&%s)", util_get_bit(b.wire->width, b.offset).c_str(), (prefix + cid(b.wire->name)).c_str()) : b.data ? "1" : "0";
-			string s_expr = s.wire ? stringf("%s(&%s)", util_get_bit(s.wire->width, s.offset).c_str(), (prefix + cid(s.wire->name)).c_str()) : s.data ? "1" : "0";
+			string a_expr = a.wire ? util_get_bit(prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
+			string b_expr = b.wire ? util_get_bit(prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
+			string s_expr = s.wire ? util_get_bit(prefix + cid(s.wire->name), s.wire->width, s.offset) : s.data ? "1" : "0";
 			string expr = stringf("%s ? %s : %s", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
 
 			log_assert(y.wire);
-			funct_declarations.push_back(stringf("  %s(&%s, %s); // %s (%s)", util_set_bit(y.wire->width, y.offset).c_str(),
-					(prefix + cid(y.wire->name)).c_str(), expr.c_str(), log_id(cell), log_id(cell->type)));
+			funct_declarations.push_back(util_set_bit(prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
+					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
 
 			work->set_dirty(y);
 			return;
@@ -508,11 +519,8 @@ struct SimplecWorker
 								SigBit parent_bit = sigmaps.at(parent_mod)(parent_cell->getPort(port_name)[port_offset]);
 
 								log_assert(bit.wire && parent_bit.wire);
-								funct_declarations.push_back(stringf("  %s(&%s, %s(&%s));",
-										util_set_bit(parent_bit.wire->width, parent_bit.offset).c_str(),
-										(parent_prefix + cid(parent_bit.wire->name)).c_str(),
-										util_get_bit(bit.wire->width, bit.offset).c_str(),
-										(prefix + cid(bit.wire->name)).c_str()));
+								funct_declarations.push_back(util_set_bit(parent_prefix + cid(parent_bit.wire->name), parent_bit.wire->width, parent_bit.offset,
+										util_get_bit(prefix + cid(bit.wire->name), bit.wire->width, bit.offset)));
 								work->parent->set_dirty(parent_bit);
 
 								if (verbose)
@@ -528,11 +536,8 @@ struct SimplecWorker
 								SigBit child_bit = sigmaps.at(child->module)(SigBit(child->module->wire(std::get<1>(port)), std::get<2>(port)));
 								log_assert(bit.wire && child_bit.wire);
 
-								funct_declarations.push_back(stringf("  %s(&%s, %s(&%s));",
-										util_set_bit(child_bit.wire->width, child_bit.offset).c_str(),
-										(prefix + cid(child->hiername) + "." + cid(child_bit.wire->name)).c_str(),
-										util_get_bit(bit.wire->width, bit.offset).c_str(),
-										(prefix + cid(bit.wire->name)).c_str()));
+								funct_declarations.push_back(util_set_bit(prefix + cid(child->hiername) + "." + cid(child_bit.wire->name),
+										child_bit.wire->width, child_bit.offset, util_get_bit(prefix + cid(bit.wire->name), bit.wire->width, bit.offset)));
 								child->set_dirty(child_bit);
 
 								if (verbose)
@@ -591,11 +596,8 @@ struct SimplecWorker
 				continue;
 
 			log_assert(bit.wire && canonical_bit.wire);
-			funct_declarations.push_back(stringf("  %s(&%s, %s(&%s));",
-					util_set_bit(bit.wire->width, bit.offset).c_str(),
-					(prefix + cid(bit.wire->name)).c_str(),
-					util_get_bit(canonical_bit.wire->width, canonical_bit.offset).c_str(),
-					(prefix + cid(canonical_bit.wire->name)).c_str()));
+			funct_declarations.push_back(util_set_bit(prefix + cid(bit.wire->name), bit.wire->width, bit.offset,
+					util_get_bit(prefix + cid(canonical_bit.wire->name), canonical_bit.wire->width, canonical_bit.offset).c_str()));
 
 			if (verbose)
 				log("  Propagating alias %s.%s[%d] -> %s.%s[%d].\n",
