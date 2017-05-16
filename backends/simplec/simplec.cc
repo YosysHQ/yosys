@@ -235,7 +235,7 @@ struct SimplecWorker
 			util_declarations.push_back(stringf("  else"));
 			util_declarations.push_back(stringf("    sig->%s &= ~(1UL << %d);", value_name.c_str(), word_offset));
 		#else
-			util_declarations.push_back(stringf("    sig->%s = (sig->%s | (uint%d_t)(value & 1) << %d) & ~((uint%d_t)((value & 1) ^ 1) << %d);",
+			util_declarations.push_back(stringf("    sig->%s = (sig->%s & ~((uint%d_t)1 << %d)) | ((uint%d_t)value << %d);",
 					value_name.c_str(), value_name.c_str(), max_uintsize, word_offset, max_uintsize, word_offset));
 		#endif
 
