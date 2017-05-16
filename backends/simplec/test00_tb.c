@@ -15,6 +15,7 @@ int main()
 {
 	struct test_state_t state;
 	uint32_t a, b, c, x, y, z, w;
+	bool first_eval = true;
 
 	for (int i = 0; i < 10; i++)
 	{
@@ -42,7 +43,12 @@ int main()
 		state.c.value_23_16 = c >> 16;
 		state.c.value_31_24 = c >> 24;
 
-		test_eval(&state);
+		if (first_eval) {
+			first_eval = false;
+			test_init(&state);
+		} else {
+			test_eval(&state);
+		}
 
 		uint32_t uut_x = 0;
 		uut_x |= (uint32_t)state.x.value_7_0;
