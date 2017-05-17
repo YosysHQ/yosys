@@ -482,7 +482,9 @@ struct SimplecWorker
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
 			string s_expr = s.wire ? util_get_bit(work->prefix + cid(s.wire->name), s.wire->width, s.offset) : s.data ? "1" : "0";
-			string expr = stringf("%s ? %s : %s", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
+
+			// casts to bool are a workaround for CBMC bug (https://github.com/diffblue/cbmc/issues/933)
+			string expr = stringf("%s ? (bool)%s : (bool)%s", s_expr.c_str(), b_expr.c_str(), a_expr.c_str());
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
