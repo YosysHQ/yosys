@@ -176,9 +176,10 @@ yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
 
 else ifeq ($(CONFIG),mxe)
+PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
 LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
-CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE
+CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
@@ -213,7 +214,7 @@ LDLIBS += -lcurses
 ABCMKARGS += "ABC_READLINE_LIBRARIES=-lcurses -lreadline"
 endif
 ifeq ($(CONFIG),mxe)
-LDLIBS += -lpdcurses
+LDLIBS += -ltermcap
 endif
 endif
 
@@ -226,8 +227,13 @@ ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
 
+ifeq ($(CONFIG),mxe)
+CXXFLAGS += -DYOSYS_ENABLE_TCL
+LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32
+else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION))
+endif
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -557,9 +563,7 @@ config-emcc: clean
 
 config-mxe: clean
 	echo 'CONFIG := mxe' > Makefile.conf
-	echo 'ENABLE_TCL := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
-	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 
 config-msys2: clean
 	echo 'CONFIG := msys2' > Makefile.conf
