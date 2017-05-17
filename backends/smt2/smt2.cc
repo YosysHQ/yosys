@@ -434,6 +434,8 @@ struct Smt2Worker
 		if (cell->type == "$_NOR_") return export_gate(cell, "(not (or A B))");
 		if (cell->type == "$_XOR_") return export_gate(cell, "(xor A B)");
 		if (cell->type == "$_XNOR_") return export_gate(cell, "(not (xor A B))");
+		if (cell->type == "$_ANDNOT_") return export_gate(cell, "(and A (not B))");
+		if (cell->type == "$_ORNOT_") return export_gate(cell, "(or A (not B))");
 		if (cell->type == "$_MUX_") return export_gate(cell, "(ite S B A)");
 		if (cell->type == "$_AOI3_") return export_gate(cell, "(not (or (and A B) C))");
 		if (cell->type == "$_OAI3_") return export_gate(cell, "(not (and (or A B) C))");

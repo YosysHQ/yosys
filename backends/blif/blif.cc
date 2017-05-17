@@ -279,6 +279,18 @@ struct BlifDumper
 				continue;
 			}
 
+			if (!config->icells_mode && cell->type == "$_ANDNOT_") {
+				f << stringf(".names %s %s %s\n10 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_ORNOT_") {
+				f << stringf(".names %s %s %s\n1- 1\n-0 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
 			if (!config->icells_mode && cell->type == "$_AOI3_") {
 				f << stringf(".names %s %s %s %s\n-00 1\n0-0 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\C")), cstr(cell->getPort("\\Y")));

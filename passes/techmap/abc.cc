@@ -74,6 +74,8 @@ enum class gate_type_t {
 	G_NOR,
 	G_XOR,
 	G_XNOR,
+	G_ANDNOT,
+	G_ORNOT,
 	G_MUX,
 	G_AOI3,
 	G_OAI3,
@@ -207,7 +209,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
+	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -232,6 +234,10 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 			map_signal(sig_y, G(XOR), mapped_a, mapped_b);
 		else if (cell->type == "$_XNOR_")
 			map_signal(sig_y, G(XNOR), mapped_a, mapped_b);
+		else if (cell->type == "$_ANDNOT_")
+			map_signal(sig_y, G(ANDNOT), mapped_a, mapped_b);
+		else if (cell->type == "$_ORNOT_")
+			map_signal(sig_y, G(ORNOT), mapped_a, mapped_b);
 		else
 			log_abort();
 
@@ -813,6 +819,13 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "00 1\n");
 			fprintf(f, "11 1\n");
+		} else if (si.type == G(ANDNOT)) {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "10 1\n");
+		} else if (si.type == G(ORNOT)) {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "1- 1\n");
+			fprintf(f, "-0 1\n");
 		} else if (si.type == G(MUX)) {
 			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "1-0 1\n");
@@ -858,38 +871,42 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		f = fopen(buffer.c_str(), "wt");
 		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
-		fprintf(f, "GATE ZERO  1 Y=CONST0;\n");
-		fprintf(f, "GATE ONE   1 Y=CONST1;\n");
-		fprintf(f, "GATE BUF  %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_BUF_"));
-		fprintf(f, "GATE NOT  %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOT_"));
+		fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
+		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
+		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_BUF_"));
+		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOT_"));
 		if (enabled_gates.empty() || enabled_gates.count("AND"))
-			fprintf(f, "GATE AND  %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
+			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
 		if (enabled_gates.empty() || enabled_gates.count("NAND"))
-			fprintf(f, "GATE NAND %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
+			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
 		if (enabled_gates.empty() || enabled_gates.count("OR"))
-			fprintf(f, "GATE OR   %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
+			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
 		if (enabled_gates.empty() || enabled_gates.count("NOR"))
-			fprintf(f, "GATE NOR  %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
+			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
 		if (enabled_gates.empty() || enabled_gates.count("XOR"))
-			fprintf(f, "GATE XOR  %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
+			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
 		if (enabled_gates.empty() || enabled_gates.count("XNOR"))
-			fprintf(f, "GATE XNOR %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
+			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
+		if (enabled_gates.empty() || enabled_gates.count("ANDNOT"))
+			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_ANDNOT_"));
+		if (enabled_gates.empty() || enabled_gates.count("ORNOT"))
+			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_ORNOT_"));
 		if (enabled_gates.empty() || enabled_gates.count("AOI3"))
-			fprintf(f, "GATE AOI3 %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
+			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
 		if (enabled_gates.empty() || enabled_gates.count("OAI3"))
-			fprintf(f, "GATE OAI3 %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
+			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
 		if (enabled_gates.empty() || enabled_gates.count("AOI4"))
-			fprintf(f, "GATE AOI4 %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
+			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
 		if (enabled_gates.empty() || enabled_gates.count("OAI4"))
-			fprintf(f, "GATE OAI4 %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
+			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
 		if (enabled_gates.empty() || enabled_gates.count("MUX"))
-			fprintf(f, "GATE MUX  %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
 		if (map_mux4)
-			fprintf(f, "GATE MUX4 %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*get_cell_cost("$_MUX_"));
 		if (map_mux8)
-			fprintf(f, "GATE MUX8 %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*get_cell_cost("$_MUX_"));
 		if (map_mux16)
-			fprintf(f, "GATE MUX16 %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*get_cell_cost("$_MUX_"));
 		fclose(f);
 
 		if (!lut_costs.empty()) {
@@ -961,7 +978,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" || c->type == "\\XNOR") {
+				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" ||
+						c->type == "\\XNOR" || c->type == "\\ANDNOT" || c->type == "\\ORNOT") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
@@ -1297,7 +1315,7 @@ struct AbcPass : public Pass {
 		// log("\n");
 		log("    -g type1,type2,...\n");
 		log("        Map the the specified list of gate types. Supported gates types are:\n");
-		log("        AND, NAND, OR, NOR, XOR, XNOR, MUX, AOI3, OAI3, AOI4, OAI4.\n");
+		log("        AND, NAND, OR, NOR, XOR, XNOR, ANDNOT, ORNOT, MUX, AOI3, OAI3, AOI4, OAI4.\n");
 		log("        (The NOT gate is always added to this list automatically.)\n");
 		log("\n");
 		log("    -dff\n");
@@ -1468,6 +1486,8 @@ struct AbcPass : public Pass {
 					if (g == "NOR") goto ok_gate;
 					if (g == "XOR") goto ok_gate;
 					if (g == "XNOR") goto ok_gate;
+					if (g == "ANDNOT") goto ok_gate;
+					if (g == "ORNOT") goto ok_gate;
 					if (g == "MUX") goto ok_gate;
 					if (g == "AOI3") goto ok_gate;
 					if (g == "OAI3") goto ok_gate;

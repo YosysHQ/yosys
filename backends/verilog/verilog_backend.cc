@@ -470,7 +470,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_")) {
+	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_")) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
 		f << stringf(" = ");
@@ -478,16 +478,18 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << stringf("~(");
 		dump_cell_expr_port(f, cell, "A", false);
 		f << stringf(" ");
-		if (cell->type.in("$_AND_", "$_NAND_"))
+		if (cell->type.in("$_AND_", "$_NAND_", "$_ANDNOT_"))
 			f << stringf("&");
-		if (cell->type.in("$_OR_", "$_NOR_"))
+		if (cell->type.in("$_OR_", "$_NOR_", "$_ORNOT_"))
 			f << stringf("|");
 		if (cell->type.in("$_XOR_", "$_XNOR_"))
 			f << stringf("^");
 		dump_attributes(f, "", cell->attributes, ' ');
 		f << stringf(" ");
+		if (cell->type.in("$_ANDNOT_", "$_ORNOT_"))
+			f << stringf("~(");
 		dump_cell_expr_port(f, cell, "B", false);
-		if (cell->type.in("$_NAND_", "$_NOR_", "$_XNOR_"))
+		if (cell->type.in("$_NAND_", "$_NOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
 			f << stringf(")");
 		f << stringf(";\n");
 		return true;

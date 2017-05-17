@@ -397,7 +397,7 @@ struct SimplecWorker
 			return;
 		}
 
-		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
+		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
 		{
 			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
 			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
@@ -407,12 +407,14 @@ struct SimplecWorker
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == "$_AND_")  expr = stringf("%s & %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_NAND_") expr = stringf("!(%s & %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_OR_")   expr = stringf("%s | %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_NOR_")  expr = stringf("!(%s | %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_XOR_")  expr = stringf("%s ^ %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_XNOR_") expr = stringf("!(%s ^ %s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_AND_")    expr = stringf("%s & %s",    a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_NAND_")   expr = stringf("!(%s & %s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_OR_")     expr = stringf("%s | %s",    a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_NOR_")    expr = stringf("!(%s | %s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_XOR_")    expr = stringf("%s ^ %s",    a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_XNOR_")   expr = stringf("!(%s ^ %s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_ANDNOT_") expr = stringf("%s & (!%s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == "$_ORNOT_")  expr = stringf("%s | (!%s)", a_expr.c_str(), b_expr.c_str());
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +

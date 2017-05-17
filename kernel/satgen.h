@@ -310,7 +310,7 @@ struct SatGen
 			arith_undef_handled = true;
 		}
 
-		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_",
+		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_",
 				"$and", "$or", "$xor", "$xnor", "$add", "$sub"))
 		{
 			std::vector<int> a = importDefSigSpec(cell->getPort("\\A"), timestep);
@@ -332,6 +332,10 @@ struct SatGen
 				ez->assume(ez->vec_eq(ez->vec_xor(a, b), yy));
 			if (cell->type == "$xnor" || cell->type == "$_XNOR_")
 				ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(a, b)), yy));
+			if (cell->type == "$_ANDNOT_")
+				ez->assume(ez->vec_eq(ez->vec_and(a, ez->vec_not(b)), yy));
+			if (cell->type == "$_ORNOT_")
+				ez->assume(ez->vec_eq(ez->vec_or(a, ez->vec_not(b)), yy));
 			if (cell->type == "$add")
 				ez->assume(ez->vec_eq(ez->vec_add(a, b), yy));
 			if (cell->type == "$sub")
@@ -358,6 +362,19 @@ struct SatGen
 				}
 				else if (cell->type.in("$xor", "$xnor", "$_XOR_", "$_XNOR_")) {
 					std::vector<int> yX = ez->vec_or(undef_a, undef_b);
+					ez->assume(ez->vec_eq(yX, undef_y));
+				}
+				else if (cell->type == "$_ANDNOT_") {
+					std::vector<int> a0 = ez->vec_and(ez->vec_not(a), ez->vec_not(undef_a));
+					std::vector<int> b1 = ez->vec_and(b, ez->vec_not(undef_b));
+					std::vector<int> yX = ez->vec_and(ez->vec_or(undef_a, undef_b), ez->vec_not(ez->vec_or(a0, b1)));
+					ez->assume(ez->vec_eq(yX, undef_y));
+				}
+
+				else if (cell->type == "$_ORNOT_") {
+					std::vector<int> a1 = ez->vec_and(a, ez->vec_not(undef_a));
+					std::vector<int> b0 = ez->vec_and(ez->vec_not(b), ez->vec_not(undef_b));
+					std::vector<int> yX = ez->vec_and(ez->vec_or(undef_a, undef_b), ez->vec_not(ez->vec_or(a1, b0)));
 					ez->assume(ez->vec_eq(yX, undef_y));
 				}
 				else

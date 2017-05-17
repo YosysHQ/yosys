@@ -167,6 +167,8 @@ struct CellTypes
 		setup_type("$_NOR_",  {A, B}, {Y}, true);
 		setup_type("$_XOR_", {A, B}, {Y}, true);
 		setup_type("$_XNOR_", {A, B}, {Y}, true);
+		setup_type("$_ANDNOT_", {A, B}, {Y}, true);
+		setup_type("$_ORNOT_", {A, B}, {Y}, true);
 		setup_type("$_MUX_", {A, B, S}, {Y}, true);
 		setup_type("$_MUX4_", {A, B, C, D, S, T}, {Y}, true);
 		setup_type("$_MUX8_", {A, B, C, D, E, F, G, H, S, T, U}, {Y}, true);

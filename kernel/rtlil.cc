@@ -1053,19 +1053,21 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$_BUF_")  { check_gate("AY"); return; }
-			if (cell->type == "$_NOT_")  { check_gate("AY"); return; }
-			if (cell->type == "$_AND_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_NAND_") { check_gate("ABY"); return; }
-			if (cell->type == "$_OR_")   { check_gate("ABY"); return; }
-			if (cell->type == "$_NOR_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_XOR_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_XNOR_") { check_gate("ABY"); return; }
-			if (cell->type == "$_MUX_")  { check_gate("ABSY"); return; }
-			if (cell->type == "$_AOI3_") { check_gate("ABCY"); return; }
-			if (cell->type == "$_OAI3_") { check_gate("ABCY"); return; }
-			if (cell->type == "$_AOI4_") { check_gate("ABCDY"); return; }
-			if (cell->type == "$_OAI4_") { check_gate("ABCDY"); return; }
+			if (cell->type == "$_BUF_")    { check_gate("AY"); return; }
+			if (cell->type == "$_NOT_")    { check_gate("AY"); return; }
+			if (cell->type == "$_AND_")    { check_gate("ABY"); return; }
+			if (cell->type == "$_NAND_")   { check_gate("ABY"); return; }
+			if (cell->type == "$_OR_")     { check_gate("ABY"); return; }
+			if (cell->type == "$_NOR_")    { check_gate("ABY"); return; }
+			if (cell->type == "$_XOR_")    { check_gate("ABY"); return; }
+			if (cell->type == "$_XNOR_")   { check_gate("ABY"); return; }
+			if (cell->type == "$_ANDNOT_") { check_gate("ABY"); return; }
+			if (cell->type == "$_ORNOT_")  { check_gate("ABY"); return; }
+			if (cell->type == "$_MUX_")    { check_gate("ABSY"); return; }
+			if (cell->type == "$_AOI3_")   { check_gate("ABCY"); return; }
+			if (cell->type == "$_OAI3_")   { check_gate("ABCY"); return; }
+			if (cell->type == "$_AOI4_")   { check_gate("ABCDY"); return; }
+			if (cell->type == "$_OAI4_")   { check_gate("ABCDY"); return; }
 
 			if (cell->type == "$_TBUF_")  { check_gate("AYE"); return; }
 
@@ -1729,19 +1731,21 @@ DEF_METHOD(Pmux,     "$pmux",       1)
 		add ## _func(name, sig1, sig2, sig3, sig4, sig5); \
 		return sig5;                                      \
 	}
-DEF_METHOD_2(BufGate,  "$_BUF_",  A, Y)
-DEF_METHOD_2(NotGate,  "$_NOT_",  A, Y)
-DEF_METHOD_3(AndGate,  "$_AND_",  A, B, Y)
-DEF_METHOD_3(NandGate, "$_NAND_", A, B, Y)
-DEF_METHOD_3(OrGate,   "$_OR_",   A, B, Y)
-DEF_METHOD_3(NorGate,  "$_NOR_",  A, B, Y)
-DEF_METHOD_3(XorGate,  "$_XOR_",  A, B, Y)
-DEF_METHOD_3(XnorGate, "$_XNOR_", A, B, Y)
-DEF_METHOD_4(MuxGate,  "$_MUX_",  A, B, S, Y)
-DEF_METHOD_4(Aoi3Gate, "$_AOI3_", A, B, C, Y)
-DEF_METHOD_4(Oai3Gate, "$_OAI3_", A, B, C, Y)
-DEF_METHOD_5(Aoi4Gate, "$_AOI4_", A, B, C, D, Y)
-DEF_METHOD_5(Oai4Gate, "$_OAI4_", A, B, C, D, Y)
+DEF_METHOD_2(BufGate,    "$_BUF_",    A, Y)
+DEF_METHOD_2(NotGate,    "$_NOT_",    A, Y)
+DEF_METHOD_3(AndGate,    "$_AND_",    A, B, Y)
+DEF_METHOD_3(NandGate,   "$_NAND_",   A, B, Y)
+DEF_METHOD_3(OrGate,     "$_OR_",     A, B, Y)
+DEF_METHOD_3(NorGate,    "$_NOR_",    A, B, Y)
+DEF_METHOD_3(XorGate,    "$_XOR_",    A, B, Y)
+DEF_METHOD_3(XnorGate,   "$_XNOR_",   A, B, Y)
+DEF_METHOD_3(AndnotGate, "$_ANDNOT_", A, B, Y)
+DEF_METHOD_3(OrnotGate,  "$_ORNOT_",  A, B, Y)
+DEF_METHOD_4(MuxGate,    "$_MUX_",    A, B, S, Y)
+DEF_METHOD_4(Aoi3Gate,   "$_AOI3_",   A, B, C, Y)
+DEF_METHOD_4(Oai3Gate,   "$_OAI3_",   A, B, C, Y)
+DEF_METHOD_5(Aoi4Gate,   "$_AOI4_",   A, B, C, D, Y)
+DEF_METHOD_5(Oai4Gate,   "$_OAI4_",   A, B, C, D, Y)
 #undef DEF_METHOD_2
 #undef DEF_METHOD_3
 #undef DEF_METHOD_4
