@@ -1,0 +1,11 @@
+read_verilog example.v
+read_liberty -lib osu035_stdcells.lib
+
+synth -top top
+
+dfflibmap -liberty osu035_stdcells.lib
+abc -liberty osu035_stdcells.lib
+opt_clean
+
+stat -liberty osu035_stdcells.lib
+write_edif example.edif
