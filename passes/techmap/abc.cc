@@ -1314,9 +1314,20 @@ struct AbcPass : public Pass {
 		// log("        (ignored when used with -liberty or -lut)\n");
 		// log("\n");
 		log("    -g type1,type2,...\n");
-		log("        Map the the specified list of gate types. Supported gates types are:\n");
+		log("        Map to the specified list of gate types. Supported gates types are:\n");
 		log("        AND, NAND, OR, NOR, XOR, XNOR, ANDNOT, ORNOT, MUX, AOI3, OAI3, AOI4, OAI4.\n");
 		log("        (The NOT gate is always added to this list automatically.)\n");
+		log("\n");
+		log("        The following aliases can be used to reference common sets of gate types:\n");
+		log("          simple: AND OR XOR MUX\n");
+		log("          cmos2: NAND NOR\n");
+		log("          cmos3: NAND NOR AOI3 OAI3\n");
+		log("          cmos: NAND NOR AOI3 OAI3 AOI4 OAI4\n");
+		log("          gates: AND NAND OR NOR XOR XNOR ANDNOT ORNOT\n");
+		log("          aig: AND NAND OR NOR ANDNOT ORNOT\n");
+		log("\n");
+		log("        Prefix a gate type with a '-' to remove it from the list. For example\n");
+		log("        the arguments 'AND,OR,XOR' and 'simple,-MUX' are equivalent.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
@@ -1480,6 +1491,12 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
 				for (auto g : split_tokens(args[++argidx], ",")) {
+					vector<string> gate_list;
+					bool remove_gates = false;
+					if (GetSize(g) > 0 && g[0] == '-') {
+						remove_gates = true;
+						g = g.substr(1);
+					}
 					if (g == "AND") goto ok_gate;
 					if (g == "NAND") goto ok_gate;
 					if (g == "OR") goto ok_gate;
@@ -1493,9 +1510,64 @@ struct AbcPass : public Pass {
 					if (g == "OAI3") goto ok_gate;
 					if (g == "AOI4") goto ok_gate;
 					if (g == "OAI4") goto ok_gate;
+					if (g == "simple") {
+						gate_list.push_back("AND");
+						gate_list.push_back("OR");
+						gate_list.push_back("XOR");
+						gate_list.push_back("MUX");
+						goto ok_alias;
+					}
+					if (g == "cmos2") {
+						gate_list.push_back("NAND");
+						gate_list.push_back("NOR");
+						goto ok_alias;
+					}
+					if (g == "cmos3") {
+						gate_list.push_back("NAND");
+						gate_list.push_back("NOR");
+						gate_list.push_back("AOI3");
+						gate_list.push_back("OAI3");
+						goto ok_alias;
+					}
+					if (g == "cmos4") {
+						gate_list.push_back("NAND");
+						gate_list.push_back("NOR");
+						gate_list.push_back("AOI3");
+						gate_list.push_back("OAI3");
+						gate_list.push_back("AOI4");
+						gate_list.push_back("OAI4");
+						goto ok_alias;
+					}
+					if (g == "gates") {
+						gate_list.push_back("AND");
+						gate_list.push_back("NAND");
+						gate_list.push_back("OR");
+						gate_list.push_back("NOR");
+						gate_list.push_back("XOR");
+						gate_list.push_back("XNOR");
+						gate_list.push_back("ANDNOT");
+						gate_list.push_back("ORNOT");
+						goto ok_alias;
+					}
+					if (g == "aig") {
+						gate_list.push_back("AND");
+						gate_list.push_back("NAND");
+						gate_list.push_back("OR");
+						gate_list.push_back("NOR");
+						gate_list.push_back("ANDNOT");
+						gate_list.push_back("ORNOT");
+						goto ok_alias;
+					}
 					cmd_error(args, argidx, stringf("Unsupported gate type: %s", g.c_str()));
 				ok_gate:
-					enabled_gates.insert(g);
+					gate_list.push_back(g);
+				ok_alias:
+					for (auto gate : gate_list) {
+						if (remove_gates)
+							enabled_gates.erase(gate);
+						else
+							enabled_gates.insert(gate);
+					}
 				}
 				continue;
 			}
