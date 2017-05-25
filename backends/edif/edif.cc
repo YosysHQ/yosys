@@ -233,7 +233,7 @@ struct EdifBackend : public Backend {
 				if (port_it.second == 1)
 					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
 				else {
-					int b[2] = {port_it.second-1, 0};
+					int b[2] = {0, port_it.second-1};
 					auto m = design->module(cell_it.first);
 					if (m) {
 						auto w = m->wire(port_it.first);
