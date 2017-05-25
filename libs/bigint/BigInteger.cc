@@ -53,6 +53,7 @@ BigInteger::BigInteger(const BigUnsigned &x, Sign s) : mag(x) {
  * negative BigInteger instead of an exception. */
 
 // Done longhand to let us use initialization.
+BigInteger::BigInteger(unsigned long long  x) : mag(x) { sign = mag.isZero() ? zero : positive; }
 BigInteger::BigInteger(unsigned long  x) : mag(x) { sign = mag.isZero() ? zero : positive; }
 BigInteger::BigInteger(unsigned int   x) : mag(x) { sign = mag.isZero() ? zero : positive; }
 BigInteger::BigInteger(unsigned short x) : mag(x) { sign = mag.isZero() ? zero : positive; }
@@ -74,6 +75,7 @@ namespace {
 	}
 }
 
+BigInteger::BigInteger(long long   x) : sign(signOf(x)), mag(magOf<long long, unsigned long long>(x)) {}
 BigInteger::BigInteger(long  x) : sign(signOf(x)), mag(magOf<long , unsigned long >(x)) {}
 BigInteger::BigInteger(int   x) : sign(signOf(x)), mag(magOf<int  , unsigned int  >(x)) {}
 BigInteger::BigInteger(short x) : sign(signOf(x)), mag(magOf<short, unsigned short>(x)) {}

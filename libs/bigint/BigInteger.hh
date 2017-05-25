@@ -54,6 +54,8 @@ public:
 	}
 
 	// Constructors from primitive integer types
+	BigInteger(unsigned long long  x);
+	BigInteger(         long long  x);
 	BigInteger(unsigned long  x);
 	BigInteger(         long  x);
 	BigInteger(unsigned int   x);
