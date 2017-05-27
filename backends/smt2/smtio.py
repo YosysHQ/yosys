@@ -72,7 +72,7 @@ class SmtIo:
             self.nocomments = opts.nocomments
 
         else:
-            self.solver = "z3"
+            self.solver = "yices"
             self.solver_opts = list()
             self.debug_print = False
             self.debug_file = None
@@ -649,7 +649,7 @@ class SmtOpts:
     def __init__(self):
         self.shortopts = "s:S:v"
         self.longopts = ["unroll", "noincr", "noprogress", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
-        self.solver = "z3"
+        self.solver = "yices"
         self.solver_opts = list()
         self.debug_print = False
         self.debug_file = None
@@ -691,8 +691,8 @@ class SmtOpts:
     def helpmsg(self):
         return """
     -s <solver>
-        set SMT solver: z3, cvc4, yices, mathsat, boolector, dummy
-        default: z3
+        set SMT solver: z3, yices, boolector, cvc4, mathsat, dummy
+        default: yices
 
     -S <opt>
         pass <opt> as command line argument to the solver
