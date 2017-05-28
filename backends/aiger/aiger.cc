@@ -88,6 +88,9 @@ struct AigerWriter
 				int a1 = bit2aig(args.second);
 				aig_map[bit] = mkgate(a0, a1);
 			}
+
+			if (bit == State::Sx || bit == State::Sz)
+				log_error("Design contains 'x' or 'z' bits. Use 'setundef' to replace those constants.\n");
 		}
 
 		log_assert(aig_map.at(bit) >= 0);
@@ -96,6 +99,9 @@ struct AigerWriter
 
 	AigerWriter(Module *module, bool zinit_mode) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
+		pool<SigBit> undriven_bits;
+		pool<SigBit> unused_bits;
+
 		for (auto wire : module->wires())
 		{
 			if (wire->attributes.count("\\init")) {
@@ -106,14 +112,27 @@ struct AigerWriter
 						init_map[initsig[i]] = initval[i] == State::S1;
 			}
 
-			if (wire->port_input)
-				for (auto bit : sigmap(wire))
+			for (auto bit : sigmap(wire))
+			{
+				if (bit.wire == nullptr)
+					continue;
+
+				undriven_bits.insert(bit);
+				unused_bits.insert(bit);
+
+				if (wire->port_input)
 					input_bits.insert(bit);
 
-			if (wire->port_output)
-				for (auto bit : sigmap(wire))
+				if (wire->port_output)
 					output_bits.insert(bit);
+			}
 		}
+
+		for (auto bit : input_bits)
+			undriven_bits.erase(bit);
+
+		for (auto bit : output_bits)
+			unused_bits.erase(bit);
 
 		for (auto cell : module->cells())
 		{
@@ -121,6 +140,8 @@ struct AigerWriter
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				unused_bits.erase(A);
+				undriven_bits.erase(Y);
 				not_map[Y] = A;
 				continue;
 			}
@@ -129,6 +150,8 @@ struct AigerWriter
 			{
 				SigBit D = sigmap(cell->getPort("\\D").as_bit());
 				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+				unused_bits.erase(D);
+				undriven_bits.erase(Q);
 				ff_map[Q] = D;
 				continue;
 			}
@@ -138,6 +161,9 @@ struct AigerWriter
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit B = sigmap(cell->getPort("\\B").as_bit());
 				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				unused_bits.erase(A);
+				unused_bits.erase(B);
+				undriven_bits.erase(Y);
 				and_map[Y] = make_pair(A, B);
 				continue;
 			}
@@ -145,6 +171,7 @@ struct AigerWriter
 			if (cell->type == "$initstate")
 			{
 				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				undriven_bits.erase(Y);
 				initstate_bits.insert(Y);
 				continue;
 			}
@@ -153,6 +180,8 @@ struct AigerWriter
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				unused_bits.erase(A);
+				unused_bits.erase(EN);
 				asserts.push_back(make_pair(A, EN));
 				continue;
 			}
@@ -161,6 +190,8 @@ struct AigerWriter
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				unused_bits.erase(A);
+				unused_bits.erase(EN);
 				assumes.push_back(make_pair(A, EN));
 				continue;
 			}
@@ -169,6 +200,8 @@ struct AigerWriter
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				unused_bits.erase(A);
+				unused_bits.erase(EN);
 				liveness.push_back(make_pair(A, EN));
 				continue;
 			}
@@ -177,25 +210,43 @@ struct AigerWriter
 			{
 				SigBit A = sigmap(cell->getPort("\\A").as_bit());
 				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				unused_bits.erase(A);
+				unused_bits.erase(EN);
 				fairness.push_back(make_pair(A, EN));
 				continue;
 			}
 
 			if (cell->type == "$anyconst")
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y")))
+				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+					undriven_bits.erase(bit);
 					ff_map[bit] = bit;
+				}
 				continue;
 			}
 
 			if (cell->type == "$anyseq")
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y")))
+				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+					undriven_bits.erase(bit);
 					input_bits.insert(bit);
+				}
 				continue;
 			}
 
 			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+		}
+
+		for (auto bit : unused_bits)
+			undriven_bits.erase(bit);
+
+		if (!undriven_bits.empty()) {
+			undriven_bits.sort();
+			for (auto bit : undriven_bits) {
+				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
+				input_bits.insert(bit);
+			}
+			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
 		}
 
 		init_map.sort();
@@ -442,6 +493,9 @@ struct AigerWriter
 
 				for (int i = 0; i < GetSize(wire); i++)
 				{
+					if (sig[i].wire == nullptr)
+						continue;
+
 					if (wire->port_input) {
 						int a = aig_map.at(sig[i]);
 						log_assert((a & 1) == 0);
@@ -500,7 +554,7 @@ struct AigerWriter
 
 			for (int i = 0; i < GetSize(wire); i++)
 			{
-				if (aig_map.count(sig[i]) == 0)
+				if (aig_map.count(sig[i]) == 0 || sig[i].wire == nullptr)
 					continue;
 
 				int a = aig_map.at(sig[i]);

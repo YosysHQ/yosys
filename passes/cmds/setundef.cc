@@ -64,7 +64,7 @@ struct SetundefPass : public Pass {
 		log("\n");
 		log("    setundef [options] [selection]\n");
 		log("\n");
-		log("This command replaced undef (x) constants with defined (0/1) constants.\n");
+		log("This command replaces undef (x) constants with defined (0/1) constants.\n");
 		log("\n");
 		log("    -undriven\n");
 		log("        also set undriven nets to constant values\n");
