@@ -30,6 +30,7 @@ struct SetundefWorker
 {
 	int next_bit_mode;
 	uint32_t next_bit_state;
+	vector<SigSpec*> siglist;
 
 	RTLIL::State next_bit()
 	{
@@ -50,6 +51,11 @@ struct SetundefWorker
 
 	void operator()(RTLIL::SigSpec &sig)
 	{
+		if (next_bit_mode == 2) {
+			siglist.push_back(&sig);
+			return;
+		}
+
 		for (auto &bit : sig)
 			if (bit.wire == NULL && bit.data > RTLIL::State::S1)
 				bit = next_bit();
@@ -74,6 +80,9 @@ struct SetundefPass : public Pass {
 		log("\n");
 		log("    -one\n");
 		log("        replace with bits set (1)\n");
+		log("\n");
+		log("    -anyseq\n");
+		log("        replace with $anyseq drivers (for formal)\n");
 		log("\n");
 		log("    -random <seed>\n");
 		log("        replace with random bits using the specified integer als seed\n");
@@ -109,13 +118,18 @@ struct SetundefPass : public Pass {
 				worker.next_bit_mode = 1;
 				continue;
 			}
+			if (args[argidx] == "-anyseq") {
+				got_value = true;
+				worker.next_bit_mode = 2;
+				continue;
+			}
 			if (args[argidx] == "-init") {
 				init_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
 				got_value = true;
-				worker.next_bit_mode = 2;
+				worker.next_bit_mode = 3;
 				worker.next_bit_state = atoi(args[++argidx].c_str()) + 1;
 				for (int i = 0; i < 10; i++)
 					worker.next_bit();
@@ -126,7 +140,7 @@ struct SetundefPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!got_value)
-			log_cmd_error("One of the options -zero, -one, or -random <seed> must be specified.\n");
+			log_cmd_error("One of the options -zero, -one, -anyseq, or -random <seed> must be specified.\n");
 
 		for (auto module : design->selected_modules())
 		{
@@ -241,6 +255,32 @@ struct SetundefPass : public Pass {
 			}
 
 			module->rewrite_sigspecs(worker);
+
+			if (worker.next_bit_mode == 2)
+			{
+				vector<SigSpec*> siglist;
+				siglist.swap(worker.siglist);
+
+				for (auto sigptr : siglist)
+				{
+					SigSpec &sig = *sigptr;
+					int cursor = 0;
+
+					while (cursor < GetSize(sig))
+					{
+						int width = 0;
+						while (cursor+width < GetSize(sig) && sig[cursor+width] == State::Sx)
+							width++;
+
+						if (width > 0) {
+							sig.replace(cursor, module->Anyseq(NEW_ID, width));
+							cursor += width;
+						} else {
+							cursor++;
+						}
+					}
+				}
+			}
 		}
 	}
 } SetundefPass;
