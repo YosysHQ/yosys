@@ -484,6 +484,8 @@ struct AigerWriter
 
 		if (symbols_mode)
 		{
+			dict<string, vector<string>> symbols;
+
 			for (auto wire : module->wires())
 			{
 				if (wire->name[0] == '$')
@@ -500,37 +502,47 @@ struct AigerWriter
 						int a = aig_map.at(sig[i]);
 						log_assert((a & 1) == 0);
 						if (GetSize(wire) != 1)
-							f << stringf("i%d %s[%d]\n", (a >> 1)-1, log_id(wire), i);
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s[%d]", log_id(wire), i));
 						else
-							f << stringf("i%d %s\n", (a >> 1)-1, log_id(wire));
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s", log_id(wire)));
 					}
 
 					if (wire->port_output) {
 						int o = ordered_outputs.at(sig[i]);
 						if (GetSize(wire) != 1)
-							f << stringf("%c%d %s[%d]\n", miter_mode ? 'b' : 'o', o, log_id(wire), i);
+							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", log_id(wire), i));
 						else
-							f << stringf("%c%d %s\n", miter_mode ? 'b' : 'o', o, log_id(wire));
+							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s", log_id(wire)));
 					}
 
 					if (init_inputs.count(sig[i])) {
 						int a = init_inputs.at(sig[i]);
 						log_assert((a & 1) == 0);
 						if (GetSize(wire) != 1)
-							f << stringf("i%d init:%s[%d]\n", (a >> 1)-1, log_id(wire), i);
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s[%d]", log_id(wire), i));
 						else
-							f << stringf("i%d init:%s\n", (a >> 1)-1, log_id(wire));
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s", log_id(wire)));
 					}
 
 					if (ordered_latches.count(sig[i])) {
 						int l = ordered_latches.at(sig[i]);
 						const char *p = (zinit_mode && (aig_latchinit.at(l) == 1)) ? "!" : "";
 						if (GetSize(wire) != 1)
-							f << stringf("l%d %s%s[%d]\n", l, p, log_id(wire), i);
+							symbols[stringf("l%d", l)].push_back(stringf("%s%s[%d]", p, log_id(wire), i));
 						else
-							f << stringf("l%d %s%s\n", l, p, log_id(wire));
+							symbols[stringf("l%d", l)].push_back(stringf("%s%s", p, log_id(wire)));
 					}
 				}
+			}
+
+			symbols.sort();
+
+			for (auto &sym : symbols) {
+				f << sym.first;
+				std::sort(sym.second.begin(), sym.second.end());
+				for (auto &s : sym.second)
+					f << " " << s;
+				f << std::endl;
 			}
 		}
 
