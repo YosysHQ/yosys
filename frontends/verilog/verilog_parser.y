@@ -1537,8 +1537,16 @@ basic_expr:
 		$$ = new AstNode(AST_BIT_AND, $1, $4);
 		append_attr($$, $3);
 	} |
+	basic_expr OP_NAND attr basic_expr {
+		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_AND, $1, $4));
+		append_attr($$, $3);
+	} |
 	basic_expr '|' attr basic_expr {
 		$$ = new AstNode(AST_BIT_OR, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_NOR attr basic_expr {
+		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_OR, $1, $4));
 		append_attr($$, $3);
 	} |
 	basic_expr '^' attr basic_expr {
