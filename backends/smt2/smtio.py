@@ -44,6 +44,7 @@ class SmtModInfo:
         self.asserts = dict()
         self.covers = dict()
         self.anyconsts = dict()
+        self.anyseqs = dict()
 
 
 class SmtIo:
@@ -349,7 +350,10 @@ class SmtIo:
             self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
 
         if fields[1] == "yosys-smt2-anyconst":
-            self.modinfo[self.curmod].anyconsts[fields[2]] = fields[3]
+            self.modinfo[self.curmod].anyconsts[fields[2]] = (fields[3], None if len(fields) <= 4 else fields[4])
+
+        if fields[1] == "yosys-smt2-anyseq":
+            self.modinfo[self.curmod].anyseqs[fields[2]] = (fields[3], None if len(fields) <= 4 else fields[4])
 
     def hiernets(self, top, regs_only=False):
         def hiernets_worker(nets, mod, cursor):
@@ -362,6 +366,28 @@ class SmtIo:
         nets = list()
         hiernets_worker(nets, top, [])
         return nets
+
+    def hieranyconsts(self, top):
+        def worker(results, mod, cursor):
+            for name, value in sorted(self.modinfo[mod].anyconsts.items()):
+                results.append((cursor, name, value[0], value[1]))
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                worker(results, celltype, cursor + [cellname])
+
+        results = list()
+        worker(results, top, [])
+        return results
+
+    def hieranyseqs(self, top):
+        def worker(results, mod, cursor):
+            for name, value in sorted(self.modinfo[mod].anyseqs.items()):
+                results.append((cursor, name, value[0], value[1]))
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                worker(results, celltype, cursor + [cellname])
+
+        results = list()
+        worker(results, top, [])
+        return results
 
     def hiermems(self, top):
         def hiermems_worker(mems, mod, cursor):
@@ -555,6 +581,9 @@ class SmtIo:
         return [".".join(path)]
 
     def net_expr(self, mod, base, path):
+        if len(path) == 0:
+            return base
+
         if len(path) == 1:
             assert mod in self.modinfo
             if path[0] == "":

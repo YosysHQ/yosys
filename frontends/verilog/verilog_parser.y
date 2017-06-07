@@ -764,6 +764,7 @@ wire_name_and_opt_assign:
 			AstNode *fcall = new AstNode(AST_FCALL);
 			wire->str = ast_stack.back()->children.back()->str;
 			fcall->str = current_wire_const ? "\\$anyconst" : "\\$anyseq";
+			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
 		}
 	} |

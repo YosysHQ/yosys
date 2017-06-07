@@ -458,8 +458,10 @@ struct Smt2Worker
 			if (cell->type.in("$anyconst", "$anyseq"))
 			{
 				registers.insert(cell);
-				decls.push_back(stringf("; yosys-smt2-%s %s#%d %s\n", cell->type.c_str() + 1, get_id(module), idcounter,
-						cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell)));
+				string infostr = cell->attributes.count("\\src") ? cell->attributes.at("\\src").decode_string().c_str() : get_id(cell);
+				if (cell->attributes.count("\\reg"))
+					infostr += " " + cell->attributes.at("\\reg").decode_string();
+				decls.push_back(stringf("; yosys-smt2-%s %s#%d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, infostr.c_str()));
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort("\\Y")), log_signal(cell->getPort("\\Y")));
 				register_bv(cell->getPort("\\Y"), idcounter++);
 				recursive_cells.erase(cell);

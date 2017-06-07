@@ -1497,6 +1497,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				cell->parameters["\\WIDTH"] = width;
 
+				if (attributes.count("\\reg")) {
+					auto &attr = attributes.at("\\reg");
+					if (attr->type != AST_CONSTANT)
+						log_error("Attribute `reg' with non-constant value at %s:%d!\n", filename.c_str(), linenum);
+					cell->attributes["\\reg"] =  attr->asAttrConst();
+				}
+
 				Wire *wire = current_module->addWire(myid + "_wire", width);
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				cell->setPort("\\Y", wire);

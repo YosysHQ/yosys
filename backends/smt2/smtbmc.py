@@ -709,6 +709,13 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
                     hidden_net = True
             print("    %sUUT.%s = %d'b%s;" % ("// " if hidden_net else "", ".".join(reg), len(val), val), file=f)
 
+        anyconsts = sorted(smt.hieranyconsts(topmod))
+        for info in anyconsts:
+            if info[3] is not None:
+                modstate = smt.net_expr(topmod, "s%d" % steps_start, info[0])
+                value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
+                print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+
         mems = sorted(smt.hiermems(topmod))
         for mempath in mems:
             abits, width, rports, wports = smt.mem_info(topmod, mempath)
@@ -733,6 +740,8 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             for addr, data in addr_data.items():
                 print("    UUT.%s[%d'b%s] = %d'b%s;" % (".".join(mempath), len(addr), addr, len(data), data), file=f)
 
+        anyseqs = sorted(smt.hieranyseqs(topmod))
+
         for i in range(steps_start, steps_stop):
             pi_names = [[name] for name, _ in primary_inputs if name not in clock_inputs]
             pi_values = smt.get_net_bin_list(topmod, pi_names, "s%d" % i)
@@ -743,6 +752,12 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
                 print("    @(posedge clock);", file=f)
             for name, val in zip(pi_names, pi_values):
                 print("    PI_%s <= %d'b%s;" % (".".join(name), len(val), val), file=f)
+
+            for info in anyseqs:
+                if info[3] is not None:
+                    modstate = smt.net_expr(topmod, "s%d" % steps_start, info[0])
+                    value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
+                    print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
 
         print("    genclock = 0;", file=f)
         print("  end", file=f)
@@ -859,7 +874,10 @@ def print_anyconsts_worker(mod, state, path):
         print_anyconsts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
 
     for fun, info in smt.modinfo[mod].anyconsts.items():
-        print_msg("Value for anyconst in %s (%s): %d" % (path, info, smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+        if info[1] is None:
+            print_msg("Value for anyconst in %s (%s): %d" % (path, info, smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+        else:
+            print_msg("Value for anyconst %s.%s (%s): %d" % (path, info[1], info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
 
 
 def print_anyconsts(state):
