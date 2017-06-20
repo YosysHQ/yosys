@@ -120,19 +120,19 @@ const char *prompt()
 #else /* EMSCRIPTEN */
 
 #ifdef YOSYS_ENABLE_READLINE
-int history_offset = 0;
-std::string history_file;
+int yosys_history_offset = 0;
+std::string yosys_history_file;
 #endif
 
 void yosys_atexit()
 {
 #ifdef YOSYS_ENABLE_READLINE
-	if (!history_file.empty()) {
-		if (history_offset > 0) {
-			history_truncate_file(history_file.c_str(), 100);
-			append_history(where_history() - history_offset, history_file.c_str());
+	if (!yosys_history_file.empty()) {
+		if (yosys_history_offset > 0) {
+			history_truncate_file(yosys_history_file.c_str(), 100);
+			append_history(where_history() - yosys_history_offset, yosys_history_file.c_str());
 		} else
-			write_history(history_file.c_str());
+			write_history(yosys_history_file.c_str());
 	}
 
 	clear_history();
@@ -161,9 +161,9 @@ int main(int argc, char **argv)
 
 #ifdef YOSYS_ENABLE_READLINE
 	if (getenv("HOME") != NULL) {
-		history_file = stringf("%s/.yosys_history", getenv("HOME"));
-		read_history(history_file.c_str());
-		history_offset = where_history();
+		yosys_history_file = stringf("%s/.yosys_history", getenv("HOME"));
+		read_history(yosys_history_file.c_str());
+		yosys_history_offset = where_history();
 	}
 #endif
 
