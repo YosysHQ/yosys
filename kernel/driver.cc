@@ -119,6 +119,29 @@ const char *prompt()
 
 #else /* EMSCRIPTEN */
 
+#ifdef YOSYS_ENABLE_READLINE
+int history_offset = 0;
+std::string history_file;
+#endif
+
+void yosys_atexit()
+{
+#ifdef YOSYS_ENABLE_READLINE
+	if (!history_file.empty()) {
+		if (history_offset > 0) {
+			history_truncate_file(history_file.c_str(), 100);
+			append_history(where_history() - history_offset, history_file.c_str());
+		} else
+			write_history(history_file.c_str());
+	}
+
+	clear_history();
+	HIST_ENTRY **hist_list = history_list();
+	if (hist_list != NULL)
+		free(hist_list);
+#endif
+}
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
@@ -137,8 +160,6 @@ int main(int argc, char **argv)
 	bool mode_q = false;
 
 #ifdef YOSYS_ENABLE_READLINE
-	int history_offset = 0;
-	std::string history_file;
 	if (getenv("HOME") != NULL) {
 		history_file = stringf("%s/.yosys_history", getenv("HOME"));
 		read_history(history_file.c_str());
@@ -379,6 +400,7 @@ int main(int argc, char **argv)
 		log_hasher = new SHA1;
 
 	yosys_setup();
+	log_error_atexit = yosys_atexit;
 
 	for (auto &fn : plugin_filenames)
 		load_plugin(fn, {});
@@ -509,24 +531,11 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	yosys_atexit();
+
 	memhasher_off();
 	if (call_abort)
 		abort();
-
-#ifdef YOSYS_ENABLE_READLINE
-	if (!history_file.empty()) {
-		if (history_offset > 0) {
-			history_truncate_file(history_file.c_str(), 100);
-			append_history(where_history() - history_offset, history_file.c_str());
-		} else
-			write_history(history_file.c_str());
-	}
-
-	clear_history();
-	HIST_ENTRY **hist_list = history_list();
-	if (hist_list != NULL)
-		free(hist_list);
-#endif
 
 	log_flush();
 #if defined(_MSC_VER)

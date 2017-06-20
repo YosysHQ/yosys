@@ -52,6 +52,7 @@ bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
 int log_verbose_level;
 string log_last_error;
+void (*log_error_atexit)() = NULL;
 
 vector<int> header_count;
 pool<RTLIL::IdString> log_id_cache;
@@ -243,6 +244,9 @@ void logv_error(const char *format, va_list ap)
 	log_last_error = vstringf(format, ap);
 	log("ERROR: %s", log_last_error.c_str());
 	log_flush();
+
+	if (log_error_atexit)
+		log_error_atexit();
 
 #ifdef EMSCRIPTEN
 	log_files = backup_log_files;

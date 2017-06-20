@@ -60,6 +60,7 @@ extern bool log_cmd_error_throw;
 extern bool log_quiet_warnings;
 extern int log_verbose_level;
 extern string log_last_error;
+extern void (*log_error_atexit)();
 
 void logv(const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
