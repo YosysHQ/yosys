@@ -92,6 +92,7 @@ struct gate_t
 	int in1, in2, in3, in4;
 	bool is_port;
 	RTLIL::SigBit bit;
+	RTLIL::State init;
 };
 
 bool map_mux4;
@@ -104,7 +105,9 @@ SigMap assign_map;
 RTLIL::Module *module;
 std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
+std::map<RTLIL::SigBit, RTLIL::State> signal_init;
 pool<std::string> enabled_gates;
+bool recover_init;
 
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
@@ -123,6 +126,10 @@ int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1,
 		gate.in4 = -1;
 		gate.is_port = false;
 		gate.bit = bit;
+		if (signal_init.count(bit))
+			gate.init = signal_init.at(bit);
+		else
+			gate.init = State::Sx;
 		signal_list.push_back(gate);
 		signal_map[bit] = gate.id;
 	}
@@ -609,11 +616,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	signal_map.clear();
 	signal_list.clear();
+	recover_init = false;
 
 	if (clk_str != "$")
 	{
-		assign_map.set(module);
-
 		clk_polarity = true;
 		clk_sig = RTLIL::SigSpec();
 
@@ -849,7 +855,11 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fprintf(f, "00-- 1\n");
 			fprintf(f, "--00 1\n");
 		} else if (si.type == G(FF)) {
-			fprintf(f, ".latch n%d n%d\n", si.in1, si.id);
+			if (si.init == State::S0 || si.init == State::S1) {
+				fprintf(f, ".latch n%d n%d %d\n", si.in1, si.id, si.init == State::S1 ? 1 : 0);
+				recover_init = true;
+			} else
+				fprintf(f, ".latch n%d n%d 2\n", si.in1, si.id);
 		} else if (si.type != G(NONE))
 			log_abort();
 		if (si.type != G(NONE))
@@ -1155,6 +1165,15 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			module->connect(conn);
 		}
 
+		if (recover_init)
+			for (auto wire : mapped_mod->wires()) {
+				if (wire->attributes.count("\\init")) {
+					Wire *w = module->wires_[remap_name(wire->name)];
+					log_assert(w->attributes.count("\\init") == 0);
+					w->attributes["\\init"] = wire->attributes.at("\\init");
+				}
+			}
+
 		for (auto &it : cell_stats)
 			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
 		int in_wires = 0, out_wires = 0;
@@ -1372,6 +1391,7 @@ struct AbcPass : public Pass {
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
+		signal_init.clear();
 
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
@@ -1614,163 +1634,188 @@ struct AbcPass : public Pass {
 			log_cmd_error("Got -constr but no -liberty!\n");
 
 		for (auto mod : design->selected_modules())
-			if (mod->processes.size() > 0)
+		{
+			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
-			else if (!dff_mode || !clk_str.empty())
+				continue;
+			}
+
+			assign_map.set(mod);
+			signal_init.clear();
+
+			for (Wire *wire : mod->wires())
+				if (wire->attributes.count("\\init")) {
+					SigSpec initsig = assign_map(wire);
+					Const initval = wire->attributes.at("\\init");
+					for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
+						switch (initval[i]) {
+							case State::S0:
+								signal_init[initsig[i]] = State::S0;
+								break;
+							case State::S1:
+								signal_init[initsig[i]] = State::S0;
+								break;
+							default:
+								break;
+						}
+				}
+
+			if (!dff_mode || !clk_str.empty()) {
 				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
-			else
+				continue;
+			}
+
+			CellTypes ct(design);
+
+			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
+			std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+
+			std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
+			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
+			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
+
+			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
+			std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
+			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
+
+			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
+			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
+
+			for (auto cell : all_cells)
 			{
-				assign_map.set(mod);
-				CellTypes ct(design);
+				clkdomain_t key;
 
-				std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
-				std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
-
-				std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
-				std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-				std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
-
-				typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-				std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
-				std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
-
-				std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
-				std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
-
-				for (auto cell : all_cells)
-				{
-					clkdomain_t key;
-
-					for (auto &conn : cell->connections())
-					for (auto bit : conn.second) {
-						bit = assign_map(bit);
-						if (bit.wire != nullptr) {
-							cell_to_bit[cell].insert(bit);
-							bit_to_cell[bit].insert(cell);
-							if (ct.cell_input(cell->type, conn.first)) {
-								cell_to_bit_up[cell].insert(bit);
-								bit_to_cell_down[bit].insert(cell);
-							}
-							if (ct.cell_output(cell->type, conn.first)) {
-								cell_to_bit_down[cell].insert(bit);
-								bit_to_cell_up[bit].insert(cell);
-							}
+				for (auto &conn : cell->connections())
+				for (auto bit : conn.second) {
+					bit = assign_map(bit);
+					if (bit.wire != nullptr) {
+						cell_to_bit[cell].insert(bit);
+						bit_to_cell[bit].insert(cell);
+						if (ct.cell_input(cell->type, conn.first)) {
+							cell_to_bit_up[cell].insert(bit);
+							bit_to_cell_down[bit].insert(cell);
+						}
+						if (ct.cell_output(cell->type, conn.first)) {
+							cell_to_bit_down[cell].insert(bit);
+							bit_to_cell_up[bit].insert(cell);
 						}
 					}
-
-					if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
-					{
-						key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
-					}
-					else
-					if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
-					{
-						bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
-						bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
-						key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
-					}
-					else
-						continue;
-
-					unassigned_cells.erase(cell);
-					expand_queue.insert(cell);
-					expand_queue_up.insert(cell);
-					expand_queue_down.insert(cell);
-
-					assigned_cells[key].push_back(cell);
-					assigned_cells_reverse[cell] = key;
 				}
 
-				while (!expand_queue_up.empty() || !expand_queue_down.empty())
+				if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
 				{
-					if (!expand_queue_up.empty())
-					{
-						RTLIL::Cell *cell = *expand_queue_up.begin();
-						clkdomain_t key = assigned_cells_reverse.at(cell);
-						expand_queue_up.erase(cell);
-
-						for (auto bit : cell_to_bit_up[cell])
-						for (auto c : bit_to_cell_up[bit])
-							if (unassigned_cells.count(c)) {
-								unassigned_cells.erase(c);
-								next_expand_queue_up.insert(c);
-								assigned_cells[key].push_back(c);
-								assigned_cells_reverse[c] = key;
-								expand_queue.insert(c);
-							}
-					}
-
-					if (!expand_queue_down.empty())
-					{
-						RTLIL::Cell *cell = *expand_queue_down.begin();
-						clkdomain_t key = assigned_cells_reverse.at(cell);
-						expand_queue_down.erase(cell);
-
-						for (auto bit : cell_to_bit_down[cell])
-						for (auto c : bit_to_cell_down[bit])
-							if (unassigned_cells.count(c)) {
-								unassigned_cells.erase(c);
-								next_expand_queue_up.insert(c);
-								assigned_cells[key].push_back(c);
-								assigned_cells_reverse[c] = key;
-								expand_queue.insert(c);
-							}
-					}
-
-					if (expand_queue_up.empty() && expand_queue_down.empty()) {
-						expand_queue_up.swap(next_expand_queue_up);
-						expand_queue_down.swap(next_expand_queue_down);
-					}
+					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
 				}
-
-				while (!expand_queue.empty())
+				else
+				if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
 				{
-					RTLIL::Cell *cell = *expand_queue.begin();
+					bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
+					bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
+					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
+				}
+				else
+					continue;
+
+				unassigned_cells.erase(cell);
+				expand_queue.insert(cell);
+				expand_queue_up.insert(cell);
+				expand_queue_down.insert(cell);
+
+				assigned_cells[key].push_back(cell);
+				assigned_cells_reverse[cell] = key;
+			}
+
+			while (!expand_queue_up.empty() || !expand_queue_down.empty())
+			{
+				if (!expand_queue_up.empty())
+				{
+					RTLIL::Cell *cell = *expand_queue_up.begin();
 					clkdomain_t key = assigned_cells_reverse.at(cell);
-					expand_queue.erase(cell);
+					expand_queue_up.erase(cell);
 
-					for (auto bit : cell_to_bit.at(cell)) {
-						for (auto c : bit_to_cell[bit])
-							if (unassigned_cells.count(c)) {
-								unassigned_cells.erase(c);
-								next_expand_queue.insert(c);
-								assigned_cells[key].push_back(c);
-								assigned_cells_reverse[c] = key;
-							}
-						bit_to_cell[bit].clear();
-					}
-
-					if (expand_queue.empty())
-						expand_queue.swap(next_expand_queue);
+					for (auto bit : cell_to_bit_up[cell])
+					for (auto c : bit_to_cell_up[bit])
+						if (unassigned_cells.count(c)) {
+							unassigned_cells.erase(c);
+							next_expand_queue_up.insert(c);
+							assigned_cells[key].push_back(c);
+							assigned_cells_reverse[c] = key;
+							expand_queue.insert(c);
+						}
 				}
 
-				clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
-				for (auto cell : unassigned_cells) {
-					assigned_cells[key].push_back(cell);
-					assigned_cells_reverse[cell] = key;
+				if (!expand_queue_down.empty())
+				{
+					RTLIL::Cell *cell = *expand_queue_down.begin();
+					clkdomain_t key = assigned_cells_reverse.at(cell);
+					expand_queue_down.erase(cell);
+
+					for (auto bit : cell_to_bit_down[cell])
+					for (auto c : bit_to_cell_down[bit])
+						if (unassigned_cells.count(c)) {
+							unassigned_cells.erase(c);
+							next_expand_queue_up.insert(c);
+							assigned_cells[key].push_back(c);
+							assigned_cells_reverse[c] = key;
+							expand_queue.insert(c);
+						}
 				}
 
-				log_header(design, "Summary of detected clock domains:\n");
-				for (auto &it : assigned_cells)
-					log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
-							std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
-							std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
-
-				for (auto &it : assigned_cells) {
-					clk_polarity = std::get<0>(it.first);
-					clk_sig = assign_map(std::get<1>(it.first));
-					en_polarity = std::get<2>(it.first);
-					en_sig = assign_map(std::get<3>(it.first));
-					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-							keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode);
-					assign_map.set(mod);
+				if (expand_queue_up.empty() && expand_queue_down.empty()) {
+					expand_queue_up.swap(next_expand_queue_up);
+					expand_queue_down.swap(next_expand_queue_down);
 				}
 			}
+
+			while (!expand_queue.empty())
+			{
+				RTLIL::Cell *cell = *expand_queue.begin();
+				clkdomain_t key = assigned_cells_reverse.at(cell);
+				expand_queue.erase(cell);
+
+				for (auto bit : cell_to_bit.at(cell)) {
+					for (auto c : bit_to_cell[bit])
+						if (unassigned_cells.count(c)) {
+							unassigned_cells.erase(c);
+							next_expand_queue.insert(c);
+							assigned_cells[key].push_back(c);
+							assigned_cells_reverse[c] = key;
+						}
+					bit_to_cell[bit].clear();
+				}
+
+				if (expand_queue.empty())
+					expand_queue.swap(next_expand_queue);
+			}
+
+			clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
+			for (auto cell : unassigned_cells) {
+				assigned_cells[key].push_back(cell);
+				assigned_cells_reverse[cell] = key;
+			}
+
+			log_header(design, "Summary of detected clock domains:\n");
+			for (auto &it : assigned_cells)
+				log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
+						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
+						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
+
+			for (auto &it : assigned_cells) {
+				clk_polarity = std::get<0>(it.first);
+				clk_sig = assign_map(std::get<1>(it.first));
+				en_polarity = std::get<2>(it.first);
+				en_sig = assign_map(std::get<3>(it.first));
+				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode);
+				assign_map.set(mod);
+			}
+		}
 
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
+		signal_init.clear();
 
 		log_pop();
 	}
