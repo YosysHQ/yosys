@@ -621,6 +621,30 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		en_sig = RTLIL::SigSpec();
 	}
 
+	if (!clk_str.empty() && clk_str != "$")
+	{
+		if (clk_str.find(',') != std::string::npos) {
+			int pos = clk_str.find(',');
+			std::string en_str = clk_str.substr(pos+1);
+			clk_str = clk_str.substr(0, pos);
+			if (en_str[0] == '!') {
+				en_polarity = false;
+				en_str = en_str.substr(1);
+			}
+			if (module->wires_.count(RTLIL::escape_id(en_str)) != 0)
+				en_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(en_str)), 0));
+		}
+		if (clk_str[0] == '!') {
+			clk_polarity = false;
+			clk_str = clk_str.substr(1);
+		}
+		if (module->wires_.count(RTLIL::escape_id(clk_str)) != 0)
+			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
+	}
+
+	if (dff_mode && clk_sig.empty())
+		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
+
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
@@ -692,30 +716,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
-
-	if (!clk_str.empty() && clk_str != "$")
-	{
-		if (clk_str.find(',') != std::string::npos) {
-			int pos = clk_str.find(',');
-			std::string en_str = clk_str.substr(pos+1);
-			clk_str = clk_str.substr(0, pos);
-			if (en_str[0] == '!') {
-				en_polarity = false;
-				en_str = en_str.substr(1);
-			}
-			if (module->wires_.count(RTLIL::escape_id(en_str)) != 0)
-				en_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(en_str)), 0));
-		}
-		if (clk_str[0] == '!') {
-			clk_polarity = false;
-			clk_str = clk_str.substr(1);
-		}
-		if (module->wires_.count(RTLIL::escape_id(clk_str)) != 0)
-			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
-	}
-
-	if (dff_mode && clk_sig.empty())
-		log_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	if (dff_mode || !clk_str.empty())
 	{
@@ -1368,6 +1368,10 @@ struct AbcPass : public Pass {
 	{
 		log_header(design, "Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
+
+		assign_map.clear();
+		signal_list.clear();
+		signal_map.clear();
 
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
