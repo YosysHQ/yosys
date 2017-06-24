@@ -7,20 +7,22 @@ module IOBUFE(input I, input E, output O, inout IO);
     assign IO = E ? I : 1'bz;
 endmodule
 
-module ANDTERM(IN, OUT);
-    parameter WIDTH = 0;
+module ANDTERM(IN, IN_B, OUT);
+    parameter TRUE_INP = 0;
+    parameter COMP_INP = 0;
 
-    input [(WIDTH*2)-1:0] IN;
+    input [TRUE_INP-1:0] IN;
+    input [COMP_INP-1:0] IN_B;
     output reg OUT;
 
     integer i;
 
     always @(*) begin
         OUT = 1;
-        for (i = 0; i < WIDTH; i=i+1) begin
-            OUT = OUT & ~IN[i * 2 + 0];
-            OUT = OUT & IN[i * 2 + 1];
-        end
+        for (i = 0; i < TRUE_INP; i=i+1)
+            OUT = OUT & IN[i];
+        for (i = 0; i < COMP_INP; i=i+1)
+            OUT = OUT & ~IN_B[i];
     end
 endmodule
 
