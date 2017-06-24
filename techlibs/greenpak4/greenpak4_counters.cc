@@ -280,7 +280,8 @@ void greenpak4_counters_worker(
 	ModIndex& index,
 	Cell *cell,
 	unsigned int& total_counters,
-	pool<Cell*>& cells_to_remove)
+	pool<Cell*>& cells_to_remove,
+	pool<pair<Cell*, string>>& cells_to_rename)
 {
 	SigMap& sigmap = index.sigmap;
 
@@ -376,6 +377,9 @@ void greenpak4_counters_worker(
 	if(extract.width > 8)
 		celltype = "\\GP_COUNT14";
 
+	//Get new cell name
+	string countname = string("$auto$GP_COUNTx$") + log_id(extract.rwire->name.str());
+
 	//Log it
 	total_counters ++;
 	string reset_type = "non-resettable";
@@ -384,9 +388,10 @@ void greenpak4_counters_worker(
 		//TODO: support other kind of reset
 		reset_type = "async resettable";
 	}
-	log("  Found %d-bit %s down counter (counting from %d) for register %s declared at %s\n",
+	log("  Found %d-bit %s down counter %s (counting from %d) for register %s declared at %s\n",
 		extract.width,
 		reset_type.c_str(),
+		countname.c_str(),
 		extract.count_value,
 		log_id(extract.rwire->name),
 		count_reg_src.c_str());
@@ -445,6 +450,9 @@ void greenpak4_counters_worker(
 	cells_to_remove.insert(extract.count_mux);
 	cells_to_remove.insert(extract.count_reg);
 	cells_to_remove.insert(extract.underflow_inv);
+
+	//Finally, rename the cell
+	cells_to_rename.insert(pair<Cell*, string>(cell, countname));
 }
 
 struct Greenpak4CountersPass : public Pass {
@@ -478,13 +486,23 @@ struct Greenpak4CountersPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			pool<Cell*> cells_to_remove;
+			pool<pair<Cell*, string>> cells_to_rename;
 
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				greenpak4_counters_worker(index, cell, total_counters, cells_to_remove);
+				greenpak4_counters_worker(index, cell, total_counters, cells_to_remove, cells_to_rename);
 
 			for(auto cell : cells_to_remove)
+			{
+				//log("Removing cell %s\n", log_id(cell->name));
 				module->remove(cell);
+			}
+
+			for(auto cpair : cells_to_rename)
+			{
+				//log("Renaming cell %s to %s\n", log_id(cpair.first->name), cpair.second.c_str());
+				module->rename(cpair.first, cpair.second);
+			}
 		}
 
 		if(total_counters)
