@@ -38,6 +38,24 @@ struct Coolrunner2SopPass : public Pass {
 		log_header(design, "Executing COOLRUNNER2_SOP pass (break $sop cells into ANDTERM/ORTERM cells).\n");
 		extra_args(args, 1, design);
 
+		// Find all the $_NOT_ cells
+		dict<SigBit, tuple<SigBit, Cell*>> not_cells;
+		for (auto module : design->selected_modules())
+		{
+			SigMap sigmap(module);
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "$_NOT_")
+				{
+					log("found not cell %s\n", log_id(cell));
+					auto not_input = cell->getPort("\\A")[0];
+					auto not_output = cell->getPort("\\Y")[0];
+					not_cells[not_input] = {not_output, cell};
+				}
+			}
+		}
+
+		pool<tuple<Module*, Cell*>> cells_to_remove;
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
@@ -51,6 +69,20 @@ struct Coolrunner2SopPass : public Pass {
 					auto sop_depth = cell->getParam("\\DEPTH").as_int();
 					auto sop_width = cell->getParam("\\WIDTH").as_int();
 					auto sop_table = cell->getParam("\\TABLE");
+
+					// Check for a $_NOT_ at the output
+					bool has_invert = false;
+					if (not_cells.count(sop_output))
+					{
+						log("sop output is inverted %s\n", log_id(cell));
+						auto not_cell = not_cells.at(sop_output);
+
+						has_invert = true;
+						sop_output = std::get<0>(not_cell);
+
+						// remove the $_NOT_ cell because it gets folded into the xor
+						cells_to_remove.insert({module, std::get<1>(not_cell)});
+					}
 
 					// Construct AND cells
 					pool<SigBit> intermed_wires;
@@ -83,14 +115,12 @@ struct Coolrunner2SopPass : public Pass {
 						and_cell->setPort("\\IN_B", and_in_comp);
 					}
 
-					// TODO: Find the $_NOT_ on the output
-
 					if (sop_depth == 1)
 					{
 						// If there is only one term, don't construct an OR cell. Directly construct the XOR gate
 						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
 						xor_cell->setParam("\\INVERT_PTC", 0);
-						xor_cell->setParam("\\INVERT_OUT", 0);
+						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_PTC", *intermed_wires.begin());
 						xor_cell->setPort("\\OUT", sop_output);
 					}
@@ -108,15 +138,21 @@ struct Coolrunner2SopPass : public Pass {
 						// Construct the XOR cell
 						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
 						xor_cell->setParam("\\INVERT_PTC", 0);
-						xor_cell->setParam("\\INVERT_OUT", 0);
+						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_ORTERM", or_to_xor_wire);
 						xor_cell->setPort("\\OUT", sop_output);
 					}
 
 					// Finally, remove the $sop cell
-					module->remove(cell);
+					cells_to_remove.insert({module, cell});
 				}
 			}
+		}
+
+		// Actually do the removal now that we aren't iterating
+		for (auto mod_and_cell : cells_to_remove)
+		{
+			std::get<0>(mod_and_cell)->remove(std::get<1>(mod_and_cell));
 		}
 	}
 } Coolrunner2SopPass;
