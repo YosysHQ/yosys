@@ -117,7 +117,6 @@ struct Coolrunner2SopPass : public Pass {
 					{
 						// If there is only one term, don't construct an OR cell. Directly construct the XOR gate
 						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
-						xor_cell->setParam("\\INVERT_PTC", 0);
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_PTC", *intermed_wires.begin());
 						xor_cell->setPort("\\OUT", sop_output);
@@ -135,7 +134,6 @@ struct Coolrunner2SopPass : public Pass {
 
 						// Construct the XOR cell
 						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
-						xor_cell->setParam("\\INVERT_PTC", 0);
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_ORTERM", or_to_xor_wire);
 						xor_cell->setPort("\\OUT", sop_output);

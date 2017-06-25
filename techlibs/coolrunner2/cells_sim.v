@@ -43,7 +43,6 @@ module ORTERM(IN, OUT);
 endmodule
 
 module MACROCELL_XOR(IN_PTC, IN_ORTERM, OUT);
-    parameter INVERT_PTC = 0;
     parameter INVERT_OUT = 0;
 
     input IN_PTC;
@@ -53,5 +52,5 @@ module MACROCELL_XOR(IN_PTC, IN_ORTERM, OUT);
     wire xor_intermed;
 
     assign OUT = INVERT_OUT ? ~xor_intermed : xor_intermed;
-    assign xor_intermed = INVERT_PTC ? IN_ORTERM ^ ~IN_PTC : IN_ORTERM ^ IN_PTC;
+    assign xor_intermed = IN_ORTERM ^ IN_PTC;
 endmodule
