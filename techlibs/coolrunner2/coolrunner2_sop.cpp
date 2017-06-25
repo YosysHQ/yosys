@@ -83,21 +83,34 @@ struct Coolrunner2SopPass : public Pass {
 						and_cell->setPort("\\IN_B", and_in_comp);
 					}
 
-					// If there is only one term, don't construct an OR cell
+					// TODO: Find the $_NOT_ on the output
+
 					if (sop_depth == 1)
 					{
-						yosys_xtrace = 1;
-						module->connect(sop_output, *intermed_wires.begin());
-						log("one\n");
+						// If there is only one term, don't construct an OR cell. Directly construct the XOR gate
+						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+						xor_cell->setParam("\\INVERT_PTC", 0);
+						xor_cell->setParam("\\INVERT_OUT", 0);
+						xor_cell->setPort("\\IN_PTC", *intermed_wires.begin());
+						xor_cell->setPort("\\OUT", sop_output);
 					}
 					else
 					{
-						log("more\n");
-						// Construct the cell
+						// Wire from OR to XOR
+						auto or_to_xor_wire = module->addWire(NEW_ID);
+
+						// Construct the OR cell
 						auto or_cell = module->addCell(NEW_ID, "\\ORTERM");
 						or_cell->setParam("\\WIDTH", sop_depth);
 						or_cell->setPort("\\IN", intermed_wires);
-						or_cell->setPort("\\OUT", sop_output);
+						or_cell->setPort("\\OUT", or_to_xor_wire);
+
+						// Construct the XOR cell
+						auto xor_cell = module->addCell(NEW_ID, "\\MACROCELL_XOR");
+						xor_cell->setParam("\\INVERT_PTC", 0);
+						xor_cell->setParam("\\INVERT_OUT", 0);
+						xor_cell->setPort("\\IN_ORTERM", or_to_xor_wire);
+						xor_cell->setPort("\\OUT", sop_output);
 					}
 
 					// Finally, remove the $sop cell
