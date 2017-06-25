@@ -47,7 +47,6 @@ struct Coolrunner2SopPass : public Pass {
 			{
 				if (cell->type == "$_NOT_")
 				{
-					log("found not cell %s\n", log_id(cell));
 					auto not_input = cell->getPort("\\A")[0];
 					auto not_output = cell->getPort("\\Y")[0];
 					not_cells[not_input] = {not_output, cell};
@@ -74,7 +73,6 @@ struct Coolrunner2SopPass : public Pass {
 					bool has_invert = false;
 					if (not_cells.count(sop_output))
 					{
-						log("sop output is inverted %s\n", log_id(cell));
 						auto not_cell = not_cells.at(sop_output);
 
 						has_invert = true;
