@@ -145,6 +145,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		{
 			run("opt -fast -full");
 			run("techmap");
+			run("techmap -map +/coolrunner2/cells_latch.v");
 			run("dfflibmap -prepare -liberty +/coolrunner2/xc2_dff.lib");
 		}
 
@@ -160,6 +161,8 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run("dfflibmap -liberty +/coolrunner2/xc2_dff.lib");
 			run("dffinit -ff FDCP Q INIT");
 			run("dffinit -ff FDCP_N Q INIT");
+			run("dffinit -ff LDCP Q INIT");
+			run("dffinit -ff LDCP_N Q INIT");
 			run("iopadmap -bits -inpad IBUF O:I -outpad IOBUFE I:IO -inoutpad IOBUFE O:IO -toutpad IOBUFE E:I:IO -tinoutpad IOBUFE E:O:I:IO");
 		}
 
