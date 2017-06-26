@@ -134,3 +134,113 @@ module LDCP_N (G, PRE, CLR, D, Q);
             Q <= 1;
     end
 endmodule
+
+module BUFG(I, O);
+    input I;
+    output O;
+
+    assign O = I;
+endmodule
+
+module BUFGSR(I, O);
+    input I;
+    output O;
+
+    assign O = I;
+endmodule
+
+module BUFGTS(I, O);
+    input I;
+    output O;
+
+    assign O = I;
+endmodule
+
+module FDDCP (C, PRE, CLR, D, Q);
+    parameter INIT = 0;
+
+    input C, PRE, CLR, D;
+    output reg Q;
+
+    initial begin
+        Q <= INIT;
+    end
+
+    always @(posedge C, negedge C, posedge PRE, posedge CLR) begin
+        if (CLR == 1)
+            Q <= 0;
+        else if (PRE == 1)
+            Q <= 1;
+        else
+            Q <= D;
+    end
+endmodule
+
+module FTCP (C, PRE, CLR, T, Q);
+    parameter INIT = 0;
+
+    input C, PRE, CLR, T;
+    output wire Q;
+    reg Q_;
+
+    initial begin
+        Q_ <= INIT;
+    end
+
+    always @(posedge C, posedge PRE, posedge CLR) begin
+        if (CLR == 1)
+            Q_ <= 0;
+        else if (PRE == 1)
+            Q_ <= 1;
+        else if (T == 1)
+            Q_ <= ~Q_;
+    end
+
+    assign Q = Q_;
+endmodule
+
+module FTCP_N (C, PRE, CLR, T, Q);
+    parameter INIT = 0;
+
+    input C, PRE, CLR, T;
+    output wire Q;
+    reg Q_;
+
+    initial begin
+        Q_ <= INIT;
+    end
+
+    always @(negedge C, posedge PRE, posedge CLR) begin
+        if (CLR == 1)
+            Q_ <= 0;
+        else if (PRE == 1)
+            Q_ <= 1;
+        else if (T == 1)
+            Q_ <= ~Q_;
+    end
+
+    assign Q = Q_;
+endmodule
+
+module FTDCP (C, PRE, CLR, T, Q);
+    parameter INIT = 0;
+
+    input C, PRE, CLR, T;
+    output wire Q;
+    reg Q_;
+
+    initial begin
+        Q_ <= INIT;
+    end
+
+    always @(posedge C, negedge C, posedge PRE, posedge CLR) begin
+        if (CLR == 1)
+            Q_ <= 0;
+        else if (PRE == 1)
+            Q_ <= 1;
+        else if (T == 1)
+            Q_ <= ~Q_;
+    end
+
+    assign Q = Q_;
+endmodule
