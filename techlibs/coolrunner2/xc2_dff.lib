@@ -1,0 +1,31 @@
+library(xc2_dff) {
+  cell(FDCP) {
+    area: 1;
+    ff("IQ", "IQN") { clocked_on: C;
+                      next_state: D;
+                      clear: "CLR";
+                      preset: "PRE"; }
+    pin(C) { direction: input;
+             clock: true; }
+    pin(D) { direction: input; }
+    pin(Q) { direction: output;
+             function: "IQ"; }
+    pin(CLR) { direction: input; }
+    pin(PRE) { direction: input; }
+  }
+
+  cell(FDCP_N) {
+    area: 1;
+    ff("IQ", "IQN") { clocked_on: "!C";
+                      next_state: D;
+                      clear: "CLR";
+                      preset: "PRE"; }
+    pin(C) { direction: input;
+             clock: true; }
+    pin(D) { direction: input; }
+    pin(Q) { direction: output;
+             function: "IQ"; }
+    pin(CLR) { direction: input; }
+    pin(PRE) { direction: input; }
+  }
+}
