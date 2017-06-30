@@ -81,6 +81,13 @@ struct DesignPass : public Pass {
 		log("Copy modules from the current design into the specified one.\n");
 		log("\n");
 		log("\n");
+		log("    design -import <name> [-as <new_top_name>] [selection]\n");
+		log("\n");
+		log("Import the specified design into the current design. The source design must\n");
+		log("either have a selected top module or the selection must contain exactly one\n");
+		log("module that is then used as top module for this command.\n");
+		log("\n");
+		log("\n");
 		log("    design -reset-vlog\n");
 		log("\n");
 		log("The Verilog front-end remembers defined macros and top-level declarations\n");
@@ -94,6 +101,7 @@ struct DesignPass : public Pass {
 		bool reset_vlog_mode = false;
 		bool push_mode = false;
 		bool pop_mode = false;
+		bool import_mode = false;
 		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
 		std::string save_name, load_name, as_name;
 		std::vector<RTLIL::Module*> copy_src_modules;
@@ -156,8 +164,17 @@ struct DesignPass : public Pass {
 				copy_from_design = design;
 				continue;
 			}
-			if (copy_from_design != NULL && args[argidx] == "-as" && argidx+1 < args.size()) {
+			if (!got_mode && args[argidx] == "-import" && argidx+1 < args.size()) {
 				got_mode = true;
+				import_mode = true;
+				if (saved_designs.count(args[++argidx]) == 0)
+					log_cmd_error("No saved design '%s' found!\n", args[argidx].c_str());
+				copy_from_design = saved_designs.at(args[argidx]);
+				copy_to_design = design;
+				as_name = args[argidx];
+				continue;
+			}
+			if (copy_from_design != NULL && args[argidx] == "-as" && argidx+1 < args.size()) {
 				as_name = args[++argidx];
 				continue;
 			}
@@ -166,10 +183,10 @@ struct DesignPass : public Pass {
 
 		if (copy_from_design != NULL)
 		{
-			if (copy_from_design != design && argidx == args.size())
+			if (copy_from_design != design && argidx == args.size() && !import_mode)
 				cmd_error(args, argidx, "Missing selection.");
 
-			RTLIL::Selection sel = design->selection_stack.back();
+			RTLIL::Selection sel;
 			if (argidx != args.size()) {
 				handle_extra_select_args(this, args, argidx, args.size(), copy_from_design);
 				sel = copy_from_design->selection_stack.back();
@@ -185,6 +202,17 @@ struct DesignPass : public Pass {
 				if (sel.selected_module(it.first))
 					log_cmd_error("Module %s is only partly selected.\n", RTLIL::id2cstr(it.first));
 			}
+
+			if (import_mode) {
+				for (auto module : copy_src_modules)
+				{
+					if (module->get_bool_attribute("\\top")) {
+						copy_src_modules.clear();
+						copy_src_modules.push_back(module);
+						break;
+					}
+				}
+			}
 		}
 
 		extra_args(args, argidx, design, false);
@@ -195,6 +223,68 @@ struct DesignPass : public Pass {
 		if (pop_mode && pushed_designs.empty())
 			log_cmd_error("No pushed designs.\n");
 
+		if (import_mode)
+		{
+			std::string prefix = RTLIL::escape_id(as_name);
+
+			pool<Module*> queue;
+			dict<IdString, IdString> done;
+
+			if (copy_to_design->modules_.count(prefix))
+				delete copy_to_design->modules_.at(prefix);
+
+			if (GetSize(copy_src_modules) != 1)
+				log_cmd_error("No top module found in source design.\n");
+
+			for (auto mod : copy_src_modules)
+			{
+				log("Importing %s as %s.\n", log_id(mod), log_id(prefix));
+
+				copy_to_design->modules_[prefix] = mod->clone();
+				copy_to_design->modules_[prefix]->name = prefix;
+				copy_to_design->modules_[prefix]->design = copy_to_design;
+				copy_to_design->modules_[prefix]->attributes.erase("\\top");
+
+				queue.insert(copy_to_design->modules_[prefix]);
+				done[mod->name] = prefix;
+			}
+
+			while (!queue.empty())
+			{
+				pool<Module*> old_queue;
+				old_queue.swap(queue);
+
+				for (auto mod : old_queue)
+				for (auto cell : mod->cells())
+				{
+					Module *fmod = copy_from_design->module(cell->type);
+
+					if (fmod == nullptr)
+						continue;
+
+					if (done.count(cell->type) == 0)
+					{
+						std::string trg_name = prefix + "." + (cell->type.c_str() + (*cell->type.c_str() == '\\'));
+
+						log("Importing %s as %s.\n", log_id(fmod), log_id(trg_name));
+
+						if (copy_to_design->modules_.count(trg_name))
+							delete copy_to_design->modules_.at(trg_name);
+
+						copy_to_design->modules_[trg_name] = fmod->clone();
+						copy_to_design->modules_[trg_name]->name = trg_name;
+						copy_to_design->modules_[trg_name]->design = copy_to_design;
+						copy_to_design->modules_[trg_name]->attributes.erase("\\top");
+
+						queue.insert(copy_to_design->modules_[trg_name]);
+						done[cell->type] = trg_name;
+					}
+
+					cell->type = done.at(cell->type);
+				}
+			}
+		}
+		else
 		if (copy_to_design != NULL)
 		{
 			if (!as_name.empty() && copy_src_modules.size() > 1)
@@ -206,6 +296,7 @@ struct DesignPass : public Pass {
 
 				if (copy_to_design->modules_.count(trg_name))
 					delete copy_to_design->modules_.at(trg_name);
+
 				copy_to_design->modules_[trg_name] = mod->clone();
 				copy_to_design->modules_[trg_name]->name = trg_name;
 				copy_to_design->modules_[trg_name]->design = copy_to_design;
