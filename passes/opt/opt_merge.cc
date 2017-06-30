@@ -275,6 +275,7 @@ struct OptMergeWorker
 			ct.cell_types.erase("$pmux");
 		}
 
+		ct.cell_types.erase("$tribuf");
 		ct.cell_types.erase("$anyseq");
 		ct.cell_types.erase("$anyconst");
 
