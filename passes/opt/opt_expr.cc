@@ -371,13 +371,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (cell->type.in("$reduce_and", "$_AND_"))
 			detect_const_and = true;
 
-		if (cell->type.in("$and", "$logic_and") && GetSize(cell->getPort("\\A")) == 1 && GetSize(cell->getPort("\\B")) == 1)
+		if (cell->type.in("$and", "$logic_and") && GetSize(cell->getPort("\\A")) == 1 && GetSize(cell->getPort("\\B")) == 1 && !cell->getParam("\\A_SIGNED").as_bool())
 			detect_const_and = true;
 
 		if (cell->type.in("$reduce_or", "$reduce_bool", "$_OR_"))
 			detect_const_or = true;
 
-		if (cell->type.in("$or", "$logic_or") && GetSize(cell->getPort("\\A")) == 1 && GetSize(cell->getPort("\\B")) == 1)
+		if (cell->type.in("$or", "$logic_or") && GetSize(cell->getPort("\\A")) == 1 && GetSize(cell->getPort("\\B")) == 1 && !cell->getParam("\\A_SIGNED").as_bool())
 			detect_const_or = true;
 
 		if (detect_const_and || detect_const_or)
