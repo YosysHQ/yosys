@@ -755,11 +755,11 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
             for info in anyseqs:
                 if info[3] is not None:
-                    modstate = smt.net_expr(topmod, "s%d" % steps_start, info[0])
+                    modstate = smt.net_expr(topmod, "s%d" % i, info[0])
                     value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
-                    print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                    print("    UUT.%s <= %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
 
-        print("    genclock = 0;", file=f)
+        print("    genclock <= 0;", file=f)
         print("  end", file=f)
 
         print("endmodule", file=f)
