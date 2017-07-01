@@ -33,6 +33,7 @@ aimfile = None
 aiwfile = None
 aigheader = True
 vlogtbfile = None
+vlogtbtop = None
 inconstr = list()
 outconstr = None
 gentrace = False
@@ -107,6 +108,11 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --dump-vlogtb <verilog_filename>
         write trace as Verilog test bench
 
+    --vlogtb-top <hierarchical_name>
+        use the given entity as top module for the generated
+        Verilog test bench. The <hierarchical_name> is relative
+        to the design top module without the top module name.
+
     --dump-smtc <constr_filename>
         write trace as constraints file
 
@@ -126,7 +132,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader",
-             "dump-vcd=", "dump-vlogtb=", "dump-smtc=", "dump-all", "noinfo", "append="])
+             "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append="])
 except:
     usage()
 
@@ -165,6 +171,8 @@ for o, a in opts:
         vcdfile = a
     elif o == "--dump-vlogtb":
         vlogtbfile = a
+    elif o == "--vlogtb-top":
+        vlogtbtop = a
     elif o == "--dump-smtc":
         outconstr = a
     elif o == "--dump-all":
@@ -661,6 +669,15 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
     filename = vlogtbfile.replace("%", index)
     print_msg("Writing trace to Verilog testbench: %s" % (filename))
 
+    vlogtb_topmod = topmod
+    vlogtb_state = "s@@step_idx@@"
+
+    if vlogtbtop is not None:
+        for item in vlogtbtop.split("."):
+            assert item in smt.modinfo[vlogtb_topmod].cells
+            vlogtb_state = "(|%s_h %s| %s)" % (vlogtb_topmod, item, vlogtb_state)
+            vlogtb_topmod = smt.modinfo[vlogtb_topmod].cells[item]
+
     with open(filename, "w") as f:
         print("module testbench;", file=f)
         print("  reg [4095:0] vcdfile;", file=f)
@@ -669,10 +686,10 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
         primary_inputs = list()
         clock_inputs = set()
 
-        for name in smt.modinfo[topmod].inputs:
+        for name in smt.modinfo[vlogtb_topmod].inputs:
             if name in ["clk", "clock", "CLK", "CLOCK"]:
                 clock_inputs.add(name)
-            width = smt.modinfo[topmod].wsize[name]
+            width = smt.modinfo[vlogtb_topmod].wsize[name]
             primary_inputs.append((name, width))
 
         for name, width in primary_inputs:
@@ -681,7 +698,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             else:
                 print("  reg [%d:0] PI_%s;" % (width-1, name), file=f)
 
-        print("  %s UUT (" % topmod, file=f)
+        print("  %s UUT (" % vlogtb_topmod, file=f)
         print(",\n".join("    .{name}(PI_{name})".format(name=name) for name, _ in primary_inputs), file=f)
         print("  );", file=f)
 
@@ -698,8 +715,8 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
         print("  initial begin", file=f)
 
-        regs = sorted(smt.hiernets(topmod, regs_only=True))
-        regvals = smt.get_net_bin_list(topmod, regs, "s%d" % steps_start)
+        regs = sorted(smt.hiernets(vlogtb_topmod, regs_only=True))
+        regvals = smt.get_net_bin_list(vlogtb_topmod, regs, vlogtb_state.replace("@@step_idx@@", str(steps_start)))
 
         print("    #1;", file=f)
         for reg, val in zip(regs, regvals):
@@ -709,23 +726,23 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
                     hidden_net = True
             print("    %sUUT.%s = %d'b%s;" % ("// " if hidden_net else "", ".".join(reg), len(val), val), file=f)
 
-        anyconsts = sorted(smt.hieranyconsts(topmod))
+        anyconsts = sorted(smt.hieranyconsts(vlogtb_topmod))
         for info in anyconsts:
             if info[3] is not None:
-                modstate = smt.net_expr(topmod, "s%d" % steps_start, info[0])
+                modstate = smt.net_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(steps_start)), info[0])
                 value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
                 print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
 
-        mems = sorted(smt.hiermems(topmod))
+        mems = sorted(smt.hiermems(vlogtb_topmod))
         for mempath in mems:
-            abits, width, rports, wports = smt.mem_info(topmod, mempath)
+            abits, width, rports, wports = smt.mem_info(vlogtb_topmod, mempath)
 
             addr_expr_list = list()
             data_expr_list = list()
             for i in range(steps_start, steps_stop):
                 for j in range(rports):
-                    addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dA" % j))
-                    data_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dD" % j))
+                    addr_expr_list.append(smt.mem_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(i)), mempath, "R%dA" % j))
+                    data_expr_list.append(smt.mem_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(i)), mempath, "R%dD" % j))
 
             addr_list = smt.get_list(addr_expr_list)
             data_list = smt.get_list(data_expr_list)
@@ -740,11 +757,11 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             for addr, data in addr_data.items():
                 print("    UUT.%s[%d'b%s] = %d'b%s;" % (".".join(mempath), len(addr), addr, len(data), data), file=f)
 
-        anyseqs = sorted(smt.hieranyseqs(topmod))
+        anyseqs = sorted(smt.hieranyseqs(vlogtb_topmod))
 
         for i in range(steps_start, steps_stop):
             pi_names = [[name] for name, _ in primary_inputs if name not in clock_inputs]
-            pi_values = smt.get_net_bin_list(topmod, pi_names, "s%d" % i)
+            pi_values = smt.get_net_bin_list(vlogtb_topmod, pi_names, vlogtb_state.replace("@@step_idx@@", str(i)))
 
             print("    #1;", file=f)
             print("    // state %d" % i, file=f)
@@ -755,7 +772,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
             for info in anyseqs:
                 if info[3] is not None:
-                    modstate = smt.net_expr(topmod, "s%d" % i, info[0])
+                    modstate = smt.net_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(i)), info[0])
                     value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
                     print("    UUT.%s <= %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
 
