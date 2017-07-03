@@ -763,7 +763,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             pi_names = [[name] for name, _ in primary_inputs if name not in clock_inputs]
             pi_values = smt.get_net_bin_list(vlogtb_topmod, pi_names, vlogtb_state.replace("@@step_idx@@", str(i)))
 
-            print("    #1;", file=f)
+            print("", file=f)
             print("    // state %d" % i, file=f)
             if i > 0:
                 print("    @(posedge clock);", file=f)
