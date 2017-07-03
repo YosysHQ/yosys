@@ -504,6 +504,14 @@ clean:
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
+	rm -rf tests/asicworld/*.out tests/asicworld/*.log
+	rm -rf tests/hana/*.out tests/hana/*.log
+	rm -rf tests/simple/*.out tests/simple/*.log
+	rm -rf tests/memories/*.out tests/memories/*.log tests/memories/*.dmp
+	rm -rf tests/sat/*.log tests/techmap/*.log tests/various/*.log
+	rm -rf tests/bram/temp tests/fsm/temp tests/realmath/temp tests/share/temp tests/smv/temp
+	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
+	rm -f  tests/tools/cmp_tbdata
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
