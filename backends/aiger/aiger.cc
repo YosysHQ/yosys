@@ -112,10 +112,20 @@ struct AigerWriter
 						init_map[initsig[i]] = initval[i] == State::S1;
 			}
 
+			int index = 0;
 			for (auto bit : sigmap(wire))
 			{
 				if (bit.wire == nullptr)
+				{
+					if (wire->port_output) {
+						SigBit wirebit(wire, index);
+						aig_map[wirebit] = (bit == State::S1) ? 1 : 0;
+						output_bits.insert(wirebit);
+					}
+
+					index++;
 					continue;
+				}
 
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
@@ -125,6 +135,8 @@ struct AigerWriter
 
 				if (wire->port_output)
 					output_bits.insert(bit);
+
+				index++;
 			}
 		}
 
@@ -495,8 +507,12 @@ struct AigerWriter
 
 				for (int i = 0; i < GetSize(wire); i++)
 				{
-					if (sig[i].wire == nullptr)
-						continue;
+					if (sig[i].wire == nullptr) {
+						if (wire->port_output)
+							sig[i] = SigBit(wire, i);
+						else
+							continue;
+					}
 
 					if (wire->port_input) {
 						int a = aig_map.at(sig[i]);
