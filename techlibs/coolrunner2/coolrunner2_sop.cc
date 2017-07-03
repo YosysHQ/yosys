@@ -49,7 +49,7 @@ struct Coolrunner2SopPass : public Pass {
 				{
 					auto not_input = cell->getPort("\\A")[0];
 					auto not_output = cell->getPort("\\Y")[0];
-					not_cells[not_input] = {not_output, cell};
+					not_cells[not_input] = tuple<SigBit, Cell*>(not_output, cell);
 				}
 			}
 		}
@@ -79,7 +79,7 @@ struct Coolrunner2SopPass : public Pass {
 						sop_output = std::get<0>(not_cell);
 
 						// remove the $_NOT_ cell because it gets folded into the xor
-						cells_to_remove.insert({module, std::get<1>(not_cell)});
+						cells_to_remove.insert(tuple<Module*, Cell*>(module, std::get<1>(not_cell)));
 					}
 
 					// Construct AND cells
@@ -140,7 +140,7 @@ struct Coolrunner2SopPass : public Pass {
 					}
 
 					// Finally, remove the $sop cell
-					cells_to_remove.insert({module, cell});
+					cells_to_remove.insert(tuple<Module*, Cell*>(module, cell));
 				}
 			}
 		}
