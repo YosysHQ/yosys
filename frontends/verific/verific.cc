@@ -1044,6 +1044,18 @@ struct VerificPass : public Pass {
 		Message::SetConsoleOutput(0);
 		Message::RegisterCallBackMsg(msg_func);
 
+		const char *release_str = Message::ReleaseString();
+		time_t release_time = Message::ReleaseDate();
+		char *release_tmstr = ctime(&release_time);
+
+		if (release_str == nullptr)
+			release_str = "(no release string)";
+
+		for (char *p = release_tmstr; *p; p++)
+			if (*p == '\n') *p = 0;
+
+		log("Built with Verific %s, released at %s.\n", release_str, release_tmstr);
+
 		if (args.size() > 1 && args[1] == "-vlog95") {
 			for (size_t argidx = 2; argidx < args.size(); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_95))
