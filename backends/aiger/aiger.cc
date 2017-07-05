@@ -43,7 +43,7 @@ struct AigerWriter
 
 	dict<SigBit, bool> init_map;
 	pool<SigBit> input_bits, output_bits;
-	dict<SigBit, SigBit> not_map, ff_map;
+	dict<SigBit, SigBit> not_map, ff_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<pair<SigBit, SigBit>> asserts, assumes;
 	vector<pair<SigBit, SigBit>> liveness, fairness;
@@ -87,6 +87,9 @@ struct AigerWriter
 				int a0 = bit2aig(args.first);
 				int a1 = bit2aig(args.second);
 				aig_map[bit] = mkgate(a0, a1);
+			} else
+			if (alias_map.count(bit)) {
+				aig_map[bit] = bit2aig(alias_map.at(bit));
 			}
 
 			if (bit == State::Sx || bit == State::Sz)
@@ -102,6 +105,21 @@ struct AigerWriter
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
 
+		// promote public wires
+		for (auto wire : module->wires())
+			if (wire->name[0] == '\\')
+				sigmap.add(wire);
+
+		// promote input wires
+		for (auto wire : module->wires())
+			if (wire->port_input)
+				sigmap.add(wire);
+
+		// promote output wires
+		for (auto wire : module->wires())
+			if (wire->port_output)
+				sigmap.add(wire);
+
 		for (auto wire : module->wires())
 		{
 			if (wire->attributes.count("\\init")) {
@@ -112,18 +130,16 @@ struct AigerWriter
 						init_map[initsig[i]] = initval[i] == State::S1;
 			}
 
-			int index = 0;
-			for (auto bit : sigmap(wire))
+			for (int i = 0; i < GetSize(wire); i++)
 			{
-				if (bit.wire == nullptr)
-				{
+				SigBit wirebit(wire, i);
+				SigBit bit = sigmap(wirebit);
+
+				if (bit.wire == nullptr) {
 					if (wire->port_output) {
-						SigBit wirebit(wire, index);
 						aig_map[wirebit] = (bit == State::S1) ? 1 : 0;
 						output_bits.insert(wirebit);
 					}
-
-					index++;
 					continue;
 				}
 
@@ -133,10 +149,11 @@ struct AigerWriter
 				if (wire->port_input)
 					input_bits.insert(bit);
 
-				if (wire->port_output)
-					output_bits.insert(bit);
-
-				index++;
+				if (wire->port_output) {
+					if (bit != wirebit)
+						alias_map[wirebit] = bit;
+					output_bits.insert(wirebit);
+				}
 			}
 		}
 
@@ -524,7 +541,7 @@ struct AigerWriter
 					}
 
 					if (wire->port_output) {
-						int o = ordered_outputs.at(sig[i]);
+						int o = ordered_outputs.at(SigSpec(wire, i));
 						if (GetSize(wire) != 1)
 							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", log_id(wire), i));
 						else
