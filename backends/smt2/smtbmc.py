@@ -1126,9 +1126,9 @@ else:  # not tempind, covermode
 
             if not final_only:
                 if last_check_step == step:
-                    print_msg("Checking asserts in step %d.." % (step))
+                    print_msg("Checking assertions in step %d.." % (step))
                 else:
-                    print_msg("Checking asserts in steps %d to %d.." % (step, last_check_step))
+                    print_msg("Checking assertions in steps %d to %d.." % (step, last_check_step))
                 smt.write("(push 1)")
 
                 smt.write("(assert (not (and %s)))" % " ".join(["(|%s_a| s%d)" % (topmod, i) for i in range(step, last_check_step+1)] +
