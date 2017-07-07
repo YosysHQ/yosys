@@ -44,6 +44,7 @@ assume_skipped = None
 final_only = False
 topmod = None
 noinfo = False
+presat = False
 so = SmtOpts()
 
 
@@ -92,6 +93,13 @@ yosys-smtbmc [options] <yosys_smt2_output>
         only run the core proof, do not collect and print any
         additional information (e.g. which assert failed)
 
+    --presat
+        check if the design with assumptions but without assertions
+        is SAT before checking if assertions are UNSAT. This will
+        detect if there are contradicting assumtions. In some cases
+        this will also help to "warmup" the solver, potentially
+        yielding a speedup.
+
     --final-only
         only check final constraints, assume base case
 
@@ -131,7 +139,7 @@ yosys-smtbmc [options] <yosys_smt2_output>
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader",
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "presat",
              "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append="])
 except:
     usage()
@@ -177,6 +185,8 @@ for o, a in opts:
         outconstr = a
     elif o == "--dump-all":
         dumpall = True
+    elif o == "--presat":
+        presat = True
     elif o == "--noinfo":
         noinfo = True
     elif o == "--append":
@@ -1103,6 +1113,17 @@ else:  # not tempind, covermode
                 last_check_step = step+i
 
         if not gentrace:
+            if presat:
+                if last_check_step == step:
+                    print_msg("Checking assumptions in step %d.." % (step))
+                else:
+                    print_msg("Checking assumptions in steps %d to %d.." % (step, last_check_step))
+
+                if smt.check_sat() == "unsat":
+                    print("%s Warmup failed!" % smt.timestamp())
+                    retstatus = False
+                    break
+
             if not final_only:
                 if last_check_step == step:
                     print_msg("Checking asserts in step %d.." % (step))
@@ -1124,8 +1145,7 @@ else:  # not tempind, covermode
                             smt.write("(assert (|%s_h| s%d))" % (topmod, i))
                             smt.write("(assert (|%s_t| s%d s%d))" % (topmod, i-1, i))
                             smt.write("(assert %s)" % get_constr_expr(constr_assumes, i))
-                        print_msg("Re-solving with appended steps..")
-                        assert smt.check_sat() == "sat"
+                            assert smt.check_sat() == "sat"
                     print_anyconsts(step)
                     for i in range(step, last_check_step+1):
                         print_failed_asserts(i)
