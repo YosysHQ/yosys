@@ -201,6 +201,8 @@ struct JsonWriter
 	void write_design(Design *design_)
 	{
 		design = design_;
+		design->sort();
+
 		f << stringf("{\n");
 		f << stringf("  \"creator\": %s,\n", get_string(yosys_version_str).c_str());
 		f << stringf("  \"modules\": {\n");

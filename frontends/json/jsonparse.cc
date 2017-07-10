@@ -28,6 +28,7 @@ struct JsonNode
 	int data_number;
 	vector<JsonNode*> data_array;
 	dict<string, JsonNode*> data_dict;
+	vector<string> data_dict_keys;
 
 	JsonNode(std::istream &f)
 	{
@@ -158,6 +159,7 @@ struct JsonNode
 						log_error("Unexpected non-string key in JSON dict.\n");
 
 					data_dict[key.data_string] = value;
+					data_dict_keys.push_back(key.data_string);
 				}
 
 				break;
@@ -176,6 +178,40 @@ struct JsonNode
 	}
 };
 
+void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
+{
+	if (node->type != 'D')
+		log_error("JSON attributes or parameters node is not a dictionary.\n");
+
+	for (auto it : node->data_dict)
+	{
+		IdString key = RTLIL::escape_id(it.first.c_str());
+		JsonNode *value_node = it.second;
+		Const value;
+
+		if (value_node->type == 'S') {
+			string &s = value_node->data_string;
+			if (s.find_first_not_of("01xz") == string::npos)
+				value = Const::from_string(s);
+			else
+				value = Const(s);
+		} else
+		if (value_node->type == 'N') {
+			value = Const(value_node->data_number, 32);
+		} else
+		if (value_node->type == 'A') {
+			log_error("JSON attribute or parameter value is an array.\n");
+		} else
+		if (value_node->type == 'D') {
+			log_error("JSON attribute or parameter value is a dict.\n");
+		} else {
+			log_abort();
+		}
+
+		results[key] = value;
+	}
+}
+
 void json_import(Design *design, string &modname, JsonNode *node)
 {
 	log("Importing module %s from JSON tree.\n", modname.c_str());
@@ -188,7 +224,8 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 	design->add(module);
 
-	// FIXME: Handle module attributes
+	if (node->data_dict.count("attributes"))
+		json_parse_attr_param(module->attributes, node->data_dict.at("attributes"));
 
 	dict<int, SigBit> signal_bits;
 
@@ -199,10 +236,10 @@ void json_import(Design *design, string &modname, JsonNode *node)
 		if (ports_node->type != 'D')
 			log_error("JSON ports node is not a dictionary.\n");
 
-		for (auto &port : ports_node->data_dict)
+		for (int port_id = 1; port_id <= GetSize(ports_node->data_dict_keys); port_id++)
 		{
-			IdString port_name = RTLIL::escape_id(port.first.c_str());
-			JsonNode *port_node = port.second;
+			IdString port_name = RTLIL::escape_id(ports_node->data_dict_keys[port_id-1].c_str());
+			JsonNode *port_node = ports_node->data_dict.at(ports_node->data_dict_keys[port_id-1]);
 
 			if (port_node->type != 'D')
 				log_error("JSON port node '%s' is not a dictionary.\n", log_id(port_name));
@@ -237,6 +274,8 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				port_wire->port_output = true;
 			} else
 				log_error("JSON port node '%s' has invalid '%s' direction attribute.\n", log_id(port_name), port_direction_node->data_string.c_str());
+
+			port_wire->port_id = port_id;
 
 			for (int i = 0; i < GetSize(port_bits_node->data_array); i++)
 			{
@@ -334,7 +373,8 @@ void json_import(Design *design, string &modname, JsonNode *node)
 					log_error("JSON netname node '%s' has invalid bit value on bit %d.\n", log_id(net_name), i);
 			}
 
-			// FIXME: Handle wire attributes
+			if (net_node->data_dict.count("attributes"))
+				json_parse_attr_param(wire->attributes, net_node->data_dict.at("attributes"));
 		}
 	}
 
@@ -414,8 +454,11 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				cell->setPort(conn_name, sig);
 			}
 
-			// FIXME: Handle cell attributes
-			// FIXME: Handle cell parameters
+			if (cell_node->data_dict.count("attributes"))
+				json_parse_attr_param(cell->attributes, cell_node->data_dict.at("attributes"));
+
+			if (cell_node->data_dict.count("parameters"))
+				json_parse_attr_param(cell->parameters, cell_node->data_dict.at("parameters"));
 		}
 	}
 }
