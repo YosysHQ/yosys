@@ -374,7 +374,17 @@ struct EdifBackend : public Backend {
 			}
 			for (auto &it : net_join_db) {
 				RTLIL::SigBit sig = it.first;
-				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1)
+				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
+					if (sig == RTLIL::State::Sx) {
+						for (auto &ref : it.second)
+							log_warning("Exporting x-bit on %s as zero bit.\n", ref.c_str());
+						sig = RTLIL::State::S0;
+					} else {
+						for (auto &ref : it.second)
+							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.c_str());
+						log_abort();
+					}
+				}
 					log_abort();
 				std::string netname;
 				if (sig == RTLIL::State::S0)
