@@ -385,7 +385,6 @@ struct EdifBackend : public Backend {
 						log_abort();
 					}
 				}
-					log_abort();
 				std::string netname;
 				if (sig == RTLIL::State::S0)
 					netname = "GND_NET";
