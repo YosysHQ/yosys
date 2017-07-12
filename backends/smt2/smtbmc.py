@@ -692,6 +692,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
         print("module testbench;", file=f)
         print("  reg [4095:0] vcdfile;", file=f)
         print("  reg clock = 0, genclock = 1;", file=f)
+        print("  reg [31:0] cycle = 0;", file=f)
 
         primary_inputs = list()
         clock_inputs = set()
@@ -767,26 +768,43 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             for addr, data in addr_data.items():
                 print("    UUT.%s[%d'b%s] = %d'b%s;" % (".".join(mempath), len(addr), addr, len(data), data), file=f)
 
+        print("", file=f)
         anyseqs = sorted(smt.hieranyseqs(vlogtb_topmod))
 
         for i in range(steps_start, steps_stop):
             pi_names = [[name] for name, _ in primary_inputs if name not in clock_inputs]
             pi_values = smt.get_net_bin_list(vlogtb_topmod, pi_names, vlogtb_state.replace("@@step_idx@@", str(i)))
 
-            print("", file=f)
             print("    // state %d" % i, file=f)
+
             if i > 0:
-                print("    @(posedge clock);", file=f)
+                print("    if (cycle == %d) begin" % (i-1), file=f)
+
             for name, val in zip(pi_names, pi_values):
-                print("    PI_%s <= %d'b%s;" % (".".join(name), len(val), val), file=f)
+                if i > 0:
+                    print("      PI_%s <= %d'b%s;" % (".".join(name), len(val), val), file=f)
+                else:
+                    print("    PI_%s = %d'b%s;" % (".".join(name), len(val), val), file=f)
 
             for info in anyseqs:
                 if info[3] is not None:
                     modstate = smt.net_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(i)), info[0])
                     value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
-                    print("    UUT.%s <= %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                    if i > 0:
+                        print("      UUT.%s <= %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                    else:
+                        print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
 
-        print("    genclock <= 0;", file=f)
+            if i > 0:
+                print("    end", file=f)
+                print("", file=f)
+
+            if i == 0:
+                print("  end", file=f)
+                print("  always @(posedge clock) begin", file=f)
+
+        print("    genclock <= cycle < %d;" % (steps_stop-1), file=f)
+        print("    cycle <= cycle + 1;", file=f)
         print("  end", file=f)
 
         print("endmodule", file=f)
