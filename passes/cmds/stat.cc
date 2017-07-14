@@ -112,7 +112,7 @@ struct statdata_t
 						"$lut", "$and", "$or", "$xor", "$xnor",
 						"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
 						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
-						"$add", "$sub", "$mul", "$div", "$mod", "$pow")) {
+						"$add", "$sub", "$mul", "$div", "$mod", "$pow", "$alu")) {
 					int width_a = it.second->hasPort("\\A") ? GetSize(it.second->getPort("\\A")) : 0;
 					int width_b = it.second->hasPort("\\B") ? GetSize(it.second->getPort("\\B")) : 0;
 					int width_y = it.second->hasPort("\\Y") ? GetSize(it.second->getPort("\\Y")) : 0;
