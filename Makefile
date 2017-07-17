@@ -19,6 +19,7 @@ ENABLE_LIBYOSYS := 0
 ENABLE_GPROF := 0
 ENABLE_NDEBUG := 0
 LINK_CURSES := 0
+LINK_TERMCAP := 0
 
 # clang sanitizers
 SANITIZER =
@@ -212,6 +213,10 @@ LDLIBS += -lreadline
 ifeq ($(LINK_CURSES),1)
 LDLIBS += -lcurses
 ABCMKARGS += "ABC_READLINE_LIBRARIES=-lcurses -lreadline"
+endif
+ifeq ($(LINK_TERMCAP),1)
+LDLIBS += -ltermcap
+ABCMKARGS += "ABC_READLINE_LIBRARIES=-lreadline -ltermcap"
 endif
 ifeq ($(CONFIG),mxe)
 LDLIBS += -ltermcap
