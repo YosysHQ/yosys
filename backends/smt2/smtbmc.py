@@ -689,9 +689,16 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             vlogtb_topmod = smt.modinfo[vlogtb_topmod].cells[item]
 
     with open(filename, "w") as f:
+        print("`ifndef VERILATOR", file=f)
         print("module testbench;", file=f)
         print("  reg [4095:0] vcdfile;", file=f)
-        print("  reg clock = 0, genclock = 1;", file=f)
+        print("  reg clock;", file=f)
+        print("`else", file=f)
+        print("module testbench(input clock, output reg genclock);", file=f)
+        print("  initial genclock = 1;", file=f)
+        print("`endif", file=f)
+
+        print("  reg genclock = 1;", file=f)
         print("  reg [31:0] cycle = 0;", file=f)
 
         primary_inputs = list()
@@ -713,23 +720,28 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
         print(",\n".join("    .{name}(PI_{name})".format(name=name) for name, _ in primary_inputs), file=f)
         print("  );", file=f)
 
+        print("`ifndef VERILATOR", file=f)
         print("  initial begin", file=f)
         print("    if ($value$plusargs(\"vcd=%s\", vcdfile)) begin", file=f)
         print("      $dumpfile(vcdfile);", file=f)
         print("      $dumpvars(0, testbench);", file=f)
         print("    end", file=f)
+        print("    #5 clock = 0;", file=f)
         print("    while (genclock) begin", file=f)
-        print("      #5; clock = 0;", file=f)
-        print("      #5; clock = 1;", file=f)
+        print("      #5 clock = 0;", file=f)
+        print("      #5 clock = 1;", file=f)
         print("    end", file=f)
         print("  end", file=f)
+        print("`endif", file=f)
 
         print("  initial begin", file=f)
 
         regs = sorted(smt.hiernets(vlogtb_topmod, regs_only=True))
         regvals = smt.get_net_bin_list(vlogtb_topmod, regs, vlogtb_state.replace("@@step_idx@@", str(steps_start)))
 
+        print("`ifndef VERILATOR", file=f)
         print("    #1;", file=f)
+        print("`endif", file=f)
         for reg, val in zip(regs, regvals):
             hidden_net = False
             for n in reg:
