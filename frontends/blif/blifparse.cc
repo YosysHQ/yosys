@@ -67,7 +67,7 @@ static std::pair<RTLIL::IdString, int> wideports_split(std::string name)
 			pos = i;
 		else if (name[i] < '0' || name[i] > '9')
 			pos = -1;
-		else if (i == pos+1 && name[i] == '0')
+		else if (i == pos+1 && name[i] == '0' && name[i+1] != ']')
 			pos = -1;
 	}
 
@@ -345,12 +345,42 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 				IdString celltype = RTLIL::escape_id(p);
 				RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
 
-				while ((p = strtok(NULL, " \t\r\n")) != NULL) {
+				dict<RTLIL::IdString, dict<int, SigBit>> cell_wideports_cache;
+
+				while ((p = strtok(NULL, " \t\r\n")) != NULL)
+				{
 					char *q = strchr(p, '=');
 					if (q == NULL || !q[0])
 						goto error;
 					*(q++) = 0;
-					cell->setPort(RTLIL::escape_id(p), *q ? blif_wire(q) : SigSpec());
+
+					if (wideports) {
+						std::pair<RTLIL::IdString, int> wp = wideports_split(p);
+						if (wp.second > 0)
+							cell_wideports_cache[wp.first][wp.second-1] = blif_wire(q);
+						else
+							cell->setPort(RTLIL::escape_id(p), *q ? blif_wire(q) : SigSpec());
+					} else {
+						cell->setPort(RTLIL::escape_id(p), *q ? blif_wire(q) : SigSpec());
+					}
+				}
+
+				for (auto &it : cell_wideports_cache)
+				{
+					int width = 0;
+					for (auto &b : it.second)
+						width = std::max(width, b.first + 1);
+
+					SigSpec sig;
+
+					for (int i = 0; i < width; i++) {
+						if (it.second.count(i))
+							sig.append(it.second.at(i));
+						else
+							sig.append(module->addWire(NEW_ID));
+					}
+
+					cell->setPort(it.first, sig);
 				}
 
 				obj_attributes = &cell->attributes;
