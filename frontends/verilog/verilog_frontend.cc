@@ -168,6 +168,10 @@ struct VerilogFrontend : public Frontend {
 		log("recommended to use a simulator (for example Icarus Verilog) for checking\n");
 		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
 		log("\n");
+		log("Depending on if read_verilog is run in -formal mode, either the macro\n");
+		log("SYNTHESIS or FORMAL is defined automatically. In addition, read_verilog\n");
+		log("always defines the macro YOSYS.\n");
+		log("\n");
 		log("See the Yosys README file for a list of non-standard Verilog features\n");
 		log("supported by the Yosys Verilog front-end.\n");
 		log("\n");
