@@ -247,6 +247,9 @@ struct TechmapWorker
 				continue;
 			}
 
+			if (GetSize(it.second) == 0)
+				continue;
+
 			RTLIL::Wire *w = tpl->wires_.at(portname);
 			RTLIL::SigSig c, extra_connect;
 

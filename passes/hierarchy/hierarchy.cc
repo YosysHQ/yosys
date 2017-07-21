@@ -640,6 +640,9 @@ struct HierarchyPass : public Pass {
 					if (w == nullptr || w->port_id == 0)
 						continue;
 
+					if (GetSize(conn.second) == 0)
+						continue;
+
 					if (GetSize(w) == GetSize(conn.second))
 						continue;
 
