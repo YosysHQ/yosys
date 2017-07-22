@@ -539,7 +539,7 @@ struct VerificImporter
 		return false;
 	}
 
-	void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool mode_gates)
+	void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool mode_gates, bool mode_keep)
 	{
 		std::string module_name = nl->IsOperator() ? std::string("$verific$") + nl->Owner()->Name() : RTLIL::escape_id(nl->Owner()->Name());
 
@@ -553,7 +553,12 @@ struct VerificImporter
 		module->name = module_name;
 		design->add(module);
 
-		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
+		if (nl->IsBlackBox()) {
+			log("Importing blackbox module %s.\n", RTLIL::id2cstr(module->name));
+			module->set_bool_attribute("\\blackbox");
+		} else {
+			log("Importing module %s.\n", RTLIL::id2cstr(module->name));
+		}
 
 		SetIter si;
 		MapIter mi, mi2;
@@ -973,7 +978,11 @@ struct VerificImporter
 			}
 
 			if (inst->IsPrimitive())
-				log_error("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
+			{
+				if (!mode_keep)
+					log_error("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
+				log_warning("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
+			}
 
 			nl_todo.insert(inst->View());
 
@@ -1017,7 +1026,7 @@ struct VerificPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv|-vlpsl} <verilog-file>..\n");
+		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
 		log("\n");
@@ -1027,11 +1036,13 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific -import [-gates] {-all | <top-module>..}\n");
+		log("    verific -import [-gates] [-k] {-all | <top-module>..}\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
 		log("reset the internal state of Verific. A gate-level netlist is created\n");
-		log("when called with -gates.\n");
+		log("when called with -gates. In -k mode unsupported verific primitives are\n");
+		log("added as blockbox modules to the design instead of triggering a fatal\n");
+		log("error (only useful for debugging this command).\n");
 		log("\n");
 		log("Visit http://verific.com/ for more information on Verific.\n");
 		log("\n");
@@ -1056,95 +1067,89 @@ struct VerificPass : public Pass {
 
 		log("Built with Verific %s, released at %s.\n", release_str, release_tmstr);
 
-		if (args.size() > 1 && args[1] == "-vlog95") {
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+		int argidx = 1;
+
+		if (GetSize(args) > argidx && args[argidx] == "-vlog95") {
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_95))
 					log_cmd_error("Reading `%s' in VERILOG_95 mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-vlog2k") {
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+		if (GetSize(args) > argidx && args[argidx] == "-vlog2k") {
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_2K))
 					log_cmd_error("Reading `%s' in VERILOG_2K mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-sv2005") {
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+		if (GetSize(args) > argidx && args[argidx] == "-sv2005") {
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG_2005))
 					log_cmd_error("Reading `%s' in SYSTEM_VERILOG_2005 mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-sv2009") {
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+		if (GetSize(args) > argidx && args[argidx] == "-sv2009") {
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG_2009))
 					log_cmd_error("Reading `%s' in SYSTEM_VERILOG_2009 mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-sv") {
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+		if (GetSize(args) > argidx && args[argidx] == "-sv") {
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG))
 					log_cmd_error("Reading `%s' in SYSTEM_VERILOG mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-vlpsl") {
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
-				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_PSL))
-					log_cmd_error("Reading `%s' in VERILOG_PSL mode failed.\n", args[argidx].c_str());
-			return;
-		}
-
-		if (args.size() > 1 && args[1] == "-vhdl87") {
+		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_87))
 					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-vhdl93") {
+		if (GetSize(args) > argidx && args[argidx] == "-vhdl93") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_93))
 					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-vhdl2k") {
+		if (GetSize(args) > argidx && args[argidx] == "-vhdl2k") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2K))
 					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-vhdl2008") {
+		if (GetSize(args) > argidx && args[argidx] == "-vhdl2008") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2008))
 					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-vhdpsl") {
+		if (GetSize(args) > argidx && args[argidx] == "-vhdpsl") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
-			for (size_t argidx = 2; argidx < args.size(); argidx++)
+			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_PSL))
 					log_cmd_error("Reading `%s' in VHDL_PSL mode failed.\n", args[argidx].c_str());
 			return;
 		}
 
-		if (args.size() > 1 && args[1] == "-import")
+		if (GetSize(args) > argidx && args[argidx] == "-import")
 		{
 			std::set<Netlist*> nl_todo, nl_done;
-			bool mode_all = false, mode_gates = false;
+			bool mode_all = false, mode_gates = false, mode_keep = false;
 
-			size_t argidx = 2;
-			for (; argidx < args.size(); argidx++) {
+			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-all") {
 					mode_all = true;
 					continue;
@@ -1153,15 +1158,19 @@ struct VerificPass : public Pass {
 					mode_gates = true;
 					continue;
 				}
+				if (args[argidx] == "-k") {
+					mode_keep = true;
+					continue;
+				}
 				break;
 			}
 
-			if (argidx > args.size() && args[argidx].substr(0, 1) == "-")
+			if (argidx > GetSize(args) && args[argidx].substr(0, 1) == "-")
 				cmd_error(args, argidx, "unknown option");
 
 			if (mode_all)
 			{
-				if (argidx != args.size())
+				if (argidx != GetSize(args))
 					log_cmd_error("Got -all and an explicit list of top modules.\n");
 
 				MapIter m1, m2, m3;
@@ -1179,10 +1188,10 @@ struct VerificPass : public Pass {
 				}
 			}
 			else
-				if (argidx == args.size())
+				if (argidx == GetSize(args))
 					log_cmd_error("No top module specified.\n");
 
-			for (; argidx < args.size(); argidx++) {
+			for (; argidx < GetSize(args); argidx++) {
 				if (veri_file::GetModule(args[argidx].c_str())) {
 					log("Running veri_file::Elaborate(\"%s\").\n", args[argidx].c_str());
 					if (!veri_file::Elaborate(args[argidx].c_str()))
@@ -1200,7 +1209,7 @@ struct VerificPass : public Pass {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
 					VerificImporter importer;
-					importer.import_netlist(design, nl, nl_todo, mode_gates);
+					importer.import_netlist(design, nl, nl_todo, mode_gates, mode_keep);
 				}
 				nl_todo.erase(nl);
 				nl_done.insert(nl);
