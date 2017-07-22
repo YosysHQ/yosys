@@ -620,34 +620,31 @@ struct HierarchyPass : public Pass {
 			}
 		}
 
-		if (!keep_portwidths)
+		for (auto module : design->modules())
+		for (auto cell : module->cells())
 		{
-			for (auto module : design->modules())
-			for (auto cell : module->cells())
+			if (GetSize(cell->parameters) != 0)
+				continue;
+
+			Module *m = design->module(cell->type);
+
+			if (m == nullptr || m->get_bool_attribute("\\blackbox"))
+				continue;
+
+			for (auto &conn : cell->connections())
 			{
-				if (GetSize(cell->parameters) != 0)
+				Wire *w = m->wire(conn.first);
+
+				if (w == nullptr || w->port_id == 0)
 					continue;
 
-				Module *m = design->module(cell->type);
-
-				if (m == nullptr || m->get_bool_attribute("\\blackbox"))
+				if (GetSize(conn.second) == 0)
 					continue;
 
-				for (auto &conn : cell->connections())
+				SigSpec sig = conn.second;
+
+				if (!keep_portwidths && GetSize(w) != GetSize(conn.second))
 				{
-					Wire *w = m->wire(conn.first);
-
-					if (w == nullptr || w->port_id == 0)
-						continue;
-
-					if (GetSize(conn.second) == 0)
-						continue;
-
-					if (GetSize(w) == GetSize(conn.second))
-						continue;
-
-					SigSpec sig = conn.second;
-
 					if (GetSize(w) < GetSize(conn.second))
 					{
 						int n = GetSize(conn.second) - GetSize(w);
@@ -669,6 +666,10 @@ struct HierarchyPass : public Pass {
 								log_id(conn.first), GetSize(conn.second), GetSize(sig));
 					cell->setPort(conn.first, sig);
 				}
+
+				if (w->port_output && !w->port_input && sig.has_const())
+					log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
+							log_id(module), log_id(cell), log_id(conn.first), log_id(cell->type), log_signal(sig));
 			}
 		}
 
