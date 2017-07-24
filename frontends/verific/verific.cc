@@ -33,17 +33,22 @@ USING_YOSYS_NAMESPACE
 
 #ifdef YOSYS_ENABLE_VERIFIC
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Woverloaded-virtual"
+#endif
 
 #include "veri_file.h"
 #include "vhdl_file.h"
 #include "VeriModule.h"
+#include "VeriWrite.h"
 #include "VhdlUnits.h"
 #include "DataBase.h"
 #include "Message.h"
 
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 
 #ifdef VERIFIC_NAMESPACE
 using namespace Verific ;
@@ -1072,19 +1077,29 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific -import [-gates] [-flatten] [-v] [-k] {-all | <top-module>..}\n");
+		log("    verific -import [options] {-all | <top-module>..}\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
 		log("reset the internal state of Verific. A gate-level netlist is created\n");
 		log("when called with -gates.\n");
 		log("\n");
-		log("In -flatten mode the import command flattens the netlist before importing it.\n");
+		log("Import options:\n");
 		log("\n");
-		log("In -v mode the import command produces more verbose log output.\n");
+		log("  -gates\n");
+		log("    Create a gate-level netlist.\n");
 		log("\n");
-		log("In -k mode unsupported verific primitives are added as blockbox modules\n");
-		log("to the design instead of triggering a fatal error (only useful for\n");
-		log("debugging/extending this command).\n");
+		log("  -flatten\n");
+		log("    Flatten the design in Verific before importing.\n");
+		log("\n");
+		log("  -v\n");
+		log("    Verbose log messages.\n");
+		log("\n");
+		log("  -k\n");
+		log("    Keep going after an unsupported verific primitive is found. The\n");
+		log("    unsupported primitive is added as blockbox module to the design.\n");
+		log("\n");
+		log("  -d <dump_file>\n");
+		log("    Dump the Verific netlist as a verilog file.\n");
 		log("\n");
 		log("Visit http://verific.com/ for more information on Verific.\n");
 		log("\n");
@@ -1192,6 +1207,7 @@ struct VerificPass : public Pass {
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
 			bool verbose = false, flatten = false;
+			string dumpfile;
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-all") {
@@ -1212,6 +1228,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-v") {
 					verbose = true;
+					continue;
+				}
+				if (args[argidx] == "-d" && argidx+1 < GetSize(args)) {
+					dumpfile = args[++argidx];
 					continue;
 				}
 				break;
@@ -1260,6 +1280,15 @@ struct VerificPass : public Pass {
 			if (flatten) {
 				for (auto nl : nl_todo)
 					nl->Flatten();
+			}
+
+			if (!dumpfile.empty())
+			{
+				if (GetSize(nl_todo) != 1)
+					log_cmd_error("Verific dump mode needs exactly one top module.\n");
+
+				VeriWrite veri_writer;
+				veri_writer.WriteFile(dumpfile.c_str(), *nl_todo.begin());
 			}
 
 			while (!nl_todo.empty()) {
