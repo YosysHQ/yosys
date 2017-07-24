@@ -80,8 +80,26 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 struct VerificImporter
 {
 	RTLIL::Module *module;
+	Netlist *netlist;
+
 	std::map<Net*, RTLIL::SigBit> net_map;
 	std::map<Net*, Net*> sva_posedge_map;
+
+	bool mode_gates, mode_keep, verbose;
+
+	VerificImporter(bool mode_gates, bool mode_keep, bool verbose) :
+			mode_gates(mode_gates), mode_keep(mode_keep), verbose(verbose)
+	{
+	}
+
+	RTLIL::SigBit net_map_at(Net *net)
+	{
+		if (net->IsExternalTo(netlist))
+			log_error("Found unflattened external reference to net '%s' in netlist '%s' from netlist '%s'.\n",
+					net->Name(), net->Owner()->CellBaseName(), netlist->CellBaseName());
+
+		return net_map.at(net);
+	}
 
 	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj)
 	{
@@ -101,7 +119,7 @@ struct VerificImporter
 		RTLIL::SigSpec sig;
 		for (int i = int(inst->InputSize())-1; i >= 0; i--)
 			if (inst->GetInputBit(i))
-				sig.append(net_map.at(inst->GetInputBit(i)));
+				sig.append(net_map_at(inst->GetInputBit(i)));
 			else
 				sig.append(RTLIL::State::Sz);
 		return sig;
@@ -112,7 +130,7 @@ struct VerificImporter
 		RTLIL::SigSpec sig;
 		for (int i = int(inst->Input1Size())-1; i >= 0; i--)
 			if (inst->GetInput1Bit(i))
-				sig.append(net_map.at(inst->GetInput1Bit(i)));
+				sig.append(net_map_at(inst->GetInput1Bit(i)));
 			else
 				sig.append(RTLIL::State::Sz);
 		return sig;
@@ -123,7 +141,7 @@ struct VerificImporter
 		RTLIL::SigSpec sig;
 		for (int i = int(inst->Input2Size())-1; i >= 0; i--)
 			if (inst->GetInput2Bit(i))
-				sig.append(net_map.at(inst->GetInput2Bit(i)));
+				sig.append(net_map_at(inst->GetInput2Bit(i)));
 			else
 				sig.append(RTLIL::State::Sz);
 		return sig;
@@ -142,7 +160,7 @@ struct VerificImporter
 					else if (net->IsPwr())
 						sig.append(RTLIL::State::S1);
 					else
-						sig.append(net_map.at(net));
+						sig.append(net_map_at(net));
 				} else
 					sig.append(RTLIL::State::Sz);
 			}
@@ -151,7 +169,7 @@ struct VerificImporter
 			Port *port = inst->View()->GetPort(portname);
 			log_assert(port != NULL);
 			Net *net = inst->GetNet(port);
-			return net_map.at(net);
+			return net_map_at(net);
 		}
 	}
 
@@ -161,7 +179,7 @@ struct VerificImporter
 		RTLIL::Wire *dummy_wire = NULL;
 		for (int i = int(inst->OutputSize())-1; i >= 0; i--)
 			if (inst->GetOutputBit(i)) {
-				sig.append(net_map.at(inst->GetOutputBit(i)));
+				sig.append(net_map_at(inst->GetOutputBit(i)));
 				dummy_wire = NULL;
 			} else {
 				if (dummy_wire == NULL)
@@ -176,64 +194,64 @@ struct VerificImporter
 	bool import_netlist_instance_gates(Instance *inst)
 	{
 		if (inst->Type() == PRIM_AND) {
-			module->addAndGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addAndGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_NAND) {
 			RTLIL::SigSpec tmp = module->addWire(NEW_ID);
-			module->addAndGate(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
-			module->addNotGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+			module->addAndGate(NEW_ID, net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
+			module->addNotGate(RTLIL::escape_id(inst->Name()), tmp, net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_OR) {
-			module->addOrGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addOrGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_NOR) {
 			RTLIL::SigSpec tmp = module->addWire(NEW_ID);
-			module->addOrGate(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
-			module->addNotGate(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+			module->addOrGate(NEW_ID, net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
+			module->addNotGate(RTLIL::escape_id(inst->Name()), tmp, net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_XOR) {
-			module->addXorGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addXorGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_XNOR) {
-			module->addXnorGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addXnorGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_BUF) {
-			module->addBufGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+			module->addBufGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_INV) {
-			module->addNotGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+			module->addNotGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_MUX) {
-			module->addMuxGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
+			module->addMuxGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_TRI) {
-			module->addMuxGate(RTLIL::escape_id(inst->Name()), RTLIL::State::Sz, net_map.at(inst->GetInput()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
+			module->addMuxGate(RTLIL::escape_id(inst->Name()), RTLIL::State::Sz, net_map_at(inst->GetInput()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_FADD)
 		{
-			RTLIL::SigSpec a = net_map.at(inst->GetInput1()), b = net_map.at(inst->GetInput2()), c = net_map.at(inst->GetCin());
-			RTLIL::SigSpec x = inst->GetCout() ? net_map.at(inst->GetCout()) : module->addWire(NEW_ID);
-			RTLIL::SigSpec y = inst->GetOutput() ? net_map.at(inst->GetOutput()) : module->addWire(NEW_ID);
+			RTLIL::SigSpec a = net_map_at(inst->GetInput1()), b = net_map_at(inst->GetInput2()), c = net_map_at(inst->GetCin());
+			RTLIL::SigSpec x = inst->GetCout() ? net_map_at(inst->GetCout()) : module->addWire(NEW_ID);
+			RTLIL::SigSpec y = inst->GetOutput() ? net_map_at(inst->GetOutput()) : module->addWire(NEW_ID);
 			RTLIL::SigSpec tmp1 = module->addWire(NEW_ID);
 			RTLIL::SigSpec tmp2 = module->addWire(NEW_ID);
 			RTLIL::SigSpec tmp3 = module->addWire(NEW_ID);
@@ -248,16 +266,16 @@ struct VerificImporter
 		if (inst->Type() == PRIM_DFFRS)
 		{
 			if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
-				module->addDffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+				module->addDffGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			else if (inst->GetSet()->IsGnd())
-				module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetReset()),
-						net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), false);
+				module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetReset()),
+						net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), false);
 			else if (inst->GetReset()->IsGnd())
-				module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()),
-						net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), true);
+				module->addAdffGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetSet()),
+						net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), true);
 			else
-				module->addDffsrGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()), net_map.at(inst->GetReset()),
-						net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+				module->addDffsrGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
+						net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
@@ -267,88 +285,88 @@ struct VerificImporter
 	bool import_netlist_instance_cells(Instance *inst)
 	{
 		if (inst->Type() == PRIM_AND) {
-			module->addAnd(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addAnd(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_NAND) {
 			RTLIL::SigSpec tmp = module->addWire(NEW_ID);
-			module->addAnd(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
-			module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+			module->addAnd(NEW_ID, net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
+			module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_OR) {
-			module->addOr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addOr(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_NOR) {
 			RTLIL::SigSpec tmp = module->addWire(NEW_ID);
-			module->addOr(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), tmp);
-			module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetOutput()));
+			module->addOr(NEW_ID, net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
+			module->addNot(RTLIL::escape_id(inst->Name()), tmp, net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_XOR) {
-			module->addXor(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addXor(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_XNOR) {
-			module->addXnor(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetOutput()));
+			module->addXnor(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_INV) {
-			module->addNot(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+			module->addNot(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_MUX) {
-			module->addMux(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
+			module->addMux(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_TRI) {
-			module->addMux(RTLIL::escape_id(inst->Name()), RTLIL::State::Sz, net_map.at(inst->GetInput()), net_map.at(inst->GetControl()), net_map.at(inst->GetOutput()));
+			module->addMux(RTLIL::escape_id(inst->Name()), RTLIL::State::Sz, net_map_at(inst->GetInput()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_FADD)
 		{
 			RTLIL::SigSpec a_plus_b = module->addWire(NEW_ID, 2);
-			RTLIL::SigSpec y = inst->GetOutput() ? net_map.at(inst->GetOutput()) : module->addWire(NEW_ID);
+			RTLIL::SigSpec y = inst->GetOutput() ? net_map_at(inst->GetOutput()) : module->addWire(NEW_ID);
 			if (inst->GetCout())
-				y.append(net_map.at(inst->GetCout()));
-			module->addAdd(NEW_ID, net_map.at(inst->GetInput1()), net_map.at(inst->GetInput2()), a_plus_b);
-			module->addAdd(RTLIL::escape_id(inst->Name()), a_plus_b, net_map.at(inst->GetCin()), y);
+				y.append(net_map_at(inst->GetCout()));
+			module->addAdd(NEW_ID, net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), a_plus_b);
+			module->addAdd(RTLIL::escape_id(inst->Name()), a_plus_b, net_map_at(inst->GetCin()), y);
 			return true;
 		}
 
 		if (inst->Type() == PRIM_DFFRS)
 		{
 			if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
-				module->addDff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+				module->addDff(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			else if (inst->GetSet()->IsGnd())
-				module->addAdff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetReset()),
-						net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), RTLIL::State::S0);
+				module->addAdff(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetReset()),
+						net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), RTLIL::State::S0);
 			else if (inst->GetReset()->IsGnd())
-				module->addAdff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()),
-						net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()), RTLIL::State::S1);
+				module->addAdff(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetSet()),
+						net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()), RTLIL::State::S1);
 			else
-				module->addDffsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), net_map.at(inst->GetSet()), net_map.at(inst->GetReset()),
-						net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+				module->addDffsr(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
+						net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
 		if (inst->Type() == PRIM_DLATCHRS)
 		{
 			if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
-				module->addDlatch(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetControl()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+				module->addDlatch(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			else
-				module->addDlatchsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetControl()), net_map.at(inst->GetSet()), net_map.at(inst->GetReset()),
-						net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+				module->addDlatchsr(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetControl()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
+						net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 			return true;
 		}
 
@@ -361,13 +379,13 @@ struct VerificImporter
 		if (inst->Type() == OPER_ADDER) {
 			RTLIL::SigSpec out = OUT;
 			if (inst->GetCout() != NULL)
-				out.append(net_map.at(inst->GetCout()));
+				out.append(net_map_at(inst->GetCout()));
 			if (inst->GetCin()->IsGnd()) {
 				module->addAdd(RTLIL::escape_id(inst->Name()), IN1, IN2, out, SIGNED);
 			} else {
 				RTLIL::SigSpec tmp = module->addWire(NEW_ID, GetSize(out));
 				module->addAdd(NEW_ID, IN1, IN2, tmp, SIGNED);
-				module->addAdd(RTLIL::escape_id(inst->Name()), tmp, net_map.at(inst->GetCin()), out, false);
+				module->addAdd(RTLIL::escape_id(inst->Name()), tmp, net_map_at(inst->GetCin()), out, false);
 			}
 			return true;
 		}
@@ -399,7 +417,7 @@ struct VerificImporter
 
 		if (inst->Type() == OPER_ENABLED_DECODER) {
 			RTLIL::SigSpec vec;
-			vec.append(net_map.at(inst->GetControl()));
+			vec.append(net_map_at(inst->GetControl()));
 			for (unsigned i = 1; i < inst->OutputSize(); i++) {
 				vec.append(RTLIL::State::S0);
 			}
@@ -430,31 +448,31 @@ struct VerificImporter
 		}
 
 		if (inst->Type() == OPER_REDUCE_AND) {
-			module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
+			module->addReduceAnd(RTLIL::escape_id(inst->Name()), IN, net_map_at(inst->GetOutput()), SIGNED);
 			return true;
 		}
 
 		if (inst->Type() == OPER_REDUCE_OR) {
-			module->addReduceOr(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
+			module->addReduceOr(RTLIL::escape_id(inst->Name()), IN, net_map_at(inst->GetOutput()), SIGNED);
 			return true;
 		}
 
 		if (inst->Type() == OPER_REDUCE_XOR) {
-			module->addReduceXor(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
+			module->addReduceXor(RTLIL::escape_id(inst->Name()), IN, net_map_at(inst->GetOutput()), SIGNED);
 			return true;
 		}
 
 		if (inst->Type() == OPER_REDUCE_XNOR) {
-			module->addReduceXnor(RTLIL::escape_id(inst->Name()), IN, net_map.at(inst->GetOutput()), SIGNED);
+			module->addReduceXnor(RTLIL::escape_id(inst->Name()), IN, net_map_at(inst->GetOutput()), SIGNED);
 			return true;
 		}
 
 		if (inst->Type() == OPER_LESSTHAN) {
 			Net *net_cin = inst->GetCin();
 			if (net_cin->IsGnd())
-				module->addLt(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
+				module->addLt(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map_at(inst->GetOutput()), SIGNED);
 			else if (net_cin->IsPwr())
-				module->addLe(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
+				module->addLe(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map_at(inst->GetOutput()), SIGNED);
 			else
 				log_error("Can't import Verific OPER_LESSTHAN instance %s: carry_in is neither 0 nor 1\n", inst->Name());
 			return true;
@@ -501,22 +519,22 @@ struct VerificImporter
 		}
 
 		if (inst->Type() == OPER_EQUAL) {
-			module->addEq(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
+			module->addEq(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map_at(inst->GetOutput()), SIGNED);
 			return true;
 		}
 
 		if (inst->Type() == OPER_NEQUAL) {
-			module->addNe(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetOutput()), SIGNED);
+			module->addNe(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map_at(inst->GetOutput()), SIGNED);
 			return true;
 		}
 
 		if (inst->Type() == OPER_WIDE_MUX) {
-			module->addMux(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map.at(inst->GetControl()), OUT);
+			module->addMux(RTLIL::escape_id(inst->Name()), IN1, IN2, net_map_at(inst->GetControl()), OUT);
 			return true;
 		}
 
 		if (inst->Type() == OPER_WIDE_TRI) {
-			module->addMux(RTLIL::escape_id(inst->Name()), RTLIL::SigSpec(RTLIL::State::Sz, inst->OutputSize()), IN, net_map.at(inst->GetControl()), OUT);
+			module->addMux(RTLIL::escape_id(inst->Name()), RTLIL::SigSpec(RTLIL::State::Sz, inst->OutputSize()), IN, net_map_at(inst->GetControl()), OUT);
 			return true;
 		}
 
@@ -524,9 +542,9 @@ struct VerificImporter
 			RTLIL::SigSpec sig_set = operatorInport(inst, "set");
 			RTLIL::SigSpec sig_reset = operatorInport(inst, "reset");
 			if (sig_set.is_fully_const() && !sig_set.as_bool() && sig_reset.is_fully_const() && !sig_reset.as_bool())
-				module->addDff(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), IN, OUT);
+				module->addDff(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), IN, OUT);
 			else
-				module->addDffsr(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetClock()), sig_set, sig_reset, IN, OUT);
+				module->addDffsr(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetClock()), sig_set, sig_reset, IN, OUT);
 			return true;
 		}
 
@@ -539,9 +557,11 @@ struct VerificImporter
 		return false;
 	}
 
-	void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool mode_gates, bool mode_keep)
+	void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
 	{
 		std::string module_name = nl->IsOperator() ? std::string("$verific$") + nl->Owner()->Name() : RTLIL::escape_id(nl->Owner()->Name());
+
+		netlist = nl;
 
 		if (design->has(module_name)) {
 			if (!nl->IsOperator())
@@ -574,7 +594,8 @@ struct VerificImporter
 			if (port->Bus())
 				continue;
 
-			// log("  importing port %s.\n", port->Name());
+			if (verbose)
+				log("  importing port %s.\n", port->Name());
 
 			RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(port->Name()));
 			import_attributes(wire->attributes, port);
@@ -591,15 +612,16 @@ struct VerificImporter
 				if (net_map.count(net) == 0)
 					net_map[net] = wire;
 				else if (wire->port_input)
-					module->connect(net_map.at(net), wire);
+					module->connect(net_map_at(net), wire);
 				else
-					module->connect(wire, net_map.at(net));
+					module->connect(wire, net_map_at(net));
 			}
 		}
 
 		FOREACH_PORTBUS_OF_NETLIST(nl, mi, portbus)
 		{
-			// log("  importing portbus %s.\n", portbus->Name());
+			if (verbose)
+				log("  importing portbus %s.\n", portbus->Name());
 
 			RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
 			wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
@@ -617,9 +639,9 @@ struct VerificImporter
 					if (net_map.count(net) == 0)
 						net_map[net] = bit;
 					else if (wire->port_input)
-						module->connect(net_map.at(net), bit);
+						module->connect(net_map_at(net), bit);
 					else
-						module->connect(bit, net_map.at(net));
+						module->connect(bit, net_map_at(net));
 				}
 				if (i == portbus->RightIndex())
 					break;
@@ -712,14 +734,16 @@ struct VerificImporter
 				anyseq_nets.insert(net);
 
 			if (net_map.count(net)) {
-				// log("  skipping net %s.\n", net->Name());
+				if (verbose)
+					log("  skipping net %s.\n", net->Name());
 				continue;
 			}
 
 			if (net->Bus())
 				continue;
 
-			// log("  importing net %s.\n", net->Name());
+			if (verbose)
+				log("  importing net %s.\n", net->Name());
 
 			RTLIL::IdString wire_name = module->uniquify(RTLIL::escape_id(net->Name()));
 			RTLIL::Wire *wire = module->addWire(wire_name);
@@ -741,7 +765,8 @@ struct VerificImporter
 
 			if (found_new_net)
 			{
-				// log("  importing netbus %s.\n", netbus->Name());
+				if (verbose)
+					log("  importing netbus %s.\n", netbus->Name());
 
 				RTLIL::IdString wire_name = module->uniquify(RTLIL::escape_id(netbus->Name()));
 				RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
@@ -771,7 +796,7 @@ struct VerificImporter
 						if (net_map.count(net) == 0)
 							net_map[net] = bit;
 						else
-							module->connect(bit, net_map.at(net));
+							module->connect(bit, net_map_at(net));
 					}
 
 					if (i == netbus->RightIndex())
@@ -783,7 +808,8 @@ struct VerificImporter
 			}
 			else
 			{
-				// log("  skipping netbus %s.\n", netbus->Name());
+				if (verbose)
+					log("  skipping netbus %s.\n", netbus->Name());
 			}
 
 			SigSpec anyconst_sig;
@@ -792,11 +818,11 @@ struct VerificImporter
 			for (int i = netbus->RightIndex();; i += netbus->IsUp() ? -1 : +1) {
 				net = netbus->ElementAtIndex(i);
 				if (net != nullptr && anyconst_nets.count(net)) {
-					anyconst_sig.append(net_map.at(net));
+					anyconst_sig.append(net_map_at(net));
 					anyconst_nets.erase(net);
 				}
 				if (net != nullptr && anyseq_nets.count(net)) {
-					anyseq_sig.append(net_map.at(net));
+					anyseq_sig.append(net_map_at(net));
 					anyseq_nets.erase(net);
 				}
 				if (i == netbus->LeftIndex())
@@ -813,7 +839,7 @@ struct VerificImporter
 		for (auto it : init_nets)
 		{
 			Const initval;
-			SigBit bit = net_map.at(it.first);
+			SigBit bit = net_map_at(it.first);
 			log_assert(bit.wire);
 
 			if (bit.wire->attributes.count("\\init"))
@@ -831,10 +857,10 @@ struct VerificImporter
 		}
 
 		for (auto net : anyconst_nets)
-			module->connect(net_map.at(net), module->Anyconst(NEW_ID));
+			module->connect(net_map_at(net), module->Anyconst(NEW_ID));
 
 		for (auto net : anyseq_nets)
-			module->connect(net_map.at(net), module->Anyseq(NEW_ID));
+			module->connect(net_map_at(net), module->Anyseq(NEW_ID));
 
 		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 		{
@@ -851,7 +877,9 @@ struct VerificImporter
 			if (inst->Type() == PRIM_SVA_POSEDGE)
 				continue;
 
-			// log("  importing cell %s (%s).\n", inst->Name(), inst->View()->Owner()->Name());
+			if (verbose)
+				log("  importing cell %s (%s).\n", inst->Name(), inst->View()->Owner()->Name());
+
 
 			if (inst->Type() == PRIM_SVA_AT)
 			{
@@ -865,54 +893,54 @@ struct VerificImporter
 				log_assert(sva_posedge_map.count(in1));
 				Net *clk = sva_posedge_map.at(in1);
 
-				SigBit outsig = net_map.at(out);
+				SigBit outsig = net_map_at(out);
 				log_assert(outsig.wire && GetSize(outsig.wire) == 1);
 				outsig.wire->attributes["\\init"] = Const(1, 1);
 
-				module->addDff(NEW_ID, net_map.at(clk), net_map.at(in2), net_map.at(out));
+				module->addDff(NEW_ID, net_map_at(clk), net_map_at(in2), net_map_at(out));
 				continue;
 			}
 
 			if (inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT || inst->Type() == PRIM_SVA_ASSERT) {
 				Net *in = inst->GetInput();
-				module->addAssert(NEW_ID, net_map.at(in), State::S1);
+				module->addAssert(NEW_ID, net_map_at(in), State::S1);
 				continue;
 			}
 
 			if (inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME || inst->Type() == PRIM_SVA_ASSUME) {
 				Net *in = inst->GetInput();
-				module->addAssume(NEW_ID, net_map.at(in), State::S1);
+				module->addAssume(NEW_ID, net_map_at(in), State::S1);
 				continue;
 			}
 
 			if (inst->Type() == PRIM_SVA_IMMEDIATE_COVER || inst->Type() == PRIM_SVA_COVER) {
 				Net *in = inst->GetInput();
-				module->addCover(NEW_ID, net_map.at(in), State::S1);
+				module->addCover(NEW_ID, net_map_at(in), State::S1);
 				continue;
 			}
 
 			if (inst->Type() == PRIM_PWR) {
-				module->connect(net_map.at(inst->GetOutput()), RTLIL::State::S1);
+				module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S1);
 				continue;
 			}
 
 			if (inst->Type() == PRIM_GND) {
-				module->connect(net_map.at(inst->GetOutput()), RTLIL::State::S0);
+				module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S0);
 				continue;
 			}
 
 			if (inst->Type() == PRIM_BUF) {
-				module->addBufGate(RTLIL::escape_id(inst->Name()), net_map.at(inst->GetInput()), net_map.at(inst->GetOutput()));
+				module->addBufGate(RTLIL::escape_id(inst->Name()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 				continue;
 			}
 
 			if (inst->Type() == PRIM_X) {
-				module->connect(net_map.at(inst->GetOutput()), RTLIL::State::Sx);
+				module->connect(net_map_at(inst->GetOutput()), RTLIL::State::Sx);
 				continue;
 			}
 
 			if (inst->Type() == PRIM_Z) {
-				module->connect(net_map.at(inst->GetOutput()), RTLIL::State::Sz);
+				module->connect(net_map_at(inst->GetOutput()), RTLIL::State::Sz);
 				continue;
 			}
 
@@ -955,14 +983,14 @@ struct VerificImporter
 				cell->parameters["\\PRIORITY"] = 0;
 				cell->parameters["\\ABITS"] = GetSize(addr);
 				cell->parameters["\\WIDTH"] = GetSize(data);
-				cell->setPort("\\EN", RTLIL::SigSpec(net_map.at(inst->GetControl())).repeat(GetSize(data)));
+				cell->setPort("\\EN", RTLIL::SigSpec(net_map_at(inst->GetControl())).repeat(GetSize(data)));
 				cell->setPort("\\CLK", RTLIL::State::S0);
 				cell->setPort("\\ADDR", addr);
 				cell->setPort("\\DATA", data);
 
 				if (inst->Type() == OPER_CLOCKED_WRITE_PORT) {
 					cell->parameters["\\CLK_ENABLE"] = true;
-					cell->setPort("\\CLK", net_map.at(inst->GetClock()));
+					cell->setPort("\\CLK", net_map_at(inst->GetClock()));
 				}
 				continue;
 			}
@@ -991,8 +1019,12 @@ struct VerificImporter
 
 			dict<IdString, vector<SigBit>> cell_port_conns;
 
+			if (verbose)
+				log("    ports in verific db:\n");
+
 			FOREACH_PORTREF_OF_INST(inst, mi2, pr) {
-				// log("      .%s(%s)\n", pr->GetPort()->Name(), pr->GetNet()->Name());
+				if (verbose)
+					log("      .%s(%s)\n", pr->GetPort()->Name(), pr->GetNet()->Name());
 				const char *port_name = pr->GetPort()->Name();
 				int port_offset = 0;
 				if (pr->GetPort()->Bus()) {
@@ -1007,11 +1039,15 @@ struct VerificImporter
 					for (auto bit : zwires)
 						sigvec.push_back(bit);
 				}
-				sigvec[port_offset] = net_map.at(pr->GetNet());
+				sigvec[port_offset] = net_map_at(pr->GetNet());
 			}
 
+			if (verbose)
+				log("    ports in yosys db:\n");
+
 			for (auto &it : cell_port_conns) {
-				// log("      .%s(%s)\n", log_id(it.first), log_signal(it.second));
+				if (verbose)
+					log("      .%s(%s)\n", log_id(it.first), log_signal(it.second));
 				cell->setPort(it.first, it.second);
 			}
 		}
@@ -1036,13 +1072,19 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific -import [-gates] [-k] {-all | <top-module>..}\n");
+		log("    verific -import [-gates] [-flatten] [-v] [-k] {-all | <top-module>..}\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
 		log("reset the internal state of Verific. A gate-level netlist is created\n");
-		log("when called with -gates. In -k mode unsupported verific primitives are\n");
-		log("added as blockbox modules to the design instead of triggering a fatal\n");
-		log("error (only useful for debugging this command).\n");
+		log("when called with -gates.\n");
+		log("\n");
+		log("In -flatten mode the import command flattens the netlist before importing it.\n");
+		log("\n");
+		log("In -v mode the import command produces more verbose log output.\n");
+		log("\n");
+		log("In -k mode unsupported verific primitives are added as blockbox modules\n");
+		log("to the design instead of triggering a fatal error (only useful for\n");
+		log("debugging/extending this command).\n");
 		log("\n");
 		log("Visit http://verific.com/ for more information on Verific.\n");
 		log("\n");
@@ -1054,6 +1096,7 @@ struct VerificPass : public Pass {
 
 		Message::SetConsoleOutput(0);
 		Message::RegisterCallBackMsg(msg_func);
+		RuntimeFlags::SetVar("db_allow_external_nets", 1);
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
@@ -1148,6 +1191,7 @@ struct VerificPass : public Pass {
 		{
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
+			bool verbose = false, flatten = false;
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-all") {
@@ -1158,8 +1202,16 @@ struct VerificPass : public Pass {
 					mode_gates = true;
 					continue;
 				}
+				if (args[argidx] == "-flatten") {
+					flatten = true;
+					continue;
+				}
 				if (args[argidx] == "-k") {
 					mode_keep = true;
+					continue;
+				}
+				if (args[argidx] == "-v") {
+					verbose = true;
 					continue;
 				}
 				break;
@@ -1205,11 +1257,16 @@ struct VerificPass : public Pass {
 				}
 			}
 
+			if (flatten) {
+				for (auto nl : nl_todo)
+					nl->Flatten();
+			}
+
 			while (!nl_todo.empty()) {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
-					VerificImporter importer;
-					importer.import_netlist(design, nl, nl_todo, mode_gates, mode_keep);
+					VerificImporter importer(mode_gates, mode_keep, verbose);
+					importer.import_netlist(design, nl, nl_todo);
 				}
 				nl_todo.erase(nl);
 				nl_done.insert(nl);
