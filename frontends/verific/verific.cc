@@ -1077,13 +1077,17 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific -import [options] {-all | <top-module>..}\n");
+		log("    verific -import [options] <top-module>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
 		log("reset the internal state of Verific. A gate-level netlist is created\n");
 		log("when called with -gates.\n");
 		log("\n");
 		log("Import options:\n");
+		log("\n");
+		log("  -all\n");
+		log("    Elaborate all modules, not just the hierarchy below the given top\n");
+		log("    modules. With this option the list of modules to import is optional.\n");
 		log("\n");
 		log("  -gates\n");
 		log("    Create a gate-level netlist.\n");
@@ -1242,38 +1246,53 @@ struct VerificPass : public Pass {
 
 			if (mode_all)
 			{
-				if (argidx != GetSize(args))
-					log_cmd_error("Got -all and an explicit list of top modules.\n");
+				log("Running veri_file::ElaborateAll().\n");
+				if (!veri_file::ElaborateAll())
+					log_cmd_error("Elaboration of Verilog modules failed.\n");
 
-				MapIter m1, m2, m3;
-				VeriModule *mod;
-				FOREACH_VERILOG_MODULE(m1, mod)
-					args.push_back(mod->Name());
+				log("Running vhdl_file::ElaborateAll().\n");
+				if (!vhdl_file::ElaborateAll())
+					log_cmd_error("Elaboration of VHDL modules failed.\n");
 
-				VhdlLibrary *lib;
-				VhdlPrimaryUnit *primunit;
-				FOREACH_VHDL_LIBRARY(m1, lib)
-				FOREACH_VHDL_PRIMARY_UNIT(lib, m2, primunit) {
-					if (primunit->IsPackageDecl())
+				std::set<string> modnames;
+				for (; argidx < GetSize(args); argidx++)
+					modnames.insert(args[argidx]);
+
+				Library *lib = Netlist::PresentDesign()->Owner()->Owner();
+
+				MapIter iter;
+				char *iter_name;
+				Verific::Cell *iter_cell;
+
+				FOREACH_MAP_ITEM(lib->GetCells(), iter, &iter_name, &iter_cell)
+				{
+					if (*iter_name == '$' || (!modnames.empty() && !modnames.count(iter_name)))
 						continue;
-					args.push_back(primunit->Name());
+
+					nl_todo.insert(iter_cell->GetFirstNetlist());
+					modnames.erase(iter_name);
 				}
+
+				for (auto name : modnames)
+					log_cmd_error("Module not found: %s\n", name.c_str());
 			}
 			else
+			{
 				if (argidx == GetSize(args))
 					log_cmd_error("No top module specified.\n");
 
-			for (; argidx < GetSize(args); argidx++) {
-				if (veri_file::GetModule(args[argidx].c_str())) {
-					log("Running veri_file::Elaborate(\"%s\").\n", args[argidx].c_str());
-					if (!veri_file::Elaborate(args[argidx].c_str()))
-						log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
-					nl_todo.insert(Netlist::PresentDesign());
-				} else {
-					log("Running vhdl_file::Elaborate(\"%s\").\n", args[argidx].c_str());
-					if (!vhdl_file::Elaborate(args[argidx].c_str()))
-						log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
-					nl_todo.insert(Netlist::PresentDesign());
+				for (; argidx < GetSize(args); argidx++) {
+					if (veri_file::GetModule(args[argidx].c_str())) {
+						log("Running veri_file::Elaborate(\"%s\").\n", args[argidx].c_str());
+						if (!veri_file::Elaborate(args[argidx].c_str()))
+							log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
+						nl_todo.insert(Netlist::PresentDesign());
+					} else {
+						log("Running vhdl_file::Elaborate(\"%s\").\n", args[argidx].c_str());
+						if (!vhdl_file::Elaborate(args[argidx].c_str()))
+							log_cmd_error("Elaboration of top module `%s' failed.\n", args[argidx].c_str());
+						nl_todo.insert(Netlist::PresentDesign());
+					}
 				}
 			}
 
