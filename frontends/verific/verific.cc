@@ -82,6 +82,16 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 		log("%s\n", message.c_str());
 }
 
+string get_full_netlist_name(Netlist *nl)
+{
+	if (nl->NumOfRefs() == 1) {
+		Instance *inst = (Instance*)nl->GetReferences()->GetLast();
+		return get_full_netlist_name(inst->Owner()) + "." + inst->Name();
+	}
+
+	return nl->CellBaseName();
+}
+
 struct VerificImporter
 {
 	RTLIL::Module *module;
@@ -100,8 +110,8 @@ struct VerificImporter
 	RTLIL::SigBit net_map_at(Net *net)
 	{
 		if (net->IsExternalTo(netlist))
-			log_error("Found unflattened external reference to net '%s' in netlist '%s' from netlist '%s'.\n",
-					net->Name(), net->Owner()->CellBaseName(), netlist->CellBaseName());
+			log_error("Found external reference to '%s.%s' in netlist '%s', please use -flatten or -extnets.\n",
+					get_full_netlist_name(net->Owner()).c_str(), net->Name(), get_full_netlist_name(netlist).c_str());
 
 		return net_map.at(net);
 	}
@@ -1059,6 +1069,88 @@ struct VerificImporter
 	}
 };
 
+struct VerificExtNets
+{
+	// a map from nets to the same nets one level up in the design hierarchy
+	std::map<Net*, Net*> net_level_up;
+	int portname_cnt = 0;
+	bool verbose = false;
+
+	Net *get_net_level_up(Net *net)
+	{
+		if (net_level_up.count(net) == 0)
+		{
+			Netlist *nl = net->Owner();
+
+			// Simple return if Netlist is not unique
+			if (nl->NumOfRefs() != 1)
+				return net;
+
+			Instance *up_inst = (Instance*)nl->GetReferences()->GetLast();
+			Netlist *up_nl = up_inst->Owner();
+
+			// create new Port
+			string name = stringf("___extnets_%d", portname_cnt++);
+			Port *new_port = new Port(name.c_str(), DIR_OUT);
+			nl->Add(new_port);
+			net->Connect(new_port);
+
+			// create new Net in up Netlist
+			Net *new_net = new Net(name.c_str());
+			up_nl->Add(new_net);
+			up_inst->Connect(new_port, new_net);
+
+			net_level_up[net] = new_net;
+		}
+
+		return net_level_up.at(net);
+	}
+
+	void run(Netlist *nl)
+	{
+		MapIter mi, mi2;
+		Instance *inst;
+		PortRef *pr;
+
+		vector<tuple<Instance*, Port*, Net*>> todo_connect;
+
+		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
+			run(inst->View());
+
+		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
+		FOREACH_PORTREF_OF_INST(inst, mi2, pr)
+		{
+			Port *port = pr->GetPort();
+			Net *net = pr->GetNet();
+
+			if (!net->IsExternalTo(nl))
+				continue;
+
+			if (verbose)
+				log("Fixing external net reference on port %s.%s.%s:\n", get_full_netlist_name(nl).c_str(), inst->Name(), port->Name());
+
+			while (net->IsExternalTo(nl))
+			{
+				Net *newnet = get_net_level_up(net);
+				if (newnet == net) break;
+
+				if (verbose)
+					log("  external net: %s.%s\n", get_full_netlist_name(net->Owner()).c_str(), net->Name());
+				net = newnet;
+			}
+
+			if (verbose)
+				log("  final net: %s.%s%s\n", get_full_netlist_name(net->Owner()).c_str(), net->Name(), net->IsExternalTo(nl) ? " (external)" : "");
+			todo_connect.push_back(tuple<Instance*, Port*, Net*>(inst, port, net));
+		}
+
+		for (auto it : todo_connect) {
+			get<0>(it)->Disconnect(get<1>(it));
+			get<0>(it)->Connect(get<1>(it), get<2>(it));
+		}
+	}
+};
+
 #endif /* YOSYS_ENABLE_VERIFIC */
 
 struct VerificPass : public Pass {
@@ -1094,6 +1186,9 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -flatten\n");
 		log("    Flatten the design in Verific before importing.\n");
+		log("\n");
+		log("  -extnets\n");
+		log("    Resolve references to external nets by adding module ports as needed.\n");
 		log("\n");
 		log("  -v\n");
 		log("    Verbose log messages.\n");
@@ -1210,7 +1305,7 @@ struct VerificPass : public Pass {
 		{
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
-			bool verbose = false, flatten = false;
+			bool verbose = false, flatten = false, extnets = false;
 			string dumpfile;
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
@@ -1224,6 +1319,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-flatten") {
 					flatten = true;
+					continue;
+				}
+				if (args[argidx] == "-extnets") {
+					extnets = true;
 					continue;
 				}
 				if (args[argidx] == "-k") {
@@ -1254,27 +1353,32 @@ struct VerificPass : public Pass {
 				if (!vhdl_file::ElaborateAll())
 					log_cmd_error("Elaboration of VHDL modules failed.\n");
 
-				std::set<string> modnames;
-				for (; argidx < GetSize(args); argidx++)
-					modnames.insert(args[argidx]);
-
 				Library *lib = Netlist::PresentDesign()->Owner()->Owner();
 
-				MapIter iter;
-				char *iter_name;
-				Verific::Cell *iter_cell;
-
-				FOREACH_MAP_ITEM(lib->GetCells(), iter, &iter_name, &iter_cell)
+				if (argidx == GetSize(args))
 				{
-					if (*iter_name == '$' || (!modnames.empty() && !modnames.count(iter_name)))
-						continue;
+					MapIter iter;
+					char *iter_name;
+					Verific::Cell *iter_cell;
 
-					nl_todo.insert(iter_cell->GetFirstNetlist());
-					modnames.erase(iter_name);
+					FOREACH_MAP_ITEM(lib->GetCells(), iter, &iter_name, &iter_cell) {
+						if (*iter_name != '$')
+							nl_todo.insert(iter_cell->GetFirstNetlist());
+					}
 				}
+				else
+				{
+					for (; argidx < GetSize(args); argidx++)
+					{
+						Verific::Cell *cell = lib->GetCell(args[argidx].c_str());
 
-				for (auto name : modnames)
-					log_cmd_error("Module not found: %s\n", name.c_str());
+						if (cell == nullptr)
+							log_cmd_error("Module not found: %s\n", args[argidx].c_str());
+
+						nl_todo.insert(cell->GetFirstNetlist());
+						cell->GetFirstNetlist()->SetPresentDesign();
+					}
+				}
 			}
 			else
 			{
@@ -1301,13 +1405,16 @@ struct VerificPass : public Pass {
 					nl->Flatten();
 			}
 
-			if (!dumpfile.empty())
-			{
-				if (GetSize(nl_todo) != 1)
-					log_cmd_error("Verific dump mode needs exactly one top module.\n");
+			if (extnets) {
+				VerificExtNets worker;
+				worker.verbose = verbose;
+				for (auto nl : nl_todo)
+					worker.run(nl);
+			}
 
+			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;
-				veri_writer.WriteFile(dumpfile.c_str(), *nl_todo.begin());
+				veri_writer.WriteFile(dumpfile.c_str(), Netlist::PresentDesign());
 			}
 
 			while (!nl_todo.empty()) {
