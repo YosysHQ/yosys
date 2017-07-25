@@ -1071,10 +1071,11 @@ struct VerificImporter
 
 struct VerificExtNets
 {
-	// a map from nets to the same nets one level up in the design hierarchy
-	std::map<Net*, Net*> net_level_up;
 	int portname_cnt = 0;
 	bool verbose = false;
+
+	// a map from Net to the same Net one level up in the design hierarchy
+	std::map<Net*, Net*> net_level_up;
 
 	Net *get_net_level_up(Net *net)
 	{
@@ -1082,7 +1083,7 @@ struct VerificExtNets
 		{
 			Netlist *nl = net->Owner();
 
-			// Simple return if Netlist is not unique
+			// Simply return if Netlist is not unique
 			if (nl->NumOfRefs() != 1)
 				return net;
 
@@ -1172,8 +1173,7 @@ struct VerificPass : public Pass {
 		log("    verific -import [options] <top-module>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
-		log("reset the internal state of Verific. A gate-level netlist is created\n");
-		log("when called with -gates.\n");
+		log("reset the internal state of Verific.\n");
 		log("\n");
 		log("Import options:\n");
 		log("\n");
