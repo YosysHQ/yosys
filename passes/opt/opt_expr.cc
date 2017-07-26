@@ -1252,6 +1252,65 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		// $logic_not
+		// clean unnecessary zeros from input A
+		/*
+		 "connections": {
+		 "A": [ 27754, "0" ],
+		 "Y": [ 27755 ]
+		 }
+		 */
+		if (do_fine && (cell->type == "$logic_not" ))
+		{
+			RTLIL::SigSpec a_sig;
+			int a_width;
+			bool a_signed;
+		
+			a_sig = cell->getPort("\\A");
+			a_width = cell->parameters["\\A_WIDTH"].as_int();
+			a_signed = cell->parameters["\\A_SIGNED"].as_bool();
+		
+			if (!a_signed && a_sig.has_const())
+			{
+				while (a_sig.has_const())
+				{
+					for (int i = 0; i < GetSize(a_sig); i++)
+					{
+						if (a_sig[i] == RTLIL::State::S0)
+						{
+							a_sig.remove(i, 1);
+							break;
+						}
+					}
+				}
+				cell->setPort("\\A", a_sig);
+				cell->parameters["\\A_WIDTH"] = GetSize(a_sig);
+				cell->check();
+
+				log("Remove unnecessary zeros from %s cell `%s' (input A:%s).\n",
+					log_id(cell->type), log_id(cell), log_signal(a_sig));
+				did_something = true;
+				goto next_cell;
+			}
+		
+			// change $logic_not to $not when width is 1
+			/*
+			 "connections": {
+			 "A": [ 27754],
+			 "Y": [ 27755 ]
+			 }
+			 */
+			if (a_width == 1)
+			{
+				log("Replacing %s cell `%s' (implementing 1 wide input A:%s) as $not.\n",
+					log_id(cell->type), log_id(cell), log_signal(a_sig));
+				module->addNot(NEW_ID, a_sig, cell->getPort("\\Y"));
+				module->remove(cell);
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		// replace a<0 or a>=0 with the top bit of a
 		if (do_fine && (cell->type == "$lt" || cell->type == "$ge" || cell->type == "$gt" || cell->type == "$le"))
 		{
