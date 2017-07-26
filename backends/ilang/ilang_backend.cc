@@ -228,6 +228,7 @@ void ILANG_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 		f << stringf("\n");
 		break;
 	case RTLIL::STa: f << stringf("always\n"); break;
+	case RTLIL::STg: f << stringf("global\n"); break;
 	case RTLIL::STi: f << stringf("init\n"); break;
 	}
 
@@ -277,6 +278,13 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		}
 
 		f << stringf("%s" "module %s\n", indent.c_str(), module->name.c_str());
+
+		if (!module->avail_parameters.empty()) {
+			if (only_selected)
+				f << stringf("\n");
+			for (auto &p : module->avail_parameters)
+				f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+		}
 	}
 
 	if (print_body)

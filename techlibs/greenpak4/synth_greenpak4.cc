@@ -36,6 +36,8 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		log("    synth_greenpak4 [options]\n");
 		log("\n");
 		log("This command runs synthesis for GreenPAK4 FPGAs. This work is experimental.\n");
+		log("It is intended to be used with https://github.com/azonenberg/openfpga as the\n");
+		log("place-and-route.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
@@ -159,6 +161,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			run("memory_map");
 			run("opt -undriven -fine");
 			run("techmap");
+			run("techmap -map +/greenpak4/cells_latch.v");
 			run("dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
 			run("opt -fast");
 			if (retime || help_mode)
@@ -201,8 +204,6 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			if (!json_file.empty() || help_mode)
 				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
-
-		log_pop();
 	}
 } SynthGreenPAK4Pass;
 

@@ -1,0 +1,17 @@
+Simple test project for Gowinsemi GW2A-55K Eval Board Mini.
+
+Follow the install instructions for the Gowinsemi tools below,
+then run "bash run.sh" in this directory.
+
+
+Install instructions for gowinTool_linux
+----------------------------------------
+
+1.) extract gowinTool_linux.zip
+
+2.) set GOWIN_HOME env variable to the full path to the
+gowinTool_linux directory
+
+3.) edit gowinTool_linux/bin/gwlicense.ini. Set lic="..." to
+the full path to the license file.
+

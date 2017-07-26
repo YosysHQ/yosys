@@ -201,6 +201,8 @@ struct JsonWriter
 	void write_design(Design *design_)
 	{
 		design = design_;
+		design->sort();
+
 		f << stringf("{\n");
 		f << stringf("  \"creator\": %s,\n", get_string(yosys_version_str).c_str());
 		f << stringf("  \"modules\": {\n");
@@ -332,6 +334,10 @@ struct JsonBackend : public Backend {
 		log("values referenced above are vectors of this integers. Signal bits that are\n");
 		log("connected to a constant driver are denoted as string \"0\" or \"1\" instead of\n");
 		log("a number.\n");
+		log("\n");
+		log("Numeric parameter and attribute values up to 32 bits are written as decimal\n");
+		log("values. Numbers larger than that are written as string holding the binary\n");
+		log("representation of the value.\n");
 		log("\n");
 		log("For example the following Verilog code:\n");
 		log("\n");

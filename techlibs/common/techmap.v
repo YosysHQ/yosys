@@ -64,7 +64,7 @@ module _90_simplemap_various;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$sr $dff $dffe $adff $dffsr $dlatch" *)
+(* techmap_celltype = "$sr $ff $dff $dffe $adff $dffsr $dlatch" *)
 module _90_simplemap_registers;
 endmodule
 

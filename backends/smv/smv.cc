@@ -507,15 +507,19 @@ struct SmvWorker
 				continue;
 			}
 
-			if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
+			if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
 			{
 				string op;
 
-				if (cell->type.in("$_AND_", "$_NAND_")) op = "&";
-				if (cell->type.in("$_OR_", "$_NOR_")) op = "|";
+				if (cell->type.in("$_AND_", "$_NAND_", "$_ANDNOT_")) op = "&";
+				if (cell->type.in("$_OR_", "$_NOR_", "$_ORNOT_")) op = "|";
 				if (cell->type.in("$_XOR_"))  op = "xor";
 				if (cell->type.in("$_XNOR_"))  op = "xnor";
 
+				if (cell->type.in("$_ANDNOT_", "$_ORNOT_"))
+					assignments.push_back(stringf("%s := %s %s (!%s);", lvalue(cell->getPort("\\Y")),
+							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));
+				else
 				if (cell->type.in("$_NAND_", "$_NOR_"))
 					assignments.push_back(stringf("%s := !(%s %s %s);", lvalue(cell->getPort("\\Y")),
 							rvalue(cell->getPort("\\A")), op.c_str(), rvalue(cell->getPort("\\B"))));

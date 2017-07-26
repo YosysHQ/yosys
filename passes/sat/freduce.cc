@@ -687,7 +687,8 @@ struct FreduceWorker
 		}
 
 		std::map<RTLIL::SigBit, int> bitusage;
-		module->rewrite_sigspecs(CountBitUsage(sigmap, bitusage));
+		CountBitUsage bitusage_worker(sigmap, bitusage);
+		module->rewrite_sigspecs(bitusage_worker);
 
 		if (!dump_prefix.empty())
 			dump();

@@ -220,12 +220,19 @@ struct AST_INTERNAL::ProcessGenerator
 		subst_lvalue_to = new_temp_signal(subst_lvalue_from);
 		subst_lvalue_map = subst_lvalue_from.to_sigbit_map(subst_lvalue_to);
 
+		bool found_global_syncs = false;
 		bool found_anyedge_syncs = false;
 		for (auto child : always->children)
-			if (child->type == AST_EDGE)
-				found_anyedge_syncs = true;
+			if (child->type == AST_EDGE) {
+				if (GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER && child->children.at(0)->str == "\\$global_clock")
+					found_global_syncs = true;
+				else
+					found_anyedge_syncs = true;
+			}
 
 		if (found_anyedge_syncs) {
+			if (found_global_syncs)
+				log_error("Found non-synthesizable event list at %s:%d!\n", always->filename.c_str(), always->linenum);
 			log("Note: Assuming pure combinatorial block at %s:%d in\n", always->filename.c_str(), always->linenum);
 			log("compliance with IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002. Recommending\n");
 			log("use of @* instead of @(...) for better match of synthesis and simulation.\n");
@@ -236,7 +243,7 @@ struct AST_INTERNAL::ProcessGenerator
 		for (auto child : always->children)
 			if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE) {
 				found_clocked_sync = true;
-				if (found_anyedge_syncs)
+				if (found_global_syncs || found_anyedge_syncs)
 					log_error("Found non-synthesizable event list at %s:%d!\n", always->filename.c_str(), always->linenum);
 				RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 				syncrule->type = child->type == AST_POSEDGE ? RTLIL::STp : RTLIL::STn;
@@ -248,7 +255,7 @@ struct AST_INTERNAL::ProcessGenerator
 			}
 		if (proc->syncs.empty()) {
 			RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
-			syncrule->type = RTLIL::STa;
+			syncrule->type = found_global_syncs ? RTLIL::STg : RTLIL::STa;
 			syncrule->signal = RTLIL::SigSpec();
 			addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
 			proc->syncs.push_back(syncrule);
@@ -755,13 +762,23 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_FCALL:
-		if (str == "\\$anyconst") {
+		if (str == "\\$anyconst" || str == "\\$anyseq") {
 			if (GetSize(children) == 1) {
 				while (children[0]->simplify(true, false, false, 1, -1, false, true) == true) { }
 				if (children[0]->type != AST_CONSTANT)
 					log_error("System function %s called with non-const argument at %s:%d!\n",
 							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
 				width_hint = max(width_hint, int(children[0]->asInt(true)));
+			}
+			break;
+		}
+		if (str == "\\$past") {
+			if (GetSize(children) > 0) {
+				sub_width_hint = 0;
+				sub_sign_hint = true;
+				children.at(0)->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
+				width_hint = max(width_hint, sub_width_hint);
+				sign_hint = false;
 			}
 			break;
 		}
@@ -1254,6 +1271,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 
 			int mem_width, mem_size, addr_bits;
+			is_signed = id2ast->is_signed;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 			RTLIL::SigSpec addr_sig = children[0]->genRTLIL();
@@ -1318,9 +1336,16 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $assert cells
 	case AST_ASSERT:
 	case AST_ASSUME:
+	case AST_LIVE:
+	case AST_FAIR:
+	case AST_COVER:
 		{
-			const char *celltype = "$assert";
+			const char *celltype = nullptr;
+			if (type == AST_ASSERT) celltype = "$assert";
 			if (type == AST_ASSUME) celltype = "$assume";
+			if (type == AST_LIVE) celltype = "$live";
+			if (type == AST_FAIR) celltype = "$fair";
+			if (type == AST_COVER) celltype = "$cover";
 
 			log_assert(children.size() == 2);
 
@@ -1448,7 +1473,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		} break;
 
 	case AST_FCALL: {
-			if (str == "\\$anyconst")
+			if (str == "\\$anyconst" || str == "\\$anyseq")
 			{
 				string myid = stringf("%s$%d", str.c_str() + 1, autoidx++);
 				int width = width_hint;
@@ -1471,6 +1496,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				Cell *cell = current_module->addCell(myid, str.substr(1));
 				cell->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);
 				cell->parameters["\\WIDTH"] = width;
+
+				if (attributes.count("\\reg")) {
+					auto &attr = attributes.at("\\reg");
+					if (attr->type != AST_CONSTANT)
+						log_error("Attribute `reg' with non-constant value at %s:%d!\n", filename.c_str(), linenum);
+					cell->attributes["\\reg"] =  attr->asAttrConst();
+				}
 
 				Wire *wire = current_module->addWire(myid + "_wire", width);
 				wire->attributes["\\src"] = stringf("%s:%d", filename.c_str(), linenum);

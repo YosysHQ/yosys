@@ -247,6 +247,9 @@ struct TechmapWorker
 				continue;
 			}
 
+			if (GetSize(it.second) == 0)
+				continue;
+
 			RTLIL::Wire *w = tpl->wires_.at(portname);
 			RTLIL::SigSig c, extra_connect;
 
@@ -305,10 +308,15 @@ struct TechmapWorker
 				// approach that yields nicer outputs:
 				// replace internal wires that are connected to external wires
 
-				if (w->port_output)
+				if (w->port_output && !w->port_input) {
 					port_signal_map.add(c.second, c.first);
-				else
+				} else
+				if (!w->port_output && w->port_input) {
 					port_signal_map.add(c.first, c.second);
+				} else {
+					module->connect(c);
+					extra_connect = SigSig();
+				}
 
 				for (auto &attr : w->attributes) {
 					if (attr.first == "\\src")
@@ -322,8 +330,9 @@ struct TechmapWorker
 		for (auto &it : tpl->cells_)
 		{
 			std::string c_name = it.second->name.str();
+			bool techmap_replace_cell = (!flatten_mode) && (c_name == "\\_TECHMAP_REPLACE_");
 
-			if (!flatten_mode && c_name == "\\_TECHMAP_REPLACE_")
+			if (techmap_replace_cell)
 				c_name = orig_cell_name;
 			else
 				apply_prefix(cell->name.str(), c_name);
@@ -345,8 +354,19 @@ struct TechmapWorker
 				c->setParam("\\MEMID", Const(memory_renames[memid].str()));
 			}
 
+			if (c->type == "$mem") {
+				string memid = c->getParam("\\MEMID").decode_string();
+				apply_prefix(cell->name.str(), memid);
+				c->setParam("\\MEMID", Const(memid));
+			}
+
 			if (c->attributes.count("\\src"))
 				c->add_strpool_attribute("\\src", extra_src_attrs);
+
+			if (techmap_replace_cell)
+				for (auto attr : cell->attributes)
+					if (!c->attributes.count(attr.first))
+						c->attributes[attr.first] = attr.second;
 		}
 
 		for (auto &it : tpl->connections()) {
@@ -639,7 +659,7 @@ struct TechmapWorker
 					if (techmap_cache.count(key) > 0) {
 						tpl = techmap_cache[key];
 					} else {
-						if (cell->parameters.size() != 0) {
+						if (parameters.size() != 0) {
 							derived_name = tpl->derive(map, dict<RTLIL::IdString, RTLIL::Const>(parameters.begin(), parameters.end()));
 							tpl = map->module(derived_name);
 							log_continue = true;
@@ -994,7 +1014,7 @@ struct TechmapPass : public Pass {
 		log("constant value.\n");
 		log("\n");
 		log("A cell with the name _TECHMAP_REPLACE_ in the map file will inherit the name\n");
-		log("of the cell that is being replaced.\n");
+		log("and attributes of the cell that is being replaced.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
@@ -1164,8 +1184,9 @@ struct FlattenPass : public Pass {
 				worker.flatten_do_list.erase(mod->name);
 			}
 		} else {
-			for (auto mod : vector<Module*>(design->modules()))
+			for (auto mod : vector<Module*>(design->modules())) {
 				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+			}
 		}
 
 		log("No more expansions possible.\n");

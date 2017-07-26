@@ -180,7 +180,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 				for (auto &port_it : cell->connections())
 					if (cell->output(port_it.first)) {
 						SigSpec sig = assign_map(port_it.second);
-						Const val(set_output ? State::S1 : State::S0, GetSize(sig)); 
+						Const val(set_output ? State::S1 : State::S0, GetSize(sig));
 						ce.set(sig, val);
 					}
 			}
@@ -215,7 +215,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 			for (auto w : warnings) warnmsg += "    " + w;
 			log_warning("%s", warnmsg.c_str());
 		} else {
-			log("FSM state register %s.%s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire)); 
+			log("FSM state register %s.%s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire));
 		}
 	}
 	else

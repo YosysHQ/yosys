@@ -1,0 +1,2 @@
+#/bin/env bash
+yosys -p "synth_intel -family cycloneiv -top top -vout top.vqm" top.v sevenseg.v

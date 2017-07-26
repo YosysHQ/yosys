@@ -12,7 +12,7 @@ module counter_tb;
      # 4  reset = 0;
      # 6 $finish;
   end
-  
+
   /* Make enable with period of 8 and 6,7 low */
   reg en = 1;
   always begin
@@ -25,7 +25,7 @@ module counter_tb;
   /* Make a regular pulsing clock. */
   reg clk = 0;
   always #1 clk = !clk;
-  
+
   /* UUT */
   wire [2:0] count;
   counter c1 (clk, reset, en, count);

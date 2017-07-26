@@ -10,6 +10,9 @@ makejmode=false
 frontend="verilog"
 backend_opts="-noattr -noexpr"
 autotb_opts=""
+include_opts=""
+xinclude_opts=""
+minclude_opts=""
 scriptfiles=""
 scriptopt=""
 toolsdir="$(cd $(dirname $0); pwd)"
@@ -19,7 +22,7 @@ if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdat
 	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
 fi
 
-while getopts xmGl:wkjvref:s:p:n:S: opt; do
+while getopts xmGl:wkjvref:s:p:n:S:I: opt; do
 	case "$opt" in
 		x)
 			use_xsim=true ;;
@@ -52,8 +55,12 @@ while getopts xmGl:wkjvref:s:p:n:S: opt; do
 			autotb_opts="$autotb_opts -n $OPTARG" ;;
 		S)
 			autotb_opts="$autotb_opts -seed $OPTARG" ;;
+		I)
+			include_opts="$include_opts -I $OPTARG"
+			xinclude_opts="$xinclude_opts -i $OPTARG"
+			minclude_opts="$minclude_opts +incdir+$OPTARG" ;;
 		*)
-			echo "Usage: $0 [-x|-m] [-G] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] [-n iters] [-S seed] verilog-files\n" >&2
+			echo "Usage: $0 [-x|-m] [-G] [-w] [-k] [-j] [-v] [-r] [-e] [-l libs] [-f frontend] [-s script] [-p cmdstring] [-n iters] [-S seed] [-I incdir] verilog-files\n" >&2
 			exit 1
 	esac
 done
@@ -63,18 +70,14 @@ compile_and_run() {
 	if $use_modelsim; then
 		altver=$( ls -v /opt/altera/ | grep '^[0-9]' | tail -n1; )
 		/opt/altera/$altver/modelsim_ase/bin/vlib work
-		/opt/altera/$altver/modelsim_ase/bin/vlog +define+outfile=\"$output\" "$@"
+		/opt/altera/$altver/modelsim_ase/bin/vlog $minclude_opts +define+outfile=\"$output\" "$@"
 		/opt/altera/$altver/modelsim_ase/bin/vsim -c -do 'run -all; exit;' testbench
 	elif $use_xsim; then
-		(
-			set +x
-			files=( "$@" )
-			xilver=$( ls -v /opt/Xilinx/Vivado/ | grep '^[0-9]' | tail -n1; )
-			/opt/Xilinx/Vivado/$xilver/bin/xvlog -d outfile=\"$output\" "${files[@]}"
-			/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench
-		)
+		xilver=$( ls -v /opt/Xilinx/Vivado/ | grep '^[0-9]' | tail -n1; )
+		/opt/Xilinx/Vivado/$xilver/bin/xvlog $xinclude_opts -d outfile=\"$output\" "$@"
+		/opt/Xilinx/Vivado/$xilver/bin/xelab -R work.testbench
 	else
-		iverilog -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
+		iverilog $include_opts -Doutfile=\"$output\" -s testbench -o "$exe" "$@"
 		vvp -n "$exe"
 	fi
 }
@@ -109,7 +112,7 @@ do
 		egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.v
 
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
+			"$toolsdir"/../../yosys -f "$frontend $include_opts" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.v
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
@@ -135,16 +138,16 @@ do
 		fi
 
 		if [ -n "$scriptfiles" ]; then
-			test_passes ${bn}_ref.v $scriptfiles
+			test_passes -f "$frontend $include_opts" ${bn}_ref.v $scriptfiles
 		elif [ -n "$scriptopt" ]; then
-			test_passes -f "$frontend" -p "$scriptopt" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "$scriptopt" ${bn}_ref.v
 		elif [ "$frontend" = "verific" ]; then
 			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -all; opt; memory;;"
 		elif [ "$frontend" = "verific_gates" ]; then
 			test_passes -p "verific -vlog2k ${bn}_ref.v; verific -import -gates -all; opt; memory;;"
 		else
-			test_passes -f "$frontend" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.v
-			test_passes -f "$frontend" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt; memory; opt; fsm; opt -full -fine" ${bn}_ref.v
+			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.v
 		fi
 		touch ../${bn}.log
 	}

@@ -29,17 +29,17 @@
 // Kahn, Arthur B. (1962), "Topological sorting of large networks", Communications of the ACM 5 (11): 558-562, doi:10.1145/368996.369025
 // http://en.wikipedia.org/wiki/Topological_sorting
 
-#define ABC_COMMAND_LIB "strash; dc2; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}"
-#define ABC_COMMAND_CTR "strash; dc2; scorr; ifraig; retime -o {D}; strash; dch -f; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; if; mfs"
-#define ABC_COMMAND_SOP "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; cover {I} {P}"
-#define ABC_COMMAND_DFL "strash; dc2; scorr; ifraig; retime -o; strash; dch -f; map"
+#define ABC_COMMAND_LIB "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
+#define ABC_COMMAND_CTR "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_LUT "strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2"
+#define ABC_COMMAND_SOP "strash; ifraig; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
+#define ABC_COMMAND_DFL "strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
-#define ABC_FAST_COMMAND_LIB "retime -o {D}; map {D}"
-#define ABC_FAST_COMMAND_CTR "retime -o {D}; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "retime -o; if"
-#define ABC_FAST_COMMAND_SOP "retime -o; cover -I {I} -P {P}"
-#define ABC_FAST_COMMAND_DFL "retime -o; map"
+#define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
+#define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_FAST_COMMAND_LUT "strash; dretime; if"
+#define ABC_FAST_COMMAND_SOP "strash; dretime; cover -I {I} -P {P}"
+#define ABC_FAST_COMMAND_DFL "strash; dretime; map"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -74,6 +74,8 @@ enum class gate_type_t {
 	G_NOR,
 	G_XOR,
 	G_XNOR,
+	G_ANDNOT,
+	G_ORNOT,
 	G_MUX,
 	G_AOI3,
 	G_OAI3,
@@ -90,6 +92,7 @@ struct gate_t
 	int in1, in2, in3, in4;
 	bool is_port;
 	RTLIL::SigBit bit;
+	RTLIL::State init;
 };
 
 bool map_mux4;
@@ -102,7 +105,9 @@ SigMap assign_map;
 RTLIL::Module *module;
 std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
+std::map<RTLIL::SigBit, RTLIL::State> signal_init;
 pool<std::string> enabled_gates;
+bool recover_init;
 
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
@@ -121,6 +126,10 @@ int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1,
 		gate.in4 = -1;
 		gate.is_port = false;
 		gate.bit = bit;
+		if (signal_init.count(bit))
+			gate.init = signal_init.at(bit);
+		else
+			gate.init = State::Sx;
 		signal_list.push_back(gate);
 		signal_map[bit] = gate.id;
 	}
@@ -207,7 +216,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
+	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
 	{
 		RTLIL::SigSpec sig_a = cell->getPort("\\A");
 		RTLIL::SigSpec sig_b = cell->getPort("\\B");
@@ -232,6 +241,10 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 			map_signal(sig_y, G(XOR), mapped_a, mapped_b);
 		else if (cell->type == "$_XNOR_")
 			map_signal(sig_y, G(XNOR), mapped_a, mapped_b);
+		else if (cell->type == "$_ANDNOT_")
+			map_signal(sig_y, G(ANDNOT), mapped_a, mapped_b);
+		else if (cell->type == "$_ORNOT_")
+			map_signal(sig_y, G(ORNOT), mapped_a, mapped_b);
 		else
 			log_abort();
 
@@ -595,7 +608,7 @@ struct abc_output_filter
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, bool fast_mode,
+		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode)
 {
 	module = current_module;
@@ -603,17 +616,40 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	signal_map.clear();
 	signal_list.clear();
+	recover_init = false;
 
 	if (clk_str != "$")
 	{
-		assign_map.set(module);
-
 		clk_polarity = true;
 		clk_sig = RTLIL::SigSpec();
 
 		en_polarity = true;
 		en_sig = RTLIL::SigSpec();
 	}
+
+	if (!clk_str.empty() && clk_str != "$")
+	{
+		if (clk_str.find(',') != std::string::npos) {
+			int pos = clk_str.find(',');
+			std::string en_str = clk_str.substr(pos+1);
+			clk_str = clk_str.substr(0, pos);
+			if (en_str[0] == '!') {
+				en_polarity = false;
+				en_str = en_str.substr(1);
+			}
+			if (module->wires_.count(RTLIL::escape_id(en_str)) != 0)
+				en_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(en_str)), 0));
+		}
+		if (clk_str[0] == '!') {
+			clk_polarity = false;
+			clk_str = clk_str.substr(1);
+		}
+		if (module->wires_.count(RTLIL::escape_id(clk_str)) != 0)
+			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
+	}
+
+	if (dff_mode && clk_sig.empty())
+		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
 	if (!cleanup)
@@ -652,13 +688,17 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				all_luts_cost_same = false;
 		abc_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		if (all_luts_cost_same && !fast_mode)
-			abc_script += "; lutpack";
+			abc_script += "; lutpack {S}";
 	} else if (!liberty_file.empty())
 		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else if (sop_mode)
 		abc_script += fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
 	else
 		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
+
+	if (script_file.empty() && !delay_target.empty())
+		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
+			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
 
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
@@ -668,6 +708,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + sop_products + abc_script.substr(pos+3);
+
+	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
+		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
 	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
@@ -679,30 +722,6 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
-
-	if (!clk_str.empty() && clk_str != "$")
-	{
-		if (clk_str.find(',') != std::string::npos) {
-			int pos = clk_str.find(',');
-			std::string en_str = clk_str.substr(pos+1);
-			clk_str = clk_str.substr(0, pos);
-			if (en_str[0] == '!') {
-				en_polarity = false;
-				en_str = en_str.substr(1);
-			}
-			if (module->wires_.count(RTLIL::escape_id(en_str)) != 0)
-				en_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(en_str)), 0));
-		}
-		if (clk_str[0] == '!') {
-			clk_polarity = false;
-			clk_str = clk_str.substr(1);
-		}
-		if (module->wires_.count(RTLIL::escape_id(clk_str)) != 0)
-			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
-	}
-
-	if (dff_mode && clk_sig.empty())
-		log_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	if (dff_mode || !clk_str.empty())
 	{
@@ -806,6 +825,13 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
 			fprintf(f, "00 1\n");
 			fprintf(f, "11 1\n");
+		} else if (si.type == G(ANDNOT)) {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "10 1\n");
+		} else if (si.type == G(ORNOT)) {
+			fprintf(f, ".names n%d n%d n%d\n", si.in1, si.in2, si.id);
+			fprintf(f, "1- 1\n");
+			fprintf(f, "-0 1\n");
 		} else if (si.type == G(MUX)) {
 			fprintf(f, ".names n%d n%d n%d n%d\n", si.in1, si.in2, si.in3, si.id);
 			fprintf(f, "1-0 1\n");
@@ -829,7 +855,11 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fprintf(f, "00-- 1\n");
 			fprintf(f, "--00 1\n");
 		} else if (si.type == G(FF)) {
-			fprintf(f, ".latch n%d n%d\n", si.in1, si.id);
+			if (si.init == State::S0 || si.init == State::S1) {
+				fprintf(f, ".latch n%d n%d %d\n", si.in1, si.id, si.init == State::S1 ? 1 : 0);
+				recover_init = true;
+			} else
+				fprintf(f, ".latch n%d n%d 2\n", si.in1, si.id);
 		} else if (si.type != G(NONE))
 			log_abort();
 		if (si.type != G(NONE))
@@ -851,38 +881,42 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		f = fopen(buffer.c_str(), "wt");
 		if (f == NULL)
 			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
-		fprintf(f, "GATE ZERO  1 Y=CONST0;\n");
-		fprintf(f, "GATE ONE   1 Y=CONST1;\n");
-		fprintf(f, "GATE BUF  %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_BUF_"));
-		fprintf(f, "GATE NOT  %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOT_"));
+		fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
+		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
+		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_BUF_"));
+		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOT_"));
 		if (enabled_gates.empty() || enabled_gates.count("AND"))
-			fprintf(f, "GATE AND  %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
+			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_AND_"));
 		if (enabled_gates.empty() || enabled_gates.count("NAND"))
-			fprintf(f, "GATE NAND %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
+			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NAND_"));
 		if (enabled_gates.empty() || enabled_gates.count("OR"))
-			fprintf(f, "GATE OR   %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
+			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", get_cell_cost("$_OR_"));
 		if (enabled_gates.empty() || enabled_gates.count("NOR"))
-			fprintf(f, "GATE NOR  %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
+			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_NOR_"));
 		if (enabled_gates.empty() || enabled_gates.count("XOR"))
-			fprintf(f, "GATE XOR  %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
+			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XOR_"));
 		if (enabled_gates.empty() || enabled_gates.count("XNOR"))
-			fprintf(f, "GATE XNOR %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
+			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_XNOR_"));
+		if (enabled_gates.empty() || enabled_gates.count("ANDNOT"))
+			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_ANDNOT_"));
+		if (enabled_gates.empty() || enabled_gates.count("ORNOT"))
+			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_ORNOT_"));
 		if (enabled_gates.empty() || enabled_gates.count("AOI3"))
-			fprintf(f, "GATE AOI3 %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
+			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI3_"));
 		if (enabled_gates.empty() || enabled_gates.count("OAI3"))
-			fprintf(f, "GATE OAI3 %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
+			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI3_"));
 		if (enabled_gates.empty() || enabled_gates.count("AOI4"))
-			fprintf(f, "GATE AOI4 %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
+			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_AOI4_"));
 		if (enabled_gates.empty() || enabled_gates.count("OAI4"))
-			fprintf(f, "GATE OAI4 %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
+			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", get_cell_cost("$_OAI4_"));
 		if (enabled_gates.empty() || enabled_gates.count("MUX"))
-			fprintf(f, "GATE MUX  %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", get_cell_cost("$_MUX_"));
 		if (map_mux4)
-			fprintf(f, "GATE MUX4 %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*get_cell_cost("$_MUX_"));
 		if (map_mux8)
-			fprintf(f, "GATE MUX8 %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*get_cell_cost("$_MUX_"));
 		if (map_mux16)
-			fprintf(f, "GATE MUX16 %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*get_cell_cost("$_MUX_"));
+			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*get_cell_cost("$_MUX_"));
 		fclose(f);
 
 		if (!lut_costs.empty()) {
@@ -954,7 +988,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					design->select(module, cell);
 					continue;
 				}
-				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" || c->type == "\\XNOR") {
+				if (c->type == "\\AND" || c->type == "\\OR" || c->type == "\\XOR" || c->type == "\\NAND" || c->type == "\\NOR" ||
+						c->type == "\\XNOR" || c->type == "\\ANDNOT" || c->type == "\\ORNOT") {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), "$_" + c->type.substr(1) + "_");
 					if (markgroups) cell->attributes["\\abcgroup"] = map_autoidx;
 					cell->setPort("\\A", RTLIL::SigSpec(module->wires_[remap_name(c->getPort("\\A").as_wire()->name)]));
@@ -1130,6 +1165,15 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			module->connect(conn);
 		}
 
+		if (recover_init)
+			for (auto wire : mapped_mod->wires()) {
+				if (wire->attributes.count("\\init")) {
+					Wire *w = module->wires_[remap_name(wire->name)];
+					log_assert(w->attributes.count("\\init") == 0);
+					w->attributes["\\init"] = wire->attributes.at("\\init");
+				}
+			}
+
 		for (auto &it : cell_stats)
 			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
 		int in_wires = 0, out_wires = 0;
@@ -1205,7 +1249,7 @@ struct AbcPass : public Pass {
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR).c_str());
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack").c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack {S}").c_str());
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT).c_str());
@@ -1253,6 +1297,8 @@ struct AbcPass : public Pass {
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise.\n");
+		log("        this also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
+		log("        default scripts above.\n");
 		log("\n");
 		log("    -I <num>\n");
 		log("        maximum number of SOP inputs.\n");
@@ -1261,6 +1307,10 @@ struct AbcPass : public Pass {
 		log("    -P <num>\n");
 		log("        maximum number of SOP products.\n");
 		log("        (replaces {P} in the default scripts above)\n");
+		log("\n");
+		log("    -S <num>\n");
+		log("        maximum number of LUT inputs shared.\n");
+		log("        (replaces {S} in the default scripts above, default: -S 1)\n");
 		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
@@ -1283,9 +1333,20 @@ struct AbcPass : public Pass {
 		// log("        (ignored when used with -liberty or -lut)\n");
 		// log("\n");
 		log("    -g type1,type2,...\n");
-		log("        Map the the specified list of gate types. Supported gates types are:\n");
-		log("        AND, NAND, OR, NOR, XOR, XNOR, MUX, AOI3, OAI3, AOI4, OAI4.\n");
+		log("        Map to the specified list of gate types. Supported gates types are:\n");
+		log("        AND, NAND, OR, NOR, XOR, XNOR, ANDNOT, ORNOT, MUX, AOI3, OAI3, AOI4, OAI4.\n");
 		log("        (The NOT gate is always added to this list automatically.)\n");
+		log("\n");
+		log("        The following aliases can be used to reference common sets of gate types:\n");
+		log("          simple: AND OR XOR MUX\n");
+		log("          cmos2: NAND NOR\n");
+		log("          cmos3: NAND NOR AOI3 OAI3\n");
+		log("          cmos: NAND NOR AOI3 OAI3 AOI4 OAI4\n");
+		log("          gates: AND NAND OR NOR XOR XNOR ANDNOT ORNOT\n");
+		log("          aig: AND NAND OR NOR ANDNOT ORNOT\n");
+		log("\n");
+		log("        Prefix a gate type with a '-' to remove it from the list. For example\n");
+		log("        the arguments 'AND,OR,XOR' and 'simple,-MUX' are equivalent.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
@@ -1327,13 +1388,18 @@ struct AbcPass : public Pass {
 		log_header(design, "Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
 
+		assign_map.clear();
+		signal_list.clear();
+		signal_map.clear();
+		signal_init.clear();
+
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
 #else
 		std::string exe_file = proc_self_dirname() + "yosys-abc";
 #endif
 		std::string script_file, liberty_file, constr_file, clk_str;
-		std::string delay_target, sop_inputs, sop_products;
+		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
 		vector<int> lut_costs;
@@ -1393,6 +1459,10 @@ struct AbcPass : public Pass {
 				sop_products = "-P " + args[++argidx];
 				continue;
 			}
+			if (arg == "-S" && argidx+1 < args.size()) {
+				lutin_shared = "-S " + args[++argidx];
+				continue;
+			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
 				string arg = args[++argidx];
 				size_t pos = arg.find_first_of(':');
@@ -1445,20 +1515,83 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
 				for (auto g : split_tokens(args[++argidx], ",")) {
+					vector<string> gate_list;
+					bool remove_gates = false;
+					if (GetSize(g) > 0 && g[0] == '-') {
+						remove_gates = true;
+						g = g.substr(1);
+					}
 					if (g == "AND") goto ok_gate;
 					if (g == "NAND") goto ok_gate;
 					if (g == "OR") goto ok_gate;
 					if (g == "NOR") goto ok_gate;
 					if (g == "XOR") goto ok_gate;
 					if (g == "XNOR") goto ok_gate;
+					if (g == "ANDNOT") goto ok_gate;
+					if (g == "ORNOT") goto ok_gate;
 					if (g == "MUX") goto ok_gate;
 					if (g == "AOI3") goto ok_gate;
 					if (g == "OAI3") goto ok_gate;
 					if (g == "AOI4") goto ok_gate;
 					if (g == "OAI4") goto ok_gate;
+					if (g == "simple") {
+						gate_list.push_back("AND");
+						gate_list.push_back("OR");
+						gate_list.push_back("XOR");
+						gate_list.push_back("MUX");
+						goto ok_alias;
+					}
+					if (g == "cmos2") {
+						gate_list.push_back("NAND");
+						gate_list.push_back("NOR");
+						goto ok_alias;
+					}
+					if (g == "cmos3") {
+						gate_list.push_back("NAND");
+						gate_list.push_back("NOR");
+						gate_list.push_back("AOI3");
+						gate_list.push_back("OAI3");
+						goto ok_alias;
+					}
+					if (g == "cmos4") {
+						gate_list.push_back("NAND");
+						gate_list.push_back("NOR");
+						gate_list.push_back("AOI3");
+						gate_list.push_back("OAI3");
+						gate_list.push_back("AOI4");
+						gate_list.push_back("OAI4");
+						goto ok_alias;
+					}
+					if (g == "gates") {
+						gate_list.push_back("AND");
+						gate_list.push_back("NAND");
+						gate_list.push_back("OR");
+						gate_list.push_back("NOR");
+						gate_list.push_back("XOR");
+						gate_list.push_back("XNOR");
+						gate_list.push_back("ANDNOT");
+						gate_list.push_back("ORNOT");
+						goto ok_alias;
+					}
+					if (g == "aig") {
+						gate_list.push_back("AND");
+						gate_list.push_back("NAND");
+						gate_list.push_back("OR");
+						gate_list.push_back("NOR");
+						gate_list.push_back("ANDNOT");
+						gate_list.push_back("ORNOT");
+						goto ok_alias;
+					}
 					cmd_error(args, argidx, stringf("Unsupported gate type: %s", g.c_str()));
 				ok_gate:
-					enabled_gates.insert(g);
+					gate_list.push_back(g);
+				ok_alias:
+					for (auto gate : gate_list) {
+						if (remove_gates)
+							enabled_gates.erase(gate);
+						else
+							enabled_gates.insert(gate);
+					}
 				}
 				continue;
 			}
@@ -1501,163 +1634,188 @@ struct AbcPass : public Pass {
 			log_cmd_error("Got -constr but no -liberty!\n");
 
 		for (auto mod : design->selected_modules())
-			if (mod->processes.size() > 0)
+		{
+			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
-			else if (!dff_mode || !clk_str.empty())
+				continue;
+			}
+
+			assign_map.set(mod);
+			signal_init.clear();
+
+			for (Wire *wire : mod->wires())
+				if (wire->attributes.count("\\init")) {
+					SigSpec initsig = assign_map(wire);
+					Const initval = wire->attributes.at("\\init");
+					for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
+						switch (initval[i]) {
+							case State::S0:
+								signal_init[initsig[i]] = State::S0;
+								break;
+							case State::S1:
+								signal_init[initsig[i]] = State::S0;
+								break;
+							default:
+								break;
+						}
+				}
+
+			if (!dff_mode || !clk_str.empty()) {
 				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
-			else
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode);
+				continue;
+			}
+
+			CellTypes ct(design);
+
+			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
+			std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+
+			std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
+			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
+			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
+
+			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
+			std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
+			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
+
+			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
+			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
+
+			for (auto cell : all_cells)
 			{
-				assign_map.set(mod);
-				CellTypes ct(design);
+				clkdomain_t key;
 
-				std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
-				std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
-
-				std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
-				std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-				std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
-
-				typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-				std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
-				std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
-
-				std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
-				std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
-
-				for (auto cell : all_cells)
-				{
-					clkdomain_t key;
-
-					for (auto &conn : cell->connections())
-					for (auto bit : conn.second) {
-						bit = assign_map(bit);
-						if (bit.wire != nullptr) {
-							cell_to_bit[cell].insert(bit);
-							bit_to_cell[bit].insert(cell);
-							if (ct.cell_input(cell->type, conn.first)) {
-								cell_to_bit_up[cell].insert(bit);
-								bit_to_cell_down[bit].insert(cell);
-							}
-							if (ct.cell_output(cell->type, conn.first)) {
-								cell_to_bit_down[cell].insert(bit);
-								bit_to_cell_up[bit].insert(cell);
-							}
+				for (auto &conn : cell->connections())
+				for (auto bit : conn.second) {
+					bit = assign_map(bit);
+					if (bit.wire != nullptr) {
+						cell_to_bit[cell].insert(bit);
+						bit_to_cell[bit].insert(cell);
+						if (ct.cell_input(cell->type, conn.first)) {
+							cell_to_bit_up[cell].insert(bit);
+							bit_to_cell_down[bit].insert(cell);
+						}
+						if (ct.cell_output(cell->type, conn.first)) {
+							cell_to_bit_down[cell].insert(bit);
+							bit_to_cell_up[bit].insert(cell);
 						}
 					}
-
-					if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
-					{
-						key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
-					}
-					else
-					if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
-					{
-						bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
-						bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
-						key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
-					}
-					else
-						continue;
-
-					unassigned_cells.erase(cell);
-					expand_queue.insert(cell);
-					expand_queue_up.insert(cell);
-					expand_queue_down.insert(cell);
-
-					assigned_cells[key].push_back(cell);
-					assigned_cells_reverse[cell] = key;
 				}
 
-				while (!expand_queue_up.empty() || !expand_queue_down.empty())
+				if (cell->type == "$_DFF_N_" || cell->type == "$_DFF_P_")
 				{
-					if (!expand_queue_up.empty())
-					{
-						RTLIL::Cell *cell = *expand_queue_up.begin();
-						clkdomain_t key = assigned_cells_reverse.at(cell);
-						expand_queue_up.erase(cell);
-
-						for (auto bit : cell_to_bit_up[cell])
-						for (auto c : bit_to_cell_up[bit])
-							if (unassigned_cells.count(c)) {
-								unassigned_cells.erase(c);
-								next_expand_queue_up.insert(c);
-								assigned_cells[key].push_back(c);
-								assigned_cells_reverse[c] = key;
-								expand_queue.insert(c);
-							}
-					}
-
-					if (!expand_queue_down.empty())
-					{
-						RTLIL::Cell *cell = *expand_queue_down.begin();
-						clkdomain_t key = assigned_cells_reverse.at(cell);
-						expand_queue_down.erase(cell);
-
-						for (auto bit : cell_to_bit_down[cell])
-						for (auto c : bit_to_cell_down[bit])
-							if (unassigned_cells.count(c)) {
-								unassigned_cells.erase(c);
-								next_expand_queue_up.insert(c);
-								assigned_cells[key].push_back(c);
-								assigned_cells_reverse[c] = key;
-								expand_queue.insert(c);
-							}
-					}
-
-					if (expand_queue_up.empty() && expand_queue_down.empty()) {
-						expand_queue_up.swap(next_expand_queue_up);
-						expand_queue_down.swap(next_expand_queue_down);
-					}
+					key = clkdomain_t(cell->type == "$_DFF_P_", assign_map(cell->getPort("\\C")), true, RTLIL::SigSpec());
 				}
-
-				while (!expand_queue.empty())
+				else
+				if (cell->type == "$_DFFE_NN_" || cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_")
 				{
-					RTLIL::Cell *cell = *expand_queue.begin();
+					bool this_clk_pol = cell->type == "$_DFFE_PN_" || cell->type == "$_DFFE_PP_";
+					bool this_en_pol = cell->type == "$_DFFE_NP_" || cell->type == "$_DFFE_PP_";
+					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort("\\C")), this_en_pol, assign_map(cell->getPort("\\E")));
+				}
+				else
+					continue;
+
+				unassigned_cells.erase(cell);
+				expand_queue.insert(cell);
+				expand_queue_up.insert(cell);
+				expand_queue_down.insert(cell);
+
+				assigned_cells[key].push_back(cell);
+				assigned_cells_reverse[cell] = key;
+			}
+
+			while (!expand_queue_up.empty() || !expand_queue_down.empty())
+			{
+				if (!expand_queue_up.empty())
+				{
+					RTLIL::Cell *cell = *expand_queue_up.begin();
 					clkdomain_t key = assigned_cells_reverse.at(cell);
-					expand_queue.erase(cell);
+					expand_queue_up.erase(cell);
 
-					for (auto bit : cell_to_bit.at(cell)) {
-						for (auto c : bit_to_cell[bit])
-							if (unassigned_cells.count(c)) {
-								unassigned_cells.erase(c);
-								next_expand_queue.insert(c);
-								assigned_cells[key].push_back(c);
-								assigned_cells_reverse[c] = key;
-							}
-						bit_to_cell[bit].clear();
-					}
-
-					if (expand_queue.empty())
-						expand_queue.swap(next_expand_queue);
+					for (auto bit : cell_to_bit_up[cell])
+					for (auto c : bit_to_cell_up[bit])
+						if (unassigned_cells.count(c)) {
+							unassigned_cells.erase(c);
+							next_expand_queue_up.insert(c);
+							assigned_cells[key].push_back(c);
+							assigned_cells_reverse[c] = key;
+							expand_queue.insert(c);
+						}
 				}
 
-				clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
-				for (auto cell : unassigned_cells) {
-					assigned_cells[key].push_back(cell);
-					assigned_cells_reverse[cell] = key;
+				if (!expand_queue_down.empty())
+				{
+					RTLIL::Cell *cell = *expand_queue_down.begin();
+					clkdomain_t key = assigned_cells_reverse.at(cell);
+					expand_queue_down.erase(cell);
+
+					for (auto bit : cell_to_bit_down[cell])
+					for (auto c : bit_to_cell_down[bit])
+						if (unassigned_cells.count(c)) {
+							unassigned_cells.erase(c);
+							next_expand_queue_up.insert(c);
+							assigned_cells[key].push_back(c);
+							assigned_cells_reverse[c] = key;
+							expand_queue.insert(c);
+						}
 				}
 
-				log_header(design, "Summary of detected clock domains:\n");
-				for (auto &it : assigned_cells)
-					log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
-							std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
-							std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
-
-				for (auto &it : assigned_cells) {
-					clk_polarity = std::get<0>(it.first);
-					clk_sig = assign_map(std::get<1>(it.first));
-					en_polarity = std::get<2>(it.first);
-					en_sig = assign_map(std::get<3>(it.first));
-					abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-							keepff, delay_target, sop_inputs, sop_products, fast_mode, it.second, show_tempdir, sop_mode);
-					assign_map.set(mod);
+				if (expand_queue_up.empty() && expand_queue_down.empty()) {
+					expand_queue_up.swap(next_expand_queue_up);
+					expand_queue_down.swap(next_expand_queue_down);
 				}
 			}
+
+			while (!expand_queue.empty())
+			{
+				RTLIL::Cell *cell = *expand_queue.begin();
+				clkdomain_t key = assigned_cells_reverse.at(cell);
+				expand_queue.erase(cell);
+
+				for (auto bit : cell_to_bit.at(cell)) {
+					for (auto c : bit_to_cell[bit])
+						if (unassigned_cells.count(c)) {
+							unassigned_cells.erase(c);
+							next_expand_queue.insert(c);
+							assigned_cells[key].push_back(c);
+							assigned_cells_reverse[c] = key;
+						}
+					bit_to_cell[bit].clear();
+				}
+
+				if (expand_queue.empty())
+					expand_queue.swap(next_expand_queue);
+			}
+
+			clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
+			for (auto cell : unassigned_cells) {
+				assigned_cells[key].push_back(cell);
+				assigned_cells_reverse[cell] = key;
+			}
+
+			log_header(design, "Summary of detected clock domains:\n");
+			for (auto &it : assigned_cells)
+				log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
+						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
+						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
+
+			for (auto &it : assigned_cells) {
+				clk_polarity = std::get<0>(it.first);
+				clk_sig = assign_map(std::get<1>(it.first));
+				en_polarity = std::get<2>(it.first);
+				en_sig = assign_map(std::get<3>(it.first));
+				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode);
+				assign_map.set(mod);
+			}
+		}
 
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
+		signal_init.clear();
 
 		log_pop();
 	}

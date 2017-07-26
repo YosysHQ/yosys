@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #
 # yosys -- Yosys Open SYnthesis Suite
 #
@@ -17,7 +16,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import sys, subprocess, re
+import sys, subprocess, re, os
 from copy import deepcopy
 from select import select
 from time import time
@@ -43,57 +42,94 @@ class SmtModInfo:
         self.wsize = dict()
         self.cells = dict()
         self.asserts = dict()
+        self.covers = dict()
         self.anyconsts = dict()
+        self.anyseqs = dict()
 
 
 class SmtIo:
-    def __init__(self, solver=None, debug_print=None, debug_file=None, timeinfo=None, unroll=None, opts=None):
+    def __init__(self, opts=None):
+        self.logic = None
+        self.logic_qf = True
+        self.logic_ax = True
+        self.logic_uf = True
+        self.logic_bv = True
+        self.logic_dt = False
+        self.produce_models = True
+        self.smt2cache = [list()]
+        self.p = None
+
         if opts is not None:
+            self.logic = opts.logic
             self.solver = opts.solver
+            self.solver_opts = opts.solver_opts
             self.debug_print = opts.debug_print
             self.debug_file = opts.debug_file
+            self.dummy_file = opts.dummy_file
             self.timeinfo = opts.timeinfo
             self.unroll = opts.unroll
+            self.noincr = opts.noincr
+            self.info_stmts = opts.info_stmts
+            self.nocomments = opts.nocomments
 
         else:
-            self.solver = "z3"
+            self.solver = "yices"
+            self.solver_opts = list()
             self.debug_print = False
             self.debug_file = None
-            self.timeinfo = True
+            self.dummy_file = None
+            self.timeinfo = os.name != "nt"
             self.unroll = False
+            self.noincr = False
+            self.info_stmts = list()
+            self.nocomments = False
 
-        if solver is not None:
-            self.solver = solver
+        self.start_time = time()
 
-        if debug_print is not None:
-            self.debug_print = debug_print
+        self.modinfo = dict()
+        self.curmod = None
+        self.topmod = None
+        self.setup_done = False
 
-        if debug_file is not None:
-            self.debug_file = debug_file
-
-        if timeinfo is not None:
-            self.timeinfo = timeinfo
-
-        if unroll is not None:
-            self.unroll = unroll
+    def setup(self):
+        assert not self.setup_done
 
         if self.solver == "yices":
-            popen_vargs = ['yices-smt2', '--incremental']
+            self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
 
         if self.solver == "z3":
-            popen_vargs = ['z3', '-smt2', '-in']
+            self.popen_vargs = ['z3', '-smt2', '-in'] + self.solver_opts
 
         if self.solver == "cvc4":
-            popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2']
+            self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
 
         if self.solver == "mathsat":
-            popen_vargs = ['mathsat']
+            self.popen_vargs = ['mathsat'] + self.solver_opts
 
         if self.solver == "boolector":
-            popen_vargs = ['boolector', '--smt2', '-i']
+            self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
             self.unroll = True
 
+        if self.solver == "abc":
+            if len(self.solver_opts) > 0:
+                self.popen_vargs = ['yosys-abc', '-S', '; '.join(self.solver_opts)]
+            else:
+                self.popen_vargs = ['yosys-abc', '-S', '%blast; &sweep -C 5000; &syn4; &cec -s -m -C 2000']
+            self.logic_ax = False
+            self.unroll = True
+            self.noincr = True
+
+        if self.solver == "dummy":
+            assert self.dummy_file is not None
+            self.dummy_fd = open(self.dummy_file, "r")
+        else:
+            if self.dummy_file is not None:
+                self.dummy_fd = open(self.dummy_file, "w")
+            if not self.noincr:
+                self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
         if self.unroll:
+            self.logic_uf = False
             self.unroll_idcnt = 0
             self.unroll_buffer = ""
             self.unroll_sorts = set()
@@ -102,20 +138,23 @@ class SmtIo:
             self.unroll_cache = dict()
             self.unroll_stack = list()
 
-        self.p = subprocess.Popen(popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        self.start_time = time()
+        if self.logic is None:
+            self.logic = ""
+            if self.logic_qf: self.logic += "QF_"
+            if self.logic_ax: self.logic += "A"
+            if self.logic_uf: self.logic += "UF"
+            if self.logic_bv: self.logic += "BV"
+            if self.logic_dt: self.logic = "ALL"
 
-        self.modinfo = dict()
-        self.curmod = None
-        self.topmod = None
+        self.setup_done = True
 
-    def setup(self, logic="ALL", info=None):
-        self.write("(set-option :produce-models true)")
-        self.write("(set-logic %s)" % logic)
-        if info is not None:
-            self.write("(set-info :source |%s|)" % info)
-            self.write("(set-info :smt-lib-version 2.5)")
-            self.write("(set-info :category \"industrial\")")
+        if self.produce_models:
+            self.write("(set-option :produce-models true)")
+
+        self.write("(set-logic %s)" % self.logic)
+
+        for stmt in self.info_stmts:
+            self.write(stmt)
 
     def timestamp(self):
         secs = int(time() - self.start_time)
@@ -171,13 +210,21 @@ class SmtIo:
         return stmt
 
     def write(self, stmt, unroll=True):
+        if stmt.startswith(";"):
+            self.info(stmt)
+            if not self.setup_done:
+                self.info_stmts.append(stmt)
+                return
+        elif not self.setup_done:
+            self.setup()
+
         stmt = stmt.strip()
 
-        if unroll and self.unroll:
-            if stmt.startswith(";"):
-                return
+        if self.nocomments or self.unroll:
+            stmt = re.sub(r" *;.*", "", stmt)
+            if stmt == "": return
 
-            stmt = re.sub(r" ;.*", "", stmt)
+        if unroll and self.unroll:
             stmt = self.unroll_buffer + stmt
             self.unroll_buffer = ""
 
@@ -231,14 +278,41 @@ class SmtIo:
             print(stmt, file=self.debug_file)
             self.debug_file.flush()
 
-        self.p.stdin.write(bytes(stmt + "\n", "ascii"))
-        self.p.stdin.flush()
+        if self.solver != "dummy":
+            if self.noincr:
+                if self.p is not None and not stmt.startswith("(get-"):
+                    self.p.stdin.close()
+                    self.p = None
+                if stmt == "(push 1)":
+                    self.smt2cache.append(list())
+                elif stmt == "(pop 1)":
+                    self.smt2cache.pop()
+                else:
+                    if self.p is not None:
+                        self.p.stdin.write(bytes(stmt + "\n", "ascii"))
+                        self.p.stdin.flush()
+                    self.smt2cache[-1].append(stmt)
+            else:
+                self.p.stdin.write(bytes(stmt + "\n", "ascii"))
+                self.p.stdin.flush()
 
     def info(self, stmt):
         if not stmt.startswith("; yosys-smt2-"):
             return
 
         fields = stmt.split()
+
+        if fields[1] == "yosys-smt2-nomem":
+            if self.logic is None:
+                self.logic_ax = False
+
+        if fields[1] == "yosys-smt2-nobv":
+            if self.logic is None:
+                self.logic_bv = False
+
+        if fields[1] == "yosys-smt2-stdt":
+            if self.logic is None:
+                self.logic_dt = True
 
         if fields[1] == "yosys-smt2-module":
             self.curmod = fields[2]
@@ -263,17 +337,23 @@ class SmtIo:
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
         if fields[1] == "yosys-smt2-memory":
-            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]), int(fields[5]))
+            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]), int(fields[5]), int(fields[6]))
 
         if fields[1] == "yosys-smt2-wire":
             self.modinfo[self.curmod].wires.add(fields[2])
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
         if fields[1] == "yosys-smt2-assert":
-            self.modinfo[self.curmod].asserts[fields[2]] = fields[3]
+            self.modinfo[self.curmod].asserts["%s_a %s" % (self.curmod, fields[2])] = fields[3]
+
+        if fields[1] == "yosys-smt2-cover":
+            self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
 
         if fields[1] == "yosys-smt2-anyconst":
-            self.modinfo[self.curmod].anyconsts[fields[2]] = fields[3]
+            self.modinfo[self.curmod].anyconsts[fields[2]] = (fields[3], None if len(fields) <= 4 else fields[4])
+
+        if fields[1] == "yosys-smt2-anyseq":
+            self.modinfo[self.curmod].anyseqs[fields[2]] = (fields[3], None if len(fields) <= 4 else fields[4])
 
     def hiernets(self, top, regs_only=False):
         def hiernets_worker(nets, mod, cursor):
@@ -286,6 +366,28 @@ class SmtIo:
         nets = list()
         hiernets_worker(nets, top, [])
         return nets
+
+    def hieranyconsts(self, top):
+        def worker(results, mod, cursor):
+            for name, value in sorted(self.modinfo[mod].anyconsts.items()):
+                results.append((cursor, name, value[0], value[1]))
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                worker(results, celltype, cursor + [cellname])
+
+        results = list()
+        worker(results, top, [])
+        return results
+
+    def hieranyseqs(self, top):
+        def worker(results, mod, cursor):
+            for name, value in sorted(self.modinfo[mod].anyseqs.items()):
+                results.append((cursor, name, value[0], value[1]))
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                worker(results, celltype, cursor + [cellname])
+
+        results = list()
+        worker(results, top, [])
+        return results
 
     def hiermems(self, top):
         def hiermems_worker(mems, mod, cursor):
@@ -303,15 +405,22 @@ class SmtIo:
         count_brackets = 0
 
         while True:
-            line = self.p.stdout.readline().decode("ascii").strip()
+            if self.solver == "dummy":
+                line = self.dummy_fd.readline().strip()
+            else:
+                line = self.p.stdout.readline().decode("ascii").strip()
+                if self.dummy_file is not None:
+                    self.dummy_fd.write(line + "\n")
+
             count_brackets += line.count("(")
             count_brackets -= line.count(")")
             stmt.append(line)
+
             if self.debug_print:
                 print("< %s" % line)
             if count_brackets == 0:
                 break
-            if self.p.poll():
+            if self.solver != "dummy" and self.p.poll():
                 print("SMT Solver terminated unexpectedly: %s" % "".join(stmt))
                 sys.exit(1)
 
@@ -325,47 +434,57 @@ class SmtIo:
     def check_sat(self):
         if self.debug_print:
             print("> (check-sat)")
-        if self.debug_file:
+        if self.debug_file and not self.nocomments:
             print("; running check-sat..", file=self.debug_file)
             self.debug_file.flush()
 
-        self.p.stdin.write(bytes("(check-sat)\n", "ascii"))
-        self.p.stdin.flush()
+        if self.solver != "dummy":
+            if self.noincr:
+                if self.p is not None:
+                    self.p.stdin.close()
+                    self.p = None
+                self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                for cache_ctx in self.smt2cache:
+                    for cache_stmt in cache_ctx:
+                        self.p.stdin.write(bytes(cache_stmt + "\n", "ascii"))
 
-        if self.timeinfo:
-            i = 0
-            s = "/-\|"
+            self.p.stdin.write(bytes("(check-sat)\n", "ascii"))
+            self.p.stdin.flush()
 
-            count = 0
-            num_bs = 0
-            while select([self.p.stdout], [], [], 0.1) == ([], [], []):
-                count += 1
+            if self.timeinfo:
+                i = 0
+                s = "/-\|"
 
-                if count < 25:
-                    continue
+                count = 0
+                num_bs = 0
+                while select([self.p.stdout], [], [], 0.1) == ([], [], []):
+                    count += 1
 
-                if count % 10 == 0 or count == 25:
-                    secs = count // 10
+                    if count < 25:
+                        continue
 
-                    if secs < 60:
-                        m = "(%d seconds)" % secs
-                    elif secs < 60*60:
-                        m = "(%d seconds -- %d:%02d)" % (secs, secs // 60, secs % 60)
+                    if count % 10 == 0 or count == 25:
+                        secs = count // 10
+
+                        if secs < 60:
+                            m = "(%d seconds)" % secs
+                        elif secs < 60*60:
+                            m = "(%d seconds -- %d:%02d)" % (secs, secs // 60, secs % 60)
+                        else:
+                            m = "(%d seconds -- %d:%02d:%02d)" % (secs, secs // (60*60), (secs // 60) % 60, secs % 60)
+
+                        print("%s %s %c" % ("\b \b" * num_bs, m, s[i]), end="", file=sys.stderr)
+                        num_bs = len(m) + 3
+
                     else:
-                        m = "(%d seconds -- %d:%02d:%02d)" % (secs, secs // (60*60), (secs // 60) % 60, secs % 60)
+                        print("\b" + s[i], end="", file=sys.stderr)
 
-                    print("%s %s %c" % ("\b \b" * num_bs, m, s[i]), end="", file=sys.stderr)
-                    num_bs = len(m) + 3
+                    sys.stderr.flush()
+                    i = (i + 1) % len(s)
 
-                else:
-                    print("\b" + s[i], end="", file=sys.stderr)
-
-                sys.stderr.flush()
-                i = (i + 1) % len(s)
-
-            if num_bs != 0:
-                print("\b \b" * num_bs, end="", file=sys.stderr)
-                sys.stderr.flush()
+                if num_bs != 0:
+                    print("\b \b" * num_bs, end="", file=sys.stderr)
+                    sys.stderr.flush()
 
         result = self.read()
         if self.debug_file:
@@ -462,8 +581,15 @@ class SmtIo:
         return [".".join(path)]
 
     def net_expr(self, mod, base, path):
+        if len(path) == 0:
+            return base
+
         if len(path) == 1:
             assert mod in self.modinfo
+            if path[0] == "":
+                return base
+            if path[0] in self.modinfo[mod].cells:
+                return "(|%s_h %s| %s)" % (mod, path[0], base)
             if path[0] in self.modinfo[mod].wsize:
                 return "(|%s_n %s| %s)" % (mod, path[0], base)
             if path[0] in self.modinfo[mod].memories:
@@ -487,23 +613,43 @@ class SmtIo:
         assert net_path[-1] in self.modinfo[mod].wsize
         return self.modinfo[mod].wsize[net_path[-1]]
 
-    def mem_expr(self, mod, base, path, portidx=None, infomode=False):
+    def net_exists(self, mod, net_path):
+        for i in range(len(net_path)-1):
+            if mod not in self.modinfo: return False
+            if net_path[i] not in self.modinfo[mod].cells: return False
+            mod = self.modinfo[mod].cells[net_path[i]]
+
+        if mod not in self.modinfo: return False
+        if net_path[-1] not in self.modinfo[mod].wsize: return False
+        return True
+
+    def mem_exists(self, mod, mem_path):
+        for i in range(len(mem_path)-1):
+            if mod not in self.modinfo: return False
+            if mem_path[i] not in self.modinfo[mod].cells: return False
+            mod = self.modinfo[mod].cells[mem_path[i]]
+
+        if mod not in self.modinfo: return False
+        if mem_path[-1] not in self.modinfo[mod].memories: return False
+        return True
+
+    def mem_expr(self, mod, base, path, port=None, infomode=False):
         if len(path) == 1:
             assert mod in self.modinfo
             assert path[0] in self.modinfo[mod].memories
             if infomode:
                 return self.modinfo[mod].memories[path[0]]
-            return "(|%s_m%s %s| %s)" % (mod, "" if portidx is None else ":%d" % portidx, path[0], base)
+            return "(|%s_m%s %s| %s)" % (mod, "" if port is None else ":%s" % port, path[0], base)
 
         assert mod in self.modinfo
         assert path[0] in self.modinfo[mod].cells
 
         nextmod = self.modinfo[mod].cells[path[0]]
         nextbase = "(|%s_h %s| %s)" % (mod, path[0], base)
-        return self.mem_expr(nextmod, nextbase, path[1:], portidx=portidx, infomode=infomode)
+        return self.mem_expr(nextmod, nextbase, path[1:], port=port, infomode=infomode)
 
-    def mem_info(self, mod, base, path):
-        return self.mem_expr(mod, base, path, infomode=True)
+    def mem_info(self, mod, path):
+        return self.mem_expr(mod, "", path, infomode=True)
 
     def get_net(self, mod_name, net_path, state_name):
         return self.get(self.net_expr(mod_name, state_name, net_path))
@@ -524,30 +670,49 @@ class SmtIo:
         return [self.bv2bin(v) for v in self.get_net_list(mod_name, net_path_list, state_name)]
 
     def wait(self):
-        self.p.wait()
+        if self.p is not None:
+            self.p.wait()
 
 
 class SmtOpts:
     def __init__(self):
-        self.shortopts = "s:v"
-        self.longopts = ["unroll", "no-progress", "dump-smt2="]
-        self.solver = "z3"
+        self.shortopts = "s:S:v"
+        self.longopts = ["unroll", "noincr", "noprogress", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
+        self.solver = "yices"
+        self.solver_opts = list()
         self.debug_print = False
         self.debug_file = None
+        self.dummy_file = None
         self.unroll = False
-        self.timeinfo = True
+        self.noincr = False
+        self.timeinfo = os.name != "nt"
+        self.logic = None
+        self.info_stmts = list()
+        self.nocomments = False
 
     def handle(self, o, a):
         if o == "-s":
             self.solver = a
+        elif o == "-S":
+            self.solver_opts.append(a)
         elif o == "-v":
             self.debug_print = True
         elif o == "--unroll":
             self.unroll = True
-        elif o == "--no-progress":
-            self.timeinfo = True
+        elif o == "--noincr":
+            self.noincr = True
+        elif o == "--noprogress":
+            self.timeinfo = False
         elif o == "--dump-smt2":
             self.debug_file = open(a, "w")
+        elif o == "--logic":
+            self.logic = a
+        elif o == "--dummy":
+            self.dummy_file = a
+        elif o == "--info":
+            self.info_stmts.append(a)
+        elif o == "--nocomments":
+            self.nocomments = True
         else:
             return False
         return True
@@ -555,8 +720,18 @@ class SmtOpts:
     def helpmsg(self):
         return """
     -s <solver>
-        set SMT solver: z3, cvc4, yices, mathsat
-        default: z3
+        set SMT solver: z3, yices, boolector, cvc4, mathsat, dummy
+        default: yices
+
+    -S <opt>
+        pass <opt> as command line argument to the solver
+
+    --logic <smt2_logic>
+        use the specified SMT2 logic (e.g. QF_AUFBV)
+
+    --dummy <filename>
+        if solver is "dummy", read solver output from that file
+        otherwise: write solver output to that file
 
     -v
         enable debug output
@@ -564,11 +739,22 @@ class SmtOpts:
     --unroll
         unroll uninterpreted functions
 
-    --no-progress
+    --noincr
+        don't use incremental solving, instead restart solver for
+        each (check-sat). This also avoids (push) and (pop).
+
+    --noprogress
         disable timer display during solving
+        (this option is set implicitly on Windows)
 
     --dump-smt2 <filename>
         write smt2 statements to file
+
+    --info <smt2-info-stmt>
+        include the specified smt2 info statement in the smt2 output
+
+    --nocomments
+        strip all comments from the generated smt2 code
 """
 
 

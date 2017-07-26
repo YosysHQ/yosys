@@ -64,6 +64,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <limits.h>
 
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
@@ -73,6 +74,16 @@
 
 #ifdef YOSYS_ENABLE_TCL
 #  include <tcl.h>
+#  ifdef YOSYS_MXE_HACKS
+extern Tcl_Command Tcl_CreateCommand(Tcl_Interp *interp, const char *cmdName, Tcl_CmdProc *proc, ClientData clientData, Tcl_CmdDeleteProc *deleteProc);
+extern Tcl_Interp *Tcl_CreateInterp(void);
+extern void Tcl_DeleteInterp(Tcl_Interp *interp);
+extern int Tcl_Eval(Tcl_Interp *interp, const char *script);
+extern int Tcl_EvalFile(Tcl_Interp *interp, const char *fileName);
+extern void Tcl_Finalize(void);
+extern int Tcl_GetCommandInfo(Tcl_Interp *interp, const char *cmdName, Tcl_CmdInfo *infoPtr);
+extern const char *Tcl_GetStringResult(Tcl_Interp *interp);
+#  endif
 #endif
 
 #ifdef _WIN32
@@ -98,6 +109,10 @@
 #    define isatty _isatty
 #    define fileno _fileno
 #  endif
+#endif
+
+#ifndef PATH_MAX
+#  define PATH_MAX 4096
 #endif
 
 #define PRIVATE_NAMESPACE_BEGIN  namespace {
@@ -145,6 +160,7 @@ using std::pair;
 
 using std::make_tuple;
 using std::make_pair;
+using std::get;
 using std::min;
 using std::max;
 

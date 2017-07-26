@@ -36,8 +36,9 @@ struct ConstEval
 	SigSet<RTLIL::Cell*> sig2driver;
 	std::set<RTLIL::Cell*> busy;
 	std::vector<SigMap> stack;
+	RTLIL::State defaultval;
 
-	ConstEval(RTLIL::Module *module) : module(module), assign_map(module)
+	ConstEval(RTLIL::Module *module, RTLIL::State defaultval = RTLIL::State::Sm) : module(module), assign_map(module), defaultval(defaultval)
 	{
 		CellTypes ct;
 		ct.setup_internals();
@@ -364,6 +365,12 @@ struct ConstEval
 		values_map.apply(sig);
 		if (sig.is_fully_const())
 			return true;
+
+		if (defaultval != RTLIL::State::Sm) {
+			for (auto &bit : sig)
+				if (bit.wire) bit = defaultval;
+			return true;
+		}
 
 		for (auto &c : sig.chunks())
 			if (c.wire != NULL)

@@ -35,13 +35,14 @@ struct EquivSimpleWorker
 	ezSatPtr ez;
 	SatGen satgen;
 	int max_seq;
+	bool short_cones;
 	bool verbose;
 
 	pool<pair<Cell*, int>> imported_cells_cache;
 
-	EquivSimpleWorker(const vector<Cell*> &equiv_cells, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool verbose, bool model_undef) :
+	EquivSimpleWorker(const vector<Cell*> &equiv_cells, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool short_cones, bool verbose, bool model_undef) :
 			module(equiv_cells.front()->module), equiv_cells(equiv_cells), equiv_cell(nullptr),
-			sigmap(sigmap), bit2driver(bit2driver), satgen(ez.get(), &sigmap), max_seq(max_seq), verbose(verbose)
+			sigmap(sigmap), bit2driver(bit2driver), satgen(ez.get(), &sigmap), max_seq(max_seq), short_cones(short_cones), verbose(verbose)
 	{
 		satgen.model_undef = model_undef;
 	}
@@ -59,7 +60,7 @@ struct EquivSimpleWorker
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
 				for (auto bit : sigmap(conn.second)) {
-					if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_")) {
+					if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_")) {
 						if (!conn.first.in("\\CLK", "\\C"))
 							next_seed.insert(bit);
 					} else
@@ -142,22 +143,44 @@ struct EquivSimpleWorker
 			pool<SigBit> short_bits_cone_a, short_bits_cone_b;
 			pool<SigBit> input_bits;
 
-			for (auto bit_a : seed_a)
-				find_input_cone(next_seed_a, short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, &input_bits, bit_a);
-			next_seed_a.swap(seed_a);
+			if (short_cones)
+			{
+				for (auto bit_a : seed_a)
+					find_input_cone(next_seed_a, short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, &input_bits, bit_a);
+				next_seed_a.swap(seed_a);
 
-			for (auto bit_b : seed_b)
-				find_input_cone(next_seed_b, short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, &input_bits, bit_b);
-			next_seed_b.swap(seed_b);
+				for (auto bit_b : seed_b)
+					find_input_cone(next_seed_b, short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, &input_bits, bit_b);
+				next_seed_b.swap(seed_b);
+			}
+			else
+			{
+				short_cells_cone_a = full_cells_cone_a;
+				short_bits_cone_a = full_bits_cone_a;
+				next_seed_a.swap(seed_a);
+
+				short_cells_cone_b = full_cells_cone_b;
+				short_bits_cone_b = full_bits_cone_b;
+				next_seed_b.swap(seed_b);
+			}
 
 			pool<Cell*> problem_cells;
 			problem_cells.insert(short_cells_cone_a.begin(), short_cells_cone_a.end());
 			problem_cells.insert(short_cells_cone_b.begin(), short_cells_cone_b.end());
 
 			if (verbose)
+			{
 				log("    Adding %d new cells to the problem (%d A, %d B, %d shared).\n",
 						GetSize(problem_cells), GetSize(short_cells_cone_a), GetSize(short_cells_cone_b),
 						(GetSize(short_cells_cone_a) + GetSize(short_cells_cone_b)) - GetSize(problem_cells));
+			#if 0
+				for (auto cell : short_cells_cone_a)
+					log("      A-side cell: %s\n", log_id(cell));
+
+				for (auto cell : short_cells_cone_b)
+					log("      B-side cell: %s\n", log_id(cell));
+			#endif
+			}
 
 			for (auto cell : problem_cells) {
 				auto key = pair<Cell*, int>(cell, step+1);
@@ -264,6 +287,10 @@ struct EquivSimplePass : public Pass {
 		log("    -undef\n");
 		log("        enable modelling of undef states\n");
 		log("\n");
+		log("    -short\n");
+		log("        create shorter input cones that stop at shared nodes. This yields\n");
+		log("        simpler SAT problems but sometimes fails to prove equivalence.\n");
+		log("\n");
 		log("    -nogroup\n");
 		log("        disabling grouping of $equiv cells by output wire\n");
 		log("\n");
@@ -273,7 +300,7 @@ struct EquivSimplePass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, Design *design)
 	{
-		bool verbose = false, model_undef = false, nogroup = false;
+		bool verbose = false, short_cones = false, model_undef = false, nogroup = false;
 		int success_counter = 0;
 		int max_seq = 1;
 
@@ -283,6 +310,10 @@ struct EquivSimplePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-v") {
 				verbose = true;
+				continue;
+			}
+			if (args[argidx] == "-short") {
+				short_cones = true;
 				continue;
 			}
 			if (args[argidx] == "-undef") {
@@ -329,7 +360,7 @@ struct EquivSimplePass : public Pass {
 					unproven_cells_counter, GetSize(unproven_equiv_cells), log_id(module));
 
 			for (auto cell : module->cells()) {
-				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_"))
+				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_"))
 					continue;
 				for (auto &conn : cell->connections())
 					if (yosys_celltypes.cell_output(cell->type, conn.first))
@@ -346,7 +377,7 @@ struct EquivSimplePass : public Pass {
 				for (auto it2 : it.second)
 					cells.push_back(it2.second);
 
-				EquivSimpleWorker worker(cells, sigmap, bit2driver, max_seq, verbose, model_undef);
+				EquivSimpleWorker worker(cells, sigmap, bit2driver, max_seq, short_cones, verbose, model_undef);
 				success_counter += worker.run();
 			}
 		}

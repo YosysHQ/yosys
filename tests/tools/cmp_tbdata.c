@@ -4,8 +4,8 @@
 #include <string.h>
 
 int line = 0;
-char buffer1[1024];
-char buffer2[1024];
+char buffer1[8192];
+char buffer2[8192];
 
 void check(bool ok)
 {

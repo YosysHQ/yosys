@@ -1305,6 +1305,30 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$live (A, EN);
+
+input A, EN;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$fair (A, EN);
+
+input A, EN;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$cover (A, EN);
+
+input A, EN;
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$initstate (Y);
 
 output reg Y = 1;
@@ -1323,6 +1347,18 @@ endmodule
 // --------------------------------------------------------
 
 module \$anyconst (Y);
+
+parameter WIDTH = 0;
+
+output [WIDTH-1:0] Y;
+
+assign Y = 'bx;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$anyseq (Y);
 
 parameter WIDTH = 0;
 
@@ -1377,6 +1413,23 @@ generate
 				Q[i] <= 1;
 	end
 endgenerate
+
+endmodule
+
+`endif
+// --------------------------------------------------------
+`ifdef SIMLIB_FF
+
+module \$ff (D, Q);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+
+always @($global_clk) begin
+	Q <= D;
+end
 
 endmodule
 

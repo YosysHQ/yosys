@@ -1,0 +1,2 @@
+#!/bin/env bash
+yosys -p "synth_intel -family cycloneiv -top lfsr_updown -vout top.vqm" lfsr_updown.v

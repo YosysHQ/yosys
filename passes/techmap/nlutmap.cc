@@ -92,7 +92,7 @@ struct NlutmapWorker
 					for (auto bit : sigmap(conn.second))
 						bit_lut_count[bit]++;
 			}
-			
+
 			for (auto &cand : candidate_ratings)
 			{
 				for (auto &conn : cand.first->connections())

@@ -175,16 +175,12 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			{
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".v";
 				if (check_file_exists(filename)) {
-					std::vector<std::string> args;
-					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "verilog");
 					goto loaded_module;
 				}
 
 				filename = dir + "/" + RTLIL::unescape_id(cell->type) + ".il";
 				if (check_file_exists(filename)) {
-					std::vector<std::string> args;
-					args.push_back(filename);
 					Frontend::frontend_call(design, NULL, filename, "ilang");
 					goto loaded_module;
 				}
@@ -212,6 +208,10 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				} else if (mod->wire(conn.first) == nullptr || mod->wire(conn.first)->port_id == 0)
 					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a port named '%s'.\n",
 							log_id(cell->type), log_id(module), log_id(cell), log_id(conn.first));
+			for (auto &param : cell->parameters)
+				if (mod->avail_parameters.count(param.first) == 0 && param.first[0] != '$' && strchr(param.first.c_str(), '.') == NULL)
+					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a parameter named '%s'.\n",
+							log_id(cell->type), log_id(module), log_id(cell), log_id(param.first));
 		}
 
 		if (cell->parameters.size() == 0)
@@ -313,7 +313,7 @@ bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 	if (cache.count(mod) == 0)
 		for (auto c : mod->cells()) {
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in("$assert", "$assume"))
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in("$assert", "$assume", "$live", "$fair", "$cover"))
 				return cache[mod] = true;
 		}
 	return cache[mod];
@@ -363,6 +363,11 @@ struct HierarchyPass : public Pass {
 		log("        per default this pass also converts positional arguments in cells\n");
 		log("        to arguments using port names. this option disables this behavior.\n");
 		log("\n");
+		log("    -keep_portwidths\n");
+		log("        per default this pass adjusts the port width on cells that are\n");
+		log("        module instances when the width does not match the module port. this\n");
+		log("        option disables this behavior.\n");
+		log("\n");
 		log("    -nokeep_asserts\n");
 		log("        per default this pass sets the \"keep\" attribute on all modules\n");
 		log("        that directly or indirectly contain one or more $assert cells. this\n");
@@ -408,6 +413,7 @@ struct HierarchyPass : public Pass {
 		bool auto_top_mode = false;
 		bool generate_mode = false;
 		bool keep_positionals = false;
+		bool keep_portwidths = false;
 		bool nokeep_asserts = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
@@ -464,6 +470,10 @@ struct HierarchyPass : public Pass {
 			}
 			if (args[argidx] == "-keep_positionals") {
 				keep_positionals = true;
+				continue;
+			}
+			if (args[argidx] == "-keep_portwidths") {
+				keep_portwidths = true;
 				continue;
 			}
 			if (args[argidx] == "-nokeep_asserts") {
@@ -607,6 +617,59 @@ struct HierarchyPass : public Pass {
 					} else
 						new_connections[conn.first] = conn.second;
 				cell->connections_ = new_connections;
+			}
+		}
+
+		for (auto module : design->modules())
+		for (auto cell : module->cells())
+		{
+			if (GetSize(cell->parameters) != 0)
+				continue;
+
+			Module *m = design->module(cell->type);
+
+			if (m == nullptr || m->get_bool_attribute("\\blackbox"))
+				continue;
+
+			for (auto &conn : cell->connections())
+			{
+				Wire *w = m->wire(conn.first);
+
+				if (w == nullptr || w->port_id == 0)
+					continue;
+
+				if (GetSize(conn.second) == 0)
+					continue;
+
+				SigSpec sig = conn.second;
+
+				if (!keep_portwidths && GetSize(w) != GetSize(conn.second))
+				{
+					if (GetSize(w) < GetSize(conn.second))
+					{
+						int n = GetSize(conn.second) - GetSize(w);
+						if (!w->port_input && w->port_output)
+							module->connect(sig.extract(GetSize(w), n), Const(0, n));
+						sig.remove(GetSize(w), n);
+					}
+					else
+					{
+						int n = GetSize(w) - GetSize(conn.second);
+						if (w->port_input && !w->port_output)
+							sig.append(Const(0, n));
+						else
+							sig.append(module->addWire(NEW_ID, n));
+					}
+
+					if (!conn.second.is_fully_const() || !w->port_input || w->port_output)
+						log_warning("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", log_id(module), log_id(cell),
+								log_id(conn.first), GetSize(conn.second), GetSize(sig));
+					cell->setPort(conn.first, sig);
+				}
+
+				if (w->port_output && !w->port_input && sig.has_const())
+					log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
+							log_id(module), log_id(cell), log_id(conn.first), log_id(cell->type), log_signal(sig));
 			}
 		}
 

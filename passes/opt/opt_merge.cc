@@ -275,13 +275,22 @@ struct OptMergeWorker
 			ct.cell_types.erase("$pmux");
 		}
 
+		ct.cell_types.erase("$tribuf");
+		ct.cell_types.erase("$_TBUF_");
+		ct.cell_types.erase("$anyseq");
+		ct.cell_types.erase("$anyconst");
+
 		log("Finding identical cells in module `%s'.\n", module->name.c_str());
 		assign_map.set(module);
 
 		dff_init_map.set(module);
 		for (auto &it : module->wires_)
-			if (it.second->attributes.count("\\init") != 0)
-				dff_init_map.add(it.second, it.second->attributes.at("\\init"));
+			if (it.second->attributes.count("\\init") != 0) {
+				Const initval = it.second->attributes.at("\\init");
+				for (int i = 0; i < GetSize(initval) && i < GetSize(it.second); i++)
+					if (initval[i] == State::S0 || initval[i] == State::S1)
+						dff_init_map.add(SigBit(it.second, i), initval[i]);
+			}
 
 		bool did_something = true;
 		while (did_something)

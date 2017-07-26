@@ -312,18 +312,42 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 		log_pop();
 	}
 
-	SigSpec or_signals;
+	SigSpec assert_signals, assume_signals;
 	vector<Cell*> cell_list = module->cells();
-	for (auto cell : cell_list) {
+	for (auto cell : cell_list)
+	{
+		if (!cell->type.in("$assert", "$assume"))
+			continue;
+
+		SigBit is_active = module->Nex(NEW_ID, cell->getPort("\\A"), State::S1);
+		SigBit is_enabled = module->Eqx(NEW_ID, cell->getPort("\\EN"), State::S1);
+
 		if (cell->type == "$assert") {
-			SigBit is_active = module->Nex(NEW_ID, cell->getPort("\\A"), State::S1);
-			SigBit is_enabled = module->Eqx(NEW_ID, cell->getPort("\\EN"), State::S1);
-			or_signals.append(module->And(NEW_ID, is_active, is_enabled));
-			module->remove(cell);
+			assert_signals.append(module->And(NEW_ID, is_active, is_enabled));
+		} else {
+			assume_signals.append(module->And(NEW_ID, is_active, is_enabled));
 		}
+
+		module->remove(cell);
 	}
 
-	module->addReduceOr(NEW_ID, or_signals, trigger);
+	if (assume_signals.empty())
+	{
+		module->addReduceOr(NEW_ID, assert_signals, trigger);
+	}
+	else
+	{
+		Wire *assume_q = module->addWire(NEW_ID);
+		assume_q->attributes["\\init"] = State::S0;
+		assume_signals.append(assume_q);
+
+		SigSpec assume_nok = module->ReduceOr(NEW_ID, assume_signals);
+		SigSpec assume_ok = module->Not(NEW_ID, assume_nok);
+		module->addFf(NEW_ID, assume_nok, assume_q);
+
+		SigSpec assert_fail = module->ReduceOr(NEW_ID, assert_signals);
+		module->addAnd(NEW_ID, assert_fail, assume_ok, trigger);
+	}
 
 	if (flag_flatten) {
 		log_push();

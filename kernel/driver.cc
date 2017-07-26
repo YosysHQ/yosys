@@ -119,6 +119,29 @@ const char *prompt()
 
 #else /* EMSCRIPTEN */
 
+#ifdef YOSYS_ENABLE_READLINE
+int yosys_history_offset = 0;
+std::string yosys_history_file;
+#endif
+
+void yosys_atexit()
+{
+#ifdef YOSYS_ENABLE_READLINE
+	if (!yosys_history_file.empty()) {
+		if (yosys_history_offset > 0) {
+			history_truncate_file(yosys_history_file.c_str(), 100);
+			append_history(where_history() - yosys_history_offset, yosys_history_file.c_str());
+		} else
+			write_history(yosys_history_file.c_str());
+	}
+
+	clear_history();
+	HIST_ENTRY **hist_list = history_list();
+	if (hist_list != NULL)
+		free(hist_list);
+#endif
+}
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
@@ -137,12 +160,10 @@ int main(int argc, char **argv)
 	bool mode_q = false;
 
 #ifdef YOSYS_ENABLE_READLINE
-	int history_offset = 0;
-	std::string history_file;
 	if (getenv("HOME") != NULL) {
-		history_file = stringf("%s/.yosys_history", getenv("HOME"));
-		read_history(history_file.c_str());
-		history_offset = where_history();
+		yosys_history_file = stringf("%s/.yosys_history", getenv("HOME"));
+		read_history(yosys_history_file.c_str());
+		yosys_history_offset = where_history();
 	}
 #endif
 
@@ -218,6 +239,13 @@ int main(int argc, char **argv)
 		printf("        yosys_dump_<header_id>.il is used as filename if none is specified.\n");
 		printf("        Use 'ALL' as <header_id> to dump at every header.\n");
 		printf("\n");
+		printf("    -W regex\n");
+		printf("        print a warning for all log messages matching the regex.\n");
+		printf("\n");
+		printf("    -w regex\n");
+		printf("        if a warning message matches the regex, it is printes as regular\n");
+		printf("        message instead.\n");
+		printf("\n");
 		printf("    -V\n");
 		printf("        print version information and exit\n");
 		printf("\n");
@@ -238,7 +266,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:D:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:D:")) != -1)
 	{
 		switch (opt)
 		{
@@ -320,6 +348,18 @@ int main(int argc, char **argv)
 			scriptfile = optarg;
 			scriptfile_tcl = true;
 			break;
+		case 'W':
+			log_warn_regexes.push_back(std::regex(optarg,
+					std::regex_constants::nosubs |
+					std::regex_constants::optimize |
+					std::regex_constants::egrep));
+			break;
+		case 'w':
+			log_nowarn_regexes.push_back(std::regex(optarg,
+					std::regex_constants::nosubs |
+					std::regex_constants::optimize |
+					std::regex_constants::egrep));
+			break;
 		case 'D':
 			{
 				auto args = split_tokens(optarg, ":");
@@ -360,6 +400,7 @@ int main(int argc, char **argv)
 		log_hasher = new SHA1;
 
 	yosys_setup();
+	log_error_atexit = yosys_atexit;
 
 	for (auto &fn : plugin_filenames)
 		load_plugin(fn, {});
@@ -490,27 +531,16 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	yosys_atexit();
+
 	memhasher_off();
 	if (call_abort)
 		abort();
 
-#ifdef YOSYS_ENABLE_READLINE
-	if (!history_file.empty()) {
-		if (history_offset > 0) {
-			history_truncate_file(history_file.c_str(), 100);
-			append_history(where_history() - history_offset, history_file.c_str());
-		} else
-			write_history(history_file.c_str());
-	}
-
-	clear_history();
-	HIST_ENTRY **hist_list = history_list();
-	if (hist_list != NULL)
-		free(hist_list);
-#endif
-
 	log_flush();
-#ifdef _WIN32
+#if defined(_MSC_VER)
+	_exit(0);
+#elif defined(_WIN32)
 	_Exit(0);
 #endif
 

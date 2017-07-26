@@ -171,16 +171,28 @@ YOSYS_NAMESPACE_END
 "while"        { return TOK_WHILE; }
 "repeat"       { return TOK_REPEAT; }
 
+"unique"       { SV_KEYWORD(TOK_UNIQUE); }
+"unique0"      { SV_KEYWORD(TOK_UNIQUE); }
+"priority"     { SV_KEYWORD(TOK_PRIORITY); }
+
 "always_comb"  { SV_KEYWORD(TOK_ALWAYS); }
 "always_ff"    { SV_KEYWORD(TOK_ALWAYS); }
 "always_latch" { SV_KEYWORD(TOK_ALWAYS); }
 
-"assert"   { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
-"assume"   { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
-"restrict" { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
-"property" { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
-"logic"    { SV_KEYWORD(TOK_REG); }
-"bit"      { SV_KEYWORD(TOK_REG); }
+"assert"     { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
+"assume"     { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
+"cover"      { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
+"restrict"   { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
+"property"   { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
+"rand"       { if (formal_mode) return TOK_RAND; SV_KEYWORD(TOK_RAND); }
+"const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
+"checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
+"endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
+"logic"      { SV_KEYWORD(TOK_REG); }
+"bit"        { SV_KEYWORD(TOK_REG); }
+
+"eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
+"s_eventually" { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
 
 "input"   { return TOK_INPUT; }
 "output"  { return TOK_OUTPUT; }
@@ -192,14 +204,17 @@ YOSYS_NAMESPACE_END
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
 
+"enum"    { SV_KEYWORD(TOK_ENUM); }
+"typedef" { SV_KEYWORD(TOK_TYPEDEF); }
+
 [0-9][0-9_]* {
 	frontend_verilog_yylval.string = new std::string(yytext);
-	return TOK_CONST;
+	return TOK_CONSTVAL;
 }
 
 [0-9]*[ \t]*\'s?[bodhBODH][ \t\r\n]*[0-9a-fA-FzxZX?_]+ {
 	frontend_verilog_yylval.string = new std::string(yytext);
-	return TOK_CONST;
+	return TOK_CONSTVAL;
 }
 
 [0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)? {
@@ -358,7 +373,9 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "<<<" { return OP_SSHL; }
 ">>>" { return OP_SSHR; }
 
-"::"  { SV_KEYWORD(TOK_PACKAGESEP); }
+"::"  { return TOK_PACKAGESEP; }
+"++"  { return TOK_INCREMENT; }
+"--"  { return TOK_DECREMENT; }
 
 "+:" { return TOK_POS_INDEXED; }
 "-:" { return TOK_NEG_INDEXED; }

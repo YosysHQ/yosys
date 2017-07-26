@@ -401,6 +401,47 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 	cell->setPort("\\E", enable_sig);
 }
 
+void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map, LibertyAst *ast)
+{
+	for (auto type_node : ast->children)
+	{
+		if (type_node->id != "type" || type_node->args.size() != 1)
+			continue;
+
+		std::string type_name = type_node->args.at(0);
+		int bit_width = -1, bit_from = -1, bit_to = -1;
+		bool upto = false;
+
+		for (auto child : type_node->children)
+		{
+			if (child->id == "base_type" && child->value != "array")
+				goto next_type;
+
+			if (child->id == "data_type" && child->value != "bit")
+				goto next_type;
+
+			if (child->id == "bit_width")
+				bit_width = atoi(child->value.c_str());
+
+			if (child->id == "bit_from")
+				bit_from = atoi(child->value.c_str());
+
+			if (child->id == "bit_to")
+				bit_to = atoi(child->value.c_str());
+
+			if (child->id == "downto" && (child->value == "0" || child->value == "false" || child->value == "FALSE"))
+				upto = true;
+		}
+
+		if (bit_width != (std::max(bit_from, bit_to) - std::min(bit_from, bit_to) + 1))
+			log_error("Incompatible array type '%s': bit_width=%d, bit_from=%d, bit_to=%d.\n",
+					type_name.c_str(), bit_width, bit_from, bit_to);
+
+		type_map[type_name] = std::tuple<int, int, bool>(bit_width, std::min(bit_from, bit_to), upto);
+	next_type:;
+	}
+}
+
 struct LibertyFrontend : public Frontend {
 	LibertyFrontend() : Frontend("liberty", "read cells from liberty file") { }
 	virtual void help()
@@ -469,6 +510,9 @@ struct LibertyFrontend : public Frontend {
 		LibertyParser parser(*f);
 		int cell_count = 0;
 
+		std::map<std::string, std::tuple<int, int, bool>> global_type_map;
+		parse_type_map(global_type_map, parser.ast);
+
 		for (auto cell : parser.ast->children)
 		{
 			if (cell->id != "cell" || cell->args.size() != 1)
@@ -484,6 +528,9 @@ struct LibertyFrontend : public Frontend {
 
 			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name).c_str());
 
+			std::map<std::string, std::tuple<int, int, bool>> type_map = global_type_map;
+			parse_type_map(type_map, cell);
+
 			RTLIL::Module *module = new RTLIL::Module;
 			module->name = cell_name;
 
@@ -494,13 +541,14 @@ struct LibertyFrontend : public Frontend {
 				module->attributes[attr] = 1;
 
 			for (auto node : cell->children)
+			{
 				if (node->id == "pin" && node->args.size() == 1) {
 					LibertyAst *dir = node->find("direction");
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
 					{
 						if (!flag_ignore_miss_dir)
 						{
-							log_error("Missing or invalid direction for pin %s of cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+							log_error("Missing or invalid direction for pin %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
 						} else {
 							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", log_id(module->name), node->args.at(0).c_str());
 							delete module;
@@ -510,6 +558,41 @@ struct LibertyFrontend : public Frontend {
 					if (!flag_lib || dir->value != "internal")
 						module->addWire(RTLIL::escape_id(node->args.at(0)));
 				}
+
+				if (node->id == "bus" && node->args.size() == 1)
+				{
+					if (!flag_lib)
+						log_error("Error in cell %s: bus interfaces are only supported in -lib mode.\n", log_id(cell_name));
+
+					LibertyAst *dir = node->find("direction");
+
+					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
+						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+
+					if (dir->value == "internal")
+						continue;
+
+					LibertyAst *bus_type_node = node->find("bus_type");
+
+					if (!bus_type_node || !type_map.count(bus_type_node->value))
+						log_error("Unkown or unsupported type for bus interface %s on cell %s.\n",
+								node->args.at(0).c_str(), log_id(cell_name));
+
+					int bus_type_width = std::get<0>(type_map.at(bus_type_node->value));
+					int bus_type_offset = std::get<1>(type_map.at(bus_type_node->value));
+					bool bus_type_upto = std::get<2>(type_map.at(bus_type_node->value));
+
+					Wire *wire = module->addWire(RTLIL::escape_id(node->args.at(0)), bus_type_width);
+					wire->start_offset = bus_type_offset;
+					wire->upto = bus_type_upto;
+
+					if (dir->value == "input" || dir->value == "inout")
+						wire->port_input = true;
+
+					if (dir->value == "output" || dir->value == "inout")
+						wire->port_output = true;
+				}
+			}
 
 			for (auto node : cell->children)
 			{

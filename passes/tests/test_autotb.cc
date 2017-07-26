@@ -220,59 +220,65 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
 				f << stringf("%s %s", it == signal_in.begin() ? "" : ",", it->first.c_str());
 				int len = it->second;
+				header2 += ", \"";
 				if (len > 1)
 					header2 += "/", len--;
 				while (len > 1)
 					header2 += "-", len--;
 				if (len > 0)
 					header2 += shorthand, len--;
+				header2 += "\"";
 				header1.push_back("    " + it->first);
 				header1.back()[0] = shorthand;
 				shorthand = shorthand == 'Z' ? 'A' : shorthand+1;
 			}
 		else {
 			f << stringf(" 1'bx");
-			header2 += "#";
+			header2 += ", \"#\"";
 		}
 		f << stringf(" }, {");
-		header2 += " ";
+		header2 += ", \" \"";
 		if (signal_clk.size()) {
 			for (auto it = signal_clk.begin(); it != signal_clk.end(); it++) {
 				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first.c_str());
 				int len = it->second;
+				header2 += ", \"";
 				if (len > 1)
 					header2 += "/", len--;
 				while (len > 1)
 					header2 += "-", len--;
 				if (len > 0)
 					header2 += shorthand, len--;
+				header2 += "\"";
 				header1.push_back("    " + it->first);
 				header1.back()[0] = shorthand;
 				shorthand = shorthand == 'Z' ? 'A' : shorthand+1;
 			}
 		} else {
 			f << stringf(" 1'bx");
-			header2 += "#";
+			header2 += ", \"#\"";
 		}
 		f << stringf(" }, {");
-		header2 += " ";
+		header2 += ", \" \"";
 		if (signal_out.size()) {
 			for (auto it = signal_out.begin(); it != signal_out.end(); it++) {
 				f << stringf("%s %s", it == signal_out.begin() ? "" : ",", it->first.c_str());
 				int len = it->second;
+				header2 += ", \"";
 				if (len > 1)
 					header2 += "/", len--;
 				while (len > 1)
 					header2 += "-", len--;
 				if (len > 0)
 					header2 += shorthand, len--;
+				header2 += "\"";
 				header1.push_back("    " + it->first);
 				header1.back()[0] = shorthand;
 				shorthand = shorthand == 'Z' ? 'A' : shorthand+1;
 			}
 		} else {
 			f << stringf(" 1'bx");
-			header2 += "#";
+			header2 += ", \"#\"";
 		}
 		f << stringf(" }, $time, i);\n");
 		f << stringf("end\n");
@@ -284,7 +290,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		for (auto &hdr : header1)
 			f << stringf("\t$fdisplay(file, \"#OUT#   %s\");\n", hdr.c_str());
 		f << stringf("\t$fdisplay(file, \"#OUT#\");\n");
-		f << stringf("\t$fdisplay(file, \"#OUT# %s\");\n", header2.c_str());
+		f << stringf("\t$fdisplay(file, {\"#OUT# \"%s});\n", header2.c_str());
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 

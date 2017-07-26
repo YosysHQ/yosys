@@ -306,6 +306,8 @@ RTLIL::Design::~Design()
 		delete it->second;
 	for (auto n : verilog_packages)
 		delete n;
+	for (auto n : verilog_globals)
+		delete n;
 }
 
 RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
@@ -866,6 +868,13 @@ namespace {
 				return;
 			}
 
+			if (cell->type == "$ff") {
+				port("\\D", param("\\WIDTH"));
+				port("\\Q", param("\\WIDTH"));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == "$dff") {
 				param_bool("\\CLK_POLARITY");
 				port("\\CLK", 1);
@@ -1017,7 +1026,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in("$assert", "$assume")) {
+			if (cell->type.in("$assert", "$assume", "$live", "$fair", "$cover")) {
 				port("\\A", 1);
 				port("\\EN", 1);
 				check_expected();
@@ -1030,7 +1039,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$anyconst") {
+			if (cell->type.in("$anyconst", "$anyseq")) {
 				port("\\Y", param("\\WIDTH"));
 				check_expected();
 				return;
@@ -1044,19 +1053,21 @@ namespace {
 				return;
 			}
 
-			if (cell->type == "$_BUF_")  { check_gate("AY"); return; }
-			if (cell->type == "$_NOT_")  { check_gate("AY"); return; }
-			if (cell->type == "$_AND_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_NAND_") { check_gate("ABY"); return; }
-			if (cell->type == "$_OR_")   { check_gate("ABY"); return; }
-			if (cell->type == "$_NOR_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_XOR_")  { check_gate("ABY"); return; }
-			if (cell->type == "$_XNOR_") { check_gate("ABY"); return; }
-			if (cell->type == "$_MUX_")  { check_gate("ABSY"); return; }
-			if (cell->type == "$_AOI3_") { check_gate("ABCY"); return; }
-			if (cell->type == "$_OAI3_") { check_gate("ABCY"); return; }
-			if (cell->type == "$_AOI4_") { check_gate("ABCDY"); return; }
-			if (cell->type == "$_OAI4_") { check_gate("ABCDY"); return; }
+			if (cell->type == "$_BUF_")    { check_gate("AY"); return; }
+			if (cell->type == "$_NOT_")    { check_gate("AY"); return; }
+			if (cell->type == "$_AND_")    { check_gate("ABY"); return; }
+			if (cell->type == "$_NAND_")   { check_gate("ABY"); return; }
+			if (cell->type == "$_OR_")     { check_gate("ABY"); return; }
+			if (cell->type == "$_NOR_")    { check_gate("ABY"); return; }
+			if (cell->type == "$_XOR_")    { check_gate("ABY"); return; }
+			if (cell->type == "$_XNOR_")   { check_gate("ABY"); return; }
+			if (cell->type == "$_ANDNOT_") { check_gate("ABY"); return; }
+			if (cell->type == "$_ORNOT_")  { check_gate("ABY"); return; }
+			if (cell->type == "$_MUX_")    { check_gate("ABSY"); return; }
+			if (cell->type == "$_AOI3_")   { check_gate("ABCY"); return; }
+			if (cell->type == "$_OAI3_")   { check_gate("ABCY"); return; }
+			if (cell->type == "$_AOI4_")   { check_gate("ABCDY"); return; }
+			if (cell->type == "$_OAI4_")   { check_gate("ABCDY"); return; }
 
 			if (cell->type == "$_TBUF_")  { check_gate("AYE"); return; }
 
@@ -1069,6 +1080,7 @@ namespace {
 			if (cell->type == "$_SR_PN_") { check_gate("SRQ"); return; }
 			if (cell->type == "$_SR_PP_") { check_gate("SRQ"); return; }
 
+			if (cell->type == "$_FF_")    { check_gate("DQ");  return; }
 			if (cell->type == "$_DFF_N_") { check_gate("DQC"); return; }
 			if (cell->type == "$_DFF_P_") { check_gate("DQC"); return; }
 
@@ -1719,19 +1731,21 @@ DEF_METHOD(Pmux,     "$pmux",       1)
 		add ## _func(name, sig1, sig2, sig3, sig4, sig5); \
 		return sig5;                                      \
 	}
-DEF_METHOD_2(BufGate,  "$_BUF_",  A, Y)
-DEF_METHOD_2(NotGate,  "$_NOT_",  A, Y)
-DEF_METHOD_3(AndGate,  "$_AND_",  A, B, Y)
-DEF_METHOD_3(NandGate, "$_NAND_", A, B, Y)
-DEF_METHOD_3(OrGate,   "$_OR_",   A, B, Y)
-DEF_METHOD_3(NorGate,  "$_NOR_",  A, B, Y)
-DEF_METHOD_3(XorGate,  "$_XOR_",  A, B, Y)
-DEF_METHOD_3(XnorGate, "$_XNOR_", A, B, Y)
-DEF_METHOD_4(MuxGate,  "$_MUX_",  A, B, S, Y)
-DEF_METHOD_4(Aoi3Gate, "$_AOI3_", A, B, C, Y)
-DEF_METHOD_4(Oai3Gate, "$_OAI3_", A, B, C, Y)
-DEF_METHOD_5(Aoi4Gate, "$_AOI4_", A, B, C, D, Y)
-DEF_METHOD_5(Oai4Gate, "$_OAI4_", A, B, C, D, Y)
+DEF_METHOD_2(BufGate,    "$_BUF_",    A, Y)
+DEF_METHOD_2(NotGate,    "$_NOT_",    A, Y)
+DEF_METHOD_3(AndGate,    "$_AND_",    A, B, Y)
+DEF_METHOD_3(NandGate,   "$_NAND_",   A, B, Y)
+DEF_METHOD_3(OrGate,     "$_OR_",     A, B, Y)
+DEF_METHOD_3(NorGate,    "$_NOR_",    A, B, Y)
+DEF_METHOD_3(XorGate,    "$_XOR_",    A, B, Y)
+DEF_METHOD_3(XnorGate,   "$_XNOR_",   A, B, Y)
+DEF_METHOD_3(AndnotGate, "$_ANDNOT_", A, B, Y)
+DEF_METHOD_3(OrnotGate,  "$_ORNOT_",  A, B, Y)
+DEF_METHOD_4(MuxGate,    "$_MUX_",    A, B, S, Y)
+DEF_METHOD_4(Aoi3Gate,   "$_AOI3_",   A, B, C, Y)
+DEF_METHOD_4(Oai3Gate,   "$_OAI3_",   A, B, C, Y)
+DEF_METHOD_5(Aoi4Gate,   "$_AOI4_",   A, B, C, D, Y)
+DEF_METHOD_5(Oai4Gate,   "$_OAI4_",   A, B, C, D, Y)
 #undef DEF_METHOD_2
 #undef DEF_METHOD_3
 #undef DEF_METHOD_4
@@ -1809,6 +1823,30 @@ RTLIL::Cell* RTLIL::Module::addAssume(RTLIL::IdString name, RTLIL::SigSpec sig_a
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addLive(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
+{
+	RTLIL::Cell *cell = addCell(name, "$live");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addFair(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
+{
+	RTLIL::Cell *cell = addCell(name, "$fair");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addCover(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_en)
+{
+	RTLIL::Cell *cell = addCell(name, "$cover");
+	cell->setPort("\\A", sig_a);
+	cell->setPort("\\EN", sig_en);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addEquiv(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_b, RTLIL::SigSpec sig_y)
 {
 	RTLIL::Cell *cell = addCell(name, "$equiv");
@@ -1826,6 +1864,15 @@ RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, RTLIL::SigSpec sig_set, 
 	cell->parameters["\\WIDTH"] = sig_q.size();
 	cell->setPort("\\SET", sig_set);
 	cell->setPort("\\CLR", sig_clr);
+	cell->setPort("\\Q", sig_q);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addFf(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q)
+{
+	RTLIL::Cell *cell = addCell(name, "$ff");
+	cell->parameters["\\WIDTH"] = sig_q.size();
+	cell->setPort("\\D", sig_d);
 	cell->setPort("\\Q", sig_q);
 	return cell;
 }
@@ -1912,6 +1959,14 @@ RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, RTLIL::SigSpec sig
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addFfGate(RTLIL::IdString name, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q)
+{
+	RTLIL::Cell *cell = addCell(name, "$_FF_");
+	cell->setPort("\\D", sig_d);
+	cell->setPort("\\Q", sig_q);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addDffGate(RTLIL::IdString name, RTLIL::SigSpec sig_clk, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, bool clk_polarity)
 {
 	RTLIL::Cell *cell = addCell(name, stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N'));
@@ -1984,6 +2039,15 @@ RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width)
 	return sig;
 }
 
+RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	Cell *cell = addCell(name, "$anyseq");
+	cell->setParam("\\WIDTH", width);
+	cell->setPort("\\Y", sig);
+	return sig;
+}
+
 RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID);
@@ -2014,6 +2078,7 @@ RTLIL::Memory::Memory()
 	hashidx_ = hashidx_count;
 
 	width = 1;
+	start_offset = 0;
 	size = 0;
 }
 
@@ -2730,10 +2795,11 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 		other->unpack();
 	}
 
-	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+	for (int i = GetSize(bits_) - 1; i >= 0; i--)
+	{
 		if (bits_[i].wire == NULL) continue;
 
-		for (auto &pattern_chunk : pattern.chunks()) {
+		for (auto &pattern_chunk : pattern.chunks())
 			if (bits_[i].wire == pattern_chunk.wire &&
 				bits_[i].offset >= pattern_chunk.offset &&
 				bits_[i].offset < pattern_chunk.offset + pattern_chunk.width) {
@@ -2743,8 +2809,8 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 					other->bits_.erase(other->bits_.begin() + i);
 					other->width_--;
 				}
+				break;
 			}
-		}
 	}
 
 	check();

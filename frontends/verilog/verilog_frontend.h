@@ -68,7 +68,8 @@ namespace VERILOG_FRONTEND
 }
 
 // the pre-processor
-std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs);
+std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> &pre_defines_map,
+		dict<std::string, std::pair<std::string, bool>> &global_defines_cache, const std::list<std::string> &include_dirs);
 
 YOSYS_NAMESPACE_END
 

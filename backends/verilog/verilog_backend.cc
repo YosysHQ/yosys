@@ -33,12 +33,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool norename, noattr, attr2comment, noexpr, nodec, nostr, defparam;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
+std::string auto_prefix;
 
 RTLIL::Module *active_module;
+dict<RTLIL::SigBit, RTLIL::State> active_initdata;
+SigMap active_sigmap;
 
 void reset_auto_counter_id(RTLIL::IdString id, bool may_rename)
 {
@@ -85,13 +88,14 @@ void reset_auto_counter(RTLIL::Module *module)
 	for (size_t i = 10; i < auto_name_offset + auto_name_map.size(); i = i*10)
 		auto_name_digits++;
 
-	for (auto it = auto_name_map.begin(); it != auto_name_map.end(); ++it)
-		log("  renaming `%s' to `_%0*d_'.\n", it->first.c_str(), auto_name_digits, auto_name_offset + it->second);
+	if (verbose)
+		for (auto it = auto_name_map.begin(); it != auto_name_map.end(); ++it)
+			log("  renaming `%s' to `%s_%0*d_'.\n", it->first.c_str(), auto_prefix.c_str(), auto_name_digits, auto_name_offset + it->second);
 }
 
 std::string next_auto_id()
 {
-	return stringf("_%0*d_", auto_name_digits, auto_name_offset + auto_name_counter++);
+	return stringf("%s_%0*d_", auto_prefix.c_str(), auto_name_digits, auto_name_offset + auto_name_counter++);
 }
 
 std::string id(RTLIL::IdString internal_id, bool may_rename = true)
@@ -100,7 +104,7 @@ std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 	bool do_escape = false;
 
 	if (may_rename && auto_name_map.count(internal_id) != 0)
-		return stringf("_%0*d_", auto_name_digits, auto_name_offset + auto_name_map[internal_id]);
+		return stringf("%s_%0*d_", auto_prefix.c_str(), auto_name_digits, auto_name_offset + auto_name_map[internal_id]);
 
 	if (*str == '\\')
 		str++;
@@ -157,14 +161,14 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	if (width < 0)
 		width = data.bits.size() - offset;
 	if (nostr)
-		goto dump_bits;
+		goto dump_hex;
 	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
 		if (width == 32 && !no_decimal && !nodec) {
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
 				log_assert(i < (int)data.bits.size());
 				if (data.bits[i] != RTLIL::S0 && data.bits[i] != RTLIL::S1)
-					goto dump_bits;
+					goto dump_hex;
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
@@ -173,7 +177,55 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			else
 				f << stringf("32'%sd%u", set_signed ? "s" : "", val);
 		} else {
-	dump_bits:
+	dump_hex:
+			if (nohex)
+				goto dump_bin;
+			vector<char> bin_digits, hex_digits;
+			for (int i = offset; i < offset+width; i++) {
+				log_assert(i < (int)data.bits.size());
+				switch (data.bits[i]) {
+				case RTLIL::S0: bin_digits.push_back('0'); break;
+				case RTLIL::S1: bin_digits.push_back('1'); break;
+				case RTLIL::Sx: bin_digits.push_back('x'); break;
+				case RTLIL::Sz: bin_digits.push_back('z'); break;
+				case RTLIL::Sa: bin_digits.push_back('z'); break;
+				case RTLIL::Sm: log_error("Found marker state in final netlist.");
+				}
+			}
+			if (GetSize(bin_digits) == 0)
+				goto dump_bin;
+			while (GetSize(bin_digits) % 4 != 0)
+				if (bin_digits.back() == '1')
+					bin_digits.push_back('0');
+				else
+					bin_digits.push_back(bin_digits.back());
+			for (int i = 0; i < GetSize(bin_digits); i += 4)
+			{
+				char bit_3 = bin_digits[i+3];
+				char bit_2 = bin_digits[i+2];
+				char bit_1 = bin_digits[i+1];
+				char bit_0 = bin_digits[i+0];
+				if (bit_3 == 'x' || bit_2 == 'x' || bit_1 == 'x' || bit_0 == 'x') {
+					if (bit_3 != 'x' || bit_2 != 'x' || bit_1 != 'x' || bit_0 != 'x')
+						goto dump_bin;
+					hex_digits.push_back('x');
+					continue;
+				}
+				if (bit_3 == 'z' || bit_2 == 'z' || bit_1 == 'z' || bit_0 == 'z') {
+					if (bit_3 != 'z' || bit_2 != 'z' || bit_1 != 'z' || bit_0 != 'z')
+						goto dump_bin;
+					hex_digits.push_back('z');
+					continue;
+				}
+				int val = 8*(bit_3 - '0') + 4*(bit_2 - '0') + 2*(bit_1 - '0') + (bit_0 - '0');
+				hex_digits.push_back(val < 10 ? '0' + val : 'a' + val - 10);
+			}
+			f << stringf("%d'%sh", width, set_signed ? "s" : "");
+			for (int i = GetSize(hex_digits)-1; i >= 0; i--)
+				f << hex_digits[i];
+		}
+		if (0) {
+	dump_bin:
 			f << stringf("%d'%sb", width, set_signed ? "s" : "");
 			if (width == 0)
 				f << stringf("0");
@@ -209,6 +261,26 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				f << str[i];
 		}
 		f << stringf("\"");
+	}
+}
+
+void dump_reg_init(std::ostream &f, SigSpec sig)
+{
+	Const initval;
+	bool gotinit = false;
+
+	for (auto bit : active_sigmap(sig)) {
+		if (active_initdata.count(bit)) {
+			initval.bits.push_back(active_initdata.at(bit));
+			gotinit = true;
+		} else {
+			initval.bits.push_back(State::Sx);
+		}
+	}
+
+	if (gotinit) {
+		f << " = ";
+		dump_const(f, initval);
 	}
 }
 
@@ -300,12 +372,12 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 	if (wire->port_input && wire->port_output)
 		f << stringf("%s" "inout%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 	if (reg_wires.count(wire->name)) {
-		f << stringf("%s" "reg%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+		f << stringf("%s" "reg%s %s", indent.c_str(), range.c_str(), id(wire->name).c_str());
 		if (wire->attributes.count("\\init")) {
-			f << stringf("%s" "initial %s = ", indent.c_str(), id(wire->name).c_str());
+			f << stringf(" = ");
 			dump_const(f, wire->attributes.at("\\init"));
-			f << stringf(";\n");
 		}
+		f << stringf(";\n");
 	} else if (!wire->port_input && !wire->port_output)
 		f << stringf("%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 #endif
@@ -398,7 +470,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_")) {
+	if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_")) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort("\\Y"));
 		f << stringf(" = ");
@@ -406,16 +478,18 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << stringf("~(");
 		dump_cell_expr_port(f, cell, "A", false);
 		f << stringf(" ");
-		if (cell->type.in("$_AND_", "$_NAND_"))
+		if (cell->type.in("$_AND_", "$_NAND_", "$_ANDNOT_"))
 			f << stringf("&");
-		if (cell->type.in("$_OR_", "$_NOR_"))
+		if (cell->type.in("$_OR_", "$_NOR_", "$_ORNOT_"))
 			f << stringf("|");
 		if (cell->type.in("$_XOR_", "$_XNOR_"))
 			f << stringf("^");
 		dump_attributes(f, "", cell->attributes, ' ');
 		f << stringf(" ");
+		if (cell->type.in("$_ANDNOT_", "$_ORNOT_"))
+			f << stringf("~(");
 		dump_cell_expr_port(f, cell, "B", false);
-		if (cell->type.in("$_NAND_", "$_NOR_", "$_XNOR_"))
+		if (cell->type.in("$_NAND_", "$_NOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
 			f << stringf(")");
 		f << stringf(";\n");
 		return true;
@@ -472,8 +546,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg %s;\n", indent.c_str(), reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg %s", indent.c_str(), reg_name.c_str());
+			dump_reg_init(f, cell->getPort("\\Q"));
+			f << ";\n";
+		}
 
 		dump_attributes(f, indent, cell->attributes);
 		f << stringf("%s" "always @(%sedge ", indent.c_str(), cell->type[6] == 'P' ? "pos" : "neg");
@@ -512,8 +589,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg %s;\n", indent.c_str(), reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg %s", indent.c_str(), reg_name.c_str());
+			dump_reg_init(f, cell->getPort("\\Q"));
+			f << ";\n";
+		}
 
 		dump_attributes(f, indent, cell->attributes);
 		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_c == 'P' ? "pos" : "neg");
@@ -696,8 +776,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(sig_q, reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), width-1, reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg [%d:0] %s", indent.c_str(), width-1, reg_name.c_str());
+			dump_reg_init(f, sig_q);
+			f << ";\n";
+		}
 
 		for (int i = 0; i < width; i++) {
 			f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
@@ -752,8 +835,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		std::string reg_name = cellname(cell);
 		bool out_is_reg_wire = is_reg_wire(cell->getPort("\\Q"), reg_name);
 
-		if (!out_is_reg_wire)
-			f << stringf("%s" "reg [%d:0] %s;\n", indent.c_str(), cell->parameters["\\WIDTH"].as_int()-1, reg_name.c_str());
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "reg [%d:0] %s", indent.c_str(), cell->parameters["\\WIDTH"].as_int()-1, reg_name.c_str());
+			dump_reg_init(f, cell->getPort("\\Q"));
+			f << ";\n";
+		}
 
 		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
 		dump_sigspec(f, sig_clk);
@@ -804,7 +890,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		// for memory block make something like:
 		//  reg [7:0] memid [3:0];
 		//  initial begin
-		//    memid[0] <= ...
+		//    memid[0] = ...
 		//  end
 		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size-1, 0);
 		if (use_init)
@@ -812,7 +898,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << stringf("%s" "initial begin\n", indent.c_str());
 			for (int i=0; i<size; i++)
 			{
-				f << stringf("%s" "  %s[%d] <= ", indent.c_str(), mem_id.c_str(), i);
+				f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i);
 				dump_const(f, cell->parameters["\\INIT"].extract(i*width, width));
 				f << stringf(";\n");
 			}
@@ -910,7 +996,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		int nwrite_ports = cell->parameters["\\WR_PORTS"].as_int();
 		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en;
 		bool wr_clk_posedge;
-		SigMap sigmap(active_module);
+
 		// write ports
 		for (int i=0; i < nwrite_ports; i++)
 		{
@@ -935,7 +1021,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				int start_i = i, width = 1;
 				SigBit wen_bit = sig_wr_en[i];
 
-				while (i+1 < GetSize(sig_wr_en) && sigmap(sig_wr_en[i+1]) == sigmap(wen_bit))
+				while (i+1 < GetSize(sig_wr_en) && active_sigmap(sig_wr_en[i+1]) == active_sigmap(wen_bit))
 					i++, width++;
 
 				if (wen_bit == State::S0)
@@ -1249,6 +1335,16 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	reg_wires.clear();
 	reset_auto_counter(module);
 	active_module = module;
+	active_sigmap.set(module);
+	active_initdata.clear();
+
+	for (auto wire : module->wires())
+		if (wire->attributes.count("\\init")) {
+			SigSpec sig = active_sigmap(wire);
+			Const val = wire->attributes.at("\\init");
+			for (int i = 0; i < GetSize(sig) && i < GetSize(val); i++)
+				active_initdata[sig[i]] = val.bits.at(i);
+		}
 
 	if (!module->processes.empty())
 		log_warning("Module %s contains unmapped RTLIL proccesses. RTLIL processes\n"
@@ -1325,6 +1421,8 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	f << stringf("%s" "endmodule\n", indent.c_str());
 	active_module = NULL;
+	active_sigmap.clear();
+	active_initdata.clear();
 }
 
 struct VerilogBackend : public Backend {
@@ -1342,6 +1440,9 @@ struct VerilogBackend : public Backend {
 		log("        instead of a backslash prefix) are changed to short names in the\n");
 		log("        format '_<number>_'.\n");
 		log("\n");
+		log("    -renameprefix <prefix>\n");
+		log("        insert this prefix in front of auto-generated instance names\n");
+		log("\n");
 		log("    -noattr\n");
 		log("        with this option no attributes are included in the output\n");
 		log("\n");
@@ -1356,6 +1457,11 @@ struct VerilogBackend : public Backend {
 		log("        32-bit constant values are by default dumped as decimal numbers,\n");
 		log("        not bit pattern. This option decativates this feature and instead\n");
 		log("        will write out all constants in binary.\n");
+		log("\n");
+		log("    -nohex\n");
+		log("        constant values that are compatible with hex output are usually\n");
+		log("        dumped as hex values. This option decativates this feature and\n");
+		log("        instead will write out all constants in binary.\n");
 		log("\n");
 		log("    -nostr\n");
 		log("        Parameters and attributes that are specified as strings in the\n");
@@ -1376,6 +1482,9 @@ struct VerilogBackend : public Backend {
 		log("        only write selected modules. modules must be selected entirely or\n");
 		log("        not at all.\n");
 		log("\n");
+		log("    -v\n");
+		log("        verbose output (print new names of all renamed wires and cells)\n");
+		log("\n");
 		log("Note that RTLIL processes can't always be mapped directly to Verilog\n");
 		log("always blocks. This frontend should only be used to export an RTLIL\n");
 		log("netlist, i.e. after the \"proc\" pass has been used to convert all\n");
@@ -1387,13 +1496,16 @@ struct VerilogBackend : public Backend {
 	{
 		log_header(design, "Executing Verilog backend.\n");
 
+		verbose = false;
 		norename = false;
 		noattr = false;
 		attr2comment = false;
 		noexpr = false;
 		nodec = false;
+		nohex = false;
 		nostr = false;
 		defparam = false;
+		auto_prefix = "";
 
 		bool blackboxes = false;
 		bool selected = false;
@@ -1431,6 +1543,10 @@ struct VerilogBackend : public Backend {
 				norename = true;
 				continue;
 			}
+			if (arg == "-renameprefix" && argidx+1 < args.size()) {
+				auto_prefix = args[++argidx];
+				continue;
+			}
 			if (arg == "-noattr") {
 				noattr = true;
 				continue;
@@ -1447,6 +1563,10 @@ struct VerilogBackend : public Backend {
 				nodec = true;
 				continue;
 			}
+			if (arg == "-nohex") {
+				nohex = true;
+				continue;
+			}
 			if (arg == "-nostr") {
 				nostr = true;
 				continue;
@@ -1461,6 +1581,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-selected") {
 				selected = true;
+				continue;
+			}
+			if (arg == "-v") {
+				verbose = true;
 				continue;
 			}
 			break;

@@ -41,6 +41,7 @@ YOSYS_NAMESPACE_BEGIN
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
+std::vector<std::regex> log_warn_regexes, log_nowarn_regexes;
 bool log_hdump_all = false;
 FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
@@ -51,6 +52,7 @@ bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
 int log_verbose_level;
 string log_last_error;
+void (*log_error_atexit)() = NULL;
 
 vector<int> header_count;
 pool<RTLIL::IdString> log_id_cache;
@@ -136,6 +138,32 @@ void logv(const char *format, va_list ap)
 
 	for (auto f : log_streams)
 		*f << str;
+
+	static std::string linebuffer;
+	static bool log_warn_regex_recusion_guard = false;
+
+	if (!log_warn_regex_recusion_guard)
+	{
+		log_warn_regex_recusion_guard = true;
+
+		if (log_warn_regexes.empty())
+		{
+			linebuffer.clear();
+		}
+		else
+		{
+			linebuffer += str;
+
+			if (!linebuffer.empty() && linebuffer.back() == '\n') {
+				for (auto &re : log_warn_regexes)
+					if (std::regex_search(linebuffer, re))
+						log_warning("Found log message matching -W regex:\n%s", str.c_str());
+				linebuffer.clear();
+			}
+		}
+
+		log_warn_regex_recusion_guard = false;
+	}
 }
 
 void logv_header(RTLIL::Design *design, const char *format, va_list ap)
@@ -175,15 +203,28 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 
 void logv_warning(const char *format, va_list ap)
 {
-	if (log_errfile != NULL && !log_quiet_warnings)
-		log_files.push_back(log_errfile);
+	std::string message = vstringf(format, ap);
+	bool suppressed = false;
 
-	log("Warning: ");
-	logv(format, ap);
-	log_flush();
+	for (auto &re : log_nowarn_regexes)
+		if (std::regex_search(message, re))
+			suppressed = true;
 
-	if (log_errfile != NULL && !log_quiet_warnings)
-		log_files.pop_back();
+	if (suppressed)
+	{
+		log("Suppressed warning: %s", message.c_str());
+	}
+	else
+	{
+		if (log_errfile != NULL && !log_quiet_warnings)
+			log_files.push_back(log_errfile);
+
+		log("Warning: %s", message.c_str());
+		log_flush();
+
+		if (log_errfile != NULL && !log_quiet_warnings)
+			log_files.pop_back();
+	}
 }
 
 void logv_error(const char *format, va_list ap)
@@ -204,9 +245,14 @@ void logv_error(const char *format, va_list ap)
 	log("ERROR: %s", log_last_error.c_str());
 	log_flush();
 
+	if (log_error_atexit)
+		log_error_atexit();
+
 #ifdef EMSCRIPTEN
 	log_files = backup_log_files;
 	throw 0;
+#elif defined(_MSC_VER)
+	_exit(1);
 #else
 	_Exit(1);
 #endif
@@ -260,8 +306,8 @@ void log_cmd_error(const char *format, ...)
 
 void log_spacer()
 {
-	while (log_newline_count < 2)
-		log("\n");
+	if (log_newline_count < 2) log("\n");
+	if (log_newline_count < 2) log("\n");
 }
 
 void log_push()
@@ -456,6 +502,13 @@ void log_cell(RTLIL::Cell *cell, std::string indent)
 {
 	std::stringstream buf;
 	ILANG_BACKEND::dump_cell(buf, indent, cell);
+	log("%s", buf.str().c_str());
+}
+
+void log_wire(RTLIL::Wire *wire, std::string indent)
+{
+	std::stringstream buf;
+	ILANG_BACKEND::dump_wire(buf, indent, wire);
 	log("%s", buf.str().c_str());
 }
 

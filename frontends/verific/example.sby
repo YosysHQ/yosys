@@ -1,0 +1,16 @@
+# Simple SymbiYosys example job utilizing Verific
+
+[options]
+mode prove
+depth 10
+
+[engines]
+smtbmc yices
+
+[script]
+verific -sv example.sv
+verific -import top
+prep -top top
+
+[files]
+example.sv

@@ -32,6 +32,8 @@ struct FsmExpand
 {
 	RTLIL::Module *module;
 	RTLIL::Cell *fsm_cell;
+	bool full_mode;
+
 	SigMap assign_map;
 	SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> sig2driver, sig2user;
 	CellTypes ct;
@@ -45,17 +47,34 @@ struct FsmExpand
 
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
+		if (full_mode || cell->type == "$_MUX_")
+			return true;
+
 		if (cell->type == "$mux" || cell->type == "$pmux")
 			if (cell->getPort("\\A").size() < 2)
 				return true;
 
+		int in_bits = 0;
 		RTLIL::SigSpec new_signals;
-		if (cell->hasPort("\\A"))
+
+		if (cell->hasPort("\\A")) {
+			in_bits += GetSize(cell->getPort("\\A"));
 			new_signals.append(assign_map(cell->getPort("\\A")));
-		if (cell->hasPort("\\B"))
+		}
+
+		if (cell->hasPort("\\B")) {
+			in_bits += GetSize(cell->getPort("\\B"));
 			new_signals.append(assign_map(cell->getPort("\\B")));
-		if (cell->hasPort("\\S"))
+		}
+
+		if (cell->hasPort("\\S")) {
+			in_bits += GetSize(cell->getPort("\\S"));
 			new_signals.append(assign_map(cell->getPort("\\S")));
+		}
+
+		if (in_bits > 8)
+			return false;
+
 		if (cell->hasPort("\\Y"))
 			new_signals.append(assign_map(cell->getPort("\\Y")));
 
@@ -66,17 +85,6 @@ struct FsmExpand
 		new_signals.remove(assign_map(fsm_cell->getPort("\\CTRL_OUT")));
 
 		if (new_signals.size() > 3)
-			return false;
-
-		if (cell->hasPort("\\Y")) {
-			new_signals.append(assign_map(cell->getPort("\\Y")));
-			new_signals.sort_and_unify();
-			new_signals.remove_const();
-			new_signals.remove(assign_map(fsm_cell->getPort("\\CTRL_IN")));
-			new_signals.remove(assign_map(fsm_cell->getPort("\\CTRL_OUT")));
-		}
-
-		if (new_signals.size() > 2)
 			return false;
 
 		return true;
@@ -179,6 +187,16 @@ struct FsmExpand
 		new_ctrl_out.append(output_sig);
 		fsm_cell->setPort("\\CTRL_OUT", new_ctrl_out);
 
+		if (GetSize(input_sig) > 10)
+			log_warning("Cell %s.%s (%s) has %d input bits, merging into FSM %s.%s might be problematic.\n",
+					log_id(cell->module), log_id(cell), log_id(cell->type),
+					GetSize(input_sig), log_id(fsm_cell->module), log_id(fsm_cell));
+
+		if (GetSize(fsm_data.transition_table) > 10000)
+			log_warning("Transition table for FSM %s.%s already has %d rows, merging more cells "
+					"into this FSM might be problematic.\n", log_id(fsm_cell->module), log_id(fsm_cell),
+					GetSize(fsm_data.transition_table));
+
 		std::vector<FsmData::transition_t> new_transition_table;
 		for (auto &tr : fsm_data.transition_table) {
 			for (int i = 0; i < (1 << input_sig.size()); i++) {
@@ -200,13 +218,15 @@ struct FsmExpand
 		fsm_data.copy_to_cell(fsm_cell);
 	}
 
-	FsmExpand(RTLIL::Cell *cell, RTLIL::Design *design, RTLIL::Module *mod)
+	FsmExpand(RTLIL::Cell *cell, RTLIL::Design *design, RTLIL::Module *mod, bool full)
 	{
 		module = mod;
 		fsm_cell = cell;
+		full_mode = full;
 
 		assign_map.set(module);
 		ct.setup_internals();
+		ct.setup_stdcells();
 
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *c = cell_it.second;
@@ -249,17 +269,31 @@ struct FsmExpandPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    fsm_expand [selection]\n");
+		log("    fsm_expand [-full] [selection]\n");
 		log("\n");
 		log("The fsm_extract pass is conservative about the cells that belong to a finite\n");
 		log("state machine. This pass can be used to merge additional auxiliary gates into\n");
 		log("the finite state machine.\n");
 		log("\n");
+		log("By default, fsm_expand is still a bit conservative regarding merging larger\n");
+		log("word-wide cells. Call with -full to consider all cells for merging.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
+		bool full_mode = false;
+
 		log_header(design, "Executing FSM_EXPAND pass (merging auxiliary logic into FSMs).\n");
-		extra_args(args, 1, design);
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-full") {
+				full_mode = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		for (auto &mod_it : design->modules_) {
 			if (!design->selected(mod_it.second))
@@ -269,7 +303,7 @@ struct FsmExpandPass : public Pass {
 				if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second))
 					fsm_cells.push_back(cell_it.second);
 			for (auto c : fsm_cells) {
-				FsmExpand fsm_expand(c, design, mod_it.second);
+				FsmExpand fsm_expand(c, design, mod_it.second, full_mode);
 				fsm_expand.execute();
 			}
 		}

@@ -1,0 +1,20 @@
+--- Solver.h
++++ Solver.h
+@@ -103,7 +103,7 @@ public:
+     int     nFreeVars  ()      const;
+     void    printStats ()      const;       // Print some current statistics to standard output.
+ 
+-    // Resource contraints:
++    // Resource constraints:
+     //
+     void    setConfBudget(int64_t x);
+     void    setPropBudget(int64_t x);
+@@ -230,7 +230,7 @@ protected:
+     double              learntsize_adjust_confl;
+     int                 learntsize_adjust_cnt;
+ 
+-    // Resource contraints:
++    // Resource constraints:
+     //
+     int64_t             conflict_budget;    // -1 means no budget.
+     int64_t             propagation_budget; // -1 means no budget.

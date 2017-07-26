@@ -173,7 +173,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 	}
 
 	while (!tok.empty()) {
-		if (tok == "#") {
+		if (tok[0] == '#') {
 			int stop;
 			for (stop = 0; stop < GetSize(cmd_buf); stop++)
 				if (cmd_buf[stop] == '\r' || cmd_buf[stop] == '\n')

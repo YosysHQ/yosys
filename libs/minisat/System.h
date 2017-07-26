@@ -21,10 +21,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef Minisat_System_h
 #define Minisat_System_h
 
-#if defined(__linux__)
-#include <fpu_control.h>
-#endif
-
 #include "IntTypes.h"
 
 //-------------------------------------------------------------------------------------------------
@@ -35,9 +31,6 @@ static inline double cpuTime(void); // CPU-time in seconds.
 
 extern double memUsed();            // Memory in mega bytes (returns 0 for unsupported architectures).
 extern double memUsedPeak(bool strictlyPeak = false); // Peak-memory in mega bytes (returns 0 for unsupported architectures).
-
-extern void   setX86FPUPrecision(); // Make sure double's are represented with the same precision
-                                    // in memory and registers.
 
 extern void   limitMemory(uint64_t max_mem_mb); // Set a limit on total memory usage. The exact
                                                 // semantics varies depending on architecture.

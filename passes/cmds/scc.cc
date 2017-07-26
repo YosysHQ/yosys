@@ -163,16 +163,8 @@ struct SccWorker
 		}
 
 		for (auto cell : workQueue)
-			cellToNextCell[cell] = sigToNextCells.find(cellToNextSig[cell]);
-
-		labelCounter = 0;
-		cellLabels.clear();
-
-		while (workQueue.size() > 0)
 		{
-			RTLIL::Cell *cell = *workQueue.begin();
-			log_assert(cellStack.size() == 0);
-			cellDepth.clear();
+			cellToNextCell[cell] = sigToNextCells.find(cellToNextSig[cell]);
 
 			if (!nofeedbackMode && cellToNextCell[cell].count(cell)) {
 				log("Found an SCC:");
@@ -183,6 +175,16 @@ struct SccWorker
 				sccList.push_back(scc);
 				log("\n");
 			}
+		}
+
+		labelCounter = 0;
+		cellLabels.clear();
+
+		while (!workQueue.empty())
+		{
+			RTLIL::Cell *cell = *workQueue.begin();
+			log_assert(cellStack.size() == 0);
+			cellDepth.clear();
 
 			run(cell, 0, maxDepth);
 		}
@@ -244,11 +246,9 @@ struct SccPass : public Pass {
 		log("        are assumed to be bidirectional 'inout' ports.\n");
 		log("\n");
 		log("    -set_attr <name> <value>\n");
-		log("    -set_cell_attr <name> <value>\n");
-		log("    -set_wire_attr <name> <value>\n");
-		log("        set the specified attribute on all cells and/or wires that are part of\n");
-		log("        a logic loop. the special token {} in the value is replaced with a\n");
-		log("        unique identifier for the logic loop.\n");
+		log("        set the specified attribute on all cells that are part of a logic\n");
+		log("        loop. the special token {} in the value is replaced with a unique\n");
+		log("        identifier for the logic loop.\n");
 		log("\n");
 		log("    -select\n");
 		log("        replace the current selection with a selection of all cells and wires\n");
@@ -257,7 +257,7 @@ struct SccPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::map<std::string, std::string> setCellAttr, setWireAttr;
+		std::map<std::string, std::string> setAttr;
 		bool allCellTypes = false;
 		bool selectMode = false;
 		bool nofeedbackMode = false;
@@ -285,18 +285,7 @@ struct SccPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-set_attr" && argidx+2 < args.size()) {
-				setCellAttr[args[argidx+1]] = args[argidx+2];
-				setWireAttr[args[argidx+1]] = args[argidx+2];
-				argidx += 2;
-				continue;
-			}
-			if (args[argidx] == "-set_cell_attr" && argidx+2 < args.size()) {
-				setCellAttr[args[argidx+1]] = args[argidx+2];
-				argidx += 2;
-				continue;
-			}
-			if (args[argidx] == "-set_wire_attr" && argidx+2 < args.size()) {
-				setWireAttr[args[argidx+1]] = args[argidx+2];
+				setAttr[args[argidx+1]] = args[argidx+2];
 				argidx += 2;
 				continue;
 			}
@@ -309,9 +298,6 @@ struct SccPass : public Pass {
 		int origSelectPos = design->selection_stack.size() - 1;
 		extra_args(args, argidx, design);
 
-		if (setCellAttr.size() > 0 || setWireAttr.size() > 0)
-			log_cmd_error("The -set*_attr options are not implemented at the moment!\n");
-
 		RTLIL::Selection newSelection(false);
 		int scc_counter = 0;
 
@@ -319,7 +305,33 @@ struct SccPass : public Pass {
 			if (design->selected(mod_it.second))
 			{
 				SccWorker worker(design, mod_it.second, nofeedbackMode, allCellTypes, maxDepth);
-				scc_counter += GetSize(worker.sccList);
+
+				if (!setAttr.empty())
+				{
+					for (const auto &cells : worker.sccList)
+					{
+						for (auto attr : setAttr)
+						{
+							IdString attr_name(RTLIL::escape_id(attr.first));
+							string attr_valstr = attr.second;
+							string index = stringf("%d", scc_counter);
+
+							for (size_t pos = 0; (pos = attr_valstr.find("{}", pos)) != string::npos; pos += index.size())
+								attr_valstr.replace(pos, 2, index);
+
+							Const attr_value(attr_valstr);
+
+							for (auto cell : cells)
+								cell->attributes[attr_name] = attr_value;
+						}
+
+						scc_counter++;
+					}
+				}
+				else
+				{
+					scc_counter += GetSize(worker.sccList);
+				}
 
 				if (selectMode)
 					worker.select(newSelection);

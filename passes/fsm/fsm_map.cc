@@ -272,7 +272,8 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		}
 		else
 		{
-			RTLIL::SigSpec sig_a, sig_b, sig_s;
+			RTLIL::SigSpec sig_a(RTLIL::State::Sx, next_state_wire->width);
+			RTLIL::SigSpec sig_b, sig_s;
 			int reset_state = fsm_data.reset_state;
 			if (reset_state < 0)
 				reset_state = 0;

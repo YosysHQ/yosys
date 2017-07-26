@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import sys
 import random
 from contextlib import contextmanager
@@ -30,7 +31,16 @@ def random_expr(variables):
         return "%d'd%s" % (bits, random.randint(0, 2**bits-1))
     raise AssertionError
 
-for idx in range(50):
+parser = argparse.ArgumentParser(formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('-S', '--seed',  type = int, help = 'seed for PRNG')
+parser.add_argument('-c', '--count', type = int, default = 50, help = 'number of test cases to generate')
+args = parser.parse_args()
+
+if args.seed is not None:
+    print("PRNG seed: %d" % args.seed)
+    random.seed(args.seed)
+
+for idx in range(args.count):
     with open('temp/uut_%05d.v' % idx, 'w') as f:
         with redirect_stdout(f):
             rst2 = random.choice([False, True])

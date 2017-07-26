@@ -1,0 +1,41 @@
+// 50 MHz Clock
+IO_LOC "clk" D11;
+
+// LEDs
+IO_LOC "leds[0]"  D22;
+IO_LOC "leds[1]"  E22;
+IO_LOC "leds[2]"  G22;
+IO_LOC "leds[3]"  J22;
+IO_LOC "leds[4]"  L22;
+IO_LOC "leds[5]"  L19;
+IO_LOC "leds[6]"  L20;
+IO_LOC "leds[7]"  M21;
+IO_LOC "leds[8]"  N19;
+IO_LOC "leds[9]"  R19;
+IO_LOC "leds[10]" T18;
+IO_LOC "leds[11]" AA22;
+IO_LOC "leds[12]" U18;
+IO_LOC "leds[13]" V20;
+IO_LOC "leds[14]" AA21;
+IO_LOC "leds[15]" AB21;
+
+
+// 7-Segment Display
+IO_LOC "seg7dig[0]" E20;
+IO_LOC "seg7dig[1]" G18;
+IO_LOC "seg7dig[2]" G20;
+IO_LOC "seg7dig[3]" F21;
+IO_LOC "seg7dig[4]" J20;
+IO_LOC "seg7dig[5]" H21;
+IO_LOC "seg7dig[6]" H18;
+IO_LOC "seg7dig[7]" D20;
+IO_LOC "seg7sel[0]" C19;
+IO_LOC "seg7sel[1]" B22;
+IO_LOC "seg7sel[2]" C20;
+IO_LOC "seg7sel[3]" C21;
+
+// Switches
+IO_LOC "sw[0]" AB20;
+IO_LOC "sw[1]" AB19;
+IO_LOC "sw[2]" AB18;
+IO_LOC "sw[3]" AB17;

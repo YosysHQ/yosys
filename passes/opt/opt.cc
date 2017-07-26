@@ -44,7 +44,7 @@ struct OptPass : public Pass {
 		log("        opt_muxtree\n");
 		log("        opt_reduce [-fine] [-full]\n");
 		log("        opt_merge [-share_all]\n");
-		log("        opt_rmdff\n");
+		log("        opt_rmdff [-keepdc]\n");
 		log("        opt_clean [-purge]\n");
 		log("        opt_expr [-mux_undef] [-mux_bool] [-undriven] [-clkinv] [-fine] [-full] [-keepdc]\n");
 		log("    while <changed design>\n");
@@ -54,7 +54,7 @@ struct OptPass : public Pass {
 		log("    do\n");
 		log("        opt_expr [-mux_undef] [-mux_bool] [-undriven] [-clkinv] [-fine] [-full] [-keepdc]\n");
 		log("        opt_merge [-share_all]\n");
-		log("        opt_rmdff\n");
+		log("        opt_rmdff [-keepdc]\n");
 		log("        opt_clean [-purge]\n");
 		log("    while <changed design in opt_rmdff>\n");
 		log("\n");
@@ -69,6 +69,7 @@ struct OptPass : public Pass {
 		std::string opt_expr_args;
 		std::string opt_reduce_args;
 		std::string opt_merge_args;
+		std::string opt_rmdff_args;
 		bool fast_mode = false;
 
 		log_header(design, "Executing OPT pass (performing simple optimizations).\n");
@@ -108,6 +109,7 @@ struct OptPass : public Pass {
 			}
 			if (args[argidx] == "-keepdc") {
 				opt_expr_args += " -keepdc";
+				opt_rmdff_args += " -keepdc";
 				continue;
 			}
 			if (args[argidx] == "-share_all") {
@@ -128,7 +130,7 @@ struct OptPass : public Pass {
 				Pass::call(design, "opt_expr" + opt_expr_args);
 				Pass::call(design, "opt_merge" + opt_merge_args);
 				design->scratchpad_unset("opt.did_something");
-				Pass::call(design, "opt_rmdff");
+				Pass::call(design, "opt_rmdff" + opt_rmdff_args);
 				if (design->scratchpad_get_bool("opt.did_something") == false)
 					break;
 				Pass::call(design, "opt_clean" + opt_clean_args);
@@ -145,7 +147,7 @@ struct OptPass : public Pass {
 				Pass::call(design, "opt_muxtree");
 				Pass::call(design, "opt_reduce" + opt_reduce_args);
 				Pass::call(design, "opt_merge" + opt_merge_args);
-				Pass::call(design, "opt_rmdff");
+				Pass::call(design, "opt_rmdff" + opt_rmdff_args);
 				Pass::call(design, "opt_clean" + opt_clean_args);
 				Pass::call(design, "opt_expr" + opt_expr_args);
 				if (design->scratchpad_get_bool("opt.did_something") == false)

@@ -116,8 +116,12 @@ struct CellTypes
 
 		setup_type("$assert", {A, EN}, pool<RTLIL::IdString>(), true);
 		setup_type("$assume", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$live", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$fair", {A, EN}, pool<RTLIL::IdString>(), true);
+		setup_type("$cover", {A, EN}, pool<RTLIL::IdString>(), true);
 		setup_type("$initstate", pool<RTLIL::IdString>(), {Y}, true);
 		setup_type("$anyconst", pool<RTLIL::IdString>(), {Y}, true);
+		setup_type("$anyseq", pool<RTLIL::IdString>(), {Y}, true);
 		setup_type("$equiv", {A, B}, {Y}, true);
 	}
 
@@ -130,6 +134,7 @@ struct CellTypes
 		IdString CTRL_IN = "\\CTRL_IN", CTRL_OUT = "\\CTRL_OUT";
 
 		setup_type("$sr", {SET, CLR}, {Q});
+		setup_type("$ff", {D}, {Q});
 		setup_type("$dff", {CLK, D}, {Q});
 		setup_type("$dffe", {CLK, EN, D}, {Q});
 		setup_type("$dffsr", {CLK, SET, CLR, D}, {Q});
@@ -162,6 +167,8 @@ struct CellTypes
 		setup_type("$_NOR_",  {A, B}, {Y}, true);
 		setup_type("$_XOR_", {A, B}, {Y}, true);
 		setup_type("$_XNOR_", {A, B}, {Y}, true);
+		setup_type("$_ANDNOT_", {A, B}, {Y}, true);
+		setup_type("$_ORNOT_", {A, B}, {Y}, true);
 		setup_type("$_MUX_", {A, B, S}, {Y}, true);
 		setup_type("$_MUX4_", {A, B, C, D, S, T}, {Y}, true);
 		setup_type("$_MUX8_", {A, B, C, D, E, F, G, H, S, T, U}, {Y}, true);
@@ -183,6 +190,8 @@ struct CellTypes
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 			setup_type(stringf("$_SR_%c%c_", c1, c2), {S, R}, {Q});
+
+		setup_type("$_FF_", {D}, {Q});
 
 		for (auto c1 : list_np)
 			setup_type(stringf("$_DFF_%c_", c1), {C, D}, {Q});
@@ -308,7 +317,7 @@ struct CellTypes
 		if (type == "$_OR_")
 			return const_or(arg1, arg2, false, false, 1);
 		if (type == "$_NOR_")
-			return eval_not(const_and(arg1, arg2, false, false, 1));
+			return eval_not(const_or(arg1, arg2, false, false, 1));
 		if (type == "$_XOR_")
 			return const_xor(arg1, arg2, false, false, 1);
 		if (type == "$_XNOR_")

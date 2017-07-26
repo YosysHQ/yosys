@@ -25,4 +25,6 @@ OBJS += passes/cmds/plugin.o
 OBJS += passes/cmds/check.o
 OBJS += passes/cmds/qwp.o
 OBJS += passes/cmds/edgetypes.o
+OBJS += passes/cmds/chformal.o
+OBJS += passes/cmds/chtype.o
 

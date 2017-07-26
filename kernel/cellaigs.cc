@@ -202,6 +202,16 @@ struct AigMaker
 		return or_gate(and_gate(A, B), nor_gate(A, B));
 	}
 
+	int andnot_gate(int A, int B)
+	{
+		return and_gate(A, not_gate(B));
+	}
+
+	int ornot_gate(int A, int B)
+	{
+		return or_gate(A, not_gate(B));
+	}
+
 	int mux_gate(int A, int B, int S)
 	{
 		return or_gate(and_gate(A, not_gate(S)), and_gate(B, S));
@@ -290,7 +300,7 @@ Aig::Aig(Cell *cell)
 		goto optimize;
 	}
 
-	if (cell->type.in("$and", "$_AND_", "$_NAND_", "$or", "$_OR_", "$_NOR_", "$xor", "$xnor", "$_XOR_", "$_XNOR_"))
+	if (cell->type.in("$and", "$_AND_", "$_NAND_", "$or", "$_OR_", "$_NOR_", "$xor", "$xnor", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
 	{
 		for (int i = 0; i < GetSize(cell->getPort("\\Y")); i++) {
 			int A = mk.inport("\\A", i);
@@ -300,7 +310,9 @@ Aig::Aig(Cell *cell)
 			        cell->type.in("$or", "$_OR_")     ? mk.or_gate(A, B) :
 			        cell->type.in("$_NOR_")           ? mk.nor_gate(A, B) :
 			        cell->type.in("$xor", "$_XOR_")   ? mk.xor_gate(A, B) :
-			        cell->type.in("$xnor", "$_XNOR_") ? mk.xnor_gate(A, B) : -1;
+			        cell->type.in("$xnor", "$_XNOR_") ? mk.xnor_gate(A, B) :
+			        cell->type.in("$_ANDNOT_")        ? mk.andnot_gate(A, B) :
+			        cell->type.in("$_ORNOT_")         ? mk.ornot_gate(A, B) : -1;
 			mk.outport(Y, "\\Y", i);
 		}
 		goto optimize;

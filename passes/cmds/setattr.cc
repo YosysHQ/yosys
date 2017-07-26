@@ -134,15 +134,18 @@ struct SetparamPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    setparam [ -set name value | -unset name ]... [selection]\n");
+		log("    setparam [ -type cell_type ] [ -set name value | -unset name ]... [selection]\n");
 		log("\n");
 		log("Set/unset the given parameters on the selected cells. String values must be\n");
 		log("passed in double quotes (\").\n");
 		log("\n");
+		log("The -type option can be used to change the cell type of the selected cells.\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		std::vector<setunset_t> setunset_list;
+		vector<setunset_t> setunset_list;
+		string new_cell_type;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -158,6 +161,10 @@ struct SetparamPass : public Pass {
 				setunset_list.push_back(setunset_t(args[++argidx]));
 				continue;
 			}
+			if (arg == "-type" && argidx+1 < args.size()) {
+				new_cell_type = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -170,8 +177,11 @@ struct SetparamPass : public Pass {
 				continue;
 
 			for (auto &it : module->cells_)
-				if (design->selected(module, it.second))
+				if (design->selected(module, it.second)) {
+					if (!new_cell_type.empty())
+						it.second->type = new_cell_type;
 					do_setunset(it.second->parameters, setunset_list);
+				}
 		}
 	}
 } SetparamPass;

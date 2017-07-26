@@ -4,11 +4,26 @@
 # MAKE="make -j8" time bash -c 'for ((i=0; i<100; i++)); do echo "-- $i --"; bash run-test.sh || exit 1; done'
 
 set -e
+
+OPTIND=1
+count=5
+seed=""    # default to no seed specified
+debug=""
+while getopts "c:dS:" opt
+do
+    case "$opt" in
+	c) count="$OPTARG" ;;
+	d) debug="-d" ;;
+	S) seed="-S $OPTARG" ;;
+    esac
+done
+shift "$((OPTIND-1))"
+
 rm -rf temp
 mkdir -p temp
 
 echo "generating tests.."
-python3 generate.py
+python3 generate.py $debug -c $count $seed
 
 {
 	echo -n "all:"

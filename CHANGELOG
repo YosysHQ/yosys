@@ -3,6 +3,118 @@ List of major changes and improvements between releases
 =======================================================
 
 
+Yosys 0.7 .. Yosys ???
+----------------------
+
+ * MAX10 and Cyclone IV Support
+    - Added initial version of metacommand "synth_intel".
+    - Improved write_verilog command to produce VQM netlist for Quartus Prime.
+    - Added support for MAX10 FPGA family synthesis.
+    - Added support for Cyclone IV family synthesis.
+    - Added example of implementation for DE2i-150 board.
+    - Added example of implementation for MAX10 development kit.
+    - Added LFSR example from Asic World.
+
+
+Yosys 0.6 .. Yosys 0.7
+----------------------
+
+ * Various
+    - Added "yosys -D" feature
+    - Added support for installed plugins in $(DATDIR)/plugins/
+    - Renamed opt_const to opt_expr
+    - Renamed opt_share to opt_merge
+    - Added "prep -flatten" and "synth -flatten"
+    - Added "prep -auto-top" and "synth -auto-top"
+    - Using "mfs" and "lutpack" in ABC lut mapping
+    - Support for abstract modules in chparam
+    - Cleanup abstract modules at end of "hierarchy -top"
+    - Added tristate buffer support to iopadmap
+    - Added opt_expr support for div/mod by power-of-two
+    - Added "select -assert-min <N> -assert-max <N>"
+    - Added "attrmvcp" pass
+    - Added "attrmap" command
+    - Added "tee +INT -INT"
+    - Added "zinit" pass
+    - Added "setparam -type"
+    - Added "shregmap" pass
+    - Added "setundef -init"
+    - Added "nlutmap -assert"
+    - Added $sop cell type and "abc -sop -I <num> -P <num>"
+    - Added "dc2" to default ABC scripts
+    - Added "deminout"
+    - Added "insbuf" command
+    - Added "prep -nomem"
+    - Added "opt_rmdff -keepdc"
+    - Added "prep -nokeepdc"
+    - Added initial version of "synth_gowin"
+    - Added "fsm_expand -full"
+    - Added support for fsm_encoding="user"
+    - Many improvements in GreenPAK4 support
+    - Added black box modules for all Xilinx 7-series lib cells
+    - Added synth_ice40 support for latches via logic loops
+    - Fixed ice40_opt lut unmapping, added "ice40_opt -unlut"
+
+ * Build System
+    - Added ABCEXTERNAL and ABCURL make variables
+    - Added BINDIR, LIBDIR, and DATDIR make variables
+    - Added PKG_CONFIG make variable
+    - Added SEED make variable (for "make test")
+    - Added YOSYS_VER_STR make variable
+    - Updated min GCC requirement to GCC 4.8
+    - Updated required Bison version to Bison 3.x
+
+ * Internal APIs
+    - Added ast.h to exported headers
+    - Added ScriptPass helper class for script-like passes
+    - Added CellEdgesDatabase API
+
+ * Front-ends and Back-ends
+    - Added filename glob support to all front-ends
+    - Added avail (black-box) module params to ilang format
+    - Added $display %m support
+    - Added support for $stop Verilog system task
+    - Added support for SystemVerilog packages
+    - Fixed procedural assignments to non-unique lvalues, e.g. {y,y} = {a,b}
+    - Added support for "active high" and "active low" latches in read_blif and write_blif
+    - Use init value "2" for all uninitialized FFs in BLIF back-end
+    - Added "read_blif -sop"
+    - Added "write_blif -noalias"
+    - Added various write_blif options for VTR support
+    - write_json: also write module attributes.
+    - Added "write_verilog -nodec -nostr -defparam"
+    - Added "read_verilog -norestrict -assume-asserts"
+    - Added support for bus interfaces to "read_liberty -lib"
+    - Added liberty parser support for types within cell decls
+    - Added "write_verilog -renameprefix -v"
+    - Added "write_edif -nogndvcc"
+
+ * Formal Verification
+    - Support for hierarchical designs in smt2 back-end
+    - Yosys-smtbmc: Support for hierarchical VCD dumping
+    - Added $initstate cell type and vlog function
+    - Added $anyconst and $anyseq cell types and vlog functions
+    - Added printing of code loc of failed asserts to yosys-smtbmc
+    - Added memory_memx pass, "memory -memx", and "prep -memx"
+    - Added "proc_mux -ifx"
+    - Added "yosys-smtbmc -g"
+    - Deprecated "write_smt2 -regs" (by default on now)
+    - Made "write_smt2 -bv -mem" default, added "write_smt2 -nobv -nomem"
+    - Added support for memories to smtio.py
+    - Added "yosys-smtbmc --dump-vlogtb"
+    - Added "yosys-smtbmc --smtc --dump-smtc"
+    - Added "yosys-smtbmc --dump-all"
+    - Added assertpmux command
+    - Added "yosys-smtbmc --unroll"
+    - Added $past, $stable, $rose, $fell SVA functions
+    - Added "yosys-smtbmc --noinfo and --dummy"
+    - Added "yosys-smtbmc --noincr"
+    - Added "yosys-smtbmc --cex <filename>"
+    - Added $ff and $_FF_ cell types
+    - Added $global_clock verilog syntax support for creating $ff cells
+    - Added clk2fflogic
+
+
 Yosys 0.5 .. Yosys 0.6
 ----------------------
 

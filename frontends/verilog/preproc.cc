@@ -210,10 +210,12 @@ static void input_file(std::istream &f, std::string filename)
 	input_buffer.insert(it, "\n`file_pop\n");
 }
 
-std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> pre_defines_map, const std::list<std::string> include_dirs)
+std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> &pre_defines_map,
+		dict<std::string, std::pair<std::string, bool>> &global_defines_cache, const std::list<std::string> &include_dirs)
 {
 	std::set<std::string> defines_with_args;
 	std::map<std::string, std::string> defines_map(pre_defines_map);
+	std::vector<std::string> filename_stack;
 	int ifdef_fail_level = 0;
 	bool in_elseif = false;
 
@@ -222,8 +224,18 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 	input_buffer_charp = 0;
 
 	input_file(f, filename);
+
 	defines_map["YOSYS"] = "1";
 	defines_map[formal_mode ? "FORMAL" : "SYNTHESIS"] = "1";
+
+	for (auto &it : pre_defines_map)
+		defines_map[it.first] = it.second;
+
+	for (auto &it : global_defines_cache) {
+		if (it.second.second)
+			defines_with_args.insert(it.first);
+		defines_map[it.first] = it.second.first;
+	}
 
 	while (!input_buffer.empty())
 	{
@@ -281,6 +293,8 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 		if (tok == "`include") {
 			skip_spaces();
 			std::string fn = next_token(true);
+			while (fn.size() > 1 && fn[0] == '`' && defines_map.count(fn.substr(1)) > 0)
+				fn = defines_map.at(fn.substr(1));
 			while (1) {
 				size_t pos = fn.find('"');
 				if (pos == std::string::npos)
@@ -292,26 +306,47 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			}
 			std::ifstream ff;
 			ff.clear();
-			ff.open(fn.c_str());
+			std::string fixed_fn = fn;
+			ff.open(fixed_fn.c_str());
 			if (ff.fail() && fn.size() > 0 && fn[0] != '/' && filename.find('/') != std::string::npos) {
 				// if the include file was not found, it is not given with an absolute path, and the
 				// currently read file is given with a path, then try again relative to its directory
 				ff.clear();
-				ff.open(filename.substr(0, filename.rfind('/')+1) + fn);
+				fixed_fn = filename.substr(0, filename.rfind('/')+1) + fn;
+				ff.open(fixed_fn);
 			}
 			if (ff.fail() && fn.size() > 0 && fn[0] != '/') {
 				// if the include file was not found and it is not given with an absolute path, then
 				// search it in the include path
 				for (auto incdir : include_dirs) {
 					ff.clear();
-					ff.open(incdir + '/' + fn);
+					fixed_fn = incdir + '/' + fn;
+					ff.open(fixed_fn);
 					if (!ff.fail()) break;
 				}
 			}
 			if (ff.fail())
 				output_code.push_back("`file_notfound " + fn);
 			else
-				input_file(ff, fn);
+				input_file(ff, fixed_fn);
+			continue;
+		}
+
+		if (tok == "`file_push") {
+			skip_spaces();
+			std::string fn = next_token(true);
+			if (!fn.empty() && fn.front() == '"' && fn.back() == '"')
+				fn = fn.substr(1, fn.size()-2);
+			output_code.push_back(tok + " \"" + fn + "\"");
+			filename_stack.push_back(filename);
+			filename = fn;
+			continue;
+		}
+
+		if (tok == "`file_pop") {
+			output_code.push_back(tok);
+			filename = filename_stack.back();
+			filename_stack.pop_back();
 			continue;
 		}
 
@@ -379,6 +414,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 				defines_with_args.insert(name);
 			else
 				defines_with_args.erase(name);
+			global_defines_cache[name] = std::pair<std::string, bool>(value, state == 2);
 			continue;
 		}
 
@@ -389,6 +425,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			// printf("undef: >>%s<<\n", name.c_str());
 			defines_map.erase(name);
 			defines_with_args.erase(name);
+			global_defines_cache.erase(name);
 			continue;
 		}
 
@@ -398,6 +435,13 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 				tok = next_token(true);
 			if (tok == "\n")
 				return_char('\n');
+			continue;
+		}
+
+		if (tok == "`resetall") {
+			defines_map.clear();
+			defines_with_args.clear();
+			global_defines_cache.clear();
 			continue;
 		}
 

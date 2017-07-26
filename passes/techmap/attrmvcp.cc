@@ -93,6 +93,7 @@ struct AttrmvcpPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			for (auto &conn : cell->connections())
+			{
 				if (driven_mode) {
 					if (cell->input(conn.first))
 						for (auto bit : sigmap(conn.second))
@@ -102,6 +103,7 @@ struct AttrmvcpPass : public Pass {
 						for (auto bit : sigmap(conn.second))
 							net2cells[bit].insert(cell);
 				}
+			}
 
 			for (auto wire : module->selected_wires())
 			{

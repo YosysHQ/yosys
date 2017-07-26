@@ -168,6 +168,10 @@ struct VerilogFrontend : public Frontend {
 		log("recommended to use a simulator (for example Icarus Verilog) for checking\n");
 		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
 		log("\n");
+		log("Depending on if read_verilog is run in -formal mode, either the macro\n");
+		log("SYNTHESIS or FORMAL is defined automatically. In addition, read_verilog\n");
+		log("always defines the macro YOSYS.\n");
+		log("\n");
 		log("See the Yosys README file for a list of non-standard Verilog features\n");
 		log("supported by the Yosys Verilog front-end.\n");
 		log("\n");
@@ -303,10 +307,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-D" && argidx+1 < args.size()) {
 				std::string name = args[++argidx], value;
-				size_t equal = name.find('=', 2);
+				size_t equal = name.find('=');
 				if (equal != std::string::npos) {
-					value = arg.substr(equal+1);
-					name = arg.substr(0, equal);
+					value = name.substr(equal+1);
+					name = name.substr(0, equal);
 				}
 				defines_map[name] = value;
 				continue;
@@ -345,7 +349,7 @@ struct VerilogFrontend : public Frontend {
 		std::string code_after_preproc;
 
 		if (!flag_nopp) {
-			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, include_dirs);
+			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, design->verilog_defines, include_dirs);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
 			lexin = new std::istringstream(code_after_preproc);
@@ -435,6 +439,66 @@ struct VerilogDefaults : public Pass {
 		}
 	}
 } VerilogDefaults;
+
+struct VerilogDefines : public Pass {
+	VerilogDefines() : Pass("verilog_defines", "define and undefine verilog defines") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    verilog_defines [options]\n");
+		log("\n");
+		log("Define and undefine verilog preprocessor macros.\n");
+		log("\n");
+		log("    -Dname[=definition]\n");
+		log("        define the preprocessor symbol 'name' and set its optional value\n");
+		log("        'definition'\n");
+		log("\n");
+		log("    -Uname[=definition]\n");
+		log("        undefine the preprocessor symbol 'name'\n");
+		log("\n");
+	}
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
+	{
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-D" && argidx+1 < args.size()) {
+				std::string name = args[++argidx], value;
+				size_t equal = name.find('=');
+				if (equal != std::string::npos) {
+					value = name.substr(equal+1);
+					name = name.substr(0, equal);
+				}
+				design->verilog_defines[name] = std::pair<std::string, bool>(value, false);
+				continue;
+			}
+			if (arg.compare(0, 2, "-D") == 0) {
+				size_t equal = arg.find('=', 2);
+				std::string name = arg.substr(2, equal-2);
+				std::string value;
+				if (equal != std::string::npos)
+					value = arg.substr(equal+1);
+				design->verilog_defines[name] = std::pair<std::string, bool>(value, false);
+				continue;
+			}
+			if (arg == "-U" && argidx+1 < args.size()) {
+				std::string name = args[++argidx];
+				design->verilog_defines.erase(name);
+				continue;
+			}
+			if (arg.compare(0, 2, "-U") == 0) {
+				std::string name = arg.substr(2);
+				design->verilog_defines.erase(name);
+				continue;
+			}
+			break;
+		}
+
+		if (args.size() != argidx)
+			cmd_error(args, argidx, "Extra argument.");
+	}
+} VerilogDefines;
 
 YOSYS_NAMESPACE_END
 

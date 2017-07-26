@@ -77,9 +77,6 @@ struct BlifDumper
 						case State::S1:
 							init_bits[initsig[i]] = 1;
 							break;
-						case State::Sx:
-							init_bits[initsig[i]] = 2;
-							break;
 						default:
 							break;
 					}
@@ -115,7 +112,7 @@ struct BlifDumper
 				str[i] = '?';
 
 		if (sig.wire->width != 1)
-			str += stringf("[%d]", sig.offset);
+			str += stringf("[%d]", sig.wire->upto ? sig.wire->start_offset+sig.wire->width-sig.offset-1 : sig.wire->start_offset+sig.offset);
 
 		cstr_buf.push_back(str);
 		return cstr_buf.back().c_str();
@@ -126,7 +123,7 @@ struct BlifDumper
 		sigmap.apply(sig);
 
 		if (init_bits.count(sig) == 0)
-			return "";
+			return " 2";
 
 		string str = stringf(" %d", init_bits.at(sig));
 
@@ -282,6 +279,18 @@ struct BlifDumper
 				continue;
 			}
 
+			if (!config->icells_mode && cell->type == "$_ANDNOT_") {
+				f << stringf(".names %s %s %s\n10 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_ORNOT_") {
+				f << stringf(".names %s %s %s\n1- 1\n-0 1\n",
+						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
 			if (!config->icells_mode && cell->type == "$_AOI3_") {
 				f << stringf(".names %s %s %s %s\n-00 1\n0-0 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")), cstr(cell->getPort("\\C")), cstr(cell->getPort("\\Y")));
@@ -312,6 +321,12 @@ struct BlifDumper
 				f << stringf(".names %s %s %s %s\n1-0 1\n-11 1\n",
 						cstr(cell->getPort("\\A")), cstr(cell->getPort("\\B")),
 						cstr(cell->getPort("\\S")), cstr(cell->getPort("\\Y")));
+				continue;
+			}
+
+			if (!config->icells_mode && cell->type == "$_FF_") {
+				f << stringf(".latch %s %s%s\n", cstr(cell->getPort("\\D")), cstr(cell->getPort("\\Q")),
+						cstr_init(cell->getPort("\\Q")));
 				continue;
 			}
 

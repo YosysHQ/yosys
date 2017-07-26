@@ -84,6 +84,9 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_PREFIX)
 	X(AST_ASSERT)
 	X(AST_ASSUME)
+	X(AST_LIVE)
+	X(AST_FAIR)
+	X(AST_COVER)
 	X(AST_FCALL)
 	X(AST_TO_BITS)
 	X(AST_TO_SIGNED)
@@ -934,10 +937,15 @@ static AstModule* process_module(AstNode *ast, bool defer)
 		if (flag_lib) {
 			std::vector<AstNode*> new_children;
 			for (auto child : ast->children) {
-				if (child->type == AST_WIRE && (child->is_input || child->is_output))
+				if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
 					new_children.push_back(child);
-				else
+				} else if (child->type == AST_PARAMETER) {
+					child->delete_children();
+					child->children.push_back(AstNode::mkconst_int(0, false, 0));
+					new_children.push_back(child);
+				} else {
 					delete child;
+				}
 			}
 			ast->children.swap(new_children);
 			ast->attributes["\\blackbox"] = AstNode::mkconst_int(1, false);
@@ -1011,14 +1019,12 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_icells = icells;
 	flag_autowire = autowire;
 
-	std::vector<AstNode*> global_decls;
-
 	log_assert(current_ast->type == AST_DESIGN);
 	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
 	{
 		if ((*it)->type == AST_MODULE)
 		{
-			for (auto n : global_decls)
+			for (auto n : design->verilog_globals)
 				(*it)->children.push_back(n->clone());
 
 			for (auto n : design->verilog_packages){
@@ -1049,7 +1055,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 		else if ((*it)->type == AST_PACKAGE)
 			design->verilog_packages.push_back((*it)->clone());
 		else
-			global_decls.push_back(*it);
+			design->verilog_globals.push_back((*it)->clone());
 	}
 }
 
@@ -1100,7 +1106,10 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 	rewrite_parameter:
 			para_info += stringf("%s=%s", child->str.c_str(), log_signal(RTLIL::SigSpec(parameters[para_id])));
 			delete child->children.at(0);
-			child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
+			if ((parameters[para_id].flags & RTLIL::CONST_FLAG_STRING) != 0)
+				child->children[0] = AstNode::mkconst_str(parameters[para_id].decode_string());
+			else
+				child->children[0] = AstNode::mkconst_bits(parameters[para_id].bits, (parameters[para_id].flags & RTLIL::CONST_FLAG_SIGNED) != 0);
 			parameters.erase(para_id);
 			continue;
 		}
@@ -1110,8 +1119,16 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, dict<RTLIL::IdString, R
 			goto rewrite_parameter;
 		}
 	}
-	if (parameters.size() > 0)
-		log_error("Requested parameter `%s' does not exist in module `%s'!\n", parameters.begin()->first.c_str(), stripped_name.c_str());
+
+	for (auto param : parameters) {
+		AstNode *defparam = new AstNode(AST_DEFPARAM, new AstNode(AST_IDENTIFIER));
+		defparam->children[0]->str = param.first.str();
+		if ((param.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
+			defparam->children.push_back(AstNode::mkconst_str(param.second.decode_string()));
+		else
+			defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
+		new_ast->children.push_back(defparam);
+	}
 
 	std::string modname;
 

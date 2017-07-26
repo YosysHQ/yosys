@@ -59,6 +59,7 @@ namespace VERILOG_FRONTEND {
 	bool default_nettype_wire;
 	bool sv_mode, formal_mode, lib_mode;
 	bool norestrict_mode, assume_asserts_mode;
+	bool current_wire_rand, current_wire_const;
 	std::istream *lexin;
 }
 YOSYS_NAMESPACE_END
@@ -100,7 +101,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 	bool boolean;
 }
 
-%token <string> TOK_STRING TOK_ID TOK_CONST TOK_REALVAL TOK_PRIMITIVE
+%token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
@@ -114,13 +115,15 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_ASSERT TOK_ASSUME
-%token TOK_RESTRICT TOK_PROPERTY
+%token TOK_RESTRICT TOK_COVER TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
+%token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
+%token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label tok_prim_wrapper hierarchical_id
-%type <boolean> opt_signed
-%type <al> attr
+%type <boolean> opt_signed unique_case_attr
+%type <al> attr case_attr
 
 // operator precedence from low to high
 %left OP_LOR
@@ -269,7 +272,13 @@ single_module_para:
 		if (astbuf1) delete astbuf1;
 		astbuf1 = new AstNode(AST_PARAMETER);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	} param_signed param_integer param_range single_param_decl | single_param_decl;
+	} param_signed param_integer param_range single_param_decl |
+	TOK_LOCALPARAM {
+		if (astbuf1) delete astbuf1;
+		astbuf1 = new AstNode(AST_LOCALPARAM);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	} param_signed param_integer param_range single_param_decl |
+	single_param_decl;
 
 module_args_opt:
 	'(' ')' | /* empty */ | '(' module_args optional_comma ')';
@@ -355,6 +364,8 @@ delay:
 wire_type:
 	{
 		astbuf3 = new AstNode(AST_WIRE);
+		current_wire_rand = false;
+		current_wire_const = false;
 	} wire_type_token_list delay {
 		$$ = astbuf3;
 	};
@@ -392,6 +403,12 @@ wire_type_token:
 	} |
 	TOK_SIGNED {
 		astbuf3->is_signed = true;
+	} |
+	TOK_RAND {
+		current_wire_rand = true;
+	} |
+	TOK_CONST {
+		current_wire_const = true;
 	};
 
 non_opt_range:
@@ -455,7 +472,18 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | param_decl | localparam_decl | defparam_decl | wire_decl | assign_stmt | cell_stmt |
-	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property;
+	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl;
+
+checker_decl:
+	TOK_CHECKER TOK_ID ';' {
+		AstNode *node = new AstNode(AST_GENBLOCK);
+		node->str = *$2;
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} module_body TOK_ENDCHECKER {
+		delete $2;
+		ast_stack.pop_back();
+	};
 
 task_func_decl:
 	attr TOK_DPI_FUNCTION TOK_ID TOK_ID {
@@ -666,14 +694,13 @@ defparam_decl_list:
 	single_defparam_decl | defparam_decl_list ',' single_defparam_decl;
 
 single_defparam_decl:
-	range hierarchical_id '=' expr {
+	range rvalue '=' expr {
 		AstNode *node = new AstNode(AST_DEFPARAM);
-		node->str = *$2;
+		node->children.push_back($2);
 		node->children.push_back($4);
 		if ($1 != NULL)
 			node->children.push_back($1);
 		ast_stack.back()->children.push_back(node);
-		delete $2;
 	};
 
 wire_decl:
@@ -731,7 +758,16 @@ wire_name_list:
 	wire_name_and_opt_assign | wire_name_list ',' wire_name_and_opt_assign;
 
 wire_name_and_opt_assign:
-	wire_name |
+	wire_name {
+		if (current_wire_rand) {
+			AstNode *wire = new AstNode(AST_IDENTIFIER);
+			AstNode *fcall = new AstNode(AST_FCALL);
+			wire->str = ast_stack.back()->children.back()->str;
+			fcall->str = current_wire_const ? "\\$anyconst" : "\\$anyseq";
+			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
+			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
+		}
+	} |
 	wire_name '=' expr {
 		AstNode *wire = new AstNode(AST_IDENTIFIER);
 		wire->str = ast_stack.back()->children.back()->str;
@@ -1001,11 +1037,32 @@ assert:
 	TOK_ASSUME '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
 	} |
+	TOK_ASSERT '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $4));
+	} |
+	TOK_ASSUME '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
+	} |
+	TOK_COVER '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $3));
+	} |
+	TOK_COVER '(' ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
+	} |
+	TOK_COVER ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, AstNode::mkconst_int(1, false)));
+	} |
 	TOK_RESTRICT '(' expr ')' ';' {
 		if (norestrict_mode)
 			delete $3;
 		else
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $3));
+	} |
+	TOK_RESTRICT '(' TOK_EVENTUALLY expr ')' ';' {
+		if (norestrict_mode)
+			delete $4;
+		else
+			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $4));
 	};
 
 assert_property:
@@ -1015,16 +1072,39 @@ assert_property:
 	TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
 		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
 	} |
+	TOK_ASSERT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $5));
+	} |
+	TOK_ASSUME TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $5));
+	} |
+	TOK_COVER TOK_PROPERTY '(' expr ')' ';' {
+		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $4));
+	} |
 	TOK_RESTRICT TOK_PROPERTY '(' expr ')' ';' {
 		if (norestrict_mode)
 			delete $4;
 		else
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $4));
+	} |
+	TOK_RESTRICT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+		if (norestrict_mode)
+			delete $5;
+		else
+			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $5));
 	};
 
 simple_behavioral_stmt:
 	lvalue '=' delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
+		ast_stack.back()->children.push_back(node);
+	} |
+	lvalue TOK_INCREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_ADD, $1->clone(), AstNode::mkconst_int(1, true)));
+		ast_stack.back()->children.push_back(node);
+	} |
+	lvalue TOK_DECREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_SUB, $1->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
 	} |
 	lvalue OP_LE delay expr {
@@ -1118,7 +1198,7 @@ behavioral_stmt:
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	attr case_type '(' expr ')' {
+	case_attr case_type '(' expr ')' {
 		AstNode *node = new AstNode(AST_CASE, $4);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
@@ -1126,6 +1206,23 @@ behavioral_stmt:
 	} opt_synopsys_attr case_body TOK_ENDCASE {
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
+	};
+
+unique_case_attr:
+	/* empty */ {
+		$$ = false;
+	} |
+	TOK_PRIORITY case_attr {
+		$$ = $2;
+	} |
+	TOK_UNIQUE case_attr {
+		$$ = true;
+	};
+
+case_attr:
+	attr unique_case_attr {
+		if ($2) (*$1)["\\parallel_case"] = AstNode::mkconst_int(1, false);
+		$$ = $1;
 	};
 
 case_type:
@@ -1229,7 +1326,7 @@ rvalue:
 		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
 		delete $1;
-		if ($2 == nullptr && formal_mode && ($$->str == "\\$initstate" || $$->str == "\\$anyconst"))
+		if ($2 == nullptr && ($$->str == "\\$initstate" || $$->str == "\\$anyconst" || $$->str == "\\$anyseq"))
 			$$->type = AST_FCALL;
 	} |
 	hierarchical_id non_opt_multirange {
@@ -1351,7 +1448,7 @@ basic_expr:
 	rvalue {
 		$$ = $1;
 	} |
-	'(' expr ')' TOK_CONST {
+	'(' expr ')' TOK_CONSTVAL {
 		if ($4->substr(0, 1) != "'")
 			frontend_verilog_yyerror("Syntax error.");
 		AstNode *bits = $2;
@@ -1361,7 +1458,7 @@ basic_expr:
 		$$ = new AstNode(AST_TO_BITS, bits, val);
 		delete $4;
 	} |
-	hierarchical_id TOK_CONST {
+	hierarchical_id TOK_CONSTVAL {
 		if ($2->substr(0, 1) != "'")
 			frontend_verilog_yyerror("Syntax error.");
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
@@ -1373,14 +1470,14 @@ basic_expr:
 		delete $1;
 		delete $2;
 	} |
-	TOK_CONST TOK_CONST {
+	TOK_CONSTVAL TOK_CONSTVAL {
 		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL || (*$2)[0] != '\'')
 			log_error("Value conversion failed: `%s%s'\n", $1->c_str(), $2->c_str());
 		delete $1;
 		delete $2;
 	} |
-	TOK_CONST {
+	TOK_CONSTVAL {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
@@ -1441,8 +1538,16 @@ basic_expr:
 		$$ = new AstNode(AST_BIT_AND, $1, $4);
 		append_attr($$, $3);
 	} |
+	basic_expr OP_NAND attr basic_expr {
+		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_AND, $1, $4));
+		append_attr($$, $3);
+	} |
 	basic_expr '|' attr basic_expr {
 		$$ = new AstNode(AST_BIT_OR, $1, $4);
+		append_attr($$, $3);
+	} |
+	basic_expr OP_NOR attr basic_expr {
+		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_OR, $1, $4));
 		append_attr($$, $3);
 	} |
 	basic_expr '^' attr basic_expr {

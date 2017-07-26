@@ -31,61 +31,62 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 #define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true).c_str()
+#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br).c_str()
 #define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false).c_str()
 
-namespace
+struct EdifNames
 {
-	struct EdifNames
+	int counter;
+	char delim_left, delim_right;
+	std::set<std::string> generated_names, used_names;
+	std::map<std::string, std::string> name_map;
+
+	EdifNames() : counter(1), delim_left('['), delim_right(']') { }
+
+	std::string operator()(std::string id, bool define, bool port_rename = false, int range_left = 0, int range_right = 0)
 	{
-		int counter;
-		std::set<std::string> generated_names, used_names;
-		std::map<std::string, std::string> name_map;
-
-		EdifNames() : counter(1) { }
-
-		std::string operator()(std::string id, bool define)
-		{
-			if (define) {
-				std::string new_id = operator()(id, false);
-				return new_id != id ? stringf("(rename %s \"%s\")", new_id.c_str(), id.c_str()) : id;
-			}
-
-			if (name_map.count(id) > 0)
-				return name_map.at(id);
-			if (generated_names.count(id) > 0)
-				goto do_rename;
-			if (id == "GND" || id == "VCC")
-				goto do_rename;
-
-			for (size_t i = 0; i < id.size(); i++) {
-				if ('A' <= id[i] && id[i] <= 'Z')
-					continue;
-				if ('a' <= id[i] && id[i] <= 'z')
-					continue;
-				if ('0' <= id[i] && id[i] <= '9' && i > 0)
-					continue;
-				if (id[i] == '_' && i > 0 && i != id.size()-1)
-					continue;
-				goto do_rename;
-			}
-
-			used_names.insert(id);
-			return id;
-
-		do_rename:;
-			std::string gen_name;
-			while (1) {
-				gen_name = stringf("id%05d", counter++);
-				if (generated_names.count(gen_name) == 0 &&
-						used_names.count(gen_name) == 0)
-					break;
-			}
-			generated_names.insert(gen_name);
-			name_map[id] = gen_name;
-			return gen_name;
+		if (define) {
+			std::string new_id = operator()(id, false);
+			if (port_rename)
+				return stringf("(rename %s \"%s%c%d:%d%c\")", new_id.c_str(), id.c_str(), delim_left, range_left, range_right, delim_right);
+			return new_id != id ? stringf("(rename %s \"%s\")", new_id.c_str(), id.c_str()) : id;
 		}
-	};
-}
+
+		if (name_map.count(id) > 0)
+			return name_map.at(id);
+		if (generated_names.count(id) > 0)
+			goto do_rename;
+		if (id == "GND" || id == "VCC")
+			goto do_rename;
+
+		for (size_t i = 0; i < id.size(); i++) {
+			if ('A' <= id[i] && id[i] <= 'Z')
+				continue;
+			if ('a' <= id[i] && id[i] <= 'z')
+				continue;
+			if ('0' <= id[i] && id[i] <= '9' && i > 0)
+				continue;
+			if (id[i] == '_' && i > 0 && i != id.size()-1)
+				continue;
+			goto do_rename;
+		}
+
+		used_names.insert(id);
+		return id;
+
+	do_rename:;
+		std::string gen_name;
+		while (1) {
+			gen_name = stringf("id%05d", counter++);
+			if (generated_names.count(gen_name) == 0 &&
+					used_names.count(gen_name) == 0)
+				break;
+		}
+		generated_names.insert(gen_name);
+		name_map[id] = gen_name;
+		return gen_name;
+	}
+};
 
 struct EdifBackend : public Backend {
 	EdifBackend() : Backend("edif", "write design to EDIF netlist file") { }
@@ -105,6 +106,10 @@ struct EdifBackend : public Backend {
 		log("        if the design contains constant nets. use \"hilomap\" to map to custom\n");
 		log("        constant drivers first)\n");
 		log("\n");
+		log("    -pvector {par|bra|ang}\n");
+		log("        sets the delimiting character for module port rename clauses to\n");
+		log("        parentheses, square brackets, or angle brackets.\n");
+		log("\n");
 		log("Unfortunately there are different \"flavors\" of the EDIF file format. This\n");
 		log("command generates EDIF files for the Xilinx place&route tools. It might be\n");
 		log("necessary to make small modifications to this command when a different tool\n");
@@ -114,8 +119,8 @@ struct EdifBackend : public Backend {
 	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing EDIF backend.\n");
-
 		std::string top_module_name;
+		bool port_rename = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
 		bool nogndvcc = false;
 		CellTypes ct(design);
@@ -130,6 +135,19 @@ struct EdifBackend : public Backend {
 			}
 			if (args[argidx] == "-nogndvcc") {
 				nogndvcc = true;
+				continue;
+			}
+			if (args[argidx] == "-pvector" && argidx+1 < args.size()) {
+				std::string parray;
+				port_rename = true;
+				parray = args[++argidx];
+				if (parray == "par") {
+					edif_names.delim_left = '(';edif_names.delim_right = ')';
+				} else if (parray == "ang") {
+					edif_names.delim_left = '<';edif_names.delim_right = '>';
+				} else {
+					edif_names.delim_left = '[';edif_names.delim_right = ']';
+				}
 				continue;
 			}
 			break;
@@ -214,8 +232,18 @@ struct EdifBackend : public Backend {
 				}
 				if (port_it.second == 1)
 					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
-				else
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEF(port_it.first), port_it.second, dir);
+				else {
+					int b[2] = {port_it.second-1, 0};
+					auto m = design->module(cell_it.first);
+					if (m) {
+						auto w = m->wire(port_it.first);
+						if (w) {
+							b[w->upto ? 0 : 1] = w->start_offset;
+							b[w->upto ? 1 : 0] = w->start_offset+GetSize(w)-1;
+						}
+					}
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, port_rename, b[0], b[1]), port_it.second, dir);
+				}
 			}
 			*f << stringf("        )\n");
 			*f << stringf("      )\n");
@@ -283,10 +311,13 @@ struct EdifBackend : public Backend {
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
 					net_join_db[sig].insert(stringf("(portRef %s)", EDIF_REF(wire->name)));
 				} else {
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEF(wire->name), wire->width, dir);
+					int b[2];
+					b[wire->upto ? 0 : 1] = wire->start_offset;
+					b[wire->upto ? 1 : 0] = wire->start_offset + GetSize(wire) - 1;
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
-						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), i));
+						net_join_db[sig].insert(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1));
 					}
 				}
 			}
@@ -323,20 +354,48 @@ struct EdifBackend : public Backend {
 				for (auto &p : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(p.second);
 					for (int i = 0; i < GetSize(sig); i++)
-						if (sig.size() == 1)
+						if (sig[i].wire == NULL && sig[i] != RTLIL::State::S0 && sig[i] != RTLIL::State::S1)
+							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
+									i, log_id(module), log_id(cell), log_id(p.first), log_signal(sig[i]));
+						else if (sig.size() == 1)
 							net_join_db[sig[i]].insert(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)));
-						else
-							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))", EDIF_REF(p.first), i, EDIF_REF(cell->name)));
+						else {
+							int member_idx = GetSize(sig)-i-1;
+							auto m = design->module(cell->type);
+							if (m) {
+								auto w = m->wire(p.first);
+								if (w)
+									member_idx = GetSize(w)-i-1;
+							}
+							net_join_db[sig[i]].insert(stringf("(portRef (member %s %d) (instanceRef %s))",
+									EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)));
+						}
 				}
 			}
 			for (auto &it : net_join_db) {
 				RTLIL::SigBit sig = it.first;
-				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1)
-					continue;
-				std::string netname = log_signal(sig);
-				for (size_t i = 0; i < netname.size(); i++)
-					if (netname[i] == ' ' || netname[i] == '\\')
-						netname.erase(netname.begin() + i--);
+				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
+					if (sig == RTLIL::State::Sx) {
+						for (auto &ref : it.second)
+							log_warning("Exporting x-bit on %s as zero bit.\n", ref.c_str());
+						sig = RTLIL::State::S0;
+					} else {
+						for (auto &ref : it.second)
+							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.c_str());
+						log_abort();
+					}
+				}
+				std::string netname;
+				if (sig == RTLIL::State::S0)
+					netname = "GND_NET";
+				else if (sig == RTLIL::State::S1)
+					netname = "VCC_NET";
+				else {
+					netname = log_signal(sig);
+					for (size_t i = 0; i < netname.size(); i++)
+						if (netname[i] == ' ' || netname[i] == '\\')
+							netname.erase(netname.begin() + i--);
+				}
 				*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
 					*f << stringf("            %s\n", ref.c_str());

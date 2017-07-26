@@ -80,7 +80,7 @@ struct EquivPurgeWorker
 			Wire *wire = module->addWire(name, GetSize(sig));
 			wire->port_input = true;
 			module->connect(sig, wire);
-			log("  Module input: %s\n", log_signal(wire));
+			log("  Module input: %s (%s)\n", log_signal(wire), log_signal(sig));
 			return module->addWire(NEW_ID, GetSize(sig));
 		}
 	}
@@ -142,7 +142,7 @@ struct EquivPurgeWorker
 
 			for (auto bit : queue)
 				visited.insert(bit);
-			
+
 			for (auto bit : queue)
 			{
 				auto &cells = up_bit2cells[bit];

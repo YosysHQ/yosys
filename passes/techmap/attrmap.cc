@@ -33,13 +33,32 @@ Const make_value(string &value)
 	return sig.as_const();
 }
 
+bool string_compare_nocase(const string &str1, const string &str2)
+{
+	if (str1.size() != str2.size())
+		return false;
+
+	for (size_t i = 0; i < str1.size(); i++)
+	{
+		char ch1 = str1[i], ch2 = str2[i];
+		if ('a' <= ch1 && ch1 <= 'z')
+			ch1 -= 'a' - 'A';
+		if ('a' <= ch2 && ch2 <= 'z')
+			ch2 -= 'a' - 'A';
+		if (ch1 != ch2)
+			return false;
+	}
+
+	return true;
+}
+
 bool match_name(string &name, IdString &id, bool ignore_case=false)
 {
 	string str1 = RTLIL::escape_id(name);
 	string str2 = id.str();
 
 	if (ignore_case)
-		return !strcasecmp(str1.c_str(), str2.c_str());
+		return string_compare_nocase(str1, str2);
 
 	return str1 == str2;
 }
@@ -49,7 +68,7 @@ bool match_value(string &value, Const &val, bool ignore_case=false)
 	if (ignore_case && ((val.flags & RTLIL::CONST_FLAG_STRING) != 0) && GetSize(value) && value.front() == '"' && value.back() == '"') {
 		string str1 = value.substr(1, GetSize(value)-2);
 		string str2 = val.decode_string();
-		return !strcasecmp(str1.c_str(), str2.c_str());
+		return string_compare_nocase(str1, str2);
 	}
 
 	return make_value(value) == val;
