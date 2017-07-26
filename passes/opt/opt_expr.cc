@@ -449,6 +449,53 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				if (group_cell_inputs(module, cell, true, assign_map))
 					goto next_cell;
 
+			if (cell->type == "$logic_not" || cell->type == "$logic_and" || cell->type == "$logic_or" ||
+					cell->type == "$reduce_or" || cell->type == "$reduce_and" || cell->type == "$reduce_bool")
+			{
+				SigBit neutral_bit = cell->type == "$reduce_and" ? State::S1 : State::S0;
+
+				RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
+				RTLIL::SigSpec new_sig_a;
+
+				for (auto bit : sig_a)
+					if (bit != neutral_bit) new_sig_a.append(bit);
+
+				if (GetSize(new_sig_a) == 0)
+					new_sig_a.append(neutral_bit);
+
+				if (GetSize(new_sig_a) < GetSize(sig_a)) {
+					cover_list("opt.opt_expr.fine.neutral_A", "$logic_not", "$logic_and", "$logic_or", "$reduce_or", "$reduce_and", "$reduce_bool", cell->type.str());
+					log("Replacing port A of %s cell `%s' in module `%s' with shorter expression: %s -> %s\n",
+							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_sig_a));
+					cell->setPort("\\A", new_sig_a);
+					cell->parameters.at("\\A_WIDTH") = GetSize(new_sig_a);
+					did_something = true;
+				}
+			}
+
+			if (cell->type == "$logic_and" || cell->type == "$logic_or")
+			{
+				SigBit neutral_bit = State::S0;
+
+				RTLIL::SigSpec sig_b = assign_map(cell->getPort("\\B"));
+				RTLIL::SigSpec new_sig_b;
+
+				for (auto bit : sig_b)
+					if (bit != neutral_bit) new_sig_b.append(bit);
+
+				if (GetSize(new_sig_b) == 0)
+					new_sig_b.append(neutral_bit);
+
+				if (GetSize(new_sig_b) < GetSize(sig_b)) {
+					cover_list("opt.opt_expr.fine.neutral_B", "$logic_and", "$logic_or", cell->type.str());
+					log("Replacing port B of %s cell `%s' in module `%s' with shorter expression: %s -> %s\n",
+							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_sig_b));
+					cell->setPort("\\B", new_sig_b);
+					cell->parameters.at("\\B_WIDTH") = GetSize(new_sig_b);
+					did_something = true;
+				}
+			}
+
 			if (cell->type == "$reduce_and")
 			{
 				RTLIL::SigSpec sig_a = assign_map(cell->getPort("\\A"));
