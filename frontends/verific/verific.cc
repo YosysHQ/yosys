@@ -97,6 +97,13 @@ void import_sva_assert(VerificImporter *importer, Instance *inst);
 void import_sva_assume(VerificImporter *importer, Instance *inst);
 void import_sva_cover(VerificImporter *importer, Instance *inst);
 
+struct VerificClockEdge {
+	Net *clock_net;
+	SigBit clock_sig;
+	bool posedge;
+	VerificClockEdge(VerificImporter *importer, Instance *inst);
+};
+
 struct VerificImporter
 {
 	RTLIL::Module *module;
@@ -1053,10 +1060,27 @@ struct VerificImporter
 				sva_asserts.insert(inst);
 
 			if (inst->Type() == PRIM_SVA_ASSUME)
-				sva_asserts.insert(inst);
+				sva_assumes.insert(inst);
 
 			if (inst->Type() == PRIM_SVA_COVER)
 				sva_covers.insert(inst);
+
+			if (inst->Type() == PRIM_SVA_PAST)
+			{
+				VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
+
+				SigBit sig_d = net_map_at(inst->GetInput1());
+				SigBit sig_q = net_map_at(inst->GetOutput());
+
+				if (verbose)
+					log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
+							log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+
+				module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+
+				if (!mode_keep)
+					continue;
+			}
 
 			if (!mode_keep && (verific_sva_prims.count(inst->Type()) || verific_psl_prims.count(inst->Type()))) {
 				if (verbose)
@@ -1127,6 +1151,24 @@ struct VerificImporter
 	}
 };
 
+VerificClockEdge::VerificClockEdge(VerificImporter *importer, Instance *inst)
+{
+	log_assert(importer != nullptr);
+	log_assert(inst != nullptr);
+	log_assert(inst->Type() == PRIM_SVA_POSEDGE);
+
+	clock_net = inst->GetInput();
+	posedge = true;
+
+	Instance *driver = clock_net->Driver();
+	if (!clock_net->IsMultipleDriven() && driver && driver->Type() == PRIM_INV) {
+		clock_net = driver->GetInput();
+		posedge = false;
+	}
+
+	clock_sig = importer->net_map_at(clock_net);
+}
+
 struct VerificSvaImporter
 {
 	VerificImporter *importer;
@@ -1159,6 +1201,9 @@ struct VerificSvaImporter
 
 		if (!importer->verific_sva_prims.count(inst->Type()) &&
 				!importer->verific_psl_prims.count(inst->Type()))
+			return nullptr;
+
+		if (inst->Type() == PRIM_SVA_PAST)
 			return nullptr;
 
 		return inst;
@@ -1241,11 +1286,9 @@ struct VerificSvaImporter
 		Instance *at_node = get_ast_input(root);
 		log_assert(at_node && at_node->Type() == PRIM_SVA_AT);
 
-		Instance *clock_node = get_ast_input1(at_node);
-		log_assert(clock_node && (clock_node->Type() == PRIM_SVA_POSEDGE || clock_node->Type() == PRIM_SVA_POSEDGE));
-
-		clock = importer->net_map_at(clock_node->GetInput());
-		clock_posedge = (clock_node->Type() == PRIM_SVA_POSEDGE);
+		VerificClockEdge clock_edge(importer, get_ast_input1(at_node));
+		clock = clock_edge.clock_sig;
+		clock_posedge = clock_edge.posedge;
 
 		// parse disable_iff expression
 
