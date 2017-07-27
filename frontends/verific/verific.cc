@@ -112,13 +112,14 @@ struct VerificImporter
 	std::map<Net*, RTLIL::SigBit> net_map;
 	std::map<Net*, Net*> sva_posedge_map;
 
-	bool mode_gates, mode_keep, verbose;
+	bool mode_gates, mode_keep, mode_nosva, mode_names, verbose;
 
 	pool<int> verific_sva_prims;
 	pool<int> verific_psl_prims;
 
-	VerificImporter(bool mode_gates, bool mode_keep, bool verbose) :
-			mode_gates(mode_gates), mode_keep(mode_keep), verbose(verbose)
+	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool verbose) :
+			mode_gates(mode_gates), mode_keep(mode_keep),
+			mode_nosva(mode_nosva), mode_names(mode_names), verbose(verbose)
 	{
 		// Copy&paste from Verific 3.16_484_32_170630 Netlist.h
 		vector<int> sva_prims {
@@ -820,7 +821,7 @@ struct VerificImporter
 			if (net->Bus())
 				continue;
 
-			RTLIL::IdString wire_name = module->uniquify(net->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : NEW_ID);
+			RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : NEW_ID);
 
 			if (verbose)
 				log("  importing net %s as %s.\n", net->Name(), log_id(wire_name));
@@ -947,7 +948,7 @@ struct VerificImporter
 
 		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 		{
-			RTLIL::IdString inst_name = module->uniquify(inst->IsUserDeclared() ? RTLIL::escape_id(inst->Name()) : NEW_ID);
+			RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? RTLIL::escape_id(inst->Name()) : NEW_ID);
 
 			if (verbose)
 				log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), log_id(inst_name));
@@ -1065,7 +1066,7 @@ struct VerificImporter
 			if (inst->Type() == PRIM_SVA_COVER)
 				sva_covers.insert(inst);
 
-			if (inst->Type() == PRIM_SVA_PAST)
+			if (inst->Type() == PRIM_SVA_PAST && !mode_nosva)
 			{
 				VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
 
@@ -1140,14 +1141,17 @@ struct VerificImporter
 			}
 		}
 
-		for (auto inst : sva_asserts)
-			import_sva_assert(this, inst);
+		if (!mode_nosva)
+		{
+			for (auto inst : sva_asserts)
+				import_sva_assert(this, inst);
 
-		for (auto inst : sva_assumes)
-			import_sva_assume(this, inst);
+			for (auto inst : sva_assumes)
+				import_sva_assume(this, inst);
 
-		for (auto inst : sva_covers)
-			import_sva_cover(this, inst);
+			for (auto inst : sva_covers)
+				import_sva_cover(this, inst);
+		}
 	}
 };
 
@@ -1308,7 +1312,7 @@ struct VerificSvaImporter
 
 		// generate assert/assume/cover cell
 
-		RTLIL::IdString root_name = module->uniquify(root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
+		RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
 		if (mode_assert) module->addAssert(root_name, seq.sig_a, seq.sig_en);
 		if (mode_assume) module->addAssume(root_name, seq.sig_a, seq.sig_en);
@@ -1470,6 +1474,15 @@ struct VerificPass : public Pass {
 		log("  -k\n");
 		log("    Keep going after an unsupported verific primitive is found. The\n");
 		log("    unsupported primitive is added as blockbox module to the design.\n");
+		log("    This will also add all SVA related cells to the design parallel to\n");
+		log("    the checker logic inferred by it.\n");
+		log("\n");
+		log("  -nosva\n");
+		log("    Ignore SVA properties, do not infer checker logic.\n");
+		log("\n");
+		log("  -n\n");
+		log("    Keep all Verific names on instances and nets. By default only\n");
+		log("    user-declared names are preserved.\n");
 		log("\n");
 		log("  -d <dump_file>\n");
 		log("    Dump the Verific netlist as a verilog file.\n");
@@ -1579,6 +1592,7 @@ struct VerificPass : public Pass {
 		{
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
+			bool mode_nosva = false, mode_names = false;
 			bool verbose = false, flatten = false, extnets = false;
 			string dumpfile;
 
@@ -1601,6 +1615,14 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-k") {
 					mode_keep = true;
+					continue;
+				}
+				if (args[argidx] == "-nosva") {
+					mode_nosva = true;
+					continue;
+				}
+				if (args[argidx] == "-n") {
+					mode_names = true;
 					continue;
 				}
 				if (args[argidx] == "-v") {
@@ -1694,7 +1716,7 @@ struct VerificPass : public Pass {
 			while (!nl_todo.empty()) {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
-					VerificImporter importer(mode_gates, mode_keep, verbose);
+					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_names, verbose);
 					importer.import_netlist(design, nl, nl_todo);
 				}
 				nl_todo.erase(nl);
