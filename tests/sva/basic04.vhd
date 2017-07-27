@@ -10,9 +10,9 @@ entity top is
 end entity;
 
 architecture rtl of top is
-	signal read : std_logic;
-	signal write : std_logic;
-	signal ready : std_logic;
+	signal read : std_logic := '0';
+	signal write : std_logic := '0';
+	signal ready : std_logic := '0';
 begin
 	process (clock) begin
 		if (rising_edge(clock)) then
