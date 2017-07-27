@@ -1140,9 +1140,6 @@ struct VerificSvaImporter
 
 	SigBit disable_iff = State::S0;
 
-	bool import_sva_disable_hiactive = true;
-	int import_sva_init_disable_steps = 0;
-
 	bool mode_assert = false;
 	bool mode_assume = false;
 	bool mode_cover = false;
@@ -1173,18 +1170,65 @@ struct VerificSvaImporter
 	Instance *get_ast_input3(Instance *inst) { return net_to_ast_driver(inst->GetInput3()); }
 	Instance *get_ast_control(Instance *inst) { return net_to_ast_driver(inst->GetControl()); }
 
-	SigBit parse_sequence(Net *n)
+	struct sequence_t {
+		int length = 0;
+		SigBit sig_a = State::S1;
+		SigBit sig_en = State::S1;
+	};
+
+	void sequence_cond(sequence_t &seq, SigBit cond)
+	{
+		seq.sig_a = module->And(NEW_ID, seq.sig_a, cond);
+	}
+
+	void sequence_ff(sequence_t &seq)
+	{
+		if (disable_iff != State::S0)
+			seq.sig_en = module->Mux(NEW_ID, seq.sig_en, State::S0, disable_iff);
+
+		Wire *sig_a_q = module->addWire(NEW_ID);
+		sig_a_q->attributes["\\init"] = Const(0, 1);
+
+		Wire *sig_en_q = module->addWire(NEW_ID);
+		sig_en_q->attributes["\\init"] = Const(0, 1);
+
+		module->addDff(NEW_ID, clock, seq.sig_a, sig_a_q, clock_posedge);
+		module->addDff(NEW_ID, clock, seq.sig_en, sig_en_q, clock_posedge);
+
+		seq.length++;
+		seq.sig_a = sig_a_q;
+		seq.sig_en = sig_en_q;
+	}
+
+	void parse_sequence(sequence_t &seq, Net *n)
 	{
 		Instance *inst = net_to_ast_driver(n);
 
-		if (inst == nullptr)
-			return importer->net_map_at(n);
+		if (inst == nullptr) {
+			sequence_cond(seq, importer->net_map_at(n));
+			return;
+		}
+
+		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION)
+		{
+			parse_sequence(seq, inst->GetInput1());
+			seq.sig_en = module->And(NEW_ID, seq.sig_en, seq.sig_a);
+			parse_sequence(seq, inst->GetInput2());
+			return;
+		}
+
+		if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+		{
+			parse_sequence(seq, inst->GetInput1());
+			seq.sig_en = module->And(NEW_ID, seq.sig_en, seq.sig_a);
+			sequence_ff(seq);
+			parse_sequence(seq, inst->GetInput2());
+			return;
+		}
 
 		if (!importer->mode_keep)
 			log_error("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
 		log_warning("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
-
-		return importer->net_map_at(n);
 	}
 
 	void run()
@@ -1203,8 +1247,6 @@ struct VerificSvaImporter
 		clock = importer->net_map_at(clock_node->GetInput());
 		clock_posedge = (clock_node->Type() == PRIM_SVA_POSEDGE);
 
-		import_sva_init_disable_steps = 1;
-
 		// parse disable_iff expression
 
 		Net *sequence_net = at_node->GetInput2();
@@ -1217,38 +1259,17 @@ struct VerificSvaImporter
 
 		// parse SVA sequence into trigger signal
 
-		SigBit sig_a_d = parse_sequence(sequence_net);
-		Wire *sig_a_q = module->addWire(NEW_ID);
-		sig_a_q->attributes["\\init"] = Const(import_sva_disable_hiactive ? State::S1 : State::S0, 1);
-		module->addDff(NEW_ID, clock, sig_a_d, sig_a_q, clock_posedge);
-
-		// generate properly delayed enable signal
-
-		SigBit sig_en = State::S1;
-
-		if (disable_iff != State::S0)
-			sig_en = module->Mux(NEW_ID, sig_en, State::S0, disable_iff);
-
-		for (int i = 0; i < import_sva_init_disable_steps; i++)
-		{
-			Wire *new_en = module->addWire(NEW_ID);
-			new_en->attributes["\\init"] = Const(0, 1);
-
-			module->addDff(NEW_ID, clock, sig_en, new_en, clock_posedge);
-
-			if (disable_iff != State::S0 && i+1 < import_sva_init_disable_steps)
-				sig_en = module->Mux(NEW_ID, new_en, State::S0, disable_iff);
-			else
-				sig_en = new_en;
-		}
+		sequence_t seq;
+		parse_sequence(seq, sequence_net);
+		sequence_ff(seq);
 
 		// generate assert/assume/cover cell
 
 		RTLIL::IdString root_name = module->uniquify(root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
-		if (mode_assert) module->addAssert(root_name, sig_a_q, sig_en);
-		if (mode_assume) module->addAssume(root_name, sig_a_q, sig_en);
-		if (mode_cover) module->addCover(root_name, sig_a_q, sig_en);
+		if (mode_assert) module->addAssert(root_name, seq.sig_a, seq.sig_en);
+		if (mode_assume) module->addAssume(root_name, seq.sig_a, seq.sig_en);
+		if (mode_cover) module->addCover(root_name, seq.sig_a, seq.sig_en);
 	}
 };
 
