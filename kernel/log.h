@@ -65,11 +65,13 @@ extern void (*log_error_atexit)();
 void logv(const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
+void logv_warning_noprefix(const char *format, va_list ap);
 YS_NORETURN void logv_error(const char *format, va_list ap) YS_ATTRIBUTE(noreturn);
 
 void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
 YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
 

@@ -77,7 +77,7 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 	message += vstringf(msg, args);
 
 	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-		log_warning("%s\n", message.c_str());
+		log_warning_noprefix("%s\n", message.c_str());
 	else
 		log("%s\n", message.c_str());
 }

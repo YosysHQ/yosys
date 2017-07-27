@@ -227,6 +227,32 @@ void logv_warning(const char *format, va_list ap)
 	}
 }
 
+void logv_warning_noprefix(const char *format, va_list ap)
+{
+	std::string message = vstringf(format, ap);
+	bool suppressed = false;
+
+	for (auto &re : log_nowarn_regexes)
+		if (std::regex_search(message, re))
+			suppressed = true;
+
+	if (suppressed)
+	{
+		log("%s", message.c_str());
+	}
+	else
+	{
+		if (log_errfile != NULL && !log_quiet_warnings)
+			log_files.push_back(log_errfile);
+
+		log("%s", message.c_str());
+		log_flush();
+
+		if (log_errfile != NULL && !log_quiet_warnings)
+			log_files.pop_back();
+	}
+}
+
 void logv_error(const char *format, va_list ap)
 {
 #ifdef EMSCRIPTEN
@@ -279,6 +305,14 @@ void log_warning(const char *format, ...)
 	va_list ap;
 	va_start(ap, format);
 	logv_warning(format, ap);
+	va_end(ap);
+}
+
+void log_warning_noprefix(const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	logv_warning_noprefix(format, ap);
 	va_end(ap);
 }
 
