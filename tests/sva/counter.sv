@@ -11,19 +11,20 @@ module top (input clk, reset, up, down, output reg [7:0] cnt);
 	default clocking @(posedge clk); endclocking
 	default disable iff (reset);
 
-	assert property (up |=> cnt == $past(cnt) + 8'd1);
-	// assert property (up [*2] |=> cnt == $past(cnt, 2) + 8'd2);
-	// assert property (up ##1 up |=> cnt == $past(cnt, 2) + 8'd2);
+	assert property (up |=> cnt == $past(cnt) + 8'd 1);
+	assert property (up [*2] |=> cnt == $past(cnt, 2) + 8'd 2);
+	assert property (up ##1 up |=> cnt == $past(cnt, 2) + 8'd 2);
 
 `ifndef FAIL
 	assume property (down |-> !up);
 `endif
-	assert property (down |=> cnt == $past(cnt) - 8'd1);
+	assert property (up ##1 down |=> cnt == $past(cnt, 2));
+	assert property (down |=> cnt == $past(cnt) - 8'd 1);
 
 	property down_n(n);
-		down [*n] |=> cnt == $past(cnt, n) + n;
+		down [*n] |=> cnt == $past(cnt, n) - n;
 	endproperty
 
-	// assert property (down_n(3));
-	// assert property (down_n(5));
+	assert property (down_n(8'd 3));
+	assert property (down_n(8'd 5));
 endmodule

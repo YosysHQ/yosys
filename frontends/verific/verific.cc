@@ -1275,6 +1275,40 @@ struct VerificSvaImporter
 			return;
 		}
 
+		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
+		{
+			int sva_low = atoi(inst->GetAttValue("sva:low"));
+			int sva_high = atoi(inst->GetAttValue("sva:low"));
+
+			if (sva_low != sva_high)
+				log_error("Ranges on SVA sequence concatenation operator are not supported at the moment.\n");
+
+			parse_sequence(seq, inst->GetInput1());
+
+			for (int i = 0; i < sva_low; i++)
+				sequence_ff(seq);
+
+			parse_sequence(seq, inst->GetInput2());
+			return;
+		}
+
+		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
+		{
+			int sva_low = atoi(inst->GetAttValue("sva:low"));
+			int sva_high = atoi(inst->GetAttValue("sva:low"));
+
+			if (sva_low != sva_high)
+				log_error("Ranges on SVA consecutive repeat operator are not supported at the moment.\n");
+
+			parse_sequence(seq, inst->GetInput());
+
+			for (int i = 1; i < sva_low; i++) {
+				sequence_ff(seq);
+				parse_sequence(seq, inst->GetInput());
+			}
+			return;
+		}
+
 		if (!importer->mode_keep)
 			log_error("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
 		log_warning("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
