@@ -1473,12 +1473,12 @@ struct VerificPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv} <verilog-file>..\n");
+		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
 		log("\n");
 		log("\n");
-		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdpsl} <vhdl-file>..\n");
+		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl|-vhdpsl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
@@ -1576,7 +1576,7 @@ struct VerificPass : public Pass {
 			return;
 		}
 
-		if (GetSize(args) > argidx && args[argidx] == "-sv") {
+		if (GetSize(args) > argidx && (args[argidx] == "-sv2012" || args[argidx] == "-sv")) {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG))
 					log_cmd_error("Reading `%s' in SYSTEM_VERILOG mode failed.\n", args[argidx].c_str());
@@ -1607,7 +1607,7 @@ struct VerificPass : public Pass {
 			return;
 		}
 
-		if (GetSize(args) > argidx && args[argidx] == "-vhdl2008") {
+		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2008))
