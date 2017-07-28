@@ -2,8 +2,10 @@
 
 set -ex
 
-prefix=${1%.sv}
-test -f $prefix.sv
+prefix=${1%.ok}
+prefix=${prefix%.sv}
+prefix=${prefix%.vhd}
+test -f $prefix.sv -o -f $prefix.vhd
 
 generate_sby() {
 	cat <<- EOT
@@ -18,14 +20,16 @@ generate_sby() {
 		[script]
 	EOT
 
-	if [ "$1" = "fail" ]; then
-		echo "verific -sv ${prefix}_fail.sv"
-	else
-		echo "verific -sv $prefix.sv"
+	if [ -f $prefix.sv ]; then
+		if [ "$1" = "fail" ]; then
+			echo "verific -sv ${prefix}_fail.sv"
+		else
+			echo "verific -sv $prefix.sv"
+		fi
 	fi
 
 	if [ -f $prefix.vhd ]; then
-		echo "verific -vhdl2008 $prefix.vhd"
+		echo "verific -vhdpsl $prefix.vhd"
 	fi
 
 	cat <<- EOT
@@ -33,8 +37,11 @@ generate_sby() {
 		prep -top top
 
 		[files]
-		$prefix.sv
 	EOT
+
+	if [ -f $prefix.sv ]; then
+		echo "$prefix.sv"
+	fi
 
 	if [ -f $prefix.vhd ]; then
 		echo "$prefix.vhd"
@@ -50,11 +57,15 @@ generate_sby() {
 	fi
 }
 
-generate_sby pass > ${prefix}_pass.sby
-generate_sby fail > ${prefix}_fail.sby
-
-sby --yosys $PWD/../../yosys -f ${prefix}_pass.sby
-sby --yosys $PWD/../../yosys -f ${prefix}_fail.sby
+if [ -f $prefix.sv ]; then
+	generate_sby pass > ${prefix}_pass.sby
+	generate_sby fail > ${prefix}_fail.sby
+	sby --yosys $PWD/../../yosys -f ${prefix}_pass.sby
+	sby --yosys $PWD/../../yosys -f ${prefix}_fail.sby
+else
+	generate_sby pass > ${prefix}.sby
+	sby --yosys $PWD/../../yosys -f ${prefix}.sby
+fi
 
 touch $prefix.ok
 
