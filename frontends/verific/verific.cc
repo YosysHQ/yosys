@@ -636,6 +636,73 @@ struct VerificImporter
 		return false;
 	}
 
+	void merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBit clock, bool clock_pol)
+	{
+		bool keep_running = true;
+		SigMap sigmap;
+
+		while (keep_running)
+		{
+			keep_running = false;
+
+			dict<SigBit, pool<RTLIL::Cell*>> dbits_db;
+			SigSpec dbits;
+
+			for (auto cell : candidates) {
+				SigBit bit = sigmap(cell->getPort("\\D"));
+				dbits_db[bit].insert(cell);
+				dbits.append(bit);
+			}
+
+			dbits.sort_and_unify();
+
+			for (auto chunk : dbits.chunks())
+			{
+				SigSpec sig_d = chunk;
+
+				if (chunk.wire == nullptr || GetSize(sig_d) == 1)
+					continue;
+
+				SigSpec sig_q = module->addWire(NEW_ID, GetSize(sig_d));
+				RTLIL::Cell *new_ff = module->addDff(NEW_ID, clock, sig_d, sig_q, clock_pol);
+
+				if (verbose)
+					log("  merging single-bit past_ffs into new %d-bit ff %s.\n", GetSize(sig_d), log_id(new_ff));
+
+				for (int i = 0; i < GetSize(sig_d); i++)
+					for (auto old_ff : dbits_db[sig_d[i]])
+					{
+						if (verbose)
+							log("    replacing old ff %s on bit %d.\n", log_id(old_ff), i);
+
+						SigBit old_q = old_ff->getPort("\\Q");
+						SigBit new_q = sig_q[i];
+
+						sigmap.add(old_q, new_q);
+						module->connect(old_q, new_q);
+						candidates.erase(old_ff);
+						module->remove(old_ff);
+						keep_running = true;
+					}
+			}
+		}
+	}
+
+	void merge_past_ffs(pool<RTLIL::Cell*> &candidates)
+	{
+		dict<pair<SigBit, int>, pool<RTLIL::Cell*>> database;
+
+		for (auto cell : candidates)
+		{
+			SigBit clock = cell->getPort("\\CLK");
+			bool clock_pol = cell->getParam("\\CLK_POLARITY").as_bool();
+			database[make_pair(clock, int(clock_pol))].insert(cell);
+		}
+
+		for (auto it : database)
+			merge_past_ffs_clock(it.second, it.first.first, it.first.second);
+	}
+
 	void import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo)
 	{
 		std::string module_name = nl->IsOperator() ? std::string("$verific$") + nl->Owner()->Name() : RTLIL::escape_id(nl->Owner()->Name());
@@ -947,6 +1014,8 @@ struct VerificImporter
 		pool<Instance*, hash_ptr_ops> sva_assumes;
 		pool<Instance*, hash_ptr_ops> sva_covers;
 
+		pool<RTLIL::Cell*> past_ffs;
+
 		FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 		{
 			RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? RTLIL::escape_id(inst->Name()) : NEW_ID);
@@ -1078,7 +1147,7 @@ struct VerificImporter
 					log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
 							log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
 
-				module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+				past_ffs.insert(module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge));
 
 				if (!mode_keep)
 					continue;
@@ -1103,7 +1172,10 @@ struct VerificImporter
 						log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
 								log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
 
-					module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+					RTLIL::Cell *ff = module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+
+					if (inst->InputSize() == 1)
+						past_ffs.insert(ff);
 
 					if (!mode_keep)
 						continue;
@@ -1178,6 +1250,8 @@ struct VerificImporter
 
 			for (auto inst : sva_covers)
 				import_sva_cover(this, inst);
+
+			merge_past_ffs(past_ffs);
 		}
 	}
 };
