@@ -167,7 +167,7 @@ struct VerificImporter
 			PRIM_NONCONS_REP, PRIM_GOTO_REP
 		};
 
-		for (int p : sva_prims)
+		for (int p : psl_prims)
 			verific_psl_prims.insert(p);
 	}
 
@@ -1051,20 +1051,20 @@ struct VerificImporter
 			if (!mode_gates) {
 				if (import_netlist_instance_cells(inst, inst_name))
 					continue;
-				if (inst->IsOperator())
+				if (inst->IsOperator() && !verific_sva_prims.count(inst->Type()) && !verific_psl_prims.count(inst->Type()))
 					log_warning("Unsupported Verific operator: %s (fallback to gate level implementation provided by verific)\n", inst->View()->Owner()->Name());
 			} else {
 				if (import_netlist_instance_gates(inst, inst_name))
 					continue;
 			}
 
-			if (inst->Type() == PRIM_SVA_ASSERT)
+			if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_PSL_ASSERT)
 				sva_asserts.insert(inst);
 
-			if (inst->Type() == PRIM_SVA_ASSUME)
+			if (inst->Type() == PRIM_SVA_ASSUME || inst->Type() == PRIM_PSL_ASSUME)
 				sva_assumes.insert(inst);
 
-			if (inst->Type() == PRIM_SVA_COVER)
+			if (inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_PSL_COVER)
 				sva_covers.insert(inst);
 
 			if (inst->Type() == PRIM_SVA_PAST && !mode_nosva)
@@ -1082,6 +1082,32 @@ struct VerificImporter
 
 				if (!mode_keep)
 					continue;
+			}
+
+			if (inst->Type() == OPER_PSLPREV && !mode_nosva)
+			{
+				Net *clock = inst->GetClock();
+
+				if (!clock->IsConstant())
+				{
+					VerificClockEdge clock_edge(this, clock->Driver());
+
+					SigSpec sig_d, sig_q;
+
+					for (int i = 0; i < int(inst->InputSize()); i++) {
+						sig_d.append(net_map_at(inst->GetInputBit(i)));
+						sig_q.append(net_map_at(inst->GetOutputBit(i)));
+					}
+
+					if (verbose)
+						log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
+								log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+
+					module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+
+					if (!mode_keep)
+						continue;
+				}
 			}
 
 			if (!mode_keep && (verific_sva_prims.count(inst->Type()) || verific_psl_prims.count(inst->Type()))) {
@@ -1156,22 +1182,93 @@ struct VerificImporter
 	}
 };
 
+Net *verific_follow_inv(Net *w)
+{
+	if (w == nullptr || w->IsMultipleDriven())
+		return nullptr;
+
+	Instance *i = w->Driver();
+	if (i == nullptr || i->Type() != PRIM_INV)
+		return nullptr;
+
+	return i->GetInput();
+}
+
+Net *verific_follow_pslprev(Net *w)
+{
+	if (w == nullptr || w->IsMultipleDriven())
+		return nullptr;
+
+	Instance *i = w->Driver();
+	if (i == nullptr || i->Type() != OPER_PSLPREV || i->InputSize() != 1)
+		return nullptr;
+
+	return i->GetInputBit(0);
+}
+
+Net *verific_follow_inv_pslprev(Net *w)
+{
+	w = verific_follow_inv(w);
+	return verific_follow_pslprev(w);
+}
+
 VerificClockEdge::VerificClockEdge(VerificImporter *importer, Instance *inst)
 {
 	log_assert(importer != nullptr);
 	log_assert(inst != nullptr);
-	log_assert(inst->Type() == PRIM_SVA_POSEDGE);
 
-	clock_net = inst->GetInput();
-	posedge = true;
+	// SVA posedge/negedge
+	if (inst->Type() == PRIM_SVA_POSEDGE)
+	{
+		clock_net = inst->GetInput();
+		posedge = true;
 
-	Instance *driver = clock_net->Driver();
-	if (!clock_net->IsMultipleDriven() && driver && driver->Type() == PRIM_INV) {
-		clock_net = driver->GetInput();
-		posedge = false;
+		Instance *driver = clock_net->Driver();
+		if (!clock_net->IsMultipleDriven() && driver && driver->Type() == PRIM_INV) {
+			clock_net = driver->GetInput();
+			posedge = false;
+		}
+
+		clock_sig = importer->net_map_at(clock_net);
+		return;
 	}
 
-	clock_sig = importer->net_map_at(clock_net);
+	// VHDL-flavored PSL clock
+	if (inst->Type() == PRIM_AND)
+	{
+		Net *w1 = inst->GetInput1();
+		Net *w2 = inst->GetInput2();
+
+		clock_net = verific_follow_inv_pslprev(w1);
+		if (clock_net == w2) {
+			clock_sig = importer->net_map_at(clock_net);
+			posedge = true;
+			return;
+		}
+
+		clock_net = verific_follow_inv_pslprev(w2);
+		if (clock_net == w1) {
+			clock_sig = importer->net_map_at(clock_net);
+			posedge = true;
+			return;
+		}
+
+		clock_net = verific_follow_pslprev(w1);
+		if (clock_net == verific_follow_inv(w2)) {
+			clock_sig = importer->net_map_at(clock_net);
+			posedge = false;
+			return;
+		}
+
+		clock_net = verific_follow_pslprev(w2);
+		if (clock_net == verific_follow_inv(w1)) {
+			clock_sig = importer->net_map_at(clock_net);
+			posedge = false;
+			return;
+		}
+
+		log_abort();
+	}
 }
 
 struct VerificSvaImporter
@@ -1254,10 +1351,14 @@ struct VerificSvaImporter
 	{
 		Instance *inst = net_to_ast_driver(n);
 
+		// Regular expression
+
 		if (inst == nullptr) {
 			sequence_cond(seq, importer->net_map_at(n));
 			return;
 		}
+
+		// SVA Primitives
 
 		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION)
 		{
@@ -1310,6 +1411,33 @@ struct VerificSvaImporter
 			return;
 		}
 
+		// PSL Primitives
+
+		if (inst->Type() == PRIM_ALWAYS)
+		{
+			parse_sequence(seq, inst->GetInput());
+			return;
+		}
+
+		if (inst->Type() == PRIM_IMPL)
+		{
+			parse_sequence(seq, inst->GetInput1());
+			seq.sig_en = module->And(NEW_ID, seq.sig_en, seq.sig_a);
+			parse_sequence(seq, inst->GetInput2());
+			return;
+		}
+
+		if (inst->Type() == PRIM_SUFFIX_IMPL)
+		{
+			parse_sequence(seq, inst->GetInput1());
+			seq.sig_en = module->And(NEW_ID, seq.sig_en, seq.sig_a);
+			sequence_ff(seq);
+			parse_sequence(seq, inst->GetInput2());
+			return;
+		}
+
+		// Handle unsupported primitives
+
 		if (!importer->mode_keep)
 			log_error("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
 		log_warning("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
@@ -1323,20 +1451,24 @@ struct VerificSvaImporter
 		// parse SVA property clock event
 
 		Instance *at_node = get_ast_input(root);
-		log_assert(at_node && at_node->Type() == PRIM_SVA_AT);
+		log_assert(at_node && (at_node->Type() == PRIM_SVA_AT || at_node->Type() == PRIM_AT));
 
-		VerificClockEdge clock_edge(importer, get_ast_input1(at_node));
+		VerificClockEdge clock_edge(importer, at_node->Type() == PRIM_SVA_AT ? get_ast_input1(at_node) : at_node->GetInput2()->Driver());
 		clock = clock_edge.clock_sig;
 		clock_posedge = clock_edge.posedge;
 
 		// parse disable_iff expression
 
-		Net *sequence_net = at_node->GetInput2();
+		Net *sequence_net = at_node->Type() == PRIM_SVA_AT ? at_node->GetInput2() : at_node->GetInput1();
 		Instance *sequence_node = net_to_ast_driver(sequence_net);
 
 		if (sequence_node && sequence_node->Type() == PRIM_SVA_DISABLE_IFF) {
 			disable_iff = importer->net_map_at(sequence_node->GetInput1());
 			sequence_net = sequence_node->GetInput2();
+		} else
+		if (sequence_node && sequence_node->Type() == PRIM_ABORT) {
+			disable_iff = importer->net_map_at(sequence_node->GetInput2());
+			sequence_net = sequence_node->GetInput1();
 		}
 
 		// parse SVA sequence into trigger signal
@@ -1503,17 +1635,21 @@ struct VerificPass : public Pass {
 		log("  -extnets\n");
 		log("    Resolve references to external nets by adding module ports as needed.\n");
 		log("\n");
+		log("  -nosva\n");
+		log("    Ignore SVA properties, do not infer checker logic. (This also disables\n");
+		log("    PSL properties in -vhdpsl mode.)\n");
+		log("\n");
 		log("  -v\n");
 		log("    Verbose log messages.\n");
+		log("\n");
+		log("The following additional import options are useful for debugging the Verific\n");
+		log("bindings (for Yosys and/or Verific developers):\n");
 		log("\n");
 		log("  -k\n");
 		log("    Keep going after an unsupported verific primitive is found. The\n");
 		log("    unsupported primitive is added as blockbox module to the design.\n");
 		log("    This will also add all SVA related cells to the design parallel to\n");
 		log("    the checker logic inferred by it.\n");
-		log("\n");
-		log("  -nosva\n");
-		log("    Ignore SVA properties, do not infer checker logic.\n");
 		log("\n");
 		log("  -n\n");
 		log("    Keep all Verific names on instances and nets. By default only\n");
