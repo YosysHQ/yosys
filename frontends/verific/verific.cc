@@ -845,10 +845,11 @@ struct VerificImporter
 
 			if (found_new_net)
 			{
-				if (verbose)
-					log("  importing netbus %s.\n", netbus->Name());
+				RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : NEW_ID);
 
-				RTLIL::IdString wire_name = module->uniquify(RTLIL::escape_id(netbus->Name()));
+				if (verbose)
+					log("  importing netbus %s as %s.\n", netbus->Name(), log_id(wire_name));
+
 				RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 				wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 				import_attributes(wire->attributes, netbus);
