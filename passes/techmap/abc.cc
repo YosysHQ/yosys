@@ -1341,7 +1341,7 @@ struct AbcPass : public Pass {
 		log("          simple: AND OR XOR MUX\n");
 		log("          cmos2: NAND NOR\n");
 		log("          cmos3: NAND NOR AOI3 OAI3\n");
-		log("          cmos: NAND NOR AOI3 OAI3 AOI4 OAI4\n");
+		log("          cmos4: NAND NOR AOI3 OAI3 AOI4 OAI4\n");
 		log("          gates: AND NAND OR NOR XOR XNOR ANDNOT ORNOT\n");
 		log("          aig: AND NAND OR NOR ANDNOT ORNOT\n");
 		log("\n");
