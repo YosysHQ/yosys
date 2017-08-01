@@ -18,7 +18,6 @@
 #  
 #   ToDo: implement and test verific and emscripten support
 #   ToDo: Fix tests to support out of source builds and unit-tests
-#   ToDo: Add sanitizer support
 
 cmake_minimum_required(VERSION 3.9)
 
@@ -79,7 +78,7 @@ option(ENABLE_LIBYOSYS "ENABLE_LIBYOSYS" ON)
 option(ENABLE_GPROF "ENABLE_GPROF" OFF)
 option(ENABLE_NDEBUG "ENABLE_NDEBUG" OFF)
 option(ENABLE_COVER "ENABLE_COVER" OFF)
-option(LINK_CURSES "LINK_CURSES" OFF)
+option(LINK_CURSES "LINK_CURSES" ON)
 option(LINK_TERMCAP "LINK_TERMCAP" OFF)
 option(SMALL "SMALL" OFF)
 option(ENABLE_TESTS "ENABLE_TESTS" ON)
@@ -89,6 +88,7 @@ option(ENABLE_ADDERSS_SANITIZER "ENABLE_ADDERSS_SANITIZER" OFF)
 option(ENABLE_MEMORY_SANITIZER "ENABLE_MEMORY_SANITIZER" OFF)
 option(ENABLE_UNDEFINED_SANITIZER "ENABLE_UNDEFINED_SANITIZER" OFF)
 option(ENABLE_CFI_SANITIZER "ENABLE_CFI_SANITIZER" OFF)
+
 
 set(CMAKE_INSTALL_PREFIX "/usr/local")
 include(GNUInstallDirs)
@@ -160,10 +160,19 @@ if(ENABLE_PLUGINS)
 endif(ENABLE_PLUGINS)
 if(ENABLE_READLINE)
     find_package(Readline REQUIRED)
+    if(LINK_CURSES)
+        find_package(Curses REQUIRED)
+        set(ABCMKARGS "${ABCMKARGS} ABC_READLINE_LIBRARIES=-lcurses -lreadline")
+    endif(LINK_CURSES)
+    if(LINK_TERMCAP)
+        find_package(Termcap REQUIRED)
+        set(ABCMKARGS "${ABCMKARGS} ABC_READLINE_LIBRARIES=-lreadline -ltermcap")
+    endif(LINK_TERMCAP)
 endif(ENABLE_READLINE)
 if(ENABLE_TCL)
     find_package(TCL REQUIRED)
 endif(ENABLE_TCL)
+find_package(Sanitizers)
 
 set(YOSYS_SRC ${CMAKE_CURRENT_BINARY_DIR})
 set(DATDIR ${CMAKE_INSTALL_DATADIR})
@@ -331,11 +340,41 @@ if(NOT SMALL)
 endif(NOT SMALL)
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES} kernel/driver.cc)
+if(ENABLE_ADDERSS_SANITIZER)
+    add_sanitize_address(${PROJECT_NAME})
+endif(ENABLE_ADDERSS_SANITIZER)
+
+if(ENABLE_MEMORY_SANITIZER)
+    add_sanitize_memory(${PROJECT_NANE})
+endif(ENABLE_MEMORY_SANITIZER)
+
+if(ENABLE_UNDEFINED_SANITIZER)
+    add_sanitize_undefined(${PROJECT_NAME})
+endif(ENABLE_UNDEFINED_SANITIZER)
+
+if(ENABLE_CFI_SANITIZER)
+    add_sanitize_cfi(${PROJECT_NAME})
+endif(ENABLE_CFI_SANITIZER)
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(ENABLE_LIBYOSYS)
     add_library(${PROJECT_NAME}-lib SHARED ${SOURCE_FILES})
     add_dependencies(${PROJECT_NAME}-lib ${PROJECT_NAME}) # Needed to not generate passes/techmap/techmap.inc twice
+    if(ENABLE_ADDERSS_SANITIZER)
+        add_sanitize_address(${PROJECT_NAME}-lib)
+    endif(ENABLE_ADDERSS_SANITIZER)
+
+    if(ENABLE_MEMORY_SANITIZER)
+        add_sanitize_memory(${PROJECT_NAME}-lib)
+    endif(ENABLE_MEMORY_SANITIZER)
+
+    if(ENABLE_UNDEFINED_SANITIZER)
+        add_sanitize_undefined(${PROJECT_NAME}-lib)
+    endif(ENABLE_UNDEFINED_SANITIZER)
+
+    if(ENABLE_CFI_SANITIZER)
+        add_sanitize_cfi(${PROJECT_NAME}-lib)
+    endif(ENABLE_CFI_SANITIZER)
     install(TARGETS ${PROJECT_NAME}-lib LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif(ENABLE_LIBYOSYS)
 
@@ -405,7 +444,7 @@ if(ENABLE_TESTS)
     find_program(valgrind_exec valgrind)
     if(valgrind_exec_FOUND)
         add_custom_target(vgtest
-                          COMMAND ${valgrind_exec} ${CMAKE_CURRENT_BINARY_DIR}/yosys -p \'setattr -mod -unset top; synth\' $(ls tests/simple/*.v | grep -v repwhile.v)
-COMMENT "Run valgrind tests")
-endif(valgrind_exec_FOUND)
+                          COMMAND ${valgrind_exec} ${CMAKE_CURRENT_BINARY_DIR}/yosys -p 'setattr -mod -unset top\; synth' $\(ls tests/simple/*.v | grep -v repwhile.v\)
+                          COMMENT "Run valgrind tests")
+    endif(valgrind_exec_FOUND)
 endif(ENABLE_TESTS)

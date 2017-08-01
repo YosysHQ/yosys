@@ -74,5 +74,20 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 if(NOT BUILD_EMSCRIPTEN)
     add_executable(${PROJECT_NAME}-filterlib  ${CMAKE_CURRENT_LIST_DIR}/filterlib.cc)
+    if(ENABLE_ADDERSS_SANITIZER)
+        add_sanitize_address(${PROJECT_NAME}-filterlib)
+    endif(ENABLE_ADDERSS_SANITIZER)
+
+    if(ENABLE_MEMORY_SANITIZER)
+        add_sanitize_memory(${PROJECT_NAME}-filterlib)
+    endif(ENABLE_MEMORY_SANITIZER)
+
+    if(ENABLE_UNDEFINED_SANITIZER)
+        add_sanitize_undefined(${PROJECT_NAME}-filterlib)
+    endif(ENABLE_UNDEFINED_SANITIZER)
+
+    if(ENABLE_CFI_SANITIZER)
+        add_sanitize_cfi(${PROJECT_NAME}-filterlib)
+    endif(ENABLE_CFI_SANITIZER)
     install(TARGETS ${PROJECT_NAME}-filterlib RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif(NOT BUILD_EMSCRIPTEN)
