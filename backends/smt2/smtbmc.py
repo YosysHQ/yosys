@@ -45,6 +45,9 @@ final_only = False
 topmod = None
 noinfo = False
 presat = False
+smtcinit = False
+smtctop = None
+noinit = False
 so = SmtOpts()
 
 
@@ -124,6 +127,16 @@ yosys-smtbmc [options] <yosys_smt2_output>
     --dump-smtc <constr_filename>
         write trace as constraints file
 
+    --smtc-init
+        write just the last state as initial constraint to smtc file
+
+    --smtc-top <old>[:<new>]
+        replace <old> with <new> in constraints dumped to smtc
+        file and only dump object below <old> in design hierarchy.
+
+    --noinit
+        do not assume initial conditions in state 0
+
     --dump-all
         when using -g or -i, create a dump file for each
         step. The character '%' is replaces in all dump
@@ -140,7 +153,8 @@ yosys-smtbmc [options] <yosys_smt2_output>
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "presat",
-             "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append="])
+             "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
+             "smtc-init", "smtc-top=", "noinit"])
 except:
     usage()
 
@@ -183,12 +197,22 @@ for o, a in opts:
         vlogtbtop = a
     elif o == "--dump-smtc":
         outconstr = a
+    elif o == "--smtc-init":
+        smtcinit = True
+    elif o == "--smtc-top":
+        smtctop = a.split(":")
+        if len(smtctop) == 1:
+            smtctop.append("")
+        assert len(smtctop) == 2
+        smtctop = tuple(smtctop)
     elif o == "--dump-all":
         dumpall = True
     elif o == "--presat":
         presat = True
     elif o == "--noinfo":
         noinfo = True
+    elif o == "--noinit":
+        noinit = True
     elif o == "--append":
         append_steps = int(a)
     elif o == "-i":
@@ -826,34 +850,49 @@ def write_constr_trace(steps_start, steps_stop, index):
     filename = outconstr.replace("%", index)
     print_msg("Writing trace to constraints file: %s" % (filename))
 
+    constr_topmod = topmod
+    constr_state = "s@@step_idx@@"
+    constr_prefix = ""
+
+    if smtctop is not None:
+        for item in smtctop[0].split("."):
+            assert item in smt.modinfo[constr_topmod].cells
+            constr_state = "(|%s_h %s| %s)" % (constr_topmod, item, constr_state)
+            constr_topmod = smt.modinfo[constr_topmod].cells[item]
+        if smtctop[1] != "":
+            constr_prefix = smtctop[1] + "."
+
+    if smtcinit:
+        steps_start = steps_stop - 1
+
     with open(filename, "w") as f:
         primary_inputs = list()
 
-        for name in smt.modinfo[topmod].inputs:
-            width = smt.modinfo[topmod].wsize[name]
+        for name in smt.modinfo[constr_topmod].inputs:
+            width = smt.modinfo[constr_topmod].wsize[name]
             primary_inputs.append((name, width))
 
-        if steps_start == 0:
+        if steps_start == 0 or smtcinit:
             print("initial", file=f)
         else:
             print("state %d" % steps_start, file=f)
 
-        regnames = sorted(smt.hiernets(topmod, regs_only=True))
-        regvals = smt.get_net_list(topmod, regnames, "s%d" % steps_start)
+        regnames = sorted(smt.hiernets(constr_topmod, regs_only=True))
+        regvals = smt.get_net_list(constr_topmod, regnames, constr_state.replace("@@step_idx@@", str(steps_start)))
 
         for name, val in zip(regnames, regvals):
-            print("assume (= [%s] %s)" % (".".join(name), val), file=f)
+            print("assume (= [%s%s] %s)" % (constr_prefix, ".".join(name), val), file=f)
 
-        mems = sorted(smt.hiermems(topmod))
+        mems = sorted(smt.hiermems(constr_topmod))
         for mempath in mems:
-            abits, width, rports, wports = smt.mem_info(topmod, mempath)
+            abits, width, rports, wports = smt.mem_info(constr_topmod, mempath)
 
             addr_expr_list = list()
             data_expr_list = list()
             for i in range(steps_start, steps_stop):
                 for j in range(rports):
-                    addr_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dA" % j))
-                    data_expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dD" % j))
+                    addr_expr_list.append(smt.mem_expr(constr_topmod, constr_state.replace("@@step_idx@@", str(i)), mempath, "R%dA" % j))
+                    data_expr_list.append(smt.mem_expr(constr_topmod, constr_state.replace("@@step_idx@@", str(i)), mempath, "R%dD" % j))
 
             addr_list = smt.get_list(addr_expr_list)
             data_list = smt.get_list(data_expr_list)
@@ -864,17 +903,18 @@ def write_constr_trace(steps_start, steps_stop, index):
                     addr_data[addr] = data
 
             for addr, data in addr_data.items():
-                print("assume (= (select [%s] %s) %s)" % (".".join(mempath), addr, data), file=f)
+                print("assume (= (select [%s%s] %s) %s)" % (constr_prefix, ".".join(mempath), addr, data), file=f)
 
         for k in range(steps_start, steps_stop):
-            print("", file=f)
-            print("state %d" % k, file=f)
+            if not smtcinit:
+                print("", file=f)
+                print("state %d" % k, file=f)
 
             pi_names = [[name] for name, _ in sorted(primary_inputs)]
-            pi_values = smt.get_net_list(topmod, pi_names, "s%d" % k)
+            pi_values = smt.get_net_list(constr_topmod, pi_names, constr_state.replace("@@step_idx@@", str(k)))
 
             for name, val in zip(pi_names, pi_values):
-                print("assume (= [%s] %s)" % (".".join(name), val), file=f)
+                print("assume (= [%s%s] %s)" % (constr_prefix, ".".join(name), val), file=f)
 
 
 def write_trace(steps_start, steps_stop, index):
@@ -1034,8 +1074,11 @@ elif covermode:
         smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
 
         if step == 0:
-            smt.write("(assert (|%s_i| s0))" % (topmod))
-            smt.write("(assert (|%s_is| s0))" % (topmod))
+            if noinit:
+                smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
+            else:
+                smt.write("(assert (|%s_i| s0))" % (topmod))
+                smt.write("(assert (|%s_is| s0))" % (topmod))
 
         else:
             smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step-1, step))
@@ -1114,8 +1157,11 @@ else:  # not tempind, covermode
         smt.write("(assert %s)" % get_constr_expr(constr_assumes, step))
 
         if step == 0:
-            smt.write("(assert (|%s_i| s0))" % (topmod))
-            smt.write("(assert (|%s_is| s0))" % (topmod))
+            if noinit:
+                smt.write("(assert (not (|%s_is| s%d)))" % (topmod, step))
+            else:
+                smt.write("(assert (|%s_i| s0))" % (topmod))
+                smt.write("(assert (|%s_is| s0))" % (topmod))
 
         else:
             smt.write("(assert (|%s_t| s%d s%d))" % (topmod, step-1, step))
