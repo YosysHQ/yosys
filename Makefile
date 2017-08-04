@@ -57,12 +57,15 @@ VPATH := $(YOSYS_SRC)
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LDFLAGS := $(LDFLAGS) -L$(LIBDIR)
 LDLIBS := $(LDLIBS) -lstdc++ -lm
+PLUGIN_LDFLAGS :=
 
 PKG_CONFIG ?= pkg-config
 SED ?= sed
 BISON ?= bison
 
 ifeq (Darwin,$(findstring Darwin,$(shell uname)))
+PLUGIN_LDFLAGS += -undefined dynamic_lookup
+
 # homebrew search paths
 ifneq ($(shell which brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
@@ -80,6 +83,7 @@ LDFLAGS += -L$(PORT_PREFIX)/lib
 PKG_CONFIG_PATH := $(PORT_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(PORT_PREFIX)/bin:$(PATH)
 endif
+
 else
 LDFLAGS += -rdynamic
 LDLIBS += -lrt
@@ -407,7 +411,7 @@ kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 
 yosys-config: misc/yosys-config.in
 	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(CXXFLAGS))#;' \
-			-e 's#@CXX@#$(CXX)#;' -e 's#@LDFLAGS@#$(LDFLAGS)#;' -e 's#@LDLIBS@#$(LDLIBS)#;' \
+			-e 's#@CXX@#$(CXX)#;' -e 's#@LDFLAGS@#$(LDFLAGS) $(PLUGIN_LDFLAGS)#;' -e 's#@LDLIBS@#$(LDLIBS)#;' \
 			-e 's#@BINDIR@#$(BINDIR)#;' -e 's#@DATDIR@#$(DATDIR)#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
