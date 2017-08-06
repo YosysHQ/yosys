@@ -5,45 +5,6 @@
 
 //Cells still in this file have INCOMPLETE simulation models, need to finish them
 
-module GP_COUNT8(input CLK, input wire RST, output reg OUT, output reg[7:0] POUT);
-
-	parameter RESET_MODE 	= "RISING";
-
-	parameter COUNT_TO		= 8'h1;
-	parameter CLKIN_DIVIDE	= 1;
-
-	//more complex hard IP blocks are not supported for simulation yet
-
-	reg[7:0] count = COUNT_TO;
-
-	//Combinatorially output whenever we wrap low
-	always @(*) begin
-		OUT <= (count == 8'h0);
-		OUT <= count;
-	end
-
-	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
-	//Runtime reset value is clearly 0 except in count/FSM cells where it's configurable but we leave at 0 for now.
-	//Datasheet seems to indicate that reset is asynchronous, but for now we model as sync due to Yosys issues...
-	always @(posedge CLK) begin
-
-		count		<= count - 1'd1;
-
-		if(count == 0)
-			count	<= COUNT_TO;
-
-		/*
-		if((RESET_MODE == "RISING") && RST)
-			count	<= 0;
-		if((RESET_MODE == "FALLING") && !RST)
-			count	<= 0;
-		if((RESET_MODE == "BOTH") && RST)
-			count	<= 0;
-		*/
-	end
-
-endmodule
-
 module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 	parameter RESET_MODE 	= "RISING";
