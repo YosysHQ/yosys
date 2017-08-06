@@ -15,13 +15,87 @@ module GP_3LUT(input IN0, IN1, IN2, output OUT);
 	assign OUT = INIT[{IN2, IN1, IN0}];
 endmodule
 
-module GP_4LUT(input IN0, IN1, IN2, IN3, output OUT);
+module GP_4LUT(
+	input wire IN0,
+	input wire IN1,
+	input wire IN2,
+	input wire IN3,
+	output wire OUT);
+
 	parameter [15:0] INIT = 0;
 	assign OUT = INIT[{IN3, IN2, IN1, IN0}];
 endmodule
 
 module GP_CLKBUF(input wire IN, output wire OUT);
 	assign OUT = IN;
+endmodule
+
+module GP_COUNT8(
+	input wire CLK,
+	input wire RST,
+	output reg OUT,
+	output reg[7:0] POUT);
+
+	parameter RESET_MODE 	= "RISING";
+
+	parameter COUNT_TO		= 8'h1;
+	parameter CLKIN_DIVIDE	= 1;
+
+	reg[7:0] count = COUNT_TO;
+
+	//Combinatorially output underflow flag whenever we wrap low
+	always @(*) begin
+		OUT <= (count == 8'h0);
+		OUT <= count;
+	end
+
+	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
+	//Runtime reset value is clearly 0 except in count/FSM cells where it's configurable but we leave at 0 for now.
+	generate
+		case(RESET_MODE)
+
+			"RISING": begin
+				always @(posedge CLK or posedge RST) begin
+					count		<= count - 1'd1;
+					if(count == 0)
+						count	<= COUNT_TO;
+
+					if(RST)
+						count	<= COUNT_0;
+				end
+			end
+
+			"FALLING": begin
+				always @(posedge CLK or negedge RST) begin
+					count		<= count - 1'd1;
+					if(count == 0)
+						count	<= COUNT_TO;
+
+					if(!RST)
+						count	<= COUNT_0;
+				end
+			end
+
+			"BOTH": begin
+				initial begin
+					$display("Both-edge reset mode for GP_COUNT8 not implemented");
+					$finish;
+				end
+			end
+
+			"LEVEL": begin
+			end
+
+			default: begin
+				initial begin
+					$display("Invalid RESET_MODE on GP_COUNT8");
+					$finish;
+				end
+			end
+
+		endcase
+	endgenerate
+
 endmodule
 
 module GP_DCMPREF(output reg[7:0]OUT);
