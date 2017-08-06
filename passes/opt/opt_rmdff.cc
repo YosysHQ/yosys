@@ -186,12 +186,34 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 		goto delete_dff;
 	}
 
-	if (sig_d == sig_q && (!sig_r.size() || !has_init || val_init == val_rv)) {
+	if (sig_d == sig_q && (sig_r.empty() || !has_init || val_init == val_rv)) {
 		if (sig_r.size())
 			mod->connect(sig_q, val_rv);
 		if (has_init)
 			mod->connect(sig_q, val_init);
 		goto delete_dff;
+	}
+
+	if (!sig_r.empty() && sig_r.is_fully_const())
+	{
+		if (sig_r == val_rp || sig_r.is_fully_undef()) {
+			mod->connect(sig_q, val_rv);
+			goto delete_dff;
+		}
+
+		log("Removing unused reset from %s (%s) from module %s.\n", log_id(dff), log_id(dff->type), log_id(mod));
+
+		if (dff->type == "$adff") {
+			dff->type = "$dff";
+			dff->unsetPort("\\ARST");
+			dff->unsetParam("\\ARST_POLARITY");
+			dff->unsetParam("\\ARST_VALUE");
+			return true;
+		}
+
+		log_assert(dff->type.substr(0,6) == "$_DFF_");
+		dff->type = stringf("$_DFF_%c_", + dff->type[6]);
+		dff->unsetPort("\\R");
 	}
 
 	return false;
