@@ -61,7 +61,7 @@ module GP_COUNT8(
 						count	<= COUNT_TO;
 
 					if(RST)
-						count	<= COUNT_0;
+						count	<= 0;
 				end
 			end
 
@@ -72,7 +72,7 @@ module GP_COUNT8(
 						count	<= COUNT_TO;
 
 					if(!RST)
-						count	<= COUNT_0;
+						count	<= 0;
 				end
 			end
 
