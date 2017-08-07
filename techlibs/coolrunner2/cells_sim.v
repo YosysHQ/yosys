@@ -143,17 +143,21 @@ module BUFG(I, O);
 endmodule
 
 module BUFGSR(I, O);
+    parameter INVERT = 0;
+
     input I;
     output O;
 
-    assign O = I;
+    assign O = INVERT ? ~I : I;
 endmodule
 
 module BUFGTS(I, O);
+    parameter INVERT = 0;
+
     input I;
     output O;
 
-    assign O = I;
+    assign O = INVERT ? ~I : I;
 endmodule
 
 module FDDCP (C, PRE, CLR, D, Q);
