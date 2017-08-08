@@ -86,7 +86,7 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 			end
 
 			"LEVEL": begin
-				always @(posedge CLK or RST) begin
+				always @(posedge CLK or posedge RST) begin
 					count		<= count - 1'd1;
 					if(count == 0)
 						count	<= COUNT_TO;
@@ -204,7 +204,7 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 			end
 
 			"LEVEL": begin
-				always @(posedge CLK or RST) begin
+				always @(posedge CLK or posedge RST) begin
 
 					//Main counter
 					if(KEEP) begin
@@ -339,7 +339,7 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 			end
 
 			"LEVEL": begin
-				always @(posedge CLK or RST) begin
+				always @(posedge CLK or posedge RST) begin
 
 					//Main counter
 					if(KEEP) begin
@@ -439,7 +439,7 @@ module GP_COUNT8(
 			end
 
 			"LEVEL": begin
-				always @(posedge CLK or RST) begin
+				always @(posedge CLK or posedge RST) begin
 					count		<= count - 1'd1;
 					if(count == 0)
 						count	<= COUNT_TO;
