@@ -1345,15 +1345,17 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 					if (sig_const == RTLIL::State::S0)
 					{
-						// case where comparing one signal to zero
-						log("Replacing compare cell `%s' in module `%s' with inverter.\n",
-							cell->name.c_str(), module->name.c_str());
 						if (polarity_bit == State::S0)
 						{
+							// case where comparing one signal to zero
+							log("Replacing compare cell `%s' in module `%s' with $not.\n",
+								cell->name.c_str(), module->name.c_str());
 							module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
 							module->remove(cell);
 						} else
 						{
+							log("Replacing compare cell `%s' in module `%s' with wire.\n",
+								cell->name.c_str(), module->name.c_str());
 							module->connect(cell->getPort("\\Y"), c_sig);
 							module->remove(cell);
 						}
@@ -1363,12 +1365,20 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						
 					} else if (sig_const == RTLIL::State::S1)
 					{
-						// case where comparing one signal to one
-						log("Replacing compare cell `%s' in module `%s' with zero-driver.\n",
-							cell->name.c_str(), module->name.c_str());
-						
-						module->connect(RTLIL::SigSig(y_sig, polarity_bit));
-						module->remove(cell);
+						if (polarity_bit == State::S1)
+						{
+							// case where comparing one signal to 1
+							log("Replacing compare cell `%s' in module `%s' with $not.\n",
+								cell->name.c_str(), module->name.c_str());
+							module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
+							module->remove(cell);
+						} else
+						{
+							log("Replacing compare cell `%s' in module `%s' with wire.\n",
+								cell->name.c_str(), module->name.c_str());
+							module->connect(cell->getPort("\\Y"), c_sig);
+							module->remove(cell);
+						}
 						
 						did_something = true;
 						goto next_cell;
@@ -1376,7 +1386,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 				}
 			}
-
+		
 		// replace a<0 or a>=0 with the top bit of a
 		if (do_fine && (cell->type == "$lt" || cell->type == "$ge" || cell->type == "$gt" || cell->type == "$le"))
 		{
