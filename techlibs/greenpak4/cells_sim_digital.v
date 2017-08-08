@@ -86,6 +86,14 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 			end
 
 			"LEVEL": begin
+				always @(posedge CLK or RST) begin
+					count		<= count - 1'd1;
+					if(count == 0)
+						count	<= COUNT_TO;
+
+					if(RST)
+						count	<= 0;
+				end
 			end
 
 			default: begin
@@ -178,7 +186,7 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 						count	<= COUNT_TO;
 
 					//Resets
-					if(RST) begin
+					if(!RST) begin
 						if(RESET_VALUE == "ZERO")
 							count	<= 0;
 						else
@@ -196,6 +204,31 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 			end
 
 			"LEVEL": begin
+				always @(posedge CLK or RST) begin
+
+					//Main counter
+					if(KEEP) begin
+					end
+					else if(UP)
+						count		<= count + 1'd1;
+					else
+						count		<= count - 1'd1;
+
+					//Wrapping
+					if(count == 0 && !UP)
+						count	<= COUNT_TO;
+					if(count == 14'h3fff && UP)
+						count	<= COUNT_TO;
+
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+				end
 			end
 
 			default: begin
@@ -288,7 +321,7 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 						count	<= COUNT_TO;
 
 					//Resets
-					if(RST) begin
+					if(!RST) begin
 						if(RESET_VALUE == "ZERO")
 							count	<= 0;
 						else
@@ -306,6 +339,31 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 			end
 
 			"LEVEL": begin
+				always @(posedge CLK or RST) begin
+
+					//Main counter
+					if(KEEP) begin
+					end
+					else if(UP)
+						count		<= count + 1'd1;
+					else
+						count		<= count - 1'd1;
+
+					//Wrapping
+					if(count == 0 && !UP)
+						count	<= COUNT_TO;
+					if(count == 8'hff && UP)
+						count	<= COUNT_TO;
+
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+				end
 			end
 
 			default: begin
@@ -381,6 +439,14 @@ module GP_COUNT8(
 			end
 
 			"LEVEL": begin
+				always @(posedge CLK or RST) begin
+					count		<= count - 1'd1;
+					if(count == 0)
+						count	<= COUNT_TO;
+
+					if(RST)
+						count	<= 0;
+				end
 			end
 
 			default: begin
