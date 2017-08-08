@@ -30,6 +30,292 @@ module GP_CLKBUF(input wire IN, output wire OUT);
 	assign OUT = IN;
 endmodule
 
+module GP_COUNT14(input CLK, input wire RST, output reg OUT);
+
+	parameter RESET_MODE 	= "RISING";
+
+	parameter COUNT_TO		= 14'h1;
+	parameter CLKIN_DIVIDE	= 1;
+
+	reg[13:0] count = COUNT_TO;
+
+	initial begin
+		if(CLKIN_DIVIDE != 1) begin
+			$display("ERROR: CLKIN_DIVIDE values other than 1 not implemented");
+			$finish;
+		end
+	end
+
+	//Combinatorially output underflow flag whenever we wrap low
+	always @(*) begin
+		OUT <= (count == 14'h0);
+	end
+
+	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
+	//Runtime reset value is clearly 0 except in count/FSM cells where it's configurable but we leave at 0 for now.
+	generate
+		case(RESET_MODE)
+
+			"RISING": begin
+				always @(posedge CLK or posedge RST) begin
+					count		<= count - 1'd1;
+					if(count == 0)
+						count	<= COUNT_TO;
+
+					if(RST)
+						count	<= 0;
+				end
+			end
+
+			"FALLING": begin
+				always @(posedge CLK or negedge RST) begin
+					count		<= count - 1'd1;
+					if(count == 0)
+						count	<= COUNT_TO;
+
+					if(!RST)
+						count	<= 0;
+				end
+			end
+
+			"BOTH": begin
+				initial begin
+					$display("Both-edge reset mode for GP_COUNT8 not implemented");
+					$finish;
+				end
+			end
+
+			"LEVEL": begin
+			end
+
+			default: begin
+				initial begin
+					$display("Invalid RESET_MODE on GP_COUNT8");
+					$finish;
+				end
+			end
+
+		endcase
+	endgenerate
+
+endmodule
+
+module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
+                     input UP, input KEEP, output reg[7:0] POUT);
+
+	parameter RESET_MODE 	= "RISING";
+	parameter RESET_VALUE   = "ZERO";
+
+	parameter COUNT_TO		= 14'h1;
+	parameter CLKIN_DIVIDE	= 1;
+
+	initial begin
+		if(CLKIN_DIVIDE != 1) begin
+			$display("ERROR: CLKIN_DIVIDE values other than 1 not implemented");
+			$finish;
+		end
+	end
+
+	//Combinatorially output underflow flag whenever we wrap low
+	always @(*) begin
+		if(UP)
+			OUT <= (count == 14'h4000);
+		else
+			OUT <= (count == 14'h0);
+		POUT <= count[7:0];
+	end
+
+	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
+	//Runtime reset value is clearly 0 except in count/FSM cells where it's configurable but we leave at 0 for now.
+	generate
+		case(RESET_MODE)
+
+			"RISING": begin
+				always @(posedge CLK or posedge RST) begin
+
+					//Main counter
+					if(KEEP) begin
+					end
+					else if(UP)
+						count		<= count + 1'd1;
+					else
+						count		<= count - 1'd1;
+
+					//Wrapping
+					if(count == 0 && !UP)
+						count	<= COUNT_TO;
+					if(count == 14'h4000 && UP)
+						count	<= COUNT_TO;
+
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+				end
+			end
+
+			"FALLING": begin
+				always @(posedge CLK or negedge RST) begin
+
+					//Main counter
+					if(KEEP) begin
+					end
+					else if(UP)
+						count		<= count + 1'd1;
+					else
+						count		<= count - 1'd1;
+
+					//Wrapping
+					if(count == 0 && !UP)
+						count	<= COUNT_TO;
+					if(count == 14'h4000 && UP)
+						count	<= COUNT_TO;
+
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+				end
+			end
+
+			"BOTH": begin
+				initial begin
+					$display("Both-edge reset mode for GP_COUNT14_ADV not implemented");
+					$finish;
+				end
+			end
+
+			"LEVEL": begin
+			end
+
+			default: begin
+				initial begin
+					$display("Invalid RESET_MODE on GP_COUNT14_ADV");
+					$finish;
+				end
+			end
+
+		endcase
+	endgenerate
+
+endmodule
+
+module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
+                     input UP, input KEEP, output reg[7:0] POUT);
+
+	parameter RESET_MODE 	= "RISING";
+	parameter RESET_VALUE   = "ZERO";
+
+	parameter COUNT_TO		= 8'h1;
+	parameter CLKIN_DIVIDE	= 1;
+
+	initial begin
+		if(CLKIN_DIVIDE != 1) begin
+			$display("ERROR: CLKIN_DIVIDE values other than 1 not implemented");
+			$finish;
+		end
+	end
+
+	//Combinatorially output underflow flag whenever we wrap low
+	always @(*) begin
+		if(UP)
+			OUT <= (count == 8'hff);
+		else
+			OUT <= (count == 8'h0);
+		POUT <= count;
+	end
+
+	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
+	//Runtime reset value is clearly 0 except in count/FSM cells where it's configurable but we leave at 0 for now.
+	generate
+		case(RESET_MODE)
+
+			"RISING": begin
+				always @(posedge CLK or posedge RST) begin
+
+					//Main counter
+					if(KEEP) begin
+					end
+					else if(UP)
+						count		<= count + 1'd1;
+					else
+						count		<= count - 1'd1;
+
+					//Wrapping
+					if(count == 0 && !UP)
+						count	<= COUNT_TO;
+					if(count == 8'hff && UP)
+						count	<= COUNT_TO;
+
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+				end
+			end
+
+			"FALLING": begin
+				always @(posedge CLK or negedge RST) begin
+
+					//Main counter
+					if(KEEP) begin
+					end
+					else if(UP)
+						count		<= count + 1'd1;
+					else
+						count		<= count - 1'd1;
+
+					//Wrapping
+					if(count == 0 && !UP)
+						count	<= COUNT_TO;
+					if(count == 8'hff && UP)
+						count	<= COUNT_TO;
+
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+				end
+			end
+
+			"BOTH": begin
+				initial begin
+					$display("Both-edge reset mode for GP_COUNT8_ADV not implemented");
+					$finish;
+				end
+			end
+
+			"LEVEL": begin
+			end
+
+			default: begin
+				initial begin
+					$display("Invalid RESET_MODE on GP_COUNT8_ADV");
+					$finish;
+				end
+			end
+
+		endcase
+	endgenerate
+
+endmodule
+
 module GP_COUNT8(
 	input wire CLK,
 	input wire RST,
@@ -40,6 +326,13 @@ module GP_COUNT8(
 
 	parameter COUNT_TO		= 8'h1;
 	parameter CLKIN_DIVIDE	= 1;
+
+	initial begin
+		if(CLKIN_DIVIDE != 1) begin
+			$display("ERROR: CLKIN_DIVIDE values other than 1 not implemented");
+			$finish;
+		end
+	end
 
 	reg[7:0] count = COUNT_TO;
 

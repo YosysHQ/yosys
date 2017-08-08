@@ -5,43 +5,6 @@
 
 //Cells still in this file have INCOMPLETE simulation models, need to finish them
 
-module GP_COUNT14(input CLK, input wire RST, output reg OUT);
-
-	parameter RESET_MODE 	= "RISING";
-
-	parameter COUNT_TO		= 14'h1;
-	parameter CLKIN_DIVIDE	= 1;
-
-	//more complex hard IP blocks are not supported for simulation yet
-
-endmodule
-
-module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
-                     input UP, input KEEP, output reg[7:0] POUT);
-
-	parameter RESET_MODE 	= "RISING";
-	parameter RESET_VALUE   = "ZERO";
-
-	parameter COUNT_TO		= 8'h1;
-	parameter CLKIN_DIVIDE	= 1;
-
-	//more complex hard IP blocks are not supported for simulation yet
-
-endmodule
-
-module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
-                      input UP, input KEEP, output reg[7:0] POUT);
-
-	parameter RESET_MODE 	= "RISING";
-	parameter RESET_VALUE   = "ZERO";
-
-	parameter COUNT_TO		= 14'h1;
-	parameter CLKIN_DIVIDE	= 1;
-
-	//more complex hard IP blocks are not supported for simulation yet
-
-endmodule
-
 module GP_DCMP(input[7:0] INP, input[7:0] INN, input CLK, input PWRDN, output reg GREATER, output reg EQUAL);
 	parameter PWRDN_SYNC = 1'b0;
 	parameter CLK_EDGE = "RISING";
