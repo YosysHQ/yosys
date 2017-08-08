@@ -119,7 +119,7 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 	//Combinatorially output underflow flag whenever we wrap low
 	always @(*) begin
 		if(UP)
-			OUT <= (count == 14'h4000);
+			OUT <= (count == 14'h3fff);
 		else
 			OUT <= (count == 14'h0);
 		POUT <= count[7:0];
@@ -144,7 +144,7 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 					//Wrapping
 					if(count == 0 && !UP)
 						count	<= COUNT_TO;
-					if(count == 14'h4000 && UP)
+					if(count == 14'h3fff && UP)
 						count	<= COUNT_TO;
 
 					//Resets
@@ -172,7 +172,7 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 					//Wrapping
 					if(count == 0 && !UP)
 						count	<= COUNT_TO;
-					if(count == 14'h4000 && UP)
+					if(count == 14'h3fff && UP)
 						count	<= COUNT_TO;
 
 					//Resets
