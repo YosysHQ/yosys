@@ -219,6 +219,8 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 	parameter COUNT_TO		= 8'h1;
 	parameter CLKIN_DIVIDE	= 1;
 
+	reg[7:0] count = COUNT_TO;
+
 	initial begin
 		if(CLKIN_DIVIDE != 1) begin
 			$display("ERROR: CLKIN_DIVIDE values other than 1 not implemented");
