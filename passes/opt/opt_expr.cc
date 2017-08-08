@@ -1268,7 +1268,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			
 			dict<SigBit, RTLIL::SigSpec> compared_by_const;
 			pool<SigBit> signals_map;
-			SigBit polarity_bit = cell->type == "$eq" ? State::S1 : State::S0;
+			SigBit polarity_bit = cell->type == "$eq" ? State::S0 : State::S1;
 
 			for (int i = 0; i < a_width; i++)
 			{
@@ -1330,29 +1330,44 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					signals_map.insert(b_sig[i]);
 				}
 				
-				RTLIL::SigSpec c_sig;
+				RTLIL::SigSpec c_sig, sig_const, ss;
 				if (signals_map.size() == 2)
 				{
-					if (signals_map.count(RTLIL::State::S0))
+					for (auto ss: signals_map)
 					{
-						c_sig = signals_map.count(!RTLIL::State::S0);
+						if ((ss == RTLIL::State::S0) || (ss == RTLIL::State::S1))
+						{
+							sig_const = ss;
+						} else
+						{
+							c_sig = ss;
+						}
+					}
+					if (sig_const == RTLIL::State::S0)
+					{
 						// case where comparing one signal to zero
 						log("Replacing compare cell `%s' in module `%s' with inverter.\n",
 							cell->name.c_str(), module->name.c_str());
-						
-						module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
-						module->remove(cell);
+						if (polarity_bit == State::S0)
+						{
+							module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
+							module->remove(cell);
+						} else
+						{
+							module->connect(cell->getPort("\\Y"), c_sig);
+							module->remove(cell);
+						}
 						
 						did_something = true;
 						goto next_cell;
 						
-					} else if (signals_map.count(RTLIL::State::S1))
+					} else if (sig_const == RTLIL::State::S1)
 					{
 						// case where comparing one signal to one
 						log("Replacing compare cell `%s' in module `%s' with zero-driver.\n",
 							cell->name.c_str(), module->name.c_str());
 						
-						module->connect(RTLIL::SigSig(y_sig, RTLIL::SigSpec(0, y_sig.size())));
+						module->connect(RTLIL::SigSig(y_sig, polarity_bit));
 						module->remove(cell);
 						
 						did_something = true;
