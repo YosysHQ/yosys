@@ -80,7 +80,7 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 			"BOTH": begin
 				initial begin
-					$display("Both-edge reset mode for GP_COUNT8 not implemented");
+					$display("Both-edge reset mode for GP_COUNT14 not implemented");
 					$finish;
 				end
 			end
