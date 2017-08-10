@@ -1270,6 +1270,9 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			pool<SigBit> signals_map;
 			SigBit polarity_bit = cell->type == "$eq" ? State::S0 : State::S1;
 
+			if (a_signed || b_signed)
+				goto next_cell;
+
 			for (int i = 0; i < a_width; i++)
 			{
 				if ((a_sig[i] ==  RTLIL::State::S0) || (a_sig[i] ==  RTLIL::State::S1))
