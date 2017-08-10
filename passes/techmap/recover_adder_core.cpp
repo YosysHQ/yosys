@@ -198,7 +198,7 @@ struct RecoverAdderCorePass : public Pass {
                 }
 
                 // Extend "right"
-                // FIXME: Deduplicate?
+                // FIXME: Deduplicate code?
                 x = cell;
                 while (true)
                 {
@@ -265,6 +265,66 @@ struct RecoverAdderCorePass : public Pass {
                             x = connected_addsub;
                         }
                     }
+                }
+
+                if (cur_adder.size() > 1)
+                {
+                    // We found an actual adder
+                    log("An adder/subtractor was found!\n");
+                    log("  Add/sub: %s\n", is_sub ? "sub" : "add");
+                    log("  Carry-in: %s\n", has_carryin ? "yes" : "no");
+                    log("  Carry-out: %s\n", has_carryin ? "yes" : "no");
+                    log("  Carry fanouts: %s\n", has_carryin ? "yes" : "no");
+                    for (auto x : cur_adder)
+                        log("    %s\n", x->name.c_str());
+
+                    if (!has_carryin && !has_carry_fanout)
+                    {
+                        // Can generate an $add/$sub cell
+                        SigSpec a;
+                        SigSpec b;
+                        SigSpec y;
+
+                        for (auto x : cur_adder)
+                        {
+                            a.append_bit(x->getPort("\\A")[0]);
+                            b.append_bit(x->getPort("\\B")[0]);
+                            y.append_bit(x->getPort("\\Y")[0]);
+                        }
+
+                        if (has_carryout)
+                        {
+                            if (!is_sub)
+                            {
+                                y.append_bit(cur_adder.back()->getPort("\\Cout")[0]);
+                            }
+                            else
+                            {
+                                // TODO
+                                log_assert(0);
+                            }
+                        }
+
+                        auto addsub_new_cell = module->addCell(NEW_ID, is_sub ? "$sub" : "$add");
+                        addsub_new_cell->setParam("\\A_SIGNED", 0);
+                        addsub_new_cell->setParam("\\B_SIGNED", 0);
+                        addsub_new_cell->setParam("\\A_WIDTH", a.size());
+                        addsub_new_cell->setParam("\\B_WIDTH", b.size());
+                        addsub_new_cell->setParam("\\Y_WIDTH", y.size());
+                        addsub_new_cell->setPort("\\A", a);
+                        addsub_new_cell->setPort("\\B", b);
+                        addsub_new_cell->setPort("\\Y", y);
+                    }
+                    else
+                    {
+                        // Generate an $alu cell
+                        log_assert(0);
+                        // NOT IMPLEMENTED YET
+                    }
+
+                    // Mark all of these cells as removed
+                    for (auto x : cur_adder)
+                        consumed_cells.insert(x);
                 }
             }
 
