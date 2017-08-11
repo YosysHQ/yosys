@@ -101,7 +101,117 @@ struct RecoverReduceCorePass : public Pass {
                     continue;
 
                 log("Working on cell %s...\n", cell->name.c_str());
+
+                // Go all the way to the sink
+                Cell* head_cell = cell;
+                Cell* x = cell;
+                while (true)
+                {
+                    if (!((x->type == "$_AND_" && gt == GateType::And) ||
+                          (x->type == "$_OR_" && gt == GateType::Or) ||
+                          (x->type == "$_XOR_" && gt == GateType::Xor)))
+                        break;
+
+                    head_cell = x;
+
+                    auto y = sigmap(x->getPort("\\Y"));
+                    log_assert(y.size() == 1);
+
+                    // Should only continue if there is one fanout back into a cell (not to a port)
+                    if (sig_to_sink[y[0]].size() != 1)
+                        break;
+
+                    x = *sig_to_sink[y[0]].begin();
+                }
+
+                log("  Head cell is %s\n", head_cell->name.c_str());
+
+                pool<Cell*> cur_supercell;
+                std::deque<Cell*> bfs_queue = {head_cell};
+                while (bfs_queue.size())
+                {
+                    Cell* x = bfs_queue.front();
+                    bfs_queue.pop_front();
+
+                    cur_supercell.insert(x);
+
+                    auto a = sigmap(x->getPort("\\A"));
+                    log_assert(a.size() == 1);
+                    // Must have only one sink
+                    // XXX: Check that it is indeed this node?
+                    if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
+                    {
+                        Cell* cell_a = sig_to_driver[a[0]];
+                        if (((cell_a->type == "$_AND_" && gt == GateType::And) ||
+                              (cell_a->type == "$_OR_" && gt == GateType::Or) ||
+                              (cell_a->type == "$_XOR_" && gt == GateType::Xor)))
+                        {
+                            // The cell here is the correct type, and it's definitely driving only
+                            // this current cell.
+                            bfs_queue.push_back(cell_a);
+                        }
+                    }
+
+                    auto b = sigmap(x->getPort("\\B"));
+                    log_assert(b.size() == 1);
+                    // Must have only one sink
+                    // XXX: Check that it is indeed this node?
+                    if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
+                    {
+                        Cell* cell_b = sig_to_driver[b[0]];
+                        if (((cell_b->type == "$_AND_" && gt == GateType::And) ||
+                              (cell_b->type == "$_OR_" && gt == GateType::Or) ||
+                              (cell_b->type == "$_XOR_" && gt == GateType::Xor)))
+                        {
+                            // The cell here is the correct type, and it's definitely driving only
+                            // this current cell.
+                            bfs_queue.push_back(cell_b);
+                        }
+                    }
+                }
+
+                log("  Cells:\n");
+                for (auto x : cur_supercell)
+                    log("    %s\n", x->name.c_str());
+
+                if (cur_supercell.size() > 1)
+                {
+                    // Worth it to create reduce cell
+                    log("  Creating $reduce_* cell!\n");
+
+                    pool<SigBit> input_pool;
+                    pool<SigBit> input_pool_intermed;
+                    for (auto x : cur_supercell)
+                    {
+                        input_pool.insert(sigmap(x->getPort("\\A"))[0]);
+                        input_pool.insert(sigmap(x->getPort("\\B"))[0]);
+                        input_pool_intermed.insert(sigmap(x->getPort("\\Y"))[0]);
+                    }
+                    SigSpec input;
+                    for (auto b : input_pool)
+                        if (input_pool_intermed.count(b) == 0)
+                            input.append_bit(b);
+
+                    SigBit output = sigmap(head_cell->getPort("\\Y")[0]);
+
+                    auto new_reduce_cell = module->addCell(NEW_ID, 
+                        gt == GateType::And ? "$reduce_and" :
+                        gt == GateType::Or ? "$reduce_or" :
+                        gt == GateType::Xor ? "$reduce_xor" : "");
+                    new_reduce_cell->setParam("\\A_SIGNED", 0);
+                    new_reduce_cell->setParam("\\A_WIDTH", input.size());
+                    new_reduce_cell->setParam("\\Y_WIDTH", 1);
+                    new_reduce_cell->setPort("\\A", input);
+                    new_reduce_cell->setPort("\\Y", output);
+
+                    for (auto x : cur_supercell)
+                        consumed_cells.insert(x);
+                }
             }
+
+            // Remove every cell that we've used up
+            for (auto cell : consumed_cells)
+                module->remove(cell);
         }
     }
 } RecoverReduceCorePass;
