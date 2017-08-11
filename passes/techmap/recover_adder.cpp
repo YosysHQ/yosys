@@ -17,6 +17,17 @@
  *
  */
 
+// The approach used in this adder recovery pass is vaguely inspired by the paper
+// "Improved Carry Chain Mapping for the VTR Flow" by Petkovska et. al. The key takeaway
+// from that paper is that it is easy for ABC to find 3-input XOR gates and majority gates
+// once the input circuit has been mapped to an AIG. Rather than writing a custom pass
+// for ABC, this script simply tells ABC to techmap to a library containing only AND, NOT,
+// XOR, and majority gates. ABC thus cannot find any other types of gates. Once the netlist
+// has been transformed, it is possible to use the yosys native subcircuit extraction code
+// to find half and full adders. A custom yosys pass then looks for these chains and converts
+// them back into an $alu/$add/$sub cell. Finally, any combinatorial logic that is left is
+// put back into ABC with the normal cell library to be re-optimized.
+
 #include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
