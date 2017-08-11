@@ -69,6 +69,8 @@ struct OptRmportsPass : public Pass {
 			{
 				auto w1 = s1[i].wire;
 				auto w2 = s2[i].wire;
+				if( (w1 == NULL) || (w2 == NULL) )
+					continue;
 
 				//log("  conn %s, %s\n", w1->name.c_str(), w2->name.c_str());
 
