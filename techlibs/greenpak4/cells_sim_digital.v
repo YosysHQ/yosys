@@ -411,7 +411,7 @@ module GP_COUNT8(
 	//Combinatorially output underflow flag whenever we wrap low
 	always @(*) begin
 		OUT <= (count == 8'h0);
-		OUT <= count;
+		POUT <= count;
 	end
 
 	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
