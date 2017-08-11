@@ -1,0 +1,79 @@
+library(adder_unmap) {
+    cell($_BUF_) {
+        pin(A) {
+            direction: input;
+        }
+        pin(Y) {
+            direction: output;
+            function: "A";
+        }
+    }
+
+    cell($_NOT_) {
+        pin(A) {
+            direction: input;
+        }
+        pin(Y) {
+            direction: output;
+            function: "!A";
+        }
+    }
+
+    cell($_AND_) {
+        pin(A) {
+            direction: input;
+        }
+        pin(B) {
+            direction: input;
+        }
+        pin(Y) {
+            direction: output;
+            function: "(A B)";
+        }
+    }
+
+    cell($_XOR_) {
+        pin(A) {
+            direction: input;
+        }
+        pin(B) {
+            direction: input;
+        }
+        pin(Y) {
+            direction: output;
+            function: "(A^B)";
+        }
+    }
+
+    cell(__XOR3_) {
+        pin(A) {
+            direction: input;
+        }
+        pin(B) {
+            direction: input;
+        }
+        pin(C) {
+            direction: input;
+        }
+        pin(Y) {
+            direction: output;
+            function: "(A^B^C)";
+        }
+    }
+
+    cell(__MAJ_) {
+        pin(A) {
+            direction: input;
+        }
+        pin(B) {
+            direction: input;
+        }
+        pin(C) {
+            direction: input;
+        }
+        pin(Y) {
+            direction: output;
+            function: "((A B)+(A C)+(B C))";
+        }
+    }
+}
