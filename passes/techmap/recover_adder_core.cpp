@@ -162,6 +162,9 @@ struct RecoverAdderCorePass : public Pass {
                     Cell* connected_addsub = 0;
                     for (auto y : other_carry_cells)
                     {
+                        if (consumed_cells.count(y))
+                            continue;
+
                         if (is_sub)
                         {
                             if (y->type == "\\HALF_SUBTRACTOR" || y->type == "\\FULL_SUBTRACTOR")
@@ -235,6 +238,9 @@ struct RecoverAdderCorePass : public Pass {
                     Cell* connected_addsub = 0;
                     for (auto y : other_carry_cells)
                     {
+                        if (consumed_cells.count(y))
+                            continue;
+
                         if (is_sub)
                         {
                             if (y->type == "\\XOR3" || y->type == "\\FULL_SUBTRACTOR")
