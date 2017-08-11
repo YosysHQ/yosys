@@ -27,6 +27,7 @@ struct RecoverAdderCorePass : public Pass {
     RecoverAdderCorePass() : Pass("recover_adder_core", "converts adder chains into $alu/$add/$sub") { }
     virtual void help()
     {
+        //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
         log("    recover_adder_core\n");
         log("\n");
@@ -34,7 +35,7 @@ struct RecoverAdderCorePass : public Pass {
         log("\n");
         log("This performs the core step of the recover_adder command. This step recognizes\n");
         log("chains of adders found by the previous steps and converts these chains into one\n");
-        log("logical cell.");
+        log("logical cell.\n");
         log("\n");
     }
     virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -49,8 +50,8 @@ struct RecoverAdderCorePass : public Pass {
             pool<Cell*> addsub_cells;
             for (auto cell : module->selected_cells())
             {
-                if (cell->type == "\\HALF_ADDER" || cell->type == "\\FULL_ADDER" ||
-                    cell->type == "\\HALF_SUBTRACTOR" || cell->type == "\\FULL_SUBTRACTOR")
+                if (cell->type == "\\__HALF_ADDER_" || cell->type == "\\__FULL_ADDER_" ||
+                    cell->type == "\\__HALF_SUBTRACTOR_" || cell->type == "\\__FULL_SUBTRACTOR_")
                 {
                     log("Found adder/subtractor cell %s\n", cell->name.c_str());
                     addsub_cells.insert(cell);
@@ -61,19 +62,19 @@ struct RecoverAdderCorePass : public Pass {
             dict<SigBit, pool<Cell*>> carry_wires;
             for (auto cell : addsub_cells)
             {
-                if (cell->type == "\\HALF_ADDER")
+                if (cell->type == "\\__HALF_ADDER_")
                 {
                     auto w = sigmap(cell->getPort("\\Cout"));
                     log_assert(w.size() == 1);
                     carry_wires[w[0]] = pool<Cell*>();
                 }
-                else if (cell->type == "\\HALF_SUBTRACTOR")
+                else if (cell->type == "\\__HALF_SUBTRACTOR_")
                 {
                     auto w = sigmap(cell->getPort("\\Bout"));
                     log_assert(w.size() == 1);
                     carry_wires[w[0]] = pool<Cell*>();
                 }
-                else if (cell->type == "\\FULL_ADDER")
+                else if (cell->type == "\\__FULL_ADDER_")
                 {
                     auto w = sigmap(cell->getPort("\\Cout"));
                     log_assert(w.size() == 1);
@@ -83,7 +84,7 @@ struct RecoverAdderCorePass : public Pass {
                     log_assert(w.size() == 1);
                     carry_wires[w[0]] = pool<Cell*>();
                 }
-                else if (cell->type == "\\FULL_SUBTRACTOR")
+                else if (cell->type == "\\__FULL_SUBTRACTOR_")
                 {
                     auto w = sigmap(cell->getPort("\\Bout"));
                     log_assert(w.size() == 1);
@@ -139,7 +140,7 @@ struct RecoverAdderCorePass : public Pass {
 
                 log("Working on cell %s...\n", cell->name.c_str());
 
-                bool is_sub = (cell->type == "\\HALF_SUBTRACTOR" || cell->type == "\\FULL_SUBTRACTOR");
+                bool is_sub = (cell->type == "\\__HALF_SUBTRACTOR_" || cell->type == "\\__FULL_SUBTRACTOR_");
                 bool has_carryin = false;
                 bool has_carryout = false;
                 bool has_carry_fanout = false;
@@ -150,7 +151,7 @@ struct RecoverAdderCorePass : public Pass {
                 while (true)
                 {
                     // This has to be the first bit
-                    if (x->type == "\\HALF_ADDER" || x->type == "\\HALF_SUBTRACTOR")
+                    if (x->type == "\\__HALF_ADDER_" || x->type == "\\__HALF_SUBTRACTOR_")
                         break;
 
                     auto c = sigmap(x->getPort(is_sub ? "\\Bin" : "\\Cin"))[0];
@@ -167,7 +168,7 @@ struct RecoverAdderCorePass : public Pass {
 
                         if (is_sub)
                         {
-                            if (y->type == "\\HALF_SUBTRACTOR" || y->type == "\\FULL_SUBTRACTOR")
+                            if (y->type == "\\__HALF_SUBTRACTOR_" || y->type == "\\__FULL_SUBTRACTOR_")
                             {
                                 // Needs to be driven by the Bout wire
                                 if (sigmap(y->getPort("\\Bout"))[0] == c)
@@ -179,7 +180,7 @@ struct RecoverAdderCorePass : public Pass {
                         }
                         else
                         {
-                            if (y->type == "\\HALF_ADDER" || y->type == "\\FULL_ADDER")
+                            if (y->type == "\\__HALF_ADDER_" || y->type == "\\__FULL_ADDER_")
                             {
                                 // Needs to be driven by the Cout wire
                                 if (sigmap(y->getPort("\\Cout"))[0] == c)
@@ -226,7 +227,7 @@ struct RecoverAdderCorePass : public Pass {
                 while (true)
                 {
                     // This has to be the last bit
-                    if (x->type == "\\XOR3")
+                    if (x->type == "\\__XOR3_")
                         break;
 
                     auto c = sigmap(x->getPort(is_sub ? "\\Bout" : "\\Cout"))[0];
@@ -243,7 +244,7 @@ struct RecoverAdderCorePass : public Pass {
 
                         if (is_sub)
                         {
-                            if (y->type == "\\XOR3" || y->type == "\\FULL_SUBTRACTOR")
+                            if (y->type == "\\__XOR3_" || y->type == "\\__FULL_SUBTRACTOR_")
                             {
                                 // XXX we assume we're driving this wire and nobody else is. Is this safe?
                                 connected_addsub = y;
@@ -252,7 +253,7 @@ struct RecoverAdderCorePass : public Pass {
                         }
                         else
                         {
-                            if (y->type == "\\XOR3" || y->type == "\\FULL_ADDER")
+                            if (y->type == "\\__XOR3_" || y->type == "\\__FULL_ADDER_")
                             {
                                 // XXX we assume we're driving this wire and nobody else is. Is this safe?
                                 connected_addsub = y;
