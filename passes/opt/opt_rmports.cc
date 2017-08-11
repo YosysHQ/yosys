@@ -42,10 +42,6 @@ struct OptRmportsPass : public Pass {
 	virtual void execute(std::vector<std::string> /*args*/, RTLIL::Design *design)
 	{
 		log_header(design, "Executing OPT_RMPORTS pass (remove top level ports with no connections).\n");
-
-		//vector<RTLIL::Module*> mods = design->modules();
-		//for(auto mod : mods)
-		//	ProcessModule(mod);
 		ProcessModule(design->top_module());
 	}
 
