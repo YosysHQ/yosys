@@ -56,14 +56,28 @@ struct OptRmportsPass : public Pass {
 		auto& conns = module->connections();
 		for(auto sigsig : conns)
 		{
-			auto s1 = sigsig.first.as_wire();
-			auto s2 = sigsig.second.as_wire();
+			auto s1 = sigsig.first;
+			auto s2 = sigsig.second;
 
-			if( (s1->port_input || s1->port_output) && (used_ports.find(s1->name) == used_ports.end()) )
-				used_ports.emplace(s1->name);
+			int len1 = s1.size();
+			int len2 = s2.size();
+			int len = len1;
+			if(len2 < len1)
+				len = len2;
 
-			if( (s2->port_input || s2->port_output) && (used_ports.find(s2->name) == used_ports.end()) )
-				used_ports.emplace(s2->name);
+			for(int i=0; i<len; i++)
+			{
+				auto w1 = s1[i].wire;
+				auto w2 = s2[i].wire;
+
+				//log("  conn %s, %s\n", w1->name.c_str(), w2->name.c_str());
+
+				if( (w1->port_input || w1->port_output) && (used_ports.find(w1->name) == used_ports.end()) )
+					used_ports.emplace(w1->name);
+
+				if( (w2->port_input || w2->port_output) && (used_ports.find(w2->name) == used_ports.end()) )
+					used_ports.emplace(w2->name);
+			}
 		}
 
 		//Then check connections to cells
@@ -73,12 +87,13 @@ struct OptRmportsPass : public Pass {
 			auto& cconns = cell->connections();
 			for(auto conn : cconns)
 			{
-				if(!conn.second.is_wire())
-					continue;
-				auto sig = conn.second.as_wire();
-
-				if( (sig->port_input || sig->port_output) && (used_ports.find(sig->name) == used_ports.end()) )
-					used_ports.emplace(sig->name);
+				for(int i=0; i<conn.second.size(); i++)
+				{
+					auto sig = conn.second[i].wire;
+					//log("  sig %s\n", sig->name.c_str());
+					if( (sig->port_input || sig->port_output) && (used_ports.find(sig->name) == used_ports.end()) )
+						used_ports.emplace(sig->name);
+				}
 			}
 		}
 
