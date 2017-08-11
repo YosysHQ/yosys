@@ -105,11 +105,14 @@ struct RecoverAdderCorePass : public Pass {
             {
                 for (auto &conn: cell->connections())
                 {
-                    // FIXME: Do we care about checking multiple drivers?
-                    if (carry_wires.count(sigmap(conn.second)))
+                    for (auto sig : sigmap(conn.second))
                     {
-                        log("Carry wire goes into cell %s\n", cell->name.c_str());
-                        carry_wires[sigmap(conn.second)].insert(cell);
+                        // FIXME: Do we care about checking multiple drivers?
+                        if (carry_wires.count(sig))
+                        {
+                            log("Carry wire goes into cell %s\n", cell->name.c_str());
+                            carry_wires[sig].insert(cell);
+                        }
                     }
                 }
             }
