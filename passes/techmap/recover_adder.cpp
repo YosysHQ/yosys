@@ -56,17 +56,25 @@ struct RecoverAdderPass : public ScriptPass
     }
 
     bool keep_bit_adders, keep_gates, no_final_abc;
+    bool already_loaded_adderlib, already_loaded_gateslib;
 
     virtual void clear_flags() YS_OVERRIDE
     {
         keep_bit_adders = false;
         keep_gates = false;
         no_final_abc = false;
+        already_loaded_adderlib = false;
+        already_loaded_gateslib = false;
     }
 
     virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
         clear_flags();
+
+        if (design->has("\\__FULL_ADDER_"))
+            already_loaded_adderlib = true;
+        if (design->has("\\__XOR3_"))
+            already_loaded_gateslib = true;
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
@@ -103,12 +111,12 @@ struct RecoverAdderPass : public ScriptPass
 
         if (!keep_bit_adders)
             run("techmap -autoproc -map +/untechmap/adder_untechmap.v");
-        else
+        else if (!already_loaded_adderlib)
             run("read_verilog -lib +/untechmap/adder_untechmap.v");
 
         if (!keep_gates)
             run("techmap -autoproc -map +/untechmap/adder_untechmap_gates.v");
-        else
+        else if (!already_loaded_gateslib)
             run("read_verilog -lib +/untechmap/adder_untechmap_gates.v");
 
         if (!no_final_abc)

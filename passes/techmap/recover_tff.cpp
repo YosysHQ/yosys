@@ -45,15 +45,20 @@ struct RecoverTFFPass : public ScriptPass
     }
 
     bool no_final_abc;
+    bool already_loaded_lib;
 
     virtual void clear_flags() YS_OVERRIDE
     {
         no_final_abc = false;
+        already_loaded_lib = false;
     }
 
     virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
         clear_flags();
+
+        if (design->has("\\__TFF_N_"))
+            already_loaded_lib = true;
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
@@ -78,7 +83,9 @@ struct RecoverTFFPass : public ScriptPass
     {
         run("abc -g AND,XOR");
         run("extract -map +/untechmap/tff_untechmap.v");
-        run("read_verilog -lib +/untechmap/tff_untechmap.v");
+        // Load this library only if the design doesn't already have it
+        if (!already_loaded_lib)
+            run("read_verilog -lib +/untechmap/tff_untechmap.v");
 
         if (!no_final_abc)
             run("abc");
