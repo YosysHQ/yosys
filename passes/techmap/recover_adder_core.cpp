@@ -167,12 +167,7 @@ struct RecoverAdderCorePass : public Pass {
                     if (connected_addsubs == 0)
                     {
                         // This has to be the end of the chain
-                        if (other_carry_cells.size())
-                            has_carryin = true;
-                        else
-                            // This is fine, but how did this happen?
-                            log_warning("  Something weird happened?");
-
+                        has_carryin = true;
                         break;
                     }
                     else
@@ -237,12 +232,7 @@ struct RecoverAdderCorePass : public Pass {
                     if (connected_addsubs == 0)
                     {
                         // This has to be the end of the chain
-                        if (other_carry_cells.size())
-                            has_carryout = true;
-                        else
-                            // This is fine, but how did this happen?
-                            log_warning("  Something weird happened?");
-
+                        has_carryout = true;
                         break;
                     }
                     else
@@ -273,12 +263,12 @@ struct RecoverAdderCorePass : public Pass {
                     log("An adder/subtractor was found!\n");
                     log("  Add/sub: %s\n", is_sub ? "sub" : "add");
                     log("  Carry-in: %s\n", has_carryin ? "yes" : "no");
-                    log("  Carry-out: %s\n", has_carryin ? "yes" : "no");
-                    log("  Carry fanouts: %s\n", has_carryin ? "yes" : "no");
+                    log("  Carry-out: %s\n", has_carryout ? "yes" : "no");
+                    log("  Carry fanouts: %s\n", has_carry_fanout ? "yes" : "no");
                     for (auto x : cur_adder)
                         log("    %s\n", x->name.c_str());
 
-                    if (!has_carryin && !has_carry_fanout)
+                    if (!has_carry_fanout)
                     {
                         // Can generate an $add/$sub cell
                         SigSpec a;
@@ -295,14 +285,9 @@ struct RecoverAdderCorePass : public Pass {
                         if (has_carryout)
                         {
                             if (!is_sub)
-                            {
                                 y.append_bit(cur_adder.back()->getPort("\\Cout")[0]);
-                            }
                             else
-                            {
-                                // TODO
-                                log_assert(0);
-                            }
+                                y.append_bit(cur_adder.back()->getPort("\\Bout")[0]);
                         }
 
                         auto addsub_new_cell = module->addCell(NEW_ID, is_sub ? "$sub" : "$add");
@@ -314,12 +299,92 @@ struct RecoverAdderCorePass : public Pass {
                         addsub_new_cell->setPort("\\A", a);
                         addsub_new_cell->setPort("\\B", b);
                         addsub_new_cell->setPort("\\Y", y);
+
+                        if (has_carryin)
+                        {
+                            auto intermed_wires = module->addWire(NEW_ID, y.size());
+                            addsub_new_cell->setPort("\\Y", intermed_wires);
+
+                            auto carryin_new_cell = module->addCell(NEW_ID, is_sub ? "$sub" : "$add");
+                            carryin_new_cell->setParam("\\A_SIGNED", 0);
+                            carryin_new_cell->setParam("\\B_SIGNED", 0);
+                            carryin_new_cell->setParam("\\A_WIDTH", y.size());
+                            carryin_new_cell->setParam("\\B_WIDTH", 1);
+                            carryin_new_cell->setParam("\\Y_WIDTH", y.size());
+                            carryin_new_cell->setPort("\\A", intermed_wires);
+                            if (!is_sub)
+                                carryin_new_cell->setPort("\\B", cur_adder.front()->getPort("\\Cin")[0]);
+                            else
+                                carryin_new_cell->setPort("\\B", cur_adder.front()->getPort("\\Bin")[0]);
+                            carryin_new_cell->setPort("\\Y", y);
+                        }
                     }
                     else
                     {
                         // Generate an $alu cell
-                        log_assert(0);
-                        // NOT IMPLEMENTED YET
+                        SigSpec a;
+                        SigSpec b;
+                        SigSpec y;
+                        SigSpec cout;
+
+                        for (auto x : cur_adder)
+                        {
+                            a.append_bit(x->getPort("\\A")[0]);
+                            b.append_bit(x->getPort("\\B")[0]);
+                            y.append_bit(x->getPort("\\Y")[0]);
+                            auto portname = is_sub ? "\\Bout" : "\\Cout";
+                            if (x->hasPort(portname))
+                                cout.append_bit(x->getPort(portname)[0]);
+                            else
+                                cout.append_bit(module->addWire(NEW_ID));
+                        }
+
+                        auto alu_new_cell = module->addCell(NEW_ID, "$alu");
+                        alu_new_cell->setParam("\\A_SIGNED", 0);
+                        alu_new_cell->setParam("\\B_SIGNED", 0);
+                        alu_new_cell->setParam("\\A_WIDTH", a.size());
+                        alu_new_cell->setParam("\\B_WIDTH", b.size());
+                        alu_new_cell->setParam("\\Y_WIDTH", y.size());
+                        alu_new_cell->setPort("\\A", a);
+                        alu_new_cell->setPort("\\B", b);
+                        alu_new_cell->setPort("\\X", module->addWire(NEW_ID, y.size()));
+                        alu_new_cell->setPort("\\Y", y);
+                        if (!is_sub)
+                        {
+                            alu_new_cell->setPort("\\BI", false);
+                            alu_new_cell->setPort("\\CO", cout);
+                            if (has_carryin)
+                                alu_new_cell->setPort("\\CI", cur_adder.front()->getPort("\\Cin")[0]);
+                            else
+                                alu_new_cell->setPort("\\CI", false);
+                        }
+                        else
+                        {
+                            alu_new_cell->setPort("\\BI", true);
+
+                            auto carryout_invert_wires = module->addWire(NEW_ID, cout.size());
+                            auto carryout_invert_cell = module->addCell(NEW_ID, "$not");
+                            carryout_invert_cell->setParam("\\A_SIGNED", 0);
+                            carryout_invert_cell->setParam("\\A_WIDTH", cout.size());
+                            carryout_invert_cell->setParam("\\Y_WIDTH", cout.size());
+                            carryout_invert_cell->setPort("\\A", carryout_invert_wires);
+                            carryout_invert_cell->setPort("\\Y", cout);
+                            alu_new_cell->setPort("\\CO", carryout_invert_wires);
+
+                            if (has_carryin)
+                            {
+                                auto carryin_invert_wire = module->addWire(NEW_ID);
+                                auto carryin_invert_cell = module->addCell(NEW_ID, "$not");
+                                carryin_invert_cell->setParam("\\A_SIGNED", 0);
+                                carryin_invert_cell->setParam("\\A_WIDTH", 1);
+                                carryin_invert_cell->setParam("\\Y_WIDTH", 1);
+                                carryin_invert_cell->setPort("\\A", cur_adder.front()->getPort("\\Bin")[0]);
+                                carryin_invert_cell->setPort("\\Y", carryin_invert_wire);
+                                alu_new_cell->setPort("\\CI", carryin_invert_wire);
+                            }
+                            else
+                                alu_new_cell->setPort("\\CI", true);
+                        }
                     }
 
                     // Mark all of these cells as removed
