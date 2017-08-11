@@ -90,6 +90,9 @@ struct OptRmportsPass : public Pass {
 				for(int i=0; i<conn.second.size(); i++)
 				{
 					auto sig = conn.second[i].wire;
+					if(sig == NULL)
+						continue;
+
 					//log("  sig %s\n", sig->name.c_str());
 					if( (sig->port_input || sig->port_output) && (used_ports.find(sig->name) == used_ports.end()) )
 						used_ports.emplace(sig->name);
