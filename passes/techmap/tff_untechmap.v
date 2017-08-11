@@ -128,7 +128,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_NN0_ dff (
+$_DFF_NN0_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
@@ -148,7 +148,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_NN1_ dff (
+$_DFF_NN1_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
@@ -168,7 +168,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_NP0_ dff (
+$_DFF_NP0_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
@@ -188,7 +188,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_NP1_ dff (
+$_DFF_NP1_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
@@ -208,7 +208,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_PN0_ dff (
+$_DFF_PN0_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
@@ -228,7 +228,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_PN1_ dff (
+$_DFF_PN1_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
@@ -248,7 +248,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_PP0_ dff (
+$_DFF_PP0_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
@@ -268,7 +268,7 @@ $_XOR_ xorgate (
     .Y(xorout),
 );
 
-$_DFFE_PP1_ dff (
+$_DFF_PP1_ dff (
     .C(C),
     .D(xorout),
     .Q(Q),
