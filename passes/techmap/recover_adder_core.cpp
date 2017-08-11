@@ -113,6 +113,23 @@ struct RecoverAdderCorePass : public Pass {
                 }
             }
 
+            // Need to find fan-outs into module ports
+            pool<SigBit> carry_fanout_to_port;
+            for (auto wire : module->selected_wires())
+            {
+                if (wire->port_output)
+                {
+                    for (auto bit : sigmap(wire))
+                    {
+                        if (carry_wires.count(bit))
+                        {
+                            log("Found a carry fanout to port %s\n", wire->name.c_str());
+                            carry_fanout_to_port.insert(bit);
+                        }
+                    }
+                }
+            }
+
             // Do the actual adder extraction logic
             pool<Cell*> consumed_cells;
             for (auto cell : addsub_cells)
@@ -182,7 +199,7 @@ struct RecoverAdderCorePass : public Pass {
                         else
                         {
                             // The cell we are examining is connected to one and only one other adder/subtractor cell
-                            if (other_carry_cells.size() > 1)
+                            if (other_carry_cells.size() > 1 || carry_fanout_to_port.count(c))
                                 has_carry_fanout = true;
 
                             log("  Absorbing cell %s (left)\n", connected_addsub->name.c_str());
@@ -247,7 +264,7 @@ struct RecoverAdderCorePass : public Pass {
                         else
                         {
                             // The cell we are examining is connected to one and only one other adder/subtractor cell
-                            if (other_carry_cells.size() > 1)
+                            if (other_carry_cells.size() > 1 || carry_fanout_to_port.count(c))
                                 has_carry_fanout = true;
 
                             log("  Absorbing cell %s (right)\n", connected_addsub->name.c_str());
