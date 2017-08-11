@@ -166,16 +166,24 @@ struct RecoverAdderCorePass : public Pass {
                         {
                             if (y->type == "\\HALF_SUBTRACTOR" || y->type == "\\FULL_SUBTRACTOR")
                             {
-                                connected_addsub = y;
-                                connected_addsubs++;
+                                // Needs to be driven by the Bout wire
+                                if (sigmap(y->getPort("\\Bout"))[0] == c)
+                                {
+                                    connected_addsub = y;
+                                    connected_addsubs++;
+                                }
                             }
                         }
                         else
                         {
                             if (y->type == "\\HALF_ADDER" || y->type == "\\FULL_ADDER")
                             {
-                                connected_addsub = y;
-                                connected_addsubs++;
+                                // Needs to be driven by the Cout wire
+                                if (sigmap(y->getPort("\\Cout"))[0] == c)
+                                {
+                                    connected_addsub = y;
+                                    connected_addsubs++;
+                                }
                             }
                         }
                     }
@@ -231,6 +239,7 @@ struct RecoverAdderCorePass : public Pass {
                         {
                             if (y->type == "\\XOR3" || y->type == "\\FULL_SUBTRACTOR")
                             {
+                                // XXX we assume we're driving this wire and nobody else is. Is this safe?
                                 connected_addsub = y;
                                 connected_addsubs++;
                             }
@@ -239,6 +248,7 @@ struct RecoverAdderCorePass : public Pass {
                         {
                             if (y->type == "\\XOR3" || y->type == "\\FULL_ADDER")
                             {
+                                // XXX we assume we're driving this wire and nobody else is. Is this safe?
                                 connected_addsub = y;
                                 connected_addsubs++;
                             }
