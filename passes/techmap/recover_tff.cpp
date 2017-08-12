@@ -82,7 +82,8 @@ struct RecoverTFFPass : public ScriptPass
     virtual void script() YS_OVERRIDE
     {
         run("abc -g AND,XOR");
-        run("extract -map +/untechmap/tff_untechmap.v");
+        //run("extract -map +/untechmap/tff_untechmap.v");
+        //run("techmap -map +/untechmap/tff_retechmap.v");
         // Load this library only if the design doesn't already have it
         if (!already_loaded_lib)
             run("read_verilog -lib +/untechmap/tff_untechmap.v");
