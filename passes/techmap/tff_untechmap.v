@@ -1,3 +1,39 @@
+module __TFF_P_ALWAYS_ (C, Q);
+input C;
+output wire Q;
+
+wire notout;
+
+$_NOT_ notgate (
+    .A(Q),
+    .Y(notout),
+);
+
+$_DFF_P_ dff (
+    .C(C),
+    .D(notout),
+    .Q(Q),
+);
+endmodule
+
+module __TFF_N_ALWAYS_ (C, Q);
+input C;
+output wire Q;
+
+wire notout;
+
+$_NOT_ notgate (
+    .A(Q),
+    .Y(notout),
+);
+
+$_DFF_N_ dff (
+    .C(C),
+    .D(notout),
+    .Q(Q),
+);
+endmodule
+
 module __TFF_N_ (T, C, Q);
 input T, C;
 output wire Q;
