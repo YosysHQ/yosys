@@ -24,75 +24,76 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct RecoverTFFPass : public ScriptPass
 {
-    RecoverTFFPass() : ScriptPass("recover_tff", "recovers toggle flip-flops from gates") {}
-    virtual void help() YS_OVERRIDE
-    {
-        //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-        log("\n");
-        log("    recover_tff [options]\n");
-        log("\n");
-        log("recovers toggle flip-flops from gates\n");
-        log("\n");
-        log("Reconstructs toggle flip-flops given a netlist of gates. This pass is intended\n");
-        log("to be used as part of a circuit reverse-engineering workflow, but it does also\n");
-        log("work with synthesis. Note that this command will completely destroy the\n");
-        log("structure of combinatorial logic as it works.\n");
-        log("\n");
-        log("\n");
-        log("The following commands are executed by this command:\n");
-        help_script();
-        log("\n");
-    }
+	RecoverTFFPass() : ScriptPass("recover_tff", "recovers toggle flip-flops from gates") {}
+	virtual void help() YS_OVERRIDE
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    recover_tff [options]\n");
+		log("\n");
+		log("recovers toggle flip-flops from gates\n");
+		log("\n");
+		log("Reconstructs toggle flip-flops given a netlist of gates. This pass is intended\n");
+		log("to be used as part of a circuit reverse-engineering workflow, but it does also\n");
+		log("work with synthesis. Note that this command will completely destroy the\n");
+		log("structure of combinatorial logic as it works.\n");
+		log("\n");
+		log("\n");
+		log("The following commands are executed by this command:\n");
+		help_script();
+		log("\n");
+	}
 
-    bool no_final_abc;
-    bool already_loaded_lib;
+	bool no_final_abc;
+	bool already_loaded_lib;
 
-    virtual void clear_flags() YS_OVERRIDE
-    {
-        no_final_abc = false;
-        already_loaded_lib = false;
-    }
+	virtual void clear_flags() YS_OVERRIDE
+	{
+		no_final_abc = false;
+		already_loaded_lib = false;
+	}
 
-    virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
-    {
-        clear_flags();
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		clear_flags();
 
-        if (design->has("\\__TFF_N_"))
-            already_loaded_lib = true;
+		if (design->has("\\__TFF_N_"))
+			already_loaded_lib = true;
 
-        size_t argidx;
-        for (argidx = 1; argidx < args.size(); argidx++)
-        {
-            if (args[argidx] == "-no_final_abc") {
-                no_final_abc = true;
-                continue;
-            }
-            break;
-        }
-        extra_args(args, argidx, design);
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-no_final_abc") {
+				no_final_abc = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
-        log_header(design, "Executing recover_tff.\n");
-        log_push();
+		log_header(design, "Executing recover_tff.\n");
+		log_push();
 
-        run_script(design, "", "");
+		run_script(design, "", "");
 
-        log_pop();
-    }
+		log_pop();
+	}
 
-    virtual void script() YS_OVERRIDE
-    {
-        run("abc -g AND,XOR");
-        //run("extract -map +/untechmap/tff_untechmap.v");
-        //run("techmap -map +/untechmap/tff_retechmap.v");
-        // Load this library only if the design doesn't already have it
-        if (!already_loaded_lib)
-            run("read_verilog -lib +/untechmap/tff_untechmap.v");
+	virtual void script() YS_OVERRIDE
+	{
+		run("abc -g AND,XOR");
+		run("clean");
+		run("extract -map +/untechmap/tff_untechmap.v");
 
-        if (!no_final_abc)
-            run("abc");
+		// Load this library only if the design doesn't already have it
+		if (!already_loaded_lib)
+			run("read_verilog -lib +/untechmap/tff_untechmap.v");
 
-        run("clean");
-    }
+		if (!no_final_abc)
+		    run("abc");
+
+		run("clean");
+	}
 } RecoverTFFPass;
 
 PRIVATE_NAMESPACE_END

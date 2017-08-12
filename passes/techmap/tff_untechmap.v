@@ -1,77 +1,3 @@
-module __TFF_PP0_ALWAYS (C, R, Q);
-	input C, R;
-	output wire Q;
-
-	wire invout;
-
-	$_NOT_ inv (
-		.A(Q),
-		.Y(invout),
-	);
-
-	$_DFF_PP0_ dff (
-		.C(C),
-		.D(invout),
-		.Q(Q),
-		.R(R),
-	);
-endmodule
-
-module __TFF_PP0_ALWAYS_CINV (C, R, Q);
-	input C, R;
-	output wire Q;
-
-	wire ffout;
-
-	$_NOT_ inv (
-		.A(ffout),
-		.Y(Q),
-	);
-
-	$_DFF_PP0_ dff (
-		.C(C),
-		.D(D),
-		.Q(ffout),
-		.R(R),
-	);
-endmodule
-
-module __TFF_P_ALWAYS_ (C, Q);
-	input C;
-	output wire Q;
-
-	wire notout;
-
-	$_NOT_ notgate (
-		.A(Q),
-		.Y(notout),
-	);
-
-	$_DFF_P_ dff (
-		.C(C),
-		.D(notout),
-		.Q(Q),
-	);
-endmodule
-
-module __TFF_N_ALWAYS_ (C, Q);
-	input C;
-	output wire Q;
-
-	wire notout;
-
-	$_NOT_ notgate (
-		.A(Q),
-		.Y(notout),
-	);
-
-	$_DFF_N_ dff (
-		.C(C),
-		.D(notout),
-		.Q(Q),
-	);
-endmodule
-
 module __TFF_N_ (T, C, Q);
 	input T, C;
 	output wire Q;
@@ -326,7 +252,7 @@ module __TFF_PP0_ (T, C, R, Q);
 		.C(C),
 		.D(xorout),
 		.Q(Q),
-		.R(R),
+		.R(R)
 	);
 endmodule
 
