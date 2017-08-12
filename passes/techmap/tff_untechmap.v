@@ -1,3 +1,41 @@
+module __TFF_PP0_ALWAYS (C, R, Q);
+	input C, R;
+	output wire Q;
+
+	wire invout;
+
+	$_NOT_ inv (
+		.A(Q),
+		.Y(invout),
+	);
+
+	$_DFF_PP0_ dff (
+		.C(C),
+		.D(invout),
+		.Q(Q),
+		.R(R),
+	);
+endmodule
+
+module __TFF_PP0_ALWAYS_CINV (C, R, Q);
+	input C, R;
+	output wire Q;
+
+	wire ffout;
+
+	$_NOT_ inv (
+		.A(ffout),
+		.Y(Q),
+	);
+
+	$_DFF_PP0_ dff (
+		.C(C),
+		.D(D),
+		.Q(ffout),
+		.R(R),
+	);
+endmodule
+
 module __TFF_P_ALWAYS_ (C, Q);
 	input C;
 	output wire Q;
