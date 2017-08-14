@@ -48,7 +48,7 @@ struct RmportsPassPass : public Pass {
 			ProcessModule(mod);
 	}
 
-	virtual void ProcessModule(RTLIL::Module* module)
+	void ProcessModule(RTLIL::Module* module)
 	{
 		log("Finding unconnected ports in module %s\n", module->name.c_str());
 
