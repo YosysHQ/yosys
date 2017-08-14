@@ -26,13 +26,13 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct OptRmportsPass : public Pass {
-	OptRmportsPass() : Pass("opt_rmports", "remove top-level ports with no connections") { }
+struct RmportsPassPass : public Pass {
+	RmportsPassPass() : Pass("rmports", "remove top-level ports with no connections") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    opt_rmports\n");
+		log("    rmports\n");
 		log("\n");
 		log("This pass identifies ports in the top-level design which are not used or driven\n");
 		log("and removes them\n");
@@ -41,7 +41,7 @@ struct OptRmportsPass : public Pass {
 
 	virtual void execute(std::vector<std::string> /*args*/, RTLIL::Design *design)
 	{
-		log_header(design, "Executing OPT_RMPORTS pass (remove top level ports with no connections).\n");
+		log_header(design, "Executing RMPORTS pass (remove top level ports with no connections).\n");
 		ProcessModule(design->top_module());
 	}
 
@@ -143,6 +143,6 @@ struct OptRmportsPass : public Pass {
 		}
 	}
 
-} OptRmportsPass;
+} RmportsPassPass;
 
 PRIVATE_NAMESPACE_END
