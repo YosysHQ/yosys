@@ -271,6 +271,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				port_wire->port_output = true;
 			} else
 			if (port_direction_node->data_string == "inout") {
+				port_wire->port_input = true;
 				port_wire->port_output = true;
 			} else
 				log_error("JSON port node '%s' has invalid '%s' direction attribute.\n", log_id(port_name), port_direction_node->data_string.c_str());
