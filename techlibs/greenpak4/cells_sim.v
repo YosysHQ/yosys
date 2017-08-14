@@ -113,8 +113,8 @@ module GP_SPI(
 	output reg[7:0] RXD_LOW,
 	output reg INT);
 
-	initial DOUT_HIGH = 0;
-	initial DOUT_LOW = 0;
+	initial RXD_HIGH = 0;
+	initial RXD_LOW = 0;
 	initial INT = 0;
 
 	parameter DATA_WIDTH = 8;		//byte or word width
