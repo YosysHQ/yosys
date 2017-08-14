@@ -147,10 +147,11 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
 						if(count == 14'h3fff)
 							count	<= COUNT_TO;
+					end
 					else begin
 						count		<= count - 1'd1;
 
@@ -174,10 +175,11 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
 						if(count == 14'h3fff)
 							count	<= COUNT_TO;
+					end
 					else begin
 						count		<= count - 1'd1;
 
@@ -218,10 +220,11 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 
 						if(KEEP) begin
 						end
-						else if(UP)
+						else if(UP) begin
 							count		<= count + 1'd1;
 							if(count == 14'h3fff)
 								count	<= COUNT_TO;
+						end
 						else begin
 							count		<= count - 1'd1;
 
@@ -284,10 +287,11 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 					//Main counter
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
 						if(count == 8'hff)
 							count	<= COUNT_TO;
+					end
 					else begin
 						count		<= count - 1'd1;
 
@@ -312,10 +316,11 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 					//Main counter
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
 						if(count == 8'hff)
 							count	<= COUNT_TO;
+					end
 					else begin
 						count		<= count - 1'd1;
 
@@ -356,17 +361,17 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 
 						if(KEEP) begin
 						end
-						else if(UP)
+						else if(UP) begin
 							count		<= count + 1'd1;
 							if(count == 8'hff)
 								count	<= COUNT_TO;
+						end
 						else begin
 							count		<= count - 1'd1;
 
 							if(count == 0)
 								count	<= COUNT_TO;
 						end
-
 					end
 
 				end
