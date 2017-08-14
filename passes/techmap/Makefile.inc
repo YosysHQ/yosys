@@ -20,7 +20,6 @@ OBJS += passes/techmap/extract_fa.o
 OBJS += passes/techmap/extract_reduce.o
 OBJS += passes/techmap/recover_tff.o
 $(eval $(call add_share_file,share/untechmap,passes/techmap/tff_untechmap.v))
-$(eval $(call add_share_file,share/untechmap,passes/techmap/tff_retechmap.v))
 OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/dff2dffe.o
 OBJS += passes/techmap/dffinit.o
