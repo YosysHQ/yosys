@@ -143,17 +143,21 @@ module BUFG(I, O);
 endmodule
 
 module BUFGSR(I, O);
+    parameter INVERT = 0;
+
     input I;
     output O;
 
-    assign O = I;
+    assign O = INVERT ? ~I : I;
 endmodule
 
 module BUFGTS(I, O);
+    parameter INVERT = 0;
+
     input I;
     output O;
 
-    assign O = I;
+    assign O = INVERT ? ~I : I;
 endmodule
 
 module FDDCP (C, PRE, CLR, D, Q);
@@ -243,4 +247,64 @@ module FTDCP (C, PRE, CLR, T, Q);
     end
 
     assign Q = Q_;
+endmodule
+
+module FDCPE (C, PRE, CLR, D, Q, CE);
+    parameter INIT = 0;
+
+    input C, PRE, CLR, D, CE;
+    output reg Q;
+
+    initial begin
+        Q <= INIT;
+    end
+
+    always @(posedge C, posedge PRE, posedge CLR) begin
+        if (CLR == 1)
+            Q <= 0;
+        else if (PRE == 1)
+            Q <= 1;
+        else if (CE == 1)
+            Q <= D;
+    end
+endmodule
+
+module FDCPE_N (C, PRE, CLR, D, Q, CE);
+    parameter INIT = 0;
+
+    input C, PRE, CLR, D, CE;
+    output reg Q;
+
+    initial begin
+        Q <= INIT;
+    end
+
+    always @(negedge C, posedge PRE, posedge CLR) begin
+        if (CLR == 1)
+            Q <= 0;
+        else if (PRE == 1)
+            Q <= 1;
+        else if (CE == 1)
+            Q <= D;
+    end
+endmodule
+
+module FDDCPE (C, PRE, CLR, D, Q, CE);
+    parameter INIT = 0;
+
+    input C, PRE, CLR, D, CE;
+    output reg Q;
+
+    initial begin
+        Q <= INIT;
+    end
+
+    always @(posedge C, negedge C, posedge PRE, posedge CLR) begin
+        if (CLR == 1)
+            Q <= 0;
+        else if (PRE == 1)
+            Q <= 1;
+        else if (CE == 1)
+            Q <= D;
+    end
 endmodule
