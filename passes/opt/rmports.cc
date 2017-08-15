@@ -32,31 +32,34 @@ struct RmportsPassPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    rmports\n");
+		log("    rmports [selection]\n");
 		log("\n");
-		log("This pass identifies ports in the top-level design which are not used or driven\n");
-		log("and removes them\n");
+		log("This pass identifies ports in the selected modules which are not used or\n");
+		log("driven and removes them.\n");
 		log("\n");
 	}
 
-	virtual void execute(std::vector<std::string> /*args*/, RTLIL::Design *design)
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header(design, "Executing RMPORTS pass (remove top level ports with no connections).\n");
+		log_header(design, "Executing RMPORTS pass (remove ports with no connections).\n");
 
-		//The set of ports we removed
-		std::map< RTLIL::IdString, std::set<RTLIL::IdString> > removed_ports;
+		size_t argidx = 1;
+		extra_args(args, argidx, design);
 
-		//Find all of the unused ports, and remove them from that module
+		// The set of ports we removed
+		dict<IdString, pool<IdString>> removed_ports;
+
+		// Find all of the unused ports, and remove them from that module
 		auto modules = design->selected_modules();
 		for(auto mod : modules)
 			ScanModule(mod, removed_ports);
 
-		//Remove the unused ports from all instances of those modules
+		// Remove the unused ports from all instances of those modules
 		for(auto mod : modules)
 			CleanupModule(mod, removed_ports);
 	}
 
-	void CleanupModule(RTLIL::Module* module, std::map< RTLIL::IdString, std::set<RTLIL::IdString> >& removed_ports)
+	void CleanupModule(Module *module, dict<IdString, pool<IdString>> &removed_ports)
 	{
 		log("Removing now-unused cell ports in module %s\n", module->name.c_str());
 
@@ -65,7 +68,7 @@ struct RmportsPassPass : public Pass {
 		{
 			if(removed_ports.find(cell->type) == removed_ports.end())
 			{
-				//log("  Not touching instance \"%s\" because we didn't remove any ports from module \"%s\"\n",
+				// log("  Not touching instance \"%s\" because we didn't remove any ports from module \"%s\"\n",
 				//	cell->name.c_str(), cell->type.c_str());
 				continue;
 			}
@@ -80,15 +83,15 @@ struct RmportsPassPass : public Pass {
 		}
 	}
 
-	void ScanModule(RTLIL::Module* module, std::map< RTLIL::IdString, std::set<RTLIL::IdString> >& removed_ports)
+	void ScanModule(Module* module, dict<IdString, pool<IdString>> &removed_ports)
 	{
 		log("Finding unconnected ports in module %s\n", module->name.c_str());
 
-		std::set<RTLIL::IdString> used_ports;
+		pool<IdString> used_ports;
 
-		//See what wires are used.
-		//Start by checking connections between named wires
-		auto& conns = module->connections();
+		// See what wires are used.
+		// Start by checking connections between named wires
+		auto &conns = module->connections();
 		for(auto sigsig : conns)
 		{
 			auto s1 = sigsig.first;
@@ -110,18 +113,18 @@ struct RmportsPassPass : public Pass {
 				//log("  conn %s, %s\n", w1->name.c_str(), w2->name.c_str());
 
 				if( (w1->port_input || w1->port_output) && (used_ports.find(w1->name) == used_ports.end()) )
-					used_ports.emplace(w1->name);
+					used_ports.insert(w1->name);
 
 				if( (w2->port_input || w2->port_output) && (used_ports.find(w2->name) == used_ports.end()) )
-					used_ports.emplace(w2->name);
+					used_ports.insert(w2->name);
 			}
 		}
 
-		//Then check connections to cells
+		// Then check connections to cells
 		auto cells = module->cells();
 		for(auto cell : cells)
 		{
-			auto& cconns = cell->connections();
+			auto &cconns = cell->connections();
 			for(auto conn : cconns)
 			{
 				for(int i=0; i<conn.second.size(); i++)
@@ -130,29 +133,29 @@ struct RmportsPassPass : public Pass {
 					if(sig == NULL)
 						continue;
 
-					//log("  sig %s\n", sig->name.c_str());
+					// log("  sig %s\n", sig->name.c_str());
 					if( (sig->port_input || sig->port_output) && (used_ports.find(sig->name) == used_ports.end()) )
-						used_ports.emplace(sig->name);
+						used_ports.insert(sig->name);
 				}
 			}
 		}
 
-		//Now that we know what IS used, get rid of anything that isn't in that list
-		std::set<RTLIL::IdString> unused_ports;
+		// Now that we know what IS used, get rid of anything that isn't in that list
+		pool<IdString> unused_ports;
 		for(auto port : module->ports)
 		{
 			if(used_ports.find(port) != used_ports.end())
 				continue;
-			unused_ports.emplace(port);
+			unused_ports.insert(port);
 		}
 
-		//Print the ports out as we go through them
+		// Print the ports out as we go through them
 		for(auto port : unused_ports)
 		{
 			log("  removing unused port %s\n", port.c_str());
-			removed_ports[module->name].emplace(port);
+			removed_ports[module->name].insert(port);
 
-			//Remove from ports list
+			// Remove from ports list
 			for(size_t i=0; i<module->ports.size(); i++)
 			{
 				if(module->ports[i] == port)
@@ -162,7 +165,7 @@ struct RmportsPassPass : public Pass {
 				}
 			}
 
-			//Mark the wire as no longer a port
+			// Mark the wire as no longer a port
 			auto wire = module->wire(port);
 			wire->port_input = false;
 			wire->port_output = false;
@@ -170,7 +173,7 @@ struct RmportsPassPass : public Pass {
 		}
 		log("Removed %zu unused ports.\n", unused_ports.size());
 
-		//Re-number all of the wires that DO have ports still on them
+		// Re-number all of the wires that DO have ports still on them
 		for(size_t i=0; i<module->ports.size(); i++)
 		{
 			auto port = module->ports[i];
