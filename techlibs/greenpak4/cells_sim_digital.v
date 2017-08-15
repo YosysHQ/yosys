@@ -741,10 +741,10 @@ module GP_PGEN(input wire nRST, input wire CLK, output reg OUT);
 	localparam COUNT_MAX =  PATTERN_LEN - 1'h1;
 
 	reg[3:0] count = 0;
-	always @(posedge CLK) begin
-		if(!nRST) begin
-			count	<= COUNT_MAX;
-		end
+	always @(posedge CLK, negedge nRST) begin
+
+		if(!nRST)
+			count	<= 0;
 
 		else begin
 			count	<= count - 1'h1;
