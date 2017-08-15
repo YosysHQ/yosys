@@ -58,23 +58,25 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 			"RISING": begin
 				always @(posedge CLK, posedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(RST)
-						count	<= 0;
+						count		<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
 			"FALLING": begin
 				always @(posedge CLK, negedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(!RST)
-						count	<= 0;
+						count		<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
@@ -88,7 +90,7 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 			"LEVEL": begin
 				always @(posedge CLK, posedge RST) begin
 					if(RST)
-						count	<= 0;
+						count		<= 0;
 
 					else begin
 						count		<= count - 1'd1;
@@ -422,23 +424,25 @@ module GP_COUNT8(
 
 			"RISING": begin
 				always @(posedge CLK, posedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(RST)
 						count	<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
 			"FALLING": begin
 				always @(posedge CLK, negedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(!RST)
 						count	<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
