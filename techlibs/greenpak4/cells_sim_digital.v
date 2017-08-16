@@ -58,23 +58,25 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 			"RISING": begin
 				always @(posedge CLK, posedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(RST)
-						count	<= 0;
+						count		<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
 			"FALLING": begin
 				always @(posedge CLK, negedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(!RST)
-						count	<= 0;
+						count		<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
@@ -88,7 +90,7 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 			"LEVEL": begin
 				always @(posedge CLK, posedge RST) begin
 					if(RST)
-						count	<= 0;
+						count		<= 0;
 
 					else begin
 						count		<= count - 1'd1;
@@ -145,19 +147,19 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 			"RISING": begin
 				always @(posedge CLK, posedge RST) begin
 
-					//Main counter
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
-					else
+						if(count == 14'h3fff)
+							count	<= COUNT_TO;
+					end
+					else begin
 						count		<= count - 1'd1;
 
-					//Wrapping
-					if(count == 0 && !UP)
-						count	<= COUNT_TO;
-					if(count == 14'h3fff && UP)
-						count	<= COUNT_TO;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 
 					//Resets
 					if(RST) begin
@@ -173,19 +175,19 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 			"FALLING": begin
 				always @(posedge CLK, negedge RST) begin
 
-					//Main counter
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
-					else
+						if(count == 14'h3fff)
+							count	<= COUNT_TO;
+					end
+					else begin
 						count		<= count - 1'd1;
 
-					//Wrapping
-					if(count == 0 && !UP)
-						count	<= COUNT_TO;
-					if(count == 14'h3fff && UP)
-						count	<= COUNT_TO;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 
 					//Resets
 					if(!RST) begin
@@ -218,19 +220,19 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 
 					else begin
 
-						//Main counter
 						if(KEEP) begin
 						end
-						else if(UP)
+						else if(UP) begin
 							count		<= count + 1'd1;
-						else
+							if(count == 14'h3fff)
+								count	<= COUNT_TO;
+						end
+						else begin
 							count		<= count - 1'd1;
 
-						//Wrapping
-						if(count == 0 && !UP)
-							count	<= COUNT_TO;
-						if(count == 14'h3fff && UP)
-							count	<= COUNT_TO;
+							if(count == 0)
+								count	<= COUNT_TO;
+						end
 
 					end
 
@@ -287,16 +289,17 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 					//Main counter
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
-					else
+						if(count == 8'hff)
+							count	<= COUNT_TO;
+					end
+					else begin
 						count		<= count - 1'd1;
 
-					//Wrapping
-					if(count == 0 && !UP)
-						count	<= COUNT_TO;
-					if(count == 8'hff && UP)
-						count	<= COUNT_TO;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 
 					//Resets
 					if(RST) begin
@@ -315,16 +318,17 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 					//Main counter
 					if(KEEP) begin
 					end
-					else if(UP)
+					else if(UP) begin
 						count		<= count + 1'd1;
-					else
+						if(count == 8'hff)
+							count	<= COUNT_TO;
+					end
+					else begin
 						count		<= count - 1'd1;
 
-					//Wrapping
-					if(count == 0 && !UP)
-						count	<= COUNT_TO;
-					if(count == 8'hff && UP)
-						count	<= COUNT_TO;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 
 					//Resets
 					if(!RST) begin
@@ -357,20 +361,19 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 
 					else begin
 
-						//Main counter
 						if(KEEP) begin
 						end
-						else if(UP)
+						else if(UP) begin
 							count		<= count + 1'd1;
-						else
+							if(count == 8'hff)
+								count	<= COUNT_TO;
+						end
+						else begin
 							count		<= count - 1'd1;
 
-						//Wrapping
-						if(count == 0 && !UP)
-							count	<= COUNT_TO;
-						if(count == 8'hff && UP)
-							count	<= COUNT_TO;
-
+							if(count == 0)
+								count	<= COUNT_TO;
+						end
 					end
 
 				end
@@ -421,23 +424,25 @@ module GP_COUNT8(
 
 			"RISING": begin
 				always @(posedge CLK, posedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(RST)
 						count	<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
 			"FALLING": begin
 				always @(posedge CLK, negedge RST) begin
-					count		<= count - 1'd1;
-					if(count == 0)
-						count	<= COUNT_TO;
-
 					if(!RST)
 						count	<= 0;
+					else begin
+						count		<= count - 1'd1;
+						if(count == 0)
+							count	<= COUNT_TO;
+					end
 				end
 			end
 
@@ -737,19 +742,23 @@ module GP_PGEN(input wire nRST, input wire CLK, output reg OUT);
 	parameter PATTERN_DATA = 16'h0;
 	parameter PATTERN_LEN = 5'd16;
 
+	localparam COUNT_MAX =  PATTERN_LEN - 1'h1;
+
 	reg[3:0] count = 0;
-	always @(posedge CLK) begin
+	always @(posedge CLK, negedge nRST) begin
+
 		if(!nRST)
-			OUT <= PATTERN_DATA[0];
+			count	<= 0;
 
 		else begin
-			count <= count + 1;
-			OUT <= PATTERN_DATA[count];
-
-			if( (count + 1) == PATTERN_LEN)
-				count <= 0;
+			count	<= count - 1'h1;
+			if(count == 0)
+				count <= COUNT_MAX;
 		end
 	end
+
+	always @(*)
+		OUT	= PATTERN_DATA[count];
 
 endmodule
 
