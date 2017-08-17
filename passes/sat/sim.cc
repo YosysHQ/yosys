@@ -28,6 +28,7 @@ struct SimShared
 {
 	bool debug = false;
 	bool hide_internal = true;
+	bool writeback = false;
 };
 
 struct SimInstance
@@ -331,6 +332,37 @@ struct SimInstance
 			it.second->update_ph3();
 	}
 
+	void writeback(pool<Module*> &wbmods)
+	{
+		if (wbmods.count(module))
+			log_error("Instance %s of module %s is not unique: Writeback not possible.\n", hiername().c_str(), log_id(module));
+
+		wbmods.insert(module);
+
+		for (auto wire : module->wires())
+			wire->attributes.erase("\\init");
+
+		for (auto &it : ff_database)
+		{
+			Cell *cell = it.first;
+			SigSpec sig_q = cell->getPort("\\Q");
+			Const initval = get_state(sig_q);
+
+			for (int i = 0; i < GetSize(sig_q); i++)
+			{
+				Wire *w = sig_q[i].wire;
+
+				if (w->attributes.count("\\init") == 0)
+					w->attributes["\\init"] = Const(State::Sx, GetSize(w));
+
+				w->attributes["\\init"][sig_q[i].offset] = initval[i];
+			}
+		}
+
+		for (auto it : children)
+			it.second->writeback(wbmods);
+	}
+
 	void write_vcd_header(std::ofstream &f, int &id)
 	{
 		f << stringf("$scope module %s $end\n", log_id(name()));
@@ -488,6 +520,11 @@ struct SimWorker : SimShared
 		}
 
 		write_vcd_step(10*numcycles + 2);
+
+		if (writeback) {
+			pool<Module*> wbmods;
+			top->writeback(wbmods);
+		}
 	}
 };
 
@@ -521,6 +558,9 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -a\n");
 		log("        include all nets in VCD output, nut just those with public names\n");
+		log("\n");
+		log("    -w\n");
+		log("        writeback mode: use final simulation state as new init state\n");
 		log("\n");
 		log("    -d\n");
 		log("        enable debug output\n");
@@ -565,6 +605,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-d") {
 				worker.debug = true;
+				continue;
+			}
+			if (args[argidx] == "-w") {
+				worker.writeback = true;
 				continue;
 			}
 			break;
