@@ -24,8 +24,16 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct SimShared
+{
+	bool debug = false;
+	bool hide_internal = true;
+};
+
 struct SimInstance
 {
+	SimShared *shared;
+
 	Module *module;
 	Cell *instance;
 
@@ -38,12 +46,20 @@ struct SimInstance
 	dict<SigBit, pool<Wire*>> upd_outports;
 
 	pool<SigBit> dirty_bits;
-	dict<SigBit, State> next_state_nets;
+	pool<SimInstance*, hash_ptr_ops> dirty_children;
 
-	dict<Wire*, int> vcd_netids;
+	struct ff_state_t
+	{
+		State past_clock;
+		Const past_d;
+	};
 
-	SimInstance(Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
-			module(module), instance(instance), parent(parent), sigmap(module)
+	dict<Cell*, ff_state_t> ff_database;
+
+	dict<Wire*, pair<int, Const>> vcd_database;
+
+	SimInstance(SimShared *shared, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
+			shared(shared), module(module), instance(instance), parent(parent), sigmap(module)
 	{
 		if (parent) {
 			log_assert(parent->children.count(instance) == 0);
@@ -78,7 +94,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type);
 
 			if (mod != nullptr) {
-				new SimInstance(mod, cell, this);
+				dirty_children.insert(new SimInstance(shared, mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {
@@ -86,7 +102,20 @@ struct SimInstance
 					for (auto bit : sigmap(port.second))
 						upd_cells[bit].insert(cell);
 			}
+
+			if (cell->type.in("$dff")) {
+				ff_state_t ff;
+				ff.past_clock = State::Sx;
+				ff.past_d = Const(State::Sx, cell->getParam("\\WIDTH").as_int());
+				ff_database[cell] = ff;
+			}
 		}
+	}
+
+	~SimInstance()
+	{
+		for (auto child : children)
+			delete child.second;
 	}
 
 	IdString name() const
@@ -109,17 +138,22 @@ struct SimInstance
 		Const value;
 
 		for (auto bit : sigmap(sig))
-			if (state_nets.count(bit))
+			if (bit.wire == nullptr)
+				value.bits.push_back(bit.data);
+			else if (state_nets.count(bit))
 				value.bits.push_back(state_nets.at(bit));
 			else
 				value.bits.push_back(State::Sz);
 
-		// log("[%s] get %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
+		if (shared->debug)
+			log("[%s] get %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
 		return value;
 	}
 
-	void set_state(SigSpec sig, Const value)
+	bool set_state(SigSpec sig, Const value)
 	{
+		bool did_something = false;
+
 		sig = sigmap(sig);
 		log_assert(GetSize(sig) == GetSize(value));
 
@@ -127,13 +161,19 @@ struct SimInstance
 			if (state_nets.at(sig[i]) != value[i]) {
 				state_nets.at(sig[i]) = value[i];
 				dirty_bits.insert(sig[i]);
+				did_something = true;
 			}
 
-		// log("[%s] set %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
+		if (shared->debug)
+			log("[%s] set %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
+		return did_something;
 	}
 
 	void update_cell(Cell *cell)
 	{
+		if (ff_database.count(cell))
+			return;
+
 		if (children.count(cell))
 		{
 			auto child = children.at(cell);
@@ -142,13 +182,12 @@ struct SimInstance
 					Const value = get_state(conn.second);
 					child->set_state(child->module->wire(conn.first), value);
 				}
+			dirty_children.insert(child);
 			return;
 		}
 
 		if (yosys_celltypes.cell_evaluable(cell->type))
 		{
-			// log("[%s] eval %s (%s)\n", hiername().c_str(), log_id(cell), log_id(cell->type));
-
 			RTLIL::SigSpec sig_a, sig_b, sig_c, sig_d, sig_s, sig_y;
 			bool has_a, has_b, has_c, has_d, has_s, has_y;
 
@@ -165,6 +204,9 @@ struct SimInstance
 			if (has_d) sig_d = cell->getPort("\\D");
 			if (has_s) sig_s = cell->getPort("\\S");
 			if (has_y) sig_y = cell->getPort("\\Y");
+
+			if (shared->debug)
+				log("[%s] eval %s (%s)\n", hiername().c_str(), log_id(cell), log_id(cell->type));
 
 			// Simple (A -> Y) and (A,B -> Y) cells
 			if (has_a && !has_c && !has_d && !has_s && has_y) {
@@ -193,37 +235,100 @@ struct SimInstance
 		log_warning("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 	}
 
-	void update()
+	void update_ph1()
 	{
+		pool<Cell*> queue_cells;
+		pool<Wire*> queue_outports;
+
 		while (1)
 		{
-			while (!dirty_bits.empty())
+			for (auto bit : dirty_bits)
 			{
-				SigBit bit = *dirty_bits.begin();
-				dirty_bits.erase(bit);
-
 				if (upd_cells.count(bit))
-				{
 					for (auto cell : upd_cells.at(bit))
-						update_cell(cell);
-				}
+						queue_cells.insert(cell);
 
 				if (upd_outports.count(bit) && parent != nullptr)
-				{
 					for (auto wire : upd_outports.at(bit))
-						if (instance->hasPort(wire->name)) {
-							Const value = get_state(wire);
-							parent->set_state(instance->getPort(wire->name), value);
-						}
-				}
+						queue_outports.insert(wire);
 			}
 
-			for (auto child : children)
-				child.second->update();
+			dirty_bits.clear();
+
+			if (!queue_cells.empty())
+			{
+				for (auto cell : queue_cells)
+					update_cell(cell);
+
+				queue_cells.clear();
+				continue;
+			}
+
+			for (auto wire : queue_outports)
+				if (instance->hasPort(wire->name)) {
+					Const value = get_state(wire);
+					parent->set_state(instance->getPort(wire->name), value);
+				}
+
+			queue_outports.clear();
+
+			for (auto child : dirty_children)
+				child->update_ph1();
+
+			dirty_children.clear();
 
 			if (dirty_bits.empty())
 				break;
 		}
+	}
+
+	bool update_ph2()
+	{
+		bool did_something = false;
+
+		for (auto &it : ff_database)
+		{
+			Cell *cell = it.first;
+			ff_state_t &ff = it.second;
+
+			if (cell->type.in("$dff"))
+			{
+				bool clkpol = cell->getParam("\\CLK_POLARITY").as_bool();
+				State current_clock = get_state(cell->getPort("\\CLK"))[0];
+
+				if (clkpol ? (ff.past_clock == State::S1 || current_clock != State::S1) :
+						(ff.past_clock == State::S0 || current_clock != State::S0))
+					continue;
+
+				if (set_state(cell->getPort("\\Q"), ff.past_d))
+					did_something = true;
+			}
+		}
+
+		for (auto it : children)
+			if (it.second->update_ph2()) {
+				dirty_children.insert(it.second);
+				did_something = true;
+			}
+
+		return did_something;
+	}
+
+	void update_ph3()
+	{
+		for (auto &it : ff_database)
+		{
+			Cell *cell = it.first;
+			ff_state_t &ff = it.second;
+
+			if (cell->type.in("$dff")) {
+				ff.past_clock = get_state(cell->getPort("\\CLK"))[0];
+				ff.past_d = get_state(cell->getPort("\\D"));
+			}
+		}
+
+		for (auto it : children)
+			it.second->update_ph3();
 	}
 
 	void write_vcd_header(std::ofstream &f, int &id)
@@ -232,11 +337,11 @@ struct SimInstance
 
 		for (auto wire : module->wires())
 		{
-			if (wire->name[0] == '$')
+			if (shared->hide_internal && wire->name[0] == '$')
 				continue;
 
-			f << stringf("$var wire %d n%d %s $end\n", GetSize(wire), id, log_id(wire));
-			vcd_netids[wire] = id++;
+			f << stringf("$var wire %d n%d %s%s $end\n", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire));
+			vcd_database[wire] = make_pair(id++, Const());
 		}
 
 		for (auto child : children)
@@ -247,11 +352,16 @@ struct SimInstance
 
 	void write_vcd_step(std::ofstream &f)
 	{
-		for (auto it : vcd_netids)
+		for (auto &it : vcd_database)
 		{
 			Wire *wire = it.first;
 			Const value = get_state(wire);
-			int id = it.second;
+			int id = it.second.first;
+
+			if (it.second.second == value)
+				continue;
+
+			it.second.second = value;
 
 			f << "b";
 			for (int i = GetSize(value)-1; i >= 0; i--) {
@@ -271,20 +381,15 @@ struct SimInstance
 	}
 };
 
-struct SimWorker
+struct SimWorker : SimShared
 {
 	SimInstance *top = nullptr;
 	std::ofstream vcdfile;
+	pool<IdString> clock, clockn, reset, resetn;
 
-	void initialize(Module *topmod)
+	~SimWorker()
 	{
-		top = new SimInstance(topmod);
-		top->update();
-	}
-
-	void step()
-	{
-		// FIXME
+		delete top;
 	}
 
 	void write_vcd_header()
@@ -298,13 +403,91 @@ struct SimWorker
 		vcdfile << stringf("$enddefinitions $end\n");
 	}
 
-	void write_vcd_step(int n)
+	void write_vcd_step(int t)
 	{
 		if (!vcdfile.is_open())
 			return;
 
-		vcdfile << stringf("#%d\n", 10*n);
+		vcdfile << stringf("#%d\n", t);
 		top->write_vcd_step(vcdfile);
+	}
+
+	void update()
+	{
+		do
+		{
+			if (debug)
+				log("\n-- ph1 --\n");
+
+			top->update_ph1();
+
+			if (debug)
+				log("\n-- ph2 --\n");
+		}
+		while (top->update_ph2());
+
+		if (debug)
+			log("\n-- ph3 --\n");
+
+		top->update_ph3();
+	}
+
+	void set_inports(pool<IdString> ports, State value)
+	{
+		for (auto portname : ports)
+		{
+			Wire *w = top->module->wire(portname);
+
+			if (w == nullptr)
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+
+			top->set_state(w, value);
+		}
+	}
+
+	void run(Module *topmod, int numcycles)
+	{
+		log_assert(top == nullptr);
+		top = new SimInstance(this, topmod);
+
+		if (debug)
+			log("\n===== 0 =====\n");
+
+		set_inports(reset, State::S1);
+		set_inports(resetn, State::S0);
+
+		update();
+
+		write_vcd_header();
+		write_vcd_step(0);
+
+		for (int cycle = 0; cycle < numcycles; cycle++)
+		{
+			if (debug)
+				log("\n===== %d =====\n", 10*cycle + 5);
+
+			set_inports(clock, State::S0);
+			set_inports(clockn, State::S1);
+
+			update();
+			write_vcd_step(10*cycle + 5);
+
+			if (debug)
+				log("\n===== %d =====\n", 10*cycle + 10);
+
+			set_inports(clock, State::S1);
+			set_inports(clockn, State::S0);
+
+			if (cycle == 0) {
+				set_inports(reset, State::S0);
+				set_inports(resetn, State::S1);
+			}
+
+			update();
+			write_vcd_step(10*cycle + 10);
+		}
+
+		write_vcd_step(10*numcycles + 2);
 	}
 };
 
@@ -321,14 +504,32 @@ struct SimPass : public Pass {
 		log("    -vcd <filename>\n");
 		log("        write the simulation results to the given VCD file\n");
 		log("\n");
+		log("    -clock <portname>\n");
+		log("        name of top-level clock input\n");
+		log("\n");
+		log("    -clockn <portname>\n");
+		log("        name of top-level clock input (inverse polarity)\n");
+		log("\n");
+		log("    -reset <portname>\n");
+		log("        name of top-level reset input (active high)\n");
+		log("\n");
+		log("    -resetn <portname>\n");
+		log("        name of top-level inverted reset input (active low)\n");
+		log("\n");
 		log("    -n <integer>\n");
-		log("        number of steps to simulate (default: 20)\n");
+		log("        number of cycles to simulate (default: 20)\n");
+		log("\n");
+		log("    -a\n");
+		log("        include all nets in VCD output, nut just those with public names\n");
+		log("\n");
+		log("    -d\n");
+		log("        enable debug output\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		SimWorker worker;
-		int numsteps = 20;
+		int numcycles = 20;
 
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
 
@@ -339,7 +540,31 @@ struct SimPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
-				numsteps = atoi(args[++argidx].c_str());
+				numcycles = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-clock" && argidx+1 < args.size()) {
+				worker.clock.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-clockn" && argidx+1 < args.size()) {
+				worker.clockn.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-reset" && argidx+1 < args.size()) {
+				worker.reset.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-resetn" && argidx+1 < args.size()) {
+				worker.resetn.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-a") {
+				worker.hide_internal = false;
+				continue;
+			}
+			if (args[argidx] == "-d") {
+				worker.debug = true;
 				continue;
 			}
 			break;
@@ -357,14 +582,7 @@ struct SimPass : public Pass {
 			top_mod = mods.front();
 		}
 
-		worker.initialize(top_mod);
-		worker.write_vcd_header();
-		worker.write_vcd_step(0);
-
-		for (int i = 1; i < numsteps; i++) {
-			worker.step();
-			worker.write_vcd_step(i);
-		}
+		worker.run(top_mod, numcycles);
 	}
 } SimPass;
 
