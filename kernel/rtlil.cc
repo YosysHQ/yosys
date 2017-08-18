@@ -161,6 +161,39 @@ std::string RTLIL::Const::decode_string() const
 	return string;
 }
 
+bool RTLIL::Const::is_fully_zero() const
+{
+	cover("kernel.rtlil.const.is_fully_zero");
+
+	for (auto bit : bits)
+		if (bit != RTLIL::State::S0)
+			return false;
+
+	return true;
+}
+
+bool RTLIL::Const::is_fully_def() const
+{
+	cover("kernel.rtlil.const.is_fully_def");
+
+	for (auto bit : bits)
+		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
+			return false;
+
+	return true;
+}
+
+bool RTLIL::Const::is_fully_undef() const
+{
+	cover("kernel.rtlil.const.is_fully_undef");
+
+	for (auto bit : bits)
+		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
+			return false;
+
+	return true;
+}
+
 void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id)
 {
 	attributes[id] = RTLIL::Const(1);
