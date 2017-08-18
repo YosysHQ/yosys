@@ -55,7 +55,18 @@ struct SimInstance
 		Const past_d;
 	};
 
+	struct mem_state_t
+	{
+		Const past_wr_clk;
+		Const past_wr_en;
+		Const past_wr_addr;
+		Const past_wr_data;
+		Const data;
+	};
+
 	dict<Cell*, ff_state_t> ff_database;
+	dict<Cell*, mem_state_t> mem_database;
+	pool<Cell*> formal_database;
 
 	dict<Wire*, pair<int, Const>> vcd_database;
 
@@ -109,6 +120,10 @@ struct SimInstance
 				ff.past_clock = State::Sx;
 				ff.past_d = Const(State::Sx, cell->getParam("\\WIDTH").as_int());
 				ff_database[cell] = ff;
+			}
+
+			if (cell->type.in("$assert", "$cover", "$assume")) {
+				formal_database.insert(cell);
 			}
 		}
 	}
@@ -175,6 +190,9 @@ struct SimInstance
 		if (ff_database.count(cell))
 			return;
 
+		if (formal_database.count(cell))
+			return;
+
 		if (children.count(cell))
 		{
 			auto child = children.at(cell);
@@ -233,7 +251,7 @@ struct SimInstance
 
 		// FIXME
 
-		log_warning("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+		log_error("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 	}
 
 	void update_ph1()
@@ -328,6 +346,25 @@ struct SimInstance
 			}
 		}
 
+		for (auto cell : formal_database)
+		{
+			string label = log_id(cell);
+			if (cell->attributes.count("\\src"))
+				label = cell->attributes.at("\\src").decode_string();
+
+			State a = get_state(cell->getPort("\\A"))[0];
+			State en = get_state(cell->getPort("\\EN"))[0];
+
+			if (cell->type == "$cover" && en == State::S1 && a != State::S1)
+				log("Cover %s.%s (%s) reached.\n", hiername().c_str(), log_id(cell), label.c_str());
+
+			if (cell->type == "$assume" && en == State::S1 && a != State::S1)
+				log("Assumption %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+
+			if (cell->type == "$assert" && en == State::S1 && a != State::S1)
+				log_warning("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+		}
+
 		for (auto it : children)
 			it.second->update_ph3();
 	}
@@ -335,7 +372,7 @@ struct SimInstance
 	void writeback(pool<Module*> &wbmods)
 	{
 		if (wbmods.count(module))
-			log_error("Instance %s of module %s is not unique: Writeback not possible.\n", hiername().c_str(), log_id(module));
+			log_error("Instance %s of module %s is not unique: Writeback not possible. (Fix by running 'singleton'.)\n", hiername().c_str(), log_id(module));
 
 		wbmods.insert(module);
 
@@ -446,7 +483,7 @@ struct SimWorker : SimShared
 
 	void update()
 	{
-		do
+		while (1)
 		{
 			if (debug)
 				log("\n-- ph1 --\n");
@@ -455,8 +492,10 @@ struct SimWorker : SimShared
 
 			if (debug)
 				log("\n-- ph2 --\n");
+
+			if (!top->update_ph2())
+				break;
 		}
-		while (top->update_ph2());
 
 		if (debug)
 			log("\n-- ph3 --\n");
@@ -484,6 +523,8 @@ struct SimWorker : SimShared
 
 		if (debug)
 			log("\n===== 0 =====\n");
+		else
+			log("Simulating cycle 0.\n");
 
 		set_inports(reset, State::S1);
 		set_inports(resetn, State::S0);
@@ -506,6 +547,8 @@ struct SimWorker : SimShared
 
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 10);
+			else
+				log("Simulating cycle %d.\n", cycle+1);
 
 			set_inports(clock, State::S1);
 			set_inports(clockn, State::S0);
