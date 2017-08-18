@@ -29,7 +29,21 @@ struct SimShared
 	bool debug = false;
 	bool hide_internal = true;
 	bool writeback = false;
+	bool zinit = false;
+	int rstlen = 1;
 };
+
+void zinit(State &v)
+{
+	if (v != State::S1)
+		v = State::S0;
+}
+
+void zinit(Const &v)
+{
+	for (auto &bit : v.bits)
+		zinit(bit);
+}
 
 struct SimInstance
 {
@@ -146,6 +160,27 @@ struct SimInstance
 
 			if (cell->type.in("$assert", "$cover", "$assume")) {
 				formal_database.insert(cell);
+			}
+		}
+
+		if (shared->zinit)
+		{
+			for (auto &it : ff_database)
+			{
+				Cell *cell = it.first;
+				ff_state_t &ff = it.second;
+				zinit(ff.past_d);
+
+				SigSpec qsig = cell->getPort("\\Q");
+				Const qdata = get_state(qsig);
+				zinit(qdata);
+				set_state(qsig, qdata);
+			}
+
+			for (auto &it : mem_database) {
+				mem_state_t &mem = it.second;
+				zinit(mem.past_wr_en);
+				zinit(mem.data);
 			}
 		}
 	}
@@ -663,6 +698,9 @@ struct SimWorker : SimShared
 		set_inports(reset, State::S1);
 		set_inports(resetn, State::S0);
 
+		set_inports(clock, State::Sx);
+		set_inports(clockn, State::Sx);
+
 		update();
 
 		write_vcd_header();
@@ -687,7 +725,7 @@ struct SimWorker : SimShared
 			set_inports(clock, State::S1);
 			set_inports(clockn, State::S0);
 
-			if (cycle == 0) {
+			if (cycle+1 == rstlen) {
 				set_inports(reset, State::S0);
 				set_inports(resetn, State::S1);
 			}
@@ -730,6 +768,12 @@ struct SimPass : public Pass {
 		log("    -resetn <portname>\n");
 		log("        name of top-level inverted reset input (active low)\n");
 		log("\n");
+		log("    -rstlen <integer>\n");
+		log("        number of cycles reset should stay active (default: 1)\n");
+		log("\n");
+		log("    -zinit\n");
+		log("        zero-initialize all uninitialized regs and memories\n");
+		log("\n");
 		log("    -n <integer>\n");
 		log("        number of cycles to simulate (default: 20)\n");
 		log("\n");
@@ -760,6 +804,10 @@ struct SimPass : public Pass {
 				numcycles = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-rstlen" && argidx+1 < args.size()) {
+				worker.rstlen = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (args[argidx] == "-clock" && argidx+1 < args.size()) {
 				worker.clock.insert(RTLIL::escape_id(args[++argidx]));
 				continue;
@@ -786,6 +834,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-w") {
 				worker.writeback = true;
+				continue;
+			}
+			if (args[argidx] == "-zinit") {
+				worker.zinit = true;
 				continue;
 			}
 			break;
