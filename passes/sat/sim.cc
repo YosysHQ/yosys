@@ -47,6 +47,7 @@ struct SimInstance
 	dict<SigBit, pool<Wire*>> upd_outports;
 
 	pool<SigBit> dirty_bits;
+	pool<Cell*> dirty_cells;
 	pool<SimInstance*, hash_ptr_ops> dirty_children;
 
 	struct ff_state_t
@@ -122,6 +123,27 @@ struct SimInstance
 				ff_database[cell] = ff;
 			}
 
+			if (cell->type == "$mem")
+			{
+				mem_state_t mem;
+
+				mem.past_wr_clk = Const(State::Sx, GetSize(cell->getPort("\\WR_CLK")));
+				mem.past_wr_en = Const(State::Sx, GetSize(cell->getPort("\\WR_EN")));
+				mem.past_wr_addr = Const(State::Sx, GetSize(cell->getPort("\\WR_ADDR")));
+				mem.past_wr_data = Const(State::Sx, GetSize(cell->getPort("\\WR_DATA")));
+
+				mem.data = cell->getParam("\\INIT");
+				int sz = cell->getParam("\\SIZE").as_int() * cell->getParam("\\WIDTH").as_int();
+
+				if (GetSize(mem.data) > sz)
+					mem.data.bits.resize(sz);
+
+				while (GetSize(mem.data) < sz)
+					mem.data.bits.push_back(State::Sx);
+
+				mem_database[cell] = mem;
+			}
+
 			if (cell->type.in("$assert", "$cover", "$assume")) {
 				formal_database.insert(cell);
 			}
@@ -193,6 +215,40 @@ struct SimInstance
 		if (formal_database.count(cell))
 			return;
 
+		if (mem_database.count(cell))
+		{
+			mem_state_t &mem = mem_database.at(cell);
+
+			int num_rd_ports = cell->getParam("\\RD_PORTS").as_int();
+
+			int size = cell->getParam("\\SIZE").as_int();
+			int offset = cell->getParam("\\OFFSET").as_int();
+			int abits = cell->getParam("\\ABITS").as_int();
+			int width = cell->getParam("\\WIDTH").as_int();
+
+			if (cell->getParam("\\RD_CLK_ENABLE").as_bool())
+				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(cell));
+
+			SigSpec rd_addr_sig = cell->getPort("\\RD_ADDR");
+			SigSpec rd_data_sig = cell->getPort("\\RD_DATA");
+
+			for (int port_idx = 0; port_idx < num_rd_ports; port_idx++)
+			{
+				Const addr = get_state(rd_addr_sig.extract(port_idx*abits, abits));
+				Const data = Const(State::Sx, width);
+
+				if (addr.is_fully_def()) {
+					int index = addr.as_int() - offset;
+					if (index >= 0 && index < size)
+						data = mem.data.extract(index*width, width);
+				}
+
+				set_state(rd_data_sig.extract(port_idx*width, width), data);
+			}
+
+			return;
+		}
+
 		if (children.count(cell))
 		{
 			auto child = children.at(cell);
@@ -249,8 +305,6 @@ struct SimInstance
 			return;
 		}
 
-		// FIXME
-
 		log_error("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 	}
 
@@ -258,6 +312,8 @@ struct SimInstance
 	{
 		pool<Cell*> queue_cells;
 		pool<Wire*> queue_outports;
+
+		queue_cells.swap(dirty_cells);
 
 		while (1)
 		{
@@ -324,6 +380,58 @@ struct SimInstance
 			}
 		}
 
+		for (auto &it : mem_database)
+		{
+			Cell *cell = it.first;
+			mem_state_t &mem = it.second;
+
+			int num_wr_ports = cell->getParam("\\WR_PORTS").as_int();
+
+			int size = cell->getParam("\\SIZE").as_int();
+			int offset = cell->getParam("\\OFFSET").as_int();
+			int abits = cell->getParam("\\ABITS").as_int();
+			int width = cell->getParam("\\WIDTH").as_int();
+
+			Const wr_clk_enable = cell->getParam("\\WR_CLK_ENABLE");
+			Const wr_clk_polarity = cell->getParam("\\WR_CLK_POLARITY");
+			Const current_wr_clk  = get_state(cell->getPort("\\WR_CLK"));
+
+			for (int port_idx = 0; port_idx < num_wr_ports; port_idx++)
+			{
+				Const addr, data, enable;
+
+				if (wr_clk_enable[port_idx] == State::S0)
+				{
+					addr = get_state(cell->getPort("\\WR_ADDR").extract(port_idx*abits, abits));
+					data = get_state(cell->getPort("\\WR_DATA").extract(port_idx*width, width));
+					enable = get_state(cell->getPort("\\WR_EN").extract(port_idx*width, width));
+				}
+				else
+				{
+					if (wr_clk_polarity[port_idx] == State::S1 ?
+							(mem.past_wr_clk[port_idx] == State::S1 || current_wr_clk[port_idx] != State::S1) :
+							(mem.past_wr_clk[port_idx] == State::S0 || current_wr_clk[port_idx] != State::S0))
+						continue;
+
+					addr = mem.past_wr_addr.extract(port_idx*abits, abits);
+					data = mem.past_wr_data.extract(port_idx*width, width);
+					enable = mem.past_wr_en.extract(port_idx*width, width);
+				}
+
+				if (addr.is_fully_def())
+				{
+					int index = addr.as_int() - offset;
+					if (index >= 0 && index < size)
+						for (int i = 0; i < width; i++)
+							if (enable[i] == State::S1 && mem.data.bits.at(index*width+i) != data[i]) {
+								mem.data.bits.at(index*width+i) = data[i];
+								dirty_cells.insert(cell);
+								did_something = true;
+							}
+				}
+			}
+		}
+
 		for (auto it : children)
 			if (it.second->update_ph2()) {
 				dirty_children.insert(it.second);
@@ -344,6 +452,17 @@ struct SimInstance
 				ff.past_clock = get_state(cell->getPort("\\CLK"))[0];
 				ff.past_d = get_state(cell->getPort("\\D"));
 			}
+		}
+
+		for (auto &it : mem_database)
+		{
+			Cell *cell = it.first;
+			mem_state_t &mem = it.second;
+
+			mem.past_wr_clk  = get_state(cell->getPort("\\WR_CLK"));
+			mem.past_wr_en   = get_state(cell->getPort("\\WR_EN"));
+			mem.past_wr_addr = get_state(cell->getPort("\\WR_ADDR"));
+			mem.past_wr_data = get_state(cell->getPort("\\WR_DATA"));
 		}
 
 		for (auto cell : formal_database)
@@ -394,6 +513,21 @@ struct SimInstance
 
 				w->attributes["\\init"][sig_q[i].offset] = initval[i];
 			}
+		}
+
+		for (auto &it : mem_database)
+		{
+			Cell *cell = it.first;
+			mem_state_t &mem = it.second;
+			Const initval = mem.data;
+
+			while (GetSize(initval) >= 2) {
+				if (initval[GetSize(initval)-1] != State::Sx) break;
+				if (initval[GetSize(initval)-2] != State::Sx) break;
+				initval.bits.pop_back();
+			}
+
+			cell->setParam("\\INIT", initval);
 		}
 
 		for (auto it : children)
