@@ -1482,17 +1482,53 @@ struct CdPass : public Pass {
 		log("\n");
 		log("    cd ..\n");
 		log("\n");
+		log("Remove trailing substrings that start with '.' in current module name until\n");
+		log("the name of a module in the current design is generated, then switch to that\n");
+		log("module. Otherwise clear the current selection.\n");
+		log("\n");
+		log("    cd\n");
+		log("\n");
 		log("This is just a shortcut for 'select -clear'.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		if (args.size() != 2)
+		if (args.size() != 1 && args.size() != 2)
 			log_cmd_error("Invalid number of arguments.\n");
 
-		if (args[1] == "..") {
+		if (args.size() == 1 || args[1] == "/") {
 			design->selection_stack.back() = RTLIL::Selection(true);
 			design->selected_active_module = std::string();
+			return;
+		}
+
+		if (args[1] == "..")
+		{
+			string modname = design->selected_active_module;
+
+			design->selection_stack.back() = RTLIL::Selection(true);
+			design->selected_active_module = std::string();
+
+			while (1)
+			{
+				size_t pos = modname.rfind('.');
+
+				if (pos == string::npos)
+					break;
+
+				modname = modname.substr(0, pos);
+				Module *mod = design->module(modname);
+
+				if (mod == nullptr)
+					continue;
+
+				design->selected_active_module = modname;
+				design->selection_stack.back() = RTLIL::Selection();
+				select_filter_active_mod(design, design->selection_stack.back());
+				design->selection_stack.back().optimize(design);
+				return;
+			}
+
 			return;
 		}
 
