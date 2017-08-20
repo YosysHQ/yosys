@@ -526,7 +526,7 @@ struct SimInstance
 	void writeback(pool<Module*> &wbmods)
 	{
 		if (wbmods.count(module))
-			log_error("Instance %s of module %s is not unique: Writeback not possible. (Fix by running 'singleton'.)\n", hiername().c_str(), log_id(module));
+			log_error("Instance %s of module %s is not unique: Writeback not possible. (Fix by running 'uniquify'.)\n", hiername().c_str(), log_id(module));
 
 		wbmods.insert(module);
 
