@@ -322,6 +322,10 @@ struct CellTypes
 			return const_xor(arg1, arg2, false, false, 1);
 		if (type == "$_XNOR_")
 			return const_xnor(arg1, arg2, false, false, 1);
+		if (type == "$_ANDNOT_")
+			return const_and(arg1, eval_not(arg2), false, false, 1);
+		if (type == "$_ORNOT_")
+			return const_or(arg1, eval_not(arg2), false, false, 1);
 
 		log_abort();
 	}
