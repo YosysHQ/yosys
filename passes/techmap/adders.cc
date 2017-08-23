@@ -32,6 +32,20 @@ struct AddersConfig
 	bool enable_hs = false;
 };
 
+// http://svn.clifford.at/handicraft/2016/bindec/bindec.c
+int bindec(unsigned char v)
+{
+	int r = v & 1;
+	r += (~((v & 2) - 1)) & 10;
+	r += (~((v & 4) - 1)) & 100;
+	r += (~((v & 8) - 1)) & 1000;
+	r += (~((v & 16) - 1)) & 10000;
+	r += (~((v & 32) - 1)) & 100000;
+	r += (~((v & 64) - 1)) & 1000000;
+	r += (~((v & 128) - 1)) & 10000000;
+	return r;
+}
+
 struct AddersWorker
 {
 	const AddersConfig &config;
@@ -42,13 +56,11 @@ struct AddersWorker
 	dict<SigBit, Cell*> driver;
 	pool<SigBit> handled_bits;
 
-	dict<tuple<SigBit, SigBit>, pool<SigBit>> part_xor;
-	dict<tuple<SigBit, SigBit>, pool<SigBit>> part_and;
-	dict<tuple<SigBit, SigBit>, pool<SigBit>> part_andnot;
+	pool<tuple<SigBit, SigBit>> xorxnor2;
+	pool<tuple<SigBit, SigBit, SigBit>> xorxnor3;
 
-	dict<tuple<SigBit, SigBit, SigBit>, pool<SigBit>> part_xor3;
-	dict<tuple<SigBit, SigBit, SigBit>, pool<SigBit>> part_maj;
-	dict<tuple<SigBit, SigBit, SigBit>, pool<SigBit>> part_majnot;
+	dict<tuple<SigBit, SigBit>, dict<int, pool<SigBit>>> func2;
+	dict<tuple<SigBit, SigBit, SigBit>, dict<int, pool<SigBit>>> func3;
 
 	AddersWorker(const AddersConfig &config, Module *module) :
 			config(config), module(module), ce(module), sigmap(ce.assign_map)
@@ -75,19 +87,11 @@ struct AddersWorker
 			SigBit A = SigSpec(leaves)[0];
 			SigBit B = SigSpec(leaves)[1];
 
-			bool is_xor = true;
-			bool is_and = true;
-			bool is_andnot_a = true;
-			bool is_andnot_b = true;
-
+			int func = 0;
 			for (int i = 0; i < 4; i++)
 			{
 				bool a_value = (i & 1) != 0;
 				bool b_value = (i & 2) != 0;
-				bool xor_value = a_value != b_value;
-				bool and_value = a_value && b_value;
-				bool andnot_a_value = !a_value && b_value;
-				bool andnot_b_value = a_value && !b_value;
 
 				ce.push();
 				ce.set(A, a_value ? State::S1 : State::S0);
@@ -98,32 +102,18 @@ struct AddersWorker
 				if (!ce.eval(sig))
 					log_abort();
 
-				if (sig != xor_value)
-					is_xor = false;
-
-				if (sig != and_value)
-					is_and = false;
-
-				if (sig != andnot_a_value)
-					is_andnot_a = false;
-
-				if (sig != andnot_b_value)
-					is_andnot_b = false;
+				if (sig == State::S1)
+					func |= 1 << i;
 
 				ce.pop();
 			}
 
-			if (is_xor)
-				part_xor[tuple<SigBit, SigBit>(A, B)].insert(root);
+			// log("%04d %s %s -> %s\n", bindec(func), log_signal(A), log_signal(B), log_signal(root));
 
-			if (is_and)
-				part_and[tuple<SigBit, SigBit>(A, B)].insert(root);
+			if (func == 0x6 || func == 0x9)
+				xorxnor2.insert(tuple<SigBit, SigBit>(A, B));
 
-			if (is_andnot_a)
-				part_andnot[tuple<SigBit, SigBit>(B, A)].insert(root);
-
-			if (is_andnot_b)
-				part_andnot[tuple<SigBit, SigBit>(A, B)].insert(root);
+			func2[tuple<SigBit, SigBit>(A, B)][func].insert(root);
 		}
 
 		if (GetSize(leaves) == 3)
@@ -134,23 +124,12 @@ struct AddersWorker
 			SigBit B = SigSpec(leaves)[1];
 			SigBit C = SigSpec(leaves)[2];
 
-			bool is_xor3 = true;
-			bool is_maj = true;
-			bool is_maj_nota = true;
-			bool is_maj_notb = true;
-			bool is_maj_notc = true;
-
+			int func = 0;
 			for (int i = 0; i < 8; i++)
 			{
 				bool a_value = (i & 1) != 0;
 				bool b_value = (i & 2) != 0;
 				bool c_value = (i & 4) != 0;
-
-				bool xor3_value = (a_value != b_value) != c_value;
-				bool maj_value = (a_value && b_value) || (a_value && c_value) || (b_value && c_value);
-				bool maj_nota_value = (!a_value && b_value) || (!a_value && c_value) || (b_value && c_value);
-				bool maj_notb_value = (a_value && !b_value) || (a_value && c_value) || (!b_value && c_value);
-				bool maj_notc_value = (a_value && b_value) || (a_value && !c_value) || (b_value && !c_value);
 
 				ce.push();
 				ce.set(A, a_value ? State::S1 : State::S0);
@@ -162,38 +141,18 @@ struct AddersWorker
 				if (!ce.eval(sig))
 					log_abort();
 
-				if (sig != xor3_value)
-					is_xor3 = false;
-
-				if (sig != maj_value)
-					is_maj = false;
-
-				if (sig != maj_nota_value)
-					is_maj_nota = false;
-
-				if (sig != maj_notb_value)
-					is_maj_notb = false;
-
-				if (sig != maj_notc_value)
-					is_maj_notc = false;
+				if (sig == State::S1)
+					func |= 1 << i;
 
 				ce.pop();
 			}
 
-			if (is_xor3)
-				part_xor3[tuple<SigBit, SigBit, SigBit>(A, B, C)].insert(root);
+			// log("%08d %s %s %s -> %s\n", bindec(func), log_signal(A), log_signal(B), log_signal(C), log_signal(root));
 
-			if (is_maj)
-				part_maj[tuple<SigBit, SigBit, SigBit>(A, B, C)].insert(root);
+			if (func == 0x69 || func == 0x96)
+				xorxnor3.insert(tuple<SigBit, SigBit, SigBit>(A, B, C));
 
-			if (is_maj_nota)
-				part_majnot[tuple<SigBit, SigBit, SigBit>(B, C, A)].insert(root);
-
-			if (is_maj_notb)
-				part_majnot[tuple<SigBit, SigBit, SigBit>(A, C, B)].insert(root);
-
-			if (is_maj_notc)
-				part_majnot[tuple<SigBit, SigBit, SigBit>(A, B, C)].insert(root);
+			func3[tuple<SigBit, SigBit, SigBit>(A, B, C)][func].insert(root);
 		}
 	}
 
@@ -229,118 +188,6 @@ struct AddersWorker
 		}
 	}
 
-	void make_fa(SigBit A, SigBit B, SigBit C, const pool<SigBit> &sum_out, const pool<SigBit> &carry_out)
-	{
-		if (!config.enable_fa)
-			return;
-
-		Wire *so = module->addWire(NEW_ID);
-		Wire *co = module->addWire(NEW_ID);
-
-		Cell *cell = module->addCell(NEW_ID, "$__fa");
-		cell->setPort("\\A", A);
-		cell->setPort("\\B", B);
-		cell->setPort("\\C", C);
-		cell->setPort("\\SO", so);
-		cell->setPort("\\CO", co);
-
-		log("New full adder %s in module %s: A=%s B=%s C=%s\n", log_id(cell), log_id(module), log_signal(A), log_signal(B), log_signal(C));
-
-		for (auto bit : sum_out) {
-			if (handled_bits.count(bit))
-				continue;
-			Cell *drv = driver.at(bit);
-			drv->setPort("\\Y", module->addWire(NEW_ID));
-			module->connect(bit, so);
-			handled_bits.insert(bit);
-			log("  sum out: %s\n", log_signal(bit));
-		}
-
-		for (auto bit : carry_out) {
-			if (handled_bits.count(bit))
-				continue;
-			Cell *drv = driver.at(bit);
-			drv->setPort("\\Y", module->addWire(NEW_ID));
-			module->connect(bit, co);
-			handled_bits.insert(bit);
-			log("  carry out: %s\n", log_signal(bit));
-		}
-	}
-
-	void make_ha(SigBit A, SigBit B, const pool<SigBit> &sum_out, const pool<SigBit> &carry_out)
-	{
-		if (!config.enable_ha)
-			return;
-
-		Wire *so = module->addWire(NEW_ID);
-		Wire *co = module->addWire(NEW_ID);
-
-		Cell *cell = module->addCell(NEW_ID, "$__ha");
-		cell->setPort("\\A", A);
-		cell->setPort("\\B", B);
-		cell->setPort("\\SO", so);
-		cell->setPort("\\CO", co);
-
-		log("New half adder %s in module %s: A=%s B=%s\n", log_id(cell), log_id(module), log_signal(A), log_signal(B));
-
-		for (auto bit : sum_out) {
-			if (handled_bits.count(bit))
-				continue;
-			Cell *drv = driver.at(bit);
-			drv->setPort("\\Y", module->addWire(NEW_ID));
-			module->connect(bit, so);
-			handled_bits.insert(bit);
-			log("  sum out: %s\n", log_signal(bit));
-		}
-
-		for (auto bit : carry_out) {
-			if (handled_bits.count(bit))
-				continue;
-			Cell *drv = driver.at(bit);
-			drv->setPort("\\Y", module->addWire(NEW_ID));
-			module->connect(bit, co);
-			handled_bits.insert(bit);
-			log("  carry out: %s\n", log_signal(bit));
-		}
-	}
-
-	void make_hs(SigBit A, SigBit B, const pool<SigBit> &sum_out, const pool<SigBit> &carry_out)
-	{
-		if (!config.enable_hs)
-			return;
-
-		Wire *so = module->addWire(NEW_ID);
-		Wire *co = module->addWire(NEW_ID);
-
-		Cell *cell = module->addCell(NEW_ID, "$__hs");
-		cell->setPort("\\A", A);
-		cell->setPort("\\B", B);
-		cell->setPort("\\SO", so);
-		cell->setPort("\\CO", co);
-
-		log("New half subtractor %s in module %s: A=%s B=%s\n", log_id(cell), log_id(module), log_signal(A), log_signal(B));
-
-		for (auto bit : sum_out) {
-			if (handled_bits.count(bit))
-				continue;
-			Cell *drv = driver.at(bit);
-			drv->setPort("\\Y", module->addWire(NEW_ID));
-			module->connect(bit, so);
-			handled_bits.insert(bit);
-			log("  sum out: %s\n", log_signal(bit));
-		}
-
-		for (auto bit : carry_out) {
-			if (handled_bits.count(bit))
-				continue;
-			Cell *drv = driver.at(bit);
-			drv->setPort("\\Y", module->addWire(NEW_ID));
-			module->connect(bit, co);
-			handled_bits.insert(bit);
-			log("  carry out: %s\n", log_signal(bit));
-		}
-	}
-
 	void run()
 	{
 		for (auto it : driver)
@@ -352,31 +199,35 @@ struct AddersWorker
 			find_partitions(root, leaves, cache, 5, 10);
 		}
 
-		for (auto &it : part_xor3)
+		for (auto &key : xorxnor3)
 		{
-			SigBit A = get<0>(it.first);
-			SigBit B = get<1>(it.first);
-			SigBit C = get<2>(it.first);
+			SigBit A = get<0>(key);
+			SigBit B = get<1>(key);
+			SigBit C = get<2>(key);
 
-			// FIXME: Add support for full subtractors
+			log("3-Input XOR/XNOR %s %s %s:\n", log_signal(A), log_signal(B), log_signal(C));
 
-			if (part_maj.count(tuple<SigBit, SigBit, SigBit>(A, B, C)))
-				make_fa(A, B, C, it.second, part_maj.at(tuple<SigBit, SigBit, SigBit>(A, B, C)));
+			for (auto &it : func3.at(key)) {
+				log("    %08d ->", bindec(it.first));
+				for (auto bit : it.second)
+					log(" %s", log_signal(bit));
+				log("\n");
+			}
 		}
 
-		for (auto &it : part_xor)
+		for (auto &key : xorxnor2)
 		{
-			SigBit A = get<0>(it.first);
-			SigBit B = get<1>(it.first);
+			SigBit A = get<0>(key);
+			SigBit B = get<1>(key);
 
-			if (part_andnot.count(tuple<SigBit, SigBit>(A, B)))
-				make_hs(A, B, it.second, part_andnot.at(tuple<SigBit, SigBit>(A, B)));
+			log("2-Input XOR/XNOR %s %s:\n", log_signal(A), log_signal(B));
 
-			if (part_andnot.count(tuple<SigBit, SigBit>(B, A)))
-				make_hs(B, A, it.second, part_andnot.at(tuple<SigBit, SigBit>(B, A)));
-
-			if (part_and.count(tuple<SigBit, SigBit>(A, B)))
-				make_ha(A, B, it.second, part_and.at(tuple<SigBit, SigBit>(A, B)));
+			for (auto &it : func2.at(key)) {
+				log("    %04d ->", bindec(it.first));
+				for (auto bit : it.second)
+					log(" %s", log_signal(bit));
+				log("\n");
+			}
 		}
 	}
 };
