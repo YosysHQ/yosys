@@ -1251,6 +1251,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 			}
 		}
+		
 		if (do_fine && (cell->type.in("$eq", "$ne")))
 		{
 			RTLIL::SigSpec a_sig, b_sig, y_sig;
@@ -1269,126 +1270,145 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			dict<SigBit, RTLIL::SigSpec> compared_by_const;
 			pool<SigBit> signals_map;
 			SigBit polarity_bit = cell->type == "$eq" ? State::S0 : State::S1;
-
+			
+			bool do_gate = true;
+			
 			if (a_signed || b_signed)
-				goto next_cell;
-
-			for (int i = 0; i < a_width; i++)
+				do_gate = false;
+			
+			RTLIL::SigSpec all_input_bits;
+			all_input_bits.append(cell->getPort("\\A"));
+			all_input_bits.append(cell->getPort("\\B"));
+			
+			// skip cells that has x's or z's in inputs.
+			if (all_input_bits.to_sigbit_set().count(RTLIL::Sx) || all_input_bits.to_sigbit_set().count(RTLIL::Sz))
+				do_gate = false;
+			
+			if (do_gate)
 			{
-				if ((a_sig[i] ==  RTLIL::State::S0) || (a_sig[i] ==  RTLIL::State::S1))
-				{
-					if (compared_by_const.count(b_sig[i]))
-					{
-						if (compared_by_const.at(b_sig[i]) != a_sig[i])
-						{
-							// case where comparing signal against S0 and S1
-							log("Replacing cell `%s' in module `%s' with zero-driver.\n",
-								cell->name.c_str(), module->name.c_str());
-							
-							module->connect(RTLIL::SigSig(y_sig, RTLIL::SigSpec(polarity_bit, y_sig.size())));
-							module->remove(cell);
-							
-							did_something = true;
-							goto next_cell;
-						}
-					} else
-					{
-						compared_by_const[b_sig[i]] = a_sig[i];
-					}
-				}
-			}
-			for (int i = 0; i < b_width; i++)
-			{
-				if ((b_sig[i] ==  RTLIL::State::S0) || (b_sig[i] ==  RTLIL::State::S1))
-				{
-					if (compared_by_const.count(a_sig[i]))
-					{
-						if (compared_by_const.at(a_sig[i]) != b_sig[i])
-						{
-							// case where comparing signal against S0 and S1
-							log("Replacing cell `%s' in module `%s' with zero-driver.\n",
-								cell->name.c_str(), module->name.c_str());
-							
-							module->connect(RTLIL::SigSig(y_sig, RTLIL::SigSpec(polarity_bit, y_sig.size())));
-							module->remove(cell);
-							
-							did_something = true;
-							goto next_cell;
-						}
-					} else
-					{
-						compared_by_const[b_sig[i]] = b_sig[i];
-					}
-				}
-			}
-
-			if (a_width + b_width > 2)
-			{
+				if (GetSize(a_sig) < GetSize(b_sig))
+					a_sig.extend_u0(GetSize(b_sig), false);
+				if (GetSize(b_sig) < GetSize(a_sig))
+					b_sig.extend_u0(GetSize(a_sig), false);
+				
 				for (int i = 0; i < a_width; i++)
 				{
-					signals_map.insert(a_sig[i]);
+					if ((a_sig[i] ==  RTLIL::State::S0) || (a_sig[i] ==  RTLIL::State::S1))
+					{
+						if (compared_by_const.count(b_sig[i]))
+						{
+							if (compared_by_const.at(b_sig[i]) != a_sig[i])
+							{
+								// case where comparing signal against S0 and S1
+								log("Replacing cell `%s' in module `%s' with zero-driver.\n",
+									cell->name.c_str(), module->name.c_str());
+								
+								module->connect(RTLIL::SigSig(y_sig, RTLIL::SigSpec(polarity_bit, y_sig.size())));
+								module->remove(cell);
+								
+								did_something = true;
+								goto next_cell;
+							}
+						} else
+						{
+							compared_by_const[b_sig[i]] = a_sig[i];
+						}
+					}
 				}
 				for (int i = 0; i < b_width; i++)
 				{
-					signals_map.insert(b_sig[i]);
-				}
-				
-				RTLIL::SigSpec c_sig, sig_const, ss;
-				if (signals_map.size() == 2)
-				{
-					for (auto ss: signals_map)
+					if ((b_sig[i] ==  RTLIL::State::S0) || (b_sig[i] ==  RTLIL::State::S1))
 					{
-						if ((ss == RTLIL::State::S0) || (ss == RTLIL::State::S1))
+						if (compared_by_const.count(a_sig[i]))
 						{
-							sig_const = ss;
+							if (compared_by_const.at(a_sig[i]) != b_sig[i])
+							{
+								// case where comparing signal against S0 and S1
+								log("Replacing cell `%s' in module `%s' with zero-driver.\n",
+									cell->name.c_str(), module->name.c_str());
+								
+								module->connect(RTLIL::SigSig(y_sig, RTLIL::SigSpec(polarity_bit, y_sig.size())));
+								module->remove(cell);
+								
+								did_something = true;
+								goto next_cell;
+							}
 						} else
 						{
-							c_sig = ss;
+							compared_by_const[b_sig[i]] = b_sig[i];
 						}
 					}
-					if (sig_const == RTLIL::State::S0)
+				}
+				
+				if (a_width + b_width > 2)
+				{
+					for (int i = 0; i < a_width; i++)
 					{
-						if (polarity_bit == State::S0)
-						{
-							// case where comparing one signal to zero
-							log("Replacing compare cell `%s' in module `%s' with $not.\n",
-								cell->name.c_str(), module->name.c_str());
-							module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
-							module->remove(cell);
-						} else
-						{
-							log("Replacing compare cell `%s' in module `%s' with wire.\n",
-								cell->name.c_str(), module->name.c_str());
-							module->connect(cell->getPort("\\Y"), c_sig);
-							module->remove(cell);
-						}
-						
-						did_something = true;
-						goto next_cell;
-						
-					} else if (sig_const == RTLIL::State::S1)
+						signals_map.insert(a_sig[i]);
+					}
+					for (int i = 0; i < b_width; i++)
 					{
-						if (polarity_bit == State::S1)
+						signals_map.insert(b_sig[i]);
+					}
+					
+					RTLIL::SigSpec c_sig, sig_const, ss;
+					if (signals_map.size() == 2)
+					{
+						for (auto ss: signals_map)
 						{
-							// case where comparing one signal to 1
-							log("Replacing compare cell `%s' in module `%s' with $not.\n",
-								cell->name.c_str(), module->name.c_str());
-							module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
-							module->remove(cell);
-						} else
-						{
-							log("Replacing compare cell `%s' in module `%s' with wire.\n",
-								cell->name.c_str(), module->name.c_str());
-							module->connect(cell->getPort("\\Y"), c_sig);
-							module->remove(cell);
+							if ((ss == RTLIL::State::S0) || (ss == RTLIL::State::S1))
+							{
+								sig_const = ss;
+							} else
+							{
+								c_sig = ss;
+							}
 						}
-						
-						did_something = true;
-						goto next_cell;
-						
+						if (sig_const == RTLIL::State::S0)
+						{
+							if (polarity_bit == State::S0)
+							{
+								// case where comparing one signal to zero
+								log("Replacing compare cell `%s' in module `%s' with $not.\n",
+									cell->name.c_str(), module->name.c_str());
+								module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
+								module->remove(cell);
+							} else
+							{
+								log("Replacing compare cell `%s' in module `%s' with wire.\n",
+									cell->name.c_str(), module->name.c_str());
+								module->connect(cell->getPort("\\Y"), c_sig);
+								module->remove(cell);
+							}
+							
+							did_something = true;
+							goto next_cell;
+							
+						} else if (sig_const == RTLIL::State::S1)
+						{
+							if (polarity_bit == State::S1)
+							{
+								// case where comparing one signal to 1
+								log("Replacing compare cell `%s' in module `%s' with $not.\n",
+									cell->name.c_str(), module->name.c_str());
+								module->addNot(NEW_ID, c_sig, cell->getPort("\\Y"));
+								module->remove(cell);
+							} else
+							{
+								log("Replacing compare cell `%s' in module `%s' with wire.\n",
+									cell->name.c_str(), module->name.c_str());
+								module->connect(cell->getPort("\\Y"), c_sig);
+								module->remove(cell);
+							}
+							
+							did_something = true;
+							goto next_cell;
+							
+						}
 					}
 				}
 			}
+		}
 		
 		// replace a<0 or a>=0 with the top bit of a
 		if (do_fine && (cell->type == "$lt" || cell->type == "$ge" || cell->type == "$gt" || cell->type == "$le"))
