@@ -16,6 +16,7 @@ ifneq ($(SMALL),1)
 OBJS += passes/techmap/iopadmap.o
 OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/extract.o
+OBJS += passes/techmap/extract_fa.o
 OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/dff2dffe.o
 OBJS += passes/techmap/dffinit.o
@@ -32,7 +33,6 @@ OBJS += passes/techmap/insbuf.o
 OBJS += passes/techmap/attrmvcp.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/zinit.o
-OBJS += passes/techmap/adders.o
 endif
 
 GENFILES += passes/techmap/techmap.inc

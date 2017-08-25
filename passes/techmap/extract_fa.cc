@@ -24,12 +24,10 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct AddersConfig
+struct ExtractFaConfig
 {
 	bool enable_fa = false;
 	bool enable_ha = false;
-	bool enable_fs = false;
-	bool enable_hs = false;
 };
 
 // http://svn.clifford.at/handicraft/2016/bindec/bindec.c
@@ -46,9 +44,9 @@ int bindec(unsigned char v)
 	return r;
 }
 
-struct AddersWorker
+struct ExtractFaWorker
 {
-	const AddersConfig &config;
+	const ExtractFaConfig &config;
 	Module *module;
 	ConstEval ce;
 	SigMap &sigmap;
@@ -62,7 +60,7 @@ struct AddersWorker
 	dict<tuple<SigBit, SigBit>, dict<int, pool<SigBit>>> func2;
 	dict<tuple<SigBit, SigBit, SigBit>, dict<int, pool<SigBit>>> func3;
 
-	AddersWorker(const AddersConfig &config, Module *module) :
+	ExtractFaWorker(const ExtractFaConfig &config, Module *module) :
 			config(config), module(module), ce(module), sigmap(ce.assign_map)
 	{
 		for (auto cell : module->selected_cells())
@@ -232,26 +230,26 @@ struct AddersWorker
 	}
 };
 
-struct AddersPass : public Pass {
-	AddersPass() : Pass("adders", "find and extract full/half adders/subtractors") { }
+struct ExtractFaPass : public Pass {
+	ExtractFaPass() : Pass("extract_fa", "find and extract full/half adders") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    adders [options] [selection]\n");
+		log("    extract_fa [options] [selection]\n");
 		log("\n");
-		log("This pass extracts full/half adders/subtractors from a gate-level design.\n");
+		log("This pass extracts full/half adders from a gate-level design.\n");
 		log("\n");
-		log("    -fa, -ha, -fs, -hs\n");
-		log("        Enable cell types (f=full, h=half, a=adder, s=subtractor)\n");
+		log("    -fa, -ha\n");
+		log("        Enable cell types (fa=full adder, ha=half adder)\n");
 		log("        All types are enabled if none of this options is used\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		AddersConfig config;
+		ExtractFaConfig config;
 
-		log_header(design, "Executing ADDERS pass (find and extract full/half adders/subtractors).\n");
+		log_header(design, "Executing EXTRACT_FA pass (find and extract full/half adders).\n");
 		log_push();
 
 		size_t argidx;
@@ -265,33 +263,23 @@ struct AddersPass : public Pass {
 				config.enable_ha = true;
 				continue;
 			}
-			if (args[argidx] == "-fs") {
-				config.enable_fs = true;
-				continue;
-			}
-			if (args[argidx] == "-hs") {
-				config.enable_hs = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		if (!config.enable_fa && !config.enable_ha && !config.enable_fs && !config.enable_hs) {
+		if (!config.enable_fa && !config.enable_ha) {
 			config.enable_fa = true;
 			config.enable_ha = true;
-			config.enable_fs = true;
-			config.enable_hs = true;
 		}
 
 		for (auto module : design->selected_modules())
 		{
-			AddersWorker worker(config, module);
+			ExtractFaWorker worker(config, module);
 			worker.run();
 		}
 
 		log_pop();
 	}
-} AddersPass;
+} ExtractFaPass;
 
 PRIVATE_NAMESPACE_END
