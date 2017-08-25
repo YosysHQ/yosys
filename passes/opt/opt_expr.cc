@@ -1277,7 +1277,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			{
 				SigBit bit_a = i < a_width ? assign_map(sig_a[i]) : State::S0;
 				SigBit bit_b = i < b_width ? assign_map(sig_b[i]) : State::S0;
-				contradiction_cache.merge(bit_a, bit_b);
+
+				if (bit_a != State::Sx && bit_a != State::Sz &&
+						bit_b != State::Sx && bit_b != State::Sz)
+					contradiction_cache.merge(bit_a, bit_b);
 
 				if (bit_b < bit_a)
 					std::swap(bit_a, bit_b);
