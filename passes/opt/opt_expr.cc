@@ -1252,6 +1252,78 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		// remove redundant pairs of bits in ==, ===, !=, and !==
+		// replace cell with const driver if inputs can't be equal
+		if (do_fine && cell->type.in("$eq", "$ne", "$eqx", "$nex"))
+		{
+			pool<pair<SigBit, SigBit>> redundant_cache;
+			mfp<SigBit> contradiction_cache;
+
+			contradiction_cache.promote(State::S0);
+			contradiction_cache.promote(State::S1);
+
+			int a_width = cell->getParam("\\A_WIDTH").as_int();
+			int b_width = cell->getParam("\\B_WIDTH").as_int();
+
+			bool is_signed = cell->getParam("\\A_SIGNED").as_bool();
+			int width = is_signed ? std::min(a_width, b_width) : std::max(a_width, b_width);
+
+			SigSpec sig_a = cell->getPort("\\A");
+			SigSpec sig_b = cell->getPort("\\B");
+
+			int redundant_bits = 0;
+
+			for (int i = width-1; i >= 0; i--)
+			{
+				SigBit bit_a = i < a_width ? assign_map(sig_a[i]) : State::S0;
+				SigBit bit_b = i < b_width ? assign_map(sig_b[i]) : State::S0;
+				contradiction_cache.merge(bit_a, bit_b);
+
+				if (bit_b < bit_a)
+					std::swap(bit_a, bit_b);
+
+				pair<SigBit, SigBit> key(bit_a, bit_b);
+
+				if (redundant_cache.count(key)) {
+					if (i < a_width) sig_a.remove(i);
+					if (i < b_width) sig_b.remove(i);
+					redundant_bits++;
+					continue;
+				}
+
+				redundant_cache.insert(key);
+			}
+
+			if (contradiction_cache.find(State::S0) == contradiction_cache.find(State::S1))
+			{
+				SigSpec y_sig = cell->getPort("\\Y");
+				Const y_value(cell->type.in("$eq", "$eqx") ? 0 : 1, GetSize(y_sig));
+
+				log("Replacing cell `%s' in module `%s' with constant driver %s.\n",
+					log_id(cell), log_id(module), log_signal(y_value));
+
+				module->connect(y_sig, y_value);
+				module->remove(cell);
+
+				did_something = true;
+				goto next_cell;
+			}
+
+			if (redundant_bits)
+			{
+				log("Removed %d redundant input bits from %s cell `%s' in module `%s'.\n",
+						redundant_bits, log_id(cell->type), log_id(cell), log_id(module));
+
+				cell->setPort("\\A", sig_a);
+				cell->setPort("\\B", sig_b);
+				cell->setParam("\\A_WIDTH", GetSize(sig_a));
+				cell->setParam("\\B_WIDTH", GetSize(sig_b));
+
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		// replace a<0 or a>=0 with the top bit of a
 		if (do_fine && (cell->type == "$lt" || cell->type == "$ge" || cell->type == "$gt" || cell->type == "$le"))
 		{
