@@ -23,25 +23,28 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct RecoverReduceCorePass : public Pass {
+struct RecoverReducePass : public Pass {
 	enum GateType {
 		And,
 		Or,
 		Xor
 	};
 
-	RecoverReduceCorePass() : Pass("recover_reduce_core", "converts gate chains into $reduce_*") { }
+	RecoverReducePass() : Pass("recover_reduce", "converts gate chains into $reduce_* cells") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    recover_reduce_core\n");
+		log("    recover_reduce\n");
 		log("\n");
-		log("converts gate chains into $reduce_*\n");
+		log("converts gate chains into $reduce_* cells\n");
 		log("\n");
-		log("This performs the core step of the recover_reduce command. This step recognizes\n");
-		log("chains of gates found by the previous steps and converts these chains into one\n");
-		log("logical cell.\n");
+		log("This command finds chains of $_AND_, $_OR_, and $_XOR_ cells and replaces them\n");
+		log("with their corresponding $reduce_* cells. Because this command only operates on\n");
+		log("these cell types, it is recommended to map the design to only these cell types\n");
+		log("using the `abc -g` command. Note that, in some cases, it may be more effective\n");
+		log("to map the design to only $_AND_ cells, run recover_reduce, map the remaining\n");
+		log("parts of the design to AND/OR/XOR cells, and run recover_reduce a second time.\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -214,6 +217,6 @@ struct RecoverReduceCorePass : public Pass {
 				module->remove(cell);
 		}
 	}
-} RecoverReduceCorePass;
+} RecoverReducePass;
 
 PRIVATE_NAMESPACE_END
