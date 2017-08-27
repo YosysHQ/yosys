@@ -18,7 +18,6 @@ OBJS += passes/techmap/hilomap.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_fa.o
 OBJS += passes/techmap/recover_reduce.o
-OBJS += passes/techmap/recover_reduce_core.o
 OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/dff2dffe.o
 OBJS += passes/techmap/dffinit.o
