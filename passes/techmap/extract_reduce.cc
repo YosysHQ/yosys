@@ -23,19 +23,21 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct RecoverReducePass : public Pass {
+struct ExtractReducePass : public Pass
+{
 	enum GateType {
 		And,
 		Or,
 		Xor
 	};
 
-	RecoverReducePass() : Pass("recover_reduce", "converts gate chains into $reduce_* cells") { }
+	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_* cells") { }
+
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    recover_reduce\n");
+		log("    extract_reduce [selection]\n");
 		log("\n");
 		log("converts gate chains into $reduce_* cells\n");
 		log("\n");
@@ -43,13 +45,26 @@ struct RecoverReducePass : public Pass {
 		log("with their corresponding $reduce_* cells. Because this command only operates on\n");
 		log("these cell types, it is recommended to map the design to only these cell types\n");
 		log("using the `abc -g` command. Note that, in some cases, it may be more effective\n");
-		log("to map the design to only $_AND_ cells, run recover_reduce, map the remaining\n");
-		log("parts of the design to AND/OR/XOR cells, and run recover_reduce a second time.\n");
+		log("to map the design to only $_AND_ cells, run extract_reduce, map the remaining\n");
+		log("parts of the design to AND/OR/XOR cells, and run extract_reduce a second time.\n");
 		log("\n");
 	}
+
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		(void)args;
+		log_header(design, "Executing EXTRACT_REDUCE pass.\n");
+		log_push();
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			// if (args[argidx] == "-v") {
+			// 	verbose = true;
+			// 	continue;
+			// }
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
 		{
@@ -216,7 +231,9 @@ struct RecoverReducePass : public Pass {
 			for (auto cell : consumed_cells)
 				module->remove(cell);
 		}
+
+		log_pop();
 	}
-} RecoverReducePass;
+} ExtractReducePass;
 
 PRIVATE_NAMESPACE_END
