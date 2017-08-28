@@ -22,16 +22,16 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct RecoverTFFPass : public ScriptPass
+struct ExtractTFFPass : public ScriptPass
 {
-    RecoverTFFPass() : ScriptPass("recover_tff", "recovers toggle flip-flops from gates") {}
+    ExtractTFFPass() : ScriptPass("extract_tff", "recovers toggle flip-flops from gates") {}
     virtual void help() YS_OVERRIDE
     {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
-        log("    recover_tff [options]\n");
+        log("    extract_tff [options]\n");
         log("\n");
-        log("recovers toggle flip-flops from gates\n");
+        log("Extracts toggle flip-flops from gates\n");
         log("\n");
         log("Reconstructs toggle flip-flops given a netlist of gates. This pass is intended\n");
         log("to be used as part of a circuit reverse-engineering workflow, but it does also\n");
@@ -66,7 +66,7 @@ struct RecoverTFFPass : public ScriptPass
         }
         extra_args(args, argidx, design);
 
-        log_header(design, "Executing recover_tff.\n");
+        log_header(design, "Executing extract_tff.\n");
         log_push();
 
         run_script(design, "", "");
@@ -85,6 +85,6 @@ struct RecoverTFFPass : public ScriptPass
 
         run("clean");
     }
-} RecoverTFFPass;
+} ExtractTFFPass;
 
 PRIVATE_NAMESPACE_END
