@@ -28,6 +28,9 @@ struct ExtractFaConfig
 {
 	bool enable_fa = false;
 	bool enable_ha = false;
+	bool verbose = false;
+	int maxdepth = 20;
+	int maxbreadth = 6;
 };
 
 // http://svn.clifford.at/handicraft/2016/bindec/bindec.c
@@ -62,6 +65,9 @@ struct ExtractFaWorker
 
 	dict<tuple<SigBit, SigBit>, dict<int, pool<SigBit>>> func2;
 	dict<tuple<SigBit, SigBit, SigBit>, dict<int, pool<SigBit>>> func3;
+
+	int count_func2;
+	int count_func3;
 
 	struct func2_and_info_t {
 		bool inv_a, inv_b, inv_y;
@@ -182,6 +188,7 @@ struct ExtractFaWorker
 			if (func == xor2_func || func == xnor2_func)
 				xorxnor2.insert(tuple<SigBit, SigBit>(A, B));
 
+			count_func2++;
 			func2[tuple<SigBit, SigBit>(A, B)][func].insert(root);
 		}
 
@@ -221,6 +228,7 @@ struct ExtractFaWorker
 			if (func == xor3_func || func == xnor3_func)
 				xorxnor3.insert(tuple<SigBit, SigBit, SigBit>(A, B, C));
 
+			count_func3++;
 			func3[tuple<SigBit, SigBit, SigBit>(A, B, C)][func].insert(root);
 		}
 	}
@@ -284,7 +292,19 @@ struct ExtractFaWorker
 			pool<SigBit> leaves = { root };
 			pool<pool<SigBit>> cache;
 
-			find_partitions(root, leaves, cache, 20, 10);
+			if (config.verbose)
+				log("  checking %s\n", log_signal(it.first));
+
+			count_func2 = 0;
+			count_func3 = 0;
+
+			find_partitions(root, leaves, cache, config.maxdepth, config.maxbreadth);
+
+			if (config.verbose && count_func2 > 0)
+				log("    extracted %d two-input functions\n", count_func2);
+
+			if (config.verbose && count_func3 > 0)
+				log("    extracted %d three-input functions\n", count_func3);
 		}
 
 		for (auto &key : xorxnor3)
@@ -460,6 +480,15 @@ struct ExtractFaPass : public Pass {
 		log("        Enable cell types (fa=full adder, ha=half adder)\n");
 		log("        All types are enabled if none of this options is used\n");
 		log("\n");
+		log("    -d <int>\n");
+		log("        Set maximum depth for extracted logic cones (default=20)\n");
+		log("\n");
+		log("    -b <int>\n");
+		log("        Set maximum breadth for extracted logic cones (default=6)\n");
+		log("\n");
+		log("    -v\n");
+		log("        Verbose output\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
@@ -477,6 +506,18 @@ struct ExtractFaPass : public Pass {
 			}
 			if (args[argidx] == "-ha") {
 				config.enable_ha = true;
+				continue;
+			}
+			if (args[argidx] == "-v") {
+				config.verbose = true;
+				continue;
+			}
+			if (args[argidx] == "-d" && argidx+2 < args.size()) {
+				config.maxdepth = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-b" && argidx+2 < args.size()) {
+				config.maxbreadth = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
