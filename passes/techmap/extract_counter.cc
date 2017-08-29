@@ -105,15 +105,20 @@ struct CounterExtraction
 //attempt to extract a counter centered on the given adder cell
 //For now we only support DOWN counters.
 //TODO: up/down support
-int counter_tryextract(ModIndex& index, Cell *cell, CounterExtraction& extract, pool<RTLIL::IdString>& parallel_cells)
+int counter_tryextract(
+	ModIndex& index,
+	Cell *cell,
+	CounterExtraction& extract,
+	pool<RTLIL::IdString>& parallel_cells,
+	int maxwidth)
 {
 	SigMap& sigmap = index.sigmap;
 
 	//A counter with less than 2 bits makes no sense
-	//TODO: configurable min/max thresholds
+	//TODO: configurable min threshold
 	int a_width = cell->getParam("\\A_WIDTH").as_int();
 	extract.width = a_width;
-	if(a_width < 2)
+	if( (a_width < 2) || (a_width > maxwidth) )
 		return 1;
 
 	//Second input must be a single bit
@@ -287,15 +292,14 @@ void counter_worker(
 	unsigned int& total_counters,
 	pool<Cell*>& cells_to_remove,
 	pool<pair<Cell*, string>>& cells_to_rename,
-	pool<RTLIL::IdString>& parallel_cells)
+	pool<RTLIL::IdString>& parallel_cells,
+	int maxwidth)
 {
 	SigMap& sigmap = index.sigmap;
 
 	//Core of the counter must be an ALU
 	if (cell->type != "$alu")
 		return;
-
-	log("Looking at cell %s\n", cell->name.c_str());
 
 	//A input is the count value. Check if it has COUNT_EXTRACT set.
 	//If it's not a wire, don't even try
@@ -336,7 +340,7 @@ void counter_worker(
 
 	//Attempt to extract a counter
 	CounterExtraction extract;
-	int reason = counter_tryextract(index, cell, extract, parallel_cells);
+	int reason = counter_tryextract(index, cell, extract, parallel_cells, maxwidth);
 
 	//Nonzero code - we could not find a matchable counter.
 	//Do nothing, unless extraction was forced in which case give an error
@@ -414,7 +418,7 @@ void counter_worker(
 	cell->unsetParam("\\Y_WIDTH");
 
 	//Change the cell type
-	cell->type = "$__COUNT__";
+	cell->type = "$__COUNT_";
 
 	//Hook up resets
 	if(extract.has_reset)
@@ -432,13 +436,13 @@ void counter_worker(
 	//Hook up other stuff
 	//cell->setParam("\\CLKIN_DIVIDE", RTLIL::Const(1));
 	cell->setParam("\\COUNT_TO", RTLIL::Const(extract.count_value));
-
+	cell->setParam("\\WIDTH", RTLIL::Const(extract.width));
 	cell->setPort("\\CLK", extract.clk);
 	cell->setPort("\\OUT", extract.outsig);
 
 	//Hook up hard-wired ports (for now CE and up/=down are not supported), default to no parallel output
 	cell->setParam("\\HAS_POUT", RTLIL::Const(0));
-	cell->setParam("\\HAS_CE", RTLIL::Const("NO"));
+	cell->setParam("\\HAS_CE", RTLIL::Const(0));
 	cell->setParam("\\DIRECTION", RTLIL::Const("DOWN"));
 	cell->setPort("\\CE", RTLIL::Const(1));
 	cell->setPort("\\UP", RTLIL::Const(1));
@@ -478,6 +482,8 @@ struct ExtractCounterPass : public Pass {
 		log("counter cells. Use a target-specific 'techmap' map file to convert those cells\n");
 		log("to the actual target cells.\n");
 		log("\n");
+		log("    -maxwidth N\n");
+		log("        Only extract counters up to N bits wide\n");
 		log("    -pout X,Y,...\n");
 		log("        Only allow parallel output from the counter to the listed cell types\n");
 		log("        (if not specified, parallel outputs are not restricted)\n");
@@ -488,6 +494,7 @@ struct ExtractCounterPass : public Pass {
 	{
 		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 
+		int maxwidth = 64;
 		size_t argidx;
 		pool<RTLIL::IdString> parallel_cells;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -513,6 +520,13 @@ struct ExtractCounterPass : public Pass {
 						tmp += pouts[i];
 				}
 				parallel_cells.insert(RTLIL::IdString(tmp));
+				continue;
+			}
+
+			if (args[argidx] == "-maxwidth" && argidx+1 < args.size())
+			{
+				maxwidth = atoi(args[++argidx].c_str());
+				continue;
 			}
 		}
 		extra_args(args, argidx, design);
@@ -526,7 +540,7 @@ struct ExtractCounterPass : public Pass {
 
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename, parallel_cells);
+				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename, parallel_cells, maxwidth);
 
 			for(auto cell : cells_to_remove)
 			{

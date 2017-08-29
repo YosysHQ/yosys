@@ -144,3 +144,71 @@ module \$lut (A, Y);
     end
   endgenerate
 endmodule
+
+module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
+
+	input wire CE;
+	input wire CLK;
+	output reg OUT;
+	output reg[WIDTH-1:0] POUT;
+	input wire RST;
+	input wire UP;
+
+	parameter COUNT_TO = 1;
+	parameter RESET_MODE = "RISING";
+	parameter HAS_POUT = 0;
+	parameter HAS_CE = 0;
+	parameter WIDTH = 8;
+	parameter DIRECTION = "DOWN";
+
+	//If we have a CE, or DIRECTION other than DOWN fail... GP_COUNTx_ADV is not supported yet
+	if(HAS_CE || (DIRECTION != "DOWN") ) begin
+		initial begin
+			$display("ERROR: \$__COUNT__ support for GP_COUNTx_ADV is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
+			$finish;
+		end
+	end
+
+	//If counter is more than 14 bits wide, complain (also shouldn't happen)
+	else if(WIDTH > 14) begin
+		initial begin
+			$display("ERROR: \$__COUNT__ support for cascaded counters is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
+			$finish;
+		end
+	end
+
+	//If counter is more than 8 bits wide and has parallel output, we have a problem
+	else if(WIDTH > 8 && HAS_POUT) begin
+		initial begin
+			$display("ERROR: \$__COUNT__ support for 9-14 bit counters with parallel output is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
+			$finish;
+		end
+	end
+
+	//Looks like a legal counter! Do something with it
+	else if(WIDTH <= 8) begin
+		GP_COUNT8 #(
+			.COUNT_TO(COUNT_TO),
+			.RESET_MODE(RESET_MODE),
+			.CLKIN_DIVIDE(1)
+		) _TECHMAP_REPLACE_ (
+			.CLK(CLK),
+			.RST(RST),
+			.OUT(OUT),
+			.POUT(POUT)
+		);
+	end
+
+	else begin
+		GP_COUNT14 #(
+			.COUNT_TO(COUNT_TO),
+			.RESET_MODE(RESET_MODE),
+			.CLKIN_DIVIDE(1)
+		) _TECHMAP_REPLACE_ (
+			.CLK(CLK),
+			.RST(RST),
+			.OUT(OUT)
+		);
+	end
+
+endmodule
