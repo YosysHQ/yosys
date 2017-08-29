@@ -153,7 +153,6 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		{
 			run("abc -sop -I 40 -P 56");
 			run("coolrunner2_sop");
-			run("opt -fast");
 		}
 
 		if (check_label("map_cells"))
