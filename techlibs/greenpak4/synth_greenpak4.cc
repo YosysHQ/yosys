@@ -155,7 +155,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 
 		if (check_label("fine"))
 		{
-			run("greenpak4_counters");
+			run("extract_counter");
 			run("clean");
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");

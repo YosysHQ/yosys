@@ -103,7 +103,7 @@ struct CounterExtraction
 };
 
 //attempt to extract a counter centered on the given adder cell
-int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction& extract)
+int counter_tryextract(ModIndex& index, Cell *cell, CounterExtraction& extract)
 {
 	SigMap& sigmap = index.sigmap;
 
@@ -276,7 +276,7 @@ int greenpak4_counters_tryextract(ModIndex& index, Cell *cell, CounterExtraction
 	return 0;
 }
 
-void greenpak4_counters_worker(
+void counter_worker(
 	ModIndex& index,
 	Cell *cell,
 	unsigned int& total_counters,
@@ -328,7 +328,7 @@ void greenpak4_counters_worker(
 
 	//Attempt to extract a counter
 	CounterExtraction extract;
-	int reason = greenpak4_counters_tryextract(index, cell, extract);
+	int reason = counter_tryextract(index, cell, extract);
 
 	//Nonzero code - we could not find a matchable counter.
 	//Do nothing, unless extraction was forced in which case give an error
@@ -455,21 +455,21 @@ void greenpak4_counters_worker(
 	cells_to_rename.insert(pair<Cell*, string>(cell, countname));
 }
 
-struct Greenpak4CountersPass : public Pass {
-	Greenpak4CountersPass() : Pass("greenpak4_counters", "Extract GreenPak4 counter cells") { }
+struct ExtractCounterPass : public Pass {
+	ExtractCounterPass() : Pass("extract_counter", "Extract GreenPak4 counter cells") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    greenpak4_counters [options] [selection]\n");
+		log("    extract_counter [options] [selection]\n");
 		log("\n");
-		log("This pass converts non-resettable or async resettable down counters to GreenPak4\n");
-		log("counter cells (All other GreenPak4 counter modes must be instantiated manually.)\n");
+		log("This pass converts non-resettable or async resettable down counters to\n");
+		log("counter cells\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header(design, "Executing GREENPAK4_COUNTERS pass (mapping counters to hard IP blocks).\n");
+		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -490,7 +490,7 @@ struct Greenpak4CountersPass : public Pass {
 
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				greenpak4_counters_worker(index, cell, total_counters, cells_to_remove, cells_to_rename);
+				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename);
 
 			for(auto cell : cells_to_remove)
 			{
@@ -508,6 +508,6 @@ struct Greenpak4CountersPass : public Pass {
 		if(total_counters)
 			log("Extracted %u counters\n", total_counters);
 	}
-} Greenpak4CountersPass;
+} ExtractCounterPass;
 
 PRIVATE_NAMESPACE_END
