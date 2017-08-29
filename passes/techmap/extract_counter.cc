@@ -103,15 +103,17 @@ struct CounterExtraction
 };
 
 //attempt to extract a counter centered on the given adder cell
-int counter_tryextract(ModIndex& index, Cell *cell, CounterExtraction& extract)
+//For now we only support DOWN counters.
+//TODO: up/down support
+int counter_tryextract(ModIndex& index, Cell *cell, CounterExtraction& extract, pool<RTLIL::IdString>& parallel_cells)
 {
 	SigMap& sigmap = index.sigmap;
 
-	//GreenPak does not support counters larger than 14 bits so immediately skip anything bigger
-	//TODO: infer cascaded counters?
+	//A counter with less than 2 bits makes no sense
+	//TODO: configurable min/max thresholds
 	int a_width = cell->getParam("\\A_WIDTH").as_int();
 	extract.width = a_width;
-	if(a_width > 14)
+	if(a_width < 2)
 		return 1;
 
 	//Second input must be a single bit
@@ -221,40 +223,43 @@ int counter_tryextract(ModIndex& index, Cell *cell, CounterExtraction& extract)
 	pool<Cell*> cnout_loads = get_other_cells(cnout, index, count_reg);
 	if(cnout_loads.size() > 2)
 	{
-		//It's OK to have other loads iff they go to a DAC or DCMP (these are POUT)
-		for(auto c : cnout_loads)
+		//If we specified a limited set of cells for parallel output, check that we only drive them
+		if(!parallel_cells.empty())
 		{
-			if(c == underflow_inv)
-				continue;
-			if(c == cell)
-				continue;
-
-			//If the cell is not a DAC or DCMP, complain
-			if( (c->type != "\\GP_DCMP") && (c->type != "\\GP_DAC") )
-				return 17;
-
-			//Figure out what port(s) are driven by it
-			//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
-			RTLIL::IdString portname;
-			for(auto b : qport)
+			for(auto c : cnout_loads)
 			{
-				pool<ModIndex::PortInfo> ports = index.query_ports(b);
-				for(auto x : ports)
+				if(c == underflow_inv)
+					continue;
+				if(c == cell)
+					continue;
+
+				//Make sure we're in the whitelist
+				if( parallel_cells.find(c->type) == parallel_cells.end())
+					return 17;
+
+				//Figure out what port(s) are driven by it
+				//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
+				RTLIL::IdString portname;
+				for(auto b : qport)
 				{
-					if(x.cell != c)
-						continue;
-					if(portname == "")
-						portname = x.port;
+					pool<ModIndex::PortInfo> ports = index.query_ports(b);
+					for(auto x : ports)
+					{
+						if(x.cell != c)
+							continue;
+						if(portname == "")
+							portname = x.port;
 
-					//somehow our counter output is going to multiple ports
-					//this makes no sense, don't allow inference
-					else if(portname != x.port)
-						return 17;
+						//somehow our counter output is going to multiple ports
+						//this makes no sense, don't allow inference
+						else if(portname != x.port)
+							return 17;
+					}
 				}
-			}
 
-			//Save the other loads
-			extract.pouts.insert(ModIndex::PortInfo(c, portname, 0));
+				//Save the other loads
+				extract.pouts.insert(ModIndex::PortInfo(c, portname, 0));
+			}
 		}
 	}
 	if(!is_full_bus(cnout, index, count_reg, "\\Q", underflow_inv, "\\A", true))
@@ -281,13 +286,16 @@ void counter_worker(
 	Cell *cell,
 	unsigned int& total_counters,
 	pool<Cell*>& cells_to_remove,
-	pool<pair<Cell*, string>>& cells_to_rename)
+	pool<pair<Cell*, string>>& cells_to_rename,
+	pool<RTLIL::IdString>& parallel_cells)
 {
 	SigMap& sigmap = index.sigmap;
 
 	//Core of the counter must be an ALU
 	if (cell->type != "$alu")
 		return;
+
+	log("Looking at cell %s\n", cell->name.c_str());
 
 	//A input is the count value. Check if it has COUNT_EXTRACT set.
 	//If it's not a wire, don't even try
@@ -328,7 +336,7 @@ void counter_worker(
 
 	//Attempt to extract a counter
 	CounterExtraction extract;
-	int reason = counter_tryextract(index, cell, extract);
+	int reason = counter_tryextract(index, cell, extract, parallel_cells);
 
 	//Nonzero code - we could not find a matchable counter.
 	//Do nothing, unless extraction was forced in which case give an error
@@ -337,7 +345,7 @@ void counter_worker(
 		static const char* reasons[24]=
 		{
 			"no problem",									//0
-			"counter is larger than 14 bits",				//1
+			"counter is too large/small",					//1
 			"counter does not count by one",				//2
 			"counter uses signed math",						//3
 			"counter does not count by one",				//4
@@ -353,7 +361,7 @@ void counter_worker(
 			"Mux output is used outside counter",			//14
 			"Counter reg is not DFF/ADFF",					//15
 			"Counter input is not full bus",				//16
-			"Count register is used outside counter, but not by a DCMP or DAC",		//17
+			"Count register is used outside counter, but not by an allowed cell",		//17
 			"Register output is not full bus",				//18
 			"Register output is not full bus",				//19
 			"No init value found",							//20
@@ -372,13 +380,8 @@ void counter_worker(
 		return;
 	}
 
-	//Figure out the final cell type based on the counter size
-	string celltype = "\\GP_COUNT8";
-	if(extract.width > 8)
-		celltype = "\\GP_COUNT14";
-
 	//Get new cell name
-	string countname = string("$auto$GP_COUNTx$") + log_id(extract.rwire->name.str());
+	string countname = string("$auto$COUNTx$") + log_id(extract.rwire->name.str());
 
 	//Log it
 	total_counters ++;
@@ -411,7 +414,7 @@ void counter_worker(
 	cell->unsetParam("\\Y_WIDTH");
 
 	//Change the cell type
-	cell->type = celltype;
+	cell->type = "$__COUNT__";
 
 	//Hook up resets
 	if(extract.has_reset)
@@ -427,11 +430,18 @@ void counter_worker(
 	}
 
 	//Hook up other stuff
-	cell->setParam("\\CLKIN_DIVIDE", RTLIL::Const(1));
+	//cell->setParam("\\CLKIN_DIVIDE", RTLIL::Const(1));
 	cell->setParam("\\COUNT_TO", RTLIL::Const(extract.count_value));
 
 	cell->setPort("\\CLK", extract.clk);
 	cell->setPort("\\OUT", extract.outsig);
+
+	//Hook up hard-wired ports (for now CE and up/=down are not supported), default to no parallel output
+	cell->setParam("\\HAS_POUT", RTLIL::Const(0));
+	cell->setParam("\\HAS_CE", RTLIL::Const("NO"));
+	cell->setParam("\\DIRECTION", RTLIL::Const("DOWN"));
+	cell->setPort("\\CE", RTLIL::Const(1));
+	cell->setPort("\\UP", RTLIL::Const(1));
 
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
@@ -444,6 +454,7 @@ void counter_worker(
 		//Connect it to our parallel output
 		//(this is OK to do more than once b/c they all go to the same place)
 		cell->setPort("\\POUT", sig);
+		cell->setParam("\\HAS_POUT", RTLIL::Const(1));
 	}
 
 	//Delete the cells we've replaced (let opt_clean handle deleting the now-redundant wires)
@@ -464,7 +475,13 @@ struct ExtractCounterPass : public Pass {
 		log("    extract_counter [options] [selection]\n");
 		log("\n");
 		log("This pass converts non-resettable or async resettable down counters to\n");
-		log("counter cells\n");
+		log("counter cells. Use a target-specific 'techmap' map file to convert those cells\n");
+		log("to the actual target cells.\n");
+		log("\n");
+		log("    -pout X,Y,...\n");
+		log("        Only allow parallel output from the counter to the listed cell types\n");
+		log("        (if not specified, parallel outputs are not restricted)\n");
+		log("\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -472,12 +489,31 @@ struct ExtractCounterPass : public Pass {
 		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 
 		size_t argidx;
+		pool<RTLIL::IdString> parallel_cells;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-v") {
-			// 	continue;
-			// }
-			break;
+			if (args[argidx] == "-pout")
+			{
+				if(argidx + 1 >= args.size())
+				{
+					log_error("extract_counter -pout requires an argument\n");
+					return;
+				}
+
+				std::string pouts = args[++argidx];
+				std::string tmp;
+				for(size_t i=0; i<pouts.length(); i++)
+				{
+					if(pouts[i] == ',')
+					{
+						parallel_cells.insert(RTLIL::IdString(tmp));
+						tmp = "";
+					}
+					else
+						tmp += pouts[i];
+				}
+				parallel_cells.insert(RTLIL::IdString(tmp));
+			}
 		}
 		extra_args(args, argidx, design);
 
@@ -490,7 +526,7 @@ struct ExtractCounterPass : public Pass {
 
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename);
+				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename, parallel_cells);
 
 			for(auto cell : cells_to_remove)
 			{
