@@ -1620,18 +1620,19 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 }
 
 #define DEF_METHOD(_func, _y_size, _type) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed) { \
+		RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, RTLIL::SigSpec sig_a, RTLIL::SigSpec sig_y, bool is_signed, std::string src) { \
 		RTLIL::Cell *cell = addCell(name, _type);           \
 		cell->parameters["\\A_SIGNED"] = is_signed;         \
 		cell->parameters["\\A_WIDTH"] = sig_a.size();       \
 		cell->parameters["\\Y_WIDTH"] = sig_y.size();       \
 		cell->setPort("\\A", sig_a);                        \
 		cell->setPort("\\Y", sig_y);                        \
+		if (!src.empty()) cell->attributes["\\src"] = src;  \
 		return cell;                                        \
 	} \
-	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed) { \
+		RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed, std::string src) { \
 		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);    \
-		add ## _func(name, sig_a, sig_y, is_signed);        \
+		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
 DEF_METHOD(Not,        sig_a.size(), "$not")

@@ -478,10 +478,14 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 		auto cell_type = cell->type;
 		auto cell_name = cell->name;
 		auto cell_connections = cell->connections();
+		std::string src = cell->attributes["\\src"].decode_string();
+
 		module->remove(cell);
 
 		cell_mapping &cm = cell_mappings[cell_type];
 		RTLIL::Cell *new_cell = module->addCell(cell_name, prepare_mode ? cm.cell_name : "\\" + cm.cell_name);
+
+		if (!src.empty()) new_cell->attributes["\\src"] = src;
 
 		bool has_q = false, has_qn = false;
 		for (auto &port : cm.ports) {

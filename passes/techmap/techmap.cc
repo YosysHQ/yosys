@@ -172,6 +172,7 @@ struct TechmapWorker
 
 		std::string orig_cell_name;
 		pool<string> extra_src_attrs;
+		std::string src = cell->attributes["\\src"].decode_string();
 
 		if (!flatten_mode)
 		{
@@ -340,6 +341,8 @@ struct TechmapWorker
 			RTLIL::Cell *c = module->addCell(c_name, it.second);
 			design->select(module, c);
 
+			if (!src.empty()) c->attributes["\\src"] = src;
+
 			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
 				c->type = c->type.substr(1);
 
@@ -464,7 +467,9 @@ struct TechmapWorker
 			log_assert(cell == module->cell(cell->name));
 			bool mapped_cell = false;
 
+			std::string src       = cell->attributes["\\src"].decode_string();
 			std::string cell_type = cell->type.str();
+
 			if (in_recursion && cell_type.substr(0, 2) == "\\$")
 				cell_type = cell_type.substr(1);
 
@@ -511,6 +516,8 @@ struct TechmapWorker
 							{
 								extmapper_module = extmapper_design->addModule(m_name);
 								RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
+
+								if (!src.empty()) extmapper_cell->attributes["\\src"] = src;
 
 								int port_counter = 1;
 								for (auto &c : extmapper_cell->connections_) {
