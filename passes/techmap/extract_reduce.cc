@@ -115,7 +115,19 @@ struct ExtractReducePass : public Pass
 					gt = GateType::Or;
 				else if (cell->type == "$_XOR_")
 					gt = GateType::Xor;
+				else if (cell->type == "$and")
+					gt = GateType::And;
+				else if (cell->type == "$or")
+					gt = GateType::Or;
+				else if (cell->type == "$xor")
+					gt = GateType::Xor;
 				else
+					continue;
+
+				int a_width = cell->getParam("\\A_WIDTH").as_int();
+				int b_width = cell->getParam("\\B_WIDTH").as_int();
+				int y_width = cell->getParam("\\Y_WIDTH").as_int();
+				if ((a_width != 1) || (b_width != 1)|| (y_width != 1))
 					continue;
 
 				log("Working on cell %s...\n", cell->name.c_str());
@@ -127,7 +139,16 @@ struct ExtractReducePass : public Pass
 				{
 					if (!((x->type == "$_AND_" && gt == GateType::And) ||
 						(x->type == "$_OR_" && gt == GateType::Or) ||
-						(x->type == "$_XOR_" && gt == GateType::Xor)))
+						(x->type == "$_XOR_" && gt == GateType::Xor) ||
+						(x->type == "$and" && gt == GateType::And) ||
+						(x->type == "$or" && gt == GateType::Or) ||
+						(x->type == "$xor" && gt == GateType::Xor)
+						))
+						break;
+					int a_width = x->getParam("\\A_WIDTH").as_int();
+					int b_width = x->getParam("\\B_WIDTH").as_int();
+					int y_width = x->getParam("\\Y_WIDTH").as_int();
+					if ((a_width != 1) || (b_width != 1)|| (y_width != 1))
 						break;
 
 					head_cell = x;
@@ -143,6 +164,11 @@ struct ExtractReducePass : public Pass
 				}
 
 				log("  Head cell is %s\n", head_cell->name.c_str());
+				int ha_width = head_cell->getParam("\\A_WIDTH").as_int();
+				int hb_width = head_cell->getParam("\\B_WIDTH").as_int();
+				int hy_width = head_cell->getParam("\\Y_WIDTH").as_int();
+				if ((ha_width != 1) || (hb_width != 1)|| (hy_width != 1))
+					continue;
 
 				pool<Cell*> cur_supercell;
 				std::deque<Cell*> bfs_queue = {head_cell};
@@ -154,36 +180,54 @@ struct ExtractReducePass : public Pass
 					cur_supercell.insert(x);
 
 					auto a = sigmap(x->getPort("\\A"));
-					log_assert(a.size() == 1);
-					// Must have only one sink
-					// XXX: Check that it is indeed this node?
-					if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
+					if (a.size() == 1)
 					{
-						Cell* cell_a = sig_to_driver[a[0]];
-						if (((cell_a->type == "$_AND_" && gt == GateType::And) ||
-							(cell_a->type == "$_OR_" && gt == GateType::Or) ||
-							(cell_a->type == "$_XOR_" && gt == GateType::Xor)))
-						{
-							// The cell here is the correct type, and it's definitely driving only
-							// this current cell.
-							bfs_queue.push_back(cell_a);
+						if (a[0].wire != NULL){
+							log_assert(a.size() == 1);
+							// Must have only one sink
+							// XXX: Check that it is indeed this node?
+							if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
+							{
+								Cell* cell_a = sig_to_driver[a[0]];
+								if (((cell_a->type == "$_AND_" && gt == GateType::And) ||
+									 (cell_a->type == "$_OR_" && gt == GateType::Or) ||
+									 (cell_a->type == "$_XOR_" && gt == GateType::Xor) ||
+									 (cell_a->type == "$and" && gt == GateType::And) ||
+									 (cell_a->type == "$or" && gt == GateType::Or) ||
+									 (cell_a->type == "$xor" && gt == GateType::Xor)
+									 ))
+								{
+									// The cell here is the correct type, and it's definitely driving only
+									// this current cell.
+									bfs_queue.push_back(cell_a);
+								}
+							}
 						}
 					}
 
 					auto b = sigmap(x->getPort("\\B"));
-					log_assert(b.size() == 1);
-					// Must have only one sink
-					// XXX: Check that it is indeed this node?
-					if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
+					if (b.size() == 1)
 					{
-						Cell* cell_b = sig_to_driver[b[0]];
-						if (((cell_b->type == "$_AND_" && gt == GateType::And) ||
-							(cell_b->type == "$_OR_" && gt == GateType::Or) ||
-							(cell_b->type == "$_XOR_" && gt == GateType::Xor)))
-						{
-							// The cell here is the correct type, and it's definitely driving only
-							// this current cell.
-							bfs_queue.push_back(cell_b);
+						if (b[0].wire != NULL){
+							log_assert(b.size() == 1);
+							// Must have only one sink
+							// XXX: Check that it is indeed this node?
+							if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
+							{
+								Cell* cell_b = sig_to_driver[b[0]];
+								if (((cell_b->type == "$_AND_" && gt == GateType::And) ||
+									 (cell_b->type == "$_OR_" && gt == GateType::Or) ||
+									 (cell_b->type == "$_XOR_" && gt == GateType::Xor) ||
+									 (cell_b->type == "$and" && gt == GateType::And) ||
+									 (cell_b->type == "$or" && gt == GateType::Or) ||
+									 (cell_b->type == "$xor" && gt == GateType::Xor)
+									 ))
+								{
+									// The cell here is the correct type, and it's definitely driving only
+									// this current cell.
+									bfs_queue.push_back(cell_b);
+								}
+							}
 						}
 					}
 				}
