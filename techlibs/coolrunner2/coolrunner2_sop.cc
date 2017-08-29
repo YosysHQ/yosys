@@ -38,26 +38,24 @@ struct Coolrunner2SopPass : public Pass {
 		log_header(design, "Executing COOLRUNNER2_SOP pass (break $sop cells into ANDTERM/ORTERM cells).\n");
 		extra_args(args, 1, design);
 
-		// Find all the $_NOT_ cells
-		dict<SigBit, tuple<SigBit, Cell*>> not_cells;
 		for (auto module : design->selected_modules())
 		{
+			pool<Cell*> cells_to_remove;
 			SigMap sigmap(module);
+
+			// Find all the $_NOT_ cells
+			dict<SigBit, tuple<SigBit, Cell*>> not_cells;
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type == "$_NOT_")
 				{
-					auto not_input = cell->getPort("\\A")[0];
-					auto not_output = cell->getPort("\\Y")[0];
+					auto not_input = sigmap(cell->getPort("\\A")[0]);
+					auto not_output = sigmap(cell->getPort("\\Y")[0]);
 					not_cells[not_input] = tuple<SigBit, Cell*>(not_output, cell);
 				}
 			}
-		}
 
-		pool<tuple<Module*, Cell*>> cells_to_remove;
-		for (auto module : design->selected_modules())
-		{
-			SigMap sigmap(module);
+			// Process $sop cells
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type == "$sop")
@@ -79,7 +77,7 @@ struct Coolrunner2SopPass : public Pass {
 						sop_output = std::get<0>(not_cell);
 
 						// remove the $_NOT_ cell because it gets folded into the xor
-						cells_to_remove.insert(tuple<Module*, Cell*>(module, std::get<1>(not_cell)));
+						cells_to_remove.insert(std::get<1>(not_cell));
 					}
 
 					// Construct AND cells
@@ -140,15 +138,15 @@ struct Coolrunner2SopPass : public Pass {
 					}
 
 					// Finally, remove the $sop cell
-					cells_to_remove.insert(tuple<Module*, Cell*>(module, cell));
+					cells_to_remove.insert(cell);
 				}
 			}
-		}
 
-		// Actually do the removal now that we aren't iterating
-		for (auto mod_and_cell : cells_to_remove)
-		{
-			std::get<0>(mod_and_cell)->remove(std::get<1>(mod_and_cell));
+			// Actually do the removal now that we aren't iterating
+			for (auto cell : cells_to_remove)
+			{
+				module->remove(cell);
+			}
 		}
 	}
 } Coolrunner2SopPass;
