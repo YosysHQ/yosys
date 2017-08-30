@@ -152,7 +152,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		if (check_label("map_pla"))
 		{
 			run("abc -sop -I 40 -P 56");
-			run("coolrunner2_sop");
+			run("clean");
 		}
 
 		if (check_label("map_cells"))
@@ -162,7 +162,9 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run("dffinit -ff FDCP_N Q INIT");
 			run("dffinit -ff LDCP Q INIT");
 			run("dffinit -ff LDCP_N Q INIT");
+			run("coolrunner2_sop");
 			run("iopadmap -bits -inpad IBUF O:I -outpad IOBUFE I:IO -inoutpad IOBUFE O:IO -toutpad IOBUFE E:I:IO -tinoutpad IOBUFE E:O:I:IO");
+			run("clean");
 		}
 
 		if (check_label("check"))

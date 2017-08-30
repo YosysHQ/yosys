@@ -55,6 +55,35 @@ struct Coolrunner2SopPass : public Pass {
 				}
 			}
 
+			// Find wires that need to become special product terms
+			dict<SigBit, pool<tuple<Cell*, std::string>>> special_pterms_no_inv;
+			dict<SigBit, pool<tuple<Cell*, std::string>>> special_pterms_inv;
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\FDCP" || cell->type == "\\FDCP_N" || cell->type == "\\FDDCP" ||
+					cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP" ||
+					cell->type == "\\FDCPE" || cell->type == "\\FDCPE_N" || cell->type == "\\FDDCPE" ||
+					cell->type == "\\LDCP" || cell->type == "\\LDCP_N")
+				{
+					if (cell->hasPort("\\PRE"))
+						special_pterms_no_inv[sigmap(cell->getPort("\\PRE")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\PRE"));
+					if (cell->hasPort("\\CLR"))
+						special_pterms_no_inv[sigmap(cell->getPort("\\CLR")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\PRE"));
+					if (cell->hasPort("\\CE"))
+						special_pterms_no_inv[sigmap(cell->getPort("\\CE")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\PRE"));
+
+					if (cell->hasPort("\\C"))
+						special_pterms_inv[sigmap(cell->getPort("\\C")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\PRE"));
+					if (cell->hasPort("\\G"))
+						special_pterms_inv[sigmap(cell->getPort("\\G")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\PRE"));
+				}
+			}
+
 			// Process $sop cells
 			for (auto cell : module->selected_cells())
 			{
@@ -78,6 +107,16 @@ struct Coolrunner2SopPass : public Pass {
 
 						// remove the $_NOT_ cell because it gets folded into the xor
 						cells_to_remove.insert(std::get<1>(not_cell));
+					}
+
+					// Check for special P-term usage
+					bool is_special_pterm = false;
+					bool special_pterm_can_invert = false;
+					if (special_pterms_no_inv.count(sop_output) || special_pterms_inv.count(sop_output))
+					{
+						is_special_pterm = true;
+						if (!special_pterms_no_inv.count(sop_output))
+							special_pterm_can_invert = true;
 					}
 
 					// Construct AND cells
@@ -118,6 +157,40 @@ struct Coolrunner2SopPass : public Pass {
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_PTC", *intermed_wires.begin());
 						xor_cell->setPort("\\OUT", sop_output);
+
+						// Special P-term handling
+						if (is_special_pterm)
+						{
+							if (!has_invert)
+							{
+								// Can connect the P-term directly to the special term sinks
+								for (auto x : special_pterms_inv[sop_output]) {
+									log("%s %s", std::get<0>(x)->name.c_str(), std::get<1>(x).c_str());
+									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
+								}
+								for (auto x : special_pterms_no_inv[sop_output]) {
+									log("%s %s", std::get<0>(x)->name.c_str(), std::get<1>(x).c_str());
+									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
+								}
+							}
+							else
+							{
+								if (special_pterm_can_invert)
+								{
+									log_assert(special_pterms_no_inv.count(sop_output) == 0);
+
+									// XXX TODO
+									log_assert(!"not implemented yet");
+								}
+								else
+								{
+									// Need to construct a set of feed-through terms
+
+									// XXX TODO
+									log_assert(!"not implemented yet");
+								}
+							}
+						}
 					}
 					else
 					{
@@ -135,6 +208,11 @@ struct Coolrunner2SopPass : public Pass {
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_ORTERM", or_to_xor_wire);
 						xor_cell->setPort("\\OUT", sop_output);
+
+						if (is_special_pterm)
+						{
+							// Need to construct a set of feed-through terms
+						}
 					}
 
 					// Finally, remove the $sop cell
