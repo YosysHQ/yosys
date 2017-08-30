@@ -147,7 +147,15 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 			"RISING": begin
 				always @(posedge CLK, posedge RST) begin
 
-					if(KEEP) begin
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+					else if(KEEP) begin
 					end
 					else if(UP) begin
 						count		<= count + 1'd1;
@@ -158,14 +166,6 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 						count		<= count - 1'd1;
 
 						if(count == 0)
-							count	<= COUNT_TO;
-					end
-
-					//Resets
-					if(RST) begin
-						if(RESET_VALUE == "ZERO")
-							count	<= 0;
-						else
 							count	<= COUNT_TO;
 					end
 
@@ -175,7 +175,15 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 			"FALLING": begin
 				always @(posedge CLK, negedge RST) begin
 
-					if(KEEP) begin
+					//Resets
+					if(!RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
+					else if(KEEP) begin
 					end
 					else if(UP) begin
 						count		<= count + 1'd1;
@@ -186,14 +194,6 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 						count		<= count - 1'd1;
 
 						if(count == 0)
-							count	<= COUNT_TO;
-					end
-
-					//Resets
-					if(!RST) begin
-						if(RESET_VALUE == "ZERO")
-							count	<= 0;
-						else
 							count	<= COUNT_TO;
 					end
 
@@ -286,8 +286,16 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 			"RISING": begin
 				always @(posedge CLK, posedge RST) begin
 
+					//Resets
+					if(RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
 					//Main counter
-					if(KEEP) begin
+					else if(KEEP) begin
 					end
 					else if(UP) begin
 						count		<= count + 1'd1;
@@ -298,14 +306,6 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 						count		<= count - 1'd1;
 
 						if(count == 0)
-							count	<= COUNT_TO;
-					end
-
-					//Resets
-					if(RST) begin
-						if(RESET_VALUE == "ZERO")
-							count	<= 0;
-						else
 							count	<= COUNT_TO;
 					end
 
@@ -315,8 +315,16 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 			"FALLING": begin
 				always @(posedge CLK, negedge RST) begin
 
+					//Resets
+					if(!RST) begin
+						if(RESET_VALUE == "ZERO")
+							count	<= 0;
+						else
+							count	<= COUNT_TO;
+					end
+
 					//Main counter
-					if(KEEP) begin
+					else if(KEEP) begin
 					end
 					else if(UP) begin
 						count		<= count + 1'd1;
@@ -327,14 +335,6 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 						count		<= count - 1'd1;
 
 						if(count == 0)
-							count	<= COUNT_TO;
-					end
-
-					//Resets
-					if(!RST) begin
-						if(RESET_VALUE == "ZERO")
-							count	<= 0;
-						else
 							count	<= COUNT_TO;
 					end
 
