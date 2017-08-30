@@ -505,9 +505,13 @@ struct RTLIL::AttrObject
 
 	void set_bool_attribute(RTLIL::IdString id);
 	bool get_bool_attribute(RTLIL::IdString id) const;
+
 	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
+
+	void set_src_attribute(const std::string &src);
+	std::string get_src_attribute() const;
 };
 
 struct RTLIL::SigChunk
