@@ -234,6 +234,22 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 	return data;
 }
 
+void RTLIL::AttrObject::set_src_attribute(const std::string &src)
+{
+	if (src.empty())
+		attributes.erase("\\src");
+	else
+		attributes["\\src"] = src;
+}
+
+std::string RTLIL::AttrObject::get_src_attribute() const
+{
+	std::string src;
+	if (attributes.count("\\src"))
+		src = attributes.at("\\src").decode_string();
+	return src;
+}
+
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
 {
 	if (full_selection)
