@@ -161,19 +161,16 @@ struct Coolrunner2SopPass : public Pass {
 						// Special P-term handling
 						if (is_special_pterm)
 						{
-							if (!has_invert)
+							if (!has_invert || special_pterm_can_invert)
 							{
 								// Can connect the P-term directly to the special term sinks
-								for (auto x : special_pterms_inv[sop_output]) {
-									log("%s %s", std::get<0>(x)->name.c_str(), std::get<1>(x).c_str());
+								for (auto x : special_pterms_inv[sop_output])
 									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
-								}
-								for (auto x : special_pterms_no_inv[sop_output]) {
-									log("%s %s", std::get<0>(x)->name.c_str(), std::get<1>(x).c_str());
+								for (auto x : special_pterms_no_inv[sop_output])
 									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
-								}
 							}
-							else
+
+							if (has_invert)
 							{
 								if (special_pterm_can_invert)
 								{
@@ -184,10 +181,19 @@ struct Coolrunner2SopPass : public Pass {
 								}
 								else
 								{
-									// Need to construct a set of feed-through terms
+									// Need to construct a feed-through term
+									auto feedthrough_out = module->addWire(NEW_ID);
+									auto feedthrough_cell = module->addCell(NEW_ID, "\\ANDTERM");
+									feedthrough_cell->setParam("\\TRUE_INP", 1);
+									feedthrough_cell->setParam("\\COMP_INP", 0);
+									feedthrough_cell->setPort("\\OUT", feedthrough_out);
+									feedthrough_cell->setPort("\\IN", sop_output);
+									feedthrough_cell->setPort("\\IN_B", SigSpec());
 
-									// XXX TODO
-									log_assert(!"not implemented yet");
+									for (auto x : special_pterms_inv[sop_output])
+										std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
+									for (auto x : special_pterms_no_inv[sop_output])
+										std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
 								}
 							}
 						}
@@ -211,7 +217,19 @@ struct Coolrunner2SopPass : public Pass {
 
 						if (is_special_pterm)
 						{
-							// Need to construct a set of feed-through terms
+							// Need to construct a feed-through term
+							auto feedthrough_out = module->addWire(NEW_ID);
+							auto feedthrough_cell = module->addCell(NEW_ID, "\\ANDTERM");
+							feedthrough_cell->setParam("\\TRUE_INP", 1);
+							feedthrough_cell->setParam("\\COMP_INP", 0);
+							feedthrough_cell->setPort("\\OUT", feedthrough_out);
+							feedthrough_cell->setPort("\\IN", sop_output);
+							feedthrough_cell->setPort("\\IN_B", SigSpec());
+
+							for (auto x : special_pterms_inv[sop_output])
+								std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
+							for (auto x : special_pterms_no_inv[sop_output])
+								std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
 						}
 					}
 
