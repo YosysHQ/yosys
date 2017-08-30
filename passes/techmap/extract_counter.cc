@@ -385,7 +385,7 @@ void counter_worker(
 	}
 
 	//Get new cell name
-	string countname = string("$auto$COUNTx$") + log_id(extract.rwire->name.str());
+	string countname = string("$COUNTx$") + log_id(extract.rwire->name.str());
 
 	//Log it
 	total_counters ++;
@@ -484,6 +484,7 @@ struct ExtractCounterPass : public Pass {
 		log("\n");
 		log("    -maxwidth N\n");
 		log("        Only extract counters up to N bits wide\n");
+		log("\n");
 		log("    -pout X,Y,...\n");
 		log("        Only allow parallel output from the counter to the listed cell types\n");
 		log("        (if not specified, parallel outputs are not restricted)\n");
@@ -513,13 +514,13 @@ struct ExtractCounterPass : public Pass {
 				{
 					if(pouts[i] == ',')
 					{
-						parallel_cells.insert(RTLIL::IdString(tmp));
+						parallel_cells.insert(RTLIL::escape_id(tmp));
 						tmp = "";
 					}
 					else
 						tmp += pouts[i];
 				}
-				parallel_cells.insert(RTLIL::IdString(tmp));
+				parallel_cells.insert(RTLIL::escape_id(tmp));
 				continue;
 			}
 

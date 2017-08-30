@@ -164,7 +164,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 	//If we have a CE, or DIRECTION other than DOWN fail... GP_COUNTx_ADV is not supported yet
 	if(HAS_CE || (DIRECTION != "DOWN") ) begin
 		initial begin
-			$display("ERROR: \$__COUNT__ support for GP_COUNTx_ADV is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
+			$display("ERROR: \$__COUNT_ support for GP_COUNTx_ADV is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
 			$finish;
 		end
 	end
@@ -172,7 +172,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 	//If counter is more than 14 bits wide, complain (also shouldn't happen)
 	else if(WIDTH > 14) begin
 		initial begin
-			$display("ERROR: \$__COUNT__ support for cascaded counters is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
+			$display("ERROR: \$__COUNT_ support for cascaded counters is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
 			$finish;
 		end
 	end
@@ -180,7 +180,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 	//If counter is more than 8 bits wide and has parallel output, we have a problem
 	else if(WIDTH > 8 && HAS_POUT) begin
 		initial begin
-			$display("ERROR: \$__COUNT__ support for 9-14 bit counters with parallel output is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
+			$display("ERROR: \$__COUNT_ support for 9-14 bit counters with parallel output is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
 			$finish;
 		end
 	end

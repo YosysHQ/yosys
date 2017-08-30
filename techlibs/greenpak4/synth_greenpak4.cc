@@ -155,7 +155,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 
 		if (check_label("fine"))
 		{
-			run("extract_counter -pout \\GP_DCMP,\\GP_DAC -maxwidth 14");
+			run("extract_counter -pout GP_DCMP,GP_DAC -maxwidth 14");
 			run("clean");
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
