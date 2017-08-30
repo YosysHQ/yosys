@@ -161,6 +161,39 @@ std::string RTLIL::Const::decode_string() const
 	return string;
 }
 
+bool RTLIL::Const::is_fully_zero() const
+{
+	cover("kernel.rtlil.const.is_fully_zero");
+
+	for (auto bit : bits)
+		if (bit != RTLIL::State::S0)
+			return false;
+
+	return true;
+}
+
+bool RTLIL::Const::is_fully_def() const
+{
+	cover("kernel.rtlil.const.is_fully_def");
+
+	for (auto bit : bits)
+		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
+			return false;
+
+	return true;
+}
+
+bool RTLIL::Const::is_fully_undef() const
+{
+	cover("kernel.rtlil.const.is_fully_undef");
+
+	for (auto bit : bits)
+		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
+			return false;
+
+	return true;
+}
+
 void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id)
 {
 	attributes[id] = RTLIL::Const(1);
@@ -199,6 +232,22 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 		for (auto s : split_tokens(attributes.at(id).decode_string(), "|"))
 			data.insert(s);
 	return data;
+}
+
+void RTLIL::AttrObject::set_src_attribute(const std::string &src)
+{
+	if (src.empty())
+		attributes.erase("\\src");
+	else
+		attributes["\\src"] = src;
+}
+
+std::string RTLIL::AttrObject::get_src_attribute() const
+{
+	std::string src;
+	if (attributes.count("\\src"))
+		src = attributes.at("\\src").decode_string();
+	return src;
 }
 
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const

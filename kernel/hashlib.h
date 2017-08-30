@@ -868,6 +868,13 @@ public:
 		return !operator==(other);
 	}
 
+	bool hash() const {
+		unsigned int hashval = mkhash_init;
+		for (auto &it : entries)
+			hashval ^= ops.hash(it.udata);
+		return hashval;
+	}
+
 	void reserve(size_t n) { entries.reserve(n); }
 	size_t size() const { return entries.size(); }
 	bool empty() const { return entries.empty(); }

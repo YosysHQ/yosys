@@ -22,28 +22,28 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SingletonPass : public Pass {
-	SingletonPass() : Pass("singleton", "create singleton modules") { }
+struct UniquifyPass : public Pass {
+	UniquifyPass() : Pass("uniquify", "create unique copies of modules") { }
 	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    singleton [selection]\n");
+		log("    uniquify [selection]\n");
 		log("\n");
 		log("By default, a module that is instantiated by several other modules is only\n");
 		log("kept once in the design. This preserves the original modularity of the design\n");
 		log("and reduces the overall size of the design in memory. But it prevents certain\n");
-		log("optimizations and other operations on the design. This pass creates singleton\n");
+		log("optimizations and other operations on the design. This pass creates unique\n");
 		log("modules for all selected cells. The created modules are marked with the\n");
-		log("'singleton' attribute.\n");
+		log("'unique' attribute.\n");
 		log("\n");
-		log("This commands only operates on modules that by themself have the 'singleton'\n");
-		log("attribute set (the 'top' module is a singleton implicitly).\n");
+		log("This commands only operates on modules that by themself have the 'unique'\n");
+		log("attribute set (the 'top' module is unique implicitly).\n");
 		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
-		log_header(design, "Executing SINGLETON pass (creating singleton modules).\n");
+		log_header(design, "Executing UNIQUIFY pass (creating unique copies of modules).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -56,7 +56,7 @@ struct SingletonPass : public Pass {
 		extra_args(args, argidx, design);
 
 		bool did_something = true;
-		int singleton_cnt = 0;
+		int count = 0;
 
 		while (did_something)
 		{
@@ -64,12 +64,13 @@ struct SingletonPass : public Pass {
 
 			for (auto module : design->selected_modules())
 			{
-				if (!module->get_bool_attribute("\\singleton") && !module->get_bool_attribute("\\top"))
+				if (!module->get_bool_attribute("\\unique") && !module->get_bool_attribute("\\top"))
 					continue;
 
 				for (auto cell : module->selected_cells())
 				{
-					auto tmod = design->module(cell->type);
+					Module *tmod = design->module(cell->type);
+					IdString newname = module->name.str() + "." + log_id(cell->name);
 
 					if (tmod == nullptr)
 						continue;
@@ -77,25 +78,25 @@ struct SingletonPass : public Pass {
 					if (tmod->get_bool_attribute("\\blackbox"))
 						continue;
 
-					if (tmod->get_bool_attribute("\\singleton"))
+					if (tmod->get_bool_attribute("\\unique") && newname == tmod->name)
 						continue;
 
-					cell->type = module->name.str() + "." + log_id(cell->name);
-					log("Creating singleton '%s'.\n", log_id(cell->type));
+					log("Creating module %s from %s.\n", log_id(newname), log_id(tmod));
 
 					auto smod = tmod->clone();
-					smod->name = cell->type;
-					smod->set_bool_attribute("\\singleton");
+					smod->name = newname;
+					cell->type = newname;
+					smod->set_bool_attribute("\\unique");
 					design->add(smod);
 
 					did_something = true;
-					singleton_cnt++;
+					count++;
 				}
 			}
 		}
 
-		log("Created %d singleton modules.\n", singleton_cnt);
+		log("Created %d unique modules.\n", count);
 	}
-} SingletonPass;
+} UniquifyPass;
 
 PRIVATE_NAMESPACE_END

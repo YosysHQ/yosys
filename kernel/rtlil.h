@@ -479,6 +479,10 @@ struct RTLIL::Const
 	inline RTLIL::State &operator[](int index) { return bits.at(index); }
 	inline const RTLIL::State &operator[](int index) const { return bits.at(index); }
 
+	bool is_fully_zero() const;
+	bool is_fully_def() const;
+	bool is_fully_undef() const;
+
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
 		RTLIL::Const ret;
 		ret.bits.reserve(len);
@@ -501,9 +505,13 @@ struct RTLIL::AttrObject
 
 	void set_bool_attribute(RTLIL::IdString id);
 	bool get_bool_attribute(RTLIL::IdString id) const;
+
 	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
+
+	void set_src_attribute(const std::string &src);
+	std::string get_src_attribute() const;
 };
 
 struct RTLIL::SigChunk

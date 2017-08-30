@@ -794,6 +794,40 @@ struct Smt2Worker
 			}
 		}
 
+		if (verbose) log("=> export logic driving hierarchical cells\n");
+
+		for (auto cell : module->cells())
+			if (module->design->module(cell->type) != nullptr)
+				export_cell(cell);
+
+		while (!hiercells_queue.empty())
+		{
+			std::set<RTLIL::Cell*> queue;
+			queue.swap(hiercells_queue);
+
+			for (auto cell : queue)
+			{
+				string cell_state = stringf("(|%s_h %s| state)", get_id(module), get_id(cell->name));
+				Module *m = module->design->module(cell->type);
+				log_assert(m != nullptr);
+
+				for (auto &conn : cell->connections())
+				{
+					Wire *w = m->wire(conn.first);
+					SigSpec sig = sigmap(conn.second);
+
+					if (bvmode || GetSize(w) == 1) {
+						hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)).c_str(),
+								get_id(cell->type), get_id(w), cell_state.c_str(), get_id(cell->type), get_id(w)));
+					} else {
+						for (int i = 0; i < GetSize(w); i++)
+							hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]).c_str(),
+									get_id(cell->type), get_id(w), i, cell_state.c_str(), get_id(cell->type), get_id(w), i));
+					}
+				}
+			}
+		}
+
 		for (int iter = 1; !registers.empty(); iter++)
 		{
 			pool<Cell*> this_regs;
@@ -935,40 +969,6 @@ struct Smt2Worker
 										get_id(module), arrayid, Const(i, abits).as_string().c_str(),
 										initword.as_string().c_str(), get_id(cell), i));
 						}
-					}
-				}
-			}
-		}
-
-		if (verbose) log("=> export logic driving hierarchical cells\n");
-
-		for (auto cell : module->cells())
-			if (module->design->module(cell->type) != nullptr)
-				export_cell(cell);
-
-		while (!hiercells_queue.empty())
-		{
-			std::set<RTLIL::Cell*> queue;
-			queue.swap(hiercells_queue);
-
-			for (auto cell : queue)
-			{
-				string cell_state = stringf("(|%s_h %s| state)", get_id(module), get_id(cell->name));
-				Module *m = module->design->module(cell->type);
-				log_assert(m != nullptr);
-
-				for (auto &conn : cell->connections())
-				{
-					Wire *w = m->wire(conn.first);
-					SigSpec sig = sigmap(conn.second);
-
-					if (bvmode || GetSize(w) == 1) {
-						hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)).c_str(),
-								get_id(cell->type), get_id(w), cell_state.c_str(), get_id(cell->type), get_id(w)));
-					} else {
-						for (int i = 0; i < GetSize(w); i++)
-							hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]).c_str(),
-									get_id(cell->type), get_id(w), i, cell_state.c_str(), get_id(cell->type), get_id(w), i));
 					}
 				}
 			}
