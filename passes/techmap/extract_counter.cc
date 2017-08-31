@@ -387,22 +387,6 @@ void counter_worker(
 	//Get new cell name
 	string countname = string("$COUNTx$") + log_id(extract.rwire->name.str());
 
-	//Log it
-	total_counters ++;
-	string reset_type = "non-resettable";
-	if(extract.has_reset)
-	{
-		//TODO: support other kind of reset
-		reset_type = "async resettable";
-	}
-	log("  Found %d-bit %s down counter %s (counting from %d) for register %s declared at %s\n",
-		extract.width,
-		reset_type.c_str(),
-		countname.c_str(),
-		extract.count_value,
-		log_id(extract.rwire->name),
-		count_reg_src.c_str());
-
 	//Wipe all of the old connections to the ALU
 	cell->unsetPort("\\A");
 	cell->unsetPort("\\B");
@@ -465,6 +449,40 @@ void counter_worker(
 	cells_to_remove.insert(extract.count_mux);
 	cells_to_remove.insert(extract.count_reg);
 	cells_to_remove.insert(extract.underflow_inv);
+
+	//Log it
+	total_counters ++;
+	string reset_type = "non-resettable";
+	if(extract.has_reset)
+	{
+		//TODO: support other kind of reset
+		reset_type = "async resettable";
+	}
+	log("  Found %d-bit %s down counter %s (counting from %d) for register %s declared at %s\n",
+		extract.width,
+		reset_type.c_str(),
+		countname.c_str(),
+		extract.count_value,
+		log_id(extract.rwire->name),
+		count_reg_src.c_str());
+
+	//Optimize the counter
+	//If we have no parallel output, and we have redundant bits, shrink us
+	if(extract.pouts.empty())
+	{
+		//TODO: Need to update this when we add support for counters with nonzero reset values
+		//to make sure the reset value fits in our bit space too
+
+		//Optimize it
+		int newbits = ceil(log2(extract.count_value));
+		if(extract.width != newbits)
+		{
+			cell->setParam("\\WIDTH", RTLIL::Const(newbits));
+			log("    Optimizing out %d unused high-order bits (new width is %d)\n",
+				extract.width - newbits,
+				newbits);
+		}
+	}
 
 	//Finally, rename the cell
 	cells_to_rename.insert(pair<Cell*, string>(cell, countname));
