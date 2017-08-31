@@ -352,13 +352,12 @@ struct AlumaccWorker
 		{
 			auto n = it.second;
 			auto cell = module->addCell(NEW_ID, "$macc");
-			auto src = n->cell->attributes["\\src"].decode_string();
 
 			macc_counter++;
 
 			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
 
-			if (!src.empty()) cell->attributes["\\src"] = src;
+			cell->set_src_attribute(n->cell->get_src_attribute());
 
 			n->macc.optimize(GetSize(n->y));
 			n->macc.to_cell(cell);
@@ -480,8 +479,8 @@ struct AlumaccWorker
 				log("%s%s", i ? ", ": "", log_id(n->cells[i]));
 			log(": %s\n", log_id(n->alu_cell));
 
-			src = n->cells.size() > 0 ? n->cells[0]->attributes["\\src"].decode_string() : "";
-			if (!src.empty()) n->alu_cell->attributes["\\src"] = src;
+			if (n->cells.size() > 0)
+				n->alu_cell->set_src_attribute(n->cells[0]->get_src_attribute());
 
 			n->alu_cell->setPort("\\A", n->a);
 			n->alu_cell->setPort("\\B", n->b);
