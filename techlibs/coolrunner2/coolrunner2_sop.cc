@@ -70,17 +70,17 @@ struct Coolrunner2SopPass : public Pass {
 							tuple<Cell*, const char *>(cell, "\\PRE"));
 					if (cell->hasPort("\\CLR"))
 						special_pterms_no_inv[sigmap(cell->getPort("\\CLR")[0])].insert(
-							tuple<Cell*, const char *>(cell, "\\PRE"));
+							tuple<Cell*, const char *>(cell, "\\CLR"));
 					if (cell->hasPort("\\CE"))
 						special_pterms_no_inv[sigmap(cell->getPort("\\CE")[0])].insert(
-							tuple<Cell*, const char *>(cell, "\\PRE"));
+							tuple<Cell*, const char *>(cell, "\\CE"));
 
 					if (cell->hasPort("\\C"))
 						special_pterms_inv[sigmap(cell->getPort("\\C")[0])].insert(
-							tuple<Cell*, const char *>(cell, "\\PRE"));
+							tuple<Cell*, const char *>(cell, "\\C"));
 					if (cell->hasPort("\\G"))
 						special_pterms_inv[sigmap(cell->getPort("\\G")[0])].insert(
-							tuple<Cell*, const char *>(cell, "\\PRE"));
+							tuple<Cell*, const char *>(cell, "\\G"));
 				}
 			}
 
@@ -115,7 +115,7 @@ struct Coolrunner2SopPass : public Pass {
 					if (special_pterms_no_inv.count(sop_output) || special_pterms_inv.count(sop_output))
 					{
 						is_special_pterm = true;
-						if (!special_pterms_no_inv.count(sop_output))
+						if (!special_pterms_no_inv[sop_output].size())
 							special_pterm_can_invert = true;
 					}
 
@@ -174,10 +174,22 @@ struct Coolrunner2SopPass : public Pass {
 							{
 								if (special_pterm_can_invert)
 								{
-									log_assert(special_pterms_no_inv.count(sop_output) == 0);
+									log_assert(special_pterms_no_inv[sop_output].size() == 0);
 
-									// XXX TODO
-									log_assert(!"not implemented yet");
+									for (auto x : special_pterms_inv[sop_output])
+									{
+										auto cell = std::get<0>(x);
+										// Need to invert the polarity of the cell
+										if (cell->type == "\\FDCP") cell->type = "\\FDCP_N";
+										else if (cell->type == "\\FDCP_N") cell->type = "\\FDCP";
+										else if (cell->type == "\\FTCP") cell->type = "\\FTCP_N";
+										else if (cell->type == "\\FTCP_N") cell->type = "\\FTCP";
+										else if (cell->type == "\\FDCPE") cell->type = "\\FDCPE_N";
+										else if (cell->type == "\\FDCPE_N") cell->type = "\\FDCPE";
+										else if (cell->type == "\\LDCP") cell->type = "\\LDCP_N";
+										else if (cell->type == "\\LDCP_N") cell->type = "\\LDCP";
+										else log_assert(!"Internal error! Bad cell type!");
+									}
 								}
 								else
 								{
