@@ -1643,7 +1643,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 		cell->parameters["\\Y_WIDTH"] = sig_y.size();       \
 		cell->setPort("\\A", sig_a);                        \
 		cell->setPort("\\Y", sig_y);                        \
-		if (!src.empty()) cell->attributes["\\src"] = src;  \
+		cell->set_src_attribute(src);                       \
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, RTLIL::SigSpec sig_a, bool is_signed, std::string src) { \

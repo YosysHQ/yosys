@@ -55,19 +55,19 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_gt() {
 			if (GetSize(cached_gt) == 0)
-				cached_gt = alu_cell->module->Not(NEW_ID, alu_cell->module->Or(NEW_ID, get_lt(), get_eq()), false, alu_cell->attributes["\\src"].decode_string());
+				cached_gt = alu_cell->module->Not(NEW_ID, alu_cell->module->Or(NEW_ID, get_lt(), get_eq()), false, alu_cell->get_src_attribute());
 			return cached_gt;
 		}
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort("\\X"), false, alu_cell->attributes["\\src"].decode_string());
+				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort("\\X"), false, alu_cell->get_src_attribute());
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
 			if (GetSize(cached_ne) == 0)
-				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->attributes["\\src"].decode_string());
+				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->get_src_attribute());
 			return cached_ne;
 		}
 
@@ -75,7 +75,7 @@ struct AlumaccWorker
 			if (GetSize(cached_cf) == 0) {
 				cached_cf = alu_cell->getPort("\\CO");
 				log_assert(GetSize(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->attributes["\\src"].decode_string());
+				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
 			}
 			return cached_cf;
 		}
