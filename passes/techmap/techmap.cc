@@ -340,6 +340,8 @@ struct TechmapWorker
 			RTLIL::Cell *c = module->addCell(c_name, it.second);
 			design->select(module, c);
 
+			c->set_src_attribute(cell->get_src_attribute());
+
 			if (!flatten_mode && c->type.substr(0, 2) == "\\$")
 				c->type = c->type.substr(1);
 
@@ -465,6 +467,7 @@ struct TechmapWorker
 			bool mapped_cell = false;
 
 			std::string cell_type = cell->type.str();
+
 			if (in_recursion && cell_type.substr(0, 2) == "\\$")
 				cell_type = cell_type.substr(1);
 
@@ -511,6 +514,8 @@ struct TechmapWorker
 							{
 								extmapper_module = extmapper_design->addModule(m_name);
 								RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
+
+								extmapper_cell->set_src_attribute(cell->get_src_attribute());
 
 								int port_counter = 1;
 								for (auto &c : extmapper_cell->connections_) {
