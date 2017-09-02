@@ -38,26 +38,53 @@ struct Coolrunner2SopPass : public Pass {
 		log_header(design, "Executing COOLRUNNER2_SOP pass (break $sop cells into ANDTERM/ORTERM cells).\n");
 		extra_args(args, 1, design);
 
-		// Find all the $_NOT_ cells
-		dict<SigBit, tuple<SigBit, Cell*>> not_cells;
 		for (auto module : design->selected_modules())
 		{
+			pool<Cell*> cells_to_remove;
 			SigMap sigmap(module);
+
+			// Find all the $_NOT_ cells
+			dict<SigBit, tuple<SigBit, Cell*>> not_cells;
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type == "$_NOT_")
 				{
-					auto not_input = cell->getPort("\\A")[0];
-					auto not_output = cell->getPort("\\Y")[0];
+					auto not_input = sigmap(cell->getPort("\\A")[0]);
+					auto not_output = sigmap(cell->getPort("\\Y")[0]);
 					not_cells[not_input] = tuple<SigBit, Cell*>(not_output, cell);
 				}
 			}
-		}
 
-		pool<tuple<Module*, Cell*>> cells_to_remove;
-		for (auto module : design->selected_modules())
-		{
-			SigMap sigmap(module);
+			// Find wires that need to become special product terms
+			dict<SigBit, pool<tuple<Cell*, std::string>>> special_pterms_no_inv;
+			dict<SigBit, pool<tuple<Cell*, std::string>>> special_pterms_inv;
+			for (auto cell : module->selected_cells())
+			{
+				if (cell->type == "\\FDCP" || cell->type == "\\FDCP_N" || cell->type == "\\FDDCP" ||
+					cell->type == "\\FTCP" || cell->type == "\\FTCP_N" || cell->type == "\\FTDCP" ||
+					cell->type == "\\FDCPE" || cell->type == "\\FDCPE_N" || cell->type == "\\FDDCPE" ||
+					cell->type == "\\LDCP" || cell->type == "\\LDCP_N")
+				{
+					if (cell->hasPort("\\PRE"))
+						special_pterms_no_inv[sigmap(cell->getPort("\\PRE")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\PRE"));
+					if (cell->hasPort("\\CLR"))
+						special_pterms_no_inv[sigmap(cell->getPort("\\CLR")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\CLR"));
+					if (cell->hasPort("\\CE"))
+						special_pterms_no_inv[sigmap(cell->getPort("\\CE")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\CE"));
+
+					if (cell->hasPort("\\C"))
+						special_pterms_inv[sigmap(cell->getPort("\\C")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\C"));
+					if (cell->hasPort("\\G"))
+						special_pterms_inv[sigmap(cell->getPort("\\G")[0])].insert(
+							tuple<Cell*, const char *>(cell, "\\G"));
+				}
+			}
+
+			// Process $sop cells
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type == "$sop")
@@ -79,7 +106,17 @@ struct Coolrunner2SopPass : public Pass {
 						sop_output = std::get<0>(not_cell);
 
 						// remove the $_NOT_ cell because it gets folded into the xor
-						cells_to_remove.insert(tuple<Module*, Cell*>(module, std::get<1>(not_cell)));
+						cells_to_remove.insert(std::get<1>(not_cell));
+					}
+
+					// Check for special P-term usage
+					bool is_special_pterm = false;
+					bool special_pterm_can_invert = false;
+					if (special_pterms_no_inv.count(sop_output) || special_pterms_inv.count(sop_output))
+					{
+						is_special_pterm = true;
+						if (!special_pterms_no_inv[sop_output].size())
+							special_pterm_can_invert = true;
 					}
 
 					// Construct AND cells
@@ -120,6 +157,58 @@ struct Coolrunner2SopPass : public Pass {
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_PTC", *intermed_wires.begin());
 						xor_cell->setPort("\\OUT", sop_output);
+
+						// Special P-term handling
+						if (is_special_pterm)
+						{
+							if (!has_invert || special_pterm_can_invert)
+							{
+								// Can connect the P-term directly to the special term sinks
+								for (auto x : special_pterms_inv[sop_output])
+									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
+								for (auto x : special_pterms_no_inv[sop_output])
+									std::get<0>(x)->setPort(std::get<1>(x), *intermed_wires.begin());
+							}
+
+							if (has_invert)
+							{
+								if (special_pterm_can_invert)
+								{
+									log_assert(special_pterms_no_inv[sop_output].size() == 0);
+
+									for (auto x : special_pterms_inv[sop_output])
+									{
+										auto cell = std::get<0>(x);
+										// Need to invert the polarity of the cell
+										if (cell->type == "\\FDCP") cell->type = "\\FDCP_N";
+										else if (cell->type == "\\FDCP_N") cell->type = "\\FDCP";
+										else if (cell->type == "\\FTCP") cell->type = "\\FTCP_N";
+										else if (cell->type == "\\FTCP_N") cell->type = "\\FTCP";
+										else if (cell->type == "\\FDCPE") cell->type = "\\FDCPE_N";
+										else if (cell->type == "\\FDCPE_N") cell->type = "\\FDCPE";
+										else if (cell->type == "\\LDCP") cell->type = "\\LDCP_N";
+										else if (cell->type == "\\LDCP_N") cell->type = "\\LDCP";
+										else log_assert(!"Internal error! Bad cell type!");
+									}
+								}
+								else
+								{
+									// Need to construct a feed-through term
+									auto feedthrough_out = module->addWire(NEW_ID);
+									auto feedthrough_cell = module->addCell(NEW_ID, "\\ANDTERM");
+									feedthrough_cell->setParam("\\TRUE_INP", 1);
+									feedthrough_cell->setParam("\\COMP_INP", 0);
+									feedthrough_cell->setPort("\\OUT", feedthrough_out);
+									feedthrough_cell->setPort("\\IN", sop_output);
+									feedthrough_cell->setPort("\\IN_B", SigSpec());
+
+									for (auto x : special_pterms_inv[sop_output])
+										std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
+									for (auto x : special_pterms_no_inv[sop_output])
+										std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
+								}
+							}
+						}
 					}
 					else
 					{
@@ -137,18 +226,35 @@ struct Coolrunner2SopPass : public Pass {
 						xor_cell->setParam("\\INVERT_OUT", has_invert);
 						xor_cell->setPort("\\IN_ORTERM", or_to_xor_wire);
 						xor_cell->setPort("\\OUT", sop_output);
+
+						if (is_special_pterm)
+						{
+							// Need to construct a feed-through term
+							auto feedthrough_out = module->addWire(NEW_ID);
+							auto feedthrough_cell = module->addCell(NEW_ID, "\\ANDTERM");
+							feedthrough_cell->setParam("\\TRUE_INP", 1);
+							feedthrough_cell->setParam("\\COMP_INP", 0);
+							feedthrough_cell->setPort("\\OUT", feedthrough_out);
+							feedthrough_cell->setPort("\\IN", sop_output);
+							feedthrough_cell->setPort("\\IN_B", SigSpec());
+
+							for (auto x : special_pterms_inv[sop_output])
+								std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
+							for (auto x : special_pterms_no_inv[sop_output])
+								std::get<0>(x)->setPort(std::get<1>(x), feedthrough_out);
+						}
 					}
 
 					// Finally, remove the $sop cell
-					cells_to_remove.insert(tuple<Module*, Cell*>(module, cell));
+					cells_to_remove.insert(cell);
 				}
 			}
-		}
 
-		// Actually do the removal now that we aren't iterating
-		for (auto mod_and_cell : cells_to_remove)
-		{
-			std::get<0>(mod_and_cell)->remove(std::get<1>(mod_and_cell));
+			// Actually do the removal now that we aren't iterating
+			for (auto cell : cells_to_remove)
+			{
+				module->remove(cell);
+			}
 		}
 	}
 } Coolrunner2SopPass;
