@@ -326,6 +326,8 @@ struct ExtractFaWorker
 				log("\n");
 			}
 
+			dict<int, tuple<SigBit, SigBit, Cell*>> facache;
+
 			for (auto &it : func3_maj_info)
 			{
 				int func = it.first;
@@ -357,33 +359,64 @@ struct ExtractFaWorker
 					log(" %s", log_signal(bit));
 				log("\n");
 
-				Cell *cell = module->addCell(NEW_ID, "$fa");
-				cell->setParam("\\WIDTH", 1);
+				int fakey = 0;
+				if (f3i.inv_a) fakey |= 1;
+				if (f3i.inv_b) fakey |= 2;
+				if (f3i.inv_c) fakey |= 4;
 
-				log("      Created $fa cell %s.\n", log_id(cell));
+				int fakey_inv = fakey ^ 7;
+				bool invert_xy = false;
+				SigBit X, Y;
 
-				cell->setPort("\\A", f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
-				cell->setPort("\\B", f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
-				cell->setPort("\\C", f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
+				if (facache.count(fakey))
+				{
+					auto &fa = facache.at(fakey);
+					X = get<0>(fa);
+					Y = get<1>(fa);
+					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+				}
+				else
+				if (facache.count(fakey_inv))
+				{
+					auto &fa = facache.at(fakey_inv);
+					invert_xy = true;
+					X = get<0>(fa);
+					Y = get<1>(fa);
+					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+				}
+				else
+				{
+					Cell *cell = module->addCell(NEW_ID, "$fa");
+					cell->setParam("\\WIDTH", 1);
 
-				SigBit X = module->addWire(NEW_ID);
-				SigBit Y = module->addWire(NEW_ID);
+					log("      Created $fa cell %s.\n", log_id(cell));
 
-				cell->setPort("\\X", X);
-				cell->setPort("\\Y", Y);
+					cell->setPort("\\A", f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
+					cell->setPort("\\B", f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
+					cell->setPort("\\C", f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
+
+					X = module->addWire(NEW_ID);
+					Y = module->addWire(NEW_ID);
+
+					cell->setPort("\\X", X);
+					cell->setPort("\\Y", Y);
+
+					facache[fakey] = make_tuple(X, Y, cell);
+				}
 
 				if (func3.at(key).count(xor3_func)) {
+					SigBit YY = invert_xy ? module->NotGate(NEW_ID, Y) : Y;
 					for (auto bit : func3.at(key).at(xor3_func))
-						assign_new_driver(bit, Y);
+						assign_new_driver(bit, YY);
 				}
 
 				if (func3.at(key).count(xnor3_func)) {
-					SigBit YN = module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy ? Y : module->NotGate(NEW_ID, Y);
 					for (auto bit : func3.at(key).at(xnor3_func))
-						assign_new_driver(bit, YN);
+						assign_new_driver(bit, YY);
 				}
 
-				SigBit XX = f3i.inv_y ? module->NotGate(NEW_ID, X) : X;
+				SigBit XX = invert_xy != f3i.inv_y ? module->NotGate(NEW_ID, X) : X;
 
 				for (auto bit : func3.at(key).at(func))
 					assign_new_driver(bit, XX);
@@ -408,6 +441,8 @@ struct ExtractFaWorker
 				log("\n");
 			}
 
+			dict<int, tuple<SigBit, SigBit, Cell*>> facache;
+
 			for (auto &it : func2_and_info)
 			{
 				int func = it.first;
@@ -431,33 +466,61 @@ struct ExtractFaWorker
 					log(" %s", log_signal(bit));
 				log("\n");
 
-				Cell *cell = module->addCell(NEW_ID, "$fa");
-				cell->setParam("\\WIDTH", 1);
+				int fakey = 0;
+				if (f2i.inv_a) fakey |= 1;
+				if (f2i.inv_b) fakey |= 2;
 
-				log("      Created $fa cell %s.\n", log_id(cell));
+				int fakey_inv = fakey ^ 3;
+				bool invert_xy = false;
+				SigBit X, Y;
 
-				cell->setPort("\\A", f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
-				cell->setPort("\\B", f2i.inv_b ? module->NotGate(NEW_ID, B) : B);
-				cell->setPort("\\C", State::S0);
+				if (facache.count(fakey))
+				{
+					auto &fa = facache.at(fakey);
+					X = get<0>(fa);
+					Y = get<1>(fa);
+					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+				}
+				else
+				if (facache.count(fakey_inv))
+				{
+					auto &fa = facache.at(fakey_inv);
+					invert_xy = true;
+					X = get<0>(fa);
+					Y = get<1>(fa);
+					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+				}
+				else
+				{
+					Cell *cell = module->addCell(NEW_ID, "$fa");
+					cell->setParam("\\WIDTH", 1);
 
-				SigBit X = module->addWire(NEW_ID);
-				SigBit Y = module->addWire(NEW_ID);
+					log("      Created $fa cell %s.\n", log_id(cell));
 
-				cell->setPort("\\X", X);
-				cell->setPort("\\Y", Y);
+					cell->setPort("\\A", f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
+					cell->setPort("\\B", f2i.inv_b ? module->NotGate(NEW_ID, B) : B);
+					cell->setPort("\\C", State::S0);
+
+					X = module->addWire(NEW_ID);
+					Y = module->addWire(NEW_ID);
+
+					cell->setPort("\\X", X);
+					cell->setPort("\\Y", Y);
+				}
 
 				if (func2.at(key).count(xor2_func)) {
+					SigBit YY = invert_xy ? module->NotGate(NEW_ID, Y) : Y;
 					for (auto bit : func2.at(key).at(xor2_func))
-						assign_new_driver(bit, Y);
+						assign_new_driver(bit, YY);
 				}
 
 				if (func2.at(key).count(xnor2_func)) {
-					SigBit YN = module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy ? Y : module->NotGate(NEW_ID, Y);
 					for (auto bit : func2.at(key).at(xnor2_func))
-						assign_new_driver(bit, YN);
+						assign_new_driver(bit, YY);
 				}
 
-				SigBit XX = f2i.inv_y ? module->NotGate(NEW_ID, X) : X;
+				SigBit XX = invert_xy != f2i.inv_y ? module->NotGate(NEW_ID, X) : X;
 
 				for (auto bit : func2.at(key).at(func))
 					assign_new_driver(bit, XX);
