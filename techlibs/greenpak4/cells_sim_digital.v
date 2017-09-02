@@ -102,7 +102,7 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 			default: begin
 				initial begin
-					$display("Invalid RESET_MODE on GP_COUNT8");
+					$display("Invalid RESET_MODE on GP_COUNT14");
 					$finish;
 				end
 			end
