@@ -148,7 +148,7 @@ struct ExtractReducePass : public Pass
 					int a_width = x->getParam("\\A_WIDTH").as_int();
 					int b_width = x->getParam("\\B_WIDTH").as_int();
 					int y_width = x->getParam("\\Y_WIDTH").as_int();
-					if ((a_width != 1) || (b_width != 1)|| (y_width != 1))
+					if ((a_width != 1) || (b_width != 1) || (y_width != 1))
 						break;
 
 					head_cell = x;
@@ -167,7 +167,7 @@ struct ExtractReducePass : public Pass
 				int ha_width = head_cell->getParam("\\A_WIDTH").as_int();
 				int hb_width = head_cell->getParam("\\B_WIDTH").as_int();
 				int hy_width = head_cell->getParam("\\Y_WIDTH").as_int();
-				if ((ha_width != 1) || (hb_width != 1)|| (hy_width != 1))
+				if ((ha_width != 1) || (hb_width != 1) || (hy_width != 1))
 					continue;
 
 				pool<Cell*> cur_supercell;
