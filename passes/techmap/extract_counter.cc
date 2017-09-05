@@ -424,12 +424,12 @@ void counter_worker(
 	cell->setPort("\\CLK", extract.clk);
 	cell->setPort("\\OUT", extract.outsig);
 
-	//Hook up hard-wired ports (for now CE and up/=down are not supported), default to no parallel output
+	//Hook up hard-wired ports (for now CE and up/down are not supported), default to no parallel output
 	cell->setParam("\\HAS_POUT", RTLIL::Const(0));
 	cell->setParam("\\HAS_CE", RTLIL::Const(0));
 	cell->setParam("\\DIRECTION", RTLIL::Const("DOWN"));
 	cell->setPort("\\CE", RTLIL::Const(1));
-	cell->setPort("\\UP", RTLIL::Const(1));
+	cell->setPort("\\UP", RTLIL::Const(0));
 
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
