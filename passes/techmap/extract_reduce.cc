@@ -50,6 +50,22 @@ struct ExtractReducePass : public Pass
 		log("\n");
 	}
 
+	bool may_reduce(Cell *cell, GateType gt)
+	{
+		bool res = false;
+		if (((cell->type == "$_AND_" && gt == GateType::And) ||
+			 (cell->type == "$_OR_" && gt == GateType::Or) ||
+			 (cell->type == "$_XOR_" && gt == GateType::Xor) ||
+			 (cell->type == "$and" && gt == GateType::And) ||
+			 (cell->type == "$or" && gt == GateType::Or) ||
+			 (cell->type == "$xor" && gt == GateType::Xor)
+			 ))
+		{
+			res = true;
+		}
+		return res;
+	}
+
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing EXTRACT_REDUCE pass.\n");
@@ -137,13 +153,7 @@ struct ExtractReducePass : public Pass
 				Cell* x = cell;
 				while (true)
 				{
-					if (!((x->type == "$_AND_" && gt == GateType::And) ||
-						(x->type == "$_OR_" && gt == GateType::Or) ||
-						(x->type == "$_XOR_" && gt == GateType::Xor) ||
-						(x->type == "$and" && gt == GateType::And) ||
-						(x->type == "$or" && gt == GateType::Or) ||
-						(x->type == "$xor" && gt == GateType::Xor)
-						))
+					if (!may_reduce(x, gt))
 						break;
 					int a_width = x->getParam("\\A_WIDTH").as_int();
 					int b_width = x->getParam("\\B_WIDTH").as_int();
@@ -189,13 +199,7 @@ struct ExtractReducePass : public Pass
 							if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
 							{
 								Cell* cell_a = sig_to_driver[a[0]];
-								if (((cell_a->type == "$_AND_" && gt == GateType::And) ||
-									 (cell_a->type == "$_OR_" && gt == GateType::Or) ||
-									 (cell_a->type == "$_XOR_" && gt == GateType::Xor) ||
-									 (cell_a->type == "$and" && gt == GateType::And) ||
-									 (cell_a->type == "$or" && gt == GateType::Or) ||
-									 (cell_a->type == "$xor" && gt == GateType::Xor)
-									 ))
+								if (may_reduce(cell_a, gt))
 								{
 									// The cell here is the correct type, and it's definitely driving only
 									// this current cell.
@@ -215,13 +219,7 @@ struct ExtractReducePass : public Pass
 							if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
 							{
 								Cell* cell_b = sig_to_driver[b[0]];
-								if (((cell_b->type == "$_AND_" && gt == GateType::And) ||
-									 (cell_b->type == "$_OR_" && gt == GateType::Or) ||
-									 (cell_b->type == "$_XOR_" && gt == GateType::Xor) ||
-									 (cell_b->type == "$and" && gt == GateType::And) ||
-									 (cell_b->type == "$or" && gt == GateType::Or) ||
-									 (cell_b->type == "$xor" && gt == GateType::Xor)
-									 ))
+								if (may_reduce(cell_b, gt))
 								{
 									// The cell here is the correct type, and it's definitely driving only
 									// this current cell.
