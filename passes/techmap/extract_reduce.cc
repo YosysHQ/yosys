@@ -52,6 +52,8 @@ struct ExtractReducePass : public Pass
 
 	bool may_reduce(Cell *cell, GateType gt)
 	{
+		if (cell == NULL)
+			return false;
 		bool res = false;
 		if (((cell->type == "$_AND_" && gt == GateType::And) ||
 			 (cell->type == "$_OR_" && gt == GateType::Or) ||
@@ -66,13 +68,13 @@ struct ExtractReducePass : public Pass
 		return res;
 	}
 
-	bool is_single_bit(Cell *cell)
+	bool is_single_bit(Cell *cell, SigMap sigmap)
 	{
 		bool res = true;
-		int a_width = cell->getParam("\\A_WIDTH").as_int();
-		int b_width = cell->getParam("\\B_WIDTH").as_int();
-		int y_width = cell->getParam("\\Y_WIDTH").as_int();
-		if ((a_width != 1) || (b_width != 1) || (y_width != 1))
+		auto a = sigmap(cell->getPort("\\A"));
+		auto b = sigmap(cell->getPort("\\B"));
+		auto y = sigmap(cell->getPort("\\Y"));
+		if ((a.size() != 1) || (b.size() != 1) ||(y.size() != 1))
 			res =  false;
 		return res;
 	}
@@ -151,7 +153,7 @@ struct ExtractReducePass : public Pass
 				else
 					continue;
 
-				if (!is_single_bit(cell))
+				if (!is_single_bit(cell, sigmap))
 					continue;
 
 				log("Working on cell %s...\n", cell->name.c_str());
@@ -162,6 +164,8 @@ struct ExtractReducePass : public Pass
 				while (true)
 				{
 					if (!may_reduce(x, gt))
+						break;
+					if (!is_single_bit(x, sigmap))
 						break;
 
 					head_cell = x;
@@ -194,12 +198,12 @@ struct ExtractReducePass : public Pass
 					if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
 					{
 						Cell* cell_a = sig_to_driver[a[0]];
-						if (!is_single_bit(cell))
-							continue;
 						if (may_reduce(cell_a, gt))
 						{
 							// The cell here is the correct type, and it's definitely driving only
 							// this current cell.
+							if (!is_single_bit(cell_a, sigmap))
+								break;
 							bfs_queue.push_back(cell_a);
 						}
 					}
@@ -211,18 +215,18 @@ struct ExtractReducePass : public Pass
 					if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
 					{
 						Cell* cell_b = sig_to_driver[b[0]];
-						if (!is_single_bit(cell_b))
-							continue;
 						if (may_reduce(cell_b, gt))
 						{
 							// The cell here is the correct type, and it's definitely driving only
 							// this current cell.
+							if (!is_single_bit(cell_b, sigmap))
+								break;
 							bfs_queue.push_back(cell_b);
 						}
 					}
 				}
 
-				log("  Cells:\n");
+				log("  Cells: count:%zu\n", cur_supercell.size());
 				for (auto x : cur_supercell)
 					log("    %s\n", x->name.c_str());
 
