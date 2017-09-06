@@ -66,6 +66,17 @@ struct ExtractReducePass : public Pass
 		return res;
 	}
 
+	bool is_single_bit(Cell *cell)
+	{
+		bool res = true;
+		int a_width = cell->getParam("\\A_WIDTH").as_int();
+		int b_width = cell->getParam("\\B_WIDTH").as_int();
+		int y_width = cell->getParam("\\Y_WIDTH").as_int();
+		if ((a_width != 1) || (b_width != 1) || (y_width != 1))
+			res =  false;
+		return res;
+	}
+
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing EXTRACT_REDUCE pass.\n");
@@ -140,10 +151,7 @@ struct ExtractReducePass : public Pass
 				else
 					continue;
 
-				int a_width = cell->getParam("\\A_WIDTH").as_int();
-				int b_width = cell->getParam("\\B_WIDTH").as_int();
-				int y_width = cell->getParam("\\Y_WIDTH").as_int();
-				if ((a_width != 1) || (b_width != 1)|| (y_width != 1))
+				if (!is_single_bit(cell))
 					continue;
 
 				log("Working on cell %s...\n", cell->name.c_str());
@@ -154,11 +162,6 @@ struct ExtractReducePass : public Pass
 				while (true)
 				{
 					if (!may_reduce(x, gt))
-						break;
-					int a_width = x->getParam("\\A_WIDTH").as_int();
-					int b_width = x->getParam("\\B_WIDTH").as_int();
-					int y_width = x->getParam("\\Y_WIDTH").as_int();
-					if ((a_width != 1) || (b_width != 1) || (y_width != 1))
 						break;
 
 					head_cell = x;
@@ -174,11 +177,6 @@ struct ExtractReducePass : public Pass
 				}
 
 				log("  Head cell is %s\n", head_cell->name.c_str());
-				int ha_width = head_cell->getParam("\\A_WIDTH").as_int();
-				int hb_width = head_cell->getParam("\\B_WIDTH").as_int();
-				int hy_width = head_cell->getParam("\\Y_WIDTH").as_int();
-				if ((ha_width != 1) || (hb_width != 1) || (hy_width != 1))
-					continue;
 
 				pool<Cell*> cur_supercell;
 				std::deque<Cell*> bfs_queue = {head_cell};
@@ -190,42 +188,36 @@ struct ExtractReducePass : public Pass
 					cur_supercell.insert(x);
 
 					auto a = sigmap(x->getPort("\\A"));
-					if (a.size() == 1)
+					log_assert(a.size() == 1);
+					// Must have only one sink
+					// XXX: Check that it is indeed this node?
+					if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
 					{
-						if (a[0].wire != NULL){
-							log_assert(a.size() == 1);
-							// Must have only one sink
-							// XXX: Check that it is indeed this node?
-							if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
-							{
-								Cell* cell_a = sig_to_driver[a[0]];
-								if (may_reduce(cell_a, gt))
-								{
-									// The cell here is the correct type, and it's definitely driving only
-									// this current cell.
-									bfs_queue.push_back(cell_a);
-								}
-							}
+						Cell* cell_a = sig_to_driver[a[0]];
+						if (!is_single_bit(cell))
+							continue;
+						if (may_reduce(cell_a, gt))
+						{
+							// The cell here is the correct type, and it's definitely driving only
+							// this current cell.
+							bfs_queue.push_back(cell_a);
 						}
 					}
 
 					auto b = sigmap(x->getPort("\\B"));
-					if (b.size() == 1)
+					log_assert(b.size() == 1);
+					// Must have only one sink
+					// XXX: Check that it is indeed this node?
+					if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
 					{
-						if (b[0].wire != NULL){
-							log_assert(b.size() == 1);
-							// Must have only one sink
-							// XXX: Check that it is indeed this node?
-							if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
-							{
-								Cell* cell_b = sig_to_driver[b[0]];
-								if (may_reduce(cell_b, gt))
-								{
-									// The cell here is the correct type, and it's definitely driving only
-									// this current cell.
-									bfs_queue.push_back(cell_b);
-								}
-							}
+						Cell* cell_b = sig_to_driver[b[0]];
+						if (!is_single_bit(cell_b))
+							continue;
+						if (may_reduce(cell_b, gt))
+						{
+							// The cell here is the correct type, and it's definitely driving only
+							// this current cell.
+							bfs_queue.push_back(cell_b);
 						}
 					}
 				}
