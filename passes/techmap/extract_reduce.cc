@@ -200,11 +200,12 @@ struct ExtractReducePass : public Pass
 						Cell* cell_a = sig_to_driver[a[0]];
 						if (may_reduce(cell_a, gt))
 						{
-							// The cell here is the correct type, and it's definitely driving only
-							// this current cell.
-							if (!is_single_bit(cell_a, sigmap))
-								break;
-							bfs_queue.push_back(cell_a);
+							if (is_single_bit(cell_a, sigmap))
+							{
+								// The cell here is the correct type, and it's definitely driving only
+								// this current cell.
+								bfs_queue.push_back(cell_a);
+							}
 						}
 					}
 
@@ -217,11 +218,12 @@ struct ExtractReducePass : public Pass
 						Cell* cell_b = sig_to_driver[b[0]];
 						if (may_reduce(cell_b, gt))
 						{
-							// The cell here is the correct type, and it's definitely driving only
-							// this current cell.
-							if (!is_single_bit(cell_b, sigmap))
-								break;
-							bfs_queue.push_back(cell_b);
+							if (is_single_bit(cell_b, sigmap))
+							{
+								// The cell here is the correct type, and it's definitely driving only
+								// this current cell.
+								bfs_queue.push_back(cell_b);
+							}
 						}
 					}
 				}
