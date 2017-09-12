@@ -160,7 +160,7 @@ struct ExtractReducePass : public Pass
 					if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
 					{
 						Cell* cell_a = sig_to_driver[a[0]];
-						if (((cell_a->type == "$_AND_" && gt == GateType::And) ||
+						if (cell_a && ((cell_a->type == "$_AND_" && gt == GateType::And) ||
 							(cell_a->type == "$_OR_" && gt == GateType::Or) ||
 							(cell_a->type == "$_XOR_" && gt == GateType::Xor)))
 						{
@@ -177,7 +177,7 @@ struct ExtractReducePass : public Pass
 					if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
 					{
 						Cell* cell_b = sig_to_driver[b[0]];
-						if (((cell_b->type == "$_AND_" && gt == GateType::And) ||
+						if (cell_b && ((cell_b->type == "$_AND_" && gt == GateType::And) ||
 							(cell_b->type == "$_OR_" && gt == GateType::Or) ||
 							(cell_b->type == "$_XOR_" && gt == GateType::Xor)))
 						{
