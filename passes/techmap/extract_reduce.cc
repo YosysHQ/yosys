@@ -228,7 +228,7 @@ struct ExtractReducePass : public Pass
 					}
 				}
 
-				log("  Cells: count:%zu\n", cur_supercell.size());
+				log(" Cells: count:%d\n", GetSize(cur_supercell));
 				for (auto x : cur_supercell)
 					log("    %s\n", x->name.c_str());
 
