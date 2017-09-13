@@ -94,6 +94,7 @@ struct CounterExtraction
 	bool has_reset;					//true if we have a reset
 	bool has_ce;					//true if we have a clock enable
 	RTLIL::SigSpec rst;				//reset pin
+	bool rst_inverted;				//true if reset is active low
 	int count_value;				//value we count from
 	RTLIL::SigSpec ce;				//clock signal
 	RTLIL::SigSpec clk;				//clock enable, if any
@@ -236,10 +237,9 @@ int counter_tryextract(
 	{
 		extract.has_reset = true;
 
-		//Verify ARST_VALUE is zero and ARST_POLARITY is 1
-		//TODO: infer an inverter to make it 1 if necessary, so we can support negative level resets?
-		if(count_reg->getParam("\\ARST_POLARITY").as_int() != 1)
-			return 22;
+		//Verify ARST_VALUE is zero.
+		//Detect polarity inversions on reset.
+		extract.rst_inverted = (count_reg->getParam("\\ARST_POLARITY").as_int() != 1);
 		if(count_reg->getParam("\\ARST_VALUE").as_int() != 0)
 			return 23;
 
@@ -418,7 +418,7 @@ void counter_worker(
 			"Register output is not full bus",				//19
 			"No init value found",							//20
 			"Underflow value is not equal to init value",	//21
-			"Reset polarity is not positive",				//22
+			"RESERVED, not implemented",					//22, kept for compatibility but not used anymore
 			"Reset is not to zero",							//23
 			"Clock enable configuration is unsupported"		//24
 		};
@@ -458,7 +458,16 @@ void counter_worker(
 	{
 		//TODO: support other kinds of reset
 		cell->setParam("\\RESET_MODE", RTLIL::Const("LEVEL"));
-		cell->setPort("\\RST", extract.rst);
+
+		//If the reset is active low, infer an inverter ($__COUNT_ cells always have active high reset)
+		if(extract.rst_inverted)
+		{
+			auto realreset = cell->module->addWire(NEW_ID);
+			cell->module->addNot(NEW_ID, extract.rst, RTLIL::SigSpec(realreset));
+			cell->setPort("\\RST", realreset);
+		}
+		else
+			cell->setPort("\\RST", extract.rst);
 	}
 	else
 	{
