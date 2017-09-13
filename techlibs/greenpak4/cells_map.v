@@ -161,8 +161,8 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 	parameter WIDTH = 8;
 	parameter DIRECTION = "DOWN";
 
-	//If we have a CE, or DIRECTION other than DOWN fail... GP_COUNTx_ADV is not supported yet
-	if(HAS_CE || (DIRECTION != "DOWN") ) begin
+	//If we have a DIRECTION other than DOWN fail... GP_COUNTx_ADV is not supported yet
+	if(DIRECTION != "DOWN") begin
 		initial begin
 			$display("ERROR: \$__COUNT_ support for GP_COUNTx_ADV is not yet implemented. This counter should never have been extracted (bug in extract_counter pass?).");
 			$finish;
@@ -187,28 +187,72 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 
 	//Looks like a legal counter! Do something with it
 	else if(WIDTH <= 8) begin
-		GP_COUNT8 #(
-			.COUNT_TO(COUNT_TO),
-			.RESET_MODE(RESET_MODE),
-			.CLKIN_DIVIDE(1)
-		) _TECHMAP_REPLACE_ (
-			.CLK(CLK),
-			.RST(RST),
-			.OUT(OUT),
-			.POUT(POUT)
-		);
+		if(HAS_CE) begin
+			wire ce_not;
+			GP_INV ceinv(
+				.IN(CE),
+				.OUT(ce_not)
+			);
+			GP_COUNT8_ADV #(
+				.COUNT_TO(COUNT_TO),
+				.RESET_MODE(RESET_MODE),
+				.RESET_VALUE("COUNT_TO"),
+				.CLKIN_DIVIDE(1)
+			) _TECHMAP_REPLACE_ (
+				.CLK(CLK),
+				.RST(RST),
+				.OUT(OUT),
+				.UP(1'b0),		//always count down for now
+				.KEEP(ce_not),
+				.POUT(POUT)
+			);
+		end
+		else begin
+			GP_COUNT8 #(
+				.COUNT_TO(COUNT_TO),
+				.RESET_MODE(RESET_MODE),
+				.CLKIN_DIVIDE(1)
+			) _TECHMAP_REPLACE_ (
+				.CLK(CLK),
+				.RST(RST),
+				.OUT(OUT),
+				.POUT(POUT)
+			);
+		end
 	end
 
 	else begin
-		GP_COUNT14 #(
-			.COUNT_TO(COUNT_TO),
-			.RESET_MODE(RESET_MODE),
-			.CLKIN_DIVIDE(1)
-		) _TECHMAP_REPLACE_ (
-			.CLK(CLK),
-			.RST(RST),
-			.OUT(OUT)
-		);
+		if(HAS_CE) begin
+			wire ce_not;
+			GP_INV ceinv(
+				.IN(CE),
+				.OUT(ce_not)
+			);
+			GP_COUNT14_ADV #(
+				.COUNT_TO(COUNT_TO),
+				.RESET_MODE(RESET_MODE),
+				.RESET_VALUE("COUNT_TO"),
+				.CLKIN_DIVIDE(1)
+			) _TECHMAP_REPLACE_ (
+				.CLK(CLK),
+				.RST(RST),
+				.OUT(OUT),
+				.UP(1'b0),		//always count down for now
+				.KEEP(ce_not),
+				.POUT(POUT)
+			);
+		end
+		else begin
+			GP_COUNT14 #(
+				.COUNT_TO(COUNT_TO),
+				.RESET_MODE(RESET_MODE),
+				.CLKIN_DIVIDE(1)
+			) _TECHMAP_REPLACE_ (
+				.CLK(CLK),
+				.RST(RST),
+				.OUT(OUT)
+			);
+		end
 	end
 
 endmodule
