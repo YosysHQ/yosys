@@ -95,6 +95,7 @@ struct CounterExtraction
 	bool has_ce;					//true if we have a clock enable
 	RTLIL::SigSpec rst;				//reset pin
 	bool rst_inverted;				//true if reset is active low
+	bool rst_to_max;				//true if we reset to max instead of 0
 	int count_value;				//value we count from
 	RTLIL::SigSpec ce;				//clock signal
 	RTLIL::SigSpec clk;				//clock enable, if any
@@ -237,10 +238,16 @@ int counter_tryextract(
 	{
 		extract.has_reset = true;
 
-		//Verify ARST_VALUE is zero.
-		//Detect polarity inversions on reset.
+		//Check polarity of reset - we may have to add an inverter later on!
 		extract.rst_inverted = (count_reg->getParam("\\ARST_POLARITY").as_int() != 1);
-		if(count_reg->getParam("\\ARST_VALUE").as_int() != 0)
+
+		//Verify ARST_VALUE is zero or full scale
+		int rst_value = count_reg->getParam("\\ARST_VALUE").as_int();
+		if(rst_value == 0)
+			extract.rst_to_max = false;
+		else if(rst_value == extract.count_value)
+			extract.rst_to_max = true;
+		else
 			return 23;
 
 		//Save the reset
@@ -419,7 +426,7 @@ void counter_worker(
 			"No init value found",							//20
 			"Underflow value is not equal to init value",	//21
 			"RESERVED, not implemented",					//22, kept for compatibility but not used anymore
-			"Reset is not to zero",							//23
+			"Reset is not to zero or COUNT_TO",				//23
 			"Clock enable configuration is unsupported"		//24
 		};
 
