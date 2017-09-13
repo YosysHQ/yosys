@@ -74,7 +74,7 @@ struct ExtractReducePass : public Pass
 		auto a = sigmap(cell->getPort("\\A"));
 		auto b = sigmap(cell->getPort("\\B"));
 		auto y = sigmap(cell->getPort("\\Y"));
-		if ((a.size() != 1) || (b.size() != 1) ||(y.size() != 1))
+		if ((GetSize(a) != 1) || (GetSize(b) != 1) || (GetSize(y) != 1))
 			res =  false;
 		return res;
 	}
