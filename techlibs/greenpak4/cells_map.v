@@ -156,6 +156,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 
 	parameter COUNT_TO = 1;
 	parameter RESET_MODE = "RISING";
+	parameter RESET_TO_MAX = 0;
 	parameter HAS_POUT = 0;
 	parameter HAS_CE = 0;
 	parameter WIDTH = 8;
@@ -196,7 +197,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 			GP_COUNT8_ADV #(
 				.COUNT_TO(COUNT_TO),
 				.RESET_MODE(RESET_MODE),
-				.RESET_VALUE("COUNT_TO"),
+				.RESET_VALUE(RESET_TO_MAX ? "COUNT_TO" : "ZERO"),
 				.CLKIN_DIVIDE(1)
 			) _TECHMAP_REPLACE_ (
 				.CLK(CLK),
@@ -230,7 +231,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 			);
 			GP_COUNT14_ADV #(
 				.COUNT_TO(COUNT_TO),
-				.RESET_MODE(RESET_MODE),
+				.RESET_MODE(RESET_TO_MAX ? "COUNT_TO" : "ZERO"),
 				.RESET_VALUE("COUNT_TO"),
 				.CLKIN_DIVIDE(1)
 			) _TECHMAP_REPLACE_ (
