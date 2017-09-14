@@ -39,9 +39,9 @@ void demorgan_worker(
 		return;
 
 	auto insig = sigmap(cell->getPort("\\A"));
-	log("Inspecting %s cell %s (%d inputs)\n", log_id(cell->type), log_id(cell->name), insig.size());
+	log("Inspecting %s cell %s (%d inputs)\n", log_id(cell->type), log_id(cell->name), GetSize(insig));
 	int num_inverted = 0;
-	for(int i=0; i<insig.size(); i++)
+	for(int i=0; i<GetSize(insig); i++)
 	{
 		auto b = insig[i];
 
@@ -63,19 +63,19 @@ void demorgan_worker(
 	}
 
 	//Stop if less than half of the inputs are inverted
-	if(num_inverted*2 < insig.size())
+	if(num_inverted*2 < GetSize(insig))
 	{
-		log("  %d / %d inputs are inverted, not pushing\n", num_inverted, insig.size());
+		log("  %d / %d inputs are inverted, not pushing\n", num_inverted, GetSize(insig));
 		return;
 	}
 
 	//More than half of the inputs are inverted! Push through
 	cells_changed ++;
-	log("  %d / %d inputs are inverted, pushing inverter through reduction\n", num_inverted, insig.size());
+	log("  %d / %d inputs are inverted, pushing inverter through reduction\n", num_inverted, GetSize(insig));
 
 	//For each input, either add or remove the inverter as needed
 	//TODO: this duplicates the loop up above, can we refactor it?
-	for(int i=0; i<insig.size(); i++)
+	for(int i=0; i<GetSize(insig); i++)
 	{
 		auto b = insig[i];
 
@@ -110,10 +110,10 @@ void demorgan_worker(
 	//Reductions are all commutative, so there's no point in having them in a weird order
 	bool same_signal = true;
 	RTLIL::Wire* srcwire = insig[0].wire;
-	std::map<int, int> seen_bits;
-	for(int i=0; i<insig.size(); i++)
+	dict<int, int> seen_bits;
+	for(int i=0; i<GetSize(insig); i++)
 		seen_bits[i] = 0;
-	for(int i=0; i<insig.size(); i++)
+	for(int i=0; i<GetSize(insig); i++)
 	{
 		seen_bits[insig[i].offset] ++;
 		if(insig[i].wire != srcwire)
@@ -126,7 +126,7 @@ void demorgan_worker(
 	{
 		//Make sure we've seen every bit exactly once
 		bool every_bit_once = true;
-		for(int i=0; i<insig.size(); i++)
+		for(int i=0; i<GetSize(insig); i++)
 		{
 			if(seen_bits[i] != 1)
 			{
@@ -139,12 +139,12 @@ void demorgan_worker(
 		//We do have to swap MSB to LSB b/c that's the way the reduction cells seem to work?
 		//Unclear on why this isn't sorting properly
 		//TODO: can we do SigChunks instead of single bits if we have subsets of a bus?
-		if(every_bit_once && (insig.size() == srcwire->width) )
+		if(every_bit_once && (GetSize(insig) == srcwire->width) )
 		{
 			log("Rearranging bits\n");
 			RTLIL::SigSpec newsig;
-			for(int i=0; i<insig.size(); i++)
-				newsig.append(RTLIL::SigBit(srcwire, insig.size() - i - 1));
+			for(int i=0; i<GetSize(insig); i++)
+				newsig.append(RTLIL::SigBit(srcwire, GetSize(insig) - i - 1));
 			insig = newsig;
 			insig.sort();
 		}
@@ -179,12 +179,12 @@ struct OptDemorganPass : public Pass {
 		log("overall gate count of the circuit\n");
 		log("\n");
 	}
-	virtual void execute(std::vector<std::string> /*args*/, RTLIL::Design *design)
+	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing OPT_DEMORGAN pass (push inverters through $reduce_* cells).\n");
 
-		//int argidx = 0;
-		//extra_args(args, argidx, design);
+		int argidx = 0;
+		extra_args(args, argidx, design);
 
 		unsigned int cells_changed = 0;
 		for (auto module : design->selected_modules())

@@ -6,11 +6,11 @@ OBJS += passes/opt/opt_reduce.o
 OBJS += passes/opt/opt_rmdff.o
 OBJS += passes/opt/opt_clean.o
 OBJS += passes/opt/opt_expr.o
-OBJS += passes/opt/opt_demorgan.o
-OBJS += passes/opt/rmports.o
 
 ifneq ($(SMALL),1)
 OBJS += passes/opt/share.o
 OBJS += passes/opt/wreduce.o
+OBJS += passes/opt/opt_demorgan.o
+OBJS += passes/opt/rmports.o
 endif
 
