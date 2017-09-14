@@ -281,44 +281,34 @@ int counter_tryextract(
 		max_loads = 3;
 	if(cnout_loads.size() > max_loads)
 	{
-		//If we specified a limited set of cells for parallel output, check that we only drive them
-		if(!parallel_cells.empty())
+		for(auto c : cnout_loads)
 		{
-			for(auto c : cnout_loads)
-			{
-				if(c == underflow_inv)
-					continue;
-				if(c == cell)
-					continue;
-				if(c == muxload)
-					continue;
+			if(c == underflow_inv)
+				continue;
+			if(c == cell)
+				continue;
+			if(c == muxload)
+				continue;
 
+			//If we specified a limited set of cells for parallel output, check that we only drive them
+			if(!parallel_cells.empty())
+			{
 				//Make sure we're in the whitelist
 				if( parallel_cells.find(c->type) == parallel_cells.end())
 					return 17;
+			}
 
-				//Figure out what port(s) are driven by it
-				//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
-				RTLIL::IdString portname;
-				for(auto b : qport)
+			//Figure out what port(s) are driven by it
+			//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
+			for(auto b : qport)
+			{
+				pool<ModIndex::PortInfo> ports = index.query_ports(b);
+				for(auto x : ports)
 				{
-					pool<ModIndex::PortInfo> ports = index.query_ports(b);
-					for(auto x : ports)
-					{
-						if(x.cell != c)
-							continue;
-						if(portname == "")
-							portname = x.port;
-
-						//somehow our counter output is going to multiple ports
-						//this makes no sense, don't allow inference
-						else if(portname != x.port)
-							return 17;
-					}
+					if(x.cell != c)
+						continue;
+					extract.pouts.insert(ModIndex::PortInfo(c, x.port, 0));
 				}
-
-				//Save the other loads
-				extract.pouts.insert(ModIndex::PortInfo(c, portname, 0));
 			}
 		}
 	}
@@ -529,10 +519,15 @@ void counter_worker(
 	string reset_type = "non-resettable";
 	if(extract.has_reset)
 	{
+		if(extract.rst_inverted)
+			reset_type = "negative";
+		else
+			reset_type = "positive";
+
 		//TODO: support other kind of reset
-		reset_type = "async resettable";
+		reset_type += " async resettable";
 	}
-	log("  Found %d-bit %s down counter %s (counting from %d) for register %s declared at %s\n",
+	log("  Found %d-bit (%s) down counter %s (counting from %d) for register %s, declared at %s\n",
 		extract.width,
 		reset_type.c_str(),
 		countname.c_str(),
