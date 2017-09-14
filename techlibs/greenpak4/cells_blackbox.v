@@ -9,6 +9,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 
 	parameter COUNT_TO = 1;
 	parameter RESET_MODE = "RISING";
+	parameter RESET_TO_MAX = "1";
 	parameter HAS_POUT = 0;
 	parameter HAS_CE = 0;
 	parameter WIDTH = 8;

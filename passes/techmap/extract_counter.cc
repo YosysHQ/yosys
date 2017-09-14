@@ -92,9 +92,13 @@ struct CounterExtraction
 	int width;						//counter width
 	RTLIL::Wire* rwire;				//the register output
 	bool has_reset;					//true if we have a reset
+	bool has_ce;					//true if we have a clock enable
 	RTLIL::SigSpec rst;				//reset pin
+	bool rst_inverted;				//true if reset is active low
+	bool rst_to_max;				//true if we reset to max instead of 0
 	int count_value;				//value we count from
-	RTLIL::SigSpec clk;				//clock signal
+	RTLIL::SigSpec ce;				//clock signal
+	RTLIL::SigSpec clk;				//clock enable, if any
 	RTLIL::SigSpec outsig;			//counter output signal
 	RTLIL::Cell* count_mux;			//counter mux
 	RTLIL::Cell* count_reg;			//counter register
@@ -190,12 +194,43 @@ int counter_tryextract(
 		return 13;
 	extract.underflow_inv = underflow_inv;
 
-	//Y connection of the mux must have exactly one load, the counter's internal register
+	//Y connection of the mux must have exactly one load, the counter's internal register, if there's no clock enable
+	//If we have a clock enable, Y drives the B input of a mux. A of that mux must come from our register
 	const RTLIL::SigSpec muxy = sigmap(count_mux->getPort("\\Y"));
 	pool<Cell*> muxy_loads = get_other_cells(muxy, index, count_mux);
 	if(muxy_loads.size() != 1)
 		return 14;
-	Cell* count_reg = *muxy_loads.begin();
+	Cell* muxload = *muxy_loads.begin();
+	Cell* count_reg = muxload;
+	Cell* cemux = NULL;
+	RTLIL::SigSpec cey;
+	if(muxload->type == "$mux")
+	{
+		//This mux is probably a clock enable mux.
+		//Find our count register (should be our only load)
+		cemux = muxload;
+		cey = sigmap(cemux->getPort("\\Y"));
+		pool<Cell*> cey_loads = get_other_cells(cey, index, cemux);
+		if(cey_loads.size() != 1)
+			return 24;
+		count_reg = *cey_loads.begin();
+
+		//Mux should have A driven by count Q, and B by muxy
+		//TODO: if A and B are swapped, CE polarity is inverted
+		if(sigmap(cemux->getPort("\\B")) != muxy)
+			return 24;
+		if(sigmap(cemux->getPort("\\A")) != sigmap(count_reg->getPort("\\Q")))
+			return 24;
+		if(sigmap(cemux->getPort("\\Y")) != sigmap(count_reg->getPort("\\D")))
+			return 24;
+
+		//Select of the mux is our clock enable
+		extract.has_ce = true;
+		extract.ce = sigmap(cemux->getPort("\\S"));
+	}
+	else
+		extract.has_ce = false;
+
 	extract.count_reg = count_reg;
 	if(count_reg->type == "$dff")
 		extract.has_reset = false;
@@ -203,11 +238,16 @@ int counter_tryextract(
 	{
 		extract.has_reset = true;
 
-		//Verify ARST_VALUE is zero and ARST_POLARITY is 1
-		//TODO: infer an inverter to make it 1 if necessary, so we can support negative level resets?
-		if(count_reg->getParam("\\ARST_POLARITY").as_int() != 1)
-			return 22;
-		if(count_reg->getParam("\\ARST_VALUE").as_int() != 0)
+		//Check polarity of reset - we may have to add an inverter later on!
+		extract.rst_inverted = (count_reg->getParam("\\ARST_POLARITY").as_int() != 1);
+
+		//Verify ARST_VALUE is zero or full scale
+		int rst_value = count_reg->getParam("\\ARST_VALUE").as_int();
+		if(rst_value == 0)
+			extract.rst_to_max = false;
+		else if(rst_value == extract.count_value)
+			extract.rst_to_max = true;
+		else
 			return 23;
 
 		//Save the reset
@@ -216,54 +256,59 @@ int counter_tryextract(
 	//TODO: support synchronous reset
 	else
 		return 15;
-	if(!is_full_bus(muxy, index, count_mux, "\\Y", count_reg, "\\D"))
+
+	//Sanity check that we use the ALU output properly
+	if(extract.has_ce)
+	{
+		if(!is_full_bus(muxy, index, count_mux, "\\Y", cemux, "\\B"))
+			return 16;
+		if(!is_full_bus(cey, index, cemux, "\\Y", count_reg, "\\D"))
+			return 16;
+	}
+	else if(!is_full_bus(muxy, index, count_mux, "\\Y", count_reg, "\\D"))
 		return 16;
 
 	//TODO: Verify count_reg CLK_POLARITY is 1
 
 	//Register output must have exactly two loads, the inverter and ALU
 	//(unless we have a parallel output!)
+	//If we have a clock enable, 3 is OK
 	const RTLIL::SigSpec qport = count_reg->getPort("\\Q");
 	const RTLIL::SigSpec cnout = sigmap(qport);
 	pool<Cell*> cnout_loads = get_other_cells(cnout, index, count_reg);
-	if(cnout_loads.size() > 2)
+	unsigned int max_loads = 2;
+	if(extract.has_ce)
+		max_loads = 3;
+	if(cnout_loads.size() > max_loads)
 	{
-		//If we specified a limited set of cells for parallel output, check that we only drive them
-		if(!parallel_cells.empty())
+		for(auto c : cnout_loads)
 		{
-			for(auto c : cnout_loads)
-			{
-				if(c == underflow_inv)
-					continue;
-				if(c == cell)
-					continue;
+			if(c == underflow_inv)
+				continue;
+			if(c == cell)
+				continue;
+			if(c == muxload)
+				continue;
 
+			//If we specified a limited set of cells for parallel output, check that we only drive them
+			if(!parallel_cells.empty())
+			{
 				//Make sure we're in the whitelist
 				if( parallel_cells.find(c->type) == parallel_cells.end())
 					return 17;
+			}
 
-				//Figure out what port(s) are driven by it
-				//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
-				RTLIL::IdString portname;
-				for(auto b : qport)
+			//Figure out what port(s) are driven by it
+			//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
+			for(auto b : qport)
+			{
+				pool<ModIndex::PortInfo> ports = index.query_ports(b);
+				for(auto x : ports)
 				{
-					pool<ModIndex::PortInfo> ports = index.query_ports(b);
-					for(auto x : ports)
-					{
-						if(x.cell != c)
-							continue;
-						if(portname == "")
-							portname = x.port;
-
-						//somehow our counter output is going to multiple ports
-						//this makes no sense, don't allow inference
-						else if(portname != x.port)
-							return 17;
-					}
+					if(x.cell != c)
+						continue;
+					extract.pouts.insert(ModIndex::PortInfo(c, x.port, 0));
 				}
-
-				//Save the other loads
-				extract.pouts.insert(ModIndex::PortInfo(c, portname, 0));
 			}
 		}
 	}
@@ -346,7 +391,7 @@ void counter_worker(
 	//Do nothing, unless extraction was forced in which case give an error
 	if(reason != 0)
 	{
-		static const char* reasons[24]=
+		static const char* reasons[25]=
 		{
 			"no problem",									//0
 			"counter is too large/small",					//1
@@ -370,8 +415,9 @@ void counter_worker(
 			"Register output is not full bus",				//19
 			"No init value found",							//20
 			"Underflow value is not equal to init value",	//21
-			"Reset polarity is not positive",				//22
-			"Reset is not to zero"							//23
+			"RESERVED, not implemented",					//22, kept for compatibility but not used anymore
+			"Reset is not to zero or COUNT_TO",				//23
+			"Clock enable configuration is unsupported"		//24
 		};
 
 		if(force_extract)
@@ -409,7 +455,16 @@ void counter_worker(
 	{
 		//TODO: support other kinds of reset
 		cell->setParam("\\RESET_MODE", RTLIL::Const("LEVEL"));
-		cell->setPort("\\RST", extract.rst);
+
+		//If the reset is active low, infer an inverter ($__COUNT_ cells always have active high reset)
+		if(extract.rst_inverted)
+		{
+			auto realreset = cell->module->addWire(NEW_ID);
+			cell->module->addNot(NEW_ID, extract.rst, RTLIL::SigSpec(realreset));
+			cell->setPort("\\RST", realreset);
+		}
+		else
+			cell->setPort("\\RST", extract.rst);
 	}
 	else
 	{
@@ -424,12 +479,21 @@ void counter_worker(
 	cell->setPort("\\CLK", extract.clk);
 	cell->setPort("\\OUT", extract.outsig);
 
-	//Hook up hard-wired ports (for now CE and up/=down are not supported), default to no parallel output
+	//Hook up clock enable
+	if(extract.has_ce)
+	{
+		cell->setParam("\\HAS_CE", RTLIL::Const(1));
+		cell->setPort("\\CE", extract.ce);
+	}
+	else
+		cell->setParam("\\HAS_CE", RTLIL::Const(0));
+
+	//Hook up hard-wired ports (for now up/down are not supported), default to no parallel output
 	cell->setParam("\\HAS_POUT", RTLIL::Const(0));
-	cell->setParam("\\HAS_CE", RTLIL::Const(0));
+	cell->setParam("\\RESET_TO_MAX", RTLIL::Const(0));
 	cell->setParam("\\DIRECTION", RTLIL::Const("DOWN"));
 	cell->setPort("\\CE", RTLIL::Const(1));
-	cell->setPort("\\UP", RTLIL::Const(1));
+	cell->setPort("\\UP", RTLIL::Const(0));
 
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
@@ -455,10 +519,15 @@ void counter_worker(
 	string reset_type = "non-resettable";
 	if(extract.has_reset)
 	{
+		if(extract.rst_inverted)
+			reset_type = "negative";
+		else
+			reset_type = "positive";
+
 		//TODO: support other kind of reset
-		reset_type = "async resettable";
+		reset_type += " async resettable";
 	}
-	log("  Found %d-bit %s down counter %s (counting from %d) for register %s declared at %s\n",
+	log("  Found %d-bit (%s) down counter %s (counting from %d) for register %s, declared at %s\n",
 		extract.width,
 		reset_type.c_str(),
 		countname.c_str(),
