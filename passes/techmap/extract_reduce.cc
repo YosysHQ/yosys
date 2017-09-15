@@ -37,7 +37,7 @@ struct ExtractReducePass : public Pass
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    extract_reduce [selection]\n");
+		log("    extract_reduce [options] [selection]\n");
 		log("\n");
 		log("converts gate chains into $reduce_* cells\n");
 		log("\n");
@@ -48,6 +48,11 @@ struct ExtractReducePass : public Pass
 		log("to map the design to only $_AND_ cells, run extract_reduce, map the remaining\n");
 		log("parts of the design to AND/OR/XOR cells, and run extract_reduce a second time.\n");
 		log("\n");
+		log("    -allow-off-chain\n");
+		log("        Allows matching of cells that have loads outside the chain. These cells\n");
+		log("        will be replicated and folded into the $reduce_* cell, but the original\n");
+		log("        cell will remain, driving its original loads.\n");
+		log("\n");
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -56,12 +61,14 @@ struct ExtractReducePass : public Pass
 		log_push();
 
 		size_t argidx;
+		bool allow_off_chain = false;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-v") {
-			// 	verbose = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-allow-off-chain")
+			{
+				allow_off_chain = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -102,6 +109,7 @@ struct ExtractReducePass : public Pass
 
 			// Actual logic starts here
 			pool<Cell*> consumed_cells;
+			pool<Cell*> head_cells;
 			for (auto cell : module->selected_cells())
 			{
 				if (consumed_cells.count(cell))
@@ -212,7 +220,7 @@ struct ExtractReducePass : public Pass
 
 					SigBit output = sigmap(head_cell->getPort("\\Y")[0]);
 
-					auto new_reduce_cell = module->addCell(NEW_ID, 
+					auto new_reduce_cell = module->addCell(NEW_ID,
 						gt == GateType::And ? "$reduce_and" :
 						gt == GateType::Or ? "$reduce_or" :
 						gt == GateType::Xor ? "$reduce_xor" : "");
@@ -224,11 +232,13 @@ struct ExtractReducePass : public Pass
 
 					for (auto x : cur_supercell)
 						consumed_cells.insert(x);
-					}
+					head_cells.insert(head_cell);
 				}
+			}
 
-			// Remove every cell that we've used up
-			for (auto cell : consumed_cells)
+			// Remove all of the head cells, since we supplant them.
+			// Do not remove the upstream cells since some might still be in use ("clean" will get rid of unused ones)
+			for (auto cell : head_cells)
 				module->remove(cell);
 		}
 
