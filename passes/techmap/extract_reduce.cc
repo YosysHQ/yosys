@@ -198,7 +198,7 @@ struct ExtractReducePass : public Pass
 					if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
 					{
 						Cell* cell_a = sig_to_driver[a[0]];
-						if (may_reduce(cell_a, gt))
+						if (cell_a && may_reduce(cell_a, gt))
 						{
 							if (is_single_bit(cell_a, sigmap))
 							{
@@ -216,7 +216,7 @@ struct ExtractReducePass : public Pass
 					if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
 					{
 						Cell* cell_b = sig_to_driver[b[0]];
-						if (may_reduce(cell_b, gt))
+						if (cell_b && may_reduce(cell_b, gt))
 						{
 							if (is_single_bit(cell_b, sigmap))
 							{
