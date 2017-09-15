@@ -55,6 +55,13 @@ struct ExtractReducePass : public Pass
 		log("\n");
 	}
 
+	inline bool IsRightType(Cell* cell, GateType gt)
+	{
+		return (cell->type == "$_AND_" && gt == GateType::And) ||
+				(cell->type == "$_OR_" && gt == GateType::Or) ||
+				(cell->type == "$_XOR_" && gt == GateType::Xor);
+	}
+
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing EXTRACT_REDUCE pass.\n");
@@ -69,7 +76,6 @@ struct ExtractReducePass : public Pass
 				allow_off_chain = true;
 				continue;
 			}
-			break;
 		}
 		extra_args(args, argidx, design);
 
@@ -109,7 +115,6 @@ struct ExtractReducePass : public Pass
 
 			// Actual logic starts here
 			pool<Cell*> consumed_cells;
-			pool<Cell*> head_cells;
 			for (auto cell : module->selected_cells())
 			{
 				if (consumed_cells.count(cell))
@@ -128,117 +133,185 @@ struct ExtractReducePass : public Pass
 
 				log("Working on cell %s...\n", cell->name.c_str());
 
-				// Go all the way to the sink
-				Cell* head_cell = cell;
-				Cell* x = cell;
-				while (true)
+				// If looking for a single chain, follow linearly to the sink
+				pool<Cell*> sinks;
+				if(!allow_off_chain)
 				{
-					if (!((x->type == "$_AND_" && gt == GateType::And) ||
-						(x->type == "$_OR_" && gt == GateType::Or) ||
-						(x->type == "$_XOR_" && gt == GateType::Xor)))
-						break;
+					Cell* head_cell = cell;
+					Cell* x = cell;
+					while (true)
+					{
+						if(!IsRightType(x, gt))
+							break;
 
-					head_cell = x;
+						head_cell = x;
 
-					auto y = sigmap(x->getPort("\\Y"));
-					log_assert(y.size() == 1);
+						auto y = sigmap(x->getPort("\\Y"));
+						log_assert(y.size() == 1);
 
-					// Should only continue if there is one fanout back into a cell (not to a port)
-					if (sig_to_sink[y[0]].size() != 1)
-						break;
+						// Should only continue if there is one fanout back into a cell (not to a port)
+						if (sig_to_sink[y[0]].size() != 1)
+							break;
 
-					x = *sig_to_sink[y[0]].begin();
+						x = *sig_to_sink[y[0]].begin();
+					}
+
+					sinks.insert(head_cell);
 				}
 
-				log("  Head cell is %s\n", head_cell->name.c_str());
-
-				pool<Cell*> cur_supercell;
-				std::deque<Cell*> bfs_queue = {head_cell};
-				while (bfs_queue.size())
+				//If off-chain loads are allowed, we have to do a wider traversal to see what the longest chain is
+				else
 				{
-					Cell* x = bfs_queue.front();
-					bfs_queue.pop_front();
+					//BFS, following all chains until they hit a cell of a different type
+					//Pick the longest one
+					auto y = sigmap(cell->getPort("\\Y"));
+					pool<Cell*> current_loads = sig_to_sink[y];
+					pool<Cell*> next_loads;
 
-					cur_supercell.insert(x);
-
-					auto a = sigmap(x->getPort("\\A"));
-					log_assert(a.size() == 1);
-					// Must have only one sink
-					// XXX: Check that it is indeed this node?
-					if (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1)
+					while(!current_loads.empty())
 					{
-						Cell* cell_a = sig_to_driver[a[0]];
-						if (cell_a && ((cell_a->type == "$_AND_" && gt == GateType::And) ||
-							(cell_a->type == "$_OR_" && gt == GateType::Or) ||
-							(cell_a->type == "$_XOR_" && gt == GateType::Xor)))
+						//Find each sink and see what they are
+						for(auto x : current_loads)
 						{
-							// The cell here is the correct type, and it's definitely driving only
-							// this current cell.
-							bfs_queue.push_back(cell_a);
+							//Not one of our gates? Don't follow any further
+							//(but add the originating cell to the list of sinks)
+							if(!IsRightType(x, gt))
+							{
+								sinks.insert(cell);
+								continue;
+							}
+
+							//If this signal drives a port, add it to the sinks
+							//(even though it may not be the end of a chain)
+							if(port_sigs.count(x) && !consumed_cells.count(x))
+								sinks.insert(x);
+
+							//It's a match, search everything out from it
+							auto& next = sig_to_sink[x];
+							for(auto z : next)
+								next_loads.insert(z);
+						}
+
+						//If we couldn't find any downstream loads, stop.
+						//Create a reduction for each of the max-length chains we found
+						if(next_loads.empty())
+						{
+							for(auto s : current_loads)
+							{
+								//Not one of our gates? Don't follow any further
+								if(!IsRightType(s, gt))
+									continue;
+
+								sinks.insert(s);
+							}
+							break;
+						}
+
+						//Otherwise, continue down the chain
+						current_loads = next_loads;
+						next_loads.clear();
+					}
+				}
+
+				//We have our list, go act on it
+				for(auto head_cell : sinks)
+				{
+					log("  Head cell is %s\n", head_cell->name.c_str());
+
+					//Avoid duplication if we already were covered
+					if(consumed_cells.count(head_cell))
+						continue;
+
+					pool<Cell*> cur_supercell;
+					std::deque<Cell*> bfs_queue = {head_cell};
+					while (bfs_queue.size())
+					{
+						Cell* x = bfs_queue.front();
+						bfs_queue.pop_front();
+
+						cur_supercell.insert(x);
+
+						auto a = sigmap(x->getPort("\\A"));
+						log_assert(a.size() == 1);
+
+						// Must have only one sink unless we're going off chain
+						// XXX: Check that it is indeed this node?
+						if( allow_off_chain || (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1) )
+						{
+							Cell* cell_a = sig_to_driver[a[0]];
+							if(cell_a && IsRightType(cell_a, gt))
+							{
+								// The cell here is the correct type, and it's definitely driving
+								// this current cell.
+								bfs_queue.push_back(cell_a);
+							}
+						}
+
+						auto b = sigmap(x->getPort("\\B"));
+						log_assert(b.size() == 1);
+
+						// Must have only one sink
+						// XXX: Check that it is indeed this node?
+						if( allow_off_chain || (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1) )
+						{
+							Cell* cell_b = sig_to_driver[b[0]];
+							if(cell_b && IsRightType(cell_b, gt))
+							{
+								// The cell here is the correct type, and it's definitely driving only
+								// this current cell.
+								bfs_queue.push_back(cell_b);
+							}
 						}
 					}
 
-					auto b = sigmap(x->getPort("\\B"));
-					log_assert(b.size() == 1);
-					// Must have only one sink
-					// XXX: Check that it is indeed this node?
-					if (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1)
+					log("  Cells:\n");
+					for (auto x : cur_supercell)
+						log("    %s\n", x->name.c_str());
+
+					if (cur_supercell.size() > 1)
 					{
-						Cell* cell_b = sig_to_driver[b[0]];
-						if (cell_b && ((cell_b->type == "$_AND_" && gt == GateType::And) ||
-							(cell_b->type == "$_OR_" && gt == GateType::Or) ||
-							(cell_b->type == "$_XOR_" && gt == GateType::Xor)))
+						// Worth it to create reduce cell
+						log("  Creating $reduce_* cell!\n");
+
+						pool<SigBit> input_pool;
+						pool<SigBit> input_pool_intermed;
+						for (auto x : cur_supercell)
 						{
-							// The cell here is the correct type, and it's definitely driving only
-							// this current cell.
-							bfs_queue.push_back(cell_b);
+							input_pool.insert(sigmap(x->getPort("\\A"))[0]);
+							input_pool.insert(sigmap(x->getPort("\\B"))[0]);
+							input_pool_intermed.insert(sigmap(x->getPort("\\Y"))[0]);
+						}
+						SigSpec input;
+						for (auto b : input_pool)
+							if (input_pool_intermed.count(b) == 0)
+								input.append_bit(b);
+
+						SigBit output = sigmap(head_cell->getPort("\\Y")[0]);
+
+						auto new_reduce_cell = module->addCell(NEW_ID,
+							gt == GateType::And ? "$reduce_and" :
+							gt == GateType::Or ? "$reduce_or" :
+							gt == GateType::Xor ? "$reduce_xor" : "");
+						new_reduce_cell->setParam("\\A_SIGNED", 0);
+						new_reduce_cell->setParam("\\A_WIDTH", input.size());
+						new_reduce_cell->setParam("\\Y_WIDTH", 1);
+						new_reduce_cell->setPort("\\A", input);
+						new_reduce_cell->setPort("\\Y", output);
+
+						if(allow_off_chain)
+							consumed_cells.insert(head_cell);
+						else
+						{
+							for (auto x : cur_supercell)
+								consumed_cells.insert(x);
 						}
 					}
-				}
-
-				log("  Cells:\n");
-				for (auto x : cur_supercell)
-					log("    %s\n", x->name.c_str());
-
-				if (cur_supercell.size() > 1)
-				{
-					// Worth it to create reduce cell
-					log("  Creating $reduce_* cell!\n");
-
-					pool<SigBit> input_pool;
-					pool<SigBit> input_pool_intermed;
-					for (auto x : cur_supercell)
-					{
-						input_pool.insert(sigmap(x->getPort("\\A"))[0]);
-						input_pool.insert(sigmap(x->getPort("\\B"))[0]);
-						input_pool_intermed.insert(sigmap(x->getPort("\\Y"))[0]);
-					}
-					SigSpec input;
-					for (auto b : input_pool)
-						if (input_pool_intermed.count(b) == 0)
-							input.append_bit(b);
-
-					SigBit output = sigmap(head_cell->getPort("\\Y")[0]);
-
-					auto new_reduce_cell = module->addCell(NEW_ID,
-						gt == GateType::And ? "$reduce_and" :
-						gt == GateType::Or ? "$reduce_or" :
-						gt == GateType::Xor ? "$reduce_xor" : "");
-					new_reduce_cell->setParam("\\A_SIGNED", 0);
-					new_reduce_cell->setParam("\\A_WIDTH", input.size());
-					new_reduce_cell->setParam("\\Y_WIDTH", 1);
-					new_reduce_cell->setPort("\\A", input);
-					new_reduce_cell->setPort("\\Y", output);
-
-					for (auto x : cur_supercell)
-						consumed_cells.insert(x);
-					head_cells.insert(head_cell);
 				}
 			}
 
 			// Remove all of the head cells, since we supplant them.
 			// Do not remove the upstream cells since some might still be in use ("clean" will get rid of unused ones)
-			for (auto cell : head_cells)
+			for (auto cell : consumed_cells)
 				module->remove(cell);
 		}
 
