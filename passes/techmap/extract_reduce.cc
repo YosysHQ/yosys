@@ -76,6 +76,7 @@ struct ExtractReducePass : public Pass
 				allow_off_chain = true;
 				continue;
 			}
+			break;
 		}
 		extra_args(args, argidx, design);
 
