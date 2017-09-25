@@ -389,10 +389,6 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 \\[\r\n]		/* ignore continuation sequence */
 "//"[^\r\n]*		/* ignore one-line comments */
 
-"#"\ *[0-9][0-9_]*			/* ignore simulation timings */
-"#"\ *[0-9][0-9_]*\.[0-9][0-9_]*	/* ignore simulation timings */
-"#"\ *[$a-zA-Z_\.][$a-zA-Z_0-9\.]*	/* ignore simulation timings */
-
 . { return *yytext; }
 
 %%

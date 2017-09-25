@@ -355,6 +355,8 @@ package_body_stmt:
 	localparam_decl;
 
 non_opt_delay:
+	'#' TOK_ID { delete $2; } |
+	'#' TOK_CONSTVAL { delete $2; } |
 	'#' '(' expr ')' { delete $3; } |
 	'#' '(' expr ':' expr ':' expr ')' { delete $3; delete $5; delete $7; };
 
