@@ -1883,17 +1883,19 @@ skip_dynamic_range_lvalue_expansion:;
 				int dim = 1;
 				if (str == "\\$size" && children.size() == 2) {
 					AstNode *buf = children[1]->clone();
+					// Evaluate constant expression
+					while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 					dim = buf->asInt(false);
 					delete buf;
 				}
 				AstNode *buf = children[0]->clone();
 				int mem_depth = 1;
 				AstNode *id_ast = NULL;
-				
 
 				// Is this needed?
 				//while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				buf->detectSignWidth(width_hint, sign_hint);
+
 				if (buf->type == AST_IDENTIFIER) {
 					id_ast = buf->id2ast;
 					if (id_ast == NULL && current_scope.count(buf->str))
@@ -1907,30 +1909,28 @@ skip_dynamic_range_lvalue_expansion:;
 						if (str == "\\$bits") {
 							if (mem_range->type == AST_RANGE) {
 								if (!mem_range->range_valid)
-									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
 								mem_depth = mem_range->range_left - mem_range->range_right + 1;
-							} else if (mem_range->type == AST_MULTIRANGE) {
-								for (auto n : mem_range->children) 
-									mem_depth *= (n->range_left - n->range_right + 1);
 							} else
-								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
 						} else {
 							// $size()
 							if (mem_range->type == AST_RANGE) {
 								if (!mem_range->range_valid)
-									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+								int dims;
+								if (id_ast->multirange_dimensions.empty())
+									dims = 1;
+								else
+									dims = GetSize(id_ast->multirange_dimensions)/2;
 								if (dim == 1)
-									width_hint = mem_range->range_left - mem_range->range_right + 1;
-							} else if (mem_range->type == AST_MULTIRANGE) {
-								log("multirange!\n");
-								int s = mem_range->children.size();
-								if (dim <= s) {
-									auto n = mem_range->children[dim-1]; 
-									width_hint = (n->range_left - n->range_right + 1);
-								} else if (dim > s+1)
-									log_error("Dimension %d out of range in `%s', as it only has dimensions 1..%d at %s:%d!\n", dim, mem_range->str.c_str(), s+1, filename.c_str(), linenum);
+									width_hint = (dims > 1) ? id_ast->multirange_dimensions[1] : (mem_range->range_left - mem_range->range_right + 1);
+								else if (dim <= dims) {
+									width_hint = id_ast->multirange_dimensions[2*dim-1];
+								} else if ((dim > dims+1) || (dim < 0))
+									log_error("Dimension %d out of range in `%s', as it only has dimensions 1..%d at %s:%d!\n", dim, buf->str.c_str(), dims+1, filename.c_str(), linenum);
 							} else
-								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
 						}
 					}
 				}
