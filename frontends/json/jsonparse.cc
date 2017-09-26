@@ -76,6 +76,34 @@ struct JsonNode
 			{
 				type = 'N';
 				data_number = ch - '0';
+				data_string += ch;
+
+				while (1)
+				{
+					ch = f.get();
+
+					if (ch == EOF)
+						break;
+
+					if (ch == '.')
+						goto parse_real;
+
+					if (ch < '0' || '9' < ch) {
+						f.unget();
+						break;
+					}
+
+					data_number = data_number*10 + (ch - '0');
+					data_string += ch;
+				}
+
+				data_string = "";
+				break;
+
+			parse_real:
+				type = 'S';
+				data_number = 0;
+				data_string += ch;
 
 				while (1)
 				{
@@ -89,7 +117,7 @@ struct JsonNode
 						break;
 					}
 
-					data_number = data_number*10 + (ch - '0');
+					data_string += ch;
 				}
 
 				break;
