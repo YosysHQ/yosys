@@ -182,15 +182,19 @@ static std::string next_token(bool pass_newline = false)
 	{
 		const char *ok = "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ$0123456789";
 		if (ch == '`' || strchr(ok, ch) != NULL)
-			while ((ch = next_char()) != 0) {
-				if (strchr(ok, ch) == NULL) {
-					return_char(ch);
-					break;
-				}
+		{
+			ch = next_char();
+			if (ch == '"') {
 				token += ch;
-			}
+			} else do {
+					if (strchr(ok, ch) == NULL) {
+						return_char(ch);
+						break;
+					}
+					token += ch;
+				} while ((ch = next_char()) != 0);
+		}
 	}
-
 	return token;
 }
 
@@ -208,6 +212,59 @@ static void input_file(std::istream &f, std::string filename)
 		input_buffer.insert(it, buffer);
 	}
 	input_buffer.insert(it, "\n`file_pop\n");
+}
+
+
+static bool try_expand_macro(std::set<std::string> &defines_with_args,
+			     std::map<std::string, std::string> &defines_map,
+			     std::string &tok
+				    )
+{
+	if (tok == "`\"") {
+		std::string literal("\"");
+		// Expand string literal
+		while (!input_buffer.empty()) {
+			std::string ntok = next_token();
+			if (ntok == "`\"") {
+				insert_input(literal+"\"");
+				return true;
+			} else if (!try_expand_macro(defines_with_args, defines_map, ntok)) {
+					literal += ntok;
+			}
+		}
+		return false; // error - unmatched `"
+	} else if (tok.size() > 1 && tok[0] == '`' && defines_map.count(tok.substr(1)) > 0) {
+			std::string name = tok.substr(1);
+			// printf("expand: >>%s<< -> >>%s<<\n", name.c_str(), defines_map[name].c_str());
+			std::string skipped_spaces = skip_spaces();
+			tok = next_token(false);
+			if (tok == "(" && defines_with_args.count(name) > 0) {
+				int level = 1;
+				std::vector<std::string> args;
+				args.push_back(std::string());
+				while (1)
+				{
+					tok = next_token(true);
+					if (tok == ")" || tok == "}" || tok == "]")
+						level--;
+					if (level == 0)
+						break;
+					if (level == 1 && tok == ",")
+						args.push_back(std::string());
+					else
+						args.back() += tok;
+					if (tok == "(" || tok == "{" || tok == "[")
+						level++;
+				}
+				for (int i = 0; i < GetSize(args); i++)
+					defines_map[stringf("macro_%s_arg%d", name.c_str(), i+1)] = args[i];
+			} else {
+				insert_input(tok);
+				insert_input(skipped_spaces);
+			}
+			insert_input(defines_map[name]);
+			return true;
+	} else return false;
 }
 
 std::string frontend_verilog_preproc(std::istream &f, std::string filename, const std::map<std::string, std::string> &pre_defines_map,
@@ -293,8 +350,9 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 		if (tok == "`include") {
 			skip_spaces();
 			std::string fn = next_token(true);
-			while (fn.size() > 1 && fn[0] == '`' && defines_map.count(fn.substr(1)) > 0)
-				fn = defines_map.at(fn.substr(1));
+			while(try_expand_macro(defines_with_args, defines_map, fn)) {
+				fn = next_token();
+			}
 			while (1) {
 				size_t pos = fn.find('"');
 				if (pos == std::string::npos)
@@ -445,39 +503,9 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			continue;
 		}
 
-		if (tok.size() > 1 && tok[0] == '`' && defines_map.count(tok.substr(1)) > 0) {
-			std::string name = tok.substr(1);
-			// printf("expand: >>%s<< -> >>%s<<\n", name.c_str(), defines_map[name].c_str());
-			std::string skipped_spaces = skip_spaces();
-			tok = next_token(false);
-			if (tok == "(" && defines_with_args.count(name) > 0) {
-				int level = 1;
-				std::vector<std::string> args;
-				args.push_back(std::string());
-				while (1)
-				{
-					tok = next_token(true);
-					if (tok == ")" || tok == "}" || tok == "]")
-						level--;
-					if (level == 0)
-						break;
-					if (level == 1 && tok == ",")
-						args.push_back(std::string());
-					else
-						args.back() += tok;
-					if (tok == "(" || tok == "{" || tok == "[")
-						level++;
-				}
-				for (int i = 0; i < GetSize(args); i++)
-					defines_map[stringf("macro_%s_arg%d", name.c_str(), i+1)] = args[i];
-			} else {
-				insert_input(tok);
-				insert_input(skipped_spaces);
-			}
-			insert_input(defines_map[name]);
+		if (try_expand_macro(defines_with_args, defines_map, tok))
 			continue;
-		}
-
+		
 		output_code.push_back(tok);
 	}
 
