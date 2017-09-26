@@ -350,7 +350,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 		if (tok == "`include") {
 			skip_spaces();
 			std::string fn = next_token(true);
-			while(try_expand_macro(defines_with_args, defines_map, fn)) {
+			while (try_expand_macro(defines_with_args, defines_map, fn)) {
 				fn = next_token();
 			}
 			while (1) {
