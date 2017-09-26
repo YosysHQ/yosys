@@ -1870,19 +1870,43 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			if (str == "\\$size")
+			if (str == "\\$size" || str == "\\$bits")
 			{
 				if (children.size() != 1)
 					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
 							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
 
 				AstNode *buf = children[0]->clone();
+				int mem_depth = 1;
+				AstNode *id_ast = NULL;
+				
 				// Is this needed?
 				//while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				buf->detectSignWidth(width_hint, sign_hint);
+				if (str == "\\$bits") {
+					if (buf->type == AST_IDENTIFIER) {
+						id_ast = buf->id2ast;
+						if (id_ast == NULL && current_scope.count(buf->str))
+							id_ast = current_scope.at(buf->str);
+						if (!id_ast)
+							log_error("Failed to resolve identifier %s for width detection at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+						if (id_ast->type == AST_MEMORY) {
+							AstNode *mem_range = id_ast->children[1];
+							if (mem_range->type == AST_RANGE) {
+								if (!mem_range->range_valid)
+									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+								mem_depth = mem_range->range_left - mem_range->range_right + 1;
+							} else if (mem_range->type == AST_MULTIRANGE) {
+								for (auto n : mem_range->children) 
+									mem_depth *= (n->range_left - n->range_right + 1);
+							} else
+								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+						}
+					}
+				}
 				delete buf;
 
-				newNode = mkconst_int(width_hint, false);
+				newNode = mkconst_int(width_hint * mem_depth, false);
 				goto apply_newNode;
 			}
 
