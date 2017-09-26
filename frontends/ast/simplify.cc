@@ -1872,26 +1872,39 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (VERILOG_FRONTEND::sv_mode && (str == "\\$size" || str == "\\$bits"))
 			{
-				if (children.size() != 1)
+				if (str == "\\$bits" && children.size() != 1)
 					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
 							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
 
+				if (str == "\\$size" && children.size() != 1 && children.size() != 2)
+					log_error("System function %s got %d arguments, expected 1 or 2 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
+
+				int dim = 1;
+				if (str == "\\$size" && children.size() == 2) {
+					AstNode *buf = children[1]->clone();
+					dim = buf->asInt(false);
+					delete buf;
+				}
 				AstNode *buf = children[0]->clone();
 				int mem_depth = 1;
 				AstNode *id_ast = NULL;
 				
+
 				// Is this needed?
 				//while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				buf->detectSignWidth(width_hint, sign_hint);
-				if (str == "\\$bits") {
-					if (buf->type == AST_IDENTIFIER) {
-						id_ast = buf->id2ast;
-						if (id_ast == NULL && current_scope.count(buf->str))
-							id_ast = current_scope.at(buf->str);
-						if (!id_ast)
-							log_error("Failed to resolve identifier %s for width detection at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
-						if (id_ast->type == AST_MEMORY) {
-							AstNode *mem_range = id_ast->children[1];
+				if (buf->type == AST_IDENTIFIER) {
+					id_ast = buf->id2ast;
+					if (id_ast == NULL && current_scope.count(buf->str))
+						id_ast = current_scope.at(buf->str);
+					if (!id_ast)
+						log_error("Failed to resolve identifier %s for width detection at %s:%d!\n", buf->str.c_str(), filename.c_str(), linenum);
+					if (id_ast->type == AST_MEMORY) {
+						// We got here only if the argument is a memory
+						// Otherwise $size() and $bits() return the expression width
+						AstNode *mem_range = id_ast->children[1];
+						if (str == "\\$bits") {
 							if (mem_range->type == AST_RANGE) {
 								if (!mem_range->range_valid)
 									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
@@ -1899,6 +1912,23 @@ skip_dynamic_range_lvalue_expansion:;
 							} else if (mem_range->type == AST_MULTIRANGE) {
 								for (auto n : mem_range->children) 
 									mem_depth *= (n->range_left - n->range_right + 1);
+							} else
+								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+						} else {
+							// $size()
+							if (mem_range->type == AST_RANGE) {
+								if (!mem_range->range_valid)
+									log_error("Failed to detect width of memory access `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
+								if (dim == 1)
+									width_hint = mem_range->range_left - mem_range->range_right + 1;
+							} else if (mem_range->type == AST_MULTIRANGE) {
+								log("multirange!\n");
+								int s = mem_range->children.size();
+								if (dim <= s) {
+									auto n = mem_range->children[dim-1]; 
+									width_hint = (n->range_left - n->range_right + 1);
+								} else if (dim > s+1)
+									log_error("Dimension %d out of range in `%s', as it only has dimensions 1..%d at %s:%d!\n", dim, mem_range->str.c_str(), s+1, filename.c_str(), linenum);
 							} else
 								log_error("Unknown memory depth AST type in `%s' at %s:%d!\n", mem_range->str.c_str(), filename.c_str(), linenum);
 						}
