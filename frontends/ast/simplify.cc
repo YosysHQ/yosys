@@ -387,7 +387,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
-			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE)
+			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_MEMORY)
 				while (node->simplify(true, false, false, 1, -1, false, node->type == AST_PARAMETER || node->type == AST_LOCALPARAM))
 					did_something = true;
 		}
@@ -1877,6 +1877,8 @@ skip_dynamic_range_lvalue_expansion:;
 							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
 
 				AstNode *buf = children[0]->clone();
+				// Is this needed?
+				//while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
 				buf->detectSignWidth(width_hint, sign_hint);
 				delete buf;
 
