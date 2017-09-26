@@ -1870,6 +1870,20 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
+			if (str == "\\$size")
+			{
+				if (children.size() != 1)
+					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
+
+				AstNode *buf = children[0]->clone();
+				buf->detectSignWidth(width_hint, sign_hint);
+				delete buf;
+
+				newNode = mkconst_int(width_hint, false);
+				goto apply_newNode;
+			}
+
 			if (str == "\\$ln" || str == "\\$log10" || str == "\\$exp" || str == "\\$sqrt" || str == "\\$pow" ||
 					str == "\\$floor" || str == "\\$ceil" || str == "\\$sin" || str == "\\$cos" || str == "\\$tan" ||
 					str == "\\$asin" || str == "\\$acos" || str == "\\$atan" || str == "\\$atan2" || str == "\\$hypot" ||
