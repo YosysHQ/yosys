@@ -57,7 +57,7 @@ prerequisites for building yosys:
 
 Similarily, on Mac OS X MacPorts or Homebrew can be used to install dependencies:
 
-	$ brew tap Homebrew/bundle && brew bundle \
+	$ brew tap Homebrew/bundle && brew bundle
 	$ sudo port install bison flex readline gawk libffi \
 		git mercurial graphviz pkgconfig python36
 
