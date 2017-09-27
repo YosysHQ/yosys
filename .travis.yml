@@ -24,6 +24,7 @@ addons:
     - g++-4.8
 before_install:
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap Homebrew/bundle && brew bundle; fi
   - git clone git://github.com/steveicarus/iverilog.git
   - (cd iverilog && autoconf && ./configure --prefix=$HOME/iverilog && make && make install)
   - export PATH=$PATH:$HOME/iverilog/bin
