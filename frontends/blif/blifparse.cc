@@ -522,7 +522,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, std::string dff_name, bo
 
 		if (lutptr)
 		{
-			if (input_len > 8)
+			if (input_len > 12)
 				goto error;
 
 			for (int i = 0; i < (1 << input_len); i++) {
