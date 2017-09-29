@@ -38,7 +38,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
 		log("    -top <module>\n");
-		log("        use the specified module as top module (default='top')\n");
+		log("        use the specified module as top module\n");
 		log("\n");
 		log("    -blif <file>\n");
 		log("        write the design to the specified BLIF file. writing of an output file\n");
