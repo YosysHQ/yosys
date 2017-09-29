@@ -1,0 +1,2 @@
+read_verilog -sv sizebits.sv
+prep; sat -verify -prove-asserts

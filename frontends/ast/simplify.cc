@@ -1870,7 +1870,7 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			if (VERILOG_FRONTEND::sv_mode && (str == "\\$size" || str == "\\$bits"))
+			if (str == "\\$size" || str == "\\$bits")
 			{
 				if (str == "\\$bits" && children.size() != 1)
 					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
