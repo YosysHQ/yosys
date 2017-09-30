@@ -190,8 +190,8 @@ namespace AST
 
 		// creating and deleting nodes
 		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = NULL, AstNode *child2 = NULL, AstNode *child3 = NULL);
-		AstNode *clone();
-		void cloneInto(AstNode *other);
+		AstNode *clone() const;
+		void cloneInto(AstNode *other) const;
 		void delete_children();
 		~AstNode();
 
@@ -234,8 +234,8 @@ namespace AST
 		AstNode *eval_const_function(AstNode *fcall);
 
 		// create a human-readable text representation of the AST (for debugging)
-		void dumpAst(FILE *f, std::string indent);
-		void dumpVlog(FILE *f, std::string indent);
+		void dumpAst(FILE *f, std::string indent) const;
+		void dumpVlog(FILE *f, std::string indent) const;
 
 		// used by genRTLIL() for detecting expression width and sign
 		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL);
@@ -264,11 +264,11 @@ namespace AST
 		RTLIL::Const asAttrConst();
 		RTLIL::Const asParaConst();
 		uint64_t asInt(bool is_signed);
-		bool bits_only_01();
-		bool asBool();
+		bool bits_only_01() const;
+		bool asBool() const;
 
 		// helper functions for real valued const eval
-		int isConst(); // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
+		int isConst() const; // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
 		double asReal(bool is_signed);
 		RTLIL::Const realAsConst(int width);
 	};
