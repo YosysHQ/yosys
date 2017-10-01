@@ -175,7 +175,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			if (set_signed && val < 0)
 				f << stringf("-32'sd%u", -val);
 			else {
-                                if(!nobasenradix)
+                                if(nobasenradix)
                                   f << stringf("%u", val); // There's no signed parameter on megawizard IP 
                                 else
                                        f << stringf("32'%sd%u", set_signed ? "s" : "", val);
@@ -1585,8 +1585,8 @@ struct VerilogBackend : public Backend {
 				continue;
 			}
                         if (arg == "-nobasenradix") {
-                          defparam = true;
-                          continue;
+                                nobasenradix = true;
+                                continue;
 			}
 			if (arg == "-blackboxes") {
 				blackboxes = true;
