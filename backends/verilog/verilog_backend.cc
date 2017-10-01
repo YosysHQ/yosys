@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, nobasenradix;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -174,8 +174,12 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			}
 			if (set_signed && val < 0)
 				f << stringf("-32'sd%u", -val);
-			else
-				f << stringf("32'%sd%u", set_signed ? "s" : "", val);
+			else {
+                                if(!nobasenradix)
+                                  f << stringf("%u", val); // There's no signed parameter on megawizard IP 
+                                else
+                                       f << stringf("32'%sd%u", set_signed ? "s" : "", val);
+                       }
 		} else {
 	dump_hex:
 			if (nohex)
@@ -1485,6 +1489,10 @@ struct VerilogBackend : public Backend {
 		log("    -v\n");
 		log("        verbose output (print new names of all renamed wires and cells)\n");
 		log("\n");
+		log("    -nobasenradix\n");
+		log("        dump defparam constants without size and radix for align with legacy\n");
+		log("        MegaWizard primitive template implementation.\n");
+		log("\n");
 		log("Note that RTLIL processes can't always be mapped directly to Verilog\n");
 		log("always blocks. This frontend should only be used to export an RTLIL\n");
 		log("netlist, i.e. after the \"proc\" pass has been used to convert all\n");
@@ -1505,6 +1513,7 @@ struct VerilogBackend : public Backend {
 		nohex = false;
 		nostr = false;
 		defparam = false;
+                nobasenradix= false;
 		auto_prefix = "";
 
 		bool blackboxes = false;
@@ -1574,6 +1583,10 @@ struct VerilogBackend : public Backend {
 			if (arg == "-defparam") {
 				defparam = true;
 				continue;
+			}
+                        if (arg == "-nobasenradix") {
+                          defparam = true;
+                          continue;
 			}
 			if (arg == "-blackboxes") {
 				blackboxes = true;

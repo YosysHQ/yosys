@@ -16,12 +16,34 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-
-// Flip-flop D
-module  \$_DFF_P_ (input D, input C, output Q);
+// Normal mode DFF negedge clk, negedge reset
+module  \$_DFF_N_ (input D, C, output Q);
    parameter WYSIWYG="TRUE";
    dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(1'b1), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
-endmodule //
+endmodule
+// Normal mode DFF
+module  \$_DFF_P_ (input D, C, output Q);
+   parameter WYSIWYG="TRUE";
+   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(1'b1), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
+endmodule
+
+// Async Active Low Reset DFF
+module  \$_DFF_PN0_ (input D, C, R, output Q);
+   parameter WYSIWYG="TRUE";
+   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
+endmodule
+// Async Active High Reset DFF
+module  \$_DFF_PP0_ (input D, C, R, output Q);
+   parameter WYSIWYG="TRUE";
+   wire R_i = ~ R;
+   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R_i), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
+endmodule
+
+module  \$__DFFE_PP0 (input D, C, E, R, output Q); 
+   parameter WYSIWYG="TRUE";
+   wire E_i = ~ E;
+   dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(E_i), .sload(1'b0));
+endmodule
 
 // Input buffer map
 module \$__inpad (input I, output O);
@@ -49,10 +71,10 @@ module \$lut (A, Y);
            fiftyfivenm_lcell_comb #(.lut_mask({4{LUT}}), .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), .dataa(A[0]), .datab(A[1]), .datac(1'b1),.datad(1'b1));
       end else
       if(WIDTH == 3) begin
-	   fiftyfivenm_lcell_comb #(.lut_mask({2{LUT}}), .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), .dataa(A[0]), .datab(A[1]), .datac(A[2]),.datad(1'b1));
+	      fiftyfivenm_lcell_comb #(.lut_mask({2{LUT}}), .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), .dataa(A[0]), .datab(A[1]), .datac(A[2]),.datad(1'b1));
       end else
       if(WIDTH == 4) begin
-	   fiftyfivenm_lcell_comb #(.lut_mask(LUT), .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), .dataa(A[0]), .datab(A[1]), .datac(A[2]),.datad(A[3]));
+         fiftyfivenm_lcell_comb #(.lut_mask(LUT), .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), .dataa(A[0]), .datab(A[1]), .datac(A[2]),.datad(A[3]));
       end else
 	   wire _TECHMAP_FAIL_ = 1;
    endgenerate
