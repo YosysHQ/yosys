@@ -26,20 +26,19 @@ module GND (output G);
 endmodule // GND
 
 /* Altera MAX10 devices Input Buffer Primitive */
-module fiftyfivenm_io_ibuf (output o, input i, input ibar);
-   assign ibar = ibar;
-   assign o    = i;
+module PADIN (output padout, input padin);
+   assign padout = padin;
 endmodule // fiftyfivenm_io_ibuf
 
 /* Altera MAX10 devices Output Buffer Primitive */
-module fiftyfivenm_io_obuf (output o, input i, input oe);
-   assign o  = i;
+module PADOUT (output padout, input padin, input oe);
+   assign padout  = padin;
    assign oe = oe;
 endmodule // fiftyfivenm_io_obuf
 
 /* Altera MAX10 4-input non-fracturable LUT Primitive */
-module fiftyfivenm_lcell_comb (output combout, cout,
-                               input  dataa, datab, datac, datad, cin);
+module LUT4 (output dout,
+             input  din0, din1, din2, din3);
 
 /* Internal parameters which define the behaviour
    of the LUT primitive.
@@ -48,10 +47,10 @@ module fiftyfivenm_lcell_comb (output combout, cout,
    dont_touch for retiming || carry options.
    lpm_type for WYSIWYG */
 
-parameter lut_mask = 16'hFFFF;
-parameter dont_touch = "off";
-parameter lpm_type = "fiftyfivenm_lcell_comb";
-parameter sum_lutc_input = "datac";
+parameter lut_function = 16'hFFFF;
+//parameter dont_touch = "off";
+//parameter lpm_type = "fiftyfivenm_lcell_comb";
+//parameter sum_lutc_input = "datac";
 
 reg [1:0] lut_type;
 reg cout_rt;
@@ -62,10 +61,10 @@ wire datac_w;
 wire datad_w;
 wire cin_w;
 
-assign dataa_w = dataa;
-assign datab_w = datab;
-assign datac_w = datac;
-assign datad_w = datad;
+assign dataa_w = din0;
+assign datab_w = din1;
+assign datac_w = din2;
+assign datad_w = din3;
 
 function lut_data;
 input [15:0] mask;
@@ -83,29 +82,29 @@ reg [1:0]   s1;
 endfunction
 
 initial begin
-    if (sum_lutc_input == "datac") lut_type = 0;
-    else
+    /*if (sum_lutc_input == "datac")*/ lut_type = 0;
+    /*else
     if (sum_lutc_input == "cin")   lut_type = 1;
     else begin
       $error("Error in sum_lutc_input. Parameter %s is not a valid value.\n", sum_lutc_input);
       $finish();
-    end
+    end*/
 end
 
 always @(dataa_w or datab_w or datac_w or datad_w or cin_w) begin
     if (lut_type == 0) begin // logic function
-        combout_rt = lut_data(lut_mask, dataa_w, datab_w,
+        combout_rt = lut_data(lut_function, dataa_w, datab_w,
                             datac_w, datad_w);
     end
     else if (lut_type == 1) begin // arithmetic function
-        combout_rt = lut_data(lut_mask, dataa_w, datab_w,
+        combout_rt = lut_data(lut_function, dataa_w, datab_w,
                             cin_w, datad_w);
     end
-    cout_rt = lut_data(lut_mask, dataa_w, datab_w, cin_w, 'b0);
+    cout_rt = lut_data(lut_function, dataa_w, datab_w, cin_w, 'b0);
 end
 
-assign combout = combout_rt & 1'b1;
-assign cout = cout_rt & 1'b1;
+assign dout = combout_rt & 1'b1;
+//assign cout = cout_rt & 1'b1;
 
 endmodule // fiftyfivenm_lcell_comb
 

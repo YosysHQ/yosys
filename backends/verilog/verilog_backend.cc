@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, decimal;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -172,7 +172,9 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
-			if (set_signed && val < 0)
+			if (decimal)
+				f << stringf("%d", val);
+			else if (set_signed && val < 0)
 				f << stringf("-32'sd%u", -val);
 			else
 				f << stringf("32'%sd%u", set_signed ? "s" : "", val);
@@ -1458,6 +1460,9 @@ struct VerilogBackend : public Backend {
 		log("        not bit pattern. This option decativates this feature and instead\n");
 		log("        will write out all constants in binary.\n");
 		log("\n");
+		log("    -decimal\n");
+		log("        dump 32-bit constants in decimal and without size and radix\n");
+		log("\n");
 		log("    -nohex\n");
 		log("        constant values that are compatible with hex output are usually\n");
 		log("        dumped as hex values. This option decativates this feature and\n");
@@ -1505,6 +1510,7 @@ struct VerilogBackend : public Backend {
 		nohex = false;
 		nostr = false;
 		defparam = false;
+		decimal = false;
 		auto_prefix = "";
 
 		bool blackboxes = false;
@@ -1573,6 +1579,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-defparam") {
 				defparam = true;
+				continue;
+			}
+			if (arg == "-decimal") {
+				decimal = true;
 				continue;
 			}
 			if (arg == "-blackboxes") {

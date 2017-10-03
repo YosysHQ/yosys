@@ -17,46 +17,36 @@
  *
  */
 
-// NOTE: This is still WIP.
-(* techmap_celltype = "$alu" *)
-module _80_altera_max10_alu (A, B, CI, BI, X, Y, CO);
+module _80_cycloneive_alu (A, B, CI, BI, X, Y, CO);
    parameter A_SIGNED = 0;
    parameter B_SIGNED = 0;
-   parameter A_WIDTH  = 1;
-   parameter B_WIDTH  = 1;
-   parameter Y_WIDTH  = 1;
-   parameter LUT      = 0;
+   parameter A_WIDTH = 1;
+   parameter B_WIDTH = 1;
+   parameter Y_WIDTH = 1;
 
    input [A_WIDTH-1:0] A;
    input [B_WIDTH-1:0] B;
    output [Y_WIDTH-1:0] X, Y;
 
-   input 		CI, BI;
-   output [Y_WIDTH-1:0] CO;
+   input                CI, BI;
+   output [Y_WIDTH:0]   CO;
 
-   wire 		_TECHMAP_FAIL_ = Y_WIDTH <= 2;
+   wire                 _TECHMAP_FAIL_ = Y_WIDTH < 5;
 
-   wire                 tempcombout;
-   wire [Y_WIDTH-1:0] 	A_buf, B_buf;
+   wire [Y_WIDTH-1:0]   A_buf, B_buf;
    \$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
    \$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-   wire [Y_WIDTH-1:0] AA = A_buf;
-   wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
-   wire [Y_WIDTH-1:0] C = {CO, CI};
+   wire [Y_WIDTH-1:0]   AA = A_buf;
+   wire [Y_WIDTH-1:0]   BB = BI ? ~B_buf : B_buf;
+   wire [Y_WIDTH:0]     C = {CO, CI};
+   
+   cycloneive_lcell_comb #(.lut_mask(16'b0110_0110_1000_1000), .sum_lutc_input("cin")) carry_start  (.cout(CO[0]), .dataa(BB[0]), .datab(1'b1), .datac(1'b1), .datad(1'b1));
+   genvar               i;
+   generate for (i = 1; i < Y_WIDTH; i = i + 1) begin:slice
+      cycloneive_lcell_comb #(.lut_mask(16'b0101_1010_0101_0000), .sum_lutc_input("cin")) arith_cell (.combout(Y[i]), .cout(CO[i]), .dataa(BB[i]), .datab(1'b1), .datac(1'b1), .datad(1'b1), .cin(C[i]));
+   end endgenerate
 
-   genvar i;
-	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-	   fiftyfivenm_lcell_comb #(.lut_mask(LUT), .sum_lutc_input("cin")) _TECHMAP_REPLACE_
-	                                                                             ( .dataa(AA),
-										       .datab(BB),
-										       .datac(C),
-										       .datad(1'b0),
-										       .cin(C[i]),
-										       .cout(CO[i]),
-										       .combout(Y[i]) );
-	  end: slice
-	endgenerate
-  assign X = C;
+   assign X = AA ^ BB;
+   
 endmodule
-
