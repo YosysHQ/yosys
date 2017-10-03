@@ -212,7 +212,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 }
 
 // create a (deep recursive) copy of a node
-AstNode *AstNode::clone()
+AstNode *AstNode::clone() const
 {
 	AstNode *that = new AstNode;
 	*that = *this;
@@ -224,7 +224,7 @@ AstNode *AstNode::clone()
 }
 
 // create a (deep recursive) copy of a node use 'other' as target root node
-void AstNode::cloneInto(AstNode *other)
+void AstNode::cloneInto(AstNode *other) const
 {
 	AstNode *tmp = clone();
 	other->delete_children();
@@ -254,7 +254,7 @@ AstNode::~AstNode()
 
 // create a nice text representation of the node
 // (traverse tree by recursion, use 'other' pointer for diffing two AST trees)
-void AstNode::dumpAst(FILE *f, std::string indent)
+void AstNode::dumpAst(FILE *f, std::string indent) const
 {
 	if (f == NULL) {
 		for (auto f : log_files)
@@ -333,7 +333,7 @@ static std::string id2vl(std::string txt)
 }
 
 // dump AST node as Verilog pseudo-code
-void AstNode::dumpVlog(FILE *f, std::string indent)
+void AstNode::dumpVlog(FILE *f, std::string indent) const
 {
 	bool first = true;
 	std::string txt;
@@ -755,7 +755,7 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 	return node;
 }
 
-bool AstNode::bits_only_01()
+bool AstNode::bits_only_01() const
 {
 	for (auto bit : bits)
 		if (bit != RTLIL::S0 && bit != RTLIL::S1)
@@ -806,7 +806,7 @@ RTLIL::Const AstNode::asParaConst()
 	return val;
 }
 
-bool AstNode::asBool()
+bool AstNode::asBool() const
 {
 	log_assert(type == AST_CONSTANT);
 	for (auto &bit : bits)
@@ -815,7 +815,7 @@ bool AstNode::asBool()
 	return false;
 }
 
-int AstNode::isConst()
+int AstNode::isConst() const
 {
 	if (type == AST_CONSTANT)
 		return 1;
