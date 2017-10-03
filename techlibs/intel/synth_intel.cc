@@ -63,9 +63,6 @@ struct SynthIntelPass : public ScriptPass {
     log("    -retime\n");
     log("        run 'abc' with -dff option\n");
     log("\n");
-    log("    -nobasenradix\n");
-    log("        dump the VQM netlist in clearbox format for certain defparam primitives\n");
-    log("\n");
     log("The following commands are executed by this synthesis command:\n");
     help_script();
     log("\n");
@@ -232,7 +229,7 @@ struct SynthIntelPass : public ScriptPass {
     if (check_label("vqm"))
       {
         if (!vout_file.empty() || help_mode)
-          run(stringf("write_verilog -attr2comment -defparam -nohex -nobasenradix -renameprefix syn_ %s",
+          run(stringf("write_verilog -attr2comment -defparam -nohex -decimal -renameprefix syn_ %s",
                       help_mode ? "<file-name>" : vout_file.c_str()));
       }
   }

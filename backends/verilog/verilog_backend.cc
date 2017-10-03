@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, nobasenradix;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, defparam, decimal;
 int auto_name_counter, auto_name_offset, auto_name_digits;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -172,14 +172,12 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				if (data.bits[i] == RTLIL::S1)
 					val |= 1 << (i - offset);
 			}
-			if (set_signed && val < 0)
+			if (decimal)
+				f << stringf("%d", val);
+			else if (set_signed && val < 0)
 				f << stringf("-32'sd%u", -val);
-			else {
-                                if(nobasenradix)
-                                  f << stringf("%u", val); // There's no signed parameter on megawizard IP 
-                                else
-                                       f << stringf("32'%sd%u", set_signed ? "s" : "", val);
-                       }
+			else
+				f << stringf("32'%sd%u", set_signed ? "s" : "", val);
 		} else {
 	dump_hex:
 			if (nohex)
@@ -1462,6 +1460,9 @@ struct VerilogBackend : public Backend {
 		log("        not bit pattern. This option decativates this feature and instead\n");
 		log("        will write out all constants in binary.\n");
 		log("\n");
+		log("    -decimal\n");
+		log("        dump 32-bit constants in decimal and without size and radix\n");
+		log("\n");
 		log("    -nohex\n");
 		log("        constant values that are compatible with hex output are usually\n");
 		log("        dumped as hex values. This option decativates this feature and\n");
@@ -1489,10 +1490,6 @@ struct VerilogBackend : public Backend {
 		log("    -v\n");
 		log("        verbose output (print new names of all renamed wires and cells)\n");
 		log("\n");
-		log("    -nobasenradix\n");
-		log("        dump defparam constants without size and radix for align with legacy\n");
-		log("        MegaWizard primitive template implementation.\n");
-		log("\n");
 		log("Note that RTLIL processes can't always be mapped directly to Verilog\n");
 		log("always blocks. This frontend should only be used to export an RTLIL\n");
 		log("netlist, i.e. after the \"proc\" pass has been used to convert all\n");
@@ -1513,7 +1510,7 @@ struct VerilogBackend : public Backend {
 		nohex = false;
 		nostr = false;
 		defparam = false;
-                nobasenradix= false;
+		decimal = false;
 		auto_prefix = "";
 
 		bool blackboxes = false;
@@ -1584,9 +1581,9 @@ struct VerilogBackend : public Backend {
 				defparam = true;
 				continue;
 			}
-                        if (arg == "-nobasenradix") {
-                                nobasenradix = true;
-                                continue;
+			if (arg == "-decimal") {
+				decimal = true;
+				continue;
 			}
 			if (arg == "-blackboxes") {
 				blackboxes = true;
