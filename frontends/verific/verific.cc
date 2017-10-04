@@ -60,6 +60,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 #ifdef YOSYS_ENABLE_VERIFIC
 
+bool got_verific_error_msg = false;
+
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
 	string message = stringf("VERIFIC-%s [%s] ",
@@ -80,6 +82,9 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 		log_warning_noprefix("%s\n", message.c_str());
 	else
 		log("%s\n", message.c_str());
+
+	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR)
+		got_verific_error_msg = true;
 }
 
 string get_full_netlist_name(Netlist *nl)
@@ -1190,6 +1195,9 @@ struct VerificImporter
 
 			if (inst->IsPrimitive())
 			{
+				if (inst->Type() == PRIM_HDL_ASSERTION)
+					continue;
+
 				if (!mode_keep)
 					log_error("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
 
@@ -1743,6 +1751,7 @@ struct VerificPass : public Pass {
 		Message::SetConsoleOutput(0);
 		Message::RegisterCallBackMsg(msg_func);
 		RuntimeFlags::SetVar("db_allow_external_nets", 1);
+		RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
@@ -1762,35 +1771,35 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_95))
 					log_cmd_error("Reading `%s' in VERILOG_95 mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vlog2k") {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::VERILOG_2K))
 					log_cmd_error("Reading `%s' in VERILOG_2K mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-sv2005") {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG_2005))
 					log_cmd_error("Reading `%s' in SYSTEM_VERILOG_2005 mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-sv2009") {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG_2009))
 					log_cmd_error("Reading `%s' in SYSTEM_VERILOG_2009 mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-sv2012" || args[argidx] == "-sv")) {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!veri_file::Analyze(args[argidx].c_str(), veri_file::SYSTEM_VERILOG))
 					log_cmd_error("Reading `%s' in SYSTEM_VERILOG mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
@@ -1798,7 +1807,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_87))
 					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl93") {
@@ -1806,7 +1815,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_93))
 					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl2k") {
@@ -1814,7 +1823,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2K))
 					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
@@ -1822,7 +1831,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_2008))
 					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdpsl") {
@@ -1830,7 +1839,7 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				if (!vhdl_file::Analyze(args[argidx].c_str(), "work", vhdl_file::VHDL_PSL))
 					log_cmd_error("Reading `%s' in VHDL_PSL mode failed.\n", args[argidx].c_str());
-			return;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-import")
@@ -1969,10 +1978,15 @@ struct VerificPass : public Pass {
 			}
 
 			Libset::Reset();
-			return;
+			goto check_error;
 		}
 
 		log_cmd_error("Missing or unsupported mode parameter.\n");
+
+	check_error:
+		if (got_verific_error_msg)
+			log_error("Verific ERROR.\n");
+
 	}
 #else /* YOSYS_ENABLE_VERIFIC */
 	virtual void execute(std::vector<std::string>, RTLIL::Design *) {
