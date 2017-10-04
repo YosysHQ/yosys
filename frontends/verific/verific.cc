@@ -912,7 +912,7 @@ struct VerificImporter
 
 			if (found_new_net)
 			{
-				RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : NEW_ID);
+				RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? RTLIL::escape_id(netbus->Name()) : NEW_ID);
 
 				if (verbose)
 					log("  importing netbus %s as %s.\n", netbus->Name(), log_id(wire_name));
