@@ -60,11 +60,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 #ifdef YOSYS_ENABLE_VERIFIC
 
-bool got_verific_error_msg = false;
+string verific_error_msg;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
-	string message = stringf("VERIFIC-%s [%s] ",
+	string message_prefix = stringf("VERIFIC-%s [%s] ",
 			msg_type == VERIFIC_NONE ? "NONE" :
 			msg_type == VERIFIC_ERROR ? "ERROR" :
 			msg_type == VERIFIC_WARNING ? "WARNING" :
@@ -73,18 +73,16 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 			msg_type == VERIFIC_COMMENT ? "COMMENT" :
 			msg_type == VERIFIC_PROGRAM_ERROR ? "PROGRAM_ERROR" : "UNKNOWN", message_id);
 
-	if (linefile)
-		message += stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile));
-
+	string message = linefile ? stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile)) : "";
 	message += vstringf(msg, args);
 
 	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-		log_warning_noprefix("%s\n", message.c_str());
+		log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
 	else
-		log("%s\n", message.c_str());
+		log("%s%s\n", message_prefix.c_str(), message.c_str());
 
-	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR)
-		got_verific_error_msg = true;
+	if (verific_error_msg.empty() && (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR))
+		verific_error_msg = message;
 }
 
 string get_full_netlist_name(Netlist *nl)
@@ -1984,8 +1982,8 @@ struct VerificPass : public Pass {
 		log_cmd_error("Missing or unsupported mode parameter.\n");
 
 	check_error:
-		if (got_verific_error_msg)
-			log_error("Verific ERROR.\n");
+		if (!verific_error_msg.empty())
+			log_error("%s\n", verific_error_msg.c_str());
 
 	}
 #else /* YOSYS_ENABLE_VERIFIC */
