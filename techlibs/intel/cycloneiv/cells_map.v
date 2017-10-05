@@ -39,7 +39,7 @@ module  \$_DFF_PP0_ (input D, C, R, output Q);
    dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R_i), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 
-module  \$__DFFE_PP0 (input D, C, E, R, output Q); 
+module  \$__DFFE_PP0 (input D, C, E, R, output Q);
    parameter WYSIWYG="TRUE";
    wire E_i = ~ E;
    dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(E_i), .sload(1'b0));
@@ -62,7 +62,7 @@ module \$lut (A, Y);
    parameter WIDTH  = 0;
    parameter LUT    = 0;
    input [WIDTH-1:0] A;
-   output 	     Y;
+   output            Y;
    generate
       if (WIDTH == 1) begin
 	   assign Y = ~A[0]; // Not need to spend 1 logic cell for such an easy function

@@ -26,21 +26,21 @@ module GND (output G);
 endmodule // GND
 
 /* Altera MAX10 devices Input Buffer Primitive */
-module fiftyfivenm_io_ibuf 
+module fiftyfivenm_io_ibuf
   (output o, input i, input ibar);
    assign ibar = ibar;
    assign o    = i;
 endmodule // fiftyfivenm_io_ibuf
 
 /* Altera MAX10 devices Output Buffer Primitive */
-module fiftyfivenm_io_obuf 
+module fiftyfivenm_io_obuf
   (output o, input i, input oe);
    assign o  = i;
    assign oe = oe;
 endmodule // fiftyfivenm_io_obuf
 
 /* Altera MAX10 4-input non-fracturable LUT Primitive */
-module fiftyfivenm_lcell_comb 
+module fiftyfivenm_lcell_comb
   (output combout, cout,
    input dataa, datab, datac, datad, cin);
 
@@ -113,7 +113,7 @@ module fiftyfivenm_lcell_comb
 endmodule // fiftyfivenm_lcell_comb
 
 /* Altera D Flip-Flop Primitive */
-module dffeas 
+module dffeas
   (output q,
    input d, clk, clrn, prn, ena,
    input asdata, aload, sclr, sload);
@@ -125,7 +125,7 @@ module dffeas
    reg   q_tmp;
    wire  reset;
    reg [7:0] debug_net;
-   
+
    assign reset       = (prn && sclr && ~clrn && ena);
    assign q           = q_tmp & 1'b1;
 
@@ -134,7 +134,7 @@ module dffeas
       else q_tmp <= d;
    end
    assign q = q_tmp;
-   
+
 endmodule // dffeas
 
 /* MAX10 altpll clearbox model */
@@ -175,9 +175,9 @@ module fiftyfivenm_pll
    parameter bandwidth                     = 0;
    parameter bandwidth_type                = "auto";
    parameter use_dc_coupling               = "false";
-   parameter lock_high = 0; 
-   parameter lock_low = 0;  
-   parameter lock_window_ui                = "0.05"; 
+   parameter lock_high = 0;
+   parameter lock_low = 0;
+   parameter lock_window_ui                = "0.05";
    parameter test_bypass_lock_detect       = "off";
    parameter clk0_output_frequency         = 0;
    parameter clk0_multiply_by              = 0;
@@ -256,16 +256,16 @@ module fiftyfivenm_pll
    parameter c4_test_source = -1;
    parameter vco_multiply_by = 0;
    parameter vco_divide_by = 0;
-   parameter vco_post_scale = 1; 
+   parameter vco_post_scale = 1;
    parameter vco_frequency_control = "auto";
    parameter vco_phase_shift_step = 0;
    parameter charge_pump_current = 10;
-   parameter loop_filter_r = "1.0";   
-   parameter loop_filter_c = 0;    
+   parameter loop_filter_r = "1.0";
+   parameter loop_filter_c = 0;
    parameter pll_compensation_delay = 0;
    parameter lpm_type = "fiftyfivenm_pll";
    parameter phase_counter_select_width = 3;
-   
+
    input [1:0] inclk;
    input       fbin;
    input       clkswitch;
@@ -288,5 +288,5 @@ module fiftyfivenm_pll
    output                                   phasedone;
    output                                   vcooverrange;
    output                                   vcounderrange;
-   
+
 endmodule // cycloneive_pll

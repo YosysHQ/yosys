@@ -170,7 +170,7 @@ struct SynthIntelPass : public ScriptPass {
       {
         run("synth -run coarse");
       }
-    
+
     if (!nobram && check_label("bram", "(skip if -nobram)"))
       {
         run("memory_bram -rules +/intel/common/brams.txt");
@@ -179,7 +179,7 @@ struct SynthIntelPass : public ScriptPass {
 
     if (check_label("fine"))
       {
-        run("opt -fast -mux_undef -undriven -fine -full"); 
+        run("opt -fast -mux_undef -undriven -fine -full");
         run("memory_map");
         run("opt -undriven -fine");
         run("dffsr2dff");
@@ -209,7 +209,7 @@ struct SynthIntelPass : public ScriptPass {
           run("techmap -map +/intel/max10/cells_map.v");
         else if(family_opt=="a10gx")
           run("techmap -map +/intel/a10gx/cells_map.v");
-        else if(family_opt=="cyclonev") 
+        else if(family_opt=="cyclonev")
           run("techmap -map +/intel/cyclonev/cells_map.v");
         else if(family_opt=="cycloneiv")
           run("techmap -map +/intel/cycloneiv/cells_map.v");

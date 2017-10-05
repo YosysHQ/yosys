@@ -40,7 +40,7 @@ module _80_cycloneive_alu (A, B, CI, BI, X, Y, CO);
    wire [Y_WIDTH-1:0]   AA = A_buf;
    wire [Y_WIDTH-1:0]   BB = BI ? ~B_buf : B_buf;
    wire [Y_WIDTH:0]     C = {CO, CI};
-   
+
    cycloneive_lcell_comb #(.lut_mask(16'b0110_0110_1000_1000), .sum_lutc_input("cin")) carry_start  (.cout(CO[0]), .dataa(BB[0]), .datab(1'b1), .datac(1'b1), .datad(1'b1));
    genvar               i;
    generate for (i = 1; i < Y_WIDTH; i = i + 1) begin:slice
@@ -48,5 +48,5 @@ module _80_cycloneive_alu (A, B, CI, BI, X, Y, CO);
    end endgenerate
 
    assign X = AA ^ BB;
-   
+
 endmodule

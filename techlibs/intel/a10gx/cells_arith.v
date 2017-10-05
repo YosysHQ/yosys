@@ -45,10 +45,10 @@ module _80_altera_a10gx_alu (A, B, CI, BI, X, Y, CO);
 	//wire [Y_WIDTH:0] C = {CO, CI};
         wire [Y_WIDTH+1:0] COx;
         wire [Y_WIDTH+1:0] C = {COx, CI};
-    
+
 	/* Start implementation */
 	(* keep *) fiftyfivenm_lcell_comb #(.lut_mask(16'b0000_0000_1010_1010), .sum_lutc_input("cin")) carry_start (.cout(COx[0]), .dataa(C[0]), .datab(1'b1), .datac(1'b1), .datad(1'b1));
-	
+
 	genvar i;
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
 	  if(i==Y_WIDTH-1) begin
@@ -61,5 +61,5 @@ module _80_altera_a10gx_alu (A, B, CI, BI, X, Y, CO);
 	endgenerate
 	/* End implementation */
 	assign X = AA ^ BB;
-   
-endmodule  
+
+endmodule

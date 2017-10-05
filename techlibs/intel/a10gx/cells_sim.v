@@ -38,7 +38,7 @@ endmodule // twentynm_io_obuf
 
 /* Altera Arria 10 GX  LUT Primitive */
 module twentynm_lcell_comb (output combout, cout, sumout,
-                            input  dataa, datab, datac, datad, 
+                            input  dataa, datab, datac, datad,
                             input  datae, dataf, datag, cin,
                             input  sharein);
 

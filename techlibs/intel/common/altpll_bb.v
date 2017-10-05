@@ -19,7 +19,7 @@
 /* No clearbox model */
 `ifdef NO_CLEARBOX
 (* blackbox *)
-module altpll  
+module altpll
   ( inclk,
     fbin,
     pllena,
@@ -62,7 +62,7 @@ module altpll
     c2,
     c3,
     c4);
-   
+
    parameter   intended_device_family    = "MAX 10";
    parameter   operation_mode            = "NORMAL";
    parameter   pll_type                  = "AUTO";
@@ -340,7 +340,7 @@ module altpll
    input       phasestep;
    input       configupdate;
    inout       fbmimicbidir;
-   
+
 
    output [width_clock-1:0] clk;
    output [3:0]             extclk;
@@ -361,6 +361,6 @@ module altpll
    output                   fref;
    output                   icdrclk;
    output                   c0, c1, c2, c3, c4;
-   
+
 endmodule // altpll
 `endif

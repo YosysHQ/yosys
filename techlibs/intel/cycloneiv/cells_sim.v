@@ -26,7 +26,7 @@ module GND (output G);
 endmodule // GND
 
 /* Altera Cyclone IV (GX) devices Input Buffer Primitive */
-module cycloneiv_io_ibuf 
+module cycloneiv_io_ibuf
   (output o, input i, input ibar);
    assign ibar = ibar;
    assign o    = i;
@@ -40,7 +40,7 @@ module cycloneiv_io_obuf
 endmodule // fiftyfivenm_io_obuf
 
 /* Altera Cyclone IV (GX) 4-input non-fracturable LUT Primitive */
-module cycloneiv_lcell_comb 
+module cycloneiv_lcell_comb
   (output combout, cout,
    input dataa, datab, datac, datad, cin);
 
@@ -113,7 +113,7 @@ module cycloneiv_lcell_comb
 endmodule // cycloneiv_lcell_comb
 
 /* Altera D Flip-Flop Primitive */
-module dffeas 
+module dffeas
   (output q,
    input d, clk, clrn, prn, ena,
    input asdata, aload, sclr, sload);
@@ -125,7 +125,7 @@ module dffeas
    reg   q_tmp;
    wire  reset;
    reg [7:0] debug_net;
-   
+
    assign reset       = (prn && sclr && ~clrn && ena);
    assign q           = q_tmp & 1'b1;
 
@@ -134,7 +134,7 @@ module dffeas
       else q_tmp <= d;
    end
    assign q = q_tmp;
-   
+
 endmodule // dffeas
 
 /* Cyclone IV GX altpll clearbox model */
@@ -177,9 +177,9 @@ module cycloneiv_pll
    parameter bandwidth                     = 0;
    parameter bandwidth_type                = "auto";
    parameter use_dc_coupling               = "false";
-   parameter lock_high = 0; 
-   parameter lock_low = 0;  
-   parameter lock_window_ui                = "0.05"; 
+   parameter lock_high = 0;
+   parameter lock_low = 0;
+   parameter lock_window_ui                = "0.05";
    parameter test_bypass_lock_detect       = "off";
    parameter clk0_output_frequency         = 0;
    parameter clk0_multiply_by              = 0;
@@ -258,16 +258,16 @@ module cycloneiv_pll
    parameter c4_test_source = -1;
    parameter vco_multiply_by = 0;
    parameter vco_divide_by = 0;
-   parameter vco_post_scale = 1; 
+   parameter vco_post_scale = 1;
    parameter vco_frequency_control = "auto";
    parameter vco_phase_shift_step = 0;
    parameter charge_pump_current = 10;
-   parameter loop_filter_r = "1.0";   
-   parameter loop_filter_c = 0;    
+   parameter loop_filter_r = "1.0";
+   parameter loop_filter_c = 0;
    parameter pll_compensation_delay = 0;
    parameter lpm_type = "cycloneiv_pll";
    parameter phase_counter_select_width = 3;
-   
+
    input [1:0] inclk;
    input       fbin;
    input       clkswitch;
@@ -280,7 +280,7 @@ module cycloneiv_pll
    input                                    scanclkena;
    input                                    scandata;
    input                                    configupdate;
-   
+
    output [4:0]                             clk;
    output [1:0]                             clkbad;
    output                                   activeclock;
@@ -293,7 +293,7 @@ module cycloneiv_pll
    output                                   vcounderrange;
    output                                   fref;
    output                                   icdrclk;
-   
+
 endmodule // cycloneive_pll
 
 

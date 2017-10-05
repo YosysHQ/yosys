@@ -38,7 +38,7 @@ module  \$_DFF_PP0_ (input D, C, R, output Q);
    dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R_i), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 
-module  \$__DFFE_PP0 (input D, C, E, R, output Q); 
+module  \$__DFFE_PP0 (input D, C, E, R, output Q);
    parameter WYSIWYG="TRUE";
    wire E_i = ~ E;
    dffeas #(.is_wysiwyg(WYSIWYG)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(E_i), .sload(1'b0));
@@ -61,38 +61,38 @@ module \$lut (A, Y);
    parameter WIDTH  = 0;
    parameter LUT    = 0;
    input [WIDTH-1:0] A;
-   output 	     Y;
+   output            Y;
    generate
       if (WIDTH == 1) begin
 	 assign Y = ~A[0]; // Not need to spend 1 logic cell for such an easy function
       end else
         if (WIDTH == 2) begin
-           cycloneive_lcell_comb #(.lut_mask({4{LUT}}), 
-                                   .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), 
-                                                                                .dataa(A[0]), 
-                                                                                .datab(A[1]), 
+           cycloneive_lcell_comb #(.lut_mask({4{LUT}}),
+                                   .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y),
+                                                                                .dataa(A[0]),
+                                                                                .datab(A[1]),
                                                                                 .datac(1'b1),
                                                                                 .datad(1'b1));
         end else
           if(WIDTH == 3) begin
-	     cycloneive_lcell_comb #(.lut_mask({2{LUT}}), 
-                                     .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), 
-                                                                                  .dataa(A[0]), 
-                                                                                  .datab(A[1]), 
+	     cycloneive_lcell_comb #(.lut_mask({2{LUT}}),
+                                     .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y),
+                                                                                  .dataa(A[0]),
+                                                                                  .datab(A[1]),
                                                                                   .datac(A[2]),
                                                                                   .datad(1'b1));
           end else
             if(WIDTH == 4) begin
-	       cycloneive_lcell_comb #(.lut_mask(LUT), 
-                                       .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y), 
-                                                                                    .dataa(A[0]), 
-                                                                                    .datab(A[1]), 
+	       cycloneive_lcell_comb #(.lut_mask(LUT),
+                                       .sum_lutc_input("datac")) _TECHMAP_REPLACE_ (.combout(Y),
+                                                                                    .dataa(A[0]),
+                                                                                    .datab(A[1]),
                                                                                     .datac(A[2]),
                                                                                     .datad(A[3]));
             end else
 	             wire _TECHMAP_FAIL_ = 1;
    endgenerate
-   
-endmodule 
+
+endmodule
 
 
