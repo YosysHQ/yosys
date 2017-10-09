@@ -52,6 +52,8 @@ struct ExtractReducePass : public Pass
 		log("        Allows matching of cells that have loads outside the chain. These cells\n");
 		log("        will be replicated and folded into the $reduce_* cell, but the original\n");
 		log("        cell will remain, driving its original loads.\n");
+		log("    -debug-verbose\n");
+		log("        Debug print internal states.\n");
 		log("\n");
 	}
 
@@ -59,7 +61,21 @@ struct ExtractReducePass : public Pass
 	{
 		return (cell->type == "$_AND_" && gt == GateType::And) ||
 				(cell->type == "$_OR_" && gt == GateType::Or) ||
-				(cell->type == "$_XOR_" && gt == GateType::Xor);
+				(cell->type == "$_XOR_" && gt == GateType::Xor) ||
+				(cell->type == "$and" && gt == GateType::And) ||
+				(cell->type == "$or" && gt == GateType::Or) ||
+				(cell->type == "$xor" && gt == GateType::Xor);
+	}
+
+	bool is_single_bit(Cell *cell, SigMap sigmap)
+	{
+		bool res = true;
+		auto a = sigmap(cell->getPort("\\A"));
+		auto b = sigmap(cell->getPort("\\B"));
+		auto y = sigmap(cell->getPort("\\Y"));
+		if ((GetSize(a) != 1) || (GetSize(b) != 1) || (GetSize(y) != 1))
+			res =  false;
+		return res;
 	}
 
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
@@ -69,11 +85,17 @@ struct ExtractReducePass : public Pass
 
 		size_t argidx;
 		bool allow_off_chain = false;
+		bool debug_verbose = false;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-allow-off-chain")
 			{
 				allow_off_chain = true;
+				continue;
+			}
+			if (args[argidx] == "-debug-verbose")
+			{
+				debug_verbose = true;
 				continue;
 			}
 			break;
@@ -89,16 +111,24 @@ struct ExtractReducePass : public Pass
 			dict<SigBit, pool<Cell*>> sig_to_sink;
 			for (auto cell : module->selected_cells())
 			{
+				if (debug_verbose)
+					log("\n  Index cell is: %s\n", cell->name.c_str());
 				for (auto &conn : cell->connections())
 				{
 					if (cell->output(conn.first))
+						if (debug_verbose)
+							log("    Output conn: %s\n", log_signal(conn.second));
 						for (auto bit : sigmap(conn.second))
 							sig_to_driver[bit] = cell;
 
 					if (cell->input(conn.first))
 					{
+						if (debug_verbose)
+							log("    Input conn: %s\n", log_signal(conn.second));
 						for (auto bit : sigmap(conn.second))
 						{
+							if (debug_verbose)
+								log("  sig_to_sink: %s\n", log_signal(bit));
 							if (sig_to_sink.count(bit) == 0)
 								sig_to_sink[bit] = pool<Cell*>();
 							sig_to_sink[bit].insert(cell);
@@ -112,7 +142,11 @@ struct ExtractReducePass : public Pass
 			for (auto wire : module->selected_wires())
 				if (wire->port_input || wire->port_output)
 					for (auto bit : sigmap(wire))
+					{
 						port_sigs.insert(bit);
+						if (debug_verbose)
+							log("  Port bit: %s\n", log_signal(bit));
+					}
 
 			// Actual logic starts here
 			pool<Cell*> consumed_cells;
@@ -129,7 +163,16 @@ struct ExtractReducePass : public Pass
 					gt = GateType::Or;
 				else if (cell->type == "$_XOR_")
 					gt = GateType::Xor;
+				else if (cell->type == "$and")
+					gt = GateType::And;
+				else if (cell->type == "$or")
+					gt = GateType::Or;
+				else if (cell->type == "$xor")
+					gt = GateType::Xor;
 				else
+					continue;
+
+				if (!is_single_bit(cell, sigmap))
 					continue;
 
 				log("Working on cell %s...\n", cell->name.c_str());
@@ -144,8 +187,16 @@ struct ExtractReducePass : public Pass
 					{
 						if(!IsRightType(x, gt))
 							break;
+						if (!is_single_bit(x, sigmap))
+							break;
 
 						head_cell = x;
+
+						if (debug_verbose)
+						{
+							log("  Chain head cell is: %s\n", head_cell->name.c_str());
+							log("  Chain head cell Y width: %i\n", GetSize(head_cell->getPort("\\Y")));
+						}
 
 						auto y = sigmap(x->getPort("\\Y"));
 						log_assert(y.size() == 1);
@@ -174,9 +225,15 @@ struct ExtractReducePass : public Pass
 						//Find each sink and see what they are
 						for(auto x : current_loads)
 						{
+							if (debug_verbose)
+							{
+								log("  Off-chain current_load is: %s\n", x->name.c_str());
+								log("  Off-chain current_load Y width: %i\n", GetSize(x->getPort("\\Y")));
+							}
+
 							//Not one of our gates? Don't follow any further
 							//(but add the originating cell to the list of sinks)
-							if(!IsRightType(x, gt))
+							if(!IsRightType(x, gt) || (!is_single_bit(cell, sigmap)))
 							{
 								sinks.insert(cell);
 								continue;
@@ -200,10 +257,15 @@ struct ExtractReducePass : public Pass
 							for(auto s : current_loads)
 							{
 								//Not one of our gates? Don't follow any further
-								if(!IsRightType(s, gt))
+								if(!IsRightType(s, gt) || (!is_single_bit(cell, sigmap)))
 									continue;
 
 								sinks.insert(s);
+								if (debug_verbose)
+								{
+									log("  Insert sink: %s\n", s->name.c_str());
+									log("  Insert sink Y width: %i\n", GetSize(s->getPort("\\Y")));
+								}
 							}
 							break;
 						}
@@ -217,7 +279,9 @@ struct ExtractReducePass : public Pass
 				//We have our list, go act on it
 				for(auto head_cell : sinks)
 				{
-					log("  Head cell is %s\n", head_cell->name.c_str());
+					log("  Head cell is: %s\n", head_cell->name.c_str());
+					if (debug_verbose)
+						log("  Head cell Y width: %i\n", GetSize(head_cell->getPort("\\Y")));
 
 					//Avoid duplication if we already were covered
 					if(consumed_cells.count(head_cell))
@@ -232,7 +296,15 @@ struct ExtractReducePass : public Pass
 
 						cur_supercell.insert(x);
 
+						if (debug_verbose)
+						{
+							log("  Super cell is: %s\n", x->name.c_str());
+							log("  Super cell Y width: %i\n", GetSize(x->getPort("\\Y")));
+						}
+
 						auto a = sigmap(x->getPort("\\A"));
+						if (debug_verbose)
+							log("Super cell A:%s\n", log_signal(a));
 						log_assert(a.size() == 1);
 
 						// Must have only one sink unless we're going off chain
@@ -240,8 +312,13 @@ struct ExtractReducePass : public Pass
 						if( allow_off_chain || (sig_to_sink[a[0]].size() + port_sigs.count(a[0]) == 1) )
 						{
 							Cell* cell_a = sig_to_driver[a[0]];
-							if(cell_a && IsRightType(cell_a, gt))
+							if(cell_a && IsRightType(cell_a, gt) && is_single_bit(cell_a, sigmap))
 							{
+								if (debug_verbose)
+								{
+									log("  cell_a is: %s\n", cell_a->name.c_str());
+									log("  cell_a Y width: %i\n", GetSize(cell_a->getPort("\\Y")));
+								}
 								// The cell here is the correct type, and it's definitely driving
 								// this current cell.
 								bfs_queue.push_back(cell_a);
@@ -249,6 +326,8 @@ struct ExtractReducePass : public Pass
 						}
 
 						auto b = sigmap(x->getPort("\\B"));
+						if (debug_verbose)
+							log("Super cell B: %s\n", log_signal(b));
 						log_assert(b.size() == 1);
 
 						// Must have only one sink
@@ -256,8 +335,14 @@ struct ExtractReducePass : public Pass
 						if( allow_off_chain || (sig_to_sink[b[0]].size() + port_sigs.count(b[0]) == 1) )
 						{
 							Cell* cell_b = sig_to_driver[b[0]];
-							if(cell_b && IsRightType(cell_b, gt))
+							if(cell_b && IsRightType(cell_b, gt) && is_single_bit(cell_b, sigmap))
 							{
+								if (debug_verbose)
+								{
+									log("  cell_b is: %s\n", cell_b->name.c_str());
+									log("  cell_b Y width: %i\n", GetSize(cell_b->getPort("\\Y")));
+								}
+								
 								// The cell here is the correct type, and it's definitely driving only
 								// this current cell.
 								bfs_queue.push_back(cell_b);
@@ -278,6 +363,17 @@ struct ExtractReducePass : public Pass
 						pool<SigBit> input_pool_intermed;
 						for (auto x : cur_supercell)
 						{
+							if (debug_verbose)
+							{
+								log("  R cell is: %s\n", x->name.c_str());
+								log("  R cell A width: %i\n", GetSize(x->getPort("\\A")));
+								log("  R cell A conn: %s\n", log_signal(x->getPort("\\A")));
+								log("  R cell A smap: %s\n", log_signal(sigmap(x->getPort("\\A"))[0]));
+								log("  R cell B width: %i\n", GetSize(x->getPort("\\B")));
+								log("  R cell B conn: %s\n", log_signal(x->getPort("\\B")));
+								log("  R cell B smap: %s\n", log_signal(sigmap(x->getPort("\\B"))[0]));
+								log("  R cell Y width: %i\n", GetSize(x->getPort("\\Y")));
+							}
 							input_pool.insert(sigmap(x->getPort("\\A"))[0]);
 							input_pool.insert(sigmap(x->getPort("\\B"))[0]);
 							input_pool_intermed.insert(sigmap(x->getPort("\\Y"))[0]);
@@ -286,8 +382,12 @@ struct ExtractReducePass : public Pass
 						for (auto b : input_pool)
 							if (input_pool_intermed.count(b) == 0)
 								input.append_bit(b);
+						if (debug_verbose)
+							log("  New input %s\n", log_signal(sigmap(input)));
 
 						SigBit output = sigmap(head_cell->getPort("\\Y")[0]);
+						if (debug_verbose)
+							log("  Head out %s\n", log_signal(sigmap(head_cell->getPort("\\Y")[0])));
 
 						auto new_reduce_cell = module->addCell(NEW_ID,
 							gt == GateType::And ? "$reduce_and" :
@@ -313,7 +413,14 @@ struct ExtractReducePass : public Pass
 			// Remove all of the head cells, since we supplant them.
 			// Do not remove the upstream cells since some might still be in use ("clean" will get rid of unused ones)
 			for (auto cell : consumed_cells)
+			{
+				if (debug_verbose)
+				{
+					log("  Remove cell.\n");
+					log_cell(cell);
+				}
 				module->remove(cell);
+			}
 		}
 
 		log_pop();
