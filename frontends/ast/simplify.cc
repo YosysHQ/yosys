@@ -1828,21 +1828,6 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			if (str == "\\$rose" || str == "\\$fell")
-			{
-				if (GetSize(children) != 1)
-					log_error("System function %s got %d arguments, expected 1 at %s:%d.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()), filename.c_str(), linenum);
-
-				if (!current_always_clocked)
-					log_error("System function %s is only allowed in clocked blocks at %s:%d.\n",
-							RTLIL::unescape_id(str).c_str(), filename.c_str(), linenum);
-
-				newNode = new AstNode(AST_EQ, children.at(0)->clone(), clone());
-				newNode->children.at(1)->str = "\\$past";
-				goto apply_newNode;
-			}
-
 			// $anyconst and $anyseq are mapped in AstNode::genRTLIL()
 			if (str == "\\$anyconst" || str == "\\$anyseq") {
 				recursion_counter--;
