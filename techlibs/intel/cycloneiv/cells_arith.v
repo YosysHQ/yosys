@@ -19,7 +19,7 @@
 
 // NOTE: This is still WIP.
 (* techmap_celltype = "$alu" *)
-/* Uncomment this for LCU???? 
+/* Uncomment this for LCU????
 module _80_cycloneiv_alu (A, B, CI, BI, X, Y, CO);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
@@ -46,7 +46,7 @@ module _80_cycloneiv_alu (A, B, CI, BI, X, Y, CO);
 	//wire [Y_WIDTH:0] C = {CO, CI};
         wire [Y_WIDTH+1:0] COx;
         wire [Y_WIDTH+1:0] C = {COx, CI};
-    
+
 	/* Start implementation */
 	//cycloneiv_lcell_comb #(.lut_mask(16'b0000_0000_1010_1010), .sum_lutc_input("cin")) carry_start (.cout(COx[0]), .dataa(C[0]), .datab(1'b1), .datac(1'b1), .datad(1'b1));
 	/*
@@ -61,7 +61,7 @@ module _80_cycloneiv_alu (A, B, CI, BI, X, Y, CO);
 	endgenerate
 	/* End implementation */
 	/*assign X = AA ^ BB;
-   
+
 endmodule*/
 module _80_cycloneiv_alu (A, B, CI, BI, X, Y, CO);
         parameter A_SIGNED = 0;
@@ -86,7 +86,7 @@ module _80_cycloneiv_alu (A, B, CI, BI, X, Y, CO);
 	wire [Y_WIDTH-1:0] AA = A_buf;
 	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
 	wire [Y_WIDTH:0] C = {CO, CI};
-        
+
         cycloneiv_lcell_comb #(.lut_mask(16'b0110_0110_1000_1000), .sum_lutc_input("cin")) carry_start  (.cout(CO[0]), .dataa(BB[0]), .datab(1'b1), .datac(1'b1), .datad(1'b1));
 	genvar i;
 	generate for (i = 1; i < Y_WIDTH; i = i + 1) begin:slice

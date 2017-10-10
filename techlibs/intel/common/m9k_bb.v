@@ -17,10 +17,10 @@
  *
  */
 (* blackbox *)
-module altsyncram(data_a, address_a, wren_a, rden_a, q_a, data_b, address_b,  wren_b, rden_b, 
-                  q_b, clock0, clock1, clocken0, clocken1, clocken2, clocken3, aclr0, aclr1, 
+module altsyncram(data_a, address_a, wren_a, rden_a, q_a, data_b, address_b,  wren_b, rden_b,
+                  q_b, clock0, clock1, clocken0, clocken1, clocken2, clocken3, aclr0, aclr1,
                   addressstall_a, addressstall_b);
-   
+
    parameter clock_enable_input_b          = "ALTERNATE";
    parameter clock_enable_input_a          = "ALTERNATE";
    parameter clock_enable_output_b         = "NORMAL";
@@ -33,7 +33,7 @@ module altsyncram(data_a, address_a, wren_a, rden_a, q_a, data_b, address_b,  wr
    parameter operation_mode                = "SINGLE_PORT";
    parameter intended_device_family        = "MAX 10 FPGA";
    parameter outdata_reg_a                 = "UNREGISTERED";
-   parameter lpm_type                      = "altsyncram"; 
+   parameter lpm_type                      = "altsyncram";
    parameter init_type                     = "unused";
    parameter ram_block_type                = "AUTO";
    parameter lpm_hint                      = "ENABLE_RUNTIME_MOD=NO";
@@ -46,7 +46,7 @@ module altsyncram(data_a, address_a, wren_a, rden_a, q_a, data_b, address_b,  wr
    parameter width_b                       = 1;
    parameter widthad_a                     = 1;
    parameter width_a                       = 1;
-   
+
    // Port A declarations
    output [35:0] q_a;
    input [35:0]  data_a;
@@ -66,5 +66,5 @@ module altsyncram(data_a, address_a, wren_a, rden_a, q_a, data_b, address_b,  wr
    input         addressstall_a;
    input         addressstall_b;
    // TODO: Implement the correct simulation model
-   
+
 endmodule // altsyncram

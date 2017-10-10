@@ -1,5 +1,5 @@
 
-example.edif: example.ys example.v osu035_stdcells.lib
+example.edif: example.ys example.v example.constr osu035_stdcells.lib
 	yosys -l example.yslog -q example.ys
 
 osu035_stdcells.lib:

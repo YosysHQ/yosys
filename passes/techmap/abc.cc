@@ -111,6 +111,7 @@ bool recover_init;
 
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
+dict<int, std::string> pi_map, po_map;
 
 int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
 {
@@ -601,6 +602,14 @@ struct abc_output_filter
 
 	void next_line(const std::string &line)
 	{
+		int pi, po;
+		if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
+			log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
+					pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
+					po, po_map.count(po) ? po_map.at(po).c_str() : "???");
+			return;
+		}
+
 		for (char ch : line)
 			next_char(ch);
 	}
@@ -616,6 +625,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	signal_map.clear();
 	signal_list.clear();
+	pi_map.clear();
+	po_map.clear();
 	recover_init = false;
 
 	if (clk_str != "$")
@@ -768,7 +779,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (!si.is_port || si.type != G(NONE))
 			continue;
 		fprintf(f, " n%d", si.id);
-		count_input++;
+		pi_map[count_input++] = log_signal(si.bit);
 	}
 	if (count_input == 0)
 		fprintf(f, " dummy_input\n");
@@ -780,7 +791,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (!si.is_port || si.type == G(NONE))
 			continue;
 		fprintf(f, " n%d", si.id);
-		count_output++;
+		po_map[count_output++] = log_signal(si.bit);
 	}
 	fprintf(f, "\n");
 
@@ -1392,6 +1403,8 @@ struct AbcPass : public Pass {
 		signal_list.clear();
 		signal_map.clear();
 		signal_init.clear();
+		pi_map.clear();
+		po_map.clear();
 
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
@@ -1819,6 +1832,8 @@ struct AbcPass : public Pass {
 		signal_list.clear();
 		signal_map.clear();
 		signal_init.clear();
+		pi_map.clear();
+		po_map.clear();
 
 		log_pop();
 	}

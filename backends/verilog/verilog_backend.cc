@@ -678,6 +678,23 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 #undef HANDLE_UNIOP
 #undef HANDLE_BINOP
 
+	if (cell->type == "$shiftx")
+	{
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort("\\Y"));
+		f << stringf(" = ");
+		dump_sigspec(f, cell->getPort("\\A"));
+		f << stringf("[");
+		if (cell->getParam("\\B_SIGNED").as_bool())
+			f << stringf("$signed(");
+		dump_sigspec(f, cell->getPort("\\B"));
+		if (cell->getParam("\\B_SIGNED").as_bool())
+			f << stringf(")");
+		f << stringf(" +: %d", cell->getParam("\\Y_WIDTH").as_int());
+		f << stringf("];\n");
+		return true;
+	}
+
 	if (cell->type == "$mux")
 	{
 		f << stringf("%s" "assign ", indent.c_str());

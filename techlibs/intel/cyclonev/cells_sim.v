@@ -25,23 +25,23 @@ module GND (output G);
 endmodule // GND
 
 /* Altera Cyclone V devices Input Buffer Primitive */
-module cyclonev_io_ibuf 
+module cyclonev_io_ibuf
   (output o, input i, input ibar);
    assign ibar = ibar;
    assign o    = i;
 endmodule // cyclonev_io_ibuf
 
 /* Altera Cyclone V devices Output Buffer Primitive */
-module cyclonev_io_obuf 
+module cyclonev_io_obuf
   (output o, input i, input oe);
    assign o  = i;
    assign oe = oe;
 endmodule // cyclonev_io_obuf
 
 /* Altera Cyclone V LUT Primitive */
-module cyclonev_lcell_comb 
+module cyclonev_lcell_comb
   (output combout, cout, sumout, shareout,
-   input dataa, datab, datac, datad, 
+   input dataa, datab, datac, datad,
    input datae, dataf, datag, cin,
    input sharein);
 
@@ -59,8 +59,8 @@ module cyclonev_lcell_comb
    // Extended mode uses mux to define the output
    wire        mux_0, mux_1;
    // Input for hold the shared LUT mode value
-   wire        shared_lut_alm;        
-   
+   wire        shared_lut_alm;
+
    // Simulation model of 4-input LUT
    function lut4;
       input [15:0] mask;
@@ -75,7 +75,7 @@ module cyclonev_lcell_comb
          lut4 = dataa ? s1[1] : s1[0];
       end
    endfunction // lut4
-   
+
    // Simulation model of 5-input LUT
    function lut5;
       input [31:0] mask; // wp-01003.pdf, page 3: "a 5-LUT can be built with two 4-LUTs and a multiplexer.
@@ -119,7 +119,7 @@ endmodule // cyclonev_lcell_comb
 
 
 /* Altera D Flip-Flop Primitive */
-module dffeas 
+module dffeas
   (output q,
    input d, clk, clrn, prn, ena,
    input asdata, aload, sclr, sload);
@@ -131,7 +131,7 @@ module dffeas
    reg   q_tmp;
    wire  reset;
    reg [7:0] debug_net;
-   
+
    assign reset       = (prn && sclr && ~clrn && ena);
    assign q           = q_tmp & 1'b1;
 
@@ -140,5 +140,5 @@ module dffeas
       else q_tmp <= d;
    end
    assign q = q_tmp;
-   
+
 endmodule // dffeas
