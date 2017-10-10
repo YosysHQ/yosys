@@ -405,9 +405,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		current_always_clocked = false;
 
 		if (type == AST_ALWAYS)
-			for (auto child : children)
+			for (auto child : children) {
 				if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE)
 					current_always_clocked = true;
+				if (child->type == AST_EDGE && GetSize(child->children) == 1 &&
+						child->children[0]->type == AST_IDENTIFIER && child->children[0]->str == "\\$global_clock")
+					current_always_clocked = true;
+			}
 	}
 
 	int backup_width_hint = width_hint;
