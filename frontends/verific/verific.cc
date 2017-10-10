@@ -99,6 +99,9 @@ struct VerificImporter;
 void import_sva_assert(VerificImporter *importer, Instance *inst);
 void import_sva_assume(VerificImporter *importer, Instance *inst);
 void import_sva_cover(VerificImporter *importer, Instance *inst);
+void svapp_assert(VerificImporter *importer, Instance *inst);
+void svapp_assume(VerificImporter *importer, Instance *inst);
+void svapp_cover(VerificImporter *importer, Instance *inst);
 
 struct VerificClockEdge {
 	Net *clock_net;
@@ -115,14 +118,14 @@ struct VerificImporter
 	std::map<Net*, RTLIL::SigBit> net_map;
 	std::map<Net*, Net*> sva_posedge_map;
 
-	bool mode_gates, mode_keep, mode_nosva, mode_names, verbose;
+	bool mode_gates, mode_keep, mode_nosva, mode_nosvapp, mode_names, verbose;
 
 	pool<int> verific_sva_prims;
 	pool<int> verific_psl_prims;
 
-	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool verbose) :
-			mode_gates(mode_gates), mode_keep(mode_keep),
-			mode_nosva(mode_nosva), mode_names(mode_names), verbose(verbose)
+	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_nosvapp, bool mode_names, bool verbose) :
+			mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
+			mode_nosvapp(mode_nosvapp), mode_names(mode_names), verbose(verbose)
 	{
 		// Copy&paste from Verific 3.16_484_32_170630 Netlist.h
 		vector<int> sva_prims {
@@ -1246,6 +1249,18 @@ struct VerificImporter
 			}
 		}
 
+		if (!mode_nosvapp)
+		{
+			for (auto inst : sva_asserts)
+				svapp_assert(this, inst);
+
+			for (auto inst : sva_assumes)
+				svapp_assume(this, inst);
+
+			for (auto inst : sva_covers)
+				svapp_cover(this, inst);
+		}
+
 		if (!mode_nosva)
 		{
 			for (auto inst : sva_asserts)
@@ -1350,6 +1365,124 @@ VerificClockEdge::VerificClockEdge(VerificImporter *importer, Instance *inst)
 		log_abort();
 	}
 }
+
+// ==================================================================
+
+struct VerificSvaPP
+{
+	VerificImporter *importer;
+	Module *module;
+
+	Netlist *netlist;
+	Instance *root;
+
+	bool mode_assert = false;
+	bool mode_assume = false;
+	bool mode_cover = false;
+
+	Instance *net_to_ast_driver(Net *n)
+	{
+		if (n == nullptr)
+			return nullptr;
+
+		if (n->IsMultipleDriven())
+			return nullptr;
+
+		Instance *inst = n->Driver();
+
+		if (inst == nullptr)
+			return nullptr;
+
+		if (!importer->verific_sva_prims.count(inst->Type()) &&
+				!importer->verific_psl_prims.count(inst->Type()))
+			return nullptr;
+
+		if (inst->Type() == PRIM_SVA_PAST)
+			return nullptr;
+
+		return inst;
+	}
+
+	Instance *get_ast_input(Instance *inst) { return net_to_ast_driver(inst->GetInput()); }
+	Instance *get_ast_input1(Instance *inst) { return net_to_ast_driver(inst->GetInput1()); }
+	Instance *get_ast_input2(Instance *inst) { return net_to_ast_driver(inst->GetInput2()); }
+	Instance *get_ast_input3(Instance *inst) { return net_to_ast_driver(inst->GetInput3()); }
+	Instance *get_ast_control(Instance *inst) { return net_to_ast_driver(inst->GetControl()); }
+
+	Net *impl_to_seq(Instance *inst)
+	{
+		if (inst == nullptr)
+			return nullptr;
+
+		if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_ASSUME) {
+			Net *new_net = impl_to_seq(get_ast_input(inst));
+			if (new_net) {
+				inst->Disconnect(inst->View()->GetInput());
+				inst->Connect(inst->View()->GetInput(), new_net);
+			}
+			return nullptr;
+		}
+
+		if (inst->Type() == PRIM_SVA_AT) {
+			Net *new_net = impl_to_seq(get_ast_input2(inst));
+			if (new_net) {
+				inst->Disconnect(inst->View()->GetInput2());
+				inst->Connect(inst->View()->GetInput2(), new_net);
+			}
+			return nullptr;
+		}
+
+		if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+		{
+			if (mode_cover) {
+				Net *new_in1 = impl_to_seq(get_ast_input1(inst));
+				Net *new_in2 = impl_to_seq(get_ast_input2(inst));
+				if (!new_in1) new_in1 = inst->GetInput1();
+				if (!new_in2) new_in2 = inst->GetInput2();
+				return netlist->SvaBinary(PRIM_SVA_SEQ_CONCAT, new_in1, new_in2, inst->Linefile());
+			}
+		}
+
+		return nullptr;
+	}
+
+	void run()
+	{
+		module = importer->module;
+		netlist = root->Owner();
+
+		// impl_to_seq(root);
+	}
+};
+
+void svapp_assert(VerificImporter *importer, Instance *inst)
+{
+	VerificSvaPP worker;
+	worker.importer = importer;
+	worker.root = inst;
+	worker.mode_assert = true;
+	worker.run();
+}
+
+void svapp_assume(VerificImporter *importer, Instance *inst)
+{
+	VerificSvaPP worker;
+	worker.importer = importer;
+	worker.root = inst;
+	worker.mode_assume = true;
+	worker.run();
+}
+
+void svapp_cover(VerificImporter *importer, Instance *inst)
+{
+	VerificSvaPP worker;
+	worker.importer = importer;
+	worker.root = inst;
+	worker.mode_cover = true;
+	worker.run();
+}
+
+// ==================================================================
 
 struct VerificSvaImporter
 {
@@ -1594,6 +1727,8 @@ void import_sva_cover(VerificImporter *importer, Instance *inst)
 	worker.run();
 }
 
+// ==================================================================
+
 struct VerificExtNets
 {
 	int portname_cnt = 0;
@@ -1715,10 +1850,6 @@ struct VerificPass : public Pass {
 		log("  -extnets\n");
 		log("    Resolve references to external nets by adding module ports as needed.\n");
 		log("\n");
-		log("  -nosva\n");
-		log("    Ignore SVA properties, do not infer checker logic. (This also disables\n");
-		log("    PSL properties in -vhdpsl mode.)\n");
-		log("\n");
 		log("  -v\n");
 		log("    Verbose log messages.\n");
 		log("\n");
@@ -1730,6 +1861,13 @@ struct VerificPass : public Pass {
 		log("    unsupported primitive is added as blockbox module to the design.\n");
 		log("    This will also add all SVA related cells to the design parallel to\n");
 		log("    the checker logic inferred by it.\n");
+		log("\n");
+		log("  -nosva\n");
+		log("    Ignore SVA properties, do not infer checker logic. (This also disables\n");
+		log("    PSL properties in -vhdpsl mode.)\n");
+		log("\n");
+		log("  -nosvapp\n");
+		log("    Disable SVA properties pre-processing pass. This implies -nosva.\n");
 		log("\n");
 		log("  -n\n");
 		log("    Keep all Verific names on instances and nets. By default only\n");
@@ -1844,7 +1982,7 @@ struct VerificPass : public Pass {
 		{
 			std::set<Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
-			bool mode_nosva = false, mode_names = false;
+			bool mode_nosva = false, mode_nosvapp = false, mode_names = false;
 			bool verbose = false, flatten = false, extnets = false;
 			string dumpfile;
 
@@ -1871,6 +2009,11 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-nosva") {
 					mode_nosva = true;
+					continue;
+				}
+				if (args[argidx] == "-nosvapp") {
+					mode_nosva = true;
+					mode_nosvapp = true;
 					continue;
 				}
 				if (args[argidx] == "-n") {
@@ -1968,7 +2111,7 @@ struct VerificPass : public Pass {
 			while (!nl_todo.empty()) {
 				Netlist *nl = *nl_todo.begin();
 				if (nl_done.count(nl) == 0) {
-					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_names, verbose);
+					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_nosvapp, mode_names, verbose);
 					importer.import_netlist(design, nl, nl_todo);
 				}
 				nl_todo.erase(nl);
