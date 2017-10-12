@@ -1500,6 +1500,7 @@ struct VerificSvaImporter
 	bool mode_assert = false;
 	bool mode_assume = false;
 	bool mode_cover = false;
+	bool eventually = false;
 
 	Instance *net_to_ast_driver(Net *n)
 	{
@@ -1673,15 +1674,30 @@ struct VerificSvaImporter
 		// parse disable_iff expression
 
 		Net *sequence_net = at_node->Type() == PRIM_SVA_AT ? at_node->GetInput2() : at_node->GetInput1();
-		Instance *sequence_node = net_to_ast_driver(sequence_net);
 
-		if (sequence_node && sequence_node->Type() == PRIM_SVA_DISABLE_IFF) {
-			disable_iff = importer->net_map_at(sequence_node->GetInput1());
-			sequence_net = sequence_node->GetInput2();
-		} else
-		if (sequence_node && sequence_node->Type() == PRIM_ABORT) {
-			disable_iff = importer->net_map_at(sequence_node->GetInput2());
-			sequence_net = sequence_node->GetInput1();
+		while (1)
+		{
+			Instance *sequence_node = net_to_ast_driver(sequence_net);
+
+			if (sequence_node && sequence_node->Type() == PRIM_SVA_S_EVENTUALLY) {
+				eventually = true;
+				sequence_net = sequence_node->GetInput();
+				continue;
+			}
+
+			if (sequence_node && sequence_node->Type() == PRIM_SVA_DISABLE_IFF) {
+				disable_iff = importer->net_map_at(sequence_node->GetInput1());
+				sequence_net = sequence_node->GetInput2();
+				continue;
+			}
+
+			if (sequence_node && sequence_node->Type() == PRIM_ABORT) {
+				disable_iff = importer->net_map_at(sequence_node->GetInput2());
+				sequence_net = sequence_node->GetInput1();
+				continue;
+			}
+
+			break;
 		}
 
 		// parse SVA sequence into trigger signal
@@ -1694,9 +1710,14 @@ struct VerificSvaImporter
 
 		RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
-		if (mode_assert) module->addAssert(root_name, seq.sig_a, seq.sig_en);
-		if (mode_assume) module->addAssume(root_name, seq.sig_a, seq.sig_en);
-		if (mode_cover) module->addCover(root_name, seq.sig_a, seq.sig_en);
+		if (eventually) {
+			if (mode_assert) module->addLive(root_name, seq.sig_a, seq.sig_en);
+			if (mode_assume) module->addFair(root_name, seq.sig_a, seq.sig_en);
+		} else {
+			if (mode_assert) module->addAssert(root_name, seq.sig_a, seq.sig_en);
+			if (mode_assume) module->addAssume(root_name, seq.sig_a, seq.sig_en);
+			if (mode_cover) module->addCover(root_name, seq.sig_a, seq.sig_en);
+		}
 	}
 };
 
