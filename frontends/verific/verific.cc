@@ -1851,6 +1851,16 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
+		log("    verific -vlog-incdir <directory>..\n");
+		log("\n");
+		log("Add Verilog include directories.\n");
+		log("\n");
+		log("\n");
+		log("    verific -vlog-define <macro>[=<value>]..\n");
+		log("\n");
+		log("Add Verilog defines. (The macros SYNTHESIS and VERIFIC are defined implicitly.)\n");
+		log("\n");
+		log("\n");
 		log("    verific -import [options] <top-module>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
@@ -1909,6 +1919,8 @@ struct VerificPass : public Pass {
 		Message::RegisterCallBackMsg(msg_func);
 		RuntimeFlags::SetVar("db_allow_external_nets", 1);
 		RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
+		veri_file::DefineCmdLineMacro("VERIFIC");
+		veri_file::DefineCmdLineMacro("SYNTHESIS");
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
@@ -1923,6 +1935,27 @@ struct VerificPass : public Pass {
 		log("Built with Verific %s, released at %s.\n", release_str, release_tmstr);
 
 		int argidx = 1;
+
+		if (GetSize(args) > argidx && args[argidx] == "-vlog-incdir") {
+			for (argidx++; argidx < GetSize(args); argidx++)
+				veri_file::AddIncludeDir(args[argidx].c_str());
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-vlog-define") {
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				string name = args[argidx];
+				size_t equal = name.find('=');
+				if (equal != std::string::npos) {
+					string value = name.substr(equal+1);
+					name = name.substr(0, equal);
+					veri_file::DefineCmdLineMacro(name.c_str(), value.c_str());
+				} else {
+					veri_file::DefineCmdLineMacro(name.c_str());
+				}
+			}
+			goto check_error;
+		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vlog95") {
 			for (argidx++; argidx < GetSize(args); argidx++)
@@ -2139,6 +2172,8 @@ struct VerificPass : public Pass {
 				nl_done.insert(nl);
 			}
 
+			veri_file::Reset();
+			vhdl_file::Reset();
 			Libset::Reset();
 			goto check_error;
 		}
