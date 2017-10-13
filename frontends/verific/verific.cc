@@ -1856,6 +1856,12 @@ struct VerificPass : public Pass {
 		log("Add Verilog include directories.\n");
 		log("\n");
 		log("\n");
+		log("    verific -vlog-libdir <directory>..\n");
+		log("\n");
+		log("Add Verilog library directories. Verific will search in this directories to\n");
+		log("find undefined modules.\n");
+		log("\n");
+		log("\n");
 		log("    verific -vlog-define <macro>[=<value>]..\n");
 		log("\n");
 		log("Add Verilog defines. (The macros SYNTHESIS and VERIFIC are defined implicitly.)\n");
@@ -1939,6 +1945,12 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-vlog-incdir") {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				veri_file::AddIncludeDir(args[argidx].c_str());
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-vlog-libdir") {
+			for (argidx++; argidx < GetSize(args); argidx++)
+				veri_file::AddYDir(args[argidx].c_str());
 			goto check_error;
 		}
 
