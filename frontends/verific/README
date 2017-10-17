@@ -33,6 +33,13 @@ make -j8
 ./yosys -p 'verific -sv frontends/verific/example.sv; verific -import top'
 
 
+Verific Features that should be enabled in your Verific library
+===============================================================
+
+database/DBCompileFlags.h:
+	DB_PRESERVE_INITIAL_VALUE
+
+
 Testing Verific+Yosys+SymbiYosys for formal verification
 ========================================================
 
