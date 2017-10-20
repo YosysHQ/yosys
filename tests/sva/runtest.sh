@@ -29,7 +29,7 @@ generate_sby() {
 	fi
 
 	if [ -f $prefix.vhd ]; then
-		echo "verific -vhdpsl $prefix.vhd"
+		echo "verific -vhdl $prefix.vhd"
 	fi
 
 	cat <<- EOT
