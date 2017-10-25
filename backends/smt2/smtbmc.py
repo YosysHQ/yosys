@@ -644,6 +644,9 @@ def write_vcd_trace(steps_start, steps_stop, index):
                 data = ["x"] * width
                 gotread = False
 
+                if len(wdata) == 0 and len(rdata) != 0:
+                    wdata = [[]] * len(rdata)
+
                 assert len(rdata) == len(wdata)
 
                 for i in range(len(wdata)):
