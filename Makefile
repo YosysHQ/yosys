@@ -17,6 +17,7 @@ ENABLE_LIBYOSYS := 0
 
 # other configuration flags
 ENABLE_GPROF := 0
+ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
@@ -251,7 +252,15 @@ LDFLAGS += -pg
 endif
 
 ifeq ($(ENABLE_NDEBUG),1)
-CXXFLAGS := -O3 -DNDEBUG $(filter-out -Os,$(CXXFLAGS))
+CXXFLAGS := -O3 -DNDEBUG $(filter-out -Os -ggdb,$(CXXFLAGS))
+endif
+
+ifeq ($(ENABLE_DEBUG),1)
+ifeq ($(CONFIG),clang)
+CXXFLAGS := -O0 $(filter-out -Os,$(CXXFLAGS))
+else
+CXXFLAGS := -Og $(filter-out -Os,$(CXXFLAGS))
+endif
 endif
 
 ifeq ($(ENABLE_ABC),1)
