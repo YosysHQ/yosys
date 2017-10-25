@@ -20,6 +20,8 @@ import sys, subprocess, re, os
 from copy import deepcopy
 from select import select
 from time import time
+from queue import Queue
+from threading import Thread
 
 
 hex_dict = {
@@ -58,7 +60,6 @@ class SmtIo:
         self.produce_models = True
         self.smt2cache = [list()]
         self.p = None
-        self.p_buffer = []
 
         if opts is not None:
             self.logic = opts.logic
@@ -210,23 +211,36 @@ class SmtIo:
 
         return stmt
 
+    def p_thread_main(self):
+        while True:
+            data = self.p_queue.get()
+            if data is None: break
+            self.p.stdin.write(data[0])
+            if data[1]: self.p.stdin.flush()
+
     def p_open(self):
+        assert self.p is None
         self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self.p_queue = Queue()
+        self.p_thread = Thread(target=self.p_thread_main)
+        self.p_thread.start()
 
     def p_write(self, data, flush):
-        self.p.stdin.write(bytes(data, "ascii"))
-        if flush:
-            self.p.stdin.flush()
+        assert self.p is not None
+        self.p_queue.put((bytes(data, "ascii"), flush))
 
     def p_read(self):
-        if len(self.p_buffer) == 0:
-            return self.p.stdout.readline().decode("ascii")
-        assert 0
+        assert self.p is not None
+        return self.p.stdout.readline().decode("ascii")
 
     def p_close(self):
+        assert self.p is not None
+        self.p_queue.put(None)
+        self.p_thread.join()
         self.p.stdin.close()
         self.p = None
-        self.p_buffer = []
+        self.p_queue = None
+        self.p_thread = None
 
     def write(self, stmt, unroll=True):
         if stmt.startswith(";"):
@@ -686,6 +700,7 @@ class SmtIo:
     def wait(self):
         if self.p is not None:
             self.p.wait()
+            self.p_close()
 
 
 class SmtOpts:
