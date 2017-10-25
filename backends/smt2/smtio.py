@@ -58,6 +58,7 @@ class SmtIo:
         self.produce_models = True
         self.smt2cache = [list()]
         self.p = None
+        self.p_buffer = []
 
         if opts is not None:
             self.logic = opts.logic
@@ -209,6 +210,19 @@ class SmtIo:
 
         return stmt
 
+    def p_write(self, data):
+        # select_result = select([self.p.stdout], [self.p.stdin], [], 0.1):
+        wlen = self.p.stdin.write(data)
+        assert wlen == len(data)
+
+    def p_flush(self):
+        self.p.stdin.flush()
+
+    def p_read(self):
+        if len(self.p_buffer) == 0:
+            return self.p.stdout.readline().decode("ascii")
+        assert 0
+
     def write(self, stmt, unroll=True):
         if stmt.startswith(";"):
             self.info(stmt)
@@ -283,18 +297,19 @@ class SmtIo:
                 if self.p is not None and not stmt.startswith("(get-"):
                     self.p.stdin.close()
                     self.p = None
+                    self.p_buffer = []
                 if stmt == "(push 1)":
                     self.smt2cache.append(list())
                 elif stmt == "(pop 1)":
                     self.smt2cache.pop()
                 else:
                     if self.p is not None:
-                        self.p.stdin.write(bytes(stmt + "\n", "ascii"))
-                        self.p.stdin.flush()
+                        self.p_write(bytes(stmt + "\n", "ascii"))
+                        self.p_flush()
                     self.smt2cache[-1].append(stmt)
             else:
-                self.p.stdin.write(bytes(stmt + "\n", "ascii"))
-                self.p.stdin.flush()
+                self.p_write(bytes(stmt + "\n", "ascii"))
+                self.p_flush()
 
     def info(self, stmt):
         if not stmt.startswith("; yosys-smt2-"):
@@ -408,7 +423,7 @@ class SmtIo:
             if self.solver == "dummy":
                 line = self.dummy_fd.readline().strip()
             else:
-                line = self.p.stdout.readline().decode("ascii").strip()
+                line = self.p_read().strip()
                 if self.dummy_file is not None:
                     self.dummy_fd.write(line + "\n")
 
@@ -443,13 +458,14 @@ class SmtIo:
                 if self.p is not None:
                     self.p.stdin.close()
                     self.p = None
+                    self.p_buffer = []
                 self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 for cache_ctx in self.smt2cache:
                     for cache_stmt in cache_ctx:
-                        self.p.stdin.write(bytes(cache_stmt + "\n", "ascii"))
+                        self.p_write(bytes(cache_stmt + "\n", "ascii"))
 
-            self.p.stdin.write(bytes("(check-sat)\n", "ascii"))
-            self.p.stdin.flush()
+            self.p_write(bytes("(check-sat)\n", "ascii"))
+            self.p_flush()
 
             if self.timeinfo:
                 i = 0
