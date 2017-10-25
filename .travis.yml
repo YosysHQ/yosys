@@ -29,8 +29,8 @@ before_install:
   - (cd iverilog && autoconf && ./configure --prefix=$HOME/iverilog && make && make install)
   - export PATH=$PATH:$HOME/iverilog/bin
 compiler:
-#  - clang
+# - clang
   - gcc
 os:
   - linux
-  - osx
+# - osx
