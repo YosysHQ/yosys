@@ -38,9 +38,27 @@ python3 generate.py -c $count $seed
 		echo "	@mv temp/uut_${idx}.out temp/uut_${idx}.log"
 		echo -n "	@grep -q 'SAT proof finished' temp/uut_${idx}.log "
 		if test $verbose -gt 0; then
-			echo "&& echo 'ok' || echo -n 'fail'"
+			# Passing output
+			echo -n "&& echo 'ok' "
+			# Failing output
+			echo -n "|| ("
+			echo -n " echo 'fail';"
+			echo -n " echo '-----------------------';"
+			echo -n " cat temp/uut_${idx}.log;"
+			echo -n " echo '-----------------------';"
+			echo -n " exit 1"
+			echo ")"
 		else
-			echo "&& echo -n '.' || echo -n 'F'"
+			# Passing output
+			echo -n "&& echo -n '.' "
+			# Failing output
+			echo -n "|| ("
+			echo -n " echo 'F';"
+			echo -n " echo 'Test fsm[$i] failed ---';"
+			echo -n " tail -n 20 temp/uut_${idx}.log;"
+			echo -n " echo '-----------------------';"
+			echo -n " exit 1"
+			echo ")"
 		fi
 		all_targets="$all_targets temp/uut_${idx}.log"
 		echo
@@ -53,6 +71,6 @@ echo -n "running tests.. "
 if test $verbose -gt 0; then
 	echo
 fi
-${MAKE:-make} -f temp/makefile
+${MAKE:-make} -s -f temp/makefile
 
 exit 0
