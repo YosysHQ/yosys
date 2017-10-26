@@ -31,7 +31,7 @@ for ((i = 0; i < $count; i++)); do
 		echo -n "Test: realmath[$i] -> "
 	fi
 	idx=$( printf "%05d" $i )
-	../../../yosys -qq uut_${idx}.ys
+	../../../yosys -qq uut_${idx}.ys || exit 1
 	iverilog -o uut_${idx}_tb uut_${idx}_tb.v uut_${idx}.v uut_${idx}_syn.v
 	if test ! -s ./uut_${idx}_tb; then
 		echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
