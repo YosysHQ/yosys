@@ -67,7 +67,7 @@ fi
 
 # Install iverilog
 (
-	if [ ! -e ~/.local/bin/iverilog ]; then
+	if [ ! -e ~/.local-bin/bin/iverilog ]; then
 		echo
 		echo 'Building iverilog...' && echo -en 'travis_fold:start:before_install.iverilog\\r'
 		echo
