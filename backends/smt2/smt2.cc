@@ -811,6 +811,9 @@ struct Smt2Worker
 				Module *m = module->design->module(cell->type);
 				log_assert(m != nullptr);
 
+				hier.push_back(stringf("  (= (|%s_is| state) (|%s_is| %s))\n",
+						get_id(module), get_id(cell->type), cell_state.c_str()));
+
 				for (auto &conn : cell->connections())
 				{
 					Wire *w = m->wire(conn.first);
