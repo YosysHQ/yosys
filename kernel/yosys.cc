@@ -25,6 +25,10 @@
 #  include <readline/history.h>
 #endif
 
+#ifdef YOSYS_ENABLE_EDITLINE
+#  include <editline/readline.h>
+#endif
+
 #ifdef YOSYS_ENABLE_PLUGINS
 #  include <dlfcn.h>
 #endif
@@ -938,7 +942,7 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 	Backend::backend_call(design, NULL, filename, command);
 }
 
-#ifdef YOSYS_ENABLE_READLINE
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 static char *readline_cmd_generator(const char *text, int state)
 {
 	static std::map<std::string, Pass*>::iterator it;
@@ -1025,14 +1029,14 @@ void shell(RTLIL::Design *design)
 	recursion_counter++;
 	log_cmd_error_throw = true;
 
-#ifdef YOSYS_ENABLE_READLINE
-	rl_readline_name = "yosys";
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+	rl_readline_name = (char*)"yosys";
 	rl_attempted_completion_function = readline_completion;
-	rl_basic_word_break_characters = " \t\n";
+	rl_basic_word_break_characters = (char*)" \t\n";
 #endif
 
 	char *command = NULL;
-#ifdef YOSYS_ENABLE_READLINE
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	while ((command = readline(create_prompt(design, recursion_counter))) != NULL)
 	{
 #else
@@ -1046,7 +1050,7 @@ void shell(RTLIL::Design *design)
 #endif
 		if (command[strspn(command, " \t\r\n")] == 0)
 			continue;
-#ifdef YOSYS_ENABLE_READLINE
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 		add_history(command);
 #endif
 
@@ -1114,7 +1118,7 @@ struct ShellPass : public Pass {
 	}
 } ShellPass;
 
-#ifdef YOSYS_ENABLE_READLINE
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 struct HistoryPass : public Pass {
 	HistoryPass() : Pass("history", "show last interactive commands") { }
 	virtual void help() {
@@ -1128,8 +1132,13 @@ struct HistoryPass : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) {
 		extra_args(args, 1, design, false);
+#ifdef YOSYS_ENABLE_READLINE
 		for(HIST_ENTRY **list = history_list(); *list != NULL; list++)
 			log("%s\n", (*list)->line);
+#else
+		for (int i = where_history(); history_get(i); i++)
+			log("%s\n", history_get(i)->line);
+#endif
 	}
 } HistoryPass;
 #endif

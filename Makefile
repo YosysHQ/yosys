@@ -11,6 +11,7 @@ ENABLE_TCL := 1
 ENABLE_ABC := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
+ENABLE_EDITLINE := 0
 ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
@@ -225,6 +226,11 @@ ABCMKARGS += "ABC_READLINE_LIBRARIES=-lreadline -ltermcap"
 endif
 ifeq ($(CONFIG),mxe)
 LDLIBS += -ltermcap
+endif
+else
+ifeq ($(ENABLE_EDITLINE),1)
+CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
+LDLIBS += -ledit -ltinfo -lbsd
 endif
 endif
 
