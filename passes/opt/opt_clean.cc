@@ -392,7 +392,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		}
 
 		if (verbose)
-			log("  removing redundent init attribute on %s.\n", log_id(wire));
+			log("  removing redundant init attribute on %s.\n", log_id(wire));
 
 		wire->attributes.erase("\\init");
 		did_something = true;

@@ -30,6 +30,10 @@
 #  include <readline/readline.h>
 #endif
 
+#ifdef YOSYS_ENABLE_EDITLINE
+#  include <editline/readline.h>
+#endif
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 

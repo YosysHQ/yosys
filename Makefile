@@ -11,12 +11,14 @@ ENABLE_TCL := 1
 ENABLE_ABC := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 1
+ENABLE_EDITLINE := 0
 ENABLE_VERIFIC := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 
 # other configuration flags
 ENABLE_GPROF := 0
+ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
@@ -99,7 +101,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 0fc1803a77c0
+ABCREV = f6838749f234
 ABCPULL = 1
 ABCURL ?= https://bitbucket.org/alanmi/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
@@ -225,6 +227,11 @@ endif
 ifeq ($(CONFIG),mxe)
 LDLIBS += -ltermcap
 endif
+else
+ifeq ($(ENABLE_EDITLINE),1)
+CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
+LDLIBS += -ledit -ltinfo -lbsd
+endif
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
@@ -251,7 +258,15 @@ LDFLAGS += -pg
 endif
 
 ifeq ($(ENABLE_NDEBUG),1)
-CXXFLAGS := -O3 -DNDEBUG $(filter-out -Os,$(CXXFLAGS))
+CXXFLAGS := -O3 -DNDEBUG $(filter-out -Os -ggdb,$(CXXFLAGS))
+endif
+
+ifeq ($(ENABLE_DEBUG),1)
+ifeq ($(CONFIG),clang)
+CXXFLAGS := -O0 $(filter-out -Os,$(CXXFLAGS))
+else
+CXXFLAGS := -Og $(filter-out -Os,$(CXXFLAGS))
+endif
 endif
 
 ifeq ($(ENABLE_ABC),1)

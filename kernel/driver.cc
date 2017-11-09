@@ -25,6 +25,10 @@
 #  include <readline/history.h>
 #endif
 
+#ifdef YOSYS_ENABLE_EDITLINE
+#  include <editline/readline.h>
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -119,26 +123,32 @@ const char *prompt()
 
 #else /* EMSCRIPTEN */
 
-#ifdef YOSYS_ENABLE_READLINE
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 int yosys_history_offset = 0;
 std::string yosys_history_file;
 #endif
 
 void yosys_atexit()
 {
-#ifdef YOSYS_ENABLE_READLINE
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	if (!yosys_history_file.empty()) {
+#if defined(YOSYS_ENABLE_READLINE)
 		if (yosys_history_offset > 0) {
 			history_truncate_file(yosys_history_file.c_str(), 100);
 			append_history(where_history() - yosys_history_offset, yosys_history_file.c_str());
 		} else
 			write_history(yosys_history_file.c_str());
+#else
+		write_history(yosys_history_file.c_str());
+#endif
 	}
 
 	clear_history();
+#if defined(YOSYS_ENABLE_READLINE)
 	HIST_ENTRY **hist_list = history_list();
 	if (hist_list != NULL)
 		free(hist_list);
+#endif
 #endif
 }
 
@@ -159,7 +169,7 @@ int main(int argc, char **argv)
 	bool mode_v = false;
 	bool mode_q = false;
 
-#ifdef YOSYS_ENABLE_READLINE
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	if (getenv("HOME") != NULL) {
 		yosys_history_file = stringf("%s/.yosys_history", getenv("HOME"));
 		read_history(yosys_history_file.c_str());

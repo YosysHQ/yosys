@@ -430,6 +430,8 @@ struct OptRmdffPass : public Pass {
 
 			assign_map.set(module);
 			dff_init_map.set(module);
+			mux_drivers.clear();
+			init_attributes.clear();
 
 			for (auto wire : module->wires())
 			{
@@ -534,6 +536,7 @@ struct OptRmdffPass : public Pass {
 
 		assign_map.clear();
 		mux_drivers.clear();
+		init_attributes.clear();
 
 		if (total_count || total_initdrv)
 			design->scratchpad_set_bool("opt.did_something", true);
