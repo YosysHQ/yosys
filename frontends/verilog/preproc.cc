@@ -366,14 +366,31 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 			ff.clear();
 			std::string fixed_fn = fn;
 			ff.open(fixed_fn.c_str());
-			if (ff.fail() && fn.size() > 0 && fn[0] != '/' && filename.find('/') != std::string::npos) {
+
+			bool filename_path_sep_found;
+			bool fn_relative;
+#ifdef _WIN32
+			// Both forward and backslash are acceptable separators on Windows.
+			filename_path_sep_found = (filename.find_first_of("/\\") != std::string::npos);
+			// Easier just to invert the check for an absolute path (e.g. C:\ or C:/)
+			fn_relative = !(fn[1] == ':' && (fn[2] == '/' || fn[2] == '\\'));
+#else
+			filename_path_sep_found = (filename.find('/') != std::string::npos);
+			fn_relative = (fn[0] != '/');
+#endif
+
+			if (ff.fail() && fn.size() > 0 && fn_relative && filename_path_sep_found) {
 				// if the include file was not found, it is not given with an absolute path, and the
 				// currently read file is given with a path, then try again relative to its directory
 				ff.clear();
+#ifdef _WIN32
+				fixed_fn = filename.substr(0, filename.find_last_of("/\\")+1) + fn;
+#else
 				fixed_fn = filename.substr(0, filename.rfind('/')+1) + fn;
+#endif
 				ff.open(fixed_fn);
 			}
-			if (ff.fail() && fn.size() > 0 && fn[0] != '/') {
+			if (ff.fail() && fn.size() > 0 && fn_relative) {
 				// if the include file was not found and it is not given with an absolute path, then
 				// search it in the include path
 				for (auto incdir : include_dirs) {
@@ -505,7 +522,7 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 
 		if (try_expand_macro(defines_with_args, defines_map, tok))
 			continue;
-		
+
 		output_code.push_back(tok);
 	}
 
@@ -521,4 +538,3 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 }
 
 YOSYS_NAMESPACE_END
-
