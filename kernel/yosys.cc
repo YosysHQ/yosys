@@ -739,7 +739,7 @@ std::string proc_self_dirname()
 #ifdef EMSCRIPTEN
 std::string proc_share_dirname()
 {
-	return "/share";
+	return "/share/";
 }
 #else
 std::string proc_share_dirname()
