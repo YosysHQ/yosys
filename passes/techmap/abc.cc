@@ -550,11 +550,13 @@ std::string replace_tempdir(std::string text, std::string tempdir_name, bool sho
 	}
 
 	std::string  selfdir_name = proc_self_dirname();
-	while (1) {
-		size_t pos = text.find(selfdir_name);
-		if (pos == std::string::npos)
-			break;
-		text = text.substr(0, pos) + "<yosys-exe-dir>/" + text.substr(pos + GetSize(selfdir_name));
+	if (selfdir_name != "/") {
+		while (1) {
+			size_t pos = text.find(selfdir_name);
+			if (pos == std::string::npos)
+				break;
+			text = text.substr(0, pos) + "<yosys-exe-dir>/" + text.substr(pos + GetSize(selfdir_name));
+		}
 	}
 
 	return text;
