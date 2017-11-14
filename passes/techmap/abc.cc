@@ -60,6 +60,10 @@
 
 #include "frontends/blif/blifparse.h"
 
+#ifdef YOSYS_LINK_ABC
+extern "C" int Abc_RealMain(int argc, char *argv[]);
+#endif
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -943,8 +947,24 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
+#ifndef YOSYS_LINK_ABC
 		abc_output_filter filt(tempdir_name, show_tempdir);
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
+#else
+		// These needs to be mutable, supposedly due to getopt
+		char *abc_argv[5];
+		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
+		abc_argv[0] = strdup(exe_file.c_str());
+		abc_argv[1] = strdup("-s");
+		abc_argv[2] = strdup("-f");
+		abc_argv[3] = strdup(tmp_script_name.c_str());
+		abc_argv[4] = 0;
+		int ret = Abc_RealMain(4, abc_argv);
+		free(abc_argv[0]);
+		free(abc_argv[1]);
+		free(abc_argv[2]);
+		free(abc_argv[3]);
+#endif
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 

@@ -22,6 +22,7 @@ ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
+LINK_ABC := 0
 
 # clang sanitizers
 SANITIZER =
@@ -292,8 +293,13 @@ endif
 
 ifeq ($(ENABLE_ABC),1)
 CXXFLAGS += -DYOSYS_ENABLE_ABC
+ifeq ($(LINK_ABC),1)
+CXXFLAGS += -DYOSYS_LINK_ABC
+LDLIBS += -lpthread
+else
 ifeq ($(ABCEXTERNAL),)
 TARGETS += yosys-abc$(EXE)
+endif
 endif
 endif
 
@@ -415,6 +421,10 @@ include techlibs/common/Makefile.inc
 
 endif
 
+ifeq ($(LINK_ABC),1)
+OBJS += yosys-libabc.a
+endif
+
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 	@echo "  Build successful."
@@ -459,7 +469,7 @@ yosys-config: misc/yosys-config.in
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
-abc/abc-$(ABCREV)$(EXE):
+abc/abc-$(ABCREV)$(EXE) abc/libabc-$(ABCREV).a:
 	$(P)
 ifneq ($(ABCREV),default)
 	$(Q) if test -d abc/.hg; then \
@@ -476,14 +486,18 @@ ifneq ($(ABCREV),default)
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
-	$(Q) cd abc && $(MAKE) $(S) $(ABCMKARGS) PROG="abc-$(ABCREV)$(EXE)" MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: "
+	$(Q) cd abc && $(MAKE) $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc-$(ABCREV)",PROG="abc-$(ABCREV)$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc-$(ABCREV).a)
 
 ifeq ($(ABCREV),default)
 .PHONY: abc/abc-$(ABCREV)$(EXE)
+.PHONY: abc/libabc-$(ABCREV).a
 endif
 
 yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
 	$(P) cp abc/abc-$(ABCREV)$(EXE) yosys-abc$(EXE)
+
+yosys-libabc.a: abc/libabc-$(ABCREV).a
+	$(P) cp abc/libabc-$(ABCREV).a yosys-libabc.a
 
 ifneq ($(SEED),)
 SEEDOPT="-S $(SEED)"
@@ -568,7 +582,7 @@ clean:
 	rm -rf share
 	if test -d manual; then cd manual && sh clean.sh; fi
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
-	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]*
+	rm -f kernel/version_*.o kernel/version_*.cc abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -581,7 +595,7 @@ clean:
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
-	rm -f yosys-abc$(EXE) abc/abc-[0-9a-f]*
+	rm -f yosys-abc$(EXE) yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 
 mrproper: clean
 	git clean -xdf
