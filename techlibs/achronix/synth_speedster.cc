@@ -122,7 +122,7 @@ struct SynthIntelPass : public ScriptPass {
   {
     if (check_label("begin"))
       {
-        run("read_verilog -sv -lib +/achronix/speedster22i/cells_comb_speedster.v");
+        run("read_verilog -sv -lib +/achronix/speedster22i/cells_sim.v");
         run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
       }
 
@@ -164,7 +164,7 @@ struct SynthIntelPass : public ScriptPass {
     if (check_label("map_cells"))
       {
         run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I");
-        run("techmap -map +/achronix/speedster22i/cells_map_speedster.v");
+        run("techmap -map +/achronix/speedster22i/cells_map.v");
         run("dffinit -ff dffeas Q INIT");
         run("clean -purge");
       }

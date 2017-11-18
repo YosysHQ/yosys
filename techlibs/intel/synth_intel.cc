@@ -127,7 +127,7 @@ struct SynthIntelPass : public ScriptPass {
 
     if (!design->full_selection())
       log_cmd_error("This command only operates on fully selected designs!\n");
-    if (family_opt != "max10" && family_opt !="a10gx" && family_opt != "cyclonev" && family_opt !="cycloneiv" && family_opt !="cycloneive")
+    if (family_opt != "max10" && family_opt !="a10gx" && family_opt != "cyclonev" && family_opt !="cycloneiv" && family_opt !="cycloneive" && family_opt != "cyclone10")
       log_cmd_error("Invalid or not family specified: '%s'\n", family_opt.c_str());
 
     log_header(design, "Executing SYNTH_INTEL pass.\n");
@@ -148,6 +148,8 @@ struct SynthIntelPass : public ScriptPass {
           run("read_verilog -sv -lib +/intel/a10gx/cells_sim.v");
         else if(check_label("family") && family_opt=="cyclonev")
           run("read_verilog -sv -lib +/intel/cyclonev/cells_sim.v");
+        else if(check_label("family") && family_opt=="cyclone10")
+          run("read_verilog -sv -lib +/intel/cyclone10/cells_sim.v");
         else if(check_label("family") && family_opt=="cycloneiv")
           run("read_verilog -sv -lib +/intel/cycloneiv/cells_sim.v");
         else
@@ -211,6 +213,8 @@ struct SynthIntelPass : public ScriptPass {
           run("techmap -map +/intel/a10gx/cells_map.v");
         else if(family_opt=="cyclonev")
           run("techmap -map +/intel/cyclonev/cells_map.v");
+        else if(family_opt=="cyclone10")
+          run("techmap -map +/intel/cyclone10/cells_map.v");
         else if(family_opt=="cycloneiv")
           run("techmap -map +/intel/cycloneiv/cells_map.v");
         else

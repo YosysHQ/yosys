@@ -1,1 +1,1 @@
-yosys -p "synth_intel -family max10 -top top -vout top.vqm" top.v sevenseg.v
+yosys -p "synth_intel -family max10 -top top -vqm top.vqm" top.v sevenseg.v
