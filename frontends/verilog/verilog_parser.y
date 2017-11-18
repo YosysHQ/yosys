@@ -359,6 +359,7 @@ package_body_stmt:
 non_opt_delay:
 	'#' TOK_ID { delete $2; } |
 	'#' TOK_CONSTVAL { delete $2; } |
+	'#' TOK_REALVAL { delete $2; } |
 	'#' '(' expr ')' { delete $3; } |
 	'#' '(' expr ':' expr ':' expr ')' { delete $3; delete $5; delete $7; };
 
