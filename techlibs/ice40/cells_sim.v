@@ -883,7 +883,7 @@ module SB_WARMBOOT (
 endmodule
 
 // UltraPlus feature cells
-(* blackbox, keep *)
+(* blackbox *)
 module SB_MAC16 (
 	input CLK,
 	input CE,
@@ -935,7 +935,7 @@ parameter A_SIGNED = 1'b0;
 parameter B_SIGNED = 1'b0;
 endmodule
 
-(* blackbox, keep *)
+(* blackbox *)
 module SB_SPRAM256KA(
 	input [13:0] ADDRESS,
 	input [15:0] DATAIN,
@@ -950,7 +950,7 @@ module SB_SPRAM256KA(
 );
 endmodule
 
-(* blackbox, keep *)
+(* blackbox *)
 module SB_HFOSC(
 	input CLKHFPU,
 	input CLKHFEN,
@@ -959,7 +959,7 @@ module SB_HFOSC(
 parameter CLKHF_DIV = "0b00";
 endmodule
 
-(* blackbox, keep *)
+(* blackbox *)
 module SB_LFOSC(
 	input CLKLFPU,
 	input CLKLFEN,
@@ -967,7 +967,7 @@ module SB_LFOSC(
 );
 endmodule
 
-(* blackbox, keep *)
+(* blackbox *)
 module SB_RGBA_DRV(
 	input CURREN,
 	input RGBLEDEN,
