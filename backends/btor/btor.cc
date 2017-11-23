@@ -1,0 +1,213 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#include "kernel/rtlil.h"
+#include "kernel/register.h"
+#include "kernel/sigtools.h"
+#include "kernel/celltypes.h"
+#include "kernel/log.h"
+#include <string>
+
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
+
+struct BtorWorker
+{
+	std::ostream &f;
+	SigMap sigmap;
+	RTLIL::Module *module;
+	bool verbose;
+	int next_nid;
+
+	// <width> => <sid>
+	dict<int, int> sorts_bv;
+
+	// (<address-width>, <data-width>) => <sid>
+	dict<pair<int, int>, int> sorts_mem;
+
+	// SigBit => (<nid>, <bitidx>)
+	dict<SigBit, pair<int, int>> bit_nid;
+
+	// <nid> => <bvwidth>
+	dict<int, int> nid_width;
+
+	// SigSpec => <nid>
+	dict<SigSpec, int> sig_nid;
+
+	// bit to driving cell
+	dict<SigBit, Cell*> bit_cell;
+
+	int get_bv_sid(int width)
+	{
+		if (sorts_bv.count(width) == 0) {
+			int nid = next_nid++;
+			f << stringf("%d sort bitvec %d\n", nid, width);
+			sorts_bv[width] = nid;
+		}
+		return sorts_bv.at(width);
+	}
+
+	int get_sig_nid(SigSpec sig)
+	{
+		sigmap.apply(sig);
+
+		if (sig_nid.count(sig) == 0)
+		{
+			// <nid>, <bitidx>
+			vector<pair<int, int>> nidbits;
+
+			// collect all bits
+			for (int i = 0; i < GetSize(sig); i++)
+			{
+				SigBit bit = sig[i];
+
+				if (bit_nid.count(bit) == 0)
+				{
+					// FIXME
+					log_abort();
+				}
+
+				nidbits.push_back(bit_nid.at(bit));
+			}
+
+			int width = 0;
+			int nid = -1;
+
+			// group bits and emit slice-concat chain
+			for (int i = 0; i < GetSize(nidbits); i++)
+			{
+				int nid2 = nidbits[i].first;
+				int lower =  nidbits[i].second;
+				int upper = lower;
+
+				while (i+1 < GetSize(nidbits) && nidbits[i+1].first == nidbits[i].first &&
+						nidbits[i+1].second == nidbits[i].second+1)
+					upper++, i++;
+
+				int nid3 = nid2;
+
+				if (lower != 0 && upper+1 != nid_width.at(nid2)) {
+					int sid = get_bv_sid(upper-lower+1);
+					nid3 = next_nid++;
+					f << stringf("%d slice %d %d %d %d\n", nid3, sid, nid, upper, lower);
+				}
+
+				int nid4 = nid3;
+
+				if (nid >= 0) {
+					int sid = get_bv_sid(width+upper-lower+1);
+					int nid4 = next_nid++;
+					f << stringf("%d concat %d %d %d\n", nid4, sid, nid, nid3);
+				}
+
+				width += upper-lower+1;
+				nid = nid4;
+			}
+
+			sig_nid[sig] = nid;
+			nid_width[nid] = width;
+		}
+
+		return sig_nid.at(sig);
+	}
+
+	BtorWorker(std::ostream &f, RTLIL::Module *module, bool verbose) :
+			f(f), sigmap(module), module(module), verbose(verbose), next_nid(1)
+	{
+		for (auto wire : module->wires())
+		{
+			if (!wire->port_id || !wire->port_input)
+				continue;
+
+			SigSpec sig = sigmap(wire);
+			int sid = get_bv_sid(GetSize(sig));
+			int nid = next_nid++;
+
+			f << stringf("%d input %d %s\n", nid, sid, log_id(wire));
+
+			for (int i = 0; i < GetSize(sig); i++)
+				bit_nid[sig[i]] = make_pair(nid, i);
+			sig_nid[sig] = nid;
+			nid_width[nid] = GetSize(sig);
+		}
+
+		for (auto cell : module->cells())
+		for (auto &conn : cell->connections())
+		{
+			if (!cell->output(conn.first))
+				continue;
+
+			for (auto bit : sigmap(conn.second))
+				bit_cell[bit] = cell;
+		}
+
+		for (auto wire : module->wires())
+		{
+			if (!wire->port_id || !wire->port_output)
+				continue;
+
+			int nid = get_sig_nid(wire);
+			f << stringf("%d output %d %s\n", next_nid++, nid, log_id(wire));
+		}
+	}
+};
+
+struct BtorBackend : public Backend {
+	BtorBackend() : Backend("btor", "write design to BTOR file") { }
+	virtual void help()
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    write_btor [options] [filename]\n");
+		log("\n");
+		log("Write a BTOR description of the current design.\n");
+		log("\n");
+	}
+	virtual void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design)
+	{
+		bool verbose = false;
+
+		log_header(design, "Executing BTOR backend.\n");
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-verbose") {
+				verbose = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(f, filename, args, argidx);
+
+		RTLIL::Module *topmod = design->top_module();
+
+		if (topmod == nullptr)
+			log_cmd_error("No top module found.\n");
+
+		*f << stringf("; BTOR description generated by %s for module %s.\n",
+				yosys_version_str, log_id(topmod));
+
+		BtorWorker(*f, topmod, verbose);
+
+		*f << stringf("; end of yosys output\n");
+	}
+} BtorBackend;
+
+PRIVATE_NAMESPACE_END
