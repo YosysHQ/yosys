@@ -33,7 +33,9 @@ struct BtorWorker
 	SigMap sigmap;
 	RTLIL::Module *module;
 	bool verbose;
-	int next_nid;
+
+	int next_nid = 1;
+	int initstate_nid = -1;
 
 	// <width> => <sid>
 	dict<int, int> sorts_bv;
@@ -120,6 +122,46 @@ struct BtorWorker
 			goto okay;
 		}
 
+		if (cell->type.in("$logic_and", "$logic_or"))
+		{
+			string btor_op;
+			if (cell->type == "$logic_and") btor_op = "and";
+			if (cell->type == "$logic_or")  btor_op = "or";
+			log_assert(!btor_op.empty());
+
+			int sid = get_bv_sid(1);
+			int nid_a = get_sig_nid(cell->getPort("\\A"));
+			int nid_b = get_sig_nid(cell->getPort("\\B"));
+
+			if (GetSize(cell->getPort("\\A")) > 1) {
+				int nid_red_a = next_nid++;
+				f << stringf("%d redor %d %d\n", nid_red_a, sid, nid_a);
+				nid_a = nid_red_a;
+			}
+
+			if (GetSize(cell->getPort("\\B")) > 1) {
+				int nid_red_b = next_nid++;
+				f << stringf("%d redor %d %d\n", nid_red_b, sid, nid_b);
+				nid_b = nid_red_b;
+			}
+
+			int nid = next_nid++;
+			f << stringf("%d %s %d %d %d ; %s\n", nid, btor_op.c_str(), sid, nid_a, nid_b, log_id(cell));
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+
+			if (GetSize(sig) > 1) {
+				int sid = get_bv_sid(GetSize(sig));
+				int zeros_nid = get_sig_nid(Const(0, GetSize(sig)-1));
+				int nid2 = next_nid++;
+				f << stringf("%d concat %d %d %d ; %s\n", nid2, sid, zeros_nid, nid, log_id(cell));
+				nid = nid2;
+			}
+
+			add_nid_sig(nid, sig);
+			goto okay;
+		}
+
 		if (cell->type.in("$mux", "$_MUX_"))
 		{
 			SigSpec sig_a = sigmap(cell->getPort("\\A"));
@@ -157,6 +199,25 @@ struct BtorWorker
 
 			ff_todo.push_back(make_pair(nid, sig_d));
 			add_nid_sig(nid, sig_q);
+			goto okay;
+		}
+
+		if (cell->type == "$initstate")
+		{
+			SigSpec sig_y = sigmap(cell->getPort("\\Y"));
+
+			if (initstate_nid < 0)
+			{
+				int sid = get_bv_sid(1);
+				int one_nid = get_sig_nid(Const(1, 1));
+				int zero_nid = get_sig_nid(Const(0, 1));
+				initstate_nid = next_nid++;
+				f << stringf("%d state %d ; initstate\n", initstate_nid, sid);
+				f << stringf("%d init %d %d %d ; initstate\n", next_nid++, sid, initstate_nid, one_nid);
+				f << stringf("%d next %d %d %d ; initstate\n", next_nid++, sid, initstate_nid, zero_nid);
+			}
+
+			add_nid_sig(initstate_nid, sig_y);
 			goto okay;
 		}
 
@@ -234,7 +295,7 @@ struct BtorWorker
 				if (lower != 0 || upper+1 != nid_width.at(nid2)) {
 					int sid = get_bv_sid(upper-lower+1);
 					nid3 = next_nid++;
-					f << stringf("%d slice %d %d %d %d\n", nid3, sid, nid, upper, lower);
+					f << stringf("%d slice %d %d %d %d\n", nid3, sid, nid2, upper, lower);
 				}
 
 				int nid4 = nid3;
@@ -278,7 +339,7 @@ struct BtorWorker
 	}
 
 	BtorWorker(std::ostream &f, RTLIL::Module *module, bool verbose) :
-			f(f), sigmap(module), module(module), verbose(verbose), next_nid(1)
+			f(f), sigmap(module), module(module), verbose(verbose)
 	{
 		for (auto wire : module->wires())
 		{
@@ -310,6 +371,37 @@ struct BtorWorker
 
 			int nid = get_sig_nid(wire);
 			f << stringf("%d output %d %s\n", next_nid++, nid, log_id(wire));
+		}
+
+		for (auto cell : module->cells())
+		{
+			if (cell->type == "$assume")
+			{
+				int sid = get_bv_sid(1);
+				int nid_a = get_sig_nid(cell->getPort("\\A"));
+				int nid_en = get_sig_nid(cell->getPort("\\EN"));
+				int nid_not_en = next_nid++;
+				int nid_a_or_not_en = next_nid++;
+				int nid = next_nid++;
+
+				f << stringf("%d not %d %d\n", nid_not_en, sid, nid_en);
+				f << stringf("%d or %d %d %d\n", nid_a_or_not_en, sid, nid_a, nid_not_en);
+				f << stringf("%d constraint %d ; %s\n", nid, nid_a_or_not_en, log_id(cell));
+			}
+
+			if (cell->type == "$assert")
+			{
+				int sid = get_bv_sid(1);
+				int nid_a = get_sig_nid(cell->getPort("\\A"));
+				int nid_en = get_sig_nid(cell->getPort("\\EN"));
+				int nid_not_a = next_nid++;
+				int nid_en_and_not_a = next_nid++;
+				int nid = next_nid++;
+
+				f << stringf("%d not %d %d\n", nid_not_a, sid, nid_a);
+				f << stringf("%d and %d %d %d\n", nid_en_and_not_a, sid, nid_en, nid_not_a);
+				f << stringf("%d bad %d ; %s\n", nid, nid_en_and_not_a, log_id(cell));
+			}
 		}
 
 		while (!ff_todo.empty())
