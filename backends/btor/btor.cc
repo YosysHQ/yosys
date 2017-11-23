@@ -56,6 +56,9 @@ struct BtorWorker
 	// nids for constants
 	dict<Const, int> consts;
 
+	// ff inputs that need to be evaluated (<nid>, <d>)
+	vector<pair<int, SigSpec>> ff_todo;
+
 	pool<Cell*> cell_recursion_guard;
 
 	int get_bv_sid(int width)
@@ -68,16 +71,26 @@ struct BtorWorker
 		return sorts_bv.at(width);
 	}
 
+	void add_nid_sig(int nid, const SigSpec &sig)
+	{
+		for (int i = 0; i < GetSize(sig); i++)
+			bit_nid[sig[i]] = make_pair(nid, i);
+
+		sig_nid[sig] = nid;
+		nid_width[nid] = GetSize(sig);
+	}
+
 	void export_cell(Cell *cell)
 	{
 		log_assert(cell_recursion_guard.count(cell) == 0);
 		cell_recursion_guard.insert(cell);
 
-		if (cell->type.in("$add", "$sub"))
+		if (cell->type.in("$add", "$sub", "$xor"))
 		{
 			string btor_op;
 			if (cell->type == "$add") btor_op = "add";
 			if (cell->type == "$sub") btor_op = "sub";
+			if (cell->type == "$xor") btor_op = "xor";
 			log_assert(!btor_op.empty());
 
 			int width = GetSize(cell->getPort("\\Y"));
@@ -92,27 +105,62 @@ struct BtorWorker
 			int nid_b = get_sig_nid(cell->getPort("\\B"), width, b_signed);
 
 			int nid = next_nid++;
-			f << stringf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
+			f << stringf("%d %s %d %d %d ; %s\n", nid, btor_op.c_str(), sid, nid_a, nid_b, log_id(cell));
 
 			SigSpec sig = sigmap(cell->getPort("\\Y"));
 
 			if (GetSize(sig) < width) {
 				int sid = get_bv_sid(GetSize(sig));
 				int nid2 = next_nid++;
-				f << stringf("%d slice %d %d %d 0\n", nid2, sid, nid, GetSize(sig)-1);
+				f << stringf("%d slice %d %d %d 0 ; %s\n", nid2, sid, nid, GetSize(sig)-1, log_id(cell));
 				nid = nid2;
 			}
 
-			for (int i = 0; i < GetSize(sig); i++)
-				bit_nid[sig[i]] = make_pair(nid, i);
-
-			sig_nid[sig] = nid;
-			nid_width[nid] = GetSize(sig);
-
+			add_nid_sig(nid, sig);
 			goto okay;
 		}
 
-		log_error("Unsupported cell type: %s\n", log_id(cell));
+		if (cell->type.in("$mux", "$_MUX_"))
+		{
+			SigSpec sig_a = sigmap(cell->getPort("\\A"));
+			SigSpec sig_b = sigmap(cell->getPort("\\B"));
+			SigSpec sig_s = sigmap(cell->getPort("\\S"));
+			SigSpec sig_y = sigmap(cell->getPort("\\Y"));
+
+			int nid_a = get_sig_nid(sig_a);
+			int nid_b = get_sig_nid(sig_b);
+			int nid_s = get_sig_nid(sig_s);
+
+			int sid = get_bv_sid(GetSize(sig_y));
+			int nid = next_nid++;
+			f << stringf("%d ite %d %d %d %d ; %s\n", nid, sid, nid_s, nid_b, nid_a, log_id(cell));
+
+			add_nid_sig(nid, sig_y);
+			goto okay;
+		}
+
+		if (cell->type.in("$dff", "$ff", "$_DFF_P_", "$_DFF_N", "$_FF_"))
+		{
+			SigSpec sig_d = sigmap(cell->getPort("\\D"));
+			SigSpec sig_q = sigmap(cell->getPort("\\Q"));
+
+			string symbol = log_signal(sig_q);
+			if (symbol.find(' ') != string::npos)
+				symbol = log_id(cell);
+
+			if (symbol[0] == '\\')
+				symbol = symbol.substr(1);
+
+			int sid = get_bv_sid(GetSize(sig_q));
+			int nid = next_nid++;
+			f << stringf("%d state %d %s ; %s\n", nid, sid, symbol.c_str(), log_id(cell));
+
+			ff_todo.push_back(make_pair(nid, sig_d));
+			add_nid_sig(nid, sig_q);
+			goto okay;
+		}
+
+		log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 
 	okay:
 		cell_recursion_guard.erase(cell);
@@ -146,6 +194,7 @@ struct BtorWorker
 							int nid = next_nid++;
 							f << stringf("%d const %d %s\n", nid, sid, c.as_string().c_str());
 							consts[c] = nid;
+							nid_width[nid] = GetSize(c);
 						}
 
 						int nid = consts.at(c);
@@ -182,7 +231,7 @@ struct BtorWorker
 
 				int nid3 = nid2;
 
-				if (lower != 0 && upper+1 != nid_width.at(nid2)) {
+				if (lower != 0 || upper+1 != nid_width.at(nid2)) {
 					int sid = get_bv_sid(upper-lower+1);
 					nid3 = next_nid++;
 					f << stringf("%d slice %d %d %d %d\n", nid3, sid, nid, upper, lower);
@@ -241,11 +290,7 @@ struct BtorWorker
 			int nid = next_nid++;
 
 			f << stringf("%d input %d %s\n", nid, sid, log_id(wire));
-
-			for (int i = 0; i < GetSize(sig); i++)
-				bit_nid[sig[i]] = make_pair(nid, i);
-			sig_nid[sig] = nid;
-			nid_width[nid] = GetSize(sig);
+			add_nid_sig(nid, sig);
 		}
 
 		for (auto cell : module->cells())
@@ -265,6 +310,19 @@ struct BtorWorker
 
 			int nid = get_sig_nid(wire);
 			f << stringf("%d output %d %s\n", next_nid++, nid, log_id(wire));
+		}
+
+		while (!ff_todo.empty())
+		{
+			vector<pair<int, SigSpec>> todo;
+			todo.swap(ff_todo);
+
+			for (auto &it : todo)
+			{
+				int nid = get_sig_nid(it.second);
+				int sid = get_bv_sid(GetSize(it.second));
+				f << stringf("%d next %d %d %d\n", next_nid++, sid, it.first, nid);
+			}
 		}
 	}
 };
