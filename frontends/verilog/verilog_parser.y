@@ -108,7 +108,7 @@ static void free_attr(std::map<std::string, AstNode*> *al)
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_REG
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
-%token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR
+%token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
@@ -524,35 +524,35 @@ task_func_decl:
 	} opt_dpi_function_args ';' {
 		current_function_or_task = NULL;
 	} |
-	attr TOK_TASK TOK_ID {
+	attr TOK_TASK opt_automatic TOK_ID {
 		current_function_or_task = new AstNode(AST_TASK);
-		current_function_or_task->str = *$3;
+		current_function_or_task->str = *$4;
 		append_attr(current_function_or_task, $1);
 		ast_stack.back()->children.push_back(current_function_or_task);
 		ast_stack.push_back(current_function_or_task);
 		current_function_or_task_port_id = 1;
-		delete $3;
+		delete $4;
 	} task_func_args_opt ';' task_func_body TOK_ENDTASK {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	} |
-	attr TOK_FUNCTION opt_signed range_or_signed_int TOK_ID {
+	attr TOK_FUNCTION opt_automatic opt_signed range_or_signed_int TOK_ID {
 		current_function_or_task = new AstNode(AST_FUNCTION);
-		current_function_or_task->str = *$5;
+		current_function_or_task->str = *$6;
 		append_attr(current_function_or_task, $1);
 		ast_stack.back()->children.push_back(current_function_or_task);
 		ast_stack.push_back(current_function_or_task);
 		AstNode *outreg = new AstNode(AST_WIRE);
-		outreg->str = *$5;
-		outreg->is_signed = $3;
-		if ($4 != NULL) {
-			outreg->children.push_back($4);
-			outreg->is_signed = $3 || $4->is_signed;
-			$4->is_signed = false;
+		outreg->str = *$6;
+		outreg->is_signed = $4;
+		if ($5 != NULL) {
+			outreg->children.push_back($5);
+			outreg->is_signed = $4 || $5->is_signed;
+			$5->is_signed = false;
 		}
 		current_function_or_task->children.push_back(outreg);
 		current_function_or_task_port_id = 1;
-		delete $5;
+		delete $6;
 	} task_func_args_opt ';' task_func_body TOK_ENDFUNCTION {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
@@ -577,6 +577,10 @@ dpi_function_args:
 	dpi_function_args ',' dpi_function_arg |
 	dpi_function_args ',' |
 	dpi_function_arg |
+	/* empty */;
+
+opt_automatic:
+	TOK_AUTOMATIC |
 	/* empty */;
 
 opt_signed:
