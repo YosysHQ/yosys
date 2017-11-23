@@ -53,6 +53,11 @@ struct BtorWorker
 	// bit to driving cell
 	dict<SigBit, Cell*> bit_cell;
 
+	// nids for constants
+	dict<Const, int> consts;
+
+	pool<Cell*> cell_recursion_guard;
+
 	int get_bv_sid(int width)
 	{
 		if (sorts_bv.count(width) == 0) {
@@ -63,7 +68,57 @@ struct BtorWorker
 		return sorts_bv.at(width);
 	}
 
-	int get_sig_nid(SigSpec sig)
+	void export_cell(Cell *cell)
+	{
+		log_assert(cell_recursion_guard.count(cell) == 0);
+		cell_recursion_guard.insert(cell);
+
+		if (cell->type.in("$add", "$sub"))
+		{
+			string btor_op;
+			if (cell->type == "$add") btor_op = "add";
+			if (cell->type == "$sub") btor_op = "sub";
+			log_assert(!btor_op.empty());
+
+			int width = GetSize(cell->getPort("\\Y"));
+			width = std::max(width, GetSize(cell->getPort("\\A")));
+			width = std::max(width, GetSize(cell->getPort("\\B")));
+
+			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
+			bool b_signed = cell->hasParam("\\B_SIGNED") ? cell->getParam("\\B_SIGNED").as_bool() : false;
+
+			int sid = get_bv_sid(width);
+			int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
+			int nid_b = get_sig_nid(cell->getPort("\\B"), width, b_signed);
+
+			int nid = next_nid++;
+			f << stringf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+
+			if (GetSize(sig) < width) {
+				int sid = get_bv_sid(GetSize(sig));
+				int nid2 = next_nid++;
+				f << stringf("%d slice %d %d %d 0\n", nid2, sid, nid, GetSize(sig)-1);
+				nid = nid2;
+			}
+
+			for (int i = 0; i < GetSize(sig); i++)
+				bit_nid[sig[i]] = make_pair(nid, i);
+
+			sig_nid[sig] = nid;
+			nid_width[nid] = GetSize(sig);
+
+			goto okay;
+		}
+
+		log_error("Unsupported cell type: %s\n", log_id(cell));
+
+	okay:
+		cell_recursion_guard.erase(cell);
+	}
+
+	int get_sig_nid(SigSpec sig, int to_width = -1, bool is_signed = false)
 	{
 		sigmap.apply(sig);
 
@@ -79,8 +134,33 @@ struct BtorWorker
 
 				if (bit_nid.count(bit) == 0)
 				{
-					// FIXME
-					log_abort();
+					if (bit.wire == nullptr)
+					{
+						Const c(bit.data);
+
+						while (i+GetSize(c) < GetSize(sig) && sig[i+GetSize(c)].wire == nullptr)
+							c.bits.push_back(sig[i+GetSize(c)].data);
+
+						if (consts.count(c) == 0) {
+							int sid = get_bv_sid(GetSize(c));
+							int nid = next_nid++;
+							f << stringf("%d const %d %s\n", nid, sid, c.as_string().c_str());
+							consts[c] = nid;
+						}
+
+						int nid = consts.at(c);
+
+						for (int j = 0; j < GetSize(c); j++)
+							nidbits.push_back(make_pair(nid, j));
+
+						i += GetSize(c)-1;
+						continue;
+					}
+					else
+					{
+						export_cell(bit_cell.at(bit));
+						log_assert(bit_nid.count(bit));
+					}
 				}
 
 				nidbits.push_back(bit_nid.at(bit));
@@ -124,7 +204,28 @@ struct BtorWorker
 			nid_width[nid] = width;
 		}
 
-		return sig_nid.at(sig);
+		int nid = sig_nid.at(sig);
+
+		if (to_width >= 0 && to_width != GetSize(sig))
+		{
+			if (to_width < GetSize(sig))
+			{
+				int sid = get_bv_sid(to_width);
+				int nid2 = next_nid++;
+				f << stringf("%d slice %d %d %d 0\n", nid2, sid, nid, to_width-1);
+				nid = nid2;
+			}
+			else
+			{
+				int sid = get_bv_sid(to_width);
+				int nid2 = next_nid++;
+				f << stringf("%d %s %d %d %d\n", nid2, is_signed ? "sext" : "uext",
+						sid, nid, to_width - GetSize(sig));
+				nid = nid2;
+			}
+		}
+
+		return nid;
 	}
 
 	BtorWorker(std::ostream &f, RTLIL::Module *module, bool verbose) :
@@ -188,10 +289,10 @@ struct BtorBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-verbose") {
-				verbose = true;
-				continue;
-			}
+			// if (args[argidx] == "-verbose") {
+			// 	verbose = true;
+			// 	continue;
+			// }
 			break;
 		}
 		extra_args(f, filename, args, argidx);
