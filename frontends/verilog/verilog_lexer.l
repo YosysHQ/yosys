@@ -170,6 +170,7 @@ YOSYS_NAMESPACE_END
 "endgenerate"  { return TOK_ENDGENERATE; }
 "while"        { return TOK_WHILE; }
 "repeat"       { return TOK_REPEAT; }
+"automatic"    { return TOK_AUTOMATIC; }
 
 "unique"       { SV_KEYWORD(TOK_UNIQUE); }
 "unique0"      { SV_KEYWORD(TOK_UNIQUE); }
