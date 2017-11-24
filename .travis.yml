@@ -1,36 +1,153 @@
 sudo: false
-script: make && make test
 language: cpp
-addons:
-  apt:
-    sources:
-    - ubuntu-toolchain-r-test
-    packages:
-    - gperf
-    - build-essential
-    - clang
-    - bison
-    - flex
-    - libreadline-dev
-    - gawk
-    - tcl-dev
-    - libffi-dev
-    - git
-    - mercurial
-    - graphviz
-    - xdot
-    - pkg-config
-    - python
-    - g++-4.8
+
+cache:
+ ccache: true
+ directories:
+  - ~/.local-bin
+
+
+env:
+  global:
+    - MAKEFLAGS="-j 2"
+
+matrix:
+  include:
+    # Latest gcc-4.8, earliest version supported by Travis
+    - os: linux
+      addons:
+        apt:
+          packages:
+            - g++-4.8
+            - gperf
+            - build-essential
+            - bison
+            - flex
+            - libreadline-dev
+            - gawk
+            - tcl-dev
+            - libffi-dev
+            - git
+            - mercurial
+            - graphviz
+            - xdot
+            - pkg-config
+            - python
+      env:
+        - MATRIX_EVAL="CONFIG=gcc && CC=gcc-4.8 && CXX=g++-4.8"
+
+    # Latest gcc-6 on Travis Linux
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - gperf
+            - build-essential
+            - bison
+            - flex
+            - libreadline-dev
+            - gawk
+            - tcl-dev
+            - libffi-dev
+            - git
+            - mercurial
+            - graphviz
+            - xdot
+            - pkg-config
+            - python
+      env:
+        - MATRIX_EVAL="CONFIG=gcc && CC=gcc-6 && CXX=g++-6"
+
+    # Latest gcc supported on Travis Linux
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-7
+            - gperf
+            - build-essential
+            - bison
+            - flex
+            - libreadline-dev
+            - gawk
+            - tcl-dev
+            - libffi-dev
+            - git
+            - mercurial
+            - graphviz
+            - xdot
+            - pkg-config
+            - python
+      env:
+        - MATRIX_EVAL="CONFIG=gcc && CC=gcc-7 && CXX=g++-7"
+
+    # Clang which ships on Trusty Linux
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.8
+          packages:
+            - clang-3.8
+            - gperf
+            - build-essential
+            - bison
+            - flex
+            - libreadline-dev
+            - gawk
+            - tcl-dev
+            - libffi-dev
+            - git
+            - mercurial
+            - graphviz
+            - xdot
+            - pkg-config
+            - python
+      env:
+        - MATRIX_EVAL="CONFIG=clang && CC=clang-3.8 && CXX=clang++-3.8"
+
+    # Latest clang supported by Travis Linux
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-trusty-5.0
+          packages:
+            - clang-5.0
+            - gperf
+            - build-essential
+            - bison
+            - flex
+            - libreadline-dev
+            - gawk
+            - tcl-dev
+            - libffi-dev
+            - git
+            - mercurial
+            - graphviz
+            - xdot
+            - pkg-config
+            - python
+      env:
+        - MATRIX_EVAL="CONFIG=clang && CC=clang-5.0 && CXX=clang++-5.0"
+
+    # Latest clang on Mac OS X
+    - os: osx
+      osx_image: xcode8
+      env:
+        - MATRIX_EVAL="CONFIG=gcc && CC=gcc-7 && CXX=g++-7"
+
 before_install:
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap Homebrew/bundle && brew bundle; fi
-  - git clone git://github.com/steveicarus/iverilog.git
-  - (cd iverilog && autoconf && ./configure --prefix=$HOME/iverilog && make && make install)
-  - export PATH=$PATH:$HOME/iverilog/bin
-compiler:
-# - clang
-  - gcc
-os:
-  - linux
-# - osx
+  - ./.travis/setup.sh
+
+script:
+  - ./.travis/build-and-test.sh
+
+after_success:
+  - ./.travis/deploy-after-success.sh
