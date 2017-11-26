@@ -29,8 +29,16 @@ fi
 if [ z"$TRAVIS_BRANCH" != z ]; then
 	TRAVIS_COMMIT_ACTUAL=$(git log --pretty=format:'%H' -n 1)
 	echo "- Fixing detached head (current $TRAVIS_COMMIT_ACTUAL -> $TRAVIS_COMMIT)"
-	git fetch origin $TRAVIS_COMMIT
+	git remote -v
 	git branch -v
+	if [ x"$(git show-ref -s HEAD)" = x"$TRAVIS_COMMIT" ]; then
+		echo "Checked out at $TRAVIS_COMMIT"
+	else
+		if [ z"$TRAVIS_PULL_REQUEST_SLUG" != z ]; then
+			git fetch source $TRAVIS_COMMIT || echo "Unable to fetch $TRAVIS_COMMIT from source"
+		fi
+		git fetch origin $TRAVIS_COMMIT || echo "Unable to fetch $TRAVIS_COMMIT from origin"
+	fi
 	git branch -D $TRAVIS_BRANCH || true
 	git checkout $TRAVIS_COMMIT -b $TRAVIS_BRANCH
 	git branch -v
