@@ -9,8 +9,8 @@ rm -rf minisat_upstream
 sed -i -e 's,^#include *"minisat/[^/]\+/\?,#include ",' *.cc *.h
 sed -i -e 's/Minisat::memUsedPeak()/Minisat::memUsedPeak(bool)/' System.cc
 sed -i -e 's/PRI[iu]64/ & /' Options.h Solver.cc
-sed -i -e '1 i #define __STDC_LIMIT_MACROS' *.cc
-sed -i -e '1 i #define __STDC_FORMAT_MACROS' *.cc
+sed -i -e '1 i #ifndef __STDC_LIMIT_MACROS\n#define __STDC_LIMIT_MACROS\n#endif' *.cc
+sed -i -e '1 i #ifndef __STDC_FORMAT_MACROS\n#define __STDC_FORMAT_MACROS\n#endif' *.cc
 
 patch -p0 < 00_PATCH_mkLit_default_arg.patch
 patch -p0 < 00_PATCH_remove_zlib.patch

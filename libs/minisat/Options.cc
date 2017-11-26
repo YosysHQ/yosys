@@ -1,5 +1,9 @@
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
+#ifndef __STDC_LIMIT_MACROS
 #define __STDC_LIMIT_MACROS
+#endif
 /**************************************************************************************[Options.cc]
 Copyright (c) 2008-2010, Niklas Sorensson
 

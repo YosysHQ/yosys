@@ -131,7 +131,7 @@ namespace SubCircuit
 
 	public:
 		Solver();
-		~Solver();
+		virtual ~Solver();
 
 		void setVerbose();
 		void addGraph(std::string graphId, const Graph &graph);
