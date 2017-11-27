@@ -1279,7 +1279,7 @@ else:  # not tempind, covermode
 
         step += step_size
 
-    if gentrace:
+    if gentrace and retstatus:
         print_anyconsts(0)
         write_trace(0, num_steps, '%')
 
