@@ -430,28 +430,42 @@ yosys-config: misc/yosys-config.in
 			-e 's#@BINDIR@#$(BINDIR)#;' -e 's#@DATDIR@#$(DATDIR)#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
-abc/abc-$(ABCREV)$(EXE):
-	$(P)
+
+ifeq ($(ABCEXTERNAL),)
 ifneq ($(ABCREV),default)
+abc:
 	$(Q) if ( cd abc 2> /dev/null && hg identify; ) | grep -q +; then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
 	$(Q) if test "`cd abc 2> /dev/null && hg identify | cut -f1 -d' '`" != "$(ABCREV)"; then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
-		test -d abc || hg clone --insecure $(ABCURL) abc; \
-		cd abc && $(MAKE) DEP= clean && hg pull --insecure && hg update -r $(ABCREV); \
+		test -d abc || hg clone $(ABCHGARGS) $(ABCURL) abc; \
+		cd abc && $(MAKE) DEP= clean && hg pull $(ABCHGARGS) && hg update -r $(ABCREV); \
 	fi
-endif
-	$(Q) rm -f abc/abc-[0-9a-f]*
-	$(Q) cd abc && $(MAKE) $(S) $(ABCMKARGS) PROG="abc-$(ABCREV)$(EXE)" MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: "
 
-ifeq ($(ABCREV),default)
-.PHONY: abc/abc-$(ABCREV)$(EXE)
+else
+
+abc:
+	$(Q) echo "Using existing abc as ABCREV=default"
+
 endif
+
+abc/abc-$(ABCREV)$(EXE): abc
+	$(P)
+	$(Q) cd abc && $(MAKE) $(S) $(ABCMKARGS) PROG="abc-$(ABCREV)$(EXE)" MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: "
 
 yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
 	$(P) cp abc/abc-$(ABCREV)$(EXE) yosys-abc$(EXE)
+
+else
+
+abc:
+	$(Q) echo "Using external ABC."
+
+endif
+
+.PHONY: abc
 
 ifneq ($(SEED),)
 SEEDOPT="-S $(SEED)"
