@@ -101,6 +101,7 @@ OBJS = kernel/version_$(GIT_REV).o
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
+ABCINSECURE ?= 0
 ABCREV = 31fc97b0aeed
 ABCPULL = 1
 ABCURL ?= https://bitbucket.org/alanmi/abc
@@ -430,9 +431,13 @@ yosys-config: misc/yosys-config.in
 			-e 's#@BINDIR@#$(BINDIR)#;' -e 's#@DATDIR@#$(DATDIR)#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
+ifeq ($(ABCINSECURE),1)
+ABCHGARGS ?= --config web.cacerts='' --insecure
+endif
 
 ifeq ($(ABCEXTERNAL),)
 ifneq ($(ABCREV),default)
+
 abc:
 	$(Q) if ( cd abc 2> /dev/null && hg identify; ) | grep -q +; then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
