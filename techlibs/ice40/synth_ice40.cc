@@ -70,7 +70,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 		log("    -vpr\n");
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
-		log("        (this fueature is experimental and incomplete)\n");
+		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
