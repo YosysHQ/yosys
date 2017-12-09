@@ -401,6 +401,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (type == AST_ALWAYS || type == AST_INITIAL)
 	{
+		if (current_always != nullptr)
+			log_error("Invalid nesting of always blocks and/or initializations at %s:%d.\n", filename.c_str(), linenum);
+
 		current_always = this;
 		current_always_clocked = false;
 

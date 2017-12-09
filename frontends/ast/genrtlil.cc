@@ -554,6 +554,8 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		default:
+			// ast->dumpAst(NULL, "ast> ");
+			// current_ast_mod->dumpAst(NULL, "mod> ");
 			log_abort();
 		}
 	}
