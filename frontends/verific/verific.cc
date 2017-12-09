@@ -60,6 +60,29 @@ PRIVATE_NAMESPACE_BEGIN
 
 #ifdef YOSYS_ENABLE_VERIFIC
 
+pool<int> verific_sva_prims = {
+	// Copy&paste from Verific 3.16_484_32_170630 Netlist.h
+	PRIM_SVA_IMMEDIATE_ASSERT, PRIM_SVA_ASSERT, PRIM_SVA_COVER, PRIM_SVA_ASSUME,
+	PRIM_SVA_EXPECT, PRIM_SVA_POSEDGE, PRIM_SVA_NOT, PRIM_SVA_FIRST_MATCH,
+	PRIM_SVA_ENDED, PRIM_SVA_MATCHED, PRIM_SVA_CONSECUTIVE_REPEAT,
+	PRIM_SVA_NON_CONSECUTIVE_REPEAT, PRIM_SVA_GOTO_REPEAT,
+	PRIM_SVA_MATCH_ITEM_TRIGGER, PRIM_SVA_AND, PRIM_SVA_OR, PRIM_SVA_SEQ_AND,
+	PRIM_SVA_SEQ_OR, PRIM_SVA_EVENT_OR, PRIM_SVA_OVERLAPPED_IMPLICATION,
+	PRIM_SVA_NON_OVERLAPPED_IMPLICATION, PRIM_SVA_OVERLAPPED_FOLLOWED_BY,
+	PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY, PRIM_SVA_INTERSECT, PRIM_SVA_THROUGHOUT,
+	PRIM_SVA_WITHIN, PRIM_SVA_AT, PRIM_SVA_DISABLE_IFF, PRIM_SVA_SAMPLED,
+	PRIM_SVA_ROSE, PRIM_SVA_FELL, PRIM_SVA_STABLE, PRIM_SVA_PAST,
+	PRIM_SVA_MATCH_ITEM_ASSIGN, PRIM_SVA_SEQ_CONCAT, PRIM_SVA_IF,
+	PRIM_SVA_RESTRICT, PRIM_SVA_TRIGGERED, PRIM_SVA_STRONG, PRIM_SVA_WEAK,
+	PRIM_SVA_NEXTTIME, PRIM_SVA_S_NEXTTIME, PRIM_SVA_ALWAYS, PRIM_SVA_S_ALWAYS,
+	PRIM_SVA_S_EVENTUALLY, PRIM_SVA_EVENTUALLY, PRIM_SVA_UNTIL, PRIM_SVA_S_UNTIL,
+	PRIM_SVA_UNTIL_WITH, PRIM_SVA_S_UNTIL_WITH, PRIM_SVA_IMPLIES, PRIM_SVA_IFF,
+	PRIM_SVA_ACCEPT_ON, PRIM_SVA_REJECT_ON, PRIM_SVA_SYNC_ACCEPT_ON,
+	PRIM_SVA_SYNC_REJECT_ON, PRIM_SVA_GLOBAL_CLOCKING_DEF,
+	PRIM_SVA_GLOBAL_CLOCKING_REF, PRIM_SVA_IMMEDIATE_ASSUME,
+	PRIM_SVA_IMMEDIATE_COVER, OPER_SVA_SAMPLED, OPER_SVA_STABLE
+};
+
 string verific_error_msg;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
@@ -99,9 +122,9 @@ struct VerificImporter;
 void import_sva_assert(VerificImporter *importer, Instance *inst);
 void import_sva_assume(VerificImporter *importer, Instance *inst);
 void import_sva_cover(VerificImporter *importer, Instance *inst);
-void svapp_assert(VerificImporter *importer, Instance *inst);
-void svapp_assume(VerificImporter *importer, Instance *inst);
-void svapp_cover(VerificImporter *importer, Instance *inst);
+void svapp_assert(Instance *inst);
+void svapp_assume(Instance *inst);
+void svapp_cover(Instance *inst);
 
 struct VerificClockEdge {
 	Net *clock_net = nullptr;
@@ -120,37 +143,10 @@ struct VerificImporter
 
 	bool mode_gates, mode_keep, mode_nosva, mode_nosvapp, mode_names, verbose;
 
-	pool<int> verific_sva_prims;
-
 	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_nosvapp, bool mode_names, bool verbose) :
 			mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
 			mode_nosvapp(mode_nosvapp), mode_names(mode_names), verbose(verbose)
 	{
-		// Copy&paste from Verific 3.16_484_32_170630 Netlist.h
-		vector<int> sva_prims {
-			PRIM_SVA_IMMEDIATE_ASSERT, PRIM_SVA_ASSERT, PRIM_SVA_COVER, PRIM_SVA_ASSUME,
-			PRIM_SVA_EXPECT, PRIM_SVA_POSEDGE, PRIM_SVA_NOT, PRIM_SVA_FIRST_MATCH,
-			PRIM_SVA_ENDED, PRIM_SVA_MATCHED, PRIM_SVA_CONSECUTIVE_REPEAT,
-			PRIM_SVA_NON_CONSECUTIVE_REPEAT, PRIM_SVA_GOTO_REPEAT,
-			PRIM_SVA_MATCH_ITEM_TRIGGER, PRIM_SVA_AND, PRIM_SVA_OR, PRIM_SVA_SEQ_AND,
-			PRIM_SVA_SEQ_OR, PRIM_SVA_EVENT_OR, PRIM_SVA_OVERLAPPED_IMPLICATION,
-			PRIM_SVA_NON_OVERLAPPED_IMPLICATION, PRIM_SVA_OVERLAPPED_FOLLOWED_BY,
-			PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY, PRIM_SVA_INTERSECT, PRIM_SVA_THROUGHOUT,
-			PRIM_SVA_WITHIN, PRIM_SVA_AT, PRIM_SVA_DISABLE_IFF, PRIM_SVA_SAMPLED,
-			PRIM_SVA_ROSE, PRIM_SVA_FELL, PRIM_SVA_STABLE, PRIM_SVA_PAST,
-			PRIM_SVA_MATCH_ITEM_ASSIGN, PRIM_SVA_SEQ_CONCAT, PRIM_SVA_IF,
-			PRIM_SVA_RESTRICT, PRIM_SVA_TRIGGERED, PRIM_SVA_STRONG, PRIM_SVA_WEAK,
-			PRIM_SVA_NEXTTIME, PRIM_SVA_S_NEXTTIME, PRIM_SVA_ALWAYS, PRIM_SVA_S_ALWAYS,
-			PRIM_SVA_S_EVENTUALLY, PRIM_SVA_EVENTUALLY, PRIM_SVA_UNTIL, PRIM_SVA_S_UNTIL,
-			PRIM_SVA_UNTIL_WITH, PRIM_SVA_S_UNTIL_WITH, PRIM_SVA_IMPLIES, PRIM_SVA_IFF,
-			PRIM_SVA_ACCEPT_ON, PRIM_SVA_REJECT_ON, PRIM_SVA_SYNC_ACCEPT_ON,
-			PRIM_SVA_SYNC_REJECT_ON, PRIM_SVA_GLOBAL_CLOCKING_DEF,
-			PRIM_SVA_GLOBAL_CLOCKING_REF, PRIM_SVA_IMMEDIATE_ASSUME,
-			PRIM_SVA_IMMEDIATE_COVER, OPER_SVA_SAMPLED, OPER_SVA_STABLE
-		};
-
-		for (int p : sva_prims)
-			verific_sva_prims.insert(p);
 	}
 
 	RTLIL::SigBit net_map_at(Net *net)
@@ -717,6 +713,32 @@ struct VerificImporter
 		Instance *inst;
 		PortRef *pr;
 
+		if (!mode_nosvapp)
+		{
+			vector<Instance*> asserts, assumes, covers;
+
+			FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
+			{
+				if (inst->Type() == PRIM_SVA_ASSERT)
+					asserts.push_back(inst);
+
+				if (inst->Type() == PRIM_SVA_ASSUME)
+					assumes.push_back(inst);
+
+				if (inst->Type() == PRIM_SVA_COVER)
+					covers.push_back(inst);
+			}
+
+			for (auto inst : asserts)
+				svapp_assert(inst);
+
+			for (auto inst : assumes)
+				svapp_assume(inst);
+
+			for (auto inst : covers)
+				svapp_cover(inst);
+		}
+
 		FOREACH_PORT_OF_NETLIST(nl, mi, port)
 		{
 			if (port->Bus())
@@ -1196,18 +1218,6 @@ struct VerificImporter
 			}
 		}
 
-		if (!mode_nosvapp)
-		{
-			for (auto inst : sva_asserts)
-				svapp_assert(this, inst);
-
-			for (auto inst : sva_assumes)
-				svapp_assume(this, inst);
-
-			for (auto inst : sva_covers)
-				svapp_cover(this, inst);
-		}
-
 		if (!mode_nosva)
 		{
 			for (auto inst : sva_asserts)
@@ -1250,15 +1260,13 @@ VerificClockEdge::VerificClockEdge(VerificImporter *importer, Instance *inst)
 
 struct VerificSvaPP
 {
-	VerificImporter *importer;
-	Module *module;
-
 	Netlist *netlist;
 	Instance *root;
 
 	bool mode_assert = false;
 	bool mode_assume = false;
 	bool mode_cover = false;
+	bool did_something = false;
 
 	Instance *net_to_ast_driver(Net *n)
 	{
@@ -1273,7 +1281,7 @@ struct VerificSvaPP
 		if (inst == nullptr)
 			return nullptr;
 
-		if (!importer->verific_sva_prims.count(inst->Type()))
+		if (!verific_sva_prims.count(inst->Type()))
 			return nullptr;
 
 		if (inst->Type() == PRIM_SVA_PAST)
@@ -1288,13 +1296,13 @@ struct VerificSvaPP
 	Instance *get_ast_input3(Instance *inst) { return net_to_ast_driver(inst->GetInput3()); }
 	Instance *get_ast_control(Instance *inst) { return net_to_ast_driver(inst->GetControl()); }
 
-	Net *impl_to_seq(Instance *inst)
+	Net *rewrite(Instance *inst)
 	{
 		if (inst == nullptr)
 			return nullptr;
 
 		if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_ASSUME) {
-			Net *new_net = impl_to_seq(get_ast_input(inst));
+			Net *new_net = rewrite(get_ast_input(inst));
 			if (new_net) {
 				inst->Disconnect(inst->View()->GetInput());
 				inst->Connect(inst->View()->GetInput(), new_net);
@@ -1303,7 +1311,7 @@ struct VerificSvaPP
 		}
 
 		if (inst->Type() == PRIM_SVA_AT) {
-			Net *new_net = impl_to_seq(get_ast_input2(inst));
+			Net *new_net = rewrite(get_ast_input2(inst));
 			if (new_net) {
 				inst->Disconnect(inst->View()->GetInput2());
 				inst->Connect(inst->View()->GetInput2(), new_net);
@@ -1314,12 +1322,14 @@ struct VerificSvaPP
 		if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
 		{
 			if (mode_cover) {
-				Net *new_in1 = impl_to_seq(get_ast_input1(inst));
-				Net *new_in2 = impl_to_seq(get_ast_input2(inst));
+				did_something = true;
+				Net *new_in1 = rewrite(get_ast_input1(inst));
+				Net *new_in2 = rewrite(get_ast_input2(inst));
 				if (!new_in1) new_in1 = inst->GetInput1();
-				if (!new_in2) new_in2 = inst->GetInput2();
+				if (!new_in2) new_in1 = inst->GetInput2();
 				return netlist->SvaBinary(PRIM_SVA_SEQ_CONCAT, new_in1, new_in2, inst->Linefile());
 			}
+			return nullptr;
 		}
 
 		return nullptr;
@@ -1327,35 +1337,33 @@ struct VerificSvaPP
 
 	void run()
 	{
-		module = importer->module;
 		netlist = root->Owner();
-
-		// impl_to_seq(root);
+		do {
+			did_something = false;
+			rewrite(root);
+		} while (did_something);
 	}
 };
 
-void svapp_assert(VerificImporter *importer, Instance *inst)
+void svapp_assert(Instance *inst)
 {
 	VerificSvaPP worker;
-	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_assert = true;
 	worker.run();
 }
 
-void svapp_assume(VerificImporter *importer, Instance *inst)
+void svapp_assume(Instance *inst)
 {
 	VerificSvaPP worker;
-	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_assume = true;
 	worker.run();
 }
 
-void svapp_cover(VerificImporter *importer, Instance *inst)
+void svapp_cover(Instance *inst)
 {
 	VerificSvaPP worker;
-	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_cover = true;
 	worker.run();
@@ -1394,7 +1402,7 @@ struct VerificSvaImporter
 		if (inst == nullptr)
 			return nullptr;
 
-		if (!importer->verific_sva_prims.count(inst->Type()))
+		if (!verific_sva_prims.count(inst->Type()))
 			return nullptr;
 
 		if (inst->Type() == PRIM_SVA_PAST)
