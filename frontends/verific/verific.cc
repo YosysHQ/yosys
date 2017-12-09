@@ -1140,6 +1140,34 @@ struct VerificImporter
 			if (inst->Type() == PRIM_SVA_COVER)
 				sva_covers.insert(inst);
 
+			if (inst->Type() == OPER_SVA_STABLE && !mode_nosva)
+			{
+				VerificClockEdge clock_edge(this, inst->GetInput2Bit(0)->Driver());
+
+				log_assert(inst->Input1Size() == inst->OutputSize());
+
+				SigSpec sig_d, sig_q, sig_o;
+				sig_q = module->addWire(NEW_ID, inst->Input1Size());
+
+				for (int i = int(inst->Input1Size())-1; i >= 0; i--){
+					sig_d.append(net_map_at(inst->GetInput1Bit(i)));
+					sig_o.append(net_map_at(inst->GetOutputBit(i)));
+				}
+
+				if (verbose) {
+					log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
+							log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+					log("    XNOR with A=%s, B=%s, Y=%s.\n",
+							log_signal(sig_d), log_signal(sig_q), log_signal(sig_o));
+				}
+
+				module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+				module->addXnor(NEW_ID, sig_d, sig_q, sig_o);
+
+				if (!mode_keep)
+					continue;
+			}
+
 			if (inst->Type() == PRIM_SVA_PAST && !mode_nosva)
 			{
 				VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
@@ -1284,7 +1312,8 @@ struct VerificSvaPP
 		if (!verific_sva_prims.count(inst->Type()))
 			return nullptr;
 
-		if (inst->Type() == PRIM_SVA_PAST)
+		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
+				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE || inst->Type() == PRIM_SVA_PAST)
 			return nullptr;
 
 		return inst;
@@ -1405,7 +1434,8 @@ struct VerificSvaImporter
 		if (!verific_sva_prims.count(inst->Type()))
 			return nullptr;
 
-		if (inst->Type() == PRIM_SVA_PAST)
+		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
+				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE || inst->Type() == PRIM_SVA_PAST)
 			return nullptr;
 
 		return inst;
