@@ -335,7 +335,7 @@ struct BtorWorker
 				if (nid >= 0) {
 					int sid = get_bv_sid(width+upper-lower+1);
 					nid4 = next_nid++;
-					btorf("%d concat %d %d %d\n", nid4, sid, nid, nid3);
+					btorf("%d concat %d %d %d\n", nid4, sid, nid3, nid);
 				}
 
 				width += upper-lower+1;
