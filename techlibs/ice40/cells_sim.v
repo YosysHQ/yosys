@@ -1193,7 +1193,7 @@ module SB_IO_OD (
 	input  DOUT1,
 	input  DOUT0,
 	output DIN1,
-	output DIN0,
+	output DIN0
 );
 	parameter [5:0] PIN_TYPE = 6'b000000;
 	parameter [0:0] NEG_TRIGGER = 1'b0;
