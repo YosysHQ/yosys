@@ -6,7 +6,7 @@ rm -rf test_cells.tmp
 mkdir -p test_cells.tmp
 cd test_cells.tmp
 
-../../../yosys -p 'test_cell -n 5 -w test all /$alu /$fa /$lcu /$lut /$sop /$macc /$mul /$div /$mod /$shl /$shr /$sshl /$sshr /$shift /$shiftx'
+../../../yosys -p 'test_cell -n 5 -w test all /$alu /$fa /$lcu /$lut /$sop /$macc /$mul /$div /$mod /$shift /$shiftx'
 
 for fn in test_*.il; do
 	../../../yosys -p "

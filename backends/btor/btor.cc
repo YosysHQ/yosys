@@ -114,7 +114,7 @@ struct BtorWorker
 		cell_recursion_guard.insert(cell);
 		btorf_push(log_id(cell));
 
-		if (cell->type.in("$add", "$sub", "$and", "$or", "$xor", "$xnor", "$shl", "$sshl", "$shr", "$sshr",
+		if (cell->type.in("$add", "$sub", "$and", "$or", "$xor", "$xnor", "$shl", "$sshl", "$shr", "$sshr", "$shift", "$shiftx",
 				"$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
 		{
 			string btor_op;
@@ -123,6 +123,7 @@ struct BtorWorker
 			if (cell->type.in("$shl", "$sshl")) btor_op = "sll";
 			if (cell->type == "$shr") btor_op = "srl";
 			if (cell->type == "$sshr") btor_op = "sra";
+			// if (cell->type.in("$shift", "$shiftx")) btor_op = "shift";
 			if (cell->type.in("$and", "$_AND_")) btor_op = "and";
 			if (cell->type.in("$or", "$_OR_")) btor_op = "or";
 			if (cell->type.in("$xor", "$_XOR_")) btor_op = "xor";
@@ -138,10 +139,11 @@ struct BtorWorker
 			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
 			bool b_signed = cell->hasParam("\\B_SIGNED") ? cell->getParam("\\B_SIGNED").as_bool() : false;
 
-			if (cell->type.in("$shl", "$shr")) {
-				a_signed = false;
+			if (cell->type.in("$shl", "$sshl", "$shr", "$sshr"))
 				b_signed = false;
-			}
+
+			if (cell->type == "$sshr" && !a_signed)
+				btor_op = "srl";
 
 			int sid = get_bv_sid(width);
 			int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
