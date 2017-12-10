@@ -417,6 +417,29 @@ struct BtorWorker
 			goto okay;
 		}
 
+		if (cell->type == "$pmux")
+		{
+			SigSpec sig_a = sigmap(cell->getPort("\\A"));
+			SigSpec sig_b = sigmap(cell->getPort("\\B"));
+			SigSpec sig_s = sigmap(cell->getPort("\\S"));
+			SigSpec sig_y = sigmap(cell->getPort("\\Y"));
+
+			int width = GetSize(sig_a);
+			int sid = get_bv_sid(width);
+			int nid = get_sig_nid(sig_a);
+
+			for (int i = 0; i < GetSize(sig_s); i++) {
+				int nid_b = get_sig_nid(sig_b.extract(i*width, width));
+				int nid_s = get_sig_nid(sig_s.extract(i));
+				int nid2 = next_nid++;
+				btorf("%d ite %d %d %d %d\n", nid2, sid, nid_s, nid_b, nid);
+				nid = nid2;
+			}
+
+			add_nid_sig(nid, sig_y);
+			goto okay;
+		}
+
 		if (cell->type.in("$dff", "$ff", "$_DFF_P_", "$_DFF_N", "$_FF_"))
 		{
 			SigSpec sig_d = sigmap(cell->getPort("\\D"));
