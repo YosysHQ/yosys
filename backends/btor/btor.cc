@@ -114,12 +114,21 @@ struct BtorWorker
 		cell_recursion_guard.insert(cell);
 		btorf_push(log_id(cell));
 
-		if (cell->type.in("$add", "$sub", "$xor"))
+		if (cell->type.in("$add", "$sub", "$and", "$or", "$xor", "$xnor", "$shl", "$sshl", "$shr", "$sshr",
+				"$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_"))
 		{
 			string btor_op;
 			if (cell->type == "$add") btor_op = "add";
 			if (cell->type == "$sub") btor_op = "sub";
-			if (cell->type == "$xor") btor_op = "xor";
+			if (cell->type.in("$shl", "$sshl")) btor_op = "sll";
+			if (cell->type == "$shr") btor_op = "srl";
+			if (cell->type == "$sshr") btor_op = "sra";
+			if (cell->type.in("$and", "$_AND_")) btor_op = "and";
+			if (cell->type.in("$or", "$_OR_")) btor_op = "or";
+			if (cell->type.in("$xor", "$_XOR_")) btor_op = "xor";
+			if (cell->type == "$_NAND_") btor_op = "nand";
+			if (cell->type == "$_NOR_") btor_op = "nor";
+			if (cell->type.in("$xnor", "$_XNOR_")) btor_op = "xnor";
 			log_assert(!btor_op.empty());
 
 			int width = GetSize(cell->getPort("\\Y"));
@@ -128,6 +137,11 @@ struct BtorWorker
 
 			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
 			bool b_signed = cell->hasParam("\\B_SIGNED") ? cell->getParam("\\B_SIGNED").as_bool() : false;
+
+			if (cell->type.in("$shl", "$shr")) {
+				a_signed = false;
+				b_signed = false;
+			}
 
 			int sid = get_bv_sid(width);
 			int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
@@ -149,16 +163,174 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in("$logic_and", "$logic_or"))
+		if (cell->type.in("$_ANDNOT_", "$_ORNOT_"))
+		{
+			int sid = get_bv_sid(1);
+			int nid_a = get_sig_nid(cell->getPort("\\A"));
+			int nid_b = get_sig_nid(cell->getPort("\\B"));
+
+			int nid1 = next_nid++;
+			int nid2 = next_nid++;
+
+			if (cell->type == "$_ANDNOT_") {
+				btorf("%d not %d %d\n", nid1, sid, nid_b);
+				btorf("%d and %d %d %d\n", nid2, sid, nid_a, nid1);
+			}
+
+			if (cell->type == "$_ORNOT_") {
+				btorf("%d not %d %d\n", nid1, sid, nid_b);
+				btorf("%d or %d %d %d\n", nid2, sid, nid_a, nid1);
+			}
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+			add_nid_sig(nid2, sig);
+			goto okay;
+		}
+
+		if (cell->type.in("$_OAI3_", "$_AOI3_"))
+		{
+			int sid = get_bv_sid(1);
+			int nid_a = get_sig_nid(cell->getPort("\\A"));
+			int nid_b = get_sig_nid(cell->getPort("\\B"));
+			int nid_c = get_sig_nid(cell->getPort("\\C"));
+
+			int nid1 = next_nid++;
+			int nid2 = next_nid++;
+			int nid3 = next_nid++;
+
+			if (cell->type == "$_OAI3_") {
+				btorf("%d or %d %d %d\n", nid1, sid, nid_a, nid_b);
+				btorf("%d and %d %d %d\n", nid2, sid, nid1, nid_c);
+				btorf("%d not %d %d\n", nid3, sid, nid2);
+			}
+
+			if (cell->type == "$_AOI3_") {
+				btorf("%d and %d %d %d\n", nid1, sid, nid_a, nid_b);
+				btorf("%d or %d %d %d\n", nid2, sid, nid1, nid_c);
+				btorf("%d not %d %d\n", nid3, sid, nid2);
+			}
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+			add_nid_sig(nid3, sig);
+			goto okay;
+		}
+
+		if (cell->type.in("$_OAI4_", "$_AOI4_"))
+		{
+			int sid = get_bv_sid(1);
+			int nid_a = get_sig_nid(cell->getPort("\\A"));
+			int nid_b = get_sig_nid(cell->getPort("\\B"));
+			int nid_c = get_sig_nid(cell->getPort("\\C"));
+			int nid_d = get_sig_nid(cell->getPort("\\D"));
+
+			int nid1 = next_nid++;
+			int nid2 = next_nid++;
+			int nid3 = next_nid++;
+			int nid4 = next_nid++;
+
+			if (cell->type == "$_OAI4_") {
+				btorf("%d or %d %d %d\n", nid1, sid, nid_a, nid_b);
+				btorf("%d or %d %d %d\n", nid2, sid, nid_c, nid_d);
+				btorf("%d and %d %d %d\n", nid3, sid, nid1, nid2);
+				btorf("%d not %d %d\n", nid4, sid, nid3);
+			}
+
+			if (cell->type == "$_AOI4_") {
+				btorf("%d and %d %d %d\n", nid1, sid, nid_a, nid_b);
+				btorf("%d and %d %d %d\n", nid2, sid, nid_c, nid_d);
+				btorf("%d or %d %d %d\n", nid3, sid, nid1, nid2);
+				btorf("%d not %d %d\n", nid4, sid, nid3);
+			}
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+			add_nid_sig(nid4, sig);
+			goto okay;
+		}
+
+		if (cell->type.in("$lt", "$le", "$eq", "$eqx", "$ne", "$nex", "$ge", "$gt"))
+		{
+			string btor_op;
+			if (cell->type == "$lt") btor_op = "lt";
+			if (cell->type == "$le") btor_op = "lte";
+			if (cell->type.in("$eq", "$eqx")) btor_op = "eq";
+			if (cell->type.in("$ne", "$nex")) btor_op = "ne";
+			if (cell->type == "$ge") btor_op = "gte";
+			if (cell->type == "$gt") btor_op = "gt";
+			log_assert(!btor_op.empty());
+
+			int width = 1;
+			width = std::max(width, GetSize(cell->getPort("\\A")));
+			width = std::max(width, GetSize(cell->getPort("\\B")));
+
+			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
+			bool b_signed = cell->hasParam("\\B_SIGNED") ? cell->getParam("\\B_SIGNED").as_bool() : false;
+
+			int sid = get_bv_sid(1);
+			int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
+			int nid_b = get_sig_nid(cell->getPort("\\B"), width, b_signed);
+
+			int nid = next_nid++;
+			if (cell->type.in("$lt", "$le", "$ge", "$gt")) {
+				btorf("%d %c%s %d %d %d\n", nid, a_signed || b_signed ? 's' : 'u', btor_op.c_str(), sid, nid_a, nid_b);
+			} else {
+				btorf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
+			}
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+
+			if (GetSize(sig) > 1) {
+				int sid = get_bv_sid(GetSize(sig));
+				int nid2 = next_nid++;
+				btorf("%d uext %d %d %d\n", nid2, sid, nid, GetSize(sig) - 1);
+				nid = nid2;
+			}
+
+			add_nid_sig(nid, sig);
+			goto okay;
+		}
+
+		if (cell->type.in("$not", "$neg", "$_NOT_"))
+		{
+			string btor_op;
+			if (cell->type.in("$not", "$_NOT_")) btor_op = "not";
+			if (cell->type == "$neg") btor_op = "neg";
+			log_assert(!btor_op.empty());
+
+			int width = GetSize(cell->getPort("\\Y"));
+			width = std::max(width, GetSize(cell->getPort("\\A")));
+
+			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
+
+			int sid = get_bv_sid(width);
+			int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
+
+			int nid = next_nid++;
+			btorf("%d %s %d %d\n", nid, btor_op.c_str(), sid, nid_a);
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+
+			if (GetSize(sig) < width) {
+				int sid = get_bv_sid(GetSize(sig));
+				int nid2 = next_nid++;
+				btorf("%d slice %d %d %d 0\n", nid2, sid, nid, GetSize(sig)-1);
+				nid = nid2;
+			}
+
+			add_nid_sig(nid, sig);
+			goto okay;
+		}
+
+		if (cell->type.in("$logic_and", "$logic_or", "$logic_not"))
 		{
 			string btor_op;
 			if (cell->type == "$logic_and") btor_op = "and";
 			if (cell->type == "$logic_or")  btor_op = "or";
+			if (cell->type == "$logic_not") btor_op = "not";
 			log_assert(!btor_op.empty());
 
 			int sid = get_bv_sid(1);
 			int nid_a = get_sig_nid(cell->getPort("\\A"));
-			int nid_b = get_sig_nid(cell->getPort("\\B"));
+			int nid_b = btor_op != "not" ? get_sig_nid(cell->getPort("\\B")) : 0;
 
 			if (GetSize(cell->getPort("\\A")) > 1) {
 				int nid_red_a = next_nid++;
@@ -166,14 +338,51 @@ struct BtorWorker
 				nid_a = nid_red_a;
 			}
 
-			if (GetSize(cell->getPort("\\B")) > 1) {
+			if (btor_op != "not" && GetSize(cell->getPort("\\B")) > 1) {
 				int nid_red_b = next_nid++;
 				btorf("%d redor %d %d\n", nid_red_b, sid, nid_b);
 				nid_b = nid_red_b;
 			}
 
 			int nid = next_nid++;
-			btorf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
+			if (btor_op != "not")
+				btorf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
+			else
+				btorf("%d %s %d %d\n", nid, btor_op.c_str(), sid, nid_a);
+
+			SigSpec sig = sigmap(cell->getPort("\\Y"));
+
+			if (GetSize(sig) > 1) {
+				int sid = get_bv_sid(GetSize(sig));
+				int zeros_nid = get_sig_nid(Const(0, GetSize(sig)-1));
+				int nid2 = next_nid++;
+				btorf("%d concat %d %d %d\n", nid2, sid, zeros_nid, nid);
+				nid = nid2;
+			}
+
+			add_nid_sig(nid, sig);
+			goto okay;
+		}
+
+		if (cell->type.in("$reduce_and", "$reduce_or", "$reduce_bool", "$reduce_xor", "$reduce_xnor"))
+		{
+			string btor_op;
+			if (cell->type == "$reduce_and") btor_op = "redand";
+			if (cell->type.in("$reduce_or", "$reduce_bool")) btor_op = "redor";
+			if (cell->type.in("$reduce_xor", "$reduce_xnor")) btor_op = "redxor";
+			log_assert(!btor_op.empty());
+
+			int sid = get_bv_sid(1);
+			int nid_a = get_sig_nid(cell->getPort("\\A"));
+
+			int nid = next_nid++;
+			btorf("%d %s %d %d\n", nid, btor_op.c_str(), sid, nid_a);
+
+			if (cell->type == "$reduce_xnor") {
+				int nid2 = next_nid++;
+				btorf("%d not %d %d %d\n", nid2, sid, nid);
+				nid = nid2;
+			}
 
 			SigSpec sig = sigmap(cell->getPort("\\Y"));
 
