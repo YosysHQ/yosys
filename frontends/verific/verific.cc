@@ -1325,10 +1325,16 @@ struct VerificSvaPP
 	Instance *get_ast_input3(Instance *inst) { return net_to_ast_driver(inst->GetInput3()); }
 	Instance *get_ast_control(Instance *inst) { return net_to_ast_driver(inst->GetControl()); }
 
-	Net *rewrite(Instance *inst)
+	Net *rewrite_input(Instance *inst) { return rewrite(get_ast_input(inst), inst->GetInput()); }
+	Net *rewrite_input1(Instance *inst) { return rewrite(get_ast_input1(inst), inst->GetInput1()); }
+	Net *rewrite_input2(Instance *inst) { return rewrite(get_ast_input2(inst), inst->GetInput2()); }
+	Net *rewrite_input3(Instance *inst) { return rewrite(get_ast_input3(inst), inst->GetInput3()); }
+	Net *rewrite_control(Instance *inst) { return rewrite(get_ast_control(inst), inst->GetControl()); }
+
+	Net *rewrite(Instance *inst, Net *default_net = nullptr)
 	{
 		if (inst == nullptr)
-			return nullptr;
+			return default_net;
 
 		if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_ASSUME) {
 			Net *new_net = rewrite(get_ast_input(inst));
@@ -1336,7 +1342,7 @@ struct VerificSvaPP
 				inst->Disconnect(inst->View()->GetInput());
 				inst->Connect(inst->View()->GetInput(), new_net);
 			}
-			return nullptr;
+			return default_net;
 		}
 
 		if (inst->Type() == PRIM_SVA_AT) {
@@ -1345,23 +1351,32 @@ struct VerificSvaPP
 				inst->Disconnect(inst->View()->GetInput2());
 				inst->Connect(inst->View()->GetInput2(), new_net);
 			}
-			return nullptr;
+			return default_net;
 		}
 
 		if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
 		{
 			if (mode_cover) {
 				did_something = true;
-				Net *new_in1 = rewrite(get_ast_input1(inst));
-				Net *new_in2 = rewrite(get_ast_input2(inst));
-				if (!new_in1) new_in1 = inst->GetInput1();
-				if (!new_in2) new_in1 = inst->GetInput2();
+				Net *new_in1 = rewrite_input1(inst);
+				Net *new_in2 = rewrite_input2(inst);
 				return netlist->SvaBinary(PRIM_SVA_SEQ_CONCAT, new_in1, new_in2, inst->Linefile());
 			}
-			return nullptr;
+			return default_net;
 		}
 
-		return nullptr;
+		if (inst->Type() == PRIM_SVA_NOT)
+		{
+			if (mode_assert || mode_assume) {
+				did_something = true;
+				Net *new_in = rewrite_input(inst);
+				Net *net_zero = netlist->Gnd(inst->Linefile());
+				return netlist->SvaBinary(PRIM_SVA_OVERLAPPED_IMPLICATION, new_in, net_zero, inst->Linefile());
+			}
+			return default_net;
+		}
+
+		return default_net;
 	}
 
 	void run()
