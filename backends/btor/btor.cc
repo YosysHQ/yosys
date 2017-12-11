@@ -123,7 +123,7 @@ struct BtorWorker
 			if (cell->type.in("$shl", "$sshl")) btor_op = "sll";
 			if (cell->type == "$shr") btor_op = "srl";
 			if (cell->type == "$sshr") btor_op = "sra";
-			// if (cell->type.in("$shift", "$shiftx")) btor_op = "shift";
+			if (cell->type.in("$shift", "$shiftx")) btor_op = "shift";
 			if (cell->type.in("$and", "$_AND_")) btor_op = "and";
 			if (cell->type.in("$or", "$_OR_")) btor_op = "or";
 			if (cell->type.in("$xor", "$_XOR_")) btor_op = "xor";
@@ -139,6 +139,9 @@ struct BtorWorker
 			bool a_signed = cell->hasParam("\\A_SIGNED") ? cell->getParam("\\A_SIGNED").as_bool() : false;
 			bool b_signed = cell->hasParam("\\B_SIGNED") ? cell->getParam("\\B_SIGNED").as_bool() : false;
 
+			if (btor_op == "shift" && !b_signed)
+				btor_op = "srl";
+
 			if (cell->type.in("$shl", "$sshl", "$shr", "$sshr"))
 				b_signed = false;
 
@@ -146,11 +149,38 @@ struct BtorWorker
 				btor_op = "srl";
 
 			int sid = get_bv_sid(width);
-			int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
-			int nid_b = get_sig_nid(cell->getPort("\\B"), width, b_signed);
+			int nid;
 
-			int nid = next_nid++;
-			btorf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
+			if (btor_op == "shift")
+			{
+				int nid_a = get_sig_nid(cell->getPort("\\A"), width, false);
+				int nid_b = get_sig_nid(cell->getPort("\\B"), width, b_signed);
+
+				int nid_r = next_nid++;
+				btorf("%d srl %d %d %d\n", nid_r, sid, nid_a, nid_b);
+
+				int nid_b_neg = next_nid++;
+				btorf("%d neg %d %d\n", nid_b_neg, sid, nid_b);
+
+				int nid_l = next_nid++;
+				btorf("%d sll %d %d %d\n", nid_l, sid, nid_a, nid_b_neg);
+
+				int sid_bit = get_bv_sid(1);
+				int nid_zero = get_sig_nid(Const(0, width));
+				int nid_b_ltz = next_nid++;
+				btorf("%d slt %d %d %d\n", nid_b_ltz, sid_bit, nid_b, nid_zero);
+
+				nid = next_nid++;
+				btorf("%d ite %d %d %d %d\n", nid, sid, nid_b_ltz, nid_l, nid_r);
+			}
+			else
+			{
+				int nid_a = get_sig_nid(cell->getPort("\\A"), width, a_signed);
+				int nid_b = get_sig_nid(cell->getPort("\\B"), width, b_signed);
+
+				nid = next_nid++;
+				btorf("%d %s %d %d %d\n", nid, btor_op.c_str(), sid, nid_a, nid_b);
+			}
 
 			SigSpec sig = sigmap(cell->getPort("\\Y"));
 
