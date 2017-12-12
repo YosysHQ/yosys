@@ -63,6 +63,7 @@ struct BtorWorker
 
 	pool<Cell*> cell_recursion_guard;
 	pool<string> output_symbols;
+	dict<SigBit, bool> initbits;
 	string indent;
 
 	void btorf(const char *fmt, ...)
@@ -101,6 +102,9 @@ struct BtorWorker
 
 	void add_nid_sig(int nid, const SigSpec &sig)
 	{
+		if (verbose)
+			f << indent << stringf("; %d %s\n", nid, log_signal(sig));
+
 		for (int i = 0; i < GetSize(sig); i++)
 			bit_nid[sig[i]] = make_pair(nid, i);
 
@@ -492,6 +496,20 @@ struct BtorWorker
 			else
 				btorf("%d state %d %s\n", nid, sid, symbol.c_str());
 
+			Const initval;
+			for (int i = 0; i < GetSize(sig_q); i++)
+				if (initbits.count(sig_q[i]))
+					initval.bits.push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
+				else
+					initval.bits.push_back(State::Sx);
+
+			if (!initval.is_fully_undef()) {
+				int nid_init_val = get_sig_nid(initval);
+				int nid_init = next_nid++;
+				btorf("; initval = %s\n", log_signal(initval));
+				btorf("%d init %d %d %d\n", nid_init, sid, nid, nid_init_val);
+			}
+
 			ff_todo.push_back(make_pair(nid, cell));
 			add_nid_sig(nid, sig_q);
 			goto okay;
@@ -694,6 +712,13 @@ struct BtorWorker
 
 		for (auto wire : module->wires())
 		{
+			if (wire->attributes.count("\\init")) {
+				Const attrval = wire->attributes.at("\\init");
+				for (int i = 0; i < GetSize(wire) && i < GetSize(attrval); i++)
+					if (attrval[i] == State::S0 || attrval[i] == State::S1)
+						initbits[sigmap(SigBit(wire, i))] = (attrval[i] == State::S1);
+			}
+
 			if (!wire->port_id || !wire->port_input)
 				continue;
 
