@@ -525,7 +525,59 @@ struct BtorWorker
 
 	int get_sig_nid(SigSpec sig, int to_width = -1, bool is_signed = false)
 	{
+		int nid = -1;
 		sigmap.apply(sig);
+
+		for (auto bit : sig)
+			if (bit == State::Sx)
+				goto has_undef_bits;
+
+		if (0)
+		{
+	has_undef_bits:
+			SigSpec sig_mask_undef, sig_noundef;
+			int first_undef = -1;
+
+			for (int i = 0; i < GetSize(sig); i++)
+				if (sig[i] == State::Sx) {
+					if (first_undef < 0)
+						first_undef = i;
+					sig_mask_undef.append(State::S1);
+					sig_noundef.append(State::S0);
+				} else {
+					sig_mask_undef.append(State::S0);
+					sig_noundef.append(sig[i]);
+				}
+
+			if (to_width < 0 || first_undef < to_width)
+			{
+				int sid = get_bv_sid(GetSize(sig));
+
+				int nid_input = next_nid++;
+				btorf("%d input %d\n", nid_input, sid);
+
+				int nid_masked_input;
+				if (sig_mask_undef.is_fully_ones()) {
+					nid_masked_input = nid_input;
+				} else {
+					int nid_mask_undef = get_sig_nid(sig_mask_undef);
+					nid_masked_input = next_nid++;
+					btorf("%d and %d %d %d\n", nid_masked_input, sid, nid_input, nid_mask_undef);
+				}
+
+				if (sig_noundef.is_fully_zero()) {
+					nid = nid_masked_input;
+				} else {
+					int nid_noundef = get_sig_nid(sig_noundef);
+					nid = next_nid++;
+					btorf("%d or %d %d %d\n", nid, sid, nid_masked_input, nid_noundef);
+				}
+
+				goto extend_or_trim;
+			}
+
+			sig = sig_noundef;
+		}
 
 		if (sig_nid.count(sig) == 0)
 		{
@@ -610,8 +662,9 @@ struct BtorWorker
 			nid_width[nid] = width;
 		}
 
-		int nid = sig_nid.at(sig);
+		nid = sig_nid.at(sig);
 
+	extend_or_trim:
 		if (to_width >= 0 && to_width != GetSize(sig))
 		{
 			if (to_width < GetSize(sig))
