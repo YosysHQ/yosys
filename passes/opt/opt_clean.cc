@@ -91,9 +91,16 @@ void rmunused_module_cells(Module *module, bool verbose)
 		Cell *cell = it.second;
 		for (auto &it2 : cell->connections()) {
 			if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, it2.first))
-				for (auto bit : sigmap(it2.second))
+				for (auto raw_bit : it2.second) {
+					if (raw_bit.wire == nullptr)
+						continue;
+					auto bit = sigmap(raw_bit);
+					if (bit.wire == nullptr)
+						log_warning("Driver-driver conflict for %s between cell %s.%s and constant %s in %s: Resolved using constant.\n",
+								log_signal(raw_bit), log_id(cell), log_id(it2.first), log_signal(bit), log_id(module));
 					if (bit.wire != nullptr)
 						wire2driver[bit].insert(cell);
+				}
 		}
 		if (keep_cache.query(cell))
 			queue.insert(cell);

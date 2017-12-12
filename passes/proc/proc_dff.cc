@@ -322,6 +322,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			}
 		}
 
+		SigSpec sig_q = sig;
 		ce.assign_map.apply(insig);
 		ce.assign_map.apply(rstval);
 		ce.assign_map.apply(sig);
@@ -350,13 +351,13 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		else if (!rstval.is_fully_const() && !ce.eval(rstval))
 		{
 			log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
-			gen_dffsr(mod, insig, rstval, sig,
+			gen_dffsr(mod, insig, rstval, sig_q,
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge->signal, sync_level->signal, proc);
 		}
 		else
-			gen_dff(mod, insig, rstval.as_const(), sig,
+			gen_dff(mod, insig, rstval.as_const(), sig_q,
 					sync_edge && sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge ? sync_edge->signal : SigSpec(),
