@@ -72,6 +72,11 @@ struct Clk2fflogicPass : public Pass {
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
+				if (cell->type.in("$mem"))
+				{
+					log_error("Currently there is no support for memories in clk2fflogic. Run memory_map first to convert memories to logic.\n");
+				}
+
 				if (cell->type.in("$dlatch"))
 				{
 					bool enpol = cell->parameters["\\EN_POLARITY"].as_bool();
