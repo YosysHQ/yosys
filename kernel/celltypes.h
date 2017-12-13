@@ -20,7 +20,7 @@
 #ifndef CELLTYPES_H
 #define CELLTYPES_H
 
-#include <kernel/yosys.h>
+#include "kernel/yosys.h"
 
 YOSYS_NAMESPACE_BEGIN
 
