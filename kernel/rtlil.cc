@@ -172,6 +172,17 @@ bool RTLIL::Const::is_fully_zero() const
 	return true;
 }
 
+bool RTLIL::Const::is_fully_ones() const
+{
+	cover("kernel.rtlil.const.is_fully_ones");
+
+	for (auto bit : bits)
+		if (bit != RTLIL::State::S1)
+			return false;
+
+	return true;
+}
+
 bool RTLIL::Const::is_fully_def() const
 {
 	cover("kernel.rtlil.const.is_fully_def");
