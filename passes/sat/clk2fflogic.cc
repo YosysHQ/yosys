@@ -126,7 +126,7 @@ struct Clk2fflogicPass : public Pass {
 
 						SigSpec clock_edge = module->Eqx(NEW_ID, {clk, SigSpec(past_clk)}, clock_edge_pattern);
 
-						SigSpec en_q = module->addWire(NEW_ID, GetSize(addr));
+						SigSpec en_q = module->addWire(NEW_ID, GetSize(en));
 						module->addFf(NEW_ID, en, en_q);
 
 						SigSpec addr_q = module->addWire(NEW_ID, GetSize(addr));
