@@ -480,6 +480,7 @@ struct RTLIL::Const
 	inline const RTLIL::State &operator[](int index) const { return bits.at(index); }
 
 	bool is_fully_zero() const;
+	bool is_fully_ones() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
 

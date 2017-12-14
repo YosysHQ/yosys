@@ -556,15 +556,28 @@ struct Smt2Worker
 
 			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d\n", get_id(cell), abits, width, rd_ports, wr_ports));
 
+			bool async_read = false;
+			if (!cell->getParam("\\WR_CLK_ENABLE").is_fully_ones()) {
+				if (!cell->getParam("\\WR_CLK_ENABLE").is_fully_zero())
+					log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", log_id(cell), log_id(module));
+				async_read = true;
+			}
+
+			string memstate;
+			if (async_read) {
+				memstate = stringf("%s#%d#final", get_id(module), arrayid);
+			} else {
+				memstate = stringf("%s#%d#0", get_id(module), arrayid);
+			}
+
 			if (statebv)
 			{
 				int mem_size = cell->getParam("\\SIZE").as_int();
 				int mem_offset = cell->getParam("\\OFFSET").as_int();
 
-				makebits(stringf("%s#%d#0", get_id(module), arrayid), width*mem_size, get_id(cell));
-
-				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d#0| state))\n",
-						get_id(module), get_id(cell), get_id(module), width*mem_size, get_id(module), arrayid));
+				makebits(memstate, width*mem_size, get_id(cell));
+				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (_ BitVec %d) (|%s| state))\n",
+						get_id(module), get_id(cell), get_id(module), width*mem_size, memstate.c_str()));
 
 				for (int i = 0; i < rd_ports; i++)
 				{
@@ -584,9 +597,9 @@ struct Smt2Worker
 						read_expr += "0";
 
 					for (int k = 0; k < mem_size; k++)
-						read_expr = stringf("(ite (= (|%s_m:R%dA %s| state) #b%s) ((_ extract %d %d) (|%s#%d#0| state))\n  %s)",
+						read_expr = stringf("(ite (= (|%s_m:R%dA %s| state) #b%s) ((_ extract %d %d) (|%s| state))\n  %s)",
 								get_id(module), i, get_id(cell), Const(k+mem_offset, abits).as_string().c_str(),
-								width*(k+1)-1, width*k, get_id(module), arrayid, read_expr.c_str());
+								width*(k+1)-1, width*k, memstate.c_str(), read_expr.c_str());
 
 					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d)\n  %s) ; %s\n",
 							get_id(module), idcounter, get_id(module), width, read_expr.c_str(), log_signal(data_sig)));
@@ -600,14 +613,14 @@ struct Smt2Worker
 			else
 			{
 				if (statedt)
-					dtmembers.push_back(stringf("  (|%s#%d#0| (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-							get_id(module), arrayid, abits, width, get_id(cell)));
+					dtmembers.push_back(stringf("  (|%s| (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+							memstate.c_str(), abits, width, get_id(cell)));
 				else
-					decls.push_back(stringf("(declare-fun |%s#%d#0| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-							get_id(module), arrayid, get_id(module), abits, width, get_id(cell)));
+					decls.push_back(stringf("(declare-fun |%s| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+							memstate.c_str(), get_id(module), abits, width, get_id(cell)));
 
-				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s#%d#0| state))\n",
-						get_id(module), get_id(cell), get_id(module), abits, width, get_id(module), arrayid));
+				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s| state))\n",
+						get_id(module), get_id(cell), get_id(module), abits, width, memstate.c_str()));
 
 				for (int i = 0; i < rd_ports; i++)
 				{
@@ -622,8 +635,8 @@ struct Smt2Worker
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(cell), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
 
-					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s#%d#0| state) (|%s_m:R%dA %s| state))) ; %s\n",
-							get_id(module), idcounter, get_id(module), width, get_id(module), arrayid, get_id(module), i, get_id(cell), log_signal(data_sig)));
+					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s| state) (|%s_m:R%dA %s| state))) ; %s\n",
+							get_id(module), idcounter, get_id(module), width, memstate.c_str(), get_id(module), i, get_id(cell), log_signal(data_sig)));
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dD %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d| state))\n",
 							get_id(module), i, get_id(cell), get_id(module), width, get_id(module), idcounter));
@@ -869,10 +882,24 @@ struct Smt2Worker
 					int width = cell->getParam("\\WIDTH").as_int();
 					int wr_ports = cell->getParam("\\WR_PORTS").as_int();
 
+					bool async_read = false;
+					string initial_memstate, final_memstate;
+
+					if (!cell->getParam("\\WR_CLK_ENABLE").is_fully_ones()) {
+						log_assert(cell->getParam("\\WR_CLK_ENABLE").is_fully_zero());
+						async_read = true;
+						initial_memstate = stringf("%s#%d#0", get_id(module), arrayid);
+						final_memstate = stringf("%s#%d#final", get_id(module), arrayid);
+					}
+
 					if (statebv)
 					{
 						int mem_size = cell->getParam("\\SIZE").as_int();
 						int mem_offset = cell->getParam("\\OFFSET").as_int();
+
+						if (async_read) {
+							makebits(final_memstate, width*mem_size, get_id(cell));
+						}
 
 						for (int i = 0; i < wr_ports; i++)
 						{
@@ -912,6 +939,15 @@ struct Smt2Worker
 					}
 					else
 					{
+						if (async_read) {
+							if (statedt)
+								dtmembers.push_back(stringf("  (|%s| (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+										initial_memstate.c_str(), abits, width, get_id(cell)));
+							else
+								decls.push_back(stringf("(declare-fun |%s| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
+										initial_memstate.c_str(), get_id(module), abits, width, get_id(cell)));
+						}
+
 						for (int i = 0; i < wr_ports; i++)
 						{
 							SigSpec addr_sig = cell->getPort("\\WR_ADDR").extract(abits*i, abits);
@@ -947,6 +983,9 @@ struct Smt2Worker
 					std::string expr_d = stringf("(|%s#%d#%d| state)", get_id(module), arrayid, wr_ports);
 					std::string expr_q = stringf("(|%s#%d#0| next_state)", get_id(module), arrayid);
 					trans.push_back(stringf("  (= %s %s) ; %s\n", expr_d.c_str(), expr_q.c_str(), get_id(cell)));
+
+					if (async_read)
+						hier.push_back(stringf("  (= %s (|%s| state)) ; %s\n", expr_d.c_str(), final_memstate.c_str(), get_id(cell)));
 
 					Const init_data = cell->getParam("\\INIT");
 					int memsize = cell->getParam("\\SIZE").as_int();
