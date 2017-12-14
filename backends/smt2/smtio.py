@@ -387,7 +387,7 @@ class SmtIo:
             self.modinfo[self.curmod].wsize[fields[2]] = int(fields[3])
 
         if fields[1] == "yosys-smt2-memory":
-            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]), int(fields[5]), int(fields[6]))
+            self.modinfo[self.curmod].memories[fields[2]] = (int(fields[3]), int(fields[4]), int(fields[5]), int(fields[6]), fields[7] == "async")
 
         if fields[1] == "yosys-smt2-wire":
             self.modinfo[self.curmod].wires.add(fields[2])

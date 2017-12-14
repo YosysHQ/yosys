@@ -554,14 +554,14 @@ struct Smt2Worker
 			int rd_ports = cell->getParam("\\RD_PORTS").as_int();
 			int wr_ports = cell->getParam("\\WR_PORTS").as_int();
 
-			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d\n", get_id(cell), abits, width, rd_ports, wr_ports));
-
 			bool async_read = false;
 			if (!cell->getParam("\\WR_CLK_ENABLE").is_fully_ones()) {
 				if (!cell->getParam("\\WR_CLK_ENABLE").is_fully_zero())
 					log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", log_id(cell), log_id(module));
 				async_read = true;
 			}
+
+			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", get_id(cell), abits, width, rd_ports, wr_ports, async_read ? "async" : "sync"));
 
 			string memstate;
 			if (async_read) {
