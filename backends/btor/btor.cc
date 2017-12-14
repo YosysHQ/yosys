@@ -63,9 +63,9 @@ struct BtorWorker
 	vector<pair<int, Cell*>> ff_todo;
 
 	pool<Cell*> cell_recursion_guard;
-	pool<string> output_symbols;
 	vector<int> bad_properties;
 	dict<SigBit, bool> initbits;
+	pool<Wire*> statewires;
 	string indent;
 
 	void btorf(const char *fmt, ...)
@@ -483,20 +483,23 @@ struct BtorWorker
 			SigSpec sig_d = sigmap(cell->getPort("\\D"));
 			SigSpec sig_q = sigmap(cell->getPort("\\Q"));
 
-			string symbol = log_signal(sig_q);
-			if (symbol.find(' ') != string::npos)
-				symbol = log_id(cell);
+			IdString symbol;
 
-			if (symbol[0] == '\\')
-				symbol = symbol.substr(1);
+			if (sig_q.is_wire()) {
+				Wire *w = sig_q.as_wire();
+				if (w->port_id == 0) {
+					statewires.insert(w);
+					symbol = w->name;
+				}
+			}
 
 			int sid = get_bv_sid(GetSize(sig_q));
 			int nid = next_nid++;
 
-			if (output_symbols.count(symbol))
+			if (symbol.empty())
 				btorf("%d state %d\n", nid, sid);
 			else
-				btorf("%d state %d %s\n", nid, sid, symbol.c_str());
+				btorf("%d state %d %s\n", nid, sid, log_id(symbol));
 
 			Const initval;
 			for (int i = 0; i < GetSize(sig_q); i++)
@@ -508,12 +511,31 @@ struct BtorWorker
 			if (!initval.is_fully_undef()) {
 				int nid_init_val = get_sig_nid(initval);
 				int nid_init = next_nid++;
-				btorf("; initval = %s\n", log_signal(initval));
+				if (verbose)
+					btorf("; initval = %s\n", log_signal(initval));
 				btorf("%d init %d %d %d\n", nid_init, sid, nid, nid_init_val);
 			}
 
 			ff_todo.push_back(make_pair(nid, cell));
 			add_nid_sig(nid, sig_q);
+			goto okay;
+		}
+
+		if (cell->type.in("$anyconst", "$anyseq"))
+		{
+			SigSpec sig_y = sigmap(cell->getPort("\\Y"));
+
+			int sid = get_bv_sid(GetSize(sig_y));
+			int nid = next_nid++;
+
+			btorf("%d state %d\n", nid, sid);
+
+			if (cell->type == "$anyconst") {
+				int nid2 = next_nid++;
+				btorf("%d next %d %d %d\n", nid2, sid, nid, nid);
+			}
+
+			add_nid_sig(nid, sig_y);
 			goto okay;
 		}
 
@@ -745,10 +767,6 @@ struct BtorWorker
 		}
 
 		for (auto wire : module->wires())
-			if (wire->port_output)
-				output_symbols.insert(log_id(wire));
-
-		for (auto wire : module->wires())
 		{
 			if (!wire->port_id || !wire->port_output)
 				continue;
@@ -804,6 +822,26 @@ struct BtorWorker
 
 				btorf_pop(log_id(cell));
 			}
+		}
+
+		for (auto wire : module->wires())
+		{
+			if (wire->port_id || wire->name[0] == '$')
+				continue;
+
+			btorf_push(stringf("wire %s", log_id(wire)));
+
+			int sid = get_bv_sid(GetSize(wire));
+			int nid = get_sig_nid(sigmap(wire));
+
+			if (statewires.count(wire))
+				continue;
+
+			int this_nid = next_nid++;
+			btorf("%d uext %d %d %d %s\n", this_nid, sid, nid, 0, log_id(wire));
+
+			btorf_pop(stringf("wire %s", log_id(wire)));
+			continue;
 		}
 
 		while (!ff_todo.empty())
