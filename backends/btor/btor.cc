@@ -102,6 +102,19 @@ struct BtorWorker
 		return sorts_bv.at(width);
 	}
 
+	int get_mem_sid(int abits, int dbits)
+	{
+		pair<int, int> key(abits, dbits);
+		if (sorts_mem.count(key) == 0) {
+			int addr_sid = get_bv_sid(abits);
+			int data_sid = get_bv_sid(dbits);
+			int nid = next_nid++;
+			btorf("%d sort array %d %d\n", nid, addr_sid, data_sid);
+			sorts_mem[key] = nid;
+		}
+		return sorts_mem.at(key);
+	}
+
 	void add_nid_sig(int nid, const SigSpec &sig)
 	{
 		if (verbose)
@@ -558,6 +571,103 @@ struct BtorWorker
 			goto okay;
 		}
 
+		if (cell->type == "$mem")
+		{
+			int abits = cell->getParam("\\ABITS").as_int();
+			int width = cell->getParam("\\WIDTH").as_int();
+			int rdports = cell->getParam("\\RD_PORTS").as_int();
+			int wrports = cell->getParam("\\WR_PORTS").as_int();
+
+			Const wr_clk_en = cell->getParam("\\WR_CLK_ENABLE");
+			Const rd_clk_en = cell->getParam("\\RD_CLK_ENABLE");
+
+			bool asyncwr = wr_clk_en.is_fully_zero();
+
+			if (!asyncwr && !wr_clk_en.is_fully_ones())
+				log_error("Memory %s.%s has mixed async/sync write ports.\n",
+						log_id(module), log_id(cell));
+
+			if (!rd_clk_en.is_fully_zero())
+				log_error("Memory %s.%s has sync read ports.\n",
+						log_id(module), log_id(cell));
+
+			SigSpec sig_rd_addr = sigmap(cell->getPort("\\RD_ADDR"));
+			SigSpec sig_rd_data = sigmap(cell->getPort("\\RD_DATA"));
+
+			SigSpec sig_wr_addr = sigmap(cell->getPort("\\WR_ADDR"));
+			SigSpec sig_wr_data = sigmap(cell->getPort("\\WR_DATA"));
+			SigSpec sig_wr_en = sigmap(cell->getPort("\\WR_EN"));
+
+			int data_sid = get_bv_sid(width);
+			int sid = get_mem_sid(abits, width);
+			int nid = next_nid++;
+			int nid_head = nid;
+
+			if (cell->name[0] == '$')
+				btorf("%d state %d\n", nid, sid);
+			else
+				btorf("%d state %d %s\n", nid, sid, log_id(cell));
+
+			if (asyncwr)
+			{
+				for (int port = 0; port < wrports; port++)
+				{
+					SigSpec wa = sig_wr_addr.extract(port*abits, abits);
+					SigSpec wd = sig_wr_data.extract(port*width, width);
+					SigSpec we = sig_wr_en.extract(port*width, width);
+
+					int wa_nid = get_sig_nid(wa);
+					int wd_nid = get_sig_nid(wd);
+					int we_nid = get_sig_nid(we);
+
+					int nid2 = next_nid++;
+					btorf("%d read %d %d %d\n", nid2, data_sid, nid_head, wa_nid);
+
+					int nid3 = next_nid++;
+					btorf("%d not %d %d %d\n", nid3, data_sid, we_nid);
+
+					int nid4 = next_nid++;
+					btorf("%d and %d %d %d\n", nid4, data_sid, nid2, nid3);
+
+					int nid5 = next_nid++;
+					btorf("%d and %d %d %d\n", nid5, data_sid, wd_nid, we_nid);
+
+					int nid6 = next_nid++;
+					btorf("%d or %d %d %d\n", nid6, data_sid, nid5, nid4);
+
+					int nid7 = next_nid++;
+					btorf("%d write %d %d %d %d\n", nid7, sid, nid_head, wa_nid, nid6);
+
+					nid_head = nid7;
+				}
+			}
+
+			for (int port = 0; port < rdports; port++)
+			{
+				SigSpec ra = sig_rd_addr.extract(port*abits, abits);
+				SigSpec rd = sig_rd_data.extract(port*width, width);
+
+				int ra_nid = get_sig_nid(ra);
+				int rd_nid = next_nid++;
+
+				btorf("%d read %d %d %d\n", rd_nid, data_sid, nid_head, ra_nid);
+
+				add_nid_sig(rd_nid, rd);
+			}
+
+			if (!asyncwr)
+			{
+				ff_todo.push_back(make_pair(nid, cell));
+			}
+			else
+			{
+				int nid2 = next_nid++;
+				btorf("%d next %d %d %d\n", nid2, sid, nid, nid_head);
+			}
+
+			goto okay;
+		}
+
 		log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 
 	okay:
@@ -851,15 +961,68 @@ struct BtorWorker
 
 			for (auto &it : todo)
 			{
-				btorf_push(stringf("next %s", log_id(it.second)));
+				int nid = it.first;
+				Cell *cell = it.second;
 
-				SigSpec sig = sigmap(it.second->getPort("\\D"));
+				btorf_push(stringf("next %s", log_id(cell)));
 
-				int nid = get_sig_nid(sig);
-				int sid = get_bv_sid(GetSize(sig));
-				btorf("%d next %d %d %d\n", next_nid++, sid, it.first, nid);
+				if (cell->type == "$mem")
+				{
+					int abits = cell->getParam("\\ABITS").as_int();
+					int width = cell->getParam("\\WIDTH").as_int();
+					int wrports = cell->getParam("\\WR_PORTS").as_int();
 
-				btorf_pop(stringf("next %s", log_id(it.second)));
+					SigSpec sig_wr_addr = sigmap(cell->getPort("\\WR_ADDR"));
+					SigSpec sig_wr_data = sigmap(cell->getPort("\\WR_DATA"));
+					SigSpec sig_wr_en = sigmap(cell->getPort("\\WR_EN"));
+
+					int data_sid = get_bv_sid(width);
+					int sid = get_mem_sid(abits, width);
+					int nid_head = nid;
+
+					for (int port = 0; port < wrports; port++)
+					{
+						SigSpec wa = sig_wr_addr.extract(port*abits, abits);
+						SigSpec wd = sig_wr_data.extract(port*width, width);
+						SigSpec we = sig_wr_en.extract(port*width, width);
+
+						int wa_nid = get_sig_nid(wa);
+						int wd_nid = get_sig_nid(wd);
+						int we_nid = get_sig_nid(we);
+
+						int nid2 = next_nid++;
+						btorf("%d read %d %d %d\n", nid2, data_sid, nid_head, wa_nid);
+
+						int nid3 = next_nid++;
+						btorf("%d not %d %d %d\n", nid3, data_sid, we_nid);
+
+						int nid4 = next_nid++;
+						btorf("%d and %d %d %d\n", nid4, data_sid, nid2, nid3);
+
+						int nid5 = next_nid++;
+						btorf("%d and %d %d %d\n", nid5, data_sid, wd_nid, we_nid);
+
+						int nid6 = next_nid++;
+						btorf("%d or %d %d %d\n", nid6, data_sid, nid5, nid4);
+
+						int nid7 = next_nid++;
+						btorf("%d write %d %d %d %d\n", nid7, sid, nid_head, wa_nid, nid6);
+
+						nid_head = nid7;
+					}
+
+					int nid2 = next_nid++;
+					btorf("%d next %d %d %d\n", nid2, sid, nid, nid_head);
+				}
+				else
+				{
+					SigSpec sig = sigmap(cell->getPort("\\D"));
+					int nid_q = get_sig_nid(sig);
+					int sid = get_bv_sid(GetSize(sig));
+					btorf("%d next %d %d %d\n", next_nid++, sid, nid, nid_q);
+				}
+
+				btorf_pop(stringf("next %s", log_id(cell)));
 			}
 		}
 
