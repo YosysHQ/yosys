@@ -599,6 +599,7 @@ struct BtorWorker
 			SigSpec sig_wr_en = sigmap(cell->getPort("\\WR_EN"));
 
 			int data_sid = get_bv_sid(width);
+			int bool_sid = get_bv_sid(1);
 			int sid = get_mem_sid(abits, width);
 			int nid = next_nid++;
 			int nid_head = nid;
@@ -638,7 +639,13 @@ struct BtorWorker
 					int nid7 = next_nid++;
 					btorf("%d write %d %d %d %d\n", nid7, sid, nid_head, wa_nid, nid6);
 
-					nid_head = nid7;
+					int nid8 = next_nid++;
+					btorf("%d redor %d %d\n", nid8, bool_sid, we_nid);
+
+					int nid9 = next_nid++;
+					btorf("%d ite %d %d %d %d\n", nid9, sid, nid8, nid7, nid_head);
+
+					nid_head = nid9;
 				}
 			}
 
@@ -977,6 +984,7 @@ struct BtorWorker
 					SigSpec sig_wr_en = sigmap(cell->getPort("\\WR_EN"));
 
 					int data_sid = get_bv_sid(width);
+					int bool_sid = get_bv_sid(1);
 					int sid = get_mem_sid(abits, width);
 					int nid_head = nid;
 
@@ -1008,7 +1016,13 @@ struct BtorWorker
 						int nid7 = next_nid++;
 						btorf("%d write %d %d %d %d\n", nid7, sid, nid_head, wa_nid, nid6);
 
-						nid_head = nid7;
+						int nid8 = next_nid++;
+						btorf("%d redor %d %d\n", nid8, bool_sid, we_nid);
+
+						int nid9 = next_nid++;
+						btorf("%d ite %d %d %d %d\n", nid9, sid, nid8, nid7, nid_head);
+
+						nid_head = nid9;
 					}
 
 					int nid2 = next_nid++;
