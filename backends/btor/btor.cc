@@ -625,7 +625,7 @@ struct BtorWorker
 					btorf("%d read %d %d %d\n", nid2, data_sid, nid_head, wa_nid);
 
 					int nid3 = next_nid++;
-					btorf("%d not %d %d %d\n", nid3, data_sid, we_nid);
+					btorf("%d not %d %d\n", nid3, data_sid, we_nid);
 
 					int nid4 = next_nid++;
 					btorf("%d and %d %d %d\n", nid4, data_sid, nid2, nid3);
@@ -1002,7 +1002,7 @@ struct BtorWorker
 						btorf("%d read %d %d %d\n", nid2, data_sid, nid_head, wa_nid);
 
 						int nid3 = next_nid++;
-						btorf("%d not %d %d %d\n", nid3, data_sid, we_nid);
+						btorf("%d not %d %d\n", nid3, data_sid, we_nid);
 
 						int nid4 = next_nid++;
 						btorf("%d and %d %d %d\n", nid4, data_sid, nid2, nid3);
