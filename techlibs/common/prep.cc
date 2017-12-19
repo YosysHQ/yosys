@@ -63,7 +63,7 @@ struct PrepPass : public ScriptPass
 		log("    -nordff\n");
 		log("        passed to 'memory_dff'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
-		log("     -nokeepdc\n");
+		log("    -nokeepdc\n");
 		log("        do not call opt_* with -keepdc\n");
 		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
