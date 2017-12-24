@@ -407,7 +407,7 @@ struct VerilogDefaults : public Pass {
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design*)
 	{
-		if (args.size() == 0)
+		if (args.size() < 2)
 			cmd_error(args, 1, "Missing argument.");
 
 		if (args[1] == "-add") {
