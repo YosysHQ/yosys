@@ -775,6 +775,8 @@ struct BtorWorker
 					}
 					else
 					{
+						if (bit_cell.count(bit) == 0)
+							log_error("No driver for signal bit %s.\n", log_signal(bit));
 						export_cell(bit_cell.at(bit));
 						log_assert(bit_nid.count(bit));
 					}
