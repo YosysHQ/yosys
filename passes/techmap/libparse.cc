@@ -100,8 +100,15 @@ int LibertyParser::lexer(std::string &str)
 				break;
 		}
 		f.unget();
-		// fprintf(stderr, "LEX: identifier >>%s<<\n", str.c_str());
-		return 'v';
+		if (str == "+" || str == "-") {
+			/* Single operator is not an identifier */
+			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
+			return str[0];
+		}
+		else {
+			// fprintf(stderr, "LEX: identifier >>%s<<\n", str.c_str());
+			return 'v';
+		}
 	}
 
 	if (c == '"') {
@@ -190,6 +197,19 @@ LibertyAst *LibertyParser::parse()
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
 			if (tok != 'v')
+				error();
+			tok = lexer(str);
+			while (tok == '+' || tok == '-' || tok == '*' || tok == '/') {
+				ast->value += tok;
+				tok = lexer(str);
+				if (tok != 'v')
+					error();
+				ast->value += str;
+				tok = lexer(str);
+			}
+			if (tok == ';')
+				break;
+			else
 				error();
 			continue;
 		}
