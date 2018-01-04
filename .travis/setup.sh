@@ -95,3 +95,18 @@ fi
 )
 
 ##########################################################################
+
+# Downloading abc
+(
+	if [ ! -d abc ]; then
+		echo
+		echo 'Downloading abc...' && echo -en 'travis_fold:start:before_install.abc\\r'
+		echo
+		make abc
+		echo
+		echo -en 'travis_fold:end:before_install.abc\\r'
+		echo
+	fi
+)
+
+##########################################################################

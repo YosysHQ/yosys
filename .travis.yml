@@ -10,6 +10,7 @@ cache:
 env:
   global:
     - MAKEFLAGS="-j 2"
+    - ABCINSECURE=1
 
 matrix:
   include:
