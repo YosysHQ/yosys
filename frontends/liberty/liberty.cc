@@ -290,7 +290,7 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	log_assert(!cell->type.empty());
 }
 
-static void create_latch(RTLIL::Module *module, LibertyAst *node)
+static bool create_latch(RTLIL::Module *module, LibertyAst *node, bool flag_ignore_miss_data_latch)
 {
 	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
 	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
@@ -309,8 +309,14 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 			preset_sig = parse_func_expr(module, child->value.c_str());
 	}
 
-	if (enable_sig.size() == 0 || data_sig.size() == 0)
-		log_error("Latch cell %s has no data_in and/or enable attribute.\n", log_id(module->name));
+	if (enable_sig.size() == 0 || data_sig.size() == 0) {
+		if (!flag_ignore_miss_data_latch)
+			log_error("Latch cell %s has no data_in and/or enable attribute.\n", log_id(module->name));
+		else
+			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", log_id(module->name));
+
+		return false;
+	}
 
 	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
 	{
@@ -399,6 +405,8 @@ static void create_latch(RTLIL::Module *module, LibertyAst *node)
 	cell->setPort("\\D", data_sig);
 	cell->setPort("\\Q", iq_sig);
 	cell->setPort("\\E", enable_sig);
+
+	return true;
 }
 
 void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map, LibertyAst *ast)
@@ -466,6 +474,9 @@ struct LibertyFrontend : public Frontend {
 		log("        ignore cells with a missing or invalid direction\n");
 		log("        specification on a pin\n");
 		log("\n");
+		log("    -ignore_miss_data_latch\n");
+		log("        ignore latches with missing data and/or enable pins\n");
+		log("\n");
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
@@ -476,6 +487,7 @@ struct LibertyFrontend : public Frontend {
 		bool flag_ignore_redef = false;
 		bool flag_ignore_miss_func = false;
 		bool flag_ignore_miss_dir  = false;
+		bool flag_ignore_miss_data_latch = false;
 		std::vector<std::string> attributes;
 
 		log_header(design, "Executing Liberty frontend.\n");
@@ -497,6 +509,10 @@ struct LibertyFrontend : public Frontend {
 			}
 			if (arg == "-ignore_miss_dir") {
 				flag_ignore_miss_dir = true;
+				continue;
+			}
+			if (arg == "-ignore_miss_data_latch") {
+				flag_ignore_miss_data_latch = true;
 				continue;
 			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
@@ -600,7 +616,10 @@ struct LibertyFrontend : public Frontend {
 					if (node->id == "ff" && node->args.size() == 2)
 						create_ff(module, node);
 					if (node->id == "latch" && node->args.size() == 2)
-						create_latch(module, node);
+						if (!create_latch(module, node, flag_ignore_miss_data_latch)) {
+							delete module;
+							goto skip_cell;
+						}
 				}
 
 				if (node->id == "pin" && node->args.size() == 1)
