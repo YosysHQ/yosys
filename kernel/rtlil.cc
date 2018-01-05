@@ -639,8 +639,10 @@ RTLIL::Module::~Module()
 		delete it->second;
 }
 
-RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>)
+RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, dict<RTLIL::IdString, RTLIL::Const>, bool mayfail)
 {
+	if (mayfail)
+		return RTLIL::IdString();
 	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
 }
 
