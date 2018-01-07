@@ -1095,6 +1095,7 @@ struct TechmapPass : public Pass {
 					std::ifstream f;
 					rewrite_filename(fn);
 					f.open(fn.c_str());
+					yosys_input_files.insert(fn);
 					if (f.fail())
 						log_cmd_error("Can't open map file `%s'\n", fn.c_str());
 					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.substr(fn.size()-3) == ".il") ? "ilang" : verilog_frontend);

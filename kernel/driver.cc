@@ -160,6 +160,7 @@ int main(int argc, char **argv)
 	std::vector<std::string> plugin_filenames;
 	std::string output_filename = "";
 	std::string scriptfile = "";
+	std::string depsfile = "";
 	bool scriptfile_tcl = false;
 	bool got_output_filename = false;
 	bool print_banner = true;
@@ -256,6 +257,9 @@ int main(int argc, char **argv)
 		printf("        if a warning message matches the regex, it is printes as regular\n");
 		printf("        message instead.\n");
 		printf("\n");
+		printf("    -E <depsfile>\n");
+		printf("        write a Makefile dependencies file with in- and output file names\n");
+		printf("\n");
 		printf("    -V\n");
 		printf("        print version information and exit\n");
 		printf("\n");
@@ -276,7 +280,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:D:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:D:E:")) != -1)
 	{
 		switch (opt)
 		{
@@ -392,6 +396,9 @@ int main(int argc, char **argv)
 				}
 			}
 			break;
+		case 'E':
+			depsfile = optarg;
+			break;
 		default:
 			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
 			exit(1);
@@ -441,6 +448,24 @@ int main(int argc, char **argv)
 
 	if (!backend_command.empty())
 		run_backend(output_filename, backend_command);
+
+	if (!depsfile.empty())
+	{
+		FILE *f = fopen(depsfile.c_str(), "wt");
+		if (f == nullptr)
+			log_error("Can't open dependencies file for writing: %s\n", strerror(errno));
+		bool first = true;
+		for (auto fn : yosys_output_files) {
+			fprintf(f, "%s%s", first ? "" : " ", fn.c_str());
+			first = false;
+		}
+		fprintf(f, ":");
+		for (auto fn : yosys_input_files) {
+			if (yosys_output_files.count(fn) == 0)
+				fprintf(f, " %s", fn.c_str());
+		}
+		fprintf(f, "\n");
+	}
 
 	if (print_stats)
 	{

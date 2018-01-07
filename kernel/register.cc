@@ -428,6 +428,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			}
 			std::ifstream *ff = new std::ifstream;
 			ff->open(filename.c_str());
+			yosys_input_files.insert(filename);
 			if (ff->fail())
 				delete ff;
 			else
@@ -543,6 +544,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 		filename = arg;
 		std::ofstream *ff = new std::ofstream;
 		ff->open(filename.c_str(), std::ofstream::trunc);
+		yosys_output_files.insert(filename);
 		if (ff->fail()) {
 			delete ff;
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));

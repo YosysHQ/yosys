@@ -400,10 +400,12 @@ std::string frontend_verilog_preproc(std::istream &f, std::string filename, cons
 					if (!ff.fail()) break;
 				}
 			}
-			if (ff.fail())
+			if (ff.fail()) {
 				output_code.push_back("`file_notfound " + fn);
-			else
+			} else {
 				input_file(ff, fixed_fn);
+				yosys_input_files.insert(fixed_fn);
+			}
 			continue;
 		}
 

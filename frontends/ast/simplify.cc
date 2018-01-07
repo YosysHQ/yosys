@@ -2638,6 +2638,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 
 	std::ifstream f;
 	f.open(mem_filename.c_str());
+	yosys_input_files.insert(mem_filename);
 
 	if (f.fail())
 		log_error("Can not open file `%s` for %s at %s:%d.\n", mem_filename.c_str(), str.c_str(), filename.c_str(), linenum);

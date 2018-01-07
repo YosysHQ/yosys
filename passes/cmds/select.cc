@@ -1263,6 +1263,7 @@ struct SelectPass : public Pass {
 				log_cmd_error("Option -read can not be combined with a selection expression.\n");
 
 			std::ifstream f(read_file);
+			yosys_input_files.insert(read_file);
 			if (f.fail())
 				log_error("Can't open '%s' for reading: %s\n", read_file.c_str(), strerror(errno));
 
@@ -1331,6 +1332,7 @@ struct SelectPass : public Pass {
 			FILE *f = NULL;
 			if (!write_file.empty()) {
 				f = fopen(write_file.c_str(), "w");
+				yosys_output_files.insert(write_file);
 				if (f == NULL)
 					log_error("Can't open '%s' for writing: %s\n", write_file.c_str(), strerror(errno));
 			}

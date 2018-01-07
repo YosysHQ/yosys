@@ -65,6 +65,7 @@ struct TeePass : public Pass {
 			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
 				const char *open_mode = args[argidx] == "-o" ? "w" : "a+";
 				FILE *f = fopen(args[++argidx].c_str(), open_mode);
+				yosys_input_files.insert(args[argidx]);
 				if (f == NULL) {
 					for (auto cf : files_to_close)
 						fclose(cf);

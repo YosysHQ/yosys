@@ -190,6 +190,7 @@ void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_fil
 {
 	std::ifstream f;
 	f.open(liberty_file.c_str());
+	yosys_input_files.insert(liberty_file);
 	if (f.fail())
 		log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
 	LibertyParser libparser(f);

@@ -835,6 +835,7 @@ struct QwpPass : public Pass {
 			}
 			if (args[argidx] == "-dump" && argidx+1 < args.size()) {
 				config.dump_file.open(args[++argidx], std::ofstream::trunc);
+				yosys_output_files.insert(args[argidx]);
 				continue;
 			}
 			break;

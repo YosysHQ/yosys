@@ -64,6 +64,8 @@ CellTypes yosys_celltypes;
 Tcl_Interp *yosys_tcl_interp = NULL;
 #endif
 
+std::set<std::string> yosys_input_files, yosys_output_files;
+
 bool memhasher_active = false;
 uint32_t memhasher_rng = 123456;
 std::vector<void*> memhasher_store;
@@ -831,8 +833,10 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 
 		FILE *f = stdin;
 
-		if (filename != "-")
+		if (filename != "-") {
 			f = fopen(filename.c_str(), "r");
+			yosys_input_files.insert(filename);
+		}
 
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));

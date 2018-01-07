@@ -67,6 +67,7 @@ struct WriteFileFrontend : public Frontend {
 		extra_args(f, filename, args, argidx);
 
 		FILE *of = fopen(output_filename.c_str(), append_mode ? "a" : "w");
+		yosys_output_files.insert(output_filename);
 		char buffer[64 * 1024];
 		int bytes;
 
