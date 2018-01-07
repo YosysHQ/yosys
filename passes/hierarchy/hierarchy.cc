@@ -621,8 +621,9 @@ struct HierarchyPass : public Pass {
 		}
 
 		std::set<Module*> blackbox_derivatives;
+		std::vector<Module*> design_modules = design->modules();
 
-		for (auto module : design->modules())
+		for (auto module : design_modules)
 		for (auto cell : module->cells())
 		{
 			Module *m = design->module(cell->type);
