@@ -38,15 +38,25 @@ struct DffinitPass : public Pass {
 		log("        operate on the specified cell type. this option can be used\n");
 		log("        multiple times.\n");
 		log("\n");
+		log("    -highlow\n");
+		log("        use the string values \"high\" and \"low\" to represent a single-bit\n");
+		log("        initial value of 1 or 0. (multi-bit values are not supported in this\n");
+		log("        mode.)\n");
+		log("\n");
 	}
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design)
 	{
 		log_header(design, "Executing DFFINIT pass (set INIT param on FF cells).\n");
 
 		dict<IdString, dict<IdString, IdString>> ff_types;
+		bool highlow_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-highlow") {
+				highlow_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-ff" && argidx+3 < args.size()) {
 				IdString cell_name = RTLIL::escape_id(args[++argidx]);
 				IdString output_port = RTLIL::escape_id(args[++argidx]);
@@ -104,6 +114,16 @@ struct DffinitPass : public Pass {
 							value.bits.push_back(State::S0);
 						value.bits[i] = init_bits.at(sig[i]);
 						cleanup_bits.insert(sig[i]);
+					}
+
+					if (highlow_mode && GetSize(value) != 0) {
+						if (GetSize(value) != 1)
+							log_error("Multi-bit init value for %s.%s.%s is incompatible with -highlow mode.\n",
+									log_id(module), log_id(cell), log_id(it.second));
+						if (value[0] == State::S1)
+							value = Const("high");
+						else
+							value = Const("low");
 					}
 
 					log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", log_id(module), log_id(cell), log_id(it.second),

@@ -219,7 +219,7 @@ struct SynthIntelPass : public ScriptPass {
           run("techmap -map +/intel/cycloneiv/cells_map.v");
         else
           run("techmap -map +/intel/cycloneive/cells_map.v");
-        run("dffinit -ff dffeas Q INIT");
+        run("dffinit -highlow -ff dffeas q power_up");
         run("clean -purge");
       }
 
