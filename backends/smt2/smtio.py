@@ -150,13 +150,13 @@ class SmtIo:
 
         self.setup_done = True
 
+        for stmt in self.info_stmts:
+            self.write(stmt)
+
         if self.produce_models:
             self.write("(set-option :produce-models true)")
 
         self.write("(set-logic %s)" % self.logic)
-
-        for stmt in self.info_stmts:
-            self.write(stmt)
 
     def timestamp(self):
         secs = int(time() - self.start_time)
