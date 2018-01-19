@@ -260,11 +260,11 @@ struct EquivMakeWorker
 
 				for (int i = 0; i < wire->width; i++) {
 					if (undriven_bits.count(assign_map(SigBit(gold_wire, i)))) {
-						log("  Skipping signal bit %d: undriven on gold side.\n", i);
+						log("  Skipping signal bit %s [%d]: undriven on gold side.\n", id2cstr(gold_wire->name), i);
 						continue;
 					}
 					if (undriven_bits.count(assign_map(SigBit(gate_wire, i)))) {
-						log("  Skipping signal bit %d: undriven on gate side.\n", i);
+						log("  Skipping signal bit %s [%d]: undriven on gate side.\n", id2cstr(gate_wire->name), i);
 						continue;
 					}
 					equiv_mod->addEquiv(NEW_ID, SigSpec(gold_wire, i), SigSpec(gate_wire, i), SigSpec(wire, i));
