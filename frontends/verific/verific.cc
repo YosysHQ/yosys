@@ -719,13 +719,13 @@ struct VerificImporter
 
 			FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 			{
-				if (inst->Type() == PRIM_SVA_ASSERT)
+				if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT)
 					asserts.push_back(inst);
 
-				if (inst->Type() == PRIM_SVA_ASSUME)
+				if (inst->Type() == PRIM_SVA_ASSUME || inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME)
 					assumes.push_back(inst);
 
-				if (inst->Type() == PRIM_SVA_COVER)
+				if (inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_IMMEDIATE_COVER)
 					covers.push_back(inst);
 			}
 
@@ -1027,24 +1027,6 @@ struct VerificImporter
 			if (verbose)
 				log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), log_id(inst_name));
 
-			if (inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT) {
-				Net *in = inst->GetInput();
-				module->addAssert(NEW_ID, net_map_at(in), State::S1);
-				continue;
-			}
-
-			if (inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME) {
-				Net *in = inst->GetInput();
-				module->addAssume(NEW_ID, net_map_at(in), State::S1);
-				continue;
-			}
-
-			if (inst->Type() == PRIM_SVA_IMMEDIATE_COVER) {
-				Net *in = inst->GetInput();
-				module->addCover(NEW_ID, net_map_at(in), State::S1);
-				continue;
-			}
-
 			if (inst->Type() == PRIM_PWR) {
 				module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S1);
 				continue;
@@ -1131,13 +1113,13 @@ struct VerificImporter
 					continue;
 			}
 
-			if (inst->Type() == PRIM_SVA_ASSERT)
+			if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT)
 				sva_asserts.insert(inst);
 
-			if (inst->Type() == PRIM_SVA_ASSUME)
+			if (inst->Type() == PRIM_SVA_ASSUME || inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME)
 				sva_assumes.insert(inst);
 
-			if (inst->Type() == PRIM_SVA_COVER)
+			if (inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_IMMEDIATE_COVER)
 				sva_covers.insert(inst);
 
 			if (inst->Type() == OPER_SVA_STABLE && !mode_nosva)
@@ -1336,7 +1318,8 @@ struct VerificSvaPP
 		if (inst == nullptr)
 			return default_net;
 
-		if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_ASSUME) {
+		if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_COVER || inst->Type() == PRIM_SVA_ASSUME ||
+				inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT || inst->Type() == PRIM_SVA_IMMEDIATE_COVER || inst->Type() == PRIM_SVA_IMMEDIATE_ASSUME) {
 			Net *new_net = rewrite(get_ast_input(inst));
 			if (new_net) {
 				inst->Disconnect(inst->View()->GetInput());
@@ -1568,9 +1551,30 @@ struct VerificSvaImporter
 		module = importer->module;
 		netlist = root->Owner();
 
+		RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
+
 		// parse SVA property clock event
 
 		Instance *at_node = get_ast_input(root);
+
+		// asynchronous immediate assertion/assumption/cover
+		if (at_node == nullptr && (root->Type() == PRIM_SVA_IMMEDIATE_ASSERT ||
+				root->Type() == PRIM_SVA_IMMEDIATE_COVER || root->Type() == PRIM_SVA_IMMEDIATE_ASSUME))
+		{
+			SigSpec sig_a = importer->net_map_at(root->GetInput());
+
+			if (eventually) {
+				if (mode_assert) module->addLive(root_name, sig_a, State::S1);
+				if (mode_assume) module->addFair(root_name, sig_a, State::S1);
+			} else {
+				if (mode_assert) module->addAssert(root_name, sig_a, State::S1);
+				if (mode_assume) module->addAssume(root_name, sig_a, State::S1);
+				if (mode_cover) module->addCover(root_name, sig_a, State::S1);
+			}
+
+			return;
+		}
+
 		log_assert(at_node && at_node->Type() == PRIM_SVA_AT);
 
 		VerificClockEdge clock_edge(importer, get_ast_input1(at_node));
@@ -1607,8 +1611,6 @@ struct VerificSvaImporter
 		sequence_ff(seq);
 
 		// generate assert/assume/cover cell
-
-		RTLIL::IdString root_name = module->uniquify(importer->mode_names || root->IsUserDeclared() ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
 		if (eventually) {
 			if (mode_assert) module->addLive(root_name, seq.sig_a, seq.sig_en);
