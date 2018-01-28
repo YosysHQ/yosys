@@ -11,6 +11,7 @@ share/verific:
 	$(Q) cp -r $(VERIFIC_DIR)/vhdl_packages/vdbs_1987/. share/verific.new/vhdl_vdbs_1987
 	$(Q) cp -r $(VERIFIC_DIR)/vhdl_packages/vdbs_1993/. share/verific.new/vhdl_vdbs_1993
 	$(Q) cp -r $(VERIFIC_DIR)/vhdl_packages/vdbs_2008/. share/verific.new/vhdl_vdbs_2008
+	$(Q) chmod -R a+rX share/verific.new
 	$(Q) mv share/verific.new share/verific
 
 endif
