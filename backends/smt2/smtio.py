@@ -16,12 +16,23 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import sys, subprocess, re, os
+import sys, re, os
+import resource, subprocess
 from copy import deepcopy
 from select import select
 from time import time
 from queue import Queue, Empty
 from threading import Thread
+
+
+# This is needed so that the recursive SMT2 S-expression parser
+# does not run out of stack frames when parsing large expressions
+smtio_reclimit = 64 * 1024
+smtio_stacksize = 128 * 1024 * 1024
+if sys.getrecursionlimit() < smtio_reclimit:
+    sys.setrecursionlimit(smtio_reclimit)
+if resource.getrlimit(resource.RLIMIT_STACK)[0] < smtio_stacksize:
+    resource.setrlimit(resource.RLIMIT_STACK, (smtio_stacksize, -1))
 
 
 hex_dict = {
