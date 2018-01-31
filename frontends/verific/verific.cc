@@ -1562,16 +1562,18 @@ struct VerificSvaImporter
 				root->Type() == PRIM_SVA_IMMEDIATE_COVER || root->Type() == PRIM_SVA_IMMEDIATE_ASSUME))
 		{
 			SigSpec sig_a = importer->net_map_at(root->GetInput());
+			RTLIL::Cell *c = nullptr;
 
 			if (eventually) {
-				if (mode_assert) module->addLive(root_name, sig_a, State::S1);
-				if (mode_assume) module->addFair(root_name, sig_a, State::S1);
+				if (mode_assert) c = module->addLive(root_name, sig_a, State::S1);
+				if (mode_assume) c = module->addFair(root_name, sig_a, State::S1);
 			} else {
-				if (mode_assert) module->addAssert(root_name, sig_a, State::S1);
-				if (mode_assume) module->addAssume(root_name, sig_a, State::S1);
-				if (mode_cover) module->addCover(root_name, sig_a, State::S1);
+				if (mode_assert) c = module->addAssert(root_name, sig_a, State::S1);
+				if (mode_assume) c = module->addAssume(root_name, sig_a, State::S1);
+				if (mode_cover) c = module->addCover(root_name, sig_a, State::S1);
 			}
 
+			importer->import_attributes(c->attributes, root);
 			return;
 		}
 
@@ -1612,14 +1614,18 @@ struct VerificSvaImporter
 
 		// generate assert/assume/cover cell
 
+		RTLIL::Cell *c = nullptr;
+
 		if (eventually) {
-			if (mode_assert) module->addLive(root_name, seq.sig_a, seq.sig_en);
-			if (mode_assume) module->addFair(root_name, seq.sig_a, seq.sig_en);
+			if (mode_assert) c = module->addLive(root_name, seq.sig_a, seq.sig_en);
+			if (mode_assume) c = module->addFair(root_name, seq.sig_a, seq.sig_en);
 		} else {
-			if (mode_assert) module->addAssert(root_name, seq.sig_a, seq.sig_en);
-			if (mode_assume) module->addAssume(root_name, seq.sig_a, seq.sig_en);
-			if (mode_cover) module->addCover(root_name, seq.sig_a, seq.sig_en);
+			if (mode_assert) c = module->addAssert(root_name, seq.sig_a, seq.sig_en);
+			if (mode_assume) c = module->addAssume(root_name, seq.sig_a, seq.sig_en);
+			if (mode_cover) c = module->addCover(root_name, seq.sig_a, seq.sig_en);
 		}
+
+		importer->import_attributes(c->attributes, root);
 	}
 };
 
