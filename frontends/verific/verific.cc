@@ -1150,6 +1150,28 @@ struct VerificImporter
 					continue;
 			}
 
+			if (inst->Type() == PRIM_SVA_STABLE && !mode_nosva)
+			{
+				VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
+
+				SigSpec sig_d = net_map_at(inst->GetInput1());
+				SigSpec sig_o = net_map_at(inst->GetOutput());
+				SigSpec sig_q = module->addWire(NEW_ID);
+
+				if (verbose) {
+					log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clock_edge.posedge ? "pos" : "neg",
+							log_signal(sig_d), log_signal(sig_q), log_signal(clock_edge.clock_sig));
+					log("    XNOR with A=%s, B=%s, Y=%s.\n",
+							log_signal(sig_d), log_signal(sig_q), log_signal(sig_o));
+				}
+
+				module->addDff(NEW_ID, clock_edge.clock_sig, sig_d, sig_q, clock_edge.posedge);
+				module->addXnor(NEW_ID, sig_d, sig_q, sig_o);
+
+				if (!mode_keep)
+					continue;
+			}
+
 			if (inst->Type() == PRIM_SVA_PAST && !mode_nosva)
 			{
 				VerificClockEdge clock_edge(this, inst->GetInput2()->Driver());
