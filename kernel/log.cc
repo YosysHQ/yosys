@@ -375,6 +375,9 @@ void log_backtrace(const char *prefix, int levels)
 
 	if (levels <= 1) return;
 
+#ifndef DEBUG
+	log("%sframe #2: [build Yosys with ENABLE_DEBUG for deeper backtraces]\n", prefix);
+#else
 	if ((p = __builtin_extract_return_addr(__builtin_return_address(1))) && dladdr(p, &dli)) {
 		log("%sframe #2: %p %s(%p) %s(%p)\n", prefix, p, dli.dli_fname, dli.dli_fbase, dli.dli_sname, dli.dli_saddr);
 	} else {
@@ -446,6 +449,7 @@ void log_backtrace(const char *prefix, int levels)
 	}
 
 	if (levels <= 9) return;
+#endif
 }
 #else
 void log_backtrace(const char*, int) { }
