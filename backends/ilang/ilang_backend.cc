@@ -219,7 +219,7 @@ void ILANG_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 {
 	f << stringf("%s" "sync ", indent.c_str());
 	switch (sy->type) {
-	if (0) case RTLIL::ST0: f << stringf("low ");
+	case RTLIL::ST0: f << stringf("low ");
 	if (0) case RTLIL::ST1: f << stringf("high ");
 	if (0) case RTLIL::STp: f << stringf("posedge ");
 	if (0) case RTLIL::STn: f << stringf("negedge ");
