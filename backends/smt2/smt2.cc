@@ -112,6 +112,8 @@ struct Smt2Worker
 
 		for (auto cell : module->cells())
 		for (auto &conn : cell->connections()) {
+			if (GetSize(conn.second) == 0)
+				continue;
 			bool is_input = ct.cell_input(cell->type, conn.first);
 			bool is_output = ct.cell_output(cell->type, conn.first);
 			if (is_output && !is_input)
@@ -659,6 +661,9 @@ struct Smt2Worker
 
 			for (auto &conn : cell->connections())
 			{
+				if (GetSize(conn.second) == 0)
+					continue;
+
 				Wire *w = m->wire(conn.first);
 				SigSpec sig = sigmap(conn.second);
 
@@ -829,6 +834,9 @@ struct Smt2Worker
 
 				for (auto &conn : cell->connections())
 				{
+					if (GetSize(conn.second) == 0)
+						continue;
+
 					Wire *w = m->wire(conn.first);
 					SigSpec sig = sigmap(conn.second);
 
