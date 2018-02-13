@@ -425,10 +425,18 @@ kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
 	$(Q) mkdir -p kernel && echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"$(YOSYS_VER_STR)\"; }" > kernel/version_$(GIT_REV).cc
 
+ifeq ($(ENABLE_VERIFIC),1)
+CXXFLAGS_NOVERIFIC = $(foreach v,$(CXXFLAGS),$(if $(findstring $(VERIFIC_DIR),$(v)),,$(v)))
+LDLIBS_NOVERIFIC = $(foreach v,$(LDLIBS),$(if $(findstring $(VERIFIC_DIR),$(v)),,$(v)))
+else
+CXXFLAGS_NOVERIFIC = $(CXXFLAGS)
+LDLIBS_NOVERIFIC = $(LDLIBS)
+endif
+
 yosys-config: misc/yosys-config.in
-	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(CXXFLAGS))#;' \
-			-e 's#@CXX@#$(CXX)#;' -e 's#@LDFLAGS@#$(LDFLAGS) $(PLUGIN_LDFLAGS)#;' -e 's#@LDLIBS@#$(LDLIBS)#;' \
-			-e 's#@BINDIR@#$(BINDIR)#;' -e 's#@DATDIR@#$(DATDIR)#;' < $< > yosys-config
+	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC)))#;' \
+			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LDFLAGS@#$(strip $(LDFLAGS) $(PLUGIN_LDFLAGS))#;' -e 's#@LDLIBS@#$(strip $(LDLIBS_NOVERIFIC))#;' \
+			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > yosys-config
 	$(Q) chmod +x yosys-config
 
 abc/abc-$(ABCREV)$(EXE):
