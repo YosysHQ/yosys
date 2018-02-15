@@ -1350,7 +1350,7 @@ struct VerificSvaPP
 			return default_net;
 		}
 
-		if (inst->Type() == PRIM_SVA_AT) {
+		if (inst->Type() == PRIM_SVA_AT || inst->Type() == PRIM_SVA_DISABLE_IFF) {
 			Net *new_net = rewrite(get_ast_input2(inst));
 			if (new_net) {
 				inst->Disconnect(inst->View()->GetInput2());
