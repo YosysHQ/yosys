@@ -373,10 +373,10 @@ struct FirrtlWorker
 				for (int i = 0; i < wr_ports; i++)
 				{
 					if (wr_clk_enable[i] != State::S1)
-						log_error("Unclocked write port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
+						log_warning("Unclocked write port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
 
 					if (wr_clk_polarity[i] != State::S1)
-						log_error("Negedge write port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
+						log_warning("Negedge write port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
 
 					string addr_expr = make_expr(cell->getPort("\\WR_ADDR").extract(i*abits, abits));
 					string data_expr = make_expr(cell->getPort("\\WR_DATA").extract(i*width, width));
@@ -387,7 +387,7 @@ struct FirrtlWorker
 
 					for (int i = 1; i < GetSize(wen_sig); i++)
 						if (wen_sig[0] != wen_sig[i])
-							log_error("Complex write enable on port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
+							log_warning("Complex write enable on port %d on memory %s.%s.\n", i, log_id(module), log_id(cell));
 
 					cell_exprs.push_back(stringf("    %s.w%d.addr <= %s\n", mem_id.c_str(), i, addr_expr.c_str()));
 					cell_exprs.push_back(stringf("    %s.w%d.data <= %s\n", mem_id.c_str(), i, data_expr.c_str()));
@@ -418,7 +418,7 @@ struct FirrtlWorker
 				continue;
 			}
 
-			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			log_warning("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 
 		for (auto conn : module->connections())
