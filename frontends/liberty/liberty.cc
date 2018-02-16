@@ -582,6 +582,12 @@ struct LibertyFrontend : public Frontend {
 
 					LibertyAst *dir = node->find("direction");
 
+					if (dir == nullptr) {
+						LibertyAst *pin = node->find("pin");
+						if (pin != nullptr)
+							dir = pin->find("direction");
+					}
+
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
 						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
 
