@@ -1290,14 +1290,23 @@ VerificClockEdge::VerificClockEdge(VerificImporter *importer, Instance *inst)
 
 // ==================================================================
 
-struct VerificSvaPP
+struct VerificSvaImporter
 {
+	VerificImporter *importer;
+	Module *module;
+
 	Netlist *netlist;
 	Instance *root;
+
+	SigBit clock = State::Sx;
+	bool clock_posedge = false;
+
+	SigBit disable_iff = State::S0;
 
 	bool mode_assert = false;
 	bool mode_assume = false;
 	bool mode_cover = false;
+	bool eventually = false;
 	bool did_something = false;
 
 	Instance *net_to_ast_driver(Net *n)
@@ -1328,6 +1337,9 @@ struct VerificSvaPP
 	Instance *get_ast_input2(Instance *inst) { return net_to_ast_driver(inst->GetInput2()); }
 	Instance *get_ast_input3(Instance *inst) { return net_to_ast_driver(inst->GetInput3()); }
 	Instance *get_ast_control(Instance *inst) { return net_to_ast_driver(inst->GetControl()); }
+
+	// ----------------------------------------------------------
+	// SVA Preprocessor
 
 	Net *rewrite_input(Instance *inst) { return rewrite(get_ast_input(inst), inst->GetInput()); }
 	Net *rewrite_input1(Instance *inst) { return rewrite(get_ast_input1(inst), inst->GetInput1()); }
@@ -1384,7 +1396,7 @@ struct VerificSvaPP
 		return default_net;
 	}
 
-	void run()
+	void rewrite()
 	{
 		netlist = root->Owner();
 		do {
@@ -1392,80 +1404,9 @@ struct VerificSvaPP
 			rewrite(root);
 		} while (did_something);
 	}
-};
 
-void svapp_assert(Instance *inst)
-{
-	VerificSvaPP worker;
-	worker.root = inst;
-	worker.mode_assert = true;
-	worker.run();
-}
-
-void svapp_assume(Instance *inst)
-{
-	VerificSvaPP worker;
-	worker.root = inst;
-	worker.mode_assume = true;
-	worker.run();
-}
-
-void svapp_cover(Instance *inst)
-{
-	VerificSvaPP worker;
-	worker.root = inst;
-	worker.mode_cover = true;
-	worker.run();
-}
-
-// ==================================================================
-
-struct VerificSvaImporter
-{
-	VerificImporter *importer;
-	Module *module;
-
-	Netlist *netlist;
-	Instance *root;
-
-	SigBit clock = State::Sx;
-	bool clock_posedge = false;
-
-	SigBit disable_iff = State::S0;
-
-	bool mode_assert = false;
-	bool mode_assume = false;
-	bool mode_cover = false;
-	bool eventually = false;
-
-	Instance *net_to_ast_driver(Net *n)
-	{
-		if (n == nullptr)
-			return nullptr;
-
-		if (n->IsMultipleDriven())
-			return nullptr;
-
-		Instance *inst = n->Driver();
-
-		if (inst == nullptr)
-			return nullptr;
-
-		if (!verific_sva_prims.count(inst->Type()))
-			return nullptr;
-
-		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
-				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE || inst->Type() == PRIM_SVA_PAST)
-			return nullptr;
-
-		return inst;
-	}
-
-	Instance *get_ast_input(Instance *inst) { return net_to_ast_driver(inst->GetInput()); }
-	Instance *get_ast_input1(Instance *inst) { return net_to_ast_driver(inst->GetInput1()); }
-	Instance *get_ast_input2(Instance *inst) { return net_to_ast_driver(inst->GetInput2()); }
-	Instance *get_ast_input3(Instance *inst) { return net_to_ast_driver(inst->GetInput3()); }
-	Instance *get_ast_control(Instance *inst) { return net_to_ast_driver(inst->GetControl()); }
+	// ----------------------------------------------------------
+	// SVA Inporter
 
 	struct sequence_t {
 		int length = 0;
@@ -1568,7 +1509,7 @@ struct VerificSvaImporter
 		log_warning("Unsupported Verific SVA primitive %s of type %s.\n", inst->Name(), inst->View()->Owner()->Name());
 	}
 
-	void run()
+	void import()
 	{
 		module = importer->module;
 		netlist = root->Owner();
@@ -1651,13 +1592,37 @@ struct VerificSvaImporter
 	}
 };
 
+void svapp_assert(Instance *inst)
+{
+	VerificSvaImporter worker;
+	worker.root = inst;
+	worker.mode_assert = true;
+	worker.rewrite();
+}
+
+void svapp_assume(Instance *inst)
+{
+	VerificSvaImporter worker;
+	worker.root = inst;
+	worker.mode_assume = true;
+	worker.rewrite();
+}
+
+void svapp_cover(Instance *inst)
+{
+	VerificSvaImporter worker;
+	worker.root = inst;
+	worker.mode_cover = true;
+	worker.rewrite();
+}
+
 void import_sva_assert(VerificImporter *importer, Instance *inst)
 {
 	VerificSvaImporter worker;
 	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_assert = true;
-	worker.run();
+	worker.import();
 }
 
 void import_sva_assume(VerificImporter *importer, Instance *inst)
@@ -1666,7 +1631,7 @@ void import_sva_assume(VerificImporter *importer, Instance *inst)
 	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_assume = true;
-	worker.run();
+	worker.import();
 }
 
 void import_sva_cover(VerificImporter *importer, Instance *inst)
@@ -1675,7 +1640,7 @@ void import_sva_cover(VerificImporter *importer, Instance *inst)
 	worker.importer = importer;
 	worker.root = inst;
 	worker.mode_cover = true;
-	worker.run();
+	worker.import();
 }
 
 // ==================================================================
