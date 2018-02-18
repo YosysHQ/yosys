@@ -128,16 +128,16 @@ struct VerificSvaImporter
 		if (inst == nullptr)
 			return entry;
 
-		if (inst->Type() == PRIM_SVA_UNTIL || inst->Type() == PRIM_SVA_S_UNTIL ||
-				inst->Type() == PRIM_SVA_UNTIL_WITH || inst->Type() == PRIM_SVA_S_UNTIL_WITH)
-			entry.flag_linear = false;
-
 		if (inst->Type() == PRIM_SVA_SEQ_CONCAT || inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
 		{
-			int sva_low = atoi(inst->GetAttValue("sva:low"));
-			int sva_high = atoi(inst->GetAttValue("sva:high"));
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
 
-			if (sva_low != sva_high)
+			int sva_low = atoi(sva_low_s);
+			int sva_high = atoi(sva_high_s);
+			bool sva_inf = !strcmp(sva_high_s, "$");
+
+			if (sva_inf || sva_low != sva_high)
 				entry.flag_linear = false;
 		}
 
@@ -222,6 +222,7 @@ struct VerificSvaImporter
 
 	vector<SigBit> sva_until_list_inclusive;
 	vector<SigBit> sva_until_list_exclusive;
+	vector<vector<SigBit>*> sva_sequence_alive_list;
 
 	struct sequence_t {
 		int length = 0;
@@ -248,15 +249,72 @@ struct VerificSvaImporter
 		Wire *sig_en_q = module->addWire(NEW_ID);
 		sig_en_q->attributes["\\init"] = Const(0, 1);
 
+		for (auto list : sva_sequence_alive_list)
+			list->push_back(module->LogicAnd(NEW_ID, seq.sig_a, seq.sig_en));
+
 		module->addDff(NEW_ID, clock, seq.sig_a, sig_a_q, clock_posedge);
 		module->addDff(NEW_ID, clock, seq.sig_en, sig_en_q, clock_posedge);
 
-		seq.length++;
+		if (seq.length >= 0)
+			seq.length++;
+
 		seq.sig_a = sig_a_q;
 		seq.sig_en = sig_en_q;
 
 		for (auto &expr : sva_until_list_inclusive)
 			seq.sig_a = module->LogicAnd(NEW_ID, seq.sig_a, expr);
+	}
+
+	void combine_seq(sequence_t &seq, const sequence_t &other_seq)
+	{
+		if (seq.length != other_seq.length)
+			seq.length = -1;
+
+		SigBit filtered_a = module->LogicAnd(NEW_ID, seq.sig_a, seq.sig_en);
+		SigBit other_filtered_a = module->LogicAnd(NEW_ID, other_seq.sig_a, other_seq.sig_en);
+
+		seq.sig_a = module->LogicOr(NEW_ID, filtered_a, other_filtered_a);
+		seq.sig_en = module->LogicOr(NEW_ID, seq.sig_en, other_seq.sig_en);
+	}
+
+	void combine_seq(sequence_t &seq, SigBit other_a, SigBit other_en)
+	{
+		SigBit filtered_a = module->LogicAnd(NEW_ID, seq.sig_a, seq.sig_en);
+		SigBit other_filtered_a = module->LogicAnd(NEW_ID, other_a, other_en);
+
+		seq.length = -1;
+		seq.sig_a = module->LogicOr(NEW_ID, filtered_a, other_filtered_a);
+		seq.sig_en = module->LogicOr(NEW_ID, seq.sig_en, other_en);
+	}
+
+	SigBit make_temporal_one_hot(SigBit enable = State::S1, SigBit *latched = nullptr)
+	{
+		Wire *state = module->addWire(NEW_ID);
+		state->attributes["\\init"] = State::S0;
+
+		SigBit any = module->Anyseq(NEW_ID);
+		if (enable != State::S1)
+			any = module->LogicAnd(NEW_ID, any, enable);
+
+		SigBit next_state = module->LogicOr(NEW_ID, state, any);
+		module->addDff(NEW_ID, clock, next_state, state, clock_posedge);
+
+		if (latched != nullptr)
+			*latched = state;
+
+		SigBit not_state = module->LogicNot(NEW_ID, state);
+		return module->LogicAnd(NEW_ID, next_state, not_state);
+	}
+
+	SigBit make_permanent_latch(SigBit enable, bool async = false)
+	{
+		Wire *state = module->addWire(NEW_ID);
+		state->attributes["\\init"] = State::S0;
+
+		SigBit next_state = module->LogicOr(NEW_ID, state, enable);
+		module->addDff(NEW_ID, clock, next_state, state, clock_posedge);
+
+		return async ? next_state : state;
 	}
 
 	void parse_sequence(sequence_t &seq, Net *n)
@@ -287,22 +345,68 @@ struct VerificSvaImporter
 			if (!linear_consequent && mode_assume)
 				log_error("Non-linear consequent is currently not supported in SVA assumptions.\n");
 
-			parse_sequence(seq, inst->GetInput2());
+			if (linear_consequent)
+			{
+				parse_sequence(seq, inst->GetInput2());
+			}
+			else
+			{
+				SigBit activated;
+				seq.sig_en = make_temporal_one_hot(seq.sig_en, &activated);
+
+				SigBit pass_latch_en = module->addWire(NEW_ID);
+				SigBit pass_latch = make_permanent_latch(pass_latch_en, true);
+
+				vector<SigBit> alive_list;
+				sva_sequence_alive_list.push_back(&alive_list);
+				parse_sequence(seq, inst->GetInput2());
+				sva_sequence_alive_list.pop_back();
+
+				module->addLogicAnd(NEW_ID, seq.sig_a, seq.sig_en, pass_latch_en);
+				alive_list.push_back(pass_latch);
+
+				seq.length = -1;
+				seq.sig_a = module->ReduceOr(NEW_ID, SigSpec(alive_list));
+				seq.sig_en = module->ReduceOr(NEW_ID, activated);
+			}
+
 			return;
 		}
 
 		if (inst->Type() == PRIM_SVA_SEQ_CONCAT)
 		{
-			int sva_low = atoi(inst->GetAttValue("sva:low"));
-			int sva_high = atoi(inst->GetAttValue("sva:high"));
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
 
-			if (sva_low != sva_high)
-				log_error("Ranges on SVA sequence concatenation operator are not supported at the moment.\n");
+			int sva_low = atoi(sva_low_s);
+			int sva_high = atoi(sva_high_s);
+			bool sva_inf = !strcmp(sva_high_s, "$");
 
 			parse_sequence(seq, inst->GetInput1());
 
 			for (int i = 0; i < sva_low; i++)
 				sequence_ff(seq);
+
+			if (sva_inf)
+			{
+				SigBit latched_a = module->addWire(NEW_ID);
+				SigBit latched_en = module->addWire(NEW_ID);
+				combine_seq(seq, latched_a, latched_en);
+
+				sequence_t seq_latched = seq;
+				sequence_ff(seq_latched);
+				module->connect(latched_a, seq_latched.sig_a);
+				module->connect(latched_en, seq_latched.sig_en);
+			}
+			else
+			{
+				for (int i = sva_low; i < sva_high; i++)
+				{
+					sequence_t last_seq = seq;
+					sequence_ff(seq);
+					combine_seq(seq, last_seq);
+				}
+			}
 
 			parse_sequence(seq, inst->GetInput2());
 			return;
@@ -310,10 +414,14 @@ struct VerificSvaImporter
 
 		if (inst->Type() == PRIM_SVA_CONSECUTIVE_REPEAT)
 		{
-			int sva_low = atoi(inst->GetAttValue("sva:low"));
-			int sva_high = atoi(inst->GetAttValue("sva:high"));
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
 
-			if (sva_low != sva_high)
+			int sva_low = atoi(sva_low_s);
+			int sva_high = atoi(sva_high_s);
+			bool sva_inf = !strcmp(sva_high_s, "$");
+
+			if (sva_inf || sva_low != sva_high)
 				log_error("Ranges on SVA consecutive repeat operator are not supported at the moment.\n");
 
 			parse_sequence(seq, inst->GetInput());

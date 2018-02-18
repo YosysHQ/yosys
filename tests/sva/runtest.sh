@@ -35,6 +35,7 @@ generate_sby() {
 	cat <<- EOT
 		verific -import -extnets -all top
 		prep -top top
+		chformal -early -assume
 
 		[files]
 	EOT
